@@ -1,89 +1,247 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
-Date: Fri, 29 Jan 2016 10:33:48 -0800
-Message-ID: <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20160129180651.GA17127@oracle.com>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net-next 09/10] net: Add a hardware buffer management helper API
+Date: Fri, 29 Jan 2016 19:36:16 +0100
+Message-ID: <87twlw6xnj.fsf@free-electrons.com>
+References: <1452625834-22166-1-git-send-email-gregory.clement@free-electrons.com>
+	<1452625834-22166-10-git-send-email-gregory.clement@free-electrons.com>
+	<56A92246.7010807@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:35405 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751134AbcA2Sdu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 13:33:50 -0500
-Received: by mail-pa0-f51.google.com with SMTP id ho8so45250372pac.2
-        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 10:33:50 -0800 (PST)
-In-Reply-To: <20160129180651.GA17127@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>, Arnd Bergmann <arnd@arndb.de>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-01-29 at 13:06 -0500, Sowmini Varadhan wrote:
-> There is an unaligned access at __skb_flow_dissect when it calls
-> ip6_flowlabel() with the call stack
-> 
->   __skb_flow_dissect+0x2a8/0x87c
->   eth_get_headlen+0x5c/0xaxa4
->   ixgbe_clean_rx_irq+0x5cc/0xb20 [ixgbe]
->   ixgbe_poll+0x5a4/0x760 [ixgbe]
->   net_rx_action+0x13c/0x354
->     :
-> 
-> Essentially, ixgbe_pull_tail() is trying to figure out how much
-> to pull, in order to have an aligned buffer:
-> 
->         pull_len = eth_get_headlen(va, IXGBE_RX_HDR_SIZE);
-> 
->         /* align pull length to size of long to optimize memcpy performance */
->         skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
-> 
-> and seems like the unaligned access is unavoidable here (see comments
-> in __skb_get_poff, for example).
-> 
-> This (below) is what I came up with, to get rid of the unaligned access
-> errors on sparc, Is there a better solution? (Not having access
-> to struct ip6_hdr in this file made put_unaligned usage non-obvious)
-> 
-> 
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -102,6 +102,17 @@ __be32 __skb_flow_get_ports(const struct sk_buff *skb, int 
->  }
->  EXPORT_SYMBOL(__skb_flow_get_ports);
->  
-> +static inline __be32 ip6_flowlabel_align(const u8 *hdr)
-> +{
-> +       union {
-> +               __u8 w[4];
-> +               __u32 flow;
-> +       } ip6_flow;
-> +
-> +       memcpy(ip6_flow.w, hdr, 4);
-> +       return (ip6_flow.flow & IPV6_FLOWLABEL_MASK);
-> +}
-> +
->  /**
->   * __skb_flow_dissect - extract the flow_keys struct and return it
->   * @skb: sk_buff to extract the flow from, can be NULL if the rest are specifie
-> @@ -230,7 +241,7 @@ ipv6:
->                         key_control->addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
->                 }
->  
-> -               flow_label = ip6_flowlabel(iph);
-> +               flow_label = ip6_flowlabel_align((const u8 *)iph);
->                 if (flow_label) {
->                         if (dissector_uses_key(flow_dissector,
->                                                FLOW_DISSECTOR_KEY_FLOW_LABEL)) {
-> 
-> 
+Hi Florian,
 
-Why ipv6 stack itself does not trigger the issue ?
+thanks for your review!
+ 
+ On mer., janv. 27 2016, Florian Fainelli <f.fainelli@gmail.com> wrote:
 
-Maybe the driver itself does not properly align IP headers on sparc ?
+> On 12/01/16 11:10, Gregory CLEMENT wrote:
+>> This basic implementation allows to share code between driver using
+>> hardware buffer management. As the code is hardware agnostic, there is
+>> few helpers, most of the optimization brought by the an HW BM has to be
+>> done at driver level.
+>> 
+>> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+>> ---
+>>  include/net/hwbm.h | 19 +++++++++++++
+>>  net/core/Makefile  |  2 +-
+>>  net/core/hwbm.c    | 78 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+>>  3 files changed, 98 insertions(+), 1 deletion(-)
+>>  create mode 100644 include/net/hwbm.h
+>>  create mode 100644 net/core/hwbm.c
+>> 
+>> diff --git a/include/net/hwbm.h b/include/net/hwbm.h
+>> new file mode 100644
+>> index 000000000000..898ccd2fb58d
+>> --- /dev/null
+>> +++ b/include/net/hwbm.h
+>> @@ -0,0 +1,19 @@
+>> +#ifndef _HWBM_H
+>> +#define _HWBM_H
+>> +
+>> +struct hwbm_pool {
+>> +	/* Size of the buffers managed */
+>> +	int size;
+>> +	/* Number of buffers currently used by this pool */
+>> +	int buf_num;
+>> +	/* constructor called during alocation */
+>> +	int (*construct)(struct hwbm_pool *bm_pool, void *buf);
+>
+> Having the buffer size might be handy too.
+>
+>> +	/* private data */
+>> +	void *priv;
+>> +};
+>> +
+>> +void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf);
+>> +int hwbm_pool_refill(struct hwbm_pool *bm_pool);
+>> +int hwbm_pool_add(struct hwbm_pool *bm_pool, int buf_num);
+>> +
+>> +#endif /* _HWBM_H */
+>> diff --git a/net/core/Makefile b/net/core/Makefile
+>> index 0b835de04de3..df81bf11f072 100644
+>> --- a/net/core/Makefile
+>> +++ b/net/core/Makefile
+>> @@ -9,7 +9,7 @@ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
+>>  
+>>  obj-y		     += dev.o ethtool.o dev_addr_lists.o dst.o netevent.o \
+>>  			neighbour.o rtnetlink.o utils.o link_watch.o filter.o \
+>> -			sock_diag.o dev_ioctl.o tso.o sock_reuseport.o
+>> +			sock_diag.o dev_ioctl.o tso.o sock_reuseport.o hwbm.o
+>
+> Not everybody will want this built in by default, we probably need a
+> hidden config symbol here.
 
-Make sure NET_IP_ALIGN is 2 on your build.
+I copied what was done for TSO, but I agree to not build it by default.
 
-Note that x86 does not care, but a driver should always align Ethernet
-header to NET_IP_ALIGN, so that IP headers are aligned to 4 bytes
-boundaries.
+>
+>>  
+>>  obj-$(CONFIG_XFRM) += flow.o
+>>  obj-y += net-sysfs.o
+>> diff --git a/net/core/hwbm.c b/net/core/hwbm.c
+>> new file mode 100644
+>> index 000000000000..d5d40d63cb34
+>> --- /dev/null
+>> +++ b/net/core/hwbm.c
+>> @@ -0,0 +1,78 @@
+>> +/* Support for hardware buffer manager.
+>> + *
+>> + * Copyright (C) 2016 Marvell
+>> + *
+>> + * Gregory CLEMENT <gregory.clement@free-electrons.com>
+>> + *
+>> + *  This program is free software; you can redistribute it and/or modify
+>> + *  it under the terms of the GNU General Public License as published by
+>> + *  the Free Software Foundation; either version 2 of the License, or
+>> + *  (at your option) any later version.
+>> + */
+>> +#include <linux/kernel.h>
+>> +#include <linux/printk.h>
+>> +#include <linux/skbuff.h>
+>> +#include <net/hwbm.h>
+>> +
+>> +void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf)
+>> +{
+>> +	if (likely(bm_pool->size <= PAGE_SIZE))
+>> +		skb_free_frag(buf);
+>> +	else
+>> +		kfree(buf);
+>> +}
+>> +EXPORT_SYMBOL_GPL(hwbm_buf_free);
+>> +
+>> +/* Refill processing for HW buffer management */
+>> +int hwbm_pool_refill(struct hwbm_pool *bm_pool)
+>> +{
+>> +	void *buf;
+>> +	int frag_size = bm_pool->size;
+>
+> Reverse christmas tree declaration looks a bit nicer.
+
+First time I heard about it :) I though it was something related to the
+tree algorithms until I visualized it!
+
+My logical here was first uninitialized variable then the initialized
+ones. But I don't have a strong opinion about it so I can change it.
+
+>
+>> +
+>> +	if (likely(frag_size <= PAGE_SIZE))
+>> +		buf = netdev_alloc_frag(frag_size);
+>> +	else
+>> +		buf = kmalloc(frag_size, GFP_ATOMIC);
+>
+> Maybe we should allow the caller to specify a gfp_t, just in case
+> GFP_ATOMIC is not good enough.
+
+Good idea.
+
+>
+>> +
+>> +	if (!buf)
+>> +		return -ENOMEM;
+>> +
+>> +	if (bm_pool->construct)
+>> +		if (bm_pool->construct(bm_pool, buf)) {
+>> +			hwbm_buf_free(bm_pool, buf);
+>> +			return -ENOMEM;
+>> +		}
+>> +
+>> +	return 0;
+>> +}
+>> +EXPORT_SYMBOL_GPL(hwbm_pool_refill);
+>> +
+>> +int hwbm_pool_add(struct hwbm_pool *bm_pool, int buf_num)
+>
+> unsigned int buf_num
+
+OK
+
+>
+>> +{
+>> +	int err, i;
+>> +
+>> +	if (bm_pool->buf_num == bm_pool->size) {
+>> +		pr_debug("pool already filled\n");
+>> +		return bm_pool->buf_num;
+>> +	}
+>> +
+>> +	if (buf_num + bm_pool->buf_num > bm_pool->size) {
+>> +		pr_debug("cannot allocate %d buffers for pool\n",
+>> +			 buf_num);
+>> +		return 0;
+>> +	}
+>
+> buf_num is under caller control, and potentially hardware control
+> indirectly, what if I make this arbitrary big and wrap around?
+
+We could test if ((buf_num + bm_pool->buf_num)<bm_pool->buf_num. I
+failed to find a better way to detect a wrapping.
+
+
+>
+>> +
+>> +	for (i = 0; i < buf_num; i++) {
+>> +		err = hwbm_pool_refill(bm_pool);
+>> +		if (err < 0)
+>> +			break;
+>> +	}
+>
+> If we fail refiling here, should not we propagate the error back to the
+> caller?
+
+We return the number of we actually managed to add. So, if it fails we
+return less buffer than expected, as for a read in userspace. Is it not
+a good indication of what happened?
+
+>
+>> +
+>> +	/* Update BM driver with number of buffers added to pool */
+>> +	bm_pool->buf_num += i;
+>> +
+>> +	pr_debug("hwpm pool: %d of %d buffers added\n", i, buf_num);
+>
+> No locking or atomic operations here? What if two CPUs call into this
+> function?
+
+Indeed it could be a problem, I will see how to handle this in the next
+version.
+
+Thanks again,
+
+Gregory
+
+>
+>> +
+>> +	return i;
+>> +}
+>> +EXPORT_SYMBOL_GPL(hwbm_pool_add);
+>> 
+>
+>
+> -- 
+> Florian
+
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
