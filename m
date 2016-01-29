@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 13/22] net: Fix dependencies for !HAS_IOMEM archs
-Date: Thu, 28 Jan 2016 16:03:31 -0800 (PST)
-Message-ID: <20160128.160331.2002092613365281922.davem@davemloft.net>
-References: <1453760661-1444-1-git-send-email-richard@nod.at>
-	<1453760661-1444-14-git-send-email-richard@nod.at>
+Subject: Re: pull-request: mac80211 2016-01-26
+Date: Thu, 28 Jan 2016 16:06:17 -0800 (PST)
+Message-ID: <20160128.160617.1926761912082289010.davem@davemloft.net>
+References: <1453806034-10185-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	user-mode-linux-devel@lists.sourceforge.net, f.fainelli@gmail.com,
-	talz@ezchip.com, abrodkin@synopsys.com, noamc@ezchip.com,
-	netdev@vger.kernel.org
-To: richard@nod.at
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60022 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60034 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751193AbcA2ADc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 19:03:32 -0500
-In-Reply-To: <1453760661-1444-14-git-send-email-richard@nod.at>
+	with ESMTP id S1750832AbcA2AGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 19:06:18 -0500
+In-Reply-To: <1453806034-10185-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Weinberger <richard@nod.at>
-Date: Mon, 25 Jan 2016 23:24:12 +0100
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Tue, 26 Jan 2016 12:00:33 +0100
 
-> Not every arch has io memory.
-> So, unbreak the build by fixing the dependencies.
+> After split up the patches from the previous pull request that was
+> lost in the process, here's a new one with fixes for the current
+> cycle (I'll follow up with a -next one later.)
 > 
-> Signed-off-by: Richard Weinberger <richard@nod.at>
+> I've also scripted my pull-request sending process a bit more, so
+> hopefully the emails will no longer have any unexpected UTF-8 contents
+> that tripped up patchwork :)
+> 
+> Let me know if there's any problem.
 
-Applied.
+Pulled, thanks Johannes.
