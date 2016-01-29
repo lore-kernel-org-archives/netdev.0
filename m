@@ -1,89 +1,89 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH V3] net: emac: emac gigabit ethernet controller driver
-Date: Fri, 29 Jan 2016 12:22:34 -0600
-Message-ID: <56ABADEA.40801@codeaurora.org>
-References: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
- <20151231231039.GA8886@rob-hp-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
+Date: Fri, 29 Jan 2016 10:33:48 -0800
+Message-ID: <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20160129180651.GA17127@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-	sdharia@codeaurora.org, shankerd@codeaurora.org,
-	gregkh@linuxfoundation.org, vikrams@codeaurora.org,
-	cov@codeaurora.org
-To: Rob Herring <robh@kernel.org>,
-	Gilad Avidov <gavidov@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20151231231039.GA8886@rob-hp-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35405 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751134AbcA2Sdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 13:33:50 -0500
+Received: by mail-pa0-f51.google.com with SMTP id ho8so45250372pac.2
+        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 10:33:50 -0800 (PST)
+In-Reply-To: <20160129180651.GA17127@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Gilad is no longer working for Qualcomm, so I'm taking over (as best as 
-I can) this driver.  Let's just say it's going to be a learning experience.
+On Fri, 2016-01-29 at 13:06 -0500, Sowmini Varadhan wrote:
+> There is an unaligned access at __skb_flow_dissect when it calls
+> ip6_flowlabel() with the call stack
+> 
+>   __skb_flow_dissect+0x2a8/0x87c
+>   eth_get_headlen+0x5c/0xaxa4
+>   ixgbe_clean_rx_irq+0x5cc/0xb20 [ixgbe]
+>   ixgbe_poll+0x5a4/0x760 [ixgbe]
+>   net_rx_action+0x13c/0x354
+>     :
+> 
+> Essentially, ixgbe_pull_tail() is trying to figure out how much
+> to pull, in order to have an aligned buffer:
+> 
+>         pull_len = eth_get_headlen(va, IXGBE_RX_HDR_SIZE);
+> 
+>         /* align pull length to size of long to optimize memcpy performance */
+>         skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
+> 
+> and seems like the unaligned access is unavoidable here (see comments
+> in __skb_get_poff, for example).
+> 
+> This (below) is what I came up with, to get rid of the unaligned access
+> errors on sparc, Is there a better solution? (Not having access
+> to struct ip6_hdr in this file made put_unaligned usage non-obvious)
+> 
+> 
+> --- a/net/core/flow_dissector.c
+> +++ b/net/core/flow_dissector.c
+> @@ -102,6 +102,17 @@ __be32 __skb_flow_get_ports(const struct sk_buff *skb, int 
+>  }
+>  EXPORT_SYMBOL(__skb_flow_get_ports);
+>  
+> +static inline __be32 ip6_flowlabel_align(const u8 *hdr)
+> +{
+> +       union {
+> +               __u8 w[4];
+> +               __u32 flow;
+> +       } ip6_flow;
+> +
+> +       memcpy(ip6_flow.w, hdr, 4);
+> +       return (ip6_flow.flow & IPV6_FLOWLABEL_MASK);
+> +}
+> +
+>  /**
+>   * __skb_flow_dissect - extract the flow_keys struct and return it
+>   * @skb: sk_buff to extract the flow from, can be NULL if the rest are specifie
+> @@ -230,7 +241,7 @@ ipv6:
+>                         key_control->addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
+>                 }
+>  
+> -               flow_label = ip6_flowlabel(iph);
+> +               flow_label = ip6_flowlabel_align((const u8 *)iph);
+>                 if (flow_label) {
+>                         if (dissector_uses_key(flow_dissector,
+>                                                FLOW_DISSECTOR_KEY_FLOW_LABEL)) {
+> 
+> 
 
-Rob Herring wrote:
->> diff --git a/Documentation/devicetree/bindings/net/qcom-emac.txt b/Documentation/devicetree/bindings/net/qcom-emac.txt
->> new file mode 100644
->> index 0000000..8d58a40
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/qcom-emac.txt
->> @@ -0,0 +1,68 @@
->> +Qualcomm EMAC Gigabit Ethernet Controller
->> +
->> +Required properties:
->> +- cell-index : EMAC controller instance number.
->> +- compatible : Should be "qcom,emac".
->
-> This should be more specific with the SOC name.
+Why ipv6 stack itself does not trigger the issue ?
 
-The emac is present on a lot of Qualcomm SOCs, and there are only a few 
-variations of it.  It's not really SOC-specific, and the hardware 
-version can be queried by the driver.
+Maybe the driver itself does not properly align IP headers on sparc ?
 
-What did you have in mind?  I don't know even have a list of which SOCs 
-has an emac, especially since it's mostly on MSM parts, and I work on 
-the server SOC.
+Make sure NET_IP_ALIGN is 2 on your build.
 
->> +- reg : Offset and length of the register regions for the device
->> +- reg-names : Register region names referenced in 'reg' above.
->> +	Required register resource entries are:
->> +	"base"   : EMAC controller base register block.
->> +	"csr"    : EMAC wrapper register block.
->> +	Optional register resource entries are:
->> +	"ptp"    : EMAC PTP (1588) register block.
->> +		   Required if 'qcom,emac-tstamp-en' is present.
->> +	"sgmii"  : EMAC SGMII PHY register block.
->> +- interrupts : Interrupt numbers used by this controller
->> +- interrupt-names : Interrupt resource names referenced in 'interrupts' above.
->> +	Required interrupt resource entries are:
->> +	"emac_core0"   : EMAC core0 interrupt.
->> +	"sgmii_irq"   : EMAC SGMII interrupt.
->> +- qcom,emac-gpio-mdc  : GPIO pin number of the MDC line of MDIO bus.
->> +- qcom,emac-gpio-mdio : GPIO pin number of the MDIO line of MDIO bus.
->
-> Use the standard binding for GPIO controlled MDIO bus.
-
-I'm not familiar with that one.  Are you talking about 
-bindings/net/mdio-gpio.txt?
-
->> +- phy-addr            : Specifies phy address on MDIO bus.
->> +			Required if the optional property "qcom,no-external-phy"
->> +			is not specified.
->
-> Don't you think you will need to know the specific phy device or other
-> properties of the phy?
-
-That, I can't answer.  Aren't all MDIO devices basically the same?  It's 
-been a while since I've worked on them.
-
->> +Optional properties:
->> +- qcom,emac-tstamp-en       : Enables the PTP (1588) timestamping feature.
->> +			      Include this only if PTP (1588) timestamping
->> +			      feature is needed. If included, "ptp" register
->> +			      base should be specified.
->
-> Isn't this a user enabled feature if the h/w supports it?
-
-Is there a sysfs entry for that?  We were planning on having a similar 
-ACPI property.
+Note that x86 does not care, but a driver should always align Ethernet
+header to NET_IP_ALIGN, so that IP headers are aligned to 4 bytes
+boundaries.
