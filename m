@@ -1,63 +1,57 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
-Date: Fri, 29 Jan 2016 14:22:18 -0500
-Message-ID: <20160129192218.GB17127@oracle.com>
-References: <20160129180651.GA17127@oracle.com>
- <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
- <1454093642.7627.57.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mwdalton@google.com, netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:45582 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751256AbcA2TWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 14:22:31 -0500
-Content-Disposition: inline
-In-Reply-To: <1454093642.7627.57.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2 net] nfc: use GFP_USER for user-controlled kmalloc
+Date: Fri, 29 Jan 2016 11:24:24 -0800
+Message-ID: <1454095465-16685-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On (01/29/16 10:54), Eric Dumazet wrote:
-> > Why ipv6 stack itself does not trigger the issue ?
-> > Maybe the driver itself does not properly align IP headers on sparc ?
-> > Make sure NET_IP_ALIGN is 2 on your build.
-> > Note that x86 does not care, but a driver should always align Ethernet
-> > header to NET_IP_ALIGN, so that IP headers are aligned to 4 bytes
-> > boundaries.
+These two functions are called in sendmsg path, and the
+'len' is passed from user-space, so we should not allow
+malicious users to OOM kernel on purpose.
 
-Consolidating a few responses:
+Reported-by: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Cc: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
+Cc: Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
+Cc: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Signed-off-by: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/nfc/llcp_commands.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-NET_IP_ALIGN is 2, of course, or else I would have seen errors about unaligned
-access in many more places. The issue is being triggered by ipv6
-stack (I'm running iperf over ipv6) so I'm not sure I understand the
-first question.
+diff --git a/net/nfc/llcp_commands.c b/net/nfc/llcp_commands.c
+index 3621a90..3425532 100644
+--- a/net/nfc/llcp_commands.c
++++ b/net/nfc/llcp_commands.c
+@@ -663,7 +663,7 @@ int nfc_llcp_send_i_frame(struct nfc_llcp_sock *sock,
+ 		return -ENOBUFS;
+ 	}
+ 
+-	msg_data = kzalloc(len, GFP_KERNEL);
++	msg_data = kmalloc(len, GFP_USER | __GFP_NOWARN);
+ 	if (msg_data == NULL)
+ 		return -ENOMEM;
+ 
+@@ -729,7 +729,7 @@ int nfc_llcp_send_ui_frame(struct nfc_llcp_sock *sock, u8 ssap, u8 dsap,
+ 	if (local == NULL)
+ 		return -ENODEV;
+ 
+-	msg_data = kzalloc(len, GFP_KERNEL);
++	msg_data = kmalloc(len, GFP_USER | __GFP_NOWARN);
+ 	if (msg_data == NULL)
+ 		return -ENOMEM;
+ 
+-- 
+1.8.3.1
 
-I tried out the suggested patch of setting page_offset to NET_IP_ALIGN
-in ixgbe_main.c - and yes, it kills the unaligned errors, so that's a
-Good Thing. (though I see davem just responded to the patch)
-
-However, the patch itself is not arch specific, and the unaligned 
-address issue should have impacted other archs (silently) as well - 
-even for ipv4, 
-
-It would also impact other logic in __skb_flow_dissect: 
-e.g., the access to iph->saddr for ipv4 frags would be
-unaligned in __skb_flow_dissect? (And Ias I mentioned in my original
-mail, the comments in __skb_get_poff seem to indicate that others
-have tripped up on this before - and yes, casting is not a good thing
-but seems like that's what they did to paper over the problem)
-
-> Hmmm.... it seems that flow dissector can "support L2 GRE", leading to
-> unaligned accesses since a header is 14 bytes (not multiple of 4)
-  :
-> IP stacks in linux assume IP headers are always aligned to 4 bytes,
-> so it means having a GRE header like this would align trap on some
-> arches.
-
-I'm not sure I see how the above commit could have been impacting me,
-I dont have any l2 gre invovled (simple p2p Ethernet II + ipv6 + tcp, 
-no vlans, gre or other exotic stuff).
-
---Sowmini
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
