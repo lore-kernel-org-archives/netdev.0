@@ -1,45 +1,78 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: WARNING at net/mac80211/rate.c:513 ieee80211_get_tx_rates
- [mac80211]
-Date: Fri, 29 Jan 2016 17:15:46 +0100
-Message-ID: <1454084146.2800.0.camel@sipsolutions.net>
-References: <CA+55aFxe22iWok6UojY=hCoG2k1wNpJ9CfQ0b+STSxq67tb86Q@mail.gmail.com>
-	 <1453983185.2217.12.camel@sipsolutions.net>
-	 <CA+55aFya9K4JboNY8kB9cg6zt9otguhdzfHm3jvLmWedxQTSWg@mail.gmail.com>
-	 <1454013625.2332.9.camel@sipsolutions.net>
-	 <CA+55aFx73nv9ny-fu5BR6v8wL=f2oFomwrZoLRw=x2kNP76cYA@mail.gmail.com>
-	 <CA+55aFzF0gWfvmE+6ZcHmjnO4xp-oVAQ5SWxYJhOzns2ocgCsw@mail.gmail.com>
-	 <1454019155.2332.15.camel@sipsolutions.net>
-	 <CA+55aFxjpdepHYD_6uU48kW38Z9bmf2wwA8yPZt4ibhkofmfQA@mail.gmail.com>
-	 <56AAC66C.1080800@lwfinger.net> <1454056380.3369.2.camel@sipsolutions.net>
-	 <CAP71bdVZzUUNwP3py_m1pwU21qMKth=0BmMfLuUb7=B-1840zg@mail.gmail.com>
-	 (sfid-20160129_171252_956705_2E9111CB)
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAP71bdVZzUUNwP3py_m1pwU21qMKth=0BmMfLuUb7=B-1840zg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20160129_171252_956705_2E9111CB)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: [PATCH net 1/6] net: mvneta: Fix for_each_present_cpu usage
+Date: Fri, 29 Jan 2016 17:26:02 +0100
+Message-ID: <1454084767-24715-2-git-send-email-gregory.clement@free-electrons.com>
+References: <1454084767-24715-1-git-send-email-gregory.clement@free-electrons.com>
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>
+To: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454084767-24715-1-git-send-email-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-01-29 at 10:12 -0600, Larry Finger wrote:
->=C2=A0
-> Upon further inspection, my log has the line "rtl8821ae 0000:02:00.0
-> wlp2s0: disabling HT/VHT due to WEP/TKIP use". I need to fix that
-> first.
->=20
-Likely TKIP; enable only WPA2 (CCMP) on the AP.
+This patch convert the for_each_present in on_each_cpu, instead of
+applying on the present cpus it will be applied only on the online cpus.
+This fix a bug reported on
+http://thread.gmane.org/gmane.linux.ports.arm.kernel/468173.
 
-johannes
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Using the macro on_each_cpu (instead of a for_each_* loop) also ensures
+that all the calls will be done all at once.
+
+Fixes: f86428854480 ("net: mvneta: Statically assign queues to CPUs")
+Reported-by: Stefan Roese <stefan.roese@gmail.com>
+Suggested-by: Jisheng Zhang <jszhang@marvell.com>
+Suggested-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 662c2ee268c7..90ff5c7e19ea 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -2564,7 +2564,7 @@ static void mvneta_start_dev(struct mvneta_port *pp)
+ 	mvneta_port_enable(pp);
+ 
+ 	/* Enable polling on the port */
+-	for_each_present_cpu(cpu) {
++	for_each_online_cpu(cpu) {
+ 		struct mvneta_pcpu_port *port = per_cpu_ptr(pp->ports, cpu);
+ 
+ 		napi_enable(&port->napi);
+@@ -2589,7 +2589,7 @@ static void mvneta_stop_dev(struct mvneta_port *pp)
+ 
+ 	phy_stop(pp->phy_dev);
+ 
+-	for_each_present_cpu(cpu) {
++	for_each_online_cpu(cpu) {
+ 		struct mvneta_pcpu_port *port = per_cpu_ptr(pp->ports, cpu);
+ 
+ 		napi_disable(&port->napi);
+@@ -3057,13 +3057,11 @@ err_cleanup_rxqs:
+ static int mvneta_stop(struct net_device *dev)
+ {
+ 	struct mvneta_port *pp = netdev_priv(dev);
+-	int cpu;
+ 
+ 	mvneta_stop_dev(pp);
+ 	mvneta_mdio_remove(pp);
+ 	unregister_cpu_notifier(&pp->cpu_notifier);
+-	for_each_present_cpu(cpu)
+-		smp_call_function_single(cpu, mvneta_percpu_disable, pp, true);
++	on_each_cpu(mvneta_percpu_disable, pp, true);
+ 	free_percpu_irq(dev->irq, pp->ports);
+ 	mvneta_cleanup_rxqs(pp);
+ 	mvneta_cleanup_txqs(pp);
+-- 
+2.5.0
