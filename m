@@ -1,115 +1,52 @@
-From: Michael Tuexen <Michael.Tuexen@lurchi.franken.de>
-Subject: Re: [RFC PATCH net-next 0/3] sctp: add GSO support
-Date: Fri, 29 Jan 2016 13:25:51 +0100
-Message-ID: <928E1272-9D07-4495-B811-FDD018E1E179@lurchi.franken.de>
-References: <cover.1453913331.git.marcelo.leitner@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1CCCEDE4@AcuExch.aculab.com> <9D5B8E18-A20A-4E27-8EB8-EE8856DFB184@lurchi.franken.de> <20160128210326.GD6602@mrl.redhat.com> <7DA10E71-2CE2-41E6-B53B-4C4D5BF341DA@lurchi.franken.de> <20160129011828.GE6602@mrl.redhat.com> <4AD903B1-5EEA-476C-A353-C17EEAA65D51@lurchi.franken.de> <20160129112658.GB6604@mrl.redhat.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"brouer@redhat.com" <brouer@redhat.com>,
-	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-	"alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
-	"borkmann@iogearbox.net" <borkmann@iogearbox.net>,
-	"marek@cloudflare.com" <marek@cloudflare.com>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"pabeni@redhat.com" <pabeni@redhat.com>,
-	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net v2 1/2] ipv6: enforce flowi6_oif usage in
+ ip6_dst_lookup_tail()
+Date: Fri, 29 Jan 2016 13:33:47 +0100
+Message-ID: <56AB5C2B.9030307@stressinduktion.org>
+References: <cover.1454066754.git.pabeni@redhat.com>
+ <f7809ccbe430587d183d9679b8fbea4b61a9af7e.1454066754.git.pabeni@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Hajime Tazaki <thehajime@gmail.com>, lucien.xin@gmail.com,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:35971 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751307AbcA2MZ7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 07:25:59 -0500
-In-Reply-To: <20160129112658.GB6604@mrl.redhat.com>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:50295 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752569AbcA2Mdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 07:33:53 -0500
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 0731120450
+	for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 07:33:52 -0500 (EST)
+In-Reply-To: <f7809ccbe430587d183d9679b8fbea4b61a9af7e.1454066754.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 29.01.2016 12:30, Paolo Abeni wrote:
+> The current implementation of ip6_dst_lookup_tail basically
+> ignore the egress ifindex match: if the saddr is set,
+> ip6_route_output() purposefully ignores flowi6_oif, due
+> to the commit d46a9d678e4c ("net: ipv6: Dont add RT6_LOOKUP_F_IFACE
+> flag if saddr set"), if the saddr is 'any' the first route lookup
+> in ip6_dst_lookup_tail fails, but upon failure a second lookup will
+> be performed with saddr set, thus ignoring the ifindex constraint.
+>
+> This commit adds an output route lookup function variant, which
+> allows the caller to specify lookup flags, and modify
+> ip6_dst_lookup_tail() to enforce the ifindex match on the second
+> lookup via said helper.
+>
+> ip6_route_output() becames now a static inline function build on
+> top of ip6_route_output_flags(); as a side effect, out-of-tree
+> modules need now a GPL license to access the output route lookup
+> functionality.
+>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> --
+> v1 -> v2 move the ip6_route_output() implementation into the header
 
-> On 29 Jan 2016, at 12:26, Marcelo Ricardo Leitner <marcelo.leitner@gmail.com> wrote:
-> 
-> On Fri, Jan 29, 2016 at 11:57:46AM +0100, Michael Tuexen wrote:
->>> On 29 Jan 2016, at 02:18, Marcelo Ricardo Leitner <marcelo.leitner@gmail.com> wrote:
->>> 
->>> On Fri, Jan 29, 2016 at 12:36:05AM +0100, Michael Tuexen wrote:
->>>> 
->>>>> On 28 Jan 2016, at 22:03, Marcelo Ricardo Leitner <marcelo.leitner@gmail.com> wrote:
->>>>> 
->>>>> On Thu, Jan 28, 2016 at 06:54:06PM +0100, Michael Tuexen wrote:
->>>>>>> On 28 Jan 2016, at 14:51, David Laight <David.Laight@ACULAB.COM> wrote:
->>>>>>> 
->>>>>>> From: Marcelo Ricardo Leitner
->>>>>>>> Sent: 27 January 2016 17:07
->>>>>>>> This patchset is merely a RFC for the moment. There are some
->>>>>>>> controversial points that I'd like to discuss before actually proposing
->>>>>>>> the patches.
->>>>>>> 
->>>>>>> You also need to look at how a 'user' can actually get SCTP to
->>>>>>> merge data chunks in the first place.
->>>>>>> 
->>>>>>> With Nagle disabled (and it probably has to be since the data flow
->>>>>>> is unlikely to be 'command-response' or 'unidirectional bulk')
->>>>>>> it is currently almost impossible to get more than one chunk
->>>>>>> into an ethernet frame.
->>>>>>> 
->>>>>>> Support for MSG_MORE would help.
->>>>>> What about adding support for the explicit EOR mode as specified in
->>>>>> https://tools.ietf.org/html/rfc6458#section-8.1.26
->>>>> 
->>>>> Seizing the moment to clarify my understanding on that. :)
->>>>> Such multiple calls to send system calls will result in a single data
->>>>> chunk. Is that so? That's what I get from that text and also from this
->>>> No. It results in a single user message. This means you can send
->>>> a user message larger than the send buffer size. How the user message
->>>> is fragmented in DATA chunks is transparent to the upper layer.
->>>> 
->>>> Does this make things clearer?
->>> 
->>> I think so, yes. So it allows delaying setting the Ending fragment bit
->>> until the application set SCTP_EOR. All the rest before this stays as
->>> before: first send() will generate a chunk with Beginning bit set and
->>> may generate some other middle-fragments (no B nor E bit set) if
->>> necessary, second to N-1 call to send will generate only middle
->>> fragments, while the last send, with SCTP_EOF, will then set the Ending
->>> fragment in the last one. Right?
->> Yes. But there are no restrictions on the user data provided in send()
->> calls and DATA chunks. So you can
->> send(100000 byte, no SCTP_EOR)
->> resulting in one DATA chunk with the B bit, several with no B and no E bit.
->> send(100000 byte, no SCTP_EOR)
->> resulting in several chunks with no B and no E bit.
->> send(100000 byte, SCTP_EOR)
->> resulting in several chunks with no B and no E bit and one (the last) chunk
->> with the E bit.
->> 
->> On the other hand you can do
->> send(1 byte, no SCTP_EOR)
->> resulting in a single DATA chunk with the E bit set.
->> send(1 byte, no SCTP_EOR)
->> send(1 byte, no SCTP_EOR)
->> send(1 byte, no SCTP_EOR)
->> send(1 byte, no SCTP_EOR)
->> send(1 byte, no SCTP_EOR)
->> All resulting in a single DATA chunk with 5 bytes user data and no B or E bit.
->> (For example if Nagle is enabled and only after the last send call the SACK arrives).
->> send(1 byte, SCTP_EOR)
->> results in a single DATA chunk with the E bist set.
-> 
-> Cool, thanks Michael. It will be quite fun to mix this with MSG_MORE
-> logic, I think :)
-Don't know. In FreeBSD we do support SCTP_EOR, but not MSG_MORE, which seems
-to be Linux specific.
-
-Best regards
-Michael
-> 
-> Best regards,
-> Marcelo
-> 
-> 
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
