@@ -1,46 +1,41 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
-Date: Fri, 29 Jan 2016 11:04:37 -0800 (PST)
-Message-ID: <20160129.110437.472340480320526154.davem@davemloft.net>
+Date: Fri, 29 Jan 2016 11:06:34 -0800 (PST)
+Message-ID: <20160129.110634.1678121731419241040.davem@davemloft.net>
 References: <20160129180651.GA17127@oracle.com>
+	<1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sowmini.varadhan@oracle.com
+Cc: sowmini.varadhan@oracle.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38984 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39019 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751124AbcA2TEk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 14:04:40 -0500
-In-Reply-To: <20160129180651.GA17127@oracle.com>
+	with ESMTP id S1753555AbcA2TGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 14:06:35 -0500
+In-Reply-To: <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Fri, 29 Jan 2016 13:06:51 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 29 Jan 2016 10:33:48 -0800
 
-> @@ -102,6 +102,17 @@ __be32 __skb_flow_get_ports(const struct sk_buff *skb, int 
->  }
->  EXPORT_SYMBOL(__skb_flow_get_ports);
->  
-> +static inline __be32 ip6_flowlabel_align(const u8 *hdr)
-> +{
-> +       union {
-> +               __u8 w[4];
-> +               __u32 flow;
-> +       } ip6_flow;
-> +
-> +       memcpy(ip6_flow.w, hdr, 4);
- ...
-> -               flow_label = ip6_flowlabel(iph);
-> +               flow_label = ip6_flowlabel_align((const u8 *)iph);
+> Why ipv6 stack itself does not trigger the issue ?
+> 
+> Maybe the driver itself does not properly align IP headers on sparc ?
+> 
+> Make sure NET_IP_ALIGN is 2 on your build.
+> 
+> Note that x86 does not care, but a driver should always align Ethernet
+> header to NET_IP_ALIGN, so that IP headers are aligned to 4 bytes
+> boundaries.
 
-Casting is not a foolproof solution.
+Eric, please reread the original posting, the driver is trying to do
+exactly this.
 
-The compiler is allowed to legally walk through the casts and discover that
-the original type has certain alignment guarantees and use them in it's
-inline expansion of memcpy().
+This is the part in the driver where it is trying to figure out how
+much to pull in order to align the packet before it gets sent into the
+stack.
 
-Also, so much stuff in this file is going to trip over this issue if
-the IP header isn't even 4 byte aligned.
+That's why only the flow dissector sees this problem.
