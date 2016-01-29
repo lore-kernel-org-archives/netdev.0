@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net] xen-netfront: request Tx response events more
- often
-Date: Thu, 28 Jan 2016 16:09:31 -0800 (PST)
-Message-ID: <20160128.160931.2281411720894108965.davem@davemloft.net>
-References: <1453828364-2042-1-git-send-email-david.vrabel@citrix.com>
+Subject: Re: [PATCH 0/9] network driver fixes
+Date: Thu, 28 Jan 2016 16:14:13 -0800 (PST)
+Message-ID: <20160128.161413.1463071323452305953.davem@davemloft.net>
+References: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	malcolm.crossley@citrix.com
-To: david.vrabel@citrix.com
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60053 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60089 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751126AbcA2AJc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 19:09:32 -0500
-In-Reply-To: <1453828364-2042-1-git-send-email-david.vrabel@citrix.com>
+	with ESMTP id S1751189AbcA2AOO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 19:14:14 -0500
+In-Reply-To: <1453903507-3427225-1-git-send-email-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Vrabel <david.vrabel@citrix.com>
-Date: Tue, 26 Jan 2016 17:12:44 +0000
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 27 Jan 2016 15:04:50 +0100
 
-> From: Malcolm Crossley <malcolm.crossley@citrix.com>
+> These are all fixes for relatively harmless bugs that showed up
+> in my randconfig testing, so they should not be needed for v4.5
+> but get merged into net-next.
 > 
-> Trying to batch Tx response events results in poor performance because
-> this delays freeing the transmitted skbs.
-> 
-> Instead use the standard RING_FINAL_CHECK_FOR_RESPONSES() macro to be
-> notified once the next Tx response is placed on the ring.
-> 
-> Signed-off-by: Malcolm Crossley <malcolm.crossley@citrix.com>
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> I've managed to address all 'uninitialized variable' warnings that
+> I get in ARM randconfig kernels now, this series includes the
+> last five I got in network drivers. They are often really annoying
+> warnings but when we get new ones, they often are about actual
+> bugs in corner cases, so I'm trying hard to eliminate the false
+> positives here to get people to pay attention to added warnings.
+> I've recently tried building with an older gcc and found tons more
+> that are all bogus, this series only addresses the ones that
+> gcc-5.2 finds.
 
-Applied.
+Arnd I'm expecting a respin of this series to address with the
+feedback you've been given.
+
+Thanks.
