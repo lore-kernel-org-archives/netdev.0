@@ -1,54 +1,57 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH v2 net] nfc: use GFP_USER for user-controlled kmalloc
-Date: Sat, 30 Jan 2016 09:01:56 +1100
-Message-ID: <CAGRGNgW16nQrvuePehmiirLxJpO-Oatd6iMP_tXQfu8JjmoVnA@mail.gmail.com>
-References: <1454095465-16685-1-git-send-email-xiyou.wangcong@gmail.com> <1454096764.7627.66.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
+Date: Fri, 29 Jan 2016 14:08:41 -0800
+Message-ID: <CAKgT0Udwjgmbwd2StNm-e-02Th4NHetb_FMbrU=KOCHf_90YbA@mail.gmail.com>
+References: <20160129180651.GA17127@oracle.com>
+	<1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20160129.110634.1678121731419241040.davem@davemloft.net>
+	<1454096250.7627.60.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20160129194434.GC17127@oracle.com>
+	<1454097696.7627.68.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAKgT0UdXBHocMwdcQHHd5bGMUofEH6ENox=Jw_vLEn3kMonmhA@mail.gmail.com>
+	<1454103195.7627.76.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:36098 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757040AbcA2WCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 17:02:16 -0500
-In-Reply-To: <1454096764.7627.66.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:38796 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756927AbcA2WIm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 17:08:42 -0500
+Received: by mail-ig0-f178.google.com with SMTP id mw1so43214626igb.1
+        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 14:08:42 -0800 (PST)
+In-Reply-To: <1454103195.7627.76.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Cong
-
-On Sat, Jan 30, 2016 at 6:46 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2016-01-29 at 11:24 -0800, Cong Wang wrote:
->> These two functions are called in sendmsg path, and the
->> 'len' is passed from user-space, so we should not allow
->> malicious users to OOM kernel on purpose.
+On Fri, Jan 29, 2016 at 1:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2016-01-29 at 13:16 -0800, Alexander Duyck wrote:
+>
+>> It has to be something recent.  I know back when I wrote the code I
+>> tested it on a few different architectures and had to add a few bits
+>> in __skb_get_poff so that it would read doff as a u8 instead of
+>> bitfield in a u32.
 >>
->> Reported-by: Dmitry Vyukov <dvyukov@google.com>
->> Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>
->> Cc: Aloisio Almeida Jr <aloisio.almeida@openbossa.org>
->> Cc: Samuel Ortiz <sameo@linux.intel.com>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->> ---
+>> Looking at the code it seems like this should be an easy fix.  Just
+>> swap the two lines that acquire and test the flow label with the check
+>> for dissector_uses_key(... _KEY_FLOW_LABEL).  Then ixgbe will stop
+>> trying to grab flow labels.
 >
-> Note that the issue is not OOM the kernel (as the allocation is
-> attempted even after your patch), but having a way to
-> spill stack traces in the syslog.
+> Note that if we properly align headers, we also align TCP/UDP payload.
 >
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> Meaning that copying data in recvmsg() is likely faster in some cpus.
+> (The ones having NET_IP_ALIGN set to 2 presumably)
 
-Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+It also means DMA becomes dramatically slower as it introduces a
+partial write access for the start of every frame.  It is why we had
+set NET_IP_ALIGN to 0 on x86 since DMA was becoming more expensive
+when unaligned then reading IP unaligned headers.
 
-Thanks,
+The gain on recvmsg would probably be minimal.  The only time I have
+seen any significant speed-up for copying is if you can get both ends
+aligned to something like 16B.
 
--- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+- Alex
