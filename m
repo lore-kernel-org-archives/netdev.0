@@ -1,38 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] inet: frag: Always orphan skbs inside ip_defrag()
-Date: Thu, 28 Jan 2016 16:02:06 -0800 (PST)
-Message-ID: <20160128.160206.1148428775767129968.davem@davemloft.net>
-References: <1453506552-10373-1-git-send-email-joe@ovn.org>
+Subject: Re: [PATCH net] tcp: fix tcp_mark_head_lost to check skb len
+ before fragmenting
+Date: Thu, 28 Jan 2016 16:03:23 -0800 (PST)
+Message-ID: <20160128.160323.335514499563430972.davem@davemloft.net>
+References: <1453759313-22681-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, hannes@stressinduktion.org,
-	pshelar@ovn.org
-To: joe@ovn.org
+Cc: netdev@vger.kernel.org, ncardwell@google.com, edumazet@google.com
+To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59975 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60015 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751040AbcA2ACI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 19:02:08 -0500
-In-Reply-To: <1453506552-10373-1-git-send-email-joe@ovn.org>
+	with ESMTP id S1751194AbcA2ADY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 19:03:24 -0500
+In-Reply-To: <1453759313-22681-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Stringer <joe@ovn.org>
-Date: Fri, 22 Jan 2016 15:49:12 -0800
+From: Yuchung Cheng <ycheng@google.com>
+Date: Mon, 25 Jan 2016 14:01:53 -0800
 
-> Later parts of the stack (including fragmentation) expect that there is
-> never a socket attached to frag in a frag_list, however this invariant
-> was not enforced on all defrag paths. This could lead to the
-> BUG_ON(skb->sk) during ip_do_fragment(), as per the call stack at the
-> end of this commit message.
+> From: Neal Cardwell <ncardwell@google.com>
 > 
-> While the call could be added to openvswitch to fix this particular
-> error, the head and tail of the frags list are already orphaned
-> indirectly inside ip_defrag(), so it seems like the remaining fragments
-> should all be orphaned in all circumstances.
- ...
-> Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
-> Signed-off-by: Joe Stringer <joe@ovn.org>
+> This commit fixes a corner case in tcp_mark_head_lost() which was
+> causing the WARN_ON(len > skb->len) in tcp_fragment() to fire.
+> 
+> tcp_mark_head_lost() was assuming that if a packet has
+> tcp_skb_pcount(skb) of N, then it's safe to fragment off a prefix of
+> M*mss bytes, for any M < N. But with the tricky way TCP pcounts are
+> maintained, this is not always true.
+> 
+> For example, suppose the sender sends 4 1-byte packets and have the
+> last 3 packet sacked. It will merge the last 3 packets in the write
+> queue into an skb with pcount = 3 and len = 3 bytes. If another
+> recovery happens after a sack reneging event, tcp_mark_head_lost()
+> may attempt to split the skb assuming it has more than 2*MSS bytes.
+> 
+> This sounds very counterintuitive, but as the commit description for
+> the related commit c0638c247f55 ("tcp: don't fragment SACKed skbs in
+> tcp_mark_head_lost()") notes, this is because tcp_shifted_skb()
+> coalesces adjacent regions of SACKed skbs, and when doing this it
+> preserves the sum of their packet counts in order to reflect the
+> real-world dynamics on the wire. The c0638c247f55 commit tried to
+> avoid problems by not fragmenting SACKed skbs, since SACKed skbs are
+> where the non-proportionality between pcount and skb->len/mss is known
+> to be possible. However, that commit did not handle the case where
+> during a reneging event one of these weird SACKed skbs becomes an
+> un-SACKed skb, which tcp_mark_head_lost() can then try to fragment.
+> 
+> The fix is to simply mark the entire skb lost when this happens.
+> This makes the recovery slightly more aggressive in such corner
+> cases before we detect reordering. But once we detect reordering
+> this code path is by-passed because FACK is disabled.
+> 
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied and queued up for -stable, thanks Joe.
+Applied, thanks everyone.
