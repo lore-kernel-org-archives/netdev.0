@@ -1,58 +1,118 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH v2 4/7] net: bgmac: clarify CONFIG_BCMA dependency
-Date: Fri, 29 Jan 2016 12:39:12 +0100
-Message-ID: <1454067557-3546883-5-git-send-email-arnd@arndb.de>
+Subject: [PATCH v2 5/7] net: vxge: avoid unused function warnings
+Date: Fri, 29 Jan 2016 12:39:13 +0100
+Message-ID: <1454067557-3546883-6-git-send-email-arnd@arndb.de>
 References: <1454067557-3546883-1-git-send-email-arnd@arndb.de>
 Cc: linux-arm-kernel@lists.infradead.org,
 	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	Michael Chan <mchan@broadcom.com>, linux-kernel@vger.kernel.org
+	Jon Mason <jdmason@kudzu.us>, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1454067557-3546883-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The bgmac driver depends on BCMA_HOST_SOC, which is only used
-when CONFIG_BCMA is enabled. However, it is a bool option and can
-be set when CONFIG_BCMA=m, and then bgmac can be built-in, leading
-to an obvious link error:
+When CONFIG_PCI_MSI is disabled, we get warnings about unused functions
+in the vxge driver:
 
-drivers/built-in.o: In function `bgmac_init':
-:(.init.text+0x7f2c): undefined reference to `__bcma_driver_register'
-drivers/built-in.o: In function `bgmac_exit':
-:(.exit.text+0x110a): undefined reference to `bcma_driver_unregister'
+drivers/net/ethernet/neterion/vxge/vxge-main.c:2121:13: warning: 'adaptive_coalesce_tx_interrupts' defined but not used [-Wunused-function]
+drivers/net/ethernet/neterion/vxge/vxge-main.c:2149:13: warning: 'adaptive_coalesce_rx_interrupts' defined but not used [-Wunused-function]
 
-To avoid this case, we need to depend on both BCMA and BCMA_SOC,
-as this patch does. I'm also trying to make the dependency more
-readable by splitting it into three lines, and adding a COMPILE_TEST
-alternative so we can test-build it in all configurations that
-support BCMA.
-
-The added dependency on FIXED_PHY addresses a related issue where
-we cannot call fixed_phy_register() when CONFIG_FIXED_PHY=m and
-CONFIG_BGMAC=y.
+We could add another #ifdef here, but it's nicer to avoid those warnings
+for good by converting the existing #ifdef to if(IS_ENABLED()), which has
+the same effect but provides better compile-time coverage in general,
+and lets the compiler understand better when the function is intentionally
+unused.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/broadcom/Kconfig | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/neterion/vxge/vxge-main.c | 31 ++++++++++----------------
+ 1 file changed, 12 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
-index 8550df189ceb..19f7cd02e085 100644
---- a/drivers/net/ethernet/broadcom/Kconfig
-+++ b/drivers/net/ethernet/broadcom/Kconfig
-@@ -151,8 +151,11 @@ config BNX2X_VXLAN
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+index 50d5604833ed..e0993eba5df3 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
++++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+@@ -2223,8 +2223,6 @@ static irqreturn_t vxge_isr_napi(int irq, void *dev_id)
+ 	return IRQ_NONE;
+ }
  
- config BGMAC
- 	tristate "BCMA bus GBit core support"
--	depends on BCMA_HOST_SOC && HAS_DMA && (BCM47XX || ARCH_BCM_5301X)
-+	depends on BCMA && BCMA_HOST_SOC
-+	depends on HAS_DMA
-+	depends on BCM47XX || ARCH_BCM_5301X || COMPILE_TEST
- 	select PHYLIB
-+	select FIXED_PHY
- 	---help---
- 	  This driver supports GBit MAC and BCM4706 GBit MAC cores on BCMA bus.
- 	  They can be found on BCM47xx SoCs and provide gigabit ethernet.
+-#ifdef CONFIG_PCI_MSI
+-
+ static irqreturn_t vxge_tx_msix_handle(int irq, void *dev_id)
+ {
+ 	struct vxge_fifo *fifo = (struct vxge_fifo *)dev_id;
+@@ -2442,16 +2440,13 @@ static void vxge_rem_msix_isr(struct vxgedev *vdev)
+ 	if (vdev->config.intr_type == MSI_X)
+ 		pci_disable_msix(vdev->pdev);
+ }
+-#endif
+ 
+ static void vxge_rem_isr(struct vxgedev *vdev)
+ {
+-#ifdef CONFIG_PCI_MSI
+-	if (vdev->config.intr_type == MSI_X) {
++	if (IS_ENABLED(CONFIG_PCI_MSI) &&
++	    vdev->config.intr_type == MSI_X) {
+ 		vxge_rem_msix_isr(vdev);
+-	} else
+-#endif
+-	if (vdev->config.intr_type == INTA) {
++	} else if (vdev->config.intr_type == INTA) {
+ 			synchronize_irq(vdev->pdev->irq);
+ 			free_irq(vdev->pdev->irq, vdev);
+ 	}
+@@ -2460,11 +2455,10 @@ static void vxge_rem_isr(struct vxgedev *vdev)
+ static int vxge_add_isr(struct vxgedev *vdev)
+ {
+ 	int ret = 0;
+-#ifdef CONFIG_PCI_MSI
+ 	int vp_idx = 0, intr_idx = 0, intr_cnt = 0, msix_idx = 0, irq_req = 0;
+ 	int pci_fun = PCI_FUNC(vdev->pdev->devfn);
+ 
+-	if (vdev->config.intr_type == MSI_X)
++	if (IS_ENABLED(CONFIG_PCI_MSI) && vdev->config.intr_type == MSI_X)
+ 		ret = vxge_enable_msix(vdev);
+ 
+ 	if (ret) {
+@@ -2475,7 +2469,7 @@ static int vxge_add_isr(struct vxgedev *vdev)
+ 		vdev->config.intr_type = INTA;
+ 	}
+ 
+-	if (vdev->config.intr_type == MSI_X) {
++	if (IS_ENABLED(CONFIG_PCI_MSI) && vdev->config.intr_type == MSI_X) {
+ 		for (intr_idx = 0;
+ 		     intr_idx < (vdev->no_of_vpath *
+ 			VXGE_HW_VPATH_MSIX_ACTIVE); intr_idx++) {
+@@ -2576,9 +2570,8 @@ static int vxge_add_isr(struct vxgedev *vdev)
+ 		vdev->vxge_entries[intr_cnt].in_use = 1;
+ 		vdev->vxge_entries[intr_cnt].arg = &vdev->vpaths[0];
+ 	}
+-INTA_MODE:
+-#endif
+ 
++INTA_MODE:
+ 	if (vdev->config.intr_type == INTA) {
+ 		snprintf(vdev->desc[0], VXGE_INTR_STRLEN,
+ 			"%s:vxge:INTA", vdev->ndev->name);
+@@ -3889,12 +3882,12 @@ static void vxge_device_config_init(struct vxge_hw_device_config *device_config,
+ 	if (max_mac_vpath > VXGE_MAX_MAC_ADDR_COUNT)
+ 		max_mac_vpath = VXGE_MAX_MAC_ADDR_COUNT;
+ 
+-#ifndef CONFIG_PCI_MSI
+-	vxge_debug_init(VXGE_ERR,
+-		"%s: This Kernel does not support "
+-		"MSI-X. Defaulting to INTA", VXGE_DRIVER_NAME);
+-	*intr_type = INTA;
+-#endif
++	if (!IS_ENABLED(CONFIG_PCI_MSI)) {
++		vxge_debug_init(VXGE_ERR,
++			"%s: This Kernel does not support "
++			"MSI-X. Defaulting to INTA", VXGE_DRIVER_NAME);
++		*intr_type = INTA;
++	}
+ 
+ 	/* Configure whether MSI-X or IRQL. */
+ 	switch (*intr_type) {
 -- 
 2.7.0
