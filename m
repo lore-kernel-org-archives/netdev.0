@@ -1,56 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
-Date: Fri, 29 Jan 2016 11:37:30 -0800
-Message-ID: <1454096250.7627.60.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20160129180651.GA17127@oracle.com>
-	 <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20160129.110634.1678121731419241040.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: sowmini.varadhan@oracle.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:36772 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752348AbcA2Thd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 14:37:33 -0500
-Received: by mail-pf0-f177.google.com with SMTP id n128so46551353pfn.3
-        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 11:37:32 -0800 (PST)
-In-Reply-To: <20160129.110634.1678121731419241040.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2 net] nfc: close a race condition in llcp_sock_getname()
+Date: Fri, 29 Jan 2016 11:37:40 -0800
+Message-ID: <1454096260-20396-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-01-29 at 11:06 -0800, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 29 Jan 2016 10:33:48 -0800
-> 
-> > Why ipv6 stack itself does not trigger the issue ?
-> > 
-> > Maybe the driver itself does not properly align IP headers on sparc ?
-> > 
-> > Make sure NET_IP_ALIGN is 2 on your build.
-> > 
-> > Note that x86 does not care, but a driver should always align Ethernet
-> > header to NET_IP_ALIGN, so that IP headers are aligned to 4 bytes
-> > boundaries.
-> 
-> Eric, please reread the original posting, the driver is trying to do
-> exactly this.
+llcp_sock_getname() checks llcp_sock->dev to make sure
+llcp_sock is already connected or bound, however, we could
+be in the middle of llcp_sock_bind() where llcp_sock->dev
+is bound and llcp_sock->service_name_len is set,
+but llcp_sock->service_name is not, in this case we would
+lead to copy some bytes from a NULL pointer.
 
-Sure, but this driver was tested on x86.
+Just lock the sock since this is not a hot path anyway.
 
-> 
-> This is the part in the driver where it is trying to figure out how
-> much to pull in order to align the packet before it gets sent into the
-> stack.
-> 
-> That's why only the flow dissector sees this problem.
+Reported-by: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Cc: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
+Cc: Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
+Cc: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Signed-off-by: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/nfc/llcp_sock.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-I have no idea why reading iph->saddr or iph->daddr would not hit the
-problem, but accessing the 32bit ipv6 flow label would be an issue.
+diff --git a/net/nfc/llcp_sock.c b/net/nfc/llcp_sock.c
+index ecf0a01..b9edf5f 100644
+--- a/net/nfc/llcp_sock.c
++++ b/net/nfc/llcp_sock.c
+@@ -509,6 +509,11 @@ static int llcp_sock_getname(struct socket *sock, struct sockaddr *uaddr,
+ 	memset(llcp_addr, 0, sizeof(*llcp_addr));
+ 	*len = sizeof(struct sockaddr_nfc_llcp);
+ 
++	lock_sock(sk);
++	if (!llcp_sock->dev) {
++		release_sock(sk);
++		return -EBADFD;
++	}
+ 	llcp_addr->sa_family = AF_NFC;
+ 	llcp_addr->dev_idx = llcp_sock->dev->idx;
+ 	llcp_addr->target_idx = llcp_sock->target_idx;
+@@ -518,6 +523,7 @@ static int llcp_sock_getname(struct socket *sock, struct sockaddr *uaddr,
+ 	llcp_addr->service_name_len = llcp_sock->service_name_len;
+ 	memcpy(llcp_addr->service_name, llcp_sock->service_name,
+ 	       llcp_addr->service_name_len);
++	release_sock(sk);
+ 
+ 	return 0;
+ }
+-- 
+1.8.3.1
 
-Something is fishy.
-
-But really adding unaligned() accesses in flow dissector would slow it
-quite a lot on MIPS and others.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
