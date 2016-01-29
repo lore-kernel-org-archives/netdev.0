@@ -1,100 +1,87 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH net 2/6] net: mvneta: Use on_each_cpu when possible
-Date: Fri, 29 Jan 2016 17:26:03 +0100
-Message-ID: <1454084767-24715-3-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH net 5/6] net: mvneta: The mvneta_percpu_elect function should be atomic
+Date: Fri, 29 Jan 2016 17:26:06 +0100
+Message-ID: <1454084767-24715-6-git-send-email-gregory.clement@free-electrons.com>
 References: <1454084767-24715-1-git-send-email-gregory.clement@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
- Russell King - ARM Linux <linux@arm.linux.org.uk>,
- Jason Cooper <jason@lakedaemon.net>, Nadav Haklai <nadavh@marvell.com>,
- Gregory CLEMENT <gregory.clement@free-electrons.com>,
- Marcin Wojtas <mw@semihalf.com>, Willy Tarreau <w@1wt.eu>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org,
- Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>
+To: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1454084767-24715-1-git-send-email-gregory.clement@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Instead of using a for_each_* loop in which we just call the
-smp_call_function_single macro, it is more simple to directly use the
-on_each_cpu macro. Moreover, this macro ensures that the calls will be
-done all at once.
+Electing a CPU must be done in an atomic way: it should be done after or
+before the removal/insertion of a CPU and this function is not reentrant.
 
-Suggested-by: Russell King <rmk+kernel@arm.linux.org.uk>
+During the loop of mvneta_percpu_elect we associates the queues to the
+CPUs, if there is a topology change during this loop, then the mapping
+between the CPUs and the queues could be wrong. During this loop the
+interrupt mask is also updating for each CPUs, It should not be changed
+in the same time by other part of the driver.
+
+This patch adds spinlock to create the needed critical sections.
+
 Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 17 ++++++-----------
- 1 file changed, 6 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 90ff5c7e19ea..3d6e3137f305 100644
+index 1ed813d478e8..3358c9a70467 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -2555,7 +2555,7 @@ static void mvneta_percpu_mask_interrupt(void *arg)
+@@ -370,6 +370,8 @@ struct mvneta_port {
+ 	struct net_device *dev;
+ 	struct notifier_block cpu_notifier;
+ 	int rxq_def;
++	/* protect  */
++	spinlock_t lock;
  
- static void mvneta_start_dev(struct mvneta_port *pp)
+ 	/* Core clock */
+ 	struct clk *clk;
+@@ -2855,6 +2857,11 @@ static void mvneta_percpu_elect(struct mvneta_port *pp)
  {
--	unsigned int cpu;
-+	int cpu;
+ 	int online_cpu_idx, max_cpu, cpu, i = 0;
  
- 	mvneta_max_rx_size_set(pp, pp->pkt_size);
- 	mvneta_txq_max_tx_size_set(pp, pp->pkt_size);
-@@ -2571,9 +2571,8 @@ static void mvneta_start_dev(struct mvneta_port *pp)
++	/* Electing a CPU must done in an atomic way: it should be
++	 * done after or before the removal/insertion of a CPU and
++	 * this function is not reentrant.
++	 */
++	spin_lock(&pp->lock);
+ 	online_cpu_idx = pp->rxq_def % num_online_cpus();
+ 	max_cpu = num_present_cpus();
+ 
+@@ -2893,6 +2900,7 @@ static void mvneta_percpu_elect(struct mvneta_port *pp)
+ 		i++;
+ 
  	}
++	spin_unlock(&pp->lock);
+ };
  
- 	/* Unmask interrupts. It has to be done from each CPU */
--	for_each_online_cpu(cpu)
--		smp_call_function_single(cpu, mvneta_percpu_unmask_interrupt,
--					 pp, true);
-+	on_each_cpu(mvneta_percpu_unmask_interrupt, pp, true);
-+
- 	mvreg_write(pp, MVNETA_INTR_MISC_MASK,
- 		    MVNETA_CAUSE_PHY_STATUS_CHANGE |
- 		    MVNETA_CAUSE_LINK_CHANGE |
-@@ -2988,7 +2987,7 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
- static int mvneta_open(struct net_device *dev)
- {
- 	struct mvneta_port *pp = netdev_priv(dev);
--	int ret, cpu;
-+	int ret;
+ static int mvneta_percpu_notifier(struct notifier_block *nfb,
+@@ -2947,8 +2955,13 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
+ 	case CPU_DOWN_PREPARE:
+ 	case CPU_DOWN_PREPARE_FROZEN:
+ 		netif_tx_stop_all_queues(pp->dev);
++		/* Thanks to this lock we are sure that any pending
++		 * cpu election is done
++		 */
++		spin_lock(&pp->lock);
+ 		/* Mask all ethernet port interrupts */
+ 		on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
++		spin_unlock(&pp->lock);
  
- 	pp->pkt_size = MVNETA_RX_PKT_SIZE(pp->dev->mtu);
- 	pp->frag_size = SKB_DATA_ALIGN(MVNETA_RX_BUF_SIZE(pp->pkt_size)) +
-@@ -3021,9 +3020,7 @@ static int mvneta_open(struct net_device *dev)
- 	/* Enable per-CPU interrupt on all the CPU to handle our RX
- 	 * queue interrupts
- 	 */
--	for_each_online_cpu(cpu)
--		smp_call_function_single(cpu, mvneta_percpu_enable,
--					 pp, true);
-+	on_each_cpu(mvneta_percpu_enable, pp, true);
- 
- 
- 	/* Register a CPU notifier to handle the case where our CPU
-@@ -3310,9 +3307,7 @@ static int  mvneta_config_rss(struct mvneta_port *pp)
- 
- 	netif_tx_stop_all_queues(pp->dev);
- 
--	for_each_online_cpu(cpu)
--		smp_call_function_single(cpu, mvneta_percpu_mask_interrupt,
--					 pp, true);
-+	on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
- 
- 	/* We have to synchronise on the napi of each CPU */
- 	for_each_online_cpu(cpu) {
+ 		napi_synchronize(&port->napi);
+ 		napi_disable(&port->napi);
 -- 
 2.5.0
