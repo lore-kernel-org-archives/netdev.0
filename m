@@ -1,41 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] vxlan: fix a out of bounds access in __vxlan_find_mac
-Date: Fri, 29 Jan 2016 14:01:36 -0800
-Message-ID: <1454104896.7627.80.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1454031827-23118-1-git-send-email-roy.qing.li@gmail.com>
-	 <CAM_iQpUoB0VH_c3OFMo4Dxrnrzie89jB0u=tceeqJjQgnr5PMQ@mail.gmail.com>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH v2 net] nfc: use GFP_USER for user-controlled kmalloc
+Date: Sat, 30 Jan 2016 09:01:56 +1100
+Message-ID: <CAGRGNgW16nQrvuePehmiirLxJpO-Oatd6iMP_tXQfu8JjmoVnA@mail.gmail.com>
+References: <1454095465-16685-1-git-send-email-xiyou.wangcong@gmail.com> <1454096764.7627.66.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: roy.qing.li@gmail.com,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	Samuel Ortiz <sameo@linux.intel.com>
 To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:36395 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756878AbcA2WBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 17:01:38 -0500
-Received: by mail-pf0-f180.google.com with SMTP id n128so48186971pfn.3
-        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 14:01:38 -0800 (PST)
-In-Reply-To: <CAM_iQpUoB0VH_c3OFMo4Dxrnrzie89jB0u=tceeqJjQgnr5PMQ@mail.gmail.com>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:36098 "EHLO
+	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757040AbcA2WCQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 17:02:16 -0500
+In-Reply-To: <1454096764.7627.66.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-01-29 at 13:41 -0800, Cong Wang wrote:
-> On Thu, Jan 28, 2016 at 5:43 PM,  <roy.qing.li@gmail.com> wrote:
-> > From: Li RongQing <roy.qing.li@gmail.com>
-> >
-> > The size of all_zeros_mac is 6 byte, but eth_hash() will access the
-> > 8 byte, and KASan reported the below bug:
-> 
-> 
-> Sounds like we should fix eth_hash() (macvlan has a same function),
-> it should not read beyond 6 bytes.
+Hi Cong
 
-Why ? We always have at least 2 bytes following ethernet address in a
-packet.
+On Sat, Jan 30, 2016 at 6:46 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2016-01-29 at 11:24 -0800, Cong Wang wrote:
+>> These two functions are called in sendmsg path, and the
+>> 'len' is passed from user-space, so we should not allow
+>> malicious users to OOM kernel on purpose.
+>>
+>> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+>> Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>
+>> Cc: Aloisio Almeida Jr <aloisio.almeida@openbossa.org>
+>> Cc: Samuel Ortiz <sameo@linux.intel.com>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> ---
+>
+> Note that the issue is not OOM the kernel (as the allocation is
+> attempted even after your patch), but having a way to
+> spill stack traces in the syslog.
+>
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Better add these 2 bytes in all_zeros_mac[] and not slow down the hash
-function.
+Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
 
-We use same tricks in eth_type_trans()
+Thanks,
+
+-- 
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
