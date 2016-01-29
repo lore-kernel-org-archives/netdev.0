@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: mv643xx_eth: fix packet corruption with TSO and
- tiny unaligned packets.
-Date: Thu, 28 Jan 2016 16:08:30 -0800 (PST)
-Message-ID: <20160128.160830.991100889530042617.davem@davemloft.net>
-References: <1453821155-27561-1-git-send-email-nschichan@freebox.fr>
+Subject: Re: [PATCHv2 net] xen-netfront: request Tx response events more
+ often
+Date: Thu, 28 Jan 2016 16:09:31 -0800 (PST)
+Message-ID: <20160128.160931.2281411720894108965.davem@davemloft.net>
+References: <1453828364-2042-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sebastian.hesselbarth@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, philipp@familie-kirchhofer.de
-To: nschichan@freebox.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453821155-27561-1-git-send-email-nschichan@freebox.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
+	malcolm.crossley@citrix.com
+To: david.vrabel@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60053 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751126AbcA2AJc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2016 19:09:32 -0500
+In-Reply-To: <1453828364-2042-1-git-send-email-david.vrabel@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Schichan <nschichan@freebox.fr>
-Date: Tue, 26 Jan 2016 16:12:35 +0100
+From: David Vrabel <david.vrabel@citrix.com>
+Date: Tue, 26 Jan 2016 17:12:44 +0000
 
-> The code in txq_put_data() would use txq->tx_curr_desc to index the
-> tso_hdrs/tso_hdrs_dma buffers, for less than 8 bytes unaligned
-> fragments, which is already moved to the next descriptor at the
-> beginning of the function.
+> From: Malcolm Crossley <malcolm.crossley@citrix.com>
 > 
-> If that fragment was the last of the the skb, the next skb would use
-> that same space to place the ip headers, overwritting that small
-> fragment data.
+> Trying to batch Tx response events results in poor performance because
+> this delays freeing the transmitted skbs.
 > 
-> Fixes: 91986fd3d335 (net: mv643xx_eth: Ensure proper data alignment in TSO TX path)
-> Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
+> Instead use the standard RING_FINAL_CHECK_FOR_RESPONSES() macro to be
+> notified once the next Tx response is placed on the ring.
+> 
+> Signed-off-by: Malcolm Crossley <malcolm.crossley@citrix.com>
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 
 Applied.
