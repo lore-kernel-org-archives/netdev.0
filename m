@@ -1,29 +1,64 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] vxlan: fix a out of bounds access in __vxlan_find_mac
-Date: Fri, 29 Jan 2016 13:41:08 -0800
-Message-ID: <CAM_iQpUoB0VH_c3OFMo4Dxrnrzie89jB0u=tceeqJjQgnr5PMQ@mail.gmail.com>
-References: <1454031827-23118-1-git-send-email-roy.qing.li@gmail.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: bonding (IEEE 802.3ad) not working with qemu/virtio
+Date: Fri, 29 Jan 2016 13:45:00 -0800
+Message-ID: <28285.1454103900@famine>
+References: <CAJO99TmB3957Wq3Cse7azgBxKeZ2BV6QihoyAsjUjyvzc-V8dQ@mail.gmail.com> <56ABDA3D.8040100@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: roy.qing.li@gmail.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?us-ascii?Q?=3D=3FUTF-8=3FQ=3FBj=3Dc3=3Db8rnar=5FNess=3F=3D?=
+	<bjornar.ness@gmail.com>, netdev <netdev@vger.kernel.org>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f169.google.com ([209.85.160.169]:35871 "EHLO
-	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756541AbcA2VlJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 16:41:09 -0500
-Received: by mail-yk0-f169.google.com with SMTP id z7so11854188yka.3
-        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 13:41:09 -0800 (PST)
-In-Reply-To: <1454031827-23118-1-git-send-email-roy.qing.li@gmail.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:39719 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757030AbcA2VpF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 16:45:05 -0500
+In-reply-to: <56ABDA3D.8040100@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 28, 2016 at 5:43 PM,  <roy.qing.li@gmail.com> wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
+Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+
+>On 01/25/2016 05:24 PM, Bj=C3=B8rnar Ness wrote:
+>> As subject says, 802.3ad bonding is not working with virtio network =
+model.
+>>=20
+>> The only errors I see is:
+>>=20
+>> No 802.3ad response from the link partner for any adapters in the bo=
+nd.
+>>=20
+>> Dumping the network traffic shows that no LACP packets are sent from=
+ the
+>> host running with virtio driver, changing to for example e1000 solve=
+s
+>> this problem
+>> with no configuration changes.
+>>=20
+>> Is this a known problem?
+>>=20
+>[Including bonding maintainers for comments]
 >
-> The size of all_zeros_mac is 6 byte, but eth_hash() will access the
-> 8 byte, and KASan reported the below bug:
+>Hi,
+>Here's a workaround patch for virtio_net devices that "cheats" the
+>duplex test (which is the actual problem). I've tested this locally
+>and it works for me.
+>I'd let the others comment on the implementation, there're other signs
+>that can be used to distinguish a virtio_net device so I'm open to sug=
+gestions.
+>Also feedback if this is at all acceptable would be appreciated.
 
+	Should virtio instead provide an arbitrary speed and full duplex
+to ethtool, as veth does?
 
-Sounds like we should fix eth_hash() (macvlan has a same function),
-it should not read beyond 6 bytes.
+	Creating a magic whitelist of devices deep inside the 802.3ad
+implementation seems less desirable.
+
+	-J
+=09
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
