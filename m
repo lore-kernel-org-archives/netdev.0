@@ -1,52 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
-Date: Fri, 29 Jan 2016 12:06:53 -0800
-Message-ID: <1454098013.7627.71.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20160129180651.GA17127@oracle.com>
-	 <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20160129.110634.1678121731419241040.davem@davemloft.net>
-	 <1454096250.7627.60.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20160129194434.GC17127@oracle.com>
-	 <1454097696.7627.68.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] macvlan: make operstate and carrier more accurate
+Date: Fri, 29 Jan 2016 12:07:27 -0800 (PST)
+Message-ID: <20160129.120727.2297321341636437499.davem@davemloft.net>
+References: <1453913443-4934-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com, kaber@trash.net,
+	nikolay@cumulusnetworks.com
+To: razor@blackwall.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:33188 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751859AbcA2UGz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 15:06:55 -0500
-Received: by mail-pf0-f174.google.com with SMTP id x125so47519257pfb.0
-        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 12:06:55 -0800 (PST)
-In-Reply-To: <1454097696.7627.68.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39428 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752830AbcA2UHa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 15:07:30 -0500
+In-Reply-To: <1453913443-4934-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-01-29 at 12:01 -0800, Eric Dumazet wrote:
-> On Fri, 2016-01-29 at 14:44 -0500, Sowmini Varadhan wrote:
-> > On (01/29/16 11:37), Eric Dumazet wrote:
-> > > 
-> > > I have no idea why reading iph->saddr or iph->daddr would not hit the
-> > > problem, but accessing the 32bit ipv6 flow label would be an issue.
-> > > 
-> > > Something is fishy.
-> > 
-> > I was wondering about this myself. Even on sparc, I only first
-> > ran into the errors for ipv6. I dont know if the fact that the
-> > saddr is memcpy'ed masks the error (even though the problem
-> > is still there). 
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Date: Wed, 27 Jan 2016 17:50:43 +0100
+
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > 
-> Oh right, recent work in flow dissector added all these memcpy()
+> Currently when a macvlan is being initialized and the lower device is
+> netif_carrier_ok(), the macvlan device doesn't run through
+> rfc2863_policy() and is left with UNKNOWN operstate. Fix it by adding an
+> unconditional linkwatch event for the new macvlan device. Similar fix is
+> already used by the 8021q device (see register_vlan_dev()). Also fix the
+> inconsistent state when the lower device has been down and its carrier
+> was changed (when a device is down NETDEV_CHANGE doesn't get generated).
+> The second issue can be seen f.e. when we have a macvlan on top of a 8021q
+> device which has been down and its real device has been changing carrier
+> states, after setting the 8021q device up, the macvlan device will have
+> the same carrier state as it was before even though the 8021q can now
+> have a different state.
+ ...
+> This behaviour seems to have been present since beginning of git history.
 > 
-> I was still looking at linux-4.3 ;)
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-The code for GRE/GRE_KEY is still accessing 32bit vars.
-
-const __be32 *keyid;
-...
-key_keyid->keyid = *keyid;
-
-So instead of auditing flow dissect code, we should fix the few drivers
-using it.
+Applied, thanks Nikolay.
