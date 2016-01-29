@@ -1,53 +1,52 @@
-From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: WARNING at net/mac80211/rate.c:513 ieee80211_get_tx_rates [mac80211]
-Date: Fri, 29 Jan 2016 10:39:40 -0800
-Message-ID: <CA+55aFysqqp-BCZs1ue6_1tE=h9SOUZTH_o7TwGbsaBnaFvXGA@mail.gmail.com>
-References: <CA+55aFxe22iWok6UojY=hCoG2k1wNpJ9CfQ0b+STSxq67tb86Q@mail.gmail.com>
-	<1453983185.2217.12.camel@sipsolutions.net>
-	<CA+55aFya9K4JboNY8kB9cg6zt9otguhdzfHm3jvLmWedxQTSWg@mail.gmail.com>
-	<1454013625.2332.9.camel@sipsolutions.net>
-	<CA+55aFx73nv9ny-fu5BR6v8wL=f2oFomwrZoLRw=x2kNP76cYA@mail.gmail.com>
-	<CA+55aFzF0gWfvmE+6ZcHmjnO4xp-oVAQ5SWxYJhOzns2ocgCsw@mail.gmail.com>
-	<1454019155.2332.15.camel@sipsolutions.net>
-	<CA+55aFxjpdepHYD_6uU48kW38Z9bmf2wwA8yPZt4ibhkofmfQA@mail.gmail.com>
-	<56AAC66C.1080800@lwfinger.net>
-	<1454056380.3369.2.camel@sipsolutions.net>
-	<CAP71bdVZzUUNwP3py_m1pwU21qMKth=0BmMfLuUb7=B-1840zg@mail.gmail.com>
-	<1454084146.2800.0.camel@sipsolutions.net>
-	<56ABA73C.1060504@lwfinger.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
+Date: Fri, 29 Jan 2016 10:40:10 -0800
+Message-ID: <1454092810.7627.53.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20160129180651.GA17127@oracle.com>
+	 <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <56ABA73C.1060504-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35790 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932552AbcA2SkM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 13:40:12 -0500
+Received: by mail-pf0-f182.google.com with SMTP id 65so46151229pfd.2
+        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 10:40:12 -0800 (PST)
+In-Reply-To: <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 29, 2016 at 9:54 AM, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> wrote:
->
-> The test patch that Johannes sent earlier was close. The section needed to
-> add VHT rates is:
+On Fri, 2016-01-29 at 10:33 -0800, Eric Dumazet wrote:
 
-Hmm. This looks pretty much exactly like what I already tried (I had
-fixed Johannes' patch to use "vht_cap" already, since it didn't
-compile otherwise).
+> 
+> Why ipv6 stack itself does not trigger the issue ?
+> 
+> Maybe the driver itself does not properly align IP headers on sparc ?
+> 
+> Make sure NET_IP_ALIGN is 2 on your build.
+> 
+> Note that x86 does not care, but a driver should always align Ethernet
+> header to NET_IP_ALIGN, so that IP headers are aligned to 4 bytes
+> boundaries.
+> 
 
-So the only difference is that it only checks WIRELESS_MODE_AC_5G.
+I would try following ixgbe fix (sorry, totally untested, but you get
+the idea...)
 
-But it worked for me this time. I have no idea why.
-
-Maybe Johannes' patch actually always worked for me, but I just had a
-transient problem that made me think it didn't. I think I only booted
-it once, and went "oh, ok, no network, that didn't work".
-
-                  Linus
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index c4003a88bbf6..7ba64ed463a6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1525,7 +1525,7 @@ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
+ 
+ 	bi->dma = dma;
+ 	bi->page = page;
+-	bi->page_offset = 0;
++	bi->page_offset = NET_IP_ALIGN;
+ 
+ 	return true;
+ }
