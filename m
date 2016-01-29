@@ -1,57 +1,127 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
-Date: Fri, 29 Jan 2016 15:31:54 -0800
-Message-ID: <CALx6S34KtC4kkjzchY5Xs4QapD7FMqxShwEDST0Q_bZgDRicmQ@mail.gmail.com>
-References: <20160129180651.GA17127@oracle.com>
-	<1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1454093642.7627.57.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CALx6S34+od6o69rHQzotJFXf7kziEuQUj=xH5VUWw+YpH4FjNg@mail.gmail.com>
-	<20160129210900.GD17127@oracle.com>
-	<CALx6S35V47scFFQab7ZsQyh6CktS17w4hSKZSVAnOB0Ppa7brg@mail.gmail.com>
-	<20160129230424.GG17127@oracle.com>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH] bgmac: add helper checking for BCM4707 / BCM53018 chip id
+Date: Sat, 30 Jan 2016 00:41:07 +0100
+Message-ID: <1454110867-9489-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Michael Dalton <mwdalton@google.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hauke Mehrtens <hauke@hauke-m.de>, Felix Fietkau <nbd@openwrt.org>,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:38230 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753351AbcA2Xbz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 18:31:55 -0500
-Received: by mail-ig0-f178.google.com with SMTP id mw1so217008igb.1
-        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 15:31:54 -0800 (PST)
-In-Reply-To: <20160129230424.GG17127@oracle.com>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:35199 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753351AbcA2XlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 18:41:19 -0500
+Received: by mail-lb0-f179.google.com with SMTP id bc4so49125011lbc.2
+        for <netdev@vger.kernel.org>; Fri, 29 Jan 2016 15:41:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 29, 2016 at 3:04 PM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (01/29/16 15:00), Tom Herbert wrote:
->
->> The sparc documentation is pretty clear
->> http://docs.oracle.com/cd/E19253-01/816-4854/hwovr-2/index.html, seems
->> like unaligned accesses are not allowed in the architecture.
->
-> yes, but looks like you  can paper over some of this with
-> memcpy (as was happening with the saddr ref in skb_flow_dissect
-> that puzzled me and Eric because it did not generate any traps).
->
-Well, I am more worried about what happens when an unaligned
-encapsulated TPC/IP packet gets into the stack. It seems unlikely we'd
-want to replace a bunch of address, seq numbers, etc. with memcpy all
-over the stack. ;-)
+Chipsets with BCM4707 / BCM53018 ID require special handling at a few
+places in the code. It's likely there will be more IDs to check in the
+future. To simplify it add this trivial helper.
 
-But even within flow dissector, to be completely correct, we need to
-replace all 32-bit accesses with the mempy (flow_label, mpls label,
-keyid) and be vigilant about new ones coming in. For that matter, if
-we really want to be pedantic, nothing prevents a driver from giving
-us a packet with 1 byte alignment in which case we need to consider
-access to 16-bit values also! Considering that this is a very narrow
-use case (requires encapsulated Ethernet and architecture that is
-alignment sensitive), I wonder if we should just punt on flow
-dissection when we see non 4-byte alignment and
-CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is not set.
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 30 ++++++++++++++++-----------=
+---
+ 1 file changed, 16 insertions(+), 14 deletions(-)
 
-Tom
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index 06f6cff..230f8e6 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -26,6 +26,17 @@ static const struct bcma_device_id bgmac_bcma_tbl[] =
+=3D {
+ };
+ MODULE_DEVICE_TABLE(bcma, bgmac_bcma_tbl);
+=20
++static inline bool bgmac_is_bcm4707_family(struct bgmac *bgmac)
++{
++	switch (bgmac->core->bus->chipinfo.id) {
++	case BCMA_CHIP_ID_BCM4707:
++	case BCMA_CHIP_ID_BCM53018:
++		return true;
++	default:
++		return false;
++	}
++}
++
+ static bool bgmac_wait_value(struct bcma_device *core, u16 reg, u32 ma=
+sk,
+ 			     u32 value, int timeout)
+ {
+@@ -987,11 +998,9 @@ static void bgmac_mac_speed(struct bgmac *bgmac)
+ static void bgmac_miiconfig(struct bgmac *bgmac)
+ {
+ 	struct bcma_device *core =3D bgmac->core;
+-	struct bcma_chipinfo *ci =3D &core->bus->chipinfo;
+ 	u8 imode;
+=20
+-	if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
+-	    ci->id =3D=3D BCMA_CHIP_ID_BCM53018) {
++	if (bgmac_is_bcm4707_family(bgmac)) {
+ 		bcma_awrite32(core, BCMA_IOCTL,
+ 			      bcma_aread32(core, BCMA_IOCTL) | 0x40 |
+ 			      BGMAC_BCMA_IOCTL_SW_CLKEN);
+@@ -1055,9 +1064,7 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 	}
+=20
+ 	/* Request Misc PLL for corerev > 2 */
+-	if (core->id.rev > 2 &&
+-	    ci->id !=3D BCMA_CHIP_ID_BCM4707 &&
+-	    ci->id !=3D BCMA_CHIP_ID_BCM53018) {
++	if (core->id.rev > 2 && !bgmac_is_bcm4707_family(bgmac)) {
+ 		bgmac_set(bgmac, BCMA_CLKCTLST,
+ 			  BGMAC_BCMA_CLKCTLST_MISC_PLL_REQ);
+ 		bgmac_wait_value(bgmac->core, BCMA_CLKCTLST,
+@@ -1193,8 +1200,7 @@ static void bgmac_enable(struct bgmac *bgmac)
+ 		break;
+ 	}
+=20
+-	if (ci->id !=3D BCMA_CHIP_ID_BCM4707 &&
+-	    ci->id !=3D BCMA_CHIP_ID_BCM53018) {
++	if (!bgmac_is_bcm4707_family(bgmac)) {
+ 		rxq_ctl =3D bgmac_read(bgmac, BGMAC_RXQ_CTL);
+ 		rxq_ctl &=3D ~BGMAC_RXQ_CTL_MDP_MASK;
+ 		bp_clk =3D bcma_pmu_get_bus_clock(&bgmac->core->bus->drv_cc) /
+@@ -1472,14 +1478,12 @@ static int bgmac_fixed_phy_register(struct bgma=
+c *bgmac)
+=20
+ static int bgmac_mii_register(struct bgmac *bgmac)
+ {
+-	struct bcma_chipinfo *ci =3D &bgmac->core->bus->chipinfo;
+ 	struct mii_bus *mii_bus;
+ 	struct phy_device *phy_dev;
+ 	char bus_id[MII_BUS_ID_SIZE + 3];
+ 	int err =3D 0;
+=20
+-	if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
+-	    ci->id =3D=3D BCMA_CHIP_ID_BCM53018)
++	if (bgmac_is_bcm4707_family(bgmac))
+ 		return bgmac_fixed_phy_register(bgmac);
+=20
+ 	mii_bus =3D mdiobus_alloc();
+@@ -1539,7 +1543,6 @@ static void bgmac_mii_unregister(struct bgmac *bg=
+mac)
+ /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipattach */
+ static int bgmac_probe(struct bcma_device *core)
+ {
+-	struct bcma_chipinfo *ci =3D &core->bus->chipinfo;
+ 	struct net_device *net_dev;
+ 	struct bgmac *bgmac;
+ 	struct ssb_sprom *sprom =3D &core->bus->sprom;
+@@ -1620,8 +1623,7 @@ static int bgmac_probe(struct bcma_device *core)
+ 	bgmac_chip_reset(bgmac);
+=20
+ 	/* For Northstar, we have to take all GMAC core out of reset */
+-	if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
+-	    ci->id =3D=3D BCMA_CHIP_ID_BCM53018) {
++	if (bgmac_is_bcm4707_family(bgmac)) {
+ 		struct bcma_device *ns_core;
+ 		int ns_gmac;
+=20
+--=20
+1.8.4.5
