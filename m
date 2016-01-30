@@ -1,45 +1,67 @@
-From: Lucas Tanure <tanure@linux.com>
-Subject: Re: [PATCH 3/4] netfilter: ipv4: use preferred kernel types
-Date: Sat, 30 Jan 2016 12:05:52 -0200
-Message-ID: <CAJX_Q+18D3omXJRy-2CEieqhAXCwpFwwt=JiRWkozPqs4cC96g@mail.gmail.com>
-References: <1454159878-20706-1-git-send-email-tanure@linux.com>
-	<1454159878-20706-3-git-send-email-tanure@linux.com>
-	<20160130134550.GA5613@macbook.localdomain>
+From: Vasily Averin <vvs@virtuozzo.com>
+Subject: Re: [net,2/2] net: i40e: shut up uninitialized variable warnings
+Date: Sat, 30 Jan 2016 18:33:26 +0300
+Message-ID: <56ACD7C6.1010808@virtuozzo.com>
+References: <1453766332-43274-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S . Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33412 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753919AbcA3OFx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 09:05:53 -0500
-In-Reply-To: <20160130134550.GA5613@macbook.localdomain>
+Received: from mailhub.sw.ru ([195.214.232.25]:22794 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753991AbcA3PeP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jan 2016 10:34:15 -0500
+In-Reply-To: <1453766332-43274-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 30, 2016 at 11:45 AM, Patrick McHardy <kaber@trash.net> wrote:
-> On 30.01, Lucas Tanure wrote:
->> As suggested by checkpatch.pl:
->> CHECK: Prefer kernel type 'uX' over 'uintX_t'
->
-> You might have noticed we have literally hundreds of them spread over 100
-> files in the netfilter code. We'll gradually change them when the code is
-> touched anyways.
->
->>  net/ipv4/netfilter/ip_tables.c | 5 ++---
->>  1 file changed, 2 insertions(+), 3 deletions(-)
+On 26.01.2016 02:58, Jeff Kirsher wrote:
+> From: Arnd Bergmann <arnd@arndb.de>
+> 
+> intel/i40e/i40e_txrx.c: In function 'i40e_xmit_frame_ring':
+> intel/i40e/i40e_txrx.c:2367:20: error: 'oiph' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> intel/i40e/i40e_txrx.c:2317:16: note: 'oiph' was declared here
+> intel/i40e/i40e_txrx.c:2367:17: error: 'oudph' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> intel/i40e/i40e_txrx.c:2316:17: note: 'oudph' was declared here
 
-Yes, I checked that. But would be better to change that now?
-Because:
-- could take years to anyone to touch the code, as the code already
-works very well
-- be more standardized could facilitate reading the code
-- It's a good way to encourage new people to contribute to the code
+2364                 if ((tx_ring->flags & I40E_TXR_FLAGS_OUTER_UDP_CSUM) &&
+2365                     (l4_tunnel == I40E_TXD_CTX_UDP_TUNNELING)        &&
+2366                     (*cd_tunneling & I40E_TXD_CTX_QW0_EXT_IP_MASK)) {
+2367                         oudph->check = ~csum_tcpudp_magic(oiph->saddr,
+2368                                         oiph->daddr,
+2369                                         (skb->len - skb_transport_offset(skb)),
+2370                                         IPPROTO_UDP, 0);
 
-Thanks!
+if compiler reports that oudph and oiph can be unitialized here,
+it's not enough just to set them to NULL.
+
+Do we need probably to check that variables was initialized before access here?
+i.e. add  oudph && oiph into condition?
+
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_txrx.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> index 720516b..47bd8b3 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> @@ -2313,8 +2313,8 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
+>  	struct iphdr *this_ip_hdr;
+>  	u32 network_hdr_len;
+>  	u8 l4_hdr = 0;
+> -	struct udphdr *oudph;
+> -	struct iphdr *oiph;
+> +	struct udphdr *oudph = NULL;
+> +	struct iphdr *oiph = NULL;
+>  	u32 l4_tunnel = 0;
+>  
+>  	if (skb->encapsulation) {
+> 
