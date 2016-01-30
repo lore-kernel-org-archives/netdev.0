@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bgmac: add helper checking for BCM4707 / BCM53018 chip
- id
-Date: Fri, 29 Jan 2016 23:03:26 -0800 (PST)
-Message-ID: <20160129.230326.2013535528827383323.davem@davemloft.net>
-References: <1454110867-9489-1-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH net] tcp: avoid cwnd undo after receiving ECN
+Date: Fri, 29 Jan 2016 23:04:19 -0800 (PST)
+Message-ID: <20160129.230419.1854358229164635050.davem@davemloft.net>
+References: <1454109110-32068-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de, nbd@openwrt.org
-To: zajec5@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ncardwell@google.com, edumazet@google.com
+To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42961 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42966 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751179AbcA3HD1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 02:03:27 -0500
-In-Reply-To: <1454110867-9489-1-git-send-email-zajec5@gmail.com>
+	with ESMTP id S1751179AbcA3HEU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 02:04:20 -0500
+In-Reply-To: <1454109110-32068-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Sat, 30 Jan 2016 00:41:07 +0100
+From: Yuchung Cheng <ycheng@google.com>
+Date: Fri, 29 Jan 2016 15:11:50 -0800
 
-> Chipsets with BCM4707 / BCM53018 ID require special handling at a few
-> places in the code. It's likely there will be more IDs to check in th=
-e
-> future. To simplify it add this trivial helper.
->=20
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+> RFC 4015 section 3.4 says the TCP sender MUST refrain from
+> reversing the congestion control state when the ACK signals
+> congestion through the ECN-Echo flag. Currently we may not
+> always do that when prior_ssthresh is reset upon receiving
+> ACKs with ECE marks. This patch fixes that.
+> 
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-The net-next tree is not open, therefore submitting this kind of cleanu=
-p
-is not appropriate.
+Applied, thanks.
