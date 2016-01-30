@@ -1,7 +1,7 @@
 From: Lucas Tanure <tanure@linux.com>
-Subject: [PATCH 3/4] netfilter: ipv4: use preferred kernel types
-Date: Sat, 30 Jan 2016 11:17:57 -0200
-Message-ID: <1454159878-20706-3-git-send-email-tanure@linux.com>
+Subject: [PATCH 2/4] netfilter: ipv4: EXPORT_SYMBOL should be shortly thereafter the exported function
+Date: Sat, 30 Jan 2016 11:17:56 -0200
+Message-ID: <1454159878-20706-2-git-send-email-tanure@linux.com>
 References: <1454159878-20706-1-git-send-email-tanure@linux.com>
 Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
 	"David S . Miller" <davem@davemloft.net>,
@@ -10,45 +10,55 @@ Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
 	linux-kernel@vger.kernel.org
 To: Pablo Neira Ayuso <pablo@netfilter.org>,
 	Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f67.google.com ([209.85.192.67]:34806 "EHLO
-	mail-qg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752786AbcA3NSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 08:18:11 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1454159878-20706-1-git-send-email-tanure@linux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-As suggested by checkpatch.pl:
-CHECK: Prefer kernel type 'uX' over 'uintX_t'
+change made to resolve following checkpatch message:
+  WARNING: EXPORT_SYMBOL(foo); should immediately follow its function/variable
 
 Signed-off-by: Lucas Tanure <tanure@linux.com>
 ---
- net/ipv4/netfilter/ip_tables.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ net/ipv4/netfilter/ip_tables.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 79d4a04..dcc61c0 100644
+index aa0e41e..79d4a04 100644
 --- a/net/ipv4/netfilter/ip_tables.c
 +++ b/net/ipv4/netfilter/ip_tables.c
-@@ -1411,7 +1411,7 @@ compat_copy_entry_to_user(struct ipt_entry *e, void __user **dstptr,
+@@ -442,6 +442,7 @@ ipt_do_table(struct sk_buff *skb,
+ 	else return verdict;
+ #endif
+ }
++EXPORT_SYMBOL(ipt_do_table);
+ 
+ /* Figures out from what hook each rule can be called: returns 0 if
+    there are loops.  Puts hook bitmask in comefrom. */
+@@ -2098,6 +2099,7 @@ out_free:
+ out:
+ 	return ERR_PTR(ret);
+ }
++EXPORT_SYMBOL(ipt_register_table);
+ 
+ void ipt_unregister_table(struct net *net, struct xt_table *table)
  {
- 	struct xt_entry_target *t;
- 	struct compat_ipt_entry __user *ce;
--	u_int16_t target_offset, next_offset;
-+	u16 target_offset, next_offset;
- 	compat_uint_t origsize;
- 	const struct xt_entry_match *ematch;
- 	int ret = 0;
-@@ -2122,8 +2122,7 @@ EXPORT_SYMBOL(ipt_unregister_table);
+@@ -2116,6 +2118,7 @@ void ipt_unregister_table(struct net *net, struct xt_table *table)
+ 		module_put(table_owner);
+ 	xt_free_table_info(private);
+ }
++EXPORT_SYMBOL(ipt_unregister_table);
  
  /* Returns 1 if the type and code is matched by the range, 0 otherwise */
  static inline bool
--icmp_type_code_match(u_int8_t test_type, u_int8_t min_code, u_int8_t max_code,
--		     u_int8_t type, u_int8_t code,
-+icmp_type_code_match(u8 test_type, u8 min_code, u8 max_code, u8 type, u8 code,
- 		     bool invert)
- {
- 	return ((test_type == 0xFF) ||
+@@ -2269,8 +2272,5 @@ static void __exit ip_tables_fini(void)
+ 	unregister_pernet_subsys(&ip_tables_net_ops);
+ }
+ 
+-EXPORT_SYMBOL(ipt_register_table);
+-EXPORT_SYMBOL(ipt_unregister_table);
+-EXPORT_SYMBOL(ipt_do_table);
+ module_init(ip_tables_init);
+ module_exit(ip_tables_fini);
 -- 
 2.7.0
