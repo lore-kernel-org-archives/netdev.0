@@ -1,70 +1,92 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net v2 1/4] net/core: relax BUILD_BUG_ON in netdev_stats_to_stats64
-Date: Sat, 30 Jan 2016 13:19:42 -0500
-Message-ID: <1454177982-32870-1-git-send-email-jarod@redhat.com>
-References: <1453996188-29965-1-git-send-email-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 3/4] netfilter: ipv4: use preferred kernel types
+Date: Sat, 30 Jan 2016 10:26:01 -0800
+Message-ID: <1454178361.7329.40.camel@perches.com>
+References: <1454159878-20706-1-git-send-email-tanure@linux.com>
+	 <1454159878-20706-3-git-send-email-tanure@linux.com>
+	 <20160130134550.GA5613@macbook.localdomain>
+	 <CAJX_Q+18D3omXJRy-2CEieqhAXCwpFwwt=JiRWkozPqs4cC96g@mail.gmail.com>
+	 <1454176313.7627.129.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S . Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Lucas Tanure <tanure@linux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453996188-29965-1-git-send-email-jarod@redhat.com>
+In-Reply-To: <1454176313.7627.129.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The netdev_stats_to_stats64 function copies the deprecated
-net_device_stats format stats into rtnl_link_stats64 for legacy support
-purposes, but with the BUILD_BUG_ON as it was, it wasn't possible to
-extend rtnl_link_stats64 without also extending net_device_stats. Relax
-the BUILD_BUG_ON to only require that rtnl_link_stats64 is larger, and
-zero out all the stat counters that aren't present in net_device_stats.
+On Sat, 2016-01-30 at 09:51 -0800, Eric Dumazet wrote:
+> On Sat, 2016-01-30 at 12:05 -0200, Lucas Tanure wrote:
+> > On Sat, Jan 30, 2016 at 11:45 AM, Patrick McHardy <kaber@trash.net>=
+ wrote:
+> > > On 30.01, Lucas Tanure wrote:
+> > > > As suggested by checkpatch.pl:
+> > > > CHECK: Prefer kernel type 'uX' over 'uintX_t'
+> > >=20
+> > > You might have noticed we have literally hundreds of them spread =
+over 100
+> > > files in the netfilter code. We'll gradually change them when the=
+ code is
+> > > touched anyways.
+> > >=20
+> > > > =A0net/ipv4/netfilter/ip_tables.c | 5 ++---
+> > > > =A01 file changed, 2 insertions(+), 3 deletions(-)
+> >=20
+> > Yes, I checked that. But would be better to change that now?
+> > Because:
+> > - could take years to anyone to touch the code, as the code already
+> > works very well
+> > - be more standardized could facilitate reading the code
+> > - It's a good way to encourage new people to contribute to the code
+> >=20
+> > Thanks!
+>=20
+> These changes are a pain for people having to constantly backport fix=
+es
+> into stable kernels, or rebase their patches before upstream
+> submissions.
+>=20
+> Things like 'git cherry-pick' , 'git rebase' no longer work.
+> This is a huge pain, and manual editing to resolve conflicts often
+> add bugs.
+>=20
+> Really, do you believe the 'uX' over 'uintX_t' stuff really matters f=
+or
+> people working on adding new features and fixing bugs ?
+>=20
+> I am certain that if you had to work like us, you would quickly see t=
+he
+> utility of such changes is negative.
+>=20
+> Sure, new submissions should be clean, but 'fixing' old code is not
+> worth it.
 
-CC: Eric Dumazet <edumazet@google.com>
-CC: netdev@vger.kernel.org
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
----
-Re-re-sending, hopefully getting the patch to the right list this time.
+That might depend on whether or not the linux kernel is
+a "long-life project" and whether or no any old branch
+of it is also important and sufficiently long-life.
 
- net/core/dev.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
+The active life of a backport branch for the linux kernel
+seems to be 3 or 4 years. =A0The linux kernel will likely
+be useful for a few more decades beyond that.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8cba3d8..575a7df 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7253,25 +7253,30 @@ void netdev_run_todo(void)
- 	}
- }
- 
--/* Convert net_device_stats to rtnl_link_stats64.  They have the same
-- * fields in the same order, with only the type differing.
-+/* Convert net_device_stats to rtnl_link_stats64. rtnl_link_stats64 has
-+ * all the same fields in the same order as net_device_stats, with only
-+ * the type differing, but rtnl_link_stats64 may have additional fields
-+ * at the end for newer counters.
-  */
- void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
- 			     const struct net_device_stats *netdev_stats)
- {
- #if BITS_PER_LONG == 64
--	BUILD_BUG_ON(sizeof(*stats64) != sizeof(*netdev_stats));
-+	BUILD_BUG_ON(sizeof(*stats64) < sizeof(*netdev_stats));
- 	memcpy(stats64, netdev_stats, sizeof(*stats64));
- #else
- 	size_t i, n = sizeof(*stats64) / sizeof(u64);
- 	const unsigned long *src = (const unsigned long *)netdev_stats;
- 	u64 *dst = (u64 *)stats64;
- 
--	BUILD_BUG_ON(sizeof(*netdev_stats) / sizeof(unsigned long) !=
-+	BUILD_BUG_ON(sizeof(*netdev_stats) / sizeof(unsigned long) >
- 		     sizeof(*stats64) / sizeof(u64));
- 	for (i = 0; i < n; i++)
- 		dst[i] = src[i];
- #endif
-+	/* zero out counters that only exist in rtnl_link_stats64 */
-+	memset((char *)stats64 + sizeof(*netdev_stats), 0,
-+	       sizeof(*stats64) - sizeof(*netdev_stats));
- }
- EXPORT_SYMBOL(netdev_stats_to_stats64);
- 
--- 
-1.8.3.1
+Complex and long-life projects like the linux kernel
+might benefit more in code complexity reduction patches
+like these rather than code stasis for backward porting
+ease.
+
+In general, arguing for stasis leads to ossification,
+slow decline.
+
+Change for change's sake is poor, but changes to reduce
+complexity, improve maintainability (for some measure of
+it) and especially improve performance should be
+welcomed where feasible.
