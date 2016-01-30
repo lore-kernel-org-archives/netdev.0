@@ -1,67 +1,44 @@
-From: Vasily Averin <vvs@virtuozzo.com>
-Subject: Re: [net,2/2] net: i40e: shut up uninitialized variable warnings
-Date: Sat, 30 Jan 2016 18:33:26 +0300
-Message-ID: <56ACD7C6.1010808@virtuozzo.com>
-References: <1453766332-43274-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [net PATCH] flow_dissector: Fix unaligned access in
+ __skb_flow_dissector when used by eth_get_headlen
+Date: Sat, 30 Jan 2016 11:17:02 -0500
+Message-ID: <20160130161702.GA11601@oracle.com>
+References: <20160129180651.GA17127@oracle.com>
+ <20160130024556.6227.51798.stgit@localhost.localdomain>
+ <1454124234.7627.119.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, alexander.duyck@gmail.com, tom@herbertland.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:22794 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753991AbcA3PeP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jan 2016 10:34:15 -0500
-In-Reply-To: <1453766332-43274-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:21244 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754413AbcA3QRO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 11:17:14 -0500
+Content-Disposition: inline
+In-Reply-To: <1454124234.7627.119.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26.01.2016 02:58, Jeff Kirsher wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
+On (01/29/16 19:23), Eric Dumazet wrote:
+> BTW, even a memcpy(&key_addrs->v4addrs, &iph->saddr, 8) could crash, as
+> the compiler can certainly assume src and dst are 4 bytes aligned, and
+> could use word accesses when inlining memcpy() even on Sparc.
 > 
-> intel/i40e/i40e_txrx.c: In function 'i40e_xmit_frame_ring':
-> intel/i40e/i40e_txrx.c:2367:20: error: 'oiph' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> intel/i40e/i40e_txrx.c:2317:16: note: 'oiph' was declared here
-> intel/i40e/i40e_txrx.c:2367:17: error: 'oudph' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> intel/i40e/i40e_txrx.c:2316:17: note: 'oudph' was declared here
+> Apparently the compiler used by Sowmini is gentle.
 
-2364                 if ((tx_ring->flags & I40E_TXR_FLAGS_OUTER_UDP_CSUM) &&
-2365                     (l4_tunnel == I40E_TXD_CTX_UDP_TUNNELING)        &&
-2366                     (*cd_tunneling & I40E_TXD_CTX_QW0_EXT_IP_MASK)) {
-2367                         oudph->check = ~csum_tcpudp_magic(oiph->saddr,
-2368                                         oiph->daddr,
-2369                                         (skb->len - skb_transport_offset(skb)),
-2370                                         IPPROTO_UDP, 0);
+One more subtlety that I missed until now.. 
 
-if compiler reports that oudph and oiph can be unitialized here,
-it's not enough just to set them to NULL.
+eth_get_headlen passes in flow_keys_buf_dissector (NOT flow_keys_dissector!)
 
-Do we need probably to check that variables was initialized before access here?
-i.e. add  oudph && oiph into condition?
+So FLOW_DISSECTOR_KEY_IPV4_ADDRS is not set, and this helps to dodge
+the unaligned iph->saddr access.
 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_txrx.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-> index 720516b..47bd8b3 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-> @@ -2313,8 +2313,8 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
->  	struct iphdr *this_ip_hdr;
->  	u32 network_hdr_len;
->  	u8 l4_hdr = 0;
-> -	struct udphdr *oudph;
-> -	struct iphdr *oiph;
-> +	struct udphdr *oudph = NULL;
-> +	struct iphdr *oiph = NULL;
->  	u32 l4_tunnel = 0;
->  
->  	if (skb->encapsulation) {
-> 
+But as others have pointed out, much of this code is brittle
+because it's accessing the data before the driver has had a chance
+to align things. The page_offset initialization of NET_IP_ALIGN,
+with all its weaknesses, at least matches (in principle) the prescription
+used for the xmit path.
+
+--Sowmini
