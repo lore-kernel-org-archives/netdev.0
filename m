@@ -1,38 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/7] network driver fixes
-Date: Fri, 29 Jan 2016 20:34:16 -0800 (PST)
-Message-ID: <20160129.203416.1451706111708529250.davem@davemloft.net>
-References: <1454067557-3546883-1-git-send-email-arnd@arndb.de>
+Subject: Re: [PATCH net 5/6] net: mvneta: The mvneta_percpu_elect function
+ should be atomic
+Date: Fri, 29 Jan 2016 20:38:10 -0800 (PST)
+Message-ID: <20160129.203810.1601035648854177084.davem@davemloft.net>
+References: <1454084767-24715-1-git-send-email-gregory.clement@free-electrons.com>
+	<1454084767-24715-6-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42348 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753665AbcA3EeR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2016 23:34:17 -0500
-In-Reply-To: <1454067557-3546883-1-git-send-email-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	thomas.petazzoni@free-electrons.com, jason@lakedaemon.net,
+	andrew@lunn.ch, sebastian.hesselbarth@gmail.com,
+	linux-arm-kernel@lists.infradead.org, alior@marvell.com,
+	nadavh@marvell.com, mw@semihalf.com, linux@arm.linux.org.uk,
+	w@1wt.eu
+To: gregory.clement@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454084767-24715-6-git-send-email-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 29 Jan 2016 12:39:08 +0100
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Date: Fri, 29 Jan 2016 17:26:06 +0100
 
-> This is an updated series of fixes for the network device drivers
-> that showed warnings in ARM randconfig.
-> 
-> Changes since v1 are:
-> 
-> dropped "net: macb: avoid uninitialized variables", already fixed in net-next
-> 
-> dropped "net: fddi/defxx: avoid warning about uninitialized variable
-> 	use", already fixed in net-next
-> 
-> added missing barriers in "net: moxart: use correct accessors for
-> 	DMA memory"
-> 
-> clarified "net: bgmac: clarify CONFIG_BCMA dependency" changelog
+> @@ -370,6 +370,8 @@ struct mvneta_port {
+>  	struct net_device *dev;
+>  	struct notifier_block cpu_notifier;
+>  	int rxq_def;
+> +	/* protect  */
+> +	spinlock_t lock;
+>  
+>  	/* Core clock */
+>  	struct clk *clk;
 
-Series applied, thanks.
+Protect what?  This comment needs a lot of improvement.
+
+Everyone knows a spinlock "protects" things, so if you aren't going
+to actually describe what this lock protects, and in what contexts
+the lock is used, you might as well not say anything at all.
