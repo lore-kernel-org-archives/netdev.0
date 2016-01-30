@@ -1,56 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 3/4] netfilter: ipv4: use preferred kernel types
-Date: Sat, 30 Jan 2016 09:25:35 -0800
-Message-ID: <1454174735.7329.20.camel@perches.com>
-References: <1454159878-20706-1-git-send-email-tanure@linux.com>
-	 <1454159878-20706-3-git-send-email-tanure@linux.com>
-	 <20160130134550.GA5613@macbook.localdomain>
-	 <CAJX_Q+18D3omXJRy-2CEieqhAXCwpFwwt=JiRWkozPqs4cC96g@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [net PATCH] flow_dissector: Fix unaligned access in
+ __skb_flow_dissector when used by eth_get_headlen
+Date: Sat, 30 Jan 2016 09:43:00 -0800
+Message-ID: <CALx6S378mozgF0A1iq=Y_LB+_5c=_8_iwOYBgoSArUJW60A6Ag@mail.gmail.com>
+References: <20160129180651.GA17127@oracle.com>
+	<20160130024556.6227.51798.stgit@localhost.localdomain>
+	<1454124234.7627.119.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20160130161702.GA11601@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S . Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Lucas Tanure <tanure@linux.com>, Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0189.hostedemail.com ([216.40.44.189]:43573 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932215AbcA3RZj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 12:25:39 -0500
-In-Reply-To: <CAJX_Q+18D3omXJRy-2CEieqhAXCwpFwwt=JiRWkozPqs4cC96g@mail.gmail.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:38302 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932215AbcA3RnB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 12:43:01 -0500
+Received: by mail-ig0-f179.google.com with SMTP id mw1so9179006igb.1
+        for <netdev@vger.kernel.org>; Sat, 30 Jan 2016 09:43:01 -0800 (PST)
+In-Reply-To: <20160130161702.GA11601@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2016-01-30 at 12:05 -0200, Lucas Tanure wrote:
-> On Sat, Jan 30, 2016 at 11:45 AM, Patrick McHardy <kaber@trash.net> w=
-rote:
-> > On 30.01, Lucas Tanure wrote:
-> > > As suggested by checkpatch.pl:
-> > > CHECK: Prefer kernel type 'uX' over 'uintX_t'
-> >=20
-> > You might have noticed we have literally hundreds of them spread ov=
-er 100
-> > files in the netfilter code. We'll gradually change them when the c=
-ode is
-> > touched anyways.
-> >=20
-> > > =A0net/ipv4/netfilter/ip_tables.c | 5 ++---
-> > > =A01 file changed, 2 insertions(+), 3 deletions(-)
->=20
-> Yes, I checked that. But would be better to change that now?
-> Because:
-> - could take years to anyone to touch the code, as the code already
-> works very well
-> - be more standardized could facilitate reading the code
-> - It's a good way to encourage new people to contribute to the code
+On Sat, Jan 30, 2016 at 8:17 AM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> On (01/29/16 19:23), Eric Dumazet wrote:
+>> BTW, even a memcpy(&key_addrs->v4addrs, &iph->saddr, 8) could crash, as
+>> the compiler can certainly assume src and dst are 4 bytes aligned, and
+>> could use word accesses when inlining memcpy() even on Sparc.
+>>
+>> Apparently the compiler used by Sowmini is gentle.
+>
+> One more subtlety that I missed until now..
+>
+> eth_get_headlen passes in flow_keys_buf_dissector (NOT flow_keys_dissector!)
+>
+> So FLOW_DISSECTOR_KEY_IPV4_ADDRS is not set, and this helps to dodge
+> the unaligned iph->saddr access.
+>
+> But as others have pointed out, much of this code is brittle
+> because it's accessing the data before the driver has had a chance
+> to align things. The page_offset initialization of NET_IP_ALIGN,
+> with all its weaknesses, at least matches (in principle) the prescription
+> used for the xmit path.
+>
+That is not the only case, If a GRE TEB packet is ever received and
+flow dissector is called for any reason (like skb_get_hash) there's
+going to be problems-- and this doesn't require GRE to even be
+configured on the host.
 
-The last one bullet point is what staging is for.
+I have a patch that changes the 32-bit accesses in flow_dissector to
+use get_unaligned_be32. I don't have access to any machines that care
+about alignment (only x86). Do you know if there is an alternate way
+to test this other than running on architecture like Sparc?
 
-It might be better to do them all at once:
+Thanks,
+Tom
 
-$ git grep --name-only "\bu_int" net/netfilter/ | \
-=A0 xargs perl -p -i -e 's/\bu_int(\d+)_t\b/u\1/g'
+> --Sowmini
+>
