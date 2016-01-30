@@ -1,58 +1,44 @@
-From: "Muthoot Finance Pvt Ltd" <info@adovation.org>
-Subject: my subject...
-Date: Sat, 30 Jan 2016 03:04:29 +0100
-Message-ID: <20160130020732.9A650D63228@adovation.org>
-Reply-To: muthootfinanccehome@gmail.com
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net v2 0/4] net: add and use rx_nohandler stat counter
+Date: Sat, 30 Jan 2016 13:16:48 -0500
+Message-ID: <20160130181648.GP59058@redhat.com>
+References: <1453489882-57948-1-git-send-email-jarod@redhat.com>
+ <1453996188-29965-1-git-send-email-jarod@redhat.com>
+ <20160129.193751.27856238718097733.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <info@adovation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from adovation.org ([108.170.1.90]:56303 "EHLO adovation.org"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932616AbcA3SIh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 13:08:37 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, edumazet@google.com,
+	jiri@mellanox.com, daniel@iogearbox.net, tom@herbertland.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160129.193751.27856238718097733.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Be informed that Muthoot Finance give out Guarantee Business Loans, Aut=
-omobile Purchase Loans, House Purchase Loans, Personal Loans at 3% inte=
-rest rate, for more info email: muthootfinanccehome@gmail.com
-=3D=3D=3D=3D
-Estar informado de que Muthoot Finanzas Dar a conocer Garanta de negoci=
-os Prstamos, Prstamos de Automviles Compra, Casa Compra prstamos, prsta=
-mos personales a tasa de inters del 3%, para obtener ms informacin emai=
-l: muthootfinanccehome@gmail.com
-=3D=3D=3D=3D
-Assunto: meu tema Ser informado de que Muthoot Finance dar empr=C3=A9st=
-imos de Garantia de Neg=C3=B3cios, Automobile Os empr=C3=A9stimos Purch=
-ase, Casa empr=C3=A9stimos Purchase, empr=C3=A9stimos pessoais na taxa =
-de juros de 3%, para mais informa=C3=A7=C3=B5es e-mail: muthootfinancce=
-home@gmail.com
-=3D=3D=3D=3D
-Nous portons =C3=A0 votre connaissance que Muthoot Finance vous donne d=
-es pr=C3=AAts d=E2=80=99affaires, pour l=E2=80=99achat des automobiles,=
- des maisons, des pr=C3=AAts personnels, tous pour un taux d'int=C3=A9r=
-=C3=AAts de 3%, pour plus des d=C3=A9tails consultez: muthootfinancceho=
-me@gmail.com
-=3D=3D=3D=3D
-Byt informovan=C3=BD, =C5=BEe Muthoot Financie rozd=C3=A1vat z=C3=A1ruc=
-nej podnikatelsk=C3=BDch =C3=BAverov, automobilov=C3=BD N=C3=A1kup p=C3=
-=B4=C5=BEiciek, =C3=BAverov na b=C3=BDvanie, osobn=C3=A9 p=C3=B4=C5=BEi=
-cky vo v=C3=BD=C5=A1ke 3% =C3=BArokovou sadzbou, pre viac inform=C3=A1c=
-i=C3=AD e-mail: muthootfinanccehome@gmail.com
-=3D=3D=3D=3D
-Wir teilen mit, dass Muthoot Finance Firmen-Darlehen, Darlehen zur Ansc=
-haffung von Kfz-Fahrzeugen, Erwerb von Immobilien sowie pers=C3=B6nlich=
-e Darlehen zu 3% effektiven Jahreszins anbietet, weitere Informationen =
-erhalten Sie per E-Mail: muthootfinanccehome@gmail.com
-=3D=3D=3D=3D
-Det opplyses om at Muthoot Finance gir ut garanti Business l=C3=A5n, Au=
-tomobile kj=C3=B8pe l=C3=A5n, hus kj=C3=B8pe l=C3=A5n, personlige l=C3=A5=
-n p=C3=A5 3% rente, for mer info e-post: muthootfinanccehome@gmail.com
+On Fri, Jan 29, 2016 at 07:37:51PM -0800, David Miller wrote:
+> From: Jarod Wilson <jarod@redhat.com>
+> Date: Thu, 28 Jan 2016 10:49:44 -0500
+> 
+> > The network core tries to keep track of dropped packets, but some packets
+> > you wouldn't really call dropped, so much as intentionally ignored, under
+> > certain circumstances. One such case is that of bonding and team device
+> > slaves that are currently inactive. Their respective rx_handler functions
+> > return RX_HANDLER_EXACT (the only places in the kernel that return that),
+> > which ends up tracking into the network core's __netif_receive_skb_core()
+> > function's drop path, with no pt_prev set. On a noisy network, this can
+> > result in a very rapidly incrementing rx_dropped counter, not only on the
+> > inactive slave(s), but also on the master device, such as the following:
+>  ...
+> 
+> Both my inbox and patchwork only show patch 2, 3, and 4.  Where is #1?
 
----
-This email is free from viruses and malware because avast! Antivirus pr=
-otection is active.
-https://www.avast.com/antivirus
+Crap. It seems I fat-fingered netdev@vger.kernel.org without the v in
+front of ger. Will re-send in a sec, hopefully finallly not screwing it up
+this time.
+
+-- 
+Jarod Wilson
+jarod@redhat.com
