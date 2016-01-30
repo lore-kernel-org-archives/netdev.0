@@ -1,52 +1,38 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH V3] net: emac: emac gigabit ethernet controller driver
-Date: Sat, 30 Jan 2016 15:58:29 -0600
-Message-ID: <CAL_JsqKWXnULfWkkvukWEzBBTG8JP+HKVg6WWejWcOA=p24tvQ@mail.gmail.com>
-References: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
- <20151231231039.GA8886@rob-hp-laptop> <56ABADEA.40801@codeaurora.org>
- <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com> <56ABCDB7.5080203@codeaurora.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2 1/4] net/core: relax BUILD_BUG_ON in
+ netdev_stats_to_stats64
+Date: Sat, 30 Jan 2016 15:26:35 -0800 (PST)
+Message-ID: <20160130.152635.1510710440132684620.davem@davemloft.net>
+References: <1454178872.7627.136.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20160130203900.GQ59058@redhat.com>
+	<20160130205305.GR59058@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Gilad Avidov <gavidov@codeaurora.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
-	Sagar Dharia <sdharia@codeaurora.org>, shankerd@codeaurora.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	vikrams@codeaurora.org, Christopher Covington <cov@codeaurora.org>
-To: Timur Tabi <timur@codeaurora.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <56ABCDB7.5080203@codeaurora.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
+	edumazet@google.com, netdev@vger.kernel.org
+To: jarod@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48530 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757106AbcA3X0k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 18:26:40 -0500
+In-Reply-To: <20160130205305.GR59058@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 29, 2016 at 2:38 PM, Timur Tabi <timur@codeaurora.org> wrote:
-> Rob Herring wrote:
+From: Jarod Wilson <jarod@redhat.com>
+Date: Sat, 30 Jan 2016 15:53:05 -0500
 
-[...]
+> On Sat, Jan 30, 2016 at 03:39:01PM -0500, Jarod Wilson wrote:
+>> Ew, no, it won't work correctly on 32-bit. The for loop is going to copy
+>> data into dst from beyond the end of netdev_stats, and the range looks
+>> like it won't be right either, only half of the added stats64 space will
+>> get zeroed out. Okay, I'll fix that up correctly.
+> 
+> Completely untested as of yet, but I think something like the following
+> looks correct. I'll give it a spin as soon as I can.
 
->>>> Isn't this a user enabled feature if the h/w supports it?
->>>
->>>
->>>
->>> Is there a sysfs entry for that?  We were planning on having a similar
->>> ACPI
->>> property.
->>
->>
->> It would be in ethtool I think.
->
->
-> Ah, this driver does not support ethtool yet.
->
-> However, based on a cursory look of ethtool, it appears that there's only an
-> option to query the current timestamp, but not actually enable/disable the
-> feature.  The e1000e driver, for example, just forces the feature by default
-> for various chips.  Is there any reason why we shouldn't enable it if the
-> hardware supports it?
+Jarod, please respin your entire series as a v3 once you sort this out.
 
-Probably not. You simply ignore the timestamp if you don't care. So
-then why do you want a DT property?
-
-Rob
+Thanks.
