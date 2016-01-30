@@ -1,73 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v2 1/4] net/core: relax BUILD_BUG_ON in
- netdev_stats_to_stats64
-Date: Sat, 30 Jan 2016 10:34:32 -0800
-Message-ID: <1454178872.7627.136.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1453996188-29965-1-git-send-email-jarod@redhat.com>
-	 <1454177982-32870-1-git-send-email-jarod@redhat.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net PATCH] flow_dissector: Fix unaligned access in
+ __skb_flow_dissector when used by eth_get_headlen
+Date: Sat, 30 Jan 2016 10:36:25 -0800
+Message-ID: <CAKgT0UcZAh+ciNMkJDdnp7E0xyGMhvgSzJLwORLqYXbpABtoRQ@mail.gmail.com>
+References: <20160129180651.GA17127@oracle.com>
+	<20160130024556.6227.51798.stgit@localhost.localdomain>
+	<1454124234.7627.119.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20160130161702.GA11601@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454177982-32870-1-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:35712 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932574AbcA3Sg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 13:36:26 -0500
+Received: by mail-ig0-f181.google.com with SMTP id t15so10190293igr.0
+        for <netdev@vger.kernel.org>; Sat, 30 Jan 2016 10:36:25 -0800 (PST)
+In-Reply-To: <20160130161702.GA11601@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2016-01-30 at 13:19 -0500, Jarod Wilson wrote:
-> The netdev_stats_to_stats64 function copies the deprecated
-> net_device_stats format stats into rtnl_link_stats64 for legacy support
-> purposes, but with the BUILD_BUG_ON as it was, it wasn't possible to
-> extend rtnl_link_stats64 without also extending net_device_stats. Relax
-> the BUILD_BUG_ON to only require that rtnl_link_stats64 is larger, and
-> zero out all the stat counters that aren't present in net_device_stats.
-> 
-> CC: Eric Dumazet <edumazet@google.com>
-> CC: netdev@vger.kernel.org
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
-> ---
-> Re-re-sending, hopefully getting the patch to the right list this time.
-> 
->  net/core/dev.c | 13 +++++++++----
->  1 file changed, 9 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 8cba3d8..575a7df 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -7253,25 +7253,30 @@ void netdev_run_todo(void)
->  	}
->  }
->  
-> -/* Convert net_device_stats to rtnl_link_stats64.  They have the same
-> - * fields in the same order, with only the type differing.
-> +/* Convert net_device_stats to rtnl_link_stats64. rtnl_link_stats64 has
-> + * all the same fields in the same order as net_device_stats, with only
-> + * the type differing, but rtnl_link_stats64 may have additional fields
-> + * at the end for newer counters.
->   */
->  void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
->  			     const struct net_device_stats *netdev_stats)
->  {
->  #if BITS_PER_LONG == 64
-> -	BUILD_BUG_ON(sizeof(*stats64) != sizeof(*netdev_stats));
-> +	BUILD_BUG_ON(sizeof(*stats64) < sizeof(*netdev_stats));
->  	memcpy(stats64, netdev_stats, sizeof(*stats64));
->  #else
->  	size_t i, n = sizeof(*stats64) / sizeof(u64);
->  	const unsigned long *src = (const unsigned long *)netdev_stats;
->  	u64 *dst = (u64 *)stats64;
->  
-> -	BUILD_BUG_ON(sizeof(*netdev_stats) / sizeof(unsigned long) !=
-> +	BUILD_BUG_ON(sizeof(*netdev_stats) / sizeof(unsigned long) >
->  		     sizeof(*stats64) / sizeof(u64));
->  	for (i = 0; i < n; i++)
->  		dst[i] = src[i];
->  #endif
-> +	/* zero out counters that only exist in rtnl_link_stats64 */
-> +	memset((char *)stats64 + sizeof(*netdev_stats), 0,
-> +	       sizeof(*stats64) - sizeof(*netdev_stats));
+On Sat, Jan 30, 2016 at 8:17 AM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> On (01/29/16 19:23), Eric Dumazet wrote:
+>> BTW, even a memcpy(&key_addrs->v4addrs, &iph->saddr, 8) could crash, as
+>> the compiler can certainly assume src and dst are 4 bytes aligned, and
+>> could use word accesses when inlining memcpy() even on Sparc.
+>>
+>> Apparently the compiler used by Sowmini is gentle.
+>
+> One more subtlety that I missed until now..
+>
+> eth_get_headlen passes in flow_keys_buf_dissector (NOT flow_keys_dissector!)
+>
+> So FLOW_DISSECTOR_KEY_IPV4_ADDRS is not set, and this helps to dodge
+> the unaligned iph->saddr access.
 
-Are you sure it works on 32bit arches ?
+Right this is a bug that got introduced in 4.2 when the check for !skb
+was dropped in favor of the flow keys.
+
+My thought was the patch I provided fixes 4.3, and could be applied to
+stable for 4.2.  The concerns about GRE TEB and VXLAN go much further
+back then that since if I am not mistaken the transmit path for both
+is pretty much borked if we try to do GSO as either the inner headers
+or outer headers are not aligned so assembling the header will likely
+result in unaligned accesses.
+
+> But as others have pointed out, much of this code is brittle
+> because it's accessing the data before the driver has had a chance
+> to align things. The page_offset initialization of NET_IP_ALIGN,
+> with all its weaknesses, at least matches (in principle) the prescription
+> used for the xmit path.
+
+That is essentially an unfortunate side effect of this being a
+function that has two very different roles to perform.  One goes
+through and just determines the length of the frame, the other goes
+through and gathers data for computing a hash.
+
+As far as the NET_IP_ALIGN on the page offset I think it is a horrible
+idea.  Basically it means we have to allocate at least 1K more space
+than we need since page sizes are powers of 2, and buffer sizes in
+hardware are measured in 1K increments.
+
+Adding the unaligned reads probably doesn't do much to fix the actual
+issue which is the unaligned headers (either inner or outer) on
+architectures that don't support unaligned access.  If anything what I
+really think we should look at doing is coming up with a way to just
+pad the inner headers by NET_IP_ALIGN bytes if the architecture
+doesn't support unaligned access and then output the inner and outer
+headers as two separate buffers.
+
+- Alex
