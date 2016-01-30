@@ -1,62 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/4] netfilter: ipv4: use preferred kernel types
-Date: Sat, 30 Jan 2016 09:51:53 -0800
-Message-ID: <1454176313.7627.129.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1454159878-20706-1-git-send-email-tanure@linux.com>
-	 <1454159878-20706-3-git-send-email-tanure@linux.com>
-	 <20160130134550.GA5613@macbook.localdomain>
-	 <CAJX_Q+18D3omXJRy-2CEieqhAXCwpFwwt=JiRWkozPqs4cC96g@mail.gmail.com>
+From: "Muthoot Finance Pvt Ltd" <info@adovation.org>
+Subject: my subject...
+Date: Sat, 30 Jan 2016 03:04:29 +0100
+Message-ID: <20160130020732.9A650D63228@adovation.org>
+Reply-To: muthootfinanccehome@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S . Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Lucas Tanure <tanure@linux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJX_Q+18D3omXJRy-2CEieqhAXCwpFwwt=JiRWkozPqs4cC96g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <info@adovation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from adovation.org ([108.170.1.90]:56303 "EHLO adovation.org"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932616AbcA3SIh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 13:08:37 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2016-01-30 at 12:05 -0200, Lucas Tanure wrote:
-> On Sat, Jan 30, 2016 at 11:45 AM, Patrick McHardy <kaber@trash.net> wrote:
-> > On 30.01, Lucas Tanure wrote:
-> >> As suggested by checkpatch.pl:
-> >> CHECK: Prefer kernel type 'uX' over 'uintX_t'
-> >
-> > You might have noticed we have literally hundreds of them spread over 100
-> > files in the netfilter code. We'll gradually change them when the code is
-> > touched anyways.
-> >
-> >>  net/ipv4/netfilter/ip_tables.c | 5 ++---
-> >>  1 file changed, 2 insertions(+), 3 deletions(-)
-> 
-> Yes, I checked that. But would be better to change that now?
-> Because:
-> - could take years to anyone to touch the code, as the code already
-> works very well
-> - be more standardized could facilitate reading the code
-> - It's a good way to encourage new people to contribute to the code
-> 
-> Thanks!
+Be informed that Muthoot Finance give out Guarantee Business Loans, Aut=
+omobile Purchase Loans, House Purchase Loans, Personal Loans at 3% inte=
+rest rate, for more info email: muthootfinanccehome@gmail.com
+=3D=3D=3D=3D
+Estar informado de que Muthoot Finanzas Dar a conocer Garanta de negoci=
+os Prstamos, Prstamos de Automviles Compra, Casa Compra prstamos, prsta=
+mos personales a tasa de inters del 3%, para obtener ms informacin emai=
+l: muthootfinanccehome@gmail.com
+=3D=3D=3D=3D
+Assunto: meu tema Ser informado de que Muthoot Finance dar empr=C3=A9st=
+imos de Garantia de Neg=C3=B3cios, Automobile Os empr=C3=A9stimos Purch=
+ase, Casa empr=C3=A9stimos Purchase, empr=C3=A9stimos pessoais na taxa =
+de juros de 3%, para mais informa=C3=A7=C3=B5es e-mail: muthootfinancce=
+home@gmail.com
+=3D=3D=3D=3D
+Nous portons =C3=A0 votre connaissance que Muthoot Finance vous donne d=
+es pr=C3=AAts d=E2=80=99affaires, pour l=E2=80=99achat des automobiles,=
+ des maisons, des pr=C3=AAts personnels, tous pour un taux d'int=C3=A9r=
+=C3=AAts de 3%, pour plus des d=C3=A9tails consultez: muthootfinancceho=
+me@gmail.com
+=3D=3D=3D=3D
+Byt informovan=C3=BD, =C5=BEe Muthoot Financie rozd=C3=A1vat z=C3=A1ruc=
+nej podnikatelsk=C3=BDch =C3=BAverov, automobilov=C3=BD N=C3=A1kup p=C3=
+=B4=C5=BEiciek, =C3=BAverov na b=C3=BDvanie, osobn=C3=A9 p=C3=B4=C5=BEi=
+cky vo v=C3=BD=C5=A1ke 3% =C3=BArokovou sadzbou, pre viac inform=C3=A1c=
+i=C3=AD e-mail: muthootfinanccehome@gmail.com
+=3D=3D=3D=3D
+Wir teilen mit, dass Muthoot Finance Firmen-Darlehen, Darlehen zur Ansc=
+haffung von Kfz-Fahrzeugen, Erwerb von Immobilien sowie pers=C3=B6nlich=
+e Darlehen zu 3% effektiven Jahreszins anbietet, weitere Informationen =
+erhalten Sie per E-Mail: muthootfinanccehome@gmail.com
+=3D=3D=3D=3D
+Det opplyses om at Muthoot Finance gir ut garanti Business l=C3=A5n, Au=
+tomobile kj=C3=B8pe l=C3=A5n, hus kj=C3=B8pe l=C3=A5n, personlige l=C3=A5=
+n p=C3=A5 3% rente, for mer info e-post: muthootfinanccehome@gmail.com
 
-These changes are a pain for people having to constantly backport fixes
-into stable kernels, or rebase their patches before upstream
-submissions.
-
-Things like 'git cherry-pick' , 'git rebase' no longer work.
-This is a huge pain, and manual editing to resolve conflicts often
-add bugs.
-
-Really, do you believe the 'uX' over 'uintX_t' stuff really matters for
-people working on adding new features and fixing bugs ?
-
-I am certain that if you had to work like us, you would quickly see the
-utility of such changes is negative.
-
-Sure, new submissions should be clean, but 'fixing' old code is not
-worth it.
+---
+This email is free from viruses and malware because avast! Antivirus pr=
+otection is active.
+https://www.avast.com/antivirus
