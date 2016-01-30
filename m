@@ -1,35 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] ipv4: ipconfig: avoid unused ic_proto_used symbol
-Date: Fri, 29 Jan 2016 19:39:32 -0800 (PST)
-Message-ID: <20160129.193932.2217883845698146411.davem@davemloft.net>
-References: <2132183.67sfLfLqZb@wuerfel>
+Subject: Re: [PATCHv2] net: moxart: use correct accessors for DMA memory
+Date: Fri, 29 Jan 2016 19:40:21 -0800 (PST)
+Message-ID: <20160129.194021.1464359327401868408.davem@davemloft.net>
+References: <2689110.SEuesVebGN@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com,
-	linux-arm-kernel@lists.infradead.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
+	David.Laight@aculab.com
 To: arnd@arndb.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2132183.67sfLfLqZb@wuerfel>
+In-Reply-To: <2689110.SEuesVebGN@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 28 Jan 2016 17:39:24 +0100
+Date: Thu, 28 Jan 2016 17:54:33 +0100
 
-> When CONFIG_PROC_FS, CONFIG_IP_PNP_BOOTP, CONFIG_IP_PNP_DHCP and
-> CONFIG_IP_PNP_RARP are all disabled, we get a warning about the
-> ic_proto_used variable being unused:
+> The moxart ethernet driver confuses coherent DMA buffers with
+> MMIO registers.
 > 
-> net/ipv4/ipconfig.c:146:12: error: 'ic_proto_used' defined but not used [-Werror=unused-variable]
+> moxart_ether.c: In function 'moxart_mac_setup_desc_ring':
+> moxart_ether.c:146:428: error: passing argument 1 of '__fswab32' makes integer from pointer without a cast [-Werror=int-conversion]
+> moxart_ether.c:74:39: warning: incorrect type in argument 3 (different address spaces)
+> moxart_ether.c:74:39:    expected void *cpu_addr
+> moxart_ether.c:74:39:    got void [noderef] <asn:2>*tx_desc_base
 > 
-> This avoids the warning, by making the definition conditional on
-> whether a dynamic IP configuration protocol is configured. If not,
-> we know that the value is always zero, so we can optimize away the
-> variable and all code that depends on it.
+> This leaves the basic logic alone and uses normal pointers for
+> the virtual address of the descriptor. As we cannot use readl/writel
+> to access them, we also introduce our own moxart_desc_read
+> moxart_desc_write helpers that perform the same endianess swap
+> as the original code, but without the address space conversion.
+> 
+> The barriers are made explicit here where needed: Even in the worst-case
+> scenario, we just have to use a rmb() after checking ownership so
+> we don't read any input data before we are sure it is value, and we
+> use wmb() before transferring ownership back to the device.
 > 
 > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied.
+Applied, thanks.
