@@ -1,53 +1,44 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [net PATCH] flow_dissector: Fix unaligned access in
  __skb_flow_dissector when used by eth_get_headlen
-Date: Sat, 30 Jan 2016 14:12:20 -0500
-Message-ID: <20160130191220.GB11601@oracle.com>
+Date: Sat, 30 Jan 2016 11:26:51 -0800
+Message-ID: <1454182011.7627.141.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <20160129180651.GA17127@oracle.com>
- <20160130024556.6227.51798.stgit@localhost.localdomain>
- <1454124234.7627.119.camel@edumazet-glaptop2.roam.corp.google.com>
- <20160130161702.GA11601@oracle.com>
- <CALx6S378mozgF0A1iq=Y_LB+_5c=_8_iwOYBgoSArUJW60A6Ag@mail.gmail.com>
+	 <20160130024556.6227.51798.stgit@localhost.localdomain>
+	 <1454124234.7627.119.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20160130161702.GA11601@oracle.com>
+	 <CAKgT0UcZAh+ciNMkJDdnp7E0xyGMhvgSzJLwORLqYXbpABtoRQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
 	Alexander Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: Tom Herbert <tom@herbertland.com>
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:50013 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751260AbcA3TMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 14:12:35 -0500
-Content-Disposition: inline
-In-Reply-To: <CALx6S378mozgF0A1iq=Y_LB+_5c=_8_iwOYBgoSArUJW60A6Ag@mail.gmail.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:36809 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751260AbcA3T0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 14:26:53 -0500
+Received: by mail-pa0-f41.google.com with SMTP id yy13so58985821pab.3
+        for <netdev@vger.kernel.org>; Sat, 30 Jan 2016 11:26:53 -0800 (PST)
+In-Reply-To: <CAKgT0UcZAh+ciNMkJDdnp7E0xyGMhvgSzJLwORLqYXbpABtoRQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (01/30/16 09:43), Tom Herbert wrote:
-> That is not the only case, If a GRE TEB packet is ever received and
-> flow dissector is called for any reason (like skb_get_hash) there's
-> going to be problems-- and this doesn't require GRE to even be
-> configured on the host.
-> 
-> I have a patch that changes the 32-bit accesses in flow_dissector to
-> use get_unaligned_be32. I don't have access to any machines that care
-> about alignment (only x86). Do you know if there is an alternate way
-> to test this other than running on architecture like Sparc?
+On Sat, 2016-01-30 at 10:36 -0800, Alexander Duyck wrote:
 
-I can help test this on sparc (would help if you send me any special
-config instructions for the GRE TEB case) , but the other way to test
-it would be something similar to this:
+> As far as the NET_IP_ALIGN on the page offset I think it is a horrible
+> idea.  Basically it means we have to allocate at least 1K more space
+> than we need since page sizes are powers of 2, and buffer sizes in
+> hardware are measured in 1K increments.
 
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -178,6 +178,8 @@ ip:
- 
-                ip_proto = iph->protocol;
- 
-+               WARN_ON_ONCE(!IS_ALIGNED(iph->saddr, 4));
-+
-                if (!dissector_uses_key(flow_dissector,
-                                        FLOW_DISSECTOR_KEY_IPV4_ADDRS))
+I thought Ethernet frames were something like ~1500 bytes.
+
+Can't you program the NIC to not receive frames bigger than MTU + 18, or
+at least 2046 ?
+
+Of course, if the NIC is able to push 2048 bytes (instead of 2046 max),
+using an offset of 2 is not going to work.
