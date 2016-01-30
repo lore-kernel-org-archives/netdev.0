@@ -1,44 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net PATCH] flow_dissector: Fix unaligned access in
- __skb_flow_dissector when used by eth_get_headlen
-Date: Sat, 30 Jan 2016 11:26:51 -0800
-Message-ID: <1454182011.7627.141.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20160129180651.GA17127@oracle.com>
-	 <20160130024556.6227.51798.stgit@localhost.localdomain>
-	 <1454124234.7627.119.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20160130161702.GA11601@oracle.com>
-	 <CAKgT0UcZAh+ciNMkJDdnp7E0xyGMhvgSzJLwORLqYXbpABtoRQ@mail.gmail.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net v2 1/4] net/core: relax BUILD_BUG_ON in
+ netdev_stats_to_stats64
+Date: Sat, 30 Jan 2016 15:39:01 -0500
+Message-ID: <20160130203900.GQ59058@redhat.com>
+References: <1453996188-29965-1-git-send-email-jarod@redhat.com>
+ <1454177982-32870-1-git-send-email-jarod@redhat.com>
+ <1454178872.7627.136.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Tom Herbert <tom@herbertland.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36809 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751260AbcA3T0x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2016 14:26:53 -0500
-Received: by mail-pa0-f41.google.com with SMTP id yy13so58985821pab.3
-        for <netdev@vger.kernel.org>; Sat, 30 Jan 2016 11:26:53 -0800 (PST)
-In-Reply-To: <CAKgT0UcZAh+ciNMkJDdnp7E0xyGMhvgSzJLwORLqYXbpABtoRQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1454178872.7627.136.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2016-01-30 at 10:36 -0800, Alexander Duyck wrote:
+On Sat, Jan 30, 2016 at 10:34:32AM -0800, Eric Dumazet wrote:
+> On Sat, 2016-01-30 at 13:19 -0500, Jarod Wilson wrote:
+> > The netdev_stats_to_stats64 function copies the deprecated
+> > net_device_stats format stats into rtnl_link_stats64 for legacy support
+> > purposes, but with the BUILD_BUG_ON as it was, it wasn't possible to
+> > extend rtnl_link_stats64 without also extending net_device_stats. Relax
+> > the BUILD_BUG_ON to only require that rtnl_link_stats64 is larger, and
+> > zero out all the stat counters that aren't present in net_device_stats.
+> > 
+> > CC: Eric Dumazet <edumazet@google.com>
+> > CC: netdev@vger.kernel.org
+> > Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> > ---
+> > Re-re-sending, hopefully getting the patch to the right list this time.
+> > 
+> >  net/core/dev.c | 13 +++++++++----
+> >  1 file changed, 9 insertions(+), 4 deletions(-)
+> > 
+> > diff --git a/net/core/dev.c b/net/core/dev.c
+> > index 8cba3d8..575a7df 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -7253,25 +7253,30 @@ void netdev_run_todo(void)
+> >  	}
+> >  }
+> >  
+> > -/* Convert net_device_stats to rtnl_link_stats64.  They have the same
+> > - * fields in the same order, with only the type differing.
+> > +/* Convert net_device_stats to rtnl_link_stats64. rtnl_link_stats64 has
+> > + * all the same fields in the same order as net_device_stats, with only
+> > + * the type differing, but rtnl_link_stats64 may have additional fields
+> > + * at the end for newer counters.
+> >   */
+> >  void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
+> >  			     const struct net_device_stats *netdev_stats)
+> >  {
+> >  #if BITS_PER_LONG == 64
+> > -	BUILD_BUG_ON(sizeof(*stats64) != sizeof(*netdev_stats));
+> > +	BUILD_BUG_ON(sizeof(*stats64) < sizeof(*netdev_stats));
+> >  	memcpy(stats64, netdev_stats, sizeof(*stats64));
+> >  #else
+> >  	size_t i, n = sizeof(*stats64) / sizeof(u64);
+> >  	const unsigned long *src = (const unsigned long *)netdev_stats;
+> >  	u64 *dst = (u64 *)stats64;
+> >  
+> > -	BUILD_BUG_ON(sizeof(*netdev_stats) / sizeof(unsigned long) !=
+> > +	BUILD_BUG_ON(sizeof(*netdev_stats) / sizeof(unsigned long) >
+> >  		     sizeof(*stats64) / sizeof(u64));
+> >  	for (i = 0; i < n; i++)
+> >  		dst[i] = src[i];
+> >  #endif
+> > +	/* zero out counters that only exist in rtnl_link_stats64 */
+> > +	memset((char *)stats64 + sizeof(*netdev_stats), 0,
+> > +	       sizeof(*stats64) - sizeof(*netdev_stats));
+> 
+> Are you sure it works on 32bit arches ?
 
-> As far as the NET_IP_ALIGN on the page offset I think it is a horrible
-> idea.  Basically it means we have to allocate at least 1K more space
-> than we need since page sizes are powers of 2, and buffer sizes in
-> hardware are measured in 1K increments.
+Ew, no, it won't work correctly on 32-bit. The for loop is going to copy
+data into dst from beyond the end of netdev_stats, and the range looks
+like it won't be right either, only half of the added stats64 space will
+get zeroed out. Okay, I'll fix that up correctly.
 
-I thought Ethernet frames were something like ~1500 bytes.
-
-Can't you program the NIC to not receive frames bigger than MTU + 18, or
-at least 2046 ?
-
-Of course, if the NIC is able to push 2048 bytes (instead of 2046 max),
-using an offset of 2 is not going to work.
+-- 
+Jarod Wilson
+jarod@redhat.com
