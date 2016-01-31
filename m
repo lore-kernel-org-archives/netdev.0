@@ -1,33 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net] r8169 Remove duplicate command which set RxVlan and
- RxChksum bits.
-Date: Sun, 31 Jan 2016 20:17:26 +0300
-Message-ID: <56AE41A6.5060706@cogentembedded.com>
-References: <1454254388-15523-1-git-send-email-asd@marian1000.go.ro>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net v2 1/4] net/core: relax BUILD_BUG_ON in
+ netdev_stats_to_stats64
+Date: Sun, 31 Jan 2016 13:07:04 -0500
+Message-ID: <20160131180704.GA36726@redhat.com>
+References: <1454178872.7627.136.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20160130203900.GQ59058@redhat.com>
+ <20160130205305.GR59058@redhat.com>
+ <20160130.152635.1510710440132684620.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Corcodel Marian <asd@marian1000.go.ro>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:34779 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757309AbcAaRR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 12:17:29 -0500
-Received: by mail-lb0-f182.google.com with SMTP id cl12so63295774lbc.1
-        for <netdev@vger.kernel.org>; Sun, 31 Jan 2016 09:17:29 -0800 (PST)
-In-Reply-To: <1454254388-15523-1-git-send-email-asd@marian1000.go.ro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
+	edumazet@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160130.152635.1510710440132684620.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Sat, Jan 30, 2016 at 03:26:35PM -0800, David Miller wrote:
+> From: Jarod Wilson <jarod@redhat.com>
+> Date: Sat, 30 Jan 2016 15:53:05 -0500
+> 
+> > On Sat, Jan 30, 2016 at 03:39:01PM -0500, Jarod Wilson wrote:
+> >> Ew, no, it won't work correctly on 32-bit. The for loop is going to copy
+> >> data into dst from beyond the end of netdev_stats, and the range looks
+> >> like it won't be right either, only half of the added stats64 space will
+> >> get zeroed out. Okay, I'll fix that up correctly.
+> > 
+> > Completely untested as of yet, but I think something like the following
+> > looks correct. I'll give it a spin as soon as I can.
+> 
+> Jarod, please respin your entire series as a v3 once you sort this out.
 
-On 01/31/2016 06:33 PM, Corcodel Marian wrote:
+Will do. I should be able to get it tested out on a 32-bit setup Monday.
 
->   These bits is already set on set geatures stage.
-
-    Features.
-
-> Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
-[...]
-
-MBR, Sergei
+-- 
+Jarod Wilson
+jarod@redhat.com
