@@ -1,37 +1,34 @@
-From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: [net] r8169   Remove duplicate command which set RxVlan and RxChksum bits.
-Date: Sun, 31 Jan 2016 17:33:08 +0200
-Message-ID: <1454254388-15523-1-git-send-email-asd@marian1000.go.ro>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net] r8169 Remove duplicate command which set RxVlan and
+ RxChksum bits.
+Date: Sun, 31 Jan 2016 20:17:20 +0300
+Message-ID: <56AE41A0.9090304@cogentembedded.com>
+References: <1454254388-15523-1-git-send-email-asd@marian1000.go.ro>
 Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Corcodel Marian <asd@marian1000.go.ro>
-To: netdev@vger.kernel.org
+To: Corcodel Marian <asd@marian1000.go.ro>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [82.78.245.184] ([82.78.245.184]:55414 "EHLO marian1000.go.ro"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932361AbcAaPdq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 31 Jan 2016 10:33:46 -0500
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:35127 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757309AbcAaRRZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 12:17:25 -0500
+Received: by mail-lb0-f171.google.com with SMTP id bc4so63352741lbc.2
+        for <netdev@vger.kernel.org>; Sun, 31 Jan 2016 09:17:24 -0800 (PST)
+In-Reply-To: <1454254388-15523-1-git-send-email-asd@marian1000.go.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- These bits is already set on set geatures stage.
+Hello.
 
-Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
----
- drivers/net/ethernet/realtek/r8169.c | 1 -
- 1 file changed, 1 deletion(-)
+On 01/31/2016 06:33 PM, Corcodel Marian wrote:
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 17d5571..a8fb86d 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -8368,7 +8368,6 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
- 		NETIF_F_HIGHDMA;
- 
--	tp->cp_cmd |= RxChkSum | RxVlan;
- 
- 	/*
- 	 * Pretend we are using VLANs; This bypasses a nasty bug where
--- 
-2.5.0
+>   These bits is already set on set geatures stage.
+
+    Features.
+
+>
+> Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+[...]
+
+MBR, Sergei
