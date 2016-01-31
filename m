@@ -1,58 +1,73 @@
-From: "Muthoot Finance Pvt Ltd" <info@adovation.org>
-Subject: my subject...
-Date: Sun, 31 Jan 2016 03:14:10 +0100
-Message-ID: <20160131021655.49FACE69A0A@adovation.org>
-Reply-To: muthootfinanccehome@gmail.com
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: bonding (IEEE 802.3ad) not working with qemu/virtio
+Date: Sun, 31 Jan 2016 16:35:35 +0200
+Message-ID: <20160131163457-mutt-send-email-mst@redhat.com>
+References: <CAJO99TmB3957Wq3Cse7azgBxKeZ2BV6QihoyAsjUjyvzc-V8dQ@mail.gmail.com>
+ <56ABDA3D.8040100@cumulusnetworks.com>
+ <28285.1454103900@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <info@adovation.org>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	=?us-ascii?B?PT9VVEYtOD9RP0JqPWMzPWI4cm5hcl9OZXNzPz0=?=
+	<bjornar.ness@gmail.com>, netdev <netdev@vger.kernel.org>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from adovation.org ([108.170.1.90]:59587 "EHLO adovation.org"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757371AbcAaNho convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 08:37:44 -0500
-Content-Description: Mail message body
+Received: from mx1.redhat.com ([209.132.183.28]:46491 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757218AbcAaOfj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 31 Jan 2016 09:35:39 -0500
+Content-Disposition: inline
+In-Reply-To: <28285.1454103900@famine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Be informed that Muthoot Finance give out Guarantee Business Loans, Aut=
-omobile Purchase Loans, House Purchase Loans, Personal Loans at 3% inte=
-rest rate, for more info email: muthootfinanccehome@gmail.com
-=3D=3D=3D=3D
-Estar informado de que Muthoot Finanzas Dar a conocer Garanta de negoci=
-os Prstamos, Prstamos de Automviles Compra, Casa Compra prstamos, prsta=
-mos personales a tasa de inters del 3%, para obtener ms informacin emai=
-l: muthootfinanccehome@gmail.com
-=3D=3D=3D=3D
-Assunto: meu tema Ser informado de que Muthoot Finance dar empr=C3=A9st=
-imos de Garantia de Neg=C3=B3cios, Automobile Os empr=C3=A9stimos Purch=
-ase, Casa empr=C3=A9stimos Purchase, empr=C3=A9stimos pessoais na taxa =
-de juros de 3%, para mais informa=C3=A7=C3=B5es e-mail: muthootfinancce=
-home@gmail.com
-=3D=3D=3D=3D
-Nous portons =C3=A0 votre connaissance que Muthoot Finance vous donne d=
-es pr=C3=AAts d=E2=80=99affaires, pour l=E2=80=99achat des automobiles,=
- des maisons, des pr=C3=AAts personnels, tous pour un taux d'int=C3=A9r=
-=C3=AAts de 3%, pour plus des d=C3=A9tails consultez: muthootfinancceho=
-me@gmail.com
-=3D=3D=3D=3D
-Byt informovan=C3=BD, =C5=BEe Muthoot Financie rozd=C3=A1vat z=C3=A1ruc=
-nej podnikatelsk=C3=BDch =C3=BAverov, automobilov=C3=BD N=C3=A1kup p=C3=
-=B4=C5=BEiciek, =C3=BAverov na b=C3=BDvanie, osobn=C3=A9 p=C3=B4=C5=BEi=
-cky vo v=C3=BD=C5=A1ke 3% =C3=BArokovou sadzbou, pre viac inform=C3=A1c=
-i=C3=AD e-mail: muthootfinanccehome@gmail.com
-=3D=3D=3D=3D
-Wir teilen mit, dass Muthoot Finance Firmen-Darlehen, Darlehen zur Ansc=
-haffung von Kfz-Fahrzeugen, Erwerb von Immobilien sowie pers=C3=B6nlich=
-e Darlehen zu 3% effektiven Jahreszins anbietet, weitere Informationen =
-erhalten Sie per E-Mail: muthootfinanccehome@gmail.com
-=3D=3D=3D=3D
-Det opplyses om at Muthoot Finance gir ut garanti Business l=C3=A5n, Au=
-tomobile kj=C3=B8pe l=C3=A5n, hus kj=C3=B8pe l=C3=A5n, personlige l=C3=A5=
-n p=C3=A5 3% rente, for mer info e-post: muthootfinanccehome@gmail.com
+On Fri, Jan 29, 2016 at 01:45:00PM -0800, Jay Vosburgh wrote:
+> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+>=20
+> >On 01/25/2016 05:24 PM, Bj=F8rnar Ness wrote:
+> >> As subject says, 802.3ad bonding is not working with virtio networ=
+k model.
+> >>=20
+> >> The only errors I see is:
+> >>=20
+> >> No 802.3ad response from the link partner for any adapters in the =
+bond.
+> >>=20
+> >> Dumping the network traffic shows that no LACP packets are sent fr=
+om the
+> >> host running with virtio driver, changing to for example e1000 sol=
+ves
+> >> this problem
+> >> with no configuration changes.
+> >>=20
+> >> Is this a known problem?
+> >>=20
+> >[Including bonding maintainers for comments]
+> >
+> >Hi,
+> >Here's a workaround patch for virtio_net devices that "cheats" the
+> >duplex test (which is the actual problem). I've tested this locally
+> >and it works for me.
+> >I'd let the others comment on the implementation, there're other sig=
+ns
+> >that can be used to distinguish a virtio_net device so I'm open to s=
+uggestions.
+> >Also feedback if this is at all acceptable would be appreciated.
+>=20
+> 	Should virtio instead provide an arbitrary speed and full duplex
+> to ethtool, as veth does?
+>=20
+> 	Creating a magic whitelist of devices deep inside the 802.3ad
+> implementation seems less desirable.
+>=20
+> 	-J
 
----
-This email is free from viruses and malware because avast! Antivirus pr=
-otection is active.
-https://www.avast.com/antivirus
+Absolutely but why not tream DUPLEX_UNKNOWN as DUPLEX_FULL
+and allow LACP?
+
+> ---
+> 	-Jay Vosburgh, jay.vosburgh@canonical.com
