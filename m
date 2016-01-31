@@ -1,40 +1,36 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH net v2 1/4] net/core: relax BUILD_BUG_ON in
- netdev_stats_to_stats64
-Date: Sun, 31 Jan 2016 13:07:04 -0500
-Message-ID: <20160131180704.GA36726@redhat.com>
-References: <1454178872.7627.136.camel@edumazet-glaptop2.roam.corp.google.com>
- <20160130203900.GQ59058@redhat.com>
- <20160130205305.GR59058@redhat.com>
- <20160130.152635.1510710440132684620.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net PATCH] flow_dissector: Fix unaligned access in
+ __skb_flow_dissector when used by eth_get_headlen
+Date: Sun, 31 Jan 2016 11:17:36 -0800 (PST)
+Message-ID: <20160131.111736.885803938247704593.davem@davemloft.net>
+References: <CAKgT0UfyK1HO6vp4F9S3rB400A74OhS=qRX_N9RuPRYg2KazLg@mail.gmail.com>
+	<20160130.194507.777391919166997236.davem@davemloft.net>
+	<CAKgT0UepN041H4QcWkoNWnzGgf=yo71w8_3-JQKFFNBegQVpzA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
-	edumazet@google.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160130.152635.1510710440132684620.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, sowmini.varadhan@oracle.com,
+	aduyck@mirantis.com, netdev@vger.kernel.org, tom@herbertland.com
+To: alexander.duyck@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57507 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933388AbcAaTRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 14:17:39 -0500
+In-Reply-To: <CAKgT0UepN041H4QcWkoNWnzGgf=yo71w8_3-JQKFFNBegQVpzA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 30, 2016 at 03:26:35PM -0800, David Miller wrote:
-> From: Jarod Wilson <jarod@redhat.com>
-> Date: Sat, 30 Jan 2016 15:53:05 -0500
-> 
-> > On Sat, Jan 30, 2016 at 03:39:01PM -0500, Jarod Wilson wrote:
-> >> Ew, no, it won't work correctly on 32-bit. The for loop is going to copy
-> >> data into dst from beyond the end of netdev_stats, and the range looks
-> >> like it won't be right either, only half of the added stats64 space will
-> >> get zeroed out. Okay, I'll fix that up correctly.
-> > 
-> > Completely untested as of yet, but I think something like the following
-> > looks correct. I'll give it a spin as soon as I can.
-> 
-> Jarod, please respin your entire series as a v3 once you sort this out.
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Sun, 31 Jan 2016 01:12:03 -0800
 
-Will do. I should be able to get it tested out on a 32-bit setup Monday.
+> If nothing else we can discuss this further in Seville as I am just
+> not convinced changing the drivers is the right way to go about fixing
+> this, and I won't have the time to really get around to doing any of
+> it until I have come back from the conference.
 
--- 
-Jarod Wilson
-jarod@redhat.com
+Ok, let me think about this some more.
+
+It's a shame that "put two garbage bytes into the FIFO at the
+beginning of every frame" isn't a standard hw feature.  Or maybe
+I misunderstand what's going on in all of these drivers...
