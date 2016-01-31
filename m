@@ -1,105 +1,57 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: bonding (IEEE 802.3ad) not working with qemu/virtio
-Date: Sun, 31 Jan 2016 16:58:42 +0200
-Message-ID: <20160131165501-mutt-send-email-mst@redhat.com>
-References: <CAJO99TmB3957Wq3Cse7azgBxKeZ2BV6QihoyAsjUjyvzc-V8dQ@mail.gmail.com>
-	<56ABDA3D.8040100@cumulusnetworks.com> <28285.1454103900@famine>
-	<56ABDE2A.7010301@cumulusnetworks.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [net,2/2] net: i40e: shut up uninitialized variable warnings
+Date: Sun, 31 Jan 2016 15:59:17 +0100
+Message-ID: <2154537.J75p8oY6mX@wuerfel>
+References: <1453766332-43274-3-git-send-email-jeffrey.t.kirsher@intel.com> <56ACD7C6.1010808@virtuozzo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Jiri Pirko <jiri@resnulli.us>, Andy Gospodarek <gospo@cumulusnetworks.com>,
-	virtualization@lists.linux-foundation.org,
-	=?iso-8859-1?Q?Bj=F8rnar?= Ness <bjornar.ness@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>, netdev <netdev@vger.kernel.org>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <56ABDE2A.7010301@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: Vasily Averin <vvs@virtuozzo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([217.72.192.73]:56696 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757218AbcAaO7t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 09:59:49 -0500
+In-Reply-To: <56ACD7C6.1010808@virtuozzo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 29, 2016 at 10:48:26PM +0100, Nikolay Aleksandrov wrote:
-> On 01/29/2016 10:45 PM, Jay Vosburgh wrote:
-> > Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
-> > =
+On Saturday 30 January 2016 18:33:26 Vasily Averin wrote:
+> On 26.01.2016 02:58, Jeff Kirsher wrote:
+> > From: Arnd Bergmann <arnd@arndb.de>
+> > 
+> > intel/i40e/i40e_txrx.c: In function 'i40e_xmit_frame_ring':
+> > intel/i40e/i40e_txrx.c:2367:20: error: 'oiph' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > intel/i40e/i40e_txrx.c:2317:16: note: 'oiph' was declared here
+> > intel/i40e/i40e_txrx.c:2367:17: error: 'oudph' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > intel/i40e/i40e_txrx.c:2316:17: note: 'oudph' was declared here
+> 
+> 2364                 if ((tx_ring->flags & I40E_TXR_FLAGS_OUTER_UDP_CSUM) &&
+> 2365                     (l4_tunnel == I40E_TXD_CTX_UDP_TUNNELING)        &&
+> 2366                     (*cd_tunneling & I40E_TXD_CTX_QW0_EXT_IP_MASK)) {
+> 2367                         oudph->check = ~csum_tcpudp_magic(oiph->saddr,
+> 2368                                         oiph->daddr,
+> 2369                                         (skb->len - skb_transport_offset(skb)),
+> 2370                                         IPPROTO_UDP, 0);
+> 
+> if compiler reports that oudph and oiph can be unitialized here,
+> it's not enough just to set them to NULL.
+> 
+> Do we need probably to check that variables was initialized before access here?
+> i.e. add  oudph && oiph into condition?
 
-> >> On 01/25/2016 05:24 PM, Bj=F8rnar Ness wrote:
-> >>> As subject says, 802.3ad bonding is not working with virtio network m=
-odel.
-> >>>
-> >>> The only errors I see is:
-> >>>
-> >>> No 802.3ad response from the link partner for any adapters in the bon=
-d.
-> >>>
-> >>> Dumping the network traffic shows that no LACP packets are sent from =
-the
-> >>> host running with virtio driver, changing to for example e1000 solves
-> >>> this problem
-> >>> with no configuration changes.
-> >>>
-> >>> Is this a known problem?
-> >>>
-> >> [Including bonding maintainers for comments]
-> >>
-> >> Hi,
-> >> Here's a workaround patch for virtio_net devices that "cheats" the
-> >> duplex test (which is the actual problem). I've tested this locally
-> >> and it works for me.
-> >> I'd let the others comment on the implementation, there're other signs
-> >> that can be used to distinguish a virtio_net device so I'm open to sug=
-gestions.
-> >> Also feedback if this is at all acceptable would be appreciated.
-> > =
+Sorry, I should not have mentioned my patch when it wasn't meant as
+a serious submission. The patch I sent did not have a proper changelog
+on it so it failed to explain it.
 
-> > 	Should virtio instead provide an arbitrary speed and full duplex
-> > to ethtool, as veth does?
-> > =
+The reason why my patch works correctly is that the check on "l4_tunnel
+== I40E_TXD_CTX_UDP_TUNNELING" means we can only get here if the
+two variables have been initialized, and gcc fails to see this.
 
-> > 	Creating a magic whitelist of devices deep inside the 802.3ad
-> > implementation seems less desirable.
-> > =
+Jeff mentioned that he already had a patch for this, so I did not follow
+up with a real patch.
 
-> TBH, I absolutely agree. In fact here's what we've been doing:
-> add set_settings which allows the user to set any speed/duplex
-> and get_settings of course to retrieve that. This is also useful
-> for testing other stuff that requires speed and duplex, not only
-> for the bonding case.
-
-This looks like a very reasonable thing to do:
-user might have knowledge of the actual speed through
-some side-channel.
-
-We might also propagate it to hypervisor in the future.
-
-And this sound useful even if bonding is changed
-to allow DUPLEX_UNKNOWN.
-
-So please post this patch.
-
-
-> I'll add the virtio_net maintainers to the discussion, see if it's
-> okay with everyone and I'll move to send patches once net-next opens up.
-> =
-
-> Thanks!
-> =
-
-> =
-
-> > 	-J
-> > 	=
-
-> > ---
-> > 	-Jay Vosburgh, jay.vosburgh@canonical.com
-> > =
+	Arnd
