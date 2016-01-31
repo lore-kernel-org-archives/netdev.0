@@ -1,60 +1,70 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net] net: Allow flow dissector to handle non 4-byte
- aligned headers
-Date: Sun, 31 Jan 2016 23:06:06 +0100
-Message-ID: <20160131220606.GA540@breakpoint.cc>
-References: <1454276221-3543907-1-git-send-email-tom@herbertland.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
+Date: Sun, 31 Jan 2016 14:13:49 -0800
+Message-ID: <CALx6S37+xhG-CYDUYqzXcS3FBW+Ta_kjQv6CgYKA2XdQLpHsfQ@mail.gmail.com>
+References: <20160129180651.GA17127@oracle.com>
+	<1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1454093642.7627.57.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CALx6S34+od6o69rHQzotJFXf7kziEuQUj=xH5VUWw+YpH4FjNg@mail.gmail.com>
+	<20160129210900.GD17127@oracle.com>
+	<CALx6S35V47scFFQab7ZsQyh6CktS17w4hSKZSVAnOB0Ppa7brg@mail.gmail.com>
+	<20160129230424.GG17127@oracle.com>
+	<CALx6S34KtC4kkjzchY5Xs4QapD7FMqxShwEDST0Q_bZgDRicmQ@mail.gmail.com>
+	<20160129235800.GH17127@oracle.com>
+	<CALx6S37KgEPorPp4T4gh8xatsPUTOe=wuhG4fzqx8U35a9O3KA@mail.gmail.com>
+	<1454120138.7627.114.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	sowmini.varadhan@oracle.com, kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	Michael Dalton <mwdalton@google.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:60530 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757294AbcAaWGL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 17:06:11 -0500
-Content-Disposition: inline
-In-Reply-To: <1454276221-3543907-1-git-send-email-tom@herbertland.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:37979 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757466AbcAaWNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 17:13:50 -0500
+Received: by mail-ig0-f170.google.com with SMTP id mw1so21182912igb.1
+        for <netdev@vger.kernel.org>; Sun, 31 Jan 2016 14:13:50 -0800 (PST)
+In-Reply-To: <1454120138.7627.114.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert <tom@herbertland.com> wrote:
-> Call get_unaligned_be32 when we access 32-bit fields in
-> __skb_flow_dissect. At the beginning check for unlikely case of
-> 1-byte aligned packet.
-> 
-> Note that flow_dissector may be asked to parse packet unaligned
-> fields in two instances:
-> 
-> 1) Packet from a driver which is aligned to Ethernet header
->    (2-byte alignment)
-> 2) Parsing inner headers of a received GRE-TEB packet
-> 
-> Testing: Ran super_netperf tests did not see a regression. This was on
-> x86 which does not have problems with unaligned data.
-> 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
-> ---
->  net/core/flow_dissector.c | 19 ++++++++++++++-----
->  1 file changed, 14 insertions(+), 5 deletions(-)
-> 
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index d79699c..1c64a1a 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -95,7 +95,7 @@ __be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
->  		ports = __skb_header_pointer(skb, thoff + poff,
->  					     sizeof(_ports), data, hlen, &_ports);
->  		if (ports)
-> -			return *ports;
-> +			return get_unaligned_be32(ports);
+On Fri, Jan 29, 2016 at 6:15 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2016-01-29 at 16:47 -0800, Tom Herbert wrote:
+>
+>> Hmm, thanks for pointing that out. It looks like this is called by a
+>> couple drivers as part of pulling up the data to get alignment. I am
+>> actually surprised they are doing this. Flow dissector is not the
+>> cheapest function in the world and it seems like a shame to be calling
+>> it this early and not even getting a hash for the skb. Also, this is
+>> another instance of touching the data so if we do get to the point of
+>> trying steering packets without cache miss (another thread); this
+>> undermines that. Seems like it might be just as well to pull up a
+>> fixed number of bytes (ixgbe want min of 60 bytes), or don't pull up
+>> anything avoid the cache miss here and let the stack pull up as
+>> needed.
+>
+> Except that when for example mlx4 is able to pull only the headers
+> instead of a fixed amount of bytes, we increased the performance,
+> because GRO could cook packets twice as big for tunneled traffic.
+>
+> ( commit cfecec56ae7c7c40f23fbdac04acee027ca3bd66 )
+>
+> 1) Increasing performance by prefetching headers is a separate matter,
+> completely orthogonal to this.
+>
+> 2) Taking the opportunity to also give back the l4 hash as a bonus
+> has been considered, but tests showed no clear benefit.
+>
+>   For typical cases where l4 hash is not used (RPS and RFS being not
+> enabled by default on linux), computing it brings nothing but added
+> complexity.
+>
+Neither is GRE enabled by default in Linux and it is not a typical
+case. So that patch is an optimization for a very narrow use case that
+impacts the core data path for everyone. Please at least consider
+making it configurable.
 
-This adds an ntohl(), is that intended (same for other places)?
-
-> +#ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-> +	if (WARN_ON(((u64)data & 0x1)))
-> +		return false;
-> +#endif
-
-WARN_ON_ONCE ?
+>
+>
