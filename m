@@ -1,50 +1,120 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [net PATCH] flow_dissector: Fix unaligned access in
- __skb_flow_dissector when used by eth_get_headlen
-Date: Sun, 31 Jan 2016 16:23:52 -0500
-Message-ID: <20160131212352.GA31924@oracle.com>
-References: <CAKgT0UfyK1HO6vp4F9S3rB400A74OhS=qRX_N9RuPRYg2KazLg@mail.gmail.com>
- <20160130.194507.777391919166997236.davem@davemloft.net>
- <CAKgT0UepN041H4QcWkoNWnzGgf=yo71w8_3-JQKFFNBegQVpzA@mail.gmail.com>
- <20160131.111736.885803938247704593.davem@davemloft.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net] net: Allow flow dissector to handle non 4-byte aligned headers
+Date: Sun, 31 Jan 2016 13:37:01 -0800
+Message-ID: <1454276221-3543907-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexander.duyck@gmail.com, eric.dumazet@gmail.com,
-	aduyck@mirantis.com, netdev@vger.kernel.org, tom@herbertland.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <sowmini.varadhan@oracle.com>, <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:19816 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757294AbcAaVYL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 16:24:11 -0500
-Content-Disposition: inline
-In-Reply-To: <20160131.111736.885803938247704593.davem@davemloft.net>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36397 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757500AbcAaVh4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 16:37:56 -0500
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u0VLblVo001764
+	for <netdev@vger.kernel.org>; Sun, 31 Jan 2016 13:37:55 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 20rsvbdkxx-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Sun, 31 Jan 2016 13:37:55 -0800
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ c841d66cc86211e5af850002c9521c9e-fcff82b0 for <netdev@vger.kernel.org>;	Sun,
+ 31 Jan 2016 13:37:10 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (01/31/16 11:17), David Miller wrote:
-> 
-> > If nothing else we can discuss this further in Seville as I am just
-> > not convinced changing the drivers is the right way to go about fixing
-> > this, and I won't have the time to really get around to doing any of
-> > it until I have come back from the conference.
-> 
-> Ok, let me think about this some more.
-> 
-> It's a shame that "put two garbage bytes into the FIFO at the
-> beginning of every frame" isn't a standard hw feature.  Or maybe
-> I misunderstand what's going on in all of these drivers...
-> 
+Call get_unaligned_be32 when we access 32-bit fields in
+__skb_flow_dissect. At the beginning check for unlikely case of
+1-byte aligned packet.
 
-We can follow up on this at Seville, but if it is possible,
-it might be better to not overload eth_get_headlen to also
-do the flow extraction even before the buffer has been aligned
-by the driver. Even the NET_IP_ALIGN algorithm will fail if we 
-are dealing with IEEE 802.3 headers with LLC/SNAP etc.
+Note that flow_dissector may be asked to parse packet unaligned
+fields in two instances:
 
-And in addition to all this, anything we can do to help align
-nested encapsulations  (i.e., Tom's concern) is also needed, and
-maybe it will be cleaner to do that if we just split off deep packet
-inspection for flow extraction away from eth_get_headlen.
+1) Packet from a driver which is aligned to Ethernet header
+   (2-byte alignment)
+2) Parsing inner headers of a received GRE-TEB packet
 
---Sowmini
+Testing: Ran super_netperf tests did not see a regression. This was on
+x86 which does not have problems with unaligned data.
+
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ net/core/flow_dissector.c | 19 ++++++++++++++-----
+ 1 file changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index d79699c..1c64a1a 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -95,7 +95,7 @@ __be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
+ 		ports = __skb_header_pointer(skb, thoff + poff,
+ 					     sizeof(_ports), data, hlen, &_ports);
+ 		if (ports)
+-			return *ports;
++			return get_unaligned_be32(ports);
+ 	}
+ 
+ 	return 0;
+@@ -116,6 +116,10 @@ EXPORT_SYMBOL(__skb_flow_get_ports);
+  * by flow_dissector from either the skbuff or a raw buffer specified by the
+  * rest parameters.
+  *
++ * This function does not assume 4-byte alignment, but it does assume 2-byte
++ * alignment (false is returned for 1-byte alignment). get_unaligned_be32
++ * is called to get thirty-two values out of the packet.
++ *
+  * Caller must take care of zeroing target container memory.
+  */
+ bool __skb_flow_dissect(const struct sk_buff *skb,
+@@ -140,6 +144,11 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 		hlen = skb_headlen(skb);
+ 	}
+ 
++#ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
++	if (WARN_ON(((u64)data & 0x1)))
++		return false;
++#endif
++
+ 	/* It is ensured by skb_flow_dissector_init() that control key will
+ 	 * be always present.
+ 	 */
+@@ -230,7 +239,7 @@ ipv6:
+ 			key_control->addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
+ 		}
+ 
+-		flow_label = ip6_flowlabel(iph);
++		flow_label = get_unaligned_be32(iph) & IPV6_FLOWLABEL_MASK;
+ 		if (flow_label) {
+ 			if (dissector_uses_key(flow_dissector,
+ 					       FLOW_DISSECTOR_KEY_FLOW_LABEL)) {
+@@ -303,7 +312,7 @@ ipv6:
+ 			key_addrs = skb_flow_dissector_target(flow_dissector,
+ 							      FLOW_DISSECTOR_KEY_TIPC_ADDRS,
+ 							      target_container);
+-			key_addrs->tipcaddrs.srcnode = hdr->srcnode;
++			key_addrs->tipcaddrs.srcnode = get_unaligned_be32(&hdr->srcnode);
+ 			key_control->addr_type = FLOW_DISSECTOR_KEY_TIPC_ADDRS;
+ 		}
+ 		goto out_good;
+@@ -325,7 +334,7 @@ mpls:
+ 				key_keyid = skb_flow_dissector_target(flow_dissector,
+ 								      FLOW_DISSECTOR_KEY_MPLS_ENTROPY,
+ 								      target_container);
+-				key_keyid->keyid = hdr[1].entry &
++				key_keyid->keyid = get_unaligned_be32(&hdr[1].entry) &
+ 					htonl(MPLS_LS_LABEL_MASK);
+ 			}
+ 
+@@ -379,7 +388,7 @@ ip_proto_again:
+ 				key_keyid = skb_flow_dissector_target(flow_dissector,
+ 								      FLOW_DISSECTOR_KEY_GRE_KEYID,
+ 								      target_container);
+-				key_keyid->keyid = *keyid;
++				key_keyid->keyid = get_unaligned_be32(keyid);
+ 			}
+ 			nhoff += 4;
+ 		}
+-- 
+2.4.6
