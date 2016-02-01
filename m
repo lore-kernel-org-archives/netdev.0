@@ -1,60 +1,68 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH net 5/6] net: mvneta: The mvneta_percpu_elect function should be atomic
-Date: Mon, 01 Feb 2016 11:22:45 +0100
-Message-ID: <87h9hs7mru.fsf@free-electrons.com>
-References: <1454084767-24715-1-git-send-email-gregory.clement@free-electrons.com>
-	<1454084767-24715-6-git-send-email-gregory.clement@free-electrons.com>
-	<20160129.203810.1601035648854177084.davem@davemloft.net>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH] mac80211: fix memory leak
+Date: Mon, 1 Feb 2016 21:23:02 +1100
+Message-ID: <CAGRGNgU7dg0rcCH2Le=Z_ExUBdPBbGzFp_tnFvA0CzuHpe+etQ@mail.gmail.com>
+References: <1454060944-11320-1-git-send-email-sudipm.mukherjee@gmail.com>
+ <CAGRGNgXc9PtYY=hb8nNRt4T5YGm2vexcJ01Z1fCCcb=57WRZ3g@mail.gmail.com>
+ <20160201042548.GA4072@sudip-pc> <878u34u6d6.fsf@purkki.adurom.net> <20160201093346.GA10500@sudip-pc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	thomas.petazzoni@free-electrons.com, jason@lakedaemon.net,
-	andrew@lunn.ch, sebastian.hesselbarth@gmail.com,
-	linux-arm-kernel@lists.infradead.org, alior@marvell.com,
-	nadavh@marvell.com, mw@semihalf.com, linux@arm.linux.org.uk,
-	w@1wt.eu
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160129.203810.1601035648854177084.davem@davemloft.net> (David
-	Miller's message of "Fri, 29 Jan 2016 20:38:10 -0800 (PST)")
+In-Reply-To: <20160201093346.GA10500@sudip-pc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
- 
- On sam., janv. 30 2016, David Miller <davem@davemloft.net> wrote:
+Hi Sudip,
 
-> From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-> Date: Fri, 29 Jan 2016 17:26:06 +0100
+On Mon, Feb 1, 2016 at 8:33 PM, Sudip Mukherjee
+<sudipm.mukherjee@gmail.com> wrote:
+> On Mon, Feb 01, 2016 at 11:28:37AM +0200, Kalle Valo wrote:
+>> Sudip Mukherjee <sudipm.mukherjee@gmail.com> writes:
+>>
+>> > On Mon, Feb 01, 2016 at 11:03:35AM +1100, Julian Calaby wrote:
+>> >> Hi Sudip,
+>> >>
+>> >> On Fri, Jan 29, 2016 at 8:49 PM, Sudip Mukherjee
+>> >> <sudipm.mukherjee@gmail.com> wrote:
+>> >> > On error we jumped to the error label and returned the error code but we
+>> >> > missed releasing sinfo.
+>> >> >
+>> >> > Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+>> >>
+>> >> Should the From: and Signed-off-by: email addresses be the same?
+>> >
+>> > I think 2 years back I had a long discussion with Greg about this and
+>> > since then I al submitting patches like this. A small summayg of the
+>> > problem from that discussion:
+>> >
+>> > "we have strict DMARC check for the corporate mail server. DMARC =
+>> > domain based message authentication.
+>> > So the mail i sent reached all the list subscriber from a different
+>> > server than our designated server, and as a result it is marked as spam
+>> > in many places and I have already received a few complaints regarding
+>> > that."
+>>
+>> You can add a separate "From:" line to the beginning of the commit log
+>> and git will use it then commiting the patch. I didn't find any
+>> documention but it's easy to do and should solve this.
 >
->> @@ -370,6 +370,8 @@ struct mvneta_port {
->>  	struct net_device *dev;
->>  	struct notifier_block cpu_notifier;
->>  	int rxq_def;
->> +	/* protect  */
->> +	spinlock_t lock;
->>  
->>  	/* Core clock */
->>  	struct clk *clk;
->
-> Protect what?  This comment needs a lot of improvement.
+> Documentation is not needed. :)
+> I have done that couple of time.
+> I will resend this patch with the extra From: line.
 
-Sorry about it, this was a left-over.
-
->
-> Everyone knows a spinlock "protects" things, so if you aren't going
-> to actually describe what this lock protects, and in what contexts
-> the lock is used, you might as well not say anything at all.
-
-I can only agree with you, I will fix it for next version.
+Don't forget to include the Fixes: tag.
 
 Thanks,
 
-Gregory
-
-
 -- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
