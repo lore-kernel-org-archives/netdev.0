@@ -1,53 +1,52 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] Kernel unaligned access at __skb_flow_dissect
-Date: Sun, 31 Jan 2016 16:04:54 -0800
-Message-ID: <1454285094.7627.149.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20160129180651.GA17127@oracle.com>
-	 <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1454093642.7627.57.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S34+od6o69rHQzotJFXf7kziEuQUj=xH5VUWw+YpH4FjNg@mail.gmail.com>
-	 <20160129210900.GD17127@oracle.com>
-	 <CALx6S35V47scFFQab7ZsQyh6CktS17w4hSKZSVAnOB0Ppa7brg@mail.gmail.com>
-	 <20160129230424.GG17127@oracle.com>
-	 <CALx6S34KtC4kkjzchY5Xs4QapD7FMqxShwEDST0Q_bZgDRicmQ@mail.gmail.com>
-	 <20160129235800.GH17127@oracle.com>
-	 <CALx6S37KgEPorPp4T4gh8xatsPUTOe=wuhG4fzqx8U35a9O3KA@mail.gmail.com>
-	 <1454120138.7627.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S37+xhG-CYDUYqzXcS3FBW+Ta_kjQv6CgYKA2XdQLpHsfQ@mail.gmail.com>
+Subject: Re: [PATCH net] net: Allow flow dissector to handle non 4-byte
+ aligned headers
+Date: Sun, 31 Jan 2016 16:24:00 -0800
+Message-ID: <1454286240.7627.160.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1454276221-3543907-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	Michael Dalton <mwdalton@google.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	sowmini.varadhan@oracle.com, kernel-team@fb.com
 To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:34991 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933220AbcBAAE4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 19:04:56 -0500
-Received: by mail-pa0-f43.google.com with SMTP id ho8so71492782pac.2
-        for <netdev@vger.kernel.org>; Sun, 31 Jan 2016 16:04:56 -0800 (PST)
-In-Reply-To: <CALx6S37+xhG-CYDUYqzXcS3FBW+Ta_kjQv6CgYKA2XdQLpHsfQ@mail.gmail.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36000 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932824AbcBAAYC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 19:24:02 -0500
+Received: by mail-pf0-f181.google.com with SMTP id n128so72734668pfn.3
+        for <netdev@vger.kernel.org>; Sun, 31 Jan 2016 16:24:01 -0800 (PST)
+In-Reply-To: <1454276221-3543907-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2016-01-31 at 14:13 -0800, Tom Herbert wrote:
+On Sun, 2016-01-31 at 13:37 -0800, Tom Herbert wrote:
+> Call get_unaligned_be32 when we access 32-bit fields in
+> __skb_flow_dissect. At the beginning check for unlikely case of
+> 1-byte aligned packet.
+> 
+> Note that flow_dissector may be asked to parse packet unaligned
+> fields in two instances:
+> 
+> 1) Packet from a driver which is aligned to Ethernet header
+>    (2-byte alignment)
+> 2) Parsing inner headers of a received GRE-TEB packet
+> 
+> Testing: Ran super_netperf tests did not see a regression. This was on
+> x86 which does not have problems with unaligned data.
 
-> Neither is GRE enabled by default in Linux and it is not a typical
-> case. So that patch is an optimization for a very narrow use case that
-> impacts the core data path for everyone. Please at least consider
-> making it configurable.
+But this test is absolutely useless, what about testing arches that
+actually care ?
 
-No idea why it should be configurable, by adding yet another
-conditional.
+I am told all these MIPS based boxes have already not enough cpu power.
 
-Pulling all headers at once is faster than pulling in GRO slow path, or
-if GRO is disabled in pskb_may_pull() slow path.
+It is sad, because none of them use the drivers that might call flow
+dissection (mlx4 and 4 intel drivers)
 
-It seems we need to fix flow dissector anyway.
+So I would rather fix the cases where flow dissection called from
+eth_get_headlen() with non aligned stuff.
 
-Note: This path is only taken in non native traffic, in case you missed
-this.
-
-Regular IP+TCP or IP+UDP does not use it.
+And maybe restrict GRE-TEB to platforms with
+CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS=y, since otherwise we need to add
+these unaligned macros in thousands of places in our stacks.
