@@ -1,42 +1,59 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC net-next 6/9] net/cls_flower: Introduce hardware offloading
-Date: Mon, 01 Feb 2016 01:31:17 -0800
-Message-ID: <56AF25E5.6000105@gmail.com>
-References: <1454315685-32202-1-git-send-email-amir@vadai.me> <1454315685-32202-7-git-send-email-amir@vadai.me>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH] mac80211: fix memory leak
+Date: Mon, 1 Feb 2016 15:03:46 +0530
+Message-ID: <20160201093346.GA10500@sudip-pc>
+References: <1454060944-11320-1-git-send-email-sudipm.mukherjee@gmail.com>
+ <CAGRGNgXc9PtYY=hb8nNRt4T5YGm2vexcJ01Z1fCCcb=57WRZ3g@mail.gmail.com>
+ <20160201042548.GA4072@sudip-pc>
+ <878u34u6d6.fsf@purkki.adurom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Amir Vadai <amir@vadai.me>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35514 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752838AbcBAJba (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 04:31:30 -0500
-Received: by mail-pa0-f53.google.com with SMTP id ho8so79070871pac.2
-        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 01:31:29 -0800 (PST)
-In-Reply-To: <1454315685-32202-7-git-send-email-amir@vadai.me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Calaby <julian.calaby@gmail.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <878u34u6d6.fsf@purkki.adurom.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-02-01 12:34 AM, Amir Vadai wrote:
-> During initialization, tcf_exts_offload_init() is called to initialize
-> the list of actions description. later on, the classifier description
-> is prepared and sent to the switchdev using switchdev_port_flow_add().
+On Mon, Feb 01, 2016 at 11:28:37AM +0200, Kalle Valo wrote:
+> Sudip Mukherjee <sudipm.mukherjee@gmail.com> writes:
 > 
-> When offloaded, fl_classify() is a NOP - already done in hardware.
+> > On Mon, Feb 01, 2016 at 11:03:35AM +1100, Julian Calaby wrote:
+> >> Hi Sudip,
+> >> 
+> >> On Fri, Jan 29, 2016 at 8:49 PM, Sudip Mukherjee
+> >> <sudipm.mukherjee@gmail.com> wrote:
+> >> > On error we jumped to the error label and returned the error code but we
+> >> > missed releasing sinfo.
+> >> >
+> >> > Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+> >> 
+> >> Should the From: and Signed-off-by: email addresses be the same?
+> >
+> > I think 2 years back I had a long discussion with Greg about this and
+> > since then I al submitting patches like this. A small summayg of the
+> > problem from that discussion:
+> >
+> > "we have strict DMARC check for the corporate mail server. DMARC =
+> > domain based message authentication.
+> > So the mail i sent reached all the list subscriber from a different
+> > server than our designated server, and as a result it is marked as spam
+> > in many places and I have already received a few complaints regarding
+> > that."
 > 
-> Signed-off-by: Amir Vadai <amir@vadai.me>
-> ---
+> You can add a separate "From:" line to the beginning of the commit log
+> and git will use it then commiting the patch. I didn't find any
+> documention but it's easy to do and should solve this.
 
-You need to account for where the classifier is being loaded
-by passing the handle as I did in my patch set. Otherwise you may
-be offloading on egress/ingress or even some qdisc multiple layers
-down in the hierarchy.
+Documentation is not needed. :)
+I have done that couple of time.
+I will resend this patch with the extra From: line.
 
-.John
+regards
+sudip
