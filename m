@@ -1,7 +1,7 @@
 From: Amir Vadai <amir@vadai.me>
-Subject: [RFC net-next 4/9] net/act_skbedit: Introduce hardware offload support
-Date: Mon,  1 Feb 2016 08:34:40 +0000
-Message-ID: <1454315685-32202-5-git-send-email-amir@vadai.me>
+Subject: [RFC net-next 5/9] net/act_gact: Introduce hardware offload support for drop
+Date: Mon,  1 Feb 2016 08:34:41 +0000
+Message-ID: <1454315685-32202-6-git-send-email-amir@vadai.me>
 References: <1454315685-32202-1-git-send-email-amir@vadai.me>
 Cc: Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Har-Zion <hadarh@mellanox.com>,
@@ -11,64 +11,63 @@ Cc: Or Gerlitz <ogerlitz@mellanox.com>,
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:32925 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:32933 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751614AbcBAIhA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Feb 2016 03:37:00 -0500
+	id S1751738AbcBAIhD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Feb 2016 03:37:03 -0500
 In-Reply-To: <1454315685-32202-1-git-send-email-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently only 'mark' operation is supported when hardware offload is
-requested.
+Enable hardware offloaded packet dropping when filter is marked with
+'offload' attribute.
 
 Signed-off-by: Amir Vadai <amir@vadai.me>
 ---
- net/sched/act_skbedit.c | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+ net/sched/act_gact.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-index 6751b5f..3113dfc 100644
---- a/net/sched/act_skbedit.c
-+++ b/net/sched/act_skbedit.c
-@@ -23,6 +23,7 @@
- #include <linux/rtnetlink.h>
+diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
+index 5c1b051..b639b18 100644
+--- a/net/sched/act_gact.c
++++ b/net/sched/act_gact.c
+@@ -20,6 +20,7 @@
+ #include <linux/init.h>
  #include <net/netlink.h>
  #include <net/pkt_sched.h>
 +#include <net/switchdev.h>
+ #include <linux/tc_act/tc_gact.h>
+ #include <net/tc_act/tc_gact.h>
  
- #include <linux/tc_act/tc_skbedit.h>
- #include <net/tc_act/tc_skbedit.h>
-@@ -173,6 +174,22 @@ nla_put_failure:
+@@ -183,6 +184,21 @@ nla_put_failure:
  	return -1;
  }
  
-+static int tcf_skbedit_offload_init(struct tc_action *a,
-+				    struct switchdev_obj_port_flow_act *obj)
++static int tcf_gact_offload_init(struct tc_action *a,
++				 struct switchdev_obj_port_flow_act *obj)
 +{
-+	struct tcf_skbedit *d = a->priv;
++	struct tcf_gact *gact = a->priv;
 +
-+	if (d->flags == SKBEDIT_F_MARK) {
-+		obj->actions |= BIT(SWITCHDEV_OBJ_PORT_FLOW_ACT_MARK);
-+		obj->mark = d->mark;
++	if (gact->tcf_action == TC_ACT_SHOT) {
++		obj->actions |= BIT(SWITCHDEV_OBJ_PORT_FLOW_ACT_DROP);
 +
 +		return 0;
 +	}
 +
-+	pr_err("Only 'mark' is supported for offloaded skbedit\n");
++	pr_err("Only 'drop' is supported for offloaded gact\n");
 +	return -ENOTSUPP;
 +}
 +
- static struct tc_action_ops act_skbedit_ops = {
- 	.kind		=	"skbedit",
- 	.type		=	TCA_ACT_SKBEDIT,
-@@ -180,6 +197,7 @@ static struct tc_action_ops act_skbedit_ops = {
- 	.act		=	tcf_skbedit,
- 	.dump		=	tcf_skbedit_dump,
- 	.init		=	tcf_skbedit_init,
-+	.offload_init	=	tcf_skbedit_offload_init,
+ static struct tc_action_ops act_gact_ops = {
+ 	.kind		=	"gact",
+ 	.type		=	TCA_ACT_GACT,
+@@ -190,6 +206,7 @@ static struct tc_action_ops act_gact_ops = {
+ 	.act		=	tcf_gact,
+ 	.dump		=	tcf_gact_dump,
+ 	.init		=	tcf_gact_init,
++	.offload_init	=	tcf_gact_offload_init,
  };
  
- MODULE_AUTHOR("Alexander Duyck, <alexander.h.duyck@intel.com>");
+ MODULE_AUTHOR("Jamal Hadi Salim(2002-4)");
 -- 
 2.7.0
