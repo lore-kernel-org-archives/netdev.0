@@ -1,50 +1,58 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: ixgbe: get link speed as a slave nic unrelated with link
-Date: Mon, 1 Feb 2016 15:53:33 +0000
-Message-ID: <87618083B2453E4A8714035B62D67992505210DB@FMSMSX105.amr.corp.intel.com>
-References: <1452258030-63996-5-git-send-email-jeffrey.t.kirsher@intel.com>
- <1454311675-24676-1-git-send-email-zyjzyj2000@gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH (net-next.git) 01/18] stmmac: share reset function between
+ dwmac100 and dwmac1000
+Date: Mon, 1 Feb 2016 16:54:54 +0100
+Message-ID: <56AF7FCE.5090607@st.com>
+References: <1451912823-5245-2-git-send-email-peppe.cavallaro@st.com>	<20160104.222549.839329360046336198.davem@davemloft.net>	<568B86E0.6000400@st.com> <20160105.134509.1955558752031082605.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "zyjzyj2000@gmail.com" <zyjzyj2000@gmail.com>,
-	"Schmitt, Phillip J" <phillip.j.schmitt@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Shteinbock, Boris (Wind River)" <boris.shteinbock@windriver.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <alexandre.torgue@st.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:2340 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751287AbcBAPxf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Feb 2016 10:53:35 -0500
-In-Reply-To: <1454311675-24676-1-git-send-email-zyjzyj2000@gmail.com>
-Content-Language: en-US
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:38762 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752487AbcBAPzC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 10:55:02 -0500
+In-Reply-To: <20160105.134509.1955558752031082605.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogenlqenlqMjAwMEBnbWFpbC5jb20g
-W21haWx0bzp6eWp6eWoyMDAwQGdtYWlsLmNvbV0NCj5TZW50OiBTdW5kYXksIEphbnVhcnkgMzEs
-IDIwMTYgMTE6MjggUE0NCj5UbzogenlqenlqMjAwMEBnbWFpbC5jb207IFRhbnRpbG92LCBFbWls
-IFM7IFNjaG1pdHQsIFBoaWxsaXAgSjsgS2lyc2hlciwNCj5KZWZmcmV5IFQ7IG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmc7IGUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldDsNCj5TaHRlaW5i
-b2NrLCBCb3JpcyAoV2luZCBSaXZlcikNCj5TdWJqZWN0OiBpeGdiZTogZ2V0IGxpbmsgc3BlZWQg
-YXMgYSBzbGF2ZSBuaWMgdW5yZWxhdGVkIHdpdGggbGluaw0KPg0KPg0KPkhpLCBFbWlsDQo+DQo+
-VGhhbmtzIGZvciB5b3VyIHBhdGNoLg0KPkFmdGVyIEkgYXBwbGllZCB5b3VyIHBhdGNoLCB0aGUg
-Zm9sbG93aW5nIGFyZSB0aGUgZmVlZGJhY2sgZnJvbSBteSB1c2Vycy4NCj4NCj4iDQo+VXNlcnMg
-aGFkIHRlc3RlZCB0aGUgbGF0ZXN0IHBhdGNoIHRoYXQgeW91IHByb3ZpZGVkIGFuZCBpdCBpcyBt
-dWNoIGltcHJvdmVkDQo+bm93LiBIb3dldmVyIGl04oCZcyBzdGlsbCBub3QgZ29vZCBlbm91Z2gg
-YXMgdGhlIHVzZXJzIGFyZSBwbGFubmluZyBmaWVsZA0KPmRlcGxveW1lbnQuIEhlcmUgYXJlIHRo
-ZWlyIGZpbmRpbmdzOg0KPg0KPlNvIGNsb3NlLCBidXQgbm90IHF1aXRlIDEwMCUuIEkgZGlkIHJ1
-biBvdmVyIDI1MDAgcmUtbmVnb3RpYXRpb25zIG9uIG9uZQ0KPmludGVyZmFjZSBvZiBhIGJvbmRl
-ZCBwYWlyIGFuZCBnb3QgdGhlIDAgTUJwcyBzdGF0dXMgdG90YWwgb2YgdGhyZWUgdGltZXMuDQo+
-VGhlIGxvbmdlc3QgcnVuIHdpdGhvdXQgc2luZ2xlIGVycm9yIHdhcyBzb21ldGhpbmcgbGlrZSAx
-ODAwIHJlLQ0KPm5lZ290aWF0aW9ucyBvciBzby4gU28sIHRoaXMgdmVyc2lvbiBzZWVtcyB0byBp
-bXByb3ZlIHRoZSBzaXR1YXRpb24NCj5pbW1lbnNlbHkgKHRoZSB1bnBhdGNoZWQgZHJpdmVyIGZh
-aWxzIGxpa2UgMjUlIG9mIHRoZSB0aW1lKSwgYnV0IHRoZXJlDQo+c3RpbGwgc2VlbXMgdG8gcmVt
-YWluIHNvbWUgdGlueSByYWNlIHNvbWV3aGVyZS4NCg0KWWVzIGF0IHRoZSB0aW1lIG9mIHRoZSBi
-b25kaW5nIGludGVyZmFjZSBjb21pbmcgdXAgdGhlcmUgY2FuIGJlIGEgbWVzc2FnZSBhYm91dCAw
-IE1icHMgaW4gZG1lc2csDQpob3dldmVyIHRoZSBhY3R1YWwgYm9uZCBvbmNlIGZ1bGx5IHVwIHdp
-bGwgaGF2ZSB0aGUgY29ycmVjdCBzcGVlZHMgYXMgc2VlbiBieToNCiNjYXQgL3Byb2MvbmV0L2Jv
-bmRpbmcvYm9uZDANCg0KVGhhbmtzLA0KRW1pbA0KDQoNCg==
+On 1/5/2016 7:45 PM, David Miller wrote:
+> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> Date: Tue, 5 Jan 2016 10:03:28 +0100
+>
+>> On 1/5/2016 4:25 AM, David Miller wrote:
+>>> From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>>> Date: Mon, 4 Jan 2016 14:06:46 +0100
+>>>
+>>>> @@ -376,7 +376,8 @@ extern const struct stmmac_desc_ops ndesc_ops;
+>>>>    /* Specific DMA helpers */
+>>>>    struct stmmac_dma_ops {
+>>>>    	/* DMA core initialization */
+>>>> -	int (*init) (void __iomem *ioaddr, int pbl, int fb, int mb,
+>>>> +	int (*reset)(void __iomem *ioaddr);
+>>>> +	void (*init)(void __iomem *ioaddr, int pbl, int fb, int mb,
+>>>>    		     int burst_len, u32 dma_tx, u32 dma_rx, int atds);
+>>>
+>>> Since you change the return type of the 'init' method, and this
+>>> changes the column of the openning parenthesis, you have to fix the
+>>> indentation of the argument list on the next line.
+>>>
+>>
+>> hmm, lines are well aligned.
+>>
+>> I will check again, in case of I introduced some indentation problem.
+>
+> Either it was wrong to begin with (I checked before I replied to this posting
+> and didn't see a misalignment) or it is wrong after the change since void is
+> one more column more than int.
+
+i think that the problem is that, initially there was the int with a
+space after the bracket that I removed after changing the API to use
+the void and to satisfy checkpatch rule.
+In any case, as final result, on both the alignment is respected.
+I will send v3 asap so welcome any advice in case you see some
+rework on this patch.
+
+peppe
