@@ -1,89 +1,72 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v1 08/10] tipc: protect tipc_subscrb_get() with subscriber spin lock
-Date: Mon, 1 Feb 2016 10:44:41 +0100
-Message-ID: <1454319883-16031-9-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v1 06/10] tipc: fix connection
+	abort when receiving invalid cancel request
+Date: Mon, 1 Feb 2016 10:44:39 +0100
+Message-ID: <1454319883-16031-7-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1454319883-16031-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
-	<maloy@donjonn.com>, <ying.xue@windriver.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:43575 "EHLO
-	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752864AbcBAJpV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 04:45:21 -0500
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1454319883-16031-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Until now, during subscription creation the mod_time() &
-tipc_subscrb_get() are called after releasing the subscriber
-spin lock.
+Until now, the subscribers endianness for a subscription
+create/cancel request is determined as:
+    swap = !(s->filter & (TIPC_SUB_PORTS | TIPC_SUB_SERVICE))
+The checks are performed only for port/service subscriptions.
 
-In a SMP system when performing a subscription creation, if the
-subscription timeout occurs simultaneously (the timer is
-scheduled to run on another CPU) then the timer thread
-might decrement the subscribers refcount before the create
-thread increments the refcount.
+The swap calculation is incorrectly if the filter in the subscription
+cancellation request is set to TIPC_SUB_CANCEL (its a malformed
+cancel request, as the corresponding subscription create filter
+is missing).
+Thus, the check if the request is for cancellation fails and the
+request is treated as a subscription create request. The
+subscription creation fails as the request is illegal, which
+terminates this connection.
 
-This can be simulated by creating subscription with timeout=0 and
-sometimes the timeout occurs before the create request is complete.
-This leads to the following message:
-[30.702949] BUG: spinlock bad magic on CPU#1, kworker/u8:3/87
-[30.703834] general protection fault: 0000 [#1] SMP
-[30.704826] CPU: 1 PID: 87 Comm: kworker/u8:3 Not tainted 4.4.0-rc8+ #18
-[30.704826] Workqueue: tipc_rcv tipc_recv_work [tipc]
-[30.704826] task: ffff88003f878600 ti: ffff88003fae0000 task.ti: ffff88003fae0000
-[30.704826] RIP: 0010:[<ffffffff8109196c>]  [<ffffffff8109196c>] spin_dump+0x5c/0xe0
-[...]
-[30.704826] Call Trace:
-[30.704826]  [<ffffffff81091a16>] spin_bug+0x26/0x30
-[30.704826]  [<ffffffff81091b75>] do_raw_spin_lock+0xe5/0x120
-[30.704826]  [<ffffffff81684439>] _raw_spin_lock_bh+0x19/0x20
-[30.704826]  [<ffffffffa0096f10>] tipc_subscrb_rcv_cb+0x1d0/0x330 [tipc]
-[30.704826]  [<ffffffffa00a37b1>] tipc_receive_from_sock+0xc1/0x150 [tipc]
-[30.704826]  [<ffffffffa00a31df>] tipc_recv_work+0x3f/0x80 [tipc]
-[30.704826]  [<ffffffff8106a739>] process_one_work+0x149/0x3c0
-[30.704826]  [<ffffffff8106aa16>] worker_thread+0x66/0x460
-[30.704826]  [<ffffffff8106a9b0>] ? process_one_work+0x3c0/0x3c0
-[30.704826]  [<ffffffff8106a9b0>] ? process_one_work+0x3c0/0x3c0
-[30.704826]  [<ffffffff8107029d>] kthread+0xed/0x110
-[30.704826]  [<ffffffff810701b0>] ? kthread_create_on_node+0x190/0x190
-[30.704826]  [<ffffffff81684bdf>] ret_from_fork+0x3f/0x70
-
-In this commit,
-1. we remove the check for the return code for mod_timer()
-2. we protect tipc_subscrb_get() using the subscriber spin lock.
-   We increment the subscriber's refcount as soon as we add the
-   subscription to subscriber's subscription list.
+In this commit we determine the endianness by including
+TIPC_SUB_CANCEL, which will set swap correctly and the
+request is processed as a cancel request.
 
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
- net/tipc/subscr.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/tipc/subscr.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index e4ebbc161e42..7d226ecb0490 100644
+index 531227208ae2..24d2c8128bac 100644
 --- a/net/tipc/subscr.c
 +++ b/net/tipc/subscr.c
-@@ -284,13 +284,13 @@ static void tipc_subscrp_subscribe(struct net *net, struct tipc_subscr *s,
+@@ -309,7 +309,8 @@ static void tipc_subscrb_rcv_cb(struct net *net, int conid,
+ 	int swap;
  
- 	spin_lock_bh(&subscriber->lock);
- 	list_add(&sub->subscrp_list, &subscriber->subscrp_list);
-+	tipc_subscrb_get(subscriber);
- 	sub->subscriber = subscriber;
- 	tipc_nametbl_subscribe(sub);
- 	spin_unlock_bh(&subscriber->lock);
+ 	/* Determine subscriber's endianness */
+-	swap = !(s->filter & (TIPC_SUB_PORTS | TIPC_SUB_SERVICE));
++	swap = !(s->filter & (TIPC_SUB_PORTS | TIPC_SUB_SERVICE |
++			      TIPC_SUB_CANCEL));
  
- 	timeout = htohl(sub->evt.s.timeout, swap);
--	if (!mod_timer(&sub->timer, jiffies + msecs_to_jiffies(timeout)))
--		tipc_subscrb_get(subscriber);
-+	mod_timer(&sub->timer, jiffies + msecs_to_jiffies(timeout));
- }
- 
- /* Handle one termination request for the subscriber */
+ 	/* Detect & process a subscription cancellation request */
+ 	if (s->filter & htohl(TIPC_SUB_CANCEL, swap)) {
 -- 
 2.1.4
+
+
+------------------------------------------------------------------------------
+Site24x7 APM Insight: Get Deep Visibility into Application Performance
+APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
+Monitor end-to-end web transactions and take corrective actions now
+Troubleshoot faster and improve end-user experience. Signup Now!
+http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
