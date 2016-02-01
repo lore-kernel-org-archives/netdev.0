@@ -1,48 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] route: add rcu_read_lock when lookup route and
- update fnhe in __ip_do_redirect
-Date: Mon, 01 Feb 2016 09:49:28 -0800
-Message-ID: <1454348968.7627.174.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <db60649416c596fc5e76930484b726cb180b14b8.1454322132.git.lucien.xin@gmail.com>
-	 <1454334407.7627.163.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CADvbK_fScqzKzo-dfRWoAwdYBimEeXjns-1D0uD3WoERoL30hw@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH V3] netfilter: h323: avoid potential attack
+Date: Mon, 1 Feb 2016 18:58:58 +0100
+Message-ID: <20160201175858.GA2453@salvia>
+References: <1454037935-14842-1-git-send-email-zhouzhouyi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: network dev <netdev@vger.kernel.org>, davem <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:35376 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751149AbcBARta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 12:49:30 -0500
-Received: by mail-pf0-f178.google.com with SMTP id 65so87401109pfd.2
-        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 09:49:30 -0800 (PST)
-In-Reply-To: <CADvbK_fScqzKzo-dfRWoAwdYBimEeXjns-1D0uD3WoERoL30hw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fw@strlen.de,
+	gnomes@lxorguk.ukuu.org.uk, sergei.shtylyov@cogentembedded.com,
+	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+To: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1454037935-14842-1-git-send-email-zhouzhouyi@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-02-02 at 01:16 +0800, Xin Long wrote:
-
-> no, no stack dump was found.
-> by reviewing code, I found it when I cooked another patch.
+On Fri, Jan 29, 2016 at 11:25:35AM +0800, Zhouyi Zhou wrote:
+> I think hackers chould build a malicious h323 packet to overflow
+> the pointer p which will panic during the memcpy(addr, p, len)
+> For example, he may fabricate a very large taddr->ipAddress.ip;
+> As suggested by Eric, this module is protected by a lock (nf_h323_lock)
+> so adding a variable h323_buffer_valid_bytes that would contain
+> the number of valid bytes would not require to change prototypes of
+> get_h2x5_addr.
 > 
-> and the path that __ip_do_redirect() is called should be:
+> Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> 
 > 
-> icmp_rcv |-> icmp_unreach  -\
->               |-> icmp_redirect -> icmp_socket_deliver -> ipprot->err_handler()
-> [tcp_v4/6_err, sctp_v4/6_err, dccp_v4/6_err, udpv4/6_err ...]
+> ---
+>  net/netfilter/nf_conntrack_h323_main.c | 13 +++++++++++++
+>  1 file changed, 13 insertions(+)
 > 
-> -> ... -> __ip_do_redirect()
-> 
-> I checked the codes for many times, didn't find any rcu_lock on this path,
-> unless we treat BH as rcu_lock.
+> diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
+> index 9511af0..65d84bc 100644
+> --- a/net/netfilter/nf_conntrack_h323_main.c
+> +++ b/net/netfilter/nf_conntrack_h323_main.c
+> @@ -110,6 +110,11 @@ int (*nat_q931_hook) (struct sk_buff *skb,
+>  
+>  static DEFINE_SPINLOCK(nf_h323_lock);
+>  static char *h323_buffer;
+> +static unsigned int h323_buffer_valid_bytes;
+> +/* check offset overflow and out of range data reference */
+> +#define CHECK_BOUND(p, n) ((n) > h323_buffer_valid_bytes ||		\
+> +			   ((void *)(p) + (n) - (void *)h323_buffer	\
+> +			    > h323_buffer_valid_bytes))
 
-Well I believe you missed something yes.
-
-All RX paths run in rcu_read_lock()
-
-ip_local_deliver_finish()
-ipv6_rcv()
-ip6_input_finish()
+We don't want obscure macros. You add a function for this, the
+compiler will likely inline it.
