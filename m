@@ -1,58 +1,61 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH (net-next.git) 01/18] stmmac: share reset function between
- dwmac100 and dwmac1000
-Date: Mon, 1 Feb 2016 16:54:54 +0100
-Message-ID: <56AF7FCE.5090607@st.com>
-References: <1451912823-5245-2-git-send-email-peppe.cavallaro@st.com>	<20160104.222549.839329360046336198.davem@davemloft.net>	<568B86E0.6000400@st.com> <20160105.134509.1955558752031082605.davem@davemloft.net>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [PATCH 1/1] ixgbe: get link speed as a slave nic unrelated with
+ link up
+Date: Mon, 1 Feb 2016 15:55:18 +0000
+Message-ID: <87618083B2453E4A8714035B62D67992505210F8@FMSMSX105.amr.corp.intel.com>
+References: <1452258030-63996-5-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1454311675-24676-1-git-send-email-zyjzyj2000@gmail.com>
+ <1454311675-24676-2-git-send-email-zyjzyj2000@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <alexandre.torgue@st.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "zyjzyj2000@gmail.com" <zyjzyj2000@gmail.com>,
+	"Schmitt, Phillip J" <phillip.j.schmitt@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Shteinbock, Boris (Wind River)" <boris.shteinbock@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:38762 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752487AbcBAPzC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 10:55:02 -0500
-In-Reply-To: <20160105.134509.1955558752031082605.davem@davemloft.net>
+Received: from mga11.intel.com ([192.55.52.93]:64911 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751860AbcBAPzT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 10:55:19 -0500
+In-Reply-To: <1454311675-24676-2-git-send-email-zyjzyj2000@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/5/2016 7:45 PM, David Miller wrote:
-> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-> Date: Tue, 5 Jan 2016 10:03:28 +0100
+>-----Original Message-----
+>From: zyjzyj2000@gmail.com [mailto:zyjzyj2000@gmail.com]
+>Sent: Sunday, January 31, 2016 11:28 PM
+>To: zyjzyj2000@gmail.com; Tantilov, Emil S; Schmitt, Phillip J; Kirsher,
+>Jeffrey T; netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net;
+>Shteinbock, Boris (Wind River)
+>Subject: [PATCH 1/1] ixgbe: get link speed as a slave nic unrelated with
+>link up
 >
->> On 1/5/2016 4:25 AM, David Miller wrote:
->>> From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
->>> Date: Mon, 4 Jan 2016 14:06:46 +0100
->>>
->>>> @@ -376,7 +376,8 @@ extern const struct stmmac_desc_ops ndesc_ops;
->>>>    /* Specific DMA helpers */
->>>>    struct stmmac_dma_ops {
->>>>    	/* DMA core initialization */
->>>> -	int (*init) (void __iomem *ioaddr, int pbl, int fb, int mb,
->>>> +	int (*reset)(void __iomem *ioaddr);
->>>> +	void (*init)(void __iomem *ioaddr, int pbl, int fb, int mb,
->>>>    		     int burst_len, u32 dma_tx, u32 dma_rx, int atds);
->>>
->>> Since you change the return type of the 'init' method, and this
->>> changes the column of the openning parenthesis, you have to fix the
->>> indentation of the argument list on the next line.
->>>
->>
->> hmm, lines are well aligned.
->>
->> I will check again, in case of I introduced some indentation problem.
+>From: Zhu Yanjun <zyjzyj2000@gmail.com>
 >
-> Either it was wrong to begin with (I checked before I replied to this posting
-> and didn't see a misalignment) or it is wrong after the change since void is
-> one more column more than int.
+>The commit 0e4d422f5f72 ("ixgbe: do not call check_link for ethtool
+>in ixgbe_get_settings()") decreases the bonding failures. But the
+>following time slice still results in a bonding failure.
+>
+>bonding                ixgbe
+>  |                     |
+>  |                    carrier_on
+>  |                     |
+>  |    <----------------|
+> link_up                |
+>  |                     |
+>  |                    carrier_off
+>  |                     |
+> get_link_speed ------->|
+>  |                     |
 
-i think that the problem is that, initially there was the int with a
-space after the bracket that I removed after changing the API to use
-the void and to satisfy checkpatch rule.
-In any case, as final result, on both the alignment is respected.
-I will send v3 asap so welcome any advice in case you see some
-rework on this patch.
+The driver does not set carrier_off unless the link is actually down.
 
-peppe
+Did you actually test this patch?
+
+Thanks,
+Emil
