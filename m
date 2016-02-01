@@ -1,61 +1,65 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v1 06/10] tipc: fix connection abort when
- receiving invalid cancel request
-Date: Mon, 1 Feb 2016 16:21:58 +0300
-Message-ID: <56AF5BF6.1030108@cogentembedded.com>
-References: <1454319883-16031-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
- <1454319883-16031-7-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: Re: [PATCH v2 net 3/6] net: mvneta: Remove unused code
+Date: Mon, 1 Feb 2016 16:32:05 +0300
+Message-ID: <56AF5E55.9030603@cogentembedded.com>
+References: <1454332067-16378-1-git-send-email-gregory.clement@free-electrons.com>
+ <1454332067-16378-4-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: tipc-discussion@lists.sourceforge.net, jon.maloy@ericsson.com,
-	maloy@donjonn.com, ying.xue@windriver.com
-To: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f44.google.com ([209.85.215.44]:35914 "EHLO
-	mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932173AbcBANWB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 08:22:01 -0500
-Received: by mail-lf0-f44.google.com with SMTP id 78so47434198lfy.3
-        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 05:22:01 -0800 (PST)
-In-Reply-To: <1454319883-16031-7-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454332067-16378-4-git-send-email-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 2/1/2016 12:44 PM, Parthasarathy Bhuvaragan wrote:
+On 2/1/2016 4:07 PM, Gregory CLEMENT wrote:
 
-> Until now, the subscribers endianness for a subscription
-> create/cancel request is determined as:
->      swap = !(s->filter & (TIPC_SUB_PORTS | TIPC_SUB_SERVICE))
-> The checks are performed only for port/service subscriptions.
+> Since the commit 2dcf75e2793c ("net: mvneta: Associate RX queues with
+> each CPU") all the percpu irq are used and unmask at initialization, so
+
+    Unmasked, you mean?
+
+> there is no point to unmask them first.
+
+    Mask, maybe (looking at the patch)?
+
+> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> ---
+>   drivers/net/ethernet/marvell/mvneta.c | 8 --------
+>   1 file changed, 8 deletions(-)
 >
-> The swap calculation is incorrectly if the filter in the subscription
-
-    Incorrect.
-
-> cancellation request is set to TIPC_SUB_CANCEL (its a malformed
-
-    It's.
-
-> cancel request, as the corresponding subscription create filter
-> is missing).
-> Thus, the check if the request is for cancellation fails and the
-> request is treated as a subscription create request. The
-> subscription creation fails as the request is illegal, which
-> terminates this connection.
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> index 3d6e3137f305..861b7e0d7d5f 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -3009,14 +3009,6 @@ static int mvneta_open(struct net_device *dev)
+>   		goto err_cleanup_txqs;
+>   	}
 >
-> In this commit we determine the endianness by including
-> TIPC_SUB_CANCEL, which will set swap correctly and the
-> request is processed as a cancel request.
-
-    Cancellation, maybe, as it was worded above?
-
-> Acked-by: Ying Xue <ying.xue@windriver.com>
-> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-> Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-[...]
+> -	/* Even though the documentation says that request_percpu_irq
+> -	 * doesn't enable the interrupts automatically, it actually
+> -	 * does so on the local CPU.
+> -	 *
+> -	 * Make sure it's disabled.
+> -	 */
+> -	mvneta_percpu_disable(pp);
+> -
+>   	/* Enable per-CPU interrupt on all the CPU to handle our RX
+>   	 * queue interrupts
+>   	 */
 
 MBR, Sergei
