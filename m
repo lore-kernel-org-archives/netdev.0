@@ -1,59 +1,50 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: Re: [PATCH] mac80211: fix memory leak
-Date: Mon, 1 Feb 2016 15:03:46 +0530
-Message-ID: <20160201093346.GA10500@sudip-pc>
-References: <1454060944-11320-1-git-send-email-sudipm.mukherjee@gmail.com>
- <CAGRGNgXc9PtYY=hb8nNRt4T5YGm2vexcJ01Z1fCCcb=57WRZ3g@mail.gmail.com>
- <20160201042548.GA4072@sudip-pc>
- <878u34u6d6.fsf@purkki.adurom.net>
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v1 00/10] tipc: cleanups, fixes & improvements for topology server
+Date: Mon, 1 Feb 2016 10:44:33 +0100
+Message-ID: <1454319883-16031-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Calaby <julian.calaby@gmail.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <878u34u6d6.fsf@purkki.adurom.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
+	<maloy@donjonn.com>, <ying.xue@windriver.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sessmg22.ericsson.net ([193.180.251.58]:44521 "EHLO
+	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751554AbcBAJou (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 04:44:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 01, 2016 at 11:28:37AM +0200, Kalle Valo wrote:
-> Sudip Mukherjee <sudipm.mukherjee@gmail.com> writes:
-> 
-> > On Mon, Feb 01, 2016 at 11:03:35AM +1100, Julian Calaby wrote:
-> >> Hi Sudip,
-> >> 
-> >> On Fri, Jan 29, 2016 at 8:49 PM, Sudip Mukherjee
-> >> <sudipm.mukherjee@gmail.com> wrote:
-> >> > On error we jumped to the error label and returned the error code but we
-> >> > missed releasing sinfo.
-> >> >
-> >> > Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
-> >> 
-> >> Should the From: and Signed-off-by: email addresses be the same?
-> >
-> > I think 2 years back I had a long discussion with Greg about this and
-> > since then I al submitting patches like this. A small summayg of the
-> > problem from that discussion:
-> >
-> > "we have strict DMARC check for the corporate mail server. DMARC =
-> > domain based message authentication.
-> > So the mail i sent reached all the list subscriber from a different
-> > server than our designated server, and as a result it is marked as spam
-> > in many places and I have already received a few complaints regarding
-> > that."
-> 
-> You can add a separate "From:" line to the beginning of the commit log
-> and git will use it then commiting the patch. I didn't find any
-> documention but it's easy to do and should solve this.
+This series contains topology server cleanups, fixes and improvements.
 
-Documentation is not needed. :)
-I have done that couple of time.
-I will resend this patch with the extra From: line.
+Cleanups in #1-#4:
+We remove duplicate data structures and aligin the rest of the code accordingly.
 
-regards
-sudip
+Fixes in #5-#8:
+The bugs occur either during configuration or while running on SMP targets,
+which are race conditions that pop up under different situations.
+
+Improvements in #9-#10:
+Updates to decrease timer usage and improve readability.
+
+Parthasarathy Bhuvaragan (10):
+  tipc: remove incorrect check for subscription timeout value
+  tipc: remove filter and timeout elements from struct tipc_subscription
+  tipc: remove struct tipc_name_seq from struct tipc_subscription
+  tipc: introduce tipc_subscrb_subscribe() routine
+  tipc: fix connection abort during subscription cancellation
+  tipc: fix connection abort when receiving invalid cancel request
+  tipc: hold subscriber->lock for tipc_nametbl_subscribe()
+  tipc: protect tipc_subscrb_get() with subscriber spin lock
+  tipc: donot create timers if subscription timeout = TIPC_WAIT_FOREVER
+  tipc: use alloc_ordered_workqueue() instead of WQ_UNBOUND w/
+    max_active = 1
+
+ net/tipc/name_table.c |  14 ++++--
+ net/tipc/server.c     |   4 +-
+ net/tipc/subscr.c     | 131 ++++++++++++++++++++++++++++++--------------------
+ net/tipc/subscr.h     |  11 ++---
+ 4 files changed, 96 insertions(+), 64 deletions(-)
+
+-- 
+2.1.4
