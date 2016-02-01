@@ -1,51 +1,42 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC net-next 6/9] net/cls_flower: Introduce hardware offloading
-Date: Mon, 01 Feb 2016 13:25:50 -0800
-Message-ID: <56AFCD5E.7060400@gmail.com>
-References: <1454315685-32202-1-git-send-email-amir@vadai.me> <1454315685-32202-7-git-send-email-amir@vadai.me> <56AF25E5.6000105@gmail.com> <56af360f.034cc20a.78f42.3c3c@mx.google.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [RFC net-next 9/9] net/mlx5e: Flow steering support through switchdev
+Date: Mon, 1 Feb 2016 23:45:07 +0200
+Message-ID: <CAJ3xEMhvx+JR43VvQnBpeJcV8d-j5TN48nmkJyJ9OUEW=Z9k5w@mail.gmail.com>
+References: <1454315685-32202-1-git-send-email-amir@vadai.me>
+	<1454315685-32202-10-git-send-email-amir@vadai.me>
+	<CALzJLG_8nB+CrHi1R3kWVK+Ap5d+V8ErN16VsV9ypFmnPw4CJw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amir@vadai.me>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
 	John Fastabend <john.r.fastabend@intel.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Har-Zion <hadarh@mellanox.com>,
 	Jiri Pirko <jiri@mellanox.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Amir Vadai <amir@vadai.me>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:33194 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753634AbcBAV0F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 16:26:05 -0500
-Received: by mail-pa0-f49.google.com with SMTP id cy9so88463269pac.0
-        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 13:26:05 -0800 (PST)
-In-Reply-To: <56af360f.034cc20a.78f42.3c3c@mx.google.com>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:32841 "EHLO
+	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753643AbcBAVpI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 16:45:08 -0500
+Received: by mail-io0-f171.google.com with SMTP id f81so172795471iof.0
+        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 13:45:08 -0800 (PST)
+In-Reply-To: <CALzJLG_8nB+CrHi1R3kWVK+Ap5d+V8ErN16VsV9ypFmnPw4CJw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-01 02:43 AM, Amir Vadai wrote:
-> On Mon, Feb 01, 2016 at 01:31:17AM -0800, John Fastabend wrote:
->> On 16-02-01 12:34 AM, Amir Vadai wrote:
->>> During initialization, tcf_exts_offload_init() is called to initialize
->>> the list of actions description. later on, the classifier description
->>> is prepared and sent to the switchdev using switchdev_port_flow_add().
->>>
->>> When offloaded, fl_classify() is a NOP - already done in hardware.
->>>
->>> Signed-off-by: Amir Vadai <amir@vadai.me>
->>> ---
->>
->> You need to account for where the classifier is being loaded
->> by passing the handle as I did in my patch set. Otherwise you may
->> be offloading on egress/ingress or even some qdisc multiple layers
->> down in the hierarchy.
-> Right. Will fix it.
+On Mon, Feb 1, 2016 at 8:52 PM, Saeed Mahameed
+<saeedm@dev.mellanox.co.il> wrote:
 
-also it seems you missed fl_delete() this will be called from cmds
-like 'tc filter delete ...'
+[...]
 
-> 
->>
->> .John
->>
+> in case it is, please consider using the vport_manager capability or
+> any other device capability meant for this,
+> to initialize and activate mlx5e_switchdev.
+>
+> After all such offload might not be supported in some devices. e.g VF.
+
+This offloading should be working on VFs too, we're offloading into HW
+12-tuple classification to flow-tags and drops.
