@@ -1,77 +1,71 @@
-From: <zyjzyj2000@gmail.com>
-Subject: [PATCH 1/1] bond: relocate rcu_read_lock and rcu_read_unlock
-Date: Mon, 1 Feb 2016 11:31:12 +0800
-Message-ID: <1454297472-24261-1-git-send-email-zyjzyj2000@gmail.com>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH] mac80211: fix memory leak
+Date: Mon, 1 Feb 2016 09:55:48 +0530
+Message-ID: <20160201042548.GA4072@sudip-pc>
+References: <1454060944-11320-1-git-send-email-sudipm.mukherjee@gmail.com>
+ <CAGRGNgXc9PtYY=hb8nNRt4T5YGm2vexcJ01Z1fCCcb=57WRZ3g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <j.vosburgh@gmail.com>, <vfalico@gmail.com>,
-	<gospo@cumulusnetworks.com>, <netdev@vger.kernel.org>,
-	<zyjzyj2000@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:42482 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752635AbcBAD3K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2016 22:29:10 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Julian Calaby <julian.calaby@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAGRGNgXc9PtYY=hb8nNRt4T5YGm2vexcJ01Z1fCCcb=57WRZ3g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
+On Mon, Feb 01, 2016 at 11:03:35AM +1100, Julian Calaby wrote:
+> Hi Sudip,
+> 
+> On Fri, Jan 29, 2016 at 8:49 PM, Sudip Mukherjee
+> <sudipm.mukherjee@gmail.com> wrote:
+> > On error we jumped to the error label and returned the error code but we
+> > missed releasing sinfo.
+> >
+> > Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+> 
+> Should the From: and Signed-off-by: email addresses be the same?
 
-rcu_read_lock and rcu_read_unlock are to protect the function
-bond_miimon_inspect. As such, moving rcu_read_lock and rcu_read_unlock
-to the function bond_miimon_inspect to make the source code compact.
+I think 2 years back I had a long discussion with Greg about this and
+since then I al submitting patches like this. A small summayg of the
+problem from that discussion:
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
----
- drivers/net/bonding/bond_main.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+"we have strict DMARC check for the corporate mail server. DMARC =
+domain based message authentication.
+So the mail i sent reached all the list subscriber from a different
+server than our designated server, and as a result it is marked as spam
+in many places and I have already received a few complaints regarding
+that."
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 56b5605..4043181 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2022,6 +2022,7 @@ static int bond_miimon_inspect(struct bonding *bond)
- 	struct slave *slave;
- 	bool ignore_updelay;
- 
-+	rcu_read_lock();
- 	ignore_updelay = !rcu_dereference(bond->curr_active_slave);
- 
- 	bond_for_each_slave_rcu(bond, slave, iter) {
-@@ -2113,6 +2114,8 @@ static int bond_miimon_inspect(struct bonding *bond)
- 		}
- 	}
- 
-+	rcu_read_unlock();
-+
- 	return commit;
- }
- 
-@@ -2231,12 +2234,9 @@ static void bond_mii_monitor(struct work_struct *work)
- 	if (!bond_has_slaves(bond))
- 		goto re_arm;
- 
--	rcu_read_lock();
--
- 	should_notify_peers = bond_should_notify_peers(bond);
- 
- 	if (bond_miimon_inspect(bond)) {
--		rcu_read_unlock();
- 
- 		/* Race avoidance with bond_close cancel of workqueue */
- 		if (!rtnl_trylock()) {
-@@ -2248,8 +2248,7 @@ static void bond_mii_monitor(struct work_struct *work)
- 		bond_miimon_commit(bond);
- 
- 		rtnl_unlock();	/* might sleep, hold no other locks */
--	} else
--		rcu_read_unlock();
-+	}
- 
- re_arm:
- 	if (bond->params.miimon)
--- 
-1.9.1
+> 
+> > ---
+> >  net/mac80211/sta_info.c | 1 +
+> >  1 file changed, 1 insertion(+)
+> >
+> > diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+> > index 6c198e6..36e75c4 100644
+> > --- a/net/mac80211/sta_info.c
+> > +++ b/net/mac80211/sta_info.c
+> > @@ -561,6 +561,7 @@ static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
+> >         __cleanup_single_sta(sta);
+> >   out_err:
+> >         mutex_unlock(&local->sta_mtx);
+> > +       kfree(sinfo);
+> >         rcu_read_lock();
+> >         return err;
+> >  }
+> 
+> Looks sane to me. I must note that the bug this is fixing is only in
+> the mac80211-next tree.
+> 
+> Fixes: 5fe74014172d ("mac80211: avoid excessive stack usage in sta_info")
+> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+
+thanks
+
+regards
+sudip
