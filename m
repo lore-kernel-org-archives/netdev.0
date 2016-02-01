@@ -1,61 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH V3] netfilter: h323: avoid potential attack
-Date: Mon, 01 Feb 2016 10:12:34 -0800
-Message-ID: <1454350354.7627.176.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1454037935-14842-1-git-send-email-zhouzhouyi@gmail.com>
-	 <20160201175858.GA2453@salvia>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] route: add rcu_read_lock when lookup route and update
+ fnhe in __ip_do_redirect
+Date: Tue, 2 Feb 2016 02:14:50 +0800
+Message-ID: <CADvbK_eQEv+SVucvZcDrdf6y6xHt1Zuu0Fs69KvvHoHL-cw-aQ@mail.gmail.com>
+References: <db60649416c596fc5e76930484b726cb180b14b8.1454322132.git.lucien.xin@gmail.com>
+	<1454334407.7627.163.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CADvbK_fScqzKzo-dfRWoAwdYBimEeXjns-1D0uD3WoERoL30hw@mail.gmail.com>
+	<1454348968.7627.174.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Zhouyi Zhou <zhouzhouyi@gmail.com>, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, fw@strlen.de,
-	gnomes@lxorguk.ukuu.org.uk, sergei.shtylyov@cogentembedded.com,
-	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160201175858.GA2453@salvia>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>, davem <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:34230 "EHLO
+	mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751597AbcBASOv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 13:14:51 -0500
+Received: by mail-oi0-f65.google.com with SMTP id s2so6876098oie.1
+        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 10:14:51 -0800 (PST)
+In-Reply-To: <1454348968.7627.174.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-02-01 at 18:58 +0100, Pablo Neira Ayuso wrote:
-> On Fri, Jan 29, 2016 at 11:25:35AM +0800, Zhouyi Zhou wrote:
-> > I think hackers chould build a malicious h323 packet to overflow
-> > the pointer p which will panic during the memcpy(addr, p, len)
-> > For example, he may fabricate a very large taddr->ipAddress.ip;
-> > As suggested by Eric, this module is protected by a lock (nf_h323_lock)
-> > so adding a variable h323_buffer_valid_bytes that would contain
-> > the number of valid bytes would not require to change prototypes of
-> > get_h2x5_addr.
-> > 
-> > Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> 
-> > 
-> > ---
-> >  net/netfilter/nf_conntrack_h323_main.c | 13 +++++++++++++
-> >  1 file changed, 13 insertions(+)
-> > 
-> > diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-> > index 9511af0..65d84bc 100644
-> > --- a/net/netfilter/nf_conntrack_h323_main.c
-> > +++ b/net/netfilter/nf_conntrack_h323_main.c
-> > @@ -110,6 +110,11 @@ int (*nat_q931_hook) (struct sk_buff *skb,
-> >  
-> >  static DEFINE_SPINLOCK(nf_h323_lock);
-> >  static char *h323_buffer;
-> > +static unsigned int h323_buffer_valid_bytes;
-> > +/* check offset overflow and out of range data reference */
-> > +#define CHECK_BOUND(p, n) ((n) > h323_buffer_valid_bytes ||		\
-> > +			   ((void *)(p) + (n) - (void *)h323_buffer	\
-> > +			    > h323_buffer_valid_bytes))
-> 
-> We don't want obscure macros. You add a function for this, the
-> compiler will likely inline it.
+On Tue, Feb 2, 2016 at 1:49 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2016-02-02 at 01:16 +0800, Xin Long wrote:
+>
+>> no, no stack dump was found.
+>> by reviewing code, I found it when I cooked another patch.
+>>
+>> and the path that __ip_do_redirect() is called should be:
+>>
+>> icmp_rcv |-> icmp_unreach  -\
+>>               |-> icmp_redirect -> icmp_socket_deliver -> ipprot->err_handler()
+>> [tcp_v4/6_err, sctp_v4/6_err, dccp_v4/6_err, udpv4/6_err ...]
+>>
+>> -> ... -> __ip_do_redirect()
+>>
+>> I checked the codes for many times, didn't find any rcu_lock on this path,
+>> unless we treat BH as rcu_lock.
+>
+> Well I believe you missed something yes.
+>
+> All RX paths run in rcu_read_lock()
+>
+> ip_local_deliver_finish()
+> ipv6_rcv()
+> ip6_input_finish()
 
-BTW, I did not signed-off this patch.
+Ah, right, I never thought the lock might start from ip_rcv.
+Thanks, Eric.
 
-Zhouyi Zho, just add your own signature, let people add their own.
-
-Thanks.
+>
+>
+>
