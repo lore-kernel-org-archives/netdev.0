@@ -1,62 +1,42 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net PATCH] flow_dissector: Fix unaligned access in
- __skb_flow_dissector when used by eth_get_headlen
-Date: Mon, 1 Feb 2016 16:50:29 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCD25A8@AcuExch.aculab.com>
-References: <CAKgT0UcZAh+ciNMkJDdnp7E0xyGMhvgSzJLwORLqYXbpABtoRQ@mail.gmail.com>
-	<1454182011.7627.141.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAKgT0UfyK1HO6vp4F9S3rB400A74OhS=qRX_N9RuPRYg2KazLg@mail.gmail.com>
- <20160130.194507.777391919166997236.davem@davemloft.net>
+Subject: RE: [RFC] Kernel unaligned access at __skb_flow_dissect
+Date: Mon, 1 Feb 2016 16:55:02 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCD25BC@AcuExch.aculab.com>
+References: <20160129180651.GA17127@oracle.com>
+	 <1454092428.7627.52.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20160129.110634.1678121731419241040.davem@davemloft.net>
+	 <1454096250.7627.60.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20160129194434.GC17127@oracle.com>
+	 <1454097696.7627.68.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAKgT0UdXBHocMwdcQHHd5bGMUofEH6ENox=Jw_vLEn3kMonmhA@mail.gmail.com>
+	 <1454103195.7627.76.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAKgT0Udwjgmbwd2StNm-e-02Th4NHetb_FMbrU=KOCHf_90YbA@mail.gmail.com>
+ <1454106518.7627.92.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"sowmini.varadhan@oracle.com" <sowmini.varadhan@oracle.com>,
-	"aduyck@mirantis.com" <aduyck@mirantis.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tom@herbertland.com" <tom@herbertland.com>
-To: 'David Miller' <davem@davemloft.net>,
-	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.187]:53905 "EHLO
+Received: from smtp-out6.electric.net ([192.162.217.190]:57520 "EHLO
 	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752487AbcBAQxn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 11:53:43 -0500
-In-Reply-To: <20160130.194507.777391919166997236.davem@davemloft.net>
+	with ESMTP id S1753510AbcBAQ6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 11:58:13 -0500
+In-Reply-To: <1454106518.7627.92.camel@edumazet-glaptop2.roam.corp.google.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller
-> Sent: 31 January 2016 03:45
-> To: alexander.duyck@gmail.com
-...
-> > I would really prefer to keep the pages DMA aligned, and the skb->data
-> > IP aligned.  If nothing else it has the advantage of actually having
-> > the proper alignment on all the headers if I only pull the outer
-> > headers and leave the inner headers in the page.. :-/
-> 
-> I am unconvinced by your arguments.  People getting hit by these
-> arguments don't care.  For those not hitting the problem, nothing is
-> going to change.
-> 
-> x86 uses NET_IP_ALIGN==0, and therefore nothing will change for the
-> only platform people care a lot about.  PowerPC too.
-> 
-> For platforms with NET_IP_ALIGN==2 or similar, all of these cases
-> where 1K extra buffer is allocator or _whatever_ other side effect you
-> think is such as huge deal...  trust me it's _nothing_ compared to the
-> alternative:
-> 
-> 1) Unaligned accesses
-
-Remember the even if you do a 'realignment copy' of the IP header,
-at some point the 'userdata' of the packet has to be accessed.
-Mostly this will be with memcpy() and you want that copy to be aligned.
-
-I really can't believe just how many ethernet chips are now being designed
-that can't write received frames to '4n+2' boundaries.
-It isn't even a new problem. Sun fixed the sbus 'DMA' part so that it would
-to sbus burst transfers to 4n+2 aligned buffers a long time ago...
-
-	David
+RnJvbTogRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDI5IEphbnVhcnkgMjAxNiAyMjoyOQ0KLi4uDQo+
+IE9uIG1vZGVybiBpbnRlbCBjcHVzLCB0aGlzIGRvZXMgbm90IG1hdHRlciBhdCBhbGwsIHN1cmUu
+IEl0IHRvb2sgYSB3aGlsZQ0KPiBiZWZvcmUgInJlcCBtb3ZzYiIgZmluYWxseSBkaWQgdGhlIHJp
+Z2h0IHRoaW5nLg0KDQpVbmZvcnR1bmF0ZWx5IG1lbWNweV90b19pbygpIGV0YyBub3cgbWFwIHRv
+ICdyZXAgbW92c2InLCBhbmQgdGhhdCBjYW4NCm9ubHkgYmUgb3B0aW1pc2llZCBmb3IgY2FjaGVk
+IGFkZHJlc3Nlcy4NCg0KU28gY29waWVzIHRvL2Zyb20gcGNpZSBzcGFjZSBnZXQgZG9uZSBhcyBi
+eXRlIGNvcGllcywgc2xvd2VyIHRoYW4gc2xvdy4NCg0KVGhlIHNhbWUgaXMgdHJ1ZSB3aGVuIHVz
+ZXNwYWNlIGhhcyB1c2VkIG1tYXAoKSB0byBkaXJlY3RseSBhY2Nlc3MNCnBjaWUgbWVtb3J5Lg0K
+DQpUaGVyZSBpc24ndCBhIHN0YW5kYXJkIHdyYXBwZXIgdGhhbiBnZW5lcmF0ZXMgJ3JlcCBtb3Zz
+ZCcuDQoNCglEYXZpZA0KDQo=
