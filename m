@@ -1,32 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] netfilter: ipv4: use preferred kernel types
-Date: Mon, 01 Feb 2016 11:41:35 -0800 (PST)
-Message-ID: <20160201.114135.1043954624527820660.davem@davemloft.net>
-References: <1454159878-20706-1-git-send-email-tanure@linux.com>
-	<1454159878-20706-3-git-send-email-tanure@linux.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CCD2580@AcuExch.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ipv6: addrconf: Fix recursive spin lock call
+Date: Mon, 01 Feb 2016 11:46:22 -0800
+Message-ID: <1454355982.7627.185.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <2cf017eba84341c95d22fda2952a3f6f.squirrel@www.codeaurora.org>
+	 <1454355454.7627.183.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: tanure@linux.com, pablo@netfilter.org, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, kuznet@ms2.inr.ac.ru,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David.Laight@ACULAB.COM
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCD2580@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Erik Kline <ek@google.com>, Netdev <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: subashab@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:34539 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752509AbcBATqY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 14:46:24 -0500
+Received: by mail-pf0-f171.google.com with SMTP id o185so84099236pfb.1
+        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 11:46:23 -0800 (PST)
+In-Reply-To: <1454355454.7627.183.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Mon, 1 Feb 2016 16:37:41 +0000
+On Mon, 2016-02-01 at 11:37 -0800, Eric Dumazet wrote:
 
-> From: Lucas Tanure
->> Sent: 30 January 2016 13:18
->> As suggested by checkpatch.pl:
->> CHECK: Prefer kernel type 'uX' over 'uintX_t'
+> I would rather try :
 > 
-> One might ask why?
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 38eeddedfc21..d6b7ab07f914 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -3538,6 +3538,7 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
+>  {
+>  	struct inet6_dev *idev = ifp->idev;
+>  	struct net_device *dev = idev->dev;
+> +	bool notify = false;
+>  
+>  	addrconf_join_solict(dev, &ifp->addr);
+>  
+> @@ -3583,7 +3584,8 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
+>  			/* Because optimistic nodes can use this address,
+>  			 * notify listeners. If DAD fails, RTM_DELADDR is sent.
+>  			 */
+> -			ipv6_ifa_notify(RTM_NEWADDR, ifp);
+> +			notify = true;
+> +			in6_ifa_hold(ifp);
 
-We have consistently done this, and consistency is enough of an
-argument.
+Actually the in6_ifa_hold() is not needed.
+
+>  		}
+>  	}
+>  
+> @@ -3591,6 +3593,10 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
+>  out:
+>  	spin_unlock(&ifp->lock);
+>  	read_unlock_bh(&idev->lock);
+> +	if (notify) {
+> +		ipv6_ifa_notify(RTM_NEWADDR, ifp);
+> +		in6_ifa_put(ifp);
+
+And in6_ifa_put() not needed once in6_ifa_hold() is removed.
+
+> +	}
+>  }
+>  
+>  static void addrconf_dad_start(struct inet6_ifaddr *ifp)
+> 
+> 
+> 
