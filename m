@@ -1,14 +1,18 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 net 5/6] net: mvneta: The mvneta_percpu_elect function
- should be atomic
-Date: Mon, 1 Feb 2016 16:33:44 +0300
-Message-ID: <56AF5EB8.8010407@cogentembedded.com>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH v2 net 3/6] net: mvneta: Remove unused code
+Date: Mon, 01 Feb 2016 14:37:03 +0100
+Message-ID: <87d1sg7ds0.fsf@free-electrons.com>
 References: <1454332067-16378-1-git-send-email-gregory.clement@free-electrons.com>
- <1454332067-16378-6-git-send-email-gregory.clement@free-electrons.com>
+	<1454332067-16378-4-git-send-email-gregory.clement@free-electrons.com>
+	<56AF5E55.9030603@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
 	linux-arm-kernel@lists.infradead.org,
 	Lior Amsalem <alior@marvell.com>,
@@ -16,53 +20,77 @@ Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Marcin Wojtas <mw@semihalf.com>,
 	Russell King - ARM Linux <linux@arm.linux.org.uk>,
 	Willy Tarreau <w@1wt.eu>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454332067-16378-6-git-send-email-gregory.clement@free-electrons.com>
+In-Reply-To: <56AF5E55.9030603@cogentembedded.com> (Sergei Shtylyov's message
+	of "Mon, 1 Feb 2016 16:32:05 +0300")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/1/2016 4:07 PM, Gregory CLEMENT wrote:
+Hi Sergei,
+=20
+ On lun., f=C3=A9vr. 01 2016, Sergei Shtylyov <sergei.shtylyov@cogentem=
+bedded.com> wrote:
 
-> Electing a CPU must be done in an atomic way: it should be done after or
-> before the removal/insertion of a CPU and this function is not reentrant.
+> Hello.
 >
-> During the loop of mvneta_percpu_elect we associates the queues to the
-> CPUs, if there is a topology change during this loop, then the mapping
-> between the CPUs and the queues could be wrong. During this loop the
-> interrupt mask is also updating for each CPUs, It should not be changed
-> in the same time by other part of the driver.
+> On 2/1/2016 4:07 PM, Gregory CLEMENT wrote:
 >
-> This patch adds spinlock to create the needed critical sections.
+>> Since the commit 2dcf75e2793c ("net: mvneta: Associate RX queues wit=
+h
+>> each CPU") all the percpu irq are used and unmask at initialization,=
+ so
 >
-> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-> ---
->   drivers/net/ethernet/marvell/mvneta.c | 15 +++++++++++++++
->   1 file changed, 15 insertions(+)
->
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index 1ed813d478e8..4d40d2fde7ca 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-[...]
-> @@ -2855,6 +2859,11 @@ static void mvneta_percpu_elect(struct mvneta_port *pp)
->   {
->   	int online_cpu_idx, max_cpu, cpu, i = 0;
->
-> +	/* Electing a CPU must done in an atomic way: it should be
+>    Unmasked, you mean?
 
-    Must be done.
+yes and disabled would be more appropriate actually.
 
-> +	 * done after or before the removal/insertion of a CPU and
-> +	 * this function is not reentrant.
-> +	 */
-> +	spin_lock(&pp->lock);
->   	online_cpu_idx = pp->rxq_def % num_online_cpus();
->   	max_cpu = num_present_cpus();
 >
-[...]
+>> there is no point to unmask them first.
+>
+>    Mask, maybe (looking at the patch)?
 
-MBR, Sergei
+not mask, but here again disable would be more appropriate. The code
+removed disables the interrupt.
+
+
+Thanks,
+
+Gregory
+
+>
+>> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+>> ---
+>>   drivers/net/ethernet/marvell/mvneta.c | 8 --------
+>>   1 file changed, 8 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/eth=
+ernet/marvell/mvneta.c
+>> index 3d6e3137f305..861b7e0d7d5f 100644
+>> --- a/drivers/net/ethernet/marvell/mvneta.c
+>> +++ b/drivers/net/ethernet/marvell/mvneta.c
+>> @@ -3009,14 +3009,6 @@ static int mvneta_open(struct net_device *dev=
+)
+>>   		goto err_cleanup_txqs;
+>>   	}
+>>
+>> -	/* Even though the documentation says that request_percpu_irq
+>> -	 * doesn't enable the interrupts automatically, it actually
+>> -	 * does so on the local CPU.
+>> -	 *
+>> -	 * Make sure it's disabled.
+>> -	 */
+>> -	mvneta_percpu_disable(pp);
+>> -
+>>   	/* Enable per-CPU interrupt on all the CPU to handle our RX
+>>   	 * queue interrupts
+>>   	 */
+>
+> MBR, Sergei
+>
+
+--=20
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
