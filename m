@@ -1,69 +1,58 @@
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v1 10/10] tipc: use
-	alloc_ordered_workqueue() instead of WQ_UNBOUND w/ max_active = 1
-Date: Mon, 1 Feb 2016 10:44:43 +0100
-Message-ID: <1454319883-16031-11-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-References: <1454319883-16031-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC net-next 6/9] net/cls_flower: Introduce hardware offloading
+Date: Mon, 01 Feb 2016 01:47:24 -0800
+Message-ID: <56AF29AC.7030405@gmail.com>
+References: <1454315685-32202-1-git-send-email-amir@vadai.me> <1454315685-32202-7-git-send-email-amir@vadai.me> <56AF25E5.6000105@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
-To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1454319883-16031-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Amir Vadai <amir@vadai.me>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34212 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752142AbcBAJrk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 04:47:40 -0500
+Received: by mail-pf0-f176.google.com with SMTP id o185so76139728pfb.1
+        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 01:47:39 -0800 (PST)
+In-Reply-To: <56AF25E5.6000105@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Until now, tipc_rcv and tipc_send workqueues in server are allocated
-with parameters WQ_UNBOUND & max_active = 1.
-This parameters passed to this function makes it equivalent to
-alloc_ordered_workqueue(). The later form is more explicit and
-can inherit future ordered_workqueue changes.
+On 16-02-01 01:31 AM, John Fastabend wrote:
+> On 16-02-01 12:34 AM, Amir Vadai wrote:
+>> During initialization, tcf_exts_offload_init() is called to initialize
+>> the list of actions description. later on, the classifier description
+>> is prepared and sent to the switchdev using switchdev_port_flow_add().
+>>
+>> When offloaded, fl_classify() is a NOP - already done in hardware.
+>>
+>> Signed-off-by: Amir Vadai <amir@vadai.me>
+>> ---
+> 
+> You need to account for where the classifier is being loaded
+> by passing the handle as I did in my patch set. Otherwise you may
+> be offloading on egress/ingress or even some qdisc multiple layers
+> down in the hierarchy.
+> 
+> .John
+> 
 
-In this commit we replace alloc_workqueue() with more readable
-alloc_ordered_workqueue().
+Hi Amir,
 
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
----
- net/tipc/server.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+I've read through the patches take a look at my set and see if you
+can add this as another TC_SETUP_* command namely TC_SETUP_FLOWER. The
+switchdev bits could be handled the same way as fdb_add and other ndo
+ops are handled today in rocker. I don't think your set of patches
+would have to change much to merge them with my set. I'll take a stab
+at it tomorrow and send out a v2. I think this would work and then NIC
+can implement just the tc_setup ndo and your switchdev patches remain
+unchanged.
 
-diff --git a/net/tipc/server.c b/net/tipc/server.c
-index 922e04a43396..2446bfbaa309 100644
---- a/net/tipc/server.c
-+++ b/net/tipc/server.c
-@@ -571,13 +571,13 @@ static void tipc_work_stop(struct tipc_server *s)
- 
- static int tipc_work_start(struct tipc_server *s)
- {
--	s->rcv_wq = alloc_workqueue("tipc_rcv", WQ_UNBOUND, 1);
-+	s->rcv_wq = alloc_ordered_workqueue("tipc_rcv", 0);
- 	if (!s->rcv_wq) {
- 		pr_err("can't start tipc receive workqueue\n");
- 		return -ENOMEM;
- 	}
- 
--	s->send_wq = alloc_workqueue("tipc_send", WQ_UNBOUND, 1);
-+	s->send_wq = alloc_ordered_workqueue("tipc_send", 0);
- 	if (!s->send_wq) {
- 		pr_err("can't start tipc send workqueue\n");
- 		destroy_workqueue(s->rcv_wq);
--- 
-2.1.4
-
-
-------------------------------------------------------------------------------
-Site24x7 APM Insight: Get Deep Visibility into Application Performance
-APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
-Monitor end-to-end web transactions and take corrective actions now
-Troubleshoot faster and improve end-user experience. Signup Now!
-http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
+Thanks,
+John
