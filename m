@@ -1,7 +1,8 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v2 net 0/6] mvneta fixes for SMP
-Date: Mon,  1 Feb 2016 14:07:41 +0100
-Message-ID: <1454332067-16378-1-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH v2 net 3/6] net: mvneta: Remove unused code
+Date: Mon,  1 Feb 2016 14:07:44 +0100
+Message-ID: <1454332067-16378-4-git-send-email-gregory.clement@free-electrons.com>
+References: <1454332067-16378-1-git-send-email-gregory.clement@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
 	Gregory CLEMENT <gregory.clement@free-electrons.com>,
@@ -15,40 +16,37 @@ To: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454332067-16378-1-git-send-email-gregory.clement@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Since the commit 2dcf75e2793c ("net: mvneta: Associate RX queues with
+each CPU") all the percpu irq are used and unmask at initialization, so
+there is no point to unmask them first.
 
-Following this bug report:
-http://thread.gmane.org/gmane.linux.ports.arm.kernel/468173 and the
-suggestions from Russell King, I reviewed all the code involving
-multi-CPU. It ended with this series of patches which should improve
-the stability of the driver.
+Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 8 --------
+ 1 file changed, 8 deletions(-)
 
-The first patch fix a real bug, the other fix potential issues in the
-driver.
-
-Thanks,
-
-Gregory
-
-Changelog:
-
-v1 -> v2
-Fix spinlock comment. Pointed by David Miller
-
-
-Gregory CLEMENT (6):
-  net: mvneta: Fix for_each_present_cpu usage
-  net: mvneta: Use on_each_cpu when possible
-  net: mvneta: Remove unused code
-  net: mvneta: Modify the queue related fields from each cpu
-  net: mvneta: The mvneta_percpu_elect function should be atomic
-  net: mvneta: Fix race condition during stopping
-
- drivers/net/ethernet/marvell/mvneta.c | 162 ++++++++++++++++++----------------
- 1 file changed, 84 insertions(+), 78 deletions(-)
-
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 3d6e3137f305..861b7e0d7d5f 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3009,14 +3009,6 @@ static int mvneta_open(struct net_device *dev)
+ 		goto err_cleanup_txqs;
+ 	}
+ 
+-	/* Even though the documentation says that request_percpu_irq
+-	 * doesn't enable the interrupts automatically, it actually
+-	 * does so on the local CPU.
+-	 *
+-	 * Make sure it's disabled.
+-	 */
+-	mvneta_percpu_disable(pp);
+-
+ 	/* Enable per-CPU interrupt on all the CPU to handle our RX
+ 	 * queue interrupts
+ 	 */
 -- 
 2.5.0
