@@ -1,76 +1,62 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v1 07/10] tipc: hold
-	subscriber->lock for tipc_nametbl_subscribe()
-Date: Mon, 1 Feb 2016 10:44:40 +0100
-Message-ID: <1454319883-16031-8-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v1 08/10] tipc: protect tipc_subscrb_get() with subscriber spin lock
+Date: Mon, 1 Feb 2016 10:44:41 +0100
+Message-ID: <1454319883-16031-9-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1454319883-16031-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
+Content-Type: text/plain
+Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
+	<maloy@donjonn.com>, <ying.xue@windriver.com>
 To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sesbmg22.ericsson.net ([193.180.251.48]:43575 "EHLO
+	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752864AbcBAJpV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 04:45:21 -0500
 In-Reply-To: <1454319883-16031-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Until now, while creating a subscription the subscriber lock
-protects only the subscribers subscription list and not the
-nametable. The call to tipc_nametbl_subscribe() is outside
-the lock. However, at subscription timeout and cancel both
-the subscribers subscription list and the nametable are
-protected by the subscriber lock.
+Until now, during subscription creation the mod_time() &
+tipc_subscrb_get() are called after releasing the subscriber
+spin lock.
 
-This asymmetric locking mechanism leads to the following problem:
-In a SMP system, the timer can be fire on another core before
-the create request is complete.
-When the timer thread calls tipc_nametbl_unsubscribe() before create
-thread calls tipc_nametbl_subscribe(), we get a nullptr exception.
+In a SMP system when performing a subscription creation, if the
+subscription timeout occurs simultaneously (the timer is
+scheduled to run on another CPU) then the timer thread
+might decrement the subscribers refcount before the create
+thread increments the refcount.
 
 This can be simulated by creating subscription with timeout=0 and
 sometimes the timeout occurs before the create request is complete.
-
-The following is the oops:
-[57.569661] BUG: unable to handle kernel NULL pointer dereference at (null)
-[57.577498] IP: [<ffffffffa02135aa>] tipc_nametbl_unsubscribe+0x8a/0x120 [tipc]
-[57.584820] PGD 0
-[57.586834] Oops: 0002 [#1] SMP
-[57.685506] CPU: 14 PID: 10077 Comm: kworker/u40:1 Tainted: P OENX 3.12.48-52.27.1.     9688.1.PTF-default #1
-[57.703637] Workqueue: tipc_rcv tipc_recv_work [tipc]
-[57.708697] task: ffff88064c7f00c0 ti: ffff880629ef4000 task.ti: ffff880629ef4000
-[57.716181] RIP: 0010:[<ffffffffa02135aa>]  [<ffffffffa02135aa>] tipc_nametbl_unsubscribe+0x8a/   0x120 [tipc]
+This leads to the following message:
+[30.702949] BUG: spinlock bad magic on CPU#1, kworker/u8:3/87
+[30.703834] general protection fault: 0000 [#1] SMP
+[30.704826] CPU: 1 PID: 87 Comm: kworker/u8:3 Not tainted 4.4.0-rc8+ #18
+[30.704826] Workqueue: tipc_rcv tipc_recv_work [tipc]
+[30.704826] task: ffff88003f878600 ti: ffff88003fae0000 task.ti: ffff88003fae0000
+[30.704826] RIP: 0010:[<ffffffff8109196c>]  [<ffffffff8109196c>] spin_dump+0x5c/0xe0
 [...]
-[57.812327] Call Trace:
-[57.814806]  [<ffffffffa0211c77>] tipc_subscrp_delete+0x37/0x90 [tipc]
-[57.821357]  [<ffffffffa0211e2f>] tipc_subscrp_timeout+0x3f/0x70 [tipc]
-[57.827982]  [<ffffffff810618c1>] call_timer_fn+0x31/0x100
-[57.833490]  [<ffffffff81062709>] run_timer_softirq+0x1f9/0x2b0
-[57.839414]  [<ffffffff8105a795>] __do_softirq+0xe5/0x230
-[57.844827]  [<ffffffff81520d1c>] call_softirq+0x1c/0x30
-[57.850150]  [<ffffffff81004665>] do_softirq+0x55/0x90
-[57.855285]  [<ffffffff8105aa35>] irq_exit+0x95/0xa0
-[57.860290]  [<ffffffff815215b5>] smp_apic_timer_interrupt+0x45/0x60
-[57.866644]  [<ffffffff8152005d>] apic_timer_interrupt+0x6d/0x80
-[57.872686]  [<ffffffffa02121c5>] tipc_subscrb_rcv_cb+0x2a5/0x3f0 [tipc]
-[57.879425]  [<ffffffffa021c65f>] tipc_receive_from_sock+0x9f/0x100 [tipc]
-[57.886324]  [<ffffffffa021c826>] tipc_recv_work+0x26/0x60 [tipc]
-[57.892463]  [<ffffffff8106fb22>] process_one_work+0x172/0x420
-[57.898309]  [<ffffffff8107079a>] worker_thread+0x11a/0x3c0
-[57.903871]  [<ffffffff81077114>] kthread+0xb4/0xc0
-[57.908751]  [<ffffffff8151f318>] ret_from_fork+0x58/0x90
+[30.704826] Call Trace:
+[30.704826]  [<ffffffff81091a16>] spin_bug+0x26/0x30
+[30.704826]  [<ffffffff81091b75>] do_raw_spin_lock+0xe5/0x120
+[30.704826]  [<ffffffff81684439>] _raw_spin_lock_bh+0x19/0x20
+[30.704826]  [<ffffffffa0096f10>] tipc_subscrb_rcv_cb+0x1d0/0x330 [tipc]
+[30.704826]  [<ffffffffa00a37b1>] tipc_receive_from_sock+0xc1/0x150 [tipc]
+[30.704826]  [<ffffffffa00a31df>] tipc_recv_work+0x3f/0x80 [tipc]
+[30.704826]  [<ffffffff8106a739>] process_one_work+0x149/0x3c0
+[30.704826]  [<ffffffff8106aa16>] worker_thread+0x66/0x460
+[30.704826]  [<ffffffff8106a9b0>] ? process_one_work+0x3c0/0x3c0
+[30.704826]  [<ffffffff8106a9b0>] ? process_one_work+0x3c0/0x3c0
+[30.704826]  [<ffffffff8107029d>] kthread+0xed/0x110
+[30.704826]  [<ffffffff810701b0>] ? kthread_create_on_node+0x190/0x190
+[30.704826]  [<ffffffff81684bdf>] ret_from_fork+0x3f/0x70
 
-In this commit, we do the following at subscription creation:
-1. set the subscription's subscriber pointer before performing
-   tipc_nametbl_subscribe(), as this value is required further in
-   the call chain ex: by tipc_subscrp_send_event().
-2. move tipc_nametbl_subscribe() under the scope of subscriber lock
+In this commit,
+1. we remove the check for the return code for mod_timer()
+2. we protect tipc_subscrb_get() using the subscriber spin lock.
+   We increment the subscriber's refcount as soon as we add the
+   subscription to subscriber's subscription list.
 
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
@@ -80,32 +66,24 @@ Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 24d2c8128bac..e4ebbc161e42 100644
+index e4ebbc161e42..7d226ecb0490 100644
 --- a/net/tipc/subscr.c
 +++ b/net/tipc/subscr.c
 @@ -284,13 +284,13 @@ static void tipc_subscrp_subscribe(struct net *net, struct tipc_subscr *s,
  
  	spin_lock_bh(&subscriber->lock);
  	list_add(&sub->subscrp_list, &subscriber->subscrp_list);
-+	sub->subscriber = subscriber;
-+	tipc_nametbl_subscribe(sub);
++	tipc_subscrb_get(subscriber);
+ 	sub->subscriber = subscriber;
+ 	tipc_nametbl_subscribe(sub);
  	spin_unlock_bh(&subscriber->lock);
  
--	sub->subscriber = subscriber;
  	timeout = htohl(sub->evt.s.timeout, swap);
- 	if (!mod_timer(&sub->timer, jiffies + msecs_to_jiffies(timeout)))
- 		tipc_subscrb_get(subscriber);
--	tipc_nametbl_subscribe(sub);
+-	if (!mod_timer(&sub->timer, jiffies + msecs_to_jiffies(timeout)))
+-		tipc_subscrb_get(subscriber);
++	mod_timer(&sub->timer, jiffies + msecs_to_jiffies(timeout));
  }
  
  /* Handle one termination request for the subscriber */
 -- 
 2.1.4
-
-
-------------------------------------------------------------------------------
-Site24x7 APM Insight: Get Deep Visibility into Application Performance
-APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
-Monitor end-to-end web transactions and take corrective actions now
-Troubleshoot faster and improve end-user experience. Signup Now!
-http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
