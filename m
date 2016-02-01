@@ -1,68 +1,53 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC net-next 2/9] net/switchdev: Introduce hardware offload
- support
-Date: Mon, 01 Feb 2016 01:26:06 -0800
-Message-ID: <56AF24AE.8030101@gmail.com>
-References: <1454315685-32202-1-git-send-email-amir@vadai.me> <1454315685-32202-3-git-send-email-amir@vadai.me>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] mac80211: fix memory leak
+Date: Mon, 01 Feb 2016 11:28:37 +0200
+Message-ID: <878u34u6d6.fsf@purkki.adurom.net>
+References: <1454060944-11320-1-git-send-email-sudipm.mukherjee@gmail.com>
+	<CAGRGNgXc9PtYY=hb8nNRt4T5YGm2vexcJ01Z1fCCcb=57WRZ3g@mail.gmail.com>
+	<20160201042548.GA4072@sudip-pc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Scott Feldman <sfeldma@gmail.com>
-To: Amir Vadai <amir@vadai.me>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34102 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752155AbcBAJ0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 04:26:21 -0500
-Received: by mail-pa0-f47.google.com with SMTP id uo6so80489542pac.1
-        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 01:26:21 -0800 (PST)
-In-Reply-To: <1454315685-32202-3-git-send-email-amir@vadai.me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Calaby <julian.calaby@gmail.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160201042548.GA4072@sudip-pc> (Sudip Mukherjee's message of
+	"Mon, 1 Feb 2016 09:55:48 +0530")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-02-01 12:34 AM, Amir Vadai wrote:
-> Extend the switchdev API with new operations: switchdev_port_flow_add()
-> and switchdev_port_flow_del().
-> It allows the user to add/del a hardware offloaded flow classification
-> and actions.
-> For every new flow object a cookie is supplied. This cookie will be
-> used later on to identify the flow when removed.
-> 
-> In order to make the API as flexible as possible, flow_dissector is
-> being used to describe the flow classifier.
-> 
-> Every new flow object is consists of a flow_dissector+key+mask to
-> describe the classifier and a switchdev_obj_port_flow_act to describe
-> the actions and their attributes.
-> 
-> object is passed to the lower layer driver to be pushed into the
-> hardware.
-> 
-> Signed-off-by: Amir Vadai <amir@vadai.me>
-> ---
+Sudip Mukherjee <sudipm.mukherjee@gmail.com> writes:
 
-+Scott
+> On Mon, Feb 01, 2016 at 11:03:35AM +1100, Julian Calaby wrote:
+>> Hi Sudip,
+>> 
+>> On Fri, Jan 29, 2016 at 8:49 PM, Sudip Mukherjee
+>> <sudipm.mukherjee@gmail.com> wrote:
+>> > On error we jumped to the error label and returned the error code but we
+>> > missed releasing sinfo.
+>> >
+>> > Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+>> 
+>> Should the From: and Signed-off-by: email addresses be the same?
+>
+> I think 2 years back I had a long discussion with Greg about this and
+> since then I al submitting patches like this. A small summayg of the
+> problem from that discussion:
+>
+> "we have strict DMARC check for the corporate mail server. DMARC =
+> domain based message authentication.
+> So the mail i sent reached all the list subscriber from a different
+> server than our designated server, and as a result it is marked as spam
+> in many places and I have already received a few complaints regarding
+> that."
 
-[...]
+You can add a separate "From:" line to the beginning of the commit log
+and git will use it then commiting the patch. I didn't find any
+documention but it's easy to do and should solve this.
 
-> +struct switchdev_obj_port_flow {
-> +	struct switchdev_obj obj;
-> +
-> +	unsigned long cookie;
-> +	struct flow_dissector *dissector; /* Dissector for mask and keys */
-> +	void *mask; /* Flow keys mask */
-> +	void *key;  /* Flow keys */
-
-The heavy use of void* here and below seems questionable to me. If your
-going to consume flow keys/mask define them.
-
-> +	struct switchdev_obj_port_flow_act *actions;
-> +};
-
-[...]
+-- 
+Kalle Valo
