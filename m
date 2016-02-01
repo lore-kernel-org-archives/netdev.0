@@ -1,61 +1,48 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [PATCH 1/1] ixgbe: get link speed as a slave nic unrelated with
- link up
-Date: Mon, 1 Feb 2016 15:55:18 +0000
-Message-ID: <87618083B2453E4A8714035B62D67992505210F8@FMSMSX105.amr.corp.intel.com>
-References: <1452258030-63996-5-git-send-email-jeffrey.t.kirsher@intel.com>
- <1454311675-24676-1-git-send-email-zyjzyj2000@gmail.com>
- <1454311675-24676-2-git-send-email-zyjzyj2000@gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net] net: Allow flow dissector to handle non 4-byte
+ aligned headers
+Date: Mon, 1 Feb 2016 11:01:30 -0500
+Message-ID: <20160201160130.GA22816@oracle.com>
+References: <1454276221-3543907-1-git-send-email-tom@herbertland.com>
+ <1454286240.7627.160.camel@edumazet-glaptop2.roam.corp.google.com>
+ <56AEA947.409@gmail.com>
+ <56AF77C3.2010406@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "zyjzyj2000@gmail.com" <zyjzyj2000@gmail.com>,
-	"Schmitt, Phillip J" <phillip.j.schmitt@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Shteinbock, Boris (Wind River)" <boris.shteinbock@windriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, kernel-team@fb.com
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:64911 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751860AbcBAPzT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 10:55:19 -0500
-In-Reply-To: <1454311675-24676-2-git-send-email-zyjzyj2000@gmail.com>
-Content-Language: en-US
+Received: from aserp1040.oracle.com ([141.146.126.69]:32619 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751687AbcBAQBl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 11:01:41 -0500
+Content-Disposition: inline
+In-Reply-To: <56AF77C3.2010406@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: zyjzyj2000@gmail.com [mailto:zyjzyj2000@gmail.com]
->Sent: Sunday, January 31, 2016 11:28 PM
->To: zyjzyj2000@gmail.com; Tantilov, Emil S; Schmitt, Phillip J; Kirsher,
->Jeffrey T; netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net;
->Shteinbock, Boris (Wind River)
->Subject: [PATCH 1/1] ixgbe: get link speed as a slave nic unrelated with
->link up
->
->From: Zhu Yanjun <zyjzyj2000@gmail.com>
->
->The commit 0e4d422f5f72 ("ixgbe: do not call check_link for ethtool
->in ixgbe_get_settings()") decreases the bonding failures. But the
->following time slice still results in a bonding failure.
->
->bonding                ixgbe
->  |                     |
->  |                    carrier_on
->  |                     |
->  |    <----------------|
-> link_up                |
->  |                     |
->  |                    carrier_off
->  |                     |
-> get_link_speed ------->|
->  |                     |
+On (02/01/16 16:20), Nicolas Dichtel wrote:
+> There is also the tile architecture, up to 76 cores on the board I've seen. It
+> requires an alignment on 8!
+> I wonder how this case may be properly handled. A simple ipip scenario fails.
 
-The driver does not set carrier_off unless the link is actually down.
+Yes, I'm also observing the same thing. Simply setting up gretap like this
+results in
 
-Did you actually test this patch?
+# ip link add gretap2 type gretap local myaddr remote hisaddr
+# ifconfig gretap2 up
 
-Thanks,
-Emil
+Kernel unaligned access at TPC[969d88] iptunnel_xmit+0xa4/0x1c0
+Kernel unaligned access at TPC[969db0] iptunnel_xmit+0xcc/0x1c0
+Kernel unaligned access at TPC[969dc4] iptunnel_xmit+0xe0/0x1c0
+Kernel unaligned access at TPC[969dc8] iptunnel_xmit+0xe4/0x1c0
+Kernel unaligned access at TPC[9191fc] __ip_select_ident+0x80/0x13c
+
+and afacit, the unaligned ip header is triggered by an inner ipv6 packet
+that is usually coming from mld or dad.
+
+(and fwiw, the basic iperf/ipv6 test is fine with Tom's patch, need
+to try out some of the other permutations without rps etc)
