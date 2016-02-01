@@ -1,7 +1,7 @@
 From: Salam Noureddine <noureddine@arista.com>
-Subject: [PATCH net-next 4/4] net: fib: avoid calling fib_flush for each device when doing batch close and unregister
-Date: Mon,  1 Feb 2016 14:32:32 -0800
-Message-ID: <1454365952-10324-5-git-send-email-noureddine@arista.com>
+Subject: [PATCH net-next 2/4] net: dev: add batching to net_device notifiers
+Date: Mon,  1 Feb 2016 14:32:30 -0800
+Message-ID: <1454365952-10324-3-git-send-email-noureddine@arista.com>
 References: <1454365952-10324-1-git-send-email-noureddine@arista.com>
 Cc: Salam Noureddine <noureddine@arista.com>
 To: "David S. Miller" <davem@davemloft.net>,
@@ -11,73 +11,153 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Daniel Borkmann <daniel@iogearbox.net>,
 	"Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mx.aristanetworks.com ([162.210.130.12]:24787 "EHLO
+Received: from prod-mx.aristanetworks.com ([162.210.130.12]:59764 "EHLO
 	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932285AbcBAWdc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 17:33:32 -0500
+	by vger.kernel.org with ESMTP id S1752203AbcBAWd3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 17:33:29 -0500
 In-Reply-To: <1454365952-10324-1-git-send-email-noureddine@arista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Call fib_flush at the end when closing or unregistering multiple
-devices. This can save walking the fib many times and greatly
-reduce rtnl_lock hold time when unregistering many devices with
-a fib having hundreds of thousands of routes.
+This can be used to optimize bringing down and unregsitering
+net_devices by running certain cleanup operations only on the
+net namespace instead of on each net_device.
 
 Signed-off-by: Salam Noureddine <noureddine@arista.com>
 ---
- include/net/netns/ipv4.h |  1 +
- net/ipv4/fib_frontend.c  | 16 ++++++++++++++--
- 2 files changed, 15 insertions(+), 2 deletions(-)
+ include/linux/netdevice.h |  2 ++
+ net/core/dev.c            | 39 ++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 38 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index d75be32..d59a078 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -111,5 +111,6 @@ struct netns_ipv4 {
- #endif
- #endif
- 	atomic_t	rt_genid;
-+	bool		needs_fib_flush;
- };
- #endif
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 4734475..808426e 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -1161,11 +1161,22 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
- 	unsigned int flags;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c20b814..1b12269 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2183,6 +2183,8 @@ struct netdev_lag_lower_state_info {
+ #define NETDEV_BONDING_INFO	0x0019
+ #define NETDEV_PRECHANGEUPPER	0x001A
+ #define NETDEV_CHANGELOWERSTATE	0x001B
++#define NETDEV_UNREGISTER_BATCH	0x001C
++#define NETDEV_DOWN_BATCH	0x001D
  
- 	if (event == NETDEV_UNREGISTER) {
--		fib_disable_ip(dev, event, true);
-+		if (fib_sync_down_dev(dev, event, true))
-+			net->ipv4.needs_fib_flush = true;
- 		rt_flush_dev(dev);
- 		return NOTIFY_DONE;
+ int register_netdevice_notifier(struct notifier_block *nb);
+ int unregister_netdevice_notifier(struct notifier_block *nb);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 914b4a2..77410a3 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1439,11 +1439,16 @@ static int __dev_close(struct net_device *dev)
+ int dev_close_many(struct list_head *head, bool unlink)
+ {
+ 	struct net_device *dev, *tmp;
++	struct net *net, *net_tmp;
++	LIST_HEAD(net_head);
+ 
+ 	/* Remove the devices that don't need to be closed */
+-	list_for_each_entry_safe(dev, tmp, head, close_list)
++	list_for_each_entry_safe(dev, tmp, head, close_list) {
+ 		if (!(dev->flags & IFF_UP))
+ 			list_del_init(&dev->close_list);
++		else
++			net_add_event_list(&net_head, dev_net(dev));
++	}
+ 
+ 	__dev_close_many(head);
+ 
+@@ -1454,6 +1459,11 @@ int dev_close_many(struct list_head *head, bool unlink)
+ 			list_del_init(&dev->close_list);
  	}
  
-+	if (event == NETDEV_UNREGISTER_BATCH || event == NETDEV_DOWN_BATCH) {
-+		if (net->ipv4.needs_fib_flush) {
-+			fib_flush(net);
-+			net->ipv4.needs_fib_flush = false;
-+		}
-+		rt_cache_flush(net);
-+		arp_ifdown_all();
-+		return NOTIFY_DONE;
++	list_for_each_entry_safe(net, net_tmp, &net_head, event_list) {
++		call_netdevice_notifiers(NETDEV_DOWN_BATCH, net->loopback_dev);
++		net_del_event_list(net);
 +	}
 +
- 	in_dev = __in_dev_get_rtnl(dev);
- 	if (!in_dev)
- 		return NOTIFY_DONE;
-@@ -1182,7 +1193,8 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
- 		rt_cache_flush(net);
- 		break;
- 	case NETDEV_DOWN:
--		fib_disable_ip(dev, event, false);
-+		if (fib_sync_down_dev(dev, event, false))
-+			net->ipv4.needs_fib_flush = true;
- 		break;
- 	case NETDEV_CHANGE:
- 		flags = dev_get_flags(dev);
+ 	return 0;
+ }
+ EXPORT_SYMBOL(dev_close_many);
+@@ -1572,8 +1582,12 @@ rollback:
+ 				call_netdevice_notifier(nb, NETDEV_GOING_DOWN,
+ 							dev);
+ 				call_netdevice_notifier(nb, NETDEV_DOWN, dev);
++				call_netdevice_notifier(nb, NETDEV_DOWN_BATCH,
++							dev);
+ 			}
+ 			call_netdevice_notifier(nb, NETDEV_UNREGISTER, dev);
++			call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
++						dev);
+ 		}
+ 	}
+ 
+@@ -1614,8 +1628,12 @@ int unregister_netdevice_notifier(struct notifier_block *nb)
+ 				call_netdevice_notifier(nb, NETDEV_GOING_DOWN,
+ 							dev);
+ 				call_netdevice_notifier(nb, NETDEV_DOWN, dev);
++				call_netdevice_notifier(nb, NETDEV_DOWN_BATCH,
++							dev);
+ 			}
+ 			call_netdevice_notifier(nb, NETDEV_UNREGISTER, dev);
++			call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
++						dev);
+ 		}
+ 	}
+ unlock:
+@@ -6187,10 +6205,12 @@ void __dev_notify_flags(struct net_device *dev, unsigned int old_flags,
+ 		rtmsg_ifinfo(RTM_NEWLINK, dev, gchanges, GFP_ATOMIC);
+ 
+ 	if (changes & IFF_UP) {
+-		if (dev->flags & IFF_UP)
++		if (dev->flags & IFF_UP) {
+ 			call_netdevice_notifiers(NETDEV_UP, dev);
+-		else
++		} else {
+ 			call_netdevice_notifiers(NETDEV_DOWN, dev);
++			call_netdevice_notifiers(NETDEV_DOWN_BATCH, dev);
++		}
+ 	}
+ 
+ 	if (dev->flags & IFF_UP &&
+@@ -6427,7 +6447,9 @@ static void net_set_todo(struct net_device *dev)
+ static void rollback_registered_many(struct list_head *head)
+ {
+ 	struct net_device *dev, *tmp;
++	struct net *net, *net_tmp;
+ 	LIST_HEAD(close_head);
++	LIST_HEAD(net_head);
+ 
+ 	BUG_ON(dev_boot_phase);
+ 	ASSERT_RTNL();
+@@ -6504,6 +6526,15 @@ static void rollback_registered_many(struct list_head *head)
+ #endif
+ 	}
+ 
++	list_for_each_entry(dev, head, unreg_list) {
++		net_add_event_list(&net_head, dev_net(dev));
++	}
++	list_for_each_entry_safe(net, net_tmp, &net_head, event_list) {
++		call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH,
++					 net->loopback_dev);
++		net_del_event_list(net);
++	}
++
+ 	synchronize_net();
+ 
+ 	list_for_each_entry(dev, head, unreg_list)
+@@ -7065,6 +7096,7 @@ static void netdev_wait_allrefs(struct net_device *dev)
+ 
+ 			/* Rebroadcast unregister notification */
+ 			call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
++			call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev);
+ 
+ 			__rtnl_unlock();
+ 			rcu_barrier();
+@@ -7581,6 +7613,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 	   the device is just moving and can keep their slaves up.
+ 	*/
+ 	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
++	call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev);
+ 	rcu_barrier();
+ 	call_netdevice_notifiers(NETDEV_UNREGISTER_FINAL, dev);
+ 	rtmsg_ifinfo(RTM_DELLINK, dev, ~0U, GFP_KERNEL);
 -- 
 1.8.1.4
