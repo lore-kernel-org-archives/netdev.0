@@ -1,7 +1,7 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v2 net 6/6] net: mvneta: Fix race condition during stopping
-Date: Mon,  1 Feb 2016 14:07:47 +0100
-Message-ID: <1454332067-16378-7-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH v2 net 4/6] net: mvneta: Modify the queue related fields from each cpu
+Date: Mon,  1 Feb 2016 14:07:45 +0100
+Message-ID: <1454332067-16378-5-git-send-email-gregory.clement@free-electrons.com>
 References: <1454332067-16378-1-git-send-email-gregory.clement@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -20,60 +20,183 @@ In-Reply-To: <1454332067-16378-1-git-send-email-gregory.clement@free-electrons.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When stopping the port, the CPU notifier are still there whereas the
-mvneta_stop_dev function calls mvneta_percpu_disable() on each CPUs.
-It was possible to have a new CPU coming at this point which could be
-racy.
+In the MVNETA_INTR_* registers, the queues related fields are per cpu,
+according to the datasheet (comment in [] are added by me):
+"In a multi-CPU system, bits of RX[or TX] queues for which the access by
+the reading[or writing] CPU is disabled are read as 0, and cannot be
+cleared[or written]."
 
-This patch adds a flag preventing executing the code notifier for a new CPU
-when the port is stopping.
+That means that each time we want to manipulate these bits we had to do
+it on each cpu and not only on the current cpu.
 
 Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ drivers/net/ethernet/marvell/mvneta.c | 100 ++++++++++++++++------------------
+ 1 file changed, 46 insertions(+), 54 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 4d40d2fde7ca..2f53975aa6ec 100644
+index 861b7e0d7d5f..1ed813d478e8 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -374,6 +374,7 @@ struct mvneta_port {
- 	 * ensuring that the configuration remains coherent.
- 	 */
- 	spinlock_t lock;
-+	bool is_stopping;
+@@ -1038,6 +1038,43 @@ static void mvneta_set_autoneg(struct mvneta_port *pp, int enable)
+ 	}
+ }
  
- 	/* Core clock */
- 	struct clk *clk;
-@@ -2916,6 +2917,11 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
- 	switch (action) {
- 	case CPU_ONLINE:
- 	case CPU_ONLINE_FROZEN:
-+		/* Configuring the driver for a new CPU while the
-+		 * driver is stopping is racy, so just avoid it.
-+		 */
-+		if (pp->is_stopping)
-+			break;
- 		netif_tx_stop_all_queues(pp->dev);
++static void mvneta_percpu_unmask_interrupt(void *arg)
++{
++	struct mvneta_port *pp = arg;
++
++	/* All the queue are unmasked, but actually only the ones
++	 * mapped to this CPU will be unmasked
++	 */
++	mvreg_write(pp, MVNETA_INTR_NEW_MASK,
++		    MVNETA_RX_INTR_MASK_ALL |
++		    MVNETA_TX_INTR_MASK_ALL |
++		    MVNETA_MISCINTR_INTR_MASK);
++}
++
++static void mvneta_percpu_mask_interrupt(void *arg)
++{
++	struct mvneta_port *pp = arg;
++
++	/* All the queue are masked, but actually only the ones
++	 * mapped to this CPU will be masked
++	 */
++	mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
++	mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
++	mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
++}
++
++static void mvneta_percpu_clear_intr_cause(void *arg)
++{
++	struct mvneta_port *pp = arg;
++
++	/* All the queue are cleared, but actually only the ones
++	 * mapped to this CPU will be cleared
++	 */
++	mvreg_write(pp, MVNETA_INTR_NEW_CAUSE, 0);
++	mvreg_write(pp, MVNETA_INTR_MISC_CAUSE, 0);
++	mvreg_write(pp, MVNETA_INTR_OLD_CAUSE, 0);
++}
++
+ /* This method sets defaults to the NETA port:
+  *	Clears interrupt Cause and Mask registers.
+  *	Clears all MAC tables.
+@@ -1055,14 +1092,10 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
+ 	int max_cpu = num_present_cpus();
  
- 		/* We have to synchronise on tha napi of each CPU
-@@ -3054,9 +3060,17 @@ static int mvneta_stop(struct net_device *dev)
+ 	/* Clear all Cause registers */
+-	mvreg_write(pp, MVNETA_INTR_NEW_CAUSE, 0);
+-	mvreg_write(pp, MVNETA_INTR_OLD_CAUSE, 0);
+-	mvreg_write(pp, MVNETA_INTR_MISC_CAUSE, 0);
++	on_each_cpu(mvneta_percpu_clear_intr_cause, pp, true);
+ 
+ 	/* Mask all interrupts */
+-	mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
+-	mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
+-	mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
++	on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
+ 	mvreg_write(pp, MVNETA_INTR_ENABLE, 0);
+ 
+ 	/* Enable MBUS Retry bit16 */
+@@ -2528,31 +2561,6 @@ static int mvneta_setup_txqs(struct mvneta_port *pp)
+ 	return 0;
+ }
+ 
+-static void mvneta_percpu_unmask_interrupt(void *arg)
+-{
+-	struct mvneta_port *pp = arg;
+-
+-	/* All the queue are unmasked, but actually only the ones
+-	 * maped to this CPU will be unmasked
+-	 */
+-	mvreg_write(pp, MVNETA_INTR_NEW_MASK,
+-		    MVNETA_RX_INTR_MASK_ALL |
+-		    MVNETA_TX_INTR_MASK_ALL |
+-		    MVNETA_MISCINTR_INTR_MASK);
+-}
+-
+-static void mvneta_percpu_mask_interrupt(void *arg)
+-{
+-	struct mvneta_port *pp = arg;
+-
+-	/* All the queue are masked, but actually only the ones
+-	 * maped to this CPU will be masked
+-	 */
+-	mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
+-	mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
+-	mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
+-}
+-
+ static void mvneta_start_dev(struct mvneta_port *pp)
  {
- 	struct mvneta_port *pp = netdev_priv(dev);
+ 	int cpu;
+@@ -2603,13 +2611,10 @@ static void mvneta_stop_dev(struct mvneta_port *pp)
+ 	mvneta_port_disable(pp);
  
-+	/* Inform that we are stopping so we don't want to setup the
-+	 * driver for new CPUs in the notifiers
-+	 */
-+	pp->is_stopping = true;
- 	mvneta_stop_dev(pp);
- 	mvneta_mdio_remove(pp);
- 	unregister_cpu_notifier(&pp->cpu_notifier);
-+	/* Now that the notifier are unregistered, we can clear the
-+	 * flag
-+	 */
-+	pp->is_stopping = false;
- 	on_each_cpu(mvneta_percpu_disable, pp, true);
- 	free_percpu_irq(dev->irq, pp->ports);
- 	mvneta_cleanup_rxqs(pp);
+ 	/* Clear all ethernet port interrupts */
+-	mvreg_write(pp, MVNETA_INTR_MISC_CAUSE, 0);
+-	mvreg_write(pp, MVNETA_INTR_OLD_CAUSE, 0);
++	on_each_cpu(mvneta_percpu_clear_intr_cause, pp, true);
+ 
+ 	/* Mask all ethernet port interrupts */
+-	mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
+-	mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
+-	mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
++	on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
+ 
+ 	mvneta_tx_reset(pp);
+ 	mvneta_rx_reset(pp);
+@@ -2916,9 +2921,7 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
+ 		}
+ 
+ 		/* Mask all ethernet port interrupts */
+-		mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
+-		mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
+-		mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
++		on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
+ 		napi_enable(&port->napi);
+ 
+ 
+@@ -2933,14 +2936,8 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
+ 		 */
+ 		mvneta_percpu_elect(pp);
+ 
+-		/* Unmask all ethernet port interrupts, as this
+-		 * notifier is called for each CPU then the CPU to
+-		 * Queue mapping is applied
+-		 */
+-		mvreg_write(pp, MVNETA_INTR_NEW_MASK,
+-			MVNETA_RX_INTR_MASK(rxq_number) |
+-			MVNETA_TX_INTR_MASK(txq_number) |
+-			MVNETA_MISCINTR_INTR_MASK);
++		/* Unmask all ethernet port interrupts */
++		on_each_cpu(mvneta_percpu_unmask_interrupt, pp, true);
+ 		mvreg_write(pp, MVNETA_INTR_MISC_MASK,
+ 			MVNETA_CAUSE_PHY_STATUS_CHANGE |
+ 			MVNETA_CAUSE_LINK_CHANGE |
+@@ -2951,9 +2948,7 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
+ 	case CPU_DOWN_PREPARE_FROZEN:
+ 		netif_tx_stop_all_queues(pp->dev);
+ 		/* Mask all ethernet port interrupts */
+-		mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
+-		mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
+-		mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
++		on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
+ 
+ 		napi_synchronize(&port->napi);
+ 		napi_disable(&port->napi);
+@@ -2969,10 +2964,7 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
+ 		/* Check if a new CPU must be elected now this on is down */
+ 		mvneta_percpu_elect(pp);
+ 		/* Unmask all ethernet port interrupts */
+-		mvreg_write(pp, MVNETA_INTR_NEW_MASK,
+-			MVNETA_RX_INTR_MASK(rxq_number) |
+-			MVNETA_TX_INTR_MASK(txq_number) |
+-			MVNETA_MISCINTR_INTR_MASK);
++		on_each_cpu(mvneta_percpu_unmask_interrupt, pp, true);
+ 		mvreg_write(pp, MVNETA_INTR_MISC_MASK,
+ 			MVNETA_CAUSE_PHY_STATUS_CHANGE |
+ 			MVNETA_CAUSE_LINK_CHANGE |
 -- 
 2.5.0
