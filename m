@@ -1,62 +1,57 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: Re: [PATCH net-next v2] xen-netback: implement dynamic multicast
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next v2] xen-netback: implement dynamic multicast
  control
-Date: Tue, 2 Feb 2016 11:53:45 +0000
-Message-ID: <1454414025.28781.146.camel@citrix.com>
+Date: Tue, 2 Feb 2016 11:57:43 +0000
+Message-ID: <5f42be9577ba427a9a73a018ae37d761@AMSPEX02CL03.citrite.net>
 References: <1454412668-6472-1-git-send-email-paul.durrant@citrix.com>
 	 <20160202114646.GF10990@citrix.com>
 	 <9d2b78b8dac54e6ea3f9889fd2a9db83@AMSPEX02CL03.citrite.net>
+ <1454414025.28781.146.camel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
-To: Paul Durrant <Paul.Durrant@citrix.com>,
+To: Ian Campbell <Ian.Campbell@citrix.com>,
 	Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:54852 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755086AbcBBLxr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 06:53:47 -0500
-In-Reply-To: <9d2b78b8dac54e6ea3f9889fd2a9db83@AMSPEX02CL03.citrite.net>
+Received: from smtp.eu.citrix.com ([185.25.65.24]:21794 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754458AbcBBL5p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 06:57:45 -0500
+In-Reply-To: <1454414025.28781.146.camel@citrix.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-02-02 at 11:48 +0000, Paul Durrant wrote:
-> > -----Original Message-----
-> > From: Wei Liu [mailto:wei.liu2@citrix.com]
-> > Sent: 02 February 2016 11:47
-> > To: Paul Durrant
-> > Cc: netdev@vger.kernel.org; xen-devel@lists.xenproject.org; Ian
-> > Campbell;
-> > Wei Liu
-> > Subject: Re: [PATCH net-next v2] xen-netback: implement dynamic
-> > multicast
-> > control
-> >=20
-> > On Tue, Feb 02, 2016 at 11:31:08AM +0000, Paul Durrant wrote:
-> > [...]
-> > > +static int xen_register_mcast_ctrl_watch(struct xenbus_device *d=
-ev,
-> > > +					=C2=A0struct xenvif *vif)
-> > > +{
-> > > +	int err =3D 0;
-> > > +	char *node;
-> > > +	unsigned maxlen =3D strlen(dev->otherend) +
-> > > +		sizeof("/request-multicast-control");
-> > > +
-> > > +	if (vif->mcast_ctrl_watch.node)
-> > > +		return -EADDRINUSE;
-> > > +
-> >=20
-> > Sorry if I didn't make myself clear enough. I think EADDRINUSE shou=
-ld
-> > also be logged.
-> >=20
->=20
-> Ok. Not sure how much noise that will cause though.
-
-If this is a guest trigerable path then don't forget to use the
-ratelimiting printk options....
-
-Ian.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwgW21haWx0
+bzppYW4uY2FtcGJlbGxAY2l0cml4LmNvbV0NCj4gU2VudDogMDIgRmVicnVhcnkgMjAxNiAxMTo1
+NA0KPiBUbzogUGF1bCBEdXJyYW50OyBXZWkgTGl1DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnOyB4ZW4tZGV2ZWxAbGlzdHMueGVucHJvamVjdC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRD
+SCBuZXQtbmV4dCB2Ml0geGVuLW5ldGJhY2s6IGltcGxlbWVudCBkeW5hbWljIG11bHRpY2FzdA0K
+PiBjb250cm9sDQo+IA0KPiBPbiBUdWUsIDIwMTYtMDItMDIgYXQgMTE6NDggKzAwMDAsIFBhdWwg
+RHVycmFudCB3cm90ZToNCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPiBG
+cm9tOiBXZWkgTGl1IFttYWlsdG86d2VpLmxpdTJAY2l0cml4LmNvbV0NCj4gPiA+IFNlbnQ6IDAy
+IEZlYnJ1YXJ5IDIwMTYgMTE6NDcNCj4gPiA+IFRvOiBQYXVsIER1cnJhbnQNCj4gPiA+IENjOiBu
+ZXRkZXZAdmdlci5rZXJuZWwub3JnOyB4ZW4tZGV2ZWxAbGlzdHMueGVucHJvamVjdC5vcmc7IElh
+bg0KPiA+ID4gQ2FtcGJlbGw7DQo+ID4gPiBXZWkgTGl1DQo+ID4gPiBTdWJqZWN0OiBSZTogW1BB
+VENIIG5ldC1uZXh0IHYyXSB4ZW4tbmV0YmFjazogaW1wbGVtZW50IGR5bmFtaWMNCj4gPiA+IG11
+bHRpY2FzdA0KPiA+ID4gY29udHJvbA0KPiA+ID4NCj4gPiA+IE9uIFR1ZSwgRmViIDAyLCAyMDE2
+IGF0IDExOjMxOjA4QU0gKzAwMDAsIFBhdWwgRHVycmFudCB3cm90ZToNCj4gPiA+IFsuLi5dDQo+
+ID4gPiA+ICtzdGF0aWMgaW50IHhlbl9yZWdpc3Rlcl9tY2FzdF9jdHJsX3dhdGNoKHN0cnVjdCB4
+ZW5idXNfZGV2aWNlICpkZXYsDQo+ID4gPiA+ICsJCQkJCcKgc3RydWN0IHhlbnZpZiAqdmlmKQ0K
+PiA+ID4gPiArew0KPiA+ID4gPiArCWludCBlcnIgPSAwOw0KPiA+ID4gPiArCWNoYXIgKm5vZGU7
+DQo+ID4gPiA+ICsJdW5zaWduZWQgbWF4bGVuID0gc3RybGVuKGRldi0+b3RoZXJlbmQpICsNCj4g
+PiA+ID4gKwkJc2l6ZW9mKCIvcmVxdWVzdC1tdWx0aWNhc3QtY29udHJvbCIpOw0KPiA+ID4gPiAr
+DQo+ID4gPiA+ICsJaWYgKHZpZi0+bWNhc3RfY3RybF93YXRjaC5ub2RlKQ0KPiA+ID4gPiArCQly
+ZXR1cm4gLUVBRERSSU5VU0U7DQo+ID4gPiA+ICsNCj4gPiA+DQo+ID4gPiBTb3JyeSBpZiBJIGRp
+ZG4ndCBtYWtlIG15c2VsZiBjbGVhciBlbm91Z2guIEkgdGhpbmsgRUFERFJJTlVTRSBzaG91bGQN
+Cj4gPiA+IGFsc28gYmUgbG9nZ2VkLg0KPiA+ID4NCj4gPg0KPiA+IE9rLiBOb3Qgc3VyZSBob3cg
+bXVjaCBub2lzZSB0aGF0IHdpbGwgY2F1c2UgdGhvdWdoLg0KPiANCj4gSWYgdGhpcyBpcyBhIGd1
+ZXN0IHRyaWdlcmFibGUgcGF0aCB0aGVuIGRvbid0IGZvcmdldCB0byB1c2UgdGhlDQo+IHJhdGVs
+aW1pdGluZyBwcmludGsgb3B0aW9ucy4uLi4NCj4gDQoNCkkgKnRoaW5rKiBpdCBpcyBlc3NlbnRp
+YWxseSBhbiBlcnJvciBwYXRoIChpLmUgc2hvdWxkIG5vdCBoYXBwZW4pIGFuZCB0aGUgZnVuY3Rp
+b24gaXMgb25seSBjYWxsZWQgd2hlbiBjb25uZWN0aW5nIGJhY2tlbmQgYW5kIGZyb250ZW5kLCB3
+aGljaCBpcyBmYWlybHkgd2VsbCByYXRlLWxpbWl0ZWQgYnkgb3RoZXIgdGhpbmdzLCBidXQgSSds
+bCBzdGljayBhIHJhdGUtbGltaXQgaW4gdGhlcmUganVzdCBpbiBjYXNlLg0KDQogIFBhdWwNCg0K
+PiBJYW4uDQo=
