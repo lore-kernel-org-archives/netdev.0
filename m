@@ -1,420 +1,131 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 3/6] bpf: add lookup/update support for per-cpu hash and array maps
-Date: Mon, 1 Feb 2016 22:39:55 -0800
-Message-ID: <1454395198-1796236-4-git-send-email-ast@fb.com>
-References: <1454395198-1796236-1-git-send-email-ast@fb.com>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH] bgmac: add helper checking for BCM4707 / BCM53018 chip id
+Date: Tue,  2 Feb 2016 07:47:14 +0100
+Message-ID: <1454395634-11317-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Martin KaFai Lau <kafai@fb.com>, Ming Lei <tom.leiming@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	<netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hauke Mehrtens <hauke@hauke-m.de>, Felix Fietkau <nbd@openwrt.org>,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51053 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752351AbcBBGkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 01:40:03 -0500
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.15.0.59/8.15.0.59) with SMTP id u126cTLK004265
-	for <netdev@vger.kernel.org>; Mon, 1 Feb 2016 22:40:03 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 20taq8c100-2
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 22:40:02 -0800
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.223.100.99) with ESMTP	id
- c80d6588c97711e5837124be05956610-99f42b0 for <netdev@vger.kernel.org>;	Mon,
- 01 Feb 2016 22:40:00 -0800
-In-Reply-To: <1454395198-1796236-1-git-send-email-ast@fb.com>
+Received: from mail-lf0-f44.google.com ([209.85.215.44]:36542 "EHLO
+	mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752513AbcBBGr3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 01:47:29 -0500
+Received: by mail-lf0-f44.google.com with SMTP id 78so63187195lfy.3
+        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 22:47:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The functions bpf_map_lookup_elem(map, key, value) and
-bpf_map_update_elem(map, key, value, flags) need to get/set
-values from all-cpus for per-cpu hash and array maps,
-so that user space can aggregate/update them as necessary.
+Chipsets with BCM4707 / BCM53018 ID require special handling at a few
+places in the code. It's likely there will be more IDs to check in the
+future. To simplify it add this trivial helper.
 
-Example of single counter aggregation in user space:
-  unsigned int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
-  long values[nr_cpus];
-  long value = 0;
-
-  bpf_lookup_elem(fd, key, values);
-  for (i = 0; i < nr_cpus; i++)
-    value += values[i];
-
-The user space must provide round_up(value_size, 8) * nr_cpus
-array to get/set values, since kernel will use 'long' copy
-of per-cpu values to try to copy good counters atomically.
-It's a best-effort, since bpf programs and user space are racing
-to access the same memory.
-
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 ---
- include/linux/bpf.h   | 23 ++++++++++++++
- kernel/bpf/arraymap.c | 64 +++++++++++++++++++++++++++++++++++++++
- kernel/bpf/hashtab.c  | 83 +++++++++++++++++++++++++++++++++++++++++++++------
- kernel/bpf/syscall.c  | 57 ++++++++++++++++++++++++-----------
- 4 files changed, 201 insertions(+), 26 deletions(-)
+It's the same change as sent few days ago, just resending it in a prope=
+r time
+(with net-next being open).
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 30 ++++++++++++++++-----------=
+---
+ 1 file changed, 16 insertions(+), 14 deletions(-)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 141fb0d45731..90ee6ab24bc5 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -183,6 +183,29 @@ int bpf_prog_new_fd(struct bpf_prog *prog);
- int bpf_obj_pin_user(u32 ufd, const char __user *pathname);
- int bpf_obj_get_user(const char __user *pathname);
- 
-+int bpf_percpu_hash_copy(struct bpf_map *map, void *key, void *value);
-+int bpf_percpu_array_copy(struct bpf_map *map, void *key, void *value);
-+int bpf_percpu_hash_update(struct bpf_map *map, void *key, void *value,
-+			   u64 flags);
-+int bpf_percpu_array_update(struct bpf_map *map, void *key, void *value,
-+			    u64 flags);
-+
-+/* memcpy that is used with 8-byte aligned pointers, power-of-8 size and
-+ * forced to use 'long' read/writes to try to atomically copy long counters.
-+ * Best-effort only.  No barriers here, since it _will_ race with concurrent
-+ * updates from BPF programs. Called from bpf syscall and mostly used with
-+ * size 8 or 16 bytes, so ask compiler to inline it.
-+ */
-+static inline void bpf_long_memcpy(void *dst, const void *src, u32 size)
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index 06f6cff..230f8e6 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -26,6 +26,17 @@ static const struct bcma_device_id bgmac_bcma_tbl[] =
+=3D {
+ };
+ MODULE_DEVICE_TABLE(bcma, bgmac_bcma_tbl);
+=20
++static inline bool bgmac_is_bcm4707_family(struct bgmac *bgmac)
 +{
-+	const long *lsrc = src;
-+	long *ldst = dst;
-+
-+	size /= sizeof(long);
-+	while (size--)
-+		*ldst++ = *lsrc++;
-+}
-+
- /* verify correctness of eBPF program */
- int bpf_check(struct bpf_prog **fp, union bpf_attr *attr);
- #else
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index b9bf1d7949ca..bd3bdf2486a7 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -130,6 +130,32 @@ static void *percpu_array_map_lookup_elem(struct bpf_map *map, void *key)
- 	return this_cpu_ptr(array->pptrs[index]);
- }
- 
-+int bpf_percpu_array_copy(struct bpf_map *map, void *key, void *value)
-+{
-+	struct bpf_array *array = container_of(map, struct bpf_array, map);
-+	u32 index = *(u32 *)key;
-+	void __percpu *pptr;
-+	int cpu, off = 0;
-+	u32 size;
-+
-+	if (unlikely(index >= array->map.max_entries))
-+		return -ENOENT;
-+
-+	/* per_cpu areas are zero-filled and bpf programs can only
-+	 * access 'value_size' of them, so copying rounded areas
-+	 * will not leak any kernel data
-+	 */
-+	size = round_up(map->value_size, 8);
-+	rcu_read_lock();
-+	pptr = array->pptrs[index];
-+	for_each_possible_cpu(cpu) {
-+		bpf_long_memcpy(value + off, per_cpu_ptr(pptr, cpu), size);
-+		off += size;
++	switch (bgmac->core->bus->chipinfo.id) {
++	case BCMA_CHIP_ID_BCM4707:
++	case BCMA_CHIP_ID_BCM53018:
++		return true;
++	default:
++		return false;
 +	}
-+	rcu_read_unlock();
-+	return 0;
 +}
 +
- /* Called from syscall */
- static int array_map_get_next_key(struct bpf_map *map, void *key, void *next_key)
+ static bool bgmac_wait_value(struct bcma_device *core, u16 reg, u32 ma=
+sk,
+ 			     u32 value, int timeout)
  {
-@@ -177,6 +203,44 @@ static int array_map_update_elem(struct bpf_map *map, void *key, void *value,
- 	return 0;
- }
- 
-+int bpf_percpu_array_update(struct bpf_map *map, void *key, void *value,
-+			    u64 map_flags)
-+{
-+	struct bpf_array *array = container_of(map, struct bpf_array, map);
-+	u32 index = *(u32 *)key;
-+	void __percpu *pptr;
-+	int cpu, off = 0;
-+	u32 size;
-+
-+	if (unlikely(map_flags > BPF_EXIST))
-+		/* unknown flags */
-+		return -EINVAL;
-+
-+	if (unlikely(index >= array->map.max_entries))
-+		/* all elements were pre-allocated, cannot insert a new one */
-+		return -E2BIG;
-+
-+	if (unlikely(map_flags == BPF_NOEXIST))
-+		/* all elements already exist */
-+		return -EEXIST;
-+
-+	/* the user space will provide round_up(value_size, 8) bytes that
-+	 * will be copied into per-cpu area. bpf programs can only access
-+	 * value_size of it. During lookup the same extra bytes will be
-+	 * returned or zeros which were zero-filled by percpu_alloc,
-+	 * so no kernel data leaks possible
-+	 */
-+	size = round_up(map->value_size, 8);
-+	rcu_read_lock();
-+	pptr = array->pptrs[index];
-+	for_each_possible_cpu(cpu) {
-+		bpf_long_memcpy(per_cpu_ptr(pptr, cpu), value + off, size);
-+		off += size;
-+	}
-+	rcu_read_unlock();
-+	return 0;
-+}
-+
- /* Called from syscall or from eBPF program */
- static int array_map_delete_elem(struct bpf_map *map, void *key)
+@@ -987,11 +998,9 @@ static void bgmac_mac_speed(struct bgmac *bgmac)
+ static void bgmac_miiconfig(struct bgmac *bgmac)
  {
-diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-index 2be5f6e8bb04..fd5db8fe9360 100644
---- a/kernel/bpf/hashtab.c
-+++ b/kernel/bpf/hashtab.c
-@@ -290,7 +290,7 @@ static void free_htab_elem(struct htab_elem *l, bool percpu, u32 key_size)
- 
- static struct htab_elem *alloc_htab_elem(struct bpf_htab *htab, void *key,
- 					 void *value, u32 key_size, u32 hash,
--					 bool percpu)
-+					 bool percpu, bool onallcpus)
+ 	struct bcma_device *core =3D bgmac->core;
+-	struct bcma_chipinfo *ci =3D &core->bus->chipinfo;
+ 	u8 imode;
+=20
+-	if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
+-	    ci->id =3D=3D BCMA_CHIP_ID_BCM53018) {
++	if (bgmac_is_bcm4707_family(bgmac)) {
+ 		bcma_awrite32(core, BCMA_IOCTL,
+ 			      bcma_aread32(core, BCMA_IOCTL) | 0x40 |
+ 			      BGMAC_BCMA_IOCTL_SW_CLKEN);
+@@ -1055,9 +1064,7 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 	}
+=20
+ 	/* Request Misc PLL for corerev > 2 */
+-	if (core->id.rev > 2 &&
+-	    ci->id !=3D BCMA_CHIP_ID_BCM4707 &&
+-	    ci->id !=3D BCMA_CHIP_ID_BCM53018) {
++	if (core->id.rev > 2 && !bgmac_is_bcm4707_family(bgmac)) {
+ 		bgmac_set(bgmac, BCMA_CLKCTLST,
+ 			  BGMAC_BCMA_CLKCTLST_MISC_PLL_REQ);
+ 		bgmac_wait_value(bgmac->core, BCMA_CLKCTLST,
+@@ -1193,8 +1200,7 @@ static void bgmac_enable(struct bgmac *bgmac)
+ 		break;
+ 	}
+=20
+-	if (ci->id !=3D BCMA_CHIP_ID_BCM4707 &&
+-	    ci->id !=3D BCMA_CHIP_ID_BCM53018) {
++	if (!bgmac_is_bcm4707_family(bgmac)) {
+ 		rxq_ctl =3D bgmac_read(bgmac, BGMAC_RXQ_CTL);
+ 		rxq_ctl &=3D ~BGMAC_RXQ_CTL_MDP_MASK;
+ 		bp_clk =3D bcma_pmu_get_bus_clock(&bgmac->core->bus->drv_cc) /
+@@ -1472,14 +1478,12 @@ static int bgmac_fixed_phy_register(struct bgma=
+c *bgmac)
+=20
+ static int bgmac_mii_register(struct bgmac *bgmac)
  {
- 	u32 size = htab->map.value_size;
- 	struct htab_elem *l_new;
-@@ -312,8 +312,18 @@ static struct htab_elem *alloc_htab_elem(struct bpf_htab *htab, void *key,
- 			return NULL;
- 		}
- 
--		/* copy true value_size bytes */
--		memcpy(this_cpu_ptr(pptr), value, htab->map.value_size);
-+		if (!onallcpus) {
-+			/* copy true value_size bytes */
-+			memcpy(this_cpu_ptr(pptr), value, htab->map.value_size);
-+		} else {
-+			int off = 0, cpu;
-+
-+			for_each_possible_cpu(cpu) {
-+				bpf_long_memcpy(per_cpu_ptr(pptr, cpu),
-+						value + off, size);
-+				off += size;
-+			}
-+		}
- 		htab_elem_set_ptr(l_new, key_size, pptr);
- 	} else {
- 		memcpy(l_new->key + round_up(key_size, 8), value, size);
-@@ -368,7 +378,7 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
- 	/* allocate new element outside of the lock, since
- 	 * we're most likley going to insert it
- 	 */
--	l_new = alloc_htab_elem(htab, key, value, key_size, hash, false);
-+	l_new = alloc_htab_elem(htab, key, value, key_size, hash, false, false);
- 	if (!l_new)
- 		return -ENOMEM;
- 
-@@ -402,8 +412,9 @@ err:
- 	return ret;
- }
- 
--static int htab_percpu_map_update_elem(struct bpf_map *map, void *key,
--				       void *value, u64 map_flags)
-+static int __htab_percpu_map_update_elem(struct bpf_map *map, void *key,
-+					 void *value, u64 map_flags,
-+					 bool onallcpus)
+-	struct bcma_chipinfo *ci =3D &bgmac->core->bus->chipinfo;
+ 	struct mii_bus *mii_bus;
+ 	struct phy_device *phy_dev;
+ 	char bus_id[MII_BUS_ID_SIZE + 3];
+ 	int err =3D 0;
+=20
+-	if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
+-	    ci->id =3D=3D BCMA_CHIP_ID_BCM53018)
++	if (bgmac_is_bcm4707_family(bgmac))
+ 		return bgmac_fixed_phy_register(bgmac);
+=20
+ 	mii_bus =3D mdiobus_alloc();
+@@ -1539,7 +1543,6 @@ static void bgmac_mii_unregister(struct bgmac *bg=
+mac)
+ /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipattach */
+ static int bgmac_probe(struct bcma_device *core)
  {
- 	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
- 	struct htab_elem *l_new = NULL, *l_old;
-@@ -436,12 +447,25 @@ static int htab_percpu_map_update_elem(struct bpf_map *map, void *key,
- 		goto err;
- 
- 	if (l_old) {
-+		void __percpu *pptr = htab_elem_get_ptr(l_old, key_size);
-+		u32 size = htab->map.value_size;
-+
- 		/* per-cpu hash map can update value in-place */
--		memcpy(this_cpu_ptr(htab_elem_get_ptr(l_old, key_size)),
--		       value, htab->map.value_size);
-+		if (!onallcpus) {
-+			memcpy(this_cpu_ptr(pptr), value, size);
-+		} else {
-+			int off = 0, cpu;
-+
-+			size = round_up(size, 8);
-+			for_each_possible_cpu(cpu) {
-+				bpf_long_memcpy(per_cpu_ptr(pptr, cpu),
-+						value + off, size);
-+				off += size;
-+			}
-+		}
- 	} else {
- 		l_new = alloc_htab_elem(htab, key, value, key_size,
--					hash, true);
-+					hash, true, onallcpus);
- 		if (!l_new) {
- 			ret = -ENOMEM;
- 			goto err;
-@@ -455,6 +479,12 @@ err:
- 	return ret;
- }
- 
-+static int htab_percpu_map_update_elem(struct bpf_map *map, void *key,
-+				       void *value, u64 map_flags)
-+{
-+	return __htab_percpu_map_update_elem(map, key, value, map_flags, false);
-+}
-+
- /* Called from syscall or from eBPF program */
- static int htab_map_delete_elem(struct bpf_map *map, void *key)
- {
-@@ -557,6 +587,41 @@ static void *htab_percpu_map_lookup_elem(struct bpf_map *map, void *key)
- 		return NULL;
- }
- 
-+int bpf_percpu_hash_copy(struct bpf_map *map, void *key, void *value)
-+{
-+	struct htab_elem *l;
-+	void __percpu *pptr;
-+	int ret = -ENOENT;
-+	int cpu, off = 0;
-+	u32 size;
-+
-+	/* per_cpu areas are zero-filled and bpf programs can only
-+	 * access 'value_size' of them, so copying rounded areas
-+	 * will not leak any kernel data
-+	 */
-+	size = round_up(map->value_size, 8);
-+	rcu_read_lock();
-+	l = __htab_map_lookup_elem(map, key);
-+	if (!l)
-+		goto out;
-+	pptr = htab_elem_get_ptr(l, map->key_size);
-+	for_each_possible_cpu(cpu) {
-+		bpf_long_memcpy(value + off,
-+				per_cpu_ptr(pptr, cpu), size);
-+		off += size;
-+	}
-+	ret = 0;
-+out:
-+	rcu_read_unlock();
-+	return ret;
-+}
-+
-+int bpf_percpu_hash_update(struct bpf_map *map, void *key, void *value,
-+			   u64 map_flags)
-+{
-+	return __htab_percpu_map_update_elem(map, key, value, map_flags, true);
-+}
-+
- static const struct bpf_map_ops htab_percpu_ops = {
- 	.map_alloc = htab_map_alloc,
- 	.map_free = htab_map_free,
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 637397059f76..c95a753c2007 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -239,6 +239,7 @@ static int map_lookup_elem(union bpf_attr *attr)
- 	int ufd = attr->map_fd;
- 	struct bpf_map *map;
- 	void *key, *value, *ptr;
-+	u32 value_size;
- 	struct fd f;
- 	int err;
- 
-@@ -259,23 +260,35 @@ static int map_lookup_elem(union bpf_attr *attr)
- 	if (copy_from_user(key, ukey, map->key_size) != 0)
- 		goto free_key;
- 
-+	if (map->map_type == BPF_MAP_TYPE_PERCPU_HASH ||
-+	    map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY)
-+		value_size = round_up(map->value_size, 8) * num_possible_cpus();
-+	else
-+		value_size = map->value_size;
-+
- 	err = -ENOMEM;
--	value = kmalloc(map->value_size, GFP_USER | __GFP_NOWARN);
-+	value = kmalloc(value_size, GFP_USER | __GFP_NOWARN);
- 	if (!value)
- 		goto free_key;
- 
--	rcu_read_lock();
--	ptr = map->ops->map_lookup_elem(map, key);
--	if (ptr)
--		memcpy(value, ptr, map->value_size);
--	rcu_read_unlock();
-+	if (map->map_type == BPF_MAP_TYPE_PERCPU_HASH) {
-+		err = bpf_percpu_hash_copy(map, key, value);
-+	} else if (map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY) {
-+		err = bpf_percpu_array_copy(map, key, value);
-+	} else {
-+		rcu_read_lock();
-+		ptr = map->ops->map_lookup_elem(map, key);
-+		if (ptr)
-+			memcpy(value, ptr, value_size);
-+		rcu_read_unlock();
-+		err = ptr ? 0 : -ENOENT;
-+	}
- 
--	err = -ENOENT;
--	if (!ptr)
-+	if (err)
- 		goto free_value;
- 
- 	err = -EFAULT;
--	if (copy_to_user(uvalue, value, map->value_size) != 0)
-+	if (copy_to_user(uvalue, value, value_size) != 0)
- 		goto free_value;
- 
- 	err = 0;
-@@ -298,6 +311,7 @@ static int map_update_elem(union bpf_attr *attr)
- 	int ufd = attr->map_fd;
- 	struct bpf_map *map;
- 	void *key, *value;
-+	u32 value_size;
- 	struct fd f;
- 	int err;
- 
-@@ -318,21 +332,30 @@ static int map_update_elem(union bpf_attr *attr)
- 	if (copy_from_user(key, ukey, map->key_size) != 0)
- 		goto free_key;
- 
-+	if (map->map_type == BPF_MAP_TYPE_PERCPU_HASH ||
-+	    map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY)
-+		value_size = round_up(map->value_size, 8) * num_possible_cpus();
-+	else
-+		value_size = map->value_size;
-+
- 	err = -ENOMEM;
--	value = kmalloc(map->value_size, GFP_USER | __GFP_NOWARN);
-+	value = kmalloc(value_size, GFP_USER | __GFP_NOWARN);
- 	if (!value)
- 		goto free_key;
- 
- 	err = -EFAULT;
--	if (copy_from_user(value, uvalue, map->value_size) != 0)
-+	if (copy_from_user(value, uvalue, value_size) != 0)
- 		goto free_value;
- 
--	/* eBPF program that use maps are running under rcu_read_lock(),
--	 * therefore all map accessors rely on this fact, so do the same here
--	 */
--	rcu_read_lock();
--	err = map->ops->map_update_elem(map, key, value, attr->flags);
--	rcu_read_unlock();
-+	if (map->map_type == BPF_MAP_TYPE_PERCPU_HASH) {
-+		err = bpf_percpu_hash_update(map, key, value, attr->flags);
-+	} else if (map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY) {
-+		err = bpf_percpu_array_update(map, key, value, attr->flags);
-+	} else {
-+		rcu_read_lock();
-+		err = map->ops->map_update_elem(map, key, value, attr->flags);
-+		rcu_read_unlock();
-+	}
- 
- free_value:
- 	kfree(value);
--- 
-2.4.6
+-	struct bcma_chipinfo *ci =3D &core->bus->chipinfo;
+ 	struct net_device *net_dev;
+ 	struct bgmac *bgmac;
+ 	struct ssb_sprom *sprom =3D &core->bus->sprom;
+@@ -1620,8 +1623,7 @@ static int bgmac_probe(struct bcma_device *core)
+ 	bgmac_chip_reset(bgmac);
+=20
+ 	/* For Northstar, we have to take all GMAC core out of reset */
+-	if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
+-	    ci->id =3D=3D BCMA_CHIP_ID_BCM53018) {
++	if (bgmac_is_bcm4707_family(bgmac)) {
+ 		struct bcma_device *ns_core;
+ 		int ns_gmac;
+=20
+--=20
+1.8.4.5
