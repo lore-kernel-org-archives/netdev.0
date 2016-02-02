@@ -1,229 +1,69 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next v2 6/6] vxlan: consolidate vxlan_xmit_skb and vxlan6_xmit_skb
-Date: Tue,  2 Feb 2016 18:09:16 +0100
-Message-ID: <41291b4f262319d1058f43004b876078fde4cc58.1454432731.git.jbenc@redhat.com>
+Subject: [PATCH net-next v2 1/6] vxlan: cleanup types
+Date: Tue,  2 Feb 2016 18:09:11 +0100
+Message-ID: <d0afedde34e48a2818641a44715471f0e1431345.1454432731.git.jbenc@redhat.com>
 References: <cover.1454432731.git.jbenc@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47132 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:47098 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933587AbcBBRJa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 12:09:30 -0500
+	id S932970AbcBBRJZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 12:09:25 -0500
 Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (Postfix) with ESMTPS id 4DA98263D
-	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 17:09:30 +0000 (UTC)
+	by mx1.redhat.com (Postfix) with ESMTPS id 45E587AE8C
+	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 17:09:25 +0000 (UTC)
 Received: from griffin.upir.cz (ovpn-204-49.brq.redhat.com [10.40.204.49])
-	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u12H9NSr003510
-	for <netdev@vger.kernel.org>; Tue, 2 Feb 2016 12:09:29 -0500
+	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u12H9NSm003510
+	for <netdev@vger.kernel.org>; Tue, 2 Feb 2016 12:09:24 -0500
 In-Reply-To: <cover.1454432731.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's a lot of code duplication. Factor out the duplicate code to a new
-function shared between IPv4 and IPv6 xmit path.
+include/net/vxlan.h is a kernel header, no need to prefix fixed size types
+with double underscore.
 
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
-v2: rebased on top of the added patch.
----
- drivers/net/vxlan.c | 137 ++++++++++------------------------------------------
- 1 file changed, 26 insertions(+), 111 deletions(-)
+ include/net/vxlan.h | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index fe3fd4808f4d..65f52472a52c 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1684,19 +1684,14 @@ static void vxlan_build_gbp_hdr(struct vxlanhdr *vxh, u32 vxflags,
- 	gbp->policy_id = htons(md->gbp & VXLAN_GBP_ID_MASK);
- }
- 
--#if IS_ENABLED(CONFIG_IPV6)
--static int vxlan6_xmit_skb(struct dst_entry *dst, struct sock *sk,
--			   struct sk_buff *skb,
--			   struct net_device *dev, struct in6_addr *saddr,
--			   struct in6_addr *daddr, __u8 prio, __u8 ttl,
--			   __be16 src_port, __be16 dst_port, __be32 vni,
--			   struct vxlan_metadata *md, bool xnet, u32 vxflags,
-+static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
-+			   int iphdr_len, __be32 vni,
-+			   struct vxlan_metadata *md, u32 vxflags,
- 			   bool udp_sum)
- {
- 	struct vxlanhdr *vxh;
- 	int min_headroom;
- 	int err;
--	bool nocheck = !udp_sum;
- 	int type = udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
- 	u16 hdrlen = sizeof(struct vxlanhdr);
- 
-@@ -1713,93 +1708,8 @@ static int vxlan6_xmit_skb(struct dst_entry *dst, struct sock *sk,
- 		}
- 	}
- 
--	skb_scrub_packet(skb, xnet);
--
- 	min_headroom = LL_RESERVED_SPACE(dst->dev) + dst->header_len
--			+ VXLAN_HLEN + sizeof(struct ipv6hdr)
--			+ (skb_vlan_tag_present(skb) ? VLAN_HLEN : 0);
--
--	/* Need space for new headers (invalidates iph ptr) */
--	err = skb_cow_head(skb, min_headroom);
--	if (unlikely(err)) {
--		kfree_skb(skb);
--		goto err;
--	}
--
--	skb = vlan_hwaccel_push_inside(skb);
--	if (WARN_ON(!skb)) {
--		err = -ENOMEM;
--		goto err;
--	}
--
--	skb = iptunnel_handle_offloads(skb, udp_sum, type);
--	if (IS_ERR(skb)) {
--		err = -EINVAL;
--		goto err;
--	}
--
--	vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
--	vxh->vx_flags = htonl(VXLAN_HF_VNI);
--	vxh->vx_vni = vni;
--
--	if (type & SKB_GSO_TUNNEL_REMCSUM) {
--		u32 data = (skb_checksum_start_offset(skb) - hdrlen) >>
--			   VXLAN_RCO_SHIFT;
--
--		if (skb->csum_offset == offsetof(struct udphdr, check))
--			data |= VXLAN_RCO_UDP;
--
--		vxh->vx_vni |= htonl(data);
--		vxh->vx_flags |= htonl(VXLAN_HF_RCO);
--
--		if (!skb_is_gso(skb)) {
--			skb->ip_summed = CHECKSUM_NONE;
--			skb->encapsulation = 0;
--		}
--	}
--
--	if (vxflags & VXLAN_F_GBP)
--		vxlan_build_gbp_hdr(vxh, vxflags, md);
--
--	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
--
--	udp_tunnel6_xmit_skb(dst, sk, skb, dev, saddr, daddr, prio,
--			     ttl, src_port, dst_port, nocheck);
--	return 0;
--err:
--	dst_release(dst);
--	return err;
--}
--#endif
--
--static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
--			  __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
--			  __be16 src_port, __be16 dst_port, __be32 vni,
--			  struct vxlan_metadata *md, bool xnet, u32 vxflags,
--			  bool udp_sum)
--{
--	struct vxlanhdr *vxh;
--	int min_headroom;
--	int err;
--	bool nocheck = !udp_sum;
--	int type = udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
--	u16 hdrlen = sizeof(struct vxlanhdr);
--
--	if ((vxflags & VXLAN_F_REMCSUM_TX) &&
--	    skb->ip_summed == CHECKSUM_PARTIAL) {
--		int csum_start = skb_checksum_start_offset(skb);
--
--		if (csum_start <= VXLAN_MAX_REMCSUM_START &&
--		    !(csum_start & VXLAN_RCO_SHIFT_MASK) &&
--		    (skb->csum_offset == offsetof(struct udphdr, check) ||
--		     skb->csum_offset == offsetof(struct tcphdr, check))) {
--			udp_sum = false;
--			type |= SKB_GSO_TUNNEL_REMCSUM;
--		}
--	}
--
--	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
--			+ VXLAN_HLEN + sizeof(struct iphdr)
-+			+ VXLAN_HLEN + iphdr_len
- 			+ (skb_vlan_tag_present(skb) ? VLAN_HLEN : 0);
- 
- 	/* Need space for new headers (invalidates iph ptr) */
-@@ -1841,9 +1751,6 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
- 		vxlan_build_gbp_hdr(vxh, vxflags, md);
- 
- 	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
--
--	udp_tunnel_xmit_skb(rt, sk, skb, src, dst, tos, ttl, df,
--			    src_port, dst_port, xnet, nocheck);
- 	return 0;
- }
- 
-@@ -1960,6 +1867,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	int err;
- 	u32 flags = vxlan->flags;
- 	bool udp_sum = false;
-+	bool xnet = !net_eq(vxlan->net, dev_net(vxlan->dev));
- 
- 	info = skb_tunnel_info(skb);
- 
-@@ -2064,16 +1972,14 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 		tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
- 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
--		err = vxlan_xmit_skb(rt, sk, skb, saddr,
--				     dst->sin.sin_addr.s_addr, tos, ttl, df,
--				     src_port, dst_port, htonl(vni << 8), md,
--				     !net_eq(vxlan->net, dev_net(vxlan->dev)),
--				     flags, udp_sum);
--		if (err < 0) {
--			/* skb is already freed. */
--			skb = NULL;
--			goto rt_tx_error;
--		}
-+		err = vxlan_build_skb(skb, &rt->dst, sizeof(struct iphdr),
-+				      htonl(vni << 8), md, flags, udp_sum);
-+		if (err < 0)
-+			goto xmit_tx_error;
-+
-+		udp_tunnel_xmit_skb(rt, sk, skb, saddr,
-+				    dst->sin.sin_addr.s_addr, tos, ttl, df,
-+				    src_port, dst_port, xnet, !udp_sum);
- #if IS_ENABLED(CONFIG_IPV6)
- 	} else {
- 		struct dst_entry *ndst;
-@@ -2122,10 +2028,16 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			udp_sum = !(flags & VXLAN_F_UDP_ZERO_CSUM6_TX);
- 
- 		ttl = ttl ? : ip6_dst_hoplimit(ndst);
--		err = vxlan6_xmit_skb(ndst, sk, skb, dev, &saddr, &dst->sin6.sin6_addr,
--				      0, ttl, src_port, dst_port, htonl(vni << 8), md,
--				      !net_eq(vxlan->net, dev_net(vxlan->dev)),
--				      flags, udp_sum);
-+		skb_scrub_packet(skb, xnet);
-+		err = vxlan_build_skb(skb, ndst, sizeof(struct ipv6hdr),
-+				      htonl(vni << 8), md, flags, udp_sum);
-+		if (err < 0) {
-+			dst_release(ndst);
-+			return;
-+		}
-+		udp_tunnel6_xmit_skb(ndst, sk, skb, dev,
-+				     &saddr, &dst->sin6.sin6_addr,
-+				     0, ttl, src_port, dst_port, !udp_sum);
- #endif
- 	}
- 
-@@ -2135,6 +2047,9 @@ drop:
- 	dev->stats.tx_dropped++;
- 	goto tx_free;
- 
-+xmit_tx_error:
-+	/* skb is already freed. */
-+	skb = NULL;
- rt_tx_error:
- 	ip_rt_put(rt);
- tx_error:
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 0fb86442544b..5c64250619c5 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -30,15 +30,15 @@
+  * [0] https://tools.ietf.org/html/draft-smith-vxlan-group-policy
+  */
+ struct vxlanhdr_gbp {
+-	__u8	vx_flags;
++	u8	vx_flags;
+ #ifdef __LITTLE_ENDIAN_BITFIELD
+-	__u8	reserved_flags1:3,
++	u8	reserved_flags1:3,
+ 		policy_applied:1,
+ 		reserved_flags2:2,
+ 		dont_learn:1,
+ 		reserved_flags3:1;
+ #elif defined(__BIG_ENDIAN_BITFIELD)
+-	__u8	reserved_flags1:1,
++	u8	reserved_flags1:1,
+ 		dont_learn:1,
+ 		reserved_flags2:2,
+ 		policy_applied:1,
+@@ -138,10 +138,10 @@ struct vxlan_config {
+ 	int			remote_ifindex;
+ 	int			mtu;
+ 	__be16			dst_port;
+-	__u16			port_min;
+-	__u16			port_max;
+-	__u8			tos;
+-	__u8			ttl;
++	u16			port_min;
++	u16			port_max;
++	u8			tos;
++	u8			ttl;
+ 	u32			flags;
+ 	unsigned long		age_interval;
+ 	unsigned int		addrmax;
 -- 
 1.8.3.1
