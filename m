@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 02/11] net: bulk free SKBs that were delay free'ed
- due to IRQ context
-Date: Tue, 02 Feb 2016 22:11:46 +0100
-Message-ID: <20160202211141.16315.604.stgit@firesoul>
+Subject: [net-next PATCH 03/11] ixgbe: bulk free SKBs during TX completion
+ cleanup cycle
+Date: Tue, 02 Feb 2016 22:11:54 +0100
+Message-ID: <20160202211151.16315.57664.stgit@firesoul>
 References: <20160202211051.16315.51808.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,98 +14,63 @@ Cc: Christoph Lameter <cl@linux.com>, tom@herbertland.com,
 	ogerlitz@mellanox.com, gerlitz.or@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36285 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39424 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933063AbcBBVLs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 16:11:48 -0500
+	id S933063AbcBBVLz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 16:11:55 -0500
 In-Reply-To: <20160202211051.16315.51808.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The network stack defers SKBs free, in-case free happens in IRQ or
-when IRQs are disabled. This happens in __dev_kfree_skb_irq() that
-writes SKBs that were free'ed during IRQ to the softirq completion
-queue (softnet_data.completion_queue).
+There is an opportunity to bulk free SKBs during reclaiming of
+resources after DMA transmit completes in ixgbe_clean_tx_irq.  Thus,
+bulk freeing at this point does not introduce any added latency.
 
-These SKBs are naturally delayed, and cleaned up during NET_TX_SOFTIRQ
-in function net_tx_action().  Take advantage of this a use the skb
-defer and flush API, as we are already in softirq context.
+Simply use napi_consume_skb() which were recently introduced.  The
+napi_budget parameter is needed by napi_consume_skb() to detect if it
+is called from netpoll.
 
-For modern drivers this rarely happens. Although most drivers do call
-dev_kfree_skb_any(), which detects the situation and calls
-__dev_kfree_skb_irq() when needed.  This due to netpoll can call from
-IRQ context.
+Benchmarking IPv4-forwarding, on CPU i7-4790K @4.2GHz (no turbo boost)
+ Single CPU/flow numbers: before: 1982144 pps ->  after : 2064446 pps
+ Improvement: +82302 pps, -20 nanosec, +4.1%
+ (SLUB and GCC version 5.1.1 20150618 (Red Hat 5.1.1-4))
+
+Joint work with Alexander Duyck.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- include/linux/skbuff.h |    1 +
- net/core/dev.c         |    8 +++++++-
- net/core/skbuff.c      |    8 ++++++--
- 3 files changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 3c8d348223d7..b06ba2e07c89 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2402,6 +2402,7 @@ static inline struct sk_buff *napi_alloc_skb(struct napi_struct *napi,
- void napi_consume_skb(struct sk_buff *skb, int budget);
- 
- void __kfree_skb_flush(void);
-+void __kfree_skb_defer(struct sk_buff *skb);
- 
- /**
-  * __dev_alloc_pages - allocate page for network Rx
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 73e6cbc10ac6..24be1d07d854 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3829,8 +3829,14 @@ static void net_tx_action(struct softirq_action *h)
- 				trace_consume_skb(skb);
- 			else
- 				trace_kfree_skb(skb, net_tx_action);
--			__kfree_skb(skb);
-+
-+			if (skb->fclone != SKB_FCLONE_UNAVAILABLE)
-+				__kfree_skb(skb);
-+			else
-+				__kfree_skb_defer(skb);
- 		}
-+
-+		__kfree_skb_flush();
- 	}
- 
- 	if (sd->output_queue) {
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index e26bb2b1dba4..d278e51789e9 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -767,7 +767,7 @@ void __kfree_skb_flush(void)
- 	}
- }
- 
--static void __kfree_skb_defer(struct sk_buff *skb)
-+static inline void _kfree_skb_defer(struct sk_buff *skb)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index c4003a88bbf6..0c701b8438b6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1089,7 +1089,7 @@ static void ixgbe_tx_timeout_reset(struct ixgbe_adapter *adapter)
+  * @tx_ring: tx ring to clean
+  **/
+ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
+-			       struct ixgbe_ring *tx_ring)
++			       struct ixgbe_ring *tx_ring, int napi_budget)
  {
- 	struct napi_alloc_cache *nc = this_cpu_ptr(&napi_alloc_cache);
+ 	struct ixgbe_adapter *adapter = q_vector->adapter;
+ 	struct ixgbe_tx_buffer *tx_buffer;
+@@ -1127,7 +1127,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
+ 		total_packets += tx_buffer->gso_segs;
  
-@@ -789,6 +789,10 @@ static void __kfree_skb_defer(struct sk_buff *skb)
- 		nc->skb_count = 0;
- 	}
- }
-+void __kfree_skb_defer(struct sk_buff *skb)
-+{
-+	_kfree_skb_defer(skb);
-+}
+ 		/* free the skb */
+-		dev_consume_skb_any(tx_buffer->skb);
++		napi_consume_skb(tx_buffer->skb, napi_budget);
  
- void napi_consume_skb(struct sk_buff *skb, int budget)
- {
-@@ -814,7 +818,7 @@ void napi_consume_skb(struct sk_buff *skb, int budget)
- 		return;
- 	}
+ 		/* unmap skb header data */
+ 		dma_unmap_single(tx_ring->dev,
+@@ -2784,7 +2784,7 @@ int ixgbe_poll(struct napi_struct *napi, int budget)
+ #endif
  
--	__kfree_skb_defer(skb);
-+	_kfree_skb_defer(skb);
- }
- EXPORT_SYMBOL(napi_consume_skb);
+ 	ixgbe_for_each_ring(ring, q_vector->tx)
+-		clean_complete &= !!ixgbe_clean_tx_irq(q_vector, ring);
++		clean_complete &= !!ixgbe_clean_tx_irq(q_vector, ring, budget);
  
+ 	/* Exit if we are called by netpoll or busy polling is active */
+ 	if ((budget <= 0) || !ixgbe_qv_lock_napi(q_vector))
