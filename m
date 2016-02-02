@@ -1,44 +1,34 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 -master 2/4] tc, bpf: improve verifier logging
-Date: Tue, 2 Feb 2016 16:02:12 +1100
-Message-ID: <20160202160212.3b006472@samsung9>
-References: <cover.1454370543.git.daniel@iogearbox.net>
-	<24df553c2a0dd547a66e215c89ae75fd6818c750.1454370543.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/2] tcp: fastopen: accept data/FIN present in SYNACK
+Date: Mon,  1 Feb 2016 21:03:06 -0800
+Message-ID: <1454389388-1506-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Sara Dickinson <sara@sinodun.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:33383 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750710AbcBBFCT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 00:02:19 -0500
-Received: by mail-pf0-f173.google.com with SMTP id w123so3610350pfb.0
-        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 21:02:19 -0800 (PST)
-In-Reply-To: <24df553c2a0dd547a66e215c89ae75fd6818c750.1454370543.git.daniel@iogearbox.net>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:36620 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750710AbcBBFDS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 00:03:18 -0500
+Received: by mail-pf0-f182.google.com with SMTP id n128so95647957pfn.3
+        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 21:03:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue,  2 Feb 2016 01:12:27 +0100
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+Implements RFC 7413 (TCP Fast Open) 4.2.2, accepting payload and/or FIN
+in SYNACK messages, and prepare removal of SYN flag in tcp_recvmsg()
 
-> With a bit larger, branchy eBPF programs f.e. already ~BPF_MAXINSNS/7 in
-> size, it happens rather quickly that bpf(2) rejects also valid programs
-> when only the verifier log buffer size we have in tc is too small.
-> 
-> Change that, so by default we don't do any logging, and only in error
-> case we retry with logging enabled. If we should fail providing a
-> reasonable dump of the verifier analysis, retry few times with a larger
-> log buffer so that we can at least give the user a chance to debug the
-> program.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
+Eric Dumazet (2):
+  tcp: fastopen: accept data/FIN present in SYNACK message
+  tcp: do not enqueue skb with SYN flag
 
-Does not apply
+ include/net/tcp.h       |  1 +
+ net/ipv4/tcp.c          |  8 ++++--
+ net/ipv4/tcp_fastopen.c | 67 +++++++++++++++++++++++++++----------------------
+ net/ipv4/tcp_input.c    |  3 +++
+ 4 files changed, 47 insertions(+), 32 deletions(-)
 
-Applying: tc, bpf: improve verifier logging
-error: patch failed: tc/tc_bpf.c:762
-error: tc/tc_bpf.c: patch does not apply
-Patch failed at 0002 tc, bpf: improve verifier logging
+-- 
+2.7.0.rc3.207.g0ac5344
