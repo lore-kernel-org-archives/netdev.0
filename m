@@ -1,36 +1,164 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next v3] xen-netback: implement dynamic multicast
- control
-Date: Tue, 2 Feb 2016 12:04:31 +0000
-Message-ID: <20160202120431.GG10990@citrix.com>
-References: <1454414105-13327-1-git-send-email-paul.durrant@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next] virtio_net: add ethtool support for set and get of settings
+Date: Tue,  2 Feb 2016 13:51:20 +0100
+Message-ID: <1454417480-28672-1-git-send-email-razor@blackwall.org>
+Cc: davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	virtualization@lists.linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:12064 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754696AbcBBMEd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 07:04:33 -0500
-Content-Disposition: inline
-In-Reply-To: <1454414105-13327-1-git-send-email-paul.durrant@citrix.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34131 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753764AbcBBMvk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 07:51:40 -0500
+Received: by mail-wm0-f67.google.com with SMTP id p63so2277068wmp.1
+        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 04:51:39 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 02, 2016 at 11:55:05AM +0000, Paul Durrant wrote:
-> My recent patch to the Xen Project documents a protocol for 'dynamic
-> multicast control' in netif.h. This extends the previous multicast control
-> protocol to not require a shared ring reconnection to turn the feature off.
-> Instead the backend watches the "request-multicast-control" key in xenstore
-> and turns the feature off if the key value is written to zero.
-> 
-> This patch adds support for dynamic multicast control in xen-netback.
-> 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
+This patch allows the user to set and retrieve speed and duplex of the
+virtio_net device via ethtool. Having this functionality is very helpful
+for simulating different environments and also enables the virtio_net
+device to participate in operations where proper speed and duplex are
+required (e.g. currently bonding lacp mode requires full duplex). Custom
+speed and duplex are not allowed, the user-supplied settings are validated
+before applying. Only full and unknown duplex are allowed to be set.
+
+Example:
+$ ethtool eth1
+Settings for eth1:
+...
+	Speed: Unknown!
+	Duplex: Unknown! (255)
+$ ethtool -s eth1 speed 1000 duplex full
+$ ethtool eth1
+Settings for eth1:
+...
+	Speed: 1000Mb/s
+	Duplex: Full
+
+Based on a patch by Roopa Prabhu.
+
+CC: Roopa Prabhu <roopa@cumulusnetworks.com>
+CC: Michael S. Tsirkin <mst@redhat.com>
+CC: virtualization@lists.linux-foundation.org
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+Allowed to set unknown speed/duplex if the user wants to reset them, though
+the user-space ethtool tool currently doesn't allow setting them.
+
+ drivers/net/virtio_net.c | 74 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 74 insertions(+)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 767ab11a6e9f..722ade567ee5 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -146,6 +146,10 @@ struct virtnet_info {
+ 	virtio_net_ctrl_ack ctrl_status;
+ 	u8 ctrl_promisc;
+ 	u8 ctrl_allmulti;
++
++	/* Ethtool settings */
++	u8 duplex;
++	u32 speed;
+ };
+ 
+ struct padded_vnet_hdr {
+@@ -1376,6 +1380,72 @@ static void virtnet_get_channels(struct net_device *dev,
+ 	channels->other_count = 0;
+ }
+ 
++static bool virtnet_validate_speed(u32 speed)
++{
++	switch (speed) {
++	case SPEED_10:
++	case SPEED_100:
++	case SPEED_1000:
++	case SPEED_2500:
++	case SPEED_5000:
++	case SPEED_10000:
++	case SPEED_20000:
++	case SPEED_25000:
++	case SPEED_40000:
++	case SPEED_50000:
++	case SPEED_56000:
++	case SPEED_100000:
++	case SPEED_UNKNOWN:
++		return true;
++	}
++
++	return false;
++}
++
++static bool virtnet_validate_duplex(u8 duplex)
++{
++	switch (duplex) {
++	case DUPLEX_FULL:
++	case DUPLEX_UNKNOWN:
++		return true;
++	}
++
++	return false;
++}
++
++static int virtnet_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++	u32 speed = ethtool_cmd_speed(cmd);
++
++	/* don't allow custom speed and duplex */
++	if (!virtnet_validate_speed(speed) ||
++	    !virtnet_validate_duplex(cmd->duplex))
++		return -EINVAL;
++	vi->speed = speed;
++	vi->duplex = cmd->duplex;
++
++	return 0;
++}
++
++static int virtnet_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++
++	ethtool_cmd_speed_set(cmd, vi->speed);
++	cmd->duplex = vi->duplex;
++
++	return 0;
++}
++
++static void virtnet_init_settings(struct net_device *dev)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++
++	vi->speed = SPEED_UNKNOWN;
++	vi->duplex = DUPLEX_UNKNOWN;
++}
++
+ static const struct ethtool_ops virtnet_ethtool_ops = {
+ 	.get_drvinfo = virtnet_get_drvinfo,
+ 	.get_link = ethtool_op_get_link,
+@@ -1383,6 +1453,8 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
+ 	.set_channels = virtnet_set_channels,
+ 	.get_channels = virtnet_get_channels,
+ 	.get_ts_info = ethtool_op_get_ts_info,
++	.get_settings = virtnet_get_settings,
++	.set_settings = virtnet_set_settings,
+ };
+ 
+ #define MIN_MTU 68
+@@ -1855,6 +1927,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
+ 	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
+ 
++	virtnet_init_settings(dev);
++
+ 	err = register_netdev(dev);
+ 	if (err) {
+ 		pr_debug("virtio_net: registering device failed\n");
+-- 
+2.4.3
