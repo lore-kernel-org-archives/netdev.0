@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 1/2] tcp: fastopen: accept data/FIN present in SYNACK message
-Date: Mon,  1 Feb 2016 21:03:07 -0800
-Message-ID: <1454389388-1506-2-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 2/2] tcp: do not enqueue skb with SYN flag
+Date: Mon,  1 Feb 2016 21:03:08 -0800
+Message-ID: <1454389388-1506-3-git-send-email-edumazet@google.com>
 References: <1454389388-1506-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
@@ -10,157 +10,75 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Neal Cardwell <ncardwell@google.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:34853 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750710AbcBBFDa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 00:03:30 -0500
-Received: by mail-pf0-f172.google.com with SMTP id 65so96360223pfd.2
-        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 21:03:30 -0800 (PST)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:36829 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750710AbcBBFDi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 00:03:38 -0500
+Received: by mail-pa0-f41.google.com with SMTP id yy13so94327901pab.3
+        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 21:03:37 -0800 (PST)
 In-Reply-To: <1454389388-1506-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC 7413 (TCP Fast Open) 4.2.2 states that the SYNACK message
-MAY include data and/or FIN
+If we remove the SYN flag from the skbs that tcp_fastopen_add_skb()
+places in socket receive queue, then we can remove the test that
+tcp_recvmsg() has to perform in fast path.
 
-This patch adds support for the client side :
+All we have to do is to adjust SEQ in the slow path.
 
-If we receive a SYNACK with payload or FIN, queue the skb instead
-of ignoring it.
+For the moment, we place an unlikely() and output a message
+if we find an skb having SYN flag set.
+Goal would be to get rid of the test completely.
 
-Since we already support the same for SYN, we refactor the existing
-code and reuse it. Note we need to clone the skb, so this operation
-might fail under memory pressure.
-
-Sara Dickinson pointed out FreeBSD server Fast Open implementation
-was planned to generate such SYNACK in the future.
-
-The server side might be implemented on linux later.
-
-Reported-by: Sara Dickinson <sara@sinodun.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 ---
- include/net/tcp.h       |  1 +
- net/ipv4/tcp_fastopen.c | 64 ++++++++++++++++++++++++++-----------------------
- net/ipv4/tcp_input.c    |  3 +++
- 3 files changed, 38 insertions(+), 30 deletions(-)
+ net/ipv4/tcp.c          | 8 ++++++--
+ net/ipv4/tcp_fastopen.c | 3 +++
+ 2 files changed, 9 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f6f8f032c73e..27f4c733116d 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1437,6 +1437,7 @@ void tcp_free_fastopen_req(struct tcp_sock *tp);
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 19746b3fcbbe..c5075779e017 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1466,8 +1466,10 @@ static struct sk_buff *tcp_recv_skb(struct sock *sk, u32 seq, u32 *off)
  
- extern struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
- int tcp_fastopen_reset_cipher(void *key, unsigned int len);
-+void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb);
- struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
- 			      struct request_sock *req,
- 			      struct tcp_fastopen_cookie *foc,
+ 	while ((skb = skb_peek(&sk->sk_receive_queue)) != NULL) {
+ 		offset = seq - TCP_SKB_CB(skb)->seq;
+-		if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN)
++		if (unlikely(TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN)) {
++			pr_err_once("%s: found a SYN, please report !\n", __func__);
+ 			offset--;
++		}
+ 		if (offset < skb->len || (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)) {
+ 			*off = offset;
+ 			return skb;
+@@ -1657,8 +1659,10 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
+ 				break;
+ 
+ 			offset = *seq - TCP_SKB_CB(skb)->seq;
+-			if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN)
++			if (unlikely(TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN)) {
++				pr_err_once("%s: found a SYN, please report !\n", __func__);
+ 				offset--;
++			}
+ 			if (offset < skb->len)
+ 				goto found_ok_skb;
+ 			if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
 diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index 55be6ac70cff..467d3e985411 100644
+index 467d3e985411..6a6e11e54bae 100644
 --- a/net/ipv4/tcp_fastopen.c
 +++ b/net/ipv4/tcp_fastopen.c
-@@ -124,6 +124,35 @@ static bool tcp_fastopen_cookie_gen(struct request_sock *req,
- 	return false;
- }
+@@ -143,6 +143,9 @@ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
+ 	__skb_pull(skb, tcp_hdrlen(skb));
+ 	skb_set_owner_r(skb, sk);
  
++	TCP_SKB_CB(skb)->seq++;
++	TCP_SKB_CB(skb)->tcp_flags &= ~TCPHDR_SYN;
 +
-+/* If an incoming SYN or SYNACK frame contains a payload and/or FIN,
-+ * queue this additional data / FIN.
-+ */
-+void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
-+	if (TCP_SKB_CB(skb)->end_seq == tp->rcv_nxt)
-+		return;
-+
-+	skb = skb_clone(skb, GFP_ATOMIC);
-+	if (!skb)
-+		return;
-+
-+	skb_dst_drop(skb);
-+	__skb_pull(skb, tcp_hdrlen(skb));
-+	skb_set_owner_r(skb, sk);
-+
-+	tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
-+	__skb_queue_tail(&sk->sk_receive_queue, skb);
-+	tp->syn_data_acked = 1;
-+
-+	/* u64_stats_update_begin(&tp->syncp) not needed here,
-+	 * as we certainly are not changing upper 32bit value (0)
-+	 */
-+	tp->bytes_received = skb->len;
-+}
-+
- static struct sock *tcp_fastopen_create_child(struct sock *sk,
- 					      struct sk_buff *skb,
- 					      struct dst_entry *dst,
-@@ -132,7 +161,6 @@ static struct sock *tcp_fastopen_create_child(struct sock *sk,
- 	struct tcp_sock *tp;
- 	struct request_sock_queue *queue = &inet_csk(sk)->icsk_accept_queue;
- 	struct sock *child;
--	u32 end_seq;
- 	bool own_req;
- 
- 	req->num_retrans = 0;
-@@ -178,35 +206,11 @@ static struct sock *tcp_fastopen_create_child(struct sock *sk,
- 	tcp_init_metrics(child);
- 	tcp_init_buffer_space(child);
- 
--	/* Queue the data carried in the SYN packet.
--	 * We used to play tricky games with skb_get().
--	 * With lockless listener, it is a dead end.
--	 * Do not think about it.
--	 *
--	 * XXX (TFO) - we honor a zero-payload TFO request for now,
--	 * (any reason not to?) but no need to queue the skb since
--	 * there is no data. How about SYN+FIN?
--	 */
--	end_seq = TCP_SKB_CB(skb)->end_seq;
--	if (end_seq != TCP_SKB_CB(skb)->seq + 1) {
--		struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
--
--		if (likely(skb2)) {
--			skb_dst_drop(skb2);
--			__skb_pull(skb2, tcp_hdrlen(skb));
--			skb_set_owner_r(skb2, child);
--			__skb_queue_tail(&child->sk_receive_queue, skb2);
--			tp->syn_data_acked = 1;
--
--			/* u64_stats_update_begin(&tp->syncp) not needed here,
--			 * as we certainly are not changing upper 32bit value (0)
--			 */
--			tp->bytes_received = end_seq - TCP_SKB_CB(skb)->seq - 1;
--		} else {
--			end_seq = TCP_SKB_CB(skb)->seq + 1;
--		}
--	}
--	tcp_rsk(req)->rcv_nxt = tp->rcv_nxt = end_seq;
-+	tp->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
-+
-+	tcp_fastopen_add_skb(child, skb);
-+
-+	tcp_rsk(req)->rcv_nxt = tp->rcv_nxt;
- 	/* tcp_conn_request() is sending the SYNACK,
- 	 * and queues the child into listener accept queue.
- 	 */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 1c2a73406261..4add3eb40e58 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5509,6 +5509,9 @@ static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
- 	tp->syn_data_acked = tp->syn_data;
- 	if (tp->syn_data_acked)
- 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPFASTOPENACTIVE);
-+
-+	tcp_fastopen_add_skb(sk, synack);
-+
- 	return false;
- }
- 
+ 	tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+ 	__skb_queue_tail(&sk->sk_receive_queue, skb);
+ 	tp->syn_data_acked = 1;
 -- 
 2.7.0.rc3.207.g0ac5344
