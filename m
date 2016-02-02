@@ -1,112 +1,62 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC PATCH 0/7] tc cls_u32 hardware interface
-Date: Tue, 2 Feb 2016 12:49:43 +0100
-Message-ID: <20160202114943.GA2191@nanopsycho.orion>
-References: <20160201014555.13871.56591.stgit@john-Precision-Tower-5810>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: Re: [PATCH net-next v2] xen-netback: implement dynamic multicast
+ control
+Date: Tue, 2 Feb 2016 11:53:45 +0000
+Message-ID: <1454414025.28781.146.camel@citrix.com>
+References: <1454412668-6472-1-git-send-email-paul.durrant@citrix.com>
+	 <20160202114646.GF10990@citrix.com>
+	 <9d2b78b8dac54e6ea3f9889fd2a9db83@AMSPEX02CL03.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: anjali.singhai@intel.com, jesse.brandeburg@intel.com,
-	jhs@mojatatu.com, ast@fb.com, donald.c.skidmore@intel.com,
-	horms@verge.net.au, netdev@vger.kernel.org, tgraf@suug.ch,
-	davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
+To: Paul Durrant <Paul.Durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35509 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754249AbcBBLtq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 06:49:46 -0500
-Received: by mail-wm0-f67.google.com with SMTP id l66so2030497wml.2
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 03:49:45 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20160201014555.13871.56591.stgit@john-Precision-Tower-5810>
+Received: from smtp02.citrix.com ([66.165.176.63]:54852 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755086AbcBBLxr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 06:53:47 -0500
+In-Reply-To: <9d2b78b8dac54e6ea3f9889fd2a9db83@AMSPEX02CL03.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Feb 01, 2016 at 02:48:32AM CET, john.fastabend@gmail.com wrote:
->I was waiting for net-next to open to submit this but it seems like
->a good idea to get an RFC out there for folks to start looking over.
->
->This extends the setup_tc framework so it can support more than just
->the mqprio offload and push other classifiers and qdiscs into the
->hardware. The series here targets the u32 classifier and ixgbe
->driver. I worked out the u32 classifier because it is protocol
->oblivious and aligns with multiple hardware devices I have access
->to. I did an initial implementation on ixgbe because (a) I have one
->in my box (b) its a stable driver and (c) it is relatively simple
->compared to the other devices I have here but still has enough
->flexibility to exercise the features of cls_u32.
->
->I intentionally limited the scope of this series to the basic
->feature set. Specifically this uses a 'big hammer' feature bit
->to do the offload or not. If the bit is set you get offloaded rules
->if it is not then rules will not be offloaded. If we can agree on
->this patch series there are some more patches on my queue we can
->talk about to make the offload decision per rule using flags similar
->to how we do l2 mac updates. Additionally the error strategy can
->be improved to be hard aborting, log and continue, etc. I think
->these are nice to have improvements but shouldn't block this series.
->I am working on similar support for the other Intel devices now
->as well namely i40e and fm10k.
->
->Also in the future work bin by adding get_parse_graph and
->set_parse_graph attributes as in my previous flow_api work we
->can build programmable devices and programmatically learn when
->rules can or can not be loaded into the hardware.
->
->Note this series is on a slightly behind net-next stack I think it
->should apply to the latest but I haven't updated the series for
->awhile I'll do that soon I was sort of waiting for net-next to
->open to do this.
->
->Any comments/feedback appreciated.
+On Tue, 2016-02-02 at 11:48 +0000, Paul Durrant wrote:
+> > -----Original Message-----
+> > From: Wei Liu [mailto:wei.liu2@citrix.com]
+> > Sent: 02 February 2016 11:47
+> > To: Paul Durrant
+> > Cc: netdev@vger.kernel.org; xen-devel@lists.xenproject.org; Ian
+> > Campbell;
+> > Wei Liu
+> > Subject: Re: [PATCH net-next v2] xen-netback: implement dynamic
+> > multicast
+> > control
+> >=20
+> > On Tue, Feb 02, 2016 at 11:31:08AM +0000, Paul Durrant wrote:
+> > [...]
+> > > +static int xen_register_mcast_ctrl_watch(struct xenbus_device *d=
+ev,
+> > > +					=C2=A0struct xenvif *vif)
+> > > +{
+> > > +	int err =3D 0;
+> > > +	char *node;
+> > > +	unsigned maxlen =3D strlen(dev->otherend) +
+> > > +		sizeof("/request-multicast-control");
+> > > +
+> > > +	if (vif->mcast_ctrl_watch.node)
+> > > +		return -EADDRINUSE;
+> > > +
+> >=20
+> > Sorry if I didn't make myself clear enough. I think EADDRINUSE shou=
+ld
+> > also be logged.
+> >=20
+>=20
+> Ok. Not sure how much noise that will cause though.
 
-I like this patchset. I gave it a quick peek and I it looks to me like
-the correct way to go. There are couple of things needed to be decided,
-as you described them (e. g. per-rule offload) - we should discuss them
-on netdev conference. I hope you will be there.
+If this is a guest trigerable path then don't forget to use the
+ratelimiting printk options....
 
-I curious about how do you plan to expose the parse graphs get/set ops...
-
-
->
->Thanks,
->John
->
->---
->
->John Fastabend (7):
->      net: rework ndo tc op to consume additional qdisc handle parameter
->      net: rework setup_tc ndo op to consume general tc operand
->      net: sched: add cls_u32 offload hooks for netdevs
->      net: add tc offload feature flag
->      net: tc: helper functions to query action types
->      net: ixgbe: add minimal parser details for ixgbe
->      net: ixgbe: add support for tc_u32 offload
->
->
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |    8 +
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |    2 
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 
-> drivers/net/ethernet/broadcom/bnxt/bnxt.c        |    9 +
-> drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  |   11 +
-> drivers/net/ethernet/intel/i40e/i40e_main.c      |   10 +
-> drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    3 
-> drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    6 -
-> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  198 ++++++++++++++++++++++
-> drivers/net/ethernet/intel/ixgbe/ixgbe_model.h   |  110 ++++++++++++
-> drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |   13 +
-> drivers/net/ethernet/sfc/efx.h                   |    3 
-> drivers/net/ethernet/sfc/tx.c                    |   10 +
-> drivers/net/ethernet/ti/netcp_core.c             |   14 +-
-> include/linux/netdev_features.h                  |    3 
-> include/linux/netdevice.h                        |   24 +++
-> include/net/pkt_cls.h                            |   33 ++++
-> include/net/tc_act/tc_gact.h                     |   14 ++
-> net/core/ethtool.c                               |    1 
-> net/sched/cls_u32.c                              |   73 ++++++++
-> net/sched/sch_mqprio.c                           |    8 +
-> 21 files changed, 529 insertions(+), 26 deletions(-)
-> create mode 100644 drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
->
->--
->Signature
+Ian.
