@@ -1,112 +1,59 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next 2/4] net: dev: add batching to net_device
- notifiers
-Date: Tue, 2 Feb 2016 22:55:06 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1602022219010.2006@ja.home.ssi.bg>
-References: <1454365952-10324-1-git-send-email-noureddine@arista.com> <1454365952-10324-3-git-send-email-noureddine@arista.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] unix: properly account for FDs passed over unix
+ sockets
+Date: Tue, 2 Feb 2016 21:56:36 +0100
+Message-ID: <56B11804.2050008@stressinduktion.org>
+References: <201601100657.u0A6vk1B025554@mail.home.local>
+ <CANq1E4T0sqTTD4RsWXTUrFvsKvEsKsUiPbskWd=wAEVu83_Srg@mail.gmail.com>
+ <56B0F574.5080105@stressinduktion.org>
+ <CA+55aFw2AwsWbvwp6f8H+eExt_CMfh7VA3od6hto_M0hg9z3Tg@mail.gmail.com>
+ <56B11278.8000805@stressinduktion.org>
+ <CA+55aFz0CXGexEBmb8JU0+w7sFf3VfE3TpRzdj3aTiDxg2zDpg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Herrmann <dh.herrmann@gmail.com>, Willy Tarreau <w@1wt.eu>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
-To: Salam Noureddine <noureddine@arista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:40013 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932913AbcBBUz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 15:55:28 -0500
-In-Reply-To: <1454365952-10324-3-git-send-email-noureddine@arista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	=?UTF-8?B?0JzQsNGA0Log0JrQvtGA0LXQvdCx?= =?UTF-8?B?0LXRgNCz?=
+	<socketpair@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Simon McVittie <simon.mcvittie@collabora.co.uk>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFz0CXGexEBmb8JU0+w7sFf3VfE3TpRzdj3aTiDxg2zDpg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 02.02.2016 21:44, Linus Torvalds wrote:
+> On Tue, Feb 2, 2016 at 12:32 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>>
+>> Unfortunately we never transfer a scm_cookie via the skbs but merely use it
+>> to initialize unix_skb_parms structure in skb->cb and destroy it afterwards.
+>
+> Ok, I obviously didn't check very closely.
+>
+>> But "struct pid *" in unix_skb_parms should be enough to get us to
+>> corresponding "struct cred *" so we can decrement the correct counter during
+>> skb destruction.
+>
+> Umm. I think the "struct cred" may change in between, can't it?
 
-	Hello,
+While reviewing the task_struct->cred/real_cred assignments, I noticed 
+that, too. I already went the same way and added a "struct cred *" to 
+unix_skb_parms.
 
-On Mon, 1 Feb 2016, Salam Noureddine wrote:
+> So I don't think you can later look up the cred based on the pid.
 
-> @@ -1572,8 +1582,12 @@ rollback:
->  				call_netdevice_notifier(nb, NETDEV_GOING_DOWN,
->  							dev);
->  				call_netdevice_notifier(nb, NETDEV_DOWN, dev);
-> +				call_netdevice_notifier(nb, NETDEV_DOWN_BATCH,
-> +							dev);
->  			}
->  			call_netdevice_notifier(nb, NETDEV_UNREGISTER, dev);
-> +			call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
-> +						dev);
+Yep, it also looked to dangerous to me.
 
-			If the rule is once per net, the above call...
+> Could we add the cred pointer (or just the user pointer) to the unix_skb_parms?
+>
+> Or maybe just add it to the "struct scm_fp_list"?
 
->  		}
+scm_fp_list seems to be an even better place. I have a look, thanks!
 
-		should be here:
-
-		call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
-					net->loopback_dev);
-
-	and also once after outroll label?:
-
-	call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH, last);
-
->  	}
->  
-> @@ -1614,8 +1628,12 @@ int unregister_netdevice_notifier(struct notifier_block *nb)
->  				call_netdevice_notifier(nb, NETDEV_GOING_DOWN,
->  							dev);
->  				call_netdevice_notifier(nb, NETDEV_DOWN, dev);
-> +				call_netdevice_notifier(nb, NETDEV_DOWN_BATCH,
-> +							dev);
->  			}
->  			call_netdevice_notifier(nb, NETDEV_UNREGISTER, dev);
-> +			call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
-> +						dev);
-
-			Above call...
-
->  		}
-
-		should be here, for net->loopback_dev?
-Also, is it ok to call NETDEV_DOWN_BATCH many times, as result,
-sometimes after NETDEV_UNREGISTER?
-
->  	}
->  unlock:
-
-> @@ -6427,7 +6447,9 @@ static void net_set_todo(struct net_device *dev)
->  static void rollback_registered_many(struct list_head *head)
->  {
->  	struct net_device *dev, *tmp;
-> +	struct net *net, *net_tmp;
->  	LIST_HEAD(close_head);
-> +	LIST_HEAD(net_head);
->  
->  	BUG_ON(dev_boot_phase);
->  	ASSERT_RTNL();
-> @@ -6504,6 +6526,15 @@ static void rollback_registered_many(struct list_head *head)
->  #endif
->  	}
->  
-> +	list_for_each_entry(dev, head, unreg_list) {
-> +		net_add_event_list(&net_head, dev_net(dev));
-> +	}
-> +	list_for_each_entry_safe(net, net_tmp, &net_head, event_list) {
-> +		call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH,
-> +					 net->loopback_dev);
-> +		net_del_event_list(net);
-> +	}
-> +
-
-	NETDEV_UNREGISTER* should not be called before
-following synchronize_net and NETDEV_UNREGISTER. May be
-we should split the loop: loop (dev_shutdown+NETDEV_UNREGISTER)
-followed by above NETDEV_UNREGISTER_BATCH then again the
-loop for all remaining calls.
-
->  	synchronize_net();
->  
->  	list_for_each_entry(dev, head, unreg_list)
-
-Regards
+Hannes
