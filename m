@@ -1,8 +1,8 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v2 05/10] tipc: fix connection
-	abort during subscription cancellation
-Date: Tue, 2 Feb 2016 10:52:12 +0100
-Message-ID: <1454406737-5806-6-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v2 07/10] tipc: hold
+	subscriber->lock for tipc_nametbl_subscribe()
+Date: Tue, 2 Feb 2016 10:52:14 +0100
+Message-ID: <1454406737-5806-8-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1454406737-5806-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,117 +21,84 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-In 'commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing
-to events")', we terminate the connection if the subscription
-creation fails.
-In the same commit, the subscription creation result was based on
-the value of subscription pointer (set in the function) instead of
-the return code.
+Until now, while creating a subscription the subscriber lock
+protects only the subscribers subscription list and not the
+nametable. The call to tipc_nametbl_subscribe() is outside
+the lock. However, at subscription timeout and cancel both
+the subscribers subscription list and the nametable are
+protected by the subscriber lock.
 
-Unfortunately, the same function also handles subscription
-cancellation request. For a subscription cancellation request,
-the subscription pointer cannot be set. Thus the connection is
-terminated during cancellation request.
+This asymmetric locking mechanism leads to the following problem:
+In a SMP system, the timer can be fire on another core before
+the create request is complete.
+When the timer thread calls tipc_nametbl_unsubscribe() before create
+thread calls tipc_nametbl_subscribe(), we get a nullptr exception.
 
-In this commit, we move the subcription cancel check outside
-of tipc_subscrp_create(). Hence,
-- tipc_subscrp_create() will create a subscripton
-- tipc_subscrb_rcv_cb() will subscribe or cancel a subscription.
+This can be simulated by creating subscription with timeout=0 and
+sometimes the timeout occurs before the create request is complete.
 
-Fixes: 'commit 7fe8097cef5f ("tipc: fix nullpointer bug when subscribing to events")'
+The following is the oops:
+[57.569661] BUG: unable to handle kernel NULL pointer dereference at (null)
+[57.577498] IP: [<ffffffffa02135aa>] tipc_nametbl_unsubscribe+0x8a/0x120 [tipc]
+[57.584820] PGD 0
+[57.586834] Oops: 0002 [#1] SMP
+[57.685506] CPU: 14 PID: 10077 Comm: kworker/u40:1 Tainted: P OENX 3.12.48-52.27.1.     9688.1.PTF-default #1
+[57.703637] Workqueue: tipc_rcv tipc_recv_work [tipc]
+[57.708697] task: ffff88064c7f00c0 ti: ffff880629ef4000 task.ti: ffff880629ef4000
+[57.716181] RIP: 0010:[<ffffffffa02135aa>]  [<ffffffffa02135aa>] tipc_nametbl_unsubscribe+0x8a/   0x120 [tipc]
+[...]
+[57.812327] Call Trace:
+[57.814806]  [<ffffffffa0211c77>] tipc_subscrp_delete+0x37/0x90 [tipc]
+[57.821357]  [<ffffffffa0211e2f>] tipc_subscrp_timeout+0x3f/0x70 [tipc]
+[57.827982]  [<ffffffff810618c1>] call_timer_fn+0x31/0x100
+[57.833490]  [<ffffffff81062709>] run_timer_softirq+0x1f9/0x2b0
+[57.839414]  [<ffffffff8105a795>] __do_softirq+0xe5/0x230
+[57.844827]  [<ffffffff81520d1c>] call_softirq+0x1c/0x30
+[57.850150]  [<ffffffff81004665>] do_softirq+0x55/0x90
+[57.855285]  [<ffffffff8105aa35>] irq_exit+0x95/0xa0
+[57.860290]  [<ffffffff815215b5>] smp_apic_timer_interrupt+0x45/0x60
+[57.866644]  [<ffffffff8152005d>] apic_timer_interrupt+0x6d/0x80
+[57.872686]  [<ffffffffa02121c5>] tipc_subscrb_rcv_cb+0x2a5/0x3f0 [tipc]
+[57.879425]  [<ffffffffa021c65f>] tipc_receive_from_sock+0x9f/0x100 [tipc]
+[57.886324]  [<ffffffffa021c826>] tipc_recv_work+0x26/0x60 [tipc]
+[57.892463]  [<ffffffff8106fb22>] process_one_work+0x172/0x420
+[57.898309]  [<ffffffff8107079a>] worker_thread+0x11a/0x3c0
+[57.903871]  [<ffffffff81077114>] kthread+0xb4/0xc0
+[57.908751]  [<ffffffff8151f318>] ret_from_fork+0x58/0x90
+
+In this commit, we do the following at subscription creation:
+1. set the subscription's subscriber pointer before performing
+   tipc_nametbl_subscribe(), as this value is required further in
+   the call chain ex: by tipc_subscrp_send_event().
+2. move tipc_nametbl_subscribe() under the scope of subscriber lock
 
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
- net/tipc/subscr.c | 38 +++++++++++++++++++-------------------
- 1 file changed, 19 insertions(+), 19 deletions(-)
+ net/tipc/subscr.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 022a2f21be04..531227208ae2 100644
+index 24d2c8128bac..e4ebbc161e42 100644
 --- a/net/tipc/subscr.c
 +++ b/net/tipc/subscr.c
-@@ -235,22 +235,11 @@ static void tipc_subscrp_cancel(struct tipc_subscr *s,
+@@ -284,13 +284,13 @@ static void tipc_subscrp_subscribe(struct net *net, struct tipc_subscr *s,
  
- static struct tipc_subscription *tipc_subscrp_create(struct net *net,
- 						     struct tipc_subscr *s,
--						     struct tipc_subscriber *subscriber)
-+						     int swap)
- {
- 	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 	struct tipc_subscription *sub;
--	u32 filter;
--	int swap;
--
--	/* Determine subscriber's endianness */
--	swap = !(s->filter & (TIPC_SUB_PORTS | TIPC_SUB_SERVICE));
--
--	/* Detect & process a subscription cancellation request */
--	if (s->filter & htohl(TIPC_SUB_CANCEL, swap)) {
--		s->filter &= ~htohl(TIPC_SUB_CANCEL, swap);
--		tipc_subscrp_cancel(s, subscriber);
--		return NULL;
--	}
-+	u32 filter = htohl(s->filter, swap);
- 
- 	/* Refuse subscription if global limit exceeded */
- 	if (atomic_read(&tn->subscription_count) >= TIPC_MAX_SUBSCRIPTIONS) {
-@@ -268,7 +257,6 @@ static struct tipc_subscription *tipc_subscrp_create(struct net *net,
- 
- 	/* Initialize subscription object */
- 	sub->net = net;
--	filter = htohl(s->filter, swap);
- 	if (((filter & TIPC_SUB_PORTS) && (filter & TIPC_SUB_SERVICE)) ||
- 	    (htohl(s->seq.lower, swap) > htohl(s->seq.upper, swap))) {
- 		pr_warn("Subscription rejected, illegal request\n");
-@@ -284,13 +272,13 @@ static struct tipc_subscription *tipc_subscrp_create(struct net *net,
- }
- 
- static void tipc_subscrp_subscribe(struct net *net, struct tipc_subscr *s,
--				   struct tipc_subscriber *subscriber)
-+				   struct tipc_subscriber *subscriber, int swap)
- {
- 	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 	struct tipc_subscription *sub = NULL;
- 	u32 timeout;
- 
--	sub = tipc_subscrp_create(net, s, subscriber);
-+	sub = tipc_subscrp_create(net, s, swap);
- 	if (!sub)
- 		return tipc_conn_terminate(tn->topsrv, subscriber->conid);
- 
-@@ -299,7 +287,7 @@ static void tipc_subscrp_subscribe(struct net *net, struct tipc_subscr *s,
+ 	spin_lock_bh(&subscriber->lock);
+ 	list_add(&sub->subscrp_list, &subscriber->subscrp_list);
++	sub->subscriber = subscriber;
++	tipc_nametbl_subscribe(sub);
  	spin_unlock_bh(&subscriber->lock);
  
- 	sub->subscriber = subscriber;
--	timeout = htohl(sub->evt.s.timeout, sub->swap);
-+	timeout = htohl(sub->evt.s.timeout, swap);
+-	sub->subscriber = subscriber;
+ 	timeout = htohl(sub->evt.s.timeout, swap);
  	if (!mod_timer(&sub->timer, jiffies + msecs_to_jiffies(timeout)))
  		tipc_subscrb_get(subscriber);
- 	tipc_nametbl_subscribe(sub);
-@@ -316,8 +304,20 @@ static void tipc_subscrb_rcv_cb(struct net *net, int conid,
- 				struct sockaddr_tipc *addr, void *usr_data,
- 				void *buf, size_t len)
- {
--	tipc_subscrp_subscribe(net, (struct tipc_subscr *)buf,
--			       (struct tipc_subscriber *)usr_data);
-+	struct tipc_subscriber *subscriber = usr_data;
-+	struct tipc_subscr *s = (struct tipc_subscr *)buf;
-+	int swap;
-+
-+	/* Determine subscriber's endianness */
-+	swap = !(s->filter & (TIPC_SUB_PORTS | TIPC_SUB_SERVICE));
-+
-+	/* Detect & process a subscription cancellation request */
-+	if (s->filter & htohl(TIPC_SUB_CANCEL, swap)) {
-+		s->filter &= ~htohl(TIPC_SUB_CANCEL, swap);
-+		return tipc_subscrp_cancel(s, subscriber);
-+	}
-+
-+	tipc_subscrp_subscribe(net, s, subscriber, swap);
+-	tipc_nametbl_subscribe(sub);
  }
  
- /* Handle one request to establish a new subscriber */
+ /* Handle one termination request for the subscriber */
 -- 
 2.1.4
 
