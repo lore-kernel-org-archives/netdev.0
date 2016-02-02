@@ -1,105 +1,89 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v2 09/10] tipc: donot create
-	timers if subscription timeout = TIPC_WAIT_FOREVER
-Date: Tue, 2 Feb 2016 10:52:16 +0100
-Message-ID: <1454406737-5806-10-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v2 08/10] tipc: protect tipc_subscrb_get() with subscriber spin lock
+Date: Tue, 2 Feb 2016 10:52:15 +0100
+Message-ID: <1454406737-5806-9-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1454406737-5806-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
+Content-Type: text/plain
+Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
+	<maloy@donjonn.com>, <ying.xue@windriver.com>
 To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sessmg23.ericsson.net ([193.180.251.45]:60250 "EHLO
+	sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754435AbcBBJxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 04:53:09 -0500
 In-Reply-To: <1454406737-5806-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Until now, we create timers even for the subscription requests
-with timeout = TIPC_WAIT_FOREVER.
-This can be improved by avoiding timer creation when the timeout
-is set to TIPC_WAIT_FOREVER.
+Until now, during subscription creation the mod_time() &
+tipc_subscrb_get() are called after releasing the subscriber
+spin lock.
 
-In this commit, we introduce a check to creates timers only
-when timeout != TIPC_WAIT_FOREVER.
+In a SMP system when performing a subscription creation, if the
+subscription timeout occurs simultaneously (the timer is
+scheduled to run on another CPU) then the timer thread
+might decrement the subscribers refcount before the create
+thread increments the refcount.
+
+This can be simulated by creating subscription with timeout=0 and
+sometimes the timeout occurs before the create request is complete.
+This leads to the following message:
+[30.702949] BUG: spinlock bad magic on CPU#1, kworker/u8:3/87
+[30.703834] general protection fault: 0000 [#1] SMP
+[30.704826] CPU: 1 PID: 87 Comm: kworker/u8:3 Not tainted 4.4.0-rc8+ #18
+[30.704826] Workqueue: tipc_rcv tipc_recv_work [tipc]
+[30.704826] task: ffff88003f878600 ti: ffff88003fae0000 task.ti: ffff88003fae0000
+[30.704826] RIP: 0010:[<ffffffff8109196c>]  [<ffffffff8109196c>] spin_dump+0x5c/0xe0
+[...]
+[30.704826] Call Trace:
+[30.704826]  [<ffffffff81091a16>] spin_bug+0x26/0x30
+[30.704826]  [<ffffffff81091b75>] do_raw_spin_lock+0xe5/0x120
+[30.704826]  [<ffffffff81684439>] _raw_spin_lock_bh+0x19/0x20
+[30.704826]  [<ffffffffa0096f10>] tipc_subscrb_rcv_cb+0x1d0/0x330 [tipc]
+[30.704826]  [<ffffffffa00a37b1>] tipc_receive_from_sock+0xc1/0x150 [tipc]
+[30.704826]  [<ffffffffa00a31df>] tipc_recv_work+0x3f/0x80 [tipc]
+[30.704826]  [<ffffffff8106a739>] process_one_work+0x149/0x3c0
+[30.704826]  [<ffffffff8106aa16>] worker_thread+0x66/0x460
+[30.704826]  [<ffffffff8106a9b0>] ? process_one_work+0x3c0/0x3c0
+[30.704826]  [<ffffffff8106a9b0>] ? process_one_work+0x3c0/0x3c0
+[30.704826]  [<ffffffff8107029d>] kthread+0xed/0x110
+[30.704826]  [<ffffffff810701b0>] ? kthread_create_on_node+0x190/0x190
+[30.704826]  [<ffffffff81684bdf>] ret_from_fork+0x3f/0x70
+
+In this commit,
+1. we remove the check for the return code for mod_timer()
+2. we protect tipc_subscrb_get() using the subscriber spin lock.
+   We increment the subscriber's refcount as soon as we add the
+   subscription to subscriber's subscription list.
 
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
- net/tipc/subscr.c | 14 +++++++++++---
- 1 file changed, 11 insertions(+), 3 deletions(-)
+ net/tipc/subscr.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 7d226ecb0490..22963cafd5ed 100644
+index e4ebbc161e42..7d226ecb0490 100644
 --- a/net/tipc/subscr.c
 +++ b/net/tipc/subscr.c
-@@ -188,12 +188,14 @@ static struct tipc_subscriber *tipc_subscrb_create(int conid)
- static void tipc_subscrb_delete(struct tipc_subscriber *subscriber)
- {
- 	struct tipc_subscription *sub, *temp;
-+	u32 timeout;
+@@ -284,13 +284,13 @@ static void tipc_subscrp_subscribe(struct net *net, struct tipc_subscr *s,
  
  	spin_lock_bh(&subscriber->lock);
- 	/* Destroy any existing subscriptions for subscriber */
- 	list_for_each_entry_safe(sub, temp, &subscriber->subscrp_list,
- 				 subscrp_list) {
--		if (del_timer(&sub->timer)) {
-+		timeout = htohl(sub->evt.s.timeout, sub->swap);
-+		if ((timeout == TIPC_WAIT_FOREVER) || del_timer(&sub->timer)) {
- 			tipc_subscrp_delete(sub);
- 			tipc_subscrb_put(subscriber);
- 		}
-@@ -217,13 +219,16 @@ static void tipc_subscrp_cancel(struct tipc_subscr *s,
- 				struct tipc_subscriber *subscriber)
- {
- 	struct tipc_subscription *sub, *temp;
-+	u32 timeout;
- 
- 	spin_lock_bh(&subscriber->lock);
- 	/* Find first matching subscription, exit if not found */
- 	list_for_each_entry_safe(sub, temp, &subscriber->subscrp_list,
- 				 subscrp_list) {
- 		if (!memcmp(s, &sub->evt.s, sizeof(struct tipc_subscr))) {
--			if (del_timer(&sub->timer)) {
-+			timeout = htohl(sub->evt.s.timeout, sub->swap);
-+			if ((timeout == TIPC_WAIT_FOREVER) ||
-+			    del_timer(&sub->timer)) {
- 				tipc_subscrp_delete(sub);
- 				tipc_subscrb_put(subscriber);
- 			}
-@@ -267,7 +272,6 @@ static struct tipc_subscription *tipc_subscrp_create(struct net *net,
- 	sub->swap = swap;
- 	memcpy(&sub->evt.s, s, sizeof(*s));
- 	atomic_inc(&tn->subscription_count);
--	setup_timer(&sub->timer, tipc_subscrp_timeout, (unsigned long)sub);
- 	return sub;
- }
- 
-@@ -290,6 +294,10 @@ static void tipc_subscrp_subscribe(struct net *net, struct tipc_subscr *s,
+ 	list_add(&sub->subscrp_list, &subscriber->subscrp_list);
++	tipc_subscrb_get(subscriber);
+ 	sub->subscriber = subscriber;
+ 	tipc_nametbl_subscribe(sub);
  	spin_unlock_bh(&subscriber->lock);
  
  	timeout = htohl(sub->evt.s.timeout, swap);
-+	if (timeout == TIPC_WAIT_FOREVER)
-+		return;
-+
-+	setup_timer(&sub->timer, tipc_subscrp_timeout, (unsigned long)sub);
- 	mod_timer(&sub->timer, jiffies + msecs_to_jiffies(timeout));
+-	if (!mod_timer(&sub->timer, jiffies + msecs_to_jiffies(timeout)))
+-		tipc_subscrb_get(subscriber);
++	mod_timer(&sub->timer, jiffies + msecs_to_jiffies(timeout));
  }
  
+ /* Handle one termination request for the subscriber */
 -- 
 2.1.4
-
-
-------------------------------------------------------------------------------
-Site24x7 APM Insight: Get Deep Visibility into Application Performance
-APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
-Monitor end-to-end web transactions and take corrective actions now
-Troubleshoot faster and improve end-user experience. Signup Now!
-http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
