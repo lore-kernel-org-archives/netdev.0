@@ -1,85 +1,106 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: Add support for fill_slave_info to VRF device
-Date: Tue,  2 Feb 2016 07:43:45 -0800
-Message-ID: <1454427826-6444-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:32810 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933315AbcBBPn7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 10:43:59 -0500
-Received: by mail-pf0-f174.google.com with SMTP id w123so14382818pfb.0
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 07:43:57 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Byeoungwook Kim <quddnr145@gmail.com>
+Subject: [PATCH] rtlwifi: Fix reusable codes in core.c
+Date: Wed, 3 Feb 2016 00:48:55 +0900
+Message-ID: <20160202154855.GA8990@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Allows userspace to have direct access to VRF table association
-versus looking up master device and its table.
+rtl_*_delay() functions were reused same codes about addr variable.
+So i have converted to rtl_addr_delay() from code about addr variable.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Conditional codes in rtl_addr_delay() were improved in readability and
+performance by using switch codes.
+
+Signed-off-by: Byeoungwook Kim <quddnr145@gmail.com>
 ---
- drivers/net/vrf.c            | 21 +++++++++++++++++++++
- include/uapi/linux/if_link.h |  8 ++++++++
- 2 files changed, 29 insertions(+)
+ drivers/net/wireless/realtek/rtlwifi/core.c | 48 +++++++++++------------------
+ 1 file changed, 18 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 66addb7a7911..76e1fc9d8748 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -877,6 +877,24 @@ static int vrf_fillinfo(struct sk_buff *skb,
- 	return nla_put_u32(skb, IFLA_VRF_TABLE, vrf->tb_id);
+diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
+index 4ae421e..c1193d1 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/core.c
++++ b/drivers/net/wireless/realtek/rtlwifi/core.c
+@@ -37,36 +37,34 @@
+ 
+ void rtl_addr_delay(u32 addr)
+ {
+-	if (addr == 0xfe)
++	switch (addr) {
++	case 0xfe:
+ 		mdelay(50);
+-	else if (addr == 0xfd)
++		break;
++	case 0xfd:
+ 		mdelay(5);
+-	else if (addr == 0xfc)
++		break;
++	case 0xfc:
+ 		mdelay(1);
+-	else if (addr == 0xfb)
++		break;
++	case 0xfb:
+ 		udelay(50);
+-	else if (addr == 0xfa)
++		break;
++	case 0xfa:
+ 		udelay(5);
+-	else if (addr == 0xf9)
++		break;
++	case 0xf9:
+ 		udelay(1);
++		break;
++	};
  }
+ EXPORT_SYMBOL(rtl_addr_delay);
  
-+static size_t vrf_get_slave_size(const struct net_device *bond_dev,
-+				 const struct net_device *slave_dev)
-+{
-+	return nla_total_size(sizeof(u32));  /* IFLA_VRF_PORT_TABLE */
-+}
-+
-+static int vrf_fill_slave_info(struct sk_buff *skb,
-+			       const struct net_device *vrf_dev,
-+			       const struct net_device *slave_dev)
-+{
-+	struct net_vrf *vrf = netdev_priv(vrf_dev);
-+
-+	if (nla_put_u32(skb, IFLA_VRF_PORT_TABLE, vrf->tb_id))
-+		return -EMSGSIZE;
-+
-+	return 0;
-+}
-+
- static const struct nla_policy vrf_nl_policy[IFLA_VRF_MAX + 1] = {
- 	[IFLA_VRF_TABLE] = { .type = NLA_U32 },
- };
-@@ -890,6 +908,9 @@ static struct rtnl_link_ops vrf_link_ops __read_mostly = {
- 	.validate	= vrf_validate,
- 	.fill_info	= vrf_fillinfo,
+ void rtl_rfreg_delay(struct ieee80211_hw *hw, enum radio_path rfpath, u32 addr,
+ 		     u32 mask, u32 data)
+ {
+-	if (addr == 0xfe) {
+-		mdelay(50);
+-	} else if (addr == 0xfd) {
+-		mdelay(5);
+-	} else if (addr == 0xfc) {
+-		mdelay(1);
+-	} else if (addr == 0xfb) {
+-		udelay(50);
+-	} else if (addr == 0xfa) {
+-		udelay(5);
+-	} else if (addr == 0xf9) {
+-		udelay(1);
++	if (addr >= 0xf9 && addr <= 0xfe) {
++		rtl_addr_delay(addr);
+ 	} else {
+ 		rtl_set_rfreg(hw, rfpath, addr, mask, data);
+ 		udelay(1);
+@@ -76,18 +74,8 @@ EXPORT_SYMBOL(rtl_rfreg_delay);
  
-+	.get_slave_size  = vrf_get_slave_size,
-+	.fill_slave_info = vrf_fill_slave_info,
-+
- 	.newlink	= vrf_newlink,
- 	.dellink	= vrf_dellink,
- 	.setup		= vrf_setup,
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index a30b78090594..0a5dc5647cdb 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -401,6 +401,14 @@ enum {
- 
- #define IFLA_VRF_MAX (__IFLA_VRF_MAX - 1)
- 
-+enum {
-+	IFLA_VRF_PORT_UNSPEC,
-+	IFLA_VRF_PORT_TABLE,
-+	__IFLA_VRF_PORT_MAX
-+};
-+
-+#define IFLA_VRF_PORT_MAX (__IFLA_VRF_PORT_MAX - 1)
-+
- /* IPVLAN section */
- enum {
- 	IFLA_IPVLAN_UNSPEC,
+ void rtl_bb_delay(struct ieee80211_hw *hw, u32 addr, u32 data)
+ {
+-	if (addr == 0xfe) {
+-		mdelay(50);
+-	} else if (addr == 0xfd) {
+-		mdelay(5);
+-	} else if (addr == 0xfc) {
+-		mdelay(1);
+-	} else if (addr == 0xfb) {
+-		udelay(50);
+-	} else if (addr == 0xfa) {
+-		udelay(5);
+-	} else if (addr == 0xf9) {
+-		udelay(1);
++	if (addr >= 0xf9 && addr <= 0xfe) {
++		rtl_addr_delay(addr);
+ 	} else {
+ 		rtl_set_bbreg(hw, addr, MASKDWORD, data);
+ 		udelay(1);
 -- 
-2.1.4
+2.5.0
