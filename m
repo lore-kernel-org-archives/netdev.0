@@ -1,177 +1,45 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next 4/5] vxlan: consolidate output route calculation
-Date: Tue,  2 Feb 2016 11:13:24 +0100
-Message-ID: <866f0c0f37d5d62747206e43f0d3a3b3a557ab77.1454407418.git.jbenc@redhat.com>
-References: <cover.1454407418.git.jbenc@redhat.com>
+Subject: [PATCH net-next 0/5] vxlan: cleanup headers and tx path
+Date: Tue,  2 Feb 2016 11:13:20 +0100
+Message-ID: <cover.1454407418.git.jbenc@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43712 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38670 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754747AbcBBKNy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 05:13:54 -0500
+	id S1754404AbcBBKNu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 05:13:50 -0500
 Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (Postfix) with ESMTPS id 15B86C0A9CC8
-	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 10:13:54 +0000 (UTC)
+	by mx1.redhat.com (Postfix) with ESMTPS id 16CCFC00124A
+	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 10:13:50 +0000 (UTC)
 Received: from griffin.localdomain (ovpn-204-27.brq.redhat.com [10.40.204.27])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u12ADmYi027928
-	for <netdev@vger.kernel.org>; Tue, 2 Feb 2016 05:13:53 -0500
-In-Reply-To: <cover.1454407418.git.jbenc@redhat.com>
+	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u12ADmYe027928
+	for <netdev@vger.kernel.org>; Tue, 2 Feb 2016 05:13:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code for output route lookup is duplicated for ndo_start_xmit and
-ndo_fill_metadata_dst. Move it to a common function.
+This is first part of vxlan cleanup. It makes vxlan.h better organized and
+removes code duplication in the tx path. There's no change in functionality.
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
-This particular patch was already submitted but felt through cracks.
-https://patchwork.ozlabs.org/patch/552197/
----
- drivers/net/vxlan.c | 77 +++++++++++++++++++++++++----------------------------
- 1 file changed, 37 insertions(+), 40 deletions(-)
+This is in preparation for VXLAN-GPE support. Other sets will follow with
+cleanup of rx path, modifications of vxlan interface setup and
+cleanup/modification of fdb handling. The goal of these patchsets is to
+consolidate VXLAN extension handling (right now it's scattered all around
+the code) and allow vxlan to operate in L3 mode (i.e. without inner Ethernet
+headers).
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 65439188c582..d0f7723fd776 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1847,6 +1847,27 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
- 	return 0;
- }
- 
-+static struct rtable *vxlan_get_route(struct vxlan_dev *vxlan,
-+				      struct sk_buff *skb, int oif, u8 tos,
-+				      __be32 daddr, __be32 *saddr)
-+{
-+	struct rtable *rt = NULL;
-+	struct flowi4 fl4;
-+
-+	memset(&fl4, 0, sizeof(fl4));
-+	fl4.flowi4_oif = oif;
-+	fl4.flowi4_tos = RT_TOS(tos);
-+	fl4.flowi4_mark = skb->mark;
-+	fl4.flowi4_proto = IPPROTO_UDP;
-+	fl4.daddr = daddr;
-+	fl4.saddr = vxlan->cfg.saddr.sin.sin_addr.s_addr;
-+
-+	rt = ip_route_output_key(vxlan->net, &fl4);
-+	if (!IS_ERR(rt))
-+		*saddr = fl4.saddr;
-+	return rt;
-+}
-+
- #if IS_ENABLED(CONFIG_IPV6)
- static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
- 					  struct sk_buff *skb, int oif,
-@@ -1928,7 +1949,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	struct sock *sk;
- 	struct rtable *rt = NULL;
- 	const struct iphdr *old_iph;
--	struct flowi4 fl4;
- 	union vxlan_addr *dst;
- 	union vxlan_addr remote_ip;
- 	struct vxlan_metadata _md;
-@@ -1995,6 +2015,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	}
- 
- 	if (dst->sa.sa_family == AF_INET) {
-+		__be32 saddr;
-+
- 		if (!vxlan->vn4_sock)
- 			goto drop;
- 		sk = vxlan->vn4_sock->sock->sk;
-@@ -2009,15 +2031,9 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 				flags &= ~VXLAN_F_UDP_CSUM;
- 		}
- 
--		memset(&fl4, 0, sizeof(fl4));
--		fl4.flowi4_oif = rdst ? rdst->remote_ifindex : 0;
--		fl4.flowi4_tos = RT_TOS(tos);
--		fl4.flowi4_mark = skb->mark;
--		fl4.flowi4_proto = IPPROTO_UDP;
--		fl4.daddr = dst->sin.sin_addr.s_addr;
--		fl4.saddr = vxlan->cfg.saddr.sin.sin_addr.s_addr;
--
--		rt = ip_route_output_key(vxlan->net, &fl4);
-+		rt = vxlan_get_route(vxlan, skb,
-+				     rdst ? rdst->remote_ifindex : 0, tos,
-+				     dst->sin.sin_addr.s_addr, &saddr);
- 		if (IS_ERR(rt)) {
- 			netdev_dbg(dev, "no route to %pI4\n",
- 				   &dst->sin.sin_addr.s_addr);
-@@ -2049,7 +2065,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 		tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
- 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
--		err = vxlan_xmit_skb(rt, sk, skb, fl4.saddr,
-+		err = vxlan_xmit_skb(rt, sk, skb, saddr,
- 				     dst->sin.sin_addr.s_addr, tos, ttl, df,
- 				     src_port, dst_port, htonl(vni << 8), md,
- 				     !net_eq(vxlan->net, dev_net(vxlan->dev)),
-@@ -2390,31 +2406,6 @@ static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
- 	return 0;
- }
- 
--static int egress_ipv4_tun_info(struct net_device *dev, struct sk_buff *skb,
--				struct ip_tunnel_info *info,
--				__be16 sport, __be16 dport)
--{
--	struct vxlan_dev *vxlan = netdev_priv(dev);
--	struct rtable *rt;
--	struct flowi4 fl4;
--
--	memset(&fl4, 0, sizeof(fl4));
--	fl4.flowi4_tos = RT_TOS(info->key.tos);
--	fl4.flowi4_mark = skb->mark;
--	fl4.flowi4_proto = IPPROTO_UDP;
--	fl4.daddr = info->key.u.ipv4.dst;
--
--	rt = ip_route_output_key(vxlan->net, &fl4);
--	if (IS_ERR(rt))
--		return PTR_ERR(rt);
--	ip_rt_put(rt);
--
--	info->key.u.ipv4.src = fl4.saddr;
--	info->key.tp_src = sport;
--	info->key.tp_dst = dport;
--	return 0;
--}
--
- static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
-@@ -2426,9 +2417,16 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
- 	dport = info->key.tp_dst ? : vxlan->cfg.dst_port;
- 
- 	if (ip_tunnel_info_af(info) == AF_INET) {
-+		struct rtable *rt;
-+
- 		if (!vxlan->vn4_sock)
- 			return -EINVAL;
--		return egress_ipv4_tun_info(dev, skb, info, sport, dport);
-+		rt = vxlan_get_route(vxlan, skb, 0, info->key.tos,
-+				     info->key.u.ipv4.dst,
-+				     &info->key.u.ipv4.src);
-+		if (IS_ERR(rt))
-+			return PTR_ERR(rt);
-+		ip_rt_put(rt);
- 	} else {
- #if IS_ENABLED(CONFIG_IPV6)
- 		struct dst_entry *ndst;
-@@ -2441,13 +2439,12 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
- 		if (IS_ERR(ndst))
- 			return PTR_ERR(ndst);
- 		dst_release(ndst);
--
--		info->key.tp_src = sport;
--		info->key.tp_dst = dport;
- #else /* !CONFIG_IPV6 */
- 		return -EPFNOSUPPORT;
- #endif
- 	}
-+	info->key.tp_src = sport;
-+	info->key.tp_dst = dport;
- 	return 0;
- }
- 
+The full picture (all 30 patches) can be seen at:
+https://github.com/jbenc/linux-vxlan/commits/master
+
+Jiri Benc (5):
+  vxlan: cleanup types
+  vxlan: remove duplicated macros
+  vxlan: restructure vxlan.h definitions
+  vxlan: consolidate output route calculation
+  vxlan: consolidate vxlan_xmit_skb and vxlan6_xmit_skb
+
+ drivers/net/vxlan.c | 216 ++++++++++++++++------------------------------------
+ include/net/vxlan.h | 115 ++++++++++++++++------------
+ 2 files changed, 132 insertions(+), 199 deletions(-)
+
 -- 
 1.8.3.1
