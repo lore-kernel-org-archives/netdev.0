@@ -1,45 +1,45 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next 0/5] vxlan: cleanup headers and tx path
-Date: Tue,  2 Feb 2016 11:13:20 +0100
-Message-ID: <cover.1454407418.git.jbenc@redhat.com>
+Subject: [PATCH net-next 2/5] vxlan: remove duplicated macros
+Date: Tue,  2 Feb 2016 11:13:22 +0100
+Message-ID: <a8b60c9b6d17b5e68f425a5c3ae3c51ffc085c8b.1454407418.git.jbenc@redhat.com>
+References: <cover.1454407418.git.jbenc@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38670 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37203 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754404AbcBBKNu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 05:13:50 -0500
+	id S1754736AbcBBKNw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 05:13:52 -0500
 Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (Postfix) with ESMTPS id 16CCFC00124A
-	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 10:13:50 +0000 (UTC)
+	by mx1.redhat.com (Postfix) with ESMTPS id 03992344DED
+	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 10:13:52 +0000 (UTC)
 Received: from griffin.localdomain (ovpn-204-27.brq.redhat.com [10.40.204.27])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u12ADmYe027928
-	for <netdev@vger.kernel.org>; Tue, 2 Feb 2016 05:13:48 -0500
+	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u12ADmYg027928
+	for <netdev@vger.kernel.org>; Tue, 2 Feb 2016 05:13:51 -0500
+In-Reply-To: <cover.1454407418.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is first part of vxlan cleanup. It makes vxlan.h better organized and
-removes code duplication in the tx path. There's no change in functionality.
+VNI_HASH_BITS and VNI_HASH_SIZE are defined twice. Remove the extra
+definitions.
 
-This is in preparation for VXLAN-GPE support. Other sets will follow with
-cleanup of rx path, modifications of vxlan interface setup and
-cleanup/modification of fdb handling. The goal of these patchsets is to
-consolidate VXLAN extension handling (right now it's scattered all around
-the code) and allow vxlan to operate in L3 mode (i.e. without inner Ethernet
-headers).
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ include/net/vxlan.h | 3 ---
+ 1 file changed, 3 deletions(-)
 
-The full picture (all 30 patches) can be seen at:
-https://github.com/jbenc/linux-vxlan/commits/master
-
-Jiri Benc (5):
-  vxlan: cleanup types
-  vxlan: remove duplicated macros
-  vxlan: restructure vxlan.h definitions
-  vxlan: consolidate output route calculation
-  vxlan: consolidate vxlan_xmit_skb and vxlan6_xmit_skb
-
- drivers/net/vxlan.c | 216 ++++++++++++++++------------------------------------
- include/net/vxlan.h | 115 ++++++++++++++++------------
- 2 files changed, 132 insertions(+), 199 deletions(-)
-
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 5c64250619c5..234bf1ef2737 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -9,9 +9,6 @@
+ #include <linux/udp.h>
+ #include <net/dst_metadata.h>
+ 
+-#define VNI_HASH_BITS	10
+-#define VNI_HASH_SIZE	(1<<VNI_HASH_BITS)
+-
+ /*
+  * VXLAN Group Based Policy Extension:
+  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 -- 
 1.8.3.1
