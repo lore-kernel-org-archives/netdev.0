@@ -1,75 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 2/2] tcp: Add Redundant Data Bundling (RDB)
-Date: Tue, 02 Feb 2016 12:35:06 -0800
-Message-ID: <1454445306.7627.204.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1454440995-18457-1-git-send-email-bro.devel+kernel@gmail.com>
-	 <1454440995-18457-3-git-send-email-bro.devel+kernel@gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH v2] unix: properly account for FDs passed over unix sockets
+Date: Tue, 2 Feb 2016 21:39:29 +0100
+Message-ID: <20160202203929.GC25828@1wt.eu>
+References: <201601100657.u0A6vk1B025554@mail.home.local> <CANq1E4T0sqTTD4RsWXTUrFvsKvEsKsUiPbskWd=wAEVu83_Srg@mail.gmail.com> <56B0F574.5080105@stressinduktion.org> <CA+55aFw2AwsWbvwp6f8H+eExt_CMfh7VA3od6hto_M0hg9z3Tg@mail.gmail.com> <56B11278.8000805@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Andreas Petlund <apetlund@simula.no>,
-	Carsten Griwodz <griff@simula.no>,
-	=?ISO-8859-1?Q?P=E5l?= Halvorsen <paalh@simula.no>,
-	Jonas Markussen <jonassm@ifi.uio.no>,
-	Kristian Evensen <kristian.evensen@gmail.com>,
-	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
-	Bendik =?ISO-8859-1?Q?R=F8nning?= Opstad
-	<bro.devel+kernel@gmail.com>
-To: Bendik =?ISO-8859-1?Q?R=F8nning?= Opstad <bro.devel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:36718 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756016AbcBBUfJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 15:35:09 -0500
-Received: by mail-pa0-f42.google.com with SMTP id yy13so104602739pab.3
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 12:35:08 -0800 (PST)
-In-Reply-To: <1454440995-18457-3-git-send-email-bro.devel+kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Herrmann <dh.herrmann@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	???????? ?????????????????? <socketpair@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Simon McVittie <simon.mcvittie@collabora.co.uk>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <56B11278.8000805@stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-02-02 at 20:23 +0100, Bendik R=C3=B8nning Opstad wrote:
-> RDB is a mechanism that enables a TCP sender to bundle redundant
-> (already sent) data with TCP packets containing new data. By bundling
-> (retransmitting) already sent data with each TCP packet containing ne=
-w
-> data, the connection will be more resistant to sporadic packet loss
-> which reduces the application layer latency significantly in congeste=
-d
-> scenarios.
->=20
-> The main functionality added:
->=20
->   o Loss detection of hidden loss events: When bundling redundant dat=
-a
->     with each packet, packet loss can be hidden from the TCP engine d=
-ue
->     to lack of dupACKs. This is because the loss is "repaired" by the
->     redundant data in the packet coming after the lost packet. Based =
-on
->     incoming ACKs, such hidden loss events are detected, and CWR stat=
-e
->     is entered.
->=20
->   o When packets are scheduled for transmission, RDB replaces the SKB=
- to
->     be sent with a modified SKB containing the redundant data of
->     previously sent data segments from the TCP output queue.
+On Tue, Feb 02, 2016 at 09:32:56PM +0100, Hannes Frederic Sowa wrote:
+> But "struct pid *" in unix_skb_parms should be enough to get us to 
+> corresponding "struct cred *" so we can decrement the correct counter 
+> during skb destruction.
+> 
+> So:
+> 
+> We increment current task's unix_inflight and also check the current 
+> task's limit during attaching fds to skbs and decrement the inflight 
+> counter via "struct pid *". This looks like it should work.
 
-Really this looks very complicated.
+I like it as well, the principle sounds sane.
 
-Why not simply append the new skb content to prior one ?
+> >That way it's always the person who actually does the send (rather
+> >than the opener of the socket _or_ the opener of the file that gets
+> >passed around) that gets credited, and thanks to the cred pointer we
+> >can then de-credit them properly.
+> 
+> Exactly, I try to implement that. Thanks a lot!
 
-skb_still_in_host_queue(sk, prior_skb) would also tell you if the skb i=
-s
-really available (ie its clone not sitting/waiting in a qdisc on the
-host)
+Thanks to you Hannes, I appreciate that you work on it, it would take
+much more time to me to dig into this.
 
-Note : select_size() always allocate skb with SKB_WITH_OVERHEAD(2048 -
-MAX_TCP_HEADER) available bytes in skb->data.
-
-Also note that tcp_collapse_retrans() is very similar to your needs. Yo=
-u
-might simply expand it.
+Willy
