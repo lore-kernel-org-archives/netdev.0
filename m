@@ -1,87 +1,30 @@
-From: subashab@codeaurora.org
-Subject: [PATCH v2] ipv6: addrconf: Fix recursive spin lock call
-Date: Tue, 2 Feb 2016 02:11:10 -0000
-Message-ID: <f323a260f8bc358412de59575b058cdf.squirrel@www.codeaurora.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH 7/7] net: ixgbe: add support for tc_u32 offload
+Date: Mon, 01 Feb 2016 18:17:15 -0800 (PST)
+Message-ID: <20160201.181715.1355993690912736292.davem@davemloft.net>
+References: <20160201014555.13871.56591.stgit@john-Precision-Tower-5810>
+	<20160201015310.13871.63596.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Eric Dumazet" <edumazet@google.com>, "Erik Kline" <ek@google.com>,
-	"Hannes Frederic Sowa" <hannes@stressinduktion.org>
-To: "Netdev" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: anjali.singhai@intel.com, jesse.brandeburg@intel.com,
+	jhs@mojatatu.com, ast@fb.com, donald.c.skidmore@intel.com,
+	horms@verge.net.au, netdev@vger.kernel.org, tgraf@suug.ch
+To: john.fastabend@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:43172 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751673AbcBBCLM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 21:11:12 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:45207 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751017AbcBBCRT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 21:17:19 -0500
+In-Reply-To: <20160201015310.13871.63596.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A rcu stall with the following backtrace was seen on a system with
-forwarding, optimistic_dad and use_optimistic set. To reproduce,
-set these flags and allow ipv6 autoconf.
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Sun, 31 Jan 2016 17:53:10 -0800
 
-This occurs because the device write_lock is acquired while already
-holding the read_lock. Back trace below -
+> +			ixgbe_jump_tables[uhtid] = nexthdr->jump;
 
-INFO: rcu_preempt self-detected stall on CPU { 1}  (t=2100 jiffies
- g=3992 c=3991 q=4471)
-<6> Task dump for CPU 1:
-<2> kworker/1:0     R  running task    12168    15   2 0x00000002
-<2> Workqueue: ipv6_addrconf addrconf_dad_work
-<6> Call trace:
-<2> [<ffffffc000084da8>] el1_irq+0x68/0xdc
-<2> [<ffffffc000cc4e0c>] _raw_write_lock_bh+0x20/0x30
-<2> [<ffffffc000bc5dd8>] __ipv6_dev_ac_inc+0x64/0x1b4
-<2> [<ffffffc000bcbd2c>] addrconf_join_anycast+0x9c/0xc4
-<2> [<ffffffc000bcf9f0>] __ipv6_ifa_notify+0x160/0x29c
-<2> [<ffffffc000bcfb7c>] ipv6_ifa_notify+0x50/0x70
-<2> [<ffffffc000bd035c>] addrconf_dad_work+0x314/0x334
-<2> [<ffffffc0000b64c8>] process_one_work+0x244/0x3fc
-<2> [<ffffffc0000b7324>] worker_thread+0x2f8/0x418
-<2> [<ffffffc0000bb40c>] kthread+0xe0/0xec
-
-v2: do addrconf_dad_kick inside read lock and then acquire write
-lock for ipv6_ifa_notify as suggested by Eric
-
-Fixes: 7fd2561e4ebdd ("net: ipv6: Add a sysctl to make optimistic
-addresses useful candidates")
-
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Erik Kline <ek@google.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
----
- net/ipv6/addrconf.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 38eedde..9efd9ff 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3538,6 +3538,7 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
- {
- 	struct inet6_dev *idev = ifp->idev;
- 	struct net_device *dev = idev->dev;
-+	bool notify = false;
-
- 	addrconf_join_solict(dev, &ifp->addr);
-
-@@ -3583,7 +3584,7 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
- 			/* Because optimistic nodes can use this address,
- 			 * notify listeners. If DAD fails, RTM_DELADDR is sent.
- 			 */
--			ipv6_ifa_notify(RTM_NEWADDR, ifp);
-+			notify = true;
- 		}
- 	}
-
-@@ -3591,6 +3592,8 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
- out:
- 	spin_unlock(&ifp->lock);
- 	read_unlock_bh(&idev->lock);
-+	if (notify)
-+		ipv6_ifa_notify(RTM_NEWADDR, ifp);
- }
-
- static void addrconf_dad_start(struct inet6_ifaddr *ifp)
--- 
+I can't figure out what protects concurrent accesses to this shared
+ixgbe_jump_table[].  Is RTNL held here?  If so it's likely that
+GFP_ATOMIC can be changed to GFP_KERNEL in this function.
