@@ -1,43 +1,85 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next v4 0/2] virtio_net: add ethtool get/set settings support
-Date: Wed,  3 Feb 2016 00:36:35 +0100
-Message-ID: <1454456197-7826-1-git-send-email-razor@blackwall.org>
+Subject: [PATCH net-next v4 1/2] ethtool: add speed/duplex validation functions
+Date: Wed,  3 Feb 2016 00:36:36 +0100
+Message-ID: <1454456197-7826-2-git-send-email-razor@blackwall.org>
+References: <1454456197-7826-1-git-send-email-razor@blackwall.org>
 Cc: mst@redhat.com, roopa@cumulusnetworks.com, davem@davemloft.net,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34521 "EHLO
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35888 "EHLO
 	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754771AbcBBXgn (ORCPT
+	with ESMTP id S1754817AbcBBXgn (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 18:36:43 -0500
-Received: by mail-wm0-f65.google.com with SMTP id p63so4694833wmp.1
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 15:36:42 -0800 (PST)
+Received: by mail-wm0-f65.google.com with SMTP id 128so4693192wmz.3
+        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 15:36:43 -0800 (PST)
+In-Reply-To: <1454456197-7826-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Hi,
-Patch 1 adds ethtool speed/duplex validation functions which check if the
-value is defined. Patch 2 adds support for ethtool (get|set)_settings and
-uses the validation functions to check the user-supplied values.
+Add functions which check if the speed/duplex are defined.
 
-v2: split in 2 patches to allow everyone to make use of the validation
-functions and allow virtio_net devices to be half duplex
-v3: added a check to return error if the user tries to change anything else
-besides duplex/speed as per Michael's comment
-v4: Set port type to PORT_OTHER
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+---
+v2: new patch
+v3: added Michael's ack
+v4: no change
 
-Cheers,
- Nik
+ include/uapi/linux/ethtool.h | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
 
-Nikolay Aleksandrov (2):
-  ethtool: add speed/duplex validation functions
-  virtio_net: add ethtool support for set and get of settings
-
- drivers/net/virtio_net.c     | 59 ++++++++++++++++++++++++++++++++++++++++++++
- include/uapi/linux/ethtool.h | 34 +++++++++++++++++++++++++
- 2 files changed, 93 insertions(+)
-
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 57fa39005e79..b2e180181629 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -1319,11 +1319,45 @@ enum ethtool_sfeatures_retval_bits {
+ 
+ #define SPEED_UNKNOWN		-1
+ 
++static inline int ethtool_validate_speed(__u32 speed)
++{
++	switch (speed) {
++	case SPEED_10:
++	case SPEED_100:
++	case SPEED_1000:
++	case SPEED_2500:
++	case SPEED_5000:
++	case SPEED_10000:
++	case SPEED_20000:
++	case SPEED_25000:
++	case SPEED_40000:
++	case SPEED_50000:
++	case SPEED_56000:
++	case SPEED_100000:
++	case SPEED_UNKNOWN:
++		return 1;
++	}
++
++	return 0;
++}
++
+ /* Duplex, half or full. */
+ #define DUPLEX_HALF		0x00
+ #define DUPLEX_FULL		0x01
+ #define DUPLEX_UNKNOWN		0xff
+ 
++static inline int ethtool_validate_duplex(__u8 duplex)
++{
++	switch (duplex) {
++	case DUPLEX_HALF:
++	case DUPLEX_FULL:
++	case DUPLEX_UNKNOWN:
++		return 1;
++	}
++
++	return 0;
++}
++
+ /* Which connector port. */
+ #define PORT_TP			0x00
+ #define PORT_AUI		0x01
 -- 
 2.4.3
