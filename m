@@ -1,48 +1,82 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH iproute2 -master 0/4] Minor BPF updates on frontend
-Date: Tue, 02 Feb 2016 10:22:52 +0100
-Message-ID: <56B0756C.4060303@iogearbox.net>
-References: <cover.1454370543.git.daniel@iogearbox.net> <20160202160745.6ff0fcaa@samsung9>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net PATCH] flow_dissector: Fix unaligned access in
+ __skb_flow_dissector when used by eth_get_headlen
+Date: Tue, 2 Feb 2016 09:47:27 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCD2BC0@AcuExch.aculab.com>
+References: <CAKgT0UcZAh+ciNMkJDdnp7E0xyGMhvgSzJLwORLqYXbpABtoRQ@mail.gmail.com>
+	<1454182011.7627.141.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAKgT0UfyK1HO6vp4F9S3rB400A74OhS=qRX_N9RuPRYg2KazLg@mail.gmail.com>
+	<20160130.194507.777391919166997236.davem@davemloft.net>
+	<063D6719AE5E284EB5DD2968C1650D6D1CCD25A8@AcuExch.aculab.com>
+ <CAKgT0UfrMUFSZqKYdeLDjAmN5wf9YVw19XfCT_fkHvRzK9-XYA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"sowmini.varadhan@oracle.com" <sowmini.varadhan@oracle.com>,
+	"aduyck@mirantis.com" <aduyck@mirantis.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tom@herbertland.com" <tom@herbertland.com>
+To: 'Alexander Duyck' <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46251 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754074AbcBBJW5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 04:22:57 -0500
-In-Reply-To: <20160202160745.6ff0fcaa@samsung9>
+Received: from smtp-out4.electric.net ([192.162.216.189]:59290 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754363AbcBBJup (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 04:50:45 -0500
+In-Reply-To: <CAKgT0UfrMUFSZqKYdeLDjAmN5wf9YVw19XfCT_fkHvRzK9-XYA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
-
-On 02/02/2016 06:07 AM, Stephen Hemminger wrote:
-> On Tue,  2 Feb 2016 01:12:25 +0100
-> Daniel Borkmann <daniel@iogearbox.net> wrote:
->
->> Couple of minor updates on tc frontend.
->>
->> Stephen, the patches are against iproute2 -master branch and *on top of*
->> the two that are already lingering in patchwork:
->>
->>    - http://patchwork.ozlabs.org/patch/569923/
->
-> Some cruft snuck into that patch so it is still in "Changes requested"
-
-As stated earlier, that patch is okay as-is. No cruft snuck
-in anywhere ...
-
->>    - http://patchwork.ozlabs.org/patch/571385/
-> This one is applied
-
-Ok, thanks. I presume locally as it's not pushed out yet.
-
-Also replying to your answer on patch 2/4 here: Doesn't apply of
-course as the first dependency patch is in 'Changes Requested'.
-
-Otherwise, it applies just fine.
-
-Thanks!
+RnJvbTogQWxleGFuZGVyIER1eWNrDQo+IFNlbnQ6IDAxIEZlYnJ1YXJ5IDIwMTYgMTg6MTgNCj4g
+Pj4gMSkgVW5hbGlnbmVkIGFjY2Vzc2VzDQo+ID4NCj4gPiBSZW1lbWJlciB0aGUgZXZlbiBpZiB5
+b3UgZG8gYSAncmVhbGlnbm1lbnQgY29weScgb2YgdGhlIElQIGhlYWRlciwNCj4gPiBhdCBzb21l
+IHBvaW50IHRoZSAndXNlcmRhdGEnIG9mIHRoZSBwYWNrZXQgaGFzIHRvIGJlIGFjY2Vzc2VkLg0K
+PiA+IE1vc3RseSB0aGlzIHdpbGwgYmUgd2l0aCBtZW1jcHkoKSBhbmQgeW91IHdhbnQgdGhhdCBj
+b3B5IHRvIGJlIGFsaWduZWQuDQo+IA0KPiBUaGUgcHJvYmxlbSBpcywgYWxpZ25lZCBieSB3aGF0
+PyAgRm9yIHg4NiBhbnl0aGluZyBvdGhlciB0aGFuIDE2IGJ5dGUNCj4gYWxpZ25tZW50IHdpbGwg
+cmVxdWlyZSBzb21lIHJlYWxpZ25tZW50IGFueXdheSBzaW5jZSBpbnRlcm5hbGx5IGl0IGlzDQo+
+IGVzc2VudGlhbGx5IGRvaW5nIHNvbWUgU1NFIHN0eWxlIGNvcHkgYmFzZWQgb24gcmVwIG1vdnNi
+Lg0KDQpUaGF0IGlzbid0ICdTU0UnIGJhc2VkLCB0aGVyZSBpcyBwcm9iYWJseSBzb21lIGtpbmQg
+b2YgYmFycmVsIHNoaWZ0ZXINCmFzc29jaWF0ZWQgd2l0aCB0aGUgZGF0YSBjYWNoZSB0aGF0IGFs
+bG93cyBjYWNoZS1saW5lIHJlYWRzIGZyb20NCnRoZSAnd3JvbmcnIGFkZHJlc3MuDQoNCj4gSSdt
+IHN1cmUgaXQNCj4gaXMgc2ltaWxhciBmb3Igb3RoZXIgYXJjaGl0ZWN0dXJlcyB0aGF0IGhhdmUg
+bW92ZWQgb24gZnJvbSAzMmIgdG8gNjRiDQo+IGluIHRoYXQgdGhleSB3YW50IHRvIG1vdmUgYnkg
+dGhlIGxhcmdlc3QgYXZhaWxhYmxlIGRhdGEgdW5pdCBhbmQgMg0KPiBieXRlIGFsaWdubWVudCB2
+cyA0IGJ5dGUgZG9lc24ndCBtYWtlIHRoYXQgbXVjaCBkaWZmZXJlbmNlIGFueW1vcmUuDQoNClRo
+ZXJlIGFyZSBzdGlsbCBwbGVudGx5IG9mIDMyYml0IHN5c3RlbXMgb3V0IHRoZXJlLg0KSW5jbHVk
+aW5nIFNvQyBzeXN0ZW1zIHdpdGggY3B1cyB0aGF0IGZhdWx0IG9uIG1pc2FsaWduZWQgdHJhbnNm
+ZXJzIG9uDQp0aGUgc2FtZSBzaWxpY29uIGFzIGV0aGVybmV0IE1BQ3MgdGhhdCBjYW4ndCB3cml0
+ZSA0bisyIGFsaWduZWQgZnJhbWVzLg0KDQo+IFRoZSB0aGluZyB5b3UgaGF2ZSB0byBrZWVwIGlu
+IG1pbmQgaXMgdGhhdCB5b3VyIHN0YW5kYXJkIFRDUCBmcmFtZSBoYXMNCj4gNjYgYnl0ZXMgb2Yg
+aGVhZGVycygxNCBFdGhlcm5ldCwgMjAgSVAsIDIwIFRDUCwgMTIgVENQIG9wdGlvbnMpLiAgVGhp
+cw0KPiBtZWFucyB0aGF0IHlvdSBhcmUgY3Jvc3Npbmcgb3ZlciBpbnRvIHRoZSBuZXh0IGNhY2hl
+IGxpbmUgYnkgZWl0aGVyIDINCj4gb3IgNCBieXRlcyBkZXBlbmRpbmcgb24gTkVUX0lQX0FMSUdO
+LiAgT24gYSBzeXN0ZW0gd2l0aCBhbiA4IGJ5dGUgbG9uZw0KPiBpdCBkb2Vzbid0IHJlYWxseSBt
+YWtlIGEgZGlmZmVyZW5jZSBvbmUgd2F5IG9yIHRoZSBvdGhlciBzaW5jZSBpdCBpcw0KPiBzdGls
+bCB1bmFsaWduZWQgaW4gdGVybXMgb2YgdGhlIGZhc3Rlc3QgcG9zc2libGUgbWVtY3B5Lg0KDQpV
+bmxlc3MgeW91IGFsaWduIHRoZSBmcmFtZSBvbiBhbiA4bis2IGJvdW5kYXJ5Lg0KDQo+ID4gSSBy
+ZWFsbHkgY2FuJ3QgYmVsaWV2ZSBqdXN0IGhvdyBtYW55IGV0aGVybmV0IGNoaXBzIGFyZSBub3cg
+YmVpbmcgZGVzaWduZWQNCj4gPiB0aGF0IGNhbid0IHdyaXRlIHJlY2VpdmVkIGZyYW1lcyB0byAn
+NG4rMicgYm91bmRhcmllcy4NCj4gPiBJdCBpc24ndCBldmVuIGEgbmV3IHByb2JsZW0uIFN1biBm
+aXhlZCB0aGUgc2J1cyAnRE1BJyBwYXJ0IHNvIHRoYXQgaXQgd291bGQNCj4gPiB0byBzYnVzIGJ1
+cnN0IHRyYW5zZmVycyB0byA0bisyIGFsaWduZWQgYnVmZmVycyBhIGxvbmcgdGltZSBhZ28uLi4N
+Cj4gDQo+IFRoZSBwcm9ibGVtIGhlcmUgaXMgbW90aXZhdGlvbi4gIEl0IG1ha2VzIHNlbnNlIHRo
+YXQgU3VuIHdvdWxkIHdhbnQNCj4gdGhlaXIgaGVhZGVycyB0byBiZSBJUCBhbGlnbmVkIHNpbmNl
+IGEgU3BhcmMgcHJvY2Vzc29yIHN0aWxsIG5lZWRzDQo+IHRoYXQuICBNb3N0IE5JQyB2ZW5kb3Jz
+IGRvbid0IHJlYWxseSBjYXJlIGFib3V0IHRoZSBtb3JlIG9ic2N1cmUNCj4gYXJjaGl0ZWN0dXJl
+cywgYW5kIGV2ZW4gMzIgYml0IGlzIGZhbGxpbmcgb3V0IG9mIGZhdm9yLiAgVGhlIG1hcmtldA0K
+PiBzaGFyZSBpcyBqdXN0IHRvbyBzbWFsbCBhbmQgaW4gbWFueSBjYXNlcyBjdXN0b21lcnMgZG9u
+J3QgcnVuIExpbnV4DQo+IE9TZXMgb24gdGhlbSBhbnl3YXkgc28gZXZlbiBkcml2ZXIgc3VwcG9y
+dCBpcyBtaW5pbWFsLiAgVGhleSBtb3N0bHkNCj4gY2FyZSBhYm91dCB4ODZfNjQsIFBvd2VyUEMs
+IGFuZCA2NCBiaXQgQVJNLiAgQW5kIGFsbCAzIG9mIHRob3NlDQo+IGFyY2hpdGVjdHVyZXMgaGF2
+ZSBlZmZpY2llbnQgdW5hbGlnbmVkIGFjY2Vzc2VzLg0KDQpXaXRoIHRoZSBwb3NzaWJsZSBleGNl
+cHRpb24gb2YgdGhlIHg4NiBvcHRpbWlzZWQgJ3JlcCBtb3ZzYicgb24NCnZlcnkgcmVjZW50IGlu
+dGVsIGNwdXMsIHVuYWxpZ25lZCB0cmFuc2ZlcnMgYXJlIHZlcnkgbGlrZWx5DQpzbG93ZXIgdGhh
+biBhbGlnbmVkIG9uZXMgLSBqdXN0IGEgbG90IGZhc3RlciB0aGFuIGFsaWduaW5nIHRoZQ0KY29w
+eSBpbiBzb2Z0d2FyZS4NCg0KTXkgc3VzcGljaW9uIGlzIHRoYXQgbWFueSBoYXJkd2FyZSBlbmdp
+bmVlcnMgYXJlIGp1c3Qgbm90IGF3YXJlDQpvZiB0aGUgcHJvYmxlbS4gT3IganVzdCBsZWF2ZSBp
+dCBhcyBhICdzb2Z0d2FyZSBwcm9ibGVtJy4NCg0KSXQgaXMgdGhlIHNhbWUgZmFtaWx5IG9mICdw
+cm9ibGVtJyB0aGF0IGFkZHMgbW9yZSBhbmQgbW9yZQ0KcHJvdG9jb2wgc3BlY2lmaWMgMXMgY29t
+cGxpbWVudCBjaGVja3N1bSBvZmZsb2FkaW5nLg0KDQoJRGF2aWQuDQoNCg0K
