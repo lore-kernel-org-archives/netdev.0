@@ -1,139 +1,177 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next 3/3] ipvlan: misc changes
-Date: Tue,  2 Feb 2016 11:20:44 -0800
-Message-ID: <1454440844-2185-1-git-send-email-mahesh@bandewar.net>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: "=?UTF-8?q?Bendik=20R=C3=B8nning=20Opstad?=" <bro.devel@gmail.com>
+Subject: [PATCH v3 net-next 1/2] tcp: Add DPIFL thin stream detection mechanism
+Date: Tue,  2 Feb 2016 20:23:14 +0100
+Message-ID: <1454440995-18457-2-git-send-email-bro.devel+kernel@gmail.com>
+References: <1454440995-18457-1-git-send-email-bro.devel+kernel@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Andreas Petlund <apetlund@simula.no>,
+	Carsten Griwodz <griff@simula.no>,
+	=?UTF-8?q?P=C3=A5l=20Halvorsen?= <paalh@simula.no>,
+	Jonas Markussen <jonassm@ifi.uio.no>,
+	Kristian Evensen <kristian.evensen@gmail.com>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
+	=?UTF-8?q?Bendik=20R=C3=B8nning=20Opstad?=
+	<bro.devel+kernel@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:36211 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965462AbcBBTUs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 14:20:48 -0500
-Received: by mail-pa0-f65.google.com with SMTP id y7so487978paa.3
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 11:20:48 -0800 (PST)
+Received: from mail-lb0-f196.google.com ([209.85.217.196]:33567 "EHLO
+	mail-lb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754079AbcBBTYI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 14:24:08 -0500
+Received: by mail-lb0-f196.google.com with SMTP id bc4so7144112lbc.0
+        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 11:24:07 -0800 (PST)
+In-Reply-To: <1454440995-18457-1-git-send-email-bro.devel+kernel@gmail.com>
+In-Reply-To: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
+References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+The existing mechanism for detecting thin streams (tcp_stream_is_thin)
+is based on a static limit of less than 4 packets in flight. This treat=
+s
+streams differently depending on the connections RTT, such that a strea=
+m
+on a high RTT link may never be considered thin, whereas the same
+application would produce a stream that would always be thin in a low R=
+TT
+scenario (e.g. data center).
 
-1. scope correction for few functions that are used in single file.
-2. Adjust variables that are used in fast-path to fit into single cacheline
-3. Update rcv_frame() to skip shared check for frames coming over wire
+By calculating a dynamic packets in flight limit (DPIFL), the thin stre=
+am
+detection will be independent of the RTT and treat streams equally base=
+d
+on the transmission pattern, i.e. the inter-transmission time (ITT).
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Cc: Andreas Petlund <apetlund@simula.no>
+Cc: Carsten Griwodz <griff@simula.no>
+Cc: P=C3=A5l Halvorsen <paalh@simula.no>
+Cc: Jonas Markussen <jonassm@ifi.uio.no>
+Cc: Kristian Evensen <kristian.evensen@gmail.com>
+Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Signed-off-by: Bendik R=C3=B8nning Opstad <bro.devel+kernel@gmail.com>
 ---
- drivers/net/ipvlan/ipvlan.h      |  9 +++------
- drivers/net/ipvlan/ipvlan_core.c | 27 ++++++++++++++++-----------
- drivers/net/ipvlan/ipvlan_main.c |  2 +-
- 3 files changed, 20 insertions(+), 18 deletions(-)
+ Documentation/networking/ip-sysctl.txt |  8 ++++++++
+ include/net/tcp.h                      | 21 +++++++++++++++++++++
+ net/ipv4/sysctl_net_ipv4.c             |  9 +++++++++
+ net/ipv4/tcp.c                         |  2 ++
+ 4 files changed, 40 insertions(+)
 
-diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-index 817cab1a7959..695a5dc9ace3 100644
---- a/drivers/net/ipvlan/ipvlan.h
-+++ b/drivers/net/ipvlan/ipvlan.h
-@@ -84,19 +84,19 @@ struct ipvl_addr {
- #define ip4addr ipu.ip4
- 	struct hlist_node	hlnode;  /* Hash-table linkage */
- 	struct list_head	anode;   /* logical-interface linkage */
--	struct rcu_head		rcu;
- 	ipvl_hdr_type		atype;
-+	struct rcu_head		rcu;
- };
- 
- struct ipvl_port {
- 	struct net_device	*dev;
- 	struct hlist_head	hlhead[IPVLAN_HASH_SIZE];
- 	struct list_head	ipvlans;
--	struct rcu_head		rcu;
-+	u16			mode;
- 	struct work_struct	wq;
- 	struct sk_buff_head	backlog;
- 	int			count;
--	u16			mode;
-+	struct rcu_head		rcu;
- };
- 
- static inline struct ipvl_port *ipvlan_port_get_rcu(const struct net_device *d)
-@@ -114,7 +114,6 @@ static inline struct ipvl_port *ipvlan_port_get_rtnl(const struct net_device *d)
- 	return rtnl_dereference(d->rx_handler_data);
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/net=
+working/ip-sysctl.txt
+index 73b36d7..eb42853 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -708,6 +708,14 @@ tcp_thin_dupack - BOOLEAN
+ 	Documentation/networking/tcp-thin.txt
+ 	Default: 0
+=20
++tcp_thin_dpifl_itt_lower_bound - INTEGER
++	Controls the lower bound inter-transmission time (ITT) threshold
++	for when a stream is considered thin. The value is specified in
++	microseconds, and may not be lower than 10000 (10 ms). Based on
++	this threshold, a dynamic packets in flight limit (DPIFL) is
++	calculated, which is used to classify whether a stream is thin.
++	Default: 10000
++
+ tcp_limit_output_bytes - INTEGER
+ 	Controls TCP Small Queue limit per tcp socket.
+ 	TCP bulk sender tends to increase packets in flight until it
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 3dd20fe..2d86bd7 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -215,6 +215,8 @@ void tcp_time_wait(struct sock *sk, int state, int =
+timeo);
+=20
+ /* TCP thin-stream limits */
+ #define TCP_THIN_LINEAR_RETRIES 6       /* After 6 linear retries, do =
+exp. backoff */
++/* Lowest possible DPIFL lower bound ITT is 10 ms (10000 usec) */
++#define TCP_THIN_DPIFL_ITT_LOWER_BOUND_MIN 10000
+=20
+ /* TCP initial congestion window as per rfc6928 */
+ #define TCP_INIT_CWND		10
+@@ -271,6 +273,7 @@ extern int sysctl_tcp_workaround_signed_windows;
+ extern int sysctl_tcp_slow_start_after_idle;
+ extern int sysctl_tcp_thin_linear_timeouts;
+ extern int sysctl_tcp_thin_dupack;
++extern int sysctl_tcp_thin_dpifl_itt_lower_bound;
+ extern int sysctl_tcp_early_retrans;
+ extern int sysctl_tcp_limit_output_bytes;
+ extern int sysctl_tcp_challenge_ack_limit;
+@@ -1649,6 +1652,24 @@ static inline bool tcp_stream_is_thin(struct tcp=
+_sock *tp)
+ 	return tp->packets_out < 4 && !tcp_in_initial_slowstart(tp);
  }
- 
--void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev);
- void ipvlan_init_secret(void);
- unsigned int ipvlan_mac_hash(const unsigned char *addr);
- rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb);
-@@ -124,7 +123,5 @@ void ipvlan_ht_addr_add(struct ipvl_dev *ipvlan, struct ipvl_addr *addr);
- struct ipvl_addr *ipvlan_find_addr(const struct ipvl_dev *ipvlan,
- 				   const void *iaddr, bool is_v6);
- bool ipvlan_addr_busy(struct ipvl_port *port, void *iaddr, bool is_v6);
--struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
--					const void *iaddr, bool is_v6);
- void ipvlan_ht_addr_del(struct ipvl_addr *addr);
- #endif /* __IPVLAN_H */
-diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-index 21c380f9ccd5..5f79cd3eb8be 100644
---- a/drivers/net/ipvlan/ipvlan_core.c
-+++ b/drivers/net/ipvlan/ipvlan_core.c
-@@ -53,8 +53,8 @@ static u8 ipvlan_get_v4_hash(const void *iaddr)
- 	       IPVLAN_HASH_MASK;
- }
- 
--struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
--					const void *iaddr, bool is_v6)
-+static struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
-+					       const void *iaddr, bool is_v6)
- {
- 	struct ipvl_addr *addr;
- 	u8 hash;
-@@ -265,20 +265,25 @@ static int ipvlan_rcv_frame(struct ipvl_addr *addr, struct sk_buff **pskb,
- 	struct sk_buff *skb = *pskb;
- 
- 	len = skb->len + ETH_HLEN;
--	if (unlikely(!(dev->flags & IFF_UP))) {
--		kfree_skb(skb);
--		goto out;
--	}
-+	/* Only packets exchanged between two local slaves need to have
-+	 * device-up check as well as skb-share check.
+=20
++/**
++ * tcp_stream_is_thin_dpifl() - Tests if the stream is thin based on d=
+ynamic PIF
++ *                              limit
++ * @tp: the tcp_sock struct
++ *
++ * Return: true if current packets in flight (PIF) count is lower than
++ *         the dynamic PIF limit, else false
++ */
++static inline bool tcp_stream_is_thin_dpifl(const struct tcp_sock *tp)
++{
++	/* Calculate the maximum allowed PIF limit by dividing the RTT by
++	 * the minimum allowed inter-transmission time (ITT).
++	 * Tests if PIF < RTT / ITT-lower-bound
 +	 */
-+	if (local) {
-+		if (unlikely(!(dev->flags & IFF_UP))) {
-+			kfree_skb(skb);
-+			goto out;
-+		}
- 
--	skb = skb_share_check(skb, GFP_ATOMIC);
--	if (!skb)
--		goto out;
-+		skb = skb_share_check(skb, GFP_ATOMIC);
-+		if (!skb)
-+			goto out;
- 
--	*pskb = skb;
-+		*pskb = skb;
-+	}
- 	skb->dev = dev;
--	skb->pkt_type = PACKET_HOST;
- 
- 	if (local) {
-+		skb->pkt_type = PACKET_HOST;
- 		if (dev_forward_skb(ipvlan->dev, skb) == NET_RX_SUCCESS)
- 			success = true;
- 	} else {
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 54c542526262..b20951583b46 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -9,7 +9,7 @@
- 
- #include "ipvlan.h"
- 
--void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev)
-+static void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev)
- {
- 	ipvlan->dev->mtu = dev->mtu - ipvlan->mtu_adj;
- }
--- 
-2.7.0.rc3.207.g0ac5344
++	return (u64) tcp_packets_in_flight(tp) *
++		sysctl_tcp_thin_dpifl_itt_lower_bound < (tp->srtt_us >> 3);
++}
++
+ /* /proc */
+ enum tcp_seq_states {
+ 	TCP_SEQ_STATE_LISTENING,
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 4d367b4..6014bc4 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -41,6 +41,7 @@ static int tcp_syn_retries_min =3D 1;
+ static int tcp_syn_retries_max =3D MAX_TCP_SYNCNT;
+ static int ip_ping_group_range_min[] =3D { 0, 0 };
+ static int ip_ping_group_range_max[] =3D { GID_T_MAX, GID_T_MAX };
++static int tcp_thin_dpifl_itt_lower_bound_min =3D TCP_THIN_DPIFL_ITT_L=
+OWER_BOUND_MIN;
+=20
+ /* Update system visible IP port range */
+ static void set_local_port_range(struct net *net, int range[2])
+@@ -687,6 +688,14 @@ static struct ctl_table ipv4_table[] =3D {
+ 		.proc_handler   =3D proc_dointvec
+ 	},
+ 	{
++		.procname	=3D "tcp_thin_dpifl_itt_lower_bound",
++		.data		=3D &sysctl_tcp_thin_dpifl_itt_lower_bound,
++		.maxlen		=3D sizeof(int),
++		.mode		=3D 0644,
++		.proc_handler	=3D &proc_dointvec_minmax,
++		.extra1		=3D &tcp_thin_dpifl_itt_lower_bound_min,
++	},
++	{
+ 		.procname	=3D "tcp_early_retrans",
+ 		.data		=3D &sysctl_tcp_early_retrans,
+ 		.maxlen		=3D sizeof(int),
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 19746b3..16087fe 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -288,6 +288,8 @@ int sysctl_tcp_min_tso_segs __read_mostly =3D 2;
+=20
+ int sysctl_tcp_autocorking __read_mostly =3D 1;
+=20
++int sysctl_tcp_thin_dpifl_itt_lower_bound __read_mostly =3D TCP_THIN_D=
+PIFL_ITT_LOWER_BOUND_MIN;
++
+ struct percpu_counter tcp_orphan_count;
+ EXPORT_SYMBOL_GPL(tcp_orphan_count);
+=20
+--=20
+1.9.1
