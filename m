@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 6/6] samples/bpf: update tracex[23] examples to use per-cpu maps
-Date: Mon, 1 Feb 2016 22:39:58 -0800
-Message-ID: <1454395198-1796236-7-git-send-email-ast@fb.com>
+Subject: [PATCH net-next 3/6] bpf: add lookup/update support for per-cpu hash and array maps
+Date: Mon, 1 Feb 2016 22:39:55 -0800
+Message-ID: <1454395198-1796236-4-git-send-email-ast@fb.com>
 References: <1454395198-1796236-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,154 +10,411 @@ Cc: Martin KaFai Lau <kafai@fb.com>, Ming Lei <tom.leiming@gmail.com>,
 	<netdev@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:16737 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51053 "EHLO
 	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752419AbcBBGkD (ORCPT
+	by vger.kernel.org with ESMTP id S1752351AbcBBGkD (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 01:40:03 -0500
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u126b9CW006980
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+	by m0089730.ppops.net (8.15.0.59/8.15.0.59) with SMTP id u126cTLK004265
 	for <netdev@vger.kernel.org>; Mon, 1 Feb 2016 22:40:03 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 20rsvbkkew-2
+	by m0089730.ppops.net with ESMTP id 20taq8c100-2
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 22:40:03 -0800
+	for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 22:40:02 -0800
 Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
  mx-out.facebook.com (10.223.100.99) with ESMTP	id
- c86d2d4cc97711e5837124be05956610-99f42b0 for <netdev@vger.kernel.org>;	Mon,
+ c80d6588c97711e5837124be05956610-99f42b0 for <netdev@vger.kernel.org>;	Mon,
  01 Feb 2016 22:40:00 -0800
 In-Reply-To: <1454395198-1796236-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The functions bpf_map_lookup_elem(map, key, value) and
+bpf_map_update_elem(map, key, value, flags) need to get/set
+values from all-cpus for per-cpu hash and array maps,
+so that user space can aggregate/update them as necessary.
+
+Example of single counter aggregation in user space:
+  unsigned int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
+  long values[nr_cpus];
+  long value = 0;
+
+  bpf_lookup_elem(fd, key, values);
+  for (i = 0; i < nr_cpus; i++)
+    value += values[i];
+
+The user space must provide round_up(value_size, 8) * nr_cpus
+array to get/set values, since kernel will use 'long' copy
+of per-cpu values to try to copy good counters atomically.
+It's a best-effort, since bpf programs and user space are racing
+to access the same memory.
+
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- samples/bpf/tracex2_kern.c |  2 +-
- samples/bpf/tracex2_user.c |  7 ++++++-
- samples/bpf/tracex3_kern.c |  8 ++++----
- samples/bpf/tracex3_user.c | 21 ++++++++++++++-------
- 4 files changed, 25 insertions(+), 13 deletions(-)
+ include/linux/bpf.h   | 23 ++++++++++++++
+ kernel/bpf/arraymap.c | 64 +++++++++++++++++++++++++++++++++++++++
+ kernel/bpf/hashtab.c  | 83 +++++++++++++++++++++++++++++++++++++++++++++------
+ kernel/bpf/syscall.c  | 57 ++++++++++++++++++++++++-----------
+ 4 files changed, 201 insertions(+), 26 deletions(-)
 
-diff --git a/samples/bpf/tracex2_kern.c b/samples/bpf/tracex2_kern.c
-index b32367cfbff4..09c1adc27d42 100644
---- a/samples/bpf/tracex2_kern.c
-+++ b/samples/bpf/tracex2_kern.c
-@@ -70,7 +70,7 @@ struct hist_key {
- };
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 141fb0d45731..90ee6ab24bc5 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -183,6 +183,29 @@ int bpf_prog_new_fd(struct bpf_prog *prog);
+ int bpf_obj_pin_user(u32 ufd, const char __user *pathname);
+ int bpf_obj_get_user(const char __user *pathname);
  
- struct bpf_map_def SEC("maps") my_hist_map = {
--	.type = BPF_MAP_TYPE_HASH,
-+	.type = BPF_MAP_TYPE_PERCPU_HASH,
- 	.key_size = sizeof(struct hist_key),
- 	.value_size = sizeof(long),
- 	.max_entries = 1024,
-diff --git a/samples/bpf/tracex2_user.c b/samples/bpf/tracex2_user.c
-index cd0241c1447a..ab5b19e68acf 100644
---- a/samples/bpf/tracex2_user.c
-+++ b/samples/bpf/tracex2_user.c
-@@ -37,6 +37,8 @@ struct hist_key {
- static void print_hist_for_pid(int fd, void *task)
++int bpf_percpu_hash_copy(struct bpf_map *map, void *key, void *value);
++int bpf_percpu_array_copy(struct bpf_map *map, void *key, void *value);
++int bpf_percpu_hash_update(struct bpf_map *map, void *key, void *value,
++			   u64 flags);
++int bpf_percpu_array_update(struct bpf_map *map, void *key, void *value,
++			    u64 flags);
++
++/* memcpy that is used with 8-byte aligned pointers, power-of-8 size and
++ * forced to use 'long' read/writes to try to atomically copy long counters.
++ * Best-effort only.  No barriers here, since it _will_ race with concurrent
++ * updates from BPF programs. Called from bpf syscall and mostly used with
++ * size 8 or 16 bytes, so ask compiler to inline it.
++ */
++static inline void bpf_long_memcpy(void *dst, const void *src, u32 size)
++{
++	const long *lsrc = src;
++	long *ldst = dst;
++
++	size /= sizeof(long);
++	while (size--)
++		*ldst++ = *lsrc++;
++}
++
+ /* verify correctness of eBPF program */
+ int bpf_check(struct bpf_prog **fp, union bpf_attr *attr);
+ #else
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index b9bf1d7949ca..bd3bdf2486a7 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -130,6 +130,32 @@ static void *percpu_array_map_lookup_elem(struct bpf_map *map, void *key)
+ 	return this_cpu_ptr(array->pptrs[index]);
+ }
+ 
++int bpf_percpu_array_copy(struct bpf_map *map, void *key, void *value)
++{
++	struct bpf_array *array = container_of(map, struct bpf_array, map);
++	u32 index = *(u32 *)key;
++	void __percpu *pptr;
++	int cpu, off = 0;
++	u32 size;
++
++	if (unlikely(index >= array->map.max_entries))
++		return -ENOENT;
++
++	/* per_cpu areas are zero-filled and bpf programs can only
++	 * access 'value_size' of them, so copying rounded areas
++	 * will not leak any kernel data
++	 */
++	size = round_up(map->value_size, 8);
++	rcu_read_lock();
++	pptr = array->pptrs[index];
++	for_each_possible_cpu(cpu) {
++		bpf_long_memcpy(value + off, per_cpu_ptr(pptr, cpu), size);
++		off += size;
++	}
++	rcu_read_unlock();
++	return 0;
++}
++
+ /* Called from syscall */
+ static int array_map_get_next_key(struct bpf_map *map, void *key, void *next_key)
  {
- 	struct hist_key key = {}, next_key;
-+	unsigned int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
-+	long values[nr_cpus];
- 	char starstr[MAX_STARS];
- 	long value;
- 	long data[MAX_INDEX] = {};
-@@ -49,7 +51,10 @@ static void print_hist_for_pid(int fd, void *task)
- 			key = next_key;
- 			continue;
- 		}
--		bpf_lookup_elem(fd, &next_key, &value);
-+		bpf_lookup_elem(fd, &next_key, values);
-+		value = 0;
-+		for (i = 0; i < nr_cpus; i++)
-+			value += values[i];
- 		ind = next_key.index;
- 		data[ind] = value;
- 		if (value && ind > max_ind)
-diff --git a/samples/bpf/tracex3_kern.c b/samples/bpf/tracex3_kern.c
-index bf337fbb0947..9974c3d7c18b 100644
---- a/samples/bpf/tracex3_kern.c
-+++ b/samples/bpf/tracex3_kern.c
-@@ -20,7 +20,7 @@ struct bpf_map_def SEC("maps") my_map = {
- /* kprobe is NOT a stable ABI. If kernel internals change this bpf+kprobe
-  * example will no longer be meaningful
-  */
--SEC("kprobe/blk_mq_start_request")
-+SEC("kprobe/blk_start_request")
- int bpf_prog1(struct pt_regs *ctx)
- {
- 	long rq = PT_REGS_PARM1(ctx);
-@@ -42,13 +42,13 @@ static unsigned int log2l(unsigned long long n)
- #define SLOTS 100
- 
- struct bpf_map_def SEC("maps") lat_map = {
--	.type = BPF_MAP_TYPE_ARRAY,
-+	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
- 	.key_size = sizeof(u32),
- 	.value_size = sizeof(u64),
- 	.max_entries = SLOTS,
- };
- 
--SEC("kprobe/blk_update_request")
-+SEC("kprobe/blk_account_io_completion")
- int bpf_prog2(struct pt_regs *ctx)
- {
- 	long rq = PT_REGS_PARM1(ctx);
-@@ -81,7 +81,7 @@ int bpf_prog2(struct pt_regs *ctx)
- 
- 	value = bpf_map_lookup_elem(&lat_map, &index);
- 	if (value)
--		__sync_fetch_and_add((long *)value, 1);
-+		*value += 1;
- 
+@@ -177,6 +203,44 @@ static int array_map_update_elem(struct bpf_map *map, void *key, void *value,
  	return 0;
  }
-diff --git a/samples/bpf/tracex3_user.c b/samples/bpf/tracex3_user.c
-index 0aaa933ab938..48716f7f0d8b 100644
---- a/samples/bpf/tracex3_user.c
-+++ b/samples/bpf/tracex3_user.c
-@@ -20,11 +20,13 @@
  
- static void clear_stats(int fd)
++int bpf_percpu_array_update(struct bpf_map *map, void *key, void *value,
++			    u64 map_flags)
++{
++	struct bpf_array *array = container_of(map, struct bpf_array, map);
++	u32 index = *(u32 *)key;
++	void __percpu *pptr;
++	int cpu, off = 0;
++	u32 size;
++
++	if (unlikely(map_flags > BPF_EXIST))
++		/* unknown flags */
++		return -EINVAL;
++
++	if (unlikely(index >= array->map.max_entries))
++		/* all elements were pre-allocated, cannot insert a new one */
++		return -E2BIG;
++
++	if (unlikely(map_flags == BPF_NOEXIST))
++		/* all elements already exist */
++		return -EEXIST;
++
++	/* the user space will provide round_up(value_size, 8) bytes that
++	 * will be copied into per-cpu area. bpf programs can only access
++	 * value_size of it. During lookup the same extra bytes will be
++	 * returned or zeros which were zero-filled by percpu_alloc,
++	 * so no kernel data leaks possible
++	 */
++	size = round_up(map->value_size, 8);
++	rcu_read_lock();
++	pptr = array->pptrs[index];
++	for_each_possible_cpu(cpu) {
++		bpf_long_memcpy(per_cpu_ptr(pptr, cpu), value + off, size);
++		off += size;
++	}
++	rcu_read_unlock();
++	return 0;
++}
++
+ /* Called from syscall or from eBPF program */
+ static int array_map_delete_elem(struct bpf_map *map, void *key)
  {
-+	unsigned int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
-+	__u64 values[nr_cpus];
- 	__u32 key;
--	__u64 value = 0;
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index 2be5f6e8bb04..fd5db8fe9360 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -290,7 +290,7 @@ static void free_htab_elem(struct htab_elem *l, bool percpu, u32 key_size)
  
-+	memset(values, 0, sizeof(values));
- 	for (key = 0; key < SLOTS; key++)
--		bpf_update_elem(fd, &key, &value, BPF_ANY);
-+		bpf_update_elem(fd, &key, values, BPF_ANY);
+ static struct htab_elem *alloc_htab_elem(struct bpf_htab *htab, void *key,
+ 					 void *value, u32 key_size, u32 hash,
+-					 bool percpu)
++					 bool percpu, bool onallcpus)
+ {
+ 	u32 size = htab->map.value_size;
+ 	struct htab_elem *l_new;
+@@ -312,8 +312,18 @@ static struct htab_elem *alloc_htab_elem(struct bpf_htab *htab, void *key,
+ 			return NULL;
+ 		}
+ 
+-		/* copy true value_size bytes */
+-		memcpy(this_cpu_ptr(pptr), value, htab->map.value_size);
++		if (!onallcpus) {
++			/* copy true value_size bytes */
++			memcpy(this_cpu_ptr(pptr), value, htab->map.value_size);
++		} else {
++			int off = 0, cpu;
++
++			for_each_possible_cpu(cpu) {
++				bpf_long_memcpy(per_cpu_ptr(pptr, cpu),
++						value + off, size);
++				off += size;
++			}
++		}
+ 		htab_elem_set_ptr(l_new, key_size, pptr);
+ 	} else {
+ 		memcpy(l_new->key + round_up(key_size, 8), value, size);
+@@ -368,7 +378,7 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
+ 	/* allocate new element outside of the lock, since
+ 	 * we're most likley going to insert it
+ 	 */
+-	l_new = alloc_htab_elem(htab, key, value, key_size, hash, false);
++	l_new = alloc_htab_elem(htab, key, value, key_size, hash, false, false);
+ 	if (!l_new)
+ 		return -ENOMEM;
+ 
+@@ -402,8 +412,9 @@ err:
+ 	return ret;
  }
  
- const char *color[] = {
-@@ -75,15 +77,20 @@ static void print_banner(void)
- 
- static void print_hist(int fd)
+-static int htab_percpu_map_update_elem(struct bpf_map *map, void *key,
+-				       void *value, u64 map_flags)
++static int __htab_percpu_map_update_elem(struct bpf_map *map, void *key,
++					 void *value, u64 map_flags,
++					 bool onallcpus)
  {
--	__u32 key;
--	__u64 value;
--	__u64 cnt[SLOTS];
--	__u64 max_cnt = 0;
-+	unsigned int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
- 	__u64 total_events = 0;
-+	long values[nr_cpus];
-+	__u64 max_cnt = 0;
-+	__u64 cnt[SLOTS];
-+	__u64 value;
-+	__u32 key;
-+	int i;
+ 	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
+ 	struct htab_elem *l_new = NULL, *l_old;
+@@ -436,12 +447,25 @@ static int htab_percpu_map_update_elem(struct bpf_map *map, void *key,
+ 		goto err;
  
- 	for (key = 0; key < SLOTS; key++) {
-+		bpf_lookup_elem(fd, &key, values);
- 		value = 0;
--		bpf_lookup_elem(fd, &key, &value);
-+		for (i = 0; i < nr_cpus; i++)
-+			value += values[i];
- 		cnt[key] = value;
- 		total_events += value;
- 		if (value > max_cnt)
+ 	if (l_old) {
++		void __percpu *pptr = htab_elem_get_ptr(l_old, key_size);
++		u32 size = htab->map.value_size;
++
+ 		/* per-cpu hash map can update value in-place */
+-		memcpy(this_cpu_ptr(htab_elem_get_ptr(l_old, key_size)),
+-		       value, htab->map.value_size);
++		if (!onallcpus) {
++			memcpy(this_cpu_ptr(pptr), value, size);
++		} else {
++			int off = 0, cpu;
++
++			size = round_up(size, 8);
++			for_each_possible_cpu(cpu) {
++				bpf_long_memcpy(per_cpu_ptr(pptr, cpu),
++						value + off, size);
++				off += size;
++			}
++		}
+ 	} else {
+ 		l_new = alloc_htab_elem(htab, key, value, key_size,
+-					hash, true);
++					hash, true, onallcpus);
+ 		if (!l_new) {
+ 			ret = -ENOMEM;
+ 			goto err;
+@@ -455,6 +479,12 @@ err:
+ 	return ret;
+ }
+ 
++static int htab_percpu_map_update_elem(struct bpf_map *map, void *key,
++				       void *value, u64 map_flags)
++{
++	return __htab_percpu_map_update_elem(map, key, value, map_flags, false);
++}
++
+ /* Called from syscall or from eBPF program */
+ static int htab_map_delete_elem(struct bpf_map *map, void *key)
+ {
+@@ -557,6 +587,41 @@ static void *htab_percpu_map_lookup_elem(struct bpf_map *map, void *key)
+ 		return NULL;
+ }
+ 
++int bpf_percpu_hash_copy(struct bpf_map *map, void *key, void *value)
++{
++	struct htab_elem *l;
++	void __percpu *pptr;
++	int ret = -ENOENT;
++	int cpu, off = 0;
++	u32 size;
++
++	/* per_cpu areas are zero-filled and bpf programs can only
++	 * access 'value_size' of them, so copying rounded areas
++	 * will not leak any kernel data
++	 */
++	size = round_up(map->value_size, 8);
++	rcu_read_lock();
++	l = __htab_map_lookup_elem(map, key);
++	if (!l)
++		goto out;
++	pptr = htab_elem_get_ptr(l, map->key_size);
++	for_each_possible_cpu(cpu) {
++		bpf_long_memcpy(value + off,
++				per_cpu_ptr(pptr, cpu), size);
++		off += size;
++	}
++	ret = 0;
++out:
++	rcu_read_unlock();
++	return ret;
++}
++
++int bpf_percpu_hash_update(struct bpf_map *map, void *key, void *value,
++			   u64 map_flags)
++{
++	return __htab_percpu_map_update_elem(map, key, value, map_flags, true);
++}
++
+ static const struct bpf_map_ops htab_percpu_ops = {
+ 	.map_alloc = htab_map_alloc,
+ 	.map_free = htab_map_free,
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 637397059f76..c95a753c2007 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -239,6 +239,7 @@ static int map_lookup_elem(union bpf_attr *attr)
+ 	int ufd = attr->map_fd;
+ 	struct bpf_map *map;
+ 	void *key, *value, *ptr;
++	u32 value_size;
+ 	struct fd f;
+ 	int err;
+ 
+@@ -259,23 +260,35 @@ static int map_lookup_elem(union bpf_attr *attr)
+ 	if (copy_from_user(key, ukey, map->key_size) != 0)
+ 		goto free_key;
+ 
++	if (map->map_type == BPF_MAP_TYPE_PERCPU_HASH ||
++	    map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY)
++		value_size = round_up(map->value_size, 8) * num_possible_cpus();
++	else
++		value_size = map->value_size;
++
+ 	err = -ENOMEM;
+-	value = kmalloc(map->value_size, GFP_USER | __GFP_NOWARN);
++	value = kmalloc(value_size, GFP_USER | __GFP_NOWARN);
+ 	if (!value)
+ 		goto free_key;
+ 
+-	rcu_read_lock();
+-	ptr = map->ops->map_lookup_elem(map, key);
+-	if (ptr)
+-		memcpy(value, ptr, map->value_size);
+-	rcu_read_unlock();
++	if (map->map_type == BPF_MAP_TYPE_PERCPU_HASH) {
++		err = bpf_percpu_hash_copy(map, key, value);
++	} else if (map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY) {
++		err = bpf_percpu_array_copy(map, key, value);
++	} else {
++		rcu_read_lock();
++		ptr = map->ops->map_lookup_elem(map, key);
++		if (ptr)
++			memcpy(value, ptr, value_size);
++		rcu_read_unlock();
++		err = ptr ? 0 : -ENOENT;
++	}
+ 
+-	err = -ENOENT;
+-	if (!ptr)
++	if (err)
+ 		goto free_value;
+ 
+ 	err = -EFAULT;
+-	if (copy_to_user(uvalue, value, map->value_size) != 0)
++	if (copy_to_user(uvalue, value, value_size) != 0)
+ 		goto free_value;
+ 
+ 	err = 0;
+@@ -298,6 +311,7 @@ static int map_update_elem(union bpf_attr *attr)
+ 	int ufd = attr->map_fd;
+ 	struct bpf_map *map;
+ 	void *key, *value;
++	u32 value_size;
+ 	struct fd f;
+ 	int err;
+ 
+@@ -318,21 +332,30 @@ static int map_update_elem(union bpf_attr *attr)
+ 	if (copy_from_user(key, ukey, map->key_size) != 0)
+ 		goto free_key;
+ 
++	if (map->map_type == BPF_MAP_TYPE_PERCPU_HASH ||
++	    map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY)
++		value_size = round_up(map->value_size, 8) * num_possible_cpus();
++	else
++		value_size = map->value_size;
++
+ 	err = -ENOMEM;
+-	value = kmalloc(map->value_size, GFP_USER | __GFP_NOWARN);
++	value = kmalloc(value_size, GFP_USER | __GFP_NOWARN);
+ 	if (!value)
+ 		goto free_key;
+ 
+ 	err = -EFAULT;
+-	if (copy_from_user(value, uvalue, map->value_size) != 0)
++	if (copy_from_user(value, uvalue, value_size) != 0)
+ 		goto free_value;
+ 
+-	/* eBPF program that use maps are running under rcu_read_lock(),
+-	 * therefore all map accessors rely on this fact, so do the same here
+-	 */
+-	rcu_read_lock();
+-	err = map->ops->map_update_elem(map, key, value, attr->flags);
+-	rcu_read_unlock();
++	if (map->map_type == BPF_MAP_TYPE_PERCPU_HASH) {
++		err = bpf_percpu_hash_update(map, key, value, attr->flags);
++	} else if (map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY) {
++		err = bpf_percpu_array_update(map, key, value, attr->flags);
++	} else {
++		rcu_read_lock();
++		err = map->ops->map_update_elem(map, key, value, attr->flags);
++		rcu_read_unlock();
++	}
+ 
+ free_value:
+ 	kfree(value);
 -- 
 2.4.6
