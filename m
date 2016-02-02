@@ -1,39 +1,42 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [PATCH iproute2] tc: fix compilation with old gcc (< 4.6) (bis)
-Date: Tue, 2 Feb 2016 15:51:57 +1100
-Message-ID: <20160202155157.2f492bfd@samsung9>
-References: <1f5ba49033cd4c55a0d0005487efde39@HQ1WP-EXMB11.corp.brocade.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH 7/7] net: ixgbe: add support for tc_u32 offload
+Date: Mon, 01 Feb 2016 20:53:20 -0800
+Message-ID: <56B03640.8050009@gmail.com>
+References: <20160201014555.13871.56591.stgit@john-Precision-Tower-5810>	<20160201015310.13871.63596.stgit@john-Precision-Tower-5810> <20160201.181715.1355993690912736292.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"julien.floret@6wind.com" <julien.floret@6wind.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: anjali.singhai@intel.com, jesse.brandeburg@intel.com,
+	jhs@mojatatu.com, ast@fb.com, donald.c.skidmore@intel.com,
+	horms@verge.net.au, netdev@vger.kernel.org, tgraf@suug.ch
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:46497 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752127AbcBBEwW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 23:52:22 -0500
-In-Reply-To: <1f5ba49033cd4c55a0d0005487efde39@HQ1WP-EXMB11.corp.brocade.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35135 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752337AbcBBExg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 23:53:36 -0500
+Received: by mail-pf0-f196.google.com with SMTP id 66so7948296pfe.2
+        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 20:53:36 -0800 (PST)
+In-Reply-To: <20160201.181715.1355993690912736292.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 19 Jan 2016 11:01:45 +0000
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+On 16-02-01 06:17 PM, David Miller wrote:
+> From: John Fastabend <john.fastabend@gmail.com>
+> Date: Sun, 31 Jan 2016 17:53:10 -0800
+> 
+>> +			ixgbe_jump_tables[uhtid] = nexthdr->jump;
+> 
+> I can't figure out what protects concurrent accesses to this shared
+> ixgbe_jump_table[].  Is RTNL held here?  If so it's likely that
+> GFP_ATOMIC can be changed to GFP_KERNEL in this function.
+> 
+> 
 
-> diff --git a/tc/tc_bpf.c b/tc/tc_bpf.c
-> index 42c8841869f5..219ffa582c1a 100644
-> --- a/tc/tc_bpf.c
-> +++ b/tc/tc_bpf.c
-> @@ -49,6 +49,10 @@
->  #include "tc_util.h"
->  #include "tc_bpf.h"
->  
-> +#ifndef AF_ALG
-> +#define AF_ALG 38
-> +#endif
+This is only called from tc_ctl_tfilter which is wrapped in the
+rtnl_lock as you suspected.
 
-Why is this here? AF_ALG is not used anywhere in this code.
+Thanks for the catch I'll convert it to GFP_KERNEL along with the
+other spot I copy pasted the GFP_ATOMIC code from.
 
-Please remove it and resubmit
+.John
