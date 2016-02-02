@@ -1,35 +1,43 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH v2] unix: properly account for FDs passed over unix sockets
-Date: Tue, 2 Feb 2016 21:49:55 +0100
-Message-ID: <20160202204955.GD25828@1wt.eu>
-References: <201601100657.u0A6vk1B025554@mail.home.local> <CANq1E4T0sqTTD4RsWXTUrFvsKvEsKsUiPbskWd=wAEVu83_Srg@mail.gmail.com> <56B0F574.5080105@stressinduktion.org> <CA+55aFw2AwsWbvwp6f8H+eExt_CMfh7VA3od6hto_M0hg9z3Tg@mail.gmail.com> <56B11278.8000805@stressinduktion.org> <CA+55aFz0CXGexEBmb8JU0+w7sFf3VfE3TpRzdj3aTiDxg2zDpg@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: drop write-only stack variable
+Date: Tue, 2 Feb 2016 21:50:21 +0100
+Message-ID: <56B1168D.6070201@stressinduktion.org>
+References: <1454433474-8888-1-git-send-email-dh.herrmann@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Herrmann <dh.herrmann@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	???????? ?????????????????? <socketpair@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Simon McVittie <simon.mcvittie@collabora.co.uk>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+55aFz0CXGexEBmb8JU0+w7sFf3VfE3TpRzdj3aTiDxg2zDpg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>
+To: David Herrmann <dh.herrmann@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:55300 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932934AbcBBUu1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 15:50:27 -0500
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 050B421204
+	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 15:50:24 -0500 (EST)
+In-Reply-To: <1454433474-8888-1-git-send-email-dh.herrmann@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 02, 2016 at 12:44:54PM -0800, Linus Torvalds wrote:
-> On Tue, Feb 2, 2016 at 12:32 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > But "struct pid *" in unix_skb_parms should be enough to get us to
-> > corresponding "struct cred *" so we can decrement the correct counter during
-> > skb destruction.
-> 
-> Umm. I think the "struct cred" may change in between, can't it?
+On 02.02.2016 18:17, David Herrmann wrote:
+> Remove a write-only stack variable from unix_attach_fds(). This is a
+> left-over from the security fix in:
+>
+>      commit 712f4aad406bb1ed67f3f98d04c044191f0ff593
+>      Author: willy tarreau <w@1wt.eu>
+>      Date:   Sun Jan 10 07:54:56 2016 +0100
+>
+>          unix: properly account for FDs passed over unix sockets
+>
+> Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
 
-You mean for example in case of setuid() or something like this ?
+I don't think this specifically needs a Fixes tag. Seems more like a 
+clean-up.
 
-willy
+Anyway, I also noticed this during review and it can be removed safely.
+
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Thanks,
+Hannes
