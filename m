@@ -1,156 +1,177 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next v2 5/6] vxlan: consolidate csum flag handling
-Date: Tue,  2 Feb 2016 18:09:15 +0100
-Message-ID: <d5d3a3ce760f262b2d9dd933447452338bdf552a.1454432731.git.jbenc@redhat.com>
+Subject: [PATCH net-next v2 4/6] vxlan: consolidate output route calculation
+Date: Tue,  2 Feb 2016 18:09:14 +0100
+Message-ID: <2d04202afb87183bb65be67f87d62a2a693e3ec0.1454432731.git.jbenc@redhat.com>
 References: <cover.1454432731.git.jbenc@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60936 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:47118 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932970AbcBBRJ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 12:09:29 -0500
+	id S933121AbcBBRJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 12:09:28 -0500
 Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (Postfix) with ESMTPS id 46720C0B6119
-	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 17:09:29 +0000 (UTC)
+	by mx1.redhat.com (Postfix) with ESMTPS id 459397AE88
+	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 17:09:28 +0000 (UTC)
 Received: from griffin.upir.cz (ovpn-204-49.brq.redhat.com [10.40.204.49])
-	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u12H9NSq003510
-	for <netdev@vger.kernel.org>; Tue, 2 Feb 2016 12:09:28 -0500
+	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u12H9NSp003510
+	for <netdev@vger.kernel.org>; Tue, 2 Feb 2016 12:09:27 -0500
 In-Reply-To: <cover.1454432731.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The flag for tx checksumming for tunneling over IPv4 and IPv6 is different.
-Decide whether to do tx checksumming in vxlan_xmit_one and pass it on as
-a separate flag. This will allow for tx path consolidation in the next
-patch.
-
-Unfortunately, gcc is not clever enough to see that udp_sum is always
-initialized and gives an uninitialized variable warning. Set it to false to
-silence the warning.
+The code for output route lookup is duplicated for ndo_start_xmit and
+ndo_fill_metadata_dst. Move it to a common function.
 
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
-New in v2.
+This particular patch was already submitted but felt through cracks.
+https://patchwork.ozlabs.org/patch/552197/
 ---
- drivers/net/vxlan.c | 37 ++++++++++++++++---------------------
- 1 file changed, 16 insertions(+), 21 deletions(-)
+ drivers/net/vxlan.c | 77 +++++++++++++++++++++++++----------------------------
+ 1 file changed, 37 insertions(+), 40 deletions(-)
 
 diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index d0f7723fd776..fe3fd4808f4d 100644
+index 65439188c582..d0f7723fd776 100644
 --- a/drivers/net/vxlan.c
 +++ b/drivers/net/vxlan.c
-@@ -1690,12 +1690,13 @@ static int vxlan6_xmit_skb(struct dst_entry *dst, struct sock *sk,
- 			   struct net_device *dev, struct in6_addr *saddr,
- 			   struct in6_addr *daddr, __u8 prio, __u8 ttl,
- 			   __be16 src_port, __be16 dst_port, __be32 vni,
--			   struct vxlan_metadata *md, bool xnet, u32 vxflags)
-+			   struct vxlan_metadata *md, bool xnet, u32 vxflags,
-+			   bool udp_sum)
- {
- 	struct vxlanhdr *vxh;
- 	int min_headroom;
- 	int err;
--	bool udp_sum = !(vxflags & VXLAN_F_UDP_ZERO_CSUM6_TX);
-+	bool nocheck = !udp_sum;
- 	int type = udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
- 	u16 hdrlen = sizeof(struct vxlanhdr);
- 
-@@ -1763,8 +1764,7 @@ static int vxlan6_xmit_skb(struct dst_entry *dst, struct sock *sk,
- 	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
- 
- 	udp_tunnel6_xmit_skb(dst, sk, skb, dev, saddr, daddr, prio,
--			     ttl, src_port, dst_port,
--			     !!(vxflags & VXLAN_F_UDP_ZERO_CSUM6_TX));
-+			     ttl, src_port, dst_port, nocheck);
- 	return 0;
- err:
- 	dst_release(dst);
-@@ -1775,12 +1775,13 @@ err:
- static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
- 			  __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
- 			  __be16 src_port, __be16 dst_port, __be32 vni,
--			  struct vxlan_metadata *md, bool xnet, u32 vxflags)
-+			  struct vxlan_metadata *md, bool xnet, u32 vxflags,
-+			  bool udp_sum)
- {
- 	struct vxlanhdr *vxh;
- 	int min_headroom;
- 	int err;
--	bool udp_sum = !!(vxflags & VXLAN_F_UDP_CSUM);
-+	bool nocheck = !udp_sum;
- 	int type = udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
- 	u16 hdrlen = sizeof(struct vxlanhdr);
- 
-@@ -1842,8 +1843,7 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
- 	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
- 
- 	udp_tunnel_xmit_skb(rt, sk, skb, src, dst, tos, ttl, df,
--			    src_port, dst_port, xnet,
--			    !(vxflags & VXLAN_F_UDP_CSUM));
-+			    src_port, dst_port, xnet, nocheck);
+@@ -1847,6 +1847,27 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
  	return 0;
  }
  
-@@ -1959,6 +1959,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	__u8 tos, ttl;
- 	int err;
- 	u32 flags = vxlan->flags;
-+	bool udp_sum = false;
++static struct rtable *vxlan_get_route(struct vxlan_dev *vxlan,
++				      struct sk_buff *skb, int oif, u8 tos,
++				      __be32 daddr, __be32 *saddr)
++{
++	struct rtable *rt = NULL;
++	struct flowi4 fl4;
++
++	memset(&fl4, 0, sizeof(fl4));
++	fl4.flowi4_oif = oif;
++	fl4.flowi4_tos = RT_TOS(tos);
++	fl4.flowi4_mark = skb->mark;
++	fl4.flowi4_proto = IPPROTO_UDP;
++	fl4.daddr = daddr;
++	fl4.saddr = vxlan->cfg.saddr.sin.sin_addr.s_addr;
++
++	rt = ip_route_output_key(vxlan->net, &fl4);
++	if (!IS_ERR(rt))
++		*saddr = fl4.saddr;
++	return rt;
++}
++
+ #if IS_ENABLED(CONFIG_IPV6)
+ static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
+ 					  struct sk_buff *skb, int oif,
+@@ -1928,7 +1949,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	struct sock *sk;
+ 	struct rtable *rt = NULL;
+ 	const struct iphdr *old_iph;
+-	struct flowi4 fl4;
+ 	union vxlan_addr *dst;
+ 	union vxlan_addr remote_ip;
+ 	struct vxlan_metadata _md;
+@@ -1995,6 +2015,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	}
  
- 	info = skb_tunnel_info(skb);
- 
-@@ -2007,6 +2008,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	if (info) {
- 		ttl = info->key.ttl;
- 		tos = info->key.tos;
-+		udp_sum = !!(info->key.tun_flags & TUNNEL_CSUM);
- 
- 		if (info->options_len)
- 			md = ip_tunnel_info_opts(info);
-@@ -2024,11 +2026,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 		if (info) {
- 			if (info->key.tun_flags & TUNNEL_DONT_FRAGMENT)
- 				df = htons(IP_DF);
--
--			if (info->key.tun_flags & TUNNEL_CSUM)
--				flags |= VXLAN_F_UDP_CSUM;
--			else
--				flags &= ~VXLAN_F_UDP_CSUM;
-+		} else {
-+			udp_sum = !!(flags & VXLAN_F_UDP_CSUM);
+ 	if (dst->sa.sa_family == AF_INET) {
++		__be32 saddr;
++
+ 		if (!vxlan->vn4_sock)
+ 			goto drop;
+ 		sk = vxlan->vn4_sock->sock->sk;
+@@ -2009,15 +2031,9 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 				flags &= ~VXLAN_F_UDP_CSUM;
  		}
  
- 		rt = vxlan_get_route(vxlan, skb,
-@@ -2069,7 +2068,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+-		memset(&fl4, 0, sizeof(fl4));
+-		fl4.flowi4_oif = rdst ? rdst->remote_ifindex : 0;
+-		fl4.flowi4_tos = RT_TOS(tos);
+-		fl4.flowi4_mark = skb->mark;
+-		fl4.flowi4_proto = IPPROTO_UDP;
+-		fl4.daddr = dst->sin.sin_addr.s_addr;
+-		fl4.saddr = vxlan->cfg.saddr.sin.sin_addr.s_addr;
+-
+-		rt = ip_route_output_key(vxlan->net, &fl4);
++		rt = vxlan_get_route(vxlan, skb,
++				     rdst ? rdst->remote_ifindex : 0, tos,
++				     dst->sin.sin_addr.s_addr, &saddr);
+ 		if (IS_ERR(rt)) {
+ 			netdev_dbg(dev, "no route to %pI4\n",
+ 				   &dst->sin.sin_addr.s_addr);
+@@ -2049,7 +2065,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 
+ 		tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
+ 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
+-		err = vxlan_xmit_skb(rt, sk, skb, fl4.saddr,
++		err = vxlan_xmit_skb(rt, sk, skb, saddr,
  				     dst->sin.sin_addr.s_addr, tos, ttl, df,
  				     src_port, dst_port, htonl(vni << 8), md,
  				     !net_eq(vxlan->net, dev_net(vxlan->dev)),
--				     flags);
-+				     flags, udp_sum);
- 		if (err < 0) {
- 			/* skb is already freed. */
- 			skb = NULL;
-@@ -2119,18 +2118,14 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			return;
- 		}
+@@ -2390,31 +2406,6 @@ static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
+ 	return 0;
+ }
  
--		if (info) {
--			if (info->key.tun_flags & TUNNEL_CSUM)
--				flags &= ~VXLAN_F_UDP_ZERO_CSUM6_TX;
--			else
--				flags |= VXLAN_F_UDP_ZERO_CSUM6_TX;
--		}
-+		if (!info)
-+			udp_sum = !(flags & VXLAN_F_UDP_ZERO_CSUM6_TX);
+-static int egress_ipv4_tun_info(struct net_device *dev, struct sk_buff *skb,
+-				struct ip_tunnel_info *info,
+-				__be16 sport, __be16 dport)
+-{
+-	struct vxlan_dev *vxlan = netdev_priv(dev);
+-	struct rtable *rt;
+-	struct flowi4 fl4;
+-
+-	memset(&fl4, 0, sizeof(fl4));
+-	fl4.flowi4_tos = RT_TOS(info->key.tos);
+-	fl4.flowi4_mark = skb->mark;
+-	fl4.flowi4_proto = IPPROTO_UDP;
+-	fl4.daddr = info->key.u.ipv4.dst;
+-
+-	rt = ip_route_output_key(vxlan->net, &fl4);
+-	if (IS_ERR(rt))
+-		return PTR_ERR(rt);
+-	ip_rt_put(rt);
+-
+-	info->key.u.ipv4.src = fl4.saddr;
+-	info->key.tp_src = sport;
+-	info->key.tp_dst = dport;
+-	return 0;
+-}
+-
+ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
+ {
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+@@ -2426,9 +2417,16 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
+ 	dport = info->key.tp_dst ? : vxlan->cfg.dst_port;
  
- 		ttl = ttl ? : ip6_dst_hoplimit(ndst);
- 		err = vxlan6_xmit_skb(ndst, sk, skb, dev, &saddr, &dst->sin6.sin6_addr,
- 				      0, ttl, src_port, dst_port, htonl(vni << 8), md,
- 				      !net_eq(vxlan->net, dev_net(vxlan->dev)),
--				      flags);
-+				      flags, udp_sum);
+ 	if (ip_tunnel_info_af(info) == AF_INET) {
++		struct rtable *rt;
++
+ 		if (!vxlan->vn4_sock)
+ 			return -EINVAL;
+-		return egress_ipv4_tun_info(dev, skb, info, sport, dport);
++		rt = vxlan_get_route(vxlan, skb, 0, info->key.tos,
++				     info->key.u.ipv4.dst,
++				     &info->key.u.ipv4.src);
++		if (IS_ERR(rt))
++			return PTR_ERR(rt);
++		ip_rt_put(rt);
+ 	} else {
+ #if IS_ENABLED(CONFIG_IPV6)
+ 		struct dst_entry *ndst;
+@@ -2441,13 +2439,12 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
+ 		if (IS_ERR(ndst))
+ 			return PTR_ERR(ndst);
+ 		dst_release(ndst);
+-
+-		info->key.tp_src = sport;
+-		info->key.tp_dst = dport;
+ #else /* !CONFIG_IPV6 */
+ 		return -EPFNOSUPPORT;
  #endif
  	}
++	info->key.tp_src = sport;
++	info->key.tp_dst = dport;
+ 	return 0;
+ }
  
 -- 
 1.8.3.1
