@@ -1,14 +1,16 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v2 00/10] tipc: cleanups,
-	fixes & improvements for topology server
-Date: Tue, 2 Feb 2016 10:52:07 +0100
-Message-ID: <1454406737-5806-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v2 01/10] tipc: remove incorrect
+	check for subscription timeout value
+Date: Tue, 2 Feb 2016 10:52:08 +0100
+Message-ID: <1454406737-5806-2-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+References: <1454406737-5806-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
 Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1454406737-5806-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
@@ -19,40 +21,39 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This series contains topology server cleanups, fixes and improvements.
+Until now, during subscription creation we set sub->timeout by
+converting the timeout request value in milliseconds to jiffies.
+This is followed by setting the timeout value in the timer if
+sub->timeout != TIPC_WAIT_FOREVER.
 
-Cleanups in #1-#4:
-We remove duplicate data structures and aligin the rest of the code accordingly.
+For a subscription create request with a timeout value of
+TIPC_WAIT_FOREVER, msecs_to_jiffies(TIPC_WAIT_FOREVER)
+returns MAX_JIFFY_OFFSET (0xfffffffe). This is not equal to
+TIPC_WAIT_FOREVER (0xffffffff).
 
-Fixes in #5-#8:
-The bugs occur either during configuration or while running on SMP targets,
-which are race conditions that pop up under different situations.
+In this commit, we remove this check.
 
-Improvements in #9-#10:
-Updates to decrease timer usage and improve readability.
+Acked-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+---
+ net/tipc/subscr.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-v2: Updated commit message in patch 6 based on feedback from
-    Sergei Shtylyov sergei.shtylyov@cogentembedded.com
-
-Parthasarathy Bhuvaragan (10):
-  tipc: remove incorrect check for subscription timeout value
-  tipc: remove filter and timeout elements from struct tipc_subscription
-  tipc: remove struct tipc_name_seq from struct tipc_subscription
-  tipc: introduce tipc_subscrb_subscribe() routine
-  tipc: fix connection abort during subscription cancellation
-  tipc: fix connection abort when receiving invalid cancel request
-  tipc: hold subscriber->lock for tipc_nametbl_subscribe()
-  tipc: protect tipc_subscrb_get() with subscriber spin lock
-  tipc: donot create timers if subscription timeout = TIPC_WAIT_FOREVER
-  tipc: use alloc_ordered_workqueue() instead of WQ_UNBOUND w/
-    max_active = 1
-
- net/tipc/name_table.c |  14 ++++--
- net/tipc/server.c     |   4 +-
- net/tipc/subscr.c     | 131 ++++++++++++++++++++++++++++++--------------------
- net/tipc/subscr.h     |  11 ++---
- 4 files changed, 96 insertions(+), 64 deletions(-)
-
+diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+index 350cca33ee0a..991ac81b3920 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -270,8 +270,7 @@ static int tipc_subscrp_create(struct net *net, struct tipc_subscr *s,
+ 	memcpy(&sub->evt.s, s, sizeof(*s));
+ 	atomic_inc(&tn->subscription_count);
+ 	setup_timer(&sub->timer, tipc_subscrp_timeout, (unsigned long)sub);
+-	if (sub->timeout != TIPC_WAIT_FOREVER)
+-		sub->timeout += jiffies;
++	sub->timeout += jiffies;
+ 	if (!mod_timer(&sub->timer, sub->timeout))
+ 		tipc_subscrb_get(subscriber);
+ 	*sub_p = sub;
 -- 
 2.1.4
 
