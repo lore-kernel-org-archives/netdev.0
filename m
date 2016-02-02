@@ -1,26 +1,29 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next 0/2] sunvnet: perf tracepoint hooks
-Date: Tue,  2 Feb 2016 10:41:54 -0800
-Message-ID: <cover.1454416592.git.sowmini.varadhan@oracle.com>
-Cc: davem@davemloft.net, sowmini.varadhan@oracle.com,
-	david.stevens@oracle.com, aaron.young@oracle.com
-To: netdev@vger.kernel.org
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next 0/2] IPv6 NFC
+Date: Tue, 2 Feb 2016 18:47:04 +0000
+Message-ID: <56B0F9A8.7010202@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+	Ben Hutchings <ben@decadent.org.uk>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:30397 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753251AbcBBSmh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 13:42:37 -0500
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:2568 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755898AbcBBSrO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 13:47:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added some perf tracepoints to help track and debug sunvnet 
-descriptor state at run-time.
+This series adds support for steering IPv6 flows using the ethtool NFC
+ interface, and implements it for sfc devices.
+Tested using an in-development patch to the ethtool utility.
 
-Sowmini Varadhan (2):
-  sunvnet: Add support for perf LDC event tracing
-  sunvnet: perf tracepoint invocations to trace LDC state machine
+Edward Cree (2):
+  ethtool: add IPv6 to the NFC API
+  sfc: implement IPv6 NFC (and IPV4_USER_FLOW)
 
- drivers/net/ethernet/sun/sunvnet.c |   24 ++++++-
- include/trace/events/sunvnet.h     |  139 ++++++++++++++++++++++++++++++++++++
- 2 files changed, 161 insertions(+), 2 deletions(-)
- create mode 100644 include/trace/events/sunvnet.h
+ drivers/net/ethernet/sfc/ethtool.c | 176 +++++++++++++++++++++++++++++++++++++
+ include/uapi/linux/ethtool.h       |  70 +++++++++++++--
+ 2 files changed, 240 insertions(+), 6 deletions(-)
