@@ -1,52 +1,167 @@
-From: Nicholas Krause <xerofoify@gmail.com>
-Subject: [PATCH RESEND] bridge:Fix concurrent access issue in the
-	function brnf_get_logical_dev
-Date: Mon,  1 Feb 2016 22:19:33 -0500
-Message-ID: <1454383173-9560-1-git-send-email-xerofoify@gmail.com>
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kaber@trash.net,
-	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
-	kadlec@blackhole.kfki.hu, davem@davemloft.net
-To: pablo@netfilter.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net] net: Allow flow dissector to handle non 4-byte
+ aligned headers
+Date: Mon, 1 Feb 2016 19:56:44 -0800
+Message-ID: <CAKgT0UfjLEBUeiV3WS2BC=yRkxi9JBF4mqJ=niXOUQnhkiMhvA@mail.gmail.com>
+References: <1454276221-3543907-1-git-send-email-tom@herbertland.com>
+	<20160202003127.GA25154@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <tom@herbertland.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:33774 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751705AbcBBD4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 22:56:45 -0500
+Received: by mail-ig0-f178.google.com with SMTP id z14so51963856igp.0
+        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 19:56:45 -0800 (PST)
+In-Reply-To: <20160202003127.GA25154@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fixes a concurrent access issue in the function brnf_get_logical_dev
-by properly locking with the function rcu_read_lock before calling the
-function vlan_find_dev_deep_rcu and unlocking after this function call
-as all callers of this function are required to do this in order to
-improve issues with concurrent access by other threads executing
-on this data structures simultaneously.
+On Mon, Feb 1, 2016 at 4:31 PM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> On (01/31/16 13:37), Tom Herbert wrote:
+>>
+>> Call get_unaligned_be32 when we access 32-bit fields in
+>> __skb_flow_dissect. At the beginning check for unlikely case of
+>> 1-byte aligned packet.
+>>
+>> Note that flow_dissector may be asked to parse packet unaligned
+>> fields in two instances:
+>
+> I tested this out with the following setup (hostnames in quotes,
+> network connectivity in the line above)
+>
+>                                       gre-tunnel
+>      (eth1) --- (eth1)      (eth0) ... {routed} ...  (eth0)
+>    "sparc44"         "sparc45"                      "x86-1"
+>
+>
+> eth1 connections are point-to-point ethernets.
+> The GRE tunnel is configured with some non-zero gre key.
+>
+> So sparc45 bridges sparc44 to x86-1 and has
+>
+>   sparc45# brctl show br0
+>   bridge name     bridge id               STP enabled     interfaces
+>   br0             8000.0010e0570711       no              eth1
+>                                                           gretap2
+>
+>
+> I tried various pings etc across the nodes, and made sure that
+> (excluding the mpls change)  all of the changes in Tom's patch
+> worked fine. To do this, I had to enable rps and disable rxhash/ntuple
+> in my intel driver.
+>
+> And then I noticed that the iph->saddr access does indeed result in
+> an unaligned access (because this time it gets called with
 
-Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
----
- net/bridge/br_netfilter_hooks.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+This part isn't surprising.  Pretty much anything that has an access
+width greater than 16 bits will be unaligned.
 
-diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
-index c8b9bcf..73c84a8 100644
---- a/net/bridge/br_netfilter_hooks.c
-+++ b/net/bridge/br_netfilter_hooks.c
-@@ -428,9 +428,10 @@ static struct net_device *brnf_get_logical_dev(struct sk_buff *skb, const struct
- 	if (brnf_pass_vlan_indev == 0 || !skb_vlan_tag_present(skb))
- 		return br;
- 
-+	rcu_read_lock();
- 	vlan = __vlan_find_dev_deep_rcu(br, skb->vlan_proto,
- 				    skb_vlan_tag_get(skb) & VLAN_VID_MASK);
--
-+	rcu_read_unlock();
- 	return vlan ? vlan : br;
- }
- 
--- 
-2.1.4
+> flow_keys_dissector). The other thing that generated unaligned access
+> was the attempt to do this
+>                if (proto == htons(ETH_P_TEB)) {
+>                         :
+>                         eth = __skb_header_pointer(skb, nhoff,
+>                                                    sizeof(_eth),
+>                                                    data, hlen, &_eth);
+>                         :
+>                         proto = eth->h_proto;
+>                 }
+> which I fixed thus:
+>
+> @@ -394,7 +407,7 @@ ip_proto_again:
+>                                                    data, hlen, &_eth);
+>                         if (!eth)
+>                                 goto out_bad;
+> -                       proto = eth->h_proto;
+> +                       proto = get_unaligned_be16(&eth->h_proto);
+>                         nhoff += sizeof(*eth);
+>                 }
+
+This piece doesn't make any sense to me.  It is already only 2 bytes
+wide.  I'm not sure why we should be seeing this trigger an unaligned
+access.  Are you sure it wasn't something like the keyid causing the
+issue?  I'd be interested in seeing what the compiler did here that it
+is triggering the problem.
+
+> Having said all this, the larger problem remains:
+>
+> There are a number of unaligned access on the xmit path, I've listed
+> a few below. A lot of it is coming of gre_tap_xmit not setting up
+> offsets properly, but there are others.
+>
+> In general, since the actual path taken by the packet (i.e.,
+> what driver gets to process this next, what types/sizes of headers
+> will get added, etc) is determined dynamically, it's not enough to just
+> do a one-time skb_reserve (or page_offset) for NET_IP_ALIGN.
+
+Right.  As long as the headers are linked we are in a bad spot on this
+issue since it forces either the inner or outer headers to be
+unaligned.
+
+> Kernel unaligned access at TPC[9150dc] ipv4_neigh_lookup+0x38/0x170
+> CPU: 3 PID: 0 Comm: swapper/3 Tainted: G            E   4.4.0-dissect+ #19
+> Call Trace:
+>  [0000000000432f4c] kernel_unaligned_trap+0xfc/0x5ac
+>  [0000000000427ef8] sun4v_do_mna+0x58/0x9c
+>  [0000000000406d30] sun4v_mna+0x5c/0x68
+>  [00000000009150dc] ipv4_neigh_lookup+0x38/0x170
+>  [00000000008ead10] neigh_update+0x450/0x5cc
+>  [00000000008eb8b8] neigh_event_ns+0x84/0x94
+>  [00000000009518f8] arp_process+0x470/0x854
+>  [0000000000951e78] arp_rcv+0x19c/0x1dc
+>  [00000000008d647c] __netif_receive_skb_core+0xa24/0xa58
+>  [00000000008d6510] __netif_receive_skb+0x60/0x74
+>  [00000000008d65dc] process_backlog+0xb8/0x168
+>  [00000000008dc9f8] napi_poll+0x74/0x1c8
+>  [00000000008dcc20] net_rx_action+0xd4/0x1d4
+>  [00000000004633a4] __do_softirq+0x11c/0x28c
+>  [000000000042abb0] do_softirq_own_stack+0x34/0x48
+>  [0000000000463050] irq_exit+0x48/0x60
+>
+>
+> Kernel unaligned access at TPC[103e720c] build_header+0x64/0xc4 [ip_gre]
+> CPU: 44 PID: 0 Comm: swapper/44 Tainted: G            E   4.4.0-dissect+ #19
+> Call Trace:
+>  [0000000000432f4c] kernel_unaligned_trap+0xfc/0x5ac
+>  [0000000000427ef8] sun4v_do_mna+0x58/0x9c
+>  [0000000000406d30] sun4v_mna+0x5c/0x68
+>  [00000000103e720c] build_header+0x64/0xc4 [ip_gre]
+>  [00000000103e76a4] __gre_xmit+0x40/0x7c [ip_gre]
+>  [00000000103e79e8] gre_tap_xmit+0xfc/0x12c [ip_gre]
+>  [00000000008de6dc] dev_hard_start_xmit+0x304/0x3ec
+>  [0000000000904d30] sch_direct_xmit+0x74/0x1dc
+>  [00000000008df1a8] __dev_queue_xmit+0x568/0x7e8
+>  [00000000008df45c] dev_queue_xmit+0x10/0x24
+>  [0000000010207654] ip6_finish_output2+0x5b4/0x6b0 [ipv6]
+>  [0000000010207954] ip6_finish_output+0x204/0x218 [ipv6]
+>  [0000000010207afc] ip6_output+0x194/0x1a8 [ipv6]
+>  [000000001021f97c] ndisc_send_skb+0x390/0x438 [ipv6]
+>  [000000001021ff14] ndisc_send_rs+0xe0/0xfc [ipv6]
+>  [000000001020b190] addrconf_rs_timer+0xc4/0x124 [ipv6]
+>
+>
+> Kernel unaligned access at TPC[969ee0] iptunnel_xmit+0xcc/0x1c0
+> CPU: 0 PID: 0 Comm: swapper/0 Tainted: G            E   4.4.0-dissect+ #19
+> Call Trace:
+>  [0000000000432f4c] kernel_unaligned_trap+0xfc/0x5ac
+>  [0000000000427ef8] sun4v_do_mna+0x58/0x9c
+>  [0000000000406d30] sun4v_mna+0x5c/0x68
+>  [0000000000969ee0] iptunnel_xmit+0xcc/0x1c0
+>  [00000000103dc9dc] ip_tunnel_xmit+0xb78/0xc2c [ip_tunnel]
+>  [00000000103e76d0] __gre_xmit+0x6c/0x7c [ip_gre]
+>  [00000000103e79e8] gre_tap_xmit+0xfc/0x12c [ip_gre]
+>  [00000000008de6dc] dev_hard_start_xmit+0x304/0x3ec
+>  [0000000000904d30] sch_direct_xmit+0x74/0x1dc
+>  [00000000008df1a8] __dev_queue_xmit+0x568/0x7e8
+>  [00000000008df45c] dev_queue_xmit+0x10/0x24
+>  [00000000104034b8] br_dev_queue_push_xmit+0x1d8/0x1fc [bridge]
+>  [000000001040355c] br_forward_finish+0x80/0x94 [bridge]
+>  [0000000010403684] __br_forward+0x114/0x124 [bridge]
+>  [0000000010403700] br_forward+0x6c/0x94 [bridge]
