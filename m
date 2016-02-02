@@ -1,69 +1,62 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next 1/5] vxlan: cleanup types
-Date: Tue,  2 Feb 2016 11:13:21 +0100
-Message-ID: <c0cc647aab6b7439143c7364ecebb974e40764f1.1454407418.git.jbenc@redhat.com>
-References: <cover.1454407418.git.jbenc@redhat.com>
-To: netdev@vger.kernel.org
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: [PATCH net-next 0/6] net/intel: call ndo_stop() instead of dev_close() when running offline selftest
+Date: Tue,  2 Feb 2016 11:13:42 +0100
+Message-ID: <1454408028-16986-1-git-send-email-sassmann@kpanic.de>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, sassmann@kpanic.de
+To: intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37227 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44274 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754443AbcBBKNv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 05:13:51 -0500
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (Postfix) with ESMTPS id 0BFC6804FE
-	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 10:13:51 +0000 (UTC)
-Received: from griffin.localdomain (ovpn-204-27.brq.redhat.com [10.40.204.27])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u12ADmYf027928
-	for <netdev@vger.kernel.org>; Tue, 2 Feb 2016 05:13:50 -0500
-In-Reply-To: <cover.1454407418.git.jbenc@redhat.com>
+	id S1754507AbcBBKQW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 05:16:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-include/net/vxlan.h is a kernel header, no need to prefix fixed size types
-with double underscore.
+Calling dev_close() causes IFF_UP to be cleared which will remove the
+interfaces routes and some addresses. That's probably not what the user
+intended when running the offline selftest. Besides this does not happen
+if the interface is brought down before the test, so the current
+behaviour is inconsistent.
+Instead call the net_device_ops ndo_stop function directly and avoid
+touching IFF_UP at all.
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- include/net/vxlan.h | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+Tested this with igb, e1000e, ixgbe and i40e. All drivers now are able to
+resume operation without restoring the IP address, gateway or such.
 
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 0fb86442544b..5c64250619c5 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -30,15 +30,15 @@
-  * [0] https://tools.ietf.org/html/draft-smith-vxlan-group-policy
-  */
- struct vxlanhdr_gbp {
--	__u8	vx_flags;
-+	u8	vx_flags;
- #ifdef __LITTLE_ENDIAN_BITFIELD
--	__u8	reserved_flags1:3,
-+	u8	reserved_flags1:3,
- 		policy_applied:1,
- 		reserved_flags2:2,
- 		dont_learn:1,
- 		reserved_flags3:1;
- #elif defined(__BIG_ENDIAN_BITFIELD)
--	__u8	reserved_flags1:1,
-+	u8	reserved_flags1:1,
- 		dont_learn:1,
- 		reserved_flags2:2,
- 		policy_applied:1,
-@@ -138,10 +138,10 @@ struct vxlan_config {
- 	int			remote_ifindex;
- 	int			mtu;
- 	__be16			dst_port;
--	__u16			port_min;
--	__u16			port_max;
--	__u8			tos;
--	__u8			ttl;
-+	u16			port_min;
-+	u16			port_max;
-+	u8			tos;
-+	u8			ttl;
- 	u32			flags;
- 	unsigned long		age_interval;
- 	unsigned int		addrmax;
+Stefan Assmann (6):
+  i40e: call ndo_stop() instead of dev_close() when running offline
+    selftest
+  ixgbe: call ndo_stop() instead of dev_close() when running offline
+    selftest
+  ixgbevf: call ndo_stop() instead of dev_close() when running offline
+    selftest
+  igb: call ndo_stop() instead of dev_close() when running offline
+    selftest
+  e1000: call ndo_stop() instead of dev_close() when running offline
+    selftest
+  e1000e: call ndo_stop() instead of dev_close() when running offline
+    selftest
+
+ drivers/net/ethernet/intel/e1000/e1000.h          | 2 ++
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c  | 4 ++--
+ drivers/net/ethernet/intel/e1000/e1000_main.c     | 8 ++++----
+ drivers/net/ethernet/intel/e1000e/e1000.h         | 2 ++
+ drivers/net/ethernet/intel/e1000e/ethtool.c       | 4 ++--
+ drivers/net/ethernet/intel/e1000e/netdev.c        | 4 ++--
+ drivers/net/ethernet/intel/i40e/i40e.h            | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c    | 4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_main.c       | 4 ----
+ drivers/net/ethernet/intel/igb/igb.h              | 2 ++
+ drivers/net/ethernet/intel/igb/igb_ethtool.c      | 4 ++--
+ drivers/net/ethernet/intel/igb/igb_main.c         | 8 ++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          | 2 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  | 4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 4 ++--
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      | 4 ++--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      | 2 ++
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 4 ++--
+ 18 files changed, 37 insertions(+), 31 deletions(-)
+
 -- 
-1.8.3.1
+2.5.0
