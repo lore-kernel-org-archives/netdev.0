@@ -1,44 +1,51 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 5/5] vxlan: consolidate vxlan_xmit_skb and
- vxlan6_xmit_skb
-Date: Tue, 2 Feb 2016 16:06:21 +0100
-Message-ID: <20160202160621.086e710c@griffin>
-References: <cover.1454407418.git.jbenc@redhat.com>
-	<0fb02d1526b8f5f602f78536d261713edee9b4ef.1454407418.git.jbenc@redhat.com>
-	<1454425043.5523.21.camel@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Paolo Abeni <pabeni@redhat.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net V1 0/3] mlx5 driver fixes for 4.5-rc2
+Date: Tue,  2 Feb 2016 17:26:18 +0200
+Message-ID: <1454426781-7128-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46801 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754868AbcBBPGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 10:06:25 -0500
-Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
-	by mx1.redhat.com (Postfix) with ESMTPS id D52F93B51EA
-	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 15:06:24 +0000 (UTC)
-In-Reply-To: <1454425043.5523.21.camel@redhat.com>
+Received: from [193.47.165.129] ([193.47.165.129]:58024 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932763AbcBBP0u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 10:26:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 02 Feb 2016 15:57:23 +0100, Paolo Abeni wrote:
-> I think there is an issue here: in vxlan_build_skb(), 'flags' will be
-> always tested against VXLAN_F_UDP_CSUM, but when tunneling over ipv6 we
-> should check VXLAN_F_UDP_ZERO_CSUM6_TX instead. 
+Hi Dave,
 
-You're correct. This IPv4/v6 flags schism is a source of constant pain.
-Thanks for noticing it.
+Saeed fixed the case where VFs probed to the host shared the PF 
+ndo_set_vf_yyy NDOs which is wrong, now along the lines of 
+what you were asking.
 
-> Probably an explicit 'udp_sum' argument should be added to
-> vxlan_build_skb().
+We added here a patch from Matan and Alaa for addressing Linus comments on 
+the mess w.r.t reserved field names in the driver/firmware auto-generated file. 
 
-Yes, I'm already working on a patch and will resubmit the set.
+Once the patch hits linus tree, we'll ask Doug to rebase his tree on that 
+rc so both net-next and rdma-next development for 4.6 will be done under 
+the fixed robust form. 
 
-Thanks,
+Or.
 
- Jiri
+changes from V0:
+ - dropped Amir's patch, as the team considers some refactoring there
+ - added const for the netdev ops struct, asked by Dave
+ - modified the patch for treating correctly SRIOV NDOs
+ - added patch to address the reserved field names in the IFC file
+
+Matan Barak (1):
+  net/mlx5: Use offset based reserved field names in the IFC header file
+
+Saeed Mahameed (2):
+  net/mlx5e: Remove select queue ndo initialization
+  net/mlx5e: Use static constant netdevice ndos
+
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   44 +-
+ include/linux/mlx5/mlx5_ifc.h                     | 2956 ++++++++++-----------
+ 2 files changed, 1506 insertions(+), 1494 deletions(-)
 
 -- 
-Jiri Benc
+2.3.7
