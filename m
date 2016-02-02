@@ -1,88 +1,108 @@
-From: phil.turnbull@oracle.com
-Subject: [PATCH nf] netfilter: nfnetlink: correctly validate length of batch messages
-Date: Tue,  2 Feb 2016 13:36:45 -0500
-Message-ID: <1454438205-13147-1-git-send-email-phil.turnbull@oracle.com>
-Cc: Phil Turnbull <phil.turnbull@oracle.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	coreteam@netfilter.org (open list:NETFILTER ({IP,IP6,ARP,EB,NF}TABLES)),
-	netdev@vger.kernel.org (open list:NETWORKING [GENERAL]),
-	linux-kernel@vger.kernel.org (open list)
-To: netfilter-devel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next 2/2] sunvnet: perf tracepoint invocations to trace LDC state machine
+Date: Tue,  2 Feb 2016 10:41:56 -0800
+Message-ID: <8234ebc9d20a7a42bb664d1db25913cb7c34dbfb.1454416592.git.sowmini.varadhan@oracle.com>
+References: <cover.1454416592.git.sowmini.varadhan@oracle.com>
+Cc: davem@davemloft.net, sowmini.varadhan@oracle.com,
+	david.stevens@oracle.com, aaron.young@oracle.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:30405 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754079AbcBBSmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 13:42:37 -0500
+In-Reply-To: <cover.1454416592.git.sowmini.varadhan@oracle.com>
+In-Reply-To: <cover.1454416592.git.sowmini.varadhan@oracle.com>
+References: <cover.1454416592.git.sowmini.varadhan@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Phil Turnbull <phil.turnbull@oracle.com>
+Use sunvnet perf trace macros to monitor LDC message exchange state.
 
-If nlh->nlmsg_len is zero then an infinite loop is triggered because
-'skb_pull(skb, msglen);' pulls zero bytes.
-
-The calculation in nlmsg_len() underflows if 'nlh->nlmsg_len <
-NLMSG_HDRLEN' which bypasses the length validation and will later
-trigger an out-of-bound read.
-
-If the length validation does fail then the malformed batch message is
-copied back to userspace. However, we cannot do this because the
-nlh->nlmsg_len can be invalid. This leads to an out-of-bounds read in
-netlink_ack:
-
-    [   41.455421] ==================================================================
-    [   41.456431] BUG: KASAN: slab-out-of-bounds in memcpy+0x1d/0x40 at addr ffff880119e79340
-    [   41.456431] Read of size 4294967280 by task a.out/987
-    [   41.456431] =============================================================================
-    [   41.456431] BUG kmalloc-512 (Not tainted): kasan: bad access detected
-    [   41.456431] -----------------------------------------------------------------------------
-    ...
-    [   41.456431] Bytes b4 ffff880119e79310: 00 00 00 00 d5 03 00 00 b0 fb fe ff 00 00 00 00  ................
-    [   41.456431] Object ffff880119e79320: 20 00 00 00 10 00 05 00 00 00 00 00 00 00 00 00   ...............
-    [   41.456431] Object ffff880119e79330: 14 00 0a 00 01 03 fc 40 45 56 11 22 33 10 00 05  .......@EV."3...
-    [   41.456431] Object ffff880119e79340: f0 ff ff ff 88 99 aa bb 00 14 00 0a 00 06 fe fb  ................
-                                            ^^ start of batch nlmsg with
-                                               nlmsg_len=4294967280
-    ...
-    [   41.456431] Memory state around the buggy address:
-    [   41.456431]  ffff880119e79400: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-    [   41.456431]  ffff880119e79480: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-    [   41.456431] >ffff880119e79500: 00 00 00 00 fc fc fc fc fc fc fc fc fc fc fc fc
-    [   41.456431]                                ^
-    [   41.456431]  ffff880119e79580: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-    [   41.456431]  ffff880119e79600: fc fc fc fc fc fc fc fc fc fc fb fb fb fb fb fb
-    [   41.456431] ==================================================================
-
-Fix this with better validation of nlh->nlmsg_len and by setting
-NFNL_BATCH_FAILURE if any batch message fails length validation.
-
-CAP_NET_ADMIN is required to trigger the bugs.
-
-Fixes: 9ea2aa8b7dba ("netfilter: nfnetlink: validate nfnetlink header from batch")
-Signed-off-by: Phil Turnbull <phil.turnbull@oracle.com>
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 ---
- net/netfilter/nfnetlink.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/sun/sunvnet.c |   24 ++++++++++++++++++++++--
+ 1 files changed, 22 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
-index 62e92af..857ae89 100644
---- a/net/netfilter/nfnetlink.c
-+++ b/net/netfilter/nfnetlink.c
-@@ -328,10 +328,12 @@ replay:
- 		nlh = nlmsg_hdr(skb);
- 		err = 0;
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 23fa298..942a95d 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -17,6 +17,8 @@
+ #include <linux/mutex.h>
+ #include <linux/highmem.h>
+ #include <linux/if_vlan.h>
++#define CREATE_TRACE_POINTS
++#include <trace/events/sunvnet.h>
  
--		if (nlmsg_len(nlh) < sizeof(struct nfgenmsg) ||
--		    skb->len < nlh->nlmsg_len) {
--			err = -EINVAL;
--			goto ack;
-+		if (nlh->nlmsg_len < NLMSG_HDRLEN ||
-+		    skb->len < nlh->nlmsg_len ||
-+		    nlmsg_len(nlh) < sizeof(struct nfgenmsg)) {
-+			nfnl_err_reset(&err_list);
-+			status |= NFNL_BATCH_FAILURE;
-+			goto done;
- 		}
+ #if IS_ENABLED(CONFIG_IPV6)
+ #include <linux/icmpv6.h>
+@@ -540,6 +542,8 @@ static int vnet_walk_rx_one(struct vnet_port *port,
+ 	err = vnet_rx_one(port, desc);
+ 	if (err == -ECONNRESET)
+ 		return err;
++	trace_vnet_rx_one(port->vio._local_sid, port->vio._peer_sid,
++			  index, desc->hdr.ack);
+ 	desc->hdr.state = VIO_DESC_DONE;
+ 	err = put_rx_desc(port, dr, desc, index);
+ 	if (err < 0)
+@@ -587,9 +591,15 @@ static int vnet_walk_rx(struct vnet_port *port, struct vio_dring_state *dr,
+ 		ack_start = ack_end = vio_dring_prev(dr, start);
+ 	if (send_ack) {
+ 		port->napi_resume = false;
++		trace_vnet_tx_send_stopped_ack(port->vio._local_sid,
++					       port->vio._peer_sid,
++					       ack_end, *npkts);
+ 		return vnet_send_ack(port, dr, ack_start, ack_end,
+ 				     VIO_DRING_STOPPED);
+ 	} else  {
++		trace_vnet_tx_defer_stopped_ack(port->vio._local_sid,
++						port->vio._peer_sid,
++						ack_end, *npkts);
+ 		port->napi_resume = true;
+ 		port->napi_stop_idx = ack_end;
+ 		return 1;
+@@ -663,6 +673,8 @@ static int vnet_ack(struct vnet_port *port, void *msgbuf)
+ 	/* sync for race conditions with vnet_start_xmit() and tell xmit it
+ 	 * is time to send a trigger.
+ 	 */
++	trace_vnet_rx_stopped_ack(port->vio._local_sid,
++				  port->vio._peer_sid, end);
+ 	dr->cons = vio_dring_next(dr, end);
+ 	desc = vio_dring_entry(dr, dr->cons);
+ 	if (desc->hdr.state == VIO_DESC_READY && !port->start_cons) {
+@@ -886,6 +898,9 @@ static int __vnet_tx_trigger(struct vnet_port *port, u32 start)
+ 	int retries = 0;
  
- 		/* Only requests are handled by the kernel */
+ 	if (port->stop_rx) {
++		trace_vnet_tx_pending_stopped_ack(port->vio._local_sid,
++						  port->vio._peer_sid,
++						  port->stop_rx_idx, -1);
+ 		err = vnet_send_ack(port,
+ 				    &port->vio.drings[VIO_DRIVER_RX_RING],
+ 				    port->stop_rx_idx, -1,
+@@ -908,6 +923,8 @@ static int __vnet_tx_trigger(struct vnet_port *port, u32 start)
+ 		if (retries++ > VNET_MAX_RETRIES)
+ 			break;
+ 	} while (err == -EAGAIN);
++	trace_vnet_tx_trigger(port->vio._local_sid,
++			      port->vio._peer_sid, start, err);
+ 
+ 	return err;
+ }
+@@ -1414,8 +1431,11 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * producer to consumer announcement that work is available to the
+ 	 * consumer
+ 	 */
+-	if (!port->start_cons)
+-		goto ldc_start_done; /* previous trigger suffices */
++	if (!port->start_cons) { /* previous trigger suffices */
++		trace_vnet_skip_tx_trigger(port->vio._local_sid,
++					   port->vio._peer_sid, dr->cons);
++		goto ldc_start_done;
++	}
+ 
+ 	err = __vnet_tx_trigger(port, dr->cons);
+ 	if (unlikely(err < 0)) {
 -- 
-1.9.1
+1.7.1
