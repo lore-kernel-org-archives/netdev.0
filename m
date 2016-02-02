@@ -1,83 +1,167 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH 0/7] tc cls_u32 hardware interface
-Date: Tue, 02 Feb 2016 06:58:22 -0800
-Message-ID: <56B0C40E.8070205@gmail.com>
-References: <20160201014555.13871.56591.stgit@john-Precision-Tower-5810> <20160202114943.GA2191@nanopsycho.orion>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 2/2] virtio_net: add ethtool support for set
+ and get of settings
+Date: Tue, 2 Feb 2016 15:59:52 +0100
+Message-ID: <56B0C468.3070602@cumulusnetworks.com>
+References: <1454423620-2855-1-git-send-email-razor@blackwall.org>
+ <1454423620-2855-3-git-send-email-razor@blackwall.org>
+ <20160202163524-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: anjali.singhai@intel.com, jesse.brandeburg@intel.com,
-	jhs@mojatatu.com, ast@fb.com, donald.c.skidmore@intel.com,
-	horms@verge.net.au, netdev@vger.kernel.org, tgraf@suug.ch,
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	davem@davemloft.net
-To: Jiri Pirko <jiri@resnulli.us>
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Nikolay Aleksandrov <razor@blackwall.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:33150 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932377AbcBBO6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 09:58:37 -0500
-Received: by mail-pa0-f50.google.com with SMTP id cy9so100385630pac.0
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 06:58:37 -0800 (PST)
-In-Reply-To: <20160202114943.GA2191@nanopsycho.orion>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:33050 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932377AbcBBO7z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 09:59:55 -0500
+Received: by mail-wm0-f41.google.com with SMTP id l66so121010995wml.0
+        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 06:59:54 -0800 (PST)
+In-Reply-To: <20160202163524-mutt-send-email-mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-02 03:49 AM, Jiri Pirko wrote:
-> Mon, Feb 01, 2016 at 02:48:32AM CET, john.fastabend@gmail.com wrote:
->> I was waiting for net-next to open to submit this but it seems like
->> a good idea to get an RFC out there for folks to start looking over.
+On 02/02/2016 03:54 PM, Michael S. Tsirkin wrote:
+> On Tue, Feb 02, 2016 at 03:33:40PM +0100, Nikolay Aleksandrov wrote:
+>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 >>
->> This extends the setup_tc framework so it can support more than just
->> the mqprio offload and push other classifiers and qdiscs into the
->> hardware. The series here targets the u32 classifier and ixgbe
->> driver. I worked out the u32 classifier because it is protocol
->> oblivious and aligns with multiple hardware devices I have access
->> to. I did an initial implementation on ixgbe because (a) I have one
->> in my box (b) its a stable driver and (c) it is relatively simple
->> compared to the other devices I have here but still has enough
->> flexibility to exercise the features of cls_u32.
+>> This patch allows the user to set and retrieve speed and duplex of the
+>> virtio_net device via ethtool. Having this functionality is very helpful
+>> for simulating different environments and also enables the virtio_net
+>> device to participate in operations where proper speed and duplex are
+>> required (e.g. currently bonding lacp mode requires full duplex). Custom
+>> speed and duplex are not allowed, the user-supplied settings are validated
+>> before applying.
 >>
->> I intentionally limited the scope of this series to the basic
->> feature set. Specifically this uses a 'big hammer' feature bit
->> to do the offload or not. If the bit is set you get offloaded rules
->> if it is not then rules will not be offloaded. If we can agree on
->> this patch series there are some more patches on my queue we can
->> talk about to make the offload decision per rule using flags similar
->> to how we do l2 mac updates. Additionally the error strategy can
->> be improved to be hard aborting, log and continue, etc. I think
->> these are nice to have improvements but shouldn't block this series.
->> I am working on similar support for the other Intel devices now
->> as well namely i40e and fm10k.
+>> Example:
+>> $ ethtool eth1
+>> Settings for eth1:
+>> ...
+>> 	Speed: Unknown!
+>> 	Duplex: Unknown! (255)
+>> $ ethtool -s eth1 speed 1000 duplex full
+>> $ ethtool eth1
+>> Settings for eth1:
+>> ...
+>> 	Speed: 1000Mb/s
+>> 	Duplex: Full
 >>
->> Also in the future work bin by adding get_parse_graph and
->> set_parse_graph attributes as in my previous flow_api work we
->> can build programmable devices and programmatically learn when
->> rules can or can not be loaded into the hardware.
+>> Based on a patch by Roopa Prabhu.
 >>
->> Note this series is on a slightly behind net-next stack I think it
->> should apply to the latest but I haven't updated the series for
->> awhile I'll do that soon I was sort of waiting for net-next to
->> open to do this.
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>> ---
+>> v2: use the new ethtool speed/duplex validation functions and allow half
+>> duplex to be set
 >>
->> Any comments/feedback appreciated.
+>>  drivers/net/virtio_net.c | 41 +++++++++++++++++++++++++++++++++++++++++
+>>  1 file changed, 41 insertions(+)
+>>
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index 767ab11a6e9f..88fdb162c5f5 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -146,6 +146,10 @@ struct virtnet_info {
+>>  	virtio_net_ctrl_ack ctrl_status;
+>>  	u8 ctrl_promisc;
+>>  	u8 ctrl_allmulti;
+>> +
+>> +	/* Ethtool settings */
+>> +	u8 duplex;
+>> +	u32 speed;
+>>  };
+>>  
+>>  struct padded_vnet_hdr {
+>> @@ -1376,6 +1380,39 @@ static void virtnet_get_channels(struct net_device *dev,
+>>  	channels->other_count = 0;
+>>  }
+>>  
+>> +static int virtnet_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+>> +{
+>> +	struct virtnet_info *vi = netdev_priv(dev);
 > 
-> I like this patchset. I gave it a quick peek and I it looks to me like
-> the correct way to go. There are couple of things needed to be decided
-
-Great.
-
-,
-> as you described them (e. g. per-rule offload) - we should discuss them
-> on netdev conference. I hope you will be there.
+> need an empty line here.
 > 
 
-I'll be at the conference so we can discuss it there. Although even
-without the per-rule flow this set is useful. Like I noted I view that
-as an optimization and its much more useful on a NIC where host traffic
-is the norm vs a switch where host traffic is most likely the exception.
+The next line is a local variable declaration, you want a new line between
+the two local variable declarations ?
 
-> I curious about how do you plan to expose the parse graphs get/set ops...
+>> +	u32 speed = ethtool_cmd_speed(cmd);
+>> +
+>> +	/* don't allow custom speed and duplex */
+>> +	if (!ethtool_validate_speed(speed) ||
+>> +	    !ethtool_validate_duplex(cmd->duplex))
+>> +		return -EINVAL;
+> 
+> There's a problem here: rest of the fields are ignored.
+> Here's one way to validate user doesn't attempt to set them:
+> 
 
-The current stack of patches I have on my dev box use a new netlink
-handler. ethtool could work as well but my preference is netlink in
-this case.
+Hmm, yes, they'll silently get ignored without an error. Good point,
+and I'll modify as necessary.
+
+Thanks!
+
+> 	struct ethtool_cmd diff1 = cmd;
+> 	struct ethtool_cmd diff2 = {};
+> 
+> 	ethtool_cmd_speed_set(&diff1, 0);
+> 	diff1.duplex = 0;
+> 
+> 	if (memcmp(&diff1, &diff2, sizeof diff1))
+> 		return -EINVAL;
+> 
+> 
+>> +	vi->speed = speed;
+>> +	vi->duplex = cmd->duplex;
+>> +
+>> +	return 0;
+>> +}
+>> +
+>> +static int virtnet_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+>> +{
+>> +	struct virtnet_info *vi = netdev_priv(dev);
+>> +
+>> +	ethtool_cmd_speed_set(cmd, vi->speed);
+>> +	cmd->duplex = vi->duplex;
+> 
+> 
+> I think we should at least set port to PORT_OTHER.
+> 
+>> +
+>> +	return 0;
+>> +}
+>> +
+>> +static void virtnet_init_settings(struct net_device *dev)
+>> +{
+>> +	struct virtnet_info *vi = netdev_priv(dev);
+>> +
+>> +	vi->speed = SPEED_UNKNOWN;
+>> +	vi->duplex = DUPLEX_UNKNOWN;
+>> +}
+>> +
+>>  static const struct ethtool_ops virtnet_ethtool_ops = {
+>>  	.get_drvinfo = virtnet_get_drvinfo,
+>>  	.get_link = ethtool_op_get_link,
+>> @@ -1383,6 +1420,8 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
+>>  	.set_channels = virtnet_set_channels,
+>>  	.get_channels = virtnet_get_channels,
+>>  	.get_ts_info = ethtool_op_get_ts_info,
+>> +	.get_settings = virtnet_get_settings,
+>> +	.set_settings = virtnet_set_settings,
+>>  };
+>>  
+>>  #define MIN_MTU 68
+>> @@ -1855,6 +1894,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+>>  	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
+>>  	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
+>>  
+>> +	virtnet_init_settings(dev);
+>> +
+>>  	err = register_netdev(dev);
+>>  	if (err) {
+>>  		pr_debug("virtio_net: registering device failed\n");
+>> -- 
+>> 2.4.3
