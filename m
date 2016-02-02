@@ -1,61 +1,68 @@
-From: "Franklin S Cooper Jr." <fcooper@ti.com>
-Subject: Re: Keystone 2 boards boot failure
-Date: Tue, 2 Feb 2016 15:01:33 -0600
-Message-ID: <56B1192D.1010500@ti.com>
-References: <56B0DE61.2000704@ti.com> <4387314.e6bS94RE4H@wuerfel>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH 00/11] net: mitigating kmem_cache slowpath and BoF
+ discussion patches
+Date: Tue, 02 Feb 2016 22:11:28 +0100
+Message-ID: <20160202211051.16315.51808.stgit@firesoul>
+References: <20151023124451.17364.14594.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <m-karicheri2@ti.com>, <netdev@vger.kernel.org>, <w-kwok2@ti.com>,
-	<davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: Christoph Lameter <cl@linux.com>, tom@herbertland.com,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	alexei.starovoitov@gmail.com,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	ogerlitz@mellanox.com, gerlitz.or@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:45136 "EHLO comal.ext.ti.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39322 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754946AbcBBVBl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 16:01:41 -0500
-In-Reply-To: <4387314.e6bS94RE4H@wuerfel>
+	id S932929AbcBBVLa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 16:11:30 -0500
+In-Reply-To: <20151023124451.17364.14594.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patchset is relevant for my NetDev 1.1 "Network Performance BoF" [1].
+
+The first 4 patches, is a repost[2], for the first real use-case of
+kmem_cache bulk alloc and free API.  They were adjusted slightly to
+accomodate my last slab API changes.  They should be ready for
+inclusion in net-next, as the needed MM tree are avail in net-next.
+
+Patch 5 is also enabling the SKB bulk API for mlx5.
+
+Thus, patches 1-5 should be ready for net-next.
+
+After patch 5, the experimental patches begin, which is Prove-of-Concept
+code for what we will be discussing during the Network Performance BoF [1]
+
+[1] http://netdevconf.org/1.1/bof-network-performance-bof-jesper-dangaard-brouer.html
+[2] http://thread.gmane.org/gmane.linux.network/384302/
+
+---
+
+Jesper Dangaard Brouer (11):
+      net: bulk free infrastructure for NAPI context, use napi_consume_skb
+      net: bulk free SKBs that were delay free'ed due to IRQ context
+      ixgbe: bulk free SKBs during TX completion cleanup cycle
+      net: bulk alloc and reuse of SKBs in NAPI context
+      mlx5: use napi_*_skb APIs to get bulk alloc and free
+      mlx5: RX bulking or bundling of packets before calling network stack
+      net: introduce napi_alloc_skb_bulk() for more use-cases
+      mlx5: hint the NAPI alloc skb API about the expected bulk size
+      EXPERIMENT: dummy: bulk free
+      net: API for RX handover of multiple SKBs to stack
+      net: RPS bulk enqueue to backlog
 
 
-On 02/02/2016 02:41 PM, Arnd Bergmann wrote:
-> On Tuesday 02 February 2016 10:50:41 Franklin S Cooper Jr. wrote:
->> Latest mainline is currently failing to boot for Keystone 2
->> Hawking but I'm assuming its true for other Keystone 2
->> boards. Bisect shows that this issue popped up after the
->> patch "netcp: try to reduce type confusion in descriptors"
->> (commit 89907779) was introduced. There was another patch
->> "netcp: fix regression in receive processing" that seems to
->> fix some bugs that the prior patch introduced however it
->> still did not resolve the boot failure and was documented as
->> not being tested.
->>
->> Should we revert these commits or does anyone have any
->> suggestions on how to fix these failures? I would be more
->> than happy to test any fix.
->>
-> Have you tried to see if a revert fixes the problem on a
-> current kernel?
-
-Yes. Here is a boot log on the latest master with the below
-three patches reverted.
-http://pastebin.com/W7RWSHpE (Working)
-
-I reverted these three patches. The two latest patches seem
-to be trying to correct/expand upon the last patch on this list.
-
-commit 958d104e3d40eef5148c402887138f6594ff7e1e
-netcp: fix regression in receive processing
-
-commit 9dd2d6c5c9755b160fe0111bcdad9491676feea8
-netcp: add more __le32 annotations
-
-commit 899077791403ff7a2d8cfaa87bd1a82d729463e2
-netcp: try to reduce type confusion in descriptors
-
-
-
->
-> 	Arnd
+ drivers/net/dummy.c                               |    3 
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |    6 -
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |    5 -
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |   24 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |    4 -
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c |    4 -
+ include/linux/netdevice.h                         |   13 ++
+ include/linux/skbuff.h                            |   23 ++-
+ net/core/dev.c                                    |  160 ++++++++++++++++++++-
+ net/core/skbuff.c                                 |  122 +++++++++++++++-
+ 10 files changed, 327 insertions(+), 37 deletions(-)
