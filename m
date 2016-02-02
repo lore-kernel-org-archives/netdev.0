@@ -1,29 +1,134 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 6/6] e1000e: call ndo_stop() instead of
- dev_close() when running offline selftest
-Date: Tue, 02 Feb 2016 16:28:30 -0500 (EST)
-Message-ID: <20160202.162830.131864881309085395.davem@davemloft.net>
-References: <1454408028-16986-1-git-send-email-sassmann@kpanic.de>
-	<1454408028-16986-7-git-send-email-sassmann@kpanic.de>
-	<56B0A843.9060703@kpanic.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: sassmann@kpanic.de
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: [PATCH net v2] bonding: Fix ARP monitor validation
+Date: Tue, 02 Feb 2016 13:35:56 -0800
+Message-ID: <29855.1454448956@famine>
+Cc: "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org, Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54244 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753723AbcBBV2d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 16:28:33 -0500
-In-Reply-To: <56B0A843.9060703@kpanic.de>
+Received: from youngberry.canonical.com ([91.189.89.112]:38447 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754155AbcBBVgC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 16:36:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Always, when sending an updated version of a patch which is part of a
-series, always resubmit the entire series rather than just the patch
-which is changing.
+	The current logic in bond_arp_rcv will accept an incoming ARP for
+validation if (a) the receiving slave is either "active" (which includes
+the currently active slave, or the current ARP slave) or, (b) there is a
+currently active slave, and it has received an ARP since it became active.
+For case (b), the receiving slave isn't the currently active slave, and is
+receiving the original broadcast ARP request, not an ARP reply from the
+target.
 
-Thanks.
+	This logic can fail if there is no currently active slave.  In
+this situation, the ARP probe logic cycles through all slaves, assigning
+each in turn as the "current_arp_slave" for one arp_interval, then setting
+that one as "active," and sending an ARP probe from that slave.  The
+current logic expects the ARP reply to arrive on the sending
+current_arp_slave, however, due to switch FDB updating delays, the reply
+may be directed to another slave.
+
+	This can arise if the bonding slaves and switch are working, but
+the ARP target is not responding.  When the ARP target recovers, a
+condition may result wherein the ARP target host replies faster than the
+switch can update its forwarding table, causing each ARP reply to be sent
+to the previous current_arp_slave.  This will never pass the logic in
+bond_arp_rcv, as neither of the above conditions (a) or (b) are met.
+
+	Some experimentation on a LAN shows ARP reply round trips in the
+200 usec range, but my available switches never update their FDB in less
+than 4000 usec.
+
+	This patch changes the logic in bond_arp_rcv to additionally
+accept an ARP reply for validation on any slave if there is a current ARP
+slave and it sent an ARP probe during the previous arp_interval.
+
+Fixes: aeea64ac717a ("bonding: don't trust arp requests unless active slave really works")
+Cc: Veaceslav Falico <vfalico@gmail.com>
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
+Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+
+---
+v2: more detail in log and comment; no code change.
+
+ drivers/net/bonding/bond_main.c | 39 ++++++++++++++++++++++++++++-----------
+ 1 file changed, 28 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 56b560558884..65a4107749df 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -214,6 +214,8 @@ static void bond_uninit(struct net_device *bond_dev);
+ static struct rtnl_link_stats64 *bond_get_stats(struct net_device *bond_dev,
+ 						struct rtnl_link_stats64 *stats);
+ static void bond_slave_arr_handler(struct work_struct *work);
++static bool bond_time_in_interval(struct bonding *bond, unsigned long last_act,
++				  int mod);
+ 
+ /*---------------------------- General routines -----------------------------*/
+ 
+@@ -2459,7 +2461,7 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+ 		 struct slave *slave)
+ {
+ 	struct arphdr *arp = (struct arphdr *)skb->data;
+-	struct slave *curr_active_slave;
++	struct slave *curr_active_slave, *curr_arp_slave;
+ 	unsigned char *arp_ptr;
+ 	__be32 sip, tip;
+ 	int alen, is_arp = skb->protocol == __cpu_to_be16(ETH_P_ARP);
+@@ -2506,26 +2508,41 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+ 		     &sip, &tip);
+ 
+ 	curr_active_slave = rcu_dereference(bond->curr_active_slave);
++	curr_arp_slave = rcu_dereference(bond->current_arp_slave);
+ 
+-	/* Backup slaves won't see the ARP reply, but do come through
+-	 * here for each ARP probe (so we swap the sip/tip to validate
+-	 * the probe).  In a "redundant switch, common router" type of
+-	 * configuration, the ARP probe will (hopefully) travel from
+-	 * the active, through one switch, the router, then the other
+-	 * switch before reaching the backup.
++	/* We 'trust' the received ARP enough to validate it if:
++	 *
++	 * (a) the slave receiving the ARP is active (which includes the
++	 * current ARP slave, if any), or
++	 *
++	 * (b) the receiving slave isn't active, but there is a currently
++	 * active slave and it received valid arp reply(s) after it became
++	 * the currently active slave, or
++	 *
++	 * (c) there is an ARP slave that sent an ARP during the prior ARP
++	 * interval, and we receive an ARP reply on any slave.  We accept
++	 * these because switch FDB update delays may deliver the ARP
++	 * reply to a slave other than the sender of the ARP request.
+ 	 *
+-	 * We 'trust' the arp requests if there is an active slave and
+-	 * it received valid arp reply(s) after it became active. This
+-	 * is done to avoid endless looping when we can't reach the
++	 * Note: for (b), backup slaves are receiving the broadcast ARP
++	 * request, not a reply.  This request passes from the sending
++	 * slave through the L2 switch(es) to the receiving slave.  Since
++	 * this is checking the request, sip/tip are swapped for
++	 * validation.
++	 *
++	 * This is done to avoid endless looping when we can't reach the
+ 	 * arp_ip_target and fool ourselves with our own arp requests.
+ 	 */
+-
+ 	if (bond_is_active_slave(slave))
+ 		bond_validate_arp(bond, slave, sip, tip);
+ 	else if (curr_active_slave &&
+ 		 time_after(slave_last_rx(bond, curr_active_slave),
+ 			    curr_active_slave->last_link_up))
+ 		bond_validate_arp(bond, slave, tip, sip);
++	else if (curr_arp_slave && (arp->ar_op == htons(ARPOP_REPLY)) &&
++		 bond_time_in_interval(bond,
++				       dev_trans_start(curr_arp_slave->dev), 1))
++		bond_validate_arp(bond, slave, sip, tip);
+ 
+ out_unlock:
+ 	if (arp != (struct arphdr *)skb->data)
+-- 
+1.9.1
