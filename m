@@ -1,60 +1,88 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net] net: Allow flow dissector to handle non 4-byte
- aligned headers
-Date: Tue, 2 Feb 2016 13:35:09 -0500
-Message-ID: <20160202183509.GA26588@oracle.com>
-References: <1454276221-3543907-1-git-send-email-tom@herbertland.com>
- <20160202003127.GA25154@oracle.com>
- <CAKgT0UfjLEBUeiV3WS2BC=yRkxi9JBF4mqJ=niXOUQnhkiMhvA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:18625 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754796AbcBBSf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 13:35:26 -0500
-Content-Disposition: inline
-In-Reply-To: <CAKgT0UfjLEBUeiV3WS2BC=yRkxi9JBF4mqJ=niXOUQnhkiMhvA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: phil.turnbull@oracle.com
+Subject: [PATCH nf] netfilter: nfnetlink: correctly validate length of batch messages
+Date: Tue,  2 Feb 2016 13:36:45 -0500
+Message-ID: <1454438205-13147-1-git-send-email-phil.turnbull@oracle.com>
+Cc: Phil Turnbull <phil.turnbull@oracle.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	coreteam@netfilter.org (open list:NETFILTER ({IP,IP6,ARP,EB,NF}TABLES)),
+	netdev@vger.kernel.org (open list:NETWORKING [GENERAL]),
+	linux-kernel@vger.kernel.org (open list)
+To: netfilter-devel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On (02/01/16 19:56), Alexander Duyck wrote:
-> > @@ -394,7 +407,7 @@ ip_proto_again:
-> >                                                    data, hlen, &_eth);
-> >                         if (!eth)
-> >                                 goto out_bad;
-> > -                       proto = eth->h_proto;
-> > +                       proto = get_unaligned_be16(&eth->h_proto);
-> >                         nhoff += sizeof(*eth);
-> >                 }
-> 
-> This piece doesn't make any sense to me.  It is already only 2 bytes
-> wide.  I'm not sure why we should be seeing this trigger an unaligned
-> access.  Are you sure it wasn't something like the keyid causing the
-> issue?  I'd be interested in seeing what the compiler did here that it
-> is triggering the problem.
+From: Phil Turnbull <phil.turnbull@oracle.com>
 
-You're right- I was getting blinded by all the unaligned-access
-messages swimming by and making a mistake. It was actually the 
+If nlh->nlmsg_len is zero then an infinite loop is triggered because
+'skb_pull(skb, msglen);' pulls zero bytes.
 
-                memcpy(&key_addrs->v4addrs, &iph->saddr,
-                       sizeof(key_addrs->v4addrs));
+The calculation in nlmsg_len() underflows if 'nlh->nlmsg_len <
+NLMSG_HDRLEN' which bypasses the length validation and will later
+trigger an out-of-bound read.
 
-The assembler code is this:
+If the length validation does fail then the malformed batch message is
+copied back to userspace. However, we cannot do this because the
+nlh->nlmsg_len can be invalid. This leads to an out-of-bounds read in
+netlink_ack:
 
-   0x8d3298 <__skb_flow_dissect+500>:   ld  [ %l5 + 0xc ], %g3
-   0x8d329c <__skb_flow_dissect+504>:   add  %i2, %g1, %g2
-   0x8d32a0 <__skb_flow_dissect+508>:   st  %g3, [ %i2 + %g1 ]
-   0x8d32a4 <__skb_flow_dissect+512>:   ld  [ %l5 + 0x10 ], %g1
-   0x8d32a8 <__skb_flow_dissect+516>:   st  %g1, [ %g2 + 4 ]
-   0x8d32ac <__skb_flow_dissect+520>:   mov  2, %g1
+    [   41.455421] ==================================================================
+    [   41.456431] BUG: KASAN: slab-out-of-bounds in memcpy+0x1d/0x40 at addr ffff880119e79340
+    [   41.456431] Read of size 4294967280 by task a.out/987
+    [   41.456431] =============================================================================
+    [   41.456431] BUG kmalloc-512 (Not tainted): kasan: bad access detected
+    [   41.456431] -----------------------------------------------------------------------------
+    ...
+    [   41.456431] Bytes b4 ffff880119e79310: 00 00 00 00 d5 03 00 00 b0 fb fe ff 00 00 00 00  ................
+    [   41.456431] Object ffff880119e79320: 20 00 00 00 10 00 05 00 00 00 00 00 00 00 00 00   ...............
+    [   41.456431] Object ffff880119e79330: 14 00 0a 00 01 03 fc 40 45 56 11 22 33 10 00 05  .......@EV."3...
+    [   41.456431] Object ffff880119e79340: f0 ff ff ff 88 99 aa bb 00 14 00 0a 00 06 fe fb  ................
+                                            ^^ start of batch nlmsg with
+                                               nlmsg_len=4294967280
+    ...
+    [   41.456431] Memory state around the buggy address:
+    [   41.456431]  ffff880119e79400: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    [   41.456431]  ffff880119e79480: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    [   41.456431] >ffff880119e79500: 00 00 00 00 fc fc fc fc fc fc fc fc fc fc fc fc
+    [   41.456431]                                ^
+    [   41.456431]  ffff880119e79580: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+    [   41.456431]  ffff880119e79600: fc fc fc fc fc fc fc fc fc fc fb fb fb fb fb fb
+    [   41.456431] ==================================================================
 
-I get unaligned access traps at __skb_flow_dissect+500 and
-__skb_flow_dissect+512 (corresponding to saddr and daddr), once for
-each interface (gretap/eth0 and eth1). 
+Fix this with better validation of nlh->nlmsg_len and by setting
+NFNL_BATCH_FAILURE if any batch message fails length validation.
 
---Sowmini
+CAP_NET_ADMIN is required to trigger the bugs.
+
+Fixes: 9ea2aa8b7dba ("netfilter: nfnetlink: validate nfnetlink header from batch")
+Signed-off-by: Phil Turnbull <phil.turnbull@oracle.com>
+---
+ net/netfilter/nfnetlink.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index 62e92af..857ae89 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -328,10 +328,12 @@ replay:
+ 		nlh = nlmsg_hdr(skb);
+ 		err = 0;
+ 
+-		if (nlmsg_len(nlh) < sizeof(struct nfgenmsg) ||
+-		    skb->len < nlh->nlmsg_len) {
+-			err = -EINVAL;
+-			goto ack;
++		if (nlh->nlmsg_len < NLMSG_HDRLEN ||
++		    skb->len < nlh->nlmsg_len ||
++		    nlmsg_len(nlh) < sizeof(struct nfgenmsg)) {
++			nfnl_err_reset(&err_list);
++			status |= NFNL_BATCH_FAILURE;
++			goto done;
+ 		}
+ 
+ 		/* Only requests are handled by the kernel */
+-- 
+1.9.1
