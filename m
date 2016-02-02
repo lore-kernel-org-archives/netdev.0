@@ -1,287 +1,275 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 11/11] RFC: net: RPS bulk enqueue to backlog
-Date: Tue, 02 Feb 2016 22:15:27 +0100
-Message-ID: <20160202211512.16315.89019.stgit@firesoul>
-References: <20160202211051.16315.51808.stgit@firesoul>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: Keystone 2 boards boot failure
+Date: Tue, 02 Feb 2016 22:26:03 +0100
+Message-ID: <7911064.Pij4S9Q1yj@wuerfel>
+References: <56B0DE61.2000704@ti.com> <4387314.e6bS94RE4H@wuerfel> <56B1192D.1010500@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Lameter <cl@linux.com>, tom@herbertland.com,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	alexei.starovoitov@gmail.com,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	ogerlitz@mellanox.com, gerlitz.or@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: m-karicheri2@ti.com, netdev@vger.kernel.org, w-kwok2@ti.com,
+	davem@davemloft.net
+To: "Franklin S Cooper Jr." <fcooper@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37762 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754596AbcBBVP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 16:15:29 -0500
-In-Reply-To: <20160202211051.16315.51808.stgit@firesoul>
+Received: from mout.kundenserver.de ([217.72.192.75]:61252 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757932AbcBBV0L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 16:26:11 -0500
+In-Reply-To: <56B1192D.1010500@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NEED TO CLEAN UP PATCH (likely still contains bugs...)
+On Tuesday 02 February 2016 15:01:33 Franklin S Cooper Jr. wrote:
+> 
+> Yes. Here is a boot log on the latest master with the below
+> three patches reverted.
+> http://pastebin.com/W7RWSHpE (Working)
+> 
+> I reverted these three patches. The two latest patches seem
+> to be trying to correct/expand upon the last patch on this list.
+> 
+> commit 958d104e3d40eef5148c402887138f6594ff7e1e
+> netcp: fix regression in receive processing
+> 
+> commit 9dd2d6c5c9755b160fe0111bcdad9491676feea8
+> netcp: add more __le32 annotations
+> 
+> commit 899077791403ff7a2d8cfaa87bd1a82d729463e2
+> netcp: try to reduce type confusion in descriptors
+> 
 
-When enabling Receive Packet Steering (RPS) like :
+The middle patch should have no effect on generated code, so I'm ignoring
+that for now.
 
- echo 32768 > /proc/sys/net/core/rps_sock_flow_entries
+The next thing to rule out is an endianess bug. I assume you
+are running this on with a little-endian kernel, correct? If
+you are running big-endian, the base assumption that the driver needs
+to swap the data was flawed and that portion needs to be done.
 
- for N in $(seq 0 7) ; do
-    echo 4096 > /sys/class/net/${DEV}/queues/rx-$N/rps_flow_cnt
-    echo f >  /sys/class/net/${DEV}/queues/rx-$N/rps_cpus
-    grep -H . /sys/class/net/${DEV}/queues/rx-$N/rps_cpus
- done
+If you are running little-endian 32-bit, please try the partial
+revert below, which just undoes the attempt to make it work with
+64-bit kernels.
 
-I noticed high contention on enqueue_to_backlog().  To mitigate
-this introduce enqueue_list_to_backlog(), which allow to enqueue
-an entire skb list, instead of having to take the per packet cost.
-
-The skb list's needed for bulk enqueing are constructed in the
-per CPU area of softnet_data.  And thus, can be constructed
-without heavy CPU synchronization.
-
-I'm excited about the performance improvement of this patch:
-
-Before:
- Ethtool(mlx5p2  ) stat:      7246630 (      7,246,630) <= rx3_packets /sec
-After:
- Ethtool(mlx5p2  ) stat:      9182886 (      9,182,886) <= rx3_packets /sec
-Improvement:
- (1/9182886-1/7246630)*10^9 = saving -29.0 ns
-
-The benchmark is a single pktgen flow, which is RPS directed to
-another CPU, for further processing via process_backlog().  The
-remote CPU cannot handle the load and this CPU drops packets when
-it cannot get them enqueued.
----
- include/linux/netdevice.h |   10 +++
- net/core/dev.c            |  133 ++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 140 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 11df9af41a3c..dc5baef95d27 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -633,6 +633,15 @@ struct rps_dev_flow {
- };
- #define RPS_NO_FILTER 0xffff
- 
-+struct rps_cpu_queue {
-+	struct sk_buff_head skb_list;
-+	int to_cpu;
-+	struct rps_dev_flow *rflow;
-+	struct net_device *dev;
-+};
-+#define RPS_CPU_QUEUES		2 /* Must be power of 2 */
-+#define RPS_CPU_QUEUES_MASK	(RPS_CPU_QUEUES - 1)
-+
- /*
-  * The rps_dev_flow_table structure contains a table of flow mappings.
-  */
-@@ -2662,6 +2671,7 @@ struct softnet_data {
- 	unsigned int		received_rps;
- #ifdef CONFIG_RPS
- 	struct softnet_data	*rps_ipi_list;
-+	struct rps_cpu_queue	local_rps_queue[RPS_CPU_QUEUES];
- #endif
- #ifdef CONFIG_NET_FLOW_LIMIT
- 	struct sd_flow_limit __rcu *flow_limit;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 35c92a968937..0a231529bc0c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3736,6 +3736,60 @@ drop:
- 	return NET_RX_DROP;
+	Arnd
+	
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index c61d66d38634..7e291c04a81a 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -117,20 +117,10 @@ static void get_pkt_info(dma_addr_t *buff, u32 *buff_len, dma_addr_t *ndesc,
+ 	*ndesc = le32_to_cpu(desc->next_desc);
  }
  
-+static int enqueue_list_to_backlog(struct sk_buff_head *skb_list, int cpu,
-+				   unsigned int *qtail, struct net_device *dev)
-+{
-+       unsigned int qlen, qlen_drop;
-+       struct softnet_data *sd;
-+       struct sk_buff *skb;
-+       unsigned long flags;
-+
-+       sd = &per_cpu(softnet_data, cpu);
-+
-+       local_irq_save(flags);
-+
-+       rps_lock(sd);
-+       if (!netif_running(dev))
-+               goto drop;
-+       qlen = skb_queue_len(&sd->input_pkt_queue);
-+       /* NOTICE: Had to drop !skb_flow_limit(skb, qlen) check here */
-+       if (qlen <= netdev_max_backlog) {
-+               if (qlen) {
-+enqueue:
-+                       //__skb_queue_tail(&sd->input_pkt_queue, skb);
-+                       skb_queue_splice_tail_init(skb_list,
-+                                                  &sd->input_pkt_queue);
-+                       input_queue_tail_incr_save(sd, qtail);
-+                       rps_unlock(sd);
-+                       local_irq_restore(flags);
-+                       return NET_RX_SUCCESS;
-+               }
-+
-+               /* Schedule NAPI for backlog device
-+                * We can use non atomic operation since we own the queue lock
-+                */
-+               if (!__test_and_set_bit(NAPI_STATE_SCHED, &sd->backlog.state)) {
-+                       if (!rps_ipi_queued(sd))
-+                               ____napi_schedule(sd, &sd->backlog);
-+               }
-+               goto enqueue;
-+       }
-+
-+drop:
-+       qlen_drop = skb_queue_len(skb_list);
-+       sd->dropped += qlen_drop;
-+       rps_unlock(sd);
-+
-+       local_irq_restore(flags);
-+
-+       atomic_long_add(qlen_drop, &dev->rx_dropped);
-+       while ((skb = __skb_dequeue(skb_list)) != NULL) {
-+               __kfree_skb_defer(skb);
-+       }
-+       return NET_RX_DROP;
-+}
-+
-+
- static int netif_rx_internal(struct sk_buff *skb)
+-static void get_pad_info(u32 *pad0, u32 *pad1, u32 *pad2, struct knav_dma_desc *desc)
++static void get_pad_info(u32 *pad0, u32 *pad1, struct knav_dma_desc *desc)
  {
- 	int ret;
-@@ -4211,14 +4265,43 @@ static int netif_receive_skb_internal(struct sk_buff *skb)
- #ifdef CONFIG_RPS
- 	if (static_key_false(&rps_needed)) {
- 		struct rps_dev_flow voidflow, *rflow = &voidflow;
-+		struct softnet_data *sd = this_cpu_ptr(&softnet_data);
-+		struct rps_cpu_queue *lq; /* softnet cpu local queue (lq) */
-+
- 		int cpu = get_rps_cpu(skb->dev, skb, &rflow);
-+		if (cpu < 0)
-+			goto no_rps;
-+
-+		/* RPS destinated packet */
-+		// XXX: is local_irq_disable needed here?
-+		sd = this_cpu_ptr(&softnet_data);
-+		lq = &sd->local_rps_queue[cpu & RPS_CPU_QUEUES_MASK];
+ 	*pad0 = le32_to_cpu(desc->pad[0]);
+ 	*pad1 = le32_to_cpu(desc->pad[1]);
+-	*pad2 = le32_to_cpu(desc->pad[2]);
+-}
+-
+-static void get_pad_ptr(void **padptr, struct knav_dma_desc *desc)
+-{
+-	u64 pad64;
+-
+-	pad64 = le32_to_cpu(desc->pad[0]) +
+-		((u64)le32_to_cpu(desc->pad[1]) << 32);
+-	*padptr = (void *)(uintptr_t)pad64;
+ }
  
--		if (cpu >= 0) {
--			ret = enqueue_to_backlog(skb, cpu, &rflow->last_qtail);
-+		if (lq->to_cpu == cpu && lq->dev == skb->dev) {
-+			/* Bonus, RPS dest match prev CPU, q pkt for later */
-+			__skb_queue_tail(&lq->skb_list, skb);
-+			lq->rflow = rflow;
- 			rcu_read_unlock();
--			return ret;
-+			return NET_RX_SUCCESS;
+ static void get_org_pkt_info(dma_addr_t *buff, u32 *buff_len,
+@@ -163,11 +153,10 @@ static void set_desc_info(u32 desc_info, u32 pkt_info,
+ 	desc->packet_info = cpu_to_le32(pkt_info);
+ }
+ 
+-static void set_pad_info(u32 pad0, u32 pad1, u32 pad2, struct knav_dma_desc *desc)
++static void set_pad_info(u32 pad0, u32 pad1, struct knav_dma_desc *desc)
+ {
+ 	desc->pad[0] = cpu_to_le32(pad0);
+ 	desc->pad[1] = cpu_to_le32(pad1);
+-	desc->pad[2] = cpu_to_le32(pad1);
+ }
+ 
+ static void set_org_pkt_info(dma_addr_t buff, u32 buff_len,
+@@ -581,7 +570,6 @@ static void netcp_free_rx_desc_chain(struct netcp_intf *netcp,
+ 	dma_addr_t dma_desc, dma_buf;
+ 	unsigned int buf_len, dma_sz = sizeof(*ndesc);
+ 	void *buf_ptr;
+-	u32 pad[2];
+ 	u32 tmp;
+ 
+ 	get_words(&dma_desc, 1, &desc->next_desc);
+@@ -593,15 +581,13 @@ static void netcp_free_rx_desc_chain(struct netcp_intf *netcp,
+ 			break;
  		}
-+		if (unlikely(lq->to_cpu < 0))
-+			goto init_localq;
-+
-+		/* No match, bulk enq to remote cpu backlog */
-+		ret = enqueue_list_to_backlog(&lq->skb_list, lq->to_cpu,
-+					      &lq->rflow->last_qtail, lq->dev);
-+	init_localq: /* start new localq (lq) */
-+		/* XXX: check if lq->skb_list was already re-init'ed */
-+		skb_queue_head_init(&lq->skb_list);
-+		__skb_queue_tail(&lq->skb_list, skb);
-+		lq->rflow = rflow;
-+		lq->to_cpu = cpu;
-+		lq->dev = skb->dev;
-+
-+		rcu_read_unlock();
-+		return ret;
+ 		get_pkt_info(&dma_buf, &tmp, &dma_desc, ndesc);
+-		get_pad_ptr(&buf_ptr, ndesc);
++		get_pad_info((u32 *)&buf_ptr, &tmp, ndesc);
+ 		dma_unmap_page(netcp->dev, dma_buf, PAGE_SIZE, DMA_FROM_DEVICE);
+ 		__free_page(buf_ptr);
+ 		knav_pool_desc_put(netcp->rx_pool, desc);
  	}
-+no_rps:
- #endif
- 	ret = __netif_receive_skb(skb);
- 	rcu_read_unlock();
-@@ -4579,6 +4662,30 @@ gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- }
- EXPORT_SYMBOL(napi_gro_receive);
  
-+static void rps_flush_local_queues(struct softnet_data *sd)
-+{
-+#ifdef CONFIG_RPS
-+	int i;
-+
-+//	local_irq_disable(); //TEST
-+//	if (!sd)
-+	sd = this_cpu_ptr(&softnet_data);
-+
-+	/* Bulk flush any remaining locally queued packets for RPS */
-+	for (i = 0; i < RPS_CPU_QUEUES; i++) {
-+		struct rps_cpu_queue *lq = &sd->local_rps_queue[i];
-+
-+		if (skb_queue_empty(&lq->skb_list))
-+			continue;
-+
-+		enqueue_list_to_backlog(&lq->skb_list, lq->to_cpu,
-+					&lq->rflow->last_qtail, lq->dev);
-+		// FAILS: lq->to_cpu = -1;
-+	}
-+//	local_irq_enable(); //TEST
-+#endif
-+}
-+
- void napi_gro_receive_list(struct napi_struct *napi,
- 			   struct sk_buff_head *skb_list,
- 			   struct net_device *netdev)
-@@ -4594,6 +4701,10 @@ void napi_gro_receive_list(struct napi_struct *napi,
- 		skb_gro_reset_offset(skb);
- 		napi_skb_finish(dev_gro_receive(napi, skb), skb);
+-	get_pad_info(&pad[0], &pad[1], &buf_len, desc);
+-	buf_ptr = (void *)(uintptr_t)(pad[0] + ((u64)pad[1] << 32));
+-
++	get_pad_info((u32 *)&buf_ptr, &buf_len, desc);
+ 	if (buf_ptr)
+ 		netcp_frag_free(buf_len <= PAGE_SIZE, buf_ptr);
+ 	knav_pool_desc_put(netcp->rx_pool, desc);
+@@ -639,8 +625,8 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
+ 	dma_addr_t dma_desc, dma_buff;
+ 	struct netcp_packet p_info;
+ 	struct sk_buff *skb;
+-	u32 pad[2];
+ 	void *org_buf_ptr;
++	u32 tmp;
+ 
+ 	dma_desc = knav_queue_pop(netcp->rx_queue, &dma_sz);
+ 	if (!dma_desc)
+@@ -653,8 +639,7 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
  	}
-+#ifdef CONFIG_RPS
-+//	if (static_key_false(&rps_needed))
-+//		rps_flush_local_queues(NULL);
-+#endif
- }
- EXPORT_SYMBOL(napi_gro_receive_list);
  
-@@ -4747,6 +4858,8 @@ static void net_rps_action_and_irq_enable(struct softnet_data *sd)
+ 	get_pkt_info(&dma_buff, &buf_len, &dma_desc, desc);
+-	get_pad_info(&pad[0], &pad[1], &org_buf_len, desc);
+-	org_buf_ptr = (void *)(uintptr_t)(pad[0] + ((u64)pad[1] << 32));
++	get_pad_info((u32 *)&org_buf_ptr, &org_buf_len, desc);
  
- 		local_irq_enable();
+ 	if (unlikely(!org_buf_ptr)) {
+ 		dev_err(netcp->ndev_dev, "NULL bufptr in desc\n");
+@@ -679,7 +664,6 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
+ 	/* Fill in the page fragment list */
+ 	while (dma_desc) {
+ 		struct page *page;
+-		void *ptr;
  
-+//		rps_flush_local_queues(NULL);
-+
- 		/* Send pending IPI's to kick RPS processing on remote cpus. */
- 		while (remsd) {
- 			struct softnet_data *next = remsd->rps_ipi_next;
-@@ -5176,6 +5289,8 @@ static void net_rx_action(struct softirq_action *h)
- 	__kfree_skb_flush();
- 	local_irq_disable();
+ 		ndesc = knav_pool_desc_unmap(netcp->rx_pool, dma_desc, dma_sz);
+ 		if (unlikely(!ndesc)) {
+@@ -688,8 +672,7 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
+ 		}
  
-+        rps_flush_local_queues(NULL);
-+
- 	list_splice_tail_init(&sd->poll_list, &list);
- 	list_splice_tail(&repoll, &list);
- 	list_splice(&list, &sd->poll_list);
-@@ -8085,6 +8200,9 @@ static int __init net_dev_init(void)
+ 		get_pkt_info(&dma_buff, &buf_len, &dma_desc, ndesc);
+-		get_pad_ptr(&ptr, ndesc);
+-		page = ptr;
++		get_pad_info((u32 *)&page, &tmp, ndesc);
  
- 	for_each_possible_cpu(i) {
- 		struct softnet_data *sd = &per_cpu(softnet_data, i);
-+#ifdef CONFIG_RPS
-+		int j;
-+#endif
+ 		if (likely(dma_buff && buf_len && page)) {
+ 			dma_unmap_page(netcp->dev, dma_buff, PAGE_SIZE,
+@@ -767,6 +750,7 @@ static void netcp_free_rx_buf(struct netcp_intf *netcp, int fdq)
+ 	unsigned int buf_len, dma_sz;
+ 	dma_addr_t dma;
+ 	void *buf_ptr;
++	u32 tmp;
  
- 		skb_queue_head_init(&sd->input_pkt_queue);
- 		skb_queue_head_init(&sd->process_queue);
-@@ -8094,6 +8212,15 @@ static int __init net_dev_init(void)
- 		sd->csd.func = rps_trigger_softirq;
- 		sd->csd.info = sd;
- 		sd->cpu = i;
-+		for (j = 0; j < RPS_CPU_QUEUES; j++) {
-+			struct rps_cpu_queue *lq = &sd->local_rps_queue[j];
-+
-+			skb_queue_head_init(&lq->skb_list);
-+			lq->to_cpu = -1;
-+			// XXX: below not needed
-+			lq->rflow = NULL;
-+			lq->dev = NULL;
-+		}
- #endif
+ 	/* Allocate descriptor */
+ 	while ((dma = knav_queue_pop(netcp->rx_fdq[fdq], &dma_sz))) {
+@@ -777,7 +761,7 @@ static void netcp_free_rx_buf(struct netcp_intf *netcp, int fdq)
+ 		}
  
- 		sd->backlog.poll = process_backlog;
+ 		get_org_pkt_info(&dma, &buf_len, desc);
+-		get_pad_ptr(&buf_ptr, desc);
++		get_pad_info((u32 *)&buf_ptr, &tmp, desc);
+ 
+ 		if (unlikely(!dma)) {
+ 			dev_err(netcp->ndev_dev, "NULL orig_buff in desc\n");
+@@ -829,7 +813,7 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+ 	struct page *page;
+ 	dma_addr_t dma;
+ 	void *bufptr;
+-	u32 pad[3];
++	u32 pad[2];
+ 
+ 	/* Allocate descriptor */
+ 	hwdesc = knav_pool_desc_get(netcp->rx_pool);
+@@ -846,7 +830,7 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+ 				SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+ 
+ 		bufptr = netdev_alloc_frag(primary_buf_len);
+-		pad[2] = primary_buf_len;
++		pad[1] = primary_buf_len;
+ 
+ 		if (unlikely(!bufptr)) {
+ 			dev_warn_ratelimited(netcp->ndev_dev,
+@@ -858,8 +842,7 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+ 		if (unlikely(dma_mapping_error(netcp->dev, dma)))
+ 			goto fail;
+ 
+-		pad[0] = lower_32_bits((uintptr_t)bufptr);
+-		pad[1] = upper_32_bits((uintptr_t)bufptr);
++		pad[0] = (u32)bufptr;
+ 
+ 	} else {
+ 		/* Allocate a secondary receive queue entry */
+@@ -870,9 +853,8 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+ 		}
+ 		buf_len = PAGE_SIZE;
+ 		dma = dma_map_page(netcp->dev, page, 0, buf_len, DMA_TO_DEVICE);
+-		pad[0] = lower_32_bits(dma);
+-		pad[1] = upper_32_bits(dma);
+-		pad[2] = 0;
++		pad[0] = (u32)page;
++		pad[1] = 0;
+ 	}
+ 
+ 	desc_info =  KNAV_DMA_DESC_PS_INFO_IN_DESC;
+@@ -882,7 +864,7 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+ 	pkt_info |= (netcp->rx_queue_id & KNAV_DMA_DESC_RETQ_MASK) <<
+ 		    KNAV_DMA_DESC_RETQ_SHIFT;
+ 	set_org_pkt_info(dma, buf_len, hwdesc);
+-	set_pad_info(pad[0], pad[1], pad[2], hwdesc);
++	set_pad_info(pad[0], pad[1], hwdesc);
+ 	set_desc_info(desc_info, pkt_info, hwdesc);
+ 
+ 	/* Push to FDQs */
+@@ -971,11 +953,11 @@ static int netcp_process_tx_compl_packets(struct netcp_intf *netcp,
+ 					  unsigned int budget)
+ {
+ 	struct knav_dma_desc *desc;
+-	void *ptr;
+ 	struct sk_buff *skb;
+ 	unsigned int dma_sz;
+ 	dma_addr_t dma;
+ 	int pkts = 0;
++	u32 tmp;
+ 
+ 	while (budget--) {
+ 		dma = knav_queue_pop(netcp->tx_compl_q, &dma_sz);
+@@ -988,8 +970,7 @@ static int netcp_process_tx_compl_packets(struct netcp_intf *netcp,
+ 			continue;
+ 		}
+ 
+-		get_pad_ptr(&ptr, desc);
+-		skb = ptr;
++		get_pad_info((u32 *)&skb, &tmp, desc);
+ 		netcp_free_tx_desc_chain(netcp, desc, dma_sz);
+ 		if (!skb) {
+ 			dev_err(netcp->ndev_dev, "No skb in Tx desc\n");
+@@ -1078,7 +1059,6 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
+ 		u32 page_offset = frag->page_offset;
+ 		u32 buf_len = skb_frag_size(frag);
+ 		dma_addr_t desc_dma;
+-		u32 desc_dma_32;
+ 		u32 pkt_info;
+ 
+ 		dma_addr = dma_map_page(dev, page, page_offset, buf_len,
+@@ -1100,8 +1080,7 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
+ 			(netcp->tx_compl_qid & KNAV_DMA_DESC_RETQ_MASK) <<
+ 				KNAV_DMA_DESC_RETQ_SHIFT;
+ 		set_pkt_info(dma_addr, buf_len, 0, ndesc);
+-		desc_dma_32 = (u32)desc_dma;
+-		set_words(&desc_dma_32, 1, &pdesc->next_desc);
++		set_words(&desc_dma, 1, &pdesc->next_desc);
+ 		pkt_len += buf_len;
+ 		if (pdesc != desc)
+ 			knav_pool_desc_map(netcp->tx_pool, pdesc,
+@@ -1194,10 +1173,7 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
+ 	}
+ 
+ 	set_words(&tmp, 1, &desc->packet_info);
+-	tmp = lower_32_bits((uintptr_t)&skb);
+-	set_words(&tmp, 1, &desc->pad[0]);
+-	tmp = upper_32_bits((uintptr_t)&skb);
+-	set_words(&tmp, 1, &desc->pad[1]);
++	set_words((u32 *)&skb, 1, &desc->pad[0]);
+ 
+ 	if (tx_pipe->flags & SWITCH_TO_PORT_IN_TAGINFO) {
+ 		tmp = tx_pipe->switch_to_port;
