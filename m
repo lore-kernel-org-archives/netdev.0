@@ -1,42 +1,56 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH 7/7] net: ixgbe: add support for tc_u32 offload
-Date: Mon, 01 Feb 2016 20:53:20 -0800
-Message-ID: <56B03640.8050009@gmail.com>
-References: <20160201014555.13871.56591.stgit@john-Precision-Tower-5810>	<20160201015310.13871.63596.stgit@john-Precision-Tower-5810> <20160201.181715.1355993690912736292.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ip-link: remove warning message
+Date: Tue, 2 Feb 2016 15:56:51 +1100
+Message-ID: <20160202155651.08800af5@samsung9>
+References: <1453343029-14580-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: anjali.singhai@intel.com, jesse.brandeburg@intel.com,
-	jhs@mojatatu.com, ast@fb.com, donald.c.skidmore@intel.com,
-	horms@verge.net.au, netdev@vger.kernel.org, tgraf@suug.ch
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35135 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752337AbcBBExg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 23:53:36 -0500
-Received: by mail-pf0-f196.google.com with SMTP id 66so7948296pfe.2
-        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 20:53:36 -0800 (PST)
-In-Reply-To: <20160201.181715.1355993690912736292.davem@davemloft.net>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:33882 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751999AbcBBE47 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 23:56:59 -0500
+Received: by mail-pf0-f182.google.com with SMTP id o185so91406865pfb.1
+        for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 20:56:59 -0800 (PST)
+In-Reply-To: <1453343029-14580-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-01 06:17 PM, David Miller wrote:
-> From: John Fastabend <john.fastabend@gmail.com>
-> Date: Sun, 31 Jan 2016 17:53:10 -0800
-> 
->> +			ixgbe_jump_tables[uhtid] = nexthdr->jump;
-> 
-> I can't figure out what protects concurrent accesses to this shared
-> ixgbe_jump_table[].  Is RTNL held here?  If so it's likely that
-> GFP_ATOMIC can be changed to GFP_KERNEL in this function.
-> 
-> 
+On Thu, 21 Jan 2016 02:23:49 +0000
+Zhang Shengju <zhangshengju@cmss.chinamobile.com> wrote:
 
-This is only called from tc_ctl_tfilter which is wrapped in the
-rtnl_lock as you suspected.
+> the warning was:
+> iproute.c:301:12: warning: 'val' may be used uninitialized in this
+> function [-Wmaybe-uninitialized]
+>    features &= ~RTAX_FEATURE_ECN;
+>             ^
+> iproute.c:575:10: note: 'val' was declared here
+>    __u32 val;
+> 	  ^
+> 
+> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> ---
+>  ip/iproute.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index d5e3ebe..afe70e1 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -572,7 +572,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+>  			mxlock = *(unsigned*)RTA_DATA(mxrta[RTAX_LOCK]);
+>  
+>  		for (i=2; i<= RTAX_MAX; i++) {
+> -			__u32 val;
+> +			__u32 val = 0U;
+>  
+>  			if (mxrta[i] == NULL)
+>  				continue;
 
-Thanks for the catch I'll convert it to GFP_KERNEL along with the
-other spot I copy pasted the GFP_ATOMIC code from.
+Your compiler is doing bad dependency analysis.
+There is not really a bug here.
 
-.John
+It would still be best to initialize to keep broken compilers from causing warning.
