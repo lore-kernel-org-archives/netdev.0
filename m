@@ -1,165 +1,186 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next 3/6] tcp: new delivery accounting
-Date: Tue,  2 Feb 2016 10:33:06 -0800
-Message-ID: <1454437989-3842-4-git-send-email-ycheng@google.com>
+Subject: [PATCH net-next 1/6] tcp: retransmit after recovery processing and congestion control
+Date: Tue,  2 Feb 2016 10:33:04 -0800
+Message-ID: <1454437989-3842-2-git-send-email-ycheng@google.com>
 References: <1454437989-3842-1-git-send-email-ycheng@google.com>
 Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
 	Neal Cardwell <ncardwell@google.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:34815 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933786AbcBBSdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 13:33:38 -0500
-Received: by mail-pf0-f170.google.com with SMTP id o185so104551684pfb.1
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 10:33:38 -0800 (PST)
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34784 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933784AbcBBSdf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 13:33:35 -0500
+Received: by mail-pf0-f177.google.com with SMTP id o185so104550811pfb.1
+        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 10:33:34 -0800 (PST)
 In-Reply-To: <1454437989-3842-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes the accounting of how many packets are
-newly acked or sacked when the sender receives an ACK.
-
-The current approach basically computes
-
-   newly_acked_sacked = (prior_packets - prior_sacked) -
-                        (tp->packets_out - tp->sacked_out)
-
-   where prior_packets and prior_sacked out are snapshot
-   at the beginning of the ACK processing.
-
-The new approach tracks the delivery information via a new
-TCP state variable "delivered" which monotically increases
-as new packets are delivered in order or out-of-order.
-
-The reason for this change is that the current approach is
-brittle that produces negative or inaccurate estimate.
-
-   1) For non-SACK connections, an ACK that advances the SND.UNA
-   could reset the DUPACK counters (tp->sacked_out) in
-   tcp_process_loss() or tcp_fastretrans_alert(). This inflates
-   the inflight suddenly and causes under-estimate or even
-   negative estimate. Here is a real example:
-
-                   before   after (processing ACK)
-   packets_out     75       73
-   sacked_out      23        0
-   ca state        Loss     Open
-
-   The old approach computes (75-23) - (73 - 0) = -21 delivered
-   while the new approach computes 1 delivered since it
-   considers the 2nd-24th packets are delivered OOO.
-
-   2) MSS change would re-count packets_out and sacked_out so
-   the estimate is in-accurate and can even become negative.
-   E.g., the inflight is doubled when MSS is halved.
-
-   3) Spurious retransmission signaled by DSACK is not accounted
-
-The new approach is simpler and more robust. For SACK connections,
-tp->delivered increments as packets are being acked or sacked in
-SACK and ACK processing.
-
-For non-sack connections, it's done in tcp_remove_reno_sacks() and
-tcp_add_reno_sack(). When an ACK advances the SND.UNA, tp->delivered
-is incremented by the number of packets ACKed (less the current
-number of DUPACKs received plus one packet hole).  Upon receiving
-a DUPACK, tp->delivered is incremented assuming one out-of-order
-packet is delivered.
-
-Upon receiving a DSACK, tp->delivered is incremtened assuming one
-retransmission is delivered in tcp_sacktag_write_queue().
+The retransmission and F-RTO transmission currently happen inside
+recovery state processing (tcp_fastretrans_alert) but before
+congestion control.  This refactoring moves the logic after both
+s.t. we can determine how much to send (cwnd) before deciding what to
+send.
 
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 Signed-off-by: Eric Dumazet <ncardwell@google.com>
 ---
- include/linux/tcp.h  |  1 +
- net/ipv4/tcp_input.c | 21 +++++++++++++++------
- 2 files changed, 16 insertions(+), 6 deletions(-)
+ net/ipv4/tcp_input.c | 58 +++++++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 46 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index b386361..d909fee 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -256,6 +256,7 @@ struct tcp_sock {
- 	u32	prr_delivered;	/* Number of newly delivered packets to
- 				 * receiver in Recovery. */
- 	u32	prr_out;	/* Total number of pkts sent during Recovery. */
-+	u32	delivered;	/* Total data packets delivered incl. rexmits */
- 
-  	u32	rcv_wnd;	/* Current receiver window		*/
- 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index f2ebe8b..e7a8ce7 100644
+index 0003d40..482c0b4 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -1214,6 +1214,7 @@ static u8 tcp_sacktag_one(struct sock *sk,
- 		sacked |= TCPCB_SACKED_ACKED;
- 		state->flag |= FLAG_DATA_SACKED;
- 		tp->sacked_out += pcount;
-+		tp->delivered += pcount;  /* Out-of-order packets delivered */
+@@ -126,6 +126,10 @@ int sysctl_tcp_invalid_ratelimit __read_mostly = HZ/2;
+ #define TCP_REMNANT (TCP_FLAG_FIN|TCP_FLAG_URG|TCP_FLAG_SYN|TCP_FLAG_PSH)
+ #define TCP_HP_BITS (~(TCP_RESERVED_BITS|TCP_FLAG_PSH))
  
- 		fack_count += pcount;
- 
-@@ -1825,8 +1826,12 @@ static void tcp_check_reno_reordering(struct sock *sk, const int addend)
- static void tcp_add_reno_sack(struct sock *sk)
++#define REXMIT_NONE	0 /* no loss recovery to do */
++#define REXMIT_LOST	1 /* retransmit packets marked lost */
++#define REXMIT_NEW	2 /* FRTO-style transmit of unsent/new packets */
++
+ /* Adapt the MSS value used to make delayed ack decision to the
+  * real world.
+  */
+@@ -2664,7 +2668,8 @@ static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
+ /* Process an ACK in CA_Loss state. Move to CA_Open if lost data are
+  * recovered or spurious. Otherwise retransmits more on partial ACKs.
+  */
+-static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack)
++static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack,
++			     int *rexmit)
  {
  	struct tcp_sock *tp = tcp_sk(sk);
-+	u32 prior_sacked = tp->sacked_out;
-+
- 	tp->sacked_out++;
- 	tcp_check_reno_reordering(sk, 0);
-+	if (tp->sacked_out > prior_sacked)
-+		tp->delivered++; /* Some out-of-order packet is delivered */
- 	tcp_verify_left_out(tp);
+ 	bool recovered = !before(tp->snd_una, tp->high_seq);
+@@ -2686,10 +2691,15 @@ static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack)
+ 				tp->frto = 0; /* Step 3.a. loss was real */
+ 		} else if (flag & FLAG_SND_UNA_ADVANCED && !recovered) {
+ 			tp->high_seq = tp->snd_nxt;
+-			__tcp_push_pending_frames(sk, tcp_current_mss(sk),
+-						  TCP_NAGLE_OFF);
+-			if (after(tp->snd_nxt, tp->high_seq))
+-				return; /* Step 2.b */
++			/* Step 2.b. Try send new data (but deferred until cwnd
++			 * is updated in tcp_ack()). Otherwise fall back to
++			 * the conventional recovery.
++			 */
++			if (tcp_send_head(sk) &&
++			    after(tcp_wnd_end(tp), tp->snd_nxt)) {
++				*rexmit = REXMIT_NEW;
++				return;
++			}
+ 			tp->frto = 0;
+ 		}
+ 	}
+@@ -2708,7 +2718,7 @@ static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack)
+ 		else if (flag & FLAG_SND_UNA_ADVANCED)
+ 			tcp_reset_reno_sack(tp);
+ 	}
+-	tcp_xmit_retransmit_queue(sk);
++	*rexmit = REXMIT_LOST;
  }
  
-@@ -1838,6 +1843,7 @@ static void tcp_remove_reno_sacks(struct sock *sk, int acked)
- 
- 	if (acked > 0) {
- 		/* One ACK acked hole. The rest eat duplicate ACKs. */
-+		tp->delivered += max_t(int, acked - tp->sacked_out, 1);
- 		if (acked - 1 >= tp->sacked_out)
- 			tp->sacked_out = 0;
- 		else
-@@ -3158,10 +3164,13 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 				flag |= FLAG_ORIG_SACK_ACKED;
+ /* Undo during fast recovery after partial ACK. */
+@@ -2758,7 +2768,7 @@ static bool tcp_try_undo_partial(struct sock *sk, const int acked,
+  */
+ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
+ 				  const int prior_unsacked,
+-				  bool is_dupack, int flag)
++				  bool is_dupack, int flag, int *rexmit)
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+@@ -2833,7 +2843,7 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
  		}
+ 		break;
+ 	case TCP_CA_Loss:
+-		tcp_process_loss(sk, flag, is_dupack);
++		tcp_process_loss(sk, flag, is_dupack, rexmit);
+ 		if (icsk->icsk_ca_state != TCP_CA_Open &&
+ 		    !(flag & FLAG_LOST_RETRANS))
+ 			return;
+@@ -2873,7 +2883,7 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
+ 	if (do_lost)
+ 		tcp_update_scoreboard(sk, fast_rexmit);
+ 	tcp_cwnd_reduction(sk, prior_unsacked, fast_rexmit, flag);
+-	tcp_xmit_retransmit_queue(sk);
++	*rexmit = REXMIT_LOST;
+ }
  
--		if (sacked & TCPCB_SACKED_ACKED)
-+		if (sacked & TCPCB_SACKED_ACKED) {
- 			tp->sacked_out -= acked_pcount;
--		else if (tcp_is_sack(tp) && !tcp_skb_spurious_retrans(tp, skb))
--			tcp_rack_advance(tp, &skb->skb_mstamp, sacked);
-+		} else if (tcp_is_sack(tp)) {
-+			tp->delivered += acked_pcount;
-+			if (!tcp_skb_spurious_retrans(tp, skb))
-+				tcp_rack_advance(tp, &skb->skb_mstamp, sacked);
-+		}
- 		if (sacked & TCPCB_LOST)
- 			tp->lost_out -= acked_pcount;
+ /* Kathleen Nichols' algorithm for tracking the minimum value of
+@@ -3508,6 +3518,27 @@ static inline void tcp_in_ack_event(struct sock *sk, u32 flags)
+ 		icsk->icsk_ca_ops->in_ack_event(sk, flags);
+ }
  
-@@ -3543,9 +3552,9 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	bool is_dupack = false;
- 	u32 prior_fackets;
++/* Congestion control has updated the cwnd already. So if we're in
++ * loss recovery then now we do any new sends (for FRTO) or
++ * retransmits (for CA_Loss or CA_recovery) that make sense.
++ */
++static void tcp_xmit_recovery(struct sock *sk, int rexmit)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	if (rexmit == REXMIT_NONE)
++		return;
++
++	if (unlikely(rexmit == 2)) {
++		__tcp_push_pending_frames(sk, tcp_current_mss(sk),
++					  TCP_NAGLE_OFF);
++		if (after(tp->snd_nxt, tp->high_seq))
++			return;
++		tp->frto = 0;
++	}
++	tcp_xmit_retransmit_queue(sk);
++}
++
+ /* This routine deals with incoming acks, but not outgoing ones. */
+ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ {
+@@ -3522,6 +3553,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
  	int prior_packets = tp->packets_out;
--	const int prior_unsacked = tp->packets_out - tp->sacked_out;
-+	u32 prior_delivered = tp->delivered;
+ 	const int prior_unsacked = tp->packets_out - tp->sacked_out;
  	int acked = 0; /* Number of packets newly acked */
--	int acked_sacked; /* Number of packets newly acked or sacked */
-+	u32 acked_sacked; /* Number of packets newly acked or sacked */
- 	int rexmit = REXMIT_NONE; /* Flag to (re)transmit to recover losses */
++	int rexmit = REXMIT_NONE; /* Flag to (re)transmit to recover losses */
  
  	sack_state.first_sackt.v64 = 0;
-@@ -3647,7 +3656,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 
+@@ -3618,7 +3650,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	if (tcp_ack_is_dubious(sk, flag)) {
+ 		is_dupack = !(flag & (FLAG_SND_UNA_ADVANCED | FLAG_NOT_DUP));
+ 		tcp_fastretrans_alert(sk, acked, prior_unsacked,
+-				      is_dupack, flag);
++				      is_dupack, flag, &rexmit);
+ 	}
  	if (tp->tlp_high_seq)
  		tcp_process_tlp_ack(sk, ack, flag);
+@@ -3636,13 +3668,14 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	if (icsk->icsk_pending == ICSK_TIME_RETRANS)
+ 		tcp_schedule_loss_probe(sk);
+ 	tcp_update_pacing_rate(sk);
++	tcp_xmit_recovery(sk, rexmit);
+ 	return 1;
  
--	acked_sacked = prior_unsacked - (tp->packets_out - tp->sacked_out);
-+	acked_sacked = tp->delivered - prior_delivered;
- 	/* Advance cwnd if state allows */
- 	if (tcp_in_cwnd_reduction(sk)) {
- 		/* Reduce cwnd if state mandates */
+ no_queue:
+ 	/* If data was DSACKed, see if we can undo a cwnd reduction. */
+ 	if (flag & FLAG_DSACKING_ACK)
+ 		tcp_fastretrans_alert(sk, acked, prior_unsacked,
+-				      is_dupack, flag);
++				      is_dupack, flag, &rexmit);
+ 	/* If this ack opens up a zero window, clear backoff.  It was
+ 	 * being used to time the probes, and is probably far higher than
+ 	 * it needs to be for normal retransmission.
+@@ -3666,7 +3699,8 @@ old_ack:
+ 		flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una,
+ 						&sack_state);
+ 		tcp_fastretrans_alert(sk, acked, prior_unsacked,
+-				      is_dupack, flag);
++				      is_dupack, flag, &rexmit);
++		tcp_xmit_recovery(sk, rexmit);
+ 	}
+ 
+ 	SOCK_DEBUG(sk, "Ack %u before %u:%u\n", ack, tp->snd_una, tp->snd_nxt);
 -- 
 2.7.0.rc3.207.g0ac5344
