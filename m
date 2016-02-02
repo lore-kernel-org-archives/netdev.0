@@ -1,43 +1,34 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next v3 0/2] virtio_net: add ethtool get/set settings support
-Date: Tue,  2 Feb 2016 17:21:25 +0100
-Message-ID: <1454430087-2062-1-git-send-email-razor@blackwall.org>
-Cc: mst@redhat.com, roopa@cumulusnetworks.com, davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35712 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755992AbcBBQVf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 11:21:35 -0500
-Received: by mail-wm0-f68.google.com with SMTP id l66so3149423wml.2
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 08:21:34 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: [v2,2/3] net: wireless: b43: Coding Style
+Date: Tue, 2 Feb 2016 21:55:19 +0530
+Message-ID: <20160202162519.GC8235@sudip-laptop>
+References: <1445270543-2209-3-git-send-email-paulmcquad@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kvalo@codeaurora.org, zajec5@gmail.com, davem@davemloft.net,
+	joe@perches.com, johannes.berg@intel.com, sd@queasysnail.net,
+	m@bues.ch, mike.looijmans@topic.nl, khoroshilov@ispras.ru,
+	cengelma@gmx.at, linux-wireless@vger.kernel.org,
+	b43-dev@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Paul Mcquade <paulmcquad@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1445270543-2209-3-git-send-email-paulmcquad@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On Mon, Oct 19, 2015 at 05:02:22PM +0100, Paul Mcquade wrote:
+> Fixed Pointer Coding Style
+> 
+> Signed-off-by: Paul McQuade <paulmcquad@gmail.com>
+> Acked-by: Michael Buesch <m@bues.ch>
 
-Hi,
-Patch 1 adds ethtool speed/duplex validation functions which check if the
-value is defined. Patch 2 adds support for ethtool (get|set)_settings and
-uses the validation functions to check the user-supplied values.
+Please fix the From: name like i just replied in another of your patch
+and this patch will not apply anymore as the driver has moved to a new
+location drivers/net/wireless/broadcom/b43/
 
-v2: split in 2 patches to allow everyone to make use of the validation
-functions and allow virtio_net devices to be half duplex
-v3: added a check to return error if the user tries to change anything else
-besides duplex/speed as per Michael's comment
+can you please rebase it against the current tree and send.
 
-Cheers,
- Nik
-
-
-Nikolay Aleksandrov (2):
-  ethtool: add speed/duplex validation functions
-  virtio_net: add ethtool support for set and get of settings
-
- drivers/net/virtio_net.c     | 58 ++++++++++++++++++++++++++++++++++++++++++++
- include/uapi/linux/ethtool.h | 34 ++++++++++++++++++++++++++
- 2 files changed, 92 insertions(+)
-
--- 
-2.4.3
+regards
+sudip
