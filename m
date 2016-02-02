@@ -1,44 +1,78 @@
-From: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-Subject: [PATCH net-next 8/8] benet: Fix interval calculation in interrupt moderation
-Date: Tue,  2 Feb 2016 15:50:35 +0530
-Message-ID: <1454408435-11575-9-git-send-email-sriharsha.basavapatna@broadcom.com>
-References: <1454408435-11575-1-git-send-email-sriharsha.basavapatna@broadcom.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmrelayp1.emulex.com ([138.239.112.140]:63466 "EHLO
-	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754579AbcBBKjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 05:39:31 -0500
-In-Reply-To: <1454408435-11575-1-git-send-email-sriharsha.basavapatna@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH V5] netfilter: h323: avoid potential attack
+Date: Tue, 2 Feb 2016 13:55:27 +0300
+Message-ID: <56B08B1F.9050406@cogentembedded.com>
+References: <1454391454-22359-1-git-send-email-zhouzhouyi@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+To: Zhouyi Zhou <zhouzhouyi@gmail.com>, eric.dumazet@gmail.com,
+	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fw@strlen.de,
+	gnomes@lxorguk.ukuu.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454391454-22359-1-git-send-email-zhouzhouyi@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>
+Hello.
 
-Interrupt moderation parameters need to be recalculated only
-after a time interval of 1 ms. Interval calculation is wrong
-when there is a rollover of jiffies. Using recommended way of interval
-calculation using jiffies to fix this.
+On 2/2/2016 8:37 AM, Zhouyi Zhou wrote:
 
-Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>
-Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+> I think hackers chould build a malicious h323 packet to overflow
+> the pointer p which will panic during the memcpy(addr, p, len)
+> For example, he may fabricate a very large taddr->ipAddress.ip.
+>
+> In order to avoid this, I add a valid memory reference check in
+>   get_h2x5_addr functions.
+>
+> As suggested by Eric, this module is protected by a lock (nf_h323_lock)
+> so adding a variable h323_buffer_valid_bytes that would contain
+> the number of valid bytes would not require to change prototypes of
+> get_h2x5_addr.
+>
+> Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+>
+> ---
+>   net/netfilter/nf_conntrack_h323_main.c | 27 +++++++++++++++++++++++++++
+>   1 file changed, 27 insertions(+)
+>
+> diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
+> index 9511af0..21665ec 100644
+> --- a/net/netfilter/nf_conntrack_h323_main.c
+> +++ b/net/netfilter/nf_conntrack_h323_main.c
+> @@ -110,6 +110,25 @@ int (*nat_q931_hook) (struct sk_buff *skb,
+>
+>   static DEFINE_SPINLOCK(nf_h323_lock);
+>   static char *h323_buffer;
+> +static int h323_buffer_valid_bytes;
+> +
+> +static bool h323_buffer_ref_valid(void *p, int len)
+> +{
+> +
+> +	if ((unsigned long)len > h323_buffer_valid_bytes) {
+> +		return false;
+> +	}
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index d5286d3..9c1fc9d 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1917,8 +1917,7 @@ static u32 be_get_eq_delay_mult_enc(struct be_eq_obj *eqo)
- 	if (!aic->enable)
- 		return 0;
- 
--	if (time_before_eq(now, aic->jiffies) ||
--	    jiffies_to_msecs(now - aic->jiffies) < 1)
-+	if (jiffies_to_msecs(now - aic->jiffies) < 1)
- 		eqd = aic->prev_eqd;
- 	else
- 		eqd = be_get_new_eqd(eqo);
--- 
-2.3.0.rc2
+    {} not needed.
+
+> +
+> +	if (p + len > (void *)h323_buffer + h323_buffer_valid_bytes) {
+> +		return false;
+> +	}
+
+    Likewise.
+
+> +
+> +	if (p < (void *)h323_buffer) {
+> +		return false;
+> +	}
+
+    Likewise.
+
+[...]
+
+MBR, Sergei
