@@ -1,40 +1,52 @@
-From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: [PATCH net v4] r8169:  Add 2 new interrupts tested on my hardware.
-Date: Tue,  2 Feb 2016 20:10:35 +0200
-Message-ID: <1454436635-3325-1-git-send-email-asd@marian1000.go.ro>
-Mime-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Cc: Corcodel Marian <asd@marian1000.go.ro>
-To: netdev@vger.kernel.org
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCH next 1/3] ipvlan: scrub skb before routing in L3 mode.
+Date: Tue,  2 Feb 2016 11:20:22 -0800
+Message-ID: <1454440822-1953-1-git-send-email-mahesh@bandewar.net>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-14-225-121.residential.rdsnet.ro ([5.14.225.121]:44556 "EHLO
-	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757144AbcBBSw7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 13:52:59 -0500
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:35404 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753738AbcBBTUa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 14:20:30 -0500
+Received: by mail-pa0-f65.google.com with SMTP id gi1so8770159pac.2
+        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 11:20:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With SWInt and TxDescUnavail interrupts now have full support interrupts (maybe).
-This new interrupts is tested on my hardware RTL 8102.For another hardware need to 
- be tested.
+From: Mahesh Bandewar <maheshb@google.com>
 
-Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+Scrub skb before hitting the iptable hooks to ensure packets hit
+these hooks.
+
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ipvlan/ipvlan_core.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 5186ef9..7588ba7 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -8037,7 +8037,7 @@ static const struct rtl_cfg_info {
- 		.region		= 2,
- 		.align		= 8,
- 		.event_slow	= SYSErr | LinkChg | RxOverflow | RxFIFOOver |
--				  PCSTimeout,
-+				  PCSTimeout | SWInt | TxDescUnavail,
- 		.features	= RTL_FEATURE_MSI,
- 		.default_ver	= RTL_GIGA_MAC_VER_13,
+diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+index 8c48bb2a94ea..21c380f9ccd5 100644
+--- a/drivers/net/ipvlan/ipvlan_core.c
++++ b/drivers/net/ipvlan/ipvlan_core.c
+@@ -365,7 +365,7 @@ static int ipvlan_process_v4_outbound(struct sk_buff *skb)
+ 		ip_rt_put(rt);
+ 		goto err;
  	}
+-	skb_dst_drop(skb);
++	skb_scrub_packet(skb, false);
+ 	skb_dst_set(skb, &rt->dst);
+ 	err = ip_local_out(net, skb->sk, skb);
+ 	if (unlikely(net_xmit_eval(err)))
+@@ -403,7 +403,7 @@ static int ipvlan_process_v6_outbound(struct sk_buff *skb)
+ 		dst_release(dst);
+ 		goto err;
+ 	}
+-	skb_dst_drop(skb);
++	skb_scrub_packet(skb, false);
+ 	skb_dst_set(skb, dst);
+ 	err = ip6_local_out(net, skb->sk, skb);
+ 	if (unlikely(net_xmit_eval(err)))
 -- 
-2.5.0
+2.7.0.rc3.207.g0ac5344
