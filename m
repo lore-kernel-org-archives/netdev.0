@@ -1,106 +1,42 @@
-From: Byeoungwook Kim <quddnr145@gmail.com>
-Subject: [PATCH] rtlwifi: Fix reusable codes in core.c
-Date: Wed, 3 Feb 2016 00:48:55 +0900
-Message-ID: <20160202154855.GA8990@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next 0/4] packet: tpacket gso and csum offload
+Date: Tue,  2 Feb 2016 10:56:45 -0500
+Message-ID: <1454428609-26885-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, daniel@iogearbox.net, mst@redhat.com,
+	sri@us.ibm.com, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f65.google.com ([209.85.192.65]:36270 "EHLO
+	mail-qg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933093AbcBBP4x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 10:56:53 -0500
+Received: by mail-qg0-f65.google.com with SMTP id u30so1067269qge.3
+        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 07:56:53 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-rtl_*_delay() functions were reused same codes about addr variable.
-So i have converted to rtl_addr_delay() from code about addr variable.
+From: Willem de Bruijn <willemb@google.com>
 
-Conditional codes in rtl_addr_delay() were improved in readability and
-performance by using switch codes.
+Extend PACKET_VNET_HDR socket option support to packet sockets with
+memory mapped rings (PACKET_RX_RING, PACKET_TX_RING).
 
-Signed-off-by: Byeoungwook Kim <quddnr145@gmail.com>
----
- drivers/net/wireless/realtek/rtlwifi/core.c | 48 +++++++++++------------------
- 1 file changed, 18 insertions(+), 30 deletions(-)
+Patches 2 and 4 add support to tpacket_rcv and tpacket_snd.
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
-index 4ae421e..c1193d1 100644
---- a/drivers/net/wireless/realtek/rtlwifi/core.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/core.c
-@@ -37,36 +37,34 @@
- 
- void rtl_addr_delay(u32 addr)
- {
--	if (addr == 0xfe)
-+	switch (addr) {
-+	case 0xfe:
- 		mdelay(50);
--	else if (addr == 0xfd)
-+		break;
-+	case 0xfd:
- 		mdelay(5);
--	else if (addr == 0xfc)
-+		break;
-+	case 0xfc:
- 		mdelay(1);
--	else if (addr == 0xfb)
-+		break;
-+	case 0xfb:
- 		udelay(50);
--	else if (addr == 0xfa)
-+		break;
-+	case 0xfa:
- 		udelay(5);
--	else if (addr == 0xf9)
-+		break;
-+	case 0xf9:
- 		udelay(1);
-+		break;
-+	};
- }
- EXPORT_SYMBOL(rtl_addr_delay);
- 
- void rtl_rfreg_delay(struct ieee80211_hw *hw, enum radio_path rfpath, u32 addr,
- 		     u32 mask, u32 data)
- {
--	if (addr == 0xfe) {
--		mdelay(50);
--	} else if (addr == 0xfd) {
--		mdelay(5);
--	} else if (addr == 0xfc) {
--		mdelay(1);
--	} else if (addr == 0xfb) {
--		udelay(50);
--	} else if (addr == 0xfa) {
--		udelay(5);
--	} else if (addr == 0xf9) {
--		udelay(1);
-+	if (addr >= 0xf9 && addr <= 0xfe) {
-+		rtl_addr_delay(addr);
- 	} else {
- 		rtl_set_rfreg(hw, rfpath, addr, mask, data);
- 		udelay(1);
-@@ -76,18 +74,8 @@ EXPORT_SYMBOL(rtl_rfreg_delay);
- 
- void rtl_bb_delay(struct ieee80211_hw *hw, u32 addr, u32 data)
- {
--	if (addr == 0xfe) {
--		mdelay(50);
--	} else if (addr == 0xfd) {
--		mdelay(5);
--	} else if (addr == 0xfc) {
--		mdelay(1);
--	} else if (addr == 0xfb) {
--		udelay(50);
--	} else if (addr == 0xfa) {
--		udelay(5);
--	} else if (addr == 0xf9) {
--		udelay(1);
-+	if (addr >= 0xf9 && addr <= 0xfe) {
-+		rtl_addr_delay(addr);
- 	} else {
- 		rtl_set_bbreg(hw, addr, MASKDWORD, data);
- 		udelay(1);
+Patch 1 prepares for this by moving the relevant virtio_net_hdr
+logic out of packet_snd and packet_rcv into helper functions.
+
+GSO transmission requires all headers in the skb linear section.
+Patch 3 moves parsing of tx_ring slot headers before skb allocation
+to enable allocation with sufficient linear size.
+
+Willem de Bruijn (4):
+  packet: move vnet_hdr code to helper functions
+  packet: vnet_hdr support for tpacket_rcv
+  packet: parse tpacket header before skb alloc
+  packet: tpacket_snd gso and checksum offload
+
+ net/packet/af_packet.c | 438 +++++++++++++++++++++++++++++--------------------
+ 1 file changed, 262 insertions(+), 176 deletions(-)
+
 -- 
-2.5.0
+2.7.0.rc3.207.g0ac5344
