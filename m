@@ -1,53 +1,37 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH 6/7] net: ixgbe: add minimal parser details for ixgbe
-Date: Tue, 02 Feb 2016 08:46:44 -0800
-Message-ID: <56B0DD74.1090806@gmail.com>
-References: <20160201014555.13871.56591.stgit@john-Precision-Tower-5810>	<20160201015238.13871.81573.stgit@john-Precision-Tower-5810> <CAJ3xEMi_4N-x=_jKaJ8_f2BxHhrhhiCuftwzmqNZaiGv_d1c9w@mail.gmail.com>
+From: "Franklin S Cooper Jr." <fcooper@ti.com>
+Subject: Keystone 2 boards boot failure
+Date: Tue, 2 Feb 2016 10:50:41 -0600
+Message-ID: <56B0DE61.2000704@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, ast@fb.com,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	horms@verge.net.au, Linux Netdev List <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Cc: <w-kwok2@ti.com>, <davem@davemloft.net>
+To: <m-karicheri2@ti.com>, <netdev@vger.kernel.org>, <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:33945 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756308AbcBBQrB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 11:47:01 -0500
-Received: by mail-pa0-f53.google.com with SMTP id uo6so103578751pac.1
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 08:47:01 -0800 (PST)
-In-Reply-To: <CAJ3xEMi_4N-x=_jKaJ8_f2BxHhrhhiCuftwzmqNZaiGv_d1c9w@mail.gmail.com>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:33286 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754698AbcBBQut (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 11:50:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-02 08:27 AM, Or Gerlitz wrote:
-> On Mon, Feb 1, 2016 at 3:52 AM, John Fastabend <john.fastabend@gmail.com> wrote:
->> This adds an ixgbe data structure that is used to determine what
->> headers:fields can be matched and in what order they are supported.
->>
->> For hardware devices this can be a bit tricky because typically
->> only pre-programmed (firmware, ucode, rtl) parse graphs will be
->> supported and we don't yet have an interface to change these from
->> the OS. So its sort of a you get whatever your friendly vendor
->> provides affair at the moment.
->>
->> In the future we can add the get routines and set routines to
->> update this data structure. One interesting thing to note here
->> is the data structure here identifies ethernet, ip, and tcp
->> fields without having to hardcode them as enumerations or use
->> other identifiers.
-> 
-> Maybe for the current state this patch (or the most of it) can be
-> made generic and provided in a way that  multiple HW drivers can use it?
-> 
+Hi All,
 
-If you want the structs we can put them in a helper lib but the
-main code is two for loops to catch the keys and an if block to catch
-the nexthdr code mixed with a bunch of code to program the specific
-device. Its just not that helpful to other drivers.
+Latest mainline is currently failing to boot for Keystone 2
+Hawking but I'm assuming its true for other Keystone 2
+boards. Bisect shows that this issue popped up after the
+patch "netcp: try to reduce type confusion in descriptors"
+(commit 89907779) was introduced. There was another patch
+"netcp: fix regression in receive processing" that seems to
+fix some bugs that the prior patch introduced however it
+still did not resolve the boot failure and was documented as
+not being tested.
 
-.John
+Should we revert these commits or does anyone have any
+suggestions on how to fix these failures? I would be more
+than happy to test any fix.
+
+Bootlogs:
+Bootlog 4.5.0-rc2: http://pastebin.com/bsH4u656 (Failed)
+Bootlog 4.5.0-rc1: http://pastebin.com/MwY0eS7x (Failed)
+Bootlog 4.4: http://pastebin.com/yfBND9Vi (Passed)
