@@ -1,125 +1,224 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [RFC PATCH] bridge: mdb: add support for more attributes
-	and export timer
-Date: Tue,  2 Feb 2016 18:22:05 +0100
-Message-ID: <1454433725-3004-1-git-send-email-razor@blackwall.org>
-Cc: roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
-	davem@davemloft.net, Nikolay Aleksandrov <razor@blackwall.org>
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: Re: [PATCH v2] unix: properly account for FDs passed over unix sockets
+Date: Tue, 2 Feb 2016 18:34:29 +0100
+Message-ID: <CANq1E4T0sqTTD4RsWXTUrFvsKvEsKsUiPbskWd=wAEVu83_Srg@mail.gmail.com>
+References: <201601100657.u0A6vk1B025554@mail.home.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	socketpair@gmail.com,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Simon McVittie <simon.mcvittie@collabora.co.uk>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201601100657.u0A6vk1B025554@mail.home.local>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-Sending this as an RFC to see first if it's acceptable at all to change the
-exported attribute and if the approach is okay with everyone.
-Since currently mdb entries are exported directly as a structure inside
-MDBA_MDB_ENTRY_INFO attribute, we can't really extend it without
-breaking user-space. In order to export new mdb fields, I've converted
-the MDBA_MDB_ENTRY_INFO into a nested attribute which starts like before
-with struct br_mdb_entry (without header, as it's casted directly in
-iproute2) and continues with MDBA_MDB_ENTRY_ attributes. This way we
-keep compatibility with older users and can export new data.
-I've tested this with iproute2, both with and without support for the
-added attribute and it works fine.
-So basically we again have MDBA_MDB_ENTRY_INFO with struct br_mdb_entry
-inside but it may contain also some additional MDBA_MDB_ENTRY_ attributes
-such as MDBA_MDB_ENTRY_TIMER which can be parsed by user-space.
+Hi
 
-So the new structure is:
-[MDBA_MDB] = {
-     [MDBA_MDB_ENTRY] = {
-         [MDBA_MDB_ENTRY_INFO]
-         [MDBA_MDB_ENTRY_INFO] { <- Nested attribute
-             struct br_mdb_entry <- nla_put_nohdr()
-             [MDBA_MDB_ENTRY attributes] <- normal netlink attributes
-         }
-     }
-}
+On Sun, Jan 10, 2016 at 7:54 AM, Willy Tarreau <w@1wt.eu> wrote:
+> It is possible for a process to allocate and accumulate far more FDs than
+> the process' limit by sending them over a unix socket then closing them
+> to keep the process' fd count low.
+>
+> This change addresses this problem by keeping track of the number of FDs
+> in flight per user and preventing non-privileged processes from having
+> more FDs in flight than their configured FD limit.
 
-Alternatively I can add a whole new dump format which can be requested
-by user-space by adding a netlink attribute in the request (e.g. MDBA_MDB_EXT).
-That format will be using only netlink attributes for all MDB information and
-will be dumped like that only upon request.
+This is not really what this patch does. This patch rather prevents
+processes from having more of their owned *files* in flight than their
+configured FD limit. See below for details..
 
-Any feedback on this would be much appreciated.
+> Reported-by: socketpair@gmail.com
+> Reported-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> Mitigates: CVE-2013-4312 (Linux 2.0+)
+> Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Willy Tarreau <w@1wt.eu>
+> ---
+> v2: add reported-by, mitigates and acked-by.
+>
+> It would be nice if (if accepted) it would be backported to -stable as the
+> issue is currently exploitable.
+> ---
+>  include/linux/sched.h |  1 +
+>  net/unix/af_unix.c    | 24 ++++++++++++++++++++----
+>  net/unix/garbage.c    | 13 ++++++++-----
+>  3 files changed, 29 insertions(+), 9 deletions(-)
+>
+> diff --git a/include/linux/sched.h b/include/linux/sched.h
+> index edad7a4..fbf25f1 100644
+> --- a/include/linux/sched.h
+> +++ b/include/linux/sched.h
+> @@ -830,6 +830,7 @@ struct user_struct {
+>         unsigned long mq_bytes; /* How many bytes can be allocated to mqueue? */
+>  #endif
+>         unsigned long locked_shm; /* How many pages of mlocked shm ? */
+> +       unsigned long unix_inflight;    /* How many files in flight in unix sockets */
+>
+>  #ifdef CONFIG_KEYS
+>         struct key *uid_keyring;        /* UID specific keyring */
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index 45aebd9..d6d7b43 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -1499,6 +1499,21 @@ static void unix_destruct_scm(struct sk_buff *skb)
+>         sock_wfree(skb);
+>  }
+>
+> +/*
+> + * The "user->unix_inflight" variable is protected by the garbage
+> + * collection lock, and we just read it locklessly here. If you go
+> + * over the limit, there might be a tiny race in actually noticing
+> + * it across threads. Tough.
 
-Thank you,
- Nik
+This limit is checked once per transaction. IIRC, a transaction can
+carry 255 files. Thus, it is easy to exceed this limit without any
+race involved.
 
----
- include/uapi/linux/if_bridge.h |  6 +++++-
- net/bridge/br_mdb.c            | 14 +++++++++++++-
- 2 files changed, 18 insertions(+), 2 deletions(-)
+> + */
+> +static inline bool too_many_unix_fds(struct task_struct *p)
+> +{
+> +       struct user_struct *user = current_user();
+> +
+> +       if (unlikely(user->unix_inflight > task_rlimit(p, RLIMIT_NOFILE)))
+> +               return !capable(CAP_SYS_RESOURCE) && !capable(CAP_SYS_ADMIN);
+> +       return false;
+> +}
+> +
+>  #define MAX_RECURSION_LEVEL 4
+>
+>  static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+> @@ -1507,6 +1522,9 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+>         unsigned char max_level = 0;
+>         int unix_sock_count = 0;
+>
+> +       if (too_many_unix_fds(current))
+> +               return -ETOOMANYREFS;
+> +
 
-diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-index 18db14477bdd..8c595cdc3bba 100644
---- a/include/uapi/linux/if_bridge.h
-+++ b/include/uapi/linux/if_bridge.h
-@@ -137,7 +137,10 @@ struct bridge_vlan_info {
- /* Bridge multicast database attributes
-  * [MDBA_MDB] = {
-  *     [MDBA_MDB_ENTRY] = {
-- *         [MDBA_MDB_ENTRY_INFO]
-+ *         [MDBA_MDB_ENTRY_INFO] {
-+ *		struct br_mdb_entry
-+ *		[MDBA_MDB_ENTRY attributes]
-+ *         }
-  *     }
-  * }
-  * [MDBA_ROUTER] = {
-@@ -162,6 +165,7 @@ enum {
- enum {
- 	MDBA_MDB_ENTRY_UNSPEC,
- 	MDBA_MDB_ENTRY_INFO,
-+	MDBA_MDB_ENTRY_TIMER,
- 	__MDBA_MDB_ENTRY_MAX,
- };
- #define MDBA_MDB_ENTRY_MAX (__MDBA_MDB_ENTRY_MAX - 1)
-diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
-index 30e105f57f0d..33436601b959 100644
---- a/net/bridge/br_mdb.c
-+++ b/net/bridge/br_mdb.c
-@@ -82,7 +82,9 @@ static int br_mdb_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
- 			      pp = &p->next) {
- 				port = p->port;
- 				if (port) {
-+					struct nlattr *nest_ent;
- 					struct br_mdb_entry e;
-+
- 					memset(&e, 0, sizeof(e));
- 					e.ifindex = port->dev->ifindex;
- 					e.state = p->state;
-@@ -94,11 +96,21 @@ static int br_mdb_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
- 						e.addr.u.ip6 = p->addr.u.ip6;
- #endif
- 					e.addr.proto = p->addr.proto;
--					if (nla_put(skb, MDBA_MDB_ENTRY_INFO, sizeof(e), &e)) {
-+					nest_ent = nla_nest_start(skb, MDBA_MDB_ENTRY_INFO);
-+					if (!nest_ent) {
-+						nla_nest_cancel(skb, nest2);
-+						err = -EMSGSIZE;
-+						goto out;
-+					}
-+					if (nla_put_nohdr(skb, sizeof(e), &e) ||
-+					    nla_put_u32(skb, MDBA_MDB_ENTRY_TIMER,
-+							br_timer_value(&p->timer))) {
-+						nla_nest_cancel(skb, nest_ent);
- 						nla_nest_cancel(skb, nest2);
- 						err = -EMSGSIZE;
- 						goto out;
- 					}
-+					nla_nest_end(skb, nest_ent);
- 				}
- 			}
- 			nla_nest_end(skb, nest2);
--- 
-2.4.3
+Ignoring the capabilities, this effectively resolves to:
+
+    if (current_cred()->user->unix_inflight > rlimit(RLIMIT_NOFILE))
+            return -ETOOMANYREFS;
+
+It limits the number of inflight FDs of the *current* user to its *own* limit.
+
+But..
+
+>         for (i = scm->fp->count - 1; i >= 0; i--) {
+>                 struct sock *sk = unix_get_socket(scm->fp->fp[i]);
+>
+> @@ -1528,10 +1546,8 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+>         if (!UNIXCB(skb).fp)
+>                 return -ENOMEM;
+>
+> -       if (unix_sock_count) {
+> -               for (i = scm->fp->count - 1; i >= 0; i--)
+> -                       unix_inflight(scm->fp->fp[i]);
+> -       }
+> +       for (i = scm->fp->count - 1; i >= 0; i--)
+> +               unix_inflight(scm->fp->fp[i]);
+>         return max_level;
+>  }
+>
+> diff --git a/net/unix/garbage.c b/net/unix/garbage.c
+> index a73a226..8fcdc22 100644
+> --- a/net/unix/garbage.c
+> +++ b/net/unix/garbage.c
+> @@ -120,11 +120,11 @@ void unix_inflight(struct file *fp)
+>  {
+>         struct sock *s = unix_get_socket(fp);
+>
+> +       spin_lock(&unix_gc_lock);
+> +
+>         if (s) {
+>                 struct unix_sock *u = unix_sk(s);
+>
+> -               spin_lock(&unix_gc_lock);
+> -
+>                 if (atomic_long_inc_return(&u->inflight) == 1) {
+>                         BUG_ON(!list_empty(&u->link));
+>                         list_add_tail(&u->link, &gc_inflight_list);
+> @@ -132,25 +132,28 @@ void unix_inflight(struct file *fp)
+>                         BUG_ON(list_empty(&u->link));
+>                 }
+>                 unix_tot_inflight++;
+> -               spin_unlock(&unix_gc_lock);
+>         }
+> +       fp->f_cred->user->unix_inflight++;
+
+..this modifies the limit of the owner of the file you send. As such,
+if you only send files that you don't own, you will continuously bump
+the limit of the file-owner, but never your own. As such, the
+protection above will never fire.
+
+Is this really what this patch is supposed to do? Shouldn't the loop
+in unix_attach_fds() rather check for this:
+
+    if (unlikely(fp->f_cred->user->unix_inflight > nofile &&
+            !file_ns_capable(fp, &init_user_ns, CAP_SYS_RESOURCE) &&
+            !file_ns_capable(fp, &init_user_ns, CAP_SYS_ADMIN)))
+            return -ETOOMANYREFS;
+
+(or keeping capable() rather than file_ns_capable(), depending on the
+wanted semantics)
+
+Furthermore, with this patch in place, a process better not pass any
+file-descriptors to an untrusted process. This might have been a
+stupid idea in the first place, but I would have expected the patch to
+mention this. Because with this patch in place, a receiver of a
+file-descriptor can bump the unix_inflight limit of the sender
+arbitrarily. Did anyone notify the dbus maintainers of this? They
+might wanna document this, if not already done (CC: smcv).
+
+Why doesn't this patch modify "unix_inflight" of the sender rather
+than the passed descriptors? It would require pinning the affected
+user in 'scm' contexts, but that is probably already the case, anyway.
+This way, the original ETOOMANYREFS check would be perfectly fine.
+
+Anyway, can someone provide a high-level description of what exactly
+this patch is supposed to do? Which operation should be limited, who
+should inflight FDs be accounted on, and which rlimit should be used
+on each operation? I'm having a hard time auditing existing
+user-space, given just the scarce description of this commit.
+
+Thanks
+David
+
+> +       spin_unlock(&unix_gc_lock);
+>  }
+>
+>  void unix_notinflight(struct file *fp)
+>  {
+>         struct sock *s = unix_get_socket(fp);
+>
+> +       spin_lock(&unix_gc_lock);
+> +
+>         if (s) {
+>                 struct unix_sock *u = unix_sk(s);
+>
+> -               spin_lock(&unix_gc_lock);
+>                 BUG_ON(list_empty(&u->link));
+>
+>                 if (atomic_long_dec_and_test(&u->inflight))
+>                         list_del_init(&u->link);
+>                 unix_tot_inflight--;
+> -               spin_unlock(&unix_gc_lock);
+>         }
+> +       fp->f_cred->user->unix_inflight--;
+> +       spin_unlock(&unix_gc_lock);
+>  }
+>
+>  static void scan_inflight(struct sock *x, void (*func)(struct unix_sock *),
+> --
+> 1.7.12.1
+>
+>
+>
