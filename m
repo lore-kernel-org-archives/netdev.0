@@ -1,136 +1,185 @@
-From: Stefan Assmann <sassmann@kpanic.de>
-Subject: Re: [PATCH net-next 6/6] e1000e: call ndo_stop() instead of
- dev_close() when running offline selftest
-Date: Tue, 2 Feb 2016 13:59:47 +0100
-Message-ID: <56B0A843.9060703@kpanic.de>
-References: <1454408028-16986-1-git-send-email-sassmann@kpanic.de>
- <1454408028-16986-7-git-send-email-sassmann@kpanic.de>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] virtio_net: add ethtool support for set and get
+	of settings
+Date: Tue, 2 Feb 2016 15:23:58 +0200
+Message-ID: <20160202151658-mutt-send-email-mst@redhat.com>
+References: <1454417480-28672-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com
-To: intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from app1a.xlhost.de ([84.200.252.161]:45423 "EHLO app1a.xlhost.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754770AbcBBNIy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 08:08:54 -0500
-In-Reply-To: <1454408028-16986-7-git-send-email-sassmann@kpanic.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>, netdev@vger.kernel.org,
+	Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net,
+	virtualization@lists.linux-foundation.org
+To: Nikolay Aleksandrov <razor@blackwall.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1454417480-28672-1-git-send-email-razor@blackwall.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Here's a V2 that fixes the name collision.
+On Tue, Feb 02, 2016 at 01:51:20PM +0100, Nikolay Aleksandrov wrote:
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> 
+> This patch allows the user to set and retrieve speed and duplex of the
+> virtio_net device via ethtool. Having this functionality is very helpful
+> for simulating different environments and also enables the virtio_net
+> device to participate in operations where proper speed and duplex are
+> required (e.g. currently bonding lacp mode requires full duplex). Custom
+> speed and duplex are not allowed, the user-supplied settings are validated
+> before applying. Only full and unknown duplex are allowed to be set.
 
->From 8f617672b97324058adf5b8981c4b91defad8c3a Mon Sep 17 00:00:00 2001
-From: Stefan Assmann <sassmann@kpanic.de>
-Date: Mon, 1 Feb 2016 13:18:24 +0100
-Subject: [PATCH net-next] e1000e: call ndo_stop() instead of dev_close() when
- running offline selftest
+Why isn't half duplex legal?
 
-Calling dev_close() causes IFF_UP to be cleared which will remove the
-interfaces routes and some addresses. That's probably not what the user
-intended when running the offline selftest. Besides this does not happen
-if the interface is brought down before the test, so the current
-behaviour is inconsistent.
-Instead call the net_device_ops ndo_stop function directly and avoid
-touching IFF_UP at all.
+> 
+> Example:
+> $ ethtool eth1
+> Settings for eth1:
+> ...
+> 	Speed: Unknown!
+> 	Duplex: Unknown! (255)
+> $ ethtool -s eth1 speed 1000 duplex full
+> $ ethtool eth1
+> Settings for eth1:
+> ...
+> 	Speed: 1000Mb/s
+> 	Duplex: Full
+> 
+> Based on a patch by Roopa Prabhu.
+> 
+> CC: Roopa Prabhu <roopa@cumulusnetworks.com>
+> CC: Michael S. Tsirkin <mst@redhat.com>
+> CC: virtualization@lists.linux-foundation.org
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-V2: rename e1000_open(), e1000_close() to e1000e_open(), e1000e_close()
-to avoid name clash with e1000.
+Thanks!
+Looks ok with one comment, see below.
 
-Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
----
- drivers/net/ethernet/intel/e1000e/e1000.h   |  2 ++
- drivers/net/ethernet/intel/e1000e/ethtool.c |  4 ++--
- drivers/net/ethernet/intel/e1000e/netdev.c  | 12 ++++++------
- 3 files changed, 10 insertions(+), 8 deletions(-)
+> ---
+> Allowed to set unknown speed/duplex if the user wants to reset them, though
+> the user-space ethtool tool currently doesn't allow setting them.
+> 
+>  drivers/net/virtio_net.c | 74 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 74 insertions(+)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 767ab11a6e9f..722ade567ee5 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -146,6 +146,10 @@ struct virtnet_info {
+>  	virtio_net_ctrl_ack ctrl_status;
+>  	u8 ctrl_promisc;
+>  	u8 ctrl_allmulti;
+> +
+> +	/* Ethtool settings */
+> +	u8 duplex;
+> +	u32 speed;
+>  };
+>  
+>  struct padded_vnet_hdr {
+> @@ -1376,6 +1380,72 @@ static void virtnet_get_channels(struct net_device *dev,
+>  	channels->other_count = 0;
+>  }
+>  
+> +static bool virtnet_validate_speed(u32 speed)
+> +{
+> +	switch (speed) {
+> +	case SPEED_10:
+> +	case SPEED_100:
+> +	case SPEED_1000:
+> +	case SPEED_2500:
+> +	case SPEED_5000:
+> +	case SPEED_10000:
+> +	case SPEED_20000:
+> +	case SPEED_25000:
+> +	case SPEED_40000:
+> +	case SPEED_50000:
+> +	case SPEED_56000:
+> +	case SPEED_100000:
+> +	case SPEED_UNKNOWN:
+> +		return true;
+> +	}
+> +
+> +	return false;
+> +}
+> +
+> +static bool virtnet_validate_duplex(u8 duplex)
+> +{
+> +	switch (duplex) {
+> +	case DUPLEX_FULL:
+> +	case DUPLEX_UNKNOWN:
+> +		return true;
+> +	}
+> +
+> +	return false;
+> +}
 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 1dc293b..52eb641 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -480,6 +480,8 @@ extern const char e1000e_driver_version[];
- void e1000e_check_options(struct e1000_adapter *adapter);
- void e1000e_set_ethtool_ops(struct net_device *netdev);
+Let's put the validating functions near where the
+enums are defined so people remember to extend these
+when adding new speeds?
+Will help e.g. tun reuse this, too.
 
-+int e1000e_open(struct net_device *netdev);
-+int e1000e_close(struct net_device *netdev);
- void e1000e_up(struct e1000_adapter *adapter);
- void e1000e_down(struct e1000_adapter *adapter, bool reset);
- void e1000e_reinit_locked(struct e1000_adapter *adapter);
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index 6cab1f3..1e3973a 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -1816,7 +1816,7 @@ static void e1000_diag_test(struct net_device *netdev,
-
- 		if (if_running)
- 			/* indicate we're in test mode */
--			dev_close(netdev);
-+			e1000e_close(netdev);
-
- 		if (e1000_reg_test(adapter, &data[0]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
-@@ -1849,7 +1849,7 @@ static void e1000_diag_test(struct net_device *netdev,
-
- 		clear_bit(__E1000_TESTING, &adapter->state);
- 		if (if_running)
--			dev_open(netdev);
-+			e1000e_open(netdev);
- 	} else {
- 		/* Online tests */
-
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index c71ba1b..02449a0 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4495,7 +4495,7 @@ static int e1000_test_msi(struct e1000_adapter *adapter)
- }
-
- /**
-- * e1000_open - Called when a network interface is made active
-+ * e1000e_open - Called when a network interface is made active
-  * @netdev: network interface device structure
-  *
-  * Returns 0 on success, negative value on failure
-@@ -4506,7 +4506,7 @@ static int e1000_test_msi(struct e1000_adapter *adapter)
-  * handler is registered with the OS, the watchdog timer is started,
-  * and the stack is notified that the interface is ready.
-  **/
--static int e1000_open(struct net_device *netdev)
-+int e1000e_open(struct net_device *netdev)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
-@@ -4604,7 +4604,7 @@ err_setup_tx:
- }
-
- /**
-- * e1000_close - Disables a network interface
-+ * e1000e_close - Disables a network interface
-  * @netdev: network interface device structure
-  *
-  * Returns 0, this is not allowed to fail
-@@ -4614,7 +4614,7 @@ err_setup_tx:
-  * needs to be disabled.  A global MAC reset is issued to stop the
-  * hardware, and all transmit and receive resources are freed.
-  **/
--static int e1000_close(struct net_device *netdev)
-+int e1000e_close(struct net_device *netdev)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct pci_dev *pdev = adapter->pdev;
-@@ -6920,8 +6920,8 @@ static int e1000_set_features(struct net_device *netdev,
- }
-
- static const struct net_device_ops e1000e_netdev_ops = {
--	.ndo_open		= e1000_open,
--	.ndo_stop		= e1000_close,
-+	.ndo_open		= e1000e_open,
-+	.ndo_stop		= e1000e_close,
- 	.ndo_start_xmit		= e1000_xmit_frame,
- 	.ndo_get_stats64	= e1000e_get_stats64,
- 	.ndo_set_rx_mode	= e1000e_set_rx_mode,
--- 
-2.5.0
+> +
+> +static int virtnet_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +	u32 speed = ethtool_cmd_speed(cmd);
+> +
+> +	/* don't allow custom speed and duplex */
+> +	if (!virtnet_validate_speed(speed) ||
+> +	    !virtnet_validate_duplex(cmd->duplex))
+> +		return -EINVAL;
+> +	vi->speed = speed;
+> +	vi->duplex = cmd->duplex;
+> +
+> +	return 0;
+> +}
+> +
+> +static int virtnet_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +
+> +	ethtool_cmd_speed_set(cmd, vi->speed);
+> +	cmd->duplex = vi->duplex;
+> +
+> +	return 0;
+> +}
+> +
+> +static void virtnet_init_settings(struct net_device *dev)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +
+> +	vi->speed = SPEED_UNKNOWN;
+> +	vi->duplex = DUPLEX_UNKNOWN;
+> +}
+> +
+>  static const struct ethtool_ops virtnet_ethtool_ops = {
+>  	.get_drvinfo = virtnet_get_drvinfo,
+>  	.get_link = ethtool_op_get_link,
+> @@ -1383,6 +1453,8 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
+>  	.set_channels = virtnet_set_channels,
+>  	.get_channels = virtnet_get_channels,
+>  	.get_ts_info = ethtool_op_get_ts_info,
+> +	.get_settings = virtnet_get_settings,
+> +	.set_settings = virtnet_set_settings,
+>  };
+>  
+>  #define MIN_MTU 68
+> @@ -1855,6 +1927,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
+>  	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
+>  
+> +	virtnet_init_settings(dev);
+> +
+>  	err = register_netdev(dev);
+>  	if (err) {
+>  		pr_debug("virtio_net: registering device failed\n");
+> -- 
+> 2.4.3
