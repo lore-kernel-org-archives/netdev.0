@@ -1,186 +1,191 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next 1/6] tcp: retransmit after recovery processing and congestion control
-Date: Tue,  2 Feb 2016 10:33:04 -0800
-Message-ID: <1454437989-3842-2-git-send-email-ycheng@google.com>
-References: <1454437989-3842-1-git-send-email-ycheng@google.com>
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34784 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933784AbcBBSdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 13:33:35 -0500
-Received: by mail-pf0-f177.google.com with SMTP id o185so104550811pfb.1
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 10:33:34 -0800 (PST)
-In-Reply-To: <1454437989-3842-1-git-send-email-ycheng@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2] openvswitch: allow management from inside user
+	namespaces
+Date: Tue, 2 Feb 2016 18:34:29 +0000
+Message-ID: <20160202183429.GB23274@ubuntumail>
+References: <1454373073-12530-1-git-send-email-tycho.andersen@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>,
+	Eric Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1454373073-12530-1-git-send-email-tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The retransmission and F-RTO transmission currently happen inside
-recovery state processing (tcp_fastretrans_alert) but before
-congestion control.  This refactoring moves the logic after both
-s.t. we can determine how much to send (cwnd) before deciding what to
-send.
+Quoting Tycho Andersen (tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org):
+> Operations with the GENL_ADMIN_PERM flag fail permissions checks because
+> this flag means we call netlink_capable, which uses the init user ns.
+> 
+> Instead, let's introduce a new flag, GENL_UNS_ADMIN_PERM for operations
+> which should be allowed inside a user namespace.
+> 
+> The motivation for this is to be able to run openvswitch in unprivileged
+> containers. I've tested this and it seems to work, but I really have no
+> idea about the security consequences of this patch, so thoughts would be
+> much appreciated.
+> 
+> v2: use the GENL_UNS_ADMIN_PERM flag instead of a check in each function
+> 
+> Reported-by: James Page <james.page-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> Signed-off-by: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> CC: Eric Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+> CC: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+> CC: Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+> CC: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> ---
+>  include/uapi/linux/genetlink.h |  1 +
+>  net/netlink/genetlink.c        |  6 ++++--
+>  net/openvswitch/datapath.c     | 20 ++++++++++----------
+>  3 files changed, 15 insertions(+), 12 deletions(-)
+> 
+> diff --git a/include/uapi/linux/genetlink.h b/include/uapi/linux/genetlink.h
+> index c3363ba..5512c90 100644
+> --- a/include/uapi/linux/genetlink.h
+> +++ b/include/uapi/linux/genetlink.h
+> @@ -21,6 +21,7 @@ struct genlmsghdr {
+>  #define GENL_CMD_CAP_DO		0x02
+>  #define GENL_CMD_CAP_DUMP	0x04
+>  #define GENL_CMD_CAP_HASPOL	0x08
+> +#define GENL_UNS_ADMIN_PERM	0x10
+>  
+>  /*
+>   * List of reserved static generic netlink identifiers:
+> diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+> index f830326..6bbb3eb 100644
+> --- a/net/netlink/genetlink.c
+> +++ b/net/netlink/genetlink.c
+> @@ -576,8 +576,10 @@ static int genl_family_rcv_msg(struct genl_family *family,
+>  	if (ops == NULL)
+>  		return -EOPNOTSUPP;
+>  
+> -	if ((ops->flags & GENL_ADMIN_PERM) &&
+> -	    !netlink_capable(skb, CAP_NET_ADMIN))
+> +	if (((ops->flags & GENL_ADMIN_PERM) &&
+> +	    !netlink_capable(skb, CAP_NET_ADMIN)) ||
 
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Eric Dumazet <ncardwell@google.com>
----
- net/ipv4/tcp_input.c | 58 +++++++++++++++++++++++++++++++++++++++++-----------
- 1 file changed, 46 insertions(+), 12 deletions(-)
+Seems like this would be a lot clearer if you split it up, i.e.:
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 0003d40..482c0b4 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -126,6 +126,10 @@ int sysctl_tcp_invalid_ratelimit __read_mostly = HZ/2;
- #define TCP_REMNANT (TCP_FLAG_FIN|TCP_FLAG_URG|TCP_FLAG_SYN|TCP_FLAG_PSH)
- #define TCP_HP_BITS (~(TCP_RESERVED_BITS|TCP_FLAG_PSH))
- 
-+#define REXMIT_NONE	0 /* no loss recovery to do */
-+#define REXMIT_LOST	1 /* retransmit packets marked lost */
-+#define REXMIT_NEW	2 /* FRTO-style transmit of unsent/new packets */
-+
- /* Adapt the MSS value used to make delayed ack decision to the
-  * real world.
-  */
-@@ -2664,7 +2668,8 @@ static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
- /* Process an ACK in CA_Loss state. Move to CA_Open if lost data are
-  * recovered or spurious. Otherwise retransmits more on partial ACKs.
-  */
--static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack)
-+static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack,
-+			     int *rexmit)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	bool recovered = !before(tp->snd_una, tp->high_seq);
-@@ -2686,10 +2691,15 @@ static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack)
- 				tp->frto = 0; /* Step 3.a. loss was real */
- 		} else if (flag & FLAG_SND_UNA_ADVANCED && !recovered) {
- 			tp->high_seq = tp->snd_nxt;
--			__tcp_push_pending_frames(sk, tcp_current_mss(sk),
--						  TCP_NAGLE_OFF);
--			if (after(tp->snd_nxt, tp->high_seq))
--				return; /* Step 2.b */
-+			/* Step 2.b. Try send new data (but deferred until cwnd
-+			 * is updated in tcp_ack()). Otherwise fall back to
-+			 * the conventional recovery.
-+			 */
-+			if (tcp_send_head(sk) &&
-+			    after(tcp_wnd_end(tp), tp->snd_nxt)) {
-+				*rexmit = REXMIT_NEW;
-+				return;
-+			}
- 			tp->frto = 0;
- 		}
- 	}
-@@ -2708,7 +2718,7 @@ static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack)
- 		else if (flag & FLAG_SND_UNA_ADVANCED)
- 			tcp_reset_reno_sack(tp);
- 	}
--	tcp_xmit_retransmit_queue(sk);
-+	*rexmit = REXMIT_LOST;
- }
- 
- /* Undo during fast recovery after partial ACK. */
-@@ -2758,7 +2768,7 @@ static bool tcp_try_undo_partial(struct sock *sk, const int acked,
-  */
- static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 				  const int prior_unsacked,
--				  bool is_dupack, int flag)
-+				  bool is_dupack, int flag, int *rexmit)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
-@@ -2833,7 +2843,7 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 		}
- 		break;
- 	case TCP_CA_Loss:
--		tcp_process_loss(sk, flag, is_dupack);
-+		tcp_process_loss(sk, flag, is_dupack, rexmit);
- 		if (icsk->icsk_ca_state != TCP_CA_Open &&
- 		    !(flag & FLAG_LOST_RETRANS))
- 			return;
-@@ -2873,7 +2883,7 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 	if (do_lost)
- 		tcp_update_scoreboard(sk, fast_rexmit);
- 	tcp_cwnd_reduction(sk, prior_unsacked, fast_rexmit, flag);
--	tcp_xmit_retransmit_queue(sk);
-+	*rexmit = REXMIT_LOST;
- }
- 
- /* Kathleen Nichols' algorithm for tracking the minimum value of
-@@ -3508,6 +3518,27 @@ static inline void tcp_in_ack_event(struct sock *sk, u32 flags)
- 		icsk->icsk_ca_ops->in_ack_event(sk, flags);
- }
- 
-+/* Congestion control has updated the cwnd already. So if we're in
-+ * loss recovery then now we do any new sends (for FRTO) or
-+ * retransmits (for CA_Loss or CA_recovery) that make sense.
-+ */
-+static void tcp_xmit_recovery(struct sock *sk, int rexmit)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
-+	if (rexmit == REXMIT_NONE)
-+		return;
-+
-+	if (unlikely(rexmit == 2)) {
-+		__tcp_push_pending_frames(sk, tcp_current_mss(sk),
-+					  TCP_NAGLE_OFF);
-+		if (after(tp->snd_nxt, tp->high_seq))
-+			return;
-+		tp->frto = 0;
-+	}
-+	tcp_xmit_retransmit_queue(sk);
-+}
-+
- /* This routine deals with incoming acks, but not outgoing ones. */
- static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- {
-@@ -3522,6 +3553,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	int prior_packets = tp->packets_out;
- 	const int prior_unsacked = tp->packets_out - tp->sacked_out;
- 	int acked = 0; /* Number of packets newly acked */
-+	int rexmit = REXMIT_NONE; /* Flag to (re)transmit to recover losses */
- 
- 	sack_state.first_sackt.v64 = 0;
- 
-@@ -3618,7 +3650,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	if (tcp_ack_is_dubious(sk, flag)) {
- 		is_dupack = !(flag & (FLAG_SND_UNA_ADVANCED | FLAG_NOT_DUP));
- 		tcp_fastretrans_alert(sk, acked, prior_unsacked,
--				      is_dupack, flag);
-+				      is_dupack, flag, &rexmit);
- 	}
- 	if (tp->tlp_high_seq)
- 		tcp_process_tlp_ack(sk, ack, flag);
-@@ -3636,13 +3668,14 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	if (icsk->icsk_pending == ICSK_TIME_RETRANS)
- 		tcp_schedule_loss_probe(sk);
- 	tcp_update_pacing_rate(sk);
-+	tcp_xmit_recovery(sk, rexmit);
- 	return 1;
- 
- no_queue:
- 	/* If data was DSACKed, see if we can undo a cwnd reduction. */
- 	if (flag & FLAG_DSACKING_ACK)
- 		tcp_fastretrans_alert(sk, acked, prior_unsacked,
--				      is_dupack, flag);
-+				      is_dupack, flag, &rexmit);
- 	/* If this ack opens up a zero window, clear backoff.  It was
- 	 * being used to time the probes, and is probably far higher than
- 	 * it needs to be for normal retransmission.
-@@ -3666,7 +3699,8 @@ old_ack:
- 		flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una,
- 						&sack_state);
- 		tcp_fastretrans_alert(sk, acked, prior_unsacked,
--				      is_dupack, flag);
-+				      is_dupack, flag, &rexmit);
-+		tcp_xmit_recovery(sk, rexmit);
- 	}
- 
- 	SOCK_DEBUG(sk, "Ack %u before %u:%u\n", ack, tp->snd_una, tp->snd_nxt);
--- 
-2.7.0.rc3.207.g0ac5344
+	/* CAP_NET_ADMIN required against initial user_ns */
+	if ((ops->flags & GENL_ADMIN_PERM) &&
+	    !netlink_capable(skb, CAP_NET_ADMIN))
+		return -EPERM;
+
+	/* CAP_NET_ADMIN required against device user_ns */
+	if ((ops->flags & GENL_UNS_ADMIN_PERM) &&
+	    !netlink_ns_capable(skb, net->user_ns, CAP_NET_ADMIN))
+		return -EPERM;
+
+> +	    ((ops->flags & GENL_UNS_ADMIN_PERM) &&
+> +	    !netlink_ns_capable(skb, net->user_ns, CAP_NET_ADMIN)))
+>  		return -EPERM;
+>  
+>  	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index deadfda..d6f7fe9 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+> @@ -654,7 +654,7 @@ static const struct nla_policy packet_policy[OVS_PACKET_ATTR_MAX + 1] = {
+>  
+>  static const struct genl_ops dp_packet_genl_ops[] = {
+>  	{ .cmd = OVS_PACKET_CMD_EXECUTE,
+> -	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+> +	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+
+Hm, I'd like to suggest adding 'over netns', but I guess that breaks 80 cols...
+
+>  	  .policy = packet_policy,
+>  	  .doit = ovs_packet_cmd_execute
+>  	}
+> @@ -1391,12 +1391,12 @@ static const struct nla_policy flow_policy[OVS_FLOW_ATTR_MAX + 1] = {
+>  
+>  static const struct genl_ops dp_flow_genl_ops[] = {
+>  	{ .cmd = OVS_FLOW_CMD_NEW,
+> -	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+> +	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+>  	  .policy = flow_policy,
+>  	  .doit = ovs_flow_cmd_new
+>  	},
+>  	{ .cmd = OVS_FLOW_CMD_DEL,
+> -	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+> +	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+>  	  .policy = flow_policy,
+>  	  .doit = ovs_flow_cmd_del
+>  	},
+> @@ -1407,7 +1407,7 @@ static const struct genl_ops dp_flow_genl_ops[] = {
+>  	  .dumpit = ovs_flow_cmd_dump
+>  	},
+>  	{ .cmd = OVS_FLOW_CMD_SET,
+> -	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+> +	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+>  	  .policy = flow_policy,
+>  	  .doit = ovs_flow_cmd_set,
+>  	},
+> @@ -1777,12 +1777,12 @@ static const struct nla_policy datapath_policy[OVS_DP_ATTR_MAX + 1] = {
+>  
+>  static const struct genl_ops dp_datapath_genl_ops[] = {
+>  	{ .cmd = OVS_DP_CMD_NEW,
+> -	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+> +	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+>  	  .policy = datapath_policy,
+>  	  .doit = ovs_dp_cmd_new
+>  	},
+>  	{ .cmd = OVS_DP_CMD_DEL,
+> -	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+> +	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+>  	  .policy = datapath_policy,
+>  	  .doit = ovs_dp_cmd_del
+>  	},
+> @@ -1793,7 +1793,7 @@ static const struct genl_ops dp_datapath_genl_ops[] = {
+>  	  .dumpit = ovs_dp_cmd_dump
+>  	},
+>  	{ .cmd = OVS_DP_CMD_SET,
+> -	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+> +	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+>  	  .policy = datapath_policy,
+>  	  .doit = ovs_dp_cmd_set,
+>  	},
+> @@ -2158,12 +2158,12 @@ static const struct nla_policy vport_policy[OVS_VPORT_ATTR_MAX + 1] = {
+>  
+>  static const struct genl_ops dp_vport_genl_ops[] = {
+>  	{ .cmd = OVS_VPORT_CMD_NEW,
+> -	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+> +	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+>  	  .policy = vport_policy,
+>  	  .doit = ovs_vport_cmd_new
+>  	},
+>  	{ .cmd = OVS_VPORT_CMD_DEL,
+> -	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+> +	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+>  	  .policy = vport_policy,
+>  	  .doit = ovs_vport_cmd_del
+>  	},
+> @@ -2174,7 +2174,7 @@ static const struct genl_ops dp_vport_genl_ops[] = {
+>  	  .dumpit = ovs_vport_cmd_dump
+>  	},
+>  	{ .cmd = OVS_VPORT_CMD_SET,
+> -	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+> +	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+>  	  .policy = vport_policy,
+>  	  .doit = ovs_vport_cmd_set,
+>  	},
+> -- 
+> 2.5.0
+> 
+> _______________________________________________
+> Containers mailing list
+> Containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+> https://lists.linuxfoundation.org/mailman/listinfo/containers
