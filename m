@@ -1,29 +1,39 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] netfilter: nft_ct: define nft_ct_get_eval_counter() only
- when needed
-Date: Tue, 2 Feb 2016 05:19:04 +0100
-Message-ID: <20160202041904.GC19789@breakpoint.cc>
-References: <1454380257-27195-1-git-send-email-ebiggers3@gmail.com>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [PATCH iproute2] tc: fix compilation with old gcc (< 4.6) (bis)
+Date: Tue, 2 Feb 2016 15:51:57 +1100
+Message-ID: <20160202155157.2f492bfd@samsung9>
+References: <1f5ba49033cd4c55a0d0005487efde39@HQ1WP-EXMB11.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Biggers <ebiggers3@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1454380257-27195-1-git-send-email-ebiggers3@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"julien.floret@6wind.com" <julien.floret@6wind.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:46497 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752127AbcBBEwW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2016 23:52:22 -0500
+In-Reply-To: <1f5ba49033cd4c55a0d0005487efde39@HQ1WP-EXMB11.corp.brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Biggers <ebiggers3@gmail.com> wrote:
-> This eliminates an "unused function" compiler warning when
-> CONFIG_NF_CONNTRACK_LABELS is not defined.
-> 
-> Signed-off-by: Eric Biggers <ebiggers3@gmail.com>
+On Tue, 19 Jan 2016 11:01:45 +0000
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
 
-The nft_ct_get_eval_counter call should've been unconditional.
-The #endif placement is wrong:
+> diff --git a/tc/tc_bpf.c b/tc/tc_bpf.c
+> index 42c8841869f5..219ffa582c1a 100644
+> --- a/tc/tc_bpf.c
+> +++ b/tc/tc_bpf.c
+> @@ -49,6 +49,10 @@
+>  #include "tc_util.h"
+>  #include "tc_bpf.h"
+>  
+> +#ifndef AF_ALG
+> +#define AF_ALG 38
+> +#endif
 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit?id=efaea94aaf0decd55b15aa7068d4d516a352e56e
+Why is this here? AF_ALG is not used anywhere in this code.
+
+Please remove it and resubmit
