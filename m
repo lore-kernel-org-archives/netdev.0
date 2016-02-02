@@ -1,45 +1,58 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next v2 2/6] vxlan: remove duplicated macros
-Date: Tue,  2 Feb 2016 18:09:12 +0100
-Message-ID: <4134345d675e7ac852fb04960ffcf52905baf7f5.1454432731.git.jbenc@redhat.com>
-References: <cover.1454432731.git.jbenc@redhat.com>
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: [PATCH] net: drop write-only stack variable
+Date: Tue,  2 Feb 2016 18:17:54 +0100
+Message-ID: <1454433474-8888-1-git-send-email-dh.herrmann@gmail.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+	David Herrmann <dh.herrmann@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60926 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933573AbcBBRJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 12:09:26 -0500
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (Postfix) with ESMTPS id 439EDC00356E
-	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 17:09:26 +0000 (UTC)
-Received: from griffin.upir.cz (ovpn-204-49.brq.redhat.com [10.40.204.49])
-	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u12H9NSn003510
-	for <netdev@vger.kernel.org>; Tue, 2 Feb 2016 12:09:25 -0500
-In-Reply-To: <cover.1454432731.git.jbenc@redhat.com>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:35201 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932649AbcBBRSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 12:18:13 -0500
+Received: by mail-wm0-f54.google.com with SMTP id r129so128269757wmr.0
+        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 09:18:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VNI_HASH_BITS and VNI_HASH_SIZE are defined twice. Remove the extra
-definitions.
+Remove a write-only stack variable from unix_attach_fds(). This is a
+left-over from the security fix in:
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
+    commit 712f4aad406bb1ed67f3f98d04c044191f0ff593
+    Author: willy tarreau <w@1wt.eu>
+    Date:   Sun Jan 10 07:54:56 2016 +0100
+
+        unix: properly account for FDs passed over unix sockets
+
+Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
 ---
- include/net/vxlan.h | 3 ---
- 1 file changed, 3 deletions(-)
+ net/unix/af_unix.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 5c64250619c5..234bf1ef2737 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -9,9 +9,6 @@
- #include <linux/udp.h>
- #include <net/dst_metadata.h>
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index c5bf5ef..9f88193 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1534,7 +1534,6 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+ {
+ 	int i;
+ 	unsigned char max_level = 0;
+-	int unix_sock_count = 0;
  
--#define VNI_HASH_BITS	10
--#define VNI_HASH_SIZE	(1<<VNI_HASH_BITS)
--
- /*
-  * VXLAN Group Based Policy Extension:
-  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ 	if (too_many_unix_fds(current))
+ 		return -ETOOMANYREFS;
+@@ -1542,11 +1541,9 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+ 	for (i = scm->fp->count - 1; i >= 0; i--) {
+ 		struct sock *sk = unix_get_socket(scm->fp->fp[i]);
+ 
+-		if (sk) {
+-			unix_sock_count++;
++		if (sk)
+ 			max_level = max(max_level,
+ 					unix_sk(sk)->recursion_level);
+-		}
+ 	}
+ 	if (unlikely(max_level > MAX_RECURSION_LEVEL))
+ 		return -ETOOMANYREFS;
 -- 
-1.8.3.1
+2.7.0
