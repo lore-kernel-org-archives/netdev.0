@@ -1,82 +1,65 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net PATCH] flow_dissector: Fix unaligned access in
- __skb_flow_dissector when used by eth_get_headlen
-Date: Tue, 2 Feb 2016 09:47:27 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCD2BC0@AcuExch.aculab.com>
-References: <CAKgT0UcZAh+ciNMkJDdnp7E0xyGMhvgSzJLwORLqYXbpABtoRQ@mail.gmail.com>
-	<1454182011.7627.141.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAKgT0UfyK1HO6vp4F9S3rB400A74OhS=qRX_N9RuPRYg2KazLg@mail.gmail.com>
-	<20160130.194507.777391919166997236.davem@davemloft.net>
-	<063D6719AE5E284EB5DD2968C1650D6D1CCD25A8@AcuExch.aculab.com>
- <CAKgT0UfrMUFSZqKYdeLDjAmN5wf9YVw19XfCT_fkHvRzK9-XYA@mail.gmail.com>
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v2 00/10] tipc: cleanups,
+	fixes & improvements for topology server
+Date: Tue, 2 Feb 2016 10:52:07 +0100
+Message-ID: <1454406737-5806-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"sowmini.varadhan@oracle.com" <sowmini.varadhan@oracle.com>,
-	"aduyck@mirantis.com" <aduyck@mirantis.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tom@herbertland.com" <tom@herbertland.com>
-To: 'Alexander Duyck' <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.189]:59290 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754363AbcBBJup (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 04:50:45 -0500
-In-Reply-To: <CAKgT0UfrMUFSZqKYdeLDjAmN5wf9YVw19XfCT_fkHvRzK9-XYA@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
+To: <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQWxleGFuZGVyIER1eWNrDQo+IFNlbnQ6IDAxIEZlYnJ1YXJ5IDIwMTYgMTg6MTgNCj4g
-Pj4gMSkgVW5hbGlnbmVkIGFjY2Vzc2VzDQo+ID4NCj4gPiBSZW1lbWJlciB0aGUgZXZlbiBpZiB5
-b3UgZG8gYSAncmVhbGlnbm1lbnQgY29weScgb2YgdGhlIElQIGhlYWRlciwNCj4gPiBhdCBzb21l
-IHBvaW50IHRoZSAndXNlcmRhdGEnIG9mIHRoZSBwYWNrZXQgaGFzIHRvIGJlIGFjY2Vzc2VkLg0K
-PiA+IE1vc3RseSB0aGlzIHdpbGwgYmUgd2l0aCBtZW1jcHkoKSBhbmQgeW91IHdhbnQgdGhhdCBj
-b3B5IHRvIGJlIGFsaWduZWQuDQo+IA0KPiBUaGUgcHJvYmxlbSBpcywgYWxpZ25lZCBieSB3aGF0
-PyAgRm9yIHg4NiBhbnl0aGluZyBvdGhlciB0aGFuIDE2IGJ5dGUNCj4gYWxpZ25tZW50IHdpbGwg
-cmVxdWlyZSBzb21lIHJlYWxpZ25tZW50IGFueXdheSBzaW5jZSBpbnRlcm5hbGx5IGl0IGlzDQo+
-IGVzc2VudGlhbGx5IGRvaW5nIHNvbWUgU1NFIHN0eWxlIGNvcHkgYmFzZWQgb24gcmVwIG1vdnNi
-Lg0KDQpUaGF0IGlzbid0ICdTU0UnIGJhc2VkLCB0aGVyZSBpcyBwcm9iYWJseSBzb21lIGtpbmQg
-b2YgYmFycmVsIHNoaWZ0ZXINCmFzc29jaWF0ZWQgd2l0aCB0aGUgZGF0YSBjYWNoZSB0aGF0IGFs
-bG93cyBjYWNoZS1saW5lIHJlYWRzIGZyb20NCnRoZSAnd3JvbmcnIGFkZHJlc3MuDQoNCj4gSSdt
-IHN1cmUgaXQNCj4gaXMgc2ltaWxhciBmb3Igb3RoZXIgYXJjaGl0ZWN0dXJlcyB0aGF0IGhhdmUg
-bW92ZWQgb24gZnJvbSAzMmIgdG8gNjRiDQo+IGluIHRoYXQgdGhleSB3YW50IHRvIG1vdmUgYnkg
-dGhlIGxhcmdlc3QgYXZhaWxhYmxlIGRhdGEgdW5pdCBhbmQgMg0KPiBieXRlIGFsaWdubWVudCB2
-cyA0IGJ5dGUgZG9lc24ndCBtYWtlIHRoYXQgbXVjaCBkaWZmZXJlbmNlIGFueW1vcmUuDQoNClRo
-ZXJlIGFyZSBzdGlsbCBwbGVudGx5IG9mIDMyYml0IHN5c3RlbXMgb3V0IHRoZXJlLg0KSW5jbHVk
-aW5nIFNvQyBzeXN0ZW1zIHdpdGggY3B1cyB0aGF0IGZhdWx0IG9uIG1pc2FsaWduZWQgdHJhbnNm
-ZXJzIG9uDQp0aGUgc2FtZSBzaWxpY29uIGFzIGV0aGVybmV0IE1BQ3MgdGhhdCBjYW4ndCB3cml0
-ZSA0bisyIGFsaWduZWQgZnJhbWVzLg0KDQo+IFRoZSB0aGluZyB5b3UgaGF2ZSB0byBrZWVwIGlu
-IG1pbmQgaXMgdGhhdCB5b3VyIHN0YW5kYXJkIFRDUCBmcmFtZSBoYXMNCj4gNjYgYnl0ZXMgb2Yg
-aGVhZGVycygxNCBFdGhlcm5ldCwgMjAgSVAsIDIwIFRDUCwgMTIgVENQIG9wdGlvbnMpLiAgVGhp
-cw0KPiBtZWFucyB0aGF0IHlvdSBhcmUgY3Jvc3Npbmcgb3ZlciBpbnRvIHRoZSBuZXh0IGNhY2hl
-IGxpbmUgYnkgZWl0aGVyIDINCj4gb3IgNCBieXRlcyBkZXBlbmRpbmcgb24gTkVUX0lQX0FMSUdO
-LiAgT24gYSBzeXN0ZW0gd2l0aCBhbiA4IGJ5dGUgbG9uZw0KPiBpdCBkb2Vzbid0IHJlYWxseSBt
-YWtlIGEgZGlmZmVyZW5jZSBvbmUgd2F5IG9yIHRoZSBvdGhlciBzaW5jZSBpdCBpcw0KPiBzdGls
-bCB1bmFsaWduZWQgaW4gdGVybXMgb2YgdGhlIGZhc3Rlc3QgcG9zc2libGUgbWVtY3B5Lg0KDQpV
-bmxlc3MgeW91IGFsaWduIHRoZSBmcmFtZSBvbiBhbiA4bis2IGJvdW5kYXJ5Lg0KDQo+ID4gSSBy
-ZWFsbHkgY2FuJ3QgYmVsaWV2ZSBqdXN0IGhvdyBtYW55IGV0aGVybmV0IGNoaXBzIGFyZSBub3cg
-YmVpbmcgZGVzaWduZWQNCj4gPiB0aGF0IGNhbid0IHdyaXRlIHJlY2VpdmVkIGZyYW1lcyB0byAn
-NG4rMicgYm91bmRhcmllcy4NCj4gPiBJdCBpc24ndCBldmVuIGEgbmV3IHByb2JsZW0uIFN1biBm
-aXhlZCB0aGUgc2J1cyAnRE1BJyBwYXJ0IHNvIHRoYXQgaXQgd291bGQNCj4gPiB0byBzYnVzIGJ1
-cnN0IHRyYW5zZmVycyB0byA0bisyIGFsaWduZWQgYnVmZmVycyBhIGxvbmcgdGltZSBhZ28uLi4N
-Cj4gDQo+IFRoZSBwcm9ibGVtIGhlcmUgaXMgbW90aXZhdGlvbi4gIEl0IG1ha2VzIHNlbnNlIHRo
-YXQgU3VuIHdvdWxkIHdhbnQNCj4gdGhlaXIgaGVhZGVycyB0byBiZSBJUCBhbGlnbmVkIHNpbmNl
-IGEgU3BhcmMgcHJvY2Vzc29yIHN0aWxsIG5lZWRzDQo+IHRoYXQuICBNb3N0IE5JQyB2ZW5kb3Jz
-IGRvbid0IHJlYWxseSBjYXJlIGFib3V0IHRoZSBtb3JlIG9ic2N1cmUNCj4gYXJjaGl0ZWN0dXJl
-cywgYW5kIGV2ZW4gMzIgYml0IGlzIGZhbGxpbmcgb3V0IG9mIGZhdm9yLiAgVGhlIG1hcmtldA0K
-PiBzaGFyZSBpcyBqdXN0IHRvbyBzbWFsbCBhbmQgaW4gbWFueSBjYXNlcyBjdXN0b21lcnMgZG9u
-J3QgcnVuIExpbnV4DQo+IE9TZXMgb24gdGhlbSBhbnl3YXkgc28gZXZlbiBkcml2ZXIgc3VwcG9y
-dCBpcyBtaW5pbWFsLiAgVGhleSBtb3N0bHkNCj4gY2FyZSBhYm91dCB4ODZfNjQsIFBvd2VyUEMs
-IGFuZCA2NCBiaXQgQVJNLiAgQW5kIGFsbCAzIG9mIHRob3NlDQo+IGFyY2hpdGVjdHVyZXMgaGF2
-ZSBlZmZpY2llbnQgdW5hbGlnbmVkIGFjY2Vzc2VzLg0KDQpXaXRoIHRoZSBwb3NzaWJsZSBleGNl
-cHRpb24gb2YgdGhlIHg4NiBvcHRpbWlzZWQgJ3JlcCBtb3ZzYicgb24NCnZlcnkgcmVjZW50IGlu
-dGVsIGNwdXMsIHVuYWxpZ25lZCB0cmFuc2ZlcnMgYXJlIHZlcnkgbGlrZWx5DQpzbG93ZXIgdGhh
-biBhbGlnbmVkIG9uZXMgLSBqdXN0IGEgbG90IGZhc3RlciB0aGFuIGFsaWduaW5nIHRoZQ0KY29w
-eSBpbiBzb2Z0d2FyZS4NCg0KTXkgc3VzcGljaW9uIGlzIHRoYXQgbWFueSBoYXJkd2FyZSBlbmdp
-bmVlcnMgYXJlIGp1c3Qgbm90IGF3YXJlDQpvZiB0aGUgcHJvYmxlbS4gT3IganVzdCBsZWF2ZSBp
-dCBhcyBhICdzb2Z0d2FyZSBwcm9ibGVtJy4NCg0KSXQgaXMgdGhlIHNhbWUgZmFtaWx5IG9mICdw
-cm9ibGVtJyB0aGF0IGFkZHMgbW9yZSBhbmQgbW9yZQ0KcHJvdG9jb2wgc3BlY2lmaWMgMXMgY29t
-cGxpbWVudCBjaGVja3N1bSBvZmZsb2FkaW5nLg0KDQoJRGF2aWQuDQoNCg0K
+This series contains topology server cleanups, fixes and improvements.
+
+Cleanups in #1-#4:
+We remove duplicate data structures and aligin the rest of the code accordingly.
+
+Fixes in #5-#8:
+The bugs occur either during configuration or while running on SMP targets,
+which are race conditions that pop up under different situations.
+
+Improvements in #9-#10:
+Updates to decrease timer usage and improve readability.
+
+v2: Updated commit message in patch 6 based on feedback from
+    Sergei Shtylyov sergei.shtylyov@cogentembedded.com
+
+Parthasarathy Bhuvaragan (10):
+  tipc: remove incorrect check for subscription timeout value
+  tipc: remove filter and timeout elements from struct tipc_subscription
+  tipc: remove struct tipc_name_seq from struct tipc_subscription
+  tipc: introduce tipc_subscrb_subscribe() routine
+  tipc: fix connection abort during subscription cancellation
+  tipc: fix connection abort when receiving invalid cancel request
+  tipc: hold subscriber->lock for tipc_nametbl_subscribe()
+  tipc: protect tipc_subscrb_get() with subscriber spin lock
+  tipc: donot create timers if subscription timeout = TIPC_WAIT_FOREVER
+  tipc: use alloc_ordered_workqueue() instead of WQ_UNBOUND w/
+    max_active = 1
+
+ net/tipc/name_table.c |  14 ++++--
+ net/tipc/server.c     |   4 +-
+ net/tipc/subscr.c     | 131 ++++++++++++++++++++++++++++++--------------------
+ net/tipc/subscr.h     |  11 ++---
+ 4 files changed, 96 insertions(+), 64 deletions(-)
+
+-- 
+2.1.4
+
+
+------------------------------------------------------------------------------
+Site24x7 APM Insight: Get Deep Visibility into Application Performance
+APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
+Monitor end-to-end web transactions and take corrective actions now
+Troubleshoot faster and improve end-user experience. Signup Now!
+http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
