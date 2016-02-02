@@ -1,57 +1,190 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next v2] xen-netback: implement dynamic multicast
- control
-Date: Tue, 2 Feb 2016 11:57:43 +0000
-Message-ID: <5f42be9577ba427a9a73a018ae37d761@AMSPEX02CL03.citrite.net>
-References: <1454412668-6472-1-git-send-email-paul.durrant@citrix.com>
-	 <20160202114646.GF10990@citrix.com>
-	 <9d2b78b8dac54e6ea3f9889fd2a9db83@AMSPEX02CL03.citrite.net>
- <1454414025.28781.146.camel@citrix.com>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next v3] xen-netback: implement dynamic multicast control
+Date: Tue, 2 Feb 2016 11:55:05 +0000
+Message-ID: <1454414105-13327-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>,
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
 	Wei Liu <wei.liu2@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([185.25.65.24]:21794 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754458AbcBBL5p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 06:57:45 -0500
-In-Reply-To: <1454414025.28781.146.camel@citrix.com>
-Content-Language: en-US
+Received: from smtp.citrix.com ([66.165.176.89]:36749 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754542AbcBBMCo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 07:02:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwgW21haWx0
-bzppYW4uY2FtcGJlbGxAY2l0cml4LmNvbV0NCj4gU2VudDogMDIgRmVicnVhcnkgMjAxNiAxMTo1
-NA0KPiBUbzogUGF1bCBEdXJyYW50OyBXZWkgTGl1DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwu
-b3JnOyB4ZW4tZGV2ZWxAbGlzdHMueGVucHJvamVjdC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRD
-SCBuZXQtbmV4dCB2Ml0geGVuLW5ldGJhY2s6IGltcGxlbWVudCBkeW5hbWljIG11bHRpY2FzdA0K
-PiBjb250cm9sDQo+IA0KPiBPbiBUdWUsIDIwMTYtMDItMDIgYXQgMTE6NDggKzAwMDAsIFBhdWwg
-RHVycmFudCB3cm90ZToNCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPiBG
-cm9tOiBXZWkgTGl1IFttYWlsdG86d2VpLmxpdTJAY2l0cml4LmNvbV0NCj4gPiA+IFNlbnQ6IDAy
-IEZlYnJ1YXJ5IDIwMTYgMTE6NDcNCj4gPiA+IFRvOiBQYXVsIER1cnJhbnQNCj4gPiA+IENjOiBu
-ZXRkZXZAdmdlci5rZXJuZWwub3JnOyB4ZW4tZGV2ZWxAbGlzdHMueGVucHJvamVjdC5vcmc7IElh
-bg0KPiA+ID4gQ2FtcGJlbGw7DQo+ID4gPiBXZWkgTGl1DQo+ID4gPiBTdWJqZWN0OiBSZTogW1BB
-VENIIG5ldC1uZXh0IHYyXSB4ZW4tbmV0YmFjazogaW1wbGVtZW50IGR5bmFtaWMNCj4gPiA+IG11
-bHRpY2FzdA0KPiA+ID4gY29udHJvbA0KPiA+ID4NCj4gPiA+IE9uIFR1ZSwgRmViIDAyLCAyMDE2
-IGF0IDExOjMxOjA4QU0gKzAwMDAsIFBhdWwgRHVycmFudCB3cm90ZToNCj4gPiA+IFsuLi5dDQo+
-ID4gPiA+ICtzdGF0aWMgaW50IHhlbl9yZWdpc3Rlcl9tY2FzdF9jdHJsX3dhdGNoKHN0cnVjdCB4
-ZW5idXNfZGV2aWNlICpkZXYsDQo+ID4gPiA+ICsJCQkJCcKgc3RydWN0IHhlbnZpZiAqdmlmKQ0K
-PiA+ID4gPiArew0KPiA+ID4gPiArCWludCBlcnIgPSAwOw0KPiA+ID4gPiArCWNoYXIgKm5vZGU7
-DQo+ID4gPiA+ICsJdW5zaWduZWQgbWF4bGVuID0gc3RybGVuKGRldi0+b3RoZXJlbmQpICsNCj4g
-PiA+ID4gKwkJc2l6ZW9mKCIvcmVxdWVzdC1tdWx0aWNhc3QtY29udHJvbCIpOw0KPiA+ID4gPiAr
-DQo+ID4gPiA+ICsJaWYgKHZpZi0+bWNhc3RfY3RybF93YXRjaC5ub2RlKQ0KPiA+ID4gPiArCQly
-ZXR1cm4gLUVBRERSSU5VU0U7DQo+ID4gPiA+ICsNCj4gPiA+DQo+ID4gPiBTb3JyeSBpZiBJIGRp
-ZG4ndCBtYWtlIG15c2VsZiBjbGVhciBlbm91Z2guIEkgdGhpbmsgRUFERFJJTlVTRSBzaG91bGQN
-Cj4gPiA+IGFsc28gYmUgbG9nZ2VkLg0KPiA+ID4NCj4gPg0KPiA+IE9rLiBOb3Qgc3VyZSBob3cg
-bXVjaCBub2lzZSB0aGF0IHdpbGwgY2F1c2UgdGhvdWdoLg0KPiANCj4gSWYgdGhpcyBpcyBhIGd1
-ZXN0IHRyaWdlcmFibGUgcGF0aCB0aGVuIGRvbid0IGZvcmdldCB0byB1c2UgdGhlDQo+IHJhdGVs
-aW1pdGluZyBwcmludGsgb3B0aW9ucy4uLi4NCj4gDQoNCkkgKnRoaW5rKiBpdCBpcyBlc3NlbnRp
-YWxseSBhbiBlcnJvciBwYXRoIChpLmUgc2hvdWxkIG5vdCBoYXBwZW4pIGFuZCB0aGUgZnVuY3Rp
-b24gaXMgb25seSBjYWxsZWQgd2hlbiBjb25uZWN0aW5nIGJhY2tlbmQgYW5kIGZyb250ZW5kLCB3
-aGljaCBpcyBmYWlybHkgd2VsbCByYXRlLWxpbWl0ZWQgYnkgb3RoZXIgdGhpbmdzLCBidXQgSSds
-bCBzdGljayBhIHJhdGUtbGltaXQgaW4gdGhlcmUganVzdCBpbiBjYXNlLg0KDQogIFBhdWwNCg0K
-PiBJYW4uDQo=
+My recent patch to the Xen Project documents a protocol for 'dynamic
+multicast control' in netif.h. This extends the previous multicast control
+protocol to not require a shared ring reconnection to turn the feature off.
+Instead the backend watches the "request-multicast-control" key in xenstore
+and turns the feature off if the key value is written to zero.
+
+This patch adds support for dynamic multicast control in xen-netback.
+
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+---
+
+v3:
+ - Log (rate limited) error when watch is already registered
+
+v2:
+ - Log error on failure to allocate memory for multicast watch
+---
+ drivers/net/xen-netback/common.h |  1 +
+ drivers/net/xen-netback/xenbus.c | 89 ++++++++++++++++++++++++++++++++++++----
+ 2 files changed, 82 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 0333ab0..1128252 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -251,6 +251,7 @@ struct xenvif {
+ 	unsigned int stalled_queues;
+ 
+ 	struct xenbus_watch credit_watch;
++	struct xenbus_watch mcast_ctrl_watch;
+ 
+ 	spinlock_t lock;
+ 
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index 56ebd82..39a303d 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -327,7 +327,7 @@ static int netback_probe(struct xenbus_device *dev,
+ 			goto abort_transaction;
+ 		}
+ 
+-		/* We support multicast-control. */
++		/* We support dynamic multicast-control. */
+ 		err = xenbus_printf(xbt, dev->nodename,
+ 				    "feature-multicast-control", "%d", 1);
+ 		if (err) {
+@@ -335,6 +335,14 @@ static int netback_probe(struct xenbus_device *dev,
+ 			goto abort_transaction;
+ 		}
+ 
++		err = xenbus_printf(xbt, dev->nodename,
++				    "feature-dynamic-multicast-control",
++				    "%d", 1);
++		if (err) {
++			message = "writing feature-dynamic-multicast-control";
++			goto abort_transaction;
++		}
++
+ 		err = xenbus_transaction_end(xbt, 0);
+ 	} while (err == -EAGAIN);
+ 
+@@ -683,7 +691,8 @@ static void xen_net_rate_changed(struct xenbus_watch *watch,
+ 	}
+ }
+ 
+-static int xen_register_watchers(struct xenbus_device *dev, struct xenvif *vif)
++static int xen_register_credit_watch(struct xenbus_device *dev,
++				     struct xenvif *vif)
+ {
+ 	int err = 0;
+ 	char *node;
+@@ -708,7 +717,7 @@ static int xen_register_watchers(struct xenbus_device *dev, struct xenvif *vif)
+ 	return err;
+ }
+ 
+-static void xen_unregister_watchers(struct xenvif *vif)
++static void xen_unregister_credit_watch(struct xenvif *vif)
+ {
+ 	if (vif->credit_watch.node) {
+ 		unregister_xenbus_watch(&vif->credit_watch);
+@@ -717,6 +726,75 @@ static void xen_unregister_watchers(struct xenvif *vif)
+ 	}
+ }
+ 
++static void xen_mcast_ctrl_changed(struct xenbus_watch *watch,
++				   const char **vec, unsigned int len)
++{
++	struct xenvif *vif = container_of(watch, struct xenvif,
++					  mcast_ctrl_watch);
++	struct xenbus_device *dev = xenvif_to_xenbus_device(vif);
++	int val;
++
++	if (xenbus_scanf(XBT_NIL, dev->otherend,
++			 "request-multicast-control", "%d", &val) < 0)
++		val = 0;
++	vif->multicast_control = !!val;
++}
++
++static int xen_register_mcast_ctrl_watch(struct xenbus_device *dev,
++					 struct xenvif *vif)
++{
++	int err = 0;
++	char *node;
++	unsigned maxlen = strlen(dev->otherend) +
++		sizeof("/request-multicast-control");
++
++	if (vif->mcast_ctrl_watch.node) {
++		pr_err_ratelimited("Watch is already registered\n");
++		return -EADDRINUSE;
++	}
++
++	node = kmalloc(maxlen, GFP_KERNEL);
++	if (!node) {
++		pr_err("Failed to allocate memory for watch\n");
++		return -ENOMEM;
++	}
++	snprintf(node, maxlen, "%s/request-multicast-control",
++		 dev->otherend);
++	vif->mcast_ctrl_watch.node = node;
++	vif->mcast_ctrl_watch.callback = xen_mcast_ctrl_changed;
++	err = register_xenbus_watch(&vif->mcast_ctrl_watch);
++	if (err) {
++		pr_err("Failed to set watcher %s\n",
++		       vif->mcast_ctrl_watch.node);
++		kfree(node);
++		vif->mcast_ctrl_watch.node = NULL;
++		vif->mcast_ctrl_watch.callback = NULL;
++	}
++	return err;
++}
++
++static void xen_unregister_mcast_ctrl_watch(struct xenvif *vif)
++{
++	if (vif->mcast_ctrl_watch.node) {
++		unregister_xenbus_watch(&vif->mcast_ctrl_watch);
++		kfree(vif->mcast_ctrl_watch.node);
++		vif->mcast_ctrl_watch.node = NULL;
++	}
++}
++
++static void xen_register_watchers(struct xenbus_device *dev,
++				  struct xenvif *vif)
++{
++	xen_register_credit_watch(dev, vif);
++	xen_register_mcast_ctrl_watch(dev, vif);
++}
++
++static void xen_unregister_watchers(struct xenvif *vif)
++{
++	xen_unregister_mcast_ctrl_watch(vif);
++	xen_unregister_credit_watch(vif);
++}
++
+ static void unregister_hotplug_status_watch(struct backend_info *be)
+ {
+ 	if (be->have_hotplug_status_watch) {
+@@ -1030,11 +1108,6 @@ static int read_xenbus_vif_flags(struct backend_info *be)
+ 		val = 0;
+ 	vif->ipv6_csum = !!val;
+ 
+-	if (xenbus_scanf(XBT_NIL, dev->otherend, "request-multicast-control",
+-			 "%d", &val) < 0)
+-		val = 0;
+-	vif->multicast_control = !!val;
+-
+ 	return 0;
+ }
+ 
+-- 
+2.1.4
