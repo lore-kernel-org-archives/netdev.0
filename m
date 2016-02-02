@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 01/11] net: bulk free infrastructure for NAPI
- context, use napi_consume_skb
-Date: Tue, 02 Feb 2016 22:11:36 +0100
-Message-ID: <20160202211133.16315.23323.stgit@firesoul>
+Subject: [net-next PATCH 02/11] net: bulk free SKBs that were delay free'ed
+ due to IRQ context
+Date: Tue, 02 Feb 2016 22:11:46 +0100
+Message-ID: <20160202211141.16315.604.stgit@firesoul>
 References: <20160202211051.16315.51808.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,200 +14,98 @@ Cc: Christoph Lameter <cl@linux.com>, tom@herbertland.com,
 	ogerlitz@mellanox.com, gerlitz.or@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36821 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:36285 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933063AbcBBVLi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 16:11:38 -0500
+	id S933063AbcBBVLs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 16:11:48 -0500
 In-Reply-To: <20160202211051.16315.51808.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Discovered that network stack were hitting the kmem_cache/SLUB
-slowpath when freeing SKBs.  Doing bulk free with kmem_cache_free_bulk
-can speedup this slowpath.
+The network stack defers SKBs free, in-case free happens in IRQ or
+when IRQs are disabled. This happens in __dev_kfree_skb_irq() that
+writes SKBs that were free'ed during IRQ to the softirq completion
+queue (softnet_data.completion_queue).
 
-NAPI context is a bit special, lets take advantage of that for bulk
-free'ing SKBs.
+These SKBs are naturally delayed, and cleaned up during NET_TX_SOFTIRQ
+in function net_tx_action().  Take advantage of this a use the skb
+defer and flush API, as we are already in softirq context.
 
-In NAPI context we are running in softirq, which gives us certain
-protection.  A softirq can run on several CPUs at once.  BUT the
-important part is a softirq will never preempt another softirq running
-on the same CPU.  This gives us the opportunity to access per-cpu
-variables in softirq context.
+For modern drivers this rarely happens. Although most drivers do call
+dev_kfree_skb_any(), which detects the situation and calls
+__dev_kfree_skb_irq() when needed.  This due to netpoll can call from
+IRQ context.
 
-Extend napi_alloc_cache (before only contained page_frag_cache) to be
-a struct with a small array based stack for holding SKBs.  Introduce a
-SKB defer and flush API for accessing this.
-
-Introduce napi_consume_skb() as replacement for e.g. dev_consume_skb_any()
-when running in NAPI context.  A small trick to handle/detect if we
-are called from netpoll is to see if budget is 0.  In that case, we
-need to invoke dev_consume_skb_irq().
-
-Joint work with Alexander Duyck.
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- include/linux/skbuff.h |    3 ++
- net/core/dev.c         |    1 +
- net/core/skbuff.c      |   83 +++++++++++++++++++++++++++++++++++++++++++++---
- 3 files changed, 81 insertions(+), 6 deletions(-)
+ include/linux/skbuff.h |    1 +
+ net/core/dev.c         |    8 +++++++-
+ net/core/skbuff.c      |    8 ++++++--
+ 3 files changed, 14 insertions(+), 3 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 11f935c1a090..3c8d348223d7 100644
+index 3c8d348223d7..b06ba2e07c89 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -2399,6 +2399,9 @@ static inline struct sk_buff *napi_alloc_skb(struct napi_struct *napi,
- {
- 	return __napi_alloc_skb(napi, length, GFP_ATOMIC);
- }
-+void napi_consume_skb(struct sk_buff *skb, int budget);
-+
-+void __kfree_skb_flush(void);
+@@ -2402,6 +2402,7 @@ static inline struct sk_buff *napi_alloc_skb(struct napi_struct *napi,
+ void napi_consume_skb(struct sk_buff *skb, int budget);
+ 
+ void __kfree_skb_flush(void);
++void __kfree_skb_defer(struct sk_buff *skb);
  
  /**
   * __dev_alloc_pages - allocate page for network Rx
 diff --git a/net/core/dev.c b/net/core/dev.c
-index cc9e3652cf93..73e6cbc10ac6 100644
+index 73e6cbc10ac6..24be1d07d854 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -5149,6 +5149,7 @@ static void net_rx_action(struct softirq_action *h)
+@@ -3829,8 +3829,14 @@ static void net_tx_action(struct softirq_action *h)
+ 				trace_consume_skb(skb);
+ 			else
+ 				trace_kfree_skb(skb, net_tx_action);
+-			__kfree_skb(skb);
++
++			if (skb->fclone != SKB_FCLONE_UNAVAILABLE)
++				__kfree_skb(skb);
++			else
++				__kfree_skb_defer(skb);
  		}
++
++		__kfree_skb_flush();
  	}
  
-+	__kfree_skb_flush();
- 	local_irq_disable();
- 
- 	list_splice_tail_init(&sd->poll_list, &list);
+ 	if (sd->output_queue) {
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index b2df375ec9c2..e26bb2b1dba4 100644
+index e26bb2b1dba4..d278e51789e9 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -347,8 +347,16 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
- }
- EXPORT_SYMBOL(build_skb);
- 
-+#define NAPI_SKB_CACHE_SIZE	64
-+
-+struct napi_alloc_cache {
-+	struct page_frag_cache page;
-+	size_t skb_count;
-+	void *skb_cache[NAPI_SKB_CACHE_SIZE];
-+};
-+
- static DEFINE_PER_CPU(struct page_frag_cache, netdev_alloc_cache);
--static DEFINE_PER_CPU(struct page_frag_cache, napi_alloc_cache);
-+static DEFINE_PER_CPU(struct napi_alloc_cache, napi_alloc_cache);
- 
- static void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
- {
-@@ -378,9 +386,9 @@ EXPORT_SYMBOL(netdev_alloc_frag);
- 
- static void *__napi_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
- {
--	struct page_frag_cache *nc = this_cpu_ptr(&napi_alloc_cache);
-+	struct napi_alloc_cache *nc = this_cpu_ptr(&napi_alloc_cache);
- 
--	return __alloc_page_frag(nc, fragsz, gfp_mask);
-+	return __alloc_page_frag(&nc->page, fragsz, gfp_mask);
+@@ -767,7 +767,7 @@ void __kfree_skb_flush(void)
+ 	}
  }
  
- void *napi_alloc_frag(unsigned int fragsz)
-@@ -474,7 +482,7 @@ EXPORT_SYMBOL(__netdev_alloc_skb);
- struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
- 				 gfp_t gfp_mask)
+-static void __kfree_skb_defer(struct sk_buff *skb)
++static inline void _kfree_skb_defer(struct sk_buff *skb)
  {
--	struct page_frag_cache *nc = this_cpu_ptr(&napi_alloc_cache);
-+	struct napi_alloc_cache *nc = this_cpu_ptr(&napi_alloc_cache);
- 	struct sk_buff *skb;
- 	void *data;
+ 	struct napi_alloc_cache *nc = this_cpu_ptr(&napi_alloc_cache);
  
-@@ -494,7 +502,7 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
- 	if (sk_memalloc_socks())
- 		gfp_mask |= __GFP_MEMALLOC;
+@@ -789,6 +789,10 @@ static void __kfree_skb_defer(struct sk_buff *skb)
+ 		nc->skb_count = 0;
+ 	}
+ }
++void __kfree_skb_defer(struct sk_buff *skb)
++{
++	_kfree_skb_defer(skb);
++}
  
--	data = __alloc_page_frag(nc, len, gfp_mask);
-+	data = __alloc_page_frag(&nc->page, len, gfp_mask);
- 	if (unlikely(!data))
- 		return NULL;
- 
-@@ -505,7 +513,7 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
+ void napi_consume_skb(struct sk_buff *skb, int budget)
+ {
+@@ -814,7 +818,7 @@ void napi_consume_skb(struct sk_buff *skb, int budget)
+ 		return;
  	}
  
- 	/* use OR instead of assignment to avoid clearing of bits in mask */
--	if (nc->pfmemalloc)
-+	if (nc->page.pfmemalloc)
- 		skb->pfmemalloc = 1;
- 	skb->head_frag = 1;
- 
-@@ -747,6 +755,69 @@ void consume_skb(struct sk_buff *skb)
+-	__kfree_skb_defer(skb);
++	_kfree_skb_defer(skb);
  }
- EXPORT_SYMBOL(consume_skb);
+ EXPORT_SYMBOL(napi_consume_skb);
  
-+void __kfree_skb_flush(void)
-+{
-+	struct napi_alloc_cache *nc = this_cpu_ptr(&napi_alloc_cache);
-+
-+	/* flush skb_cache if containing objects */
-+	if (nc->skb_count) {
-+		kmem_cache_free_bulk(skbuff_head_cache, nc->skb_count,
-+				     nc->skb_cache);
-+		nc->skb_count = 0;
-+	}
-+}
-+
-+static void __kfree_skb_defer(struct sk_buff *skb)
-+{
-+	struct napi_alloc_cache *nc = this_cpu_ptr(&napi_alloc_cache);
-+
-+	/* drop skb->head and call any destructors for packet */
-+	skb_release_all(skb);
-+
-+	/* record skb to CPU local list */
-+	nc->skb_cache[nc->skb_count++] = skb;
-+
-+#ifdef CONFIG_SLUB
-+	/* SLUB writes into objects when freeing */
-+	prefetchw(skb);
-+#endif
-+
-+	/* flush skb_cache if it is filled */
-+	if (unlikely(nc->skb_count == NAPI_SKB_CACHE_SIZE)) {
-+		kmem_cache_free_bulk(skbuff_head_cache, NAPI_SKB_CACHE_SIZE,
-+				     nc->skb_cache);
-+		nc->skb_count = 0;
-+	}
-+}
-+
-+void napi_consume_skb(struct sk_buff *skb, int budget)
-+{
-+	if (unlikely(!skb))
-+		return;
-+
-+	/* if budget is 0 assume netpoll w/ IRQs disabled */
-+	if (unlikely(!budget)) {
-+		dev_consume_skb_irq(skb);
-+		return;
-+	}
-+
-+	if (likely(atomic_read(&skb->users) == 1))
-+		smp_rmb();
-+	else if (likely(!atomic_dec_and_test(&skb->users)))
-+		return;
-+	/* if reaching here SKB is ready to free */
-+	trace_consume_skb(skb);
-+
-+	/* if SKB is a clone, don't handle this case */
-+	if (unlikely(skb->fclone != SKB_FCLONE_UNAVAILABLE)) {
-+		__kfree_skb(skb);
-+		return;
-+	}
-+
-+	__kfree_skb_defer(skb);
-+}
-+EXPORT_SYMBOL(napi_consume_skb);
-+
- /* Make sure a field is enclosed inside headers_start/headers_end section */
- #define CHECK_SKB_FIELD(field) \
- 	BUILD_BUG_ON(offsetof(struct sk_buff, field) <		\
