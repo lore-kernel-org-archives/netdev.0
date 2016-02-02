@@ -1,58 +1,125 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: [PATCH] net: drop write-only stack variable
-Date: Tue,  2 Feb 2016 18:17:54 +0100
-Message-ID: <1454433474-8888-1-git-send-email-dh.herrmann@gmail.com>
-Cc: "David S . Miller" <davem@davemloft.net>,
-	David Herrmann <dh.herrmann@gmail.com>
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [RFC PATCH] bridge: mdb: add support for more attributes
+	and export timer
+Date: Tue,  2 Feb 2016 18:22:05 +0100
+Message-ID: <1454433725-3004-1-git-send-email-razor@blackwall.org>
+Cc: roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
+	davem@davemloft.net, Nikolay Aleksandrov <razor@blackwall.org>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:35201 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932649AbcBBRSN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 12:18:13 -0500
-Received: by mail-wm0-f54.google.com with SMTP id r129so128269757wmr.0
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 09:18:12 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Remove a write-only stack variable from unix_attach_fds(). This is a
-left-over from the security fix in:
+Hi,
+Sending this as an RFC to see first if it's acceptable at all to change the
+exported attribute and if the approach is okay with everyone.
+Since currently mdb entries are exported directly as a structure inside
+MDBA_MDB_ENTRY_INFO attribute, we can't really extend it without
+breaking user-space. In order to export new mdb fields, I've converted
+the MDBA_MDB_ENTRY_INFO into a nested attribute which starts like before
+with struct br_mdb_entry (without header, as it's casted directly in
+iproute2) and continues with MDBA_MDB_ENTRY_ attributes. This way we
+keep compatibility with older users and can export new data.
+I've tested this with iproute2, both with and without support for the
+added attribute and it works fine.
+So basically we again have MDBA_MDB_ENTRY_INFO with struct br_mdb_entry
+inside but it may contain also some additional MDBA_MDB_ENTRY_ attributes
+such as MDBA_MDB_ENTRY_TIMER which can be parsed by user-space.
 
-    commit 712f4aad406bb1ed67f3f98d04c044191f0ff593
-    Author: willy tarreau <w@1wt.eu>
-    Date:   Sun Jan 10 07:54:56 2016 +0100
+So the new structure is:
+[MDBA_MDB] = {
+     [MDBA_MDB_ENTRY] = {
+         [MDBA_MDB_ENTRY_INFO]
+         [MDBA_MDB_ENTRY_INFO] { <- Nested attribute
+             struct br_mdb_entry <- nla_put_nohdr()
+             [MDBA_MDB_ENTRY attributes] <- normal netlink attributes
+         }
+     }
+}
 
-        unix: properly account for FDs passed over unix sockets
+Alternatively I can add a whole new dump format which can be requested
+by user-space by adding a netlink attribute in the request (e.g. MDBA_MDB_EXT).
+That format will be using only netlink attributes for all MDB information and
+will be dumped like that only upon request.
 
-Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
+Any feedback on this would be much appreciated.
+
+Thank you,
+ Nik
+
 ---
- net/unix/af_unix.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ include/uapi/linux/if_bridge.h |  6 +++++-
+ net/bridge/br_mdb.c            | 14 +++++++++++++-
+ 2 files changed, 18 insertions(+), 2 deletions(-)
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index c5bf5ef..9f88193 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1534,7 +1534,6 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
- {
- 	int i;
- 	unsigned char max_level = 0;
--	int unix_sock_count = 0;
- 
- 	if (too_many_unix_fds(current))
- 		return -ETOOMANYREFS;
-@@ -1542,11 +1541,9 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
- 	for (i = scm->fp->count - 1; i >= 0; i--) {
- 		struct sock *sk = unix_get_socket(scm->fp->fp[i]);
- 
--		if (sk) {
--			unix_sock_count++;
-+		if (sk)
- 			max_level = max(max_level,
- 					unix_sk(sk)->recursion_level);
--		}
- 	}
- 	if (unlikely(max_level > MAX_RECURSION_LEVEL))
- 		return -ETOOMANYREFS;
+diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
+index 18db14477bdd..8c595cdc3bba 100644
+--- a/include/uapi/linux/if_bridge.h
++++ b/include/uapi/linux/if_bridge.h
+@@ -137,7 +137,10 @@ struct bridge_vlan_info {
+ /* Bridge multicast database attributes
+  * [MDBA_MDB] = {
+  *     [MDBA_MDB_ENTRY] = {
+- *         [MDBA_MDB_ENTRY_INFO]
++ *         [MDBA_MDB_ENTRY_INFO] {
++ *		struct br_mdb_entry
++ *		[MDBA_MDB_ENTRY attributes]
++ *         }
+  *     }
+  * }
+  * [MDBA_ROUTER] = {
+@@ -162,6 +165,7 @@ enum {
+ enum {
+ 	MDBA_MDB_ENTRY_UNSPEC,
+ 	MDBA_MDB_ENTRY_INFO,
++	MDBA_MDB_ENTRY_TIMER,
+ 	__MDBA_MDB_ENTRY_MAX,
+ };
+ #define MDBA_MDB_ENTRY_MAX (__MDBA_MDB_ENTRY_MAX - 1)
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index 30e105f57f0d..33436601b959 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -82,7 +82,9 @@ static int br_mdb_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
+ 			      pp = &p->next) {
+ 				port = p->port;
+ 				if (port) {
++					struct nlattr *nest_ent;
+ 					struct br_mdb_entry e;
++
+ 					memset(&e, 0, sizeof(e));
+ 					e.ifindex = port->dev->ifindex;
+ 					e.state = p->state;
+@@ -94,11 +96,21 @@ static int br_mdb_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
+ 						e.addr.u.ip6 = p->addr.u.ip6;
+ #endif
+ 					e.addr.proto = p->addr.proto;
+-					if (nla_put(skb, MDBA_MDB_ENTRY_INFO, sizeof(e), &e)) {
++					nest_ent = nla_nest_start(skb, MDBA_MDB_ENTRY_INFO);
++					if (!nest_ent) {
++						nla_nest_cancel(skb, nest2);
++						err = -EMSGSIZE;
++						goto out;
++					}
++					if (nla_put_nohdr(skb, sizeof(e), &e) ||
++					    nla_put_u32(skb, MDBA_MDB_ENTRY_TIMER,
++							br_timer_value(&p->timer))) {
++						nla_nest_cancel(skb, nest_ent);
+ 						nla_nest_cancel(skb, nest2);
+ 						err = -EMSGSIZE;
+ 						goto out;
+ 					}
++					nla_nest_end(skb, nest_ent);
+ 				}
+ 			}
+ 			nla_nest_end(skb, nest2);
 -- 
-2.7.0
+2.4.3
