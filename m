@@ -1,101 +1,164 @@
-From: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Subject: [PATCH V5] netfilter: h323: avoid potential attack
-Date: Tue,  2 Feb 2016 13:37:34 +0800
-Message-ID: <1454391454-22359-1-git-send-email-zhouzhouyi@gmail.com>
-Cc: Zhouyi Zhou <zhouzhouyi@gmail.com>,
-	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-To: eric.dumazet@gmail.com, pablo@netfilter.org, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, fw@strlen.de,
-	gnomes@lxorguk.ukuu.org.uk, sergei.shtylyov@cogentembedded.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net-next 4/6] samples/bpf: unit test for BPF_MAP_TYPE_PERCPU_HASH
+Date: Mon, 1 Feb 2016 22:39:56 -0800
+Message-ID: <1454395198-1796236-5-git-send-email-ast@fb.com>
+References: <1454395198-1796236-1-git-send-email-ast@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Martin KaFai Lau <kafai@fb.com>, Ming Lei <tom.leiming@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	<netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:38621 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752325AbcBBGkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 01:40:03 -0500
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u126bEdw006992
+	for <netdev@vger.kernel.org>; Mon, 1 Feb 2016 22:40:02 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 20rsvbkket-4
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 01 Feb 2016 22:40:02 -0800
+Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
+ mx-out.facebook.com (10.223.100.97) with ESMTP	id
+ c81e373cc97711e595f924be0593f280-8edfb2b0 for <netdev@vger.kernel.org>;	Mon,
+ 01 Feb 2016 22:40:00 -0800
+In-Reply-To: <1454395198-1796236-1-git-send-email-ast@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I think hackers chould build a malicious h323 packet to overflow
-the pointer p which will panic during the memcpy(addr, p, len)
-For example, he may fabricate a very large taddr->ipAddress.ip.
+From: Martin KaFai Lau <kafai@fb.com>
 
-In order to avoid this, I add a valid memory reference check in
- get_h2x5_addr functions.
+A sanity test for BPF_MAP_TYPE_PERCPU_HASH.
 
-As suggested by Eric, this module is protected by a lock (nf_h323_lock)
-so adding a variable h323_buffer_valid_bytes that would contain
-the number of valid bytes would not require to change prototypes of
-get_h2x5_addr.
-
-Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- net/netfilter/nf_conntrack_h323_main.c | 27 +++++++++++++++++++++++++++
- 1 file changed, 27 insertions(+)
+ samples/bpf/test_maps.c | 96 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 96 insertions(+)
 
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index 9511af0..21665ec 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -110,6 +110,25 @@ int (*nat_q931_hook) (struct sk_buff *skb,
- 
- static DEFINE_SPINLOCK(nf_h323_lock);
- static char *h323_buffer;
-+static int h323_buffer_valid_bytes;
-+
-+static bool h323_buffer_ref_valid(void *p, int len)
-+{
-+
-+	if ((unsigned long)len > h323_buffer_valid_bytes) {
-+		return false; 
-+	}
-+
-+	if (p + len > (void *)h323_buffer + h323_buffer_valid_bytes) {
-+		return false;
-+	}
-+
-+	if (p < (void *)h323_buffer) {
-+		return false;
-+	}
-+
-+	return true;
-+}
- 
- static struct nf_conntrack_helper nf_conntrack_helper_h245;
- static struct nf_conntrack_helper nf_conntrack_helper_q931[];
-@@ -145,6 +164,7 @@ static int get_tpkt_data(struct sk_buff *skb, unsigned int protoff,
- 
- 	if (*data == NULL) {	/* first TPKT */
- 		/* Get first TPKT pointer */
-+		h323_buffer_valid_bytes = tcpdatalen;
- 		tpkt = skb_header_pointer(skb, tcpdataoff, tcpdatalen,
- 					  h323_buffer);
- 		BUG_ON(tpkt == NULL);
-@@ -247,6 +267,9 @@ static int get_h245_addr(struct nf_conn *ct, const unsigned char *data,
- 		return 0;
- 	}
- 
-+	if (!h323_buffer_ref_valid((void *)p, len + sizeof(__be16)))
-+		return 0;
-+
- 	memcpy(addr, p, len);
- 	memset((void *)addr + len, 0, sizeof(*addr) - len);
- 	memcpy(port, p + len, sizeof(__be16));
-@@ -669,6 +692,9 @@ int get_h225_addr(struct nf_conn *ct, unsigned char *data,
- 		return 0;
- 	}
- 
-+	if (!h323_buffer_ref_valid((void *)p, len + sizeof(__be16)))
-+		return 0;
-+
- 	memcpy(addr, p, len);
- 	memset((void *)addr + len, 0, sizeof(*addr) - len);
- 	memcpy(port, p + len, sizeof(__be16));
-@@ -1248,6 +1274,7 @@ static unsigned char *get_udp_data(struct sk_buff *skb, unsigned int protoff,
- 	if (dataoff >= skb->len)
- 		return NULL;
- 	*datalen = skb->len - dataoff;
-+	h323_buffer_valid_bytes = *datalen;
- 	return skb_header_pointer(skb, dataoff, *datalen, h323_buffer);
+diff --git a/samples/bpf/test_maps.c b/samples/bpf/test_maps.c
+index 6299ee95cd11..5f5fe5332148 100644
+--- a/samples/bpf/test_maps.c
++++ b/samples/bpf/test_maps.c
+@@ -89,6 +89,100 @@ static void test_hashmap_sanity(int i, void *data)
+ 	close(map_fd);
  }
  
++/* sanity tests for percpu map API */
++static void test_percpu_hashmap_sanity(int task, void *data)
++{
++	long long key, next_key;
++	int expected_key_mask = 0;
++	unsigned int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
++	long long value[nr_cpus];
++	int map_fd, i;
++
++	map_fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_HASH, sizeof(key),
++				sizeof(value[0]), 2);
++	if (map_fd < 0) {
++		printf("failed to create hashmap '%s'\n", strerror(errno));
++		exit(1);
++	}
++
++	for (i = 0; i < nr_cpus; i++)
++		value[i] = i + 100;
++	key = 1;
++	/* insert key=1 element */
++	assert(!(expected_key_mask & key));
++	assert(bpf_update_elem(map_fd, &key, value, BPF_ANY) == 0);
++	expected_key_mask |= key;
++
++	/* BPF_NOEXIST means: add new element if it doesn't exist */
++	assert(bpf_update_elem(map_fd, &key, value, BPF_NOEXIST) == -1 &&
++	       /* key=1 already exists */
++	       errno == EEXIST);
++
++	/* -1 is an invalid flag */
++	assert(bpf_update_elem(map_fd, &key, value, -1) == -1 &&
++	       errno == EINVAL);
++
++	/* check that key=1 can be found. value could be 0 if the lookup
++	 * was run from a different cpu.
++	 */
++	value[0] = 1;
++	assert(bpf_lookup_elem(map_fd, &key, value) == 0 && value[0] == 100);
++
++	key = 2;
++	/* check that key=2 is not found */
++	assert(bpf_lookup_elem(map_fd, &key, value) == -1 && errno == ENOENT);
++
++	/* BPF_EXIST means: update existing element */
++	assert(bpf_update_elem(map_fd, &key, value, BPF_EXIST) == -1 &&
++	       /* key=2 is not there */
++	       errno == ENOENT);
++
++	/* insert key=2 element */
++	assert(!(expected_key_mask & key));
++	assert(bpf_update_elem(map_fd, &key, value, BPF_NOEXIST) == 0);
++	expected_key_mask |= key;
++
++	/* key=1 and key=2 were inserted, check that key=0 cannot be inserted
++	 * due to max_entries limit
++	 */
++	key = 0;
++	assert(bpf_update_elem(map_fd, &key, value, BPF_NOEXIST) == -1 &&
++	       errno == E2BIG);
++
++	/* check that key = 0 doesn't exist */
++	assert(bpf_delete_elem(map_fd, &key) == -1 && errno == ENOENT);
++
++	/* iterate over two elements */
++	while (!bpf_get_next_key(map_fd, &key, &next_key)) {
++		assert((expected_key_mask & next_key) == next_key);
++		expected_key_mask &= ~next_key;
++
++		assert(bpf_lookup_elem(map_fd, &next_key, value) == 0);
++		for (i = 0; i < nr_cpus; i++)
++			assert(value[i] == i + 100);
++
++		key = next_key;
++	}
++	assert(errno == ENOENT);
++
++	/* Update with BPF_EXIST */
++	key = 1;
++	assert(bpf_update_elem(map_fd, &key, value, BPF_EXIST) == 0);
++
++	/* delete both elements */
++	key = 1;
++	assert(bpf_delete_elem(map_fd, &key) == 0);
++	key = 2;
++	assert(bpf_delete_elem(map_fd, &key) == 0);
++	assert(bpf_delete_elem(map_fd, &key) == -1 && errno == ENOENT);
++
++	key = 0;
++	/* check that map is empty */
++	assert(bpf_get_next_key(map_fd, &key, &next_key) == -1 &&
++	       errno == ENOENT);
++	close(map_fd);
++}
++
+ static void test_arraymap_sanity(int i, void *data)
+ {
+ 	int key, next_key, map_fd;
+@@ -209,6 +303,7 @@ static void run_parallel(int tasks, void (*fn)(int i, void *data), void *data)
+ static void test_map_stress(void)
+ {
+ 	run_parallel(100, test_hashmap_sanity, NULL);
++	run_parallel(100, test_percpu_hashmap_sanity, NULL);
+ 	run_parallel(100, test_arraymap_sanity, NULL);
+ }
+ 
+@@ -282,6 +377,7 @@ static void test_map_parallel(void)
+ int main(void)
+ {
+ 	test_hashmap_sanity(0, NULL);
++	test_percpu_hashmap_sanity(0, NULL);
+ 	test_arraymap_sanity(0, NULL);
+ 	test_map_large();
+ 	test_map_parallel();
 -- 
-1.9.1
+2.4.6
