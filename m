@@ -1,178 +1,225 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next 3/5] vxlan: restructure vxlan.h definitions
-Date: Tue,  2 Feb 2016 11:13:23 +0100
-Message-ID: <c2f37ae44005bf2297a5bf7630ffae2abf0b67c2.1454407418.git.jbenc@redhat.com>
+Subject: [PATCH net-next 5/5] vxlan: consolidate vxlan_xmit_skb and vxlan6_xmit_skb
+Date: Tue,  2 Feb 2016 11:13:25 +0100
+Message-ID: <0fb02d1526b8f5f602f78536d261713edee9b4ef.1454407418.git.jbenc@redhat.com>
 References: <cover.1454407418.git.jbenc@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38675 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38677 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754588AbcBBKNx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 05:13:53 -0500
+	id S1754768AbcBBKNz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 05:13:55 -0500
 Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (Postfix) with ESMTPS id ED9EBC00126F
-	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 10:13:52 +0000 (UTC)
+	by mx1.redhat.com (Postfix) with ESMTPS id 0D855C00124A
+	for <netdev@vger.kernel.org>; Tue,  2 Feb 2016 10:13:55 +0000 (UTC)
 Received: from griffin.localdomain (ovpn-204-27.brq.redhat.com [10.40.204.27])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u12ADmYh027928
-	for <netdev@vger.kernel.org>; Tue, 2 Feb 2016 05:13:52 -0500
+	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u12ADmYj027928
+	for <netdev@vger.kernel.org>; Tue, 2 Feb 2016 05:13:54 -0500
 In-Reply-To: <cover.1454407418.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RCO and GBP are VXLAN extensions, not specified in RFC 7348. Because of
-that, they need to be explicitly enabled when creating vxlan interface. By
-default, those extensions are not used and plain VXLAN header is sent and
-received.
-
-Reflect this in vxlan.h: first, the plain VXLAN header is defined. Following
-it, RCO is documented and defined, and likewise for GBP.
+There's a lot of code duplication. Factor out the duplicate code to a new
+function shared between IPv4 and IPv6 xmit path.
 
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- include/net/vxlan.h | 104 +++++++++++++++++++++++++++++++---------------------
- 1 file changed, 63 insertions(+), 41 deletions(-)
+ drivers/net/vxlan.c | 141 +++++++++++-----------------------------------------
+ 1 file changed, 29 insertions(+), 112 deletions(-)
 
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 234bf1ef2737..25bd919c9ef0 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -9,14 +9,71 @@
- #include <linux/udp.h>
- #include <net/dst_metadata.h>
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index d0f7723fd776..cf7de95eccfc 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1684,98 +1684,9 @@ static void vxlan_build_gbp_hdr(struct vxlanhdr *vxh, u32 vxflags,
+ 	gbp->policy_id = htons(md->gbp & VXLAN_GBP_ID_MASK);
+ }
  
-+/* VXLAN protocol (RFC 7348) header:
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |R|R|R|R|I|R|R|R|               Reserved                        |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |                VXLAN Network Identifier (VNI) |   Reserved    |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *
-+ * I = VXLAN Network Identifier (VNI) present.
-+ */
-+struct vxlanhdr {
-+	__be32 vx_flags;
-+	__be32 vx_vni;
-+};
-+
-+/* VXLAN header flags. */
-+#define VXLAN_HF_VNI BIT(27)
-+
-+#define VXLAN_N_VID     (1u << 24)
-+#define VXLAN_VID_MASK  (VXLAN_N_VID - 1)
-+#define VXLAN_VNI_MASK  (VXLAN_VID_MASK << 8)
-+#define VXLAN_HLEN (sizeof(struct udphdr) + sizeof(struct vxlanhdr))
-+
-+#define VNI_HASH_BITS	10
-+#define VNI_HASH_SIZE	(1<<VNI_HASH_BITS)
-+#define FDB_HASH_BITS	8
-+#define FDB_HASH_SIZE	(1<<FDB_HASH_BITS)
-+
-+/* Remote checksum offload for VXLAN (VXLAN_F_REMCSUM_[RT]X):
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |R|R|R|R|I|R|R|R|R|R|C|              Reserved                   |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |           VXLAN Network Identifier (VNI)      |O| Csum start  |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *
-+ * C = Remote checksum offload bit. When set indicates that the
-+ *     remote checksum offload data is present.
-+ *
-+ * O = Offset bit. Indicates the checksum offset relative to
-+ *     checksum start.
-+ *
-+ * Csum start = Checksum start divided by two.
-+ *
-+ * http://tools.ietf.org/html/draft-herbert-vxlan-rco
-+ */
-+
-+/* VXLAN-RCO header flags. */
-+#define VXLAN_HF_RCO BIT(21)
-+
-+/* Remote checksum offload header option */
-+#define VXLAN_RCO_MASK  0x7f    /* Last byte of vni field */
-+#define VXLAN_RCO_UDP   0x80    /* Indicate UDP RCO (TCP when not set *) */
-+#define VXLAN_RCO_SHIFT 1       /* Left shift of start */
-+#define VXLAN_RCO_SHIFT_MASK ((1 << VXLAN_RCO_SHIFT) - 1)
-+#define VXLAN_MAX_REMCSUM_START (VXLAN_RCO_MASK << VXLAN_RCO_SHIFT)
-+
- /*
-- * VXLAN Group Based Policy Extension:
-+ * VXLAN Group Based Policy Extension (VXLAN_F_GBP):
-  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-- * |1|-|-|-|1|-|-|-|R|D|R|R|A|R|R|R|        Group Policy ID        |
-+ * |G|R|R|R|I|R|R|R|R|D|R|R|A|R|R|R|        Group Policy ID        |
-  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  * |                VXLAN Network Identifier (VNI) |   Reserved    |
-  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  *
-+ * G = Group Policy ID present.
-+ *
-  * D = Don't Learn bit. When set, this bit indicates that the egress
-  *     VTEP MUST NOT learn the source address of the encapsulated frame.
-  *
-@@ -24,7 +81,7 @@
-  *     this packet. Policies MUST NOT be applied by devices when the
-  *     A bit is set.
-  *
-- * [0] https://tools.ietf.org/html/draft-smith-vxlan-group-policy
-+ * https://tools.ietf.org/html/draft-smith-vxlan-group-policy
-  */
- struct vxlanhdr_gbp {
- 	u8	vx_flags;
-@@ -47,6 +104,9 @@ struct vxlanhdr_gbp {
- 	__be32	vx_vni;
- };
+-#if IS_ENABLED(CONFIG_IPV6)
+-static int vxlan6_xmit_skb(struct dst_entry *dst, struct sock *sk,
+-			   struct sk_buff *skb,
+-			   struct net_device *dev, struct in6_addr *saddr,
+-			   struct in6_addr *daddr, __u8 prio, __u8 ttl,
+-			   __be16 src_port, __be16 dst_port, __be32 vni,
+-			   struct vxlan_metadata *md, bool xnet, u32 vxflags)
+-{
+-	struct vxlanhdr *vxh;
+-	int min_headroom;
+-	int err;
+-	bool udp_sum = !(vxflags & VXLAN_F_UDP_ZERO_CSUM6_TX);
+-	int type = udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
+-	u16 hdrlen = sizeof(struct vxlanhdr);
+-
+-	if ((vxflags & VXLAN_F_REMCSUM_TX) &&
+-	    skb->ip_summed == CHECKSUM_PARTIAL) {
+-		int csum_start = skb_checksum_start_offset(skb);
+-
+-		if (csum_start <= VXLAN_MAX_REMCSUM_START &&
+-		    !(csum_start & VXLAN_RCO_SHIFT_MASK) &&
+-		    (skb->csum_offset == offsetof(struct udphdr, check) ||
+-		     skb->csum_offset == offsetof(struct tcphdr, check))) {
+-			udp_sum = false;
+-			type |= SKB_GSO_TUNNEL_REMCSUM;
+-		}
+-	}
+-
+-	skb_scrub_packet(skb, xnet);
+-
+-	min_headroom = LL_RESERVED_SPACE(dst->dev) + dst->header_len
+-			+ VXLAN_HLEN + sizeof(struct ipv6hdr)
+-			+ (skb_vlan_tag_present(skb) ? VLAN_HLEN : 0);
+-
+-	/* Need space for new headers (invalidates iph ptr) */
+-	err = skb_cow_head(skb, min_headroom);
+-	if (unlikely(err)) {
+-		kfree_skb(skb);
+-		goto err;
+-	}
+-
+-	skb = vlan_hwaccel_push_inside(skb);
+-	if (WARN_ON(!skb)) {
+-		err = -ENOMEM;
+-		goto err;
+-	}
+-
+-	skb = iptunnel_handle_offloads(skb, udp_sum, type);
+-	if (IS_ERR(skb)) {
+-		err = -EINVAL;
+-		goto err;
+-	}
+-
+-	vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
+-	vxh->vx_flags = htonl(VXLAN_HF_VNI);
+-	vxh->vx_vni = vni;
+-
+-	if (type & SKB_GSO_TUNNEL_REMCSUM) {
+-		u32 data = (skb_checksum_start_offset(skb) - hdrlen) >>
+-			   VXLAN_RCO_SHIFT;
+-
+-		if (skb->csum_offset == offsetof(struct udphdr, check))
+-			data |= VXLAN_RCO_UDP;
+-
+-		vxh->vx_vni |= htonl(data);
+-		vxh->vx_flags |= htonl(VXLAN_HF_RCO);
+-
+-		if (!skb_is_gso(skb)) {
+-			skb->ip_summed = CHECKSUM_NONE;
+-			skb->encapsulation = 0;
+-		}
+-	}
+-
+-	if (vxflags & VXLAN_F_GBP)
+-		vxlan_build_gbp_hdr(vxh, vxflags, md);
+-
+-	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
+-
+-	udp_tunnel6_xmit_skb(dst, sk, skb, dev, saddr, daddr, prio,
+-			     ttl, src_port, dst_port,
+-			     !!(vxflags & VXLAN_F_UDP_ZERO_CSUM6_TX));
+-	return 0;
+-err:
+-	dst_release(dst);
+-	return err;
+-}
+-#endif
+-
+-static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
+-			  __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
+-			  __be16 src_port, __be16 dst_port, __be32 vni,
+-			  struct vxlan_metadata *md, bool xnet, u32 vxflags)
++static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
++			   int iphdr_len, __be32 vni,
++			   struct vxlan_metadata *md, u32 vxflags)
+ {
+ 	struct vxlanhdr *vxh;
+ 	int min_headroom;
+@@ -1797,8 +1708,8 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
+ 		}
+ 	}
  
-+/* VXLAN-GBP header flags. */
-+#define VXLAN_HF_GBP BIT(31)
+-	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
+-			+ VXLAN_HLEN + sizeof(struct iphdr)
++	min_headroom = LL_RESERVED_SPACE(dst->dev) + dst->header_len
++			+ VXLAN_HLEN + iphdr_len
+ 			+ (skb_vlan_tag_present(skb) ? VLAN_HLEN : 0);
+ 
+ 	/* Need space for new headers (invalidates iph ptr) */
+@@ -1840,10 +1751,6 @@ static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *sk
+ 		vxlan_build_gbp_hdr(vxh, vxflags, md);
+ 
+ 	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
+-
+-	udp_tunnel_xmit_skb(rt, sk, skb, src, dst, tos, ttl, df,
+-			    src_port, dst_port, xnet,
+-			    !(vxflags & VXLAN_F_UDP_CSUM));
+ 	return 0;
+ }
+ 
+@@ -1959,6 +1866,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	__u8 tos, ttl;
+ 	int err;
+ 	u32 flags = vxlan->flags;
++	bool xnet = !net_eq(vxlan->net, dev_net(vxlan->dev));
+ 
+ 	info = skb_tunnel_info(skb);
+ 
+@@ -2065,16 +1973,15 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 
+ 		tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
+ 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
+-		err = vxlan_xmit_skb(rt, sk, skb, saddr,
+-				     dst->sin.sin_addr.s_addr, tos, ttl, df,
+-				     src_port, dst_port, htonl(vni << 8), md,
+-				     !net_eq(vxlan->net, dev_net(vxlan->dev)),
+-				     flags);
+-		if (err < 0) {
+-			/* skb is already freed. */
+-			skb = NULL;
+-			goto rt_tx_error;
+-		}
++		err = vxlan_build_skb(skb, &rt->dst, sizeof(struct iphdr),
++				      htonl(vni << 8), md, flags);
++		if (err < 0)
++			goto xmit_tx_error;
 +
- #define VXLAN_GBP_USED_BITS (VXLAN_HF_GBP | 0xFFFFFF)
++		udp_tunnel_xmit_skb(rt, sk, skb, saddr,
++				    dst->sin.sin_addr.s_addr, tos, ttl, df,
++				    src_port, dst_port, xnet,
++				    !(flags & VXLAN_F_UDP_CSUM));
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	} else {
+ 		struct dst_entry *ndst;
+@@ -2127,10 +2034,17 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 		}
  
- /* skb->mark mapping
-@@ -59,44 +119,6 @@ struct vxlanhdr_gbp {
- #define VXLAN_GBP_POLICY_APPLIED	(BIT(3) << 16)
- #define VXLAN_GBP_ID_MASK		(0xFFFF)
+ 		ttl = ttl ? : ip6_dst_hoplimit(ndst);
+-		err = vxlan6_xmit_skb(ndst, sk, skb, dev, &saddr, &dst->sin6.sin6_addr,
+-				      0, ttl, src_port, dst_port, htonl(vni << 8), md,
+-				      !net_eq(vxlan->net, dev_net(vxlan->dev)),
+-				      flags);
++		skb_scrub_packet(skb, xnet);
++		err = vxlan_build_skb(skb, ndst, sizeof(struct ipv6hdr),
++				      htonl(vni << 8), md, flags);
++		if (err < 0) {
++			dst_release(ndst);
++			return;
++		}
++		udp_tunnel6_xmit_skb(ndst, sk, skb, dev,
++				     &saddr, &dst->sin6.sin6_addr,
++				     0, ttl, src_port, dst_port,
++				     !!(flags & VXLAN_F_UDP_ZERO_CSUM6_TX));
+ #endif
+ 	}
  
--/* VXLAN protocol header:
-- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-- * |G|R|R|R|I|R|R|C|               Reserved                        |
-- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-- * |                VXLAN Network Identifier (VNI) |   Reserved    |
-- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-- *
-- * G = 1	Group Policy (VXLAN-GBP)
-- * I = 1	VXLAN Network Identifier (VNI) present
-- * C = 1	Remote checksum offload (RCO)
-- */
--struct vxlanhdr {
--	__be32 vx_flags;
--	__be32 vx_vni;
--};
--
--/* VXLAN header flags. */
--#define VXLAN_HF_RCO BIT(21)
--#define VXLAN_HF_VNI BIT(27)
--#define VXLAN_HF_GBP BIT(31)
--
--/* Remote checksum offload header option */
--#define VXLAN_RCO_MASK  0x7f    /* Last byte of vni field */
--#define VXLAN_RCO_UDP   0x80    /* Indicate UDP RCO (TCP when not set *) */
--#define VXLAN_RCO_SHIFT 1       /* Left shift of start */
--#define VXLAN_RCO_SHIFT_MASK ((1 << VXLAN_RCO_SHIFT) - 1)
--#define VXLAN_MAX_REMCSUM_START (VXLAN_RCO_MASK << VXLAN_RCO_SHIFT)
--
--#define VXLAN_N_VID     (1u << 24)
--#define VXLAN_VID_MASK  (VXLAN_N_VID - 1)
--#define VXLAN_VNI_MASK  (VXLAN_VID_MASK << 8)
--#define VXLAN_HLEN (sizeof(struct udphdr) + sizeof(struct vxlanhdr))
--
--#define VNI_HASH_BITS	10
--#define VNI_HASH_SIZE	(1<<VNI_HASH_BITS)
--#define FDB_HASH_BITS	8
--#define FDB_HASH_SIZE	(1<<FDB_HASH_BITS)
--
- struct vxlan_metadata {
- 	u32		gbp;
- };
+@@ -2140,6 +2054,9 @@ drop:
+ 	dev->stats.tx_dropped++;
+ 	goto tx_free;
+ 
++xmit_tx_error:
++	/* skb is already freed. */
++	skb = NULL;
+ rt_tx_error:
+ 	ip_rt_put(rt);
+ tx_error:
 -- 
 1.8.3.1
