@@ -1,41 +1,134 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [RFC PATCH 3/7] net: sched: add cls_u32 offload hooks for netdevs
-Date: Wed, 3 Feb 2016 00:06:56 +0200
-Message-ID: <CAJ3xEMh2gUiEb1uoAYw-g2qAv5n5nAtDfP6WU4g=eqLq5gyBGQ@mail.gmail.com>
-References: <20160201014555.13871.56591.stgit@john-Precision-Tower-5810>
-	<20160201015023.13871.69865.stgit@john-Precision-Tower-5810>
-	<CAJ3xEMjRRUgHo_J4yQr3Z9wSJA7aRAzHc1ZNoBVP5WRmDFTRjw@mail.gmail.com>
-	<56B0DC86.7090402@gmail.com>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH] rtlwifi: Fix reusable codes in core.c
+Date: Wed, 3 Feb 2016 09:15:04 +1100
+Message-ID: <CAGRGNgVHEsA693tQxf0Mv_4wSu-4wG7sphhRRB0gbU6o9nzZ_Q@mail.gmail.com>
+References: <20160202154855.GA8990@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, ast@fb.com,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Simon Horman <horms@verge.net.au>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	David Miller <davem@davemloft.net>,
-	Jiri Pirko <jiri@mellanox.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:33700 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752882AbcBBWG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 17:06:57 -0500
-Received: by mail-io0-f175.google.com with SMTP id f81so34134683iof.0
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 14:06:56 -0800 (PST)
-In-Reply-To: <56B0DC86.7090402@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Byeoungwook Kim <quddnr145@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160202154855.GA8990@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 2, 2016 at 6:42 PM, John Fastabend
-<john.fastabend@gmail.com> > [..] I added
-> flower support to the driver with about 100lines of code fwiw I'll
-> send the patch out later today,
+Hi Byeoungwook,
 
-that would be very helpful, would appreciate if you post the code that
-supports flower to the list or @ your github
+On Wed, Feb 3, 2016 at 2:48 AM, Byeoungwook Kim <quddnr145@gmail.com> wrote:
+> rtl_*_delay() functions were reused same codes about addr variable.
+> So i have converted to rtl_addr_delay() from code about addr variable.
+>
+> Conditional codes in rtl_addr_delay() were improved in readability and
+> performance by using switch codes.
+>
+> Signed-off-by: Byeoungwook Kim <quddnr145@gmail.com>
+> ---
+>  drivers/net/wireless/realtek/rtlwifi/core.c | 48 +++++++++++------------------
+>  1 file changed, 18 insertions(+), 30 deletions(-)
+>
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
+> index 4ae421e..c1193d1 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/core.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/core.c
+> @@ -37,36 +37,34 @@
+>
+>  void rtl_addr_delay(u32 addr)
+>  {
+> -       if (addr == 0xfe)
+> +       switch (addr) {
+> +       case 0xfe:
+>                 mdelay(50);
+> -       else if (addr == 0xfd)
+> +               break;
+> +       case 0xfd:
+>                 mdelay(5);
+> -       else if (addr == 0xfc)
+> +               break;
+> +       case 0xfc:
+>                 mdelay(1);
+> -       else if (addr == 0xfb)
+> +               break;
+> +       case 0xfb:
+>                 udelay(50);
+> -       else if (addr == 0xfa)
+> +               break;
+> +       case 0xfa:
+>                 udelay(5);
+> -       else if (addr == 0xf9)
+> +               break;
+> +       case 0xf9:
+>                 udelay(1);
+> +               break;
+> +       };
 
-> sure I skipped populating all the
-> fields by breaking out of some case statements but not that many.
+As you're introducing a case statement here, you could consolidate the
+addresses that have the same delays, i.e.
+
+case 0xfe:
+case 0xfb:
+    mdelay(50);
+    break;
+
+also, you should arguably be doing this cleanup in a separate patch, i.e.
+
+1. Convert open coded instances to use this function (i.e. the changes
+below this comment)
+2. Improve the function
+
+>  }
+>  EXPORT_SYMBOL(rtl_addr_delay);
+>
+>  void rtl_rfreg_delay(struct ieee80211_hw *hw, enum radio_path rfpath, u32 addr,
+>                      u32 mask, u32 data)
+>  {
+> -       if (addr == 0xfe) {
+> -               mdelay(50);
+> -       } else if (addr == 0xfd) {
+> -               mdelay(5);
+> -       } else if (addr == 0xfc) {
+> -               mdelay(1);
+> -       } else if (addr == 0xfb) {
+> -               udelay(50);
+> -       } else if (addr == 0xfa) {
+> -               udelay(5);
+> -       } else if (addr == 0xf9) {
+> -               udelay(1);
+> +       if (addr >= 0xf9 && addr <= 0xfe) {
+> +               rtl_addr_delay(addr);
+>         } else {
+>                 rtl_set_rfreg(hw, rfpath, addr, mask, data);
+>                 udelay(1);
+> @@ -76,18 +74,8 @@ EXPORT_SYMBOL(rtl_rfreg_delay);
+>
+>  void rtl_bb_delay(struct ieee80211_hw *hw, u32 addr, u32 data)
+>  {
+> -       if (addr == 0xfe) {
+> -               mdelay(50);
+> -       } else if (addr == 0xfd) {
+> -               mdelay(5);
+> -       } else if (addr == 0xfc) {
+> -               mdelay(1);
+> -       } else if (addr == 0xfb) {
+> -               udelay(50);
+> -       } else if (addr == 0xfa) {
+> -               udelay(5);
+> -       } else if (addr == 0xf9) {
+> -               udelay(1);
+> +       if (addr >= 0xf9 && addr <= 0xfe) {
+> +               rtl_addr_delay(addr);
+>         } else {
+>                 rtl_set_bbreg(hw, addr, MASKDWORD, data);
+>                 udelay(1);
+
+Thanks,
+
+-- 
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
