@@ -1,51 +1,41 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH v2] unix: properly account for FDs passed over unix sockets
-Date: Tue, 2 Feb 2016 11:29:59 -0800
-Message-ID: <CA+55aFw2AwsWbvwp6f8H+eExt_CMfh7VA3od6hto_M0hg9z3Tg@mail.gmail.com>
-References: <201601100657.u0A6vk1B025554@mail.home.local>
-	<CANq1E4T0sqTTD4RsWXTUrFvsKvEsKsUiPbskWd=wAEVu83_Srg@mail.gmail.com>
-	<56B0F574.5080105@stressinduktion.org>
+From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Subject: Re: [PATCH net-next 1/7] tcp: apply Kern's check on RTTs used for
+ congestion control
+Date: Tue, 2 Feb 2016 20:30:27 +0100
+Message-ID: <CA++eYdtOmvKi8h=GZ3TGC_gQXHfK6r4YgsvYWhY5geM5XY3fzA@mail.gmail.com>
+References: <1445057867-32257-1-git-send-email-ycheng@google.com>
+	<1445057867-32257-2-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Herrmann <dh.herrmann@gmail.com>, Willy Tarreau <w@1wt.eu>,
-	"David S. Miller" <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	=?UTF-8?B?0JzQsNGA0Log0JrQvtGA0LXQvdCx0LXRgNCz?=
-	<socketpair@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Simon McVittie <simon.mcvittie@collabora.co.uk>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56B0F574.5080105@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f194.google.com ([209.85.217.194]:35252 "EHLO
+	mail-lb0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932656AbcBBTa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 14:30:28 -0500
+Received: by mail-lb0-f194.google.com with SMTP id dx9so7115687lbc.2
+        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 11:30:27 -0800 (PST)
+In-Reply-To: <1445057867-32257-2-git-send-email-ycheng@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 2, 2016 at 10:29 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
->>
->> Anyway, can someone provide a high-level description of what exactly
->> this patch is supposed to do? Which operation should be limited, who
->> should inflight FDs be accounted on, and which rlimit should be used
->> on each operation? I'm having a hard time auditing existing
->> user-space, given just the scarce description of this commit.
+On Sat, Oct 17, 2015 at 6:57 AM, Yuchung Cheng <ycheng@google.com> wrote:
+> Currently ca_seq_rtt_us does not use Kern's check. Fix that by
+> checking if any packet acked is a retransmit, for both RTT used
+> for RTT estimation and congestion control.
 >
-> Yes, all your observations are true. I think we need to explicitly
-> need to refer to the sending socket while attaching the fds.
+*snip*
 
-I don't think that really helps. Maybe somebody passed a unix domain
-socket around, and now we're crediting the wrong socket again.
+This patch (commit 9e45a3e) puzzles me, because Karn's check was
+already in effect:
+http://lxr.free-electrons.com/source/net/ipv4/tcp_input.c?v=4.3#L3117
 
-So how about we actually add a "struct cred *" to the scm_cookie
-itself, and we initialize it to "get_current_cred()". And then always
-use that.
-
-That way it's always the person who actually does the send (rather
-than the opener of the socket _or_ the opener of the file that gets
-passed around) that gets credited, and thanks to the cred pointer we
-can then de-credit them properly.
-
-Hmm?
-
-                Linus
+Since first_ackt/last_ackt is only set when non-retransmitted packets
+are ACKed (sequentially), we know them to be unambiguous samples for
+RTTM. Even if a (sequential) ACK covers retransmitted packets, we can
+still make a valid RTTM if that ACK also covers non-retransmitted
+packets. But this patch seems to prevent that?
