@@ -1,15 +1,15 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next 2/2] sunvnet: perf tracepoint invocations to trace LDC state machine
-Date: Tue,  2 Feb 2016 10:41:56 -0800
-Message-ID: <8234ebc9d20a7a42bb664d1db25913cb7c34dbfb.1454416592.git.sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next 1/2] sunvnet: Add support for perf LDC event tracing
+Date: Tue,  2 Feb 2016 10:41:55 -0800
+Message-ID: <155b14db75343d6e08596606dbcdaf459cb9efe3.1454416592.git.sowmini.varadhan@oracle.com>
 References: <cover.1454416592.git.sowmini.varadhan@oracle.com>
 Cc: davem@davemloft.net, sowmini.varadhan@oracle.com,
 	david.stevens@oracle.com, aaron.young@oracle.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:30405 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:30399 "EHLO
 	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754079AbcBBSmh (ORCPT
+	with ESMTP id S1753357AbcBBSmh (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 13:42:37 -0500
 In-Reply-To: <cover.1454416592.git.sowmini.varadhan@oracle.com>
 In-Reply-To: <cover.1454416592.git.sowmini.varadhan@oracle.com>
@@ -17,92 +17,159 @@ References: <cover.1454416592.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use sunvnet perf trace macros to monitor LDC message exchange state.
+Add perf event macros for support of tracing and instrumentation
+of LDC state machine
 
 Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 ---
- drivers/net/ethernet/sun/sunvnet.c |   24 ++++++++++++++++++++++--
- 1 files changed, 22 insertions(+), 2 deletions(-)
+ include/trace/events/sunvnet.h |  139 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 139 insertions(+), 0 deletions(-)
+ create mode 100644 include/trace/events/sunvnet.h
 
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 23fa298..942a95d 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -17,6 +17,8 @@
- #include <linux/mutex.h>
- #include <linux/highmem.h>
- #include <linux/if_vlan.h>
-+#define CREATE_TRACE_POINTS
-+#include <trace/events/sunvnet.h>
- 
- #if IS_ENABLED(CONFIG_IPV6)
- #include <linux/icmpv6.h>
-@@ -540,6 +542,8 @@ static int vnet_walk_rx_one(struct vnet_port *port,
- 	err = vnet_rx_one(port, desc);
- 	if (err == -ECONNRESET)
- 		return err;
-+	trace_vnet_rx_one(port->vio._local_sid, port->vio._peer_sid,
-+			  index, desc->hdr.ack);
- 	desc->hdr.state = VIO_DESC_DONE;
- 	err = put_rx_desc(port, dr, desc, index);
- 	if (err < 0)
-@@ -587,9 +591,15 @@ static int vnet_walk_rx(struct vnet_port *port, struct vio_dring_state *dr,
- 		ack_start = ack_end = vio_dring_prev(dr, start);
- 	if (send_ack) {
- 		port->napi_resume = false;
-+		trace_vnet_tx_send_stopped_ack(port->vio._local_sid,
-+					       port->vio._peer_sid,
-+					       ack_end, *npkts);
- 		return vnet_send_ack(port, dr, ack_start, ack_end,
- 				     VIO_DRING_STOPPED);
- 	} else  {
-+		trace_vnet_tx_defer_stopped_ack(port->vio._local_sid,
-+						port->vio._peer_sid,
-+						ack_end, *npkts);
- 		port->napi_resume = true;
- 		port->napi_stop_idx = ack_end;
- 		return 1;
-@@ -663,6 +673,8 @@ static int vnet_ack(struct vnet_port *port, void *msgbuf)
- 	/* sync for race conditions with vnet_start_xmit() and tell xmit it
- 	 * is time to send a trigger.
- 	 */
-+	trace_vnet_rx_stopped_ack(port->vio._local_sid,
-+				  port->vio._peer_sid, end);
- 	dr->cons = vio_dring_next(dr, end);
- 	desc = vio_dring_entry(dr, dr->cons);
- 	if (desc->hdr.state == VIO_DESC_READY && !port->start_cons) {
-@@ -886,6 +898,9 @@ static int __vnet_tx_trigger(struct vnet_port *port, u32 start)
- 	int retries = 0;
- 
- 	if (port->stop_rx) {
-+		trace_vnet_tx_pending_stopped_ack(port->vio._local_sid,
-+						  port->vio._peer_sid,
-+						  port->stop_rx_idx, -1);
- 		err = vnet_send_ack(port,
- 				    &port->vio.drings[VIO_DRIVER_RX_RING],
- 				    port->stop_rx_idx, -1,
-@@ -908,6 +923,8 @@ static int __vnet_tx_trigger(struct vnet_port *port, u32 start)
- 		if (retries++ > VNET_MAX_RETRIES)
- 			break;
- 	} while (err == -EAGAIN);
-+	trace_vnet_tx_trigger(port->vio._local_sid,
-+			      port->vio._peer_sid, start, err);
- 
- 	return err;
- }
-@@ -1414,8 +1431,11 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 * producer to consumer announcement that work is available to the
- 	 * consumer
- 	 */
--	if (!port->start_cons)
--		goto ldc_start_done; /* previous trigger suffices */
-+	if (!port->start_cons) { /* previous trigger suffices */
-+		trace_vnet_skip_tx_trigger(port->vio._local_sid,
-+					   port->vio._peer_sid, dr->cons);
-+		goto ldc_start_done;
-+	}
- 
- 	err = __vnet_tx_trigger(port, dr->cons);
- 	if (unlikely(err < 0)) {
+diff --git a/include/trace/events/sunvnet.h b/include/trace/events/sunvnet.h
+new file mode 100644
+index 0000000..eb080b2
+--- /dev/null
++++ b/include/trace/events/sunvnet.h
+@@ -0,0 +1,139 @@
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM sunvnet
++
++#if !defined(_TRACE_SUNVNET_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_SUNVNET_H
++
++#include <linux/tracepoint.h>
++
++TRACE_EVENT(vnet_rx_one,
++
++	TP_PROTO(int lsid, int rsid, int index, int needs_ack),
++
++	TP_ARGS(lsid, rsid, index, needs_ack),
++
++	TP_STRUCT__entry(
++		__field(int, lsid)
++		__field(int, rsid)
++		__field(int, index)
++		__field(int, needs_ack)
++	),
++
++	TP_fast_assign(
++		__entry->lsid = lsid;
++		__entry->rsid = rsid;
++		__entry->index = index;
++		__entry->needs_ack = needs_ack;
++	),
++
++	TP_printk("(%x:%x) walk_rx_one index %d; needs_ack %d",
++		__entry->lsid, __entry->rsid,
++		__entry->index, __entry->needs_ack)
++);
++
++DECLARE_EVENT_CLASS(vnet_tx_stopped_ack_template,
++
++	TP_PROTO(int lsid, int rsid, int ack_end, int npkts),
++
++	TP_ARGS(lsid, rsid, ack_end, npkts),
++
++	TP_STRUCT__entry(
++		__field(int, lsid)
++		__field(int, rsid)
++		__field(int, ack_end)
++		__field(int, npkts)
++	),
++
++	TP_fast_assign(
++		__entry->lsid = lsid;
++		__entry->rsid = rsid;
++		__entry->ack_end = ack_end;
++		__entry->npkts = npkts;
++	),
++
++	TP_printk("(%x:%x) stopped ack for %d; npkts %d",
++		__entry->lsid, __entry->rsid,
++		__entry->ack_end, __entry->npkts)
++);
++DEFINE_EVENT(vnet_tx_stopped_ack_template, vnet_tx_send_stopped_ack,
++	     TP_PROTO(int lsid, int rsid, int ack_end, int npkts),
++	     TP_ARGS(lsid, rsid, ack_end, npkts));
++DEFINE_EVENT(vnet_tx_stopped_ack_template, vnet_tx_defer_stopped_ack,
++	     TP_PROTO(int lsid, int rsid, int ack_end, int npkts),
++	     TP_ARGS(lsid, rsid, ack_end, npkts));
++DEFINE_EVENT(vnet_tx_stopped_ack_template, vnet_tx_pending_stopped_ack,
++	     TP_PROTO(int lsid, int rsid, int ack_end, int npkts),
++	     TP_ARGS(lsid, rsid, ack_end, npkts));
++
++TRACE_EVENT(vnet_rx_stopped_ack,
++
++	TP_PROTO(int lsid, int rsid, int end),
++
++	TP_ARGS(lsid, rsid, end),
++
++	TP_STRUCT__entry(
++		__field(int, lsid)
++		__field(int, rsid)
++		__field(int, end)
++	),
++
++	TP_fast_assign(
++		__entry->lsid = lsid;
++		__entry->rsid = rsid;
++		__entry->end = end;
++	),
++
++	TP_printk("(%x:%x) stopped ack for index %d",
++		__entry->lsid, __entry->rsid, __entry->end)
++);
++
++TRACE_EVENT(vnet_tx_trigger,
++
++	TP_PROTO(int lsid, int rsid, int start, int err),
++
++	TP_ARGS(lsid, rsid, start, err),
++
++	TP_STRUCT__entry(
++		__field(int, lsid)
++		__field(int, rsid)
++		__field(int, start)
++		__field(int, err)
++	),
++
++	TP_fast_assign(
++		__entry->lsid = lsid;
++		__entry->rsid = rsid;
++		__entry->start = start;
++		__entry->err = err;
++	),
++
++	TP_printk("(%x:%x) Tx trigger for %d sent with err %d %s",
++		__entry->lsid, __entry->rsid, __entry->start,
++		__entry->err, __entry->err > 0 ? "(ok)" : " ")
++);
++
++TRACE_EVENT(vnet_skip_tx_trigger,
++
++	TP_PROTO(int lsid, int rsid, int last),
++
++	TP_ARGS(lsid, rsid, last),
++
++	TP_STRUCT__entry(
++		__field(int, lsid)
++		__field(int, rsid)
++		__field(int, last)
++	),
++
++	TP_fast_assign(
++		__entry->lsid = lsid;
++		__entry->rsid = rsid;
++		__entry->last = last;
++	),
++
++	TP_printk("(%x:%x) Skip Tx trigger. Last trigger sent was %d",
++		__entry->lsid, __entry->rsid, __entry->last)
++);
++#endif /* _TRACE_SOCK_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
 -- 
 1.7.1
