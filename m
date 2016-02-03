@@ -1,32 +1,46 @@
-From: Alexandre TORGUE <alexandre.torgue@gmail.com>
-Subject: [PATCH 3/4] net: ethernet: stmmac: add support of Synopsys 3.50a MAC IP
-Date: Wed,  3 Feb 2016 15:54:34 +0100
-Message-ID: <1454511275-9791-4-git-send-email-alexandre.torgue@gmail.com>
-References: <1454511275-9791-1-git-send-email-alexandre.torgue@gmail.com>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454511275-9791-1-git-send-email-alexandre.torgue@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [patch net-next RFC 0/6] Introduce devlink interface and first
+ drivers to use it
+Date: Wed, 03 Feb 2016 16:17:14 +0100
+Message-ID: <56B219FA.7080208@iogearbox.net>
+References: <1454496482-13961-1-git-send-email-jiri@resnulli.us> <20160203143133.1b70bcb5@redhat.com> <20160203133356.GA2219@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, eugenia@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
+	jeffrey.t.kirsher@intel.com, jbenc@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:52852 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755982AbcBCPRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 10:17:22 -0500
+In-Reply-To: <20160203133356.GA2219@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adds support of Synopsys 3.50a MAC IP in stmmac driver.
+On 02/03/2016 02:33 PM, Jiri Pirko wrote:
+> Wed, Feb 03, 2016 at 02:31:33PM CET, brouer@redhat.com wrote:
+>> On Wed,  3 Feb 2016 11:47:56 +0100
+>> Jiri Pirko <jiri@resnulli.us> wrote:
+>>> From: Jiri Pirko <jiri@mellanox.com>
+[...]
+>>> It is available here:
+>>> https://github.com/jpirko/devlink
+>>
+>> IHMO this very short command name "dl" is not an advantage.  It is
+>> simply too unspecific and short for a good Google search.  E.g. when
+>> searching for good examples for using "dl".  I think "devlink" would be
+>> better.  If you like short commands do: alias dl="devlink"
+>
+> I was thinking about using "devlink". Decided to go with shortened
+> version so this is in-line with "ip". But you have a point.
 
-Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 6a52fa1..6cca626 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -178,6 +178,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
- 	 * once needed on other platforms.
- 	 */
- 	if (of_device_is_compatible(np, "st,spear600-gmac") ||
-+		of_device_is_compatible(np, "snps,dwmac-3.50a") ||
- 		of_device_is_compatible(np, "snps,dwmac-3.70a") ||
- 		of_device_is_compatible(np, "snps,dwmac")) {
- 		/* Note that the max-frame-size parameter as defined in the
--- 
-1.9.1
+Btw, if you add this tool into iproute2 (which would be preferred), then
+probably dl should be ok (and easier retrievable in that relation).
