@@ -1,157 +1,185 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v3] net:Add sysctl_max_skb_frags
-Date: Wed, 3 Feb 2016 07:58:01 -0800
-Message-ID: <CAKgT0UftR3pTOGO91GaUijPCTq8POQcNChRqyy1b1TYsM3n4Uw@mail.gmail.com>
-References: <568F87AC.60405@oracle.com>
-	<1454488017-8822-1-git-send-email-hans.westgaard.ry@oracle.com>
+From: Paul Burton <paul.burton@imgtec.com>
+Subject: Re: [PATCH v2 00/15] MIPS Boston board support
+Date: Wed, 3 Feb 2016 16:03:11 +0000
+Message-ID: <20160203160311.GD30470@NP-P-BURTON>
+References: <1454499045-5020-1-git-send-email-paul.burton@imgtec.com>
+ <56B1F40E.3090607@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Westphal <fw@strlen.de>, Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Michal Hocko <mhocko@suse.com>,
-	=?UTF-8?Q?Linus_L=C3=BCssing?= <linus.luessing@c0d3.blue>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tejun Heo <tj@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alexey Kodanev <alexey.kodanev@oracle.com>,
-	=?UTF-8?B?SMOla29uIEJ1Z2dl?= <haakon.bugge@oracle.com>,
-	open list <linux-kernel@vger.kernel.org>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
-To: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454488017-8822-1-git-send-email-hans.westgaard.ry@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Cc: <linux-mips@linux-mips.org>, Ralf Baechle <ralf@linux-mips.org>,
+        "Phil Edworthy" <phil.edworthy@renesas.com>,
+        Arnd Bergmann <arnd@arndb.de>,
+        "Joshua Kinard" <kumba@gentoo.org>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        "Jiri Slaby" <jslaby@suse.com>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        "Zubair Lutfullah Kakakhel" <Zubair.Kakakhel@imgtec.com>,
+        Kumar Gala <galak@codeaurora.org>,
+        Yijing Wang <wangyijing@huawei.com>,
+        Ian Campbell <ijc+devicetree@hellion.org.uk>,
+        Rob Herring <robh+dt@kernel.org>,
+        "John Crispin" <blogic@openwrt.org>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        Ray Jui <rjui@broadcom.com>,
+        Richard Cochran <richardcochran@gmail.com>,
+        =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+To: Michal Simek <michal.simek@xilinx.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <56B1F40E.3090607@xilinx.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 3, 2016 at 12:26 AM, Hans Westgaard Ry
-<hans.westgaard.ry@oracle.com> wrote:
-> Devices may have limits on the number of fragments in an skb they sup=
-port.
-> Current codebase uses a constant as maximum for number of fragments o=
-ne
-> skb can hold and use.
-> When enabling scatter/gather and running traffic with many small mess=
-ages
-> the codebase uses the maximum number of fragments and may thereby vio=
-late
-> the max for certain devices.
-> The patch introduces a global variable as max number of fragments.
->
-> Signed-off-by: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>
-> Reviewed-by: H=C3=A5kon Bugge <haakon.bugge@oracle.com>
->
-> ---
->  include/linux/skbuff.h     |  1 +
->  net/core/skbuff.c          |  2 ++
->  net/core/sysctl_net_core.c | 10 ++++++++++
->  net/ipv4/tcp.c             |  4 ++--
->  4 files changed, 15 insertions(+), 2 deletions(-)
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 4355129..fe47ad3 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -219,6 +219,7 @@ struct sk_buff;
->  #else
->  #define MAX_SKB_FRAGS (65536/PAGE_SIZE + 1)
->  #endif
-> +extern int sysctl_max_skb_frags;
->
->  typedef struct skb_frag_struct skb_frag_t;
->
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 152b9c7..c336b97 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -79,6 +79,8 @@
->
->  struct kmem_cache *skbuff_head_cache __read_mostly;
->  static struct kmem_cache *skbuff_fclone_cache __read_mostly;
-> +int sysctl_max_skb_frags __read_mostly =3D MAX_SKB_FRAGS;
-> +EXPORT_SYMBOL(sysctl_max_skb_frags);
->
->  /**
->   *     skb_panic - private function for out-of-line support
-> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-> index 95b6139..a6beb7b 100644
-> --- a/net/core/sysctl_net_core.c
-> +++ b/net/core/sysctl_net_core.c
+On Wed, Feb 03, 2016 at 01:35:26PM +0100, Michal Simek wrote:
+> On 3.2.2016 12:30, Paul Burton wrote:
+> > This series introduces support for the Imagination Technologies MIPS
+> > Boston development board. Boston is an FPGA-based development board
+> > akin to the much older Malta board, built around a Xilinx FPGA running
+> > a MIPS CPU & other logic including a PCIe root port connected to an
+> > Intel EG20T Platform Controller Hub. This provides a base set of
+> > peripherals including SATA, USB, SD/MMC, ethernet, I2C & GPIOs. PCIe
+> > slots are also present for expansion.
+> > 
+> > v2 of this series splits out the pch_gbe ethernet driver changes to a
+> > separate series, but keeps the Xilinx PCIe driver changes since PCIe is
+> > so central to the Boston board & the series has shrunk somewhat since
+> > its earlier submission.
+> > 
+> > Applies atop v4.5-rc2.
+> > 
+> > Paul Burton (15):
+> >   dt-bindings: ascii-lcd: Document a binding for simple ASCII LCDs
+> >   auxdisplay: driver for simple memory mapped ASCII LCD displays
+> >   MIPS: PCI: Compatibility with ARM-like PCI host drivers
+> >   PCI: xilinx: Keep references to both IRQ domains
+> >   PCI: xilinx: Unify INTx & MSI interrupt FIFO decode
+> >   PCI: xilinx: Always clear interrupt decode register
+> >   PCI: xilinx: Clear interrupt FIFO during probe
+> >   PCI: xilinx: Fix INTX irq dispatch
+> >   PCI: xilinx: Allow build on MIPS platforms
+> >   misc: pch_phub: Allow build on MIPS platforms
+> >   dmaengine: pch_dma: Allow build on MIPS platforms
+> >   ptp: pch: Allow build on MIPS platforms
+> >   MIPS: Support for generating FIT (.itb) images
+> >   dt-bindings: mips: img,boston: Document img,boston binding
+> >   MIPS: Boston board support
+> > 
+> >  Documentation/devicetree/bindings/ascii-lcd.txt    |  10 +
+> >  .../devicetree/bindings/mips/img/boston.txt        |  15 ++
+> >  MAINTAINERS                                        |  14 ++
+> >  arch/mips/Kbuild.platforms                         |   1 +
+> >  arch/mips/Kconfig                                  |  48 +++++
+> >  arch/mips/Makefile                                 |   6 +-
+> >  arch/mips/boot/Makefile                            |  61 ++++++
+> >  arch/mips/boot/dts/Makefile                        |   1 +
+> >  arch/mips/boot/dts/img/Makefile                    |   7 +
+> >  arch/mips/boot/dts/img/boston.dts                  | 204 ++++++++++++++++++
+> >  arch/mips/boot/skeleton.its                        |  24 +++
+> >  arch/mips/boston/Makefile                          |  12 ++
+> >  arch/mips/boston/Platform                          |   8 +
+> >  arch/mips/boston/init.c                            | 106 ++++++++++
+> >  arch/mips/boston/int.c                             |  33 +++
+> >  arch/mips/boston/time.c                            |  89 ++++++++
+> >  arch/mips/boston/vmlinux.its                       |  23 ++
+> >  arch/mips/configs/boston_defconfig                 | 173 +++++++++++++++
+> >  .../asm/mach-boston/cpu-feature-overrides.h        |  26 +++
+> >  arch/mips/include/asm/mach-boston/irq.h            |  18 ++
+> >  arch/mips/include/asm/mach-boston/spaces.h         |  20 ++
+> >  arch/mips/include/asm/pci.h                        |  67 +++++-
+> >  arch/mips/lib/iomap-pci.c                          |   2 +-
+> >  arch/mips/pci/Makefile                             |   6 +
+> >  arch/mips/pci/pci-generic.c                        | 138 ++++++++++++
+> >  arch/mips/pci/pci-legacy.c                         | 232 +++++++++++++++++++++
+> >  arch/mips/pci/pci.c                                | 226 +-------------------
+> >  drivers/auxdisplay/Kconfig                         |   7 +
+> >  drivers/auxdisplay/Makefile                        |   1 +
+> >  drivers/auxdisplay/ascii-lcd.c                     | 230 ++++++++++++++++++++
+> >  drivers/dma/Kconfig                                |   2 +-
+> >  drivers/misc/Kconfig                               |   2 +-
+> >  drivers/pci/host/Kconfig                           |   2 +-
+> >  drivers/pci/host/pcie-xilinx.c                     | 125 ++++++-----
+> >  drivers/ptp/Kconfig                                |   2 +-
+> >  35 files changed, 1649 insertions(+), 292 deletions(-)
+> >  create mode 100644 Documentation/devicetree/bindings/ascii-lcd.txt
+> >  create mode 100644 Documentation/devicetree/bindings/mips/img/boston.txt
+> >  create mode 100644 arch/mips/boot/dts/img/Makefile
+> >  create mode 100644 arch/mips/boot/dts/img/boston.dts
+> >  create mode 100644 arch/mips/boot/skeleton.its
+> >  create mode 100644 arch/mips/boston/Makefile
+> >  create mode 100644 arch/mips/boston/Platform
+> >  create mode 100644 arch/mips/boston/init.c
+> >  create mode 100644 arch/mips/boston/int.c
+> >  create mode 100644 arch/mips/boston/time.c
+> >  create mode 100644 arch/mips/boston/vmlinux.its
+> >  create mode 100644 arch/mips/configs/boston_defconfig
+> >  create mode 100644 arch/mips/include/asm/mach-boston/cpu-feature-overrides.h
+> >  create mode 100644 arch/mips/include/asm/mach-boston/irq.h
+> >  create mode 100644 arch/mips/include/asm/mach-boston/spaces.h
+> >  create mode 100644 arch/mips/pci/pci-generic.c
+> >  create mode 100644 arch/mips/pci/pci-legacy.c
+> >  create mode 100644 drivers/auxdisplay/ascii-lcd.c
+> > 
+> 
 
-I really don't think these changes belong in the core. Below you only
-modify the TCP code path so this more likely belongs in the TCP path
-unless you are going to guarantee that all other code paths obey the
-sysctl.  It probably belongs in net/ipv4/sysctl_net_ipv4.c
+Hi Michal,
 
-> @@ -26,6 +26,7 @@ static int zero =3D 0;
->  static int one =3D 1;
->  static int min_sndbuf =3D SOCK_MIN_SNDBUF;
->  static int min_rcvbuf =3D SOCK_MIN_RCVBUF;
-> +static int max_skb_frags =3D MAX_SKB_FRAGS;
->
->  static int net_msg_warn;       /* Unused, but still a sysctl */
->
-> @@ -392,6 +393,15 @@ static struct ctl_table net_core_table[] =3D {
->                 .mode           =3D 0644,
->                 .proc_handler   =3D proc_dointvec
->         },
-> +       {
-> +               .procname       =3D "max_skb_frags",
-> +               .data           =3D &sysctl_max_skb_frags,
-> +               .maxlen         =3D sizeof(int),
-> +               .mode           =3D 0644,
-> +               .proc_handler   =3D proc_dointvec_minmax,
-> +               .extra1         =3D &one,
-> +               .extra2         =3D &max_skb_frags,
-> +       },
->         { }
->  };
+On Wed, Feb 03, 2016 at 01:35:26PM +0100, Michal Simek wrote:
+> These patches are targeting different subsystems and should go to the
+> tree via different maintainers
 
-I'm not really a fan of this name either.  Maybe it should be
-something like tcp_max_gso_frags.
+Not necessarily, for example the dmaengine & ptp patches both received
+acks last time they were posted - presumably with the intent that Ralf
+can merge them through the MIPS tree.
 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index c82cca1..3dc7a2fd 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -938,7 +938,7 @@ new_segment:
->
->                 i =3D skb_shinfo(skb)->nr_frags;
->                 can_coalesce =3D skb_can_coalesce(skb, i, page, offse=
-t);
-> -               if (!can_coalesce && i >=3D MAX_SKB_FRAGS) {
-> +               if (!can_coalesce && i >=3D sysctl_max_skb_frags) {
->                         tcp_mark_push(tp, skb);
->                         goto new_segment;
->                 }
-> @@ -1211,7 +1211,7 @@ new_segment:
->
->                         if (!skb_can_coalesce(skb, i, pfrag->page,
->                                               pfrag->offset)) {
-> -                               if (i =3D=3D MAX_SKB_FRAGS || !sg) {
-> +                               if (i =3D=3D sysctl_max_skb_frags || =
-!sg) {
->                                         tcp_mark_push(tp, skb);
->                                         goto new_segment;
->                                 }
+On Wed, Feb 03, 2016 at 01:35:26PM +0100, Michal Simek wrote:
+> that's why please split them to sensible pieces and send them separately.
 
-This bit looks good.
+I could split out the Xilinx PCIe changes if it's insisted upon, but:
 
-I was wondering.  Have you considered looking at something like what
-was done with gso_max_size?  It seems like it is meant to address a
-problem similar to what you have described where the NICs only support
-a certain layout for the GSO frame.  Though now that I look over the
-code it seems like it might be flawed in that I don't see bridges or
-tunnels really respecting the value so it seems like they could cause
-issues.
+  - They are the motivation for what's probably the largest of the MIPS
+    patches, so it's good to see those changes in context.
 
-- Alex
+  - The Boston board is very heavily PCIe based, with all peripherals
+    apart from a single UART & an 8 character LCD display being accessed
+    via PCIe. Thus Boston is pretty useless without the Xilinx PCIe
+    driver.
+
+  - Each patch is only CC'd to people who should be relevant to it
+    anyway (using the patman tool), so it's not like the MIPS changes
+    are spamming people only interested in PCI.
+
+  - 15 patches really isn't all that many.
+
+So I think there is value in keeping the remainder of this series
+together. I already split out the fairly standalone ethernet driver
+changes. I certainly think saying this approach isn't sensible is a
+stretch.
+
+> For pcie-xilinx.c changes please add to CC Bharat Kumar Gogada
+> <bharatku@xilinx.com> and Ravikiran Gummaluri <rgummal@xilinx.com>.
+> They have patches for pcie-xilinx and I expect there will be some sort
+> of collision.
+
+I'll CC them if there's another revision, but if they should be CC'd for
+changes to this driver is there a reason they're not in MAINTAINERS?
+That would lead to tools like patman automatically CC'ing them, which
+makes tons more sense than people needing to be informed after
+submitting patches that they should CC some random extra email
+addresses.
+
+Thanks,
+    Paul
+
+> Thanks,
+> Michal
+> 
+> 
