@@ -1,103 +1,99 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH net] sctp: do sanity checks before migrating the asoc
-Date: Wed, 3 Feb 2016 17:13:25 +0100
-Message-ID: <CACT4Y+bxFFfE1WYFLuki7sjM4bMhMsONKuu5HK9gUuYmP2-eCA@mail.gmail.com>
-References: <CACT4Y+Z6jY_n_cpmbFz366=JzoLX=u4Zc_o8gHFwJw8ApKf4zw@mail.gmail.com>
- <10616913996c7a4cbe8a2bb23cf4e78fcfa0a13a.1452891824.git.marcelo.leitner@gmail.com>
- <569E45FD.4040801@gmail.com> <569E5D44.5000103@gmail.com> <569E8280.9080701@gmail.com>
- <569E8F2F.5070906@gmail.com> <569E94CF.4030409@gmail.com> <569E97D0.7050109@gmail.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: gigaset: memory leak in gigaset_initcshw
+Date: Wed, 03 Feb 2016 17:16:29 +0100
+Message-ID: <1454516189.14366.8.camel@tiscali.nl>
+References: <CACT4Y+Y+P7-pM0D4HTz4ZF6i+Rya22eOkPdnrv_OmDCMB7eQtg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	netdev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
 	syzkaller <syzkaller@googlegroups.com>,
 	Kostya Serebryany <kcc@google.com>,
 	Alexander Potapenko <glider@google.com>,
 	Sasha Levin <sasha.levin@oracle.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:34830 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756406AbcBCQNq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 11:13:46 -0500
-Received: by mail-wm0-f43.google.com with SMTP id r129so172592699wmr.0
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 08:13:45 -0800 (PST)
-In-Reply-To: <569E97D0.7050109@gmail.com>
+Received: from lb3-smtp-cloud6.xs4all.net ([194.109.24.31]:51655 "EHLO
+	lb3-smtp-cloud6.xs4all.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752677AbcBCQQf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 11:16:35 -0500
+In-Reply-To: <CACT4Y+Y+P7-pM0D4HTz4ZF6i+Rya22eOkPdnrv_OmDCMB7eQtg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 19, 2016 at 9:08 PM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> Em 19-01-2016 17:55, Vlad Yasevich escreveu:
->>
->> On 01/19/2016 02:31 PM, Marcelo Ricardo Leitner wrote:
->>>
->>> Em 19-01-2016 16:37, Vlad Yasevich escreveu:
->>>>
->>>> On 01/19/2016 10:59 AM, Marcelo Ricardo Leitner wrote:
->>>>>
->>>>> Yes, not thrilled here either about connect-to-self.
->>>>>
->>>>> But there is a big difference on how both works. For rx we can just
->>>>> look for wanted skbs
->>>>> in rx queue, as they aren't going anywhere, but for tx I don't think we
->>>>> can easily block
->>>>> sctp_wfree() call because that may be happening on another CPU (or am I
->>>>> mistaken here?
->>>>> sctp still doesn't have RFS but even irqbalance could affect this
->>>>> AFAICT) and more than
->>>>> one skb may be in transit at a time.
->>>>
->>>>
->>>> The way it's done now, we wouldn't have to block sctp_wfree.  Chunks are
->>>> released under
->>>> lock when they are acked, so we are OK here.  The tx completions will
->>>> just put 1 byte back
->>>> to the socket associated with the tx'ed skb, and that should still be ok
->>>> as
->>>> sctp_packet_release_owner will call sk_free().
->>>
->>>
->>> Please let me rephrase it. I'm actually worried about the asoc->base.sk
->>> part of the story
->>> and how it's fetched in sctp_wfree(). I think we can update that sk
->>> pointer after
->>> sock_wfree() has fetched it but not used it yet, possibly leading to
->>> accounting it twice,
->>> one during migration and one on sock_wfree.
->>> In sock_wfree() it will update some sk stats like sk->sk_wmem_alloc,
->>> among others.
->>
->>
->> sctp_wfree() is only used on skbs that were created as sctp chunks to be
->> transmitted.
->> Right now, these skbs aren't actually submitted to the IP or to nic to be
->> transmitted.
->> They are queued at the association level (either in transports or in the
->> outqueue).
->> They are only freed during ACK processing.
->>
->> The ACK processing happens under a socket lock and thus asoc->base.sk can
->> not move.
->>
->> The migration process also happens under a socket lock.  As a result,
->> during migration
->> we are guaranteed the chunk queues remain consistent and that
->> asoc->base.sk linkage
->> remains consistent.  In fact, if you look at the sctp_sock_migrate, we
->> lock both
->> sockets when we reassign the assoc->base.sk so we know both sockets are
->> properly locked.
->>
->> So, I am not sure that what you are worried about can happen.  Please feel
->> free to
->> double-check the above of course.
->
->
-> Ohh, right. That makes sense. I'll rework the patch. Thanks Vlad.
+On wo, 2016-02-03 at 16:31 +0100, Dmitry Vyukov wrote:
+> The following program causes a memory leak of ser_cardstate object
+> allocated in gigaset_initcshw:
+> 
+> // autogenerated by syzkaller (http://github.com/google/syzkaller)
+> #include <pthread.h>
+> #include <stdint.h>
+> #include <string.h>
+> #include <sys/syscall.h>
+> #include <unistd.h>
+> 
+> int main()
+> {
+>   long r[7];
+>   memset(r, -1, sizeof(r));
+>   r[0] = syscall(SYS_mmap, 0x20000000ul, 0x10000ul, 0x3ul, 0x32ul,
+>                  0xfffffffffffffffful, 0x0ul);
+>   r[2] = syscall(SYS_open, "/dev/ptmx", 0x8002ul, 0x0ul, 0, 0, 0);
+>   *(uint32_t*)0x20002b1e = (uint32_t)0x10;
+>   r[4] = syscall(SYS_ioctl, r[2], 0x5423ul, 0x20002b1eul, 0, 0, 0);
+>   *(uint32_t*)0x20009000 = (uint32_t)0x7;
+>   r[6] = syscall(SYS_ioctl, r[2], 0x5423ul, 0x20009000ul, 0, 0, 0);
+
+strace translated this for me to
+	mmap(0x20000000, 65536, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x20000000
+	open("/dev/ptmx", O_RDWR|O_LARGEFILE)   = 3
+	ioctl(3, TIOCSETD, [16])                = 0
+	ioctl(3, TIOCSETD, [7])                 = 0
+
+Where 16 is N_GIGASET_M101, while 7 is N_6PACK.
+
+>   return 0;
+> }
+> 
+> unreferenced object 0xffff88002b4109d8 (size 2048):
+>   comm "a.out", pid 9565, jiffies 4301785161 (age 10.646s)
+>   hex dump (first 32 bytes):
+>     e0 30 0a 87 ff ff ff ff 00 00 00 00 00 00 00 00  .0..............
+>     80 af 0d 88 ff ff ff ff 88 08 5e 00 00 88 ff ff  ..........^.....
+>   backtrace:
+>     [<     inline     >] kzalloc include/linux/slab.h:607
+>     [<ffffffff84bfbeab>] gigaset_initcshw+0x4b/0x2b0
+> drivers/isdn/gigaset/ser-gigaset.c:394
+>     [<ffffffff84bb1e22>] gigaset_initcs+0xf82/0x1660
+> drivers/isdn/gigaset/common.c:748
+>     [<ffffffff84bfb65b>] gigaset_tty_open+0x9b/0x460
+> drivers/isdn/gigaset/ser-gigaset.c:516
+>     [<ffffffff82f9a648>] tty_ldisc_open.isra.2+0x78/0xd0
+> drivers/tty/tty_ldisc.c:454
+>     [<ffffffff82f9ac32>] tty_set_ldisc+0x292/0x8a0
+> drivers/tty/tty_ldisc.c:561
+>     [<     inline     >] tiocsetd drivers/tty/tty_io.c:2656
+>     [<ffffffff82f8390e>] tty_ioctl+0xb2e/0x2160
+> drivers/tty/tty_io.c:2911
+>     [<     inline     >] vfs_ioctl fs/ioctl.c:43
+>     [<ffffffff817fa9ec>] do_vfs_ioctl+0x18c/0xfb0 fs/ioctl.c:674
+>     [<     inline     >] SYSC_ioctl fs/ioctl.c:689
+>     [<ffffffff817fb89f>] SyS_ioctl+0x8f/0xc0 fs/ioctl.c:680
+>     [<ffffffff8665ebb6>] entry_SYSCALL_64_fastpath+0x16/0x7a
+> arch/x86/entry/entry_64.S:185
+
+The above should provide me with enough information to figure out what's
+going on here.
+
+> On commit 34229b277480f46c1e9a19f027f30b074512e68b.
+
+That's "Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net",
+of two days ago.
+
+Thanks for the report,
 
 
-Hi Marcelo,
-
-Any updates on this? I still see the leak.
+Paul Bolle
