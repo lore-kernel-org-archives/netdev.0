@@ -1,74 +1,98 @@
-From: Simon McVittie <simon.mcvittie@collabora.co.uk>
-Subject: Re: [PATCH v2] unix: properly account for FDs passed over unix
- sockets
-Date: Wed, 3 Feb 2016 12:49:23 +0000
-Message-ID: <56B1F753.4020304@collabora.co.uk>
-References: <201601100657.u0A6vk1B025554@mail.home.local>
- <CANq1E4T0sqTTD4RsWXTUrFvsKvEsKsUiPbskWd=wAEVu83_Srg@mail.gmail.com>
- <56B1E64F.3070206@collabora.co.uk>
- <CANq1E4Sz2U2D7hvWLEknbrKURG_ZbMiqAsVnd5yRF1Qesm3nEg@mail.gmail.com>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH net-next] hv_netvsc: Increase delay for
+ RNDIS_STATUS_NETWORK_CHANGE
+Date: Wed, 03 Feb 2016 14:05:54 +0100
+Message-ID: <87si1ax7t9.fsf@vitty.brq.redhat.com>
+References: <1454458556-10591-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Willy Tarreau <w@1wt.eu>, "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	socketpair@gmail.com,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
-To: David Herrmann <dh.herrmann@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANq1E4Sz2U2D7hvWLEknbrKURG_ZbMiqAsVnd5yRF1Qesm3nEg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, netdev@vger.kernel.org,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+ davem@davemloft.net
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1454458556-10591-1-git-send-email-haiyangz@microsoft.com>
+ (Haiyang Zhang's message of "Tue, 2 Feb 2016 16:15:56 -0800")
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On 03/02/16 11:56, David Herrmann wrote:
-> However, with Hannes' revised patch, a different DoS attack against
-> dbus-daemon is possible. Imagine a peer that receives batches of FDs,
-> but never dequeues them. They will be accounted on the inflight-limit
-> of dbus-daemon, as such causing messages of independent peers to be
-> rejected in case they carry FDs.
-> Preferably, dbus-daemon would avoid queuing more than 16 FDs on a
-> single destination (total). But that would require POLLOUT to be
-> capped by the number of queued fds. A possible workaround is to add
-> CAP_SYS_RESOURCE to dbus-daemon.
+Haiyang Zhang <haiyangz@microsoft.com> writes:
 
-We have several mitigations for this:
+> We simulates a link down period for RNDIS_STATUS_NETWORK_CHANGE message to
+> trigger DHCP renew. User daemons may need multiple seconds to trigger the
+> link down event. (e.g. ifplugd: 5sec, network-manager: 4sec.) So update
+> this link down period to 10 sec to properly trigger DHCP renew.
+>
 
-* there's a limit on outgoing fds queued inside dbus-daemon for a
-  particular recipient connection, currently 64, and if that's
-  exceeded, we stop accepting messages for that recipient, feeding back
-  a send failure to the sender for messages to that recipient;
-* there's a time limit for how long any given fd can stay queued up
-  inside dbus-daemon, currently 2.5 minutes, and if that's exceeded, we
-  drop the message;
-* if started as root[1], we increase our fd limit to 64k before
-  dropping privileges to the intended uid, which in combination with
-  the maximum of 256 connections per uid and 64 fds per connection means
-  it takes multiple uids working together to carry out a DoS;
-* all of those limits can be adjusted by a local sysadmin if necessary,
-  if their users are particularly hostile (for instance 16 fds per
-  message is a generous limit intended to avoid unforeseen breakage,
-  and 4 would probably be enough in practice)
+I probably don't follow: why do we need sucha a delay? If (with real
+hardware) you plug network cable out and in one second you plug it in
+you'll get DHCP renewed, right?
 
-The queueing logic is fairly involved, so I'd appreciate suggested
-patches on freedesktop.org Bugzilla or to
-dbus-security@lists.freedesktop.org if you have an idea for better
-limits. If you believe you have found a non-public vulnerability, please
-mark any Bugzilla bugs as restricted to the D-Bus security group.
+When I introduced RNDIS_STATUS_NETWORK_CHANGE handling by emulating a
+pair of up/down events I put 2 second delay to make link_watch happy (as
+we only handle 1 event per second there) but 10 seconds sounds to much
+to me.
 
-Thanks,
-    S
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> ---
+>  drivers/net/hyperv/netvsc_drv.c |   10 ++++++++--
+>  1 files changed, 8 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index 1d3a665..6f23973 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -43,6 +43,8 @@
+>
+>  #define RING_SIZE_MIN 64
+>  #define LINKCHANGE_INT (2 * HZ)
+> +/* Extra delay for RNDIS_STATUS_NETWORK_CHANGE: */
+> +#define LINKCHANGE_DELAY (8 * HZ)
+>  static int ring_size = 128;
+>  module_param(ring_size, int, S_IRUGO);
+>  MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
+> @@ -964,6 +966,7 @@ static void netvsc_link_change(struct work_struct *w)
+>  		return;
+>  	}
+>  	ndev_ctx->last_reconfig = jiffies;
+> +	delay = LINKCHANGE_INT;
+>
+>  	spin_lock_irqsave(&ndev_ctx->lock, flags);
+>  	if (!list_empty(&ndev_ctx->reconfig_events)) {
+> @@ -1009,8 +1012,11 @@ static void netvsc_link_change(struct work_struct *w)
+>  			netif_tx_stop_all_queues(net);
+>  			event->event = RNDIS_STATUS_MEDIA_CONNECT;
+>  			spin_lock_irqsave(&ndev_ctx->lock, flags);
+> -			list_add_tail(&event->list, &ndev_ctx->reconfig_events);
+> +			list_add(&event->list, &ndev_ctx->reconfig_events);
 
-[1] The system dbus-daemon is started as root (and hence able to
-increase its own fd limit) on all systemd systems, anything that uses
-the Red Hat or Slackware sysvinit scripts bundled with dbus, and any
-Debian derivatives that use sysvinit and have taken security updates
-from at least Debian 7. Other distro-specific init system glue is up to
-the relevant distro.
+Why? Adding to tail was here to not screw the order of events...
+
+>  			spin_unlock_irqrestore(&ndev_ctx->lock, flags);
+> +
+> +			ndev_ctx->last_reconfig += LINKCHANGE_DELAY;
+> +			delay = LINKCHANGE_INT + LINKCHANGE_DELAY;
+>  			reschedule = true;
+>  		}
+>  		break;
+> @@ -1025,7 +1031,7 @@ static void netvsc_link_change(struct work_struct *w)
+>  	 * second, handle next reconfig event in 2 seconds.
+>  	 */
+>  	if (reschedule)
+> -		schedule_delayed_work(&ndev_ctx->dwork, LINKCHANGE_INT);
+> +		schedule_delayed_work(&ndev_ctx->dwork, delay);
+>  }
+>
+>  static void netvsc_free_netdev(struct net_device *netdev)
 
 -- 
-Simon McVittie
-Collabora Ltd. <http://www.collabora.com/>
+  Vitaly
