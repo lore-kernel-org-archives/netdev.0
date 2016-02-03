@@ -1,16 +1,16 @@
 From: Stefan Assmann <sassmann@kpanic.de>
-Subject: [PATCH net-next V2 4/6] igb: call ndo_stop() instead of dev_close() when running offline selftest
-Date: Wed,  3 Feb 2016 09:20:50 +0100
-Message-ID: <1454487652-1545-5-git-send-email-sassmann@kpanic.de>
+Subject: [PATCH net-next V2 5/6] e1000: call ndo_stop() instead of dev_close() when running offline selftest
+Date: Wed,  3 Feb 2016 09:20:51 +0100
+Message-ID: <1454487652-1545-6-git-send-email-sassmann@kpanic.de>
 References: <1454487652-1545-1-git-send-email-sassmann@kpanic.de>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	jeffrey.t.kirsher@intel.com, sassmann@kpanic.de
 To: intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40377 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52044 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933754AbcBCIVs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2016 03:21:48 -0500
+	id S964791AbcBCIVu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2016 03:21:50 -0500
 In-Reply-To: <1454487652-1545-1-git-send-email-sassmann@kpanic.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,78 +25,78 @@ touching IFF_UP at all.
 
 Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 ---
- drivers/net/ethernet/intel/igb/igb.h         | 2 ++
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 4 ++--
- drivers/net/ethernet/intel/igb/igb_main.c    | 8 ++++----
+ drivers/net/ethernet/intel/e1000/e1000.h         | 2 ++
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 4 ++--
+ drivers/net/ethernet/intel/e1000/e1000_main.c    | 8 ++++----
  3 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index e3cb93b..5dac361 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -510,6 +510,8 @@ enum igb_boards {
- extern char igb_driver_name[];
- extern char igb_driver_version[];
+diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
+index 98fe5a2..d7bdea7 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000.h
++++ b/drivers/net/ethernet/intel/e1000/e1000.h
+@@ -358,6 +358,8 @@ struct net_device *e1000_get_hw_dev(struct e1000_hw *hw);
+ extern char e1000_driver_name[];
+ extern const char e1000_driver_version[];
  
-+int igb_open(struct net_device *netdev);
-+int igb_close(struct net_device *netdev);
- int igb_up(struct igb_adapter *);
- void igb_down(struct igb_adapter *);
- void igb_reinit_locked(struct igb_adapter *);
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 1d329f1..7982243 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -2017,7 +2017,7 @@ static void igb_diag_test(struct net_device *netdev,
++int e1000_open(struct net_device *netdev);
++int e1000_close(struct net_device *netdev);
+ int e1000_up(struct e1000_adapter *adapter);
+ void e1000_down(struct e1000_adapter *adapter);
+ void e1000_reinit_locked(struct e1000_adapter *adapter);
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+index 83e557c..975eeb8 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+@@ -1553,7 +1553,7 @@ static void e1000_diag_test(struct net_device *netdev,
  
  		if (if_running)
  			/* indicate we're in test mode */
 -			dev_close(netdev);
-+			igb_close(netdev);
++			e1000_close(netdev);
  		else
- 			igb_reset(adapter);
+ 			e1000_reset(adapter);
  
-@@ -2050,7 +2050,7 @@ static void igb_diag_test(struct net_device *netdev,
- 
- 		clear_bit(__IGB_TESTING, &adapter->state);
+@@ -1582,7 +1582,7 @@ static void e1000_diag_test(struct net_device *netdev,
+ 		e1000_reset(adapter);
+ 		clear_bit(__E1000_TESTING, &adapter->flags);
  		if (if_running)
 -			dev_open(netdev);
-+			igb_open(netdev);
++			e1000_open(netdev);
  	} else {
- 		dev_info(&adapter->pdev->dev, "online testing starting\n");
- 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 31e5f39..7a2ccb5 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -122,8 +122,8 @@ static void igb_setup_mrqc(struct igb_adapter *);
- static int igb_probe(struct pci_dev *, const struct pci_device_id *);
- static void igb_remove(struct pci_dev *pdev);
- static int igb_sw_init(struct igb_adapter *);
--static int igb_open(struct net_device *);
--static int igb_close(struct net_device *);
-+int igb_open(struct net_device *);
-+int igb_close(struct net_device *);
- static void igb_configure(struct igb_adapter *);
- static void igb_configure_tx(struct igb_adapter *);
- static void igb_configure_rx(struct igb_adapter *);
-@@ -3132,7 +3132,7 @@ err_setup_tx:
- 	return err;
- }
- 
--static int igb_open(struct net_device *netdev)
-+int igb_open(struct net_device *netdev)
+ 		e_info(hw, "online testing starting\n");
+ 		/* Online tests */
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 3fc7bde..6de0c7d 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -114,8 +114,8 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent);
+ static void e1000_remove(struct pci_dev *pdev);
+ static int e1000_alloc_queues(struct e1000_adapter *adapter);
+ static int e1000_sw_init(struct e1000_adapter *adapter);
+-static int e1000_open(struct net_device *netdev);
+-static int e1000_close(struct net_device *netdev);
++int e1000_open(struct net_device *netdev);
++int e1000_close(struct net_device *netdev);
+ static void e1000_configure_tx(struct e1000_adapter *adapter);
+ static void e1000_configure_rx(struct e1000_adapter *adapter);
+ static void e1000_setup_rctl(struct e1000_adapter *adapter);
+@@ -1360,7 +1360,7 @@ static int e1000_alloc_queues(struct e1000_adapter *adapter)
+  * handler is registered with the OS, the watchdog task is started,
+  * and the stack is notified that the interface is ready.
+  **/
+-static int e1000_open(struct net_device *netdev)
++int e1000_open(struct net_device *netdev)
  {
- 	return __igb_open(netdev, false);
- }
-@@ -3169,7 +3169,7 @@ static int __igb_close(struct net_device *netdev, bool suspending)
- 	return 0;
- }
- 
--static int igb_close(struct net_device *netdev)
-+int igb_close(struct net_device *netdev)
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+@@ -1437,7 +1437,7 @@ err_setup_tx:
+  * needs to be disabled.  A global MAC reset is issued to stop the
+  * hardware, and all transmit and receive resources are freed.
+  **/
+-static int e1000_close(struct net_device *netdev)
++int e1000_close(struct net_device *netdev)
  {
- 	return __igb_close(netdev, false);
- }
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
 -- 
 2.5.0
