@@ -1,95 +1,92 @@
-From: "Franklin S Cooper Jr." <fcooper@ti.com>
-Subject: Re: Keystone 2 boards boot failure
-Date: Wed, 3 Feb 2016 08:11:34 -0600
-Message-ID: <56B20A96.9040507@ti.com>
-References: <56B0DE61.2000704@ti.com> <7911064.Pij4S9Q1yj@wuerfel>
- <56B134D6.101@ti.com> <10700980.gTvMTB9pzv@wuerfel> <56B15591.7080409@ti.com>
+From: Patrick Ruddy <pruddy@Brocade.com>
+Subject: Re: [PATCH] Netlink messages for multicast HW addr programming
+Date: Wed, 3 Feb 2016 14:14:41 +0000
+Message-ID: <1454508881.3700.63.camel@brocade.com>
+References: <1453376874-17389-1-git-send-email-pruddy@brocade.com>
+	 <20160121200419.GB2251@nanopsycho.orion>
+	 <1453474315.20378.7.camel@brocade.com>
+	 <20160122150508.GD2211@nanopsycho.orion>
+	 <1453477775.20378.15.camel@brocade.com>
+	 <20160123075331.GA2193@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <m-karicheri2@ti.com>, <netdev@vger.kernel.org>, <w-kwok2@ti.com>,
-	<davem@davemloft.net>,
-	"Strashko, Grygorii" <grygorii.strashko@ti.com>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Stapleton <dstaplet@Brocade.com>,
+	Olufemi Komolafe <okomolaf@Brocade.com>,
+	"Stephen Hemminger" <shemming@Brocade.com>
+To: "jiri@resnulli.us" <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:43759 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752468AbcBCOLn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2016 09:11:43 -0500
-In-Reply-To: <56B15591.7080409@ti.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:50297 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751359AbcBCOOu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 09:14:50 -0500
+Received: from pps.filterd (m0000542.ppops.net [127.0.0.1])
+	by mx0a-000f0801.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u13EBwFY030494
+	for <netdev@vger.kernel.org>; Wed, 3 Feb 2016 06:14:50 -0800
+Received: from brmwp-exmb12.corp.brocade.com ([208.47.132.227])
+	by mx0a-000f0801.pphosted.com with ESMTP id 20rwf31y27-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 06:14:50 -0800
+In-Reply-To: <20160123075331.GA2193@nanopsycho.orion>
+Content-Language: en-US
+Content-ID: <8146A243EACA8E46AC7E0D5229A3AF95@brocade.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 02/02/2016 07:19 PM, Franklin S Cooper Jr. wrote:
->
-> On 02/02/2016 05:26 PM, Arnd Bergmann wrote:
->> On Tuesday 02 February 2016 16:59:34 Franklin Cooper wrote:
->>> On 02/02/2016 03:26 PM, Arnd Bergmann wrote:
->>>> On Tuesday 02 February 2016 15:01:33 Franklin S Cooper Jr. wrote:
->>>>> Yes. Here is a boot log on the latest master with the below
->>>>> three patches reverted.
->>>>> http://pastebin.com/W7RWSHpE (Working)
->>>>>
->>>>> I reverted these three patches. The two latest patches seem
->>>>> to be trying to correct/expand upon the last patch on this list.
->>>>>
->>>>> commit 958d104e3d40eef5148c402887138f6594ff7e1e
->>>>> netcp: fix regression in receive processing
->>>>>
->>>>> commit 9dd2d6c5c9755b160fe0111bcdad9491676feea8
->>>>> netcp: add more __le32 annotations
->>>>>
->>>>> commit 899077791403ff7a2d8cfaa87bd1a82d729463e2
->>>>> netcp: try to reduce type confusion in descriptors
->>>>>
->>>> The middle patch should have no effect on generated code, so I'm ignoring
->>>> that for now.
->>>>
->>>> The next thing to rule out is an endianess bug. I assume you
->>>> are running this on with a little-endian kernel, correct? If
->>>> you are running big-endian, the base assumption that the driver needs
->>>> to swap the data was flawed and that portion needs to be done.
->>>>
->>>> If you are running little-endian 32-bit, please try the partial
->>>> revert below, which just undoes the attempt to make it work with
->>>> 64-bit kernels.
->>> Keystone 2 devices are little-endian 32-bit devices.
->> I meant the kernel you are running on it, not the hardware.
->> You should always be able to run both a big-endian kernel and
->> a littl-endian kernel on any ARMv7 machine, and a couple of
->> platforms use 64-bit physical addresses even on 32-bit machines
->> (with the normal 32-bit instruction set).
-> I'm not sure if Keystone 2 devices support this or if we
-> have support for this. I'll have to double check.
->> I wasn't completely sure if there are already keystone-derived
->> products with 64-bit CPU cores, but I guess the driver would
->> fail really badly on those (with or without the patch).
->>
->>> This partial revert fixes the boot problem for me.
->> Ok.
->>
->>
->> I tried to create a smaller version and stumbled over
->> a typo, maybe that's the whole problem. Can you try this one:
->>
->> diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
->> index c61d66d38634..8490804416dd 100644
->> --- a/drivers/net/ethernet/ti/netcp_core.c
->> +++ b/drivers/net/ethernet/ti/netcp_core.c
->> @@ -167,7 +167,7 @@ static void set_pad_info(u32 pad0, u32 pad1, u32 pad2, struct knav_dma_desc *des
->>  {
->>  	desc->pad[0] = cpu_to_le32(pad0);
->>  	desc->pad[1] = cpu_to_le32(pad1);
->> -	desc->pad[2] = cpu_to_le32(pad1);
->> +	desc->pad[2] = cpu_to_le32(pad2);
->>  }
->>  
->>  static void set_org_pkt_info(dma_addr_t buff, u32 buff_len,
->>
->>
->> 	Arnd
-> So only making this change on the latest master with no
-> other changes I see the boot problem again.
-
-+Grygorii
+T24gU2F0LCAyMDE2LTAxLTIzIGF0IDA4OjUzICswMTAwLCBKaXJpIFBpcmtvIHdyb3RlOg0KPiBG
+cmksIEphbiAyMiwgMjAxNiBhdCAwNDo0OTozNlBNIENFVCwgcHJ1ZGR5QEJyb2NhZGUuY29tIHdy
+b3RlOg0KPiA+T24gRnJpLCAyMDE2LTAxLTIyIGF0IDE2OjA1ICswMTAwLCBKaXJpIFBpcmtvIHdy
+b3RlOg0KPiA+PiBGcmksIEphbiAyMiwgMjAxNiBhdCAwMzo1MTo1NVBNIENFVCwgcHJ1ZGR5QEJy
+b2NhZGUuY29tIHdyb3RlOg0KPiA+PiA+T24gVGh1LCAyMDE2LTAxLTIxIGF0IDIxOjA0ICswMTAw
+LCBKaXJpIFBpcmtvIHdyb3RlOg0KPiA+PiA+PiBUaHUsIEphbiAyMSwgMjAxNiBhdCAxMjo0Nzo1
+NFBNIENFVCwgcHJ1ZGR5QGJyb2NhZGUuY29tIHdyb3RlOg0KPiA+PiA+PiA+QWRkIFJUTV9ORVdB
+RERSIGFuZCBSVE1fREVMQUREUiBuZXRsaW5rIG1lc3NhZ2VzIHRvIGluZGljYXRlDQo+ID4+ID4+
+ID5pbnRlcmVzdCBpbiBzcGVjaWZpYyBtdWx0aWNhc3QgaGFyZHdhcmUgYWRkcmVzc2VzLiBUaGVz
+ZSBtZXNzYWdlcw0KPiA+PiA+PiA+YXJlIHNlbnQgd2hlbiBhZGRyZXNzZWQgYXJlIGFkZGVkIG9y
+IGRlbGV0ZWQgZnJvbSB0aGUgYXBwcm9wcmlhdGUNCj4gPj4gPj4gPmludGVyZmFjZSBkcml2ZXIu
+DQo+ID4+ID4+ID4NCj4gPj4gPj4gPlNpZ25lZC1vZmYtYnk6IFBhdHJpY2sgUnVkZHkgPHBydWRk
+eUBicm9jYWRlLmNvbT4NCj4gPj4gPj4gPg0KPiA+PiA+PiA+ZGlmZiAtLWdpdCBhL25ldC9jb3Jl
+L2Rldl9hZGRyX2xpc3RzLmMgYi9uZXQvY29yZS9kZXZfYWRkcl9saXN0cy5jDQo+ID4+ID4+ID5p
+bmRleCBjMDU0OGQyLi5hMGViYWRkIDEwMDY0NA0KPiA+PiA+PiA+LS0tIGEvbmV0L2NvcmUvZGV2
+X2FkZHJfbGlzdHMuYw0KPiA+PiA+PiA+KysrIGIvbmV0L2NvcmUvZGV2X2FkZHJfbGlzdHMuYw0K
+PiA+PiA+PiA+QEAgLTEyLDYgKzEyLDcgQEANCj4gPj4gPj4gPiAgKi8NCj4gPj4gPj4gPiANCj4g
+Pj4gPj4gPiAjaW5jbHVkZSA8bGludXgvbmV0ZGV2aWNlLmg+DQo+ID4+ID4+ID4rI2luY2x1ZGUg
+PG5ldC9uZXRsaW5rLmg+DQo+ID4+ID4+ID4gI2luY2x1ZGUgPGxpbnV4L3J0bmV0bGluay5oPg0K
+PiA+PiA+PiA+ICNpbmNsdWRlIDxsaW51eC9leHBvcnQuaD4NCj4gPj4gPj4gPiAjaW5jbHVkZSA8
+bGludXgvbGlzdC5oPg0KPiA+PiA+PiA+QEAgLTY2MSw2ICs2NjIsNjIgQEAgb3V0Og0KPiA+PiA+
+PiA+IH0NCj4gPj4gPj4gPiBFWFBPUlRfU1lNQk9MKGRldl9tY19hZGRfZXhjbCk7DQo+ID4+ID4+
+ID4gDQo+ID4+ID4+ID4rc3RhdGljIGludCBmaWxsX2FkZHIoc3RydWN0IHNrX2J1ZmYgKnNrYiwg
+c3RydWN0IG5ldF9kZXZpY2UgKmRldiwNCj4gPj4gPj4gPisJCSAgICAgY29uc3QgdW5zaWduZWQg
+Y2hhciAqYWRkciwgaW50IHR5cGUpDQo+ID4+ID4+ID4rew0KPiA+PiA+PiA+KwlzdHJ1Y3Qgbmxt
+c2doZHIgKm5saDsNCj4gPj4gPj4gPisJc3RydWN0IGlmYWRkcm1zZyAqaWZtOw0KPiA+PiA+PiA+
+Kw0KPiA+PiA+PiA+KwlubGggPSBubG1zZ19wdXQoc2tiLCAwLCAwLCB0eXBlLCBzaXplb2YoKmlm
+bSksIDApOw0KPiA+PiA+PiA+KwlpZiAobmxoID09IE5VTEwpDQo+ID4+ID4+ID4rCQlyZXR1cm4g
+LUVNU0dTSVpFOw0KPiA+PiA+PiA+Kw0KPiA+PiA+PiA+KwlpZm0gPSBubG1zZ19kYXRhKG5saCk7
+DQo+ID4+ID4+ID4rCWlmbS0+aWZhX2ZhbWlseSA9IEFGX1VOU1BFQzsNCj4gPj4gPj4gPisJaWZt
+LT5pZmFfcHJlZml4bGVuID0gMDsNCj4gPj4gPj4gPisJaWZtLT5pZmFfZmxhZ3MgPSBJRkFfRl9Q
+RVJNQU5FTlQ7DQo+ID4+ID4+ID4rCWlmbS0+aWZhX3Njb3BlID0gUlRfU0NPUEVfTElOSzsNCj4g
+Pj4gPj4gPisJaWZtLT5pZmFfaW5kZXggPSBkZXYtPmlmaW5kZXg7DQo+ID4+ID4+ID4rCWlmIChu
+bGFfcHV0KHNrYiwgSUZBX0FERFJFU1MsIGRldi0+YWRkcl9sZW4sIGFkZHIpKQ0KPiA+PiA+PiA+
+KwkJZ290byBubGFfcHV0X2ZhaWx1cmU7DQo+ID4+ID4+ID4rCW5sbXNnX2VuZChza2IsIG5saCk7
+DQo+ID4+ID4+IA0KPiA+PiA+PiBIb3cgY2FuIHVzZXJzcGFjZSB0ZWxsIGlmIHRoaXMgaXMgYSBt
+dWx0aWNhc3QgYWRkcj8gQWxzbywgd2h5IG5vdCBhZGQNCj4gPj4gPj4gbm90aWZpY2F0aW9ucyBm
+b3IgdW5pY2FzdCBhZGRycyBzbyB3ZSBoYW5kbGUgYm90aCB0aGUgc2FtZT8NCj4gPj4gPg0KPiA+
+PiA+SSBhbSBvbmx5IHVzaW5nIHRoaXMgUlRNX05FVy9ERUxBRERSIEFGX1VOU1BFQyBtZXNzYWdl
+IGZvciBtdWx0aWNhc3QNCj4gPj4gPmFkZHJlc3Nlcy4gSSB1bmRlcnN0YW5kIHRoYXQgdGhlIHVu
+aWNhc3QgYWRkcmVzc2VzIGFyZSBub3RpZmllZCBpbiB0aGUNCj4gPj4gPlJUTV9ORVcvREVMTElO
+Sy4NCj4gPj4gDQo+ID4+IGRldi0+ZGV2X2FkZHIgaXMgbm90aWZpZWQgYnkgdGhhdC4gVUMgYWRk
+cmVzc2VzIGRvIG5vdCBoYXZlIGFueQ0KPiA+PiBub3RpZmljYXRpb24gbm93Lg0KPiA+SXQgaXMg
+dGhlIG11bHRpY2FzdCBNQUMgYWRkcmVzcyAoaWUgdGhlIG11bHRpY2FzdCBlcXVpdmFsZW50IG9m
+IHRoZQ0KPiA+ZGV2X2FkZHIpIHRoYXQgd2UgYXJlIG5vdGlmeWluZyBoZXJlIHJpZ2h0PyBOb3Qg
+TDMgYWRkcmVzc2VzLg0KPiANCj4gSSBrbm93IDopDQo+IA0KPiBGb3IgZXhhbXBsZSBpZiBrZXJu
+ZWwgY29kZSBjYWxscyBkZXZfdWNfYWRkIG9yIGRldl91Y19kZWwsIHRoaXNlDQo+IGFkZHJlc3Nl
+cyBhcmUgbm90IG5vdGlmaWVkIHRvIHRoZSB1c2Vyc3BhY2UuIEFsbCBJJ20gc2F5aW5nIGlzLCBp
+ZiB5b3UNCj4gYWRkIG5vdGlmaWNhdGlvbiBmb3IgZGV2X21jX2FkZCBhbmQgZGV2X21jX2RlbCwg
+YWRkIGl0IGZvciB1YyB2YXJpYW50cw0KPiBhcyB3ZWxsLiBUaGVuIHlvdSBoYXZlIHRvIGRpc3Rp
+bmd1aXNoIG1jIGFuZCB1YyBpbiB0aGUgbmV0bGluayBtZXNzYWdlLg0KDQpPbmUgbW9yZSBRIG9u
+IHRoaXMuIEkgY2FuIHVzZSBJRkFfQUREUkVTUyBmb3IgdW5pY2FzdCBhZGRyZXNzZXMgYW5kDQpJ
+RkFfTVVMVElDQVNUIGZvciBtdWx0aWNhc3QgYWRkcmVzc2VzIGJ1dCBhcmUgdGhlc2UgZGlzdGlu
+Y3Rpb25zDQphY3R1YWxseSByZXF1aXJlZCBzaW5jZSB0aGUgbXVsdGljYXN0IG5hdHVyZSBvZiBh
+biBhZGRyZXNzIGlzIGNsZWFyIGZyb20NCnRoZSBhZGRyZXNzIGl0c2VsZiAtIGF0IGxlYXN0IGl0
+IGlzIGZvciBldGhlcm5ldCBhbmQgaWZpbmluZXQ/DQoNCi1wcg0K
