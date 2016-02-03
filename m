@@ -1,47 +1,94 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] unix: properly account for FDs passed over unix
- sockets
-Date: Wed, 3 Feb 2016 02:12:55 +0100
-Message-ID: <56B15417.6080002@stressinduktion.org>
-References: <201601100657.u0A6vk1B025554@mail.home.local>
- <CANq1E4T0sqTTD4RsWXTUrFvsKvEsKsUiPbskWd=wAEVu83_Srg@mail.gmail.com>
- <56B0F574.5080105@stressinduktion.org>
- <CA+55aFw2AwsWbvwp6f8H+eExt_CMfh7VA3od6hto_M0hg9z3Tg@mail.gmail.com>
- <56B11278.8000805@stressinduktion.org> <20160202203929.GC25828@1wt.eu>
- <56B125B7.6020702@stressinduktion.org>
- <CA+55aFzqdR80MKupCs+va8vtbTU67Jobax1QAbfWNktQCXFxpA@mail.gmail.com>
- <56B15067.6000407@stressinduktion.org>
+From: "Franklin S Cooper Jr." <fcooper@ti.com>
+Subject: Re: Keystone 2 boards boot failure
+Date: Tue, 2 Feb 2016 19:19:13 -0600
+Message-ID: <56B15591.7080409@ti.com>
+References: <56B0DE61.2000704@ti.com> <7911064.Pij4S9Q1yj@wuerfel>
+ <56B134D6.101@ti.com> <10700980.gTvMTB9pzv@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Simon McVittie <simon.mcvittie@collabora.co.uk>,
-	Willy Tarreau <w@1wt.eu>, Eric Dumazet <edumazet@google.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	???????? ?????????????????? <socketpair@gmail.com>,
-	David Herrmann <dh.herrmann@gmail.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56B15067.6000407@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <m-karicheri2@ti.com>, <netdev@vger.kernel.org>, <w-kwok2@ti.com>,
+	<davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:48762 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752733AbcBCBTU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 20:19:20 -0500
+In-Reply-To: <10700980.gTvMTB9pzv@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03.02.2016 01:57, Hannes Frederic Sowa wrote:
-> On 02.02.2016 23:11, Linus Torvalds wrote:
->> But I'm OK with that patch as is if you prefer it that way (maybe you
->> want
->> to use the cred to then test for root separately etc, out maybe there
->> already was done use of cred as cred that I just missed when reading the
->> patch on my phone..)
+
+
+On 02/02/2016 05:26 PM, Arnd Bergmann wrote:
+> On Tuesday 02 February 2016 16:59:34 Franklin Cooper wrote:
+>> On 02/02/2016 03:26 PM, Arnd Bergmann wrote:
+>>> On Tuesday 02 February 2016 15:01:33 Franklin S Cooper Jr. wrote:
+>>>> Yes. Here is a boot log on the latest master with the below
+>>>> three patches reverted.
+>>>> http://pastebin.com/W7RWSHpE (Working)
+>>>>
+>>>> I reverted these three patches. The two latest patches seem
+>>>> to be trying to correct/expand upon the last patch on this list.
+>>>>
+>>>> commit 958d104e3d40eef5148c402887138f6594ff7e1e
+>>>> netcp: fix regression in receive processing
+>>>>
+>>>> commit 9dd2d6c5c9755b160fe0111bcdad9491676feea8
+>>>> netcp: add more __le32 annotations
+>>>>
+>>>> commit 899077791403ff7a2d8cfaa87bd1a82d729463e2
+>>>> netcp: try to reduce type confusion in descriptors
+>>>>
+>>> The middle patch should have no effect on generated code, so I'm ignoring
+>>> that for now.
+>>>
+>>> The next thing to rule out is an endianess bug. I assume you
+>>> are running this on with a little-endian kernel, correct? If
+>>> you are running big-endian, the base assumption that the driver needs
+>>> to swap the data was flawed and that portion needs to be done.
+>>>
+>>> If you are running little-endian 32-bit, please try the partial
+>>> revert below, which just undoes the attempt to make it work with
+>>> 64-bit kernels.
+>> Keystone 2 devices are little-endian 32-bit devices.
+> I meant the kernel you are running on it, not the hardware.
+> You should always be able to run both a big-endian kernel and
+> a littl-endian kernel on any ARMv7 machine, and a couple of
+> platforms use 64-bit physical addresses even on 32-bit machines
+> (with the normal 32-bit instruction set).
+
+I'm not sure if Keystone 2 devices support this or if we
+have support for this. I'll have to double check.
 >
-> I don't see any reason to switch over to struct user_struct. I tested a
-> patch and will send it out soon.
+> I wasn't completely sure if there are already keystone-derived
+> products with 64-bit CPU cores, but I guess the driver would
+> fail really badly on those (with or without the patch).
+>
+>> This partial revert fixes the boot problem for me.
+> Ok.
+>
+>
+> I tried to create a smaller version and stumbled over
+> a typo, maybe that's the whole problem. Can you try this one:
+>
+> diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+> index c61d66d38634..8490804416dd 100644
+> --- a/drivers/net/ethernet/ti/netcp_core.c
+> +++ b/drivers/net/ethernet/ti/netcp_core.c
+> @@ -167,7 +167,7 @@ static void set_pad_info(u32 pad0, u32 pad1, u32 pad2, struct knav_dma_desc *des
+>  {
+>  	desc->pad[0] = cpu_to_le32(pad0);
+>  	desc->pad[1] = cpu_to_le32(pad1);
+> -	desc->pad[2] = cpu_to_le32(pad1);
+> +	desc->pad[2] = cpu_to_le32(pad2);
+>  }
+>  
+>  static void set_org_pkt_info(dma_addr_t buff, u32 buff_len,
+>
+>
+> 	Arnd
 
-I meant that there is no reason not to switch over to struct 
-user_struct. Patch is send out.
-
-Thanks for looking into this!
-
-Hannes
+So only making this change on the latest master with no
+other changes I see the boot problem again.
