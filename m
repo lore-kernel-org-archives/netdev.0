@@ -1,185 +1,94 @@
-From: Paul Burton <paul.burton@imgtec.com>
-Subject: Re: [PATCH v2 00/15] MIPS Boston board support
-Date: Wed, 3 Feb 2016 16:03:11 +0000
-Message-ID: <20160203160311.GD30470@NP-P-BURTON>
-References: <1454499045-5020-1-git-send-email-paul.burton@imgtec.com>
- <56B1F40E.3090607@xilinx.com>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH net-next] hv_netvsc: Increase delay for RNDIS_STATUS_NETWORK_CHANGE
+Date: Wed, 03 Feb 2016 17:06:22 +0100
+Message-ID: <87d1sdye0x.fsf@vitty.brq.redhat.com>
+References: <1454458556-10591-1-git-send-email-haiyangz@microsoft.com>
+	<87si1ax7t9.fsf@vitty.brq.redhat.com>
+	<BN1PR0301MB0770CFE76823654E90579D0CCAD00@BN1PR0301MB0770.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Cc: <linux-mips@linux-mips.org>, Ralf Baechle <ralf@linux-mips.org>,
-        "Phil Edworthy" <phil.edworthy@renesas.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        "Joshua Kinard" <kumba@gentoo.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        "Jiri Slaby" <jslaby@suse.com>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        "Zubair Lutfullah Kakakhel" <Zubair.Kakakhel@imgtec.com>,
-        Kumar Gala <galak@codeaurora.org>,
-        Yijing Wang <wangyijing@huawei.com>,
-        Ian Campbell <ijc+devicetree@hellion.org.uk>,
-        Rob Herring <robh+dt@kernel.org>,
-        "John Crispin" <blogic@openwrt.org>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Ray Jui <rjui@broadcom.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-To: Michal Simek <michal.simek@xilinx.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-Content-Disposition: inline
-In-Reply-To: <56B1F40E.3090607@xilinx.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Content-Type: text/plain
+Cc: "davem\@davemloft.net" <davem@davemloft.net>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>,
+	"olaf\@aepfle.de" <olaf@aepfle.de>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"driverdev-devel\@linuxdriverproject.org"
+	<driverdev-devel@linuxdriverproject.org>
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BN1PR0301MB0770CFE76823654E90579D0CCAD00@BN1PR0301MB0770.namprd03.prod.outlook.com>
+	(Haiyang Zhang's message of "Wed, 3 Feb 2016 15:46:41 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 03, 2016 at 01:35:26PM +0100, Michal Simek wrote:
-> On 3.2.2016 12:30, Paul Burton wrote:
-> > This series introduces support for the Imagination Technologies MIPS
-> > Boston development board. Boston is an FPGA-based development board
-> > akin to the much older Malta board, built around a Xilinx FPGA running
-> > a MIPS CPU & other logic including a PCIe root port connected to an
-> > Intel EG20T Platform Controller Hub. This provides a base set of
-> > peripherals including SATA, USB, SD/MMC, ethernet, I2C & GPIOs. PCIe
-> > slots are also present for expansion.
-> > 
-> > v2 of this series splits out the pch_gbe ethernet driver changes to a
-> > separate series, but keeps the Xilinx PCIe driver changes since PCIe is
-> > so central to the Boston board & the series has shrunk somewhat since
-> > its earlier submission.
-> > 
-> > Applies atop v4.5-rc2.
-> > 
-> > Paul Burton (15):
-> >   dt-bindings: ascii-lcd: Document a binding for simple ASCII LCDs
-> >   auxdisplay: driver for simple memory mapped ASCII LCD displays
-> >   MIPS: PCI: Compatibility with ARM-like PCI host drivers
-> >   PCI: xilinx: Keep references to both IRQ domains
-> >   PCI: xilinx: Unify INTx & MSI interrupt FIFO decode
-> >   PCI: xilinx: Always clear interrupt decode register
-> >   PCI: xilinx: Clear interrupt FIFO during probe
-> >   PCI: xilinx: Fix INTX irq dispatch
-> >   PCI: xilinx: Allow build on MIPS platforms
-> >   misc: pch_phub: Allow build on MIPS platforms
-> >   dmaengine: pch_dma: Allow build on MIPS platforms
-> >   ptp: pch: Allow build on MIPS platforms
-> >   MIPS: Support for generating FIT (.itb) images
-> >   dt-bindings: mips: img,boston: Document img,boston binding
-> >   MIPS: Boston board support
-> > 
-> >  Documentation/devicetree/bindings/ascii-lcd.txt    |  10 +
-> >  .../devicetree/bindings/mips/img/boston.txt        |  15 ++
-> >  MAINTAINERS                                        |  14 ++
-> >  arch/mips/Kbuild.platforms                         |   1 +
-> >  arch/mips/Kconfig                                  |  48 +++++
-> >  arch/mips/Makefile                                 |   6 +-
-> >  arch/mips/boot/Makefile                            |  61 ++++++
-> >  arch/mips/boot/dts/Makefile                        |   1 +
-> >  arch/mips/boot/dts/img/Makefile                    |   7 +
-> >  arch/mips/boot/dts/img/boston.dts                  | 204 ++++++++++++++++++
-> >  arch/mips/boot/skeleton.its                        |  24 +++
-> >  arch/mips/boston/Makefile                          |  12 ++
-> >  arch/mips/boston/Platform                          |   8 +
-> >  arch/mips/boston/init.c                            | 106 ++++++++++
-> >  arch/mips/boston/int.c                             |  33 +++
-> >  arch/mips/boston/time.c                            |  89 ++++++++
-> >  arch/mips/boston/vmlinux.its                       |  23 ++
-> >  arch/mips/configs/boston_defconfig                 | 173 +++++++++++++++
-> >  .../asm/mach-boston/cpu-feature-overrides.h        |  26 +++
-> >  arch/mips/include/asm/mach-boston/irq.h            |  18 ++
-> >  arch/mips/include/asm/mach-boston/spaces.h         |  20 ++
-> >  arch/mips/include/asm/pci.h                        |  67 +++++-
-> >  arch/mips/lib/iomap-pci.c                          |   2 +-
-> >  arch/mips/pci/Makefile                             |   6 +
-> >  arch/mips/pci/pci-generic.c                        | 138 ++++++++++++
-> >  arch/mips/pci/pci-legacy.c                         | 232 +++++++++++++++++++++
-> >  arch/mips/pci/pci.c                                | 226 +-------------------
-> >  drivers/auxdisplay/Kconfig                         |   7 +
-> >  drivers/auxdisplay/Makefile                        |   1 +
-> >  drivers/auxdisplay/ascii-lcd.c                     | 230 ++++++++++++++++++++
-> >  drivers/dma/Kconfig                                |   2 +-
-> >  drivers/misc/Kconfig                               |   2 +-
-> >  drivers/pci/host/Kconfig                           |   2 +-
-> >  drivers/pci/host/pcie-xilinx.c                     | 125 ++++++-----
-> >  drivers/ptp/Kconfig                                |   2 +-
-> >  35 files changed, 1649 insertions(+), 292 deletions(-)
-> >  create mode 100644 Documentation/devicetree/bindings/ascii-lcd.txt
-> >  create mode 100644 Documentation/devicetree/bindings/mips/img/boston.txt
-> >  create mode 100644 arch/mips/boot/dts/img/Makefile
-> >  create mode 100644 arch/mips/boot/dts/img/boston.dts
-> >  create mode 100644 arch/mips/boot/skeleton.its
-> >  create mode 100644 arch/mips/boston/Makefile
-> >  create mode 100644 arch/mips/boston/Platform
-> >  create mode 100644 arch/mips/boston/init.c
-> >  create mode 100644 arch/mips/boston/int.c
-> >  create mode 100644 arch/mips/boston/time.c
-> >  create mode 100644 arch/mips/boston/vmlinux.its
-> >  create mode 100644 arch/mips/configs/boston_defconfig
-> >  create mode 100644 arch/mips/include/asm/mach-boston/cpu-feature-overrides.h
-> >  create mode 100644 arch/mips/include/asm/mach-boston/irq.h
-> >  create mode 100644 arch/mips/include/asm/mach-boston/spaces.h
-> >  create mode 100644 arch/mips/pci/pci-generic.c
-> >  create mode 100644 arch/mips/pci/pci-legacy.c
-> >  create mode 100644 drivers/auxdisplay/ascii-lcd.c
-> > 
-> 
+Haiyang Zhang <haiyangz@microsoft.com> writes:
 
-Hi Michal,
+>> -----Original Message-----
+>> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
+>> Sent: Wednesday, February 3, 2016 8:06 AM
+>> To: Haiyang Zhang <haiyangz@microsoft.com>
+>> Cc: davem@davemloft.net; netdev@vger.kernel.org; KY Srinivasan
+>> <kys@microsoft.com>; olaf@aepfle.de; linux-kernel@vger.kernel.org;
+>> driverdev-devel@linuxdriverproject.org
+>> Subject: Re: [PATCH net-next] hv_netvsc: Increase delay for
+>> RNDIS_STATUS_NETWORK_CHANGE
+>> 
+>> Haiyang Zhang <haiyangz@microsoft.com> writes:
+>> 
+>> > We simulates a link down period for RNDIS_STATUS_NETWORK_CHANGE
+>> message to
+>> > trigger DHCP renew. User daemons may need multiple seconds to trigger
+>> the
+>> > link down event. (e.g. ifplugd: 5sec, network-manager: 4sec.) So update
+>> > this link down period to 10 sec to properly trigger DHCP renew.
+>> >
+>> 
+>> I probably don't follow: why do we need sucha a delay? If (with real
+>> hardware) you plug network cable out and in one second you plug it in
+>> you'll get DHCP renewed, right?
+>> 
+>> When I introduced RNDIS_STATUS_NETWORK_CHANGE handling by
+>> emulating a
+>> pair of up/down events I put 2 second delay to make link_watch happy (as
+>> we only handle 1 event per second there) but 10 seconds sounds to much
+>> to me.
+>
+> In the test on Hyper-V, our software on host side  wants to trigger DHCP 
+> renew by sending only a RNDIS_STATUS_NETWORK_CHANGE message to 
+> a guest without physically unplug the cable. But, this message didn't trigger 
+> DHCP renew within 2 seconds. The VM is Centos 7.1 using Networkmanager, 
+> which needs 4 seconds after link down to renew IP. Some daemon, like 
+> ifplugd, needs 5 sec to renew. That's why we increase the simulated link 
+> down time for RNDIS_STATUS_NETWORK_CHANGE message.
 
-On Wed, Feb 03, 2016 at 01:35:26PM +0100, Michal Simek wrote:
-> These patches are targeting different subsystems and should go to the
-> tree via different maintainers
+Yes, I understand the motivation but sorry if I was unclear with my
+question. I meant to say that with physical network adapters it's
+possible to trigger same two events by plugging your cable out and then
+plugging it back in and it is certailnly doable in less than 10
+seconds. NetworkManager or whoever is supposed to handle these events
+and we don't really care how fast -- I think that 4 or 5 seconds
+mentioned above is just an observation.
 
-Not necessarily, for example the dmaengine & ptp patches both received
-acks last time they were posted - presumably with the intent that Ralf
-can merge them through the MIPS tree.
+>
+>> > @@ -1009,8 +1012,11 @@ static void netvsc_link_change(struct
+>> work_struct *w)
+>> >  			netif_tx_stop_all_queues(net);
+>> >  			event->event = RNDIS_STATUS_MEDIA_CONNECT;
+>> >  			spin_lock_irqsave(&ndev_ctx->lock, flags);
+>> > -			list_add_tail(&event->list, &ndev_ctx-
+>> >reconfig_events);
+>> > +			list_add(&event->list, &ndev_ctx->reconfig_events);
+>> 
+>> Why? Adding to tail was here to not screw the order of events...
+>
+> The RNDIS_STATUS_MEDIA_CONNECT message triggers two "half" events -- 
+> link down & up. After "link down", we want the paired "link up" to be the 
+> immediate next event. Since the function picks the next event from the list 
+> head, so it should be inserted to list head. Otherwise, the possible existing 
+> events in the list will be processed in the middle of these two "half events" 
+> -- link down & up.
 
-On Wed, Feb 03, 2016 at 01:35:26PM +0100, Michal Simek wrote:
-> that's why please split them to sensible pieces and send them separately.
+Ah, yes, you're probably right.
 
-I could split out the Xilinx PCIe changes if it's insisted upon, but:
-
-  - They are the motivation for what's probably the largest of the MIPS
-    patches, so it's good to see those changes in context.
-
-  - The Boston board is very heavily PCIe based, with all peripherals
-    apart from a single UART & an 8 character LCD display being accessed
-    via PCIe. Thus Boston is pretty useless without the Xilinx PCIe
-    driver.
-
-  - Each patch is only CC'd to people who should be relevant to it
-    anyway (using the patman tool), so it's not like the MIPS changes
-    are spamming people only interested in PCI.
-
-  - 15 patches really isn't all that many.
-
-So I think there is value in keeping the remainder of this series
-together. I already split out the fairly standalone ethernet driver
-changes. I certainly think saying this approach isn't sensible is a
-stretch.
-
-> For pcie-xilinx.c changes please add to CC Bharat Kumar Gogada
-> <bharatku@xilinx.com> and Ravikiran Gummaluri <rgummal@xilinx.com>.
-> They have patches for pcie-xilinx and I expect there will be some sort
-> of collision.
-
-I'll CC them if there's another revision, but if they should be CC'd for
-changes to this driver is there a reason they're not in MAINTAINERS?
-That would lead to tools like patman automatically CC'ing them, which
-makes tons more sense than people needing to be informed after
-submitting patches that they should CC some random extra email
-addresses.
-
-Thanks,
-    Paul
-
-> Thanks,
-> Michal
-> 
-> 
+-- 
+  Vitaly
