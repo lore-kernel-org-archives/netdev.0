@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 02/16] batman-adv: Remove kerneldoc for missing parameters
-Date: Wed,  3 Feb 2016 10:18:23 +0800
-Message-ID: <1454465917-13332-3-git-send-email-a__4712.17652452669$1454467281$gmane$org@unstable.cc>
+Subject: [PATCH 01/16] batman-adv: Fix kerneldoc parsing of structs/enums
+Date: Wed,  3 Feb 2016 10:18:22 +0800
+Message-ID: <1454465917-13332-2-git-send-email-a__7274.56598910994$1454467288$gmane$org@unstable.cc>
 References: <1454465917-13332-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:11928 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:6834 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932451AbcBCClM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 21:41:12 -0500
+	id S932577AbcBCClI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 21:41:08 -0500
 In-Reply-To: <1454465917-13332-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,83 +23,76 @@ Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/fragmentation.c     | 1 -
- net/batman-adv/packet.h            | 1 -
- net/batman-adv/routing.c           | 1 -
- net/batman-adv/translation-table.c | 4 ----
- 4 files changed, 7 deletions(-)
+ net/batman-adv/multicast.h | 2 +-
+ net/batman-adv/packet.h    | 8 ++++----
+ net/batman-adv/types.h     | 2 +-
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/batman-adv/fragmentation.c b/net/batman-adv/fragmentation.c
-index 20d9282f895b..fedddbe0cd28 100644
---- a/net/batman-adv/fragmentation.c
-+++ b/net/batman-adv/fragmentation.c
-@@ -242,7 +242,6 @@ err:
+diff --git a/net/batman-adv/multicast.h b/net/batman-adv/multicast.h
+index 8f3cb04b9f13..685219f3fec9 100644
+--- a/net/batman-adv/multicast.h
++++ b/net/batman-adv/multicast.h
+@@ -23,7 +23,7 @@
+ struct sk_buff;
+ 
  /**
-  * batadv_frag_merge_packets - merge a chain of fragments
-  * @chain: head of chain with fragments
-- * @skb: packet with total size of skb after merging
-  *
-  * Expand the first skb in the chain and copy the content of the remaining
-  * skb's into the expanded one. After doing so, clear the chain.
+- * batadv_forw_mode - the way a packet should be forwarded as
++ * enum batadv_forw_mode - the way a packet should be forwarded as
+  * @BATADV_FORW_ALL: forward the packet to all nodes (currently via classic
+  *  flooding)
+  * @BATADV_FORW_SINGLE: forward the packet to a single node (currently via the
 diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index e80a8fc9f49e..6d5b17841ff5 100644
+index 0558e3237e0e..e80a8fc9f49e 100644
 --- a/net/batman-adv/packet.h
 +++ b/net/batman-adv/packet.h
-@@ -413,7 +413,6 @@ struct batadv_bcast_packet {
+@@ -158,7 +158,7 @@ enum batadv_tt_client_flags {
+ };
+ 
+ /**
+- * batadv_vlan_flags - flags for the four MSB of any vlan ID field
++ * enum batadv_vlan_flags - flags for the four MSB of any vlan ID field
+  * @BATADV_VLAN_HAS_TAG: whether the field contains a valid vlan tag or not
+  */
+ enum batadv_vlan_flags {
+@@ -230,7 +230,7 @@ struct batadv_ogm_packet {
+ #define BATADV_OGM_HLEN sizeof(struct batadv_ogm_packet)
+ 
+ /**
+- * batadv_icmp_header - common members among all the ICMP packets
++ * struct batadv_icmp_header - common members among all the ICMP packets
   * @packet_type: batman-adv packet type, part of the general header
   * @version: batman-adv protocol version, part of the genereal header
   * @ttl: time to live for this packet, part of the genereal header
-- * @reserved: Align following fields to 2-byte boundaries
-  * @first_source: original source of first included packet
-  * @first_orig_dest: original destinal of first included packet
-  * @first_crc: checksum of first included packet
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index e4f2646d9246..54d660806c2a 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -904,7 +904,6 @@ rx_success:
-  * batadv_recv_unicast_tvlv - receive and process unicast tvlv packets
-  * @skb: unicast tvlv packet to process
-  * @recv_if: pointer to interface this packet was received on
-- * @dst_addr: the payload destination
-  *
-  * Returns NET_RX_SUCCESS if the packet has been consumed or NET_RX_DROP
-  * otherwise.
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index cdfc85fa2743..3ccede59c842 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -217,7 +217,6 @@ batadv_tt_global_entry_free_ref(struct batadv_tt_global_entry *tt_global_entry)
+@@ -256,7 +256,7 @@ struct batadv_icmp_header {
+ };
  
  /**
-  * batadv_tt_global_hash_count - count the number of orig entries
-- * @hash: hash table containing the tt entries
-  * @addr: the mac address of the client to count entries for
-  * @vid: VLAN identifier
-  *
-@@ -288,7 +287,6 @@ static void batadv_tt_local_size_dec(struct batadv_priv *bat_priv,
+- * batadv_icmp_packet - ICMP packet
++ * struct batadv_icmp_packet - ICMP packet
+  * @packet_type: batman-adv packet type, part of the general header
+  * @version: batman-adv protocol version, part of the genereal header
+  * @ttl: time to live for this packet, part of the genereal header
+@@ -282,7 +282,7 @@ struct batadv_icmp_packet {
+ #define BATADV_RR_LEN 16
+ 
  /**
-  * batadv_tt_global_size_mod - change the size by v of the local table
-  *  identified by vid
-- * @bat_priv: the bat priv with all the soft interface information
-  * @vid: the VLAN identifier
-  * @v: the amount to sum to the global table size
-  */
-@@ -2406,7 +2404,6 @@ static void batadv_tt_tvlv_generate(struct batadv_priv *bat_priv,
-  * @orig_node: originator for which the CRCs have to be checked
-  * @tt_vlan: pointer to the first tvlv VLAN entry
-  * @num_vlan: number of tvlv VLAN entries
-- * @create: if true, create VLAN objects if not found
-  *
-  * Return true if all the received CRCs match the locally stored ones, false
-  * otherwise
-@@ -3375,7 +3372,6 @@ out:
-  * @tt_change: pointer to the first entry in the TT buffer
-  * @tt_num_changes: number of tt changes inside the tt buffer
-  * @ttvn: translation table version number of this changeset
-- * @tt_crc: crc32 checksum of orig node's translation table
-  */
- static void batadv_tt_update_orig(struct batadv_priv *bat_priv,
- 				  struct batadv_orig_node *orig_node,
+- * batadv_icmp_packet_rr - ICMP RouteRecord packet
++ * struct batadv_icmp_packet_rr - ICMP RouteRecord packet
+  * @packet_type: batman-adv packet type, part of the general header
+  * @version: batman-adv protocol version, part of the genereal header
+  * @ttl: time to live for this packet, part of the genereal header
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 3437b667a2cd..8c3dda36d9ec 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -346,7 +346,7 @@ struct batadv_gw_node {
+ };
+ 
+ /**
+- * batadv_hardif_neigh_node - unique neighbor per hard interface
++ * struct batadv_hardif_neigh_node - unique neighbor per hard interface
+  * @list: list node for batadv_hard_iface::neigh_list
+  * @addr: the MAC address of the neighboring interface
+  * @if_incoming: pointer to incoming hard interface
 -- 
 2.7.0
