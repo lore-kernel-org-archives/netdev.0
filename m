@@ -1,16 +1,16 @@
 From: Stefan Assmann <sassmann@kpanic.de>
-Subject: [PATCH net-next V2 2/6] ixgbe: call ndo_stop() instead of dev_close() when running offline selftest
-Date: Wed,  3 Feb 2016 09:20:48 +0100
-Message-ID: <1454487652-1545-3-git-send-email-sassmann@kpanic.de>
+Subject: [PATCH net-next V2 4/6] igb: call ndo_stop() instead of dev_close() when running offline selftest
+Date: Wed,  3 Feb 2016 09:20:50 +0100
+Message-ID: <1454487652-1545-5-git-send-email-sassmann@kpanic.de>
 References: <1454487652-1545-1-git-send-email-sassmann@kpanic.de>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	jeffrey.t.kirsher@intel.com, sassmann@kpanic.de
 To: intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44109 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40377 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933754AbcBCIVp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2016 03:21:45 -0500
+	id S933754AbcBCIVs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2016 03:21:48 -0500
 In-Reply-To: <1454487652-1545-1-git-send-email-sassmann@kpanic.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,67 +25,78 @@ touching IFF_UP at all.
 
 Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         | 2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 4 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 4 ++--
- 3 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h         | 2 ++
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 4 ++--
+ drivers/net/ethernet/intel/igb/igb_main.c    | 8 ++++----
+ 3 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 4b9156c..6cf1ac7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -875,6 +875,8 @@ extern const char ixgbe_driver_version[];
- extern char ixgbe_default_device_descr[];
- #endif /* IXGBE_FCOE */
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index e3cb93b..5dac361 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -510,6 +510,8 @@ enum igb_boards {
+ extern char igb_driver_name[];
+ extern char igb_driver_version[];
  
-+int ixgbe_open(struct net_device *netdev);
-+int ixgbe_close(struct net_device *netdev);
- void ixgbe_up(struct ixgbe_adapter *adapter);
- void ixgbe_down(struct ixgbe_adapter *adapter);
- void ixgbe_reinit_locked(struct ixgbe_adapter *adapter);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index bea96b3..2f05937 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -2053,7 +2053,7 @@ static void ixgbe_diag_test(struct net_device *netdev,
++int igb_open(struct net_device *netdev);
++int igb_close(struct net_device *netdev);
+ int igb_up(struct igb_adapter *);
+ void igb_down(struct igb_adapter *);
+ void igb_reinit_locked(struct igb_adapter *);
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 1d329f1..7982243 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -2017,7 +2017,7 @@ static void igb_diag_test(struct net_device *netdev,
  
  		if (if_running)
  			/* indicate we're in test mode */
 -			dev_close(netdev);
-+			ixgbe_close(netdev);
++			igb_close(netdev);
  		else
- 			ixgbe_reset(adapter);
+ 			igb_reset(adapter);
  
-@@ -2091,7 +2091,7 @@ skip_loopback:
- 		/* clear testing bit and return adapter to previous state */
- 		clear_bit(__IXGBE_TESTING, &adapter->state);
+@@ -2050,7 +2050,7 @@ static void igb_diag_test(struct net_device *netdev,
+ 
+ 		clear_bit(__IGB_TESTING, &adapter->state);
  		if (if_running)
 -			dev_open(netdev);
-+			ixgbe_open(netdev);
- 		else if (hw->mac.ops.disable_tx_laser)
- 			hw->mac.ops.disable_tx_laser(hw);
++			igb_open(netdev);
  	} else {
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index c4003a8..354be34 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -5988,7 +5988,7 @@ static int ixgbe_change_mtu(struct net_device *netdev, int new_mtu)
-  * handler is registered with the OS, the watchdog timer is started,
-  * and the stack is notified that the interface is ready.
-  **/
--static int ixgbe_open(struct net_device *netdev)
-+int ixgbe_open(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
-@@ -6090,7 +6090,7 @@ static void ixgbe_close_suspend(struct ixgbe_adapter *adapter)
-  * needs to be disabled.  A global MAC reset is issued to stop the
-  * hardware, and all transmit and receive resources are freed.
-  **/
--static int ixgbe_close(struct net_device *netdev)
-+int ixgbe_close(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 		dev_info(&adapter->pdev->dev, "online testing starting\n");
  
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 31e5f39..7a2ccb5 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -122,8 +122,8 @@ static void igb_setup_mrqc(struct igb_adapter *);
+ static int igb_probe(struct pci_dev *, const struct pci_device_id *);
+ static void igb_remove(struct pci_dev *pdev);
+ static int igb_sw_init(struct igb_adapter *);
+-static int igb_open(struct net_device *);
+-static int igb_close(struct net_device *);
++int igb_open(struct net_device *);
++int igb_close(struct net_device *);
+ static void igb_configure(struct igb_adapter *);
+ static void igb_configure_tx(struct igb_adapter *);
+ static void igb_configure_rx(struct igb_adapter *);
+@@ -3132,7 +3132,7 @@ err_setup_tx:
+ 	return err;
+ }
+ 
+-static int igb_open(struct net_device *netdev)
++int igb_open(struct net_device *netdev)
+ {
+ 	return __igb_open(netdev, false);
+ }
+@@ -3169,7 +3169,7 @@ static int __igb_close(struct net_device *netdev, bool suspending)
+ 	return 0;
+ }
+ 
+-static int igb_close(struct net_device *netdev)
++int igb_close(struct net_device *netdev)
+ {
+ 	return __igb_close(netdev, false);
+ }
 -- 
 2.5.0
