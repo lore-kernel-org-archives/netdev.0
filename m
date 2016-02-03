@@ -1,82 +1,65 @@
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: Re: ibss.c backtrace when batman-adv adds wireless
-	interface
-Date: Wed, 03 Feb 2016 18:35:29 +0100
-Message-ID: <66120881.3atMJx6hST@bentobox>
-References: <CA+5PVA4HVjsEw+j+HMDzO0gnQb4xTRwbAu4H2do3MU41QWvOvw@mail.gmail.com>
- <1454514090.3083.8.camel@sipsolutions.net> <9390290.k4UIzlfAE4@bentobox>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v3] net:Add sysctl_max_skb_frags
+Date: Wed, 3 Feb 2016 17:36:24 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCD585F@AcuExch.aculab.com>
+References: <568F87AC.60405@oracle.com>
+ <1454488017-8822-1-git-send-email-hans.westgaard.ry@oracle.com>
+ <20160203112550.GB28003@gondor.apana.org.au>
+ <56B1E635.8020707@stressinduktion.org>
+ <20160203122052.GA28619@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart42786321.4PaYx0Sem2";
- micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: Josh Boyer <jwboyer-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>,
- Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
- Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <9390290.k4UIzlfAE4@bentobox>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	"Patrick McHardy" <kaber@trash.net>,
+	Tom Herbert <tom@herbertland.com>,
+	"Pablo Neira Ayuso" <pablo@netfilter.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"Florian Westphal" <fw@strlen.de>, Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Michal Hocko <mhocko@suse.com>,
+	=?Windows-1252?Q?Linus_L=FCssing?= <linus.luessing@c0d3.blue>,
+	Tejun Heo <tj@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alexey Kodanev <alexey.kodanev@oracle.com>,
+	=?Windows-1252?Q?H=E5kon_Bugge?= <haakon.bugge@oracle.com>,
+	open list <linux-kernel@vger.kernel.org>,
+	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
+To: 'Herbert Xu' <herbert@gondor.apana.org.au>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160203122052.GA28619@gondor.apana.org.au>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart42786321.4PaYx0Sem2
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
-
-On Wednesday 03 February 2016 18:09:40 Sven Eckelmann wrote:
-> > AFAICT this should be a driver (or perhaps mac80211) issue, but I don't
-> > see any information about the driver used.
+From: Herbert Xu
+> Sent: 03 February 2016 12:21
+> On Wed, Feb 03, 2016 at 12:36:21PM +0100, Hannes Frederic Sowa wrote:
+> >
+> > Agreed that it feels like a hack, but a rather simple one. I would
+> > consider this to be just a performance improvement. We certainly need
+> > a slow-path when virtio drivers submit gso packets to the stack (and
+> > already discussed with Hans). The sysctl can't help here. But without
+> > the sysctl the packets would constantly hit the slow-path in case of
+> > e.g. IPoIB and that would also be rather bad.
 > 
-> It doesn't really look like it is batman-adv specific. batman-adv also doesn't
-> be active because the message "batman_adv: bat0: Adding interface: " is
-> missing.
+> So you want to penalise every NIC in the system if just one of
+> them is broken? This is insane.  Just do the partial linearisation
+> in that one driver that needs it and not only won't you have to
+> penalise anyone else but you still get the best result for that
+> driver that needs it.
+> 
+> Besides, you have to implement the linearisation anyway because
+> of virtualisation.
 
-Maybe I should clarify a little bit. I meant that that message is missing
-before the problem happens. The interface message appears after the problem
-was detected.
+And if a MAC driver needs to linearize a tx frame it might as well
+copy it into a separately allocated tx buffer area.
+Indeed it can copy fragments until the number left is less than the
+fragment limit.
 
-And maybe I should also inform you that many batman-adv refcounting
-patches [1] for some long standing problems are getting queued up by the brave
-linux-stable people. But there are also two patches [2,3] which Antonio hasn't
-submitted yet.
-
-Kind regards,
-	Sven
-
-[1] https://kernel.org/pub/linux/kernel/v4.x/stable-review/patch-4.3.5-rc1.gz
-[2] https://lists.open-mesh.org/pipermail/b.a.t.m.a.n/2016-January/014304.html
-[3] https://lists.open-mesh.org/pipermail/b.a.t.m.a.n/2016-January/014305.html
---nextPart42786321.4PaYx0Sem2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJWsjphAAoJEF2HCgfBJntGTVsP/0Uty/nt7gaRFgeYkkMc/5JG
-9eVSOjpIvfszElXo/45X40T4GjWgs/RU+xGYH+3cka6fjZDSmWyKbH4qiy38n5SR
-uLyBX2UnFWdLJy+bdipO2QFgbOvBMAcq4TxiTYU04W3M/laxd72DV9dDqDEs21Cp
-JhiqBl0iOgqIo27eIY+r2HlrmsutsIUERV2Fjj3Q8NZnut4ljMFpPBGe93ehWwzr
-v2cnizM3do0MPDND01Tp/joU1QUCX+bzZxLjtmM+FOy493bQ2U09gfIxFepIXrO7
-lIm1jCdmJwKynb/T92qBpdY5M8GFE79xF3WNhV4vbIPNkDP3+R8RkNZJanf8Mpgj
-06jLBxK2W93U7E7aq4pleECHAOWxLLI8nDve+FVAB7QYasWTCDDBbl+3QvD6SIva
-296tIsVOKI7KAkMXnNiMzx+u76xv5/1vrv955I5WrZYVbtbB9TX2xPRS2OPOBfdV
-0wWAkKQnU/V2Akt0XRt7VPgmlmv5myxHrwIHlXAVhtk2zjXG/5D4SBxXsaymZTyZ
-fidB6phN7TuMr+rbFyyE6c8TZI9+XsOqUC/uC2118iPrQ1cjDKoVwxdwuNmPRkyp
-572/vOWQmGWADxpOIYRMV+9otrQ0Nl9fZQwBjOFxx24T6diDbc6BcZOzXPckCFQc
-2GzRTBNZQaA71VmAyEcK
-=ou9B
------END PGP SIGNATURE-----
-
---nextPart42786321.4PaYx0Sem2--
+	David
