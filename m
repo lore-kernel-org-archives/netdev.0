@@ -1,139 +1,74 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next] bonding: 3ad: apply ad_actor settings changes immediately
-Date: Wed,  3 Feb 2016 13:17:01 +0100
-Message-ID: <1454501821-22175-1-git-send-email-razor@blackwall.org>
-Cc: davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH 0/7] tc offload for cls_u32 on ixgbe
+Date: Wed, 3 Feb 2016 07:21:29 -0500
+Message-ID: <56B1F0C9.3020802@mojatatu.com>
+References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
+ <20160203101109.GB20905@office.Home> <56B1D4A9.3050801@gmail.com>
+ <56B1D713.3080803@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: amir@vadai.me, jiri@resnulli.us, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:33839 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753705AbcBCMRJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 07:17:09 -0500
-Received: by mail-wm0-f52.google.com with SMTP id 128so162509549wmz.1
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 04:17:08 -0800 (PST)
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:34063 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752454AbcBCMVc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 07:21:32 -0500
+Received: by mail-ig0-f174.google.com with SMTP id ik10so84260047igb.1
+        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 04:21:31 -0800 (PST)
+In-Reply-To: <56B1D713.3080803@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On 16-02-03 05:31 AM, Or Gerlitz wrote:
+> On 2/3/2016 12:21 PM, John Fastabend wrote:
+>> Thanks, we will need at least a v2 to fixup some build errors
+>> with various compile flags caught by build_bot and missed by me.
+> Hi John,
+>
+> You didn't mark that as RFC... but we said this direction/approach yet
+> to be talked @ netdev next-week, so.. can you clarify?
+>
+> I suggest not to rush and asking pulling this, lets have the tc workshop
+> beforehand...
+>
 
-Currently the bonding allows to set ad_actor_system and prio while the
-bond device is down, but these are actually applied only if there aren't
-any slaves yet (applied to bond device when first slave shows up, and to
-slaves at 3ad bind time). After this patch changes are applied immediately
-and the new values can be used/seen after the bond's upped so it's not
-necessary anymore to release all and enslave again to see the changes.
+Yes, the tc workshop is a good place for this.
+I think we can spill some of it into the switchdev workshop (which is a
+nice flow since that happens later).
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- drivers/net/bonding/bond_3ad.c     | 40 +++++++++++++++++++++++++++++++++++---
- drivers/net/bonding/bond_options.c |  4 ++++
- include/net/bond_3ad.h             |  1 +
- 3 files changed, 42 insertions(+), 3 deletions(-)
+Some comments:
+1) "priorities" for filters and some form of "index" for actions is
+is needed. I think index (which tends to be a 32 bit value is what
+Amir's patches refered to as "cookie" - or at least some hardware
+can be used to query the action with). Priorities maybe implicit in
+the order in which they are added. And the idea of appending vs
+exclusivity vs replace (which  netlink already supports)
+is important to worry about (TCAMS tend to assume an append mode
+for example).
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 4cbb8b27a891..ee94056dbb2e 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -357,6 +357,14 @@ static u8 __get_duplex(struct port *port)
- 	return retval;
- }
- 
-+static void __ad_actor_update_port(struct port *port)
-+{
-+	const struct bonding *bond = bond_get_bond_by_slave(port->slave);
-+
-+	port->actor_system = BOND_AD_INFO(bond).system.sys_mac_addr;
-+	port->actor_system_priority = BOND_AD_INFO(bond).system.sys_priority;
-+}
-+
- /* Conversions */
- 
- /**
-@@ -1963,9 +1971,7 @@ void bond_3ad_bind_slave(struct slave *slave)
- 		port->actor_admin_port_key = bond->params.ad_user_port_key << 6;
- 		ad_update_actor_keys(port, false);
- 		/* actor system is the bond's system */
--		port->actor_system = BOND_AD_INFO(bond).system.sys_mac_addr;
--		port->actor_system_priority =
--		    BOND_AD_INFO(bond).system.sys_priority;
-+		__ad_actor_update_port(port);
- 		/* tx timer(to verify that no more than MAX_TX_IN_SECOND
- 		 * lacpdu's are sent in one second)
- 		 */
-@@ -2148,6 +2154,34 @@ out:
- }
- 
- /**
-+ * bond_3ad_update_ad_actor_settings - reflect change of actor settings to ports
-+ * @bond: bonding struct to work on
-+ *
-+ * If an ad_actor setting gets changed we need to update the individual port
-+ * settings so the bond device will use the new values when it gets upped.
-+ */
-+void bond_3ad_update_ad_actor_settings(struct bonding *bond)
-+{
-+	struct list_head *iter;
-+	struct slave *slave;
-+
-+	ASSERT_RTNL();
-+
-+	BOND_AD_INFO(bond).system.sys_priority = bond->params.ad_actor_sys_prio;
-+	if (is_zero_ether_addr(bond->params.ad_actor_system))
-+		BOND_AD_INFO(bond).system.sys_mac_addr =
-+		    *((struct mac_addr *)bond->dev->dev_addr);
-+	else
-+		BOND_AD_INFO(bond).system.sys_mac_addr =
-+		    *((struct mac_addr *)bond->params.ad_actor_system);
-+
-+	spin_lock_bh(&bond->mode_lock);
-+	bond_for_each_slave(bond, slave, iter)
-+		__ad_actor_update_port(&(SLAVE_AD_INFO(slave)->port));
-+	spin_unlock_bh(&bond->mode_lock);
-+}
-+
-+/**
-  * bond_3ad_state_machine_handler - handle state machines timeout
-  * @bond: bonding struct to work on
-  *
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 55e93b6b6d21..ed0bdae64f5e 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -1392,6 +1392,8 @@ static int bond_option_ad_actor_sys_prio_set(struct bonding *bond,
- 		    newval->value);
- 
- 	bond->params.ad_actor_sys_prio = newval->value;
-+	bond_3ad_update_ad_actor_settings(bond);
-+
- 	return 0;
- }
- 
-@@ -1418,6 +1420,8 @@ static int bond_option_ad_actor_system_set(struct bonding *bond,
- 
- 	netdev_info(bond->dev, "Setting ad_actor_system to %pM\n", mac);
- 	ether_addr_copy(bond->params.ad_actor_system, mac);
-+	bond_3ad_update_ad_actor_settings(bond);
-+
- 	return 0;
- 
- err:
-diff --git a/include/net/bond_3ad.h b/include/net/bond_3ad.h
-index f1fbc3b11962..f358ad5e4214 100644
---- a/include/net/bond_3ad.h
-+++ b/include/net/bond_3ad.h
-@@ -306,5 +306,6 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
- 			 struct slave *slave);
- int bond_3ad_set_carrier(struct bonding *bond);
- void bond_3ad_update_lacp_rate(struct bonding *bond);
-+void bond_3ad_update_ad_actor_settings(struct bonding *bond);
- #endif /* _NET_BOND_3AD_H */
- 
--- 
-2.4.3
+2) I like the u32 approach where it makes sense; but sometimes it
+doesnt make sense from a usability pov. I work with some ASICs
+that have 10 tuples that are  fixed. Yes, a user can describe a policy
+with u32 but flower would be more  usable say with flower (both
+programmatic and cli)
+
+3) The concept of "hook address" is important to be able to express.
+Amir's patches seemed to miss that (and John brought it up in an
+email). It could be as simple as ifindex + hookid. With ifindex of
+0 meaning all ports and maybe hookid of 0 meaning all hooks.
+Hook semantics are as mentioned by John (as it stands right now
+in/egress)
+
+4) Why are we forsaking switchdev John?
+This is certainly re-usable beyond NICs and SRIOV.
+
+5)What happened to being both able to hardware and/or software?
+
+Anyways, I think Seville would be a blast! Come one, come all.
+
+cheers,
+jamal
