@@ -1,76 +1,67 @@
-From: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-Subject: [PATCH v2 net-next 1/8] be2net: return error status from be_set_phys_id()
-Date: Wed,  3 Feb 2016 09:49:16 +0530
-Message-ID: <1454473163-18781-2-git-send-email-sriharsha.basavapatna@broadcom.com>
-References: <1454473163-18781-1-git-send-email-sriharsha.basavapatna@broadcom.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmrelayp1.emulex.com ([138.239.112.140]:52531 "EHLO
-	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755383AbcBCEVN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 23:21:13 -0500
-In-Reply-To: <1454473163-18781-1-git-send-email-sriharsha.basavapatna@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Byeoungwook Kim <quddnr145@gmail.com>
+Subject: [PATCH v3] rtlwifi: Fix improve function 'rtl_addr_delay()' in core.c
+Date: Wed, 3 Feb 2016 14:21:46 +0900
+Message-ID: <20160203052146.GA15711@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kvalo@codeaurora.org, chaoming_li@realsil.com.cn,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, lkp@intel.com,
+	julian.calaby@gmail.com
+To: Larry.Finger@lwfinger.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Suresh Reddy <suresh.reddy@broadcom.com>
+Conditional codes in rtl_addr_delay() were improved in readability and
+performance by using switch codes.
 
-be_set_phys_id() returns 0 to ethtool when the command fails in the FW.
-
-This patch fixes the set_phys_id() to return -EIO in case the FW cmd fails.
-
-Signed-off-by: Suresh Reddy <suresh.reddy@broadcom.com>
-Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+Signed-off-by: Byeoungwook Kim <quddnr145@gmail.com>
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
 ---
- drivers/net/ethernet/emulex/benet/be_ethtool.c | 23 +++++++++++++----------
- 1 file changed, 13 insertions(+), 10 deletions(-)
+V3 remove unneeded semicolon.
+V2 split in separate patchs.
+ drivers/net/wireless/realtek/rtlwifi/core.c | 20 ++++++++++++++------
+ 1 file changed, 14 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index a19ac44..2ff6916 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -720,29 +720,32 @@ static int be_set_phys_id(struct net_device *netdev,
- 			  enum ethtool_phys_id_state state)
+diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
+index 4ae421e..63cda78 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/core.c
++++ b/drivers/net/wireless/realtek/rtlwifi/core.c
+@@ -37,18 +37,26 @@
+ 
+ void rtl_addr_delay(u32 addr)
  {
- 	struct be_adapter *adapter = netdev_priv(netdev);
-+	int status = 0;
- 
- 	switch (state) {
- 	case ETHTOOL_ID_ACTIVE:
--		be_cmd_get_beacon_state(adapter, adapter->hba_port_num,
--					&adapter->beacon_state);
--		return 1;	/* cycle on/off once per second */
-+		status = be_cmd_get_beacon_state(adapter, adapter->hba_port_num,
-+						 &adapter->beacon_state);
-+		if (status)
-+			return be_cmd_status(status);
-+		return 1;       /* cycle on/off once per second */
- 
- 	case ETHTOOL_ID_ON:
--		be_cmd_set_beacon_state(adapter, adapter->hba_port_num, 0, 0,
--					BEACON_STATE_ENABLED);
-+		status = be_cmd_set_beacon_state(adapter, adapter->hba_port_num,
-+						 0, 0, BEACON_STATE_ENABLED);
- 		break;
- 
- 	case ETHTOOL_ID_OFF:
--		be_cmd_set_beacon_state(adapter, adapter->hba_port_num, 0, 0,
--					BEACON_STATE_DISABLED);
-+		status = be_cmd_set_beacon_state(adapter, adapter->hba_port_num,
-+						 0, 0, BEACON_STATE_DISABLED);
- 		break;
- 
- 	case ETHTOOL_ID_INACTIVE:
--		be_cmd_set_beacon_state(adapter, adapter->hba_port_num, 0, 0,
--					adapter->beacon_state);
-+		status = be_cmd_set_beacon_state(adapter, adapter->hba_port_num,
-+						 0, 0, adapter->beacon_state);
- 	}
- 
--	return 0;
-+	return be_cmd_status(status);
+-	if (addr == 0xfe)
++	switch (addr) {
++	case 0xfe:
+ 		mdelay(50);
+-	else if (addr == 0xfd)
++		break;
++	case 0xfd:
+ 		mdelay(5);
+-	else if (addr == 0xfc)
++		break;
++	case 0xfc:
+ 		mdelay(1);
+-	else if (addr == 0xfb)
++		break;
++	case 0xfb:
+ 		udelay(50);
+-	else if (addr == 0xfa)
++		break;
++	case 0xfa:
+ 		udelay(5);
+-	else if (addr == 0xf9)
++		break;
++	case 0xf9:
+ 		udelay(1);
++		break;
++	}
  }
+ EXPORT_SYMBOL(rtl_addr_delay);
  
- static int be_set_dump(struct net_device *netdev, struct ethtool_dump *dump)
 -- 
-2.3.0.rc2
+2.5.0
