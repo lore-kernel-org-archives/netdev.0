@@ -1,77 +1,38 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v3] net:Add sysctl_max_skb_frags
-Date: Wed, 3 Feb 2016 13:03:54 -0800
-Message-ID: <CAKgT0UdtW5RkYK+zgLsj6t64eWFCf==Hza3m_4N1Drwh-YOtAQ@mail.gmail.com>
-References: <568F87AC.60405@oracle.com>
-	<1454488017-8822-1-git-send-email-hans.westgaard.ry@oracle.com>
-	<CAKgT0UftR3pTOGO91GaUijPCTq8POQcNChRqyy1b1TYsM3n4Uw@mail.gmail.com>
-	<1454515628.7627.245.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAKgT0UdGeOJ+NyegQ6vPCdXF39NoiFXQdTjAOoFaokteNWiygw@mail.gmail.com>
-	<1454522077.7627.264.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAKgT0UeueE5EhLu0-8jcr0+su81sOV_qCpb-KGRf7q4EKsw1QQ@mail.gmail.com>
-	<1454527426.7627.282.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Westphal <fw@strlen.de>, Jiri Pirko <jiri@resnulli.us>,
-	Michal Hocko <mhocko@suse.com>,
-	=?UTF-8?Q?Linus_L=C3=BCssing?= <linus.luessing@c0d3.blue>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tejun Heo <tj@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alexey Kodanev <alexey.kodanev@oracle.com>,
-	=?UTF-8?B?SMOla29uIEJ1Z2dl?= <haakon.bugge@oracle.com>,
-	open list <linux-kernel@vger.kernel.org>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454527426.7627.282.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net 0/4] net: phy: bcm7xxx 40nm PHY fixes
+Date: Wed,  3 Feb 2016 13:13:45 -0800
+Message-ID: <1454534029-585-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, pgynther@google.com, opendmb@gmail.com,
+	jaedon.shin@gmail.com, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34863 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932699AbcBCVPu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 16:15:50 -0500
+Received: by mail-pa0-f48.google.com with SMTP id ho8so19500463pac.2
+        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 13:15:50 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 3, 2016 at 11:23 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2016-02-03 at 10:24 -0800, Alexander Duyck wrote:
->
->> If this is only meant to be a performance modification and is only
->> really targeted at TCP TSO/GRO then all I ask is that we use a name
->> like tcp_max_gso_frags and relocate the sysctl to the TCP section.
->> Otherwise if we are actually going to try to scope this out on a wider
->> level and limit all frags which is what the name implies then the
->> patch set needs to make a better attempt at covering all cases where
->> it may apply.
->
->
-> This is the goal.
->
-> Other skb providers (like tun and af_packet) will also use this optional
-> limit.
->
-> I fail to see why Hans should send a complete patch series.
+Hi David,
 
-You realize that conflicts with what anybody else would be told.  What
-was provided in this patch is a half solution, and it may cause bigger
-messes since it is unclear exactly how this sysctl is meant to be
-used.
+Here is a collection of fixes for the 40nm Ethernet PHY supported
+by the 7xxx PHY driver, please also queue these fixes for stable.
 
-> We will send followup patches, as we always did.
->
-> I will send the GRO change for example.
->
-> So please keep a sysctl name _without_ TCP in it, it really has nothing
-> to do with TCP.
+Let me know if you think patch 4 is too much of a cleanup to be taken
+as a fix.
 
-In the end I am not the one you have to convince.  I have simply
-stated my opinion, and I guess we will have to agree to disagree.  It
-is entirely up to Dave if he wants to apply it or not.  I have slides
-I need to work on for next week.. :-)
+Thanks!
 
-- Alex
+Florian Fainelli (4):
+  net: phy: bcm7xxx: Fix shadow mode 2 disabling
+  net: phy: bcm7xxx: Fix 40nm EPHY features
+  net: phy: bcm7xxx: Fix bcm7xxx_config_init() check
+  net: phy: bcm7xxx: Make MII_BCM7XX_64CLK_MDIO naming consistent
+
+ drivers/net/phy/bcm7xxx.c | 16 ++++++----------
+ 1 file changed, 6 insertions(+), 10 deletions(-)
+
+-- 
+2.1.0
