@@ -1,83 +1,74 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH v2 2/2] rtlwifi: Fix reusable codes in core.c
-Date: Wed, 3 Feb 2016 13:46:56 -0600
-Message-ID: <56B25930.4070803@lwfinger.net>
-References: <20160203021617.GA13759@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kvalo@codeaurora.org, chaoming_li@realsil.com.cn,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Byeoungwook Kim <quddnr145@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160203021617.GA13759@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH net-next] bonding: 3ad: apply ad_actor settings changes immediately
+Date: Wed, 03 Feb 2016 11:48:54 -0800
+Message-ID: <8564.1454528934@famine>
+References: <1454501821-22175-1-git-send-email-razor@blackwall.org> <7907.1454526331@famine> <56B25215.10204@cumulusnetworks.com>
+Cc: Nikolay Aleksandrov <razor@blackwall.org>, netdev@vger.kernel.org,
+	davem@davemloft.net, Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:45604 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750871AbcBCTs6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 14:48:58 -0500
+In-reply-to: <56B25215.10204@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/02/2016 08:16 PM, Byeoungwook Kim wrote:
-> rtl_*_delay() functions were reused same codes about addr variable.
-> So i have converted to rtl_addr_delay() from code about addr variable.
+Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+
+>On 02/03/2016 08:05 PM, Jay Vosburgh wrote:
+>> Nikolay Aleksandrov <razor@blackwall.org> wrote:
+>> 
+>>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>>
+>>> Currently the bonding allows to set ad_actor_system and prio while the
+>>> bond device is down, but these are actually applied only if there aren't
+>>> any slaves yet (applied to bond device when first slave shows up, and to
+>>> slaves at 3ad bind time). After this patch changes are applied immediately
+>>> and the new values can be used/seen after the bond's upped so it's not
+>>> necessary anymore to release all and enslave again to see the changes.
+>>>
+>>> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+>>> CC: Veaceslav Falico <vfalico@gmail.com>
+>>> CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+>>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>> 
+>> 	Looks good to me.
+>> 
+>> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+>> 
+>> 	-J
+>> 
 >
-> Signed-off-by: Byeoungwook Kim <quddnr145@gmail.com>
-> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
-> ---
-> V2 split in separate patchs.
->   drivers/net/wireless/realtek/rtlwifi/core.c | 28 ++++------------------------
->   1 file changed, 4 insertions(+), 24 deletions(-)
->
-> diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
-> index 05f432c..c1193d1 100644
-> --- a/drivers/net/wireless/realtek/rtlwifi/core.c
-> +++ b/drivers/net/wireless/realtek/rtlwifi/core.c
-> @@ -63,18 +63,8 @@ EXPORT_SYMBOL(rtl_addr_delay);
->   void rtl_rfreg_delay(struct ieee80211_hw *hw, enum radio_path rfpath, u32 addr,
->   		     u32 mask, u32 data)
->   {
-> -	if (addr == 0xfe) {
-> -		mdelay(50);
-> -	} else if (addr == 0xfd) {
-> -		mdelay(5);
-> -	} else if (addr == 0xfc) {
-> -		mdelay(1);
-> -	} else if (addr == 0xfb) {
-> -		udelay(50);
-> -	} else if (addr == 0xfa) {
-> -		udelay(5);
-> -	} else if (addr == 0xf9) {
-> -		udelay(1);
-> +	if (addr >= 0xf9 && addr <= 0xfe) {
-> +		rtl_addr_delay(addr);
->   	} else {
->   		rtl_set_rfreg(hw, rfpath, addr, mask, data);
->   		udelay(1);
-> @@ -84,18 +74,8 @@ EXPORT_SYMBOL(rtl_rfreg_delay);
->
->   void rtl_bb_delay(struct ieee80211_hw *hw, u32 addr, u32 data)
->   {
-> -	if (addr == 0xfe) {
-> -		mdelay(50);
-> -	} else if (addr == 0xfd) {
-> -		mdelay(5);
-> -	} else if (addr == 0xfc) {
-> -		mdelay(1);
-> -	} else if (addr == 0xfb) {
-> -		udelay(50);
-> -	} else if (addr == 0xfa) {
-> -		udelay(5);
-> -	} else if (addr == 0xf9) {
-> -		udelay(1);
-> +	if (addr >= 0xf9 && addr <= 0xfe) {
-> +		rtl_addr_delay(addr);
->   	} else {
->   		rtl_set_bbreg(hw, addr, MASKDWORD, data);
->   		udelay(1);
->
+>Thanks Jay. Do you think it makes sense to allow setting these while the
+>bond is up ? I don't see any serious problems.
 
-Unlike patch 1 of 2, this one makes changes that are good. Thus
+	Actually, I was thinking about that when I read the patch.
 
-Acked-by: Larry Finger <Larry.finger@lwfinger.net>
+	Changing these while live will trigger reselection of the
+aggregator(s), since selection information in the LACPDUs will change.
+It should just work itself out when the parter system sees the change.
 
-Thanks,
+	E.g., if bonding received a LACPDU with a changed _prio or
+_system, __update_selected will clear AD_PORT_SELECTED if it doesn't
+match, and that will cascade through the state machine (in
+ad_mux_machine, COLLECTING_DISTRIBUTING state will revert to
+MUX_ATTACHED, which will clear COLL_DIST and go from there).
 
-Larry
+	I think it may converge more quickly if bonding set ->ntt on the
+ports after the change to immediately send new LACPDUs (rather than
+waiting for the LACP timeout), but that's an optimization.  If the _prio
+or _system are set to the same values they had previously, this is
+harmless as the partner system shouldn't reselect if nothing in the
+LACPDU changed.
+
+	There's a similar optimization in bond_3ad_unbind_slave to send
+a LACPDU with AGGREGATION cleared to speed up the LACP processing on the
+partner system.
+
+	-J
+
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
