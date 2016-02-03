@@ -1,111 +1,108 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next 4/4] packet: tpacket_snd gso and checksum offload
-Date: Wed, 3 Feb 2016 11:38:12 -0500
-Message-ID: <CAF=yD-KRbWbAqRB=4z+nPnQXLm3QGWd5TCs52uutt9WcLq=LDQ@mail.gmail.com>
-References: <1454428609-26885-1-git-send-email-willemdebruijn.kernel@gmail.com>
- <1454428609-26885-5-git-send-email-willemdebruijn.kernel@gmail.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] hv_netvsc: Increase delay for
+ RNDIS_STATUS_NETWORK_CHANGE
+Date: Wed, 3 Feb 2016 16:39:47 +0000
+Message-ID: <BN1PR0301MB07709B6ACC8E6C969CB5B857CAD00@BN1PR0301MB0770.namprd03.prod.outlook.com>
+References: <1454458556-10591-1-git-send-email-haiyangz@microsoft.com>
+ <87si1ax7t9.fsf@vitty.brq.redhat.com>
+ <BN1PR0301MB0770CFE76823654E90579D0CCAD00@BN1PR0301MB0770.namprd03.prod.outlook.com>
+ <87d1sdye0x.fsf@vitty.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>, mst@redhat.com,
-	sri@us.ibm.com, Willem de Bruijn <willemb@google.com>
-To: Network Development <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f196.google.com ([209.85.217.196]:34819 "EHLO
-	mail-lb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756420AbcBCQix (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 11:38:53 -0500
-Received: by mail-lb0-f196.google.com with SMTP id dx9so755887lbc.2
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 08:38:52 -0800 (PST)
-In-Reply-To: <1454428609-26885-5-git-send-email-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Vitaly Kuznetsov <vkuznets@redhat.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <87d1sdye0x.fsf@vitty.brq.redhat.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
->         union tpacket_uhdr ph;
-On Tue, Feb 2, 2016 at 10:56 AM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
-> From: Willem de Bruijn <willemb@google.com>
->
-> Support socket option PACKET_VNET_HDR together with PACKET_TX_RING.
->>
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-> ---
->  net/packet/af_packet.c | 53 +++++++++++++++++++++++++++++++++++---------------
->  1 file changed, 37 insertions(+), 16 deletions(-)
->
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 89377bf..41e25b6 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -2495,7 +2495,7 @@ static int packet_snd_vnet_gso(struct sk_buff *skb,
->
 
-> +               if (po->has_vnet_hdr) {
-> +                       vnet_hdr = data;
-> +                       if (tp_len < sizeof(*vnet_hdr) ||
-> +                           __packet_snd_vnet_parse(vnet_hdr, tp_len)) {
-> +                               tp_len = -EINVAL;
-> +                               goto tpacket_error;
-> +                       }
-> +                       data += sizeof(*vnet_hdr);
-> +                       tp_len -= sizeof(*vnet_hdr);
 
-I left a bug here. tp_len must have the virtio_net_hdr subtracted before
-bounds check vnet_hdr->hdr_len <= tp_len in __packet_snd_vnet_gso.
+> -----Original Message-----
+> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
+> Sent: Wednesday, February 3, 2016 11:06 AM
+> To: Haiyang Zhang <haiyangz@microsoft.com>
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; KY Srinivasan
+> <kys@microsoft.com>; olaf@aepfle.de; linux-kernel@vger.kernel.org;
+> driverdev-devel@linuxdriverproject.org
+> Subject: Re: [PATCH net-next] hv_netvsc: Increase delay for
+> RNDIS_STATUS_NETWORK_CHANGE
+> 
+> Haiyang Zhang <haiyangz@microsoft.com> writes:
+> 
+> >> -----Original Message-----
+> >> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
+> >> Sent: Wednesday, February 3, 2016 8:06 AM
+> >> To: Haiyang Zhang <haiyangz@microsoft.com>
+> >> Cc: davem@davemloft.net; netdev@vger.kernel.org; KY Srinivasan
+> >> <kys@microsoft.com>; olaf@aepfle.de; linux-kernel@vger.kernel.org;
+> >> driverdev-devel@linuxdriverproject.org
+> >> Subject: Re: [PATCH net-next] hv_netvsc: Increase delay for
+> >> RNDIS_STATUS_NETWORK_CHANGE
+> >>
+> >> Haiyang Zhang <haiyangz@microsoft.com> writes:
+> >>
+> >> > We simulates a link down period for
+> RNDIS_STATUS_NETWORK_CHANGE
+> >> message to
+> >> > trigger DHCP renew. User daemons may need multiple seconds to
+> trigger
+> >> the
+> >> > link down event. (e.g. ifplugd: 5sec, network-manager: 4sec.) So update
+> >> > this link down period to 10 sec to properly trigger DHCP renew.
+> >> >
+> >>
+> >> I probably don't follow: why do we need sucha a delay? If (with real
+> >> hardware) you plug network cable out and in one second you plug it in
+> >> you'll get DHCP renewed, right?
+> >>
+> >> When I introduced RNDIS_STATUS_NETWORK_CHANGE handling by
+> >> emulating a
+> >> pair of up/down events I put 2 second delay to make link_watch happy
+> (as
+> >> we only handle 1 event per second there) but 10 seconds sounds to much
+> >> to me.
+> >
+> > In the test on Hyper-V, our software on host side  wants to trigger DHCP
+> > renew by sending only a RNDIS_STATUS_NETWORK_CHANGE message to
+> > a guest without physically unplug the cable. But, this message didn't trigger
+> > DHCP renew within 2 seconds. The VM is Centos 7.1 using
+> Networkmanager,
+> > which needs 4 seconds after link down to renew IP. Some daemon, like
+> > ifplugd, needs 5 sec to renew. That's why we increase the simulated link
+> > down time for RNDIS_STATUS_NETWORK_CHANGE message.
+> 
+> Yes, I understand the motivation but sorry if I was unclear with my
+> question. I meant to say that with physical network adapters it's
+> possible to trigger same two events by plugging your cable out and then
+> plugging it back in and it is certailnly doable in less than 10
+> seconds. NetworkManager or whoever is supposed to handle these events
+> and we don't really care how fast -- I think that 4 or 5 seconds
+> mentioned above is just an observation.
 
-Will send a v2.
+(forgot mailing lists in my last reply.... re-sending...)
 
-> +                       copylen = __virtio16_to_cpu(vio_le(),
-> +                                                   vnet_hdr->hdr_len);
-> +               }
-> +               if (dev->hard_header_len) {
-> +                       if (ll_header_truncated(dev, tp_len)) {
-> +                               tp_len = -EINVAL;
-> +                               goto tpacket_error;
-> +                       }
-> +                       copylen = max_t(int, copylen, dev->hard_header_len);
-> +               }
->                 skb = sock_alloc_send_skb(&po->sk,
-> -                               hlen + tlen + sizeof(struct sockaddr_ll),
-> +                               hlen + tlen + sizeof(struct sockaddr_ll) +
-> +                               (copylen - dev->hard_header_len),
->                                 !need_wait, &err);
->
->                 if (unlikely(skb == NULL)) {
-> @@ -2705,9 +2723,10 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
->                         goto out_status;
->                 }
->                 tp_len = tpacket_fill_skb(po, skb, ph, dev, data, tp_len, proto,
-> -                                         addr, hlen);
-> +                                         addr, hlen, copylen);
->                 if (likely(tp_len >= 0) &&
->                     tp_len > dev->mtu + reserve &&
-> +                   !po->has_vnet_hdr &&
->                     !packet_extra_vlan_len_allowed(dev, skb))
->                         tp_len = -EMSGSIZE;
->
-> @@ -2726,6 +2745,11 @@ tpacket_error:
->                         }
->                 }
->
-> +               if (po->has_vnet_hdr && packet_snd_vnet_gso(skb, vnet_hdr)) {
-> +                       tp_len = -EINVAL;
-> +                       goto tpacket_error;
-> +               }
-> +
->                 packet_pick_tx_queue(dev, skb);
->
->                 skb->destructor = tpacket_destruct_skb;
-> @@ -3616,9 +3640,6 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
->                 }
->                 if (optlen < len)
->                         return -EINVAL;
-> -               if (pkt_sk(sk)->has_vnet_hdr &&
-> -                   optname == PACKET_TX_RING)
-> -                       return -EINVAL;
->                 if (copy_from_user(&req_u.req, optval, len))
->                         return -EFAULT;
->                 return packet_set_ring(sk, &req_u, 0,
-> --
-> 2.7.0.rc3.207.g0ac5344
->
+Our test failed (i.e. not triggering DHCP renew) with existing 2sec delay. According 
+to the ifplugd man page, it ignores link down time <5sec:
+  http://linux.die.net/man/8/ifplugd
+    -d | --delay-down= SECS Specify delay for deconfiguring interface (default: 5)
+
+Networkmanager also has a waiting period (4sec).
+
+Thanks,
+- Haiyang
