@@ -1,46 +1,59 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [patch net-next RFC 0/6] Introduce devlink interface and first
- drivers to use it
-Date: Wed, 03 Feb 2016 16:17:14 +0100
-Message-ID: <56B219FA.7080208@iogearbox.net>
-References: <1454496482-13961-1-git-send-email-jiri@resnulli.us> <20160203143133.1b70bcb5@redhat.com> <20160203133356.GA2219@nanopsycho.orion>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 0/4]  Add Ethernet support on STM32F429
+Date: Wed, 3 Feb 2016 16:21:39 +0100
+Message-ID: <56B21B03.507@st.com>
+References: <1454511275-9791-1-git-send-email-alexandre.torgue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, eugenia@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
-	jeffrey.t.kirsher@intel.com, jbenc@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>
+To: Alexandre TORGUE <alexandre.torgue@gmail.com>,
+	Maxime Coquelin <mcoquelin.stm32@gmail.com>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:52852 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755982AbcBCPRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 10:17:22 -0500
-In-Reply-To: <20160203133356.GA2219@nanopsycho.orion>
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:14095 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751901AbcBCPWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 10:22:12 -0500
+In-Reply-To: <1454511275-9791-1-git-send-email-alexandre.torgue@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/2016 02:33 PM, Jiri Pirko wrote:
-> Wed, Feb 03, 2016 at 02:31:33PM CET, brouer@redhat.com wrote:
->> On Wed,  3 Feb 2016 11:47:56 +0100
->> Jiri Pirko <jiri@resnulli.us> wrote:
->>> From: Jiri Pirko <jiri@mellanox.com>
-[...]
->>> It is available here:
->>> https://github.com/jpirko/devlink
->>
->> IHMO this very short command name "dl" is not an advantage.  It is
->> simply too unspecific and short for a good Google search.  E.g. when
->> searching for good examples for using "dl".  I think "devlink" would be
->> better.  If you like short commands do: alias dl="devlink"
->
-> I was thinking about using "devlink". Decided to go with shortened
-> version so this is in-line with "ip". But you have a point.
+Hello Alex
 
-Btw, if you add this tool into iproute2 (which would be preferred), then
-probably dl should be ok (and easier retrievable in that relation).
+On 2/3/2016 3:54 PM, Alexandre TORGUE wrote:
+> STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
+> This series:
+> 	-enhance current stmmac driver to control it (code already available) and
+> 	 adds basic glue for STM32F429 chip.
+> 	-Enable basic Net config in kernel.
+>
+> Note that DT patches are not present because STM32 pinctrl code is not
+> yet avalaible.
+
+patches look ok for me
+
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+
+>
+> Regards
+>
+> Alexandre
+>
+> Alexandre TORGUE (4):
+>    net: ethernet: dwmac: add Ethernet glue logic for stm32 chip
+>    Documentation: Bindings: Add STM32 DWMAC glue
+>    net: ethernet: stmmac: add support of Synopsys 3.50a MAC IP
+>    ARM: STM32: Enable Ethernet in stm32_defconfig
+>
+>   .../devicetree/bindings/net/stm32-dwmac.txt        |  41 +++++
+>   arch/arm/configs/stm32_defconfig                   |   9 ++
+>   drivers/net/ethernet/stmicro/stmmac/Kconfig        |  12 ++
+>   drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+>   drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c  | 177 +++++++++++++++++++++
+>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   1 +
+>   6 files changed, 241 insertions(+)
+>   create mode 100644 Documentation/devicetree/bindings/net/stm32-dwmac.txt
+>   create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
+>
