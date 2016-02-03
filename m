@@ -1,74 +1,59 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH 0/7] tc offload for cls_u32 on ixgbe
-Date: Wed, 3 Feb 2016 07:21:29 -0500
-Message-ID: <56B1F0C9.3020802@mojatatu.com>
-References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
- <20160203101109.GB20905@office.Home> <56B1D4A9.3050801@gmail.com>
- <56B1D713.3080803@mellanox.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v3] net:Add sysctl_max_skb_frags
+Date: Wed, 3 Feb 2016 20:20:52 +0800
+Message-ID: <20160203122052.GA28619@gondor.apana.org.au>
+References: <568F87AC.60405@oracle.com>
+ <1454488017-8822-1-git-send-email-hans.westgaard.ry@oracle.com>
+ <20160203112550.GB28003@gondor.apana.org.au>
+ <56B1E635.8020707@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: amir@vadai.me, jiri@resnulli.us, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Or Gerlitz <ogerlitz@mellanox.com>,
-	John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:34063 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752454AbcBCMVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 07:21:32 -0500
-Received: by mail-ig0-f174.google.com with SMTP id ik10so84260047igb.1
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 04:21:31 -0800 (PST)
-In-Reply-To: <56B1D713.3080803@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Tom Herbert <tom@herbertland.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Florian Westphal <fw@strlen.de>, Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Michal Hocko <mhocko@suse.com>,
+	Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>,
+	Tejun Heo <tj@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alexey Kodanev <alexey.kodanev@oracle.com>,
+	=?iso-8859-1?Q?H=E5kon?= Bugge <haakon.bugge@oracle.com>,
+	open list <linux-kernel@vger.kernel.org>,
+	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <56B1E635.8020707@stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-02-03 05:31 AM, Or Gerlitz wrote:
-> On 2/3/2016 12:21 PM, John Fastabend wrote:
->> Thanks, we will need at least a v2 to fixup some build errors
->> with various compile flags caught by build_bot and missed by me.
-> Hi John,
+On Wed, Feb 03, 2016 at 12:36:21PM +0100, Hannes Frederic Sowa wrote:
 >
-> You didn't mark that as RFC... but we said this direction/approach yet
-> to be talked @ netdev next-week, so.. can you clarify?
->
-> I suggest not to rush and asking pulling this, lets have the tc workshop
-> beforehand...
->
+> Agreed that it feels like a hack, but a rather simple one. I would
+> consider this to be just a performance improvement. We certainly need
+> a slow-path when virtio drivers submit gso packets to the stack (and
+> already discussed with Hans). The sysctl can't help here. But without
+> the sysctl the packets would constantly hit the slow-path in case of
+> e.g. IPoIB and that would also be rather bad.
 
-Yes, the tc workshop is a good place for this.
-I think we can spill some of it into the switchdev workshop (which is a
-nice flow since that happens later).
+So you want to penalise every NIC in the system if just one of
+them is broken? This is insane.  Just do the partial linearisation
+in that one driver that needs it and not only won't you have to
+penalise anyone else but you still get the best result for that
+driver that needs it.
 
-Some comments:
-1) "priorities" for filters and some form of "index" for actions is
-is needed. I think index (which tends to be a 32 bit value is what
-Amir's patches refered to as "cookie" - or at least some hardware
-can be used to query the action with). Priorities maybe implicit in
-the order in which they are added. And the idea of appending vs
-exclusivity vs replace (which  netlink already supports)
-is important to worry about (TCAMS tend to assume an append mode
-for example).
+Besides, you have to implement the linearisation anyway because
+of virtualisation.
 
-2) I like the u32 approach where it makes sense; but sometimes it
-doesnt make sense from a usability pov. I work with some ASICs
-that have 10 tuples that are  fixed. Yes, a user can describe a policy
-with u32 but flower would be more  usable say with flower (both
-programmatic and cli)
-
-3) The concept of "hook address" is important to be able to express.
-Amir's patches seemed to miss that (and John brought it up in an
-email). It could be as simple as ifindex + hookid. With ifindex of
-0 meaning all ports and maybe hookid of 0 meaning all hooks.
-Hook semantics are as mentioned by John (as it stands right now
-in/egress)
-
-4) Why are we forsaking switchdev John?
-This is certainly re-usable beyond NICs and SRIOV.
-
-5)What happened to being both able to hardware and/or software?
-
-Anyways, I think Seville would be a blast! Come one, come all.
-
-cheers,
-jamal
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
