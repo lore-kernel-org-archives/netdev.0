@@ -1,64 +1,60 @@
-From: Byeoungwook Kim <quddnr145@gmail.com>
-Subject: [PATCH 1/2] rtlwifi: Fix improve function 'rtl_addr_delay()' in
- core.c
-Date: Wed, 3 Feb 2016 10:59:53 +0900
-Message-ID: <20160203015953.GA13562@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvalo@codeaurora.org, chaoming_li@realsil.com.cn,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Larry.Finger@lwfinger.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [net] bonding: trivial: style fixes
+Date: Wed,  3 Feb 2016 02:02:32 +0000
+Message-ID: <1454464952-25807-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: j.vosburgh@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmccmta1.chinamobile.com ([221.176.66.79]:4113 "EHLO
+	cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754270AbcBCCBl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 21:01:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Conditional codes in rtl_addr_delay() were improved in readability and
-performance by using switch codes.
+remove some redudant brackets, use sizeof(*) instead of sizeof(struct x).
 
-Signed-off-by: Byeoungwook Kim <quddnr145@gmail.com>
-Reported-by: Julian Calaby <julian.calaby@gmail.com>
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 ---
- drivers/net/wireless/realtek/rtlwifi/core.c | 20 ++++++++++++++------
- 1 file changed, 14 insertions(+), 6 deletions(-)
+ drivers/net/bonding/bond_main.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
-index 4ae421e..05f432c 100644
---- a/drivers/net/wireless/realtek/rtlwifi/core.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/core.c
-@@ -37,18 +37,26 @@
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index fb4c52f..bcc7b19 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -928,11 +928,10 @@ void bond_select_active_slave(struct bonding *bond)
+ 		if (!rv)
+ 			return;
  
- void rtl_addr_delay(u32 addr)
- {
--	if (addr == 0xfe)
-+	switch (addr) {
-+	case 0xfe:
- 		mdelay(50);
--	else if (addr == 0xfd)
-+		break;
-+	case 0xfd:
- 		mdelay(5);
--	else if (addr == 0xfc)
-+		break;
-+	case 0xfc:
- 		mdelay(1);
--	else if (addr == 0xfb)
-+		break;
-+	case 0xfb:
- 		udelay(50);
--	else if (addr == 0xfa)
-+		break;
-+	case 0xfa:
- 		udelay(5);
--	else if (addr == 0xf9)
-+		break;
-+	case 0xf9:
- 		udelay(1);
-+		break;
-+	};
+-		if (netif_carrier_ok(bond->dev)) {
++		if (netif_carrier_ok(bond->dev))
+ 			netdev_info(bond->dev, "first active interface up!\n");
+-		} else {
++		else
+ 			netdev_info(bond->dev, "now running without any active interface!\n");
+-		}
+ 	}
  }
- EXPORT_SYMBOL(rtl_addr_delay);
+ 
+@@ -1178,9 +1177,8 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 		}
+ 	}
+ 
+-	if (bond_should_deliver_exact_match(skb, slave, bond)) {
++	if (bond_should_deliver_exact_match(skb, slave, bond))
+ 		return RX_HANDLER_EXACT;
+-	}
+ 
+ 	skb->dev = bond->dev;
+ 
+@@ -1241,7 +1239,7 @@ static struct slave *bond_alloc_slave(struct bonding *bond)
+ {
+ 	struct slave *slave = NULL;
+ 
+-	slave = kzalloc(sizeof(struct slave), GFP_KERNEL);
++	slave = kzalloc(sizeof(*slave), GFP_KERNEL);
+ 	if (!slave)
+ 		return NULL;
  
 -- 
-2.5.0
+1.8.3.1
