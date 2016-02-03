@@ -1,75 +1,76 @@
 From: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-Subject: [PATCH v2 net-next 4/8] be2net: SRIOV Queue distribution should factor in EQ-count of VFs
-Date: Wed,  3 Feb 2016 09:49:19 +0530
-Message-ID: <1454473163-18781-5-git-send-email-sriharsha.basavapatna@broadcom.com>
+Subject: [PATCH v2 net-next 1/8] be2net: return error status from be_set_phys_id()
+Date: Wed,  3 Feb 2016 09:49:16 +0530
+Message-ID: <1454473163-18781-2-git-send-email-sriharsha.basavapatna@broadcom.com>
 References: <1454473163-18781-1-git-send-email-sriharsha.basavapatna@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cmrelayp1.emulex.com ([138.239.112.140]:52531 "EHLO
 	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755605AbcBCEVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 23:21:15 -0500
+	by vger.kernel.org with ESMTP id S1755383AbcBCEVN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 23:21:13 -0500
 In-Reply-To: <1454473163-18781-1-git-send-email-sriharsha.basavapatna@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The SRIOV resource distribution logic for RX/TX queue counts is not optimal
-when a small number of VFs are enabled. It does not take into account the
-VF's EQ count while computing the queue counts. Because of this, the VF
-gets a large number of queues, though it doesn't have sufficient EQs,
-resulting in wasted queue resources. And the PF gets a smaller share of
-queues though it has more EQs. Fix this by capping the VF queue count at
-its EQ count.
+From: Suresh Reddy <suresh.reddy@broadcom.com>
 
+be_set_phys_id() returns 0 to ethtool when the command fails in the FW.
+
+This patch fixes the set_phys_id() to return -EIO in case the FW cmd fails.
+
+Signed-off-by: Suresh Reddy <suresh.reddy@broadcom.com>
 Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |  4 ++++
- drivers/net/ethernet/emulex/benet/be_main.c | 15 ++++++---------
- 2 files changed, 10 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_ethtool.c | 23 +++++++++++++----------
+ 1 file changed, 13 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index cf83783..de88c30 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -89,6 +89,10 @@
- #define BE3_MAX_TX_QS		16
- #define BE3_MAX_EVT_QS		16
- #define BE3_SRIOV_MAX_EVT_QS	8
-+#define SH_VF_MAX_NIC_EQS	3	/* Skyhawk VFs can have a max of 4 EQs
-+					 * and at least 1 is granted to either
-+					 * SURF/DPDK
-+					 */
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index a19ac44..2ff6916 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -720,29 +720,32 @@ static int be_set_phys_id(struct net_device *netdev,
+ 			  enum ethtool_phys_id_state state)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
++	int status = 0;
  
- #define MAX_RSS_IFACES		15
- #define MAX_RX_QS		32
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 09e6f2c..62f6fbb 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3792,18 +3792,15 @@ static u16 be_calculate_vf_qs(struct be_adapter *adapter, u16 num_vfs)
- 	struct be_resources res = adapter->pool_res;
- 	u16 num_vf_qs = 1;
+ 	switch (state) {
+ 	case ETHTOOL_ID_ACTIVE:
+-		be_cmd_get_beacon_state(adapter, adapter->hba_port_num,
+-					&adapter->beacon_state);
+-		return 1;	/* cycle on/off once per second */
++		status = be_cmd_get_beacon_state(adapter, adapter->hba_port_num,
++						 &adapter->beacon_state);
++		if (status)
++			return be_cmd_status(status);
++		return 1;       /* cycle on/off once per second */
  
--	/* Distribute the queue resources equally among the PF and it's VFs
-+	/* Distribute the queue resources among the PF and it's VFs
- 	 * Do not distribute queue resources in multi-channel configuration.
- 	 */
- 	if (num_vfs && !be_is_mc(adapter)) {
--		/* If number of VFs requested is 8 less than max supported,
--		 * assign 8 queue pairs to the PF and divide the remaining
--		 * resources evenly among the VFs
--		 */
--		if (num_vfs < (be_max_vfs(adapter) - 8))
--			num_vf_qs = (res.max_rss_qs - 8) / num_vfs;
--		else
--			num_vf_qs = res.max_rss_qs / num_vfs;
-+		 /* Divide the qpairs evenly among the VFs and the PF, capped
-+		  * at VF-EQ-count. Any remainder qpairs belong to the PF.
-+		  */
-+		num_vf_qs = min(SH_VF_MAX_NIC_EQS,
-+				res.max_rss_qs / (num_vfs + 1));
+ 	case ETHTOOL_ID_ON:
+-		be_cmd_set_beacon_state(adapter, adapter->hba_port_num, 0, 0,
+-					BEACON_STATE_ENABLED);
++		status = be_cmd_set_beacon_state(adapter, adapter->hba_port_num,
++						 0, 0, BEACON_STATE_ENABLED);
+ 		break;
  
- 		/* Skyhawk-R chip supports only MAX_RSS_IFACES RSS capable
- 		 * interfaces per port. Provide RSS on VFs, only if number
+ 	case ETHTOOL_ID_OFF:
+-		be_cmd_set_beacon_state(adapter, adapter->hba_port_num, 0, 0,
+-					BEACON_STATE_DISABLED);
++		status = be_cmd_set_beacon_state(adapter, adapter->hba_port_num,
++						 0, 0, BEACON_STATE_DISABLED);
+ 		break;
+ 
+ 	case ETHTOOL_ID_INACTIVE:
+-		be_cmd_set_beacon_state(adapter, adapter->hba_port_num, 0, 0,
+-					adapter->beacon_state);
++		status = be_cmd_set_beacon_state(adapter, adapter->hba_port_num,
++						 0, 0, adapter->beacon_state);
+ 	}
+ 
+-	return 0;
++	return be_cmd_status(status);
+ }
+ 
+ static int be_set_dump(struct net_device *netdev, struct ethtool_dump *dump)
 -- 
 2.3.0.rc2
