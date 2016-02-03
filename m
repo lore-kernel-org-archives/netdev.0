@@ -1,67 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3] net:Add sysctl_max_skb_frags
-Date: Wed, 03 Feb 2016 08:07:08 -0800
-Message-ID: <1454515628.7627.245.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <568F87AC.60405@oracle.com>
-	 <1454488017-8822-1-git-send-email-hans.westgaard.ry@oracle.com>
-	 <CAKgT0UftR3pTOGO91GaUijPCTq8POQcNChRqyy1b1TYsM3n4Uw@mail.gmail.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: [PATCH net] sctp: do sanity checks before migrating the asoc
+Date: Wed, 3 Feb 2016 17:13:25 +0100
+Message-ID: <CACT4Y+bxFFfE1WYFLuki7sjM4bMhMsONKuu5HK9gUuYmP2-eCA@mail.gmail.com>
+References: <CACT4Y+Z6jY_n_cpmbFz366=JzoLX=u4Zc_o8gHFwJw8ApKf4zw@mail.gmail.com>
+ <10616913996c7a4cbe8a2bb23cf4e78fcfa0a13a.1452891824.git.marcelo.leitner@gmail.com>
+ <569E45FD.4040801@gmail.com> <569E5D44.5000103@gmail.com> <569E8280.9080701@gmail.com>
+ <569E8F2F.5070906@gmail.com> <569E94CF.4030409@gmail.com> <569E97D0.7050109@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Westphal <fw@strlen.de>, Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Michal Hocko <mhocko@suse.com>,
-	Linus =?ISO-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tejun Heo <tj@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alexey Kodanev <alexey.kodanev@oracle.com>,
-	=?ISO-8859-1?Q?H=E5kon?= Bugge <haakon.bugge@oracle.com>,
-	open list <linux-kernel@vger.kernel.org>,
-	"open
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0UftR3pTOGO91GaUijPCTq8POQcNChRqyy1b1TYsM3n4Uw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	netdev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:34830 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756406AbcBCQNq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 11:13:46 -0500
+Received: by mail-wm0-f43.google.com with SMTP id r129so172592699wmr.0
+        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 08:13:45 -0800 (PST)
+In-Reply-To: <569E97D0.7050109@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-02-03 at 07:58 -0800, Alexander Duyck wrote:
-> > +++ b/net/core/sysctl_net_core.c
-> 
-> I really don't think these changes belong in the core. Below you only
-> modify the TCP code path so this more likely belongs in the TCP path
-> unless you are going to guarantee that all other code paths obey the
-> sysctl.  It probably belongs in net/ipv4/sysctl_net_ipv4.c
+On Tue, Jan 19, 2016 at 9:08 PM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> Em 19-01-2016 17:55, Vlad Yasevich escreveu:
+>>
+>> On 01/19/2016 02:31 PM, Marcelo Ricardo Leitner wrote:
+>>>
+>>> Em 19-01-2016 16:37, Vlad Yasevich escreveu:
+>>>>
+>>>> On 01/19/2016 10:59 AM, Marcelo Ricardo Leitner wrote:
+>>>>>
+>>>>> Yes, not thrilled here either about connect-to-self.
+>>>>>
+>>>>> But there is a big difference on how both works. For rx we can just
+>>>>> look for wanted skbs
+>>>>> in rx queue, as they aren't going anywhere, but for tx I don't think we
+>>>>> can easily block
+>>>>> sctp_wfree() call because that may be happening on another CPU (or am I
+>>>>> mistaken here?
+>>>>> sctp still doesn't have RFS but even irqbalance could affect this
+>>>>> AFAICT) and more than
+>>>>> one skb may be in transit at a time.
+>>>>
+>>>>
+>>>> The way it's done now, we wouldn't have to block sctp_wfree.  Chunks are
+>>>> released under
+>>>> lock when they are acked, so we are OK here.  The tx completions will
+>>>> just put 1 byte back
+>>>> to the socket associated with the tx'ed skb, and that should still be ok
+>>>> as
+>>>> sctp_packet_release_owner will call sk_free().
+>>>
+>>>
+>>> Please let me rephrase it. I'm actually worried about the asoc->base.sk
+>>> part of the story
+>>> and how it's fetched in sctp_wfree(). I think we can update that sk
+>>> pointer after
+>>> sock_wfree() has fetched it but not used it yet, possibly leading to
+>>> accounting it twice,
+>>> one during migration and one on sock_wfree.
+>>> In sock_wfree() it will update some sk stats like sk->sk_wmem_alloc,
+>>> among others.
+>>
+>>
+>> sctp_wfree() is only used on skbs that were created as sctp chunks to be
+>> transmitted.
+>> Right now, these skbs aren't actually submitted to the IP or to nic to be
+>> transmitted.
+>> They are queued at the association level (either in transports or in the
+>> outqueue).
+>> They are only freed during ACK processing.
+>>
+>> The ACK processing happens under a socket lock and thus asoc->base.sk can
+>> not move.
+>>
+>> The migration process also happens under a socket lock.  As a result,
+>> during migration
+>> we are guaranteed the chunk queues remain consistent and that
+>> asoc->base.sk linkage
+>> remains consistent.  In fact, if you look at the sctp_sock_migrate, we
+>> lock both
+>> sockets when we reassign the assoc->base.sk so we know both sockets are
+>> properly locked.
+>>
+>> So, I am not sure that what you are worried about can happen.  Please feel
+>> free to
+>> double-check the above of course.
+>
+>
+> Ohh, right. That makes sense. I'll rework the patch. Thanks Vlad.
 
 
-Alexander, this is a v3.
+Hi Marcelo,
 
-We rejected prior attempts doing exactly what you suggest.
-
-Think about GRO : These people also need to use the same sysctl in GRO
-to limit number of frags.
-
-Limiting the stuff at the egress is useless in forwarding setups.
-It will be too late as they'll need to linearize -> huge performance
-drop.
-
-This is why we wanted a global setup so that these guys can tweak the
-default limit.
-
-Please read netdev history about this stuff.
-
-Plan of action :
-
-1) This patch, adding a core sysctl.
-2) Use it in TCP (already done in this patch)
-3) Use it in GRO
+Any updates on this? I still see the leak.
