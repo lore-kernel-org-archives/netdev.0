@@ -1,142 +1,116 @@
 From: "Fastabend, John R" <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH 0/7] tc offload for cls_u32 on ixgbe
-Date: Wed, 3 Feb 2016 10:48:43 -0800
-Message-ID: <56B24B8B.1010205@gmail.com>
+Subject: Re: [net-next PATCH 7/7] net: ixgbe: add support for tc_u32 offload
+Date: Wed, 3 Feb 2016 11:02:45 -0800
+Message-ID: <56B24ED5.4010903@gmail.com>
 References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
- <20160203101109.GB20905@office.Home> <56B1D4A9.3050801@gmail.com>
- <56B1D713.3080803@mellanox.com> <56B1F0C9.3020802@mojatatu.com>
+ <20160203092959.1356.91778.stgit@john-Precision-Tower-5810>
+ <20160203100716.GA20905@office.Home> <56B1D5D2.7040807@gmail.com>
+ <56B1F689.5040609@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: amir@vadai.me, jiri@resnulli.us, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
+Cc: ogerlitz@mellanox.com, jiri@resnulli.us,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Jamal Hadi Salim <jhs@mojatatu.com>, "Amir Vadai\"" <amir@vadai.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:33809 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965788AbcBCStI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 13:49:08 -0500
-Received: by mail-ob0-f169.google.com with SMTP id wb13so43833848obb.1
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 10:49:07 -0800 (PST)
-In-Reply-To: <56B1F0C9.3020802@mojatatu.com>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:34229 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965408AbcBCTDG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 14:03:06 -0500
+Received: by mail-ob0-f180.google.com with SMTP id wb13so44216697obb.1
+        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 11:03:05 -0800 (PST)
+In-Reply-To: <56B1F689.5040609@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/3/2016 4:21 AM, Jamal Hadi Salim wrote:
-> On 16-02-03 05:31 AM, Or Gerlitz wrote:
->> On 2/3/2016 12:21 PM, John Fastabend wrote:
->>> Thanks, we will need at least a v2 to fixup some build errors
->>> with various compile flags caught by build_bot and missed by me.
->> Hi John,
+On 2/3/2016 4:46 AM, Jamal Hadi Salim wrote:
+[...]
+
+>>>>
+>>>
+>>> What are you doing w.r.t priorities? Are the filters processed by the
+>>> order of the priorities?
+>>>
+
+In the same order as software processes filters. I tried to faithfully
+translate the u32 classify and  u32_change loops into hardware. If I
+missed some case its a bug and I'll fix it. My reading and experiments
+of u32 indicate the ht:bucket:node build a handle and this is how we
+order rules.
+
+When I test this I create a veth pair and create the same rule set on
+the veth pair as my hardware netdev. Then inject a skb into both
+the veth and hardware netdev if you get different results its a bug.
+
 >>
->> You didn't mark that as RFC... but we said this direction/approach yet
->> to be talked @ netdev next-week, so.. can you clarify?
-
-Yeah I think this set of patches is ready and it really is what we've
-been talking about doing for two or three conferences now. Also I don't
-know where "we" decided to talk about this @ netdev or how that became
-a prereq for patches. I think this is the correct approach and I am not
-seeing any contentious pieces here so why not consider it for inclusion.
-Do you have some issue with the approach? I don't recall any when we
-talked about this last time.
-
+>> The rules are put in order by the handles which is populated in
+>> my command above such that 'ht 1: order 3' gives handle 1::3 and
+>> 'ht 800: order 1' gives 800::1. Take a look at this block in cls_u32
 >>
->> I suggest not to rush and asking pulling this, lets have the tc workshop
->> beforehand...
+>>          if (err == 0) {
+>>                  struct tc_u_knode __rcu **ins;
+>>                  struct tc_u_knode *pins;
 >>
+>>                  ins = &ht->ht[TC_U32_HASH(handle)];
+>>                  for (pins = rtnl_dereference(*ins); pins;
+>>                       ins = &pins->next, pins = rtnl_dereference(*ins))
+>>                          if (TC_U32_NODE(handle) <
+>> TC_U32_NODE(pins->handle))
+>>                                  break;
+>>
+>>                  RCU_INIT_POINTER(n->next, pins);
+>>                  rcu_assign_pointer(*ins, n);
+>>                  u32_replace_hw_knode(tp, n);
+>>                  *arg = (unsigned long)n;
+>>                  return 0;
+>>
+>>
+>> If you leave ht and order off the tc cli I believe 'tc' just
+>> picks some semi-arbitrary ones for you. I've been in the habit
+>> of always specifying them even for software filters.
+>>
+> 
+> The default table id is essentially 0x800. Default bucket is 0.
+> "order" essentially is the filter id. And given you can link tables
+> (Nice work John!); essentially the ht:bucket:nodeid is an "address" to
+> a specific filter on a specific table and when makes sense a specific
+> hash bucket. Some other way to look at it is as a way to construct
+> a mapping to a TCAM key.
 
-rush? we've been talking about it for a year+
+Sure as long as your mapping works/looks like the software only case
+it doesn't matter how you do the hardware mapping and my guess is this
+is going to be highly device specific. Even with the handful of devices
+I have it looks different depending on the device.
+
+Note if you don't do the table links there really is no safe
+way to get into the headers beyond the IP header because you need the
+nexthdr stuff. Also just to stick this out there I have a patch to let
+cls_u32 start processing at the ethernet header instead of the
+transport header similar to how bpf works. This negative offset business
+doesn't really work as best I can tell.
+
+> What John is doing is essentially taking the nodeid and trying to use
+> it as a priority. In otherwise the abstraction is reduced to a linked
+> list in which the ordering is how the list is traversed.
+> It may work in this case, but i am for being able to explicitly specify
+> priorities.
+
+But that doesn't exist in software today. If users want explicit order
+today they build the ht, nodeid out correctly just use that. If you
+are working on a TCAM just use the nodeid that should be equivalent to
+priority.
+
+And  although the ixgbe supports only a single table the mapping on more
+complex devices will take it onto multiple tables if that optimizes
+things.
+
+Note I need to do a couple fixes on my existing code one to abort when
+given a bad ifindex and two to hard abort when a hashtable is given
+a higher order rule that I can't support. Both are fairly small tweaks
+to the ixgbe code not to the infrastructure.
 
 > 
-> Yes, the tc workshop is a good place for this.
-> I think we can spill some of it into the switchdev workshop (which is a
-> nice flow since that happens later).
-> 
-
-Sure but this patch is really the basic stuff we should move on to
-some of the more interesting pieces. I have ~30 or so patches behind
-this that do the fun stuff like resource allocation, capababilities,
-support for the divisor > 1, some new actions, etc.
-
-> Some comments:
-> 1) "priorities" for filters and some form of "index" for actions is
-> is needed. I think index (which tends to be a 32 bit value is what
-> Amir's patches refered to as "cookie" - or at least some hardware
-> can be used to query the action with). Priorities maybe implicit in
-> the order in which they are added. And th idea of appending vs
-> exclusivity vs replace (which  netlink already supports)
-> is important to worry about (TCAMS tend to assume an append mode
-> for example).
-
-The code denotes add/del/replace already. I'm not sure why a TCAM
-would assume an append mode but OK maybe that is some API you have
-the APIs I use don't have these semantics.
-
-For this series using cls_u32 the handle gives you everything you need
-to put entries in the right table and row. Namely the ht # and order #
-from 'tc'. Take a look at u32_change and u32_classify its the handle
-that places the filter into the list and the handle that is matched in
-classify. We should place the filters in the hardware in the same order
-that is used by u32_change.
-
-Also ran a few tests and can't see how priority works in u32 maybe you
-can shed some light but as best I can tell it doesn't have any effect
-on rule execution.
-
-> 
-> 2) I like the u32 approach where it makes sense; but sometimes it
-> doesnt make sense from a usability pov. I work with some ASICs
-> that have 10 tuples that are  fixed. Yes, a user can describe a policy
-> with u32 but flower would be more  usable say with flower (both
-> programmatic and cli)
-
-Sure so create a set of offload hooks for flower we don't need only
-one hardware classifier any more than we would like a single software
-classifiers. I'll send out my flower patches when I get to a real system
-I'm on a corporate laptop at the moment.
-
-> 
-> 3) The concept of "hook address" is important to be able to express.
-> Amir's patches seemed to miss that (and John brought it up in an
-> email). It could be as simple as ifindex + hookid. With ifindex of
-> 0 meaning all ports and maybe hookid of 0 meaning all hooks.
-> Hook semantics are as mentioned by John (as it stands right now
-> in/egress)
-> 
-
-Again I'm trying to faithfully implement what we have in software
-and load that into the hardware. The handle today gives ingress/egres
-hook. If you want an all ports hook we should add it to 'tc' software
-first and then push that to the hardware not create magic hardware
-bits. See I've drank the cool aid software first than hardware.
-
-> 4) Why are we forsaking switchdev John?
-> This is certainly re-usable beyond NICs and SRIOV.
-> 
-
-Sure and switchdev can use it just like they use fdb_add and friends.
-I just don't want to require switchdev infrastructure on things that
-really are not switches. I think Amir indicated he would take a try
-at the switchdev integration. If not I'm willing to do it but it
-doesn't block this series in any way imo.
-
-> 5)What happened to being both able to hardware and/or software?
-
-Follow up patch once we get the basic infrastructure in place with
-the big feature flag bit. I have a patch I'm testing for this now
-but again I want to move in logical and somewhat minimal sets.
-
-> 
-> Anyways, I think Seville would be a blast! Come one, come all.
-> 
-
-I'll be there but lets be sure to follow up with this online I
-know folks are following this who wont be at Seville and I don't
-see any reason to block these patches and stop the thread for a
-week or more.
-
 > cheers,
 > jamal
-> 
 > 
