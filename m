@@ -1,53 +1,60 @@
-From: Aaro Koskinen <aaro.koskinen@iki.fi>
-Subject: Re: [PATCH] of: of_mdio: Add marvell,88e1145 to whitelist of PHY
- compatibilities.
-Date: Wed, 3 Feb 2016 22:50:25 +0200
-Message-ID: <20160203205024.GC1620@darkstar.musicnaut.iki.fi>
-References: <1454528129-6144-1-git-send-email-aaro.koskinen@iki.fi>
- <20160203200857.GA10262@lunn.ch>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH] flowi: add concept of "not_oif"
+Date: Wed, 3 Feb 2016 22:02:05 +0100
+Message-ID: <CAHmME9qqCZYvuskSQMA0F2d2E+5fHsRk=ydDOV=Nq5D7xemtaw@mail.gmail.com>
+References: <CAHmME9pgwgjKJAFH2=sEEMJauno_rVEzY6JORTQze91Xo5zefw@mail.gmail.com>
+	<1454521595-6721-1-git-send-email-Jason@zx2c4.com>
+	<alpine.LFD.2.11.1602032149170.1802@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	David Daney <ddaney@caviumnetworks.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	David Ahern <dsa@cumulusnetworks.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emh04.mail.saunalahti.fi ([62.142.5.110]:42905 "EHLO
-	emh04.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755089AbcBCUu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 15:50:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20160203200857.GA10262@lunn.ch>
+Received: from frisell.zx2c4.com ([192.95.5.64]:60670 "EHLO frisell.zx2c4.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751745AbcBCVCK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2016 16:02:10 -0500
+Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id 8f68d1da
+	for <netdev@vger.kernel.org>;
+	Wed, 3 Feb 2016 21:01:00 +0000 (UTC)
+Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id e6fdfe64
+	TLS version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=YES
+	for <netdev@vger.kernel.org>;
+	Wed, 3 Feb 2016 21:00:58 +0000 (UTC)
+Received: by mail-wm0-f45.google.com with SMTP id r129so183800431wmr.0
+        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 13:02:06 -0800 (PST)
+In-Reply-To: <alpine.LFD.2.11.1602032149170.1802@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Julian,
 
-On Wed, Feb 03, 2016 at 09:08:57PM +0100, Andrew Lunn wrote:
-> On Wed, Feb 03, 2016 at 09:35:29PM +0200, Aaro Koskinen wrote:
-> > Commit ae461131960b ("of: of_mdio: Add a whitelist of PHY
-> > compatibilities.") missed one compatible string used in in-tree DTBs:
-> > in OCTEON, for selected boards, the kernel DTB pruning code will overwrite
-> > the DTB compatible string with "marvell,88e1145", which is missing
-> > from the whitelist. Add it.
-> 
-> Does this overwriting means this compatibility is not visible in the
-> current DTS files? Or did i miss it?
+Thanks a lot for your review. Much appreciated.
 
-Yeah, it happens in arch/mips/cavium-octeon/octeon-platform.c:
+On Wed, Feb 3, 2016 at 9:42 PM, Julian Anastasov <ja@ssi.bg> wrote:
+>         If you check every flowi4_oif user you will notice
+> that some places can not fulfil this requirement:
+> - fib_select_path -> fib_select_multipath
+>         Other places like fib_select_default are called
+> for flowi4_oif=0 and there are no other checks for flowi4_oif
+> but they will be needed for the new field.
+> fans, you have to check all places that use flowi4_oif and
+> flowi6_oif.
+> missing initialization of this new field
 
-        if (octeon_has_88e1145()) {
-                fdt_nop_property(initial_boot_params, phy, "marvell,reg-init");
-                memset(new_name, 0, sizeof(new_name));
-                strcpy(new_name, "marvell,88e1145");
+Thanks for pointing these out. I will take this into account and send
+an updated patch [series].
 
-It took a while for me to figure out this as well... Nasty.
 
-> At least for the Marvell SoCs i intend to submit a patch removing
-> these compatible strings from the DTS files. Will you do the same for
-> the OCTEON boards?
 
-Yes, for in-tree OCTEON DTS files, I can do the update; the above strcpy
-needs to be deleted at the same go, and this needs go through MIPS tree.
+>         I don't know about the particular problems with
+> tunnels but the scripts can use the route metric to order
+> the routes in a table.
 
-A.
+This unfortunately does not cut it with tunnels.
+
+
+Jason
