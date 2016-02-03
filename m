@@ -1,69 +1,73 @@
 From: Byeoungwook Kim <quddnr145@gmail.com>
-Subject: [PATCH v2 1/2] rtlwifi: Fix improve function 'rtl_addr_delay()' in
- core.c
-Date: Wed, 3 Feb 2016 11:15:10 +0900
-Message-ID: <20160203021510.GA13725@gmail.com>
+Subject: [PATCH v2 2/2] rtlwifi: Fix reusable codes in core.c
+Date: Wed, 3 Feb 2016 11:16:17 +0900
+Message-ID: <20160203021617.GA13759@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: kvalo@codeaurora.org, chaoming_li@realsil.com.cn,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Larry.Finger@lwfinger.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33471 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754270AbcBCCPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 21:15:16 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Conditional codes in rtl_addr_delay() were improved in readability and
-performance by using switch codes.
+rtl_*_delay() functions were reused same codes about addr variable.
+So i have converted to rtl_addr_delay() from code about addr variable.
 
 Signed-off-by: Byeoungwook Kim <quddnr145@gmail.com>
 Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
 ---
 V2 split in separate patchs.
- drivers/net/wireless/realtek/rtlwifi/core.c | 20 ++++++++++++++------
- 1 file changed, 14 insertions(+), 6 deletions(-)
+ drivers/net/wireless/realtek/rtlwifi/core.c | 28 ++++------------------------
+ 1 file changed, 4 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
-index 4ae421e..05f432c 100644
+index 05f432c..c1193d1 100644
 --- a/drivers/net/wireless/realtek/rtlwifi/core.c
 +++ b/drivers/net/wireless/realtek/rtlwifi/core.c
-@@ -37,18 +37,26 @@
- 
- void rtl_addr_delay(u32 addr)
+@@ -63,18 +63,8 @@ EXPORT_SYMBOL(rtl_addr_delay);
+ void rtl_rfreg_delay(struct ieee80211_hw *hw, enum radio_path rfpath, u32 addr,
+ 		     u32 mask, u32 data)
  {
--	if (addr == 0xfe)
-+	switch (addr) {
-+	case 0xfe:
- 		mdelay(50);
--	else if (addr == 0xfd)
-+		break;
-+	case 0xfd:
- 		mdelay(5);
--	else if (addr == 0xfc)
-+		break;
-+	case 0xfc:
- 		mdelay(1);
--	else if (addr == 0xfb)
-+		break;
-+	case 0xfb:
- 		udelay(50);
--	else if (addr == 0xfa)
-+		break;
-+	case 0xfa:
- 		udelay(5);
--	else if (addr == 0xf9)
-+		break;
-+	case 0xf9:
+-	if (addr == 0xfe) {
+-		mdelay(50);
+-	} else if (addr == 0xfd) {
+-		mdelay(5);
+-	} else if (addr == 0xfc) {
+-		mdelay(1);
+-	} else if (addr == 0xfb) {
+-		udelay(50);
+-	} else if (addr == 0xfa) {
+-		udelay(5);
+-	} else if (addr == 0xf9) {
+-		udelay(1);
++	if (addr >= 0xf9 && addr <= 0xfe) {
++		rtl_addr_delay(addr);
+ 	} else {
+ 		rtl_set_rfreg(hw, rfpath, addr, mask, data);
  		udelay(1);
-+		break;
-+	};
- }
- EXPORT_SYMBOL(rtl_addr_delay);
+@@ -84,18 +74,8 @@ EXPORT_SYMBOL(rtl_rfreg_delay);
  
+ void rtl_bb_delay(struct ieee80211_hw *hw, u32 addr, u32 data)
+ {
+-	if (addr == 0xfe) {
+-		mdelay(50);
+-	} else if (addr == 0xfd) {
+-		mdelay(5);
+-	} else if (addr == 0xfc) {
+-		mdelay(1);
+-	} else if (addr == 0xfb) {
+-		udelay(50);
+-	} else if (addr == 0xfa) {
+-		udelay(5);
+-	} else if (addr == 0xf9) {
+-		udelay(1);
++	if (addr >= 0xf9 && addr <= 0xfe) {
++		rtl_addr_delay(addr);
+ 	} else {
+ 		rtl_set_bbreg(hw, addr, MASKDWORD, data);
+ 		udelay(1);
 -- 
 2.5.0
