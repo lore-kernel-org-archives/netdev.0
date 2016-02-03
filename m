@@ -1,59 +1,136 @@
 From: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-Subject: [PATCH v2 net-next 2/8] be2net: check for INSUFFICIENT_PRIVILEGES error
-Date: Wed,  3 Feb 2016 09:49:17 +0530
-Message-ID: <1454473163-18781-3-git-send-email-sriharsha.basavapatna@broadcom.com>
+Subject: [PATCH v2 net-next 7/8] be2net: Add retry in case of error recovery failure
+Date: Wed,  3 Feb 2016 09:49:22 +0530
+Message-ID: <1454473163-18781-8-git-send-email-sriharsha.basavapatna@broadcom.com>
 References: <1454473163-18781-1-git-send-email-sriharsha.basavapatna@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmrelayp1.emulex.com ([138.239.112.140]:52531 "EHLO
+Received: from cmrelayp1.emulex.com ([138.239.112.140]:52532 "EHLO
 	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755456AbcBCEVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 23:21:14 -0500
+	by vger.kernel.org with ESMTP id S1755716AbcBCEVR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 23:21:17 -0500
 In-Reply-To: <1454473163-18781-1-git-send-email-sriharsha.basavapatna@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Suresh Reddy <suresh.reddy@broadcom.com>
+From: Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>
 
-The driver currently logs the message "VF is not privileged to issue
-opcode" by checking only the base_status field for UNAUTHORIZED_REQUEST.
-Add check to look for INSUFFICIENT_PRIVILEGES in the additional status
-field also as not all cmds fail with that base status.
+Retry error recovery MAX_ERR_RECOVERY_RETRY_COUNT times in case of
+failure during error recovery.
 
-Signed-off-by: Suresh Reddy <suresh.reddy@broadcom.com>
+Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>
 Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c | 3 ++-
- drivers/net/ethernet/emulex/benet/be_cmds.h | 3 ++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |  5 +++++
+ drivers/net/ethernet/emulex/benet/be_main.c | 23 +++++++++++++++++------
+ 2 files changed, 22 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index b63d8ad..3b665f1 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -236,7 +236,8 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index de88c30..515e206 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -397,6 +397,10 @@ enum vf_state {
+ #define BE_UC_PMAC_COUNT			30
+ #define BE_VF_UC_PMAC_COUNT			2
  
- 	if (base_status != MCC_STATUS_SUCCESS &&
- 	    !be_skip_err_log(opcode, base_status, addl_status)) {
--		if (base_status == MCC_STATUS_UNAUTHORIZED_REQUEST) {
-+		if (base_status == MCC_STATUS_UNAUTHORIZED_REQUEST ||
-+		    addl_status == MCC_ADDL_STATUS_INSUFFICIENT_PRIVILEGES) {
- 			dev_warn(&adapter->pdev->dev,
- 				 "VF is not privileged to issue opcode %d-%d\n",
- 				 opcode, subsystem);
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 241819b..f260ef3 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -68,7 +68,8 @@ enum mcc_addl_status {
- 	MCC_ADDL_STATUS_TOO_MANY_INTERFACES = 0x4a,
- 	MCC_ADDL_STATUS_INSUFFICIENT_VLANS = 0xab,
- 	MCC_ADDL_STATUS_INVALID_SIGNATURE = 0x56,
--	MCC_ADDL_STATUS_MISSING_SIGNATURE = 0x57
-+	MCC_ADDL_STATUS_MISSING_SIGNATURE = 0x57,
-+	MCC_ADDL_STATUS_INSUFFICIENT_PRIVILEGES = 0x60
- };
++#define MAX_ERR_RECOVERY_RETRY_COUNT		3
++#define ERR_DETECTION_DELAY			1000
++#define ERR_RECOVERY_RETRY_DELAY		30000
++
+ /* Ethtool set_dump flags */
+ #define LANCER_INITIATE_FW_DUMP			0x1
+ #define LANCER_DELETE_FW_DUMP			0x2
+@@ -534,6 +538,7 @@ struct be_adapter {
+ 	u16 work_counter;
  
- #define CQE_BASE_STATUS_MASK		0xFFFF
+ 	struct delayed_work be_err_detection_work;
++	u8 recovery_retries;
+ 	u8 err_flags;
+ 	u32 flags;
+ 	u32 cmd_privileges;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 6eb3aba..d5286d3 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -4265,10 +4265,10 @@ static void be_schedule_worker(struct be_adapter *adapter)
+ 	adapter->flags |= BE_FLAGS_WORKER_SCHEDULED;
+ }
+ 
+-static void be_schedule_err_detection(struct be_adapter *adapter)
++static void be_schedule_err_detection(struct be_adapter *adapter, u32 delay)
+ {
+ 	schedule_delayed_work(&adapter->be_err_detection_work,
+-			      msecs_to_jiffies(1000));
++			      msecs_to_jiffies(delay));
+ 	adapter->flags |= BE_FLAGS_ERR_DETECTION_SCHEDULED;
+ }
+ 
+@@ -4890,6 +4890,7 @@ static void be_err_detection_task(struct work_struct *work)
+ 					     be_err_detection_work.work);
+ 	struct device *dev = &adapter->pdev->dev;
+ 	int recovery_status;
++	int delay = ERR_DETECTION_DELAY;
+ 
+ 	be_detect_error(adapter);
+ 
+@@ -4899,6 +4900,7 @@ static void be_err_detection_task(struct work_struct *work)
+ 		goto reschedule_task;
+ 
+ 	if (!recovery_status) {
++		adapter->recovery_retries = 0;
+ 		dev_info(dev, "Adapter recovery successful\n");
+ 		goto reschedule_task;
+ 	} else if (be_virtfn(adapter)) {
+@@ -4907,13 +4909,22 @@ static void be_err_detection_task(struct work_struct *work)
+ 		 */
+ 		dev_err(dev, "Re-trying adapter recovery\n");
+ 		goto reschedule_task;
++	} else if (adapter->recovery_retries++ <
++		   MAX_ERR_RECOVERY_RETRY_COUNT) {
++		/* In case of another error during recovery, it takes 30 sec
++		 * for adapter to come out of error. Retry error recovery after
++		 * this time interval.
++		 */
++		dev_err(&adapter->pdev->dev, "Re-trying adapter recovery\n");
++		delay = ERR_RECOVERY_RETRY_DELAY;
++		goto reschedule_task;
+ 	} else {
+ 		dev_err(dev, "Adapter recovery failed\n");
+ 	}
+ 
+ 	return;
+ reschedule_task:
+-	be_schedule_err_detection(adapter);
++	be_schedule_err_detection(adapter, delay);
+ }
+ 
+ static void be_log_sfp_info(struct be_adapter *adapter)
+@@ -5309,7 +5320,7 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
+ 
+ 	be_roce_dev_add(adapter);
+ 
+-	be_schedule_err_detection(adapter);
++	be_schedule_err_detection(adapter, ERR_DETECTION_DELAY);
+ 
+ 	/* On Die temperature not supported for VF. */
+ 	if (be_physfn(adapter) && IS_ENABLED(CONFIG_BE2NET_HWMON)) {
+@@ -5376,7 +5387,7 @@ static int be_pci_resume(struct pci_dev *pdev)
+ 	if (status)
+ 		return status;
+ 
+-	be_schedule_err_detection(adapter);
++	be_schedule_err_detection(adapter, ERR_DETECTION_DELAY);
+ 
+ 	if (adapter->wol_en)
+ 		be_setup_wol(adapter, false);
+@@ -5476,7 +5487,7 @@ static void be_eeh_resume(struct pci_dev *pdev)
+ 	if (status)
+ 		goto err;
+ 
+-	be_schedule_err_detection(adapter);
++	be_schedule_err_detection(adapter, ERR_DETECTION_DELAY);
+ 	return;
+ err:
+ 	dev_err(&adapter->pdev->dev, "EEH resume failed\n");
 -- 
 2.3.0.rc2
