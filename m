@@ -1,8 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH 6/7] net: ixgbe: add minimal parser details for
- ixgbe
-Date: Wed, 03 Feb 2016 01:29:38 -0800
-Message-ID: <20160203092938.1356.77838.stgit@john-Precision-Tower-5810>
+Subject: [net-next PATCH 7/7] net: ixgbe: add support for tc_u32 offload
+Date: Wed, 03 Feb 2016 01:29:59 -0800
+Message-ID: <20160203092959.1356.91778.stgit@john-Precision-Tower-5810>
 References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,152 +10,325 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net
 To: amir@vadai.me, ogerlitz@mellanox.com, jiri@resnulli.us,
 	jhs@mojatatu.com, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:34914 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753078AbcBCJ3z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 04:29:55 -0500
-Received: by mail-pf0-f175.google.com with SMTP id 65so10960148pfd.2
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 01:29:55 -0800 (PST)
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34184 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751237AbcBCJaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 04:30:17 -0500
+Received: by mail-pf0-f176.google.com with SMTP id o185so10976794pfb.1
+        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 01:30:16 -0800 (PST)
 In-Reply-To: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds an ixgbe data structure that is used to determine what
-headers:fields can be matched and in what order they are supported.
+This adds initial support for offloading the u32 tc classifier. This
+initial implementation only implements a few base matches and actions
+to illustrate the use of the infrastructure patches.
 
-For hardware devices this can be a bit tricky because typically
-only pre-programmed (firmware, ucode, rtl) parse graphs will be
-supported and we don't yet have an interface to change these from
-the OS. So its sort of a you get whatever your friendly vendor
-provides affair at the moment.
+However it is an interesting subset because it handles the u32 next
+hdr logic to correctly map tcp packets from ip headers using the ihl
+and protocol fields. After this is accepted we can extend the match
+and action fields easily by updating the model header file.
 
-In the future we can add the get routines and set routines to
-update this data structure. One interesting thing to note here
-is the data structure here identifies ethernet, ip, and tcp
-fields without having to hardcode them as enumerations or use
-other identifiers.
+Also only the drop action is supported initially.
+
+Here is a short test script,
+
+ #tc qdisc add dev eth4 ingress
+ #tc filter add dev eth4 parent ffff: protocol ip \
+	u32 ht 800: order 1 \
+	match ip dst 15.0.0.1/32 match ip src 15.0.0.2/32 action drop
+
+<-- hardware has dst/src ip match rule installed -->
+
+ #tc filter del dev eth4 parent ffff: prio 49152
+ #tc filter add dev eth4 parent ffff: protocol ip prio 99 \
+	handle 1: u32 divisor 1
+ #tc filter add dev eth4 protocol ip parent ffff: prio 99 \
+	u32 ht 800: order 1 link 1: \
+	offset at 0 mask 0f00 shift 6 plus 0 eat match ip protocol 6 ff
+ #tc filter add dev eth4 parent ffff: protocol ip \
+	u32 ht 1: order 3 match tcp src 23 ffff action drop
+
+<-- hardware has tcp src port rule installed -->
+
+ #tc qdisc del dev eth4 parent ffff:
+
+<-- hardware cleaned up -->
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_model.h |  112 ++++++++++++++++++++++++
- 1 file changed, 112 insertions(+)
- create mode 100644 drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    3 
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    6 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  196 ++++++++++++++++++++++
+ 3 files changed, 198 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
-new file mode 100644
-index 0000000..43ebec4
---- /dev/null
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
-@@ -0,0 +1,112 @@
-+/*******************************************************************************
-+ *
-+ * Intel 10 Gigabit PCI Express Linux drive
-+ * Copyright(c) 2013 - 2015 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program.  If not, see <http://www.gnu.org/licenses/>.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ *
-+ ******************************************************************************/
-+
-+#ifndef _IXGBE_MODEL_H_
-+#define _IXGBE_MODEL_H_
-+
-+#include "ixgbe.h"
-+#include "ixgbe_type.h"
-+
-+struct ixgbe_mat_field {
-+	unsigned int off;
-+	unsigned int mask;
-+	int (*val)(struct ixgbe_fdir_filter *input,
-+		   union ixgbe_atr_input *mask,
-+		   __u32 val, __u32 m);
-+	unsigned int type;
-+};
-+
-+static inline int ixgbe_mat_prgm_sip(struct ixgbe_fdir_filter *input,
-+				     union ixgbe_atr_input *mask,
-+				     __u32 val, __u32 m)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 4b9156c..09c2d9b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -925,6 +925,9 @@ s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
+ 					  u16 soft_id);
+ void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
+ 					  union ixgbe_atr_input *mask);
++int ixgbe_update_ethtool_fdir_entry(struct ixgbe_adapter *adapter,
++				    struct ixgbe_fdir_filter *input,
++				    u16 sw_idx);
+ void ixgbe_set_rx_mode(struct net_device *netdev);
+ #ifdef CONFIG_IXGBE_DCB
+ void ixgbe_set_rx_drop_en(struct ixgbe_adapter *adapter);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index bea96b3..726e0ee 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -2520,9 +2520,9 @@ static int ixgbe_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
+ 	return ret;
+ }
+ 
+-static int ixgbe_update_ethtool_fdir_entry(struct ixgbe_adapter *adapter,
+-					   struct ixgbe_fdir_filter *input,
+-					   u16 sw_idx)
++int ixgbe_update_ethtool_fdir_entry(struct ixgbe_adapter *adapter,
++				    struct ixgbe_fdir_filter *input,
++				    u16 sw_idx)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct hlist_node *node2;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 03e236c..a1a91bf 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -51,6 +51,7 @@
+ #include <linux/prefetch.h>
+ #include <scsi/fc/fc_fcoe.h>
+ #include <net/vxlan.h>
++#include <net/pkt_cls.h>
+ 
+ #ifdef CONFIG_OF
+ #include <linux/of_net.h>
+@@ -8200,10 +8201,197 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
+ 	return 0;
+ }
+ 
++#include <net/tc_act/tc_gact.h>
++#include "ixgbe_model.h"
++static int ixgbe_delete_clsu32(struct ixgbe_adapter *adapter,
++			       struct tc_cls_u32_offload *cls)
 +{
-+	input->filter.formatted.src_ip[0] = val;
-+	mask->formatted.src_ip[0] = m;
-+	return 0;
++	int err;
++
++	spin_lock(&adapter->fdir_perfect_lock);
++	err = ixgbe_update_ethtool_fdir_entry(adapter, NULL, cls->knode.handle);
++	spin_unlock(&adapter->fdir_perfect_lock);
++	return err;
 +}
 +
-+static inline int ixgbe_mat_prgm_dip(struct ixgbe_fdir_filter *input,
-+				     union ixgbe_atr_input *mask,
-+				     __u32 val, __u32 m)
++#define IXGBE_MAX_LINK_HANDLE 10
++static struct ixgbe_mat_field *
++ixgbe_jump_tables[IXGBE_MAX_LINK_HANDLE] = {ixgbe_ipv4_fields,};
++
++static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
++				  __be16 protocol,
++				  struct tc_cls_u32_offload *cls)
 +{
-+	input->filter.formatted.dst_ip[0] = val;
-+	mask->formatted.dst_ip[0] = m;
-+	return 0;
++	u32 loc = cls->knode.handle & 0xfffff;
++	struct ixgbe_hw *hw = &adapter->hw;
++	struct ixgbe_mat_field *field_ptr;
++	struct ixgbe_fdir_filter *input;
++	union ixgbe_atr_input mask;
++#ifdef CONFIG_NET_CLS_ACT
++	const struct tc_action *a;
++#endif
++	int i, err = 0;
++	u8 queue;
++	u32 handle;
++
++	memset(&mask, 0, sizeof(union ixgbe_atr_input));
++	handle = cls->knode.handle;
++
++	/* At the moment cls_u32 jumps to transport layer and skips past
++	 * L2 headers. The canonical method to match L2 frames is to use
++	 * negative values. However this is error prone at best but really
++	 * just broken because there is no way to "know" what sort of hdr
++	 * is in front of the transport layer. Fix cls_u32 to support L2
++	 * headers when needed.
++	 */
++	if (protocol != htons(ETH_P_IP))
++		return -EINVAL;
++
++	if (cls->knode.link_handle ||
++	    cls->knode.link_handle >= IXGBE_MAX_LINK_HANDLE) {
++		struct ixgbe_nexthdr *nexthdr = ixgbe_ipv4_jumps;
++		u32 uhtid = TC_U32_USERHTID(cls->knode.link_handle);
++
++		for (i = 0; nexthdr[i].jump; i++) {
++			if (nexthdr->o != cls->knode.sel->offoff ||
++			    nexthdr->s != cls->knode.sel->offshift ||
++			    nexthdr->m != cls->knode.sel->offmask ||
++			    /* do not support multiple key jumps its just mad */
++			    cls->knode.sel->nkeys > 1)
++				return -EINVAL;
++
++			if (nexthdr->off != cls->knode.sel->keys[0].off ||
++			    nexthdr->val != cls->knode.sel->keys[0].val ||
++			    nexthdr->mask != cls->knode.sel->keys[0].mask)
++				return -EINVAL;
++
++			if (uhtid >= IXGBE_MAX_LINK_HANDLE)
++				return -EINVAL;
++
++			ixgbe_jump_tables[uhtid] = nexthdr->jump;
++		}
++		return 0;
++	}
++
++	if (loc >= ((1024 << adapter->fdir_pballoc) - 2)) {
++		e_err(drv, "Location out of range\n");
++		return -EINVAL;
++	}
++
++	/* cls u32 is a graph starting at root node 0x800. The driver tracks
++	 * links and also the fields used to advance the parser across each
++	 * link (e.g. nexthdr/eat parameters from 'tc'). This way we can map
++	 * the u32 graph onto the hardware parse graph denoted in ixgbe_model.h
++	 * To add support for new nodes update ixgbe_model.h parse structures
++	 * this function _should_ be generic try not to hardcode values here.
++	 */
++	if (TC_U32_USERHTID(handle) == 0x800) {
++		field_ptr = ixgbe_jump_tables[0];
++	} else {
++		if (TC_U32_USERHTID(handle) >= ARRAY_SIZE(ixgbe_jump_tables))
++			return -EINVAL;
++
++		field_ptr = ixgbe_jump_tables[TC_U32_USERHTID(handle)];
++	}
++
++	if (!field_ptr)
++		return -EINVAL;
++
++	input = kzalloc(sizeof(*input), GFP_KERNEL);
++	if (!input)
++		return -ENOMEM;
++
++	for (i = 0; i < cls->knode.sel->nkeys; i++) {
++		int off = cls->knode.sel->keys[i].off;
++		__be32 val = cls->knode.sel->keys[i].val;
++		__be32 m = cls->knode.sel->keys[i].mask;
++		bool found_entry = false;
++		int j;
++
++		for (j = 0; field_ptr[j].val; j++) {
++			if (field_ptr[j].off == off &&
++			    field_ptr[j].mask == m) {
++				field_ptr[j].val(input, &mask, val, m);
++				input->filter.formatted.flow_type |=
++					field_ptr[j].type;
++				found_entry = true;
++				break;
++			}
++		}
++
++		if (!found_entry)
++			goto err_out;
++	}
++
++	mask.formatted.flow_type = IXGBE_ATR_L4TYPE_IPV6_MASK |
++				   IXGBE_ATR_L4TYPE_MASK;
++
++	if (input->filter.formatted.flow_type == IXGBE_ATR_FLOW_TYPE_IPV4)
++		mask.formatted.flow_type &= IXGBE_ATR_L4TYPE_IPV6_MASK;
++
++#ifdef CONFIG_NET_CLS_ACT
++	if (list_empty(&cls->knode.exts->actions))
++		goto err_out;
++
++	list_for_each_entry(a, &cls->knode.exts->actions, list) {
++		if (!is_tcf_gact_dropped(a))
++			goto err_out;
++	}
++#endif
++
++	input->action = IXGBE_FDIR_DROP_QUEUE;
++	queue = IXGBE_FDIR_DROP_QUEUE;
++	input->sw_idx = loc;
++
++	spin_lock(&adapter->fdir_perfect_lock);
++
++	if (hlist_empty(&adapter->fdir_filter_list)) {
++		memcpy(&adapter->fdir_mask, &mask, sizeof(mask));
++		err = ixgbe_fdir_set_input_mask_82599(hw, &mask);
++		if (err)
++			goto err_out_w_lock;
++	} else if (memcmp(&adapter->fdir_mask, &mask, sizeof(mask))) {
++		err = -EINVAL;
++		goto err_out_w_lock;
++	}
++
++	ixgbe_atr_compute_perfect_hash_82599(&input->filter, &mask);
++	err = ixgbe_fdir_write_perfect_filter_82599(hw, &input->filter,
++						    input->sw_idx, queue);
++	if (!err)
++		ixgbe_update_ethtool_fdir_entry(adapter, input, input->sw_idx);
++	spin_unlock(&adapter->fdir_perfect_lock);
++
++	return err;
++err_out_w_lock:
++	spin_unlock(&adapter->fdir_perfect_lock);
++err_out:
++	kfree(input);
++	return -EINVAL;
 +}
 +
-+static struct ixgbe_mat_field ixgbe_ipv4_fields[] = {
-+	{ .off = 12, .mask = -1, .val = ixgbe_mat_prgm_sip,
-+	  .type = IXGBE_ATR_FLOW_TYPE_IPV4},
-+	{ .off = 16, .mask = -1, .val = ixgbe_mat_prgm_dip,
-+	  .type = IXGBE_ATR_FLOW_TYPE_IPV4},
-+	{ .val = NULL } /* terminal node */
-+};
+ int __ixgbe_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
+ 		     struct tc_to_netdev *tc)
+ {
+-	/* Only support egress tc setup for now */
++	struct ixgbe_adapter *adapter = netdev_priv(dev);
 +
-+static inline int ixgbe_mat_prgm_sport(struct ixgbe_fdir_filter *input,
-+				       union ixgbe_atr_input *mask,
-+				       __u32 val, __u32 m)
-+{
-+	input->filter.formatted.src_port = val & 0xffff;
-+	mask->formatted.src_port = m & 0xffff;
-+	return 0;
-+};
++	if (TC_H_MAJ(handle) == TC_H_MAJ(TC_H_INGRESS) &&
++	    tc->type == TC_SETUP_CLSU32) {
++		if (!(dev->hw_features & NETIF_F_HW_TC))
++			return -EINVAL;
 +
-+static inline int ixgbe_mat_prgm_dport(struct ixgbe_fdir_filter *input,
-+				       union ixgbe_atr_input *mask,
-+				       __u32 val, __u32 m)
-+{
-+	input->filter.formatted.dst_port = val & 0xffff;
-+	mask->formatted.dst_port = m & 0xffff;
-+	return 0;
-+};
++		switch (tc->cls_u32->command) {
++		case TC_CLSU32_NEW_KNODE:
++		case TC_CLSU32_REPLACE_KNODE:
++			return ixgbe_configure_clsu32(adapter,
++						      proto, tc->cls_u32);
++		case TC_CLSU32_DELETE_KNODE:
++			return ixgbe_delete_clsu32(adapter, tc->cls_u32);
++		default:
++			return -EINVAL;
++		}
++	}
 +
-+static struct ixgbe_mat_field ixgbe_tcp_fields[] = {
-+	{.off = 0, .mask = 0xffff, .val = ixgbe_mat_prgm_sport,
-+	 .type = IXGBE_ATR_FLOW_TYPE_TCPV4},
-+	{.off = 2, .mask = 0xffff, .val = ixgbe_mat_prgm_dport,
-+	 .type = IXGBE_ATR_FLOW_TYPE_TCPV4},
-+	{ .val = NULL } /* terminal node */
-+};
-+
-+struct ixgbe_nexthdr {
-+	/* offset, shift, and mask of position to next header */
-+	unsigned int o;
-+	__u32 s;
-+	__u32 m;
-+	/* match criteria to make this jump*/
-+	unsigned int off;
-+	__u32 val;
-+	__u32 mask;
-+	/* location of jump to make */
-+	struct ixgbe_mat_field *jump;
-+};
-+
-+static struct ixgbe_nexthdr ixgbe_ipv4_jumps[] = {
-+	{ .o = 0, .s = 6, .m = 0xf,
-+	  .off = 8, .val = 0x600, .mask = 0xff00, .jump = ixgbe_tcp_fields},
-+	{ .jump = NULL } /* terminal node */
-+};
-+#endif /* _IXGBE_MODEL_H_ */
+ 	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
+@@ -8277,6 +8465,7 @@ static int ixgbe_set_features(struct net_device *netdev,
+ 	 */
+ 	switch (features & NETIF_F_NTUPLE) {
+ 	case NETIF_F_NTUPLE:
++	case NETIF_F_HW_TC:
+ 		/* turn off ATR, enable perfect filters and reset */
+ 		if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
+ 			need_reset = true;
+@@ -8667,9 +8856,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_set_vf_trust	= ixgbe_ndo_set_vf_trust,
+ 	.ndo_get_vf_config	= ixgbe_ndo_get_vf_config,
+ 	.ndo_get_stats64	= ixgbe_get_stats64,
+-#ifdef CONFIG_IXGBE_DCB
+ 	.ndo_setup_tc		= __ixgbe_setup_tc,
+-#endif
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= ixgbe_netpoll,
+ #endif
+@@ -9040,7 +9227,8 @@ skip_sriov:
+ 	case ixgbe_mac_X550EM_x:
+ 		netdev->features |= NETIF_F_SCTP_CRC;
+ 		netdev->hw_features |= NETIF_F_SCTP_CRC |
+-				       NETIF_F_NTUPLE;
++				       NETIF_F_NTUPLE |
++				       NETIF_F_HW_TC;
+ 		break;
+ 	default:
+ 		break;
