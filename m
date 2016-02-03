@@ -1,50 +1,76 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] flowi: add concept of "not_oif"
-Date: Wed, 3 Feb 2016 22:42:51 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1602032149170.1802@ja.home.ssi.bg>
-References: <CAHmME9pgwgjKJAFH2=sEEMJauno_rVEzY6JORTQze91Xo5zefw@mail.gmail.com> <1454521595-6721-1-git-send-email-Jason@zx2c4.com>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH] of: of_mdio: Add marvell,88e1145 to whitelist of PHY
+ compatibilities.
+Date: Wed, 3 Feb 2016 12:14:05 -0800
+Message-ID: <56B25F8D.6070809@caviumnetworks.com>
+References: <1454528129-6144-1-git-send-email-aaro.koskinen@iki.fi> <20160203200857.GA10262@lunn.ch>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	dsa@cumulusnetworks.com
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Aaro Koskinen <aaro.koskinen@iki.fi>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:45032 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932088AbcBCUnB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2016 15:43:01 -0500
-In-Reply-To: <1454521595-6721-1-git-send-email-Jason@zx2c4.com>
+Received: from mail-bl2on0078.outbound.protection.outlook.com ([65.55.169.78]:9680
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933306AbcBCUrO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2016 15:47:14 -0500
+In-Reply-To: <20160203200857.GA10262@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 02/03/2016 12:08 PM, Andrew Lunn wrote:
+> On Wed, Feb 03, 2016 at 09:35:29PM +0200, Aaro Koskinen wrote:
+>> Commit ae461131960b ("of: of_mdio: Add a whitelist of PHY
+>> compatibilities.") missed one compatible string used in in-tree DTBs:
+>> in OCTEON, for selected boards, the kernel DTB pruning code will overwrite
+>> the DTB compatible string with "marvell,88e1145", which is missing
+>> from the whitelist. Add it.
+>
+> Does this overwriting means this compatibility is not visible in the
+> current DTS files? Or did i miss it?
+>
+> At least for the Marvell SoCs i intend to submit a patch removing
+> these compatible strings from the DTS files. Will you do the same for
+> the OCTEON boards?
 
-	Hello,
 
-On Wed, 3 Feb 2016, Jason A. Donenfeld wrote:
+The compatibility strings may be present in deployed firmware, they 
+cannot be removed.  For many OCTEON boards, the device tree is a 
+firmware-kernel ABI, it is not practical to unilaterally decide to 
+change the bindings on the kernel side as you don't control the firmware.
 
-> This patch simply adds support for specifying a "not_oif" device in
-> flowi4 and flowi6 lookups, that will find a matching route that _isn't_
-> via the specified device.
+David Daney
 
-	If you check every flowi4_oif user you will notice
-that some places can not fulfil this requirement:
-
-- fib_select_path -> fib_select_multipath
-
-	Other places like fib_select_default are called
-for flowi4_oif=0 and there are no other checks for flowi4_oif
-but they will be needed for the new field.
-
-	I don't know about the particular problems with
-tunnels but the scripts can use the route metric to order
-the routes in a table. Your patch looks simple but misses
-a dozen of problems. The first breakage should be from the
-missing initialization of this new field because the flowi
-structure is not initialized at some places. Random
-stack can lead to skipped routes. If this feature has
-fans, you have to check all places that use flowi4_oif and
-flowi6_oif.
-
-Regards
+>
+>> The patch fixes broken networking on EdgeRouter Lite.
+>>
+>> Fixes: ae461131960b ("of: of_mdio: Add a whitelist of PHY compatibilities.")
+>> Signed-off-by: Aaro Koskinen <aaro.koskinen@iki.fi>
+>
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+>
+> Thanks
+> 	Andrew
+>
+>> ---
+>>   drivers/of/of_mdio.c | 1 +
+>>   1 file changed, 1 insertion(+)
+>>
+>> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+>> index 5648317..39c4be4 100644
+>> --- a/drivers/of/of_mdio.c
+>> +++ b/drivers/of/of_mdio.c
+>> @@ -154,6 +154,7 @@ static const struct of_device_id whitelist_phys[] = {
+>>   	{ .compatible = "marvell,88E1111", },
+>>   	{ .compatible = "marvell,88e1116", },
+>>   	{ .compatible = "marvell,88e1118", },
+>> +	{ .compatible = "marvell,88e1145", },
+>>   	{ .compatible = "marvell,88e1149r", },
+>>   	{ .compatible = "marvell,88e1310", },
+>>   	{ .compatible = "marvell,88E1510", },
+>> --
+>> 2.4.0
+>>
