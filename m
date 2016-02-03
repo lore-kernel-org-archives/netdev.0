@@ -1,98 +1,100 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next] hv_netvsc: Increase delay for
- RNDIS_STATUS_NETWORK_CHANGE
-Date: Wed, 03 Feb 2016 14:05:54 +0100
-Message-ID: <87si1ax7t9.fsf@vitty.brq.redhat.com>
-References: <1454458556-10591-1-git-send-email-haiyangz@microsoft.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [patch net-next RFC 0/6] Introduce devlink interface and first
+ drivers to use it
+Date: Wed, 3 Feb 2016 14:31:33 +0100
+Message-ID: <20160203143133.1b70bcb5@redhat.com>
+References: <1454496482-13961-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
- davem@davemloft.net
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1454458556-10591-1-git-send-email-haiyangz@microsoft.com>
- (Haiyang Zhang's message of "Tue, 2 Feb 2016 16:15:56 -0800")
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: brouer@redhat.com, netdev@vger.kernel.org, davem@davemloft.net,
+	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+	ogerlitz@mellanox.com, yishaih@mellanox.com, dledford@redhat.com,
+	sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	eugenia@mellanox.com, roopa@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com, hadarh@mellanox.com, jhs@mojatatu.com,
+	john.fastabend@gmail.com, jeffrey.t.kirsher@intel.com,
+	jbenc@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41020 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756033AbcBCNbm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2016 08:31:42 -0500
+In-Reply-To: <1454496482-13961-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Haiyang Zhang <haiyangz@microsoft.com> writes:
+On Wed,  3 Feb 2016 11:47:56 +0100
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-> We simulates a link down period for RNDIS_STATUS_NETWORK_CHANGE message to
-> trigger DHCP renew. User daemons may need multiple seconds to trigger the
-> link down event. (e.g. ifplugd: 5sec, network-manager: 4sec.) So update
-> this link down period to 10 sec to properly trigger DHCP renew.
->
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> There a is need for some userspace API that would allow to expose things
+> that are not directly related to any device class like net_device of
+> ib_device, but rather chip-wide/switch-ASIC-wide stuff.
+> 
+> Use cases:
+> 1) get/set of port type (Ethernet/InfiniBand)
+> 2) monitoring of hardware messages to and from chip
+> 3) setting up port splitters - split port into multiple ones and squash again,
+>    enables usage of splitter cable
+> 4) setting up shared buffers - shared among multiple ports within one chip
+> 
+> First patch of this set introduces a new generic Netlink based interface,
+> called "devlink". It is similar to nl80211 model and it is heavily
+> influenced by it, including the API definition. The devlink introduction patch
+> implements use cases 1) and 2). Other 2 are in development atm and will
+> be addressed by follow-ups.
+> 
+> It is very convenient for drivers to use devlink, as you can see in other
+> patches in this set.
+> 
+> Counterpart for devlink is userspace tool called "dl". Command line interface
+> and outputs are derived from "ip" tool so it should be easy for users to get
+> used to it.
+> 
+> It is available here:
+> https://github.com/jpirko/devlink
 
-I probably don't follow: why do we need sucha a delay? If (with real
-hardware) you plug network cable out and in one second you plug it in
-you'll get DHCP renewed, right?
+IHMO this very short command name "dl" is not an advantage.  It is
+simply too unspecific and short for a good Google search.  E.g. when
+searching for good examples for using "dl".  I think "devlink" would be
+better.  If you like short commands do: alias dl="devlink"
 
-When I introduced RNDIS_STATUS_NETWORK_CHANGE handling by emulating a
-pair of up/down events I put 2 second delay to make link_watch happy (as
-we only handle 1 event per second there) but 10 seconds sounds to much
-to me.
 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> ---
->  drivers/net/hyperv/netvsc_drv.c |   10 ++++++++--
->  1 files changed, 8 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-> index 1d3a665..6f23973 100644
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-> @@ -43,6 +43,8 @@
->
->  #define RING_SIZE_MIN 64
->  #define LINKCHANGE_INT (2 * HZ)
-> +/* Extra delay for RNDIS_STATUS_NETWORK_CHANGE: */
-> +#define LINKCHANGE_DELAY (8 * HZ)
->  static int ring_size = 128;
->  module_param(ring_size, int, S_IRUGO);
->  MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
-> @@ -964,6 +966,7 @@ static void netvsc_link_change(struct work_struct *w)
->  		return;
->  	}
->  	ndev_ctx->last_reconfig = jiffies;
-> +	delay = LINKCHANGE_INT;
->
->  	spin_lock_irqsave(&ndev_ctx->lock, flags);
->  	if (!list_empty(&ndev_ctx->reconfig_events)) {
-> @@ -1009,8 +1012,11 @@ static void netvsc_link_change(struct work_struct *w)
->  			netif_tx_stop_all_queues(net);
->  			event->event = RNDIS_STATUS_MEDIA_CONNECT;
->  			spin_lock_irqsave(&ndev_ctx->lock, flags);
-> -			list_add_tail(&event->list, &ndev_ctx->reconfig_events);
-> +			list_add(&event->list, &ndev_ctx->reconfig_events);
-
-Why? Adding to tail was here to not screw the order of events...
-
->  			spin_unlock_irqrestore(&ndev_ctx->lock, flags);
-> +
-> +			ndev_ctx->last_reconfig += LINKCHANGE_DELAY;
-> +			delay = LINKCHANGE_INT + LINKCHANGE_DELAY;
->  			reschedule = true;
->  		}
->  		break;
-> @@ -1025,7 +1031,7 @@ static void netvsc_link_change(struct work_struct *w)
->  	 * second, handle next reconfig event in 2 seconds.
->  	 */
->  	if (reschedule)
-> -		schedule_delayed_work(&ndev_ctx->dwork, LINKCHANGE_INT);
-> +		schedule_delayed_work(&ndev_ctx->dwork, delay);
->  }
->
->  static void netvsc_free_netdev(struct net_device *netdev)
+> Example usage:
+> butter:~$ dl help
+> Usage: dl [ OPTIONS ] OBJECT { COMMAND | help }
+> where  OBJECT := { dev | port | monitor }
+>        OPTIONS := { -v/--verbose }
+> 
+> butter:~$ dl dev show
+> 0: devlink0: bus pci dev 0000:01:00.0
+> 
+> butter:~$ dl port help
+> Usage: dl port show [DEV/PORT_INDEX]
+> Usage: dl port set DEV/PORT_INDEX [ type { eth | ib | auto} ]
+> 
+> butter:~$ dl port show
+> devlink0/1: type ib ibdev mlx4_0
+> devlink0/2: type ib ibdev mlx4_0
+> 
+> butter:~$ sudo dl port set devlink0/1 type eth
+> 
+> butter:~$ dl port show
+> devlink0/1: type eth netdev ens4
+> devlink0/2: type ib ibdev mlx4_0
+> 
+> butter:~$ sudo dl port set devlink0/1 type auto
+> 
+> butter:~$ dl port show
+> devlink0/1: type eth(auto) netdev ens4
+> devlink0/2: type ib ibdev mlx4_0
 
 -- 
-  Vitaly
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
