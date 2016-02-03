@@ -1,116 +1,148 @@
-From: "Fastabend, John R" <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH 7/7] net: ixgbe: add support for tc_u32 offload
-Date: Wed, 3 Feb 2016 11:02:45 -0800
-Message-ID: <56B24ED5.4010903@gmail.com>
-References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
- <20160203092959.1356.91778.stgit@john-Precision-Tower-5810>
- <20160203100716.GA20905@office.Home> <56B1D5D2.7040807@gmail.com>
- <56B1F689.5040609@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@mellanox.com, jiri@resnulli.us,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>, "Amir Vadai\"" <amir@vadai.me>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH net-next] bonding: 3ad: apply ad_actor settings changes immediately
+Date: Wed, 03 Feb 2016 11:05:31 -0800
+Message-ID: <7907.1454526331@famine>
+References: <1454501821-22175-1-git-send-email-razor@blackwall.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Nikolay Aleksandrov <razor@blackwall.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:34229 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965408AbcBCTDG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 14:03:06 -0500
-Received: by mail-ob0-f180.google.com with SMTP id wb13so44216697obb.1
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 11:03:05 -0800 (PST)
-In-Reply-To: <56B1F689.5040609@mojatatu.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:45397 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965676AbcBCTFg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 14:05:36 -0500
+In-reply-to: <1454501821-22175-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/3/2016 4:46 AM, Jamal Hadi Salim wrote:
-[...]
+Nikolay Aleksandrov <razor@blackwall.org> wrote:
 
->>>>
->>>
->>> What are you doing w.r.t priorities? Are the filters processed by the
->>> order of the priorities?
->>>
+>From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>
+>Currently the bonding allows to set ad_actor_system and prio while the
+>bond device is down, but these are actually applied only if there aren't
+>any slaves yet (applied to bond device when first slave shows up, and to
+>slaves at 3ad bind time). After this patch changes are applied immediately
+>and the new values can be used/seen after the bond's upped so it's not
+>necessary anymore to release all and enslave again to see the changes.
+>
+>CC: Jay Vosburgh <j.vosburgh@gmail.com>
+>CC: Veaceslav Falico <vfalico@gmail.com>
+>CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+>Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-In the same order as software processes filters. I tried to faithfully
-translate the u32 classify and  u32_change loops into hardware. If I
-missed some case its a bug and I'll fix it. My reading and experiments
-of u32 indicate the ht:bucket:node build a handle and this is how we
-order rules.
+	Looks good to me.
 
-When I test this I create a veth pair and create the same rule set on
-the veth pair as my hardware netdev. Then inject a skb into both
-the veth and hardware netdev if you get different results its a bug.
+Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
 
->>
->> The rules are put in order by the handles which is populated in
->> my command above such that 'ht 1: order 3' gives handle 1::3 and
->> 'ht 800: order 1' gives 800::1. Take a look at this block in cls_u32
->>
->>          if (err == 0) {
->>                  struct tc_u_knode __rcu **ins;
->>                  struct tc_u_knode *pins;
->>
->>                  ins = &ht->ht[TC_U32_HASH(handle)];
->>                  for (pins = rtnl_dereference(*ins); pins;
->>                       ins = &pins->next, pins = rtnl_dereference(*ins))
->>                          if (TC_U32_NODE(handle) <
->> TC_U32_NODE(pins->handle))
->>                                  break;
->>
->>                  RCU_INIT_POINTER(n->next, pins);
->>                  rcu_assign_pointer(*ins, n);
->>                  u32_replace_hw_knode(tp, n);
->>                  *arg = (unsigned long)n;
->>                  return 0;
->>
->>
->> If you leave ht and order off the tc cli I believe 'tc' just
->> picks some semi-arbitrary ones for you. I've been in the habit
->> of always specifying them even for software filters.
->>
+	-J
+
+>---
+> drivers/net/bonding/bond_3ad.c     | 40 +++++++++++++++++++++++++++++++++++---
+> drivers/net/bonding/bond_options.c |  4 ++++
+> include/net/bond_3ad.h             |  1 +
+> 3 files changed, 42 insertions(+), 3 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>index 4cbb8b27a891..ee94056dbb2e 100644
+>--- a/drivers/net/bonding/bond_3ad.c
+>+++ b/drivers/net/bonding/bond_3ad.c
+>@@ -357,6 +357,14 @@ static u8 __get_duplex(struct port *port)
+> 	return retval;
+> }
 > 
-> The default table id is essentially 0x800. Default bucket is 0.
-> "order" essentially is the filter id. And given you can link tables
-> (Nice work John!); essentially the ht:bucket:nodeid is an "address" to
-> a specific filter on a specific table and when makes sense a specific
-> hash bucket. Some other way to look at it is as a way to construct
-> a mapping to a TCAM key.
-
-Sure as long as your mapping works/looks like the software only case
-it doesn't matter how you do the hardware mapping and my guess is this
-is going to be highly device specific. Even with the handful of devices
-I have it looks different depending on the device.
-
-Note if you don't do the table links there really is no safe
-way to get into the headers beyond the IP header because you need the
-nexthdr stuff. Also just to stick this out there I have a patch to let
-cls_u32 start processing at the ethernet header instead of the
-transport header similar to how bpf works. This negative offset business
-doesn't really work as best I can tell.
-
-> What John is doing is essentially taking the nodeid and trying to use
-> it as a priority. In otherwise the abstraction is reduced to a linked
-> list in which the ordering is how the list is traversed.
-> It may work in this case, but i am for being able to explicitly specify
-> priorities.
-
-But that doesn't exist in software today. If users want explicit order
-today they build the ht, nodeid out correctly just use that. If you
-are working on a TCAM just use the nodeid that should be equivalent to
-priority.
-
-And  although the ixgbe supports only a single table the mapping on more
-complex devices will take it onto multiple tables if that optimizes
-things.
-
-Note I need to do a couple fixes on my existing code one to abort when
-given a bad ifindex and two to hard abort when a hashtable is given
-a higher order rule that I can't support. Both are fairly small tweaks
-to the ixgbe code not to the infrastructure.
-
+>+static void __ad_actor_update_port(struct port *port)
+>+{
+>+	const struct bonding *bond = bond_get_bond_by_slave(port->slave);
+>+
+>+	port->actor_system = BOND_AD_INFO(bond).system.sys_mac_addr;
+>+	port->actor_system_priority = BOND_AD_INFO(bond).system.sys_priority;
+>+}
+>+
+> /* Conversions */
 > 
-> cheers,
-> jamal
+> /**
+>@@ -1963,9 +1971,7 @@ void bond_3ad_bind_slave(struct slave *slave)
+> 		port->actor_admin_port_key = bond->params.ad_user_port_key << 6;
+> 		ad_update_actor_keys(port, false);
+> 		/* actor system is the bond's system */
+>-		port->actor_system = BOND_AD_INFO(bond).system.sys_mac_addr;
+>-		port->actor_system_priority =
+>-		    BOND_AD_INFO(bond).system.sys_priority;
+>+		__ad_actor_update_port(port);
+> 		/* tx timer(to verify that no more than MAX_TX_IN_SECOND
+> 		 * lacpdu's are sent in one second)
+> 		 */
+>@@ -2148,6 +2154,34 @@ out:
+> }
 > 
+> /**
+>+ * bond_3ad_update_ad_actor_settings - reflect change of actor settings to ports
+>+ * @bond: bonding struct to work on
+>+ *
+>+ * If an ad_actor setting gets changed we need to update the individual port
+>+ * settings so the bond device will use the new values when it gets upped.
+>+ */
+>+void bond_3ad_update_ad_actor_settings(struct bonding *bond)
+>+{
+>+	struct list_head *iter;
+>+	struct slave *slave;
+>+
+>+	ASSERT_RTNL();
+>+
+>+	BOND_AD_INFO(bond).system.sys_priority = bond->params.ad_actor_sys_prio;
+>+	if (is_zero_ether_addr(bond->params.ad_actor_system))
+>+		BOND_AD_INFO(bond).system.sys_mac_addr =
+>+		    *((struct mac_addr *)bond->dev->dev_addr);
+>+	else
+>+		BOND_AD_INFO(bond).system.sys_mac_addr =
+>+		    *((struct mac_addr *)bond->params.ad_actor_system);
+>+
+>+	spin_lock_bh(&bond->mode_lock);
+>+	bond_for_each_slave(bond, slave, iter)
+>+		__ad_actor_update_port(&(SLAVE_AD_INFO(slave)->port));
+>+	spin_unlock_bh(&bond->mode_lock);
+>+}
+>+
+>+/**
+>  * bond_3ad_state_machine_handler - handle state machines timeout
+>  * @bond: bonding struct to work on
+>  *
+>diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+>index 55e93b6b6d21..ed0bdae64f5e 100644
+>--- a/drivers/net/bonding/bond_options.c
+>+++ b/drivers/net/bonding/bond_options.c
+>@@ -1392,6 +1392,8 @@ static int bond_option_ad_actor_sys_prio_set(struct bonding *bond,
+> 		    newval->value);
+> 
+> 	bond->params.ad_actor_sys_prio = newval->value;
+>+	bond_3ad_update_ad_actor_settings(bond);
+>+
+> 	return 0;
+> }
+> 
+>@@ -1418,6 +1420,8 @@ static int bond_option_ad_actor_system_set(struct bonding *bond,
+> 
+> 	netdev_info(bond->dev, "Setting ad_actor_system to %pM\n", mac);
+> 	ether_addr_copy(bond->params.ad_actor_system, mac);
+>+	bond_3ad_update_ad_actor_settings(bond);
+>+
+> 	return 0;
+> 
+> err:
+>diff --git a/include/net/bond_3ad.h b/include/net/bond_3ad.h
+>index f1fbc3b11962..f358ad5e4214 100644
+>--- a/include/net/bond_3ad.h
+>+++ b/include/net/bond_3ad.h
+>@@ -306,5 +306,6 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
+> 			 struct slave *slave);
+> int bond_3ad_set_carrier(struct bonding *bond);
+> void bond_3ad_update_lacp_rate(struct bonding *bond);
+>+void bond_3ad_update_ad_actor_settings(struct bonding *bond);
+> #endif /* _NET_BOND_3AD_H */
+> 
+>-- 
+>2.4.3
+>
