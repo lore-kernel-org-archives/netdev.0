@@ -1,47 +1,34 @@
-From: Salam Noureddine <noureddine@arista.com>
-Subject: Re: [PATCH net-next 1/4] net: add event_list to struct net and
- provide utility functions
-Date: Tue, 2 Feb 2016 15:58:29 -0800
-Message-ID: <CAO7SqHBhw=tXRakKaNPCdXCFdubfYO02GXzn6M8uWwa-dd50Sg@mail.gmail.com>
-References: <1454365952-10324-1-git-send-email-noureddine@arista.com>
-	<1454365952-10324-2-git-send-email-noureddine@arista.com>
-	<alpine.LFD.2.11.1602022147330.2006@ja.home.ssi.bg>
+From: Dan Streetman <dan.streetman@canonical.com>
+Subject: bnx2x commits needed to use 7.51.10 firmware?
+Date: Tue, 2 Feb 2016 19:20:12 -0500
+Message-ID: <CAOZ2QJOX8JLgCpjohncBhove8zyZ8QMOUGLZHEr-h1D1b-qt7Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>
+Cc: netdev@vger.kernel.org
+To: Ariel Elior <ariel.elior@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37342 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754836AbcBBX6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 18:58:30 -0500
-Received: by mail-wm0-f48.google.com with SMTP id l66so46616674wml.0
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 15:58:30 -0800 (PST)
-In-Reply-To: <alpine.LFD.2.11.1602022147330.2006@ja.home.ssi.bg>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:33889 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755282AbcBCAUw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 19:20:52 -0500
+Received: by mail-ig0-f173.google.com with SMTP id ik10so73943349igb.1
+        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 16:20:52 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 2, 2016 at 12:01 PM, Julian Anastasov <ja@ssi.bg> wrote:
+Hi Ariel,
 
->> +#ifdef CONFIG_NET_NS
->> +static inline void net_add_event_list(struct list_head *head, struct net *net)
->> +{
->> +     if (!list_empty(&net->event_list))
->
->         Above check looks inverted, it works may be
-> because INIT_LIST_HEAD(&net->event_list) is missing.
->
->> +             list_add_tail(&net->event_list, head);
->> +}
->> +
+I'm trying to update the bnx2x driver in Ubuntu trusty (3.13 kernel)
+release to use the 7.51.10 firmware; can you help me determine which
+commits need to be backported?
 
-Thanks for catching this! I ran my benchmark again with the corrected check
-and I still get the same benefits with respect to rtnl_lock hold time.
+Some reference is in Launchpad bug 1454286:
+https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1454286
 
-Salam
+basically, there are 87 commits between the current bnx2x driver level
+in Ubuntu trusty's kernel, and commit e42780b where the bnx2x driver
+is acutally updated to use the 7.51.10 firmware.  Can you provide
+guidance to which commits should be pulled back?  Do all 87 of them
+need to be included?
+
+Thanks!
