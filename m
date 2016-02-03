@@ -1,92 +1,86 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: ixgbe: get link speed as a slave nic unrelated with link
-Date: Wed, 3 Feb 2016 18:17:48 +0800
-Message-ID: <56B1D3CC.4050202@gmail.com>
-References: <1452258030-63996-5-git-send-email-jeffrey.t.kirsher@intel.com>
- <1454311675-24676-1-git-send-email-zyjzyj2000@gmail.com>
- <87618083B2453E4A8714035B62D67992505210DB@FMSMSX105.amr.corp.intel.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH 0/7] tc offload for cls_u32 on ixgbe
+Date: Wed, 03 Feb 2016 02:21:29 -0800
+Message-ID: <56B1D4A9.3050801@gmail.com>
+References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810> <20160203101109.GB20905@office.Home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"Schmitt, Phillip J" <phillip.j.schmitt@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Shteinbock, Boris (Wind River)" <boris.shteinbock@windriver.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: ogerlitz@mellanox.com, jiri@resnulli.us, jhs@mojatatu.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: "Amir Vadai\"" <amir@vadai.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35812 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753349AbcBCKRV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 05:17:21 -0500
-Received: by mail-pa0-f49.google.com with SMTP id ho8so11307069pac.2
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 02:17:21 -0800 (PST)
-In-Reply-To: <87618083B2453E4A8714035B62D67992505210DB@FMSMSX105.amr.corp.intel.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:36366 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752116AbcBCKVo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 05:21:44 -0500
+Received: by mail-pa0-f53.google.com with SMTP id yy13so11334051pab.3
+        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 02:21:43 -0800 (PST)
+In-Reply-To: <20160203101109.GB20905@office.Home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Emil
-
-Thanks for your reply.
-
-I made simple tests. And maybe this patch should work. Because you can
-reproduce this problem, would you like to make tests with this patch?
-
-If this patch can fix this problem, it can prove that the root cause is=
-=20
-correct.
-We can find another solution to fix this problem.
-
-If this patch can not fix this problem, maybe we should make further=20
-investigations
-to find the root cause.
-
-Thanks a lot.
-Zhu Yanjun
-
-On 02/01/2016 11:53 PM, Tantilov, Emil S wrote:
->> -----Original Message-----
->> From: zyjzyj2000@gmail.com [mailto:zyjzyj2000@gmail.com]
->> Sent: Sunday, January 31, 2016 11:28 PM
->> To: zyjzyj2000@gmail.com; Tantilov, Emil S; Schmitt, Phillip J; Kirs=
-her,
->> Jeffrey T; netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net=
-;
->> Shteinbock, Boris (Wind River)
->> Subject: ixgbe: get link speed as a slave nic unrelated with link
+On 16-02-03 02:11 AM, Amir Vadai" wrote:
+> On Wed, Feb 03, 2016 at 01:27:32AM -0800, John Fastabend wrote:
+>> This extends the setup_tc framework so it can support more than just
+>> the mqprio offload and push other classifiers and qdiscs into the
+>> hardware. The series here targets the u32 classifier and ixgbe
+>> driver. I worked out the u32 classifier because it is protocol
+>> oblivious and aligns with multiple hardware devices I have access
+>> to. I did an initial implementation on ixgbe because (a) I have one
+>> in my box (b) its a stable driver and (c) it is relatively simple
+>> compared to the other devices I have here but still has enough
+>> flexibility to exercise the features of cls_u32.
 >>
+>> I intentionally limited the scope of this series to the basic
+>> feature set. Specifically this uses a 'big hammer' feature bit
+>> to do the offload or not. If the bit is set you get offloaded rules
+>> if it is not then rules will not be offloaded. If we can agree on
+>> this patch series there are some more patches on my queue we can
+>> talk about to make the offload decision per rule using flags similar
+>> to how we do l2 mac updates. Additionally the error strategy can
+>> be improved to be hard aborting, log and continue, etc. I think
+>> these are nice to have improvements but shouldn't block this series.
 >>
->> Hi, Emil
+>> Also by adding get_parse_graph and set_parse_graph attributes as
+>> in my previous flow_api work we can build programmable devices
+>> and programmatically learn when rules can or can not be loaded
+>> into the hardware. Again future work.
 >>
->> Thanks for your patch.
->> After I applied your patch, the following are the feedback from my u=
-sers.
+>> Any comments/feedback appreciated.
 >>
->> "
->> Users had tested the latest patch that you provided and it is much i=
-mproved
->> now. However it=E2=80=99s still not good enough as the users are pla=
-nning field
->> deployment. Here are their findings:
+>> Thanks,
+>> John
 >>
->> So close, but not quite 100%. I did run over 2500 re-negotiations on=
- one
->> interface of a bonded pair and got the 0 MBps status total of three =
-times.
->> The longest run without single error was something like 1800 re-
->> negotiations or so. So, this version seems to improve the situation
->> immensely (the unpatched driver fails like 25% of the time), but the=
-re
->> still seems to remain some tiny race somewhere.
-> Yes at the time of the bonding interface coming up there can be a mes=
-sage about 0 Mbps in dmesg,
-> however the actual bond once fully up will have the correct speeds as=
- seen by:
-> #cat /proc/net/bonding/bond0
->
-> Thanks,
-> Emil
->
->
+>> ---
+>>
+>> John Fastabend (7):
+>>       net: rework ndo tc op to consume additional qdisc handle parameter
+>>       net: rework setup_tc ndo op to consume general tc operand
+>>       net: sched: add cls_u32 offload hooks for netdevs
+>>       net: add tc offload feature flag
+>>       net: tc: helper functions to query action types
+>>       net: ixgbe: add minimal parser details for ixgbe
+>>       net: ixgbe: add support for tc_u32 offload
+>>
+> 
+> Hi John,
+> 
+> Nice work :)
+
+Thanks, we will need at least a v2 to fixup some build errors
+with various compile flags caught by build_bot and missed by me.
+
+> 
+> I will add mlx5 support, and see if can live with u32. If not - will
+> add flower support too.
+
+That would be great.
+
+Thanks
+.John
+
+> 
+> Amir
+> 
