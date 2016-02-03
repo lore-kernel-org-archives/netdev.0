@@ -1,7 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH 4/7] net: add tc offload feature flag
-Date: Wed, 03 Feb 2016 01:28:58 -0800
-Message-ID: <20160203092858.1356.91898.stgit@john-Precision-Tower-5810>
+Subject: [net-next PATCH 5/7] net: tc: helper functions to query action types
+Date: Wed, 03 Feb 2016 01:29:19 -0800
+Message-ID: <20160203092919.1356.21655.stgit@john-Precision-Tower-5810>
 References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,56 +10,53 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net
 To: amir@vadai.me, ogerlitz@mellanox.com, jiri@resnulli.us,
 	jhs@mojatatu.com, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33604 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751442AbcBCJ3P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 04:29:15 -0500
-Received: by mail-pa0-f43.google.com with SMTP id cy9so10751423pac.0
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 01:29:15 -0800 (PST)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:33641 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519AbcBCJ3e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 04:29:34 -0500
+Received: by mail-pf0-f180.google.com with SMTP id w123so11019102pfb.0
+        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 01:29:34 -0800 (PST)
 In-Reply-To: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Its useful to turn off the qdisc offload feature at a per device
-level. This gives us a big hammer to enable/disable offloading.
-More fine grained control (i.e. per rule) may be supported later.
+This is a helper function drivers can use to learn if the
+action type is a drop action.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- include/linux/netdev_features.h |    3 +++
- net/core/ethtool.c              |    1 +
- 2 files changed, 4 insertions(+)
+ include/net/tc_act/tc_gact.h |   16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index d9654f0e..a734bf4 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -67,6 +67,8 @@ enum {
- 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
- 	NETIF_F_BUSY_POLL_BIT,		/* Busy poll */
+diff --git a/include/net/tc_act/tc_gact.h b/include/net/tc_act/tc_gact.h
+index 592a6bc..3067a10 100644
+--- a/include/net/tc_act/tc_gact.h
++++ b/include/net/tc_act/tc_gact.h
+@@ -2,6 +2,7 @@
+ #define __NET_TC_GACT_H
  
-+	NETIF_F_HW_TC_BIT,		/* Offload TC infrastructure */
+ #include <net/act_api.h>
++#include <linux/tc_act/tc_gact.h>
+ 
+ struct tcf_gact {
+ 	struct tcf_common	common;
+@@ -15,4 +16,19 @@ struct tcf_gact {
+ #define to_gact(a) \
+ 	container_of(a->priv, struct tcf_gact, common)
+ 
++#ifdef CONFIG_NET_CLS_ACT
++static inline bool is_tcf_gact_dropped(const struct tc_action *a)
++{
++	struct tcf_gact *gact;
 +
- 	/*
- 	 * Add your fresh new feature above and remember to update
- 	 * netdev_features_strings[] in net/core/ethtool.c and maybe
-@@ -124,6 +126,7 @@ enum {
- #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
- #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
- #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
-+#define NETIF_F_HW_TC		__NETIF_F(HW_TC)
- 
- #define for_each_netdev_feature(mask_addr, bit)	\
- 	for_each_set_bit(bit, (unsigned long *)mask_addr, NETDEV_FEATURE_COUNT)
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index daf0470..636c1c1 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -98,6 +98,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
- 	[NETIF_F_RXALL_BIT] =            "rx-all",
- 	[NETIF_F_HW_L2FW_DOFFLOAD_BIT] = "l2-fwd-offload",
- 	[NETIF_F_BUSY_POLL_BIT] =        "busy-poll",
-+	[NETIF_F_HW_TC_BIT] =		 "hw-tc-offload",
- };
- 
- static const char
++	if (a->ops && a->ops->type != TCA_ACT_GACT)
++		return false;
++
++	gact = a->priv;
++	if (gact->tcf_action == TC_ACT_SHOT)
++		return true;
++
++	return false;
++}
++#endif
+ #endif /* __NET_TC_GACT_H */
