@@ -1,77 +1,129 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v3] net:Add sysctl_max_skb_frags
-Date: Wed, 3 Feb 2016 10:24:20 -0800
-Message-ID: <CAKgT0UeueE5EhLu0-8jcr0+su81sOV_qCpb-KGRf7q4EKsw1QQ@mail.gmail.com>
-References: <568F87AC.60405@oracle.com>
-	<1454488017-8822-1-git-send-email-hans.westgaard.ry@oracle.com>
-	<CAKgT0UftR3pTOGO91GaUijPCTq8POQcNChRqyy1b1TYsM3n4Uw@mail.gmail.com>
-	<1454515628.7627.245.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAKgT0UdGeOJ+NyegQ6vPCdXF39NoiFXQdTjAOoFaokteNWiygw@mail.gmail.com>
-	<1454522077.7627.264.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: Keystone 2 boards boot failure
+Date: Wed, 3 Feb 2016 13:47:27 -0500
+Message-ID: <56B24B3F.2070906@ti.com>
+References: <56B0DE61.2000704@ti.com> <10700980.gTvMTB9pzv@wuerfel>
+ <56B15591.7080409@ti.com> <1682165.IJ7dHXqc6L@wuerfel>
+ <56B233F3.40000@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Westphal <fw@strlen.de>, Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Michal Hocko <mhocko@suse.com>,
-	=?UTF-8?Q?Linus_L=C3=BCssing?= <linus.luessing@c0d3.blue>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tejun Heo <tj@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alexey Kodanev <alexey.kodanev@oracle.com>,
-	=?UTF-8?B?SMOla29uIEJ1Z2dl?= <haakon.bugge@oracle.com>,
-	open list <linux-kernel@vger.kernel.org>,
-	"open list
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454522077.7627.264.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <w-kwok2@ti.com>, <davem@davemloft.net>
+To: santosh shilimkar <santosh.shilimkar@oracle.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"Franklin S Cooper Jr." <fcooper@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:57507 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965800AbcBCSrc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2016 13:47:32 -0500
+In-Reply-To: <56B233F3.40000@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 3, 2016 at 9:54 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2016-02-03 at 09:43 -0800, Alexander Duyck wrote:
->
->> Read the history.  I still say it is best if we don't accept a partial
->> solution.  If we are going to introduce the sysctl as a core item it
->> should function as a core item and not as something that belongs to
->> TCP only.
->
->
-> But this patch is the base, adding both the core sysctl and its first
-> usage.
->
-> Do we really need to split it in 2 patches ? Really ?
->
-> The goal is to use it in all skb providers were it might be a
-> performance gain, once they are identified.
+On 02/03/2016 12:08 PM, santosh shilimkar wrote:
+> On 2/3/2016 8:35 AM, Arnd Bergmann wrote:
+>> On Tuesday 02 February 2016 19:19:13 Franklin S Cooper Jr. wrote:
+>>> On 02/02/2016 05:26 PM, Arnd Bergmann wrote:
+>>>> On Tuesday 02 February 2016 16:59:34 Franklin Cooper wrote:
+>>>>> On 02/02/2016 03:26 PM, Arnd Bergmann wrote:
+>>>>>> On Tuesday 02 February 2016 15:01:33 Franklin S Cooper Jr. wrote:
+>>>>> Keystone 2 devices are little-endian 32-bit devices.
+>>>> I meant the kernel you are running on it, not the hardware.
+>>>> You should always be able to run both a big-endian kernel and
+>>>> a littl-endian kernel on any ARMv7 machine, and a couple of
+>>>> platforms use 64-bit physical addresses even on 32-bit machines
+>>>> (with the normal 32-bit instruction set).
+>>>
+>>> I'm not sure if Keystone 2 devices support this or if we
+>>> have support for this. I'll have to double check.
+>>
+> I missed this thread so far but noticed after RMK's idmap
+> changes series.
+> 
+>> Don't worry about it, there is nothing you need to check:
+>>
+>> As I said, all ARMv7 *hardware* can be run in either mode, and
+>> that includes Keystone 2.
+>>
+> Right. Keystone isn't special from ARMv7 perspective.
+> 
+>> As for the kernel, it's obvious that nobody tried to run
+>> a Keystone based machine with a big-endian kernel, or they
+>> would have run into the broken network driver.
+>>
+>> I believe you also require this patch, unless the firmware is
+>> clever enough to figure out endianess by itself (very unlikely)
+>>
+>> diff --git a/arch/arm/mach-keystone/keystone.h b/arch/arm/mach-keystone/keystone.h
+>> index 33eaa037af5a..016ae7644e73 100644
+>> --- a/arch/arm/mach-keystone/keystone.h
+>> +++ b/arch/arm/mach-keystone/keystone.h
+>> @@ -16,7 +16,7 @@
+>>   #ifndef __ASSEMBLER__
+>>
+>>   extern const struct smp_operations keystone_smp_ops;
+>> -extern void secondary_startup(void);
+>> +extern void keystone_secondary_startup(void);
+>>   extern u32 keystone_cpu_smc(u32 command, u32 cpu, u32 addr);
+>>   extern int keystone_pm_runtime_init(void);
+>>
+>> diff --git a/arch/arm/mach-keystone/platsmp.c b/arch/arm/mach-keystone/platsmp.c
+>> index 5665276972ec..c427787f78d1 100644
+>> --- a/arch/arm/mach-keystone/platsmp.c
+>> +++ b/arch/arm/mach-keystone/platsmp.c
+>> @@ -26,7 +26,7 @@
+>>   static int keystone_smp_boot_secondary(unsigned int cpu,
+>>                           struct task_struct *idle)
+>>   {
+>> -    unsigned long start = virt_to_idmap(&secondary_startup);
+>> +    unsigned long start = virt_to_idmap(&keystone_secondary_startup);
+>>       int error;
+>>
+>>       pr_debug("keystone-smp: booting cpu %d, vector %08lx\n",
+>> diff --git a/arch/arm/mach-keystone/smc.S b/arch/arm/mach-keystone/smc.S
+>> index d15de8179fab..3ce858ce426e 100644
+>> --- a/arch/arm/mach-keystone/smc.S
+>> +++ b/arch/arm/mach-keystone/smc.S
+>> @@ -23,6 +23,13 @@
+>>    */
+>>   ENTRY(keystone_cpu_smc)
+>>       stmfd   sp!, {r4-r11, lr}
+>> +ARM_BE8(setend    le)            @ call SMC as LE
+>>       smc    #0
+>> +ARM_BE8(setend    be)            @ go back to BE8
+>>       ldmfd   sp!, {r4-r11, pc}
+>>   ENDPROC(keystone_cpu_smc)
+>> +
+>> +ENTRY(keystone_secondary_startup)
+>> +ARM_BE8(setend    be)            @ go BE8 if entered LE
+>> +    b    secondary_startup
+>> +ENDPROC(keyston_secondary_startup)
+>>
+>> It would be nice to give this a go once the network driver problem
+>> is solved.
+>>
+> Big endian kernel has worked on Keystone in past.
 
-That is what I thought.  So why are we trying to sell this as a core
-change then.  All I am asking for is the sysctl to be moved and
-renamed since based on all of your descriptions this clearly only
-impacts TCP.
+Yes, this was on a v3.10.x baseline, not in the upstream.
 
-> Your points were already raised and will be addressed, by either me or
-> you. And maybe others.
+> Yes, above secondary hook needs to be modified along with
+> drivers endian macro conversion was what was needed IIRC.
+> 
 
-Please don't sign me up for work I didn't volunteer for.  I already
-have enough broken code to try and fix.  I'm pretty sure I need to go
-in and fix the gso_max_size code for starters.
+To support BE, it may be more than Netcp driver. Do you recall, what
+changes you did to get BE working on Keystone? Is it just NetCP driver?
 
-If this is only meant to be a performance modification and is only
-really targeted at TCP TSO/GRO then all I ask is that we use a name
-like tcp_max_gso_frags and relocate the sysctl to the TCP section.
-Otherwise if we are actually going to try to scope this out on a wider
-level and limit all frags which is what the name implies then the
-patch set needs to make a better attempt at covering all cases where
-it may apply.
+Murali
+> Indeed, it will be good to get the BE working but for 4.5-rcx,
+> we need to fix the boot problem on priority.
+> 
+> Regards,
+> Santosh
+> 
+> 
 
-- Alex
+
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
