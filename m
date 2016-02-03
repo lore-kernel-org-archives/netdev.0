@@ -1,63 +1,44 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH iproute2] ipmonitor: match user option 'all' before 'all-nsid'
-Date: Tue,  2 Feb 2016 16:53:40 -0800
-Message-ID: <1454460820-21851-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:35298 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751832AbcBCAxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 19:53:44 -0500
-Received: by mail-pa0-f51.google.com with SMTP id ho8so3290276pac.2
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 16:53:44 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH] rtlwifi: Fix reusable codes in core.c
+Date: Wed, 3 Feb 2016 11:54:38 +1100
+Message-ID: <CAGRGNgXuCfpRVuM7Dxt9QT9TGW1zt9Qh+pqSPJ_X5zHq3A4v4w@mail.gmail.com>
+References: <20160202154855.GA8990@gmail.com> <CAGRGNgVHEsA693tQxf0Mv_4wSu-4wG7sphhRRB0gbU6o9nzZ_Q@mail.gmail.com>
+ <CAOxTRzoGkNUy2FRUQLg_01D5p6Bjxfs+w8iEJJrkM2pTdkdC5Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: ByeoungWook Kim <quddnr145@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOxTRzoGkNUy2FRUQLg_01D5p6Bjxfs+w8iEJJrkM2pTdkdC5Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Hi ByeoungWook,
 
-'ip monitor all' is broken on older kernels.
-This patch fixes 'ip monitor all' to match
-'all' and not 'all-nsid'.
+On Wed, Feb 3, 2016 at 11:52 AM, ByeoungWook Kim <quddnr145@gmail.com> wrote:
+> Hi Julian,
+>
+> 0xfe and 0xfb was not same codes.
+> 0xfe is udelay(50). and 0xfb is mdelay(50).
+> It same code like udelay((n) * 1000).
 
-It moves parsing arg 'all-nsid' to after parsing
-'all'.
+I'm clearly blind! Sorry about that!
 
-Before:
-$ip monitor all
-NETLINK_LISTEN_ALL_NSID: Protocol not available
+> but i agree with your answers of some parts. I think that i should divide
+> into separate patch.
+> Thanks for your assists!
 
-After:
-$ip monitor all
-[NEIGH]Deleted 10.0.0.1 dev eth1 lladdr c4:54:44:4f:b2:dd STALE
+Not a problem!
 
-Fixes: 449b824ad196 ("ipmonitor: allows to monitor in several netns")
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- ip/ipmonitor.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Thanks,
 
-diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
-index 99a237f..7aeccd2 100644
---- a/ip/ipmonitor.c
-+++ b/ip/ipmonitor.c
-@@ -186,8 +186,6 @@ int do_ipmonitor(int argc, char **argv)
- 			file = *argv;
- 		} else if (matches(*argv, "label") == 0) {
- 			prefix_banner = 1;
--		} else if (matches(*argv, "all-nsid") == 0) {
--			listen_all_nsid = 1;
- 		} else if (matches(*argv, "link") == 0) {
- 			llink=1;
- 			groups = 0;
-@@ -217,6 +215,8 @@ int do_ipmonitor(int argc, char **argv)
- 			groups = 0;
- 		} else if (strcmp(*argv, "all") == 0) {
- 			prefix_banner=1;
-+		} else if (matches(*argv, "all-nsid") == 0) {
-+			listen_all_nsid = 1;
- 		} else if (matches(*argv, "help") == 0) {
- 			usage();
- 		} else if (strcmp(*argv, "dev") == 0) {
 -- 
-1.9.1
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
