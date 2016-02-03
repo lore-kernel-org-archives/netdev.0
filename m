@@ -1,9 +1,8 @@
 From: "Amir Vadai\"" <amir@vadai.me>
-Subject: Re: [net-next PATCH 7/7] net: ixgbe: add support for tc_u32 offload
-Date: Wed, 3 Feb 2016 12:07:16 +0200
-Message-ID: <20160203100716.GA20905@office.Home>
+Subject: Re: [net-next PATCH 0/7] tc offload for cls_u32 on ixgbe
+Date: Wed, 3 Feb 2016 12:11:09 +0200
+Message-ID: <20160203101109.GB20905@office.Home>
 References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
- <20160203092959.1356.91778.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: ogerlitz@mellanox.com, jiri@resnulli.us, jhs@mojatatu.com,
@@ -11,94 +10,65 @@ Cc: ogerlitz@mellanox.com, jiri@resnulli.us, jhs@mojatatu.com,
 	davem@davemloft.net
 To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33457 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753364AbcBCKEV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 05:04:21 -0500
-Received: by mail-wm0-f67.google.com with SMTP id r129so6578340wmr.0
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 02:04:20 -0800 (PST)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35939 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754388AbcBCKIM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 05:08:12 -0500
+Received: by mail-wm0-f65.google.com with SMTP id 128so6587826wmz.3
+        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 02:08:12 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20160203092959.1356.91778.stgit@john-Precision-Tower-5810>
+In-Reply-To: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 03, 2016 at 01:29:59AM -0800, John Fastabend wrote:
-> This adds initial support for offloading the u32 tc classifier. This
-> initial implementation only implements a few base matches and actions
-> to illustrate the use of the infrastructure patches.
+On Wed, Feb 03, 2016 at 01:27:32AM -0800, John Fastabend wrote:
+> This extends the setup_tc framework so it can support more than just
+> the mqprio offload and push other classifiers and qdiscs into the
+> hardware. The series here targets the u32 classifier and ixgbe
+> driver. I worked out the u32 classifier because it is protocol
+> oblivious and aligns with multiple hardware devices I have access
+> to. I did an initial implementation on ixgbe because (a) I have one
+> in my box (b) its a stable driver and (c) it is relatively simple
+> compared to the other devices I have here but still has enough
+> flexibility to exercise the features of cls_u32.
 > 
-> However it is an interesting subset because it handles the u32 next
-> hdr logic to correctly map tcp packets from ip headers using the ihl
-> and protocol fields. After this is accepted we can extend the match
-> and action fields easily by updating the model header file.
+> I intentionally limited the scope of this series to the basic
+> feature set. Specifically this uses a 'big hammer' feature bit
+> to do the offload or not. If the bit is set you get offloaded rules
+> if it is not then rules will not be offloaded. If we can agree on
+> this patch series there are some more patches on my queue we can
+> talk about to make the offload decision per rule using flags similar
+> to how we do l2 mac updates. Additionally the error strategy can
+> be improved to be hard aborting, log and continue, etc. I think
+> these are nice to have improvements but shouldn't block this series.
 > 
-> Also only the drop action is supported initially.
+> Also by adding get_parse_graph and set_parse_graph attributes as
+> in my previous flow_api work we can build programmable devices
+> and programmatically learn when rules can or can not be loaded
+> into the hardware. Again future work.
 > 
-> Here is a short test script,
+> Any comments/feedback appreciated.
 > 
->  #tc qdisc add dev eth4 ingress
->  #tc filter add dev eth4 parent ffff: protocol ip \
-> 	u32 ht 800: order 1 \
-> 	match ip dst 15.0.0.1/32 match ip src 15.0.0.2/32 action drop
+> Thanks,
+> John
 > 
-> <-- hardware has dst/src ip match rule installed -->
-> 
->  #tc filter del dev eth4 parent ffff: prio 49152
->  #tc filter add dev eth4 parent ffff: protocol ip prio 99 \
-> 	handle 1: u32 divisor 1
->  #tc filter add dev eth4 protocol ip parent ffff: prio 99 \
-> 	u32 ht 800: order 1 link 1: \
-> 	offset at 0 mask 0f00 shift 6 plus 0 eat match ip protocol 6 ff
->  #tc filter add dev eth4 parent ffff: protocol ip \
-> 	u32 ht 1: order 3 match tcp src 23 ffff action drop
-> 
-> <-- hardware has tcp src port rule installed -->
-> 
->  #tc qdisc del dev eth4 parent ffff:
-> 
-> <-- hardware cleaned up -->
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 > ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    3 
->  drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    6 -
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  196 ++++++++++++++++++++++
->  3 files changed, 198 insertions(+), 7 deletions(-)
+> 
+> John Fastabend (7):
+>       net: rework ndo tc op to consume additional qdisc handle parameter
+>       net: rework setup_tc ndo op to consume general tc operand
+>       net: sched: add cls_u32 offload hooks for netdevs
+>       net: add tc offload feature flag
+>       net: tc: helper functions to query action types
+>       net: ixgbe: add minimal parser details for ixgbe
+>       net: ixgbe: add support for tc_u32 offload
 > 
 
-What are you doing w.r.t priorities? Are the filters processed by the
-order of the priorities?
+Hi John,
 
-[...]
+Nice work :)
 
->  
-> -static int ixgbe_update_ethtool_fdir_entry(struct ixgbe_adapter *adapter,
-> -					   struct ixgbe_fdir_filter *input,
-> -					   u16 sw_idx)
-> +int ixgbe_update_ethtool_fdir_entry(struct ixgbe_adapter *adapter,
-> +				    struct ixgbe_fdir_filter *input,
-> +				    u16 sw_idx)
->  {
->  	struct ixgbe_hw *hw = &adapter->hw;
->  	struct hlist_node *node2;
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index 03e236c..a1a91bf 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -51,6 +51,7 @@
->  #include <linux/prefetch.h>
->  #include <scsi/fc/fc_fcoe.h>
->  #include <net/vxlan.h>
-> +#include <net/pkt_cls.h>
->  
->  #ifdef CONFIG_OF
->  #include <linux/of_net.h>
-> @@ -8200,10 +8201,197 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
->  	return 0;
->  }
->  
-> +#include <net/tc_act/tc_gact.h>
-> +#include "ixgbe_model.h"
-Did you leave those #include's in the middle of the file on purpose?
+I will add mlx5 support, and see if can live with u32. If not - will
+add flower support too.
 
-[...]
+Amir
