@@ -1,136 +1,112 @@
 From: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-Subject: [PATCH v2 net-next 7/8] be2net: Add retry in case of error recovery failure
-Date: Wed,  3 Feb 2016 09:49:22 +0530
-Message-ID: <1454473163-18781-8-git-send-email-sriharsha.basavapatna@broadcom.com>
+Subject: [PATCH v2 net-next 6/8] be2net: Fix Lancer error recovery
+Date: Wed,  3 Feb 2016 09:49:21 +0530
+Message-ID: <1454473163-18781-7-git-send-email-sriharsha.basavapatna@broadcom.com>
 References: <1454473163-18781-1-git-send-email-sriharsha.basavapatna@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmrelayp1.emulex.com ([138.239.112.140]:52532 "EHLO
+Received: from cmrelayp1.emulex.com ([138.239.112.140]:52531 "EHLO
 	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755716AbcBCEVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 23:21:17 -0500
+	by vger.kernel.org with ESMTP id S1755598AbcBCEVQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 23:21:16 -0500
 In-Reply-To: <1454473163-18781-1-git-send-email-sriharsha.basavapatna@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>
 
-Retry error recovery MAX_ERR_RECOVERY_RETRY_COUNT times in case of
-failure during error recovery.
+After error is detected, wait for adapter to move to ready state
+before destroying queues and cleanup of other resources. Also
+skip performing any cleanup for non-Lancer chips and move debug
+messages to correct routine.
 
 Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>
 Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |  5 +++++
- drivers/net/ethernet/emulex/benet/be_main.c | 23 +++++++++++++++++------
- 2 files changed, 22 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c | 51 +++++++++++++++++++----------
+ 1 file changed, 34 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index de88c30..515e206 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -397,6 +397,10 @@ enum vf_state {
- #define BE_UC_PMAC_COUNT			30
- #define BE_VF_UC_PMAC_COUNT			2
- 
-+#define MAX_ERR_RECOVERY_RETRY_COUNT		3
-+#define ERR_DETECTION_DELAY			1000
-+#define ERR_RECOVERY_RETRY_DELAY		30000
-+
- /* Ethtool set_dump flags */
- #define LANCER_INITIATE_FW_DUMP			0x1
- #define LANCER_DELETE_FW_DUMP			0x2
-@@ -534,6 +538,7 @@ struct be_adapter {
- 	u16 work_counter;
- 
- 	struct delayed_work be_err_detection_work;
-+	u8 recovery_retries;
- 	u8 err_flags;
- 	u32 flags;
- 	u32 cmd_privileges;
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 6eb3aba..d5286d3 100644
+index 62f6fbb..6eb3aba 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4265,10 +4265,10 @@ static void be_schedule_worker(struct be_adapter *adapter)
- 	adapter->flags |= BE_FLAGS_WORKER_SCHEDULED;
- }
+@@ -4859,21 +4859,27 @@ static int be_resume(struct be_adapter *adapter)
  
--static void be_schedule_err_detection(struct be_adapter *adapter)
-+static void be_schedule_err_detection(struct be_adapter *adapter, u32 delay)
+ static int be_err_recover(struct be_adapter *adapter)
  {
- 	schedule_delayed_work(&adapter->be_err_detection_work,
--			      msecs_to_jiffies(1000));
-+			      msecs_to_jiffies(delay));
- 	adapter->flags |= BE_FLAGS_ERR_DETECTION_SCHEDULED;
- }
+-	struct device *dev = &adapter->pdev->dev;
+ 	int status;
  
-@@ -4890,6 +4890,7 @@ static void be_err_detection_task(struct work_struct *work)
- 					     be_err_detection_work.work);
- 	struct device *dev = &adapter->pdev->dev;
- 	int recovery_status;
-+	int delay = ERR_DETECTION_DELAY;
- 
- 	be_detect_error(adapter);
- 
-@@ -4899,6 +4900,7 @@ static void be_err_detection_task(struct work_struct *work)
- 		goto reschedule_task;
- 
- 	if (!recovery_status) {
-+		adapter->recovery_retries = 0;
- 		dev_info(dev, "Adapter recovery successful\n");
- 		goto reschedule_task;
- 	} else if (be_virtfn(adapter)) {
-@@ -4907,13 +4909,22 @@ static void be_err_detection_task(struct work_struct *work)
- 		 */
- 		dev_err(dev, "Re-trying adapter recovery\n");
- 		goto reschedule_task;
-+	} else if (adapter->recovery_retries++ <
-+		   MAX_ERR_RECOVERY_RETRY_COUNT) {
-+		/* In case of another error during recovery, it takes 30 sec
-+		 * for adapter to come out of error. Retry error recovery after
-+		 * this time interval.
-+		 */
-+		dev_err(&adapter->pdev->dev, "Re-trying adapter recovery\n");
-+		delay = ERR_RECOVERY_RETRY_DELAY;
-+		goto reschedule_task;
- 	} else {
- 		dev_err(dev, "Adapter recovery failed\n");
- 	}
- 
- 	return;
- reschedule_task:
--	be_schedule_err_detection(adapter);
-+	be_schedule_err_detection(adapter, delay);
- }
- 
- static void be_log_sfp_info(struct be_adapter *adapter)
-@@ -5309,7 +5320,7 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
- 
- 	be_roce_dev_add(adapter);
- 
--	be_schedule_err_detection(adapter);
-+	be_schedule_err_detection(adapter, ERR_DETECTION_DELAY);
- 
- 	/* On Die temperature not supported for VF. */
- 	if (be_physfn(adapter) && IS_ENABLED(CONFIG_BE2NET_HWMON)) {
-@@ -5376,7 +5387,7 @@ static int be_pci_resume(struct pci_dev *pdev)
- 	if (status)
- 		return status;
- 
--	be_schedule_err_detection(adapter);
-+	be_schedule_err_detection(adapter, ERR_DETECTION_DELAY);
- 
- 	if (adapter->wol_en)
- 		be_setup_wol(adapter, false);
-@@ -5476,7 +5487,7 @@ static void be_eeh_resume(struct pci_dev *pdev)
++	/* Error recovery is supported only Lancer as of now */
++	if (!lancer_chip(adapter))
++		return -EIO;
++
++	/* Wait for adapter to reach quiescent state before
++	 * destroying queues
++	 */
++	status = be_fw_wait_ready(adapter);
++	if (status)
++		goto err;
++
++	be_cleanup(adapter);
++
+ 	status = be_resume(adapter);
  	if (status)
  		goto err;
  
--	be_schedule_err_detection(adapter);
-+	be_schedule_err_detection(adapter, ERR_DETECTION_DELAY);
- 	return;
+-	dev_info(dev, "Adapter recovery successful\n");
+ 	return 0;
  err:
- 	dev_err(&adapter->pdev->dev, "EEH resume failed\n");
+-	if (be_physfn(adapter))
+-		dev_err(dev, "Adapter recovery failed\n");
+-	else
+-		dev_err(dev, "Re-trying adapter recovery\n");
+-
+ 	return status;
+ }
+ 
+@@ -4882,21 +4888,32 @@ static void be_err_detection_task(struct work_struct *work)
+ 	struct be_adapter *adapter =
+ 				container_of(work, struct be_adapter,
+ 					     be_err_detection_work.work);
+-	int status = 0;
++	struct device *dev = &adapter->pdev->dev;
++	int recovery_status;
+ 
+ 	be_detect_error(adapter);
+ 
+-	if (be_check_error(adapter, BE_ERROR_HW)) {
+-		be_cleanup(adapter);
+-
+-		/* As of now error recovery support is in Lancer only */
+-		if (lancer_chip(adapter))
+-			status = be_err_recover(adapter);
++	if (be_check_error(adapter, BE_ERROR_HW))
++		recovery_status = be_err_recover(adapter);
++	else
++		goto reschedule_task;
++
++	if (!recovery_status) {
++		dev_info(dev, "Adapter recovery successful\n");
++		goto reschedule_task;
++	} else if (be_virtfn(adapter)) {
++		/* For VFs, check if PF have allocated resources
++		 * every second.
++		 */
++		dev_err(dev, "Re-trying adapter recovery\n");
++		goto reschedule_task;
++	} else {
++		dev_err(dev, "Adapter recovery failed\n");
+ 	}
+ 
+-	/* Always attempt recovery on VFs */
+-	if (!status || be_virtfn(adapter))
+-		be_schedule_err_detection(adapter);
++	return;
++reschedule_task:
++	be_schedule_err_detection(adapter);
+ }
+ 
+ static void be_log_sfp_info(struct be_adapter *adapter)
 -- 
 2.3.0.rc2
