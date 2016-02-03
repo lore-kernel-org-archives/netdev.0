@@ -1,7 +1,7 @@
 From: Nikolay Borisov <kernel@kyup.com>
-Subject: [RESEND PATCH 8/9] ipv4: Namespaceify tcp_fin_timeout sysctl knob
-Date: Wed,  3 Feb 2016 09:46:56 +0200
-Message-ID: <1454485617-16541-9-git-send-email-kernel@kyup.com>
+Subject: [RESEND PATCH 7/9] ipv4: Namespaceify tcp_orphan_retries sysctl knob
+Date: Wed,  3 Feb 2016 09:46:55 +0200
+Message-ID: <1454485617-16541-8-git-send-email-kernel@kyup.com>
 References: <1454485617-16541-1-git-send-email-kernel@kyup.com>
 Cc: edumazet@google.com, ebiederm@xmission.com, fan.du@intel.com,
 	kaber@trash.net, jmorris@namei.org, alexander.h.duyck@redhat.com,
@@ -16,127 +16,100 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: Nikolay Borisov <kernel@kyup.com>
 ---
  include/net/netns/ipv4.h   |  1 +
- include/net/tcp.h          |  3 +--
+ include/net/tcp.h          |  1 -
  net/ipv4/sysctl_net_ipv4.c | 14 +++++++-------
- net/ipv4/tcp.c             |  7 +++----
  net/ipv4/tcp_ipv4.c        |  1 +
- 5 files changed, 13 insertions(+), 13 deletions(-)
+ net/ipv4/tcp_timer.c       |  3 +--
+ 5 files changed, 10 insertions(+), 10 deletions(-)
 
 diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 6903335fbe3a..a1caddadecc2 100644
+index 3cb2073c55f5..6903335fbe3a 100644
 --- a/include/net/netns/ipv4.h
 +++ b/include/net/netns/ipv4.h
-@@ -102,6 +102,7 @@ struct netns_ipv4 {
+@@ -101,6 +101,7 @@ struct netns_ipv4 {
+ 	int sysctl_tcp_reordering;
  	int sysctl_tcp_retries1;
  	int sysctl_tcp_retries2;
- 	int sysctl_tcp_orphan_retries;
-+	int sysctl_tcp_fin_timeout;
++	int sysctl_tcp_orphan_retries;
  
  	struct ping_group_range ping_group_range;
  
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 606a0a1a6d15..f8c3f75e6c99 100644
+index 9b3aabbac85e..606a0a1a6d15 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -239,7 +239,6 @@ extern struct inet_timewait_death_row tcp_death_row;
- extern int sysctl_tcp_timestamps;
+@@ -240,7 +240,6 @@ extern int sysctl_tcp_timestamps;
  extern int sysctl_tcp_window_scaling;
  extern int sysctl_tcp_sack;
--extern int sysctl_tcp_fin_timeout;
+ extern int sysctl_tcp_fin_timeout;
+-extern int sysctl_tcp_orphan_retries;
  extern int sysctl_tcp_fastopen;
  extern int sysctl_tcp_retrans_collapse;
  extern int sysctl_tcp_stdurg;
-@@ -1245,7 +1244,7 @@ static inline u32 keepalive_time_elapsed(const struct tcp_sock *tp)
- 
- static inline int tcp_fin_time(const struct sock *sk)
- {
--	int fin_timeout = tcp_sk(sk)->linger2 ? : sysctl_tcp_fin_timeout;
-+	int fin_timeout = tcp_sk(sk)->linger2 ? : sock_net(sk)->ipv4.sysctl_tcp_fin_timeout;
- 	const int rto = inet_csk(sk)->icsk_rto;
- 
- 	if (fin_timeout < (rto << 2) - (rto >> 1))
 diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index e866e9fe6d84..20e086f88438 100644
+index 39c302fda534..e866e9fe6d84 100644
 --- a/net/ipv4/sysctl_net_ipv4.c
 +++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -321,13 +321,6 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec
+@@ -421,13 +421,6 @@ static struct ctl_table ipv4_table[] = {
+ 		.proc_handler	= proc_dointvec_jiffies,
  	},
  	{
--		.procname	= "tcp_fin_timeout",
--		.data		= &sysctl_tcp_fin_timeout,
+-		.procname	= "tcp_orphan_retries",
+-		.data		= &sysctl_tcp_orphan_retries,
 -		.maxlen		= sizeof(int),
 -		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
+-		.proc_handler	= proc_dointvec
 -	},
 -	{
- 		.procname	= "tcp_fastopen",
- 		.data		= &sysctl_tcp_fastopen,
+ 		.procname	= "tcp_fack",
+ 		.data		= &sysctl_tcp_fack,
  		.maxlen		= sizeof(int),
 @@ -950,6 +943,13 @@ static struct ctl_table ipv4_net_table[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_dointvec
  	},
 +	{
-+		.procname	= "tcp_fin_timeout",
-+		.data		= &init_net.ipv4.sysctl_tcp_fin_timeout,
++		.procname	= "tcp_orphan_retries",
++		.data		= &init_net.ipv4.sysctl_tcp_orphan_retries,
 +		.maxlen		= sizeof(int),
 +		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_jiffies,
++		.proc_handler	= proc_dointvec
 +	},
  	{ }
  };
  
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index d0547395d81d..ad903790c0a4 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -281,8 +281,6 @@
- #include <asm/ioctls.h>
- #include <net/busy_poll.h>
- 
--int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
--
- int sysctl_tcp_min_tso_segs __read_mostly = 2;
- 
- int sysctl_tcp_autocorking __read_mostly = 1;
-@@ -2324,6 +2322,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct inet_connection_sock *icsk = inet_csk(sk);
-+	struct net *net = sock_net(sk);
- 	int val;
- 	int err = 0;
- 
-@@ -2520,7 +2519,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 	case TCP_LINGER2:
- 		if (val < 0)
- 			tp->linger2 = -1;
--		else if (val > sysctl_tcp_fin_timeout / HZ)
-+		else if (val > net->ipv4.sysctl_tcp_fin_timeout / HZ)
- 			tp->linger2 = 0;
- 		else
- 			tp->linger2 = val * HZ;
-@@ -2762,7 +2761,7 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
- 	case TCP_LINGER2:
- 		val = tp->linger2;
- 		if (val >= 0)
--			val = (val ? : sysctl_tcp_fin_timeout) / HZ;
-+			val = (val ? : net->ipv4.sysctl_tcp_fin_timeout) / HZ;
- 		break;
- 	case TCP_DEFER_ACCEPT:
- 		val = retrans_to_secs(icsk->icsk_accept_queue.rskq_defer_accept,
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index fc4d4ee38012..3c263c00f5ea 100644
+index 3a2db4a7d651..fc4d4ee38012 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -2388,6 +2388,7 @@ static int __net_init tcp_sk_init(struct net *net)
+@@ -2387,6 +2387,7 @@ static int __net_init tcp_sk_init(struct net *net)
+ 	net->ipv4.sysctl_tcp_reordering = TCP_FASTRETRANS_THRESH;
  	net->ipv4.sysctl_tcp_retries1 = TCP_RETR1;
  	net->ipv4.sysctl_tcp_retries2 = TCP_RETR2;
- 	net->ipv4.sysctl_tcp_orphan_retries = 0;
-+	net->ipv4.sysctl_tcp_fin_timeout = TCP_FIN_TIMEOUT;
++	net->ipv4.sysctl_tcp_orphan_retries = 0;
  
  	return 0;
  fail:
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 09f4e0297e56..49bc474f8e35 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -22,7 +22,6 @@
+ #include <linux/gfp.h>
+ #include <net/tcp.h>
+ 
+-int sysctl_tcp_orphan_retries __read_mostly;
+ int sysctl_tcp_thin_linear_timeouts __read_mostly;
+ 
+ static void tcp_write_err(struct sock *sk)
+@@ -78,7 +77,7 @@ static int tcp_out_of_resources(struct sock *sk, bool do_reset)
+ /* Calculate maximal number or retries on an orphaned socket. */
+ static int tcp_orphan_retries(struct sock *sk, bool alive)
+ {
+-	int retries = sysctl_tcp_orphan_retries; /* May be zero. */
++	int retries = sock_net(sk)->ipv4.sysctl_tcp_orphan_retries; /* May be zero. */
+ 
+ 	/* We know from an ICMP that something is wrong. */
+ 	if (sk->sk_err_soft && !alive)
 -- 
 2.5.0
