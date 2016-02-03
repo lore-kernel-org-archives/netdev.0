@@ -1,15 +1,17 @@
 From: Stefan Assmann <sassmann@kpanic.de>
-Subject: [PATCH net-next V2 0/6] net/intel: call ndo_stop() instead of dev_close() when running offline selftest
-Date: Wed,  3 Feb 2016 09:20:46 +0100
-Message-ID: <1454487652-1545-1-git-send-email-sassmann@kpanic.de>
+Subject: [PATCH net-next V2 1/6] i40e: call ndo_stop() instead of dev_close() when running offline selftest
+Date: Wed,  3 Feb 2016 09:20:47 +0100
+Message-ID: <1454487652-1545-2-git-send-email-sassmann@kpanic.de>
+References: <1454487652-1545-1-git-send-email-sassmann@kpanic.de>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	jeffrey.t.kirsher@intel.com, sassmann@kpanic.de
 To: intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43140 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43144 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933572AbcBCIVn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2016 03:21:43 -0500
+	id S933754AbcBCIVo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2016 03:21:44 -0500
+In-Reply-To: <1454487652-1545-1-git-send-email-sassmann@kpanic.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,46 +23,70 @@ behaviour is inconsistent.
 Instead call the net_device_ops ndo_stop function directly and avoid
 touching IFF_UP at all.
 
-Tested this with igb, e1000e, ixgbe and i40e. All drivers now are able to
-resume operation without restoring the IP address, gateway or such.
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+---
+ drivers/net/ethernet/intel/i40e/i40e.h         | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 4 ----
+ 3 files changed, 3 insertions(+), 7 deletions(-)
 
-V2: rename e1000_open(), e1000_close() to e1000e_open(), e1000e_close()
-to avoid name clash with e1000.
-
-
-Stefan Assmann (6):
-  i40e: call ndo_stop() instead of dev_close() when running offline
-    selftest
-  ixgbe: call ndo_stop() instead of dev_close() when running offline
-    selftest
-  ixgbevf: call ndo_stop() instead of dev_close() when running offline
-    selftest
-  igb: call ndo_stop() instead of dev_close() when running offline
-    selftest
-  e1000: call ndo_stop() instead of dev_close() when running offline
-    selftest
-  e1000e: call ndo_stop() instead of dev_close() when running offline
-    selftest
-
- drivers/net/ethernet/intel/e1000/e1000.h          |  2 ++
- drivers/net/ethernet/intel/e1000/e1000_ethtool.c  |  4 ++--
- drivers/net/ethernet/intel/e1000/e1000_main.c     |  8 ++++----
- drivers/net/ethernet/intel/e1000e/e1000.h         |  2 ++
- drivers/net/ethernet/intel/e1000e/ethtool.c       |  4 ++--
- drivers/net/ethernet/intel/e1000e/netdev.c        | 12 ++++++------
- drivers/net/ethernet/intel/i40e/i40e.h            |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c    |  4 ++--
- drivers/net/ethernet/intel/i40e/i40e_main.c       |  4 ----
- drivers/net/ethernet/intel/igb/igb.h              |  2 ++
- drivers/net/ethernet/intel/igb/igb_ethtool.c      |  4 ++--
- drivers/net/ethernet/intel/igb/igb_main.c         |  8 ++++----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  |  4 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  4 ++--
- drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  4 ++--
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  2 ++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  4 ++--
- 18 files changed, 41 insertions(+), 35 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 68f2204..7e16c55 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -773,6 +773,7 @@ int i40e_vlan_rx_kill_vid(struct net_device *netdev,
+ 			  __always_unused __be16 proto, u16 vid);
+ #endif
+ int i40e_open(struct net_device *netdev);
++int i40e_close(struct net_device *netdev);
+ int i40e_vsi_open(struct i40e_vsi *vsi);
+ void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
+ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
+@@ -785,7 +786,6 @@ bool i40e_is_vsi_in_vlan(struct i40e_vsi *vsi);
+ struct i40e_mac_filter *i40e_find_mac(struct i40e_vsi *vsi, u8 *macaddr,
+ 				      bool is_vf, bool is_netdev);
+ #ifdef I40E_FCOE
+-int i40e_close(struct net_device *netdev);
+ int i40e_setup_tc(struct net_device *netdev, u8 tc);
+ void i40e_netpoll(struct net_device *netdev);
+ int i40e_fcoe_enable(struct net_device *netdev);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 29d5833..eeca530 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1704,7 +1704,7 @@ static void i40e_diag_test(struct net_device *netdev,
+ 		/* If the device is online then take it offline */
+ 		if (if_running)
+ 			/* indicate we're in test mode */
+-			dev_close(netdev);
++			i40e_close(netdev);
+ 		else
+ 			/* This reset does not affect link - if it is
+ 			 * changed to a type of reset that does affect
+@@ -1733,7 +1733,7 @@ static void i40e_diag_test(struct net_device *netdev,
+ 		i40e_do_reset(pf, BIT(__I40E_PF_RESET_REQUESTED));
+ 
+ 		if (if_running)
+-			dev_open(netdev);
++			i40e_open(netdev);
+ 	} else {
+ 		/* Online tests */
+ 		netif_info(pf, drv, netdev, "online testing starting\n");
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 8f3b53e..39a1653 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5459,11 +5459,7 @@ static void i40e_fdir_filter_exit(struct i40e_pf *pf)
+  *
+  * Returns 0, this is not allowed to fail
+  **/
+-#ifdef I40E_FCOE
+ int i40e_close(struct net_device *netdev)
+-#else
+-static int i40e_close(struct net_device *netdev)
+-#endif
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_vsi *vsi = np->vsi;
 -- 
 2.5.0
