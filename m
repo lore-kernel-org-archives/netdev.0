@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 03/16] batman-adv: Fix names in kerneldoc of functions
-Date: Wed,  3 Feb 2016 10:18:24 +0800
-Message-ID: <1454465917-13332-4-git-send-email-a__3593.62278036333$1454467275$gmane$org@unstable.cc>
+Subject: [PATCH 02/16] batman-adv: Remove kerneldoc for missing parameters
+Date: Wed,  3 Feb 2016 10:18:23 +0800
+Message-ID: <1454465917-13332-3-git-send-email-a__4712.17652452669$1454467281$gmane$org@unstable.cc>
 References: <1454465917-13332-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:33739 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:11928 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932451AbcBCClG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2016 21:41:06 -0500
+	id S932451AbcBCClM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2016 21:41:12 -0500
 In-Reply-To: <1454465917-13332-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,88 +23,83 @@ Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/originator.c        | 4 ++--
- net/batman-adv/packet.h            | 2 +-
- net/batman-adv/send.c              | 2 +-
- net/batman-adv/soft-interface.c    | 2 +-
- net/batman-adv/translation-table.c | 4 ++--
- 5 files changed, 7 insertions(+), 7 deletions(-)
+ net/batman-adv/fragmentation.c     | 1 -
+ net/batman-adv/packet.h            | 1 -
+ net/batman-adv/routing.c           | 1 -
+ net/batman-adv/translation-table.c | 4 ----
+ 4 files changed, 7 deletions(-)
 
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index fe578f75c391..dfeebc89ed9a 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -375,7 +375,7 @@ out:
- 
+diff --git a/net/batman-adv/fragmentation.c b/net/batman-adv/fragmentation.c
+index 20d9282f895b..fedddbe0cd28 100644
+--- a/net/batman-adv/fragmentation.c
++++ b/net/batman-adv/fragmentation.c
+@@ -242,7 +242,6 @@ err:
  /**
-  * batadv_neigh_ifinfo_get - find the ifinfo from an neigh_node
-- * @neigh_node: the neigh node to be queried
-+ * @neigh: the neigh node to be queried
-  * @if_outgoing: the interface for which the ifinfo should be acquired
+  * batadv_frag_merge_packets - merge a chain of fragments
+  * @chain: head of chain with fragments
+- * @skb: packet with total size of skb after merging
   *
-  * The object is returned with refcounter increased by 1.
-@@ -408,7 +408,7 @@ batadv_neigh_ifinfo_get(struct batadv_neigh_node *neigh,
- 
- /**
-  * batadv_neigh_ifinfo_new - search and possibly create an neigh_ifinfo object
-- * @neigh_node: the neigh node to be queried
-+ * @neigh: the neigh node to be queried
-  * @if_outgoing: the interface for which the ifinfo should be acquired
-  *
-  * Returns NULL in case of failure or the neigh_ifinfo object for the
+  * Expand the first skb in the chain and copy the content of the remaining
+  * skb's into the expanded one. After doing so, clear the chain.
 diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index 6d5b17841ff5..72fd5b0a4183 100644
+index e80a8fc9f49e..6d5b17841ff5 100644
 --- a/net/batman-adv/packet.h
 +++ b/net/batman-adv/packet.h
-@@ -494,7 +494,7 @@ struct batadv_tvlv_gateway_data {
-  * struct batadv_tvlv_tt_data - tt data propagated through the tt tvlv container
-  * @flags: translation table flags (see batadv_tt_data_flags)
-  * @ttvn: translation table version number
-- * @vlan_num: number of announced VLANs. In the TVLV this struct is followed by
-+ * @num_vlan: number of announced VLANs. In the TVLV this struct is followed by
-  *  one batadv_tvlv_tt_vlan_data object per announced vlan
-  */
- struct batadv_tvlv_tt_data {
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index 782fa33ec296..3fbf7910c4d1 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -211,7 +211,7 @@ static bool batadv_send_skb_prepare_unicast(struct sk_buff *skb,
-  *  unicast 4addr header
-  * @bat_priv: the bat priv with all the soft interface information
-  * @skb: the skb containing the payload to encapsulate
-- * @orig_node: the destination node
-+ * @orig: the destination node
-  * @packet_subtype: the unicast 4addr packet subtype to use
+@@ -413,7 +413,6 @@ struct batadv_bcast_packet {
+  * @packet_type: batman-adv packet type, part of the general header
+  * @version: batman-adv protocol version, part of the genereal header
+  * @ttl: time to live for this packet, part of the genereal header
+- * @reserved: Align following fields to 2-byte boundaries
+  * @first_source: original source of first included packet
+  * @first_orig_dest: original destinal of first included packet
+  * @first_crc: checksum of first included packet
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index e4f2646d9246..54d660806c2a 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -904,7 +904,6 @@ rx_success:
+  * batadv_recv_unicast_tvlv - receive and process unicast tvlv packets
+  * @skb: unicast tvlv packet to process
+  * @recv_if: pointer to interface this packet was received on
+- * @dst_addr: the payload destination
   *
-  * Returns false if the payload could not be encapsulated or true otherwise.
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index ac4d08de5df4..c923e3c7b6ac 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -480,7 +480,7 @@ out:
- /**
-  * batadv_softif_vlan_free_ref - decrease the vlan object refcounter and
-  *  possibly free it
-- * @softif_vlan: the vlan object to release
-+ * @vlan: the vlan object to release
-  */
- void batadv_softif_vlan_free_ref(struct batadv_softif_vlan *vlan)
- {
+  * Returns NET_RX_SUCCESS if the packet has been consumed or NET_RX_DROP
+  * otherwise.
 diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 3ccede59c842..7d8fc90c9e38 100644
+index cdfc85fa2743..3ccede59c842 100644
 --- a/net/batman-adv/translation-table.c
 +++ b/net/batman-adv/translation-table.c
-@@ -3366,8 +3366,8 @@ out:
-  * batadv_tt_update_orig - update global translation table with new tt
-  *  information received via ogms
-  * @bat_priv: the bat priv with all the soft interface information
-- * @orig: the orig_node of the ogm
-- * @tt_vlan: pointer to the first tvlv VLAN entry
-+ * @orig_node: the orig_node of the ogm
-+ * @tt_buff: pointer to the first tvlv VLAN entry
-  * @tt_num_vlan: number of tvlv VLAN entries
+@@ -217,7 +217,6 @@ batadv_tt_global_entry_free_ref(struct batadv_tt_global_entry *tt_global_entry)
+ 
+ /**
+  * batadv_tt_global_hash_count - count the number of orig entries
+- * @hash: hash table containing the tt entries
+  * @addr: the mac address of the client to count entries for
+  * @vid: VLAN identifier
+  *
+@@ -288,7 +287,6 @@ static void batadv_tt_local_size_dec(struct batadv_priv *bat_priv,
+ /**
+  * batadv_tt_global_size_mod - change the size by v of the local table
+  *  identified by vid
+- * @bat_priv: the bat priv with all the soft interface information
+  * @vid: the VLAN identifier
+  * @v: the amount to sum to the global table size
+  */
+@@ -2406,7 +2404,6 @@ static void batadv_tt_tvlv_generate(struct batadv_priv *bat_priv,
+  * @orig_node: originator for which the CRCs have to be checked
+  * @tt_vlan: pointer to the first tvlv VLAN entry
+  * @num_vlan: number of tvlv VLAN entries
+- * @create: if true, create VLAN objects if not found
+  *
+  * Return true if all the received CRCs match the locally stored ones, false
+  * otherwise
+@@ -3375,7 +3372,6 @@ out:
   * @tt_change: pointer to the first entry in the TT buffer
   * @tt_num_changes: number of tt changes inside the tt buffer
+  * @ttvn: translation table version number of this changeset
+- * @tt_crc: crc32 checksum of orig node's translation table
+  */
+ static void batadv_tt_update_orig(struct batadv_priv *bat_priv,
+ 				  struct batadv_orig_node *orig_node,
 -- 
 2.7.0
