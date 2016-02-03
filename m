@@ -1,60 +1,72 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net] bonding: trivial: style fixes
-Date: Wed,  3 Feb 2016 02:02:32 +0000
-Message-ID: <1454464952-25807-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: j.vosburgh@gmail.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta1.chinamobile.com ([221.176.66.79]:4113 "EHLO
-	cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754270AbcBCCBl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 21:01:41 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Byeoungwook Kim <quddnr145@gmail.com>
+Subject: [PATCH 2/2] rtlwifi: Fix reusable codes in core.c
+Date: Wed, 3 Feb 2016 11:01:39 +0900
+Message-ID: <20160203020139.GA13619@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kvalo@codeaurora.org, chaoming_li@realsil.com.cn,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Larry.Finger@lwfinger.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-remove some redudant brackets, use sizeof(*) instead of sizeof(struct x).
+rtl_*_delay() functions were reused same codes about addr variable.
+So i have converted to rtl_addr_delay() from code about addr variable.
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Signed-off-by: Byeoungwook Kim <quddnr145@gmail.com>
+Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
 ---
- drivers/net/bonding/bond_main.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/wireless/realtek/rtlwifi/core.c | 28 ++++------------------------
+ 1 file changed, 4 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index fb4c52f..bcc7b19 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -928,11 +928,10 @@ void bond_select_active_slave(struct bonding *bond)
- 		if (!rv)
- 			return;
- 
--		if (netif_carrier_ok(bond->dev)) {
-+		if (netif_carrier_ok(bond->dev))
- 			netdev_info(bond->dev, "first active interface up!\n");
--		} else {
-+		else
- 			netdev_info(bond->dev, "now running without any active interface!\n");
--		}
- 	}
- }
- 
-@@ -1178,9 +1177,8 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
- 		}
- 	}
- 
--	if (bond_should_deliver_exact_match(skb, slave, bond)) {
-+	if (bond_should_deliver_exact_match(skb, slave, bond))
- 		return RX_HANDLER_EXACT;
--	}
- 
- 	skb->dev = bond->dev;
- 
-@@ -1241,7 +1239,7 @@ static struct slave *bond_alloc_slave(struct bonding *bond)
+diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
+index 05f432c..c1193d1 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/core.c
++++ b/drivers/net/wireless/realtek/rtlwifi/core.c
+@@ -63,18 +63,8 @@ EXPORT_SYMBOL(rtl_addr_delay);
+ void rtl_rfreg_delay(struct ieee80211_hw *hw, enum radio_path rfpath, u32 addr,
+ 		     u32 mask, u32 data)
  {
- 	struct slave *slave = NULL;
+-	if (addr == 0xfe) {
+-		mdelay(50);
+-	} else if (addr == 0xfd) {
+-		mdelay(5);
+-	} else if (addr == 0xfc) {
+-		mdelay(1);
+-	} else if (addr == 0xfb) {
+-		udelay(50);
+-	} else if (addr == 0xfa) {
+-		udelay(5);
+-	} else if (addr == 0xf9) {
+-		udelay(1);
++	if (addr >= 0xf9 && addr <= 0xfe) {
++		rtl_addr_delay(addr);
+ 	} else {
+ 		rtl_set_rfreg(hw, rfpath, addr, mask, data);
+ 		udelay(1);
+@@ -84,18 +74,8 @@ EXPORT_SYMBOL(rtl_rfreg_delay);
  
--	slave = kzalloc(sizeof(struct slave), GFP_KERNEL);
-+	slave = kzalloc(sizeof(*slave), GFP_KERNEL);
- 	if (!slave)
- 		return NULL;
- 
+ void rtl_bb_delay(struct ieee80211_hw *hw, u32 addr, u32 data)
+ {
+-	if (addr == 0xfe) {
+-		mdelay(50);
+-	} else if (addr == 0xfd) {
+-		mdelay(5);
+-	} else if (addr == 0xfc) {
+-		mdelay(1);
+-	} else if (addr == 0xfb) {
+-		udelay(50);
+-	} else if (addr == 0xfa) {
+-		udelay(5);
+-	} else if (addr == 0xf9) {
+-		udelay(1);
++	if (addr >= 0xf9 && addr <= 0xfe) {
++		rtl_addr_delay(addr);
+ 	} else {
+ 		rtl_set_bbreg(hw, addr, MASKDWORD, data);
+ 		udelay(1);
 -- 
-1.8.3.1
+2.5.0
