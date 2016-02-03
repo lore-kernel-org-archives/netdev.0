@@ -1,59 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v3] net:Add sysctl_max_skb_frags
-Date: Wed, 3 Feb 2016 20:20:52 +0800
-Message-ID: <20160203122052.GA28619@gondor.apana.org.au>
-References: <568F87AC.60405@oracle.com>
- <1454488017-8822-1-git-send-email-hans.westgaard.ry@oracle.com>
- <20160203112550.GB28003@gondor.apana.org.au>
- <56B1E635.8020707@stressinduktion.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2] unix: properly account for FDs passed over unix
+ sockets
+Date: Wed, 3 Feb 2016 12:19:11 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCD516C@AcuExch.aculab.com>
+References: <201601100657.u0A6vk1B025554@mail.home.local>
+	<CANq1E4T0sqTTD4RsWXTUrFvsKvEsKsUiPbskWd=wAEVu83_Srg@mail.gmail.com>
+	<56B0F574.5080105@stressinduktion.org>
+	<CA+55aFw2AwsWbvwp6f8H+eExt_CMfh7VA3od6hto_M0hg9z3Tg@mail.gmail.com>
+	<56B11278.8000805@stressinduktion.org>
+ <CA+55aFz0CXGexEBmb8JU0+w7sFf3VfE3TpRzdj3aTiDxg2zDpg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Herrmann <dh.herrmann@gmail.com>, Willy Tarreau <w@1wt.eu>,
 	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
-	Florian Westphal <fw@strlen.de>, Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Michal Hocko <mhocko@suse.com>,
-	Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>,
-	Tejun Heo <tj@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alexey Kodanev <alexey.kodanev@oracle.com>,
-	=?iso-8859-1?Q?H=E5kon?= Bugge <haakon.bugge@oracle.com>,
-	open list <linux-kernel@vger.kernel.org>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+	???? ????????? <socketpair@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Simon McVittie <simon.mcvittie@collabora.co.uk>
+To: 'Linus Torvalds' <torvalds@linux-foundation.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56B1E635.8020707@stressinduktion.org>
+In-Reply-To: <CA+55aFz0CXGexEBmb8JU0+w7sFf3VfE3TpRzdj3aTiDxg2zDpg@mail.gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 03, 2016 at 12:36:21PM +0100, Hannes Frederic Sowa wrote:
->
-> Agreed that it feels like a hack, but a rather simple one. I would
-> consider this to be just a performance improvement. We certainly need
-> a slow-path when virtio drivers submit gso packets to the stack (and
-> already discussed with Hans). The sysctl can't help here. But without
-> the sysctl the packets would constantly hit the slow-path in case of
-> e.g. IPoIB and that would also be rather bad.
-
-So you want to penalise every NIC in the system if just one of
-them is broken? This is insane.  Just do the partial linearisation
-in that one driver that needs it and not only won't you have to
-penalise anyone else but you still get the best result for that
-driver that needs it.
-
-Besides, you have to implement the linearisation anyway because
-of virtualisation.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+RnJvbTogTGludXMgVG9ydmFsZHMNCj4gU2VudDogMDIgRmVicnVhcnkgMjAxNiAyMDo0NQ0KPiBP
+biBUdWUsIEZlYiAyLCAyMDE2IGF0IDEyOjMyIFBNLCBIYW5uZXMgRnJlZGVyaWMgU293YQ0KPiA8
+aGFubmVzQHN0cmVzc2luZHVrdGlvbi5vcmc+IHdyb3RlOg0KPiA+DQo+ID4gVW5mb3J0dW5hdGVs
+eSB3ZSBuZXZlciB0cmFuc2ZlciBhIHNjbV9jb29raWUgdmlhIHRoZSBza2JzIGJ1dCBtZXJlbHkg
+dXNlIGl0DQo+ID4gdG8gaW5pdGlhbGl6ZSB1bml4X3NrYl9wYXJtcyBzdHJ1Y3R1cmUgaW4gc2ti
+LT5jYiBhbmQgZGVzdHJveSBpdCBhZnRlcndhcmRzLg0KPiANCj4gT2ssIEkgb2J2aW91c2x5IGRp
+ZG4ndCBjaGVjayB2ZXJ5IGNsb3NlbHkuDQo+IA0KPiA+IEJ1dCAic3RydWN0IHBpZCAqIiBpbiB1
+bml4X3NrYl9wYXJtcyBzaG91bGQgYmUgZW5vdWdoIHRvIGdldCB1cyB0bw0KPiA+IGNvcnJlc3Bv
+bmRpbmcgInN0cnVjdCBjcmVkICoiIHNvIHdlIGNhbiBkZWNyZW1lbnQgdGhlIGNvcnJlY3QgY291
+bnRlciBkdXJpbmcNCj4gPiBza2IgZGVzdHJ1Y3Rpb24uDQo+IA0KPiBVbW0uIEkgdGhpbmsgdGhl
+ICJzdHJ1Y3QgY3JlZCIgbWF5IGNoYW5nZSBpbiBiZXR3ZWVuLCBjYW4ndCBpdD8NCj4gDQo+IFNv
+IEkgZG9uJ3QgdGhpbmsgeW91IGNhbiBsYXRlciBsb29rIHVwIHRoZSBjcmVkIGJhc2VkIG9uIHRo
+ZSBwaWQuDQo+IA0KPiBDb3VsZCB3ZSBhZGQgdGhlIGNyZWQgcG9pbnRlciAob3IganVzdCB0aGUg
+dXNlciBwb2ludGVyKSB0byB0aGUgdW5peF9za2JfcGFybXM/DQo+IA0KPiBPciBtYXliZSBqdXN0
+IGFkZCBpdCB0byB0aGUgInN0cnVjdCBzY21fZnBfbGlzdCI/DQoNCklzIHRoYXQgZ29pbmcgdG8g
+d29yayBpZiB0aGUgc2VuZGluZyBwcm9jZXNzIGV4aXRzIGJlZm9yZSB0aGUgbWVzc2FnZSBpcyBy
+ZWFkPw0KWW91IG5lZWQgYSByZWZlcmVuY2UgY291bnQgYWdhaW5zdCB0aGUgc3RydWN0dXJlIHRo
+YW4gY29udGFpbnMgdGhlIGNvdW50Lg0KSSB0aGluayB0aGlzIGlzICdzdHJ1Y3QgdXNlcicgbm90
+ICdzdHJ1Y3QgY3JlZCcNCg0KCURhdmlkDQoNCg==
