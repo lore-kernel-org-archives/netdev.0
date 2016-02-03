@@ -1,7 +1,7 @@
 From: Nikolay Borisov <kernel@kyup.com>
-Subject: [RESEND PATCH 4/9] ipv4: Namespaceify tcp reordering sysctl knob
-Date: Wed,  3 Feb 2016 09:46:52 +0200
-Message-ID: <1454485617-16541-5-git-send-email-kernel@kyup.com>
+Subject: [RESEND PATCH 8/9] ipv4: Namespaceify tcp_fin_timeout sysctl knob
+Date: Wed,  3 Feb 2016 09:46:56 +0200
+Message-ID: <1454485617-16541-9-git-send-email-kernel@kyup.com>
 References: <1454485617-16541-1-git-send-email-kernel@kyup.com>
 Cc: edumazet@google.com, ebiederm@xmission.com, fan.du@intel.com,
 	kaber@trash.net, jmorris@namei.org, alexander.h.duyck@redhat.com,
@@ -15,185 +15,128 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Nikolay Borisov <kernel@kyup.com>
 ---
- include/net/netns/ipv4.h   |  2 +-
- include/net/tcp.h          |  4 +++-
+ include/net/netns/ipv4.h   |  1 +
+ include/net/tcp.h          |  3 +--
  net/ipv4/sysctl_net_ipv4.c | 14 +++++++-------
- net/ipv4/tcp.c             |  2 +-
- net/ipv4/tcp_input.c       | 12 ++++++------
- net/ipv4/tcp_ipv4.c        |  2 +-
- net/ipv4/tcp_metrics.c     |  3 ++-
- 7 files changed, 21 insertions(+), 18 deletions(-)
+ net/ipv4/tcp.c             |  7 +++----
+ net/ipv4/tcp_ipv4.c        |  1 +
+ 5 files changed, 13 insertions(+), 13 deletions(-)
 
 diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 80da0d095eaf..dff8879e02fe 100644
+index 6903335fbe3a..a1caddadecc2 100644
 --- a/include/net/netns/ipv4.h
 +++ b/include/net/netns/ipv4.h
-@@ -97,8 +97,8 @@ struct netns_ipv4 {
- 
- 	int sysctl_tcp_syn_retries;
- 	int sysctl_tcp_synack_retries;
--
- 	int sysctl_tcp_syncookies;
-+	int sysctl_tcp_reordering;
+@@ -102,6 +102,7 @@ struct netns_ipv4 {
+ 	int sysctl_tcp_retries1;
+ 	int sysctl_tcp_retries2;
+ 	int sysctl_tcp_orphan_retries;
++	int sysctl_tcp_fin_timeout;
  
  	struct ping_group_range ping_group_range;
  
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 5497cc809601..64d01d289441 100644
+index 606a0a1a6d15..f8c3f75e6c99 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -959,9 +959,11 @@ static inline void tcp_enable_fack(struct tcp_sock *tp)
-  */
- static inline void tcp_enable_early_retrans(struct tcp_sock *tp)
- {
-+	struct net *net = sock_net((struct sock *)tp);
-+
- 	tp->do_early_retrans = sysctl_tcp_early_retrans &&
- 		sysctl_tcp_early_retrans < 4 && !sysctl_tcp_thin_dupack &&
--		sysctl_tcp_reordering == 3;
-+		net->ipv4.sysctl_tcp_reordering == 3;
- }
+@@ -239,7 +239,6 @@ extern struct inet_timewait_death_row tcp_death_row;
+ extern int sysctl_tcp_timestamps;
+ extern int sysctl_tcp_window_scaling;
+ extern int sysctl_tcp_sack;
+-extern int sysctl_tcp_fin_timeout;
+ extern int sysctl_tcp_fastopen;
+ extern int sysctl_tcp_retrans_collapse;
+ extern int sysctl_tcp_stdurg;
+@@ -1245,7 +1244,7 @@ static inline u32 keepalive_time_elapsed(const struct tcp_sock *tp)
  
- static inline void tcp_disable_early_retrans(struct tcp_sock *tp)
+ static inline int tcp_fin_time(const struct sock *sk)
+ {
+-	int fin_timeout = tcp_sk(sk)->linger2 ? : sysctl_tcp_fin_timeout;
++	int fin_timeout = tcp_sk(sk)->linger2 ? : sock_net(sk)->ipv4.sysctl_tcp_fin_timeout;
+ 	const int rto = inet_csk(sk)->icsk_rto;
+ 
+ 	if (fin_timeout < (rto << 2) - (rto >> 1))
 diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 007b9f8f7a2a..12d752e6380b 100644
+index e866e9fe6d84..20e086f88438 100644
 --- a/net/ipv4/sysctl_net_ipv4.c
 +++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -457,13 +457,6 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec,
- 	},
- 	{
--		.procname	= "tcp_reordering",
--		.data		= &sysctl_tcp_reordering,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec
--	},
--	{
- 		.procname	= "tcp_max_reordering",
- 		.data		= &sysctl_tcp_max_reordering,
- 		.maxlen		= sizeof(int),
-@@ -950,6 +943,13 @@ static struct ctl_table ipv4_net_table[] = {
+@@ -321,13 +321,6 @@ static struct ctl_table ipv4_table[] = {
  		.proc_handler	= proc_dointvec
  	},
- #endif
+ 	{
+-		.procname	= "tcp_fin_timeout",
+-		.data		= &sysctl_tcp_fin_timeout,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec_jiffies,
+-	},
+-	{
+ 		.procname	= "tcp_fastopen",
+ 		.data		= &sysctl_tcp_fastopen,
+ 		.maxlen		= sizeof(int),
+@@ -950,6 +943,13 @@ static struct ctl_table ipv4_net_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
 +	{
-+		.procname	= "tcp_reordering",
-+		.data		= &init_net.ipv4.sysctl_tcp_reordering,
++		.procname	= "tcp_fin_timeout",
++		.data		= &init_net.ipv4.sysctl_tcp_fin_timeout,
 +		.maxlen		= sizeof(int),
 +		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
++		.proc_handler	= proc_dointvec_jiffies,
 +	},
  	{ }
  };
  
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index bb36a39b5685..d0547395d81d 100644
+index d0547395d81d..ad903790c0a4 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
-@@ -405,7 +405,7 @@ void tcp_init_sock(struct sock *sk)
- 	tp->mss_cache = TCP_MSS_DEFAULT;
- 	u64_stats_init(&tp->syncp);
+@@ -281,8 +281,6 @@
+ #include <asm/ioctls.h>
+ #include <net/busy_poll.h>
  
--	tp->reordering = sysctl_tcp_reordering;
-+	tp->reordering = sock_net(sk)->ipv4.sysctl_tcp_reordering;
- 	tcp_enable_early_retrans(tp);
- 	tcp_assign_congestion_control(sk);
+-int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
+-
+ int sysctl_tcp_min_tso_segs __read_mostly = 2;
  
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index dc8fe6c8a2e0..3f08bba46147 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -80,9 +80,7 @@ int sysctl_tcp_timestamps __read_mostly = 1;
- int sysctl_tcp_window_scaling __read_mostly = 1;
- int sysctl_tcp_sack __read_mostly = 1;
- int sysctl_tcp_fack __read_mostly = 1;
--int sysctl_tcp_reordering __read_mostly = TCP_FASTRETRANS_THRESH;
- int sysctl_tcp_max_reordering __read_mostly = 300;
--EXPORT_SYMBOL(sysctl_tcp_reordering);
- int sysctl_tcp_dsack __read_mostly = 1;
- int sysctl_tcp_app_win __read_mostly = 31;
- int sysctl_tcp_adv_win_scale __read_mostly = 1;
-@@ -1873,6 +1871,7 @@ void tcp_enter_loss(struct sock *sk)
+ int sysctl_tcp_autocorking __read_mostly = 1;
+@@ -2324,6 +2322,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
  {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
  	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
 +	struct net *net = sock_net(sk);
- 	struct sk_buff *skb;
- 	bool new_recovery = icsk->icsk_ca_state < TCP_CA_Recovery;
- 	bool is_reneg;			/* is receiver reneging on SACKs? */
-@@ -1923,9 +1922,9 @@ void tcp_enter_loss(struct sock *sk)
- 	 * suggests that the degree of reordering is over-estimated.
- 	 */
- 	if (icsk->icsk_ca_state <= TCP_CA_Disorder &&
--	    tp->sacked_out >= sysctl_tcp_reordering)
-+	    tp->sacked_out >= net->ipv4.sysctl_tcp_reordering)
- 		tp->reordering = min_t(unsigned int, tp->reordering,
--				       sysctl_tcp_reordering);
-+				       net->ipv4.sysctl_tcp_reordering);
- 	tcp_set_ca_state(sk, TCP_CA_Loss);
- 	tp->high_seq = tp->snd_nxt;
- 	tcp_ecn_queue_cwr(tp);
-@@ -2109,6 +2108,7 @@ static bool tcp_time_to_recover(struct sock *sk, int flag)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	__u32 packets_out;
-+	int tcp_reordering = sock_net(sk)->ipv4.sysctl_tcp_reordering;
+ 	int val;
+ 	int err = 0;
  
- 	/* Trick#1: The loss is proven. */
- 	if (tp->lost_out)
-@@ -2123,7 +2123,7 @@ static bool tcp_time_to_recover(struct sock *sk, int flag)
- 	 */
- 	packets_out = tp->packets_out;
- 	if (packets_out <= tp->reordering &&
--	    tp->sacked_out >= max_t(__u32, packets_out/2, sysctl_tcp_reordering) &&
-+	    tp->sacked_out >= max_t(__u32, packets_out/2, tcp_reordering) &&
- 	    !tcp_may_send_now(sk)) {
- 		/* We have nothing to send. This connection is limited
- 		 * either by receiver window or by application.
-@@ -3304,7 +3304,7 @@ static inline bool tcp_may_raise_cwnd(const struct sock *sk, const int flag)
- 	 * new SACK or ECE mark may first advance cwnd here and later reduce
- 	 * cwnd in tcp_fastretrans_alert() based on more states.
- 	 */
--	if (tcp_sk(sk)->reordering > sysctl_tcp_reordering)
-+	if (tcp_sk(sk)->reordering > sock_net(sk)->ipv4.sysctl_tcp_reordering)
- 		return flag & FLAG_FORWARD_PROGRESS;
- 
- 	return flag & FLAG_DATA_ACKED;
+@@ -2520,7 +2519,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 	case TCP_LINGER2:
+ 		if (val < 0)
+ 			tp->linger2 = -1;
+-		else if (val > sysctl_tcp_fin_timeout / HZ)
++		else if (val > net->ipv4.sysctl_tcp_fin_timeout / HZ)
+ 			tp->linger2 = 0;
+ 		else
+ 			tp->linger2 = val * HZ;
+@@ -2762,7 +2761,7 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
+ 	case TCP_LINGER2:
+ 		val = tp->linger2;
+ 		if (val >= 0)
+-			val = (val ? : sysctl_tcp_fin_timeout) / HZ;
++			val = (val ? : net->ipv4.sysctl_tcp_fin_timeout) / HZ;
+ 		break;
+ 	case TCP_DEFER_ACCEPT:
+ 		val = retrans_to_secs(icsk->icsk_accept_queue.rskq_defer_accept,
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index ee3566377717..785bbebd6768 100644
+index fc4d4ee38012..3c263c00f5ea 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -2383,8 +2383,8 @@ static int __net_init tcp_sk_init(struct net *net)
- 
- 	net->ipv4.sysctl_tcp_syn_retries = TCP_SYN_RETRIES;
- 	net->ipv4.sysctl_tcp_synack_retries = TCP_SYNACK_RETRIES;
--
- 	net->ipv4.sysctl_tcp_syncookies = 0;
-+	net->ipv4.sysctl_tcp_reordering = TCP_FASTRETRANS_THRESH;
+@@ -2388,6 +2388,7 @@ static int __net_init tcp_sk_init(struct net *net)
+ 	net->ipv4.sysctl_tcp_retries1 = TCP_RETR1;
+ 	net->ipv4.sysctl_tcp_retries2 = TCP_RETR2;
+ 	net->ipv4.sysctl_tcp_orphan_retries = 0;
++	net->ipv4.sysctl_tcp_fin_timeout = TCP_FIN_TIMEOUT;
  
  	return 0;
  fail:
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index c8cbc2b4b792..c26241f3057b 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -369,6 +369,7 @@ void tcp_update_metrics(struct sock *sk)
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct dst_entry *dst = __sk_dst_get(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	struct net *net = sock_net(sk);
- 	struct tcp_metrics_block *tm;
- 	unsigned long rtt;
- 	u32 val;
-@@ -473,7 +474,7 @@ void tcp_update_metrics(struct sock *sk)
- 		if (!tcp_metric_locked(tm, TCP_METRIC_REORDERING)) {
- 			val = tcp_metric_get(tm, TCP_METRIC_REORDERING);
- 			if (val < tp->reordering &&
--			    tp->reordering != sysctl_tcp_reordering)
-+			    tp->reordering != net->ipv4.sysctl_tcp_reordering)
- 				tcp_metric_set(tm, TCP_METRIC_REORDERING,
- 					       tp->reordering);
- 		}
 -- 
 2.5.0
