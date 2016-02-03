@@ -1,167 +1,112 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net] net: Allow flow dissector to handle non 4-byte
- aligned headers
-Date: Wed, 3 Feb 2016 09:07:20 -0800
-Message-ID: <CALx6S34MGwp2m=QmfQ36tWnaWbFXvMG63sj7Nz1KgMtegxn-2A@mail.gmail.com>
-References: <1454276221-3543907-1-git-send-email-tom@herbertland.com>
-	<20160202003127.GA25154@oracle.com>
+From: santosh shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: Keystone 2 boards boot failure
+Date: Wed, 3 Feb 2016 09:08:03 -0800
+Message-ID: <56B233F3.40000@oracle.com>
+References: <56B0DE61.2000704@ti.com> <10700980.gTvMTB9pzv@wuerfel>
+ <56B15591.7080409@ti.com> <1682165.IJ7dHXqc6L@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: m-karicheri2@ti.com, netdev@vger.kernel.org, w-kwok2@ti.com,
+	davem@davemloft.net
+To: Arnd Bergmann <arnd@arndb.de>,
+	"Franklin S Cooper Jr." <fcooper@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:37771 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757650AbcBCRHV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 12:07:21 -0500
-Received: by mail-ig0-f169.google.com with SMTP id 5so40915617igt.0
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 09:07:20 -0800 (PST)
-In-Reply-To: <20160202003127.GA25154@oracle.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:39380 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757943AbcBCRIM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 12:08:12 -0500
+In-Reply-To: <1682165.IJ7dHXqc6L@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 1, 2016 at 4:31 PM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (01/31/16 13:37), Tom Herbert wrote:
+On 2/3/2016 8:35 AM, Arnd Bergmann wrote:
+> On Tuesday 02 February 2016 19:19:13 Franklin S Cooper Jr. wrote:
+>> On 02/02/2016 05:26 PM, Arnd Bergmann wrote:
+>>> On Tuesday 02 February 2016 16:59:34 Franklin Cooper wrote:
+>>>> On 02/02/2016 03:26 PM, Arnd Bergmann wrote:
+>>>>> On Tuesday 02 February 2016 15:01:33 Franklin S Cooper Jr. wrote:
+>>>> Keystone 2 devices are little-endian 32-bit devices.
+>>> I meant the kernel you are running on it, not the hardware.
+>>> You should always be able to run both a big-endian kernel and
+>>> a littl-endian kernel on any ARMv7 machine, and a couple of
+>>> platforms use 64-bit physical addresses even on 32-bit machines
+>>> (with the normal 32-bit instruction set).
 >>
->> Call get_unaligned_be32 when we access 32-bit fields in
->> __skb_flow_dissect. At the beginning check for unlikely case of
->> 1-byte aligned packet.
->>
->> Note that flow_dissector may be asked to parse packet unaligned
->> fields in two instances:
+>> I'm not sure if Keystone 2 devices support this or if we
+>> have support for this. I'll have to double check.
 >
-> I tested this out with the following setup (hostnames in quotes,
-> network connectivity in the line above)
->
->                                       gre-tunnel
->      (eth1) --- (eth1)      (eth0) ... {routed} ...  (eth0)
->    "sparc44"         "sparc45"                      "x86-1"
->
->
-> eth1 connections are point-to-point ethernets.
-> The GRE tunnel is configured with some non-zero gre key.
->
-> So sparc45 bridges sparc44 to x86-1 and has
->
->   sparc45# brctl show br0
->   bridge name     bridge id               STP enabled     interfaces
->   br0             8000.0010e0570711       no              eth1
->                                                           gretap2
->
->
-> I tried various pings etc across the nodes, and made sure that
-> (excluding the mpls change)  all of the changes in Tom's patch
-> worked fine. To do this, I had to enable rps and disable rxhash/ntuple
-> in my intel driver.
->
-> And then I noticed that the iph->saddr access does indeed result in
-> an unaligned access (because this time it gets called with
-> flow_keys_dissector). The other thing that generated unaligned access
-> was the attempt to do this
->                if (proto == htons(ETH_P_TEB)) {
->                         :
->                         eth = __skb_header_pointer(skb, nhoff,
->                                                    sizeof(_eth),
->                                                    data, hlen, &_eth);
->                         :
->                         proto = eth->h_proto;
->                 }
-> which I fixed thus:
->
-> @@ -394,7 +407,7 @@ ip_proto_again:
->                                                    data, hlen, &_eth);
->                         if (!eth)
->                                 goto out_bad;
-> -                       proto = eth->h_proto;
-> +                       proto = get_unaligned_be16(&eth->h_proto);
->                         nhoff += sizeof(*eth);
->                 }
->
-> Having said all this, the larger problem remains:
->
-> There are a number of unaligned access on the xmit path, I've listed
-> a few below. A lot of it is coming of gre_tap_xmit not setting up
-> offsets properly, but there are others.
->
-> In general, since the actual path taken by the packet (i.e.,
-> what driver gets to process this next, what types/sizes of headers
-> will get added, etc) is determined dynamically, it's not enough to just
-> do a one-time skb_reserve (or page_offset) for NET_IP_ALIGN.
->
-> Kernel unaligned access at TPC[9150dc] ipv4_neigh_lookup+0x38/0x170
+I missed this thread so far but noticed after RMK's idmap
+changes series.
 
-Sowmini,
+> Don't worry about it, there is nothing you need to check:
+>
+> As I said, all ARMv7 *hardware* can be run in either mode, and
+> that includes Keystone 2.
+>
+Right. Keystone isn't special from ARMv7 perspective.
 
-This doesn't look like a hard crash to me. Instead of trying to fix
-all the alignment issues for Sparc, can we just take the trap, fix up
-the load, and continue without any further fuss? Performance might
-suffer, but it doesn't seem like the bad alignments are happening in
-critical paths.
+> As for the kernel, it's obvious that nobody tried to run
+> a Keystone based machine with a big-endian kernel, or they
+> would have run into the broken network driver.
+>
+> I believe you also require this patch, unless the firmware is
+> clever enough to figure out endianess by itself (very unlikely)
+>
+> diff --git a/arch/arm/mach-keystone/keystone.h b/arch/arm/mach-keystone/keystone.h
+> index 33eaa037af5a..016ae7644e73 100644
+> --- a/arch/arm/mach-keystone/keystone.h
+> +++ b/arch/arm/mach-keystone/keystone.h
+> @@ -16,7 +16,7 @@
+>   #ifndef __ASSEMBLER__
+>
+>   extern const struct smp_operations keystone_smp_ops;
+> -extern void secondary_startup(void);
+> +extern void keystone_secondary_startup(void);
+>   extern u32 keystone_cpu_smc(u32 command, u32 cpu, u32 addr);
+>   extern int keystone_pm_runtime_init(void);
+>
+> diff --git a/arch/arm/mach-keystone/platsmp.c b/arch/arm/mach-keystone/platsmp.c
+> index 5665276972ec..c427787f78d1 100644
+> --- a/arch/arm/mach-keystone/platsmp.c
+> +++ b/arch/arm/mach-keystone/platsmp.c
+> @@ -26,7 +26,7 @@
+>   static int keystone_smp_boot_secondary(unsigned int cpu,
+>   						struct task_struct *idle)
+>   {
+> -	unsigned long start = virt_to_idmap(&secondary_startup);
+> +	unsigned long start = virt_to_idmap(&keystone_secondary_startup);
+>   	int error;
+>
+>   	pr_debug("keystone-smp: booting cpu %d, vector %08lx\n",
+> diff --git a/arch/arm/mach-keystone/smc.S b/arch/arm/mach-keystone/smc.S
+> index d15de8179fab..3ce858ce426e 100644
+> --- a/arch/arm/mach-keystone/smc.S
+> +++ b/arch/arm/mach-keystone/smc.S
+> @@ -23,6 +23,13 @@
+>    */
+>   ENTRY(keystone_cpu_smc)
+>   	stmfd   sp!, {r4-r11, lr}
+> +ARM_BE8(setend	le)			@ call SMC as LE
+>   	smc	#0
+> +ARM_BE8(setend	be)			@ go back to BE8
+>   	ldmfd   sp!, {r4-r11, pc}
+>   ENDPROC(keystone_cpu_smc)
+> +
+> +ENTRY(keystone_secondary_startup)
+> +ARM_BE8(setend	be)			@ go BE8 if entered LE
+> +	b	secondary_startup
+> +ENDPROC(keyston_secondary_startup)
+>
+> It would be nice to give this a go once the network driver problem
+> is solved.
+>
+Big endian kernel has worked on Keystone in past.
+Yes, above secondary hook needs to be modified along with
+drivers endian macro conversion was what was needed IIRC.
 
-Tom
+Indeed, it will be good to get the BE working but for 4.5-rcx,
+we need to fix the boot problem on priority.
 
-
-> CPU: 3 PID: 0 Comm: swapper/3 Tainted: G            E   4.4.0-dissect+ #19
-> Call Trace:
->  [0000000000432f4c] kernel_unaligned_trap+0xfc/0x5ac
->  [0000000000427ef8] sun4v_do_mna+0x58/0x9c
->  [0000000000406d30] sun4v_mna+0x5c/0x68
->  [00000000009150dc] ipv4_neigh_lookup+0x38/0x170
->  [00000000008ead10] neigh_update+0x450/0x5cc
->  [00000000008eb8b8] neigh_event_ns+0x84/0x94
->  [00000000009518f8] arp_process+0x470/0x854
->  [0000000000951e78] arp_rcv+0x19c/0x1dc
->  [00000000008d647c] __netif_receive_skb_core+0xa24/0xa58
->  [00000000008d6510] __netif_receive_skb+0x60/0x74
->  [00000000008d65dc] process_backlog+0xb8/0x168
->  [00000000008dc9f8] napi_poll+0x74/0x1c8
->  [00000000008dcc20] net_rx_action+0xd4/0x1d4
->  [00000000004633a4] __do_softirq+0x11c/0x28c
->  [000000000042abb0] do_softirq_own_stack+0x34/0x48
->  [0000000000463050] irq_exit+0x48/0x60
->
->
-> Kernel unaligned access at TPC[103e720c] build_header+0x64/0xc4 [ip_gre]
-> CPU: 44 PID: 0 Comm: swapper/44 Tainted: G            E   4.4.0-dissect+ #19
-> Call Trace:
->  [0000000000432f4c] kernel_unaligned_trap+0xfc/0x5ac
->  [0000000000427ef8] sun4v_do_mna+0x58/0x9c
->  [0000000000406d30] sun4v_mna+0x5c/0x68
->  [00000000103e720c] build_header+0x64/0xc4 [ip_gre]
->  [00000000103e76a4] __gre_xmit+0x40/0x7c [ip_gre]
->  [00000000103e79e8] gre_tap_xmit+0xfc/0x12c [ip_gre]
->  [00000000008de6dc] dev_hard_start_xmit+0x304/0x3ec
->  [0000000000904d30] sch_direct_xmit+0x74/0x1dc
->  [00000000008df1a8] __dev_queue_xmit+0x568/0x7e8
->  [00000000008df45c] dev_queue_xmit+0x10/0x24
->  [0000000010207654] ip6_finish_output2+0x5b4/0x6b0 [ipv6]
->  [0000000010207954] ip6_finish_output+0x204/0x218 [ipv6]
->  [0000000010207afc] ip6_output+0x194/0x1a8 [ipv6]
->  [000000001021f97c] ndisc_send_skb+0x390/0x438 [ipv6]
->  [000000001021ff14] ndisc_send_rs+0xe0/0xfc [ipv6]
->  [000000001020b190] addrconf_rs_timer+0xc4/0x124 [ipv6]
->
->
-> Kernel unaligned access at TPC[969ee0] iptunnel_xmit+0xcc/0x1c0
-> CPU: 0 PID: 0 Comm: swapper/0 Tainted: G            E   4.4.0-dissect+ #19
-> Call Trace:
->  [0000000000432f4c] kernel_unaligned_trap+0xfc/0x5ac
->  [0000000000427ef8] sun4v_do_mna+0x58/0x9c
->  [0000000000406d30] sun4v_mna+0x5c/0x68
->  [0000000000969ee0] iptunnel_xmit+0xcc/0x1c0
->  [00000000103dc9dc] ip_tunnel_xmit+0xb78/0xc2c [ip_tunnel]
->  [00000000103e76d0] __gre_xmit+0x6c/0x7c [ip_gre]
->  [00000000103e79e8] gre_tap_xmit+0xfc/0x12c [ip_gre]
->  [00000000008de6dc] dev_hard_start_xmit+0x304/0x3ec
->  [0000000000904d30] sch_direct_xmit+0x74/0x1dc
->  [00000000008df1a8] __dev_queue_xmit+0x568/0x7e8
->  [00000000008df45c] dev_queue_xmit+0x10/0x24
->  [00000000104034b8] br_dev_queue_push_xmit+0x1d8/0x1fc [bridge]
->  [000000001040355c] br_forward_finish+0x80/0x94 [bridge]
->  [0000000010403684] __br_forward+0x114/0x124 [bridge]
->  [0000000010403700] br_forward+0x6c/0x94 [bridge]
->
->
+Regards,
+Santosh
