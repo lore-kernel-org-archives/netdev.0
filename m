@@ -1,42 +1,95 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] unix: properly account for FDs passed over unix
- sockets
-Date: Wed, 3 Feb 2016 15:07:37 +0100
-Message-ID: <56B209A9.5030402@stressinduktion.org>
-References: <201601100657.u0A6vk1B025554@mail.home.local>
- <CANq1E4T0sqTTD4RsWXTUrFvsKvEsKsUiPbskWd=wAEVu83_Srg@mail.gmail.com>
- <56B1E64F.3070206@collabora.co.uk>
- <CANq1E4Sz2U2D7hvWLEknbrKURG_ZbMiqAsVnd5yRF1Qesm3nEg@mail.gmail.com>
+From: "Franklin S Cooper Jr." <fcooper@ti.com>
+Subject: Re: Keystone 2 boards boot failure
+Date: Wed, 3 Feb 2016 08:11:34 -0600
+Message-ID: <56B20A96.9040507@ti.com>
+References: <56B0DE61.2000704@ti.com> <7911064.Pij4S9Q1yj@wuerfel>
+ <56B134D6.101@ti.com> <10700980.gTvMTB9pzv@wuerfel> <56B15591.7080409@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>, "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, socketpair@gmail.com,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
-To: David Herrmann <dh.herrmann@gmail.com>,
-	Simon McVittie <simon.mcvittie@collabora.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANq1E4Sz2U2D7hvWLEknbrKURG_ZbMiqAsVnd5yRF1Qesm3nEg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <m-karicheri2@ti.com>, <netdev@vger.kernel.org>, <w-kwok2@ti.com>,
+	<davem@davemloft.net>,
+	"Strashko, Grygorii" <grygorii.strashko@ti.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:43759 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752468AbcBCOLn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2016 09:11:43 -0500
+In-Reply-To: <56B15591.7080409@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03.02.2016 12:56, David Herrmann wrote:
-> However, with Hannes' revised patch, a different DoS attack against
-> dbus-daemon is possible. Imagine a peer that receives batches of FDs,
-> but never dequeues them. They will be accounted on the inflight-limit
-> of dbus-daemon, as such causing messages of independent peers to be
-> rejected in case they carry FDs.
 
-Yes, that is true.
+On 02/02/2016 07:19 PM, Franklin S Cooper Jr. wrote:
+>
+> On 02/02/2016 05:26 PM, Arnd Bergmann wrote:
+>> On Tuesday 02 February 2016 16:59:34 Franklin Cooper wrote:
+>>> On 02/02/2016 03:26 PM, Arnd Bergmann wrote:
+>>>> On Tuesday 02 February 2016 15:01:33 Franklin S Cooper Jr. wrote:
+>>>>> Yes. Here is a boot log on the latest master with the below
+>>>>> three patches reverted.
+>>>>> http://pastebin.com/W7RWSHpE (Working)
+>>>>>
+>>>>> I reverted these three patches. The two latest patches seem
+>>>>> to be trying to correct/expand upon the last patch on this list.
+>>>>>
+>>>>> commit 958d104e3d40eef5148c402887138f6594ff7e1e
+>>>>> netcp: fix regression in receive processing
+>>>>>
+>>>>> commit 9dd2d6c5c9755b160fe0111bcdad9491676feea8
+>>>>> netcp: add more __le32 annotations
+>>>>>
+>>>>> commit 899077791403ff7a2d8cfaa87bd1a82d729463e2
+>>>>> netcp: try to reduce type confusion in descriptors
+>>>>>
+>>>> The middle patch should have no effect on generated code, so I'm ignoring
+>>>> that for now.
+>>>>
+>>>> The next thing to rule out is an endianess bug. I assume you
+>>>> are running this on with a little-endian kernel, correct? If
+>>>> you are running big-endian, the base assumption that the driver needs
+>>>> to swap the data was flawed and that portion needs to be done.
+>>>>
+>>>> If you are running little-endian 32-bit, please try the partial
+>>>> revert below, which just undoes the attempt to make it work with
+>>>> 64-bit kernels.
+>>> Keystone 2 devices are little-endian 32-bit devices.
+>> I meant the kernel you are running on it, not the hardware.
+>> You should always be able to run both a big-endian kernel and
+>> a littl-endian kernel on any ARMv7 machine, and a couple of
+>> platforms use 64-bit physical addresses even on 32-bit machines
+>> (with the normal 32-bit instruction set).
+> I'm not sure if Keystone 2 devices support this or if we
+> have support for this. I'll have to double check.
+>> I wasn't completely sure if there are already keystone-derived
+>> products with 64-bit CPU cores, but I guess the driver would
+>> fail really badly on those (with or without the patch).
+>>
+>>> This partial revert fixes the boot problem for me.
+>> Ok.
+>>
+>>
+>> I tried to create a smaller version and stumbled over
+>> a typo, maybe that's the whole problem. Can you try this one:
+>>
+>> diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+>> index c61d66d38634..8490804416dd 100644
+>> --- a/drivers/net/ethernet/ti/netcp_core.c
+>> +++ b/drivers/net/ethernet/ti/netcp_core.c
+>> @@ -167,7 +167,7 @@ static void set_pad_info(u32 pad0, u32 pad1, u32 pad2, struct knav_dma_desc *des
+>>  {
+>>  	desc->pad[0] = cpu_to_le32(pad0);
+>>  	desc->pad[1] = cpu_to_le32(pad1);
+>> -	desc->pad[2] = cpu_to_le32(pad1);
+>> +	desc->pad[2] = cpu_to_le32(pad2);
+>>  }
+>>  
+>>  static void set_org_pkt_info(dma_addr_t buff, u32 buff_len,
+>>
+>>
+>> 	Arnd
+> So only making this change on the latest master with no
+> other changes I see the boot problem again.
 
-We also kind of have the problem with unconnected af-unix dgram sockets: 
-if the receiver does not read the skbs on the receive queue we don't 
-free up the sending socket's wmem, thus stop the socket from being 
-destructed and can block the process during sendmsg on this socket. This 
-is harder to DoS but pretty much the same schema.
-
-Bye,
-Hannes
++Grygorii
