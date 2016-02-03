@@ -1,89 +1,129 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH v2 net 6/6] net: mvneta: Fix race condition during
- stopping
-Date: Wed, 3 Feb 2016 16:01:43 +0800
-Message-ID: <20160203160143.59225a51@xhacker>
-References: <1454332067-16378-1-git-send-email-gregory.clement@free-electrons.com>
-	<1454332067-16378-7-git-send-email-gregory.clement@free-electrons.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next 2/4] net: dev: add batching to net_device
+ notifiers
+Date: Wed, 3 Feb 2016 10:08:26 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1602030950280.1736@ja.home.ssi.bg>
+References: <1454365952-10324-1-git-send-email-noureddine@arista.com> <1454365952-10324-3-git-send-email-noureddine@arista.com> <alpine.LFD.2.11.1602022219010.2006@ja.home.ssi.bg> <CAO7SqHBKrPvaEhLeEJsCrjYEiPcZ6MpyfwY43NwhGLWhW4VTNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: "David S. Miller" <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Marcin Wojtas <mw@semihalf.com>, Willy Tarreau <w@1wt.eu>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454332067-16378-7-git-send-email-gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Salam Noureddine <noureddine@arista.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:58437 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754466AbcBCIJE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2016 03:09:04 -0500
+In-Reply-To: <CAO7SqHBKrPvaEhLeEJsCrjYEiPcZ6MpyfwY43NwhGLWhW4VTNQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 1 Feb 2016 14:07:47 +0100 Gregory CLEMENT wrote:
 
-> When stopping the port, the CPU notifier are still there whereas the
-> mvneta_stop_dev function calls mvneta_percpu_disable() on each CPUs.
-> It was possible to have a new CPU coming at this point which could be
-> racy.
+	Hello,
+
+On Tue, 2 Feb 2016, Salam Noureddine wrote:
+
+> On Tue, Feb 2, 2016 at 12:55 PM, Julian Anastasov <ja@ssi.bg> wrote:
+> >
+> >                         If the rule is once per net, the above call...
+> >
+> >>               }
+> >
+> >                 should be here:
+> >
+> >                 call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
+> >                                         net->loopback_dev);
+> >
+> >         and also once after outroll label?:
 > 
-> This patch adds a flag preventing executing the code notifier for a new CPU
-> when the port is stopping.
+> That's a good optimization to add. I was mostly focusing on the device
+> unregister path.
+
+	Yes, the idea is to avoid NETDEV_UNREGISTER_BATCH for
+every dev. And not to forget to call it for every net.
+In this case it is a cleanup path after failure.
+
+> >>                       call_netdevice_notifier(nb, NETDEV_UNREGISTER, dev);
+> >> +                     call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
+> >> +                                             dev);
+> >
+> >                         Above call...
+> >
+> >>               }
+> >
+> >                 should be here, for net->loopback_dev?
+> > Also, is it ok to call NETDEV_DOWN_BATCH many times, as result,
+> > sometimes after NETDEV_UNREGISTER?
 > 
-> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 14 ++++++++++++++
->  1 file changed, 14 insertions(+)
+> Same here, I can add this optimization. I think it is fine to call the
+> BATCH notifiers
+> for every interface. It is just better to do it for many interfaces at
+> the same time.
+
+	Agreed
+
+> >> +     list_for_each_entry_safe(net, net_tmp, &net_head, event_list) {
+> >> +             call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH,
+> >> +                                      net->loopback_dev);
+> >> +             net_del_event_list(net);
+> >> +     }
+> >> +
+> >
+> >         NETDEV_UNREGISTER* should not be called before
+> > following synchronize_net and NETDEV_UNREGISTER. May be
+> > we should split the loop: loop (dev_shutdown+NETDEV_UNREGISTER)
+> > followed by above NETDEV_UNREGISTER_BATCH then again the
+> > loop for all remaining calls
+> >
+> >>       synchronize_net();
 > 
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index 4d40d2fde7ca..2f53975aa6ec 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -374,6 +374,7 @@ struct mvneta_port {
->  	 * ensuring that the configuration remains coherent.
->  	 */
->  	spinlock_t lock;
-> +	bool is_stopping;
->  
->  	/* Core clock */
->  	struct clk *clk;
-> @@ -2916,6 +2917,11 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
->  	switch (action) {
->  	case CPU_ONLINE:
->  	case CPU_ONLINE_FROZEN:
-> +		/* Configuring the driver for a new CPU while the
-> +		 * driver is stopping is racy, so just avoid it.
-> +		 */
-> +		if (pp->is_stopping)
-> +			break;
+> The call to NETDEV_UNREGISTER_BATCH is actually after NETDEV_UNREGISTER,
+> it seems the other way around in the patch because it is showing part
+> of netdev_wait_allrefs
+> and not rollback_registered_may.
 
-I still see race. What about another cpu set is_stopping at this point?
+	Aha, I see, it is after NETDEV_UNREGISTER but may be
+the above loop should be changed to two loops so that
+NETDEV_UNREGISTER_BATCH is called exactly after all
+NETDEV_UNREGISTER and before all dev_*_flush and
+ndo_uninit calls to avoid any risks. I mean:
 
-Thanks
+        synchronize_net();
 
+	First part of loop:
 
->  		netif_tx_stop_all_queues(pp->dev);
->  
->  		/* We have to synchronise on tha napi of each CPU
-> @@ -3054,9 +3060,17 @@ static int mvneta_stop(struct net_device *dev)
->  {
->  	struct mvneta_port *pp = netdev_priv(dev);
->  
-> +	/* Inform that we are stopping so we don't want to setup the
-> +	 * driver for new CPUs in the notifiers
-> +	 */
-> +	pp->is_stopping = true;
->  	mvneta_stop_dev(pp);
->  	mvneta_mdio_remove(pp);
->  	unregister_cpu_notifier(&pp->cpu_notifier);
-> +	/* Now that the notifier are unregistered, we can clear the
-> +	 * flag
-> +	 */
-> +	pp->is_stopping = false;
->  	on_each_cpu(mvneta_percpu_disable, pp, true);
->  	free_percpu_irq(dev->irq, pp->ports);
->  	mvneta_cleanup_rxqs(pp);
+        list_for_each_entry(dev, head, unreg_list) {
+                /* Shutdown queueing discipline. */
+                dev_shutdown(dev);
+
+                /* Notify protocols, that we are about to destroy
+                   this device. They should clean all the things.
+                */
+                call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
+	}
+
+	This is the same NETDEV_UNREGISTER_BATCH logic:
+
++       list_for_each_entry(dev, head, unreg_list) {
++               net_add_event_list(&net_head, dev_net(dev));
++       }
++       list_for_each_entry_safe(net, net_tmp, &net_head, event_list) {
++               call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH,
++                                        net->loopback_dev);
++               net_del_event_list(net);
++       }
+
+	Second part of the loop:
+
+        list_for_each_entry(dev, head, unreg_list) {
+                struct sk_buff *skb = NULL;
+
+		if (!dev->rtnl_link_ops ||
+		...
+
+Regards
