@@ -1,96 +1,33 @@
-From: skallam <siva.kallam@broadcom.com>
-Subject: [PATCH net v2] tg3: Fix for tg3 transmit queue 0 timed out when too many gso_segs
-Date: Wed,  3 Feb 2016 14:09:38 +0530
-Message-ID: <1454488778-19925-1-git-send-email-siva.kallam@broadcom.com>
-Cc: netdev@vger.kernel.org, mchan@broadcom.com, prashant@broadcom.com,
-	Siva Reddy Kallam <siva.kallam@broadcom.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5520-maca-inet1-outside.broadcom.com ([216.31.211.11]:60285
-	"EHLO mail-irv-18.localdomain" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752968AbcBCIsK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 03:48:10 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH v3] rtlwifi: Fix improve function 'rtl_addr_delay()' in
+ core.c
+Date: Wed, 3 Feb 2016 14:26:03 +0530
+Message-ID: <20160203085603.GA9640@sudip-pc>
+References: <20160203052146.GA15711@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry.Finger@lwfinger.net, kvalo@codeaurora.org,
+	chaoming_li@realsil.com.cn, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	lkp@intel.com, julian.calaby@gmail.com
+To: Byeoungwook Kim <quddnr145@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160203052146.GA15711@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Siva Reddy Kallam <siva.kallam@broadcom.com>
+On Wed, Feb 03, 2016 at 02:21:46PM +0900, Byeoungwook Kim wrote:
+> Conditional codes in rtl_addr_delay() were improved in readability and
+> performance by using switch codes.
+> 
+> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+> Signed-off-by: Byeoungwook Kim <quddnr145@gmail.com>
+> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
 
-tg3_tso_bug() can hit a condition where the entire tx ring is not big
-enough to segment the GSO packet. For example, if MSS is very small,
-gso_segs can exceed the tx ring size. When we hit the condition, it
-will cause tx timeout.
+How you are using Signed-off-by: of Fengguang Wu?
 
-tg3_tso_bug() is called to handle TSO and DMA hardware bugs.
-For TSO bugs, if tg3_tso_bug() cannot succeed, we have to drop the packet.
-For DMA bugs, we can still fall back to linearize the SKB and let the
-hardware transmit the TSO packet.
+did i missed seeing any mail from Fengguang in your previous versions?
 
-This patch adds a function tg3_tso_bug_gso_check() to check if there
-are enough tx descriptors for GSO before calling tg3_tso_bug().
-The caller will then handle the error appropriately - drop or
-lineraize the SKB.
-
-v2: Corrected patch description to avoid confusion.
-
-Signed-off-by: Siva Reddy Kallam <siva.kallam@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Acked-by: Prashant Sreedharan <prashant@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c | 25 +++++++++++++++++++------
- 1 file changed, 19 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 9293675..eb3d347 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -7831,6 +7831,14 @@ static int tigon3_dma_hwbug_workaround(struct tg3_napi *tnapi,
- 	return ret;
- }
- 
-+static bool tg3_tso_bug_gso_check(struct tg3_napi *tnapi, struct sk_buff *skb)
-+{
-+	/* Check if we will never have enough descriptors,
-+	 * as gso_segs can be more than current ring size
-+	 */
-+	return skb_shinfo(skb)->gso_segs < tnapi->tx_pending / 3;
-+}
-+
- static netdev_tx_t tg3_start_xmit(struct sk_buff *, struct net_device *);
- 
- /* Use GSO to workaround all TSO packets that meet HW bug conditions
-@@ -7934,14 +7942,19 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		 * vlan encapsulated.
- 		 */
- 		if (skb->protocol == htons(ETH_P_8021Q) ||
--		    skb->protocol == htons(ETH_P_8021AD))
--			return tg3_tso_bug(tp, tnapi, txq, skb);
-+		    skb->protocol == htons(ETH_P_8021AD)) {
-+			if (tg3_tso_bug_gso_check(tnapi, skb))
-+				return tg3_tso_bug(tp, tnapi, txq, skb);
-+			goto drop;
-+		}
- 
- 		if (!skb_is_gso_v6(skb)) {
- 			if (unlikely((ETH_HLEN + hdr_len) > 80) &&
--			    tg3_flag(tp, TSO_BUG))
--				return tg3_tso_bug(tp, tnapi, txq, skb);
--
-+			    tg3_flag(tp, TSO_BUG)) {
-+				if (tg3_tso_bug_gso_check(tnapi, skb))
-+					return tg3_tso_bug(tp, tnapi, txq, skb);
-+				goto drop;
-+			}
- 			ip_csum = iph->check;
- 			ip_tot_len = iph->tot_len;
- 			iph->check = 0;
-@@ -8073,7 +8086,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (would_hit_hwbug) {
- 		tg3_tx_skb_unmap(tnapi, tnapi->tx_prod, i);
- 
--		if (mss) {
-+		if (mss && tg3_tso_bug_gso_check(tnapi, skb)) {
- 			/* If it's a TSO packet, do GSO instead of
- 			 * allocating and copying to a large linear SKB
- 			 */
--- 
-1.9.1
+regards
+sudip
