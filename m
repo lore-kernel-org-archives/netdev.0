@@ -1,45 +1,54 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH net-next v5 1/2] ethtool: add speed/duplex validation
- functions
-Date: Wed, 3 Feb 2016 15:49:04 -0800
-Message-ID: <56B291F0.9010909@hpe.com>
-References: <1454468677-12280-1-git-send-email-razor@blackwall.org>
- <1454468677-12280-2-git-send-email-razor@blackwall.org>
- <20160204103226.333d98ca@samsung9>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] virtio_net: add ethtool support for set and
+	get of settings
+Date: Thu, 4 Feb 2016 10:53:07 +1100
+Message-ID: <20160204105307.62e6c934@samsung9>
+References: <1454417480-28672-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, roopa@cumulusnetworks.com,
-	davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	Nikolay Aleksandrov <razor@blackwall.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t1613g.houston.hp.com ([15.240.0.71]:54749 "EHLO
-	g9t1613g.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933518AbcBCXtJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 18:49:09 -0500
-Received: from g1t5424.austin.hp.com (g1t5424.austin.hp.com [15.216.225.54])
-	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by g9t1613g.houston.hp.com (Postfix) with ESMTPS id 7F35363AD2
-	for <netdev@vger.kernel.org>; Wed,  3 Feb 2016 23:49:08 +0000 (UTC)
-In-Reply-To: <20160204103226.333d98ca@samsung9>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	netdev@vger.kernel.org, Roopa Prabhu <roopa@cumulusnetworks.com>,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: Nikolay Aleksandrov <razor@blackwall.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1454417480-28672-1-git-send-email-razor@blackwall.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 02/03/2016 03:32 PM, Stephen Hemminger wrote:
+On Tue,  2 Feb 2016 13:51:20 +0100
+Nikolay Aleksandrov <razor@blackwall.org> wrote:
 
-> But why check for valid value at all. At some point in the
-> future, there will be yet another speed adopted by some standard body
-> and the switch statement would need another value.
->
-> Why not accept any value? This is a virtual device.
->
+> +static bool virtnet_validate_speed(u32 speed)
+> +{
+> +	switch (speed) {
+> +	case SPEED_10:
+> +	case SPEED_100:
+> +	case SPEED_1000:
+> +	case SPEED_2500:
+> +	case SPEED_5000:
+> +	case SPEED_10000:
+> +	case SPEED_20000:
+> +	case SPEED_25000:
+> +	case SPEED_40000:
+> +	case SPEED_50000:
+> +	case SPEED_56000:
+> +	case SPEED_100000:
+> +	case SPEED_UNKNOWN:
+> +		return true;
+> +	}
+> +
+> +	return false;
+> +}
 
-And even for not-quite-virtual devices - such as a VC/FlexNIC in an HPE 
-blade server there can be just about any speed set.  I think we went 
-down a path of patching some things to address that many years ago.  It 
-would be a shame to undo that.
-
-rick
+Why limit to only known values. This switch() will get out of
+date when some vendor introduces 64G or some other weird value.
