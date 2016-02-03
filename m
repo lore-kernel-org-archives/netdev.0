@@ -1,70 +1,86 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v5 2/2] virtio_net: add ethtool support for set
- and get of settings
-Date: Wed, 3 Feb 2016 10:19:04 +0100
-Message-ID: <56B1C608.1040805@cumulusnetworks.com>
-References: <1454468677-12280-1-git-send-email-razor@blackwall.org>
- <1454468677-12280-3-git-send-email-razor@blackwall.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, roopa@cumulusnetworks.com, davem@davemloft.net
-To: Nikolay Aleksandrov <razor@blackwall.org>, netdev@vger.kernel.org
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Subject: [PATCH net] enic: increment devcmd2 result ring in case of timeout
+Date: Wed,  3 Feb 2016 14:40:44 +0530
+Message-ID: <1454490644-17955-1-git-send-email-gvaradar@cisco.com>
+Cc: ssujith@cisco.com, benve@cisco.com,
+	Sandeep Pillai <sanpilla@cisco.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:33428 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750863AbcBCJTH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 04:19:07 -0500
-Received: by mail-wm0-f52.google.com with SMTP id l66so153800968wml.0
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 01:19:06 -0800 (PST)
-In-Reply-To: <1454468677-12280-3-git-send-email-razor@blackwall.org>
+Received: from bgl-iport-2.cisco.com ([72.163.197.26]:25981 "EHLO
+	bgl-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751193AbcBCJVR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 04:21:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/2016 04:04 AM, Nikolay Aleksandrov wrote:
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> This patch allows the user to set and retrieve speed and duplex of the
-> virtio_net device via ethtool. Having this functionality is very helpful
-> for simulating different environments and also enables the virtio_net
-> device to participate in operations where proper speed and duplex are
-> required (e.g. currently bonding lacp mode requires full duplex). Custom
-> speed and duplex are not allowed, the user-supplied settings are validated
-> before applying.
-> 
-> Example:
-> $ ethtool eth1
-> Settings for eth1:
-> ...
-> 	Speed: Unknown!
-> 	Duplex: Unknown! (255)
-> $ ethtool -s eth1 speed 1000 duplex full
-> $ ethtool eth1
-> Settings for eth1:
-> ...
-> 	Speed: 1000Mb/s
-> 	Duplex: Full
-> 
-> Based on a patch by Roopa Prabhu.
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
-> v2: use the new ethtool speed/duplex validation functions and allow half
-> duplex to be set
-> v3: return error if the user tries to change anything besides speed/duplex
-> as per Michael's comment
-> We have to zero-out advertising as it gets set automatically by ethtool if
-> setting speed and duplex together.
-> v4: Set port type to PORT_OTHER
-> v5: null diff1.port because we set cmd->port now and ethtool returns it in
-> the set request, retested all cases
-> 
+From: Sandeep Pillai <sanpilla@cisco.com>
 
-Hmm, nulling the advertising and ->port completely ignores them, i.e. won't produce
-an error if the user actually specified a different value for either of them.
-We can check if the ->port matches what we returned, but there's no fix for
-advertising. I'm leaving both ignored for now, please let me know if you'd
-prefer otherwise.
+Firmware posts the devcmd result in result ring. In case of timeout, driver
+does not increment the current result pointer and firmware could post the
+result after timeout has occurred. During next devcmd, driver would be
+reading the result of previous devcmd.
 
-Thanks,
- Nik
+Fix this by incrementing result even in case of timeout.
+
+Fixes: 373fb0873d43 ("enic: add devcmd2")
+Signed-off-by: Sandeep Pillai <sanpilla@cisco.com>
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+---
+ drivers/net/ethernet/cisco/enic/enic.h     |  2 +-
+ drivers/net/ethernet/cisco/enic/vnic_dev.c | 19 ++++++++++++-------
+ 2 files changed, 13 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index 1671fa3..7ba6d53 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -33,7 +33,7 @@
+ 
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.3.0.12"
++#define DRV_VERSION		"2.3.0.20"
+ #define DRV_COPYRIGHT		"Copyright 2008-2013 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.c b/drivers/net/ethernet/cisco/enic/vnic_dev.c
+index 1ffd105..1fdf5fe 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_dev.c
++++ b/drivers/net/ethernet/cisco/enic/vnic_dev.c
+@@ -298,7 +298,8 @@ static int _vnic_dev_cmd2(struct vnic_dev *vdev, enum vnic_devcmd_cmd cmd,
+ 			  int wait)
+ {
+ 	struct devcmd2_controller *dc2c = vdev->devcmd2;
+-	struct devcmd2_result *result = dc2c->result + dc2c->next_result;
++	struct devcmd2_result *result;
++	u8 color;
+ 	unsigned int i;
+ 	int delay, err;
+ 	u32 fetch_index, new_posted;
+@@ -336,13 +337,17 @@ static int _vnic_dev_cmd2(struct vnic_dev *vdev, enum vnic_devcmd_cmd cmd,
+ 	if (dc2c->cmd_ring[posted].flags & DEVCMD2_FNORESULT)
+ 		return 0;
+ 
++	result = dc2c->result + dc2c->next_result;
++	color = dc2c->color;
++
++	dc2c->next_result++;
++	if (dc2c->next_result == dc2c->result_size) {
++		dc2c->next_result = 0;
++		dc2c->color = dc2c->color ? 0 : 1;
++	}
++
+ 	for (delay = 0; delay < wait; delay++) {
+-		if (result->color == dc2c->color) {
+-			dc2c->next_result++;
+-			if (dc2c->next_result == dc2c->result_size) {
+-				dc2c->next_result = 0;
+-				dc2c->color = dc2c->color ? 0 : 1;
+-			}
++		if (result->color == color) {
+ 			if (result->error) {
+ 				err = result->error;
+ 				if (err != ERR_ECMDUNKNOWN ||
+-- 
+2.6.2
