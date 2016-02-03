@@ -1,94 +1,57 @@
-From: "Franklin S Cooper Jr." <fcooper@ti.com>
-Subject: Re: Keystone 2 boards boot failure
-Date: Tue, 2 Feb 2016 19:19:13 -0600
-Message-ID: <56B15591.7080409@ti.com>
-References: <56B0DE61.2000704@ti.com> <7911064.Pij4S9Q1yj@wuerfel>
- <56B134D6.101@ti.com> <10700980.gTvMTB9pzv@wuerfel>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ipv6: fix a lockdep splat
+Date: Tue, 02 Feb 2016 17:55:01 -0800
+Message-ID: <1454464501.7627.210.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20160202195933.GA6302@codemonkey.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <m-karicheri2@ti.com>, <netdev@vger.kernel.org>, <w-kwok2@ti.com>,
-	<davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@codemonkey.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:48762 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752733AbcBCBTU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 20:19:20 -0500
-In-Reply-To: <10700980.gTvMTB9pzv@wuerfel>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34180 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932130AbcBCBzE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 20:55:04 -0500
+Received: by mail-pa0-f42.google.com with SMTP id uo6so4257063pac.1
+        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 17:55:03 -0800 (PST)
+In-Reply-To: <20160202195933.GA6302@codemonkey.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
+Silence lockdep false positive about rcu_dereference() being
+used in the wrong context.
 
-On 02/02/2016 05:26 PM, Arnd Bergmann wrote:
-> On Tuesday 02 February 2016 16:59:34 Franklin Cooper wrote:
->> On 02/02/2016 03:26 PM, Arnd Bergmann wrote:
->>> On Tuesday 02 February 2016 15:01:33 Franklin S Cooper Jr. wrote:
->>>> Yes. Here is a boot log on the latest master with the below
->>>> three patches reverted.
->>>> http://pastebin.com/W7RWSHpE (Working)
->>>>
->>>> I reverted these three patches. The two latest patches seem
->>>> to be trying to correct/expand upon the last patch on this list.
->>>>
->>>> commit 958d104e3d40eef5148c402887138f6594ff7e1e
->>>> netcp: fix regression in receive processing
->>>>
->>>> commit 9dd2d6c5c9755b160fe0111bcdad9491676feea8
->>>> netcp: add more __le32 annotations
->>>>
->>>> commit 899077791403ff7a2d8cfaa87bd1a82d729463e2
->>>> netcp: try to reduce type confusion in descriptors
->>>>
->>> The middle patch should have no effect on generated code, so I'm ignoring
->>> that for now.
->>>
->>> The next thing to rule out is an endianess bug. I assume you
->>> are running this on with a little-endian kernel, correct? If
->>> you are running big-endian, the base assumption that the driver needs
->>> to swap the data was flawed and that portion needs to be done.
->>>
->>> If you are running little-endian 32-bit, please try the partial
->>> revert below, which just undoes the attempt to make it work with
->>> 64-bit kernels.
->> Keystone 2 devices are little-endian 32-bit devices.
-> I meant the kernel you are running on it, not the hardware.
-> You should always be able to run both a big-endian kernel and
-> a littl-endian kernel on any ARMv7 machine, and a couple of
-> platforms use 64-bit physical addresses even on 32-bit machines
-> (with the normal 32-bit instruction set).
+First one should use rcu_dereference_protected() as we own the spinlock.
 
-I'm not sure if Keystone 2 devices support this or if we
-have support for this. I'll have to double check.
->
-> I wasn't completely sure if there are already keystone-derived
-> products with 64-bit CPU cores, but I guess the driver would
-> fail really badly on those (with or without the patch).
->
->> This partial revert fixes the boot problem for me.
-> Ok.
->
->
-> I tried to create a smaller version and stumbled over
-> a typo, maybe that's the whole problem. Can you try this one:
->
-> diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-> index c61d66d38634..8490804416dd 100644
-> --- a/drivers/net/ethernet/ti/netcp_core.c
-> +++ b/drivers/net/ethernet/ti/netcp_core.c
-> @@ -167,7 +167,7 @@ static void set_pad_info(u32 pad0, u32 pad1, u32 pad2, struct knav_dma_desc *des
->  {
->  	desc->pad[0] = cpu_to_le32(pad0);
->  	desc->pad[1] = cpu_to_le32(pad1);
-> -	desc->pad[2] = cpu_to_le32(pad1);
-> +	desc->pad[2] = cpu_to_le32(pad2);
->  }
->  
->  static void set_org_pkt_info(dma_addr_t buff, u32 buff_len,
->
->
-> 	Arnd
+Second one should be a normal assignation, as no barrier is needed.
 
-So only making this change on the latest master with no
-other changes I see the boot problem again.
+Fixes: 18367681a10bd ("ipv6 flowlabel: Convert np->ipv6_fl_list to RCU.")
+Reported-by: Dave Jones <davej@codemonkey.org.uk>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv6/ip6_flowlabel.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index 1f9ebe3cbb4a..dc2db4f7b182 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -540,12 +540,13 @@ int ipv6_flowlabel_opt(struct sock *sk, char __user *optval, int optlen)
+ 		}
+ 		spin_lock_bh(&ip6_sk_fl_lock);
+ 		for (sflp = &np->ipv6_fl_list;
+-		     (sfl = rcu_dereference(*sflp)) != NULL;
++		     (sfl = rcu_dereference_protected(*sflp,
++						      lockdep_is_held(&ip6_sk_fl_lock))) != NULL;
+ 		     sflp = &sfl->next) {
+ 			if (sfl->fl->label == freq.flr_label) {
+ 				if (freq.flr_label == (np->flow_label&IPV6_FLOWLABEL_MASK))
+ 					np->flow_label &= ~IPV6_FLOWLABEL_MASK;
+-				*sflp = rcu_dereference(sfl->next);
++				*sflp = sfl->next;
+ 				spin_unlock_bh(&ip6_sk_fl_lock);
+ 				fl_release(sfl->fl);
+ 				kfree_rcu(sfl, rcu);
