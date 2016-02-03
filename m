@@ -1,106 +1,104 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v3] net:Add sysctl_max_skb_frags
-Date: Wed, 3 Feb 2016 09:43:16 -0800
-Message-ID: <CAKgT0UdGeOJ+NyegQ6vPCdXF39NoiFXQdTjAOoFaokteNWiygw@mail.gmail.com>
-References: <568F87AC.60405@oracle.com>
-	<1454488017-8822-1-git-send-email-hans.westgaard.ry@oracle.com>
-	<CAKgT0UftR3pTOGO91GaUijPCTq8POQcNChRqyy1b1TYsM3n4Uw@mail.gmail.com>
-	<1454515628.7627.245.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Westphal <fw@strlen.de>, Jiri Pirko <jiri@resnulli.us>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Michal Hocko <mhocko@suse.com>,
-	=?UTF-8?Q?Linus_L=C3=BCssing?= <linus.luessing@c0d3.blue>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tejun Heo <tj@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alexey Kodanev <alexey.kodanev@oracle.com>,
-	=?UTF-8?B?SMOla29uIEJ1Z2dl?= <haakon.bugge@oracle.com>,
-	open list <linux-kernel@vger.kernel.org>,
-	"open list
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454515628.7627.245.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH] flowi: add concept of "not_oif"
+Date: Wed,  3 Feb 2016 18:46:35 +0100
+Message-ID: <1454521595-6721-1-git-send-email-Jason@zx2c4.com>
+References: <CAHmME9pgwgjKJAFH2=sEEMJauno_rVEzY6JORTQze91Xo5zefw@mail.gmail.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from frisell.zx2c4.com ([192.95.5.64]:37552 "EHLO frisell.zx2c4.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964823AbcBCRpv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2016 12:45:51 -0500
+In-Reply-To: <CAHmME9pgwgjKJAFH2=sEEMJauno_rVEzY6JORTQze91Xo5zefw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 3, 2016 at 8:07 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2016-02-03 at 07:58 -0800, Alexander Duyck wrote:
->> > +++ b/net/core/sysctl_net_core.c
->>
->> I really don't think these changes belong in the core. Below you only
->> modify the TCP code path so this more likely belongs in the TCP path
->> unless you are going to guarantee that all other code paths obey the
->> sysctl.  It probably belongs in net/ipv4/sysctl_net_ipv4.c
->
->
-> Alexander, this is a v3.
+This patch simply adds support for specifying a "not_oif" device in
+flowi4 and flowi6 lookups, that will find a matching route that _isn't_
+via the specified device.
 
-Well I guess that means that a v4 might be needed.  I get that others
-have reviewed it but obviously their opinions differed from mine as I
-have a few objections to parts of this patch.
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+---
+ include/net/flow.h  | 3 +++
+ net/ipv4/fib_trie.c | 2 ++
+ net/ipv6/route.c    | 6 +++++-
+ 3 files changed, 10 insertions(+), 1 deletion(-)
 
-> We rejected prior attempts doing exactly what you suggest.
-
-Okay so it sounds like there are some other opinions on this then that
-I am not aware of.
-
-> Think about GRO : These people also need to use the same sysctl in GRO
-> to limit number of frags.
-
-Okay, well without the GRO changes this patch set is incomplete then.
-
-> Limiting the stuff at the egress is useless in forwarding setups.
-> It will be too late as they'll need to linearize -> huge performance
-> drop.
->
-> This is why we wanted a global setup so that these guys can tweak the
-> default limit.
->
-> Please read netdev history about this stuff.
-
-Read the history.  I still say it is best if we don't accept a partial
-solution.  If we are going to introduce the sysctl as a core item it
-should function as a core item and not as something that belongs to
-TCP only.
-
-Also I wasn't saying to go the gso_max_size route.  As I commented I
-think that probably needs to be fixed as well.  Maybe turned into a
-sysctl as is being proposed here since I have found scenarios such as
-tunnels where the gso_max_size may not be observed.
-
-> Plan of action :
->
-> 1) This patch, adding a core sysctl.
-> 2) Use it in TCP (already done in this patch)
-> 3) Use it in GRO
-
-What you are talking about is a TCP offloads, one on the transmit side
-and one on the receive side.  The name max_skb_frags implies that this
-value it is going to cover ALL users of fragments and it doesn't.
-
-If you are going to try and pass this off as a core how about covering
-other cases such as __ip_append_data(), skb_append_datato_frags() and
-the rest of the functions out there that will totally ignore this
-current change and still put together a frame with MAX_SKB_FRAGS
-instead of the sysctl value?
-
-In addition it makes sense to have things setup so that you have both
-the sysctl and the device value.  Then if someone wants to they can
-leave the value set large and just let the one NIC sit there and
-linearize frames because NETIF_F_SG gets cleared in netif_skb_features
-if the number of frags used exceeds the value for max_frags reported
-in the netdev.
-
-- Alex
+diff --git a/include/net/flow.h b/include/net/flow.h
+index 83969ee..29967ad 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -26,6 +26,7 @@ struct flowi_tunnel {
+ 
+ struct flowi_common {
+ 	int	flowic_oif;
++	int	flowic_not_oif;
+ 	int	flowic_iif;
+ 	__u32	flowic_mark;
+ 	__u8	flowic_tos;
+@@ -67,6 +68,7 @@ union flowi_uli {
+ struct flowi4 {
+ 	struct flowi_common	__fl_common;
+ #define flowi4_oif		__fl_common.flowic_oif
++#define flowi4_not_oif		__fl_common.flowic_not_oif
+ #define flowi4_iif		__fl_common.flowic_iif
+ #define flowi4_mark		__fl_common.flowic_mark
+ #define flowi4_tos		__fl_common.flowic_tos
+@@ -125,6 +127,7 @@ static inline void flowi4_update_output(struct flowi4 *fl4, int oif, __u8 tos,
+ struct flowi6 {
+ 	struct flowi_common	__fl_common;
+ #define flowi6_oif		__fl_common.flowic_oif
++#define flowi6_not_oif		__fl_common.flowic_not_oif
+ #define flowi6_iif		__fl_common.flowic_iif
+ #define flowi6_mark		__fl_common.flowic_mark
+ #define flowi6_tos		__fl_common.flowic_tos
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 7aea0cc..d03e991 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1429,6 +1429,8 @@ found:
+ 				    flp->flowi4_oif != nh->nh_oif)
+ 					continue;
+ 			}
++			if (flp->flowi4_not_oif && flp->flowi4_not_oif == nh->nh_oif)
++				continue;
+ 
+ 			if (!(fib_flags & FIB_LOOKUP_NOREF))
+ 				atomic_inc(&fi->fib_clntref);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 3c8834b..2a793b5 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -467,6 +467,7 @@ static inline struct rt6_info *rt6_device_match(struct net *net,
+ 						    struct rt6_info *rt,
+ 						    const struct in6_addr *saddr,
+ 						    int oif,
++						    int not_oif,
+ 						    int flags)
+ {
+ 	struct rt6_info *local = NULL;
+@@ -478,6 +479,9 @@ static inline struct rt6_info *rt6_device_match(struct net *net,
+ 	for (sprt = rt; sprt; sprt = sprt->dst.rt6_next) {
+ 		struct net_device *dev = sprt->dst.dev;
+ 
++		if (not_oif && dev->ifindex == not_oif)
++			continue;
++
+ 		if (oif) {
+ 			if (dev->ifindex == oif)
+ 				return sprt;
+@@ -856,7 +860,7 @@ static struct rt6_info *ip6_pol_route_lookup(struct net *net,
+ 	fn = fib6_lookup(&table->tb6_root, &fl6->daddr, &fl6->saddr);
+ restart:
+ 	rt = fn->leaf;
+-	rt = rt6_device_match(net, rt, &fl6->saddr, fl6->flowi6_oif, flags);
++	rt = rt6_device_match(net, rt, &fl6->saddr, fl6->flowi6_oif, fl6->flowi6_not_oif, flags);
+ 	if (rt->rt6i_nsiblings && fl6->flowi6_oif == 0)
+ 		rt = rt6_multipath_select(rt, fl6, fl6->flowi6_oif, flags);
+ 	if (rt == net->ipv6.ip6_null_entry) {
+-- 
+2.7.0
