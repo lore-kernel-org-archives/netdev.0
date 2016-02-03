@@ -1,54 +1,39 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: Re: [PATCH v2] unix: properly account for FDs passed over unix sockets
-Date: Wed, 3 Feb 2016 12:56:39 +0100
-Message-ID: <CANq1E4Sz2U2D7hvWLEknbrKURG_ZbMiqAsVnd5yRF1Qesm3nEg@mail.gmail.com>
-References: <201601100657.u0A6vk1B025554@mail.home.local>
-	<CANq1E4T0sqTTD4RsWXTUrFvsKvEsKsUiPbskWd=wAEVu83_Srg@mail.gmail.com>
-	<56B1E64F.3070206@collabora.co.uk>
+From: Paul Burton <paul.burton@imgtec.com>
+Subject: [PATCH v2 0/6] pch_gbe fixes for Imagination Technologies MIPS Boston
+Date: Wed, 3 Feb 2016 12:02:38 +0000
+Message-ID: <1454500964-6256-1-git-send-email-paul.burton@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Willy Tarreau <w@1wt.eu>, "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	socketpair@gmail.com,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
-To: Simon McVittie <simon.mcvittie@collabora.co.uk>
+Content-Type: text/plain
+Cc: Paul Burton <paul.burton@imgtec.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: <linux-mips@linux-mips.org>, Ralf Baechle <ralf@linux-mips.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56B1E64F.3070206@collabora.co.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi
+This series has been extracted from an earlier larger series adding
+support for the Imagination Technologies MIPS Boston development board.
+The current version of that series without these patches included can be
+found here:
 
-On Wed, Feb 3, 2016 at 12:36 PM, Simon McVittie
-<simon.mcvittie@collabora.co.uk> wrote:
-> Am I right in saying that the advice I give to D-Bus users should be
-> something like this?
->
-> * system services should not send fds at all, unless they trust the
->   dbus-daemon
-> * system services should not send fds via D-Bus that will be delivered
->   to recipients that they do not trust
-> * sending fds to an untrusted recipient would enable that recipient to
->   carry out a denial-of-service attack (on what? the sender? the
->   dbus-daemon?)
+    http://marc.info/?l=linux-mips&m=145449909110835&w=2
 
-With the revised patch from Hannes, this should no longer be needed.
-My original concern was only about accounting inflight-fds on the
-file-owner, rather than the sender.
+This series is somewhat standalone & should fix theoretical issues for
+other users of the driver, but has only been tested by myself in
+conjunction with the above series on a Boston board.
 
-However, with Hannes' revised patch, a different DoS attack against
-dbus-daemon is possible. Imagine a peer that receives batches of FDs,
-but never dequeues them. They will be accounted on the inflight-limit
-of dbus-daemon, as such causing messages of independent peers to be
-rejected in case they carry FDs.
-Preferably, dbus-daemon would avoid queuing more than 16 FDs on a
-single destination (total). But that would require POLLOUT to be
-capped by the number of queued fds. A possible workaround is to add
-CAP_SYS_RESOURCE to dbus-daemon.
+Paul Burton (6):
+  net: pch_gbe: Allow build on MIPS platforms
+  net: pch_gbe: Mark Minnow PHY reset GPIO active low
+  net: pch_gbe: Pull PHY GPIO handling out of Minnow code
+  net: pch_gbe: Always reset PHY along with MAC
+  net: pch_gbe: Add device tree support
+  net: pch_gbe: Allow longer for resets
 
-Thanks
-David
+ drivers/net/ethernet/oki-semi/pch_gbe/Kconfig      |  2 +-
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |  4 +-
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 71 ++++++++++++++++++----
+ 3 files changed, 62 insertions(+), 15 deletions(-)
+
+-- 
+2.7.0
