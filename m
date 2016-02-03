@@ -1,108 +1,272 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] hv_netvsc: Increase delay for
- RNDIS_STATUS_NETWORK_CHANGE
-Date: Wed, 3 Feb 2016 16:39:47 +0000
-Message-ID: <BN1PR0301MB07709B6ACC8E6C969CB5B857CAD00@BN1PR0301MB0770.namprd03.prod.outlook.com>
-References: <1454458556-10591-1-git-send-email-haiyangz@microsoft.com>
- <87si1ax7t9.fsf@vitty.brq.redhat.com>
- <BN1PR0301MB0770CFE76823654E90579D0CCAD00@BN1PR0301MB0770.namprd03.prod.outlook.com>
- <87d1sdye0x.fsf@vitty.brq.redhat.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: Keystone 2 boards boot failure
+Date: Wed, 3 Feb 2016 11:41:40 -0500
+Message-ID: <56B22DC4.3070100@ti.com>
+References: <56B0DE61.2000704@ti.com> <56B20A96.9040507@ti.com>
+ <56B20CD1.5060003@ti.com> <1888105.8DsfvU3cAo@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Vitaly Kuznetsov <vkuznets@redhat.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <87d1sdye0x.fsf@vitty.brq.redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: "Franklin S Cooper Jr." <fcooper@ti.com>, <netdev@vger.kernel.org>,
+	<w-kwok2@ti.com>, <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>,
+	Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:58053 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757967AbcBCQlg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2016 11:41:36 -0500
+In-Reply-To: <1888105.8DsfvU3cAo@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
-> Sent: Wednesday, February 3, 2016 11:06 AM
-> To: Haiyang Zhang <haiyangz@microsoft.com>
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; KY Srinivasan
-> <kys@microsoft.com>; olaf@aepfle.de; linux-kernel@vger.kernel.org;
-> driverdev-devel@linuxdriverproject.org
-> Subject: Re: [PATCH net-next] hv_netvsc: Increase delay for
-> RNDIS_STATUS_NETWORK_CHANGE
+On 02/03/2016 11:20 AM, Arnd Bergmann wrote:
+> On Wednesday 03 February 2016 16:21:05 Grygorii Strashko wrote:
+>> On 02/03/2016 04:11 PM, Franklin S Cooper Jr. wrote:
+>>> On 02/02/2016 07:19 PM, Franklin S Cooper Jr. wrote:
+>>>>>
+>>>> So only making this change on the latest master with no
+>>>> other changes I see the boot problem again.
+>>
+>> yep. I can confirm that.
+>>
+>> Also, I'm today came up with the similar fix that you've proposed before in this thread.
+>> So, Could we move forward this way?
 > 
-> Haiyang Zhang <haiyangz@microsoft.com> writes:
+> I still think it would be good to actually understand what the actual
+> problem was.
 > 
-> >> -----Original Message-----
-> >> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
-> >> Sent: Wednesday, February 3, 2016 8:06 AM
-> >> To: Haiyang Zhang <haiyangz@microsoft.com>
-> >> Cc: davem@davemloft.net; netdev@vger.kernel.org; KY Srinivasan
-> >> <kys@microsoft.com>; olaf@aepfle.de; linux-kernel@vger.kernel.org;
-> >> driverdev-devel@linuxdriverproject.org
-> >> Subject: Re: [PATCH net-next] hv_netvsc: Increase delay for
-> >> RNDIS_STATUS_NETWORK_CHANGE
-> >>
-> >> Haiyang Zhang <haiyangz@microsoft.com> writes:
-> >>
-> >> > We simulates a link down period for
-> RNDIS_STATUS_NETWORK_CHANGE
-> >> message to
-> >> > trigger DHCP renew. User daemons may need multiple seconds to
-> trigger
-> >> the
-> >> > link down event. (e.g. ifplugd: 5sec, network-manager: 4sec.) So update
-> >> > this link down period to 10 sec to properly trigger DHCP renew.
-> >> >
-> >>
-> >> I probably don't follow: why do we need sucha a delay? If (with real
-> >> hardware) you plug network cable out and in one second you plug it in
-> >> you'll get DHCP renewed, right?
-> >>
-> >> When I introduced RNDIS_STATUS_NETWORK_CHANGE handling by
-> >> emulating a
-> >> pair of up/down events I put 2 second delay to make link_watch happy
-> (as
-> >> we only handle 1 event per second there) but 10 seconds sounds to much
-> >> to me.
-> >
-> > In the test on Hyper-V, our software on host side  wants to trigger DHCP
-> > renew by sending only a RNDIS_STATUS_NETWORK_CHANGE message to
-> > a guest without physically unplug the cable. But, this message didn't trigger
-> > DHCP renew within 2 seconds. The VM is Centos 7.1 using
-> Networkmanager,
-> > which needs 4 seconds after link down to renew IP. Some daemon, like
-> > ifplugd, needs 5 sec to renew. That's why we increase the simulated link
-> > down time for RNDIS_STATUS_NETWORK_CHANGE message.
+>> From 8280895f01b33edba303e7374431bef47630f26c Mon Sep 17 00:00:00 2001
+>> From: Grygorii Strashko <grygorii.strashko@ti.com>
+>> Date: Wed, 3 Feb 2016 15:11:40 +0200
+>> Subject: [PATCH] net: ti: netcp: restore get/set_pad_info() functionality
+>>
+>> The commit 899077791403 ("netcp: try to reduce type confusion in descriptors")
+>> introduces a regression in Kernel 4.5-rc1 as it breaks
+>> get/set_pad_info() functionality.
+>>
+>> The TI NETCP driver uses pad0 and pad1 fields of knav_dma_desc to
+>> store DMA/MEM buffer pointer and buffer size respectively. And in both
+>> cases the pointer type size is 32 bit regardless of LAPE enabled or
+>> not.
+>> 			!LAPE	LPAE
+>> sizeof(void*)		32bit	32bit
+>> sizeof(dma_addr_t) 	32bit	32bit
+>> sizeof(phys_addr_t) 	32bit	64bit
+>>
 > 
-> Yes, I understand the motivation but sorry if I was unclear with my
-> question. I meant to say that with physical network adapters it's
-> possible to trigger same two events by plugging your cable out and then
-> plugging it back in and it is certailnly doable in less than 10
-> seconds. NetworkManager or whoever is supposed to handle these events
-> and we don't really care how fast -- I think that 4 or 5 seconds
-> mentioned above is just an observation.
+> This looks wrong: I was getting the build warnings originally
+> because of 64-bit dma_addr_t, and that should be the only way that
+> this driver can operate, because in some configurations on keystone
+> there is no memory below 4GB, and there is no dma-ranges property
+> in the DT that shifts around the start of the DMA addresses.
+Arnd,
 
-(forgot mailing lists in my last reply.... re-sending...)
+Why do think so? I see in arch/arm/boot/dts/keystone.dtsi
 
-Our test failed (i.e. not triggering DHCP renew) with existing 2sec delay. According 
-to the ifplugd man page, it ignores link down time <5sec:
-  http://linux.die.net/man/8/ifplugd
-    -d | --delay-down= SECS Specify delay for deconfiguring interface (default: 5)
+        soc {
+                #address-cells = <1>;
+                #size-cells = <1>;
+                compatible = "ti,keystone","simple-bus";
+                interrupt-parent = <&gic>;
+                ranges = <0x0 0x0 0x0 0xc0000000>;
+                dma-ranges = <0x80000000 0x8 0x00000000 0x80000000>;
 
-Networkmanager also has a waiting period (4sec).
+AFAIK, On Keystone, dma address is 32 bit and Physical DDR address is
+64 bit (actually 36 bit, LPAE address). The conversion happens based on
+pfn_offset which is calculated based on the above dma-range property.
 
-Thanks,
-- Haiyang
+> 
+> This doesn't all fit together yet, maybe you have a better idea
+> of what is going on.
+> 
+> I don't think we should ever have a platform that has dma_addr_t
+> and phys_addr_t be different.
+> 
+
+Not sure why? Keystone is that platform where they are different.
+
+>> Unfortunately, above commit changed buffer's pointers save/restore
+>> code (get/set_pad_info()) and added intermediate conversation to u64
+>> which causes TI NETCP driver crash in RX/TX path due to "Unable to
+>> handle kernel NULL pointer" exception.
+> 
+> The conversion is not what made it crash, it must be a bug in the
+> conversion ;-)
+> 
+>> @@ -163,11 +153,10 @@ static void set_desc_info(u32 desc_info, u32 pkt_info,
+>>  	desc->packet_info = cpu_to_le32(pkt_info);
+>>  }
+>>  
+>> -static void set_pad_info(u32 pad0, u32 pad1, u32 pad2, struct knav_dma_desc *desc)
+>> +static void set_pad_info(u32 pad0, u32 pad1, struct knav_dma_desc *desc)
+>>  {
+>>  	desc->pad[0] = cpu_to_le32(pad0);
+>>  	desc->pad[1] = cpu_to_le32(pad1);
+>> -	desc->pad[2] = cpu_to_le32(pad1);
+>>  }
+> 
+> As in my earlier patch, the line you are removing here was clearly
+> broken, but evidently that is not the only bug.
+> 
+>>  static void set_org_pkt_info(dma_addr_t buff, u32 buff_len,
+>> @@ -581,7 +570,6 @@ static void netcp_free_rx_desc_chain(struct netcp_intf *netcp,
+>>  	dma_addr_t dma_desc, dma_buf;
+>>  	unsigned int buf_len, dma_sz = sizeof(*ndesc);
+>>  	void *buf_ptr;
+>> -	u32 pad[2];
+>>  	u32 tmp;
+>>  
+>>  	get_words(&dma_desc, 1, &desc->next_desc);
+>> @@ -593,14 +581,12 @@ static void netcp_free_rx_desc_chain(struct netcp_intf *netcp,
+>>  			break;
+>>  		}
+>>  		get_pkt_info(&dma_buf, &tmp, &dma_desc, ndesc);
+>> -		get_pad_ptr(&buf_ptr, ndesc);
+>> +		get_pad_info((u32 *)&buf_ptr, &buf_len, ndesc);
+> 
+> I'd prefer not to put code like this back, as this cannot possibly
+> do the right thing on a 64-bit architecture.
+> 
+> 
+>> @@ -1078,7 +1058,6 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
+>>  		u32 page_offset = frag->page_offset;
+>>  		u32 buf_len = skb_frag_size(frag);
+>>  		dma_addr_t desc_dma;
+>> -		u32 desc_dma_32;
+>>  		u32 pkt_info;
+>>  
+>>  		dma_addr = dma_map_page(dev, page, page_offset, buf_len,
+>> @@ -1100,8 +1079,7 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
+>>  			(netcp->tx_compl_qid & KNAV_DMA_DESC_RETQ_MASK) <<
+>>  				KNAV_DMA_DESC_RETQ_SHIFT;
+>>  		set_pkt_info(dma_addr, buf_len, 0, ndesc);
+>> -		desc_dma_32 = (u32)desc_dma;
+>> -		set_words(&desc_dma_32, 1, &pdesc->next_desc);
+>> +		set_words(&desc_dma, 1, &pdesc->next_desc);
+>>  		pkt_len += buf_len;
+>>  		if (pdesc != desc)
+>>  			knav_pool_desc_map(netcp->tx_pool, pdesc,
+> 
+> This is clearly broken on big-endian kernels with 64-bit dma_addr_t, so even
+> if we revert the rest I think this part has to stay.
+> 
+> I have another version for testing below. That removes the logic that
+> splits and reassembles the 64-bit values, but leaves the other changes
+> in place. Can you try this?
+> 
+> 	Arnd
+> 
+> 
+> diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+> index c61d66d38634..cda19f2401c1 100644
+> --- a/drivers/net/ethernet/ti/netcp_core.c
+> +++ b/drivers/net/ethernet/ti/netcp_core.c
+> @@ -120,16 +120,14 @@ static void get_pkt_info(dma_addr_t *buff, u32 *buff_len, dma_addr_t *ndesc,
+>  static void get_pad_info(u32 *pad0, u32 *pad1, u32 *pad2, struct knav_dma_desc *desc)
+>  {
+>  	*pad0 = le32_to_cpu(desc->pad[0]);
+> -	*pad1 = le32_to_cpu(desc->pad[1]);
+> -	*pad2 = le32_to_cpu(desc->pad[2]);
+> +	*pad2 = le32_to_cpu(desc->pad[1]);
+>  }
+>  
+>  static void get_pad_ptr(void **padptr, struct knav_dma_desc *desc)
+>  {
+>  	u64 pad64;
+>  
+> -	pad64 = le32_to_cpu(desc->pad[0]) +
+> -		((u64)le32_to_cpu(desc->pad[1]) << 32);
+> +	pad64 = le32_to_cpu(desc->pad[0]);
+>  	*padptr = (void *)(uintptr_t)pad64;
+>  }
+>  
+> @@ -166,8 +164,7 @@ static void set_desc_info(u32 desc_info, u32 pkt_info,
+>  static void set_pad_info(u32 pad0, u32 pad1, u32 pad2, struct knav_dma_desc *desc)
+>  {
+>  	desc->pad[0] = cpu_to_le32(pad0);
+> -	desc->pad[1] = cpu_to_le32(pad1);
+> -	desc->pad[2] = cpu_to_le32(pad1);
+> +	desc->pad[1] = cpu_to_le32(pad2);
+>  }
+>  
+>  static void set_org_pkt_info(dma_addr_t buff, u32 buff_len,
+> @@ -581,7 +578,7 @@ static void netcp_free_rx_desc_chain(struct netcp_intf *netcp,
+>  	dma_addr_t dma_desc, dma_buf;
+>  	unsigned int buf_len, dma_sz = sizeof(*ndesc);
+>  	void *buf_ptr;
+> -	u32 pad[2];
+> +	u32 pad;
+>  	u32 tmp;
+>  
+>  	get_words(&dma_desc, 1, &desc->next_desc);
+> @@ -599,8 +596,8 @@ static void netcp_free_rx_desc_chain(struct netcp_intf *netcp,
+>  		knav_pool_desc_put(netcp->rx_pool, desc);
+>  	}
+>  
+> -	get_pad_info(&pad[0], &pad[1], &buf_len, desc);
+> -	buf_ptr = (void *)(uintptr_t)(pad[0] + ((u64)pad[1] << 32));
+> +	get_pad_info(&pad, NULL, &buf_len, desc);
+> +	buf_ptr = (void *)(uintptr_t)(pad);
+>  
+>  	if (buf_ptr)
+>  		netcp_frag_free(buf_len <= PAGE_SIZE, buf_ptr);
+> @@ -653,8 +650,8 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
+>  	}
+>  
+>  	get_pkt_info(&dma_buff, &buf_len, &dma_desc, desc);
+> -	get_pad_info(&pad[0], &pad[1], &org_buf_len, desc);
+> -	org_buf_ptr = (void *)(uintptr_t)(pad[0] + ((u64)pad[1] << 32));
+> +	get_pad_info(&pad[0], NULL, &org_buf_len, desc);
+> +	org_buf_ptr = (void *)(uintptr_t)(pad[0]);
+>  
+>  	if (unlikely(!org_buf_ptr)) {
+>  		dev_err(netcp->ndev_dev, "NULL bufptr in desc\n");
+> @@ -858,8 +855,7 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+>  		if (unlikely(dma_mapping_error(netcp->dev, dma)))
+>  			goto fail;
+>  
+> -		pad[0] = lower_32_bits((uintptr_t)bufptr);
+> -		pad[1] = upper_32_bits((uintptr_t)bufptr);
+> +		pad[0] = (uintptr_t)bufptr;
+>  
+>  	} else {
+>  		/* Allocate a secondary receive queue entry */
+> @@ -870,8 +866,7 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+>  		}
+>  		buf_len = PAGE_SIZE;
+>  		dma = dma_map_page(netcp->dev, page, 0, buf_len, DMA_TO_DEVICE);
+> -		pad[0] = lower_32_bits(dma);
+> -		pad[1] = upper_32_bits(dma);
+> +		pad[0] = (u32)(dma);
+>  		pad[2] = 0;
+>  	}
+>  
+> @@ -882,7 +877,7 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+>  	pkt_info |= (netcp->rx_queue_id & KNAV_DMA_DESC_RETQ_MASK) <<
+>  		    KNAV_DMA_DESC_RETQ_SHIFT;
+>  	set_org_pkt_info(dma, buf_len, hwdesc);
+> -	set_pad_info(pad[0], pad[1], pad[2], hwdesc);
+> +	set_pad_info(pad[0], 0, pad[2], hwdesc);
+>  	set_desc_info(desc_info, pkt_info, hwdesc);
+>  
+>  	/* Push to FDQs */
+> @@ -1194,10 +1189,8 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
+>  	}
+>  
+>  	set_words(&tmp, 1, &desc->packet_info);
+> -	tmp = lower_32_bits((uintptr_t)&skb);
+> +	tmp = (uintptr_t)&skb;
+>  	set_words(&tmp, 1, &desc->pad[0]);
+> -	tmp = upper_32_bits((uintptr_t)&skb);
+> -	set_words(&tmp, 1, &desc->pad[1]);
+>  
+>  	if (tx_pipe->flags & SWITCH_TO_PORT_IN_TAGINFO) {
+>  		tmp = tx_pipe->switch_to_port;
+> 
+> 
+
+
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
