@@ -1,109 +1,199 @@
-From: Salam Noureddine <noureddine@arista.com>
-Subject: Re: [PATCH net-next 2/4] net: dev: add batching to net_device notifiers
-Date: Tue, 2 Feb 2016 22:31:06 -0800
-Message-ID: <CAO7SqHBKrPvaEhLeEJsCrjYEiPcZ6MpyfwY43NwhGLWhW4VTNQ@mail.gmail.com>
-References: <1454365952-10324-1-git-send-email-noureddine@arista.com>
-	<1454365952-10324-3-git-send-email-noureddine@arista.com>
-	<alpine.LFD.2.11.1602022219010.2006@ja.home.ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37699 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752425AbcBCGbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 01:31:08 -0500
-Received: by mail-wm0-f48.google.com with SMTP id l66so54767370wml.0
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 22:31:07 -0800 (PST)
-In-Reply-To: <alpine.LFD.2.11.1602022219010.2006@ja.home.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Borisov <kernel@kyup.com>
+Subject: [RESEND PATCH 4/9] ipv4: Namespaceify tcp reordering sysctl knob
+Date: Wed,  3 Feb 2016 09:46:52 +0200
+Message-ID: <1454485617-16541-5-git-send-email-kernel@kyup.com>
+References: <1454485617-16541-1-git-send-email-kernel@kyup.com>
+Cc: edumazet@google.com, ebiederm@xmission.com, fan.du@intel.com,
+	kaber@trash.net, jmorris@namei.org, alexander.h.duyck@redhat.com,
+	kuznet@ms2.inr.ac.ru
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454485617-16541-1-git-send-email-kernel@kyup.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 2, 2016 at 12:55 PM, Julian Anastasov <ja@ssi.bg> wrote:
->
->         Hello,
->
-> On Mon, 1 Feb 2016, Salam Noureddine wrote:
->
->> @@ -1572,8 +1582,12 @@ rollback:
+Signed-off-by: Nikolay Borisov <kernel@kyup.com>
+---
+ include/net/netns/ipv4.h   |  2 +-
+ include/net/tcp.h          |  4 +++-
+ net/ipv4/sysctl_net_ipv4.c | 14 +++++++-------
+ net/ipv4/tcp.c             |  2 +-
+ net/ipv4/tcp_input.c       | 12 ++++++------
+ net/ipv4/tcp_ipv4.c        |  2 +-
+ net/ipv4/tcp_metrics.c     |  3 ++-
+ 7 files changed, 21 insertions(+), 18 deletions(-)
 
->>                       call_netdevice_notifier(nb, NETDEV_UNREGISTER, dev);
->> +                     call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
->> +                                             dev);
->
->                         If the rule is once per net, the above call...
->
->>               }
->
->                 should be here:
->
->                 call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
->                                         net->loopback_dev);
->
->         and also once after outroll label?:
-
-That's a good optimization to add. I was mostly focusing on the device
-unregister path.
-
->
->         call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH, last);
->
->>       }
->>
->> @@ -1614,8 +1628,12 @@ int unregister_netdevice_notifier(struct notifier_block *nb)
-
->>                       call_netdevice_notifier(nb, NETDEV_UNREGISTER, dev);
->> +                     call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
->> +                                             dev);
->
->                         Above call...
->
->>               }
->
->                 should be here, for net->loopback_dev?
-> Also, is it ok to call NETDEV_DOWN_BATCH many times, as result,
-> sometimes after NETDEV_UNREGISTER?
-
-Same here, I can add this optimization. I think it is fine to call the
-BATCH notifiers
-for every interface. It is just better to do it for many interfaces at
-the same time.
-
-
->> +     list_for_each_entry_safe(net, net_tmp, &net_head, event_list) {
->> +             call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH,
->> +                                      net->loopback_dev);
->> +             net_del_event_list(net);
->> +     }
->> +
->
->         NETDEV_UNREGISTER* should not be called before
-> following synchronize_net and NETDEV_UNREGISTER. May be
-> we should split the loop: loop (dev_shutdown+NETDEV_UNREGISTER)
-> followed by above NETDEV_UNREGISTER_BATCH then again the
-> loop for all remaining calls
->
->>       synchronize_net();
->>
->>       list_for_each_entry(dev, head, unreg_list)
->
-> Regards
->
-> --
-> Julian Anastasov <ja@ssi.bg>
-
-The call to NETDEV_UNREGISTER_BATCH is actually after NETDEV_UNREGISTER,
-it seems the other way around in the patch because it is showing part
-of netdev_wait_allrefs
-and not rollback_registered_may.
-
-Thanks,
-
-Salam
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 80da0d095eaf..dff8879e02fe 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -97,8 +97,8 @@ struct netns_ipv4 {
+ 
+ 	int sysctl_tcp_syn_retries;
+ 	int sysctl_tcp_synack_retries;
+-
+ 	int sysctl_tcp_syncookies;
++	int sysctl_tcp_reordering;
+ 
+ 	struct ping_group_range ping_group_range;
+ 
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 5497cc809601..64d01d289441 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -959,9 +959,11 @@ static inline void tcp_enable_fack(struct tcp_sock *tp)
+  */
+ static inline void tcp_enable_early_retrans(struct tcp_sock *tp)
+ {
++	struct net *net = sock_net((struct sock *)tp);
++
+ 	tp->do_early_retrans = sysctl_tcp_early_retrans &&
+ 		sysctl_tcp_early_retrans < 4 && !sysctl_tcp_thin_dupack &&
+-		sysctl_tcp_reordering == 3;
++		net->ipv4.sysctl_tcp_reordering == 3;
+ }
+ 
+ static inline void tcp_disable_early_retrans(struct tcp_sock *tp)
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 007b9f8f7a2a..12d752e6380b 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -457,13 +457,6 @@ static struct ctl_table ipv4_table[] = {
+ 		.proc_handler	= proc_dointvec,
+ 	},
+ 	{
+-		.procname	= "tcp_reordering",
+-		.data		= &sysctl_tcp_reordering,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
+-	},
+-	{
+ 		.procname	= "tcp_max_reordering",
+ 		.data		= &sysctl_tcp_max_reordering,
+ 		.maxlen		= sizeof(int),
+@@ -950,6 +943,13 @@ static struct ctl_table ipv4_net_table[] = {
+ 		.proc_handler	= proc_dointvec
+ 	},
+ #endif
++	{
++		.procname	= "tcp_reordering",
++		.data		= &init_net.ipv4.sysctl_tcp_reordering,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
+ 	{ }
+ };
+ 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index bb36a39b5685..d0547395d81d 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -405,7 +405,7 @@ void tcp_init_sock(struct sock *sk)
+ 	tp->mss_cache = TCP_MSS_DEFAULT;
+ 	u64_stats_init(&tp->syncp);
+ 
+-	tp->reordering = sysctl_tcp_reordering;
++	tp->reordering = sock_net(sk)->ipv4.sysctl_tcp_reordering;
+ 	tcp_enable_early_retrans(tp);
+ 	tcp_assign_congestion_control(sk);
+ 
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index dc8fe6c8a2e0..3f08bba46147 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -80,9 +80,7 @@ int sysctl_tcp_timestamps __read_mostly = 1;
+ int sysctl_tcp_window_scaling __read_mostly = 1;
+ int sysctl_tcp_sack __read_mostly = 1;
+ int sysctl_tcp_fack __read_mostly = 1;
+-int sysctl_tcp_reordering __read_mostly = TCP_FASTRETRANS_THRESH;
+ int sysctl_tcp_max_reordering __read_mostly = 300;
+-EXPORT_SYMBOL(sysctl_tcp_reordering);
+ int sysctl_tcp_dsack __read_mostly = 1;
+ int sysctl_tcp_app_win __read_mostly = 31;
+ int sysctl_tcp_adv_win_scale __read_mostly = 1;
+@@ -1873,6 +1871,7 @@ void tcp_enter_loss(struct sock *sk)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	struct net *net = sock_net(sk);
+ 	struct sk_buff *skb;
+ 	bool new_recovery = icsk->icsk_ca_state < TCP_CA_Recovery;
+ 	bool is_reneg;			/* is receiver reneging on SACKs? */
+@@ -1923,9 +1922,9 @@ void tcp_enter_loss(struct sock *sk)
+ 	 * suggests that the degree of reordering is over-estimated.
+ 	 */
+ 	if (icsk->icsk_ca_state <= TCP_CA_Disorder &&
+-	    tp->sacked_out >= sysctl_tcp_reordering)
++	    tp->sacked_out >= net->ipv4.sysctl_tcp_reordering)
+ 		tp->reordering = min_t(unsigned int, tp->reordering,
+-				       sysctl_tcp_reordering);
++				       net->ipv4.sysctl_tcp_reordering);
+ 	tcp_set_ca_state(sk, TCP_CA_Loss);
+ 	tp->high_seq = tp->snd_nxt;
+ 	tcp_ecn_queue_cwr(tp);
+@@ -2109,6 +2108,7 @@ static bool tcp_time_to_recover(struct sock *sk, int flag)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	__u32 packets_out;
++	int tcp_reordering = sock_net(sk)->ipv4.sysctl_tcp_reordering;
+ 
+ 	/* Trick#1: The loss is proven. */
+ 	if (tp->lost_out)
+@@ -2123,7 +2123,7 @@ static bool tcp_time_to_recover(struct sock *sk, int flag)
+ 	 */
+ 	packets_out = tp->packets_out;
+ 	if (packets_out <= tp->reordering &&
+-	    tp->sacked_out >= max_t(__u32, packets_out/2, sysctl_tcp_reordering) &&
++	    tp->sacked_out >= max_t(__u32, packets_out/2, tcp_reordering) &&
+ 	    !tcp_may_send_now(sk)) {
+ 		/* We have nothing to send. This connection is limited
+ 		 * either by receiver window or by application.
+@@ -3304,7 +3304,7 @@ static inline bool tcp_may_raise_cwnd(const struct sock *sk, const int flag)
+ 	 * new SACK or ECE mark may first advance cwnd here and later reduce
+ 	 * cwnd in tcp_fastretrans_alert() based on more states.
+ 	 */
+-	if (tcp_sk(sk)->reordering > sysctl_tcp_reordering)
++	if (tcp_sk(sk)->reordering > sock_net(sk)->ipv4.sysctl_tcp_reordering)
+ 		return flag & FLAG_FORWARD_PROGRESS;
+ 
+ 	return flag & FLAG_DATA_ACKED;
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index ee3566377717..785bbebd6768 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2383,8 +2383,8 @@ static int __net_init tcp_sk_init(struct net *net)
+ 
+ 	net->ipv4.sysctl_tcp_syn_retries = TCP_SYN_RETRIES;
+ 	net->ipv4.sysctl_tcp_synack_retries = TCP_SYNACK_RETRIES;
+-
+ 	net->ipv4.sysctl_tcp_syncookies = 0;
++	net->ipv4.sysctl_tcp_reordering = TCP_FASTRETRANS_THRESH;
+ 
+ 	return 0;
+ fail:
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index c8cbc2b4b792..c26241f3057b 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -369,6 +369,7 @@ void tcp_update_metrics(struct sock *sk)
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct dst_entry *dst = __sk_dst_get(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	struct net *net = sock_net(sk);
+ 	struct tcp_metrics_block *tm;
+ 	unsigned long rtt;
+ 	u32 val;
+@@ -473,7 +474,7 @@ void tcp_update_metrics(struct sock *sk)
+ 		if (!tcp_metric_locked(tm, TCP_METRIC_REORDERING)) {
+ 			val = tcp_metric_get(tm, TCP_METRIC_REORDERING);
+ 			if (val < tp->reordering &&
+-			    tp->reordering != sysctl_tcp_reordering)
++			    tp->reordering != net->ipv4.sysctl_tcp_reordering)
+ 				tcp_metric_set(tm, TCP_METRIC_REORDERING,
+ 					       tp->reordering);
+ 		}
+-- 
+2.5.0
