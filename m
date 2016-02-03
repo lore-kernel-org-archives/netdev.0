@@ -1,16 +1,16 @@
 From: Stefan Assmann <sassmann@kpanic.de>
-Subject: [PATCH net-next V2 1/6] i40e: call ndo_stop() instead of dev_close() when running offline selftest
-Date: Wed,  3 Feb 2016 09:20:47 +0100
-Message-ID: <1454487652-1545-2-git-send-email-sassmann@kpanic.de>
+Subject: [PATCH net-next V2 2/6] ixgbe: call ndo_stop() instead of dev_close() when running offline selftest
+Date: Wed,  3 Feb 2016 09:20:48 +0100
+Message-ID: <1454487652-1545-3-git-send-email-sassmann@kpanic.de>
 References: <1454487652-1545-1-git-send-email-sassmann@kpanic.de>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	jeffrey.t.kirsher@intel.com, sassmann@kpanic.de
 To: intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43144 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44109 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933754AbcBCIVo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2016 03:21:44 -0500
+	id S933754AbcBCIVp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2016 03:21:45 -0500
 In-Reply-To: <1454487652-1545-1-git-send-email-sassmann@kpanic.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,68 +25,67 @@ touching IFF_UP at all.
 
 Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         | 2 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 4 ++--
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 4 ----
- 3 files changed, 3 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         | 2 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 4 ++--
+ 3 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 68f2204..7e16c55 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -773,6 +773,7 @@ int i40e_vlan_rx_kill_vid(struct net_device *netdev,
- 			  __always_unused __be16 proto, u16 vid);
- #endif
- int i40e_open(struct net_device *netdev);
-+int i40e_close(struct net_device *netdev);
- int i40e_vsi_open(struct i40e_vsi *vsi);
- void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
- int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
-@@ -785,7 +786,6 @@ bool i40e_is_vsi_in_vlan(struct i40e_vsi *vsi);
- struct i40e_mac_filter *i40e_find_mac(struct i40e_vsi *vsi, u8 *macaddr,
- 				      bool is_vf, bool is_netdev);
- #ifdef I40E_FCOE
--int i40e_close(struct net_device *netdev);
- int i40e_setup_tc(struct net_device *netdev, u8 tc);
- void i40e_netpoll(struct net_device *netdev);
- int i40e_fcoe_enable(struct net_device *netdev);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 29d5833..eeca530 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1704,7 +1704,7 @@ static void i40e_diag_test(struct net_device *netdev,
- 		/* If the device is online then take it offline */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 4b9156c..6cf1ac7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -875,6 +875,8 @@ extern const char ixgbe_driver_version[];
+ extern char ixgbe_default_device_descr[];
+ #endif /* IXGBE_FCOE */
+ 
++int ixgbe_open(struct net_device *netdev);
++int ixgbe_close(struct net_device *netdev);
+ void ixgbe_up(struct ixgbe_adapter *adapter);
+ void ixgbe_down(struct ixgbe_adapter *adapter);
+ void ixgbe_reinit_locked(struct ixgbe_adapter *adapter);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index bea96b3..2f05937 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -2053,7 +2053,7 @@ static void ixgbe_diag_test(struct net_device *netdev,
+ 
  		if (if_running)
  			/* indicate we're in test mode */
 -			dev_close(netdev);
-+			i40e_close(netdev);
++			ixgbe_close(netdev);
  		else
- 			/* This reset does not affect link - if it is
- 			 * changed to a type of reset that does affect
-@@ -1733,7 +1733,7 @@ static void i40e_diag_test(struct net_device *netdev,
- 		i40e_do_reset(pf, BIT(__I40E_PF_RESET_REQUESTED));
+ 			ixgbe_reset(adapter);
  
+@@ -2091,7 +2091,7 @@ skip_loopback:
+ 		/* clear testing bit and return adapter to previous state */
+ 		clear_bit(__IXGBE_TESTING, &adapter->state);
  		if (if_running)
 -			dev_open(netdev);
-+			i40e_open(netdev);
++			ixgbe_open(netdev);
+ 		else if (hw->mac.ops.disable_tx_laser)
+ 			hw->mac.ops.disable_tx_laser(hw);
  	} else {
- 		/* Online tests */
- 		netif_info(pf, drv, netdev, "online testing starting\n");
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 8f3b53e..39a1653 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5459,11 +5459,7 @@ static void i40e_fdir_filter_exit(struct i40e_pf *pf)
-  *
-  * Returns 0, this is not allowed to fail
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index c4003a8..354be34 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5988,7 +5988,7 @@ static int ixgbe_change_mtu(struct net_device *netdev, int new_mtu)
+  * handler is registered with the OS, the watchdog timer is started,
+  * and the stack is notified that the interface is ready.
   **/
--#ifdef I40E_FCOE
- int i40e_close(struct net_device *netdev)
--#else
--static int i40e_close(struct net_device *netdev)
--#endif
+-static int ixgbe_open(struct net_device *netdev)
++int ixgbe_open(struct net_device *netdev)
  {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+@@ -6090,7 +6090,7 @@ static void ixgbe_close_suspend(struct ixgbe_adapter *adapter)
+  * needs to be disabled.  A global MAC reset is issued to stop the
+  * hardware, and all transmit and receive resources are freed.
+  **/
+-static int ixgbe_close(struct net_device *netdev)
++int ixgbe_close(struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 
 -- 
 2.5.0
