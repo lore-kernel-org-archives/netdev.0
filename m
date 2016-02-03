@@ -1,94 +1,67 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next] hv_netvsc: Increase delay for RNDIS_STATUS_NETWORK_CHANGE
-Date: Wed, 03 Feb 2016 17:06:22 +0100
-Message-ID: <87d1sdye0x.fsf@vitty.brq.redhat.com>
-References: <1454458556-10591-1-git-send-email-haiyangz@microsoft.com>
-	<87si1ax7t9.fsf@vitty.brq.redhat.com>
-	<BN1PR0301MB0770CFE76823654E90579D0CCAD00@BN1PR0301MB0770.namprd03.prod.outlook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] net:Add sysctl_max_skb_frags
+Date: Wed, 03 Feb 2016 08:07:08 -0800
+Message-ID: <1454515628.7627.245.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <568F87AC.60405@oracle.com>
+	 <1454488017-8822-1-git-send-email-hans.westgaard.ry@oracle.com>
+	 <CAKgT0UftR3pTOGO91GaUijPCTq8POQcNChRqyy1b1TYsM3n4Uw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "davem\@davemloft.net" <davem@davemloft.net>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	"olaf\@aepfle.de" <olaf@aepfle.de>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"driverdev-devel\@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>
-To: Haiyang Zhang <haiyangz@microsoft.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Tom Herbert <tom@herbertland.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Florian Westphal <fw@strlen.de>, Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Michal Hocko <mhocko@suse.com>,
+	Linus =?ISO-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Tejun Heo <tj@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alexey Kodanev <alexey.kodanev@oracle.com>,
+	=?ISO-8859-1?Q?H=E5kon?= Bugge <haakon.bugge@oracle.com>,
+	open list <linux-kernel@vger.kernel.org>,
+	"open
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BN1PR0301MB0770CFE76823654E90579D0CCAD00@BN1PR0301MB0770.namprd03.prod.outlook.com>
-	(Haiyang Zhang's message of "Wed, 3 Feb 2016 15:46:41 +0000")
+In-Reply-To: <CAKgT0UftR3pTOGO91GaUijPCTq8POQcNChRqyy1b1TYsM3n4Uw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Haiyang Zhang <haiyangz@microsoft.com> writes:
+On Wed, 2016-02-03 at 07:58 -0800, Alexander Duyck wrote:
+> > +++ b/net/core/sysctl_net_core.c
+> 
+> I really don't think these changes belong in the core. Below you only
+> modify the TCP code path so this more likely belongs in the TCP path
+> unless you are going to guarantee that all other code paths obey the
+> sysctl.  It probably belongs in net/ipv4/sysctl_net_ipv4.c
 
->> -----Original Message-----
->> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
->> Sent: Wednesday, February 3, 2016 8:06 AM
->> To: Haiyang Zhang <haiyangz@microsoft.com>
->> Cc: davem@davemloft.net; netdev@vger.kernel.org; KY Srinivasan
->> <kys@microsoft.com>; olaf@aepfle.de; linux-kernel@vger.kernel.org;
->> driverdev-devel@linuxdriverproject.org
->> Subject: Re: [PATCH net-next] hv_netvsc: Increase delay for
->> RNDIS_STATUS_NETWORK_CHANGE
->> 
->> Haiyang Zhang <haiyangz@microsoft.com> writes:
->> 
->> > We simulates a link down period for RNDIS_STATUS_NETWORK_CHANGE
->> message to
->> > trigger DHCP renew. User daemons may need multiple seconds to trigger
->> the
->> > link down event. (e.g. ifplugd: 5sec, network-manager: 4sec.) So update
->> > this link down period to 10 sec to properly trigger DHCP renew.
->> >
->> 
->> I probably don't follow: why do we need sucha a delay? If (with real
->> hardware) you plug network cable out and in one second you plug it in
->> you'll get DHCP renewed, right?
->> 
->> When I introduced RNDIS_STATUS_NETWORK_CHANGE handling by
->> emulating a
->> pair of up/down events I put 2 second delay to make link_watch happy (as
->> we only handle 1 event per second there) but 10 seconds sounds to much
->> to me.
->
-> In the test on Hyper-V, our software on host side  wants to trigger DHCP 
-> renew by sending only a RNDIS_STATUS_NETWORK_CHANGE message to 
-> a guest without physically unplug the cable. But, this message didn't trigger 
-> DHCP renew within 2 seconds. The VM is Centos 7.1 using Networkmanager, 
-> which needs 4 seconds after link down to renew IP. Some daemon, like 
-> ifplugd, needs 5 sec to renew. That's why we increase the simulated link 
-> down time for RNDIS_STATUS_NETWORK_CHANGE message.
 
-Yes, I understand the motivation but sorry if I was unclear with my
-question. I meant to say that with physical network adapters it's
-possible to trigger same two events by plugging your cable out and then
-plugging it back in and it is certailnly doable in less than 10
-seconds. NetworkManager or whoever is supposed to handle these events
-and we don't really care how fast -- I think that 4 or 5 seconds
-mentioned above is just an observation.
+Alexander, this is a v3.
 
->
->> > @@ -1009,8 +1012,11 @@ static void netvsc_link_change(struct
->> work_struct *w)
->> >  			netif_tx_stop_all_queues(net);
->> >  			event->event = RNDIS_STATUS_MEDIA_CONNECT;
->> >  			spin_lock_irqsave(&ndev_ctx->lock, flags);
->> > -			list_add_tail(&event->list, &ndev_ctx-
->> >reconfig_events);
->> > +			list_add(&event->list, &ndev_ctx->reconfig_events);
->> 
->> Why? Adding to tail was here to not screw the order of events...
->
-> The RNDIS_STATUS_MEDIA_CONNECT message triggers two "half" events -- 
-> link down & up. After "link down", we want the paired "link up" to be the 
-> immediate next event. Since the function picks the next event from the list 
-> head, so it should be inserted to list head. Otherwise, the possible existing 
-> events in the list will be processed in the middle of these two "half events" 
-> -- link down & up.
+We rejected prior attempts doing exactly what you suggest.
 
-Ah, yes, you're probably right.
+Think about GRO : These people also need to use the same sysctl in GRO
+to limit number of frags.
 
--- 
-  Vitaly
+Limiting the stuff at the egress is useless in forwarding setups.
+It will be too late as they'll need to linearize -> huge performance
+drop.
+
+This is why we wanted a global setup so that these guys can tweak the
+default limit.
+
+Please read netdev history about this stuff.
+
+Plan of action :
+
+1) This patch, adding a core sysctl.
+2) Use it in TCP (already done in this patch)
+3) Use it in GRO
