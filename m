@@ -1,129 +1,142 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: Keystone 2 boards boot failure
-Date: Wed, 3 Feb 2016 13:47:27 -0500
-Message-ID: <56B24B3F.2070906@ti.com>
-References: <56B0DE61.2000704@ti.com> <10700980.gTvMTB9pzv@wuerfel>
- <56B15591.7080409@ti.com> <1682165.IJ7dHXqc6L@wuerfel>
- <56B233F3.40000@oracle.com>
+From: "Fastabend, John R" <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH 0/7] tc offload for cls_u32 on ixgbe
+Date: Wed, 3 Feb 2016 10:48:43 -0800
+Message-ID: <56B24B8B.1010205@gmail.com>
+References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
+ <20160203101109.GB20905@office.Home> <56B1D4A9.3050801@gmail.com>
+ <56B1D713.3080803@mellanox.com> <56B1F0C9.3020802@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <w-kwok2@ti.com>, <davem@davemloft.net>
-To: santosh shilimkar <santosh.shilimkar@oracle.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	"Franklin S Cooper Jr." <fcooper@ti.com>
+Cc: amir@vadai.me, jiri@resnulli.us, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:57507 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965800AbcBCSrc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2016 13:47:32 -0500
-In-Reply-To: <56B233F3.40000@oracle.com>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:33809 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965788AbcBCStI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 13:49:08 -0500
+Received: by mail-ob0-f169.google.com with SMTP id wb13so43833848obb.1
+        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 10:49:07 -0800 (PST)
+In-Reply-To: <56B1F0C9.3020802@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/2016 12:08 PM, santosh shilimkar wrote:
-> On 2/3/2016 8:35 AM, Arnd Bergmann wrote:
->> On Tuesday 02 February 2016 19:19:13 Franklin S Cooper Jr. wrote:
->>> On 02/02/2016 05:26 PM, Arnd Bergmann wrote:
->>>> On Tuesday 02 February 2016 16:59:34 Franklin Cooper wrote:
->>>>> On 02/02/2016 03:26 PM, Arnd Bergmann wrote:
->>>>>> On Tuesday 02 February 2016 15:01:33 Franklin S Cooper Jr. wrote:
->>>>> Keystone 2 devices are little-endian 32-bit devices.
->>>> I meant the kernel you are running on it, not the hardware.
->>>> You should always be able to run both a big-endian kernel and
->>>> a littl-endian kernel on any ARMv7 machine, and a couple of
->>>> platforms use 64-bit physical addresses even on 32-bit machines
->>>> (with the normal 32-bit instruction set).
->>>
->>> I'm not sure if Keystone 2 devices support this or if we
->>> have support for this. I'll have to double check.
+On 2/3/2016 4:21 AM, Jamal Hadi Salim wrote:
+> On 16-02-03 05:31 AM, Or Gerlitz wrote:
+>> On 2/3/2016 12:21 PM, John Fastabend wrote:
+>>> Thanks, we will need at least a v2 to fixup some build errors
+>>> with various compile flags caught by build_bot and missed by me.
+>> Hi John,
 >>
-> I missed this thread so far but noticed after RMK's idmap
-> changes series.
-> 
->> Don't worry about it, there is nothing you need to check:
->>
->> As I said, all ARMv7 *hardware* can be run in either mode, and
->> that includes Keystone 2.
->>
-> Right. Keystone isn't special from ARMv7 perspective.
-> 
->> As for the kernel, it's obvious that nobody tried to run
->> a Keystone based machine with a big-endian kernel, or they
->> would have run into the broken network driver.
->>
->> I believe you also require this patch, unless the firmware is
->> clever enough to figure out endianess by itself (very unlikely)
->>
->> diff --git a/arch/arm/mach-keystone/keystone.h b/arch/arm/mach-keystone/keystone.h
->> index 33eaa037af5a..016ae7644e73 100644
->> --- a/arch/arm/mach-keystone/keystone.h
->> +++ b/arch/arm/mach-keystone/keystone.h
->> @@ -16,7 +16,7 @@
->>   #ifndef __ASSEMBLER__
->>
->>   extern const struct smp_operations keystone_smp_ops;
->> -extern void secondary_startup(void);
->> +extern void keystone_secondary_startup(void);
->>   extern u32 keystone_cpu_smc(u32 command, u32 cpu, u32 addr);
->>   extern int keystone_pm_runtime_init(void);
->>
->> diff --git a/arch/arm/mach-keystone/platsmp.c b/arch/arm/mach-keystone/platsmp.c
->> index 5665276972ec..c427787f78d1 100644
->> --- a/arch/arm/mach-keystone/platsmp.c
->> +++ b/arch/arm/mach-keystone/platsmp.c
->> @@ -26,7 +26,7 @@
->>   static int keystone_smp_boot_secondary(unsigned int cpu,
->>                           struct task_struct *idle)
->>   {
->> -    unsigned long start = virt_to_idmap(&secondary_startup);
->> +    unsigned long start = virt_to_idmap(&keystone_secondary_startup);
->>       int error;
->>
->>       pr_debug("keystone-smp: booting cpu %d, vector %08lx\n",
->> diff --git a/arch/arm/mach-keystone/smc.S b/arch/arm/mach-keystone/smc.S
->> index d15de8179fab..3ce858ce426e 100644
->> --- a/arch/arm/mach-keystone/smc.S
->> +++ b/arch/arm/mach-keystone/smc.S
->> @@ -23,6 +23,13 @@
->>    */
->>   ENTRY(keystone_cpu_smc)
->>       stmfd   sp!, {r4-r11, lr}
->> +ARM_BE8(setend    le)            @ call SMC as LE
->>       smc    #0
->> +ARM_BE8(setend    be)            @ go back to BE8
->>       ldmfd   sp!, {r4-r11, pc}
->>   ENDPROC(keystone_cpu_smc)
->> +
->> +ENTRY(keystone_secondary_startup)
->> +ARM_BE8(setend    be)            @ go BE8 if entered LE
->> +    b    secondary_startup
->> +ENDPROC(keyston_secondary_startup)
->>
->> It would be nice to give this a go once the network driver problem
->> is solved.
->>
-> Big endian kernel has worked on Keystone in past.
+>> You didn't mark that as RFC... but we said this direction/approach yet
+>> to be talked @ netdev next-week, so.. can you clarify?
 
-Yes, this was on a v3.10.x baseline, not in the upstream.
+Yeah I think this set of patches is ready and it really is what we've
+been talking about doing for two or three conferences now. Also I don't
+know where "we" decided to talk about this @ netdev or how that became
+a prereq for patches. I think this is the correct approach and I am not
+seeing any contentious pieces here so why not consider it for inclusion.
+Do you have some issue with the approach? I don't recall any when we
+talked about this last time.
 
-> Yes, above secondary hook needs to be modified along with
-> drivers endian macro conversion was what was needed IIRC.
+>>
+>> I suggest not to rush and asking pulling this, lets have the tc workshop
+>> beforehand...
+>>
+
+rush? we've been talking about it for a year+
+
+> 
+> Yes, the tc workshop is a good place for this.
+> I think we can spill some of it into the switchdev workshop (which is a
+> nice flow since that happens later).
 > 
 
-To support BE, it may be more than Netcp driver. Do you recall, what
-changes you did to get BE working on Keystone? Is it just NetCP driver?
+Sure but this patch is really the basic stuff we should move on to
+some of the more interesting pieces. I have ~30 or so patches behind
+this that do the fun stuff like resource allocation, capababilities,
+support for the divisor > 1, some new actions, etc.
 
-Murali
-> Indeed, it will be good to get the BE working but for 4.5-rcx,
-> we need to fix the boot problem on priority.
+> Some comments:
+> 1) "priorities" for filters and some form of "index" for actions is
+> is needed. I think index (which tends to be a 32 bit value is what
+> Amir's patches refered to as "cookie" - or at least some hardware
+> can be used to query the action with). Priorities maybe implicit in
+> the order in which they are added. And th idea of appending vs
+> exclusivity vs replace (which  netlink already supports)
+> is important to worry about (TCAMS tend to assume an append mode
+> for example).
+
+The code denotes add/del/replace already. I'm not sure why a TCAM
+would assume an append mode but OK maybe that is some API you have
+the APIs I use don't have these semantics.
+
+For this series using cls_u32 the handle gives you everything you need
+to put entries in the right table and row. Namely the ht # and order #
+from 'tc'. Take a look at u32_change and u32_classify its the handle
+that places the filter into the list and the handle that is matched in
+classify. We should place the filters in the hardware in the same order
+that is used by u32_change.
+
+Also ran a few tests and can't see how priority works in u32 maybe you
+can shed some light but as best I can tell it doesn't have any effect
+on rule execution.
+
 > 
-> Regards,
-> Santosh
+> 2) I like the u32 approach where it makes sense; but sometimes it
+> doesnt make sense from a usability pov. I work with some ASICs
+> that have 10 tuples that are  fixed. Yes, a user can describe a policy
+> with u32 but flower would be more  usable say with flower (both
+> programmatic and cli)
+
+Sure so create a set of offload hooks for flower we don't need only
+one hardware classifier any more than we would like a single software
+classifiers. I'll send out my flower patches when I get to a real system
+I'm on a corporate laptop at the moment.
+
 > 
+> 3) The concept of "hook address" is important to be able to express.
+> Amir's patches seemed to miss that (and John brought it up in an
+> email). It could be as simple as ifindex + hookid. With ifindex of
+> 0 meaning all ports and maybe hookid of 0 meaning all hooks.
+> Hook semantics are as mentioned by John (as it stands right now
+> in/egress)
 > 
 
+Again I'm trying to faithfully implement what we have in software
+and load that into the hardware. The handle today gives ingress/egres
+hook. If you want an all ports hook we should add it to 'tc' software
+first and then push that to the hardware not create magic hardware
+bits. See I've drank the cool aid software first than hardware.
 
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+> 4) Why are we forsaking switchdev John?
+> This is certainly re-usable beyond NICs and SRIOV.
+> 
+
+Sure and switchdev can use it just like they use fdb_add and friends.
+I just don't want to require switchdev infrastructure on things that
+really are not switches. I think Amir indicated he would take a try
+at the switchdev integration. If not I'm willing to do it but it
+doesn't block this series in any way imo.
+
+> 5)What happened to being both able to hardware and/or software?
+
+Follow up patch once we get the basic infrastructure in place with
+the big feature flag bit. I have a patch I'm testing for this now
+but again I want to move in logical and somewhat minimal sets.
+
+> 
+> Anyways, I think Seville would be a blast! Come one, come all.
+> 
+
+I'll be there but lets be sure to follow up with this online I
+know folks are following this who wont be at Seville and I don't
+see any reason to block these patches and stop the thread for a
+week or more.
+
+> cheers,
+> jamal
+> 
+> 
