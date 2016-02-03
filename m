@@ -1,66 +1,76 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [RFC] Inverse of flowi{4,6}_oif: flowi{4,6}_not_oif
-Date: Wed, 3 Feb 2016 15:27:47 +0100
-Message-ID: <CAHmME9pGKeM9=qqcxrN12ELtTjhwgBkPV0K3ixfVz3a_CBugAw@mail.gmail.com>
-References: <CAHmME9pgwgjKJAFH2=sEEMJauno_rVEzY6JORTQze91Xo5zefw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] net:Add sysctl_max_skb_frags
+Date: Wed, 03 Feb 2016 06:30:40 -0800
+Message-ID: <1454509840.7627.228.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <568F87AC.60405@oracle.com>
+	 <1454488017-8822-1-git-send-email-hans.westgaard.ry@oracle.com>
+	 <20160203112550.GB28003@gondor.apana.org.au>
+	 <56B1E635.8020707@stressinduktion.org>
+	 <20160203122052.GA28619@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:44146 "EHLO frisell.zx2c4.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751742AbcBCO1w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2016 09:27:52 -0500
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id d563679a
-	for <netdev@vger.kernel.org>;
-	Wed, 3 Feb 2016 14:26:42 +0000 (UTC)
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id 4ad5b261
-	TLS version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=YES
-	for <netdev@vger.kernel.org>;
-	Wed, 3 Feb 2016 14:26:40 +0000 (UTC)
-Received: by mail-wm0-f49.google.com with SMTP id 128so168014270wmz.1
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 06:27:48 -0800 (PST)
-In-Reply-To: <CAHmME9pgwgjKJAFH2=sEEMJauno_rVEzY6JORTQze91Xo5zefw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Hans Westgaard Ry <hans.westgaard.ry@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Tom Herbert <tom@herbertland.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Florian Westphal <fw@strlen.de>, Jiri Pirko <jiri@resnulli.us>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Michal Hocko <mhocko@suse.com>,
+	Linus =?ISO-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>,
+	Tejun Heo <tj@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alexey Kodanev <alexey.kodanev@oracle.com>,
+	=?ISO-8859-1?Q?H=E5kon?= Bugge <haakon.bugge@oracle.com>,
+	open list <linux-kernel@vger.kernel.org>,
+	"open list:NETWORKING [GENERAL]" <netdev@vger.ker
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160203122052.GA28619@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-FYI, for v4 at least, it's ridiculously easy and simple to implement:
+On Wed, 2016-02-03 at 20:20 +0800, Herbert Xu wrote:
+> On Wed, Feb 03, 2016 at 12:36:21PM +0100, Hannes Frederic Sowa wrote:
+> >
+> > Agreed that it feels like a hack, but a rather simple one. I would
+> > consider this to be just a performance improvement. We certainly need
+> > a slow-path when virtio drivers submit gso packets to the stack (and
+> > already discussed with Hans). The sysctl can't help here. But without
+> > the sysctl the packets would constantly hit the slow-path in case of
+> > e.g. IPoIB and that would also be rather bad.
+> 
+> So you want to penalise every NIC in the system if just one of
+> them is broken? This is insane.  Just do the partial linearisation
+> in that one driver that needs it and not only won't you have to
+> penalise anyone else but you still get the best result for that
+> driver that needs it.
 
-=~=~=~=~=~=~=~=~=
+No penalization :
 
-diff --git a/include/net/flow.h b/include/net/flow.h
-index 83969ee..29967ad 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -26,6 +26,7 @@ struct flowi_tunnel {
+- default is the optimal value
 
- struct flowi_common {
-  int flowic_oif;
-+ int flowic_not_oif;
-  int flowic_iif;
-  __u32 flowic_mark;
-  __u8 flowic_tos;
-@@ -67,6 +68,7 @@ union flowi_uli {
- struct flowi4 {
-  struct flowi_common __fl_common;
- #define flowi4_oif  __fl_common.flowic_oif
-+#define flowi4_not_oif  __fl_common.flowic_not_oif
- #define flowi4_iif  __fl_common.flowic_iif
- #define flowi4_mark  __fl_common.flowic_mark
- #define flowi4_tos  __fl_common.flowic_tos
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 7aea0cc..d03e991 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1429,6 +1429,8 @@ found:
-         flp->flowi4_oif != nh->nh_oif)
-      continue;
-    }
-+   if (flp->flowi4_not_oif && flp->flowi4_not_oif == nh->nh_oif)
-+    continue;
+- TCP stack tends to build skb with 32KB frags anyway. It is very rare
+to actually get to 17 frags per skb (pathological sendpage() with tiny
+parts, or tiny write() on many sockets from one thread). 
 
-    if (!(fib_flags & FIB_LOOKUP_NOREF))
-     atomic_inc(&fi->fib_clntref);
+> 
+> Besides, you have to implement the linearisation anyway because
+> of virtualisation.
+
+Sure.
+
+We use a similar patch here at Google, since bnx2x has in some cases a
+limit of 13 frags per skb. This driver calls linearize which can fail
+under memory fragmentation. TCP usually retransmits, so only effect of
+failures is extra latencies.
+
+I am actually okay with this patch.
+
+Acked-by: Eric Dumazet <edumazet@google.com>
