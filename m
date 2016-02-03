@@ -1,96 +1,111 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: Keystone 2 boards boot failure
-Date: Wed, 03 Feb 2016 17:35:17 +0100
-Message-ID: <1682165.IJ7dHXqc6L@wuerfel>
-References: <56B0DE61.2000704@ti.com> <10700980.gTvMTB9pzv@wuerfel> <56B15591.7080409@ti.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next 4/4] packet: tpacket_snd gso and checksum offload
+Date: Wed, 3 Feb 2016 11:38:12 -0500
+Message-ID: <CAF=yD-KRbWbAqRB=4z+nPnQXLm3QGWd5TCs52uutt9WcLq=LDQ@mail.gmail.com>
+References: <1454428609-26885-1-git-send-email-willemdebruijn.kernel@gmail.com>
+ <1454428609-26885-5-git-send-email-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: m-karicheri2@ti.com, netdev@vger.kernel.org, w-kwok2@ti.com,
-	davem@davemloft.net
-To: "Franklin S Cooper Jr." <fcooper@ti.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>, mst@redhat.com,
+	sri@us.ibm.com, Willem de Bruijn <willemb@google.com>
+To: Network Development <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:51091 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755668AbcBCQfb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 11:35:31 -0500
-In-Reply-To: <56B15591.7080409@ti.com>
+Received: from mail-lb0-f196.google.com ([209.85.217.196]:34819 "EHLO
+	mail-lb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756420AbcBCQix (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 11:38:53 -0500
+Received: by mail-lb0-f196.google.com with SMTP id dx9so755887lbc.2
+        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 08:38:52 -0800 (PST)
+In-Reply-To: <1454428609-26885-5-git-send-email-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 02 February 2016 19:19:13 Franklin S Cooper Jr. wrote:
-> On 02/02/2016 05:26 PM, Arnd Bergmann wrote:
-> > On Tuesday 02 February 2016 16:59:34 Franklin Cooper wrote:
-> >> On 02/02/2016 03:26 PM, Arnd Bergmann wrote:
-> >>> On Tuesday 02 February 2016 15:01:33 Franklin S Cooper Jr. wrote:
-> >> Keystone 2 devices are little-endian 32-bit devices.
-> > I meant the kernel you are running on it, not the hardware.
-> > You should always be able to run both a big-endian kernel and
-> > a littl-endian kernel on any ARMv7 machine, and a couple of
-> > platforms use 64-bit physical addresses even on 32-bit machines
-> > (with the normal 32-bit instruction set).
-> 
-> I'm not sure if Keystone 2 devices support this or if we
-> have support for this. I'll have to double check.
+>         union tpacket_uhdr ph;
+On Tue, Feb 2, 2016 at 10:56 AM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+> From: Willem de Bruijn <willemb@google.com>
+>
+> Support socket option PACKET_VNET_HDR together with PACKET_TX_RING.
+>>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> ---
+>  net/packet/af_packet.c | 53 +++++++++++++++++++++++++++++++++++---------------
+>  1 file changed, 37 insertions(+), 16 deletions(-)
+>
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 89377bf..41e25b6 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -2495,7 +2495,7 @@ static int packet_snd_vnet_gso(struct sk_buff *skb,
+>
 
-Don't worry about it, there is nothing you need to check:
+> +               if (po->has_vnet_hdr) {
+> +                       vnet_hdr = data;
+> +                       if (tp_len < sizeof(*vnet_hdr) ||
+> +                           __packet_snd_vnet_parse(vnet_hdr, tp_len)) {
+> +                               tp_len = -EINVAL;
+> +                               goto tpacket_error;
+> +                       }
+> +                       data += sizeof(*vnet_hdr);
+> +                       tp_len -= sizeof(*vnet_hdr);
 
-As I said, all ARMv7 *hardware* can be run in either mode, and
-that includes Keystone 2.
+I left a bug here. tp_len must have the virtio_net_hdr subtracted before
+bounds check vnet_hdr->hdr_len <= tp_len in __packet_snd_vnet_gso.
 
-As for the kernel, it's obvious that nobody tried to run
-a Keystone based machine with a big-endian kernel, or they
-would have run into the broken network driver.
+Will send a v2.
 
-I believe you also require this patch, unless the firmware is
-clever enough to figure out endianess by itself (very unlikely)
-
-diff --git a/arch/arm/mach-keystone/keystone.h b/arch/arm/mach-keystone/keystone.h
-index 33eaa037af5a..016ae7644e73 100644
---- a/arch/arm/mach-keystone/keystone.h
-+++ b/arch/arm/mach-keystone/keystone.h
-@@ -16,7 +16,7 @@
- #ifndef __ASSEMBLER__
- 
- extern const struct smp_operations keystone_smp_ops;
--extern void secondary_startup(void);
-+extern void keystone_secondary_startup(void);
- extern u32 keystone_cpu_smc(u32 command, u32 cpu, u32 addr);
- extern int keystone_pm_runtime_init(void);
- 
-diff --git a/arch/arm/mach-keystone/platsmp.c b/arch/arm/mach-keystone/platsmp.c
-index 5665276972ec..c427787f78d1 100644
---- a/arch/arm/mach-keystone/platsmp.c
-+++ b/arch/arm/mach-keystone/platsmp.c
-@@ -26,7 +26,7 @@
- static int keystone_smp_boot_secondary(unsigned int cpu,
- 						struct task_struct *idle)
- {
--	unsigned long start = virt_to_idmap(&secondary_startup);
-+	unsigned long start = virt_to_idmap(&keystone_secondary_startup);
- 	int error;
- 
- 	pr_debug("keystone-smp: booting cpu %d, vector %08lx\n",
-diff --git a/arch/arm/mach-keystone/smc.S b/arch/arm/mach-keystone/smc.S
-index d15de8179fab..3ce858ce426e 100644
---- a/arch/arm/mach-keystone/smc.S
-+++ b/arch/arm/mach-keystone/smc.S
-@@ -23,6 +23,13 @@
-  */
- ENTRY(keystone_cpu_smc)
- 	stmfd   sp!, {r4-r11, lr}
-+ARM_BE8(setend	le)			@ call SMC as LE
- 	smc	#0
-+ARM_BE8(setend	be)			@ go back to BE8
- 	ldmfd   sp!, {r4-r11, pc}
- ENDPROC(keystone_cpu_smc)
-+
-+ENTRY(keystone_secondary_startup)
-+ARM_BE8(setend	be)			@ go BE8 if entered LE
-+	b	secondary_startup
-+ENDPROC(keyston_secondary_startup)
-
-It would be nice to give this a go once the network driver problem
-is solved.
-
-	Arnd
+> +                       copylen = __virtio16_to_cpu(vio_le(),
+> +                                                   vnet_hdr->hdr_len);
+> +               }
+> +               if (dev->hard_header_len) {
+> +                       if (ll_header_truncated(dev, tp_len)) {
+> +                               tp_len = -EINVAL;
+> +                               goto tpacket_error;
+> +                       }
+> +                       copylen = max_t(int, copylen, dev->hard_header_len);
+> +               }
+>                 skb = sock_alloc_send_skb(&po->sk,
+> -                               hlen + tlen + sizeof(struct sockaddr_ll),
+> +                               hlen + tlen + sizeof(struct sockaddr_ll) +
+> +                               (copylen - dev->hard_header_len),
+>                                 !need_wait, &err);
+>
+>                 if (unlikely(skb == NULL)) {
+> @@ -2705,9 +2723,10 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+>                         goto out_status;
+>                 }
+>                 tp_len = tpacket_fill_skb(po, skb, ph, dev, data, tp_len, proto,
+> -                                         addr, hlen);
+> +                                         addr, hlen, copylen);
+>                 if (likely(tp_len >= 0) &&
+>                     tp_len > dev->mtu + reserve &&
+> +                   !po->has_vnet_hdr &&
+>                     !packet_extra_vlan_len_allowed(dev, skb))
+>                         tp_len = -EMSGSIZE;
+>
+> @@ -2726,6 +2745,11 @@ tpacket_error:
+>                         }
+>                 }
+>
+> +               if (po->has_vnet_hdr && packet_snd_vnet_gso(skb, vnet_hdr)) {
+> +                       tp_len = -EINVAL;
+> +                       goto tpacket_error;
+> +               }
+> +
+>                 packet_pick_tx_queue(dev, skb);
+>
+>                 skb->destructor = tpacket_destruct_skb;
+> @@ -3616,9 +3640,6 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
+>                 }
+>                 if (optlen < len)
+>                         return -EINVAL;
+> -               if (pkt_sk(sk)->has_vnet_hdr &&
+> -                   optname == PACKET_TX_RING)
+> -                       return -EINVAL;
+>                 if (copy_from_user(&req_u.req, optval, len))
+>                         return -EFAULT;
+>                 return packet_set_ring(sk, &req_u, 0,
+> --
+> 2.7.0.rc3.207.g0ac5344
+>
