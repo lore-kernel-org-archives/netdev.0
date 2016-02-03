@@ -1,44 +1,125 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH] rtlwifi: Fix reusable codes in core.c
-Date: Wed, 3 Feb 2016 11:54:38 +1100
-Message-ID: <CAGRGNgXuCfpRVuM7Dxt9QT9TGW1zt9Qh+pqSPJ_X5zHq3A4v4w@mail.gmail.com>
-References: <20160202154855.GA8990@gmail.com> <CAGRGNgVHEsA693tQxf0Mv_4wSu-4wG7sphhRRB0gbU6o9nzZ_Q@mail.gmail.com>
- <CAOxTRzoGkNUy2FRUQLg_01D5p6Bjxfs+w8iEJJrkM2pTdkdC5Q@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 111751] New: Kernel send tcp reset when receive icmp
+ redirect
+Date: Wed, 3 Feb 2016 11:56:16 +1100
+Message-ID: <20160203115616.5549851a@samsung9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: ByeoungWook Kim <quddnr145@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOxTRzoGkNUy2FRUQLg_01D5p6Bjxfs+w8iEJJrkM2pTdkdC5Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35586 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754215AbcBCA4X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2016 19:56:23 -0500
+Received: by mail-pa0-f49.google.com with SMTP id ho8so3325976pac.2
+        for <netdev@vger.kernel.org>; Tue, 02 Feb 2016 16:56:23 -0800 (PST)
+Received: from samsung9 ([138.44.251.21])
+        by smtp.gmail.com with ESMTPSA id l14sm5227172pfb.73.2016.02.02.16.56.22
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Tue, 02 Feb 2016 16:56:23 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi ByeoungWook,
 
-On Wed, Feb 3, 2016 at 11:52 AM, ByeoungWook Kim <quddnr145@gmail.com> wrote:
-> Hi Julian,
->
-> 0xfe and 0xfb was not same codes.
-> 0xfe is udelay(50). and 0xfb is mdelay(50).
-> It same code like udelay((n) * 1000).
 
-I'm clearly blind! Sorry about that!
+Begin forwarded message:
 
-> but i agree with your answers of some parts. I think that i should divide
-> into separate patch.
-> Thanks for your assists!
+Date: Tue, 2 Feb 2016 11:42:41 +0000
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+Subject: [Bug 111751] New: Kernel send tcp reset when receive icmp redirect
 
-Not a problem!
 
-Thanks,
+https://urldefense.proofpoint.com/v2/url?u=https-3A__bugzilla.kernel.org_show-5Fbug.cgi-3Fid-3D111751&d=CwICaQ&c=IL_XqQWOjubgfqINi2jTzg&r=q_lvUiVm1uM6QEw9TPH-6jiV__hsrE6xXUAtATPE9x0&m=UNO95AZfSkcQcZYh6NtZCATnWsJA165x3m2P3_Yo4mY&s=8874491L4x2GOXBxBlNCQJaF3d2Jryc776RbYqRVTS8&e= 
+
+            Bug ID: 111751
+           Summary: Kernel send tcp reset when receive icmp redirect
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 4.4.0
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+          Assignee: shemminger@linux-foundation.org
+          Reporter: pety@rusnet.ru
+        Regression: No
+
+Network scheme:
+
+          server1
+router----eth0------buggy-linux-box
+
+router ip          - 192.168.113.246/30
+
+server1 ip on eth0 - 192.168.113.245/30, 192.168.113.158/27 (aliases), default
+to 192.168.113.246
+
+buggy-linux-box ip - 192.168.113.133/27
+
+When I try telnet (or ssh, for example) to 192.168.113.133 from
+192.168.113.115, I receive tcp reset:
+
+13:55:22.341015 IP (tos 0x10, ttl 62, id 54936, offset 0, flags [DF], proto TCP
+(6), length 60)
+    192.168.113.115.33160 > 192.168.113.133.23: Flags [S], cksum 0x681c
+(correct), seq 1552183701, win 5840, options [mss 1460,sackOK,TS val
+ 1739695885 ecr 0,nop,wscale 9], length 0
+
+13:55:22.341039 IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6),
+length 60)
+    192.168.113.133.23 > 192.168.113.115.33160: Flags [S.], cksum 0x6ac8
+(incorrect -> 0x4221), seq 1195050131, ack 1552183702, win 28960, o
+ptions [mss 1460,sackOK,TS val 337210292 ecr 1739695885,nop,wscale 7], length 0
+
+13:55:22.341188 IP (tos 0xc0, ttl 64, id 29828, offset 0, flags [none], proto 
+ICMP (1), length 88)
+    192.168.113.158 > 192.168.113.133: ICMP redirect 192.168.113.115 to host
+192.168.113.246, length 68
+        IP (tos 0x0, ttl 63, id 0, offset 0, flags [DF], proto TCP (6), length
+60)
+    192.168.113.133.23 > 192.168.113.115.33160: Flags [S.], cksum 0x4221
+(correct), seq 1195050131, ack 1552183702, win 28960, options [mss
+1460,sackOK,TS val 337210292 ecr 1739695885,nop,wscale 7], length 0
+
+13:55:22.341264 IP (tos 0x10, ttl 62, id 54937, offset 0, flags [DF], proto TCP
+(6), length 52)
+    192.168.113.115.33160 > 192.168.113.133.23: Flags [.], cksum 0xe201
+(correct), seq 1, ack 1, win 12, options [nop,nop,TS val 1739695885
+ecr 337210292], length 0
+
+13:55:22.341281 IP (tos 0x10, ttl 64, id 28000, offset 0, flags [DF], proto TCP
+(6), length 40)
+    192.168.113.133.23 > 192.168.113.115.33160: Flags [R], cksum 0x77d8
+(correct), seq 1195050132, win 0, length 0
+
+13:55:22.341284 IP (tos 0x10, ttl 62, id 54938, offset 0, flags [DF], proto TCP
+(6), length 76)
+    192.168.113.115.33160 > 192.168.113.133.23: Flags [P.], cksum 0x8590
+(correct), seq 1:25, ack 1, win 12, options [nop,nop,TS val 1739695
+885 ecr 337210292], length 24 [telnet DO SUPPRESS GO AHEAD, WILL TERMINAL TYPE,
+WILL NAWS, WILL TSPEED, WILL LFLOW, WILL LINEMODE, WILL NEW-
+ENVIRON, DO STATUS]
+
+13:55:22.341289 IP (tos 0x10, ttl 64, id 28001, offset 0, flags [DF], proto TCP
+(6), length 40)
+    192.168.113.133.23 > 192.168.113.115.33160: Flags [R], cksum 0x77d8
+(correct), seq 1195050132, win 0, length 0
+^C
+7 packets captured
+7 packets received by filter
+0 packets dropped by kernel
+
+If I turn off sending redirects on server1, or reject incoming ICMP with
+iptables (on buggy-box), the problem is gone.
+
+Looks like kernel 4.1.15 without this problem.
 
 -- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+You are receiving this mail because:
+You are the assignee for the bug.
