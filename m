@@ -1,40 +1,37 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next v5 1/2] ethtool: add speed/duplex validation
- functions
-Date: Thu, 4 Feb 2016 10:32:26 +1100
-Message-ID: <20160204103226.333d98ca@samsung9>
-References: <1454468677-12280-1-git-send-email-razor@blackwall.org>
-	<1454468677-12280-2-git-send-email-razor@blackwall.org>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [PATCH] Netlink messages for multicast HW addr programming
+Date: Thu, 4 Feb 2016 10:41:11 +1100
+Message-ID: <20160204104111.0c21ab2f@samsung9>
+References: <1453376874-17389-1-git-send-email-pruddy@brocade.com>
+	<20160121200419.GB2251@nanopsycho.orion>
+	<1453474315.20378.7.camel@brocade.com>
+	<20160122150508.GD2211@nanopsycho.orion>
+	<1453477775.20378.15.camel@brocade.com>
+	<20160123075331.GA2193@nanopsycho.orion>
+	<1454508881.3700.63.camel@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, roopa@cumulusnetworks.com,
-	davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Nikolay Aleksandrov <razor@blackwall.org>
+Cc: "jiri@resnulli.us" <jiri@resnulli.us>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Stapleton <dstaplet@Brocade.com>,
+	"Olufemi Komolafe" <okomolaf@Brocade.com>
+To: Patrick Ruddy <pruddy@Brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35824 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753061AbcBCXch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 18:32:37 -0500
-Received: by mail-pf0-f174.google.com with SMTP id 65so22537226pfd.2
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 15:32:37 -0800 (PST)
-In-Reply-To: <1454468677-12280-2-git-send-email-razor@blackwall.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:29728 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755497AbcBCXlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 18:41:19 -0500
+In-Reply-To: <1454508881.3700.63.camel@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  3 Feb 2016 04:04:36 +0100
-Nikolay Aleksandrov <razor@blackwall.org> wrote:
+On Wed, 3 Feb 2016 06:14:41 -0800
+Patrick Ruddy <pruddy@Brocade.com> wrote:
 
->  
-> +static inline int ethtool_validate_speed(__u32 speed)
-> +{
+> One more Q on this. I can use IFA_ADDRESS for unicast addresses and
+> IFA_MULTICAST for multicast addresses but are these distinctions
+> actually required since the multicast nature of an address is clear from
+> the address itself - at least it is for ethernet and ifininet?
 
-
-No need for inline.
-
-But why check for valid value at all. At some point in the
-future, there will be yet another speed adopted by some standard body
-and the switch statement would need another value.
-
-Why not accept any value? This is a virtual device.
+The flags on L2 addresses should be analagous to what happens with L3 (IP) addresses.
