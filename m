@@ -1,70 +1,43 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/2] rtlwifi: Fix improve function 'rtl_addr_delay()' in
- core.c
-Date: Wed, 3 Feb 2016 14:41:26 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCD5486@AcuExch.aculab.com>
-References: <20160203015953.GA13562@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"chaoming_li@realsil.com.cn" <chaoming_li@realsil.com.cn>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Byeoungwook Kim' <quddnr145@gmail.com>,
-	"Larry.Finger@lwfinger.net" <Larry.Finger@lwfinger.net>
+From: Alexandre TORGUE <alexandre.torgue@gmail.com>
+Subject: [PATCH 0/4]  Add Ethernet support on STM32F429
+Date: Wed,  3 Feb 2016 15:54:31 +0100
+Message-ID: <1454511275-9791-1-git-send-email-alexandre.torgue@gmail.com>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160203015953.GA13562@gmail.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Byeoungwook Kim
-> Sent: 03 February 2016 02:00
-> Conditional codes in rtl_addr_delay() were improved in readability and
-> performance by using switch codes.
+STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
+This series:
+	-enhance current stmmac driver to control it (code already available) and 
+	 adds basic glue for STM32F429 chip.
+	-Enable basic Net config in kernel.
 
-I'd like to see the performance data :-)
+Note that DT patches are not present because STM32 pinctrl code is not
+yet avalaible.
 
-> diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
-> index 4ae421e..05f432c 100644
-> --- a/drivers/net/wireless/realtek/rtlwifi/core.c
-> +++ b/drivers/net/wireless/realtek/rtlwifi/core.c
-> @@ -37,18 +37,26 @@
-> 
->  void rtl_addr_delay(u32 addr)
->  {
-> -	if (addr == 0xfe)
-> +	switch (addr) {
-> +	case 0xfe:
->  		mdelay(50);
-> -	else if (addr == 0xfd)
-> +		break;
-> +	case 0xfd:
->  		mdelay(5);
-> -	else if (addr == 0xfc)
-> +		break;
-> +	case 0xfc:
->  		mdelay(1);
-> -	else if (addr == 0xfb)
-> +		break;
-> +	case 0xfb:
->  		udelay(50);
-> -	else if (addr == 0xfa)
-> +		break;
-> +	case 0xfa:
->  		udelay(5);
-> -	else if (addr == 0xf9)
-> +		break;
-> +	case 0xf9:
->  		udelay(1);
-> +		break;
-> +	};
+Regards 
 
-Straight 'performance' can't matter here, not with mdelay(50)!
-The most likely effect is from speeding up the 'don't delay' path
-and reducing the number of conditionals (and hence accuracy of) udelay(1).
-Reversing the if-chain might be better still.
+Alexandre
 
-	David
+Alexandre TORGUE (4):
+  net: ethernet: dwmac: add Ethernet glue logic for stm32 chip
+  Documentation: Bindings: Add STM32 DWMAC glue
+  net: ethernet: stmmac: add support of Synopsys 3.50a MAC IP
+  ARM: STM32: Enable Ethernet in stm32_defconfig
+
+ .../devicetree/bindings/net/stm32-dwmac.txt        |  41 +++++
+ arch/arm/configs/stm32_defconfig                   |   9 ++
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |  12 ++
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c  | 177 +++++++++++++++++++++
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   1 +
+ 6 files changed, 241 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/stm32-dwmac.txt
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
+
+-- 
+1.9.1
