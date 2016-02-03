@@ -1,104 +1,169 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH] flowi: add concept of "not_oif"
-Date: Wed,  3 Feb 2016 18:46:35 +0100
-Message-ID: <1454521595-6721-1-git-send-email-Jason@zx2c4.com>
-References: <CAHmME9pgwgjKJAFH2=sEEMJauno_rVEzY6JORTQze91Xo5zefw@mail.gmail.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-To: Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:37552 "EHLO frisell.zx2c4.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964823AbcBCRpv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2016 12:45:51 -0500
-In-Reply-To: <CAHmME9pgwgjKJAFH2=sEEMJauno_rVEzY6JORTQze91Xo5zefw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ByeoungWook Kim <quddnr145@gmail.com>
+Subject: Re: [PATCH 1/2] rtlwifi: Fix improve function 'rtl_addr_delay()' in core.c
+Date: Thu, 4 Feb 2016 02:49:28 +0900
+Message-ID: <CAOxTRzpO4mx361GqA+W39bxSfbOCaiLw320S-aph1v1OGJ0FYw@mail.gmail.com>
+References: <20160203015953.GA13562@gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CCD5486@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Larry.Finger@lwfinger.net" <Larry.Finger@lwfinger.net>,
+	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+	"chaoming_li@realsil.com.cn" <chaoming_li@realsil.com.cn>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCD5486@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch simply adds support for specifying a "not_oif" device in
-flowi4 and flowi6 lookups, that will find a matching route that _isn't_
-via the specified device.
+Hi David,
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+2016-02-03 23:41 GMT+09:00 David Laight <David.Laight@aculab.com>:
+> From: Byeoungwook Kim
+>> Sent: 03 February 2016 02:00
+>> Conditional codes in rtl_addr_delay() were improved in readability and
+>> performance by using switch codes.
+>> ...
+>>  void rtl_addr_delay(u32 addr)
+>>  {
+>> -     if (addr == 0xfe)
+>> +     switch (addr) {
+>> +     case 0xfe:
+>>               mdelay(50);
+>> -     else if (addr == 0xfd)
+>> +             break;
+>> +     case 0xfd:
+>>               mdelay(5);
+>> -     else if (addr == 0xfc)
+>> +             break;
+>> +     case 0xfc:
+>>               mdelay(1);
+>> -     else if (addr == 0xfb)
+>> +             break;
+>> +     case 0xfb:
+>>               udelay(50);
+>> -     else if (addr == 0xfa)
+>> +             break;
+>> +     case 0xfa:
+>>               udelay(5);
+>> -     else if (addr == 0xf9)
+>> +             break;
+>> +     case 0xf9:
+>>               udelay(1);
+>> +             break;
+>> +     };
+>
+> Straight 'performance' can't matter here, not with mdelay(50)!
+> The most likely effect is from speeding up the 'don't delay' path
+> and reducing the number of conditionals (and hence accuracy of) udelay(1).
+> Reversing the if-chain might be better still.
+>
+
+I agree with your assists about "The most likely effect is from
+speeding up the 'don't delay' path and reducing the number of
+conditionals (and hence accuracy of) udelay(1).".
+
+I converted to assembly codes like next line from conditionals.
+
 ---
- include/net/flow.h  | 3 +++
- net/ipv4/fib_trie.c | 2 ++
- net/ipv6/route.c    | 6 +++++-
- 3 files changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/flow.h b/include/net/flow.h
-index 83969ee..29967ad 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -26,6 +26,7 @@ struct flowi_tunnel {
- 
- struct flowi_common {
- 	int	flowic_oif;
-+	int	flowic_not_oif;
- 	int	flowic_iif;
- 	__u32	flowic_mark;
- 	__u8	flowic_tos;
-@@ -67,6 +68,7 @@ union flowi_uli {
- struct flowi4 {
- 	struct flowi_common	__fl_common;
- #define flowi4_oif		__fl_common.flowic_oif
-+#define flowi4_not_oif		__fl_common.flowic_not_oif
- #define flowi4_iif		__fl_common.flowic_iif
- #define flowi4_mark		__fl_common.flowic_mark
- #define flowi4_tos		__fl_common.flowic_tos
-@@ -125,6 +127,7 @@ static inline void flowi4_update_output(struct flowi4 *fl4, int oif, __u8 tos,
- struct flowi6 {
- 	struct flowi_common	__fl_common;
- #define flowi6_oif		__fl_common.flowic_oif
-+#define flowi6_not_oif		__fl_common.flowic_not_oif
- #define flowi6_iif		__fl_common.flowic_iif
- #define flowi6_mark		__fl_common.flowic_mark
- #define flowi6_tos		__fl_common.flowic_tos
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 7aea0cc..d03e991 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1429,6 +1429,8 @@ found:
- 				    flp->flowi4_oif != nh->nh_oif)
- 					continue;
- 			}
-+			if (flp->flowi4_not_oif && flp->flowi4_not_oif == nh->nh_oif)
-+				continue;
- 
- 			if (!(fib_flags & FIB_LOOKUP_NOREF))
- 				atomic_inc(&fi->fib_clntref);
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 3c8834b..2a793b5 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -467,6 +467,7 @@ static inline struct rt6_info *rt6_device_match(struct net *net,
- 						    struct rt6_info *rt,
- 						    const struct in6_addr *saddr,
- 						    int oif,
-+						    int not_oif,
- 						    int flags)
- {
- 	struct rt6_info *local = NULL;
-@@ -478,6 +479,9 @@ static inline struct rt6_info *rt6_device_match(struct net *net,
- 	for (sprt = rt; sprt; sprt = sprt->dst.rt6_next) {
- 		struct net_device *dev = sprt->dst.dev;
- 
-+		if (not_oif && dev->ifindex == not_oif)
-+			continue;
-+
- 		if (oif) {
- 			if (dev->ifindex == oif)
- 				return sprt;
-@@ -856,7 +860,7 @@ static struct rt6_info *ip6_pol_route_lookup(struct net *net,
- 	fn = fib6_lookup(&table->tb6_root, &fl6->daddr, &fl6->saddr);
- restart:
- 	rt = fn->leaf;
--	rt = rt6_device_match(net, rt, &fl6->saddr, fl6->flowi6_oif, flags);
-+	rt = rt6_device_match(net, rt, &fl6->saddr, fl6->flowi6_oif, fl6->flowi6_not_oif, flags);
- 	if (rt->rt6i_nsiblings && fl6->flowi6_oif == 0)
- 		rt = rt6_multipath_select(rt, fl6, fl6->flowi6_oif, flags);
- 	if (rt == net->ipv6.ip6_null_entry) {
--- 
-2.7.0
+  if (addr == 0xf9)
+00951445  cmp        dword ptr [addr],0F9h
+0095144C  jne        main+35h (0951455h)
+      a();
+0095144E  call        a (09510EBh)
+00951453  jmp        main+83h (09514A3h)
+  else if (addr == 0xfa)
+00951455  cmp        dword ptr [addr],0FAh
+0095145C  jne        main+45h (0951465h)
+      a();
+0095145E  call        a (09510EBh)
+00951463  jmp        main+83h (09514A3h)
+  else if (addr == 0xfb)
+00951465  cmp        dword ptr [addr],0FBh
+0095146C  jne        main+55h (0951475h)
+      a();
+0095146E  call        a (09510EBh)
+00951473  jmp        main+83h (09514A3h)
+  else if (addr == 0xfc)
+00951475  cmp        dword ptr [addr],0FCh
+0095147C  jne        main+65h (0951485h)
+      b();
+0095147E  call        b (09510E6h)
+00951483  jmp        main+83h (09514A3h)
+  else if (addr == 0xfd)
+00951485  cmp        dword ptr [addr],0FDh
+0095148C  jne        main+75h (0951495h)
+      b();
+0095148E  call        b (09510E6h)
+00951493  jmp        main+83h (09514A3h)
+  else if (addr == 0xfe)
+00951495  cmp        dword ptr [addr],0FEh
+0095149C  jne        main+83h (09514A3h)
+      b();
+0095149E  call        b (09510E6h)
+
+---
+
+if the addr value was 0xfe, Big-O-notation is O(1).
+but if the addr value was 0xf9, Big-O-notation is O(n).
+
+2016-02-03 23:41 GMT+09:00 David Laight <David.Laight@aculab.com>:
+> From: Byeoungwook Kim
+>> Sent: 03 February 2016 02:00
+>> Conditional codes in rtl_addr_delay() were improved in readability and
+>> performance by using switch codes.
+>
+> I'd like to see the performance data :-)
+
+I used switch codes to solve of this problem.
+
+If the addr variable was increment consecutive, switch codes is able
+to use branch table for optimize.
+so I converted to assembly codes like next line from same codes about my patch.
+
+ switch (addr)
+011C1445  mov        eax,dword ptr [addr]
+011C1448  mov        dword ptr [ebp-0D0h],eax
+011C144E  mov        ecx,dword ptr [ebp-0D0h]
+011C1454  sub        ecx,0F9h
+011C145A  mov        dword ptr [ebp-0D0h],ecx
+011C1460  cmp        dword ptr [ebp-0D0h],5
+011C1467  ja          $LN6+28h (011C149Eh)
+011C1469  mov        edx,dword ptr [ebp-0D0h]
+011C146F  jmp        dword ptr [edx*4+11C14B4h]
+  {
+  case 0xf9: a(); break;
+011C1476  call        a (011C10EBh)
+011C147B  jmp        $LN6+28h (011C149Eh)
+  case 0xfa: a(); break;
+011C147D  call        a (011C10EBh)
+011C1482  jmp        $LN6+28h (011C149Eh)
+  case 0xfb: a(); break;
+011C1484  call        a (011C10EBh)
+011C1489  jmp        $LN6+28h (011C149Eh)
+  case 0xfc: b(); break;
+011C148B  call        b (011C10E6h)
+011C1490  jmp        $LN6+28h (011C149Eh)
+  case 0xfd: b(); break;
+011C1492  call        b (011C10E6h)
+011C1497  jmp        $LN6+28h (011C149Eh)
+  case 0xfe: b(); break;
+011C1499  call        b (011C10E6h)
+  }
+
+===[[branch table]]===
+011C14B4     011C1476h
+011C14B8     011C147Dh
+011C14BC     011C1484h
+011C14C0     011C148Bh
+011C14C4     011C1492h
+011C14C8     011C1499h
+
+So conditional codes into rtl_addr_delay() can improve to readability
+and performance that used switch codes.
+
+Regards,
+Byeoungwook.
