@@ -1,100 +1,62 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: ethernet: davicom: fix devicetree irq resource
-Date: Thu, 4 Feb 2016 23:56:38 +0300
-Message-ID: <56B3BB06.9010506@cogentembedded.com>
-References: <1454535609-7290-1-git-send-email-robert.jarzmik@free.fr>
- <56B38767.6040005@cogentembedded.com> <87d1sc5hsh.fsf@belgarion.home>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
+Date: Thu, 4 Feb 2016 12:59:30 -0800
+Message-ID: <CALx6S37fGc0-JBVCYT0zh1PMGWkkw--YaqRyUU8tFNMLEn7xFQ@mail.gmail.com>
+References: <1454527121-4007853-1-git-send-email-tom@herbertland.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CCD63C9@AcuExch.aculab.com>
+	<CAKgT0UcuJWmpwO4hu34qBWhrhqQ5GQMU_dWHF-Dd10+Y9aCH=g@mail.gmail.com>
+	<CALx6S35X08W3ugsc0w_0RT6XdHOH_SF5g2u1z2yvhXL_uvDmNw@mail.gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CCD6923@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Robert Jarzmik <robert.jarzmik@free.fr>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
+	"kernel-team@fb.com" <kernel-team@fb.com>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:34151 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932182AbcBDU4m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 15:56:42 -0500
-Received: by mail-lb0-f181.google.com with SMTP id cw1so38593784lbb.1
-        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 12:56:41 -0800 (PST)
-In-Reply-To: <87d1sc5hsh.fsf@belgarion.home>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:36914 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754169AbcBDU7b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 15:59:31 -0500
+Received: by mail-ig0-f176.google.com with SMTP id 5so256102igt.0
+        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 12:59:31 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCD6923@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/04/2016 11:42 PM, Robert Jarzmik wrote:
-
->>     Your patch summary prefixes are too verbose, it was enough to say only
->> "dm9000: ".
-
-    Or "davicom: dm9000: ". Missing the driver name itself doesn't look very 
-consistent. :-)
-
-> Well, I don't agree here. The subsystem should be fully specified, at least this
-> is something I require in pxa, something that is also required in sound/*, etc
-> ... If David doesn't object, I'll keep it that way. As it's his tree, his
-> decision in the end, so let's have him decide.
-
-    I expect that he disagrees with you. Let's wait...
-
->>> -	/* If there is no IRQ type specified, default to something that
->>> -	 * may work, and tell the user that this is a problem */
->>> -
->>> -	if (irqflags == IRQF_TRIGGER_NONE)
->>> -		irqflags = irq_get_trigger_type(dev->irq);
->>> -
->>> -	if (irqflags == IRQF_TRIGGER_NONE)
->>> +	/* If there is no IRQ type specified, tell the user that this is a
->>> +	 * problem */
+On Thu, Feb 4, 2016 at 9:09 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Tom Herbert
+> ...
+>> > If nothing else reducing the size of this main loop may be desirable.
+>> > I know the newer x86 is supposed to have a loop buffer so that it can
+>> > basically loop on already decoded instructions.  Normally it is only
+>> > something like 64 or 128 bytes in size though.  You might find that
+>> > reducing this loop to that smaller size may improve the performance
+>> > for larger payloads.
 >>
->>     The networking code formats comments this way:
->>
->> /* foo
->>   * bar
->>   */
-> May I know where this is documented ?
+>> I saw 128 to be better in my testing. For large packets this loop does
+>> all the work. I see performance dependent on the amount of loop
+>> overhead, i.e. we got it down to two non-adcq instructions but it is
+>> still noticeable. Also, this helps a lot on sizes up to 128 bytes
+>> since we only need to do single call in the jump table and no trip
+>> through the loop.
+>
+> But one of your 'loop overhead' instructions is 'loop'.
+> Look at http://www.agner.org/optimize/instruction_tables.pdf
+> you don't want to be using 'loop' on intel cpus.
+>
+I'm not following. We can replace loop with decl %ecx and jg, but why
+is that better?
 
-    Documentation/CodingStyle, chapter 8. Have you run your patch thru 
-scripts/checkpatch.pl?
+Tom
 
-> I'm asking because I didn't find it, because I parsed drivers/net/*.c files, and
-> the standard kernel comment style was there, ie:
-> /*
->   * foo
->   * bar
->   */
-
-    But you didn't follow it as well?
-
-> I was reusing the previous comment style,
-
-    Ah...
-
-> but I will change it for the standard
-> kernel style if you wish.
-
-    Yes, I think checkpatch.pl checks for that, --strict is forced for the 
-networking code.
-
-
->>> +	ndev->irq = platform_get_irq(pdev, 0);
->>> +	if (ndev->irq <= 0) {
->>
->>     I don't recommend checking for 0 and returning early in this case --
->> you'll signal a probe success this way. Either ignore 0 or return -E<smth>
->> in this case. Unfortunately, platform_get_irq() is so sloppily coded now that it
->> *can* return 0 on error. :-(
-
-    I'll try looking into this issue once I get more free time...
-
-> Ah we had that discussion not very long ago, didn't we ? :)
-
-    Yeah, I remembered that just after hitting <Send>. :-)
-
-> And I think I'll reuse the "if (ndev->irq < 0) {" solution to be consistent with
-> myself.
-
-> Thanks for the review.
-
-    My pleasure. :-)
-
-MBR, Sergei
+> You might get some benefit from pipelining the loop (so you do
+> a read to register in one iteration and a register-register adc
+> the next).
+>
+>         David
+>
