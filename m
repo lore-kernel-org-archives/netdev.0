@@ -1,103 +1,95 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/20] i40e: Extend ethtool RSS hooks for X722
-Date: Thu,  4 Feb 2016 03:49:02 -0800
-Message-ID: <1454586551-35919-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 17/20] i40e: AQ Add Run PHY Activity struct
+Date: Thu,  4 Feb 2016 03:49:08 -0800
+Message-ID: <1454586551-35919-18-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1454586551-35919-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41087 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:45387 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965694AbcBDLtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S965738AbcBDLtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 4 Feb 2016 06:49:16 -0500
 In-Reply-To: <1454586551-35919-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-This patch adds another way to access the RSS keys and lut using the AQ
-for X722 devices.
+Add the AQ opcode and struct definitions for the Run PHY Activity command
 
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Acked-by: Kevin Scott <kevin.c.scott@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 53 ++++++++++++++++++++++++++++-
- 1 file changed, 52 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 13 +++++++++++++
+ drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 13 +++++++++++++
+ 2 files changed, 26 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b3e671b..bd81a97 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7937,6 +7937,52 @@ static int i40e_vsi_config_rss(struct i40e_vsi *vsi)
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index bff0995..9e340ca 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -220,6 +220,7 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_get_phy_wol_caps		= 0x0621,
+ 	i40e_aqc_opc_set_phy_debug		= 0x0622,
+ 	i40e_aqc_opc_upload_ext_phy_fm		= 0x0625,
++	i40e_aqc_opc_run_phy_activity		= 0x0626,
  
- /**
-+ * i40e_get_rss_aq - Get RSS keys and lut by using AQ commands
-+ * @vsi: Pointer to vsi structure
-+ * @seed: Buffer to store the hash keys
-+ * @lut: Buffer to store the lookup table entries
-+ * @lut_size: Size of buffer to store the lookup table entries
-+ *
-+ * Return 0 on success, negative on failure
-+ */
-+static int i40e_get_rss_aq(struct i40e_vsi *vsi, const u8 *seed,
-+			   u8 *lut, u16 lut_size)
-+{
-+	struct i40e_pf *pf = vsi->back;
-+	struct i40e_hw *hw = &pf->hw;
-+	int ret = 0;
-+
-+	if (seed) {
-+		ret = i40e_aq_get_rss_key(hw, vsi->id,
-+			(struct i40e_aqc_get_set_rss_key_data *)seed);
-+		if (ret) {
-+			dev_info(&pf->pdev->dev,
-+				 "Cannot get RSS key, err %s aq_err %s\n",
-+				 i40e_stat_str(&pf->hw, ret),
-+				 i40e_aq_str(&pf->hw,
-+					     pf->hw.aq.asq_last_status));
-+			return ret;
-+		}
-+	}
-+
-+	if (lut) {
-+		bool pf_lut = vsi->type == I40E_VSI_MAIN ? true : false;
-+
-+		ret = i40e_aq_get_rss_lut(hw, vsi->id, pf_lut, lut, lut_size);
-+		if (ret) {
-+			dev_info(&pf->pdev->dev,
-+				 "Cannot get RSS lut, err %s aq_err %s\n",
-+				 i40e_stat_str(&pf->hw, ret),
-+				 i40e_aq_str(&pf->hw,
-+					     pf->hw.aq.asq_last_status));
-+			return ret;
-+		}
-+	}
-+
-+	return ret;
-+}
-+
-+/**
-  * i40e_config_rss_reg - Configure RSS keys and lut by writing registers
-  * @vsi: Pointer to vsi structure
-  * @seed: RSS hash seed
-@@ -8038,7 +8084,12 @@ int i40e_config_rss(struct i40e_vsi *vsi, u8 *seed, u8 *lut, u16 lut_size)
-  */
- int i40e_get_rss(struct i40e_vsi *vsi, u8 *seed, u8 *lut, u16 lut_size)
- {
--	return i40e_get_rss_reg(vsi, seed, lut, lut_size);
-+	struct i40e_pf *pf = vsi->back;
-+
-+	if (pf->flags & I40E_FLAG_RSS_AQ_CAPABLE)
-+		return i40e_get_rss_aq(vsi, seed, lut, lut_size);
-+	else
-+		return i40e_get_rss_reg(vsi, seed, lut, lut_size);
- }
+ 	/* NVM commands */
+ 	i40e_aqc_opc_nvm_read			= 0x0701,
+@@ -1825,6 +1826,18 @@ enum i40e_aq_phy_reg_type {
+ 	I40E_AQC_PHY_REG_EXERNAL_MODULE	= 0x3
+ };
  
- /**
++/* Run PHY Activity (0x0626) */
++struct i40e_aqc_run_phy_activity {
++	__le16  activity_id;
++	u8      flags;
++	u8      reserved1;
++	__le32  control;
++	__le32  data;
++	u8      reserved2[4];
++};
++
++I40E_CHECK_CMD_LENGTH(i40e_aqc_run_phy_activity);
++
+ /* NVM Read command (indirect 0x0701)
+  * NVM Erase commands (direct 0x0702)
+  * NVM Update commands (indirect 0x0703)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index 365a7d6..51d83c6 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -220,6 +220,7 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_get_phy_wol_caps		= 0x0621,
+ 	i40e_aqc_opc_set_phy_debug		= 0x0622,
+ 	i40e_aqc_opc_upload_ext_phy_fm		= 0x0625,
++	i40e_aqc_opc_run_phy_activity		= 0x0626,
+ 
+ 	/* NVM commands */
+ 	i40e_aqc_opc_nvm_read			= 0x0701,
+@@ -1822,6 +1823,18 @@ enum i40e_aq_phy_reg_type {
+ 	I40E_AQC_PHY_REG_EXERNAL_MODULE	= 0x3
+ };
+ 
++/* Run PHY Activity (0x0626) */
++struct i40e_aqc_run_phy_activity {
++	__le16  activity_id;
++	u8      flags;
++	u8      reserved1;
++	__le32  control;
++	__le32  data;
++	u8      reserved2[4];
++};
++
++I40E_CHECK_CMD_LENGTH(i40e_aqc_run_phy_activity);
++
+ /* NVM Read command (indirect 0x0701)
+  * NVM Erase commands (direct 0x0702)
+  * NVM Update commands (indirect 0x0703)
 -- 
 2.5.0
