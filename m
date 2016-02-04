@@ -1,149 +1,59 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH v2 1/4] lib: move strtobool to kstrtobool
-Date: Thu, 4 Feb 2016 14:48:57 -0800
-Message-ID: <CAGXu5jJXekvEy8BjqzGG1Jk7oGFzkap=ivOZ6+kFyiqbTeuzJw@mail.gmail.com>
-References: <1454619643-14444-1-git-send-email-keescook@chromium.org>
- <1454619643-14444-2-git-send-email-keescook@chromium.org>
- <CAHp75Vc37Q6GtReEZwbiYUeZqVh7iwDr8dk6Xg4kq0sKWi=41Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] ethtool: add dynamic flag to ETHTOOL_{GS}RXFH
+ commands
+Date: Thu, 04 Feb 2016 17:53:26 -0500 (EST)
+Message-ID: <20160204.175326.492457129636004051.davem@davemloft.net>
+References: <1454455328-706-1-git-send-email-jacob.e.keller@intel.com>
+	<1454455328-706-2-git-send-email-jacob.e.keller@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
- Daniel Borkmann <daniel@iogearbox.net>, linux-cifs@vger.kernel.org,
- "x86@kernel.org" <x86@kernel.org>, Rasmus Villemoes <linux@rasmusvillemoes.dk>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- Heiko Carstens <heiko.carstens@de.ibm.com>, Steve French <sfrench@samba.org>,
- Martin Schwidefsky <schwidefsky@de.ibm.com>,
- Nishant Sarmukadam <nishants@marvell.com>, netdev <netdev@vger.kernel.org>,
- Amitkumar Karwar <akarwar@marvell.com>,
- "open list:TI WILINK WIRELES..." <linux-wireless@vger.kernel.org>,
- Joe Perches <joe@perches.com>, Andrew Morton <akpm@linux-foundation.org>,
- "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
- Kalle Valo <kvalo@codeaurora.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <CAHp75Vc37Q6GtReEZwbiYUeZqVh7iwDr8dk6Xg4kq0sKWi=41Q@mail.gmail.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Lendacky@vger.kernel.org,
+	Thomas.Lendacky@amd.com, yuvalmin@broadcom.com, mchan@broadcom.com,
+	mcarlson@broadcom.com, sgoutham@cavium.com, hariprasad@chelsio.com,
+	_govind@gmx.com, kalesh.purayil@emulex.com, andrew@lunn.ch,
+	shannon.nelson@intel.com, mitch.a.williams@intel.com,
+	carolyn.wyborny@intel.com, emil.s.tantilov@intel.com,
+	thomas.petazzoni@free-electrons.com, amirv@mellanox.com,
+	achiad@mellanox.com, bhutchings@solarflare.com,
+	mirq-linux@rere.qmqm.pl, aduyck@mirantis.com
+To: jacob.e.keller@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60838 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964938AbcBDWxk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 17:53:40 -0500
+In-Reply-To: <1454455328-706-2-git-send-email-jacob.e.keller@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBGZWIgNCwgMjAxNiBhdCAyOjQzIFBNLCBBbmR5IFNoZXZjaGVua28KPGFuZHkuc2hl
-dmNoZW5rb0BnbWFpbC5jb20+IHdyb3RlOgo+IE9uIFRodSwgRmViIDQsIDIwMTYgYXQgMTE6MDAg
-UE0sIEtlZXMgQ29vayA8a2Vlc2Nvb2tAY2hyb21pdW0ub3JnPiB3cm90ZToKPj4gQ3JlYXRlIHRo
-ZSBrc3RydG9ib29sX2Zyb21fdXNlciBoZWxwZXIgYW5kIG1vdmVzIHN0cnRvYm9vbCBsb2dpYyBp
-bnRvCj4+IHRoZSBuZXcga3N0cnRvYm9vbCAobWF0Y2hpbmcgYWxsIHRoZSBvdGhlciBrc3RydG8q
-IGZ1bmN0aW9ucykuIFByb3ZpZGVzCj4+IGFuIGlubGluZSB3cmFwcGVyIGZvciBleGlzdGluZyBz
-dHJ0b2Jvb2wgY2FsbGVycy4KPj4KPj4gU2lnbmVkLW9mZi1ieTogS2VlcyBDb29rIDxrZWVzY29v
-a0BjaHJvbWl1bS5vcmc+Cj4KPiBSZXZpZXdlZC1ieTogQW5keSBTaGV2Y2hlbmtvIDxhbmR5LnNo
-ZXZjaGVua29AZ21haWwuY29tPgo+Cj4gT25lIG1pbm9yIGJlbG93LgoKVGhhbmtzIQoKPgo+PiAt
-LS0KPj4gIGluY2x1ZGUvbGludXgva2VybmVsLmggfCAgMyArKysKPj4gIGluY2x1ZGUvbGludXgv
-c3RyaW5nLmggfCAgNiArKysrKy0KPj4gIGxpYi9rc3RydG94LmMgICAgICAgICAgfCAzNSArKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKwo+PiAgbGliL3N0cmluZy5jICAgICAgICAg
-ICB8IDI5IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCj4+ICA0IGZpbGVzIGNoYW5nZWQs
-IDQzIGluc2VydGlvbnMoKyksIDMwIGRlbGV0aW9ucygtKQo+Pgo+PiBkaWZmIC0tZ2l0IGEvaW5j
-bHVkZS9saW51eC9rZXJuZWwuaCBiL2luY2x1ZGUvbGludXgva2VybmVsLmgKPj4gaW5kZXggZjMx
-NjM4YzZlODczLi5jZGMyNWY0N2EyM2YgMTAwNjQ0Cj4+IC0tLSBhL2luY2x1ZGUvbGludXgva2Vy
-bmVsLmgKPj4gKysrIGIvaW5jbHVkZS9saW51eC9rZXJuZWwuaAo+PiBAQCAtMzU3LDYgKzM1Nyw3
-IEBAIGludCBfX211c3RfY2hlY2sga3N0cnRvdTE2KGNvbnN0IGNoYXIgKnMsIHVuc2lnbmVkIGlu
-dCBiYXNlLCB1MTYgKnJlcyk7Cj4+ICBpbnQgX19tdXN0X2NoZWNrIGtzdHJ0b3MxNihjb25zdCBj
-aGFyICpzLCB1bnNpZ25lZCBpbnQgYmFzZSwgczE2ICpyZXMpOwo+PiAgaW50IF9fbXVzdF9jaGVj
-ayBrc3RydG91OChjb25zdCBjaGFyICpzLCB1bnNpZ25lZCBpbnQgYmFzZSwgdTggKnJlcyk7Cj4+
-ICBpbnQgX19tdXN0X2NoZWNrIGtzdHJ0b3M4KGNvbnN0IGNoYXIgKnMsIHVuc2lnbmVkIGludCBi
-YXNlLCBzOCAqcmVzKTsKPj4gK2ludCBfX211c3RfY2hlY2sga3N0cnRvYm9vbChjb25zdCBjaGFy
-ICpzLCB1bnNpZ25lZCBpbnQgYmFzZSwgYm9vbCAqcmVzKTsKPj4KPj4gIGludCBfX211c3RfY2hl
-Y2sga3N0cnRvdWxsX2Zyb21fdXNlcihjb25zdCBjaGFyIF9fdXNlciAqcywgc2l6ZV90IGNvdW50
-LCB1bnNpZ25lZCBpbnQgYmFzZSwgdW5zaWduZWQgbG9uZyBsb25nICpyZXMpOwo+PiAgaW50IF9f
-bXVzdF9jaGVjayBrc3RydG9sbF9mcm9tX3VzZXIoY29uc3QgY2hhciBfX3VzZXIgKnMsIHNpemVf
-dCBjb3VudCwgdW5zaWduZWQgaW50IGJhc2UsIGxvbmcgbG9uZyAqcmVzKTsKPj4gQEAgLTM2OCw2
-ICszNjksOCBAQCBpbnQgX19tdXN0X2NoZWNrIGtzdHJ0b3UxNl9mcm9tX3VzZXIoY29uc3QgY2hh
-ciBfX3VzZXIgKnMsIHNpemVfdCBjb3VudCwgdW5zaWduZQo+PiAgaW50IF9fbXVzdF9jaGVjayBr
-c3RydG9zMTZfZnJvbV91c2VyKGNvbnN0IGNoYXIgX191c2VyICpzLCBzaXplX3QgY291bnQsIHVu
-c2lnbmVkIGludCBiYXNlLCBzMTYgKnJlcyk7Cj4+ICBpbnQgX19tdXN0X2NoZWNrIGtzdHJ0b3U4
-X2Zyb21fdXNlcihjb25zdCBjaGFyIF9fdXNlciAqcywgc2l6ZV90IGNvdW50LCB1bnNpZ25lZCBp
-bnQgYmFzZSwgdTggKnJlcyk7Cj4+ICBpbnQgX19tdXN0X2NoZWNrIGtzdHJ0b3M4X2Zyb21fdXNl
-cihjb25zdCBjaGFyIF9fdXNlciAqcywgc2l6ZV90IGNvdW50LCB1bnNpZ25lZCBpbnQgYmFzZSwg
-czggKnJlcyk7Cj4KPj4gK2ludCBfX211c3RfY2hlY2sga3N0cnRvYm9vbF9mcm9tX3VzZXIoY29u
-c3QgY2hhciBfX3VzZXIgKnMsIHNpemVfdCBjb3VudCwKPj4gKyAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICB1bnNpZ25lZCBpbnQgYmFzZSwgYm9vbCAqcmVzKTsKPgo+IFdlIGFs
-cmVhZHkgYXJlIHVzaW5nIGxvbmcgbGluZXMgaGVyZSwgcGVyaGFwcyBkbyB0aGUgc2FtZT8KCkkg
-d2VudCBiYWNrIGFuZCBmb3J0aCBvbiB0aGF0LCBhbmQgZGVjaWRlZCB0aGF0IGJldHdlZW4gY2hl
-Y2twYXRjaAp5ZWxsaW5nIGF0IG1lLCBhbmQgdHJ5aW5nIHRvIGJlIGFuIGFnZW50IG9mIGxlc3Mg
-ZW50cm9weSwgSSB3cmFwcGVkCnRoZSBkZWZpbml0aW9uLiBJIGFtIGZpbmUgZWl0aGVyIHdheSwg
-dGhvdWdoLgoKLUtlZXMKCj4KPj4KPj4gIHN0YXRpYyBpbmxpbmUgaW50IF9fbXVzdF9jaGVjayBr
-c3RydG91NjRfZnJvbV91c2VyKGNvbnN0IGNoYXIgX191c2VyICpzLCBzaXplX3QgY291bnQsIHVu
-c2lnbmVkIGludCBiYXNlLCB1NjQgKnJlcykKPj4gIHsKPj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUv
-bGludXgvc3RyaW5nLmggYi9pbmNsdWRlL2xpbnV4L3N0cmluZy5oCj4+IGluZGV4IDllZWJjNjZk
-OTU3YS4uZDJmYjIxYjEwODFkIDEwMDY0NAo+PiAtLS0gYS9pbmNsdWRlL2xpbnV4L3N0cmluZy5o
-Cj4+ICsrKyBiL2luY2x1ZGUvbGludXgvc3RyaW5nLmgKPj4gQEAgLTEyOCw3ICsxMjgsMTEgQEAg
-ZXh0ZXJuIGNoYXIgKiphcmd2X3NwbGl0KGdmcF90IGdmcCwgY29uc3QgY2hhciAqc3RyLCBpbnQg
-KmFyZ2NwKTsKPj4gIGV4dGVybiB2b2lkIGFyZ3ZfZnJlZShjaGFyICoqYXJndik7Cj4+Cj4+ICBl
-eHRlcm4gYm9vbCBzeXNmc19zdHJlcShjb25zdCBjaGFyICpzMSwgY29uc3QgY2hhciAqczIpOwo+
-PiAtZXh0ZXJuIGludCBzdHJ0b2Jvb2woY29uc3QgY2hhciAqcywgYm9vbCAqcmVzKTsKPj4gK2V4
-dGVybiBpbnQga3N0cnRvYm9vbChjb25zdCBjaGFyICpzLCB1bnNpZ25lZCBpbnQgYmFzZSwgYm9v
-bCAqcmVzKTsKPj4gK3N0YXRpYyBpbmxpbmUgaW50IHN0cnRvYm9vbChjb25zdCBjaGFyICpzLCBi
-b29sICpyZXMpCj4+ICt7Cj4+ICsgICAgICAgcmV0dXJuIGtzdHJ0b2Jvb2wocywgMCwgcmVzKTsK
-Pj4gK30KPj4KPj4gICNpZmRlZiBDT05GSUdfQklOQVJZX1BSSU5URgo+PiAgaW50IHZiaW5fcHJp
-bnRmKHUzMiAqYmluX2J1Ziwgc2l6ZV90IHNpemUsIGNvbnN0IGNoYXIgKmZtdCwgdmFfbGlzdCBh
-cmdzKTsKPj4gZGlmZiAtLWdpdCBhL2xpYi9rc3RydG94LmMgYi9saWIva3N0cnRveC5jCj4+IGlu
-ZGV4IDk0YmUyNDRlODQ0MS4uZTE4ZjA4ODcwNGQ3IDEwMDY0NAo+PiAtLS0gYS9saWIva3N0cnRv
-eC5jCj4+ICsrKyBiL2xpYi9rc3RydG94LmMKPj4gQEAgLTMyMSw2ICszMjEsNDAgQEAgaW50IGtz
-dHJ0b3M4KGNvbnN0IGNoYXIgKnMsIHVuc2lnbmVkIGludCBiYXNlLCBzOCAqcmVzKQo+PiAgfQo+
-PiAgRVhQT1JUX1NZTUJPTChrc3RydG9zOCk7Cj4+Cj4+ICsvKioKPj4gKyAqIGtzdHJ0b2Jvb2wg
-LSBjb252ZXJ0IGNvbW1vbiB1c2VyIGlucHV0cyBpbnRvIGJvb2xlYW4gdmFsdWVzCj4+ICsgKiBA
-czogaW5wdXQgc3RyaW5nCj4+ICsgKiBAYmFzZTogaWdub3JlZAo+PiArICogQHJlczogcmVzdWx0
-Cj4+ICsgKgo+PiArICogVGhpcyByb3V0aW5lIHJldHVybnMgMCBpZmYgdGhlIGZpcnN0IGNoYXJh
-Y3RlciBpcyBvbmUgb2YgJ1l5MU5uMCcuCj4+ICsgKiBPdGhlcndpc2UgaXQgd2lsbCByZXR1cm4g
-LUVJTlZBTC4gIFZhbHVlIHBvaW50ZWQgdG8gYnkgcmVzIGlzCj4+ICsgKiB1cGRhdGVkIHVwb24g
-ZmluZGluZyBhIG1hdGNoLgo+PiArICovCj4+ICtpbnQga3N0cnRvYm9vbChjb25zdCBjaGFyICpz
-LCB1bnNpZ25lZCBpbnQgYmFzZSwgYm9vbCAqcmVzKQo+PiArewo+PiArICAgICAgIGlmICghcykK
-Pj4gKyAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOwo+PiArCj4+ICsgICAgICAgc3dpdGNo
-IChzWzBdKSB7Cj4+ICsgICAgICAgY2FzZSAneSc6Cj4+ICsgICAgICAgY2FzZSAnWSc6Cj4+ICsg
-ICAgICAgY2FzZSAnMSc6Cj4+ICsgICAgICAgICAgICAgICAqcmVzID0gdHJ1ZTsKPj4gKyAgICAg
-ICAgICAgICAgIHJldHVybiAwOwo+PiArICAgICAgIGNhc2UgJ24nOgo+PiArICAgICAgIGNhc2Ug
-J04nOgo+PiArICAgICAgIGNhc2UgJzAnOgo+PiArICAgICAgICAgICAgICAgKnJlcyA9IGZhbHNl
-Owo+PiArICAgICAgICAgICAgICAgcmV0dXJuIDA7Cj4+ICsgICAgICAgZGVmYXVsdDoKPj4gKyAg
-ICAgICAgICAgICAgIGJyZWFrOwo+PiArICAgICAgIH0KPj4gKwo+PiArICAgICAgIHJldHVybiAt
-RUlOVkFMOwo+PiArfQo+PiArRVhQT1JUX1NZTUJPTChrc3RydG9ib29sKTsKPj4gKwo+PiAgI2Rl
-ZmluZSBrc3RydG9fZnJvbV91c2VyKGYsIGcsIHR5cGUpICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICBcCj4+ICBpbnQgZihjb25zdCBjaGFyIF9fdXNlciAqcywgc2l6ZV90IGNvdW50
-LCB1bnNpZ25lZCBpbnQgYmFzZSwgdHlwZSAqcmVzKSAgICAgICAgXAo+PiAgeyAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICBcCj4+IEBAIC0zNDUsMyArMzc5LDQgQEAga3N0cnRvX2Zyb21fdXNlcihrc3RydG91MTZfZnJv
-bV91c2VyLCAgICAgICBrc3RydG91MTYsICAgICAgdTE2KTsKPj4gIGtzdHJ0b19mcm9tX3VzZXIo
-a3N0cnRvczE2X2Zyb21fdXNlciwgIGtzdHJ0b3MxNiwgICAgICBzMTYpOwo+PiAga3N0cnRvX2Zy
-b21fdXNlcihrc3RydG91OF9mcm9tX3VzZXIsICAga3N0cnRvdTgsICAgICAgIHU4KTsKPj4gIGtz
-dHJ0b19mcm9tX3VzZXIoa3N0cnRvczhfZnJvbV91c2VyLCAgIGtzdHJ0b3M4LCAgICAgICBzOCk7
-Cj4+ICtrc3RydG9fZnJvbV91c2VyKGtzdHJ0b2Jvb2xfZnJvbV91c2VyLCBrc3RydG9ib29sLCAg
-ICAgYm9vbCk7Cj4+IGRpZmYgLS1naXQgYS9saWIvc3RyaW5nLmMgYi9saWIvc3RyaW5nLmMKPj4g
-aW5kZXggMDMyM2MwZDU2MjlhLi4xYTkwZGI5YmM2ZTEgMTAwNjQ0Cj4+IC0tLSBhL2xpYi9zdHJp
-bmcuYwo+PiArKysgYi9saWIvc3RyaW5nLmMKPj4gQEAgLTYzMCwzNSArNjMwLDYgQEAgYm9vbCBz
-eXNmc19zdHJlcShjb25zdCBjaGFyICpzMSwgY29uc3QgY2hhciAqczIpCj4+ICB9Cj4+ICBFWFBP
-UlRfU1lNQk9MKHN5c2ZzX3N0cmVxKTsKPj4KPj4gLS8qKgo+PiAtICogc3RydG9ib29sIC0gY29u
-dmVydCBjb21tb24gdXNlciBpbnB1dHMgaW50byBib29sZWFuIHZhbHVlcwo+PiAtICogQHM6IGlu
-cHV0IHN0cmluZwo+PiAtICogQHJlczogcmVzdWx0Cj4+IC0gKgo+PiAtICogVGhpcyByb3V0aW5l
-IHJldHVybnMgMCBpZmYgdGhlIGZpcnN0IGNoYXJhY3RlciBpcyBvbmUgb2YgJ1l5MU5uMCcuCj4+
-IC0gKiBPdGhlcndpc2UgaXQgd2lsbCByZXR1cm4gLUVJTlZBTC4gIFZhbHVlIHBvaW50ZWQgdG8g
-YnkgcmVzIGlzCj4+IC0gKiB1cGRhdGVkIHVwb24gZmluZGluZyBhIG1hdGNoLgo+PiAtICovCj4+
-IC1pbnQgc3RydG9ib29sKGNvbnN0IGNoYXIgKnMsIGJvb2wgKnJlcykKPj4gLXsKPj4gLSAgICAg
-ICBzd2l0Y2ggKHNbMF0pIHsKPj4gLSAgICAgICBjYXNlICd5JzoKPj4gLSAgICAgICBjYXNlICdZ
-JzoKPj4gLSAgICAgICBjYXNlICcxJzoKPj4gLSAgICAgICAgICAgICAgICpyZXMgPSB0cnVlOwo+
-PiAtICAgICAgICAgICAgICAgYnJlYWs7Cj4+IC0gICAgICAgY2FzZSAnbic6Cj4+IC0gICAgICAg
-Y2FzZSAnTic6Cj4+IC0gICAgICAgY2FzZSAnMCc6Cj4+IC0gICAgICAgICAgICAgICAqcmVzID0g
-ZmFsc2U7Cj4+IC0gICAgICAgICAgICAgICBicmVhazsKPj4gLSAgICAgICBkZWZhdWx0Ogo+PiAt
-ICAgICAgICAgICAgICAgcmV0dXJuIC1FSU5WQUw7Cj4+IC0gICAgICAgfQo+PiAtICAgICAgIHJl
-dHVybiAwOwo+PiAtfQo+PiAtRVhQT1JUX1NZTUJPTChzdHJ0b2Jvb2wpOwo+PiAtCj4+ICAjaWZu
-ZGVmIF9fSEFWRV9BUkNIX01FTVNFVAo+PiAgLyoqCj4+ICAgKiBtZW1zZXQgLSBGaWxsIGEgcmVn
-aW9uIG9mIG1lbW9yeSB3aXRoIHRoZSBnaXZlbiB2YWx1ZQo+PiAtLQo+PiAyLjYuMwo+Pgo+Cj4K
-Pgo+IC0tCj4gV2l0aCBCZXN0IFJlZ2FyZHMsCj4gQW5keSBTaGV2Y2hlbmtvCgoKCi0tIApLZWVz
-IENvb2sKQ2hyb21lIE9TICYgQnJpbGxvIFNlY3VyaXR5Cl9fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhw
-cGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZv
-L2xpbnV4cHBjLWRldg==
+From: Jacob Keller <jacob.e.keller@intel.com>
+Date: Tue,  2 Feb 2016 15:22:06 -0800
+
+> Ethtool supports a few operations for modifying and controlling
+> a device's RSS table. Sometimes, changes in other features of the device
+> may require (or desire) changes to the RSS table. Currently there is no
+> method to indicate to the driver whether the current RSS table settings
+> should be maintained or overridden.
+
+Yes, there certainly is a way to indicate this.
+
+If the user asks for the change in the number of queues, and you
+cannot retain the user's requested RSS settings, then you must fail
+the queue setting change.
+
+And vice versa.
+
+You can't say to the user "I can adhere to your requested configuration
+change, but I might undo it for some unspecified reason"
+
+That's unacceptable behavior, and that's exactly what this dynamic
+flag means.
+
+If you cannot give the user what he asks for, precisely and reliably,
+you fail the operation with an error.
+
+There is no way I am adding code which allows these "maybe" kind of
+configuration operations.  Either you can or you can't, and you tell
+the user when you can't by erroring out on the operation that
+invalidates the requirements.
