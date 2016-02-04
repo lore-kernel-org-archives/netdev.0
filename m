@@ -1,62 +1,49 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: bonding reports interface up with 0 Mbps
-Date: Thu, 04 Feb 2016 12:19:28 -0800
-Message-ID: <22735.1454617168@famine>
-References: <87618083B2453E4A8714035B62D6799250524233@FMSMSX105.amr.corp.intel.com> <16238.1454565446@famine> <87618083B2453E4A8714035B62D67992505247BA@FMSMSX105.amr.corp.intel.com>
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	zhuyj <zyjzyj2000@gmail.com>,
-	"jiri@mellanox.com" <jiri@mellanox.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: Disabling XPS for 4.4.0-1+ixgbe+OpenStack VM over a VLAN means
+ 65% increase in netperf TCP_STREAM
+Date: Thu, 4 Feb 2016 12:28:09 -0800
+Message-ID: <56B3B459.5040204@hpe.com>
+References: <56B3A2D4.1010309@hpe.com>
+ <CALx6S36PxgZufhFa4qChPJvW0eb1V_fQoQOH7HHKd4q00taR=A@mail.gmail.com>
+ <56B3AD3F.9070404@hpe.com>
+ <CALx6S37CekHutCQaXacpqKMSag971_GnHBZQTSE-DwU1tbt1RA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:54116 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755203AbcBDUTe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 15:19:34 -0500
-In-reply-to: <87618083B2453E4A8714035B62D67992505247BA@FMSMSX105.amr.corp.intel.com>
+Received: from g9t5009.houston.hp.com ([15.240.92.67]:43929 "EHLO
+	g9t5009.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932861AbcBDU2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 15:28:11 -0500
+In-Reply-To: <CALx6S37CekHutCQaXacpqKMSag971_GnHBZQTSE-DwU1tbt1RA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tantilov, Emil S <emil.s.tantilov@intel.com> wrote:
-[...]
->Sure, I'll give this a try, but I'm not sure this check applies in this case
->as you can see from the trace link is up and carrier is on.
+On 02/04/2016 12:13 PM, Tom Herbert wrote:
+> On Thu, Feb 4, 2016 at 11:57 AM, Rick Jones <rick.jones2@hpe.com> wrote:
+>> On 02/04/2016 11:38 AM, Tom Herbert wrote:
+>>> XPS has OOO avoidance for TCP, that should not be a problem.
+>>
+>>
+>> What/how much should I read into:
+>>
+>> With XPS    TCPOFOQueue: 78206
+>> Without XPS TCPOFOQueue: 967
+>>
+>> out of the netstat statistics on the receiving VM?
+>>
+> Okay, that makes sense. The OOO avoidance only applies to TCP sockets
+> in the stack, that doesn't cross into VM. Presumably, packets coming
+> from the VM don't have a socket so sk_tx_queue_get always returns -1
+> and so netdev_pick_tx will steer packet to the queue based on
+> currently running CPU without any memory.
 
-	From code inspection, I see another possible race, although I'm
-not sure if it's relevant for this case.  During enslavement, the speed
-and duplex are initially set, and then later the link state is checked,
-but if link is up, the code presumes the speed and duplex are valid,
-which they may not be.
+Any thoughts as to why explicitly binding the IRQs made things better, 
+or for that matter why the scheduler would be moving the VM (or its 
+vhost-net kernel thread I suppose?) around so much?
 
-	I think this patch would narrow (but not totally eliminate) this
-race:
+happy benchmarking,
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 56b560558884..b8b8a24f92d1 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1591,6 +1591,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	/* check for initial state */
- 	if (bond->params.miimon) {
- 		if (bond_check_dev_link(bond, slave_dev, 0) == BMSR_LSTATUS) {
-+			bond_update_speed_duplex(new_slave);
- 			if (bond->params.updelay) {
- 				bond_set_slave_link_state(new_slave,
- 							  BOND_LINK_BACK,
-
-
-	I'm not sure it's going to be really possible to completely
-close all of these races, as the device can change its link state (and
-thus what it reports for speed and duplex) asynchronously.  Even in a
-NETDEV_UP or NETDEV_CHANGE notifier callback, the link could go down
-between the time of the netif_carrier_on call that triggers the notifier
-and when the callback runs.
-
-	But, if the link is really flapping here, bonding should get a
-notifier for each flap (up or down).  Once it settles down with carrier
-up then the speed and duplex should be valid.
-
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+rick jones
