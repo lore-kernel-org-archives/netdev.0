@@ -1,7 +1,7 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v3 net 7/7] net: mvneta: Fix race condition during stopping
-Date: Thu,  4 Feb 2016 22:09:29 +0100
-Message-ID: <1454620169-8156-8-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH v3 net 6/7] net: mvneta: The mvneta_percpu_elect function should be atomic
+Date: Thu,  4 Feb 2016 22:09:28 +0100
+Message-ID: <1454620169-8156-7-git-send-email-gregory.clement@free-electrons.com>
 References: <1454620169-8156-1-git-send-email-gregory.clement@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -20,132 +20,71 @@ In-Reply-To: <1454620169-8156-1-git-send-email-gregory.clement@free-electrons.co
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When stopping the port, the CPU notifier are still there whereas the
-mvneta_stop_dev function calls mvneta_percpu_disable() on each CPUs.
-It was possible to have a new CPU coming at this point which could be
-racy.
+Electing a CPU must be done in an atomic way: it should be done after or
+before the removal/insertion of a CPU and this function is not reentrant.
 
-This patch adds a flag preventing executing the code notifier for a new
-CPU when the port is stopping. It also uses the spinlock introduces
-previously. To avoid the deadlock, the lock has been moved outside the
-mvneta_percpu_elect function.
+During the loop of mvneta_percpu_elect we associates the queues to the
+CPUs, if there is a topology change during this loop, then the mapping
+between the CPUs and the queues could be wrong. During this loop the
+interrupt mask is also updating for each CPUs, It should not be changed
+in the same time by other part of the driver.
+
+This patch adds spinlock to create the needed critical sections.
 
 Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 36 +++++++++++++++++++++++++++--------
- 1 file changed, 28 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index b12a745a0e4c..b0ae69f84493 100644
+index 2d0e8a605ca9..b12a745a0e4c 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -374,6 +374,7 @@ struct mvneta_port {
- 	 * ensuring that the configuration remains coherent.
- 	 */
- 	spinlock_t lock;
-+	bool is_stopped;
+@@ -370,6 +370,10 @@ struct mvneta_port {
+ 	struct net_device *dev;
+ 	struct notifier_block cpu_notifier;
+ 	int rxq_def;
++	/* Protect the access to the percpu interrupt registers,
++	 * ensuring that the configuration remains coherent.
++	 */
++	spinlock_t lock;
  
  	/* Core clock */
  	struct clk *clk;
-@@ -2855,16 +2856,14 @@ static void mvneta_percpu_disable(void *arg)
- 	disable_percpu_irq(pp->dev->irq);
- }
- 
-+/* Electing a CPU must be done in an atomic way: it should be done
-+ * after or before the removal/insertion of a CPU and this function is
-+ * not reentrant.
-+ */
- static void mvneta_percpu_elect(struct mvneta_port *pp)
+@@ -2855,6 +2859,12 @@ static void mvneta_percpu_elect(struct mvneta_port *pp)
  {
  	int elected_cpu = 0, max_cpu, cpu, i = 0;
  
--	/* Electing a CPU must be done in an atomic way: it should be
--	 * done after or before the removal/insertion of a CPU and
--	 * this function is not reentrant.
--	 */
--	spin_lock(&pp->lock);
--
++	/* Electing a CPU must be done in an atomic way: it should be
++	 * done after or before the removal/insertion of a CPU and
++	 * this function is not reentrant.
++	 */
++	spin_lock(&pp->lock);
++
  	/* Use the cpu associated to the rxq when it is online, in all
  	 * the other cases, use the cpu 0 which can't be offline.
  	 */
-@@ -2908,7 +2907,6 @@ static void mvneta_percpu_elect(struct mvneta_port *pp)
+@@ -2898,6 +2908,7 @@ static void mvneta_percpu_elect(struct mvneta_port *pp)
  		i++;
  
  	}
--	spin_unlock(&pp->lock);
++	spin_unlock(&pp->lock);
  };
  
  static int mvneta_percpu_notifier(struct notifier_block *nfb,
-@@ -2922,6 +2920,14 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
- 	switch (action) {
- 	case CPU_ONLINE:
- 	case CPU_ONLINE_FROZEN:
-+		spin_lock(&pp->lock);
-+		/* Configuring the driver for a new CPU while the
-+		 * driver is stopping is racy, so just avoid it.
-+		 */
-+		if (pp->is_stopped) {
-+			spin_unlock(&pp->lock);
-+			break;
-+		}
- 		netif_tx_stop_all_queues(pp->dev);
- 
- 		/* We have to synchronise on tha napi of each CPU
-@@ -2959,6 +2965,7 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
- 			MVNETA_CAUSE_LINK_CHANGE |
- 			MVNETA_CAUSE_PSC_SYNC_CHANGE);
- 		netif_tx_start_all_queues(pp->dev);
-+		spin_unlock(&pp->lock);
- 		break;
+@@ -2952,8 +2963,13 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
  	case CPU_DOWN_PREPARE:
  	case CPU_DOWN_PREPARE_FROZEN:
-@@ -2983,7 +2990,9 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
- 	case CPU_DEAD:
- 	case CPU_DEAD_FROZEN:
- 		/* Check if a new CPU must be elected now this on is down */
+ 		netif_tx_stop_all_queues(pp->dev);
++		/* Thanks to this lock we are sure that any pending
++		 * cpu election is done
++		 */
 +		spin_lock(&pp->lock);
- 		mvneta_percpu_elect(pp);
+ 		/* Mask all ethernet port interrupts */
+ 		on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
 +		spin_unlock(&pp->lock);
- 		/* Unmask all ethernet port interrupts */
- 		on_each_cpu(mvneta_percpu_unmask_interrupt, pp, true);
- 		mvreg_write(pp, MVNETA_INTR_MISC_MASK,
-@@ -3027,7 +3036,7 @@ static int mvneta_open(struct net_device *dev)
- 	 */
- 	on_each_cpu(mvneta_percpu_enable, pp, true);
  
--
-+	pp->is_stopped = false;
- 	/* Register a CPU notifier to handle the case where our CPU
- 	 * might be taken offline.
- 	 */
-@@ -3060,9 +3069,18 @@ static int mvneta_stop(struct net_device *dev)
- {
- 	struct mvneta_port *pp = netdev_priv(dev);
- 
-+	/* Inform that we are stopping so we don't want to setup the
-+	 * driver for new CPUs in the notifiers
-+	 */
-+	spin_lock(&pp->lock);
-+	pp->is_stopped = true;
- 	mvneta_stop_dev(pp);
- 	mvneta_mdio_remove(pp);
- 	unregister_cpu_notifier(&pp->cpu_notifier);
-+	/* Now that the notifier are unregistered, we can release le
-+	 * lock
-+	 */
-+	spin_unlock(&pp->lock);
- 	on_each_cpu(mvneta_percpu_disable, pp, true);
- 	free_percpu_irq(dev->irq, pp->ports);
- 	mvneta_cleanup_rxqs(pp);
-@@ -3333,7 +3351,9 @@ static int  mvneta_config_rss(struct mvneta_port *pp)
- 	mvreg_write(pp, MVNETA_PORT_CONFIG, val);
- 
- 	/* Update the elected CPU matching the new rxq_def */
-+	spin_lock(&pp->lock);
- 	mvneta_percpu_elect(pp);
-+	spin_unlock(&pp->lock);
- 
- 	/* We have to synchronise on the napi of each CPU */
- 	for_each_online_cpu(cpu) {
+ 		napi_synchronize(&port->napi);
+ 		napi_disable(&port->napi);
 -- 
 2.5.0
