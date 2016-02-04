@@ -1,61 +1,102 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net: memory leak in ip_cmsg_send
-Date: Thu, 04 Feb 2016 06:04:13 -0800
-Message-ID: <1454594653.7627.290.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: [PATCH net] ipv4: fix memory leaks in ip_cmsg_send() callers
+Date: Thu, 04 Feb 2016 06:23:28 -0800
+Message-ID: <1454595808.7627.296.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <CACT4Y+YMUc8j4_-oJfi0XmQebhaTZa2NTipSFY_ra38V-TAyXQ@mail.gmail.com>
+	 <1454594653.7627.290.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Kostya Serebryany <kcc@google.com>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Dmitry Vyukov <dvyukov@google.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34992 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752396AbcBDOEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 09:04:16 -0500
-In-Reply-To: <CACT4Y+YMUc8j4_-oJfi0XmQebhaTZa2NTipSFY_ra38V-TAyXQ@mail.gmail.com>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:36361 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756746AbcBDOXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 09:23:30 -0500
+Received: by mail-pf0-f180.google.com with SMTP id n128so46259941pfn.3
+        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 06:23:29 -0800 (PST)
+In-Reply-To: <1454594653.7627.290.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-02-04 at 10:47 +0100, Dmitry Vyukov wrote:
-> Hello,
-> 
-> I've hit the following memory leak while running syzkaller fuzzer:
-> 
-> unreferenced object 0xffff88002ea39708 (size 64):
->   comm "syz-executor", pid 19887, jiffies 4295848369 (age 8.676s)
->   hex dump (first 32 bytes):
->     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
->     00 00 00 00 00 00 00 00 04 00 00 00 04 00 00 00  ................
->   backtrace:
->     [<     inline     >] kzalloc include/linux/slab.h:607
->     [<     inline     >] ip_options_get_alloc net/ipv4/ip_options.c:515
->     [<ffffffff85836ea4>] ip_options_get+0x34/0x90 net/ipv4/ip_options.c:551
->     [<ffffffff8584924d>] ip_cmsg_send+0x5bd/0x6f0 net/ipv4/ip_sockglue.c:252
->     [<ffffffff858e8502>] raw_sendmsg+0xa52/0x25a0 net/ieee802154/socket.c:738
->     [<ffffffff859246e7>] inet_sendmsg+0x2f7/0x4c0 net/ipv4/af_inet.c:736
->     [<     inline     >] sock_sendmsg_nosec net/socket.c:611
->     [<ffffffff854cdffa>] sock_sendmsg+0xca/0x110 net/socket.c:621
->     [<ffffffff854cfe3a>] ___sys_sendmsg+0x72a/0x840 net/socket.c:1947
->     [<ffffffff854d1e0e>] __sys_sendmsg+0xce/0x170 net/socket.c:1981
->     [<     inline     >] SYSC_sendmsg net/socket.c:1992
->     [<ffffffff854d1edd>] SyS_sendmsg+0x2d/0x50 net/socket.c:1988
-> 
-> ip_cmsg_send seems to forget to free ipc->opt when it returns an error
-> (all callers expect that there is nothing to cleanup if it returns an
-> error).
-> 
-> On commit 34229b277480f46c1e9a19f027f30b074512e68b.
+From: Eric Dumazet <edumazet@google.com>
 
-Hmmm... thanks for the report, I am testing a patch.
+Dmitry reported memory leaks of IP options allocated in
+ip_cmsg_send() when/if this function returns an error.
+
+Callers are responsible for the freeing.
+
+Many thanks to Dmitry for the report and diagnostic.
+
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/ip_sockglue.c |    2 ++
+ net/ipv4/ping.c        |    4 +++-
+ net/ipv4/raw.c         |    4 +++-
+ net/ipv4/udp.c         |    4 +++-
+ 4 files changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 5f73a7c03e27..a50124260f5a 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -249,6 +249,8 @@ int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_cookie *ipc,
+ 		switch (cmsg->cmsg_type) {
+ 		case IP_RETOPTS:
+ 			err = cmsg->cmsg_len - CMSG_ALIGN(sizeof(struct cmsghdr));
++
++			/* Our caller is responsible for freeing ipc->opt */
+ 			err = ip_options_get(net, &ipc->opt, CMSG_DATA(cmsg),
+ 					     err < 40 ? err : 40);
+ 			if (err)
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index c117b21b937d..ec74b1a34315 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -746,8 +746,10 @@ static int ping_v4_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 
+ 	if (msg->msg_controllen) {
+ 		err = ip_cmsg_send(sock_net(sk), msg, &ipc, false);
+-		if (err)
++		if (unlikely(err)) {
++			kfree(ipc.opt);
+ 			return err;
++		}
+ 		if (ipc.opt)
+ 			free = 1;
+ 	}
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index bc35f1842512..bba4f6f379a9 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -547,8 +547,10 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 
+ 	if (msg->msg_controllen) {
+ 		err = ip_cmsg_send(net, msg, &ipc, false);
+-		if (err)
++		if (unlikely(err)) {
++			kfree(ipc.opt);
+ 			goto out;
++		}
+ 		if (ipc.opt)
+ 			free = 1;
+ 	}
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index be0b21852b13..8182363bff5e 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1048,8 +1048,10 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	if (msg->msg_controllen) {
+ 		err = ip_cmsg_send(sock_net(sk), msg, &ipc,
+ 				   sk->sk_family == AF_INET6);
+-		if (err)
++		if (unlikely(err)) {
++			kfree(ipc.opt);
+ 			return err;
++		}
+ 		if (ipc.opt)
+ 			free = 1;
+ 		connected = 0;
