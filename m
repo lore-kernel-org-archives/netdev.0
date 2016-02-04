@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC 06/13] net: Add xfrm offload callbacks to struct net_device
-Date: Thu, 4 Feb 2016 07:36:59 +0100
-Message-ID: <1454567826-13018-7-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC 02/13] gro: Partly revert "net: gro: allow to build full sized skb"
+Date: Thu, 4 Feb 2016 07:36:55 +0100
+Message-ID: <1454567826-13018-3-git-send-email-steffen.klassert@secunet.com>
 References: <1454567826-13018-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,48 +9,92 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	<sowmini.varadhan@oracle.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:36668 "EHLO
+Received: from a.mx.secunet.com ([62.96.220.36]:36680 "EHLO
 	h-62.96.220.36.host.de.colt.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754377AbcBDHFs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 02:05:48 -0500
+	by vger.kernel.org with ESMTP id S1756588AbcBDHFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 02:05:50 -0500
 In-Reply-To: <1454567826-13018-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the callbacks we need for IPsec GSO
-and maybe also for IPsec hardware offload.
+This partly reverts the below mentioned patch because on
+forwarding, such skbs can't be offloaded to a NIC.
+
+This is just a hack to get IPsec GRO for forwarding to work.
+A real fix may consider the proposed solutions in the original
+patch, see below.
+
+-------------------------------------------------------------------------
+commit 8a29111c7ca68d928dfab58636f3f6acf0ac04f7
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Tue Oct 8 09:02:23 2013 -0700
+
+    net: gro: allow to build full sized skb
+
+    skb_gro_receive() is currently limited to 16 or 17 MSS per GRO skb,
+    typically 24616 bytes, because it fills up to MAX_SKB_FRAGS frags.
+
+    It's relatively easy to extend the skb using frag_list to allow
+    more frags to be appended into the last sk_buff.
+
+    This still builds very efficient skbs, and allows reaching 45 MSS per
+    skb.
+
+    (45 MSS GRO packet uses one skb plus a frag_list containing 2 additional
+    sk_buff)
+
+    High speed TCP flows benefit from this extension by lowering TCP stack
+    cpu usage (less packets stored in receive queue, less ACK packets
+    processed)
+
+    Forwarding setups could be hurt, as such skbs will need to be
+    linearized, although its not a new problem, as GRO could already
+    provide skbs with a frag_list.
+
+    We could make the 65536 bytes threshold a tunable to mitigate this.
+
+    (First time we need to linearize skb in skb_needs_linearize(), we could
+    lower the tunable to ~16*1460 so that following skb_gro_receive() calls
+    build smaller skbs)
+
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+---------------------------------------------------------------------------
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/linux/netdevice.h | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ net/core/skbuff.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 6fd1f1d..6936e96f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -778,6 +778,12 @@ static inline bool netdev_phys_item_id_same(struct netdev_phys_item_id *a,
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 120add40..336a3e9 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3224,7 +3224,7 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 		int nr_frags = pinfo->nr_frags + i;
  
- typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
- 				       struct sk_buff *skb);
-+struct xfrmdev_ops {
-+	int			(*xdo_dev_encap) (struct sk_buff *skb);
-+	int			(*xdo_dev_prepare) (struct sk_buff *skb);
-+	int			(*xdo_dev_validate) (struct sk_buff *skb);
-+	void			(*xdo_dev_resume) (struct sk_buff *skb, int err);
-+};
+ 		if (nr_frags > MAX_SKB_FRAGS)
+-			goto merge;
++			return -E2BIG;
  
- /*
-  * This structure defines the management hooks for network devices.
-@@ -1625,6 +1631,9 @@ struct net_device {
- #ifdef CONFIG_NET_L3_MASTER_DEV
- 	const struct l3mdev_ops	*l3mdev_ops;
- #endif
-+#ifdef CONFIG_XFRM
-+	const struct xfrmdev_ops *xfrmdev_ops;
-+#endif
+ 		offset -= headlen;
+ 		pinfo->nr_frags = nr_frags;
+@@ -3257,7 +3257,7 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 		unsigned int first_offset;
  
- 	const struct header_ops *header_ops;
+ 		if (nr_frags + 1 + skbinfo->nr_frags > MAX_SKB_FRAGS)
+-			goto merge;
++			return -E2BIG;
  
+ 		first_offset = skb->data -
+ 			       (unsigned char *)page_address(page) +
+@@ -3277,7 +3277,6 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 		goto done;
+ 	}
+ 
+-merge:
+ 	delta_truesize = skb->truesize;
+ 	if (offset > headlen) {
+ 		unsigned int eat = offset - headlen;
 -- 
 1.9.1
