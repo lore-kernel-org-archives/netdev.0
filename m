@@ -1,193 +1,113 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [PATCH v2 00/15] MIPS Boston board support
-Date: Thu, 4 Feb 2016 06:53:44 +0100
-Message-ID: <56B2E768.1040701@xilinx.com>
-References: <1454499045-5020-1-git-send-email-paul.burton@imgtec.com>
- <56B1F40E.3090607@xilinx.com> <20160203160311.GD30470@NP-P-BURTON>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-mips@linux-mips.org>, Ralf Baechle <ralf@linux-mips.org>,
-        "Phil Edworthy" <phil.edworthy@renesas.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        "Joshua Kinard" <kumba@gentoo.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        "Jiri Slaby" <jslaby@suse.com>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        "Zubair Lutfullah Kakakhel" <Zubair.Kakakhel@imgtec.com>,
-        Kumar Gala <galak@codeaurora.org>,
-        Yijing Wang <wangyijing@huawei.com>,
-        Ian Campbell <ijc+devicetree@hellion.org.uk>,
-        Rob Herring <robh+dt@kernel.org>,
-        "John Crispin" <blogic@openwrt.org>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Ray Jui <rjui@broadcom.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        =?UTF-8?Q?S=c3=b6ren_Brinkmann?= <soren.brinkmann@xilinx.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-To: Paul Burton <paul.burton@imgtec.com>,
-        Michal Simek <michal.simek@xilinx.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20160203160311.GD30470@NP-P-BURTON>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: bonding reports interface up with 0 Mbps
+Date: Wed, 03 Feb 2016 21:57:26 -0800
+Message-ID: <16238.1454565446@famine>
+References: <87618083B2453E4A8714035B62D6799250524233@FMSMSX105.amr.corp.intel.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	zhuyj <zyjzyj2000@gmail.com>,
+	"jiri@mellanox.com" <jiri@mellanox.com>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:49990 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934131AbcBDF5e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 00:57:34 -0500
+In-reply-to: <87618083B2453E4A8714035B62D6799250524233@FMSMSX105.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Paul,
+Tantilov, Emil S <emil.s.tantilov@intel.com> wrote:
 
-On 3.2.2016 17:03, Paul Burton wrote:
-> On Wed, Feb 03, 2016 at 01:35:26PM +0100, Michal Simek wrote:
->> On 3.2.2016 12:30, Paul Burton wrote:
->>> This series introduces support for the Imagination Technologies MIPS
->>> Boston development board. Boston is an FPGA-based development board
->>> akin to the much older Malta board, built around a Xilinx FPGA running
->>> a MIPS CPU & other logic including a PCIe root port connected to an
->>> Intel EG20T Platform Controller Hub. This provides a base set of
->>> peripherals including SATA, USB, SD/MMC, ethernet, I2C & GPIOs. PCIe
->>> slots are also present for expansion.
->>>
->>> v2 of this series splits out the pch_gbe ethernet driver changes to a
->>> separate series, but keeps the Xilinx PCIe driver changes since PCIe is
->>> so central to the Boston board & the series has shrunk somewhat since
->>> its earlier submission.
->>>
->>> Applies atop v4.5-rc2.
->>>
->>> Paul Burton (15):
->>>   dt-bindings: ascii-lcd: Document a binding for simple ASCII LCDs
->>>   auxdisplay: driver for simple memory mapped ASCII LCD displays
->>>   MIPS: PCI: Compatibility with ARM-like PCI host drivers
->>>   PCI: xilinx: Keep references to both IRQ domains
->>>   PCI: xilinx: Unify INTx & MSI interrupt FIFO decode
->>>   PCI: xilinx: Always clear interrupt decode register
->>>   PCI: xilinx: Clear interrupt FIFO during probe
->>>   PCI: xilinx: Fix INTX irq dispatch
->>>   PCI: xilinx: Allow build on MIPS platforms
->>>   misc: pch_phub: Allow build on MIPS platforms
->>>   dmaengine: pch_dma: Allow build on MIPS platforms
->>>   ptp: pch: Allow build on MIPS platforms
->>>   MIPS: Support for generating FIT (.itb) images
->>>   dt-bindings: mips: img,boston: Document img,boston binding
->>>   MIPS: Boston board support
->>>
->>>  Documentation/devicetree/bindings/ascii-lcd.txt    |  10 +
->>>  .../devicetree/bindings/mips/img/boston.txt        |  15 ++
->>>  MAINTAINERS                                        |  14 ++
->>>  arch/mips/Kbuild.platforms                         |   1 +
->>>  arch/mips/Kconfig                                  |  48 +++++
->>>  arch/mips/Makefile                                 |   6 +-
->>>  arch/mips/boot/Makefile                            |  61 ++++++
->>>  arch/mips/boot/dts/Makefile                        |   1 +
->>>  arch/mips/boot/dts/img/Makefile                    |   7 +
->>>  arch/mips/boot/dts/img/boston.dts                  | 204 ++++++++++++++++++
->>>  arch/mips/boot/skeleton.its                        |  24 +++
->>>  arch/mips/boston/Makefile                          |  12 ++
->>>  arch/mips/boston/Platform                          |   8 +
->>>  arch/mips/boston/init.c                            | 106 ++++++++++
->>>  arch/mips/boston/int.c                             |  33 +++
->>>  arch/mips/boston/time.c                            |  89 ++++++++
->>>  arch/mips/boston/vmlinux.its                       |  23 ++
->>>  arch/mips/configs/boston_defconfig                 | 173 +++++++++++++++
->>>  .../asm/mach-boston/cpu-feature-overrides.h        |  26 +++
->>>  arch/mips/include/asm/mach-boston/irq.h            |  18 ++
->>>  arch/mips/include/asm/mach-boston/spaces.h         |  20 ++
->>>  arch/mips/include/asm/pci.h                        |  67 +++++-
->>>  arch/mips/lib/iomap-pci.c                          |   2 +-
->>>  arch/mips/pci/Makefile                             |   6 +
->>>  arch/mips/pci/pci-generic.c                        | 138 ++++++++++++
->>>  arch/mips/pci/pci-legacy.c                         | 232 +++++++++++++++++++++
->>>  arch/mips/pci/pci.c                                | 226 +-------------------
->>>  drivers/auxdisplay/Kconfig                         |   7 +
->>>  drivers/auxdisplay/Makefile                        |   1 +
->>>  drivers/auxdisplay/ascii-lcd.c                     | 230 ++++++++++++++++++++
->>>  drivers/dma/Kconfig                                |   2 +-
->>>  drivers/misc/Kconfig                               |   2 +-
->>>  drivers/pci/host/Kconfig                           |   2 +-
->>>  drivers/pci/host/pcie-xilinx.c                     | 125 ++++++-----
->>>  drivers/ptp/Kconfig                                |   2 +-
->>>  35 files changed, 1649 insertions(+), 292 deletions(-)
->>>  create mode 100644 Documentation/devicetree/bindings/ascii-lcd.txt
->>>  create mode 100644 Documentation/devicetree/bindings/mips/img/boston.txt
->>>  create mode 100644 arch/mips/boot/dts/img/Makefile
->>>  create mode 100644 arch/mips/boot/dts/img/boston.dts
->>>  create mode 100644 arch/mips/boot/skeleton.its
->>>  create mode 100644 arch/mips/boston/Makefile
->>>  create mode 100644 arch/mips/boston/Platform
->>>  create mode 100644 arch/mips/boston/init.c
->>>  create mode 100644 arch/mips/boston/int.c
->>>  create mode 100644 arch/mips/boston/time.c
->>>  create mode 100644 arch/mips/boston/vmlinux.its
->>>  create mode 100644 arch/mips/configs/boston_defconfig
->>>  create mode 100644 arch/mips/include/asm/mach-boston/cpu-feature-overrides.h
->>>  create mode 100644 arch/mips/include/asm/mach-boston/irq.h
->>>  create mode 100644 arch/mips/include/asm/mach-boston/spaces.h
->>>  create mode 100644 arch/mips/pci/pci-generic.c
->>>  create mode 100644 arch/mips/pci/pci-legacy.c
->>>  create mode 100644 drivers/auxdisplay/ascii-lcd.c
->>>
->>
-> 
-> Hi Michal,
-> 
-> On Wed, Feb 03, 2016 at 01:35:26PM +0100, Michal Simek wrote:
->> These patches are targeting different subsystems and should go to the
->> tree via different maintainers
-> 
-> Not necessarily, for example the dmaengine & ptp patches both received
-> acks last time they were posted - presumably with the intent that Ralf
-> can merge them through the MIPS tree.
+>We are seeing an occasional issue where the bonding driver may report interface up with 0 Mbps:
+>bond0: link status definitely up for interface eth0, 0 Mbps full duplex
+>
+>So far in all the failed traces I have collected this happens on NETDEV_CHANGELOWERSTATE event:
+>
+><...>-20533 [000] .... 81811.041241: ixgbe_service_task: eth1: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+><...>-20533 [000] .... 81811.041257: ixgbe_check_vf_rate_limit <-ixgbe_service_task
+><...>-20533 [000] .... 81811.041272: ixgbe_ping_all_vfs <-ixgbe_service_task
+>kworker/u48:0-7503  [010] .... 81811.041345: ixgbe_get_stats64 <-dev_get_stats
+>kworker/u48:0-7503  [010] .... 81811.041393: bond_netdev_event: eth1: event: 1b
+>kworker/u48:0-7503  [010] .... 81811.041394: bond_netdev_event: eth1: IFF_SLAVE
+>kworker/u48:0-7503  [010] .... 81811.041395: bond_netdev_event: eth1: slave->speed = ffffffff
+><...>-20533 [000] .... 81811.041407: ixgbe_ptp_overflow_check <-ixgbe_service_task
+>kworker/u48:0-7503  [010] .... 81811.041407: bond_mii_monitor: bond0: link status definitely up for interface eth1, 0 Mbps full duplex
 
-I don't know if Ralf can do that or not but patches should go via
-appropriate maintainer.
+	From looking at the code that prints this, the "full" duplex is
+probably actually DUPLEX_UNKNOWN, but the netdev_info uses the
+expression slave->duplex ? "full" : "half", so DUPLEX_UNKNOWN at 0xff
+would print "full."
+
+	This is what ixgbe_get_settings returns for speed and duplex if
+it is called when carrier is off.
+
+>As a proof of concept I added NETDEV_CHANGELOWERSTATE in bond_slave_netdev_event() along with NETDEV_UP/CHANGE:
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 56b5605..a9dac4c 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -3014,6 +3014,7 @@ static int bond_slave_netdev_event(unsigned long event,
+> 		break;
+> 	case NETDEV_UP:
+> 	case NETDEV_CHANGE:
+>+	case NETDEV_CHANGELOWERSTATE:
+> 		bond_update_speed_duplex(slave);
+> 		if (BOND_MODE(bond) == BOND_MODE_8023AD)
+> 			bond_3ad_adapter_speed_duplex_changed(slave);
+>
+>With this change I have not seen 0 Mbps reported by the bonding driver (around 12 hour test up to this point
+>vs. 2-3 hours otherwise). Although I suppose it could also be some sort of race/timing issue with bond_mii_monitor().
+
+	This change as a fix seems kind of odd, since CHANGELOWERSTATE
+is generated by bonding itself.  Perhaps the net effect is to add a
+delay and then update the speed and duplex, masking the actual problem.
+
+	Emil, if I recall correctly, the test patch I send that uses the
+notifiers directly instead of miimon (specify miimon=0 and have bonding
+respond to the notifiers) handled everything properly, right?  If so I
+can split that up and submit it properly; it seems more like a feature
+than a straightforward bug fix, so I'm not sure it's appropriate for
+net.
+
+	As a possibly less complex alternative for the miimon > 0 case,
+could you try the following:
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 56b560558884..ac8921e65f26 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2120,6 +2120,7 @@ static void bond_miimon_commit(struct bonding *bond)
+ {
+ 	struct list_head *iter;
+ 	struct slave *slave, *primary;
++	int link_state;
+ 
+ 	bond_for_each_slave(bond, slave, iter) {
+ 		switch (slave->new_link) {
+@@ -2127,6 +2128,10 @@ static void bond_miimon_commit(struct bonding *bond)
+ 			continue;
+ 
+ 		case BOND_LINK_UP:
++			link_state = bond_check_dev_link(bond, slave->dev, 0);
++			if (!link_state)
++				continue;
++			bond_update_speed_duplex(slave);
+ 			bond_set_slave_link_state(slave, BOND_LINK_UP,
+ 						  BOND_SLAVE_NOTIFY_NOW);
+ 			slave->last_link_up = jiffies;
 
 
-> On Wed, Feb 03, 2016 at 01:35:26PM +0100, Michal Simek wrote:
->> that's why please split them to sensible pieces and send them separately.
-> 
-> I could split out the Xilinx PCIe changes if it's insisted upon, but:
-> 
->   - They are the motivation for what's probably the largest of the MIPS
->     patches, so it's good to see those changes in context.
-> 
->   - The Boston board is very heavily PCIe based, with all peripherals
->     apart from a single UART & an 8 character LCD display being accessed
->     via PCIe. Thus Boston is pretty useless without the Xilinx PCIe
->     driver.
-> 
->   - Each patch is only CC'd to people who should be relevant to it
->     anyway (using the patman tool), so it's not like the MIPS changes
->     are spamming people only interested in PCI.
-> 
->   - 15 patches really isn't all that many.
-> 
-> So I think there is value in keeping the remainder of this series
-> together. I already split out the fairly standalone ethernet driver
-> changes. I certainly think saying this approach isn't sensible is a
-> stretch.
-> 
->> For pcie-xilinx.c changes please add to CC Bharat Kumar Gogada
->> <bharatku@xilinx.com> and Ravikiran Gummaluri <rgummal@xilinx.com>.
->> They have patches for pcie-xilinx and I expect there will be some sort
->> of collision.
-> 
-> I'll CC them if there's another revision, but if they should be CC'd for
-> changes to this driver is there a reason they're not in MAINTAINERS?
-> That would lead to tools like patman automatically CC'ing them, which
-> makes tons more sense than people needing to be informed after
-> submitting patches that they should CC some random extra email
-> addresses.
+	This will make bonding recheck the link state and update the
+speed and duplex after it acquires RTNL to commit a link change.  This
+probably still has a race, since the change of carrier state in the
+device is not mutexed by anything bonding can acquire (so it can always
+change as soon as it's checked).
 
-I am just telling you there are other guys who are affected by your
-patches and politely asking you to add them to CC.
-Because your patches are in conflict with their patches. It doesn't mean
-that these guys have to be listed in MAINTAINERS.
+	Thanks,
 
-Thanks,
-Michal
+	-J
+
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
