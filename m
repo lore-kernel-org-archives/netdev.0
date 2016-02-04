@@ -1,150 +1,189 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
-Date: Thu, 4 Feb 2016 14:43:17 -0800
-Message-ID: <CALx6S37+F9UnyDuOgXHKqhNQvBXoQe8G2GCWPbhZE8QBdmz3vg@mail.gmail.com>
-References: <1454527121-4007853-1-git-send-email-tom@herbertland.com>
-	<20160204093021.GB1553@gmail.com>
-	<CA+55aFxqs+mE=s4UkNQXJA8JjAKKb6vk1JO672jdEuWtsJ=hVg@mail.gmail.com>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: [PATCH v2 1/4] lib: move strtobool to kstrtobool
+Date: Fri, 5 Feb 2016 00:43:52 +0200
+Message-ID: <CAHp75Vc37Q6GtReEZwbiYUeZqVh7iwDr8dk6Xg4kq0sKWi=41Q@mail.gmail.com>
+References: <1454619643-14444-1-git-send-email-keescook@chromium.org>
+	<1454619643-14444-2-git-send-email-keescook@chromium.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Ingo Molnar <mingo@kernel.org>, David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>, Peter Anvin <hpa@zytor.com>,
-	"the arch/x86 maintainers" <x86@kernel.org>,
-	kernel-team <kernel-team@fb.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Joe Perches <joe@perches.com>,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Steve French <sfrench@samba.org>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	"x86@kernel.org" <x86@kernel.org>, linuxppc-dev@lists.ozlabs.org,
+	linux-s390@vger.kernel.org,
+	"open list:TI WILINK WIRELES..." <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, linux-cifs@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFxqs+mE=s4UkNQXJA8JjAKKb6vk1JO672jdEuWtsJ=hVg@mail.gmail.com>
+In-Reply-To: <1454619643-14444-2-git-send-email-keescook@chromium.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 4, 2016 at 1:46 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> I missed the original email (I don't have net-devel in my mailbox),
-> but based on Ingo's quoting have a more fundamental question:
+On Thu, Feb 4, 2016 at 11:00 PM, Kees Cook <keescook@chromium.org> wrote:
+> Create the kstrtobool_from_user helper and moves strtobool logic into
+> the new kstrtobool (matching all the other kstrto* functions). Provides
+> an inline wrapper for existing strtobool callers.
 >
-> Why wasn't that done with C code instead of asm with odd numerical targets?
->
-The reason I did this in assembly is precisely about the your point of
-having to close the carry chains with adcq $0. I do have a first
-implementation in C which using switch() to handle alignment, excess
-length less than 8 bytes, and the odd number of quads to sum in the
-main loop. gcc turns these switch statements into jump tables (not
-function tables which is what Ingo's example code was using). The
-problem I hit was that for each case I needed to close the carry chain
-in the inline asm so fall through wouldn't have much value and each
-case is expanded. The C version using switch gave a nice performance
-gain, moving to all assembly was somewhat better.
+> Signed-off-by: Kees Cook <keescook@chromium.org>
 
-There is also question of alignment. I f we really don't need to worry
-about alignment at all on x86, then we should be able to eliminate the
-complexity of dealing with it.
+Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
 
-> It seems likely that the real issue is avoiding the short loops (that
-> will cause branch prediction problems) and use a lookup table instead.
->
-> But we can probably do better than that asm.
->
-> For example, for the actual "8 bytes or shorter" case, I think
-> something like this might just work fine:
->
->   unsigned long csum_partial_8orless(const unsigned char *buf,
-> unsigned long len, unsigned long sum)
->   {
->         static const unsigned long mask[9] = {
->                 0x0000000000000000,
->                 0x000000000000ff00,
->                 0x000000000000ffff,
->                 0x00000000ff00ffff,
->                 0x00000000ffffffff,
->                 0x0000ff00ffffffff,
->                 0x0000ffffffffffff,
->                 0xff00ffffffffffff,
->                 0xffffffffffffffff };
->         unsigned long val = load_unaligned_zeropad(buf + (len & 1));
->         val &= mask[len];
->         asm("addq %1,%0 ; adcq $0,%0":"=r" (sum):"r" (val), "0" (sum));
->         return sum;
->   }
->
-I will look at doing that.
+One minor below.
 
-Thanks,
-Tom
+> ---
+>  include/linux/kernel.h |  3 +++
+>  include/linux/string.h |  6 +++++-
+>  lib/kstrtox.c          | 35 +++++++++++++++++++++++++++++++++++
+>  lib/string.c           | 29 -----------------------------
+>  4 files changed, 43 insertions(+), 30 deletions(-)
+>
+> diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+> index f31638c6e873..cdc25f47a23f 100644
+> --- a/include/linux/kernel.h
+> +++ b/include/linux/kernel.h
+> @@ -357,6 +357,7 @@ int __must_check kstrtou16(const char *s, unsigned int base, u16 *res);
+>  int __must_check kstrtos16(const char *s, unsigned int base, s16 *res);
+>  int __must_check kstrtou8(const char *s, unsigned int base, u8 *res);
+>  int __must_check kstrtos8(const char *s, unsigned int base, s8 *res);
+> +int __must_check kstrtobool(const char *s, unsigned int base, bool *res);
+>
+>  int __must_check kstrtoull_from_user(const char __user *s, size_t count, unsigned int base, unsigned long long *res);
+>  int __must_check kstrtoll_from_user(const char __user *s, size_t count, unsigned int base, long long *res);
+> @@ -368,6 +369,8 @@ int __must_check kstrtou16_from_user(const char __user *s, size_t count, unsigne
+>  int __must_check kstrtos16_from_user(const char __user *s, size_t count, unsigned int base, s16 *res);
+>  int __must_check kstrtou8_from_user(const char __user *s, size_t count, unsigned int base, u8 *res);
+>  int __must_check kstrtos8_from_user(const char __user *s, size_t count, unsigned int base, s8 *res);
 
-> NOTE! The above is 100% untested. But I _think_ it may handle the
-> odd-byte-case correctly, and it should result in just one 8-byte load
-> (the "load_unaligned_zeropad()" is just in case that ends up
-> overflowing and we have page-alloc-debug triggering a page fault at
-> the end). All without looping or any conditional branches that might
-> mispredict.
+> +int __must_check kstrtobool_from_user(const char __user *s, size_t count,
+> +                                     unsigned int base, bool *res);
+
+We already are using long lines here, perhaps do the same?
+
 >
-> My point is that going to assembly results in pretty hard-to-read
-> code, but it's also fairly inflexible. If we stay with C, we can much
-> more easily play tricks. So for example, make the above an inline
-> function, and now you can do things like this:
+>  static inline int __must_check kstrtou64_from_user(const char __user *s, size_t count, unsigned int base, u64 *res)
+>  {
+> diff --git a/include/linux/string.h b/include/linux/string.h
+> index 9eebc66d957a..d2fb21b1081d 100644
+> --- a/include/linux/string.h
+> +++ b/include/linux/string.h
+> @@ -128,7 +128,11 @@ extern char **argv_split(gfp_t gfp, const char *str, int *argcp);
+>  extern void argv_free(char **argv);
 >
->   static inline unsigned long csum_partial_64bit(void *buf, unsigned
-> long len, unsigned long sum)
->   {
->         if (len <= 8)
->                 return csum_partial_8orless(buf, len, sum);
+>  extern bool sysfs_streq(const char *s1, const char *s2);
+> -extern int strtobool(const char *s, bool *res);
+> +extern int kstrtobool(const char *s, unsigned int base, bool *res);
+> +static inline int strtobool(const char *s, bool *res)
+> +{
+> +       return kstrtobool(s, 0, res);
+> +}
 >
->         /* We know it's larger than 8 bytes, so handle alignment */
->         align = 7 & -(unsigned long)buf;
->         sum = csum_partial_8orless(buf, align, sum);
->         buf += align;
->
->         /* We need to do the big-endian thing */
->         sum = rotate_by8_if_odd(sum, align);
->
->         /* main loop for big packets */
->         .. do the unrolled inline asm thing that we already do ..
->
->         sum = rotate_by8_if_odd(sum, align);
->
->         /* Handle the last bytes */
->         return csum_partial_8orless(buf, len, sum);
->   }
->
->   /* Fold the 64-bit sum we computed down to 32 bits __wsum */
->   __wsum int csum_partial(void *buf, unsigned int len, __wsum partial)
->   {
->         unsigned long sum = csum_partial_64bit(ptr, len, partial);
->         asm("addl %1,%0 ; adcl $0,%0":"=r" (sum):"r" (sum >> 32), "0" (sum));
->         return sum;
+>  #ifdef CONFIG_BINARY_PRINTF
+>  int vbin_printf(u32 *bin_buf, size_t size, const char *fmt, va_list args);
+> diff --git a/lib/kstrtox.c b/lib/kstrtox.c
+> index 94be244e8441..e18f088704d7 100644
+> --- a/lib/kstrtox.c
+> +++ b/lib/kstrtox.c
+> @@ -321,6 +321,40 @@ int kstrtos8(const char *s, unsigned int base, s8 *res)
 >  }
+>  EXPORT_SYMBOL(kstrtos8);
 >
-> or something like that.
+> +/**
+> + * kstrtobool - convert common user inputs into boolean values
+> + * @s: input string
+> + * @base: ignored
+> + * @res: result
+> + *
+> + * This routine returns 0 iff the first character is one of 'Yy1Nn0'.
+> + * Otherwise it will return -EINVAL.  Value pointed to by res is
+> + * updated upon finding a match.
+> + */
+> +int kstrtobool(const char *s, unsigned int base, bool *res)
+> +{
+> +       if (!s)
+> +               return -EINVAL;
+> +
+> +       switch (s[0]) {
+> +       case 'y':
+> +       case 'Y':
+> +       case '1':
+> +               *res = true;
+> +               return 0;
+> +       case 'n':
+> +       case 'N':
+> +       case '0':
+> +               *res = false;
+> +               return 0;
+> +       default:
+> +               break;
+> +       }
+> +
+> +       return -EINVAL;
+> +}
+> +EXPORT_SYMBOL(kstrtobool);
+> +
+>  #define kstrto_from_user(f, g, type)                                   \
+>  int f(const char __user *s, size_t count, unsigned int base, type *res)        \
+>  {                                                                      \
+> @@ -345,3 +379,4 @@ kstrto_from_user(kstrtou16_from_user,       kstrtou16,      u16);
+>  kstrto_from_user(kstrtos16_from_user,  kstrtos16,      s16);
+>  kstrto_from_user(kstrtou8_from_user,   kstrtou8,       u8);
+>  kstrto_from_user(kstrtos8_from_user,   kstrtos8,       s8);
+> +kstrto_from_user(kstrtobool_from_user, kstrtobool,     bool);
+> diff --git a/lib/string.c b/lib/string.c
+> index 0323c0d5629a..1a90db9bc6e1 100644
+> --- a/lib/string.c
+> +++ b/lib/string.c
+> @@ -630,35 +630,6 @@ bool sysfs_streq(const char *s1, const char *s2)
+>  }
+>  EXPORT_SYMBOL(sysfs_streq);
 >
-> NOTE NOTE NOTE! I did a half-arsed attempt at getting the whole
-> "big-endian 16-bit add" thing right by doing the odd byte masking in
-> the end cases, and by rotating the sum by 8 bits around the
-> 8-byte-unrolled-loop, but I didn't test the above. It's literally
-> written in my mail client. So I can almost guarantee that it is buggy,
-> but it is meant as an *example* of "why not do it this way" rather
-> than production code.
+> -/**
+> - * strtobool - convert common user inputs into boolean values
+> - * @s: input string
+> - * @res: result
+> - *
+> - * This routine returns 0 iff the first character is one of 'Yy1Nn0'.
+> - * Otherwise it will return -EINVAL.  Value pointed to by res is
+> - * updated upon finding a match.
+> - */
+> -int strtobool(const char *s, bool *res)
+> -{
+> -       switch (s[0]) {
+> -       case 'y':
+> -       case 'Y':
+> -       case '1':
+> -               *res = true;
+> -               break;
+> -       case 'n':
+> -       case 'N':
+> -       case '0':
+> -               *res = false;
+> -               break;
+> -       default:
+> -               return -EINVAL;
+> -       }
+> -       return 0;
+> -}
+> -EXPORT_SYMBOL(strtobool);
+> -
+>  #ifndef __HAVE_ARCH_MEMSET
+>  /**
+>   * memset - Fill a region of memory with the given value
+> --
+> 2.6.3
 >
-> I think that writing it in C and trying to be intelligent about it
-> like the above would result in more maintainable code, and it is
-> possible that it would even be faster.
->
-> Yes, writing it in C *does* likely result in a few more cases of "adcq
-> $0" in order to finish up the carry calculations. The *only* advantage
-> of inline asm is how it allows you to keep the carry flag around. So
-> there is downside to the C model, and it might cause a cycle or two of
-> extra work, but the upside of C is that you can try to do clever
-> things without turning the code completely unreadable.
->
-> For example, doing the exception handling (that will never actually
-> trigger) for the "let's just do a 8-byte load" is just painful in
-> assembly. In C, we already have the helper function to do it.
->
-> Hmm? Would somebody be willing to take the likely very buggy code
-> above, and test it and make it work? I assume there's a test harness
-> for the whole csum thing somewhere.
->
->                      Linus
+
+
+
+-- 
+With Best Regards,
+Andy Shevchenko
