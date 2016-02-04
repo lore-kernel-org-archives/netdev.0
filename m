@@ -1,142 +1,58 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: bonding reports interface up with 0 Mbps
-Date: Thu, 4 Feb 2016 15:47:01 +0000
-Message-ID: <87618083B2453E4A8714035B62D67992505247BA@FMSMSX105.amr.corp.intel.com>
-References: <87618083B2453E4A8714035B62D6799250524233@FMSMSX105.amr.corp.intel.com>
- <16238.1454565446@famine>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/2] rtlwifi: Fix improve function 'rtl_addr_delay()' in
+ core.c
+Date: Thu, 4 Feb 2016 16:02:01 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCD6823@AcuExch.aculab.com>
+References: <20160203015953.GA13562@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCD5486@AcuExch.aculab.com>
+ <CAOxTRzpO4mx361GqA+W39bxSfbOCaiLw320S-aph1v1OGJ0FYw@mail.gmail.com>
+ <56B258B2.6090802@lwfinger.net>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCD61C8@AcuExch.aculab.com>
+ <56B371BE.1060805@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	zhuyj <zyjzyj2000@gmail.com>,
-	"jiri@mellanox.com" <jiri@mellanox.com>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:43852 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933745AbcBDPrg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 10:47:36 -0500
-In-Reply-To: <16238.1454565446@famine>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+	"chaoming_li@realsil.com.cn" <chaoming_li@realsil.com.cn>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Larry Finger' <Larry.Finger@lwfinger.net>,
+	ByeoungWook Kim <quddnr145@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56B371BE.1060805@lwfinger.net>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: Jay Vosburgh [mailto:jay.vosburgh@canonical.com]
->Sent: Wednesday, February 03, 2016 9:57 PM
->To: Tantilov, Emil S
->Cc: netdev@vger.kernel.org; gospo@cumulusnetworks.com; zhuyj;
->jiri@mellanox.com
->Subject: Re: bonding reports interface up with 0 Mbps
->
->Tantilov, Emil S <emil.s.tantilov@intel.com> wrote:
->
->>We are seeing an occasional issue where the bonding driver may report
->interface up with 0 Mbps:
->>bond0: link status definitely up for interface eth0, 0 Mbps full duplex
->>
->>So far in all the failed traces I have collected this happens on NETDEV_CHANGELOWERSTATE event:
->>
->><...>-20533 [000] .... 81811.041241: ixgbe_service_task: eth1: NIC Link is Up 10 Gbps, Flow Control: RX/TX
->><...>-20533 [000] .... 81811.041257: ixgbe_check_vf_rate_limit <-ixgbe_service_task
->><...>-20533 [000] .... 81811.041272: ixgbe_ping_all_vfs <-ixgbe_service_task
->>kworker/u48:0-7503  [010] .... 81811.041345: ixgbe_get_stats64 <-dev_get_stats
->>kworker/u48:0-7503  [010] .... 81811.041393: bond_netdev_event: eth1: event: 1b
->>kworker/u48:0-7503  [010] .... 81811.041394: bond_netdev_event: eth1: IFF_SLAVE
->>kworker/u48:0-7503  [010] .... 81811.041395: bond_netdev_event: eth1: slave->speed = ffffffff
->><...>-20533 [000] .... 81811.041407: ixgbe_ptp_overflow_check <-ixgbe_service_task
->>kworker/u48:0-7503  [010] .... 81811.041407: bond_mii_monitor: bond0: link status definitely up for interface eth1, 0 Mbps full duplex
->
->	From looking at the code that prints this, the "full" duplex is
->probably actually DUPLEX_UNKNOWN, but the netdev_info uses the
->expression slave->duplex ? "full" : "half", so DUPLEX_UNKNOWN at 0xff
->would print "full."
->
->	This is what ixgbe_get_settings returns for speed and duplex if
->it is called when carrier is off.
-
-But in this case carrier is on and regardless - ixgbe_get_settings() is not
-called as you can see from the trace, which is why speed and duplex are not set.
-
->>As a proof of concept I added NETDEV_CHANGELOWERSTATE in
->bond_slave_netdev_event() along with NETDEV_UP/CHANGE:
->>
->>diff --git a/drivers/net/bonding/bond_main.c
->b/drivers/net/bonding/bond_main.c
->>index 56b5605..a9dac4c 100644
->>--- a/drivers/net/bonding/bond_main.c
->>+++ b/drivers/net/bonding/bond_main.c
->>@@ -3014,6 +3014,7 @@ static int bond_slave_netdev_event(unsigned long
->event,
->> 		break;
->> 	case NETDEV_UP:
->> 	case NETDEV_CHANGE:
->>+	case NETDEV_CHANGELOWERSTATE:
->> 		bond_update_speed_duplex(slave);
->> 		if (BOND_MODE(bond) == BOND_MODE_8023AD)
->> 			bond_3ad_adapter_speed_duplex_changed(slave);
->>
->>With this change I have not seen 0 Mbps reported by the bonding driver
->(around 12 hour test up to this point
->>vs. 2-3 hours otherwise). Although I suppose it could also be some sort of
->race/timing issue with bond_mii_monitor().
->
->	This change as a fix seems kind of odd, since CHANGELOWERSTATE
->is generated by bonding itself.  Perhaps the net effect is to add a
->delay and then update the speed and duplex, masking the actual problem.
-
-I added this case to make sure bond_update_speed_duplex() is called which
-will get the speed/duplex from ixgbe_get_settings.
-
->	Emil, if I recall correctly, the test patch I send that uses the
->notifiers directly instead of miimon (specify miimon=0 and have bonding
->respond to the notifiers) handled everything properly, right?  If so I
-
-Yes, but I think the code path was also different as I recall the "definitely
-up" message was not displayed as often.
- 
->can split that up and submit it properly; it seems more like a feature
->than a straightforward bug fix, so I'm not sure it's appropriate for
->net.
->
->	As a possibly less complex alternative for the miimon > 0 case,
->could you try the following:
->
->diff --git a/drivers/net/bonding/bond_main.c
->b/drivers/net/bonding/bond_main.c
->index 56b560558884..ac8921e65f26 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2120,6 +2120,7 @@ static void bond_miimon_commit(struct bonding *bond)
-> {
-> 	struct list_head *iter;
-> 	struct slave *slave, *primary;
->+	int link_state;
->
-> 	bond_for_each_slave(bond, slave, iter) {
-> 		switch (slave->new_link) {
->@@ -2127,6 +2128,10 @@ static void bond_miimon_commit(struct bonding *bond)
-> 			continue;
->
-> 		case BOND_LINK_UP:
->+			link_state = bond_check_dev_link(bond, slave->dev, 0);
->+			if (!link_state)
->+				continue;
->+			bond_update_speed_duplex(slave);
-> 			bond_set_slave_link_state(slave, BOND_LINK_UP,
-> 						  BOND_SLAVE_NOTIFY_NOW);
-> 			slave->last_link_up = jiffies;
->
->
->	This will make bonding recheck the link state and update the
->speed and duplex after it acquires RTNL to commit a link change.  This
->probably still has a race, since the change of carrier state in the
->device is not mutexed by anything bonding can acquire (so it can always
->change as soon as it's checked).
-
-Sure, I'll give this a try, but I'm not sure this check applies in this case
-as you can see from the trace link is up and carrier is on.
-
-Thanks,
-Emil
+RnJvbTogTGFycnkgRmluZ2VyDQo+IFNlbnQ6IDA0IEZlYnJ1YXJ5IDIwMTYgMTU6NDQNCj4gT24g
+MDIvMDQvMjAxNiAwMzo0OCBBTSwgRGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiA+IEZyb206IExhcnJ5
+IEZpbmdlcg0KPiA+PiBTZW50OiAwMyBGZWJydWFyeSAyMDE2IDE5OjQ1DQo+ID4gLi4uDQo+ID4+
+IFRoZSBwZXJmb3JtYW5jZSB3aWxsIGRlcGVuZCBvbiB3aGVyZSB5b3Ugc2F0aXNmeSB0aGUgY29u
+ZGl0aW9uLiBBbGwgc3dpdGNoIGNhc2VzDQo+ID4+IGhhdmUgdGhlIHNhbWUgZXhlY3V0aW9uIHRp
+bWUsIGJ1dCBpbiB0aGUgaWYgLi4gZWxzZSBpZiAuLiBlbHNlIGZvcm0sIHRoZSBlYXJsaWVyDQo+
+ID4+IHRlc3RzIGV4ZWN1dGUgbW9yZSBxdWlja2x5LiBJJ20gbm90IHN1cmUgdGhhdCBvbmUgY2Fu
+IG1ha2UgYW55IGJsYW5rZXQgc3RhdGVtZW50DQo+ID4+IGFib3V0IHBlcmZvcm1hbmNlLiBDZXJ0
+YWlubHksIHRoZSBzd2l0Y2ggdmVyc2lvbiB3aWxsIGJlIGxhcmdlci4gRm9yIGEgc3dpdGNoDQo+
+ID4+IHdpdGggOCBjYXNlcyBwbHVzIGRlZmF1bHQsIHRoZSBvYmplY3QgY29kZSBpZiA0MyBieXRl
+cyBsYXJnZXIgdGhhbiB0aGUgbmVzdGVkDQo+ID4+IGlmcyBpbiBhIHRlc3QgcHJvZ3JhbSB0aGF0
+IEkgY3JlYXRlZC4gVGhhdCBpcyBhIHNpZ25pZmljYW50IHBlbmFsdHkuDQo+ID4NCj4gPiBUaGVy
+ZSBpcyBhbHNvIHRoZSBwZW5hbHR5IG9mIHRoZSAobGlrZWx5KSBkYXRhIGNhY2hlIG1pc3MgcmVh
+ZGluZyB0aGUganVtcCB0YWJsZS4NCj4gPiBCdXQgZ2l2ZW4gdGhpcyBjb2RlIGlzIGFsbCBhYm91
+dCBnZW5lcmF0aW5nIGEgdmFyaWFibGUgZGVsYXkgdGhlIGV4ZWN1dGlvbg0KPiA+IHNwZWVkIGlz
+IHByb2JhYmx5IGlycmVsZXZhbnQuDQo+ID4NCj4gPiBJdCB3b3VsZCBiZSBtdWNoIG1vcmUgaW50
+ZXJlc3RpbmcgaWYgdGhlIGRlbGF5IGNvdWxkIGJlIGNoYW5nZWQgZm9yIHNsZWVwcy4NCj4gDQo+
+IFVuZm9ydHVuYXRlbHksIHNsZWVwaW5nIGlzIG5vdCBwb3NzaWJsZSBmb3IgdGhlIHJvdXRpbmVz
+IHRoYXQgY2FsbCBydGxfYWRkcl9kZWxheSgpLg0KDQpJIGhvcGUgbm9uZSBvZiBteSBzeXN0ZW1z
+IGV2ZXIgYnVzeS1kZWxheSBmb3IgNTBtcy4NCg0KQWN0dWFsbHkgcG9zc2libHkganVzdCBhcyB0
+cm91Ymxlc29tZSBpcyB1ZGVsYXkoMSkuDQoNCkkgcHJlc3VtZSB0aGlzIGlzIHVzZWQgYWZ0ZXIg
+YSAnaGFyZHdhcmUnIHdyaXRlIGluIG9yZGVyIHRvIG1lZXQgYSBtaW5pbXVtDQpwdWxzZSB3aWR0
+aCAob3IgYW4gaW50ZXItY3ljbGUgcmVjb3ZlcnkgdGltZSkuDQoNClVuZm9ydHVuYXRlbHkgdGhl
+IGluaXRpYWwgd3JpdGUgY3ljbGUgd2lsbCBhbG1vc3QgY2VydGFpbmx5IGJlICdwb3N0ZWQnIHNv
+DQptYXkgbm90IGFjdHVhbGx5IGJlIHNlZW4gYnkgdGhlIHRhcmdldCB1bnRpbCBzb21lIHRpbWUg
+bGF0ZXIuDQoNClRoaXMgbWVhbnMgdGhhdCBhbHRob3VnaCB0aGUgY3B1IGRlbGF5ZWQgMXVzLCB0
+aGUgdGFyZ2V0IGhhcmR3YXJlIG1pZ2h0DQpzZWUgdGhlIHNlY29uZCBhY2Nlc3MgYmFjayB0byBi
+YWNrIHdpdGggdGhlIGZpcnN0IG9uZS4NCg0KRm9yY2luZyB0aGUgcG9zdGVkIHdyaXRlIHRvIGNv
+bXBsZXRlIGFsbW9zdCBjZXJ0YWlubHkgaW52b2x2ZXMgcmVhZGluZw0KYmFjayBmcm9tIGV4YWN0
+bHkgdGhlIHNhbWUgcGh5c2ljYWwgYWRkcmVzcyAocG9zc2libHkgYWZ0ZXIgc29tZSBzeW5jDQpp
+bnN0cnVjdGlvbihzKSkuDQoNCglEYXZpZA0KDQo=
