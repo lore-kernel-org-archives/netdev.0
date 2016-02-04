@@ -1,55 +1,59 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v5 1/2] ethtool: add speed/duplex validation
- functions
-Date: Thu, 4 Feb 2016 12:02:48 +0100
-Message-ID: <56B32FD8.7020407@cumulusnetworks.com>
-References: <1454468677-12280-1-git-send-email-razor@blackwall.org>
- <1454468677-12280-2-git-send-email-razor@blackwall.org>
- <20160204103226.333d98ca@samsung9>
+From: Corcodel Marian <asd@marian1000.go.ro>
+Subject: Re: [PATCH net v4] r8169:   Disabling multiple invocation on
+ rtl_try_msi function.
+Date: Thu, 04 Feb 2016 13:04:23 +0200
+Message-ID: <1454583863.2404.2.camel@marian1000.go.ro>
+References: <1454578538-2544-1-git-send-email-asd@marian1000.go.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, roopa@cumulusnetworks.com,
-	davem@davemloft.net
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	Nikolay Aleksandrov <razor@blackwall.org>
+Cc: netdev@vger.kernel.org
+To: Corcodel Marian <asd@marian1000.go.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:34832 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754833AbcBDLCu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 06:02:50 -0500
-Received: by mail-wm0-f51.google.com with SMTP id r129so205912493wmr.0
-        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 03:02:50 -0800 (PST)
-In-Reply-To: <20160204103226.333d98ca@samsung9>
+Received: from 5-14-225-121.residential.rdsnet.ro ([5.14.225.121]:34806 "EHLO
+	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755419AbcBDLE2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 06:04:28 -0500
+In-Reply-To: <1454578538-2544-1-git-send-email-asd@marian1000.go.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/04/2016 12:32 AM, Stephen Hemminger wrote:
-> On Wed,  3 Feb 2016 04:04:36 +0100
-> Nikolay Aleksandrov <razor@blackwall.org> wrote:
+On Thu, 2016-02-04 at 11:35 +0200, Corcodel Marian wrote:
+> This patch set MSI on probe stage without this patch MSI is set when
+> rtl_open occur.
+>  Do not need to run rtl_try_msi on multiple times.
 > 
->>  
->> +static inline int ethtool_validate_speed(__u32 speed)
->> +{
+> Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+> ---
+>  drivers/net/ethernet/realtek/r8169.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
 > 
-> 
-> No need for inline.
-> 
-This is defined in a header, if it's not inline you start getting
-"defined but not used" warnings.
+> diff --git a/drivers/net/ethernet/realtek/r8169.c
+> b/drivers/net/ethernet/realtek/r8169.c
+> index 30eed0d..b0b43b7 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -8248,6 +8248,9 @@ static int rtl_init_one(struct pci_dev *pdev,
+> const struct pci_device_id *ent)
+>  
+>  	/* Identify chip attached to board */
+>  	rtl8169_get_mac_version(tp, dev, cfg->default_ver);
+> +	RTL_W8(Cfg9346, Cfg9346_Unlock);
+> +	tp->features = rtl_try_msi(tp, cfg);
+> +	RTL_W8(Cfg9346, Cfg9346_Lock);
+>  
+>  	rtl_init_rxcfg(tp);
+>  
+> @@ -8303,7 +8306,6 @@ static int rtl_init_one(struct pci_dev *pdev,
+> const struct pci_device_id *ent)
+>  	}
+>  	if ((RTL_R8(Config5) & (UWF | BWF | MWF)) != 0)
+>  		tp->features |= RTL_FEATURE_WOL;
+> -	tp->features |= rtl_try_msi(tp, cfg);
+>  	RTL_W8(Cfg9346, Cfg9346_Lock);
+>  
+>  	if (rtl_tbi_enabled(tp)) {
 
-> But why check for valid value at all. At some point in the
-> future, there will be yet another speed adopted by some standard body
-> and the switch statement would need another value.
-> 
-> Why not accept any value? This is a virtual device.
-> 
-It was moved near the defined values so everyone adding a new speed would
-remember to update the validation function as well. That being said, I don't
-object to being able to set any custom speed to the virtio_net device especially
-when there're physical devices that can have speeds outside of these defines.
 
-Michael do you have any objections if I respin without the speed validation ?
-
-Thanks,
- Nik
+Sorry here patch is good but explications is bad.
+Is about set first order to run rtl_try_msi and others.
