@@ -1,90 +1,61 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH v2 3/4] lib: add "on"/"off" support to kstrtobool
-Date: Thu, 4 Feb 2016 15:11:34 -0800
-Message-ID: <CAGXu5jKox2cJv7OX=qkO8js0eot_+6PkNPh7gy6ZuEeqjp97xg@mail.gmail.com>
-References: <1454619643-14444-1-git-send-email-keescook@chromium.org>
-	<1454619643-14444-4-git-send-email-keescook@chromium.org>
-	<CAHp75VfEi4umnfQoDdySn2X6ZEyL1_szzdwvjBgKy=-Uz9KbOg@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [net-next PATCH 0/7] tc offload for cls_u32 on ixgbe
+Date: Fri, 5 Feb 2016 00:19:27 +0100
+Message-ID: <20160204231927.GA2347@salvia>
+References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
+ <20160204091656.GA2198@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Joe Perches <joe@perches.com>,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Amitkumar Karwar <akarwar@marvell.com>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Steve French <sfrench@samba.org>,
-	Michael Ellerman <mpe@ellerman.id.au>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
-	"open list:TI WILINK WIRELES..." <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, linux-cifs@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHp75VfEi4umnfQoDdySn2X6ZEyL1_szzdwvjBgKy=-Uz9KbOg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>, amir@vadai.me,
+	ogerlitz@mellanox.com, jhs@mojatatu.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:47273 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750901AbcBDXTh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Feb 2016 18:19:37 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 886066C14
+	for <netdev@vger.kernel.org>; Fri,  5 Feb 2016 00:19:34 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 793BDDA86B
+	for <netdev@vger.kernel.org>; Fri,  5 Feb 2016 00:19:34 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 7D745DA804
+	for <netdev@vger.kernel.org>; Fri,  5 Feb 2016 00:19:32 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20160204091656.GA2198@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 4, 2016 at 3:00 PM, Andy Shevchenko
-<andy.shevchenko@gmail.com> wrote:
-> On Thu, Feb 4, 2016 at 11:00 PM, Kees Cook <keescook@chromium.org> wrote:
->> Add support for "on" and "off" when converting to boolean.
->>
->> Signed-off-by: Kees Cook <keescook@chromium.org>
->> ---
->>  lib/kstrtox.c | 14 ++++++++++++++
->>  1 file changed, 14 insertions(+)
->>
->> diff --git a/lib/kstrtox.c b/lib/kstrtox.c
->> index e18f088704d7..09e83a19a96d 100644
->> --- a/lib/kstrtox.c
->> +++ b/lib/kstrtox.c
->> @@ -347,6 +347,20 @@ int kstrtobool(const char *s, unsigned int base, bool *res)
->
-> Forgot update description?
+On Thu, Feb 04, 2016 at 10:16:56AM +0100, Jiri Pirko wrote:
+> Wed, Feb 03, 2016 at 10:27:32AM CET, john.fastabend@gmail.com wrote:
+> >
+> >Also by adding get_parse_graph and set_parse_graph attributes as
+> >in my previous flow_api work we can build programmable devices
+> >and programmatically learn when rules can or can not be loaded
+> >into the hardware. Again future work.
+> >
+> >Any comments/feedback appreciated.
+> 
+> I like this being thin and elegant solution. However, ~2 years ago when I
+> pushed openvswitch kernel datapath offload patchset, people were yelling
+> at me that it is not generic enough solution, that tc has to be able
+> to use the api (Jamal :)), nftables as well.
 
-Argh, thank you. Good eye. Sent another update.
+I would be glad to join this debate during NetDev 1.1 too.
 
--Kees
+I think we should provide a solution that allows people uses both
+tc and nftables, this would require a bit of generic infrastructure on
+top of it so we don't restrict users to one single solution, in other
+words, we allow the user to select its own poison.
 
->
->>         case '0':
->>                 *res = false;
->>                 return 0;
->> +       case 'o':
->> +       case 'O':
->> +               switch (s[1]) {
->> +               case 'n':
->> +               case 'N':
->> +                       *res = true;
->> +                       return 0;
->> +               case 'f':
->> +               case 'F':
->> +                       *res = false;
->> +                       return 0;
->> +               default:
->> +                       break;
->> +               }
->>         default:
->>                 break;
->>         }
->> --
->> 2.6.3
->>
->
->
->
-> --
-> With Best Regards,
-> Andy Shevchenko
+> Now this patch is making offload strictly tc-based and nobody seems to
+> care :) I do. I think that we might try to find some generic middle layer.
 
+I agree and I'll be happy to help to push this ahead. Let's try to sit
+and get together to resolve this.
 
-
--- 
-Kees Cook
-Chrome OS & Brillo Security
+See you soon.
