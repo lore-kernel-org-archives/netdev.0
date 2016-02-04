@@ -1,100 +1,80 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v3 net 3/7] net: mvneta: Use on_each_cpu when possible
-Date: Thu,  4 Feb 2016 22:09:25 +0100
-Message-ID: <1454620169-8156-4-git-send-email-gregory.clement@free-electrons.com>
-References: <1454620169-8156-1-git-send-email-gregory.clement@free-electrons.com>
+From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Subject: Re: [RFC v2] iwlwifi: pcie: transmit queue auto-sizing
+Date: Thu, 4 Feb 2016 13:14:13 -0800
+Message-ID: <56B3BF25.8080509@candelatech.com>
+References: <1454616764-19841-1-git-send-email-emmanuel.grumbach@intel.com>
+ <1454616988-21901-1-git-send-email-emmanuel.grumbach@intel.com>
+ <56B3B885.1050409@candelatech.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB32EA02656@hasmsx107.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
- Russell King - ARM Linux <linux@arm.linux.org.uk>,
- Jason Cooper <jason@lakedaemon.net>, Nadav Haklai <nadavh@marvell.com>,
- Gregory CLEMENT <gregory.clement@free-electrons.com>,
- Marcin Wojtas <mw@semihalf.com>, Willy Tarreau <w@1wt.eu>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org,
- Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1454620169-8156-1-git-send-email-gregory.clement@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>
+To: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB32EA02656-Jy8z56yoSI9wl47ZQwxUxrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Instead of using a for_each_* loop in which we just call the
-smp_call_function_single macro, it is more simple to directly use the
-on_each_cpu macro. Moreover, this macro ensures that the calls will be
-done all at once.
+On 02/04/2016 12:56 PM, Grumbach, Emmanuel wrote:
+>
+>
+> On 02/04/2016 10:46 PM, Ben Greear wrote:
+>> On 02/04/2016 12:16 PM, Emmanuel Grumbach wrote:
+>>> As many (all?) WiFi devices, Intel WiFi devices have
+>>> transmit queues which have 256 transmit descriptors
+>>> each and each descriptor corresponds to an MPDU.
+>>> This means that when it is full, the queue contains
+>>> 256 * ~1500 bytes to be transmitted (if we don't have
+>>> A-MSDUs). The purpose of those queues is to have enough
+>>> packets to be ready for transmission so that when the device
+>>> gets an opportunity to transmit (TxOP), it can take as many
+>>> packets as the spec allows and aggregate them into one
+>>> A-MPDU or even several A-MPDUs if we are using bursts.
+>> I guess this is only really usable if you have exactly one
+>> peer connected (ie, in station mode)?
+>>
+>> Otherwise, you could have one slow peer and one fast one,
+>> and then I suspect this would not work so well?
+>
+> Yes. I guess this one (big) limitation. I guess that what would happen
+> in this case is that the the latency would constantly jitter. But I also
+> noticed that I could reduce the transmit queue to 130 descriptors
+> (instead of 256) and still reach maximal throughput because we can
+> refill the queues quickly enough.
+> In iwlwifi, we have plans to have one queue for each peer.
+> This is under development. Not sure when it'll be ready. It also requires
+> firmware change obviously.
 
-Suggested-by: Russell King <rmk+kernel@arm.linux.org.uk>
-Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 17 ++++++-----------
- 1 file changed, 6 insertions(+), 11 deletions(-)
+Per-peer queues will probably be nice, especially if we can keep the
+buffer bloat manageable.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 4c2d12423750..f496f9716569 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -2555,7 +2555,7 @@ static void mvneta_percpu_mask_interrupt(void *arg)
- 
- static void mvneta_start_dev(struct mvneta_port *pp)
- {
--	unsigned int cpu;
-+	int cpu;
- 
- 	mvneta_max_rx_size_set(pp, pp->pkt_size);
- 	mvneta_txq_max_tx_size_set(pp, pp->pkt_size);
-@@ -2571,9 +2571,8 @@ static void mvneta_start_dev(struct mvneta_port *pp)
- 	}
- 
- 	/* Unmask interrupts. It has to be done from each CPU */
--	for_each_online_cpu(cpu)
--		smp_call_function_single(cpu, mvneta_percpu_unmask_interrupt,
--					 pp, true);
-+	on_each_cpu(mvneta_percpu_unmask_interrupt, pp, true);
-+
- 	mvreg_write(pp, MVNETA_INTR_MISC_MASK,
- 		    MVNETA_CAUSE_PHY_STATUS_CHANGE |
- 		    MVNETA_CAUSE_LINK_CHANGE |
-@@ -2993,7 +2992,7 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
- static int mvneta_open(struct net_device *dev)
- {
- 	struct mvneta_port *pp = netdev_priv(dev);
--	int ret, cpu;
-+	int ret;
- 
- 	pp->pkt_size = MVNETA_RX_PKT_SIZE(pp->dev->mtu);
- 	pp->frag_size = SKB_DATA_ALIGN(MVNETA_RX_BUF_SIZE(pp->pkt_size)) +
-@@ -3026,9 +3025,7 @@ static int mvneta_open(struct net_device *dev)
- 	/* Enable per-CPU interrupt on all the CPU to handle our RX
- 	 * queue interrupts
- 	 */
--	for_each_online_cpu(cpu)
--		smp_call_function_single(cpu, mvneta_percpu_enable,
--					 pp, true);
-+	on_each_cpu(mvneta_percpu_enable, pp, true);
- 
- 
- 	/* Register a CPU notifier to handle the case where our CPU
-@@ -3315,9 +3312,7 @@ static int  mvneta_config_rss(struct mvneta_port *pp)
- 
- 	netif_tx_stop_all_queues(pp->dev);
- 
--	for_each_online_cpu(cpu)
--		smp_call_function_single(cpu, mvneta_percpu_mask_interrupt,
--					 pp, true);
-+	on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
- 
- 	/* We have to synchronise on the napi of each CPU */
- 	for_each_online_cpu(cpu) {
+>> For reference, ath10k has around 1400 tx descriptors, though
+>> in practice not all are usable, and in stock firmware, I'm guessing
+>> the NIC will never be able to actually fill up it's tx descriptors
+>> and stop traffic.  Instead, it just allows the stack to try to
+>> TX, then drops the frame...
+>
+> 1400 descriptors, ok... but they are not organised in queues?
+> (forgive my ignorance of athX drivers)
+
+I think all the details are in the firmware, at least for now.
+
+The firmware details are probably not something I should go into, but suffice it to say
+its complex and varies between firmware versions in non-trivial ways.
+
+Thanks,
+Ben
+
 -- 
-2.5.0
+Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Candela Technologies Inc  http://www.candelatech.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
