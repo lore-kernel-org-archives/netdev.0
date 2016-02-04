@@ -1,113 +1,116 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/20] i40evf: allow channel bonding of VFs
-Date: Thu,  4 Feb 2016 03:48:55 -0800
-Message-ID: <1454586551-35919-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1454586551-35919-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/20][pull request] 40GbE Intel Wired LAN Driver Updates 2016-02-03
+Date: Thu,  4 Feb 2016 03:48:51 -0800
+Message-ID: <1454586551-35919-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:28296 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:34313 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964877AbcBDLtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Feb 2016 06:49:16 -0500
-In-Reply-To: <1454586551-35919-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S933831AbcBDLtO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Feb 2016 06:49:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+This series contains updates to i40e and i40evf only.
 
-In some modes, bonding would not enslave VF interfaces. This is due to
-bonding calling change_mtu and the immediately calling open. Because of
-the asynchronous nature of the admin queue mechanism, the VF returns
--EBUSY to the open call, because it knows the previous operation hasn't
-finished yet. This causes bonding to fail with a less-than-useful error
-message.
+Kiran adds the MAC filter element to the end of the list instead of HEAD
+just in case there are ever any ordering issues in the future.
 
-To fix this, remove the check for pending operations at the beginning of
-open. But this introduces a new bug where the driver will panic on a
-quick close/open cycle. To fix that, we add a new driver state,
-__I40EVF_DOWN_PENDING, that the driver enters when down is called. The
-driver finally transitions to a fully DOWN state when it receives
-confirmation from the PF driver that all the queues are disabled. This
-allows open to complete even if there is a pending mtu change, and
-bonding is finally happy.
+Anjali fixes several RSS issues, first fixes the hash PCTYPE enable for
+X722 since it supports a broader selection of PCTYPES for TCP and UDP.
+Then fixes a bug in XL710, X710, and X722 support for RSS since we cannot
+reduce the 4-tuple for RSS for TCP/IPv4/IPv6 or UDP/IPv4/IPv6 packets
+since this requires a product feature change coming in a later release.
+Cleans up the reset code where the restart-autoneg workaround is
+applied, since X722 does not need the workaround, add a flag to indicate
+which MAC and firmware version require the workaround to be applied.
+Adds new device id's for X722 and code to add their support.  Also
+adds another way to access the RSS keys and lookup table using the admin
+queue for X722 devices.
 
-Change-ID: I06f4c7e435d5bacbfceaa7c3f209e0ff04be21cc
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40evf/i40evf.h          | 1 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c     | 9 +++++----
- drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 2 ++
- 3 files changed, 8 insertions(+), 4 deletions(-)
+Catherine updates the driver to replace the MAC check with a feature
+flag check for 100M SGMII, since it is only support on X722 devices
+currently.
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index be1b72b..9e15f68 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -173,6 +173,7 @@ enum i40evf_state_t {
- 	__I40EVF_RESETTING,		/* in reset */
- 	/* Below here, watchdog is running */
- 	__I40EVF_DOWN,			/* ready, can be opened */
-+	__I40EVF_DOWN_PENDING,		/* descending, waiting for watchdog */
- 	__I40EVF_TESTING,		/* in ethtool self-test */
- 	__I40EVF_RUNNING,		/* opened, working */
- };
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 94da913..d1c4335 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1032,7 +1032,7 @@ void i40evf_down(struct i40evf_adapter *adapter)
- 	struct net_device *netdev = adapter->netdev;
- 	struct i40evf_mac_filter *f;
- 
--	if (adapter->state == __I40EVF_DOWN)
-+	if (adapter->state <= __I40EVF_DOWN_PENDING)
- 		return;
- 
- 	while (test_and_set_bit(__I40EVF_IN_CRITICAL_TASK,
-@@ -2142,7 +2142,8 @@ static int i40evf_open(struct net_device *netdev)
- 		dev_err(&adapter->pdev->dev, "Unable to open device due to PF driver failure.\n");
- 		return -EIO;
- 	}
--	if (adapter->state != __I40EVF_DOWN || adapter->aq_required)
-+
-+	if (adapter->state != __I40EVF_DOWN)
- 		return -EBUSY;
- 
- 	/* allocate transmit descriptors */
-@@ -2197,14 +2198,14 @@ static int i40evf_close(struct net_device *netdev)
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 
--	if (adapter->state <= __I40EVF_DOWN)
-+	if (adapter->state <= __I40EVF_DOWN_PENDING)
- 		return 0;
- 
- 
- 	set_bit(__I40E_DOWN, &adapter->vsi.state);
- 
- 	i40evf_down(adapter);
--	adapter->state = __I40EVF_DOWN;
-+	adapter->state = __I40EVF_DOWN_PENDING;
- 	i40evf_free_traffic_irqs(adapter);
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index c1c5262..d3739cc 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -804,6 +804,8 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 	case I40E_VIRTCHNL_OP_DISABLE_QUEUES:
- 		i40evf_free_all_tx_resources(adapter);
- 		i40evf_free_all_rx_resources(adapter);
-+		if (adapter->state == __I40EVF_DOWN_PENDING)
-+			adapter->state = __I40EVF_DOWN;
- 		break;
- 	case I40E_VIRTCHNL_OP_VERSION:
- 	case I40E_VIRTCHNL_OP_CONFIG_IRQ_MAP:
+Mitch reworks the VF driver to allow channel bonding, which was not
+possible before this patch due to the asynchronous nature of the admin
+queue mechanism.  Also fixes a rare case which causes a panic if the
+VF driver is removed during reset recovery, resolve this by setting the
+ring pointers to NULL after freeing them.
+
+Shannon cleans up the driver where device capabilities were defined in
+two different places, and neither had all the definitions, so he
+consolidates the definitions in the admin queue API.  Also adds the new
+proxy-wake-on-lan capability bit available with the new X722 device.
+Lastly, added the new External Device Power Ability field to the
+get_link_status data structure by using a reserved field at the end
+of the structure.
+
+Jesse mimics the ixgbe driver's use of a private work queue in the i40e
+and i40evf drivers to avoid blocking the system work queue.
+
+Greg cleans up the driver to limit the firmware revision checks to
+properly handle DCB configurations from the firmware to the older
+devices which need these checks (specifically X710 and XL710 devices
+only).
+
+The following are changes since commit b45efa30a626e915192a6c548cd8642379cd47cc:
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
+
+Anjali Singhai Jain (6):
+  i40e/i40evf: Fix RSS rx-flow-hash configuration through ethtool
+  i40e: Cleanup the code with respect to restarting autoneg
+  i40e: add new device IDs for X722
+  i40e: Extend ethtool RSS hooks for X722
+  i40e/i40evf: Fix for UDP/TCP RSS for X722
+  i40evf: add new write-back mode
+
+Catherine Sullivan (3):
+  i40e: Replace X722 mac check in ethtool get_settings
+  i40e: bump version to 1.4.10
+  i40e: add 100Mb ethtool reporting
+
+Greg Bowers (1):
+  i40e: Limit DCB FW version checks to X710/XL710 devices
+
+Jesse Brandeburg (2):
+  i40e: update features with right offload
+  i40e/i40evf: Use private workqueue
+
+Kiran Patil (1):
+  i40e: Add mac_filter_element at the end of the list instead of HEAD
+
+Mitch Williams (2):
+  i40evf: allow channel bonding of VFs
+  i40evf: null out ring pointers on free
+
+Shannon Nelson (5):
+  i40e: define function capabilities in only one place
+  i40e: add new proxy-wol bit for X722
+  i40e: AQ Add Run PHY Activity struct
+  i40e: AQ Geneve cloud tunnel type
+  i40e: AQ Add external power class to get link status
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |  2 +
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 26 +++++-
+ drivers/net/ethernet/intel/i40e/i40e_common.c      | 87 +++++++------------
+ drivers/net/ethernet/intel/i40e/i40e_dcb.c         | 12 +--
+ drivers/net/ethernet/intel/i40e/i40e_devids.h      |  2 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 38 ++++++---
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 99 +++++++++++++++++++---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 12 +++
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 26 +++++-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 16 ++++
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  1 +
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 57 ++++++-------
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 34 ++++++--
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  2 +
+ 14 files changed, 283 insertions(+), 131 deletions(-)
+
 -- 
 2.5.0
