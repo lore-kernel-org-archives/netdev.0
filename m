@@ -1,45 +1,142 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 1/2] rtlwifi: Fix improve function 'rtl_addr_delay()' in
- core.c
-Date: Thu, 4 Feb 2016 09:43:58 -0600
-Message-ID: <56B371BE.1060805@lwfinger.net>
-References: <20160203015953.GA13562@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCD5486@AcuExch.aculab.com>
- <CAOxTRzpO4mx361GqA+W39bxSfbOCaiLw320S-aph1v1OGJ0FYw@mail.gmail.com>
- <56B258B2.6090802@lwfinger.net>
- <063D6719AE5E284EB5DD2968C1650D6D1CCD61C8@AcuExch.aculab.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: bonding reports interface up with 0 Mbps
+Date: Thu, 4 Feb 2016 15:47:01 +0000
+Message-ID: <87618083B2453E4A8714035B62D67992505247BA@FMSMSX105.amr.corp.intel.com>
+References: <87618083B2453E4A8714035B62D6799250524233@FMSMSX105.amr.corp.intel.com>
+ <16238.1454565446@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"chaoming_li@realsil.com.cn" <chaoming_li@realsil.com.cn>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	ByeoungWook Kim <quddnr145@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCD61C8@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	zhuyj <zyjzyj2000@gmail.com>,
+	"jiri@mellanox.com" <jiri@mellanox.com>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:43852 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933745AbcBDPrg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 10:47:36 -0500
+In-Reply-To: <16238.1454565446@famine>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/04/2016 03:48 AM, David Laight wrote:
-> From: Larry Finger
->> Sent: 03 February 2016 19:45
-> ...
->> The performance will depend on where you satisfy the condition. All switch cases
->> have the same execution time, but in the if .. else if .. else form, the earlier
->> tests execute more quickly. I'm not sure that one can make any blanket statement
->> about performance. Certainly, the switch version will be larger. For a switch
->> with 8 cases plus default, the object code if 43 bytes larger than the nested
->> ifs in a test program that I created. That is a significant penalty.
+>-----Original Message-----
+>From: Jay Vosburgh [mailto:jay.vosburgh@canonical.com]
+>Sent: Wednesday, February 03, 2016 9:57 PM
+>To: Tantilov, Emil S
+>Cc: netdev@vger.kernel.org; gospo@cumulusnetworks.com; zhuyj;
+>jiri@mellanox.com
+>Subject: Re: bonding reports interface up with 0 Mbps
 >
-> There is also the penalty of the (likely) data cache miss reading the jump table.
-> But given this code is all about generating a variable delay the execution
-> speed is probably irrelevant.
+>Tantilov, Emil S <emil.s.tantilov@intel.com> wrote:
 >
-> It would be much more interesting if the delay could be changed for sleeps.
+>>We are seeing an occasional issue where the bonding driver may report
+>interface up with 0 Mbps:
+>>bond0: link status definitely up for interface eth0, 0 Mbps full duplex
+>>
+>>So far in all the failed traces I have collected this happens on NETDEV_CHANGELOWERSTATE event:
+>>
+>><...>-20533 [000] .... 81811.041241: ixgbe_service_task: eth1: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+>><...>-20533 [000] .... 81811.041257: ixgbe_check_vf_rate_limit <-ixgbe_service_task
+>><...>-20533 [000] .... 81811.041272: ixgbe_ping_all_vfs <-ixgbe_service_task
+>>kworker/u48:0-7503  [010] .... 81811.041345: ixgbe_get_stats64 <-dev_get_stats
+>>kworker/u48:0-7503  [010] .... 81811.041393: bond_netdev_event: eth1: event: 1b
+>>kworker/u48:0-7503  [010] .... 81811.041394: bond_netdev_event: eth1: IFF_SLAVE
+>>kworker/u48:0-7503  [010] .... 81811.041395: bond_netdev_event: eth1: slave->speed = ffffffff
+>><...>-20533 [000] .... 81811.041407: ixgbe_ptp_overflow_check <-ixgbe_service_task
+>>kworker/u48:0-7503  [010] .... 81811.041407: bond_mii_monitor: bond0: link status definitely up for interface eth1, 0 Mbps full duplex
+>
+>	From looking at the code that prints this, the "full" duplex is
+>probably actually DUPLEX_UNKNOWN, but the netdev_info uses the
+>expression slave->duplex ? "full" : "half", so DUPLEX_UNKNOWN at 0xff
+>would print "full."
+>
+>	This is what ixgbe_get_settings returns for speed and duplex if
+>it is called when carrier is off.
 
-Unfortunately, sleeping is not possible for the routines that call rtl_addr_delay().
+But in this case carrier is on and regardless - ixgbe_get_settings() is not
+called as you can see from the trace, which is why speed and duplex are not set.
 
-Larry
+>>As a proof of concept I added NETDEV_CHANGELOWERSTATE in
+>bond_slave_netdev_event() along with NETDEV_UP/CHANGE:
+>>
+>>diff --git a/drivers/net/bonding/bond_main.c
+>b/drivers/net/bonding/bond_main.c
+>>index 56b5605..a9dac4c 100644
+>>--- a/drivers/net/bonding/bond_main.c
+>>+++ b/drivers/net/bonding/bond_main.c
+>>@@ -3014,6 +3014,7 @@ static int bond_slave_netdev_event(unsigned long
+>event,
+>> 		break;
+>> 	case NETDEV_UP:
+>> 	case NETDEV_CHANGE:
+>>+	case NETDEV_CHANGELOWERSTATE:
+>> 		bond_update_speed_duplex(slave);
+>> 		if (BOND_MODE(bond) == BOND_MODE_8023AD)
+>> 			bond_3ad_adapter_speed_duplex_changed(slave);
+>>
+>>With this change I have not seen 0 Mbps reported by the bonding driver
+>(around 12 hour test up to this point
+>>vs. 2-3 hours otherwise). Although I suppose it could also be some sort of
+>race/timing issue with bond_mii_monitor().
+>
+>	This change as a fix seems kind of odd, since CHANGELOWERSTATE
+>is generated by bonding itself.  Perhaps the net effect is to add a
+>delay and then update the speed and duplex, masking the actual problem.
+
+I added this case to make sure bond_update_speed_duplex() is called which
+will get the speed/duplex from ixgbe_get_settings.
+
+>	Emil, if I recall correctly, the test patch I send that uses the
+>notifiers directly instead of miimon (specify miimon=0 and have bonding
+>respond to the notifiers) handled everything properly, right?  If so I
+
+Yes, but I think the code path was also different as I recall the "definitely
+up" message was not displayed as often.
+ 
+>can split that up and submit it properly; it seems more like a feature
+>than a straightforward bug fix, so I'm not sure it's appropriate for
+>net.
+>
+>	As a possibly less complex alternative for the miimon > 0 case,
+>could you try the following:
+>
+>diff --git a/drivers/net/bonding/bond_main.c
+>b/drivers/net/bonding/bond_main.c
+>index 56b560558884..ac8921e65f26 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -2120,6 +2120,7 @@ static void bond_miimon_commit(struct bonding *bond)
+> {
+> 	struct list_head *iter;
+> 	struct slave *slave, *primary;
+>+	int link_state;
+>
+> 	bond_for_each_slave(bond, slave, iter) {
+> 		switch (slave->new_link) {
+>@@ -2127,6 +2128,10 @@ static void bond_miimon_commit(struct bonding *bond)
+> 			continue;
+>
+> 		case BOND_LINK_UP:
+>+			link_state = bond_check_dev_link(bond, slave->dev, 0);
+>+			if (!link_state)
+>+				continue;
+>+			bond_update_speed_duplex(slave);
+> 			bond_set_slave_link_state(slave, BOND_LINK_UP,
+> 						  BOND_SLAVE_NOTIFY_NOW);
+> 			slave->last_link_up = jiffies;
+>
+>
+>	This will make bonding recheck the link state and update the
+>speed and duplex after it acquires RTNL to commit a link change.  This
+>probably still has a race, since the change of carrier state in the
+>device is not mutexed by anything bonding can acquire (so it can always
+>change as soon as it's checked).
+
+Sure, I'll give this a try, but I'm not sure this check applies in this case
+as you can see from the trace link is up and carrier is on.
+
+Thanks,
+Emil
