@@ -1,81 +1,79 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next] bonding: 3ad: allow to set ad_actor settings while the bond is up
-Date: Thu,  4 Feb 2016 17:42:28 +0100
-Message-ID: <1454604148-28658-1-git-send-email-razor@blackwall.org>
-Cc: davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
+Date: Thu, 4 Feb 2016 08:51:59 -0800
+Message-ID: <CAKgT0UcuJWmpwO4hu34qBWhrhqQ5GQMU_dWHF-Dd10+Y9aCH=g@mail.gmail.com>
+References: <1454527121-4007853-1-git-send-email-tom@herbertland.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CCD63C9@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <tom@herbertland.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
+	"kernel-team@fb.com" <kernel-team@fb.com>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34414 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934203AbcBDQmd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 11:42:33 -0500
-Received: by mail-wm0-f67.google.com with SMTP id p63so12969260wmp.1
-        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 08:42:32 -0800 (PST)
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:36712 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751093AbcBDQwA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 11:52:00 -0500
+Received: by mail-ig0-f180.google.com with SMTP id xg9so29768890igb.1
+        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 08:52:00 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCD63C9@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On Thu, Feb 4, 2016 at 3:08 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Tom Herbert
+>> Sent: 03 February 2016 19:19
+> ...
+>> +     /* Main loop */
+>> +50:  adcq    0*8(%rdi),%rax
+>> +     adcq    1*8(%rdi),%rax
+>> +     adcq    2*8(%rdi),%rax
+>> +     adcq    3*8(%rdi),%rax
+>> +     adcq    4*8(%rdi),%rax
+>> +     adcq    5*8(%rdi),%rax
+>> +     adcq    6*8(%rdi),%rax
+>> +     adcq    7*8(%rdi),%rax
+>> +     adcq    8*8(%rdi),%rax
+>> +     adcq    9*8(%rdi),%rax
+>> +     adcq    10*8(%rdi),%rax
+>> +     adcq    11*8(%rdi),%rax
+>> +     adcq    12*8(%rdi),%rax
+>> +     adcq    13*8(%rdi),%rax
+>> +     adcq    14*8(%rdi),%rax
+>> +     adcq    15*8(%rdi),%rax
+>> +     lea     128(%rdi), %rdi
+>> +     loop    50b
+>
+> I'd need convincing that unrolling the loop like that gives any significant gain.
+> You have a dependency chain on the carry flag so have delays between the 'adcq'
+> instructions (these may be more significant than the memory reads from l1 cache).
+>
+> I also don't remember (might be wrong) the 'loop' instruction being executed quickly.
+> If 'loop' is fast then you will probably find that:
+>
+> 10:     adcq 0(%rdi),%rax
+>         lea  8(%rdi),%rdi
+>         loop 10b
+>
+> is just as fast since the three instructions could all be executed in parallel.
+> But I suspect that 'dec %cx; jnz 10b' is actually better (and might execute as
+> a single micro-op).
+> IIRC 'adc' and 'dec' will both have dependencies on the flags register
+> so cannot execute together (which is a shame here).
+>
+> It is also possible that breaking the carry-chain dependency by doing 32bit
+> adds (possibly after 64bit reads) can be made to be faster.
 
-No need to require the bond down while changing these settings, the change
-will be reflected immediately and the 3ad mode will sort itself out.
-For faster convergence set port->ntt to true in order to generate new
-LACPDUs immediately.
+If nothing else reducing the size of this main loop may be desirable.
+I know the newer x86 is supposed to have a loop buffer so that it can
+basically loop on already decoded instructions.  Normally it is only
+something like 64 or 128 bytes in size though.  You might find that
+reducing this loop to that smaller size may improve the performance
+for larger payloads.
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <gospo@cumulusnetworks.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-This patch is on top of my previous change:
-http://patchwork.ozlabs.org/patch/577908/
-
- drivers/net/bonding/bond_3ad.c     | 8 ++++++--
- drivers/net/bonding/bond_options.c | 3 +--
- 2 files changed, 7 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index ee94056dbb2e..b9304a295f86 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2176,8 +2176,12 @@ void bond_3ad_update_ad_actor_settings(struct bonding *bond)
- 		    *((struct mac_addr *)bond->params.ad_actor_system);
- 
- 	spin_lock_bh(&bond->mode_lock);
--	bond_for_each_slave(bond, slave, iter)
--		__ad_actor_update_port(&(SLAVE_AD_INFO(slave)->port));
-+	bond_for_each_slave(bond, slave, iter) {
-+		struct port *port = &(SLAVE_AD_INFO(slave))->port;
-+
-+		__ad_actor_update_port(port);
-+		port->ntt = true;
-+	}
- 	spin_unlock_bh(&bond->mode_lock);
- }
- 
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index ed0bdae64f5e..577e57cad1dc 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -402,7 +402,6 @@ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
- 		.id = BOND_OPT_AD_ACTOR_SYS_PRIO,
- 		.name = "ad_actor_sys_prio",
- 		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_8023AD)),
--		.flags = BOND_OPTFLAG_IFDOWN,
- 		.values = bond_ad_actor_sys_prio_tbl,
- 		.set = bond_option_ad_actor_sys_prio_set,
- 	},
-@@ -410,7 +409,7 @@ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
- 		.id = BOND_OPT_AD_ACTOR_SYSTEM,
- 		.name = "ad_actor_system",
- 		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_8023AD)),
--		.flags = BOND_OPTFLAG_RAWVAL | BOND_OPTFLAG_IFDOWN,
-+		.flags = BOND_OPTFLAG_RAWVAL,
- 		.set = bond_option_ad_actor_system_set,
- 	},
- 	[BOND_OPT_AD_USER_PORT_KEY] = {
--- 
-2.4.3
+- Alex
