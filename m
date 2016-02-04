@@ -1,67 +1,172 @@
-From: Chunhao Lin <hau@realtek.com>
-Subject: [PATCH net-next] r8169:fix system hange problem.
-Date: Fri, 5 Feb 2016 02:28:00 +0800
-Message-ID: <1454610480-3274-1-git-send-email-hau@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	Chunhao Lin <hau@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:43309 "EHLO
-	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932182AbcBDSoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 13:44:20 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Laura Abbott <labbott@fedoraproject.org>
+Subject: [PATCHv2] vsock: Fix blocking ops call in prepare_to_wait
+Date: Thu,  4 Feb 2016 10:50:45 -0800
+Message-ID: <1454611845-5358-1-git-send-email-labbott@fedoraproject.org>
+Cc: Laura Abbott <labbott@fedoraproject.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Aditya Asarwade <asarwade@vmware.com>,
+	Thomas Hellstrom <thellstrom@vmware.com>,
+	Jorgen Hansen <jhansen@vmware.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There are typos in setting RTL8168H hardware parameters. If system install
-another version driver that may cuase system hang.
+We receoved a bug report from someone using vmware:
 
-Signed-off-by: Chunhao Lin <hau@realtek.com>
+WARNING: CPU: 3 PID: 660 at kernel/sched/core.c:7389
+__might_sleep+0x7d/0x90()
+do not call blocking ops when !TASK_RUNNING; state=1 set at
+[<ffffffff810fa68d>] prepare_to_wait+0x2d/0x90
+Modules linked in: vmw_vsock_vmci_transport vsock snd_seq_midi
+snd_seq_midi_event snd_ens1371 iosf_mbi gameport snd_rawmidi
+snd_ac97_codec ac97_bus snd_seq coretemp snd_seq_device snd_pcm
+snd_timer snd soundcore ppdev crct10dif_pclmul crc32_pclmul
+ghash_clmulni_intel vmw_vmci vmw_balloon i2c_piix4 shpchp parport_pc
+parport acpi_cpufreq nfsd auth_rpcgss nfs_acl lockd grace sunrpc btrfs
+xor raid6_pq 8021q garp stp llc mrp crc32c_intel serio_raw mptspi vmwgfx
+drm_kms_helper ttm drm scsi_transport_spi mptscsih e1000 ata_generic
+mptbase pata_acpi
+CPU: 3 PID: 660 Comm: vmtoolsd Not tainted
+4.2.0-0.rc1.git3.1.fc23.x86_64 #1
+Hardware name: VMware, Inc. VMware Virtual Platform/440BX Desktop
+Reference Platform, BIOS 6.00 05/20/2014
+ 0000000000000000 0000000049e617f3 ffff88006ac37ac8 ffffffff818641f5
+ 0000000000000000 ffff88006ac37b20 ffff88006ac37b08 ffffffff810ab446
+ ffff880068009f40 ffffffff81c63bc0 0000000000000061 0000000000000000
+Call Trace:
+ [<ffffffff818641f5>] dump_stack+0x4c/0x65
+ [<ffffffff810ab446>] warn_slowpath_common+0x86/0xc0
+ [<ffffffff810ab4d5>] warn_slowpath_fmt+0x55/0x70
+ [<ffffffff8112551d>] ? debug_lockdep_rcu_enabled+0x1d/0x20
+ [<ffffffff810fa68d>] ? prepare_to_wait+0x2d/0x90
+ [<ffffffff810fa68d>] ? prepare_to_wait+0x2d/0x90
+ [<ffffffff810da2bd>] __might_sleep+0x7d/0x90
+ [<ffffffff812163b3>] __might_fault+0x43/0xa0
+ [<ffffffff81430477>] copy_from_iter+0x87/0x2a0
+ [<ffffffffa039460a>] __qp_memcpy_to_queue+0x9a/0x1b0 [vmw_vmci]
+ [<ffffffffa0394740>] ? qp_memcpy_to_queue+0x20/0x20 [vmw_vmci]
+ [<ffffffffa0394757>] qp_memcpy_to_queue_iov+0x17/0x20 [vmw_vmci]
+ [<ffffffffa0394d50>] qp_enqueue_locked+0xa0/0x140 [vmw_vmci]
+ [<ffffffffa039593f>] vmci_qpair_enquev+0x4f/0xd0 [vmw_vmci]
+ [<ffffffffa04847bb>] vmci_transport_stream_enqueue+0x1b/0x20
+[vmw_vsock_vmci_transport]
+ [<ffffffffa047ae05>] vsock_stream_sendmsg+0x2c5/0x320 [vsock]
+ [<ffffffff810fabd0>] ? wake_atomic_t_function+0x70/0x70
+ [<ffffffff81702af8>] sock_sendmsg+0x38/0x50
+ [<ffffffff81702ff4>] SYSC_sendto+0x104/0x190
+ [<ffffffff8126e25a>] ? vfs_read+0x8a/0x140
+ [<ffffffff817042ee>] SyS_sendto+0xe/0x10
+ [<ffffffff8186d9ae>] entry_SYSCALL_64_fastpath+0x12/0x76
+
+transport->stream_enqueue may call copy_to_user so it should
+not be called inside a prepare_to_wait. Narrow the scope of
+the prepare_to_wait to avoid the bad call. This also applies
+to vsock_stream_recvmsg as well.
+
+Reported-by: Vinson Lee <vlee@freedesktop.org>
+Tested-by: Vinson Lee <vlee@freedesktop.org>
+Signed-off-by: Laura Abbott <labbott@fedoraproject.org>
 ---
- drivers/net/ethernet/realtek/r8169.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+v2: fix same issue in recvmsg path as well.
+---
+ net/vmw_vsock/af_vsock.c | 19 ++++++-------------
+ 1 file changed, 6 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 17d5571..537974c 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -6137,28 +6137,28 @@ static void rtl_hw_start_8168h_1(struct rtl8169_private *tp)
- 		sw_cnt_1ms_ini = 16000000/rg_saw_cnt;
- 		sw_cnt_1ms_ini &= 0x0fff;
- 		data = r8168_mac_ocp_read(tp, 0xd412);
--		data &= 0x0fff;
-+		data &= ~0x0fff;
- 		data |= sw_cnt_1ms_ini;
- 		r8168_mac_ocp_write(tp, 0xd412, data);
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index 7fd1220..bbe65dc 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -1557,8 +1557,6 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ 	if (err < 0)
+ 		goto out;
+ 
+-	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+-
+ 	while (total_written < len) {
+ 		ssize_t written;
+ 
+@@ -1578,7 +1576,9 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ 				goto out_wait;
+ 
+ 			release_sock(sk);
++			prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 			timeout = schedule_timeout(timeout);
++			finish_wait(sk_sleep(sk), &wait);
+ 			lock_sock(sk);
+ 			if (signal_pending(current)) {
+ 				err = sock_intr_errno(timeout);
+@@ -1588,8 +1588,6 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ 				goto out_wait;
+ 			}
+ 
+-			prepare_to_wait(sk_sleep(sk), &wait,
+-					TASK_INTERRUPTIBLE);
+ 		}
+ 
+ 		/* These checks occur both as part of and after the loop
+@@ -1635,7 +1633,6 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ out_wait:
+ 	if (total_written > 0)
+ 		err = total_written;
+-	finish_wait(sk_sleep(sk), &wait);
+ out:
+ 	release_sock(sk);
+ 	return err;
+@@ -1716,7 +1713,6 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 	if (err < 0)
+ 		goto out;
+ 
+-	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 
+ 	while (1) {
+ 		s64 ready = vsock_stream_has_data(vsk);
+@@ -1727,7 +1723,7 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 			 */
+ 
+ 			err = -ENOMEM;
+-			goto out_wait;
++			goto out;
+ 		} else if (ready > 0) {
+ 			ssize_t read;
+ 
+@@ -1750,7 +1746,7 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 					vsk, target, read,
+ 					!(flags & MSG_PEEK), &recv_data);
+ 			if (err < 0)
+-				goto out_wait;
++				goto out;
+ 
+ 			if (read >= target || flags & MSG_PEEK)
+ 				break;
+@@ -1773,7 +1769,9 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 				break;
+ 
+ 			release_sock(sk);
++			prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 			timeout = schedule_timeout(timeout);
++			finish_wait(sk_sleep(sk), &wait);
+ 			lock_sock(sk);
+ 
+ 			if (signal_pending(current)) {
+@@ -1783,9 +1781,6 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 				err = -EAGAIN;
+ 				break;
+ 			}
+-
+-			prepare_to_wait(sk_sleep(sk), &wait,
+-					TASK_INTERRUPTIBLE);
+ 		}
  	}
  
- 	data = r8168_mac_ocp_read(tp, 0xe056);
--	data &= 0xf0;
--	data |= 0x07;
-+	data &= ~0xf0;
-+	data |= 0x70;
- 	r8168_mac_ocp_write(tp, 0xe056, data);
+@@ -1816,8 +1811,6 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 		err = copied;
+ 	}
  
- 	data = r8168_mac_ocp_read(tp, 0xe052);
--	data &= 0x8008;
--	data |= 0x6000;
-+	data &= ~0x6000;
-+	data |= 0x8008;
- 	r8168_mac_ocp_write(tp, 0xe052, data);
- 
- 	data = r8168_mac_ocp_read(tp, 0xe0d6);
--	data &= 0x01ff;
-+	data &= ~0x01ff;
- 	data |= 0x017f;
- 	r8168_mac_ocp_write(tp, 0xe0d6, data);
- 
- 	data = r8168_mac_ocp_read(tp, 0xd420);
--	data &= 0x0fff;
-+	data &= ~0x0fff;
- 	data |= 0x047f;
- 	r8168_mac_ocp_write(tp, 0xd420, data);
- 
+-out_wait:
+-	finish_wait(sk_sleep(sk), &wait);
+ out:
+ 	release_sock(sk);
+ 	return err;
 -- 
-1.9.1
+2.5.0
