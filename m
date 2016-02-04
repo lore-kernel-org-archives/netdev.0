@@ -1,111 +1,162 @@
-From: "Amir Vadai\"" <amir@vadai.me>
-Subject: Re: [net-next PATCH 7/7] net: ixgbe: add support for tc_u32 offload
-Date: Thu, 4 Feb 2016 14:12:09 +0200
-Message-ID: <20160204121209.GA32335@office.Home>
-References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
- <20160203092959.1356.91778.stgit@john-Precision-Tower-5810>
- <20160204073050.GA31753@office.Home>
- <56B30A66.80206@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next v5 2/2] virtio_net: add ethtool support for set
+ and get of settings
+Date: Thu, 4 Feb 2016 14:21:27 +0200
+Message-ID: <20160204141947-mutt-send-email-mst@redhat.com>
+References: <1454468677-12280-1-git-send-email-razor@blackwall.org>
+ <1454468677-12280-3-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ogerlitz@mellanox.com, jiri@resnulli.us, jhs@mojatatu.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: "Fastabend, John R" <john.fastabend@gmail.com>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Nikolay Aleksandrov <razor@blackwall.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35282 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750885AbcBDMJK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 07:09:10 -0500
-Received: by mail-wm0-f65.google.com with SMTP id g62so139089wme.2
-        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 04:09:09 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:48357 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755797AbcBDMV3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Feb 2016 07:21:29 -0500
 Content-Disposition: inline
-In-Reply-To: <56B30A66.80206@gmail.com>
+In-Reply-To: <1454468677-12280-3-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 04, 2016 at 12:23:02AM -0800, Fastabend, John R wrote:
-> On 2/3/2016 11:30 PM, Amir Vadai" wrote:
-> > On Wed, Feb 03, 2016 at 01:29:59AM -0800, John Fastabend wrote:
-> >> This adds initial support for offloading the u32 tc classifier. This
-> >> initial implementation only implements a few base matches and actions
-> >> to illustrate the use of the infrastructure patches.
-> >>
-> >> However it is an interesting subset because it handles the u32 next
-> >> hdr logic to correctly map tcp packets from ip headers using the ihl
-> >> and protocol fields. After this is accepted we can extend the match
-> >> and action fields easily by updating the model header file.
-> >>
-> >> Also only the drop action is supported initially.
-> >>
-> >> Here is a short test script,
-> >>
-> >>  #tc qdisc add dev eth4 ingress
-> >>  #tc filter add dev eth4 parent ffff: protocol ip \
-> >> 	u32 ht 800: order 1 \
-> >> 	match ip dst 15.0.0.1/32 match ip src 15.0.0.2/32 action drop
-> >>
-> >> <-- hardware has dst/src ip match rule installed -->
-> >>
-> >>  #tc filter del dev eth4 parent ffff: prio 49152
-> >>  #tc filter add dev eth4 parent ffff: protocol ip prio 99 \
-> >> 	handle 1: u32 divisor 1
-> >>  #tc filter add dev eth4 protocol ip parent ffff: prio 99 \
-> >> 	u32 ht 800: order 1 link 1: \
-> >> 	offset at 0 mask 0f00 shift 6 plus 0 eat match ip protocol 6 ff
-> >>  #tc filter add dev eth4 parent ffff: protocol ip \
-> >> 	u32 ht 1: order 3 match tcp src 23 ffff action drop
-> >>
-> >> <-- hardware has tcp src port rule installed -->
-> >>
-> >>  #tc qdisc del dev eth4 parent ffff:
-> >>
-> >> <-- hardware cleaned up -->
-> >>
-> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> >> ---
-> >>  drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    3 
-> >>  drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    6 -
-> >>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  196 ++++++++++++++++++++++
-> >>  3 files changed, 198 insertions(+), 7 deletions(-)
-> >>
-> >> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> >> index 4b9156c..09c2d9b 100644
-> >> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> >> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> > 
-> > [...]
-> > 
-> >> @@ -8277,6 +8465,7 @@ static int ixgbe_set_features(struct net_device *netdev,
-> >>  	 */
-> >>  	switch (features & NETIF_F_NTUPLE) {
-> >>  	case NETIF_F_NTUPLE:
-> >> +	case NETIF_F_HW_TC:
-> >>  		/* turn off ATR, enable perfect filters and reset */
-> >>  		if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
-> >>  			need_reset = true;
-> > 
-> > I think you have a bug here. I don't see how the NETIF_F_HW_TC case will
-> > happen after masking 'features' out.
-> > 
+On Wed, Feb 03, 2016 at 04:04:37AM +0100, Nikolay Aleksandrov wrote:
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > 
-> Ah I should have annotated this in the commit msg. I turn the feature
-> off by default to enable it the user needs to run
+> This patch allows the user to set and retrieve speed and duplex of the
+> virtio_net device via ethtool. Having this functionality is very helpful
+> for simulating different environments and also enables the virtio_net
+> device to participate in operations where proper speed and duplex are
+> required (e.g. currently bonding lacp mode requires full duplex). Custom
+> speed and duplex are not allowed, the user-supplied settings are validated
+> before applying.
 > 
-> 	# ethtool -K ethx hw-tc-offload on
+> Example:
+> $ ethtool eth1
+> Settings for eth1:
+> ...
+> 	Speed: Unknown!
+> 	Duplex: Unknown! (255)
+> $ ethtool -s eth1 speed 1000 duplex full
+> $ ethtool eth1
+> Settings for eth1:
+> ...
+> 	Speed: 1000Mb/s
+> 	Duplex: Full
 > 
-> this is just a habit of mine to leave new features off by default for
-> a bit until I work out some of the kinks. For example I found a case
-> today where if you build loops into your u32 graph the hardware tables
-> can get out of sync with the software tables. This is sort of extreme
-> corner case not sure if anyone would really use u32 but it is valid
-> and the hardware should abort correctly.
-Yeh - that is nice :) But I was just pointing out on a small typo which I
-think you have.
-The new case will never happen. You compare: (features & NETIF_F_NTUPLE) == NETIF_F_HW_TC
-Also the comment before the switch should be modified.
+> Based on a patch by Roopa Prabhu.
+> 
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> ---
+> v2: use the new ethtool speed/duplex validation functions and allow half
+> duplex to be set
+> v3: return error if the user tries to change anything besides speed/duplex
+> as per Michael's comment
+> We have to zero-out advertising as it gets set automatically by ethtool if
+> setting speed and duplex together.
+> v4: Set port type to PORT_OTHER
+> v5: null diff1.port because we set cmd->port now and ethtool returns it in
+> the set request, retested all cases
+> 
+>  drivers/net/virtio_net.c | 60 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 60 insertions(+)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 767ab11a6e9f..c9fd52a8e6ec 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -146,6 +146,10 @@ struct virtnet_info {
+>  	virtio_net_ctrl_ack ctrl_status;
+>  	u8 ctrl_promisc;
+>  	u8 ctrl_allmulti;
+> +
+> +	/* Ethtool settings */
+> +	u8 duplex;
+> +	u32 speed;
+>  };
+>  
+>  struct padded_vnet_hdr {
+> @@ -1376,6 +1380,58 @@ static void virtnet_get_channels(struct net_device *dev,
+>  	channels->other_count = 0;
+>  }
+>  
+> +/* Check if the user is trying to change anything besides speed/duplex */
+> +static bool virtnet_validate_ethtool_cmd(const struct ethtool_cmd *cmd)
+> +{
+> +	struct ethtool_cmd diff1 = *cmd;
+> +	struct ethtool_cmd diff2 = {};
+> +
+> +	/* advertising and cmd are usually set, ignore port because we set it */
 
-> 
-> Thanks,
-> John
-> 
+We set it where?
+Instead of this, should not we set diff2.port to PORT_OTHER?
+
+> +	ethtool_cmd_speed_set(&diff1, 0);
+> +	diff1.advertising = 0;
+> +	diff1.duplex = 0;
+> +	diff1.port = 0;
+> +	diff1.cmd = 0;
+> +
+> +	return !memcmp(&diff1, &diff2, sizeof(diff1));
+> +}
+> +
+> +static int virtnet_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +	u32 speed;
+> +
+> +	speed = ethtool_cmd_speed(cmd);
+> +	/* don't allow custom speed and duplex */
+> +	if (!ethtool_validate_speed(speed) ||
+> +	    !ethtool_validate_duplex(cmd->duplex) ||
+> +	    !virtnet_validate_ethtool_cmd(cmd))
+> +		return -EINVAL;
+> +	vi->speed = speed;
+> +	vi->duplex = cmd->duplex;
+> +
+> +	return 0;
+> +}
+> +
+> +static int virtnet_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +
+> +	ethtool_cmd_speed_set(cmd, vi->speed);
+> +	cmd->duplex = vi->duplex;
+> +	cmd->port = PORT_OTHER;
+> +
+> +	return 0;
+> +}
+> +
+> +static void virtnet_init_settings(struct net_device *dev)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +
+> +	vi->speed = SPEED_UNKNOWN;
+> +	vi->duplex = DUPLEX_UNKNOWN;
+> +}
+> +
+>  static const struct ethtool_ops virtnet_ethtool_ops = {
+>  	.get_drvinfo = virtnet_get_drvinfo,
+>  	.get_link = ethtool_op_get_link,
+> @@ -1383,6 +1439,8 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
+>  	.set_channels = virtnet_set_channels,
+>  	.get_channels = virtnet_get_channels,
+>  	.get_ts_info = ethtool_op_get_ts_info,
+> +	.get_settings = virtnet_get_settings,
+> +	.set_settings = virtnet_set_settings,
+>  };
+>  
+>  #define MIN_MTU 68
+> @@ -1855,6 +1913,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
+>  	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
+>  
+> +	virtnet_init_settings(dev);
+> +
+>  	err = register_netdev(dev);
+>  	if (err) {
+>  		pr_debug("virtio_net: registering device failed\n");
+> -- 
+> 2.4.3
