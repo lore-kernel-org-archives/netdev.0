@@ -1,84 +1,103 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/20] i40e: Cleanup the code with respect to restarting autoneg
-Date: Thu,  4 Feb 2016 03:48:58 -0800
-Message-ID: <1454586551-35919-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/20] i40e: Extend ethtool RSS hooks for X722
+Date: Thu,  4 Feb 2016 03:49:02 -0800
+Message-ID: <1454586551-35919-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1454586551-35919-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:28296 "EHLO mga11.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:41087 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965761AbcBDLtS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Feb 2016 06:49:18 -0500
+	id S965694AbcBDLtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Feb 2016 06:49:16 -0500
 In-Reply-To: <1454586551-35919-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-The restart-autoneg work around does not apply to X722.
-Added a flag to set it only for the right MAC and right FW version
-where the work around should be applied.
+This patch adds another way to access the RSS keys and lut using the AQ
+for X722 devices.
 
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Change-ID: I942c3ff40cccd1e56f424b1da776b020fe3c9d2a
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c | 12 ++++++++----
- 2 files changed, 9 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 53 ++++++++++++++++++++++++++++-
+ 1 file changed, 52 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 47f6c0a..53ed3bd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -340,6 +340,7 @@ struct i40e_pf {
- #define I40E_FLAG_GENEVE_OFFLOAD_CAPABLE	BIT_ULL(41)
- #define I40E_FLAG_NO_PCI_LINK_CHECK		BIT_ULL(42)
- #define I40E_FLAG_100M_SGMII_CAPABLE		BIT_ULL(43)
-+#define I40E_FLAG_RESTART_AUTONEG		BIT_ULL(44)
- #define I40E_FLAG_PF_MAC			BIT_ULL(50)
- 
- 	/* tracks features that get auto disabled by errors */
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index d078a63..1a7022c 100644
+index b3e671b..bd81a97 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6889,8 +6889,7 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
- 		wr32(hw, I40E_REG_MSS, val);
- 	}
+@@ -7937,6 +7937,52 @@ static int i40e_vsi_config_rss(struct i40e_vsi *vsi)
+ }
  
--	if (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver < 33)) ||
--	    (pf->hw.aq.fw_maj_ver < 4)) {
-+	if (pf->flags & I40E_FLAG_RESTART_AUTONEG) {
- 		msleep(75);
- 		ret = i40e_aq_set_link_restart_an(&pf->hw, true, NULL);
- 		if (ret)
-@@ -8367,6 +8366,12 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 				 pf->hw.func_caps.fd_filters_best_effort;
- 	}
- 
-+	if (((pf->hw.mac.type == I40E_MAC_X710) ||
-+	     (pf->hw.mac.type == I40E_MAC_XL710)) &&
-+	    (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver < 33)) ||
-+	    (pf->hw.aq.fw_maj_ver < 4)))
-+		pf->flags |= I40E_FLAG_RESTART_AUTONEG;
+ /**
++ * i40e_get_rss_aq - Get RSS keys and lut by using AQ commands
++ * @vsi: Pointer to vsi structure
++ * @seed: Buffer to store the hash keys
++ * @lut: Buffer to store the lookup table entries
++ * @lut_size: Size of buffer to store the lookup table entries
++ *
++ * Return 0 on success, negative on failure
++ */
++static int i40e_get_rss_aq(struct i40e_vsi *vsi, const u8 *seed,
++			   u8 *lut, u16 lut_size)
++{
++	struct i40e_pf *pf = vsi->back;
++	struct i40e_hw *hw = &pf->hw;
++	int ret = 0;
 +
- 	if (pf->hw.func_caps.vmdq) {
- 		pf->num_vmdq_vsis = I40E_DEFAULT_NUM_VMDQ_VSI;
- 		pf->flags |= I40E_FLAG_VMDQ_ENABLED;
-@@ -10904,8 +10909,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		wr32(hw, I40E_REG_MSS, val);
- 	}
++	if (seed) {
++		ret = i40e_aq_get_rss_key(hw, vsi->id,
++			(struct i40e_aqc_get_set_rss_key_data *)seed);
++		if (ret) {
++			dev_info(&pf->pdev->dev,
++				 "Cannot get RSS key, err %s aq_err %s\n",
++				 i40e_stat_str(&pf->hw, ret),
++				 i40e_aq_str(&pf->hw,
++					     pf->hw.aq.asq_last_status));
++			return ret;
++		}
++	}
++
++	if (lut) {
++		bool pf_lut = vsi->type == I40E_VSI_MAIN ? true : false;
++
++		ret = i40e_aq_get_rss_lut(hw, vsi->id, pf_lut, lut, lut_size);
++		if (ret) {
++			dev_info(&pf->pdev->dev,
++				 "Cannot get RSS lut, err %s aq_err %s\n",
++				 i40e_stat_str(&pf->hw, ret),
++				 i40e_aq_str(&pf->hw,
++					     pf->hw.aq.asq_last_status));
++			return ret;
++		}
++	}
++
++	return ret;
++}
++
++/**
+  * i40e_config_rss_reg - Configure RSS keys and lut by writing registers
+  * @vsi: Pointer to vsi structure
+  * @seed: RSS hash seed
+@@ -8038,7 +8084,12 @@ int i40e_config_rss(struct i40e_vsi *vsi, u8 *seed, u8 *lut, u16 lut_size)
+  */
+ int i40e_get_rss(struct i40e_vsi *vsi, u8 *seed, u8 *lut, u16 lut_size)
+ {
+-	return i40e_get_rss_reg(vsi, seed, lut, lut_size);
++	struct i40e_pf *pf = vsi->back;
++
++	if (pf->flags & I40E_FLAG_RSS_AQ_CAPABLE)
++		return i40e_get_rss_aq(vsi, seed, lut, lut_size);
++	else
++		return i40e_get_rss_reg(vsi, seed, lut, lut_size);
+ }
  
--	if (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver < 33)) ||
--	    (pf->hw.aq.fw_maj_ver < 4)) {
-+	if (pf->flags & I40E_FLAG_RESTART_AUTONEG) {
- 		msleep(75);
- 		err = i40e_aq_set_link_restart_an(&pf->hw, true, NULL);
- 		if (err)
+ /**
 -- 
 2.5.0
