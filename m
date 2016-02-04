@@ -1,202 +1,87 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v3 net 5/7] net: mvneta: Modify the queue related fields from each cpu
-Date: Thu,  4 Feb 2016 22:09:27 +0100
-Message-ID: <1454620169-8156-6-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH v3 net 1/7] net: mvneta: Fix for_each_present_cpu usage
+Date: Thu,  4 Feb 2016 22:09:23 +0100
+Message-ID: <1454620169-8156-2-git-send-email-gregory.clement@free-electrons.com>
 References: <1454620169-8156-1-git-send-email-gregory.clement@free-electrons.com>
-Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Marcin Wojtas <mw@semihalf.com>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Willy Tarreau <w@1wt.eu>
-To: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+ Russell King - ARM Linux <linux@arm.linux.org.uk>,
+ Jason Cooper <jason@lakedaemon.net>, Nadav Haklai <nadavh@marvell.com>,
+ Gregory CLEMENT <gregory.clement@free-electrons.com>,
+ Marcin Wojtas <mw@semihalf.com>, Willy Tarreau <w@1wt.eu>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org,
+ Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1454620169-8156-1-git-send-email-gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-In the MVNETA_INTR_* registers, the queues related fields are per cpu,
-according to the datasheet (comment in [] are added by me):
-"In a multi-CPU system, bits of RX[or TX] queues for which the access by
-the reading[or writing] CPU is disabled are read as 0, and cannot be
-cleared[or written]."
+This patch convert the for_each_present in on_each_cpu, instead of
+applying on the present cpus it will be applied only on the online cpus.
+This fix a bug reported on
+http://thread.gmane.org/gmane.linux.ports.arm.kernel/468173.
 
-That means that each time we want to manipulate these bits we had to do
-it on each cpu and not only on the current cpu.
+Using the macro on_each_cpu (instead of a for_each_* loop) also ensures
+that all the calls will be done all at once.
 
+Fixes: f86428854480 ("net: mvneta: Statically assign queues to CPUs")
+Reported-by: Stefan Roese <stefan.roese@gmail.com>
+Suggested-by: Jisheng Zhang <jszhang@marvell.com>
+Suggested-by: Russell King <rmk+kernel@arm.linux.org.uk>
 Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 100 ++++++++++++++++------------------
- 1 file changed, 46 insertions(+), 54 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 74f8158df2b0..2d0e8a605ca9 100644
+index 662c2ee268c7..90ff5c7e19ea 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -1038,6 +1038,43 @@ static void mvneta_set_autoneg(struct mvneta_port *pp, int enable)
- 	}
- }
+@@ -2564,7 +2564,7 @@ static void mvneta_start_dev(struct mvneta_port *pp)
+ 	mvneta_port_enable(pp);
  
-+static void mvneta_percpu_unmask_interrupt(void *arg)
-+{
-+	struct mvneta_port *pp = arg;
-+
-+	/* All the queue are unmasked, but actually only the ones
-+	 * mapped to this CPU will be unmasked
-+	 */
-+	mvreg_write(pp, MVNETA_INTR_NEW_MASK,
-+		    MVNETA_RX_INTR_MASK_ALL |
-+		    MVNETA_TX_INTR_MASK_ALL |
-+		    MVNETA_MISCINTR_INTR_MASK);
-+}
-+
-+static void mvneta_percpu_mask_interrupt(void *arg)
-+{
-+	struct mvneta_port *pp = arg;
-+
-+	/* All the queue are masked, but actually only the ones
-+	 * mapped to this CPU will be masked
-+	 */
-+	mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
-+	mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
-+	mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
-+}
-+
-+static void mvneta_percpu_clear_intr_cause(void *arg)
-+{
-+	struct mvneta_port *pp = arg;
-+
-+	/* All the queue are cleared, but actually only the ones
-+	 * mapped to this CPU will be cleared
-+	 */
-+	mvreg_write(pp, MVNETA_INTR_NEW_CAUSE, 0);
-+	mvreg_write(pp, MVNETA_INTR_MISC_CAUSE, 0);
-+	mvreg_write(pp, MVNETA_INTR_OLD_CAUSE, 0);
-+}
-+
- /* This method sets defaults to the NETA port:
-  *	Clears interrupt Cause and Mask registers.
-  *	Clears all MAC tables.
-@@ -1055,14 +1092,10 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
- 	int max_cpu = num_present_cpus();
+ 	/* Enable polling on the port */
+-	for_each_present_cpu(cpu) {
++	for_each_online_cpu(cpu) {
+ 		struct mvneta_pcpu_port *port = per_cpu_ptr(pp->ports, cpu);
  
- 	/* Clear all Cause registers */
--	mvreg_write(pp, MVNETA_INTR_NEW_CAUSE, 0);
--	mvreg_write(pp, MVNETA_INTR_OLD_CAUSE, 0);
--	mvreg_write(pp, MVNETA_INTR_MISC_CAUSE, 0);
-+	on_each_cpu(mvneta_percpu_clear_intr_cause, pp, true);
- 
- 	/* Mask all interrupts */
--	mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
--	mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
--	mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
-+	on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
- 	mvreg_write(pp, MVNETA_INTR_ENABLE, 0);
- 
- 	/* Enable MBUS Retry bit16 */
-@@ -2528,31 +2561,6 @@ static int mvneta_setup_txqs(struct mvneta_port *pp)
- 	return 0;
- }
- 
--static void mvneta_percpu_unmask_interrupt(void *arg)
--{
--	struct mvneta_port *pp = arg;
--
--	/* All the queue are unmasked, but actually only the ones
--	 * maped to this CPU will be unmasked
--	 */
--	mvreg_write(pp, MVNETA_INTR_NEW_MASK,
--		    MVNETA_RX_INTR_MASK_ALL |
--		    MVNETA_TX_INTR_MASK_ALL |
--		    MVNETA_MISCINTR_INTR_MASK);
--}
--
--static void mvneta_percpu_mask_interrupt(void *arg)
--{
--	struct mvneta_port *pp = arg;
--
--	/* All the queue are masked, but actually only the ones
--	 * maped to this CPU will be masked
--	 */
--	mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
--	mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
--	mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
--}
--
- static void mvneta_start_dev(struct mvneta_port *pp)
- {
- 	int cpu;
-@@ -2603,13 +2611,10 @@ static void mvneta_stop_dev(struct mvneta_port *pp)
- 	mvneta_port_disable(pp);
- 
- 	/* Clear all ethernet port interrupts */
--	mvreg_write(pp, MVNETA_INTR_MISC_CAUSE, 0);
--	mvreg_write(pp, MVNETA_INTR_OLD_CAUSE, 0);
-+	on_each_cpu(mvneta_percpu_clear_intr_cause, pp, true);
- 
- 	/* Mask all ethernet port interrupts */
--	mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
--	mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
--	mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
-+	on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
- 
- 	mvneta_tx_reset(pp);
- 	mvneta_rx_reset(pp);
-@@ -2921,9 +2926,7 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
- 		}
- 
- 		/* Mask all ethernet port interrupts */
--		mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
--		mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
--		mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
-+		on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
  		napi_enable(&port->napi);
+@@ -2589,7 +2589,7 @@ static void mvneta_stop_dev(struct mvneta_port *pp)
  
+ 	phy_stop(pp->phy_dev);
  
-@@ -2938,14 +2941,8 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
- 		 */
- 		mvneta_percpu_elect(pp);
+-	for_each_present_cpu(cpu) {
++	for_each_online_cpu(cpu) {
+ 		struct mvneta_pcpu_port *port = per_cpu_ptr(pp->ports, cpu);
  
--		/* Unmask all ethernet port interrupts, as this
--		 * notifier is called for each CPU then the CPU to
--		 * Queue mapping is applied
--		 */
--		mvreg_write(pp, MVNETA_INTR_NEW_MASK,
--			MVNETA_RX_INTR_MASK(rxq_number) |
--			MVNETA_TX_INTR_MASK(txq_number) |
--			MVNETA_MISCINTR_INTR_MASK);
-+		/* Unmask all ethernet port interrupts */
-+		on_each_cpu(mvneta_percpu_unmask_interrupt, pp, true);
- 		mvreg_write(pp, MVNETA_INTR_MISC_MASK,
- 			MVNETA_CAUSE_PHY_STATUS_CHANGE |
- 			MVNETA_CAUSE_LINK_CHANGE |
-@@ -2956,9 +2953,7 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
- 	case CPU_DOWN_PREPARE_FROZEN:
- 		netif_tx_stop_all_queues(pp->dev);
- 		/* Mask all ethernet port interrupts */
--		mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
--		mvreg_write(pp, MVNETA_INTR_OLD_MASK, 0);
--		mvreg_write(pp, MVNETA_INTR_MISC_MASK, 0);
-+		on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
- 
- 		napi_synchronize(&port->napi);
  		napi_disable(&port->napi);
-@@ -2974,10 +2969,7 @@ static int mvneta_percpu_notifier(struct notifier_block *nfb,
- 		/* Check if a new CPU must be elected now this on is down */
- 		mvneta_percpu_elect(pp);
- 		/* Unmask all ethernet port interrupts */
--		mvreg_write(pp, MVNETA_INTR_NEW_MASK,
--			MVNETA_RX_INTR_MASK(rxq_number) |
--			MVNETA_TX_INTR_MASK(txq_number) |
--			MVNETA_MISCINTR_INTR_MASK);
-+		on_each_cpu(mvneta_percpu_unmask_interrupt, pp, true);
- 		mvreg_write(pp, MVNETA_INTR_MISC_MASK,
- 			MVNETA_CAUSE_PHY_STATUS_CHANGE |
- 			MVNETA_CAUSE_LINK_CHANGE |
+@@ -3057,13 +3057,11 @@ err_cleanup_rxqs:
+ static int mvneta_stop(struct net_device *dev)
+ {
+ 	struct mvneta_port *pp = netdev_priv(dev);
+-	int cpu;
+ 
+ 	mvneta_stop_dev(pp);
+ 	mvneta_mdio_remove(pp);
+ 	unregister_cpu_notifier(&pp->cpu_notifier);
+-	for_each_present_cpu(cpu)
+-		smp_call_function_single(cpu, mvneta_percpu_disable, pp, true);
++	on_each_cpu(mvneta_percpu_disable, pp, true);
+ 	free_percpu_irq(dev->irq, pp->ports);
+ 	mvneta_cleanup_rxqs(pp);
+ 	mvneta_cleanup_txqs(pp);
 -- 
 2.5.0
