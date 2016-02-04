@@ -1,80 +1,132 @@
-From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Subject: Re: [RFC v2] iwlwifi: pcie: transmit queue auto-sizing
-Date: Thu, 4 Feb 2016 13:14:13 -0800
-Message-ID: <56B3BF25.8080509@candelatech.com>
-References: <1454616764-19841-1-git-send-email-emmanuel.grumbach@intel.com>
- <1454616988-21901-1-git-send-email-emmanuel.grumbach@intel.com>
- <56B3B885.1050409@candelatech.com>
- <0BA3FCBA62E2DC44AF3030971E174FB32EA02656@hasmsx107.ger.corp.intel.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
+Date: Thu, 4 Feb 2016 13:46:11 -0800
+Message-ID: <CA+55aFxqs+mE=s4UkNQXJA8JjAKKb6vk1JO672jdEuWtsJ=hVg@mail.gmail.com>
+References: <1454527121-4007853-1-git-send-email-tom@herbertland.com>
+	<20160204093021.GB1553@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>
-To: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB32EA02656-Jy8z56yoSI9wl47ZQwxUxrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <tom@herbertland.com>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>, Peter Anvin <hpa@zytor.com>,
+	"the arch/x86 maintainers" <x86@kernel.org>,
+	kernel-team <kernel-team@fb.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:35727 "EHLO
+	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965728AbcBDVqM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 16:46:12 -0500
+In-Reply-To: <20160204093021.GB1553@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/04/2016 12:56 PM, Grumbach, Emmanuel wrote:
->
->
-> On 02/04/2016 10:46 PM, Ben Greear wrote:
->> On 02/04/2016 12:16 PM, Emmanuel Grumbach wrote:
->>> As many (all?) WiFi devices, Intel WiFi devices have
->>> transmit queues which have 256 transmit descriptors
->>> each and each descriptor corresponds to an MPDU.
->>> This means that when it is full, the queue contains
->>> 256 * ~1500 bytes to be transmitted (if we don't have
->>> A-MSDUs). The purpose of those queues is to have enough
->>> packets to be ready for transmission so that when the device
->>> gets an opportunity to transmit (TxOP), it can take as many
->>> packets as the spec allows and aggregate them into one
->>> A-MPDU or even several A-MPDUs if we are using bursts.
->> I guess this is only really usable if you have exactly one
->> peer connected (ie, in station mode)?
->>
->> Otherwise, you could have one slow peer and one fast one,
->> and then I suspect this would not work so well?
->
-> Yes. I guess this one (big) limitation. I guess that what would happen
-> in this case is that the the latency would constantly jitter. But I also
-> noticed that I could reduce the transmit queue to 130 descriptors
-> (instead of 256) and still reach maximal throughput because we can
-> refill the queues quickly enough.
-> In iwlwifi, we have plans to have one queue for each peer.
-> This is under development. Not sure when it'll be ready. It also requires
-> firmware change obviously.
+I missed the original email (I don't have net-devel in my mailbox),
+but based on Ingo's quoting have a more fundamental question:
 
-Per-peer queues will probably be nice, especially if we can keep the
-buffer bloat manageable.
+Why wasn't that done with C code instead of asm with odd numerical targets?
 
->> For reference, ath10k has around 1400 tx descriptors, though
->> in practice not all are usable, and in stock firmware, I'm guessing
->> the NIC will never be able to actually fill up it's tx descriptors
->> and stop traffic.  Instead, it just allows the stack to try to
->> TX, then drops the frame...
->
-> 1400 descriptors, ok... but they are not organised in queues?
-> (forgive my ignorance of athX drivers)
+It seems likely that the real issue is avoiding the short loops (that
+will cause branch prediction problems) and use a lookup table instead.
 
-I think all the details are in the firmware, at least for now.
+But we can probably do better than that asm.
 
-The firmware details are probably not something I should go into, but suffice it to say
-its complex and varies between firmware versions in non-trivial ways.
+For example, for the actual "8 bytes or shorter" case, I think
+something like this might just work fine:
 
-Thanks,
-Ben
+  unsigned long csum_partial_8orless(const unsigned char *buf,
+unsigned long len, unsigned long sum)
+  {
+        static const unsigned long mask[9] = {
+                0x0000000000000000,
+                0x000000000000ff00,
+                0x000000000000ffff,
+                0x00000000ff00ffff,
+                0x00000000ffffffff,
+                0x0000ff00ffffffff,
+                0x0000ffffffffffff,
+                0xff00ffffffffffff,
+                0xffffffffffffffff };
+        unsigned long val = load_unaligned_zeropad(buf + (len & 1));
+        val &= mask[len];
+        asm("addq %1,%0 ; adcq $0,%0":"=r" (sum):"r" (val), "0" (sum));
+        return sum;
+  }
 
--- 
-Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Candela Technologies Inc  http://www.candelatech.com
+NOTE! The above is 100% untested. But I _think_ it may handle the
+odd-byte-case correctly, and it should result in just one 8-byte load
+(the "load_unaligned_zeropad()" is just in case that ends up
+overflowing and we have page-alloc-debug triggering a page fault at
+the end). All without looping or any conditional branches that might
+mispredict.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+My point is that going to assembly results in pretty hard-to-read
+code, but it's also fairly inflexible. If we stay with C, we can much
+more easily play tricks. So for example, make the above an inline
+function, and now you can do things like this:
+
+  static inline unsigned long csum_partial_64bit(void *buf, unsigned
+long len, unsigned long sum)
+  {
+        if (len <= 8)
+                return csum_partial_8orless(buf, len, sum);
+
+        /* We know it's larger than 8 bytes, so handle alignment */
+        align = 7 & -(unsigned long)buf;
+        sum = csum_partial_8orless(buf, align, sum);
+        buf += align;
+
+        /* We need to do the big-endian thing */
+        sum = rotate_by8_if_odd(sum, align);
+
+        /* main loop for big packets */
+        .. do the unrolled inline asm thing that we already do ..
+
+        sum = rotate_by8_if_odd(sum, align);
+
+        /* Handle the last bytes */
+        return csum_partial_8orless(buf, len, sum);
+  }
+
+  /* Fold the 64-bit sum we computed down to 32 bits __wsum */
+  __wsum int csum_partial(void *buf, unsigned int len, __wsum partial)
+  {
+        unsigned long sum = csum_partial_64bit(ptr, len, partial);
+        asm("addl %1,%0 ; adcl $0,%0":"=r" (sum):"r" (sum >> 32), "0" (sum));
+        return sum;
+ }
+
+or something like that.
+
+NOTE NOTE NOTE! I did a half-arsed attempt at getting the whole
+"big-endian 16-bit add" thing right by doing the odd byte masking in
+the end cases, and by rotating the sum by 8 bits around the
+8-byte-unrolled-loop, but I didn't test the above. It's literally
+written in my mail client. So I can almost guarantee that it is buggy,
+but it is meant as an *example* of "why not do it this way" rather
+than production code.
+
+I think that writing it in C and trying to be intelligent about it
+like the above would result in more maintainable code, and it is
+possible that it would even be faster.
+
+Yes, writing it in C *does* likely result in a few more cases of "adcq
+$0" in order to finish up the carry calculations. The *only* advantage
+of inline asm is how it allows you to keep the carry flag around. So
+there is downside to the C model, and it might cause a cycle or two of
+extra work, but the upside of C is that you can try to do clever
+things without turning the code completely unreadable.
+
+For example, doing the exception handling (that will never actually
+trigger) for the "let's just do a 8-byte load" is just painful in
+assembly. In C, we already have the helper function to do it.
+
+Hmm? Would somebody be willing to take the likely very buggy code
+above, and test it and make it work? I assume there's a test harness
+for the whole csum thing somewhere.
+
+                     Linus
