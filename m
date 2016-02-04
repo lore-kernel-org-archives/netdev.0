@@ -1,22 +1,18 @@
-From: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
-Subject: [RFC RESEND] iwlwifi: pcie: transmit queue auto-sizing
-Date: Thu,  4 Feb 2016 22:16:12 +0200
-Message-ID: <1454616972-21709-1-git-send-email-emmanuel.grumbach@intel.com>
+From: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [RFC v2] iwlwifi: pcie: transmit queue auto-sizing
+Date: Thu,  4 Feb 2016 22:16:28 +0200
+Message-ID: <1454616988-21901-1-git-send-email-emmanuel.grumbach@intel.com>
 References: <1454616764-19841-1-git-send-email-emmanuel.grumbach@intel.com>
-Cc: netdev@vger.kernel.org,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Dave Taht <dave.taht@gmail.com>,
-	Jonathan Corbet <corbet@lwn.net>
-To: linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:49312 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752015AbcBDUQR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Feb 2016 15:16:17 -0500
-In-Reply-To: <1454616764-19841-1-git-send-email-emmanuel.grumbach@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1454616764-19841-1-git-send-email-emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 As many (all?) WiFi devices, Intel WiFi devices have
 transmit queues which have 256 transmit descriptors
@@ -89,10 +85,10 @@ Clearly, there is more work to do to be able to merge this,
 but it seems that the wireless problems mentioned in
 https://lwn.net/Articles/616241/ may have a solution.
 
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Dave Taht <dave.taht@gmail.com>
-Cc: Jonathan Corbet <corbet@lwn.net>
-Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+Cc: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Cc: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>
+Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
 Fix Dave's email address
 ---
@@ -199,9 +195,3 @@ index 837a7d5..4d1dee6 100644
  		/* don't put the packet on the ring, if there is no room */
  		if (unlikely(iwl_queue_space(q) < 3)) {
 -			struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
--
- 			info->driver_data[IWL_TRANS_FIRST_DRIVER_DATA + 1] =
- 				dev_cmd;
- 			__skb_queue_tail(&txq->overflow_q, skb);
--- 
-2.5.0
