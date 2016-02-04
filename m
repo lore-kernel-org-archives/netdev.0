@@ -1,81 +1,53 @@
-From: Salam Noureddine <noureddine@arista.com>
-Subject: Re: [PATCH net-next 2/4] net: dev: add batching to net_device notifiers
-Date: Wed, 3 Feb 2016 17:26:04 -0800
-Message-ID: <CAO7SqHDZfxMHv4JE5x7QbuJaBAPiH1MUed5RkHwvMWDRtkLQaw@mail.gmail.com>
-References: <1454365952-10324-1-git-send-email-noureddine@arista.com>
-	<1454365952-10324-3-git-send-email-noureddine@arista.com>
-	<alpine.LFD.2.11.1602022219010.2006@ja.home.ssi.bg>
-	<CAO7SqHBKrPvaEhLeEJsCrjYEiPcZ6MpyfwY43NwhGLWhW4VTNQ@mail.gmail.com>
-	<alpine.LFD.2.11.1602030950280.1736@ja.home.ssi.bg>
+From: Sorin Manolache <sorinm@gmail.com>
+Subject: Re: Fw: [Bug 111771] New: deadlock in ppp/l2tp
+Date: Thu, 4 Feb 2016 02:32:48 +0100
+Message-ID: <56B2AA40.5090601@gmail.com>
+References: <20160203110431.7b878a4f@samsung9>
+ <20160203171401.GC1267@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Guillaume Nault <g.nault@alphalink.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:36142 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933034AbcBDB0F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 20:26:05 -0500
-Received: by mail-wm0-f54.google.com with SMTP id p63so190561976wmp.1
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 17:26:04 -0800 (PST)
-In-Reply-To: <alpine.LFD.2.11.1602030950280.1736@ja.home.ssi.bg>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:37129 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752197AbcBDBc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2016 20:32:58 -0500
+Received: by mail-wm0-f51.google.com with SMTP id l66so96114010wml.0
+        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 17:32:57 -0800 (PST)
+In-Reply-To: <20160203171401.GC1267@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 3, 2016 at 12:08 AM, Julian Anastasov <ja@ssi.bg> wrote:
+On 2016-02-03 18:14, Guillaume Nault wrote:
+> On Wed, Feb 03, 2016 at 11:04:31AM +1100, Stephen Hemminger wrote:
+>> Please excuse URL mangling, my bugzilla address appears to route through
+>> stupid corporate firewall.
+>>
+>
+> Sorin, it seems like one of your L2TP tunnels is routed to one of its upper PPP
+> devices. Most likely, the peer address of the PPP device is also the address of
+> the remote L2TP tunnel endpoint. So L2TP packets are sent back to the upper PPP
+> device, instead of leaving through the physical interface.
 
+Thank you. You are right. There's a host route to the peer over the ppp0 
+interface in the routing table. I don't know how it gets there. I've 
+checked the source code of pppd and no such route is added for kernels 
+newer than 2.1.16. I've grepped /etc for "route" in order to detect a 
+"post-up" script that would add that route. Nothing. I've double-checked 
+by executing strace on xl2tpd and its children (i.e. pppd and the 
+initialisation scripts) and I couldn't find any ioctl SIOCADDRT. So it's 
+a total mystery for me where that route comes from. Could it come from 
+the kernel?
 
->         Aha, I see, it is after NETDEV_UNREGISTER but may be
-> the above loop should be changed to two loops so that
-> NETDEV_UNREGISTER_BATCH is called exactly after all
-> NETDEV_UNREGISTER and before all dev_*_flush and
-> ndo_uninit calls to avoid any risks. I mean:
->
->         synchronize_net();
->
->         First part of loop:
->
->         list_for_each_entry(dev, head, unreg_list) {
->                 /* Shutdown queueing discipline. */
->                 dev_shutdown(dev);
->
->                 /* Notify protocols, that we are about to destroy
->                    this device. They should clean all the things.
->                 */
->                 call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
->         }
->
->         This is the same NETDEV_UNREGISTER_BATCH logic:
->
-> +       list_for_each_entry(dev, head, unreg_list) {
-> +               net_add_event_list(&net_head, dev_net(dev));
-> +       }
-> +       list_for_each_entry_safe(net, net_tmp, &net_head, event_list) {
-> +               call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH,
-> +                                        net->loopback_dev);
-> +               net_del_event_list(net);
-> +       }
->
->         Second part of the loop:
->
->         list_for_each_entry(dev, head, unreg_list) {
->                 struct sk_buff *skb = NULL;
->
->                 if (!dev->rtnl_link_ops ||
->                 ...
->
-> Regards
->
-> --
-> Julian Anastasov <ja@ssi.bg>
+I've found this 9-year-old bug report: 
+https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=444180. I've adopted 
+the strategy that the comment proposes: delete the route in an post-up 
+script.
 
-You're right. It is probably safer to organize the code the way you said.
-Will change that, Thanks!
+Thanks again.
 
-Salam
+Best regards,
+Sorin
