@@ -1,8 +1,7 @@
 From: Salam Noureddine <noureddine@arista.com>
-Subject: [PATCH v2 net-next 4/4] net: fib: avoid calling fib_flush for each device when doing batch close and unregister
-Date: Thu,  4 Feb 2016 15:35:56 -0800
-Message-ID: <1454628956-4803-5-git-send-email-noureddine@arista.com>
-References: <1454628956-4803-1-git-send-email-noureddine@arista.com>
+Subject: [PATCH v2 net-next 0/4] batch calls to fib_flush and arp_ifdown
+Date: Thu,  4 Feb 2016 15:35:52 -0800
+Message-ID: <1454628956-4803-1-git-send-email-noureddine@arista.com>
 Cc: Salam Noureddine <noureddine@arista.com>
 To: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>,
@@ -12,73 +11,42 @@ To: "David S. Miller" <davem@davemloft.net>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mx.aristanetworks.com ([162.210.130.12]:18779 "EHLO
+Received: from prod-mx.aristanetworks.com ([162.210.130.12]:49836 "EHLO
 	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756846AbcBDXnC (ORCPT
+	by vger.kernel.org with ESMTP id S1757340AbcBDXnC (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 18:43:02 -0500
-In-Reply-To: <1454628956-4803-1-git-send-email-noureddine@arista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Call fib_flush at the end when closing or unregistering multiple
-devices. This can save walking the fib many times and greatly
-reduce rtnl_lock hold time when unregistering many devices with
-a fib having hundreds of thousands of routes.
+Added changes suggested by Julian Anastasov in version 2.
 
-Signed-off-by: Salam Noureddine <noureddine@arista.com>
----
- include/net/netns/ipv4.h |  1 +
- net/ipv4/fib_frontend.c  | 16 ++++++++++++++--
- 2 files changed, 15 insertions(+), 2 deletions(-)
+fib_flush walks the whole fib in a net_namespace and is called for
+each net_device being closed or unregistered. This can be very expensive
+when dealing with 100k or more routes in the fib and removal of a lot
+of interfaces. These four patches deal with this issue by calling fib_flush
+just once for each net namespace and introduce a new function arp_ifdown_all
+that does a similar optimization for the neighbour table.
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index d75be32..d59a078 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -111,5 +111,6 @@ struct netns_ipv4 {
- #endif
- #endif
- 	atomic_t	rt_genid;
-+	bool		needs_fib_flush;
- };
- #endif
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 4734475..808426e 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -1161,11 +1161,22 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
- 	unsigned int flags;
- 
- 	if (event == NETDEV_UNREGISTER) {
--		fib_disable_ip(dev, event, true);
-+		if (fib_sync_down_dev(dev, event, true))
-+			net->ipv4.needs_fib_flush = true;
- 		rt_flush_dev(dev);
- 		return NOTIFY_DONE;
- 	}
- 
-+	if (event == NETDEV_UNREGISTER_BATCH || event == NETDEV_DOWN_BATCH) {
-+		if (net->ipv4.needs_fib_flush) {
-+			fib_flush(net);
-+			net->ipv4.needs_fib_flush = false;
-+		}
-+		rt_cache_flush(net);
-+		arp_ifdown_all();
-+		return NOTIFY_DONE;
-+	}
-+
- 	in_dev = __in_dev_get_rtnl(dev);
- 	if (!in_dev)
- 		return NOTIFY_DONE;
-@@ -1182,7 +1193,8 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
- 		rt_cache_flush(net);
- 		break;
- 	case NETDEV_DOWN:
--		fib_disable_ip(dev, event, false);
-+		if (fib_sync_down_dev(dev, event, false))
-+			net->ipv4.needs_fib_flush = true;
- 		break;
- 	case NETDEV_CHANGE:
- 		flags = dev_get_flags(dev);
+The benchmark tests were run on linux-3.18.
+
+Salam Noureddine (4):
+  net: add event_list to struct net and provide utility functions
+  net: dev: add batching to net_device notifiers
+  net: core: introduce neigh_ifdown_all for all down interfaces
+  net: fib: avoid calling fib_flush for each device when doing batch
+    close     and unregister
+
+ include/linux/netdevice.h   |  2 ++
+ include/net/arp.h           |  1 +
+ include/net/neighbour.h     |  1 +
+ include/net/net_namespace.h | 22 +++++++++++++++++++++
+ include/net/netns/ipv4.h    |  1 +
+ net/core/dev.c              | 48 ++++++++++++++++++++++++++++++++++++++++-----
+ net/core/neighbour.c        | 38 ++++++++++++++++++++++++++++-------
+ net/core/net_namespace.c    |  1 +
+ net/ipv4/arp.c              |  4 ++++
+ net/ipv4/fib_frontend.c     | 16 +++++++++++++--
+ 10 files changed, 120 insertions(+), 14 deletions(-)
+
 -- 
 1.8.1.4
