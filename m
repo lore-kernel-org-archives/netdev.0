@@ -1,162 +1,78 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH net-next v5 2/2] virtio_net: add ethtool support for set
  and get of settings
-Date: Thu, 4 Feb 2016 14:21:27 +0200
-Message-ID: <20160204141947-mutt-send-email-mst@redhat.com>
+Date: Thu, 4 Feb 2016 14:23:14 +0200
+Message-ID: <20160204142156-mutt-send-email-mst@redhat.com>
 References: <1454468677-12280-1-git-send-email-razor@blackwall.org>
  <1454468677-12280-3-git-send-email-razor@blackwall.org>
+ <56B1C608.1040805@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Nikolay Aleksandrov <razor@blackwall.org>
+Cc: Nikolay Aleksandrov <razor@blackwall.org>, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com, davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48357 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56865 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755797AbcBDMV3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Feb 2016 07:21:29 -0500
+	id S1755732AbcBDMXS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Feb 2016 07:23:18 -0500
 Content-Disposition: inline
-In-Reply-To: <1454468677-12280-3-git-send-email-razor@blackwall.org>
+In-Reply-To: <56B1C608.1040805@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 03, 2016 at 04:04:37AM +0100, Nikolay Aleksandrov wrote:
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On Wed, Feb 03, 2016 at 10:19:04AM +0100, Nikolay Aleksandrov wrote:
+> On 02/03/2016 04:04 AM, Nikolay Aleksandrov wrote:
+> > From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> > 
+> > This patch allows the user to set and retrieve speed and duplex of the
+> > virtio_net device via ethtool. Having this functionality is very helpful
+> > for simulating different environments and also enables the virtio_net
+> > device to participate in operations where proper speed and duplex are
+> > required (e.g. currently bonding lacp mode requires full duplex). Custom
+> > speed and duplex are not allowed, the user-supplied settings are validated
+> > before applying.
+> > 
+> > Example:
+> > $ ethtool eth1
+> > Settings for eth1:
+> > ...
+> > 	Speed: Unknown!
+> > 	Duplex: Unknown! (255)
+> > $ ethtool -s eth1 speed 1000 duplex full
+> > $ ethtool eth1
+> > Settings for eth1:
+> > ...
+> > 	Speed: 1000Mb/s
+> > 	Duplex: Full
+> > 
+> > Based on a patch by Roopa Prabhu.
+> > 
+> > Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> > ---
+> > v2: use the new ethtool speed/duplex validation functions and allow half
+> > duplex to be set
+> > v3: return error if the user tries to change anything besides speed/duplex
+> > as per Michael's comment
+> > We have to zero-out advertising as it gets set automatically by ethtool if
+> > setting speed and duplex together.
+> > v4: Set port type to PORT_OTHER
+> > v5: null diff1.port because we set cmd->port now and ethtool returns it in
+> > the set request, retested all cases
+> > 
 > 
-> This patch allows the user to set and retrieve speed and duplex of the
-> virtio_net device via ethtool. Having this functionality is very helpful
-> for simulating different environments and also enables the virtio_net
-> device to participate in operations where proper speed and duplex are
-> required (e.g. currently bonding lacp mode requires full duplex). Custom
-> speed and duplex are not allowed, the user-supplied settings are validated
-> before applying.
+> Hmm, nulling the advertising and ->port completely ignores them, i.e. won't produce
+> an error if the user actually specified a different value for either of them.
+> We can check if the ->port matches what we returned, but there's no fix for
+> advertising. I'm leaving both ignored for now, please let me know if you'd
+> prefer otherwise.
 > 
-> Example:
-> $ ethtool eth1
-> Settings for eth1:
-> ...
-> 	Speed: Unknown!
-> 	Duplex: Unknown! (255)
-> $ ethtool -s eth1 speed 1000 duplex full
-> $ ethtool eth1
-> Settings for eth1:
-> ...
-> 	Speed: 1000Mb/s
-> 	Duplex: Full
-> 
-> Based on a patch by Roopa Prabhu.
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
-> v2: use the new ethtool speed/duplex validation functions and allow half
-> duplex to be set
-> v3: return error if the user tries to change anything besides speed/duplex
-> as per Michael's comment
-> We have to zero-out advertising as it gets set automatically by ethtool if
-> setting speed and duplex together.
-> v4: Set port type to PORT_OTHER
-> v5: null diff1.port because we set cmd->port now and ethtool returns it in
-> the set request, retested all cases
-> 
->  drivers/net/virtio_net.c | 60 ++++++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 60 insertions(+)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 767ab11a6e9f..c9fd52a8e6ec 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -146,6 +146,10 @@ struct virtnet_info {
->  	virtio_net_ctrl_ack ctrl_status;
->  	u8 ctrl_promisc;
->  	u8 ctrl_allmulti;
-> +
-> +	/* Ethtool settings */
-> +	u8 duplex;
-> +	u32 speed;
->  };
->  
->  struct padded_vnet_hdr {
-> @@ -1376,6 +1380,58 @@ static void virtnet_get_channels(struct net_device *dev,
->  	channels->other_count = 0;
->  }
->  
-> +/* Check if the user is trying to change anything besides speed/duplex */
-> +static bool virtnet_validate_ethtool_cmd(const struct ethtool_cmd *cmd)
-> +{
-> +	struct ethtool_cmd diff1 = *cmd;
-> +	struct ethtool_cmd diff2 = {};
-> +
-> +	/* advertising and cmd are usually set, ignore port because we set it */
+> Thanks,
+>  Nik
 
-We set it where?
-Instead of this, should not we set diff2.port to PORT_OTHER?
+I think I prefer validating port.
+For advertising we don't allow enabling autonegotiation so ignoring
+these is fine I think.
 
-> +	ethtool_cmd_speed_set(&diff1, 0);
-> +	diff1.advertising = 0;
-> +	diff1.duplex = 0;
-> +	diff1.port = 0;
-> +	diff1.cmd = 0;
-> +
-> +	return !memcmp(&diff1, &diff2, sizeof(diff1));
-> +}
-> +
-> +static int virtnet_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-> +{
-> +	struct virtnet_info *vi = netdev_priv(dev);
-> +	u32 speed;
-> +
-> +	speed = ethtool_cmd_speed(cmd);
-> +	/* don't allow custom speed and duplex */
-> +	if (!ethtool_validate_speed(speed) ||
-> +	    !ethtool_validate_duplex(cmd->duplex) ||
-> +	    !virtnet_validate_ethtool_cmd(cmd))
-> +		return -EINVAL;
-> +	vi->speed = speed;
-> +	vi->duplex = cmd->duplex;
-> +
-> +	return 0;
-> +}
-> +
-> +static int virtnet_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-> +{
-> +	struct virtnet_info *vi = netdev_priv(dev);
-> +
-> +	ethtool_cmd_speed_set(cmd, vi->speed);
-> +	cmd->duplex = vi->duplex;
-> +	cmd->port = PORT_OTHER;
-> +
-> +	return 0;
-> +}
-> +
-> +static void virtnet_init_settings(struct net_device *dev)
-> +{
-> +	struct virtnet_info *vi = netdev_priv(dev);
-> +
-> +	vi->speed = SPEED_UNKNOWN;
-> +	vi->duplex = DUPLEX_UNKNOWN;
-> +}
-> +
->  static const struct ethtool_ops virtnet_ethtool_ops = {
->  	.get_drvinfo = virtnet_get_drvinfo,
->  	.get_link = ethtool_op_get_link,
-> @@ -1383,6 +1439,8 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
->  	.set_channels = virtnet_set_channels,
->  	.get_channels = virtnet_get_channels,
->  	.get_ts_info = ethtool_op_get_ts_info,
-> +	.get_settings = virtnet_get_settings,
-> +	.set_settings = virtnet_set_settings,
->  };
->  
->  #define MIN_MTU 68
-> @@ -1855,6 +1913,8 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
->  	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
->  
-> +	virtnet_init_settings(dev);
-> +
->  	err = register_netdev(dev);
->  	if (err) {
->  		pr_debug("virtio_net: registering device failed\n");
-> -- 
-> 2.4.3
+-- 
+MST
