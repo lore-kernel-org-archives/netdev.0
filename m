@@ -1,172 +1,346 @@
-From: Laura Abbott <labbott@fedoraproject.org>
-Subject: [PATCHv2] vsock: Fix blocking ops call in prepare_to_wait
-Date: Thu,  4 Feb 2016 10:50:45 -0800
-Message-ID: <1454611845-5358-1-git-send-email-labbott@fedoraproject.org>
-Cc: Laura Abbott <labbott@fedoraproject.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Aditya Asarwade <asarwade@vmware.com>,
-	Thomas Hellstrom <thellstrom@vmware.com>,
-	Jorgen Hansen <jhansen@vmware.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH 1/3] lib: fix callers of strtobool to use char array
+Date: Thu, 4 Feb 2016 10:56:02 -0800
+Message-ID: <CAGXu5j+3vQ+3ZCggaMKn3KgLjA9jGmueCc5DmLoGEm2ZacaZvA@mail.gmail.com>
+References: <1453990627-19164-1-git-send-email-keescook@chromium.org>
+	<1453990627-19164-2-git-send-email-keescook@chromium.org>
+	<CAHp75VdDfOx-foW3ju_51R0qcHzrB9Oj2G3kpiW80qBx+AwQ1g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Steve French <sfrench@samba.org>, linux-cifs@vger.kernel.org,
+	Joe Perches <joe@perches.com>,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+	"open list:TI WILINK WIRELES..." <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andy Shevchenko <andy.shevchenko@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHp75VdDfOx-foW3ju_51R0qcHzrB9Oj2G3kpiW80qBx+AwQ1g@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We receoved a bug report from someone using vmware:
+On Mon, Feb 1, 2016 at 5:17 AM, Andy Shevchenko
+<andy.shevchenko@gmail.com> wrote:
+> On Thu, Jan 28, 2016 at 4:17 PM, Kees Cook <keescook@chromium.org> wrote:
+>> Some callers of strtobool were passing a pointer to unterminated strings.
+>> This fixes the issue and consolidates some logic in cifs.
+>
+> My comments below.
+>
+> First of all I don't think currently there is an issue in cifs, since
+> strbool checks only first character of the input string, or are you
+> talking about something else?
 
-WARNING: CPU: 3 PID: 660 at kernel/sched/core.c:7389
-__might_sleep+0x7d/0x90()
-do not call blocking ops when !TASK_RUNNING; state=1 set at
-[<ffffffff810fa68d>] prepare_to_wait+0x2d/0x90
-Modules linked in: vmw_vsock_vmci_transport vsock snd_seq_midi
-snd_seq_midi_event snd_ens1371 iosf_mbi gameport snd_rawmidi
-snd_ac97_codec ac97_bus snd_seq coretemp snd_seq_device snd_pcm
-snd_timer snd soundcore ppdev crct10dif_pclmul crc32_pclmul
-ghash_clmulni_intel vmw_vmci vmw_balloon i2c_piix4 shpchp parport_pc
-parport acpi_cpufreq nfsd auth_rpcgss nfs_acl lockd grace sunrpc btrfs
-xor raid6_pq 8021q garp stp llc mrp crc32c_intel serio_raw mptspi vmwgfx
-drm_kms_helper ttm drm scsi_transport_spi mptscsih e1000 ata_generic
-mptbase pata_acpi
-CPU: 3 PID: 660 Comm: vmtoolsd Not tainted
-4.2.0-0.rc1.git3.1.fc23.x86_64 #1
-Hardware name: VMware, Inc. VMware Virtual Platform/440BX Desktop
-Reference Platform, BIOS 6.00 05/20/2014
- 0000000000000000 0000000049e617f3 ffff88006ac37ac8 ffffffff818641f5
- 0000000000000000 ffff88006ac37b20 ffff88006ac37b08 ffffffff810ab446
- ffff880068009f40 ffffffff81c63bc0 0000000000000061 0000000000000000
-Call Trace:
- [<ffffffff818641f5>] dump_stack+0x4c/0x65
- [<ffffffff810ab446>] warn_slowpath_common+0x86/0xc0
- [<ffffffff810ab4d5>] warn_slowpath_fmt+0x55/0x70
- [<ffffffff8112551d>] ? debug_lockdep_rcu_enabled+0x1d/0x20
- [<ffffffff810fa68d>] ? prepare_to_wait+0x2d/0x90
- [<ffffffff810fa68d>] ? prepare_to_wait+0x2d/0x90
- [<ffffffff810da2bd>] __might_sleep+0x7d/0x90
- [<ffffffff812163b3>] __might_fault+0x43/0xa0
- [<ffffffff81430477>] copy_from_iter+0x87/0x2a0
- [<ffffffffa039460a>] __qp_memcpy_to_queue+0x9a/0x1b0 [vmw_vmci]
- [<ffffffffa0394740>] ? qp_memcpy_to_queue+0x20/0x20 [vmw_vmci]
- [<ffffffffa0394757>] qp_memcpy_to_queue_iov+0x17/0x20 [vmw_vmci]
- [<ffffffffa0394d50>] qp_enqueue_locked+0xa0/0x140 [vmw_vmci]
- [<ffffffffa039593f>] vmci_qpair_enquev+0x4f/0xd0 [vmw_vmci]
- [<ffffffffa04847bb>] vmci_transport_stream_enqueue+0x1b/0x20
-[vmw_vsock_vmci_transport]
- [<ffffffffa047ae05>] vsock_stream_sendmsg+0x2c5/0x320 [vsock]
- [<ffffffff810fabd0>] ? wake_atomic_t_function+0x70/0x70
- [<ffffffff81702af8>] sock_sendmsg+0x38/0x50
- [<ffffffff81702ff4>] SYSC_sendto+0x104/0x190
- [<ffffffff8126e25a>] ? vfs_read+0x8a/0x140
- [<ffffffff817042ee>] SyS_sendto+0xe/0x10
- [<ffffffff8186d9ae>] entry_SYSCALL_64_fastpath+0x12/0x76
+Right, no, this is a fix before extending strtobool to parse the
+second character in the string (for handling "on" and "off").
 
-transport->stream_enqueue may call copy_to_user so it should
-not be called inside a prepare_to_wait. Narrow the scope of
-the prepare_to_wait to avoid the bad call. This also applies
-to vsock_stream_recvmsg as well.
+>> diff --git a/drivers/net/wireless/marvell/mwifiex/debugfs.c b/drivers/net/wireless/marvell/mwifiex/debugfs.c
+>> index 0b9c580af988..76af60899c69 100644
+>> --- a/drivers/net/wireless/marvell/mwifiex/debugfs.c
+>> +++ b/drivers/net/wireless/marvell/mwifiex/debugfs.c
+>> @@ -880,13 +880,13 @@ mwifiex_reset_write(struct file *file,
+>>  {
+>>         struct mwifiex_private *priv = file->private_data;
+>>         struct mwifiex_adapter *adapter = priv->adapter;
+>> -       char cmd;
+>> +       char cmd[2] = { '\0' };
+>>         bool result;
+>>
+>> -       if (copy_from_user(&cmd, ubuf, sizeof(cmd)))
+>> +       if (copy_from_user(cmd, ubuf, sizeof(char)))
+>>                 return -EFAULT;
+>>
+>> -       if (strtobool(&cmd, &result))
+>> +       if (strtobool(cmd, &result))
+>>                 return -EINVAL;
+>
+> Can we do strtobool_from_user() instead like kstrto*from_user() and
+> similar helpers are done?
 
-Reported-by: Vinson Lee <vlee@freedesktop.org>
-Tested-by: Vinson Lee <vlee@freedesktop.org>
-Signed-off-by: Laura Abbott <labbott@fedoraproject.org>
----
-v2: fix same issue in recvmsg path as well.
----
- net/vmw_vsock/af_vsock.c | 19 ++++++-------------
- 1 file changed, 6 insertions(+), 13 deletions(-)
+Yeah, that might clean this up a bit more. I will add it.
 
-diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-index 7fd1220..bbe65dc 100644
---- a/net/vmw_vsock/af_vsock.c
-+++ b/net/vmw_vsock/af_vsock.c
-@@ -1557,8 +1557,6 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 	if (err < 0)
- 		goto out;
- 
--	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
--
- 	while (total_written < len) {
- 		ssize_t written;
- 
-@@ -1578,7 +1576,9 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 				goto out_wait;
- 
- 			release_sock(sk);
-+			prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
- 			timeout = schedule_timeout(timeout);
-+			finish_wait(sk_sleep(sk), &wait);
- 			lock_sock(sk);
- 			if (signal_pending(current)) {
- 				err = sock_intr_errno(timeout);
-@@ -1588,8 +1588,6 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 				goto out_wait;
- 			}
- 
--			prepare_to_wait(sk_sleep(sk), &wait,
--					TASK_INTERRUPTIBLE);
- 		}
- 
- 		/* These checks occur both as part of and after the loop
-@@ -1635,7 +1633,6 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- out_wait:
- 	if (total_written > 0)
- 		err = total_written;
--	finish_wait(sk_sleep(sk), &wait);
- out:
- 	release_sock(sk);
- 	return err;
-@@ -1716,7 +1713,6 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 	if (err < 0)
- 		goto out;
- 
--	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
- 
- 	while (1) {
- 		s64 ready = vsock_stream_has_data(vsk);
-@@ -1727,7 +1723,7 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 			 */
- 
- 			err = -ENOMEM;
--			goto out_wait;
-+			goto out;
- 		} else if (ready > 0) {
- 			ssize_t read;
- 
-@@ -1750,7 +1746,7 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 					vsk, target, read,
- 					!(flags & MSG_PEEK), &recv_data);
- 			if (err < 0)
--				goto out_wait;
-+				goto out;
- 
- 			if (read >= target || flags & MSG_PEEK)
- 				break;
-@@ -1773,7 +1769,9 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 				break;
- 
- 			release_sock(sk);
-+			prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
- 			timeout = schedule_timeout(timeout);
-+			finish_wait(sk_sleep(sk), &wait);
- 			lock_sock(sk);
- 
- 			if (signal_pending(current)) {
-@@ -1783,9 +1781,6 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 				err = -EAGAIN;
- 				break;
- 			}
--
--			prepare_to_wait(sk_sleep(sk), &wait,
--					TASK_INTERRUPTIBLE);
- 		}
- 	}
- 
-@@ -1816,8 +1811,6 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 		err = copied;
- 	}
- 
--out_wait:
--	finish_wait(sk_sleep(sk), &wait);
- out:
- 	release_sock(sk);
- 	return err;
+>>         if (!result)
+>> diff --git a/fs/cifs/cifs_debug.c b/fs/cifs/cifs_debug.c
+>> index 50b268483302..2f7ffcc9e364 100644
+>> --- a/fs/cifs/cifs_debug.c
+>> +++ b/fs/cifs/cifs_debug.c
+>> @@ -251,11 +251,29 @@ static const struct file_operations cifs_debug_data_proc_fops = {
+>>         .release        = single_release,
+>>  };
+>>
+>> +static int get_user_bool(const char __user *buffer, bool *store)
+>> +{
+>> +       char c[2] = { '\0' };
+>> +       bool bv;
+>> +       int rc;
+>> +
+>> +       rc = get_user(c[0], buffer);
+>> +       if (rc)
+>> +               return rc;
+>> +
+>> +       rc = strtobool(c, &bv);
+>> +       if (rc)
+>> +               return rc;
+>> +
+>> +       *store = bv;
+>> +
+>> +       return 0;
+>> +}
+>> +
+>>  #ifdef CONFIG_CIFS_STATS
+>>  static ssize_t cifs_stats_proc_write(struct file *file,
+>>                 const char __user *buffer, size_t count, loff_t *ppos)
+>>  {
+>> -       char c;
+>>         bool bv;
+>>         int rc;
+>>         struct list_head *tmp1, *tmp2, *tmp3;
+>> @@ -263,34 +281,32 @@ static ssize_t cifs_stats_proc_write(struct file *file,
+>>         struct cifs_ses *ses;
+>>         struct cifs_tcon *tcon;
+>>
+>> -       rc = get_user(c, buffer);
+>> +       rc = get_user_bool(buffer, &bv);
+>>         if (rc)
+>>                 return rc;
+>>
+>> -       if (strtobool(&c, &bv) == 0) {
+>>  #ifdef CONFIG_CIFS_STATS2
+>
+> I would suggest to do a separate patch which just changes a pattern
+> and thus indentation without changing anything in functionality.
+
+Okay, noted.
+
+>> -               atomic_set(&totBufAllocCount, 0);
+>> -               atomic_set(&totSmBufAllocCount, 0);
+>> +       atomic_set(&totBufAllocCount, 0);
+>> +       atomic_set(&totSmBufAllocCount, 0);
+>>  #endif /* CONFIG_CIFS_STATS2 */
+>> -               spin_lock(&cifs_tcp_ses_lock);
+>> -               list_for_each(tmp1, &cifs_tcp_ses_list) {
+>> -                       server = list_entry(tmp1, struct TCP_Server_Info,
+>> -                                           tcp_ses_list);
+>> -                       list_for_each(tmp2, &server->smb_ses_list) {
+>> -                               ses = list_entry(tmp2, struct cifs_ses,
+>> -                                                smb_ses_list);
+>> -                               list_for_each(tmp3, &ses->tcon_list) {
+>> -                                       tcon = list_entry(tmp3,
+>> -                                                         struct cifs_tcon,
+>> -                                                         tcon_list);
+>> -                                       atomic_set(&tcon->num_smbs_sent, 0);
+>> -                                       if (server->ops->clear_stats)
+>> -                                               server->ops->clear_stats(tcon);
+>> -                               }
+>> +       spin_lock(&cifs_tcp_ses_lock);
+>> +       list_for_each(tmp1, &cifs_tcp_ses_list) {
+>> +               server = list_entry(tmp1, struct TCP_Server_Info,
+>> +                                   tcp_ses_list);
+>> +               list_for_each(tmp2, &server->smb_ses_list) {
+>> +                       ses = list_entry(tmp2, struct cifs_ses,
+>> +                                        smb_ses_list);
+>> +                       list_for_each(tmp3, &ses->tcon_list) {
+>> +                               tcon = list_entry(tmp3,
+>> +                                                 struct cifs_tcon,
+>> +                                                 tcon_list);
+>> +                               atomic_set(&tcon->num_smbs_sent, 0);
+>> +                               if (server->ops->clear_stats)
+>> +                                       server->ops->clear_stats(tcon);
+>>                         }
+>>                 }
+>> -               spin_unlock(&cifs_tcp_ses_lock);
+>>         }
+>> +       spin_unlock(&cifs_tcp_ses_lock);
+>>
+>>         return count;
+>>  }
+>> @@ -433,17 +449,17 @@ static int cifsFYI_proc_open(struct inode *inode, struct file *file)
+>>  static ssize_t cifsFYI_proc_write(struct file *file, const char __user *buffer,
+>>                 size_t count, loff_t *ppos)
+>>  {
+>> -       char c;
+>> +       char c[2] = { '\0' };
+>>         bool bv;
+>>         int rc;
+>>
+>> -       rc = get_user(c, buffer);
+>> +       rc = get_user(c[0], buffer);
+>>         if (rc)
+>>                 return rc;
+>> -       if (strtobool(&c, &bv) == 0)
+>> +       if (strtobool(c, &bv) == 0)
+>>                 cifsFYI = bv;
+>> -       else if ((c > '1') && (c <= '9'))
+>> -               cifsFYI = (int) (c - '0'); /* see cifs_debug.h for meanings */
+>> +       else if ((c[0] > '1') && (c[0] <= '9'))
+>> +               cifsFYI = (int) (c[0] - '0'); /* see cifs_debug.h for meanings */
+>>
+>>         return count;
+>>  }
+>> @@ -471,20 +487,12 @@ static int cifs_linux_ext_proc_open(struct inode *inode, struct file *file)
+>>  static ssize_t cifs_linux_ext_proc_write(struct file *file,
+>>                 const char __user *buffer, size_t count, loff_t *ppos)
+>>  {
+>> -       char c;
+>> -       bool bv;
+>>         int rc;
+>>
+>> -       rc = get_user(c, buffer);
+>> +       rc = get_user_bool(buffer, &linuxExtEnabled);
+>>         if (rc)
+>>                 return rc;
+>>
+>> -       rc = strtobool(&c, &bv);
+>> -       if (rc)
+>> -               return rc;
+>> -
+>> -       linuxExtEnabled = bv;
+>> -
+>>         return count;
+>>  }
+>>
+>> @@ -511,20 +519,12 @@ static int cifs_lookup_cache_proc_open(struct inode *inode, struct file *file)
+>>  static ssize_t cifs_lookup_cache_proc_write(struct file *file,
+>>                 const char __user *buffer, size_t count, loff_t *ppos)
+>>  {
+>> -       char c;
+>> -       bool bv;
+>>         int rc;
+>>
+>> -       rc = get_user(c, buffer);
+>> +       rc = get_user_bool(buffer, &lookupCacheEnabled);
+>>         if (rc)
+>>                 return rc;
+>>
+>> -       rc = strtobool(&c, &bv);
+>> -       if (rc)
+>> -               return rc;
+>> -
+>> -       lookupCacheEnabled = bv;
+>> -
+>>         return count;
+>>  }
+>>
+>> @@ -551,20 +551,12 @@ static int traceSMB_proc_open(struct inode *inode, struct file *file)
+>>  static ssize_t traceSMB_proc_write(struct file *file, const char __user *buffer,
+>>                 size_t count, loff_t *ppos)
+>>  {
+>> -       char c;
+>> -       bool bv;
+>>         int rc;
+>>
+>> -       rc = get_user(c, buffer);
+>> +       rc = get_user_bool(buffer, &traceSMB);
+>>         if (rc)
+>>                 return rc;
+>>
+>> -       rc = strtobool(&c, &bv);
+>> -       if (rc)
+>> -               return rc;
+>> -
+>> -       traceSMB = bv;
+>> -
+>>         return count;
+>>  }
+>>
+>> @@ -622,7 +614,7 @@ static ssize_t cifs_security_flags_proc_write(struct file *file,
+>>         int rc;
+>>         unsigned int flags;
+>>         char flags_string[12];
+>> -       char c;
+>> +       char c[2] = { '\0' };
+>>         bool bv;
+>>
+>>         if ((count < 1) || (count > 11))
+>> @@ -635,11 +627,11 @@ static ssize_t cifs_security_flags_proc_write(struct file *file,
+>>
+>>         if (count < 3) {
+>>                 /* single char or single char followed by null */
+>> -               c = flags_string[0];
+>> -               if (strtobool(&c, &bv) == 0) {
+>> +               c[0] = flags_string[0];
+>> +               if (strtobool(c, &bv) == 0) {
+>>                         global_secflags = bv ? CIFSSEC_MAX : CIFSSEC_DEF;
+>>                         return count;
+>> -               } else if (!isdigit(c)) {
+>> +               } else if (!isdigit(c[0])) {
+>>                         cifs_dbg(VFS, "Invalid SecurityFlags: %s\n",
+>>                                         flags_string);
+>>                         return -EINVAL;
+>> diff --git a/fs/cifs/cifs_debug.h b/fs/cifs/cifs_debug.h
+>> index 66cf0f9fff89..c611ca2339d7 100644
+>> --- a/fs/cifs/cifs_debug.h
+>> +++ b/fs/cifs/cifs_debug.h
+>> @@ -25,7 +25,7 @@
+>>  void cifs_dump_mem(char *label, void *data, int length);
+>>  void cifs_dump_detail(void *);
+>>  void cifs_dump_mids(struct TCP_Server_Info *);
+>> -extern int traceSMB;           /* flag which enables the function below */
+>> +extern bool traceSMB;          /* flag which enables the function below */
+>>  void dump_smb(void *, int);
+>>  #define CIFS_INFO      0x01
+>>  #define CIFS_RC                0x02
+>> diff --git a/fs/cifs/cifsfs.c b/fs/cifs/cifsfs.c
+>> index c48ca13673e3..931b446f2a44 100644
+>> --- a/fs/cifs/cifsfs.c
+>> +++ b/fs/cifs/cifsfs.c
+>> @@ -54,10 +54,10 @@
+>>  #endif
+>>
+>>  int cifsFYI = 0;
+>> -int traceSMB = 0;
+>> +bool traceSMB;
+>>  bool enable_oplocks = true;
+>> -unsigned int linuxExtEnabled = 1;
+>> -unsigned int lookupCacheEnabled = 1;
+>> +bool linuxExtEnabled = true;
+>> +bool lookupCacheEnabled = true;
+>>  unsigned int global_secflags = CIFSSEC_DEF;
+>>  /* unsigned int ntlmv2_support = 0; */
+>>  unsigned int sign_CIFS_PDUs = 1;
+>> diff --git a/fs/cifs/cifsglob.h b/fs/cifs/cifsglob.h
+>> index a25b2513f146..d21da9f05bae 100644
+>> --- a/fs/cifs/cifsglob.h
+>> +++ b/fs/cifs/cifsglob.h
+>> @@ -1596,11 +1596,11 @@ GLOBAL_EXTERN atomic_t midCount;
+>>
+>>  /* Misc globals */
+>>  GLOBAL_EXTERN bool enable_oplocks; /* enable or disable oplocks */
+>> -GLOBAL_EXTERN unsigned int lookupCacheEnabled;
+>> +GLOBAL_EXTERN bool lookupCacheEnabled;
+>>  GLOBAL_EXTERN unsigned int global_secflags;    /* if on, session setup sent
+>>                                 with more secure ntlmssp2 challenge/resp */
+>>  GLOBAL_EXTERN unsigned int sign_CIFS_PDUs;  /* enable smb packet signing */
+>> -GLOBAL_EXTERN unsigned int linuxExtEnabled;/*enable Linux/Unix CIFS extensions*/
+>> +GLOBAL_EXTERN bool linuxExtEnabled;/*enable Linux/Unix CIFS extensions*/
+>>  GLOBAL_EXTERN unsigned int CIFSMaxBufSize;  /* max size not including hdr */
+>>  GLOBAL_EXTERN unsigned int cifs_min_rcv;    /* min size of big ntwrk buf pool */
+>>  GLOBAL_EXTERN unsigned int cifs_min_small;  /* min size of small buf pool */
+>> --
+>> 2.6.3
+>>
+>
+>
+>
+> --
+> With Best Regards,
+> Andy Shevchenko
+
+Thanks for the review!
+
+-Kees
+
 -- 
-2.5.0
+Kees Cook
+Chrome OS & Brillo Security
