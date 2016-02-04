@@ -1,115 +1,50 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: do sanity checks before migrating the asoc
-Date: Thu, 4 Feb 2016 07:47:16 -0200
-Message-ID: <20160204094716.GB31743@localhost.localdomain>
-References: <CACT4Y+Z6jY_n_cpmbFz366=JzoLX=u4Zc_o8gHFwJw8ApKf4zw@mail.gmail.com>
- <10616913996c7a4cbe8a2bb23cf4e78fcfa0a13a.1452891824.git.marcelo.leitner@gmail.com>
- <569E45FD.4040801@gmail.com>
- <569E5D44.5000103@gmail.com>
- <569E8280.9080701@gmail.com>
- <569E8F2F.5070906@gmail.com>
- <569E94CF.4030409@gmail.com>
- <569E97D0.7050109@gmail.com>
- <CACT4Y+bxFFfE1WYFLuki7sjM4bMhMsONKuu5HK9gUuYmP2-eCA@mail.gmail.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: net: memory leak in ip_cmsg_send
+Date: Thu, 4 Feb 2016 10:47:31 +0100
+Message-ID: <CACT4Y+YMUc8j4_-oJfi0XmQebhaTZa2NTipSFY_ra38V-TAyXQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	netdev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Kostya Serebryany <kcc@google.com>,
 	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
 	Alexander Potapenko <glider@google.com>,
 	Sasha Levin <sasha.levin@oracle.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58076 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932829AbcBDJrT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Feb 2016 04:47:19 -0500
-Content-Disposition: inline
-In-Reply-To: <CACT4Y+bxFFfE1WYFLuki7sjM4bMhMsONKuu5HK9gUuYmP2-eCA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 03, 2016 at 05:13:25PM +0100, Dmitry Vyukov wrote:
-> On Tue, Jan 19, 2016 at 9:08 PM, Marcelo Ricardo Leitner
-> <marcelo.leitner@gmail.com> wrote:
-> > Em 19-01-2016 17:55, Vlad Yasevich escreveu:
-> >>
-> >> On 01/19/2016 02:31 PM, Marcelo Ricardo Leitner wrote:
-> >>>
-> >>> Em 19-01-2016 16:37, Vlad Yasevich escreveu:
-> >>>>
-> >>>> On 01/19/2016 10:59 AM, Marcelo Ricardo Leitner wrote:
-> >>>>>
-> >>>>> Yes, not thrilled here either about connect-to-self.
-> >>>>>
-> >>>>> But there is a big difference on how both works. For rx we can just
-> >>>>> look for wanted skbs
-> >>>>> in rx queue, as they aren't going anywhere, but for tx I don't think we
-> >>>>> can easily block
-> >>>>> sctp_wfree() call because that may be happening on another CPU (or am I
-> >>>>> mistaken here?
-> >>>>> sctp still doesn't have RFS but even irqbalance could affect this
-> >>>>> AFAICT) and more than
-> >>>>> one skb may be in transit at a time.
-> >>>>
-> >>>>
-> >>>> The way it's done now, we wouldn't have to block sctp_wfree.  Chunks are
-> >>>> released under
-> >>>> lock when they are acked, so we are OK here.  The tx completions will
-> >>>> just put 1 byte back
-> >>>> to the socket associated with the tx'ed skb, and that should still be ok
-> >>>> as
-> >>>> sctp_packet_release_owner will call sk_free().
-> >>>
-> >>>
-> >>> Please let me rephrase it. I'm actually worried about the asoc->base.sk
-> >>> part of the story
-> >>> and how it's fetched in sctp_wfree(). I think we can update that sk
-> >>> pointer after
-> >>> sock_wfree() has fetched it but not used it yet, possibly leading to
-> >>> accounting it twice,
-> >>> one during migration and one on sock_wfree.
-> >>> In sock_wfree() it will update some sk stats like sk->sk_wmem_alloc,
-> >>> among others.
-> >>
-> >>
-> >> sctp_wfree() is only used on skbs that were created as sctp chunks to be
-> >> transmitted.
-> >> Right now, these skbs aren't actually submitted to the IP or to nic to be
-> >> transmitted.
-> >> They are queued at the association level (either in transports or in the
-> >> outqueue).
-> >> They are only freed during ACK processing.
-> >>
-> >> The ACK processing happens under a socket lock and thus asoc->base.sk can
-> >> not move.
-> >>
-> >> The migration process also happens under a socket lock.  As a result,
-> >> during migration
-> >> we are guaranteed the chunk queues remain consistent and that
-> >> asoc->base.sk linkage
-> >> remains consistent.  In fact, if you look at the sctp_sock_migrate, we
-> >> lock both
-> >> sockets when we reassign the assoc->base.sk so we know both sockets are
-> >> properly locked.
-> >>
-> >> So, I am not sure that what you are worried about can happen.  Please feel
-> >> free to
-> >> double-check the above of course.
-> >
-> >
-> > Ohh, right. That makes sense. I'll rework the patch. Thanks Vlad.
-> 
-> 
-> Hi Marcelo,
-> 
-> Any updates on this? I still see the leak.
+Hello,
 
-Hi Dmitry,
+I've hit the following memory leak while running syzkaller fuzzer:
 
-No, not yet, and I'll be out for 3 weeks starting monday. So if I don't
-get it by sunday, it will be a while, sorry.
+unreferenced object 0xffff88002ea39708 (size 64):
+  comm "syz-executor", pid 19887, jiffies 4295848369 (age 8.676s)
+  hex dump (first 32 bytes):
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+    00 00 00 00 00 00 00 00 04 00 00 00 04 00 00 00  ................
+  backtrace:
+    [<     inline     >] kzalloc include/linux/slab.h:607
+    [<     inline     >] ip_options_get_alloc net/ipv4/ip_options.c:515
+    [<ffffffff85836ea4>] ip_options_get+0x34/0x90 net/ipv4/ip_options.c:551
+    [<ffffffff8584924d>] ip_cmsg_send+0x5bd/0x6f0 net/ipv4/ip_sockglue.c:252
+    [<ffffffff858e8502>] raw_sendmsg+0xa52/0x25a0 net/ieee802154/socket.c:738
+    [<ffffffff859246e7>] inet_sendmsg+0x2f7/0x4c0 net/ipv4/af_inet.c:736
+    [<     inline     >] sock_sendmsg_nosec net/socket.c:611
+    [<ffffffff854cdffa>] sock_sendmsg+0xca/0x110 net/socket.c:621
+    [<ffffffff854cfe3a>] ___sys_sendmsg+0x72a/0x840 net/socket.c:1947
+    [<ffffffff854d1e0e>] __sys_sendmsg+0xce/0x170 net/socket.c:1981
+    [<     inline     >] SYSC_sendmsg net/socket.c:1992
+    [<ffffffff854d1edd>] SyS_sendmsg+0x2d/0x50 net/socket.c:1988
 
-  Marcelo
+ip_cmsg_send seems to forget to free ipc->opt when it returns an error
+(all callers expect that there is nothing to cleanup if it returns an
+error).
+
+On commit 34229b277480f46c1e9a19f027f30b074512e68b.
