@@ -1,113 +1,82 @@
 From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH net-next 2/7] inet: create IPv6-equivalent inet_hash function
-Date: Thu,  4 Feb 2016 10:34:31 -0500
-Message-ID: <1454600076-30067-3-git-send-email-kraigatgoog@gmail.com>
-References: <1454600076-30067-1-git-send-email-kraigatgoog@gmail.com>
-To: netdev@vger.kernel.org, cgallek@google.com
+Subject: [PATCH net-next 0/7] Faster SO_REUSEPORT for TCP
+Date: Thu,  4 Feb 2016 10:35:11 -0500
+Message-ID: <1454600118-30152-1-git-send-email-kraigatgoog@gmail.com>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f173.google.com ([209.85.220.173]:33527 "EHLO
-	mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964943AbcBDPeo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 10:34:44 -0500
-Received: by mail-qk0-f173.google.com with SMTP id s5so22312533qkd.0
-        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 07:34:43 -0800 (PST)
-In-Reply-To: <1454600076-30067-1-git-send-email-kraigatgoog@gmail.com>
+Received: from mail-qg0-f51.google.com ([209.85.192.51]:34769 "EHLO
+	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751831AbcBDPfV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 10:35:21 -0500
+Received: by mail-qg0-f51.google.com with SMTP id u30so44282743qge.1
+        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 07:35:21 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Craig Gallek <kraig@google.com>
 
-In order to support fast lookups for TCP sockets with SO_REUSEPORT,
-the function that adds sockets to the listening hash set needs
-to be able to check receive address equality.  Since this equality
-check is different for IPv4 and IPv6, we will need two different
-socket hashing functions.
+This patch series complements an earlier series (6a5ef90c58da)
+which added faster SO_REUSEPORT lookup for UDP sockets by
+extending the feature to TCP sockets.  It uses the same
+array-based data structure which allows for socket selection
+after finding the first listening socket that matches an incoming
+packet.  Prior to this feature, every socket in the reuseport
+group needed to be found and examined before a selection could be
+made.
 
-This patch adds inet6_hash identical to the existing inet_hash function
-and updates the appropriate references.  A following patch will
-differentiate the two by passing different comparison functions to
-__inet_hash.
+With this series the SO_ATTACH_REUSEPORT_CBPF and
+SO_ATTACH_REUSEPORT_EBPF socket options now work for TCP sockets
+as well.  The test at the end of the series includes an example of
+how to use these options to select a reuseport socket based on the
+cpu core id handling the incoming packet.
 
-Signed-off-by: Craig Gallek <kraig@google.com>
----
- include/net/inet6_hashtables.h |  2 ++
- net/dccp/ipv6.c                |  2 +-
- net/ipv6/inet6_hashtables.c    | 12 ++++++++++++
- net/ipv6/tcp_ipv6.c            |  2 +-
- net/l2tp/l2tp_ip6.c            |  2 +-
- 5 files changed, 17 insertions(+), 3 deletions(-)
+There are several refactoring patches that precede the feature
+implementation.  Only the last two patches in this series
+should result in any behavioral changes.
 
-diff --git a/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
-index 7ff588ca6817..b3c28a9dfbf1 100644
---- a/include/net/inet6_hashtables.h
-+++ b/include/net/inet6_hashtables.h
-@@ -96,6 +96,8 @@ struct sock *inet6_lookup(struct net *net, struct inet_hashinfo *hashinfo,
- 			  const struct in6_addr *saddr, const __be16 sport,
- 			  const struct in6_addr *daddr, const __be16 dport,
- 			  const int dif);
-+
-+int inet6_hash(struct sock *sk);
- #endif /* IS_ENABLED(CONFIG_IPV6) */
- 
- #define INET6_MATCH(__sk, __net, __saddr, __daddr, __ports, __dif)	\
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 9c6d0508e63a..90a8269b28d0 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -993,7 +993,7 @@ static struct proto dccp_v6_prot = {
- 	.sendmsg	   = dccp_sendmsg,
- 	.recvmsg	   = dccp_recvmsg,
- 	.backlog_rcv	   = dccp_v6_do_rcv,
--	.hash		   = inet_hash,
-+	.hash		   = inet6_hash,
- 	.unhash		   = inet_unhash,
- 	.accept		   = inet_csk_accept,
- 	.get_port	   = inet_csk_get_port,
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 21ace5a2bf7c..3521b15b8b85 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -274,3 +274,15 @@ int inet6_hash_connect(struct inet_timewait_death_row *death_row,
- 				   __inet6_check_established);
- }
- EXPORT_SYMBOL_GPL(inet6_hash_connect);
-+
-+int inet6_hash(struct sock *sk)
-+{
-+	if (sk->sk_state != TCP_CLOSE) {
-+		local_bh_disable();
-+		__inet_hash(sk, NULL);
-+		local_bh_enable();
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(inet6_hash);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 006396e31cb0..d72bcfb326d8 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1865,7 +1865,7 @@ struct proto tcpv6_prot = {
- 	.sendpage		= tcp_sendpage,
- 	.backlog_rcv		= tcp_v6_do_rcv,
- 	.release_cb		= tcp_release_cb,
--	.hash			= inet_hash,
-+	.hash			= inet6_hash,
- 	.unhash			= inet_unhash,
- 	.get_port		= inet_csk_get_port,
- 	.enter_memory_pressure	= tcp_enter_memory_pressure,
-diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index a2c8747d2936..77adffd227e4 100644
---- a/net/l2tp/l2tp_ip6.c
-+++ b/net/l2tp/l2tp_ip6.c
-@@ -718,7 +718,7 @@ static struct proto l2tp_ip6_prot = {
- 	.sendmsg	   = l2tp_ip6_sendmsg,
- 	.recvmsg	   = l2tp_ip6_recvmsg,
- 	.backlog_rcv	   = l2tp_ip6_backlog_recv,
--	.hash		   = inet_hash,
-+	.hash		   = inet6_hash,
- 	.unhash		   = inet_unhash,
- 	.obj_size	   = sizeof(struct l2tp_ip6_sock),
- #ifdef CONFIG_COMPAT
+Craig Gallek (7):
+  sock: struct proto hash function may error
+  inet: create IPv6-equivalent inet_hash function
+  tcp: __tcp_hdrlen() helper
+  inet: refactor inet[6]_lookup functions to take skb
+  soreuseport: Prep for fast reuseport TCP socket selection
+  soreuseport: fast reuseport TCP socket selection
+  soreuseport: BPF selection functional test for TCP
+
+ include/linux/tcp.h                             |   7 +-
+ include/net/addrconf.h                          |   2 +
+ include/net/inet6_hashtables.h                  |  13 +-
+ include/net/inet_hashtables.h                   |  25 ++-
+ include/net/ping.h                              |   2 +-
+ include/net/raw.h                               |   2 +-
+ include/net/sock.h                              |   6 +-
+ include/net/udp.h                               |   2 +-
+ net/core/filter.c                               |   2 +-
+ net/core/sock.c                                 |   1 +
+ net/dccp/ipv6.c                                 |   2 +-
+ net/ieee802154/socket.c                         |   9 +-
+ net/ipv4/af_inet.c                              |   9 +-
+ net/ipv4/inet_connection_sock.c                 |  22 +-
+ net/ipv4/inet_diag.c                            |   6 +-
+ net/ipv4/inet_hashtables.c                      |  67 +++++-
+ net/ipv4/ping.c                                 |   4 +-
+ net/ipv4/raw.c                                  |   4 +-
+ net/ipv4/tcp_ipv4.c                             |  10 +-
+ net/ipv4/udp.c                                  |   4 +-
+ net/ipv6/af_inet6.c                             |   6 +-
+ net/ipv6/inet6_connection_sock.c                |   2 +
+ net/ipv6/inet6_hashtables.c                     |  34 +++-
+ net/ipv6/tcp_ipv6.c                             |  10 +-
+ net/l2tp/l2tp_ip6.c                             |   2 +-
+ net/netfilter/xt_TPROXY.c                       |  31 ++-
+ net/netfilter/xt_socket.c                       |  28 ++-
+ net/phonet/socket.c                             |   2 +-
+ tools/testing/selftests/net/.gitignore          |   1 +
+ tools/testing/selftests/net/Makefile            |   2 +-
+ tools/testing/selftests/net/reuseport_bpf.c     | 117 ++++++++++-
+ tools/testing/selftests/net/reuseport_bpf_cpu.c | 258 ++++++++++++++++++++++++
+ 32 files changed, 609 insertions(+), 83 deletions(-)
+ create mode 100644 tools/testing/selftests/net/reuseport_bpf_cpu.c
+
 -- 
 2.7.0.rc3.207.g0ac5344
