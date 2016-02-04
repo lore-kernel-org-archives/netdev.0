@@ -1,103 +1,67 @@
-From: "Fastabend, John R" <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH 7/7] net: ixgbe: add support for tc_u32 offload
-Date: Thu, 4 Feb 2016 00:23:02 -0800
-Message-ID: <56B30A66.80206@gmail.com>
-References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
- <20160203092959.1356.91778.stgit@john-Precision-Tower-5810>
- <20160204073050.GA31753@office.Home>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: net/irda: BUG: looking up invalid subclass: 4294967295
+Date: Thu, 4 Feb 2016 10:13:43 +0100
+Message-ID: <CACT4Y+a8=L9m3c1PvGDm9Tr_C3cN79bjnjT581i2k+7MVLzZTw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@mellanox.com, jiri@resnulli.us, jhs@mojatatu.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: "Amir Vadai\"" <amir@vadai.me>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:38142 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752439AbcBDIXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 03:23:09 -0500
-Received: by mail-wm0-f49.google.com with SMTP id p63so105495999wmp.1
-        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 00:23:07 -0800 (PST)
-In-Reply-To: <20160204073050.GA31753@office.Home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2/3/2016 11:30 PM, Amir Vadai" wrote:
-> On Wed, Feb 03, 2016 at 01:29:59AM -0800, John Fastabend wrote:
->> This adds initial support for offloading the u32 tc classifier. This
->> initial implementation only implements a few base matches and actions
->> to illustrate the use of the infrastructure patches.
->>
->> However it is an interesting subset because it handles the u32 next
->> hdr logic to correctly map tcp packets from ip headers using the ihl
->> and protocol fields. After this is accepted we can extend the match
->> and action fields easily by updating the model header file.
->>
->> Also only the drop action is supported initially.
->>
->> Here is a short test script,
->>
->>  #tc qdisc add dev eth4 ingress
->>  #tc filter add dev eth4 parent ffff: protocol ip \
->> 	u32 ht 800: order 1 \
->> 	match ip dst 15.0.0.1/32 match ip src 15.0.0.2/32 action drop
->>
->> <-- hardware has dst/src ip match rule installed -->
->>
->>  #tc filter del dev eth4 parent ffff: prio 49152
->>  #tc filter add dev eth4 parent ffff: protocol ip prio 99 \
->> 	handle 1: u32 divisor 1
->>  #tc filter add dev eth4 protocol ip parent ffff: prio 99 \
->> 	u32 ht 800: order 1 link 1: \
->> 	offset at 0 mask 0f00 shift 6 plus 0 eat match ip protocol 6 ff
->>  #tc filter add dev eth4 parent ffff: protocol ip \
->> 	u32 ht 1: order 3 match tcp src 23 ffff action drop
->>
->> <-- hardware has tcp src port rule installed -->
->>
->>  #tc qdisc del dev eth4 parent ffff:
->>
->> <-- hardware cleaned up -->
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->>  drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    3 
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    6 -
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  196 ++++++++++++++++++++++
->>  3 files changed, 198 insertions(+), 7 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->> index 4b9156c..09c2d9b 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> 
-> [...]
-> 
->> @@ -8277,6 +8465,7 @@ static int ixgbe_set_features(struct net_device *netdev,
->>  	 */
->>  	switch (features & NETIF_F_NTUPLE) {
->>  	case NETIF_F_NTUPLE:
->> +	case NETIF_F_HW_TC:
->>  		/* turn off ATR, enable perfect filters and reset */
->>  		if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
->>  			need_reset = true;
-> 
-> I think you have a bug here. I don't see how the NETIF_F_HW_TC case will
-> happen after masking 'features' out.
-> 
+Hello,
 
-Ah I should have annotated this in the commit msg. I turn the feature
-off by default to enable it the user needs to run
+I am hitting the following BUGs while running syzkaller fuzzer:
 
-	# ethtool -K ethx hw-tc-offload on
+BUG: looking up invalid subclass: 4294967295
+turning off the locking correctness validator.
+CPU: 1 PID: 12344 Comm: syz-executor Not tainted 4.5.0-rc2+ #309
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ 00000000ffffffff ffff88005dcff4a0 ffffffff82be2c8d ffff88006c9b17c0
+ 00000000ffffffff 0000000000000001 ffff88005dcff630 ffffffff81457780
+ ffff88005dcffff8 ffff88005dcf8000 00000000000015f0 ffffffffffff8000
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff82be2c8d>] dump_stack+0x6f/0xa2 lib/dump_stack.c:50
+ [<     inline     >] look_up_lock_class kernel/locking/lockdep.c:694
+ [<     inline     >] register_lock_class kernel/locking/lockdep.c:752
+ [<ffffffff81457780>] __lock_acquire+0x1110/0x4700 kernel/locking/lockdep.c:3103
+ [<ffffffff8145d1bc>] lock_acquire+0x1dc/0x430 kernel/locking/lockdep.c:3587
+ [<ffffffff8665e105>] _raw_spin_lock_irqsave_nested+0xa5/0xd0
+kernel/locking/spinlock.c:381
+ [<ffffffff85cfcff1>] hashbin_delete+0x1b1/0x260 net/irda/irqueue.c:400
+ [<ffffffff85d071fb>] __irias_delete_object+0xab/0x170
+net/irda/irias_object.c:111
+ [<ffffffff85d07331>] irias_delete_object+0x71/0xf0 net/irda/irias_object.c:139
+ [<ffffffff85d385b5>] ircomm_tty_detach_cable+0x1d5/0x3f0
+net/irda/ircomm/ircomm_tty_attach.c:185
+ [<ffffffff85d33d4b>] ircomm_tty_shutdown+0x9b/0x2b0
+net/irda/ircomm/ircomm_tty.c:883
+ [<ffffffff85d349b7>] ircomm_tty_close+0xa7/0x140
+net/irda/ircomm/ircomm_tty.c:489
+ [<ffffffff82f85c9d>] tty_release+0x37d/0x1290 drivers/tty/tty_io.c:1793
+ [<ffffffff82f881a2>] tty_open+0x3a2/0x1070 drivers/tty/tty_io.c:2117
+ [<ffffffff817c864a>] chrdev_open+0x22a/0x4c0 fs/char_dev.c:388
+ [<ffffffff817b3e72>] do_dentry_open+0x6a2/0xcb0 fs/open.c:736
+ [<ffffffff817b754b>] vfs_open+0x17b/0x1f0 fs/open.c:853
+ [<     inline     >] do_last fs/namei.c:3254
+ [<ffffffff817ead19>] path_openat+0xde9/0x5e30 fs/namei.c:3386
+ [<ffffffff817f359e>] do_filp_open+0x18e/0x250 fs/namei.c:3421
+ [<ffffffff817b7ccc>] do_sys_open+0x1fc/0x420 fs/open.c:1022
+ [<     inline     >] SYSC_open fs/open.c:1040
+ [<ffffffff817b7f1d>] SyS_open+0x2d/0x40 fs/open.c:1035
 
-this is just a habit of mine to leave new features off by default for
-a bit until I work out some of the kinks. For example I found a case
-today where if you build loops into your u32 graph the hardware tables
-can get out of sync with the software tables. This is sort of extreme
-corner case not sure if anyone would really use u32 but it is valid
-and the hardware should abort correctly.
 
-Thanks,
-John
+hashbin_delete() seems to maintain hashbin_lock_depth variable in a
+completely thread-unsafe way. hashbin_lock_depth needs to be per-task
+or something.
+
+I am on commit 34229b277480f46c1e9a19f027f30b074512e68b.
