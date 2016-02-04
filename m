@@ -1,125 +1,60 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: bonding reports interface up with 0 Mbps
-Date: Thu, 4 Feb 2016 14:44:49 +0800
-Message-ID: <56B2F361.80901@gmail.com>
-References: <87618083B2453E4A8714035B62D6799250524233@FMSMSX105.amr.corp.intel.com>
- <16238.1454565446@famine>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH RFC 12/13] crypto: Make the page handling of hash walk compatible to networking.
+Date: Thu, 4 Feb 2016 07:37:05 +0100
+Message-ID: <1454567826-13018-13-git-send-email-steffen.klassert@secunet.com>
+References: <1454567826-13018-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"jiri@mellanox.com" <jiri@mellanox.com>,
-	zhuyj <zyjzyj2000@gmail.com>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Content-Type: text/plain
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	<sowmini.varadhan@oracle.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:36569 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752675AbcBDGo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 01:44:26 -0500
-Received: by mail-pf0-f173.google.com with SMTP id n128so34212169pfn.3
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2016 22:44:26 -0800 (PST)
-In-Reply-To: <16238.1454565446@famine>
+Received: from a.mx.secunet.com ([62.96.220.36]:36665 "EHLO
+	h-62.96.220.36.host.de.colt.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752866AbcBDHFs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 02:05:48 -0500
+In-Reply-To: <1454567826-13018-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/04/2016 01:57 PM, Jay Vosburgh wrote:
-> Tantilov, Emil S <emil.s.tantilov@intel.com> wrote:
->
->> We are seeing an occasional issue where the bonding driver may report interface up with 0 Mbps:
->> bond0: link status definitely up for interface eth0, 0 Mbps full duplex
->>
->> So far in all the failed traces I have collected this happens on NETDEV_CHANGELOWERSTATE event:
->>
->> <...>-20533 [000] .... 81811.041241: ixgbe_service_task: eth1: NIC Link is Up 10 Gbps, Flow Control: RX/TX
->> <...>-20533 [000] .... 81811.041257: ixgbe_check_vf_rate_limit <-ixgbe_service_task
->> <...>-20533 [000] .... 81811.041272: ixgbe_ping_all_vfs <-ixgbe_service_task
->> kworker/u48:0-7503  [010] .... 81811.041345: ixgbe_get_stats64 <-dev_get_stats
->> kworker/u48:0-7503  [010] .... 81811.041393: bond_netdev_event: eth1: event: 1b
->> kworker/u48:0-7503  [010] .... 81811.041394: bond_netdev_event: eth1: IFF_SLAVE
->> kworker/u48:0-7503  [010] .... 81811.041395: bond_netdev_event: eth1: slave->speed = ffffffff
->> <...>-20533 [000] .... 81811.041407: ixgbe_ptp_overflow_check <-ixgbe_service_task
->> kworker/u48:0-7503  [010] .... 81811.041407: bond_mii_monitor: bond0: link status definitely up for interface eth1, 0 Mbps full duplex
-> 	From looking at the code that prints this, the "full" duplex is
-> probably actually DUPLEX_UNKNOWN, but the netdev_info uses the
-> expression slave->duplex ? "full" : "half", so DUPLEX_UNKNOWN at 0xff
-> would print "full."
->
-> 	This is what ixgbe_get_settings returns for speed and duplex if
-> it is called when carrier is off.
+The network layer tries to allocate high order pages for skb_buff
+fragments, this leads to problems if we pass such a buffer to
+crypto because crypto assumes to have always order null pages
+in the scatterlists.
 
-I agree with you totally. I think it is the root cause.
+This was not a problem so far, bacause the network stack linearized
+all buffers before passing them to crypto. Due to a recent change to
+IPsec "esp: Avoid skb_cow_data whenever possible" the linearization
+is avoided in most of the cases what made this incompatibility
+visible.
 
-Best Regards!
-Zhu Yanjun
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ crypto/ahash.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
->
->> As a proof of concept I added NETDEV_CHANGELOWERSTATE in bond_slave_netdev_event() along with NETDEV_UP/CHANGE:
->>
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index 56b5605..a9dac4c 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -3014,6 +3014,7 @@ static int bond_slave_netdev_event(unsigned long event,
->> 		break;
->> 	case NETDEV_UP:
->> 	case NETDEV_CHANGE:
->> +	case NETDEV_CHANGELOWERSTATE:
->> 		bond_update_speed_duplex(slave);
->> 		if (BOND_MODE(bond) == BOND_MODE_8023AD)
->> 			bond_3ad_adapter_speed_duplex_changed(slave);
->>
->> With this change I have not seen 0 Mbps reported by the bonding driver (around 12 hour test up to this point
->> vs. 2-3 hours otherwise). Although I suppose it could also be some sort of race/timing issue with bond_mii_monitor().
-> 	This change as a fix seems kind of odd, since CHANGELOWERSTATE
-> is generated by bonding itself.  Perhaps the net effect is to add a
-> delay and then update the speed and duplex, masking the actual problem.
->
-> 	Emil, if I recall correctly, the test patch I send that uses the
-> notifiers directly instead of miimon (specify miimon=0 and have bonding
-> respond to the notifiers) handled everything properly, right?  If so I
-> can split that up and submit it properly; it seems more like a feature
-> than a straightforward bug fix, so I'm not sure it's appropriate for
-> net.
->
-> 	As a possibly less complex alternative for the miimon > 0 case,
-> could you try the following:
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 56b560558884..ac8921e65f26 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2120,6 +2120,7 @@ static void bond_miimon_commit(struct bonding *bond)
->   {
->   	struct list_head *iter;
->   	struct slave *slave, *primary;
-> +	int link_state;
->   
->   	bond_for_each_slave(bond, slave, iter) {
->   		switch (slave->new_link) {
-> @@ -2127,6 +2128,10 @@ static void bond_miimon_commit(struct bonding *bond)
->   			continue;
->   
->   		case BOND_LINK_UP:
-> +			link_state = bond_check_dev_link(bond, slave->dev, 0);
-> +			if (!link_state)
-> +				continue;
-> +			bond_update_speed_duplex(slave);
->   			bond_set_slave_link_state(slave, BOND_LINK_UP,
->   						  BOND_SLAVE_NOTIFY_NOW);
->   			slave->last_link_up = jiffies;
->
->
-> 	This will make bonding recheck the link state and update the
-> speed and duplex after it acquires RTNL to commit a link change.  This
-> probably still has a race, since the change of carrier state in the
-> device is not mutexed by anything bonding can acquire (so it can always
-> change as soon as it's checked).
->
-> 	Thanks,
->
-> 	-J
->
-> ---
-> 	-Jay Vosburgh, jay.vosburgh@canonical.com
+diff --git a/crypto/ahash.c b/crypto/ahash.c
+index d19b523..a0eb4e6 100644
+--- a/crypto/ahash.c
++++ b/crypto/ahash.c
+@@ -44,8 +44,7 @@ static int hash_walk_next(struct crypto_hash_walk *walk)
+ {
+ 	unsigned int alignmask = walk->alignmask;
+ 	unsigned int offset = walk->offset;
+-	unsigned int nbytes = min(walk->entrylen,
+-				  ((unsigned int)(PAGE_SIZE)) - offset);
++	unsigned int nbytes = walk->entrylen;
+ 
+ 	if (walk->flags & CRYPTO_ALG_ASYNC)
+ 		walk->data = kmap(walk->pg);
+@@ -91,8 +90,6 @@ int crypto_hash_walk_done(struct crypto_hash_walk *walk, int err)
+ 		walk->offset = ALIGN(walk->offset, alignmask + 1);
+ 		walk->data += walk->offset;
+ 
+-		nbytes = min(nbytes,
+-			     ((unsigned int)(PAGE_SIZE)) - walk->offset);
+ 		walk->entrylen -= nbytes;
+ 
+ 		return nbytes;
+-- 
+1.9.1
