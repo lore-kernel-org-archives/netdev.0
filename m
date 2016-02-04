@@ -1,48 +1,70 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: bonding reports interface up with 0 Mbps
-Date: Thu, 04 Feb 2016 12:29:33 -0800
-Message-ID: <22896.1454617773@famine>
-References: <87618083B2453E4A8714035B62D6799250524233@FMSMSX105.amr.corp.intel.com>
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	zhuyj <zyjzyj2000@gmail.com>,
-	"jiri@mellanox.com" <jiri@mellanox.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:54162 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751411AbcBDU3i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 15:29:38 -0500
-In-reply-to: <87618083B2453E4A8714035B62D6799250524233@FMSMSX105.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: Re: [PATCH] net: ethernet: davicom: fix devicetree irq resource
+Date: Thu, 04 Feb 2016 21:42:22 +0100
+Message-ID: <87d1sc5hsh.fsf@belgarion.home>
+References: <1454535609-7290-1-git-send-email-robert.jarzmik@free.fr>
+	<56B38767.6040005@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56B38767.6040005@cogentembedded.com> (Sergei Shtylyov's message
+	of "Thu, 4 Feb 2016 20:16:23 +0300")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tantilov, Emil S <emil.s.tantilov@intel.com> wrote:
+Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> writes:
 
->We are seeing an occasional issue where the bonding driver may report interface up with 0 Mbps:
->bond0: link status definitely up for interface eth0, 0 Mbps full duplex
+> Hello.
 >
->So far in all the failed traces I have collected this happens on NETDEV_CHANGELOWERSTATE event:
+>    Your patch summary prefixes are too verbose, it was enough to say only
+> "dm9000: ".
+Well, I don't agree here. The subsystem should be fully specified, at least this
+is something I require in pxa, something that is also required in sound/*, etc
+... If David doesn't object, I'll keep it that way. As it's his tree, his
+decision in the end, so let's have him decide.
+
+>> -	/* If there is no IRQ type specified, default to something that
+>> -	 * may work, and tell the user that this is a problem */
+>> -
+>> -	if (irqflags == IRQF_TRIGGER_NONE)
+>> -		irqflags = irq_get_trigger_type(dev->irq);
+>> -
+>> -	if (irqflags == IRQF_TRIGGER_NONE)
+>> +	/* If there is no IRQ type specified, tell the user that this is a
+>> +	 * problem */
 >
-><...>-20533 [000] .... 81811.041241: ixgbe_service_task: eth1: NIC Link is Up 10 Gbps, Flow Control: RX/TX
-><...>-20533 [000] .... 81811.041257: ixgbe_check_vf_rate_limit <-ixgbe_service_task
-><...>-20533 [000] .... 81811.041272: ixgbe_ping_all_vfs <-ixgbe_service_task
->kworker/u48:0-7503  [010] .... 81811.041345: ixgbe_get_stats64 <-dev_get_stats
->kworker/u48:0-7503  [010] .... 81811.041393: bond_netdev_event: eth1: event: 1b
->kworker/u48:0-7503  [010] .... 81811.041394: bond_netdev_event: eth1: IFF_SLAVE
->kworker/u48:0-7503  [010] .... 81811.041395: bond_netdev_event: eth1: slave->speed = ffffffff
-><...>-20533 [000] .... 81811.041407: ixgbe_ptp_overflow_check <-ixgbe_service_task
->kworker/u48:0-7503  [010] .... 81811.041407: bond_mii_monitor: bond0: link status definitely up for interface eth1, 0 Mbps full duplex
+>    The networking code formats comments this way:
+>
+> /* foo
+>  * bar
+>  */
+May I know where this is documented ?
+I'm asking because I didn't find it, because I parsed drivers/net/*.c files, and
+the standard kernel comment style was there, ie:
+/*
+ * foo
+ * bar
+ */
 
-	Thinking about the trace again... Emil: what happens in the
-trace before this?  Is there ever a call to the ixgbe_get_settings?
-Does a NETDEV_UP or NETDEV_CHANGE event ever hit the bond_netdev_event
-function?
+I was reusing the previous comment style, but I will change it for the standard
+kernel style if you wish.
 
-	Could you describe your test that reproduces this?  I'd like to
-see if I can set it up locally.
+>>
+>> +	ndev->irq = platform_get_irq(pdev, 0);
+>> +	if (ndev->irq <= 0) {
+>
+>    I don't recommend checking for 0 and returning early in this case -- 
+> you'll signal a probe success this way. Either ignore 0 or return -E<smth>
+> in this case. Unfortunately, platform_get_irq() is so sloppily coded now that it
+> *can* return 0 on error. :-(
+Ah we had that discussion not very long ago, didn't we ? :)
+And I think I'll reuse the "if (ndev->irq < 0) {" solution to be consistent with
+myself.
 
-	-J
+Thanks for the review.
 
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+-- 
+Robert
