@@ -1,61 +1,97 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v5 2/2] virtio_net: add ethtool support for set
- and get of settings
-Date: Thu, 4 Feb 2016 13:26:28 +0100
-Message-ID: <56B34374.90709@cumulusnetworks.com>
-References: <1454468677-12280-1-git-send-email-razor@blackwall.org>
- <1454468677-12280-3-git-send-email-razor@blackwall.org>
- <20160204141947-mutt-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	Nikolay Aleksandrov <razor@blackwall.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH v3 2/4] ipv4: add option to drop gratuitous ARP packets
+Date: Thu,  4 Feb 2016 13:31:18 +0100
+Message-ID: <1454589080-21354-2-git-send-email-johannes@sipsolutions.net>
+References: <1454589080-21354-1-git-send-email-johannes@sipsolutions.net>
+Cc: Julian Anastasov <ja@ssi.bg>,
+	Johannes Berg <johannes.berg@intel.com>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:33795 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751873AbcBDM0a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 07:26:30 -0500
-Received: by mail-wm0-f47.google.com with SMTP id 128so24564361wmz.1
-        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 04:26:30 -0800 (PST)
-In-Reply-To: <20160204141947-mutt-send-email-mst@redhat.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:46078 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752187AbcBDMb3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Feb 2016 07:31:29 -0500
+In-Reply-To: <1454589080-21354-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/04/2016 01:21 PM, Michael S. Tsirkin wrote:
-> On Wed, Feb 03, 2016 at 04:04:37AM +0100, Nikolay Aleksandrov wrote:
->> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-[snip]
->>  struct padded_vnet_hdr {
->> @@ -1376,6 +1380,58 @@ static void virtnet_get_channels(struct net_device *dev,
->>  	channels->other_count = 0;
->>  }
->>  
->> +/* Check if the user is trying to change anything besides speed/duplex */
->> +static bool virtnet_validate_ethtool_cmd(const struct ethtool_cmd *cmd)
->> +{
->> +	struct ethtool_cmd diff1 = *cmd;
->> +	struct ethtool_cmd diff2 = {};
->> +
->> +	/* advertising and cmd are usually set, ignore port because we set it */
-> 
-> We set it where?
-If you're asking about advertising - ethtool sets it automatically when the
-user tries to set both speed and duplex together.
+From: Johannes Berg <johannes.berg@intel.com>
 
-> Instead of this, should not we set diff2.port to PORT_OTHER?
-> 
-Yes, that will validate it too.
+In certain 802.11 wireless deployments, there will be ARP proxies
+that use knowledge of the network to correctly answer requests.
+To prevent gratuitous ARP frames on the shared medium from being
+a problem, on such deployments wireless needs to drop them.
 
->> +	ethtool_cmd_speed_set(&diff1, 0);
->> +	diff1.advertising = 0;
->> +	diff1.duplex = 0;
->> +	diff1.port = 0;
->> +	diff1.cmd = 0;
->> +
->> +	return !memcmp(&diff1, &diff2, sizeof(diff1));
->> +}
->> +
-[snip]
+Enable this by providing an option called "drop_gratuitous_arp".
+
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ Documentation/networking/ip-sysctl.txt | 6 ++++++
+ include/uapi/linux/ip.h                | 1 +
+ net/ipv4/arp.c                         | 8 ++++++++
+ net/ipv4/devinet.c                     | 2 ++
+ 4 files changed, 17 insertions(+)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 35c4c43dd8de..56bb6dd881bd 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1215,6 +1215,12 @@ drop_unicast_in_l2_multicast - BOOLEAN
+ 	1122, but is disabled by default for compatibility reasons.
+ 	Default: off (0)
+ 
++drop_gratuitous_arp - BOOLEAN
++	Drop all gratuitous ARP frames, for example if there's a known
++	good ARP proxy on the network and such frames need not be used
++	(or in the case of 802.11, must not be used to prevent attacks.)
++	Default: off (0)
++
+ 
+ tag - INTEGER
+ 	Allows you to write a number, which can be used as required.
+diff --git a/include/uapi/linux/ip.h b/include/uapi/linux/ip.h
+index 584834f7e95c..f291569768dd 100644
+--- a/include/uapi/linux/ip.h
++++ b/include/uapi/linux/ip.h
+@@ -166,6 +166,7 @@ enum
+ 	IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL,
+ 	IPV4_DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
+ 	IPV4_DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
++	IPV4_DEVCONF_DROP_GRATUITOUS_ARP,
+ 	__IPV4_DEVCONF_MAX
+ };
+ 
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 59b3e0e8fd51..c102eb5ac55c 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -735,6 +735,14 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 	    (!IN_DEV_ROUTE_LOCALNET(in_dev) && ipv4_is_loopback(tip)))
+ 		goto out;
+ 
++ /*
++  *	For some 802.11 wireless deployments (and possibly other networks),
++  *	there will be an ARP proxy and gratuitous ARP frames are attacks
++  *	and thus should not be accepted.
++  */
++	if (sip == tip && IN_DEV_ORCONF(in_dev, DROP_GRATUITOUS_ARP))
++		goto out;
++
+ /*
+  *     Special case: We must set Frame Relay source Q.922 address
+  */
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index dbbab28a52a4..3d835313575e 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -2185,6 +2185,8 @@ static struct devinet_sysctl_table {
+ 					"igmpv3_unsolicited_report_interval"),
+ 		DEVINET_SYSCTL_RW_ENTRY(IGNORE_ROUTES_WITH_LINKDOWN,
+ 					"ignore_routes_with_linkdown"),
++		DEVINET_SYSCTL_RW_ENTRY(DROP_GRATUITOUS_ARP,
++					"drop_gratuitous_arp"),
+ 
+ 		DEVINET_SYSCTL_FLUSHING_ENTRY(NOXFRM, "disable_xfrm"),
+ 		DEVINET_SYSCTL_FLUSHING_ENTRY(NOPOLICY, "disable_policy"),
+-- 
+2.7.0
