@@ -1,172 +1,193 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Disabling XPS for 4.4.0-1+ixgbe+OpenStack VM over a VLAN means
- 65% increase in netperf TCP_STREAM
-Date: Thu, 4 Feb 2016 12:13:11 -0800
-Message-ID: <CALx6S37CekHutCQaXacpqKMSag971_GnHBZQTSE-DwU1tbt1RA@mail.gmail.com>
-References: <56B3A2D4.1010309@hpe.com>
-	<CALx6S36PxgZufhFa4qChPJvW0eb1V_fQoQOH7HHKd4q00taR=A@mail.gmail.com>
-	<56B3AD3F.9070404@hpe.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hpe.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:33693 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932976AbcBDUNM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 15:13:12 -0500
-Received: by mail-ig0-f178.google.com with SMTP id rs20so24357896igc.0
-        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 12:13:11 -0800 (PST)
-In-Reply-To: <56B3AD3F.9070404@hpe.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [RFC] iwlwifi: pcie: transmit queue auto-sizing
+Date: Thu,  4 Feb 2016 22:12:44 +0200
+Message-ID: <1454616764-19841-1-git-send-email-emmanuel.grumbach@intel.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	Dave Taht <dave.taht-1sxU1Nz/FFnXvvmF7DA6hg@public.gmane.org>,
+	Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 4, 2016 at 11:57 AM, Rick Jones <rick.jones2@hpe.com> wrote:
-> On 02/04/2016 11:38 AM, Tom Herbert wrote:
->>
->> On Thu, Feb 4, 2016 at 11:13 AM, Rick Jones <rick.jones2@hpe.com> wrote:
->>>
->>> The Intel folks suggested something about the process scheduler moving
->>> the
->>> sender around and ultimately causing some packet re-ordering.  That could
->>> I
->>> suppose explain the TCP_STREAM difference, but not the TCP_RR since that
->>> has
->>> just a single segment in flight at one time.
->>>
->> XPS has OOO avoidance for TCP, that should not be a problem.
->
->
-> What/how much should I read into:
->
-> With XPS    TCPOFOQueue: 78206
-> Without XPS TCPOFOQueue: 967
->
-> out of the netstat statistics on the receiving VM?
->
-Okay, that makes sense. The OOO avoidance only applies to TCP sockets
-in the stack, that doesn't cross into VM. Presumably, packets coming
-from the VM don't have a socket so sk_tx_queue_get always returns -1
-and so netdev_pick_tx will steer packet to the queue based on
-currently running CPU without any memory.
+As many (all?) WiFi devices, Intel WiFi devices have
+transmit queues which have 256 transmit descriptors
+each and each descriptor corresponds to an MPDU.
+This means that when it is full, the queue contains
+256 * ~1500 bytes to be transmitted (if we don't have
+A-MSDUs). The purpose of those queues is to have enough
+packets to be ready for transmission so that when the device
+gets an opportunity to transmit (TxOP), it can take as many
+packets as the spec allows and aggregate them into one
+A-MPDU or even several A-MPDUs if we are using bursts.
 
->>> I can try to get perf/whatnot installed on the systems - suggestions as
->>> to
->>> what metrics to look at are welcome.
->>>
->> I'd start with verifying the XPS configuration is sane and then trying
->> to reproduce the issue outside of using VMs, if both of those are okay
->> then maybe look at some sort of bad interaction with OpenStack
->> configuration.
->
->
-> Fair enough - what is the definition of "sane" for an XPS configuration?
->
-> Here is what it looks like before I disabled it:
->
-> $ for i in `find /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0
-> -name xps_cpus`; do echo $i `cat $i`; done
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-0/xps_cpus
-> 0000,00000001
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-1/xps_cpus
-> 0000,00000002
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-2/xps_cpus
-> 0000,00000004
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-3/xps_cpus
-> 0000,00000008
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-4/xps_cpus
-> 0000,00000010
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-5/xps_cpus
-> 0000,00000020
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-6/xps_cpus
-> 0000,00000040
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-7/xps_cpus
-> 0000,00000080
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-8/xps_cpus
-> 0000,00000100
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-9/xps_cpus
-> 0000,00000200
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-10/xps_cpus
-> 0000,00000400
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-11/xps_cpus
-> 0000,00000800
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-12/xps_cpus
-> 0000,00001000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-13/xps_cpus
-> 0000,00002000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-14/xps_cpus
-> 0000,00004000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-15/xps_cpus
-> 0000,00008000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-16/xps_cpus
-> 0000,00010000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-17/xps_cpus
-> 0000,00020000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-18/xps_cpus
-> 0000,00040000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-19/xps_cpus
-> 0000,00080000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-20/xps_cpus
-> 0000,00100000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-21/xps_cpus
-> 0000,00200000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-22/xps_cpus
-> 0000,00400000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-23/xps_cpus
-> 0000,00800000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-24/xps_cpus
-> 0000,01000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-25/xps_cpus
-> 0000,02000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-26/xps_cpus
-> 0000,04000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-27/xps_cpus
-> 0000,08000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-28/xps_cpus
-> 0000,10000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-29/xps_cpus
-> 0000,20000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-30/xps_cpus
-> 0000,40000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-31/xps_cpus
-> 0000,80000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-32/xps_cpus
-> 0001,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-33/xps_cpus
-> 0002,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-34/xps_cpus
-> 0004,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-35/xps_cpus
-> 0008,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-36/xps_cpus
-> 0010,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-37/xps_cpus
-> 0020,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-38/xps_cpus
-> 0040,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-39/xps_cpus
-> 0080,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-40/xps_cpus
-> 0100,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-41/xps_cpus
-> 0200,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-42/xps_cpus
-> 0400,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-43/xps_cpus
-> 0800,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-44/xps_cpus
-> 1000,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-45/xps_cpus
-> 2000,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-46/xps_cpus
-> 4000,00000000
-> /sys/devices/pci0000:00/0000:00:02.2/0000:04:00.0/net/eth0/queues/tx-47/xps_cpus
-> 8000,00000000
->
->
-> Which looks like it simply got spread across all the "CPUs" (HTs included)
-> in the system.
->
-> happy benchmarking,
->
-> rick jones
+The problem is that the packets that are in these queues are
+already out of control of the Qdisc and can stay in those
+queues for a fairly long time when the link condition is
+not good. This leads to the well known bufferbloat problem.
+
+This patch adds a way to tune the size of the transmit queue
+so that it won't cause excessive latency. When the link
+condition is good, the packets will flow smoothly and the
+transmit queue will grow quickly allowing A-MPDUs and
+maximal throughput. When the link is not optimal, we will
+have retransmissions, lower transmit rates or signal
+detection (CCA) which will cause a delay in the packet
+transmission. The driver will sense this higher latency
+and will reduce the size of the transmit queue.
+This means that the packets that continue to arrive
+will pile up in the Qdisc rather than in the device
+queues. The major advantage of this approach is that
+codel can now do its work.
+
+The algorithm is really (too?) simple:
+every 5 seconds, starts from a short queue again.
+If a packet has been in the queue for less than 10ms,
+allow 10 more MPDUs in.
+If a packet has been in the queue for more than 20ms,
+reduce by 10 the size of the transmit queue.
+
+The implementation is really naive and way too simple:
+ * reading jiffies for every Tx / Tx status is not a
+   good idead.
+ * jiffies are not fine-grained enough on all platforms
+ * the constants chosen are really arbitrary and can't be
+   tuned.
+ * This may be implemented in mac80211 probably and help
+   other drivers.
+ * etc...
+
+But already this gives nice results. I ran a very simple
+experiment: I put the device in a controlled environment
+and ran traffic while running default sized ping in the
+background. In this configuration, our device quickly
+raises its transmission rate to the best rate.
+Then, I force the device to use the lowest rate (6Mbps).
+Of course, the throughput collapses, but the ping RTT
+shoots up.
+Using codel helps, but the latency is still high. Codel
+with this patch gives much better results:
+
+pfifo_fast:
+rtt min/avg/max/mdev = 1932.616/2393.284/2833.407/315.941 ms, pipe 3, ipg/ewma 2215.707/2446.884 ms
+
+fq_codel + Tx queue auto-sizing:
+rtt min/avg/max/mdev = 13.541/32.396/54.791/9.610 ms, ipg/ewma 200.685/32.202 ms
+
+fq_codel without Tx queue auto-sizing:
+rtt min/avg/max/mdev = 140.821/257.303/331.889/31.074 ms, pipe 2, ipg/ewma 258.147/252.847 ms
+
+Clearly, there is more work to do to be able to merge this,
+but it seems that the wireless problems mentioned in
+https://lwn.net/Articles/616241/ may have a solution.
+
+Cc: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Cc: Dave Taht <dave.taht-1sxU1Nz/FFnXvvmF7DA6hg@public.gmane.org>
+Cc: Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>
+Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/wireless/intel/iwlwifi/pcie/internal.h |  6 ++++
+ drivers/net/wireless/intel/iwlwifi/pcie/tx.c       | 32 ++++++++++++++++++++--
+ 2 files changed, 35 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/internal.h b/drivers/net/wireless/intel/iwlwifi/pcie/internal.h
+index 2f95916..d83eb56 100644
+--- a/drivers/net/wireless/intel/iwlwifi/pcie/internal.h
++++ b/drivers/net/wireless/intel/iwlwifi/pcie/internal.h
+@@ -192,6 +192,11 @@ struct iwl_cmd_meta {
+ 	u32 flags;
+ };
+ 
++struct iwl_txq_auto_size {
++	int min_space;
++	unsigned long reset_ts;
++};
++
+ /*
+  * Generic queue structure
+  *
+@@ -293,6 +298,7 @@ struct iwl_txq {
+ 	bool block;
+ 	unsigned long wd_timeout;
+ 	struct sk_buff_head overflow_q;
++	struct iwl_txq_auto_size auto_sz;
+ };
+ 
+ static inline dma_addr_t
+diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/tx.c b/drivers/net/wireless/intel/iwlwifi/pcie/tx.c
+index 837a7d5..4d1dee6 100644
+--- a/drivers/net/wireless/intel/iwlwifi/pcie/tx.c
++++ b/drivers/net/wireless/intel/iwlwifi/pcie/tx.c
+@@ -572,6 +572,8 @@ static int iwl_pcie_txq_init(struct iwl_trans *trans, struct iwl_txq *txq,
+ 
+ 	spin_lock_init(&txq->lock);
+ 	__skb_queue_head_init(&txq->overflow_q);
++	txq->auto_sz.min_space = 240;
++	txq->auto_sz.reset_ts = jiffies;
+ 
+ 	/*
+ 	 * Tell nic where to find circular buffer of Tx Frame Descriptors for
+@@ -1043,10 +1045,14 @@ void iwl_trans_pcie_reclaim(struct iwl_trans *trans, int txq_id, int ssn,
+ 	     q->read_ptr != tfd_num;
+ 	     q->read_ptr = iwl_queue_inc_wrap(q->read_ptr)) {
+ 		struct sk_buff *skb = txq->entries[txq->q.read_ptr].skb;
++		struct ieee80211_tx_info *info;
++		unsigned long tx_time;
+ 
+ 		if (WARN_ON_ONCE(!skb))
+ 			continue;
+ 
++		info = IEEE80211_SKB_CB(skb);
++
+ 		iwl_pcie_free_tso_page(skb);
+ 
+ 		__skb_queue_tail(skbs, skb);
+@@ -1056,6 +1062,18 @@ void iwl_trans_pcie_reclaim(struct iwl_trans *trans, int txq_id, int ssn,
+ 		iwl_pcie_txq_inval_byte_cnt_tbl(trans, txq);
+ 
+ 		iwl_pcie_txq_free_tfd(trans, txq);
++
++		tx_time = (uintptr_t)info->driver_data[IWL_TRANS_FIRST_DRIVER_DATA + 2];
++		if (time_before(jiffies, tx_time + msecs_to_jiffies(10))) {
++			txq->auto_sz.min_space -= 10;
++			txq->auto_sz.min_space =
++				max(txq->auto_sz.min_space, txq->q.high_mark);
++		} else if (time_after(jiffies,
++				      tx_time + msecs_to_jiffies(20))) {
++			txq->auto_sz.min_space += 10;
++			txq->auto_sz.min_space =
++				min(txq->auto_sz.min_space, 252);
++		}
+ 	}
+ 
+ 	iwl_pcie_txq_progress(txq);
+@@ -2185,6 +2203,7 @@ int iwl_trans_pcie_tx(struct iwl_trans *trans, struct sk_buff *skb,
+ 		      struct iwl_device_cmd *dev_cmd, int txq_id)
+ {
+ 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
++	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+ 	struct ieee80211_hdr *hdr;
+ 	struct iwl_tx_cmd *tx_cmd = (struct iwl_tx_cmd *)dev_cmd->payload;
+ 	struct iwl_cmd_meta *out_meta;
+@@ -2234,13 +2253,20 @@ int iwl_trans_pcie_tx(struct iwl_trans *trans, struct sk_buff *skb,
+ 
+ 	spin_lock(&txq->lock);
+ 
+-	if (iwl_queue_space(q) < q->high_mark) {
++	info->driver_data[IWL_TRANS_FIRST_DRIVER_DATA + 2] =
++		(void *)(uintptr_t)jiffies;
++
++	if (time_after(jiffies,
++		       txq->auto_sz.reset_ts + msecs_to_jiffies(5000))) {
++		txq->auto_sz.min_space = 240;
++		txq->auto_sz.reset_ts = jiffies;
++	}
++
++	if (iwl_queue_space(q) < txq->auto_sz.min_space) {
+ 		iwl_stop_queue(trans, txq);
+ 
+ 		/* don't put the packet on the ring, if there is no room */
+ 		if (unlikely(iwl_queue_space(q) < 3)) {
+-			struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
