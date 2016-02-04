@@ -1,95 +1,191 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 17/20] i40e: AQ Add Run PHY Activity struct
-Date: Thu,  4 Feb 2016 03:49:08 -0800
-Message-ID: <1454586551-35919-18-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/20] i40e/i40evf: Fix for UDP/TCP RSS for X722
+Date: Thu,  4 Feb 2016 03:49:03 -0800
+Message-ID: <1454586551-35919-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1454586551-35919-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:45387 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:41087 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965738AbcBDLtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Feb 2016 06:49:16 -0500
+	id S965396AbcBDLtS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Feb 2016 06:49:18 -0500
 In-Reply-To: <1454586551-35919-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Add the AQ opcode and struct definitions for the Run PHY Activity command
+The PCTYPES for the X710 and X722 families are different. This patch
+makes adjustments for that.
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Acked-by: Kevin Scott <kevin.c.scott@intel.com>
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 13 +++++++++++++
- drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 13 +++++++++++++
- 2 files changed, 26 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 18 ++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  6 +++++
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 29 +++++++++++++++++++---
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  8 +++---
+ 4 files changed, 54 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index bff0995..9e340ca 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -220,6 +220,7 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_get_phy_wol_caps		= 0x0621,
- 	i40e_aqc_opc_set_phy_debug		= 0x0622,
- 	i40e_aqc_opc_upload_ext_phy_fm		= 0x0625,
-+	i40e_aqc_opc_run_phy_activity		= 0x0626,
- 
- 	/* NVM commands */
- 	i40e_aqc_opc_nvm_read			= 0x0701,
-@@ -1825,6 +1826,18 @@ enum i40e_aq_phy_reg_type {
- 	I40E_AQC_PHY_REG_EXERNAL_MODULE	= 0x3
- };
- 
-+/* Run PHY Activity (0x0626) */
-+struct i40e_aqc_run_phy_activity {
-+	__le16  activity_id;
-+	u8      flags;
-+	u8      reserved1;
-+	__le32  control;
-+	__le32  data;
-+	u8      reserved2[4];
-+};
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 252a9dd..8a3f93d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -2168,6 +2168,10 @@ static int i40e_set_rss_hash_opt(struct i40e_pf *pf, struct ethtool_rxnfc *nfc)
+ 		case 0:
+ 			return -EINVAL;
+ 		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
++			if (pf->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE)
++				hena |=
++			   BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN_NO_ACK);
 +
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_run_phy_activity);
+ 			hena |= BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_TCP);
+ 			break;
+ 		default:
+@@ -2179,6 +2183,10 @@ static int i40e_set_rss_hash_opt(struct i40e_pf *pf, struct ethtool_rxnfc *nfc)
+ 		case 0:
+ 			return -EINVAL;
+ 		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
++			if (pf->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE)
++				hena |=
++			   BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN_NO_ACK);
 +
- /* NVM Read command (indirect 0x0701)
-  * NVM Erase commands (direct 0x0702)
-  * NVM Update commands (indirect 0x0703)
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index 365a7d6..51d83c6 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -220,6 +220,7 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_get_phy_wol_caps		= 0x0621,
- 	i40e_aqc_opc_set_phy_debug		= 0x0622,
- 	i40e_aqc_opc_upload_ext_phy_fm		= 0x0625,
-+	i40e_aqc_opc_run_phy_activity		= 0x0626,
+ 			hena |= BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_TCP);
+ 			break;
+ 		default:
+@@ -2190,6 +2198,11 @@ static int i40e_set_rss_hash_opt(struct i40e_pf *pf, struct ethtool_rxnfc *nfc)
+ 		case 0:
+ 			return -EINVAL;
+ 		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
++			if (pf->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE)
++				hena |=
++			    BIT_ULL(I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) |
++			    BIT_ULL(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP);
++
+ 			hena |= (BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_UDP) |
+ 				 BIT_ULL(I40E_FILTER_PCTYPE_FRAG_IPV4));
+ 			break;
+@@ -2202,6 +2215,11 @@ static int i40e_set_rss_hash_opt(struct i40e_pf *pf, struct ethtool_rxnfc *nfc)
+ 		case 0:
+ 			return -EINVAL;
+ 		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
++			if (pf->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE)
++				hena |=
++			    BIT_ULL(I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) |
++			    BIT_ULL(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP);
++
+ 			hena |= (BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_UDP) |
+ 				 BIT_ULL(I40E_FILTER_PCTYPE_FRAG_IPV6));
+ 			break;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 63e62f9..86aacb9 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1213,6 +1213,12 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
+ 		vfres->vf_offload_flags |= I40E_VIRTCHNL_VF_OFFLOAD_RSS_REG;
+ 	}
  
- 	/* NVM commands */
- 	i40e_aqc_opc_nvm_read			= 0x0701,
-@@ -1822,6 +1823,18 @@ enum i40e_aq_phy_reg_type {
- 	I40E_AQC_PHY_REG_EXERNAL_MODULE	= 0x3
- };
++	if (pf->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE) {
++		if (vf->driver_caps & I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
++			vfres->vf_offload_flags |=
++				I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2;
++	}
++
+ 	if (vf->driver_caps & I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING)
+ 		vfres->vf_offload_flags |= I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING;
  
-+/* Run PHY Activity (0x0626) */
-+struct i40e_aqc_run_phy_activity {
-+	__le16  activity_id;
-+	u8      flags;
-+	u8      reserved1;
-+	__le32  control;
-+	__le32  data;
-+	u8      reserved2[4];
-+};
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index 8906785..bd1c272 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -459,6 +459,7 @@ static int i40evf_set_rss_hash_opt(struct i40evf_adapter *adapter,
+ 				   struct ethtool_rxnfc *nfc)
+ {
+ 	struct i40e_hw *hw = &adapter->hw;
++	u32 flags = adapter->vf_res->vf_offload_flags;
+ 
+ 	u64 hena = (u64)rd32(hw, I40E_VFQF_HENA(0)) |
+ 		   ((u64)rd32(hw, I40E_VFQF_HENA(1)) << 32);
+@@ -477,19 +478,34 @@ static int i40evf_set_rss_hash_opt(struct i40evf_adapter *adapter,
+ 
+ 	switch (nfc->flow_type) {
+ 	case TCP_V4_FLOW:
+-		if (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3))
++		if (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
++			if (flags & I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
++				hena |=
++			   BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN_NO_ACK);
 +
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_run_phy_activity);
+ 			hena |= BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_TCP);
+-		else
++		} else {
+ 			return -EINVAL;
++		}
+ 		break;
+ 	case TCP_V6_FLOW:
+-		if (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3))
++		if (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
++			if (flags & I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
++				hena |=
++			   BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN_NO_ACK);
 +
- /* NVM Read command (indirect 0x0701)
-  * NVM Erase commands (direct 0x0702)
-  * NVM Update commands (indirect 0x0703)
+ 			hena |= BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_TCP);
+-		else
++		} else {
+ 			return -EINVAL;
++		}
+ 		break;
+ 	case UDP_V4_FLOW:
+ 		if (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
++			if (flags & I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
++				hena |=
++			    BIT_ULL(I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) |
++			    BIT_ULL(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP);
++
+ 			hena |= (BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_UDP) |
+ 				 BIT_ULL(I40E_FILTER_PCTYPE_FRAG_IPV4));
+ 		} else {
+@@ -498,6 +514,11 @@ static int i40evf_set_rss_hash_opt(struct i40evf_adapter *adapter,
+ 		break;
+ 	case UDP_V6_FLOW:
+ 		if (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
++			if (flags & I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
++				hena |=
++			    BIT_ULL(I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) |
++			    BIT_ULL(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP);
++
+ 			hena |= (BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_UDP) |
+ 				 BIT_ULL(I40E_FILTER_PCTYPE_FRAG_IPV6));
+ 		} else {
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 81d9584..798f0de 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1456,7 +1456,11 @@ static int i40evf_init_rss(struct i40evf_adapter *adapter)
+ 	int ret;
+ 
+ 	/* Enable PCTYPES for RSS, TCP/UDP with IPv4/IPv6 */
+-	hena = I40E_DEFAULT_RSS_HENA;
++	if (adapter->vf_res->vf_offload_flags &
++					I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
++		hena = I40E_DEFAULT_RSS_HENA_EXPANDED;
++	else
++		hena = I40E_DEFAULT_RSS_HENA;
+ 	wr32(hw, I40E_VFQF_HENA(0), (u32)hena);
+ 	wr32(hw, I40E_VFQF_HENA(1), (u32)(hena >> 32));
+ 
+@@ -2507,8 +2511,6 @@ static void i40evf_init_task(struct work_struct *work)
+ 	if (adapter->vf_res->vf_offload_flags &
+ 		    I40E_VIRTCHNL_VF_OFFLOAD_WB_ON_ITR)
+ 		adapter->flags |= I40EVF_FLAG_WB_ON_ITR_CAPABLE;
+-	if (!RSS_AQ(adapter))
+-		i40evf_init_rss(adapter);
+ 	err = i40evf_request_misc_irq(adapter);
+ 	if (err)
+ 		goto err_sw_init;
 -- 
 2.5.0
