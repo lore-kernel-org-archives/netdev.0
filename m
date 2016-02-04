@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC 04/13] xfrm: Move device notifications to a sepatate file
-Date: Thu, 4 Feb 2016 07:36:57 +0100
-Message-ID: <1454567826-13018-5-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC 11/13] net: Enable IPsec software GSO.
+Date: Thu, 4 Feb 2016 07:37:04 +0100
+Message-ID: <1454567826-13018-12-git-send-email-steffen.klassert@secunet.com>
 References: <1454567826-13018-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,133 +9,241 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	<sowmini.varadhan@oracle.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:36686 "EHLO
+Received: from a.mx.secunet.com ([62.96.220.36]:36682 "EHLO
 	h-62.96.220.36.host.de.colt.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756631AbcBDHFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 02:05:51 -0500
+	by vger.kernel.org with ESMTP id S1751703AbcBDHFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 02:05:50 -0500
 In-Reply-To: <1454567826-13018-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is needed for the upcomming IPsec device offloading.
+This patch hooks the IPsec GSO code into the generic
+network stack.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/xfrm.h     |  1 +
- net/xfrm/Makefile      |  2 +-
- net/xfrm/xfrm_device.c | 43 +++++++++++++++++++++++++++++++++++++++++++
- net/xfrm/xfrm_policy.c | 17 +----------------
- 4 files changed, 46 insertions(+), 17 deletions(-)
- create mode 100644 net/xfrm/xfrm_device.c
+ include/linux/netdevice.h |  2 +-
+ include/net/xfrm.h        |  1 +
+ net/core/dev.c            | 40 +++++++++++++++++++++++++++++++++++-----
+ net/ipv4/ip_output.c      |  8 +++++---
+ net/ipv4/xfrm4_output.c   |  2 +-
+ net/sched/sch_generic.c   |  2 +-
+ net/xfrm/xfrm_output.c    | 14 +++++++++++++-
+ 7 files changed, 57 insertions(+), 12 deletions(-)
 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d049c02..659eeec 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3192,7 +3192,7 @@ int dev_get_phys_port_id(struct net_device *dev,
+ int dev_get_phys_port_name(struct net_device *dev,
+ 			   char *name, size_t len);
+ int dev_change_proto_down(struct net_device *dev, bool proto_down);
+-struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev);
++struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev, int *ret);
+ struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 				    struct netdev_queue *txq, int *ret);
+ int __dev_forward_skb(struct net_device *dev, struct sk_buff *skb);
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index d6f6e50..aed7153 100644
+index 7939c39..3a69883 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -1398,6 +1398,7 @@ struct xfrm6_tunnel {
- void xfrm_init(void);
- void xfrm4_init(void);
- int xfrm_state_init(struct net *net);
-+void xfrm_dev_init(void);
- void xfrm_state_fini(struct net *net);
- void xfrm4_state_init(void);
- void xfrm4_protocol_init(void);
-diff --git a/net/xfrm/Makefile b/net/xfrm/Makefile
-index c0e9619..55b2ac3 100644
---- a/net/xfrm/Makefile
-+++ b/net/xfrm/Makefile
-@@ -4,7 +4,7 @@
+@@ -1505,6 +1505,7 @@ struct xfrmk_spdinfo {
+ 	u32 spdhmcnt;
+ };
  
- obj-$(CONFIG_XFRM) := xfrm_policy.o xfrm_state.o xfrm_hash.o \
- 		      xfrm_input.o xfrm_output.o \
--		      xfrm_sysctl.o xfrm_replay.o
-+		      xfrm_sysctl.o xfrm_replay.o xfrm_device.o
- obj-$(CONFIG_XFRM_STATISTICS) += xfrm_proc.o
- obj-$(CONFIG_XFRM_ALGO) += xfrm_algo.o
- obj-$(CONFIG_XFRM_USER) += xfrm_user.o
-diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
-new file mode 100644
-index 0000000..34a260a
---- /dev/null
-+++ b/net/xfrm/xfrm_device.c
-@@ -0,0 +1,43 @@
-+/*
-+ * xfrm_device.c - IPsec device offloading code.
-+ *
-+ * Copyright (c) 2015 secunet Security Networks AG
-+ *
-+ * Author:
-+ * Steffen Klassert <steffen.klassert@secunet.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/errno.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <net/dst.h>
-+#include <net/xfrm.h>
-+#include <linux/notifier.h>
-+
-+static int xfrm_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
-+{
-+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+
-+	switch (event) {
-+	case NETDEV_DOWN:
-+		xfrm_garbage_collect(dev_net(dev));
-+	}
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block xfrm_dev_notifier = {
-+	.notifier_call	= xfrm_dev_event,
-+};
-+
-+void __net_init xfrm_dev_init(void)
-+{
-+	register_netdevice_notifier(&xfrm_dev_notifier);
-+}
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index b5e665b..b157f7c 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2891,21 +2891,6 @@ int xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo)
++void xfrm_dev_backlog(struct sk_buff_head *xfrm_backlog);
+ struct xfrm_state *xfrm_find_acq_byseq(struct net *net, u32 mark, u32 seq);
+ int xfrm_state_delete(struct xfrm_state *x);
+ int xfrm_state_flush(struct net *net, u8 proto, bool task_valid);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f083cbb..611e93c 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2911,9 +2911,10 @@ static struct sk_buff *validate_xmit_vlan(struct sk_buff *skb,
+ 	return skb;
  }
- EXPORT_SYMBOL(xfrm_policy_unregister_afinfo);
  
--static int xfrm_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
--{
--	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
--
--	switch (event) {
--	case NETDEV_DOWN:
--		xfrm_garbage_collect(dev_net(dev));
--	}
--	return NOTIFY_DONE;
--}
--
--static struct notifier_block xfrm_dev_notifier = {
--	.notifier_call	= xfrm_dev_event,
--};
--
- #ifdef CONFIG_XFRM_STATISTICS
- static int __net_init xfrm_statistics_init(struct net *net)
+-static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev)
++static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev, int *ret)
  {
-@@ -2982,7 +2967,7 @@ static int __net_init xfrm_policy_init(struct net *net)
- 	INIT_WORK(&net->xfrm.policy_hash_work, xfrm_hash_resize);
- 	INIT_WORK(&net->xfrm.policy_hthresh.work, xfrm_hash_rebuild);
- 	if (net_eq(net, &init_net))
--		register_netdevice_notifier(&xfrm_dev_notifier);
-+		xfrm_dev_init();
- 	return 0;
+ 	netdev_features_t features;
++	int err = 0;
  
- out_bydst:
+ 	if (skb->next)
+ 		return skb;
+@@ -2925,6 +2926,7 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
+ 
+ 	if (netif_needs_gso(skb, features)) {
+ 		struct sk_buff *segs;
++		struct sk_buff *skb2;
+ 
+ 		segs = skb_gso_segment(skb, features);
+ 		if (IS_ERR(segs)) {
+@@ -2932,7 +2934,25 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
+ 		} else if (segs) {
+ 			consume_skb(skb);
+ 			skb = segs;
++
++			if  (skb->hw_xfrm) {
++				do {
++					skb2 = segs->next;
++					segs->next = NULL;
++
++					err = dev->xfrmdev_ops->xdo_dev_validate(segs);
++					if (!err)
++						segs->next = skb2;
++					else if (err != -EINPROGRESS)
++						kfree_skb(segs);
++					else if (skb == segs)
++						skb = skb2;
++
++					segs = skb2;
++				} while (segs);
++			}
+ 		}
++
+ 	} else {
+ 		if (skb_needs_linearize(skb, features) &&
+ 		    __skb_linearize(skb))
+@@ -2955,6 +2975,9 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device
+ 		}
+ 	}
+ 
++	if ((err == -EINPROGRESS) && !skb)
++		*ret = NETDEV_TX_OK;
++
+ 	return skb;
+ 
+ out_kfree_skb:
+@@ -2963,7 +2986,7 @@ out_null:
+ 	return NULL;
+ }
+ 
+-struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev)
++struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev, int *ret)
+ {
+ 	struct sk_buff *next, *head = NULL, *tail;
+ 
+@@ -2974,7 +2997,7 @@ struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *d
+ 		/* in case skb wont be segmented, point to itself */
+ 		skb->prev = skb;
+ 
+-		skb = validate_xmit_skb(skb, dev);
++		skb = validate_xmit_skb(skb, dev, ret);
+ 		if (!skb)
+ 			continue;
+ 
+@@ -3347,8 +3370,10 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+ 			if (__this_cpu_read(xmit_recursion) > RECURSION_LIMIT)
+ 				goto recursion_alert;
+ 
+-			skb = validate_xmit_skb(skb, dev);
+-			if (!skb)
++			skb = validate_xmit_skb(skb, dev, &rc);
++			if (!skb && rc == NETDEV_TX_OK)
++				goto out;
++			else if (!skb)
+ 				goto drop;
+ 
+ 			HARD_TX_LOCK(dev, txq, cpu);
+@@ -3867,6 +3892,11 @@ static void net_tx_action(struct softirq_action *h)
+ 			}
+ 		}
+ 	}
++
++#ifdef CONFIG_XFRM
++	if (!skb_queue_empty(&sd->xfrm_backlog))
++			xfrm_dev_backlog(&sd->xfrm_backlog);
++#endif
+ }
+ 
+ #if (defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)) && \
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 64878ef..0d75161 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -173,7 +173,7 @@ EXPORT_SYMBOL_GPL(ip_build_and_send_pkt);
+ 
+ static int ip_finish_output2(struct net *net, struct sock *sk, struct sk_buff *skb)
+ {
+-	struct dst_entry *dst = skb_dst(skb);
++	struct dst_entry *dst = skb_dst(skb)->path;
+ 	struct rtable *rt = (struct rtable *)dst;
+ 	struct net_device *dev = dst->dev;
+ 	unsigned int hh_len = LL_RESERVED_SPACE(dev);
+@@ -269,7 +269,9 @@ static int ip_finish_output(struct net *net, struct sock *sk, struct sk_buff *sk
+ 
+ #if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
+ 	/* Policy lookup after SNAT yielded a new policy */
+-	if (skb_dst(skb)->xfrm) {
++	if (skb_dst(skb)->xfrm &&
++	    !((skb_dst(skb)->dev->features & NETIF_F_ESP_OFFLOAD) ||
++	      (skb_shinfo(skb)->gso_type & SKB_GSO_ESP))) {
+ 		IPCB(skb)->flags |= IPSKB_REROUTED;
+ 		return dst_output(net, sk, skb);
+ 	}
+@@ -348,7 +350,7 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 
+ int ip_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ {
+-	struct net_device *dev = skb_dst(skb)->dev;
++	struct net_device *dev = skb_dst(skb)->path->dev;
+ 
+ 	IP_UPD_PO_STATS(net, IPSTATS_MIB_OUT, skb->len);
+ 
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+index 7ee6518..14e42ba 100644
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -29,7 +29,7 @@ static int xfrm4_tunnel_check_size(struct sk_buff *skb)
+ 		goto out;
+ 
+ 	mtu = dst_mtu(skb_dst(skb));
+-	if (skb->len > mtu) {
++	if ((!skb_is_gso(skb) && skb->len > mtu) || (skb_is_gso(skb) && skb_gso_network_seglen(skb) > ip_skb_dst_mtu(skb))) {
+ 		skb->protocol = htons(ETH_P_IP);
+ 
+ 		if (skb->sk)
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 16bc83b..5b11424 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -157,7 +157,7 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
+ 
+ 	/* Note that we validate skb (GSO, checksum, ...) outside of locks */
+ 	if (validate)
+-		skb = validate_xmit_skb_list(skb, dev);
++		skb = validate_xmit_skb_list(skb, dev, &ret);
+ 
+ 	if (skb) {
+ 		HARD_TX_LOCK(dev, txq, smp_processor_id());
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index ff4a91f..ad452e0 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -196,9 +196,21 @@ static int xfrm_output_gso(struct net *net, struct sock *sk, struct sk_buff *skb
+ 
+ int xfrm_output(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct net *net = dev_net(skb_dst(skb)->dev);
++	struct net_device *dev = skb_dst(skb)->dev;
++	struct net *net = dev_net(dev);
+ 	int err;
+ 
++	if ((dev->features & NETIF_F_ESP_OFFLOAD) || skb_is_gso(skb)) {
++		err = skb_dst(skb)->ops->local_out(net, skb->sk, skb);
++		if (unlikely(err != 1))
++			return err;
++
++		if (skb_is_gso(skb))
++			skb_shinfo(skb)->gso_type |= SKB_GSO_ESP;
++
++		return dev->xfrmdev_ops->xdo_dev_encap(skb);
++	}
++
+ 	if (skb_is_gso(skb))
+ 		return xfrm_output_gso(net, sk, skb);
+ 
 -- 
 1.9.1
