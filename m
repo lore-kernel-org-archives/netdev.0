@@ -1,107 +1,59 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: [PATCH 3.16.y-ckt 002/180] =?UTF-8?q?veth:=20don=E2=80=99t=20modify=20ip=5Fs?= =?UTF-8?q?ummed;=20doing=20so=20treats=20packets=20with=20bad=20checksums?= =?UTF-8?q?=20as=20good.?=
-Date: Wed,  3 Feb 2016 22:30:08 +0000
-Message-ID: <1454538786-12215-3-git-send-email-luis.henriques@canonical.com>
-References: <1454538786-12215-1-git-send-email-luis.henriques@canonical.com>
+From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Subject: [ANNOUNCE] NetDev 1.1 schedule is out
+Date: Thu, 4 Feb 2016 01:07:42 +0100
+Message-ID: <20160204000742.GA1203@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Evan Jones <ej@evanjones.ca>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Phil Sutter <phil@nwl.cc>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	netdev@vger.kernel.org, Vijay Pandurangan <vijayp@vijayp.ca>,
-	"David S . Miller" <davem@davemloft.net>,
-	Luis Henriques <luis.henriques@canonical.com>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	kernel-team@lists.ubuntu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454538786-12215-1-git-send-email-luis.henriques@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: lwn-T1hC0tSOHrs@public.gmane.org, info-Aq7fehzYRUagpaxmtUs7hg@public.gmane.org
+To: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-3.16.7-ckt24 -stable review patch.  If anyone has any objections, pleas=
-e let me know.
+Hi!
 
----8<------------------------------------------------------------
+We're happy to release the NetDev 1.1 schedule today:
 
-=46rom: Vijay Pandurangan <vijayp@vijayp.ca>
+        http://www.netdevconf.org/1.1/schedule.html
 
-commit ce8c839b74e3017996fad4e1b7ba2e2625ede82f upstream.
+We have three days ahead of interesting talks, tutorials, BoFs and
+keynotes! And... you still have a chance to join us:
 
-Packets that arrive from real hardware devices have ip_summed =3D=3D
-CHECKSUM_UNNECESSARY if the hardware verified the checksums, or
-CHECKSUM_NONE if the packet is bad or it was unable to verify it. The
-current version of veth will replace CHECKSUM_NONE with
-CHECKSUM_UNNECESSARY, which causes corrupt packets routed from hardware=
- to
-a veth device to be delivered to the application. This caused applicati=
-ons
-at Twitter to receive corrupt data when network hardware was corrupting
-packets.
+        https://www.netdevconf.org/1.1/registration.html
 
-We believe this was added as an optimization to skip computing and
-verifying checksums for communication between containers. However, loca=
-lly
-generated packets have ip_summed =3D=3D CHECKSUM_PARTIAL, so the code a=
-s
-written does nothing for them. As far as we can tell, after removing th=
-is
-code, these packets are transmitted from one stack to another unmodifie=
-d
-(tcpdump shows invalid checksums on both sides, as expected), and they =
-are
-delivered correctly to applications. We didn=E2=80=99t test every possi=
-ble network
-configuration, but we tried a few common ones such as bridging containe=
-rs,
-using NAT between the host and a container, and routing from hardware
-devices to containers. We have effectively deployed this in production =
-at
-Twitter (by disabling RX checksum offloading on veth devices).
+             ________________________________
+            / Yay! An old school tech driven \
+            | community event by developers, |
+            | for developers! I can't miss   |
+            \ this chance!                   /
+             --------------------------------
+                            \ (__)
+                              (oo)
+                        /------\/
+                       / |    ||
+                      *  /\---/\
+                         ~~   ~~
 
-This code dates back to the first version of the driver, commit
-<e314dbdc1c0dc6a548ecf> ("[NET]: Virtual ethernet device driver"), so I
-suspect this bug occurred mostly because the driver API has evolved
-significantly since then. Commit <0b7967503dc97864f283a> ("net/veth: Fi=
-x
-packet checksumming") (in December 2010) fixed this for packets that ge=
-t
-created locally and sent to hardware devices, by not changing
-CHECKSUM_PARTIAL. However, the same issue still occurs for packets comi=
-ng
-in from hardware devices.
+We have also scheduled two social events, one Flamenco [1] + Paella [2]
++ Local wine tasting workshop on Thu 11th; and the gala dinner at the
+R=EDo Grande restaurant next to the Guadalquivir river.
 
-Co-authored-by: Evan Jones <ej@evanjones.ca>
-Signed-off-by: Evan Jones <ej@evanjones.ca>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Cc: Phil Sutter <phil@nwl.cc>
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Vijay Pandurangan <vijayp@vijayp.ca>
-Acked-by: Cong Wang <cwang@twopensource.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
----
- drivers/net/veth.c | 6 ------
- 1 file changed, 6 deletions(-)
+We would also like to thank those that already confirmed sponsorship:
+Cumulus Networks, Verizon, Facebook, VmWare, Google, Cisco, ARM,
+Linkedin, Mellanox, Sophos, Mojatatu Networks, OISF/Suricata,
+Zen Load Balancer, Telefonica and our media sponsor LWN.net. Thank you =
+a lot!
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index b4a10bcb66a0..e3a0e674136f 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -117,12 +117,6 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, =
-struct net_device *dev)
- 		kfree_skb(skb);
- 		goto drop;
- 	}
--	/* don't change ip_summed =3D=3D CHECKSUM_PARTIAL, as that
--	 * will cause bad checksum on forwarded packets
--	 */
--	if (skb->ip_summed =3D=3D CHECKSUM_NONE &&
--	    rcv->features & NETIF_F_RXCSUM)
--		skb->ip_summed =3D CHECKSUM_UNNECESSARY;
-=20
- 	if (likely(dev_forward_skb(rcv, skb) =3D=3D NET_RX_SUCCESS)) {
- 		struct pcpu_vstats *stats =3D this_cpu_ptr(dev->vstats);
+See you at NetDev 1.1 in Sevilla, Spain, February 10-12, 2016!
+
+[1] https://en.wikipedia.org/wiki/Flamenco
+[2] https://en.wikipedia.org/wiki/Paella
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
