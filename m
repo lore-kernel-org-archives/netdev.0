@@ -1,263 +1,113 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH v2 4/4] param: convert some "on"/"off" users to strtobool
-Date: Fri, 5 Feb 2016 01:04:09 +0200
-Message-ID: <CAHp75Vc9VXOm+TQ_Q67j45kE3dv249pLVAwAhm=NK-Ds02Jfkg@mail.gmail.com>
-References: <1454619643-14444-1-git-send-email-keescook@chromium.org>
-	<1454619643-14444-5-git-send-email-keescook@chromium.org>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH 1/2] ethtool: add dynamic flag to ETHTOOL_{GS}RXFH
+ commands
+Date: Thu, 4 Feb 2016 23:09:56 +0000
+Message-ID: <1454627396.3086.14.camel@intel.com>
+References: <1454455328-706-1-git-send-email-jacob.e.keller@intel.com>
+	 <1454455328-706-2-git-send-email-jacob.e.keller@intel.com>
+	 <20160204.175326.492457129636004051.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"x86@kernel.org" <x86@kernel.org>, linuxppc-dev@lists.ozlabs.org,
-	linux-s390@vger.kernel.org, Joe Perches <joe@perches.com>,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Amitkumar Karwar <akarwar@marvell.com>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Steve French <sfrench@samba.org>,
-	Michael Ellerman <mpe@ellerman.id.au>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	"open list:TI WILINK WIRELES..." <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, linux-cifs@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454619643-14444-5-git-send-email-keescook@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "andrew@lunn.ch" <andrew@lunn.ch>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"aduyck@mirantis.com" <aduyck@mirantis.com>,
+	"thomas.petazzoni@free-electrons.com"
+	<thomas.petazzoni@free-electrons.com>,
+	"mcarlson@broadcom.com" <mcarlson@broadcom.com>,
+	"yuvalmin@broadcom.com" <yuvalmin@broadcom.com>,
+	"amirv@mellanox.com" <amirv@mellanox.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"_govind@gmx.com" <_govind@gmx.com>,
+	"Lendacky@vger.kernel.org" <Lendacky@vger.kernel.org>,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"mirq-linux@rere.qmqm.pl" <mirq-linux@rere.qmqm.pl>,
+	"hariprasad@chelsio.com" <hariprasad@chelsio.com>,
+	"kalesh.purayil@emulex.com" <kalesh.purayil@emulex.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"mchan@broadcom.com" <mchan@broadcom.com>,
+	"Wyborny, Carolyn" <carolyn.wyb
+To: "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:37004 "EHLO mga04.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753819AbcBDXJ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Feb 2016 18:09:59 -0500
+In-Reply-To: <20160204.175326.492457129636004051.davem@davemloft.net>
+Content-Language: en-US
+Content-ID: <EC232B2895E0D04797E9F16124E44B23@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 4, 2016 at 11:00 PM, Kees Cook <keescook@chromium.org> wrote:
-> This changes several users of manual "on"/"off" parsing to use strtobool.
-> (Which means they will now parse y/n/1/0 meaningfully too.)
->
-
-I like this change, but can you carefully check the acceptance of the
-returned value?
-Briefly I saw 1 or 0 as okay in different places.
-
-
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-> Acked-by: Michael Ellerman <mpe@ellerman.id.au>
-> Cc: x86@kernel.org
-> Cc: linuxppc-dev@lists.ozlabs.org
-> Cc: linux-s390@vger.kernel.org
-> ---
->  arch/powerpc/kernel/rtasd.c                  |  9 ++-------
->  arch/powerpc/platforms/pseries/hotplug-cpu.c | 10 ++--------
->  arch/s390/kernel/time.c                      |  8 ++------
->  arch/s390/kernel/topology.c                  |  7 ++-----
->  arch/x86/kernel/aperture_64.c                | 12 ++----------
->  include/linux/tick.h                         |  2 +-
->  kernel/time/hrtimer.c                        | 10 ++--------
->  kernel/time/tick-sched.c                     | 10 ++--------
->  8 files changed, 15 insertions(+), 53 deletions(-)
->
-> diff --git a/arch/powerpc/kernel/rtasd.c b/arch/powerpc/kernel/rtasd.c
-> index 5a2c049c1c61..567ed5a2f43a 100644
-> --- a/arch/powerpc/kernel/rtasd.c
-> +++ b/arch/powerpc/kernel/rtasd.c
-> @@ -49,7 +49,7 @@ static unsigned int rtas_error_log_buffer_max;
->  static unsigned int event_scan;
->  static unsigned int rtas_event_scan_rate;
->
-> -static int full_rtas_msgs = 0;
-> +static bool full_rtas_msgs;
->
->  /* Stop logging to nvram after first fatal error */
->  static int logging_enabled; /* Until we initialize everything,
-> @@ -592,11 +592,6 @@ __setup("surveillance=", surveillance_setup);
->
->  static int __init rtasmsgs_setup(char *str)
->  {
-> -       if (strcmp(str, "on") == 0)
-> -               full_rtas_msgs = 1;
-> -       else if (strcmp(str, "off") == 0)
-> -               full_rtas_msgs = 0;
-> -
-> -       return 1;
-> +       return kstrtobool(str, 0, &full_rtas_msgs);
->  }
->  __setup("rtasmsgs=", rtasmsgs_setup);
-> diff --git a/arch/powerpc/platforms/pseries/hotplug-cpu.c b/arch/powerpc/platforms/pseries/hotplug-cpu.c
-> index 32274f72fe3f..b9787cae4108 100644
-> --- a/arch/powerpc/platforms/pseries/hotplug-cpu.c
-> +++ b/arch/powerpc/platforms/pseries/hotplug-cpu.c
-> @@ -47,20 +47,14 @@ static DEFINE_PER_CPU(enum cpu_state_vals, current_state) = CPU_STATE_OFFLINE;
->
->  static enum cpu_state_vals default_offline_state = CPU_STATE_OFFLINE;
->
-> -static int cede_offline_enabled __read_mostly = 1;
-> +static bool cede_offline_enabled __read_mostly = true;
->
->  /*
->   * Enable/disable cede_offline when available.
->   */
->  static int __init setup_cede_offline(char *str)
->  {
-> -       if (!strcmp(str, "off"))
-> -               cede_offline_enabled = 0;
-> -       else if (!strcmp(str, "on"))
-> -               cede_offline_enabled = 1;
-> -       else
-> -               return 0;
-> -       return 1;
-> +       return kstrtobool(str, 0, &cede_offline_enabled);
->  }
->
->  __setup("cede_offline=", setup_cede_offline);
-> diff --git a/arch/s390/kernel/time.c b/arch/s390/kernel/time.c
-> index 99f84ac31307..dff6ce1b84b2 100644
-> --- a/arch/s390/kernel/time.c
-> +++ b/arch/s390/kernel/time.c
-> @@ -1433,7 +1433,7 @@ device_initcall(etr_init_sysfs);
->  /*
->   * Server Time Protocol (STP) code.
->   */
-> -static int stp_online;
-> +static bool stp_online;
->  static struct stp_sstpi stp_info;
->  static void *stp_page;
->
-> @@ -1444,11 +1444,7 @@ static struct timer_list stp_timer;
->
->  static int __init early_parse_stp(char *p)
->  {
-> -       if (strncmp(p, "off", 3) == 0)
-> -               stp_online = 0;
-> -       else if (strncmp(p, "on", 2) == 0)
-> -               stp_online = 1;
-> -       return 0;
-> +       return kstrtobool(p, 0, &stp_online);
->  }
->  early_param("stp", early_parse_stp);
->
-> diff --git a/arch/s390/kernel/topology.c b/arch/s390/kernel/topology.c
-> index 40b8102fdadb..5d8a80651f61 100644
-> --- a/arch/s390/kernel/topology.c
-> +++ b/arch/s390/kernel/topology.c
-> @@ -37,7 +37,7 @@ static void set_topology_timer(void);
->  static void topology_work_fn(struct work_struct *work);
->  static struct sysinfo_15_1_x *tl_info;
->
-> -static int topology_enabled = 1;
-> +static bool topology_enabled = true;
->  static DECLARE_WORK(topology_work, topology_work_fn);
->
->  /*
-> @@ -444,10 +444,7 @@ static const struct cpumask *cpu_book_mask(int cpu)
->
->  static int __init early_parse_topology(char *p)
->  {
-> -       if (strncmp(p, "off", 3))
-> -               return 0;
-> -       topology_enabled = 0;
-> -       return 0;
-> +       return kstrtobool(p, 0, &topology_enabled);
->  }
->  early_param("topology", early_parse_topology);
->
-> diff --git a/arch/x86/kernel/aperture_64.c b/arch/x86/kernel/aperture_64.c
-> index 6e85f713641d..6b423754083a 100644
-> --- a/arch/x86/kernel/aperture_64.c
-> +++ b/arch/x86/kernel/aperture_64.c
-> @@ -227,19 +227,11 @@ static u32 __init search_agp_bridge(u32 *order, int *valid_agp)
->         return 0;
->  }
->
-> -static int gart_fix_e820 __initdata = 1;
-> +static bool gart_fix_e820 __initdata = true;
->
->  static int __init parse_gart_mem(char *p)
->  {
-> -       if (!p)
-> -               return -EINVAL;
-> -
-> -       if (!strncmp(p, "off", 3))
-> -               gart_fix_e820 = 0;
-> -       else if (!strncmp(p, "on", 2))
-> -               gart_fix_e820 = 1;
-> -
-> -       return 0;
-> +       return kstrtobool(p, 0, &gart_fix_e820);
->  }
->  early_param("gart_fix_e820", parse_gart_mem);
->
-> diff --git a/include/linux/tick.h b/include/linux/tick.h
-> index 97fd4e543846..0ecdf0e248f4 100644
-> --- a/include/linux/tick.h
-> +++ b/include/linux/tick.h
-> @@ -98,7 +98,7 @@ static inline void tick_broadcast_exit(void)
->  }
->
->  #ifdef CONFIG_NO_HZ_COMMON
-> -extern int tick_nohz_enabled;
-> +extern bool tick_nohz_enabled;
->  extern int tick_nohz_tick_stopped(void);
->  extern void tick_nohz_idle_enter(void);
->  extern void tick_nohz_idle_exit(void);
-> diff --git a/kernel/time/hrtimer.c b/kernel/time/hrtimer.c
-> index 435b8850dd80..456f066148d5 100644
-> --- a/kernel/time/hrtimer.c
-> +++ b/kernel/time/hrtimer.c
-> @@ -515,7 +515,7 @@ static inline ktime_t hrtimer_update_base(struct hrtimer_cpu_base *base)
->  /*
->   * High resolution timer enabled ?
->   */
-> -static int hrtimer_hres_enabled __read_mostly  = 1;
-> +static bool hrtimer_hres_enabled __read_mostly  = true;
->  unsigned int hrtimer_resolution __read_mostly = LOW_RES_NSEC;
->  EXPORT_SYMBOL_GPL(hrtimer_resolution);
->
-> @@ -524,13 +524,7 @@ EXPORT_SYMBOL_GPL(hrtimer_resolution);
->   */
->  static int __init setup_hrtimer_hres(char *str)
->  {
-> -       if (!strcmp(str, "off"))
-> -               hrtimer_hres_enabled = 0;
-> -       else if (!strcmp(str, "on"))
-> -               hrtimer_hres_enabled = 1;
-> -       else
-> -               return 0;
-> -       return 1;
-> +       return kstrtobool(str, 0, &hrtimer_hres_enabled);
->  }
->
->  __setup("highres=", setup_hrtimer_hres);
-> diff --git a/kernel/time/tick-sched.c b/kernel/time/tick-sched.c
-> index 9d7a053545f5..b57f822c2069 100644
-> --- a/kernel/time/tick-sched.c
-> +++ b/kernel/time/tick-sched.c
-> @@ -387,20 +387,14 @@ void __init tick_nohz_init(void)
->  /*
->   * NO HZ enabled ?
->   */
-> -int tick_nohz_enabled __read_mostly = 1;
-> +bool tick_nohz_enabled __read_mostly  = true;
->  unsigned long tick_nohz_active  __read_mostly;
->  /*
->   * Enable / Disable tickless mode
->   */
->  static int __init setup_tick_nohz(char *str)
->  {
-> -       if (!strcmp(str, "off"))
-> -               tick_nohz_enabled = 0;
-> -       else if (!strcmp(str, "on"))
-> -               tick_nohz_enabled = 1;
-> -       else
-> -               return 0;
-> -       return 1;
-> +       return kstrtobool(str, 0, &tick_nohz_enabled);
->  }
->
->  __setup("nohz=", setup_tick_nohz);
-> --
-> 2.6.3
->
-
-
-
--- 
-With Best Regards,
-Andy Shevchenko
+T24gVGh1LCAyMDE2LTAyLTA0IGF0IDE3OjUzIC0wNTAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+
+IEZyb206IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KPiBEYXRlOiBU
+dWUswqDCoDIgRmViIDIwMTYgMTU6MjI6MDYgLTA4MDANCj4gDQo+ID4gRXRodG9vbCBzdXBwb3J0
+cyBhIGZldyBvcGVyYXRpb25zIGZvciBtb2RpZnlpbmcgYW5kIGNvbnRyb2xsaW5nDQo+ID4gYSBk
+ZXZpY2UncyBSU1MgdGFibGUuIFNvbWV0aW1lcywgY2hhbmdlcyBpbiBvdGhlciBmZWF0dXJlcyBv
+ZiB0aGUNCj4gPiBkZXZpY2UNCj4gPiBtYXkgcmVxdWlyZSAob3IgZGVzaXJlKSBjaGFuZ2VzIHRv
+IHRoZSBSU1MgdGFibGUuIEN1cnJlbnRseSB0aGVyZQ0KPiA+IGlzIG5vDQo+ID4gbWV0aG9kIHRv
+IGluZGljYXRlIHRvIHRoZSBkcml2ZXIgd2hldGhlciB0aGUgY3VycmVudCBSU1MgdGFibGUNCj4g
+PiBzZXR0aW5ncw0KPiA+IHNob3VsZCBiZSBtYWludGFpbmVkIG9yIG92ZXJyaWRkZW4uDQo+IA0K
+PiBZZXMsIHRoZXJlIGNlcnRhaW5seSBpcyBhIHdheSB0byBpbmRpY2F0ZSB0aGlzLg0KPiANCj4g
+SWYgdGhlIHVzZXIgYXNrcyBmb3IgdGhlIGNoYW5nZSBpbiB0aGUgbnVtYmVyIG9mIHF1ZXVlcywg
+YW5kIHlvdQ0KPiBjYW5ub3QgcmV0YWluIHRoZSB1c2VyJ3MgcmVxdWVzdGVkIFJTUyBzZXR0aW5n
+cywgdGhlbiB5b3UgbXVzdCBmYWlsDQo+IHRoZSBxdWV1ZSBzZXR0aW5nIGNoYW5nZS4NCj4gDQo+
+IEFuZCB2aWNlIHZlcnNhLg0KPiANCj4gWW91IGNhbid0IHNheSB0byB0aGUgdXNlciAiSSBjYW4g
+YWRoZXJlIHRvIHlvdXIgcmVxdWVzdGVkDQo+IGNvbmZpZ3VyYXRpb24NCj4gY2hhbmdlLCBidXQg
+SSBtaWdodCB1bmRvIGl0IGZvciBzb21lIHVuc3BlY2lmaWVkIHJlYXNvbiINCj4gDQoNClRoZSB0
+cm91YmxlIGhlcmUgaXMgdGhlIGNhc2Ugd2hlcmUgdGhlIGluZGlyZWN0aW9uIHRhYmxlIGNvbmZp
+Z3VyYXRpb25zDQphcmUgdmFsaWQgbm93LCBidXQgYSBjaGFuZ2UgaW4gdGhlIG51bWJlciBvZiBx
+dWV1ZXMgaGFwcGVuaW5nIGF0IGENCmxhdGVyIHRpbWUgY3VycmVudGx5IGNhdXNlcyB0aGVzZSBz
+ZXR0aW5ncyB0byBiZSBsb3N0Lg0KDQo+IFRoYXQncyB1bmFjY2VwdGFibGUgYmVoYXZpb3IsIGFu
+ZCB0aGF0J3MgZXhhY3RseSB3aGF0IHRoaXMgZHluYW1pYw0KPiBmbGFnIG1lYW5zLg0KPiANCj4g
+SWYgeW91IGNhbm5vdCBnaXZlIHRoZSB1c2VyIHdoYXQgaGUgYXNrcyBmb3IsIHByZWNpc2VseSBh
+bmQgcmVsaWFibHksDQo+IHlvdSBmYWlsIHRoZSBvcGVyYXRpb24gd2l0aCBhbiBlcnJvci4NCj4g
+DQo+IFRoZXJlIGlzIG5vIHdheSBJIGFtIGFkZGluZyBjb2RlIHdoaWNoIGFsbG93cyB0aGVzZSAi
+bWF5YmUiIGtpbmQgb2YNCj4gY29uZmlndXJhdGlvbiBvcGVyYXRpb25zLsKgwqBFaXRoZXIgeW91
+IGNhbiBvciB5b3UgY2FuJ3QsIGFuZCB5b3UgdGVsbA0KPiB0aGUgdXNlciB3aGVuIHlvdSBjYW4n
+dCBieSBlcnJvcmluZyBvdXQgb24gdGhlIG9wZXJhdGlvbiB0aGF0DQo+IGludmFsaWRhdGVzIHRo
+ZSByZXF1aXJlbWVudHMuDQo+IA0KPiANCg0KU28geW91J3JlIHN1Z2dlc3RpbmcgaW5zdGVhZCwg
+dG8gZXJyb3Igd2hlbiB0aGUgc2Vjb25kIG9wZXJhdGlvbg0KKGNoYW5nZSBudW1iZXIgb2YgcXVl
+dWVzKSB3b3VsZCBmYWlsIHRoZSBjdXJyZW50IHNldHRpbmdzPw0KDQpDdXJyZW50IGRyaXZlciBi
+ZWhhdmlvcnMgZm9yIGFsbCB0aGUgZHJpdmVycyBJIGNoZWNrZWQgd29yayBpbiBvbmUgb2YNCnR3
+byB3YXlzLg0KDQoxKSBjaGFuZ2luZyBxdWV1ZXMgd2lsbCBkZXN0cm95IHRoZSBSU1MgdGFibGUg
+YXMgaXQgd2lsbCBiZQ0KcmVpbml0aWFsaXplZCByZWdhcmRsZXNzIG9mIGN1cnJlbnQgc2V0dGlu
+Z3MNCg0KMikgY2hhbmdpbmcgcXVldWVzIHdpbGwgbWFpbnRhaW4gdGhlIFJTUyB0YWJsZSBpZiBw
+b3NzaWJsZSwgdW5sZXNzIHRoZQ0KcHJldmlvdXMgUlNTIHRhYmxlIGNhbid0IGZ1bmN0aW9uLg0K
+DQpObyBkcml2ZXIgY3VycmVudGx5IGZhaWxzIHRoaXMgb3BlcmF0aW9uIGlmIHRoZSBSU1MgdGFi
+bGUgc2V0dGluZ3MNCmNhbid0IGJlIHByZXNlcnZlZC4gSW4gYWRkaXRpb24gaXQgcmVzdWx0cyBp
+biB3ZWlyZCBiZWhhdmlvciB3aGVuIGENCmRyaXZlciBzZXRzIHRoZSBSU1MgdGFibGUgYXQgbG9h
+ZCwgdGhlbiBpbmNyZWFzZXMgdGhlIG51bWJlciBvZiBxdWV1ZXMNCnZpYSBhbiBldGh0b29sIG9w
+LCB0aGUgcmVzdWx0IGlzIHRoYXQgUlNTIGRvZXMgbm90IHVzZSB0aGUgbmV3IHF1ZXVlcw0KYWRk
+ZWQgYnkgdGhlIGV0aHRvb2wgb3BlcmF0aW9uLg0KDQpJIGNhbiBpbnN0ZWFkIGRyb3AgdGhlIGV0
+aHRvb2wgY2hhbmdlcyBhbmQganVzdCBoYXZlIG15IGRyaXZlciByZWNvcmQNCndoZW4gdGhlIHVz
+ZXIgaGFzIGNoYW5nZWQgdGhlIHRhYmxlcywgYW5kIGF0dGVtcHQgdG8gZXJyb3Igb24gcXVldWUN
+CnNldHRpbmcgb3BlcmF0aW9uLCB3aGljaCBtYXkgd29yay4NCg0KRXNzZW50aWFsbHkgdGhlIGlk
+ZWEgd2FzIHRvIGhhdmUgYSBmbGFnIGluZGljYXRpbmcgInVzZSB0aGUgZHJpdmVyDQpkZWZhdWx0
+cyIgd2hpY2ggdGhlIGRyaXZlciBjYW4gY2hhbmdlIGFzIG5lY2Vzc2FyeSB3aGVuIHRoZSBudW1i
+ZXIgb2YNCnF1ZXVlcyBjaGFuZ2VzLCBvciBvdGhlciBmYWN0b3JzIHRoYXQgbWF5IHJlcXVpcmUg
+UlNTIHRhYmxlIGNoYW5nZXMuDQoNCkkgY2FuIGRvIHRoaXMgYWxsIGhpZGRlbiBpbiB0aGUgZHJp
+dmVyIGJ1dCB0aGVuIHRoZXJlIGlzIG5vdGhpbmcNCmV4cG9zaW5nIGhvdyB0aGUgZHJpdmVyIHdp
+bGwgYmVoYXZlIHVuZGVyIHRoaXMgY2lyY3Vtc3RhbmNlLg0KDQpJJ20gYWxsIGZvciBhIGJldHRl
+ciBzdWdnZXN0aW9uLCBiZWNhdXNlIEkgdGhpbmsgd2hhdCB3ZSdyZSBkb2luZyBub3cNCmlzIHdy
+b25nLCBhbmQgdGhlIHByb3Bvc2VkIHNvbHV0aW9ucyBzbyBmYXIgZG9uJ3Qgc2VlbSByaWdodCBl
+aXRoZXIuDQoNCklmIHdlIHByZXNlcnZlIHRoZSBSU1MgdGFibGUgd2hlbiBxdWV1ZXMgaW5jcmVh
+c2UsIHRoZW4gdGhlIHVzZXIgbWF5IGJlDQpjb25mdXNlZCBiZWNhdXNlIFJTUyBzZXR0aW5ncyB3
+b24ndCBzcHJlYWQgdG8gdGhlIG5ldyBxdWV1ZXMuIElmIHdlDQpkZXN0cm95IHRoZSBSU1Mgc2V0
+dGluZ3MgdGhlIHVzZXIgd2lsbCBiZSBwb3NzaWJseSBjb25mdXNlZCBiZWNhdXNlDQp0aGVpciBz
+ZWxlY3RlZCBSU1Mgc2V0dGluZ3MgZG8gbm90IHdvcmsuIElmIHdlIGZhaWwgdGhlIHNldHRpbmcg
+b2YNCnF1ZXVlcyB3aGVuIFJTUyB0YWJsZSBpcyBub3QgdGhlIGRlZmF1bHQgdmFsdWUsIHRoZW4g
+YSB1c2VyIG1pZ2h0IGJlDQpjb25mdXNlZCBhcyB0byB3aHkgdGhleSBjYW4ndCBjaGFuZ2UgdGhl
+IG51bWJlciBvZiBxdWV1ZXMuIEFsc28sIEkgYW0NCnVuc3VyZSB3aGV0aGVyIG9yIG5vdCB3ZSBj
+YW4gdGVsbCBmcm9tIHRoZSBldGh0b29sIG9wIGZ1bmN0aW9uIHRoYXQgd2UNCmFjdHVhbGx5IGFy
+ZSBiZWluZyAicmVzZXQiIHRvIHRoZSBkZWZhdWx0LCB2cyBqdXN0IGJlaW5nIHNldC4gVGhpcyBp
+cw0KYmVjYXVzZSB0aGUgbmV0bGluayBtZXNzYWdlIG9mICIwIGxlbmd0aCIgd2hpY2ggaW5kaWNh
+dGVzIGRlZmF1bHQNCnNpbXBseSBoYXMgdGhlIGV0aHRvb2wgY29yZSBmaWxsIGluIGEgc3RhbmRh
+cmQgZXF1YWwgd2VpZ2h0IGRlZmF1bHQsDQp3aGljaCBJIGFtIG5vdCBzdXJlIG91ciBkcml2ZXIg
+Y2FuIHRlbGwgdGhhdCBpdCBzaG91bGQgbm93IGJlIG9rIHRvDQplbmFibGUgcXVldWUgY2hhbmdl
+cy4NCg0KU28sIHNvbWV0aGluZyBpcyBtaXNzaW5nIGluIHRoZSBjdXJyZW50IGZsb3cgdG8gYWxs
+b3cgdGhpcy4gSSB0aGluayB0aGUNCmJlc3Qgc29sdXRpb24gaXMgc2ltcGx5IHByZXZlbnQgY2hh
+bmdpbmcgbnVtYmVyIG9mIHF1ZXVlcyB3aGlsZSB3ZSBoYXZlDQphIG5vbi1kZWZhdWx0IFJTUyBz
+ZXR0aW5nLCBhbmQgcmVxdWlyZSBSU1MgdG8gYmUgcmVzZXQgYmVmb3JlIHF1ZXVlcw0KY2FuIGJl
+IGNoYW5nZWQuDQoNClRob3VnaHRzPw0KDQpSZWdhcmRzLA0KSmFrZQ==
