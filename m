@@ -1,86 +1,73 @@
-From: <zyjzyj2000@gmail.com>
-Subject: [PATCH 1/1] igb: adjust indent and remove unnecessary parentheses
-Date: Thu, 4 Feb 2016 17:38:20 +0800
-Message-ID: <1454578701-2173-1-git-send-email-zyjzyj2000@gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: translate network order to host order when
+ users get a hmacid
+Date: Thu, 4 Feb 2016 07:44:36 -0200
+Message-ID: <20160204094436.GA31743@localhost.localdomain>
+References: <f763fd2125356a2484bef0b6d083fdd38b13e8db.1454513610.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <zyjzyj2000@gmail.com>, <netdev@vger.kernel.org>,
-	<jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:48048 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755527AbcBDJgQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 04:36:16 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:54693 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750910AbcBDJoj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Feb 2016 04:44:39 -0500
+Content-Disposition: inline
+In-Reply-To: <f763fd2125356a2484bef0b6d083fdd38b13e8db.1454513610.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
+On Wed, Feb 03, 2016 at 11:33:30PM +0800, Xin Long wrote:
+> Commit ed5a377d87dc ("sctp: translate host order to network order when
+> setting a hmacid") corrected the hmacid byte-order when setting a hmacid.
+> but the same issue also exists on getting a hmacid.
+> 
+> We fix it by changing hmacids to host order when users get them with
+> getsockopt.
+> 
+> Fixes: Commit ed5a377d87dc ("sctp: translate host order to network order when setting a hmacid")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Adjust indent and remove unnecessary parentheses in igb driver.
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c |   20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 31e5f39..744cfc2 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2128,10 +2128,10 @@ void igb_set_fw_version(struct igb_adapter *adapter)
- 			    "%d.%d, 0x%08x",
- 			    fw.eep_major, fw.eep_minor, fw.etrack_id);
- 		} else {
--		snprintf(adapter->fw_version,
--		    sizeof(adapter->fw_version),
--		    "%d.%d.%d",
--		    fw.eep_major, fw.eep_minor, fw.eep_build);
-+			snprintf(adapter->fw_version,
-+			    sizeof(adapter->fw_version),
-+			    "%d.%d.%d",
-+			    fw.eep_major, fw.eep_minor, fw.eep_build);
- 		}
- 		break;
- 	}
-@@ -2593,8 +2593,8 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			  "Width x1" : "unknown"), netdev->dev_addr);
- 	}
- 
--	if ((hw->mac.type >= e1000_i210 ||
--	     igb_get_flash_presence_i210(hw))) {
-+	if (hw->mac.type >= e1000_i210 ||
-+	     igb_get_flash_presence_i210(hw)) {
- 		ret_val = igb_read_part_string(hw, part_str,
- 					       E1000_PBANUM_LENGTH);
- 	} else {
-@@ -4538,7 +4538,7 @@ static void igb_update_itr(struct igb_q_vector *q_vector,
- 				itrval = bulk_latency;
- 			else if ((packets < 10) || ((bytes/packets) > 1200))
- 				itrval = bulk_latency;
--			else if ((packets > 35))
-+			else if (packets > 35)
- 				itrval = lowest_latency;
- 		} else if (bytes/packets > 2000) {
- 			itrval = bulk_latency;
-@@ -6165,7 +6165,7 @@ static void igb_rcv_msg_from_vf(struct igb_adapter *adapter, u32 vf)
- 		goto out;
- 	}
- 
--	switch ((msgbuf[0] & 0xFFFF)) {
-+	switch (msgbuf[0] & 0xFFFF) {
- 	case E1000_VF_SET_MAC_ADDR:
- 		retval = -EINVAL;
- 		if (!(vf_data->flags & IGB_VF_FLAG_PF_SET_MAC))
-@@ -6859,8 +6859,8 @@ static bool igb_cleanup_headers(struct igb_ring *rx_ring,
- 				union e1000_adv_rx_desc *rx_desc,
- 				struct sk_buff *skb)
- {
--	if (unlikely((igb_test_staterr(rx_desc,
--				       E1000_RXDEXT_ERR_FRAME_ERR_MASK)))) {
-+	if (unlikely(igb_test_staterr(rx_desc,
-+				       E1000_RXDEXT_ERR_FRAME_ERR_MASK))) {
- 		struct net_device *netdev = rx_ring->netdev;
- 		if (!(netdev->features & NETIF_F_RXALL)) {
- 			dev_kfree_skb_any(skb);
--- 
-1.7.9.5
+> ---
+>  net/sctp/socket.c | 9 +++++++--
+>  1 file changed, 7 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 5ca2ebf..e878da0 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -5538,6 +5538,7 @@ static int sctp_getsockopt_hmac_ident(struct sock *sk, int len,
+>  	struct sctp_hmac_algo_param *hmacs;
+>  	__u16 data_len = 0;
+>  	u32 num_idents;
+> +	int i;
+>  
+>  	if (!ep->auth_enable)
+>  		return -EACCES;
+> @@ -5555,8 +5556,12 @@ static int sctp_getsockopt_hmac_ident(struct sock *sk, int len,
+>  		return -EFAULT;
+>  	if (put_user(num_idents, &p->shmac_num_idents))
+>  		return -EFAULT;
+> -	if (copy_to_user(p->shmac_idents, hmacs->hmac_ids, data_len))
+> -		return -EFAULT;
+> +	for (i = 0; i < num_idents; i++) {
+> +		__u16 hmacid = ntohs(hmacs->hmac_ids[i]);
+> +
+> +		if (copy_to_user(&p->shmac_idents[i], &hmacid, sizeof(__u16)))
+> +			return -EFAULT;
+> +	}
+>  	return 0;
+>  }
+>  
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
