@@ -1,68 +1,100 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v2] iwlwifi: pcie: transmit queue auto-sizing
-Date: Thu, 4 Feb 2016 20:56:01 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32EA02656@hasmsx107.ger.corp.intel.com>
-References: <1454616764-19841-1-git-send-email-emmanuel.grumbach@intel.com>
- <1454616988-21901-1-git-send-email-emmanuel.grumbach@intel.com>
- <56B3B885.1050409@candelatech.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: ethernet: davicom: fix devicetree irq resource
+Date: Thu, 4 Feb 2016 23:56:38 +0300
+Message-ID: <56B3BB06.9010506@cogentembedded.com>
+References: <1454535609-7290-1-git-send-email-robert.jarzmik@free.fr>
+ <56B38767.6040005@cogentembedded.com> <87d1sc5hsh.fsf@belgarion.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Jonathan Corbet" <corbet-T1hC0tSOHrs@public.gmane.org>
-To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Robert Jarzmik <robert.jarzmik@free.fr>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:34151 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932182AbcBDU4m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 15:56:42 -0500
+Received: by mail-lb0-f181.google.com with SMTP id cw1so38593784lbb.1
+        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 12:56:41 -0800 (PST)
+In-Reply-To: <87d1sc5hsh.fsf@belgarion.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On 02/04/2016 11:42 PM, Robert Jarzmik wrote:
+
+>>     Your patch summary prefixes are too verbose, it was enough to say only
+>> "dm9000: ".
+
+    Or "davicom: dm9000: ". Missing the driver name itself doesn't look very 
+consistent. :-)
+
+> Well, I don't agree here. The subsystem should be fully specified, at least this
+> is something I require in pxa, something that is also required in sound/*, etc
+> ... If David doesn't object, I'll keep it that way. As it's his tree, his
+> decision in the end, so let's have him decide.
+
+    I expect that he disagrees with you. Let's wait...
+
+>>> -	/* If there is no IRQ type specified, default to something that
+>>> -	 * may work, and tell the user that this is a problem */
+>>> -
+>>> -	if (irqflags == IRQF_TRIGGER_NONE)
+>>> -		irqflags = irq_get_trigger_type(dev->irq);
+>>> -
+>>> -	if (irqflags == IRQF_TRIGGER_NONE)
+>>> +	/* If there is no IRQ type specified, tell the user that this is a
+>>> +	 * problem */
+>>
+>>     The networking code formats comments this way:
+>>
+>> /* foo
+>>   * bar
+>>   */
+> May I know where this is documented ?
+
+    Documentation/CodingStyle, chapter 8. Have you run your patch thru 
+scripts/checkpatch.pl?
+
+> I'm asking because I didn't find it, because I parsed drivers/net/*.c files, and
+> the standard kernel comment style was there, ie:
+> /*
+>   * foo
+>   * bar
+>   */
+
+    But you didn't follow it as well?
+
+> I was reusing the previous comment style,
+
+    Ah...
+
+> but I will change it for the standard
+> kernel style if you wish.
+
+    Yes, I think checkpatch.pl checks for that, --strict is forced for the 
+networking code.
 
 
+>>> +	ndev->irq = platform_get_irq(pdev, 0);
+>>> +	if (ndev->irq <= 0) {
+>>
+>>     I don't recommend checking for 0 and returning early in this case --
+>> you'll signal a probe success this way. Either ignore 0 or return -E<smth>
+>> in this case. Unfortunately, platform_get_irq() is so sloppily coded now that it
+>> *can* return 0 on error. :-(
 
-On 02/04/2016 10:46 PM, Ben Greear wrote:
-> On 02/04/2016 12:16 PM, Emmanuel Grumbach wrote:
->> As many (all?) WiFi devices, Intel WiFi devices have
->> transmit queues which have 256 transmit descriptors
->> each and each descriptor corresponds to an MPDU.
->> This means that when it is full, the queue contains
->> 256 * ~1500 bytes to be transmitted (if we don't have
->> A-MSDUs). The purpose of those queues is to have enough
->> packets to be ready for transmission so that when the device
->> gets an opportunity to transmit (TxOP), it can take as many
->> packets as the spec allows and aggregate them into one
->> A-MPDU or even several A-MPDUs if we are using bursts.
-> I guess this is only really usable if you have exactly one
-> peer connected (ie, in station mode)?
->
-> Otherwise, you could have one slow peer and one fast one,
-> and then I suspect this would not work so well?
+    I'll try looking into this issue once I get more free time...
 
-Yes. I guess this one (big) limitation. I guess that what would happen
-in this case is that the the latency would constantly jitter. But I also
-noticed that I could reduce the transmit queue to 130 descriptors
-(instead of 256) and still reach maximal throughput because we can
-refill the queues quickly enough.
-In iwlwifi, we have plans to have one queue for each peer.
-This is under development. Not sure when it'll be ready. It also requires
-firmware change obviously.
+> Ah we had that discussion not very long ago, didn't we ? :)
 
-> For reference, ath10k has around 1400 tx descriptors, though
-> in practice not all are usable, and in stock firmware, I'm guessing
-> the NIC will never be able to actually fill up it's tx descriptors
-> and stop traffic.  Instead, it just allows the stack to try to
-> TX, then drops the frame...
+    Yeah, I remembered that just after hitting <Send>. :-)
 
-1400 descriptors, ok... but they are not organised in queues?
-(forgive my ignorance of athX drivers)
+> And I think I'll reuse the "if (ndev->irq < 0) {" solution to be consistent with
+> myself.
 
->
-> Thanks,
-> Ben
->
+> Thanks for the review.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    My pleasure. :-)
+
+MBR, Sergei
