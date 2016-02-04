@@ -1,59 +1,69 @@
-From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: Re: [PATCH net v4] r8169:   Disabling multiple invocation on
- rtl_try_msi function.
-Date: Thu, 04 Feb 2016 13:04:23 +0200
-Message-ID: <1454583863.2404.2.camel@marian1000.go.ro>
-References: <1454578538-2544-1-git-send-email-asd@marian1000.go.ro>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
+Date: Thu, 4 Feb 2016 11:08:45 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCD63C9@AcuExch.aculab.com>
+References: <1454527121-4007853-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Corcodel Marian <asd@marian1000.go.ro>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
+	"kernel-team@fb.com" <kernel-team@fb.com>
+To: 'Tom Herbert' <tom@herbertland.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-14-225-121.residential.rdsnet.ro ([5.14.225.121]:34806 "EHLO
-	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755419AbcBDLE2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 06:04:28 -0500
-In-Reply-To: <1454578538-2544-1-git-send-email-asd@marian1000.go.ro>
+Received: from smtp-out6.electric.net ([192.162.217.192]:57839 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933755AbcBDLMJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 06:12:09 -0500
+In-Reply-To: <1454527121-4007853-1-git-send-email-tom@herbertland.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-02-04 at 11:35 +0200, Corcodel Marian wrote:
-> This patch set MSI on probe stage without this patch MSI is set when
-> rtl_open occur.
->  Do not need to run rtl_try_msi on multiple times.
-> 
-> Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
-> ---
->  drivers/net/ethernet/realtek/r8169.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/realtek/r8169.c
-> b/drivers/net/ethernet/realtek/r8169.c
-> index 30eed0d..b0b43b7 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -8248,6 +8248,9 @@ static int rtl_init_one(struct pci_dev *pdev,
-> const struct pci_device_id *ent)
->  
->  	/* Identify chip attached to board */
->  	rtl8169_get_mac_version(tp, dev, cfg->default_ver);
-> +	RTL_W8(Cfg9346, Cfg9346_Unlock);
-> +	tp->features = rtl_try_msi(tp, cfg);
-> +	RTL_W8(Cfg9346, Cfg9346_Lock);
->  
->  	rtl_init_rxcfg(tp);
->  
-> @@ -8303,7 +8306,6 @@ static int rtl_init_one(struct pci_dev *pdev,
-> const struct pci_device_id *ent)
->  	}
->  	if ((RTL_R8(Config5) & (UWF | BWF | MWF)) != 0)
->  		tp->features |= RTL_FEATURE_WOL;
-> -	tp->features |= rtl_try_msi(tp, cfg);
->  	RTL_W8(Cfg9346, Cfg9346_Lock);
->  
->  	if (rtl_tbi_enabled(tp)) {
+From: Tom Herbert
+> Sent: 03 February 2016 19:19
+...
+> +	/* Main loop */
+> +50:	adcq	0*8(%rdi),%rax
+> +	adcq	1*8(%rdi),%rax
+> +	adcq	2*8(%rdi),%rax
+> +	adcq	3*8(%rdi),%rax
+> +	adcq	4*8(%rdi),%rax
+> +	adcq	5*8(%rdi),%rax
+> +	adcq	6*8(%rdi),%rax
+> +	adcq	7*8(%rdi),%rax
+> +	adcq	8*8(%rdi),%rax
+> +	adcq	9*8(%rdi),%rax
+> +	adcq	10*8(%rdi),%rax
+> +	adcq	11*8(%rdi),%rax
+> +	adcq	12*8(%rdi),%rax
+> +	adcq	13*8(%rdi),%rax
+> +	adcq	14*8(%rdi),%rax
+> +	adcq	15*8(%rdi),%rax
+> +	lea	128(%rdi), %rdi
+> +	loop	50b
 
+I'd need convincing that unrolling the loop like that gives any significant gain.
+You have a dependency chain on the carry flag so have delays between the 'adcq'
+instructions (these may be more significant than the memory reads from l1 cache).
 
-Sorry here patch is good but explications is bad.
-Is about set first order to run rtl_try_msi and others.
+I also don't remember (might be wrong) the 'loop' instruction being executed quickly.
+If 'loop' is fast then you will probably find that:
+
+10:	adcq 0(%rdi),%rax
+	lea  8(%rdi),%rdi
+	loop 10b
+
+is just as fast since the three instructions could all be executed in parallel.
+But I suspect that 'dec %cx; jnz 10b' is actually better (and might execute as
+a single micro-op).
+IIRC 'adc' and 'dec' will both have dependencies on the flags register
+so cannot execute together (which is a shame here).
+
+It is also possible that breaking the carry-chain dependency by doing 32bit
+adds (possibly after 64bit reads) can be made to be faster.
+
+	David
