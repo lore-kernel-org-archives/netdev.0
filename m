@@ -1,116 +1,55 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: ethernet: davicom: fix devicetree irq resource
-Date: Thu, 4 Feb 2016 20:16:23 +0300
-Message-ID: <56B38767.6040005@cogentembedded.com>
-References: <1454535609-7290-1-git-send-email-robert.jarzmik@free.fr>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [PATCH net-next v5 1/2] ethtool: add speed/duplex validation
+ functions
+Date: Thu, 4 Feb 2016 09:30:14 -0800
+Message-ID: <56B38AA6.9050307@hpe.com>
+References: <1454468677-12280-1-git-send-email-razor@blackwall.org>
+ <1454468677-12280-2-git-send-email-razor@blackwall.org>
+ <20160204103226.333d98ca@samsung9> <56B291F0.9010909@hpe.com>
+ <20160204142327-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Robert Jarzmik <robert.jarzmik@free.fr>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454535609-7290-1-git-send-email-robert.jarzmik@free.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Nikolay Aleksandrov <razor@blackwall.org>,
+	netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	linux-api@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g9t1613g.houston.hp.com ([15.240.0.71]:47938 "EHLO
+	g9t1613g.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965246AbcBDRaS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 12:30:18 -0500
+In-Reply-To: <20160204142327-mutt-send-email-mst@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 02/04/2016 04:47 AM, Michael S. Tsirkin wrote:
+> On Wed, Feb 03, 2016 at 03:49:04PM -0800, Rick Jones wrote:
+>> And even for not-quite-virtual devices - such as a VC/FlexNIC in an HPE
+>> blade server there can be just about any speed set.  I think we went down a
+>> path of patching some things to address that many years ago.  It would be a
+>> shame to undo that.
+>>
+>> rick
+>
+> I'm not sure I understand. The question is in defining the UAPI.
+> We currently have:
+>
+>   * @speed: Low bits of the speed
+>   * @speed_hi: Hi bits of the speed
+>
+> with the assumption that all values come from the defines.
+>
+> So if we allow any value here we need to define what it means.
 
-    Your patch summary prefixes are too verbose, it was enough to say only 
-"dm9000: ".
+I may be mixing apples and kiwis.  Many years ago when HP came-out with 
+their blades and VirtualConnect, they included the ability to create 
+"flex NICs" - "sub-NICs" out of a given interface port on a blade, and 
+to assign each a specific bitrate in increments (IIRC) of 100 Mbit/s. 
+This was reported up through the driver and it became necessary to make 
+ethtool (again, IIRC) not so picky about "valid" speed values.
 
-On 02/04/2016 12:40 AM, Robert Jarzmik wrote:
-
-> The dm9000 driver doesn't work in at least one device-tree
-> configuration, spitting an error message on irq resource :
-> [    1.062495] dm9000 8000000.ethernet: insufficient resources
-> [    1.068439] dm9000 8000000.ethernet: not found (-2).
-> [    1.073451] dm9000: probe of 8000000.ethernet failed with error -2
->
-> The reason behind is that the interrupt might be provided by a gpio
-> controller, not probed when dm9000 is probed, and needing the probe
-> deferral mechanism to apply.
->
-> Currently, the interrupt is directly taken from resources. This patch
-> changes this to use the more generic platform_get_irq(), which handles
-> the deferral.
->
-> Moreover, since commit Fixes: 7085a7401ba5 ("drivers: platform: parse
-> IRQ flags from resources"), the interrupt trigger flags are honored in
-> platform_get_irq(), so remove the needless code in dm9000.
->
-> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
-> Acked-by: Marcel Ziswiler <marcel@ziswiler.com>
-> ---
->   drivers/net/ethernet/davicom/dm9000.c | 28 ++++++++++++++--------------
->   1 file changed, 14 insertions(+), 14 deletions(-)
->
-> diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-> index cf94b72dbacd..6c527bde9edb 100644
-> --- a/drivers/net/ethernet/davicom/dm9000.c
-> +++ b/drivers/net/ethernet/davicom/dm9000.c
-[...]
-> @@ -1300,18 +1299,14 @@ static int
->   dm9000_open(struct net_device *dev)
->   {
->   	struct board_info *db = netdev_priv(dev);
-> -	unsigned long irqflags = db->irq_res->flags & IRQF_TRIGGER_MASK;
-> +	unsigned long irqflags = 0;
->
->   	if (netif_msg_ifup(db))
->   		dev_dbg(db->dev, "enabling %s\n", dev->name);
->
-> -	/* If there is no IRQ type specified, default to something that
-> -	 * may work, and tell the user that this is a problem */
-> -
-> -	if (irqflags == IRQF_TRIGGER_NONE)
-> -		irqflags = irq_get_trigger_type(dev->irq);
-> -
-> -	if (irqflags == IRQF_TRIGGER_NONE)
-> +	/* If there is no IRQ type specified, tell the user that this is a
-> +	 * problem */
-
-    The networking code formats comments this way:
-
-/* foo
-  * bar
-  */
-
-> +	if (irq_get_trigger_type(dev->irq) == IRQF_TRIGGER_NONE)
->   		dev_warn(db->dev, "WARNING: no IRQ resource flags set.\n");
->
->   	irqflags |= IRQF_SHARED;
-> @@ -1500,15 +1495,21 @@ dm9000_probe(struct platform_device *pdev)
->
->   	db->addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
->   	db->data_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-> -	db->irq_res  = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
->
-> -	if (db->addr_res == NULL || db->data_res == NULL ||
-> -	    db->irq_res == NULL) {
-> -		dev_err(db->dev, "insufficient resources\n");
-> +	if (db->addr_res == NULL || db->data_res == NULL) {
-> +		dev_err(db->dev, "insufficient resources addr=%p data=%p\n",
-> +			db->addr_res, db->data_res);
->   		ret = -ENOENT;
->   		goto out;
->   	}
->
-> +	ndev->irq = platform_get_irq(pdev, 0);
-> +	if (ndev->irq <= 0) {
-
-    I don't recommend checking for 0 and returning early in this case -- 
-you'll signal a probe success this way. Either ignore 0 or return -E<smth>
-in this case. Unfortunately, platform_get_irq() is so sloppily coded now that 
-it *can* return 0 on error. :-(
-
-> +		dev_err(db->dev, "interrupt resource unavailable: %d\n",
-> +			ndev->irq);
-> +		return ndev->irq;
-> +	}
-> +
->   	db->irq_wake = platform_get_irq(pdev, 1);
->   	if (db->irq_wake >= 0) {
->   		dev_dbg(db->dev, "wakeup irq %d\n", db->irq_wake);
-[...]
-
-MBR, Sergei
+rick
