@@ -1,122 +1,211 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
-Date: Thu, 4 Feb 2016 11:31:52 -0800
-Message-ID: <CALx6S34-3L9Y6T2xqQpTQeMhnu2jGQcm6MESBPyhyCb78hXCSA@mail.gmail.com>
-References: <1454527121-4007853-1-git-send-email-tom@herbertland.com>
-	<CAKgT0Ufe6iS5dLLUG4XfLxVVidH4oVo=9jp5VWsWDvRu5xLuCQ@mail.gmail.com>
+Subject: Re: Disabling XPS for 4.4.0-1+ixgbe+OpenStack VM over a VLAN means
+ 65% increase in netperf TCP_STREAM
+Date: Thu, 4 Feb 2016 11:38:32 -0800
+Message-ID: <CALx6S36PxgZufhFa4qChPJvW0eb1V_fQoQOH7HHKd4q00taR=A@mail.gmail.com>
+References: <56B3A2D4.1010309@hpe.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, tglx@linutronix.de,
-	mingo@redhat.com, hpa@zytor.com, x86@kernel.org,
-	Kernel Team <kernel-team@fb.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:38792 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756896AbcBDTbx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 14:31:53 -0500
-Received: by mail-ig0-f178.google.com with SMTP id mw1so66661372igb.1
-        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 11:31:53 -0800 (PST)
-In-Reply-To: <CAKgT0Ufe6iS5dLLUG4XfLxVVidH4oVo=9jp5VWsWDvRu5xLuCQ@mail.gmail.com>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:33558 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932372AbcBDTic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 14:38:32 -0500
+Received: by mail-ig0-f175.google.com with SMTP id rs20so23577555igc.0
+        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 11:38:32 -0800 (PST)
+In-Reply-To: <56B3A2D4.1010309@hpe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 4, 2016 at 11:22 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Wed, Feb 3, 2016 at 11:18 AM, Tom Herbert <tom@herbertland.com> wrote:
->> Implement assembly routine for csum_partial for 64 bit x86. This
->> primarily speeds up checksum calculation for smaller lengths such as
->> those that are present when doing skb_postpull_rcsum when getting
->> CHECKSUM_COMPLETE from device or after CHECKSUM_UNNECESSARY
->> conversion.
->>
->> CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is checked to determine whether
->> we need to avoid unaligned accesses. Efficient unaligned accesses
->> offer a nice additional speedup as demonstrated in the results
->> provided below.
->>
->> This implementation is similar to csum_partial implemented in
->> checksum_32.S, however since we are dealing with 8 bytes at a time
->> there are more cases for small lengths (and alignments)-- for that
->> we employ a jump table.
->>
->> Testing:
->>
->> Correctness:
->>
->> Verified correctness by testing arbitrary length buffer filled with
->> random data. For each buffer I compared the computed checksum
->> using the original algorithm for each possible alignment (0-7 bytes).
->>
->> Checksum performance:
->>
->> Isolating old and new implementation for some common cases:
->>
->>          Old      NewA     NewA %   NewNoA   NewNoA %
->> Len/Aln  nsec     nsec     Improv   nsecs    Improve
->> --------+-------+--------+-------+-------+---------------------
->> 1400/0    192.9    175.1   10%     174.9     10%   (Big packet)
->> 40/0      13.8     7.7     44%     5.7       58%   (Ipv6 hdr cmn case)
->> 8/4       8.4      6.9     18%     2.8       67%   (UDP, VXLAN in IPv4)
->> 14/0      10.5     7.3     30%     5.4       48%   (Eth hdr)
->> 14/4      10.8     8.7     19%     5.4       50%   (Eth hdr in IPv4)
->> 14/3      11.0     9.8     11%     5.6       49%   (Eth with odd align)
->> 7/1       10.0     5.8     42%     4.8       52%   (buffer in one quad)
->>
->> NewA=>CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS not set
->> NewNoA=>CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is set
->>
->> Results from: Intel(R) Xeon(R) CPU X5650 @ 2.67GHz
->>
->> Also test on these with similar results:
->>
->> Intel(R) Xeon(R) CPU E5-2660 v2 @ 2.20GHz
->> Intel(R) Xeon(R) CPU E5-2680 v2 @ 2.80GHz
->>
->> Branch prediction:
->>
->> To test the effects of poor branch prediction in the jump tables I
->> tested checksum performance with runs for two combinations of length
->> and alignment. As the baseline I performed the test by doing half of
->> calls with the first combination, followed by using the second
->> combination for the second half. In the test case, I interleave the
->> two combinations so that in every call the length and alignment are
->> different to defeat the effects of branch prediction. Running several
->> cases, I did not see any material performance difference between
->> the baseline and the interleaving test case.
->>
->> Signed-off-by: Tom Herbert <tom@herbertland.com>
+On Thu, Feb 4, 2016 at 11:13 AM, Rick Jones <rick.jones2@hpe.com> wrote:
+> Folks -
 >
-> So a couple of general questions about all this.
+> I was doing some performance work with OpenStack Liberty on systems with 2x
+> E5-2650L v3 @ 1.80GHz processors and 560FLR (Intel 82599ES) NICs onto which
+> I'd placed a 4.4.0-1 kernel.  I was actually interested in the effect of
+> removing the linux bridge from all the plumbing OpenStack creates (it is
+> there for iptables-based implementation of security group rules because OS
+> Liberty doesn't enable them on the OVS bridge(s) it creates), and I'd
+> noticed that when I removed the linux bridge from the "stack"
+> instance-to-instance (vm-to-vm) performance across a VLAN-based Neutron
+> private network dropped.  Quite unexpected.
 >
-> First why do you break the alignment part out over so many reads?  It
-> seems like you could just get the offset, subtract that from your
-> starting buffer, read the aligned long, and then mask off the bits you
-> don't want.  That should take maybe 4 or 5 instructions which would
-> save you a bunch of jumping around since most of it is just
-> arithmetic.
+> On a lark, I tried explicitly binding the NIC's IRQs and Boom! the
+> single-stream performance shot-up to near link-rate.  I couldn't recall
+> explicit binding of IRQs doing that much for single-stream netperf
+> TCP_STREAM before.
 >
-I will look at doing that.
+> I asked the Intel folks about that, they suggested I try disabling XPS.  So,
+> with that I see the following on single-stream tests between the VMs on that
+> VLAN-based private network as created by OpenStack Liberty:
+>
+>
+>            99% Confident within +/- 2.5% of "real" average
+>                 TCP_RR in Trans/s TCP_STREAM in Mbit/s
+>
+>                    XPS Enabled   XPS Disabled   Delta
+> TCP_STREAM            5353          8841 (*)    65.2%
+> TCP_RR                8562          9666        12.9%
+>
+> The Intel folks suggested something about the process scheduler moving the
+> sender around and ultimately causing some packet re-ordering.  That could I
+> suppose explain the TCP_STREAM difference, but not the TCP_RR since that has
+> just a single segment in flight at one time.
+>
+XPS has OOO avoidance for TCP, that should not be a problem.
 
-> I am still not sure about the loops, but as mentioned you probably
-> don't want to use loop.  You would likely be better off generating a
-> pointer representing the last valid offset and just running through
-> the loop that way.
+> I can try to get perf/whatnot installed on the systems - suggestions as to
+> what metrics to look at are welcome.
 >
-> Then on the last read the same question as the first.  Why not just do
-> one read and mask the result.  It should be faster.
->
-> Finally I am not sure if your result is safe if the offset for the
-> buffer is an odd value.  The original code did a collapse to 16b and
-> rotate by 8 if the offset was odd.  I don't see anything like that in
-> your code.
+I'd start with verifying the XPS configuration is sane and then trying
+to reproduce the issue outside of using VMs, if both of those are okay
+then maybe look at some sort of bad interaction with OpenStack
+configuration.
 
-The roll $8 is done in the RETURN macro. We only need to worry about
-this when alignment matters.
-
-Thanks,
 Tom
 
+> happy benchmarking,
 >
-> - Alex
+> rick jones
+> * If I disable XPS on the sending side only, it is more like 7700 Mbit/s
+>
+> netstats from the receiver over a netperf TCP_STREAM test's duration with
+> XPS enabled:
+>
+> $ netperf -H 10.240.50.191 -- -o throughput,local_transport_retrans
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+> 10.240.50.191 () port 0 AF_INET : demo
+> Throughput,Local Transport Retransmissions
+> 5292.74,4555
+>
+>
+> $ ./beforeafter before after
+> Ip:
+>     327837 total packets received
+>     0 with invalid addresses
+>     0 forwarded
+>     0 incoming packets discarded
+>     327837 incoming packets delivered
+>     293438 requests sent out
+> Icmp:
+>     0 ICMP messages received
+>     0 input ICMP message failed.
+>     ICMP input histogram:
+>         destination unreachable: 0
+>     0 ICMP messages sent
+>     0 ICMP messages failed
+>     ICMP output histogram:
+>         destination unreachable: 0
+> IcmpMsg:
+>         InType3: 0
+>         OutType3: 0
+> Tcp:
+>     0 active connections openings
+>     2 passive connection openings
+>     0 failed connection attempts
+>     0 connection resets received
+>     0 connections established
+>     327837 segments received
+>     293438 segments send out
+>     0 segments retransmited
+>     0 bad segments received.
+>     0 resets sent
+> Udp:
+>     0 packets received
+>     0 packets to unknown port received.
+>     0 packet receive errors
+>     0 packets sent
+>     IgnoredMulti: 0
+> UdpLite:
+> TcpExt:
+>     0 TCP sockets finished time wait in fast timer
+>     0 delayed acks sent
+>     Quick ack mode was activated 1016 times
+>     50386 packets directly queued to recvmsg prequeue.
+>     309545872 bytes directly in process context from backlog
+>     2874395424 bytes directly received in process context from prequeue
+>     86591 packet headers predicted
+>     84934 packets header predicted and directly queued to user
+>     6 acknowledgments not containing data payload received
+>     20 predicted acknowledgments
+>     1017 DSACKs sent for old packets
+>     TCPRcvCoalesce: 157097
+>     TCPOFOQueue: 78206
+>     TCPOrigDataSent: 24
+> IpExt:
+>     InBcastPkts: 0
+>     InOctets: 6643231012
+>     OutOctets: 17203936
+>     InBcastOctets: 0
+>     InNoECTPkts: 327837
+>
+> And now with it disabled on both sides:
+> $ netperf -H 10.240.50.191 -- -o throughput,local_transport_retrans
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+> 10.240.50.191 () port 0 AF_INET : demo
+> Throughput,Local Transport Retransmissions
+> 8656.84,1903
+> $ ./beforeafter noxps_before noxps_avter
+> Ip:
+>     251831 total packets received
+>     0 with invalid addresses
+>     0 forwarded
+>     0 incoming packets discarded
+>     251831 incoming packets delivered
+>     218415 requests sent out
+> Icmp:
+>     0 ICMP messages received
+>     0 input ICMP message failed.
+>     ICMP input histogram:
+>         destination unreachable: 0
+>     0 ICMP messages sent
+>     0 ICMP messages failed
+>     ICMP output histogram:
+>         destination unreachable: 0
+> IcmpMsg:
+>         InType3: 0
+>         OutType3: 0
+> Tcp:
+>     0 active connections openings
+>     2 passive connection openings
+>     0 failed connection attempts
+>     0 connection resets received
+>     0 connections established
+>     251831 segments received
+>     218415 segments send out
+>     0 segments retransmited
+>     0 bad segments received.
+>     0 resets sent
+> Udp:
+>     0 packets received
+>     0 packets to unknown port received.
+>     0 packet receive errors
+>     0 packets sent
+>     IgnoredMulti: 0
+> UdpLite:
+> TcpExt:
+>     0 TCP sockets finished time wait in fast timer
+>     0 delayed acks sent
+>     Quick ack mode was activated 48 times
+>     91752 packets directly queued to recvmsg prequeue.
+>     846851580 bytes directly in process context from backlog
+>     5442436572 bytes directly received in process context from prequeue
+>     102517 packet headers predicted
+>     146102 packets header predicted and directly queued to user
+>     6 acknowledgments not containing data payload received
+>     26 predicted acknowledgments
+>     TCPLossProbes: 0
+>     TCPLossProbeRecovery: 0
+>     48 DSACKs sent for old packets
+>     0 DSACKs received
+>     TCPRcvCoalesce: 45658
+>     TCPOFOQueue: 967
+>     TCPOrigDataSent: 30
+> IpExt:
+>     InBcastPkts: 0
+>     InOctets: 10837972268
+>     OutOctets: 11413100
+>     InBcastOctets: 0
+>     InNoECTPkts: 251831
