@@ -1,95 +1,59 @@
-From: "Amir Vadai\"" <amir@vadai.me>
-Subject: Re: [net-next PATCH 3/7] net: sched: add cls_u32 offload hooks for
- netdevs
-Date: Thu, 4 Feb 2016 15:18:57 +0200
-Message-ID: <20160204131857.GA1458@office.Home>
-References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
- <20160203092837.1356.8823.stgit@john-Precision-Tower-5810>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next RFC 0/6] Introduce devlink interface and first
+ drivers to use it
+Date: Thu, 4 Feb 2016 14:22:17 +0100
+Message-ID: <56B35089.4000707@stressinduktion.org>
+References: <1454496482-13961-1-git-send-email-jiri@resnulli.us>
+ <20160203143133.1b70bcb5@redhat.com> <20160203133356.GA2219@nanopsycho.orion>
+ <56B219FA.7080208@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ogerlitz@mellanox.com, jiri@resnulli.us, jhs@mojatatu.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, eugenia@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
+	jeffrey.t.kirsher@intel.com, jbenc@redhat.com
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34885 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965647AbcBDNP7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 08:15:59 -0500
-Received: by mail-wm0-f68.google.com with SMTP id g62so401681wme.2
-        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 05:15:58 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20160203092837.1356.8823.stgit@john-Precision-Tower-5810>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:49001 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757673AbcBDNWW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 08:22:22 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id 530A220D46
+	for <netdev@vger.kernel.org>; Thu,  4 Feb 2016 08:22:21 -0500 (EST)
+In-Reply-To: <56B219FA.7080208@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 03, 2016 at 01:28:37AM -0800, John Fastabend wrote:
-> This patch allows netdev drivers to consume cls_u32 offloads via
-> the ndo_setup_tc ndo op.
-> 
-> This works aligns with how network drivers have been doing qdisc
-> offloads for mqprio.
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  include/linux/netdevice.h |    6 +++-
->  include/net/pkt_cls.h     |   33 ++++++++++++++++++++
->  net/sched/cls_u32.c       |   73 ++++++++++++++++++++++++++++++++++++++++++++-
->  3 files changed, 109 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 9090ff7..861ce67 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -778,17 +778,21 @@ static inline bool netdev_phys_item_id_same(struct netdev_phys_item_id *a,
->  typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
->  				       struct sk_buff *skb);
->  
-> -/* This structure holds attributes of qdisc and classifiers
-> +/* These structures hold the attributes of qdisc and classifiers
->   * that are being passed to the netdevice through the setup_tc op.
->   */
->  enum {
->  	TC_SETUP_MQPRIO,
-> +	TC_SETUP_CLSU32,
->  };
->  
-> +struct tc_cls_u32_offload;
-> +
->  struct tc_to_netdev {
->  	unsigned int type;
->  	union {
->  		u8 tc;
-> +		struct tc_cls_u32_offload *cls_u32;
->  	};
->  };
->  
-> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-> index bc49967..0bd12cd 100644
-> --- a/include/net/pkt_cls.h
-> +++ b/include/net/pkt_cls.h
-> @@ -358,4 +358,37 @@ tcf_match_indev(struct sk_buff *skb, int ifindex)
->  }
->  #endif /* CONFIG_NET_CLS_IND */
->  
-> +struct tc_cls_u32_knode {
-> +	struct tcf_exts *exts;
-> +	u8 fshift;
-> +	u32 handle;
-> +	u32 val;
-> +	u32 mask;
-> +	u32 link_handle;
-> +	struct tc_u32_sel *sel;
-> +};
-> +
-> +struct tc_cls_u32_hnode {
-> +	u32 handle;
-> +	u32 prio;
-> +	unsigned int divisor;
-> +};
-> +
-> +enum {
-> +	TC_CLSU32_NEW_KNODE,
-TC_CLSU32_NEW_KNODE is never used
+On 03.02.2016 16:17, Daniel Borkmann wrote:
+> On 02/03/2016 02:33 PM, Jiri Pirko wrote:
+>> Wed, Feb 03, 2016 at 02:31:33PM CET, brouer@redhat.com wrote:
+>>> On Wed,  3 Feb 2016 11:47:56 +0100
+>>> Jiri Pirko <jiri@resnulli.us> wrote:
+>>>> From: Jiri Pirko <jiri@mellanox.com>
+> [...]
+>>>> It is available here:
+>>>> https://github.com/jpirko/devlink
+>>>
+>>> IHMO this very short command name "dl" is not an advantage.  It is
+>>> simply too unspecific and short for a good Google search.  E.g. when
+>>> searching for good examples for using "dl".  I think "devlink" would be
+>>> better.  If you like short commands do: alias dl="devlink"
+>>
+>> I was thinking about using "devlink". Decided to go with shortened
+>> version so this is in-line with "ip". But you have a point.
+>
+> Btw, if you add this tool into iproute2 (which would be preferred), then
+> probably dl should be ok (and easier retrievable in that relation).
 
-[...]
+This doesn't seem to be too much related to networking? Why can't 
+something like this be in sysfs?
+
+Bye,
+Hannes
