@@ -1,113 +1,90 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [PATCH 1/2] ethtool: add dynamic flag to ETHTOOL_{GS}RXFH
- commands
-Date: Thu, 4 Feb 2016 23:09:56 +0000
-Message-ID: <1454627396.3086.14.camel@intel.com>
-References: <1454455328-706-1-git-send-email-jacob.e.keller@intel.com>
-	 <1454455328-706-2-git-send-email-jacob.e.keller@intel.com>
-	 <20160204.175326.492457129636004051.davem@davemloft.net>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH v2 3/4] lib: add "on"/"off" support to kstrtobool
+Date: Thu, 4 Feb 2016 15:11:34 -0800
+Message-ID: <CAGXu5jKox2cJv7OX=qkO8js0eot_+6PkNPh7gy6ZuEeqjp97xg@mail.gmail.com>
+References: <1454619643-14444-1-git-send-email-keescook@chromium.org>
+	<1454619643-14444-4-git-send-email-keescook@chromium.org>
+	<CAHp75VfEi4umnfQoDdySn2X6ZEyL1_szzdwvjBgKy=-Uz9KbOg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "andrew@lunn.ch" <andrew@lunn.ch>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	"aduyck@mirantis.com" <aduyck@mirantis.com>,
-	"thomas.petazzoni@free-electrons.com"
-	<thomas.petazzoni@free-electrons.com>,
-	"mcarlson@broadcom.com" <mcarlson@broadcom.com>,
-	"yuvalmin@broadcom.com" <yuvalmin@broadcom.com>,
-	"amirv@mellanox.com" <amirv@mellanox.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"_govind@gmx.com" <_govind@gmx.com>,
-	"Lendacky@vger.kernel.org" <Lendacky@vger.kernel.org>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"mirq-linux@rere.qmqm.pl" <mirq-linux@rere.qmqm.pl>,
-	"hariprasad@chelsio.com" <hariprasad@chelsio.com>,
-	"kalesh.purayil@emulex.com" <kalesh.purayil@emulex.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mchan@broadcom.com" <mchan@broadcom.com>,
-	"Wyborny, Carolyn" <carolyn.wyb
-To: "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:37004 "EHLO mga04.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753819AbcBDXJ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Feb 2016 18:09:59 -0500
-In-Reply-To: <20160204.175326.492457129636004051.davem@davemloft.net>
-Content-Language: en-US
-Content-ID: <EC232B2895E0D04797E9F16124E44B23@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Joe Perches <joe@perches.com>,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Steve French <sfrench@samba.org>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+	"open list:TI WILINK WIRELES..." <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, linux-cifs@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andy Shevchenko <andy.shevchenko@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHp75VfEi4umnfQoDdySn2X6ZEyL1_szzdwvjBgKy=-Uz9KbOg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCAyMDE2LTAyLTA0IGF0IDE3OjUzIC0wNTAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+
-IEZyb206IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KPiBEYXRlOiBU
-dWUswqDCoDIgRmViIDIwMTYgMTU6MjI6MDYgLTA4MDANCj4gDQo+ID4gRXRodG9vbCBzdXBwb3J0
-cyBhIGZldyBvcGVyYXRpb25zIGZvciBtb2RpZnlpbmcgYW5kIGNvbnRyb2xsaW5nDQo+ID4gYSBk
-ZXZpY2UncyBSU1MgdGFibGUuIFNvbWV0aW1lcywgY2hhbmdlcyBpbiBvdGhlciBmZWF0dXJlcyBv
-ZiB0aGUNCj4gPiBkZXZpY2UNCj4gPiBtYXkgcmVxdWlyZSAob3IgZGVzaXJlKSBjaGFuZ2VzIHRv
-IHRoZSBSU1MgdGFibGUuIEN1cnJlbnRseSB0aGVyZQ0KPiA+IGlzIG5vDQo+ID4gbWV0aG9kIHRv
-IGluZGljYXRlIHRvIHRoZSBkcml2ZXIgd2hldGhlciB0aGUgY3VycmVudCBSU1MgdGFibGUNCj4g
-PiBzZXR0aW5ncw0KPiA+IHNob3VsZCBiZSBtYWludGFpbmVkIG9yIG92ZXJyaWRkZW4uDQo+IA0K
-PiBZZXMsIHRoZXJlIGNlcnRhaW5seSBpcyBhIHdheSB0byBpbmRpY2F0ZSB0aGlzLg0KPiANCj4g
-SWYgdGhlIHVzZXIgYXNrcyBmb3IgdGhlIGNoYW5nZSBpbiB0aGUgbnVtYmVyIG9mIHF1ZXVlcywg
-YW5kIHlvdQ0KPiBjYW5ub3QgcmV0YWluIHRoZSB1c2VyJ3MgcmVxdWVzdGVkIFJTUyBzZXR0aW5n
-cywgdGhlbiB5b3UgbXVzdCBmYWlsDQo+IHRoZSBxdWV1ZSBzZXR0aW5nIGNoYW5nZS4NCj4gDQo+
-IEFuZCB2aWNlIHZlcnNhLg0KPiANCj4gWW91IGNhbid0IHNheSB0byB0aGUgdXNlciAiSSBjYW4g
-YWRoZXJlIHRvIHlvdXIgcmVxdWVzdGVkDQo+IGNvbmZpZ3VyYXRpb24NCj4gY2hhbmdlLCBidXQg
-SSBtaWdodCB1bmRvIGl0IGZvciBzb21lIHVuc3BlY2lmaWVkIHJlYXNvbiINCj4gDQoNClRoZSB0
-cm91YmxlIGhlcmUgaXMgdGhlIGNhc2Ugd2hlcmUgdGhlIGluZGlyZWN0aW9uIHRhYmxlIGNvbmZp
-Z3VyYXRpb25zDQphcmUgdmFsaWQgbm93LCBidXQgYSBjaGFuZ2UgaW4gdGhlIG51bWJlciBvZiBx
-dWV1ZXMgaGFwcGVuaW5nIGF0IGENCmxhdGVyIHRpbWUgY3VycmVudGx5IGNhdXNlcyB0aGVzZSBz
-ZXR0aW5ncyB0byBiZSBsb3N0Lg0KDQo+IFRoYXQncyB1bmFjY2VwdGFibGUgYmVoYXZpb3IsIGFu
-ZCB0aGF0J3MgZXhhY3RseSB3aGF0IHRoaXMgZHluYW1pYw0KPiBmbGFnIG1lYW5zLg0KPiANCj4g
-SWYgeW91IGNhbm5vdCBnaXZlIHRoZSB1c2VyIHdoYXQgaGUgYXNrcyBmb3IsIHByZWNpc2VseSBh
-bmQgcmVsaWFibHksDQo+IHlvdSBmYWlsIHRoZSBvcGVyYXRpb24gd2l0aCBhbiBlcnJvci4NCj4g
-DQo+IFRoZXJlIGlzIG5vIHdheSBJIGFtIGFkZGluZyBjb2RlIHdoaWNoIGFsbG93cyB0aGVzZSAi
-bWF5YmUiIGtpbmQgb2YNCj4gY29uZmlndXJhdGlvbiBvcGVyYXRpb25zLsKgwqBFaXRoZXIgeW91
-IGNhbiBvciB5b3UgY2FuJ3QsIGFuZCB5b3UgdGVsbA0KPiB0aGUgdXNlciB3aGVuIHlvdSBjYW4n
-dCBieSBlcnJvcmluZyBvdXQgb24gdGhlIG9wZXJhdGlvbiB0aGF0DQo+IGludmFsaWRhdGVzIHRo
-ZSByZXF1aXJlbWVudHMuDQo+IA0KPiANCg0KU28geW91J3JlIHN1Z2dlc3RpbmcgaW5zdGVhZCwg
-dG8gZXJyb3Igd2hlbiB0aGUgc2Vjb25kIG9wZXJhdGlvbg0KKGNoYW5nZSBudW1iZXIgb2YgcXVl
-dWVzKSB3b3VsZCBmYWlsIHRoZSBjdXJyZW50IHNldHRpbmdzPw0KDQpDdXJyZW50IGRyaXZlciBi
-ZWhhdmlvcnMgZm9yIGFsbCB0aGUgZHJpdmVycyBJIGNoZWNrZWQgd29yayBpbiBvbmUgb2YNCnR3
-byB3YXlzLg0KDQoxKSBjaGFuZ2luZyBxdWV1ZXMgd2lsbCBkZXN0cm95IHRoZSBSU1MgdGFibGUg
-YXMgaXQgd2lsbCBiZQ0KcmVpbml0aWFsaXplZCByZWdhcmRsZXNzIG9mIGN1cnJlbnQgc2V0dGlu
-Z3MNCg0KMikgY2hhbmdpbmcgcXVldWVzIHdpbGwgbWFpbnRhaW4gdGhlIFJTUyB0YWJsZSBpZiBw
-b3NzaWJsZSwgdW5sZXNzIHRoZQ0KcHJldmlvdXMgUlNTIHRhYmxlIGNhbid0IGZ1bmN0aW9uLg0K
-DQpObyBkcml2ZXIgY3VycmVudGx5IGZhaWxzIHRoaXMgb3BlcmF0aW9uIGlmIHRoZSBSU1MgdGFi
-bGUgc2V0dGluZ3MNCmNhbid0IGJlIHByZXNlcnZlZC4gSW4gYWRkaXRpb24gaXQgcmVzdWx0cyBp
-biB3ZWlyZCBiZWhhdmlvciB3aGVuIGENCmRyaXZlciBzZXRzIHRoZSBSU1MgdGFibGUgYXQgbG9h
-ZCwgdGhlbiBpbmNyZWFzZXMgdGhlIG51bWJlciBvZiBxdWV1ZXMNCnZpYSBhbiBldGh0b29sIG9w
-LCB0aGUgcmVzdWx0IGlzIHRoYXQgUlNTIGRvZXMgbm90IHVzZSB0aGUgbmV3IHF1ZXVlcw0KYWRk
-ZWQgYnkgdGhlIGV0aHRvb2wgb3BlcmF0aW9uLg0KDQpJIGNhbiBpbnN0ZWFkIGRyb3AgdGhlIGV0
-aHRvb2wgY2hhbmdlcyBhbmQganVzdCBoYXZlIG15IGRyaXZlciByZWNvcmQNCndoZW4gdGhlIHVz
-ZXIgaGFzIGNoYW5nZWQgdGhlIHRhYmxlcywgYW5kIGF0dGVtcHQgdG8gZXJyb3Igb24gcXVldWUN
-CnNldHRpbmcgb3BlcmF0aW9uLCB3aGljaCBtYXkgd29yay4NCg0KRXNzZW50aWFsbHkgdGhlIGlk
-ZWEgd2FzIHRvIGhhdmUgYSBmbGFnIGluZGljYXRpbmcgInVzZSB0aGUgZHJpdmVyDQpkZWZhdWx0
-cyIgd2hpY2ggdGhlIGRyaXZlciBjYW4gY2hhbmdlIGFzIG5lY2Vzc2FyeSB3aGVuIHRoZSBudW1i
-ZXIgb2YNCnF1ZXVlcyBjaGFuZ2VzLCBvciBvdGhlciBmYWN0b3JzIHRoYXQgbWF5IHJlcXVpcmUg
-UlNTIHRhYmxlIGNoYW5nZXMuDQoNCkkgY2FuIGRvIHRoaXMgYWxsIGhpZGRlbiBpbiB0aGUgZHJp
-dmVyIGJ1dCB0aGVuIHRoZXJlIGlzIG5vdGhpbmcNCmV4cG9zaW5nIGhvdyB0aGUgZHJpdmVyIHdp
-bGwgYmVoYXZlIHVuZGVyIHRoaXMgY2lyY3Vtc3RhbmNlLg0KDQpJJ20gYWxsIGZvciBhIGJldHRl
-ciBzdWdnZXN0aW9uLCBiZWNhdXNlIEkgdGhpbmsgd2hhdCB3ZSdyZSBkb2luZyBub3cNCmlzIHdy
-b25nLCBhbmQgdGhlIHByb3Bvc2VkIHNvbHV0aW9ucyBzbyBmYXIgZG9uJ3Qgc2VlbSByaWdodCBl
-aXRoZXIuDQoNCklmIHdlIHByZXNlcnZlIHRoZSBSU1MgdGFibGUgd2hlbiBxdWV1ZXMgaW5jcmVh
-c2UsIHRoZW4gdGhlIHVzZXIgbWF5IGJlDQpjb25mdXNlZCBiZWNhdXNlIFJTUyBzZXR0aW5ncyB3
-b24ndCBzcHJlYWQgdG8gdGhlIG5ldyBxdWV1ZXMuIElmIHdlDQpkZXN0cm95IHRoZSBSU1Mgc2V0
-dGluZ3MgdGhlIHVzZXIgd2lsbCBiZSBwb3NzaWJseSBjb25mdXNlZCBiZWNhdXNlDQp0aGVpciBz
-ZWxlY3RlZCBSU1Mgc2V0dGluZ3MgZG8gbm90IHdvcmsuIElmIHdlIGZhaWwgdGhlIHNldHRpbmcg
-b2YNCnF1ZXVlcyB3aGVuIFJTUyB0YWJsZSBpcyBub3QgdGhlIGRlZmF1bHQgdmFsdWUsIHRoZW4g
-YSB1c2VyIG1pZ2h0IGJlDQpjb25mdXNlZCBhcyB0byB3aHkgdGhleSBjYW4ndCBjaGFuZ2UgdGhl
-IG51bWJlciBvZiBxdWV1ZXMuIEFsc28sIEkgYW0NCnVuc3VyZSB3aGV0aGVyIG9yIG5vdCB3ZSBj
-YW4gdGVsbCBmcm9tIHRoZSBldGh0b29sIG9wIGZ1bmN0aW9uIHRoYXQgd2UNCmFjdHVhbGx5IGFy
-ZSBiZWluZyAicmVzZXQiIHRvIHRoZSBkZWZhdWx0LCB2cyBqdXN0IGJlaW5nIHNldC4gVGhpcyBp
-cw0KYmVjYXVzZSB0aGUgbmV0bGluayBtZXNzYWdlIG9mICIwIGxlbmd0aCIgd2hpY2ggaW5kaWNh
-dGVzIGRlZmF1bHQNCnNpbXBseSBoYXMgdGhlIGV0aHRvb2wgY29yZSBmaWxsIGluIGEgc3RhbmRh
-cmQgZXF1YWwgd2VpZ2h0IGRlZmF1bHQsDQp3aGljaCBJIGFtIG5vdCBzdXJlIG91ciBkcml2ZXIg
-Y2FuIHRlbGwgdGhhdCBpdCBzaG91bGQgbm93IGJlIG9rIHRvDQplbmFibGUgcXVldWUgY2hhbmdl
-cy4NCg0KU28sIHNvbWV0aGluZyBpcyBtaXNzaW5nIGluIHRoZSBjdXJyZW50IGZsb3cgdG8gYWxs
-b3cgdGhpcy4gSSB0aGluayB0aGUNCmJlc3Qgc29sdXRpb24gaXMgc2ltcGx5IHByZXZlbnQgY2hh
-bmdpbmcgbnVtYmVyIG9mIHF1ZXVlcyB3aGlsZSB3ZSBoYXZlDQphIG5vbi1kZWZhdWx0IFJTUyBz
-ZXR0aW5nLCBhbmQgcmVxdWlyZSBSU1MgdG8gYmUgcmVzZXQgYmVmb3JlIHF1ZXVlcw0KY2FuIGJl
-IGNoYW5nZWQuDQoNClRob3VnaHRzPw0KDQpSZWdhcmRzLA0KSmFrZQ==
+On Thu, Feb 4, 2016 at 3:00 PM, Andy Shevchenko
+<andy.shevchenko@gmail.com> wrote:
+> On Thu, Feb 4, 2016 at 11:00 PM, Kees Cook <keescook@chromium.org> wrote:
+>> Add support for "on" and "off" when converting to boolean.
+>>
+>> Signed-off-by: Kees Cook <keescook@chromium.org>
+>> ---
+>>  lib/kstrtox.c | 14 ++++++++++++++
+>>  1 file changed, 14 insertions(+)
+>>
+>> diff --git a/lib/kstrtox.c b/lib/kstrtox.c
+>> index e18f088704d7..09e83a19a96d 100644
+>> --- a/lib/kstrtox.c
+>> +++ b/lib/kstrtox.c
+>> @@ -347,6 +347,20 @@ int kstrtobool(const char *s, unsigned int base, bool *res)
+>
+> Forgot update description?
+
+Argh, thank you. Good eye. Sent another update.
+
+-Kees
+
+>
+>>         case '0':
+>>                 *res = false;
+>>                 return 0;
+>> +       case 'o':
+>> +       case 'O':
+>> +               switch (s[1]) {
+>> +               case 'n':
+>> +               case 'N':
+>> +                       *res = true;
+>> +                       return 0;
+>> +               case 'f':
+>> +               case 'F':
+>> +                       *res = false;
+>> +                       return 0;
+>> +               default:
+>> +                       break;
+>> +               }
+>>         default:
+>>                 break;
+>>         }
+>> --
+>> 2.6.3
+>>
+>
+>
+>
+> --
+> With Best Regards,
+> Andy Shevchenko
+
+
+
+-- 
+Kees Cook
+Chrome OS & Brillo Security
