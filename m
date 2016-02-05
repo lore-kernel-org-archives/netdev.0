@@ -1,165 +1,58 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH for-next 1/3] iw_cxgb4: make queue allocation code more readable
-Date: Fri,  5 Feb 2016 11:43:28 +0530
-Message-ID: <1454652810-25086-2-git-send-email-hariprasad@chelsio.com>
-References: <1454652810-25086-1-git-send-email-hariprasad@chelsio.com>
-Cc: dledford@redhat.com, davem@davemloft.net,
-	swise@opengridcomputing.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:46585 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751212AbcBEGLS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 01:11:18 -0500
-In-Reply-To: <1454652810-25086-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
+Date: Fri, 5 Feb 2016 09:01:36 +0100
+Message-ID: <20160205080136.GA31671@gmail.com>
+References: <1454527121-4007853-1-git-send-email-tom@herbertland.com>
+ <20160204093021.GB1553@gmail.com>
+ <CA+55aFxqs+mE=s4UkNQXJA8JjAKKb6vk1JO672jdEuWtsJ=hVg@mail.gmail.com>
+ <CALx6S37+F9UnyDuOgXHKqhNQvBXoQe8G2GCWPbhZE8QBdmz3vg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>, Peter Anvin <hpa@zytor.com>,
+	the arch/x86 maintainers <x86@kernel.org>,
+	kernel-team <kernel-team@fb.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CALx6S37+F9UnyDuOgXHKqhNQvBXoQe8G2GCWPbhZE8QBdmz3vg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Rename local mm* variables to more meaningful names
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/infiniband/hw/cxgb4/qp.c | 81 +++++++++++++++++++++-------------------
- 1 file changed, 42 insertions(+), 39 deletions(-)
+* Tom Herbert <tom@herbertland.com> wrote:
 
-diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index e99345eb875a..dadf5f1855b3 100644
---- a/drivers/infiniband/hw/cxgb4/qp.c
-+++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -1621,7 +1621,8 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
- 	unsigned int sqsize, rqsize;
- 	struct c4iw_ucontext *ucontext;
- 	int ret;
--	struct c4iw_mm_entry *mm1, *mm2, *mm3, *mm4, *mm5 = NULL;
-+	struct c4iw_mm_entry *sq_key_mm, *rq_key_mm = NULL, *sq_db_key_mm;
-+	struct c4iw_mm_entry *rq_db_key_mm = NULL, *ma_sync_key_mm = NULL;
- 
- 	PDBG("%s ib_pd %p\n", __func__, pd);
- 
-@@ -1706,29 +1707,30 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
- 		goto err2;
- 
- 	if (udata) {
--		mm1 = kmalloc(sizeof *mm1, GFP_KERNEL);
--		if (!mm1) {
-+		sq_key_mm = kmalloc(sizeof(*sq_key_mm), GFP_KERNEL);
-+		if (!sq_key_mm) {
- 			ret = -ENOMEM;
- 			goto err3;
- 		}
--		mm2 = kmalloc(sizeof *mm2, GFP_KERNEL);
--		if (!mm2) {
-+		rq_key_mm = kmalloc(sizeof(*rq_key_mm), GFP_KERNEL);
-+		if (!rq_key_mm) {
- 			ret = -ENOMEM;
- 			goto err4;
- 		}
--		mm3 = kmalloc(sizeof *mm3, GFP_KERNEL);
--		if (!mm3) {
-+		sq_db_key_mm = kmalloc(sizeof(*sq_db_key_mm), GFP_KERNEL);
-+		if (!sq_db_key_mm) {
- 			ret = -ENOMEM;
- 			goto err5;
- 		}
--		mm4 = kmalloc(sizeof *mm4, GFP_KERNEL);
--		if (!mm4) {
-+		rq_db_key_mm = kmalloc(sizeof(*rq_db_key_mm), GFP_KERNEL);
-+		if (!rq_db_key_mm) {
- 			ret = -ENOMEM;
- 			goto err6;
- 		}
- 		if (t4_sq_onchip(&qhp->wq.sq)) {
--			mm5 = kmalloc(sizeof *mm5, GFP_KERNEL);
--			if (!mm5) {
-+			ma_sync_key_mm = kmalloc(sizeof(*ma_sync_key_mm),
-+						 GFP_KERNEL);
-+			if (!ma_sync_key_mm) {
- 				ret = -ENOMEM;
- 				goto err7;
- 			}
-@@ -1743,7 +1745,7 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
- 		uresp.rq_size = qhp->wq.rq.size;
- 		uresp.rq_memsize = qhp->wq.rq.memsize;
- 		spin_lock(&ucontext->mmap_lock);
--		if (mm5) {
-+		if (ma_sync_key_mm) {
- 			uresp.ma_sync_key = ucontext->key;
- 			ucontext->key += PAGE_SIZE;
- 		} else {
-@@ -1761,28 +1763,29 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
- 		ret = ib_copy_to_udata(udata, &uresp, sizeof uresp);
- 		if (ret)
- 			goto err8;
--		mm1->key = uresp.sq_key;
--		mm1->addr = qhp->wq.sq.phys_addr;
--		mm1->len = PAGE_ALIGN(qhp->wq.sq.memsize);
--		insert_mmap(ucontext, mm1);
--		mm2->key = uresp.rq_key;
--		mm2->addr = virt_to_phys(qhp->wq.rq.queue);
--		mm2->len = PAGE_ALIGN(qhp->wq.rq.memsize);
--		insert_mmap(ucontext, mm2);
--		mm3->key = uresp.sq_db_gts_key;
--		mm3->addr = (__force unsigned long)qhp->wq.sq.bar2_pa;
--		mm3->len = PAGE_SIZE;
--		insert_mmap(ucontext, mm3);
--		mm4->key = uresp.rq_db_gts_key;
--		mm4->addr = (__force unsigned long)qhp->wq.rq.bar2_pa;
--		mm4->len = PAGE_SIZE;
--		insert_mmap(ucontext, mm4);
--		if (mm5) {
--			mm5->key = uresp.ma_sync_key;
--			mm5->addr = (pci_resource_start(rhp->rdev.lldi.pdev, 0)
--				    + PCIE_MA_SYNC_A) & PAGE_MASK;
--			mm5->len = PAGE_SIZE;
--			insert_mmap(ucontext, mm5);
-+		sq_key_mm->key = uresp.sq_key;
-+		sq_key_mm->addr = qhp->wq.sq.phys_addr;
-+		sq_key_mm->len = PAGE_ALIGN(qhp->wq.sq.memsize);
-+		insert_mmap(ucontext, sq_key_mm);
-+		rq_key_mm->key = uresp.rq_key;
-+		rq_key_mm->addr = virt_to_phys(qhp->wq.rq.queue);
-+		rq_key_mm->len = PAGE_ALIGN(qhp->wq.rq.memsize);
-+		insert_mmap(ucontext, rq_key_mm);
-+		sq_db_key_mm->key = uresp.sq_db_gts_key;
-+		sq_db_key_mm->addr = (u64)(unsigned long)qhp->wq.sq.bar2_pa;
-+		sq_db_key_mm->len = PAGE_SIZE;
-+		insert_mmap(ucontext, sq_db_key_mm);
-+		rq_db_key_mm->key = uresp.rq_db_gts_key;
-+		rq_db_key_mm->addr = (u64)(unsigned long)qhp->wq.rq.bar2_pa;
-+		rq_db_key_mm->len = PAGE_SIZE;
-+		insert_mmap(ucontext, rq_db_key_mm);
-+		if (ma_sync_key_mm) {
-+			ma_sync_key_mm->key = uresp.ma_sync_key;
-+			ma_sync_key_mm->addr =
-+				(pci_resource_start(rhp->rdev.lldi.pdev, 0) +
-+				PCIE_MA_SYNC_A) & PAGE_MASK;
-+			ma_sync_key_mm->len = PAGE_SIZE;
-+			insert_mmap(ucontext, ma_sync_key_mm);
- 		}
- 	}
- 	qhp->ibqp.qp_num = qhp->wq.sq.qid;
-@@ -1795,15 +1798,15 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
- 	     qhp->wq.rq.memsize, attrs->cap.max_recv_wr);
- 	return &qhp->ibqp;
- err8:
--	kfree(mm5);
-+	kfree(ma_sync_key_mm);
- err7:
--	kfree(mm4);
-+	kfree(rq_db_key_mm);
- err6:
--	kfree(mm3);
-+	kfree(sq_db_key_mm);
- err5:
--	kfree(mm2);
-+	kfree(rq_key_mm);
- err4:
--	kfree(mm1);
-+	kfree(sq_key_mm);
- err3:
- 	remove_handle(rhp, &rhp->qpidr, qhp->wq.sq.qid);
- err2:
--- 
-2.3.4
+> [....] gcc turns these switch statements into jump tables (not function tables 
+> which is what Ingo's example code was using). [...]
+
+So to the extent this still matters, on most x86 microarchitectures that count, 
+jump tables and function call tables (i.e. virtual functions that C++ uses) are 
+generally optimized by the same branch predictor hardware mechanism. Indirect 
+jumps (jump tables) and indirect calls (function pointer tables) are very similar 
+conceptually. That is why posted the indirect calls test code.
+
+( The only branching variant that will perform badly even on the latest uarchs are
+  indirect returns: to modify the return address on the stack. )
+
+So my narrow performance point stands, if any sort of indirect jump is used. They 
+should be avoided if possible, because it's pretty hard for the hardware to get it 
+right.
+
+As Linus noticed, data lookup tables are the intelligent solution: if you manage 
+to offload the logic into arithmetics and not affect the control flow then that's 
+a big win. The inherent branching will be hidden by executing on massively 
+parallel arithmetics units which effectively execute everything fed to them in a 
+single cycle.
+
+In any case, when submitting such patches, please get into the habit of looking at 
+and posting perf stat output - it will give us a good idea about the quality of an 
+implementation.
+
+Thanks,
+
+	Ingo
