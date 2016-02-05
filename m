@@ -1,48 +1,43 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
-Date: Thu, 4 Feb 2016 17:39:16 -0800
-Message-ID: <CA+55aFw1ofEXQUDrKehv0_sZ2XafFOJd=KwEKqW3jetrXeJu_g@mail.gmail.com>
-References: <1454527121-4007853-1-git-send-email-tom@herbertland.com>
-	<20160204093021.GB1553@gmail.com>
-	<CA+55aFxqs+mE=s4UkNQXJA8JjAKKb6vk1JO672jdEuWtsJ=hVg@mail.gmail.com>
-	<CA+55aFwqq6n9OOTNOXMdWN4kJX9iJoP58fZ4KwTc51enxtkqgg@mail.gmail.com>
-	<CA+55aFwGt-ZCna4cEUXP2Qd39etMgJYu6MTyimP38GKV4aK_aA@mail.gmail.com>
+From: =?gb2312?B?1cXKpL7Z?= <zhangshengju@cmss.chinamobile.com>
+Subject: Reply: [net] bonding: use return instead of goto
+Date: Fri, 5 Feb 2016 09:42:24 +0800
+Message-ID: <000301d15fb6$77bf08f0$673d1ad0$@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <tom@herbertland.com>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>, Peter Anvin <hpa@zytor.com>,
-	"the arch/x86 maintainers" <x86@kernel.org>,
-	kernel-team <kernel-team@fb.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFwGt-ZCna4cEUXP2Qd39etMgJYu6MTyimP38GKV4aK_aA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="gb2312"
+Content-Transfer-Encoding: 7bit
+Cc: <j.vosburgh@gmail.com>, <netdev@vger.kernel.org>
+To: "'Jarod Wilson'" <jarod@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:9823 "EHLO
+	cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751823AbcBEBmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 20:42:18 -0500
+Content-Language: zh-cn
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 4, 2016 at 5:27 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
->         sum = csum_partial_lt8(*(unsigned long *)buff, len, sum);
->         return rotate_by8_if_odd(sum, align);
+> On Wed, Feb 03, 2016 at 06:15:22AM +0000, Zhang Shengju wrote:
+> > Replace 'goto' with 'return' to remove unnecessary check at label:
+> > err_undo_flags.
+> 
+> I think you're going to have to explain how you came to the conclusion
+that
+> the check isn't necessary.
+> 
+> --
+> Jarod Wilson
+> jarod@redhat.com
+Hi Jarod,
 
-Actually, that last word-sized access to "buff" might be past the end
-of the buffer. The code does the right thing if "len" is zero, except
-for the possible page fault or address verifier complaint.
+The reason is that 'err_undo_flags' do two things for the first slave
+device:
+1. revert bond mac address if it is set by the slave device.
+2. revert bond device type if it's not ARPHRD_ETHER.
 
-So that very last call to "csum_partial_lt8()" either needs to be
-conditional (easy enough to add an "if (len)" around that whole
-statement) or the thing could be unconditional but the load needs to
-use "load_unaligned_zeropad()" so that the exception is harmless.
+I think it's not necessary for the three places, they changed neither  bond
+mac address nor type. 
+it's straightforward to return directly.
 
-It's probably immaterial which one you pick. The few possibly useless
-ALU operations vs a possible branch misprodict penalty are probably
-going to make it a wash. The exception will never happen in practice,
-but if DEBUG_PAGEALLOC is enabled, or if something like KASAN is
-active, it will complain loudly if it happens to go past the
-allocation.
-
-               Linus
+Thanks,
+Shengju
