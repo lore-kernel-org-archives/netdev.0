@@ -1,80 +1,66 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [V4.4-rc6 Regression] af_unix: Revert 'lock_interruptible' in stream receive code
-Date: Fri, 05 Feb 2016 21:44:15 +0000
-Message-ID: <87bn7ude8g.fsf@doppelsaurus.mobileactivedefense.com>
-References: <56B4EF04.2060407@canonical.com>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: Re: [PATCH] net: smc911x: convert pxa dma to dmaengine
+Date: Fri, 05 Feb 2016 22:44:56 +0100
+Message-ID: <87k2mi4ysn.fsf@belgarion.home>
+References: <1448919628-13273-1-git-send-email-robert.jarzmik@free.fr>
+	<20151202.235217.2201517065767030121.davem@davemloft.net>
+	<87fuzjl69l.fsf@belgarion.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rweikusat@mobileactivedefense.com, hannes@stressinduktion.org,
-	edumazet@google.com, dhowells@redhat.com, ying.xue@windriver.com,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"stable\@vger.kernel.org" <stable@vger.kernel.org>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain
+Cc: Alberto Panizzo <maramaopercheseimorto@gmail.com>,
+	Guennadi Liakhovetski <g.liakhovetski@gmx.de>,
+	Hitoshi Mitake <mitake@dcl.info.waseda.ac.jp>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56B4EF04.2060407@canonical.com> (Joseph Salisbury's message of
-	"Fri, 5 Feb 2016 13:50:44 -0500")
+In-Reply-To: <87fuzjl69l.fsf@belgarion.home> (Robert Jarzmik's message of
+	"Thu, 03 Dec 2015 19:46:30 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The present unix_stream_read_generic contains various code sequences of
-the form
+Robert Jarzmik <robert.jarzmik@free.fr> writes:
 
-err = -EDISASTER;
-if (<test>)
-	goto out;
+> David Miller <davem@davemloft.net> writes:
+>
+>> From: Robert Jarzmik <robert.jarzmik@free.fr>
+>> Date: Mon, 30 Nov 2015 22:40:28 +0100
+>>
+>>> Convert the dma transfers to be dmaengine based, now pxa has a dmaengine
+>>> slave driver. This makes this driver a bit more PXA agnostic.
+>>> 
+>>> The driver was only compile tested. The risk is quite small as no
+>>> current PXA platform I'm aware of is using smc911x driver.
+>>> 
+>>> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+>>
+>> I've marked this 'deferred' in patchwork until someone tests
+>> these changes and says they should be good on all platforms
+>> this chip is used.
+>
+> Okay, so would any maintainer of non pxa boards give a feedback for this patch ?
+> The ones I have found are :
+>  - sh2007: Guennadi and Hitoshi
+>  - armadillo5x0: Alberto
+>  - imx v6 and imx v7: Fabio
+> I've added the patch at the end of this mail for easier handling.
+>
+> Now, if no maintainer gives it a test, what do we do, David ? I'm intending to
+> remove "arch/arm/mach-pxa/include/mach/dma.h" in the near future, which will
+> break this driver somehow (at least for PXA boards, even if none is identified
+> so far).
+> So could we agree on a deadline, and what you wish to do : either drop the patch
+> or apply, or something else.
 
-This has the unfortunate side effect of possibly causing the error code
-to bleed through to the final
+Hi David,
 
-out:
-	return copied ? : err;
+Apart from Alberto who answered he cannot test it by lack of hardware, the
+others didn't answer.
 
-and then to be wrongly returned if no data was copied because the caller
-didn't supply a data buffer, as demonstrated by the program available at
+So how can I move forward ? Would you want me to amend the KConfig to add a "&&
+!ARCH_PXA" on the "depend" line ?
 
-http://pad.lv/1540731
+Cheers.
 
-Change it such that err is only set if an error condition was detected.
-
-Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
----
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 49d5093..138787d 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2277,13 +2277,15 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state)
- 	size_t size = state->size;
- 	unsigned int last_len;
- 
--	err = -EINVAL;
--	if (sk->sk_state != TCP_ESTABLISHED)
-+	if (sk->sk_state != TCP_ESTABLISHED) {
-+		err = -EINVAL;
- 		goto out;
-+	}
- 
--	err = -EOPNOTSUPP;
--	if (flags & MSG_OOB)
-+	if (flags & MSG_OOB) {
-+		err = -EOPNOTSUPP;
- 		goto out;
-+	}
- 
- 	target = sock_rcvlowat(sk, flags & MSG_WAITALL, size);
- 	timeo = sock_rcvtimeo(sk, noblock);
-@@ -2329,9 +2331,11 @@ again:
- 				goto unlock;
- 
- 			unix_state_unlock(sk);
--			err = -EAGAIN;
--			if (!timeo)
-+			if (!timeo) {
-+				err = -EAGAIN;
- 				break;
-+			}
-+
- 			mutex_unlock(&u->readlock);
- 
- 			timeo = unix_stream_data_wait(sk, timeo, last,
+-- 
+Robert
