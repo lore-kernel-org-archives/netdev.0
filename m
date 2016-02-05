@@ -1,76 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] af_packet: Raw socket destruction warning fix
-Date: Fri, 05 Feb 2016 03:26:57 -0800
-Message-ID: <1454671617.7627.315.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1453099068-39022-1-git-send-email-maninder1.s@samsung.com>
-	 <569CB419.6050102@iogearbox.net>
+From: Webmaster <rosalinbotina@asmetsalud.org.co>
+Subject: Estimado usuario de la Cuenta
+Date: Fri, 5 Feb 2016 06:53:11 -0500 (COT)
+Message-ID: <246450344.16254967.1454673191808.JavaMail.zimbra@asmetsalud.org.co>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Maninder Singh <maninder1.s@samsung.com>, davem@davemloft.net,
-	willemb@google.com, edumazet@google.com, eyal.birger@gmail.com,
-	tklauser@distanz.ch, fruggeri@aristanetworks.com,
-	dwmw2@infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, pankaj.m@samsung.com,
-	gh007.kim@samsung.com, hakbong5.lee@samsung.com,
-	Vaneet Narang <v.narang@samsung.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <569CB419.6050102@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from correo.asmetsalud.org.co ([200.30.64.85]:22830 "EHLO
+	mail.asmetsalud.org.co" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751950AbcBEMGH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 07:06:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-01-18 at 10:44 +0100, Daniel Borkmann wrote:
-> On 01/18/2016 07:37 AM, Maninder Singh wrote:
-> > Receieve queue is not purged when socket dectruction is called
-> > results in kernel warning because of non zero sk_rmem_alloc.
-> >
-> > WARNING: at net/packet/af_packet.c:1142 packet_sock_destruct
-> >
-> > Backtrace:
-> > WARN_ON(atomic_read(&sk->sk_rmem_alloc)
-> > packet_sock_destruct
-> > __sk_free
-> > sock_wfree
-> > skb_release_head_state
-> > skb_release_all
-> > __kfree_skb
-> > net_tx_action
-> > __do_softirq
-> > run_ksoftirqd
-> >
-> > Signed-off-by: Vaneet Narang <v.narang@samsung.com>
-> > Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
-> 
-> Thanks for the fix. While it fixes the WARN_ON(), I believe some more
-> investigation is needed here on why it is happening:
-> 
-> We call first into packet_release(), which removes the socket hook from
-> the kernel (unregister_prot_hook()), later calls synchronize_net() to
-> make sure no more skbs will come in. The receive queue is purged right
-> after the synchronize_net() already.
-> 
-> packet_sock_destruct() will be called afterwards, when there are no more
-> refs on the socket anymore and no af_packet skbs in tx waiting for completion.
-> Only then, in sk_destruct(), we'll call into packet_sock_destruct().
-> 
-> So, eventually double purging the sk_receive_queue seems not the right
-> thing to do at first look, and w/o any deeper analysis in the commit description.
-> 
-> Could you look a bit further into the issue? Do you have a reproducer to
-> trigger it?
+Estimado usuario de la cuenta,
 
-So while synchronize_net() makes sure no packets can be delivered from
-normal packet processing (through packet hook, if driver is not horribly
-buggy (like delivering packets while IFF_UPP is not there...)), we still
-might have some TX packet in a cpu completion_queue (fed in
-dev_kfree_skb_irq())
+Su cuenta de correo electr=C3=B3nico fue inusualmente ha entrado en el =
+d=C3=ADa de hoy por Desconocido Ubicaci=C3=B3n IP, que son consejos par=
+a hacer clic en el enlace de abajo ADMIN de actualizar y verificar su c=
+uenta de correo electr=C3=B3nico de lo contrario no ser=C3=A1 capaz de =
+enviar mensajes salientes.
 
-This can happen if the cpu having these TX skbs had to schedule
-ksoftirqd under stress. RCU quiescent period is ended before ksoftirqd
-could perform its work.
+Clic en el enlace =3D=3D> https://formcrafts.com/a/17285
 
-If sock_queue_err_skb() is called from __skb_complete_tx_timestamp() at
-the wrong time, we might get into this state.
-
-sock_queue_err_skb() might need to be more careful ?
+Gracias por su cooperaci=C3=B3n.
+Webmail administrador de alojamiento
