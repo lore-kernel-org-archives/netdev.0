@@ -1,7 +1,7 @@
 From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net-next V2 6/8] net: fec: don't disable FEC_ENET_TS_TIMER interrupt
-Date: Fri,  5 Feb 2016 14:52:48 -0700
-Message-ID: <1454709170-19527-7-git-send-email-troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next V2 8/8] net: fec: improve error handling
+Date: Fri,  5 Feb 2016 14:52:50 -0700
+Message-ID: <1454709170-19527-9-git-send-email-troy.kisky@boundarydevices.com>
 References: <1454709170-19527-1-git-send-email-troy.kisky@boundarydevices.com>
 Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
@@ -10,48 +10,68 @@ Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	Troy Kisky <troy.kisky@boundarydevices.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34918 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751451AbcBEVzP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 16:55:15 -0500
-Received: by mail-pa0-f44.google.com with SMTP id ho8so40383259pac.2
-        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 13:55:14 -0800 (PST)
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:32892 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751451AbcBEVzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 16:55:18 -0500
+Received: by mail-pf0-f178.google.com with SMTP id w123so75569187pfb.0
+        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 13:55:18 -0800 (PST)
 In-Reply-To: <1454709170-19527-1-git-send-email-troy.kisky@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Only the interrupt routine processes this condition.
+Unmap initial buffer on error.
+Don't free skb until it has been unmapped.
+Move cbd_bufaddr assignment closer to the mapping function.
 
 Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 ---
- drivers/net/ethernet/freescale/fec.h      | 1 +
- drivers/net/ethernet/freescale/fec_main.c | 2 +-
- 2 files changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/fec_main.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index bedd28a..195122e 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -375,6 +375,7 @@ struct bufdesc_ex {
- #define FEC_ENET_TS_TIMER       ((uint)0x00008000)
- 
- #define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII | FEC_ENET_TS_TIMER)
-+#define FEC_NAPI_IMASK	(FEC_ENET_MII | FEC_ENET_TS_TIMER)
- #define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
- 
- /* ENET interrupt coalescing macro define */
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 712e3bb..ca2708d 100644
+index 97ca72a..ef18ca5 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1553,7 +1553,7 @@ fec_enet_interrupt(int irq, void *dev_id)
+@@ -382,7 +382,6 @@ fec_enet_txq_submit_frag_skb(struct fec_enet_priv_tx_q *txq,
+ 		addr = dma_map_single(&fep->pdev->dev, bufaddr, frag_len,
+ 				      DMA_TO_DEVICE);
+ 		if (dma_mapping_error(&fep->pdev->dev, addr)) {
+-			dev_kfree_skb_any(skb);
+ 			if (net_ratelimit())
+ 				netdev_err(ndev, "Tx DMA memory map failed\n");
+ 			goto dma_mapping_error;
+@@ -467,8 +466,12 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
  
- 		if (napi_schedule_prep(&fep->napi)) {
- 			/* Disable the NAPI interrupts */
--			writel(FEC_ENET_MII, fep->hwp + FEC_IMASK);
-+			writel(FEC_NAPI_IMASK, fep->hwp + FEC_IMASK);
- 			__napi_schedule(&fep->napi);
+ 	if (nr_frags) {
+ 		last_bdp = fec_enet_txq_submit_frag_skb(txq, skb, ndev);
+-		if (IS_ERR(last_bdp))
++		if (IS_ERR(last_bdp)) {
++			dma_unmap_single(&fep->pdev->dev, addr,
++					 buflen, DMA_TO_DEVICE);
++			dev_kfree_skb_any(skb);
+ 			return NETDEV_TX_OK;
++		}
+ 	} else {
+ 		status |= (BD_ENET_TX_INTR | BD_ENET_TX_LAST);
+ 		if (fep->bufdesc_ex) {
+@@ -478,6 +481,8 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
+ 				estatus |= BD_ENET_TX_TS;
  		}
  	}
++	bdp->cbd_bufaddr = cpu_to_fec32(addr);
++	bdp->cbd_datlen = cpu_to_fec16(buflen);
+ 
+ 	if (fep->bufdesc_ex) {
+ 
+@@ -501,8 +506,6 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
+ 	/* Save skb pointer */
+ 	txq->tx_skbuff[index] = skb;
+ 
+-	bdp->cbd_datlen = cpu_to_fec16(buflen);
+-	bdp->cbd_bufaddr = cpu_to_fec32(addr);
+ 	/* Make sure the updates to rest of the descriptor are performed before
+ 	 * transferring ownership.
+ 	 */
 -- 
 2.5.0
