@@ -1,71 +1,78 @@
-From: Lubomir Rintel <lkundrak@v3.sk>
-Subject: Re: [PATCH 3/3] bonding: make device count build-time configurable
-Date: Fri, 05 Feb 2016 16:07:12 +0100
-Message-ID: <1454684832.2779.10.camel@v3.sk>
-References: <1452599916-27511-1-git-send-email-lkundrak@v3.sk>
-	 <8166.1452616452@famine> <1452619189.18559.83.camel@v3.sk>
-	 <20160112.154914.397367508465928770.davem@davemloft.net>
-	 <87bn8qv5m4.fsf@nemi.mork.no>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH v3] net: ethernet: support "fixed-link" DT node on nb8800 driver
+Date: Fri, 05 Feb 2016 15:08:42 +0000
+Message-ID: <yw1xfux7gpol.fsf@unicorn.mansr.com>
+References: <56B4A445.7080402@laposte.net>
+	<yw1x1t8ri8dz.fsf@unicorn.mansr.com> <56B4A877.4020800@laposte.net>
+	<yw1xsi17gsxl.fsf@unicorn.mansr.com> <56B4ACC4.1000607@laposte.net>
+	<yw1xoabvgs7s.fsf@unicorn.mansr.com> <56B4B013.5030407@laposte.net>
+	<yw1xk2mjgraf.fsf@unicorn.mansr.com> <56B4B81D.3000108@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jay.vosburgh@canonical.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vfalico@gmail.com,
-	gospo@cumulusnetworks.com
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
-	David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>
+To: Sebastian Frias <sf84@laposte.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87bn8qv5m4.fsf@nemi.mork.no>
+In-Reply-To: <56B4B81D.3000108@laposte.net> (Sebastian Frias's message of
+	"Fri, 05 Feb 2016 15:56:29 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi=C2=A0Bj=C3=B8rn,
+Sebastian Frias <sf84@laposte.net> writes:
 
-On Tue, 2016-01-12 at 22:40 +0100, Bj=C3=B8rn Mork wrote:
-> David Miller <davem@davemloft.net> writes:
-> > From: Lubomir Rintel <lkundrak@v3.sk>
-> > Date: Tue, 12 Jan 2016 18:19:49 +0100
-> >=20
-> > > It's still an improvement to let the distributions decide if
-> > > they're
-> > > keeping "ip link add" broken or possibly affecting the scripts.
-> >=20
-> > That it is "broken" is your opinion.
-> >=20
-> > Document the behavior.=C2=A0=C2=A0It is not broken if the user is t=
-old to be
-> > mindful of what devices are created by default.
-> >=20
-> > There is way too much downside to changing this.
->=20
-> Besides, distributions or admins can already change that behaviour if
-> they consider it "broken", using the existing module parameter:
->=20
-> =C2=A0# echo "options bonding max_bonds=3D0" >/etc/modprobe.d/bonding=
-=2Econf
-> =C2=A0# rmmod bonding
-> =C2=A0# ip link add bond0 type bond
-> =C2=A0(no error here)
->=20
-> This method should be well known and understood by most users,
-> contrary
-> to some odd CONFIG_ build time setting.
+> On 02/05/2016 03:34 PM, M=E5ns Rullg=E5rd wrote:
+>> Sebastian Frias <sf84@laposte.net> writes:
+>>
+>>> Signed-off-by: Sebastian Frias <sf84@laposte.net>
+>>
+>> Please change the subject to something like "net: ethernet: nb8800:
+>> support fixed-link DT node" and add a comment body.
+>
+> The subject is pretty explicit for such a simple patch, what else
+> could I add that wouldn't be unnecessary chat?
 
-Yes, that's an alternative solution. We may end up shipping such
-configuration file, though it's not really clear what package should
-ship it (probably systemd?).
+It's customary to include a description body even if it's little more
+than a restatement of the subject.  Also, while the subject usually onl=
+y
+says _what_ the patch does, the body should additionally state _why_ it
+is needed.
 
-I'd still prefer a kernel build-time option. It's more likely for
-distributions to do the decision they prefer when running make
-oldconfig. I'm assuming most distros would like to drop the legacy
-behavior; at this point noone probably relies on it anyway, given
-NetworkManager works around this by manually loading the module with
-the maxbonds=3D0 manually.
+>>> ---
+>>>   drivers/net/ethernet/aurora/nb8800.c | 14 +++++++++++++-
+>>>   1 file changed, 13 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/aurora/nb8800.c
+>>> b/drivers/net/ethernet/aurora/nb8800.c
+>>> index ecc4a33..e1fb071 100644
+>>> --- a/drivers/net/ethernet/aurora/nb8800.c
+>>> +++ b/drivers/net/ethernet/aurora/nb8800.c
+>>> @@ -1460,7 +1460,19 @@ static int nb8800_probe(struct platform_devi=
+ce *pdev)
+>>>   		goto err_disable_clk;
+>>>   	}
+>>>
+>>> -	priv->phy_node =3D of_parse_phandle(pdev->dev.of_node, "phy-handl=
+e", 0);
+>>> +	if (of_phy_is_fixed_link(pdev->dev.of_node)) {
+>>> +		ret =3D of_phy_register_fixed_link(pdev->dev.of_node);
+>>> +		if (ret < 0) {
+>>> +			dev_err(&pdev->dev, "bad fixed-link spec\n");
+>>> +			goto err_free_bus;
+>>> +		}
+>>> +		priv->phy_node =3D of_node_get(pdev->dev.of_node);
+>>> +	}
+>>> +
+>>> +	if (!priv->phy_node)
+>>> +		priv->phy_node =3D of_parse_phandle(pdev->dev.of_node,
+>>> +						  "phy-handle", 0);
+>>> +
+>>>   	if (!priv->phy_node) {
+>>>   		dev_err(&pdev->dev, "no PHY specified\n");
+>>>   		ret =3D -ENODEV;
+>>> --
+>>> 2.1.4
+>>
 
-Also, there's prior art to addressing this in kernel; the block
-loopback.
-
-> Bj=C3=B8rn
-
-Regards,
-Lubo
+--=20
+M=E5ns Rullg=E5rd
