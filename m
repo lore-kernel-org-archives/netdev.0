@@ -1,50 +1,60 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: [PATCH] af_unix: Don't use continue to re-execute unix_stream_read_generic loop
-Date: Fri, 05 Feb 2016 22:52:22 +0000
-Message-ID: <87wpqilqhl.fsf@doppelsaurus.mobileactivedefense.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [V4.4-rc6 Regression] af_unix: Revert 'lock_interruptible' in
+ stream receive code
+Date: Fri, 05 Feb 2016 15:03:18 -0800
+Message-ID: <1454713398.7627.325.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <56B4EF04.2060407@canonical.com>
+	 <87bn7ude8g.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rweikusat@mobileactivedefense.com, hannes@stressinduktion.org,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, hannes@stressinduktion.org,
 	edumazet@google.com, dhowells@redhat.com, ying.xue@windriver.com,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>,
-	"stable\@vger.kernel.org" <stable@vger.kernel.org>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>,
 	Joseph Salisbury <joseph.salisbury@canonical.com>
-To: "davem\@davemloft.net" <davem@davemloft.net>
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87bn7ude8g.fsf@doppelsaurus.mobileactivedefense.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The unix_stream_read_generic function tries to use a continue statement
-to restart the receive loop after waiting for a message. This may not
-work as intended as the caller might use a recvmsg call to peek at
-control messages without specifying a message buffer. If this was the
-case, the continue will cause the function to return without an error
-and without the credential information if the function had to wait for a
-message while it had returned with the credentials otherwise. Change to
-using goto to restart the loop without checking the condition first in
-this case so that credentials are returned either way.
+On Fri, 2016-02-05 at 21:44 +0000, Rainer Weikusat wrote:
+> The present unix_stream_read_generic contains various code sequences of
+> the form
+> 
+> err = -EDISASTER;
+> if (<test>)
+> 	goto out;
+> 
+> This has the unfortunate side effect of possibly causing the error code
+> to bleed through to the final
+> 
+> out:
+> 	return copied ? : err;
+> 
+> and then to be wrongly returned if no data was copied because the caller
+> didn't supply a data buffer, as demonstrated by the program available at
+> 
+> http://pad.lv/1540731
+> 
+> Change it such that err is only set if an error condition was detected.
 
-Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
----
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 49d5093..3b73bd7 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2305,6 +2305,7 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state)
- 		bool drop_skb;
- 		struct sk_buff *skb, *last;
- 
-+redo:
- 		unix_state_lock(sk);
- 		if (sock_flag(sk, SOCK_DEAD)) {
- 			err = -ECONNRESET;
-@@ -2344,7 +2345,7 @@ again:
- 			}
- 
- 			mutex_lock(&u->readlock);
--			continue;
-+			goto redo;
- unlock:
- 			unix_state_unlock(sk);
- 			break;
+
+Well, if you replace the traditional flow
+
+err = -XXXX;
+if (test)
+     goto out;
+
+Then please add unlikely() to at least give a hint to the compiler.
+
+if (unlikely(test)) {
+    err = -XXX;
+    goto out;
+}
+
+And please add a 'Fixes: .... ' tag for bug fixes.
+
+Thanks.
