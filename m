@@ -1,7 +1,8 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 1/8] net: local checksum offload for encapsulation
-Date: Fri, 5 Feb 2016 20:40:52 +0000
-Message-ID: <56B508D4.2060305@solarflare.com>
+Subject: [PATCH net-next 2/8] net: udp: always set up for CHECKSUM_PARTIAL
+ offload
+Date: Fri, 5 Feb 2016 20:41:16 +0000
+Message-ID: <56B508EC.9000101@solarflare.com>
 References: <56B50886.1050201@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,165 +11,78 @@ Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
 	<tom@herbertland.com>, <alexander.duyck@gmail.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:5294 "EHLO
-	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751804AbcBEUlA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 15:41:00 -0500
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:36639 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753186AbcBEUlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 15:41:24 -0500
 In-Reply-To: <56B50886.1050201@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The arithmetic properties of the ones-complement checksum mean that a
- correctly checksummed inner packet, including its checksum, has a ones
- complement sum depending only on whatever value was used to initialise
- the checksum field before checksumming (in the case of TCP and UDP,
- this is the ones complement sum of the pseudo header, complemented).
-Consequently, if we are going to offload the inner checksum with
- CHECKSUM_PARTIAL, we can compute the outer checksum based only on the
- packed data not covered by the inner checksum, and the initial value of
- the inner checksum field.
+If the dst device doesn't support it, it'll get fixed up later anyway
+ by validate_xmit_skb().  Also, this allows us to take advantage of LCO
+ to avoid summing the payload multiple times.
 
 Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- include/linux/skbuff.h    | 24 ++++++++++++++++++++++++
- net/ipv4/ip_tunnel_core.c | 10 +++++-----
- net/ipv4/udp.c            | 20 ++++++++++----------
- net/ipv6/ip6_checksum.c   | 14 +++++++-------
- 4 files changed, 46 insertions(+), 22 deletions(-)
+ net/ipv4/udp.c          | 14 +-------------
+ net/ipv6/ip6_checksum.c | 13 +------------
+ 2 files changed, 2 insertions(+), 25 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 11f935c..3e9eb52 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -3683,5 +3683,29 @@ static inline unsigned int skb_gso_network_seglen(const struct sk_buff *skb)
- 	return hdr_len + skb_gso_transport_seglen(skb);
- }
- 
-+/* Local Checksum Offload.
-+ * Compute outer checksum based on the assumption that the
-+ * inner checksum will be offloaded later.
-+ * Fill in outer checksum adjustment (e.g. with sum of outer
-+ * pseudo-header) before calling.
-+ * Also ensure that inner checksum is in linear data area.
-+ */
-+static inline __wsum lco_csum(struct sk_buff *skb)
-+{
-+	char *inner_csum_field;
-+	__wsum csum;
-+
-+	/* Start with complement of inner checksum adjustment */
-+	inner_csum_field = skb->data + skb_checksum_start_offset(skb) +
-+				skb->csum_offset;
-+	csum = ~csum_unfold(*(__force __sum16 *)inner_csum_field);
-+	/* Add in checksum of our headers (incl. outer checksum
-+	 * adjustment filled in by caller)
-+	 */
-+	csum = skb_checksum(skb, 0, skb_checksum_start_offset(skb), csum);
-+	/* The result is the checksum from skb->data to end of packet */
-+	return csum;
-+}
-+
- #endif	/* __KERNEL__ */
- #endif	/* _LINUX_SKBUFF_H */
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 859d415..d74ce93 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -166,20 +166,20 @@ struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb,
- 		return skb;
- 	}
- 
--	/* If packet is not gso and we are resolving any partial checksum,
-+	/* If packet is not gso and we are not offloading inner checksum,
- 	 * clear encapsulation flag. This allows setting CHECKSUM_PARTIAL
- 	 * on the outer header without confusing devices that implement
- 	 * NETIF_F_IP_CSUM with encapsulation.
- 	 */
--	if (csum_help)
--		skb->encapsulation = 0;
--
- 	if (skb->ip_summed == CHECKSUM_PARTIAL && csum_help) {
-+		skb->encapsulation = 0;
- 		err = skb_checksum_help(skb);
- 		if (unlikely(err))
- 			goto error;
--	} else if (skb->ip_summed != CHECKSUM_PARTIAL)
-+	} else if (skb->ip_summed != CHECKSUM_PARTIAL) {
- 		skb->ip_summed = CHECKSUM_NONE;
-+		skb->encapsulation = 0;
-+	}
- 
- 	return skb;
- error:
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index be0b218..005280d 100644
+index 005280d..c6bca27 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
-@@ -848,16 +848,18 @@ void udp_set_csum(bool nocheck, struct sk_buff *skb,
- {
- 	struct udphdr *uh = udp_hdr(skb);
- 
--	if (nocheck)
-+	if (nocheck) {
- 		uh->check = 0;
--	else if (skb_is_gso(skb))
-+	} else if (skb_is_gso(skb)) {
- 		uh->check = ~udp_v4_check(len, saddr, daddr, 0);
--	else if (skb_dst(skb) && skb_dst(skb)->dev &&
--		 (skb_dst(skb)->dev->features &
--		  (NETIF_F_IP_CSUM | NETIF_F_HW_CSUM))) {
--
--		BUG_ON(skb->ip_summed == CHECKSUM_PARTIAL);
--
-+	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		uh->check = 0;
-+		uh->check = udp_v4_check(len, saddr, daddr, lco_csum(skb));
-+		if (uh->check == 0)
-+			uh->check = CSUM_MANGLED_0;
-+	} else if (skb_dst(skb) && skb_dst(skb)->dev &&
-+		   (skb_dst(skb)->dev->features &
-+		    (NETIF_F_IP_CSUM | NETIF_F_HW_CSUM))) {
+@@ -857,23 +857,11 @@ void udp_set_csum(bool nocheck, struct sk_buff *skb,
+ 		uh->check = udp_v4_check(len, saddr, daddr, lco_csum(skb));
+ 		if (uh->check == 0)
+ 			uh->check = CSUM_MANGLED_0;
+-	} else if (skb_dst(skb) && skb_dst(skb)->dev &&
+-		   (skb_dst(skb)->dev->features &
+-		    (NETIF_F_IP_CSUM | NETIF_F_HW_CSUM))) {
++	} else {
  		skb->ip_summed = CHECKSUM_PARTIAL;
  		skb->csum_start = skb_transport_header(skb) - skb->head;
  		skb->csum_offset = offsetof(struct udphdr, check);
-@@ -865,8 +867,6 @@ void udp_set_csum(bool nocheck, struct sk_buff *skb,
- 	} else {
- 		__wsum csum;
- 
--		BUG_ON(skb->ip_summed == CHECKSUM_PARTIAL);
+ 		uh->check = ~udp_v4_check(len, saddr, daddr, 0);
+-	} else {
+-		__wsum csum;
 -
- 		uh->check = 0;
- 		csum = skb_checksum(skb, 0, len, 0);
- 		uh->check = udp_v4_check(len, saddr, daddr, csum);
+-		uh->check = 0;
+-		csum = skb_checksum(skb, 0, len, 0);
+-		uh->check = udp_v4_check(len, saddr, daddr, csum);
+-		if (uh->check == 0)
+-			uh->check = CSUM_MANGLED_0;
+-
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	}
+ }
+ EXPORT_SYMBOL(udp_set_csum);
 diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
-index 9a4d732..4924bd7 100644
+index 4924bd7..8f92058 100644
 --- a/net/ipv6/ip6_checksum.c
 +++ b/net/ipv6/ip6_checksum.c
-@@ -98,11 +98,13 @@ void udp6_set_csum(bool nocheck, struct sk_buff *skb,
- 		uh->check = 0;
- 	else if (skb_is_gso(skb))
- 		uh->check = ~udp_v6_check(len, saddr, daddr, 0);
--	else if (skb_dst(skb) && skb_dst(skb)->dev &&
--		 (skb_dst(skb)->dev->features & NETIF_F_IPV6_CSUM)) {
--
--		BUG_ON(skb->ip_summed == CHECKSUM_PARTIAL);
--
-+	else if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		uh->check = 0;
-+		uh->check = udp_v6_check(len, saddr, daddr, lco_csum(skb));
-+		if (uh->check == 0)
-+			uh->check = CSUM_MANGLED_0;
-+	} else if (skb_dst(skb) && skb_dst(skb)->dev &&
-+		   (skb_dst(skb)->dev->features & NETIF_F_IPV6_CSUM)) {
+@@ -103,22 +103,11 @@ void udp6_set_csum(bool nocheck, struct sk_buff *skb,
+ 		uh->check = udp_v6_check(len, saddr, daddr, lco_csum(skb));
+ 		if (uh->check == 0)
+ 			uh->check = CSUM_MANGLED_0;
+-	} else if (skb_dst(skb) && skb_dst(skb)->dev &&
+-		   (skb_dst(skb)->dev->features & NETIF_F_IPV6_CSUM)) {
++	} else {
  		skb->ip_summed = CHECKSUM_PARTIAL;
  		skb->csum_start = skb_transport_header(skb) - skb->head;
  		skb->csum_offset = offsetof(struct udphdr, check);
-@@ -110,8 +112,6 @@ void udp6_set_csum(bool nocheck, struct sk_buff *skb,
- 	} else {
- 		__wsum csum;
- 
--		BUG_ON(skb->ip_summed == CHECKSUM_PARTIAL);
+ 		uh->check = ~udp_v6_check(len, saddr, daddr, 0);
+-	} else {
+-		__wsum csum;
 -
- 		uh->check = 0;
- 		csum = skb_checksum(skb, 0, len, 0);
- 		uh->check = udp_v6_check(len, saddr, daddr, csum);
+-		uh->check = 0;
+-		csum = skb_checksum(skb, 0, len, 0);
+-		uh->check = udp_v6_check(len, saddr, daddr, csum);
+-		if (uh->check == 0)
+-			uh->check = CSUM_MANGLED_0;
+-
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	}
+ }
+ EXPORT_SYMBOL(udp6_set_csum);
