@@ -1,41 +1,44 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH for-next 0/3] Add TOS support and some cleanup
-Date: Fri,  5 Feb 2016 11:43:27 +0530
-Message-ID: <1454652810-25086-1-git-send-email-hariprasad@chelsio.com>
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH for-next 2/3] iw_cxgb4: remove false error log entry
+Date: Fri,  5 Feb 2016 11:43:29 +0530
+Message-ID: <1454652810-25086-3-git-send-email-hariprasad@chelsio.com>
+References: <1454652810-25086-1-git-send-email-hariprasad@chelsio.com>
+Cc: dledford@redhat.com, davem@davemloft.net,
+	swise@opengridcomputing.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:60919 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751184AbcBEGLP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 01:11:15 -0500
+In-Reply-To: <1454652810-25086-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Don't log errors if a listening endpoint is going away when procesing a
+PASS_ACCEPT_REQ message.  This can happen.  Change the error printk to
+a PDBG() debug log entry
 
-This series adds TOS support for iWARP and also does some cleanup to make
-code more readable. Patch series is created against infiniband tree and 
-includes patches on iw_cxgb4 and cxgb4 driver.
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/infiniband/hw/cxgb4/cm.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-We have included all the maintainers of respective drivers. Kindly review
-the change and let us know in case of any review comments.
-
-Thanks
-
-Hariprasad Shenai (3):
-  iw_cxgb4: make queue allocation code more readable
-  iw_cxgb4: remove false error log entry
-  cxgb4/iw_cxgb4: TOS support
-
- drivers/infiniband/hw/cxgb4/cm.c              | 54 +++++++++++-------
- drivers/infiniband/hw/cxgb4/qp.c              | 81 ++++++++++++++-------------
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h   |  2 +
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h |  1 +
- 4 files changed, 80 insertions(+), 58 deletions(-)
-
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index 704680471567..fe4e81b993d3 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -2399,8 +2399,7 @@ static int pass_accept_req(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	}
+ 
+ 	if (state_read(&parent_ep->com) != LISTEN) {
+-		printk(KERN_ERR "%s - listening ep not in LISTEN\n",
+-		       __func__);
++		PDBG("%s - listening ep not in LISTEN\n", __func__);
+ 		goto reject;
+ 	}
+ 
 -- 
 2.3.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
