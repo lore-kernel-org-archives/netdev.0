@@ -1,117 +1,358 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH 08/10] udp: Clean up the use of flags in UDP
- segmentation offload
-Date: Fri, 05 Feb 2016 15:28:14 -0800
-Message-ID: <20160205232814.18529.595.stgit@localhost.localdomain>
-References: <20160205232109.18529.99816.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: ecree@solarflare.com, tom@herbertland.com, davem@davemloft.net
-To: netdev@vger.kernel.org, alexander.duyck@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:35230 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751150AbcBEX2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 18:28:15 -0500
-Received: by mail-pf0-f169.google.com with SMTP id c10so9943114pfc.2
-        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 15:28:15 -0800 (PST)
-In-Reply-To: <20160205232109.18529.99816.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexandre Bounine <alexandre.bounine@idt.com>
+Subject: [PATCH 17/30] rapidio/rionet: add locking into add/remove device
+Date: Fri,  5 Feb 2016 18:19:33 -0500
+Message-ID: <1454714386-15259-18-git-send-email-alexandre.bounine@idt.com>
+References: <1454714386-15259-1-git-send-email-alexandre.bounine@idt.com>
+Cc: Alexandre Bounine <alexandre.bounine@idt.com>,
+	Matt Porter <mporter@kernel.crashing.org>,
+	Aurelien Jacquiot <a-jacquiot@ti.com>,
+	Andre van Herk <andre.van.herk@prodrive-technologies.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454714386-15259-1-git-send-email-alexandre.bounine@idt.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch goes though and cleans up the logic related to several of the
-control flags used in UDP segmentation.  Specifically the use of dont_encap
-isn't really needed as we can just check the skb for CHECKSUM_PARTIAL and
-if it isn't set then we don't need to update the internal headers.  As such
-we can just drop that value.
+Add spinlock protection when handling list of connected peers and ability
+to handle new peer device addition after the RIONET device was open.
+Before his update RIONET was sending JOIN requests only when it have been
+opened, peer devices added later have been missing from this process. 
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Signed-off-by: Alexandre Bounine <alexandre.bounine@idt.com>
+Cc: Matt Porter <mporter@kernel.crashing.org>
+Cc: Aurelien Jacquiot <a-jacquiot@ti.com>
+Cc: Andre van Herk <andre.van.herk@prodrive-technologies.com>
+Cc: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 ---
- net/ipv4/udp_offload.c |   37 ++++++++++++++++++-------------------
- 1 file changed, 18 insertions(+), 19 deletions(-)
+ drivers/net/rionet.c |  152 +++++++++++++++++++++++++++++++++----------------
+ 1 files changed, 102 insertions(+), 50 deletions(-)
 
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 86687f58d613..9e4816fc9927 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -33,16 +33,13 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	__be16 new_protocol, bool is_ipv6)
+diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
+index f994fa1..c15d958 100644
+--- a/drivers/net/rionet.c
++++ b/drivers/net/rionet.c
+@@ -63,6 +63,7 @@ struct rionet_private {
+ 	spinlock_t lock;
+ 	spinlock_t tx_lock;
+ 	u32 msg_enable;
++	bool open;
+ };
+ 
+ struct rionet_peer {
+@@ -74,6 +75,7 @@ struct rionet_peer {
+ struct rionet_net {
+ 	struct net_device *ndev;
+ 	struct list_head peers;
++	spinlock_t lock;	/* net info access lock */
+ 	struct rio_dev **active;
+ 	int nact;	/* number of active peers */
+ };
+@@ -235,26 +237,32 @@ static void rionet_dbell_event(struct rio_mport *mport, void *dev_id, u16 sid, u
+ 	struct net_device *ndev = dev_id;
+ 	struct rionet_private *rnet = netdev_priv(ndev);
+ 	struct rionet_peer *peer;
++	unsigned char netid = rnet->mport->id;
+ 
+ 	if (netif_msg_intr(rnet))
+ 		printk(KERN_INFO "%s: doorbell sid %4.4x tid %4.4x info %4.4x",
+ 		       DRV_NAME, sid, tid, info);
+ 	if (info == RIONET_DOORBELL_JOIN) {
+-		if (!nets[rnet->mport->id].active[sid]) {
+-			list_for_each_entry(peer,
+-					   &nets[rnet->mport->id].peers, node) {
++		if (!nets[netid].active[sid]) {
++			spin_lock(&nets[netid].lock);
++			list_for_each_entry(peer, &nets[netid].peers, node) {
+ 				if (peer->rdev->destid == sid) {
+-					nets[rnet->mport->id].active[sid] =
+-								peer->rdev;
+-					nets[rnet->mport->id].nact++;
++					nets[netid].active[sid] = peer->rdev;
++					nets[netid].nact++;
+ 				}
+ 			}
++			spin_unlock(&nets[netid].lock);
++
+ 			rio_mport_send_doorbell(mport, sid,
+ 						RIONET_DOORBELL_JOIN);
+ 		}
+ 	} else if (info == RIONET_DOORBELL_LEAVE) {
+-		nets[rnet->mport->id].active[sid] = NULL;
+-		nets[rnet->mport->id].nact--;
++		spin_lock(&nets[netid].lock);
++		if (nets[netid].active[sid]) {
++			nets[netid].active[sid] = NULL;
++			nets[netid].nact--;
++		}
++		spin_unlock(&nets[netid].lock);
+ 	} else {
+ 		if (netif_msg_intr(rnet))
+ 			printk(KERN_WARNING "%s: unhandled doorbell\n",
+@@ -308,8 +316,10 @@ static void rionet_outb_msg_event(struct rio_mport *mport, void *dev_id, int mbo
+ static int rionet_open(struct net_device *ndev)
  {
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	bool remcsum, need_csum, offload_csum;
- 	u16 mac_offset = skb->mac_header;
- 	int mac_len = skb->mac_len;
- 	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
- 	__be16 protocol = skb->protocol;
- 	int udp_offset, outer_hlen;
- 	unsigned int oldlen;
--	bool need_csum = !!(skb_shinfo(skb)->gso_type &
--			    SKB_GSO_UDP_TUNNEL_CSUM);
--	bool remcsum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TUNNEL_REMCSUM);
--	bool offload_csum = false, dont_encap = (need_csum || remcsum);
+ 	int i, rc = 0;
+-	struct rionet_peer *peer, *tmp;
++	struct rionet_peer *peer;
+ 	struct rionet_private *rnet = netdev_priv(ndev);
++	unsigned char netid = rnet->mport->id;
++	unsigned long flags;
  
- 	oldlen = (u16)~skb->len;
+ 	if (netif_msg_ifup(rnet))
+ 		printk(KERN_INFO "%s: open\n", DRV_NAME);
+@@ -348,20 +358,13 @@ static int rionet_open(struct net_device *ndev)
+ 	netif_carrier_on(ndev);
+ 	netif_start_queue(ndev);
  
-@@ -55,14 +52,18 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	skb_set_network_header(skb, skb_inner_network_offset(skb));
- 	skb->mac_len = skb_inner_network_offset(skb);
- 	skb->protocol = new_protocol;
-+
-+	need_csum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM);
- 	skb->encap_hdr_csum = need_csum;
-+
-+	remcsum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TUNNEL_REMCSUM);
- 	skb->remcsum_offload = remcsum;
+-	list_for_each_entry_safe(peer, tmp,
+-				 &nets[rnet->mport->id].peers, node) {
+-		if (!(peer->res = rio_request_outb_dbell(peer->rdev,
+-							 RIONET_DOORBELL_JOIN,
+-							 RIONET_DOORBELL_LEAVE)))
+-		{
+-			printk(KERN_ERR "%s: error requesting doorbells\n",
+-			       DRV_NAME);
+-			continue;
+-		}
+-
++	spin_lock_irqsave(&nets[netid].lock, flags);
++	list_for_each_entry(peer, &nets[netid].peers, node) {
+ 		/* Send a join message */
+ 		rio_send_doorbell(peer->rdev, RIONET_DOORBELL_JOIN);
+ 	}
++	spin_unlock_irqrestore(&nets[netid].lock, flags);
++	rnet->open = true;
  
- 	/* Try to offload checksum if possible */
- 	offload_csum = !!(need_csum &&
--			  ((skb->dev->features & NETIF_F_HW_CSUM) ||
--			   (skb->dev->features & (is_ipv6 ?
--			    NETIF_F_IPV6_CSUM : NETIF_F_IP_CSUM))));
-+			  (skb->dev->features &
-+			   (is_ipv6 ? (NETIF_F_HW_CSUM | NETIF_F_IPV6_CSUM) :
-+				      (NETIF_F_HW_CSUM | NETIF_F_IP_CSUM))));
+       out:
+ 	return rc;
+@@ -370,7 +373,9 @@ static int rionet_open(struct net_device *ndev)
+ static int rionet_close(struct net_device *ndev)
+ {
+ 	struct rionet_private *rnet = netdev_priv(ndev);
+-	struct rionet_peer *peer, *tmp;
++	struct rionet_peer *peer;
++	unsigned char netid = rnet->mport->id;
++	unsigned long flags;
+ 	int i;
  
- 	features &= skb->dev->hw_enc_features;
+ 	if (netif_msg_ifup(rnet))
+@@ -378,18 +383,21 @@ static int rionet_close(struct net_device *ndev)
  
-@@ -92,13 +93,11 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 		int len;
- 		__be32 delta;
+ 	netif_stop_queue(ndev);
+ 	netif_carrier_off(ndev);
++	rnet->open = false;
  
--		if (dont_encap) {
--			skb->encapsulation = 0;
-+		if (remcsum)
- 			skb->ip_summed = CHECKSUM_NONE;
--		} else {
--			/* Only set up inner headers if we might be offloading
--			 * inner checksum.
--			 */
-+
-+		/* Set up inner headers if we are offloading inner checksum */
-+		if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 			skb_reset_inner_headers(skb);
- 			skb->encapsulation = 1;
+ 	for (i = 0; i < RIONET_RX_RING_SIZE; i++)
+ 		kfree_skb(rnet->rx_skb[i]);
+ 
+-	list_for_each_entry_safe(peer, tmp,
+-				 &nets[rnet->mport->id].peers, node) {
+-		if (nets[rnet->mport->id].active[peer->rdev->destid]) {
++	spin_lock_irqsave(&nets[netid].lock, flags);
++	list_for_each_entry(peer, &nets[netid].peers, node) {
++		if (nets[netid].active[peer->rdev->destid]) {
+ 			rio_send_doorbell(peer->rdev, RIONET_DOORBELL_LEAVE);
+-			nets[rnet->mport->id].active[peer->rdev->destid] = NULL;
++			nets[netid].active[peer->rdev->destid] = NULL;
  		}
-@@ -122,15 +121,15 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 		uh->check = ~csum_fold((__force __wsum)
- 				       ((__force u32)uh->check +
- 					(__force u32)delta));
--		if (offload_csum) {
--			skb->ip_summed = CHECKSUM_PARTIAL;
--			skb->csum_start = skb_transport_header(skb) - skb->head;
--			skb->csum_offset = offsetof(struct udphdr, check);
--		} else {
--			uh->check = gso_make_checksum(skb, ~uh->check);
+-		rio_release_outb_dbell(peer->rdev, peer->res);
++		if (peer->res)
++			rio_release_outb_dbell(peer->rdev, peer->res);
+ 	}
++	spin_unlock_irqrestore(&nets[netid].lock, flags);
  
-+		if (skb->encapsulation || !offload_csum) {
-+			uh->check = gso_make_checksum(skb, ~uh->check);
- 			if (uh->check == 0)
- 				uh->check = CSUM_MANGLED_0;
-+		} else {
-+			skb->ip_summed = CHECKSUM_PARTIAL;
-+			skb->csum_start = skb_transport_header(skb) - skb->head;
-+			skb->csum_offset = offsetof(struct udphdr, check);
+ 	rio_release_inb_dbell(rnet->mport, RIONET_DOORBELL_JOIN,
+ 			      RIONET_DOORBELL_LEAVE);
+@@ -403,22 +411,38 @@ static void rionet_remove_dev(struct device *dev, struct subsys_interface *sif)
+ {
+ 	struct rio_dev *rdev = to_rio_dev(dev);
+ 	unsigned char netid = rdev->net->hport->id;
+-	struct rionet_peer *peer, *tmp;
++	struct rionet_peer *peer;
++	int state, found = 0;
++	unsigned long flags;
+ 
+-	if (dev_rionet_capable(rdev)) {
+-		list_for_each_entry_safe(peer, tmp, &nets[netid].peers, node) {
+-			if (peer->rdev == rdev) {
+-				if (nets[netid].active[rdev->destid]) {
+-					nets[netid].active[rdev->destid] = NULL;
+-					nets[netid].nact--;
++	if (!dev_rionet_capable(rdev))
++		return;
++
++	spin_lock_irqsave(&nets[netid].lock, flags);
++	list_for_each_entry(peer, &nets[netid].peers, node) {
++		if (peer->rdev == rdev) {
++			list_del(&peer->node);
++			if (nets[netid].active[rdev->destid]) {
++				state = atomic_read(&rdev->state);
++				if (state != RIO_DEVICE_GONE &&
++				    state != RIO_DEVICE_INITIALIZING) {
++					rio_send_doorbell(rdev,
++							RIONET_DOORBELL_LEAVE);
+ 				}
+-
+-				list_del(&peer->node);
+-				kfree(peer);
+-				break;
++				nets[netid].active[rdev->destid] = NULL;
++				nets[netid].nact--;
+ 			}
++			found = 1;
++			break;
  		}
- 	} while ((skb = skb->next));
- out:
+ 	}
++	spin_unlock_irqrestore(&nets[netid].lock, flags);
++
++	if (found) {
++		if (peer->res)
++			rio_release_outb_dbell(rdev, peer->res);
++		kfree(peer);
++	}
+ }
+ 
+ static void rionet_get_drvinfo(struct net_device *ndev,
+@@ -492,6 +516,7 @@ static int rionet_setup_netdev(struct rio_mport *mport, struct net_device *ndev)
+ 	/* Set up private area */
+ 	rnet = netdev_priv(ndev);
+ 	rnet->mport = mport;
++	rnet->open = false;
+ 
+ 	/* Set the default MAC address */
+ 	device_id = rio_local_get_device_id(mport);
+@@ -514,8 +539,11 @@ static int rionet_setup_netdev(struct rio_mport *mport, struct net_device *ndev)
+ 	rnet->msg_enable = RIONET_DEFAULT_MSGLEVEL;
+ 
+ 	rc = register_netdev(ndev);
+-	if (rc != 0)
++	if (rc != 0) {
++		free_pages((unsigned long)nets[mport->id].active,
++			   get_order(rionet_active_bytes));
+ 		goto out;
++	}
+ 
+ 	printk(KERN_INFO "%s: %s %s Version %s, MAC %pM, %s\n",
+ 	       ndev->name,
+@@ -529,8 +557,6 @@ static int rionet_setup_netdev(struct rio_mport *mport, struct net_device *ndev)
+ 	return rc;
+ }
+ 
+-static unsigned long net_table[RIONET_MAX_NETS/sizeof(unsigned long) + 1];
+-
+ static int rionet_add_dev(struct device *dev, struct subsys_interface *sif)
+ {
+ 	int rc = -ENODEV;
+@@ -539,19 +565,16 @@ static int rionet_add_dev(struct device *dev, struct subsys_interface *sif)
+ 	struct net_device *ndev = NULL;
+ 	struct rio_dev *rdev = to_rio_dev(dev);
+ 	unsigned char netid = rdev->net->hport->id;
+-	int oldnet;
+ 
+ 	if (netid >= RIONET_MAX_NETS)
+ 		return rc;
+ 
+-	oldnet = test_and_set_bit(netid, net_table);
+-
+ 	/*
+ 	 * If first time through this net, make sure local device is rionet
+ 	 * capable and setup netdev (this step will be skipped in later probes
+ 	 * on the same net).
+ 	 */
+-	if (!oldnet) {
++	if (!nets[netid].ndev) {
+ 		rio_local_read_config_32(rdev->net->hport, RIO_SRC_OPS_CAR,
+ 					 &lsrc_ops);
+ 		rio_local_read_config_32(rdev->net->hport, RIO_DST_OPS_CAR,
+@@ -569,30 +592,56 @@ static int rionet_add_dev(struct device *dev, struct subsys_interface *sif)
+ 			rc = -ENOMEM;
+ 			goto out;
+ 		}
+-		nets[netid].ndev = ndev;
++
+ 		rc = rionet_setup_netdev(rdev->net->hport, ndev);
+ 		if (rc) {
+ 			printk(KERN_ERR "%s: failed to setup netdev (rc=%d)\n",
+ 			       DRV_NAME, rc);
++			free_netdev(ndev);
+ 			goto out;
+ 		}
+ 
+ 		INIT_LIST_HEAD(&nets[netid].peers);
++		spin_lock_init(&nets[netid].lock);
+ 		nets[netid].nact = 0;
+-	} else if (nets[netid].ndev == NULL)
+-		goto out;
++		nets[netid].ndev = ndev;
++	}
+ 
+ 	/*
+ 	 * If the remote device has mailbox/doorbell capabilities,
+ 	 * add it to the peer list.
+ 	 */
+ 	if (dev_rionet_capable(rdev)) {
+-		if (!(peer = kmalloc(sizeof(struct rionet_peer), GFP_KERNEL))) {
++		struct rionet_private *rnet;
++		unsigned long flags;
++
++		rnet = netdev_priv(nets[netid].ndev);
++
++		peer = kzalloc(sizeof(*peer), GFP_KERNEL);
++		if (!peer) {
+ 			rc = -ENOMEM;
+ 			goto out;
+ 		}
+ 		peer->rdev = rdev;
++		peer->res = rio_request_outb_dbell(peer->rdev,
++						RIONET_DOORBELL_JOIN,
++						RIONET_DOORBELL_LEAVE);
++		if (!peer->res) {
++			pr_err("%s: error requesting doorbells\n", DRV_NAME);
++			kfree(peer);
++			rc = -ENOMEM;
++			goto out;
++		}
++
++		spin_lock_irqsave(&nets[netid].lock, flags);
+ 		list_add_tail(&peer->node, &nets[netid].peers);
++		spin_unlock_irqrestore(&nets[netid].lock, flags);
++		pr_debug("%s: %s add peer %s\n",
++			 DRV_NAME, __func__, rio_name(rdev));
++
++		/* If netdev is already opened, send join request to new peer */
++		if (rnet->open)
++			rio_send_doorbell(peer->rdev, RIONET_DOORBELL_JOIN);
+ 	}
+ 
+ 	return 0;
+@@ -603,7 +652,8 @@ out:
+ static int rionet_shutdown(struct notifier_block *nb, unsigned long code,
+ 			   void *unused)
+ {
+-	struct rionet_peer *peer, *tmp;
++	struct rionet_peer *peer;
++	unsigned long flags;
+ 	int i;
+ 
+ 	pr_debug("%s: %s\n", DRV_NAME, __func__);
+@@ -612,13 +662,15 @@ static int rionet_shutdown(struct notifier_block *nb, unsigned long code,
+ 		if (!nets[i].ndev)
+ 			continue;
+ 
+-		list_for_each_entry_safe(peer, tmp, &nets[i].peers, node) {
++		spin_lock_irqsave(&nets[i].lock, flags);
++		list_for_each_entry(peer, &nets[i].peers, node) {
+ 			if (nets[i].active[peer->rdev->destid]) {
+ 				rio_send_doorbell(peer->rdev,
+ 						  RIONET_DOORBELL_LEAVE);
+ 				nets[i].active[peer->rdev->destid] = NULL;
+ 			}
+ 		}
++		spin_unlock_irqrestore(&nets[i].lock, flags);
+ 	}
+ 
+ 	return NOTIFY_DONE;
+-- 
+1.7.8.4
