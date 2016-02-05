@@ -1,257 +1,180 @@
-From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH v3 4/4] param: convert some "on"/"off" users to strtobool
-Date: Fri,  5 Feb 2016 13:12:49 -0800
-Message-ID: <1454706769-8729-5-git-send-email-keescook@chromium.org>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH v3 1/4] lib: move strtobool to kstrtobool
+Date: Fri,  5 Feb 2016 13:12:46 -0800
+Message-ID: <1454706769-8729-2-git-send-email-keescook@chromium.org>
 References: <1454706769-8729-1-git-send-email-keescook@chromium.org>
-Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Steve French <sfrench-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1454706769-8729-1-git-send-email-keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Kees Cook <keescook@chromium.org>, Joe Perches <joe@perches.com>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Steve French <sfrench@samba.org>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>, x86@kernel.org,
+	linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-cifs@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454706769-8729-1-git-send-email-keescook@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This changes several users of manual "on"/"off" parsing to use strtobool.
+Create the kstrtobool_from_user helper and moves strtobool logic into
+the new kstrtobool (matching all the other kstrto* functions). Provides
+an inline wrapper for existing strtobool callers.
 
-Some side-effects:
-- these uses will now parse y/n/1/0 meaningfully too
-- the early_param uses will now bubble up parse errors
-
-Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Acked-by: Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
-Acked-by: Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>
-Cc: x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Cc: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Cc: linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
 v3:
-- retain __setup return values, andy.shevchenko
-- remove unused "base" argument
+- drop needless "base" argument, rasmus
 ---
- arch/powerpc/kernel/rtasd.c                  |  7 ++-----
- arch/powerpc/platforms/pseries/hotplug-cpu.c | 10 ++--------
- arch/s390/kernel/time.c                      |  8 ++------
- arch/s390/kernel/topology.c                  |  7 ++-----
- arch/x86/kernel/aperture_64.c                | 12 ++----------
- include/linux/tick.h                         |  2 +-
- kernel/time/hrtimer.c                        | 10 ++--------
- kernel/time/tick-sched.c                     | 10 ++--------
- 8 files changed, 15 insertions(+), 51 deletions(-)
+ include/linux/kernel.h |  2 ++
+ include/linux/string.h |  6 +++++-
+ lib/kstrtox.c          | 50 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ lib/string.c           | 29 -----------------------------
+ 4 files changed, 57 insertions(+), 30 deletions(-)
 
-diff --git a/arch/powerpc/kernel/rtasd.c b/arch/powerpc/kernel/rtasd.c
-index 5a2c049c1c61..0ae5cb84d4e2 100644
---- a/arch/powerpc/kernel/rtasd.c
-+++ b/arch/powerpc/kernel/rtasd.c
-@@ -49,7 +49,7 @@ static unsigned int rtas_error_log_buffer_max;
- static unsigned int event_scan;
- static unsigned int rtas_event_scan_rate;
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+index f31638c6e873..f4fa2b29c38c 100644
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -357,6 +357,7 @@ int __must_check kstrtou16(const char *s, unsigned int base, u16 *res);
+ int __must_check kstrtos16(const char *s, unsigned int base, s16 *res);
+ int __must_check kstrtou8(const char *s, unsigned int base, u8 *res);
+ int __must_check kstrtos8(const char *s, unsigned int base, s8 *res);
++int __must_check kstrtobool(const char *s, bool *res);
  
--static int full_rtas_msgs = 0;
-+static bool full_rtas_msgs;
+ int __must_check kstrtoull_from_user(const char __user *s, size_t count, unsigned int base, unsigned long long *res);
+ int __must_check kstrtoll_from_user(const char __user *s, size_t count, unsigned int base, long long *res);
+@@ -368,6 +369,7 @@ int __must_check kstrtou16_from_user(const char __user *s, size_t count, unsigne
+ int __must_check kstrtos16_from_user(const char __user *s, size_t count, unsigned int base, s16 *res);
+ int __must_check kstrtou8_from_user(const char __user *s, size_t count, unsigned int base, u8 *res);
+ int __must_check kstrtos8_from_user(const char __user *s, size_t count, unsigned int base, s8 *res);
++int __must_check kstrtobool_from_user(const char __user *s, size_t count, bool *res);
  
- /* Stop logging to nvram after first fatal error */
- static int logging_enabled; /* Until we initialize everything,
-@@ -592,10 +592,7 @@ __setup("surveillance=", surveillance_setup);
- 
- static int __init rtasmsgs_setup(char *str)
+ static inline int __must_check kstrtou64_from_user(const char __user *s, size_t count, unsigned int base, u64 *res)
  {
--	if (strcmp(str, "on") == 0)
--		full_rtas_msgs = 1;
--	else if (strcmp(str, "off") == 0)
--		full_rtas_msgs = 0;
-+	kstrtobool(str, &full_rtas_msgs);
+diff --git a/include/linux/string.h b/include/linux/string.h
+index 9eebc66d957a..2217224684c9 100644
+--- a/include/linux/string.h
++++ b/include/linux/string.h
+@@ -128,7 +128,11 @@ extern char **argv_split(gfp_t gfp, const char *str, int *argcp);
+ extern void argv_free(char **argv);
  
- 	return 1;
+ extern bool sysfs_streq(const char *s1, const char *s2);
+-extern int strtobool(const char *s, bool *res);
++extern int kstrtobool(const char *s, bool *res);
++static inline int strtobool(const char *s, bool *res)
++{
++	return kstrtobool(s, res);
++}
+ 
+ #ifdef CONFIG_BINARY_PRINTF
+ int vbin_printf(u32 *bin_buf, size_t size, const char *fmt, va_list args);
+diff --git a/lib/kstrtox.c b/lib/kstrtox.c
+index 94be244e8441..e8ba4a013e82 100644
+--- a/lib/kstrtox.c
++++ b/lib/kstrtox.c
+@@ -321,6 +321,56 @@ int kstrtos8(const char *s, unsigned int base, s8 *res)
  }
-diff --git a/arch/powerpc/platforms/pseries/hotplug-cpu.c b/arch/powerpc/platforms/pseries/hotplug-cpu.c
-index 32274f72fe3f..282837a1d74b 100644
---- a/arch/powerpc/platforms/pseries/hotplug-cpu.c
-+++ b/arch/powerpc/platforms/pseries/hotplug-cpu.c
-@@ -47,20 +47,14 @@ static DEFINE_PER_CPU(enum cpu_state_vals, current_state) = CPU_STATE_OFFLINE;
+ EXPORT_SYMBOL(kstrtos8);
  
- static enum cpu_state_vals default_offline_state = CPU_STATE_OFFLINE;
- 
--static int cede_offline_enabled __read_mostly = 1;
-+static bool cede_offline_enabled __read_mostly = true;
- 
- /*
-  * Enable/disable cede_offline when available.
-  */
- static int __init setup_cede_offline(char *str)
- {
--	if (!strcmp(str, "off"))
--		cede_offline_enabled = 0;
--	else if (!strcmp(str, "on"))
--		cede_offline_enabled = 1;
--	else
--		return 0;
--	return 1;
-+	return (kstrtobool(str, &cede_offline_enabled) == 0);
++/**
++ * kstrtobool - convert common user inputs into boolean values
++ * @s: input string
++ * @res: result
++ *
++ * This routine returns 0 iff the first character is one of 'Yy1Nn0'.
++ * Otherwise it will return -EINVAL.  Value pointed to by res is
++ * updated upon finding a match.
++ */
++int kstrtobool(const char *s, bool *res)
++{
++	if (!s)
++		return -EINVAL;
++
++	switch (s[0]) {
++	case 'y':
++	case 'Y':
++	case '1':
++		*res = true;
++		return 0;
++	case 'n':
++	case 'N':
++	case '0':
++		*res = false;
++		return 0;
++	default:
++		break;
++	}
++
++	return -EINVAL;
++}
++EXPORT_SYMBOL(kstrtobool);
++
++/*
++ * Since "base" would be a nonsense argument, this open-codes the
++ * _from_user helper instead of using the helper macro below.
++ */
++int kstrtobool_from_user(const char __user *s, size_t count, bool *res)
++{
++	/* Longest string needed to differentiate, newline, terminator */
++	char buf[4];
++
++	count = min(count, sizeof(buf) - 1);
++	if (copy_from_user(buf, s, count))
++		return -EFAULT;
++	buf[count] = '\0';
++	return kstrtobool(buf, res);
++}
++EXPORT_SYMBOL(kstrtobool_from_user);
++
+ #define kstrto_from_user(f, g, type)					\
+ int f(const char __user *s, size_t count, unsigned int base, type *res)	\
+ {									\
+diff --git a/lib/string.c b/lib/string.c
+index 0323c0d5629a..1a90db9bc6e1 100644
+--- a/lib/string.c
++++ b/lib/string.c
+@@ -630,35 +630,6 @@ bool sysfs_streq(const char *s1, const char *s2)
  }
+ EXPORT_SYMBOL(sysfs_streq);
  
- __setup("cede_offline=", setup_cede_offline);
-diff --git a/arch/s390/kernel/time.c b/arch/s390/kernel/time.c
-index 99f84ac31307..580bc7299ec3 100644
---- a/arch/s390/kernel/time.c
-+++ b/arch/s390/kernel/time.c
-@@ -1433,7 +1433,7 @@ device_initcall(etr_init_sysfs);
- /*
-  * Server Time Protocol (STP) code.
-  */
--static int stp_online;
-+static bool stp_online;
- static struct stp_sstpi stp_info;
- static void *stp_page;
- 
-@@ -1444,11 +1444,7 @@ static struct timer_list stp_timer;
- 
- static int __init early_parse_stp(char *p)
- {
--	if (strncmp(p, "off", 3) == 0)
--		stp_online = 0;
--	else if (strncmp(p, "on", 2) == 0)
--		stp_online = 1;
--	return 0;
-+	return kstrtobool(p, &stp_online);
- }
- early_param("stp", early_parse_stp);
- 
-diff --git a/arch/s390/kernel/topology.c b/arch/s390/kernel/topology.c
-index 40b8102fdadb..64298a867589 100644
---- a/arch/s390/kernel/topology.c
-+++ b/arch/s390/kernel/topology.c
-@@ -37,7 +37,7 @@ static void set_topology_timer(void);
- static void topology_work_fn(struct work_struct *work);
- static struct sysinfo_15_1_x *tl_info;
- 
--static int topology_enabled = 1;
-+static bool topology_enabled = true;
- static DECLARE_WORK(topology_work, topology_work_fn);
- 
- /*
-@@ -444,10 +444,7 @@ static const struct cpumask *cpu_book_mask(int cpu)
- 
- static int __init early_parse_topology(char *p)
- {
--	if (strncmp(p, "off", 3))
--		return 0;
--	topology_enabled = 0;
--	return 0;
-+	return kstrtobool(p, &topology_enabled);
- }
- early_param("topology", early_parse_topology);
- 
-diff --git a/arch/x86/kernel/aperture_64.c b/arch/x86/kernel/aperture_64.c
-index 6e85f713641d..0a2bb1f62e72 100644
---- a/arch/x86/kernel/aperture_64.c
-+++ b/arch/x86/kernel/aperture_64.c
-@@ -227,19 +227,11 @@ static u32 __init search_agp_bridge(u32 *order, int *valid_agp)
- 	return 0;
- }
- 
--static int gart_fix_e820 __initdata = 1;
-+static bool gart_fix_e820 __initdata = true;
- 
- static int __init parse_gart_mem(char *p)
- {
--	if (!p)
+-/**
+- * strtobool - convert common user inputs into boolean values
+- * @s: input string
+- * @res: result
+- *
+- * This routine returns 0 iff the first character is one of 'Yy1Nn0'.
+- * Otherwise it will return -EINVAL.  Value pointed to by res is
+- * updated upon finding a match.
+- */
+-int strtobool(const char *s, bool *res)
+-{
+-	switch (s[0]) {
+-	case 'y':
+-	case 'Y':
+-	case '1':
+-		*res = true;
+-		break;
+-	case 'n':
+-	case 'N':
+-	case '0':
+-		*res = false;
+-		break;
+-	default:
 -		return -EINVAL;
--
--	if (!strncmp(p, "off", 3))
--		gart_fix_e820 = 0;
--	else if (!strncmp(p, "on", 2))
--		gart_fix_e820 = 1;
--
+-	}
 -	return 0;
-+	return kstrtobool(p, &gart_fix_e820);
- }
- early_param("gart_fix_e820", parse_gart_mem);
- 
-diff --git a/include/linux/tick.h b/include/linux/tick.h
-index 97fd4e543846..0ecdf0e248f4 100644
---- a/include/linux/tick.h
-+++ b/include/linux/tick.h
-@@ -98,7 +98,7 @@ static inline void tick_broadcast_exit(void)
- }
- 
- #ifdef CONFIG_NO_HZ_COMMON
--extern int tick_nohz_enabled;
-+extern bool tick_nohz_enabled;
- extern int tick_nohz_tick_stopped(void);
- extern void tick_nohz_idle_enter(void);
- extern void tick_nohz_idle_exit(void);
-diff --git a/kernel/time/hrtimer.c b/kernel/time/hrtimer.c
-index 435b8850dd80..8b82caa8a407 100644
---- a/kernel/time/hrtimer.c
-+++ b/kernel/time/hrtimer.c
-@@ -515,7 +515,7 @@ static inline ktime_t hrtimer_update_base(struct hrtimer_cpu_base *base)
- /*
-  * High resolution timer enabled ?
-  */
--static int hrtimer_hres_enabled __read_mostly  = 1;
-+static bool hrtimer_hres_enabled __read_mostly  = true;
- unsigned int hrtimer_resolution __read_mostly = LOW_RES_NSEC;
- EXPORT_SYMBOL_GPL(hrtimer_resolution);
- 
-@@ -524,13 +524,7 @@ EXPORT_SYMBOL_GPL(hrtimer_resolution);
-  */
- static int __init setup_hrtimer_hres(char *str)
- {
--	if (!strcmp(str, "off"))
--		hrtimer_hres_enabled = 0;
--	else if (!strcmp(str, "on"))
--		hrtimer_hres_enabled = 1;
--	else
--		return 0;
--	return 1;
-+	return (kstrtobool(str, &hrtimer_hres_enabled) == 0);
- }
- 
- __setup("highres=", setup_hrtimer_hres);
-diff --git a/kernel/time/tick-sched.c b/kernel/time/tick-sched.c
-index 9d7a053545f5..7ff0dccdcd81 100644
---- a/kernel/time/tick-sched.c
-+++ b/kernel/time/tick-sched.c
-@@ -387,20 +387,14 @@ void __init tick_nohz_init(void)
- /*
-  * NO HZ enabled ?
-  */
--int tick_nohz_enabled __read_mostly = 1;
-+bool tick_nohz_enabled __read_mostly  = true;
- unsigned long tick_nohz_active  __read_mostly;
- /*
-  * Enable / Disable tickless mode
-  */
- static int __init setup_tick_nohz(char *str)
- {
--	if (!strcmp(str, "off"))
--		tick_nohz_enabled = 0;
--	else if (!strcmp(str, "on"))
--		tick_nohz_enabled = 1;
--	else
--		return 0;
--	return 1;
-+	return (kstrtobool(str, &tick_nohz_enabled) == 0);
- }
- 
- __setup("nohz=", setup_tick_nohz);
+-}
+-EXPORT_SYMBOL(strtobool);
+-
+ #ifndef __HAVE_ARCH_MEMSET
+ /**
+  * memset - Fill a region of memory with the given value
 -- 
 2.6.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
