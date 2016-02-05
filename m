@@ -1,7 +1,7 @@
 From: Alexandre Bounine <alexandre.bounine@idt.com>
-Subject: [PATCH 18/30] rapidio/rionet: add mport removal handling
-Date: Fri,  5 Feb 2016 18:19:34 -0500
-Message-ID: <1454714386-15259-19-git-send-email-alexandre.bounine@idt.com>
+Subject: [PATCH 11/30] rapidio/rionet: add shutdown event handling
+Date: Fri,  5 Feb 2016 18:19:27 -0500
+Message-ID: <1454714386-15259-12-git-send-email-alexandre.bounine@idt.com>
 References: <1454714386-15259-1-git-send-email-alexandre.bounine@idt.com>
 Cc: Alexandre Bounine <alexandre.bounine@idt.com>,
 	Matt Porter <mporter@kernel.crashing.org>,
@@ -14,12 +14,10 @@ In-Reply-To: <1454714386-15259-1-git-send-email-alexandre.bounine@idt.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add handling of a local mport device removal.
-
-RIONET driver registers itself as class interface that supports only
-removal notification, 'add_device' callback is not provided because RIONET
-network device can be initialized only after enumeration is completed and
-the existing method (using remote peer addition) satisfies this condition.
+Add shutdown notification handler which terminates active connections
+with remote RapidIO nodes. This prevents remote nodes from sending packets
+to the powered off node and eliminates hardware error events on remote
+nodes.
 
 Signed-off-by: Alexandre Bounine <alexandre.bounine@idt.com>
 Cc: Matt Porter <mporter@kernel.crashing.org>
@@ -28,110 +26,80 @@ Cc: Andre van Herk <andre.van.herk@prodrive-technologies.com>
 Cc: linux-kernel@vger.kernel.org
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/rionet.c |   70 +++++++++++++++++++++++++++++++------------------
- 1 files changed, 44 insertions(+), 26 deletions(-)
+ drivers/net/rionet.c |   38 ++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 38 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
-index c15d958..9cfe6ae 100644
+index d3d6e35..f994fa1 100644
 --- a/drivers/net/rionet.c
 +++ b/drivers/net/rionet.c
-@@ -676,6 +676,34 @@ static int rionet_shutdown(struct notifier_block *nb, unsigned long code,
- 	return NOTIFY_DONE;
+@@ -24,6 +24,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/crc32.h>
+ #include <linux/ethtool.h>
++#include <linux/reboot.h>
+ 
+ #define DRV_NAME        "rionet"
+ #define DRV_VERSION     "0.3"
+@@ -599,6 +600,30 @@ out:
+ 	return rc;
  }
  
-+static void rionet_remove_mport(struct device *dev,
-+				struct class_interface *class_intf)
++static int rionet_shutdown(struct notifier_block *nb, unsigned long code,
++			   void *unused)
 +{
-+	struct rio_mport *mport = to_rio_mport(dev);
-+	struct net_device *ndev;
-+	int id = mport->id;
++	struct rionet_peer *peer, *tmp;
++	int i;
 +
-+	pr_debug("%s %s\n", __func__, mport->name);
++	pr_debug("%s: %s\n", DRV_NAME, __func__);
 +
-+	WARN(nets[id].nact, "%s called when connected to %d peers\n",
-+	     __func__, nets[id].nact);
-+	WARN(!nets[id].ndev, "%s called for mport without NDEV\n",
-+	     __func__);
++	for (i = 0; i < RIONET_MAX_NETS; i++) {
++		if (!nets[i].ndev)
++			continue;
 +
-+	if (nets[id].ndev) {
-+		ndev = nets[id].ndev;
-+		netif_stop_queue(ndev);
-+		unregister_netdev(ndev);
-+
-+		free_pages((unsigned long)nets[id].active,
-+			   get_order(sizeof(void *) *
-+			   RIO_MAX_ROUTE_ENTRIES(mport->sys_size)));
-+		nets[id].active = NULL;
-+		free_netdev(ndev);
-+		nets[id].ndev = NULL;
++		list_for_each_entry_safe(peer, tmp, &nets[i].peers, node) {
++			if (nets[i].active[peer->rdev->destid]) {
++				rio_send_doorbell(peer->rdev,
++						  RIONET_DOORBELL_LEAVE);
++				nets[i].active[peer->rdev->destid] = NULL;
++			}
++		}
 +	}
++
++	return NOTIFY_DONE;
 +}
 +
  #ifdef MODULE
  static struct rio_device_id rionet_id_table[] = {
  	{RIO_DEVICE(RIO_ANY_ID, RIO_ANY_ID)},
-@@ -696,6 +724,13 @@ static struct notifier_block rionet_notifier = {
- 	.notifier_call = rionet_shutdown,
+@@ -615,8 +640,20 @@ static struct subsys_interface rionet_interface = {
+ 	.remove_dev	= rionet_remove_dev,
  };
  
-+/* the rio_mport_interface is used to handle local mport devices */
-+static struct class_interface rio_mport_interface __refdata = {
-+	.class = &rio_mport_class,
-+	.add_dev = NULL,
-+	.remove_dev = rionet_remove_mport,
++static struct notifier_block rionet_notifier = {
++	.notifier_call = rionet_shutdown,
 +};
 +
  static int __init rionet_init(void)
  {
- 	int ret;
-@@ -706,39 +741,22 @@ static int __init rionet_init(void)
- 		       DRV_NAME, ret);
- 		return ret;
- 	}
++	int ret;
 +
-+	ret = class_interface_register(&rio_mport_interface);
++	ret = register_reboot_notifier(&rionet_notifier);
 +	if (ret) {
-+		pr_err("%s: class_interface_register error: %d\n",
++		pr_err("%s: failed to register reboot notifier (err=%d)\n",
 +		       DRV_NAME, ret);
 +		return ret;
 +	}
-+
  	return subsys_interface_register(&rionet_interface);
  }
  
- static void __exit rionet_exit(void)
- {
--	struct rionet_private *rnet;
--	struct net_device *ndev;
--	struct rionet_peer *peer, *tmp;
--	int i;
--
--	for (i = 0; i < RIONET_MAX_NETS; i++) {
--		if (nets[i].ndev != NULL) {
--			ndev = nets[i].ndev;
--			rnet = netdev_priv(ndev);
--			unregister_netdev(ndev);
--
--			list_for_each_entry_safe(peer,
--						 tmp, &nets[i].peers, node) {
--				list_del(&peer->node);
--				kfree(peer);
--			}
--
--			free_pages((unsigned long)nets[i].active,
--				 get_order(sizeof(void *) *
--				 RIO_MAX_ROUTE_ENTRIES(rnet->mport->sys_size)));
--			nets[i].active = NULL;
--
--			free_netdev(ndev);
--		}
--	}
--
- 	unregister_reboot_notifier(&rionet_notifier);
+@@ -648,6 +685,7 @@ static void __exit rionet_exit(void)
+ 		}
+ 	}
+ 
++	unregister_reboot_notifier(&rionet_notifier);
  	subsys_interface_unregister(&rionet_interface);
-+	class_interface_unregister(&rio_mport_interface);
  }
  
- late_initcall(rionet_init);
 -- 
 1.7.8.4
