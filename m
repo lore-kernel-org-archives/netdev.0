@@ -1,251 +1,125 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net-next 2/2] mpls: allow TTL propagation to/from IP packets to be configured
-Date: Fri, 5 Feb 2016 19:27:52 +0000
-Message-ID: <1454700472-13543-3-git-send-email-rshearma@brocade.com>
-References: <1454700472-13543-1-git-send-email-rshearma@brocade.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [V4.4-rc6 Regression] af_unix: Revert 'lock_interruptible' in stream receive code
+Date: Fri, 05 Feb 2016 19:59:02 +0000
+Message-ID: <87r3grapyx.fsf@doppelsaurus.mobileactivedefense.com>
+References: <56B4EF04.2060407@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Robert Shearman <rshearma@brocade.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:57386 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753646AbcBET2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 14:28:48 -0500
-In-Reply-To: <1454700472-13543-1-git-send-email-rshearma@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rweikusat@mobileactivedefense.com, hannes@stressinduktion.org,
+	"davem\@davemloft.net" <davem@davemloft.net>, edumazet@google.com,
+	dhowells@redhat.com, ying.xue@windriver.com,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"stable\@vger.kernel.org" <stable@vger.kernel.org>
+To: Joseph Salisbury <joseph.salisbury@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56B4EF04.2060407@canonical.com> (Joseph Salisbury's message of
+	"Fri, 5 Feb 2016 13:50:44 -0500")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It is sometimes desirable to present an MPLS transport network as a
-single hop to traffic transiting it because it prevents confusion when
-diagnosing failures. An example of where confusion can be generated is
-when addresses used in the provider network overlap with addresses in
-the overlay network and the addresses get exposed through ICMP errors
-generated as packets transit the provider network.
+Joseph Salisbury <joseph.salisbury@canonical.com> writes:
+> Hi Rainer,
+>
+> A kernel bug report was opened against Ubuntu [0].  After a kernel
+> bisect, it was found that reverting the following commit resolved this bug:
+>
+> commit 3822b5c2fc62e3de8a0f33806ff279fb7df92432
+> Author: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+> Date:   Wed Dec 16 20:09:25 2015 +0000
+>
+>     af_unix: Revert 'lock_interruptible' in stream receive code
+>
+>       
+> The regression was introduced as of v4.4-rc6.
+>
+> I was hoping to get your feedback, since you are the patch author.  Do
+> you think gathering any additional data will help diagnose this issue,
+> or would it be best to submit a revert request?
 
-Therefore, provide the ability to control whether the TTL value from
-an MPLS packet is propagated to an IPv4/IPv6 packet when the last
-label is popped through the addition of a new per-namespace sysctl:
-"net.mpls.ip_ttl_propagate" which defaults to enabled.
+Funny little problem :-). The code using the interruptible lock cleared
+err as side effect hence the
 
-Use the same sysctl to control whether the TTL is propagated from IP
-packets into the MPLS header. If the TTL isn't propagated then a
-default TTL value is used which can be configured via a new sysctl:
-"net.mpls.default_ttl".
+out:
+	return copied ? : err;
 
-Signed-off-by: Robert Shearman <rshearma@brocade.com>
----
- Documentation/networking/mpls-sysctl.txt | 19 +++++++++
- include/net/netns/mpls.h                 |  3 ++
- net/mpls/af_mpls.c                       | 70 ++++++++++++++++++++++++--------
- net/mpls/mpls_iptunnel.c                 | 10 ++++-
- 4 files changed, 83 insertions(+), 19 deletions(-)
+at the end of unix_stream_read_generic didn't return the -ENOTSUP put
+into err at the start of the function if copied was zero after the loop
+because the size of the passed data buffer was zero.
 
-diff --git a/Documentation/networking/mpls-sysctl.txt b/Documentation/networking/mpls-sysctl.txt
-index 9ed15f86c17c..9e8cfa6d48d1 100644
---- a/Documentation/networking/mpls-sysctl.txt
-+++ b/Documentation/networking/mpls-sysctl.txt
-@@ -19,6 +19,25 @@ platform_labels - INTEGER
- 	Possible values: 0 - 1048575
- 	Default: 0
+The following patch should fix this:
+
+---------
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 49d5093..c3e1a08 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2300,6 +2300,7 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state)
+        else
+                skip = 0;
  
-+ip_ttl_propagate - BOOL
-+	Control whether TTL is propagated from the IPv4/IPv6 header to
-+	the MPLS header on imposing labels and propagated from the
-+	MPLS header to the IPv4/IPv6 header on popping the last label.
-+
-+	If disabled, the MPLS transport network will appear as a
-+	single hop to transit traffic.
-+
-+	0 - disabled
-+	1 - enabled (default)
-+
-+default_ttl - BOOL
-+	Default TTL value to use for MPLS packets where it cannot be
-+	propagated from an IP header, either because one isn't present
-+	or ip_ttl_propagate has been disabled.
-+
-+	Possible values: 1 - 255
-+	Default: 255
-+
- conf/<interface>/input - BOOL
- 	Control whether packets can be input on this interface.
- 
-diff --git a/include/net/netns/mpls.h b/include/net/netns/mpls.h
-index 3062b0aa3a08..9bdc2bd8fcb8 100644
---- a/include/net/netns/mpls.h
-+++ b/include/net/netns/mpls.h
-@@ -10,7 +10,10 @@ struct ctl_table_header;
- 
- struct netns_mpls {
- 	size_t platform_labels;
-+	int ip_ttl_propagate;
-+	int default_ttl;
- 	struct mpls_route __rcu * __rcu *platform_label;
-+
- 	struct ctl_table_header *ctl;
- 	struct proc_dir_entry *proc_net_devsnmp;
- };
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 6b3c96e2b21f..a2a4f0a884a3 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -31,7 +31,9 @@
- #define MPLS_NEIGH_TABLE_UNSPEC (NEIGH_LINK_TABLE + 1)
- 
- static int zero = 0;
-+static int one = 1;
- static int label_limit = (1 << 20) - 1;
-+static int ttl_max = 255;
- 
- static void rtmsg_lfib(int event, u32 label, struct mpls_route *rt,
- 		       struct nlmsghdr *nlh, struct net *net, u32 portid,
-@@ -215,8 +217,8 @@ out:
- 	return &rt->rt_nh[nh_index];
- }
- 
--static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
--			struct mpls_entry_decoded dec)
-+static bool mpls_egress(struct net *net, struct mpls_route *rt,
-+			struct sk_buff *skb, struct mpls_entry_decoded dec)
- {
- 	enum mpls_payload_type payload_type;
- 	bool success = false;
-@@ -239,24 +241,29 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
- 		payload_type = ip_hdr(skb)->version;
- 
- 	switch (payload_type) {
--	case MPT_IPV4: {
--		struct iphdr *hdr4 = ip_hdr(skb);
--		skb->protocol = htons(ETH_P_IP);
--		csum_replace2(&hdr4->check,
--			      htons(hdr4->ttl << 8),
--			      htons(dec.ttl << 8));
--		hdr4->ttl = dec.ttl;
-+	case MPT_IPV4:
-+		if (net->mpls.ip_ttl_propagate) {
-+			struct iphdr *hdr4 = ip_hdr(skb);
-+
-+			skb->protocol = htons(ETH_P_IP);
-+			csum_replace2(&hdr4->check,
-+				      htons(hdr4->ttl << 8),
-+				      htons(dec.ttl << 8));
-+			hdr4->ttl = dec.ttl;
-+		}
- 		success = true;
- 		break;
--	}
--	case MPT_IPV6: {
--		struct ipv6hdr *hdr6 = ipv6_hdr(skb);
--		skb->protocol = htons(ETH_P_IPV6);
--		hdr6->hop_limit = dec.ttl;
-+	case MPT_IPV6:
-+		if (net->mpls.ip_ttl_propagate) {
-+			struct ipv6hdr *hdr6 = ipv6_hdr(skb);
-+
-+			skb->protocol = htons(ETH_P_IPV6);
-+			hdr6->hop_limit = dec.ttl;
-+		}
- 		success = true;
- 		break;
--	}
- 	case MPT_UNSPEC:
-+		/* Should have decided which protocol it is by now */
- 		break;
- 	}
- 
-@@ -356,7 +363,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
- 
- 	if (unlikely(!new_header_size && dec.bos)) {
- 		/* Penultimate hop popping */
--		if (!mpls_egress(rt, skb, dec))
-+		if (!mpls_egress(dev_net(out_dev), rt, skb, dec))
- 			goto err;
- 	} else {
- 		bool bos;
-@@ -1708,6 +1715,9 @@ static int mpls_platform_labels(struct ctl_table *table, int write,
- 	return ret;
- }
- 
-+#define MPLS_NS_SYSCTL_OFFSET(field)		\
-+	(&((struct net *)0)->field)
-+
- static const struct ctl_table mpls_table[] = {
- 	{
- 		.procname	= "platform_labels",
-@@ -1716,21 +1726,47 @@ static const struct ctl_table mpls_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= mpls_platform_labels,
- 	},
-+	{
-+		.procname	= "ip_ttl_propagate",
-+		.data		= MPLS_NS_SYSCTL_OFFSET(mpls.ip_ttl_propagate),
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &one,
-+	},
-+	{
-+		.procname	= "default_ttl",
-+		.data		= MPLS_NS_SYSCTL_OFFSET(mpls.default_ttl),
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &one,
-+		.extra2		= &ttl_max,
-+	},
- 	{ }
- };
- 
- static int mpls_net_init(struct net *net)
- {
- 	struct ctl_table *table;
-+	int i;
- 
- 	net->mpls.platform_labels = 0;
- 	net->mpls.platform_label = NULL;
-+	net->mpls.ip_ttl_propagate = 1;
-+	net->mpls.default_ttl = 255;
- 
- 	table = kmemdup(mpls_table, sizeof(mpls_table), GFP_KERNEL);
- 	if (table == NULL)
- 		return -ENOMEM;
- 
--	table[0].data = net;
-+	/* Table data contains only offsets relative to the base of
-+	 * the mdev at this point, so make them absolute.
-+	 */
-+	for (i = 0; i < ARRAY_SIZE(mpls_table) - 1; i++)
-+		table[i].data = (char *)net + (uintptr_t)table[i].data;
-+
- 	net->mpls.ctl = register_net_sysctl(net, "net/mpls", table);
- 	if (net->mpls.ctl == NULL) {
- 		kfree(table);
-diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
-index 94d8837d42f6..b2d85d35c322 100644
---- a/net/mpls/mpls_iptunnel.c
-+++ b/net/mpls/mpls_iptunnel.c
-@@ -59,10 +59,16 @@ static int mpls_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- 
- 	/* Obtain the ttl */
- 	if (dst->ops->family == AF_INET) {
--		ttl = ip_hdr(skb)->ttl;
-+		if (net->mpls.ip_ttl_propagate)
-+			ttl = ip_hdr(skb)->ttl;
-+		else
-+			ttl = net->mpls.default_ttl;
- 		rt = (struct rtable *)dst;
- 	} else if (dst->ops->family == AF_INET6) {
--		ttl = ipv6_hdr(skb)->hop_limit;
-+		if (net->mpls.ip_ttl_propagate)
-+			ttl = ipv6_hdr(skb)->hop_limit;
-+		else
-+			ttl = net->mpls.default_ttl;
- 		rt6 = (struct rt6_info *)dst;
- 	} else {
- 		goto drop;
--- 
-2.1.4
++       err = 0;
+        do {
+                int chunk;
+                bool drop_skb;
+----------
+
+I was just about to go the the supermarket to buy an apple when I
+received the mail. I didn't even compile the change above yet, however,
+I'll do so once I'm back and then submit something formal.
+
+Here's a test program which can be compiled with a C compiler:
+------------
+#define _GNU_SOURCE
+    
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <assert.h>
+#include <errno.h>
+#include <string.h>
+
+int main(void)
+{
+    enum { server, client, size };
+    int socket_fd[size];
+    int const opt = 1;
+
+    assert(socketpair(AF_LOCAL, SOCK_STREAM, 0, socket_fd) == 0);
+
+    char const msg[] = "A random message";
+    send(socket_fd[client], msg, sizeof msg, MSG_DONTWAIT | MSG_NOSIGNAL);
+
+    assert(setsockopt(socket_fd[server], SOL_SOCKET, SO_PASSCRED, &opt, sizeof(opt)) != -1);
+
+    union {
+        struct cmsghdr cmh;
+        char control[CMSG_SPACE(sizeof(struct ucred))];
+    } control_un;
+
+    control_un.cmh.cmsg_len = CMSG_LEN(sizeof(struct ucred));
+    control_un.cmh.cmsg_level = SOL_SOCKET;
+    control_un.cmh.cmsg_type = SCM_CREDENTIALS;
+
+    struct msghdr msgh;
+    msgh.msg_name = NULL;
+    msgh.msg_namelen = 0;
+    msgh.msg_iov = NULL;
+    msgh.msg_iovlen = 0;
+    msgh.msg_control = control_un.control;
+    msgh.msg_controllen = sizeof(control_un.control);
+
+    errno = 0;
+
+    if (recvmsg(socket_fd[server], &msgh, MSG_PEEK) == -1)
+    {
+        printf("Error: %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    else
+    {
+        printf("Success!\n");
+        exit(EXIT_SUCCESS);
+    }
+}
