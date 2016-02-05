@@ -1,54 +1,110 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [PATCH 1/2] ethtool: add dynamic flag to ETHTOOL_{GS}RXFH
- commands
-Date: Fri, 5 Feb 2016 16:42:40 +0000
-Message-ID: <1454690560.3349.1.camel@intel.com>
-References: <1454455328-706-2-git-send-email-jacob.e.keller@intel.com>
-	 <20160204.175326.492457129636004051.davem@davemloft.net>
-	 <1454627396.3086.14.camel@intel.com>
-	 <20160204.193055.2172651314284452037.davem@davemloft.net>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: bonding reports interface up with 0 Mbps
+Date: Fri, 5 Feb 2016 16:43:37 +0000
+Message-ID: <87618083B2453E4A8714035B62D6799250524DFF@FMSMSX105.amr.corp.intel.com>
+References: <87618083B2453E4A8714035B62D6799250524233@FMSMSX105.amr.corp.intel.com>
+ <22896.1454617773@famine> <27926.1454632634@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "andrew@lunn.ch" <andrew@lunn.ch>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	"aduyck@mirantis.com" <aduyck@mirantis.com>,
-	"thomas.petazzoni@free-electrons.com"
-	<thomas.petazzoni@free-electrons.com>,
-	"mcarlson@broadcom.com" <mcarlson@broadcom.com>,
-	"yuvalmin@broadcom.com" <yuvalmin@broadcom.com>,
-	"amirv@mellanox.com" <amirv@mellanox.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"_govind@gmx.com" <_govind@gmx.com>,
-	"Lendacky@vger.kernel.org" <Lendacky@vger.kernel.org>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"mirq-linux@rere.qmqm.pl" <mirq-linux@rere.qmqm.pl>,
-	"hariprasad@chelsio.com" <hariprasad@chelsio.com>,
-	"kalesh.purayil@emulex.com" <kalesh.purayil@emulex.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mchan@broadcom.com" <mchan@broadcom.com>,
-	"Wyborny, Carolyn" <carolyn.wyb
-To: "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	zhuyj <zyjzyj2000@gmail.com>,
+	"jiri@mellanox.com" <jiri@mellanox.com>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:3298 "EHLO mga01.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:42748 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751692AbcBEQmq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Feb 2016 11:42:46 -0500
-In-Reply-To: <20160204.193055.2172651314284452037.davem@davemloft.net>
+	id S1753245AbcBEQnl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 11:43:41 -0500
+In-Reply-To: <27926.1454632634@famine>
 Content-Language: en-US
-Content-ID: <5700C3BA13B30641BF9EB79AE65193D9@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCAyMDE2LTAyLTA0IGF0IDE5OjMwIC0wNTAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+
-IEZyb206ICJLZWxsZXIsIEphY29iIEUiIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5jb20+DQo+IERh
-dGU6IFRodSwgNCBGZWIgMjAxNiAyMzowOTo1NiArMDAwMA0KPiANCj4gPiBTbyB5b3UncmUgc3Vn
-Z2VzdGluZyBpbnN0ZWFkLCB0byBlcnJvciB3aGVuIHRoZSBzZWNvbmQgb3BlcmF0aW9uDQo+ID4g
-KGNoYW5nZSBudW1iZXIgb2YgcXVldWVzKSB3b3VsZCBmYWlsIHRoZSBjdXJyZW50IHNldHRpbmdz
-Pw0KPiANCj4gWWVzLg0KPiANCj4gVGhpcyBpcyBhYnNvbHV0ZWx5IHJlcXVpcmVkLg0KDQpJIHdp
-bGwgaW52ZXN0aWdhdGUgdGhpcyByb3V0ZS4gSSB0aGluayB0aGVyZSBuZWVkcyB0byBzb21lIHdh
-eSBmb3IgdGhlDQp7R1N9UlhGSCB0byBwYXNzIGVub3VnaCBpbmZvcm1hdGlvbiBpbiBhIHdheSB0
-aGUgZHJpdmVyIGNhbiBjbGVhcmx5IHNlZQ0KYXMgInJlc2V0IHRvIGRlZmF1bHQiLCBidXQgb3Ro
-ZXJ3aXNlIEkgdGhpbmsgdGhpcyBpcyBwcmV0dHkgc3RyYWlnaHQNCmZvcndhcmQgdG8gaW1wbGVt
-ZW50Lg0KDQpUaGFua3MsDQpKYWtl
+>-----Original Message-----
+>From: Jay Vosburgh [mailto:jay.vosburgh@canonical.com]
+>Sent: Thursday, February 04, 2016 4:37 PM
+>To: Tantilov, Emil S
+>Cc: netdev@vger.kernel.org; gospo@cumulusnetworks.com; zhuyj;
+>jiri@mellanox.com
+>Subject: Re: bonding reports interface up with 0 Mbps
+>
+>Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
+>[...]
+>>	Thinking about the trace again... Emil: what happens in the
+>>trace before this?  Is there ever a call to the ixgbe_get_settings?
+>>Does a NETDEV_UP or NETDEV_CHANGE event ever hit the bond_netdev_event
+>>function?
+>
+>	Emil kindly sent me the trace offline, and I think I see what's
+>going on.  It looks like the sequence of events is:
+>
+>bond_enslave ->
+>	bond_update_speed_duplex (device is down, thus DUPLEX/SPEED_UNKNOWN)
+>	[ do rest of enslavement, start miimon periodic work ]
+>
+>	[ time passes, device goes carrier up ]
+>
+>ixgbe_service_task: eth1: NIC Link is Up 10 Gbps ->
+>	netif_carrier_on (arranges for NETDEV_CHANGE notifier out of line)
+>
+>	[ a few microseconds later ]
+>
+>bond_mii_monitor ->
+>	bond_check_dev_link	(now is carrier up)
+>	bond_miimon_commit ->	(emits "0 Mbps full duplex" message)
+>		bond_lower_state_changed ->
+>			bond_netdev_event (NETDEV_CHANGELOWERSTATE, is ignored)
+>		bond_3ad_handle_link_change	(sees DUPLEX/SPEED_UNKNOWN)
+>
+>	[ a few microseconds later, in response to ixgbe's netif_carrier_on ]
+>
+>notifier_call_chain ->
+>	bond_netdev_event NETDEV_CHANGE ->
+>		bond_update_speed_duplex (sees correct SPEED_10000/FULL) ->
+>			bond_3ad_adapter_speed_duplex_changed (updates 802.3ad)
+>
+>	Basically, the race is that the periodic bond_mii_monitor is
+>squeezing in between the link going up and bonding's update of the speed
+>and duplex in response to the NETDEV_CHANGE triggered by the driver's
+>netif_carrier_on call.  bonding ends up using the stale duplex and speed
+>information obtained at enslavement time.
+>
+>	I think that, nowadays, the initial speed and duplex will pretty
+>much always be UNKNOWN, at least for real Ethernet devices, because it
+>will take longer to autoneg than the time between the dev_open and
+>bond_update_speed_duplex calls in bond_enslave.
+>
+>	Adding a case to bond_netdev_event for CHANGELOWERSTATE works
+>because it's a synchronous call from bonding.  For purposes of fixing
+>this, it's more or less equivalent to calling bond_update_speed_duplex
+>from bond_miimon_commit (which is part of a test patch I posted earlier
+>today).
+>
+>	If the above analysis is correct, then I would expect this patch
+>to make the problem go away:
+>
+>diff --git a/drivers/net/bonding/bond_main.c
+>b/drivers/net/bonding/bond_main.c
+>index 56b560558884..cabaeb61333d 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -2127,6 +2127,7 @@ static void bond_miimon_commit(struct bonding *bond)
+> 			continue;
+>
+> 		case BOND_LINK_UP:
+>+			bond_update_speed_duplex(slave);
+> 			bond_set_slave_link_state(slave, BOND_LINK_UP,
+> 						  BOND_SLAVE_NOTIFY_NOW);
+> 			slave->last_link_up = jiffies;
+>
+>
+>	Emil, can you give just the above a test?
+
+Test has been running all night and no failures so far. Looking at the logs
+the condition triggering the race occurred 5 times. I will leave the test 
+over the weekend just in case and post a final update on Monday.
+
+Thanks,
+Emil
