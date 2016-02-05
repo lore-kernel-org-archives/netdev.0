@@ -1,92 +1,112 @@
-From: Laine Stump <laine@redhat.com>
-Subject: Re: [net-next] igb: assume MSI-X interrupts during initialization
-Date: Fri, 5 Feb 2016 16:24:45 -0500
-Message-ID: <56B5131D.1070505@redhat.com>
-References: <1442493970-20073-1-git-send-email-sassmann@kpanic.de>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: gigaset: memory leak in gigaset_initcshw
+Date: Fri, 5 Feb 2016 22:25:30 +0100
+Message-ID: <CACT4Y+Zw7V3h_Lt9kuF=fSht5qPz0CnmdwY0p+k0qr3b0KadpQ@mail.gmail.com>
+References: <CACT4Y+Y+P7-pM0D4HTz4ZF6i+Rya22eOkPdnrv_OmDCMB7eQtg@mail.gmail.com>
+ <1454516189.14366.8.camel@tiscali.nl> <1454526665.14366.22.camel@tiscali.nl>
+ <CACT4Y+aDi8L_GELzVv7QM8YdtMD7q-wH4uO7LhioeSvaEU5PJg@mail.gmail.com>
+ <1454591389.14366.49.camel@tiscali.nl> <CACT4Y+aXo83LjyOjVG2ihyR94kex-z+=Of+x8o4i+0q8964-1g@mail.gmail.com>
+ <1454593604.14366.65.camel@tiscali.nl> <CACT4Y+b2z0NHVPQbyYP1CA_80hXxhk+VOG6dzduMEsi+27Pi7Q@mail.gmail.com>
+ <1454598375.14366.72.camel@tiscali.nl> <CACT4Y+aNN8AAtRSvxxrP5RfsTZdd49odnQ_GRq86Y=jXr=pANw@mail.gmail.com>
+ <1454688387.28847.34.camel@tiscali.nl> <1454697361.28847.39.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Assmann <sassmann@kpanic.de>,
-	intel-wired-lan@lists.osuosl.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43081 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753837AbcBEVYs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Feb 2016 16:24:48 -0500
-In-Reply-To: <1442493970-20073-1-git-send-email-sassmann@kpanic.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	gigaset307x-common@lists.sourceforge.net,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454697361.28847.39.camel@tiscali.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stefan,
+On Fri, Feb 5, 2016 at 7:36 PM, Paul Bolle <pebolle@tiscali.nl> wrote:
+> On vr, 2016-02-05 at 17:06 +0100, Paul Bolle wrote:
+>> If that would happen, then cs can be reused while the previous
+>> > cs->hw.ser is not freed yet. Just a guess.
+>>
+>> I'll have to ponder on that a bit, sorry.
+>
+> This is from the hit-the-code-until-it-confesses department:
+> --- a/drivers/isdn/gigaset/ser-gigaset.c
+> +++ b/drivers/isdn/gigaset/ser-gigaset.c
+> @@ -373,13 +373,9 @@ static void gigaset_freecshw(struct cardstate *cs)
+>
+>  static void gigaset_device_release(struct device *dev)
+>  {
+> -       struct cardstate *cs = dev_get_drvdata(dev);
+> -
+> -       if (!cs)
+> -               return;
+> +       struct ser_cardstate *scs = dev_get_drvdata(dev);
+>         dev_set_drvdata(dev, NULL);
+> -       kfree(cs->hw.ser);
+> -       cs->hw.ser = NULL;
+> +       kfree(scs);
+>  }
+>
+>  /*
+> @@ -408,7 +404,7 @@ static int gigaset_initcshw(struct cardstate *cs)
+>                 cs->hw.ser = NULL;
+>                 return rc;
+>         }
+> -       dev_set_drvdata(&cs->hw.ser->dev.dev, cs);
+> +       dev_set_drvdata(&cs->hw.ser->dev.dev, scs);
+>
+>         tasklet_init(&cs->write_tasklet,
+>                      gigaset_modem_fill, (unsigned long) cs);
+>
+> Does that make any difference?
 
-I have an AMD 990FX system with an Intel 82576 card that could not 
-successfully boot with any kernel starting somewhere prior to 4.2, but 
-does boot properly in 4.4+. After a lot of time bisecting, I found that 
-this patch, when applied to kernel 4.3.0, solves the problem (applying 
-to 4.2.0 has no effect, so there's some other patch/patches in the 
-interim that were also part of the fix).
 
-Since I don't know the details of proposing this patch for 4.3 stable, 
-would it be possible for you to do that?
+Nope.
+Almost 500 objects leaked in less than 10 seconds:
 
-Thanks!
-
-The full saga of my problem and investigaton is here:
-
-https://www.mail-archive.com/iommu@lists.linux-foundation.org/msg10687.html
-
-
-On 09/17/2015 08:46 AM, Stefan Assmann wrote:
-> In igb_sw_init() the sequence of calls was changed from
-> igb_init_queue_configuration()
-> igb_init_interrupt_scheme()
-> igb_probe_vfs()
-> to
-> igb_probe_vfs()
-> igb_init_queue_configuration()
-> igb_init_interrupt_scheme()
->
-> This results in adapter->flags not having the IGB_FLAG_HAS_MSIX bit set
-> during igb_probe_vfs()->igb_enable_sriov(). Therefore SR-IOV does not
-> get enabled properly and we run into a NULL pointer if the max_vfs
-> module parameter is specified (adapter->vf_data does not get allocated,
-> crash on accessing the structure).
->
-> [    7.419348] BUG: unable to handle kernel NULL pointer dereference at 0000000000000048
-> [    7.419367] IP: [<ffffffffa02161c6>] igb_reset+0xe6/0x5d0 [igb]
-> [    7.419370] PGD 0
-> [    7.419373] Oops: 0002 [#1] SMP
-> [    7.419381] Modules linked in: ahci(+) libahci igb(+) i40e(+) vxlan ip6_udp_tunnel udp_tunnel megaraid_sas(+) ixgbe(+) mdio
-> [    7.419385] CPU: 0 PID: 4 Comm: kworker/0:0 Not tainted 4.2.0+ #153
-> [    7.419387] Hardware name: Dell Inc. PowerEdge R720/0C4Y3R, BIOS 1.6.0 03/07/2013
-> [...]
-> [    7.419431] Call Trace:
-> [    7.419442]  [<ffffffffa0217236>] igb_probe+0x8b6/0x1340 [igb]
-> [    7.419447]  [<ffffffff814c7f15>] local_pci_probe+0x45/0xa0
->
-> Prevent this by setting the IGB_FLAG_HAS_MSIX bit before calling
-> igb_probe_vfs(). The real interrupt capabilities will be checked during
-> igb_init_interrupt_scheme() so this is safe to do.
->
-> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-> ---
->   drivers/net/ethernet/intel/igb/igb_main.c | 3 +++
->   1 file changed, 3 insertions(+)
->
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> index e174fbb..ba019fc 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -2986,6 +2986,9 @@ static int igb_sw_init(struct igb_adapter *adapter)
->   	}
->   #endif /* CONFIG_PCI_IOV */
->
-> +	/* Assume MSI-X interrupts, will be checked during IRQ allocation */
-> +	adapter->flags |= IGB_FLAG_HAS_MSIX;
-> +
->   	igb_probe_vfs(adapter);
->
->   	igb_init_queue_configuration(adapter);
->
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        1992   2015   2520   13    8 : tunables    0    0
+  0 : slabdata    155    155      0
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        2024   2041   2520   13    8 : tunables    0    0
+  0 : slabdata    157    157      0
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        2061   2080   2520   13    8 : tunables    0    0
+  0 : slabdata    160    160      0
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        2091   2119   2520   13    8 : tunables    0    0
+  0 : slabdata    163    163      0
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        2147   2171   2520   13    8 : tunables    0    0
+  0 : slabdata    167    167      0
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        2228   2236   2520   13    8 : tunables    0    0
+  0 : slabdata    172    172      0
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        2261   2288   2520   13    8 : tunables    0    0
+  0 : slabdata    176    176      0
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        2289   2301   2520   13    8 : tunables    0    0
+  0 : slabdata    177    177      0
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        2316   2340   2520   13    8 : tunables    0    0
+  0 : slabdata    180    180      0
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        2324   2366   2520   13    8 : tunables    0    0
+  0 : slabdata    182    182      0
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        2356   2379   2520   13    8 : tunables    0    0
+  0 : slabdata    183    183      0
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        2450   2509   2520   13    8 : tunables    0    0
+  0 : slabdata    193    193      0
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        2450   2509   2520   13    8 : tunables    0    0
+  0 : slabdata    193    193      0
+# cat /proc/slabinfo | egrep "^kmalloc-2048"
+kmalloc-2048        2450   2509   2520   13    8 : tunables    0    0
+  0 : slabdata    193    193      0
