@@ -1,73 +1,82 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH 00/10] Add GSO support for outer checksum w/ inner
- checksum offloads
-Date: Fri, 05 Feb 2016 15:27:25 -0800
-Message-ID: <20160205232109.18529.99816.stgit@localhost.localdomain>
+Subject: [net-next PATCH 01/10] net: Drop unecessary enc_features variable
+ from tunnel segmentation functions
+Date: Fri, 05 Feb 2016 15:27:31 -0800
+Message-ID: <20160205232731.18529.97609.stgit@localhost.localdomain>
+References: <20160205232109.18529.99816.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: ecree@solarflare.com, tom@herbertland.com, davem@davemloft.net
 To: netdev@vger.kernel.org, alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33456 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750957AbcBEX10 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 18:27:26 -0500
-Received: by mail-pf0-f175.google.com with SMTP id w123so76621510pfb.0
-        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 15:27:26 -0800 (PST)
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34943 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750981AbcBEX1c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 18:27:32 -0500
+Received: by mail-pf0-f176.google.com with SMTP id c10so9935475pfc.2
+        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 15:27:32 -0800 (PST)
+In-Reply-To: <20160205232109.18529.99816.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series updates the existing segmentation offload code for
-tunnels to make better use of existing and updated GSO checksum
-computation.  This is done primarily through two mechanisms.  First we
-maintain a separate checksum in the GSO context block of the sk_buff.  This
-allows us to maintain two checksum values, one offloaded with values stored
-in csum_start and csum_offset, and one computed and tracked in
-SKB_GSO_CB(skb)->csum.  By maintaining these two values we are able to take
-advantage of the same sort of math used in local checksum offload so that
-we can provide both inner and outer checksums with minimal overhead.
+The enc_features variable isn't necessary since features isn't used
+anywhere after we create enc_features so instead just use a destructive AND
+on features itself and save ourselves the variable declaration.
 
-Below is the performance for a netperf session between an ixgbe PF and VF
-on the same host but in different namespaces.  As can be seen a significant
-gain in performance can be had from allowing the use of Tx checksum offload
-on the inner headers while performing a software offload on the outer
-header computation:
-
- Recv   Send   Send                       Utilization  Service Demand
- Socket Socket Message Elapsed            Send  Recv   Send  Recv
- Size   Size   Size    Time    Throughput local remote local remote
- bytes  bytes  bytes   secs.   10^6bits/s % S   % U    us/KB us/KB
-
-Before:
- 87380  16384  16384   10.00   12844.38   9.30  -1.00  0.712 -1.00
-After:
- 87380  16384  16384   10.00   13216.63   6.78  -1.00  0.504 -1.000
-
-Changes from v1:
-* Dropped use of CHECKSUM_UNNECESSARY for remote checksum offload
-* Left encap_hdr_csum as it will likely be needed in future for SCTP GSO
-* Broke the changes out over many more patches
-* Updated GRE segmentation to more closely match UDP tunnel segmentation
-
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
+ net/ipv4/gre_offload.c |    6 +++---
+ net/ipv4/udp_offload.c |    6 +++---
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-Alexander Duyck (10):
-      net: Drop unecessary enc_features variable from tunnel segmentation functions
-      net: Move GSO csum into SKB_GSO_CB
-      net: Update remote checksum segmentation to support use of GSO checksum
-      net: Store checksum result for offloaded GSO checksums
-      net: Move skb_has_shared_frag check out of GRE code and into segmentation
-      gre: Use GSO flags to determine csum need instead of GRE flags
-      gre: Use inner_proto to obtain inner header protocol
-      udp: Clean up the use of flags in UDP segmentation offload
-      udp: Use uh->len instead of skb->len to compute checksum in segmentation
-      net: Allow tunnels to use inner checksum offloads with outer checksums needed
-
-
- include/linux/skbuff.h |   29 +++++++++++----
- net/core/skbuff.c      |   34 +++++++++++-------
- net/ipv4/gre_offload.c |   85 ++++++++++++++++++--------------------------
- net/ipv4/tcp_offload.c |    8 +++-
- net/ipv4/udp_offload.c |   93 +++++++++++++++++++++++-------------------------
- 5 files changed, 127 insertions(+), 122 deletions(-)
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index 5a8ee3282550..02cb1a416c7d 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -19,7 +19,6 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+ 				       netdev_features_t features)
+ {
+ 	struct sk_buff *segs = ERR_PTR(-EINVAL);
+-	netdev_features_t enc_features;
+ 	int ghl;
+ 	struct gre_base_hdr *greh;
+ 	u16 mac_offset = skb->mac_header;
+@@ -68,9 +67,10 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+ 	skb_set_network_header(skb, skb_inner_network_offset(skb));
+ 	skb->mac_len = skb_inner_network_offset(skb);
+ 
++	features &= skb->dev->hw_enc_features;
++
+ 	/* segment inner packet. */
+-	enc_features = skb->dev->hw_enc_features & features;
+-	segs = skb_mac_gso_segment(skb, enc_features);
++	segs = skb_mac_gso_segment(skb, features);
+ 	if (IS_ERR_OR_NULL(segs)) {
+ 		skb_gso_error_unwind(skb, protocol, ghl, mac_offset, mac_len);
+ 		goto out;
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index 4c519c1dc161..ce64c2b7ba55 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -37,7 +37,6 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+ 	int mac_len = skb->mac_len;
+ 	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
+ 	__be16 protocol = skb->protocol;
+-	netdev_features_t enc_features;
+ 	int udp_offset, outer_hlen;
+ 	unsigned int oldlen;
+ 	bool need_csum = !!(skb_shinfo(skb)->gso_type &
+@@ -65,9 +64,10 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+ 			   (skb->dev->features & (is_ipv6 ?
+ 			    NETIF_F_IPV6_CSUM : NETIF_F_IP_CSUM))));
+ 
++	features &= skb->dev->hw_enc_features;
++
+ 	/* segment inner packet. */
+-	enc_features = skb->dev->hw_enc_features & features;
+-	segs = gso_inner_segment(skb, enc_features);
++	segs = gso_inner_segment(skb, features);
+ 	if (IS_ERR_OR_NULL(segs)) {
+ 		skb_gso_error_unwind(skb, protocol, tnl_hlen, mac_offset,
+ 				     mac_len);
