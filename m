@@ -1,73 +1,64 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [patch net-next RFC 0/6] Introduce devlink interface and first
- drivers to use it
-Date: Fri, 5 Feb 2016 15:29:36 +0100
-Message-ID: <20160205152936.63863d27@redhat.com>
-References: <1454496482-13961-1-git-send-email-jiri@resnulli.us>
-	<20160203143133.1b70bcb5@redhat.com>
-	<20160203133356.GA2219@nanopsycho.orion>
-	<56B219FA.7080208@iogearbox.net>
-	<9B0331B6EBBD0E4684FBFAEDA55776F92CB6D2ED@HASMSX110.ger.corp.intel.com>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH v3] net: ethernet: support "fixed-link" DT node on nb8800 driver
+Date: Fri, 05 Feb 2016 14:34:00 +0000
+Message-ID: <yw1xk2mjgraf.fsf@unicorn.mansr.com>
+References: <56B4A445.7080402@laposte.net>
+	<yw1x1t8ri8dz.fsf@unicorn.mansr.com> <56B4A877.4020800@laposte.net>
+	<yw1xsi17gsxl.fsf@unicorn.mansr.com> <56B4ACC4.1000607@laposte.net>
+	<yw1xoabvgs7s.fsf@unicorn.mansr.com> <56B4B013.5030407@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"idosch@mellanox.com" <idosch@mellanox.com>,
-	"eladr@mellanox.com" <eladr@mellanox.com>,
-	"yotamg@mellanox.com" <yotamg@mellanox.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"yishaih@mellanox.com" <yishaih@mellanox.com>,
-	"dledford@redhat.com" <dledford@redhat.com>,
-	"Hefty, Sean" <sean.hefty@intel.com>,
-	"hal.rosenstock@gmail.com" <hal.rosenstock@gmail.com>,
-	"eugenia@mellanox.com" <eugenia@mellanox.com>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>,
-	"hadarh@mellanox.com" <hadarh@mellanox.com>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@
-To: "Rosen, Rami" <rami.rosen@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44692 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750850AbcBEO3q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Feb 2016 09:29:46 -0500
-In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F92CB6D2ED@HASMSX110.ger.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>
+To: Sebastian Frias <sf84@laposte.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56B4B013.5030407@laposte.net> (Sebastian Frias's message of
+	"Fri, 05 Feb 2016 15:22:11 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Feb 2016 19:01:55 +0000
-"Rosen, Rami" <rami.rosen@intel.com> wrote:
+Sebastian Frias <sf84@laposte.net> writes:
 
-> Hi,
-> 
-> >Btw, if you add this tool into iproute2 (which would be preferred), >then
-> >probably dl should be ok (and easier retrievable in that relation).  
-> 
-> +1.
-> 
-> This tool, which uses netlink messages, seems a natural candidate for iproute2.
->  
-> And also apart from "ip", we have also another short command in
-> iproute2, namely "tc", which is yet another justification for using
-> the short form with "dl".
+> Signed-off-by: Sebastian Frias <sf84@laposte.net>
 
-I agree that integration into iproute2 is a good idea.
+Please change the subject to something like "net: ethernet: nb8800:
+support fixed-link DT node" and add a comment body.
 
-I strongly disagree on introducing such a short command name. Today we
-live in a world where you google for usage examples... the ip and tc
-commands origin for another time, and IMHO their short names have hurt
-them not getting broad usage.  Especially it have been difficult to get
-people to really adopt "ip", which is also worst search term in the
-Internet today...
+> ---
+>  drivers/net/ethernet/aurora/nb8800.c | 14 +++++++++++++-
+>  1 file changed, 13 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/aurora/nb8800.c
+> b/drivers/net/ethernet/aurora/nb8800.c
+> index ecc4a33..e1fb071 100644
+> --- a/drivers/net/ethernet/aurora/nb8800.c
+> +++ b/drivers/net/ethernet/aurora/nb8800.c
+> @@ -1460,7 +1460,19 @@ static int nb8800_probe(struct platform_device=
+ *pdev)
+>  		goto err_disable_clk;
+>  	}
+>
+> -	priv->phy_node =3D of_parse_phandle(pdev->dev.of_node, "phy-handle"=
+, 0);
+> +	if (of_phy_is_fixed_link(pdev->dev.of_node)) {
+> +		ret =3D of_phy_register_fixed_link(pdev->dev.of_node);
+> +		if (ret < 0) {
+> +			dev_err(&pdev->dev, "bad fixed-link spec\n");
+> +			goto err_free_bus;
+> +		}
+> +		priv->phy_node =3D of_node_get(pdev->dev.of_node);
+> +	}
+> +
+> +	if (!priv->phy_node)
+> +		priv->phy_node =3D of_parse_phandle(pdev->dev.of_node,
+> +						  "phy-handle", 0);
+> +
+>  	if (!priv->phy_node) {
+>  		dev_err(&pdev->dev, "no PHY specified\n");
+>  		ret =3D -ENODEV;
+> --=20
+> 2.1.4
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+--=20
+M=E5ns Rullg=E5rd
