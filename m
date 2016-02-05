@@ -1,75 +1,53 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [V4.4-rc6 Regression] af_unix: Revert 'lock_interruptible' in stream receive code
-Date: Fri, 05 Feb 2016 21:18:04 +0000
-Message-ID: <87egcqsvoz.fsf@doppelsaurus.mobileactivedefense.com>
-References: <56B4EF04.2060407@canonical.com>
-	<87r3grapyx.fsf@doppelsaurus.mobileactivedefense.com>
-	<56B500B5.9090700@canonical.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: Reply: [net] bonding: use return instead of goto
+Date: Fri, 5 Feb 2016 16:24:39 -0500
+Message-ID: <20160205212438.GC63431@redhat.com>
+References: <000301d15fb6$77bf08f0$673d1ad0$@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	hannes@stressinduktion.org,
-	"davem\@davemloft.net" <davem@davemloft.net>, edumazet@google.com,
-	dhowells@redhat.com, ying.xue@windriver.com,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"stable\@vger.kernel.org" <stable@vger.kernel.org>
-To: Joseph Salisbury <joseph.salisbury@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56B500B5.9090700@canonical.com> (Joseph Salisbury's message of
-	"Fri, 5 Feb 2016 15:06:13 -0500")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: j.vosburgh@gmail.com, netdev@vger.kernel.org
+To: =?utf-8?B?5byg6IOc5Li+?= <zhangshengju@cmss.chinamobile.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42212 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750829AbcBEVYk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Feb 2016 16:24:40 -0500
+Content-Disposition: inline
+In-Reply-To: <000301d15fb6$77bf08f0$673d1ad0$@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joseph Salisbury <joseph.salisbury@canonical.com> writes:
-> On 02/05/2016 02:59 PM, Rainer Weikusat wrote:
+On Fri, Feb 05, 2016 at 09:42:24AM +0800, =E5=BC=A0=E8=83=9C=E4=B8=BE w=
+rote:
+> > On Wed, Feb 03, 2016 at 06:15:22AM +0000, Zhang Shengju wrote:
+> > > Replace 'goto' with 'return' to remove unnecessary check at label=
+:
+> > > err_undo_flags.
+> >=20
+> > I think you're going to have to explain how you came to the conclus=
+ion
+> > that the check isn't necessary.
+=2E..
+> The reason is that 'err_undo_flags' do two things for the first slave
+> device:
+> 1. revert bond mac address if it is set by the slave device.
+> 2. revert bond device type if it's not ARPHRD_ETHER.
+>=20
+> I think it's not necessary for the three places, they changed neither=
+  bond
+> mac address nor type.=20
+> it's straightforward to return directly.
 
-[recvmsg w/o iovecs returning ENOTSUP for CMSG requests]
+I see what you're saying, and that does look to be true if you're only
+adding a singular first device right now. But looking at the enslave an=
+d
+release paths, I don't see anything preventing concurrent slave adds an=
+d
+removes, which could mean there are situations where those checks reall=
+y
+are necessary. I don't actually know.
 
->> Funny little problem :-). The code using the interruptible lock cleared
->> err as side effect hence the
->>
->> out:
->> 	return copied ? : err;
->>
->> at the end of unix_stream_read_generic didn't return the -ENOTSUP put
->> into err at the start of the function if copied was zero after the loop
->> because the size of the passed data buffer was zero.
-
-There are more problems wrt handling control-message only reads in this
-code. In particular, changing the test program as follows:
-
-    if (fork() == 0) {
-	sleep(1);
-	send(socket_fd[client], msg, sizeof msg, MSG_DONTWAIT | MSG_NOSIGNAL);
-
-	_exit(0);
-    }
-
-makes the recvmsg fail with EAGAIN and judging from the code (I didn't
-test this yet), it will return without an error but also without
-credentials if the
-
-err = -EAGAIN
-if (!timeo)
-	break;
-
-is changed to
-
-if (!timeo) {
-	err = -EAGAIN;
-        break
-}
-
-because the following
-
-mutex_lock(&u->readlock);
-continue;
-
-will cause the
-
-do {
-} while (size)
-
-loop condition to be evaluated and since size is 0 (AIUI), the loop will
-terminate immediately.
+--=20
+Jarod Wilson
+jarod@redhat.com
