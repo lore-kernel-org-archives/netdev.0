@@ -1,93 +1,48 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next 1/2] ethtool: add IPv6 to the NFC API
-Date: Fri, 05 Feb 2016 01:32:52 +0000
-Message-ID: <1454635972.20702.8.camel@decadent.org.uk>
-References: <56B0F9A8.7010202@solarflare.com>
-	 <56B0FA25.8030708@solarflare.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
+Date: Thu, 4 Feb 2016 17:39:16 -0800
+Message-ID: <CA+55aFw1ofEXQUDrKehv0_sZ2XafFOJd=KwEKqW3jetrXeJu_g@mail.gmail.com>
+References: <1454527121-4007853-1-git-send-email-tom@herbertland.com>
+	<20160204093021.GB1553@gmail.com>
+	<CA+55aFxqs+mE=s4UkNQXJA8JjAKKb6vk1JO672jdEuWtsJ=hVg@mail.gmail.com>
+	<CA+55aFwqq6n9OOTNOXMdWN4kJX9iJoP58fZ4KwTc51enxtkqgg@mail.gmail.com>
+	<CA+55aFwGt-ZCna4cEUXP2Qd39etMgJYu6MTyimP38GKV4aK_aA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-JFvffVqyt6D7ZZ5EfjBs"
-Cc: netdev@vger.kernel.org,
-	linux-net-drivers <linux-net-drivers@solarflare.com>
-To: Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:35467 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751761AbcBEBdG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2016 20:33:06 -0500
-In-Reply-To: <56B0FA25.8030708@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <tom@herbertland.com>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>, Peter Anvin <hpa@zytor.com>,
+	"the arch/x86 maintainers" <x86@kernel.org>,
+	kernel-team <kernel-team@fb.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFwGt-ZCna4cEUXP2Qd39etMgJYu6MTyimP38GKV4aK_aA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Feb 4, 2016 at 5:27 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+>         sum = csum_partial_lt8(*(unsigned long *)buff, len, sum);
+>         return rotate_by8_if_odd(sum, align);
 
---=-JFvffVqyt6D7ZZ5EfjBs
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Actually, that last word-sized access to "buff" might be past the end
+of the buffer. The code does the right thing if "len" is zero, except
+for the possible page fault or address verifier complaint.
 
-On Tue, 2016-02-02 at 18:49 +0000, Edward Cree wrote:
-> Signed-off-by: Edward Cree <ecree@solarflare.com>
-> ---
-> =C2=A0include/uapi/linux/ethtool.h | 70 +++++++++++++++++++++++++++++++++=
-+++++++----
-> =C2=A01 file changed, 64 insertions(+), 6 deletions(-)
->=20
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index 57fa390..3b6af3e 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -748,6 +748,56 @@ struct ethtool_usrip4_spec {
-> =C2=A0	__u8=C2=A0=C2=A0=C2=A0=C2=A0proto;
-> =C2=A0};
-> =C2=A0
-> +/**
-> + * struct ethtool_tcpip6_spec - flow specification for TCP/IPv6 etc.
-> + * @ip6src: Source host
-> + * @ip6dst: Destination host
-> + * @psrc: Source port
-> + * @pdst: Destination port
-> + * @tos: Type-of-service
-> + *
-> + * This can be used to specify a TCP/IPv6, UDP/IPv6 or SCTP/IPv6 flow.
-> + */
-> +struct ethtool_tcpip6_spec {
-> +	__be32	ip6src[4];
-> +	__be32	ip6dst[4];
-> +	__be16	psrc;
-> +	__be16	pdst;
-> +	__u8=C2=A0=C2=A0=C2=A0=C2=A0tos;
-[...]
+So that very last call to "csum_partial_lt8()" either needs to be
+conditional (easy enough to add an "if (len)" around that whole
+statement) or the thing could be unconditional but the load needs to
+use "load_unaligned_zeropad()" so that the exception is harmless.
 
-IPv6 has 'Traffic Class' instead of 'Type of Service'. =C2=A0At least the
-kernel-doc comments should use the proper name, and perhaps you should
-rename the 'tos' fields to something like 'tclass'. =C2=A0(Definitely not
-just 'class' as UAPI headers have to be C++ compatible.)
+It's probably immaterial which one you pick. The few possibly useless
+ALU operations vs a possible branch misprodict penalty are probably
+going to make it a wash. The exception will never happen in practice,
+but if DEBUG_PAGEALLOC is enabled, or if something like KASAN is
+active, it will complain loudly if it happens to go past the
+allocation.
 
-Ben.
-
---=20
-Ben Hutchings
-It is a miracle that curiosity survives formal education. - Albert Einstein
---=-JFvffVqyt6D7ZZ5EfjBs
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVrP7xOe/yOyVhhEJAQrSQhAAvIU1qJhOoRDTHMMba7wLtI7UgvIG6qBY
-31sUoe8R7qSg5md2wFScv6W+ZiWXc8SQhOYf9M3iSVOToLUXy1T5eLGBi7krFKCF
-kNOSNRQ8ZpOfRY3yWh1kpry14idf3qkgBhjJqTiTzqRhw2VmrL3bWiGqUa8Iw4HK
-aj2iTix61d9inHM57ziMeUxfagUCeQiKnkWF/5Zv50Gbe+RYy/Mg/OOWVsvE+B1r
-2aI5WZO/aW5nJqsZzS1BpNVlu/IrBvEmjI6Yb+vyMaRQl8BZiwQyIZkfExKCBzzZ
-CHe6zqLq1LHkC+bqlfYyPhCWqMbU1V6ptuY7vR9U2BPOhyuPqX0LhYkeRlFmedXD
-p4qob6Ix/SV5H3cz7tezead2bPyBYoVlx8OhxKJQInIZ6Z4g4EnSJJXHfxHF1wjI
-iChFy4sBeahgZKUjqfjYyIB6ImQOnNyIFL6JDj0+2NbJcPLYBxRhyotWeBUZL0SH
-Vzj+eaB1ZjLg2+NSO+otMYgqlo5kJtjiPlbF8nCKYIQ/qxxbFdheqYnD1bdZBe/c
-cRbiFFwvNdwj//lGov1k9RLvd3mmn5235bUeBKt7ro/YUdcx+XPLR7F8aA9eQGyc
-6fWxVgQkeVEwFbyRy+6lK6OG3Xl1bvhs5q4+sAiMvTFa/D/HPj9484ph7Iy+Kfq+
-d4E9MGnSgt4=
-=Cu0k
------END PGP SIGNATURE-----
-
---=-JFvffVqyt6D7ZZ5EfjBs--
+               Linus
