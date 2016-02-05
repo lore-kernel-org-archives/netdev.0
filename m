@@ -1,153 +1,165 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: Keystone 2 boards boot failure
-Date: Fri, 05 Feb 2016 17:18:32 +0100
-Message-ID: <2480415.iC3bxkK7OM@wuerfel>
-References: <56B0DE61.2000704@ti.com> <1888105.8DsfvU3cAo@wuerfel> <56B37B64.1000606@ti.com>
+From: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH v3] openvswitch: allow management from inside user namespaces
+Date: Fri,  5 Feb 2016 09:20:52 -0700
+Message-ID: <1454689252-18749-1-git-send-email-tycho.andersen@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "Franklin S Cooper Jr." <fcooper@ti.com>, m-karicheri2@ti.com,
-	netdev@vger.kernel.org, w-kwok2@ti.com, davem@davemloft.net
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([217.72.192.75]:63674 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753334AbcBEQSp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 11:18:45 -0500
-In-Reply-To: <56B37B64.1000606@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+To: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 04 February 2016 18:25:08 Grygorii Strashko wrote:
-> > 
-> > I have another version for testing below. That removes the logic that
-> > splits and reassembles the 64-bit values, but leaves the other changes
-> > in place. Can you try this?
-> > 
-> 
-> Nop. It crashes kernel
+Operations with the GENL_ADMIN_PERM flag fail permissions checks because
+this flag means we call netlink_capable, which uses the init user ns.
 
-Ah. too bad.
+Instead, let's introduce a new flag, GENL_UNS_ADMIN_PERM for operations
+which should be allowed inside a user namespace.
 
->    50.244448] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-> [   50.266219] Unable to handle kernel NULL pointer dereference at virtual address 00000001
-> [   50.274287] pgd = c0003000
-> [   50.277007] [00000001] *pgd=80000800004003, *pmd=00000000
-> [   50.282412] Internal error: Oops: a07 [#1] PREEMPT SMP ARM
-> [   50.287881] Modules linked in:
-> [   50.290938] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W       4.5.0-rc2-00179-gad2f022-dirty #30
-> [   50.300214] Hardware name: Keystone
-> [   50.303693] task: c07476c0 ti: c0742000 task.ti: c0742000
-> [   50.309082] PC is at _test_and_set_bit+0x4/0x4c
-> [   50.313607] LR is at __netif_schedule+0x1c/0x60
-> [   50.318127] pc : [<c028415c>]    lr : [<c04294f0>]    psr: 20000113
-> [   50.318127] sp : c0743d68  ip : 00000001  fp : c0743d7c
-> [   50.329568] r10: c0743e00  r9 : c0744100  r8 : ffff9e75
-> [   50.334775] r7 : 00000000  r6 : 00000040  r5 : de495b00  r4 : 6d3cdb51
-> [   50.341282] r3 : 00000001  r2 : c07476c0  r1 : 6d3cdba9  r0 : 00000000
-> [   50.347790] Flags: nzCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment kernel
-> [   50.355077] Control: 30c5387d  Table: 1878abc0  DAC: fffffffd
-> [   50.360803] Process swapper/0 (pid: 0, stack limit = 0xc0742210)
-> [   50.366790] Stack: (0xc0743d68 to 0xc0744000)
-> [   50.371137] 3d60:                   d9a16a00 de495b00 c0743d94 c0743d80 c04295a0 c04294e0
-> [   50.379291] 3d80: de7a9cc0 de495b00 c0743dbc c0743d98 c037396c c0429570 c0061d34 00000010
-> [   50.387445] 3da0: de7a9d80 de7a9d80 00000040 0000012c c0743ddc c0743dc0 c0375f58 c0373848
-> [   50.395599] 3dc0: de7a9d80 c0375f3c 00000040 0000012c c0743e3c c0743de0 c042a0cc c0375f48
-> [   50.403752] 3de0: c0743e9c c06635f8 c0744b1c c0744b1c c0773c46 1e46b000 c0741000 debac000
-> [   50.411907] 3e00: c0743e00 c0743e00 c0743e08 c0743e08 de408000 00000000 c074408c c0742000
-> [   50.420061] 3e20: 00000101 00000003 40000003 c0744080 c0743e9c c0743e40 c0026670 c0429ed8
-> [   50.428215] 3e40: d8722360 c0744808 00200000 c0744100 ffff9e74 c054088c 0000000a c07779c0
-> [   50.436369] 3e60: c073d2c8 c0744080 c0743e40 c0742000 c0744808 c073dddc 0000004e 00000000
-> [   50.444522] 3e80: 00000000 de408000 c0773aa4 c07444fc c0743eb4 c0743ea0 c0026a38 c0026548
-> [   50.452675] 3ea0: c073dddc 0000004e c0743edc c0743eb8 c0061d34 c00269c4 c0744808 e080400c
-> [   50.460828] 3ec0: c0743f08 e0804000 e0805000 c0773aa4 c0743f04 c0743ee0 c0009438 c0061cd8
-> [   50.468981] 3ee0: c0010314 60000013 ffffffff c0743f3c c0773aa4 c0773aa4 c0743f64 c0743f08
-> [   50.477136] 3f00: c0013a80 c0009404 00000000 deba8348 000070c8 c001f880 c0742000 c07444b0
-> [   50.485289] 3f20: c073d324 c0743f78 c0773aa4 c0773aa4 c07444fc c0743f64 c0743f68 c0743f58
-> [   50.493442] 3f40: c0010310 c0010314 60000013 ffffffff c006d624 c006a15c c0743f74 c0743f68
-> [   50.501595] 3f60: c00598c0 c00102e0 c0743f8c c0743f78 c00599dc c00598a4 00000002 00000000
-> [   50.509749] 3f80: c0743fa4 c0743f90 c0538468 c00598d8 c0777050 00000000 c0743ff4 c0743fa8
-> [   50.517902] 3fa0: c06fad60 c05383e4 ffffffff ffffffff 00000000 c06fa6d8 ffffffff 00000000
-> [   50.526056] 3fc0: 00000000 c0731a30 00000000 c0777294 c0744484 c0731a2c c0748878 80007000
-> [   50.534210] 3fe0: 412fc0f4 00000000 00000000 c0743ff8 80008090 c06fa964 00000000 00000000
-> [   50.542357] Backtrace: 
-> [   50.544816] [<c04294d4>] (__netif_schedule) from [<c04295a0>] (netif_wake_subqueue+0x3c/0x44)
-> [   50.553312]  r5:de495b00 r4:d9a16a00
-> [   50.556909] [<c0429564>] (netif_wake_subqueue) from [<c037396c>] (netcp_process_tx_compl_packets+0x130/0x134)
-> [   50.566789]  r5:de495b00 r4:de7a9cc0
-> [   50.570381] [<c037383c>] (netcp_process_tx_compl_packets) from [<c0375f58>] (netcp_tx_poll+0x1c/0x4c)
-> [   50.579570]  r7:0000012c r6:00000040 r5:de7a9d80 r4:de7a9d80
-> [   50.585258] [<c0375f3c>] (netcp_tx_poll) from [<c042a0cc>] (net_rx_action+0x200/0x2f8)
-> [   50.593148]  r7:0000012c r6:00000040 r5:c0375f3c r4:de7a9d80
-> [   50.598833] [<c0429ecc>] (net_rx_action) from [<c0026670>] (__do_softirq+0x134/0x258)
-> [   50.606637]  r10:c0744080 r9:40000003 r8:00000003 r7:00000101 r6:c0742000 r5:c074408c
-> [   50.614486]  r4:00000000
-> [   50.617023] [<c002653c>] (__do_softirq) from [<c0026a38>] (irq_exit+0x80/0xb8)
-> [   50.624221]  r10:c07444fc r9:c0773aa4 r8:de408000 r7:00000000 r6:00000000 r5:0000004e
-> [   50.632069]  r4:c073dddc
-> [   50.634608] [<c00269b8>] (irq_exit) from [<c0061d34>] (__handle_domain_irq+0x68/0xbc)
-> [   50.642410]  r5:0000004e r4:c073dddc
-> [   50.645996] [<c0061ccc>] (__handle_domain_irq) from [<c0009438>] (gic_handle_irq+0x40/0x78)
-> 
+The motivation for this is to be able to run openvswitch in unprivileged
+containers. I've tested this and it seems to work, but I really have no
+idea about the security consequences of this patch, so thoughts would be
+much appreciated.
 
-This is a different bug now, something is corrupting the skb pointer, probably as a
-result of the patch below (which is a subset of what is now applied compared
-to the last working version):
+v2: use the GENL_UNS_ADMIN_PERM flag instead of a check in each function
+v3: use separate ifs for UNS_ADMIN_PERM and ADMIN_PERM, instead of one
+    massive one
 
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index 7e291c04a81a..cda19f2401c1 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -117,10 +117,18 @@ static void get_pkt_info(dma_addr_t *buff, u32 *buff_len, dma_addr_t *ndesc,
+Reported-by: James Page <james.page-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Signed-off-by: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+CC: Eric Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+CC: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+CC: Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+CC: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+---
+ include/uapi/linux/genetlink.h |  1 +
+ net/netlink/genetlink.c        |  4 ++++
+ net/openvswitch/datapath.c     | 20 ++++++++++----------
+ 3 files changed, 15 insertions(+), 10 deletions(-)
+
+diff --git a/include/uapi/linux/genetlink.h b/include/uapi/linux/genetlink.h
+index c3363ba..5512c90 100644
+--- a/include/uapi/linux/genetlink.h
++++ b/include/uapi/linux/genetlink.h
+@@ -21,6 +21,7 @@ struct genlmsghdr {
+ #define GENL_CMD_CAP_DO		0x02
+ #define GENL_CMD_CAP_DUMP	0x04
+ #define GENL_CMD_CAP_HASPOL	0x08
++#define GENL_UNS_ADMIN_PERM	0x10
+ 
+ /*
+  * List of reserved static generic netlink identifiers:
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index f830326..0ffd721 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -580,6 +580,10 @@ static int genl_family_rcv_msg(struct genl_family *family,
+ 	    !netlink_capable(skb, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
++	if ((ops->flags & GENL_UNS_ADMIN_PERM) &&
++	    !netlink_ns_capable(skb, net->user_ns, CAP_NET_ADMIN))
++		return -EPERM;
 +
-+static void get_pad_ptr(void **padptr, struct knav_dma_desc *desc)
-+{
-+	u64 pad64;
-+
-+	pad64 = le32_to_cpu(desc->pad[0]);
-+	*padptr = (void *)(uintptr_t)pad64;
- }
+ 	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
+ 		int rc;
  
- static void get_org_pkt_info(dma_addr_t *buff, u32 *buff_len,
-
-@@ -953,11 +966,11 @@ static int netcp_process_tx_compl_packets(struct netcp_intf *netcp,
- 					  unsigned int budget)
- {
- 	struct knav_dma_desc *desc;
-+	void *ptr;
- 	struct sk_buff *skb;
- 	unsigned int dma_sz;
- 	dma_addr_t dma;
- 	int pkts = 0;
--	u32 tmp;
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index deadfda..d6f7fe9 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -654,7 +654,7 @@ static const struct nla_policy packet_policy[OVS_PACKET_ATTR_MAX + 1] = {
  
- 	while (budget--) {
- 		dma = knav_queue_pop(netcp->tx_compl_q, &dma_sz);
-@@ -970,7 +983,8 @@ static int netcp_process_tx_compl_packets(struct netcp_intf *netcp,
- 			continue;
- 		}
- 
--		get_pad_info((u32 *)&skb, &tmp, desc);
-+		get_pad_ptr(&ptr, desc);
-+		skb = ptr;
- 		netcp_free_tx_desc_chain(netcp, desc, dma_sz);
- 		if (!skb) {
- 			dev_err(netcp->ndev_dev, "No skb in Tx desc\n");
-@@ -1173,7 +1189,8 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
+ static const struct genl_ops dp_packet_genl_ops[] = {
+ 	{ .cmd = OVS_PACKET_CMD_EXECUTE,
+-	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
++	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+ 	  .policy = packet_policy,
+ 	  .doit = ovs_packet_cmd_execute
  	}
+@@ -1391,12 +1391,12 @@ static const struct nla_policy flow_policy[OVS_FLOW_ATTR_MAX + 1] = {
  
- 	set_words(&tmp, 1, &desc->packet_info);
--	set_words((u32 *)&skb, 1, &desc->pad[0]);
-+	tmp = (uintptr_t)&skb;
-+	set_words(&tmp, 1, &desc->pad[0]);
+ static const struct genl_ops dp_flow_genl_ops[] = {
+ 	{ .cmd = OVS_FLOW_CMD_NEW,
+-	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
++	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+ 	  .policy = flow_policy,
+ 	  .doit = ovs_flow_cmd_new
+ 	},
+ 	{ .cmd = OVS_FLOW_CMD_DEL,
+-	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
++	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+ 	  .policy = flow_policy,
+ 	  .doit = ovs_flow_cmd_del
+ 	},
+@@ -1407,7 +1407,7 @@ static const struct genl_ops dp_flow_genl_ops[] = {
+ 	  .dumpit = ovs_flow_cmd_dump
+ 	},
+ 	{ .cmd = OVS_FLOW_CMD_SET,
+-	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
++	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+ 	  .policy = flow_policy,
+ 	  .doit = ovs_flow_cmd_set,
+ 	},
+@@ -1777,12 +1777,12 @@ static const struct nla_policy datapath_policy[OVS_DP_ATTR_MAX + 1] = {
  
- 	if (tx_pipe->flags & SWITCH_TO_PORT_IN_TAGINFO) {
- 		tmp = tx_pipe->switch_to_port;
-
-
-I'm sure it's something obvious and stupid in there, but I just can't
-see it and that is very unsatisfying. Do you see where I am going wrong?
-Most of all, I want to know it so I don't make the same mistake again
-when I patch another driver.
-
-	Arnd
+ static const struct genl_ops dp_datapath_genl_ops[] = {
+ 	{ .cmd = OVS_DP_CMD_NEW,
+-	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
++	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+ 	  .policy = datapath_policy,
+ 	  .doit = ovs_dp_cmd_new
+ 	},
+ 	{ .cmd = OVS_DP_CMD_DEL,
+-	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
++	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+ 	  .policy = datapath_policy,
+ 	  .doit = ovs_dp_cmd_del
+ 	},
+@@ -1793,7 +1793,7 @@ static const struct genl_ops dp_datapath_genl_ops[] = {
+ 	  .dumpit = ovs_dp_cmd_dump
+ 	},
+ 	{ .cmd = OVS_DP_CMD_SET,
+-	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
++	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+ 	  .policy = datapath_policy,
+ 	  .doit = ovs_dp_cmd_set,
+ 	},
+@@ -2158,12 +2158,12 @@ static const struct nla_policy vport_policy[OVS_VPORT_ATTR_MAX + 1] = {
+ 
+ static const struct genl_ops dp_vport_genl_ops[] = {
+ 	{ .cmd = OVS_VPORT_CMD_NEW,
+-	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
++	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+ 	  .policy = vport_policy,
+ 	  .doit = ovs_vport_cmd_new
+ 	},
+ 	{ .cmd = OVS_VPORT_CMD_DEL,
+-	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
++	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+ 	  .policy = vport_policy,
+ 	  .doit = ovs_vport_cmd_del
+ 	},
+@@ -2174,7 +2174,7 @@ static const struct genl_ops dp_vport_genl_ops[] = {
+ 	  .dumpit = ovs_vport_cmd_dump
+ 	},
+ 	{ .cmd = OVS_VPORT_CMD_SET,
+-	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
++	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+ 	  .policy = vport_policy,
+ 	  .doit = ovs_vport_cmd_set,
+ 	},
+-- 
+2.5.0
