@@ -1,27 +1,29 @@
-From: "Ms.Ella Golan" <psanchez@emesa.com.ar>
-Subject: Hello There
-Date: Fri, 05 Feb 2016 11:00:40 +0100
-Message-ID: <20160205100109.4CCDF74EF97@mail.emesa.com.ar>
-Reply-To: egolan2@foxmail.com
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH v2 net-next 0/2] IPv6 NFC
+Date: Fri, 5 Feb 2016 11:12:33 +0000
+Message-ID: <56B483A1.4070901@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <psanchez@emesa.com.ar>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+	"Ben Hutchings" <ben@decadent.org.uk>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 190-113-175-205.supercanal.com.ar ([190.113.175.205]:41519 "EHLO
-	mail.emesa.com.ar" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750865AbcBELLO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 06:11:14 -0500
-Content-Description: Mail message body
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:31762 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751798AbcBELMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 06:12:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This series adds support for steering IPv6 flows using the ethtool NFC
+ interface, and implements it for sfc devices.
+Tested using an in-development patch to the ethtool utility.
 
+Edward Cree (2):
+  ethtool: add IPv6 to the NFC API
+  sfc: implement IPv6 NFC (and IPV4_USER_FLOW)
 
-I am Ms.Ella Golan, I am the Executive Vice President Banking Division with FIRST INTERNATIONAL BANK OF ISRAEL LTD (FIBI).
-I am getting in touch with you regarding an extremely important and urgent
-matter. If you would oblige me the opportunity, I shall provide you with
-details upon your response.
-
-Faithfully,
-Ms.Ella Golan
+ drivers/net/ethernet/sfc/ethtool.c | 184 +++++++++++++++++++++++++++++++++++++
+ include/uapi/linux/ethtool.h       |  70 ++++++++++++--
+ 2 files changed, 248 insertions(+), 6 deletions(-)
