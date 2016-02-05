@@ -1,165 +1,55 @@
-From: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH v3] openvswitch: allow management from inside user namespaces
-Date: Fri,  5 Feb 2016 09:20:52 -0700
-Message-ID: <1454689252-18749-1-git-send-email-tycho.andersen@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-To: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: [PATCH net] hv_netvsc: Restore needed_headroom request
+Date: Fri,  5 Feb 2016 17:29:08 +0100
+Message-ID: <1454689748-29095-1-git-send-email-vkuznets@redhat.com>
+Cc: devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+	"K. Y. Srinivasan" <kys@microsoft.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Operations with the GENL_ADMIN_PERM flag fail permissions checks because
-this flag means we call netlink_capable, which uses the init user ns.
+Commit c0eb454034aa ("hv_netvsc: Don't ask for additional head room in the
+skb") got rid of needed_headroom setting for the driver. With the change I
+hit the following issue trying to use ptkgen module:
 
-Instead, let's introduce a new flag, GENL_UNS_ADMIN_PERM for operations
-which should be allowed inside a user namespace.
+[   57.522021] kernel BUG at net/core/skbuff.c:1128!
+[   57.522021] invalid opcode: 0000 [#1] SMP DEBUG_PAGEALLOC
+...
+[   58.721068] Call Trace:
+[   58.721068]  [<ffffffffa0144e86>] netvsc_start_xmit+0x4c6/0x8e0 [hv_netvsc]
+...
+[   58.721068]  [<ffffffffa02f87fc>] ? pktgen_finalize_skb+0x25c/0x2a0 [pktgen]
+[   58.721068]  [<ffffffff814f5760>] ? __netdev_alloc_skb+0xc0/0x100
+[   58.721068]  [<ffffffffa02f9907>] pktgen_thread_worker+0x257/0x1920 [pktgen]
 
-The motivation for this is to be able to run openvswitch in unprivileged
-containers. I've tested this and it seems to work, but I really have no
-idea about the security consequences of this patch, so thoughts would be
-much appreciated.
+Basically, we're calling skb_cow_head(skb, RNDIS_AND_PPI_SIZE) and crash on
+    if (skb_shared(skb))
+        BUG();
 
-v2: use the GENL_UNS_ADMIN_PERM flag instead of a check in each function
-v3: use separate ifs for UNS_ADMIN_PERM and ADMIN_PERM, instead of one
-    massive one
+We probably need to restore needed_headroom setting (but shrunk to
+RNDIS_AND_PPI_SIZE as we don't need more) to request the required headroom
+space. In theory, it should not give us performance penalty.
 
-Reported-by: James Page <james.page-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Signed-off-by: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-CC: Eric Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-CC: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-CC: Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-CC: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 ---
- include/uapi/linux/genetlink.h |  1 +
- net/netlink/genetlink.c        |  4 ++++
- net/openvswitch/datapath.c     | 20 ++++++++++----------
- 3 files changed, 15 insertions(+), 10 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/include/uapi/linux/genetlink.h b/include/uapi/linux/genetlink.h
-index c3363ba..5512c90 100644
---- a/include/uapi/linux/genetlink.h
-+++ b/include/uapi/linux/genetlink.h
-@@ -21,6 +21,7 @@ struct genlmsghdr {
- #define GENL_CMD_CAP_DO		0x02
- #define GENL_CMD_CAP_DUMP	0x04
- #define GENL_CMD_CAP_HASPOL	0x08
-+#define GENL_UNS_ADMIN_PERM	0x10
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 1d3a665..98e34fe 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1089,6 +1089,9 @@ static int netvsc_probe(struct hv_device *dev,
+ 	net->ethtool_ops = &ethtool_ops;
+ 	SET_NETDEV_DEV(net, &dev->device);
  
- /*
-  * List of reserved static generic netlink identifiers:
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index f830326..0ffd721 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -580,6 +580,10 @@ static int genl_family_rcv_msg(struct genl_family *family,
- 	    !netlink_capable(skb, CAP_NET_ADMIN))
- 		return -EPERM;
- 
-+	if ((ops->flags & GENL_UNS_ADMIN_PERM) &&
-+	    !netlink_ns_capable(skb, net->user_ns, CAP_NET_ADMIN))
-+		return -EPERM;
++	/* We always need headroom for rndis header */
++	net->needed_headroom = RNDIS_AND_PPI_SIZE;
 +
- 	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
- 		int rc;
- 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index deadfda..d6f7fe9 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -654,7 +654,7 @@ static const struct nla_policy packet_policy[OVS_PACKET_ATTR_MAX + 1] = {
- 
- static const struct genl_ops dp_packet_genl_ops[] = {
- 	{ .cmd = OVS_PACKET_CMD_EXECUTE,
--	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
-+	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = packet_policy,
- 	  .doit = ovs_packet_cmd_execute
- 	}
-@@ -1391,12 +1391,12 @@ static const struct nla_policy flow_policy[OVS_FLOW_ATTR_MAX + 1] = {
- 
- static const struct genl_ops dp_flow_genl_ops[] = {
- 	{ .cmd = OVS_FLOW_CMD_NEW,
--	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
-+	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = flow_policy,
- 	  .doit = ovs_flow_cmd_new
- 	},
- 	{ .cmd = OVS_FLOW_CMD_DEL,
--	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
-+	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = flow_policy,
- 	  .doit = ovs_flow_cmd_del
- 	},
-@@ -1407,7 +1407,7 @@ static const struct genl_ops dp_flow_genl_ops[] = {
- 	  .dumpit = ovs_flow_cmd_dump
- 	},
- 	{ .cmd = OVS_FLOW_CMD_SET,
--	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
-+	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = flow_policy,
- 	  .doit = ovs_flow_cmd_set,
- 	},
-@@ -1777,12 +1777,12 @@ static const struct nla_policy datapath_policy[OVS_DP_ATTR_MAX + 1] = {
- 
- static const struct genl_ops dp_datapath_genl_ops[] = {
- 	{ .cmd = OVS_DP_CMD_NEW,
--	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
-+	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = datapath_policy,
- 	  .doit = ovs_dp_cmd_new
- 	},
- 	{ .cmd = OVS_DP_CMD_DEL,
--	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
-+	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = datapath_policy,
- 	  .doit = ovs_dp_cmd_del
- 	},
-@@ -1793,7 +1793,7 @@ static const struct genl_ops dp_datapath_genl_ops[] = {
- 	  .dumpit = ovs_dp_cmd_dump
- 	},
- 	{ .cmd = OVS_DP_CMD_SET,
--	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
-+	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = datapath_policy,
- 	  .doit = ovs_dp_cmd_set,
- 	},
-@@ -2158,12 +2158,12 @@ static const struct nla_policy vport_policy[OVS_VPORT_ATTR_MAX + 1] = {
- 
- static const struct genl_ops dp_vport_genl_ops[] = {
- 	{ .cmd = OVS_VPORT_CMD_NEW,
--	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
-+	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = vport_policy,
- 	  .doit = ovs_vport_cmd_new
- 	},
- 	{ .cmd = OVS_VPORT_CMD_DEL,
--	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
-+	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = vport_policy,
- 	  .doit = ovs_vport_cmd_del
- 	},
-@@ -2174,7 +2174,7 @@ static const struct genl_ops dp_vport_genl_ops[] = {
- 	  .dumpit = ovs_vport_cmd_dump
- 	},
- 	{ .cmd = OVS_VPORT_CMD_SET,
--	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
-+	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = vport_policy,
- 	  .doit = ovs_vport_cmd_set,
- 	},
+ 	/* Notify the netvsc driver of the new device */
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
 -- 
 2.5.0
