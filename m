@@ -1,261 +1,76 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 2/2] sfc: implement IPv6 NFC (and IPV4_USER_FLOW)
-Date: Fri, 5 Feb 2016 11:16:50 +0000
-Message-ID: <56B484A2.60609@solarflare.com>
-References: <56B483A1.4070901@solarflare.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] af_packet: Raw socket destruction warning fix
+Date: Fri, 05 Feb 2016 03:26:57 -0800
+Message-ID: <1454671617.7627.315.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1453099068-39022-1-git-send-email-maninder1.s@samsung.com>
+	 <569CB419.6050102@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:37757 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750874AbcBELRC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 06:17:02 -0500
-In-Reply-To: <56B483A1.4070901@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Maninder Singh <maninder1.s@samsung.com>, davem@davemloft.net,
+	willemb@google.com, edumazet@google.com, eyal.birger@gmail.com,
+	tklauser@distanz.ch, fruggeri@aristanetworks.com,
+	dwmw2@infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, pankaj.m@samsung.com,
+	gh007.kim@samsung.com, hakbong5.lee@samsung.com,
+	Vaneet Narang <v.narang@samsung.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <569CB419.6050102@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/ethtool.c | 184 +++++++++++++++++++++++++++++++++++++
- 1 file changed, 184 insertions(+)
+On Mon, 2016-01-18 at 10:44 +0100, Daniel Borkmann wrote:
+> On 01/18/2016 07:37 AM, Maninder Singh wrote:
+> > Receieve queue is not purged when socket dectruction is called
+> > results in kernel warning because of non zero sk_rmem_alloc.
+> >
+> > WARNING: at net/packet/af_packet.c:1142 packet_sock_destruct
+> >
+> > Backtrace:
+> > WARN_ON(atomic_read(&sk->sk_rmem_alloc)
+> > packet_sock_destruct
+> > __sk_free
+> > sock_wfree
+> > skb_release_head_state
+> > skb_release_all
+> > __kfree_skb
+> > net_tx_action
+> > __do_softirq
+> > run_ksoftirqd
+> >
+> > Signed-off-by: Vaneet Narang <v.narang@samsung.com>
+> > Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
+> 
+> Thanks for the fix. While it fixes the WARN_ON(), I believe some more
+> investigation is needed here on why it is happening:
+> 
+> We call first into packet_release(), which removes the socket hook from
+> the kernel (unregister_prot_hook()), later calls synchronize_net() to
+> make sure no more skbs will come in. The receive queue is purged right
+> after the synchronize_net() already.
+> 
+> packet_sock_destruct() will be called afterwards, when there are no more
+> refs on the socket anymore and no af_packet skbs in tx waiting for completion.
+> Only then, in sk_destruct(), we'll call into packet_sock_destruct().
+> 
+> So, eventually double purging the sk_receive_queue seems not the right
+> thing to do at first look, and w/o any deeper analysis in the commit description.
+> 
+> Could you look a bit further into the issue? Do you have a reproducer to
+> trigger it?
 
-diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
-index 0347976..445ccdb 100644
---- a/drivers/net/ethernet/sfc/ethtool.c
-+++ b/drivers/net/ethernet/sfc/ethtool.c
-@@ -783,14 +783,26 @@ static int efx_ethtool_reset(struct net_device *net_dev, u32 *flags)
- static const u8 mac_addr_ig_mask[ETH_ALEN] __aligned(2) = {0x01, 0, 0, 0, 0, 0};
- 
- #define IP4_ADDR_FULL_MASK	((__force __be32)~0)
-+#define IP_PROTO_FULL_MASK	0xFF
- #define PORT_FULL_MASK		((__force __be16)~0)
- #define ETHER_TYPE_FULL_MASK	((__force __be16)~0)
- 
-+static inline void ip6_fill_mask(__be32 *mask)
-+{
-+	mask[0] = mask[1] = mask[2] = mask[3] = ~(__be32)0;
-+}
-+
- static int efx_ethtool_get_class_rule(struct efx_nic *efx,
- 				      struct ethtool_rx_flow_spec *rule)
- {
- 	struct ethtool_tcpip4_spec *ip_entry = &rule->h_u.tcp_ip4_spec;
- 	struct ethtool_tcpip4_spec *ip_mask = &rule->m_u.tcp_ip4_spec;
-+	struct ethtool_usrip4_spec *uip_entry = &rule->h_u.usr_ip4_spec;
-+	struct ethtool_usrip4_spec *uip_mask = &rule->m_u.usr_ip4_spec;
-+	struct ethtool_tcpip6_spec *ip6_entry = &rule->h_u.tcp_ip6_spec;
-+	struct ethtool_tcpip6_spec *ip6_mask = &rule->m_u.tcp_ip6_spec;
-+	struct ethtool_usrip6_spec *uip6_entry = &rule->h_u.usr_ip6_spec;
-+	struct ethtool_usrip6_spec *uip6_mask = &rule->m_u.usr_ip6_spec;
- 	struct ethhdr *mac_entry = &rule->h_u.ether_spec;
- 	struct ethhdr *mac_mask = &rule->m_u.ether_spec;
- 	struct efx_filter_spec spec;
-@@ -833,6 +845,35 @@ static int efx_ethtool_get_class_rule(struct efx_nic *efx,
- 			ip_entry->psrc = spec.rem_port;
- 			ip_mask->psrc = PORT_FULL_MASK;
- 		}
-+	} else if ((spec.match_flags & EFX_FILTER_MATCH_ETHER_TYPE) &&
-+	    spec.ether_type == htons(ETH_P_IPV6) &&
-+	    (spec.match_flags & EFX_FILTER_MATCH_IP_PROTO) &&
-+	    (spec.ip_proto == IPPROTO_TCP || spec.ip_proto == IPPROTO_UDP) &&
-+	    !(spec.match_flags &
-+	      ~(EFX_FILTER_MATCH_ETHER_TYPE | EFX_FILTER_MATCH_OUTER_VID |
-+		EFX_FILTER_MATCH_LOC_HOST | EFX_FILTER_MATCH_REM_HOST |
-+		EFX_FILTER_MATCH_IP_PROTO |
-+		EFX_FILTER_MATCH_LOC_PORT | EFX_FILTER_MATCH_REM_PORT))) {
-+		rule->flow_type = ((spec.ip_proto == IPPROTO_TCP) ?
-+				   TCP_V6_FLOW : UDP_V6_FLOW);
-+		if (spec.match_flags & EFX_FILTER_MATCH_LOC_HOST) {
-+			memcpy(ip6_entry->ip6dst, spec.loc_host,
-+			       sizeof(ip6_entry->ip6dst));
-+			ip6_fill_mask(ip6_mask->ip6dst);
-+		}
-+		if (spec.match_flags & EFX_FILTER_MATCH_REM_HOST) {
-+			memcpy(ip6_entry->ip6src, spec.rem_host,
-+			       sizeof(ip6_entry->ip6src));
-+			ip6_fill_mask(ip6_mask->ip6src);
-+		}
-+		if (spec.match_flags & EFX_FILTER_MATCH_LOC_PORT) {
-+			ip6_entry->pdst = spec.loc_port;
-+			ip6_mask->pdst = PORT_FULL_MASK;
-+		}
-+		if (spec.match_flags & EFX_FILTER_MATCH_REM_PORT) {
-+			ip6_entry->psrc = spec.rem_port;
-+			ip6_mask->psrc = PORT_FULL_MASK;
-+		}
- 	} else if (!(spec.match_flags &
- 		     ~(EFX_FILTER_MATCH_LOC_MAC | EFX_FILTER_MATCH_LOC_MAC_IG |
- 		       EFX_FILTER_MATCH_REM_MAC | EFX_FILTER_MATCH_ETHER_TYPE |
-@@ -855,6 +896,47 @@ static int efx_ethtool_get_class_rule(struct efx_nic *efx,
- 			mac_entry->h_proto = spec.ether_type;
- 			mac_mask->h_proto = ETHER_TYPE_FULL_MASK;
- 		}
-+	} else if (spec.match_flags & EFX_FILTER_MATCH_ETHER_TYPE &&
-+		   spec.ether_type == htons(ETH_P_IP) &&
-+		   !(spec.match_flags &
-+		     ~(EFX_FILTER_MATCH_ETHER_TYPE | EFX_FILTER_MATCH_OUTER_VID |
-+		       EFX_FILTER_MATCH_LOC_HOST | EFX_FILTER_MATCH_REM_HOST |
-+		       EFX_FILTER_MATCH_IP_PROTO))) {
-+		rule->flow_type = IPV4_USER_FLOW;
-+		uip_entry->ip_ver = ETH_RX_NFC_IP4;
-+		if (spec.match_flags & EFX_FILTER_MATCH_IP_PROTO) {
-+			uip_mask->proto = IP_PROTO_FULL_MASK;
-+			uip_entry->proto = spec.ip_proto;
-+		}
-+		if (spec.match_flags & EFX_FILTER_MATCH_LOC_HOST) {
-+			uip_entry->ip4dst = spec.loc_host[0];
-+			uip_mask->ip4dst = IP4_ADDR_FULL_MASK;
-+		}
-+		if (spec.match_flags & EFX_FILTER_MATCH_REM_HOST) {
-+			uip_entry->ip4src = spec.rem_host[0];
-+			uip_mask->ip4src = IP4_ADDR_FULL_MASK;
-+		}
-+	} else if (spec.match_flags & EFX_FILTER_MATCH_ETHER_TYPE &&
-+		   spec.ether_type == htons(ETH_P_IPV6) &&
-+		   !(spec.match_flags &
-+		     ~(EFX_FILTER_MATCH_ETHER_TYPE | EFX_FILTER_MATCH_OUTER_VID |
-+		       EFX_FILTER_MATCH_LOC_HOST | EFX_FILTER_MATCH_REM_HOST |
-+		       EFX_FILTER_MATCH_IP_PROTO))) {
-+		rule->flow_type = IPV6_USER_FLOW;
-+		if (spec.match_flags & EFX_FILTER_MATCH_IP_PROTO) {
-+			uip6_mask->l4_proto = IP_PROTO_FULL_MASK;
-+			uip6_entry->l4_proto = spec.ip_proto;
-+		}
-+		if (spec.match_flags & EFX_FILTER_MATCH_LOC_HOST) {
-+			memcpy(uip6_entry->ip6dst, spec.loc_host,
-+			       sizeof(uip6_entry->ip6dst));
-+			ip6_fill_mask(uip6_mask->ip6dst);
-+		}
-+		if (spec.match_flags & EFX_FILTER_MATCH_REM_HOST) {
-+			memcpy(uip6_entry->ip6src, spec.rem_host,
-+			       sizeof(uip6_entry->ip6src));
-+			ip6_fill_mask(uip6_mask->ip6src);
-+		}
- 	} else {
- 		/* The above should handle all filters that we insert */
- 		WARN_ON(1);
-@@ -946,11 +1028,27 @@ efx_ethtool_get_rxnfc(struct net_device *net_dev,
- 	}
- }
- 
-+static inline bool ip6_mask_is_full(__be32 mask[4])
-+{
-+	return !~(mask[0] & mask[1] & mask[2] & mask[3]);
-+}
-+
-+static inline bool ip6_mask_is_empty(__be32 mask[4])
-+{
-+	return !(mask[0] | mask[1] | mask[2] | mask[3]);
-+}
-+
- static int efx_ethtool_set_class_rule(struct efx_nic *efx,
- 				      struct ethtool_rx_flow_spec *rule)
- {
- 	struct ethtool_tcpip4_spec *ip_entry = &rule->h_u.tcp_ip4_spec;
- 	struct ethtool_tcpip4_spec *ip_mask = &rule->m_u.tcp_ip4_spec;
-+	struct ethtool_usrip4_spec *uip_entry = &rule->h_u.usr_ip4_spec;
-+	struct ethtool_usrip4_spec *uip_mask = &rule->m_u.usr_ip4_spec;
-+	struct ethtool_tcpip6_spec *ip6_entry = &rule->h_u.tcp_ip6_spec;
-+	struct ethtool_tcpip6_spec *ip6_mask = &rule->m_u.tcp_ip6_spec;
-+	struct ethtool_usrip6_spec *uip6_entry = &rule->h_u.usr_ip6_spec;
-+	struct ethtool_usrip6_spec *uip6_mask = &rule->m_u.usr_ip6_spec;
- 	struct ethhdr *mac_entry = &rule->h_u.ether_spec;
- 	struct ethhdr *mac_mask = &rule->m_u.ether_spec;
- 	struct efx_filter_spec spec;
-@@ -1012,6 +1110,92 @@ static int efx_ethtool_set_class_rule(struct efx_nic *efx,
- 			return -EINVAL;
- 		break;
- 
-+	case TCP_V6_FLOW:
-+	case UDP_V6_FLOW:
-+		spec.match_flags = (EFX_FILTER_MATCH_ETHER_TYPE |
-+				    EFX_FILTER_MATCH_IP_PROTO);
-+		spec.ether_type = htons(ETH_P_IPV6);
-+		spec.ip_proto = ((rule->flow_type & ~FLOW_EXT) == TCP_V6_FLOW ?
-+				 IPPROTO_TCP : IPPROTO_UDP);
-+		if (!ip6_mask_is_empty(ip6_mask->ip6dst)) {
-+			if (!ip6_mask_is_full(ip6_mask->ip6dst))
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_LOC_HOST;
-+			memcpy(spec.loc_host, ip6_entry->ip6dst, sizeof(spec.loc_host));
-+		}
-+		if (!ip6_mask_is_empty(ip6_mask->ip6src)) {
-+			if (!ip6_mask_is_full(ip6_mask->ip6src))
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_REM_HOST;
-+			memcpy(spec.rem_host, ip6_entry->ip6src, sizeof(spec.rem_host));
-+		}
-+		if (ip6_mask->pdst) {
-+			if (ip6_mask->pdst != PORT_FULL_MASK)
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_LOC_PORT;
-+			spec.loc_port = ip6_entry->pdst;
-+		}
-+		if (ip6_mask->psrc) {
-+			if (ip6_mask->psrc != PORT_FULL_MASK)
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_REM_PORT;
-+			spec.rem_port = ip6_entry->psrc;
-+		}
-+		if (ip6_mask->tclass)
-+			return -EINVAL;
-+		break;
-+
-+	case IPV4_USER_FLOW:
-+		if (uip_mask->l4_4_bytes || uip_mask->tos || uip_mask->ip_ver ||
-+		    uip_entry->ip_ver != ETH_RX_NFC_IP4)
-+			return -EINVAL;
-+		spec.match_flags = EFX_FILTER_MATCH_ETHER_TYPE;
-+		spec.ether_type = htons(ETH_P_IP);
-+		if (uip_mask->ip4dst) {
-+			if (uip_mask->ip4dst != IP4_ADDR_FULL_MASK)
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_LOC_HOST;
-+			spec.loc_host[0] = uip_entry->ip4dst;
-+		}
-+		if (uip_mask->ip4src) {
-+			if (uip_mask->ip4src != IP4_ADDR_FULL_MASK)
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_REM_HOST;
-+			spec.rem_host[0] = uip_entry->ip4src;
-+		}
-+		if (uip_mask->proto) {
-+			if (uip_mask->proto != IP_PROTO_FULL_MASK)
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_IP_PROTO;
-+			spec.ip_proto = uip_entry->proto;
-+		}
-+		break;
-+
-+	case IPV6_USER_FLOW:
-+		if (uip6_mask->l4_4_bytes || uip6_mask->tclass)
-+			return -EINVAL;
-+		spec.match_flags = EFX_FILTER_MATCH_ETHER_TYPE;
-+		spec.ether_type = htons(ETH_P_IPV6);
-+		if (!ip6_mask_is_empty(uip6_mask->ip6dst)) {
-+			if (!ip6_mask_is_full(uip6_mask->ip6dst))
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_LOC_HOST;
-+			memcpy(spec.loc_host, uip6_entry->ip6dst, sizeof(spec.loc_host));
-+		}
-+		if (!ip6_mask_is_empty(uip6_mask->ip6src)) {
-+			if (!ip6_mask_is_full(uip6_mask->ip6src))
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_REM_HOST;
-+			memcpy(spec.rem_host, uip6_entry->ip6src, sizeof(spec.rem_host));
-+		}
-+		if (uip6_mask->l4_proto) {
-+			if (uip6_mask->l4_proto != IP_PROTO_FULL_MASK)
-+				return -EINVAL;
-+			spec.match_flags |= EFX_FILTER_MATCH_IP_PROTO;
-+			spec.ip_proto = uip6_entry->l4_proto;
-+		}
-+		break;
-+
- 	case ETHER_FLOW:
- 		if (!is_zero_ether_addr(mac_mask->h_dest)) {
- 			if (ether_addr_equal(mac_mask->h_dest,
+So while synchronize_net() makes sure no packets can be delivered from
+normal packet processing (through packet hook, if driver is not horribly
+buggy (like delivering packets while IFF_UPP is not there...)), we still
+might have some TX packet in a cpu completion_queue (fed in
+dev_kfree_skb_irq())
+
+This can happen if the cpu having these TX skbs had to schedule
+ksoftirqd under stress. RCU quiescent period is ended before ksoftirqd
+could perform its work.
+
+If sock_queue_err_skb() is called from __skb_complete_tx_timestamp() at
+the wrong time, we might get into this state.
+
+sock_queue_err_skb() might need to be more careful ?
