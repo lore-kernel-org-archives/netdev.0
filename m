@@ -1,115 +1,73 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: bonding reports interface up with 0 Mbps
-Date: Fri, 5 Feb 2016 13:19:16 +0800
-Message-ID: <56B430D4.4020807@gmail.com>
-References: <87618083B2453E4A8714035B62D6799250524233@FMSMSX105.amr.corp.intel.com>
- <22896.1454617773@famine> <27926.1454632634@famine>
- <87618083B2453E4A8714035B62D6799250524B75@FMSMSX105.amr.corp.intel.com>
+From: Vaneet Narang <v.narang@samsung.com>
+Subject: Re: [PATCH] af_packet: Raw socket destruction warning fix
+Date: Fri, 05 Feb 2016 05:23:35 +0000 (GMT)
+Message-ID: <1841100414.696991454649811187.JavaMail.weblogic@epmlwas05b>
+Reply-To: v.narang@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"jiri@mellanox.com" <jiri@mellanox.com>,
-	zhuyj <zyjzyj2000@gmail.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"willemb@google.com" <willemb@google.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"eyal.birger@gmail.com" <eyal.birger@gmail.com>,
+	"tklauser@distanz.ch" <tklauser@distanz.ch>,
+	"fruggeri@aristanetworks.com" <fruggeri@aristanetworks.com>,
+	"dwmw2@infradead.org" <dwmw2@infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	PANKAJ MISHRA <pankaj.m@samsung.com>,
+	Geon-ho Kim <gh007.kim@samsung.com>,
+	Hak-Bong Lee <hakbong5.lee@samsung.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Maninder Singh <maninder1.s@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34698 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752107AbcBEFSy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 00:18:54 -0500
-Received: by mail-pa0-f47.google.com with SMTP id uo6so28484920pac.1
-        for <netdev@vger.kernel.org>; Thu, 04 Feb 2016 21:18:53 -0800 (PST)
-In-Reply-To: <87618083B2453E4A8714035B62D6799250524B75@FMSMSX105.amr.corp.intel.com>
+Received: from mailout4.samsung.com ([203.254.224.34]:58937 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752110AbcBEFYU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 00:24:20 -0500
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout4.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0O2202OYD70IFU60@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Fri, 05 Feb 2016 14:24:18 +0900 (KST)
+MIME-version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/05/2016 08:43 AM, Tantilov, Emil S wrote:
->> -----Original Message-----
->> From: Jay Vosburgh [mailto:jay.vosburgh@canonical.com]
->> Sent: Thursday, February 04, 2016 4:37 PM
->> To: Tantilov, Emil S
->> Cc: netdev@vger.kernel.org; gospo@cumulusnetworks.com; zhuyj;
->> jiri@mellanox.com
->> Subject: Re: bonding reports interface up with 0 Mbps
->>
->> Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
->> [...]
->>> 	Thinking about the trace again... Emil: what happens in the
->>> trace before this?  Is there ever a call to the ixgbe_get_settings?
->>> Does a NETDEV_UP or NETDEV_CHANGE event ever hit the bond_netdev_event
->>> function?
->> 	Emil kindly sent me the trace offline, and I think I see what's
->> going on.  It looks like the sequence of events is:
->>
->> bond_enslave ->
->> 	bond_update_speed_duplex (device is down, thus DUPLEX/SPEED_UNKNOWN)
->> 	[ do rest of enslavement, start miimon periodic work ]
->>
->> 	[ time passes, device goes carrier up ]
->>
->> ixgbe_service_task: eth1: NIC Link is Up 10 Gbps ->
->> 	netif_carrier_on (arranges for NETDEV_CHANGE notifier out of line)
->>
->> 	[ a few microseconds later ]
->>
->> bond_mii_monitor ->
->> 	bond_check_dev_link	(now is carrier up)
->> 	bond_miimon_commit ->	(emits "0 Mbps full duplex" message)
->> 		bond_lower_state_changed ->
->> 			bond_netdev_event (NETDEV_CHANGELOWERSTATE, is ignored)
->> 		bond_3ad_handle_link_change	(sees DUPLEX/SPEED_UNKNOWN)
->>
->> 	[ a few microseconds later, in response to ixgbe's netif_carrier_on ]
->>
->> notifier_call_chain ->
->> 	bond_netdev_event NETDEV_CHANGE ->
->> 		bond_update_speed_duplex (sees correct SPEED_10000/FULL) ->
->> 			bond_3ad_adapter_speed_duplex_changed (updates 802.3ad)
->>
->> 	Basically, the race is that the periodic bond_mii_monitor is
->> squeezing in between the link going up and bonding's update of the speed
->> and duplex in response to the NETDEV_CHANGE triggered by the driver's
->> netif_carrier_on call.  bonding ends up using the stale duplex and speed
->> information obtained at enslavement time.
->>
->> 	I think that, nowadays, the initial speed and duplex will pretty
->> much always be UNKNOWN, at least for real Ethernet devices, because it
->> will take longer to autoneg than the time between the dev_open and
->> bond_update_speed_duplex calls in bond_enslave.
->>
->> 	Adding a case to bond_netdev_event for CHANGELOWERSTATE works
->> because it's a synchronous call from bonding.  For purposes of fixing
->> this, it's more or less equivalent to calling bond_update_speed_duplex
-> >from bond_miimon_commit (which is part of a test patch I posted earlier
->> today).
->>
->> 	If the above analysis is correct, then I would expect this patch
->> to make the problem go away:
->>
->> diff --git a/drivers/net/bonding/bond_main.c
->> b/drivers/net/bonding/bond_main.c
->> index 56b560558884..cabaeb61333d 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -2127,6 +2127,7 @@ static void bond_miimon_commit(struct bonding *bond)
->> 			continue;
->>
->> 		case BOND_LINK_UP:
->> +			bond_update_speed_duplex(slave);
->> 			bond_set_slave_link_state(slave, BOND_LINK_UP,
->> 						  BOND_SLAVE_NOTIFY_NOW);
->> 			slave->last_link_up = jiffies;
->>
->>
->> 	Emil, can you give just the above a test?
-> Sure I'll fire it up.
-Let me know the test result.
-
-Thanks a lot.
-Zhu Yanjun
->
-> Thanks,
-> Emil
->
+SGksDQoNCj4+DQo+PiBJc3N1ZSBpcyBjb21pbmcgZm9yIDMuMTAuNTguDQo+DQoNClNvcnJ5IGZv
+ciBsYXRlIHJlcGx5LCB3ZSB3ZXJlIHRyeWluZyB0byByZXByb2R1Y2UgdGhlIGlzc3VlIGJ1dCBp
+dHMgbm90IHRoYXQgZnJlcXVlbnQuDQoNCj5XaGF0IGRyaXZlciBhcmUgeW91IHVzaW5nIChpcyB0
+aGF0IGluLXRyZWUpPw0KDQp3ZSBhcmUgZmFjaW5nIGlzc3VlIHdpdGggd2lyZWxlc3MgZHJpdmVy
+LiBJcyBpdCBwb3NzaWJsZSB0aGF0IHdpcmVsZXNzIGRyaXZlcg0KY2FuIGNhdXNlIGFueSBpc3N1
+ZSBiZWNhdXNlIHJtZW0gYWNjb3VudGluZyBpcyBkb25lIGJ5IGtlcm5lbC4NCg0KPkNhbiB5b3Ug
+cmVwcm9kdWNlIHRoZSBzYW1lIGlzc3VlDQo+d2l0aCBhIGxhdGVzdCAtbmV0IGtlcm5lbCwgZm9y
+IGV4YW1wbGUgKG9yLCBhICdyZWFzb25hYmx5JyByZWNlbnQgb25lIGxpa2UgNC4zIG9yDQo+NC40
+KT8gVGhlcmUgaGFzIGJlZW4gcXVpdGUgYSBiaXQgb2YgY2hhbmdlcyBpbiBlcnIgcXVldWUgaGFu
+ZGxpbmcgKHdoaWNoIGFsc28NCj5hY2NvdW50cyBybWVtKSBhcyB3ZWxsLg0KDQpJdCBkaWZmaWN1
+bHQgdG8gcG9ydCBvbiA0LjMgYXMgb2Ygbm93IGJ1dCBjYW4geW91IHN1Z2dlc3Qgc29tZSBwYXRj
+aGVzIHdoaWNoIGNhbg0KYmUgaGVscGZ1bC4gT25lIG1vcmUgdGhpbmcsIGNhbiBodHRwczovL2xr
+bWwub3JnL2xrbWwvMjAxNS85LzE1LzYzNC4gY2hhbmdlIA0KaW4gbGludXgga2VybmVsIGNhdXNl
+IHRoaXMgaXNzdWUuIEp1c3QgYW4gb2JzZXJ2YXRpb24gKGNvdWxkIGJlIGluY29ycmVjdCksIGFm
+dGVyIA0KaW5jbHVkaW5nIHRoaXMgY2hhbmdlIHdlIGFyZSBmYWNpbmcgdGhpcyBpc3N1ZS4NCg0K
+PkhvdyByZWxpYWJseSBjYW4geW91IHRyaWdnZXIgdGhlIGlzc3VlPyBEb2VzIGl0IHRyaWdnZXIN
+Cj53aXRoIGEgY29tcGxldGVseSBkaWZmZXJlbnQgaW4tdHJlZSBuZXR3b3JrIGRyaXZlciBhcyB3
+ZWxsIHdpdGggeW91ciB0ZXN0cz8NCg0KVGhpcyBpc3N1ZSBpcyBub3QgZWFzaWx5IHJlcHJvZHVj
+aWJsZS4gVGhpcyBpc3N1ZSBnZXRzIHJlcHJvZHVjZWQgaW4gbG9uZyB0ZXJtDQp0ZXN0aW5nLiBZ
+ZXMgd2lyZWxlc3MgbmV0d29yayBkcml2ZXIgaXMgbm90IGluIHRyZWUuDQoNCj5Xb3VsZCBiZSB1
+c2VmdWwgdG8gdHJhY2svZGVidWcgc2tfcm1lbV9hbGxvYyBpbmNyZWFzZXMvZGVjcmVhc2VzIHRv
+IHNlZSBmcm9tIHdoaWNoIHBhdGgNCj5uZXcgcm1lbSBpcyBiZWluZyBjaGFyZ2VkIGluIHRoZSB0
+aW1lIGJldHdlZW4gcGFja2V0X3JlbGVhc2UoKSBhbmQgcGFja2V0X3NvY2tfZGVzdHJ1Y3QoKQ0K
+PmZvciB0aGF0IHNvY2tldCAuLi4NCg0KQXMgaSBtZW50aW9uZWQsIGl0cyBub3QgZWFzaWx5IHJl
+cHJvZHVjaWJsZSBidXQgd2UgaGF2ZSBhZGRlZCBzb21lIGRlYnVnIHBhdGNoIGluIA0KcGFja2V0
+X3NvY2tfZGVzdHJ1Y3QgdG8gY2hlY2sgdGhlIHZhbHVlIG9mIHJtZW1fYWxsb2MuIA0KU28gYXMg
+cGVyIGxvZ3MsIEF0IHRoZSBlbnRyeSBwb2ludCBybWVtX2FsbG9jIHdhcyAwIGJ1dCBhZnRlciBl
+cnJvciBxdWV1ZSBwdXJnZSANCml0IGJlY29tZXMgc29tZSA1NzYoc2VlbXMgYSBuZXcgcGFja2V0
+IGFkZGVkKS4gTm90IHN1cmUgd2hpY2ggcXVldWUuIA0KSXMgaXQgcG9zc2libGUgdGhhdCBrZXJu
+ZWwgY2FuIHN0aWxsIGFkZCBwYWNrZXRzIGluIHJlY2VpdmUgcXVldWUgd2hlbiBzb2NrZXQgaXMg
+YWxyZWFkeSBjbG9zZWQsIA0KY2FuIHlvdSBwb2ludCB0aGUga2VybmVsIGNvZGUgd2hlcmUgdGhp
+cyBpcyBhdm9pZGVkIG9yIGlzIHRoZXJlIGFueSB3YXkgdGhpcyBnZXRzIGFkZGVkIHRvIGVycm9y
+DQpxdWV1ZS4gDQpBcyBwZXIgbXkgdW5kZXJzdGFuZGluZyBybWVtX2FsbG9jIGdldHMgaW5jcmVh
+c2VkIG9ubHkgaWYgcGFja2V0cyBnZXRzIGFkZGVkIHRvIHJlY2VpdmUgcXVldWUNCm9yIGVycm9y
+IHF1ZXVlLiBJcyBpdCBhbnkgb3RoZXIgcXVldWUgd2hpY2ggYWxzbyBjaGFuZ2VzIHJtZW1fYWxs
+b2M/DQoNClRoYW5rcywNClZhbmVldCBOYXJhbmcNCi4uLi4uLi4uLi4uLi4uLi4uLi4uLg==
