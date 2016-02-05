@@ -1,54 +1,57 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
-Date: Fri, 5 Feb 2016 10:07:32 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCD6FBB@AcuExch.aculab.com>
-References: <1454527121-4007853-1-git-send-email-tom@herbertland.com>
- <20160204093021.GB1553@gmail.com>
- <CA+55aFxqs+mE=s4UkNQXJA8JjAKKb6vk1JO672jdEuWtsJ=hVg@mail.gmail.com>
- <CALx6S37+F9UnyDuOgXHKqhNQvBXoQe8G2GCWPbhZE8QBdmz3vg@mail.gmail.com>
- <20160205080136.GA31671@gmail.com>
+Subject: RE: [PATCH v2 2/4] lib: update single-char callers of strtobool
+Date: Fri, 5 Feb 2016 10:46:19 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCD6FE5@AcuExch.aculab.com>
+References: <1454619643-14444-1-git-send-email-keescook@chromium.org>
+ <1454619643-14444-3-git-send-email-keescook@chromium.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	"Thomas Gleixner" <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>, Peter Anvin <hpa@zytor.com>,
-	the arch/x86 maintainers <x86@kernel.org>,
-	kernel-team <kernel-team@fb.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: 'Ingo Molnar' <mingo@kernel.org>, Tom Herbert <tom@herbertland.com>
+Cc: Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Steve French <sfrench@samba.org>,
+	"linux-cifs@vger.kernel.org" <linux-cifs@vger.kernel.org>,
+	Joe Perches <joe@perches.com>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	"Martin Schwidefsky" <schwidefsky@de.ibm.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Kees Cook' <keescook@chromium.org>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160205080136.GA31671@gmail.com>
+In-Reply-To: <1454619643-14444-3-git-send-email-keescook@chromium.org>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ingo Molnar
-...
-> As Linus noticed, data lookup tables are the intelligent solution: if you manage
-> to offload the logic into arithmetics and not affect the control flow then that's
-> a big win. The inherent branching will be hidden by executing on massively
-> parallel arithmetics units which effectively execute everything fed to them in a
-> single cycle.
+From: Kees Cook
+> Sent: 04 February 2016 21:01
+> Some callers of strtobool were passing a pointer to unterminated strings.
+> In preparation of adding multi-character processing to kstrtobool, update
+> the callers to not pass single-character pointers, and switch to using the
+> new kstrtobool_from_user helper where possible.
 
-Not necessarily, in real-life they are likely to be a cache miss.
+Personally I think you should change the name of the function so that the
+compiler (and linker) will pick up places that have not been changed.
+Relying on people to make the required changes will cause problems.
 
-With the parallel execution units you just need to worry about the
-register dependency chains.
-In this case the 'adc' have dependencies on both the result register
-and the flags register.
+The current code (presumably) treats "no", "nyet" and "nkjkkrkjrkjterkj" as false.
+Changing that behaviour will break things.
 
-The best loop might even be:
-10:	adc	%rax,0(%rdi,%rcx)
-	lea	%rcx,8(%rcx)
-	jcxz	20f
-	jmp	10b
-20:
-
-You then need to insert just enough copies of the adc so they take as long
-as the other instructions.
+If you want to support "on" and "off", then maybe check for the supplied string
+starting with the character sequences "on\0" and "off\0" (as well as any others).
+This doesn't need the input string be '\0' terminated - since you match y and n
+without looking at the 2nd byte.
+You'd have to be extremely unlucky to get a page fault in the 3 bytes
+following an 'o' if the caller supplied a single byte buffer.
 
 	David
