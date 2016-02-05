@@ -1,70 +1,71 @@
 From: Lubomir Rintel <lkundrak@v3.sk>
-Subject: Re: [PATCH 1/3] ifb: make device count build-time configurable
-Date: Fri, 05 Feb 2016 16:02:12 +0100
-Message-ID: <1454684532.2779.5.camel@v3.sk>
-References: <1452599804-27284-1-git-send-email-lkundrak@v3.sk>
-	 <5694F7BA.3040402@mojatatu.com> <20160112104437.0e1a841b@xeon-e3>
-	 <20160112.155440.538873882796833417.davem@davemloft.net>
+Subject: Re: [PATCH 3/3] bonding: make device count build-time configurable
+Date: Fri, 05 Feb 2016 16:07:12 +0100
+Message-ID: <1454684832.2779.10.camel@v3.sk>
+References: <1452599916-27511-1-git-send-email-lkundrak@v3.sk>
+	 <8166.1452616452@famine> <1452619189.18559.83.camel@v3.sk>
+	 <20160112.154914.397367508465928770.davem@davemloft.net>
+	 <87bn8qv5m4.fsf@nemi.mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shell.v3.sk ([92.60.52.57]:53795 "EHLO shell.v3.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750853AbcBEPC1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 10:02:27 -0500
-In-Reply-To: <20160112.155440.538873882796833417.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jay.vosburgh@canonical.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vfalico@gmail.com,
+	gospo@cumulusnetworks.com
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87bn8qv5m4.fsf@nemi.mork.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-01-12 at 15:54 -0500, David Miller wrote:
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Tue, 12 Jan 2016 10:44:37 -0800
->=20
-> > On Tue, 12 Jan 2016 07:55:22 -0500
-> > Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> >=C2=A0
-> >> On 16-01-12 06:56 AM, Lubomir Rintel wrote:
-> >> > The devices can be created at run-time for quite some time
-> already and the
-> >> > load-time device creation collides with attempts to create the
-> device of
-> >> > the same name:
-> >> >
-> >> >=C2=A0=C2=A0=C2=A0 # rmmod ifb
-> >> >=C2=A0=C2=A0=C2=A0 # ip link add ifb0 type ifb
-> >> >=C2=A0=C2=A0=C2=A0 RTNETLINK answers: File exists
-> >> >
-> >> > This is pretty much the same situation as was with the block
-> loop devices
-> >> > which was solved by adding a build-time configuration that the
-> >> > distributions could use as they deem fit while keeping the
-> default for
-> >> > compatibility.
-> >> >
-> >> > Let's do that here as well.
-> >> >
-> >> > Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
-> >>=C2=A0
-> >> I guess module options are frowned upon. so:
-> >=C2=A0
-> > I would prefer that this were done with a module parameter, the
-> same as dummy.
-> > Only developers build their own configured kernels. Having the
-> value set later
-> > at module load time is preferable.
->=20
-> I like this even less, it means tools behave significantly
-> differently
-> based upon what module options were passed to the kernel.
->=20
-> Module options really should not change kernel behavior like this..
+Hi=C2=A0Bj=C3=B8rn,
 
-The module option is already there. It's defaults (creating the devices
-noone asked for and that potentially collide with what the user tried
-to create) are what we find bothersome.
+On Tue, 2016-01-12 at 22:40 +0100, Bj=C3=B8rn Mork wrote:
+> David Miller <davem@davemloft.net> writes:
+> > From: Lubomir Rintel <lkundrak@v3.sk>
+> > Date: Tue, 12 Jan 2016 18:19:49 +0100
+> >=20
+> > > It's still an improvement to let the distributions decide if
+> > > they're
+> > > keeping "ip link add" broken or possibly affecting the scripts.
+> >=20
+> > That it is "broken" is your opinion.
+> >=20
+> > Document the behavior.=C2=A0=C2=A0It is not broken if the user is t=
+old to be
+> > mindful of what devices are created by default.
+> >=20
+> > There is way too much downside to changing this.
+>=20
+> Besides, distributions or admins can already change that behaviour if
+> they consider it "broken", using the existing module parameter:
+>=20
+> =C2=A0# echo "options bonding max_bonds=3D0" >/etc/modprobe.d/bonding=
+=2Econf
+> =C2=A0# rmmod bonding
+> =C2=A0# ip link add bond0 type bond
+> =C2=A0(no error here)
+>=20
+> This method should be well known and understood by most users,
+> contrary
+> to some odd CONFIG_ build time setting.
 
+Yes, that's an alternative solution. We may end up shipping such
+configuration file, though it's not really clear what package should
+ship it (probably systemd?).
+
+I'd still prefer a kernel build-time option. It's more likely for
+distributions to do the decision they prefer when running make
+oldconfig. I'm assuming most distros would like to drop the legacy
+behavior; at this point noone probably relies on it anyway, given
+NetworkManager works around this by manually loading the module with
+the maxbonds=3D0 manually.
+
+Also, there's prior art to addressing this in kernel; the block
+loopback.
+
+> Bj=C3=B8rn
+
+Regards,
 Lubo
