@@ -1,43 +1,64 @@
-From: Joseph Salisbury <joseph.salisbury@canonical.com>
-Subject: [V4.4-rc6 Regression] af_unix: Revert 'lock_interruptible' in stream
- receive code
-Date: Fri, 5 Feb 2016 13:50:44 -0500
-Message-ID: <56B4EF04.2060407@canonical.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: Keystone 2 boards boot failure
+Date: Fri, 5 Feb 2016 13:55:37 -0500
+Message-ID: <56B4F029.3090804@ti.com>
+References: <56B0DE61.2000704@ti.com> <10700980.gTvMTB9pzv@wuerfel>
+ <56B15591.7080409@ti.com> <1682165.IJ7dHXqc6L@wuerfel>
+ <56B233F3.40000@oracle.com> <56B24B3F.2070906@ti.com>
+ <56B25F7C.4060507@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: hannes@stressinduktion.org,
-	"davem@davemloft.net" <davem@davemloft.net>, edumazet@google.com,
-	dhowells@redhat.com, ying.xue@windriver.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-To: rweikusat@mobileactivedefense.com
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <w-kwok2@ti.com>, <davem@davemloft.net>
+To: santosh shilimkar <santosh.shilimkar@oracle.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"Franklin S Cooper Jr." <fcooper@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:52482 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751726AbcBESzq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Feb 2016 13:55:46 -0500
+In-Reply-To: <56B25F7C.4060507@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rainer,
+On 02/03/2016 03:13 PM, santosh shilimkar wrote:
+> On 2/3/2016 10:47 AM, Murali Karicheri wrote:
+>> On 02/03/2016 12:08 PM, santosh shilimkar wrote:
+>>> On 2/3/2016 8:35 AM, Arnd Bergmann wrote:
+> 
+> [..]
+> 
+>>>> It would be nice to give this a go once the network driver problem
+>>>> is solved.
+>>>>
+>>> Big endian kernel has worked on Keystone in past.
+>>
+>> Yes, this was on a v3.10.x baseline, not in the upstream.
+>>
+> Thats what I mean in past. That time upstream didn't have
+> ARM BE patches o.w there was no other depedency.
+> 
+>>> Yes, above secondary hook needs to be modified along with
+>>> drivers endian macro conversion was what was needed IIRC.
+>>>
+>>
+>> To support BE, it may be more than Netcp driver. Do you recall, what
+>> changes you did to get BE working on Keystone? Is it just NetCP driver?
+>>
+> IIRC it was Navigator (QMSS, DMA), NETCP, SPI and couple of
+> of more drivers. Driver update was a massive patch done by Prabhu.
+> 
+Ok. Thanks.
 
-A kernel bug report was opened against Ubuntu [0].  After a kernel
-bisect, it was found that reverting the following commit resolved this bug:
+Murali
+> Regards,
+> Santosh
+> 
+> 
+> 
 
-commit 3822b5c2fc62e3de8a0f33806ff279fb7df92432
-Author: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Date:   Wed Dec 16 20:09:25 2015 +0000
 
-    af_unix: Revert 'lock_interruptible' in stream receive code
-
-      
-The regression was introduced as of v4.4-rc6.
-
-I was hoping to get your feedback, since you are the patch author.  Do
-you think gathering any additional data will help diagnose this issue,
-or would it be best to submit a revert request?
-
-    
-Thanks,
-    
-Joe
-
-[0] http://pad.lv/1540731
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
