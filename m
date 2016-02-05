@@ -1,78 +1,82 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 net-next 4/4] net: fib: avoid calling fib_flush for
- each device when doing batch close and unregister
-Date: Fri, 5 Feb 2016 19:04:02 +0300
-Message-ID: <56B4C7F2.1020109@cogentembedded.com>
-References: <1454628956-4803-1-git-send-email-noureddine@arista.com>
- <1454628956-4803-5-git-send-email-noureddine@arista.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: gigaset: memory leak in gigaset_initcshw
+Date: Fri, 05 Feb 2016 17:06:27 +0100
+Message-ID: <1454688387.28847.34.camel@tiscali.nl>
+References: <CACT4Y+Y+P7-pM0D4HTz4ZF6i+Rya22eOkPdnrv_OmDCMB7eQtg@mail.gmail.com>
+	 <1454516189.14366.8.camel@tiscali.nl>
+	 <1454526665.14366.22.camel@tiscali.nl>
+	 <CACT4Y+aDi8L_GELzVv7QM8YdtMD7q-wH4uO7LhioeSvaEU5PJg@mail.gmail.com>
+	 <1454591389.14366.49.camel@tiscali.nl>
+	 <CACT4Y+aXo83LjyOjVG2ihyR94kex-z+=Of+x8o4i+0q8964-1g@mail.gmail.com>
+	 <1454593604.14366.65.camel@tiscali.nl>
+	 <CACT4Y+b2z0NHVPQbyYP1CA_80hXxhk+VOG6dzduMEsi+27Pi7Q@mail.gmail.com>
+	 <1454598375.14366.72.camel@tiscali.nl>
+	 <CACT4Y+aNN8AAtRSvxxrP5RfsTZdd49odnQ_GRq86Y=jXr=pANw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Salam Noureddine <noureddine@arista.com>,
+Cc: Karsten Keil <isdn@linux-pingi.de>,
 	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:34070 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753967AbcBEQEH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 11:04:07 -0500
-Received: by mail-lb0-f178.google.com with SMTP id cw1so52076700lbb.1
-        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 08:04:05 -0800 (PST)
-In-Reply-To: <1454628956-4803-5-git-send-email-noureddine@arista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+aNN8AAtRSvxxrP5RfsTZdd49odnQ_GRq86Y=jXr=pANw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/05/2016 02:35 AM, Salam Noureddine wrote:
+Hi Dmitry,
 
-> Call fib_flush at the end when closing or unregistering multiple
-> devices. This can save walking the fib many times and greatly
-> reduce rtnl_lock hold time when unregistering many devices with
-> a fib having hundreds of thousands of routes.
->
-> Signed-off-by: Salam Noureddine <noureddine@arista.com>
-> ---
->   include/net/netns/ipv4.h |  1 +
->   net/ipv4/fib_frontend.c  | 16 ++++++++++++++--
->   2 files changed, 15 insertions(+), 2 deletions(-)
->
-> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-> index d75be32..d59a078 100644
-> --- a/include/net/netns/ipv4.h
-> +++ b/include/net/netns/ipv4.h
-[...]
-> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-> index 4734475..808426e 100644
-> --- a/net/ipv4/fib_frontend.c
-> +++ b/net/ipv4/fib_frontend.c
-> @@ -1161,11 +1161,22 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
->   	unsigned int flags;
->
->   	if (event == NETDEV_UNREGISTER) {
-> -		fib_disable_ip(dev, event, true);
-> +		if (fib_sync_down_dev(dev, event, true))
-> +			net->ipv4.needs_fib_flush = true;
->   		rt_flush_dev(dev);
->   		return NOTIFY_DONE;
->   	}
->
-> +	if (event == NETDEV_UNREGISTER_BATCH || event == NETDEV_DOWN_BATCH) {
-> +		if (net->ipv4.needs_fib_flush) {
-> +			fib_flush(net);
-> +			net->ipv4.needs_fib_flush = false;
-> +		}
-> +		rt_cache_flush(net);
-> +		arp_ifdown_all();
-> +		return NOTIFY_DONE;
-> +	}
-> +
+(If anyone is confused by this conversation: Dmitry replied to an off
+list message.)
 
-    I'd convert to *switch* the above 2 *if*'s...
+On vr, 2016-02-05 at 14:28 +0100, Dmitry Vyukov wrote:
+> I wonder why you don't see the leak I am seeing...
 
-[...]
+So do I, for a few days now.
 
-MBR, Sergei
+> are you suing qemu or real hardware? I am using qemu.
+
+Real hardware (a ThinkPad). Probably less powerful that your VM.
+
+What is the rate you're seeing leakage of a struct ser_cardstate? I'm
+running your latest test at about 2.000 TIOCSETD's per second - which is
+by itself not very useful for our driver - and notice no _obvious_
+leakage when I do that for a few minutes. I do note the hardware
+screaming to just keep up with the abuse, though.
+
+> I've added the following change:
+> 
+> --- a/drivers/isdn/gigaset/ser-gigaset.c
+> +++ b/drivers/isdn/gigaset/ser-gigaset.c
+> @@ -396,6 +396,7 @@ static int gigaset_initcshw(struct cardstate *cs)
+>                 pr_err("out of memory\n");
+>                 return -ENOMEM;
+>         }
+> +       WARN_ON(cs->hw.ser != NULL);
+>         cs->hw.ser = scs;
+> 
+>         cs->hw.ser->dev.name = GIGASET_MODULENAME;
+> 
+> and it does fire.
+> Can it be a case that free_cs() runs before gigaset_device_release()?
+
+gigaset_device_release() is the release operation that is run when our
+struct device goes away. The core code is responsible for calling it, we
+can't be certain when that will happen. At least, we should not expect
+it to happen directly after calling platform_device_unregister().
+
+(It was actually syzkaller that warned us that we did just that until
+recently. See commit 4c5e354a9742 ("ser_gigaset: fix deallocation of
+platform device structure").)
+
+> If that would happen, then cs can be reused while the previous
+> cs->hw.ser is not freed yet. Just a guess.
+
+I'll have to ponder on that a bit, sorry.
+
+
+Paul Bolle
