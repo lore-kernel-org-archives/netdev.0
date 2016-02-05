@@ -1,80 +1,54 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next RFC 0/6] Introduce devlink interface and first
- drivers to use it
-Date: Fri, 5 Feb 2016 11:01:22 +0100
-Message-ID: <56B472F2.6080101@stressinduktion.org>
-References: <1454496482-13961-1-git-send-email-jiri@resnulli.us>
- <20160203143133.1b70bcb5@redhat.com> <20160203133356.GA2219@nanopsycho.orion>
- <56B219FA.7080208@iogearbox.net> <56B35089.4000707@stressinduktion.org>
- <20160204132622.GB2198@nanopsycho.orion>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
+Date: Fri, 5 Feb 2016 10:07:32 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCD6FBB@AcuExch.aculab.com>
+References: <1454527121-4007853-1-git-send-email-tom@herbertland.com>
+ <20160204093021.GB1553@gmail.com>
+ <CA+55aFxqs+mE=s4UkNQXJA8JjAKKb6vk1JO672jdEuWtsJ=hVg@mail.gmail.com>
+ <CALx6S37+F9UnyDuOgXHKqhNQvBXoQe8G2GCWPbhZE8QBdmz3vg@mail.gmail.com>
+ <20160205080136.GA31671@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, eugenia@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
-	jeffrey.t.kirsher@intel.com, jbenc@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:58180 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750811AbcBEKBc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 05:01:32 -0500
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id 26BAA20BA5
-	for <netdev@vger.kernel.org>; Fri,  5 Feb 2016 05:01:29 -0500 (EST)
-In-Reply-To: <20160204132622.GB2198@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	"Thomas Gleixner" <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>, Peter Anvin <hpa@zytor.com>,
+	the arch/x86 maintainers <x86@kernel.org>,
+	kernel-team <kernel-team@fb.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: 'Ingo Molnar' <mingo@kernel.org>, Tom Herbert <tom@herbertland.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160205080136.GA31671@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04.02.2016 14:26, Jiri Pirko wrote:
-> Thu, Feb 04, 2016 at 02:22:17PM CET, hannes@stressinduktion.org wrote:
->> On 03.02.2016 16:17, Daniel Borkmann wrote:
->>> On 02/03/2016 02:33 PM, Jiri Pirko wrote:
->>>> Wed, Feb 03, 2016 at 02:31:33PM CET, brouer@redhat.com wrote:
->>>>> On Wed,  3 Feb 2016 11:47:56 +0100
->>>>> Jiri Pirko <jiri@resnulli.us> wrote:
->>>>>> From: Jiri Pirko <jiri@mellanox.com>
->>> [...]
->>>>>> It is available here:
->>>>>> https://github.com/jpirko/devlink
->>>>>
->>>>> IHMO this very short command name "dl" is not an advantage.  It is
->>>>> simply too unspecific and short for a good Google search.  E.g. when
->>>>> searching for good examples for using "dl".  I think "devlink" would be
->>>>> better.  If you like short commands do: alias dl="devlink"
->>>>
->>>> I was thinking about using "devlink". Decided to go with shortened
->>>> version so this is in-line with "ip". But you have a point.
->>>
->>> Btw, if you add this tool into iproute2 (which would be preferred), then
->>> probably dl should be ok (and easier retrievable in that relation).
->>
->> This doesn't seem to be too much related to networking? Why can't something
->> like this be in sysfs?
->
-> It is related to networking quite bit. There has been couple of
-> iteration of this, including sysfs and configfs implementations. There
-> has been a consensus reached that this should be done by netlink. I
-> believe netlink is really the best for this purpose. Sysfs is not a good
-> idea.
+From: Ingo Molnar
+...
+> As Linus noticed, data lookup tables are the intelligent solution: if you manage
+> to offload the logic into arithmetics and not affect the control flow then that's
+> a big win. The inherent branching will be hidden by executing on massively
+> parallel arithmetics units which effectively execute everything fed to them in a
+> single cycle.
 
-Okay. I see it more as changing mode of operation of hardware and thus 
-has not really anything to do with networking. If you say you change 
-ethernet to infiniband it has something to do with networking, sure. But 
-I am fine with this, I just thought the code size could be reduced by 
-adding this to sysfs quite a lot. I don't have a strong opinion on this.
+Not necessarily, in real-life they are likely to be a cache miss.
 
-The attributes seem to reassemble sysfs quite a lot and at the same time 
-implement a dependency on the ifindex which in a relational model is not 
-really possible? Do infiniband devices have ifindexes? Names for 
-infiniband and netdev are hardcoded? Shouldn't an interface to deliver 
-hw msg be better in terms of streaming than using netlink?
+With the parallel execution units you just need to worry about the
+register dependency chains.
+In this case the 'adc' have dependencies on both the result register
+and the flags register.
 
-Thanks,
-Hannes
+The best loop might even be:
+10:	adc	%rax,0(%rdi,%rcx)
+	lea	%rcx,8(%rcx)
+	jcxz	20f
+	jmp	10b
+20:
+
+You then need to insert just enough copies of the adc so they take as long
+as the other instructions.
+
+	David
