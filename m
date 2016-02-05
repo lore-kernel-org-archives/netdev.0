@@ -1,66 +1,57 @@
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: Re: [PATCH] net: smc911x: convert pxa dma to dmaengine
-Date: Fri, 05 Feb 2016 22:44:56 +0100
-Message-ID: <87k2mi4ysn.fsf@belgarion.home>
-References: <1448919628-13273-1-git-send-email-robert.jarzmik@free.fr>
-	<20151202.235217.2201517065767030121.davem@davemloft.net>
-	<87fuzjl69l.fsf@belgarion.home>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Alberto Panizzo <maramaopercheseimorto@gmail.com>,
-	Guennadi Liakhovetski <g.liakhovetski@gmx.de>,
-	Hitoshi Mitake <mitake@dcl.info.waseda.ac.jp>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87fuzjl69l.fsf@belgarion.home> (Robert Jarzmik's message of
-	"Thu, 03 Dec 2015 19:46:30 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next V2 1/8] net: fec: stop the "rcv is not +last, " error messages
+Date: Fri,  5 Feb 2016 14:52:43 -0700
+Message-ID: <1454709170-19527-2-git-send-email-troy.kisky@boundarydevices.com>
+References: <1454709170-19527-1-git-send-email-troy.kisky@boundarydevices.com>
+Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
+	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
+	linux-arm-kernel@lists.infradead.org, laci@boundarydevices.com,
+	shawnguo@kernel.org, johannes@sipsolutions.net, arnd@arndb.de,
+	Troy Kisky <troy.kisky@boundarydevices.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:32795 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751123AbcBEVzG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 16:55:06 -0500
+Received: by mail-pf0-f169.google.com with SMTP id w123so75565803pfb.0
+        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 13:55:06 -0800 (PST)
+In-Reply-To: <1454709170-19527-1-git-send-email-troy.kisky@boundarydevices.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Robert Jarzmik <robert.jarzmik@free.fr> writes:
+Setting the FTRL register will stop the fec from
+trying to use multiple receive buffers.
 
-> David Miller <davem@davemloft.net> writes:
->
->> From: Robert Jarzmik <robert.jarzmik@free.fr>
->> Date: Mon, 30 Nov 2015 22:40:28 +0100
->>
->>> Convert the dma transfers to be dmaengine based, now pxa has a dmaengine
->>> slave driver. This makes this driver a bit more PXA agnostic.
->>> 
->>> The driver was only compile tested. The risk is quite small as no
->>> current PXA platform I'm aware of is using smc911x driver.
->>> 
->>> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
->>
->> I've marked this 'deferred' in patchwork until someone tests
->> these changes and says they should be good on all platforms
->> this chip is used.
->
-> Okay, so would any maintainer of non pxa boards give a feedback for this patch ?
-> The ones I have found are :
->  - sh2007: Guennadi and Hitoshi
->  - armadillo5x0: Alberto
->  - imx v6 and imx v7: Fabio
-> I've added the patch at the end of this mail for easier handling.
->
-> Now, if no maintainer gives it a test, what do we do, David ? I'm intending to
-> remove "arch/arm/mach-pxa/include/mach/dma.h" in the near future, which will
-> break this driver somehow (at least for PXA boards, even if none is identified
-> so far).
-> So could we agree on a deadline, and what you wish to do : either drop the patch
-> or apply, or something else.
+Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+---
+ drivers/net/ethernet/freescale/fec.h      | 1 +
+ drivers/net/ethernet/freescale/fec_main.c | 1 +
+ 2 files changed, 2 insertions(+)
 
-Hi David,
-
-Apart from Alberto who answered he cannot test it by lack of hardware, the
-others didn't answer.
-
-So how can I move forward ? Would you want me to amend the KConfig to add a "&&
-!ARCH_PXA" on the "depend" line ?
-
-Cheers.
-
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 2106d72..cc9677a 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -64,6 +64,7 @@
+ #define FEC_R_FIFO_RSEM		0x194 /* Receive FIFO section empty threshold */
+ #define FEC_R_FIFO_RAEM		0x198 /* Receive FIFO almost empty threshold */
+ #define FEC_R_FIFO_RAFL		0x19c /* Receive FIFO almost full threshold */
++#define FEC_FTRL		0x1b0 /* Frame truncation receive length*/
+ #define FEC_RACC		0x1c4 /* Receive Accelerator function */
+ #define FEC_RCMR_1		0x1c8 /* Receive classification match ring 1 */
+ #define FEC_RCMR_2		0x1cc /* Receive classification match ring 2 */
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 41c81f6..3e5b24a 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -988,6 +988,7 @@ fec_restart(struct net_device *ndev)
+ 			val &= ~FEC_RACC_OPTIONS;
+ 		writel(val, fep->hwp + FEC_RACC);
+ 	}
++	writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
+ #endif
+ 
+ 	/*
 -- 
-Robert
+2.5.0
