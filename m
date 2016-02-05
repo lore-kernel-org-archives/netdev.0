@@ -1,83 +1,50 @@
-From: Alexandre Bounine <alexandre.bounine@idt.com>
-Subject: [PATCH 02/30] rapidio/rionet: add capability to change MTU
-Date: Fri,  5 Feb 2016 18:19:18 -0500
-Message-ID: <1454714386-15259-3-git-send-email-alexandre.bounine@idt.com>
-References: <1454714386-15259-1-git-send-email-alexandre.bounine@idt.com>
-Cc: Aurelien Jacquiot <a-jacquiot@ti.com>,
-	Alexandre Bounine <alexandre.bounine@idt.com>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	Andre van Herk <andre.van.herk@prodrive-technologies.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454714386-15259-1-git-send-email-alexandre.bounine@idt.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net-next PATCH 10/10] net: Allow tunnels to use inner checksum
+ offloads with outer checksums needed
+Date: Fri, 05 Feb 2016 15:28:26 -0800
+Message-ID: <20160205232826.18529.69333.stgit@localhost.localdomain>
+References: <20160205232109.18529.99816.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: ecree@solarflare.com, tom@herbertland.com, davem@davemloft.net
+To: netdev@vger.kernel.org, alexander.duyck@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33125 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751393AbcBEX21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 18:28:27 -0500
+Received: by mail-pa0-f46.google.com with SMTP id cy9so41530065pac.0
+        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 15:28:27 -0800 (PST)
+In-Reply-To: <20160205232109.18529.99816.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Aurelien Jacquiot <a-jacquiot@ti.com>
+This patch enables us to use inner checksum offloads if provided by
+hardware with outer checksums computed by software.
 
-Replace default Ethernet-specific routine by the custom one to allow
-setting of larger MTU supported by RapidIO messaging (max RIO packet
-size is 4096 bytes).
+It basically reduces encap_hdr_csum to an advisory flag for now, but based
+on the fact that SCTP may be getting segmentation support before long I
+thought we may want to keep it as it is possible we may need to support
+CRC32c and 1's compliment checksum in the same packet at some point in the
+future.
 
-Signed-off-by: Aurelien Jacquiot <a-jacquiot@ti.com>
-Signed-off-by: Alexandre Bounine <alexandre.bounine@idt.com>
-Cc: Matt Porter <mporter@kernel.crashing.org>
-Cc: Andre van Herk <andre.van.herk@prodrive-technologies.com>
-Cc: linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/rionet.c |   17 +++++++++++++++--
- 1 files changed, 15 insertions(+), 2 deletions(-)
+ net/core/skbuff.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
-index e7034c5..d3d6e35 100644
---- a/drivers/net/rionet.c
-+++ b/drivers/net/rionet.c
-@@ -48,6 +48,8 @@ MODULE_LICENSE("GPL");
- #define RIONET_TX_RING_SIZE	CONFIG_RIONET_TX_SIZE
- #define RIONET_RX_RING_SIZE	CONFIG_RIONET_RX_SIZE
- #define RIONET_MAX_NETS		8
-+#define RIONET_MSG_SIZE         RIO_MAX_MSG_SIZE
-+#define RIONET_MAX_MTU          (RIONET_MSG_SIZE - ETH_HLEN)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 88262c82b96a..b0cce744e2a0 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3004,8 +3004,7 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 	if (unlikely(!proto))
+ 		return ERR_PTR(-EINVAL);
  
- struct rionet_private {
- 	struct rio_mport *mport;
-@@ -443,6 +445,17 @@ static void rionet_set_msglevel(struct net_device *ndev, u32 value)
- 	rnet->msg_enable = value;
- }
+-	csum = !head_skb->encap_hdr_csum &&
+-	    !!can_checksum_protocol(features, proto);
++	csum = !!can_checksum_protocol(features, proto);
  
-+static int rionet_change_mtu(struct net_device *ndev, int new_mtu)
-+{
-+	if ((new_mtu < 68) || (new_mtu > RIONET_MAX_MTU)) {
-+		printk(KERN_ERR "%s: Invalid MTU size %d\n",
-+		       ndev->name, new_mtu);
-+		return -EINVAL;
-+	}
-+	ndev->mtu = new_mtu;
-+	return 0;
-+}
-+
- static const struct ethtool_ops rionet_ethtool_ops = {
- 	.get_drvinfo = rionet_get_drvinfo,
- 	.get_msglevel = rionet_get_msglevel,
-@@ -454,7 +467,7 @@ static const struct net_device_ops rionet_netdev_ops = {
- 	.ndo_open		= rionet_open,
- 	.ndo_stop		= rionet_close,
- 	.ndo_start_xmit		= rionet_start_xmit,
--	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_change_mtu		= rionet_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_mac_address	= eth_mac_addr,
- };
-@@ -489,7 +502,7 @@ static int rionet_setup_netdev(struct rio_mport *mport, struct net_device *ndev)
- 	ndev->dev_addr[5] = device_id & 0xff;
- 
- 	ndev->netdev_ops = &rionet_netdev_ops;
--	ndev->mtu = RIO_MAX_MSG_SIZE - 14;
-+	ndev->mtu = RIONET_MAX_MTU;
- 	ndev->features = NETIF_F_LLTX;
- 	SET_NETDEV_DEV(ndev, &mport->dev);
- 	ndev->ethtool_ops = &rionet_ethtool_ops;
--- 
-1.7.8.4
+ 	headroom = skb_headroom(head_skb);
+ 	pos = skb_headlen(head_skb);
