@@ -1,112 +1,104 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net] net: dsa: mv88e6xxx: fix software VLAN deletion
-Date: Fri,  5 Feb 2016 14:04:39 -0500
-Message-ID: <1454699079-5710-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net] net: dsa: mv88e6xxx: do not leave reserved VLANs
+Date: Fri,  5 Feb 2016 14:07:14 -0500
+Message-ID: <1454699234-6157-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
 	Kevin Smith <kevin.smith@elecsyscorp.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:60990 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751294AbcBETH3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 14:07:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The current bridge code calls switchdev_port_obj_del on a VLAN port even
-if the corresponding switchdev_port_obj_add call returned -EOPNOTSUPP.
+BRIDGE_VLAN_FILTERING automatically adds a newly bridged port to the
+VLAN with the bridge's default_pvid.
 
-If the DSA driver doesn't return -EOPNOTSUPP for a software port VLAN in
-its port_vlan_del function, the VLAN is not deleted. Unbridging the port
-also generates a stack trace for the same reason.
+The mv88e6xxx driver currently reserves VLANs 4000+ for unbridged ports
+isolation. When a port joins a bridge, it leaves its reserved VLAN. When
+a port leaves a bridge, it joins again its reserved VLAN.
 
-This can be quickly tested on a VLAN filtering enabled system with:
+But if the VLAN filtering is disabled, or if this hardware VLAN is
+already in use, the bridged port ends up with no default VLAN, and the
+communication with the CPU is thus broken.
 
-    # brctl addbr br0
-    # brctl addif br0 lan0
-    # brctl addbr br1
-    # brctl addif br1 lan1
-    # brctl delif br1 lan1
-
-Both bridges have a default default_pvid set to 1. lan0 uses the
-hardware VLAN 1 while lan1 falls back to the software VLAN 1.
-
-Unbridging lan1 does not delete its software VLAN, and thus generates
-the following stack trace:
-
-    [ 2991.681705] device lan1 left promiscuous mode
-    [ 2991.686237] br1: port 1(lan1) entered disabled state
-    [ 2991.725094] ------------[ cut here ]------------
-    [ 2991.729761] WARNING: CPU: 0 PID: 869 at net/bridge/br_vlan.c:314 __vlan_group_free+0x4c/0x50()
-    [ 2991.738437] Modules linked in:
-    [ 2991.741546] CPU: 0 PID: 869 Comm: ip Not tainted 4.4.0 #16
-    [ 2991.747039] Hardware name: Freescale Vybrid VF5xx/VF6xx (Device Tree)
-    [ 2991.753511] Backtrace:
-    [ 2991.756008] [<80014450>] (dump_backtrace) from [<8001469c>] (show_stack+0x20/0x24)
-    [ 2991.763604]  r6:80512644 r5:00000009 r4:00000000 r3:00000000
-    [ 2991.769343] [<8001467c>] (show_stack) from [<80268e44>] (dump_stack+0x24/0x28)
-    [ 2991.776618] [<80268e20>] (dump_stack) from [<80025568>] (warn_slowpath_common+0x98/0xc4)
-    [ 2991.784750] [<800254d0>] (warn_slowpath_common) from [<80025650>] (warn_slowpath_null+0x2c/0x34)
-    [ 2991.793557]  r8:00000000 r7:9f786a8c r6:9f76c440 r5:9f786a00 r4:9f68ac00
-    [ 2991.800366] [<80025624>] (warn_slowpath_null) from [<80512644>] (__vlan_group_free+0x4c/0x50)
-    [ 2991.808946] [<805125f8>] (__vlan_group_free) from [<80514488>] (nbp_vlan_flush+0x44/0x68)
-    [ 2991.817147]  r4:9f68ac00 r3:9ec70000
-    [ 2991.820772] [<80514444>] (nbp_vlan_flush) from [<80506f08>] (del_nbp+0xac/0x130)
-    [ 2991.828201]  r5:9f56f800 r4:9f786a00
-    [ 2991.831841] [<80506e5c>] (del_nbp) from [<8050774c>] (br_del_if+0x40/0xbc)
-    [ 2991.838724]  r7:80590f68 r6:00000000 r5:9ec71c38 r4:9f76c440
-    [ 2991.844475] [<8050770c>] (br_del_if) from [<80503dc0>] (br_del_slave+0x1c/0x20)
-    [ 2991.851802]  r5:9ec71c38 r4:9f56f800
-    [ 2991.855428] [<80503da4>] (br_del_slave) from [<80484a34>] (do_setlink+0x324/0x7b8)
-    [ 2991.863043] [<80484710>] (do_setlink) from [<80485e90>] (rtnl_newlink+0x508/0x6f4)
-    [ 2991.870616]  r10:00000000 r9:9ec71ba8 r8:00000000 r7:00000000 r6:9f6b0400 r5:9f56f800
-    [ 2991.878548]  r4:8076278c
-    [ 2991.881110] [<80485988>] (rtnl_newlink) from [<80484048>] (rtnetlink_rcv_msg+0x18c/0x22c)
-    [ 2991.889315]  r10:9f7d4e40 r9:00000000 r8:00000000 r7:00000000 r6:9f7d4e40 r5:9f6b0400
-    [ 2991.897250]  r4:00000000
-    [ 2991.899814] [<80483ebc>] (rtnetlink_rcv_msg) from [<80497c74>] (netlink_rcv_skb+0xb0/0xcc)
-    [ 2991.908104]  r8:00000000 r7:9f7d4e40 r6:9f7d4e40 r5:80483ebc r4:9f6b0400
-    [ 2991.914928] [<80497bc4>] (netlink_rcv_skb) from [<80483eb4>] (rtnetlink_rcv+0x34/0x3c)
-    [ 2991.922874]  r6:9f5ea000 r5:00000028 r4:9f7d4e40 r3:80483e80
-    [ 2991.928622] [<80483e80>] (rtnetlink_rcv) from [<80497604>] (netlink_unicast+0x180/0x200)
-    [ 2991.936742]  r4:9f4edc00 r3:80483e80
-    [ 2991.940362] [<80497484>] (netlink_unicast) from [<80497a88>] (netlink_sendmsg+0x33c/0x350)
-    [ 2991.948648]  r8:00000000 r7:00000028 r6:00000000 r5:9f5ea000 r4:9ec71f4c
-    [ 2991.955481] [<8049774c>] (netlink_sendmsg) from [<80457ff0>] (sock_sendmsg+0x24/0x34)
-    [ 2991.963342]  r10:00000000 r9:9ec71e28 r8:00000000 r7:9f1e2140 r6:00000000 r5:00000000
-    [ 2991.971276]  r4:9ec71f4c
-    [ 2991.973849] [<80457fcc>] (sock_sendmsg) from [<80458af0>] (___sys_sendmsg+0x1fc/0x204)
-    [ 2991.981809] [<804588f4>] (___sys_sendmsg) from [<804598d0>] (__sys_sendmsg+0x4c/0x7c)
-    [ 2991.989640]  r10:00000000 r9:9ec70000 r8:80010824 r7:00000128 r6:7ee946c4 r5:00000000
-    [ 2991.997572]  r4:9f1e2140
-    [ 2992.000128] [<80459884>] (__sys_sendmsg) from [<80459918>] (SyS_sendmsg+0x18/0x1c)
-    [ 2992.007725]  r6:00000000 r5:7ee9c7b8 r4:7ee946e0
-    [ 2992.012430] [<80459900>] (SyS_sendmsg) from [<80010660>] (ret_fast_syscall+0x0/0x3c)
-    [ 2992.020182] ---[ end trace 5d4bc29f4da04280 ]---
-
-To fix this, return -EOPNOTSUPP in _mv88e6xxx_port_vlan_del instead of
--ENOENT if the hardware VLAN doesn't exist or the port is not a member.
+To fix this, make a port join its reserved VLAN once on setup, never
+leave it, and restore its PVID after another one was eventually used.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/dsa/mv88e6xxx.c | 25 ++++++++++---------------
+ 1 file changed, 10 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index d365007..1cb3d15 100644
+index 1cb3d15..4196dd8 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1545,7 +1545,7 @@ static int _mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid)
+@@ -1572,6 +1572,7 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
+ 			    const struct switchdev_obj_port_vlan *vlan)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	const u16 defpvid = 4000 + ds->index * DSA_MAX_PORTS + port;
+ 	u16 pvid, vid;
+ 	int err = 0;
  
- 	if (vlan.vid != vid || !vlan.valid ||
- 	    vlan.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
--		return -ENOENT;
-+		return -EOPNOTSUPP;
+@@ -1587,7 +1588,8 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
+ 			goto unlock;
  
- 	vlan.data[port] = GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
+ 		if (vid == pvid) {
+-			err = _mv88e6xxx_port_pvid_set(ds, port, 0);
++			/* restore reserved VLAN ID */
++			err = _mv88e6xxx_port_pvid_set(ds, port, defpvid);
+ 			if (err)
+ 				goto unlock;
+ 		}
+@@ -1879,26 +1881,20 @@ unlock:
  
+ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port, u32 members)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	const u16 pvid = 4000 + ds->index * DSA_MAX_PORTS + port;
+-	int err;
+-
+-	/* The port joined a bridge, so leave its reserved VLAN */
+-	mutex_lock(&ps->smi_mutex);
+-	err = _mv88e6xxx_port_vlan_del(ds, port, pvid);
+-	if (!err)
+-		err = _mv88e6xxx_port_pvid_set(ds, port, 0);
+-	mutex_unlock(&ps->smi_mutex);
+-	return err;
++	return 0;
+ }
+ 
+ int mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port, u32 members)
+ {
++	return 0;
++}
++
++static int mv88e6xxx_setup_port_default_vlan(struct dsa_switch *ds, int port)
++{
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	const u16 pvid = 4000 + ds->index * DSA_MAX_PORTS + port;
+ 	int err;
+ 
+-	/* The port left the bridge, so join its reserved VLAN */
+ 	mutex_lock(&ps->smi_mutex);
+ 	err = _mv88e6xxx_port_vlan_add(ds, port, pvid, true);
+ 	if (!err)
+@@ -2182,8 +2178,7 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
+ 		if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
+ 			continue;
+ 
+-		/* setup the unbridged state */
+-		ret = mv88e6xxx_port_bridge_leave(ds, i, 0);
++		ret = mv88e6xxx_setup_port_default_vlan(ds, i);
+ 		if (ret < 0)
+ 			return ret;
+ 	}
 -- 
 2.7.0
