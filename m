@@ -1,101 +1,135 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH] flowi: add concept of "not_oif"
-Date: Fri, 5 Feb 2016 19:38:05 +0100
-Message-ID: <CAHmME9rF83ir0Hf9wsAoyu2aYPffu+WmOonc0nC6ZQqO8R_SyA@mail.gmail.com>
-References: <CAHmME9pgwgjKJAFH2=sEEMJauno_rVEzY6JORTQze91Xo5zefw@mail.gmail.com>
-	<1454521595-6721-1-git-send-email-Jason@zx2c4.com>
-	<alpine.LFD.2.11.1602032149170.1802@ja.home.ssi.bg>
-	<CAHmME9qqCZYvuskSQMA0F2d2E+5fHsRk=ydDOV=Nq5D7xemtaw@mail.gmail.com>
-	<1454557445.7627.288.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Julian Anastasov <ja@ssi.bg>, Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	David Ahern <dsa@cumulusnetworks.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:36878 "EHLO frisell.zx2c4.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753470AbcBESiL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Feb 2016 13:38:11 -0500
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id 7193293e
-	for <netdev@vger.kernel.org>;
-	Fri, 5 Feb 2016 18:37:00 +0000 (UTC)
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id 7d382aaf
-	TLS version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=YES
-	for <netdev@vger.kernel.org>;
-	Fri, 5 Feb 2016 18:36:58 +0000 (UTC)
-Received: by mail-wm0-f46.google.com with SMTP id p63so38802266wmp.1
-        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 10:38:06 -0800 (PST)
-In-Reply-To: <1454557445.7627.288.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cedric DEBARGE <cedric.debarge-eYuUwLwYA0BQFI55V6+gNQ@public.gmane.org>
+Subject: [RFC 2/2] nl80211: add nl attribute to set ht_caps mcs rxmask override
+Date: Fri,  5 Feb 2016 16:42:00 +0100
+Message-ID: <ac5a5448d9afba8a13a6b04294d1bca00eec0757.1454685673.git.cedric.debarge@acksys.fr>
+References: <cover.1454685673.git.cedric.debarge@acksys.fr>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Cedric DEBARGE <cedric.debarge-eYuUwLwYA0BQFI55V6+gNQ@public.gmane.org>
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cover.1454685673.git.cedric.debarge-eYuUwLwYA0BQFI55V6+gNQ@public.gmane.org>
+In-Reply-To: <cover.1454685673.git.cedric.debarge-eYuUwLwYA0BQFI55V6+gNQ@public.gmane.org>
+References: <cover.1454685673.git.cedric.debarge-eYuUwLwYA0BQFI55V6+gNQ@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 4, 2016 at 4:44 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2016-02-03 at 22:02 +0100, Jason A. Donenfeld wrote:
->
->>
->> >         I don't know about the particular problems with
->> > tunnels but the scripts can use the route metric to order
->> > the routes in a table.
->>
->> This unfortunately does not cut it with tunnels.
->
-> ip rule show
->
-> ip route show table 10
->
-> I am pretty sure that you could select/change skb mark when packets
-> traverse the tunnel : The second route lookup can then select a
-> completely different table.
+This adds the NL80211_ATTR_WIPHY_HTCAP_RXMASK attribute to
+NL80211_CMD_SET_WIPHY in order for the user to specify the ht_caps mcs
+rxmask.
 
-This doesn't work. Not to mention the fact that ip-rules aren't
-cleaned up when the interface is removed and the issues with having
-multiple routing tables, the following only works for very narrow
-cases:
+Signed-off-by: Cedric Debarge <cedric.debarge-eYuUwLwYA0BQFI55V6+gNQ@public.gmane.org>
+---
+ include/uapi/linux/nl80211.h |  5 +++++
+ net/wireless/nl80211.c       | 18 ++++++++++++++++++
+ net/wireless/rdev-ops.h      | 11 +++++++++++
+ net/wireless/trace.h         | 15 +++++++++++++++
+ 4 files changed, 49 insertions(+)
 
-(212.47.239.81 is the IP of a VPN endpoint, for example below)
-
-$ ip rule add to 212.47.239.81 lookup main pref 30
-$ ip rule add to all lookup 80 pref 40
-$ ip route add default dev tun0 table 80
-
-The problem is -- what happens when you have particular routes that
-you'd like specifically to go over your original network connection,
-not the tunnel? I am now not able to do this:
-
-$ ip route add 1.2.3.4/32 dev eth0
-
-Because it will examine the second rule. Moving everything to the
-second routing table obviously isn't a solution either for all the
-reasons listed in my first email. Everything is complicated, partially
-broken, and all together unrobust this way.
-
-Sorry, but the current routing facilities of Linux are woefully
-insufficient for extremely common place modern day tunneling. The
-solution I've offered here is extremely simple, easy, and
-non-intrusive to implement. You will be the best friend of many
-network administrators and ordinary daily users alike.
-
-Just imagine if authors of userspace tunneling utilities could write
-things like:
-
-    setsockopt(fd, SO_NOTOIF, tun0_idx);
-
-Or kernel tunneling utilities being able to write:
-
-   .flowi4_not_oif = geneve0_idx;
-
-And then never have to worry about routing loops or bizarre
-situations? And have everything nicely cleaned up when the interface
-goes away? And be able to continue using all the same old routing
-tools and schemes as before, with no need for enormous
-reimplementations and daemons and endless bloat?
-
-This is a simple feature that will go a very long way. There is no
-current solution that comes anywhere close to solving the real
-problem. Please consider it.
-
-Thanks,
-Jason
+diff --git a/include/uapi/linux/nl80211.h b/include/uapi/linux/nl80211.h
+index 7758969..50a53d8 100644
+--- a/include/uapi/linux/nl80211.h
++++ b/include/uapi/linux/nl80211.h
+@@ -1794,6 +1794,9 @@ enum nl80211_commands {
+  *	connecting to a PCP, and in %NL80211_CMD_START_AP to start
+  *	a PCP instead of AP. Relevant for DMG networks only.
+  *
++ * @NL80211_ATTR_WIPHY_HTCAP_RXMASK: Override hardware capabilities for ht_caps
++ *	mcs rxmask.
++ *
+  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
+  * @NL80211_ATTR_MAX: highest attribute number currently defined
+  * @__NL80211_ATTR_AFTER_LAST: internal use
+@@ -2170,6 +2173,8 @@ enum nl80211_attrs {
+ 
+ 	NL80211_ATTR_PBSS,
+ 
++	NL80211_ATTR_WIPHY_HTCAP_RXMASK,
++
+ 	/* add attributes here, update the policy in nl80211.c */
+ 
+ 	__NL80211_ATTR_AFTER_LAST,
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index 268cb49..ef5ec8b 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -402,6 +402,9 @@ static const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
+ 	[NL80211_ATTR_SCHED_SCAN_DELAY] = { .type = NLA_U32 },
+ 	[NL80211_ATTR_REG_INDOOR] = { .type = NLA_FLAG },
+ 	[NL80211_ATTR_PBSS] = { .type = NLA_FLAG },
++	[NL80211_ATTR_WIPHY_HTCAP_RXMASK] = { .type = NLA_BINARY,
++					      .len = IEEE80211_HT_MCS_MASK_LEN
++	},
+ };
+ 
+ /* policy for the key attributes */
+@@ -2243,6 +2246,21 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
+ 			return result;
+ 	}
+ 
++	if (info->attrs[NL80211_ATTR_WIPHY_HTCAP_RXMASK]) {
++		u8 rxmask[IEEE80211_HT_MCS_MASK_LEN];
++
++		if (wdev)
++			return -EOPNOTSUPP;
++
++		memcpy(rxmask,
++		       nla_data(info->attrs[NL80211_ATTR_WIPHY_HTCAP_RXMASK]),
++		       IEEE80211_HT_MCS_MASK_LEN);
++
++		result = rdev_set_htcap_rxmask(rdev, rxmask);
++		if (result)
++			return result;
++	}
++
+ 	changed = 0;
+ 
+ 	if (info->attrs[NL80211_ATTR_WIPHY_RETRY_SHORT]) {
+diff --git a/net/wireless/rdev-ops.h b/net/wireless/rdev-ops.h
+index 8ae0c04..488adb9 100644
+--- a/net/wireless/rdev-ops.h
++++ b/net/wireless/rdev-ops.h
+@@ -1071,4 +1071,15 @@ rdev_set_coalesce(struct cfg80211_registered_device *rdev,
+ 	trace_rdev_return_int(&rdev->wiphy, ret);
+ 	return ret;
+ }
++
++static inline int
++rdev_set_htcap_rxmask(struct cfg80211_registered_device *rdev, uint8_t *rxmask)
++{
++	int ret;
++
++	trace_rdev_set_htcap_rxmask(&rdev->wiphy, rxmask);
++	ret = rdev->ops->set_htcap_rxmask(&rdev->wiphy, rxmask);
++	trace_rdev_return_int(&rdev->wiphy, ret);
++	return ret;
++}
+ #endif /* __CFG80211_RDEV_OPS */
+diff --git a/net/wireless/trace.h b/net/wireless/trace.h
+index 09b242b..d7c8c3c 100644
+--- a/net/wireless/trace.h
++++ b/net/wireless/trace.h
+@@ -2120,6 +2120,21 @@ TRACE_EVENT(rdev_tdls_cancel_channel_switch,
+ 		  WIPHY_PR_ARG, NETDEV_PR_ARG, MAC_PR_ARG(addr))
+ );
+ 
++TRACE_EVENT(rdev_set_htcap_rxmask,
++	TP_PROTO(struct wiphy *wiphy, uint8_t *rxmask),
++	TP_ARGS(wiphy, rxmask),
++	TP_STRUCT__entry(
++		WIPHY_ENTRY
++		__array(uint8_t, rxmask, IEEE80211_HT_MCS_MASK_LEN)
++	),
++	TP_fast_assign(
++		WIPHY_ASSIGN;
++		memcpy(__entry->rxmask, rxmask, IEEE80211_HT_MCS_MASK_LEN);
++	),
++	TP_printk(WIPHY_PR_FMT ", %*ph",
++		  WIPHY_PR_ARG, IEEE80211_HT_MCS_MASK_LEN, &__entry->rxmask[0])
++);
++
+ /*************************************************************
+  *	     cfg80211 exported functions traces		     *
+  *************************************************************/
+-- 
+1.9.1
