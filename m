@@ -1,99 +1,162 @@
-From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Subject: Re: [RFC v2] iwlwifi: pcie: transmit queue auto-sizing
-Date: Fri, 5 Feb 2016 08:48:32 -0800
-Message-ID: <56B4D260.2000501@candelatech.com>
-References: <1454616764-19841-1-git-send-email-emmanuel.grumbach@intel.com>
- <1454616988-21901-1-git-send-email-emmanuel.grumbach@intel.com>
- <56B3B885.1050409@candelatech.com>
- <0BA3FCBA62E2DC44AF3030971E174FB32EA02656@hasmsx107.ger.corp.intel.com>
- <56B3BF25.8080509@candelatech.com>
- <CA+BoTQm+xTU6o7CMbCHr=bSgp7WE5btE4pMki5XJWiXaOG4SdA@mail.gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next 1/2] ethtool: add IPv6 to the NFC API
+Date: Fri, 05 Feb 2016 16:56:06 +0000
+Message-ID: <1454691366.20702.61.camel@decadent.org.uk>
+References: <56B483A1.4070901@solarflare.com>
+	 <56B48485.4050707@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>
-To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+BoTQm+xTU6o7CMbCHr=bSgp7WE5btE4pMki5XJWiXaOG4SdA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-On 02/05/2016 12:44 AM, Michal Kazior wrote:
-
-> Per-station queues sound tricky if you consider bufferbloat.
->
-> To maximize use of airtime (i.e. txop) you need to send big
-> aggregates. Since aggregates are per station-tid to maximize
-> multi-station performance (in AP mode) you'll need to queue a lot of
-> frames, per each station, depending on the chosen tx rate.
->
-> A bursted txop can be as big as 5-10ms. If you consider you want to
-> queue 5-10ms worth of data for *each* station at any given time you
-> obviously introduce a lot of lag. If you have 10 stations you might
-> end up with service period at 10*10ms = 100ms. This gets even worse if
-> you consider MU-MIMO because you need to do an expensive sounding
-> procedure before transmitting. So while SU aggregation can probably
-> still work reasonably well with shorter bursts (1-2ms) MU needs at
-> least 3ms to get *any* gain when compared to SU (which obviously means
-> you want more to actually make MU pay off). The rule of thumb is the
-> longer you wait the bigger capacity you can get.
->
-> Apparently there's interest in maximizing throughput but it stands in
-> direct opposition of keeping the latency down so I've been thinking
-> how to satisfy both.
-
-I really think this should be tunable.  For instance, someone making an AP
-that is mostly for letting lots of users stream movies would care a lot more
-about throughput than someone making an AP that is mainly for browsing the
-web and doing more latency-sensitive activities.
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-vTZ5r2G+mPxS/QgXL+7p"
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Edward Cree <ecree@solarflare.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:38920 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754133AbcBEQ4P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 11:56:15 -0500
+In-Reply-To: <56B48485.4050707@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> The current approach ath10k is taking (patches in review [1][2]) is to
-> use mac80211 software queues for per-station queuing, exposing queue
-> state to firmware (it decides where frames should be dequeued from)
-> and making it possible to stop/wake per-station tx subqueue with fake
-> netdev queues. I'm starting to think this is not the right way though
-> because it's inherently hard to control latency and there's a huge
-> memory overhead associated with the fake netdev queues. Also fq_codel
-> is a less effective with this kind of setup.
->
-> My current thinking is that the entire problem should be solved via
-> (per-AC) qdiscs, e.g. fq_codel. I guess one could use
-> limit/target/interval/quantum knobs to tune it for higher latency of
-> aggregation-oriented Wi-Fi links where long service time (think
-> 100-200ms) is acceptable. However fq_codel is oblivious to how Wi-Fi
-> works in the first place, i.e. Wi-Fi gets better throughput if you
-> deliver bursts of packets destined to the same station. Moreover this
-> gets even more complicated with MU-MIMO where you may want to consider
-> spatial location (which influences signal quality when grouped) of
-> each station when you decide which set of stations you're going to
-> aggregate to in parallel. Since drivers have a finite tx ring this it
-> is important to deliver bursts that can actually be aggregated
-> efficiently. This means driver would need to be able to tell qdisc
-> about per-flow conditions to influence the RR scheme in some way
-> (assuming a qdiscs even understands flows; do we need a unified way of
-> talking about flows between qdiscs and drivers?).
+--=-vTZ5r2G+mPxS/QgXL+7p
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-I wonder if it would work better if we removed most of the
-tid handling and aggregation logic in the firmware.  Maybe just have the mgt Q and best
-effort (and skip VO/VI).  Let the OS tell (or suggest to) the firmware when aggregation
-starts and stops.  That might at least cut the number of queues in half,
-saving memory and latency up and down the stack.
+On Fri, 2016-02-05 at 11:16 +0000, Edward Cree wrote:
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
 
-Thanks,
-Ben
+Reviewed-by: Ben Hutchings <ben@decadent.org.uk>
 
+> ---
+> =C2=A0include/uapi/linux/ethtool.h | 70 +++++++++++++++++++++++++++++++++=
++++++++----
+> =C2=A01 file changed, 64 insertions(+), 6 deletions(-)
+>=20
+> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+> index 57fa390..7faaf36 100644
+> --- a/include/uapi/linux/ethtool.h
+> +++ b/include/uapi/linux/ethtool.h
+> @@ -748,6 +748,56 @@ struct ethtool_usrip4_spec {
+> =C2=A0	__u8=C2=A0=C2=A0=C2=A0=C2=A0proto;
+> =C2=A0};
+> =C2=A0
+> +/**
+> + * struct ethtool_tcpip6_spec - flow specification for TCP/IPv6 etc.
+> + * @ip6src: Source host
+> + * @ip6dst: Destination host
+> + * @psrc: Source port
+> + * @pdst: Destination port
+> + * @tclass: Traffic Class
+> + *
+> + * This can be used to specify a TCP/IPv6, UDP/IPv6 or SCTP/IPv6 flow.
+> + */
+> +struct ethtool_tcpip6_spec {
+> +	__be32	ip6src[4];
+> +	__be32	ip6dst[4];
+> +	__be16	psrc;
+> +	__be16	pdst;
+> +	__u8=C2=A0=C2=A0=C2=A0=C2=A0tclass;
+> +};
+> +
+> +/**
+> + * struct ethtool_ah_espip6_spec - flow specification for IPsec/IPv6
+> + * @ip6src: Source host
+> + * @ip6dst: Destination host
+> + * @spi: Security parameters index
+> + * @tclass: Traffic Class
+> + *
+> + * This can be used to specify an IPsec transport or tunnel over IPv6.
+> + */
+> +struct ethtool_ah_espip6_spec {
+> +	__be32	ip6src[4];
+> +	__be32	ip6dst[4];
+> +	__be32	spi;
+> +	__u8=C2=A0=C2=A0=C2=A0=C2=A0tclass;
+> +};
+> +
+> +/**
+> + * struct ethtool_usrip6_spec - general flow specification for IPv6
+> + * @ip6src: Source host
+> + * @ip6dst: Destination host
+> + * @l4_4_bytes: First 4 bytes of transport (layer 4) header
+> + * @tclass: Traffic Class
+> + * @l4_proto: Transport protocol number (nexthdr after any Extension Hea=
+ders)
+> + */
+> +struct ethtool_usrip6_spec {
+> +	__be32	ip6src[4];
+> +	__be32	ip6dst[4];
+> +	__be32	l4_4_bytes;
+> +	__u8=C2=A0=C2=A0=C2=A0=C2=A0tclass;
+> +	__u8=C2=A0=C2=A0=C2=A0=C2=A0l4_proto;
+> +};
+> +
+> =C2=A0union ethtool_flow_union {
+> =C2=A0	struct ethtool_tcpip4_spec		tcp_ip4_spec;
+> =C2=A0	struct ethtool_tcpip4_spec		udp_ip4_spec;
+> @@ -755,6 +805,12 @@ union ethtool_flow_union {
+> =C2=A0	struct ethtool_ah_espip4_spec		ah_ip4_spec;
+> =C2=A0	struct ethtool_ah_espip4_spec		esp_ip4_spec;
+> =C2=A0	struct ethtool_usrip4_spec		usr_ip4_spec;
+> +	struct ethtool_tcpip6_spec		tcp_ip6_spec;
+> +	struct ethtool_tcpip6_spec		udp_ip6_spec;
+> +	struct ethtool_tcpip6_spec		sctp_ip6_spec;
+> +	struct ethtool_ah_espip6_spec		ah_ip6_spec;
+> +	struct ethtool_ah_espip6_spec		esp_ip6_spec;
+> +	struct ethtool_usrip6_spec		usr_ip6_spec;
+> =C2=A0	struct ethhdr				ether_spec;
+> =C2=A0	__u8					hdata[52];
+> =C2=A0};
+> @@ -1367,15 +1423,17 @@ enum ethtool_sfeatures_retval_bits {
+> =C2=A0#define	UDP_V4_FLOW	0x02	/* hash or spec (udp_ip4_spec) */
+> =C2=A0#define	SCTP_V4_FLOW	0x03	/* hash or spec (sctp_ip4_spec) */
+> =C2=A0#define	AH_ESP_V4_FLOW	0x04	/* hash only */
+> -#define	TCP_V6_FLOW	0x05	/* hash only */
+> -#define	UDP_V6_FLOW	0x06	/* hash only */
+> -#define	SCTP_V6_FLOW	0x07	/* hash only */
+> +#define	TCP_V6_FLOW	0x05	/* hash or spec (tcp_ip6_spec; nfc only) */
+> +#define	UDP_V6_FLOW	0x06	/* hash or spec (udp_ip6_spec; nfc only) */
+> +#define	SCTP_V6_FLOW	0x07	/* hash or spec (sctp_ip6_spec; nfc only) */
+> =C2=A0#define	AH_ESP_V6_FLOW	0x08	/* hash only */
+> =C2=A0#define	AH_V4_FLOW	0x09	/* hash or spec (ah_ip4_spec) */
+> =C2=A0#define	ESP_V4_FLOW	0x0a	/* hash or spec (esp_ip4_spec) */
+> -#define	AH_V6_FLOW	0x0b	/* hash only */
+> -#define	ESP_V6_FLOW	0x0c	/* hash only */
+> -#define	IP_USER_FLOW	0x0d	/* spec only (usr_ip4_spec) */
+> +#define	AH_V6_FLOW	0x0b	/* hash or spec (ah_ip6_spec; nfc only) */
+> +#define	ESP_V6_FLOW	0x0c	/* hash or spec (esp_ip6_spec; nfc only) */
+> +#define	IPV4_USER_FLOW	0x0d	/* spec only (usr_ip4_spec) */
+> +#define	IP_USER_FLOW	IPV4_USER_FLOW
+> +#define	IPV6_USER_FLOW	0x0e	/* spec only (usr_ip6_spec; nfc only) */
+> =C2=A0#define	IPV4_FLOW	0x10	/* hash only */
+> =C2=A0#define	IPV6_FLOW	0x11	/* hash only */
+> =C2=A0#define	ETHER_FLOW	0x12	/* spec only (ether_spec) */
+>=20
+--=20
+Ben Hutchings
+It is a miracle that curiosity survives formal education. - Albert Einstein
+--=-vTZ5r2G+mPxS/QgXL+7p
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
--- 
-Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Candela Technologies Inc  http://www.candelatech.com
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+iQIVAwUAVrTUJue/yOyVhhEJAQrRTA/+LbMleDvsMZFMYRG5E32DuxuDBFHWxq7j
+2lItdnoT/Krh/IlOM1gjIQ8w2kXucbZAENI7iwCfZ3RhPW97oV07h2cpSr27YH5Y
+cpDJNp5/QmsWTdZL4O9vtgHGx+3avnkbZ+ZzmQKKNNoaE3LeFlYY2/FNRnZmZBt4
+DPoI15saMPzRPtYbMFyXxUagYQFp6QAUew+bt1Uu94H4uuvyGV2ruAOdPztCWNw4
+VDioLOTtqcTF8A3xb2jxfrCpxGej2Bb55S45lSZmD+Ibl1DU/IKVL2PrpwlU/T6S
+v5sw15rMCwlt4WBoM1uunAC3yeXtOotuebCfmrN0B27DHDOgZQqQgW/kRtmT8bHv
+kW9F23EEoMBdnncwpzZUtuI8pwF9O10UdzHZMaMvLq6XWGH/R7b6uHlsCyGIb85O
+aidKh3p42DOH6YOKV5UQXUVMCqY6oeiybYe1N002LLEhLiuTQQmgDZs9+aBUCCFR
+nqhr6lwoM8f9Hnxl6A1aVGZ6kvVPHkJa+szH8g02RYojjXYvLFuo0FW8Rri0F6MM
+Ac+g0fVPmILb8rTtTSkEkCgJgkA5p37tOc4li5OX5d8HevhN0GfevmXH0EVqUyCZ
+6Z2V6TGGJr5oQJtUQtq4MlAfVe5acPI2iGKpWWa2SCbpQmyBFvRZwqvK3BXU8RTg
+tlpi6GODkCk=
+=ZFl8
+-----END PGP SIGNATURE-----
+
+--=-vTZ5r2G+mPxS/QgXL+7p--
