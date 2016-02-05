@@ -1,180 +1,132 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 8/8] Documentation/networking: add
- checksum-offloads.txt to explain LCO
-Date: Fri, 5 Feb 2016 20:43:12 +0000
-Message-ID: <56B50960.6030803@solarflare.com>
-References: <56B50886.1050201@solarflare.com>
+From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH v2 1/4] lib: move strtobool to kstrtobool
+Date: Fri, 5 Feb 2016 12:50:31 -0800
+Message-ID: <CAGXu5j+CLQrhtyoOcaTMWRgodzQcXM1TifKyxi7sMJawDwpGJg@mail.gmail.com>
+References: <1454619643-14444-1-git-send-email-keescook@chromium.org>
+	<1454619643-14444-2-git-send-email-keescook@chromium.org>
+	<8737t8ni8w.fsf@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	<tom@herbertland.com>, <alexander.duyck@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:30804 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756959AbcBEUnS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 15:43:18 -0500
-In-Reply-To: <56B50886.1050201@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Steve French <sfrench-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	"x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	"linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <8737t8ni8w.fsf-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- Documentation/networking/00-INDEX              |   2 +
- Documentation/networking/checksum-offloads.txt | 119 +++++++++++++++++++++++++
- include/linux/skbuff.h                         |   2 +
- 3 files changed, 123 insertions(+)
- create mode 100644 Documentation/networking/checksum-offloads.txt
+On Thu, Feb 4, 2016 at 3:55 PM, Rasmus Villemoes
+<linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org> wrote:
+> On Thu, Feb 04 2016, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
+>
+>> Create the kstrtobool_from_user helper and moves strtobool logic into
+>> the new kstrtobool (matching all the other kstrto* functions). Provides
+>> an inline wrapper for existing strtobool callers.
+>>
+>> Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+>> ---
+>>  include/linux/kernel.h |  3 +++
+>>  include/linux/string.h |  6 +++++-
+>>  lib/kstrtox.c          | 35 +++++++++++++++++++++++++++++++++++
+>>  lib/string.c           | 29 -----------------------------
+>>  4 files changed, 43 insertions(+), 30 deletions(-)
+>>
+>> diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+>> index f31638c6e873..cdc25f47a23f 100644
+>> --- a/include/linux/kernel.h
+>> +++ b/include/linux/kernel.h
+>> @@ -357,6 +357,7 @@ int __must_check kstrtou16(const char *s, unsigned int base, u16 *res);
+>>  int __must_check kstrtos16(const char *s, unsigned int base, s16 *res);
+>>  int __must_check kstrtou8(const char *s, unsigned int base, u8 *res);
+>>  int __must_check kstrtos8(const char *s, unsigned int base, s8 *res);
+>> +int __must_check kstrtobool(const char *s, unsigned int base, bool *res);
+>>
+>>  int __must_check kstrtoull_from_user(const char __user *s, size_t count, unsigned int base, unsigned long long *res);
+>>  int __must_check kstrtoll_from_user(const char __user *s, size_t count, unsigned int base, long long *res);
+>> @@ -368,6 +369,8 @@ int __must_check kstrtou16_from_user(const char __user *s, size_t count, unsigne
+>>  int __must_check kstrtos16_from_user(const char __user *s, size_t count, unsigned int base, s16 *res);
+>>  int __must_check kstrtou8_from_user(const char __user *s, size_t count, unsigned int base, u8 *res);
+>>  int __must_check kstrtos8_from_user(const char __user *s, size_t count, unsigned int base, s8 *res);
+>> +int __must_check kstrtobool_from_user(const char __user *s, size_t count,
+>> +                                   unsigned int base, bool *res);
+>>
+>>  static inline int __must_check kstrtou64_from_user(const char __user *s, size_t count, unsigned int base, u64 *res)
+>>  {
+>> diff --git a/include/linux/string.h b/include/linux/string.h
+>> index 9eebc66d957a..d2fb21b1081d 100644
+>> --- a/include/linux/string.h
+>> +++ b/include/linux/string.h
+>> @@ -128,7 +128,11 @@ extern char **argv_split(gfp_t gfp, const char *str, int *argcp);
+>>  extern void argv_free(char **argv);
+>>
+>>  extern bool sysfs_streq(const char *s1, const char *s2);
+>> -extern int strtobool(const char *s, bool *res);
+>> +extern int kstrtobool(const char *s, unsigned int base, bool *res);
+>> +static inline int strtobool(const char *s, bool *res)
+>> +{
+>> +     return kstrtobool(s, 0, res);
+>> +}
+>>
+>>  #ifdef CONFIG_BINARY_PRINTF
+>>  int vbin_printf(u32 *bin_buf, size_t size, const char *fmt, va_list args);
+>> diff --git a/lib/kstrtox.c b/lib/kstrtox.c
+>> index 94be244e8441..e18f088704d7 100644
+>> --- a/lib/kstrtox.c
+>> +++ b/lib/kstrtox.c
+>> @@ -321,6 +321,40 @@ int kstrtos8(const char *s, unsigned int base, s8 *res)
+>>  }
+>>  EXPORT_SYMBOL(kstrtos8);
+>>
+>> +/**
+>> + * kstrtobool - convert common user inputs into boolean values
+>> + * @s: input string
+>> + * @base: ignored
+>> + * @res: result
+>> + *
+>> + * This routine returns 0 iff the first character is one of 'Yy1Nn0'.
+>> + * Otherwise it will return -EINVAL.  Value pointed to by res is
+>> + * updated upon finding a match.
+>> + */
+>> +int kstrtobool(const char *s, unsigned int base, bool *res)
+>> +{
+>
+> Being able to create the kstrtobool_from_user with a single macro
+> invocation is convenient, but I don't think that justifies the ugliness
+> of having an unused parameter. People reading this code or trying to use
+> the interface will wonder what it's doing there, and it will generate
+> slightly larger code for all the users of strtobool.
+>
+> So I'd just make a separate explicit definition of kstrtobool_from_user
+> (the stack buffer sizing doesn't apply to the strings we want to parse
+> anyway, though 11 is of course plenty).
 
-diff --git a/Documentation/networking/00-INDEX b/Documentation/networking/00-INDEX
-index df27a1a..415154a 100644
---- a/Documentation/networking/00-INDEX
-+++ b/Documentation/networking/00-INDEX
-@@ -44,6 +44,8 @@ can.txt
- 	- documentation on CAN protocol family.
- cdc_mbim.txt
- 	- 3G/LTE USB modem (Mobile Broadband Interface Model)
-+checksum-offloads.txt
-+	- Explanation of checksum offloads; LCO, RCO
- cops.txt
- 	- info on the COPS LocalTalk Linux driver
- cs89x0.txt
-diff --git a/Documentation/networking/checksum-offloads.txt b/Documentation/networking/checksum-offloads.txt
-new file mode 100644
-index 0000000..de2a327
---- /dev/null
-+++ b/Documentation/networking/checksum-offloads.txt
-@@ -0,0 +1,119 @@
-+Checksum Offloads in the Linux Networking Stack
-+
-+
-+Introduction
-+============
-+
-+This document describes a set of techniques in the Linux networking stack
-+ to take advantage of checksum offload capabilities of various NICs.
-+
-+The following technologies are described:
-+ * TX Checksum Offload
-+ * LCO: Local Checksum Offload
-+ * RCO: Remote Checksum Offload
-+
-+Things that should be documented here but aren't yet:
-+ * RX Checksum Offload
-+ * CHECKSUM_UNNECESSARY conversion
-+
-+
-+TX Checksum Offload
-+===================
-+
-+The interface for offloading a transmit checksum to a device is explained
-+ in detail in comments near the top of include/linux/skbuff.h.
-+In brief, it allows to request the device fill in a single ones-complement
-+ checksum defined by the sk_buff fields skb->csum_start and
-+ skb->csum_offset.  The device should compute the 16-bit ones-complement
-+ checksum (i.e. the 'IP-style' checksum) from csum_start to the end of the
-+ packet, and fill in the result at (csum_start + csum_offset).
-+Because csum_offset cannot be negative, this ensures that the previous
-+ value of the checksum field is included in the checksum computation, thus
-+ it can be used to supply any needed corrections to the checksum (such as
-+ the sum of the pseudo-header for UDP or TCP).
-+This interface only allows a single checksum to be offloaded.  Where
-+ encapsulation is used, the packet may have multiple checksum fields in
-+ different header layers, and the rest will have to be handled by another
-+ mechanism such as LCO or RCO.
-+No offloading of the IP header checksum is performed; it is always done in
-+ software.  This is OK because when we build the IP header, we obviously
-+ have it in cache, so summing it isn't expensive.  It's also rather short.
-+The requirements for GSO are more complicated, because when segmenting an
-+ encapsulated packet both the inner and outer checksums may need to be
-+ edited or recomputed for each resulting segment.  See the skbuff.h comment
-+ (section 'E') for more details.
-+
-+A driver declares its offload capabilities in netdev->hw_features; see
-+ Documentation/networking/netdev-features for more.  Note that a device
-+ which only advertises NETIF_F_IP[V6]_CSUM must still obey the csum_start
-+ and csum_offset given in the SKB; if it tries to deduce these itself in
-+ hardware (as some NICs do) the driver should check that the values in the
-+ SKB match those which the hardware will deduce, and if not, fall back to
-+ checksumming in software instead (with skb_checksum_help or one of the
-+ skb_csum_off_chk* functions as mentioned in include/linux/skbuff.h).  This
-+ is a pain, but that's what you get when hardware tries to be clever.
-+
-+The stack should, for the most part, assume that checksum offload is
-+ supported by the underlying device.  The only place that should check is
-+ validate_xmit_skb(), and the functions it calls directly or indirectly.
-+ That function compares the offload features requested by the SKB (which
-+ may include other offloads besides TX Checksum Offload) and, if they are
-+ not supported or enabled on the device (determined by netdev->features),
-+ performs the corresponding offload in software.  In the case of TX
-+ Checksum Offload, that means calling skb_checksum_help(skb).
-+
-+
-+LCO: Local Checksum Offload
-+===========================
-+
-+LCO is a technique for efficiently computing the outer checksum of an
-+ encapsulated datagram when the inner checksum is due to be offloaded.
-+The ones-complement sum of a correctly checksummed TCP or UDP packet is
-+ equal to the sum of the pseudo header, because everything else gets
-+ 'cancelled out' by the checksum field.  This is because the sum was
-+ complemented before being written to the checksum field.
-+More generally, this holds in any case where the 'IP-style' ones complement
-+ checksum is used, and thus any checksum that TX Checksum Offload supports.
-+That is, if we have set up TX Checksum Offload with a start/offset pair, we
-+ know that _after the device has filled in that checksum_, the ones
-+ complement sum from csum_start to the end of the packet will be equal to
-+ _whatever value we put in the checksum field beforehand_.  This allows us
-+ to compute the outer checksum without looking at the payload: we simply
-+ stop summing when we get to csum_start, then add the 16-bit word at
-+ (csum_start + csum_offset).
-+Then, when the true inner checksum is filled in (either by hardware or by
-+ skb_checksum_help()), the outer checksum will become correct by virtue of
-+ the arithmetic.
-+
-+LCO is performed by the stack when constructing an outer UDP header for an
-+ encapsulation such as VXLAN or GENEVE, in udp_set_csum().  Similarly for
-+ the IPv6 equivalents, in udp6_set_csum().
-+It is also performed when constructing an IPv4 GRE header, in
-+ net/ipv4/ip_gre.c:build_header().  It is *not* currently performed when
-+ constructing an IPv6 GRE header; the GRE checksum is computed over the
-+ whole packet in net/ipv6/ip6_gre.c:ip6gre_xmit2(), but it should be
-+ possible to use LCO here as IPv6 GRE still uses an IP-style checksum.
-+All of the LCO implementations use a helper function lco_csum(), in
-+ include/linux/skbuff.h.
-+
-+LCO can safely be used for nested encapsulations; in this case, the outer
-+ encapsulation layer will sum over both its own header and the 'middle'
-+ header.  This does mean that the 'middle' header will get summed multiple
-+ times, but there doesn't seem to be a way to avoid that without incurring
-+ bigger costs (e.g. in SKB bloat).
-+
-+
-+RCO: Remote Checksum Offload
-+============================
-+
-+RCO is a technique for eliding the inner checksum of an encapsulated
-+ datagram, allowing the outer checksum to be offloaded.  It does, however,
-+ involve a change to the encapsulation protocols, which the receiver must
-+ also support.  For this reason, it is disabled by default.
-+RCO is detailed in the following Internet-Drafts:
-+https://tools.ietf.org/html/draft-herbert-remotecsumoffload-00
-+https://tools.ietf.org/html/draft-herbert-vxlan-rco-00
-+In Linux, RCO is implemented individually in each encapsulation protocol,
-+ and most tunnel types have flags controlling its use.  For instance, VXLAN
-+ has the flag VXLAN_F_REMCSUM_TX (per struct vxlan_rdst) to indicate that
-+ RCO should be used when transmitting to a given remote destination.
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 3e9eb52..61b8cef 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -3686,6 +3686,8 @@ static inline unsigned int skb_gso_network_seglen(const struct sk_buff *skb)
- /* Local Checksum Offload.
-  * Compute outer checksum based on the assumption that the
-  * inner checksum will be offloaded later.
-+ * See Documentation/networking/checksum-offloads.txt for
-+ * explanation of how this works.
-  * Fill in outer checksum adjustment (e.g. with sum of outer
-  * pseudo-header) before calling.
-  * Also ensure that inner checksum is in linear data area.
+Okay, thanks. So many things were bothering me, but I feared code
+duplication would be seen as worse. I'm much happier to drop the
+unused argument. :)
+
+I'll send a v3 with all the changes.
+
+-Kees
+
+-- 
+Kees Cook
+Chrome OS & Brillo Security
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
