@@ -1,110 +1,160 @@
-From: Stefan Assmann <sassmann@kpanic.de>
-Subject: Re: [net-next] igb: assume MSI-X interrupts during initialization
-Date: Sat, 6 Feb 2016 00:13:00 +0100
-Message-ID: <56B52C7C.3000500@kpanic.de>
-References: <1442493970-20073-1-git-send-email-sassmann@kpanic.de>
- <56B5131D.1070505@redhat.com>
+From: "Andrew F. Davis" <afd@ti.com>
+Subject: [PATCH] net: phy: dp83848: Add support for TI TLK10x Ethernet PHYs
+Date: Fri, 5 Feb 2016 17:13:16 -0600
+Message-ID: <1454713996-28851-1-git-send-email-afd@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com
-To: Laine Stump <laine@redhat.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from app1a.xlhost.de ([84.200.252.161]:44662 "EHLO app1a.xlhost.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750935AbcBEXNK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Feb 2016 18:13:10 -0500
-In-Reply-To: <56B5131D.1070505@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	"Andrew F. Davis" <afd@ti.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/05/2016 10:24 PM, Laine Stump wrote:
-> Stefan,
->
-> I have an AMD 990FX system with an Intel 82576 card that could not
-> successfully boot with any kernel starting somewhere prior to 4.2, but
-> does boot properly in 4.4+. After a lot of time bisecting, I found that
-> this patch, when applied to kernel 4.3.0, solves the problem (applying
-> to 4.2.0 has no effect, so there's some other patch/patches in the
-> interim that were also part of the fix).
->
-> Since I don't know the details of proposing this patch for 4.3 stable,
-> would it be possible for you to do that?
->
-> Thanks!
+The TI TLK10x Ethernet PHYs are similar in the interrupt relevant
+registers and so are compatible with the DP83848x devices already
+supported. Add these and re-order code to support additional PHYs.
 
-Hi Laine,
+Signed-off-by: Andrew F. Davis <afd@ti.com>
+---
+ drivers/net/phy/dp83848.c | 89 ++++++++++++++++++++++++++++-------------------
+ 1 file changed, 53 insertions(+), 36 deletions(-)
 
-I took a quick look at 4.3 and the patch you mention should be
-sufficient. For 4.2 I'll have to take a closer look. I'm currently
-traveling but going to get back to you early next week.
-
-I'd like double check things before taking any action.
-
-Thanks!
-
-   Stefan
-
-> The full saga of my problem and investigaton is here:
->
-> https://www.mail-archive.com/iommu@lists.linux-foundation.org/msg10687.html
->
->
-> On 09/17/2015 08:46 AM, Stefan Assmann wrote:
->> In igb_sw_init() the sequence of calls was changed from
->> igb_init_queue_configuration()
->> igb_init_interrupt_scheme()
->> igb_probe_vfs()
->> to
->> igb_probe_vfs()
->> igb_init_queue_configuration()
->> igb_init_interrupt_scheme()
->>
->> This results in adapter->flags not having the IGB_FLAG_HAS_MSIX bit set
->> during igb_probe_vfs()->igb_enable_sriov(). Therefore SR-IOV does not
->> get enabled properly and we run into a NULL pointer if the max_vfs
->> module parameter is specified (adapter->vf_data does not get allocated,
->> crash on accessing the structure).
->>
->> [    7.419348] BUG: unable to handle kernel NULL pointer dereference
->> at 0000000000000048
->> [    7.419367] IP: [<ffffffffa02161c6>] igb_reset+0xe6/0x5d0 [igb]
->> [    7.419370] PGD 0
->> [    7.419373] Oops: 0002 [#1] SMP
->> [    7.419381] Modules linked in: ahci(+) libahci igb(+) i40e(+) vxlan
->> ip6_udp_tunnel udp_tunnel megaraid_sas(+) ixgbe(+) mdio
->> [    7.419385] CPU: 0 PID: 4 Comm: kworker/0:0 Not tainted 4.2.0+ #153
->> [    7.419387] Hardware name: Dell Inc. PowerEdge R720/0C4Y3R, BIOS
->> 1.6.0 03/07/2013
->> [...]
->> [    7.419431] Call Trace:
->> [    7.419442]  [<ffffffffa0217236>] igb_probe+0x8b6/0x1340 [igb]
->> [    7.419447]  [<ffffffff814c7f15>] local_pci_probe+0x45/0xa0
->>
->> Prevent this by setting the IGB_FLAG_HAS_MSIX bit before calling
->> igb_probe_vfs(). The real interrupt capabilities will be checked during
->> igb_init_interrupt_scheme() so this is safe to do.
->>
->> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
->> ---
->>   drivers/net/ethernet/intel/igb/igb_main.c | 3 +++
->>   1 file changed, 3 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c
->> b/drivers/net/ethernet/intel/igb/igb_main.c
->> index e174fbb..ba019fc 100644
->> --- a/drivers/net/ethernet/intel/igb/igb_main.c
->> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
->> @@ -2986,6 +2986,9 @@ static int igb_sw_init(struct igb_adapter *adapter)
->>       }
->>   #endif /* CONFIG_PCI_IOV */
->>
->> +    /* Assume MSI-X interrupts, will be checked during IRQ allocation */
->> +    adapter->flags |= IGB_FLAG_HAS_MSIX;
->> +
->>       igb_probe_vfs(adapter);
->>
->>       igb_init_queue_configuration(adapter);
->>
->
+diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
+index 5e14e62..bc88259 100644
+--- a/drivers/net/phy/dp83848.c
++++ b/drivers/net/phy/dp83848.c
+@@ -1,7 +1,8 @@
+ /*
+  * Driver for the Texas Instruments DP83848 PHY
+  *
+- * Copyright (C) 2015 Texas Instruments Inc.
++ * Copyright (C) 2015-2016 Texas Instruments Incorporated - http://www.ti.com/
++ *	Andrew F. Davis <afd@ti.com>
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -16,11 +17,13 @@
+ #include <linux/module.h>
+ #include <linux/phy.h>
+ 
+-#define DP83848_PHY_ID			0x20005c90
++#define DP83848C_PHY_ID			0x20005c90
++#define DP83848I_PHY_ID			0x20005ca0
++#define TLK10X_PHY_ID			0x2000a210
+ 
+ /* Registers */
+-#define DP83848_MICR			0x11
+-#define DP83848_MISR			0x12
++#define DP83848_MICR			0x11 /* MII Interrupt Control Register */
++#define DP83848_MISR			0x12 /* MII Interrupt Status Register */
+ 
+ /* MICR Register Fields */
+ #define DP83848_MICR_INT_OE		BIT(0) /* Interrupt Output Enable */
+@@ -36,6 +39,12 @@
+ #define DP83848_MISR_ED_INT_EN		BIT(6) /* Energy detect */
+ #define DP83848_MISR_LQM_INT_EN		BIT(7) /* Link Quality Monitor */
+ 
++#define DP83848_INT_EN_MASK		\
++	(DP83848_MISR_ANC_INT_EN |	\
++	 DP83848_MISR_DUP_INT_EN |	\
++	 DP83848_MISR_SPD_INT_EN |	\
++	 DP83848_MISR_LINK_INT_EN)
++
+ static int dp83848_ack_interrupt(struct phy_device *phydev)
+ {
+ 	int err = phy_read(phydev, DP83848_MISR);
+@@ -45,50 +54,58 @@ static int dp83848_ack_interrupt(struct phy_device *phydev)
+ 
+ static int dp83848_config_intr(struct phy_device *phydev)
+ {
+-	int err;
++	int control, ret;
++
++	control = phy_read(phydev, DP83848_MICR);
++	if (control < 0)
++		return control;
+ 
+ 	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
+-		err = phy_write(phydev, DP83848_MICR,
+-				DP83848_MICR_INT_OE |
+-				DP83848_MICR_INTEN);
+-		if (err < 0)
+-			return err;
+-
+-		return phy_write(phydev, DP83848_MISR,
+-				 DP83848_MISR_ANC_INT_EN |
+-				 DP83848_MISR_DUP_INT_EN |
+-				 DP83848_MISR_SPD_INT_EN |
+-				 DP83848_MISR_LINK_INT_EN);
++		control |= DP83848_MICR_INT_OE;
++		control |= DP83848_MICR_INTEN;
++
++		ret = phy_write(phydev, DP83848_MISR, DP83848_INT_EN_MASK);
++		if (ret < 0)
++			return ret;
++	} else {
++		control &= ~DP83848_MICR_INTEN;
+ 	}
+ 
+-	return phy_write(phydev, DP83848_MICR, 0x0);
++	return phy_write(phydev, DP83848_MICR, control);
+ }
+ 
+ static struct mdio_device_id __maybe_unused dp83848_tbl[] = {
+-	{ DP83848_PHY_ID, 0xfffffff0 },
++	{ DP83848C_PHY_ID, 0xfffffff0 },
++	{ DP83848I_PHY_ID, 0xfffffff0 },
++	{ TLK10X_PHY_ID, 0xfffffff0 },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
+ 
++#define DP83848_PHY_DRIVER(_id, _name)				\
++	{							\
++		.phy_id		= _id,				\
++		.phy_id_mask	= 0xfffffff0,			\
++		.name		= _name,			\
++		.features	= PHY_BASIC_FEATURES,		\
++		.flags		= PHY_HAS_INTERRUPT,		\
++								\
++		.soft_reset	= genphy_soft_reset,		\
++		.config_init	= genphy_config_init,		\
++		.suspend	= genphy_suspend,		\
++		.resume		= genphy_resume,		\
++		.config_aneg	= genphy_config_aneg,		\
++		.read_status	= genphy_read_status,		\
++								\
++		/* IRQ related */				\
++		.ack_interrupt	= dp83848_ack_interrupt,	\
++		.config_intr	= dp83848_config_intr,		\
++	}
++
+ static struct phy_driver dp83848_driver[] = {
+-	{
+-		.phy_id		= DP83848_PHY_ID,
+-		.phy_id_mask	= 0xfffffff0,
+-		.name		= "TI DP83848",
+-		.features	= PHY_BASIC_FEATURES,
+-		.flags		= PHY_HAS_INTERRUPT,
+-
+-		.soft_reset	= genphy_soft_reset,
+-		.config_init	= genphy_config_init,
+-		.suspend	= genphy_suspend,
+-		.resume		= genphy_resume,
+-		.config_aneg	= genphy_config_aneg,
+-		.read_status	= genphy_read_status,
+-
+-		/* IRQ related */
+-		.ack_interrupt	= dp83848_ack_interrupt,
+-		.config_intr	= dp83848_config_intr,
+-	},
++	DP83848_PHY_DRIVER(DP83848C_PHY_ID, "TI DP83848C 10/100 Mbps PHY"),
++	DP83848_PHY_DRIVER(DP83848I_PHY_ID, "TI DP83848I 10/100 Mbps PHY"),
++	DP83848_PHY_DRIVER(TLK10X_PHY_ID, "TI TLK10X 10/100 Mbps PHY"),
+ };
+ module_phy_driver(dp83848_driver);
+ 
+-- 
+2.7.0
