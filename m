@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bgmac: add helper checking for BCM4707 / BCM53018 chip
- id
-Date: Sat, 06 Feb 2016 03:37:38 -0500 (EST)
-Message-ID: <20160206.033738.1878734951841887507.davem@davemloft.net>
-References: <1454395634-11317-1-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH] bonding: add slave device name for debug
+Date: Sat, 06 Feb 2016 03:37:44 -0500 (EST)
+Message-ID: <20160206.033744.369421041204151208.davem@davemloft.net>
+References: <1454401975-25984-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de, nbd@openwrt.org
-To: zajec5@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: j.vosburgh@gmail.com, netdev@vger.kernel.org
+To: zhangshengju@cmss.chinamobile.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47960 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47964 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750754AbcBFIhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 03:37:42 -0500
-In-Reply-To: <1454395634-11317-1-git-send-email-zajec5@gmail.com>
+	with ESMTP id S1751495AbcBFIhr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 03:37:47 -0500
+In-Reply-To: <1454401975-25984-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Tue,  2 Feb 2016 07:47:14 +0100
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Date: Tue,  2 Feb 2016 08:32:55 +0000
 
-> Chipsets with BCM4707 / BCM53018 ID require special handling at a few
-> places in the code. It's likely there will be more IDs to check in th=
-e
-> future. To simplify it add this trivial helper.
->=20
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+> netdev_dbg() will add bond device name, it will be helpful if we print
+> slave device name.
+> 
+> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 
 Applied.
