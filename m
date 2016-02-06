@@ -1,48 +1,50 @@
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: [PATCH v2] net: smc91x: propagate irq return code
-Date: Sat,  6 Feb 2016 22:23:20 +0100
-Message-ID: <1454793800-7789-1-git-send-email-robert.jarzmik@free.fr>
-Cc: linux-kernel@vger.kernel.org,
-	Robert Jarzmik <robert.jarzmik@free.fr>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Nicolas Pitre <nico@fluxnic.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp05.smtpout.orange.fr ([80.12.242.127]:27913 "EHLO
-	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752119AbcBFVXe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 16:23:34 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: dp83848: Add support for TI TLK10x Ethernet
+ PHYs
+Date: Sat, 6 Feb 2016 13:25:59 -0800
+Message-ID: <56B664E7.4040202@gmail.com>
+References: <1454713996-28851-1-git-send-email-afd@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Andrew F. Davis" <afd@ti.com>,
+	"David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454713996-28851-1-git-send-email-afd@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The smc91x driver doesn't honor the probe deferral mechanism when the
-interrupt source is not yet available, such as one provided by a gpio
-controller not probed.
+Le 05/02/2016 15:13, Andrew F. Davis a =C3=A9crit :
+> The TI TLK10x Ethernet PHYs are similar in the interrupt relevant
+> registers and so are compatible with the DP83848x devices already
+> supported. Add these and re-order code to support additional PHYs.
 
-Fix this by propagating the platform_get_irq() error code as the probe
-return value.
+This looks fine, but this could also be broken down into 3 commits:
 
-Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
----
-Since v1: change the irq test to < 0
----
- drivers/net/ethernet/smsc/smc91x.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+- one which adds the macro to add new PHY entries
+- one which renames DP83848_PHY_ID to DP83848C_PHY_ID
+- one which factors out the interrupt enable mask
 
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
-index 0e2fc1a844ab..db7db8ac4ca3 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -2342,8 +2342,8 @@ static int smc_drv_probe(struct platform_device *pdev)
- 	}
- 
- 	ndev->irq = platform_get_irq(pdev, 0);
--	if (ndev->irq <= 0) {
--		ret = -ENODEV;
-+	if (ndev->irq < 0) {
-+		ret = ndev->irq;
- 		goto out_release_io;
- 	}
- 	/*
--- 
-2.1.4
+>=20
+> Signed-off-by: Andrew F. Davis <afd@ti.com>
+> ---
+>  drivers/net/phy/dp83848.c | 89 ++++++++++++++++++++++++++++---------=
+----------
+>  1 file changed, 53 insertions(+), 36 deletions(-)
+>=20
+> diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
+> index 5e14e62..bc88259 100644
+> --- a/drivers/net/phy/dp83848.c
+> +++ b/drivers/net/phy/dp83848.c
+> @@ -1,7 +1,8 @@
+>  /*
+>   * Driver for the Texas Instruments DP83848 PHY
+>   *
+> - * Copyright (C) 2015 Texas Instruments Inc.
+> + * Copyright (C) 2015-2016 Texas Instruments Incorporated - http://w=
+ww.ti.com/
+> + *	Andrew F. Davis <afd@ti.com>
+
+We have the git changelog to know who added changes to the driver, you
+can drop that specific change and just bump the copyright year.--
