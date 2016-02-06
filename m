@@ -1,67 +1,80 @@
-From: =?utf-8?B?5byg6IOc5Li+?= <zhangshengju@cmss.chinamobile.com>
-Subject: Reply: [net] bonding: use return instead of goto
-Date: Sat, 6 Feb 2016 19:05:40 +0800
-Message-ID: <000001d160ce$52b81420$f8283c60$@cmss.chinamobile.com>
-References: <000301d15fb6$77bf08f0$673d1ad0$@cmss.chinamobile.com> <20160205212438.GC63431@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next V2 7/8] net: fec: don't transfer ownership until
+ descriptor write is complete
+Date: Sat, 6 Feb 2016 14:52:12 +0300
+Message-ID: <56B5DE6C.9080407@cogentembedded.com>
+References: <1454709170-19527-1-git-send-email-troy.kisky@boundarydevices.com>
+ <1454709170-19527-8-git-send-email-troy.kisky@boundarydevices.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <j.vosburgh@gmail.com>, <netdev@vger.kernel.org>
-To: "'Jarod Wilson'" <jarod@redhat.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
+	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
+	linux-arm-kernel@lists.infradead.org, laci@boundarydevices.com,
+	shawnguo@kernel.org, johannes@sipsolutions.net, arnd@arndb.de
+To: Troy Kisky <troy.kisky@boundarydevices.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:3940 "EHLO
-	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752011AbcBFLFh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 06:05:37 -0500
-In-Reply-To: <20160205212438.GC63431@redhat.com>
-Content-Language: en-us
+Received: from mail-lf0-f52.google.com ([209.85.215.52]:35597 "EHLO
+	mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751442AbcBFLwQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 06:52:16 -0500
+Received: by mail-lf0-f52.google.com with SMTP id l143so71972373lfe.2
+        for <netdev@vger.kernel.org>; Sat, 06 Feb 2016 03:52:15 -0800 (PST)
+In-Reply-To: <1454709170-19527-8-git-send-email-troy.kisky@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Fri, Feb 05, 2016 at 09:42:24AM +0800, =E5=BC=A0=E8=83=9C=E4=B8=BE=
- wrote:
-> > > On Wed, Feb 03, 2016 at 06:15:22AM +0000, Zhang Shengju wrote:
-> > > > Replace 'goto' with 'return' to remove unnecessary check at lab=
-el:
-> > > > err_undo_flags.
-> > >
-> > > I think you're going to have to explain how you came to the
-> > > conclusion that the check isn't necessary.
-> ...
-> > The reason is that 'err_undo_flags' do two things for the first sla=
-ve
-> > device:
-> > 1. revert bond mac address if it is set by the slave device.
-> > 2. revert bond device type if it's not ARPHRD_ETHER.
-> >
-> > I think it's not necessary for the three places, they changed neith=
-er
-> > bond mac address nor type.
-> > it's straightforward to return directly.
->=20
-> I see what you're saying, and that does look to be true if you're onl=
-y adding a
-> singular first device right now. But looking at the enslave and relea=
-se paths, I
-> don't see anything preventing concurrent slave adds and removes, whic=
-h
-> could mean there are situations where those checks really are necessa=
-ry. I
-> don't actually know.
->=20
-> --
-> Jarod Wilson
-> jarod@redhat.com
+Hello.
 
-All of three places don't change any attributes of bond device,=20
-just for sanity check before enslaving. =20
-If it's necessary for these three places to goto 'err_undo_flags', =20
-it will mean that all sanity checks before these three places need to d=
-o so, which is not right clearly.=20
+On 2/6/2016 12:52 AM, Troy Kisky wrote:
 
-Even there is concurrent situation which make the check necessary, whic=
-h I haven't figure out yet,
-it's not right place to do this. =20
+> If you don't own it, you shouldn't write to it.
+>
+> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+> ---
+>   drivers/net/ethernet/freescale/fec_main.c | 14 +++++++++++++-
+>   1 file changed, 13 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index ca2708d..97ca72a 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -390,6 +390,10 @@ fec_enet_txq_submit_frag_skb(struct fec_enet_priv_tx_q *txq,
+>
+>   		bdp->cbd_bufaddr = cpu_to_fec32(addr);
+>   		bdp->cbd_datlen = cpu_to_fec16(frag_len);
+> +		/* Make sure the updates to rest of the descriptor are
+> +		 * performed before transferring ownership.
+> +		 */
+> +		wmb();
+>   		bdp->cbd_sc = cpu_to_fec16(status);
+>   	}
+>
+> @@ -499,6 +503,10 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
+>
+>   	bdp->cbd_datlen = cpu_to_fec16(buflen);
+>   	bdp->cbd_bufaddr = cpu_to_fec32(addr);
+> +	/* Make sure the updates to rest of the descriptor are performed before
+> +	 * transferring ownership.
+> +	 */
+> +	wmb();
+>
+>   	/* Send it on its way.  Tell FEC it's ready, interrupt when done,
+>   	 * it's the last BD of the frame, and to put the CRC on the end.
+[...]
+> @@ -1484,6 +1491,11 @@ rx_processing_done:
+>   			ebdp->cbd_prot = 0;
+>   			ebdp->cbd_bdu = 0;
+>   		}
+> +		/* Make sure the updates to rest of the descriptor are
+> +		 * performed before transferring ownership.
+> +		 */
+> +		wmb();
+> +		bdp->cbd_sc = cpu_to_fec16(status);
 
-Thanks,
-Shengju
+    I think you can use "ligter" dma_wmb() in this case.
+
+[...]
+
+MBR, Sergei
