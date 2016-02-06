@@ -1,358 +1,106 @@
-From: Alexandre Bounine <alexandre.bounine@idt.com>
-Subject: [PATCH 17/30] rapidio/rionet: add locking into add/remove device
-Date: Fri,  5 Feb 2016 18:19:33 -0500
-Message-ID: <1454714386-15259-18-git-send-email-alexandre.bounine@idt.com>
-References: <1454714386-15259-1-git-send-email-alexandre.bounine@idt.com>
-Cc: Alexandre Bounine <alexandre.bounine@idt.com>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	Aurelien Jacquiot <a-jacquiot@ti.com>,
-	Andre van Herk <andre.van.herk@prodrive-technologies.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454714386-15259-1-git-send-email-alexandre.bounine@idt.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joshua Clayton <stillcompiling@gmail.com>
+Subject: Re: [PATCH net-next V2 7/8] net: fec: don't transfer ownership
+ until descriptor write is complete
+Date: Fri, 5 Feb 2016 17:03:47 -0800
+Message-ID: <20160205170347.45a91314@jclayton-pc>
+References: <1454709170-19527-1-git-send-email-troy.kisky@boundarydevices.com>
+	<1454709170-19527-8-git-send-email-troy.kisky@boundarydevices.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com,
+	fabio.estevam@freescale.com, andrew@lunn.ch,
+	linux@arm.linux.org.uk, arnd@arndb.de, laci@boundarydevices.com,
+	johannes@sipsolutions.net, l.stach@pengutronix.de,
+	shawnguo@kernel.org, linux-arm-kernel@lists.infradead.org,
+	tremyfr@gmail.com
+To: Troy Kisky <troy.kisky@boundarydevices.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35574 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750748AbcBFBDw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 20:03:52 -0500
+Received: by mail-pf0-f195.google.com with SMTP id 66so5897822pfe.2
+        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 17:03:51 -0800 (PST)
+In-Reply-To: <1454709170-19527-8-git-send-email-troy.kisky@boundarydevices.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add spinlock protection when handling list of connected peers and ability
-to handle new peer device addition after the RIONET device was open.
-Before his update RIONET was sending JOIN requests only when it have been
-opened, peer devices added later have been missing from this process. 
+On Fri,  5 Feb 2016 14:52:49 -0700
+Troy Kisky <troy.kisky@boundarydevices.com> wrote:
 
-Signed-off-by: Alexandre Bounine <alexandre.bounine@idt.com>
-Cc: Matt Porter <mporter@kernel.crashing.org>
-Cc: Aurelien Jacquiot <a-jacquiot@ti.com>
-Cc: Andre van Herk <andre.van.herk@prodrive-technologies.com>
-Cc: linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org
----
- drivers/net/rionet.c |  152 +++++++++++++++++++++++++++++++++----------------
- 1 files changed, 102 insertions(+), 50 deletions(-)
+> If you don't own it, you shouldn't write to it.
+> 
+> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c | 14 +++++++++++++-
+>  1 file changed, 13 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> b/drivers/net/ethernet/freescale/fec_main.c index ca2708d..97ca72a
+> 100644 --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -390,6 +390,10 @@ fec_enet_txq_submit_frag_skb(struct
+> fec_enet_priv_tx_q *txq, 
+>  		bdp->cbd_bufaddr = cpu_to_fec32(addr);
+>  		bdp->cbd_datlen = cpu_to_fec16(frag_len);
+> +		/* Make sure the updates to rest of the descriptor
+> are
+> +		 * performed before transferring ownership.
+> +		 */
+> +		wmb();
+>  		bdp->cbd_sc = cpu_to_fec16(status);
+You use almost exactly the same code in each place.
+I'd prefer to have wmb(); bdp->cbd_sc = cpu_to_fec16(status) wrapped in
+a function or function like macro, and put the comment in one place.
 
-diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
-index f994fa1..c15d958 100644
---- a/drivers/net/rionet.c
-+++ b/drivers/net/rionet.c
-@@ -63,6 +63,7 @@ struct rionet_private {
- 	spinlock_t lock;
- 	spinlock_t tx_lock;
- 	u32 msg_enable;
-+	bool open;
- };
- 
- struct rionet_peer {
-@@ -74,6 +75,7 @@ struct rionet_peer {
- struct rionet_net {
- 	struct net_device *ndev;
- 	struct list_head peers;
-+	spinlock_t lock;	/* net info access lock */
- 	struct rio_dev **active;
- 	int nact;	/* number of active peers */
- };
-@@ -235,26 +237,32 @@ static void rionet_dbell_event(struct rio_mport *mport, void *dev_id, u16 sid, u
- 	struct net_device *ndev = dev_id;
- 	struct rionet_private *rnet = netdev_priv(ndev);
- 	struct rionet_peer *peer;
-+	unsigned char netid = rnet->mport->id;
- 
- 	if (netif_msg_intr(rnet))
- 		printk(KERN_INFO "%s: doorbell sid %4.4x tid %4.4x info %4.4x",
- 		       DRV_NAME, sid, tid, info);
- 	if (info == RIONET_DOORBELL_JOIN) {
--		if (!nets[rnet->mport->id].active[sid]) {
--			list_for_each_entry(peer,
--					   &nets[rnet->mport->id].peers, node) {
-+		if (!nets[netid].active[sid]) {
-+			spin_lock(&nets[netid].lock);
-+			list_for_each_entry(peer, &nets[netid].peers, node) {
- 				if (peer->rdev->destid == sid) {
--					nets[rnet->mport->id].active[sid] =
--								peer->rdev;
--					nets[rnet->mport->id].nact++;
-+					nets[netid].active[sid] = peer->rdev;
-+					nets[netid].nact++;
- 				}
- 			}
-+			spin_unlock(&nets[netid].lock);
-+
- 			rio_mport_send_doorbell(mport, sid,
- 						RIONET_DOORBELL_JOIN);
- 		}
- 	} else if (info == RIONET_DOORBELL_LEAVE) {
--		nets[rnet->mport->id].active[sid] = NULL;
--		nets[rnet->mport->id].nact--;
-+		spin_lock(&nets[netid].lock);
-+		if (nets[netid].active[sid]) {
-+			nets[netid].active[sid] = NULL;
-+			nets[netid].nact--;
-+		}
-+		spin_unlock(&nets[netid].lock);
- 	} else {
- 		if (netif_msg_intr(rnet))
- 			printk(KERN_WARNING "%s: unhandled doorbell\n",
-@@ -308,8 +316,10 @@ static void rionet_outb_msg_event(struct rio_mport *mport, void *dev_id, int mbo
- static int rionet_open(struct net_device *ndev)
- {
- 	int i, rc = 0;
--	struct rionet_peer *peer, *tmp;
-+	struct rionet_peer *peer;
- 	struct rionet_private *rnet = netdev_priv(ndev);
-+	unsigned char netid = rnet->mport->id;
-+	unsigned long flags;
- 
- 	if (netif_msg_ifup(rnet))
- 		printk(KERN_INFO "%s: open\n", DRV_NAME);
-@@ -348,20 +358,13 @@ static int rionet_open(struct net_device *ndev)
- 	netif_carrier_on(ndev);
- 	netif_start_queue(ndev);
- 
--	list_for_each_entry_safe(peer, tmp,
--				 &nets[rnet->mport->id].peers, node) {
--		if (!(peer->res = rio_request_outb_dbell(peer->rdev,
--							 RIONET_DOORBELL_JOIN,
--							 RIONET_DOORBELL_LEAVE)))
--		{
--			printk(KERN_ERR "%s: error requesting doorbells\n",
--			       DRV_NAME);
--			continue;
--		}
--
-+	spin_lock_irqsave(&nets[netid].lock, flags);
-+	list_for_each_entry(peer, &nets[netid].peers, node) {
- 		/* Send a join message */
- 		rio_send_doorbell(peer->rdev, RIONET_DOORBELL_JOIN);
- 	}
-+	spin_unlock_irqrestore(&nets[netid].lock, flags);
-+	rnet->open = true;
- 
-       out:
- 	return rc;
-@@ -370,7 +373,9 @@ static int rionet_open(struct net_device *ndev)
- static int rionet_close(struct net_device *ndev)
- {
- 	struct rionet_private *rnet = netdev_priv(ndev);
--	struct rionet_peer *peer, *tmp;
-+	struct rionet_peer *peer;
-+	unsigned char netid = rnet->mport->id;
-+	unsigned long flags;
- 	int i;
- 
- 	if (netif_msg_ifup(rnet))
-@@ -378,18 +383,21 @@ static int rionet_close(struct net_device *ndev)
- 
- 	netif_stop_queue(ndev);
- 	netif_carrier_off(ndev);
-+	rnet->open = false;
- 
- 	for (i = 0; i < RIONET_RX_RING_SIZE; i++)
- 		kfree_skb(rnet->rx_skb[i]);
- 
--	list_for_each_entry_safe(peer, tmp,
--				 &nets[rnet->mport->id].peers, node) {
--		if (nets[rnet->mport->id].active[peer->rdev->destid]) {
-+	spin_lock_irqsave(&nets[netid].lock, flags);
-+	list_for_each_entry(peer, &nets[netid].peers, node) {
-+		if (nets[netid].active[peer->rdev->destid]) {
- 			rio_send_doorbell(peer->rdev, RIONET_DOORBELL_LEAVE);
--			nets[rnet->mport->id].active[peer->rdev->destid] = NULL;
-+			nets[netid].active[peer->rdev->destid] = NULL;
- 		}
--		rio_release_outb_dbell(peer->rdev, peer->res);
-+		if (peer->res)
-+			rio_release_outb_dbell(peer->rdev, peer->res);
- 	}
-+	spin_unlock_irqrestore(&nets[netid].lock, flags);
- 
- 	rio_release_inb_dbell(rnet->mport, RIONET_DOORBELL_JOIN,
- 			      RIONET_DOORBELL_LEAVE);
-@@ -403,22 +411,38 @@ static void rionet_remove_dev(struct device *dev, struct subsys_interface *sif)
- {
- 	struct rio_dev *rdev = to_rio_dev(dev);
- 	unsigned char netid = rdev->net->hport->id;
--	struct rionet_peer *peer, *tmp;
-+	struct rionet_peer *peer;
-+	int state, found = 0;
-+	unsigned long flags;
- 
--	if (dev_rionet_capable(rdev)) {
--		list_for_each_entry_safe(peer, tmp, &nets[netid].peers, node) {
--			if (peer->rdev == rdev) {
--				if (nets[netid].active[rdev->destid]) {
--					nets[netid].active[rdev->destid] = NULL;
--					nets[netid].nact--;
-+	if (!dev_rionet_capable(rdev))
-+		return;
-+
-+	spin_lock_irqsave(&nets[netid].lock, flags);
-+	list_for_each_entry(peer, &nets[netid].peers, node) {
-+		if (peer->rdev == rdev) {
-+			list_del(&peer->node);
-+			if (nets[netid].active[rdev->destid]) {
-+				state = atomic_read(&rdev->state);
-+				if (state != RIO_DEVICE_GONE &&
-+				    state != RIO_DEVICE_INITIALIZING) {
-+					rio_send_doorbell(rdev,
-+							RIONET_DOORBELL_LEAVE);
- 				}
--
--				list_del(&peer->node);
--				kfree(peer);
--				break;
-+				nets[netid].active[rdev->destid] = NULL;
-+				nets[netid].nact--;
- 			}
-+			found = 1;
-+			break;
- 		}
- 	}
-+	spin_unlock_irqrestore(&nets[netid].lock, flags);
-+
-+	if (found) {
-+		if (peer->res)
-+			rio_release_outb_dbell(rdev, peer->res);
-+		kfree(peer);
-+	}
- }
- 
- static void rionet_get_drvinfo(struct net_device *ndev,
-@@ -492,6 +516,7 @@ static int rionet_setup_netdev(struct rio_mport *mport, struct net_device *ndev)
- 	/* Set up private area */
- 	rnet = netdev_priv(ndev);
- 	rnet->mport = mport;
-+	rnet->open = false;
- 
- 	/* Set the default MAC address */
- 	device_id = rio_local_get_device_id(mport);
-@@ -514,8 +539,11 @@ static int rionet_setup_netdev(struct rio_mport *mport, struct net_device *ndev)
- 	rnet->msg_enable = RIONET_DEFAULT_MSGLEVEL;
- 
- 	rc = register_netdev(ndev);
--	if (rc != 0)
-+	if (rc != 0) {
-+		free_pages((unsigned long)nets[mport->id].active,
-+			   get_order(rionet_active_bytes));
- 		goto out;
-+	}
- 
- 	printk(KERN_INFO "%s: %s %s Version %s, MAC %pM, %s\n",
- 	       ndev->name,
-@@ -529,8 +557,6 @@ static int rionet_setup_netdev(struct rio_mport *mport, struct net_device *ndev)
- 	return rc;
- }
- 
--static unsigned long net_table[RIONET_MAX_NETS/sizeof(unsigned long) + 1];
--
- static int rionet_add_dev(struct device *dev, struct subsys_interface *sif)
- {
- 	int rc = -ENODEV;
-@@ -539,19 +565,16 @@ static int rionet_add_dev(struct device *dev, struct subsys_interface *sif)
- 	struct net_device *ndev = NULL;
- 	struct rio_dev *rdev = to_rio_dev(dev);
- 	unsigned char netid = rdev->net->hport->id;
--	int oldnet;
- 
- 	if (netid >= RIONET_MAX_NETS)
- 		return rc;
- 
--	oldnet = test_and_set_bit(netid, net_table);
--
- 	/*
- 	 * If first time through this net, make sure local device is rionet
- 	 * capable and setup netdev (this step will be skipped in later probes
- 	 * on the same net).
- 	 */
--	if (!oldnet) {
-+	if (!nets[netid].ndev) {
- 		rio_local_read_config_32(rdev->net->hport, RIO_SRC_OPS_CAR,
- 					 &lsrc_ops);
- 		rio_local_read_config_32(rdev->net->hport, RIO_DST_OPS_CAR,
-@@ -569,30 +592,56 @@ static int rionet_add_dev(struct device *dev, struct subsys_interface *sif)
- 			rc = -ENOMEM;
- 			goto out;
- 		}
--		nets[netid].ndev = ndev;
-+
- 		rc = rionet_setup_netdev(rdev->net->hport, ndev);
- 		if (rc) {
- 			printk(KERN_ERR "%s: failed to setup netdev (rc=%d)\n",
- 			       DRV_NAME, rc);
-+			free_netdev(ndev);
- 			goto out;
- 		}
- 
- 		INIT_LIST_HEAD(&nets[netid].peers);
-+		spin_lock_init(&nets[netid].lock);
- 		nets[netid].nact = 0;
--	} else if (nets[netid].ndev == NULL)
--		goto out;
-+		nets[netid].ndev = ndev;
-+	}
- 
- 	/*
- 	 * If the remote device has mailbox/doorbell capabilities,
- 	 * add it to the peer list.
- 	 */
- 	if (dev_rionet_capable(rdev)) {
--		if (!(peer = kmalloc(sizeof(struct rionet_peer), GFP_KERNEL))) {
-+		struct rionet_private *rnet;
-+		unsigned long flags;
-+
-+		rnet = netdev_priv(nets[netid].ndev);
-+
-+		peer = kzalloc(sizeof(*peer), GFP_KERNEL);
-+		if (!peer) {
- 			rc = -ENOMEM;
- 			goto out;
- 		}
- 		peer->rdev = rdev;
-+		peer->res = rio_request_outb_dbell(peer->rdev,
-+						RIONET_DOORBELL_JOIN,
-+						RIONET_DOORBELL_LEAVE);
-+		if (!peer->res) {
-+			pr_err("%s: error requesting doorbells\n", DRV_NAME);
-+			kfree(peer);
-+			rc = -ENOMEM;
-+			goto out;
-+		}
-+
-+		spin_lock_irqsave(&nets[netid].lock, flags);
- 		list_add_tail(&peer->node, &nets[netid].peers);
-+		spin_unlock_irqrestore(&nets[netid].lock, flags);
-+		pr_debug("%s: %s add peer %s\n",
-+			 DRV_NAME, __func__, rio_name(rdev));
-+
-+		/* If netdev is already opened, send join request to new peer */
-+		if (rnet->open)
-+			rio_send_doorbell(peer->rdev, RIONET_DOORBELL_JOIN);
- 	}
- 
- 	return 0;
-@@ -603,7 +652,8 @@ out:
- static int rionet_shutdown(struct notifier_block *nb, unsigned long code,
- 			   void *unused)
- {
--	struct rionet_peer *peer, *tmp;
-+	struct rionet_peer *peer;
-+	unsigned long flags;
- 	int i;
- 
- 	pr_debug("%s: %s\n", DRV_NAME, __func__);
-@@ -612,13 +662,15 @@ static int rionet_shutdown(struct notifier_block *nb, unsigned long code,
- 		if (!nets[i].ndev)
- 			continue;
- 
--		list_for_each_entry_safe(peer, tmp, &nets[i].peers, node) {
-+		spin_lock_irqsave(&nets[i].lock, flags);
-+		list_for_each_entry(peer, &nets[i].peers, node) {
- 			if (nets[i].active[peer->rdev->destid]) {
- 				rio_send_doorbell(peer->rdev,
- 						  RIONET_DOORBELL_LEAVE);
- 				nets[i].active[peer->rdev->destid] = NULL;
- 			}
- 		}
-+		spin_unlock_irqrestore(&nets[i].lock, flags);
- 	}
- 
- 	return NOTIFY_DONE;
--- 
-1.7.8.4
+e.g.
+
+/* Make sure the updates to rest of the descriptor
+ * performed before transferring ownership.
+ */
+#define fec_enet_xfr_ownership(status) \
+	do { \
+		wmb();
+		bdp->cbd_sc = cpu_to_fec16(status);
+	} while (0)
+
+(I don't know if thats the right macro name, I'm just basing it off
+your comment)
+
+>  	}
+>  
+> @@ -499,6 +503,10 @@ static int fec_enet_txq_submit_skb(struct
+> fec_enet_priv_tx_q *txq, 
+>  	bdp->cbd_datlen = cpu_to_fec16(buflen);
+>  	bdp->cbd_bufaddr = cpu_to_fec32(addr);
+> +	/* Make sure the updates to rest of the descriptor are
+> performed before
+> +	 * transferring ownership.
+> +	 */
+> +	wmb();
+>  
+>  	/* Send it on its way.  Tell FEC it's ready, interrupt when
+> done,
+>  	 * it's the last BD of the frame, and to put the CRC on the
+> end. @@ -1475,7 +1483,6 @@ rx_processing_done:
+>  
+>  		/* Mark the buffer empty */
+>  		status |= BD_ENET_RX_EMPTY;
+> -		bdp->cbd_sc = cpu_to_fec16(status);
+>  
+>  		if (fep->bufdesc_ex) {
+>  			struct bufdesc_ex *ebdp = (struct bufdesc_ex
+> *)bdp; @@ -1484,6 +1491,11 @@ rx_processing_done:
+>  			ebdp->cbd_prot = 0;
+>  			ebdp->cbd_bdu = 0;
+>  		}
+> +		/* Make sure the updates to rest of the descriptor
+> are
+> +		 * performed before transferring ownership.
+> +		 */
+> +		wmb();
+> +		bdp->cbd_sc = cpu_to_fec16(status);
+>  
+>  		/* Update BD pointer to next entry */
+>  		bdp = fec_enet_get_nextdesc(bdp, &rxq->bd);
