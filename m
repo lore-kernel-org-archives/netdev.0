@@ -1,27 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] tcp: fastopen: accept data/FIN present in
- SYNACK
-Date: Sat, 06 Feb 2016 03:13:02 -0500 (EST)
-Message-ID: <20160206.031302.1262914455786911151.davem@davemloft.net>
-References: <1454389388-1506-1-git-send-email-edumazet@google.com>
+Subject: Re: [PATCH net-next] ethtool: Declare netdev_rss_key as
+ __read_mostly.
+Date: Sat, 06 Feb 2016 03:14:37 -0500 (EST)
+Message-ID: <20160206.031437.334705957146638774.davem@davemloft.net>
+References: <1454385076-31469-1-git-send-email-kim-marie.jones@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sara@sinodun.com, ycheng@google.com
-To: edumazet@google.com
+Cc: netdev@vger.kernel.org, alan.carey@intel.com
+To: kim-marie.jones@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47797 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47804 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751111AbcBFINI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 03:13:08 -0500
-In-Reply-To: <1454389388-1506-1-git-send-email-edumazet@google.com>
+	with ESMTP id S1751565AbcBFIOl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 03:14:41 -0500
+In-Reply-To: <1454385076-31469-1-git-send-email-kim-marie.jones@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Mon,  1 Feb 2016 21:03:06 -0800
+From: Kim Jones <kim-marie.jones@intel.com>
+Date: Tue,  2 Feb 2016 03:51:16 +0000
 
-> Implements RFC 7413 (TCP Fast Open) 4.2.2, accepting payload and/or FIN
-> in SYNACK messages, and prepare removal of SYN flag in tcp_recvmsg()
+> netdev_rss_key is written to once and thereafter is read by
+> drivers when they are initialising. The fact that it is mostly
+> read and not written to makes it a candidate for a __read_mostly
+> declaration.
+> 
+> Signed-off-by: Kim Jones <kim-marie.jones@intel.com>
+> Signed-off-by: Alan Carey <alan.carey@intel.com>
+> Acked-by: Rami Rosen <rami.rosen@intel.com>
 
-Series applied, thanks Eric.
+Applied, thank you.
