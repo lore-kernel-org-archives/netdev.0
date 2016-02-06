@@ -1,40 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3 0/4] net: add and use rx_nohandler stat counter
-Date: Sat, 06 Feb 2016 03:00:43 -0500 (EST)
-Message-ID: <20160206.030043.153713563005660397.davem@davemloft.net>
-References: <1453996188-29965-1-git-send-email-jarod@redhat.com>
-	<1454370667-2328-1-git-send-email-jarod@redhat.com>
+Subject: Re: [PATCH v2] ipv6: addrconf: Fix recursive spin lock call
+Date: Sat, 06 Feb 2016 03:09:44 -0500 (EST)
+Message-ID: <20160206.030944.1340132870709460187.davem@davemloft.net>
+References: <f323a260f8bc358412de59575b058cdf.squirrel@www.codeaurora.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, edumazet@google.com,
-	jiri@mellanox.com, daniel@iogearbox.net, tom@herbertland.com,
-	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org
-To: jarod@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454370667-2328-1-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com, ek@google.com,
+	hannes@stressinduktion.org
+To: subashab@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47773 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750779AbcBFIJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 03:09:49 -0500
+In-Reply-To: <f323a260f8bc358412de59575b058cdf.squirrel@www.codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarod Wilson <jarod@redhat.com>
-Date: Mon,  1 Feb 2016 18:51:03 -0500
+From: subashab@codeaurora.org
+Date: Tue, 2 Feb 2016 02:11:10 -0000
 
+> A rcu stall with the following backtrace was seen on a system with
+> forwarding, optimistic_dad and use_optimistic set. To reproduce,
+> set these flags and allow ipv6 autoconf.
+> 
+> This occurs because the device write_lock is acquired while already
+> holding the read_lock. Back trace below -
  ...
-> It seems additional counters never came to fruition, so this is a first
-> attempt at creating one of them, so that we stop calling these drops,
-> which for users monitoring rx_dropped, causes great alarm, and renders the
-> counter much less useful for them.
+> v2: do addrconf_dad_kick inside read lock and then acquire write
+> lock for ipv6_ifa_notify as suggested by Eric
 > 
-> This adds a sysfs statistics node and makes the counter available via
-> netlink.
+> Fixes: 7fd2561e4ebdd ("net: ipv6: Add a sysctl to make optimistic
+> addresses useful candidates")
 > 
-> Additionally, I'm not certain if this set qualifies for net, or if it
-> should be put aside and resubmitted for net-next after 4.5 is put to
-> bed, but I do have users who consider this an important bugfix.
-> 
-> This has been tested quite a bit on x86_64, and now lightly on i686 as
-> well, to verify functionality of updates to netdev_stats_to_stats64()
-> on 32-bit arches.
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Erik Kline <ek@google.com>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 
-Series applied, thanks Jarod.
+Applied and queued up for -stable, thanks.
