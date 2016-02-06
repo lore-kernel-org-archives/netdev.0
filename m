@@ -1,39 +1,85 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net 0/4] net: phy: bcm7xxx 40nm PHY fixes
-Date: Fri, 5 Feb 2016 17:25:50 -0800
-Message-ID: <56B54B9E.20906@gmail.com>
-References: <1454534029-585-1-git-send-email-f.fainelli@gmail.com>
+From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Subject: [PATCH nf-next v7 0/7] openvswitch: NAT support.
+Date: Fri,  5 Feb 2016 17:40:58 -0800
+Message-ID: <1454722865-59558-1-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, pgynther@google.com, opendmb@gmail.com,
-	jaedon.shin@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:34870 "EHLO
-	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750748AbcBFB0y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 20:26:54 -0500
-Received: by mail-pf0-f179.google.com with SMTP id c10so11181100pfc.2
-        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 17:26:54 -0800 (PST)
-In-Reply-To: <1454534029-585-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 03/02/16 13:13, Florian Fainelli wrote:
-> Hi David,
-> 
-> Here is a collection of fixes for the 40nm Ethernet PHY supported
-> by the 7xxx PHY driver, please also queue these fixes for stable.
-> 
-> Let me know if you think patch 4 is too much of a cleanup to be taken
-> as a fix.
-
-David, if you have not applied these yet (patchwork says they are under
-review), I have another fix coming your way, and patch 4 should probably
-be targetted at net-next, and bundled with another cleanup.
-
-Let me know what's the outcome and I will re-submit where appropriate,
-thanks!
--- 
-Florian
+VGhpcyBzZXJpZXMgYWRkcyBOQVQgc3VwcG9ydCB0byBvcGVudnN3aXRjaCBrZXJuZWwgbW9kdWxl
+LiAgQSBmZXcKY2hhbmdlcyBhcmUgbmVlZGVkIHRvIHRoZSBuZXRmaWx0ZXIgY29kZSB0byBmYWNp
+bGl0YXRlIHRoaXMgKHBhdGNoZXMKMS0yLzcpLiAgUGF0Y2hlcyAzLTYgbWFrZSB0aGUgb3BlbnZz
+d2l0Y2gga2VybmVsIG1vZHVsZSByZWFkeSBmb3IgdGhlCnBhdGNoIDcgdGhhdCBhZGRzIHRoZSBO
+QVQgc3VwcG9ydCBieSBjYWxsaW5nIGludG8gbmV0ZmlsdGVyIE5BVCBjb2RlCmZyb20gdGhlIG9w
+ZW52c3dpdGNoIGNvbm50cmFjayBhY3Rpb24uCgpUaGlzIHZlcnNpb24gYWRkcmVzc2VzIGFsbCB0
+aGUgY29tbWVudHMgcmVjZWl2ZWQgb24gcHJpb3IgdmVyc2lvbnMgYW5kCnJlYmFzZXMgdG8gY3Vy
+cmVudCBuZi1uZXh0LgoKVGhlIE9WUyBtYXN0ZXIgbm93IGhhcyB0aGUgY29ycmVzcG9uZGluZyBP
+VlMgdXNlcnNwYWNlIHN1cHBvcnQgdG8gdXNlCmFuZCB0ZXN0IHRoZSBOQVQgZmVhdHVyZXMuICBC
+ZWxvdyBpZiBhIHdhbGsgdGhyb3VnaCBvZiBhIHNpbXBsZSB1c2UKY2FzZS4KCkluIHRoaXMgY2Fz
+ZSBwb3J0cyAxIGFuZCAyIGFyZSBpbiBkaWZmZXJlbnQgbmFtZXNwYWNlcy4gIFRoZSBPcGVuRmxv
+dwp0YWJsZSBiZWxvdyBvbmx5IGFsbG93cyBJUHY0IGNvbm5lY3Rpb25zIGluaXRpYXRlZCBmcm9t
+IHBvcnQgMSwgYW5kCmFwcGxpZXMgc291cmNlIE5BVCB0byB0aG9zZSBjb25uZWN0aW9uczoKCiAg
+IGluX3BvcnQ9MSxpcCxhY3Rpb249Y3QoY29tbWl0LHpvbmU9MSxuYXQoc3JjPTEwLjEuMS4yNDAt
+MTAuMS4xLjI1NSkpLDIKICAgaW5fcG9ydD0yLGN0X3N0YXRlPS10cmssaXAsYWN0aW9uPWN0KHRh
+YmxlPTAsem9uZT0xLG5hdCkKICAgaW5fcG9ydD0yLGN0X3N0YXRlPStlc3QsY3Rfem9uZT0xLGlw
+LGFjdGlvbj0xCgpUaGlzIGZsb3cgdGFibGUgbWF0Y2hlcyBhbGwgSVB2NCB0cmFmZmljIGZyb20g
+cG9ydCAxLCBydW5zIHRoZW0KdGhyb3VnaCBjb25udHJhY2sgaW4gem9uZSAxIGFuZCBOQVRzIHRo
+ZW0uICBUaGUgTkFUIGlzIGluaXRpYWxpemVkIHRvCmRvIHNvdXJjZSBJUCBtYXBwaW5nIHRvIHRo
+ZSBnaXZlbiByYW5nZSBmb3IgdGhlIGZpcnN0IHBhY2tldCBvZiBlYWNoCmNvbm5lY3Rpb24sIGFm
+dGVyIHdoaWNoIHRoZSBuZXcgY29ubmVjdGlvbiBpcyBjb21taXR0ZWQgKGNvbmZpcm1lZCkuCkZv
+ciBmdXJ0aGVyIHBhY2tldHMgb2YgYWxyZWFkeSB0cmFja2VkIGNvbm5lY3Rpb25zIE5BVCBpcyBk
+b25lCmFjY29yZGluZyB0byB0aGUgY29ubmVjdGlvbiBzdGF0ZSBhbmQgdGhlIGNvbW1pdCBpcyBh
+IG5vLW9wLiAgRWFjaApwYWNrZXQgdGhhdCBpcyBub3QgZmxhZ2dlZCBhcyBhIGRyb3AgYnkgdGhl
+IENUIGFjdGlvbiBpcyBmb3J3YXJkZWQgdG8KcG9ydCAyLiAgVGhlIENUIGFjdGlvbiBkb2VzIGFu
+IGltcGxpY2l0IGZyYWdtZW50YXRpb24gcmVhc3NlbWJseSwgc28KdGhhdCBvbmx5IGNvbXBsZXRl
+IHBhY2tldHMgYXJlIHJ1biB0aHJvdWdoIGNvbm50cmFjay4gIFJlYXNzZW1ibGVkCnBhY2tldHMg
+YXJlIHJlLWZyYWdtZW50ZWQgb24gb3V0cHV0LgoKVGhlIElQdjQgdHJhZmZpYyBjb21pbmcgZnJv
+bSBwb3J0IDIgaXMgZmlyc3QgbWF0Y2hlZCBmb3IgdGhlCm5vbi10cmFja2VkIHN0YXRlICgtdHJr
+KSwgd2hpY2ggbWVhbnMgdGhhdCB0aGUgcGFja2V0IGhhcyBub3QgYmVlbgp0aHJvdWdoIGEgQ1Qg
+YWN0aW9uIHlldC4gIFN1Y2ggdHJhZmZpYyBpcyBydW4gdHJvdWdoIHRoZSBjb25udHJhY2sgaW4K
+em9uZSAxIGFuZCBhbGwgcGFja2V0cyBhc3NvY2lhdGVkIHdpdGggYSBOQVR0ZWQgY29ubmVjdGlv
+biBhcmUgTkFUdGVkCmFsc28gaW4gdGhlIHJldHVybiBkaXJlY3Rpb24uICBBZnRlciB0aGUgcGFj
+a2V0IGhhcyBiZWVuIHRocm91Z2gKY29ubnRyYWNrIGl0IGlzIHJlY2lyY3VsYXRlZCBiYWNrIHRv
+IE9wZW5GbG93IHRhYmxlIDAgKHdoaWNoIGlzIHRoZQpkZWZhdWx0IHRhYmxlLCBzbyBhbGwgdGhl
+IHJ1bGVzIGFib3ZlIGFyZSBpbiB0YWJsZSAwKS4gIFRoZSBDVCBhY3Rpb24KY2hhbmdlcyB0aGUg
+J3RyaycgZmxhZyB0byBiZWluZyBzZXQsIHNvIHRoZSBwYWNrZXRzIGFmdGVyCnJlY2lyY3VsYXRp
+b24gbm8gbG9uZ2VyIG1hdGNoIHRoZSBzZWNvbmQgcnVsZS4gIFRoZSB0aGlyZCBydWxlIHRoZW4K
+bWF0Y2hlcyB0aGUgcmVjaXJjdWxhdGVkIHBhY2tldHMgdGhhdCB3ZXJlIG1hcmtlZCBhcyBlc3Rh
+Ymxpc2hlZCBieQpjb25udHJhY2sgKCtlc3QpLCBhbmQgdGhlIHBhY2tldCBpcyBvdXRwdXQgb24g
+cG9ydCAxLiAgTWF0Y2hpbmcgb24KY3Rfem9uZSBpcyBub3Qgc3RyaWN0bHkgbmVlZGVkLCBidXQg
+aW4gdGhpcyB0ZXN0IGNhc2UgaXQgdmVyaWZpZXMgdGhhdAp0aGUgY3Rfem9uZSBrZXkgYXR0cmli
+dXRlIGlzIHByb3Blcmx5IHNldCBieSB0aGUgY29ubnRyYWNrIGFjdGlvbi4KCkEgZnVsbCB0ZXN0
+IGNhc2UgcmVxdWlyZXMgcnVsZXMgZm9yIEFSUCBoYW5kbGluZyBub3Qgc2hvd24gaGVyZS4KClRo
+ZSBmbG93IHRhYmxlIGFib3ZlIGlzIGFuIE9wZW5GbG93IHRhYmxlLCBhbmQgdGhlIHJ1bGVzIHRo
+ZXJlaW4KYXJlIHRyYW5zbGF0ZWQgdG8ga2VybmVsIGZsb3cgZW50cmllcyBvbi1kZW1hbmQgYnkg
+b3ZzLXZzd2l0Y2hkLgoKSmFybm8gUmFqYWhhbG1lICg3KToKICBuZXRmaWx0ZXI6IFJlbW92ZSBJ
+UF9DVF9ORVdfUkVQTFkgZGVmaW5pdGlvbi4KICBuZXRmaWx0ZXI6IEFsbG93IGNhbGxpbmcgaW50
+byBuYXQgaGVscGVyIHdpdGhvdXQgc2tiX2RzdC4KICBvcGVudnN3aXRjaDogVXBkYXRlIHRoZSBD
+VCBzdGF0ZSBrZXkgb25seSBhZnRlciBuZl9jb25udHJhY2tfaW4oKS4KICBvcGVudnN3aXRjaDog
+RmluZCBleGlzdGluZyBjb25udHJhY2sgZW50cnkgYWZ0ZXIgdXBjYWxsLgogIG9wZW52c3dpdGNo
+OiBIYW5kbGUgTkZfUkVQRUFUIGluIGNvbm50cmFjayBhY3Rpb24uCiAgb3BlbnZzd2l0Y2g6IERl
+bGF5IGNvbm50cmFjayBoZWxwZXIgY2FsbCBmb3IgbmV3IGNvbm5lY3Rpb25zLgogIG9wZW52c3dp
+dGNoOiBJbnRlcmZhY2Ugd2l0aCBOQVQuCgogaW5jbHVkZS91YXBpL2xpbnV4L25ldGZpbHRlci9u
+Zl9jb25udHJhY2tfY29tbW9uLmggfCAgMTIgKy0KIGluY2x1ZGUvdWFwaS9saW51eC9vcGVudnN3
+aXRjaC5oICAgICAgICAgICAgICAgICAgIHwgIDQ3ICsrCiBuZXQvaXB2NC9uZXRmaWx0ZXIvbmZf
+bmF0X2wzcHJvdG9faXB2NC5jICAgICAgICAgICB8ICAzMCArLQogbmV0L2lwdjYvbmV0ZmlsdGVy
+L25mX25hdF9sM3Byb3RvX2lwdjYuYyAgICAgICAgICAgfCAgMzAgKy0KIG5ldC9vcGVudnN3aXRj
+aC9jb25udHJhY2suYyAgICAgICAgICAgICAgICAgICAgICAgIHwgNjQ2ICsrKysrKysrKysrKysr
+KysrKystLQogbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5oICAgICAgICAgICAgICAgICAgICAg
+ICAgfCAgIDMgKy0KIDYgZmlsZXMgY2hhbmdlZCwgNjgyIGluc2VydGlvbnMoKyksIDg2IGRlbGV0
+aW9ucygtKQoKLS0gCjIuMS40CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29w
+ZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
