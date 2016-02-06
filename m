@@ -1,46 +1,71 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [v2] hostap: avoid uninitialized variable use in hfa384x_get_rid
-Date: Sat,  6 Feb 2016 11:59:45 +0000 (UTC)
-Message-ID: <20160206115945.2A872604F6@smtp.codeaurora.org>
-References: <18181682.hKPVvnQWXk@wuerfel>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 13/20] i40evf: add new write-back mode
+Date: Sat, 6 Feb 2016 15:38:21 +0300
+Message-ID: <56B5E93D.6080709@cogentembedded.com>
+References: <1454586551-35919-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1454586551-35919-14-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
- Arnd Bergmann <arnd@arndb.de>, Jouni Malinen <j@w1.fi>, netdev@vger.kernel.org,
- linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <18181682.hKPVvnQWXk@wuerfel>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:36217 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752055AbcBFMi0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 07:38:26 -0500
+Received: by mail-lb0-f177.google.com with SMTP id dx2so62784269lbd.3
+        for <netdev@vger.kernel.org>; Sat, 06 Feb 2016 04:38:25 -0800 (PST)
+In-Reply-To: <1454586551-35919-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
-> The driver reads a value from hfa384x_from_bap(), which may fail,
-> and then assigns the value to a local variable. gcc detects that
-> in in the failure case, the 'rlen' variable now contains
-> uninitialized data:
-> 
-> In file included from ../drivers/net/wireless/intersil/hostap/hostap_pci.c:220:0:
-> drivers/net/wireless/intersil/hostap/hostap_hw.c: In function 'hfa384x_get_rid':
-> drivers/net/wireless/intersil/hostap/hostap_hw.c:842:5: warning: 'rec' may be used uninitialized in this function [-Wmaybe-uninitialized]
->   if (le16_to_cpu(rec.len) == 0) {
-> 
-> This restructures the function as suggested by Russell King, to
-> make it more readable and get more reliable error handling, by
-> handling each failure mode using a goto.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+On 2/4/2016 2:49 PM, Jeff Kirsher wrote:
 
-Thanks, applied to wireless-drivers-next.git.
+> From: Anjali Singhai Jain <anjali.singhai@intel.com>
+>
+> Add write-back on interrupt throttle rate timer expiration support
+> for the i40evf driver, when running on X722 devices.
+>
+> Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Kalle Valo
+[...]
+> diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+> index 7a00657..7d663fb 100644
+> --- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+> +++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+> @@ -252,6 +252,22 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
+>   	tx_ring->q_vector->tx.total_bytes += total_bytes;
+>   	tx_ring->q_vector->tx.total_packets += total_packets;
+>
+> +	if (tx_ring->flags & I40E_TXR_FLAGS_WB_ON_ITR) {
+> +		unsigned int j = 0;
+
+    Pointless initializer, you override it on the next line.
+
+> +		/* check to see if there are < 4 descriptors
+> +		 * waiting to be written back, then kick the hardware to force
+> +		 * them to be written back in case we stay in NAPI.
+> +		 * In this mode on X722 we do not enable Interrupt.
+> +		 */
+> +		j = i40evf_get_tx_pending(tx_ring);
+> +
+> +		if (budget &&
+> +		    ((j / (WB_STRIDE + 1)) == 0) && (j > 0) &&
+> +		    !test_bit(__I40E_DOWN, &tx_ring->vsi->state) &&
+> +		    (I40E_DESC_UNUSED(tx_ring) != tx_ring->count))
+> +			tx_ring->arm_wb = true;
+> +	}
+> +
+>   	netdev_tx_completed_queue(netdev_get_tx_queue(tx_ring->netdev,
+>   						      tx_ring->queue_index),
+>   				  total_packets, total_bytes);
+[...]
+
+MBR, Sergei
