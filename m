@@ -1,62 +1,58 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v2 2/4] net: phy: bcm7xxx: Fix 40nm EPHY features
-Date: Sat,  6 Feb 2016 12:58:49 -0800
-Message-ID: <1454792331-4435-3-git-send-email-f.fainelli@gmail.com>
-References: <1454792331-4435-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
-	opendmb@gmail.com, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [net-next PATCH 10/10] net: Allow tunnels to use inner checksum
+ offloads with outer checksums needed
+Date: Sat, 6 Feb 2016 13:00:07 -0800
+Message-ID: <CALx6S37xA7c_BA4h-AzeFF+Q2XdKnJG5veuoiNYrLzScRe6Y=w@mail.gmail.com>
+References: <20160205232109.18529.99816.stgit@localhost.localdomain>
+	<20160205232826.18529.69333.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Edward Cree <ecree@solarflare.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:33403 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752634AbcBFU65 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 15:58:57 -0500
-Received: by mail-pf0-f177.google.com with SMTP id w123so88100661pfb.0
-        for <netdev@vger.kernel.org>; Sat, 06 Feb 2016 12:58:57 -0800 (PST)
-In-Reply-To: <1454792331-4435-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:35779 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752723AbcBFVAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 16:00:07 -0500
+Received: by mail-ig0-f182.google.com with SMTP id hb3so34770074igb.0
+        for <netdev@vger.kernel.org>; Sat, 06 Feb 2016 13:00:07 -0800 (PST)
+In-Reply-To: <20160205232826.18529.69333.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PHY entries for BCM7425/29/35 declare the 40nm Ethernet PHY as being
-10/100/1000 capable, while this is just a 10/100 capable PHY device, fix that.
+On Fri, Feb 5, 2016 at 3:28 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> This patch enables us to use inner checksum offloads if provided by
+> hardware with outer checksums computed by software.
+>
+> It basically reduces encap_hdr_csum to an advisory flag for now, but based
+> on the fact that SCTP may be getting segmentation support before long I
+> thought we may want to keep it as it is possible we may need to support
+> CRC32c and 1's compliment checksum in the same packet at some point in the
+> future.
+>
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 
-Fixes: d068b02cfdfc2 ("net: phy: add BCM7425 and BCM7429 PHYs")
-Fixes: 9458ceab4917 ("net: phy: bcm7xxx: Add entry for BCM7435")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/bcm7xxx.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Acked-by: Tom Herbert <tom@herbertland.com>
 
-diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
-index 234a285..524806d 100644
---- a/drivers/net/phy/bcm7xxx.c
-+++ b/drivers/net/phy/bcm7xxx.c
-@@ -337,7 +337,7 @@ static struct phy_driver bcm7xxx_driver[] = {
- 	.phy_id         = PHY_ID_BCM7425,
- 	.phy_id_mask    = 0xfffffff0,
- 	.name           = "Broadcom BCM7425",
--	.features       = PHY_GBIT_FEATURES |
-+	.features       = PHY_BASIC_FEATURES |
- 			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
- 	.flags          = PHY_IS_INTERNAL,
- 	.config_init    = bcm7xxx_config_init,
-@@ -349,7 +349,7 @@ static struct phy_driver bcm7xxx_driver[] = {
- 	.phy_id         = PHY_ID_BCM7429,
- 	.phy_id_mask    = 0xfffffff0,
- 	.name           = "Broadcom BCM7429",
--	.features       = PHY_GBIT_FEATURES |
-+	.features       = PHY_BASIC_FEATURES |
- 			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
- 	.flags          = PHY_IS_INTERNAL,
- 	.config_init    = bcm7xxx_config_init,
-@@ -361,7 +361,7 @@ static struct phy_driver bcm7xxx_driver[] = {
- 	.phy_id         = PHY_ID_BCM7435,
- 	.phy_id_mask    = 0xfffffff0,
- 	.name           = "Broadcom BCM7435",
--	.features       = PHY_GBIT_FEATURES |
-+	.features       = PHY_BASIC_FEATURES |
- 			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
- 	.flags          = PHY_IS_INTERNAL,
- 	.config_init    = bcm7xxx_config_init,
--- 
-1.7.1
+> ---
+>  net/core/skbuff.c |    3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 88262c82b96a..b0cce744e2a0 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -3004,8 +3004,7 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+>         if (unlikely(!proto))
+>                 return ERR_PTR(-EINVAL);
+>
+> -       csum = !head_skb->encap_hdr_csum &&
+> -           !!can_checksum_protocol(features, proto);
+> +       csum = !!can_checksum_protocol(features, proto);
+>
+>         headroom = skb_headroom(head_skb);
+>         pos = skb_headlen(head_skb);
+>
