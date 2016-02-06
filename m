@@ -1,31 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 2/2] tipc: fix link priority propagation
-Date: Sat, 06 Feb 2016 02:46:04 -0500 (EST)
-Message-ID: <20160206.024604.218916025834000988.davem@davemloft.net>
-References: <1454311197-10948-1-git-send-email-richard.alpe@ericsson.com>
-	<1454311197-10948-2-git-send-email-richard.alpe@ericsson.com>
+Subject: Re: [PATCH net v3 0/4] net: add and use rx_nohandler stat counter
+Date: Sat, 06 Feb 2016 03:00:43 -0500 (EST)
+Message-ID: <20160206.030043.153713563005660397.davem@davemloft.net>
+References: <1453996188-29965-1-git-send-email-jarod@redhat.com>
+	<1454370667-2328-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: richard.alpe@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47606 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751524AbcBFHqH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 02:46:07 -0500
-In-Reply-To: <1454311197-10948-2-git-send-email-richard.alpe@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, edumazet@google.com,
+	jiri@mellanox.com, daniel@iogearbox.net, tom@herbertland.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: jarod@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454370667-2328-1-git-send-email-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Alpe <richard.alpe@ericsson.com>
-Date: Mon, 1 Feb 2016 08:19:57 +0100
+From: Jarod Wilson <jarod@redhat.com>
+Date: Mon,  1 Feb 2016 18:51:03 -0500
 
-> Currently link priority changes isn't handled for active links. In
-> this patch we resolve this by changing our priority if the peer passes
-> a valid priority in a state message.
+ ...
+> It seems additional counters never came to fruition, so this is a first
+> attempt at creating one of them, so that we stop calling these drops,
+> which for users monitoring rx_dropped, causes great alarm, and renders the
+> counter much less useful for them.
 > 
-> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+> This adds a sysfs statistics node and makes the counter available via
+> netlink.
+> 
+> Additionally, I'm not certain if this set qualifies for net, or if it
+> should be put aside and resubmitted for net-next after 4.5 is put to
+> bed, but I do have users who consider this an important bugfix.
+> 
+> This has been tested quite a bit on x86_64, and now lightly on i686 as
+> well, to verify functionality of updates to netdev_stats_to_stats64()
+> on 32-bit arches.
 
-Applied.
+Series applied, thanks Jarod.
