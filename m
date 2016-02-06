@@ -1,10 +1,10 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [net-next PATCH 07/10] gre: Use inner_proto to obtain inner
- header protocol
-Date: Sat, 6 Feb 2016 12:55:29 -0800
-Message-ID: <CALx6S350PdxM7UxmT9ByKGAUN-8s=hujmx93U8a06gme9cn36A@mail.gmail.com>
+Subject: Re: [net-next PATCH 08/10] udp: Clean up the use of flags in UDP
+ segmentation offload
+Date: Sat, 6 Feb 2016 12:57:48 -0800
+Message-ID: <CALx6S35DaAYceaAnTgJPPNSaNUtburvpdGUXqdsa-LqNV8n63A@mail.gmail.com>
 References: <20160205232109.18529.99816.stgit@localhost.localdomain>
-	<20160205232807.18529.87448.stgit@localhost.localdomain>
+	<20160205232814.18529.595.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
@@ -13,64 +13,113 @@ Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>
 To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:36242 "EHLO
-	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752119AbcBFUza (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 15:55:30 -0500
-Received: by mail-io0-f171.google.com with SMTP id g73so162056674ioe.3
-        for <netdev@vger.kernel.org>; Sat, 06 Feb 2016 12:55:30 -0800 (PST)
-In-Reply-To: <20160205232807.18529.87448.stgit@localhost.localdomain>
+Received: from mail-io0-f175.google.com ([209.85.223.175]:35830 "EHLO
+	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752634AbcBFU5t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 15:57:49 -0500
+Received: by mail-io0-f175.google.com with SMTP id d63so161994402ioj.2
+        for <netdev@vger.kernel.org>; Sat, 06 Feb 2016 12:57:49 -0800 (PST)
+In-Reply-To: <20160205232814.18529.595.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Fri, Feb 5, 2016 at 3:28 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> Instead of parsing headers to determine the inner protocol we can just pull
-> the value from inner_proto.
+> This patch goes though and cleans up the logic related to several of the
+> control flags used in UDP segmentation.  Specifically the use of dont_encap
+> isn't really needed as we can just check the skb for CHECKSUM_PARTIAL and
+> if it isn't set then we don't need to update the internal headers.  As such
+> we can just drop that value.
 >
 > Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+
+Acked-by: Tom Herbert <tom@herbertland.com>
+
 > ---
->  net/ipv4/gre_offload.c |    6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
+>  net/ipv4/udp_offload.c |   37 ++++++++++++++++++-------------------
+>  1 file changed, 18 insertions(+), 19 deletions(-)
 >
-> diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-> index c15441b5ff61..003b0ebbcfdd 100644
-> --- a/net/ipv4/gre_offload.c
-> +++ b/net/ipv4/gre_offload.c
-> @@ -20,7 +20,6 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+> index 86687f58d613..9e4816fc9927 100644
+> --- a/net/ipv4/udp_offload.c
+> +++ b/net/ipv4/udp_offload.c
+> @@ -33,16 +33,13 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+>         __be16 new_protocol, bool is_ipv6)
 >  {
->         int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
 >         struct sk_buff *segs = ERR_PTR(-EINVAL);
-> -       struct gre_base_hdr *greh;
+> +       bool remcsum, need_csum, offload_csum;
 >         u16 mac_offset = skb->mac_header;
+>         int mac_len = skb->mac_len;
+>         int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
 >         __be16 protocol = skb->protocol;
->         u16 mac_len = skb->mac_len;
-> @@ -48,15 +47,13 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
->         if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
->                 goto out;
+>         int udp_offset, outer_hlen;
+>         unsigned int oldlen;
+> -       bool need_csum = !!(skb_shinfo(skb)->gso_type &
+> -                           SKB_GSO_UDP_TUNNEL_CSUM);
+> -       bool remcsum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TUNNEL_REMCSUM);
+> -       bool offload_csum = false, dont_encap = (need_csum || remcsum);
 >
-> -       greh = (struct gre_base_hdr *)skb_transport_header(skb);
-> -
->         /* setup inner skb. */
-> -       skb->protocol = greh->protocol;
->         skb->encapsulation = 0;
->         __skb_pull(skb, tnl_hlen);
->         skb_reset_mac_header(skb);
+>         oldlen = (u16)~skb->len;
+>
+> @@ -55,14 +52,18 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
 >         skb_set_network_header(skb, skb_inner_network_offset(skb));
 >         skb->mac_len = skb_inner_network_offset(skb);
-> +       skb->protocol = skb->inner_protocol;
-
-Is this going to be a problem if we try to perform GSO with nested
-encapsulations? (I suppose that's something not supported).
-
->
->         need_csum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_GRE_CSUM);
+>         skb->protocol = new_protocol;
+> +
+> +       need_csum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM);
 >         skb->encap_hdr_csum = need_csum;
-> @@ -75,6 +72,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
->         gre_offset = outer_hlen - tnl_hlen;
->         skb = segs;
->         do {
-> +               struct gre_base_hdr *greh;
->                 __be32 *pcsum;
+> +
+> +       remcsum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TUNNEL_REMCSUM);
+>         skb->remcsum_offload = remcsum;
 >
->                 skb_reset_inner_headers(skb);
+>         /* Try to offload checksum if possible */
+>         offload_csum = !!(need_csum &&
+> -                         ((skb->dev->features & NETIF_F_HW_CSUM) ||
+> -                          (skb->dev->features & (is_ipv6 ?
+> -                           NETIF_F_IPV6_CSUM : NETIF_F_IP_CSUM))));
+> +                         (skb->dev->features &
+> +                          (is_ipv6 ? (NETIF_F_HW_CSUM | NETIF_F_IPV6_CSUM) :
+> +                                     (NETIF_F_HW_CSUM | NETIF_F_IP_CSUM))));
+>
+>         features &= skb->dev->hw_enc_features;
+>
+> @@ -92,13 +93,11 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+>                 int len;
+>                 __be32 delta;
+>
+> -               if (dont_encap) {
+> -                       skb->encapsulation = 0;
+> +               if (remcsum)
+>                         skb->ip_summed = CHECKSUM_NONE;
+> -               } else {
+> -                       /* Only set up inner headers if we might be offloading
+> -                        * inner checksum.
+> -                        */
+> +
+> +               /* Set up inner headers if we are offloading inner checksum */
+> +               if (skb->ip_summed == CHECKSUM_PARTIAL) {
+>                         skb_reset_inner_headers(skb);
+>                         skb->encapsulation = 1;
+>                 }
+> @@ -122,15 +121,15 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+>                 uh->check = ~csum_fold((__force __wsum)
+>                                        ((__force u32)uh->check +
+>                                         (__force u32)delta));
+> -               if (offload_csum) {
+> -                       skb->ip_summed = CHECKSUM_PARTIAL;
+> -                       skb->csum_start = skb_transport_header(skb) - skb->head;
+> -                       skb->csum_offset = offsetof(struct udphdr, check);
+> -               } else {
+> -                       uh->check = gso_make_checksum(skb, ~uh->check);
+>
+> +               if (skb->encapsulation || !offload_csum) {
+> +                       uh->check = gso_make_checksum(skb, ~uh->check);
+>                         if (uh->check == 0)
+>                                 uh->check = CSUM_MANGLED_0;
+> +               } else {
+> +                       skb->ip_summed = CHECKSUM_PARTIAL;
+> +                       skb->csum_start = skb_transport_header(skb) - skb->head;
+> +                       skb->csum_offset = offsetof(struct udphdr, check);
+>                 }
+>         } while ((skb = skb->next));
+>  out:
 >
