@@ -1,145 +1,85 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2 net-next 2/4] net: dev: add batching to net_device
- notifiers
-Date: Sat, 6 Feb 2016 20:58:37 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1602062023180.1718@ja.home.ssi.bg>
-References: <1454628956-4803-1-git-send-email-noureddine@arista.com> <1454628956-4803-3-git-send-email-noureddine@arista.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: fastopen: call tcp_fin() if FIN present in
+ SYNACK
+Date: Sat, 06 Feb 2016 11:16:28 -0800
+Message-ID: <1454786188.7627.339.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1454389388-1506-1-git-send-email-edumazet@google.com>
+	 <20160206.031302.1262914455786911151.davem@davemloft.net>
+	 <1454784731.7627.329.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
-To: Salam Noureddine <noureddine@arista.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org, sara@sinodun.com,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:39769 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753211AbcBFS7L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Feb 2016 13:59:11 -0500
-In-Reply-To: <1454628956-4803-3-git-send-email-noureddine@arista.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:36019 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751923AbcBFTQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 14:16:31 -0500
+Received: by mail-pa0-f48.google.com with SMTP id yy13so51710630pab.3
+        for <netdev@vger.kernel.org>; Sat, 06 Feb 2016 11:16:31 -0800 (PST)
+In-Reply-To: <1454784731.7627.329.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
-	Hello,
+When we acknowledge a FIN, it is not enough to ack the sequence number
+and queue the skb into receive queue. We also have to call tcp_fin()
+to properly update socket state and send proper poll() notifications.
 
-On Thu, 4 Feb 2016, Salam Noureddine wrote:
+It seems we also had the problem if we received a SYN packet with the
+FIN flag set, but it does not seem an urgent issue, as no known
+implementation can do that.
 
-> @@ -1572,12 +1583,17 @@ rollback:
->  				call_netdevice_notifier(nb, NETDEV_GOING_DOWN,
->  							dev);
->  				call_netdevice_notifier(nb, NETDEV_DOWN, dev);
-> +				call_netdevice_notifier(nb, NETDEV_DOWN_BATCH,
-> +							dev);
+Fixes: 61d2bcae99f6 ("tcp: fastopen: accept data/FIN present in SYNACK message")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+---
+ include/net/tcp.h       |    1 +
+ net/ipv4/tcp_fastopen.c |    3 +++
+ net/ipv4/tcp_input.c    |    2 +-
+ 3 files changed, 5 insertions(+), 1 deletion(-)
 
-	I now see that we should split the loop
-here, so that NETDEV_DOWN_BATCH is called only once per net:
-
-		bool down = false;
-
-                for_each_netdev(net, dev) {
-                        if (dev == last)
-                                break;
-
-                        if (dev->flags & IFF_UP) {
-                                call_netdevice_notifier(nb, NETDEV_GOING_DOWN,
-                                                        dev);
-                                call_netdevice_notifier(nb, NETDEV_DOWN, dev);
-				down = true;
-                        }
-                }
-
-		rt_cache_flush and arp_ifdown_all will be called
-		on NETDEV_UNREGISTER_BATCH, so use 'down' flag:
-
-		if (down)
-			call_netdevice_notifier(nb, NETDEV_DOWN_BATCH,
-						net->loopback_dev);
-                for_each_netdev(net, dev) {
-                        if (dev == last)
-                                goto outroll;
-                        call_netdevice_notifier(nb, NETDEV_UNREGISTER, dev);
-                }
-		call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
-					net->loopback_dev);
-
-
->  			}
->  			call_netdevice_notifier(nb, NETDEV_UNREGISTER, dev);
->  		}
-> +		call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
-> +					net->loopback_dev);
->  	}
->  
->  outroll:
-> +	call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH, last);
->  	raw_notifier_chain_unregister(&netdev_chain, nb);
->  	goto unlock;
->  }
-> @@ -1614,9 +1630,13 @@ int unregister_netdevice_notifier(struct notifier_block *nb)
->  				call_netdevice_notifier(nb, NETDEV_GOING_DOWN,
->  							dev);
->  				call_netdevice_notifier(nb, NETDEV_DOWN, dev);
-> +				call_netdevice_notifier(nb, NETDEV_DOWN_BATCH,
-> +							dev);
-
-	Same here, split loop for NETDEV_DOWN_BATCH because
-arp_ifdown_all is slow.
-
->  			}
->  			call_netdevice_notifier(nb, NETDEV_UNREGISTER, dev);
->  		}
-> +		call_netdevice_notifier(nb, NETDEV_UNREGISTER_BATCH,
-> +					net->loopback_dev);
->  	}
->  unlock:
->  	rtnl_unlock();
-
->  static void rollback_registered_many(struct list_head *head)
->  {
->  	struct net_device *dev, *tmp;
-> +	struct net *net, *net_tmp;
->  	LIST_HEAD(close_head);
-> +	LIST_HEAD(net_head);
->  
->  	BUG_ON(dev_boot_phase);
->  	ASSERT_RTNL();
-> @@ -6465,8 +6489,6 @@ static void rollback_registered_many(struct list_head *head)
->  	synchronize_net();
->  
->  	list_for_each_entry(dev, head, unreg_list) {
-> -		struct sk_buff *skb = NULL;
-> -
->  		/* Shutdown queueing discipline. */
->  		dev_shutdown(dev);
->  
-> @@ -6475,6 +6497,20 @@ static void rollback_registered_many(struct list_head *head)
->  		   this device. They should clean all the things.
->  		*/
->  		call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
-> +	}
-> +
-> +	/* call batch notifiers which act on net namespaces */
-> +	list_for_each_entry(dev, head, unreg_list) {
-> +		net_add_event_list(&net_head, dev_net(dev));
-
-	Looks like we can move the above net_add_event_list with
-the comment into the previous loop after NETDEV_UNREGISTER,
-we will save some cycles.
-
-> +	}
-> +	list_for_each_entry_safe(net, net_tmp, &net_head, event_list) {
-> +		call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH,
-> +					 net->loopback_dev);
-> +		net_del_event_list(net);
-> +	}
-> +
-> +	list_for_each_entry(dev, head, unreg_list) {
-> +		struct sk_buff *skb = NULL;
->  
->  		if (!dev->rtnl_link_ops ||
->  		    dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
-
-Regards
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 27f4c733116d..479d535609fd 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -568,6 +568,7 @@ void tcp_rearm_rto(struct sock *sk);
+ void tcp_synack_rtt_meas(struct sock *sk, struct request_sock *req);
+ void tcp_reset(struct sock *sk);
+ void tcp_skb_mark_lost_uncond_verify(struct tcp_sock *tp, struct sk_buff *skb);
++void tcp_fin(struct sock *sk);
+ 
+ /* tcp_timer.c */
+ void tcp_init_xmit_timers(struct sock *);
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index 6a6e11e54bae..fdb286ddba04 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -154,6 +154,9 @@ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
+ 	 * as we certainly are not changing upper 32bit value (0)
+ 	 */
+ 	tp->bytes_received = skb->len;
++
++	if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
++		tcp_fin(sk);
+ }
+ 
+ static struct sock *tcp_fastopen_create_child(struct sock *sk,
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 4add3eb40e58..8194a250a01e 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3995,7 +3995,7 @@ void tcp_reset(struct sock *sk)
+  *
+  *	If we are in FINWAIT-2, a received FIN moves us to TIME-WAIT.
+  */
+-static void tcp_fin(struct sock *sk)
++void tcp_fin(struct sock *sk)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
