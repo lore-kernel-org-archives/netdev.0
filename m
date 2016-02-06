@@ -1,143 +1,100 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 2/2] tcp/dccp: better use of ephemeral ports in bind()
-Date: Fri,  5 Feb 2016 18:08:58 -0800
-Message-ID: <1454724538-13556-3-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 1/2] tcp/dccp: better use of ephemeral ports in connect()
+Date: Fri,  5 Feb 2016 18:08:57 -0800
+Message-ID: <1454724538-13556-2-git-send-email-edumazet@google.com>
 References: <1454724538-13556-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:35829 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750811AbcBFCJK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 21:09:10 -0500
-Received: by mail-pf0-f169.google.com with SMTP id c10so11600383pfc.2
-        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 18:09:10 -0800 (PST)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:36485 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750754AbcBFCJH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 21:09:07 -0500
+Received: by mail-pa0-f54.google.com with SMTP id yy13so42990868pab.3
+        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 18:09:06 -0800 (PST)
 In-Reply-To: <1454724538-13556-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement strategy used in __inet_hash_connect() in opposite way :
+In commit 07f4c90062f8 ("tcp/dccp: try to not exhaust ip_local_port_range
+in connect()"), I added a very simple heuristic, so that we got better
+chances to use even ports, and allow bind() users to have more available
+slots.
 
-Try to find a candidate using odd ports, then fallback to even ports.
+It gave nice results, but with more than 200,000 TCP sessions on a typical
+server, the ~30,000 ephemeral ports are still a rare resource.
 
-We no longer disable BH for whole traversal, but one bucket at a time.
-We also use cond_resched() to yield cpu to other tasks if needed.
+I chose to go a step further, by looking at all even ports, and if none
+was available, fallback to odd ports.
 
-I removed one indentation level and tried to mirror the loop we have
-in __inet_hash_connect() and variable names to ease code maintenance.
+The companion patch does the same in bind(), but in opposite way.
+
+I've seen exec times of up to 30ms on busy servers, so I no longer
+disable BH for the whole traversal, but only for each hash bucket.
+I also call cond_resched() to be gentle to other tasks.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/inet_connection_sock.c | 231 +++++++++++++++++++---------------------
- 1 file changed, 110 insertions(+), 121 deletions(-)
+ net/ipv4/inet_hashtables.c | 170 ++++++++++++++++++++++-----------------------
+ 1 file changed, 85 insertions(+), 85 deletions(-)
 
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 46b9c887bede..dbc14e02cb25 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -89,161 +89,150 @@ EXPORT_SYMBOL_GPL(inet_csk_bind_conflict);
- 
- /* Obtain a reference to a local port for the given sock,
-  * if snum is zero it means select any available local port.
-+ * We try to allocate an odd port (and leave even ports for connect())
-  */
- int inet_csk_get_port(struct sock *sk, unsigned short snum)
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index ccc5980797fc..8a5dda9b1ce7 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -506,106 +506,106 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
+ 			struct sock *, __u16, struct inet_timewait_sock **))
  {
--	struct inet_hashinfo *hashinfo = sk->sk_prot->h.hashinfo;
-+	bool reuse = sk->sk_reuse && sk->sk_state != TCP_LISTEN;
-+	struct inet_hashinfo *hinfo = sk->sk_prot->h.hashinfo;
-+	int ret = 1, attempts = 5, port = snum;
-+	int smallest_size = -1, smallest_port;
+ 	struct inet_hashinfo *hinfo = death_row->hashinfo;
+-	const unsigned short snum = inet_sk(sk)->inet_num;
++	struct inet_timewait_sock *tw = NULL;
  	struct inet_bind_hashbucket *head;
 -	struct inet_bind_bucket *tb;
--	int ret, attempts = 5;
+-	int ret;
++	int port = inet_sk(sk)->inet_num;
  	struct net *net = sock_net(sk);
--	int smallest_size = -1, smallest_rover;
-+	int i, low, high, attempt_half;
 +	struct inet_bind_bucket *tb;
- 	kuid_t uid = sock_i_uid(sk);
--	int attempt_half = (sk->sk_reuse == SK_CAN_REUSE) ? 1 : 0;
 +	u32 remaining, offset;
- 
--	local_bh_disable();
--	if (!snum) {
--		int remaining, rover, low, high;
++	int ret, i, low, high;
++	static u32 hint;
++
 +	if (port) {
-+have_port:
 +		head = &hinfo->bhash[inet_bhashfn(net, port,
 +						  hinfo->bhash_size)];
++		tb = inet_csk(sk)->icsk_bind_hash;
 +		spin_lock_bh(&head->lock);
-+		inet_bind_bucket_for_each(tb, &head->chain)
-+			if (net_eq(ib_net(tb), net) && tb->port == port)
-+				goto tb_found;
- 
-+		goto tb_not_found;
++		if (sk_head(&tb->owners) == sk && !sk->sk_bind_node.next) {
++			inet_ehash_nolisten(sk, NULL);
++			spin_unlock_bh(&head->lock);
++			return 0;
++		}
++		spin_unlock(&head->lock);
++		/* No definite answer... Walk to established hash table */
++		ret = check_established(death_row, sk, port, NULL);
++		local_bh_enable();
++		return ret;
 +	}
- again:
--		inet_get_local_port_range(net, &low, &high);
--		if (attempt_half) {
--			int half = low + ((high - low) >> 1);
--
--			if (attempt_half == 1)
--				high = half;
--			else
--				low = half;
--		}
--		remaining = (high - low) + 1;
--		smallest_rover = rover = prandom_u32() % remaining + low;
--
--		smallest_size = -1;
--		do {
--			if (inet_is_local_reserved_port(net, rover))
--				goto next_nolock;
--			head = &hashinfo->bhash[inet_bhashfn(net, rover,
--					hashinfo->bhash_size)];
--			spin_lock(&head->lock);
--			inet_bind_bucket_for_each(tb, &head->chain)
--				if (net_eq(ib_net(tb), net) && tb->port == rover) {
--					if (((tb->fastreuse > 0 &&
--					      sk->sk_reuse &&
--					      sk->sk_state != TCP_LISTEN) ||
--					     (tb->fastreuseport > 0 &&
--					      sk->sk_reuseport &&
--					      uid_eq(tb->fastuid, uid))) &&
--					    (tb->num_owners < smallest_size || smallest_size == -1)) {
--						smallest_size = tb->num_owners;
--						smallest_rover = rover;
--					}
--					if (!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, false)) {
--						snum = rover;
--						goto tb_found;
--					}
--					goto next;
-+	attempt_half = (sk->sk_reuse == SK_CAN_REUSE) ? 1 : 0;
-+other_half_scan:
+ 
+-	if (!snum) {
+-		int i, remaining, low, high, port;
+-		static u32 hint;
+-		u32 offset = hint + port_offset;
+-		struct inet_timewait_sock *tw = NULL;
 +	inet_get_local_port_range(net, &low, &high);
 +	high++; /* [32768, 60999] -> [32768, 61000[ */
-+	if (high - low < 4)
-+		attempt_half = 0;
-+	if (attempt_half) {
-+		int half = low + (((high - low) >> 2) << 1);
-+
-+		if (attempt_half == 1)
-+			high = half;
-+		else
-+			low = half;
-+	}
 +	remaining = high - low;
 +	if (likely(remaining > 1))
 +		remaining &= ~1U;
-+
-+	offset = prandom_u32() % remaining;
-+	/* __inet_hash_connect() favors ports having @low parity
-+	 * We do the opposite to not pollute connect() users.
+ 
+-		inet_get_local_port_range(net, &low, &high);
+-		remaining = (high - low) + 1;
++	offset = (hint + port_offset) % remaining;
++	/* In first pass we try ports of @low parity.
++	 * inet_csk_get_port() does the opposite choice.
 +	 */
-+	offset |= 1U;
-+	smallest_size = -1;
-+	smallest_port = low; /* avoid compiler warning */
-+
++	offset &= ~1U;
 +other_parity_scan:
 +	port = low + offset;
 +	for (i = 0; i < remaining; i += 2, port += 2) {
@@ -148,166 +105,136 @@ index 46b9c887bede..dbc14e02cb25 100644
 +		head = &hinfo->bhash[inet_bhashfn(net, port,
 +						  hinfo->bhash_size)];
 +		spin_lock_bh(&head->lock);
-+		inet_bind_bucket_for_each(tb, &head->chain)
-+			if (net_eq(ib_net(tb), net) && tb->port == port) {
-+				if (((tb->fastreuse > 0 && reuse) ||
-+				     (tb->fastreuseport > 0 &&
-+				      sk->sk_reuseport &&
-+				      uid_eq(tb->fastuid, uid))) &&
-+				    (tb->num_owners < smallest_size || smallest_size == -1)) {
-+					smallest_size = tb->num_owners;
-+					smallest_port = port;
- 				}
--			break;
--		next:
--			spin_unlock(&head->lock);
--		next_nolock:
--			if (++rover > high)
--				rover = low;
--		} while (--remaining > 0);
+ 
+-		/* By starting with offset being an even number,
+-		 * we tend to leave about 50% of ports for other uses,
+-		 * like bind(0).
++		/* Does not bother with rcv_saddr checks, because
++		 * the established check is already unique enough.
+ 		 */
+-		offset &= ~1;
 -
--		/* Exhausted local port range during search?  It is not
--		 * possible for us to be holding one of the bind hash
--		 * locks if this test triggers, because if 'remaining'
--		 * drops to zero, we broke out of the do/while loop at
--		 * the top level, not from the 'break;' statement.
--		 */
--		ret = 1;
--		if (remaining <= 0) {
--			if (smallest_size != -1) {
--				snum = smallest_rover;
--				goto have_snum;
--			}
--			if (attempt_half == 1) {
--				/* OK we now try the upper half of the range */
--				attempt_half = 2;
--				goto again;
-+				if (!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, false))
-+					goto tb_found;
+-		local_bh_disable();
+-		for (i = 0; i < remaining; i++) {
+-			port = low + (i + offset) % remaining;
+-			if (inet_is_local_reserved_port(net, port))
+-				continue;
+-			head = &hinfo->bhash[inet_bhashfn(net, port,
+-					hinfo->bhash_size)];
+-			spin_lock(&head->lock);
+-
+-			/* Does not bother with rcv_saddr checks,
+-			 * because the established check is already
+-			 * unique enough.
+-			 */
+-			inet_bind_bucket_for_each(tb, &head->chain) {
+-				if (net_eq(ib_net(tb), net) &&
+-				    tb->port == port) {
+-					if (tb->fastreuse >= 0 ||
+-					    tb->fastreuseport >= 0)
+-						goto next_port;
+-					WARN_ON(hlist_empty(&tb->owners));
+-					if (!check_established(death_row, sk,
+-								port, &tw))
+-						goto ok;
++		inet_bind_bucket_for_each(tb, &head->chain) {
++			if (net_eq(ib_net(tb), net) && tb->port == port) {
++				if (tb->fastreuse >= 0 ||
++				    tb->fastreuseport >= 0)
+ 					goto next_port;
+-				}
++				WARN_ON(hlist_empty(&tb->owners));
++				if (!check_established(death_row, sk,
++						       port, &tw))
++					goto ok;
 +				goto next_port;
  			}
--			goto fail;
--		}
--		/* OK, here is the one we will use.  HEAD is
--		 * non-NULL and we hold it's mutex.
--		 */
--		snum = rover;
--	} else {
--have_snum:
--		head = &hashinfo->bhash[inet_bhashfn(net, snum,
--				hashinfo->bhash_size)];
--		spin_lock(&head->lock);
--		inet_bind_bucket_for_each(tb, &head->chain)
--			if (net_eq(ib_net(tb), net) && tb->port == snum)
--				goto tb_found;
-+		goto tb_not_found;
+-
+-			tb = inet_bind_bucket_create(hinfo->bind_bucket_cachep,
+-					net, head, port);
+-			if (!tb) {
+-				spin_unlock(&head->lock);
+-				break;
+-			}
+-			tb->fastreuse = -1;
+-			tb->fastreuseport = -1;
+-			goto ok;
+-
+-		next_port:
+-			spin_unlock(&head->lock);
+ 		}
+-		local_bh_enable();
+-
+-		return -EADDRNOTAVAIL;
+ 
+-ok:
+-		hint += (i + 2) & ~1;
+-
+-		/* Head lock still held and bh's disabled */
+-		inet_bind_hash(sk, tb, port);
+-		if (sk_unhashed(sk)) {
+-			inet_sk(sk)->inet_sport = htons(port);
+-			inet_ehash_nolisten(sk, (struct sock *)tw);
++		tb = inet_bind_bucket_create(hinfo->bind_bucket_cachep,
++					     net, head, port);
++		if (!tb) {
++			spin_unlock_bh(&head->lock);
++			return -ENOMEM;
+ 		}
+-		if (tw)
+-			inet_twsk_bind_unhash(tw, hinfo);
+-		spin_unlock(&head->lock);
++		tb->fastreuse = -1;
++		tb->fastreuseport = -1;
++		goto ok;
 +next_port:
 +		spin_unlock_bh(&head->lock);
 +		cond_resched();
- 	}
--	tb = NULL;
--	goto tb_not_found;
-+
-+	if (smallest_size != -1) {
-+		port = smallest_port;
-+		goto have_port;
 +	}
-+	offset--;
-+	if (!(offset & 1))
+ 
+-		if (tw)
+-			inet_twsk_deschedule_put(tw);
++	offset++;
++	if ((offset & 1) && remaining > 1)
 +		goto other_parity_scan;
-+
-+	if (attempt_half == 1) {
-+		/* OK we now try the upper half of the range */
-+		attempt_half = 2;
-+		goto other_half_scan;
-+	}
-+	return ret;
-+
-+tb_not_found:
-+	tb = inet_bind_bucket_create(hinfo->bind_bucket_cachep,
-+				     net, head, port);
-+	if (!tb)
-+		goto fail_unlock;
- tb_found:
- 	if (!hlist_empty(&tb->owners)) {
- 		if (sk->sk_reuse == SK_FORCE_REUSE)
- 			goto success;
  
--		if (((tb->fastreuse > 0 &&
--		      sk->sk_reuse && sk->sk_state != TCP_LISTEN) ||
-+		if (((tb->fastreuse > 0 && reuse) ||
- 		     (tb->fastreuseport > 0 &&
- 		      sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
--		    smallest_size == -1) {
-+		    smallest_size == -1)
- 			goto success;
--		} else {
--			ret = 1;
--			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, true)) {
--				if (((sk->sk_reuse && sk->sk_state != TCP_LISTEN) ||
--				     (tb->fastreuseport > 0 &&
--				      sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
--				    smallest_size != -1 && --attempts >= 0) {
--					spin_unlock(&head->lock);
--					goto again;
--				}
--
--				goto fail_unlock;
-+		if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, true)) {
-+			if ((reuse ||
-+			     (tb->fastreuseport > 0 &&
-+			      sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
-+			    smallest_size != -1 && --attempts >= 0) {
-+				spin_unlock_bh(&head->lock);
-+				goto again;
- 			}
-+			goto fail_unlock;
- 		}
+-		ret = 0;
+-		goto out;
 -	}
--tb_not_found:
--	ret = 1;
--	if (!tb && (tb = inet_bind_bucket_create(hashinfo->bind_bucket_cachep,
--					net, head, snum)) == NULL)
--		goto fail_unlock;
--	if (hlist_empty(&tb->owners)) {
--		if (sk->sk_reuse && sk->sk_state != TCP_LISTEN)
--			tb->fastreuse = 1;
--		else
-+		if (!reuse)
- 			tb->fastreuse = 0;
-+		if (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid))
-+			tb->fastreuseport = 0;
-+	} else {
-+		tb->fastreuse = reuse;
- 		if (sk->sk_reuseport) {
- 			tb->fastreuseport = 1;
- 			tb->fastuid = uid;
--		} else
--			tb->fastreuseport = 0;
--	} else {
--		if (tb->fastreuse &&
--		    (!sk->sk_reuse || sk->sk_state == TCP_LISTEN))
--			tb->fastreuse = 0;
--		if (tb->fastreuseport &&
--		    (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid)))
-+		} else {
- 			tb->fastreuseport = 0;
-+		}
- 	}
- success:
- 	if (!inet_csk(sk)->icsk_bind_hash)
--		inet_bind_hash(sk, tb, snum);
-+		inet_bind_hash(sk, tb, port);
- 	WARN_ON(inet_csk(sk)->icsk_bind_hash != tb);
- 	ret = 0;
++	return -EADDRNOTAVAIL;
  
- fail_unlock:
--	spin_unlock(&head->lock);
--fail:
--	local_bh_enable();
-+	spin_unlock_bh(&head->lock);
- 	return ret;
+-	head = &hinfo->bhash[inet_bhashfn(net, snum, hinfo->bhash_size)];
+-	tb  = inet_csk(sk)->icsk_bind_hash;
+-	spin_lock_bh(&head->lock);
+-	if (sk_head(&tb->owners) == sk && !sk->sk_bind_node.next) {
+-		inet_ehash_nolisten(sk, NULL);
+-		spin_unlock_bh(&head->lock);
+-		return 0;
+-	} else {
+-		spin_unlock(&head->lock);
+-		/* No definite answer... Walk to established hash table */
+-		ret = check_established(death_row, sk, snum, NULL);
+-out:
+-		local_bh_enable();
+-		return ret;
++ok:
++	hint += i + 2;
++
++	/* Head lock still held and bh's disabled */
++	inet_bind_hash(sk, tb, port);
++	if (sk_unhashed(sk)) {
++		inet_sk(sk)->inet_sport = htons(port);
++		inet_ehash_nolisten(sk, (struct sock *)tw);
+ 	}
++	if (tw)
++		inet_twsk_bind_unhash(tw, hinfo);
++	spin_unlock(&head->lock);
++	if (tw)
++		inet_twsk_deschedule_put(tw);
++	local_bh_enable();
++	return 0;
  }
- EXPORT_SYMBOL_GPL(inet_csk_get_port);
+ 
+ /*
 -- 
 2.7.0.rc3.207.g0ac5344
