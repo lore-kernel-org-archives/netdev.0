@@ -1,40 +1,37 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 7/7] soreuseport: BPF selection functional test
- for TCP
-Date: Fri, 5 Feb 2016 18:59:27 -0800
-Message-ID: <20160206025925.GA68256@ast-mbp.thefacebook.com>
-References: <1454600118-30152-1-git-send-email-kraigatgoog@gmail.com>
- <1454600118-30152-8-git-send-email-kraigatgoog@gmail.com>
+From: Corcodel Marian <asd@marian1000.go.ro>
+Subject: [PATCH net v4] r8169:  Completition on Enable bios support.
+Date: Sat,  6 Feb 2016 08:49:36 +0200
+Message-ID: <1454741376-4897-1-git-send-email-asd@marian1000.go.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Craig Gallek <kraigatgoog@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: Corcodel Marian <asd@marian1000.go.ro>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:33294 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751166AbcBFC7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 21:59:30 -0500
-Received: by mail-pa0-f42.google.com with SMTP id cy9so43627788pac.0
-        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 18:59:30 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1454600118-30152-8-git-send-email-kraigatgoog@gmail.com>
+Received: from 5-14-227-244.residential.rdsnet.ro ([5.14.227.244]:35012 "EHLO
+	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751133AbcBFGuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 01:50:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 04, 2016 at 10:35:18AM -0500, Craig Gallek wrote:
-> From: Craig Gallek <kraig@google.com>
-> 
-> Unfortunately the existing test relied on packet payload in order to
-> map incoming packets to sockets.  In order to get this to work with TCP,
-> TCP_FASTOPEN needed to be used.
-> 
-> Since the fast open path is slightly different than the standard TCP path,
-> I created a second test which sends to reuseport group members based
-> on receiving cpu core id.  This will probably serve as a better
-> real-world example use as well.
-> 
-> Signed-off-by: Craig Gallek <kraig@google.com>
+Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+---
+ drivers/net/ethernet/realtek/r8169.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-nice tests and looks very straightforward to use.
-
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 2e83059..1d119a6 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -7918,7 +7918,9 @@ static void rtl_wol_shutdown_quirk(struct rtl8169_private *tp)
+ 	case RTL_GIGA_MAC_VER_11:
+ 	case RTL_GIGA_MAC_VER_12:
+ 	case RTL_GIGA_MAC_VER_17:
++#ifndef CONFIG_BIOS_SUPPORT
+ 		pci_clear_master(tp->pci_dev);
++#endif
+ 
+ 		RTL_W8(ChipCmd, CmdRxEnb);
+ 		/* PCI commit */
+-- 
+2.5.0
