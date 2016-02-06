@@ -1,41 +1,44 @@
-From: Michael McConville <mmcco@mykolab.com>
-Subject: [PATCH] dscc4: Undefined signed int shift
-Date: Fri, 5 Feb 2016 20:46:25 -0500
-Message-ID: <20160206014624.GA20990@thinkpad.swarthmore.edu>
-Content-Type: text/plain; charset=utf-8
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/2] tcp/dccp: better use of ephemeral ports
+Date: Fri,  5 Feb 2016 18:08:56 -0800
+Message-ID: <1454724538-13556-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx01.mykolab.com ([95.128.36.1]:6781 "EHLO mx-out02.mykolab.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750748AbcBFBqb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Feb 2016 20:46:31 -0500
-Content-Disposition: inline
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:34031 "EHLO
+	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750754AbcBFCJE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2016 21:09:04 -0500
+Received: by mail-pf0-f175.google.com with SMTP id o185so77971097pfb.1
+        for <netdev@vger.kernel.org>; Fri, 05 Feb 2016 18:09:03 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My analysis in the below mail applies, although the second part is
-unnecessary because i isn't used in arithmetic operations here:
+Big servers have bloated bind table, making very hard to succeed
+ephemeral port allocations, without special containers/namespace tricks.
 
-https://marc.info/?l=openbsd-tech&m=145377854103866&w=2
+This patch series extends the strategy added in commit 07f4c90062f8 
+("tcp/dccp: try to not exhaust ip_local_port_range in connect()").
 
-Thanks for your time.
+Since ports used by connect() are much likely to be shared among them,
+we give a hint to both bind() and connect() to keep the crowds separated
+if possible.
 
-Signed-off-by: Michael McConville <mmcco@mykolab.com>
----
- drivers/net/wan/dscc4.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Of course, if on a specific host an application needs to allocate ~30000
+ports using bind(), it will still be able to do so. Same for ~30000 connect()
+to a unique 2-tuple (dst addr, dst port)
 
-diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
-index 7a72407..6292259 100644
---- a/drivers/net/wan/dscc4.c
-+++ b/drivers/net/wan/dscc4.c
-@@ -1626,7 +1626,7 @@ try:
- 		if (state & Xpr) {
- 			void __iomem *scc_addr;
- 			unsigned long ring;
--			int i;
-+			unsigned int i;
- 
- 			/*
- 			 * - the busy condition happens (sometimes);
+New implemetation is also more friendly to softirqs and reschedules.
+
+Eric Dumazet (2):
+  tcp/dccp: better use of ephemeral ports in connect()
+  tcp/dccp: better use of ephemeral ports in bind()
+
+ net/ipv4/inet_connection_sock.c | 231 +++++++++++++++++++---------------------
+ net/ipv4/inet_hashtables.c      | 170 ++++++++++++++---------------
+ 2 files changed, 195 insertions(+), 206 deletions(-)
+
+-- 
+2.7.0.rc3.207.g0ac5344
