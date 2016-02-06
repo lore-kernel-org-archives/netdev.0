@@ -1,70 +1,128 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 2/2] ravb: skip gPTP start/stop on R-Car gen3
-Date: Sat, 06 Feb 2016 17:47:22 +0300
-Message-ID: <1661604.7YJiO2yUKB@wasted.cogentembedded.com>
-References: <15000430.RmSAhz5Ejy@wasted.cogentembedded.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net] net: dsa: mv88e6xxx: fix software VLAN deletion
+Date: Sat, 6 Feb 2016 19:25:44 +0100
+Message-ID: <20160206182544.GA17218@lunn.ch>
+References: <1454699079-5710-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-renesas-soc@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <15000430.RmSAhz5Ejy@wasted.cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Kevin Smith <kevin.smith@elecsyscorp.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:51116 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752000AbcBFSZt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Feb 2016 13:25:49 -0500
+Content-Disposition: inline
+In-Reply-To: <1454699079-5710-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When adding support for the  R-Car gen3 gPTP active in configuration mode,
-some call sites of ravb_ptp_{init|stop}() were missed due to an oversight.
-Add  checks for the R-Car gen2 SoCs around these...
+On Fri, Feb 05, 2016 at 02:04:39PM -0500, Vivien Didelot wrote:
+> The current bridge code calls switchdev_port_obj_del on a VLAN port even
+> if the corresponding switchdev_port_obj_add call returned -EOPNOTSUPP.
+> 
+> If the DSA driver doesn't return -EOPNOTSUPP for a software port VLAN in
+> its port_vlan_del function, the VLAN is not deleted. Unbridging the port
+> also generates a stack trace for the same reason.
 
-Fixes: f5d7837f96e5 ("ravb: ptp: Add CONFIG mode support")
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Tested-by: Andrew Lunn <andrew@lunn.ch>
 
----
- drivers/net/ethernet/renesas/ravb_main.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+Thanks
+	Andrew
 
-Index: net/drivers/net/ethernet/renesas/ravb_main.c
-===================================================================
---- net.orig/drivers/net/ethernet/renesas/ravb_main.c
-+++ net/drivers/net/ethernet/renesas/ravb_main.c
-@@ -1139,7 +1139,8 @@ static int ravb_set_ringparam(struct net
- 	if (netif_running(ndev)) {
- 		netif_device_detach(ndev);
- 		/* Stop PTP Clock driver */
--		ravb_ptp_stop(ndev);
-+		if (priv->chip_id == RCAR_GEN2)
-+			ravb_ptp_stop(ndev);
- 		/* Wait for DMA stopping */
- 		error = ravb_stop_dma(ndev);
- 		if (error) {
-@@ -1170,7 +1171,8 @@ static int ravb_set_ringparam(struct net
- 		ravb_emac_init(ndev);
- 
- 		/* Initialise PTP Clock driver */
--		ravb_ptp_init(ndev, priv->pdev);
-+		if (priv->chip_id == RCAR_GEN2)
-+			ravb_ptp_init(ndev, priv->pdev);
- 
- 		netif_device_attach(ndev);
- 	}
-@@ -1298,7 +1300,8 @@ static void ravb_tx_timeout_work(struct
- 	netif_tx_stop_all_queues(ndev);
- 
- 	/* Stop PTP Clock driver */
--	ravb_ptp_stop(ndev);
-+	if (priv->chip_id == RCAR_GEN2)
-+		ravb_ptp_stop(ndev);
- 
- 	/* Wait for DMA stopping */
- 	ravb_stop_dma(ndev);
-@@ -1311,7 +1314,8 @@ static void ravb_tx_timeout_work(struct
- 	ravb_emac_init(ndev);
- 
- 	/* Initialise PTP Clock driver */
--	ravb_ptp_init(ndev, priv->pdev);
-+	if (priv->chip_id == RCAR_GEN2)
-+		ravb_ptp_init(ndev, priv->pdev);
- 
- 	netif_tx_start_all_queues(ndev);
- }
+> 
+> This can be quickly tested on a VLAN filtering enabled system with:
+> 
+>     # brctl addbr br0
+>     # brctl addif br0 lan0
+>     # brctl addbr br1
+>     # brctl addif br1 lan1
+>     # brctl delif br1 lan1
+> 
+> Both bridges have a default default_pvid set to 1. lan0 uses the
+> hardware VLAN 1 while lan1 falls back to the software VLAN 1.
+> 
+> Unbridging lan1 does not delete its software VLAN, and thus generates
+> the following stack trace:
+> 
+>     [ 2991.681705] device lan1 left promiscuous mode
+>     [ 2991.686237] br1: port 1(lan1) entered disabled state
+>     [ 2991.725094] ------------[ cut here ]------------
+>     [ 2991.729761] WARNING: CPU: 0 PID: 869 at net/bridge/br_vlan.c:314 __vlan_group_free+0x4c/0x50()
+>     [ 2991.738437] Modules linked in:
+>     [ 2991.741546] CPU: 0 PID: 869 Comm: ip Not tainted 4.4.0 #16
+>     [ 2991.747039] Hardware name: Freescale Vybrid VF5xx/VF6xx (Device Tree)
+>     [ 2991.753511] Backtrace:
+>     [ 2991.756008] [<80014450>] (dump_backtrace) from [<8001469c>] (show_stack+0x20/0x24)
+>     [ 2991.763604]  r6:80512644 r5:00000009 r4:00000000 r3:00000000
+>     [ 2991.769343] [<8001467c>] (show_stack) from [<80268e44>] (dump_stack+0x24/0x28)
+>     [ 2991.776618] [<80268e20>] (dump_stack) from [<80025568>] (warn_slowpath_common+0x98/0xc4)
+>     [ 2991.784750] [<800254d0>] (warn_slowpath_common) from [<80025650>] (warn_slowpath_null+0x2c/0x34)
+>     [ 2991.793557]  r8:00000000 r7:9f786a8c r6:9f76c440 r5:9f786a00 r4:9f68ac00
+>     [ 2991.800366] [<80025624>] (warn_slowpath_null) from [<80512644>] (__vlan_group_free+0x4c/0x50)
+>     [ 2991.808946] [<805125f8>] (__vlan_group_free) from [<80514488>] (nbp_vlan_flush+0x44/0x68)
+>     [ 2991.817147]  r4:9f68ac00 r3:9ec70000
+>     [ 2991.820772] [<80514444>] (nbp_vlan_flush) from [<80506f08>] (del_nbp+0xac/0x130)
+>     [ 2991.828201]  r5:9f56f800 r4:9f786a00
+>     [ 2991.831841] [<80506e5c>] (del_nbp) from [<8050774c>] (br_del_if+0x40/0xbc)
+>     [ 2991.838724]  r7:80590f68 r6:00000000 r5:9ec71c38 r4:9f76c440
+>     [ 2991.844475] [<8050770c>] (br_del_if) from [<80503dc0>] (br_del_slave+0x1c/0x20)
+>     [ 2991.851802]  r5:9ec71c38 r4:9f56f800
+>     [ 2991.855428] [<80503da4>] (br_del_slave) from [<80484a34>] (do_setlink+0x324/0x7b8)
+>     [ 2991.863043] [<80484710>] (do_setlink) from [<80485e90>] (rtnl_newlink+0x508/0x6f4)
+>     [ 2991.870616]  r10:00000000 r9:9ec71ba8 r8:00000000 r7:00000000 r6:9f6b0400 r5:9f56f800
+>     [ 2991.878548]  r4:8076278c
+>     [ 2991.881110] [<80485988>] (rtnl_newlink) from [<80484048>] (rtnetlink_rcv_msg+0x18c/0x22c)
+>     [ 2991.889315]  r10:9f7d4e40 r9:00000000 r8:00000000 r7:00000000 r6:9f7d4e40 r5:9f6b0400
+>     [ 2991.897250]  r4:00000000
+>     [ 2991.899814] [<80483ebc>] (rtnetlink_rcv_msg) from [<80497c74>] (netlink_rcv_skb+0xb0/0xcc)
+>     [ 2991.908104]  r8:00000000 r7:9f7d4e40 r6:9f7d4e40 r5:80483ebc r4:9f6b0400
+>     [ 2991.914928] [<80497bc4>] (netlink_rcv_skb) from [<80483eb4>] (rtnetlink_rcv+0x34/0x3c)
+>     [ 2991.922874]  r6:9f5ea000 r5:00000028 r4:9f7d4e40 r3:80483e80
+>     [ 2991.928622] [<80483e80>] (rtnetlink_rcv) from [<80497604>] (netlink_unicast+0x180/0x200)
+>     [ 2991.936742]  r4:9f4edc00 r3:80483e80
+>     [ 2991.940362] [<80497484>] (netlink_unicast) from [<80497a88>] (netlink_sendmsg+0x33c/0x350)
+>     [ 2991.948648]  r8:00000000 r7:00000028 r6:00000000 r5:9f5ea000 r4:9ec71f4c
+>     [ 2991.955481] [<8049774c>] (netlink_sendmsg) from [<80457ff0>] (sock_sendmsg+0x24/0x34)
+>     [ 2991.963342]  r10:00000000 r9:9ec71e28 r8:00000000 r7:9f1e2140 r6:00000000 r5:00000000
+>     [ 2991.971276]  r4:9ec71f4c
+>     [ 2991.973849] [<80457fcc>] (sock_sendmsg) from [<80458af0>] (___sys_sendmsg+0x1fc/0x204)
+>     [ 2991.981809] [<804588f4>] (___sys_sendmsg) from [<804598d0>] (__sys_sendmsg+0x4c/0x7c)
+>     [ 2991.989640]  r10:00000000 r9:9ec70000 r8:80010824 r7:00000128 r6:7ee946c4 r5:00000000
+>     [ 2991.997572]  r4:9f1e2140
+>     [ 2992.000128] [<80459884>] (__sys_sendmsg) from [<80459918>] (SyS_sendmsg+0x18/0x1c)
+>     [ 2992.007725]  r6:00000000 r5:7ee9c7b8 r4:7ee946e0
+>     [ 2992.012430] [<80459900>] (SyS_sendmsg) from [<80010660>] (ret_fast_syscall+0x0/0x3c)
+>     [ 2992.020182] ---[ end trace 5d4bc29f4da04280 ]---
+> 
+> To fix this, return -EOPNOTSUPP in _mv88e6xxx_port_vlan_del instead of
+> -ENOENT if the hardware VLAN doesn't exist or the port is not a member.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  drivers/net/dsa/mv88e6xxx.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+> index d365007..1cb3d15 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+> @@ -1545,7 +1545,7 @@ static int _mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid)
+>  
+>  	if (vlan.vid != vid || !vlan.valid ||
+>  	    vlan.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
+> -		return -ENOENT;
+> +		return -EOPNOTSUPP;
+>  
+>  	vlan.data[port] = GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
+>  
+> -- 
+> 2.7.0
+> 
