@@ -1,76 +1,102 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH/RFC v4 net-next] ravb: Add dma queue interrupt support
-Date: Sun, 7 Feb 2016 20:18:00 +0300
-Message-ID: <56B77C48.3010900@cogentembedded.com>
-References: <1453650775-19886-1-git-send-email-ykaneko0929@gmail.com>
- <56AA50A5.5080504@cogentembedded.com>
- <CAH1o70+WbQ8qRtO9nez1aooCLVTX30Z1G4MBJPmTCKCpMNzqxw@mail.gmail.com>
+From: Corcodel Marian <asd@marian1000.go.ro>
+Subject: [PATCH net v4] r8169: Add EEPROM support and disable MWI on pci express.
+Date: Sun,  7 Feb 2016 19:38:57 +0200
+Message-ID: <1454866737-2406-1-git-send-email-asd@marian1000.go.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <CAH1o70+WbQ8qRtO9nez1aooCLVTX30Z1G4MBJPmTCKCpMNzqxw@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Corcodel Marian <asd@marian1000.go.ro>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 5-14-227-192.residential.rdsnet.ro ([5.14.227.192]:51395 "EHLO
+	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754408AbcBGRjN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 12:39:13 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/07/2016 07:56 PM, Yoshihiro Kaneko wrote:
+  On chip with external eeprom ASPM settings is loaded from eeprom and
+   on pci express interface not support MWI.
 
->>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>>
->>> This patch supports the following interrupts.
->>>
->>> - One interrupt for multiple (descriptor, error, management)
->>> - One interrupt for emac
->>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
->>>
->>> This patch improve efficiency of the interrupt handler by adding the
->>> interrupt handler corresponding to each interrupt source described
->>> above. Additionally, it reduces the number of times of the access to
->>> EthernetAVB IF.
->>>
->>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
->>
->>
->> [...]
->>
->>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
->>> b/drivers/net/ethernet/renesas/ravb_main.c
->>> index ac43ed9..076f25f 100644
->>> --- a/drivers/net/ethernet/renesas/ravb_main.c
->>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
->>
->> [...]
->>>
->>> @@ -1215,29 +1332,64 @@ static const struct ethtool_ops ravb_ethtool_ops =
->>> {
->>>          .get_ts_info            = ravb_get_ts_info,
->>>    };
->>>
->>> +static inline int hook_irq(unsigned int irq, irq_handler_t handler,
->>> +                          struct net_device *ndev, struct device *dev,
->>> +                          const char *ch)
->>> +{
->>> +       char *name;
->>> +       int error;
->>> +
->>> +       name = devm_kasprintf(dev, GFP_KERNEL, "%s:%s", ndev->name, ch);
->>
->>
->>     BTW, shouldn't we test 'name' for NULL here?
->
-> Thanks.
-> I will fix it to return -ENOMEM if 'name' is NULL.
+Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+---
+ drivers/net/ethernet/realtek/r8169.c | 22 ++++++++++++++--------
+ 1 file changed, 14 insertions(+), 8 deletions(-)
 
-    Be sure to use '!name' -- it's preferred in the networking code.
-
-> Thanks,
-> kaneko
-
-MBR, Sergei
-
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 1d119a6..bebd550 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -733,6 +733,7 @@ enum features {
+ 	RTL_FEATURE_WOL		= (1 << 0),
+ 	RTL_FEATURE_MSI		= (1 << 1),
+ 	RTL_FEATURE_GMII	= (1 << 2),
++	RTL_FEATURE_EEPROM	= (1 << 3),
+ };
+ 
+ struct rtl8169_counters {
+@@ -4372,7 +4373,8 @@ static void rtl8169_release_board(struct pci_dev *pdev, struct net_device *dev,
+ {
+ 	iounmap(ioaddr);
+ 	pci_release_regions(pdev);
+-	pci_clear_mwi(pdev);
++	if (!pci_is_pcie(pdev))
++	 pci_clear_mwi(pdev);
+ 	pci_disable_device(pdev);
+ 	free_netdev(dev);
+ }
+@@ -8042,7 +8044,7 @@ static const struct rtl_cfg_info {
+ 		.align		= 8,
+ 		.event_slow	= SYSErr | LinkChg | RxOverflow | RxFIFOOver |
+ 				  PCSTimeout | SWInt | TxDescUnavail,
+-		.features	= RTL_FEATURE_MSI,
++		.features	= RTL_FEATURE_MSI | RTL_FEATURE_EEPROM,
+ 		.default_ver	= RTL_GIGA_MAC_VER_13,
+ 	}
+ };
+@@ -8151,6 +8153,7 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	const struct rtl_cfg_info *cfg = rtl_cfg_infos + ent->driver_data;
+ 	const unsigned int region = cfg->region;
++	unsigned features = cfg->features;
+ 	struct rtl8169_private *tp;
+ 	struct mii_if_info *mii;
+ 	struct net_device *dev;
+@@ -8186,8 +8189,10 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	/* disable ASPM completely as that cause random device stop working
+ 	 * problems as well as full system hangs for some PCIe devices users */
+-	pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S | PCIE_LINK_STATE_L1 |
+-				     PCIE_LINK_STATE_CLKPM);
++	if (!(features & RTL_FEATURE_EEPROM)) 
++		pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S |
++					PCIE_LINK_STATE_L1 |
++				     	PCIE_LINK_STATE_CLKPM);
+ 
+ 	mdelay(RTL8169_EE_TIMEOUT);
+ 	/* enable device (incl. PCI PM wakeup and hotplug setup) */
+@@ -8196,10 +8201,10 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		netif_err(tp, probe, dev, "enable failure\n");
+ 		goto err_out_free_dev_1;
+ 	}
+-
+-	if (pci_set_mwi(pdev) < 0)
++	if (!pci_is_pcie(pdev)) {
++	 if (pci_set_mwi(pdev) < 0)
+ 		netif_info(tp, probe, dev, "Mem-Wr-Inval unavailable\n");
+-
++        }
+ 	/* make sure PCI base addr 1 is MMIO */
+ 	if (!(pci_resource_flags(pdev, region) & IORESOURCE_MEM)) {
+ 		netif_err(tp, probe, dev,
+@@ -8462,7 +8467,8 @@ err_out_msi_4:
+ err_out_free_res_3:
+ 	pci_release_regions(pdev);
+ err_out_mwi_2:
+-	pci_clear_mwi(pdev);
++        if (!pci_is_pcie(pdev))
++	 pci_clear_mwi(pdev);
+ 	pci_disable_device(pdev);
+ err_out_free_dev_1:
+ 	free_netdev(dev);
+-- 
+2.5.0
