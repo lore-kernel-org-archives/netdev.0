@@ -1,69 +1,69 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 net-next 4/4] net: fib: avoid calling fib_flush for
- each device when doing batch close and unregister
-Date: Sun, 7 Feb 2016 13:24:47 +0300
-Message-ID: <56B71B6F.1010708@cogentembedded.com>
-References: <1454628956-4803-1-git-send-email-noureddine@arista.com>
- <1454628956-4803-5-git-send-email-noureddine@arista.com>
- <56B4C7F2.1020109@cogentembedded.com>
- <CAO7SqHCj3Fq+CXz_y+4ou+JxSvyMgpyQNRjMfX=Zvow3knocpw@mail.gmail.com>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: Re: [PATCH v2] net: ethernet: davicom: fix devicetree irq resource
+Date: Sun, 07 Feb 2016 11:46:01 +0100
+Message-ID: <87twlk3ija.fsf@belgarion.home>
+References: <1454796693-4446-1-git-send-email-robert.jarzmik@free.fr>
+	<20160207102303.GA4976@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Julian Anastasov <ja@ssi.bg>,
-	Network Development <netdev@vger.kernel.org>
-To: Salam Noureddine <noureddine@arista.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f44.google.com ([209.85.215.44]:34119 "EHLO
-	mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753485AbcBGKYv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 05:24:51 -0500
-Received: by mail-lf0-f44.google.com with SMTP id j78so80504991lfb.1
-        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 02:24:50 -0800 (PST)
-In-Reply-To: <CAO7SqHCj3Fq+CXz_y+4ou+JxSvyMgpyQNRjMfX=Zvow3knocpw@mail.gmail.com>
+Received: from smtp03.smtpout.orange.fr ([80.12.242.125]:31033 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753328AbcBGKqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 05:46:06 -0500
+In-Reply-To: <20160207102303.GA4976@electric-eye.fr.zoreil.com> (Francois
+	Romieu's message of "Sun, 7 Feb 2016 11:23:03 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Francois Romieu <romieu@fr.zoreil.com> writes:
 
-On 2/7/2016 9:09 AM, Salam Noureddine wrote:
-
->>>
->>>          if (event == NETDEV_UNREGISTER) {
->>> -               fib_disable_ip(dev, event, true);
->>> +               if (fib_sync_down_dev(dev, event, true))
->>> +                       net->ipv4.needs_fib_flush = true;
->>>                  rt_flush_dev(dev);
->>>                  return NOTIFY_DONE;
->>>          }
->>>
->>> +       if (event == NETDEV_UNREGISTER_BATCH || event ==
->>> NETDEV_DOWN_BATCH) {
->>> +               if (net->ipv4.needs_fib_flush) {
->>> +                       fib_flush(net);
->>> +                       net->ipv4.needs_fib_flush = false;
->>> +               }
->>> +               rt_cache_flush(net);
->>> +               arp_ifdown_all();
->>> +               return NOTIFY_DONE;
->>> +       }
->>> +
->>
->>
->>     I'd convert to *switch* the above 2 *if*'s...
-
-> I could do that.
-
-    Please do it, in this patch.
-
-> Thanks,
+> Robert Jarzmik <robert.jarzmik@free.fr> :
+> [...]
+>> diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+>> index cf94b72dbacd..2bae5c8c1f85 100644
+>> --- a/drivers/net/ethernet/davicom/dm9000.c
+>> +++ b/drivers/net/ethernet/davicom/dm9000.c
+> [...]
+>> @@ -1500,15 +1496,21 @@ dm9000_probe(struct platform_device *pdev)
+>>  
+>>  	db->addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>>  	db->data_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+>> -	db->irq_res  = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+>>  
+>> -	if (db->addr_res == NULL || db->data_res == NULL ||
+>> -	    db->irq_res == NULL) {
+>> -		dev_err(db->dev, "insufficient resources\n");
+>> +	if (!db->addr_res || !db->data_res) {
+>> +		dev_err(db->dev, "insufficient resources addr=%p data=%p\n",
+>> +			db->addr_res, db->data_res);
+>>  		ret = -ENOENT;
+>>  		goto out;
+>>  	}
+>>  
+>> +	ndev->irq = platform_get_irq(pdev, 0);
+>> +	if (ndev->irq < 0) {
+>> +		dev_err(db->dev, "interrupt resource unavailable: %d\n",
+>> +			ndev->irq);
+>> +		return ndev->irq;
+>> +	}
+>> +
 >
-> Salam
+> Leak: please set 'ret = ndev->irq;' and proceed to the 'out' label.
+Indeed, the etherdev, good catch.
 
-MBR, Sergei
+> If you have some spare time, it would be nice to avoid db->irq_wake leak
+> on probe failure or driver removal.
+Sorry but not in this patch.
+
+I suppose the right patch would be to use devm_*() in the probe function for
+ioremaps and request_irqs, which would address this point.
+
+Cheers.
+
+-- 
+Robert
