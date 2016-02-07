@@ -1,361 +1,319 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2 master resend 1/4] tc, bpf, examples: further bpf_api improvements
-Date: Sun,  7 Feb 2016 02:11:50 +0100
-Message-ID: <5c2394b8e23b9ab5bb02086f629302e67331cd22.1454806938.git.daniel@iogearbox.net>
+Subject: [PATCH iproute2 master resend 2/4] tc, bpf: improve verifier logging
+Date: Sun,  7 Feb 2016 02:11:51 +0100
+Message-ID: <75440480334a230608499c0d687db57f64c7ec0e.1454806938.git.daniel@iogearbox.net>
 References: <cover.1454806938.git.daniel@iogearbox.net>
 Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:51791 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:51798 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752826AbcBGBMB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 20:12:01 -0500
+	with ESMTP id S1752694AbcBGBMD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2016 20:12:03 -0500
 In-Reply-To: <cover.1454806938.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1454806938.git.daniel@iogearbox.net>
 References: <cover.1454806938.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a couple of improvements to tc's BPF api, that facilitate program
-development.
+With a bit larger, branchy eBPF programs f.e. already ~BPF_MAXINSNS/7 in
+size, it happens rather quickly that bpf(2) rejects also valid programs
+when only the verifier log buffer size we have in tc is too small.
+
+Change that, so by default we don't do any logging, and only in error
+case we retry with logging enabled. If we should fail providing a
+reasonable dump of the verifier analysis, retry few times with a larger
+log buffer so that we can at least give the user a chance to debug the
+program.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- examples/bpf/bpf_cyclic.c   |  4 +---
- examples/bpf/bpf_graft.c    | 13 +++--------
- examples/bpf/bpf_prog.c     | 26 ++++++++++-----------
- examples/bpf/bpf_shared.c   |  3 +--
- examples/bpf/bpf_tailcall.c | 12 ++++------
- include/bpf_api.h           | 56 ++++++++++++++++++++++++++++++++++++++-------
- 6 files changed, 70 insertions(+), 44 deletions(-)
+ tc/tc_bpf.c | 156 ++++++++++++++++++++++++++++++++++++++++++------------------
+ tc/tc_bpf.h |   1 -
+ 2 files changed, 110 insertions(+), 47 deletions(-)
 
-diff --git a/examples/bpf/bpf_cyclic.c b/examples/bpf/bpf_cyclic.c
-index c66cbec..36745a3 100644
---- a/examples/bpf/bpf_cyclic.c
-+++ b/examples/bpf/bpf_cyclic.c
-@@ -11,9 +11,7 @@ BPF_PROG_ARRAY(jmp_tc, JMP_MAP_ID, PIN_OBJECT_NS, 1);
- __section_tail(JMP_MAP_ID, 0)
- int cls_loop(struct __sk_buff *skb)
- {
--	char fmt[] = "cb: %u\n";
--
--	trace_printk(fmt, sizeof(fmt), skb->cb[0]++);
-+	printt("cb: %u\n", skb->cb[0]++);
- 	tail_call(skb, &jmp_tc, 0);
- 
- 	skb->tc_classid = TC_H_MAKE(1, 42);
-diff --git a/examples/bpf/bpf_graft.c b/examples/bpf/bpf_graft.c
-index f48fd02..20784ff 100644
---- a/examples/bpf/bpf_graft.c
-+++ b/examples/bpf/bpf_graft.c
-@@ -38,29 +38,22 @@ BPF_PROG_ARRAY(jmp_tc, 0, PIN_GLOBAL_NS, 1);
- __section("aaa")
- int cls_aaa(struct __sk_buff *skb)
- {
--	char fmt[] = "aaa\n";
--
--	trace_printk(fmt, sizeof(fmt));
-+	printt("aaa\n");
- 	return TC_H_MAKE(1, 42);
- }
- 
- __section("bbb")
- int cls_bbb(struct __sk_buff *skb)
- {
--	char fmt[] = "bbb\n";
--
--	trace_printk(fmt, sizeof(fmt));
-+	printt("bbb\n");
- 	return TC_H_MAKE(1, 43);
- }
- 
- __section_cls_entry
- int cls_entry(struct __sk_buff *skb)
- {
--	char fmt[] = "fallthrough\n";
--
- 	tail_call(skb, &jmp_tc, 0);
--	trace_printk(fmt, sizeof(fmt));
--
-+	printt("fallthrough\n");
- 	return BPF_H_DEFAULT;
- }
- 
-diff --git a/examples/bpf/bpf_prog.c b/examples/bpf/bpf_prog.c
-index 4728049..f15e876 100644
---- a/examples/bpf/bpf_prog.c
-+++ b/examples/bpf/bpf_prog.c
-@@ -233,7 +233,7 @@ struct flow_keys {
- 	__u8 ip_proto;
+diff --git a/tc/tc_bpf.c b/tc/tc_bpf.c
+index 3c97cdb..a1286ba 100644
+--- a/tc/tc_bpf.c
++++ b/tc/tc_bpf.c
+@@ -711,6 +711,8 @@ struct bpf_elf_ctx {
+ 	bool			verbose;
+ 	struct bpf_elf_st	stat;
+ 	struct bpf_hash_entry	*ht[256];
++	char			*log;
++	size_t			log_size;
  };
  
--static inline int flow_ports_offset(__u8 ip_proto)
-+static __inline__ int flow_ports_offset(__u8 ip_proto)
- {
- 	switch (ip_proto) {
- 	case IPPROTO_TCP:
-@@ -249,14 +249,14 @@ static inline int flow_ports_offset(__u8 ip_proto)
- 	}
- }
+ struct bpf_elf_sec_data {
+@@ -726,14 +728,8 @@ struct bpf_map_data {
+ 	struct bpf_elf_map	*ent;
+ };
  
--static inline bool flow_is_frag(struct __sk_buff *skb, int nh_off)
-+static __inline__ bool flow_is_frag(struct __sk_buff *skb, int nh_off)
- {
- 	return !!(load_half(skb, nh_off + offsetof(struct iphdr, frag_off)) &
- 		  (IP_MF | IP_OFFSET));
- }
- 
--static inline int flow_parse_ipv4(struct __sk_buff *skb, int nh_off,
--				  __u8 *ip_proto, struct flow_keys *flow)
-+static __inline__ int flow_parse_ipv4(struct __sk_buff *skb, int nh_off,
-+				      __u8 *ip_proto, struct flow_keys *flow)
- {
- 	__u8 ip_ver_len;
- 
-@@ -279,7 +279,7 @@ static inline int flow_parse_ipv4(struct __sk_buff *skb, int nh_off,
- 	return nh_off;
- }
- 
--static inline __u32 flow_addr_hash_ipv6(struct __sk_buff *skb, int off)
-+static __inline__ __u32 flow_addr_hash_ipv6(struct __sk_buff *skb, int off)
- {
- 	__u32 w0 = load_word(skb, off);
- 	__u32 w1 = load_word(skb, off + sizeof(w0));
-@@ -289,8 +289,8 @@ static inline __u32 flow_addr_hash_ipv6(struct __sk_buff *skb, int off)
- 	return w0 ^ w1 ^ w2 ^ w3;
- }
- 
--static inline int flow_parse_ipv6(struct __sk_buff *skb, int nh_off,
--				  __u8 *ip_proto, struct flow_keys *flow)
-+static __inline__ int flow_parse_ipv6(struct __sk_buff *skb, int nh_off,
-+				      __u8 *ip_proto, struct flow_keys *flow)
- {
- 	*ip_proto = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
- 
-@@ -300,8 +300,8 @@ static inline int flow_parse_ipv6(struct __sk_buff *skb, int nh_off,
- 	return nh_off + sizeof(struct ipv6hdr);
- }
- 
--static inline bool flow_dissector(struct __sk_buff *skb,
--				  struct flow_keys *flow)
-+static __inline__ bool flow_dissector(struct __sk_buff *skb,
-+				      struct flow_keys *flow)
- {
- 	int poff, nh_off = BPF_LL_OFF + ETH_HLEN;
- 	__be16 proto = skb->protocol;
-@@ -381,8 +381,8 @@ static inline bool flow_dissector(struct __sk_buff *skb,
- 	return true;
- }
- 
--static inline void cls_update_proto_map(const struct __sk_buff *skb,
--					const struct flow_keys *flow)
-+static __inline__ void cls_update_proto_map(const struct __sk_buff *skb,
-+					    const struct flow_keys *flow)
- {
- 	uint8_t proto = flow->ip_proto;
- 	struct count_tuple *ct, _ct;
-@@ -401,7 +401,7 @@ static inline void cls_update_proto_map(const struct __sk_buff *skb,
- 	map_update_elem(&map_proto, &proto, &_ct, BPF_ANY);
- }
- 
--static inline void cls_update_queue_map(const struct __sk_buff *skb)
-+static __inline__ void cls_update_queue_map(const struct __sk_buff *skb)
- {
- 	uint32_t queue = skb->queue_mapping;
- 	struct count_queue *cq, _cq;
-@@ -453,7 +453,7 @@ int cls_main(struct __sk_buff *skb)
- 	return flow.ip_proto;
- }
- 
--static inline void act_update_drop_map(void)
-+static __inline__ void act_update_drop_map(void)
- {
- 	uint32_t *count, cpu = get_smp_processor_id();
- 
-diff --git a/examples/bpf/bpf_shared.c b/examples/bpf/bpf_shared.c
-index accc0ad..7fe9ef3 100644
---- a/examples/bpf/bpf_shared.c
-+++ b/examples/bpf/bpf_shared.c
-@@ -35,12 +35,11 @@ int emain(struct __sk_buff *skb)
- __section("ingress")
- int imain(struct __sk_buff *skb)
- {
--	char fmt[] = "map val: %d\n";
- 	int key = 0, *val;
- 
- 	val = map_lookup_elem(&map_sh, &key);
- 	if (val)
--		trace_printk(fmt, sizeof(fmt), *val);
-+		printt("map val: %d\n", *val);
- 
- 	return BPF_H_DEFAULT;
- }
-diff --git a/examples/bpf/bpf_tailcall.c b/examples/bpf/bpf_tailcall.c
-index 040790d..f545430 100644
---- a/examples/bpf/bpf_tailcall.c
-+++ b/examples/bpf/bpf_tailcall.c
-@@ -34,12 +34,11 @@ BPF_ARRAY4(map_sh, 0, PIN_OBJECT_NS, 1);
- __section_tail(FOO, ENTRY_0)
- int cls_case1(struct __sk_buff *skb)
- {
--	char fmt[] = "case1: map-val: %d from:%u\n";
- 	int key = 0, *val;
- 
- 	val = map_lookup_elem(&map_sh, &key);
- 	if (val)
--		trace_printk(fmt, sizeof(fmt), *val, skb->cb[0]);
-+		printt("case1: map-val: %d from:%u\n", *val, skb->cb[0]);
- 
- 	skb->cb[0] = ENTRY_0;
- 	tail_call(skb, &jmp_ex, ENTRY_0);
-@@ -50,12 +49,11 @@ int cls_case1(struct __sk_buff *skb)
- __section_tail(FOO, ENTRY_1)
- int cls_case2(struct __sk_buff *skb)
- {
--	char fmt[] = "case2: map-val: %d from:%u\n";
- 	int key = 0, *val;
- 
- 	val = map_lookup_elem(&map_sh, &key);
- 	if (val)
--		trace_printk(fmt, sizeof(fmt), *val, skb->cb[0]);
-+		printt("case2: map-val: %d from:%u\n", *val, skb->cb[0]);
- 
- 	skb->cb[0] = ENTRY_1;
- 	tail_call(skb, &jmp_tc, ENTRY_0);
-@@ -66,12 +64,11 @@ int cls_case2(struct __sk_buff *skb)
- __section_tail(BAR, ENTRY_0)
- int cls_exit(struct __sk_buff *skb)
- {
--	char fmt[] = "exit: map-val: %d from:%u\n";
- 	int key = 0, *val;
- 
- 	val = map_lookup_elem(&map_sh, &key);
- 	if (val)
--		trace_printk(fmt, sizeof(fmt), *val, skb->cb[0]);
-+		printt("exit: map-val: %d from:%u\n", *val, skb->cb[0]);
- 
- 	/* Termination point. */
- 	return BPF_H_DEFAULT;
-@@ -80,7 +77,6 @@ int cls_exit(struct __sk_buff *skb)
- __section_cls_entry
- int cls_entry(struct __sk_buff *skb)
- {
--	char fmt[] = "fallthrough\n";
- 	int key = 0, *val;
- 
- 	/* For transferring state, we can use skb->cb[0] ... skb->cb[4]. */
-@@ -92,7 +88,7 @@ int cls_entry(struct __sk_buff *skb)
- 		tail_call(skb, &jmp_tc, skb->hash & (MAX_JMP_SIZE - 1));
- 	}
- 
--	trace_printk(fmt, sizeof(fmt));
-+	printt("fallthrough\n");
- 	return BPF_H_DEFAULT;
- }
- 
-diff --git a/include/bpf_api.h b/include/bpf_api.h
-index 0666a31..4b16d25 100644
---- a/include/bpf_api.h
-+++ b/include/bpf_api.h
-@@ -56,6 +56,10 @@
- # define ntohl(X)		__constant_ntohl((X))
- #endif
- 
-+#ifndef __inline__
-+# define __inline__		__attribute__((always_inline))
-+#endif
-+
- /** Section helper macros. */
- 
- #ifndef __section
-@@ -146,7 +150,7 @@
- # define BPF_H_DEFAULT	-1
- #endif
- 
--/** BPF helper functions for tc. */
-+/** BPF helper functions for tc. Individual flags are in linux/bpf.h */
- 
- #ifndef BPF_FUNC
- # define BPF_FUNC(NAME, ...)						\
-@@ -163,8 +167,22 @@ static int BPF_FUNC(map_delete_elem, void *map, const void *key);
- static uint64_t BPF_FUNC(ktime_get_ns);
- 
- /* Debugging */
-+
-+/* FIXME: __attribute__ ((format(printf, 1, 3))) not possible unless
-+ * llvm bug https://llvm.org/bugs/show_bug.cgi?id=26243 gets resolved.
-+ * It would require ____fmt to be made const, which generates a reloc
-+ * entry (non-map).
-+ */
- static void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
- 
-+#ifndef printt
-+# define printt(fmt, ...)						\
-+	({								\
-+		char ____fmt[] = fmt;					\
-+		trace_printk(____fmt, sizeof(____fmt), ##__VA_ARGS__);	\
-+	})
-+#endif
-+
- /* Random numbers */
- static uint32_t BPF_FUNC(get_prandom_u32);
- 
-@@ -185,12 +203,11 @@ static int BPF_FUNC(clone_redirect, struct __sk_buff *skb, int ifindex,
- 		    uint32_t flags);
- 
- /* Packet manipulation */
--#define BPF_PSEUDO_HDR			0x10
--#define BPF_HAS_PSEUDO_HDR(flags)	((flags) & BPF_PSEUDO_HDR)
--#define BPF_HDR_FIELD_SIZE(flags)	((flags) & 0x0f)
+-/* If we provide a small buffer with log level enabled, the kernel
+- * could fail program load as no buffer space is available for the
+- * log and thus verifier fails. In case something doesn't pass the
+- * verifier we still want to hand something descriptive to the user.
+- */
+-static char bpf_log_buf[65536];
 -
-+static int BPF_FUNC(skb_load_bytes, struct __sk_buff *skb, uint32_t off,
-+		    void *to, uint32_t len);
- static int BPF_FUNC(skb_store_bytes, struct __sk_buff *skb, uint32_t off,
--		    void *from, uint32_t len, uint32_t flags);
-+		    const void *from, uint32_t len, uint32_t flags);
-+
- static int BPF_FUNC(l3_csum_replace, struct __sk_buff *skb, uint32_t off,
- 		    uint32_t from, uint32_t to, uint32_t flags);
- static int BPF_FUNC(l4_csum_replace, struct __sk_buff *skb, uint32_t off,
-@@ -205,14 +222,37 @@ static int BPF_FUNC(skb_vlan_pop, struct __sk_buff *skb);
- static int BPF_FUNC(skb_get_tunnel_key, struct __sk_buff *skb,
- 		    struct bpf_tunnel_key *to, uint32_t size, uint32_t flags);
- static int BPF_FUNC(skb_set_tunnel_key, struct __sk_buff *skb,
--		    struct bpf_tunnel_key *from, uint32_t size, uint32_t flags);
-+		    const struct bpf_tunnel_key *from, uint32_t size,
-+		    uint32_t flags);
+-static __check_format_string(1, 2) void bpf_dump_error(const char *format, ...)
++static __check_format_string(2, 3) void
++bpf_dump_error(struct bpf_elf_ctx *ctx, const char *format, ...)
+ {
+ 	va_list vl;
  
--/** LLVM built-ins */
-+/** LLVM built-ins, mem*() routines work for constant size */
+@@ -741,12 +737,35 @@ static __check_format_string(1, 2) void bpf_dump_error(const char *format, ...)
+ 	vfprintf(stderr, format, vl);
+ 	va_end(vl);
  
- #ifndef lock_xadd
- # define lock_xadd(ptr, val)	((void) __sync_fetch_and_add(ptr, val))
- #endif
+-	if (bpf_log_buf[0]) {
+-		fprintf(stderr, "%s\n", bpf_log_buf);
+-		memset(bpf_log_buf, 0, sizeof(bpf_log_buf));
++	if (ctx->log && ctx->log[0]) {
++		fprintf(stderr, "%s\n", ctx->log);
++		memset(ctx->log, 0, ctx->log_size);
+ 	}
+ }
  
-+#ifndef memset
-+# define memset(s, c, n)	__builtin_memset((s), (c), (n))
-+#endif
++static int bpf_log_realloc(struct bpf_elf_ctx *ctx)
++{
++	size_t log_size = ctx->log_size;
++	void *ptr;
 +
-+#ifndef memcpy
-+# define memcpy(d, s, n)	__builtin_memcpy((d), (s), (n))
-+#endif
++	if (!ctx->log) {
++		log_size = 65536;
++	} else {
++		log_size <<= 1;
++		if (log_size > (UINT_MAX >> 8))
++			return -EINVAL;
++	}
 +
-+#ifndef memmove
-+# define memmove(d, s, n)	__builtin_memmove((d), (s), (n))
-+#endif
++	ptr = realloc(ctx->log, log_size);
++	if (!ptr)
++		return -ENOMEM;
 +
-+/* FIXME: __builtin_memcmp() is not yet fully useable unless llvm bug
-+ * https://llvm.org/bugs/show_bug.cgi?id=26218 gets resolved. Also
-+ * this one would generate a reloc entry (non-map), otherwise.
-+ */
-+#if 0
-+#ifndef memcmp
-+# define memcmp(a, b, n)	__builtin_memcmp((a), (b), (n))
-+#endif
-+#endif
++	ctx->log = ptr;
++	ctx->log_size = log_size;
 +
- unsigned long long load_byte(void *skb, unsigned long long off)
- 	asm ("llvm.bpf.load.byte");
++	return 0;
++}
++
+ static int bpf_map_create(enum bpf_map_type type, unsigned int size_key,
+ 			  unsigned int size_value, unsigned int max_elem)
+ {
+@@ -762,23 +781,21 @@ static int bpf_map_create(enum bpf_map_type type, unsigned int size_key,
+ }
  
+ static int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
+-			 size_t size, const char *license)
++			 size_t size_insns, const char *license, char *log,
++			 size_t size_log)
+ {
+ 	union bpf_attr attr;
+ 
+ 	memset(&attr, 0, sizeof(attr));
+ 	attr.prog_type = type;
+ 	attr.insns = bpf_ptr_to_u64(insns);
+-	attr.insn_cnt = size / sizeof(struct bpf_insn);
++	attr.insn_cnt = size_insns / sizeof(struct bpf_insn);
+ 	attr.license = bpf_ptr_to_u64(license);
+-	attr.log_buf = bpf_ptr_to_u64(bpf_log_buf);
+-	attr.log_size = sizeof(bpf_log_buf);
+-	attr.log_level = 1;
+ 
+-	if (getenv(BPF_ENV_NOLOG)) {
+-		attr.log_buf	= 0;
+-		attr.log_size	= 0;
+-		attr.log_level	= 0;
++	if (size_log > 0) {
++		attr.log_buf = bpf_ptr_to_u64(log);
++		attr.log_size = size_log;
++		attr.log_level = 1;
+ 	}
+ 
+ 	return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
+@@ -1038,30 +1055,73 @@ static int bpf_place_pinned(int fd, const char *name,
+ 	return bpf_obj_pin(fd, pathname);
+ }
+ 
+-static int bpf_prog_attach(const char *section,
+-			   const struct bpf_elf_prog *prog, bool verbose)
++static void bpf_prog_report(int fd, const char *section,
++			    const struct bpf_elf_prog *prog,
++			    struct bpf_elf_ctx *ctx)
+ {
+-	int fd;
++	fprintf(stderr, "Prog section \'%s\' %s%s (%d)!\n", section,
++		fd < 0 ? "rejected: " : "loaded",
++		fd < 0 ? strerror(errno) : "",
++		fd < 0 ? errno : fd);
++
++	fprintf(stderr, " - Type:         %u\n", prog->type);
++	fprintf(stderr, " - Instructions: %zu\n",
++		prog->size / sizeof(struct bpf_insn));
++	fprintf(stderr, " - License:      %s\n\n", prog->license);
++
++	bpf_dump_error(ctx, "Verifier analysis:\n\n");
++}
+ 
+-	/* We can add pinning here later as well, same as bpf_map_attach(). */
++static int bpf_prog_attach(const char *section,
++			   const struct bpf_elf_prog *prog,
++			   struct bpf_elf_ctx *ctx)
++{
++	int tries = 0, fd;
++retry:
+ 	errno = 0;
+ 	fd = bpf_prog_load(prog->type, prog->insns, prog->size,
+-			   prog->license);
+-	if (fd < 0 || verbose) {
+-		bpf_dump_error("Prog section \'%s\' (type:%u insns:%zu "
+-			       "license:\'%s\') %s%s (%d)!\n\n",
+-			       section, prog->type,
+-			       prog->size / sizeof(struct bpf_insn),
+-			       prog->license, fd < 0 ? "rejected: " :
+-			       "loaded", fd < 0 ? strerror(errno) : "",
+-			       fd < 0 ? errno : fd);
++			   prog->license, ctx->log, ctx->log_size);
++	if (fd < 0 || ctx->verbose) {
++		/* The verifier log is pretty chatty, sometimes so chatty
++		 * on larger programs, that we could fail to dump everything
++		 * into our buffer. Still, try to give a debuggable error
++		 * log for the user, so enlarge it and re-fail.
++		 */
++		if (fd < 0 && (errno == ENOSPC || !ctx->log_size)) {
++			if (tries++ < 6 && !bpf_log_realloc(ctx))
++				goto retry;
++
++			fprintf(stderr, "Log buffer too small to dump "
++				"verifier log %zu bytes (%d tries)!\n",
++				ctx->log_size, tries);
++			return fd;
++		}
++
++		bpf_prog_report(fd, section, prog, ctx);
+ 	}
+ 
+ 	return fd;
+ }
+ 
++static void bpf_map_report(int fd, const char *name,
++			   const struct bpf_elf_map *map,
++			   struct bpf_elf_ctx *ctx)
++{
++	fprintf(stderr, "Map object \'%s\' %s%s (%d)!\n", name,
++		fd < 0 ? "rejected: " : "loaded",
++		fd < 0 ? strerror(errno) : "",
++		fd < 0 ? errno : fd);
++
++	fprintf(stderr, " - Type:         %u\n", map->type);
++	fprintf(stderr, " - Identifier:   %u\n", map->id);
++	fprintf(stderr, " - Pinning:      %u\n", map->pinning);
++	fprintf(stderr, " - Size key:     %u\n", map->size_key);
++	fprintf(stderr, " - Size value:   %u\n", map->size_value);
++	fprintf(stderr, " - Max elems:    %u\n\n", map->max_elem);
++}
++
+ static int bpf_map_attach(const char *name, const struct bpf_elf_map *map,
+-			  const struct bpf_elf_ctx *ctx, bool verbose)
++			  struct bpf_elf_ctx *ctx)
+ {
+ 	int fd, ret;
+ 
+@@ -1076,7 +1136,7 @@ static int bpf_map_attach(const char *name, const struct bpf_elf_map *map,
+ 				name);
+ 			return ret;
+ 		}
+-		if (verbose)
++		if (ctx->verbose)
+ 			fprintf(stderr, "Map \'%s\' loaded as pinned!\n",
+ 				name);
+ 		return fd;
+@@ -1085,13 +1145,8 @@ static int bpf_map_attach(const char *name, const struct bpf_elf_map *map,
+ 	errno = 0;
+ 	fd = bpf_map_create(map->type, map->size_key, map->size_value,
+ 			    map->max_elem);
+-	if (fd < 0 || verbose) {
+-		bpf_dump_error("Map \'%s\' (type:%u id:%u pinning:%u "
+-			       "ksize:%u vsize:%u max-elems:%u) %s%s (%d)!\n",
+-			       name, map->type, map->id, map->pinning,
+-			       map->size_key, map->size_value, map->max_elem,
+-			       fd < 0 ? "rejected: " : "loaded", fd < 0 ?
+-			       strerror(errno) : "", fd < 0 ? errno : fd);
++	if (fd < 0 || ctx->verbose) {
++		bpf_map_report(fd, name, map, ctx);
+ 		if (fd < 0)
+ 			return fd;
+ 	}
+@@ -1147,8 +1202,7 @@ static int bpf_maps_attach_all(struct bpf_elf_ctx *ctx)
+ 		if (!map_name)
+ 			return -EIO;
+ 
+-		fd = bpf_map_attach(map_name, &ctx->maps[i], ctx,
+-				    ctx->verbose);
++		fd = bpf_map_attach(map_name, &ctx->maps[i], ctx);
+ 		if (fd < 0)
+ 			return fd;
+ 
+@@ -1300,7 +1354,7 @@ static int bpf_fetch_prog(struct bpf_elf_ctx *ctx, const char *section)
+ 		prog.size    = data.sec_data->d_size;
+ 		prog.license = ctx->license;
+ 
+-		fd = bpf_prog_attach(section, &prog, ctx->verbose);
++		fd = bpf_prog_attach(section, &prog, ctx);
+ 		if (fd < 0)
+ 			continue;
+ 
+@@ -1391,7 +1445,7 @@ static int bpf_fetch_prog_relo(struct bpf_elf_ctx *ctx, const char *section)
+ 		prog.size    = data_insn.sec_data->d_size;
+ 		prog.license = ctx->license;
+ 
+-		fd = bpf_prog_attach(section, &prog, ctx->verbose);
++		fd = bpf_prog_attach(section, &prog, ctx);
+ 		if (fd < 0)
+ 			continue;
+ 
+@@ -1657,10 +1711,17 @@ static int bpf_elf_ctx_init(struct bpf_elf_ctx *ctx, const char *pathname,
+ 		goto out_elf;
+ 	}
+ 
++	if (ctx->verbose && bpf_log_realloc(ctx)) {
++		ret = -ENOMEM;
++		goto out_free;
++	}
++
+ 	bpf_save_finfo(ctx);
+ 	bpf_hash_init(ctx, CONFDIR "/bpf_pinning");
+ 
+ 	return 0;
++out_free:
++	free(ctx->sec_done);
+ out_elf:
+ 	elf_end(ctx->elf_fd);
+ out_fd:
+@@ -1697,7 +1758,10 @@ static void bpf_elf_ctx_destroy(struct bpf_elf_ctx *ctx, bool failure)
+ 		bpf_maps_teardown(ctx);
+ 
+ 	bpf_hash_destroy(ctx);
++
+ 	free(ctx->sec_done);
++	free(ctx->log);
++
+ 	elf_end(ctx->elf_fd);
+ 	close(ctx->obj_fd);
+ }
+diff --git a/tc/tc_bpf.h b/tc/tc_bpf.h
+index 526d0b1..93f7f0e 100644
+--- a/tc/tc_bpf.h
++++ b/tc/tc_bpf.h
+@@ -32,7 +32,6 @@ enum {
+ 
+ #define BPF_ENV_UDS	"TC_BPF_UDS"
+ #define BPF_ENV_MNT	"TC_BPF_MNT"
+-#define BPF_ENV_NOLOG	"TC_BPF_NOLOG"
+ 
+ #ifndef BPF_FS_MAGIC
+ # define BPF_FS_MAGIC	0xcafe4a11
 -- 
 1.9.3
