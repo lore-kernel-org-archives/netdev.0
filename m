@@ -1,56 +1,73 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net v3 2/4] net: add rx_nohandler stat counter
-Date: Sun, 7 Feb 2016 11:37:32 -0800
-Message-ID: <20160207113732.25a88cc4@xeon-e3>
-References: <1453996188-29965-1-git-send-email-jarod@redhat.com>
-	<1454370667-2328-1-git-send-email-jarod@redhat.com>
-	<1454370667-2328-3-git-send-email-jarod@redhat.com>
+Subject: Re: [PATCH iproute2] bridge: support for static fdb entries
+Date: Sun, 7 Feb 2016 11:41:57 -0800
+Message-ID: <20160207114157.3dd8fe4f@xeon-e3>
+References: <1453914577-43389-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454370667-2328-3-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, wkok@cumulusnetworks.com,
+	scotte@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	makita.toshiaki@lab.ntt.co.jp
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34707 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754511AbcBGTlo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 14:41:44 -0500
+Received: by mail-pa0-f42.google.com with SMTP id uo6so63365269pac.1
+        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 11:41:44 -0800 (PST)
+In-Reply-To: <1453914577-43389-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon,  1 Feb 2016 18:51:05 -0500
-Jarod Wilson <jarod@redhat.com> wrote:
+On Wed, 27 Jan 2016 09:09:37 -0800
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
 
-> --- a/include/uapi/linux/if_link.h
-> +++ b/include/uapi/linux/if_link.h
-> @@ -35,6 +35,8 @@ struct rtnl_link_stats {
->  	/* for cslip etc */
->  	__u32	rx_compressed;
->  	__u32	tx_compressed;
-> +
-> +	__u32	rx_nohandler;		/* dropped, no handler found	*/
->  };
->  
->  /* The main device statistics structure */
-> @@ -68,6 +70,8 @@ struct rtnl_link_stats64 {
->  	/* for cslip etc */
->  	__u64	rx_compressed;
->  	__u64	tx_compressed;
-> +
-> +	__u64	rx_nohandler;		/* dropped, no handler found	*/
->  };
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> There is no intuitive option to add static fdb entries today.
+> 'temp' seems to have a side effect of adding
+> 'static' fdb entries. But the name and intent
+> of 'temp' does not say anything about it being static.
+> 
+> example:
+> bridge fdb add operates as follows:
+> 
+> $bridge fdb add 00:01:02:03:04:05 dev eth0 master
+> $bridge fdb add 00:01:02:03:04:06 dev eth0 master temp
+> $bridge fdb add 00:01:02:03:04:07 dev eth0 master local
+> 
+> $bridge fdb show
+> 00:01:02:03:04:05 dev eth0 permanent
+> 00:01:02:03:04:06 dev eth0 static
+> 00:01:02:03:04:07 dev eth0 permanent
+> 00:01:02:03:04:08 dev eth0 <<== dynamic, ageable learned mac
+> 
+> This patch adds a new bridge fdb type 'static' which
+> makes sure NUD_NOARP and NUD_REACHABLE is set for static
+> entries. This effectively is nothing but what 'temp'
+> does today. But the name 'temp' is misleading.
+> 
+> After the patch:
+> $bridge fdb add 00:01:02:03:04:06 dev eth0 master static
+> 
+> $bridge fdb show
+> 00:01:02:03:04:06 dev eth0 static
+> 
+> 'temp' could ideally be a dynamic mac that can age (ie just
+> NUD_REACHABLE). But, 'temp' sets 'NUD_NOARP' and 'NUD_REACHABLE'.
+> Too late to change 'temp' now. But, we are thinking of introduing a
+> 'dynamic' keyword after this patch that only sets NUD_REACHABLE.
+> 
+> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+> Will submit another patch to document bridge fdb options
+> once we agree on the behaviour and this patch is accepted.
+> 
+>  bridge/fdb.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
 
-Why was this userspace ABI change allowed?
-The stats structure is exposed to user space via netlink
-and changing the size of responses will break iproute2 commands.
-
-The code will be expecting one size and the response will vary and
-break existing code.  Yes, the code should check the size
-of the response, but it doesn't and I am sure iproute2 is not
-the only code that does this.
+Appled.
+Please update man page
