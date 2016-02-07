@@ -1,58 +1,68 @@
-From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Subject: [PATCH] bonding: Return correct error code
-Date: Sun, 7 Feb 2016 10:56:25 +0530
-Message-ID: <20160207052624.GA9263@amitoj-Inspiron-3542>
+From: Salam Noureddine <noureddine@arista.com>
+Subject: Re: [PATCH v2 net-next 4/4] net: fib: avoid calling fib_flush for
+ each device when doing batch close and unregister
+Date: Sat, 6 Feb 2016 22:09:10 -0800
+Message-ID: <CAO7SqHCj3Fq+CXz_y+4ou+JxSvyMgpyQNRjMfX=Zvow3knocpw@mail.gmail.com>
+References: <1454628956-4803-1-git-send-email-noureddine@arista.com>
+	<1454628956-4803-5-git-send-email-noureddine@arista.com>
+	<56B4C7F2.1020109@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: julia.lawall@lip6.fr
-To: j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Julian Anastasov <ja@ssi.bg>,
+	Network Development <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:33710 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750840AbcBGGJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 01:09:11 -0500
+Received: by mail-wm0-f50.google.com with SMTP id g62so95384480wme.0
+        for <netdev@vger.kernel.org>; Sat, 06 Feb 2016 22:09:10 -0800 (PST)
+In-Reply-To: <56B4C7F2.1020109@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The return value of kzalloc on failure of allocation of memory should
-be -ENOMEM and not -1.
+On Fri, Feb 5, 2016 at 8:04 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> On 02/05/2016 02:35 AM, Salam Noureddine wrote:
 
-Found using Coccinelle. A simplified version of the semantic patch
-used is:
+>>
+>>         if (event == NETDEV_UNREGISTER) {
+>> -               fib_disable_ip(dev, event, true);
+>> +               if (fib_sync_down_dev(dev, event, true))
+>> +                       net->ipv4.needs_fib_flush = true;
+>>                 rt_flush_dev(dev);
+>>                 return NOTIFY_DONE;
+>>         }
+>>
+>> +       if (event == NETDEV_UNREGISTER_BATCH || event ==
+>> NETDEV_DOWN_BATCH) {
+>> +               if (net->ipv4.needs_fib_flush) {
+>> +                       fib_flush(net);
+>> +                       net->ipv4.needs_fib_flush = false;
+>> +               }
+>> +               rt_cache_flush(net);
+>> +               arp_ifdown_all();
+>> +               return NOTIFY_DONE;
+>> +       }
+>> +
+>
+>
+>    I'd convert to *switch* the above 2 *if*'s...
+>
+> [...]
+>
+> MBR, Sergei
+>
 
-//<smpl>
-@@
-expression *e;
-@@
+I could do that.
 
-e = kzalloc(...);
-if (e == NULL) {
-...
-return
-- -1
-+ -ENOMEM
-;
-}
-//</smpl>
+Thanks,
 
-The single call site only checks that the return value is not 0,
-hence no change is required at the call site.
-
-Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
----
- drivers/net/bonding/bond_alb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index bb9e9fc..c5ac160 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -159,7 +159,7 @@ static int tlb_initialize(struct bonding *bond)
- 
- 	new_hashtbl = kzalloc(size, GFP_KERNEL);
- 	if (!new_hashtbl)
--		return -1;
-+		return -ENOMEM;
- 
- 	spin_lock_bh(&bond->mode_lock);
- 
--- 
-1.9.1
+Salam
