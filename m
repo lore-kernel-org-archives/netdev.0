@@ -1,217 +1,94 @@
-From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-Subject: [PATCH 2/7] net: phy: spi_ks8995: verify chip and determine revision
-Date: Sun,  7 Feb 2016 23:39:08 +0100
-Message-ID: <1454884753-4560-3-git-send-email-helmut.buchsbaum@gmail.com>
-References: <1454884753-4560-1-git-send-email-helmut.buchsbaum@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Thomas Elliott <tommygunsster@gmail.com>
+Subject: Re: e1000e er32(TIMINCA) value returned 0 Virtual Machiens
+Date: Sun, 7 Feb 2016 17:41:58 -0500
+Message-ID: <CAHC3ikmXEyuEyVp-2X8h2FXdXx2AaOuvUDBvW3T1OaNAPNAOpA@mail.gmail.com>
+References: <CAHC3ikmsH5KikrSMtCx+DWvnJyuhZ48JZGKK7MiYnLMV6wc=Kw@mail.gmail.com>
+	<20160207220403.GA13888@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:32847 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754863AbcBGWj5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 17:39:57 -0500
-Received: by mail-wm0-f65.google.com with SMTP id r129so12869066wmr.0
-        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 14:39:56 -0800 (PST)
-In-Reply-To: <1454884753-4560-1-git-send-email-helmut.buchsbaum@gmail.com>
+Received: from mail-yk0-f176.google.com ([209.85.160.176]:35648 "EHLO
+	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754537AbcBGWl7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 17:41:59 -0500
+Received: by mail-yk0-f176.google.com with SMTP id r207so81199832ykd.2
+        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 14:41:59 -0800 (PST)
+In-Reply-To: <20160207220403.GA13888@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since the chip variant is now determined by spi_device_id, verify
-family and chip id and determine the revision id.
+I don't know how TIMINCA is getting cleared to zero.  All I know is
+this situation apparently occurs with VM's.  And while I do agree a
+fix from the VM guys would be necessary, this simple one liner fixes
+it, because SOMETHING is causing it to get set to/as/reset to zero.
 
-Conflicts:
-	drivers/net/phy/spi_ks8995.c
+If there's nothing to be done fine, I just thought a simple one line
+that checks the incvalue BEFORE it panics a kernel would be useful.
 
-Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
----
- drivers/net/phy/spi_ks8995.c | 118 +++++++++++++++++++++++++++++--------------
- 1 file changed, 80 insertions(+), 38 deletions(-)
+I provided what I've been able to find and a potential solution to
+what ailed some of what I've experienced.  I don't understand why it's
+happening, I just know that it IS happening.
 
-diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index e848ad9..2803c8e 100644
---- a/drivers/net/phy/spi_ks8995.c
-+++ b/drivers/net/phy/spi_ks8995.c
-@@ -83,6 +83,8 @@
- 
- #define FAMILY_KS8995		0x95
- #define CHIPID_M		0
-+#define KS8995_CHIP_ID		0x00
-+#define KSZ8864_CHIP_ID		0x01
- 
- #define KS8995_CMD_WRITE	0x02U
- #define KS8995_CMD_READ		0x03U
-@@ -97,16 +99,22 @@ enum ks8995_chip_variant {
- 
- struct ks8995_chip_params {
- 	char *name;
-+	int family_id;
-+	int chip_id;
- 	int regs_size;
- };
- 
- static const struct ks8995_chip_params ks8995_chip[] = {
- 	[ks8995] = {
- 		.name = "KS8995MA",
-+		.family_id = FAMILY_KS8995,
-+		.chip_id = KS8995_CHIP_ID,
- 		.regs_size = KS8995_REGS_SIZE,
- 	},
- 	[ksz8864] = {
- 		.name = "KSZ8864RMN",
-+		.family_id = FAMILY_KS8995,
-+		.chip_id = KSZ8864_CHIP_ID,
- 		.regs_size = KSZ8864_REGS_SIZE,
- 	},
- };
-@@ -121,6 +129,7 @@ struct ks8995_switch {
- 	struct ks8995_pdata	*pdata;
- 	struct bin_attribute	regs_attr;
- 	const struct ks8995_chip_params	*chip;
-+	int			revision_id;
- };
- 
- static const struct spi_device_id ks8995_id[] = {
-@@ -263,6 +272,73 @@ static ssize_t ks8995_registers_write(struct file *filp, struct kobject *kobj,
- 	return ks8995_write(ks8995, buf, off, count);
- }
- 
-+/* ks8995_get_revision - get chip revision
-+ * @ks: pointer to switch instance
-+ *
-+ * Verify chip family and id and get chip revision.
-+ */
-+static int ks8995_get_revision(struct ks8995_switch *ks)
-+{
-+	int err;
-+	u8 id0, id1, ksz8864_id;
-+
-+	/* read family id */
-+	err = ks8995_read_reg(ks, KS8995_REG_ID0, &id0);
-+	if (err) {
-+		err = -EIO;
-+		goto err_out;
-+	}
-+
-+	/* verify family id */
-+	if (id0 != ks->chip->family_id) {
-+		dev_err(&ks->spi->dev, "chip family id mismatch: expected 0x%02x but 0x%02x read\n",
-+			ks->chip->family_id, id0);
-+		err = -ENODEV;
-+		goto err_out;
-+	}
-+
-+	switch (ks->chip->family_id) {
-+	case FAMILY_KS8995:
-+		/* try reading chip id at CHIP ID1 */
-+		err = ks8995_read_reg(ks, KS8995_REG_ID1, &id1);
-+		if (err) {
-+			err = -EIO;
-+			goto err_out;
-+		}
-+
-+		/* verify chip id */
-+		if ((get_chip_id(id1) == CHIPID_M) &&
-+		    (get_chip_id(id1) == ks->chip->chip_id)) {
-+			/* KS8995MA */
-+			ks->revision_id = get_chip_rev(id1);
-+		} else if (get_chip_id(id1) != CHIPID_M) {
-+			/* KSZ8864RMN */
-+			err = ks8995_read_reg(ks, KS8995_REG_ID1, &ksz8864_id);
-+			if (err) {
-+				err = -EIO;
-+				goto err_out;
-+			}
-+
-+			if ((ksz8864_id & 0x80) &&
-+			    (ks->chip->chip_id == KSZ8864_CHIP_ID)) {
-+				ks->revision_id = get_chip_rev(id1);
-+			}
-+
-+		} else {
-+			dev_err(&ks->spi->dev, "unsupported chip id for KS8995 family: 0x%02x\n",
-+				id1);
-+			err = -ENODEV;
-+		}
-+		break;
-+	default:
-+		dev_err(&ks->spi->dev, "unsupported family id: 0x%02x\n", id0);
-+		err = -ENODEV;
-+		break;
-+	}
-+err_out:
-+	return err;
-+}
-+
- static const struct bin_attribute ks8995_registers_attr = {
- 	.attr = {
- 		.name   = "registers",
-@@ -278,7 +354,6 @@ static int ks8995_probe(struct spi_device *spi)
- {
- 	struct ks8995_switch    *ks;
- 	struct ks8995_pdata     *pdata;
--	u8      ids[2];
- 	int     err;
- 	int variant = spi_get_device_id(spi)->driver_data;
- 
-@@ -309,39 +384,12 @@ static int ks8995_probe(struct spi_device *spi)
- 		return err;
- 	}
- 
--	err = ks8995_read(ks, ids, KS8995_REG_ID0, sizeof(ids));
--	if (err < 0) {
--		dev_err(&spi->dev, "unable to read id registers, err=%d\n",
--				err);
-+	err = ks8995_get_revision(ks);
-+	if (err)
- 		return err;
--	}
--
--	switch (ids[0]) {
--	case FAMILY_KS8995:
--		break;
--	default:
--		dev_err(&spi->dev, "unknown family id:%02x\n", ids[0]);
--		return -ENODEV;
--	}
- 
- 	ks->regs_attr.size = ks->chip->regs_size;
- 	memcpy(&ks->regs_attr, &ks8995_registers_attr, sizeof(ks->regs_attr));
--	if (get_chip_id(ids[1]) != CHIPID_M) {
--		u8 val;
--
--		/* Check if this is a KSZ8864RMN */
--		err = ks8995_read(ks, &val, KSZ8864_REG_ID1, sizeof(val));
--		if (err < 0) {
--			dev_err(&spi->dev,
--				"unable to read chip id register, err=%d\n",
--				err);
--			return err;
--		}
--		if ((val & 0x80) == 0) {
--			dev_err(&spi->dev, "unknown chip:%02x,0\n", ids[1]);
--			return err;
--		}
--	}
- 
- 	err = ks8995_reset(ks);
- 	if (err)
-@@ -354,14 +402,8 @@ static int ks8995_probe(struct spi_device *spi)
- 		return err;
- 	}
- 
--	if (get_chip_id(ids[1]) == CHIPID_M) {
--		dev_info(&spi->dev,
--			 "KS8995 device found, Chip ID:%x, Revision:%x\n",
--			 get_chip_id(ids[1]), get_chip_rev(ids[1]));
--	} else {
--		dev_info(&spi->dev, "KSZ8864 device found, Revision:%x\n",
--			 get_chip_rev(ids[1]));
--	}
-+	dev_info(&spi->dev, "%s device found, Chip ID:%x, Revision:%x\n",
-+		 ks->chip->name, ks->chip->chip_id, ks->revision_id);
- 
- 	return 0;
- }
+On Sun, Feb 7, 2016 at 5:04 PM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> On Sun, Feb 07, 2016 at 10:28:48AM -0500, Thomas Elliott wrote:
+>> task: ffff88003e4b8000 ti: ffff88003e4c0000 task.ti: ffff88003e4c0000
+>> RIP: 0010:[<ffffffff8172817a>]  [<ffffffff8172817a>] 0xffffffff8172817a
+>> RSP: 0000:ffff88003e4c3cf0  EFLAGS: 00010246
+>> RAX: 0000000000000000 RBX: ffff880038cdf640 RCX: 0000000000000000
+>> RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffff880038cdf628
+>> RBP: ffff880038cdf628 R08: 0000000000000032 R09: 0000000000000000
+>> R10: 00000007ffffffff R11: 00000000070f8406 R12: 142fe5b9982e5912
+>> R13: ffff880038cdcc38 R14: 0000000000000000 R15: 0000000000000000
+>> FS:  0000000000000000(0000) GS:ffff88003ea00000(0000) knlGS:0000000000000000
+>> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+>> CR2: 0000000000000000 CR3: 0000000001f74000 CR4: 00000000000006b0
+>> Stack:
+>>  ffffffff81071eca ffff880038cdc780 0000000000000000 0000000000000000
+>>  ffffffff8172ec3c 01a000002252a32c ffff880038cdc780 ffff880038cdcc38
+>>  0000000000008000 ffff880038cdcc38 0000000000000003 ffff880038cdc000
+>> Call Trace:
+>>  [<ffffffff81071eca>] ? 0xffffffff81071eca
+>
+> Are you sure about the which funtion throws this bug?  KALLSYMS?
+>
+>> A proposed fix is to check if TIMINCA is returned with 0, as division
+>> by 0 seems to be the reasoning for the panic altogether.
+>
+> Divide by zero is indeed a bug, but the question is, why does this
+> happen?
+>
+>> As I understand this isn't a "normal" situation for physical boards,
+>> it still seems a bit rought to always expect physical boards will
+>> NEVER return 0 for this situation.
+>
+> That register is set to a non-zero value in e1000e_config_hwtstamp,
+> which is called from e1000_probe via e1000e_reset.  So it appears to
+> be initialized.
+>
+>> All this does is check if the value of incvalue is 0 and return systim
+>> if it is.  This means you're not going to run into a situation and is
+>> just plain, in my opinion, better error checking.  A single line of
+>> code that allows VMs, and possibly future hardware that might present
+>> this issue, from panicking over something that is so simple a check.
+>
+> This is only papering only the problem.  We need to know how TIMINCA
+> is getting cleared to zero.
+>
+> Thanks,
+> Richard
+
+
+
 -- 
-2.1.4
+V/R
+Thomas G. Elliott
+247 Sugar Hill Road
+Crown Point, NY 12928
+Home: 518-907-4327 (Preferred)
+Cell: 518-335-8682
+E-mail: tommygunsster@gmail.com (Preferred)
+Alt: thomas@mastacontrola.com
+Alt2: thomas.elliott@mastacontrola.com
