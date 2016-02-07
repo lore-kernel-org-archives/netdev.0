@@ -1,63 +1,60 @@
 From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [RFC PATCH v2 08/18] ipv6: Add ipv6_renew_options_kern() that accepts a kernel mem pointer.
-Date: Sun, 07 Feb 2016 14:56:05 -0500
-Message-ID: <2213519.F62jx6DkRd@sifl>
-References: <1452246774-13241-9-git-send-email-huw@codeweavers.com>
+Subject: Re: [RFC PATCH v2 00/18] CALIPSO Implementation
+Date: Sun, 07 Feb 2016 14:56:18 -0500
+Message-ID: <2084590.x0rrIneakS@sifl>
+References: <1452246774-13241-1-git-send-email-huw@codeweavers.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
 Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
 	selinux@tycho.nsa.gov
 To: Huw Davies <huw@codeweavers.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1452246774-13241-9-git-send-email-huw@codeweavers.com>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48952 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754817AbcBGT4V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Feb 2016 14:56:21 -0500
+In-Reply-To: <1452246774-13241-1-git-send-email-huw@codeweavers.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, January 08, 2016 09:52:44 AM Huw Davies wrote:
-> The functionality is equivalent to ipv6_renew_options() except
-> that the newopt pointer is in kernel, not user, memory
+On Friday, January 08, 2016 09:52:36 AM Huw Davies wrote:
+> This patch series implements RFC 5570 - Common Architecture Label IPv6
+> Security Option (CALIPSO).  Its goal is to set MLS sensitivity labels
+> on IPv6 packets using a hop-by-hop option.  CALIPSO is very similar to
+> its IPv4 cousin CIPSO and much of this series is based on that code.
 > 
-> The kernel memory implementation will be used by the CALIPSO network
-> labelling engine, which needs to be able to set IPv6 hop-by-hop
-> options.
+> I'm particularly interested in feedback relating to adding
+> struct ipv6_txoptions* to struct inet_request_sock.
+> (ipv6: Allow request socks to contain IPv6 options.)
 > 
-> Signed-off-by: Huw Davies <huw@codeweavers.com>
+> Thoughts about this or any of the other patches are most welcome.
+> 
+> If anybody actually wants to play with this, then you'll need some patches
+> to netlabel-tools that are currently available on the 'calipso' branch at:
+> https://github.com/hdmdavies/netlabel_tools.git
+> 
+> Thanks to Paul Moore, Hannes Frederic Sowa and Casey Schaufler for their
+> comments so far.
+> 
+> Changes between v2 and v1:
+> 
+> * Simplify ipv6_renew_options_kern() to use set_fs(KERNEL_DS).
+>   Thanks to Hannes Frederic Sowa for suggesting this.
+> 
+> * Use the parent socket to account for the listener socket
+>   option's memory usage.  Again, thanks for Hannes for this.
+> 
+> * Added netlbl_cfg_calipso_* functions for SMACK.
+> 
+> * Rebased to v4.4-rc8.
 
-...
+Thanks for fixing this patchset up and sending out a v2.  I took a closer look 
+and just sent out my comments, let me know if you have any questions.
 
-> +/**
-> + * ipv6_renew_options_kern - replace a specific ext hdr with a new one.
-> + *
-> + * @sk: sock from which to allocate memory
-> + * @opt: original options
-> + * @newtype: option type to replace in @opt
-> + * @newopt: new option of type @newtype to replace (kernel-mem)
-> + * @newoptlen: length of @newopt
-> + *
-> + * See ipv6_renew_options().  The difference is that @newopt is
-> + * kernel memory, rather than user memory.
-> + */
-> +struct ipv6_txoptions *
-> +ipv6_renew_options_kern(struct sock *sk, struct ipv6_txoptions *opt,
-> +			int newtype, struct ipv6_opt_hdr *newopt,
-> +			int newoptlen)
-> +{
-> +	struct ipv6_txoptions *ret_val;
-> +	const mm_segment_t old_fs = get_fs();
-> +
-> +	set_fs(KERNEL_DS);
-> +	ret_val = ipv6_renew_options(sk, opt, newtype,
-> +				     (struct ipv6_opt_hdr __user *)newopt,
-> +				     newoptlen);
-> +	set_fs(old_fs);
-> +	return ret_val;
-> +}
-
-I should preface this by saying that I don't have a strong opinion on this 
-either way, and given where the code lives it is really up to DaveM, but I 
-wonder if it might be better to create ipv6_renew_options_kern() as the common 
-helper function that is called by ipv6_renew_options().
+Once we get to a v3 patchset, I think it's time to reach out Oracle and try 
+some interop with Solaris TX.  Let me know when you are ready and I'll put 
+everybody in touch to try to get some testing going.
 
 -- 
 paul moore
