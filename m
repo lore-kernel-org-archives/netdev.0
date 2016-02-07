@@ -1,43 +1,62 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 0/2] virtio_net: better ethtool setting validation
-Date: Sun,  7 Feb 2016 21:52:22 +0100
-Message-ID: <1454878344-21730-1-git-send-email-razor@blackwall.org>
+Subject: [PATCH net-next 1/2] ethtool: make validate_speed accept all speeds between 0 and INT_MAX
+Date: Sun,  7 Feb 2016 21:52:23 +0100
+Message-ID: <1454878344-21730-2-git-send-email-razor@blackwall.org>
+References: <1454878344-21730-1-git-send-email-razor@blackwall.org>
 Cc: mst@redhat.com, roopa@cumulusnetworks.com, davem@davemloft.net,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36834 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753314AbcBGUw3 (ORCPT
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34044 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754026AbcBGUw3 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 15:52:29 -0500
-Received: by mail-wm0-f67.google.com with SMTP id 128so12578307wmz.3
-        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 12:52:28 -0800 (PST)
+Received: by mail-wm0-f66.google.com with SMTP id p63so12580825wmp.1
+        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 12:52:29 -0800 (PST)
+In-Reply-To: <1454878344-21730-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Hi,
-This small set is a follow-up for the recent patches that added ethtool
-get/set settings. Patch 1 changes the speed validation routine to check
-if the speed is between 0 and INT_MAX (or SPEED_UNKNOWN) and patch 2 adds
-port validation to virtio_net and better validation comment.
+Devices these days can have any speed and as was recently pointed out
+any speed from 0 to INT_MAX is valid so adjust speed validation to
+accept such values.
 
-This set is on top of Michael's patch which explains that speeds from 0
-to INT_MAX are valid:
-http://patchwork.ozlabs.org/patch/578911/
-
-Cheers,
- Nik
-
-Nikolay Aleksandrov (2):
-  ethtool: make validate_speed accept all speeds between 0 and INT_MAX
-  virtio_net: validate ethtool port setting and explain the user
-    validation
-
- drivers/net/virtio_net.c     |  6 ++++--
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
  include/uapi/linux/ethtool.h | 19 +------------------
- 2 files changed, 5 insertions(+), 20 deletions(-)
+ 1 file changed, 1 insertion(+), 18 deletions(-)
 
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 19676a420fe3..0c608192a4ef 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -1321,24 +1321,7 @@ enum ethtool_sfeatures_retval_bits {
+ 
+ static inline int ethtool_validate_speed(__u32 speed)
+ {
+-	switch (speed) {
+-	case SPEED_10:
+-	case SPEED_100:
+-	case SPEED_1000:
+-	case SPEED_2500:
+-	case SPEED_5000:
+-	case SPEED_10000:
+-	case SPEED_20000:
+-	case SPEED_25000:
+-	case SPEED_40000:
+-	case SPEED_50000:
+-	case SPEED_56000:
+-	case SPEED_100000:
+-	case SPEED_UNKNOWN:
+-		return 1;
+-	}
+-
+-	return 0;
++	return speed <= INT_MAX || speed == SPEED_UNKNOWN;
+ }
+ 
+ /* Duplex, half or full. */
 -- 
 2.4.3
