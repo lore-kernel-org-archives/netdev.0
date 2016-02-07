@@ -1,10 +1,10 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 1/2] ethtool: make validate_speed accept all
- speeds between 0 and INT_MAX
-Date: Sun, 7 Feb 2016 23:26:18 +0200
-Message-ID: <20160207232613-mutt-send-email-mst@redhat.com>
+Subject: Re: [PATCH net-next 2/2] virtio_net: validate ethtool port setting
+ and explain the user validation
+Date: Sun, 7 Feb 2016 23:26:37 +0200
+Message-ID: <20160207232631-mutt-send-email-mst@redhat.com>
 References: <1454878344-21730-1-git-send-email-razor@blackwall.org>
- <1454878344-21730-2-git-send-email-razor@blackwall.org>
+ <1454878344-21730-3-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
@@ -12,59 +12,49 @@ Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: Nikolay Aleksandrov <razor@blackwall.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58650 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46103 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754026AbcBGV0W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Feb 2016 16:26:22 -0500
+	id S1754712AbcBGV0k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Feb 2016 16:26:40 -0500
 Content-Disposition: inline
-In-Reply-To: <1454878344-21730-2-git-send-email-razor@blackwall.org>
+In-Reply-To: <1454878344-21730-3-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 07, 2016 at 09:52:23PM +0100, Nikolay Aleksandrov wrote:
+On Sun, Feb 07, 2016 at 09:52:24PM +0100, Nikolay Aleksandrov wrote:
 > From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > 
-> Devices these days can have any speed and as was recently pointed out
-> any speed from 0 to INT_MAX is valid so adjust speed validation to
-> accept such values.
+> We should validate the port setting that we got from the user and check
+> if it's what we've set it to (PORT_OTHER), also add explanation that
+> ignoring advertising is good as long as we don't have autonegotiation.
 > 
 > Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
 Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
 > ---
->  include/uapi/linux/ethtool.h | 19 +------------------
->  1 file changed, 1 insertion(+), 18 deletions(-)
+>  drivers/net/virtio_net.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
 > 
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index 19676a420fe3..0c608192a4ef 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -1321,24 +1321,7 @@ enum ethtool_sfeatures_retval_bits {
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index c9fd52a8e6ec..fb0eae42bf39 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1386,11 +1386,13 @@ static bool virtnet_validate_ethtool_cmd(const struct ethtool_cmd *cmd)
+>  	struct ethtool_cmd diff1 = *cmd;
+>  	struct ethtool_cmd diff2 = {};
 >  
->  static inline int ethtool_validate_speed(__u32 speed)
->  {
-> -	switch (speed) {
-> -	case SPEED_10:
-> -	case SPEED_100:
-> -	case SPEED_1000:
-> -	case SPEED_2500:
-> -	case SPEED_5000:
-> -	case SPEED_10000:
-> -	case SPEED_20000:
-> -	case SPEED_25000:
-> -	case SPEED_40000:
-> -	case SPEED_50000:
-> -	case SPEED_56000:
-> -	case SPEED_100000:
-> -	case SPEED_UNKNOWN:
-> -		return 1;
-> -	}
-> -
-> -	return 0;
-> +	return speed <= INT_MAX || speed == SPEED_UNKNOWN;
->  }
+> -	/* advertising and cmd are usually set, ignore port because we set it */
+> +	/* cmd is always set so we need to clear it, validate the port type
+> +	 * and also without autonegotiation we can ignore advertising
+> +	 */
+>  	ethtool_cmd_speed_set(&diff1, 0);
+> +	diff2.port = PORT_OTHER;
+>  	diff1.advertising = 0;
+>  	diff1.duplex = 0;
+> -	diff1.port = 0;
+>  	diff1.cmd = 0;
 >  
->  /* Duplex, half or full. */
+>  	return !memcmp(&diff1, &diff2, sizeof(diff1));
 > -- 
 > 2.4.3
