@@ -1,8 +1,8 @@
 From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [RFC PATCH v2 02/18] netlabel: Add an address family to domain hash entries.
-Date: Sun, 07 Feb 2016 14:55:54 -0500
-Message-ID: <6071141.OZEtCjc0a7@sifl>
-References: <1452246774-13241-3-git-send-email-huw@codeweavers.com>
+Subject: Re: [RFC PATCH v2 03/18] netlabel: Initial support for the CALIPSO netlink protocol.
+Date: Sun, 07 Feb 2016 14:55:58 -0500
+Message-ID: <8370513.CzcpcvV7jq@sifl>
+References: <1452246774-13241-4-git-send-email-huw@codeweavers.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
@@ -10,139 +10,172 @@ Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
 	selinux@tycho.nsa.gov
 To: Huw Davies <huw@codeweavers.com>
 Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1452246774-13241-3-git-send-email-huw@codeweavers.com>
+In-Reply-To: <1452246774-13241-4-git-send-email-huw@codeweavers.com>
 Sender: owner-linux-security-module@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, January 08, 2016 09:52:38 AM Huw Davies wrote:
-> The reason is to allow different labelling protocols for
-> different address families with the same domain.
+On Friday, January 08, 2016 09:52:39 AM Huw Davies wrote:
+> CALIPSO is a packet labelling protocol for IPv6 which is very similar
+> to CIPSO.  It is specified in RFC 5570.  Much of the code is based on
+> the current CIPSO code.
 > 
-> This requires the addition of an address family attribute
-> in the netlink communication protocol.  It is used in several
-> messages:
+> This adds support for adding passthrough-type CALIPSO DOIs through the
+> NLBL_CALIPSO_C_ADD command.  It requires attributes:
 > 
-> NLBL_MGMT_C_ADD and NLBL_MGMT_C_ADDDEF take it as an optional
-> attribute for the unlabelled protocol.  It may be one of AF_INET,
-> AF_INET6 and AF_UNSPEC (to specify both address families).  If is
-> it missing, it defaults to AF_UNSPEC.
+>  NLBL_CALIPSO_A_TYPE which must be CALIPSO_MAP_PASS.
+>  NLBL_CALIPSO_A_DOI.
 > 
-> NLBL_MGMT_C_LISTALL and NLBL_MGMT_C_LISTDEF return it as part of
-> the enumeration of each item.  Addtionally, it may be sent to
-> LISTDEF to specify which address family to return.
+> In passthrough mode the CALIPSO engine will map MLS secattr levels
+> and categories directly to the packet label.
+> 
+> At this stage, the major difference between this and the CIPSO
+> code is that IPv6 may be compiled as a module.  To allow for
+> this the CALIPSO functions are registered at module init time.
 > 
 > Signed-off-by: Huw Davies <huw@codeweavers.com>
 
 ...
 
-> -static struct netlbl_dom_map *netlbl_domhsh_search_def(const char *domain)
-> +static struct netlbl_dom_map *netlbl_domhsh_search_def(const char *domain,
-> +						       u16 family)
->  {
->  	struct netlbl_dom_map *entry;
+> diff --git a/include/net/calipso.h b/include/net/calipso.h
+> new file mode 100644
+> index 0000000..ad4d653
+> --- /dev/null
+> +++ b/include/net/calipso.h
+> @@ -0,0 +1,79 @@
+> +/*
+> + * CALIPSO - Common Architecture Label IPv6 Security Option
+> + *
+> + * This is an implementation of the CALIPSO protocol as specified in
+> + * RFC 5570.
+> + *
+> + * Authors: Paul Moore <paul@paul-moore.com>
+> + *          Huw Davies <huw@codeweavers.com>
+> + *
+> + */
+> +
+> +/*
+> + * (c) Copyright Hewlett-Packard Development Company, L.P., 2006
+> + * (c) Copyright Huw Davies <huw@codeweavers.com>, 2015
+> + *
+> + * This program is free software;  you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY;  without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+> + * the GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program;  if not, see <http://www.gnu.org/licenses/>.
+> + *
+> + */
+> +
+> +#ifndef _CALIPSO_H
+> +#define _CALIPSO_H
+> +
+> +#include <linux/types.h>
+> +#include <linux/rcupdate.h>
+> +#include <linux/list.h>
+> +#include <linux/net.h>
+> +#include <linux/skbuff.h>
+> +#include <net/netlabel.h>
+> +#include <net/request_sock.h>
+> +#include <linux/atomic.h>
+> +#include <asm/unaligned.h>
+> +
+> +/* known doi values */
+> +#define CALIPSO_DOI_UNKNOWN          0x00000000
+> +
+> +/* doi mapping types */
+> +#define CALIPSO_MAP_UNKNOWN          0
+> +#define CALIPSO_MAP_PASS             1
+
+For (my) sanity's sake, let's use the same _MAP_PASS value as CIPSO (2).
+
+> diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+> index 9f5137c..07214c7 100644
+> --- a/net/ipv6/af_inet6.c
+> +++ b/net/ipv6/af_inet6.c
+> @@ -60,6 +60,7 @@
+>  #ifdef CONFIG_IPV6_TUNNEL
+>  #include <net/ip6_tunnel.h>
+>  #endif
+> +#include <net/calipso.h>
 > 
-> -	entry = netlbl_domhsh_search(domain);
-> +	entry = netlbl_domhsh_search(domain, family);
->  	if (entry == NULL) {
-> -		entry = netlbl_domhsh_rcu_deref(netlbl_domhsh_def);
-> -		if (entry != NULL && !entry->valid)
-> -			entry = NULL;
-> +		if (family == AF_INET || family == AF_UNSPEC) {
-> +			entry = netlbl_domhsh_rcu_deref(netlbl_domhsh_def_ipv4);
-> +			if (entry != NULL && !entry->valid)
-> +				entry = NULL;
+>  #include <asm/uaccess.h>
+>  #include <linux/mroute6.h>
+> @@ -971,13 +972,19 @@ static int __init inet6_init(void)
+>  	if (err)
+>  		goto sysctl_fail;
+>  #endif
+> +
+> +	err = calipso_init();
+> +	if (err)
+> +		goto calipso_fail;
 
-If entry is non-NULL and valid, why not return immediately?
+It seems like the calipso_init() call should got before the sysctl init call 
+in inet6_init().
 
-> +		}
-> +		if (entry == NULL &&
-> +		    (family == AF_INET6 || family == AF_UNSPEC)) {
-> +			entry = netlbl_domhsh_rcu_deref(netlbl_domhsh_def_ipv6);
-> +			if (entry != NULL && !entry->valid)
-> +				entry = NULL;
-> +		}
->  	}
+> diff --git a/net/netlabel/netlabel_calipso.h
+> b/net/netlabel/netlabel_calipso.h new file mode 100644
+> index 0000000..01bfd37
+> --- /dev/null
+> +++ b/net/netlabel/netlabel_calipso.h
+> @@ -0,0 +1,128 @@
+> +/*
+> + * NetLabel CALIPSO Support
+> + *
+> + * This file defines the CALIPSO functions for the NetLabel system.  The
+> + * NetLabel system manages static and dynamic label mappings for network
+> + * protocols such as CIPSO and RIPSO.
+> + *
+> + * Authors: Paul Moore <paul@paul-moore.com>
+> + *          Huw Davies <huw@codeweavers.com>
+> + *
+> + */
+> +
+> +/* (c) Copyright Hewlett-Packard Development Company, L.P., 2006
+> + * (c) Copyright Huw Davies <huw@codeweavers.com>, 2015
+> + *
+> + * This program is free software;  you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY;  without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+> + * the GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program;  if not, see <http://www.gnu.org/licenses/>.
+> + *
+> + */
+> +
+> +#ifndef _NETLABEL_CALIPSO
+> +#define _NETLABEL_CALIPSO
+> +
+> +#include <net/netlabel.h>
+> +#include <net/calipso.h>
+> +
+> +/* The following NetLabel payloads are supported by the CALIPSO subsystem.
+> + *
+> + * o ADD:
+> + *   Sent by an application to add a new DOI mapping table.
+> + *
+> + *   Required attributes:
+> + *
+> + *     NLBL_CALIPSO_A_DOI
+> + *     NLBL_CALIPSO_A_MTYPE
+> + *
+> + *   If using CALIPSO_MAP_PASS no additional attributes are required.
 
-...
-
-> @@ -264,13 +285,19 @@ static int netlbl_domhsh_validate(const struct
-> netlbl_dom_map *entry) if (entry == NULL)
->  		return -EINVAL;
-> 
-> +	if (entry->family != AF_INET && entry->family != AF_INET6)
-> +		if (entry->def.type != NETLBL_NLTYPE_UNLABELED ||
-> +		    entry->family != AF_UNSPEC)
-> +			return -EINVAL;
-
-There really is no need for a nested if-then in the above code, granted the 
-combined conditional would be a bit more complex, but I would rather see that 
-than this.
-
-> @@ -385,9 +415,10 @@ int netlbl_domhsh_add(struct netlbl_dom_map *entry,
->  	rcu_read_lock();
->  	spin_lock(&netlbl_domhsh_lock);
->  	if (entry->domain != NULL)
-> -		entry_old = netlbl_domhsh_search(entry->domain);
-> +		entry_old = netlbl_domhsh_search(entry->domain, entry->family);
->  	else
-> -		entry_old = netlbl_domhsh_search_def(entry->domain);
-> +		entry_old = netlbl_domhsh_search_def(entry->domain,
-> +						     entry->family);
->  	if (entry_old == NULL) {
->  		entry->valid = 1;
-> 
-> @@ -397,7 +428,37 @@ int netlbl_domhsh_add(struct netlbl_dom_map *entry,
->  				    &rcu_dereference(netlbl_domhsh)->tbl[bkt]);
->  		} else {
->  			INIT_LIST_HEAD(&entry->list);
-> -			rcu_assign_pointer(netlbl_domhsh_def, entry);
-> +			switch (entry->family) {
-> +				struct netlbl_dom_map *entry2;
-
-I'm not a fan of declaring variable here, move it up to the top of the 
-function, or if you must, make it local to the AF_UNSPEC case below.  Also, 
-while I'm being nit-picky, I dislike numbers in variable names unless we are 
-dealing with something that honestly uses numbers as part of the name, e.g. 
-ipv6, rename "entry2" to "entry_b" (or something along those lines) please.
-
-> +			case AF_INET:
-> +				rcu_assign_pointer(netlbl_domhsh_def_ipv4,
-> +						   entry);
-> +				break;
-> +			case AF_INET6:
-> +				rcu_assign_pointer(netlbl_domhsh_def_ipv6,
-> +						   entry);
-> +				break;
-> +			case AF_UNSPEC:
-> +				if (entry->def.type != NETLBL_NLTYPE_UNLABELED)
-> +					return -EINVAL;
-> +				entry2 = kzalloc(sizeof(*entry2), GFP_ATOMIC);
-> +				if (!entry2)
-> +					return -ENOMEM;
-> +				entry2->family = AF_INET6;
-> +				entry2->def.type = NETLBL_NLTYPE_UNLABELED;
-> +				entry2->valid = 1;
-> +				entry->family = AF_INET;
-> +				rcu_assign_pointer(netlbl_domhsh_def_ipv4,
-> +						   entry);
-> +				rcu_assign_pointer(netlbl_domhsh_def_ipv6,
-> +						   entry2);
-> +				break;
-> +			default:
-> +				/* Already checked in
-> +				 * netlbl_domhsh_validate()
-> +				 */
-
-Another style point - unless were talking about function header comment 
-blocks, don't place a multi-line comment terminator on a separate line.  For 
-example, instead of the above, so something like this:
-
-  /* already checked in
-   * netlbl_domhsh_validate() */
-
-> +				return -EINVAL;
-> +			}
->  		}
+This patch includes descriptive comments for all the different 
+NetLabel/CALIPSO payloads provided for the entire patchset, rather than this 
+particular patch.  It would be preferable to add the comment blocks as you add 
+support for the payloads in each patch rather than all at once.
 
 -- 
 paul moore
