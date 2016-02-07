@@ -1,61 +1,105 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [RFC PATCH v2 00/18] CALIPSO Implementation
-Date: Sun, 07 Feb 2016 14:56:18 -0500
-Message-ID: <2084590.x0rrIneakS@sifl>
-References: <1452246774-13241-1-git-send-email-huw@codeweavers.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next RFC 0/6] Introduce devlink interface and first
+ drivers to use it
+Date: Sun, 07 Feb 2016 12:18:35 -0800
+Message-ID: <56B7A69B.5040101@cumulusnetworks.com>
+References: <1454496482-13961-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Huw Davies <huw@codeweavers.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, eugenia@mellanox.com,
+	nikolay@cumulusnetworks.com, hadarh@mellanox.com, jhs@mojatatu.com,
+	john.fastabend@gmail.com, jeffrey.t.kirsher@intel.com,
+	jbenc@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48952 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754817AbcBGT4V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Feb 2016 14:56:21 -0500
-In-Reply-To: <1452246774-13241-1-git-send-email-huw@codeweavers.com>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:33026 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750997AbcBGUSk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 15:18:40 -0500
+Received: by mail-wm0-f44.google.com with SMTP id g62so109510142wme.0
+        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 12:18:39 -0800 (PST)
+In-Reply-To: <1454496482-13961-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday, January 08, 2016 09:52:36 AM Huw Davies wrote:
-> This patch series implements RFC 5570 - Common Architecture Label IPv6
-> Security Option (CALIPSO).  Its goal is to set MLS sensitivity labels
-> on IPv6 packets using a hop-by-hop option.  CALIPSO is very similar to
-> its IPv4 cousin CIPSO and much of this series is based on that code.
-> 
-> I'm particularly interested in feedback relating to adding
-> struct ipv6_txoptions* to struct inet_request_sock.
-> (ipv6: Allow request socks to contain IPv6 options.)
-> 
-> Thoughts about this or any of the other patches are most welcome.
-> 
-> If anybody actually wants to play with this, then you'll need some patches
-> to netlabel-tools that are currently available on the 'calipso' branch at:
-> https://github.com/hdmdavies/netlabel_tools.git
-> 
-> Thanks to Paul Moore, Hannes Frederic Sowa and Casey Schaufler for their
-> comments so far.
-> 
-> Changes between v2 and v1:
-> 
-> * Simplify ipv6_renew_options_kern() to use set_fs(KERNEL_DS).
->   Thanks to Hannes Frederic Sowa for suggesting this.
-> 
-> * Use the parent socket to account for the listener socket
->   option's memory usage.  Again, thanks for Hannes for this.
-> 
-> * Added netlbl_cfg_calipso_* functions for SMACK.
-> 
-> * Rebased to v4.4-rc8.
+On 2/3/16, 2:47 AM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+>
+> There a is need for some userspace API that would allow to expose things
+> that are not directly related to any device class like net_device of
+> ib_device, but rather chip-wide/switch-ASIC-wide stuff.
+>
+> Use cases:
+> 1) get/set of port type (Ethernet/InfiniBand)
+> 2) monitoring of hardware messages to and from chip
+> 3) setting up port splitters - split port into multiple ones and squash again,
+>    enables usage of splitter cable
+> 4) setting up shared buffers - shared among multiple ports within one chip
+>
+> First patch of this set introduces a new generic Netlink based interface,
+> called "devlink". It is similar to nl80211 model and it is heavily
+> influenced by it, including the API definition. The devlink introduction patch
+> implements use cases 1) and 2). Other 2 are in development atm and will
+> be addressed by follow-ups.
+>
+> It is very convenient for drivers to use devlink, as you can see in other
+> patches in this set.
+>
+> Counterpart for devlink is userspace tool called "dl". Command line interface
+> and outputs are derived from "ip" tool so it should be easy for users to get
+> used to it.
+>
+> It is available here:
+> https://github.com/jpirko/devlink
 
-Thanks for fixing this patchset up and sending out a v2.  I took a closer look 
-and just sent out my comments, let me know if you have any questions.
+Jiri, thanks for this series!. Something like this is definitely needed for chip specific data. But i thought we were going to limit it to chip specific global attributes that cannot be set on a port.
+>
+> Example usage:
+> butter:~$ dl help
+> Usage: dl [ OPTIONS ] OBJECT { COMMAND | help }
+> where  OBJECT := { dev | port | monitor }
+>        OPTIONS := { -v/--verbose }
+>
+> butter:~$ dl dev show
+> 0: devlink0: bus pci dev 0000:01:00.0
+>
+> butter:~$ dl port help
+> Usage: dl port show [DEV/PORT_INDEX]
+> Usage: dl port set DEV/PORT_INDEX [ type { eth | ib | auto} ]
 
-Once we get to a v3 patchset, I think it's time to reach out Oracle and try 
-some interop with Solaris TX.  Let me know when you are ready and I'll put 
-everybody in touch to try to get some testing going.
+I don't think we should include port specific attributes in this api. ports are netdevs and they should still continue to use 'ip link set'.
 
--- 
-paul moore
-security @ redhat
+So, why not just introduce a rtnetlink ops abstraction for switch ports ?. Example:
+
+static struct rtnl_link_ops swport_link_ops __read_mostly = {
+        .kind           = 'swport',
+        .setup          = swport_setup,
+        .validate       = swport_validate,
+};
+
+IFLA_INFO_KIND = swport
+IFLA_INFO_DATA = {
+            IFLA_SWPORT_KIND = 'mlx'
+            IFLA_SWPORT_TYPE, /* u16 */
+            IFLA_SWPORT_DESIRED_TYPE, /* u16 */
+
+            ... more ...
+}
+
+IFLA_INFO_DATA can be redirected to the specific switch driver at the switchdev ops/api layer.
+
+ip link set dev swp1 swport_type eth swport_desired_type <blah>
+
+Taking this one step further, the port splitter management can be done in user-space:
+And, users/switch port management infra can use 'ip link add type swport ...' to create required switch ports.
+
+Thanks,
+Roopa
+
+
+
+             
