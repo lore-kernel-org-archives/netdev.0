@@ -1,30 +1,33 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: net: wireless: rt2x00: Fixed Spacing issues
-Date: Sun,  7 Feb 2016 07:10:39 +0000 (UTC)
-Message-ID: <20160207071039.A40926047C@smtp.codeaurora.org>
-References: <1445112279-27796-1-git-send-email-paulmcquad@gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [1/3] net: wireless: rt2x00: Space issue
+Date: Sun,  7 Feb 2016 07:12:15 +0000 (UTC)
+Message-ID: <20160207071215.9440E6026B@smtp.codeaurora.org>
+References: <1445116005-28670-1-git-send-email-paulmcquad@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: paulmcquad-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Paul Mcquade <paulmcquad-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1445112279-27796-1-git-send-email-paulmcquad-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: paulmcquad@gmail.com, sgruszka@redhat.com,
+	helmut.schaa@googlemail.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Paul Mcquade <paulmcquad@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445116005-28670-1-git-send-email-paulmcquad@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 > Removed empty spaces before/after parenthesis
 > 
-> Signed-off-by: Paul McQuade <paulmcquad-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Acked-by: Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+> Signed-off-by: Paul McQuade <paulmcquad@gmail.com>
+> Acked-by: Helmut Schaa <helmut.schaa@googlemail.com>
 
-Thanks, applied to wireless-drivers-next.git.
+Thanks, 2 patches applied to wireless-drivers-next.git:
+
+b2cc2dd8ebb8 net: wireless: rt2x00: Space issue
+5b451715e94d net: wireless: rt2x00: Space Required
+
+1 patches skipped:
+
+[2/3] net: wireless: rt2x00: Pointer issue
 
 Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
