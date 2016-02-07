@@ -1,30 +1,40 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 0/5] net: phy: dp83848: Add support for TI TLK10x
- Ethernet PHYs
-Date: Sun, 7 Feb 2016 14:31:02 -0800
-Message-ID: <56B7C5A6.5060604@gmail.com>
-References: <1454867241-20928-1-git-send-email-afd@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Andrew F. Davis" <afd@ti.com>,
-	"David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454867241-20928-1-git-send-email-afd@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+Subject: [PATCH 0/7] Add support for MICREL KSZ8795CLX 5-port switch
+Date: Sun,  7 Feb 2016 23:39:06 +0100
+Message-ID: <1454884753-4560-1-git-send-email-helmut.buchsbaum@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36461 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752807AbcBGWjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 17:39:55 -0500
+Received: by mail-wm0-f65.google.com with SMTP id 128so12859997wmz.3
+        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 14:39:54 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/02/2016 09:47, Andrew F. Davis wrote:
-> Hello all,
-> 
-> This series is [0] split into its logical components.
-> 
-> Thanks,
-> Andrew
-> 
-> [0] http://www.spinics.net/lists/netdev/msg363106.html
+This patch series refactors the spi-ks8995 driver to finally add support
+for the MICREL KSZ8795CLX. Additionally support for setting initial
+register values as well as controlling a GPIO line for resetting the
+switch is added.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Helmut Buchsbaum (7):
+  net: phy: spi_ks8995: introduce spi_device_id table
+  net: phy: spi_ks8995: add chip verification and determine chip
+    revision
+  net: phy: spi_ks8995: add ability to configure register initialization
+  net: phy: spi_ks8995: add support for resetting switch using GPIO
+  net: phy: spi_ks8995: generalize creation of SPI commands
+  net: phy: spi_ks8995: add support for MICREL KSZ8795CLX 5-Port managed
+    switch
+  dt-bindings: net: ks8995: add documentation for MICREL ks8995 driver
 
-Thanks for splitting things up!
+ .../devicetree/bindings/net/micrel-ks8995.txt      |  27 ++
+ drivers/net/phy/spi_ks8995.c                       | 407 +++++++++++++++++----
+ 2 files changed, 371 insertions(+), 63 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/micrel-ks8995.txt
+
+-- 
+2.1.4
