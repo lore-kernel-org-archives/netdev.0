@@ -1,50 +1,39 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 master resend 0/4] Minor BPF updates on
- frontend
-Date: Sun, 7 Feb 2016 11:31:26 -0800
-Message-ID: <20160207113126.775ab8dd@xeon-e3>
-References: <cover.1454806938.git.daniel@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5 0/2] virtio_net: add ethtool get/set
+ settings support
+Date: Sun, 07 Feb 2016 14:31:17 -0500 (EST)
+Message-ID: <20160207.143117.2074335859138369633.davem@davemloft.net>
+References: <1454468677-12280-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, mst@redhat.com, roopa@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com
+To: razor@blackwall.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:34647 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753894AbcBGTbO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 14:31:14 -0500
-Received: by mail-pf0-f178.google.com with SMTP id o185so97844970pfb.1
-        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 11:31:13 -0800 (PST)
-In-Reply-To: <cover.1454806938.git.daniel@iogearbox.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35796 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753894AbcBGTbW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 14:31:22 -0500
+In-Reply-To: <1454468677-12280-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun,  7 Feb 2016 02:11:49 +0100
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Date: Wed,  3 Feb 2016 04:04:35 +0100
 
-> Couple of minor updates on tc frontend.
+> Patch 1 adds ethtool speed/duplex validation functions which check if the
+> value is defined. Patch 2 adds support for ethtool (get|set)_settings and
+> uses the validation functions to check the user-supplied values.
 > 
-> Resending with no changes and with John's Acked-by kept, orignal
-> version got set to 'Changes requested' by mistake.
+> v2: split in 2 patches to allow everyone to make use of the validation
+> functions and allow virtio_net devices to be half duplex
+> v3: added a check to return error if the user tries to change anything else
+> besides duplex/speed as per Michael's comment
+> v4: Set port type to PORT_OTHER
+> v5: clear diff1.port (ignore port) when checking for changes since we set
+> it now and ethtool uses it in the set request
 > 
-> Thanks!
-> 
-> Daniel Borkmann (4):
->   tc, bpf, examples: further bpf_api improvements
->   tc, bpf: improve verifier logging
->   tc, bpf: give some more hints wrt false relos
->   tc, bpf: use bind/type macros from gelf
-> 
->  examples/bpf/bpf_cyclic.c   |   4 +-
->  examples/bpf/bpf_graft.c    |  13 +---
->  examples/bpf/bpf_prog.c     |  26 +++----
->  examples/bpf/bpf_shared.c   |   3 +-
->  examples/bpf/bpf_tailcall.c |  12 +--
->  include/bpf_api.h           |  56 ++++++++++++--
->  tc/tc_bpf.c                 | 173 +++++++++++++++++++++++++++++++-------------
->  tc/tc_bpf.h                 |   1 -
->  8 files changed, 191 insertions(+), 97 deletions(-)
-> 
+> Sorry about the pointless iterations, should've all covered now.
 
-Applied.
+Series applied, thanks Nik.
