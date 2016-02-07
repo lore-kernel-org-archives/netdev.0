@@ -1,44 +1,59 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 03/10] net: Update remote checksum segmentation
- to support use of GSO checksum
-Date: Sun, 7 Feb 2016 04:13:53 -0600
-Message-ID: <CAKgT0UcfzuEH7EzF9krziDQ1r_t3_LVTRNMvJxaQ60-HzypLyQ@mail.gmail.com>
-References: <20160205232109.18529.99816.stgit@localhost.localdomain>
-	<20160205232743.18529.68800.stgit@localhost.localdomain>
-	<CALx6S35J9SJp_btTiDBL703BRxNPkYMV0bNdTqRkdafGyHYEHQ@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v2] net: ethernet: davicom: fix devicetree irq resource
+Date: Sun, 7 Feb 2016 11:23:03 +0100
+Message-ID: <20160207102303.GA4976@electric-eye.fr.zoreil.com>
+References: <1454796693-4446-1-git-send-email-robert.jarzmik@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Edward Cree <ecree@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Robert Jarzmik <robert.jarzmik@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f196.google.com ([209.85.213.196]:34548 "EHLO
-	mail-ig0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753844AbcBGKNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 05:13:54 -0500
-Received: by mail-ig0-f196.google.com with SMTP id ik10so3413296igb.1
-        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 02:13:53 -0800 (PST)
-In-Reply-To: <CALx6S35J9SJp_btTiDBL703BRxNPkYMV0bNdTqRkdafGyHYEHQ@mail.gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:35827 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753674AbcBGKXJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 05:23:09 -0500
+Content-Disposition: inline
+In-Reply-To: <1454796693-4446-1-git-send-email-robert.jarzmik@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 6, 2016 at 2:44 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Fri, Feb 5, 2016 at 3:27 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
->> This patch addresses two main issues.
->>
->> First in the case of remote checksum offload we were avoiding dealing with
->> scatter-gather issues.  As a result it would be possible to assemble a
->> series of frames that used frags instead of being linearized as they should
->> have if remote checksum offload was enabled.
->>
->> Second I have updated the code so that we now let GSO take care of doing
->> the checksum on the data itself and drop the special case that was added
->> for remote checksum offload.
->>
-> Did you test this (with vxlan or GUE)?
+Robert Jarzmik <robert.jarzmik@free.fr> :
+[...]
+> diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+> index cf94b72dbacd..2bae5c8c1f85 100644
+> --- a/drivers/net/ethernet/davicom/dm9000.c
+> +++ b/drivers/net/ethernet/davicom/dm9000.c
+[...]
+> @@ -1500,15 +1496,21 @@ dm9000_probe(struct platform_device *pdev)
+>  
+>  	db->addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>  	db->data_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+> -	db->irq_res  = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+>  
+> -	if (db->addr_res == NULL || db->data_res == NULL ||
+> -	    db->irq_res == NULL) {
+> -		dev_err(db->dev, "insufficient resources\n");
+> +	if (!db->addr_res || !db->data_res) {
+> +		dev_err(db->dev, "insufficient resources addr=%p data=%p\n",
+> +			db->addr_res, db->data_res);
+>  		ret = -ENOENT;
+>  		goto out;
+>  	}
+>  
+> +	ndev->irq = platform_get_irq(pdev, 0);
+> +	if (ndev->irq < 0) {
+> +		dev_err(db->dev, "interrupt resource unavailable: %d\n",
+> +			ndev->irq);
+> +		return ndev->irq;
+> +	}
+> +
 
-I was testing with VXLAN.
+Leak: please set 'ret = ndev->irq;' and proceed to the 'out' label.
 
-- Alex
+If you have some spare time, it would be nice to avoid db->irq_wake leak
+on probe failure or driver removal.
+
+-- 
+Ueimor
