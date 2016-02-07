@@ -1,118 +1,71 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] net: ethernet: davicom: fix devicetree irq resource
-Date: Sun, 7 Feb 2016 13:49:23 +0300
-Message-ID: <56B72133.5090801@cogentembedded.com>
-References: <1454796693-4446-1-git-send-email-robert.jarzmik@free.fr>
+From: Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>
+Subject: Kernel uapi and glibc header conflicts (was Re: header conflict
+ introduced by change to netfilter_ipv4/ip_tables.h )
+Date: Sun, 7 Feb 2016 13:31:11 +0200
+Message-ID: <20160207113111.GE6104@lakka.kapsi.fi>
+References: <20160106092007.1c5a0c75@xeon-e3>
+ <88a455d4b6dc4d4398553e6529d7b94a@HQ1WP-EXMB11.corp.brocade.com>
+ <20160107103040.649ab878@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Robert Jarzmik <robert.jarzmik@free.fr>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:34938 "EHLO
-	mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753224AbcBGKt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 05:49:26 -0500
-Received: by mail-lf0-f54.google.com with SMTP id l143so80656112lfe.2
-        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 02:49:25 -0800 (PST)
-In-Reply-To: <1454796693-4446-1-git-send-email-robert.jarzmik@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, libc-help-9JcytcrH/bA+uJoB2kUjGw@public.gmane.org,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Stephen Hemminger <shemming-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org>
+Return-path: <libc-help-return-3732-gclgu-libc-help=m.gmane.org-9JcytcrH/bA+uJoB2kUjGw@public.gmane.org>
+List-Unsubscribe: <mailto:libc-help-unsubscribe-gclgu-libc-help=m.gmane.org-9JcytcrH/bA+uJoB2kUjGw@public.gmane.org>
+List-Subscribe: <mailto:libc-help-subscribe-9JcytcrH/bA+uJoB2kUjGw@public.gmane.org>
+List-Post: <mailto:libc-help-9JcytcrH/bA+uJoB2kUjGw@public.gmane.org>
+List-Help: <mailto:libc-help-help-9JcytcrH/bA+uJoB2kUjGw@public.gmane.org>, <http://sourceware.org/lists.html#faqs>
+Sender: libc-help-owner-9JcytcrH/bA+uJoB2kUjGw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <20160107103040.649ab878@xeon-e3>
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Thu, Jan 07, 2016 at 10:30:40AM -0800, Stephen Hemminger wrote:
+> On Thu, 7 Jan 2016 07:29:50 +0000
+> Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org> wrote:
+> 
+> > On Wed, Jan 06, 2016 at 09:20:07AM -0800, Stephen Hemminger wrote:
+> > > This commit breaks compilation of iproute2 with net-next.
+> > 
+> > Ok, linux/if.h and libc net/if.h have overlapping defines, and this is not
+> > the only one. I saw lots of them in the core dump headers.
+> > 
+> > How should we handle them? Another ifndef for IFNAMSIZ into kernel uapi
+> > headers?
+> > 
+> > -Mikko
+> 
+> Probably need to do the same thing that was done previously for these
+> kind of conflicts.  This makes make linux/if.h change to adapt to net/if.h
+> being included before it.
 
-On 2/7/2016 1:11 AM, Robert Jarzmik wrote:
+So uapi headers now have a libc-compat.h
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/include/uapi/linux/libc-compat.h?id=refs/tags/v4.5-rc2
+which tries to detect and fix incompatibilities between Linux kernel and glibc
+headers. Part of the fix is then in the kernel side headers and another part
+should be in glibc headers, but glibc git repo does not include any of these
+fixes yet.
 
-> The dm9000 driver doesn't work in at least one device-tree
-> configuration, spitting an error message on irq resource :
-> [    1.062495] dm9000 8000000.ethernet: insufficient resources
-> [    1.068439] dm9000 8000000.ethernet: not found (-2).
-> [    1.073451] dm9000: probe of 8000000.ethernet failed with error -2
->
-> The reason behind is that the interrupt might be provided by a gpio
-> controller, not probed when dm9000 is probed, and needing the probe
-> deferral mechanism to apply.
->
-> Currently, the interrupt is directly taken from resources. This patch
-> changes this to use the more generic platform_get_irq(), which handles
-> the deferral.
->
-> Moreover, since commit Fixes: 7085a7401ba5 ("drivers: platform: parse
+Has the glibc part of this incompatiblity mess been discussed and agreed
+with glibc developers?
 
-    Fixes: tag here?
+Many of the conflics arise from propably old glibc headers which had copied
+out definitions from the Linux kernel side before it could export any headers
+to userspace. I assume that the glibc headers are not allowed to depend and
+include Linux kernel uapi headers in deployments but maybe the Linux kernel
+headers could be used at glibc compile time to generate needed glibc side
+definitions. That would allow having a single source for definitions like 
+FNAMSIZ 16.
 
-> IRQ flags from resources"), the interrupt trigger flags are honored in
-> platform_get_irq(), so remove the needless code in dm9000.
->
-> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
-> Acked-by: Marcel Ziswiler <marcel@ziswiler.com>
-> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> ---
-> Since v1: comment style and requested irq test < 0
->            David, you should know that Sergei is concerned with the
-> 	  subsystem prefix in the patch subject (too long for him).
-> ---
->   drivers/net/ethernet/davicom/dm9000.c | 29 +++++++++++++++--------------
->   1 file changed, 15 insertions(+), 14 deletions(-)
->
-> diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-> index cf94b72dbacd..2bae5c8c1f85 100644
-> --- a/drivers/net/ethernet/davicom/dm9000.c
-> +++ b/drivers/net/ethernet/davicom/dm9000.c
-[...]
-> @@ -1300,18 +1299,15 @@ static int
->   dm9000_open(struct net_device *dev)
->   {
->   	struct board_info *db = netdev_priv(dev);
-> -	unsigned long irqflags = db->irq_res->flags & IRQF_TRIGGER_MASK;
-> +	unsigned long irqflags = 0;
->
->   	if (netif_msg_ifup(db))
->   		dev_dbg(db->dev, "enabling %s\n", dev->name);
->
-> -	/* If there is no IRQ type specified, default to something that
-> -	 * may work, and tell the user that this is a problem */
-> -
-> -	if (irqflags == IRQF_TRIGGER_NONE)
-> -		irqflags = irq_get_trigger_type(dev->irq);
-> -
-> -	if (irqflags == IRQF_TRIGGER_NONE)
-> +	/* If there is no IRQ type specified, tell the user that this is a
-> +	 * problem
-> +	 */
-> +	if (irq_get_trigger_type(dev->irq) == IRQF_TRIGGER_NONE)
->   		dev_warn(db->dev, "WARNING: no IRQ resource flags set.\n");
->
->   	irqflags |= IRQF_SHARED;
+Has this been considered before?
 
-    Why not just initialize to IRQF_SHARED?
-    But actually you don't need this variable anymore.
+I'm drafting a test, similar to the kernel uapi header compile test
+https://github.com/mcfrisk/linux/blob/headers_test_v05/scripts/headers_compile_test.sh
+for the glibc conflicts too, and of course noticed that also glibc headers
+conflict with each other. With some workarounds I can test compile each kernel
+uapi header against all compiling glibc headers and see the conflicts as
+build failures.
 
-> @@ -1500,15 +1496,21 @@ dm9000_probe(struct platform_device *pdev)
->
->   	db->addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
->   	db->data_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-> -	db->irq_res  = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
->
-> -	if (db->addr_res == NULL || db->data_res == NULL ||
-> -	    db->irq_res == NULL) {
-> -		dev_err(db->dev, "insufficient resources\n");
-> +	if (!db->addr_res || !db->data_res) {
-> +		dev_err(db->dev, "insufficient resources addr=%p data=%p\n",
-> +			db->addr_res, db->data_res);
->   		ret = -ENOENT;
->   		goto out;
->   	}
->
-> +	ndev->irq = platform_get_irq(pdev, 0);
-> +	if (ndev->irq < 0) {
-> +		dev_err(db->dev, "interrupt resource unavailable: %d\n",
-> +			ndev->irq);
-> +		return ndev->irq;
-
-    As already noted, direct *return* can't be used here.
-
-[...]
-
-MBR, Sergei
+-Mikko
