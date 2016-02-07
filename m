@@ -1,105 +1,55 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next RFC 0/6] Introduce devlink interface and first
- drivers to use it
-Date: Sun, 07 Feb 2016 12:18:35 -0800
-Message-ID: <56B7A69B.5040101@cumulusnetworks.com>
-References: <1454496482-13961-1-git-send-email-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v3 2/4] net: add rx_nohandler stat counter
+Date: Sun, 07 Feb 2016 12:19:28 -0800
+Message-ID: <1454876368.7627.350.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1454370667-2328-1-git-send-email-jarod@redhat.com>
+	 <1454370667-2328-3-git-send-email-jarod@redhat.com>
+	 <20160207113732.25a88cc4@xeon-e3>
+	 <20160207.144648.750890874940574761.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, eugenia@mellanox.com,
-	nikolay@cumulusnetworks.com, hadarh@mellanox.com, jhs@mojatatu.com,
-	john.fastabend@gmail.com, jeffrey.t.kirsher@intel.com,
-	jbenc@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:33026 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750997AbcBGUSk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 15:18:40 -0500
-Received: by mail-wm0-f44.google.com with SMTP id g62so109510142wme.0
-        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 12:18:39 -0800 (PST)
-In-Reply-To: <1454496482-13961-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, jarod@redhat.com,
+	linux-kernel@vger.kernel.org, edumazet@google.com,
+	jiri@mellanox.com, daniel@iogearbox.net, tom@herbertland.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160207.144648.750890874940574761.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2/3/16, 2:47 AM, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> There a is need for some userspace API that would allow to expose things
-> that are not directly related to any device class like net_device of
-> ib_device, but rather chip-wide/switch-ASIC-wide stuff.
->
-> Use cases:
-> 1) get/set of port type (Ethernet/InfiniBand)
-> 2) monitoring of hardware messages to and from chip
-> 3) setting up port splitters - split port into multiple ones and squash again,
->    enables usage of splitter cable
-> 4) setting up shared buffers - shared among multiple ports within one chip
->
-> First patch of this set introduces a new generic Netlink based interface,
-> called "devlink". It is similar to nl80211 model and it is heavily
-> influenced by it, including the API definition. The devlink introduction patch
-> implements use cases 1) and 2). Other 2 are in development atm and will
-> be addressed by follow-ups.
->
-> It is very convenient for drivers to use devlink, as you can see in other
-> patches in this set.
->
-> Counterpart for devlink is userspace tool called "dl". Command line interface
-> and outputs are derived from "ip" tool so it should be easy for users to get
-> used to it.
->
-> It is available here:
-> https://github.com/jpirko/devlink
+On Sun, 2016-02-07 at 14:46 -0500, David Miller wrote:
 
-Jiri, thanks for this series!. Something like this is definitely needed for chip specific data. But i thought we were going to limit it to chip specific global attributes that cannot be set on a port.
->
-> Example usage:
-> butter:~$ dl help
-> Usage: dl [ OPTIONS ] OBJECT { COMMAND | help }
-> where  OBJECT := { dev | port | monitor }
->        OPTIONS := { -v/--verbose }
->
-> butter:~$ dl dev show
-> 0: devlink0: bus pci dev 0000:01:00.0
->
-> butter:~$ dl port help
-> Usage: dl port show [DEV/PORT_INDEX]
-> Usage: dl port set DEV/PORT_INDEX [ type { eth | ib | auto} ]
+> > Why was this userspace ABI change allowed?
+> > The stats structure is exposed to user space via netlink
+> > and changing the size of responses will break iproute2 commands.
 
-I don't think we should include port specific attributes in this api. ports are netdevs and they should still continue to use 'ip link set'.
+I do not think it breaks anything.
 
-So, why not just introduce a rtnetlink ops abstraction for switch ports ?. Example:
+iproute2 always assumed kernel was sending at least 23 u64, and does not
+check at all if the kernel sends more. (or less, so iproute2 can print
+garbage if kernel is malicious)
 
-static struct rtnl_link_ops swport_link_ops __read_mostly = {
-        .kind           = 'swport',
-        .setup          = swport_setup,
-        .validate       = swport_validate,
-};
+an iproute2 patch will be needed to automatically detect if new kernels
+are sending more data and print it accordingly.
 
-IFLA_INFO_KIND = swport
-IFLA_INFO_DATA = {
-            IFLA_SWPORT_KIND = 'mlx'
-            IFLA_SWPORT_TYPE, /* u16 */
-            IFLA_SWPORT_DESIRED_TYPE, /* u16 */
+> > 
+> > The code will be expecting one size and the response will vary and
+> > break existing code.  Yes, the code should check the size
+> > of the response, but it doesn't and I am sure iproute2 is not
+> > the only code that does this.
+> 
+> Jarod, please look into this.
 
-            ... more ...
-}
+Running latest net-next, and old iproute2 is just fine.
 
-IFLA_INFO_DATA can be redirected to the specific switch driver at the switchdev ops/api layer.
-
-ip link set dev swp1 swport_type eth swport_desired_type <blah>
-
-Taking this one step further, the port splitter management can be done in user-space:
-And, users/switch port management infra can use 'ip link add type swport ...' to create required switch ports.
-
-Thanks,
-Roopa
-
-
-
-             
+# ip -s link sh dev eth0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq portid
+001a11fffec30d80 state UP mode DEFAULT group default qlen 16000
+    link/ether 00:1a:11:c3:0d:7f brd ff:ff:ff:ff:ff:ff
+    RX: bytes  packets  errors  dropped overrun mcast   
+    533766     1875     0       0       0       135     
+    TX: bytes  packets  errors  dropped carrier collsns 
+    209204     1858     0       0       0       0       
