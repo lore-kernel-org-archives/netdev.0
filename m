@@ -1,41 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] tcp: congestion control refactoring
-Date: Sun, 07 Feb 2016 14:10:59 -0500 (EST)
-Message-ID: <20160207.141059.791432860051131378.davem@davemloft.net>
-References: <1454437989-3842-1-git-send-email-ycheng@google.com>
+Subject: Re: [PATCH net-next 0/2] sunvnet: perf tracepoint hooks
+Date: Sun, 07 Feb 2016 14:13:55 -0500 (EST)
+Message-ID: <20160207.141355.2029855358220592531.davem@davemloft.net>
+References: <cover.1454416592.git.sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ycheng@google.com
+Cc: netdev@vger.kernel.org, david.stevens@oracle.com,
+	aaron.young@oracle.com
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35615 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35639 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754517AbcBGTLC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 14:11:02 -0500
-In-Reply-To: <1454437989-3842-1-git-send-email-ycheng@google.com>
+	with ESMTP id S1753902AbcBGTN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 14:13:59 -0500
+In-Reply-To: <cover.1454416592.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Tue,  2 Feb 2016 10:33:03 -0800
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Tue,  2 Feb 2016 10:41:54 -0800
 
-> This patch set refactors the sequence of congestion control,
-> loss recovery, and transmission logic in TCP ack processing.
-> 
-> The design goal is to decouple and sequence them in the following order:
-> 
->   0. ACK accounting: free or tag sent packets [unchanged]
-> 
->   1. loss recovery: identify lost/ecn packets and update congestion state
-> 
->   2. congestion control: up/down cwnd and pacing rate based on (1)
-> 
->   3. transmission: send new or retransmit old based on (1) and (2)
-> 
-> This refactoring makes the cwnd changes more clear because it's done
-> in one place. The packet accounting is also more robust especially
-> for connections that do not support SACK. Patch 1-4 and 6 are
-> refactoring and patch 5 improves TCP performance under reordering.
+> Added some perf tracepoints to help track and debug sunvnet 
+> descriptor state at run-time.
 
-This series looks really nice, applied, thanks!
+I'm not the biggest fan of putting tracepoints like this in the fast
+paths of a networking driver, but what can I say... if they are useful
+for you I guess I'm ok with it.
+
+Series applied, thanks.
