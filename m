@@ -1,144 +1,116 @@
-From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: Re: [PATCH net v4] r8169: Add EEPROM support and disable MWI on pci
- express.
-Date: Sun, 07 Feb 2016 20:40:03 +0200
-Message-ID: <1454870403.3322.2.camel@marian1000.go.ro>
-References: <1454866737-2406-1-git-send-email-asd@marian1000.go.ro>
-	 <56B78886.20202@cogentembedded.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [V4.4-rc6 Regression] af_unix: Revert 'lock_interruptible' in stream receive code
+Date: Sun, 07 Feb 2016 18:43:14 +0000
+Message-ID: <8737t4jr99.fsf@doppelsaurus.mobileactivedefense.com>
+References: <56B4EF04.2060407@canonical.com>
+	<87bn7ude8g.fsf@doppelsaurus.mobileactivedefense.com>
+	<1454713398.7627.325.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	davem@davemloft.net, hannes@stressinduktion.org,
+	edumazet@google.com, dhowells@redhat.com, ying.xue@windriver.com,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"stable\@vger.kernel.org" <stable@vger.kernel.org>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-14-227-192.residential.rdsnet.ro ([5.14.227.192]:51473 "EHLO
-	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750749AbcBGSkQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 13:40:16 -0500
-In-Reply-To: <56B78886.20202@cogentembedded.com>
+Received: from tiger.mobileactivedefense.com ([217.174.251.109]:44440 "EHLO
+	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752918AbcBGSnh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 13:43:37 -0500
+In-Reply-To: <1454713398.7627.325.camel@edumazet-glaptop2.roam.corp.google.com>
+	(Eric Dumazet's message of "Fri, 05 Feb 2016 15:03:18 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2016-02-07 at 21:10 +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 02/07/2016 08:38 PM, Corcodel Marian wrote:
-> 
-> >    On chip with external eeprom ASPM settings is loaded from eeprom
-> > and
-> >     on pci express interface not support MWI.
-> 
->     Does not support.
-> 
-> > 
-> > Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
-> > ---
-> >   drivers/net/ethernet/realtek/r8169.c | 22 ++++++++++++++--------
-> >   1 file changed, 14 insertions(+), 8 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/realtek/r8169.c
-> > b/drivers/net/ethernet/realtek/r8169.c
-> > index 1d119a6..bebd550 100644
-> > --- a/drivers/net/ethernet/realtek/r8169.c
-> > +++ b/drivers/net/ethernet/realtek/r8169.c
-> [...]
-> > @@ -4372,7 +4373,8 @@ static void rtl8169_release_board(struct
-> > pci_dev *pdev, struct net_device *dev,
-> >   {
-> >   	iounmap(ioaddr);
-> >   	pci_release_regions(pdev);
-> > -	pci_clear_mwi(pdev);
-> > +	if (!pci_is_pcie(pdev))
-> > +	 pci_clear_mwi(pdev);
-> 
->     Please indent with tab, not space.
-> 
-> >   	pci_disable_device(pdev);
-> >   	free_netdev(dev);
-> >   }
-> > @@ -8042,7 +8044,7 @@ static const struct rtl_cfg_info {
-> >   		.align		= 8,
-> >   		.event_slow	= SYSErr | LinkChg |
-> > RxOverflow | RxFIFOOver |
-> >   				  PCSTimeout | SWInt |
-> > TxDescUnavail,
-> > -		.features	= RTL_FEATURE_MSI,
-> > +		.features	= RTL_FEATURE_MSI |
-> > RTL_FEATURE_EEPROM,
-> >   		.default_ver	= RTL_GIGA_MAC_VER_13,
-> >   	}
-> >   };
-> > @@ -8151,6 +8153,7 @@ static int rtl_init_one(struct pci_dev *pdev,
-> > const struct pci_device_id *ent)
-> >   {
-> >   	const struct rtl_cfg_info *cfg = rtl_cfg_infos + ent
-> > ->driver_data;
-> >   	const unsigned int region = cfg->region;
-> > +	unsigned features = cfg->features;
-> 
->     Not sure you need this variable.
-> 
-> >   	struct rtl8169_private *tp;
-> >   	struct mii_if_info *mii;
-> >   	struct net_device *dev;
-> > @@ -8186,8 +8189,10 @@ static int rtl_init_one(struct pci_dev
-> > *pdev, const struct pci_device_id *ent)
-> > 
-> >   	/* disable ASPM completely as that cause random device
-> > stop working
-> >   	 * problems as well as full system hangs for some PCIe
-> > devices users */
-> > -	pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S |
-> > PCIE_LINK_STATE_L1 |
-> > -				     PCIE_LINK_STATE_CLKPM);
-> > +	if (!(features & RTL_FEATURE_EEPROM))
-> > +		pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S |
-> > +					PCIE_LINK_STATE_L1 |
-> > +				     	PCIE_LINK_STATE_CLKPM
-> > );
-> 
->     The continuation likes should start under 'pdev', that's a style
-> used by 
-> the networking code.
-> 
-> > 
-> >   	mdelay(RTL8169_EE_TIMEOUT);
-> >   	/* enable device (incl. PCI PM wakeup and hotplug setup)
-> > */
-> > @@ -8196,10 +8201,10 @@ static int rtl_init_one(struct pci_dev
-> > *pdev, const struct pci_device_id *ent)
-> >   		netif_err(tp, probe, dev, "enable failure\n");
-> >   		goto err_out_free_dev_1;
-> >   	}
-> > -
-> > -	if (pci_set_mwi(pdev) < 0)
-> > +	if (!pci_is_pcie(pdev)) {
-> > +	 if (pci_set_mwi(pdev) < 0)
-> 
->     Please indent with tab, not space.
-> 
-> >   		netif_info(tp, probe, dev, "Mem-Wr-Inval
-> > unavailable\n");
-> > -
-> > +        }
-> >   	/* make sure PCI base addr 1 is MMIO */
-> >   	if (!(pci_resource_flags(pdev, region) & IORESOURCE_MEM))
-> > {
-> >   		netif_err(tp, probe, dev,
-> > @@ -8462,7 +8467,8 @@ err_out_msi_4:
-> >   err_out_free_res_3:
-> >   	pci_release_regions(pdev);
-> >   err_out_mwi_2:
-> > -	pci_clear_mwi(pdev);
-> > +        if (!pci_is_pcie(pdev))
-> > +	 pci_clear_mwi(pdev);
-> 
->     Please indent properly.
-> 
-> [...]
-> 
-> MBR, Sergei
-> 
+Eric Dumazet <eric.dumazet@gmail.com> writes:
+> On Fri, 2016-02-05 at 21:44 +0000, Rainer Weikusat wrote:
+>> The present unix_stream_read_generic contains various code sequences of
+>> the form
+>> 
+>> err = -EDISASTER;
+>> if (<test>)
+>> 	goto out;
+>> 
+>> This has the unfortunate side effect of possibly causing the error code
+>> to bleed through to the final
+>> 
+>> out:
+>> 	return copied ? : err;
+>> 
+>> and then to be wrongly returned if no data was copied because the caller
+>> didn't supply a data buffer, as demonstrated by the program available at
+>> 
+>> http://pad.lv/1540731
+>> 
+>> Change it such that err is only set if an error condition was detected.
+>
+>
+> Well, if you replace the traditional flow
+>
+> err = -XXXX;
+> if (test)
+>      goto out;
+>
+> Then please add unlikely() to at least give a hint to the compiler.
 
-Hi i have one question, this patch can be reused or need to create new
-one.
+There are really four of these, the two leading ones,
+
+if (unlikely(sk->sk_state != TCP_ESTABLISHED)) {
+	err = -EINVAL;
+	goto out;
+}
+
+if (unlikely(flags & MSG_OOB)) {
+	err = -EOPNOTSUPP;
+	goto out;
+}
+
+one in between which was already in the function,
+
+unix_state_lock(sk);
+if (sock_flag(sk, SOCK_DEAD)) {
+	err = -ECONNRESET;
+	goto unlock;
+}
+[at the beginning of the loop]
+
+and lastly,
+
+unix_state_unlock(sk);
+if (!timeo) {
+	err = -EAGAIN;
+	break;
+}
+
+mutex_unlock(&u->readlock);
+
+timeo = unix_stream_data_wait(sk, timeo, last,
+			      last_len);
+
+As can be seen here, I've added unlikely() to the first two, left the
+middle-one alone and didn't change the last one: That's not really an
+error but a non-blocking read. My gut feeling about that would be that's
+it's rather likely than unlikely but since I have no real information on
+this, I don't know how to annotate it correctly (I'll gladly add
+whatever annotation somebody else considers sensible).
+
+> And please add a 'Fixes: .... ' tag for bug fixes.
+
+Similarly, if you think this should be considered as 'fixing' anything
+in particular, I'll also gladly add that. In my opinion, the real
+problem is that the function disagrees with itself on how to use the err
+variable: The start uses that to record an error which might need to be
+reported, the return statement uses it to indicate that an error has
+occurred. Hence, some kind of in-between translation must occur.
+The mutex_lock_interruptible happened to do that but that was never it's
+intended purpose.
+
+NB: This is not an attempt to start an argument about that, it just
+summarizes my understanding of the situation and I don't insist on this
+viewpoint.
+
+I'll send an updated patch with the changes so far, ie, the two
+unlikelys.
