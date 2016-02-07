@@ -1,60 +1,76 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 2/2] virtio_net: validate ethtool port setting
- and explain the user validation
-Date: Sun, 7 Feb 2016 23:26:37 +0200
-Message-ID: <20160207232631-mutt-send-email-mst@redhat.com>
-References: <1454878344-21730-1-git-send-email-razor@blackwall.org>
- <1454878344-21730-3-git-send-email-razor@blackwall.org>
+Subject: [PATCH repost net-next] ethtool: future-proof interface for speed
+ extensions
+Date: Sun, 7 Feb 2016 23:27:55 +0200
+Message-ID: <1454880301-20984-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Nikolay Aleksandrov <razor@blackwall.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46103 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754712AbcBGV0k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Feb 2016 16:26:40 -0500
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Hariprasad Shenai <hariprasad@chelsio.com>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Parav Pandit <parav.pandit@avagotech.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Nikolay Aleksandrov <razor@blackwall.org>,
+	netdev@vger.kernel.org, roopa@cumulusnetworks.com
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1454878344-21730-3-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 07, 2016 at 09:52:24PM +0100, Nikolay Aleksandrov wrote:
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> We should validate the port setting that we got from the user and check
-> if it's what we've set it to (PORT_OTHER), also add explanation that
-> ignoring advertising is good as long as we don't have autonegotiation.
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Many virtual and not quite virtual devices allow any speed to be set
+through ethtool. In particular, this applies to the virtio-net devices.
+Document this fact to make sure people don't assume the enum lists all
+possible values.  Reserve values greater than INT_MAX for future
+extension and to avoid conflict with SPEED_UNKNOWN.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
 
-> ---
->  drivers/net/virtio_net.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index c9fd52a8e6ec..fb0eae42bf39 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1386,11 +1386,13 @@ static bool virtnet_validate_ethtool_cmd(const struct ethtool_cmd *cmd)
->  	struct ethtool_cmd diff1 = *cmd;
->  	struct ethtool_cmd diff2 = {};
->  
-> -	/* advertising and cmd are usually set, ignore port because we set it */
-> +	/* cmd is always set so we need to clear it, validate the port type
-> +	 * and also without autonegotiation we can ignore advertising
-> +	 */
->  	ethtool_cmd_speed_set(&diff1, 0);
-> +	diff2.port = PORT_OTHER;
->  	diff1.advertising = 0;
->  	diff1.duplex = 0;
-> -	diff1.port = 0;
->  	diff1.cmd = 0;
->  
->  	return !memcmp(&diff1, &diff2, sizeof(diff1));
-> -- 
-> 2.4.3
+This is same as http://patchwork.ozlabs.org/patch/578911/
+just reposting it separately so people notice.
+
+This completes Nikolay Aleksandrov's recently merged
+work on virtio-net ethtool support.
+
+ include/uapi/linux/ethtool.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 57fa390..235e082 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -31,7 +31,7 @@
+  *	physical connectors and other link features that are
+  *	advertised through autonegotiation or enabled for
+  *	auto-detection.
+- * @speed: Low bits of the speed
++ * @speed: Low bits of the speed, 1Mb units, 0 to INT_MAX or SPEED_UNKNOWN
+  * @duplex: Duplex mode; one of %DUPLEX_*
+  * @port: Physical connector type; one of %PORT_*
+  * @phy_address: MDIO address of PHY (transceiver); 0 or 255 if not
+@@ -47,7 +47,7 @@
+  *	obsoleted by &struct ethtool_coalesce.  Read-only; deprecated.
+  * @maxrxpkt: Historically used to report RX IRQ coalescing; now
+  *	obsoleted by &struct ethtool_coalesce.  Read-only; deprecated.
+- * @speed_hi: High bits of the speed
++ * @speed_hi: High bits of the speed, 1Mb units, 0 to INT_MAX or SPEED_UNKNOWN
+  * @eth_tp_mdix: Ethernet twisted-pair MDI(-X) status; one of
+  *	%ETH_TP_MDI_*.  If the status is unknown or not applicable, the
+  *	value will be %ETH_TP_MDI_INVALID.  Read-only.
+@@ -1303,7 +1303,7 @@ enum ethtool_sfeatures_retval_bits {
+  * it was forced up into this mode or autonegotiated.
+  */
+ 
+-/* The forced speed, 10Mb, 100Mb, gigabit, [2.5|5|10|20|25|40|50|56|100]GbE. */
++/* The forced speed, in units of 1Mb. All values 0 to INT_MAX are legal. */
+ #define SPEED_10		10
+ #define SPEED_100		100
+ #define SPEED_1000		1000
+-- 
+MST
