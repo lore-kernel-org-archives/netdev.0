@@ -1,43 +1,72 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net V1 0/3] mlx5 driver fixes for 4.5-rc2
-Date: Sun, 7 Feb 2016 17:44:32 +0200
-Message-ID: <56B76660.4050105@mellanox.com>
-References: <1454426781-7128-1-git-send-email-ogerlitz@mellanox.com>
+From: "Andrew F. Davis" <afd@ti.com>
+Subject: Re: [PATCH] net: phy: dp83848: Add support for TI TLK10x Ethernet
+ PHYs
+Date: Sun, 7 Feb 2016 10:45:41 -0600
+Message-ID: <56B774B5.70603@ti.com>
+References: <1454713996-28851-1-git-send-email-afd@ti.com>
+ <56B664E7.4040202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Saeed Mahameed <saeedm@mellanox.com>,
-	"Matan Barak" <matanb@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0072.outbound.protection.outlook.com ([157.55.234.72]:23716
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750980AbcBGQTW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Feb 2016 11:19:22 -0500
-In-Reply-To: <1454426781-7128-1-git-send-email-ogerlitz@mellanox.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:55355 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751070AbcBGQpo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Feb 2016 11:45:44 -0500
+In-Reply-To: <56B664E7.4040202@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/2/2016 5:26 PM, Or Gerlitz wrote:
-> We added here a patch from Matan and Alaa for addressing Linus comments on
-> the mess w.r.t reserved field names in the driver/firmware auto-generated file.
+On 02/06/2016 03:25 PM, Florian Fainelli wrote:
+> Le 05/02/2016 15:13, Andrew F. Davis a =C3=A9crit :
+>> The TI TLK10x Ethernet PHYs are similar in the interrupt relevant
+>> registers and so are compatible with the DP83848x devices already
+>> supported. Add these and re-order code to support additional PHYs.
 >
-> Once the patch hits linus tree, we'll ask Doug to rebase his tree on that
-> rc so both net-next and rdma-next development for 4.6 will be done under
-> the fixed robust form.
+> This looks fine, but this could also be broken down into 3 commits:
+>
+> - one which adds the macro to add new PHY entries
+> - one which renames DP83848_PHY_ID to DP83848C_PHY_ID
+> - one which factors out the interrupt enable mask
+>
 
-Hi Dave,
+No problem, will do.
 
-We've identified few places in the auto generated file where the naming 
-conversion
-of reserved fields was not fully applied. Since the patch only did 
-re-naming of
-reserved fields which are not used for existing functionality, the 
-testing we did
-under the modified header file didn't catch that...
+>>
+>> Signed-off-by: Andrew F. Davis <afd@ti.com>
+>> ---
+>>   drivers/net/phy/dp83848.c | 89 ++++++++++++++++++++++++++++-------=
+------------
+>>   1 file changed, 53 insertions(+), 36 deletions(-)
+>>
+>> diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
+>> index 5e14e62..bc88259 100644
+>> --- a/drivers/net/phy/dp83848.c
+>> +++ b/drivers/net/phy/dp83848.c
+>> @@ -1,7 +1,8 @@
+>>   /*
+>>    * Driver for the Texas Instruments DP83848 PHY
+>>    *
+>> - * Copyright (C) 2015 Texas Instruments Inc.
+>> + * Copyright (C) 2015-2016 Texas Instruments Incorporated - http://=
+www.ti.com/
+>> + *	Andrew F. Davis <afd@ti.com>
+>
+> We have the git changelog to know who added changes to the driver, yo=
+u
+> can drop that specific change and just bump the copyright year.
 
-We'll respin the patch and series.
+I was the original author and forgot to add this, just like the consist=
+ency
+with other drivers with named authors, but not a big deal so I can drop=
+ that.
 
-Or.
+Andrew
+
+> --
+> Florian
+>
