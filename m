@@ -1,67 +1,53 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: e1000e er32(TIMINCA) value returned 0 Virtual Machiens
-Date: Sun, 7 Feb 2016 23:04:03 +0100
-Message-ID: <20160207220403.GA13888@localhost.localdomain>
-References: <CAHC3ikmsH5KikrSMtCx+DWvnJyuhZ48JZGKK7MiYnLMV6wc=Kw@mail.gmail.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [V4.4-rc6 Regression] af_unix: Revert 'lock_interruptible' in stream receive code
+Date: Sun, 07 Feb 2016 22:24:22 +0000
+Message-ID: <87io20upk9.fsf@doppelsaurus.mobileactivedefense.com>
+References: <56B4EF04.2060407@canonical.com>
+	<87bn7ude8g.fsf@doppelsaurus.mobileactivedefense.com>
+	<1454713398.7627.325.camel@edumazet-glaptop2.roam.corp.google.com>
+	<8737t4jr99.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Thomas Elliott <tommygunsster@gmail.com>
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	davem@davemloft.net, hannes@stressinduktion.org,
+	edumazet@google.com, dhowells@redhat.com, ying.xue@windriver.com,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"stable\@vger.kernel.org" <stable@vger.kernel.org>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:35971 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754208AbcBGWEJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 17:04:09 -0500
-Received: by mail-wm0-f41.google.com with SMTP id p63so90896020wmp.1
-        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 14:04:08 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAHC3ikmsH5KikrSMtCx+DWvnJyuhZ48JZGKK7MiYnLMV6wc=Kw@mail.gmail.com>
+Received: from tiger.mobileactivedefense.com ([217.174.251.109]:39549 "EHLO
+	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754607AbcBGWYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 17:24:43 -0500
+In-Reply-To: <8737t4jr99.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Sun, 07 Feb 2016 18:43:14 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 07, 2016 at 10:28:48AM -0500, Thomas Elliott wrote:
-> task: ffff88003e4b8000 ti: ffff88003e4c0000 task.ti: ffff88003e4c0000
-> RIP: 0010:[<ffffffff8172817a>]  [<ffffffff8172817a>] 0xffffffff8172817a
-> RSP: 0000:ffff88003e4c3cf0  EFLAGS: 00010246
-> RAX: 0000000000000000 RBX: ffff880038cdf640 RCX: 0000000000000000
-> RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffff880038cdf628
-> RBP: ffff880038cdf628 R08: 0000000000000032 R09: 0000000000000000
-> R10: 00000007ffffffff R11: 00000000070f8406 R12: 142fe5b9982e5912
-> R13: ffff880038cdcc38 R14: 0000000000000000 R15: 0000000000000000
-> FS:  0000000000000000(0000) GS:ffff88003ea00000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> CR2: 0000000000000000 CR3: 0000000001f74000 CR4: 00000000000006b0
-> Stack:
->  ffffffff81071eca ffff880038cdc780 0000000000000000 0000000000000000
->  ffffffff8172ec3c 01a000002252a32c ffff880038cdc780 ffff880038cdcc38
->  0000000000008000 ffff880038cdcc38 0000000000000003 ffff880038cdc000
-> Call Trace:
->  [<ffffffff81071eca>] ? 0xffffffff81071eca
+Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
 
-Are you sure about the which funtion throws this bug?  KALLSYMS?
+[...]
 
-> A proposed fix is to check if TIMINCA is returned with 0, as division
-> by 0 seems to be the reasoning for the panic altogether.
+> The start uses that to record an error which might need to be
+> reported, the return statement uses it to indicate that an error has
+> occurred. Hence, some kind of in-between translation must occur.  The
+> mutex_lock_interruptible happened to do that but that was never it's
+> intended purpose.
 
-Divide by zero is indeed a bug, but the question is, why does this
-happen?
- 
-> As I understand this isn't a "normal" situation for physical boards,
-> it still seems a bit rought to always expect physical boards will
-> NEVER return 0 for this situation.
+Additional information: The 'trick' of using recvmsg w/o a receive
+buffer in order to retrieve control messages in fact wouldn't have
+worked with the unix_stream_recvmsg prior to introduction of the
+interruptible lock as that (judging from the git source) would have
+triggered all the same issues,
 
-That register is set to a non-zero value in e1000e_config_hwtstamp,
-which is called from e1000_probe via e1000e_reset.  So it appears to
-be initialized.
+	- -EOPNOTSUP if a msg was available
 
-> All this does is check if the value of incvalue is 0 and return systim
-> if it is.  This means you're not going to run into a situation and is
-> just plain, in my opinion, better error checking.  A single line of
-> code that allows VMs, and possibly future hardware that might present
-> this issue, from panicking over something that is so simple a check.
+        - -EAGAIN if the code had to wait
 
-This is only papering only the problem.  We need to know how TIMINCA
-is getting cleared to zero.
+        - not receiving the creds if the -EAGAIN hadn't happened because
+          of the continue (that's the other patch)
 
-Thanks,
-Richard
+IOW, that's a feature inadvertendly added by an otherwise useless code
+change (mea culpa).
