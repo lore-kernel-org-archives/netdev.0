@@ -1,39 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5 0/2] virtio_net: add ethtool get/set
- settings support
-Date: Sun, 07 Feb 2016 14:31:17 -0500 (EST)
-Message-ID: <20160207.143117.2074335859138369633.davem@davemloft.net>
-References: <1454468677-12280-1-git-send-email-razor@blackwall.org>
+Subject: Re: pull request: batman-adv 20160203
+Date: Sun, 07 Feb 2016 14:33:45 -0500 (EST)
+Message-ID: <20160207.143345.1667775063428626413.davem@davemloft.net>
+References: <1454465917-13332-1-git-send-email-a@unstable.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, roopa@cumulusnetworks.com,
-	nikolay@cumulusnetworks.com
-To: razor@blackwall.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: a@unstable.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35796 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35814 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753894AbcBGTbW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 14:31:22 -0500
-In-Reply-To: <1454468677-12280-1-git-send-email-razor@blackwall.org>
+	with ESMTP id S1750997AbcBGTdt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 14:33:49 -0500
+In-Reply-To: <1454465917-13332-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Date: Wed,  3 Feb 2016 04:04:35 +0100
+From: Antonio Quartulli <a@unstable.cc>
+Date: Wed,  3 Feb 2016 10:18:21 +0800
 
-> Patch 1 adds ethtool speed/duplex validation functions which check if the
-> value is defined. Patch 2 adds support for ethtool (get|set)_settings and
-> uses the validation functions to check the user-supplied values.
+> Here you have our first pull request intended for net-next.
 > 
-> v2: split in 2 patches to allow everyone to make use of the validation
-> functions and allow virtio_net devices to be half duplex
-> v3: added a check to return error if the user tries to change anything else
-> besides duplex/speed as per Michael's comment
-> v4: Set port type to PORT_OTHER
-> v5: clear diff1.port (ignore port) when checking for changes since we set
-> it now and ethtool uses it in the set request
+> This batch of patches includes a number of corrections and
+> improvements for our kernel-doc. These changes also make sure
+> that our doc is now properly processed by the kernel-doc
+> parsing tool.
 > 
-> Sorry about the pointless iterations, should've all covered now.
+> Other than that you have a patch updating all the copyright
+> lines to 2016 and another patch switching the URLs in our
+> readme, Kconfig and MAINTAINERS file from "http" to "https".
+> Both by Sven Eckelmann.
+> 
+> Please pull or let me know of any problem!
 
-Series applied, thanks Nik.
+Pulled, thanks Antonio.
+
+> P.S. as you requested I wrote the message above also in the
+> git tag so that you get it when pulling from our tree.
+
+Yes, this looks a lot better, thank you!
