@@ -1,52 +1,62 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 2/2] virtio_net: validate ethtool port setting and explain the user validation
-Date: Sun,  7 Feb 2016 21:52:24 +0100
-Message-ID: <1454878344-21730-3-git-send-email-razor@blackwall.org>
-References: <1454878344-21730-1-git-send-email-razor@blackwall.org>
-Cc: mst@redhat.com, roopa@cumulusnetworks.com, davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/2] ravb: factor out register bit twiddling code
+Date: Sun, 7 Feb 2016 23:58:39 +0300
+Message-ID: <56B7AFFF.1060005@cogentembedded.com>
+References: <10945950.IO3b17qsSH@wasted.cogentembedded.com>
+ <28533982.EPUhcRErZl@wasted.cogentembedded.com>
+ <CAMuHMdUSepk+9sdp0tXGoVa4Bz2Xjc8hPbxbyS9PwO78gmLe+w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-renesas-soc@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33550 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753314AbcBGUwa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 15:52:30 -0500
-Received: by mail-wm0-f65.google.com with SMTP id r129so12588107wmr.0
-        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 12:52:30 -0800 (PST)
-In-Reply-To: <1454878344-21730-1-git-send-email-razor@blackwall.org>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:34236 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932099AbcBGU6n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 15:58:43 -0500
+Received: by mail-lb0-f177.google.com with SMTP id cw1so73749227lbb.1
+        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 12:58:42 -0800 (PST)
+In-Reply-To: <CAMuHMdUSepk+9sdp0tXGoVa4Bz2Xjc8hPbxbyS9PwO78gmLe+w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Hello.
 
-We should validate the port setting that we got from the user and check
-if it's what we've set it to (PORT_OTHER), also add explanation that
-ignoring advertising is good as long as we don't have autonegotiation.
+On 02/07/2016 11:48 PM, Geert Uytterhoeven wrote:
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- drivers/net/virtio_net.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+>> --- net-next.orig/drivers/net/ethernet/renesas/ravb_main.c
+>> +++ net-next/drivers/net/ethernet/renesas/ravb_main.c
+>> @@ -2,7 +2,7 @@
+>>    *
+>>    * Copyright (C) 2014-2015 Renesas Electronics Corporation
+>>    * Copyright (C) 2015 Renesas Solutions Corp.
+>> - * Copyright (C) 2015 Cogent Embedded, Inc. <source@cogentembedded.com>
+>> + * Copyright (C) 2015-2016 Cogent Embedded, Inc. <source@cogentembedded.com>
+>>    *
+>>    * Based on the SuperH Ethernet driver
+>>    *
+>> @@ -42,6 +42,12 @@
+>>                   NETIF_MSG_RX_ERR | \
+>>                   NETIF_MSG_TX_ERR)
+>>
+>> +void ravb_modify(struct net_device *ndev, enum ravb_reg reg, u32 mask,
+>> +                u32 value)
+>> +{
+>> +       ravb_write(ndev, (ravb_read(ndev, reg) & ~mask) | value, reg);
+>> +}
+>
+> Usually "mask"is used for the bits to keep, not for the bits to clear.
+>
+> So I'd either
+>    1. AND with "mask" instead of "~mask", and update all callers, or
+>    2. rename "mask" to "clear", and "value" to "set".
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index c9fd52a8e6ec..fb0eae42bf39 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1386,11 +1386,13 @@ static bool virtnet_validate_ethtool_cmd(const struct ethtool_cmd *cmd)
- 	struct ethtool_cmd diff1 = *cmd;
- 	struct ethtool_cmd diff2 = {};
- 
--	/* advertising and cmd are usually set, ignore port because we set it */
-+	/* cmd is always set so we need to clear it, validate the port type
-+	 * and also without autonegotiation we can ignore advertising
-+	 */
- 	ethtool_cmd_speed_set(&diff1, 0);
-+	diff2.port = PORT_OTHER;
- 	diff1.advertising = 0;
- 	diff1.duplex = 0;
--	diff1.port = 0;
- 	diff1.cmd = 0;
- 
- 	return !memcmp(&diff1, &diff2, sizeof(diff1));
--- 
-2.4.3
+    I'll go with the 2nd option.
+
+> Gr{oetje,eeting}s,
+>
+>                          Geert
+
+MBR, Sergei
