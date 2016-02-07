@@ -1,47 +1,58 @@
-From: Anton Protopopov <a.s.protopopov@gmail.com>
-Subject: [PATCH] netfilter: nft_counter: fix erroneous return values
-Date: Sat,  6 Feb 2016 23:31:19 -0500
-Message-ID: <1454819479-6833-1-git-send-email-a.s.protopopov@gmail.com>
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Anton Protopopov <a.s.protopopov@gmail.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
+From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Subject: [PATCH] bonding: Return correct error code
+Date: Sun, 7 Feb 2016 10:56:25 +0530
+Message-ID: <20160207052624.GA9263@amitoj-Inspiron-3542>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: julia.lawall@lip6.fr
+To: j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The nft_counter_init() and nft_counter_clone() functions should return
-negative error value -ENOMEM instead of positive ENOMEM.
+The return value of kzalloc on failure of allocation of memory should
+be -ENOMEM and not -1.
 
-Signed-off-by: Anton Protopopov <a.s.protopopov@gmail.com>
+Found using Coccinelle. A simplified version of the semantic patch
+used is:
+
+//<smpl>
+@@
+expression *e;
+@@
+
+e = kzalloc(...);
+if (e == NULL) {
+...
+return
+- -1
++ -ENOMEM
+;
+}
+//</smpl>
+
+The single call site only checks that the return value is not 0,
+hence no change is required at the call site.
+
+Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
 ---
- net/netfilter/nft_counter.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/bonding/bond_alb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nft_counter.c b/net/netfilter/nft_counter.c
-index c7808fc..c9743f7 100644
---- a/net/netfilter/nft_counter.c
-+++ b/net/netfilter/nft_counter.c
-@@ -100,7 +100,7 @@ static int nft_counter_init(const struct nft_ctx *ctx,
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index bb9e9fc..c5ac160 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -159,7 +159,7 @@ static int tlb_initialize(struct bonding *bond)
  
- 	cpu_stats = netdev_alloc_pcpu_stats(struct nft_counter_percpu);
- 	if (cpu_stats == NULL)
--		return ENOMEM;
+ 	new_hashtbl = kzalloc(size, GFP_KERNEL);
+ 	if (!new_hashtbl)
+-		return -1;
 +		return -ENOMEM;
  
- 	preempt_disable();
- 	this_cpu = this_cpu_ptr(cpu_stats);
-@@ -138,7 +138,7 @@ static int nft_counter_clone(struct nft_expr *dst, const struct nft_expr *src)
- 	cpu_stats = __netdev_alloc_pcpu_stats(struct nft_counter_percpu,
- 					      GFP_ATOMIC);
- 	if (cpu_stats == NULL)
--		return ENOMEM;
-+		return -ENOMEM;
+ 	spin_lock_bh(&bond->mode_lock);
  
- 	preempt_disable();
- 	this_cpu = this_cpu_ptr(cpu_stats);
 -- 
-2.1.4
+1.9.1
