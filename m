@@ -1,39 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/6] vxlan: cleanup headers and tx path
-Date: Sun, 07 Feb 2016 13:51:26 -0500 (EST)
-Message-ID: <20160207.135126.920072469225084082.davem@davemloft.net>
-References: <cover.1454432731.git.jbenc@redhat.com>
+Subject: Re: [PATCH v2 net-next 0/8] be2net patch-set
+Date: Sun, 07 Feb 2016 13:55:50 -0500 (EST)
+Message-ID: <20160207.135550.254468372216752084.davem@davemloft.net>
+References: <1454473163-18781-1-git-send-email-sriharsha.basavapatna@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: jbenc@redhat.com
+To: sriharsha.basavapatna@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35491 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35507 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753901AbcBGSv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 13:51:29 -0500
-In-Reply-To: <cover.1454432731.git.jbenc@redhat.com>
+	with ESMTP id S1754136AbcBGSzx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 13:55:53 -0500
+In-Reply-To: <1454473163-18781-1-git-send-email-sriharsha.basavapatna@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Tue,  2 Feb 2016 18:09:10 +0100
+From: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+Date: Wed,  3 Feb 2016 09:49:15 +0530
 
-> This is first part of vxlan cleanup. It makes vxlan.h better organized and
-> removes code duplication in the tx path. There's no change in functionality.
+> v2 changes:
+> 	Patch-4:	Changed a tab to space in be.h
+> 	Patches-6,7,8:	Updated commit log summary line: benet --> be2net
 > 
-> This is in preparation for VXLAN-GPE support. Other sets will follow with
-> cleanup of rx path, modifications of vxlan interface setup and
-> cleanup/modification of fdb handling. The goal of these patchsets is to
-> consolidate VXLAN extension handling (right now it's scattered all around
-> the code) and allow vxlan to operate in L3 mode (i.e. without inner Ethernet
-> headers).
+> Hi David,
 > 
-> The full picture (all 30 patches) can be seen at:
-> https://github.com/jbenc/linux-vxlan/commits/master
+> The following patch set contains a few non-critical bug fixes. Please
+> consider applying this to the net-next tree. Thanks.
 > 
-> Changelog:
-> v2: added patch 5/6, fixing the udp sum problem spotted by Paolo Abeni
+> Patch-1 fixes be_set_phys_id() ethtool function to return an error code.
+> Patch-2 fixes a warning when some commands fail for VFs.
+> Patch-3 fixes be_vlan_rem_vid() to verify vlan being removed is in the list.
+> Patch-4 improves SRIOV queue distribution logic.
+> Patch-5 avoids running self test on VFs.
+> Patch-6 fixes error recovery in Lancer to clean up after moving to ready state.
+> Patch-7 adds retry logic to error recovery in case of recovery failures
+> Patch-8 fixes time interval used in eq delay computation routine
 
-Applied, thanks.
+Series applied, thank you.
