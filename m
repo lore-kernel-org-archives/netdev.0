@@ -1,84 +1,86 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH iproute2 v2 01/21] iplink: bridge: export bridge_id and designated_root
-Date: Tue,  9 Feb 2016 00:14:19 +0100
-Message-ID: <1454973279-9170-2-git-send-email-razor@blackwall.org>
-References: <1454973279-9170-1-git-send-email-razor@blackwall.org>
-Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:36337 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932523AbcBHXOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 18:14:45 -0500
-Received: by mail-wm0-f44.google.com with SMTP id p63so135605748wmp.1
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 15:14:45 -0800 (PST)
-In-Reply-To: <1454973279-9170-1-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: [PATCH net-next v7 01/19] lib/bitmap.c: conversion routines
+ to/from u32 array
+Date: Mon, 8 Feb 2016 15:36:35 -0800
+Message-ID: <20160208153635.67df5ac2576138088a859087@linux-foundation.org>
+References: <1454893743-6285-1-git-send-email-ddecotig@gmail.com>
+	<1454893743-6285-2-git-send-email-ddecotig@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
+	fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Ido Shamay <idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>,
+	Venkata Duvvuru <VenkatKumar.Duvvuru-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+	Ed Swierk <eswierk-FilZDy9cOaHkQYj/0HfcvtBPR1lH4CV8@public.gmane.org>,
+	Robert Love <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"James E.J. Bottomley" <JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+	Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>,
+	David Decotigny <decot@googlers
+To: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1454893743-6285-2-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On Sun,  7 Feb 2016 17:08:45 -0800 David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 
-Netlink returns the bridge_id and designated_root, we just need to
-make them visible.
+> From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
+> 
+> Aimed at transferring bitmaps to/from user-space in a 32/64-bit agnostic
+> way.
+> 
+> Tested:
+>   unit tests (next patch) on qemu i386, x86_64, ppc, ppc64 BE and LE,
+>   ARM.
+> 
+> @@ -1060,6 +1062,90 @@ int bitmap_allocate_region(unsigned long *bitmap, unsigned int pos, int order)
+>  EXPORT_SYMBOL(bitmap_allocate_region);
+>  
+>  /**
+> + * bitmap_from_u32array - copy the contents of a u32 array of bits to bitmap
+> + *	@bitmap: array of unsigned longs, the destination bitmap, non NULL
+> + *	@nbits: number of bits in @bitmap
+> + *	@buf: array of u32 (in host byte order), the source bitmap, non NULL
+> + *	@nwords: number of u32 words in @buf
+> + *
+> + * copy min(nbits, 32*nwords) bits from @buf to @bitmap, remaining
+> + * bits between nword and nbits in @bitmap (if any) are cleared. In
+> + * last word of @bitmap, the bits beyond nbits (if any) are kept
+> + * unchanged.
+> + */
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-v2: use ether_ntoa_r in bridge_id dump
+This will leave the caller not knowing how many valid bits are actually
+present in the resulting bitmap.  To determine that, the caller will
+need to perform (duplicated) math on `nbits' and `nwords'.
 
- ip/iplink_bridge.c | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
+> +void bitmap_from_u32array(unsigned long *bitmap, unsigned int nbits,
+> +			  const u32 *buf, unsigned int nwords)
 
-diff --git a/ip/iplink_bridge.c b/ip/iplink_bridge.c
-index 00804093dcb5..3bbbcaa120cf 100644
---- a/ip/iplink_bridge.c
-+++ b/ip/iplink_bridge.c
-@@ -13,6 +13,7 @@
- #include <stdlib.h>
- #include <string.h>
- #include <linux/if_link.h>
-+#include <netinet/ether.h>
- 
- #include "rt_names.h"
- #include "utils.h"
-@@ -39,6 +40,15 @@ static void explain(void)
- 	print_explain(stderr);
- }
- 
-+static void br_dump_bridge_id(const struct ifla_bridge_id *id, char *buf,
-+			      size_t len)
-+{
-+	char eaddr[32];
-+
-+	ether_ntoa_r((const struct ether_addr *)id->addr, eaddr);
-+	snprintf(buf, len, "%.2x%.2x.%s", id->prio[0], id->prio[1], eaddr);
-+}
-+
- static int bridge_parse_opt(struct link_util *lu, int argc, char **argv,
- 			    struct nlmsghdr *n)
- {
-@@ -155,6 +165,22 @@ static void bridge_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 			ll_proto_n2a(rta_getattr_u16(tb[IFLA_BR_VLAN_PROTOCOL]),
- 				     b1, sizeof(b1)));
- 	}
-+
-+	if (tb[IFLA_BR_BRIDGE_ID]) {
-+		char bridge_id[32];
-+
-+		br_dump_bridge_id(RTA_DATA(tb[IFLA_BR_BRIDGE_ID]), bridge_id,
-+				  sizeof(bridge_id));
-+		fprintf(f, "bridge_id %s ", bridge_id);
-+	}
-+
-+	if (tb[IFLA_BR_ROOT_ID]) {
-+		char root_id[32];
-+
-+		br_dump_bridge_id(RTA_DATA(tb[IFLA_BR_BRIDGE_ID]), root_id,
-+				  sizeof(root_id));
-+		fprintf(f, "designated_root %s ", root_id);
-+	}
- }
- 
- static void bridge_print_help(struct link_util *lu, int argc, char **argv,
--- 
-2.4.3
+So how about we make this return the number of valid bits in *bitmap?
+
+> +/**
+> + * bitmap_to_u32array - copy the contents of bitmap to a u32 array of bits
+> + *	@buf: array of u32 (in host byte order), the dest bitmap, non NULL
+> + *	@nwords: number of u32 words in @buf
+> + *	@bitmap: array of unsigned longs, the source bitmap, non NULL
+> + *	@nbits: number of bits in @bitmap
+> + *
+> + * copy min(nbits, 32*nwords) bits from @bitmap to @buf. Remaining
+> + * bits after nbits in @buf (if any) are cleared.
+> + */
+> +void bitmap_to_u32array(u32 *buf, unsigned int nwords,
+> +			const unsigned long *bitmap, unsigned int nbits)
+
+Ditto.
