@@ -1,7 +1,7 @@
 From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-Subject: [PATCH v2 5/6] net: phy: spi_ks8995: add support for MICREL KSZ8795CLX
-Date: Mon,  8 Feb 2016 18:35:36 +0100
-Message-ID: <1454952937-19428-6-git-send-email-helmut.buchsbaum@gmail.com>
+Subject: [PATCH v2 3/6] net: phy: spi_ks8995: add support for resetting switch using GPIO
+Date: Mon,  8 Feb 2016 18:35:34 +0100
+Message-ID: <1454952937-19428-4-git-send-email-helmut.buchsbaum@gmail.com>
 References: <1454952937-19428-1-git-send-email-helmut.buchsbaum@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
@@ -9,101 +9,155 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35727 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753951AbcBHRf5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 12:35:57 -0500
-Received: by mail-wm0-f67.google.com with SMTP id g62so16493625wme.2
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 09:35:56 -0800 (PST)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36431 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751197AbcBHRfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 12:35:54 -0500
+Received: by mail-wm0-f65.google.com with SMTP id 128so16470775wmz.3
+        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 09:35:54 -0800 (PST)
 In-Reply-To: <1454952937-19428-1-git-send-email-helmut.buchsbaum@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for MICREL KSZ8795CLX Integrated 5-Port, 10-/100-Managed
-Ethernet Switch with Gigabit GMII/RGMII and MII/RMII interfaces.
+When using device tree it is no more possible to reset the PHY at board
+level. Furthermore, doing in the driver allows to power down the switch
+when it is not used any more.
+
+The patch introduces a new optional property "reset-gpios" denoting an
+appropriate GPIO handle, e.g.:
+
+reset-gpios = <&gpio0 46 1>
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
 ---
- drivers/net/phy/spi_ks8995.c | 29 +++++++++++++++++++++++++++++
- 1 file changed, 29 insertions(+)
+ drivers/net/phy/spi_ks8995.c | 71 ++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 62 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index f866786..c2d6c23 100644
+index 2803c8e..04d468f 100644
 --- a/drivers/net/phy/spi_ks8995.c
 +++ b/drivers/net/phy/spi_ks8995.c
-@@ -77,6 +77,7 @@
+@@ -18,6 +18,9 @@
+ #include <linux/module.h>
+ #include <linux/delay.h>
+ #include <linux/device.h>
++#include <linux/of.h>
++#include <linux/gpio.h>
++#include <linux/of_gpio.h>
  
- #define KS8995_REGS_SIZE	0x80
- #define KSZ8864_REGS_SIZE	0x100
-+#define KSZ8795_REGS_SIZE	0x100
+ #include <linux/spi/spi.h>
  
- #define ID1_CHIPID_M		0xf
- #define ID1_CHIPID_S		4
-@@ -85,9 +86,11 @@
- #define ID1_START_SW		1	/* start the switch */
- 
- #define FAMILY_KS8995		0x95
-+#define FAMILY_KSZ8795		0x87
- #define CHIPID_M		0
- #define KS8995_CHIP_ID		0x00
- #define KSZ8864_CHIP_ID		0x01
-+#define KSZ8795_CHIP_ID		0x09
- 
- #define KS8995_CMD_WRITE	0x02U
- #define KS8995_CMD_READ		0x03U
-@@ -97,6 +100,7 @@
- enum ks8995_chip_variant {
- 	ks8995,
- 	ksz8864,
-+	ksz8795,
- 	max_variant
- };
- 
-@@ -126,6 +130,14 @@ static const struct ks8995_chip_params ks8995_chip[] = {
- 		.addr_width = 8,
- 		.addr_shift = 0,
- 	},
-+	[ksz8795] = {
-+		.name = "KSZ8795CLX",
-+		.family_id = FAMILY_KSZ8795,
-+		.chip_id = KSZ8795_CHIP_ID,
-+		.regs_size = KSZ8795_REGS_SIZE,
-+		.addr_width = 12,
-+		.addr_shift = 1,
-+	},
+@@ -120,7 +123,8 @@ static const struct ks8995_chip_params ks8995_chip[] = {
  };
  
  struct ks8995_pdata {
-@@ -145,6 +157,7 @@ struct ks8995_switch {
- static const struct spi_device_id ks8995_id[] = {
- 	{"ks8995", ks8995},
- 	{"ksz8864", ksz8864},
-+	{"ksz8795", ksz8795},
- 	{ }
+-	/* not yet implemented */
++	int reset_gpio;
++	enum of_gpio_flags reset_gpio_flags;
  };
- MODULE_DEVICE_TABLE(spi, ks8995_id);
-@@ -358,6 +371,22 @@ static int ks8995_get_revision(struct ks8995_switch *ks)
- 			err = -ENODEV;
- 		}
- 		break;
-+	case FAMILY_KSZ8795:
-+		/* try reading chip id at CHIP ID1 */
-+		err = ks8995_read_reg(ks, KS8995_REG_ID1, &id1);
+ 
+ struct ks8995_switch {
+@@ -339,6 +343,24 @@ err_out:
+ 	return err;
+ }
+ 
++/* ks8995_parse_dt - setup platform data from devicetree
++ * @ks: pointer to switch instance
++ *
++ * Parses supported DT properties and sets up platform data
++ * accordingly.
++ */
++static void ks8995_parse_dt(struct ks8995_switch *ks)
++{
++	struct device_node *np = ks->spi->dev.of_node;
++	struct ks8995_pdata *pdata = ks->pdata;
++
++	if (!np)
++		return;
++
++	pdata->reset_gpio = of_get_named_gpio_flags(np, "reset-gpios", 0,
++		&pdata->reset_gpio_flags);
++}
++
+ static const struct bin_attribute ks8995_registers_attr = {
+ 	.attr = {
+ 		.name   = "registers",
+@@ -352,14 +374,10 @@ static const struct bin_attribute ks8995_registers_attr = {
+ /* ------------------------------------------------------------------------ */
+ static int ks8995_probe(struct spi_device *spi)
+ {
+-	struct ks8995_switch    *ks;
+-	struct ks8995_pdata     *pdata;
+-	int     err;
++	struct ks8995_switch *ks;
++	int err;
+ 	int variant = spi_get_device_id(spi)->driver_data;
+ 
+-	/* Chip description */
+-	pdata = spi->dev.platform_data;
+-
+ 	if (variant >= max_variant) {
+ 		dev_err(&spi->dev, "bad chip variant %d\n", variant);
+ 		return -ENODEV;
+@@ -370,10 +388,42 @@ static int ks8995_probe(struct spi_device *spi)
+ 		return -ENOMEM;
+ 
+ 	mutex_init(&ks->lock);
+-	ks->pdata = pdata;
+ 	ks->spi = spi_dev_get(spi);
+ 	ks->chip = &ks8995_chip[variant];
+ 
++	if (ks->spi->dev.of_node) {
++		ks->pdata = devm_kzalloc(&spi->dev, sizeof(*ks->pdata),
++					 GFP_KERNEL);
++		if (!ks->pdata)
++			return -ENOMEM;
++
++		ks->pdata->reset_gpio = -1;
++
++		ks8995_parse_dt(ks);
++	}
++
++	if (!ks->pdata)
++		ks->pdata = spi->dev.platform_data;
++
++	/* de-assert switch reset */
++	if (ks->pdata && gpio_is_valid(ks->pdata->reset_gpio)) {
++		unsigned long flags;
++
++		flags = (ks->pdata->reset_gpio_flags == OF_GPIO_ACTIVE_LOW ?
++			 GPIOF_ACTIVE_LOW : 0);
++
++		err = devm_gpio_request_one(&spi->dev,
++					    ks->pdata->reset_gpio,
++					    flags, "switch-reset");
 +		if (err) {
-+			err = -EIO;
-+			goto err_out;
++			dev_err(&spi->dev,
++				"failed to get reset-gpios: %d\n", err);
++			return -EIO;
 +		}
 +
-+		if (get_chip_id(id1) == ks->chip->chip_id) {
-+			ks->revision_id = get_chip_rev(id1);
-+		} else {
-+			dev_err(&ks->spi->dev, "unsupported chip id for KSZ8795 family: 0x%02x\n",
-+				id1);
-+			err = -ENODEV;
-+		}
-+		break;
- 	default:
- 		dev_err(&ks->spi->dev, "unsupported family id: 0x%02x\n", id0);
- 		err = -ENODEV;
++		gpiod_set_value(gpio_to_desc(ks->pdata->reset_gpio), 0);
++	}
++
+ 	spi_set_drvdata(spi, ks);
+ 
+ 	spi->mode = SPI_MODE_0;
+@@ -414,11 +464,14 @@ static int ks8995_remove(struct spi_device *spi)
+ 
+ 	sysfs_remove_bin_file(&spi->dev.kobj, &ks->regs_attr);
+ 
++	/* assert reset */
++	if (ks->pdata && gpio_is_valid(ks->pdata->reset_gpio))
++		gpiod_set_value(gpio_to_desc(ks->pdata->reset_gpio), 1);
++
+ 	return 0;
+ }
+ 
+ /* ------------------------------------------------------------------------ */
+-
+ static struct spi_driver ks8995_driver = {
+ 	.driver = {
+ 		.name	    = "spi-ks8995",
 -- 
 2.1.4
