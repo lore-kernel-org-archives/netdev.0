@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v7 15/19] net: bridge: use __ethtool_get_ksettings
-Date: Sun,  7 Feb 2016 17:08:59 -0800
-Message-ID: <1454893743-6285-16-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v7 18/19] net: mlx4: convenience predicate for debug messages
+Date: Sun,  7 Feb 2016 17:09:02 -0800
+Message-ID: <1454893743-6285-19-git-send-email-ddecotig@gmail.com>
 References: <1454893743-6285-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
 	Eugenia Emantayev <eugenia@mellanox.co.il>,
@@ -34,26 +34,25 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- net/bridge/br_if.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index c367b3e..cafe4e6 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -36,10 +36,10 @@
-  */
- static int port_cost(struct net_device *dev)
- {
--	struct ethtool_cmd ecmd;
-+	struct ethtool_ksettings ecmd;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 35de7d2..b04054d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -740,9 +740,11 @@ __printf(3, 4)
+ void en_print(const char *level, const struct mlx4_en_priv *priv,
+ 	      const char *format, ...);
  
--	if (!__ethtool_get_settings(dev, &ecmd)) {
--		switch (ethtool_cmd_speed(&ecmd)) {
-+	if (!__ethtool_get_ksettings(dev, &ecmd)) {
-+		switch (ecmd.parent.speed) {
- 		case SPEED_10000:
- 			return 2;
- 		case SPEED_1000:
++#define en_dbg_enabled(mlevel, priv)		\
++	(NETIF_MSG_##mlevel & (priv)->msg_enable)
+ #define en_dbg(mlevel, priv, format, ...)				\
+ do {									\
+-	if (NETIF_MSG_##mlevel & (priv)->msg_enable)			\
++	if (en_dbg_enabled(mlevel, priv))				\
+ 		en_print(KERN_DEBUG, priv, format, ##__VA_ARGS__);	\
+ } while (0)
+ #define en_warn(priv, format, ...)					\
 -- 
 2.7.0.rc3.207.g0ac5344
