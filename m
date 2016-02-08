@@ -1,83 +1,59 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: [PATCH] af_unix: Don't set err in unix_stream_read_generic unless there was an error
-Date: Mon, 08 Feb 2016 15:33:53 +0000
-Message-ID: <87bn7rtdwe.fsf@doppelsaurus.mobileactivedefense.com>
-References: <56B4EF04.2060407@canonical.com>
-	<87zivebxjr.fsf@doppelsaurus.mobileactivedefense.com>
-	<87lh6wl44b.fsf@doppelsaurus.mobileactivedefense.com>
+From: "=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=" <jprvita@gmail.com>
+Subject: [PATCH 0/9] RFKill airplane-mode indicator
+Date: Mon,  8 Feb 2016 10:41:27 -0500
+Message-ID: <1454946096-9752-1-git-send-email-jprvita@endlessm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rweikusat@mobileactivedefense.com, hannes@stressinduktion.org,
-	edumazet@google.com, dhowells@redhat.com, ying.xue@windriver.com,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"stable\@vger.kernel.org" <stable@vger.kernel.org>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>
-To: "davem\@davemloft.net" <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <87lh6wl44b.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
-	Weikusat's message of "Sun, 07 Feb 2016 19:20:04 +0000")
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Darren Hart <dvhart@infradead.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux@endlessm.com,
+	=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?= <jprvita@endlessm.com>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The present unix_stream_read_generic contains various code sequences of
-the form
+This series implements an airplane-mode indicator LED trigger, which ca=
+n be
+used by platform drivers. The default policy have have airplane-mode se=
+t when
+all the radios known by RFKill are OFF, and unset otherwise. This polic=
+y can be
+overwritten by userspace using the new operations _AIRPLANE_MODE_ACQUIR=
+E,
+_AIRPLANE_MODE_RELEASE, and _AIRPLANE_MODE_CHANGE. When the airplane-mo=
+de
+indicator state changes, userspace gets notifications through the RFKil=
+l
+control misc device (/dev/rfkill).
 
-err = -EDISASTER;
-if (<test>)
-	goto out;
+The series also contains a few general fixes and improvements to the su=
+bsystem.
 
-This has the unfortunate side effect of possibly causing the error code
-to bleed through to the final
+Jo=C3=A3o Paulo Rechi Vita (9):
+  rfkill: Improve documentation language
+  rfkill: Remove extra blank line
+  rfkill: Point to the correct deprecated doc location
+  rfkill: Move "state" sysfs file back to stable
+  rfkill: Factor rfkill_global_states[].cur assignments
+  rfkill: Add documentation about LED triggers
+  rfkill: Create "rfkill-airplane_mode" LED trigger
+  rfkill: Userspace control for airplane mode
+  rfkill: Notify userspace of airplane-mode state changes
 
-out:
-	return copied ? : err;
+ Documentation/ABI/obsolete/sysfs-class-rfkill |  20 ----
+ Documentation/ABI/stable/sysfs-class-rfkill   |  27 ++++-
+ Documentation/rfkill.txt                      |  17 +++
+ include/uapi/linux/rfkill.h                   |   3 +
+ net/rfkill/core.c                             | 144 ++++++++++++++++++=
++++-----
+ 5 files changed, 164 insertions(+), 47 deletions(-)
+ delete mode 100644 Documentation/ABI/obsolete/sysfs-class-rfkill
 
-and then to be wrongly returned if no data was copied because the caller
-didn't supply a data buffer, as demonstrated by the program available at
+--=20
+2.5.0
 
-http://pad.lv/1540731
-
-Change it such that err is only set if an error condition was detected.
-
-Fixes: 3822b5c2fc62
-Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
----
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 49d5093..c1e4dd7 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2277,13 +2277,15 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state)
- 	size_t size = state->size;
- 	unsigned int last_len;
- 
--	err = -EINVAL;
--	if (sk->sk_state != TCP_ESTABLISHED)
-+	if (unlikely(sk->sk_state != TCP_ESTABLISHED)) {
-+		err = -EINVAL;
- 		goto out;
-+	}
- 
--	err = -EOPNOTSUPP;
--	if (flags & MSG_OOB)
-+	if (unlikely(flags & MSG_OOB)) {
-+		err = -EOPNOTSUPP;
- 		goto out;
-+	}
- 
- 	target = sock_rcvlowat(sk, flags & MSG_WAITALL, size);
- 	timeo = sock_rcvtimeo(sk, noblock);
-@@ -2329,9 +2331,11 @@ again:
- 				goto unlock;
- 
- 			unix_state_unlock(sk);
--			err = -EAGAIN;
--			if (!timeo)
-+			if (!timeo) {
-+				err = -EAGAIN;
- 				break;
-+			}
-+
- 			mutex_unlock(&u->readlock);
- 
- 			timeo = unix_stream_data_wait(sk, timeo, last,
