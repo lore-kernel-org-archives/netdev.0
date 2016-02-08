@@ -1,69 +1,75 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH iproute2 08/21] iplink: bridge: add support for IFLA_BR_MCAST_SNOOPING
-Date: Mon,  8 Feb 2016 12:55:14 +0100
-Message-ID: <1454932527-30569-9-git-send-email-razor@blackwall.org>
+Subject: [PATCH iproute2 05/21] iplink: bridge: add support for IFLA_BR_GROUP_ADDR
+Date: Mon,  8 Feb 2016 12:55:11 +0100
+Message-ID: <1454932527-30569-6-git-send-email-razor@blackwall.org>
 References: <1454932527-30569-1-git-send-email-razor@blackwall.org>
 Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:36168 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752367AbcBHL4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 06:56:16 -0500
-Received: by mail-wm0-f41.google.com with SMTP id p63so109814508wmp.1
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 03:56:16 -0800 (PST)
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:32777 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751438AbcBHL4N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 06:56:13 -0500
+Received: by mail-wm0-f47.google.com with SMTP id g62so129379261wme.0
+        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 03:56:13 -0800 (PST)
 In-Reply-To: <1454932527-30569-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-This patch implements support for the IFLA_BR_MCAST_SNOOPING attribute
-in iproute2 so it can change the multicast snooping value.
+This patch implements support for the IFLA_BR_GROUP_ADDR attribute
+in iproute2 so it can change the group address.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- ip/iplink_bridge.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ ip/iplink_bridge.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
 diff --git a/ip/iplink_bridge.c b/ip/iplink_bridge.c
-index 11577a8994a3..208d155df440 100644
+index fb448f9f863d..3d343f7649fe 100644
 --- a/ip/iplink_bridge.c
 +++ b/ip/iplink_bridge.c
-@@ -32,6 +32,7 @@ static void print_explain(FILE *f)
+@@ -28,6 +28,7 @@ static void print_explain(FILE *f)
+ 		"                  [ stp_state STP_STATE ]\n"
+ 		"                  [ priority PRIORITY ]\n"
+ 		"                  [ group_fwd_mask MASK ]\n"
++		"                  [ group_address ADDRESS ]\n"
  		"                  [ vlan_filtering VLAN_FILTERING ]\n"
  		"                  [ vlan_protocol VLAN_PROTOCOL ]\n"
- 		"                  [ vlan_default_pvid VLAN_DEFAULT_PVID ]\n"
-+		"                  [ mcast_snooping MULTICAST_SNOOPING ]\n"
- 		"                  [ mcast_router MULTICAST_ROUTER ]\n"
  		"\n"
- 		"Where: VLAN_PROTOCOL := { 802.1Q | 802.1ad }\n"
-@@ -148,6 +149,14 @@ static int bridge_parse_opt(struct link_util *lu, int argc, char **argv,
- 				invarg("invalid mcast_router", *argv);
+@@ -119,6 +120,15 @@ static int bridge_parse_opt(struct link_util *lu, int argc, char **argv,
+ 				invarg("invalid group_fwd_mask", *argv);
  
- 			addattr8(n, 1024, IFLA_BR_MCAST_ROUTER, mcast_router);
-+		} else if (matches(*argv, "mcast_snooping") == 0) {
-+			__u8 mcast_snoop;
+ 			addattr16(n, 1024, IFLA_BR_GROUP_FWD_MASK, fwd_mask);
++		} else if (matches(*argv, "group_address") == 0) {
++			char llabuf[32];
++			int len;
 +
 +			NEXT_ARG();
-+			if (get_u8(&mcast_snoop, *argv, 0))
-+				invarg("invalid mcast_snooping", *argv);
-+
-+			addattr8(n, 1024, IFLA_BR_MCAST_SNOOPING, mcast_snoop);
++			len = ll_addr_a2n(llabuf, sizeof(llabuf), *argv);
++			if (len < 0)
++				return -1;
++			addattr_l(n, 1024, IFLA_BR_GROUP_ADDR, llabuf, len);
  		} else if (matches(*argv, "help") == 0) {
  			explain();
  			return -1;
-@@ -268,6 +277,10 @@ static void bridge_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 				    1 /*ARPHDR_ETHER*/, mac, sizeof(mac)));
- 	}
- 
-+	if (tb[IFLA_BR_MCAST_SNOOPING])
-+		fprintf(f, "mcast_snooping %u ",
-+			rta_getattr_u8(tb[IFLA_BR_MCAST_SNOOPING]));
+@@ -225,6 +235,15 @@ static void bridge_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 	if (tb[IFLA_BR_GROUP_FWD_MASK])
+ 		fprintf(f, "group_fwd_mask %#x ",
+ 			rta_getattr_u16(tb[IFLA_BR_GROUP_FWD_MASK]));
 +
- 	if (tb[IFLA_BR_MCAST_ROUTER])
- 		fprintf(f, "mcast_router %u ",
- 			rta_getattr_u8(tb[IFLA_BR_MCAST_ROUTER]));
++	if (tb[IFLA_BR_GROUP_ADDR]) {
++		SPRINT_BUF(mac);
++
++		fprintf(f, "group_address %s ",
++			ll_addr_n2a(RTA_DATA(tb[IFLA_BR_GROUP_ADDR]),
++				    RTA_PAYLOAD(tb[IFLA_BR_GROUP_ADDR]),
++				    1 /*ARPHDR_ETHER*/, mac, sizeof(mac)));
++	}
+ }
+ 
+ static void bridge_print_help(struct link_util *lu, int argc, char **argv,
 -- 
 2.4.3
