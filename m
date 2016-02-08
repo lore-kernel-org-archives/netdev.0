@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v7 04/19] net: usnic: use __ethtool_get_settings
-Date: Sun,  7 Feb 2016 17:08:48 -0800
-Message-ID: <1454893743-6285-5-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v7 03/19] net: usnic: remove unused call to ethtool_ops::get_settings
+Date: Sun,  7 Feb 2016 17:08:47 -0800
+Message-ID: <1454893743-6285-4-git-send-email-ddecotig@gmail.com>
 References: <1454893743-6285-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
         Eugenia Emantayev <eugenia@mellanox.co.il>,
@@ -42,21 +42,28 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/infiniband/hw/usnic/usnic_ib_verbs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/infiniband/hw/usnic/usnic_ib_verbs.c | 2 --
+ 1 file changed, 2 deletions(-)
 
 diff --git a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-index ea003ec..1cf19a3 100644
+index 6cdb4d2..ea003ec 100644
 --- a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
 +++ b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-@@ -329,7 +329,7 @@ int usnic_ib_query_port(struct ib_device *ibdev, u8 port,
+@@ -269,7 +269,6 @@ int usnic_ib_query_device(struct ib_device *ibdev,
+ 	struct usnic_ib_dev *us_ibdev = to_usdev(ibdev);
+ 	union ib_gid gid;
+ 	struct ethtool_drvinfo info;
+-	struct ethtool_cmd cmd;
+ 	int qp_per_vf;
+ 
  	usnic_dbg("\n");
+@@ -278,7 +277,6 @@ int usnic_ib_query_device(struct ib_device *ibdev,
  
  	mutex_lock(&us_ibdev->usdev_lock);
+ 	us_ibdev->netdev->ethtool_ops->get_drvinfo(us_ibdev->netdev, &info);
 -	us_ibdev->netdev->ethtool_ops->get_settings(us_ibdev->netdev, &cmd);
-+	__ethtool_get_settings(us_ibdev->netdev, &cmd);
  	memset(props, 0, sizeof(*props));
- 
- 	props->lid = 0;
+ 	usnic_mac_ip_to_gid(us_ibdev->ufdev->mac, us_ibdev->ufdev->inaddr,
+ 			&gid.raw[0]);
 -- 
 2.7.0.rc3.207.g0ac5344
