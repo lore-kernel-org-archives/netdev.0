@@ -1,57 +1,72 @@
-From: Jakub =?UTF-8?B?S2ljacWEc2tp?= <moorray3@wp.pl>
-Subject: Re: [PATCH 2/2] fm10k: correctly report error when changing number
- of channels
-Date: Mon, 8 Feb 2016 19:23:38 +0000
-Message-ID: <20160208192338.7379064f@jkicinski-Precision-T1700>
-References: <1454704221-14238-1-git-send-email-jacob.e.keller@intel.com>
-	<1454704221-14238-3-git-send-email-jacob.e.keller@intel.com>
-	<20160208132632.3010dee3@jkicinski-Precision-T1700>
-	<1454951595.25441.4.camel@intel.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net v3 2/4] net: add rx_nohandler stat counter
+Date: Mon, 8 Feb 2016 11:38:21 -0800
+Message-ID: <20160208113821.0ba26eb0@xeon-e3>
+References: <1454370667-2328-1-git-send-email-jarod@redhat.com>
+	<1454370667-2328-3-git-send-email-jarod@redhat.com>
+	<20160207113732.25a88cc4@xeon-e3>
+	<20160207.144648.750890874940574761.davem@davemloft.net>
+	<1454876368.7627.350.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20160208183254.GB4566@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.11]:48099 "EHLO mx4.wp.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750982AbcBHTXz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 14:23:55 -0500
-In-Reply-To: <1454951595.25441.4.camel@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, edumazet@google.com,
+	jiri@mellanox.com, daniel@iogearbox.net, tom@herbertland.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: Jarod Wilson <jarod@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160208183254.GB4566@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 8 Feb 2016 17:13:15 +0000, Keller, Jacob E wrote:
-> On Mon, 2016-02-08 at 13:26 +0000, Jakub Kicinski wrote:
-> > On Fri,=C2=A0=C2=A05 Feb 2016 12:30:21 -0800, Jacob Keller wrote:
-> > > +#define FM10K_FLAG_RETA_TABLE_CONFIGURED	(u32)(BIT(6))
-> >=20
-> > If we go with your proposal every driver will have to keep track of=
-=C2=A0
-> > how the RSS table was set and find max value on queue reconfig -
-> > replicating effort and leaving space for diverging behaviour...
-> >=20
->=20
-> in which behavior has already diverged quite significantly, so shorin=
-g
-> that up would be good as well.
->=20
-> > Would it be worth considering to place more of this code in the cor=
-e?
->=20
-> Yes. I was unsure of how to do this, but I think I have a possible
-> solution. Since basically all drivers are going to have the same issu=
-e,
-> I think we can just do the check inside net/core/ethtool.c
->=20
-> At least some of the check can be done inside core ethtool, but I thi=
-nk
-> we still need a way for driver to know it is in "default" mode, as th=
-e
-> driver does behave differently in its reset flow depending on whether
-> the RSS table has been set.
->=20
-> Maybe we can store it as a flag in the netdev structure instead?
+On Mon, 8 Feb 2016 13:32:54 -0500
+Jarod Wilson <jarod@redhat.com> wrote:
 
-Either flag in the netdev or keep your reset callback.  Neither seems
-spectacularly clean.  Maybe someone with a better idea will speak up ;)
+> On Sun, Feb 07, 2016 at 12:19:28PM -0800, Eric Dumazet wrote:
+> > On Sun, 2016-02-07 at 14:46 -0500, David Miller wrote:
+> > 
+> > > > Why was this userspace ABI change allowed?
+> > > > The stats structure is exposed to user space via netlink
+> > > > and changing the size of responses will break iproute2 commands.
+> > 
+> > I do not think it breaks anything.
+> > 
+> > iproute2 always assumed kernel was sending at least 23 u64, and does not
+> > check at all if the kernel sends more. (or less, so iproute2 can print
+> > garbage if kernel is malicious)
+> > 
+> > an iproute2 patch will be needed to automatically detect if new kernels
+> > are sending more data and print it accordingly.
+> 
+> My TODO list did include poking at iproute2 to expose the new info, I can
+> take a closer look for possible issues as well, but...
+> 
+> > > > The code will be expecting one size and the response will vary and
+> > > > break existing code.  Yes, the code should check the size
+> > > > of the response, but it doesn't and I am sure iproute2 is not
+> > > > the only code that does this.
+> > > 
+> > > Jarod, please look into this.
+> > 
+> > Running latest net-next, and old iproute2 is just fine.
+> 
+> ...I haven't run into anything that didn't work with current iproute2
+> either while testing out functionality of these patches. If there's
+> something in particular that seems most suspect that I perhaps simply
+> haven't tried, I can give that a go as well.
+> 
+> In any case, I'm definitely due to take a look at iproute2 as it relates
+> to this patchset.
+> 
+
+The iproute2 command can be fixed, but adding dependency on size of response
+gets gross fast.  Imagine when 4 more fields get added, this doesn't scale well.
+
+Also, the definition of userspace ABI is that structures can't change.
+There are many other utilities that are not visible that may get broken.
+Traditionally Linux has guaranteed that programs will continue to work
+no matter how they were coded.
