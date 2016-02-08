@@ -1,7 +1,7 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 3/6] net: thunderx: Assign affinity hints to vf's interrupts
-Date: Mon,  8 Feb 2016 17:37:49 +0530
-Message-ID: <1454933272-45005-4-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 6/6] net: thunderx: Alloc higher order pages when pagesize is small
+Date: Mon,  8 Feb 2016 17:37:52 +0530
+Message-ID: <1454933272-45005-7-git-send-email-sunil.kovvuri@gmail.com>
 References: <1454933272-45005-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	sgoutham@cavium.com, robert.richter@caviumnetworks.com
@@ -13,90 +13,26 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-This affinity hint can be used by user space irqbalance tool to set
-preferred CPU mask for irqs registered by this VF. Irqbalance needs
-to be in 'exact' mode to set irq affinity same as indicated by
-affinity hint.
+Allocate higher order pages when pagesize is small, this will
+reduce number of calls to page allocator and wastage of memory.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h        |    1 +
- drivers/net/ethernet/cavium/thunder/nicvf_main.c |   37 ++++++++++++++++++++-
- 2 files changed, 36 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index 8af363a..00cc915 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -309,6 +309,7 @@ struct nicvf {
- 	struct msix_entry	msix_entries[NIC_VF_MSIX_VECTORS];
- 	char			irq_name[NIC_VF_MSIX_VECTORS][20];
- 	bool			irq_allocated[NIC_VF_MSIX_VECTORS];
-+	cpumask_var_t		affinity_mask[NIC_VF_MSIX_VECTORS];
- 
- 	/* VF <-> PF mailbox communication */
- 	bool			pf_acked;
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index c6f146c..90ce93e 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -899,6 +899,31 @@ static void nicvf_disable_msix(struct nicvf *nic)
- 	}
- }
- 
-+static void nicvf_set_irq_affinity(struct nicvf *nic)
-+{
-+	int vec, cpu;
-+	int irqnum;
-+
-+	for (vec = 0; vec < nic->num_vec; vec++) {
-+		if (!nic->irq_allocated[vec])
-+			continue;
-+
-+		if (!zalloc_cpumask_var(&nic->affinity_mask[vec], GFP_KERNEL))
-+			return;
-+		 /* CQ interrupts */
-+		if (vec < NICVF_INTR_ID_SQ)
-+			/* Leave CPU0 for RBDR and other interrupts */
-+			cpu = nicvf_netdev_qidx(nic, vec) + 1;
-+		else
-+			cpu = 0;
-+
-+		cpumask_set_cpu(cpumask_local_spread(cpu, nic->node),
-+				nic->affinity_mask[vec]);
-+		irqnum = nic->msix_entries[vec].vector;
-+		irq_set_affinity_hint(irqnum, nic->affinity_mask[vec]);
-+	}
-+}
-+
- static int nicvf_register_interrupts(struct nicvf *nic)
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index 50ab6f4..5adb208 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -78,7 +78,7 @@ static void nicvf_free_q_desc_mem(struct nicvf *nic, struct q_desc_mem *dmem)
+ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
+ 					 u32 buf_len, u64 **rbuf)
  {
- 	int irq, ret = 0;
-@@ -944,8 +969,13 @@ static int nicvf_register_interrupts(struct nicvf *nic)
- 	ret = request_irq(nic->msix_entries[irq].vector,
- 			  nicvf_qs_err_intr_handler,
- 			  0, nic->irq_name[irq], nic);
--	if (!ret)
--		nic->irq_allocated[irq] = true;
-+	if (ret)
-+		goto err;
-+
-+	nic->irq_allocated[irq] = true;
-+
-+	/* Set IRQ affinities */
-+	nicvf_set_irq_affinity(nic);
+-	int order = get_order(buf_len);
++	int order = (PAGE_SIZE <= 4096) ?  PAGE_ALLOC_COSTLY_ORDER : 0;
  
- err:
- 	if (ret)
-@@ -963,6 +993,9 @@ static void nicvf_unregister_interrupts(struct nicvf *nic)
- 		if (!nic->irq_allocated[irq])
- 			continue;
- 
-+		irq_set_affinity_hint(nic->msix_entries[irq].vector, NULL);
-+		free_cpumask_var(nic->affinity_mask[irq]);
-+
- 		if (irq < NICVF_INTR_ID_SQ)
- 			free_irq(nic->msix_entries[irq].vector, nic->napi[irq]);
- 		else
+ 	/* Check if request can be accomodated in previous allocated page */
+ 	if (nic->rb_page) {
 -- 
 1.7.1
