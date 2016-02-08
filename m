@@ -1,75 +1,61 @@
 From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH iproute2 05/21] iplink: bridge: add support for IFLA_BR_GROUP_ADDR
-Date: Mon,  8 Feb 2016 12:55:11 +0100
-Message-ID: <1454932527-30569-6-git-send-email-razor@blackwall.org>
-References: <1454932527-30569-1-git-send-email-razor@blackwall.org>
+Subject: [PATCH iproute2 00/21] bridge: complete netlink support
+Date: Mon,  8 Feb 2016 12:55:06 +0100
+Message-ID: <1454932527-30569-1-git-send-email-razor@blackwall.org>
 Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:32777 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751438AbcBHL4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 06:56:13 -0500
-Received: by mail-wm0-f47.google.com with SMTP id g62so129379261wme.0
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 03:56:13 -0800 (PST)
-In-Reply-To: <1454932527-30569-1-git-send-email-razor@blackwall.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:36065 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751946AbcBHL4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 06:56:10 -0500
+Received: by mail-wm0-f41.google.com with SMTP id p63so109810866wmp.1
+        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 03:56:09 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-This patch implements support for the IFLA_BR_GROUP_ADDR attribute
-in iproute2 so it can change the group address.
+Hi,
+After I added support for all attributes in the kernel, it's time to make
+use of them in iproute2. I've tested changing/viewing all of the
+attributes. I'll send a separate set to add support for the ports
+attributes.
+For the future, adding a switch to change to "seconds.milliseconds" format
+for the timers would be helpful (I've stuck to the currently used clock_t
+export to be consistent).
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- ip/iplink_bridge.c | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
+Cheers,
+ Nik
 
-diff --git a/ip/iplink_bridge.c b/ip/iplink_bridge.c
-index fb448f9f863d..3d343f7649fe 100644
---- a/ip/iplink_bridge.c
-+++ b/ip/iplink_bridge.c
-@@ -28,6 +28,7 @@ static void print_explain(FILE *f)
- 		"                  [ stp_state STP_STATE ]\n"
- 		"                  [ priority PRIORITY ]\n"
- 		"                  [ group_fwd_mask MASK ]\n"
-+		"                  [ group_address ADDRESS ]\n"
- 		"                  [ vlan_filtering VLAN_FILTERING ]\n"
- 		"                  [ vlan_protocol VLAN_PROTOCOL ]\n"
- 		"\n"
-@@ -119,6 +120,15 @@ static int bridge_parse_opt(struct link_util *lu, int argc, char **argv,
- 				invarg("invalid group_fwd_mask", *argv);
- 
- 			addattr16(n, 1024, IFLA_BR_GROUP_FWD_MASK, fwd_mask);
-+		} else if (matches(*argv, "group_address") == 0) {
-+			char llabuf[32];
-+			int len;
-+
-+			NEXT_ARG();
-+			len = ll_addr_a2n(llabuf, sizeof(llabuf), *argv);
-+			if (len < 0)
-+				return -1;
-+			addattr_l(n, 1024, IFLA_BR_GROUP_ADDR, llabuf, len);
- 		} else if (matches(*argv, "help") == 0) {
- 			explain();
- 			return -1;
-@@ -225,6 +235,15 @@ static void bridge_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 	if (tb[IFLA_BR_GROUP_FWD_MASK])
- 		fprintf(f, "group_fwd_mask %#x ",
- 			rta_getattr_u16(tb[IFLA_BR_GROUP_FWD_MASK]));
-+
-+	if (tb[IFLA_BR_GROUP_ADDR]) {
-+		SPRINT_BUF(mac);
-+
-+		fprintf(f, "group_address %s ",
-+			ll_addr_n2a(RTA_DATA(tb[IFLA_BR_GROUP_ADDR]),
-+				    RTA_PAYLOAD(tb[IFLA_BR_GROUP_ADDR]),
-+				    1 /*ARPHDR_ETHER*/, mac, sizeof(mac)));
-+	}
- }
- 
- static void bridge_print_help(struct link_util *lu, int argc, char **argv,
+Nikolay Aleksandrov (21):
+  iplink: bridge: export bridge_id and designated_root
+  iplink: bridge: export root_(port|path_cost), topology_change and
+    change_detected
+  iplink: bridge: export read-only timers
+  iplink: bridge: add support for IFLA_BR_GROUP_FWD_MASK
+  iplink: bridge: add support for IFLA_BR_GROUP_ADDR
+  iplink: bridge: add support for IFLA_BR_VLAN_DEFAULT_PVID
+  iplink: bridge: add support for IFLA_BR_MCAST_ROUTER
+  iplink: bridge: add support for IFLA_BR_MCAST_SNOOPING
+  iplink: bridge: add support for IFLA_BR_MCAST_QUERY_USE_IFADDR
+  iplink: bridge: add support for IFLA_BR_MCAST_QUERIER
+  iplink: bridge: add support for IFLA_BR_MCAST_HASH_ELASTICITY
+  iplink: bridge: add support for IFLA_BR_MCAST_HASH_MAX
+  iplink: bridge: add support for IFLA_BR_MCAST_LAST_MEMBER_CNT
+  iplink: bridge: add support for IFLA_BR_MCAST_STARTUP_QUERY_CNT
+  iplink: bridge: add support for IFLA_BR_MCAST_LAST_MEMBER_INTVL
+  iplink: bridge: add support for IFLA_BR_MCAST_MEMBERSHIP_INTVL
+  iplink: bridge: add support for IFLA_BR_MCAST_QUERIER_INTVL
+  iplink: bridge: add support for IFLA_BR_MCAST_QUERY_INTVL
+  iplink: bridge: add support for IFLA_BR_MCAST_QUERY_RESPONSE_INTVL
+  iplink: bridge: add support for IFLA_BR_MCAST_STARTUP_QUERY_INTVL
+  iplink: bridge: add support for netfilter call attributes
+
+ include/utils.h    |   1 -
+ ip/iplink_bridge.c | 356 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 356 insertions(+), 1 deletion(-)
+
 -- 
 2.4.3
