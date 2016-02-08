@@ -1,34 +1,39 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 5/6] net: thunderx: bgx: Add log message when setting mac address
-Date: Mon, 08 Feb 2016 14:49:41 +0100
-Message-ID: <87vb5z1fd6.fsf@nemi.mork.no>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 5/6] net: thunderx: bgx: Add log message when setting mac
+ address
+Date: Mon, 8 Feb 2016 16:51:22 +0300
+Message-ID: <56B89D5A.8070503@cogentembedded.com>
 References: <1454933272-45005-1-git-send-email-sunil.kovvuri@gmail.com>
-	<1454933272-45005-6-git-send-email-sunil.kovvuri@gmail.com>
-	<56B8987D.7000901@cogentembedded.com>
+ <1454933272-45005-6-git-send-email-sunil.kovvuri@gmail.com>
+ <56B8987D.7000901@cogentembedded.com> <87vb5z1fd6.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: sunil.kovvuri@gmail.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	sgoutham@cavium.com, robert.richter@caviumnetworks.com,
 	Robert Richter <rrichter@cavium.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56B8987D.7000901@cogentembedded.com> (Sergei Shtylyov's message
-	of "Mon, 8 Feb 2016 16:30:37 +0300")
+In-Reply-To: <87vb5z1fd6.fsf@nemi.mork.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> writes:
+On 02/08/2016 04:49 PM, Bj=C3=B8rn Mork wrote:
 
->    dev_er(), maybe?
+>>     dev_er(), maybe?
+>
+> I like that!
+>
+> It's often hard to know whether to print something or be quiet.
+> pr_er(), dev_er(), netdev_er() etc would be the perfect solution to t=
+hat
+> problem.
 
-I like that!
+    :-D
+    Sorry for the typo...
 
-It's often hard to know whether to print something or be quiet.
-pr_er(), dev_er(), netdev_er() etc would be the perfect solution to tha=
-t
-problem.
+> Bj=C3=B8rn
 
-
-Bj=C3=B8rn
+MBR, Sergei
