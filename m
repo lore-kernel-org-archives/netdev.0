@@ -1,49 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v3 2/4] net: add rx_nohandler stat counter
-Date: Mon, 08 Feb 2016 14:57:40 -0800
-Message-ID: <1454972260.7627.368.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1454370667-2328-1-git-send-email-jarod@redhat.com>
-	 <1454370667-2328-3-git-send-email-jarod@redhat.com>
-	 <20160207113732.25a88cc4@xeon-e3>
-	 <20160207.144648.750890874940574761.davem@davemloft.net>
-	 <1454876368.7627.350.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20160208183254.GB4566@redhat.com> <20160208113821.0ba26eb0@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jarod Wilson <jarod@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, edumazet@google.com,
-	jiri@mellanox.com, daniel@iogearbox.net, tom@herbertland.com,
-	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160208113821.0ba26eb0@xeon-e3>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH iproute2 v2 00/21] bridge: complete netlink support
+Date: Tue,  9 Feb 2016 00:14:18 +0100
+Message-ID: <1454973279-9170-1-git-send-email-razor@blackwall.org>
+Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:37296 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932478AbcBHXOo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 18:14:44 -0500
+Received: by mail-wm0-f43.google.com with SMTP id g62so856619wme.0
+        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 15:14:44 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-02-08 at 11:38 -0800, Stephen Hemminger wrote:
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-> The iproute2 command can be fixed, but adding dependency on size of response
-> gets gross fast.  Imagine when 4 more fields get added, this doesn't scale well.
+Hi,
+After I added support for all attributes in the kernel, it's time to make
+use of them in iproute2. I've tested changing/viewing all of the
+attributes. I'll send a separate set to add support for the ports
+attributes.
+For the future, adding a switch to change to "seconds.milliseconds" format
+for the timers would be helpful (I've stuck to the currently used clock_t
+export to be consistent).
 
-Really ? I see no problem at all doing the proper tests.
+v2: use ether_ntoa_r to print the bridge/root ids, and convert read-only
+timers to seconds.milliseconds format as per Stephen's comments
 
-> 
-> Also, the definition of userspace ABI is that structures can't change.
-> There are many other utilities that are not visible that may get broken.
-> Traditionally Linux has guaranteed that programs will continue to work
-> no matter how they were coded.
+Cheers,
+ Nik
 
-Stephen, we have been doing that for years.
 
-Whole point of TLV is that it allows us to add new fields at the end of
-the structures.
+Nikolay Aleksandrov (21):
+  iplink: bridge: export bridge_id and designated_root
+  iplink: bridge: export root_(port|path_cost), topology_change and
+    change_detected
+  iplink: bridge: export read-only timers
+  iplink: bridge: add support for IFLA_BR_GROUP_FWD_MASK
+  iplink: bridge: add support for IFLA_BR_GROUP_ADDR
+  iplink: bridge: add support for IFLA_BR_VLAN_DEFAULT_PVID
+  iplink: bridge: add support for IFLA_BR_MCAST_ROUTER
+  iplink: bridge: add support for IFLA_BR_MCAST_SNOOPING
+  iplink: bridge: add support for IFLA_BR_MCAST_QUERY_USE_IFADDR
+  iplink: bridge: add support for IFLA_BR_MCAST_QUERIER
+  iplink: bridge: add support for IFLA_BR_MCAST_HASH_ELASTICITY
+  iplink: bridge: add support for IFLA_BR_MCAST_HASH_MAX
+  iplink: bridge: add support for IFLA_BR_MCAST_LAST_MEMBER_CNT
+  iplink: bridge: add support for IFLA_BR_MCAST_STARTUP_QUERY_CNT
+  iplink: bridge: add support for IFLA_BR_MCAST_LAST_MEMBER_INTVL
+  iplink: bridge: add support for IFLA_BR_MCAST_MEMBERSHIP_INTVL
+  iplink: bridge: add support for IFLA_BR_MCAST_QUERIER_INTVL
+  iplink: bridge: add support for IFLA_BR_MCAST_QUERY_INTVL
+  iplink: bridge: add support for IFLA_BR_MCAST_QUERY_RESPONSE_INTVL
+  iplink: bridge: add support for IFLA_BR_MCAST_STARTUP_QUERY_INTVL
+  iplink: bridge: add support for netfilter call attributes
 
-Yes, some buggy programs might need a fix.
+ include/utils.h    |  18 +++
+ ip/iplink_bridge.c | 375 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 393 insertions(+)
 
-Look at iproute2, you were the one adding in 2004 code to cope with
-various tcp_info sizes.
-
-So 12 years later, you cannot say it does not work anymore.
+-- 
+2.4.3
