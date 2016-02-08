@@ -1,49 +1,69 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [RFC PATCH net-next 0/3] Extend macvtap with multiple qdiscs
-Date: Sun,  7 Feb 2016 22:14:53 -0500
-Message-ID: <1454901296-9915-1-git-send-email-vyasevic@redhat.com>
+Subject: [RFC PATCH net-next 2/3] macvlan: add queue selection functionality
+Date: Sun,  7 Feb 2016 22:14:55 -0500
+Message-ID: <1454901296-9915-3-git-send-email-vyasevic@redhat.com>
+References: <1454901296-9915-1-git-send-email-vyasevic@redhat.com>
 Cc: jasowang@redhat.com, mst@redhat.com,
 	Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f65.google.com ([209.85.192.65]:35358 "EHLO
-	mail-qg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754991AbcBHDPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 22:15:05 -0500
-Received: by mail-qg0-f65.google.com with SMTP id b35so7868377qge.2
-        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 19:15:04 -0800 (PST)
+Received: from mail-qg0-f66.google.com ([209.85.192.66]:36618 "EHLO
+	mail-qg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755222AbcBHDPG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 22:15:06 -0500
+Received: by mail-qg0-f66.google.com with SMTP id 14so2220058qgg.3
+        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 19:15:06 -0800 (PST)
+In-Reply-To: <1454901296-9915-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an RFC series to extend macvtap with multiple qdisc.  Right now
-multiqueue macvtap setups suffer from lock contention.  Macvtap sets
-the queue index and thus gets a default qdisc allocated to it.  Since
-it later users dev_queue_xmit() call to the macvlan type device (so that
-we can packet captures and other filtering on macvtap itself) we end up
-with qdisc lock contention since what we have is multiple file descriptors
-writing to the same qdisc.
+This patch adds a simple queue selection function to macvlan
+layer.  In most cases, this will just use the standard fallback
+fuction, but when rx-queue has been recoreded we'll try to use
+that value.
 
-With this series, the macvtap device now becomes a true multi-queue device
-that defaults to 1 queue.  Every time the user opens the device (this is
-how multiqueue macvtap is used), we update the number of real queues for
-the device.  When the user writes to the device, we record the queue index
-associted with the file descriptor to the skb, and that ends up translating
-to the device queue index.  This is one transmit only.  Receive side
-is left alone and will prefer skb hash if available. 
-
-Macvlan through this all is left with lockless transmit path.
-
-Thanks
--vlad
-
-Vladislav Yasevich (3):
-  macvtap: mutiple qdiscs support
-  macvlan: add queue selection functionality
-  macvtap: Record the rx queue based on the user tap queue
-
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+---
  drivers/net/macvlan.c | 20 ++++++++++++++++++++
- drivers/net/macvtap.c | 19 +++++++++++++++++++
- 2 files changed, 39 insertions(+)
+ 1 file changed, 20 insertions(+)
 
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 94e6888..213d587 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -1018,6 +1018,25 @@ static int macvlan_dev_get_iflink(const struct net_device *dev)
+ 	return vlan->lowerdev->ifindex;
+ }
+ 
++static u16 macvlan_select_queue(struct net_device *dev,
++				struct sk_buff *skb,
++				void *accel_priv,
++				select_queue_fallback_t fallback)
++{
++	u16 txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) : 0;
++
++	if (!txq)
++		return fallback(dev, skb);
++
++	if (unlikely(txq >= dev->real_num_tx_queues)) {
++		do {
++			txq -= dev->real_num_tx_queues;
++		} while (txq >= dev->real_num_tx_queues);
++	}
++	return txq;
++}
++
++
+ static const struct ethtool_ops macvlan_ethtool_ops = {
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_settings		= macvlan_ethtool_get_settings,
+@@ -1048,6 +1067,7 @@ static const struct net_device_ops macvlan_netdev_ops = {
+ 	.ndo_netpoll_setup	= macvlan_dev_netpoll_setup,
+ 	.ndo_netpoll_cleanup	= macvlan_dev_netpoll_cleanup,
+ #endif
++	.ndo_select_queue	= macvlan_select_queue,
+ 	.ndo_get_iflink		= macvlan_dev_get_iflink,
+ 	.ndo_features_check	= passthru_features_check,
+ };
 -- 
 2.1.0
