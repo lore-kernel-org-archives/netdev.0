@@ -1,70 +1,102 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 5/6] net: thunderx: bgx: Add log message when setting mac address
-Date: Mon,  8 Feb 2016 17:37:51 +0530
-Message-ID: <1454933272-45005-6-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 3/6] net: thunderx: Assign affinity hints to vf's interrupts
+Date: Mon,  8 Feb 2016 17:37:49 +0530
+Message-ID: <1454933272-45005-4-git-send-email-sunil.kovvuri@gmail.com>
 References: <1454933272-45005-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	sgoutham@cavium.com, robert.richter@caviumnetworks.com,
-	Robert Richter <rrichter@cavium.com>
+	sgoutham@cavium.com, robert.richter@caviumnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1454933272-45005-1-git-send-email-sunil.kovvuri@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Robert Richter <rrichter@cavium.com>
+From: Sunil Goutham <sgoutham@cavium.com>
 
-Signed-off-by: Robert Richter <rrichter@cavium.com>
+This affinity hint can be used by user space irqbalance tool to set
+preferred CPU mask for irqs registered by this VF. Irqbalance needs
+to be in 'exact' mode to set irq affinity same as indicated by
+affinity hint.
+
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c |   11 ++++++++---
- 1 files changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h        |    1 +
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c |   37 ++++++++++++++++++++-
+ 2 files changed, 36 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 111835b..cfee496 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -886,7 +886,8 @@ static void bgx_get_qlm_mode(struct bgx *bgx)
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 8af363a..00cc915 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -309,6 +309,7 @@ struct nicvf {
+ 	struct msix_entry	msix_entries[NIC_VF_MSIX_VECTORS];
+ 	char			irq_name[NIC_VF_MSIX_VECTORS][20];
+ 	bool			irq_allocated[NIC_VF_MSIX_VECTORS];
++	cpumask_var_t		affinity_mask[NIC_VF_MSIX_VECTORS];
  
- #ifdef CONFIG_ACPI
- 
--static int acpi_get_mac_address(struct acpi_device *adev, u8 *dst)
-+static int acpi_get_mac_address(struct device *dev, struct acpi_device *adev,
-+				u8 *dst)
- {
- 	u8 mac[ETH_ALEN];
- 	int ret;
-@@ -897,10 +898,13 @@ static int acpi_get_mac_address(struct acpi_device *adev, u8 *dst)
- 		goto out;
- 
- 	if (!is_valid_ether_addr(mac)) {
-+		dev_warn(dev, "MAC address invalid: %pM\n", mac);
- 		ret = -EINVAL;
- 		goto out;
+ 	/* VF <-> PF mailbox communication */
+ 	bool			pf_acked;
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index c6f146c..90ce93e 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -899,6 +899,31 @@ static void nicvf_disable_msix(struct nicvf *nic)
  	}
+ }
  
-+	dev_info(dev, "MAC address set to: %pM\n", mac);
++static void nicvf_set_irq_affinity(struct nicvf *nic)
++{
++	int vec, cpu;
++	int irqnum;
 +
- 	memcpy(dst, mac, ETH_ALEN);
- out:
- 	return ret;
-@@ -911,14 +915,15 @@ static acpi_status bgx_acpi_register_phy(acpi_handle handle,
- 					 u32 lvl, void *context, void **rv)
++	for (vec = 0; vec < nic->num_vec; vec++) {
++		if (!nic->irq_allocated[vec])
++			continue;
++
++		if (!zalloc_cpumask_var(&nic->affinity_mask[vec], GFP_KERNEL))
++			return;
++		 /* CQ interrupts */
++		if (vec < NICVF_INTR_ID_SQ)
++			/* Leave CPU0 for RBDR and other interrupts */
++			cpu = nicvf_netdev_qidx(nic, vec) + 1;
++		else
++			cpu = 0;
++
++		cpumask_set_cpu(cpumask_local_spread(cpu, nic->node),
++				nic->affinity_mask[vec]);
++		irqnum = nic->msix_entries[vec].vector;
++		irq_set_affinity_hint(irqnum, nic->affinity_mask[vec]);
++	}
++}
++
+ static int nicvf_register_interrupts(struct nicvf *nic)
  {
- 	struct bgx *bgx = context;
-+	struct device *dev = &bgx->pdev->dev;
- 	struct acpi_device *adev;
+ 	int irq, ret = 0;
+@@ -944,8 +969,13 @@ static int nicvf_register_interrupts(struct nicvf *nic)
+ 	ret = request_irq(nic->msix_entries[irq].vector,
+ 			  nicvf_qs_err_intr_handler,
+ 			  0, nic->irq_name[irq], nic);
+-	if (!ret)
+-		nic->irq_allocated[irq] = true;
++	if (ret)
++		goto err;
++
++	nic->irq_allocated[irq] = true;
++
++	/* Set IRQ affinities */
++	nicvf_set_irq_affinity(nic);
  
- 	if (acpi_bus_get_device(handle, &adev))
- 		goto out;
+ err:
+ 	if (ret)
+@@ -963,6 +993,9 @@ static void nicvf_unregister_interrupts(struct nicvf *nic)
+ 		if (!nic->irq_allocated[irq])
+ 			continue;
  
--	acpi_get_mac_address(adev, bgx->lmac[bgx->lmac_count].mac);
-+	acpi_get_mac_address(dev, adev, bgx->lmac[bgx->lmac_count].mac);
- 
--	SET_NETDEV_DEV(&bgx->lmac[bgx->lmac_count].netdev, &bgx->pdev->dev);
-+	SET_NETDEV_DEV(&bgx->lmac[bgx->lmac_count].netdev, dev);
- 
- 	bgx->lmac[bgx->lmac_count].lmacid = bgx->lmac_count;
- out:
++		irq_set_affinity_hint(nic->msix_entries[irq].vector, NULL);
++		free_cpumask_var(nic->affinity_mask[irq]);
++
+ 		if (irq < NICVF_INTR_ID_SQ)
+ 			free_irq(nic->msix_entries[irq].vector, nic->napi[irq]);
+ 		else
 -- 
 1.7.1
