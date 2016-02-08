@@ -1,87 +1,62 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] af_unix: Don't set err in unix_stream_read_generic unless there was an error
-Date: Mon, 08 Feb 2016 18:05:38 +0000
-Message-ID: <87twljrsb1.fsf@doppelsaurus.mobileactivedefense.com>
-References: <56B4EF04.2060407@canonical.com>
-	<87zivebxjr.fsf@doppelsaurus.mobileactivedefense.com>
-	<87lh6wl44b.fsf@doppelsaurus.mobileactivedefense.com>
-	<87bn7rtdwe.fsf@doppelsaurus.mobileactivedefense.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net v3 2/4] net: add rx_nohandler stat counter
+Date: Mon, 8 Feb 2016 13:32:54 -0500
+Message-ID: <20160208183254.GB4566@redhat.com>
+References: <1454370667-2328-1-git-send-email-jarod@redhat.com>
+ <1454370667-2328-3-git-send-email-jarod@redhat.com>
+ <20160207113732.25a88cc4@xeon-e3>
+ <20160207.144648.750890874940574761.davem@davemloft.net>
+ <1454876368.7627.350.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rweikusat@mobileactivedefense.com, hannes@stressinduktion.org,
-	edumazet@google.com, dhowells@redhat.com, ying.xue@windriver.com,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"stable\@vger.kernel.org" <stable@vger.kernel.org>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>
-To: "davem\@davemloft.net" <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <87bn7rtdwe.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
-	Weikusat's message of "Mon, 08 Feb 2016 15:33:53 +0000")
-Sender: stable-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	linux-kernel@vger.kernel.org, edumazet@google.com,
+	jiri@mellanox.com, daniel@iogearbox.net, tom@herbertland.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1454876368.7627.350.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The present unix_stream_read_generic contains various code sequences of
-the form
+On Sun, Feb 07, 2016 at 12:19:28PM -0800, Eric Dumazet wrote:
+> On Sun, 2016-02-07 at 14:46 -0500, David Miller wrote:
+> 
+> > > Why was this userspace ABI change allowed?
+> > > The stats structure is exposed to user space via netlink
+> > > and changing the size of responses will break iproute2 commands.
+> 
+> I do not think it breaks anything.
+> 
+> iproute2 always assumed kernel was sending at least 23 u64, and does not
+> check at all if the kernel sends more. (or less, so iproute2 can print
+> garbage if kernel is malicious)
+> 
+> an iproute2 patch will be needed to automatically detect if new kernels
+> are sending more data and print it accordingly.
 
-err = -EDISASTER;
-if (<test>)
-	goto out;
+My TODO list did include poking at iproute2 to expose the new info, I can
+take a closer look for possible issues as well, but...
 
-This has the unfortunate side effect of possibly causing the error code
-to bleed through to the final
+> > > The code will be expecting one size and the response will vary and
+> > > break existing code.  Yes, the code should check the size
+> > > of the response, but it doesn't and I am sure iproute2 is not
+> > > the only code that does this.
+> > 
+> > Jarod, please look into this.
+> 
+> Running latest net-next, and old iproute2 is just fine.
 
-out:
-	return copied ? : err;
+...I haven't run into anything that didn't work with current iproute2
+either while testing out functionality of these patches. If there's
+something in particular that seems most suspect that I perhaps simply
+haven't tried, I can give that a go as well.
 
-and then to be wrongly returned if no data was copied because the caller
-didn't supply a data buffer, as demonstrated by the program available at
+In any case, I'm definitely due to take a look at iproute2 as it relates
+to this patchset.
 
-http://pad.lv/1540731
-
-Change it such that err is only set if an error condition was detected.
-
-Fixes: 3822b5c2fc62 ("af_unix: Revert 'lock_interruptible' in stream receive code")
-Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
----
-
-With Fixes: fixed.
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 49d5093..c1e4dd7 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2277,13 +2277,15 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state)
- 	size_t size = state->size;
- 	unsigned int last_len;
- 
--	err = -EINVAL;
--	if (sk->sk_state != TCP_ESTABLISHED)
-+	if (unlikely(sk->sk_state != TCP_ESTABLISHED)) {
-+		err = -EINVAL;
- 		goto out;
-+	}
- 
--	err = -EOPNOTSUPP;
--	if (flags & MSG_OOB)
-+	if (unlikely(flags & MSG_OOB)) {
-+		err = -EOPNOTSUPP;
- 		goto out;
-+	}
- 
- 	target = sock_rcvlowat(sk, flags & MSG_WAITALL, size);
- 	timeo = sock_rcvtimeo(sk, noblock);
-@@ -2329,9 +2331,11 @@ again:
- 				goto unlock;
- 
- 			unix_state_unlock(sk);
--			err = -EAGAIN;
--			if (!timeo)
-+			if (!timeo) {
-+				err = -EAGAIN;
- 				break;
-+			}
-+
- 			mutex_unlock(&u->readlock);
- 
- 			timeo = unix_stream_data_wait(sk, timeo, last,
+-- 
+Jarod Wilson
+jarod@redhat.com
