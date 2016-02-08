@@ -1,7 +1,7 @@
 From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-Subject: [PATCH v2 2/6] net: phy: spi_ks8995: verify chip and determine revision
-Date: Mon,  8 Feb 2016 18:35:33 +0100
-Message-ID: <1454952937-19428-3-git-send-email-helmut.buchsbaum@gmail.com>
+Subject: [PATCH v2 4/6] net: phy: spi_ks8995: generalize creation of SPI commands
+Date: Mon,  8 Feb 2016 18:35:35 +0100
+Message-ID: <1454952937-19428-5-git-send-email-helmut.buchsbaum@gmail.com>
 References: <1454952937-19428-1-git-send-email-helmut.buchsbaum@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
@@ -9,208 +9,149 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33648 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753951AbcBHRfx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 12:35:53 -0500
-Received: by mail-wm0-f65.google.com with SMTP id c200so2584491wme.0
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 09:35:52 -0800 (PST)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35718 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754079AbcBHRfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 12:35:55 -0500
+Received: by mail-wm0-f66.google.com with SMTP id g62so16493532wme.2
+        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 09:35:55 -0800 (PST)
 In-Reply-To: <1454952937-19428-1-git-send-email-helmut.buchsbaum@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since the chip variant is now determined by spi_device_id, verify
-family and chip id and determine the revision id.
+Prepare creating SPI reads and writes for other switch families.
+The KS8995 family uses the straight forward
+	<8bit CMD><8bit ADDR>
+sequence.
+To be able to support KSZ8795 family, which uses
+	<3bit CMD><12bit ADDR><1 bit TR>
+make the SPI command creation chip variant dependent.
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
 ---
- drivers/net/phy/spi_ks8995.c | 118 +++++++++++++++++++++++++++++--------------
- 1 file changed, 80 insertions(+), 38 deletions(-)
+ drivers/net/phy/spi_ks8995.c | 46 +++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 35 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index e848ad9..2803c8e 100644
+index 04d468f..f866786 100644
 --- a/drivers/net/phy/spi_ks8995.c
 +++ b/drivers/net/phy/spi_ks8995.c
-@@ -83,6 +83,8 @@
- 
- #define FAMILY_KS8995		0x95
- #define CHIPID_M		0
-+#define KS8995_CHIP_ID		0x00
-+#define KSZ8864_CHIP_ID		0x01
- 
- #define KS8995_CMD_WRITE	0x02U
- #define KS8995_CMD_READ		0x03U
-@@ -97,16 +99,22 @@ enum ks8995_chip_variant {
- 
- struct ks8995_chip_params {
- 	char *name;
-+	int family_id;
-+	int chip_id;
+@@ -105,6 +105,8 @@ struct ks8995_chip_params {
+ 	int family_id;
+ 	int chip_id;
  	int regs_size;
++	int addr_width;
++	int addr_shift;
  };
  
  static const struct ks8995_chip_params ks8995_chip[] = {
- 	[ks8995] = {
- 		.name = "KS8995MA",
-+		.family_id = FAMILY_KS8995,
-+		.chip_id = KS8995_CHIP_ID,
+@@ -113,12 +115,16 @@ static const struct ks8995_chip_params ks8995_chip[] = {
+ 		.family_id = FAMILY_KS8995,
+ 		.chip_id = KS8995_CHIP_ID,
  		.regs_size = KS8995_REGS_SIZE,
++		.addr_width = 8,
++		.addr_shift = 0,
  	},
  	[ksz8864] = {
  		.name = "KSZ8864RMN",
-+		.family_id = FAMILY_KS8995,
-+		.chip_id = KSZ8864_CHIP_ID,
+ 		.family_id = FAMILY_KS8995,
+ 		.chip_id = KSZ8864_CHIP_ID,
  		.regs_size = KSZ8864_REGS_SIZE,
++		.addr_width = 8,
++		.addr_shift = 0,
  	},
  };
-@@ -121,6 +129,7 @@ struct ks8995_switch {
- 	struct ks8995_pdata	*pdata;
- 	struct bin_attribute	regs_attr;
- 	const struct ks8995_chip_params	*chip;
-+	int			revision_id;
- };
  
- static const struct spi_device_id ks8995_id[] = {
-@@ -263,6 +272,73 @@ static ssize_t ks8995_registers_write(struct file *filp, struct kobject *kobj,
- 	return ks8995_write(ks8995, buf, off, count);
+@@ -153,20 +159,44 @@ static inline u8 get_chip_rev(u8 val)
+ 	return (val >> ID1_REVISION_S) & ID1_REVISION_M;
  }
  
-+/* ks8995_get_revision - get chip revision
++/* create_spi_cmd - create a chip specific SPI command header
 + * @ks: pointer to switch instance
++ * @cmd: SPI command for switch
++ * @address: register address for command
 + *
-+ * Verify chip family and id and get chip revision.
++ * Different chip families use different bit pattern to address the switches
++ * registers:
++ *
++ * KS8995: 8bit command + 8bit address
++ * KSZ8795: 3bit command + 12bit address + 1bit TR (?)
 + */
-+static int ks8995_get_revision(struct ks8995_switch *ks)
++static inline __be16 create_spi_cmd(struct ks8995_switch *ks, int cmd,
++				    unsigned address)
 +{
-+	int err;
-+	u8 id0, id1, ksz8864_id;
++	u16 result = cmd;
 +
-+	/* read family id */
-+	err = ks8995_read_reg(ks, KS8995_REG_ID0, &id0);
-+	if (err) {
-+		err = -EIO;
-+		goto err_out;
-+	}
-+
-+	/* verify family id */
-+	if (id0 != ks->chip->family_id) {
-+		dev_err(&ks->spi->dev, "chip family id mismatch: expected 0x%02x but 0x%02x read\n",
-+			ks->chip->family_id, id0);
-+		err = -ENODEV;
-+		goto err_out;
-+	}
-+
-+	switch (ks->chip->family_id) {
-+	case FAMILY_KS8995:
-+		/* try reading chip id at CHIP ID1 */
-+		err = ks8995_read_reg(ks, KS8995_REG_ID1, &id1);
-+		if (err) {
-+			err = -EIO;
-+			goto err_out;
-+		}
-+
-+		/* verify chip id */
-+		if ((get_chip_id(id1) == CHIPID_M) &&
-+		    (get_chip_id(id1) == ks->chip->chip_id)) {
-+			/* KS8995MA */
-+			ks->revision_id = get_chip_rev(id1);
-+		} else if (get_chip_id(id1) != CHIPID_M) {
-+			/* KSZ8864RMN */
-+			err = ks8995_read_reg(ks, KS8995_REG_ID1, &ksz8864_id);
-+			if (err) {
-+				err = -EIO;
-+				goto err_out;
-+			}
-+
-+			if ((ksz8864_id & 0x80) &&
-+			    (ks->chip->chip_id == KSZ8864_CHIP_ID)) {
-+				ks->revision_id = get_chip_rev(id1);
-+			}
-+
-+		} else {
-+			dev_err(&ks->spi->dev, "unsupported chip id for KS8995 family: 0x%02x\n",
-+				id1);
-+			err = -ENODEV;
-+		}
-+		break;
-+	default:
-+		dev_err(&ks->spi->dev, "unsupported family id: 0x%02x\n", id0);
-+		err = -ENODEV;
-+		break;
-+	}
-+err_out:
-+	return err;
++	/* make room for address (incl. address shift) */
++	result <<= ks->chip->addr_width + ks->chip->addr_shift;
++	/* add address */
++	result |= address << ks->chip->addr_shift;
++	/* SPI protocol needs big endian */
++	return cpu_to_be16(result);
 +}
-+
- static const struct bin_attribute ks8995_registers_attr = {
- 	.attr = {
- 		.name   = "registers",
-@@ -278,7 +354,6 @@ static int ks8995_probe(struct spi_device *spi)
+ /* ------------------------------------------------------------------------ */
+ static int ks8995_read(struct ks8995_switch *ks, char *buf,
+ 		 unsigned offset, size_t count)
  {
- 	struct ks8995_switch    *ks;
- 	struct ks8995_pdata     *pdata;
--	u8      ids[2];
- 	int     err;
- 	int variant = spi_get_device_id(spi)->driver_data;
+-	u8 cmd[2];
++	__be16 cmd;
+ 	struct spi_transfer t[2];
+ 	struct spi_message m;
+ 	int err;
  
-@@ -309,39 +384,12 @@ static int ks8995_probe(struct spi_device *spi)
- 		return err;
- 	}
++	cmd = create_spi_cmd(ks, KS8995_CMD_READ, offset);
+ 	spi_message_init(&m);
  
--	err = ks8995_read(ks, ids, KS8995_REG_ID0, sizeof(ids));
--	if (err < 0) {
--		dev_err(&spi->dev, "unable to read id registers, err=%d\n",
--				err);
-+	err = ks8995_get_revision(ks);
-+	if (err)
- 		return err;
--	}
+ 	memset(&t, 0, sizeof(t));
+ 
+-	t[0].tx_buf = cmd;
++	t[0].tx_buf = &cmd;
+ 	t[0].len = sizeof(cmd);
+ 	spi_message_add_tail(&t[0], &m);
+ 
+@@ -174,9 +204,6 @@ static int ks8995_read(struct ks8995_switch *ks, char *buf,
+ 	t[1].len = count;
+ 	spi_message_add_tail(&t[1], &m);
+ 
+-	cmd[0] = KS8995_CMD_READ;
+-	cmd[1] = offset;
 -
--	switch (ids[0]) {
--	case FAMILY_KS8995:
--		break;
--	default:
--		dev_err(&spi->dev, "unknown family id:%02x\n", ids[0]);
--		return -ENODEV;
--	}
- 
- 	ks->regs_attr.size = ks->chip->regs_size;
- 	memcpy(&ks->regs_attr, &ks8995_registers_attr, sizeof(ks->regs_attr));
--	if (get_chip_id(ids[1]) != CHIPID_M) {
--		u8 val;
--
--		/* Check if this is a KSZ8864RMN */
--		err = ks8995_read(ks, &val, KSZ8864_REG_ID1, sizeof(val));
--		if (err < 0) {
--			dev_err(&spi->dev,
--				"unable to read chip id register, err=%d\n",
--				err);
--			return err;
--		}
--		if ((val & 0x80) == 0) {
--			dev_err(&spi->dev, "unknown chip:%02x,0\n", ids[1]);
--			return err;
--		}
--	}
- 
- 	err = ks8995_reset(ks);
- 	if (err)
-@@ -354,14 +402,8 @@ static int ks8995_probe(struct spi_device *spi)
- 		return err;
- 	}
- 
--	if (get_chip_id(ids[1]) == CHIPID_M) {
--		dev_info(&spi->dev,
--			 "KS8995 device found, Chip ID:%x, Revision:%x\n",
--			 get_chip_id(ids[1]), get_chip_rev(ids[1]));
--	} else {
--		dev_info(&spi->dev, "KSZ8864 device found, Revision:%x\n",
--			 get_chip_rev(ids[1]));
--	}
-+	dev_info(&spi->dev, "%s device found, Chip ID:%x, Revision:%x\n",
-+		 ks->chip->name, ks->chip->chip_id, ks->revision_id);
- 
- 	return 0;
+ 	mutex_lock(&ks->lock);
+ 	err = spi_sync(ks->spi, &m);
+ 	mutex_unlock(&ks->lock);
+@@ -184,20 +211,20 @@ static int ks8995_read(struct ks8995_switch *ks, char *buf,
+ 	return err ? err : count;
  }
+ 
+-
+ static int ks8995_write(struct ks8995_switch *ks, char *buf,
+ 		 unsigned offset, size_t count)
+ {
+-	u8 cmd[2];
++	__be16 cmd;
+ 	struct spi_transfer t[2];
+ 	struct spi_message m;
+ 	int err;
+ 
++	cmd = create_spi_cmd(ks, KS8995_CMD_WRITE, offset);
+ 	spi_message_init(&m);
+ 
+ 	memset(&t, 0, sizeof(t));
+ 
+-	t[0].tx_buf = cmd;
++	t[0].tx_buf = &cmd;
+ 	t[0].len = sizeof(cmd);
+ 	spi_message_add_tail(&t[0], &m);
+ 
+@@ -205,9 +232,6 @@ static int ks8995_write(struct ks8995_switch *ks, char *buf,
+ 	t[1].len = count;
+ 	spi_message_add_tail(&t[1], &m);
+ 
+-	cmd[0] = KS8995_CMD_WRITE;
+-	cmd[1] = offset;
+-
+ 	mutex_lock(&ks->lock);
+ 	err = spi_sync(ks->spi, &m);
+ 	mutex_unlock(&ks->lock);
 -- 
 2.1.4
