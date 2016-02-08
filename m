@@ -1,7 +1,7 @@
 From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-Subject: [PATCH v2 3/6] net: phy: spi_ks8995: add support for resetting switch using GPIO
-Date: Mon,  8 Feb 2016 18:35:34 +0100
-Message-ID: <1454952937-19428-4-git-send-email-helmut.buchsbaum@gmail.com>
+Subject: [PATCH v2 1/6] net: phy: spi_ks8995: introduce spi_device_id table
+Date: Mon,  8 Feb 2016 18:35:32 +0100
+Message-ID: <1454952937-19428-2-git-send-email-helmut.buchsbaum@gmail.com>
 References: <1454952937-19428-1-git-send-email-helmut.buchsbaum@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
@@ -9,155 +9,130 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36431 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751197AbcBHRfy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 12:35:54 -0500
-Received: by mail-wm0-f65.google.com with SMTP id 128so16470775wmz.3
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 09:35:54 -0800 (PST)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36408 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753540AbcBHRfw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 12:35:52 -0500
+Received: by mail-wm0-f67.google.com with SMTP id 128so16470584wmz.3
+        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 09:35:51 -0800 (PST)
 In-Reply-To: <1454952937-19428-1-git-send-email-helmut.buchsbaum@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using device tree it is no more possible to reset the PHY at board
-level. Furthermore, doing in the driver allows to power down the switch
-when it is not used any more.
-
-The patch introduces a new optional property "reset-gpios" denoting an
-appropriate GPIO handle, e.g.:
-
-reset-gpios = <&gpio0 46 1>
+Refactor to use spi_device_id table to facilitate easy
+extendability.
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
 ---
- drivers/net/phy/spi_ks8995.c | 71 ++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 62 insertions(+), 9 deletions(-)
+ drivers/net/phy/spi_ks8995.c | 42 ++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 40 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index 2803c8e..04d468f 100644
+index f091d69..e848ad9 100644
 --- a/drivers/net/phy/spi_ks8995.c
 +++ b/drivers/net/phy/spi_ks8995.c
-@@ -18,6 +18,9 @@
- #include <linux/module.h>
- #include <linux/delay.h>
- #include <linux/device.h>
-+#include <linux/of.h>
-+#include <linux/gpio.h>
-+#include <linux/of_gpio.h>
+@@ -89,6 +89,28 @@
  
- #include <linux/spi/spi.h>
+ #define KS8995_RESET_DELAY	10 /* usec */
  
-@@ -120,7 +123,8 @@ static const struct ks8995_chip_params ks8995_chip[] = {
- };
- 
++enum ks8995_chip_variant {
++	ks8995,
++	ksz8864,
++	max_variant
++};
++
++struct ks8995_chip_params {
++	char *name;
++	int regs_size;
++};
++
++static const struct ks8995_chip_params ks8995_chip[] = {
++	[ks8995] = {
++		.name = "KS8995MA",
++		.regs_size = KS8995_REGS_SIZE,
++	},
++	[ksz8864] = {
++		.name = "KSZ8864RMN",
++		.regs_size = KSZ8864_REGS_SIZE,
++	},
++};
++
  struct ks8995_pdata {
--	/* not yet implemented */
-+	int reset_gpio;
-+	enum of_gpio_flags reset_gpio_flags;
+ 	/* not yet implemented */
+ };
+@@ -98,8 +120,16 @@ struct ks8995_switch {
+ 	struct mutex		lock;
+ 	struct ks8995_pdata	*pdata;
+ 	struct bin_attribute	regs_attr;
++	const struct ks8995_chip_params	*chip;
  };
  
- struct ks8995_switch {
-@@ -339,6 +343,24 @@ err_out:
- 	return err;
- }
++static const struct spi_device_id ks8995_id[] = {
++	{"ks8995", ks8995},
++	{"ksz8864", ksz8864},
++	{ }
++};
++MODULE_DEVICE_TABLE(spi, ks8995_id);
++
+ static inline u8 get_chip_id(u8 val)
+ {
+ 	return (val >> ID1_CHIPID_S) & ID1_CHIPID_M;
+@@ -244,17 +274,22 @@ static const struct bin_attribute ks8995_registers_attr = {
+ };
  
-+/* ks8995_parse_dt - setup platform data from devicetree
-+ * @ks: pointer to switch instance
-+ *
-+ * Parses supported DT properties and sets up platform data
-+ * accordingly.
-+ */
-+static void ks8995_parse_dt(struct ks8995_switch *ks)
-+{
-+	struct device_node *np = ks->spi->dev.of_node;
-+	struct ks8995_pdata *pdata = ks->pdata;
-+
-+	if (!np)
-+		return;
-+
-+	pdata->reset_gpio = of_get_named_gpio_flags(np, "reset-gpios", 0,
-+		&pdata->reset_gpio_flags);
-+}
-+
- static const struct bin_attribute ks8995_registers_attr = {
- 	.attr = {
- 		.name   = "registers",
-@@ -352,14 +374,10 @@ static const struct bin_attribute ks8995_registers_attr = {
  /* ------------------------------------------------------------------------ */
+-
  static int ks8995_probe(struct spi_device *spi)
  {
--	struct ks8995_switch    *ks;
--	struct ks8995_pdata     *pdata;
--	int     err;
-+	struct ks8995_switch *ks;
-+	int err;
- 	int variant = spi_get_device_id(spi)->driver_data;
+ 	struct ks8995_switch    *ks;
+ 	struct ks8995_pdata     *pdata;
+ 	u8      ids[2];
+ 	int     err;
++	int variant = spi_get_device_id(spi)->driver_data;
  
--	/* Chip description */
--	pdata = spi->dev.platform_data;
--
- 	if (variant >= max_variant) {
- 		dev_err(&spi->dev, "bad chip variant %d\n", variant);
- 		return -ENODEV;
-@@ -370,10 +388,42 @@ static int ks8995_probe(struct spi_device *spi)
+ 	/* Chip description */
+ 	pdata = spi->dev.platform_data;
+ 
++	if (variant >= max_variant) {
++		dev_err(&spi->dev, "bad chip variant %d\n", variant);
++		return -ENODEV;
++	}
++
+ 	ks = devm_kzalloc(&spi->dev, sizeof(*ks), GFP_KERNEL);
+ 	if (!ks)
  		return -ENOMEM;
- 
+@@ -262,6 +297,8 @@ static int ks8995_probe(struct spi_device *spi)
  	mutex_init(&ks->lock);
--	ks->pdata = pdata;
+ 	ks->pdata = pdata;
  	ks->spi = spi_dev_get(spi);
- 	ks->chip = &ks8995_chip[variant];
- 
-+	if (ks->spi->dev.of_node) {
-+		ks->pdata = devm_kzalloc(&spi->dev, sizeof(*ks->pdata),
-+					 GFP_KERNEL);
-+		if (!ks->pdata)
-+			return -ENOMEM;
-+
-+		ks->pdata->reset_gpio = -1;
-+
-+		ks8995_parse_dt(ks);
-+	}
-+
-+	if (!ks->pdata)
-+		ks->pdata = spi->dev.platform_data;
-+
-+	/* de-assert switch reset */
-+	if (ks->pdata && gpio_is_valid(ks->pdata->reset_gpio)) {
-+		unsigned long flags;
-+
-+		flags = (ks->pdata->reset_gpio_flags == OF_GPIO_ACTIVE_LOW ?
-+			 GPIOF_ACTIVE_LOW : 0);
-+
-+		err = devm_gpio_request_one(&spi->dev,
-+					    ks->pdata->reset_gpio,
-+					    flags, "switch-reset");
-+		if (err) {
-+			dev_err(&spi->dev,
-+				"failed to get reset-gpios: %d\n", err);
-+			return -EIO;
-+		}
-+
-+		gpiod_set_value(gpio_to_desc(ks->pdata->reset_gpio), 0);
-+	}
++	ks->chip = &ks8995_chip[variant];
 +
  	spi_set_drvdata(spi, ks);
  
  	spi->mode = SPI_MODE_0;
-@@ -414,11 +464,14 @@ static int ks8995_remove(struct spi_device *spi)
+@@ -287,6 +324,7 @@ static int ks8995_probe(struct spi_device *spi)
+ 		return -ENODEV;
+ 	}
  
- 	sysfs_remove_bin_file(&spi->dev.kobj, &ks->regs_attr);
++	ks->regs_attr.size = ks->chip->regs_size;
+ 	memcpy(&ks->regs_attr, &ks8995_registers_attr, sizeof(ks->regs_attr));
+ 	if (get_chip_id(ids[1]) != CHIPID_M) {
+ 		u8 val;
+@@ -303,7 +341,6 @@ static int ks8995_probe(struct spi_device *spi)
+ 			dev_err(&spi->dev, "unknown chip:%02x,0\n", ids[1]);
+ 			return err;
+ 		}
+-		ks->regs_attr.size = KSZ8864_REGS_SIZE;
+ 	}
  
-+	/* assert reset */
-+	if (ks->pdata && gpio_is_valid(ks->pdata->reset_gpio))
-+		gpiod_set_value(gpio_to_desc(ks->pdata->reset_gpio), 1);
-+
- 	return 0;
- }
+ 	err = ks8995_reset(ks);
+@@ -347,6 +384,7 @@ static struct spi_driver ks8995_driver = {
+ 	},
+ 	.probe	  = ks8995_probe,
+ 	.remove	  = ks8995_remove,
++	.id_table = ks8995_id,
+ };
  
- /* ------------------------------------------------------------------------ */
--
- static struct spi_driver ks8995_driver = {
- 	.driver = {
- 		.name	    = "spi-ks8995",
+ module_spi_driver(ks8995_driver);
 -- 
 2.1.4
