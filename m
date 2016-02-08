@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v7 07/19] net: usnic: use __ethtool_get_ksettings
-Date: Sun,  7 Feb 2016 17:08:51 -0800
-Message-ID: <1454893743-6285-8-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v7 11/19] net: team: use __ethtool_get_ksettings
+Date: Sun,  7 Feb 2016 17:08:55 -0800
+Message-ID: <1454893743-6285-12-git-send-email-ddecotig@gmail.com>
 References: <1454893743-6285-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
         Eugenia Emantayev <eugenia@mellanox.co.il>,
@@ -42,38 +42,29 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/infiniband/hw/usnic/usnic_ib_verbs.c | 8 ++++----
+ drivers/net/team/team.c | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-index 1cf19a3..e90dc64 100644
---- a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-+++ b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-@@ -324,12 +324,12 @@ int usnic_ib_query_port(struct ib_device *ibdev, u8 port,
- 				struct ib_port_attr *props)
- {
- 	struct usnic_ib_dev *us_ibdev = to_usdev(ibdev);
--	struct ethtool_cmd cmd;
-+	struct ethtool_ksettings cmd;
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 00558e1..7f96eca7 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -2813,12 +2813,12 @@ static void __team_port_change_send(struct team_port *port, bool linkup)
+ 	port->state.linkup = linkup;
+ 	team_refresh_port_linkup(port);
+ 	if (linkup) {
+-		struct ethtool_cmd ecmd;
++		struct ethtool_ksettings ecmd;
  
- 	usnic_dbg("\n");
- 
- 	mutex_lock(&us_ibdev->usdev_lock);
--	__ethtool_get_settings(us_ibdev->netdev, &cmd);
-+	__ethtool_get_ksettings(us_ibdev->netdev, &cmd);
- 	memset(props, 0, sizeof(*props));
- 
- 	props->lid = 0;
-@@ -353,8 +353,8 @@ int usnic_ib_query_port(struct ib_device *ibdev, u8 port,
- 	props->pkey_tbl_len = 1;
- 	props->bad_pkey_cntr = 0;
- 	props->qkey_viol_cntr = 0;
--	eth_speed_to_ib_speed(cmd.speed, &props->active_speed,
--				&props->active_width);
-+	eth_speed_to_ib_speed(cmd.parent.speed, &props->active_speed,
-+			      &props->active_width);
- 	props->max_mtu = IB_MTU_4096;
- 	props->active_mtu = iboe_get_mtu(us_ibdev->ufdev->mtu);
- 	/* Userspace will adjust for hdrs */
+-		err = __ethtool_get_settings(port->dev, &ecmd);
++		err = __ethtool_get_ksettings(port->dev, &ecmd);
+ 		if (!err) {
+-			port->state.speed = ethtool_cmd_speed(&ecmd);
+-			port->state.duplex = ecmd.duplex;
++			port->state.speed = ecmd.parent.speed;
++			port->state.duplex = ecmd.parent.duplex;
+ 			goto send_event;
+ 		}
+ 	}
 -- 
 2.7.0.rc3.207.g0ac5344
