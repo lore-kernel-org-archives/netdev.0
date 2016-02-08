@@ -1,49 +1,48 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH next 2/3] ipvlan: mode is u16
-Date: Mon, 8 Feb 2016 14:14:54 -0800
-Message-ID: <CAF2d9jjXdmJQpzxVYvBKrfdo+-9Qb_6xwSO7Uzsrfq5QgPmkMw@mail.gmail.com>
-References: <1454440830-2108-1-git-send-email-mahesh@bandewar.net> <20160207.141911.1789162712081045670.davem@davemloft.net>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH 3/4] ethtool: can't set combined and tx/rx channel
+ counts at the same time
+Date: Mon, 8 Feb 2016 22:15:09 +0000
+Message-ID: <1454969709.25441.23.camel@intel.com>
+References: <1454961965-15116-1-git-send-email-jacob.e.keller@intel.com>
+	 <1454961965-15116-4-git-send-email-jacob.e.keller@intel.com>
+	 <20160208205247.74aaaee8@jkicinski-Precision-T1700>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: mahesh@bandewar.net, Eric Dumazet <edumazet@google.com>,
-	linux-netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "moorray3@wp.pl" <moorray3@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f181.google.com ([209.85.161.181]:36178 "EHLO
-	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754115AbcBHWPO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 17:15:14 -0500
-Received: by mail-yw0-f181.google.com with SMTP id q190so113591896ywd.3
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 14:15:14 -0800 (PST)
-In-Reply-To: <20160207.141911.1789162712081045670.davem@davemloft.net>
+Received: from mga14.intel.com ([192.55.52.115]:2431 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754457AbcBHWPL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Feb 2016 17:15:11 -0500
+In-Reply-To: <20160208205247.74aaaee8@jkicinski-Precision-T1700>
+Content-Language: en-US
+Content-ID: <F4B62FE260B42D4D8E3A54481249D8DC@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 7, 2016 at 11:19 AM, David Miller <davem@davemloft.net> wrote:
-> From: Mahesh Bandewar <mahesh@bandewar.net>
-> Date: Tue,  2 Feb 2016 11:20:30 -0800
->
->> From: Mahesh Bandewar <maheshb@google.com>
->>
->> The mode argument was erronusly defined as u32 but it has always
->> been u16.
->>
->> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->
-> This patch is changing more than this.
->
-> Specifically it is invoking ipvlan_set_port_mode() instead of assigning
-> port->mode directly in ipvlan_link_new().
->
-> That minimally needs to be documented in the commit log message.
->
-> But I also wonder if for some reason in this conect the direct
-> assignment happens to be fine.  That's pretty much why you should
-> explain things.
-
-Directly assigning does serve the same purpose, however when there is
-a helper to do just that (and other things in future) it would help
-keep all related things at one place avoiding errors in future. Since
-it's a minor improvement I did not mention that into the commit log.
-
-I'll update the commit log and resend.
+T24gTW9uLCAyMDE2LTAyLTA4IGF0IDIwOjUyICswMDAwLCBKYWt1YiBLaWNpbnNraSB3cm90ZToN
+Cj4gT24gTW9uLMKgwqA4IEZlYiAyMDE2IDEyOjA2OjA0IC0wODAwLCBKYWNvYiBLZWxsZXIgd3Jv
+dGU6DQo+ID4gKwkvKiBjYW4ndCBzZXQgY29tYmluZWQgYW5kIHNlcGFyYXRlIGNoYW5uZWxzIGF0
+IHRoZSBzYW1lDQo+ID4gdGltZSAqLw0KPiA+ICsJaWYgKChjaGFubmVscy5jb21iaW5lZF9jb3Vu
+dCAmJg0KPiA+ICsJwqDCoMKgwqDCoChjaGFubmVscy5yeF9jb3VudCB8fCBjaGFubmVscy50eF9j
+b3VudCkpDQo+ID4gKwnCoMKgwqDCoHJldHVybiAtRUlOVkFMOw0KPiA+ICsNCj4gPiDCoAkvKiBl
+bnN1cmUgdGhlIG5ldyBSeCBjb3VudCBmaXRzIHdpdGhpbiB0aGUgY29uZmlndXJlZCBSeA0KPiA+
+IGZsb3cNCj4gPiDCoAnCoCogaW5kaXJlY3Rpb24gdGFibGUgc2V0dGluZ3MgKi8NCj4gPiDCoAlp
+ZiAobmV0aWZfaXNfcnhmaF9jb25maWd1cmVkKGRldikgJiYNCj4gDQo+IE15IHVuZGVyc3RhbmRp
+bmcgaXMgdGhhdCB1bnN5bW1ldHJpY2FsIHJ4L3R4IHF1ZXVlIGNvbmZpZ3VyYXRpb24gd2l0aA0K
+PiBjb21iaW5lZCBJUlEgdmVjdG9ycyBzaG91bGQgYmUgZXhwcmVzc2VkIGFzOg0KPiANCj4gY29t
+YmluZWQgPSBtaW4odHgsIHJ4KTsNCj4gbnVtX3R4ID0gdHggLSBjb21iaW5lZDsNCj4gbnVtX3J4
+ID0gcnggLSBjb21iaW5lZDsNCj4gDQo+IFBsZWFzZSBzZWU6DQo+IA0KPiBodHRwczovL3d3dy5t
+YWlsLWFyY2hpdmUuY29tL25ldGRldkB2Z2VyLmtlcm5lbC5vcmcvbXNnOTM5NzcuaHRtbA0KPiAN
+Cj4gUGF0Y2hlcyB3aGljaCBJIGNvb2tlZCB1cCBmb3IgdGhpcyBhcmUgcm90dGluZyBpbiBteSBx
+dWV1ZSBibG9ja2VkIGJ5DQo+IG90aGVyIHRoaW5ncywgdW5mb3J0dW5hdGVseS4NCg0KDQpJdCBs
+b29rcyBsaWtlIHRoZXJlIHdhcyBubyBmb2xsb3cgdXAgZnJvbSB5b3VyIHByZXZpb3VzIGNvbW1l
+bnQ/DQoNCkkgdGhpbmsgdGhpcyBsb29rcyByaWdodCwgaW4gd2hpY2ggY2FzZSBteSBwYXRjaCBz
+aG91bGQgYmUgZHJvcHBlZC4gSQ0KZG8gbm90IHRoaW5rIHRoYXQgLm1heF9yeCBhbmQgLm1heF90
+eCBpbmNsdWRlIHRoZSB0b3RhbCBmb3IgYm90aCBUeCBhbmQNClJ4IG1heGltdW1zLCB0aG91Z2gs
+IHNvIEkgYW0gbm90IHN1cmUgYmVzdCBob3cgdG8gZXhwcmVzcyB0aGUNCnBvc3NpYmlsaXR5Lg0K
+DQpGb3Igbm93LCBJJ2xsIGp1c3QgZHJvcCB0aGlzIHBhdGNoIGZyb20gdGhlIHNlcmllcy4NCg0K
+UmVnYXJkcywNCkpha2U=
