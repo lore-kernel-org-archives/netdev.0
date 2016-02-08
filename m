@@ -1,43 +1,44 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2] iplink: bond_slave: fix
- ad_actor/partner_oper_port_state output
-Date: Mon, 8 Feb 2016 21:56:32 +0100
-Message-ID: <56B90100.6@cumulusnetworks.com>
-References: <1454948038-1090-1-git-send-email-razor@blackwall.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: stannous@cumulusnetworks.com, roopa@cumulusnetworks.com,
-	stephen@networkplumber.org
-To: Nikolay Aleksandrov <razor@blackwall.org>, netdev@vger.kernel.org
+From: Nikolay Borisov <kernel@kyup.com>
+Subject: [PATCH 0/4] Make igmp sysctl knobs namespace aware
+Date: Mon,  8 Feb 2016 23:29:20 +0200
+Message-ID: <1454966964-13559-1-git-send-email-kernel@kyup.com>
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org, edumazet@google.com,
+	pdowney@brocade.com, dsa@cumulusnetworks.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:33122 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755218AbcBHU4f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 15:56:35 -0500
-Received: by mail-wm0-f42.google.com with SMTP id g62so149529778wme.0
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 12:56:35 -0800 (PST)
-In-Reply-To: <1454948038-1090-1-git-send-email-razor@blackwall.org>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:38656 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932095AbcBHV33 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 16:29:29 -0500
+Received: by mail-wm0-f46.google.com with SMTP id p63so134100148wmp.1
+        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 13:29:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/08/2016 05:13 PM, Nikolay Aleksandrov wrote:
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> It seems that I've made a mistake when I exported these, instead of a
-> space in the end I've put a newline character which is wrong and breaks
-> the single line output.
-> 
-> Fixes: 7d6bc3b87abad ("bonding: export 3ad actor and partner port state")
-> Reported-by: Sam Tannous <stannous@cumulusnetworks.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
->  ip/iplink_bond_slave.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
+This series continue making more of the net related sysctls
+namespace aware. The first 2 and last patches are straight 
+forward and convert sysctls which weren't defined to be 
+namespace aware. The only thing in them is that each removes 
+a define which is used in only one place (to initialise 
+the respective sysctl) so I don't think this is a huge loss. 
 
-I'm not sure if this patch is appropriate as there might be scripts that already
-parse it like this (with newline at the end). So if it's not acceptable I can suggest
-a different approach where iplink_bond_slave will account for the "oneline" argument
-and only then print it with a space so people will have an option. But currently
-this breaks the one line "way" of printing that all other iplink users are doing.
+The third patch however, converts igmp_llm_reports which was
+already defined in the ipv4_net_table but wasn't using any of 
+the net namespace infrastructure. 
+
+Nikolay Borisov (4):
+  igmp: Namespaceify igmp_max_memberships sysctl knob
+  igmp: Namespaceify igmp_max_msf sysctl knob
+  igmp: Namespaceify igmp_llm_reports sysctl knob
+  igmp: Namespacify igmp_qrv sysctl knob
+
+ include/linux/igmp.h       |  5 ----
+ include/net/netns/ipv4.h   |  5 ++++
+ net/ipv4/igmp.c            | 64 ++++++++++++++++++++++++----------------------
+ net/ipv4/ip_sockglue.c     |  5 ++--
+ net/ipv4/sysctl_net_ipv4.c | 50 ++++++++++++++++++------------------
+ net/ipv4/tcp_ipv4.c        |  6 +++++
+ 6 files changed, 73 insertions(+), 62 deletions(-)
+
+-- 
+2.5.0
