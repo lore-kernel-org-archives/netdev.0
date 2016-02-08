@@ -1,69 +1,69 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [RFC PATCH net-next 2/3] macvlan: add queue selection functionality
-Date: Sun,  7 Feb 2016 22:14:55 -0500
-Message-ID: <1454901296-9915-3-git-send-email-vyasevic@redhat.com>
-References: <1454901296-9915-1-git-send-email-vyasevic@redhat.com>
-Cc: jasowang@redhat.com, mst@redhat.com,
-	Vladislav Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f66.google.com ([209.85.192.66]:36618 "EHLO
-	mail-qg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755222AbcBHDPG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2016 22:15:06 -0500
-Received: by mail-qg0-f66.google.com with SMTP id 14so2220058qgg.3
-        for <netdev@vger.kernel.org>; Sun, 07 Feb 2016 19:15:06 -0800 (PST)
-In-Reply-To: <1454901296-9915-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [V4.4-rc6 Regression] af_unix: Revert 'lock_interruptible' in
+ stream receive code
+Date: Sun, 07 Feb 2016 19:35:02 -0800
+Message-ID: <1454902502.7627.360.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <56B4EF04.2060407@canonical.com>
+	 <87bn7ude8g.fsf@doppelsaurus.mobileactivedefense.com>
+	 <1454713398.7627.325.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <8737t4jr99.fsf@doppelsaurus.mobileactivedefense.com>
+	 <87io20upk9.fsf@doppelsaurus.mobileactivedefense.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, hannes@stressinduktion.org,
+	edumazet@google.com, dhowells@redhat.com, ying.xue@windriver.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87io20upk9.fsf@doppelsaurus.mobileactivedefense.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds a simple queue selection function to macvlan
-layer.  In most cases, this will just use the standard fallback
-fuction, but when rx-queue has been recoreded we'll try to use
-that value.
+On Sun, 2016-02-07 at 22:24 +0000, Rainer Weikusat wrote:
+> Rainer Weikusat <rw@doppelsaurus.mobileactivedefense.com> writes:
+> 
+> [...]
+> 
+> > The start uses that to record an error which might need to be
+> > reported, the return statement uses it to indicate that an error has
+> > occurred. Hence, some kind of in-between translation must occur.  The
+> > mutex_lock_interruptible happened to do that but that was never it's
+> > intended purpose.
+> 
+> Additional information: The 'trick' of using recvmsg w/o a receive
+> buffer in order to retrieve control messages in fact wouldn't have
+> worked with the unix_stream_recvmsg prior to introduction of the
+> interruptible lock as that (judging from the git source) would have
+> triggered all the same issues,
+> 
+> 	- -EOPNOTSUP if a msg was available
+> 
+>         - -EAGAIN if the code had to wait
+> 
+>         - not receiving the creds if the -EAGAIN hadn't happened because
+>           of the continue (that's the other patch)
+> 
+> IOW, that's a feature inadvertendly added by an otherwise useless code
+> change (mea culpa).
 
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
----
- drivers/net/macvlan.c | 20 ++++++++++++++++++++
- 1 file changed, 20 insertions(+)
+This is exactly the needed information for stable teams.
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 94e6888..213d587 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -1018,6 +1018,25 @@ static int macvlan_dev_get_iflink(const struct net_device *dev)
- 	return vlan->lowerdev->ifindex;
- }
- 
-+static u16 macvlan_select_queue(struct net_device *dev,
-+				struct sk_buff *skb,
-+				void *accel_priv,
-+				select_queue_fallback_t fallback)
-+{
-+	u16 txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) : 0;
-+
-+	if (!txq)
-+		return fallback(dev, skb);
-+
-+	if (unlikely(txq >= dev->real_num_tx_queues)) {
-+		do {
-+			txq -= dev->real_num_tx_queues;
-+		} while (txq >= dev->real_num_tx_queues);
-+	}
-+	return txq;
-+}
-+
-+
- static const struct ethtool_ops macvlan_ethtool_ops = {
- 	.get_link		= ethtool_op_get_link,
- 	.get_settings		= macvlan_ethtool_get_settings,
-@@ -1048,6 +1067,7 @@ static const struct net_device_ops macvlan_netdev_ops = {
- 	.ndo_netpoll_setup	= macvlan_dev_netpoll_setup,
- 	.ndo_netpoll_cleanup	= macvlan_dev_netpoll_cleanup,
- #endif
-+	.ndo_select_queue	= macvlan_select_queue,
- 	.ndo_get_iflink		= macvlan_dev_get_iflink,
- 	.ndo_features_check	= passthru_features_check,
- };
--- 
-2.1.0
+Goal is here is not to blame someone (you, me ... it does not matter) ,
+but give to stable teams the point the problem showed up.
+
+See the 'Fixes' tag as a time saver for people like me.
+
+It is incredibly useful when hutting bugs, because each commit can
+easily point to the 'bug origin'.
+
+Having spent time lately in af_unix code insanity, I really can tell.
+
+At the time someone fixes a bug, he/she has a clear view of what is
+happening, but months later, he/she often has to start again the commits
+analysis.
+
+Thanks a lot.
