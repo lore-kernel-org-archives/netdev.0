@@ -1,138 +1,64 @@
-From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-Subject: [PATCH v2 1/6] net: phy: spi_ks8995: introduce spi_device_id table
-Date: Mon,  8 Feb 2016 18:35:32 +0100
-Message-ID: <1454952937-19428-2-git-send-email-helmut.buchsbaum@gmail.com>
-References: <1454952937-19428-1-git-send-email-helmut.buchsbaum@gmail.com>
-Cc: netdev@vger.kernel.org,
-	Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36408 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753540AbcBHRfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 12:35:52 -0500
-Received: by mail-wm0-f67.google.com with SMTP id 128so16470584wmz.3
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 09:35:51 -0800 (PST)
-In-Reply-To: <1454952937-19428-1-git-send-email-helmut.buchsbaum@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@gmail.com>
+Subject: Re: [PATCH 8/9] rfkill: Userspace control for airplane mode
+Date: Mon, 8 Feb 2016 12:22:32 -0500
+Message-ID: <CA+A7VXVrbixa+DqiOfzuBkCTVy+f0GOTqiMqXs1sekXu1Q7ekQ@mail.gmail.com>
+References: <1454946096-9752-1-git-send-email-jprvita@endlessm.com>
+ <1454946096-9752-9-git-send-email-jprvita@endlessm.com> <1454947887.5325.8.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Darren Hart <dvhart@infradead.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	linux@endlessm.com,
+	=?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@endlessm.com>
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
+In-Reply-To: <1454947887.5325.8.camel@redhat.com>
+Sender: platform-driver-x86-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Refactor to use spi_device_id table to facilitate easy
-extendability.
+On 8 February 2016 at 11:11, Dan Williams <dcbw@redhat.com> wrote:
+> On Mon, 2016-02-08 at 10:41 -0500, Jo=C3=A3o Paulo Rechi Vita wrote:
+>> Provide an interface for the airplane-mode indicator be controlled
+>> from
+>> userspace. User has to first acquire the control through
+>> RFKILL_OP_AIRPLANE_MODE_ACQUIRE and keep the fd open for the whole
+>> time
+>> it wants to be in control of the indicator. Closing the fd or using
+>> RFKILL_OP_AIRPLANE_MODE_RELEASE restores the default policy.
+>>
+>> To change state of the indicator, the RFKILL_OP_AIRPLANE_MODE_CHANGE
+>> operation is used, passing the value on "struct rfkill_event.soft".
+>> If
+>> the caller has not acquired the airplane-mode control beforehand, th=
+e
+>> operation fails.
+>
+> I'd like to clarify a bit, so tell me if I'm correct or not.  Using
+> RFKILL_OP_AIRPLANE_MODE_CHANGE does not actually change any device
+> state. It's just an indicator with no relationship to any of the
+> registered rfkill switches, right?
+>
 
-Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
----
- drivers/net/phy/spi_ks8995.c | 42 ++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 40 insertions(+), 2 deletions(-)
+Yes, that's correct, and it is the intended behavior.
 
-diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index f091d69..e848ad9 100644
---- a/drivers/net/phy/spi_ks8995.c
-+++ b/drivers/net/phy/spi_ks8995.c
-@@ -89,6 +89,28 @@
- 
- #define KS8995_RESET_DELAY	10 /* usec */
- 
-+enum ks8995_chip_variant {
-+	ks8995,
-+	ksz8864,
-+	max_variant
-+};
-+
-+struct ks8995_chip_params {
-+	char *name;
-+	int regs_size;
-+};
-+
-+static const struct ks8995_chip_params ks8995_chip[] = {
-+	[ks8995] = {
-+		.name = "KS8995MA",
-+		.regs_size = KS8995_REGS_SIZE,
-+	},
-+	[ksz8864] = {
-+		.name = "KSZ8864RMN",
-+		.regs_size = KSZ8864_REGS_SIZE,
-+	},
-+};
-+
- struct ks8995_pdata {
- 	/* not yet implemented */
- };
-@@ -98,8 +120,16 @@ struct ks8995_switch {
- 	struct mutex		lock;
- 	struct ks8995_pdata	*pdata;
- 	struct bin_attribute	regs_attr;
-+	const struct ks8995_chip_params	*chip;
- };
- 
-+static const struct spi_device_id ks8995_id[] = {
-+	{"ks8995", ks8995},
-+	{"ksz8864", ksz8864},
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(spi, ks8995_id);
-+
- static inline u8 get_chip_id(u8 val)
- {
- 	return (val >> ID1_CHIPID_S) & ID1_CHIPID_M;
-@@ -244,17 +274,22 @@ static const struct bin_attribute ks8995_registers_attr = {
- };
- 
- /* ------------------------------------------------------------------------ */
--
- static int ks8995_probe(struct spi_device *spi)
- {
- 	struct ks8995_switch    *ks;
- 	struct ks8995_pdata     *pdata;
- 	u8      ids[2];
- 	int     err;
-+	int variant = spi_get_device_id(spi)->driver_data;
- 
- 	/* Chip description */
- 	pdata = spi->dev.platform_data;
- 
-+	if (variant >= max_variant) {
-+		dev_err(&spi->dev, "bad chip variant %d\n", variant);
-+		return -ENODEV;
-+	}
-+
- 	ks = devm_kzalloc(&spi->dev, sizeof(*ks), GFP_KERNEL);
- 	if (!ks)
- 		return -ENOMEM;
-@@ -262,6 +297,8 @@ static int ks8995_probe(struct spi_device *spi)
- 	mutex_init(&ks->lock);
- 	ks->pdata = pdata;
- 	ks->spi = spi_dev_get(spi);
-+	ks->chip = &ks8995_chip[variant];
-+
- 	spi_set_drvdata(spi, ks);
- 
- 	spi->mode = SPI_MODE_0;
-@@ -287,6 +324,7 @@ static int ks8995_probe(struct spi_device *spi)
- 		return -ENODEV;
- 	}
- 
-+	ks->regs_attr.size = ks->chip->regs_size;
- 	memcpy(&ks->regs_attr, &ks8995_registers_attr, sizeof(ks->regs_attr));
- 	if (get_chip_id(ids[1]) != CHIPID_M) {
- 		u8 val;
-@@ -303,7 +341,6 @@ static int ks8995_probe(struct spi_device *spi)
- 			dev_err(&spi->dev, "unknown chip:%02x,0\n", ids[1]);
- 			return err;
- 		}
--		ks->regs_attr.size = KSZ8864_REGS_SIZE;
- 	}
- 
- 	err = ks8995_reset(ks);
-@@ -347,6 +384,7 @@ static struct spi_driver ks8995_driver = {
- 	},
- 	.probe	  = ks8995_probe,
- 	.remove	  = ks8995_remove,
-+	.id_table = ks8995_id,
- };
- 
- module_spi_driver(ks8995_driver);
--- 
-2.1.4
+> I wonder if setting RFKILL_OP_AIRPLANE_MODE_CHANGE(true) shouldn't al=
+so
+> softblock all switches, otherwise you can set airplane mode all day
+> long with RFKILL_OP_AIRPLANE_MODE_CHANGE and it doesn't actually enab=
+le
+> airplane mode at all?
+>
+
+The idea behind it is to just provide the mechanism for userspace to
+decide what exactly being in airplane mode means, so it would
+set/unset the indicator in the right moment.
+
+--
+Jo=C3=A3o Paulo Rechi Vita
+http://about.me/jprvita
