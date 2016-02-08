@@ -1,102 +1,40 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC 0/6] Introduce devlink interface and first
- drivers to use it
-Date: Mon, 8 Feb 2016 11:55:29 +0100
-Message-ID: <20160208105529.GB2090@nanopsycho.orion>
-References: <1454496482-13961-1-git-send-email-jiri@resnulli.us>
- <20160203143133.1b70bcb5@redhat.com>
- <20160203133356.GA2219@nanopsycho.orion>
- <56B219FA.7080208@iogearbox.net>
- <56B35089.4000707@stressinduktion.org>
- <20160204132622.GB2198@nanopsycho.orion>
- <56B472F2.6080101@stressinduktion.org>
- <20160205173841.GA23058@ast-mbp.thefacebook.com>
- <20160206194045.GA2282@nanopsycho.orion>
- <56B86ACA.1030704@stressinduktion.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 1/2] mpls: packet stats
+Date: Mon, 8 Feb 2016 11:51:34 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCDAD79@AcuExch.aculab.com>
+References: <1454700472-13543-1-git-send-email-rshearma@brocade.com>
+ <1454700472-13543-2-git-send-email-rshearma@brocade.com>
+ <20160206105843.GA27535@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, eugenia@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
-	jeffrey.t.kirsher@intel.com, jbenc@redhat.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>,
+	Robert Shearman <rshearma@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:34724 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751956AbcBHKzc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 05:55:32 -0500
-Received: by mail-wm0-f44.google.com with SMTP id 128so149563394wmz.1
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 02:55:31 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <56B86ACA.1030704@stressinduktion.org>
+Received: from smtp-out4.electric.net ([192.162.216.188]:50793 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750818AbcBHLyP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 06:54:15 -0500
+In-Reply-To: <20160206105843.GA27535@electric-eye.fr.zoreil.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Feb 08, 2016 at 11:15:38AM CET, hannes@stressinduktion.org wrote:
->Hello,
->
->On 06.02.2016 20:40, Jiri Pirko wrote:
->>Fri, Feb 05, 2016 at 06:38:42PM CET, alexei.starovoitov@gmail.com wrote:
->>>On Fri, Feb 05, 2016 at 11:01:22AM +0100, Hannes Frederic Sowa wrote:
->>>>
->>>>Okay. I see it more as changing mode of operation of hardware and thus has
->>>>not really anything to do with networking. If you say you change ethernet to
->>>>infiniband it has something to do with networking, sure. But I am fine with
->>>>this, I just thought the code size could be reduced by adding this to sysfs
->>>>quite a lot. I don't have a strong opinion on this.
->>>
->>>there is already a way to change eth/ib via
->>>echo 'eth' > /sys/bus/pci/drivers/mlx4_core/0000:02:00.0/mlx4_port1
->>>
->>>sounds like this is another way to achieve the same?
->>
->>It is. However the current way is driver-specific, not correct.
->
->Why is driver specific not correct? Actually it is very much a device
->specific thing, isn't it?
+From: Francois Romieu
+> Sent: 06 February 2016 10:59
+> > +void mpls_stats_inc_outucastpkts(struct net_device *dev,
+> > +				 const struct sk_buff *skb)
+> > +{
+> > +	struct mpls_dev *mdev;
+> > +	struct inet6_dev *in6dev;
+> 
+> Nit: the scope can be reduced for both variables.
 
-Well, adding driver specific sysfs file called "driver_name_port_type"
-does not seem correct to me.
+And hiding the definitions of variables in the middle of
+functions just makes them harder to find.	
 
->
->>For mlx5, we need the same, it cannot be done in this way. Do devlink is
->>the correct way to go.
->
->Do two drivers already justify a new complete netlink api? Doesn't this
->create the same problems like netdevice naming problems which needed multiple
->years to become stable in case we have multiple cards or some administrator
-
-The thing is, other driver would use it as well, but there's no way to
-do it :) So vendors have their proprietary configuration utils. Devlink
-objective is to avoid those, to introduce vendor-neutral interface.
-
-
->reorders the cards (biosdevorder, systemd/udev issues)? Are ports always
->stable? How can we have a 1:1 relationship with ifindexes and how can they be
->stable? It is impossible to use that in scripts?
-
-Port index is setup by driver always, they have stable internal
-numbering. devlink device name is not stable (as for example netdev
-name), but can be easily identified by bus name and device name. I don't
-see a reason why udev cannot rename it according to some rules. By the
-way, this is very similar to phyX wireless devices.
-
-
->
->>>Why not hide echo/cat in iproute2 instead of adding parallel netlink api?
->>>Or this is for switches instead of nics?
->>>Then why it's not adding to switchdev?
->>
->>Note this is not specific to switch ASICs. This is for all network devices.
->
->That's actually my fear. The relationship from "devlink-names" to ifindexes I
->didn't understand at all architecturally.
-
-Again, this is very similar to phyX wireless devices.
-I don't understand the reason for your fear :)
+	David
