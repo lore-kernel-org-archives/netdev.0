@@ -1,42 +1,107 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH 8/9] rfkill: Userspace control for airplane mode
-Date: Mon, 8 Feb 2016 11:20:24 -0500
-Message-ID: <F8D31DB3-94AF-47CC-8091-7B6478983B53@holtmann.org>
-References: <1454946096-9752-1-git-send-email-jprvita@endlessm.com> <1454946096-9752-9-git-send-email-jprvita@endlessm.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
-Content-Type: text/plain; charset=us-ascii
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: bonding reports interface up with 0 Mbps
+Date: Mon, 8 Feb 2016 16:30:25 +0000
+Message-ID: <87618083B2453E4A8714035B62D679925052534E@FMSMSX105.amr.corp.intel.com>
+References: <87618083B2453E4A8714035B62D6799250524233@FMSMSX105.amr.corp.intel.com>
+ <22896.1454617773@famine> <27926.1454632634@famine>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Darren Hart <dvhart-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	platform-driver-x86-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-6IF/jdPJHihWk0Htik3J/w@public.gmane.org,
-	=?utf-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
-To: =?utf-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1454946096-9752-9-git-send-email-jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	zhuyj <zyjzyj2000@gmail.com>,
+	"jiri@mellanox.com" <jiri@mellanox.com>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:45865 "EHLO mga04.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753416AbcBHQa1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 11:30:27 -0500
+In-Reply-To: <27926.1454632634@famine>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Joa Paulo,
+>-----Original Message-----
+>From: Jay Vosburgh [mailto:jay.vosburgh@canonical.com]
+>Sent: Thursday, February 04, 2016 4:37 PM
+>To: Tantilov, Emil S <emil.s.tantilov@intel.com>
+>Cc: netdev@vger.kernel.org; gospo@cumulusnetworks.com; zhuyj
+><zyjzyj2000@gmail.com>; jiri@mellanox.com
+>Subject: Re: bonding reports interface up with 0 Mbps
+>
+>Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
+>[...]
+>>	Thinking about the trace again... Emil: what happens in the
+>>trace before this?  Is there ever a call to the ixgbe_get_settings?
+>>Does a NETDEV_UP or NETDEV_CHANGE event ever hit the bond_netdev_event
+>>function?
+>
+>	Emil kindly sent me the trace offline, and I think I see what's
+>going on.  It looks like the sequence of events is:
+>
+>bond_enslave ->
+>	bond_update_speed_duplex (device is down, thus DUPLEX/SPEED_UNKNOWN)
+>	[ do rest of enslavement, start miimon periodic work ]
+>
+>	[ time passes, device goes carrier up ]
+>
+>ixgbe_service_task: eth1: NIC Link is Up 10 Gbps ->
+>	netif_carrier_on (arranges for NETDEV_CHANGE notifier out of line)
+>
+>	[ a few microseconds later ]
+>
+>bond_mii_monitor ->
+>	bond_check_dev_link	(now is carrier up)
+>	bond_miimon_commit ->	(emits "0 Mbps full duplex" message)
+>		bond_lower_state_changed ->
+>			bond_netdev_event (NETDEV_CHANGELOWERSTATE, is ignored)
+>		bond_3ad_handle_link_change	(sees DUPLEX/SPEED_UNKNOWN)
+>
+>	[ a few microseconds later, in response to ixgbe's netif_carrier_on ]
+>
+>notifier_call_chain ->
+>	bond_netdev_event NETDEV_CHANGE ->
+>		bond_update_speed_duplex (sees correct SPEED_10000/FULL) ->
+>			bond_3ad_adapter_speed_duplex_changed (updates 802.3ad)
+>
+>	Basically, the race is that the periodic bond_mii_monitor is
+>squeezing in between the link going up and bonding's update of the speed
+>and duplex in response to the NETDEV_CHANGE triggered by the driver's
+>netif_carrier_on call.  bonding ends up using the stale duplex and speed
+>information obtained at enslavement time.
+>
+>	I think that, nowadays, the initial speed and duplex will pretty
+>much always be UNKNOWN, at least for real Ethernet devices, because it
+>will take longer to autoneg than the time between the dev_open and
+>bond_update_speed_duplex calls in bond_enslave.
+>
+>	Adding a case to bond_netdev_event for CHANGELOWERSTATE works
+>because it's a synchronous call from bonding.  For purposes of fixing
+>this, it's more or less equivalent to calling bond_update_speed_duplex
+>from bond_miimon_commit (which is part of a test patch I posted earlier
+>today).
+>
+>	If the above analysis is correct, then I would expect this patch
+>to make the problem go away:
+>
+>diff --git a/drivers/net/bonding/bond_main.c
+>b/drivers/net/bonding/bond_main.c
+>index 56b560558884..cabaeb61333d 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -2127,6 +2127,7 @@ static void bond_miimon_commit(struct bonding *bond)
+> 			continue;
+>
+> 		case BOND_LINK_UP:
+>+			bond_update_speed_duplex(slave);
+> 			bond_set_slave_link_state(slave, BOND_LINK_UP,
+> 						  BOND_SLAVE_NOTIFY_NOW);
+> 			slave->last_link_up = jiffies;
 
-> Provide an interface for the airplane-mode indicator be controlled from
-> userspace. User has to first acquire the control through
-> RFKILL_OP_AIRPLANE_MODE_ACQUIRE and keep the fd open for the whole time
-> it wants to be in control of the indicator. Closing the fd or using
-> RFKILL_OP_AIRPLANE_MODE_RELEASE restores the default policy.
-> 
-> To change state of the indicator, the RFKILL_OP_AIRPLANE_MODE_CHANGE
-> operation is used, passing the value on "struct rfkill_event.soft". If
-> the caller has not acquired the airplane-mode control beforehand, the
-> operation fails.
+No issues seen over the weekend with this patch. The condition was hit 32 times.
 
-as explained in an earlier response, the concept Airplane Mode seems to be imposing policy into the kernel. Do we really want have this as a kernel exposed API.
+You can add my "tested-by:" when you submit this patch.
 
-Regards
-
-Marcel
+Thanks Jay for all your help!
+Emil
