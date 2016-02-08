@@ -1,56 +1,35 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 5/6] net: thunderx: bgx: Add log message when setting mac
- address
-Date: Mon, 8 Feb 2016 16:30:37 +0300
-Message-ID: <56B8987D.7000901@cogentembedded.com>
-References: <1454933272-45005-1-git-send-email-sunil.kovvuri@gmail.com>
- <1454933272-45005-6-git-send-email-sunil.kovvuri@gmail.com>
+From: Jakub Kicinski <moorray3@wp.pl>
+Subject: Re: [PATCH 2/2] fm10k: correctly report error when changing number
+ of channels
+Date: Mon, 8 Feb 2016 13:26:32 +0000
+Message-ID: <20160208132632.3010dee3@jkicinski-Precision-T1700>
+References: <1454704221-14238-1-git-send-email-jacob.e.keller@intel.com>
+	<1454704221-14238-3-git-send-email-jacob.e.keller@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	sgoutham@cavium.com, robert.richter@caviumnetworks.com,
-	Robert Richter <rrichter@cavium.com>
-To: sunil.kovvuri@gmail.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454933272-45005-6-git-send-email-sunil.kovvuri@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Jacob Keller <jacob.e.keller@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx4.wp.pl ([212.77.101.12]:18272 "EHLO mx4.wp.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751976AbcBHNdQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Feb 2016 08:33:16 -0500
+In-Reply-To: <1454704221-14238-3-git-send-email-jacob.e.keller@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi Jacob!
 
-On 2/8/2016 3:07 PM, sunil.kovvuri@gmail.com wrote:
+First of all thanks for putting your time into sorting this out,
+figuring out what to do with user-set RSS table when queues are
+reconfigured was a head scratcher for me as well.
 
-> From: Robert Richter <rrichter@cavium.com>
->
-> Signed-off-by: Robert Richter <rrichter@cavium.com>
-> Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
-> ---
->   drivers/net/ethernet/cavium/thunder/thunder_bgx.c |   11 ++++++++---
->   1 files changed, 8 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-> index 111835b..cfee496 100644
-> --- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-> +++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-[...]
-> @@ -897,10 +898,13 @@ static int acpi_get_mac_address(struct acpi_device *adev, u8 *dst)
->   		goto out;
->
->   	if (!is_valid_ether_addr(mac)) {
-> +		dev_warn(dev, "MAC address invalid: %pM\n", mac);
+On Fri,  5 Feb 2016 12:30:21 -0800, Jacob Keller wrote:
+> +#define FM10K_FLAG_RETA_TABLE_CONFIGURED	(u32)(BIT(6))
 
-    dev_er(), maybe?
+If we go with your proposal every driver will have to keep track of 
+how the RSS table was set and find max value on queue reconfig -
+replicating effort and leaving space for diverging behaviour...
 
->   		ret = -EINVAL;
->   		goto out;
->   	}
->
-> +	dev_info(dev, "MAC address set to: %pM\n", mac);
-> +
->   	memcpy(dst, mac, ETH_ALEN);
->   out:
->   	return ret;
-[...]
-
-MBR, Sergei
+Would it be worth considering to place more of this code in the core?
