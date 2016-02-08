@@ -1,56 +1,81 @@
 From: Jacob Keller <jacob.e.keller@intel.com>
-Subject: [PATCH 4/4] fm10k: don't reinitialize RSS flow table when RXFH configured
-Date: Mon,  8 Feb 2016 12:06:05 -0800
-Message-ID: <1454961965-15116-5-git-send-email-jacob.e.keller@intel.com>
-References: <1454961965-15116-1-git-send-email-jacob.e.keller@intel.com>
+Subject: [PATCH 0/3] ethtool: correct {GS}CHANNELS and {GS}RXFH conflict
+Date: Mon,  8 Feb 2016 12:06:01 -0800
+Message-ID: <1454961965-15116-1-git-send-email-jacob.e.keller@intel.com>
 Cc: mooray3@wp.pl, davem@davemloft.net,
 	Jacob Keller <jacob.e.keller@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:8053 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754739AbcBHUIk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Feb 2016 15:08:40 -0500
-In-Reply-To: <1454961965-15116-1-git-send-email-jacob.e.keller@intel.com>
+	id S1751435AbcBHUIj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Feb 2016 15:08:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also print an error message incase we do have to reconfigure as this
-should no longer happen anymore due to ethtool changes. If it somehow
-does occur, user should be made aware of it.
+This patch series fixes up ethtool_set_channels operation which
+allowed modifying the RXFH table indirectly by reducing the number of
+queues below the current max queue used by the Rx flow table. Most
+drivers incorrectly allowed this to destroy the Rx flow table and
+would then start by reinitializing it to default settings. However,
+drivers are not able to correctly handle the conflict since there was
+no way to differentiate between the default settings and the user
+requested explicit settings.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k_main.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+To fix this, implement a new netdev private flag which we use to
+indicate whether the RXFH has been user configured. If someone has
+a better alternative of how to store this information, let me know.
+I do not think that priv_flags is the best solution but I have not had
+any better idea.
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index 134ce4daa994..4e58f9155883 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -1937,8 +1937,10 @@ static void fm10k_init_reta(struct fm10k_intfc *interface)
- 	u16 i, rss_i = interface->ring_feature[RING_F_RSS].indices;
- 	u32 reta, base;
- 
--	/* If the netdev is initialized we have to maintain table if possible */
--	if (interface->netdev->reg_state != NETREG_UNINITIALIZED) {
-+	/* If the Rx flow indirection table has been configured manually, we
-+	 * need to maintain it when possible.
-+	 */
-+	if (netif_is_rxfh_configured(interface->netdev)) {
- 		for (i = FM10K_RETA_SIZE; i--;) {
- 			reta = interface->reta[i];
- 			if ((((reta << 24) >> 24) < rss_i) &&
-@@ -1946,6 +1948,10 @@ static void fm10k_init_reta(struct fm10k_intfc *interface)
- 			    (((reta <<  8) >> 24) < rss_i) &&
- 			    (((reta)       >> 24) < rss_i))
- 				continue;
-+
-+			/* this should never happen */
-+			dev_err(&interface->pdev->dev,
-+				"RSS indirection table assigned flows out of queue bounds. Reconfiguring.\n");
- 			goto repopulate_reta;
- 		}
- 
+Secondly, we add a function which just calls the driver's get_rxfh
+callback to determine the current indirection table. Loop through this
+and we can determine the current highest queue that will be used by
+RSS.
+
+Now, modify ethtool_set_channels to add a check ensuring that if (a)
+we have had rxfh configured by user, (b) we can get the maximum RSS
+queue currently used, then we ensure that the newly requested Rx count
+(or combined count) is at least as high as this maximum RSS queue. The
+reasoning here is that we can always safely increase the number of
+queues. If we decrease the queues we must ensure that the decrease
+does not go lower than the highest in-use queue for the Rx flow table.
+
+Drivers may still need to be patched if they currently overwrite the
+Rx flow table during channel configuration. If the driver currently
+always resets Rx flow table when increasing number of queues it must
+be patched to only do this when netif_is_rxfh_configured returns
+false.
+
+The second two patches are suggestions which I think are valid and
+noticed while implementing the above changes. The second patch simply
+adds a check to ensure that all provided channel counts fit within
+driver defined maximums.
+
+The third patch I am unsure on so would like comment. I believe that
+combined queue counts and separate tx/rx queue counts should not be
+configurable at the same time (the only driver which allowed both does
+requires they can't be defined at the same time). Other drivers
+support either separate or combined but not both. If this isn't the
+case then go ahead and ignore the third patch.
+
+The fourth patch fixes fm10k to correctly recofigure the RSS reta
+table whenever it is still unconfigured. This means that the default
+state will provide RSS to every queue. Once the user has configured
+RXFH, then we should maintain it. In addition, since the case where we
+must reconfigure the RSS table in this case should now no longer
+occur, add a dev_err message to indicate the user that we did so.
+
+Jacob Keller (4):
+  ethtool: correctly ensure {GS}CHANNELS doesn't conflict with GS{RXFH}
+  ethtool: ensure channel counts are within bounds during SCHANNELS
+  ethtool: can't set combined and tx/rx channel counts at the same time
+  fm10k: don't reinitialize RSS flow table when RXFH configured
+
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c | 10 +++-
+ include/linux/netdevice.h                     |  8 +++
+ net/core/ethtool.c                            | 79 ++++++++++++++++++++++++++-
+ 3 files changed, 93 insertions(+), 4 deletions(-)
+
 -- 
 2.7.0.236.gda096a0.dirty
