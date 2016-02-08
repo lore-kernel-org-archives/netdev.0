@@ -1,57 +1,67 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] af_unix: Don't set err in unix_stream_read_generic unless
- there was an error
-Date: Mon, 8 Feb 2016 21:33:38 +0300
-Message-ID: <56B8DF82.9070104@cogentembedded.com>
-References: <56B4EF04.2060407@canonical.com>
- <87zivebxjr.fsf@doppelsaurus.mobileactivedefense.com>
- <87lh6wl44b.fsf@doppelsaurus.mobileactivedefense.com>
- <87bn7rtdwe.fsf@doppelsaurus.mobileactivedefense.com>
+Subject: Re: [PATCH v2 6/6] dt-bindings: net: ks8995: add bindings
+ documentation for ks8995
+Date: Mon, 8 Feb 2016 21:44:21 +0300
+Message-ID: <56B8E205.1010807@cogentembedded.com>
+References: <1454952937-19428-1-git-send-email-helmut.buchsbaum@gmail.com>
+ <1454952937-19428-7-git-send-email-helmut.buchsbaum@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, edumazet@google.com,
-	dhowells@redhat.com, ying.xue@windriver.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87bn7rtdwe.fsf@doppelsaurus.mobileactivedefense.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:35680 "EHLO
+	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753452AbcBHSoY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 13:44:24 -0500
+Received: by mail-lf0-f48.google.com with SMTP id l143so101391317lfe.2
+        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 10:44:24 -0800 (PST)
+In-Reply-To: <1454952937-19428-7-git-send-email-helmut.buchsbaum@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 02/08/2016 06:33 PM, Rainer Weikusat wrote:
+On 02/08/2016 08:35 PM, Helmut Buchsbaum wrote:
 
-> The present unix_stream_read_generic contains various code sequences of
-> the form
+> Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+> ---
+>   .../devicetree/bindings/net/micrel-ks8995.txt        | 20 ++++++++++++++++++++
+>   1 file changed, 20 insertions(+)
+>   create mode 100644 Documentation/devicetree/bindings/net/micrel-ks8995.txt
 >
-> err = -EDISASTER;
-> if (<test>)
-> 	goto out;
->
-> This has the unfortunate side effect of possibly causing the error code
-> to bleed through to the final
->
-> out:
-> 	return copied ? : err;
->
-> and then to be wrongly returned if no data was copied because the caller
-> didn't supply a data buffer, as demonstrated by the program available at
->
-> http://pad.lv/1540731
->
-> Change it such that err is only set if an error condition was detected.
->
-> Fixes: 3822b5c2fc62
+> diff --git a/Documentation/devicetree/bindings/net/micrel-ks8995.txt b/Documentation/devicetree/bindings/net/micrel-ks8995.txt
+> new file mode 100644
+> index 0000000..7f11ca6
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/micrel-ks8995.txt
+> @@ -0,0 +1,20 @@
+> +Micrel KS8995 SPI controlled Ethernet Switch families
+> +
+> +Required properties (according to spi-bus.txt):
+> +- compatible: either "micrel,ks8995", "micrel,ksz8864" or "micrel,ksz8795"
+> +
+> +Optional properties:
+> +- reset-gpios : phandle of gpio that will be used to reset chip during probe
+> +
+> +Example:
+> +
+> +spi-master {
+> +	...
+> +	ksz8795 {
 
-    You also need to specify the patch summary like this: ("<summary").
+    ePAPR tells to name the nodes generically, according to their function.
 
-> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-[...]
+> +		compatible = "micrel,ksz8795";
+> +
+> +		reg = <0>;
+> +		spi-max-frequency = <50000000>;
+> +		reset-gpios = <&gpio0 46 1>;
+> +	};
+> +};
 
 MBR, Sergei
