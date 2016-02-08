@@ -1,69 +1,177 @@
-From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v7 03/19] net: usnic: remove unused call to ethtool_ops::get_settings
-Date: Sun,  7 Feb 2016 17:08:47 -0800
-Message-ID: <1454893743-6285-4-git-send-email-ddecotig@gmail.com>
+From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next v7 01/19] lib/bitmap.c: conversion routines to/from u32 array
+Date: Sun,  7 Feb 2016 17:08:45 -0800
+Message-ID: <1454893743-6285-2-git-send-email-ddecotig@gmail.com>
 References: <1454893743-6285-1-git-send-email-ddecotig@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-        Eugenia Emantayev <eugenia@mellanox.co.il>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Govindarajulu Varadarajan <_govind@gmx.com>,
-        Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Pravin B Shelar <pshelar@nicira.com>,
-        Ed Swierk <eswierk@skyportsystems.com>,
-        Robert Love <robert.w.love@intel.com>,
-        "James E.J. Bottomley" <JBottomley@parallels.com>,
-        Yuval Mintz <Yuval.Mintz@qlogic.com>,
-        Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-        David Decotigny <decot@googlers.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Ben Hutchings <ben@decadent.org.uk>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-api@vger.kernel.org, linux-mips@linux-mips.org,
-        fcoe-devel@open-fcoe.org,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Tejun Heo <tj@kernel.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1454893743-6285-1-git-send-email-ddecotig@gmail.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Ido Shamay <idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>,
+	Venkata Duvvuru <VenkatKumar.Duvvuru-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+	Ed Swierk <eswierk-FilZDy9cOaHkQYj/0HfcvtBPR1lH4CV8@public.gmane.org>,
+	Robert Love <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"James E.J. Bottomley" <JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+	Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>,
+	David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
+	fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1454893743-6285-1-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: David Decotigny <decot@googlers.com>
+From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 
-Signed-off-by: David Decotigny <decot@googlers.com>
+Aimed at transferring bitmaps to/from user-space in a 32/64-bit agnostic
+way.
+
+Tested:
+  unit tests (next patch) on qemu i386, x86_64, ppc, ppc64 BE and LE,
+  ARM.
+
+Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 ---
- drivers/infiniband/hw/usnic/usnic_ib_verbs.c | 2 --
- 1 file changed, 2 deletions(-)
+ include/linux/bitmap.h |  6 ++++
+ lib/bitmap.c           | 86 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 92 insertions(+)
 
-diff --git a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-index 6cdb4d2..ea003ec 100644
---- a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-+++ b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-@@ -269,7 +269,6 @@ int usnic_ib_query_device(struct ib_device *ibdev,
- 	struct usnic_ib_dev *us_ibdev = to_usdev(ibdev);
- 	union ib_gid gid;
- 	struct ethtool_drvinfo info;
--	struct ethtool_cmd cmd;
- 	int qp_per_vf;
+diff --git a/include/linux/bitmap.h b/include/linux/bitmap.h
+index 9653fdb..f7dc158 100644
+--- a/include/linux/bitmap.h
++++ b/include/linux/bitmap.h
+@@ -59,6 +59,8 @@
+  * bitmap_find_free_region(bitmap, bits, order)	Find and allocate bit region
+  * bitmap_release_region(bitmap, pos, order)	Free specified bit region
+  * bitmap_allocate_region(bitmap, pos, order)	Allocate specified bit region
++ * bitmap_from_u32array(dst, nbits, buf, nwords) *dst = *buf (nwords 32b words)
++ * bitmap_to_u32array(buf, nwords, src, nbits)	*buf = *dst (nwords 32b words)
+  */
  
- 	usnic_dbg("\n");
-@@ -278,7 +277,6 @@ int usnic_ib_query_device(struct ib_device *ibdev,
+ /*
+@@ -163,6 +165,10 @@ extern void bitmap_fold(unsigned long *dst, const unsigned long *orig,
+ extern int bitmap_find_free_region(unsigned long *bitmap, unsigned int bits, int order);
+ extern void bitmap_release_region(unsigned long *bitmap, unsigned int pos, int order);
+ extern int bitmap_allocate_region(unsigned long *bitmap, unsigned int pos, int order);
++extern void bitmap_from_u32array(unsigned long *bitmap, unsigned int nbits,
++				 const u32 *buf, unsigned int nwords);
++extern void bitmap_to_u32array(u32 *buf, unsigned int nwords,
++			       const unsigned long *bitmap, unsigned int nbits);
+ #ifdef __BIG_ENDIAN
+ extern void bitmap_copy_le(unsigned long *dst, const unsigned long *src, unsigned int nbits);
+ #else
+diff --git a/lib/bitmap.c b/lib/bitmap.c
+index 8148143..e1cc648 100644
+--- a/lib/bitmap.c
++++ b/lib/bitmap.c
+@@ -12,6 +12,8 @@
+ #include <linux/bitmap.h>
+ #include <linux/bitops.h>
+ #include <linux/bug.h>
++#include <linux/kernel.h>
++#include <linux/string.h>
  
- 	mutex_lock(&us_ibdev->usdev_lock);
- 	us_ibdev->netdev->ethtool_ops->get_drvinfo(us_ibdev->netdev, &info);
--	us_ibdev->netdev->ethtool_ops->get_settings(us_ibdev->netdev, &cmd);
- 	memset(props, 0, sizeof(*props));
- 	usnic_mac_ip_to_gid(us_ibdev->ufdev->mac, us_ibdev->ufdev->inaddr,
- 			&gid.raw[0]);
+ #include <asm/page.h>
+ #include <asm/uaccess.h>
+@@ -1060,6 +1062,90 @@ int bitmap_allocate_region(unsigned long *bitmap, unsigned int pos, int order)
+ EXPORT_SYMBOL(bitmap_allocate_region);
+ 
+ /**
++ * bitmap_from_u32array - copy the contents of a u32 array of bits to bitmap
++ *	@bitmap: array of unsigned longs, the destination bitmap, non NULL
++ *	@nbits: number of bits in @bitmap
++ *	@buf: array of u32 (in host byte order), the source bitmap, non NULL
++ *	@nwords: number of u32 words in @buf
++ *
++ * copy min(nbits, 32*nwords) bits from @buf to @bitmap, remaining
++ * bits between nword and nbits in @bitmap (if any) are cleared. In
++ * last word of @bitmap, the bits beyond nbits (if any) are kept
++ * unchanged.
++ */
++void bitmap_from_u32array(unsigned long *bitmap, unsigned int nbits,
++			  const u32 *buf, unsigned int nwords)
++{
++	unsigned int k;
++	const u32 *src = buf;
++
++	for (k = 0; k < BITS_TO_LONGS(nbits); ++k) {
++		unsigned long part = 0;
++
++		if (nwords) {
++			part = *src++;
++			nwords--;
++		}
++
++#if BITS_PER_LONG == 64
++		if (nwords) {
++			part |= ((unsigned long) *src++) << 32;
++			nwords--;
++		}
++#endif
++
++		if (k < nbits/BITS_PER_LONG)
++			bitmap[k] = part;
++		else {
++			unsigned long mask = BITMAP_LAST_WORD_MASK(nbits);
++
++			bitmap[k] = (bitmap[k] & ~mask) | (part & mask);
++		}
++	}
++}
++EXPORT_SYMBOL(bitmap_from_u32array);
++
++/**
++ * bitmap_to_u32array - copy the contents of bitmap to a u32 array of bits
++ *	@buf: array of u32 (in host byte order), the dest bitmap, non NULL
++ *	@nwords: number of u32 words in @buf
++ *	@bitmap: array of unsigned longs, the source bitmap, non NULL
++ *	@nbits: number of bits in @bitmap
++ *
++ * copy min(nbits, 32*nwords) bits from @bitmap to @buf. Remaining
++ * bits after nbits in @buf (if any) are cleared.
++ */
++void bitmap_to_u32array(u32 *buf, unsigned int nwords,
++			const unsigned long *bitmap, unsigned int nbits)
++{
++	unsigned int k = 0;
++	u32 *dst = buf;
++
++	while (nwords) {
++		unsigned long part = 0;
++
++		if (k < BITS_TO_LONGS(nbits)) {
++			part = bitmap[k];
++			if (k >= nbits/BITS_PER_LONG)
++				part &= BITMAP_LAST_WORD_MASK(nbits);
++			k++;
++		}
++
++		*dst++ = part & 0xffffffffUL;
++		nwords--;
++
++#if BITS_PER_LONG == 64
++		if (nwords) {
++			part >>= 32;
++			*dst++ = part & 0xffffffffUL;
++			nwords--;
++		}
++#endif
++	}
++}
++EXPORT_SYMBOL(bitmap_to_u32array);
++
++/**
+  * bitmap_copy_le - copy a bitmap, putting the bits into little-endian order.
+  * @dst:   destination buffer
+  * @src:   bitmap to copy
 -- 
 2.7.0.rc3.207.g0ac5344
