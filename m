@@ -1,26 +1,26 @@
 From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH 3/4] ethtool: can't set combined and tx/rx channel counts
- at the same time
-Date: Tue, 9 Feb 2016 04:25:27 +0800
-Message-ID: <201602090452.xuGj6yLE%fengguang.wu@intel.com>
-References: <1454961965-15116-4-git-send-email-jacob.e.keller@intel.com>
+Subject: Re: [PATCH 1/4] ethtool: correctly ensure {GS}CHANNELS doesn't
+ conflict with GS{RXFH}
+Date: Tue, 9 Feb 2016 04:24:18 +0800
+Message-ID: <201602090437.IzQwXVDG%fengguang.wu@intel.com>
+References: <1454961965-15116-2-git-send-email-jacob.e.keller@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="jI8keyz6grp/JLjh"
+Content-Type: multipart/mixed; boundary="8t9RHnE3ZwKMSgU+"
 Cc: kbuild-all@01.org, netdev@vger.kernel.org, mooray3@wp.pl,
 	davem@davemloft.net, Jacob Keller <jacob.e.keller@intel.com>
 To: Jacob Keller <jacob.e.keller@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:48598 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:43714 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755503AbcBHUXX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Feb 2016 15:23:23 -0500
+	id S1755309AbcBHUZJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Feb 2016 15:25:09 -0500
 Content-Disposition: inline
-In-Reply-To: <1454961965-15116-4-git-send-email-jacob.e.keller@intel.com>
+In-Reply-To: <1454961965-15116-2-git-send-email-jacob.e.keller@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---jI8keyz6grp/JLjh
+--8t9RHnE3ZwKMSgU+
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
@@ -41,140 +41,52 @@ reproduce:
 All errors (new ones prefixed by >>):
 
    net/core/ethtool.c: In function 'ethtool_set_channels':
-   net/core/ethtool.c:1289:6: error: void value not ignored as it ought to be
-     ret = dev->ethtool_ops->get_channels(dev, &max);
+>> net/core/ethtool.c:1292:6: error: implicit declaration of function 'ethtool_get_max_rxfh_channel' [-Werror=implicit-function-declaration]
+         ethtool_get_max_rxfh_channel(dev, &max_rx) &&
          ^
-   net/core/ethtool.c:1303:6: error: expected ')' before 'return'
+>> net/core/ethtool.c:1295:6: error: expected ')' before 'return'
          return -EINVAL;
          ^
->> net/core/ethtool.c:2159:1: error: expected declaration or statement at end of input
+>> net/core/ethtool.c:1298:1: error: expected expression before '}' token
     }
     ^
-   net/core/ethtool.c:1280:6: warning: unused variable 'max_rx' [-Wunused-variable]
-     u32 max_rx = 0;
+   net/core/ethtool.c:1281:6: warning: unused variable 'ret' [-Wunused-variable]
+     int ret;
          ^
-   net/core/ethtool.c: At top level:
-   net/core/ethtool.c:116:12: warning: 'ethtool_get_features' defined but not used [-Wunused-function]
-    static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
-               ^
-   net/core/ethtool.c:154:12: warning: 'ethtool_set_features' defined but not used [-Wunused-function]
-    static int ethtool_set_features(struct net_device *dev, void __user *useraddr)
-               ^
-   net/core/ethtool.c:237:13: warning: '__ethtool_get_strings' defined but not used [-Wunused-function]
-    static void __ethtool_get_strings(struct net_device *dev,
-                ^
-   net/core/ethtool.c:296:12: warning: 'ethtool_get_one_feature' defined but not used [-Wunused-function]
-    static int ethtool_get_one_feature(struct net_device *dev,
-               ^
-   net/core/ethtool.c:310:12: warning: 'ethtool_set_one_feature' defined but not used [-Wunused-function]
-    static int ethtool_set_one_feature(struct net_device *dev,
-               ^
-   net/core/ethtool.c:340:12: warning: '__ethtool_get_flags' defined but not used [-Wunused-function]
-    static u32 __ethtool_get_flags(struct net_device *dev)
-               ^
-   net/core/ethtool.c:358:12: warning: '__ethtool_set_flags' defined but not used [-Wunused-function]
-    static int __ethtool_set_flags(struct net_device *dev, u32 data)
-               ^
-   net/core/ethtool.c:402:12: warning: 'ethtool_get_settings' defined but not used [-Wunused-function]
-    static int ethtool_get_settings(struct net_device *dev, void __user *useraddr)
-               ^
-   net/core/ethtool.c:416:12: warning: 'ethtool_set_settings' defined but not used [-Wunused-function]
-    static int ethtool_set_settings(struct net_device *dev, void __user *useraddr)
-               ^
-   net/core/ethtool.c:429:31: warning: 'ethtool_get_drvinfo' defined but not used [-Wunused-function]
-    static noinline_for_stack int ethtool_get_drvinfo(struct net_device *dev,
-                                  ^
-   net/core/ethtool.c:475:31: warning: 'ethtool_get_sset_info' defined but not used [-Wunused-function]
-    static noinline_for_stack int ethtool_get_sset_info(struct net_device *dev,
-                                  ^
-   net/core/ethtool.c:531:31: warning: 'ethtool_set_rxnfc' defined but not used [-Wunused-function]
-    static noinline_for_stack int ethtool_set_rxnfc(struct net_device *dev,
-                                  ^
-   net/core/ethtool.c:563:31: warning: 'ethtool_get_rxnfc' defined but not used [-Wunused-function]
-    static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev,
-                                  ^
-   net/core/ethtool.c:678:31: warning: 'ethtool_get_rxfh_indir' defined but not used [-Wunused-function]
-    static noinline_for_stack int ethtool_get_rxfh_indir(struct net_device *dev,
-                                  ^
-   net/core/ethtool.c:726:31: warning: 'ethtool_set_rxfh_indir' defined but not used [-Wunused-function]
-    static noinline_for_stack int ethtool_set_rxfh_indir(struct net_device *dev,
-                                  ^
-   net/core/ethtool.c:788:31: warning: 'ethtool_get_rxfh' defined but not used [-Wunused-function]
-    static noinline_for_stack int ethtool_get_rxfh(struct net_device *dev,
-                                  ^
-   net/core/ethtool.c:860:31: warning: 'ethtool_set_rxfh' defined but not used [-Wunused-function]
-    static noinline_for_stack int ethtool_set_rxfh(struct net_device *dev,
-                                  ^
-   net/core/ethtool.c:955:12: warning: 'ethtool_get_regs' defined but not used [-Wunused-function]
-    static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
-               ^
-   net/core/ethtool.c:991:12: warning: 'ethtool_reset' defined but not used [-Wunused-function]
-    static int ethtool_reset(struct net_device *dev, char __user *useraddr)
-               ^
-   net/core/ethtool.c:1011:12: warning: 'ethtool_get_wol' defined but not used [-Wunused-function]
-    static int ethtool_get_wol(struct net_device *dev, char __user *useraddr)
-               ^
-   net/core/ethtool.c:1025:12: warning: 'ethtool_set_wol' defined but not used [-Wunused-function]
-    static int ethtool_set_wol(struct net_device *dev, char __user *useraddr)
-               ^
-   net/core/ethtool.c:1038:12: warning: 'ethtool_get_eee' defined but not used [-Wunused-function]
-    static int ethtool_get_eee(struct net_device *dev, char __user *useraddr)
-               ^
-   net/core/ethtool.c:1059:12: warning: 'ethtool_set_eee' defined but not used [-Wunused-function]
-    static int ethtool_set_eee(struct net_device *dev, char __user *useraddr)
-               ^
-   net/core/ethtool.c:1072:12: warning: 'ethtool_nway_reset' defined but not used [-Wunused-function]
-    static int ethtool_nway_reset(struct net_device *dev)
-               ^
-   net/core/ethtool.c:1080:12: warning: 'ethtool_get_link' defined but not used [-Wunused-function]
-    static int ethtool_get_link(struct net_device *dev, char __user *useraddr)
-               ^
-   net/core/ethtool.c:1145:12: warning: 'ethtool_get_eeprom' defined but not used [-Wunused-function]
-    static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
-               ^
-   net/core/ethtool.c:1157:12: warning: 'ethtool_set_eeprom' defined but not used [-Wunused-function]
-    static int ethtool_set_eeprom(struct net_device *dev, void __user *useraddr)
-               ^
-   net/core/ethtool.c:1205:31: warning: 'ethtool_get_coalesce' defined but not used [-Wunused-function]
-    static noinline_for_stack int ethtool_get_coalesce(struct net_device *dev,
-                                  ^
-   net/core/ethtool.c:1220:31: warning: 'ethtool_set_coalesce' defined but not used [-Wunused-function]
-    static noinline_for_stack int ethtool_set_coalesce(struct net_device *dev,
-                                  ^
-   net/core/ethtool.c:1234:12: warning: 'ethtool_get_ringparam' defined but not used [-Wunused-function]
-    static int ethtool_get_ringparam(struct net_device *dev, void __user *useraddr)
-               ^
-   net/core/ethtool.c:1248:12: warning: 'ethtool_set_ringparam' defined but not used [-Wunused-function]
-    static int ethtool_set_ringparam(struct net_device *dev, void __user *useraddr)
-               ^
-   net/core/ethtool.c:1261:31: warning: 'ethtool_get_channels' defined but not used [-Wunused-function]
+   net/core/ethtool.c:1298:1: warning: control reaches end of non-void function [-Wreturn-type]
+    }
+    ^
+   cc1: some warnings being treated as errors
 
-vim +2159 net/core/ethtool.c
+vim +/ethtool_get_max_rxfh_channel +1292 net/core/ethtool.c
 
-^1da177e Linus Torvalds    2005-04-16  2153  		dev->ethtool_ops->complete(dev);
-d8a33ac4 Stephen Hemminger 2005-05-29  2154  
-d8a33ac4 Stephen Hemminger 2005-05-29  2155  	if (old_features != dev->features)
-d8a33ac4 Stephen Hemminger 2005-05-29  2156  		netdev_features_change(dev);
-d8a33ac4 Stephen Hemminger 2005-05-29  2157  
-^1da177e Linus Torvalds    2005-04-16  2158  	return rc;
-^1da177e Linus Torvalds    2005-04-16 @2159  }
-
-:::::: The code at line 2159 was first introduced by commit
-:::::: 1da177e4c3f41524e886b7f1b8a0c1fc7321cac2 Linux-2.6.12-rc2
-
-:::::: TO: Linus Torvalds <torvalds@ppc970.osdl.org>
-:::::: CC: Linus Torvalds <torvalds@ppc970.osdl.org>
+  1286		if (copy_from_user(&channels, useraddr, sizeof(channels)))
+  1287			return -EFAULT;
+  1288	
+  1289		/* ensure the new Rx count fits within the configured Rx flow
+  1290		 * indirection table settings */
+  1291		if (netif_is_rxfh_configured(dev) &&
+> 1292		    ethtool_get_max_rxfh_channel(dev, &max_rx) &&
+  1293		    ((channels.rx_count > max_rx) ||
+  1294		     (channels.combined_count > max_rx))
+> 1295		    return -EINVAL;
+  1296	
+  1297		return dev->ethtool_ops->set_channels(dev, &channels);
+> 1298	}
+  1299	
+  1300	static int ethtool_get_pauseparam(struct net_device *dev, void __user *useraddr)
+  1301	{
 
 ---
 0-DAY kernel test infrastructure                Open Source Technology Center
 https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
---jI8keyz6grp/JLjh
+--8t9RHnE3ZwKMSgU+
 Content-Type: application/octet-stream
 Content-Disposition: attachment; filename=".config.gz"
 Content-Transfer-Encoding: base64
 
-H4sICOb4uFYAAy5jb25maWcAlFzfd9u2kn6/f4VOug+752wbR0nUdPf4AQRBCVckQROgbOeF
+H4sICEX4uFYAAy5jb25maWcAlFzfd9u2kn6/f4VOug+752wbR0nUdPf4AQRBCVckQROgbOeF
 R3GU1KeOlWvJve1/vzMgKeLHUM4+tDG/bwACA2AwMwD10z9+mrHn4/7b9nh/t314+Hv2dfe4
 e9oed59nX+4fdv87S9WsVGYmUml+AeH8/vH5r9d/HXePh+3s3S/vf7n4+eluPlvvnh53DzO+
 f/xy//UZyt/vH//x0z+4KjO5bD+qUrRpwS7/HpAbI0rtPNfXWhTtDV8tWZq2LF+qWppVMQos
@@ -992,4 +904,4 @@ a3YrD/R5QL1zdACDaKGLkqYDmKdJKfhYpCxRuWG6PFw6CB2EBro4sPs1Efp8oHEQBsKEd5FQ
 oIJWSAQc453rs4PwshOnJonwVYBOZwd6vYOBpyeHKVu9CnRqi/i6M6wYXYcXOOKUTijXf/eo
 UWY0wAIA
 
---jI8keyz6grp/JLjh--
+--8t9RHnE3ZwKMSgU+--
