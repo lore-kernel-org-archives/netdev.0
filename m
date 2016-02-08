@@ -1,69 +1,70 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v7 06/19] tx4939: use __ethtool_get_ksettings
-Date: Sun,  7 Feb 2016 17:08:50 -0800
-Message-ID: <1454893743-6285-7-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v7 14/19] net: 8021q: use __ethtool_get_ksettings
+Date: Sun,  7 Feb 2016 17:08:58 -0800
+Message-ID: <1454893743-6285-15-git-send-email-ddecotig@gmail.com>
 References: <1454893743-6285-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
-        Eugenia Emantayev <eugenia@mellanox.co.il>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Govindarajulu Varadarajan <_govind@gmx.com>,
-        Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Pravin B Shelar <pshelar@nicira.com>,
-        Ed Swierk <eswierk@skyportsystems.com>,
-        Robert Love <robert.w.love@intel.com>,
-        "James E.J. Bottomley" <JBottomley@parallels.com>,
-        Yuval Mintz <Yuval.Mintz@qlogic.com>,
-        Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-        David Decotigny <decot@googlers.com>
+	Eugenia Emantayev <eugenia@mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ed Swierk <eswierk@skyportsystems.com>,
+	Robert Love <robert.w.love@intel.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	David Decotigny <decot@googlers.com>
 To: "David S. Miller" <davem@davemloft.net>,
-        Ben Hutchings <ben@decadent.org.uk>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-api@vger.kernel.org, linux-mips@linux-mips.org,
-        fcoe-devel@open-fcoe.org,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Tejun Heo <tj@kernel.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
+	Ben Hutchings <ben@decadent.org.uk>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-api@vger.kernel.org, linux-mips@linux-mips.org,
+	fcoe-devel@open-fcoe.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1454893743-6285-1-git-send-email-ddecotig@gmail.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- arch/mips/txx9/generic/setup_tx4939.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ net/8021q/vlan_dev.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/arch/mips/txx9/generic/setup_tx4939.c b/arch/mips/txx9/generic/setup_tx4939.c
-index e3733cd..4a3ebf6 100644
---- a/arch/mips/txx9/generic/setup_tx4939.c
-+++ b/arch/mips/txx9/generic/setup_tx4939.c
-@@ -320,11 +320,12 @@ void __init tx4939_sio_init(unsigned int sclk, unsigned int cts_mask)
- #if IS_ENABLED(CONFIG_TC35815)
- static u32 tx4939_get_eth_speed(struct net_device *dev)
- {
--	struct ethtool_cmd cmd;
--	if (__ethtool_get_settings(dev, &cmd))
-+	struct ethtool_ksettings cmd;
-+
-+	if (__ethtool_get_ksettings(dev, &cmd))
- 		return 100;	/* default 100Mbps */
- 
--	return ethtool_cmd_speed(&cmd);
-+	return cmd.parent.speed;
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index ad5e2fd..d4a6131 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -621,12 +621,12 @@ static netdev_features_t vlan_dev_fix_features(struct net_device *dev,
+ 	return features;
  }
  
- static int tx4939_netdev_event(struct notifier_block *this,
+-static int vlan_ethtool_get_settings(struct net_device *dev,
+-				     struct ethtool_cmd *cmd)
++static int vlan_ethtool_get_ksettings(struct net_device *dev,
++				      struct ethtool_ksettings *cmd)
+ {
+ 	const struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
+ 
+-	return __ethtool_get_settings(vlan->real_dev, cmd);
++	return __ethtool_get_ksettings(vlan->real_dev, cmd);
+ }
+ 
+ static void vlan_ethtool_get_drvinfo(struct net_device *dev,
+@@ -741,7 +741,7 @@ static int vlan_dev_get_iflink(const struct net_device *dev)
+ }
+ 
+ static const struct ethtool_ops vlan_ethtool_ops = {
+-	.get_settings	        = vlan_ethtool_get_settings,
++	.get_ksettings	        = vlan_ethtool_get_ksettings,
+ 	.get_drvinfo	        = vlan_ethtool_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_ts_info		= vlan_ethtool_get_ts_info,
 -- 
 2.7.0.rc3.207.g0ac5344
