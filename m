@@ -1,81 +1,61 @@
 From: Jacob Keller <jacob.e.keller@intel.com>
-Subject: [PATCH 0/3] ethtool: correct {GS}CHANNELS and {GS}RXFH conflict
-Date: Mon,  8 Feb 2016 12:06:01 -0800
-Message-ID: <1454961965-15116-1-git-send-email-jacob.e.keller@intel.com>
+Subject: [PATCH 2/4] ethtool: ensure channel counts are within bounds during SCHANNELS
+Date: Mon,  8 Feb 2016 12:06:03 -0800
+Message-ID: <1454961965-15116-3-git-send-email-jacob.e.keller@intel.com>
+References: <1454961965-15116-1-git-send-email-jacob.e.keller@intel.com>
 Cc: mooray3@wp.pl, davem@davemloft.net,
 	Jacob Keller <jacob.e.keller@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:8053 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751435AbcBHUIj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Feb 2016 15:08:39 -0500
+	id S1753152AbcBHUIk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Feb 2016 15:08:40 -0500
+In-Reply-To: <1454961965-15116-1-git-send-email-jacob.e.keller@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series fixes up ethtool_set_channels operation which
-allowed modifying the RXFH table indirectly by reducing the number of
-queues below the current max queue used by the Rx flow table. Most
-drivers incorrectly allowed this to destroy the Rx flow table and
-would then start by reinitializing it to default settings. However,
-drivers are not able to correctly handle the conflict since there was
-no way to differentiate between the default settings and the user
-requested explicit settings.
+Add a sanity check to ensure that all requested channel sizes are within
+bounds, which should reduce errors in driver implementation.
 
-To fix this, implement a new netdev private flag which we use to
-indicate whether the RXFH has been user configured. If someone has
-a better alternative of how to store this information, let me know.
-I do not think that priv_flags is the best solution but I have not had
-any better idea.
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+---
+ net/core/ethtool.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
 
-Secondly, we add a function which just calls the driver's get_rxfh
-callback to determine the current indirection table. Loop through this
-and we can determine the current highest queue that will be used by
-RSS.
-
-Now, modify ethtool_set_channels to add a check ensuring that if (a)
-we have had rxfh configured by user, (b) we can get the maximum RSS
-queue currently used, then we ensure that the newly requested Rx count
-(or combined count) is at least as high as this maximum RSS queue. The
-reasoning here is that we can always safely increase the number of
-queues. If we decrease the queues we must ensure that the decrease
-does not go lower than the highest in-use queue for the Rx flow table.
-
-Drivers may still need to be patched if they currently overwrite the
-Rx flow table during channel configuration. If the driver currently
-always resets Rx flow table when increasing number of queues it must
-be patched to only do this when netif_is_rxfh_configured returns
-false.
-
-The second two patches are suggestions which I think are valid and
-noticed while implementing the above changes. The second patch simply
-adds a check to ensure that all provided channel counts fit within
-driver defined maximums.
-
-The third patch I am unsure on so would like comment. I believe that
-combined queue counts and separate tx/rx queue counts should not be
-configurable at the same time (the only driver which allowed both does
-requires they can't be defined at the same time). Other drivers
-support either separate or combined but not both. If this isn't the
-case then go ahead and ignore the third patch.
-
-The fourth patch fixes fm10k to correctly recofigure the RSS reta
-table whenever it is still unconfigured. This means that the default
-state will provide RSS to every queue. Once the user has configured
-RXFH, then we should maintain it. In addition, since the case where we
-must reconfigure the RSS table in this case should now no longer
-occur, add a dev_err message to indicate the user that we did so.
-
-Jacob Keller (4):
-  ethtool: correctly ensure {GS}CHANNELS doesn't conflict with GS{RXFH}
-  ethtool: ensure channel counts are within bounds during SCHANNELS
-  ethtool: can't set combined and tx/rx channel counts at the same time
-  fm10k: don't reinitialize RSS flow table when RXFH configured
-
- drivers/net/ethernet/intel/fm10k/fm10k_main.c | 10 +++-
- include/linux/netdevice.h                     |  8 +++
- net/core/ethtool.c                            | 79 ++++++++++++++++++++++++++-
- 3 files changed, 93 insertions(+), 4 deletions(-)
-
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 8a40948c1fc6..71aff99157c3 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1276,16 +1276,27 @@ static noinline_for_stack int ethtool_get_channels(struct net_device *dev,
+ static noinline_for_stack int ethtool_set_channels(struct net_device *dev,
+ 						   void __user *useraddr)
+ {
+-	struct ethtool_channels channels;
++	struct ethtool_channels channels, max;
+ 	u32 max_rx = 0;
+ 	int ret;
+ 
+-	if (!dev->ethtool_ops->set_channels)
++	if (!dev->ethtool_ops->set_channels || !dev->ethtool_ops->get_channels)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (copy_from_user(&channels, useraddr, sizeof(channels)))
+ 		return -EFAULT;
+ 
++	ret = dev->ethtool_ops->get_channels(dev, &max);
++	if (ret)
++		return ret;
++
++	/* ensure new counts are within the maximums */
++	if ((channels.rx_count > max.max_rx) ||
++	    (channels.tx_count > max.max_tx) ||
++	    (channels.combined_count > max.max_combined) ||
++	    (channels.other_count > max.max_other))
++		return -EINVAL;
++
+ 	/* ensure the new Rx count fits within the configured Rx flow
+ 	 * indirection table settings */
+ 	if (netif_is_rxfh_configured(dev) &&
 -- 
 2.7.0.236.gda096a0.dirty
