@@ -1,49 +1,38 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [PATCH 2/2] fm10k: correctly report error when changing number
- of channels
-Date: Mon, 8 Feb 2016 17:13:15 +0000
-Message-ID: <1454951595.25441.4.camel@intel.com>
-References: <1454704221-14238-1-git-send-email-jacob.e.keller@intel.com>
-	 <1454704221-14238-3-git-send-email-jacob.e.keller@intel.com>
-	 <20160208132632.3010dee3@jkicinski-Precision-T1700>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 8/9] rfkill: Userspace control for airplane mode
+Date: Mon, 08 Feb 2016 18:18:39 +0100
+Message-ID: <186fb54a85083fe6aebe83763aa029c4@sipsolutions.net>
+References: <1454946096-9752-1-git-send-email-jprvita@endlessm.com>
+ <1454946096-9752-9-git-send-email-jprvita@endlessm.com>
+ <F8D31DB3-94AF-47CC-8091-7B6478983B53@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "moorray3@wp.pl" <moorray3@wp.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:37304 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752982AbcBHRNR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Feb 2016 12:13:17 -0500
-In-Reply-To: <20160208132632.3010dee3@jkicinski-Precision-T1700>
-Content-Language: en-US
-Content-ID: <162B952A290D9948A146B58CABD11C57@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Darren Hart <dvhart@infradead.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-doc@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux@endlessm.com,
+	=?UTF-8?Q?Jo?= =?UTF-8?Q?=C3=A3o_Paulo_Rechi_Vita?=
+	<jprvita@endlessm.com>
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <F8D31DB3-94AF-47CC-8091-7B6478983B53@holtmann.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCAyMDE2LTAyLTA4IGF0IDEzOjI2ICswMDAwLCBKYWt1YiBLaWNpbnNraSB3cm90ZToN
-Cj4gSGkgSmFjb2IhDQo+IA0KPiBGaXJzdCBvZiBhbGwgdGhhbmtzIGZvciBwdXR0aW5nIHlvdXIg
-dGltZSBpbnRvIHNvcnRpbmcgdGhpcyBvdXQsDQo+IGZpZ3VyaW5nIG91dCB3aGF0IHRvIGRvIHdp
-dGggdXNlci1zZXQgUlNTIHRhYmxlIHdoZW4gcXVldWVzIGFyZQ0KPiByZWNvbmZpZ3VyZWQgd2Fz
-IGEgaGVhZCBzY3JhdGNoZXIgZm9yIG1lIGFzIHdlbGwuDQo+IA0KDQpZZXAhDQoNCj4gT24gRnJp
-LMKgwqA1IEZlYiAyMDE2IDEyOjMwOjIxIC0wODAwLCBKYWNvYiBLZWxsZXIgd3JvdGU6DQo+ID4g
-KyNkZWZpbmUgRk0xMEtfRkxBR19SRVRBX1RBQkxFX0NPTkZJR1VSRUQJKHUzMikoQklUKDYpKQ0K
-PiANCj4gSWYgd2UgZ28gd2l0aCB5b3VyIHByb3Bvc2FsIGV2ZXJ5IGRyaXZlciB3aWxsIGhhdmUg
-dG8ga2VlcCB0cmFjayBvZsKgDQo+IGhvdyB0aGUgUlNTIHRhYmxlIHdhcyBzZXQgYW5kIGZpbmQg
-bWF4IHZhbHVlIG9uIHF1ZXVlIHJlY29uZmlnIC0NCj4gcmVwbGljYXRpbmcgZWZmb3J0IGFuZCBs
-ZWF2aW5nIHNwYWNlIGZvciBkaXZlcmdpbmcgYmVoYXZpb3VyLi4uDQo+IA0KDQppbiB3aGljaCBi
-ZWhhdmlvciBoYXMgYWxyZWFkeSBkaXZlcmdlZCBxdWl0ZSBzaWduaWZpY2FudGx5LCBzbyBzaG9y
-aW5nDQp0aGF0IHVwIHdvdWxkIGJlIGdvb2QgYXMgd2VsbC4NCg0KPiBXb3VsZCBpdCBiZSB3b3J0
-aCBjb25zaWRlcmluZyB0byBwbGFjZSBtb3JlIG9mIHRoaXMgY29kZSBpbiB0aGUgY29yZT8NCg0K
-WWVzLiBJIHdhcyB1bnN1cmUgb2YgaG93IHRvIGRvIHRoaXMsIGJ1dCBJIHRoaW5rIEkgaGF2ZSBh
-IHBvc3NpYmxlDQpzb2x1dGlvbi4gU2luY2UgYmFzaWNhbGx5IGFsbCBkcml2ZXJzIGFyZSBnb2lu
-ZyB0byBoYXZlIHRoZSBzYW1lIGlzc3VlLA0KSSB0aGluayB3ZSBjYW4ganVzdCBkbyB0aGUgY2hl
-Y2sgaW5zaWRlIG5ldC9jb3JlL2V0aHRvb2wuYw0KDQpBdCBsZWFzdCBzb21lIG9mIHRoZSBjaGVj
-ayBjYW4gYmUgZG9uZSBpbnNpZGUgY29yZSBldGh0b29sLCBidXQgSSB0aGluaw0Kd2Ugc3RpbGwg
-bmVlZCBhIHdheSBmb3IgZHJpdmVyIHRvIGtub3cgaXQgaXMgaW4gImRlZmF1bHQiIG1vZGUsIGFz
-IHRoZQ0KZHJpdmVyIGRvZXMgYmVoYXZlIGRpZmZlcmVudGx5IGluIGl0cyByZXNldCBmbG93IGRl
-cGVuZGluZyBvbiB3aGV0aGVyDQp0aGUgUlNTIHRhYmxlIGhhcyBiZWVuIHNldC4NCg0KTWF5YmUg
-d2UgY2FuIHN0b3JlIGl0IGFzIGEgZmxhZyBpbiB0aGUgbmV0ZGV2IHN0cnVjdHVyZSBpbnN0ZWFk
-Pw0KDQpJIGRvIGFncmVlIHRoYXQgdGhlIHF1ZXVlIHNpemUgcmVjb25maWcgY2FuIGhhbmRsZSB0
-aGUgbmV3IG1pbmltdW0NCnF1ZXVlIHZhbHVlIGVhc2lseS4NCg0KUmVnYXJkcywNCkpha2U=
+On 2016-02-08 17:20, Marcel Holtmann wrote:
+
+> as explained in an earlier response, the concept Airplane Mode seems
+> to be imposing policy into the kernel. Do we really want have this as
+> a kernel exposed API.
+
+This patch is the one that *solves* that problem ... please read it more 
+carefully?
+
+johannes
