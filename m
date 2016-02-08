@@ -1,67 +1,90 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 6/6] dt-bindings: net: ks8995: add bindings
- documentation for ks8995
-Date: Mon, 8 Feb 2016 21:44:21 +0300
-Message-ID: <56B8E205.1010807@cogentembedded.com>
-References: <1454952937-19428-1-git-send-email-helmut.buchsbaum@gmail.com>
- <1454952937-19428-7-git-send-email-helmut.buchsbaum@gmail.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: [PATCH] af_unix: Don't set err in unix_stream_read_generic unless there was an error
+Date: Mon, 08 Feb 2016 18:47:19 +0000
+Message-ID: <87bn7rrqdk.fsf@doppelsaurus.mobileactivedefense.com>
+References: <56B4EF04.2060407@canonical.com>
+	<87zivebxjr.fsf@doppelsaurus.mobileactivedefense.com>
+	<87lh6wl44b.fsf@doppelsaurus.mobileactivedefense.com>
+	<87bn7rtdwe.fsf@doppelsaurus.mobileactivedefense.com>
+	<87twljrsb1.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f48.google.com ([209.85.215.48]:35680 "EHLO
-	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753452AbcBHSoY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 13:44:24 -0500
-Received: by mail-lf0-f48.google.com with SMTP id l143so101391317lfe.2
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 10:44:24 -0800 (PST)
-In-Reply-To: <1454952937-19428-7-git-send-email-helmut.buchsbaum@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rweikusat@mobileactivedefense.com, hannes@stressinduktion.org,
+	edumazet@google.com, dhowells@redhat.com, ying.xue@windriver.com,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"stable\@vger.kernel.org" <stable@vger.kernel.org>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>
+To: "davem\@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87twljrsb1.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Mon, 08 Feb 2016 18:05:38 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+The present unix_stream_read_generic contains various code sequences of
+the form
 
-On 02/08/2016 08:35 PM, Helmut Buchsbaum wrote:
+err = -EDISASTER;
+if (<test>)
+	goto out;
 
-> Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-> ---
->   .../devicetree/bindings/net/micrel-ks8995.txt        | 20 ++++++++++++++++++++
->   1 file changed, 20 insertions(+)
->   create mode 100644 Documentation/devicetree/bindings/net/micrel-ks8995.txt
->
-> diff --git a/Documentation/devicetree/bindings/net/micrel-ks8995.txt b/Documentation/devicetree/bindings/net/micrel-ks8995.txt
-> new file mode 100644
-> index 0000000..7f11ca6
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/micrel-ks8995.txt
-> @@ -0,0 +1,20 @@
-> +Micrel KS8995 SPI controlled Ethernet Switch families
-> +
-> +Required properties (according to spi-bus.txt):
-> +- compatible: either "micrel,ks8995", "micrel,ksz8864" or "micrel,ksz8795"
-> +
-> +Optional properties:
-> +- reset-gpios : phandle of gpio that will be used to reset chip during probe
-> +
-> +Example:
-> +
-> +spi-master {
-> +	...
-> +	ksz8795 {
+This has the unfortunate side effect of possibly causing the error code
+to bleed through to the final
 
-    ePAPR tells to name the nodes generically, according to their function.
+out:
+	return copied ? : err;
 
-> +		compatible = "micrel,ksz8795";
-> +
-> +		reg = <0>;
-> +		spi-max-frequency = <50000000>;
-> +		reset-gpios = <&gpio0 46 1>;
-> +	};
-> +};
+and then to be wrongly returned if no data was copied because the caller
+didn't supply a data buffer, as demonstrated by the program available at
 
-MBR, Sergei
+http://pad.lv/1540731
+
+Change it such that err is only set if an error condition was detected.
+
+Fixes: 3822b5c2fc62 ("af_unix: Revert 'lock_interruptible' in stream receive code")
+Reported-by: Joseph Salisbury <joseph.salisbury@canonical.com>
+Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+---
+
+And the subject again fixed and, since another correction was necessary,
+anyway, a Reported-by added. 
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 49d5093..c1e4dd7 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2277,13 +2277,15 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state)
+ 	size_t size = state->size;
+ 	unsigned int last_len;
+ 
+-	err = -EINVAL;
+-	if (sk->sk_state != TCP_ESTABLISHED)
++	if (unlikely(sk->sk_state != TCP_ESTABLISHED)) {
++		err = -EINVAL;
+ 		goto out;
++	}
+ 
+-	err = -EOPNOTSUPP;
+-	if (flags & MSG_OOB)
++	if (unlikely(flags & MSG_OOB)) {
++		err = -EOPNOTSUPP;
+ 		goto out;
++	}
+ 
+ 	target = sock_rcvlowat(sk, flags & MSG_WAITALL, size);
+ 	timeo = sock_rcvtimeo(sk, noblock);
+@@ -2329,9 +2331,11 @@ again:
+ 				goto unlock;
+ 
+ 			unix_state_unlock(sk);
+-			err = -EAGAIN;
+-			if (!timeo)
++			if (!timeo) {
++				err = -EAGAIN;
+ 				break;
++			}
++
+ 			mutex_unlock(&u->readlock);
+ 
+ 			timeo = unix_stream_data_wait(sk, timeo, last,
