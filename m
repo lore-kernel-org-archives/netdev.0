@@ -1,48 +1,74 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 01/21] iplink: bridge: export bridge_id and
- designated_root
-Date: Mon, 8 Feb 2016 23:29:42 +0100
-Message-ID: <56B916D6.8090408@cumulusnetworks.com>
-References: <1454932527-30569-1-git-send-email-razor@blackwall.org>
- <1454932527-30569-2-git-send-email-razor@blackwall.org>
- <20160208142154.35f85b61@xeon-e3> <56B915EF.8000104@cumulusnetworks.com>
+From: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/9] rfkill: Improve documentation language
+Date: Tue, 9 Feb 2016 09:37:32 +1100
+Message-ID: <CAGRGNgX7ANq_dTSkRCqnU2H5DQsLCf5Ni7M-n7Z_RSieOf=mOw@mail.gmail.com>
+References: <1454946096-9752-1-git-send-email-jprvita@endlessm.com> <1454946096-9752-2-git-send-email-jprvita@endlessm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	Nikolay Aleksandrov <razor@blackwall.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:34769 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754655AbcBHW3p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 17:29:45 -0500
-Received: by mail-wm0-f54.google.com with SMTP id 128so174282369wmz.1
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2016 14:29:45 -0800 (PST)
-In-Reply-To: <56B915EF.8000104@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Darren Hart <dvhart-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	platform-driver-x86-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-6IF/jdPJHihWk0Htik3J/w@public.gmane.org,
+	=?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
+To: =?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1454946096-9752-2-git-send-email-jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 02/08/2016 11:25 PM, Nikolay Aleksandrov wrote:
-> On 02/08/2016 11:21 PM, Stephen Hemminger wrote:
->> On Mon,  8 Feb 2016 12:55:07 +0100
->> Nikolay Aleksandrov <razor@blackwall.org> wrote:
->>
->>>  
->>> +static void br_dump_bridge_id(const struct ifla_bridge_id *id, char *buf,
->>> +			      size_t len)
->>> +{
->>> +	const unsigned char *x = (const unsigned char *)id;
->>> +
->>> +	snprintf(buf, len, "%.2x%.2x.%.2x%.2x%.2x%.2x%.2x%.2x", x[0], x[1],
->>> +		 x[2], x[3], x[4], x[5], x[6], x[7]);
->>> +}
->>
->> Please don't reinvent ether_ntoa_r
->>
-> This was taken from bridge-utils, it actually includes 2 more bytes, it's
-> not only an ethernet address.
-> 
+Hi Jo=C3=A3o,
 
-Also the output is very different, i.e. bridge_id 8000.000000000000
-there're no colons.
+On Tue, Feb 9, 2016 at 2:41 AM, Jo=C3=A3o Paulo Rechi Vita <jprvita@gma=
+il.com> wrote:
+> Signed-off-by: Jo=C3=A3o Paulo Rechi Vita <jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
+
+Looks right to me.
+
+Reviewed-by: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+> ---
+>  net/rfkill/core.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/rfkill/core.c b/net/rfkill/core.c
+> index a805831..ffbc375 100644
+> --- a/net/rfkill/core.c
+> +++ b/net/rfkill/core.c
+> @@ -282,8 +282,8 @@ static void rfkill_set_block(struct rfkill *rfkil=
+l, bool blocked)
+>         spin_lock_irqsave(&rfkill->lock, flags);
+>         if (err) {
+>                 /*
+> -                * Failed -- reset status to _prev, this may be diffe=
+rent
+> -                * from what set set _PREV to earlier in this functio=
+n
+> +                * Failed -- reset status to _PREV, which may be diff=
+erent
+> +                * from what we have set _PREV to earlier in this fun=
+ction
+>                  * if rfkill_set_sw_state was invoked.
+>                  */
+>                 if (rfkill->state & RFKILL_BLOCK_SW_PREV)
+> --
+> 2.5.0
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wirel=
+ess" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+--=20
+Julian Calaby
+
+Email: julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Profile: http://www.google.com/profiles/julian.calaby/
