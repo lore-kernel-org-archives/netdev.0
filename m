@@ -1,59 +1,60 @@
-From: Jacob Keller <jacob.e.keller@intel.com>
-Subject: [PATCH 2/4] ethtool: ensure channel counts are within bounds during SCHANNELS
-Date: Mon,  8 Feb 2016 16:05:04 -0800
-Message-ID: <1454976306-23523-3-git-send-email-jacob.e.keller@intel.com>
-References: <1454976306-23523-1-git-send-email-jacob.e.keller@intel.com>
-Cc: Jakub Kicinski <moorray3@wp.pl>,
-	David Miller <davem@davemloft.net>,
-	Jacob Keller <jacob.e.keller@intel.com>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: Re: gro: Make GRO aware of lightweight tunnels.
+Date: Mon, 8 Feb 2016 19:49:56 -0500
+Message-ID: <20160209004956.GA18196@codemonkey.org.uk>
+References: <20160202022858.60C826612C0@gitolite.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesse Gross <jesse@kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:21883 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932818AbcBIAFN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Feb 2016 19:05:13 -0500
-In-Reply-To: <1454976306-23523-1-git-send-email-jacob.e.keller@intel.com>
+Received: from arcturus.aphlor.org ([188.246.204.175]:36820 "EHLO
+	arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752912AbcBIAuA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2016 19:50:00 -0500
+Content-Disposition: inline
+In-Reply-To: <20160202022858.60C826612C0@gitolite.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a sanity check to ensure that all requested channel sizes are within
-bounds, which should reduce errors in driver implementation.
+On Tue, Feb 02, 2016 at 02:28:58AM +0000, Linux Kernel wrote:
+ > Web:        https://git.kernel.org/torvalds/c/ce87fc6ce3f9f4488546187e3757cf666d9d4a2a
+ > Commit:     ce87fc6ce3f9f4488546187e3757cf666d9d4a2a
+ > Parent:     5f2f3cad8b878b23f17a11dd5af4f4a2cc41c797
+ > Refname:    refs/heads/master
+ > Author:     Jesse Gross <jesse@kernel.org>
+ > AuthorDate: Wed Jan 20 17:59:49 2016 -0800
+ > Committer:  David S. Miller <davem@davemloft.net>
+ > CommitDate: Wed Jan 20 18:48:38 2016 -0800
+ > 
+ >     gro: Make GRO aware of lightweight tunnels.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
----
- net/core/ethtool.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+Coverity just started complaining about this commit.
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 59aebaf9ed54..dc4f6632f33b 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1274,15 +1274,24 @@ static noinline_for_stack int ethtool_get_channels(struct net_device *dev,
- static noinline_for_stack int ethtool_set_channels(struct net_device *dev,
- 						   void __user *useraddr)
- {
--	struct ethtool_channels channels;
-+	struct ethtool_channels channels, max;
- 	u32 max_rx_in_use = 0;
- 
--	if (!dev->ethtool_ops->set_channels)
-+	if (!dev->ethtool_ops->set_channels || !dev->ethtool_ops->get_channels)
- 		return -EOPNOTSUPP;
- 
- 	if (copy_from_user(&channels, useraddr, sizeof(channels)))
- 		return -EFAULT;
- 
-+	dev->ethtool_ops->get_channels(dev, &max);
-+
-+	/* ensure new counts are within the maximums */
-+	if ((channels.rx_count > max.max_rx) ||
-+	    (channels.tx_count > max.max_tx) ||
-+	    (channels.combined_count > max.max_combined) ||
-+	    (channels.other_count > max.max_other))
-+		return -EINVAL;
-+
- 	/* ensure the new Rx count fits within the configured Rx flow
- 	 * indirection table settings */
- 	if (netif_is_rxfh_configured(dev) &&
--- 
-2.7.0.236.gda096a0.dirty
+ > diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
+ > index 6816f0f..30a56ab 100644
+ > --- a/include/net/dst_metadata.h
+ > +++ b/include/net/dst_metadata.h
+ > @@ -44,6 +44,24 @@ static inline bool skb_valid_dst(const struct sk_buff *skb)
+ >  	return dst && !(dst->flags & DST_METADATA);
+ >  }
+ >  
+ > +static inline int skb_metadata_dst_cmp(const struct sk_buff *skb_a,
+ > +				       const struct sk_buff *skb_b)
+ > +{
+ > +	const struct metadata_dst *a, *b;
+ > +
+ > +	if (!(skb_a->_skb_refdst | skb_b->_skb_refdst))
+ > +		return 0;
+ > +
+ > +	a = (const struct metadata_dst *) skb_dst(skb_a);
+ > +	b = (const struct metadata_dst *) skb_dst(skb_b);
+ > +
+ > +	if (!a != !b || a->u.tun_info.options_len != b->u.tun_info.options_len)
+
+It complains that we could dereference a null 'a' here.
+
+It's possible the checker got confused, but the first part of that
+expression looks odd, is that doing what's intended ?
+
+	Dave
