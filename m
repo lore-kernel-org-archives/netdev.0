@@ -1,71 +1,40 @@
-From: "Karicheri, Muralidharan" <m-karicheri2@ti.com>
-Subject: RE: [PATCH] net: ti: netcp: restore get/set_pad_info() functionality
-Date: Tue, 9 Feb 2016 16:19:17 +0000
-Message-ID: <3E54258959B69E4282D79E01AB1F32B704D12B40@DFLE11.ent.ti.com>
-References: <1455026303-17014-1-git-send-email-grygorii.strashko@ti.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCDBFCC@AcuExch.aculab.com>
- <3E54258959B69E4282D79E01AB1F32B704D12AF4@DFLE11.ent.ti.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCDC14B@AcuExch.aculab.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Pushing AF_RXRPC rewrite patches to net/next
+Date: Tue, 09 Feb 2016 16:31:01 +0000
+Message-ID: <9603.1455035461@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "Cooper Jr., Franklin" <fcooper@ti.com>,
-	"Nori, Sekhar" <nsekhar@ti.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Kwok, WingMan" <w-kwok2@ti.com>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"Strashko, Grygorii" <grygorii.strashko@ti.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S . Miller" <davem@davemloft.net>,
-	"Arnd Bergmann" <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCDC14B@AcuExch.aculab.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:21538 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755446AbcBIQbE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 11:31:04 -0500
+Content-ID: <9602.1455035461.1@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi Dave,
 
+I've split 23 patches out of my AF_RXRPC rewrite so far.  If you look here:
 
-Murali Karicheri
-Linux Kernel, Software Development
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-experimental
 
+the penultimate patch is the remnant rewrite, the 23 patches below that are
+ones I've split out of it.
 
->-----Original Message-----
->From: David Laight [mailto:David.Laight@ACULAB.COM]
->Sent: Tuesday, February 09, 2016 11:10 AM
->To: Karicheri, Muralidharan; Strashko, Grygorii; netdev@vger.kernel.org; David S . Miller;
->Arnd Bergmann
->Cc: Cooper Jr., Franklin; Nori, Sekhar; linux-kernel@vger.kernel.org; Kwok, WingMan; N,
->Mugunthan V
->Subject: RE: [PATCH] net: ti: netcp: restore get/set_pad_info() functionality
->
->From: Karicheri, Muralidharan
->> Sent: 09 February 2016 16:10
->...
->> >In reality the 'pad' fields ought to be renamed - since they aren't pads.
->> >Perhaps they should be a union?
->
->> No. At the end of the descriptor, host software can add scratchpad
->> which is not modified by the hardware, but is used by the driver. So
->> please don't rename.
->
->So comment in the definition that the hardware doesn't modify them.
->The driver is defining these fields and they are definitely NOT padding.
+Are you okay with me sending some of them your way now so that you don't get a
+host all in one go, or would you prefer the mass invasion approach?
 
+Note that I've moved things between files in some patches.  Where possible
+I've made a patch that *just* moves from one file to another and then the next
+patch modifies the new file.
 
-It is scratch pad, not padding. Looks like pad is a confusing name. Can be
-renamed to sw_data to be in sync with spec below.
+Unless you're willing to take the remnant patch whole (which would be lovely
+as splitting the patch is way more work than doing the rewrite, but I deem
+unlikely), I still have some more splits I can make in that.
 
-The hardware spec from 
-http://www.ti.com/lit/ug/sprugr9h/sprugr9h.pdf
-
-The other SW data portion of the descriptor exists after all of the defined
-words and is reserved for use by the host software to store completely
-private data. This region is not used in any way by the DMA or queue manager
-modules in a Multicore Navigator system and these modules will not modify
-any bytes within this region.
-
-Murali
->
->	David
+David
