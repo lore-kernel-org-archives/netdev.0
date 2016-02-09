@@ -1,48 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: Increase delay for
- RNDIS_STATUS_NETWORK_CHANGE
-Date: Tue, 09 Feb 2016 05:04:38 -0500 (EST)
-Message-ID: <20160209.050438.1204672612521151525.davem@davemloft.net>
-References: <1454458556-10591-1-git-send-email-haiyangz@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1454458556-10591-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [net-next v2] bonding: use return instead of goto
+Date: Tue,  9 Feb 2016 10:37:46 +0000
+Message-ID: <1455014266-17190-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: j.vosburgh@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmccmta2.chinamobile.com ([221.176.66.80]:2408 "EHLO
+	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932557AbcBIKhC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 05:37:02 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Tue,  2 Feb 2016 16:15:56 -0800
+Replace 'goto' with 'return' to remove unnecessary check at label:
+err_undo_flags.
 
-> We simulates a link down period for RNDIS_STATUS_NETWORK_CHANGE message to
-> trigger DHCP renew. User daemons may need multiple seconds to trigger the
-> link down event. (e.g. ifplugd: 5sec, network-manager: 4sec.) So update
-> this link down period to 10 sec to properly trigger DHCP renew.
-> 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+The reason is that 'err_undo_flags' do two things for the first slave device:
+1.revert bond mac address if it is set by the slave device.
+2.revert bond device type if it's not ARPHRD_ETHER.
 
-Two things look really bad about this to me:
+It's not necessary for the following three places, they changed neither bond 
+mac address nor type. It's straightforward to return directly.
 
-1) Any value you choose is arbitrary.  If some new network configuration daemon
-   is slower, you will have to change this value again.
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ drivers/net/bonding/bond_main.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-   This is _NOT_ sustainable in the long term.
-
-2) It is completely unclear to me why this driver needs to delay at all or
-   wait for anything.  I see no other driver having to deal with this issue.
-
-Until you address both of these points I am not going to apply this patch.
-
-Thanks.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index bcc7b19..abe014f 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1379,8 +1379,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	if (slave_dev->flags & IFF_UP) {
+ 		netdev_err(bond_dev, "%s is up - this may be due to an out of date ifenslave\n",
+ 			   slave_dev->name);
+-		res = -EPERM;
+-		goto err_undo_flags;
++		return -EPERM;
+ 	}
+ 
+ 	/* set bonding device ether type by slave - bonding netdevices are
+@@ -1400,8 +1399,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 			res = notifier_to_errno(res);
+ 			if (res) {
+ 				netdev_err(bond_dev, "refused to change device type\n");
+-				res = -EBUSY;
+-				goto err_undo_flags;
++				return -EBUSY;
+ 			}
+ 
+ 			/* Flush unicast and multicast addresses */
+@@ -1421,8 +1419,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	} else if (bond_dev->type != slave_dev->type) {
+ 		netdev_err(bond_dev, "%s ether type (%d) is different from other slaves (%d), can not enslave it\n",
+ 			   slave_dev->name, slave_dev->type, bond_dev->type);
+-		res = -EINVAL;
+-		goto err_undo_flags;
++		return -EINVAL;
+ 	}
+ 
+ 	if (slave_ops->ndo_set_mac_address == NULL) {
+-- 
+1.8.3.1
