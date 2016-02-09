@@ -1,38 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] enic: increment devcmd2 result ring in case of
- timeout
-Date: Tue, 09 Feb 2016 05:02:04 -0500 (EST)
-Message-ID: <20160209.050204.870615132090842500.davem@davemloft.net>
-References: <1454490644-17955-1-git-send-email-gvaradar@cisco.com>
+Subject: Re: [PATCH net-next] hv_netvsc: Increase delay for
+ RNDIS_STATUS_NETWORK_CHANGE
+Date: Tue, 09 Feb 2016 05:04:38 -0500 (EST)
+Message-ID: <20160209.050438.1204672612521151525.davem@davemloft.net>
+References: <1454458556-10591-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com,
-	sanpilla@cisco.com, _govind@gmx.com
-To: gvaradar@cisco.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53930 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756081AbcBIKCN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 05:02:13 -0500
-In-Reply-To: <1454490644-17955-1-git-send-email-gvaradar@cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1454458556-10591-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Govindarajulu Varadarajan <gvaradar@cisco.com>
-Date: Wed,  3 Feb 2016 14:40:44 +0530
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Tue,  2 Feb 2016 16:15:56 -0800
 
-> From: Sandeep Pillai <sanpilla@cisco.com>
+> We simulates a link down period for RNDIS_STATUS_NETWORK_CHANGE message to
+> trigger DHCP renew. User daemons may need multiple seconds to trigger the
+> link down event. (e.g. ifplugd: 5sec, network-manager: 4sec.) So update
+> this link down period to 10 sec to properly trigger DHCP renew.
 > 
-> Firmware posts the devcmd result in result ring. In case of timeout, driver
-> does not increment the current result pointer and firmware could post the
-> result after timeout has occurred. During next devcmd, driver would be
-> reading the result of previous devcmd.
-> 
-> Fix this by incrementing result even in case of timeout.
-> 
-> Fixes: 373fb0873d43 ("enic: add devcmd2")
-> Signed-off-by: Sandeep Pillai <sanpilla@cisco.com>
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 
-Applied and queued up for -stable, thanks.
+Two things look really bad about this to me:
+
+1) Any value you choose is arbitrary.  If some new network configuration daemon
+   is slower, you will have to change this value again.
+
+   This is _NOT_ sustainable in the long term.
+
+2) It is completely unclear to me why this driver needs to delay at all or
+   wait for anything.  I see no other driver having to deal with this issue.
+
+Until you address both of these points I am not going to apply this patch.
+
+Thanks.
