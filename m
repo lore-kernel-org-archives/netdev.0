@@ -1,44 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/4] packet: tpacket gso and csum offload
-Date: Tue, 09 Feb 2016 06:44:25 -0500 (EST)
-Message-ID: <20160209.064425.2139335305142769623.davem@davemloft.net>
-References: <1454540537-6884-1-git-send-email-willemdebruijn.kernel@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on i211
+ using a device tree blob
+Date: Tue, 9 Feb 2016 12:54:30 +0100
+Message-ID: <20160209115430.GD18781@lunn.ch>
+References: <56ABE3A8.4010602@gmail.com>
+ <1455015744.3592.46.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, mst@redhat.com,
-	sri@us.ibm.com, willemb@google.com
-To: willemdebruijn.kernel@gmail.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: John Holland <jotihojr@gmail.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54533 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756064AbcBILo5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 06:44:57 -0500
-In-Reply-To: <1454540537-6884-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:52790 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754761AbcBILyh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Feb 2016 06:54:37 -0500
+Content-Disposition: inline
+In-Reply-To: <1455015744.3592.46.camel@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Date: Wed,  3 Feb 2016 18:02:13 -0500
+> > +static void igb_read_mac_addr_dts(struct e1000_hw *hw)
+> > +{
+> > +=A0=A0=A0=A0=A0=A0=A0const u8 *mac;
+> > +=A0=A0=A0=A0=A0=A0=A0struct device_node *dn;
+> > +
+> > +=A0=A0=A0=A0=A0=A0=A0dn =3D of_find_compatible_node(NULL, NULL, "i=
+ntel,i211");
 
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> Extend PACKET_VNET_HDR socket option support to packet sockets with
-> memory mapped rings.
-> 
-> Patches 2 and 4 add support to tpacket_rcv and tpacket_snd.
-> 
-> Patch 1 prepares for this by moving the relevant virtio_net_hdr
-> logic out of packet_snd and packet_rcv into helper functions.
-> 
-> GSO transmission requires all headers in the skb linear section.
-> Patch 3 moves parsing of tx_ring slot headers before skb allocation
-> to enable allocation with sufficient linear size.
-> 
-> Changes
->   v1->v2:
->     - fix bounds checks:
->       - subtract sizeof(vnet_hdr) before comparing tp_len to size_max
->       - compare tp_len to size_max also with GSO, just do not truncate to MTU
+Hi John
 
-Series applied, thanks.
+Would this also work for the i210?
+
+If so, you normally use the compatible string for the first device
+this works with. So maybe this should be changed to intel,i210?
+
+Thanks
+	Andrew
