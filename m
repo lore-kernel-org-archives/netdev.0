@@ -1,164 +1,85 @@
-From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-Subject: [PATCH v3 3/6] net: phy: spi_ks8995: add support for resetting switch using GPIO
-Date: Tue,  9 Feb 2016 20:47:15 +0100
-Message-ID: <1455047238-111358-4-git-send-email-helmut.buchsbaum@gmail.com>
-References: <1455047238-111358-1-git-send-email-helmut.buchsbaum@gmail.com>
-Cc: netdev@vger.kernel.org,
-	Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33989 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932353AbcBITri (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 14:47:38 -0500
-Received: by mail-wm0-f68.google.com with SMTP id p63so5382590wmp.1
-        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 11:47:37 -0800 (PST)
-In-Reply-To: <1455047238-111358-1-git-send-email-helmut.buchsbaum@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bernhard Walle <bernhard-X9USDgGjgfuzQB+pC5nmwQ@public.gmane.org>
+Subject: [PATCH v2] net: fec: Add "phy-reset-active-low" property to DT
+Date: Tue,  9 Feb 2016 21:01:12 +0100
+Message-ID: <1455048072-869-1-git-send-email-bernhard@bwalle.de>
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bernhard Walle <bernhard-X9USDgGjgfuzQB+pC5nmwQ@public.gmane.org>
+To: fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When using device tree it is no more possible to reset the PHY at board
-level. Furthermore, doing in the driver allows to power down the switch
-when it is not used any more.
+We need that for a custom hardware that needs the reverse reset
+sequence.
 
-The patch introduces a new optional property "reset-gpios" denoting an
-appropriate GPIO handle, e.g.:
-
-reset-gpios = <&gpio0 46 GPIO_ACTIVE_LOW>
-
-Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+Signed-off-by: Bernhard Walle <bernhard-X9USDgGjgfuzQB+pC5nmwQ@public.gmane.org>
 ---
- drivers/net/phy/spi_ks8995.c | 71 ++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 62 insertions(+), 9 deletions(-)
+Changes compared to v1:
+ - Add documentation to 'phy-reset-gpios' that flags are ignored
+   as suggested by Andrew Lunn.
 
-diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index 2803c8e..04d468f 100644
---- a/drivers/net/phy/spi_ks8995.c
-+++ b/drivers/net/phy/spi_ks8995.c
-@@ -18,6 +18,9 @@
- #include <linux/module.h>
- #include <linux/delay.h>
- #include <linux/device.h>
-+#include <linux/of.h>
-+#include <linux/gpio.h>
-+#include <linux/of_gpio.h>
+ Documentation/devicetree/bindings/net/fsl-fec.txt | 7 ++++++-
+ drivers/net/ethernet/freescale/fec_main.c         | 8 ++++++--
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
+index a9eb611..0caa429 100644
+--- a/Documentation/devicetree/bindings/net/fsl-fec.txt
++++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
+@@ -7,11 +7,16 @@ Required properties:
+ - phy-mode : See ethernet.txt file in the same directory
  
- #include <linux/spi/spi.h>
- 
-@@ -120,7 +123,8 @@ static const struct ks8995_chip_params ks8995_chip[] = {
- };
- 
- struct ks8995_pdata {
--	/* not yet implemented */
-+	int reset_gpio;
-+	enum of_gpio_flags reset_gpio_flags;
- };
- 
- struct ks8995_switch {
-@@ -339,6 +343,24 @@ err_out:
- 	return err;
- }
- 
-+/* ks8995_parse_dt - setup platform data from devicetree
-+ * @ks: pointer to switch instance
-+ *
-+ * Parses supported DT properties and sets up platform data
-+ * accordingly.
-+ */
-+static void ks8995_parse_dt(struct ks8995_switch *ks)
-+{
-+	struct device_node *np = ks->spi->dev.of_node;
-+	struct ks8995_pdata *pdata = ks->pdata;
-+
-+	if (!np)
-+		return;
-+
-+	pdata->reset_gpio = of_get_named_gpio_flags(np, "reset-gpios", 0,
-+		&pdata->reset_gpio_flags);
-+}
-+
- static const struct bin_attribute ks8995_registers_attr = {
- 	.attr = {
- 		.name   = "registers",
-@@ -352,14 +374,10 @@ static const struct bin_attribute ks8995_registers_attr = {
- /* ------------------------------------------------------------------------ */
- static int ks8995_probe(struct spi_device *spi)
+ Optional properties:
+-- phy-reset-gpios : Should specify the gpio for phy reset
++- phy-reset-gpios : Should specify the gpio for phy reset. Additional
++  flags are ignored, see the non-standard 'phy-reset-active-low' property
++  instead.
+ - phy-reset-duration : Reset duration in milliseconds.  Should present
+   only if property "phy-reset-gpios" is available.  Missing the property
+   will have the duration be 1 millisecond.  Numbers greater than 1000 are
+   invalid and 1 millisecond will be used instead.
++- phy-reset-active-low : If present then the reset sequence using the GPIO
++  specified in the "phy-reset-gpios" property is reversed (H=reset state,
++  L=operation state).
+ - phy-supply : regulator that powers the Ethernet PHY.
+ - phy-handle : phandle to the PHY device connected to this device.
+ - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 41c81f6..98caf87 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -3229,6 +3229,7 @@ static int fec_enet_init(struct net_device *ndev)
+ static void fec_reset_phy(struct platform_device *pdev)
  {
--	struct ks8995_switch    *ks;
--	struct ks8995_pdata     *pdata;
--	int     err;
-+	struct ks8995_switch *ks;
-+	int err;
- 	int variant = spi_get_device_id(spi)->driver_data;
+ 	int err, phy_reset;
++	bool active_low = false;
+ 	int msec = 1;
+ 	struct device_node *np = pdev->dev.of_node;
  
--	/* Chip description */
--	pdata = spi->dev.platform_data;
--
- 	if (variant >= max_variant) {
- 		dev_err(&spi->dev, "bad chip variant %d\n", variant);
- 		return -ENODEV;
-@@ -370,10 +388,42 @@ static int ks8995_probe(struct spi_device *spi)
- 		return -ENOMEM;
+@@ -3244,14 +3245,17 @@ static void fec_reset_phy(struct platform_device *pdev)
+ 	if (!gpio_is_valid(phy_reset))
+ 		return;
  
- 	mutex_init(&ks->lock);
--	ks->pdata = pdata;
- 	ks->spi = spi_dev_get(spi);
- 	ks->chip = &ks8995_chip[variant];
- 
-+	if (ks->spi->dev.of_node) {
-+		ks->pdata = devm_kzalloc(&spi->dev, sizeof(*ks->pdata),
-+					 GFP_KERNEL);
-+		if (!ks->pdata)
-+			return -ENOMEM;
++	active_low = of_property_read_bool(np, "phy-reset-active-low");
 +
-+		ks->pdata->reset_gpio = -1;
-+
-+		ks8995_parse_dt(ks);
-+	}
-+
-+	if (!ks->pdata)
-+		ks->pdata = spi->dev.platform_data;
-+
-+	/* de-assert switch reset */
-+	if (ks->pdata && gpio_is_valid(ks->pdata->reset_gpio)) {
-+		unsigned long flags;
-+
-+		flags = (ks->pdata->reset_gpio_flags == OF_GPIO_ACTIVE_LOW ?
-+			 GPIOF_ACTIVE_LOW : 0);
-+
-+		err = devm_gpio_request_one(&spi->dev,
-+					    ks->pdata->reset_gpio,
-+					    flags, "switch-reset");
-+		if (err) {
-+			dev_err(&spi->dev,
-+				"failed to get reset-gpios: %d\n", err);
-+			return -EIO;
-+		}
-+
-+		gpiod_set_value(gpio_to_desc(ks->pdata->reset_gpio), 0);
-+	}
-+
- 	spi_set_drvdata(spi, ks);
- 
- 	spi->mode = SPI_MODE_0;
-@@ -414,11 +464,14 @@ static int ks8995_remove(struct spi_device *spi)
- 
- 	sysfs_remove_bin_file(&spi->dev.kobj, &ks->regs_attr);
- 
-+	/* assert reset */
-+	if (ks->pdata && gpio_is_valid(ks->pdata->reset_gpio))
-+		gpiod_set_value(gpio_to_desc(ks->pdata->reset_gpio), 1);
-+
- 	return 0;
+ 	err = devm_gpio_request_one(&pdev->dev, phy_reset,
+-				    GPIOF_OUT_INIT_LOW, "phy-reset");
++			active_low ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
++			"phy-reset");
+ 	if (err) {
+ 		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
+ 		return;
+ 	}
+ 	msleep(msec);
+-	gpio_set_value_cansleep(phy_reset, 1);
++	gpio_set_value_cansleep(phy_reset, !active_low);
  }
- 
- /* ------------------------------------------------------------------------ */
--
- static struct spi_driver ks8995_driver = {
- 	.driver = {
- 		.name	    = "spi-ks8995",
+ #else /* CONFIG_OF */
+ static void fec_reset_phy(struct platform_device *pdev)
 -- 
-2.1.4
+2.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
