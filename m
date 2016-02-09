@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Add Ethernet support on STM32F429
-Date: Tue, 09 Feb 2016 04:52:14 -0500 (EST)
-Message-ID: <20160209.045214.805916119264070573.davem@davemloft.net>
-References: <1454511275-9791-1-git-send-email-alexandre.torgue@gmail.com>
+Subject: Re: [PATCH net] sctp: translate network order to host order when
+ users get a hmacid
+Date: Tue, 09 Feb 2016 04:54:09 -0500 (EST)
+Message-ID: <20160209.045409.1138087933631573325.davem@davemloft.net>
+References: <f763fd2125356a2484bef0b6d083fdd38b13e8db.1454513610.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mcoquelin.stm32@gmail.com, peppe.cavallaro@st.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: alexandre.torgue@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454511275-9791-1-git-send-email-alexandre.torgue@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	marcelo.leitner@gmail.com, vyasevich@gmail.com
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53874 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753132AbcBIJyc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 04:54:32 -0500
+In-Reply-To: <f763fd2125356a2484bef0b6d083fdd38b13e8db.1454513610.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexandre TORGUE <alexandre.torgue@gmail.com>
-Date: Wed,  3 Feb 2016 15:54:31 +0100
+From: Xin Long <lucien.xin@gmail.com>
+Date: Wed,  3 Feb 2016 23:33:30 +0800
 
-> STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
-> This series:
-> 	-enhance current stmmac driver to control it (code already available) and 
-> 	 adds basic glue for STM32F429 chip.
-> 	-Enable basic Net config in kernel.
+> Commit ed5a377d87dc ("sctp: translate host order to network order when
+> setting a hmacid") corrected the hmacid byte-order when setting a hmacid.
+> but the same issue also exists on getting a hmacid.
 > 
-> Note that DT patches are not present because STM32 pinctrl code is not
-> yet avalaible.
+> We fix it by changing hmacids to host order when users get them with
+> getsockopt.
+> 
+> Fixes: Commit ed5a377d87dc ("sctp: translate host order to network order when setting a hmacid")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Looks like this needs to be respun to deal with the warnings the kbuild
-robot reported.
+Applied and queued up for -stable.
 
 Thanks.
