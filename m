@@ -1,63 +1,35 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [net PATCH] net: Copy inner L3 and L4 headers as unaligned on GRE TEB
-Date: Tue, 9 Feb 2016 15:33:39 +0100
-Message-ID: <CALx6S34nhTqC71XqRtOfaeDwhXQQfpM2iQHiVvTGJhmpUMYuTw@mail.gmail.com>
-References: <20160209141234.19305.82202.stgit@localhost.localdomain>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] net: fec: Add "phy-reset-active-low" property to DT
+Date: Tue, 09 Feb 2016 15:47:24 +0100
+Message-ID: <14388522.9LWflTAYzq@wuerfel>
+References: <1454962873-1941-1-git-send-email-bernhard@bwalle.de> <3171793.SonfZDNmtV@wuerfel> <20160208215138.GB13673@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Alexander Duyck <aduyck@mirantis.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:34095 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755919AbcBIOdk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 09:33:40 -0500
-Received: by mail-io0-f179.google.com with SMTP id 9so19038636iom.1
-        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 06:33:39 -0800 (PST)
-In-Reply-To: <20160209141234.19305.82202.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Bernhard Walle <bernhard@bwalle.de>, fabio.estevam@freescale.com,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160208215138.GB13673@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 9, 2016 at 3:14 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> This patch corrects the unaligned accesses seen on GRE TEB tunnels when
-> generating hash keys.  Specifically what this patch does is make it so that
-> we force the use of skb_copy_bits when the GRE inner headers will be
-> unaligned due to NET_IP_ALIGNED being a non-zero value.
->
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-> ---
->
-> I don't have the ability to test it but this should fix flow dissector for
-> GRE TEB tunnels traffic seen on architectures that require network and
-> transport headers to be 4 byte aligned.
->
->  net/core/flow_dissector.c |    7 +++++++
->  1 file changed, 7 insertions(+)
->
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index 699b2c415cb0..9c181ba7263e 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -402,6 +402,13 @@ ip_proto_again:
->                                 goto out_bad;
->                         proto = eth->h_proto;
->                         nhoff += sizeof(*eth);
-> +
-> +                       /* Cap headers that we access via pointers at the
-> +                        * end of the Ethernet header as our maximum alignment
-> +                        * at that point is only 2 bytes.
-> +                        */
-> +                       if (NET_IP_ALIGN)
-> +                               hlen = nhoff;
+On Monday 08 February 2016 22:51:38 Andrew Lunn wrote:
+> On Mon, Feb 08, 2016 at 10:46:42PM +0100, Arnd Bergmann wrote:
+> > On Monday 08 February 2016 21:21:13 Bernhard Walle wrote:
+> > > We need that for a custom hardware that needs the reverse reset
+> > > sequence.
+> > > 
+> > > Signed-off-by: Bernhard Walle <bernhard@bwalle.de>
+> > > 
+> > 
+> > Why can't this be specified in the gpios property?
+> 
+> Backwards compatibility. The flag has always been ignored until now,
+> yet various DTs have a flag value which are active low. If suddenly it
+> worked, various boards would break 
 
-I think this should be:
+Ok, I see. 
 
-if (NET_IP_ALIGN)
-     goto out_good;
-
->                 }
->
->                 key_control->flags |= FLOW_DIS_ENCAPSULATION;
->
+	Arnd
