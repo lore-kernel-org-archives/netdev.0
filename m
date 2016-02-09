@@ -1,54 +1,73 @@
-From: Shannon Nelson <shannon.nelson@intel.com>
-Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on i211
- using a device tree blob
-Date: Tue, 9 Feb 2016 09:42:45 -0800
-Message-ID: <CAP-MU4Mr5SkpC9XZuPa5xaAjgJ+_j3Gt5hYcSO6a2Q7jVB8HcQ@mail.gmail.com>
-References: <56ABE3A8.4010602@gmail.com>
-	<1455015744.3592.46.camel@intel.com>
-	<20160209115921.GE18781@lunn.ch>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net v2 2/3] geneve: Relax MTU constraints
+Date: Tue, 9 Feb 2016 21:18:21 +0300
+Message-ID: <56BA2D6D.6090408@cogentembedded.com>
+References: <1455036424-6403-1-git-send-email-david@weave.works>
+ <1455036424-6403-3-git-send-email-david@weave.works>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Holland <jotihojr@gmail.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Gross <jesse@kernel.org>, David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: David Wragg <david@weave.works>, netdev@vger.kernel.org,
+	dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:32781 "EHLO
-	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751929AbcBIRmq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 12:42:46 -0500
-Received: by mail-io0-f177.google.com with SMTP id f81so25098700iof.0
-        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 09:42:45 -0800 (PST)
-In-Reply-To: <20160209115921.GE18781@lunn.ch>
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:35278 "EHLO
+	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756807AbcBISS0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 13:18:26 -0500
+Received: by mail-lf0-f41.google.com with SMTP id l143so120868321lfe.2
+        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 10:18:25 -0800 (PST)
+In-Reply-To: <1455036424-6403-3-git-send-email-david@weave.works>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It seem to me this should be using eth_platform_get_mac_address(), a
-slightly more generic method to do this.  See the i40e driver for an
-example, commit d9a84324e6 I believe.
+On 02/09/2016 07:47 PM, David Wragg wrote:
 
-sln
-
-On Tue, Feb 9, 2016 at 3:59 AM, Andrew Lunn <andrew@lunn.ch> wrote:
->> > +       dn = of_find_compatible_node(NULL, NULL, "intel,i211");
+> Allow the MTU of geneve devices to be set to large values, in order to
+> exploit underlying networks with larger frame sizes.
 >
-> Humm, NULL, NULL. That means find the first node anywhere in the
-> device tree which matches. This is not going to work too well when you
-> have multiple i211s.
+> GENEVE does not have a fixed encapsulation overhead (an openvswitch
+> rule can add variable length options), so there is no relevant maximum
+> MTU to enforce.  A maximum of IP_MAX_MTU is used instead.
+> Encapsulated packets that are too big for the underlying network will
+> get dropped on the floor.
 >
-> There is a way so specify a DT node is attached to a specific PCIe
-> bus/slot. I think you should search only there, so solving the
-> multiple device issue.
+> Signed-off-by: David Wragg <david@weave.works>
+> ---
+>   drivers/net/geneve.c | 12 +++++++++++-
+>   1 file changed, 11 insertions(+), 1 deletion(-)
 >
->          Andrew
+> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+> index 0b14ac3..05cef11 100644
+> --- a/drivers/net/geneve.c
+> +++ b/drivers/net/geneve.c
+> @@ -1039,6 +1039,16 @@ static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
+>   	return geneve_xmit_skb(skb, dev, info);
+>   }
+>
+> +static int geneve_change_mtu(struct net_device *dev, int new_mtu)
+> +{
+> +	/* GENEVE overhead is not fixed, so we can't enforce a more
+> +	   precise max MTU. */
 
+    The networking code formats comments:
 
+/* Like
+  * this.
+  */
 
--- 
-==============================================
+> +	if (new_mtu < 68 || new_mtu > IP_MAX_MTU)
+> +		return -EINVAL;
+> +	dev->mtu = new_mtu;
+> +	return 0;
+> +}
+> +
+>   static int geneve_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
+>   {
+>   	struct ip_tunnel_info *info = skb_tunnel_info(skb);
+[...]
 
-Mr. Shannon Nelson                        Network Division, Intel Corp.
-
-Shannon.Nelson@intel.com                I don't speak for Intel
-
-                 Parents can't afford to be squeamish
+MBR, Sergei
