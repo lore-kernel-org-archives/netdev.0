@@ -1,69 +1,45 @@
 From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: [PATCH 0/5] pre-decrement in error paths considered harmful
-Date: Tue,  9 Feb 2016 21:11:11 +0100
-Message-ID: <1455048677-19882-1-git-send-email-linux@rasmusvillemoes.dk>
-Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-To: dri-devel@lists.freedesktop.org,
-	linux-kernel@vger.kernel.org,
-	intel-gfx@lists.freedesktop.org,
-	netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org,
-	linux-mm@kvack.org
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
+Subject: [PATCH 4/5] net: sxgbe: fix error paths in sxgbe_platform_probe()
+Date: Tue,  9 Feb 2016 21:11:15 +0100
+Message-ID: <1455048677-19882-5-git-send-email-linux@rasmusvillemoes.dk>
+References: <1455048677-19882-1-git-send-email-linux@rasmusvillemoes.dk>
+Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Byungho An <bh74.an@samsung.com>, Girish K S <ks.giri@samsung.com>,
+	Vipul Pandya <vipul.pandya@samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455048677-19882-1-git-send-email-linux@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There are a few instances of
+We need to use post-decrement to ensure that irq_dispose_mapping is
+also called on priv->rxq[0]->irq_no; moreover, if one of the above for
+loops failed already at i==0 (so we reach one of these labels with
+that value of i), we'll enter an essentially infinite loop of
+out-of-bounds accesses.
 
-  for (i = 0; i < FOO; ++i) {
-    ret = do_stuff(i)
-    if (ret)
-      goto err;
-  }
-  ...
-  err:
-  while (--i)
-    undo_stuff(i);
-
-At best, this fails to undo_stuff for i==0, but if i==0 was the case
-that failed, we'll end up with an "infinite" loop in the error path
-doing nasty stuff.
-
-These were found with a simple coccinelle script
-
-@@
-expression i;
-identifier l;
-statement S;
-@@
-* l:
-* while (--i)
-    S
-
-(and there were no false positives).
-
-There's no dependencies between the patches; I just wanted to include
-a common cover letter with a little background info.
-
-Rasmus Villemoes (5):
-  drm/gma500: fix error path in gma_intel_setup_gmbus()
-  drm/i915: fix error path in intel_setup_gmbus()
-  net/mlx4: fix some error handling in mlx4_multi_func_init()
-  net: sxgbe: fix error paths in sxgbe_platform_probe()
-  mm/backing-dev.c: fix error path in wb_init()
-
- drivers/gpu/drm/gma500/intel_gmbus.c                | 2 +-
- drivers/gpu/drm/i915/intel_i2c.c                    | 2 +-
- drivers/net/ethernet/mellanox/mlx4/cmd.c            | 4 ++--
+Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+---
  drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c | 4 ++--
- mm/backing-dev.c                                    | 2 +-
- 5 files changed, 7 insertions(+), 7 deletions(-)
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
+index b02eed12bfc5..73427e29df2a 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
+@@ -155,11 +155,11 @@ static int sxgbe_platform_probe(struct platform_device *pdev)
+ 	return 0;
+ 
+ err_rx_irq_unmap:
+-	while (--i)
++	while (i--)
+ 		irq_dispose_mapping(priv->rxq[i]->irq_no);
+ 	i = SXGBE_TX_QUEUES;
+ err_tx_irq_unmap:
+-	while (--i)
++	while (i--)
+ 		irq_dispose_mapping(priv->txq[i]->irq_no);
+ 	irq_dispose_mapping(priv->irq);
+ err_drv_remove:
 -- 
 2.1.4
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
