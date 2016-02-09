@@ -1,59 +1,53 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: ti: netcp: restore get/set_pad_info() functionality
-Date: Tue, 9 Feb 2016 16:37:43 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCDC216@AcuExch.aculab.com>
-References: <1455026303-17014-1-git-send-email-grygorii.strashko@ti.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCDBFCC@AcuExch.aculab.com>
- <3E54258959B69E4282D79E01AB1F32B704D12AF4@DFLE11.ent.ti.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CCDC14B@AcuExch.aculab.com>
- <3E54258959B69E4282D79E01AB1F32B704D12B40@DFLE11.ent.ti.com>
+From: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+Subject: [PATCH net v2 0/3] Set a large MTU on ovs-created tunnel
+	devices
+Date: Tue,  9 Feb 2016 16:47:01 +0000
+Message-ID: <1455036424-6403-1-git-send-email-david@weave.works>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Cooper Jr., Franklin" <fcooper@ti.com>,
-	"Nori, Sekhar" <nsekhar@ti.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Kwok, WingMan" <w-kwok2@ti.com>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>
-To: "'Karicheri, Muralidharan'" <m-karicheri2@ti.com>,
-	"Strashko, Grygorii" <grygorii.strashko@ti.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S . Miller" <davem@davemloft.net>,
-	"Arnd Bergmann" <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3E54258959B69E4282D79E01AB1F32B704D12B40@DFLE11.ent.ti.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>, Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
+ Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Karicheri, Muralidharan
-> Sent: 09 February 2016 16:19
-> >...
-> >> >In reality the 'pad' fields ought to be renamed - since they aren't pads.
-> >> >Perhaps they should be a union?
-> >
-> >> No. At the end of the descriptor, host software can add scratchpad
-> >> which is not modified by the hardware, but is used by the driver. So
-> >> please don't rename.
-> >
-> >So comment in the definition that the hardware doesn't modify them.
-> >The driver is defining these fields and they are definitely NOT padding.
-> 
-> 
-> It is scratch pad, not padding. Looks like pad is a confusing name. Can be
-> renamed to sw_data to be in sync with spec below.
-> 
-> The hardware spec from
-> http://www.ti.com/lit/ug/sprugr9h/sprugr9h.pdf
-> 
-> The other SW data portion of the descriptor exists after all of the defined
-> words and is reserved for use by the host software to store completely
-> private data. This region is not used in any way by the DMA or queue manager
-> modules in a Multicore Navigator system and these modules will not modify
-> any bytes within this region.
-
-Right, so comment that the hardware doesn't look at the fields.
-But name/type the structure fields to indicate what they contain.
-Maybe sw_buf_len etc - but I suspect there are much more meaningful names.
-
-	David
+UHJpb3IgdG8gNC4zLCB0dW5uZWwgdnBvcnRzICh2eGxhbiwgZ3JlIGFuZCBnZW5ldmUpIGNvdWxk
+IHRyYW5zbWl0CnZ4bGFuIHBhY2tldHMgb2YgYW55IHNpemUsIGNvbnN0cmFpbmVkIG9ubHkgYnkg
+dGhlIGFiaWxpdHkgdG8gc2VuZCBvdXQKdGhlIHJlc3VsdGluZyBwYWNrZXRzLiAgNC4zIGludHJv
+ZHVjZWQgbmV0ZGV2cyBjb3JyZXNwb25kaW5nIHRvIHR1bm5lbAp2cG9ydHMuICBUaGVzZSBuZXRk
+ZXZzIGhhdmUgYW4gTVRVLCB3aGljaCBsaW1pdHMgdGhlIHNpemUgb2YgYSBwYWNrZXQKdGhhdCBj
+YW4gYmUgc3VjY2Vzc2Z1bGx5IGVuY2Fwc3VsYXRlZC4gIFRoZSBkZWZhdWx0IHZhbHVlIGZvciB0
+aGUgTVRVcwphcmUgbG93ICgxNTAwIG9yIGxlc3MpLCB3aGljaCBpcyBhd2t3YXJkbHkgc21hbGwg
+aW4gdGhlIGNvbnRleHQgb2YKcGh5c2ljYWwgbmV0d29ya3Mgc3VwcG9ydGluZyBqdW1ibyBmcmFt
+ZXMsIGFuZCBsZWFkcyB0byBhIGNvbnNwaWN1b3VzCmNoYW5nZSBpbiBiZWhhdmlvdXIgZm9yIHVz
+ZXJzcGFjZS4KClRoaXMgcGF0Y2ggc2VyaWVzIHNldHMgdGhlIE1UVSBvbiBvcGVudnN3aXRjaC1j
+cmVhdGVkIG5ldGRldnMgdG8gYmUKdGhlIHJlbGV2YW50IG1heGltdW0gKGkuZS4gdGhlIG1heGlt
+dW0gSVAgcGFja2V0IHNpemUgbWludXMgYW55CnJlbGV2YW50IG92ZXJoZWFkKSwgZWZmZWN0aXZl
+bHkgcmVzdG9yaW5nIHRoZSBiZWhhdmlvdXIgcHJpb3IgdG8gNC4zLgoKV2hlcmUgYXBwcm9wcmlh
+dGUsIHRoZSBsaW1pdHMgb24gTVRVIHZhbHVlcyB3aGVuIHNldCBvbiB0aGUgbmV0ZGV2cwpkaXJl
+Y3RseSBhcmUgYWxzbyByZWxheGVkLgoKQ2hhbmdlcyBpbiB2MjoKKiBFeHRlbmQgdG8gYWxsIG9w
+ZW52c3dpdGNoIHR1bm5lbCB0eXBlcywgaS5lLiBncmUgYW5kIGdlbmV2ZSBhcyB3ZWxsCiogVXNl
+IElQX01BWF9NVFUKCkRhdmlkIFdyYWdnICgzKToKICB2eGxhbjogUmVsYXggdGhlIE1UVSBjb25z
+dHJhaW50cwogIGdlbmV2ZTogUmVsYXggTVRVIGNvbnN0cmFpbnRzCiAgdnhsYW4sIGdyZSwgZ2Vu
+ZXZlOiBTZXQgYSBsYXJnZSBNVFUgb24gb3ZzLWNyZWF0ZWQgdHVubmVsIGRldmljZXMKCiBkcml2
+ZXJzL25ldC9nZW5ldmUuYyAgICAgICAgICB8IDI5ICsrKysrKysrKysrKysrKysrKysrKy0tLS0t
+CiBkcml2ZXJzL25ldC92eGxhbi5jICAgICAgICAgICB8IDQ3ICsrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKy0tLS0tLS0tLS0tLS0KIGluY2x1ZGUvbmV0L2lwX3R1bm5lbHMuaCAgICAgIHwg
+IDEgKwogbmV0L2lwdjQvaXBfZ3JlLmMgICAgICAgICAgICAgfCAgNyArKysrKysrCiBuZXQvaXB2
+NC9pcF90dW5uZWwuYyAgICAgICAgICB8IDIxICsrKysrKysrKysrKysrKystLS0KIG5ldC9vcGVu
+dnN3aXRjaC92cG9ydC12eGxhbi5jIHwgIDIgKysKIDYgZmlsZXMgY2hhbmdlZCwgODUgaW5zZXJ0
+aW9ucygrKSwgMjIgZGVsZXRpb25zKC0pCgotLSAKMi41LjAKCl9fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dp
+dGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
