@@ -1,86 +1,57 @@
-From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: [PATCH net-next v7 01/19] lib/bitmap.c: conversion routines
- to/from u32 array
-Date: Mon, 8 Feb 2016 15:36:35 -0800
-Message-ID: <20160208153635.67df5ac2576138088a859087@linux-foundation.org>
-References: <1454893743-6285-1-git-send-email-ddecotig@gmail.com>
-	<1454893743-6285-2-git-send-email-ddecotig@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Ido Shamay <idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>,
-	Venkata Duvvuru <VenkatKumar.Duvvuru-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>,
-	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
-	Ed Swierk <eswierk-FilZDy9cOaHkQYj/0HfcvtBPR1lH4CV8@public.gmane.org>,
-	Robert Love <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"James E.J. Bottomley" <JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-	Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>,
-	David Decotigny <decot@googlers
-To: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1454893743-6285-2-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jacob Keller <jacob.e.keller@intel.com>
+Subject: [PATCH 3/4] fm10k: don't reinitialize RSS flow table when RXFH configured
+Date: Mon,  8 Feb 2016 16:05:05 -0800
+Message-ID: <1454976306-23523-4-git-send-email-jacob.e.keller@intel.com>
+References: <1454976306-23523-1-git-send-email-jacob.e.keller@intel.com>
+Cc: Jakub Kicinski <moorray3@wp.pl>,
+	David Miller <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:6948 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932487AbcBIAFO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Feb 2016 19:05:14 -0500
+In-Reply-To: <1454976306-23523-1-git-send-email-jacob.e.keller@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun,  7 Feb 2016 17:08:45 -0800 David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+Also print an error message incase we do have to reconfigure as this
+should no longer happen anymore due to ethtool changes. If it somehow
+does occur, user should be made aware of it.
 
-> From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
-> 
-> Aimed at transferring bitmaps to/from user-space in a 32/64-bit agnostic
-> way.
-> 
-> Tested:
->   unit tests (next patch) on qemu i386, x86_64, ppc, ppc64 BE and LE,
->   ARM.
-> 
-> @@ -1060,6 +1062,90 @@ int bitmap_allocate_region(unsigned long *bitmap, unsigned int pos, int order)
->  EXPORT_SYMBOL(bitmap_allocate_region);
->  
->  /**
-> + * bitmap_from_u32array - copy the contents of a u32 array of bits to bitmap
-> + *	@bitmap: array of unsigned longs, the destination bitmap, non NULL
-> + *	@nbits: number of bits in @bitmap
-> + *	@buf: array of u32 (in host byte order), the source bitmap, non NULL
-> + *	@nwords: number of u32 words in @buf
-> + *
-> + * copy min(nbits, 32*nwords) bits from @buf to @bitmap, remaining
-> + * bits between nword and nbits in @bitmap (if any) are cleared. In
-> + * last word of @bitmap, the bits beyond nbits (if any) are kept
-> + * unchanged.
-> + */
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+---
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-This will leave the caller not knowing how many valid bits are actually
-present in the resulting bitmap.  To determine that, the caller will
-need to perform (duplicated) math on `nbits' and `nwords'.
-
-> +void bitmap_from_u32array(unsigned long *bitmap, unsigned int nbits,
-> +			  const u32 *buf, unsigned int nwords)
-
-So how about we make this return the number of valid bits in *bitmap?
-
-> +/**
-> + * bitmap_to_u32array - copy the contents of bitmap to a u32 array of bits
-> + *	@buf: array of u32 (in host byte order), the dest bitmap, non NULL
-> + *	@nwords: number of u32 words in @buf
-> + *	@bitmap: array of unsigned longs, the source bitmap, non NULL
-> + *	@nbits: number of bits in @bitmap
-> + *
-> + * copy min(nbits, 32*nwords) bits from @bitmap to @buf. Remaining
-> + * bits after nbits in @buf (if any) are cleared.
-> + */
-> +void bitmap_to_u32array(u32 *buf, unsigned int nwords,
-> +			const unsigned long *bitmap, unsigned int nbits)
-
-Ditto.
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index 134ce4daa994..4e58f9155883 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -1937,8 +1937,10 @@ static void fm10k_init_reta(struct fm10k_intfc *interface)
+ 	u16 i, rss_i = interface->ring_feature[RING_F_RSS].indices;
+ 	u32 reta, base;
+ 
+-	/* If the netdev is initialized we have to maintain table if possible */
+-	if (interface->netdev->reg_state != NETREG_UNINITIALIZED) {
++	/* If the Rx flow indirection table has been configured manually, we
++	 * need to maintain it when possible.
++	 */
++	if (netif_is_rxfh_configured(interface->netdev)) {
+ 		for (i = FM10K_RETA_SIZE; i--;) {
+ 			reta = interface->reta[i];
+ 			if ((((reta << 24) >> 24) < rss_i) &&
+@@ -1946,6 +1948,10 @@ static void fm10k_init_reta(struct fm10k_intfc *interface)
+ 			    (((reta <<  8) >> 24) < rss_i) &&
+ 			    (((reta)       >> 24) < rss_i))
+ 				continue;
++
++			/* this should never happen */
++			dev_err(&interface->pdev->dev,
++				"RSS indirection table assigned flows out of queue bounds. Reconfiguring.\n");
+ 			goto repopulate_reta;
+ 		}
+ 
+-- 
+2.7.0.236.gda096a0.dirty
