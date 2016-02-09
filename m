@@ -1,175 +1,90 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v2 2/2] sh_eth: factor out register bit twiddling code
-Date: Wed, 10 Feb 2016 01:38:28 +0300
-Message-ID: <1667238.7SnE7Yo9oh@wasted.cogentembedded.com>
-References: <2107757.v1oGBJ7aiG@wasted.cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-renesas-soc@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <2107757.v1oGBJ7aiG@wasted.cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: [PATCH net-next 0/7] Faster SO_REUSEPORT for TCP
+Date: Tue,  9 Feb 2016 18:39:06 -0500
+Message-ID: <1455061153-7855-1-git-send-email-kraigatgoog@gmail.com>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:34218 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755645AbcBIXjS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 18:39:18 -0500
+Received: by mail-qg0-f44.google.com with SMTP id b67so2427870qgb.1
+        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 15:39:18 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The  driver has often repeated pattern of reading a register,  AND'ing and/or
-OR'ing some bits  and writing  the  value back. Factor the pattern out into
-sh_eth_modify() -- this saves  84 bytes of code with ARM gcc 4.7.3.
+From: Craig Gallek <kraig@google.com>
 
-While at it, update Cogent Embedded's copyright.
+This patch series complements an earlier series (6a5ef90c58da)
+which added faster SO_REUSEPORT lookup for UDP sockets by
+extending the feature to TCP sockets.  It uses the same
+array-based data structure which allows for socket selection
+after finding the first listening socket that matches an incoming
+packet.  Prior to this feature, every socket in the reuseport
+group needed to be found and examined before a selection could be
+made.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+With this series the SO_ATTACH_REUSEPORT_CBPF and
+SO_ATTACH_REUSEPORT_EBPF socket options now work for TCP sockets
+as well.  The test at the end of the series includes an example of
+how to use these options to select a reuseport socket based on the
+cpu core id handling the incoming packet.
 
----
-Changes in version 2:
-- renamed sh_eth_modify()'s parameters.
+There are several refactoring patches that precede the feature
+implementation.  Only the last two patches in this series
+should result in any behavioral changes.
 
- drivers/net/ethernet/renesas/sh_eth.c |   53 +++++++++++++++-------------------
- 1 file changed, 24 insertions(+), 29 deletions(-)
+v2:
+- In the first patched I missed a couple of hash functions that should now be
+  returning int instead of void.  I missed these the first time through as it
+  only generated a warning and not an error :\
 
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -3,7 +3,7 @@
-  *  Copyright (C) 2014  Renesas Electronics Corporation
-  *  Copyright (C) 2006-2012 Nobuhiro Iwamatsu
-  *  Copyright (C) 2008-2014 Renesas Solutions Corp.
-- *  Copyright (C) 2013-2014 Cogent Embedded, Inc.
-+ *  Copyright (C) 2013-2016 Cogent Embedded, Inc.
-  *  Copyright (C) 2014 Codethink Limited
-  *
-  *  This program is free software; you can redistribute it and/or modify it
-@@ -428,6 +428,13 @@ static u32 sh_eth_read(struct net_device
- 	return ioread32(mdp->addr + offset);
- }
- 
-+static void sh_eth_modify(struct net_device *ndev, int enum_index, u32 clear,
-+			  u32 set)
-+{
-+	sh_eth_write(ndev, (sh_eth_read(ndev, enum_index) & ~clear) | set,
-+		     enum_index);
-+}
-+
- static bool sh_eth_is_gether(struct sh_eth_private *mdp)
- {
- 	return mdp->reg_offset == sh_eth_offset_gigabit;
-@@ -467,10 +474,7 @@ static void sh_eth_set_duplex(struct net
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 
--	if (mdp->duplex) /* Full */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
--	else		/* Half */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
-+	sh_eth_modify(ndev, ECMR, ECMR_DM, mdp->duplex ? ECMR_DM : 0);
- }
- 
- static void sh_eth_chip_reset(struct net_device *ndev)
-@@ -583,10 +587,10 @@ static void sh_eth_set_rate_r8a777x(stru
- 
- 	switch (mdp->speed) {
- 	case 10: /* 10BASE */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_ELB, ECMR);
-+		sh_eth_modify(ndev, ECMR, ECMR_ELB, 0);
- 		break;
- 	case 100:/* 100BASE */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_ELB, ECMR);
-+		sh_eth_modify(ndev, ECMR, ECMR_ELB, ECMR_ELB);
- 		break;
- 	default:
- 		break;
-@@ -649,10 +653,10 @@ static void sh_eth_set_rate_sh7724(struc
- 
- 	switch (mdp->speed) {
- 	case 10: /* 10BASE */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_RTM, ECMR);
-+		sh_eth_modify(ndev, ECMR, ECMR_RTM, 0);
- 		break;
- 	case 100:/* 100BASE */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_RTM, ECMR);
-+		sh_eth_modify(ndev, ECMR, ECMR_RTM, ECMR_RTM);
- 		break;
- 	default:
- 		break;
-@@ -924,8 +928,7 @@ static int sh_eth_reset(struct net_devic
- 
- 	if (sh_eth_is_gether(mdp) || sh_eth_is_rz_fast_ether(mdp)) {
- 		sh_eth_write(ndev, EDSR_ENALL, EDSR);
--		sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST_GETHER,
--			     EDMR);
-+		sh_eth_modify(ndev, EDMR, EDMR_SRST_GETHER, EDMR_SRST_GETHER);
- 
- 		ret = sh_eth_check_reset(ndev);
- 		if (ret)
-@@ -949,11 +952,9 @@ static int sh_eth_reset(struct net_devic
- 		if (mdp->cd->select_mii)
- 			sh_eth_select_mii(ndev);
- 	} else {
--		sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST_ETHER,
--			     EDMR);
-+		sh_eth_modify(ndev, EDMR, EDMR_SRST_ETHER, EDMR_SRST_ETHER);
- 		mdelay(3);
--		sh_eth_write(ndev, sh_eth_read(ndev, EDMR) & ~EDMR_SRST_ETHER,
--			     EDMR);
-+		sh_eth_modify(ndev, EDMR, EDMR_SRST_ETHER, 0);
- 	}
- 
- 	return ret;
-@@ -1285,7 +1286,7 @@ static int sh_eth_dev_init(struct net_de
- 	sh_eth_write(ndev, ndev->mtu + ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN,
- 		     RFLR);
- 
--	sh_eth_write(ndev, sh_eth_read(ndev, EESR), EESR);
-+	sh_eth_modify(ndev, EESR, 0, 0);
- 	if (start) {
- 		mdp->irq_enabled = true;
- 		sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
-@@ -1532,15 +1533,13 @@ static int sh_eth_rx(struct net_device *
- static void sh_eth_rcv_snd_disable(struct net_device *ndev)
- {
- 	/* disable tx and rx */
--	sh_eth_write(ndev, sh_eth_read(ndev, ECMR) &
--		~(ECMR_RE | ECMR_TE), ECMR);
-+	sh_eth_modify(ndev, ECMR, ECMR_RE | ECMR_TE, 0);
- }
- 
- static void sh_eth_rcv_snd_enable(struct net_device *ndev)
- {
- 	/* enable tx and rx */
--	sh_eth_write(ndev, sh_eth_read(ndev, ECMR) |
--		(ECMR_RE | ECMR_TE), ECMR);
-+	sh_eth_modify(ndev, ECMR, ECMR_RE | ECMR_TE, ECMR_RE | ECMR_TE);
- }
- 
- /* error control function */
-@@ -1569,13 +1568,11 @@ static void sh_eth_error(struct net_devi
- 				sh_eth_rcv_snd_disable(ndev);
- 			} else {
- 				/* Link Up */
--				sh_eth_write(ndev, sh_eth_read(ndev, EESIPR) &
--						   ~DMAC_M_ECI, EESIPR);
-+				sh_eth_modify(ndev, EESIPR, DMAC_M_ECI, 0);
- 				/* clear int */
--				sh_eth_write(ndev, sh_eth_read(ndev, ECSR),
--					     ECSR);
--				sh_eth_write(ndev, sh_eth_read(ndev, EESIPR) |
--						   DMAC_M_ECI, EESIPR);
-+				sh_eth_modify(ndev, ECSR, 0, 0);
-+				sh_eth_modify(ndev, EESIPR, DMAC_M_ECI,
-+					      DMAC_M_ECI);
- 				/* enable tx and rx */
- 				sh_eth_rcv_snd_enable(ndev);
- 			}
-@@ -1765,9 +1762,7 @@ static void sh_eth_adjust_link(struct ne
- 				mdp->cd->set_rate(ndev);
- 		}
- 		if (!mdp->link) {
--			sh_eth_write(ndev,
--				     sh_eth_read(ndev, ECMR) & ~ECMR_TXF,
--				     ECMR);
-+			sh_eth_modify(ndev, ECMR, ECMR_TXF, 0);
- 			new_state = 1;
- 			mdp->link = phydev->link;
- 			if (mdp->cd->no_psr || mdp->no_ether_link)
+Craig Gallek (7):
+  sock: struct proto hash function may error
+  inet: create IPv6-equivalent inet_hash function
+  tcp: __tcp_hdrlen() helper
+  inet: refactor inet[6]_lookup functions to take skb
+  soreuseport: Prep for fast reuseport TCP socket selection
+  soreuseport: fast reuseport TCP socket selection
+  soreuseport: BPF selection functional test for TCP
+
+ include/linux/tcp.h                             |   7 +-
+ include/net/addrconf.h                          |   2 +
+ include/net/inet6_hashtables.h                  |  13 +-
+ include/net/inet_hashtables.h                   |  25 ++-
+ include/net/phonet/phonet.h                     |   2 +-
+ include/net/ping.h                              |   2 +-
+ include/net/raw.h                               |   2 +-
+ include/net/sock.h                              |   6 +-
+ include/net/udp.h                               |   2 +-
+ net/core/filter.c                               |   2 +-
+ net/core/sock.c                                 |   1 +
+ net/dccp/ipv4.c                                 |   2 +-
+ net/dccp/ipv6.c                                 |   4 +-
+ net/ieee802154/socket.c                         |  17 +-
+ net/ipv4/af_inet.c                              |   9 +-
+ net/ipv4/inet_connection_sock.c                 |  22 +-
+ net/ipv4/inet_diag.c                            |   6 +-
+ net/ipv4/inet_hashtables.c                      |  67 +++++-
+ net/ipv4/ping.c                                 |   4 +-
+ net/ipv4/raw.c                                  |   4 +-
+ net/ipv4/tcp_ipv4.c                             |  10 +-
+ net/ipv4/udp.c                                  |   4 +-
+ net/ipv6/af_inet6.c                             |   6 +-
+ net/ipv6/inet6_connection_sock.c                |   2 +
+ net/ipv6/inet6_hashtables.c                     |  34 +++-
+ net/ipv6/tcp_ipv6.c                             |  10 +-
+ net/l2tp/l2tp_ip6.c                             |   3 +-
+ net/netfilter/xt_TPROXY.c                       |  31 ++-
+ net/netfilter/xt_socket.c                       |  28 ++-
+ net/phonet/socket.c                             |   6 +-
+ net/sctp/socket.c                               |   3 +-
+ tools/testing/selftests/net/.gitignore          |   1 +
+ tools/testing/selftests/net/Makefile            |   2 +-
+ tools/testing/selftests/net/reuseport_bpf.c     | 117 ++++++++++-
+ tools/testing/selftests/net/reuseport_bpf_cpu.c | 258 ++++++++++++++++++++++++
+ 35 files changed, 624 insertions(+), 90 deletions(-)
+ create mode 100644 tools/testing/selftests/net/reuseport_bpf_cpu.c
+
+-- 
+2.7.0.rc3.207.g0ac5344
