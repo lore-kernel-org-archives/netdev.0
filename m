@@ -1,32 +1,23 @@
-From: Fabio Estevam <festevam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2] net: fec: Add "phy-reset-active-low" property to DT
-Date: Tue, 9 Feb 2016 20:12:09 -0200
-Message-ID: <CAOMZO5B=HAQREq4VhDzvVDcYL54srJS0TzTyufAxHS6WggmVaA@mail.gmail.com>
-References: <1455048072-869-1-git-send-email-bernhard@bwalle.de>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v2 0/2] Factor out register bit twiddling in the Renesas Ethernet drivers
+Date: Wed, 10 Feb 2016 01:36:55 +0300
+Message-ID: <2107757.v1oGBJ7aiG@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Fabio Estevam <fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Bernhard Walle <bernhard-X9USDgGjgfuzQB+pC5nmwQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1455048072-869-1-git-send-email-bernhard-X9USDgGjgfuzQB+pC5nmwQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-renesas-soc@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Bernhard,
+Hello.
 
-On Tue, Feb 9, 2016 at 6:01 PM, Bernhard Walle <bernhard-X9USDgGjgfuzQB+pC5nmwQ@public.gmane.org> wrote:
-> We need that for a custom hardware that needs the reverse reset
-> sequence.
->
-> Signed-off-by: Bernhard Walle <bernhard-X9USDgGjgfuzQB+pC5nmwQ@public.gmane.org>
+   Here's a set of 2 patches against DaveM's 'net-next.git' repo. We factor out
+the often repeated pattern of reading a register, AND'ing and/or OR'ing some
+bits, and then writing the value back.
 
-Looks good:
+[1/2] ravb: factor out register bit twiddling code
+[2/2] sh_eth: factor out register bit twiddling code
 
-Reviewed-by: Fabio Estevam <fabio.estevam-3arQi8VN3Tc@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+MBR, Sergei
