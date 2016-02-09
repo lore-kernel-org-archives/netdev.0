@@ -1,63 +1,52 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net PATCH v2] flow_dissector: Fix unaligned access in
- __skb_flow_dissector when used by eth_get_headlen
-Date: Tue, 09 Feb 2016 02:49:54 -0800
-Message-ID: <20160209104929.14628.52355.stgit@localhost.localdomain>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
+Date: Tue, 9 Feb 2016 10:48:14 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCDBCA5@AcuExch.aculab.com>
+References: <20160208201234.8569.qmail@ns.horizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, davem@davemloft.net
-To: netdev@vger.kernel.org, alexander.duyck@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36631 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751089AbcBIKt4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 05:49:56 -0500
-Received: by mail-pa0-f41.google.com with SMTP id yy13so89587037pab.3
-        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 02:49:56 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "mingo@kernel.org" <mingo@kernel.org>
+To: 'George Spelvin' <linux@horizon.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tom@herbertland.com" <tom@herbertland.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160208201234.8569.qmail@ns.horizon.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes an issue with unaligned accesses when using
-eth_get_headlen on a page that was DMA aligned instead of being IP aligned.
-The fact is when trying to check the length we don't need to be looking at
-the flow label so we can reorder the checks to first check if we are
-supposed to gather the flow label and then make the call to actually get
-it.
+From: George Spelvin [mailto:linux@horizon.com]
+> Sent: 08 February 2016 20:13
+> David Laight wrote:
+> > I'd need convincing that unrolling the loop like that gives any significant gain.
+> > You have a dependency chain on the carry flag so have delays between the 'adcq'
+> > instructions (these may be more significant than the memory reads from l1 cache).
+> 
+> If the carry chain is a bottleneck, on Broadwell+ (feature flag
+> X86_FEATURE_ADX), there are the ADCX and ADOX instructions, which use
+> separate flag bits for their carry chains and so can be interleaved.
+> 
+> I don't have such a machine to test on, but if someone who does
+> would like to do a little benchmarking, that would be an interesting
+> data point.
+> 
+> Unfortunately, that means yet another version of the main loop,
+> but if there's a significant benefit...
 
-v2:  Updated path so that either STOP_AT_FLOW_LABEL or KEY_FLOW_LABEL can
-     cause us to check for the flow label.
+Well, the only part actually worth writing in assembler is the 'adc' loop.
+So run-time substitution of separate versions (as is done for memcpy())
+wouldn't be hard.
 
-Reported-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
- net/core/flow_dissector.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+Since adcx and adox must execute in parallel I clearly need to re-remember
+how dependencies against the flags register work. I'm sure I remember
+issues with 'false dependencies' against the flags.
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index c992463c03d7..699b2c415cb0 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -209,7 +209,6 @@ ip:
- 	case htons(ETH_P_IPV6): {
- 		const struct ipv6hdr *iph;
- 		struct ipv6hdr _iph;
--		__be32 flow_label;
- 
- ipv6:
- 		iph = __skb_header_pointer(skb, nhoff, sizeof(_iph), data, hlen, &_iph);
-@@ -230,8 +229,12 @@ ipv6:
- 			key_control->addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
- 		}
- 
--		flow_label = ip6_flowlabel(iph);
--		if (flow_label) {
-+		if ((dissector_uses_key(flow_dissector,
-+					FLOW_DISSECTOR_KEY_FLOW_LABEL) ||
-+		     (flags & FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL)) &&
-+		    ip6_flowlabel(iph)) {
-+			__be32 flow_label = ip6_flowlabel(iph);
-+
- 			if (dissector_uses_key(flow_dissector,
- 					       FLOW_DISSECTOR_KEY_FLOW_LABEL)) {
- 				key_tags = skb_flow_dissector_target(flow_dissector,
+However you still need a loop construct that doesn't modify 'o' or 'c'.
+Using leal, jcxz, jmp might work.
+(Unless broadwell actually has a fast 'loop' instruction.)
+
+(I've not got a suitable test cpu.)
+
+	David
