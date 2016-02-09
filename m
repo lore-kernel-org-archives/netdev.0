@@ -1,53 +1,68 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net PATCH] net: Copy inner L3 and L4 headers as unaligned on GRE
- TEB
-Date: Tue, 09 Feb 2016 06:14:43 -0800
-Message-ID: <20160209141234.19305.82202.stgit@localhost.localdomain>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: ti: netcp: restore get/set_pad_info() functionality
+Date: Tue, 9 Feb 2016 14:13:04 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCDBFCC@AcuExch.aculab.com>
+References: <1455026303-17014-1-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, davem@davemloft.net
-To: netdev@vger.kernel.org, alexander.duyck@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:35769 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756413AbcBIOOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 09:14:45 -0500
-Received: by mail-pf0-f171.google.com with SMTP id c10so61604717pfc.2
-        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 06:14:45 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Franklin S Cooper Jr <fcooper@ti.com>,
+	Sekhar Nori <nsekhar@ti.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Wingman Kwok <w-kwok2@ti.com>,
+	Murali Karicheri <m-karicheri2@ti.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: 'Grygorii Strashko' <grygorii.strashko@ti.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S . Miller" <davem@davemloft.net>,
+	"Arnd Bergmann" <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455026303-17014-1-git-send-email-grygorii.strashko@ti.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch corrects the unaligned accesses seen on GRE TEB tunnels when
-generating hash keys.  Specifically what this patch does is make it so that
-we force the use of skb_copy_bits when the GRE inner headers will be
-unaligned due to NET_IP_ALIGNED being a non-zero value.
+From: Grygorii Strashko
+> Sent: 09 February 2016 13:58
+> From: Arnd Bergmann <arnd@arndb.de>
+> 
+> The commit 899077791403 ("netcp: try to reduce type confusion in descriptors")
+> introduces a regression in Kernel 4.5-rc1 and it breaks
+> get/set_pad_info() functionality.
+> 
+> The TI NETCP driver uses pad0 and pad1 fields of knav_dma_desc to
+> store DMA/MEM buffer pointer and buffer size respectively. And in both
+> cases for Keystone 2 the pointer type size is 32 bit regardless of
+> LAPE enabled or not, because CONFIG_ARCH_DMA_ADDR_T_64BIT originally
+> is not expected to be defined.
+> 
+> 			!LAPE	LPAE
+> sizeof(void*)		32bit	32bit
+> sizeof(dma_addr_t) 	32bit	32bit
+> sizeof(phys_addr_t) 	32bit	64bit
+> 
+> Unfortunately, above commit changed buffer's pointers save/restore
+> code (get/set_pad_info()) and added intermediate conversation to u64
+> which works incorrectly on 32bit Keystone 2 and causes TI NETCP driver
+> crash in RX/TX path due to "Unable to handle kernel NULL pointer"
+> exception. This issue was reported and discussed in [1].
+> 
+> Hence, fix it by partially reverting above commit and restoring
+> get/set_pad_info() functionality as it was before.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
+You should really get rid of most of the horrid pointer-integer casts.
+Code like:
+>  	void *buf_ptr;
+...
+> +		get_pad_info((u32 *)&buf_ptr, &buf_len, ndesc);
+is just asking for trouble.
 
-I don't have the ability to test it but this should fix flow dissector for
-GRE TEB tunnels traffic seen on architectures that require network and
-transport headers to be 4 byte aligned.
+You'd be better using assignments like:
+	buf_ptr = (cast)get_pad_0(ndesc);
+	buf_len = get_pad_1(ndesc);
+Then the values are passed (and cast) as numerics.
 
- net/core/flow_dissector.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+In reality the 'pad' fields ought to be renamed - since they aren't pads.
+Perhaps they should be a union?
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 699b2c415cb0..9c181ba7263e 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -402,6 +402,13 @@ ip_proto_again:
- 				goto out_bad;
- 			proto = eth->h_proto;
- 			nhoff += sizeof(*eth);
-+
-+			/* Cap headers that we access via pointers at the
-+			 * end of the Ethernet header as our maximum alignment
-+			 * at that point is only 2 bytes.
-+			 */
-+			if (NET_IP_ALIGN)
-+				hlen = nhoff;
- 		}
- 
- 		key_control->flags |= FLOW_DIS_ENCAPSULATION;
+	David
