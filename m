@@ -1,42 +1,50 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] net: ti: netcp: restore get/set_pad_info() functionality
-Date: Tue, 09 Feb 2016 20:38:19 +0100
-Message-ID: <4072312.pCFuaqSbhC@wuerfel>
-References: <1455026303-17014-1-git-send-email-grygorii.strashko@ti.com> <063D6719AE5E284EB5DD2968C1650D6D1CCDC216@AcuExch.aculab.com> <3E54258959B69E4282D79E01AB1F32B704D12E49@DFLE11.ent.ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: David Laight <David.Laight@aculab.com>,
-	"Strashko, Grygorii" <grygorii.strashko@ti.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S . Miller" <davem@davemloft.net>,
-	"Cooper Jr., Franklin" <fcooper@ti.com>,
-	"Nori, Sekhar" <nsekhar@ti.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Kwok, WingMan" <w-kwok2@ti.com>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>
-To: "Karicheri, Muralidharan" <m-karicheri2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3E54258959B69E4282D79E01AB1F32B704D12E49@DFLE11.ent.ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+Subject: [PATCH v3 0/6] Add support for MICREL KSZ8795CLX 5-port switch
+Date: Tue,  9 Feb 2016 20:47:12 +0100
+Message-ID: <1455047238-111358-1-git-send-email-helmut.buchsbaum@gmail.com>
+Cc: netdev@vger.kernel.org,
+	Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35827 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932145AbcBITre (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 14:47:34 -0500
+Received: by mail-wm0-f65.google.com with SMTP id g62so5406546wme.2
+        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 11:47:33 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 09 February 2016 16:55:42 Karicheri, Muralidharan wrote:
-> 
-> The descriptors are usable by different drivers, one driver may use it as 
-> buf ptr/ len, other for something else. So they should remain as generic
-> and it is up to individual drivers to use it in whatever way it requires.
-> My suggestion is to rename pad field in struct knav_dma_desc to sw_data
-> to avoid confusion. i.e 
-> 
-> +       __le32  pad[4];
-> 
-> to 
-> 
-> +       __le32  sw_data[4];
-> 
+This patch series refactors the spi-ks8995 driver to finally add support
+for the MICREL KSZ8795CLX. Additionally support for controlling a GPIO
+line for resetting the switch is added.
 
-If the hardware doesn't access them, they can probably just be u32
-and not do any byte swapping.
+Helmut
 
-	Arnd
+Changes since v2:
+ - use GPIO_ACTIVE_LOW according to Andrew's remark.
+ - use ePAPR compliant node name in example, thanks to Sergei for
+   pointing out
+Changes since v1:
+ - removed initializing registers from Device Tree following Florian's
+   advice
+ - fixed GPIO handling for reset according to Andrew's remark.
+
+Helmut Buchsbaum (6):
+  net: phy: spi_ks8995: introduce spi_device_id table
+  net: phy: spi_ks8995: verify chip and determine revision
+  net: phy: spi_ks8995: add support for resetting switch using GPIO
+  net: phy: spi_ks8995: generalize creation of SPI commands
+  net: phy: spi_ks8995: add support for MICREL KSZ8795CLX
+  dt-bindings: net: ks8995: add bindings documentation for ks8995
+
+ .../devicetree/bindings/net/micrel-ks8995.txt      |  20 ++
+ drivers/net/phy/spi_ks8995.c                       | 304 +++++++++++++++++----
+ 2 files changed, 265 insertions(+), 59 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/micrel-ks8995.txt
+
+-- 
+2.1.4
