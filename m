@@ -1,42 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: do not drop syn_recv on all icmp reports
-Date: Tue, 09 Feb 2016 04:17:53 -0500 (EST)
-Message-ID: <20160209.041753.1270582307290270805.davem@davemloft.net>
-References: <20160203115616.5549851a@samsung9>
-	<1454466952.7627.211.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1454470272.7627.223.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v3] net:Add sysctl_max_skb_frags
+Date: Tue, 09 Feb 2016 04:30:55 -0500 (EST)
+Message-ID: <20160209.043055.1381002982048946744.davem@davemloft.net>
+References: <568F87AC.60405@oracle.com>
+	<1454488017-8822-1-git-send-email-hans.westgaard.ry@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pety@rusnet.ru
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53684 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755734AbcBIJYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 04:24:25 -0500
-In-Reply-To: <1454470272.7627.223.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, tom@herbertland.com, pablo@netfilter.org,
+	edumazet@google.com, fw@strlen.de, jiri@resnulli.us,
+	alexander.h.duyck@redhat.com, mhocko@suse.com,
+	linus.luessing@c0d3.blue, hannes@stressinduktion.org,
+	herbert@gondor.apana.org.au, tj@kernel.org,
+	akpm@linux-foundation.org, alexey.kodanev@oracle.com,
+	haakon.bugge@oracle.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: hans.westgaard.ry@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454488017-8822-1-git-send-email-hans.westgaard.ry@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 02 Feb 2016 19:31:12 -0800
+=46rom: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>
+Date: Wed,  3 Feb 2016 09:26:57 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Petr Novopashenniy reported that ICMP redirects on SYN_RECV sockets
-> were leading to RST.
-> 
-> This is of course incorrect.
-> 
-> A specific list of ICMP messages should be able to drop a SYN_RECV.
-> 
-> For instance, a REDIRECT on SYN_RECV shall be ignored, as we do
-> not hold a dst per SYN_RECV pseudo request.
-> 
-> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=111751
-> Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
-> Reported-by: Petr Novopashenniy <pety@rusnet.ru>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Devices may have limits on the number of fragments in an skb they sup=
+port.
+> Current codebase uses a constant as maximum for number of fragments o=
+ne
+> skb can hold and use.
+> When enabling scatter/gather and running traffic with many small mess=
+ages
+> the codebase uses the maximum number of fragments and may thereby vio=
+late
+> the max for certain devices.
+> The patch introduces a global variable as max number of fragments.
+>=20
+> Signed-off-by: Hans Westgaard Ry <hans.westgaard.ry@oracle.com>
+> Reviewed-by: H=E5kon Bugge <haakon.bugge@oracle.com>
 
-Applied and queued up for -stable, thanks Eric.
+I know some people don't like this patch, but no better solution exists
+at this time.
+
+Like others, I'd personally would rather this be a per-device attribute
+but that currently would not work at all.
+
+The device that TCP and other elements see when the build packets is
+not necessarily the one that is going to send the frame.  Encapsulation
+and other structures hide the truely transmitting device.
+
+And we lack a foolproof way to propagate attributes like this through
+the stack of devices up to the top.
+
+So for now this is what we have to use, as unfortunate as it may be.
+
+If someone is suitably angry about this state of affairs, I encourage
+them to direct that energy at a better long term solution :-)
+
+Applied and queued up for -stable, thanks.
