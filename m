@@ -1,121 +1,73 @@
 From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH net-next 2/7] inet: create IPv6-equivalent inet_hash function
-Date: Tue,  9 Feb 2016 18:39:08 -0500
-Message-ID: <1455061153-7855-3-git-send-email-kraigatgoog@gmail.com>
+Subject: [PATCH net-next 5/7] soreuseport: Prep for fast reuseport TCP socket selection
+Date: Tue,  9 Feb 2016 18:39:11 -0500
+Message-ID: <1455061153-7855-6-git-send-email-kraigatgoog@gmail.com>
 References: <1455061153-7855-1-git-send-email-kraigatgoog@gmail.com>
 To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:36591 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755908AbcBIXjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 18:39:22 -0500
-Received: by mail-qg0-f54.google.com with SMTP id y9so2391705qgd.3
-        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 15:39:21 -0800 (PST)
+Received: from mail-qg0-f52.google.com ([209.85.192.52]:35620 "EHLO
+	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756219AbcBIXj1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 18:39:27 -0500
+Received: by mail-qg0-f52.google.com with SMTP id y89so2419100qge.2
+        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 15:39:26 -0800 (PST)
 In-Reply-To: <1455061153-7855-1-git-send-email-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Craig Gallek <kraig@google.com>
 
-In order to support fast lookups for TCP sockets with SO_REUSEPORT,
-the function that adds sockets to the listening hash set needs
-to be able to check receive address equality.  Since this equality
-check is different for IPv4 and IPv6, we will need two different
-socket hashing functions.
+Both of the lines in this patch probably should have been included
+in the initial implementation of this code for generic socket
+support, but weren't technically necessary since only UDP sockets
+were supported.
 
-This patch adds inet6_hash identical to the existing inet_hash function
-and updates the appropriate references.  A following patch will
-differentiate the two by passing different comparison functions to
-__inet_hash.
+First, the sk_reuseport_cb points to a structure which assumes
+each socket in the group has this pointer assigned at the same
+time it's added to the array in the structure.  The sk_clone_lock
+function breaks this assumption.  Since a child socket shouldn't
+implicitly be in a reuseport group, the simple fix is to clear
+the field in the clone.
+
+Second, the SO_ATTACH_REUSEPORT_xBPF socket options require that
+SO_REUSEPORT also be set first.  For UDP sockets, this is easily
+enforced at bind-time since that process both puts the socket in
+the appropriate receive hlist and updates the reuseport structures.
+Since these operations can happen at two different times for TCP
+sockets (bind and listen) it must be explicitly checked to enforce
+the use of SO_REUSEPORT with SO_ATTACH_REUSEPORT_xBPF in the
+setsockopt call.
 
 Signed-off-by: Craig Gallek <kraig@google.com>
 ---
- include/net/inet6_hashtables.h |  2 ++
- net/dccp/ipv6.c                |  2 +-
- net/ipv6/inet6_hashtables.c    | 12 ++++++++++++
- net/ipv6/tcp_ipv6.c            |  2 +-
- net/l2tp/l2tp_ip6.c            |  3 ++-
- 5 files changed, 18 insertions(+), 3 deletions(-)
+ net/core/filter.c | 2 +-
+ net/core/sock.c   | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
-index 7ff588ca6817..b3c28a9dfbf1 100644
---- a/include/net/inet6_hashtables.h
-+++ b/include/net/inet6_hashtables.h
-@@ -96,6 +96,8 @@ struct sock *inet6_lookup(struct net *net, struct inet_hashinfo *hashinfo,
- 			  const struct in6_addr *saddr, const __be16 sport,
- 			  const struct in6_addr *daddr, const __be16 dport,
- 			  const int dif);
-+
-+int inet6_hash(struct sock *sk);
- #endif /* IS_ENABLED(CONFIG_IPV6) */
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 94d26201080d..2a6e9562f1ab 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1181,7 +1181,7 @@ static int __reuseport_attach_prog(struct bpf_prog *prog, struct sock *sk)
+ 	if (bpf_prog_size(prog->len) > sysctl_optmem_max)
+ 		return -ENOMEM;
  
- #define INET6_MATCH(__sk, __net, __saddr, __daddr, __ports, __dif)	\
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 9c6d0508e63a..90a8269b28d0 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -993,7 +993,7 @@ static struct proto dccp_v6_prot = {
- 	.sendmsg	   = dccp_sendmsg,
- 	.recvmsg	   = dccp_recvmsg,
- 	.backlog_rcv	   = dccp_v6_do_rcv,
--	.hash		   = inet_hash,
-+	.hash		   = inet6_hash,
- 	.unhash		   = inet_unhash,
- 	.accept		   = inet_csk_accept,
- 	.get_port	   = inet_csk_get_port,
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 21ace5a2bf7c..3521b15b8b85 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -274,3 +274,15 @@ int inet6_hash_connect(struct inet_timewait_death_row *death_row,
- 				   __inet6_check_established);
- }
- EXPORT_SYMBOL_GPL(inet6_hash_connect);
-+
-+int inet6_hash(struct sock *sk)
-+{
-+	if (sk->sk_state != TCP_CLOSE) {
-+		local_bh_disable();
-+		__inet_hash(sk, NULL);
-+		local_bh_enable();
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(inet6_hash);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 006396e31cb0..d72bcfb326d8 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1865,7 +1865,7 @@ struct proto tcpv6_prot = {
- 	.sendpage		= tcp_sendpage,
- 	.backlog_rcv		= tcp_v6_do_rcv,
- 	.release_cb		= tcp_release_cb,
--	.hash			= inet_hash,
-+	.hash			= inet6_hash,
- 	.unhash			= inet_unhash,
- 	.get_port		= inet_csk_get_port,
- 	.enter_memory_pressure	= tcp_enter_memory_pressure,
-diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index a2c8747d2936..6b54ff3ff4cb 100644
---- a/net/l2tp/l2tp_ip6.c
-+++ b/net/l2tp/l2tp_ip6.c
-@@ -25,6 +25,7 @@
- #include <net/udp.h>
- #include <net/inet_common.h>
- #include <net/inet_hashtables.h>
-+#include <net/inet6_hashtables.h>
- #include <net/tcp_states.h>
- #include <net/protocol.h>
- #include <net/xfrm.h>
-@@ -718,7 +719,7 @@ static struct proto l2tp_ip6_prot = {
- 	.sendmsg	   = l2tp_ip6_sendmsg,
- 	.recvmsg	   = l2tp_ip6_recvmsg,
- 	.backlog_rcv	   = l2tp_ip6_backlog_recv,
--	.hash		   = inet_hash,
-+	.hash		   = inet6_hash,
- 	.unhash		   = inet_unhash,
- 	.obj_size	   = sizeof(struct l2tp_ip6_sock),
- #ifdef CONFIG_COMPAT
+-	if (sk_unhashed(sk)) {
++	if (sk_unhashed(sk) && sk->sk_reuseport) {
+ 		err = reuseport_alloc(sk);
+ 		if (err)
+ 			return err;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 6c1c8bc93412..46dc8ad7d050 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1531,6 +1531,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+ 			newsk = NULL;
+ 			goto out;
+ 		}
++		RCU_INIT_POINTER(newsk->sk_reuseport_cb, NULL);
+ 
+ 		newsk->sk_err	   = 0;
+ 		newsk->sk_priority = 0;
 -- 
 2.7.0.rc3.207.g0ac5344
