@@ -1,86 +1,63 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 6/6] dt-bindings: net: ks8995: add bindings
- documentation for ks8995
-Date: Tue, 9 Feb 2016 13:43:58 +0300
-Message-ID: <56B9C2EE.6060105@cogentembedded.com>
-References: <1454952937-19428-1-git-send-email-helmut.buchsbaum@gmail.com>
- <1454952937-19428-7-git-send-email-helmut.buchsbaum@gmail.com>
- <56B8E205.1010807@cogentembedded.com> <56B99E39.1000207@gmail.com>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net PATCH v2] flow_dissector: Fix unaligned access in
+ __skb_flow_dissector when used by eth_get_headlen
+Date: Tue, 09 Feb 2016 02:49:54 -0800
+Message-ID: <20160209104929.14628.52355.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
+Cc: tom@herbertland.com, davem@davemloft.net
+To: netdev@vger.kernel.org, alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:34111 "EHLO
-	mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753302AbcBIKoB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 05:44:01 -0500
-Received: by mail-lf0-f54.google.com with SMTP id j78so112919578lfb.1
-        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 02:44:01 -0800 (PST)
-In-Reply-To: <56B99E39.1000207@gmail.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:36631 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751089AbcBIKt4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 05:49:56 -0500
+Received: by mail-pa0-f41.google.com with SMTP id yy13so89587037pab.3
+        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 02:49:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/9/2016 11:07 AM, Helmut Buchsbaum wrote:
+This patch fixes an issue with unaligned accesses when using
+eth_get_headlen on a page that was DMA aligned instead of being IP aligned.
+The fact is when trying to check the length we don't need to be looking at
+the flow label so we can reorder the checks to first check if we are
+supposed to gather the flow label and then make the call to actually get
+it.
 
->>> Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
->>> ---
->>>   .../devicetree/bindings/net/micrel-ks8995.txt        | 20
->>> ++++++++++++++++++++
->>>   1 file changed, 20 insertions(+)
->>>   create mode 100644
->>> Documentation/devicetree/bindings/net/micrel-ks8995.txt
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/micrel-ks8995.txt
->>> b/Documentation/devicetree/bindings/net/micrel-ks8995.txt
->>> new file mode 100644
->>> index 0000000..7f11ca6
->>> --- /dev/null
->>> +++ b/Documentation/devicetree/bindings/net/micrel-ks8995.txt
->>> @@ -0,0 +1,20 @@
->>> +Micrel KS8995 SPI controlled Ethernet Switch families
->>> +
->>> +Required properties (according to spi-bus.txt):
->>> +- compatible: either "micrel,ks8995", "micrel,ksz8864" or
->>> "micrel,ksz8795"
->>> +
->>> +Optional properties:
->>> +- reset-gpios : phandle of gpio that will be used to reset chip
->>> during probe
->>> +
->>> +Example:
->>> +
->>> +spi-master {
->>> +    ...
->>> +    ksz8795 {
->>
->>     ePAPR tells to name the nodes generically, according to their function.
->>
->>> +        compatible = "micrel,ksz8795";
->>> +
->>> +        reg = <0>;
->>> +        spi-max-frequency = <50000000>;
->>> +        reset-gpios = <&gpio0 46 1>;
->>> +    };
->>> +};
->>
->> MBR, Sergei
->>
-> Hello Sergei,
->
-> just to avoid any misunderstandings: you refer to ePAPR, ch. 2.2.1 Node Names.
+v2:  Updated path so that either STOP_AT_FLOW_LABEL or KEY_FLOW_LABEL can
+     cause us to check for the flow label.
 
-    "2.2.2, Generic Names Recommendation", actually. :-)
+Reported-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+---
+ net/core/flow_dissector.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-> Your definitely right, I'll correct the naming in my example!
-
-    TIA.
-
-> Thanks,
-> Helmut
-
-MBR, Sergei
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index c992463c03d7..699b2c415cb0 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -209,7 +209,6 @@ ip:
+ 	case htons(ETH_P_IPV6): {
+ 		const struct ipv6hdr *iph;
+ 		struct ipv6hdr _iph;
+-		__be32 flow_label;
+ 
+ ipv6:
+ 		iph = __skb_header_pointer(skb, nhoff, sizeof(_iph), data, hlen, &_iph);
+@@ -230,8 +229,12 @@ ipv6:
+ 			key_control->addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
+ 		}
+ 
+-		flow_label = ip6_flowlabel(iph);
+-		if (flow_label) {
++		if ((dissector_uses_key(flow_dissector,
++					FLOW_DISSECTOR_KEY_FLOW_LABEL) ||
++		     (flags & FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL)) &&
++		    ip6_flowlabel(iph)) {
++			__be32 flow_label = ip6_flowlabel(iph);
++
+ 			if (dissector_uses_key(flow_dissector,
+ 					       FLOW_DISSECTOR_KEY_FLOW_LABEL)) {
+ 				key_tags = skb_flow_dissector_target(flow_dissector,
