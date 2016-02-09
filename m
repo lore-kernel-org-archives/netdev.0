@@ -1,82 +1,176 @@
-From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-Subject: Re: [PATCH v2 6/6] dt-bindings: net: ks8995: add bindings
- documentation for ks8995
-Date: Tue, 9 Feb 2016 09:07:21 +0100
-Message-ID: <56B99E39.1000207@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 3/6] net: phy: spi_ks8995: add support for resetting
+ switch using GPIO
+Date: Tue, 9 Feb 2016 09:32:14 +0100
+Message-ID: <20160209083214.GB18781@lunn.ch>
 References: <1454952937-19428-1-git-send-email-helmut.buchsbaum@gmail.com>
- <1454952937-19428-7-git-send-email-helmut.buchsbaum@gmail.com>
- <56B8E205.1010807@cogentembedded.com>
+ <1454952937-19428-4-git-send-email-helmut.buchsbaum@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35500 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752778AbcBIIHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 03:07:35 -0500
-Received: by mail-wm0-f68.google.com with SMTP id g62so1868722wme.2
-        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 00:07:34 -0800 (PST)
-In-Reply-To: <56B8E205.1010807@cogentembedded.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:52655 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751841AbcBIIcR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Feb 2016 03:32:17 -0500
+Content-Disposition: inline
+In-Reply-To: <1454952937-19428-4-git-send-email-helmut.buchsbaum@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/08/2016 07:44 PM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 02/08/2016 08:35 PM, Helmut Buchsbaum wrote:
->
->> Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
->> ---
->>   .../devicetree/bindings/net/micrel-ks8995.txt        | 20
->> ++++++++++++++++++++
->>   1 file changed, 20 insertions(+)
->>   create mode 100644
->> Documentation/devicetree/bindings/net/micrel-ks8995.txt
->>
->> diff --git a/Documentation/devicetree/bindings/net/micrel-ks8995.txt
->> b/Documentation/devicetree/bindings/net/micrel-ks8995.txt
->> new file mode 100644
->> index 0000000..7f11ca6
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/micrel-ks8995.txt
->> @@ -0,0 +1,20 @@
->> +Micrel KS8995 SPI controlled Ethernet Switch families
->> +
->> +Required properties (according to spi-bus.txt):
->> +- compatible: either "micrel,ks8995", "micrel,ksz8864" or
->> "micrel,ksz8795"
->> +
->> +Optional properties:
->> +- reset-gpios : phandle of gpio that will be used to reset chip
->> during probe
->> +
->> +Example:
->> +
->> +spi-master {
->> +    ...
->> +    ksz8795 {
->
->     ePAPR tells to name the nodes generically, according to their function.
->
->> +        compatible = "micrel,ksz8795";
->> +
->> +        reg = <0>;
->> +        spi-max-frequency = <50000000>;
->> +        reset-gpios = <&gpio0 46 1>;
->> +    };
->> +};
->
-> MBR, Sergei
->
-Hello Sergei,
+On Mon, Feb 08, 2016 at 06:35:34PM +0100, Helmut Buchsbaum wrote:
+> When using device tree it is no more possible to reset the PHY at board
+> level. Furthermore, doing in the driver allows to power down the switch
+> when it is not used any more.
+> 
+> The patch introduces a new optional property "reset-gpios" denoting an
+> appropriate GPIO handle, e.g.:
+> 
+> reset-gpios = <&gpio0 46 1>
 
-just to avoid any misunderstandings: you refer to ePAPR, ch. 2.2.1 Node 
-Names. Your definitely right, I'll correct the naming in my example!
+Hi Helmut
 
-Thanks,
-Helmut
+Since you are respinning, please change the 1 to GPIO_ACTIVE_LOW.
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+Thanks
+	Andrew
+
+> 
+> Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+> ---
+>  drivers/net/phy/spi_ks8995.c | 71 ++++++++++++++++++++++++++++++++++++++------
+>  1 file changed, 62 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
+> index 2803c8e..04d468f 100644
+> --- a/drivers/net/phy/spi_ks8995.c
+> +++ b/drivers/net/phy/spi_ks8995.c
+> @@ -18,6 +18,9 @@
+>  #include <linux/module.h>
+>  #include <linux/delay.h>
+>  #include <linux/device.h>
+> +#include <linux/of.h>
+> +#include <linux/gpio.h>
+> +#include <linux/of_gpio.h>
+>  
+>  #include <linux/spi/spi.h>
+>  
+> @@ -120,7 +123,8 @@ static const struct ks8995_chip_params ks8995_chip[] = {
+>  };
+>  
+>  struct ks8995_pdata {
+> -	/* not yet implemented */
+> +	int reset_gpio;
+> +	enum of_gpio_flags reset_gpio_flags;
+>  };
+>  
+>  struct ks8995_switch {
+> @@ -339,6 +343,24 @@ err_out:
+>  	return err;
+>  }
+>  
+> +/* ks8995_parse_dt - setup platform data from devicetree
+> + * @ks: pointer to switch instance
+> + *
+> + * Parses supported DT properties and sets up platform data
+> + * accordingly.
+> + */
+> +static void ks8995_parse_dt(struct ks8995_switch *ks)
+> +{
+> +	struct device_node *np = ks->spi->dev.of_node;
+> +	struct ks8995_pdata *pdata = ks->pdata;
+> +
+> +	if (!np)
+> +		return;
+> +
+> +	pdata->reset_gpio = of_get_named_gpio_flags(np, "reset-gpios", 0,
+> +		&pdata->reset_gpio_flags);
+> +}
+> +
+>  static const struct bin_attribute ks8995_registers_attr = {
+>  	.attr = {
+>  		.name   = "registers",
+> @@ -352,14 +374,10 @@ static const struct bin_attribute ks8995_registers_attr = {
+>  /* ------------------------------------------------------------------------ */
+>  static int ks8995_probe(struct spi_device *spi)
+>  {
+> -	struct ks8995_switch    *ks;
+> -	struct ks8995_pdata     *pdata;
+> -	int     err;
+> +	struct ks8995_switch *ks;
+> +	int err;
+>  	int variant = spi_get_device_id(spi)->driver_data;
+>  
+> -	/* Chip description */
+> -	pdata = spi->dev.platform_data;
+> -
+>  	if (variant >= max_variant) {
+>  		dev_err(&spi->dev, "bad chip variant %d\n", variant);
+>  		return -ENODEV;
+> @@ -370,10 +388,42 @@ static int ks8995_probe(struct spi_device *spi)
+>  		return -ENOMEM;
+>  
+>  	mutex_init(&ks->lock);
+> -	ks->pdata = pdata;
+>  	ks->spi = spi_dev_get(spi);
+>  	ks->chip = &ks8995_chip[variant];
+>  
+> +	if (ks->spi->dev.of_node) {
+> +		ks->pdata = devm_kzalloc(&spi->dev, sizeof(*ks->pdata),
+> +					 GFP_KERNEL);
+> +		if (!ks->pdata)
+> +			return -ENOMEM;
+> +
+> +		ks->pdata->reset_gpio = -1;
+> +
+> +		ks8995_parse_dt(ks);
+> +	}
+> +
+> +	if (!ks->pdata)
+> +		ks->pdata = spi->dev.platform_data;
+> +
+> +	/* de-assert switch reset */
+> +	if (ks->pdata && gpio_is_valid(ks->pdata->reset_gpio)) {
+> +		unsigned long flags;
+> +
+> +		flags = (ks->pdata->reset_gpio_flags == OF_GPIO_ACTIVE_LOW ?
+> +			 GPIOF_ACTIVE_LOW : 0);
+> +
+> +		err = devm_gpio_request_one(&spi->dev,
+> +					    ks->pdata->reset_gpio,
+> +					    flags, "switch-reset");
+> +		if (err) {
+> +			dev_err(&spi->dev,
+> +				"failed to get reset-gpios: %d\n", err);
+> +			return -EIO;
+> +		}
+> +
+> +		gpiod_set_value(gpio_to_desc(ks->pdata->reset_gpio), 0);
+> +	}
+> +
+>  	spi_set_drvdata(spi, ks);
+>  
+>  	spi->mode = SPI_MODE_0;
+> @@ -414,11 +464,14 @@ static int ks8995_remove(struct spi_device *spi)
+>  
+>  	sysfs_remove_bin_file(&spi->dev.kobj, &ks->regs_attr);
+>  
+> +	/* assert reset */
+> +	if (ks->pdata && gpio_is_valid(ks->pdata->reset_gpio))
+> +		gpiod_set_value(gpio_to_desc(ks->pdata->reset_gpio), 1);
+> +
+>  	return 0;
+>  }
+>  
+>  /* ------------------------------------------------------------------------ */
+> -
+>  static struct spi_driver ks8995_driver = {
+>  	.driver = {
+>  		.name	    = "spi-ks8995",
+> -- 
+> 2.1.4
+> 
