@@ -1,105 +1,123 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [net-next PATCH 06/11] RFC: mlx5: RX bulking or bundling of
- packets before calling network stack
-Date: Tue, 9 Feb 2016 13:57:41 +0200
-Message-ID: <CALzJLG_w1Nr9rtZ_G4n894gvN=XTbfikGfPgNc4+VBAYw2Pyug@mail.gmail.com>
-References: <20160202211051.16315.51808.stgit@firesoul>
-	<20160202211228.16315.9691.stgit@firesoul>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH 0/7] tc offload for cls_u32 on ixgbe
+Date: Tue, 9 Feb 2016 07:20:04 -0500
+Message-ID: <56B9D974.3000203@mojatatu.com>
+References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
+ <20160203101109.GB20905@office.Home> <56B1D4A9.3050801@gmail.com>
+ <56B1D713.3080803@mellanox.com> <56B1F0C9.3020802@mojatatu.com>
+ <56B24B8B.1010205@gmail.com> <56B34E35.3020307@mojatatu.com>
+ <56B9CC6B.6050509@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Christoph Lameter <cl@linux.com>,
-	tom@herbertland.com, Alexander Duyck <alexander.duyck@gmail.com>,
-	alexei.starovoitov@gmail.com, Or Gerlitz <ogerlitz@mellanox.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Rana Shahout <ranas@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: amir@vadai.me, jiri@resnulli.us, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: "Fastabend, John R" <john.fastabend@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f194.google.com ([209.85.161.194]:36075 "EHLO
-	mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756066AbcBIMPk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 07:15:40 -0500
-Received: by mail-yw0-f194.google.com with SMTP id h80so373949ywc.3
-        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 04:15:39 -0800 (PST)
-In-Reply-To: <20160202211228.16315.9691.stgit@firesoul>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33181 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755356AbcBIMUH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 07:20:07 -0500
+Received: by mail-wm0-f68.google.com with SMTP id c200so3097982wme.0
+        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 04:20:06 -0800 (PST)
+In-Reply-To: <56B9CC6B.6050509@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 2, 2016 at 11:13 PM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> There are several techniques/concepts combined in this optimization.
-> It is both a data-cache and instruction-cache optimization.
->
-> First of all, this is primarily about delaying touching
-> packet-data, which happend in eth_type_trans, until the prefetch
-> have had time to fetch.  Thus, hopefully avoiding a cache-miss on
-> packet data.
->
-> Secondly, the instruction-cache optimization is about, not
-> calling the network stack for every packet, which is pulled out
-> of the RX ring.  Calling the full stack likely removes/flushes
-> the instruction cache every time.
->
-> Thus, have two loops, one loop pulling out packet from the RX
-> ring and starting the prefetching, and the second loop calling
-> eth_type_trans() and invoking the stack via napi_gro_receive().
->
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
->
->
-> Notes:
-> This is the patch that gave a speed up of 6.2Mpps to 12Mpps, when
-> trying to measure lowest RX level, by dropping the packets in the
-> driver itself (marked drop point as comment).
-Indeed looks very promising in respect of instruction-cache
-optimization, but i have some doubts regarding the data-cache
-optimizations (prefetch), please see my below questions.
+On 16-02-09 06:24 AM, Fastabend, John R wrote:
+> On 2/4/2016 5:12 AM, Jamal Hadi Salim wrote:
+>>
+>> On 16-02-03 01:48 PM, Fastabend, John R wrote:
+>>
 
-We will take this patch and test it in house.
+>> Basically most hardware (or i should say driver implementations of
+>> mostly TCAMS) allow you to add exactly the same filter as many times
+>> as you want. They dont really look at what you want to filter on
+>> and then scream "conflict". IOW, you (user) are responsible for
+>> conflict resolution at the filter level. The driver sees this blob
+>> and requests for some index/key from the hardware then just adds it.
+>> You can then use this key/index to delete/replace etc.
+>> This is what i meant by "append" mode.
+>> However if a classifier implementation cares about filter ambiguity
+>> resolution, then priorities are used. We need to worry about the
+>> bigger picture.
+>>
+>
+> Sure in other classifiers its used but its not needed in the set I
+> planned to added it later.
+>
+
+If you leave it open for some other hardware to use we should be fine.
+
+>>
+>>> For this series using cls_u32 the handle gives you everything you need
+>>> to put entries in the right table and row. Namely the ht # and order #
+>>> from 'tc'.
+>>
+>> True - but with a caveat. There are only 2^12 max tables you can
+>> have for example and up to 2^12 filters per bucket etc.
+>>
+>
+> This is a software limitation as well right? If it hasn't showed up
+> as a limitation on the software side why would it be an issue here?
+> Do you have more than 2^12 tables on your devices? If so I guess we
+> can tack on another 32bits somewhere.
+>
+
+That handle is used as an "Address" to the 32 bit filter.
+Just beware of the semantics the handle has.
+It hasnt shown up as a software limitation because the defaults
+are good enough for most people. But if you ever want to install
+a million rules that can be looked up at a reasonable pps rate
+it will become very obvious quickly. I have a sample setup in the
+talk tommorow which shows such an example.
+
+>> I think you need to take the u32 address and map it to something in your
+>> hardware. But at the same time it is important to have the abstraction
+>> closely emulate your hardware.
+>>
+>
+> IMO the hardware/interface must preserve the same ordering of
+> filters/hash_Tables/etc. How it does that mapping should be
+> a driver concern and it can always abort if it fails.
+>
+
+Sure.
+
+>>> Also ran a few tests and can't see how priority works in u32 maybe you
+>>> can shed some light but as best I can tell it doesn't have any effect
+>>> on rule execution.
+>>>
+>>
+>> True.
+>> u32 doesnt care because it will give you a nodeid if you dont specify
+>> one. i.e conflict resolution is mapped to you not specifying exactly
+>> the same ht:bkt:nodeid more than once. And if you will let the
+>> kernel do it for you (as i am assumming you are saying your hardware
+>> will) then no need.
+>
+> Yep. Faithfully offloading u32 here not changing anything except
+> I do have to abort on some cases with the simpler devices. fm10k for
+> example can model hash nodes with divisors > 1.
+>
+
+I wonder if when we get to capabilities we can do this...
+
+>>
 
 >
-> For now, the ring is emptied upto the budget.  I don't know if it
-> would be better to chunk it up more?
-Not sure, according to netdevice.h :
-
-/* Default NAPI poll() weight
- * Device drivers are strongly advised to not use bigger value
- */
-#define NAPI_POLL_WEIGHT 64
-
-we will also compare different budget values with your approach, but I
-doubt it will be accepted to increase the NAPI_POLL_WEIGHT for mlx5
-drivers.
-furthermore increasing NAPI poll budget might cause cache overflow
-with this approach since you are chunking up all "prefetch(skb->data)"
-(I didn't do the math yet in regards of cache utilization with this
-approach).
-
->         mlx5e_handle_csum(netdev, cqe, rq, skb);
+> My issue is we can map flower onto u32 that is fine and u32 onto
+> bpf. But we lose a lot of the power of each classifier when we
+> do this. flower for example is nice because of its simplicity
+> presumably this translates into faster updates, u32 is great because
+> we get full parse graph support and hash tables, ebpf is the biggest
+> beast of all and lets us load arbitrary functions into the device.
+> All are nice in their own right.
 >
-> -       skb->protocol = eth_type_trans(skb, netdev);
-> -
-mlx5e_handle_csum also access the skb->data in is_first_ethertype_ip
-function, but i think it is not interesting since this is not the
-common case,
-e.g: for the none common case of L4 traffic with no HW checksum
-offload you won't benefit from this optimization since we access the
-skb->data to know the L3 header type, and this can be fixed in driver
-code to check the CQE meta data for these fields instead of accessing
-the skb->data, but I will need to look further into that.
 
-> @@ -252,7 +257,6 @@ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
->                 wqe_counter    = be16_to_cpu(wqe_counter_be);
->                 wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
->                 skb            = rq->skb[wqe_counter];
-> -               prefetch(skb->data);
->                 rq->skb[wqe_counter] = NULL;
->
->                 dma_unmap_single(rq->pdev,
-> @@ -265,16 +269,27 @@ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
->                         dev_kfree_skb(skb);
->                         goto wq_ll_pop;
->                 }
-> +               prefetch(skb->data);
-is this optimal for all CPU archs ? is it ok to use up to 64 cache
-lines at once ?
+Did i send you my slides? ;->
+
+
+cheers,
+jamal
