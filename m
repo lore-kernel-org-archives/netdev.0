@@ -1,73 +1,35 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
 Subject: Re: [PATCH net v2 2/3] geneve: Relax MTU constraints
-Date: Tue, 9 Feb 2016 21:18:21 +0300
-Message-ID: <56BA2D6D.6090408@cogentembedded.com>
+Date: Tue, 09 Feb 2016 18:22:45 +0000
+Message-ID: <86mvr968wa.fsf@weave.works>
 References: <1455036424-6403-1-git-send-email-david@weave.works>
  <1455036424-6403-3-git-send-email-david@weave.works>
+ <56BA2D6D.6090408@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jesse Gross <jesse@kernel.org>, David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: David Wragg <david@weave.works>, netdev@vger.kernel.org,
-	dev@openvswitch.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f41.google.com ([209.85.215.41]:35278 "EHLO
-	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756807AbcBISS0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 13:18:26 -0500
-Received: by mail-lf0-f41.google.com with SMTP id l143so120868321lfe.2
-        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 10:18:25 -0800 (PST)
-In-Reply-To: <1455036424-6403-3-git-send-email-david@weave.works>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
+ Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <56BA2D6D.6090408-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org> (Sergei Shtylyov's message
+ of "Tue, 9 Feb 2016 21:18:21 +0300")
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 02/09/2016 07:47 PM, David Wragg wrote:
-
-> Allow the MTU of geneve devices to be set to large values, in order to
-> exploit underlying networks with larger frame sizes.
->
-> GENEVE does not have a fixed encapsulation overhead (an openvswitch
-> rule can add variable length options), so there is no relevant maximum
-> MTU to enforce.  A maximum of IP_MAX_MTU is used instead.
-> Encapsulated packets that are too big for the underlying network will
-> get dropped on the floor.
->
-> Signed-off-by: David Wragg <david@weave.works>
-> ---
->   drivers/net/geneve.c | 12 +++++++++++-
->   1 file changed, 11 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-> index 0b14ac3..05cef11 100644
-> --- a/drivers/net/geneve.c
-> +++ b/drivers/net/geneve.c
-> @@ -1039,6 +1039,16 @@ static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
->   	return geneve_xmit_skb(skb, dev, info);
->   }
->
-> +static int geneve_change_mtu(struct net_device *dev, int new_mtu)
-> +{
-> +	/* GENEVE overhead is not fixed, so we can't enforce a more
-> +	   precise max MTU. */
-
-    The networking code formats comments:
-
-/* Like
-  * this.
-  */
-
-> +	if (new_mtu < 68 || new_mtu > IP_MAX_MTU)
-> +		return -EINVAL;
-> +	dev->mtu = new_mtu;
-> +	return 0;
-> +}
-> +
->   static int geneve_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
->   {
->   	struct ip_tunnel_info *info = skb_tunnel_info(skb);
-[...]
-
-MBR, Sergei
+U2VyZ2VpIFNodHlseW92IDxzZXJnZWkuc2h0eWx5b3ZAY29nZW50ZW1iZWRkZWQuY29tPiB3cml0
+ZXM6Cj4gICAgVGhlIG5ldHdvcmtpbmcgY29kZSBmb3JtYXRzIGNvbW1lbnRzOgo+Cj4gLyogTGlr
+ZQo+ICAqIHRoaXMuCj4gICovCgpUaGFua3MuICBBbmQgSSBub3RpY2VkIGFub3RoZXIgc2lsbHkg
+bWlzdGFrZS4gIFdpbGwgcmVzcGluLgoKRGF2aWQKX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3Jn
+Cmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
