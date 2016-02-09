@@ -1,26 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Pushing AF_RXRPC rewrite patches to net/next
-Date: Tue, 09 Feb 2016 17:08:46 -0500 (EST)
-Message-ID: <20160209.170846.1229112299517038923.davem@davemloft.net>
-References: <9603.1455035461@warthog.procyon.org.uk>
+Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on
+ i211 using a device tree blob
+Date: Tue, 09 Feb 2016 17:10:48 -0500 (EST)
+Message-ID: <20160209.171048.159766540065134460.davem@davemloft.net>
+References: <1455015744.3592.46.camel@intel.com>
+	<20160209115921.GE18781@lunn.ch>
+	<CAP-MU4Mr5SkpC9XZuPa5xaAjgJ+_j3Gt5hYcSO6a2Q7jVB8HcQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org
-To: dhowells@redhat.com
+Cc: andrew@lunn.ch, jeffrey.t.kirsher@intel.com, jotihojr@gmail.com,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: shannon.nelson@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59049 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59057 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932560AbcBIWIw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 17:08:52 -0500
-In-Reply-To: <9603.1455035461@warthog.procyon.org.uk>
+	with ESMTP id S932682AbcBIWKw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 17:10:52 -0500
+In-Reply-To: <CAP-MU4Mr5SkpC9XZuPa5xaAjgJ+_j3Gt5hYcSO6a2Q7jVB8HcQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Tue, 09 Feb 2016 16:31:01 +0000
+From: Shannon Nelson <shannon.nelson@intel.com>
+Date: Tue, 9 Feb 2016 09:42:45 -0800
 
-> Are you okay with me sending some of them your way now so that you don't get a
-> host all in one go, or would you prefer the mass invasion approach?
+> It seem to me this should be using eth_platform_get_mac_address(), a
+> slightly more generic method to do this.  See the i40e driver for an
+> example, commit d9a84324e6 I believe.
 
-Please send them in reasonable chunks, thanks.
++1
