@@ -1,58 +1,83 @@
-From: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-Subject: [PATCH net v2 2/3] geneve: Relax MTU constraints
-Date: Tue,  9 Feb 2016 16:47:03 +0000
-Message-ID: <1455036424-6403-3-git-send-email-david@weave.works>
-References: <1455036424-6403-1-git-send-email-david@weave.works>
+From: "Karicheri, Muralidharan" <m-karicheri2@ti.com>
+Subject: RE: [PATCH] net: ti: netcp: restore get/set_pad_info() functionality
+Date: Tue, 9 Feb 2016 16:55:42 +0000
+Message-ID: <3E54258959B69E4282D79E01AB1F32B704D12E49@DFLE11.ent.ti.com>
+References: <1455026303-17014-1-git-send-email-grygorii.strashko@ti.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCDBFCC@AcuExch.aculab.com>
+ <3E54258959B69E4282D79E01AB1F32B704D12AF4@DFLE11.ent.ti.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCDC14B@AcuExch.aculab.com>
+ <3E54258959B69E4282D79E01AB1F32B704D12B40@DFLE11.ent.ti.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCDC216@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>, Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
- Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1455036424-6403-1-git-send-email-david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Cooper Jr., Franklin" <fcooper@ti.com>,
+	"Nori, Sekhar" <nsekhar@ti.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Kwok, WingMan" <w-kwok2@ti.com>,
+	"N, Mugunthan V" <mugunthanvnm@ti.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"Strashko, Grygorii" <grygorii.strashko@ti.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S . Miller" <davem@davemloft.net>,
+	"Arnd Bergmann" <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCDC216@AcuExch.aculab.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-QWxsb3cgdGhlIE1UVSBvZiBnZW5ldmUgZGV2aWNlcyB0byBiZSBzZXQgdG8gbGFyZ2UgdmFsdWVz
-LCBpbiBvcmRlciB0bwpleHBsb2l0IHVuZGVybHlpbmcgbmV0d29ya3Mgd2l0aCBsYXJnZXIgZnJh
-bWUgc2l6ZXMuCgpHRU5FVkUgZG9lcyBub3QgaGF2ZSBhIGZpeGVkIGVuY2Fwc3VsYXRpb24gb3Zl
-cmhlYWQgKGFuIG9wZW52c3dpdGNoCnJ1bGUgY2FuIGFkZCB2YXJpYWJsZSBsZW5ndGggb3B0aW9u
-cyksIHNvIHRoZXJlIGlzIG5vIHJlbGV2YW50IG1heGltdW0KTVRVIHRvIGVuZm9yY2UuICBBIG1h
-eGltdW0gb2YgSVBfTUFYX01UVSBpcyB1c2VkIGluc3RlYWQuCkVuY2Fwc3VsYXRlZCBwYWNrZXRz
-IHRoYXQgYXJlIHRvbyBiaWcgZm9yIHRoZSB1bmRlcmx5aW5nIG5ldHdvcmsgd2lsbApnZXQgZHJv
-cHBlZCBvbiB0aGUgZmxvb3IuCgpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBXcmFnZyA8ZGF2aWRAd2Vh
-dmUud29ya3M+Ci0tLQogZHJpdmVycy9uZXQvZ2VuZXZlLmMgfCAxMiArKysrKysrKysrKy0KIDEg
-ZmlsZSBjaGFuZ2VkLCAxMSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0
-IGEvZHJpdmVycy9uZXQvZ2VuZXZlLmMgYi9kcml2ZXJzL25ldC9nZW5ldmUuYwppbmRleCAwYjE0
-YWMzLi4wNWNlZjExIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9nZW5ldmUuYworKysgYi9kcml2
-ZXJzL25ldC9nZW5ldmUuYwpAQCAtMTAzOSw2ICsxMDM5LDE2IEBAIHN0YXRpYyBuZXRkZXZfdHhf
-dCBnZW5ldmVfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2
-KQogCXJldHVybiBnZW5ldmVfeG1pdF9za2Ioc2tiLCBkZXYsIGluZm8pOwogfQogCitzdGF0aWMg
-aW50IGdlbmV2ZV9jaGFuZ2VfbXR1KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIGludCBuZXdfbXR1
-KQoreworCS8qIEdFTkVWRSBvdmVyaGVhZCBpcyBub3QgZml4ZWQsIHNvIHdlIGNhbid0IGVuZm9y
-Y2UgYSBtb3JlCisJICAgcHJlY2lzZSBtYXggTVRVLiAqLworCWlmIChuZXdfbXR1IDwgNjggfHwg
-bmV3X210dSA+IElQX01BWF9NVFUpCisJCXJldHVybiAtRUlOVkFMOworCWRldi0+bXR1ID0gbmV3
-X210dTsKKwlyZXR1cm4gMDsKK30KKwogc3RhdGljIGludCBnZW5ldmVfZmlsbF9tZXRhZGF0YV9k
-c3Qoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IHNrX2J1ZmYgKnNrYikKIHsKIAlzdHJ1
-Y3QgaXBfdHVubmVsX2luZm8gKmluZm8gPSBza2JfdHVubmVsX2luZm8oc2tiKTsKQEAgLTEwODMs
-NyArMTA5Myw3IEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3QgbmV0X2RldmljZV9vcHMgZ2VuZXZlX25l
-dGRldl9vcHMgPSB7CiAJLm5kb19zdG9wCQk9IGdlbmV2ZV9zdG9wLAogCS5uZG9fc3RhcnRfeG1p
-dAkJPSBnZW5ldmVfeG1pdCwKIAkubmRvX2dldF9zdGF0czY0CT0gaXBfdHVubmVsX2dldF9zdGF0
-czY0LAotCS5uZG9fY2hhbmdlX210dQkJPSBldGhfY2hhbmdlX210dSwKKwkubmRvX2NoYW5nZV9t
-dHUJCT0gZ2VuZXZlX2NoYW5nZV9tdHUsCiAJLm5kb192YWxpZGF0ZV9hZGRyCT0gZXRoX3ZhbGlk
-YXRlX2FkZHIsCiAJLm5kb19zZXRfbWFjX2FkZHJlc3MJPSBldGhfbWFjX2FkZHIsCiAJLm5kb19m
-aWxsX21ldGFkYXRhX2RzdAk9IGdlbmV2ZV9maWxsX21ldGFkYXRhX2RzdCwKLS0gCjIuNS4wCgpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGlu
-ZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFu
-L2xpc3RpbmZvL2Rldgo=
+>-----Original Message-----
+>From: David Laight [mailto:David.Laight@ACULAB.COM]
+>Sent: Tuesday, February 09, 2016 11:38 AM
+>To: Karicheri, Muralidharan; Strashko, Grygorii; netdev@vger.kernel.org; David S . Miller;
+>Arnd Bergmann
+>Cc: Cooper Jr., Franklin; Nori, Sekhar; linux-kernel@vger.kernel.org; Kwok, WingMan; N,
+>Mugunthan V
+>Subject: RE: [PATCH] net: ti: netcp: restore get/set_pad_info() functionality
+>
+>From: Karicheri, Muralidharan
+>> Sent: 09 February 2016 16:19
+>> >...
+>> >> >In reality the 'pad' fields ought to be renamed - since they aren't pads.
+>> >> >Perhaps they should be a union?
+>> >
+>> >> No. At the end of the descriptor, host software can add scratchpad
+>> >> which is not modified by the hardware, but is used by the driver.
+>> >> So please don't rename.
+>> >
+>> >So comment in the definition that the hardware doesn't modify them.
+>> >The driver is defining these fields and they are definitely NOT padding.
+>>
+>>
+>> It is scratch pad, not padding. Looks like pad is a confusing name.
+>> Can be renamed to sw_data to be in sync with spec below.
+>>
+>> The hardware spec from
+>> http://www.ti.com/lit/ug/sprugr9h/sprugr9h.pdf
+>>
+>> The other SW data portion of the descriptor exists after all of the
+>> defined words and is reserved for use by the host software to store
+>> completely private data. This region is not used in any way by the DMA
+>> or queue manager modules in a Multicore Navigator system and these
+>> modules will not modify any bytes within this region.
+>
+>Right, so comment that the hardware doesn't look at the fields.
+>But name/type the structure fields to indicate what they contain.
+>Maybe sw_buf_len etc - but I suspect there are much more meaningful names.
+
+The descriptors are usable by different drivers, one driver may use it as 
+buf ptr/ len, other for something else. So they should remain as generic
+and it is up to individual drivers to use it in whatever way it requires.
+My suggestion is to rename pad field in struct knav_dma_desc to sw_data
+to avoid confusion. i.e 
+
++       __le32  pad[4];
+
+to 
+
++       __le32  sw_data[4];
+
+Murali
+>
+>	David
