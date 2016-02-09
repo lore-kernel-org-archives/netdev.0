@@ -1,150 +1,80 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on i211
- using a device tree blob
-Date: Tue, 09 Feb 2016 12:02:24 +0100
-Message-ID: <1455015744.3592.46.camel@intel.com>
-References: <56ABE3A8.4010602@gmail.com>
+From: "Fastabend, John R" <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH 0/7] tc offload for cls_u32 on ixgbe
+Date: Tue, 9 Feb 2016 03:06:14 -0800
+Message-ID: <56B9C826.3020502@gmail.com>
+References: <20160203092708.1356.13733.stgit@john-Precision-Tower-5810>
+ <20160204091656.GA2198@nanopsycho.orion> <20160204231927.GA2347@salvia>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-RWSzUiCIihgTBVS/HgBj"
-To: John Holland <jotihojr@gmail.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: amir@vadai.me, ogerlitz@mellanox.com, jhs@mojatatu.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:29379 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753225AbcBILCb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Feb 2016 06:02:31 -0500
-In-Reply-To: <56ABE3A8.4010602@gmail.com>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:33735 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932333AbcBILHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 06:07:08 -0500
+Received: by mail-ob0-f172.google.com with SMTP id is5so181630039obc.0
+        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 03:07:08 -0800 (PST)
+In-Reply-To: <20160204231927.GA2347@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 2/4/2016 3:19 PM, Pablo Neira Ayuso wrote:
+> On Thu, Feb 04, 2016 at 10:16:56AM +0100, Jiri Pirko wrote:
+>> Wed, Feb 03, 2016 at 10:27:32AM CET, john.fastabend@gmail.com wrote:
+>>>
+>>> Also by adding get_parse_graph and set_parse_graph attributes as
+>>> in my previous flow_api work we can build programmable devices
+>>> and programmatically learn when rules can or can not be loaded
+>>> into the hardware. Again future work.
+>>>
+>>> Any comments/feedback appreciated.
 
---=-RWSzUiCIihgTBVS/HgBj
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Sorry if you get this twice it doesn't look like my original response
+made it to netdev and the laptop I replied on charger blew up.
 
-On Fri, 2016-01-29 at 23:11 +0100, John Holland wrote:
-> The Intel i211 LOM pcie ethernet controllers' iNVM operates as an
-> OTP=C2=A0
-> and has no externel EEPROM interface [1]. The following allows the=C2=A0
-> driver to pickup the MAC address from a device tree blob when
-> CONFIG_OF=C2=A0
-> has been enabled.
->=20
-> [1]=C2=A0
-> http://www.intel.com/content/www/us/en/embedded/products/networking/i
-> 211-ethernet-controller-datasheet.html
->=20
-> Signed-off-by: John Holland <jotihojr@gmail.com>
-> ---
-> =C2=A0 drivers/net/ethernet/intel/igb/igb_main.c | 30=C2=A0
-> ++++++++++++++++++++++++++++++
-> =C2=A0 1 file changed, 30 insertions(+)
->=20
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c=C2=A0
-> b/drivers/net/ethernet/intel/igb/igb_main.c
-> index 31e5f39..9c92443 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -56,6 +56,11 @@
-> =C2=A0 #include <linux/i2c.h>
-> =C2=A0 #include "igb.h"
->=20
-> +#ifdef defined(CONFIG_OF)
-> +#include <linux/of_net.h>
-> +#include <linux/etherdevice.h>
-> +#endif
-> +
-> =C2=A0 #define MAJ 5
-> =C2=A0 #define MIN 3
-> =C2=A0 #define BUILD 0
-> @@ -2217,6 +2222,26 @@ static s32 igb_init_i2c(struct igb_adapter
-> *adapter)
-> =C2=A0 }
->=20
-> =C2=A0 /**
-> + *=C2=A0=C2=A0igb_read_mac_addr_dts - Read mac addres from the device tr=
-ee
-> blob.
+>>
+>> I like this being thin and elegant solution. However, ~2 years ago when I
+>> pushed openvswitch kernel datapath offload patchset, people were yelling
+>> at me that it is not generic enough solution, that tc has to be able
+>> to use the api (Jamal :)), nftables as well.
+>
 
-Address is mis-spelled above
+The other problem with OVS is if you have the capabilities to do
+wildcard lookups (e.g. TCAM/SRAM/etc) then offloading the exact
+match table in OVS is really inefficient use of the resource. You
+really want to load the megaflow table into hardware. I just don't
+think its a good scheme for what you want.
 
-> + *=C2=A0=C2=A0@hw: pointer to the e1000 hardware structure
-> + **/
-> +#ifdef defined(CONFIG_OF)
+> I would be glad to join this debate during NetDev 1.1 too.
+>
 
-Minor nitpick, you should have the function comment header wrapped in
-the #ifdef as well.
+great.
 
-> +static void igb_read_mac_addr_dts(struct e1000_hw *hw)
-> +{
-> +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0const u8 *mac;
-> +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0struct device_node *dn;
-> +
-> +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0dn =3D of_find_compatible_node=
-(NULL, NULL, "intel,i211");
-> +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0if (!dn)
-> +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0return;
-> +
-> +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0mac =3D of_get_mac_address(dn)=
-;
-> +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0if (mac)
-> +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0ether_addr_copy(hw->mac.addr, mac);
-> +}
-> +#endif
-> +
-> +/**
-> =C2=A0=C2=A0=C2=A0*=C2=A0=C2=A0igb_probe - Device Initialization Routine
-> =C2=A0=C2=A0=C2=A0*=C2=A0=C2=A0@pdev: PCI device information struct
-> =C2=A0=C2=A0=C2=A0*=C2=A0=C2=A0@ent: entry in igb_pci_tbl
-> @@ -2420,6 +2445,11 @@ static int igb_probe(struct pci_dev *pdev,
-> const=C2=A0
-> struct pci_device_id *ent)
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0if (hw->mac.ops.rea=
-d_mac_addr(hw))
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0dev_err(&pdev->dev, "NVM Read Error\n");
->=20
-> +#ifdef defined(CONFIG_OF)
-> +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0if (!is_valid_ether_addr(hw->m=
-ac.addr))
-> +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0igb_read_mac_addr_dts(hw);
-> +#endif
-> +
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0memcpy(netdev->dev_=
-addr, hw->mac.addr, netdev->addr_len);
->=20
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0if (!is_valid_ether=
-_addr(netdev->dev_addr)) {
-> _______________________________________________
-> Intel-wired-lan mailing list
-> Intel-wired-lan@lists.osuosl.org
-> http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+> I think we should provide a solution that allows people uses both
+> tc and nftables, this would require a bit of generic infrastructure on
+> top of it so we don't restrict users to one single solution, in other
+> words, we allow the user to select its own poison.
+>
+>> Now this patch is making offload strictly tc-based and nobody seems to
+>> care :) I do. I think that we might try to find some generic middle
+>> layer.
 
---=-RWSzUiCIihgTBVS/HgBj
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+If we can build the universal model for 'tc' and 'nftable' we should
+unify them higher in the stack? It doesn't make sense to me for the
+driver folks to try and create the unified model for two subsystems
+if we don't think its worthwhile in software as well.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+>
+> I agree and I'll be happy to help to push this ahead. Let's try to sit
+> and get together to resolve this.
 
-iQIcBAABCgAGBQJWucdAAAoJEOVv75VaS+3OU5cP/RrGt3Qgmwx53isDsvr3jkb/
-7HhbM9KWwubT09nP/n/2pf7h2I5aRr9vuWkHXTaUAFOC/aYPD9L0mgfKCCxCv1/K
-BFkA1HZSFhYFXPM7L9O3S2Vj3ia6zBpOY8dx7WwnRzc+5jQgZrhkC+lw7Jo+Zzlv
-P21tdHQSW3EZPRY7MKjcECZNd4tJJLbgvdMBVuh7yFvanlwO8/P6WwwJ/SFO/Drd
-pPzvXeeSk3f88tprN4ktEwIqVwhM4VYbnyciO7vzfUiT0JMuVDgVLKwrpxN1gX4W
-YqXEmwNYot8rRM9bLKiplRhhfzY44B9rPPkQmQMO7JtSG7FF9Itb3xT++O/US/4+
-AloSbLSgPGWZT8UCWvPmPuV7oJgLvmaztpq6KOAfehrNpJvivg8vgscHmjVbwOL9
-m+8j/rpQ0fCTC4kUT1fPGUZmxI0uGzZUeptbIZxGC3oS84i9fk3opqFhn980Bfsh
-hY6IgKeQXFoW6pF/gXpckpUQM+LKVAJfM6+OP2UVxpDKbllBLE0FEznuSBen7Q2n
-RxWKHrNRkQGFdh6DE62eyQOJ7VgCOaq2W0o8io9EZIvh/0eJLVO0zggVu3KcdMCA
-Ock3B41yKL9xQHUKcxi9gKpD6SO8mwC81ph71VUqLnjZtveemE+r+7aws2xT/67R
-V3OZUi+zFQ+0N6ujwz7d
-=iWpA
------END PGP SIGNATURE-----
+Great.
 
---=-RWSzUiCIihgTBVS/HgBj--
+>
+> See you soon.
+>
