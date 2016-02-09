@@ -1,30 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] selinux: nlmsgtab: add SOCK_DESTROY to the netlink
- mapping tables
-Date: Tue, 09 Feb 2016 04:56:05 -0500 (EST)
-Message-ID: <20160209.045605.173757331263146641.davem@davemloft.net>
-References: <1454516232-18546-1-git-send-email-lorenzo@google.com>
+Subject: Re: [PATCH net] enic: increment devcmd2 result ring in case of
+ timeout
+Date: Tue, 09 Feb 2016 05:02:04 -0500 (EST)
+Message-ID: <20160209.050204.870615132090842500.davem@davemloft.net>
+References: <1454490644-17955-1-git-send-email-gvaradar@cisco.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: lorenzo@google.com
+Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com,
+	sanpilla@cisco.com, _govind@gmx.com
+To: gvaradar@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53888 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53930 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754542AbcBIJ4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 04:56:09 -0500
-In-Reply-To: <1454516232-18546-1-git-send-email-lorenzo@google.com>
+	with ESMTP id S1756081AbcBIKCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 05:02:13 -0500
+In-Reply-To: <1454490644-17955-1-git-send-email-gvaradar@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lorenzo Colitti <lorenzo@google.com>
-Date: Thu,  4 Feb 2016 01:17:12 +0900
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Date: Wed,  3 Feb 2016 14:40:44 +0530
 
-> Without this, using SOCK_DESTROY in enforcing mode results in:
+> From: Sandeep Pillai <sanpilla@cisco.com>
 > 
->   SELinux: unrecognized netlink message type=21 for sclass=32
+> Firmware posts the devcmd result in result ring. In case of timeout, driver
+> does not increment the current result pointer and firmware could post the
+> result after timeout has occurred. During next devcmd, driver would be
+> reading the result of previous devcmd.
 > 
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+> Fix this by incrementing result even in case of timeout.
+> 
+> Fixes: 373fb0873d43 ("enic: add devcmd2")
+> Signed-off-by: Sandeep Pillai <sanpilla@cisco.com>
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 
-Applied, thanks Lorenzo.
+Applied and queued up for -stable, thanks.
