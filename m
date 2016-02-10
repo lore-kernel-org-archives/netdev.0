@@ -1,162 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/2] vhost: helpers to enable/disable vring endianness
-Date: Wed, 10 Feb 2016 13:21:22 +0200
-Message-ID: <20160210131723-mutt-send-email-mst@redhat.com>
-References: <20160113170934.23705.62626.stgit@bahia.huguette.org>
-	<20160113170941.23705.93915.stgit@bahia.huguette.org>
+From: David Wragg <david@weave.works>
+Subject: Re: [PATCH net v2 2/3] geneve: Relax MTU constraints
+Date: Wed, 10 Feb 2016 11:41:55 +0000
+Message-ID: <86a8n86bcs.fsf@weave.works>
+References: <1455036424-6403-1-git-send-email-david@weave.works>
+	<1455036424-6403-3-git-send-email-david@weave.works>
+	<CALx6S37sD+MNK+kp9oLnEYHEUkOy_NdQK6bq-aMQP2Mvw9M4Qg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Greg Kurz <gkurz@linux.vnet.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20160113170941.23705.93915.stgit@bahia.huguette.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	dev@openvswitch.org, Jesse Gross <jesse@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:35552 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753102AbcBJLl6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 06:41:58 -0500
+Received: by mail-wm0-f54.google.com with SMTP id c200so24352006wme.0
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 03:41:57 -0800 (PST)
+In-Reply-To: <CALx6S37sD+MNK+kp9oLnEYHEUkOy_NdQK6bq-aMQP2Mvw9M4Qg@mail.gmail.com>
+	(Tom Herbert's message of "Wed, 10 Feb 2016 08:40:55 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 13, 2016 at 06:09:41PM +0100, Greg Kurz wrote:
-> The default use case for vhost is when the host and the vring have the
-> same endianness (default native endianness). But there are cases where
-> they differ and vhost should byteswap when accessing the vring:
-> - the host is big endian and the vring comes from a virtio 1.0 device
->   which is always little endian
-> - the architecture is bi-endian and the vring comes from a legacy virtio
->   device with a different endianness than the endianness of the host (aka
->   legacy cross-endian)
-> 
-> These cases are handled by the vq->is_le and the optional vq->user_be,
-> with the following logic:
-> - if none of the fields is enabled, vhost access the vring without byteswap
-> - if the vring is virtio 1.0 and the host is big endian, vq->is_le is
->   enabled to enforce little endian access to the vring
-> - if the vring is legacy cross-endian, userspace enables vq->user_be
->   to inform vhost about the vring endianness. This endianness is then
->   enforced for vring accesses through vq->is_le again
-> 
-> The logic is unclear in the current code.
-> 
-> This patch introduces helpers with explicit enable and disable semantics,
-> for better clarity.
-> 
-> No behaviour change.
-> 
-> Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
-> ---
->  drivers/vhost/vhost.c |   28 +++++++++++++++++++---------
->  1 file changed, 19 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index ad2146a9ab2d..e02e06755ab7 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -43,11 +43,16 @@ enum {
->  #define vhost_avail_event(vq) ((__virtio16 __user *)&vq->used->ring[vq->num])
->  
->  #ifdef CONFIG_VHOST_CROSS_ENDIAN_LEGACY
-> -static void vhost_vq_reset_user_be(struct vhost_virtqueue *vq)
-> +static void vhost_disable_user_be(struct vhost_virtqueue *vq)
->  {
->  	vq->user_be = !virtio_legacy_is_little_endian();
->  }
->  
+Tom Herbert <tom@herbertland.com> writes:
+> The correct thing to do is determine the maximum amount of
+> encapsulation overhead that can ever be set in a packet and use for
+> setting the MTU. For instance, when RCO is enable in GUE, the size of
+> the option is included in tunnel->encap_hlen even though it will not
+> be used in all packets (via ip_tunnel_change_mtu). If there is no way
+> to determine a maximum overhead a priori from configuration, then
+> maximum overhead could be assumed to be maximum possible encapsulation
+> header size which for Geneve is 132 bytes IIRC.
 
-Hmm this doesn't look like an improvement to me.
-What does it mean to disable big endian? Make it little endian?
-Existing reset seems to make sense.
+Ok, I'll come up with a patch to address this.
 
-> +static void vhost_enable_user_be(struct vhost_virtqueue *vq, bool user_be)
-> +{
-> +	vq->user_be = user_be;
-> +}
-> +
-
-And this is maybe "init_user_be"?
-
->  static long vhost_set_vring_endian(struct vhost_virtqueue *vq, int __user *argp)
->  {
->  	struct vhost_vring_state s;
-> @@ -62,7 +67,7 @@ static long vhost_set_vring_endian(struct vhost_virtqueue *vq, int __user *argp)
->  	    s.num != VHOST_VRING_BIG_ENDIAN)
->  		return -EINVAL;
->  
-> -	vq->user_be = s.num;
-> +	vhost_enable_user_be(vq, !!s.num);
->  
->  	return 0;
->  }
-> @@ -81,7 +86,7 @@ static long vhost_get_vring_endian(struct vhost_virtqueue *vq, u32 idx,
->  	return 0;
->  }
->  
-> -static void vhost_init_is_le(struct vhost_virtqueue *vq)
-> +static void vhost_enable_is_le(struct vhost_virtqueue *vq)
->  {
->  	/* Note for legacy virtio: user_be is initialized at reset time
->  	 * according to the host endianness. If userspace does not set an
-
-Same thing really. I'd rather add "reset_is_le".
-
-> @@ -91,7 +96,7 @@ static void vhost_init_is_le(struct vhost_virtqueue *vq)
->  	vq->is_le = vhost_has_feature(vq, VIRTIO_F_VERSION_1) || !vq->user_be;
->  }
->  #else
-> -static void vhost_vq_reset_user_be(struct vhost_virtqueue *vq)
-> +static void vhost_disable_user_be(struct vhost_virtqueue *vq)
->  {
->  }
->  
-> @@ -106,13 +111,18 @@ static long vhost_get_vring_endian(struct vhost_virtqueue *vq, u32 idx,
->  	return -ENOIOCTLCMD;
->  }
->  
-> -static void vhost_init_is_le(struct vhost_virtqueue *vq)
-> +static void vhost_enable_is_le(struct vhost_virtqueue *vq)
->  {
->  	if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
->  		vq->is_le = true;
->  }
->  #endif /* CONFIG_VHOST_CROSS_ENDIAN_LEGACY */
->  
-> +static void vhost_disable_is_le(struct vhost_virtqueue *vq)
-> +{
-> +	vq->is_le = virtio_legacy_is_little_endian();
-> +}
-> +
->  static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
->  			    poll_table *pt)
->  {
-> @@ -276,8 +286,8 @@ static void vhost_vq_reset(struct vhost_dev *dev,
->  	vq->call = NULL;
->  	vq->log_ctx = NULL;
->  	vq->memory = NULL;
-> -	vq->is_le = virtio_legacy_is_little_endian();
-> -	vhost_vq_reset_user_be(vq);
-> +	vhost_disable_is_le(vq);
-> +	vhost_disable_user_be(vq);
->  }
->  
->  static int vhost_worker(void *data)
-> @@ -1157,11 +1167,11 @@ int vhost_init_used(struct vhost_virtqueue *vq)
->  	__virtio16 last_used_idx;
->  	int r;
->  	if (!vq->private_data) {
-> -		vq->is_le = virtio_legacy_is_little_endian();
-> +		vhost_disable_is_le(vq);
->  		return 0;
->  	}
->  
-> -	vhost_init_is_le(vq);
-> +	vhost_enable_is_le(vq);
->  
->  	r = vhost_update_used_flags(vq);
->  	if (r)
+David
