@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v8 01/19] lib/bitmap.c: conversion routines to/from u32 array
-Date: Tue,  9 Feb 2016 16:29:10 -0800
-Message-ID: <1455064168-5102-2-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v8 03/19] net: usnic: remove unused call to ethtool_ops::get_settings
+Date: Tue,  9 Feb 2016 16:29:12 -0800
+Message-ID: <1455064168-5102-4-git-send-email-ddecotig@gmail.com>
 References: <1455064168-5102-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
 	Eugenia Emantayev <eugenia@mellanox.co.il>,
@@ -32,153 +32,30 @@ List-Id: netdev.vger.kernel.org
 
 From: David Decotigny <decot@googlers.com>
 
-Aimed at transferring bitmaps to/from user-space in a 32/64-bit agnostic
-way.
-
-Tested:
-  unit tests (next patch) on qemu i386, x86_64, ppc, ppc64 BE and LE,
-  ARM.
-
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- include/linux/bitmap.h | 10 ++++++
- lib/bitmap.c           | 89 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 99 insertions(+)
+ drivers/infiniband/hw/usnic/usnic_ib_verbs.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/include/linux/bitmap.h b/include/linux/bitmap.h
-index 9653fdb..e9b0b9a 100644
---- a/include/linux/bitmap.h
-+++ b/include/linux/bitmap.h
-@@ -59,6 +59,8 @@
-  * bitmap_find_free_region(bitmap, bits, order)	Find and allocate bit region
-  * bitmap_release_region(bitmap, pos, order)	Free specified bit region
-  * bitmap_allocate_region(bitmap, pos, order)	Allocate specified bit region
-+ * bitmap_from_u32array(dst, nbits, buf, nwords) *dst = *buf (nwords 32b words)
-+ * bitmap_to_u32array(buf, nwords, src, nbits)	*buf = *dst (nwords 32b words)
-  */
+diff --git a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
+index 6cdb4d2..ea003ec 100644
+--- a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
++++ b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
+@@ -269,7 +269,6 @@ int usnic_ib_query_device(struct ib_device *ibdev,
+ 	struct usnic_ib_dev *us_ibdev = to_usdev(ibdev);
+ 	union ib_gid gid;
+ 	struct ethtool_drvinfo info;
+-	struct ethtool_cmd cmd;
+ 	int qp_per_vf;
  
- /*
-@@ -163,6 +165,14 @@ extern void bitmap_fold(unsigned long *dst, const unsigned long *orig,
- extern int bitmap_find_free_region(unsigned long *bitmap, unsigned int bits, int order);
- extern void bitmap_release_region(unsigned long *bitmap, unsigned int pos, int order);
- extern int bitmap_allocate_region(unsigned long *bitmap, unsigned int pos, int order);
-+extern unsigned int bitmap_from_u32array(unsigned long *bitmap,
-+					 unsigned int nbits,
-+					 const u32 *buf,
-+					 unsigned int nwords);
-+extern unsigned int bitmap_to_u32array(u32 *buf,
-+				       unsigned int nwords,
-+				       const unsigned long *bitmap,
-+				       unsigned int nbits);
- #ifdef __BIG_ENDIAN
- extern void bitmap_copy_le(unsigned long *dst, const unsigned long *src, unsigned int nbits);
- #else
-diff --git a/lib/bitmap.c b/lib/bitmap.c
-index 8148143..c66da50 100644
---- a/lib/bitmap.c
-+++ b/lib/bitmap.c
-@@ -12,6 +12,8 @@
- #include <linux/bitmap.h>
- #include <linux/bitops.h>
- #include <linux/bug.h>
-+#include <linux/kernel.h>
-+#include <linux/string.h>
+ 	usnic_dbg("\n");
+@@ -278,7 +277,6 @@ int usnic_ib_query_device(struct ib_device *ibdev,
  
- #include <asm/page.h>
- #include <asm/uaccess.h>
-@@ -1060,6 +1062,93 @@ int bitmap_allocate_region(unsigned long *bitmap, unsigned int pos, int order)
- EXPORT_SYMBOL(bitmap_allocate_region);
- 
- /**
-+ * bitmap_from_u32array - copy the contents of a u32 array of bits to bitmap
-+ *	@bitmap: array of unsigned longs, the destination bitmap, non NULL
-+ *	@nbits: number of bits in @bitmap
-+ *	@buf: array of u32 (in host byte order), the source bitmap, non NULL
-+ *	@nwords: number of u32 words in @buf
-+ *
-+ * copy min(nbits, 32*nwords) bits from @buf to @bitmap, remaining
-+ * bits between nword and nbits in @bitmap (if any) are cleared. In
-+ * last word of @bitmap, the bits beyond nbits (if any) are kept
-+ * unchanged.
-+ *
-+ * Return the number of bits effectively copied.
-+ */
-+unsigned int
-+bitmap_from_u32array(unsigned long *bitmap, unsigned int nbits,
-+		     const u32 *buf, unsigned int nwords)
-+{
-+	unsigned int dst_idx, src_idx;
-+
-+	for (src_idx = dst_idx = 0; dst_idx < BITS_TO_LONGS(nbits); ++dst_idx) {
-+		unsigned long part = 0;
-+
-+		if (src_idx < nwords)
-+			part = buf[src_idx++];
-+
-+#if BITS_PER_LONG == 64
-+		if (src_idx < nwords)
-+			part |= ((unsigned long) buf[src_idx++]) << 32;
-+#endif
-+
-+		if (dst_idx < nbits/BITS_PER_LONG)
-+			bitmap[dst_idx] = part;
-+		else {
-+			unsigned long mask = BITMAP_LAST_WORD_MASK(nbits);
-+
-+			bitmap[dst_idx] = (bitmap[dst_idx] & ~mask)
-+				| (part & mask);
-+		}
-+	}
-+
-+	return min_t(unsigned int, nbits, 32*nwords);
-+}
-+EXPORT_SYMBOL(bitmap_from_u32array);
-+
-+/**
-+ * bitmap_to_u32array - copy the contents of bitmap to a u32 array of bits
-+ *	@buf: array of u32 (in host byte order), the dest bitmap, non NULL
-+ *	@nwords: number of u32 words in @buf
-+ *	@bitmap: array of unsigned longs, the source bitmap, non NULL
-+ *	@nbits: number of bits in @bitmap
-+ *
-+ * copy min(nbits, 32*nwords) bits from @bitmap to @buf. Remaining
-+ * bits after nbits in @buf (if any) are cleared.
-+ *
-+ * Return the number of bits effectively copied.
-+ */
-+unsigned int
-+bitmap_to_u32array(u32 *buf, unsigned int nwords,
-+		   const unsigned long *bitmap, unsigned int nbits)
-+{
-+	unsigned int dst_idx = 0, src_idx = 0;
-+
-+	while (dst_idx < nwords) {
-+		unsigned long part = 0;
-+
-+		if (src_idx < BITS_TO_LONGS(nbits)) {
-+			part = bitmap[src_idx];
-+			if (src_idx >= nbits/BITS_PER_LONG)
-+				part &= BITMAP_LAST_WORD_MASK(nbits);
-+			src_idx++;
-+		}
-+
-+		buf[dst_idx++] = part & 0xffffffffUL;
-+
-+#if BITS_PER_LONG == 64
-+		if (dst_idx < nwords) {
-+			part >>= 32;
-+			buf[dst_idx++] = part & 0xffffffffUL;
-+		}
-+#endif
-+	}
-+
-+	return min_t(unsigned int, nbits, 32*nwords);
-+}
-+EXPORT_SYMBOL(bitmap_to_u32array);
-+
-+/**
-  * bitmap_copy_le - copy a bitmap, putting the bits into little-endian order.
-  * @dst:   destination buffer
-  * @src:   bitmap to copy
+ 	mutex_lock(&us_ibdev->usdev_lock);
+ 	us_ibdev->netdev->ethtool_ops->get_drvinfo(us_ibdev->netdev, &info);
+-	us_ibdev->netdev->ethtool_ops->get_settings(us_ibdev->netdev, &cmd);
+ 	memset(props, 0, sizeof(*props));
+ 	usnic_mac_ip_to_gid(us_ibdev->ufdev->mac, us_ibdev->ufdev->inaddr,
+ 			&gid.raw[0]);
 -- 
 2.7.0.rc3.207.g0ac5344
