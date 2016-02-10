@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 16/21] batman-adv: Convert batadv_orig_ifinfo to kref
-Date: Wed, 10 Feb 2016 23:57:22 +0800
-Message-ID: <1455119847-5862-17-git-send-email-a@unstable.cc>
+Subject: [PATCH 14/21] batman-adv: Convert batadv_tt_orig_list_entry to kref
+Date: Wed, 10 Feb 2016 23:57:20 +0800
+Message-ID: <1455119847-5862-15-git-send-email-a@unstable.cc>
 References: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:8457 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:9648 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752878AbcBJQRx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2016 11:17:53 -0500
+	id S1752935AbcBJQSN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2016 11:18:13 -0500
 In-Reply-To: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -27,100 +27,85 @@ Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/originator.c | 15 +++++++++------
- net/batman-adv/routing.c    |  5 +++--
- net/batman-adv/types.h      |  2 +-
- 3 files changed, 13 insertions(+), 9 deletions(-)
+ net/batman-adv/translation-table.c | 26 +++++++++++++++++---------
+ net/batman-adv/types.h             |  2 +-
+ 2 files changed, 18 insertions(+), 10 deletions(-)
 
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 1c50abe52c6d..428983a2036f 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -326,7 +326,7 @@ batadv_orig_ifinfo_get(struct batadv_orig_node *orig_node,
- 		if (tmp->if_outgoing != if_outgoing)
- 			continue;
- 
--		if (!atomic_inc_not_zero(&tmp->refcount))
-+		if (!kref_get_unless_zero(&tmp->refcount))
- 			continue;
- 
- 		orig_ifinfo = tmp;
-@@ -377,7 +377,8 @@ batadv_orig_ifinfo_new(struct batadv_orig_node *orig_node,
- 	orig_ifinfo->batman_seqno_reset = reset_time;
- 	orig_ifinfo->if_outgoing = if_outgoing;
- 	INIT_HLIST_NODE(&orig_ifinfo->list);
--	atomic_set(&orig_ifinfo->refcount, 2);
-+	kref_init(&orig_ifinfo->refcount);
-+	kref_get(&orig_ifinfo->refcount);
- 	hlist_add_head_rcu(&orig_ifinfo->list,
- 			   &orig_node->ifinfo_list);
- out:
-@@ -704,12 +705,15 @@ int batadv_hardif_neigh_seq_print_text(struct seq_file *seq, void *offset)
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 0dc8a5ca33bf..68494a10848c 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -31,6 +31,7 @@
+ #include <linux/jhash.h>
+ #include <linux/jiffies.h>
+ #include <linux/kernel.h>
++#include <linux/kref.h>
+ #include <linux/list.h>
+ #include <linux/lockdep.h>
+ #include <linux/netdevice.h>
+@@ -346,22 +347,28 @@ static void batadv_tt_global_size_dec(struct batadv_orig_node *orig_node,
  /**
-  * batadv_orig_ifinfo_release - release orig_ifinfo from lists and queue for
-  *  free after rcu grace period
-- * @orig_ifinfo: the orig_ifinfo object to release
-+ * @ref: kref pointer of the orig_ifinfo
+  * batadv_tt_orig_list_entry_release - release tt orig entry from lists and
+  *  queue for free after rcu grace period
+- * @orig_entry: tt orig entry to be free'd
++ * @ref: kref pointer of the tt orig entry
   */
--static void batadv_orig_ifinfo_release(struct batadv_orig_ifinfo *orig_ifinfo)
-+static void batadv_orig_ifinfo_release(struct kref *ref)
+-static void
+-batadv_tt_orig_list_entry_release(struct batadv_tt_orig_list_entry *orig_entry)
++static void batadv_tt_orig_list_entry_release(struct kref *ref)
  {
-+	struct batadv_orig_ifinfo *orig_ifinfo;
- 	struct batadv_neigh_node *router;
- 
-+	orig_ifinfo = container_of(ref, struct batadv_orig_ifinfo, refcount);
++	struct batadv_tt_orig_list_entry *orig_entry;
 +
- 	if (orig_ifinfo->if_outgoing != BATADV_IF_DEFAULT)
- 		batadv_hardif_free_ref(orig_ifinfo->if_outgoing);
++	orig_entry = container_of(ref, struct batadv_tt_orig_list_entry,
++				  refcount);
++
+ 	batadv_orig_node_free_ref(orig_entry->orig_node);
+ 	kfree_rcu(orig_entry, rcu);
+ }
  
-@@ -728,8 +732,7 @@ static void batadv_orig_ifinfo_release(struct batadv_orig_ifinfo *orig_ifinfo)
-  */
- void batadv_orig_ifinfo_free_ref(struct batadv_orig_ifinfo *orig_ifinfo)
++/**
++ * batadv_tt_orig_list_entry_free_ref - decrement the tt orig entry refcounter
++ *  and possibly release it
++ * @orig_entry: tt orig entry to be free'd
++ */
+ static void
+ batadv_tt_orig_list_entry_free_ref(struct batadv_tt_orig_list_entry *orig_entry)
  {
--	if (atomic_dec_and_test(&orig_ifinfo->refcount))
--		batadv_orig_ifinfo_release(orig_ifinfo);
-+	kref_put(&orig_ifinfo->refcount, batadv_orig_ifinfo_release);
+-	if (!atomic_dec_and_test(&orig_entry->refcount))
+-		return;
+-
+-	batadv_tt_orig_list_entry_release(orig_entry);
++	kref_put(&orig_entry->refcount, batadv_tt_orig_list_entry_release);
  }
  
  /**
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 1c8b35df50cf..4a5cd8bf2661 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -25,6 +25,7 @@
- #include <linux/etherdevice.h>
- #include <linux/if_ether.h>
- #include <linux/jiffies.h>
-+#include <linux/kref.h>
- #include <linux/netdevice.h>
- #include <linux/printk.h>
- #include <linux/rculist.h>
-@@ -497,7 +498,7 @@ batadv_find_router(struct batadv_priv *bat_priv,
- 
- 	hlist_for_each_entry_rcu(cand, &orig_node->ifinfo_list, list) {
- 		/* acquire some structures and references ... */
--		if (!atomic_inc_not_zero(&cand->refcount))
-+		if (!kref_get_unless_zero(&cand->refcount))
+@@ -1270,7 +1277,7 @@ batadv_tt_global_orig_entry_find(const struct batadv_tt_global_entry *entry,
+ 	hlist_for_each_entry_rcu(tmp_orig_entry, head, list) {
+ 		if (tmp_orig_entry->orig_node != orig_node)
+ 			continue;
+-		if (!atomic_inc_not_zero(&tmp_orig_entry->refcount))
++		if (!kref_get_unless_zero(&tmp_orig_entry->refcount))
  			continue;
  
- 		cand_router = rcu_dereference(cand->router);
-@@ -524,7 +525,7 @@ batadv_find_router(struct batadv_priv *bat_priv,
- 		/* mark the first possible candidate */
- 		if (!first_candidate) {
- 			atomic_inc(&cand_router->refcount);
--			atomic_inc(&cand->refcount);
-+			kref_get(&cand->refcount);
- 			first_candidate = cand;
- 			first_candidate_router = cand_router;
- 		}
+ 		orig_entry = tmp_orig_entry;
+@@ -1331,7 +1338,8 @@ batadv_tt_global_orig_entry_add(struct batadv_tt_global_entry *tt_global,
+ 	batadv_tt_global_size_inc(orig_node, tt_global->common.vid);
+ 	orig_entry->orig_node = orig_node;
+ 	orig_entry->ttvn = ttvn;
+-	atomic_set(&orig_entry->refcount, 2);
++	kref_init(&orig_entry->refcount);
++	kref_get(&orig_entry->refcount);
+ 
+ 	spin_lock_bh(&tt_global->list_lock);
+ 	hlist_add_head_rcu(&orig_entry->list,
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 81d9f8d6c54b..6193c01b47d2 100644
+index f89dd977f348..17f97ff5b4d1 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -141,7 +141,7 @@ struct batadv_orig_ifinfo {
- 	u32 last_real_seqno;
- 	u8 last_ttl;
- 	unsigned long batman_seqno_reset;
+@@ -1014,7 +1014,7 @@ struct batadv_tt_orig_list_entry {
+ 	struct batadv_orig_node *orig_node;
+ 	u8 ttvn;
+ 	struct hlist_node list;
 -	atomic_t refcount;
 +	struct kref refcount;
  	struct rcu_head rcu;
