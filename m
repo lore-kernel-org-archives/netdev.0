@@ -1,92 +1,74 @@
-From: "George Spelvin" <linux@horizon.com>
-Subject: RE: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
-Date: 9 Feb 2016 19:53:46 -0500
-Message-ID: <20160210005346.21908.qmail@ns.horizon.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1CCDBCA5@AcuExch.aculab.com>
-Cc: mingo@kernel.org
-To: David.Laight@ACULAB.COM, linux-kernel@vger.kernel.org,
-	linux@horizon.com, netdev@vger.kernel.org, tom@herbertland.com
+From: Emil Goode <emil.fsw@goode.io>
+Subject: [PATCH] wlcore: Fix regression in wlcore_set_partition()
+Date: Wed, 10 Feb 2016 02:22:16 +0100
+Message-ID: <20160210012216.GA18819@lianli>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>, Shahar Patury <shaharp@ti.com>,
+	Guy Mishol <guym@ti.com>,
+	Igor Grinberg <grinberg@compulab.co.il>,
+	Uri Mashiach <uri.mashiach@compulab.co.il>,
+	Ross Green <rgkernel@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCDBCA5@AcuExch.aculab.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Laight wrote:
-> Since adcx and adox must execute in parallel I clearly need to re-remember
-> how dependencies against the flags register work. I'm sure I remember
-> issues with 'false dependencies' against the flags.
+The below commit introduced a regression causing the wlcore
+to time out and go into recovery.
 
-The issue is with flags register bits that are *not* modified by
-an instruction.  If the register is treated as a monolithic entity,
-then the previous values of those bits must be considered an *input*
-to the instruction, forcing serialization.
+commit 3719c17e1816695f415dd3b4ddcb679f7dc617c8
+("wlcore/wl18xx: fw logger over sdio")
 
-The first step in avoiding this problem is to consider the rarely-modified
-bits (interrupt, direction, trap, etc.) to be a separate logical register
-from the arithmetic flags (carry, overflow, zero, sign, aux carry and parity)
-which are updated by almost every instruction.
+Reverting the changes regarding write of the last partition size
+brings the module back to it's functional state.
 
-An arithmetic instruction overwrites the arithmetic flags (so it's only
-a WAW dependency which can be broken by renaming) and doesn't touch the
-status flags (so no dependency).
+Reported-by: Ross Green <rgkernel@gmail.com>
+Signed-off-by: Emil Goode <emil.fsw@goode.io>
+---
+ drivers/net/wireless/ti/wlcore/io.c | 8 ++++----
+ drivers/net/wireless/ti/wlcore/io.h | 4 ++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-However, on x86 even the arithmetic flags aren't updated consistently.
-The biggest offender are the (very common!) INC/DEC instructions,
-which update all of the arithmetic flags *except* the carry flag.
-
-Thus, the carry flag is also renamed separately on every superscalar
-x86 implementation I've ever heard of.
-
-The bit test instructions (BT, BTC, BTR, BTS) also affect *only*
-the carry flag, leaving other flags unmodified.  This is also
-handled properly by renaming the carry flag separately.
-
-
-Here's a brief summary chart of flags updated by common instructions:
-http://www.logix.cz/michal/doc/i386/app-c.htm
-and the full list with all the corner cases:
-http://www.logix.cz/michal/doc/i386/app-b.htm
-
-The other two flags that can be worth separating are the overflow
-and zero flags.
-
-The rotate instructions modify *only* the carry and overflow flags.
-While overflow is undefined for multi-bit rotates (and thus leaving it
-unmodified is a valid implementation), it's defined for single-bit rotates,
-so must be written.
-
-There are several less common instructions, notably BSF, BSR, CMPXCHG8B,
-and a bunch of 80286 segment instructions that nobody cares about,
-which retort the result of a test in the zero flag and are defined to
-not affect the other flags.
-
-
-So an aggressive x86 implementation breaks the flags register into five
-separately renamed registers:
-- CF (carry)
-- OF (overflow)
-- ZF (zero)
-- SF, AF, PF (sign, aux carry, and parity)
-- DF, IF, TF, IOPL, etc.
-
-Anyway, I'm sure that when Intel defined ADCX and ADOX they felt that
-it was reasonable to commit to always renaming CF and OF separately.
-
-> However you still need a loop construct that doesn't modify 'o' or 'c'.
-> Using leal, jcxz, jmp might work.
-> (Unless broadwell actually has a fast 'loop' instruction.)
-
-According to Agner Fog (http://agner.org/optimize/instruction_tables.pdf),
-JCXZ is reasonably fast (2 uops) on almost all 64-bit CPUs, right back
-to K8 and Merom.  The one exception is Precott.  JCXZ and LOOP are 4
-uops on those processors.  But 64 bit in general sucked on Precott,
-so how much do we care?
-
-AMD:	LOOP is slow (7 uops) on K8, K10, Bobcat and Jaguar.
-	JCXZ is acceptable on all of them.
-	LOOP and JCXZ are 1 uop on Bulldozer, Piledriver and Steamroller.
-Intel:	LOOP is slow (7+ uops) on all processors up to and including Skylake.
-	JCXZ is 2 upos on everything from P6 to Skylake exacpt for:
-	- Prescott (JCXZ & loop both 4 uops)
-	- 1st gen Atom (JCXZ 3 uops, LOOP 8 uops)
-	I can't find any that it's fast on.
+diff --git a/drivers/net/wireless/ti/wlcore/io.c b/drivers/net/wireless/ti/wlcore/io.c
+index 9ac118e..564ca75 100644
+--- a/drivers/net/wireless/ti/wlcore/io.c
++++ b/drivers/net/wireless/ti/wlcore/io.c
+@@ -175,14 +175,14 @@ int wlcore_set_partition(struct wl1271 *wl,
+ 	if (ret < 0)
+ 		goto out;
+ 
++	/* We don't need the size of the last partition, as it is
++	 * automatically calculated based on the total memory size and
++	 * the sizes of the previous partitions.
++	 */
+ 	ret = wlcore_raw_write32(wl, HW_PART3_START_ADDR, p->mem3.start);
+ 	if (ret < 0)
+ 		goto out;
+ 
+-	ret = wlcore_raw_write32(wl, HW_PART3_SIZE_ADDR, p->mem3.size);
+-	if (ret < 0)
+-		goto out;
+-
+ out:
+ 	return ret;
+ }
+diff --git a/drivers/net/wireless/ti/wlcore/io.h b/drivers/net/wireless/ti/wlcore/io.h
+index 6c257b5..10cf374 100644
+--- a/drivers/net/wireless/ti/wlcore/io.h
++++ b/drivers/net/wireless/ti/wlcore/io.h
+@@ -36,8 +36,8 @@
+ #define HW_PART1_START_ADDR             (HW_PARTITION_REGISTERS_ADDR + 12)
+ #define HW_PART2_SIZE_ADDR              (HW_PARTITION_REGISTERS_ADDR + 16)
+ #define HW_PART2_START_ADDR             (HW_PARTITION_REGISTERS_ADDR + 20)
+-#define HW_PART3_SIZE_ADDR              (HW_PARTITION_REGISTERS_ADDR + 24)
+-#define HW_PART3_START_ADDR             (HW_PARTITION_REGISTERS_ADDR + 28)
++#define HW_PART3_START_ADDR             (HW_PARTITION_REGISTERS_ADDR + 24)
++
+ #define HW_ACCESS_REGISTER_SIZE         4
+ 
+ #define HW_ACCESS_PRAM_MAX_RANGE	0x3c000
+-- 
+2.1.4
