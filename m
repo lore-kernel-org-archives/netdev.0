@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 19/21] batman-adv: Convert batadv_orig_node_vlan to kref
-Date: Wed, 10 Feb 2016 23:57:25 +0800
-Message-ID: <1455119847-5862-20-git-send-email-a@unstable.cc>
+Subject: [PATCH 12/21] batman-adv: Convert batadv_tvlv_container to kref
+Date: Wed, 10 Feb 2016 23:57:18 +0800
+Message-ID: <1455119847-5862-13-git-send-email-a@unstable.cc>
 References: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:26680 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:7944 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752995AbcBJQSh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2016 11:18:37 -0500
+	id S1753016AbcBJQSn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2016 11:18:43 -0500
 In-Reply-To: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -27,77 +27,81 @@ Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/originator.c | 26 ++++++++++++++++++++------
- net/batman-adv/types.h      |  2 +-
- 2 files changed, 21 insertions(+), 7 deletions(-)
+ net/batman-adv/main.c  | 22 +++++++++++++++++-----
+ net/batman-adv/types.h |  2 +-
+ 2 files changed, 18 insertions(+), 6 deletions(-)
 
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index bf27007a574a..8b2ef8de93e9 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -82,7 +82,7 @@ batadv_orig_node_vlan_get(struct batadv_orig_node *orig_node,
- 		if (tmp->vid != vid)
- 			continue;
- 
--		if (!atomic_inc_not_zero(&tmp->refcount))
-+		if (!kref_get_unless_zero(&tmp->refcount))
- 			continue;
- 
- 		vlan = tmp;
-@@ -123,7 +123,8 @@ batadv_orig_node_vlan_new(struct batadv_orig_node *orig_node,
- 	if (!vlan)
- 		goto out;
- 
--	atomic_set(&vlan->refcount, 2);
-+	kref_init(&vlan->refcount);
-+	kref_get(&vlan->refcount);
- 	vlan->vid = vid;
- 
- 	hlist_add_head_rcu(&vlan->list, &orig_node->vlan_list);
-@@ -135,14 +136,27 @@ out:
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index a9b4f75db874..4b6c2589fa34 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -29,6 +29,7 @@
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/kernel.h>
++#include <linux/kref.h>
+ #include <linux/list.h>
+ #include <linux/lockdep.h>
+ #include <linux/module.h>
+@@ -670,14 +671,25 @@ static struct batadv_tvlv_handler
  }
  
  /**
-- * batadv_orig_node_vlan_free_ref - decrement the refcounter and possibly free
-- *  the originator-vlan object
-+ * batadv_orig_node_vlan_release - release originator-vlan object from lists
-+ *  and queue for free after rcu grace period
-+ * @ref: kref pointer of the originator-vlan object
++ * batadv_tvlv_container_release - release tvlv from lists and free
++ * @ref: kref pointer of the tvlv
 + */
-+static void batadv_orig_node_vlan_release(struct kref *ref)
++static void batadv_tvlv_container_release(struct kref *ref)
 +{
-+	struct batadv_orig_node_vlan *orig_vlan;
++	struct batadv_tvlv_container *tvlv;
 +
-+	orig_vlan = container_of(ref, struct batadv_orig_node_vlan, refcount);
-+
-+	kfree_rcu(orig_vlan, rcu);
++	tvlv = container_of(ref, struct batadv_tvlv_container, refcount);
++	kfree(tvlv);
 +}
 +
 +/**
-+ * batadv_orig_node_vlan_free_ref - decrement the refcounter and possibly
-+ *  release the originator-vlan object
-  * @orig_vlan: the originator-vlan object to release
+  * batadv_tvlv_container_free_ref - decrement the tvlv container refcounter and
+- *  possibly free it
++ *  possibly release it
+  * @tvlv: the tvlv container to free
   */
- void batadv_orig_node_vlan_free_ref(struct batadv_orig_node_vlan *orig_vlan)
+ static void batadv_tvlv_container_free_ref(struct batadv_tvlv_container *tvlv)
  {
--	if (atomic_dec_and_test(&orig_vlan->refcount))
--		kfree_rcu(orig_vlan, rcu);
-+	kref_put(&orig_vlan->refcount, batadv_orig_node_vlan_release);
+-	if (atomic_dec_and_test(&tvlv->refcount))
+-		kfree(tvlv);
++	kref_put(&tvlv->refcount, batadv_tvlv_container_release);
  }
  
- int batadv_originator_init(struct batadv_priv *bat_priv)
+ /**
+@@ -706,7 +718,7 @@ static struct batadv_tvlv_container
+ 		if (tvlv_tmp->tvlv_hdr.version != version)
+ 			continue;
+ 
+-		if (!atomic_inc_not_zero(&tvlv_tmp->refcount))
++		if (!kref_get_unless_zero(&tvlv_tmp->refcount))
+ 			continue;
+ 
+ 		tvlv = tvlv_tmp;
+@@ -814,7 +826,7 @@ void batadv_tvlv_container_register(struct batadv_priv *bat_priv,
+ 
+ 	memcpy(tvlv_new + 1, tvlv_value, ntohs(tvlv_new->tvlv_hdr.len));
+ 	INIT_HLIST_NODE(&tvlv_new->list);
+-	atomic_set(&tvlv_new->refcount, 1);
++	kref_init(&tvlv_new->refcount);
+ 
+ 	spin_lock_bh(&bat_priv->tvlv.container_list_lock);
+ 	tvlv_old = batadv_tvlv_container_get(bat_priv, type, version);
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 74cb26372ed1..504f3dbdbcc1 100644
+index 9df8f39e4785..c55925bb34af 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -197,7 +197,7 @@ struct batadv_orig_node_vlan {
- 	unsigned short vid;
- 	struct batadv_vlan_tt tt;
+@@ -1266,7 +1266,7 @@ struct batadv_dat_candidate {
+ struct batadv_tvlv_container {
  	struct hlist_node list;
+ 	struct batadv_tvlv_hdr tvlv_hdr;
 -	atomic_t refcount;
 +	struct kref refcount;
- 	struct rcu_head rcu;
  };
  
+ /**
 -- 
 2.7.1
