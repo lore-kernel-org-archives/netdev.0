@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 05/21] batman-adv: Convert batadv_gw_node to kref
-Date: Wed, 10 Feb 2016 23:57:11 +0800
-Message-ID: <1455119847-5862-6-git-send-email-a@unstable.cc>
+Subject: [PATCH 08/21] batman-adv: Convert batadv_bla_claim to kref
+Date: Wed, 10 Feb 2016 23:57:14 +0800
+Message-ID: <1455119847-5862-9-git-send-email-a@unstable.cc>
 References: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:2991 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:43388 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752463AbcBJQAM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2016 11:00:12 -0500
+	id S1752506AbcBJQAU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2016 11:00:20 -0500
 In-Reply-To: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -27,131 +27,69 @@ Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/gateway_client.c | 40 +++++++++++++++++++++++++++++-----------
- net/batman-adv/types.h          |  2 +-
- 2 files changed, 30 insertions(+), 12 deletions(-)
+ net/batman-adv/bridge_loop_avoidance.c | 14 +++++++++-----
+ net/batman-adv/types.h                 |  2 +-
+ 2 files changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index 5950974de7b1..1f3847c61db8 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -28,6 +28,7 @@
- #include <linux/ip.h>
- #include <linux/ipv6.h>
- #include <linux/kernel.h>
-+#include <linux/kref.h>
- #include <linux/list.h>
- #include <linux/netdevice.h>
- #include <linux/rculist.h>
-@@ -59,12 +60,29 @@
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
+index 41116e4c2e34..7781f39c174d 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -174,8 +174,12 @@ batadv_backbone_gw_free_ref(struct batadv_bla_backbone_gw *backbone_gw)
+  *  grace period
+  * @ref: kref pointer of the claim
   */
- #define BATADV_DHCP_CHADDR_OFFSET	28
- 
-+/**
-+ * batadv_gw_node_release - release gw_node from lists and queue for free after
-+ *  rcu grace period
-+ * @ref: kref pointer of the gw_node
-+ */
-+static void batadv_gw_node_release(struct kref *ref)
-+{
-+	struct batadv_gw_node *gw_node;
-+
-+	gw_node = container_of(ref, struct batadv_gw_node, refcount);
-+
-+	batadv_orig_node_free_ref(gw_node->orig_node);
-+	kfree_rcu(gw_node, rcu);
-+}
-+
-+/**
-+ * batadv_gw_node_free_ref - decrement the gw_node refcounter and possibly
-+ *  release it
-+ * @gw_node: gateway node to free
-+ */
- static void batadv_gw_node_free_ref(struct batadv_gw_node *gw_node)
+-static void batadv_claim_release(struct batadv_bla_claim *claim)
++static void batadv_claim_release(struct kref *ref)
  {
--	if (atomic_dec_and_test(&gw_node->refcount)) {
--		batadv_orig_node_free_ref(gw_node->orig_node);
--		kfree_rcu(gw_node, rcu);
--	}
-+	kref_put(&gw_node->refcount, batadv_gw_node_release);
++	struct batadv_bla_claim *claim;
++
++	claim = container_of(ref, struct batadv_bla_claim, refcount);
++
+ 	batadv_backbone_gw_free_ref(claim->backbone_gw);
+ 	kfree_rcu(claim, rcu);
+ }
+@@ -187,8 +191,7 @@ static void batadv_claim_release(struct batadv_bla_claim *claim)
+  */
+ static void batadv_claim_free_ref(struct batadv_bla_claim *claim)
+ {
+-	if (atomic_dec_and_test(&claim->refcount))
+-		batadv_claim_release(claim);
++	kref_put(&claim->refcount, batadv_claim_release);
  }
  
- static struct batadv_gw_node *
-@@ -77,7 +95,7 @@ batadv_gw_get_selected_gw_node(struct batadv_priv *bat_priv)
- 	if (!gw_node)
- 		goto out;
- 
--	if (!atomic_inc_not_zero(&gw_node->refcount))
-+	if (!kref_get_unless_zero(&gw_node->refcount))
- 		gw_node = NULL;
- 
- out:
-@@ -118,7 +136,7 @@ static void batadv_gw_select(struct batadv_priv *bat_priv,
- 
- 	spin_lock_bh(&bat_priv->gw.list_lock);
- 
--	if (new_gw_node && !atomic_inc_not_zero(&new_gw_node->refcount))
-+	if (new_gw_node && !kref_get_unless_zero(&new_gw_node->refcount))
- 		new_gw_node = NULL;
- 
- 	curr_gw_node = rcu_dereference_protected(bat_priv->gw.curr_gw, 1);
-@@ -170,7 +188,7 @@ batadv_gw_get_best_gw_node(struct batadv_priv *bat_priv)
- 		if (!router_ifinfo)
- 			goto next;
- 
--		if (!atomic_inc_not_zero(&gw_node->refcount))
-+		if (!kref_get_unless_zero(&gw_node->refcount))
- 			goto next;
- 
- 		tq_avg = router_ifinfo->bat_iv.tq_avg;
-@@ -188,7 +206,7 @@ batadv_gw_get_best_gw_node(struct batadv_priv *bat_priv)
- 				if (curr_gw)
- 					batadv_gw_node_free_ref(curr_gw);
- 				curr_gw = gw_node;
--				atomic_inc(&curr_gw->refcount);
-+				kref_get(&curr_gw->refcount);
- 			}
- 			break;
- 
-@@ -203,7 +221,7 @@ batadv_gw_get_best_gw_node(struct batadv_priv *bat_priv)
- 				if (curr_gw)
- 					batadv_gw_node_free_ref(curr_gw);
- 				curr_gw = gw_node;
--				atomic_inc(&curr_gw->refcount);
-+				kref_get(&curr_gw->refcount);
- 			}
- 			break;
- 		}
-@@ -436,7 +454,7 @@ static void batadv_gw_node_add(struct batadv_priv *bat_priv,
- 	gw_node->orig_node = orig_node;
- 	gw_node->bandwidth_down = ntohl(gateway->bandwidth_down);
- 	gw_node->bandwidth_up = ntohl(gateway->bandwidth_up);
--	atomic_set(&gw_node->refcount, 1);
-+	kref_init(&gw_node->refcount);
- 
- 	spin_lock_bh(&bat_priv->gw.list_lock);
- 	hlist_add_head_rcu(&gw_node->list, &bat_priv->gw.list);
-@@ -469,7 +487,7 @@ batadv_gw_node_get(struct batadv_priv *bat_priv,
- 		if (gw_node_tmp->orig_node != orig_node)
+ /**
+@@ -219,7 +222,7 @@ static struct batadv_bla_claim
+ 		if (!batadv_compare_claim(&claim->hash_entry, data))
  			continue;
  
--		if (!atomic_inc_not_zero(&gw_node_tmp->refcount))
-+		if (!kref_get_unless_zero(&gw_node_tmp->refcount))
+-		if (!atomic_inc_not_zero(&claim->refcount))
++		if (!kref_get_unless_zero(&claim->refcount))
  			continue;
  
- 		gw_node = gw_node_tmp;
+ 		claim_tmp = claim;
+@@ -651,7 +654,8 @@ static void batadv_bla_add_claim(struct batadv_priv *bat_priv,
+ 		claim->lasttime = jiffies;
+ 		claim->backbone_gw = backbone_gw;
+ 
+-		atomic_set(&claim->refcount, 2);
++		kref_init(&claim->refcount);
++		kref_get(&claim->refcount);
+ 		batadv_dbg(BATADV_DBG_BLA, bat_priv,
+ 			   "bla_add_claim(): adding new entry %pM, vid %d to hash ...\n",
+ 			   mac, BATADV_PRINT_VID(vid));
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index ace7900347d4..06c38881e382 100644
+index 595f52400b1f..34c13b65bec2 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -342,7 +342,7 @@ struct batadv_gw_node {
- 	struct batadv_orig_node *orig_node;
- 	u32 bandwidth_down;
- 	u32 bandwidth_up;
+@@ -951,7 +951,7 @@ struct batadv_bla_claim {
+ 	unsigned long lasttime;
+ 	struct hlist_node hash_entry;
+ 	struct rcu_head rcu;
 -	atomic_t refcount;
 +	struct kref refcount;
- 	struct rcu_head rcu;
  };
+ #endif
  
 -- 
 2.7.1
