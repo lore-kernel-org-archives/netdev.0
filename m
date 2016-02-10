@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 07/21] batman-adv: Convert batadv_bla_backbone_gw to kref
-Date: Wed, 10 Feb 2016 23:57:13 +0800
-Message-ID: <1455119847-5862-8-git-send-email-a@unstable.cc>
+Subject: [PATCH 06/21] batman-adv: Convert batadv_softif_vlan to kref
+Date: Wed, 10 Feb 2016 23:57:12 +0800
+Message-ID: <1455119847-5862-7-git-send-email-a@unstable.cc>
 References: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:16003 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:7927 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752506AbcBJQAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2016 11:00:16 -0500
+	id S1752468AbcBJQAO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2016 11:00:14 -0500
 In-Reply-To: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -27,91 +27,113 @@ Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/bridge_loop_avoidance.c | 29 +++++++++++++++++++++++------
- net/batman-adv/types.h                 |  2 +-
- 2 files changed, 24 insertions(+), 7 deletions(-)
+ net/batman-adv/soft-interface.c | 33 +++++++++++++++++++++++----------
+ net/batman-adv/sysfs.c          |  3 ++-
+ net/batman-adv/types.h          |  2 +-
+ 3 files changed, 26 insertions(+), 12 deletions(-)
 
-diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index 779160934844..41116e4c2e34 100644
---- a/net/batman-adv/bridge_loop_avoidance.c
-+++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -31,6 +31,7 @@
- #include <linux/jhash.h>
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 4bf35b8c3d23..d4490ff75edd 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -30,6 +30,7 @@
+ #include <linux/if_vlan.h>
  #include <linux/jiffies.h>
  #include <linux/kernel.h>
 +#include <linux/kref.h>
  #include <linux/list.h>
  #include <linux/lockdep.h>
  #include <linux/netdevice.h>
-@@ -143,14 +144,29 @@ static int batadv_compare_claim(const struct hlist_node *node,
+@@ -478,8 +479,26 @@ out:
  }
  
  /**
-- * batadv_compare_backbone_gw - free backbone gw
-+ * batadv_backbone_gw_release - release backbone gw from lists and queue for
-+ *  free after rcu grace period
-+ * @ref: kref pointer of the backbone gw
++ * batadv_softif_vlan_release - release vlan from lists and queue for free after
++ *  rcu grace period
++ * @ref: kref pointer of the vlan object
 + */
-+static void batadv_backbone_gw_release(struct kref *ref)
++static void batadv_softif_vlan_release(struct kref *ref)
 +{
-+	struct batadv_bla_backbone_gw *backbone_gw;
++	struct batadv_softif_vlan *vlan;
 +
-+	backbone_gw = container_of(ref, struct batadv_bla_backbone_gw,
-+				   refcount);
++	vlan = container_of(ref, struct batadv_softif_vlan, refcount);
 +
-+	kfree_rcu(backbone_gw, rcu);
++	spin_lock_bh(&vlan->bat_priv->softif_vlan_list_lock);
++	hlist_del_rcu(&vlan->list);
++	spin_unlock_bh(&vlan->bat_priv->softif_vlan_list_lock);
++
++	kfree_rcu(vlan, rcu);
 +}
 +
 +/**
-+ * batadv_backbone_gw_free_ref - decrement the backbone gw refcounter and
+  * batadv_softif_vlan_free_ref - decrease the vlan object refcounter and
+- *  possibly free it
 + *  possibly release it
-  * @backbone_gw: backbone gateway to be free'd
+  * @vlan: the vlan object to release
   */
- static void
- batadv_backbone_gw_free_ref(struct batadv_bla_backbone_gw *backbone_gw)
- {
--	if (atomic_dec_and_test(&backbone_gw->refcount))
--		kfree_rcu(backbone_gw, rcu);
-+	kref_put(&backbone_gw->refcount, batadv_backbone_gw_release);
+ void batadv_softif_vlan_free_ref(struct batadv_softif_vlan *vlan)
+@@ -487,13 +506,7 @@ void batadv_softif_vlan_free_ref(struct batadv_softif_vlan *vlan)
+ 	if (!vlan)
+ 		return;
+ 
+-	if (atomic_dec_and_test(&vlan->refcount)) {
+-		spin_lock_bh(&vlan->bat_priv->softif_vlan_list_lock);
+-		hlist_del_rcu(&vlan->list);
+-		spin_unlock_bh(&vlan->bat_priv->softif_vlan_list_lock);
+-
+-		kfree_rcu(vlan, rcu);
+-	}
++	kref_put(&vlan->refcount, batadv_softif_vlan_release);
  }
  
  /**
-@@ -247,7 +263,7 @@ batadv_backbone_hash_find(struct batadv_priv *bat_priv, u8 *addr,
- 						&search_entry))
+@@ -514,7 +527,7 @@ struct batadv_softif_vlan *batadv_softif_vlan_get(struct batadv_priv *bat_priv,
+ 		if (vlan_tmp->vid != vid)
  			continue;
  
--		if (!atomic_inc_not_zero(&backbone_gw->refcount))
-+		if (!kref_get_unless_zero(&backbone_gw->refcount))
+-		if (!atomic_inc_not_zero(&vlan_tmp->refcount))
++		if (!kref_get_unless_zero(&vlan_tmp->refcount))
  			continue;
  
- 		backbone_gw_tmp = backbone_gw;
-@@ -448,7 +464,8 @@ batadv_bla_get_backbone_gw(struct batadv_priv *bat_priv, u8 *orig,
- 	ether_addr_copy(entry->orig, orig);
+ 		vlan = vlan_tmp;
+@@ -549,7 +562,7 @@ int batadv_softif_create_vlan(struct batadv_priv *bat_priv, unsigned short vid)
  
- 	/* one for the hash, one for returning */
--	atomic_set(&entry->refcount, 2);
-+	kref_init(&entry->refcount);
-+	kref_get(&entry->refcount);
+ 	vlan->bat_priv = bat_priv;
+ 	vlan->vid = vid;
+-	atomic_set(&vlan->refcount, 1);
++	kref_init(&vlan->refcount);
  
- 	hash_added = batadv_hash_add(bat_priv->bla.backbone_hash,
- 				     batadv_compare_backbone_gw,
-@@ -664,7 +681,7 @@ static void batadv_bla_add_claim(struct batadv_priv *bat_priv,
- 		batadv_backbone_gw_free_ref(claim->backbone_gw);
- 	}
- 	/* set (new) backbone gw */
--	atomic_inc(&backbone_gw->refcount);
-+	kref_get(&backbone_gw->refcount);
- 	claim->backbone_gw = backbone_gw;
+ 	atomic_set(&vlan->ap_isolation, 0);
  
- 	spin_lock_bh(&backbone_gw->crc_lock);
+diff --git a/net/batman-adv/sysfs.c b/net/batman-adv/sysfs.c
+index 964fc5986b2c..ab4382ba3855 100644
+--- a/net/batman-adv/sysfs.c
++++ b/net/batman-adv/sysfs.c
+@@ -25,6 +25,7 @@
+ #include <linux/fs.h>
+ #include <linux/if.h>
+ #include <linux/if_vlan.h>
++#include <linux/kref.h>
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
+ #include <linux/printk.h>
+@@ -97,7 +98,7 @@ batadv_kobj_to_vlan(struct batadv_priv *bat_priv, struct kobject *obj)
+ 		if (vlan_tmp->kobj != obj)
+ 			continue;
+ 
+-		if (!atomic_inc_not_zero(&vlan_tmp->refcount))
++		if (!kref_get_unless_zero(&vlan_tmp->refcount))
+ 			continue;
+ 
+ 		vlan = vlan_tmp;
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 868f6b592b7c..595f52400b1f 100644
+index 06c38881e382..868f6b592b7c 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -930,7 +930,7 @@ struct batadv_bla_backbone_gw {
- 	atomic_t request_sent;
- 	u16 crc;
- 	spinlock_t crc_lock; /* protects crc */
+@@ -746,7 +746,7 @@ struct batadv_softif_vlan {
+ 	atomic_t ap_isolation;		/* boolean */
+ 	struct batadv_vlan_tt tt;
+ 	struct hlist_node list;
 -	atomic_t refcount;
 +	struct kref refcount;
  	struct rcu_head rcu;
