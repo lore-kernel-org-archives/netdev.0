@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 09/21] batman-adv: Convert batadv_nc_node to kref
-Date: Wed, 10 Feb 2016 23:57:15 +0800
-Message-ID: <1455119847-5862-10-git-send-email-a@unstable.cc>
+Subject: [PATCH 07/21] batman-adv: Convert batadv_bla_backbone_gw to kref
+Date: Wed, 10 Feb 2016 23:57:13 +0800
+Message-ID: <1455119847-5862-8-git-send-email-a@unstable.cc>
 References: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:10723 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:16003 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752506AbcBJQAW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2016 11:00:22 -0500
+	id S1752506AbcBJQAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2016 11:00:16 -0500
 In-Reply-To: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -27,15 +27,15 @@ Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/network-coding.c | 21 +++++++++++++--------
- net/batman-adv/types.h          |  2 +-
- 2 files changed, 14 insertions(+), 9 deletions(-)
+ net/batman-adv/bridge_loop_avoidance.c | 29 +++++++++++++++++++++++------
+ net/batman-adv/types.h                 |  2 +-
+ 2 files changed, 24 insertions(+), 7 deletions(-)
 
-diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
-index 0b30c15eee5f..7a1216eeb4cf 100644
---- a/net/batman-adv/network-coding.c
-+++ b/net/batman-adv/network-coding.c
-@@ -32,6 +32,7 @@
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
+index 779160934844..41116e4c2e34 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -31,6 +31,7 @@
  #include <linux/jhash.h>
  #include <linux/jiffies.h>
  #include <linux/kernel.h>
@@ -43,70 +43,79 @@ index 0b30c15eee5f..7a1216eeb4cf 100644
  #include <linux/list.h>
  #include <linux/lockdep.h>
  #include <linux/netdevice.h>
-@@ -209,23 +210,26 @@ void batadv_nc_init_orig(struct batadv_orig_node *orig_node)
- /**
-  * batadv_nc_node_release - release nc_node from lists and queue for free after
-  *  rcu grace period
-- * @nc_node: the nc node to free
-+ * @ref: kref pointer of the nc_node
-  */
--static void batadv_nc_node_release(struct batadv_nc_node *nc_node)
-+static void batadv_nc_node_release(struct kref *ref)
- {
-+	struct batadv_nc_node *nc_node;
-+
-+	nc_node = container_of(ref, struct batadv_nc_node, refcount);
-+
- 	batadv_orig_node_free_ref(nc_node->orig_node);
- 	kfree_rcu(nc_node, rcu);
+@@ -143,14 +144,29 @@ static int batadv_compare_claim(const struct hlist_node *node,
  }
  
  /**
-- * batadv_nc_node_free_ref - decrement the nc node refcounter and possibly
-+ * batadv_nc_node_free_ref - decrement the nc_node refcounter and possibly
-  *  release it
-- * @nc_node: the nc node to free
-+ * @nc_node: nc_node to be free'd
+- * batadv_compare_backbone_gw - free backbone gw
++ * batadv_backbone_gw_release - release backbone gw from lists and queue for
++ *  free after rcu grace period
++ * @ref: kref pointer of the backbone gw
++ */
++static void batadv_backbone_gw_release(struct kref *ref)
++{
++	struct batadv_bla_backbone_gw *backbone_gw;
++
++	backbone_gw = container_of(ref, struct batadv_bla_backbone_gw,
++				   refcount);
++
++	kfree_rcu(backbone_gw, rcu);
++}
++
++/**
++ * batadv_backbone_gw_free_ref - decrement the backbone gw refcounter and
++ *  possibly release it
+  * @backbone_gw: backbone gateway to be free'd
   */
- static void batadv_nc_node_free_ref(struct batadv_nc_node *nc_node)
+ static void
+ batadv_backbone_gw_free_ref(struct batadv_bla_backbone_gw *backbone_gw)
  {
--	if (atomic_dec_and_test(&nc_node->refcount))
--		batadv_nc_node_release(nc_node);
-+	kref_put(&nc_node->refcount, batadv_nc_node_release);
+-	if (atomic_dec_and_test(&backbone_gw->refcount))
+-		kfree_rcu(backbone_gw, rcu);
++	kref_put(&backbone_gw->refcount, batadv_backbone_gw_release);
  }
  
  /**
-@@ -797,7 +801,7 @@ static struct batadv_nc_node
- 		if (!batadv_compare_eth(nc_node->addr, orig_node->orig))
+@@ -247,7 +263,7 @@ batadv_backbone_hash_find(struct batadv_priv *bat_priv, u8 *addr,
+ 						&search_entry))
  			continue;
  
--		if (!atomic_inc_not_zero(&nc_node->refcount))
-+		if (!kref_get_unless_zero(&nc_node->refcount))
+-		if (!atomic_inc_not_zero(&backbone_gw->refcount))
++		if (!kref_get_unless_zero(&backbone_gw->refcount))
  			continue;
  
- 		/* Found a match */
-@@ -848,7 +852,8 @@ static struct batadv_nc_node
- 	INIT_LIST_HEAD(&nc_node->list);
- 	ether_addr_copy(nc_node->addr, orig_node->orig);
- 	nc_node->orig_node = orig_neigh_node;
--	atomic_set(&nc_node->refcount, 2);
-+	kref_init(&nc_node->refcount);
-+	kref_get(&nc_node->refcount);
+ 		backbone_gw_tmp = backbone_gw;
+@@ -448,7 +464,8 @@ batadv_bla_get_backbone_gw(struct batadv_priv *bat_priv, u8 *orig,
+ 	ether_addr_copy(entry->orig, orig);
  
- 	/* Select ingoing or outgoing coding node */
- 	if (in_coding) {
+ 	/* one for the hash, one for returning */
+-	atomic_set(&entry->refcount, 2);
++	kref_init(&entry->refcount);
++	kref_get(&entry->refcount);
+ 
+ 	hash_added = batadv_hash_add(bat_priv->bla.backbone_hash,
+ 				     batadv_compare_backbone_gw,
+@@ -664,7 +681,7 @@ static void batadv_bla_add_claim(struct batadv_priv *bat_priv,
+ 		batadv_backbone_gw_free_ref(claim->backbone_gw);
+ 	}
+ 	/* set (new) backbone gw */
+-	atomic_inc(&backbone_gw->refcount);
++	kref_get(&backbone_gw->refcount);
+ 	claim->backbone_gw = backbone_gw;
+ 
+ 	spin_lock_bh(&backbone_gw->crc_lock);
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 34c13b65bec2..05421afb1d74 100644
+index 868f6b592b7c..595f52400b1f 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -1067,7 +1067,7 @@ struct batadv_tt_roam_node {
- struct batadv_nc_node {
- 	struct list_head list;
- 	u8 addr[ETH_ALEN];
+@@ -930,7 +930,7 @@ struct batadv_bla_backbone_gw {
+ 	atomic_t request_sent;
+ 	u16 crc;
+ 	spinlock_t crc_lock; /* protects crc */
 -	atomic_t refcount;
 +	struct kref refcount;
  	struct rcu_head rcu;
- 	struct batadv_orig_node *orig_node;
- 	unsigned long last_seen;
+ };
+ 
 -- 
 2.7.1
