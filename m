@@ -1,42 +1,47 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: Re: [PATCH 3/5] net/mlx4: fix some error handling in mlx4_multi_func_init()
-Date: Wed, 10 Feb 2016 19:15:20 +0100
-Message-ID: <87twlgtosn.fsf@rasmusvillemoes.dk>
-References: <1455048677-19882-1-git-send-email-linux@rasmusvillemoes.dk>
-	<1455048677-19882-4-git-send-email-linux@rasmusvillemoes.dk>
-	<56BB0577.8000000@dev.mellanox.co.il>
+From: <Bryan.Whitehead@microchip.com>
+Subject: RE: [PATCH net-next] Add LAN9352 Ethernet Driver
+Date: Wed, 10 Feb 2016 18:26:01 +0000
+Message-ID: <90A7E81AE28BAE4CBDDB3B35F187D264402EF2F0@CHN-SV-EXMX02.mchp-main.com>
+References: <90A7E81AE28BAE4CBDDB3B35F187D264402EF199@CHN-SV-EXMX02.mchp-main.com>
+ <20160210.053358.801208182711951209.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yishai Hadas <yishaih@mellanox.com>, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"jackm\@mellanox.com" <jackm@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>
-To: Yishai Hadas <yishaih@dev.mellanox.co.il>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56BB0577.8000000@dev.mellanox.co.il> (Yishai Hadas's message of
-	"Wed, 10 Feb 2016 11:40:07 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <corbet@lwn.net>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exsmtp03.microchip.com ([198.175.253.49]:65081 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752463AbcBJS0F convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 13:26:05 -0500
+In-Reply-To: <20160210.053358.801208182711951209.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 10 2016, Yishai Hadas <yishaih@dev.mellanox.co.il> wrote:
+Thanks David,
 
->> @@ -2429,7 +2429,7 @@ err_thread:
->>   	flush_workqueue(priv->mfunc.master.comm_wq);
->>   	destroy_workqueue(priv->mfunc.master.comm_wq);
->>   err_slaves:
->> -	while (--i) {
->> +	while (i--) {
->
-> This fix is wrong as it hits the case that i arrived the last value
-> then below code will access to a non valid entry in the array.
->
-> The expected fix should be:
-> while (--i >= 0)
->
+I'll submit a revised patch soon.
 
-Huh? They're completely equivalent (given that i is necessarily
-non-negative before we evaluate the loop condition). I don't really care
-either way, but git grep says that 'while (i--)' is 5 times more common
-than 'while (--i >= 0)'.
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Wednesday, February 10, 2016 5:34 AM
+To: Bryan Whitehead - C21958
+Cc: netdev@vger.kernel.org; corbet@lwn.net
+Subject: Re: [PATCH net-next] Add LAN9352 Ethernet Driver
 
-Rasmus
+From: <Bryan.Whitehead@microchip.com>
+Date: Tue, 9 Feb 2016 20:40:30 +0000
+
+> +#ifdef USE_PHY_WORK_AROUND
+> +#define MIN_PACKET_SIZE (64)
+> +	char loopback_tx_pkt[MIN_PACKET_SIZE];
+> +	char loopback_rx_pkt[MIN_PACKET_SIZE];
+> +	unsigned int resetcount;
+> +#endif
+ ...
+> +#define USE_PHY_WORK_AROUND
+
+If you're going to unconditionally define this, and not provide a Kconfig mechanism to change it, just get rid of this and the CPP tests upon it.
+
+Thanks.
