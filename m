@@ -1,102 +1,142 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
-Date: Wed, 10 Feb 2016 11:39:50 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCDCC8D@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1CCDBCA5@AcuExch.aculab.com>
- <20160210005346.21908.qmail@ns.horizon.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 2/2] vhost: disentangle vring endianness stuff from the
+ core code
+Date: Wed, 10 Feb 2016 13:48:09 +0200
+Message-ID: <20160210132240-mutt-send-email-mst@redhat.com>
+References: <20160113170934.23705.62626.stgit@bahia.huguette.org>
+ <20160113170947.23705.95216.stgit@bahia.huguette.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "mingo@kernel.org" <mingo@kernel.org>
-To: 'George Spelvin' <linux@horizon.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tom@herbertland.com" <tom@herbertland.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Greg Kurz <gkurz@linux.vnet.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160210005346.21908.qmail@ns.horizon.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <20160113170947.23705.95216.stgit@bahia.huguette.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: George Spelvin
-> Sent: 10 February 2016 00:54
-> To: David Laight; linux-kernel@vger.kernel.org; linux@horizon.com; netdev@vger.kernel.org;
-> David Laight wrote:
-> > Since adcx and adox must execute in parallel I clearly need to re-remember
-> > how dependencies against the flags register work. I'm sure I remember
-> > issues with 'false dependencies' against the flags.
+On Wed, Jan 13, 2016 at 06:09:47PM +0100, Greg Kurz wrote:
+> The way vring endianness is being handled currently obfuscates
+> the code in vhost_init_used().
 > 
-> The issue is with flags register bits that are *not* modified by
-> an instruction.  If the register is treated as a monolithic entity,
-> then the previous values of those bits must be considered an *input*
-> to the instruction, forcing serialization.
+> This patch tries to fix that by doing the following:
+> - move the the code that adjusts endianness to a dedicated helper
+> - export this helper so that backends explicitely call it
 > 
-> The first step in avoiding this problem is to consider the rarely-modified
-> bits (interrupt, direction, trap, etc.) to be a separate logical register
-> from the arithmetic flags (carry, overflow, zero, sign, aux carry and parity)
-> which are updated by almost every instruction.
+> No behaviour change.
 > 
-> An arithmetic instruction overwrites the arithmetic flags (so it's only
-> a WAW dependency which can be broken by renaming) and doesn't touch the
-> status flags (so no dependency).
+> Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
+> ---
+>  drivers/vhost/net.c   |    3 +++
+>  drivers/vhost/scsi.c  |    3 +++
+>  drivers/vhost/test.c  |    2 ++
+>  drivers/vhost/vhost.c |   16 +++++++++++-----
+>  drivers/vhost/vhost.h |    1 +
+>  5 files changed, 20 insertions(+), 5 deletions(-)
 > 
-> However, on x86 even the arithmetic flags aren't updated consistently.
-> The biggest offender are the (very common!) INC/DEC instructions,
-> which update all of the arithmetic flags *except* the carry flag.
-> 
-> Thus, the carry flag is also renamed separately on every superscalar
-> x86 implementation I've ever heard of.
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 9eda69e40678..df01c939cd00 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -917,6 +917,9 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+>  
+>  		vhost_net_disable_vq(n, vq);
+>  		vq->private_data = sock;
+> +
+> +		vhost_adjust_vring_endian(vq);
+> +
+>  		r = vhost_init_used(vq);
+>  		if (r)
+>  			goto err_used;
 
-Ah, that is the little fact I'd forgotten.
-...
-> Anyway, I'm sure that when Intel defined ADCX and ADOX they felt that
-> it was reasonable to commit to always renaming CF and OF separately.
 
-Separate renaming allows:
-1) The value to tested without waiting for pending updates to complete.
-   Useful for IE and DIR.
-2) Instructions that modify almost all the flags to execute without
-   waiting for a previous instruction to complete.
-   So separating 'carry' allows inc/dec to execute without waiting
-   for previous arithmetic to complete.
+This is in fact a bug in existing code: if vhost_init_used
+fails, it preferably should not have side-effects.
+It's best to update it last thing.
 
-The latter should remove the dependency (both ways) between 'adc' and
-'dec, jnz' in a checksum loop.
+> diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
+> index 29cfc57d496e..5a8363bfcb74 100644
+> --- a/drivers/vhost/scsi.c
+> +++ b/drivers/vhost/scsi.c
+> @@ -1274,6 +1274,9 @@ vhost_scsi_set_endpoint(struct vhost_scsi *vs,
+>  			vq = &vs->vqs[i].vq;
+>  			mutex_lock(&vq->mutex);
+>  			vq->private_data = vs_tpg;
+> +
+> +			vhost_adjust_vring_endian(vq);
+> +
+>  			vhost_init_used(vq);
+>  			mutex_unlock(&vq->mutex);
+>  		}
+> diff --git a/drivers/vhost/test.c b/drivers/vhost/test.c
+> index f2882ac98726..75e3e0e9f5a8 100644
+> --- a/drivers/vhost/test.c
+> +++ b/drivers/vhost/test.c
+> @@ -196,6 +196,8 @@ static long vhost_test_run(struct vhost_test *n, int test)
+>  		oldpriv = vq->private_data;
+>  		vq->private_data = priv;
+>  
+> +		vhost_adjust_vring_endian(vq);
+> +
+>  		r = vhost_init_used(&n->vqs[index]);
+>  
+>  		mutex_unlock(&vq->mutex);
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index e02e06755ab7..b0a00340309e 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -123,6 +123,15 @@ static void vhost_disable_is_le(struct vhost_virtqueue *vq)
+>  	vq->is_le = virtio_legacy_is_little_endian();
+>  }
+>  
+> +void vhost_adjust_vring_endian(struct vhost_virtqueue *vq)
+> +{
+> +	if (!vq->private_data)
+> +		vhost_disable_is_le(vq);
+> +	else
+> +		vhost_enable_is_le(vq);
+> +}
+> +EXPORT_SYMBOL_GPL(vhost_adjust_vring_endian);
+> +
+>  static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
+>  			    poll_table *pt)
+>  {
 
-I can't see any obvious gain from separating out O or Z (even with
-adcx and adox). You'd need some other instructions that don't set O (or Z)
-but set some other useful flags.
-(A decrement that only set Z for instance.)
+I'd prefer "vhost_update_is_le" here. "endian" might also mean
+"user_be". But see below pls.
 
-> > However you still need a loop construct that doesn't modify 'o' or 'c'.
-> > Using leal, jcxz, jmp might work.
-> > (Unless broadwell actually has a fast 'loop' instruction.)
-> 
-> According to Agner Fog (http://agner.org/optimize/instruction_tables.pdf),
-> JCXZ is reasonably fast (2 uops) on almost all 64-bit CPUs, right back
-> to K8 and Merom.  The one exception is Precott.  JCXZ and LOOP are 4
-> uops on those processors.  But 64 bit in general sucked on Precott,
-> so how much do we care?
-> 
-> AMD:	LOOP is slow (7 uops) on K8, K10, Bobcat and Jaguar.
-> 	JCXZ is acceptable on all of them.
-> 	LOOP and JCXZ are 1 uop on Bulldozer, Piledriver and Steamroller.
-> Intel:	LOOP is slow (7+ uops) on all processors up to and including Skylake.
-> 	JCXZ is 2 upos on everything from P6 to Skylake exacpt for:
-> 	- Prescott (JCXZ & loop both 4 uops)
-> 	- 1st gen Atom (JCXZ 3 uops, LOOP 8 uops)
-> 	I can't find any that it's fast on.
 
-While LOOP could be used on Bulldozer+ an equivalently fast loop
-can be done with inc/dec and jnz.
-So you only care about LOOP/JCXZ when ADOX is supported.
+> @@ -1166,12 +1175,9 @@ int vhost_init_used(struct vhost_virtqueue *vq)
+>  {
+>  	__virtio16 last_used_idx;
+>  	int r;
+> -	if (!vq->private_data) {
+> -		vhost_disable_is_le(vq);
+> -		return 0;
+> -	}
+>  
+> -	vhost_enable_is_le(vq);
+> +	if (!vq->private_data)
+> +		return 0;
+>  
+>  	r = vhost_update_used_flags(vq);
+>  	if (r)
 
-I think the fastest loop is:
-10:	adc	%rax,0(%rdi,%rcx,8)
-	inc	%rcx
-	jnz	10b
-but check if any cpu add an extra clock for the 'scaled' offset
-(they might be faster if %rdi is incremented).
-That loop looks like it will have no overhead on recent cpu.
+Looking at how callers use this, maybe we should just rename init_used
+to vhost_vq_init_access. The _used suffix was a hint that we
+access the vq used ring. But maybe what callers care about is
+that it must be called after access_ok.
 
-	David
+> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+> index d3f767448a72..88d86f45f756 100644
+> --- a/drivers/vhost/vhost.h
+> +++ b/drivers/vhost/vhost.h
+> @@ -162,6 +162,7 @@ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+>  
+>  int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+>  		    unsigned int log_num, u64 len);
+> +void vhost_adjust_vring_endian(struct vhost_virtqueue *vq);
+>  
+>  #define vq_err(vq, fmt, ...) do {                                  \
+>  		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
