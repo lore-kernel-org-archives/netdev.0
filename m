@@ -1,58 +1,76 @@
-From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: [PATCH net v4] r8169: Remove duplicate of RTL_FEATURE_WOL
-Date: Wed, 10 Feb 2016 06:22:02 +0200
-Message-ID: <1455078122-2151-1-git-send-email-asd@marian1000.go.ro>
+From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Subject: [PATCH] net: hamradio: baycom_ser_fdx: Replace timeval with
+ timespec64
+Date: Wed, 10 Feb 2016 10:08:54 +0530
+Message-ID: <20160210043854.GA29381@amitoj-Inspiron-3542>
 Mime-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Cc: Corcodel Marian <asd@marian1000.go.ro>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-14-227-192.residential.rdsnet.ro ([5.14.227.192]:57622 "EHLO
-	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932330AbcBJEWK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 23:22:10 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: t.sailer@alumni.ethz.ch, linux-hams@vger.kernel.org,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ y2038@lists.linaro.org
+Return-path: <y2038-bounces@lists.linaro.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+List-Id: netdev.vger.kernel.org
 
-This patch remove multiple invocation of RTL_FEATURE_WOL.
-
-Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
----
- drivers/net/ethernet/realtek/r8169.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 17d5571..1f75478 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -8289,18 +8289,20 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	case RTL_GIGA_MAC_VER_49:
- 	case RTL_GIGA_MAC_VER_50:
- 	case RTL_GIGA_MAC_VER_51:
--		if (rtl_eri_read(tp, 0xdc, ERIAR_EXGMAC) & MagicPacket_v2)
--			tp->features |= RTL_FEATURE_WOL;
--		if ((RTL_R8(Config3) & LinkUp) != 0)
--			tp->features |= RTL_FEATURE_WOL;
-+		if (rtl_eri_read(tp, 0xdc, ERIAR_EXGMAC) & MagicPacket_v2) {
-+			if ((RTL_R8(Config5) & (UWF | BWF | MWF)) != 0) {
-+				if ((RTL_R8(Config3) & LinkUp) != 0)
-+					tp->features |= RTL_FEATURE_WOL;
-+			}
-+		}
- 		break;
- 	default:
--		if ((RTL_R8(Config3) & (LinkUp | MagicPacket)) != 0)
--			tp->features |= RTL_FEATURE_WOL;
-+		if ((RTL_R8(Config3) & (LinkUp | MagicPacket)) != 0) {
-+			if ((RTL_R8(Config5) & (UWF | BWF | MWF)) != 0)
-+				tp->features |= RTL_FEATURE_WOL;
-+		}
- 		break;
- 	}
--	if ((RTL_R8(Config5) & (UWF | BWF | MWF)) != 0)
--		tp->features |= RTL_FEATURE_WOL;
- 	tp->features |= rtl_try_msi(tp, cfg);
- 	RTL_W8(Cfg9346, Cfg9346_Lock);
- 
--- 
-2.5.0
+MzIgYml0IHN5c3RlbXMgdXNpbmcgJ3N0cnVjdCB0aW1ldmFsJyB3aWxsIGJyZWFrIGluIHRoZSB5
+ZWFyIDIwMzgsIHNvCndlIHJlcGxhY2UgdGhlIGNvZGUgYXBwcm9wcmlhdGVseS4gSG93ZXZlciwg
+dGhpcyBkcml2ZXIgaXMgbm90IGJyb2tlbgppbiAyMDM4IHNpbmNlIHdlIGFyZSBvbmx5IHVzaW5n
+IG1pY3Jvc2Vjb25kcyBwb3J0aW9uIG9mIHRoZSB0aW1lLgoKVGhpcyBwYXRjaCByZXBsYWNlcyAn
+c3RydWN0IHRpbWV2YWwnIHdpdGggJ3N0cnVjdCB0aW1lc3BlYzY0Jy4gV2Ugb25seQpuZWVkIHRv
+IGZpbmQgZWxhcHNlZCBtaWNyb3NlY29uZHMgcmF0aGVyIHRoYW4gYWJzb2x1dGUgdGltZSwgc28g
+aXQncwpiZXR0ZXIgdG8gdXNlIG1vbm90b25pYyB0aW1lLCBzbyB1c2luZyBrdGltZV9nZXRfdHM2
+NCgpIG1ha2VzIHRoZSBjb2RlCm1vcmUgZWZmaWNpZW50IGFuZCBtb3JlIHJvYnVzdCBhZ2FpbnN0
+IGNvbmN1cnJlbnQgc2V0dGltZW9mZGF5KCkKY2FsbHMuCgpTaWduZWQtb2ZmLWJ5OiBBbWl0b2og
+S2F1ciBDaGF3bGEgPGFtaXRvajE2MDZAZ21haWwuY29tPgpSZXZpZXdlZC1ieTogQXJuZCBCZXJn
+bWFubiA8YXJuZEBhcm5kYi5kZT4KLS0tCiBkcml2ZXJzL25ldC9oYW1yYWRpby9iYXljb21fc2Vy
+X2ZkeC5jIHwgMTIgKysrKysrKy0tLS0tCiAxIGZpbGUgY2hhbmdlZCwgNyBpbnNlcnRpb25zKCsp
+LCA1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2hhbXJhZGlvL2JheWNv
+bV9zZXJfZmR4LmMgYi9kcml2ZXJzL25ldC9oYW1yYWRpby9iYXljb21fc2VyX2ZkeC5jCmluZGV4
+IDYzNmI2NWMuLjdiOTE2ZDUgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2hhbXJhZGlvL2JheWNv
+bV9zZXJfZmR4LmMKKysrIGIvZHJpdmVycy9uZXQvaGFtcmFkaW8vYmF5Y29tX3Nlcl9mZHguYwpA
+QCAtODAsNiArODAsNyBAQAogI2luY2x1ZGUgPGxpbnV4L2hkbGNkcnYuaD4KICNpbmNsdWRlIDxs
+aW51eC9iYXljb20uaD4KICNpbmNsdWRlIDxsaW51eC9qaWZmaWVzLmg+CisjaW5jbHVkZSA8bGlu
+dXgvdGltZTY0Lmg+CiAKICNpbmNsdWRlIDxhc20vdWFjY2Vzcy5oPgogI2luY2x1ZGUgPGFzbS9p
+by5oPgpAQCAtMjI4LDE0ICsyMjksMTUgQEAgc3RhdGljIGlubGluZSB1bnNpZ25lZCBpbnQgaHdl
+aWdodDgodW5zaWduZWQgaW50IHcpCiAKIC8qIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLSAqLwogCi1zdGF0aWMgX19p
+bmxpbmVfXyB2b2lkIHNlcjEyX3J4KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHN0cnVjdCBiYXlj
+b21fc3RhdGUgKmJjLCBzdHJ1Y3QgdGltZXZhbCAqdHYsIHVuc2lnbmVkIGNoYXIgY3VycykKK3N0
+YXRpYyBfX2lubGluZV9fIHZvaWQgc2VyMTJfcngoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3Ry
+dWN0IGJheWNvbV9zdGF0ZSAqYmMsIHN0cnVjdCB0aW1lc3BlYzY0ICp0cywgdW5zaWduZWQgY2hh
+ciBjdXJzKQogewogCWludCB0aW1lZGlmZjsKIAlpbnQgYmR1czggPSBiYy0+YmF1ZF91cyA+PiAz
+OwogCWludCBiZHVzNCA9IGJjLT5iYXVkX3VzID4+IDI7CiAJaW50IGJkdXMyID0gYmMtPmJhdWRf
+dXMgPj4gMTsKIAotCXRpbWVkaWZmID0gMTAwMDAwMCArIHR2LT50dl91c2VjIC0gYmMtPm1vZGVt
+LnNlcjEyLnBsbF90aW1lOworCXRpbWVkaWZmID0gMTAwMDAwMCArIHRzLT50dl9uc2VjIC8gTlNF
+Q19QRVJfVVNFQyAtCisJCQkJCWJjLT5tb2RlbS5zZXIxMi5wbGxfdGltZTsKIAl3aGlsZSAodGlt
+ZWRpZmYgPj0gNTAwMDAwKQogCQl0aW1lZGlmZiAtPSAxMDAwMDAwOwogCXdoaWxlICh0aW1lZGlm
+ZiA+PSBiZHVzMikgewpAQCAtMjg3LDcgKzI4OSw3IEBAIHN0YXRpYyBpcnFyZXR1cm5fdCBzZXIx
+Ml9pbnRlcnJ1cHQoaW50IGlycSwgdm9pZCAqZGV2X2lkKQogewogCXN0cnVjdCBuZXRfZGV2aWNl
+ICpkZXYgPSAoc3RydWN0IG5ldF9kZXZpY2UgKilkZXZfaWQ7CiAJc3RydWN0IGJheWNvbV9zdGF0
+ZSAqYmMgPSBuZXRkZXZfcHJpdihkZXYpOwotCXN0cnVjdCB0aW1ldmFsIHR2OworCXN0cnVjdCB0
+aW1lc3BlYzY0IHRzOwogCXVuc2lnbmVkIGNoYXIgaWlyLCBtc3I7CiAJdW5zaWduZWQgaW50IHR4
+Y291bnQgPSAwOwogCkBAIC0yOTcsNyArMjk5LDcgQEAgc3RhdGljIGlycXJldHVybl90IHNlcjEy
+X2ludGVycnVwdChpbnQgaXJxLCB2b2lkICpkZXZfaWQpCiAJaWYgKChpaXIgPSBpbmIoSUlSKGRl
+di0+YmFzZV9hZGRyKSkpICYgMSkgCQogCQlyZXR1cm4gSVJRX05PTkU7CiAJLyogZ2V0IGN1cnJl
+bnQgdGltZSAqLwotCWRvX2dldHRpbWVvZmRheSgmdHYpOworCWt0aW1lX2dldF90czY0KCZ0cyk7
+CiAJbXNyID0gaW5iKE1TUihkZXYtPmJhc2VfYWRkcikpOwogCS8qIGRlbHRhIERDRCAqLwogCWlm
+ICgobXNyICYgOCkgJiYgYmMtPm9wdF9kY2QpCkBAIC0zNDAsNyArMzQyLDcgQEAgc3RhdGljIGly
+cXJldHVybl90IHNlcjEyX2ludGVycnVwdChpbnQgaXJxLCB2b2lkICpkZXZfaWQpCiAJCX0KIAkJ
+aWlyID0gaW5iKElJUihkZXYtPmJhc2VfYWRkcikpOwogCX0gd2hpbGUgKCEoaWlyICYgMSkpOwot
+CXNlcjEyX3J4KGRldiwgYmMsICZ0diwgbXNyICYgMHgxMCk7IC8qIENUUyAqLworCXNlcjEyX3J4
+KGRldiwgYmMsICZ0cywgbXNyICYgMHgxMCk7IC8qIENUUyAqLwogCWlmIChiYy0+bW9kZW0ucHR0
+ICYmIHR4Y291bnQpIHsKIAkJaWYgKGJjLT5tb2RlbS5zZXIxMi50eHNocmVnIDw9IDEpIHsKIAkJ
+CWJjLT5tb2RlbS5zZXIxMi50eHNocmVnID0gMHgxMDAwMCB8IGhkbGNkcnZfZ2V0Yml0cygmYmMt
+PmhkcnYpOwotLSAKMS45LjEKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fClkyMDM4IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0cy5saW5hcm8ub3JnCmh0dHBz
+Oi8vbGlzdHMubGluYXJvLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3kyMDM4Cg==
