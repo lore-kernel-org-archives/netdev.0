@@ -1,78 +1,76 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v8 10/19] net: macvlan: use __ethtool_get_ksettings
-Date: Tue,  9 Feb 2016 16:29:19 -0800
-Message-ID: <1455064168-5102-11-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v8 13/19] net: rdma: use __ethtool_get_ksettings
+Date: Tue,  9 Feb 2016 16:29:22 -0800
+Message-ID: <1455064168-5102-14-git-send-email-ddecotig@gmail.com>
 References: <1455064168-5102-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
-        Eugenia Emantayev <eugenia@mellanox.co.il>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Govindarajulu Varadarajan <_govind@gmx.com>,
-        Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Pravin B Shelar <pshelar@nicira.com>,
-        Ed Swierk <eswierk@skyportsystems.com>,
-        Robert Love <robert.w.love@intel.com>,
-        "James E.J. Bottomley" <JBottomley@parallels.com>,
-        Yuval Mintz <Yuval.Mintz@qlogic.com>,
-        Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-        David Decotigny <decot@googlers.com>
+	Eugenia Emantayev <eugenia@mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ed Swierk <eswierk@skyportsystems.com>,
+	Robert Love <robert.w.love@intel.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	David Decotigny <decot@googlers.com>
 To: "David S. Miller" <davem@davemloft.net>,
-        Ben Hutchings <ben@decadent.org.uk>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-api@vger.kernel.org, linux-mips@linux-mips.org,
-        fcoe-devel@open-fcoe.org,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Tejun Heo <tj@kernel.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
+	Ben Hutchings <ben@decadent.org.uk>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-api@vger.kernel.org, linux-mips@linux-mips.org,
+	fcoe-devel@open-fcoe.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1455064168-5102-1-git-send-email-ddecotig@gmail.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/net/macvlan.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ include/rdma/ib_addr.h | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 94e6888..a54ad4c 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -940,12 +940,12 @@ static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
- 	strlcpy(drvinfo->version, "0.1", sizeof(drvinfo->version));
- }
+diff --git a/include/rdma/ib_addr.h b/include/rdma/ib_addr.h
+index c34c900..f669751 100644
+--- a/include/rdma/ib_addr.h
++++ b/include/rdma/ib_addr.h
+@@ -262,24 +262,22 @@ static inline enum ib_mtu iboe_get_mtu(int mtu)
  
--static int macvlan_ethtool_get_settings(struct net_device *dev,
--					struct ethtool_cmd *cmd)
-+static int macvlan_ethtool_get_ksettings(struct net_device *dev,
-+					 struct ethtool_ksettings *cmd)
+ static inline int iboe_get_rate(struct net_device *dev)
  {
- 	const struct macvlan_dev *vlan = netdev_priv(dev);
+-	struct ethtool_cmd cmd;
+-	u32 speed;
++	struct ethtool_ksettings cmd;
+ 	int err;
  
--	return __ethtool_get_settings(vlan->lowerdev, cmd);
-+	return __ethtool_get_ksettings(vlan->lowerdev, cmd);
- }
+ 	rtnl_lock();
+-	err = __ethtool_get_settings(dev, &cmd);
++	err = __ethtool_get_ksettings(dev, &cmd);
+ 	rtnl_unlock();
+ 	if (err)
+ 		return IB_RATE_PORT_CURRENT;
  
- static netdev_features_t macvlan_fix_features(struct net_device *dev,
-@@ -1020,7 +1020,7 @@ static int macvlan_dev_get_iflink(const struct net_device *dev)
- 
- static const struct ethtool_ops macvlan_ethtool_ops = {
- 	.get_link		= ethtool_op_get_link,
--	.get_settings		= macvlan_ethtool_get_settings,
-+	.get_ksettings		= macvlan_ethtool_get_ksettings,
- 	.get_drvinfo		= macvlan_ethtool_get_drvinfo,
- };
- 
+-	speed = ethtool_cmd_speed(&cmd);
+-	if (speed >= 40000)
++	if (cmd.parent.speed >= 40000)
+ 		return IB_RATE_40_GBPS;
+-	else if (speed >= 30000)
++	else if (cmd.parent.speed >= 30000)
+ 		return IB_RATE_30_GBPS;
+-	else if (speed >= 20000)
++	else if (cmd.parent.speed >= 20000)
+ 		return IB_RATE_20_GBPS;
+-	else if (speed >= 10000)
++	else if (cmd.parent.speed >= 10000)
+ 		return IB_RATE_10_GBPS;
+ 	else
+ 		return IB_RATE_PORT_CURRENT;
 -- 
 2.7.0.rc3.207.g0ac5344
