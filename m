@@ -1,83 +1,131 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net] hv_netvsc: Restore needed_headroom request
-Date: Wed, 10 Feb 2016 11:05:50 +0100
-Message-ID: <87oabonam9.fsf@vitty.brq.redhat.com>
-References: <1454689748-29095-1-git-send-email-vkuznets@redhat.com>
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: Re: [net-next] igb: assume MSI-X interrupts during initialization
+Date: Wed, 10 Feb 2016 11:26:52 +0100
+Message-ID: <56BB106C.40106@kpanic.de>
+References: <1442493970-20073-1-git-send-email-sassmann@kpanic.de>
+ <56B5131D.1070505@redhat.com> <56B52C7C.3000500@kpanic.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
-	"K. Y. Srinivasan" <kys@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454689748-29095-1-git-send-email-vkuznets@redhat.com> (Vitaly
-	Kuznetsov's message of "Fri, 5 Feb 2016 17:29:08 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: intel-wired-lan@lists.osuosl.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com
+To: Laine Stump <laine@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from app1a.xlhost.de ([84.200.252.161]:38754 "EHLO app1a.xlhost.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757704AbcBJK07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2016 05:26:59 -0500
+In-Reply-To: <56B52C7C.3000500@kpanic.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Vitaly Kuznetsov <vkuznets@redhat.com> writes:
+On 06.02.2016 00:13, Stefan Assmann wrote:
+> On 02/05/2016 10:24 PM, Laine Stump wrote:
+>> Stefan,
+>>
+>> I have an AMD 990FX system with an Intel 82576 card that could not
+>> successfully boot with any kernel starting somewhere prior to 4.2, but
+>> does boot properly in 4.4+. After a lot of time bisecting, I found that
+>> this patch, when applied to kernel 4.3.0, solves the problem (applying
+>> to 4.2.0 has no effect, so there's some other patch/patches in the
+>> interim that were also part of the fix).
+>>
+>> Since I don't know the details of proposing this patch for 4.3 stable,
+>> would it be possible for you to do that?
+>>
+>> Thanks!
+> 
+> Hi Laine,
+> 
+> I took a quick look at 4.3 and the patch you mention should be
+> sufficient. For 4.2 I'll have to take a closer look. I'm currently
+> traveling but going to get back to you early next week.
+> 
+> I'd like double check things before taking any action.
 
-> Commit c0eb454034aa ("hv_netvsc: Don't ask for additional head room in the
-> skb") got rid of needed_headroom setting for the driver. With the change I
-> hit the following issue trying to use ptkgen module:
->
-> [   57.522021] kernel BUG at net/core/skbuff.c:1128!
-> [   57.522021] invalid opcode: 0000 [#1] SMP DEBUG_PAGEALLOC
-> ...
-> [   58.721068] Call Trace:
-> [   58.721068]  [<ffffffffa0144e86>] netvsc_start_xmit+0x4c6/0x8e0 [hv_netvsc]
-> ...
-> [   58.721068]  [<ffffffffa02f87fc>] ? pktgen_finalize_skb+0x25c/0x2a0 [pktgen]
-> [   58.721068]  [<ffffffff814f5760>] ? __netdev_alloc_skb+0xc0/0x100
-> [   58.721068]  [<ffffffffa02f9907>] pktgen_thread_worker+0x257/0x1920 [pktgen]
->
-> Basically, we're calling skb_cow_head(skb, RNDIS_AND_PPI_SIZE) and crash on
->     if (skb_shared(skb))
->         BUG();
->
-> We probably need to restore needed_headroom setting (but shrunk to
-> RNDIS_AND_PPI_SIZE as we don't need more) to request the required headroom
-> space. In theory, it should not give us performance penalty.
+I've tried to reproduce your issue on several systems, mostly Intel
+though, without success running 4.2 or 4.3. As I know you mostly care
+for 4.3 (current fedora) I'd suggest to queue commit
 
-I'm sorry for the ping but this is kind of a regression and it would be
-nice to have it fixed in 4.5.
+cbfe360a1541a32e9e28f8f8ac925d2b7979d767 igb: assume MSI-X interrupts
+during initialization
 
-Here is a script to trigger kernel crash:
-#! /bin/sh
-modprobe pktgen
+to 4.3-stable as it's a follow-up fix to
 
-echo "rem_device_all" > /proc/net/pktgen/kpktgend_0
-echo "add_device eth0" > /proc/net/pktgen/kpktgend_0
-echo "pkt_size 60" > /proc/net/pktgen/eth0
-echo "clone_skb 1000000" > /proc/net/pktgen/eth0
-echo "count 100000" > /proc/net/pktgen/eth0
-echo "dst <SOME_IP>" > /proc/net/pktgen/eth0
-echo "dst_mac <SOME_MAC>" > /proc/net/pktgen/eth0
-echo "start" > /proc/net/pktgen/pgctrl
-cat /proc/net/pktgen/eth0
+ceee3450b3a85db05a107d54fbea031c77d30401 igb: make sure SR-IOV init uses
+the right number of queues
 
-Please review.
+Dave, if you agree with that please queue the patch for 4.3-stable.
+Thanks!
 
->
-> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
-> ---
->  drivers/net/hyperv/netvsc_drv.c | 3 +++
->  1 file changed, 3 insertions(+)
->
-> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-> index 1d3a665..98e34fe 100644
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-> @@ -1089,6 +1089,9 @@ static int netvsc_probe(struct hv_device *dev,
->  	net->ethtool_ops = &ethtool_ops;
->  	SET_NETDEV_DEV(net, &dev->device);
->
-> +	/* We always need headroom for rndis header */
-> +	net->needed_headroom = RNDIS_AND_PPI_SIZE;
-> +
->  	/* Notify the netvsc driver of the new device */
->  	memset(&device_info, 0, sizeof(device_info));
->  	device_info.ring_size = ring_size;
+  Stefan
 
--- 
-  Vitaly
+
+> 
+> Thanks!
+> 
+>    Stefan
+> 
+>> The full saga of my problem and investigaton is here:
+>>
+>> https://www.mail-archive.com/iommu@lists.linux-foundation.org/msg10687.html
+>>
+>>
+>> On 09/17/2015 08:46 AM, Stefan Assmann wrote:
+>>> In igb_sw_init() the sequence of calls was changed from
+>>> igb_init_queue_configuration()
+>>> igb_init_interrupt_scheme()
+>>> igb_probe_vfs()
+>>> to
+>>> igb_probe_vfs()
+>>> igb_init_queue_configuration()
+>>> igb_init_interrupt_scheme()
+>>>
+>>> This results in adapter->flags not having the IGB_FLAG_HAS_MSIX bit set
+>>> during igb_probe_vfs()->igb_enable_sriov(). Therefore SR-IOV does not
+>>> get enabled properly and we run into a NULL pointer if the max_vfs
+>>> module parameter is specified (adapter->vf_data does not get allocated,
+>>> crash on accessing the structure).
+>>>
+>>> [    7.419348] BUG: unable to handle kernel NULL pointer dereference
+>>> at 0000000000000048
+>>> [    7.419367] IP: [<ffffffffa02161c6>] igb_reset+0xe6/0x5d0 [igb]
+>>> [    7.419370] PGD 0
+>>> [    7.419373] Oops: 0002 [#1] SMP
+>>> [    7.419381] Modules linked in: ahci(+) libahci igb(+) i40e(+) vxlan
+>>> ip6_udp_tunnel udp_tunnel megaraid_sas(+) ixgbe(+) mdio
+>>> [    7.419385] CPU: 0 PID: 4 Comm: kworker/0:0 Not tainted 4.2.0+ #153
+>>> [    7.419387] Hardware name: Dell Inc. PowerEdge R720/0C4Y3R, BIOS
+>>> 1.6.0 03/07/2013
+>>> [...]
+>>> [    7.419431] Call Trace:
+>>> [    7.419442]  [<ffffffffa0217236>] igb_probe+0x8b6/0x1340 [igb]
+>>> [    7.419447]  [<ffffffff814c7f15>] local_pci_probe+0x45/0xa0
+>>>
+>>> Prevent this by setting the IGB_FLAG_HAS_MSIX bit before calling
+>>> igb_probe_vfs(). The real interrupt capabilities will be checked during
+>>> igb_init_interrupt_scheme() so this is safe to do.
+>>>
+>>> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+>>> ---
+>>>   drivers/net/ethernet/intel/igb/igb_main.c | 3 +++
+>>>   1 file changed, 3 insertions(+)
+>>>
+>>> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c
+>>> b/drivers/net/ethernet/intel/igb/igb_main.c
+>>> index e174fbb..ba019fc 100644
+>>> --- a/drivers/net/ethernet/intel/igb/igb_main.c
+>>> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+>>> @@ -2986,6 +2986,9 @@ static int igb_sw_init(struct igb_adapter *adapter)
+>>>       }
+>>>   #endif /* CONFIG_PCI_IOV */
+>>>
+>>> +    /* Assume MSI-X interrupts, will be checked during IRQ allocation */
+>>> +    adapter->flags |= IGB_FLAG_HAS_MSIX;
+>>> +
+>>>       igb_probe_vfs(adapter);
+>>>
+>>>       igb_init_queue_configuration(adapter);
+>>>
+>>
+> 
