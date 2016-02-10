@@ -1,44 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 6/7] soreuseport: fast reuseport TCP socket
- selection
-Date: Wed, 10 Feb 2016 06:02:35 -0500 (EST)
-Message-ID: <20160210.060235.2264036197106612193.davem@davemloft.net>
-References: <1455063542-18227-1-git-send-email-kraigatgoog@gmail.com>
-	<1455063542-18227-7-git-send-email-kraigatgoog@gmail.com>
+Subject: Re: [PATCH net-next v2] sxgbe: remove unused code
+Date: Wed, 10 Feb 2016 06:10:42 -0500 (EST)
+Message-ID: <20160210.061042.1938060825711484969.davem@davemloft.net>
+References: <56B275FA.40608@osg.samsung.com>
+	<1455076037-10485-1-git-send-email-sakiwit@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kraigatgoog@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, shuahkh@osg.samsung.com,
+	shuahkhan@gmail.com, julia.lawall@lip6.fr, bh74.an@samsung.com,
+	ks.giri@samsung.com
+To: sakiwit@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36605 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36683 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753635AbcBJLCi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 06:02:38 -0500
-In-Reply-To: <1455063542-18227-7-git-send-email-kraigatgoog@gmail.com>
+	with ESMTP id S1753247AbcBJLKq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 06:10:46 -0500
+In-Reply-To: <1455076037-10485-1-git-send-email-sakiwit@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Craig Gallek <kraigatgoog@gmail.com>
-Date: Tue,  9 Feb 2016 19:19:01 -0500
-
-> diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-> index 19913e9e09e0..1ec87f62bdd7 100644
-> --- a/net/ipv6/inet6_hashtables.c
-> +++ b/net/ipv6/inet6_hashtables.c
- ...
-> @@ -283,7 +297,7 @@ int inet6_hash(struct sock *sk)
->  {
->  	if (sk->sk_state != TCP_CLOSE) {
->  		local_bh_disable();
-> -		__inet_hash(sk, NULL);
-> +		__inet_hash(sk, NULL, ipv6_rcv_saddr_equal);
->  		local_bh_enable();
->  	}
->  
-> -- 
-> 2.7.0.rc3.207.g0ac5344
-> 
-
-You cannot invoke 'm' code (net/ipv6/udp.c:ipv6_rcv_saddr_equal) from 'y'
-code (net/ipv6/inet6_hashtables.c:inet6_hash).
+RnJvbTogSuVhbiBTYWNyZW4gPHNha2l3aXRAZ21haWwuY29tPg0KRGF0ZTogVHVlLCAgOSBGZWIg
+MjAxNiAyMDo0NzoxNyAtMDcwMA0KDQo+IEZyb206IEplYW4gU2FjcmVuIDxzYWtpd2l0QGdtYWls
+LmNvbT4NCj4gDQo+IFJlbW92ZSB0aGUgdW51c2VkIGNvZGUgb2Ygc3hnYmVfeHBjcy4NCj4gDQo+
+IFJlcG9ydGVkLWJ5OiBKdWxpYSBMYXdhbGwgPGp1bGlhLmxhd2FsbEBsaXA2LmZyPg0KPiBTdWdn
+ZXN0ZWQtYnk6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCj4gU2lnbmVk
+LW9mZi1ieTogSmVhbiBTYWNyZW4gPHNha2l3aXRAZ21haWwuY29tPg0KPiBDYzogQnl1bmdobyBB
+biA8Ymg3NC5hbkBzYW1zdW5nLmNvbT4NCj4gQ2M6IEdpcmlzaCBLIFMgPGtzLmdpcmlAc2Ftc3Vu
+Zy5jb20+DQo+IExpbms6IGh0dHA6Ly9sa21sLmtlcm5lbC5vcmcvci9hbHBpbmUuREVCLjIuMTAu
+MTYwMTE5MTkxODQ3MC4yNTMxQGhhZHJpZW4NCg0KQXBwbGllZCwgdGhhbmtzLg0K
