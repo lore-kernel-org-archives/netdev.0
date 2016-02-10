@@ -1,64 +1,58 @@
-From: Diego Viola <diego.viola@gmail.com>
-Subject: Computer fails to resume from suspend unless I rmmod jme before
- initiating the suspend
-Date: Wed, 10 Feb 2016 02:19:49 -0200
-Message-ID: <CA+ToGPGC8APhN-_F5fzyR4CWqWgZ9Hs0PNqykhEgEV7g3PJjTg@mail.gmail.com>
+From: Corcodel Marian <asd@marian1000.go.ro>
+Subject: [PATCH net v4] r8169: Remove duplicate of RTL_FEATURE_WOL
+Date: Wed, 10 Feb 2016 06:22:02 +0200
+Message-ID: <1455078122-2151-1-git-send-email-asd@marian1000.go.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: cooldavid@cooldavid.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Corcodel Marian <asd@marian1000.go.ro>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 5-14-227-192.residential.rdsnet.ro ([5.14.227.192]:57622 "EHLO
+	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932330AbcBJEWK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 23:22:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Guo,
+This patch remove multiple invocation of RTL_FEATURE_WOL.
 
-I have an x86 computer with this network card:
+Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+---
+ drivers/net/ethernet/realtek/r8169.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-02:00.0 Ethernet controller: JMicron Technology Corp. JMC260 PCI
-Express Fast Ethernet Controller (rev 03)
-
-Every time I initiate a suspend (systemctl suspend) the machine hangs
-at resume unless I unload the jme driver.
-
-Here is a Call Trace I was able to get after it hanged:
-
-<IRQ>
-tasklet_action+0xb0/0xd0
-__do_softirq+0xcf/0x290
-irq_exit+0xa3/0xb0
-do_IRQ+0x54/0xd0
-common_interrupt+0x82/0x82
-
-<EOI>
-jme_start_irq+0x84/0xa0 [jme]
-jme_resume+0x12f/0x210 [jme]
-pci_pm_resume+0x64/0xa0
-? pci_pm_thaw+0x90/0x90
-dpm_run_callback+0x4e/0x130
-device_resume+0xd3/0x1f0
-async_resume+0x1d/0x50
-async_run_entry_fn+0x48/0x150
-process_one_work+0x14b/0x440
-worker_thread+0x48/0x4a0
-? process_one_work+0x440/0x440
-kthread+0xd8/0xf0
-? kthread_worker_fn+0x170/0x170
-ret_from_fork+0x3f/0x70
-? kthread_worker_fn+0x170/0x170
-
-Please note that I had to type the calltrace above as I don't have a
-serial cable and netconsole didn't work for me for some reason, so
-there could be typos I didn't notice.
-
-I run Arch Linux (x86-64), my uname is:
-
-$ uname -a
-Linux myhost 4.4.1-2-ARCH #1 SMP PREEMPT Wed Feb 3 13:12:33 UTC 2016
-x86_64 GNU/Linux
-
-Please let me know if you have any questions or need any other information.
-
-Thanks,
-
-Diego
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 17d5571..1f75478 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -8289,18 +8289,20 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	case RTL_GIGA_MAC_VER_49:
+ 	case RTL_GIGA_MAC_VER_50:
+ 	case RTL_GIGA_MAC_VER_51:
+-		if (rtl_eri_read(tp, 0xdc, ERIAR_EXGMAC) & MagicPacket_v2)
+-			tp->features |= RTL_FEATURE_WOL;
+-		if ((RTL_R8(Config3) & LinkUp) != 0)
+-			tp->features |= RTL_FEATURE_WOL;
++		if (rtl_eri_read(tp, 0xdc, ERIAR_EXGMAC) & MagicPacket_v2) {
++			if ((RTL_R8(Config5) & (UWF | BWF | MWF)) != 0) {
++				if ((RTL_R8(Config3) & LinkUp) != 0)
++					tp->features |= RTL_FEATURE_WOL;
++			}
++		}
+ 		break;
+ 	default:
+-		if ((RTL_R8(Config3) & (LinkUp | MagicPacket)) != 0)
+-			tp->features |= RTL_FEATURE_WOL;
++		if ((RTL_R8(Config3) & (LinkUp | MagicPacket)) != 0) {
++			if ((RTL_R8(Config5) & (UWF | BWF | MWF)) != 0)
++				tp->features |= RTL_FEATURE_WOL;
++		}
+ 		break;
+ 	}
+-	if ((RTL_R8(Config5) & (UWF | BWF | MWF)) != 0)
+-		tp->features |= RTL_FEATURE_WOL;
+ 	tp->features |= rtl_try_msi(tp, cfg);
+ 	RTL_W8(Cfg9346, Cfg9346_Lock);
+ 
+-- 
+2.5.0
