@@ -1,83 +1,78 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 1/1] tipc: fix premature addition of
-	node to lookup table
-Date: Wed, 10 Feb 2016 16:14:57 -0500
-Message-ID: <1455138898-3648-1-git-send-email-jon.maloy@ericsson.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 1/3] lan78xx: replace devid to chipid & chiprev
+Date: Thu, 11 Feb 2016 00:36:44 +0300
+Message-ID: <56BBAD6C.6070901@cogentembedded.com>
+References: <9235D6609DB808459E95D78E17F2E43D404AB9F2@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Woojung.Huh@microchip.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:35862 "EHLO
+	mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751087AbcBJVgs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 16:36:48 -0500
+Received: by mail-lf0-f49.google.com with SMTP id 78so20377573lfy.3
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 13:36:47 -0800 (PST)
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404AB9F2@CHN-SV-EXMX02.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In commit 5266698661401a ("tipc: let broadcast packet reception
-use new link receive function") we introduced a new per-node
-broadcast reception link instance. This link is created at the
-moment the node itself is created. Unfortunately, the allocation
-is done after the node instance has already been added to the node
-lookup hash table. This creates a potential race condition, where
-arriving broadcast packets are able to find and access the node
-before it has been fully initialized, and before the above mentioned
-link has been created. The result is occasional crashes in the function
-tipc_bcast_rcv(), which is trying to access the not-yet existing link.
+On 02/11/2016 12:13 AM, Woojung.Huh@microchip.com wrote:
 
-We fix this by deferring the addition of the node instance until after
-it has been fully initialized in the function tipc_node_create().
+> Replace devid to chipid & chiprev for easy access.
+>
+> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+> ---
+>   drivers/net/usb/lan78xx.c | 20 +++++++++++---------
+>   drivers/net/usb/lan78xx.h |  1 +
+>   2 files changed, 12 insertions(+), 9 deletions(-)
+>
+> diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+> index 1c299b8..b14b22d 100644
+> --- a/drivers/net/usb/lan78xx.c
+> +++ b/drivers/net/usb/lan78xx.c
+[...]
+> @@ -471,7 +472,7 @@ static int lan78xx_read_raw_eeprom(struct lan78xx_net *dev, u32 offset,
+>   	 */
+>   	ret = lan78xx_read_reg(dev, HW_CFG, &val);
+>   	saved = val;
+> -	if ((dev->devid & ID_REV_CHIP_ID_MASK_) == 0x78000000) {
+> +	if ((dev->chipid) == ID_REV_CHIP_ID_7800_) {
 
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/node.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+    Inner parens not needed.
 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index fa97d96..9d7a16f 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -346,12 +346,6 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr, u16 capabilities)
- 	skb_queue_head_init(&n->bc_entry.inputq2);
- 	for (i = 0; i < MAX_BEARERS; i++)
- 		spin_lock_init(&n->links[i].lock);
--	hlist_add_head_rcu(&n->hash, &tn->node_htable[tipc_hashfn(addr)]);
--	list_for_each_entry_rcu(temp_node, &tn->node_list, list) {
--		if (n->addr < temp_node->addr)
--			break;
--	}
--	list_add_tail_rcu(&n->list, &temp_node->list);
- 	n->state = SELF_DOWN_PEER_LEAVING;
- 	n->signature = INVALID_NODE_SIG;
- 	n->active_links[0] = INVALID_BEARER_ID;
-@@ -372,6 +366,12 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr, u16 capabilities)
- 	tipc_node_get(n);
- 	setup_timer(&n->timer, tipc_node_timeout, (unsigned long)n);
- 	n->keepalive_intv = U32_MAX;
-+	hlist_add_head_rcu(&n->hash, &tn->node_htable[tipc_hashfn(addr)]);
-+	list_for_each_entry_rcu(temp_node, &tn->node_list, list) {
-+		if (n->addr < temp_node->addr)
-+			break;
-+	}
-+	list_add_tail_rcu(&n->list, &temp_node->list);
- exit:
- 	spin_unlock_bh(&tn->node_list_lock);
- 	return n;
--- 
-1.9.1
+[...]
+> @@ -505,7 +506,7 @@ static int lan78xx_read_raw_eeprom(struct lan78xx_net *dev, u32 offset,
+>
+>   	retval = 0;
+>   exit:
+> -	if ((dev->devid & ID_REV_CHIP_ID_MASK_) == 0x78000000)
+> +	if ((dev->chipid) == ID_REV_CHIP_ID_7800_)
 
+    Same here.
 
-------------------------------------------------------------------------------
-Site24x7 APM Insight: Get Deep Visibility into Application Performance
-APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
-Monitor end-to-end web transactions and take corrective actions now
-Troubleshoot faster and improve end-user experience. Signup Now!
-http://pubads.g.doubleclick.net/gampad/clk?id=272487151&iu=/4140
+[...]
+> @@ -539,7 +540,7 @@ static int lan78xx_write_raw_eeprom(struct lan78xx_net *dev, u32 offset,
+>   	 */
+>   	ret = lan78xx_read_reg(dev, HW_CFG, &val);
+>   	saved = val;
+> -	if ((dev->devid & ID_REV_CHIP_ID_MASK_) == 0x78000000) {
+> +	if ((dev->chipid) == ID_REV_CHIP_ID_7800_) {
+
+    And here.
+
+[...]
+> @@ -587,7 +588,7 @@ static int lan78xx_write_raw_eeprom(struct lan78xx_net *dev, u32 offset,
+>
+>   	retval = 0;
+>   exit:
+> -	if ((dev->devid & ID_REV_CHIP_ID_MASK_) == 0x78000000)
+> +	if ((dev->chipid) == ID_REV_CHIP_ID_7800_)
+
+    Here too.
+
+[...]
+
+MBR, Sergei
