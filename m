@@ -1,142 +1,64 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/2] vhost: disentangle vring endianness stuff from the
- core code
-Date: Wed, 10 Feb 2016 13:48:09 +0200
-Message-ID: <20160210132240-mutt-send-email-mst@redhat.com>
-References: <20160113170934.23705.62626.stgit@bahia.huguette.org>
- <20160113170947.23705.95216.stgit@bahia.huguette.org>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [PATCH net v2 2/3] geneve: Relax MTU constraints
+Date: Wed, 10 Feb 2016 12:59:20 +0100
+Message-ID: <CAEh+42iGHk9zVYPcpSz5w5XPg450p8avuQLbMZZH+B5fZvF9WQ@mail.gmail.com>
+References: <1455036424-6403-1-git-send-email-david@weave.works>
+ <1455036424-6403-3-git-send-email-david@weave.works> <CALx6S37sD+MNK+kp9oLnEYHEUkOy_NdQK6bq-aMQP2Mvw9M4Qg@mail.gmail.com>
+ <86a8n86bcs.fsf@weave.works>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Greg Kurz <gkurz@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160113170947.23705.95216.stgit@bahia.huguette.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <tom@herbertland.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: David Wragg <david@weave.works>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:44963 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752813AbcBJL7i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2016 06:59:38 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id 5BAB520376
+	for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 11:59:37 +0000 (UTC)
+Received: from mail-qk0-f170.google.com (mail-qk0-f170.google.com [209.85.220.170])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id E1FF720389
+	for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 11:59:35 +0000 (UTC)
+Received: by mail-qk0-f170.google.com with SMTP id s5so5800057qkd.0
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 03:59:35 -0800 (PST)
+In-Reply-To: <86a8n86bcs.fsf@weave.works>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 13, 2016 at 06:09:47PM +0100, Greg Kurz wrote:
-> The way vring endianness is being handled currently obfuscates
-> the code in vhost_init_used().
-> 
-> This patch tries to fix that by doing the following:
-> - move the the code that adjusts endianness to a dedicated helper
-> - export this helper so that backends explicitely call it
-> 
-> No behaviour change.
-> 
-> Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
-> ---
->  drivers/vhost/net.c   |    3 +++
->  drivers/vhost/scsi.c  |    3 +++
->  drivers/vhost/test.c  |    2 ++
->  drivers/vhost/vhost.c |   16 +++++++++++-----
->  drivers/vhost/vhost.h |    1 +
->  5 files changed, 20 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 9eda69e40678..df01c939cd00 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -917,6 +917,9 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
->  
->  		vhost_net_disable_vq(n, vq);
->  		vq->private_data = sock;
-> +
-> +		vhost_adjust_vring_endian(vq);
-> +
->  		r = vhost_init_used(vq);
->  		if (r)
->  			goto err_used;
+On Wed, Feb 10, 2016 at 12:41 PM, David Wragg <david@weave.works> wrote:
+> Tom Herbert <tom@herbertland.com> writes:
+>> The correct thing to do is determine the maximum amount of
+>> encapsulation overhead that can ever be set in a packet and use for
+>> setting the MTU. For instance, when RCO is enable in GUE, the size of
+>> the option is included in tunnel->encap_hlen even though it will not
+>> be used in all packets (via ip_tunnel_change_mtu). If there is no way
+>> to determine a maximum overhead a priori from configuration, then
+>> maximum overhead could be assumed to be maximum possible encapsulation
+>> header size which for Geneve is 132 bytes IIRC.
+>
+> Ok, I'll come up with a patch to address this.
 
+I don't think that this really applies in this situation. The concerns
+here relate to what the MTU is actually set to but this patch affects
+the range of MTUs allowed to be set by the user. I don't see a reason
+to disallow the user from setting a precise value if they know what it
+should be.
 
-This is in fact a bug in existing code: if vhost_init_used
-fails, it preferably should not have side-effects.
-It's best to update it last thing.
+In any case, I don't think it is likely to have much impact. By
+default with tunnels the output device is not fixed and therefore the
+base MTU that is used is IP_MAX_MTU. Subtracting some tunnel overhead
+amount from this is still likely quite a bit higher than any physical
+MTU.
 
-> diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-> index 29cfc57d496e..5a8363bfcb74 100644
-> --- a/drivers/vhost/scsi.c
-> +++ b/drivers/vhost/scsi.c
-> @@ -1274,6 +1274,9 @@ vhost_scsi_set_endpoint(struct vhost_scsi *vs,
->  			vq = &vs->vqs[i].vq;
->  			mutex_lock(&vq->mutex);
->  			vq->private_data = vs_tpg;
-> +
-> +			vhost_adjust_vring_endian(vq);
-> +
->  			vhost_init_used(vq);
->  			mutex_unlock(&vq->mutex);
->  		}
-> diff --git a/drivers/vhost/test.c b/drivers/vhost/test.c
-> index f2882ac98726..75e3e0e9f5a8 100644
-> --- a/drivers/vhost/test.c
-> +++ b/drivers/vhost/test.c
-> @@ -196,6 +196,8 @@ static long vhost_test_run(struct vhost_test *n, int test)
->  		oldpriv = vq->private_data;
->  		vq->private_data = priv;
->  
-> +		vhost_adjust_vring_endian(vq);
-> +
->  		r = vhost_init_used(&n->vqs[index]);
->  
->  		mutex_unlock(&vq->mutex);
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index e02e06755ab7..b0a00340309e 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -123,6 +123,15 @@ static void vhost_disable_is_le(struct vhost_virtqueue *vq)
->  	vq->is_le = virtio_legacy_is_little_endian();
->  }
->  
-> +void vhost_adjust_vring_endian(struct vhost_virtqueue *vq)
-> +{
-> +	if (!vq->private_data)
-> +		vhost_disable_is_le(vq);
-> +	else
-> +		vhost_enable_is_le(vq);
-> +}
-> +EXPORT_SYMBOL_GPL(vhost_adjust_vring_endian);
-> +
->  static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
->  			    poll_table *pt)
->  {
-
-I'd prefer "vhost_update_is_le" here. "endian" might also mean
-"user_be". But see below pls.
-
-
-> @@ -1166,12 +1175,9 @@ int vhost_init_used(struct vhost_virtqueue *vq)
->  {
->  	__virtio16 last_used_idx;
->  	int r;
-> -	if (!vq->private_data) {
-> -		vhost_disable_is_le(vq);
-> -		return 0;
-> -	}
->  
-> -	vhost_enable_is_le(vq);
-> +	if (!vq->private_data)
-> +		return 0;
->  
->  	r = vhost_update_used_flags(vq);
->  	if (r)
-
-Looking at how callers use this, maybe we should just rename init_used
-to vhost_vq_init_access. The _used suffix was a hint that we
-access the vq used ring. But maybe what callers care about is
-that it must be called after access_ok.
-
-> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> index d3f767448a72..88d86f45f756 100644
-> --- a/drivers/vhost/vhost.h
-> +++ b/drivers/vhost/vhost.h
-> @@ -162,6 +162,7 @@ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
->  
->  int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
->  		    unsigned int log_num, u64 len);
-> +void vhost_adjust_vring_endian(struct vhost_virtqueue *vq);
->  
->  #define vq_err(vq, fmt, ...) do {                                  \
->  		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
+If you really want, I would subtract the base Geneve header size from
+IP_MAX_MTU to get the true max but it's probably not a big deal in any
+case.
