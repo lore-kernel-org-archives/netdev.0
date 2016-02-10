@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Add LAN9352 Ethernet Driver
-Date: Wed, 10 Feb 2016 05:33:58 -0500 (EST)
-Message-ID: <20160210.053358.801208182711951209.davem@davemloft.net>
-References: <90A7E81AE28BAE4CBDDB3B35F187D264402EF199@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: [PATCH v2 0/2] Factor out register bit twiddling in the
+ Renesas Ethernet drivers
+Date: Wed, 10 Feb 2016 05:38:49 -0500 (EST)
+Message-ID: <20160210.053849.491932166273511451.davem@davemloft.net>
+References: <2107757.v1oGBJ7aiG@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, corbet@lwn.net
-To: Bryan.Whitehead@microchip.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36392 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752137AbcBJKeG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 05:34:06 -0500
-In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264402EF199@CHN-SV-EXMX02.mchp-main.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <2107757.v1oGBJ7aiG@wasted.cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: <Bryan.Whitehead@microchip.com>
-Date: Tue, 9 Feb 2016 20:40:30 +0000
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Wed, 10 Feb 2016 01:36:55 +0300
 
-> +#ifdef USE_PHY_WORK_AROUND
-> +#define MIN_PACKET_SIZE (64)
-> +	char loopback_tx_pkt[MIN_PACKET_SIZE];
-> +	char loopback_rx_pkt[MIN_PACKET_SIZE];
-> +	unsigned int resetcount;
-> +#endif
- ...
-> +#define USE_PHY_WORK_AROUND
+>    Here's a set of 2 patches against DaveM's 'net-next.git' repo. We factor out
+> the often repeated pattern of reading a register, AND'ing and/or OR'ing some
+> bits, and then writing the value back.
+> 
+> [1/2] ravb: factor out register bit twiddling code
+> [2/2] sh_eth: factor out register bit twiddling code
 
-If you're going to unconditionally define this, and not provide a Kconfig
-mechanism to change it, just get rid of this and the CPP tests upon it.
-
-Thanks.
+Series applied, thanks.
