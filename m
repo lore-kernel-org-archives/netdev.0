@@ -1,21 +1,22 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
+From: Greg Kurz <gkurz@linux.vnet.ibm.com>
 Subject: Re: [PATCH 2/2] vhost: disentangle vring endianness stuff from the
 	core code
-Date: Wed, 10 Feb 2016 14:23:33 +0100
-Message-ID: <20160210142333.744e4446.cornelia.huck@de.ibm.com>
+Date: Wed, 10 Feb 2016 14:40:42 +0100
+Message-ID: <20160210144042.49d5fe84@bahia.huguette.org>
 References: <20160113170934.23705.62626.stgit@bahia.huguette.org>
 	<20160113170947.23705.95216.stgit@bahia.huguette.org>
 	<20160210132240-mutt-send-email-mst@redhat.com>
 	<20160210140843.64ea5aa1@bahia.huguette.org>
+	<20160210142333.744e4446.cornelia.huck@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
 	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
 	"Michael S. Tsirkin" <mst@redhat.com>
-To: Greg Kurz <gkurz@linux.vnet.ibm.com>
+To: Cornelia Huck <cornelia.huck@de.ibm.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20160210140843.64ea5aa1@bahia.huguette.org>
+In-Reply-To: <20160210142333.744e4446.cornelia.huck@de.ibm.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -27,20 +28,28 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 10 Feb 2016 14:08:43 +0100
-Greg Kurz <gkurz@linux.vnet.ibm.com> wrote:
+On Wed, 10 Feb 2016 14:23:33 +0100
+Cornelia Huck <cornelia.huck@de.ibm.com> wrote:
 
-> But you are right, there is a bug: we should rollback if vhost_init_used()
-> fails. Something like below:
+> On Wed, 10 Feb 2016 14:08:43 +0100
+> Greg Kurz <gkurz@linux.vnet.ibm.com> wrote:
 > 
->  err_used:
->         vq->private_data = oldsock;
->         vhost_net_enable_vq(n, vq);
-> +       vhost_adjust_vring_endian(vq);
+> > But you are right, there is a bug: we should rollback if vhost_init_used()
+> > fails. Something like below:
+> > 
+> >  err_used:
+> >         vq->private_data = oldsock;
+> >         vhost_net_enable_vq(n, vq);
+> > +       vhost_adjust_vring_endian(vq);  
+> 
+> Shouldn't we switch back before we reenable? Or have I lost myself in
+> this maze here again?
+> 
 
-Shouldn't we switch back before we reenable? Or have I lost myself in
-this maze here again?
+I haven't spotted any path under vhost_net_enable_vq() that needs
+the vring endianness, but indeed it looks safer to switch back
+before a worker thread may be woken up.
 
->         if (ubufs)
->                 vhost_net_ubuf_put_wait_and_free(ubufs);
->  err_ubufs:
+> >         if (ubufs)
+> >                 vhost_net_ubuf_put_wait_and_free(ubufs);
+> >  err_ubufs:  
