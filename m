@@ -1,127 +1,124 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 02/21] batman-adv: add seqno maximum age and protection start flag parameters
-Date: Wed, 10 Feb 2016 23:57:08 +0800
-Message-ID: <1455119847-5862-3-git-send-email-a@unstable.cc>
+Subject: [PATCH 04/21] batman-adv: Convert batadv_hardif_neigh_node to kref
+Date: Wed, 10 Feb 2016 23:57:10 +0800
+Message-ID: <1455119847-5862-5-git-send-email-a@unstable.cc>
 References: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Simon Wunderlich <simon@open-mesh.com>,
+	Sven Eckelmann <sven@narfation.org>,
 	Marek Lindner <mareklindner@neomailbox.ch>,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:33479 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:35786 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751538AbcBJP77 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2016 10:59:59 -0500
+	id S1752390AbcBJQAE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2016 11:00:04 -0500
 In-Reply-To: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <simon@open-mesh.com>
+From: Sven Eckelmann <sven@narfation.org>
 
-To allow future use of the window protected function with different
-maximum sequence numbers, add a parameter to set this value which
-was previously hardcoded. Another parameter added for future use is a
-flag to return whether the protection window has started.
+batman-adv uses a self-written reference implementation which is just based
+on atomic_t. This is less obvious when reading the code than kref and
+therefore increases the change that the reference counting will be missed.
 
-While at it, also fix the kerneldoc.
-
-Signed-off-by: Simon Wunderlich <simon@open-mesh.com>
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/bat_iv_ogm.c |  3 ++-
- net/batman-adv/main.h       |  3 +++
- net/batman-adv/routing.c    | 13 ++++++++++---
- net/batman-adv/routing.h    |  3 ++-
- 4 files changed, 17 insertions(+), 5 deletions(-)
+ net/batman-adv/originator.c | 20 ++++++++++++--------
+ net/batman-adv/types.h      |  3 ++-
+ 2 files changed, 14 insertions(+), 9 deletions(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 3266bcb5bb06..23ce90e21a40 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -1315,7 +1315,8 @@ batadv_iv_ogm_update_seqnos(const struct ethhdr *ethhdr,
- 	/* signalize caller that the packet is to be dropped. */
- 	if (!hlist_empty(&orig_node->neigh_list) &&
- 	    batadv_window_protected(bat_priv, seq_diff,
--				    &orig_ifinfo->batman_seqno_reset)) {
-+				    BATADV_TQ_LOCAL_WINDOW_SIZE,
-+				    &orig_ifinfo->batman_seqno_reset, NULL)) {
- 		ret = BATADV_PROTECTED;
- 		goto out;
- 	}
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index a7dc41a2709b..32dfc9e578af 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -35,6 +35,9 @@
- /* Time To Live of broadcast messages */
- #define BATADV_TTL 50
- 
-+/* maximum sequence number age of broadcast messages */
-+#define BATADV_BCAST_MAX_AGE 64
-+
- /* purge originators after time in seconds if no valid packet comes in
-  * -> TODO: check influence on BATADV_TQ_LOCAL_WINDOW_SIZE
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index d4a30db0158a..7710595ffc42 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -23,6 +23,7 @@
+ #include <linux/fs.h>
+ #include <linux/jiffies.h>
+ #include <linux/kernel.h>
++#include <linux/kref.h>
+ #include <linux/list.h>
+ #include <linux/lockdep.h>
+ #include <linux/netdevice.h>
+@@ -196,11 +197,15 @@ void batadv_neigh_ifinfo_free_ref(struct batadv_neigh_ifinfo *neigh_ifinfo)
+ /**
+  * batadv_hardif_neigh_release - release hardif neigh node from lists and
+  *  queue for free after rcu grace period
+- * @hardif_neigh: hardif neigh neighbor to free
++ * @ref: kref pointer of the neigh_node
   */
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index f4b60b1fb50e..1c8b35df50cf 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -146,23 +146,29 @@ out:
-  * @bat_priv: the bat priv with all the soft interface information
-  * @seq_num_diff: difference between the current/received sequence number and
-  *  the last sequence number
-+ * @seq_old_max_diff: maximum age of sequence number not considered as restart
-  * @last_reset: jiffies timestamp of the last reset, will be updated when reset
-  *  is detected
-+ * @protection_started: is set to true if the protection window was started,
-+ *   doesn't change otherwise.
-  *
-  * Return:
-  *  0 if the packet is to be accepted.
-  *  1 if the packet is to be ignored.
-  */
- int batadv_window_protected(struct batadv_priv *bat_priv, s32 seq_num_diff,
--			    unsigned long *last_reset)
-+			    s32 seq_old_max_diff, unsigned long *last_reset,
-+			    bool *protection_started)
+-static void
+-batadv_hardif_neigh_release(struct batadv_hardif_neigh_node *hardif_neigh)
++static void batadv_hardif_neigh_release(struct kref *ref)
  {
--	if (seq_num_diff <= -BATADV_TQ_LOCAL_WINDOW_SIZE ||
-+	if (seq_num_diff <= -seq_old_max_diff ||
- 	    seq_num_diff >= BATADV_EXPECTED_SEQNO_RANGE) {
- 		if (!batadv_has_timed_out(*last_reset,
- 					  BATADV_RESET_PROTECTION_MS))
- 			return 1;
++	struct batadv_hardif_neigh_node *hardif_neigh;
++
++	hardif_neigh = container_of(ref, struct batadv_hardif_neigh_node,
++				    refcount);
++
+ 	spin_lock_bh(&hardif_neigh->if_incoming->neigh_list_lock);
+ 	hlist_del_init_rcu(&hardif_neigh->list);
+ 	spin_unlock_bh(&hardif_neigh->if_incoming->neigh_list_lock);
+@@ -216,8 +221,7 @@ batadv_hardif_neigh_release(struct batadv_hardif_neigh_node *hardif_neigh)
+  */
+ void batadv_hardif_neigh_free_ref(struct batadv_hardif_neigh_node *hardif_neigh)
+ {
+-	if (atomic_dec_and_test(&hardif_neigh->refcount))
+-		batadv_hardif_neigh_release(hardif_neigh);
++	kref_put(&hardif_neigh->refcount, batadv_hardif_neigh_release);
+ }
  
- 		*last_reset = jiffies;
-+		if (protection_started)
-+			*protection_started = true;
- 		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
- 			   "old packet received, start protection\n");
- 	}
-@@ -1073,7 +1079,8 @@ int batadv_recv_bcast_packet(struct sk_buff *skb,
+ /**
+@@ -529,7 +533,7 @@ batadv_hardif_neigh_create(struct batadv_hard_iface *hard_iface,
+ 	hardif_neigh->if_incoming = hard_iface;
+ 	hardif_neigh->last_seen = jiffies;
  
- 	/* check whether the packet is old and the host just restarted. */
- 	if (batadv_window_protected(bat_priv, seq_diff,
--				    &orig_node->bcast_seqno_reset))
-+				    BATADV_BCAST_MAX_AGE,
-+				    &orig_node->bcast_seqno_reset, NULL))
- 		goto spin_unlock;
+-	atomic_set(&hardif_neigh->refcount, 1);
++	kref_init(&hardif_neigh->refcount);
  
- 	/* mark broadcast in flood history, update window position
-diff --git a/net/batman-adv/routing.h b/net/batman-adv/routing.h
-index c776e9655b9b..02a5caa84127 100644
---- a/net/batman-adv/routing.h
-+++ b/net/batman-adv/routing.h
-@@ -52,6 +52,7 @@ batadv_find_router(struct batadv_priv *bat_priv,
- 		   struct batadv_orig_node *orig_node,
- 		   struct batadv_hard_iface *recv_if);
- int batadv_window_protected(struct batadv_priv *bat_priv, s32 seq_num_diff,
--			    unsigned long *last_reset);
-+			    s32 seq_old_max_diff, unsigned long *last_reset,
-+			    bool *protection_started);
+ 	if (bat_priv->bat_algo_ops->bat_hardif_neigh_init)
+ 		bat_priv->bat_algo_ops->bat_hardif_neigh_init(hardif_neigh);
+@@ -584,7 +588,7 @@ batadv_hardif_neigh_get(const struct batadv_hard_iface *hard_iface,
+ 		if (!batadv_compare_eth(tmp_hardif_neigh->addr, neigh_addr))
+ 			continue;
  
- #endif /* _NET_BATMAN_ADV_ROUTING_H_ */
+-		if (!atomic_inc_not_zero(&tmp_hardif_neigh->refcount))
++		if (!kref_get_unless_zero(&tmp_hardif_neigh->refcount))
+ 			continue;
+ 
+ 		hardif_neigh = tmp_hardif_neigh;
+@@ -648,7 +652,7 @@ batadv_neigh_node_new(struct batadv_orig_node *orig_node,
+ 	spin_unlock_bh(&orig_node->neigh_list_lock);
+ 
+ 	/* increment unique neighbor refcount */
+-	atomic_inc(&hardif_neigh->refcount);
++	kref_get(&hardif_neigh->refcount);
+ 
+ 	batadv_dbg(BATADV_DBG_BATMAN, orig_node->bat_priv,
+ 		   "Creating new neighbor %pM for orig_node %pM on interface %s\n",
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 8974bc0dc15c..ace7900347d4 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -25,6 +25,7 @@
+ #include <linux/bitops.h>
+ #include <linux/compiler.h>
+ #include <linux/if_ether.h>
++#include <linux/kref.h>
+ #include <linux/netdevice.h>
+ #include <linux/sched.h> /* for linux/wait.h */
+ #include <linux/spinlock.h>
+@@ -359,7 +360,7 @@ struct batadv_hardif_neigh_node {
+ 	u8 addr[ETH_ALEN];
+ 	struct batadv_hard_iface *if_incoming;
+ 	unsigned long last_seen;
+-	atomic_t refcount;
++	struct kref refcount;
+ 	struct rcu_head rcu;
+ };
+ 
 -- 
 2.7.1
