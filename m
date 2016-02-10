@@ -1,58 +1,52 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] bridge: mdb: avoid uninitialized variable warning
-Date: Wed, 10 Feb 2016 16:09:02 +0100
-Message-ID: <1455116946-2948649-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Jiri Pirko <jiri@mellanox.com>, Elad Raz <eladr@mellanox.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] af_packet: Raw socket destruction warning fix
+Date: Wed, 10 Feb 2016 07:09:43 -0800
+Message-ID: <1455116983.19473.6.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1455105900-15710-1-git-send-email-maninder1.s@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, willemb@google.com, daniel@iogearbox.net,
+	edumazet@google.com, al.drozdov@gmail.com, eyal.birger@gmail.com,
+	tklauser@distanz.ch, fruggeri@aristanetworks.com,
+	dwmw2@infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ajeet.y@samsung.com,
+	pankaj.m@samsung.com, gh007.kim@samsung.com,
+	hakbong5.lee@samsung.com, akhilesh.k@samsung.com,
+	Vaneet Narang <v.narang@samsung.com>,
+	Amit Nagal <amit.nagal@samsung.com>
+To: Maninder Singh <maninder1.s@samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455105900-15710-1-git-send-email-maninder1.s@samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A recent change to the mdb code confused the compiler to the point
-where it did not realize that the port-group returned from
-br_mdb_add_group() is always valid when the function returns a nonzero
-return value, so we get a spurious warning:
+On Wed, 2016-02-10 at 17:35 +0530, Maninder Singh wrote:
+> This Patch fixes below warning:-
+> WARNING: at net/packet/af_packet.c:xxx packet_sock_destruct
+> 
+> There is following race between packet_rcv and packet_close
+> which keeps unfree packet in receive queue.
+> 
+> CPU 1					CPU2
+> packet_rcv
+> 
+> 					packet_close                       
+> skb_set_owner_r(skb, sk);
+> 
+> 					skb_queue_purge(&sk->sk_receive_queue);
+> 
+> spin_lock(&sk->sk_receive_queue.lock);
+> __skb_queue_tail(&sk->sk_receive_queue, skb);
+> spin_unlock(&sk->sk_receive_queue.lock);
 
-net/bridge/br_mdb.c: In function 'br_mdb_add':
-net/bridge/br_mdb.c:542:4: error: 'pg' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-    __br_mdb_notify(dev, entry, RTM_NEWMDB, pg);
+This absolutely can not happen.
 
-Slightly rearranging the code in br_mdb_add_group() makes the problem
-go away, as gcc is clever enough to see that both functions check
-for 'ret != 0'.
+CPU 1 holds rcu read lock, so cpu 2 can not possibly call
+skb_queue_purge()
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 9e8430f8d60d ("bridge: mdb: Passing the port-group pointer to br_mdb module")
----
- net/bridge/br_mdb.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+(cpu 1 is blocked in synchronize_net(), waiting that all cpus are no
+longer in packet_rcv())
 
-diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
-index ac089286526e..9ab1fcd488c6 100644
---- a/net/bridge/br_mdb.c
-+++ b/net/bridge/br_mdb.c
-@@ -437,8 +437,8 @@ static int br_mdb_add_group(struct net_bridge *br, struct net_bridge_port *port,
- 	mp = br_mdb_ip_get(mdb, group);
- 	if (!mp) {
- 		mp = br_multicast_new_group(br, port, group);
--		err = PTR_ERR(mp);
--		if (IS_ERR(mp))
-+		err = PTR_ERR_OR_ZERO(mp);
-+		if (err)
- 			return err;
- 	}
- 
--- 
-2.7.0
+This patch does not address the root cause of your problem, and only
+slightly changes probability for the bug to trigger.
