@@ -1,47 +1,67 @@
-From: Max Edward <emmanual.owusu@gmail.com>
-Subject: BUSINESS INVESTMENT
-Date: Wed, 10 Feb 2016 06:48:03 -0800
-Message-ID: <CA+c3JokONCy3NFn9eE2n-de0ouZ7W9YQOa835XXeVyzkzHf5yA@mail.gmail.com>
-Reply-To: maxedward75@outlook.com
+From: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH net v2 2/3] geneve: Relax MTU constraints
+Date: Wed, 10 Feb 2016 15:52:04 +0100
+Message-ID: <CAEh+42gyHEALCjZZGjMWTLQsPgp191c4dfZYFffOL6iV7pwYHw@mail.gmail.com>
+References: <1455036424-6403-1-git-send-email-david@weave.works>
+ <1455036424-6403-3-git-send-email-david@weave.works>
+ <CALx6S37sD+MNK+kp9oLnEYHEUkOy_NdQK6bq-aMQP2Mvw9M4Qg@mail.gmail.com>
+ <86a8n86bcs.fsf@weave.works>
+ <CAEh+42iGHk9zVYPcpSz5w5XPg450p8avuQLbMZZH+B5fZvF9WQ@mail.gmail.com>
+ <CALx6S36kvXJUZM8_vEmF8L3bxnRiBh98Rs0wAd-HGBJ9Yyde_Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33392 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751107AbcBJOsF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 09:48:05 -0500
-Received: by mail-wm0-f66.google.com with SMTP id c200so4710913wme.0
-        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 06:48:04 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
+ Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CALx6S36kvXJUZM8_vEmF8L3bxnRiBh98Rs0wAd-HGBJ9Yyde_Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Hello,
-
-I have interest of investing in your country as well as seek your
-services in a private and confidential issue. My name is  Max Edward,
-an auditor with Scouts Bank London, On my routine inspection I
-discovered a dormant domiciliary account with the deposit of =C2=A34.6M
-(Four Million Six Hundred Thousand Great Britian Pounds Sterling) by
-our late customers without any heir. I write to seek your indulgence
-and assistance in moving this funds to your country through legal
-means.
-
-NOTE: My plan is to invest my own share of the money in your country.
-
-What other lucrative investments would you suggest as I intend to
-invest on REAL ESTATE AND HOTELS if they are good business venture in
-your Country?
-
-Can you be able to make residential documents and purchase a house for
-me and my family to relocate and settle in your country after my
-retirement in (5) Five months time.
-
-Let me know if you can handle this project so that we can discuss your
-own percentage (%). Please reply me via this email
-(maxedward75@outlook.com)
-
-Looking forward for your quick response.
-
-Max Edward.
+T24gV2VkLCBGZWIgMTAsIDIwMTYgYXQgMzoyMSBQTSwgVG9tIEhlcmJlcnQgPHRvbUBoZXJiZXJ0
+bGFuZC5jb20+IHdyb3RlOgo+IE9uIFdlZCwgRmViIDEwLCAyMDE2IGF0IDEyOjU5IFBNLCBKZXNz
+ZSBHcm9zcyA8amVzc2VAa2VybmVsLm9yZz4gd3JvdGU6Cj4+IE9uIFdlZCwgRmViIDEwLCAyMDE2
+IGF0IDEyOjQxIFBNLCBEYXZpZCBXcmFnZyA8ZGF2aWRAd2VhdmUud29ya3M+IHdyb3RlOgo+Pj4g
+VG9tIEhlcmJlcnQgPHRvbUBoZXJiZXJ0bGFuZC5jb20+IHdyaXRlczoKPj4+PiBUaGUgY29ycmVj
+dCB0aGluZyB0byBkbyBpcyBkZXRlcm1pbmUgdGhlIG1heGltdW0gYW1vdW50IG9mCj4+Pj4gZW5j
+YXBzdWxhdGlvbiBvdmVyaGVhZCB0aGF0IGNhbiBldmVyIGJlIHNldCBpbiBhIHBhY2tldCBhbmQg
+dXNlIGZvcgo+Pj4+IHNldHRpbmcgdGhlIE1UVS4gRm9yIGluc3RhbmNlLCB3aGVuIFJDTyBpcyBl
+bmFibGUgaW4gR1VFLCB0aGUgc2l6ZSBvZgo+Pj4+IHRoZSBvcHRpb24gaXMgaW5jbHVkZWQgaW4g
+dHVubmVsLT5lbmNhcF9obGVuIGV2ZW4gdGhvdWdoIGl0IHdpbGwgbm90Cj4+Pj4gYmUgdXNlZCBp
+biBhbGwgcGFja2V0cyAodmlhIGlwX3R1bm5lbF9jaGFuZ2VfbXR1KS4gSWYgdGhlcmUgaXMgbm8g
+d2F5Cj4+Pj4gdG8gZGV0ZXJtaW5lIGEgbWF4aW11bSBvdmVyaGVhZCBhIHByaW9yaSBmcm9tIGNv
+bmZpZ3VyYXRpb24sIHRoZW4KPj4+PiBtYXhpbXVtIG92ZXJoZWFkIGNvdWxkIGJlIGFzc3VtZWQg
+dG8gYmUgbWF4aW11bSBwb3NzaWJsZSBlbmNhcHN1bGF0aW9uCj4+Pj4gaGVhZGVyIHNpemUgd2hp
+Y2ggZm9yIEdlbmV2ZSBpcyAxMzIgYnl0ZXMgSUlSQy4KPj4+Cj4+PiBPaywgSSdsbCBjb21lIHVw
+IHdpdGggYSBwYXRjaCB0byBhZGRyZXNzIHRoaXMuCj4+Cj4+IEkgZG9uJ3QgdGhpbmsgdGhhdCB0
+aGlzIHJlYWxseSBhcHBsaWVzIGluIHRoaXMgc2l0dWF0aW9uLiBUaGUgY29uY2VybnMKPj4gaGVy
+ZSByZWxhdGUgdG8gd2hhdCB0aGUgTVRVIGlzIGFjdHVhbGx5IHNldCB0byBidXQgdGhpcyBwYXRj
+aCBhZmZlY3RzCj4+IHRoZSByYW5nZSBvZiBNVFVzIGFsbG93ZWQgdG8gYmUgc2V0IGJ5IHRoZSB1
+c2VyLiBJIGRvbid0IHNlZSBhIHJlYXNvbgo+PiB0byBkaXNhbGxvdyB0aGUgdXNlciBmcm9tIHNl
+dHRpbmcgYSBwcmVjaXNlIHZhbHVlIGlmIHRoZXkga25vdyB3aGF0IGl0Cj4+IHNob3VsZCBiZS4K
+Pj4KPiBSaWdodCwgYnV0IGlmIHRoZSB1c2VyIHNldHMgYSBiYWQgdmFsdWUgYW5kIHBhY2tldHMg
+YXJlIHNpbGVudGx5Cj4gZHJvcHBlZCBvbiB0aGUgZmxvb3IgdGhlbiB0aGF0IHNlZW1zIGxpa2Ug
+YSBiYWQgcmVzdWx0IHRoYXQgY291bGQgaGF2ZQo+IGVhc2lseSBiZWVuIHByZXZlbnRlZC4KClN1
+cmUsIHdlIG1pZ2h0IGFzIHdlbGwgcHJldmVudCB0aGUgZXh0cmVtZSBlZGdlIGNhc2VzIHRoYXQg
+Y2FuIG5ldmVyCmJlIHZhbGlkLiBJbiB0aGUgY2FzZSBvZiBHZW5ldmUgdGhvdWdoLCB0aGlzIHdv
+dWxkIGJlIHRoZSBtaW5pbXVtCmhlYWRlciBzaXplLCBub3QgdGhlIG1heGltdW0sIHNpbmNlIGl0
+J3MgcG9zc2libGUgdGhhdCB0aGUgdXNlcgphY3R1YWxseSBrbm93cyBob3cgYmlnIHRoZSBvcHRp
+b25zIGFyZSB0aGF0IHRoZXkgd2FudCB0byB1c2UuCgpCdXQgYXMgSSBzYWlkLCB0aGUgcHJhY3Rp
+Y2FsIGltcGFjdCBpcyBsb3cgYmVjYXVzZSBJUF9NQVhfTVRVIGlzIHNvCm11Y2ggbGFyZ2VyIHRo
+YW4gdGhlIE1UVSBvZiByZWFsIGRldmljZXMuIFRoZXJlIHdpbGwgYWx3YXlzIGJlIG1hbnkKdmFs
+dWVzIHRoYXQgdGhlIE1UVSBjYW4gYmUgc2V0IHRvIHRoYXQgcmVzdWx0IGluIGRyb3BwZWQgcGFj
+a2V0cy4gVGhpcwppcyB0cnVlIG9mIGFsbCB0dW5uZWwgdHlwZXMuCl9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52
+c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
