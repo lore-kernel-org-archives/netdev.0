@@ -1,74 +1,83 @@
-From: Yishai Hadas <yishaih@dev.mellanox.co.il>
-Subject: Re: [PATCH 3/5] net/mlx4: fix some error handling in
- mlx4_multi_func_init()
-Date: Wed, 10 Feb 2016 11:40:07 +0200
-Message-ID: <56BB0577.8000000@dev.mellanox.co.il>
-References: <1455048677-19882-1-git-send-email-linux@rasmusvillemoes.dk>
- <1455048677-19882-4-git-send-email-linux@rasmusvillemoes.dk>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH net] hv_netvsc: Restore needed_headroom request
+Date: Wed, 10 Feb 2016 11:05:50 +0100
+Message-ID: <87oabonam9.fsf@vitty.brq.redhat.com>
+References: <1454689748-29095-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Yishai Hadas <yishaih@mellanox.com>, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"jackm@mellanox.com" <jackm@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Content-Type: text/plain
+Cc: devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+	"K. Y. Srinivasan" <kys@microsoft.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455048677-19882-4-git-send-email-linux@rasmusvillemoes.dk>
+In-Reply-To: <1454689748-29095-1-git-send-email-vkuznets@redhat.com> (Vitaly
+	Kuznetsov's message of "Fri, 5 Feb 2016 17:29:08 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/9/2016 10:11 PM, Rasmus Villemoes wrote:
-> The while loop after err_slaves should use post-decrement; otherwise
-> we'll fail to do the kfrees for i==0, and will run into out-of-bounds
-> accesses if the setup above failed already at i==0.
+Vitaly Kuznetsov <vkuznets@redhat.com> writes:
+
+> Commit c0eb454034aa ("hv_netvsc: Don't ask for additional head room in the
+> skb") got rid of needed_headroom setting for the driver. With the change I
+> hit the following issue trying to use ptkgen module:
 >
-> The predecrement in the --port is ok, since ->vlan_filter is
-> (bizarrely) 1-indexed. But I'm changing 'if' to 'while' since it's a
-> bit ugly to rely on MLX4_MAX_PORTS being 2.
+> [   57.522021] kernel BUG at net/core/skbuff.c:1128!
+> [   57.522021] invalid opcode: 0000 [#1] SMP DEBUG_PAGEALLOC
+> ...
+> [   58.721068] Call Trace:
+> [   58.721068]  [<ffffffffa0144e86>] netvsc_start_xmit+0x4c6/0x8e0 [hv_netvsc]
+> ...
+> [   58.721068]  [<ffffffffa02f87fc>] ? pktgen_finalize_skb+0x25c/0x2a0 [pktgen]
+> [   58.721068]  [<ffffffff814f5760>] ? __netdev_alloc_skb+0xc0/0x100
+> [   58.721068]  [<ffffffffa02f9907>] pktgen_thread_worker+0x257/0x1920 [pktgen]
 >
-> [I'm not sure why one even bothers populating the ->vlan_filter array:
-> mlx4.h isn't #included by anything outside
-> drivers/net/ethernet/mellanox/mlx4/, and "git grep -C2 -w vlan_filter
-> drivers/net/ethernet/mellanox/mlx4/" seems to suggest that the
-> vlan_filter elements aren't used at all.]
+> Basically, we're calling skb_cow_head(skb, RNDIS_AND_PPI_SIZE) and crash on
+>     if (skb_shared(skb))
+>         BUG();
 >
-> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+> We probably need to restore needed_headroom setting (but shrunk to
+> RNDIS_AND_PPI_SIZE as we don't need more) to request the required headroom
+> space. In theory, it should not give us performance penalty.
+
+I'm sorry for the ping but this is kind of a regression and it would be
+nice to have it fixed in 4.5.
+
+Here is a script to trigger kernel crash:
+#! /bin/sh
+modprobe pktgen
+
+echo "rem_device_all" > /proc/net/pktgen/kpktgend_0
+echo "add_device eth0" > /proc/net/pktgen/kpktgend_0
+echo "pkt_size 60" > /proc/net/pktgen/eth0
+echo "clone_skb 1000000" > /proc/net/pktgen/eth0
+echo "count 100000" > /proc/net/pktgen/eth0
+echo "dst <SOME_IP>" > /proc/net/pktgen/eth0
+echo "dst_mac <SOME_MAC>" > /proc/net/pktgen/eth0
+echo "start" > /proc/net/pktgen/pgctrl
+cat /proc/net/pktgen/eth0
+
+Please review.
+
+>
+> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 > ---
->   drivers/net/ethernet/mellanox/mlx4/cmd.c | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
+>  drivers/net/hyperv/netvsc_drv.c | 3 +++
+>  1 file changed, 3 insertions(+)
 >
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-> index d48d5793407d..bfe8234abbba 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-> @@ -2369,7 +2369,7 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
->   					kzalloc(sizeof(struct mlx4_vlan_fltr),
->   						GFP_KERNEL);
->   				if (!s_state->vlan_filter[port]) {
-> -					if (--port)
-> +					while (--port)
-
-Prefer to leave as-is. There is no way that mlx4 will ever have more 
-than 2 ports.
-
->   						kfree(s_state->vlan_filter[port]);
->   					goto err_slaves;
->   				}
-> @@ -2429,7 +2429,7 @@ err_thread:
->   	flush_workqueue(priv->mfunc.master.comm_wq);
->   	destroy_workqueue(priv->mfunc.master.comm_wq);
->   err_slaves:
-> -	while (--i) {
-> +	while (i--) {
-
-This fix is wrong as it hits the case that i arrived the last value then 
-below code will access to a non valid entry in the array.
-
-The expected fix should be:
-while (--i >= 0)
-
->   		for (port = 1; port <= MLX4_MAX_PORTS; port++)
->   			kfree(priv->mfunc.master.slave_state[i].vlan_filter[port]);
->   	}
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index 1d3a665..98e34fe 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -1089,6 +1089,9 @@ static int netvsc_probe(struct hv_device *dev,
+>  	net->ethtool_ops = &ethtool_ops;
+>  	SET_NETDEV_DEV(net, &dev->device);
 >
+> +	/* We always need headroom for rndis header */
+> +	net->needed_headroom = RNDIS_AND_PPI_SIZE;
+> +
+>  	/* Notify the netvsc driver of the new device */
+>  	memset(&device_info, 0, sizeof(device_info));
+>  	device_info.ring_size = ring_size;
+
+-- 
+  Vitaly
