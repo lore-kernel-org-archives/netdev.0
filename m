@@ -1,206 +1,197 @@
-From: John Valko <jovalko@cisco.com>
-Subject: Bonding MAC failover behavior with VLAN interfaces
-Date: Tue, 9 Feb 2016 21:33:03 -0500
-Message-ID: <56BAA15F.4080609@cisco.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Dwight Frye (dfrye)" <dfrye@cisco.com>,
-	Wally Dixon <wdixon@cisco.com>,
-	"Leo Lee (lelee2)" <lelee2@cisco.com>,
-	"Nishant Thakre (nthakre)" <nthakre@cisco.com>,
-	"Parvez Shaikh (pshaikh)" <pshaikh@cisco.com>
-To: netdev@vger.kernel.org
+From: =?UTF-8?q?J=CE=B5an=20Sacren?= <sakiwit@gmail.com>
+Subject: [PATCH net-next v2] sxgbe: remove unused code
+Date: Tue,  9 Feb 2016 20:47:17 -0700
+Message-ID: <1455076037-10485-1-git-send-email-sakiwit@gmail.com>
+References: <56B275FA.40608@osg.samsung.com>
+Cc: netdev@vger.kernel.org, shuahkh@osg.samsung.com,
+	shuahkhan@gmail.com, julia.lawall@lip6.fr,
+	Byungho An <bh74.an@samsung.com>,
+	Girish K S <ks.giri@samsung.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alln-iport-3.cisco.com ([173.37.142.90]:31197 "EHLO
-	alln-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752034AbcBJCdG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 21:33:06 -0500
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35213 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756317AbcBJDsx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 22:48:53 -0500
+Received: by mail-pf0-f194.google.com with SMTP id 66so357649pfe.2
+        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 19:48:53 -0800 (PST)
+In-Reply-To: <56B275FA.40608@osg.samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Jean Sacren <sakiwit@gmail.com>
 
-I have observed the following on CentOS 6 using the 
-2.6.32-573.8.1.el6.x86_64 kernel as well as Ubuntu 15.10 with 
-4.2.0-25-generic.. I have not yet tried with a vanilla kernel but with 
-the large time/distro gap it didn't seem likely to be caused by distro 
-changes.
+Remove the unused code of sxgbe_xpcs.
 
-We have a networking scenario that looks a bit like this:
+Reported-by: Julia Lawall <julia.lawall@lip6.fr>
+Suggested-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+Cc: Byungho An <bh74.an@samsung.com>
+Cc: Girish K S <ks.giri@samsung.com>
+Link: http://lkml.kernel.org/r/alpine.DEB.2.10.1601191918470.2531@hadrien
+---
+v2:
+Rewrite the changelog per request by Shuah Khan. Add Suggested-by and
+Link tags as well.
 
+v1:
+We may use "--ignore FILE_PATH_CHANGES" to suppress checkpatch warning.
 
-      +---------+ +---------+ +---------+
-      |         | |         | |         |
-      | bond0.5 | | bond0.6 | | bond0.7 |  VLAN interfaces
-      |         | |         | |         |
-      +---+-----+ +---+-----+ +---+-----+
-          +------+    |   +-------+
-                 |    |   |
-               +-+----+---+--+
-               |             | type=active-backup
-               |    bond0    | mac failover=active
-               |             |
-               +-+---------+-+
-                 |         |
-                 |         |
-       +---------+-+     +-+---------+
-       |           |     |           |
-       |   eth0    |     |   eth1    |bond slaves
-       |           |     |           |
-       +-----------+     +-----------+
+ drivers/net/ethernet/samsung/sxgbe/Makefile     |  2 +-
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.c | 91 -------------------------
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.h | 38 -----------
+ 3 files changed, 1 insertion(+), 130 deletions(-)
+ delete mode 100644 drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.c
+ delete mode 100644 drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.h
 
-Our actual scenario is where eth0 and eth1 are SR-IOV VFs passed to kvm 
-guest via PCI passthru.  However, I have been able to demonstrate the 
-same behavior using the veth driver so I'm going to use that to 
-illustrate my confusion.
-
-_1) Load bomding module with opt__ions mentioned in the above diagram:_
-
-# modprobe bonding mode=1 miimon=100 fail_over_mac=active
-
-_2) Verify we got the mode we __wanted_
-
-#  cat /sys/class/net/bond0/bonding/mode
-active-backup 1
-# cat /sys/class/net/bond0/bonding/fail_over_mac
-active 1
-
-_3) Create some veth interfaces just so we have something to bond and 
-then bond them_
-
-# ip link add name veth0 type veth peer name veth0.peer
-# ip link add name veth1 type veth peer name veth1.peer
-# ifconfig veth0 up
-# ifconfig veth0.peer up
-# ifconfig veth1 up
-# ifconfig veth1.peer up
-# ifconfig bond0 up
-# ifenslave bond0 veth0 veth1
-
-Note, MAC is taken from veth0:
-
-# ip link show veth0
-5: veth0: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc 
-pfifo_fast master bond0 state UP qlen 1000
-     link/ether *ca:d2:fb:b9:f9:b8* brd ff:ff:ff:ff:ff:ff
-# ip link show veth1
-7: veth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc 
-pfifo_fast master bond0 state UP qlen 1000
-     link/ether 16:a3:36:0b:c1:ec brd ff:ff:ff:ff:ff:ff
-# ip link show bond0
-3: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc 
-noqueue state UP
-     link/ether *ca:d2:fb:b9:f9:b8* brd ff:ff:ff:ff:ff:ff
-
-_4) Create a cou__ple VLAN interfaces_
-
-# ip link add link bond0 name bond0.5 type vlan id 5
-# ip link add link bond0 name bond0.6 type vlan id 6
-# ip link add link bond0 name bond0.7 type vlan id 7
-# ifconfig bond0.5 up
-# ifconfig bond0.6 up
-# ifconfig bond0.7 up
-
-Note that these all have the sam MACs as bond0:
-
-# ip link show bond0.5
-8: bond0.5@bond0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc 
-noqueue state UP
-     link/ether ca:d2:fb:b9:f9:b8 brd ff:ff:ff:ff:ff:ff
-# ip link show bond0.6
-9: bond0.6@bond0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc 
-noqueue state UP
-     link/ether ca:d2:fb:b9:f9:b8 brd ff:ff:ff:ff:ff:ff
-# ip link show bond0.7
-10: bond0.7@bond0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc 
-noqueue state UP
-     link/ether ca:d2:fb:b9:f9:b8 brd ff:ff:ff:ff:ff:ff
-# ip link show bond0
-3: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc 
-noqueue state UP
-     link/ether ca:d2:fb:b9:f9:b8 brd ff:ff:ff:ff:ff:ff
-
-_5) __Take down veth0 to cause a failover to veth1_
-
-# ifconfig veth0 down
-
-Now note that bond0 takes the address of veth1 as expected:
-
-# ip link show veth1
-7: veth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc 
-pfifo_fast master bond0 state UP qlen 1000
-     link/ether 16:a3:36:0b:c1:ec brd ff:ff:ff:ff:ff:ff
-# ip link show bond0
-3: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc 
-noqueue state UP
-     link/ether 16:a3:36:0b:c1:ec brd ff:ff:ff:ff:ff:ff
-
-BUT... not the VLAN interfaces, they still have veth0's MAC:
-
-# ip link show veth0
-5: veth0: <BROADCAST,MULTICAST,SLAVE> mtu 1500 qdisc pfifo_fast master 
-bond0 state DOWN qlen 1000
-     link/ether *ca:d2:fb:b9:f9:b8* brd ff:ff:ff:ff:ff:ff
-# ip link show veth1
-7: veth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc 
-pfifo_fast master bond0 state UP qlen 1000
-     link/ether *16:a3:36:0b:c1:ec* brd ff:ff:ff:ff:ff:ff
-# ip link show bond0
-3: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc 
-noqueue state UP
-     link/ether *16:a3:36:0b:c1:ec* brd ff:ff:ff:ff:ff:ff
-# ip link show bond0.5
-8: bond0.5@bond0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc 
-noqueue state UP
-     link/ether *ca:d2:fb:b9:f9:b8* brd ff:ff:ff:ff:ff:ff
-# ip link show bond0.6
-9: bond0.6@bond0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc 
-noqueue state UP
-     link/ether *ca:d2:fb:b9:f9:b8* brd ff:ff:ff:ff:ff:ff
-# ip link show bond0.7
-10: bond0.7@bond0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc 
-noqueue state UP
-     link/ether *ca:d2:fb:b9:f9:b8* brd ff:ff:ff:ff:ff:ff
-
-So, herein lies my confusion.  I expect that the VLAN interfaces should 
-also pick up the new MAC address, but they don't.  It seems like a bug 
-to me, but I don't want to be presumptuous so if in fact this is 
-expected behavior, how do you recommend we approach making it switch 
-when the bond fails over?  Right now, the MAC must be manually set for 
-each vlan interface.
-
-Right now I am looking at the current bonding code on master in 
-drivers/net/bonding/bond_main.c:
-
-    645  /* bond_do_fail_over_mac
-    646   *
-    647   * Perform special MAC address swapping for fail_over_mac settings
-    648   *
-    649   * Called with RTNL
-    650   */
-    651  static void bond_do_fail_over_mac(struct bonding *bond,
-    652                                    struct slave *new_active,
-    653                                    struct slave *old_active)
-    654  {
-    655          u8 tmp_mac[ETH_ALEN];
-    656          struct sockaddr saddr;
-    657          int rv;
-    658
-    659          switch (bond->params.fail_over_mac) {
-    660          case BOND_FOM_ACTIVE:
-    661                  if (new_active)
-    662 bond_set_dev_addr(bond->dev, new_active->dev);
-    663                  break;
-
-I can see it set the mac of the bond to the new active slave MAC, but I 
-don't see any indication of looping over vlan interfaces or anything, if 
-that is expected... or would it be expected that the 8021q module 
-receives an event that should make it change?
-
-I am a kernel newbie, so I am not sure how this is really expected to 
-work, but am very interested in your suggestions.
-
-Thanks,
-
-John
+diff --git a/drivers/net/ethernet/samsung/sxgbe/Makefile b/drivers/net/ethernet/samsung/sxgbe/Makefile
+index dcc80b9d4370..31e968561d5c 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/Makefile
++++ b/drivers/net/ethernet/samsung/sxgbe/Makefile
+@@ -1,4 +1,4 @@
+ obj-$(CONFIG_SXGBE_ETH) += samsung-sxgbe.o
+ samsung-sxgbe-objs:= sxgbe_platform.o sxgbe_main.o sxgbe_desc.o \
+ 		sxgbe_dma.o sxgbe_core.o sxgbe_mtl.o  sxgbe_mdio.o \
+-		sxgbe_ethtool.o sxgbe_xpcs.o $(samsung-sxgbe-y)
++		sxgbe_ethtool.o $(samsung-sxgbe-y)
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.c
+deleted file mode 100644
+index 51c32194ba88..000000000000
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.c
++++ /dev/null
+@@ -1,91 +0,0 @@
+-/* 10G controller driver for Samsung SoCs
+- *
+- * Copyright (C) 2013 Samsung Electronics Co., Ltd.
+- *		http://www.samsung.com
+- *
+- * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- */
+-#include <linux/bitops.h>
+-#include <linux/kernel.h>
+-#include <linux/netdevice.h>
+-#include <linux/phy.h>
+-#include "sxgbe_common.h"
+-#include "sxgbe_xpcs.h"
+-
+-static int sxgbe_xpcs_read(struct net_device *ndev, unsigned int reg)
+-{
+-	u32 value;
+-	struct sxgbe_priv_data *priv = netdev_priv(ndev);
+-
+-	value = readl(priv->ioaddr + XPCS_OFFSET + reg);
+-
+-	return value;
+-}
+-
+-static int sxgbe_xpcs_write(struct net_device *ndev, int reg, int data)
+-{
+-	struct sxgbe_priv_data *priv = netdev_priv(ndev);
+-
+-	writel(data, priv->ioaddr + XPCS_OFFSET + reg);
+-
+-	return 0;
+-}
+-
+-int sxgbe_xpcs_init(struct net_device *ndev)
+-{
+-	u32 value;
+-
+-	value = sxgbe_xpcs_read(ndev, SR_PCS_MMD_CONTROL1);
+-	/* 10G XAUI mode */
+-	sxgbe_xpcs_write(ndev, SR_PCS_CONTROL2, XPCS_TYPE_SEL_X);
+-	sxgbe_xpcs_write(ndev, VR_PCS_MMD_XAUI_MODE_CONTROL, XPCS_XAUI_MODE);
+-	sxgbe_xpcs_write(ndev, VR_PCS_MMD_XAUI_MODE_CONTROL, value | BIT(13));
+-	sxgbe_xpcs_write(ndev, SR_PCS_MMD_CONTROL1, value | BIT(11));
+-
+-	do {
+-		value = sxgbe_xpcs_read(ndev, VR_PCS_MMD_DIGITAL_STATUS);
+-	} while ((value & XPCS_QSEQ_STATE_MPLLOFF) == XPCS_QSEQ_STATE_STABLE);
+-
+-	value = sxgbe_xpcs_read(ndev, SR_PCS_MMD_CONTROL1);
+-	sxgbe_xpcs_write(ndev, SR_PCS_MMD_CONTROL1, value & ~BIT(11));
+-
+-	do {
+-		value = sxgbe_xpcs_read(ndev, VR_PCS_MMD_DIGITAL_STATUS);
+-	} while ((value & XPCS_QSEQ_STATE_MPLLOFF) != XPCS_QSEQ_STATE_STABLE);
+-
+-	return 0;
+-}
+-
+-int sxgbe_xpcs_init_1G(struct net_device *ndev)
+-{
+-	int value;
+-
+-	/* 10GBASE-X PCS (1G) mode */
+-	sxgbe_xpcs_write(ndev, SR_PCS_CONTROL2, XPCS_TYPE_SEL_X);
+-	sxgbe_xpcs_write(ndev, VR_PCS_MMD_XAUI_MODE_CONTROL, XPCS_XAUI_MODE);
+-	value = sxgbe_xpcs_read(ndev, SR_PCS_MMD_CONTROL1);
+-	sxgbe_xpcs_write(ndev, SR_PCS_MMD_CONTROL1, value & ~BIT(13));
+-
+-	value = sxgbe_xpcs_read(ndev, SR_MII_MMD_CONTROL);
+-	sxgbe_xpcs_write(ndev, SR_MII_MMD_CONTROL, value | BIT(6));
+-	sxgbe_xpcs_write(ndev, SR_MII_MMD_CONTROL, value & ~BIT(13));
+-	value = sxgbe_xpcs_read(ndev, SR_PCS_MMD_CONTROL1);
+-	sxgbe_xpcs_write(ndev, SR_PCS_MMD_CONTROL1, value | BIT(11));
+-
+-	do {
+-		value = sxgbe_xpcs_read(ndev, VR_PCS_MMD_DIGITAL_STATUS);
+-	} while ((value & XPCS_QSEQ_STATE_MPLLOFF) != XPCS_QSEQ_STATE_STABLE);
+-
+-	value = sxgbe_xpcs_read(ndev, SR_PCS_MMD_CONTROL1);
+-	sxgbe_xpcs_write(ndev, SR_PCS_MMD_CONTROL1, value & ~BIT(11));
+-
+-	/* Auto Negotiation cluase 37 enable */
+-	value = sxgbe_xpcs_read(ndev, SR_MII_MMD_CONTROL);
+-	sxgbe_xpcs_write(ndev, SR_MII_MMD_CONTROL, value | BIT(12));
+-
+-	return 0;
+-}
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.h
+deleted file mode 100644
+index 6b26a50724d3..000000000000
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.h
++++ /dev/null
+@@ -1,38 +0,0 @@
+-/* 10G controller driver for Samsung SoCs
+- *
+- * Copyright (C) 2013 Samsung Electronics Co., Ltd.
+- *		http://www.samsung.com
+- *
+- * Author: Byungho An <bh74.an@samsung.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- */
+-#ifndef __SXGBE_XPCS_H__
+-#define __SXGBE_XPCS_H__
+-
+-/* XPCS Registers */
+-#define XPCS_OFFSET			0x1A060000
+-#define SR_PCS_MMD_CONTROL1		0x030000
+-#define SR_PCS_CONTROL2			0x030007
+-#define VR_PCS_MMD_XAUI_MODE_CONTROL	0x038004
+-#define VR_PCS_MMD_DIGITAL_STATUS	0x038010
+-#define SR_MII_MMD_CONTROL		0x1F0000
+-#define SR_MII_MMD_AN_ADV		0x1F0004
+-#define SR_MII_MMD_AN_LINK_PARTNER_BA	0x1F0005
+-#define VR_MII_MMD_AN_CONTROL		0x1F8001
+-#define VR_MII_MMD_AN_INT_STATUS	0x1F8002
+-
+-#define XPCS_QSEQ_STATE_STABLE		0x10
+-#define XPCS_QSEQ_STATE_MPLLOFF		0x1c
+-#define XPCS_TYPE_SEL_R			0x00
+-#define XPCS_TYPE_SEL_X			0x01
+-#define XPCS_TYPE_SEL_W			0x02
+-#define XPCS_XAUI_MODE			0x00
+-#define XPCS_RXAUI_MODE			0x01
+-
+-int sxgbe_xpcs_init(struct net_device *ndev);
+-int sxgbe_xpcs_init_1G(struct net_device *ndev);
+-
+-#endif /* __SXGBE_XPCS_H__ */
