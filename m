@@ -1,47 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net v3 0/3] Set a large MTU on ovs-created
- tunnel devices
-Date: Wed, 10 Feb 2016 05:50:46 -0500 (EST)
-Message-ID: <20160210.055046.909325562661918690.davem@davemloft.net>
-References: <1455062758-18297-1-git-send-email-david@weave.works>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 6/7] soreuseport: fast reuseport TCP socket
+ selection
+Date: Wed, 10 Feb 2016 06:02:35 -0500 (EST)
+Message-ID: <20160210.060235.2264036197106612193.davem@davemloft.net>
+References: <1455063542-18227-1-git-send-email-kraigatgoog@gmail.com>
+	<1455063542-18227-7-git-send-email-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org
-To: david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1455062758-18297-1-git-send-email-david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: kraigatgoog@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36605 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753635AbcBJLCi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 06:02:38 -0500
+In-Reply-To: <1455063542-18227-7-git-send-email-kraigatgoog@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgV3JhZ2cgPGRhdmlkQHdlYXZlLndvcmtzPgpEYXRlOiBXZWQsIDEwIEZlYiAy
-MDE2IDAwOjA1OjU0ICswMDAwCgo+IFByaW9yIHRvIDQuMywgb3BlbnZzd2l0Y2ggdHVubmVsIHZw
-b3J0cyAodnhsYW4sIGdyZSBhbmQgZ2VuZXZlKSBjb3VsZAo+IHRyYW5zbWl0IHZ4bGFuIHBhY2tl
-dHMgb2YgYW55IHNpemUsIGNvbnN0cmFpbmVkIG9ubHkgYnkgdGhlIGFiaWxpdHkgdG8KPiBzZW5k
-IG91dCB0aGUgcmVzdWx0aW5nIHBhY2tldHMuICA0LjMgaW50cm9kdWNlZCBuZXRkZXZzIGNvcnJl
-c3BvbmRpbmcKPiB0byB0dW5uZWwgdnBvcnRzLiAgVGhlc2UgbmV0ZGV2cyBoYXZlIGFuIE1UVSwg
-d2hpY2ggbGltaXRzIHRoZSBzaXplIG9mCj4gYSBwYWNrZXQgdGhhdCBjYW4gYmUgc3VjY2Vzc2Z1
-bGx5IGVuY2Fwc3VsYXRlZC4gIFRoZSBkZWZhdWx0IE1UVQo+IHZhbHVlcyBhcmUgbG93ICgxNTAw
-IG9yIGxlc3MpLCB3aGljaCBpcyBhd2t3YXJkbHkgc21hbGwgaW4gdGhlIGNvbnRleHQKPiBvZiBw
-aHlzaWNhbCBuZXR3b3JrcyBzdXBwb3J0aW5nIGp1bWJvIGZyYW1lcywgYW5kIGxlYWRzIHRvIGEK
-PiBjb25zcGljdW91cyBjaGFuZ2UgaW4gYmVoYXZpb3VyIGZvciB1c2Vyc3BhY2UuCj4gCj4gVGhp
-cyBwYXRjaCBzZXJpZXMgc2V0cyB0aGUgTVRVIG9uIG9wZW52c3dpdGNoLWNyZWF0ZWQgbmV0ZGV2
-cyB0byBiZQo+IHRoZSByZWxldmFudCBtYXhpbXVtIChpLmUuIHRoZSBtYXhpbXVtIElQIHBhY2tl
-dCBzaXplIG1pbnVzIGFueQo+IHJlbGV2YW50IG92ZXJoZWFkKSwgZWZmZWN0aXZlbHkgcmVzdG9y
-aW5nIHRoZSBiZWhhdmlvdXIgcHJpb3IgdG8gNC4zLgo+IAo+IFdoZXJlIHJlbGV2YW50LCB0aGUg
-bGltaXRzIG9uIE1UVSB2YWx1ZXMgdGhhdCBjYW4gYmUgZGlyZWN0bHkgc2V0IG9uCj4gdGhlIG5l
-dGRldnMgYXJlIGFsc28gcmVsYXhlZC4KPiAKPiBDaGFuZ2VzIGluIHYyOgo+ICogRXh0ZW5kIHRv
-IGFsbCBvcGVudnN3aXRjaCB0dW5uZWwgdHlwZXMsIGkuZS4gZ3JlIGFuZCBnZW5ldmUgYXMgd2Vs
-bAo+ICogVXNlIElQX01BWF9NVFUKPiAKPiBDaGFuZ2VzIGluIHYzOgo+ICogRml4IGJsb2NrIGNv
-bW1lbnQgc3R5bGUKClNlcmllcyBhcHBsaWVkLCB0aGFua3MuCl9fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dp
-dGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+From: Craig Gallek <kraigatgoog@gmail.com>
+Date: Tue,  9 Feb 2016 19:19:01 -0500
+
+> diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
+> index 19913e9e09e0..1ec87f62bdd7 100644
+> --- a/net/ipv6/inet6_hashtables.c
+> +++ b/net/ipv6/inet6_hashtables.c
+ ...
+> @@ -283,7 +297,7 @@ int inet6_hash(struct sock *sk)
+>  {
+>  	if (sk->sk_state != TCP_CLOSE) {
+>  		local_bh_disable();
+> -		__inet_hash(sk, NULL);
+> +		__inet_hash(sk, NULL, ipv6_rcv_saddr_equal);
+>  		local_bh_enable();
+>  	}
+>  
+> -- 
+> 2.7.0.rc3.207.g0ac5344
+> 
+
+You cannot invoke 'm' code (net/ipv6/udp.c:ipv6_rcv_saddr_equal) from 'y'
+code (net/ipv6/inet6_hashtables.c:inet6_hash).
