@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v8 03/19] net: usnic: remove unused call to ethtool_ops::get_settings
-Date: Tue,  9 Feb 2016 16:29:12 -0800
-Message-ID: <1455064168-5102-4-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v8 06/19] tx4939: use __ethtool_get_ksettings
+Date: Tue,  9 Feb 2016 16:29:15 -0800
+Message-ID: <1455064168-5102-7-git-send-email-ddecotig@gmail.com>
 References: <1455064168-5102-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
 	Eugenia Emantayev <eugenia@mellanox.co.il>,
@@ -34,28 +34,28 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/infiniband/hw/usnic/usnic_ib_verbs.c | 2 --
- 1 file changed, 2 deletions(-)
+ arch/mips/txx9/generic/setup_tx4939.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-index 6cdb4d2..ea003ec 100644
---- a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-+++ b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-@@ -269,7 +269,6 @@ int usnic_ib_query_device(struct ib_device *ibdev,
- 	struct usnic_ib_dev *us_ibdev = to_usdev(ibdev);
- 	union ib_gid gid;
- 	struct ethtool_drvinfo info;
+diff --git a/arch/mips/txx9/generic/setup_tx4939.c b/arch/mips/txx9/generic/setup_tx4939.c
+index e3733cd..4a3ebf6 100644
+--- a/arch/mips/txx9/generic/setup_tx4939.c
++++ b/arch/mips/txx9/generic/setup_tx4939.c
+@@ -320,11 +320,12 @@ void __init tx4939_sio_init(unsigned int sclk, unsigned int cts_mask)
+ #if IS_ENABLED(CONFIG_TC35815)
+ static u32 tx4939_get_eth_speed(struct net_device *dev)
+ {
 -	struct ethtool_cmd cmd;
- 	int qp_per_vf;
+-	if (__ethtool_get_settings(dev, &cmd))
++	struct ethtool_ksettings cmd;
++
++	if (__ethtool_get_ksettings(dev, &cmd))
+ 		return 100;	/* default 100Mbps */
  
- 	usnic_dbg("\n");
-@@ -278,7 +277,6 @@ int usnic_ib_query_device(struct ib_device *ibdev,
+-	return ethtool_cmd_speed(&cmd);
++	return cmd.parent.speed;
+ }
  
- 	mutex_lock(&us_ibdev->usdev_lock);
- 	us_ibdev->netdev->ethtool_ops->get_drvinfo(us_ibdev->netdev, &info);
--	us_ibdev->netdev->ethtool_ops->get_settings(us_ibdev->netdev, &cmd);
- 	memset(props, 0, sizeof(*props));
- 	usnic_mac_ip_to_gid(us_ibdev->ufdev->mac, us_ibdev->ufdev->inaddr,
- 			&gid.raw[0]);
+ static int tx4939_netdev_event(struct notifier_block *this,
 -- 
 2.7.0.rc3.207.g0ac5344
