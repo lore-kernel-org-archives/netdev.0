@@ -1,353 +1,145 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: Re: [PATCH net-next v2] tipc: add peer
-	removal	functionality
-Date: Wed, 10 Feb 2016 20:22:24 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D223EBB10@eusaamb103.ericsson.se>
-References: <1452607696-24216-1-git-send-email-richard.alpe@ericsson.com>
-	<CAOTeD=CGvLkfgE7b3DDJgFf26X5afrnN1VJqDoV0V4XR8JD_2w@mail.gmail.com>
-	<A2BAEFC30C8FD34388F02C9B3121859D223EBAC4@eusaamb103.ericsson.se>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 06/11] RFC: mlx5: RX bulking or bundling of
+ packets before calling network stack
+Date: Wed, 10 Feb 2016 21:26:01 +0100
+Message-ID: <20160210212601.41901b91@redhat.com>
+References: <20160202211051.16315.51808.stgit@firesoul>
+	<20160202211228.16315.9691.stgit@firesoul>
+	<CALzJLG_w1Nr9rtZ_G4n894gvN=XTbfikGfPgNc4+VBAYw2Pyug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tipc-discussion@lists.sourceforge.net"
-	<tipc-discussion@lists.sourceforge.net>
-To: Jon Maloy <jon.maloy@ericsson.com>, jason <huzhijiang@gmail.com>,
-	"Richard Alpe" <richard.alpe@ericsson.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <A2BAEFC30C8FD34388F02C9B3121859D223EBAC4@eusaamb103.ericsson.se>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Christoph Lameter <cl@linux.com>,
+	tom@herbertland.com, Alexander Duyck <alexander.duyck@gmail.com>,
+	alexei.starovoitov@gmail.com, Or Gerlitz <ogerlitz@mellanox.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Rana Shahout <ranas@mellanox.com>, brouer@redhat.com
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:34357 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753648AbcBJU0I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2016 15:26:08 -0500
+In-Reply-To: <CALzJLG_w1Nr9rtZ_G4n894gvN=XTbfikGfPgNc4+VBAYw2Pyug@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is of course a CPU3 involved in the first scenario. Just forgot to add it to the header.
+On Tue, 9 Feb 2016 13:57:41 +0200
+Saeed Mahameed <saeedm@dev.mellanox.co.il> wrote:
 
-///jon
-
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Jon Maloy
-> Sent: Wednesday, 10 February, 2016 14:44
-> To: jason; Richard Alpe
-> Cc: netdev@vger.kernel.org; tipc-discussion@lists.sourceforge.net
-> Subject: RE: [tipc-discussion] [PATCH net-next v2] tipc: add peer removal
-> functionality
-> 
-> Hi Jason,
-> I believe you are right, although the real problem is not what you think it is.
-> I can see at least two interesting scenarios here,  of which I believe you are
-> alluding to the first one below. However, I don't think the problem is the way
-> Richard is using node_stop(), but rather with node_stop() itself.
-> See below.
-> 
-> Scenario 1:
-> --------------
-> 
-> CPU 1                                CPU2
-> ---------                             --------
-> 1: node_timeout()                                                                                     //refcnt == 1
-> 2:     node_get()                                                                                             //refcnt -> 2
-> 3:                                       node_stop()
-> 4:                                           del_timer()                                                       // expired
-> timer returns 0
-> 6:                                           node_put()                                                      // refcnt -> 1
-> 6:                                                                          node_find()
-> 7:                                                                               node_get()                   //refcnt -> 2
-> 8:    node_put()                                                                                               //refcnt -> 1
-> 9:                                                                                node_put()                  //refcnt -> 0
-> 10:                                                                                    node_kref_release()
-> 11:                                                                                       node_delete()
-> 12:                                                                                             hlist_del_rcu()
-> 13:                                                                                             kfree(node)
-> 
-> There are several possible variations on this theme, e.g., with multiple
-> parallel node_find() calls, but I don't think  they will normally lead to a crash.
-> Even though  node_find() sometimes may return the reference to a node
-> that was meant to be deleted, it will find the node in a state where it will just
-> decide to leave it again, where after the node will be deleted.
-> 
-> 
-> The second scenario is more problematic:
-> 
-> Scenario 2:
-> -------------
-> CPU 1                                             CPU2
-> ---------                                         --------
-> 1: node_timeout()                                                          //refcnt == 1
-> 2:                                                  node_stop()
-> 3:                                                           del_timer()          // expired timer returns 0
-> 4:                                                           node_put()          //refcnt -> 0
-> 5:                                                                 node_kref_release()
-> 6:                                                                        node_delete()
-> 7:                                                                                kfree(node)
-> 8:     tipc_node_readlock(node)
-> 9:   BOOM!
-> 
-> This one explains a crash I have seen occasionally when I am deleting a huge
-> number (>100) of name spaces interconnected with TIPC. I don't know why I
-> have been using del_timer() instead of del_timer_sync() here, which would
-> have been the  natural choice. I probably believed that our reference
-> counter handling would make it safe, which it obviously isn't.
-> 
-> Regards
-> ///jon
-> 
-> 
-> 
-> > -----Original Message-----
-> > From: jason [mailto:huzhijiang@gmail.com]
-> > Sent: Tuesday, 26 January, 2016 02:37
-> > To: Richard Alpe
-> > Cc: netdev@vger.kernel.org; tipc-discussion@lists.sourceforge.net
-> > Subject: Re: [tipc-discussion] [PATCH net-next v2] tipc: add peer
-> > removal functionality
+> On Tue, Feb 2, 2016 at 11:13 PM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+> > There are several techniques/concepts combined in this optimization.
+> > It is both a data-cache and instruction-cache optimization.
 > >
-> > Hi,
+> > First of all, this is primarily about delaying touching
+> > packet-data, which happend in eth_type_trans, until the prefetch
+> > have had time to fetch.  Thus, hopefully avoiding a cache-miss on
+> > packet data.
 > >
-> > On Jan 12, 2016 10:09 PM, "Richard Alpe" <richard.alpe@ericsson.com>
-> > wrote:
-> > >
-> > > Add TIPC_NL_PEER_REMOVE netlink command. This command can
-> remove
-> > an
-> > > offline peer node from the internal data structures.
-> > >
-> > > This will be supported by the tipc user space tool in iproute2.
-> > >
-> > > Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
-> > > Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-> > > Acked-by: Ying Xue <ying.xue@windriver.com>
-> > > ---
-> > >  include/uapi/linux/tipc_netlink.h |  1 +
-> > >  net/tipc/net.c                    |  4 +--
-> > >  net/tipc/net.h                    |  2 ++
-> > >  net/tipc/netlink.c                |  5 ++++
-> > >  net/tipc/node.c                   | 60
-> > +++++++++++++++++++++++++++++++++++----
-> > >  net/tipc/node.h                   |  3 +-
-> > >  6 files changed, 66 insertions(+), 9 deletions(-)
-> > >
-> > > diff --git a/include/uapi/linux/tipc_netlink.h
-> > b/include/uapi/linux/tipc_netlink.h
-> > > index d4c8f14..25eb645 100644
-> > > --- a/include/uapi/linux/tipc_netlink.h
-> > > +++ b/include/uapi/linux/tipc_netlink.h
-> > > @@ -56,6 +56,7 @@ enum {
-> > >         TIPC_NL_NET_GET,
-> > >         TIPC_NL_NET_SET,
-> > >         TIPC_NL_NAME_TABLE_GET,
-> > > +       TIPC_NL_PEER_REMOVE,
-> > >
-> > >         __TIPC_NL_CMD_MAX,
-> > >         TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1 diff --git
-> > > a/net/tipc/net.c b/net/tipc/net.c index 77bf911..042d4ce 100644
-> > > --- a/net/tipc/net.c
-> > > +++ b/net/tipc/net.c
-> > > @@ -42,7 +42,7 @@
-> > >  #include "node.h"
-> > >  #include "bcast.h"
-> > >
-> > > -static const struct nla_policy tipc_nl_net_policy[TIPC_NLA_NET_MAX
-> > > + 1]
-> > = {
-> > > +const struct nla_policy tipc_nl_net_policy[TIPC_NLA_NET_MAX + 1] =
-> > > +{
-> > >         [TIPC_NLA_NET_UNSPEC]   = { .type = NLA_UNSPEC },
-> > >         [TIPC_NLA_NET_ID]       = { .type = NLA_U32 }
-> > >  };
-> > > @@ -139,7 +139,7 @@ void tipc_net_stop(struct net *net)
-> > >                               tn->own_addr);
-> > >         rtnl_lock();
-> > >         tipc_bearer_stop(net);
-> > > -       tipc_node_stop(net);
-> > > +       tipc_node_stop_net(net);
-> > >         rtnl_unlock();
-> > >
-> > >         pr_info("Left network mode\n"); diff --git a/net/tipc/net.h
-> > > b/net/tipc/net.h index 77a7a11..c7c2549 100644
-> > > --- a/net/tipc/net.h
-> > > +++ b/net/tipc/net.h
-> > > @@ -39,6 +39,8 @@
-> > >
-> > >  #include <net/genetlink.h>
-> > >
-> > > +extern const struct nla_policy tipc_nl_net_policy[];
-> > > +
-> > >  int tipc_net_start(struct net *net, u32 addr);
-> > >
-> > >  void tipc_net_stop(struct net *net); diff --git
-> > > a/net/tipc/netlink.c b/net/tipc/netlink.c index
-> > > 8975b01..9019df8 100644
-> > > --- a/net/tipc/netlink.c
-> > > +++ b/net/tipc/netlink.c
-> > > @@ -145,6 +145,11 @@ static const struct genl_ops tipc_genl_v2_ops[] =
-> {
-> > >                 .cmd    = TIPC_NL_NAME_TABLE_GET,
-> > >                 .dumpit = tipc_nl_name_table_dump,
-> > >                 .policy = tipc_nl_policy,
-> > > +       },
-> > > +       {
-> > > +               .cmd    = TIPC_NL_PEER_REMOVE,
-> > > +               .doit   = tipc_nl_peer_rm,
-> > > +               .policy = tipc_nl_policy,
-> > >         }
-> > >  };
-> > >
-> > > diff --git a/net/tipc/node.c b/net/tipc/node.c index
-> > > fa97d96..988cdd9
-> > > 100644
-> > > --- a/net/tipc/node.c
-> > > +++ b/net/tipc/node.c
-> > > @@ -399,17 +399,21 @@ static void tipc_node_delete(struct tipc_node
-> > *node)
-> > >         kfree_rcu(node, rcu);
-> > >  }
-> > >
-> > > -void tipc_node_stop(struct net *net)
-> > > +static void tipc_node_stop(struct tipc_node *node) {
-> > > +       if (del_timer(&node->timer))
-> > > +               tipc_node_put(node);
-> > > +       tipc_node_put(node);
-> > > +}
-> > > +
-> > > +void tipc_node_stop_net(struct net *net)
-> > >  {
-> > >         struct tipc_net *tn = net_generic(net, tipc_net_id);
-> > >         struct tipc_node *node, *t_node;
-> > >
-> > >         spin_lock_bh(&tn->node_list_lock);
-> > > -       list_for_each_entry_safe(node, t_node, &tn->node_list, list) {
-> > > -               if (del_timer(&node->timer))
-> > > -                       tipc_node_put(node);
-> > > -               tipc_node_put(node);
-> > > -       }
-> > > +       list_for_each_entry_safe(node, t_node, &tn->node_list, list)
-> > > +               tipc_node_stop(node);
-> > >         spin_unlock_bh(&tn->node_list_lock);
-> > >  }
-> > >
-> > > @@ -1529,6 +1533,50 @@ discard:
-> > >         kfree_skb(skb);
-> > >  }
-> > >
-> > > +int tipc_nl_peer_rm(struct sk_buff *skb, struct genl_info *info) {
-> > > +       int err;
-> > > +       u32 addr;
-> > > +       struct net *net = sock_net(skb->sk);
-> > > +       struct nlattr *attrs[TIPC_NLA_NET_MAX + 1];
-> > > +       struct tipc_net *tn = net_generic(net, tipc_net_id);
-> > > +       struct tipc_node *peer;
-> > > +
-> > > +       /* We identify the peer by its net */
-> > > +       if (!info->attrs[TIPC_NLA_NET])
-> > > +               return -EINVAL;
-> > > +
-> > > +       err = nla_parse_nested(attrs, TIPC_NLA_NET_MAX,
-> > > +                              info->attrs[TIPC_NLA_NET],
-> > > +                              tipc_nl_net_policy);
-> > > +       if (err)
-> > > +               return err;
-> > > +
-> > > +       if (!attrs[TIPC_NLA_NET_ADDR])
-> > > +               return -EINVAL;
-> > > +
-> > > +       addr = nla_get_u32(attrs[TIPC_NLA_NET_ADDR]);
-> > > +
-> > > +       spin_lock_bh(&tn->node_list_lock);
-> > > +       list_for_each_entry_rcu(peer, &tn->node_list, list) {
-> > > +               if (peer->addr != addr)
-> > > +                       continue;
-> > > +
-> > > +               if (peer->state == SELF_DOWN_PEER_DOWN ||
-> > > +                   peer->state == SELF_DOWN_PEER_LEAVING) {
-> > > +                       tipc_node_stop(peer);
+> > Secondly, the instruction-cache optimization is about, not
+> > calling the network stack for every packet, which is pulled out
+> > of the RX ring.  Calling the full stack likely removes/flushes
+> > the instruction cache every time.
 > >
-> > I think here is not safe to do tipc_node_stop(). Because here we are
-> > not sure that node's refcount  really can drop to zero,thus, not sure
-> > tipc_node_delete() can be execute in a critical region which protected
-> > by node_list_lock spin lock. This may result in tipc_create_node() to
-> > return a to- be-deleted node which is not in the node list any more.
-> > > +
-> > > +                       spin_unlock_bh(&tn->node_list_lock);
-> > > +                       return 0;
-> > > +               }
-> > > +               spin_unlock_bh(&tn->node_list_lock);
-> > > +               return -EBUSY;
-> > > +       }
-> > > +       spin_unlock_bh(&tn->node_list_lock);
-> > > +
-> > > +       return -ENXIO;
-> > > +}
-> > > +
-> > >  int tipc_nl_node_dump(struct sk_buff *skb, struct netlink_callback
-> > > *cb)  {
-> > >         int err;
-> > > diff --git a/net/tipc/node.h b/net/tipc/node.h index
-> > > f39d9d0..8dfb6ba
-> > > 100644
-> > > --- a/net/tipc/node.h
-> > > +++ b/net/tipc/node.h
-> > > @@ -51,7 +51,7 @@ enum {
-> > >  #define TIPC_NODE_CAPABILITIES TIPC_BCAST_SYNCH  #define
-> > > INVALID_BEARER_ID -1
-> > >
-> > > -void tipc_node_stop(struct net *net);
-> > > +void tipc_node_stop_net(struct net *net);
-> > >  void tipc_node_check_dest(struct net *net, u32 onode,
-> > >                           struct tipc_bearer *bearer,
-> > >                           u16 capabilities, u32 signature, @@ -75,5
-> > > +75,6 @@ int tipc_nl_node_dump_link(struct sk_buff *skb, struct
-> > netlink_callback *cb);
-> > >  int tipc_nl_node_reset_link_stats(struct sk_buff *skb, struct
-> > > genl_info
-> > *info);
-> > >  int tipc_nl_node_get_link(struct sk_buff *skb, struct genl_info
-> > > *info);  int tipc_nl_node_set_link(struct sk_buff *skb, struct
-> > > genl_info *info);
-> > > +int tipc_nl_peer_rm(struct sk_buff *skb, struct genl_info *info);
-> > >
-> > >  #endif
-> > > --
-> > > 2.1.4
-> > >
-> > >
-> > >
-> > ----------------------------------------------------------------------
-> > --------
-> > > Site24x7 APM Insight: Get Deep Visibility into Application
-> > > Performance APM + Mobile APM + RUM: Monitor 3 App instances at just
-> > > $35/Month Monitor end-to-end web transactions and take corrective
-> > > actions now Troubleshoot faster and improve end-user experience.
-> Signup Now!
-> > > http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
-> > > _______________________________________________
-> > > tipc-discussion mailing list
-> > > tipc-discussion@lists.sourceforge.net
-> > > https://lists.sourceforge.net/lists/listinfo/tipc-discussion
-> > ----------------------------------------------------------------------
-> > --------
-> > Site24x7 APM Insight: Get Deep Visibility into Application Performance
-> > APM
-> > + Mobile APM + RUM: Monitor 3 App instances at just $35/Month Monitor
-> > end-to-end web transactions and take corrective actions now
-> > Troubleshoot faster and improve end-user experience. Signup Now!
-> > http://pubads.g.doubleclick.net/gampad/clk?id=267308311&iu=/4140
-> > _______________________________________________
-> > tipc-discussion mailing list
-> > tipc-discussion@lists.sourceforge.net
-> > https://lists.sourceforge.net/lists/listinfo/tipc-discussion
+> > Thus, have two loops, one loop pulling out packet from the RX
+> > ring and starting the prefetching, and the second loop calling
+> > eth_type_trans() and invoking the stack via napi_gro_receive().
+> >
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> >
+> >
+> > Notes:
+> > This is the patch that gave a speed up of 6.2Mpps to 12Mpps, when
+> > trying to measure lowest RX level, by dropping the packets in the
+> > driver itself (marked drop point as comment).
+>  
+> Indeed looks very promising in respect of instruction-cache
+> optimization, but i have some doubts regarding the data-cache
+> optimizations (prefetch), please see my below questions.
+> 
+> We will take this patch and test it in house.
+> 
+> >
+> > For now, the ring is emptied upto the budget.  I don't know if it
+> > would be better to chunk it up more?  
+>
+> Not sure, according to netdevice.h :
+> 
+> /* Default NAPI poll() weight
+>  * Device drivers are strongly advised to not use bigger value
+>  */
+> #define NAPI_POLL_WEIGHT 64
+> 
+> we will also compare different budget values with your approach, but I
+> doubt it will be accepted to increase the NAPI_POLL_WEIGHT for mlx5
+> drivers. furthermore increasing NAPI poll budget might cause cache overflow
+> with this approach since you are chunking up all "prefetch(skb->data)"
+> (I didn't do the math yet in regards of cache utilization with this
+> approach).
 
-------------------------------------------------------------------------------
-Site24x7 APM Insight: Get Deep Visibility into Application Performance
-APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
-Monitor end-to-end web transactions and take corrective actions now
-Troubleshoot faster and improve end-user experience. Signup Now!
-http://pubads.g.doubleclick.net/gampad/clk?id=272487151&iu=/4140
+You misunderstood me... I don't want to increase the NAPI_POLL_WEIGHT.
+I want to keep the 64, but sort of split it up, and e.g. call the stack
+for each 16 packets. Due to cache-size limits...
+
+One approach could be to compare the HW skb->hash to prev packet, and
+exit loop if they don't match (and call netstack with this bundle).
+
+
+> >         mlx5e_handle_csum(netdev, cqe, rq, skb);
+> >
+> > -       skb->protocol = eth_type_trans(skb, netdev);
+> > -  
+>
+> mlx5e_handle_csum also access the skb->data in is_first_ethertype_ip
+> function, but i think it is not interesting since this is not the
+> common case,
+> e.g: for the none common case of L4 traffic with no HW checksum
+> offload you won't benefit from this optimization since we access the
+> skb->data to know the L3 header type, and this can be fixed in driver
+> code to check the CQE meta data for these fields instead of accessing
+> the skb->data, but I will need to look further into that.
+
+Okay, understood.  We should look into this too, but not as top priority.
+We can simply move mlx5e_handle_csum() like eth_type_trans().
+
+
+> > @@ -252,7 +257,6 @@ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
+> >                 wqe_counter    = be16_to_cpu(wqe_counter_be);
+> >                 wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
+> >                 skb            = rq->skb[wqe_counter];
+> > -               prefetch(skb->data);
+> >                 rq->skb[wqe_counter] = NULL;
+> >
+> >                 dma_unmap_single(rq->pdev,
+> > @@ -265,16 +269,27 @@ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
+> >                         dev_kfree_skb(skb);
+> >                         goto wq_ll_pop;
+> >                 }
+> > +               prefetch(skb->data);  
+>
+> is this optimal for all CPU archs ?
+
+For some CPU ARCHs the prefetch is compile time removed.
+
+> is it ok to use up to 64 cache lines at once ?
+
+That is not the problem, using 64 cache-lines * 64 = 4096 bytes.
+The BIOS/HW sometime also take next cache line => 8092 bytes.
+The problem is also SKB 4x cache-lines clearing = 16384 bytes.
+
+We should of-cause keep this CPU independent, but for Intel SandyBridge
+CPUs the optimal prefetch loop size is likely 10.
+
+Quote from Intels optimization manual:
+ The L1 DCache can handle multiple outstanding cache misses and continue
+ to service incoming stores and loads. Up to 10 requests of missing
+ cache lines can be managed simultaneously using the LFB (Line File Buffers).
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
