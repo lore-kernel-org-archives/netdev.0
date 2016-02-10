@@ -1,564 +1,233 @@
 From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH net-next v4 4/7] inet: refactor inet[6]_lookup functions to take skb
-Date: Wed, 10 Feb 2016 11:50:38 -0500
-Message-ID: <1455123041-22638-5-git-send-email-kraigatgoog@gmail.com>
+Subject: [PATCH net-next v4 2/7] inet: create IPv6-equivalent inet_hash function
+Date: Wed, 10 Feb 2016 11:50:36 -0500
+Message-ID: <1455123041-22638-3-git-send-email-kraigatgoog@gmail.com>
 References: <1455123041-22638-1-git-send-email-kraigatgoog@gmail.com>
 To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f42.google.com ([209.85.192.42]:34908 "EHLO
-	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753079AbcBJQux (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 11:50:53 -0500
-Received: by mail-qg0-f42.google.com with SMTP id y89so17968965qge.2
-        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 08:50:53 -0800 (PST)
+Received: from mail-qg0-f54.google.com ([209.85.192.54]:34507 "EHLO
+	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753057AbcBJQuu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 11:50:50 -0500
+Received: by mail-qg0-f54.google.com with SMTP id b67so17947442qgb.1
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 08:50:49 -0800 (PST)
 In-Reply-To: <1455123041-22638-1-git-send-email-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Craig Gallek <kraig@google.com>
 
-This is a preliminary step to allow fast socket lookup of SO_REUSEPORT
-groups.  Doing so with a BPF filter will require access to the
-skb in question.  This change plumbs the skb (and offset to payload
-data) through the call stack to the listening socket lookup
-implementations where it will be used in a following patch.
+In order to support fast lookups for TCP sockets with SO_REUSEPORT,
+the function that adds sockets to the listening hash set needs
+to be able to check receive address equality.  Since this equality
+check is different for IPv4 and IPv6, we will need two different
+socket hashing functions.
+
+This patch adds inet6_hash identical to the existing inet_hash function
+and updates the appropriate references.  A following patch will
+differentiate the two by passing different comparison functions to
+__inet_hash.
+
+Additionally, in order to use the IPv6 address equality function from
+inet6_hashtables (which is compiled as a built-in object when IPv6 is
+enabled) it also needs to be in a built-in object file as well.  This
+moves ipv6_rcv_saddr_equal into inet_hashtables to accomplish this.
 
 Signed-off-by: Craig Gallek <kraig@google.com>
 ---
- include/net/addrconf.h         |  2 ++
- include/net/inet6_hashtables.h | 11 +++++++----
- include/net/inet_hashtables.h  | 18 ++++++++++++------
- net/dccp/ipv4.c                |  2 +-
+ include/net/inet6_hashtables.h |  2 ++
  net/dccp/ipv6.c                |  2 +-
- net/ipv4/inet_diag.c           |  6 +++---
- net/ipv4/inet_hashtables.c     |  1 +
- net/ipv4/tcp_ipv4.c            | 10 ++++++----
- net/ipv6/inet6_hashtables.c    |  8 ++++++--
- net/ipv6/tcp_ipv6.c            |  8 +++++---
- net/netfilter/xt_TPROXY.c      | 31 ++++++++++++++++++++-----------
- net/netfilter/xt_socket.c      | 28 +++++++++++++++++++++-------
- 12 files changed, 85 insertions(+), 42 deletions(-)
+ net/ipv6/inet6_hashtables.c    | 56 ++++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/tcp_ipv6.c            |  2 +-
+ net/ipv6/udp.c                 | 44 +--------------------------------
+ net/l2tp/l2tp_ip6.c            |  3 ++-
+ 6 files changed, 63 insertions(+), 46 deletions(-)
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 47f52d3cd8df..730d856683e5 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -87,6 +87,8 @@ int __ipv6_get_lladdr(struct inet6_dev *idev, struct in6_addr *addr,
- 		      u32 banned_flags);
- int ipv6_get_lladdr(struct net_device *dev, struct in6_addr *addr,
- 		    u32 banned_flags);
-+int ipv4_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
-+			 bool match_wildcard);
- int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
- 			 bool match_wildcard);
- void addrconf_join_solict(struct net_device *dev, const struct in6_addr *addr);
 diff --git a/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
-index b3c28a9dfbf1..28332bdac333 100644
+index 7ff588ca6817..b3c28a9dfbf1 100644
 --- a/include/net/inet6_hashtables.h
 +++ b/include/net/inet6_hashtables.h
-@@ -53,6 +53,7 @@ struct sock *__inet6_lookup_established(struct net *net,
- 
- struct sock *inet6_lookup_listener(struct net *net,
- 				   struct inet_hashinfo *hashinfo,
-+				   struct sk_buff *skb, int doff,
- 				   const struct in6_addr *saddr,
- 				   const __be16 sport,
- 				   const struct in6_addr *daddr,
-@@ -60,6 +61,7 @@ struct sock *inet6_lookup_listener(struct net *net,
- 
- static inline struct sock *__inet6_lookup(struct net *net,
- 					  struct inet_hashinfo *hashinfo,
-+					  struct sk_buff *skb, int doff,
- 					  const struct in6_addr *saddr,
- 					  const __be16 sport,
- 					  const struct in6_addr *daddr,
-@@ -71,12 +73,12 @@ static inline struct sock *__inet6_lookup(struct net *net,
- 	if (sk)
- 		return sk;
- 
--	return inet6_lookup_listener(net, hashinfo, saddr, sport,
-+	return inet6_lookup_listener(net, hashinfo, skb, doff, saddr, sport,
- 				     daddr, hnum, dif);
- }
- 
- static inline struct sock *__inet6_lookup_skb(struct inet_hashinfo *hashinfo,
--					      struct sk_buff *skb,
-+					      struct sk_buff *skb, int doff,
- 					      const __be16 sport,
- 					      const __be16 dport,
- 					      int iif)
-@@ -86,13 +88,14 @@ static inline struct sock *__inet6_lookup_skb(struct inet_hashinfo *hashinfo,
- 	if (sk)
- 		return sk;
- 
--	return __inet6_lookup(dev_net(skb_dst(skb)->dev), hashinfo,
--			      &ipv6_hdr(skb)->saddr, sport,
-+	return __inet6_lookup(dev_net(skb_dst(skb)->dev), hashinfo, skb,
-+			      doff, &ipv6_hdr(skb)->saddr, sport,
- 			      &ipv6_hdr(skb)->daddr, ntohs(dport),
- 			      iif);
- }
- 
- struct sock *inet6_lookup(struct net *net, struct inet_hashinfo *hashinfo,
-+			  struct sk_buff *skb, int doff,
+@@ -96,6 +96,8 @@ struct sock *inet6_lookup(struct net *net, struct inet_hashinfo *hashinfo,
  			  const struct in6_addr *saddr, const __be16 sport,
  			  const struct in6_addr *daddr, const __be16 dport,
  			  const int dif);
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 554440e7f83d..82403390af58 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -213,6 +213,7 @@ void inet_unhash(struct sock *sk);
++
++int inet6_hash(struct sock *sk);
+ #endif /* IS_ENABLED(CONFIG_IPV6) */
  
- struct sock *__inet_lookup_listener(struct net *net,
- 				    struct inet_hashinfo *hashinfo,
-+				    struct sk_buff *skb, int doff,
- 				    const __be32 saddr, const __be16 sport,
- 				    const __be32 daddr,
- 				    const unsigned short hnum,
-@@ -220,10 +221,11 @@ struct sock *__inet_lookup_listener(struct net *net,
- 
- static inline struct sock *inet_lookup_listener(struct net *net,
- 		struct inet_hashinfo *hashinfo,
-+		struct sk_buff *skb, int doff,
- 		__be32 saddr, __be16 sport,
- 		__be32 daddr, __be16 dport, int dif)
- {
--	return __inet_lookup_listener(net, hashinfo, saddr, sport,
-+	return __inet_lookup_listener(net, hashinfo, skb, doff, saddr, sport,
- 				      daddr, ntohs(dport), dif);
- }
- 
-@@ -299,6 +301,7 @@ static inline struct sock *
- 
- static inline struct sock *__inet_lookup(struct net *net,
- 					 struct inet_hashinfo *hashinfo,
-+					 struct sk_buff *skb, int doff,
- 					 const __be32 saddr, const __be16 sport,
- 					 const __be32 daddr, const __be16 dport,
- 					 const int dif)
-@@ -307,12 +310,13 @@ static inline struct sock *__inet_lookup(struct net *net,
- 	struct sock *sk = __inet_lookup_established(net, hashinfo,
- 				saddr, sport, daddr, hnum, dif);
- 
--	return sk ? : __inet_lookup_listener(net, hashinfo, saddr, sport,
--					     daddr, hnum, dif);
-+	return sk ? : __inet_lookup_listener(net, hashinfo, skb, doff, saddr,
-+					     sport, daddr, hnum, dif);
- }
- 
- static inline struct sock *inet_lookup(struct net *net,
- 				       struct inet_hashinfo *hashinfo,
-+				       struct sk_buff *skb, int doff,
- 				       const __be32 saddr, const __be16 sport,
- 				       const __be32 daddr, const __be16 dport,
- 				       const int dif)
-@@ -320,7 +324,8 @@ static inline struct sock *inet_lookup(struct net *net,
- 	struct sock *sk;
- 
- 	local_bh_disable();
--	sk = __inet_lookup(net, hashinfo, saddr, sport, daddr, dport, dif);
-+	sk = __inet_lookup(net, hashinfo, skb, doff, saddr, sport, daddr,
-+			   dport, dif);
- 	local_bh_enable();
- 
- 	return sk;
-@@ -328,6 +333,7 @@ static inline struct sock *inet_lookup(struct net *net,
- 
- static inline struct sock *__inet_lookup_skb(struct inet_hashinfo *hashinfo,
- 					     struct sk_buff *skb,
-+					     int doff,
- 					     const __be16 sport,
- 					     const __be16 dport)
- {
-@@ -337,8 +343,8 @@ static inline struct sock *__inet_lookup_skb(struct inet_hashinfo *hashinfo,
- 	if (sk)
- 		return sk;
- 	else
--		return __inet_lookup(dev_net(skb_dst(skb)->dev), hashinfo,
--				     iph->saddr, sport,
-+		return __inet_lookup(dev_net(skb_dst(skb)->dev), hashinfo, skb,
-+				     doff, iph->saddr, sport,
- 				     iph->daddr, dport, inet_iif(skb));
- }
- 
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 5684e14932bd..1e0c600c83ae 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -802,7 +802,7 @@ static int dccp_v4_rcv(struct sk_buff *skb)
- 	}
- 
- lookup:
--	sk = __inet_lookup_skb(&dccp_hashinfo, skb,
-+	sk = __inet_lookup_skb(&dccp_hashinfo, skb, __dccp_hdr_len(dh),
- 			       dh->dccph_sport, dh->dccph_dport);
- 	if (!sk) {
- 		dccp_pr_debug("failed to look up flow ID in table and "
+ #define INET6_MATCH(__sk, __net, __saddr, __daddr, __ports, __dif)	\
 diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 90a8269b28d0..45cbe85f0940 100644
+index 9c6d0508e63a..90a8269b28d0 100644
 --- a/net/dccp/ipv6.c
 +++ b/net/dccp/ipv6.c
-@@ -668,7 +668,7 @@ static int dccp_v6_rcv(struct sk_buff *skb)
- 		DCCP_SKB_CB(skb)->dccpd_ack_seq = dccp_hdr_ack_seq(skb);
- 
- lookup:
--	sk = __inet6_lookup_skb(&dccp_hashinfo, skb,
-+	sk = __inet6_lookup_skb(&dccp_hashinfo, skb, __dccp_hdr_len(dh),
- 			        dh->dccph_sport, dh->dccph_dport,
- 				inet6_iif(skb));
- 	if (!sk) {
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 6029157a19ed..50c0d96b8441 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -357,18 +357,18 @@ struct sock *inet_diag_find_one_icsk(struct net *net,
- 	struct sock *sk;
- 
- 	if (req->sdiag_family == AF_INET)
--		sk = inet_lookup(net, hashinfo, req->id.idiag_dst[0],
-+		sk = inet_lookup(net, hashinfo, NULL, 0, req->id.idiag_dst[0],
- 				 req->id.idiag_dport, req->id.idiag_src[0],
- 				 req->id.idiag_sport, req->id.idiag_if);
- #if IS_ENABLED(CONFIG_IPV6)
- 	else if (req->sdiag_family == AF_INET6) {
- 		if (ipv6_addr_v4mapped((struct in6_addr *)req->id.idiag_dst) &&
- 		    ipv6_addr_v4mapped((struct in6_addr *)req->id.idiag_src))
--			sk = inet_lookup(net, hashinfo, req->id.idiag_dst[3],
-+			sk = inet_lookup(net, hashinfo, NULL, 0, req->id.idiag_dst[3],
- 					 req->id.idiag_dport, req->id.idiag_src[3],
- 					 req->id.idiag_sport, req->id.idiag_if);
- 		else
--			sk = inet6_lookup(net, hashinfo,
-+			sk = inet6_lookup(net, hashinfo, NULL, 0,
- 					  (struct in6_addr *)req->id.idiag_dst,
- 					  req->id.idiag_dport,
- 					  (struct in6_addr *)req->id.idiag_src,
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index b6023b7baae0..5e4290b83255 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -205,6 +205,7 @@ static inline int compute_score(struct sock *sk, struct net *net,
- 
- struct sock *__inet_lookup_listener(struct net *net,
- 				    struct inet_hashinfo *hashinfo,
-+				    struct sk_buff *skb, int doff,
- 				    const __be32 saddr, __be16 sport,
- 				    const __be32 daddr, const unsigned short hnum,
- 				    const int dif)
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 0d381fa164f8..3f872a6bc274 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -637,8 +637,8 @@ static void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb)
- 		 * Incoming packet is checked with md5 hash with finding key,
- 		 * no RST generated if md5 hash doesn't match.
- 		 */
--		sk1 = __inet_lookup_listener(net,
--					     &tcp_hashinfo, ip_hdr(skb)->saddr,
-+		sk1 = __inet_lookup_listener(net, &tcp_hashinfo, NULL, 0,
-+					     ip_hdr(skb)->saddr,
- 					     th->source, ip_hdr(skb)->daddr,
- 					     ntohs(th->source), inet_iif(skb));
- 		/* don't send rst if it can't find key */
-@@ -1581,7 +1581,8 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 	TCP_SKB_CB(skb)->sacked	 = 0;
- 
- lookup:
--	sk = __inet_lookup_skb(&tcp_hashinfo, skb, th->source, th->dest);
-+	sk = __inet_lookup_skb(&tcp_hashinfo, skb, __tcp_hdrlen(th), th->source,
-+			       th->dest);
- 	if (!sk)
- 		goto no_tcp_socket;
- 
-@@ -1695,7 +1696,8 @@ do_time_wait:
- 	switch (tcp_timewait_state_process(inet_twsk(sk), skb, th)) {
- 	case TCP_TW_SYN: {
- 		struct sock *sk2 = inet_lookup_listener(dev_net(skb->dev),
--							&tcp_hashinfo,
-+							&tcp_hashinfo, skb,
-+							__tcp_hdrlen(th),
- 							iph->saddr, th->source,
- 							iph->daddr, th->dest,
- 							inet_iif(skb));
+@@ -993,7 +993,7 @@ static struct proto dccp_v6_prot = {
+ 	.sendmsg	   = dccp_sendmsg,
+ 	.recvmsg	   = dccp_recvmsg,
+ 	.backlog_rcv	   = dccp_v6_do_rcv,
+-	.hash		   = inet_hash,
++	.hash		   = inet6_hash,
+ 	.unhash		   = inet_unhash,
+ 	.accept		   = inet_csk_accept,
+ 	.get_port	   = inet_csk_get_port,
 diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 072653dd9c98..004345d26808 100644
+index 21ace5a2bf7c..072653dd9c98 100644
 --- a/net/ipv6/inet6_hashtables.c
 +++ b/net/ipv6/inet6_hashtables.c
-@@ -121,7 +121,9 @@ static inline int compute_score(struct sock *sk, struct net *net,
+@@ -274,3 +274,59 @@ int inet6_hash_connect(struct inet_timewait_death_row *death_row,
+ 				   __inet6_check_established);
  }
- 
- struct sock *inet6_lookup_listener(struct net *net,
--		struct inet_hashinfo *hashinfo, const struct in6_addr *saddr,
-+		struct inet_hashinfo *hashinfo,
-+		struct sk_buff *skb, int doff,
-+		const struct in6_addr *saddr,
- 		const __be16 sport, const struct in6_addr *daddr,
- 		const unsigned short hnum, const int dif)
- {
-@@ -177,6 +179,7 @@ begin:
- EXPORT_SYMBOL_GPL(inet6_lookup_listener);
- 
- struct sock *inet6_lookup(struct net *net, struct inet_hashinfo *hashinfo,
-+			  struct sk_buff *skb, int doff,
- 			  const struct in6_addr *saddr, const __be16 sport,
- 			  const struct in6_addr *daddr, const __be16 dport,
- 			  const int dif)
-@@ -184,7 +187,8 @@ struct sock *inet6_lookup(struct net *net, struct inet_hashinfo *hashinfo,
- 	struct sock *sk;
- 
- 	local_bh_disable();
--	sk = __inet6_lookup(net, hashinfo, saddr, sport, daddr, ntohs(dport), dif);
-+	sk = __inet6_lookup(net, hashinfo, skb, doff, saddr, sport, daddr,
-+			    ntohs(dport), dif);
- 	local_bh_enable();
- 
- 	return sk;
+ EXPORT_SYMBOL_GPL(inet6_hash_connect);
++
++int inet6_hash(struct sock *sk)
++{
++	if (sk->sk_state != TCP_CLOSE) {
++		local_bh_disable();
++		__inet_hash(sk, NULL);
++		local_bh_enable();
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(inet6_hash);
++
++/* match_wildcard == true:  IPV6_ADDR_ANY equals to any IPv6 addresses if IPv6
++ *                          only, and any IPv4 addresses if not IPv6 only
++ * match_wildcard == false: addresses must be exactly the same, i.e.
++ *                          IPV6_ADDR_ANY only equals to IPV6_ADDR_ANY,
++ *                          and 0.0.0.0 equals to 0.0.0.0 only
++ */
++int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
++			 bool match_wildcard)
++{
++	const struct in6_addr *sk2_rcv_saddr6 = inet6_rcv_saddr(sk2);
++	int sk2_ipv6only = inet_v6_ipv6only(sk2);
++	int addr_type = ipv6_addr_type(&sk->sk_v6_rcv_saddr);
++	int addr_type2 = sk2_rcv_saddr6 ? ipv6_addr_type(sk2_rcv_saddr6) : IPV6_ADDR_MAPPED;
++
++	/* if both are mapped, treat as IPv4 */
++	if (addr_type == IPV6_ADDR_MAPPED && addr_type2 == IPV6_ADDR_MAPPED) {
++		if (!sk2_ipv6only) {
++			if (sk->sk_rcv_saddr == sk2->sk_rcv_saddr)
++				return 1;
++			if (!sk->sk_rcv_saddr || !sk2->sk_rcv_saddr)
++				return match_wildcard;
++		}
++		return 0;
++	}
++
++	if (addr_type == IPV6_ADDR_ANY && addr_type2 == IPV6_ADDR_ANY)
++		return 1;
++
++	if (addr_type2 == IPV6_ADDR_ANY && match_wildcard &&
++	    !(sk2_ipv6only && addr_type == IPV6_ADDR_MAPPED))
++		return 1;
++
++	if (addr_type == IPV6_ADDR_ANY && match_wildcard &&
++	    !(ipv6_only_sock(sk) && addr_type2 == IPV6_ADDR_MAPPED))
++		return 1;
++
++	if (sk2_rcv_saddr6 &&
++	    ipv6_addr_equal(&sk->sk_v6_rcv_saddr, sk2_rcv_saddr6))
++		return 1;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(ipv6_rcv_saddr_equal);
 diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index d72bcfb326d8..9977b6f19f2a 100644
+index 006396e31cb0..d72bcfb326d8 100644
 --- a/net/ipv6/tcp_ipv6.c
 +++ b/net/ipv6/tcp_ipv6.c
-@@ -866,7 +866,8 @@ static void tcp_v6_send_reset(const struct sock *sk, struct sk_buff *skb)
- 		 * no RST generated if md5 hash doesn't match.
- 		 */
- 		sk1 = inet6_lookup_listener(dev_net(skb_dst(skb)->dev),
--					   &tcp_hashinfo, &ipv6h->saddr,
-+					   &tcp_hashinfo, NULL, 0,
-+					   &ipv6h->saddr,
- 					   th->source, &ipv6h->daddr,
- 					   ntohs(th->source), tcp_v6_iif(skb));
- 		if (!sk1)
-@@ -1375,8 +1376,8 @@ static int tcp_v6_rcv(struct sk_buff *skb)
- 	hdr = ipv6_hdr(skb);
+@@ -1865,7 +1865,7 @@ struct proto tcpv6_prot = {
+ 	.sendpage		= tcp_sendpage,
+ 	.backlog_rcv		= tcp_v6_do_rcv,
+ 	.release_cb		= tcp_release_cb,
+-	.hash			= inet_hash,
++	.hash			= inet6_hash,
+ 	.unhash			= inet_unhash,
+ 	.get_port		= inet_csk_get_port,
+ 	.enter_memory_pressure	= tcp_enter_memory_pressure,
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 22e28a44e3c8..ac4e7e03dded 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -37,6 +37,7 @@
+ #include <linux/slab.h>
+ #include <asm/uaccess.h>
  
- lookup:
--	sk = __inet6_lookup_skb(&tcp_hashinfo, skb, th->source, th->dest,
--				inet6_iif(skb));
-+	sk = __inet6_lookup_skb(&tcp_hashinfo, skb, __tcp_hdrlen(th),
-+				th->source, th->dest, inet6_iif(skb));
- 	if (!sk)
- 		goto no_tcp_socket;
- 
-@@ -1500,6 +1501,7 @@ do_time_wait:
- 		struct sock *sk2;
- 
- 		sk2 = inet6_lookup_listener(dev_net(skb->dev), &tcp_hashinfo,
-+					    skb, __tcp_hdrlen(th),
- 					    &ipv6_hdr(skb)->saddr, th->source,
- 					    &ipv6_hdr(skb)->daddr,
- 					    ntohs(th->dest), tcp_v6_iif(skb));
-diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-index 3ab591e73ec0..7f4414d26a66 100644
---- a/net/netfilter/xt_TPROXY.c
-+++ b/net/netfilter/xt_TPROXY.c
-@@ -105,19 +105,24 @@ tproxy_laddr4(struct sk_buff *skb, __be32 user_laddr, __be32 daddr)
-  * belonging to established connections going through that one.
-  */
- static inline struct sock *
--nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
-+nf_tproxy_get_sock_v4(struct net *net, struct sk_buff *skb, void *hp,
-+		      const u8 protocol,
- 		      const __be32 saddr, const __be32 daddr,
- 		      const __be16 sport, const __be16 dport,
- 		      const struct net_device *in,
- 		      const enum nf_tproxy_lookup_t lookup_type)
- {
- 	struct sock *sk;
-+	struct tcphdr *tcph;
- 
- 	switch (protocol) {
- 	case IPPROTO_TCP:
- 		switch (lookup_type) {
- 		case NFT_LOOKUP_LISTENER:
--			sk = inet_lookup_listener(net, &tcp_hashinfo,
-+			tcph = hp;
-+			sk = inet_lookup_listener(net, &tcp_hashinfo, skb,
-+						    ip_hdrlen(skb) +
-+						      __tcp_hdrlen(tcph),
- 						    saddr, sport,
- 						    daddr, dport,
- 						    in->ifindex);
-@@ -169,19 +174,23 @@ nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
- 
- #ifdef XT_TPROXY_HAVE_IPV6
- static inline struct sock *
--nf_tproxy_get_sock_v6(struct net *net, const u8 protocol,
-+nf_tproxy_get_sock_v6(struct net *net, struct sk_buff *skb, int thoff, void *hp,
-+		      const u8 protocol,
- 		      const struct in6_addr *saddr, const struct in6_addr *daddr,
- 		      const __be16 sport, const __be16 dport,
- 		      const struct net_device *in,
- 		      const enum nf_tproxy_lookup_t lookup_type)
- {
- 	struct sock *sk;
-+	struct tcphdr *tcph;
- 
- 	switch (protocol) {
- 	case IPPROTO_TCP:
- 		switch (lookup_type) {
- 		case NFT_LOOKUP_LISTENER:
--			sk = inet6_lookup_listener(net, &tcp_hashinfo,
-+			tcph = hp;
-+			sk = inet6_lookup_listener(net, &tcp_hashinfo, skb,
-+						   thoff + __tcp_hdrlen(tcph),
- 						   saddr, sport,
- 						   daddr, ntohs(dport),
- 						   in->ifindex);
-@@ -267,7 +276,7 @@ tproxy_handle_time_wait4(struct net *net, struct sk_buff *skb,
- 		 * to a listener socket if there's one */
- 		struct sock *sk2;
- 
--		sk2 = nf_tproxy_get_sock_v4(net, iph->protocol,
-+		sk2 = nf_tproxy_get_sock_v4(net, skb, hp, iph->protocol,
- 					    iph->saddr, laddr ? laddr : iph->daddr,
- 					    hp->source, lport ? lport : hp->dest,
- 					    skb->dev, NFT_LOOKUP_LISTENER);
-@@ -305,7 +314,7 @@ tproxy_tg4(struct net *net, struct sk_buff *skb, __be32 laddr, __be16 lport,
- 	 * addresses, this happens if the redirect already happened
- 	 * and the current packet belongs to an already established
- 	 * connection */
--	sk = nf_tproxy_get_sock_v4(net, iph->protocol,
-+	sk = nf_tproxy_get_sock_v4(net, skb, hp, iph->protocol,
- 				   iph->saddr, iph->daddr,
- 				   hp->source, hp->dest,
- 				   skb->dev, NFT_LOOKUP_ESTABLISHED);
-@@ -321,7 +330,7 @@ tproxy_tg4(struct net *net, struct sk_buff *skb, __be32 laddr, __be16 lport,
- 	else if (!sk)
- 		/* no, there's no established connection, check if
- 		 * there's a listener on the redirected addr/port */
--		sk = nf_tproxy_get_sock_v4(net, iph->protocol,
-+		sk = nf_tproxy_get_sock_v4(net, skb, hp, iph->protocol,
- 					   iph->saddr, laddr,
- 					   hp->source, lport,
- 					   skb->dev, NFT_LOOKUP_LISTENER);
-@@ -429,7 +438,7 @@ tproxy_handle_time_wait6(struct sk_buff *skb, int tproto, int thoff,
- 		 * to a listener socket if there's one */
- 		struct sock *sk2;
- 
--		sk2 = nf_tproxy_get_sock_v6(par->net, tproto,
-+		sk2 = nf_tproxy_get_sock_v6(par->net, skb, thoff, hp, tproto,
- 					    &iph->saddr,
- 					    tproxy_laddr6(skb, &tgi->laddr.in6, &iph->daddr),
- 					    hp->source,
-@@ -472,7 +481,7 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_action_param *par)
- 	 * addresses, this happens if the redirect already happened
- 	 * and the current packet belongs to an already established
- 	 * connection */
--	sk = nf_tproxy_get_sock_v6(par->net, tproto,
-+	sk = nf_tproxy_get_sock_v6(par->net, skb, thoff, hp, tproto,
- 				   &iph->saddr, &iph->daddr,
- 				   hp->source, hp->dest,
- 				   par->in, NFT_LOOKUP_ESTABLISHED);
-@@ -487,8 +496,8 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_action_param *par)
- 	else if (!sk)
- 		/* no there's no established connection, check if
- 		 * there's a listener on the redirected addr/port */
--		sk = nf_tproxy_get_sock_v6(par->net, tproto,
--					   &iph->saddr, laddr,
-+		sk = nf_tproxy_get_sock_v6(par->net, skb, thoff, hp,
-+					   tproto, &iph->saddr, laddr,
- 					   hp->source, lport,
- 					   par->in, NFT_LOOKUP_LISTENER);
- 
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
-index 2ec08f04b816..49d14ecad444 100644
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -112,14 +112,15 @@ extract_icmp4_fields(const struct sk_buff *skb,
-  *     box.
-  */
- static struct sock *
--xt_socket_get_sock_v4(struct net *net, const u8 protocol,
-+xt_socket_get_sock_v4(struct net *net, struct sk_buff *skb, const int doff,
-+		      const u8 protocol,
- 		      const __be32 saddr, const __be32 daddr,
- 		      const __be16 sport, const __be16 dport,
- 		      const struct net_device *in)
- {
- 	switch (protocol) {
- 	case IPPROTO_TCP:
--		return __inet_lookup(net, &tcp_hashinfo,
-+		return __inet_lookup(net, &tcp_hashinfo, skb, doff,
- 				     saddr, sport, daddr, dport,
- 				     in->ifindex);
- 	case IPPROTO_UDP:
-@@ -148,6 +149,8 @@ static struct sock *xt_socket_lookup_slow_v4(struct net *net,
- 					     const struct net_device *indev)
- {
- 	const struct iphdr *iph = ip_hdr(skb);
-+	struct sk_buff *data_skb = NULL;
-+	int doff = 0;
- 	__be32 uninitialized_var(daddr), uninitialized_var(saddr);
- 	__be16 uninitialized_var(dport), uninitialized_var(sport);
- 	u8 uninitialized_var(protocol);
-@@ -169,6 +172,10 @@ static struct sock *xt_socket_lookup_slow_v4(struct net *net,
- 		sport = hp->source;
- 		daddr = iph->daddr;
- 		dport = hp->dest;
-+		data_skb = (struct sk_buff *)skb;
-+		doff = iph->protocol == IPPROTO_TCP ?
-+			ip_hdrlen(skb) + __tcp_hdrlen((struct tcphdr *)hp) :
-+			ip_hdrlen(skb) + sizeof(*hp);
- 
- 	} else if (iph->protocol == IPPROTO_ICMP) {
- 		if (extract_icmp4_fields(skb, &protocol, &saddr, &daddr,
-@@ -198,8 +205,8 @@ static struct sock *xt_socket_lookup_slow_v4(struct net *net,
- 	}
- #endif
- 
--	return xt_socket_get_sock_v4(net, protocol, saddr, daddr,
--				     sport, dport, indev);
-+	return xt_socket_get_sock_v4(net, data_skb, doff, protocol, saddr,
-+				     daddr, sport, dport, indev);
++#include <net/addrconf.h>
+ #include <net/ndisc.h>
+ #include <net/protocol.h>
+ #include <net/transp_v6.h>
+@@ -77,49 +78,6 @@ static u32 udp6_ehashfn(const struct net *net,
+ 			       udp_ipv6_hash_secret + net_hash_mix(net));
  }
  
- static bool
-@@ -318,14 +325,15 @@ extract_icmp6_fields(const struct sk_buff *skb,
- }
- 
- static struct sock *
--xt_socket_get_sock_v6(struct net *net, const u8 protocol,
-+xt_socket_get_sock_v6(struct net *net, struct sk_buff *skb, int doff,
-+		      const u8 protocol,
- 		      const struct in6_addr *saddr, const struct in6_addr *daddr,
- 		      const __be16 sport, const __be16 dport,
- 		      const struct net_device *in)
- {
- 	switch (protocol) {
- 	case IPPROTO_TCP:
--		return inet6_lookup(net, &tcp_hashinfo,
-+		return inet6_lookup(net, &tcp_hashinfo, skb, doff,
- 				    saddr, sport, daddr, dport,
- 				    in->ifindex);
- 	case IPPROTO_UDP:
-@@ -343,6 +351,8 @@ static struct sock *xt_socket_lookup_slow_v6(struct net *net,
- 	__be16 uninitialized_var(dport), uninitialized_var(sport);
- 	const struct in6_addr *daddr = NULL, *saddr = NULL;
- 	struct ipv6hdr *iph = ipv6_hdr(skb);
-+	struct sk_buff *data_skb = NULL;
-+	int doff = 0;
- 	int thoff = 0, tproto;
- 
- 	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL, NULL);
-@@ -362,6 +372,10 @@ static struct sock *xt_socket_lookup_slow_v6(struct net *net,
- 		sport = hp->source;
- 		daddr = &iph->daddr;
- 		dport = hp->dest;
-+		data_skb = (struct sk_buff *)skb;
-+		doff = tproto == IPPROTO_TCP ?
-+			thoff + __tcp_hdrlen((struct tcphdr *)hp) :
-+			thoff + sizeof(*hp);
- 
- 	} else if (tproto == IPPROTO_ICMPV6) {
- 		struct ipv6hdr ipv6_var;
-@@ -373,7 +387,7 @@ static struct sock *xt_socket_lookup_slow_v6(struct net *net,
- 		return NULL;
- 	}
- 
--	return xt_socket_get_sock_v6(net, tproto, saddr, daddr,
-+	return xt_socket_get_sock_v6(net, data_skb, doff, tproto, saddr, daddr,
- 				     sport, dport, indev);
- }
- 
+-/* match_wildcard == true:  IPV6_ADDR_ANY equals to any IPv6 addresses if IPv6
+- *                          only, and any IPv4 addresses if not IPv6 only
+- * match_wildcard == false: addresses must be exactly the same, i.e.
+- *                          IPV6_ADDR_ANY only equals to IPV6_ADDR_ANY,
+- *                          and 0.0.0.0 equals to 0.0.0.0 only
+- */
+-int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
+-			 bool match_wildcard)
+-{
+-	const struct in6_addr *sk2_rcv_saddr6 = inet6_rcv_saddr(sk2);
+-	int sk2_ipv6only = inet_v6_ipv6only(sk2);
+-	int addr_type = ipv6_addr_type(&sk->sk_v6_rcv_saddr);
+-	int addr_type2 = sk2_rcv_saddr6 ? ipv6_addr_type(sk2_rcv_saddr6) : IPV6_ADDR_MAPPED;
+-
+-	/* if both are mapped, treat as IPv4 */
+-	if (addr_type == IPV6_ADDR_MAPPED && addr_type2 == IPV6_ADDR_MAPPED) {
+-		if (!sk2_ipv6only) {
+-			if (sk->sk_rcv_saddr == sk2->sk_rcv_saddr)
+-				return 1;
+-			if (!sk->sk_rcv_saddr || !sk2->sk_rcv_saddr)
+-				return match_wildcard;
+-		}
+-		return 0;
+-	}
+-
+-	if (addr_type == IPV6_ADDR_ANY && addr_type2 == IPV6_ADDR_ANY)
+-		return 1;
+-
+-	if (addr_type2 == IPV6_ADDR_ANY && match_wildcard &&
+-	    !(sk2_ipv6only && addr_type == IPV6_ADDR_MAPPED))
+-		return 1;
+-
+-	if (addr_type == IPV6_ADDR_ANY && match_wildcard &&
+-	    !(ipv6_only_sock(sk) && addr_type2 == IPV6_ADDR_MAPPED))
+-		return 1;
+-
+-	if (sk2_rcv_saddr6 &&
+-	    ipv6_addr_equal(&sk->sk_v6_rcv_saddr, sk2_rcv_saddr6))
+-		return 1;
+-
+-	return 0;
+-}
+-
+ static u32 udp6_portaddr_hash(const struct net *net,
+ 			      const struct in6_addr *addr6,
+ 			      unsigned int port)
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index a2c8747d2936..6b54ff3ff4cb 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -25,6 +25,7 @@
+ #include <net/udp.h>
+ #include <net/inet_common.h>
+ #include <net/inet_hashtables.h>
++#include <net/inet6_hashtables.h>
+ #include <net/tcp_states.h>
+ #include <net/protocol.h>
+ #include <net/xfrm.h>
+@@ -718,7 +719,7 @@ static struct proto l2tp_ip6_prot = {
+ 	.sendmsg	   = l2tp_ip6_sendmsg,
+ 	.recvmsg	   = l2tp_ip6_recvmsg,
+ 	.backlog_rcv	   = l2tp_ip6_backlog_recv,
+-	.hash		   = inet_hash,
++	.hash		   = inet6_hash,
+ 	.unhash		   = inet_unhash,
+ 	.obj_size	   = sizeof(struct l2tp_ip6_sock),
+ #ifdef CONFIG_COMPAT
 -- 
 2.7.0.rc3.207.g0ac5344
