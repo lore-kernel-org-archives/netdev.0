@@ -1,353 +1,530 @@
 From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH net-next v4 6/7] soreuseport: fast reuseport TCP socket selection
-Date: Wed, 10 Feb 2016 11:50:40 -0500
-Message-ID: <1455123041-22638-7-git-send-email-kraigatgoog@gmail.com>
+Subject: [PATCH net-next v4 7/7] soreuseport: BPF selection functional test for TCP
+Date: Wed, 10 Feb 2016 11:50:41 -0500
+Message-ID: <1455123041-22638-8-git-send-email-kraigatgoog@gmail.com>
 References: <1455123041-22638-1-git-send-email-kraigatgoog@gmail.com>
 To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:36671 "EHLO
-	mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753079AbcBJQu5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 11:50:57 -0500
-Received: by mail-qk0-f181.google.com with SMTP id s68so8944702qkh.3
-        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 08:50:56 -0800 (PST)
+Received: from mail-qg0-f54.google.com ([209.85.192.54]:34985 "EHLO
+	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753104AbcBJQu6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 11:50:58 -0500
+Received: by mail-qg0-f54.google.com with SMTP id y89so17971276qge.2
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 08:50:58 -0800 (PST)
 In-Reply-To: <1455123041-22638-1-git-send-email-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Craig Gallek <kraig@google.com>
 
-This change extends the fast SO_REUSEPORT socket lookup implemented
-for UDP to TCP.  Listener sockets with SO_REUSEPORT and the same
-receive address are additionally added to an array for faster
-random access.  This means that only a single socket from the group
-must be found in the listener list before any socket in the group can
-be used to receive a packet.  Previously, every socket in the group
-needed to be considered before handing off the incoming packet.
+Unfortunately the existing test relied on packet payload in order to
+map incoming packets to sockets.  In order to get this to work with TCP,
+TCP_FASTOPEN needed to be used.
 
-This feature also exposes the ability to use a BPF program when
-selecting a socket from a reuseport group.
+Since the fast open path is slightly different than the standard TCP path,
+I created a second test which sends to reuseport group members based
+on receiving cpu core id.  This will probably serve as a better
+real-world example use as well.
 
 Signed-off-by: Craig Gallek <kraig@google.com>
 ---
- include/net/inet_hashtables.h    |  5 +++-
- net/ipv4/inet_connection_sock.c  | 14 ++++++---
- net/ipv4/inet_hashtables.c       | 64 +++++++++++++++++++++++++++++++++++++---
- net/ipv4/udp.c                   |  4 +--
- net/ipv6/inet6_connection_sock.c |  2 ++
- net/ipv6/inet6_hashtables.c      | 16 +++++++++-
- 6 files changed, 93 insertions(+), 12 deletions(-)
+ tools/testing/selftests/net/.gitignore          |   1 +
+ tools/testing/selftests/net/Makefile            |   2 +-
+ tools/testing/selftests/net/reuseport_bpf.c     | 117 ++++++++++-
+ tools/testing/selftests/net/reuseport_bpf_cpu.c | 258 ++++++++++++++++++++++++
+ 4 files changed, 370 insertions(+), 8 deletions(-)
+ create mode 100644 tools/testing/selftests/net/reuseport_bpf_cpu.c
 
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 82403390af58..50f635c2c536 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -207,7 +207,10 @@ void inet_hashinfo_init(struct inet_hashinfo *h);
+diff --git a/tools/testing/selftests/net/.gitignore b/tools/testing/selftests/net/.gitignore
+index 6fb23366b258..69bb3fc38fb2 100644
+--- a/tools/testing/selftests/net/.gitignore
++++ b/tools/testing/selftests/net/.gitignore
+@@ -2,3 +2,4 @@ socket
+ psock_fanout
+ psock_tpacket
+ reuseport_bpf
++reuseport_bpf_cpu
+diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
+index 41449b5ad0a9..c658792d47b4 100644
+--- a/tools/testing/selftests/net/Makefile
++++ b/tools/testing/selftests/net/Makefile
+@@ -4,7 +4,7 @@ CFLAGS = -Wall -O2 -g
  
- bool inet_ehash_insert(struct sock *sk, struct sock *osk);
- bool inet_ehash_nolisten(struct sock *sk, struct sock *osk);
--void __inet_hash(struct sock *sk, struct sock *osk);
-+int __inet_hash(struct sock *sk, struct sock *osk,
-+		int (*saddr_same)(const struct sock *sk1,
-+				  const struct sock *sk2,
-+				  bool match_wildcard));
- int inet_hash(struct sock *sk);
- void inet_unhash(struct sock *sk);
+ CFLAGS += -I../../../../usr/include/
  
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 12c8d389dc18..c16a2e6273d9 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -24,6 +24,7 @@
- #include <net/tcp_states.h>
- #include <net/xfrm.h>
- #include <net/tcp.h>
-+#include <net/sock_reuseport.h>
+-NET_PROGS = socket psock_fanout psock_tpacket reuseport_bpf
++NET_PROGS = socket psock_fanout psock_tpacket reuseport_bpf reuseport_bpf_cpu
  
- #ifdef INET_CSK_DEBUG
- const char inet_csk_timer_bug_msg[] = "inet_csk BUG: unknown timer value\n";
-@@ -67,7 +68,8 @@ int inet_csk_bind_conflict(const struct sock *sk,
- 			if ((!reuse || !sk2->sk_reuse ||
- 			    sk2->sk_state == TCP_LISTEN) &&
- 			    (!reuseport || !sk2->sk_reuseport ||
--			    (sk2->sk_state != TCP_TIME_WAIT &&
-+			     rcu_access_pointer(sk->sk_reuseport_cb) ||
-+			     (sk2->sk_state != TCP_TIME_WAIT &&
- 			     !uid_eq(uid, sock_i_uid(sk2))))) {
+ all: $(NET_PROGS)
+ %: %.c
+diff --git a/tools/testing/selftests/net/reuseport_bpf.c b/tools/testing/selftests/net/reuseport_bpf.c
+index bec1b5dd2530..96ba386b1b7b 100644
+--- a/tools/testing/selftests/net/reuseport_bpf.c
++++ b/tools/testing/selftests/net/reuseport_bpf.c
+@@ -9,10 +9,12 @@
  
- 				if (!sk2->sk_rcv_saddr || !sk->sk_rcv_saddr ||
-@@ -132,6 +134,7 @@ again:
- 					      sk->sk_state != TCP_LISTEN) ||
- 					     (tb->fastreuseport > 0 &&
- 					      sk->sk_reuseport &&
-+					      !rcu_access_pointer(sk->sk_reuseport_cb) &&
- 					      uid_eq(tb->fastuid, uid))) &&
- 					    (tb->num_owners < smallest_size || smallest_size == -1)) {
- 						smallest_size = tb->num_owners;
-@@ -193,15 +196,18 @@ tb_found:
- 		if (((tb->fastreuse > 0 &&
- 		      sk->sk_reuse && sk->sk_state != TCP_LISTEN) ||
- 		     (tb->fastreuseport > 0 &&
--		      sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
--		    smallest_size == -1) {
-+		      sk->sk_reuseport &&
-+		      !rcu_access_pointer(sk->sk_reuseport_cb) &&
-+		      uid_eq(tb->fastuid, uid))) && smallest_size == -1) {
- 			goto success;
- 		} else {
- 			ret = 1;
- 			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, true)) {
- 				if (((sk->sk_reuse && sk->sk_state != TCP_LISTEN) ||
- 				     (tb->fastreuseport > 0 &&
--				      sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
-+				      sk->sk_reuseport &&
-+				      !rcu_access_pointer(sk->sk_reuseport_cb) &&
-+				      uid_eq(tb->fastuid, uid))) &&
- 				    smallest_size != -1 && --attempts >= 0) {
- 					spin_unlock(&head->lock);
- 					goto again;
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 5e4290b83255..c0f9942de924 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -20,10 +20,12 @@
- #include <linux/wait.h>
- #include <linux/vmalloc.h>
+ #include <errno.h>
+ #include <error.h>
++#include <fcntl.h>
+ #include <linux/bpf.h>
+ #include <linux/filter.h>
+ #include <linux/unistd.h>
+ #include <netinet/in.h>
++#include <netinet/tcp.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -169,9 +171,15 @@ static void build_recv_group(const struct test_params p, int fd[], uint16_t mod,
+ 		if (bind(fd[i], addr, sockaddr_size()))
+ 			error(1, errno, "failed to bind recv socket %d", i);
  
-+#include <net/addrconf.h>
- #include <net/inet_connection_sock.h>
- #include <net/inet_hashtables.h>
- #include <net/secure_seq.h>
- #include <net/ip.h>
-+#include <net/sock_reuseport.h>
- 
- static u32 inet_ehashfn(const struct net *net, const __be32 laddr,
- 			const __u16 lport, const __be32 faddr,
-@@ -215,6 +217,7 @@ struct sock *__inet_lookup_listener(struct net *net,
- 	unsigned int hash = inet_lhashfn(net, hnum);
- 	struct inet_listen_hashbucket *ilb = &hashinfo->listening_hash[hash];
- 	int score, hiscore, matches = 0, reuseport = 0;
-+	bool select_ok = true;
- 	u32 phash = 0;
- 
- 	rcu_read_lock();
-@@ -230,6 +233,15 @@ begin:
- 			if (reuseport) {
- 				phash = inet_ehashfn(net, daddr, hnum,
- 						     saddr, sport);
-+				if (select_ok) {
-+					struct sock *sk2;
-+					sk2 = reuseport_select_sock(sk, phash,
-+								    skb, doff);
-+					if (sk2) {
-+						result = sk2;
-+						goto found;
-+					}
-+				}
- 				matches = 1;
- 			}
- 		} else if (score == hiscore && reuseport) {
-@@ -247,11 +259,13 @@ begin:
- 	if (get_nulls_value(node) != hash + LISTENING_NULLS_BASE)
- 		goto begin;
- 	if (result) {
-+found:
- 		if (unlikely(!atomic_inc_not_zero(&result->sk_refcnt)))
- 			result = NULL;
- 		else if (unlikely(compute_score(result, net, hnum, daddr,
- 				  dif) < hiscore)) {
- 			sock_put(result);
-+			select_ok = false;
- 			goto begin;
- 		}
+-		if (p.protocol == SOCK_STREAM)
++		if (p.protocol == SOCK_STREAM) {
++			opt = 4;
++			if (setsockopt(fd[i], SOL_TCP, TCP_FASTOPEN, &opt,
++				       sizeof(opt)))
++				error(1, errno,
++				      "failed to set TCP_FASTOPEN on %d", i);
+ 			if (listen(fd[i], p.recv_socks * 10))
+ 				error(1, errno, "failed to listen on socket");
++		}
  	}
-@@ -450,34 +464,74 @@ bool inet_ehash_nolisten(struct sock *sk, struct sock *osk)
+ 	free(addr);
  }
- EXPORT_SYMBOL_GPL(inet_ehash_nolisten);
+@@ -189,10 +197,8 @@ static void send_from(struct test_params p, uint16_t sport, char *buf,
  
--void __inet_hash(struct sock *sk, struct sock *osk)
-+static int inet_reuseport_add_sock(struct sock *sk,
-+				   struct inet_listen_hashbucket *ilb,
-+				   int (*saddr_same)(const struct sock *sk1,
-+						     const struct sock *sk2,
-+						     bool match_wildcard))
+ 	if (bind(fd, saddr, sockaddr_size()))
+ 		error(1, errno, "failed to bind send socket");
+-	if (connect(fd, daddr, sockaddr_size()))
+-		error(1, errno, "failed to connect");
+ 
+-	if (send(fd, buf, len, 0) < 0)
++	if (sendto(fd, buf, len, MSG_FASTOPEN, daddr, sockaddr_size()) < 0)
+ 		error(1, errno, "failed to send message");
+ 
+ 	close(fd);
+@@ -260,7 +266,7 @@ static void test_recv_order(const struct test_params p, int fd[], int mod)
+ 	}
+ }
+ 
+-static void test_reuseport_ebpf(const struct test_params p)
++static void test_reuseport_ebpf(struct test_params p)
+ {
+ 	int i, fd[p.recv_socks];
+ 
+@@ -268,6 +274,7 @@ static void test_reuseport_ebpf(const struct test_params p)
+ 	build_recv_group(p, fd, p.recv_socks, attach_ebpf);
+ 	test_recv_order(p, fd, p.recv_socks);
+ 
++	p.send_port_min += p.recv_socks * 2;
+ 	fprintf(stderr, "Reprograming, testing mod %zd...\n", p.recv_socks / 2);
+ 	attach_ebpf(fd[0], p.recv_socks / 2);
+ 	test_recv_order(p, fd, p.recv_socks / 2);
+@@ -276,7 +283,7 @@ static void test_reuseport_ebpf(const struct test_params p)
+ 		close(fd[i]);
+ }
+ 
+-static void test_reuseport_cbpf(const struct test_params p)
++static void test_reuseport_cbpf(struct test_params p)
+ {
+ 	int i, fd[p.recv_socks];
+ 
+@@ -284,6 +291,7 @@ static void test_reuseport_cbpf(const struct test_params p)
+ 	build_recv_group(p, fd, p.recv_socks, attach_cbpf);
+ 	test_recv_order(p, fd, p.recv_socks);
+ 
++	p.send_port_min += p.recv_socks * 2;
+ 	fprintf(stderr, "Reprograming, testing mod %zd...\n", p.recv_socks / 2);
+ 	attach_cbpf(fd[0], p.recv_socks / 2);
+ 	test_recv_order(p, fd, p.recv_socks / 2);
+@@ -377,7 +385,7 @@ static void test_filter_no_reuseport(const struct test_params p)
+ 
+ static void test_filter_without_bind(void)
+ {
+-	int fd1, fd2;
++	int fd1, fd2, opt = 1;
+ 
+ 	fprintf(stderr, "Testing filter add without bind...\n");
+ 	fd1 = socket(AF_INET, SOCK_DGRAM, 0);
+@@ -386,6 +394,10 @@ static void test_filter_without_bind(void)
+ 	fd2 = socket(AF_INET, SOCK_DGRAM, 0);
+ 	if (fd2 < 0)
+ 		error(1, errno, "failed to create socket 2");
++	if (setsockopt(fd1, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)))
++		error(1, errno, "failed to set SO_REUSEPORT on socket 1");
++	if (setsockopt(fd2, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)))
++		error(1, errno, "failed to set SO_REUSEPORT on socket 2");
+ 
+ 	attach_ebpf(fd1, 10);
+ 	attach_cbpf(fd2, 10);
+@@ -394,6 +406,32 @@ static void test_filter_without_bind(void)
+ 	close(fd2);
+ }
+ 
++void enable_fastopen(void)
 +{
-+	struct sock *sk2;
-+	struct hlist_nulls_node *node;
-+	kuid_t uid = sock_i_uid(sk);
++	int fd = open("/proc/sys/net/ipv4/tcp_fastopen", 0);
++	int rw_mask = 3;  /* bit 1: client side; bit-2 server side */
++	int val, size;
++	char buf[16];
 +
-+	sk_nulls_for_each_rcu(sk2, node, &ilb->head) {
-+		if (sk2 != sk &&
-+		    sk2->sk_family == sk->sk_family &&
-+		    ipv6_only_sock(sk2) == ipv6_only_sock(sk) &&
-+		    sk2->sk_bound_dev_if == sk->sk_bound_dev_if &&
-+		    sk2->sk_reuseport && uid_eq(uid, sock_i_uid(sk2)) &&
-+		    saddr_same(sk, sk2, false))
-+			return reuseport_add_sock(sk, sk2);
++	if (fd < 0)
++		error(1, errno, "Unable to open tcp_fastopen sysctl");
++	if (read(fd, buf, sizeof(buf)) <= 0)
++		error(1, errno, "Unable to read tcp_fastopen sysctl");
++	val = atoi(buf);
++	close(fd);
++
++	if ((val & rw_mask) != rw_mask) {
++		fd = open("/proc/sys/net/ipv4/tcp_fastopen", O_RDWR);
++		if (fd < 0)
++			error(1, errno,
++			      "Unable to open tcp_fastopen sysctl for writing");
++		val |= rw_mask;
++		size = snprintf(buf, 16, "%d", val);
++		if (write(fd, buf, size) <= 0)
++			error(1, errno, "Unable to write tcp_fastopen sysctl");
++		close(fd);
++	}
++}
+ 
+ int main(void)
+ {
+@@ -506,6 +544,71 @@ int main(void)
+ 		.recv_port = 8007,
+ 		.send_port_min = 9100});
+ 
++	/* TCP fastopen is required for the TCP tests */
++	enable_fastopen();
++	fprintf(stderr, "---- IPv4 TCP ----\n");
++	test_reuseport_ebpf((struct test_params) {
++		.recv_family = AF_INET,
++		.send_family = AF_INET,
++		.protocol = SOCK_STREAM,
++		.recv_socks = 10,
++		.recv_port = 8008,
++		.send_port_min = 9120});
++	test_reuseport_cbpf((struct test_params) {
++		.recv_family = AF_INET,
++		.send_family = AF_INET,
++		.protocol = SOCK_STREAM,
++		.recv_socks = 10,
++		.recv_port = 8009,
++		.send_port_min = 9160});
++	test_extra_filter((struct test_params) {
++		.recv_family = AF_INET,
++		.protocol = SOCK_STREAM,
++		.recv_port = 8010});
++	test_filter_no_reuseport((struct test_params) {
++		.recv_family = AF_INET,
++		.protocol = SOCK_STREAM,
++		.recv_port = 8011});
++
++	fprintf(stderr, "---- IPv6 TCP ----\n");
++	test_reuseport_ebpf((struct test_params) {
++		.recv_family = AF_INET6,
++		.send_family = AF_INET6,
++		.protocol = SOCK_STREAM,
++		.recv_socks = 10,
++		.recv_port = 8012,
++		.send_port_min = 9200});
++	test_reuseport_cbpf((struct test_params) {
++		.recv_family = AF_INET6,
++		.send_family = AF_INET6,
++		.protocol = SOCK_STREAM,
++		.recv_socks = 10,
++		.recv_port = 8013,
++		.send_port_min = 9240});
++	test_extra_filter((struct test_params) {
++		.recv_family = AF_INET6,
++		.protocol = SOCK_STREAM,
++		.recv_port = 8014});
++	test_filter_no_reuseport((struct test_params) {
++		.recv_family = AF_INET6,
++		.protocol = SOCK_STREAM,
++		.recv_port = 8015});
++
++	fprintf(stderr, "---- IPv6 TCP w/ mapped IPv4 ----\n");
++	test_reuseport_ebpf((struct test_params) {
++		.recv_family = AF_INET6,
++		.send_family = AF_INET,
++		.protocol = SOCK_STREAM,
++		.recv_socks = 10,
++		.recv_port = 8016,
++		.send_port_min = 9320});
++	test_reuseport_cbpf((struct test_params) {
++		.recv_family = AF_INET6,
++		.send_family = AF_INET,
++		.protocol = SOCK_STREAM,
++		.recv_socks = 10,
++		.recv_port = 8017,
++		.send_port_min = 9360});
+ 
+ 	test_filter_without_bind();
+ 
+diff --git a/tools/testing/selftests/net/reuseport_bpf_cpu.c b/tools/testing/selftests/net/reuseport_bpf_cpu.c
+new file mode 100644
+index 000000000000..b23d6f54de7b
+--- /dev/null
++++ b/tools/testing/selftests/net/reuseport_bpf_cpu.c
+@@ -0,0 +1,258 @@
++/*
++ * Test functionality of BPF filters with SO_REUSEPORT.  This program creates
++ * an SO_REUSEPORT receiver group containing one socket per CPU core. It then
++ * creates a BPF program that will select a socket from this group based
++ * on the core id that receives the packet.  The sending code artificially
++ * moves itself to run on different core ids and sends one message from
++ * each core.  Since these packets are delivered over loopback, they should
++ * arrive on the same core that sent them.  The receiving code then ensures
++ * that the packet was received on the socket for the corresponding core id.
++ * This entire process is done for several different core id permutations
++ * and for each IPv4/IPv6 and TCP/UDP combination.
++ */
++
++#define _GNU_SOURCE
++
++#include <arpa/inet.h>
++#include <errno.h>
++#include <error.h>
++#include <linux/filter.h>
++#include <linux/in.h>
++#include <linux/unistd.h>
++#include <sched.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/epoll.h>
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <unistd.h>
++
++static const int PORT = 8888;
++
++static void build_rcv_group(int *rcv_fd, size_t len, int family, int proto)
++{
++	struct sockaddr_storage addr;
++	struct sockaddr_in  *addr4;
++	struct sockaddr_in6 *addr6;
++	size_t i;
++	int opt;
++
++	switch (family) {
++	case AF_INET:
++		addr4 = (struct sockaddr_in *)&addr;
++		addr4->sin_family = AF_INET;
++		addr4->sin_addr.s_addr = htonl(INADDR_ANY);
++		addr4->sin_port = htons(PORT);
++		break;
++	case AF_INET6:
++		addr6 = (struct sockaddr_in6 *)&addr;
++		addr6->sin6_family = AF_INET6;
++		addr6->sin6_addr = in6addr_any;
++		addr6->sin6_port = htons(PORT);
++		break;
++	default:
++		error(1, 0, "Unsupported family %d", family);
 +	}
 +
-+	/* Initial allocation may have already happened via setsockopt */
-+	if (!rcu_access_pointer(sk->sk_reuseport_cb))
-+		return reuseport_alloc(sk);
-+	return 0;
++	for (i = 0; i < len; ++i) {
++		rcv_fd[i] = socket(family, proto, 0);
++		if (rcv_fd[i] < 0)
++			error(1, errno, "failed to create receive socket");
++
++		opt = 1;
++		if (setsockopt(rcv_fd[i], SOL_SOCKET, SO_REUSEPORT, &opt,
++			       sizeof(opt)))
++			error(1, errno, "failed to set SO_REUSEPORT");
++
++		if (bind(rcv_fd[i], (struct sockaddr *)&addr, sizeof(addr)))
++			error(1, errno, "failed to bind receive socket");
++
++		if (proto == SOCK_STREAM && listen(rcv_fd[i], len * 10))
++			error(1, errno, "failed to listen on receive port");
++	}
 +}
 +
-+int __inet_hash(struct sock *sk, struct sock *osk,
-+		 int (*saddr_same)(const struct sock *sk1,
-+				   const struct sock *sk2,
-+				   bool match_wildcard))
- {
- 	struct inet_hashinfo *hashinfo = sk->sk_prot->h.hashinfo;
- 	struct inet_listen_hashbucket *ilb;
-+	int err = 0;
- 
- 	if (sk->sk_state != TCP_LISTEN) {
- 		inet_ehash_nolisten(sk, osk);
--		return;
-+		return 0;
- 	}
- 	WARN_ON(!sk_unhashed(sk));
- 	ilb = &hashinfo->listening_hash[inet_sk_listen_hashfn(sk)];
- 
- 	spin_lock(&ilb->lock);
-+	if (sk->sk_reuseport) {
-+		err = inet_reuseport_add_sock(sk, ilb, saddr_same);
-+		if (err)
-+			goto unlock;
++static void attach_bpf(int fd)
++{
++	struct sock_filter code[] = {
++		/* A = raw_smp_processor_id() */
++		{ BPF_LD  | BPF_W | BPF_ABS, 0, 0, SKF_AD_OFF + SKF_AD_CPU },
++		/* return A */
++		{ BPF_RET | BPF_A, 0, 0, 0 },
++	};
++	struct sock_fprog p = {
++		.len = 2,
++		.filter = code,
++	};
++
++	if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_REUSEPORT_CBPF, &p, sizeof(p)))
++		error(1, errno, "failed to set SO_ATTACH_REUSEPORT_CBPF");
++}
++
++static void send_from_cpu(int cpu_id, int family, int proto)
++{
++	struct sockaddr_storage saddr, daddr;
++	struct sockaddr_in  *saddr4, *daddr4;
++	struct sockaddr_in6 *saddr6, *daddr6;
++	cpu_set_t cpu_set;
++	int fd;
++
++	switch (family) {
++	case AF_INET:
++		saddr4 = (struct sockaddr_in *)&saddr;
++		saddr4->sin_family = AF_INET;
++		saddr4->sin_addr.s_addr = htonl(INADDR_ANY);
++		saddr4->sin_port = 0;
++
++		daddr4 = (struct sockaddr_in *)&daddr;
++		daddr4->sin_family = AF_INET;
++		daddr4->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
++		daddr4->sin_port = htons(PORT);
++		break;
++	case AF_INET6:
++		saddr6 = (struct sockaddr_in6 *)&saddr;
++		saddr6->sin6_family = AF_INET6;
++		saddr6->sin6_addr = in6addr_any;
++		saddr6->sin6_port = 0;
++
++		daddr6 = (struct sockaddr_in6 *)&daddr;
++		daddr6->sin6_family = AF_INET6;
++		daddr6->sin6_addr = in6addr_loopback;
++		daddr6->sin6_port = htons(PORT);
++		break;
++	default:
++		error(1, 0, "Unsupported family %d", family);
 +	}
- 	__sk_nulls_add_node_rcu(sk, &ilb->head);
- 	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
-+unlock:
- 	spin_unlock(&ilb->lock);
 +
-+	return err;
- }
- EXPORT_SYMBOL(__inet_hash);
- 
- int inet_hash(struct sock *sk)
- {
-+	int err = 0;
++	memset(&cpu_set, 0, sizeof(cpu_set));
++	CPU_SET(cpu_id, &cpu_set);
++	if (sched_setaffinity(0, sizeof(cpu_set), &cpu_set) < 0)
++		error(1, errno, "failed to pin to cpu");
 +
- 	if (sk->sk_state != TCP_CLOSE) {
- 		local_bh_disable();
--		__inet_hash(sk, NULL);
-+		err = __inet_hash(sk, NULL, ipv4_rcv_saddr_equal);
- 		local_bh_enable();
- 	}
- 
--	return 0;
-+	return err;
- }
- EXPORT_SYMBOL_GPL(inet_hash);
- 
-@@ -496,6 +550,8 @@ void inet_unhash(struct sock *sk)
- 		lock = inet_ehash_lockp(hashinfo, sk->sk_hash);
- 
- 	spin_lock_bh(lock);
-+	if (rcu_access_pointer(sk->sk_reuseport_cb))
-+		reuseport_detach_sock(sk);
- 	done = __sk_nulls_del_node_init_rcu(sk);
- 	if (done)
- 		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index be0b21852b13..ac3cedb25a9f 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -356,8 +356,8 @@ EXPORT_SYMBOL(udp_lib_get_port);
-  * match_wildcard == false: addresses must be exactly the same, i.e.
-  *                          0.0.0.0 only equals to 0.0.0.0
-  */
--static int ipv4_rcv_saddr_equal(const struct sock *sk1, const struct sock *sk2,
--				bool match_wildcard)
-+int ipv4_rcv_saddr_equal(const struct sock *sk1, const struct sock *sk2,
-+			 bool match_wildcard)
- {
- 	struct inet_sock *inet1 = inet_sk(sk1), *inet2 = inet_sk(sk2);
- 
-diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
-index 36c3f0155010..532c3ef282c5 100644
---- a/net/ipv6/inet6_connection_sock.c
-+++ b/net/ipv6/inet6_connection_sock.c
-@@ -26,6 +26,7 @@
- #include <net/ip6_route.h>
- #include <net/sock.h>
- #include <net/inet6_connection_sock.h>
-+#include <net/sock_reuseport.h>
- 
- int inet6_csk_bind_conflict(const struct sock *sk,
- 			    const struct inet_bind_bucket *tb, bool relax)
-@@ -48,6 +49,7 @@ int inet6_csk_bind_conflict(const struct sock *sk,
- 			if ((!reuse || !sk2->sk_reuse ||
- 			     sk2->sk_state == TCP_LISTEN) &&
- 			    (!reuseport || !sk2->sk_reuseport ||
-+			     rcu_access_pointer(sk->sk_reuseport_cb) ||
- 			     (sk2->sk_state != TCP_TIME_WAIT &&
- 			      !uid_eq(uid,
- 				      sock_i_uid((struct sock *)sk2))))) {
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 004345d26808..70f2628be6fa 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -17,11 +17,13 @@
- #include <linux/module.h>
- #include <linux/random.h>
- 
-+#include <net/addrconf.h>
- #include <net/inet_connection_sock.h>
- #include <net/inet_hashtables.h>
- #include <net/inet6_hashtables.h>
- #include <net/secure_seq.h>
- #include <net/ip.h>
-+#include <net/sock_reuseport.h>
- 
- u32 inet6_ehashfn(const struct net *net,
- 		  const struct in6_addr *laddr, const u16 lport,
-@@ -131,6 +133,7 @@ struct sock *inet6_lookup_listener(struct net *net,
- 	const struct hlist_nulls_node *node;
- 	struct sock *result;
- 	int score, hiscore, matches = 0, reuseport = 0;
-+	bool select_ok = true;
- 	u32 phash = 0;
- 	unsigned int hash = inet_lhashfn(net, hnum);
- 	struct inet_listen_hashbucket *ilb = &hashinfo->listening_hash[hash];
-@@ -148,6 +151,15 @@ begin:
- 			if (reuseport) {
- 				phash = inet6_ehashfn(net, daddr, hnum,
- 						      saddr, sport);
-+				if (select_ok) {
-+					struct sock *sk2;
-+					sk2 = reuseport_select_sock(sk, phash,
-+								    skb, doff);
-+					if (sk2) {
-+						result = sk2;
-+						goto found;
-+					}
-+				}
- 				matches = 1;
- 			}
- 		} else if (score == hiscore && reuseport) {
-@@ -165,11 +177,13 @@ begin:
- 	if (get_nulls_value(node) != hash + LISTENING_NULLS_BASE)
- 		goto begin;
- 	if (result) {
-+found:
- 		if (unlikely(!atomic_inc_not_zero(&result->sk_refcnt)))
- 			result = NULL;
- 		else if (unlikely(compute_score(result, net, hnum, daddr,
- 				  dif) < hiscore)) {
- 			sock_put(result);
-+			select_ok = false;
- 			goto begin;
- 		}
- 	}
-@@ -283,7 +297,7 @@ int inet6_hash(struct sock *sk)
- {
- 	if (sk->sk_state != TCP_CLOSE) {
- 		local_bh_disable();
--		__inet_hash(sk, NULL);
-+		__inet_hash(sk, NULL, ipv6_rcv_saddr_equal);
- 		local_bh_enable();
- 	}
- 
++	fd = socket(family, proto, 0);
++	if (fd < 0)
++		error(1, errno, "failed to create send socket");
++
++	if (bind(fd, (struct sockaddr *)&saddr, sizeof(saddr)))
++		error(1, errno, "failed to bind send socket");
++
++	if (connect(fd, (struct sockaddr *)&daddr, sizeof(daddr)))
++		error(1, errno, "failed to connect send socket");
++
++	if (send(fd, "a", 1, 0) < 0)
++		error(1, errno, "failed to send message");
++
++	close(fd);
++}
++
++static
++void receive_on_cpu(int *rcv_fd, int len, int epfd, int cpu_id, int proto)
++{
++	struct epoll_event ev;
++	int i, fd;
++	char buf[8];
++
++	i = epoll_wait(epfd, &ev, 1, -1);
++	if (i < 0)
++		error(1, errno, "epoll_wait failed");
++
++	if (proto == SOCK_STREAM) {
++		fd = accept(ev.data.fd, NULL, NULL);
++		if (fd < 0)
++			error(1, errno, "failed to accept");
++		i = recv(fd, buf, sizeof(buf), 0);
++		close(fd);
++	} else {
++		i = recv(ev.data.fd, buf, sizeof(buf), 0);
++	}
++
++	if (i < 0)
++		error(1, errno, "failed to recv");
++
++	for (i = 0; i < len; ++i)
++		if (ev.data.fd == rcv_fd[i])
++			break;
++	if (i == len)
++		error(1, 0, "failed to find socket");
++	fprintf(stderr, "send cpu %d, receive socket %d\n", cpu_id, i);
++	if (cpu_id != i)
++		error(1, 0, "cpu id/receive socket mismatch");
++}
++
++static void test(int *rcv_fd, int len, int family, int proto)
++{
++	struct epoll_event ev;
++	int epfd, cpu;
++
++	build_rcv_group(rcv_fd, len, family, proto);
++	attach_bpf(rcv_fd[0]);
++
++	epfd = epoll_create(1);
++	if (epfd < 0)
++		error(1, errno, "failed to create epoll");
++	for (cpu = 0; cpu < len; ++cpu) {
++		ev.events = EPOLLIN;
++		ev.data.fd = rcv_fd[cpu];
++		if (epoll_ctl(epfd, EPOLL_CTL_ADD, rcv_fd[cpu], &ev))
++			error(1, errno, "failed to register sock epoll");
++	}
++
++	/* Forward iterate */
++	for (cpu = 0; cpu < len; ++cpu) {
++		send_from_cpu(cpu, family, proto);
++		receive_on_cpu(rcv_fd, len, epfd, cpu, proto);
++	}
++
++	/* Reverse iterate */
++	for (cpu = len - 1; cpu >= 0; --cpu) {
++		send_from_cpu(cpu, family, proto);
++		receive_on_cpu(rcv_fd, len, epfd, cpu, proto);
++	}
++
++	/* Even cores */
++	for (cpu = 0; cpu < len; cpu += 2) {
++		send_from_cpu(cpu, family, proto);
++		receive_on_cpu(rcv_fd, len, epfd, cpu, proto);
++	}
++
++	/* Odd cores */
++	for (cpu = 1; cpu < len; cpu += 2) {
++		send_from_cpu(cpu, family, proto);
++		receive_on_cpu(rcv_fd, len, epfd, cpu, proto);
++	}
++
++	close(epfd);
++	for (cpu = 0; cpu < len; ++cpu)
++		close(rcv_fd[cpu]);
++}
++
++int main(void)
++{
++	int *rcv_fd, cpus;
++
++	cpus = sysconf(_SC_NPROCESSORS_ONLN);
++	if (cpus <= 0)
++		error(1, errno, "failed counting cpus");
++
++	rcv_fd = calloc(cpus, sizeof(int));
++	if (!rcv_fd)
++		error(1, 0, "failed to allocate array");
++
++	fprintf(stderr, "---- IPv4 UDP ----\n");
++	test(rcv_fd, cpus, AF_INET, SOCK_DGRAM);
++
++	fprintf(stderr, "---- IPv6 UDP ----\n");
++	test(rcv_fd, cpus, AF_INET6, SOCK_DGRAM);
++
++	fprintf(stderr, "---- IPv4 TCP ----\n");
++	test(rcv_fd, cpus, AF_INET, SOCK_STREAM);
++
++	fprintf(stderr, "---- IPv6 TCP ----\n");
++	test(rcv_fd, cpus, AF_INET6, SOCK_STREAM);
++
++	free(rcv_fd);
++
++	fprintf(stderr, "SUCCESS\n");
++	return 0;
++}
 -- 
 2.7.0.rc3.207.g0ac5344
