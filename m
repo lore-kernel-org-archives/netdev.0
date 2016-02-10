@@ -1,45 +1,53 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: Scaling the Number of Network Interfaces on Linux
-Date: Wed, 10 Feb 2016 16:12:45 +0100
-Message-ID: <56BB536D.9040802@6wind.com>
-References: <56BB1BEB.5090200@6wind.com>
- <56BB2634.3080500@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
+Date: Wed, 10 Feb 2016 15:18:14 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CCDD01B@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D1CCDCC8D@AcuExch.aculab.com>
+ <20160210144334.23242.qmail@ns.horizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37794 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752789AbcBJPMt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 10:12:49 -0500
-Received: by mail-wm0-f48.google.com with SMTP id g62so30968413wme.0
-        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 07:12:48 -0800 (PST)
-In-Reply-To: <56BB2634.3080500@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "mingo@kernel.org" <mingo@kernel.org>
+To: 'George Spelvin' <linux@horizon.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tom@herbertland.com" <tom@herbertland.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160210144334.23242.qmail@ns.horizon.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 10/02/2016 12:59, David Ahern a =C3=A9crit :
-> On 2/10/16 12:15 PM, Nicolas Dichtel wrote:
-[snip]
->> Instead of removing completly the sysctl entries, another idea could=
- be to
->> manage a group of interfaces which will share the same subtree.
->
-> This come out from a side conversation as well -- for example to have=
- interfaces
-> enslaved to a bridge or bond share the same devconf.
-It could also be interesting to have another way to group interfaces. F=
-or
-example, group all ppp interfaces.
+From: George Spelvin
+> Sent: 10 February 2016 14:44
+...
+> > I think the fastest loop is:
+> > 10:	adcq	0(%rdi,%rcx,8),%rax
+> > 	inc	%rcx
+> > 	jnz	10b
+> > That loop looks like it will have no overhead on recent cpu.
+> 
+> Well, it should execute at 1 instruction/cycle.
 
->
-> This is certainly possible to do and I can give it a look. The key po=
-int is that
-> we clearly need a means to lighten the overhead of a network interfac=
-e.
-Yes, I agree.
+I presume you do mean 1 adc/cycle.
+If it doesn't unrolling once might help.
+
+> (No, a scaled offset doesn't take extra time.)
+Maybe I'm remembering the 386 book.
+
+> To break that requires ADCX/ADOX:
+> 
+> 10:	adcxq	0(%rdi,%rcx),%rax
+> 	adoxq	8(%rdi,%rcx),%rdx
+>  	leaq	16(%rcx),%rcx
+> 	jrcxz	11f
+>  	j	10b
+> 11:
+
+Getting 2 adc/cycle probably does require a little unrolling.
+With luck the adcxq, adoxq and leaq will execute together.
+The jrcxz is two clocks - so definitely needs a second adcoxq/adcxq pair.
+
+Experiments would be needed to confirm guesses though.
+
+	David
