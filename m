@@ -1,72 +1,33 @@
-From: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-Subject: [PATCH net v3 1/3] vxlan: Relax MTU constraints
-Date: Wed, 10 Feb 2016 00:05:55 +0000
-Message-ID: <1455062758-18297-2-git-send-email-david@weave.works>
-References: <1455062758-18297-1-git-send-email-david@weave.works>
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: Re: [PATCH net-next 1/7] sock: struct proto hash function may error
+Date: Tue, 9 Feb 2016 19:09:57 -0500
+Message-ID: <CAEfhGiyJpo5MPUq5SnLGA922YoFV2ZnOb+BvabPWxW5eUtdq0w@mail.gmail.com>
+References: <1455061153-7855-2-git-send-email-kraigatgoog@gmail.com>
+	<201602100737.wrLlsIWe%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>,
- Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
- Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
- Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1455062758-18297-1-git-send-email-david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f193.google.com ([209.85.217.193]:33548 "EHLO
+	mail-lb0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753259AbcBJAKA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2016 19:10:00 -0500
+Received: by mail-lb0-f193.google.com with SMTP id bc4so131951lbc.0
+        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 16:09:59 -0800 (PST)
+Received: from mail-lf0-f54.google.com (mail-lf0-f54.google.com. [209.85.215.54])
+        by smtp.gmail.com with ESMTPSA id eb3sm56512lbc.31.2016.02.09.16.09.58
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Tue, 09 Feb 2016 16:09:58 -0800 (PST)
+Received: by mail-lf0-f54.google.com with SMTP id j78so2046426lfb.1
+        for <netdev@vger.kernel.org>; Tue, 09 Feb 2016 16:09:58 -0800 (PST)
+In-Reply-To: <201602100737.wrLlsIWe%fengguang.wu@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-QWxsb3cgdGhlIE1UVSBvZiB2eGxhbiBkZXZpY2VzIHdpdGhvdXQgYW4gdW5kZXJseWluZyBkZXZp
-Y2UgdG8gYmUgc2V0CnRvIGxhcmdlciB2YWx1ZXMgKHVwIHRvIGEgbWF4aW11bSBiYXNlZCBvbiBJ
-UCBwYWNrZXQgbGltaXRzIGFuZCB2eGxhbgpvdmVyaGVhZCkuCgpQcmV2aW91c2x5LCB0aGVpciBN
-VFVzIGNvdWxkIG5vdCBiZSBzZXQgdG8gaGlnaGVyIHRoYW4gdGhlCmNvbnZlbnRpb25hbCBldGhl
-cm5ldCB2YWx1ZSBvZiAxNTAwLiAgVGhpcyBpcyBhIHZlcnkgYXJiaXRyYXJ5IHZhbHVlCmluIHRo
-ZSBjb250ZXh0IG9mIHZ4bGFuLCBhbmQgcHJldmVudGVkIHZ4bGFuIGRldmljZXMgZnJvbSBiZWlu
-ZyBhYmxlCnRvIHRha2UgYWR2YW50YWdlIG9mIGp1bWJvIGZyYW1lcyBldGMuCgpUaGUgZGVmYXVs
-dCBNVFUgcmVtYWlucyAxNTAwLCBmb3IgY29tcGF0aWJpbGl0eS4KClNpZ25lZC1vZmYtYnk6IERh
-dmlkIFdyYWdnIDxkYXZpZEB3ZWF2ZS53b3Jrcz4KQWNrZWQtYnk6IFJvb3BhIFByYWJodSA8cm9v
-cGFAY3VtdWx1c25ldHdvcmtzLmNvbT4KLS0tCiBkcml2ZXJzL25ldC92eGxhbi5jIHwgMzYgKysr
-KysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0tCiAxIGZpbGUgY2hhbmdlZCwgMjUgaW5z
-ZXJ0aW9ucygrKSwgMTEgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdnhs
-YW4uYyBiL2RyaXZlcnMvbmV0L3Z4bGFuLmMKaW5kZXggNjU0MzkxOC4uZTk5MmM2YSAxMDA2NDQK
-LS0tIGEvZHJpdmVycy9uZXQvdnhsYW4uYworKysgYi9kcml2ZXJzL25ldC92eGxhbi5jCkBAIC0y
-MzY3LDI5ICsyMzY3LDQzIEBAIHN0YXRpYyB2b2lkIHZ4bGFuX3NldF9tdWx0aWNhc3RfbGlzdChz
-dHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogewogfQogCi1zdGF0aWMgaW50IHZ4bGFuX2NoYW5nZV9t
-dHUoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgaW50IG5ld19tdHUpCitzdGF0aWMgaW50IF9fdnhs
-YW5fY2hhbmdlX210dShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAorCQkJICAgICAgc3RydWN0IG5l
-dF9kZXZpY2UgKmxvd2VyZGV2LAorCQkJICAgICAgc3RydWN0IHZ4bGFuX3Jkc3QgKmRzdCwgaW50
-IG5ld19tdHUsIGJvb2wgc3RyaWN0KQogewotCXN0cnVjdCB2eGxhbl9kZXYgKnZ4bGFuID0gbmV0
-ZGV2X3ByaXYoZGV2KTsKLQlzdHJ1Y3QgdnhsYW5fcmRzdCAqZHN0ID0gJnZ4bGFuLT5kZWZhdWx0
-X2RzdDsKLQlzdHJ1Y3QgbmV0X2RldmljZSAqbG93ZXJkZXY7Ci0JaW50IG1heF9tdHU7CisJaW50
-IG1heF9tdHUgPSBJUF9NQVhfTVRVOwogCi0JbG93ZXJkZXYgPSBfX2Rldl9nZXRfYnlfaW5kZXgo
-dnhsYW4tPm5ldCwgZHN0LT5yZW1vdGVfaWZpbmRleCk7Ci0JaWYgKGxvd2VyZGV2ID09IE5VTEwp
-Ci0JCXJldHVybiBldGhfY2hhbmdlX210dShkZXYsIG5ld19tdHUpOworCWlmIChsb3dlcmRldikK
-KwkJbWF4X210dSA9IGxvd2VyZGV2LT5tdHU7CiAKIAlpZiAoZHN0LT5yZW1vdGVfaXAuc2Euc2Ff
-ZmFtaWx5ID09IEFGX0lORVQ2KQotCQltYXhfbXR1ID0gbG93ZXJkZXYtPm10dSAtIFZYTEFONl9I
-RUFEUk9PTTsKKwkJbWF4X210dSAtPSBWWExBTjZfSEVBRFJPT007CiAJZWxzZQotCQltYXhfbXR1
-ID0gbG93ZXJkZXYtPm10dSAtIFZYTEFOX0hFQURST09NOworCQltYXhfbXR1IC09IFZYTEFOX0hF
-QURST09NOwogCi0JaWYgKG5ld19tdHUgPCA2OCB8fCBuZXdfbXR1ID4gbWF4X210dSkKKwlpZiAo
-bmV3X210dSA8IDY4KQogCQlyZXR1cm4gLUVJTlZBTDsKIAorCWlmIChuZXdfbXR1ID4gbWF4X210
-dSkgeworCQlpZiAoc3RyaWN0KQorCQkJcmV0dXJuIC1FSU5WQUw7CisKKwkJbmV3X210dSA9IG1h
-eF9tdHU7CisJfQorCiAJZGV2LT5tdHUgPSBuZXdfbXR1OwogCXJldHVybiAwOwogfQogCitzdGF0
-aWMgaW50IHZ4bGFuX2NoYW5nZV9tdHUoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgaW50IG5ld19t
-dHUpCit7CisJc3RydWN0IHZ4bGFuX2RldiAqdnhsYW4gPSBuZXRkZXZfcHJpdihkZXYpOworCXN0
-cnVjdCB2eGxhbl9yZHN0ICpkc3QgPSAmdnhsYW4tPmRlZmF1bHRfZHN0OworCXN0cnVjdCBuZXRf
-ZGV2aWNlICpsb3dlcmRldiA9IF9fZGV2X2dldF9ieV9pbmRleCh2eGxhbi0+bmV0LAorCQkJCQkJ
-CSBkc3QtPnJlbW90ZV9pZmluZGV4KTsKKwlyZXR1cm4gX192eGxhbl9jaGFuZ2VfbXR1KGRldiwg
-bG93ZXJkZXYsIGRzdCwgbmV3X210dSwgdHJ1ZSk7Cit9CisKIHN0YXRpYyBpbnQgZWdyZXNzX2lw
-djRfdHVuX2luZm8oc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IHNrX2J1ZmYgKnNrYiwK
-IAkJCQlzdHJ1Y3QgaXBfdHVubmVsX2luZm8gKmluZm8sCiAJCQkJX19iZTE2IHNwb3J0LCBfX2Jl
-MTYgZHBvcnQpCi0tIAoyLjUuMAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9v
-cGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+On Tue, Feb 9, 2016 at 6:58 PM, kbuild test robot <lkp@intel.com> wrote:
+> Hi Craig,
+>
+> [auto build test WARNING on net-next/master]
+v3 will be the charm :\
