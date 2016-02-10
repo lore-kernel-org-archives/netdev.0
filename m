@@ -1,100 +1,60 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] bpf: fix branch offset adjustment on backjumps after patching ctx expansion
-Date: Wed, 10 Feb 2016 16:47:11 +0100
-Message-ID: <f0e3ee64ddd8d92894d87b10f2f6e83f9a6cd33e.1454792171.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, elena.reshetova@intel.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next] lwt: fix rx checksum setting for lwt devices tunneling over ipv6
+Date: Wed, 10 Feb 2016 16:47:21 +0100
+Message-ID: <8d2a6ece65b17ae61343dce27f3709d3cd249832.1455118911.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Benc <jbenc@redhat.com>,
+	Jesse Gross <jesse@kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56208 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751889AbcBJPrU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 10:47:20 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:55178 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751060AbcBJPru (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2016 10:47:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When ctx access is used, the kernel often needs to expand/rewrite
-instructions, so after that patching, branch offsets have to be
-adjusted for both forward and backward jumps in the new eBPF program,
-but for backward jumps it fails to account the delta. Meaning, for
-example, if the expansion happens exactly on the insn that sits at
-the jump target, it doesn't fix up the back jump offset.
+the commit 35e2d1152b22 ("tunnels: Allow IPv6 UDP checksums to be
+correctly controlled.") changed the default xmit checksum setting
+for lwt vxlan/geneve ipv6 tunnels, so that now the checksum is not
+set into external UDP header.
+This commit changes the rx checksum setting for both lwt vxlan/geneve
+devices created by openvswitch accordingly, so that lwt over ipv6
+tunnel pairs are again able to communicate with default values.
 
-Analysis on what the check in adjust_branches() is currently doing:
-
-  /* adjust offset of jmps if necessary */
-  if (i < pos && i + insn->off + 1 > pos)
-    insn->off += delta;
-  else if (i > pos && i + insn->off + 1 < pos)
-    insn->off -= delta;
-
-First condition (forward jumps):
-
-  Before:                         After:
-
-  insns[0]                        insns[0]
-  insns[1] <--- i/insn            insns[1] <--- i/insn
-  insns[2] <--- pos               insns[P] <--- pos
-  insns[3]                        insns[P]  `------| delta
-  insns[4] <--- target_X          insns[P]   `-----|
-  insns[5]                        insns[3]
-                                  insns[4] <--- target_X
-                                  insns[5]
-
-First case is if we cross pos-boundary and the jump instruction was
-before pos. This is handeled correctly. I.e. if i == pos, then this
-would mean our jump that we currently check was the patchlet itself
-that we just injected. Since such patchlets are self-contained and
-have no awareness of any insns before or after the patched one, the
-delta is correctly not adjusted. Also, for the second condition in
-case of i + insn->off + 1 == pos, means we jump to that newly patched
-instruction, so no offset adjustment are needed. That part is correct.
-
-Second condition (backward jumps):
-
-  Before:                         After:
-
-  insns[0]                        insns[0]
-  insns[1] <--- target_X          insns[1] <--- target_X
-  insns[2] <--- pos <-- target_Y  insns[P] <--- pos <-- target_Y
-  insns[3]                        insns[P]  `------| delta
-  insns[4] <--- i/insn            insns[P]   `-----|
-  insns[5]                        insns[3]
-                                  insns[4] <--- i/insn
-                                  insns[5]
-
-Second interesting case is where we cross pos-boundary and the jump
-instruction was after pos. Backward jump with i == pos would be
-impossible and pose a bug somewhere in the patchlet, so the first
-condition checking i > pos is okay only by itself. However, i +
-insn->off + 1 < pos does not always work as intended to trigger the
-adjustment. It works when jump targets would be far off where the
-delta wouldn't matter. But, for example, where the fixed insn->off
-before pointed to pos (target_Y), it now points to pos + delta, so
-that additional room needs to be taken into account for the check.
-This means that i) both tests here need to be adjusted into pos + delta,
-and ii) for the second condition, the test needs to be <= as pos
-itself can be a target in the backjump, too.
-
-Fixes: 9bac3d6d548e ("bpf: allow extended BPF programs access skb fields")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- kernel/bpf/verifier.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/geneve.c          | 3 ++-
+ net/openvswitch/vport-vxlan.c | 2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index d1d3e8f..2e7f7ab 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -2082,7 +2082,7 @@ static void adjust_branches(struct bpf_prog *prog, int pos, int delta)
- 		/* adjust offset of jmps if necessary */
- 		if (i < pos && i + insn->off + 1 > pos)
- 			insn->off += delta;
--		else if (i > pos && i + insn->off + 1 < pos)
-+		else if (i > pos + delta && i + insn->off + 1 <= pos + delta)
- 			insn->off -= delta;
- 	}
- }
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 0b14ac3..d8d8f33 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -1441,7 +1441,8 @@ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
+ 		return dev;
+ 
+ 	err = geneve_configure(net, dev, &geneve_remote_unspec,
+-			       0, 0, 0, htons(dst_port), true, 0);
++			       0, 0, 0, htons(dst_port), true,
++			       GENEVE_F_UDP_ZERO_CSUM6_RX);
+ 	if (err) {
+ 		free_netdev(dev);
+ 		return ERR_PTR(err);
+diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+index 1605691..d933cb8 100644
+--- a/net/openvswitch/vport-vxlan.c
++++ b/net/openvswitch/vport-vxlan.c
+@@ -90,7 +90,7 @@ static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
+ 	int err;
+ 	struct vxlan_config conf = {
+ 		.no_share = true,
+-		.flags = VXLAN_F_COLLECT_METADATA,
++		.flags = VXLAN_F_COLLECT_METADATA | VXLAN_F_UDP_ZERO_CSUM6_RX,
+ 	};
+ 
+ 	if (!options) {
 -- 
-1.9.3
+1.8.3.1
