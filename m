@@ -1,28 +1,48 @@
-From: "Ms. Golan" <g_garcia@muniplibre.gob.pe>
-Subject: Very Urgent!!!!
-Date: Sun, 07 Feb 2016 15:35:35 +0530
-Message-ID: <20160207100616.58F4218E6737@mail.muniplibre.gob.pe>
-Reply-To: goe009@qq.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipient <g_garcia@muniplibre.gob.pe>
+From: John Holland <jotihojr@gmail.com>
+Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on i211 using a device tree blob
+Date: Wed, 10 Feb 2016 10:13:56 +0100
+Message-ID: <0362A89D-78DF-4F09-A8B6-5A87FAA74AB9@gmail.com>
+References: <56ABE3A8.4010602@gmail.com> <1455015744.3592.46.camel@intel.com> <20160209115430.GD18781@lunn.ch>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.muniplibre.gob.pe ([201.131.221.122]:41059 "EHLO
-	[201.131.221.122]" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751333AbcBJJGH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 04:06:07 -0500
-Received: from localhost (localhost.localhost [127.0.0.1])
-	by fxmpl.mpl (Postfix) with ESMTP id 75FF23568E5
-	for <netdev@vger.kernel.org>; Tue,  9 Feb 2016 08:14:29 -0500 (PET)
-Received: from mail.muniplibre.gob.pe (unknown [175.15.20.14])
-	by fxmpl.mpl (Postfix) with ESMTPS id 4C5C5377ECE
-	for <netdev@vger.kernel.org>; Mon,  8 Feb 2016 07:24:23 -0500 (PET)
-Content-Description: Mail message body
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:38496 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751994AbcBJJOA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 04:14:00 -0500
+Received: by mail-wm0-f44.google.com with SMTP id p63so17322609wmp.1
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 01:13:59 -0800 (PST)
+In-Reply-To: <20160209115430.GD18781@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  I am Ms.Golan I am getting in touch with you regarding an extremely important and urgent matter.If you would oblige me the opportunity,shall provide you with details upon your response
 
-Faithfully,
-Ms. Golan
+
+
+Sent from my iPad
+On Feb 9, 2016, at 12:54, Andrew Lunn <andrew@lunn.ch> wrote:
+
+>>> +static void igb_read_mac_addr_dts(struct e1000_hw *hw)
+>>> +{
+>>> +       const u8 *mac;
+>>> +       struct device_node *dn;
+>>> +
+>>> +       dn = of_find_compatible_node(NULL, NULL, "intel,i211");
+> 
+> Hi John
+> 
+> Would this also work for the i210?
+
+The usability scenario of i210 and i211 seem similar enough. Although, I will not be able to test the i210, I will use it as the compatible keyword.
+
+> 
+> If so, you normally use the compatible string for the first device
+> this works with. So maybe this should be changed to intel,i210?
+> 
+> Thanks
+>    Andrew
