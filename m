@@ -1,58 +1,47 @@
-From: "George Spelvin" <linux@horizon.com>
-Subject: RE: [PATCH v3 net-next] net: Implement fast csum_partial for x86_64
-Date: 10 Feb 2016 09:43:34 -0500
-Message-ID: <20160210144334.23242.qmail@ns.horizon.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1CCDCC8D@AcuExch.aculab.com>
-Cc: mingo@kernel.org
-To: David.Laight@ACULAB.COM, linux-kernel@vger.kernel.org,
-	linux@horizon.com, netdev@vger.kernel.org, tom@herbertland.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCDCC8D@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Max Edward <emmanual.owusu@gmail.com>
+Subject: BUSINESS INVESTMENT
+Date: Wed, 10 Feb 2016 06:48:03 -0800
+Message-ID: <CA+c3JokONCy3NFn9eE2n-de0ouZ7W9YQOa835XXeVyzkzHf5yA@mail.gmail.com>
+Reply-To: maxedward75@outlook.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33392 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751107AbcBJOsF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 09:48:05 -0500
+Received: by mail-wm0-f66.google.com with SMTP id c200so4710913wme.0
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 06:48:04 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Laight wrote:
-> Separate renaming allows:
-> 1) The value to tested without waiting for pending updates to complete.
->    Useful for IE and DIR.
+Hello,
 
-I don't quite follow.  It allows the value to be tested without waiting
-for pending updates *of other bits* to complete.
+I have interest of investing in your country as well as seek your
+services in a private and confidential issue. My name is  Max Edward,
+an auditor with Scouts Bank London, On my routine inspection I
+discovered a dormant domiciliary account with the deposit of =C2=A34.6M
+(Four Million Six Hundred Thousand Great Britian Pounds Sterling) by
+our late customers without any heir. I write to seek your indulgence
+and assistance in moving this funds to your country through legal
+means.
 
-Obviusly, the update of the bit being tested has to complete!
+NOTE: My plan is to invest my own share of the money in your country.
 
-> I can't see any obvious gain from separating out O or Z (even with
-> adcx and adox). You'd need some other instructions that don't set O (or Z)
-> but set some other useful flags.
-> (A decrement that only set Z for instance.)
+What other lucrative investments would you suggest as I intend to
+invest on REAL ESTATE AND HOTELS if they are good business venture in
+your Country?
 
-I tried to describe the advantages in the previous message.
+Can you be able to make residential documents and purchase a house for
+me and my family to relocate and settle in your country after my
+retirement in (5) Five months time.
 
-The problems arise much less often than the INC/DEC pair, but there are
-instructions whick write only the O and C flags, (ROL, ROR) and only
-the Z flag (CMPXCHG).
+Let me know if you can handle this project so that we can discuss your
+own percentage (%). Please reply me via this email
+(maxedward75@outlook.com)
 
-The sign, aux carry, and parity flags are *always* updated as
-a group, so they can be renamed as a group.
+Looking forward for your quick response.
 
-> While LOOP could be used on Bulldozer+ an equivalently fast loop
-> can be done with inc/dec and jnz.
-> So you only care about LOOP/JCXZ when ADOX is supported.
-> 
-> I think the fastest loop is:
-> 10:	adc	%rax,0(%rdi,%rcx,8)
-> 	inc	%rcx
-> 	jnz	10b
-> but check if any cpu add an extra clock for the 'scaled' offset
-> (they might be faster if %rdi is incremented).
-> That loop looks like it will have no overhead on recent cpu.
-
-Well, it should execute at 1 instruction/cycle.  (No, a scaled offset
-doesn't take extra time.)  To break that requires ADCX/ADOX:
-
-10:	adcxq	0(%rdi,%rcx),%rax
-	adoxq	8(%rdi,%rcx),%rdx
- 	leaq	16(%rcx),%rcx
-	jrcxz	11f
- 	j	10b
-11:
+Max Edward.
