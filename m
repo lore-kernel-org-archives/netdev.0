@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 15/21] batman-adv: Convert batadv_neigh_ifinfo to kref
-Date: Wed, 10 Feb 2016 23:57:21 +0800
-Message-ID: <1455119847-5862-16-git-send-email-a@unstable.cc>
+Subject: [PATCH 19/21] batman-adv: Convert batadv_orig_node_vlan to kref
+Date: Wed, 10 Feb 2016 23:57:25 +0800
+Message-ID: <1455119847-5862-20-git-send-email-a@unstable.cc>
 References: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:27558 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:26680 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752558AbcBJQS2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2016 11:18:28 -0500
+	id S1752995AbcBJQSh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2016 11:18:37 -0500
 In-Reply-To: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -27,69 +27,73 @@ Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/originator.c | 17 ++++++++++-------
+ net/batman-adv/originator.c | 26 ++++++++++++++++++++------
  net/batman-adv/types.h      |  2 +-
- 2 files changed, 11 insertions(+), 8 deletions(-)
+ 2 files changed, 21 insertions(+), 7 deletions(-)
 
 diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 7710595ffc42..1c50abe52c6d 100644
+index bf27007a574a..8b2ef8de93e9 100644
 --- a/net/batman-adv/originator.c
 +++ b/net/batman-adv/originator.c
-@@ -172,11 +172,14 @@ err:
- /**
-  * batadv_neigh_ifinfo_release - release neigh_ifinfo from lists and queue for
-  *  free after rcu grace period
-- * @neigh_ifinfo: the neigh_ifinfo object to release
-+ * @ref: kref pointer of the neigh_ifinfo
-  */
--static void
--batadv_neigh_ifinfo_release(struct batadv_neigh_ifinfo *neigh_ifinfo)
-+static void batadv_neigh_ifinfo_release(struct kref *ref)
- {
-+	struct batadv_neigh_ifinfo *neigh_ifinfo;
-+
-+	neigh_ifinfo = container_of(ref, struct batadv_neigh_ifinfo, refcount);
-+
- 	if (neigh_ifinfo->if_outgoing != BATADV_IF_DEFAULT)
- 		batadv_hardif_free_ref(neigh_ifinfo->if_outgoing);
+@@ -82,7 +82,7 @@ batadv_orig_node_vlan_get(struct batadv_orig_node *orig_node,
+ 		if (tmp->vid != vid)
+ 			continue;
  
-@@ -190,8 +193,7 @@ batadv_neigh_ifinfo_release(struct batadv_neigh_ifinfo *neigh_ifinfo)
-  */
- void batadv_neigh_ifinfo_free_ref(struct batadv_neigh_ifinfo *neigh_ifinfo)
- {
--	if (atomic_dec_and_test(&neigh_ifinfo->refcount))
--		batadv_neigh_ifinfo_release(neigh_ifinfo);
-+	kref_put(&neigh_ifinfo->refcount, batadv_neigh_ifinfo_release);
+-		if (!atomic_inc_not_zero(&tmp->refcount))
++		if (!kref_get_unless_zero(&tmp->refcount))
+ 			continue;
+ 
+ 		vlan = tmp;
+@@ -123,7 +123,8 @@ batadv_orig_node_vlan_new(struct batadv_orig_node *orig_node,
+ 	if (!vlan)
+ 		goto out;
+ 
+-	atomic_set(&vlan->refcount, 2);
++	kref_init(&vlan->refcount);
++	kref_get(&vlan->refcount);
+ 	vlan->vid = vid;
+ 
+ 	hlist_add_head_rcu(&vlan->list, &orig_node->vlan_list);
+@@ -135,14 +136,27 @@ out:
  }
  
  /**
-@@ -405,7 +407,7 @@ batadv_neigh_ifinfo_get(struct batadv_neigh_node *neigh,
- 		if (tmp_neigh_ifinfo->if_outgoing != if_outgoing)
- 			continue;
+- * batadv_orig_node_vlan_free_ref - decrement the refcounter and possibly free
+- *  the originator-vlan object
++ * batadv_orig_node_vlan_release - release originator-vlan object from lists
++ *  and queue for free after rcu grace period
++ * @ref: kref pointer of the originator-vlan object
++ */
++static void batadv_orig_node_vlan_release(struct kref *ref)
++{
++	struct batadv_orig_node_vlan *orig_vlan;
++
++	orig_vlan = container_of(ref, struct batadv_orig_node_vlan, refcount);
++
++	kfree_rcu(orig_vlan, rcu);
++}
++
++/**
++ * batadv_orig_node_vlan_free_ref - decrement the refcounter and possibly
++ *  release the originator-vlan object
+  * @orig_vlan: the originator-vlan object to release
+  */
+ void batadv_orig_node_vlan_free_ref(struct batadv_orig_node_vlan *orig_vlan)
+ {
+-	if (atomic_dec_and_test(&orig_vlan->refcount))
+-		kfree_rcu(orig_vlan, rcu);
++	kref_put(&orig_vlan->refcount, batadv_orig_node_vlan_release);
+ }
  
--		if (!atomic_inc_not_zero(&tmp_neigh_ifinfo->refcount))
-+		if (!kref_get_unless_zero(&tmp_neigh_ifinfo->refcount))
- 			continue;
- 
- 		neigh_ifinfo = tmp_neigh_ifinfo;
-@@ -450,7 +452,8 @@ batadv_neigh_ifinfo_new(struct batadv_neigh_node *neigh,
- 	}
- 
- 	INIT_HLIST_NODE(&neigh_ifinfo->list);
--	atomic_set(&neigh_ifinfo->refcount, 2);
-+	kref_init(&neigh_ifinfo->refcount);
-+	kref_get(&neigh_ifinfo->refcount);
- 	neigh_ifinfo->if_outgoing = if_outgoing;
- 
- 	hlist_add_head_rcu(&neigh_ifinfo->list, &neigh->ifinfo_list);
+ int batadv_originator_init(struct batadv_priv *bat_priv)
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 17f97ff5b4d1..81d9f8d6c54b 100644
+index 74cb26372ed1..504f3dbdbcc1 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -420,7 +420,7 @@ struct batadv_neigh_ifinfo {
- 	struct batadv_hard_iface *if_outgoing;
- 	struct batadv_neigh_ifinfo_bat_iv bat_iv;
- 	u8 last_ttl;
+@@ -197,7 +197,7 @@ struct batadv_orig_node_vlan {
+ 	unsigned short vid;
+ 	struct batadv_vlan_tt tt;
+ 	struct hlist_node list;
 -	atomic_t refcount;
 +	struct kref refcount;
  	struct rcu_head rcu;
