@@ -1,52 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] af_packet: Raw socket destruction warning fix
-Date: Wed, 10 Feb 2016 07:09:43 -0800
-Message-ID: <1455116983.19473.6.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1455105900-15710-1-git-send-email-maninder1.s@samsung.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: Scaling the Number of Network Interfaces on Linux
+Date: Wed, 10 Feb 2016 16:12:45 +0100
+Message-ID: <56BB536D.9040802@6wind.com>
+References: <56BB1BEB.5090200@6wind.com>
+ <56BB2634.3080500@cumulusnetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, willemb@google.com, daniel@iogearbox.net,
-	edumazet@google.com, al.drozdov@gmail.com, eyal.birger@gmail.com,
-	tklauser@distanz.ch, fruggeri@aristanetworks.com,
-	dwmw2@infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ajeet.y@samsung.com,
-	pankaj.m@samsung.com, gh007.kim@samsung.com,
-	hakbong5.lee@samsung.com, akhilesh.k@samsung.com,
-	Vaneet Narang <v.narang@samsung.com>,
-	Amit Nagal <amit.nagal@samsung.com>
-To: Maninder Singh <maninder1.s@samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455105900-15710-1-git-send-email-maninder1.s@samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:37794 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752789AbcBJPMt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 10:12:49 -0500
+Received: by mail-wm0-f48.google.com with SMTP id g62so30968413wme.0
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 07:12:48 -0800 (PST)
+In-Reply-To: <56BB2634.3080500@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-02-10 at 17:35 +0530, Maninder Singh wrote:
-> This Patch fixes below warning:-
-> WARNING: at net/packet/af_packet.c:xxx packet_sock_destruct
-> 
-> There is following race between packet_rcv and packet_close
-> which keeps unfree packet in receive queue.
-> 
-> CPU 1					CPU2
-> packet_rcv
-> 
-> 					packet_close                       
-> skb_set_owner_r(skb, sk);
-> 
-> 					skb_queue_purge(&sk->sk_receive_queue);
-> 
-> spin_lock(&sk->sk_receive_queue.lock);
-> __skb_queue_tail(&sk->sk_receive_queue, skb);
-> spin_unlock(&sk->sk_receive_queue.lock);
+Le 10/02/2016 12:59, David Ahern a =C3=A9crit :
+> On 2/10/16 12:15 PM, Nicolas Dichtel wrote:
+[snip]
+>> Instead of removing completly the sysctl entries, another idea could=
+ be to
+>> manage a group of interfaces which will share the same subtree.
+>
+> This come out from a side conversation as well -- for example to have=
+ interfaces
+> enslaved to a bridge or bond share the same devconf.
+It could also be interesting to have another way to group interfaces. F=
+or
+example, group all ppp interfaces.
 
-This absolutely can not happen.
-
-CPU 1 holds rcu read lock, so cpu 2 can not possibly call
-skb_queue_purge()
-
-(cpu 1 is blocked in synchronize_net(), waiting that all cpus are no
-longer in packet_rcv())
-
-This patch does not address the root cause of your problem, and only
-slightly changes probability for the bug to trigger.
+>
+> This is certainly possible to do and I can give it a look. The key po=
+int is that
+> we clearly need a means to lighten the overhead of a network interfac=
+e.
+Yes, I agree.
