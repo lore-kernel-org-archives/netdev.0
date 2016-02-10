@@ -1,80 +1,107 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: gro: Make GRO aware of lightweight tunnels.
-Date: Wed, 10 Feb 2016 13:29:40 +0100
-Message-ID: <CAEh+42jUdiT0FzKC5UGa5+=Ej9zisQ+DwCCwT_cv_t-ut6vSSg@mail.gmail.com>
-References: <20160202022858.60C826612C0@gitolite.kernel.org> <20160209004956.GA18196@codemonkey.org.uk>
+From: Vaneet Narang <v.narang@samsung.com>
+Subject: Re: [PATCH] af_packet: Raw socket destruction warning fix
+Date: Wed, 10 Feb 2016 12:43:21 +0000 (GMT)
+Message-ID: <230561650.749911455108197509.JavaMail.weblogic@epmlwas05a>
+Reply-To: v.narang@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Dave Jones <davej@codemonkey.org.uk>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"willemb@google.com" <willemb@google.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"eyal.birger@gmail.com" <eyal.birger@gmail.com>,
+	"tklauser@distanz.ch" <tklauser@distanz.ch>,
+	"fruggeri@aristanetworks.com" <fruggeri@aristanetworks.com>,
+	"dwmw2@infradead.org" <dwmw2@infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	PANKAJ MISHRA <pankaj.m@samsung.com>,
+	Geon-ho Kim <gh007.kim@samsung.com>,
+	Hak-Bong Lee <hakbong5.lee@samsung.com>,
+	"ajeet.y@samsung.com" <ajeet.y@samsung.com>,
+	AKHILESH KUMAR <akhilesh.k@samsung.com>,
+	AMIT NAGAL <amit.nagal@samsung.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Maninder Singh <maninder1.s@samsung.com>,
+	Vaneet Narang <v.narang@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:46979 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750926AbcBJM35 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2016 07:29:57 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 3874E20375
-	for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 12:29:56 +0000 (UTC)
-Received: from mail-qg0-f44.google.com (mail-qg0-f44.google.com [209.85.192.44])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 2962D20364
-	for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 12:29:55 +0000 (UTC)
-Received: by mail-qg0-f44.google.com with SMTP id y89so12085056qge.2
-        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 04:29:55 -0800 (PST)
-In-Reply-To: <20160209004956.GA18196@codemonkey.org.uk>
+Received: from mailout1.samsung.com ([203.254.224.24]:39734 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751257AbcBJMnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 07:43:23 -0500
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout1.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0O2C00AMQ0O9YB30@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Wed, 10 Feb 2016 21:43:21 +0900 (KST)
+MIME-version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 9, 2016 at 1:49 AM, Dave Jones <davej@codemonkey.org.uk> wrote:
-> On Tue, Feb 02, 2016 at 02:28:58AM +0000, Linux Kernel wrote:
->  > Web:        https://git.kernel.org/torvalds/c/ce87fc6ce3f9f4488546187e3757cf666d9d4a2a
->  > Commit:     ce87fc6ce3f9f4488546187e3757cf666d9d4a2a
->  > Parent:     5f2f3cad8b878b23f17a11dd5af4f4a2cc41c797
->  > Refname:    refs/heads/master
->  > Author:     Jesse Gross <jesse@kernel.org>
->  > AuthorDate: Wed Jan 20 17:59:49 2016 -0800
->  > Committer:  David S. Miller <davem@davemloft.net>
->  > CommitDate: Wed Jan 20 18:48:38 2016 -0800
->  >
->  >     gro: Make GRO aware of lightweight tunnels.
->
-> Coverity just started complaining about this commit.
->
->  > diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
->  > index 6816f0f..30a56ab 100644
->  > --- a/include/net/dst_metadata.h
->  > +++ b/include/net/dst_metadata.h
->  > @@ -44,6 +44,24 @@ static inline bool skb_valid_dst(const struct sk_buff *skb)
->  >      return dst && !(dst->flags & DST_METADATA);
->  >  }
->  >
->  > +static inline int skb_metadata_dst_cmp(const struct sk_buff *skb_a,
->  > +                                   const struct sk_buff *skb_b)
->  > +{
->  > +    const struct metadata_dst *a, *b;
->  > +
->  > +    if (!(skb_a->_skb_refdst | skb_b->_skb_refdst))
->  > +            return 0;
->  > +
->  > +    a = (const struct metadata_dst *) skb_dst(skb_a);
->  > +    b = (const struct metadata_dst *) skb_dst(skb_b);
->  > +
->  > +    if (!a != !b || a->u.tun_info.options_len != b->u.tun_info.options_len)
->
-> It complains that we could dereference a null 'a' here.
->
-> It's possible the checker got confused, but the first part of that
-> expression looks odd, is that doing what's intended ?
-
-I don't think that this can actually happen in practice.
-
-We know that the combination of 'a' and 'b' is not NULL from the first
-line in the function ('a' is simply 'skb_a->_skb_refdst' with a flag
-knocked off and there is an earlier problem if this makes a difference
-for the NULL check). The expression you mentioned is seeing if one is
-NULL but not the other. If that is not the case then we can safely
-dereference the pointers to do further comparisons.
-
-I guess Coverity doesn't understand the relationship between the
-pointer and the flag as handled in skb_dst().
+SGksDQoNCj5XaGF0IGRyaXZlciBhcmUgeW91IHVzaW5nIChpcyB0aGF0IGluLXRyZWUpPyBDYW4g
+eW91IHJlcHJvZHVjZSB0aGUgc2FtZSBpc3N1ZQ0KPndpdGggYSBsYXRlc3QgLW5ldCBrZXJuZWws
+IGZvciBleGFtcGxlIChvciwgYSAncmVhc29uYWJseScgcmVjZW50IG9uZSBsaWtlIDQuMyBvcg0K
+PjQuNCk/IFRoZXJlIGhhcyBiZWVuIHF1aXRlIGEgYml0IG9mIGNoYW5nZXMgaW4gZXJyIHF1ZXVl
+IGhhbmRsaW5nICh3aGljaCBhbHNvDQo+YWNjb3VudHMgcm1lbSkgYXMgd2VsbC4gSG93IHJlbGlh
+Ymx5IGNhbiB5b3UgdHJpZ2dlciB0aGUgaXNzdWU/IERvZXMgaXQgdHJpZ2dlcg0KPndpdGggYSBj
+b21wbGV0ZWx5IGRpZmZlcmVudCBpbi10cmVlIG5ldHdvcmsgZHJpdmVyIGFzIHdlbGwgd2l0aCB5
+b3VyIHRlc3RzPyBXb3VsZA0KPmJlIHVzZWZ1bCB0byB0cmFjay9kZWJ1ZyBza19ybWVtX2FsbG9j
+IGluY3JlYXNlcy9kZWNyZWFzZXMgdG8gc2VlIGZyb20gd2hpY2ggcGF0aA0KPm5ldyBybWVtIGlz
+IGJlaW5nIGNoYXJnZWQgaW4gdGhlIHRpbWUgYmV0d2VlbiBwYWNrZXRfcmVsZWFzZSgpIGFuZCBw
+YWNrZXRfc29ja19kZXN0cnVjdCgpDQo+Zm9yIHRoYXQgc29ja2V0IC4uLg0KPg0KSXQgc2VlbXMg
+cmFjZSBjb25kaXRpb24gdG8gdXMgYmV0d2VlbiBwYWNrZXRfcmN2IGFuZCBwYWNrZXRfY2xvc2Us
+IHdlIGhhdmUgdHJpZWQgdG8gcmVwcm9kdWNlDQp0aGlzIGlzc3VlIGJ5IGFkZGluZyBkZWxheSBp
+biBza2Jfc2V0X293bmVyX3IgYW5kIGlzc3VlIGdldHMgcmVwcm9kdWNlZCBxdWl0ZSBmcmVxdWVu
+dGx5LiANCndlIGhhdmUgYWRkZWQgc29tZSB0cmFjZXMgYW5kIG9uIGFuYWx5emluZyB3ZSBoYXZl
+IHJlYWxpc2VkIGZvbGxvd2luZyBwb3NzaWJsZSByYWNlIGNvbmRpdGlvbi4NCg0KcGFja2V0X3Jj
+diAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCg0KICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcGFja2V0X2Nsb3NlICAgICAgICAg
+ICAgICAgICAgICAgICANCnNrYl9zZXRfb3duZXJfcihza2IsIHNrKTsNCg0KICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBza2JfcXVldWVfcHVyZ2UoJnNr
+LT5za19yZWNlaXZlX3F1ZXVlKTsNCg0Kc3Bpbl9sb2NrKCZzay0+c2tfcmVjZWl2ZV9xdWV1ZS5s
+b2NrKTsNCl9fc2tiX3F1ZXVlX3RhaWwoJnNrLT5za19yZWNlaXZlX3F1ZXVlLCBza2IpOw0Kc3Bp
+bl91bmxvY2soJnNrLT5za19yZWNlaXZlX3F1ZXVlLmxvY2spOw0KDQpTaW5jZSBwYWNrZXQgd2Fz
+IG5vdCBhZGRlZCB0byByZWNlaXZlIHF1ZXVlIHNvIHJlY2VpdmUgcXVldWUgcHVyZ2Ugd2lsbCBu
+byBoYXZlIGFueSBpbXBhY3QuDQpJdCB3aWxsIG5vdCBmcmVlIHNrX2J1ZmYgc3RvcmVkIGluIHJl
+Y2VpdmUgcXVldWUuIFNvIHRvIGZpeCB0aGlzIGlzc3VlLCB3ZSBoYXZlIG1ha2Ugc3VyZQ0Kc2ti
+X3NldF9vd25lcl9yKHNrYiwgc2spICYgX19za2JfcXVldWVfdGFpbCgmc2stPnNrX3JlY2VpdmVf
+cXVldWUsIHNrYikgaXMgY2FsbGVkIHVuZGVyIA0KcmVjZWl2ZSBxdWV1ZSBsb2NrIGFuZCB3ZSBo
+YXZlIG1vdmVkIHJlY2VpdmUgcXVldWUgcHVyZ2UgZnJvbSBwYWNrZXRfcmVsZWFzZSB0byANCnBh
+Y2tldF9zb2NrX2Rlc3RydWN0Lg0KDQoNCndlIGhhdmUgYWRkZWQgc29tZSB0cmFjZXMgaW4gc2ti
+X3NldF9vd25lcl9yICYgcGFja2V0X3NvY2tfZGVzdHJ1Y3QuIFNvIHRoaXMgaXMNCndoYXQgd2Ug
+Z290DQpDUFUgMA0KIHNrID0gZGI2ZDE3YzAgc2stPnNrX2ZsYWdzID0gMHgzMjAgU2l6ZSA9IDE5
+ODQNCkJhY2t0cmFjZToNCiAoZHVtcF9iYWNrdHJhY2UrMHgwLzB4MTI4KSBmcm9tIChzaG93X3N0
+YWNrKzB4MjAvMHgyOCkgDQogKHNob3dfc3RhY2srMHgwLzB4MjgpIGZyb20gKGR1bXBfc3RhY2sr
+MHgyNC8weDI4KQ0KIChkdW1wX3N0YWNrKzB4MC8weDI4KSBmcm9tIChwYWNrZXRfcmN2KzB4NDgw
+LzB4NDg4KQ0KIChwYWNrZXRfcmN2KzB4MC8weDQ4OCkgZnJvbSAoX19uZXRpZl9yZWNlaXZlX3Nr
+Yl9jb3JlKzB4NTNjLzB4Njc0KQ0KIChfX25ldGlmX3JlY2VpdmVfc2tiX2NvcmUrMHgwLzB4Njc0
+KSBmcm9tIChfX25ldGlmX3JlY2VpdmVfc2tiKzB4MjAvMHg3NCkNCiAoX19uZXRpZl9yZWNlaXZl
+X3NrYisweDAvMHg3NCkgZnJvbSAobmV0aWZfcmVjZWl2ZV9za2IrMHgyYy8weGJjKQ0KIChuZXRp
+Zl9yZWNlaXZlX3NrYisweDAvMHhiYykgZnJvbSAobmFwaV9ncm9fcmVjZWl2ZSsweDkwLzB4YzAp
+DQouLi4uLi4NCiAobmV0X3J4X2FjdGlvbisweDAvMHgzMDApIGZyb20oX19kb19zb2Z0aXJxKzB4
+MTYwLzB4MzQwKQ0KIChfX2RvX3NvZnRpcnErMHgwLzB4MzQwKSBmcm9tIChkb19zb2Z0aXJxKzB4
+YzQvMHhlMCkNCiAoZG9fc29mdGlycSsweDAvMHhlMCkgZnJvbSAoaXJxX2V4aXQrMHhjNC8weGY4
+KQ0KIChpcnFfZXhpdCsweDAvMHhmOCkgZnJvbSAoaGFuZGxlX0lSUSsweDg4LzB4MTBjKQ0KICho
+YW5kbGVfSVJRKzB4MC8weDEwYykgZnJvbSAgKGdpY19oYW5kbGVfaXJxKzB4NjQvMHhhYykNCg0K
+IENQVSAxDQpCYWNrdHJhY2U6DQpzayA9IGRiNmQxN2MwIHNrLT5za19ybWVtX2FsbG9jPTE5ODQg
+IHNrLT5za19mbGFncyA9IDB4MTQxDQpSZWNlaXZlIFF1ZXVlIEVtcHR5ID0gIlllcyIgIEVycm9y
+IHF1ZXVlIGVtcHR5ID0gIlllcyINCiANCiAocGFja2V0X3NvY2tfZGVzdHJ1Y3QrMHgwLzB4MWY0
+KSBmcm9tIChfX3NrX2ZyZWUrMHgyOC8weDE4YykNCiAoX19za19mcmVlKzB4MC8weDE4YykgZnJv
+bSAoc2tfZnJlZSsweDQwLzB4NDgpDQogKHNrX2ZyZWUrMHgwLzB4NDgpIGZyb20gKHBhY2tldF9y
+ZWxlYXNlKzB4MjljLzB4MzEwKQ0KIChwYWNrZXRfcmVsZWFzZSsweDAvMHgzMTApIGZyb20gIChz
+b2NrX3JlbGVhc2UrMHgzMC8weGI4KQ0KIChzb2NrX3JlbGVhc2UrMHgwLzB4YjgpIGZyb20gKHNv
+Y2tfY2xvc2UrMHgxYy8weDI4KQ0KIChzb2NrX2Nsb3NlKzB4MC8weDI4KSBmcm9tIChfX2ZwdXQr
+MHg5Yy8weDJiNCkNCiAoX19mcHV0KzB4MC8weDJiNCkgZnJvbSAoX19fX2ZwdXQrMHgxOC8weDIw
+KQ0KIChfX19fZnB1dCsweDAvMHgyMCkgZnJvbSAodGFza193b3JrX3J1bisweGMwLzB4ZmMpDQog
+KHRhc2tfd29ya19ydW4rMHgwLzB4ZmMpIGZyb20gKGRvX3dvcmtfcGVuZGluZysweDEwOC8weDEx
+NCkNCiAoZG9fd29ya19wZW5kaW5nKzB4MC8weDExNCkgZnJvbSAod29ya19wZW5kaW5nKzB4Yy8w
+eDIwKQ0KDQpGcm9tIHRoaXMgaXQgYXBwZWFycyBwYWNrZXRfcmN2IHdhcyBjYWxsZWQgd2hlbiBw
+YWNrZXRfcmVsZWFzZQ0Kd2FzIG5vdCBkb25lICBhcyBza19mbGFncyA9IDB4MzIwICAoU09DS19E
+RUFEIGlzIG5vdCBzZXQpICYgcGFja2V0X3NvY2tfZGVzdHJ1Y3Qgd2FzIGNhbGxlZCANCndoZW4g
+c2tfcm1lbV9hbGxvYyB3YXMgaW5jcmVhc2VkIGJ1dCBwYWNrZXQgd2FzIG5vdCBhZGRlZCB0byBy
+ZWNlaXZlIHF1ZXVlLg0Kc2tfcm1lbV9hbGxvYyBwZW5kaW5nIGlzIHNhbWUgYXMgc2l6ZSBvZiBs
+YXN0IHBhY2tldCByZWNlaXZlZCBvbiBzb2NrZXQuDQogDQpLaW5kbHkgY29tbWVudCBvbiB0aGUg
+Zml4IHNoYXJlZCBhdCBmb2xsb3dpbmcgbGluay4NCmh0dHA6Ly93d3cuc3Bpbmljcy5uZXQvbGlz
+dHMva2VybmVsL21zZzIxODQ4MTUuaHRtbA0KDQpUaGFua3MgJiBSZWdhcmRzLA0KVmFuZWV0IE5h
+cmFuZw==
