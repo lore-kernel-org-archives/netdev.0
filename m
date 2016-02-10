@@ -1,107 +1,87 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: pull request [net-next]: batman-adv 20160210
-Date: Wed, 10 Feb 2016 23:57:06 +0800
-Message-ID: <1455119847-5862-1-git-send-email-a@unstable.cc>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+Subject: [PATCH 01/21] batman-adv: Drop reference to netdevice on last reference
+Date: Wed, 10 Feb 2016 23:57:07 +0800
+Message-ID: <1455119847-5862-2-git-send-email-a__23883.598476141$1455120008$gmane$org@unstable.cc>
+References: <1455119847-5862-1-git-send-email-a@unstable.cc>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Sven Eckelmann <sven@narfation.org>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:49099 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:31877 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751538AbcBJP7t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2016 10:59:49 -0500
+	id S1751546AbcBJP74 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2016 10:59:56 -0500
+In-Reply-To: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+From: Sven Eckelmann <sven@narfation.org>
 
-this is another pull request intended for net-next.
+The references to the network device should be dropped inside the release
+function for batadv_hard_iface similar to what is done with the batman-adv
+internal datastructures.
 
-Here you have a batch of patches by Sven Eckelmann that
-drops our private reference counting implementation and
-substitutes it with the kref objects/functions.
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Antonio Quartulli <a@unstable.cc>
+---
+ net/batman-adv/hard-interface.c | 13 ++++++++-----
+ net/batman-adv/hard-interface.h |  6 +++---
+ 2 files changed, 11 insertions(+), 8 deletions(-)
 
-Then you have a patch, by Simon Wunderlich, that
-makes the broadcast protection window code more generic so
-that it can be re-used in the future by other components
-with different requirements.
-
-Lastly, Sven is also introducing two lockdep asserts in
-functions operating on our TVLV container list, to make
-sure that the proper lock is always acquired by the users.
-
-Please pull or let me know of any problem!
-Thanks a lot,
-	Antonio
-
-
-The following changes since commit aaa5672052cb0f18a5ab0ab19e9ef71c50e018a8:
-
-  sxgbe: remove unused code (2016-02-10 06:10:17 -0500)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
-
-for you to fetch changes up to 92dcdf09a139e51b7b043b9443b8fd69de298dff:
-
-  batman-adv: Convert batadv_tt_common_entry to kref (2016-02-10 23:24:06 +0800)
-
-----------------------------------------------------------------
-Here you have a batch of patches by Sven Eckelmann that
-drops our private reference counting implementation and
-substitutes it with the kref objects/functions.
-
-Then you have a patch, by Simon Wunderlich, that
-makes the broadcast protection window code more generic so
-that it can be re-used in the future by other components
-with different requirements.
-
-Lastly, Sven is also introducing two lockdep asserts in
-functions operating on our TVLV container list, to make
-sure that the proper lock is always acquired by the users.
-
-----------------------------------------------------------------
-Simon Wunderlich (1):
-      batman-adv: add seqno maximum age and protection start flag parameters
-
-Sven Eckelmann (20):
-      batman-adv: Drop reference to netdevice on last reference
-      batman-adv: Add lockdep assert for container_list_lock
-      batman-adv: Convert batadv_hardif_neigh_node to kref
-      batman-adv: Convert batadv_gw_node to kref
-      batman-adv: Convert batadv_softif_vlan to kref
-      batman-adv: Convert batadv_bla_backbone_gw to kref
-      batman-adv: Convert batadv_bla_claim to kref
-      batman-adv: Convert batadv_nc_node to kref
-      batman-adv: Convert batadv_nc_path to kref
-      batman-adv: Convert batadv_dat_entry to kref
-      batman-adv: Convert batadv_tvlv_container to kref
-      batman-adv: Convert batadv_tvlv_handler to kref
-      batman-adv: Convert batadv_tt_orig_list_entry to kref
-      batman-adv: Convert batadv_neigh_ifinfo to kref
-      batman-adv: Convert batadv_orig_ifinfo to kref
-      batman-adv: Convert batadv_neigh_node to kref
-      batman-adv: Convert batadv_hard_iface to kref
-      batman-adv: Convert batadv_orig_node_vlan to kref
-      batman-adv: Convert batadv_orig_node to kref
-      batman-adv: Convert batadv_tt_common_entry to kref
-
- net/batman-adv/bat_iv_ogm.c            |  12 ++--
- net/batman-adv/bridge_loop_avoidance.c |  43 +++++++++---
- net/batman-adv/distributed-arp-table.c |  29 ++++++--
- net/batman-adv/gateway_client.c        |  44 ++++++++----
- net/batman-adv/hard-interface.c        |  25 ++++---
- net/batman-adv/hard-interface.h        |  16 ++---
- net/batman-adv/main.c                  |  50 +++++++++++---
- net/batman-adv/main.h                  |   3 +
- net/batman-adv/multicast.c             |   7 +-
- net/batman-adv/network-coding.c        |  51 +++++++++-----
- net/batman-adv/originator.c            | 122 ++++++++++++++++++++-------------
- net/batman-adv/originator.h            |   4 +-
- net/batman-adv/routing.c               |  26 ++++---
- net/batman-adv/routing.h               |   3 +-
- net/batman-adv/soft-interface.c        |  33 ++++++---
- net/batman-adv/sysfs.c                 |   3 +-
- net/batman-adv/translation-table.c     |  90 +++++++++++++++++-------
- net/batman-adv/types.h                 |  37 +++++-----
- 18 files changed, 405 insertions(+), 193 deletions(-)
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index db90022c00a4..b17e272b5cb3 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -47,13 +47,16 @@
+ #include "sysfs.h"
+ #include "translation-table.h"
+ 
+-void batadv_hardif_free_rcu(struct rcu_head *rcu)
++/**
++ * batadv_hardif_release - release hard interface from lists and queue for
++ *  free after rcu grace period
++ * @hard_iface: the hard interface to free
++ */
++void batadv_hardif_release(struct batadv_hard_iface *hard_iface)
+ {
+-	struct batadv_hard_iface *hard_iface;
+-
+-	hard_iface = container_of(rcu, struct batadv_hard_iface, rcu);
+ 	dev_put(hard_iface->net_dev);
+-	kfree(hard_iface);
++
++	kfree_rcu(hard_iface, rcu);
+ }
+ 
+ struct batadv_hard_iface *
+diff --git a/net/batman-adv/hard-interface.h b/net/batman-adv/hard-interface.h
+index 4d6b5e12331f..9eb08ad6032d 100644
+--- a/net/batman-adv/hard-interface.h
++++ b/net/batman-adv/hard-interface.h
+@@ -61,18 +61,18 @@ void batadv_hardif_disable_interface(struct batadv_hard_iface *hard_iface,
+ void batadv_hardif_remove_interfaces(void);
+ int batadv_hardif_min_mtu(struct net_device *soft_iface);
+ void batadv_update_min_mtu(struct net_device *soft_iface);
+-void batadv_hardif_free_rcu(struct rcu_head *rcu);
++void batadv_hardif_release(struct batadv_hard_iface *hard_iface);
+ 
+ /**
+  * batadv_hardif_free_ref - decrement the hard interface refcounter and
+- *  possibly free it
++ *  possibly release it
+  * @hard_iface: the hard interface to free
+  */
+ static inline void
+ batadv_hardif_free_ref(struct batadv_hard_iface *hard_iface)
+ {
+ 	if (atomic_dec_and_test(&hard_iface->refcount))
+-		call_rcu(&hard_iface->rcu, batadv_hardif_free_rcu);
++		batadv_hardif_release(hard_iface);
+ }
+ 
+ static inline struct batadv_hard_iface *
+-- 
+2.7.1
