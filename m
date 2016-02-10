@@ -1,142 +1,100 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCHv2 next 3/3] ipvlan: misc changes
-Date: Wed, 10 Feb 2016 07:33:40 -0800
-Message-ID: <1455118420-896-1-git-send-email-mahesh@bandewar.net>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: fix branch offset adjustment on backjumps after patching ctx expansion
+Date: Wed, 10 Feb 2016 16:47:11 +0100
+Message-ID: <f0e3ee64ddd8d92894d87b10f2f6e83f9a6cd33e.1454792171.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, elena.reshetova@intel.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35803 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751901AbcBJPdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 10:33:44 -0500
-Received: by mail-pa0-f43.google.com with SMTP id ho8so13482024pac.2
-        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 07:33:44 -0800 (PST)
+Received: from www62.your-server.de ([213.133.104.62]:56208 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751889AbcBJPrU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 10:47:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+When ctx access is used, the kernel often needs to expand/rewrite
+instructions, so after that patching, branch offsets have to be
+adjusted for both forward and backward jumps in the new eBPF program,
+but for backward jumps it fails to account the delta. Meaning, for
+example, if the expansion happens exactly on the insn that sits at
+the jump target, it doesn't fix up the back jump offset.
 
-1. scope correction for few functions that are used in single file.
-2. Adjust variables that are used in fast-path to fit into single cacheline
-3. Update rcv_frame() to skip shared check for frames coming over wire
+Analysis on what the check in adjust_branches() is currently doing:
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+  /* adjust offset of jmps if necessary */
+  if (i < pos && i + insn->off + 1 > pos)
+    insn->off += delta;
+  else if (i > pos && i + insn->off + 1 < pos)
+    insn->off -= delta;
+
+First condition (forward jumps):
+
+  Before:                         After:
+
+  insns[0]                        insns[0]
+  insns[1] <--- i/insn            insns[1] <--- i/insn
+  insns[2] <--- pos               insns[P] <--- pos
+  insns[3]                        insns[P]  `------| delta
+  insns[4] <--- target_X          insns[P]   `-----|
+  insns[5]                        insns[3]
+                                  insns[4] <--- target_X
+                                  insns[5]
+
+First case is if we cross pos-boundary and the jump instruction was
+before pos. This is handeled correctly. I.e. if i == pos, then this
+would mean our jump that we currently check was the patchlet itself
+that we just injected. Since such patchlets are self-contained and
+have no awareness of any insns before or after the patched one, the
+delta is correctly not adjusted. Also, for the second condition in
+case of i + insn->off + 1 == pos, means we jump to that newly patched
+instruction, so no offset adjustment are needed. That part is correct.
+
+Second condition (backward jumps):
+
+  Before:                         After:
+
+  insns[0]                        insns[0]
+  insns[1] <--- target_X          insns[1] <--- target_X
+  insns[2] <--- pos <-- target_Y  insns[P] <--- pos <-- target_Y
+  insns[3]                        insns[P]  `------| delta
+  insns[4] <--- i/insn            insns[P]   `-----|
+  insns[5]                        insns[3]
+                                  insns[4] <--- i/insn
+                                  insns[5]
+
+Second interesting case is where we cross pos-boundary and the jump
+instruction was after pos. Backward jump with i == pos would be
+impossible and pose a bug somewhere in the patchlet, so the first
+condition checking i > pos is okay only by itself. However, i +
+insn->off + 1 < pos does not always work as intended to trigger the
+adjustment. It works when jump targets would be far off where the
+delta wouldn't matter. But, for example, where the fixed insn->off
+before pointed to pos (target_Y), it now points to pos + delta, so
+that additional room needs to be taken into account for the check.
+This means that i) both tests here need to be adjusted into pos + delta,
+and ii) for the second condition, the test needs to be <= as pos
+itself can be a target in the backjump, too.
+
+Fixes: 9bac3d6d548e ("bpf: allow extended BPF programs access skb fields")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
-v1: initial patch
-v2: resend
+ kernel/bpf/verifier.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- drivers/net/ipvlan/ipvlan.h      |  9 +++------
- drivers/net/ipvlan/ipvlan_core.c | 27 ++++++++++++++++-----------
- drivers/net/ipvlan/ipvlan_main.c |  2 +-
- 3 files changed, 20 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-index 817cab1a7959..695a5dc9ace3 100644
---- a/drivers/net/ipvlan/ipvlan.h
-+++ b/drivers/net/ipvlan/ipvlan.h
-@@ -84,19 +84,19 @@ struct ipvl_addr {
- #define ip4addr ipu.ip4
- 	struct hlist_node	hlnode;  /* Hash-table linkage */
- 	struct list_head	anode;   /* logical-interface linkage */
--	struct rcu_head		rcu;
- 	ipvl_hdr_type		atype;
-+	struct rcu_head		rcu;
- };
- 
- struct ipvl_port {
- 	struct net_device	*dev;
- 	struct hlist_head	hlhead[IPVLAN_HASH_SIZE];
- 	struct list_head	ipvlans;
--	struct rcu_head		rcu;
-+	u16			mode;
- 	struct work_struct	wq;
- 	struct sk_buff_head	backlog;
- 	int			count;
--	u16			mode;
-+	struct rcu_head		rcu;
- };
- 
- static inline struct ipvl_port *ipvlan_port_get_rcu(const struct net_device *d)
-@@ -114,7 +114,6 @@ static inline struct ipvl_port *ipvlan_port_get_rtnl(const struct net_device *d)
- 	return rtnl_dereference(d->rx_handler_data);
- }
- 
--void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev);
- void ipvlan_init_secret(void);
- unsigned int ipvlan_mac_hash(const unsigned char *addr);
- rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb);
-@@ -124,7 +123,5 @@ void ipvlan_ht_addr_add(struct ipvl_dev *ipvlan, struct ipvl_addr *addr);
- struct ipvl_addr *ipvlan_find_addr(const struct ipvl_dev *ipvlan,
- 				   const void *iaddr, bool is_v6);
- bool ipvlan_addr_busy(struct ipvl_port *port, void *iaddr, bool is_v6);
--struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
--					const void *iaddr, bool is_v6);
- void ipvlan_ht_addr_del(struct ipvl_addr *addr);
- #endif /* __IPVLAN_H */
-diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-index 21c380f9ccd5..5f79cd3eb8be 100644
---- a/drivers/net/ipvlan/ipvlan_core.c
-+++ b/drivers/net/ipvlan/ipvlan_core.c
-@@ -53,8 +53,8 @@ static u8 ipvlan_get_v4_hash(const void *iaddr)
- 	       IPVLAN_HASH_MASK;
- }
- 
--struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
--					const void *iaddr, bool is_v6)
-+static struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
-+					       const void *iaddr, bool is_v6)
- {
- 	struct ipvl_addr *addr;
- 	u8 hash;
-@@ -265,20 +265,25 @@ static int ipvlan_rcv_frame(struct ipvl_addr *addr, struct sk_buff **pskb,
- 	struct sk_buff *skb = *pskb;
- 
- 	len = skb->len + ETH_HLEN;
--	if (unlikely(!(dev->flags & IFF_UP))) {
--		kfree_skb(skb);
--		goto out;
--	}
-+	/* Only packets exchanged between two local slaves need to have
-+	 * device-up check as well as skb-share check.
-+	 */
-+	if (local) {
-+		if (unlikely(!(dev->flags & IFF_UP))) {
-+			kfree_skb(skb);
-+			goto out;
-+		}
- 
--	skb = skb_share_check(skb, GFP_ATOMIC);
--	if (!skb)
--		goto out;
-+		skb = skb_share_check(skb, GFP_ATOMIC);
-+		if (!skb)
-+			goto out;
- 
--	*pskb = skb;
-+		*pskb = skb;
-+	}
- 	skb->dev = dev;
--	skb->pkt_type = PACKET_HOST;
- 
- 	if (local) {
-+		skb->pkt_type = PACKET_HOST;
- 		if (dev_forward_skb(ipvlan->dev, skb) == NET_RX_SUCCESS)
- 			success = true;
- 	} else {
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 5bcb852c5500..a7ca1c519a0d 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -9,7 +9,7 @@
- 
- #include "ipvlan.h"
- 
--void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev)
-+static void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev)
- {
- 	ipvlan->dev->mtu = dev->mtu - ipvlan->mtu_adj;
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index d1d3e8f..2e7f7ab 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -2082,7 +2082,7 @@ static void adjust_branches(struct bpf_prog *prog, int pos, int delta)
+ 		/* adjust offset of jmps if necessary */
+ 		if (i < pos && i + insn->off + 1 > pos)
+ 			insn->off += delta;
+-		else if (i > pos && i + insn->off + 1 < pos)
++		else if (i > pos + delta && i + insn->off + 1 <= pos + delta)
+ 			insn->off -= delta;
+ 	}
  }
 -- 
-2.7.0.rc3.207.g0ac5344
+1.9.3
