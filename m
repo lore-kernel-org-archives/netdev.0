@@ -1,78 +1,76 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 1/3] lan78xx: replace devid to chipid & chiprev
-Date: Thu, 11 Feb 2016 00:36:44 +0300
-Message-ID: <56BBAD6C.6070901@cogentembedded.com>
-References: <9235D6609DB808459E95D78E17F2E43D404AB9F2@CHN-SV-EXMX02.mchp-main.com>
+From: Diego Viola <diego.viola@gmail.com>
+Subject: Re: Computer fails to resume from suspend unless I rmmod jme before
+ initiating the suspend
+Date: Wed, 10 Feb 2016 19:36:51 -0200
+Message-ID: <CA+ToGPF9cpdVLEHc7Vz79=-P7Jp76Y=M=p=bORhUNrXtb6+LNA@mail.gmail.com>
+References: <CA+ToGPGC8APhN-_F5fzyR4CWqWgZ9Hs0PNqykhEgEV7g3PJjTg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Woojung.Huh@microchip.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:35862 "EHLO
-	mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751087AbcBJVgs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 16:36:48 -0500
-Received: by mail-lf0-f49.google.com with SMTP id 78so20377573lfy.3
-        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 13:36:47 -0800 (PST)
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404AB9F2@CHN-SV-EXMX02.mchp-main.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: cooldavid@cooldavid.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+ToGPGC8APhN-_F5fzyR4CWqWgZ9Hs0PNqykhEgEV7g3PJjTg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/11/2016 12:13 AM, Woojung.Huh@microchip.com wrote:
-
-> Replace devid to chipid & chiprev for easy access.
+On Wed, Feb 10, 2016 at 2:19 AM, Diego Viola <diego.viola@gmail.com> wrote:
+> Hi Guo,
 >
-> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
-> ---
->   drivers/net/usb/lan78xx.c | 20 +++++++++++---------
->   drivers/net/usb/lan78xx.h |  1 +
->   2 files changed, 12 insertions(+), 9 deletions(-)
+> I have an x86 computer with this network card:
 >
-> diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-> index 1c299b8..b14b22d 100644
-> --- a/drivers/net/usb/lan78xx.c
-> +++ b/drivers/net/usb/lan78xx.c
-[...]
-> @@ -471,7 +472,7 @@ static int lan78xx_read_raw_eeprom(struct lan78xx_net *dev, u32 offset,
->   	 */
->   	ret = lan78xx_read_reg(dev, HW_CFG, &val);
->   	saved = val;
-> -	if ((dev->devid & ID_REV_CHIP_ID_MASK_) == 0x78000000) {
-> +	if ((dev->chipid) == ID_REV_CHIP_ID_7800_) {
-
-    Inner parens not needed.
-
-[...]
-> @@ -505,7 +506,7 @@ static int lan78xx_read_raw_eeprom(struct lan78xx_net *dev, u32 offset,
+> 02:00.0 Ethernet controller: JMicron Technology Corp. JMC260 PCI
+> Express Fast Ethernet Controller (rev 03)
 >
->   	retval = 0;
->   exit:
-> -	if ((dev->devid & ID_REV_CHIP_ID_MASK_) == 0x78000000)
-> +	if ((dev->chipid) == ID_REV_CHIP_ID_7800_)
-
-    Same here.
-
-[...]
-> @@ -539,7 +540,7 @@ static int lan78xx_write_raw_eeprom(struct lan78xx_net *dev, u32 offset,
->   	 */
->   	ret = lan78xx_read_reg(dev, HW_CFG, &val);
->   	saved = val;
-> -	if ((dev->devid & ID_REV_CHIP_ID_MASK_) == 0x78000000) {
-> +	if ((dev->chipid) == ID_REV_CHIP_ID_7800_) {
-
-    And here.
-
-[...]
-> @@ -587,7 +588,7 @@ static int lan78xx_write_raw_eeprom(struct lan78xx_net *dev, u32 offset,
+> Every time I initiate a suspend (systemctl suspend) the machine hangs
+> at resume unless I unload the jme driver.
 >
->   	retval = 0;
->   exit:
-> -	if ((dev->devid & ID_REV_CHIP_ID_MASK_) == 0x78000000)
-> +	if ((dev->chipid) == ID_REV_CHIP_ID_7800_)
+> Here is a Call Trace I was able to get after it hanged:
+>
+> <IRQ>
+> tasklet_action+0xb0/0xd0
+> __do_softirq+0xcf/0x290
+> irq_exit+0xa3/0xb0
+> do_IRQ+0x54/0xd0
+> common_interrupt+0x82/0x82
+>
+> <EOI>
+> jme_start_irq+0x84/0xa0 [jme]
+> jme_resume+0x12f/0x210 [jme]
+> pci_pm_resume+0x64/0xa0
+> ? pci_pm_thaw+0x90/0x90
+> dpm_run_callback+0x4e/0x130
+> device_resume+0xd3/0x1f0
+> async_resume+0x1d/0x50
+> async_run_entry_fn+0x48/0x150
+> process_one_work+0x14b/0x440
+> worker_thread+0x48/0x4a0
+> ? process_one_work+0x440/0x440
+> kthread+0xd8/0xf0
+> ? kthread_worker_fn+0x170/0x170
+> ret_from_fork+0x3f/0x70
+> ? kthread_worker_fn+0x170/0x170
+>
+> Please note that I had to type the calltrace above as I don't have a
+> serial cable and netconsole didn't work for me for some reason, so
+> there could be typos I didn't notice.
+>
+> I run Arch Linux (x86-64), my uname is:
+>
+> $ uname -a
+> Linux myhost 4.4.1-2-ARCH #1 SMP PREEMPT Wed Feb 3 13:12:33 UTC 2016
+> x86_64 GNU/Linux
+>
+> Please let me know if you have any questions or need any other information.
+>
+> Thanks,
+>
+> Diego
 
-    Here too.
+I found something interesting, I can suspend/resume just fine when the
+module is loaded and when I do this:
 
-[...]
+$ ip link set ens34 down
 
-MBR, Sergei
+When I bring the device up again the hang still occurs.
+
+Diego
