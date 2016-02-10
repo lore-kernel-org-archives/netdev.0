@@ -1,100 +1,179 @@
-From: Maninder Singh <maninder1.s@samsung.com>
-Subject: [PATCH 1/1] af_packet: Raw socket destruction warning fix
-Date: Wed, 10 Feb 2016 17:35:00 +0530
-Message-ID: <1455105900-15710-1-git-send-email-maninder1.s@samsung.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ajeet.y@samsung.com, pankaj.m@samsung.com, gh007.kim@samsung.com,
-	hakbong5.lee@samsung.com, akhilesh.k@samsung.com,
-	Maninder Singh <maninder1.s@samsung.com>,
-	Vaneet Narang <v.narang@samsung.com>,
-	Amit Nagal <amit.nagal@samsung.com>
-To: davem@davemloft.net, willemb@google.com, daniel@iogearbox.net,
-	edumazet@google.com, al.drozdov@gmail.com, eyal.birger@gmail.com,
-	tklauser@distanz.ch, fruggeri@aristanetworks.com,
-	dwmw2@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:34664 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754305AbcBJMG3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 07:06:29 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg Kurz <gkurz@linux.vnet.ibm.com>
+Subject: Re: [PATCH 1/2] vhost: helpers to enable/disable vring endianness
+Date: Wed, 10 Feb 2016 13:11:34 +0100
+Message-ID: <20160210131134.747352bd@bahia.huguette.org>
+References: <20160113170934.23705.62626.stgit@bahia.huguette.org>
+	<20160113170941.23705.93915.stgit@bahia.huguette.org>
+	<20160210131723-mutt-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160210131723-mutt-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This Patch fixes below warning:-
-WARNING: at net/packet/af_packet.c:xxx packet_sock_destruct
+On Wed, 10 Feb 2016 13:21:22 +0200
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-There is following race between packet_rcv and packet_close
-which keeps unfree packet in receive queue.
+> On Wed, Jan 13, 2016 at 06:09:41PM +0100, Greg Kurz wrote:
+> > The default use case for vhost is when the host and the vring have the
+> > same endianness (default native endianness). But there are cases where
+> > they differ and vhost should byteswap when accessing the vring:
+> > - the host is big endian and the vring comes from a virtio 1.0 device
+> >   which is always little endian
+> > - the architecture is bi-endian and the vring comes from a legacy virtio
+> >   device with a different endianness than the endianness of the host (aka
+> >   legacy cross-endian)
+> > 
+> > These cases are handled by the vq->is_le and the optional vq->user_be,
+> > with the following logic:
+> > - if none of the fields is enabled, vhost access the vring without byteswap
+> > - if the vring is virtio 1.0 and the host is big endian, vq->is_le is
+> >   enabled to enforce little endian access to the vring
+> > - if the vring is legacy cross-endian, userspace enables vq->user_be
+> >   to inform vhost about the vring endianness. This endianness is then
+> >   enforced for vring accesses through vq->is_le again
+> > 
+> > The logic is unclear in the current code.
+> > 
+> > This patch introduces helpers with explicit enable and disable semantics,
+> > for better clarity.
+> > 
+> > No behaviour change.
+> > 
+> > Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
+> > ---
+> >  drivers/vhost/vhost.c |   28 +++++++++++++++++++---------
+> >  1 file changed, 19 insertions(+), 9 deletions(-)
+> > 
+> > diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> > index ad2146a9ab2d..e02e06755ab7 100644
+> > --- a/drivers/vhost/vhost.c
+> > +++ b/drivers/vhost/vhost.c
+> > @@ -43,11 +43,16 @@ enum {
+> >  #define vhost_avail_event(vq) ((__virtio16 __user *)&vq->used->ring[vq->num])
+> >  
+> >  #ifdef CONFIG_VHOST_CROSS_ENDIAN_LEGACY
+> > -static void vhost_vq_reset_user_be(struct vhost_virtqueue *vq)
+> > +static void vhost_disable_user_be(struct vhost_virtqueue *vq)
+> >  {
+> >  	vq->user_be = !virtio_legacy_is_little_endian();
+> >  }
+> >    
+> 
+> Hmm this doesn't look like an improvement to me.
+> What does it mean to disable big endian? Make it little endian?
 
-CPU 1					CPU2
-packet_rcv
+The default behavior for the device is native endian.
 
-					packet_close                       
-skb_set_owner_r(skb, sk);
+The SET_VRING_ENDIAN ioctl is used to make the device big endian
+on little endian hosts, hence "enabling" cross-endian mode...
 
-					skb_queue_purge(&sk->sk_receive_queue);
+> Existing reset seems to make sense.
+> 
 
-spin_lock(&sk->sk_receive_queue.lock);
-__skb_queue_tail(&sk->sk_receive_queue, skb);
-spin_unlock(&sk->sk_receive_queue.lock);
+... and we "disable" cross-endian mode on reset.
 
-Signed-off-by: Vaneet Narang <v.narang@samsung.com>
-Signed-off-by: Amit Nagal <amit.nagal@samsung.com>
-Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
----
- net/packet/af_packet.c |   11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+> > +static void vhost_enable_user_be(struct vhost_virtqueue *vq, bool user_be)
+> > +{
+> > +	vq->user_be = user_be;
+> > +}
+> > +  
+> 
+> And this is maybe "init_user_be"?
+> 
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 992396a..e6047e6 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1310,7 +1310,10 @@ static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
- 
- static void packet_sock_destruct(struct sock *sk)
- {
-+	/* Purge queues */
-+
- 	skb_queue_purge(&sk->sk_error_queue);
-+	skb_queue_purge(&sk->sk_receive_queue);
- 
- 	WARN_ON(atomic_read(&sk->sk_rmem_alloc));
- 	WARN_ON(atomic_read(&sk->sk_wmem_alloc));
-@@ -1991,6 +1994,9 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev,
- 	if (!net_eq(dev_net(dev), sock_net(sk)))
- 		goto drop;
- 
-+	if (sock_flag(sk, SOCK_DEAD))
-+		goto drop;
-+
- 	skb->dev = dev;
- 
- 	if (dev->header_ops) {
-@@ -2053,7 +2059,6 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev,
- 	if (pskb_trim(skb, snaplen))
- 		goto drop_n_acct;
- 
--	skb_set_owner_r(skb, sk);
- 	skb->dev = NULL;
- 	skb_dst_drop(skb);
- 
-@@ -2061,6 +2066,7 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev,
- 	nf_reset(skb);
- 
- 	spin_lock(&sk->sk_receive_queue.lock);
-+	skb_set_owner_r(skb, sk);
- 	po->stats.stats1.tp_packets++;
- 	sock_skb_set_dropcount(sk, skb);
- 	__skb_queue_tail(&sk->sk_receive_queue, skb);
-@@ -2899,9 +2905,6 @@ static int packet_release(struct socket *sock)
- 	sock_orphan(sk);
- 	sock->sk = NULL;
- 
--	/* Purge queues */
--
--	skb_queue_purge(&sk->sk_receive_queue);
- 	packet_free_pending(po);
- 	sk_refcnt_debug_release(sk);
- 
--- 
-1.7.9.5
+Anyway I don't mind changing the names to reset/init_user_be if you think it
+is clearer.
+
+> >  static long vhost_set_vring_endian(struct vhost_virtqueue *vq, int __user *argp)
+> >  {
+> >  	struct vhost_vring_state s;
+> > @@ -62,7 +67,7 @@ static long vhost_set_vring_endian(struct vhost_virtqueue *vq, int __user *argp)
+> >  	    s.num != VHOST_VRING_BIG_ENDIAN)
+> >  		return -EINVAL;
+> >  
+> > -	vq->user_be = s.num;
+> > +	vhost_enable_user_be(vq, !!s.num);
+> >  
+> >  	return 0;
+> >  }
+> > @@ -81,7 +86,7 @@ static long vhost_get_vring_endian(struct vhost_virtqueue *vq, u32 idx,
+> >  	return 0;
+> >  }
+> >  
+> > -static void vhost_init_is_le(struct vhost_virtqueue *vq)
+> > +static void vhost_enable_is_le(struct vhost_virtqueue *vq)
+> >  {
+> >  	/* Note for legacy virtio: user_be is initialized at reset time
+> >  	 * according to the host endianness. If userspace does not set an  
+> 
+> Same thing really. I'd rather add "reset_is_le".
+> 
+> > @@ -91,7 +96,7 @@ static void vhost_init_is_le(struct vhost_virtqueue *vq)
+> >  	vq->is_le = vhost_has_feature(vq, VIRTIO_F_VERSION_1) || !vq->user_be;
+> >  }
+> >  #else
+> > -static void vhost_vq_reset_user_be(struct vhost_virtqueue *vq)
+> > +static void vhost_disable_user_be(struct vhost_virtqueue *vq)
+> >  {
+> >  }
+> >  
+> > @@ -106,13 +111,18 @@ static long vhost_get_vring_endian(struct vhost_virtqueue *vq, u32 idx,
+> >  	return -ENOIOCTLCMD;
+> >  }
+> >  
+> > -static void vhost_init_is_le(struct vhost_virtqueue *vq)
+> > +static void vhost_enable_is_le(struct vhost_virtqueue *vq)
+> >  {
+> >  	if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
+> >  		vq->is_le = true;
+> >  }
+> >  #endif /* CONFIG_VHOST_CROSS_ENDIAN_LEGACY */
+> >  
+> > +static void vhost_disable_is_le(struct vhost_virtqueue *vq)
+> > +{
+> > +	vq->is_le = virtio_legacy_is_little_endian();
+> > +}
+> > +
+> >  static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
+> >  			    poll_table *pt)
+> >  {
+> > @@ -276,8 +286,8 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+> >  	vq->call = NULL;
+> >  	vq->log_ctx = NULL;
+> >  	vq->memory = NULL;
+> > -	vq->is_le = virtio_legacy_is_little_endian();
+> > -	vhost_vq_reset_user_be(vq);
+> > +	vhost_disable_is_le(vq);
+> > +	vhost_disable_user_be(vq);
+> >  }
+> >  
+> >  static int vhost_worker(void *data)
+> > @@ -1157,11 +1167,11 @@ int vhost_init_used(struct vhost_virtqueue *vq)
+> >  	__virtio16 last_used_idx;
+> >  	int r;
+> >  	if (!vq->private_data) {
+> > -		vq->is_le = virtio_legacy_is_little_endian();
+> > +		vhost_disable_is_le(vq);
+> >  		return 0;
+> >  	}
+> >  
+> > -	vhost_init_is_le(vq);
+> > +	vhost_enable_is_le(vq);
+> >  
+> >  	r = vhost_update_used_flags(vq);
+> >  	if (r)  
+> 
