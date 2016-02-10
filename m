@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 10/21] batman-adv: Convert batadv_nc_path to kref
-Date: Wed, 10 Feb 2016 23:57:16 +0800
-Message-ID: <1455119847-5862-11-git-send-email-a@unstable.cc>
+Subject: [PATCH 21/21] batman-adv: Convert batadv_tt_common_entry to kref
+Date: Wed, 10 Feb 2016 23:57:27 +0800
+Message-ID: <1455119847-5862-22-git-send-email-a@unstable.cc>
 References: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:12309 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:39732 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752935AbcBJQSY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2016 11:18:24 -0500
+	id S1752558AbcBJQSc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2016 11:18:32 -0500
 In-Reply-To: <1455119847-5862-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -27,78 +27,126 @@ Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/network-coding.c | 28 +++++++++++++++++++++-------
- net/batman-adv/types.h          |  2 +-
- 2 files changed, 22 insertions(+), 8 deletions(-)
+ net/batman-adv/translation-table.c | 64 +++++++++++++++++++++++++++++---------
+ net/batman-adv/types.h             |  2 +-
+ 2 files changed, 51 insertions(+), 15 deletions(-)
 
-diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
-index 7a1216eeb4cf..371fc6bbf9d6 100644
---- a/net/batman-adv/network-coding.c
-+++ b/net/batman-adv/network-coding.c
-@@ -233,14 +233,27 @@ static void batadv_nc_node_free_ref(struct batadv_nc_node *nc_node)
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 96b1571213bd..11882793f0a4 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -142,7 +142,7 @@ batadv_tt_hash_find(struct batadv_hashtable *hash, const u8 *addr,
+ 		if (tt->vid != vid)
+ 			continue;
+ 
+-		if (!atomic_inc_not_zero(&tt->refcount))
++		if (!kref_get_unless_zero(&tt->refcount))
+ 			continue;
+ 
+ 		tt_tmp = tt;
+@@ -203,25 +203,59 @@ batadv_tt_global_hash_find(struct batadv_priv *bat_priv, const u8 *addr,
+ 	return tt_global_entry;
+ }
+ 
+-static void
+-batadv_tt_local_entry_free_ref(struct batadv_tt_local_entry *tt_local_entry)
++/**
++ * batadv_tt_local_entry_release - release tt_local_entry from lists and queue
++ *  for free after rcu grace period
++ * @ref: kref pointer of the nc_node
++ */
++static void batadv_tt_local_entry_release(struct kref *ref)
+ {
+-	if (atomic_dec_and_test(&tt_local_entry->common.refcount))
+-		kfree_rcu(tt_local_entry, common.rcu);
++	struct batadv_tt_local_entry *tt_local_entry;
++
++	tt_local_entry = container_of(ref, struct batadv_tt_local_entry,
++				      common.refcount);
++
++	kfree_rcu(tt_local_entry, common.rcu);
  }
  
  /**
-- * batadv_nc_path_free_ref - decrements the nc path refcounter and possibly
-- * frees it
-- * @nc_path: the nc node to free
-+ * batadv_nc_path_release - release nc_path from lists and queue for free after
-+ *  rcu grace period
-+ * @ref: kref pointer of the nc_path
+- * batadv_tt_global_entry_free_ref - decrement the refcounter for a
+- *  tt_global_entry and possibly free it
+- * @tt_global_entry: the object to free
++ * batadv_tt_local_entry_free_ref - decrement the tt_local_entry refcounter and
++ *  possibly release it
++ * @tt_local_entry: tt_local_entry to be free'd
 + */
-+static void batadv_nc_path_release(struct kref *ref)
++static void
++batadv_tt_local_entry_free_ref(struct batadv_tt_local_entry *tt_local_entry)
 +{
-+	struct batadv_nc_path *nc_path;
-+
-+	nc_path = container_of(ref, struct batadv_nc_path, refcount);
-+
-+	kfree_rcu(nc_path, rcu);
++	kref_put(&tt_local_entry->common.refcount,
++		 batadv_tt_local_entry_release);
 +}
 +
 +/**
-+ * batadv_nc_path_free_ref - decrement the nc_path refcounter and possibly
-+ *  release it
-+ * @nc_path: nc_path to be free'd
++ * batadv_tt_global_entry_release - release tt_global_entry from lists and queue
++ *  for free after rcu grace period
++ * @ref: kref pointer of the nc_node
++ */
++static void batadv_tt_global_entry_release(struct kref *ref)
++{
++	struct batadv_tt_global_entry *tt_global_entry;
++
++	tt_global_entry = container_of(ref, struct batadv_tt_global_entry,
++				       common.refcount);
++
++	batadv_tt_global_del_orig_list(tt_global_entry);
++	kfree_rcu(tt_global_entry, common.rcu);
++}
++
++/**
++ * batadv_tt_global_entry_free_ref - decrement the tt_global_entry refcounter
++ *  and possibly release it
++ * @tt_global_entry: tt_global_entry to be free'd
   */
- static void batadv_nc_path_free_ref(struct batadv_nc_path *nc_path)
+ static void
+ batadv_tt_global_entry_free_ref(struct batadv_tt_global_entry *tt_global_entry)
  {
--	if (atomic_dec_and_test(&nc_path->refcount))
--		kfree_rcu(nc_path, rcu);
-+	kref_put(&nc_path->refcount, batadv_nc_path_release);
+-	if (atomic_dec_and_test(&tt_global_entry->common.refcount)) {
+-		batadv_tt_global_del_orig_list(tt_global_entry);
+-		kfree_rcu(tt_global_entry, common.rcu);
+-	}
++	kref_put(&tt_global_entry->common.refcount,
++		 batadv_tt_global_entry_release);
  }
  
  /**
-@@ -545,7 +558,7 @@ batadv_nc_hash_find(struct batadv_hashtable *hash,
- 		if (!batadv_nc_hash_compare(&nc_path->hash_entry, data))
- 			continue;
+@@ -633,7 +667,8 @@ bool batadv_tt_local_add(struct net_device *soft_iface, const u8 *addr,
+ 	tt_local->common.vid = vid;
+ 	if (batadv_is_wifi_netdev(in_dev))
+ 		tt_local->common.flags |= BATADV_TT_CLIENT_WIFI;
+-	atomic_set(&tt_local->common.refcount, 2);
++	kref_init(&tt_local->common.refcount);
++	kref_get(&tt_local->common.refcount);
+ 	tt_local->last_seen = jiffies;
+ 	tt_local->common.added_at = tt_local->last_seen;
  
--		if (!atomic_inc_not_zero(&nc_path->refcount))
-+		if (!kref_get_unless_zero(&nc_path->refcount))
- 			continue;
+@@ -1415,7 +1450,8 @@ static bool batadv_tt_global_add(struct batadv_priv *bat_priv,
+ 		 */
+ 		if (flags & BATADV_TT_CLIENT_ROAM)
+ 			tt_global_entry->roam_at = jiffies;
+-		atomic_set(&common->refcount, 2);
++		kref_init(&common->refcount);
++		kref_get(&common->refcount);
+ 		common->added_at = jiffies;
  
- 		nc_path_tmp = nc_path;
-@@ -972,7 +985,8 @@ static struct batadv_nc_path *batadv_nc_get_path(struct batadv_priv *bat_priv,
- 	/* Initialize nc_path */
- 	INIT_LIST_HEAD(&nc_path->packet_list);
- 	spin_lock_init(&nc_path->packet_list_lock);
--	atomic_set(&nc_path->refcount, 2);
-+	kref_init(&nc_path->refcount);
-+	kref_get(&nc_path->refcount);
- 	nc_path->last_valid = jiffies;
- 	ether_addr_copy(nc_path->next_hop, dst);
- 	ether_addr_copy(nc_path->prev_hop, src);
+ 		INIT_HLIST_HEAD(&tt_global_entry->orig_list);
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 05421afb1d74..b3d9b5b566a2 100644
+index aea82a121c02..612de23178e6 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -1087,7 +1087,7 @@ struct batadv_nc_node {
- struct batadv_nc_path {
+@@ -972,7 +972,7 @@ struct batadv_tt_common_entry {
  	struct hlist_node hash_entry;
- 	struct rcu_head rcu;
+ 	u16 flags;
+ 	unsigned long added_at;
 -	atomic_t refcount;
 +	struct kref refcount;
- 	struct list_head packet_list;
- 	spinlock_t packet_list_lock; /* Protects packet_list */
- 	u8 next_hop[ETH_ALEN];
+ 	struct rcu_head rcu;
+ };
+ 
 -- 
 2.7.1
