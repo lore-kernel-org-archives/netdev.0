@@ -1,107 +1,183 @@
-From: Vaneet Narang <v.narang@samsung.com>
-Subject: Re: [PATCH] af_packet: Raw socket destruction warning fix
-Date: Wed, 10 Feb 2016 12:43:21 +0000 (GMT)
-Message-ID: <230561650.749911455108197509.JavaMail.weblogic@epmlwas05a>
-Reply-To: v.narang@samsung.com
+From: Greg Kurz <gkurz@linux.vnet.ibm.com>
+Subject: Re: [PATCH 2/2] vhost: disentangle vring endianness stuff from the
+	core code
+Date: Wed, 10 Feb 2016 14:08:43 +0100
+Message-ID: <20160210140843.64ea5aa1@bahia.huguette.org>
+References: <20160113170934.23705.62626.stgit@bahia.huguette.org>
+	<20160113170947.23705.95216.stgit@bahia.huguette.org>
+	<20160210132240-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"willemb@google.com" <willemb@google.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"eyal.birger@gmail.com" <eyal.birger@gmail.com>,
-	"tklauser@distanz.ch" <tklauser@distanz.ch>,
-	"fruggeri@aristanetworks.com" <fruggeri@aristanetworks.com>,
-	"dwmw2@infradead.org" <dwmw2@infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	PANKAJ MISHRA <pankaj.m@samsung.com>,
-	Geon-ho Kim <gh007.kim@samsung.com>,
-	Hak-Bong Lee <hakbong5.lee@samsung.com>,
-	"ajeet.y@samsung.com" <ajeet.y@samsung.com>,
-	AKHILESH KUMAR <akhilesh.k@samsung.com>,
-	AMIT NAGAL <amit.nagal@samsung.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Maninder Singh <maninder1.s@samsung.com>,
-	Vaneet Narang <v.narang@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:39734 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751257AbcBJMnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 07:43:23 -0500
-Received: from epcpsbgr4.samsung.com
- (u144.gpu120.samsung.co.kr [203.254.230.144])
- by mailout1.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
- 64bit (built May  5 2014))
- with ESMTP id <0O2C00AMQ0O9YB30@mailout1.samsung.com> for
- netdev@vger.kernel.org; Wed, 10 Feb 2016 21:43:21 +0900 (KST)
-MIME-version: 1.0
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160210132240-mutt-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-SGksDQoNCj5XaGF0IGRyaXZlciBhcmUgeW91IHVzaW5nIChpcyB0aGF0IGluLXRyZWUpPyBDYW4g
-eW91IHJlcHJvZHVjZSB0aGUgc2FtZSBpc3N1ZQ0KPndpdGggYSBsYXRlc3QgLW5ldCBrZXJuZWws
-IGZvciBleGFtcGxlIChvciwgYSAncmVhc29uYWJseScgcmVjZW50IG9uZSBsaWtlIDQuMyBvcg0K
-PjQuNCk/IFRoZXJlIGhhcyBiZWVuIHF1aXRlIGEgYml0IG9mIGNoYW5nZXMgaW4gZXJyIHF1ZXVl
-IGhhbmRsaW5nICh3aGljaCBhbHNvDQo+YWNjb3VudHMgcm1lbSkgYXMgd2VsbC4gSG93IHJlbGlh
-Ymx5IGNhbiB5b3UgdHJpZ2dlciB0aGUgaXNzdWU/IERvZXMgaXQgdHJpZ2dlcg0KPndpdGggYSBj
-b21wbGV0ZWx5IGRpZmZlcmVudCBpbi10cmVlIG5ldHdvcmsgZHJpdmVyIGFzIHdlbGwgd2l0aCB5
-b3VyIHRlc3RzPyBXb3VsZA0KPmJlIHVzZWZ1bCB0byB0cmFjay9kZWJ1ZyBza19ybWVtX2FsbG9j
-IGluY3JlYXNlcy9kZWNyZWFzZXMgdG8gc2VlIGZyb20gd2hpY2ggcGF0aA0KPm5ldyBybWVtIGlz
-IGJlaW5nIGNoYXJnZWQgaW4gdGhlIHRpbWUgYmV0d2VlbiBwYWNrZXRfcmVsZWFzZSgpIGFuZCBw
-YWNrZXRfc29ja19kZXN0cnVjdCgpDQo+Zm9yIHRoYXQgc29ja2V0IC4uLg0KPg0KSXQgc2VlbXMg
-cmFjZSBjb25kaXRpb24gdG8gdXMgYmV0d2VlbiBwYWNrZXRfcmN2IGFuZCBwYWNrZXRfY2xvc2Us
-IHdlIGhhdmUgdHJpZWQgdG8gcmVwcm9kdWNlDQp0aGlzIGlzc3VlIGJ5IGFkZGluZyBkZWxheSBp
-biBza2Jfc2V0X293bmVyX3IgYW5kIGlzc3VlIGdldHMgcmVwcm9kdWNlZCBxdWl0ZSBmcmVxdWVu
-dGx5LiANCndlIGhhdmUgYWRkZWQgc29tZSB0cmFjZXMgYW5kIG9uIGFuYWx5emluZyB3ZSBoYXZl
-IHJlYWxpc2VkIGZvbGxvd2luZyBwb3NzaWJsZSByYWNlIGNvbmRpdGlvbi4NCg0KcGFja2V0X3Jj
-diAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCg0KICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcGFja2V0X2Nsb3NlICAgICAgICAg
-ICAgICAgICAgICAgICANCnNrYl9zZXRfb3duZXJfcihza2IsIHNrKTsNCg0KICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBza2JfcXVldWVfcHVyZ2UoJnNr
-LT5za19yZWNlaXZlX3F1ZXVlKTsNCg0Kc3Bpbl9sb2NrKCZzay0+c2tfcmVjZWl2ZV9xdWV1ZS5s
-b2NrKTsNCl9fc2tiX3F1ZXVlX3RhaWwoJnNrLT5za19yZWNlaXZlX3F1ZXVlLCBza2IpOw0Kc3Bp
-bl91bmxvY2soJnNrLT5za19yZWNlaXZlX3F1ZXVlLmxvY2spOw0KDQpTaW5jZSBwYWNrZXQgd2Fz
-IG5vdCBhZGRlZCB0byByZWNlaXZlIHF1ZXVlIHNvIHJlY2VpdmUgcXVldWUgcHVyZ2Ugd2lsbCBu
-byBoYXZlIGFueSBpbXBhY3QuDQpJdCB3aWxsIG5vdCBmcmVlIHNrX2J1ZmYgc3RvcmVkIGluIHJl
-Y2VpdmUgcXVldWUuIFNvIHRvIGZpeCB0aGlzIGlzc3VlLCB3ZSBoYXZlIG1ha2Ugc3VyZQ0Kc2ti
-X3NldF9vd25lcl9yKHNrYiwgc2spICYgX19za2JfcXVldWVfdGFpbCgmc2stPnNrX3JlY2VpdmVf
-cXVldWUsIHNrYikgaXMgY2FsbGVkIHVuZGVyIA0KcmVjZWl2ZSBxdWV1ZSBsb2NrIGFuZCB3ZSBo
-YXZlIG1vdmVkIHJlY2VpdmUgcXVldWUgcHVyZ2UgZnJvbSBwYWNrZXRfcmVsZWFzZSB0byANCnBh
-Y2tldF9zb2NrX2Rlc3RydWN0Lg0KDQoNCndlIGhhdmUgYWRkZWQgc29tZSB0cmFjZXMgaW4gc2ti
-X3NldF9vd25lcl9yICYgcGFja2V0X3NvY2tfZGVzdHJ1Y3QuIFNvIHRoaXMgaXMNCndoYXQgd2Ug
-Z290DQpDUFUgMA0KIHNrID0gZGI2ZDE3YzAgc2stPnNrX2ZsYWdzID0gMHgzMjAgU2l6ZSA9IDE5
-ODQNCkJhY2t0cmFjZToNCiAoZHVtcF9iYWNrdHJhY2UrMHgwLzB4MTI4KSBmcm9tIChzaG93X3N0
-YWNrKzB4MjAvMHgyOCkgDQogKHNob3dfc3RhY2srMHgwLzB4MjgpIGZyb20gKGR1bXBfc3RhY2sr
-MHgyNC8weDI4KQ0KIChkdW1wX3N0YWNrKzB4MC8weDI4KSBmcm9tIChwYWNrZXRfcmN2KzB4NDgw
-LzB4NDg4KQ0KIChwYWNrZXRfcmN2KzB4MC8weDQ4OCkgZnJvbSAoX19uZXRpZl9yZWNlaXZlX3Nr
-Yl9jb3JlKzB4NTNjLzB4Njc0KQ0KIChfX25ldGlmX3JlY2VpdmVfc2tiX2NvcmUrMHgwLzB4Njc0
-KSBmcm9tIChfX25ldGlmX3JlY2VpdmVfc2tiKzB4MjAvMHg3NCkNCiAoX19uZXRpZl9yZWNlaXZl
-X3NrYisweDAvMHg3NCkgZnJvbSAobmV0aWZfcmVjZWl2ZV9za2IrMHgyYy8weGJjKQ0KIChuZXRp
-Zl9yZWNlaXZlX3NrYisweDAvMHhiYykgZnJvbSAobmFwaV9ncm9fcmVjZWl2ZSsweDkwLzB4YzAp
-DQouLi4uLi4NCiAobmV0X3J4X2FjdGlvbisweDAvMHgzMDApIGZyb20oX19kb19zb2Z0aXJxKzB4
-MTYwLzB4MzQwKQ0KIChfX2RvX3NvZnRpcnErMHgwLzB4MzQwKSBmcm9tIChkb19zb2Z0aXJxKzB4
-YzQvMHhlMCkNCiAoZG9fc29mdGlycSsweDAvMHhlMCkgZnJvbSAoaXJxX2V4aXQrMHhjNC8weGY4
-KQ0KIChpcnFfZXhpdCsweDAvMHhmOCkgZnJvbSAoaGFuZGxlX0lSUSsweDg4LzB4MTBjKQ0KICho
-YW5kbGVfSVJRKzB4MC8weDEwYykgZnJvbSAgKGdpY19oYW5kbGVfaXJxKzB4NjQvMHhhYykNCg0K
-IENQVSAxDQpCYWNrdHJhY2U6DQpzayA9IGRiNmQxN2MwIHNrLT5za19ybWVtX2FsbG9jPTE5ODQg
-IHNrLT5za19mbGFncyA9IDB4MTQxDQpSZWNlaXZlIFF1ZXVlIEVtcHR5ID0gIlllcyIgIEVycm9y
-IHF1ZXVlIGVtcHR5ID0gIlllcyINCiANCiAocGFja2V0X3NvY2tfZGVzdHJ1Y3QrMHgwLzB4MWY0
-KSBmcm9tIChfX3NrX2ZyZWUrMHgyOC8weDE4YykNCiAoX19za19mcmVlKzB4MC8weDE4YykgZnJv
-bSAoc2tfZnJlZSsweDQwLzB4NDgpDQogKHNrX2ZyZWUrMHgwLzB4NDgpIGZyb20gKHBhY2tldF9y
-ZWxlYXNlKzB4MjljLzB4MzEwKQ0KIChwYWNrZXRfcmVsZWFzZSsweDAvMHgzMTApIGZyb20gIChz
-b2NrX3JlbGVhc2UrMHgzMC8weGI4KQ0KIChzb2NrX3JlbGVhc2UrMHgwLzB4YjgpIGZyb20gKHNv
-Y2tfY2xvc2UrMHgxYy8weDI4KQ0KIChzb2NrX2Nsb3NlKzB4MC8weDI4KSBmcm9tIChfX2ZwdXQr
-MHg5Yy8weDJiNCkNCiAoX19mcHV0KzB4MC8weDJiNCkgZnJvbSAoX19fX2ZwdXQrMHgxOC8weDIw
-KQ0KIChfX19fZnB1dCsweDAvMHgyMCkgZnJvbSAodGFza193b3JrX3J1bisweGMwLzB4ZmMpDQog
-KHRhc2tfd29ya19ydW4rMHgwLzB4ZmMpIGZyb20gKGRvX3dvcmtfcGVuZGluZysweDEwOC8weDEx
-NCkNCiAoZG9fd29ya19wZW5kaW5nKzB4MC8weDExNCkgZnJvbSAod29ya19wZW5kaW5nKzB4Yy8w
-eDIwKQ0KDQpGcm9tIHRoaXMgaXQgYXBwZWFycyBwYWNrZXRfcmN2IHdhcyBjYWxsZWQgd2hlbiBw
-YWNrZXRfcmVsZWFzZQ0Kd2FzIG5vdCBkb25lICBhcyBza19mbGFncyA9IDB4MzIwICAoU09DS19E
-RUFEIGlzIG5vdCBzZXQpICYgcGFja2V0X3NvY2tfZGVzdHJ1Y3Qgd2FzIGNhbGxlZCANCndoZW4g
-c2tfcm1lbV9hbGxvYyB3YXMgaW5jcmVhc2VkIGJ1dCBwYWNrZXQgd2FzIG5vdCBhZGRlZCB0byBy
-ZWNlaXZlIHF1ZXVlLg0Kc2tfcm1lbV9hbGxvYyBwZW5kaW5nIGlzIHNhbWUgYXMgc2l6ZSBvZiBs
-YXN0IHBhY2tldCByZWNlaXZlZCBvbiBzb2NrZXQuDQogDQpLaW5kbHkgY29tbWVudCBvbiB0aGUg
-Zml4IHNoYXJlZCBhdCBmb2xsb3dpbmcgbGluay4NCmh0dHA6Ly93d3cuc3Bpbmljcy5uZXQvbGlz
-dHMva2VybmVsL21zZzIxODQ4MTUuaHRtbA0KDQpUaGFua3MgJiBSZWdhcmRzLA0KVmFuZWV0IE5h
-cmFuZw==
+On Wed, 10 Feb 2016 13:48:09 +0200
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
+
+> On Wed, Jan 13, 2016 at 06:09:47PM +0100, Greg Kurz wrote:
+> > The way vring endianness is being handled currently obfuscates
+> > the code in vhost_init_used().
+> > 
+> > This patch tries to fix that by doing the following:
+> > - move the the code that adjusts endianness to a dedicated helper
+> > - export this helper so that backends explicitely call it
+> > 
+> > No behaviour change.
+> > 
+> > Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
+> > ---
+> >  drivers/vhost/net.c   |    3 +++
+> >  drivers/vhost/scsi.c  |    3 +++
+> >  drivers/vhost/test.c  |    2 ++
+> >  drivers/vhost/vhost.c |   16 +++++++++++-----
+> >  drivers/vhost/vhost.h |    1 +
+> >  5 files changed, 20 insertions(+), 5 deletions(-)
+> > 
+> > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> > index 9eda69e40678..df01c939cd00 100644
+> > --- a/drivers/vhost/net.c
+> > +++ b/drivers/vhost/net.c
+> > @@ -917,6 +917,9 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+> >  
+> >  		vhost_net_disable_vq(n, vq);
+> >  		vq->private_data = sock;
+> > +
+> > +		vhost_adjust_vring_endian(vq);
+> > +
+> >  		r = vhost_init_used(vq);
+> >  		if (r)
+> >  			goto err_used;  
+> 
+> 
+> This is in fact a bug in existing code: if vhost_init_used
+> fails, it preferably should not have side-effects.
+> It's best to update it last thing.
+> 
+
+I'm afraid we can't because the following path needs the
+vring endianness:
+
+vhost_init_used()->vhost_update_used_flags()->cpu_to_vhost16()
+
+But you are right, there is a bug: we should rollback if vhost_init_used()
+fails. Something like below:
+
+ err_used:
+        vq->private_data = oldsock;
+        vhost_net_enable_vq(n, vq);
++       vhost_adjust_vring_endian(vq);
+        if (ubufs)
+                vhost_net_ubuf_put_wait_and_free(ubufs);
+ err_ubufs:
+
+> > diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
+> > index 29cfc57d496e..5a8363bfcb74 100644
+> > --- a/drivers/vhost/scsi.c
+> > +++ b/drivers/vhost/scsi.c
+> > @@ -1274,6 +1274,9 @@ vhost_scsi_set_endpoint(struct vhost_scsi *vs,
+> >  			vq = &vs->vqs[i].vq;
+> >  			mutex_lock(&vq->mutex);
+> >  			vq->private_data = vs_tpg;
+> > +
+> > +			vhost_adjust_vring_endian(vq);
+> > +
+> >  			vhost_init_used(vq);
+> >  			mutex_unlock(&vq->mutex);
+> >  		}
+> > diff --git a/drivers/vhost/test.c b/drivers/vhost/test.c
+> > index f2882ac98726..75e3e0e9f5a8 100644
+> > --- a/drivers/vhost/test.c
+> > +++ b/drivers/vhost/test.c
+> > @@ -196,6 +196,8 @@ static long vhost_test_run(struct vhost_test *n, int test)
+> >  		oldpriv = vq->private_data;
+> >  		vq->private_data = priv;
+> >  
+> > +		vhost_adjust_vring_endian(vq);
+> > +
+> >  		r = vhost_init_used(&n->vqs[index]);
+> >  
+> >  		mutex_unlock(&vq->mutex);
+> > diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> > index e02e06755ab7..b0a00340309e 100644
+> > --- a/drivers/vhost/vhost.c
+> > +++ b/drivers/vhost/vhost.c
+> > @@ -123,6 +123,15 @@ static void vhost_disable_is_le(struct vhost_virtqueue *vq)
+> >  	vq->is_le = virtio_legacy_is_little_endian();
+> >  }
+> >  
+> > +void vhost_adjust_vring_endian(struct vhost_virtqueue *vq)
+> > +{
+> > +	if (!vq->private_data)
+> > +		vhost_disable_is_le(vq);
+> > +	else
+> > +		vhost_enable_is_le(vq);
+> > +}
+> > +EXPORT_SYMBOL_GPL(vhost_adjust_vring_endian);
+> > +
+> >  static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
+> >  			    poll_table *pt)
+> >  {  
+> 
+> I'd prefer "vhost_update_is_le" here. "endian" might also mean
+> "user_be". But see below pls.
+> 
+
+Ok, I will rename if this patch survives the review.
+
+> 
+> > @@ -1166,12 +1175,9 @@ int vhost_init_used(struct vhost_virtqueue *vq)
+> >  {
+> >  	__virtio16 last_used_idx;
+> >  	int r;
+> > -	if (!vq->private_data) {
+> > -		vhost_disable_is_le(vq);
+> > -		return 0;
+> > -	}
+> >  
+> > -	vhost_enable_is_le(vq);
+> > +	if (!vq->private_data)
+> > +		return 0;
+> >  
+> >  	r = vhost_update_used_flags(vq);
+> >  	if (r)  
+> 
+> Looking at how callers use this, maybe we should just rename init_used
+> to vhost_vq_init_access. The _used suffix was a hint that we
+> access the vq used ring. But maybe what callers care about is
+> that it must be called after access_ok.
+> 
+
+And so we would keep the current logic where it is up to the core
+code to update is_le... that is basically getting rid of this patch :)
+
+So IIUC you're asking for:
+- fix the side-effect in vhost_init_used()
+- rename vhost_init_used() to vhost_vq_init_access()
+
+> > diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+> > index d3f767448a72..88d86f45f756 100644
+> > --- a/drivers/vhost/vhost.h
+> > +++ b/drivers/vhost/vhost.h
+> > @@ -162,6 +162,7 @@ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+> >  
+> >  int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+> >  		    unsigned int log_num, u64 len);
+> > +void vhost_adjust_vring_endian(struct vhost_virtqueue *vq);
+> >  
+> >  #define vq_err(vq, fmt, ...) do {                                  \
+> >  		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \  
+> 
