@@ -1,62 +1,89 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v8 04/19] net: usnic: use __ethtool_get_settings
-Date: Tue,  9 Feb 2016 16:29:13 -0800
-Message-ID: <1455064168-5102-5-git-send-email-ddecotig@gmail.com>
-References: <1455064168-5102-1-git-send-email-ddecotig@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-        Eugenia Emantayev <eugenia@mellanox.co.il>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Govindarajulu Varadarajan <_govind@gmx.com>,
-        Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Pravin B Shelar <pshelar@nicira.com>,
-        Ed Swierk <eswierk@skyportsystems.com>,
-        Robert Love <robert.w.love@intel.com>,
-        "James E.J. Bottomley" <JBottomley@parallels.com>,
-        Yuval Mintz <Yuval.Mintz@qlogic.com>,
-        Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-        David Decotigny <decot@googlers.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Ben Hutchings <ben@decadent.org.uk>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-api@vger.kernel.org, linux-mips@linux-mips.org,
-        fcoe-devel@open-fcoe.org,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Tejun Heo <tj@kernel.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1455064168-5102-1-git-send-email-ddecotig@gmail.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Subject: Re: [PATCH net-next v7 01/19] lib/bitmap.c: conversion routines
+ to/from u32 array
+Date: Tue, 9 Feb 2016 16:30:51 -0800
+Message-ID: <CAG88wWaA-pWcS8CnZykQxoWR4_jZxRhhEeOVQqNK_cOFo=VxFA@mail.gmail.com>
+References: <1454893743-6285-1-git-send-email-ddecotig@gmail.com>
+ <1454893743-6285-2-git-send-email-ddecotig@gmail.com> <20160208153635.67df5ac2576138088a859087@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
+	linux-mips@linux-mips.org, fcoe-devel@open-fcoe.org,
+	Tejun Heo <tj@kernel.org>, Eric Dumazet <edumazet@google.com>,
+	Eugenia Emantayev <eugenia@mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	Venkata Duvvuru <VenkatKumar.Duvvuru@emulex.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ed Swierk <eswierk@skyportsystems.com>,
+	Robert Love <robert.w.love@intel.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	Yuval Mintz <Yuval.Mintz@
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160208153635.67df5ac2576138088a859087@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Decotigny <decot@googlers.com>
+thanks. done in v8 I am sending right now.
 
-Signed-off-by: David Decotigny <decot@googlers.com>
----
- drivers/infiniband/hw/usnic/usnic_ib_verbs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-index ea003ec..1cf19a3 100644
---- a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-+++ b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-@@ -329,7 +329,7 @@ int usnic_ib_query_port(struct ib_device *ibdev, u8 port,
- 	usnic_dbg("\n");
- 
- 	mutex_lock(&us_ibdev->usdev_lock);
--	us_ibdev->netdev->ethtool_ops->get_settings(us_ibdev->netdev, &cmd);
-+	__ethtool_get_settings(us_ibdev->netdev, &cmd);
- 	memset(props, 0, sizeof(*props));
- 
- 	props->lid = 0;
--- 
-2.7.0.rc3.207.g0ac5344
+On Mon, Feb 8, 2016 at 3:36 PM, Andrew Morton <akpm@linux-foundation.org> wrote:
+> On Sun,  7 Feb 2016 17:08:45 -0800 David Decotigny <ddecotig@gmail.com> wrote:
+>
+>> From: David Decotigny <decot@googlers.com>
+>>
+>> Aimed at transferring bitmaps to/from user-space in a 32/64-bit agnostic
+>> way.
+>>
+>> Tested:
+>>   unit tests (next patch) on qemu i386, x86_64, ppc, ppc64 BE and LE,
+>>   ARM.
+>>
+>> @@ -1060,6 +1062,90 @@ int bitmap_allocate_region(unsigned long *bitmap, unsigned int pos, int order)
+>>  EXPORT_SYMBOL(bitmap_allocate_region);
+>>
+>>  /**
+>> + * bitmap_from_u32array - copy the contents of a u32 array of bits to bitmap
+>> + *   @bitmap: array of unsigned longs, the destination bitmap, non NULL
+>> + *   @nbits: number of bits in @bitmap
+>> + *   @buf: array of u32 (in host byte order), the source bitmap, non NULL
+>> + *   @nwords: number of u32 words in @buf
+>> + *
+>> + * copy min(nbits, 32*nwords) bits from @buf to @bitmap, remaining
+>> + * bits between nword and nbits in @bitmap (if any) are cleared. In
+>> + * last word of @bitmap, the bits beyond nbits (if any) are kept
+>> + * unchanged.
+>> + */
+>
+> This will leave the caller not knowing how many valid bits are actually
+> present in the resulting bitmap.  To determine that, the caller will
+> need to perform (duplicated) math on `nbits' and `nwords'.
+>
+>> +void bitmap_from_u32array(unsigned long *bitmap, unsigned int nbits,
+>> +                       const u32 *buf, unsigned int nwords)
+>
+> So how about we make this return the number of valid bits in *bitmap?
+>
+>> +/**
+>> + * bitmap_to_u32array - copy the contents of bitmap to a u32 array of bits
+>> + *   @buf: array of u32 (in host byte order), the dest bitmap, non NULL
+>> + *   @nwords: number of u32 words in @buf
+>> + *   @bitmap: array of unsigned longs, the source bitmap, non NULL
+>> + *   @nbits: number of bits in @bitmap
+>> + *
+>> + * copy min(nbits, 32*nwords) bits from @bitmap to @buf. Remaining
+>> + * bits after nbits in @buf (if any) are cleared.
+>> + */
+>> +void bitmap_to_u32array(u32 *buf, unsigned int nwords,
+>> +                     const unsigned long *bitmap, unsigned int nbits)
+>
+> Ditto.
+>
+>
