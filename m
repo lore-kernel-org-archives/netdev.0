@@ -1,34 +1,41 @@
 From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: [PATCH 1/2] net: dsa: mv88e6xxx: Add support for Marvell 88E6240
-Date: Thu, 11 Feb 2016 11:44:48 +0100
-Message-ID: <1455187489-30771-1-git-send-email-s.hauer@pengutronix.de>
+Subject: [PATCH 2/2] net: dsa: remove phy_disconnect from error path
+Date: Thu, 11 Feb 2016 11:44:49 +0100
+Message-ID: <1455187489-30771-2-git-send-email-s.hauer@pengutronix.de>
+References: <1455187489-30771-1-git-send-email-s.hauer@pengutronix.de>
 Cc: linux-kernel@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
 	Guenter Roeck <linux@roeck-us.net>,
 	Sascha Hauer <s.hauer@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:57850 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751799AbcBKKpC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 05:45:02 -0500
+In-Reply-To: <1455187489-30771-1-git-send-email-s.hauer@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Marvell 88E6240 has been tested successfully without further
-changes. Add entry to the table of supported devices.
+The phy has not been initialized, disconnecting it in the error
+path results in a NULL pointer exception. Drop the phy_disconnect
+from the error path.
 
 Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
 ---
- drivers/net/dsa/mv88e6352.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/dsa/slave.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index cc6c545..a47f52f 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -25,6 +25,7 @@
- static const struct mv88e6xxx_switch_id mv88e6352_table[] = {
- 	{ PORT_SWITCH_ID_6172, "Marvell 88E6172" },
- 	{ PORT_SWITCH_ID_6176, "Marvell 88E6176" },
-+	{ PORT_SWITCH_ID_6240, "Marvell 88E6240" },
- 	{ PORT_SWITCH_ID_6320, "Marvell 88E6320" },
- 	{ PORT_SWITCH_ID_6320_A1, "Marvell 88E6320 (A1)" },
- 	{ PORT_SWITCH_ID_6320_A2, "Marvell 88e6320 (A2)" },
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 40b9ca7..91e3b2f 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1194,7 +1194,6 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 	if (ret) {
+ 		netdev_err(master, "error %d registering interface %s\n",
+ 			   ret, slave_dev->name);
+-		phy_disconnect(p->phy);
+ 		ds->ports[port] = NULL;
+ 		free_netdev(slave_dev);
+ 		return ret;
 -- 
 2.7.0.rc3
