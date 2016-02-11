@@ -1,67 +1,147 @@
 From: Brian Russell <brussell@brocade.com>
-Subject: [PATCH net-next 0/2] NSH and VxLAN-GPE
-Date: Thu, 11 Feb 2016 10:35:11 +0000
-Message-ID: <1455186914-8952-1-git-send-email-brussell@brocade.com>
+Subject: [PATCH iproute2 net-next] iplink: vxlan: gpe support
+Date: Thu, 11 Feb 2016 10:35:12 +0000
+Message-ID: <1455186914-8952-2-git-send-email-brussell@brocade.com>
+References: <1455186914-8952-1-git-send-email-brussell@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:54783 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:60731 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750925AbcBKKfe (ORCPT
+	by vger.kernel.org with ESMTP id S1750956AbcBKKfe (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 05:35:34 -0500
 Received: from pps.filterd (m0048192.ppops.net [127.0.0.1])
-	by mx0b-000f0801.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u1BASe0Y021796
-	for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 02:35:33 -0800
+	by mx0b-000f0801.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u1BASe0Z021796
+	for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 02:35:34 -0800
 Received: from brmwp-exmb11.corp.brocade.com ([208.47.132.227])
-	by mx0b-000f0801.pphosted.com with ESMTP id 20wh08brxu-1
+	by mx0b-000f0801.pphosted.com with ESMTP id 20wh08brxu-2
 	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 02:35:33 -0800
+	for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 02:35:34 -0800
+In-Reply-To: <1455186914-8952-1-git-send-email-brussell@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches add a new module to support encap/decap of Network
-Service Header (NSH) as defined in:
+Add VXLAN GPE support to ip link
 
-https://tools.ietf.org/html/draft-ietf-sfc-nsh-01
+Signed-off-by: Brian Russell <brussell@brocade.com>
+---
+ include/linux/if_link.h |  1 +
+ ip/iplink_vxlan.c       | 21 ++++++++++++++++++---
+ man/man8/ip-link.8.in   | 12 +++++++++++-
+ 3 files changed, 30 insertions(+), 4 deletions(-)
 
-Both NSH Type 1 and Type 2 metadata are supported with a simple registration
-hook to allow listeners to register to see packets with Type 1 or a specific
-class of Type 2 metadata. NSH could be added to packets sent over a variety
-of link types, eg. VxLAN, GRE, ethernet.
-
-Also included is an extension to VxLAN to handle the Generic Protocol
-Extension (GPE) as defined in:
-
-https://tools.ietf.org/html/draft-ietf-nvo3-vxlan-gpe-01
-
-This allows multi-protocol encapsulation over the VxLAN so IPv4, IPv6, MPLS
-and NSH encapsulated packets can be sent and received in addition to ethernet
-frames. Non-ethernet frames are sent to the default destination, which
-requires that the remote option is specified when creating the VxLAN device.
-
-I've tested this by using a netfilter module to encap some app-specific
-metadata in NSH type 2 and send it over the VxLAN and a listener module
-to receive the corresponding decap'd metadata.
-
-I'm also submitting a corresponding patch for iproute2 to add the gpe option
-to the "ip link add type vxlan" command.
-
-Brian Russell (2):
-  nsh: encapsulation module
-  vxlan: support GPE/NSH
-
- drivers/net/vxlan.c           | 139 ++++++++++++++--
- include/net/nsh.h             | 158 ++++++++++++++++++
- include/net/vxlan.h           |  40 ++++-
- include/uapi/linux/if_ether.h |   1 +
- include/uapi/linux/if_link.h  |   1 +
- net/ipv4/Kconfig              |  10 ++
- net/ipv4/Makefile             |   1 +
- net/ipv4/nsh.c                | 362 ++++++++++++++++++++++++++++++++++++++++++
- 8 files changed, 698 insertions(+), 14 deletions(-)
- create mode 100644 include/net/nsh.h
- create mode 100644 net/ipv4/nsh.c
-
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 0331c72..759ea6b 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -454,6 +454,7 @@ enum {
+ 	IFLA_VXLAN_GBP,
+ 	IFLA_VXLAN_REMCSUM_NOPARTIAL,
+ 	IFLA_VXLAN_COLLECT_METADATA,
++	IFLA_VXLAN_GPE,
+ 	__IFLA_VXLAN_MAX
+ };
+ #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
+diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
+index ede8482..df749fa 100644
+--- a/ip/iplink_vxlan.c
++++ b/ip/iplink_vxlan.c
+@@ -31,7 +31,7 @@ static void print_explain(FILE *f)
+ 	fprintf(f, "                 [ ageing SECONDS ] [ maxaddress NUMBER ]\n");
+ 	fprintf(f, "                 [ [no]udpcsum ] [ [no]udp6zerocsumtx ] [ [no]udp6zerocsumrx ]\n");
+ 	fprintf(f, "                 [ [no]remcsumtx ] [ [no]remcsumrx ]\n");
+-	fprintf(f, "                 [ [no]external ] [ gbp ]\n");
++	fprintf(f, "                 [ [no]external ] [ gbp | gpe ]\n");
+ 	fprintf(f, "\n");
+ 	fprintf(f, "Where: VNI := 0-16777215\n");
+ 	fprintf(f, "       ADDR := { IP_ADDRESS | any }\n");
+@@ -74,6 +74,7 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 	__u8 remcsumrx = 0;
+ 	__u8 metadata = 0;
+ 	__u8 gbp = 0;
++	__u8 gpe = 0;
+ 	int dst_port_set = 0;
+ 	struct ifla_vxlan_port_range range = { 0, 0 };
+ 
+@@ -217,6 +218,8 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 			metadata = 0;
+ 		} else if (!matches(*argv, "gbp")) {
+ 			gbp = 1;
++		} else if (!matches(*argv, "gpe")) {
++			gpe = 1;
+ 		} else if (matches(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
+@@ -249,8 +252,9 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 		fprintf(stderr, "vxlan: destination port not specified\n"
+ 			"Will use Linux kernel default (non-standard value)\n");
+ 		fprintf(stderr,
+-			"Use 'dstport 4789' to get the IANA assigned value\n"
+-			"Use 'dstport 0' to get default and quiet this message\n");
++			"Use 'dstport %s' to get the IANA assigned value\n"
++			"Use 'dstport 0' to get default and quiet this message\n",
++			gpe ? "4790" : "4789");
+ 	}
+ 
+ 	addattr32(n, 1024, IFLA_VXLAN_ID, vni);
+@@ -296,9 +300,17 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 	if (dstport)
+ 		addattr16(n, 1024, IFLA_VXLAN_PORT, htons(dstport));
+ 
++	if (gbp && gpe) {
++		fprintf(stderr,
++			"vxlan: both gbp and gpe cannot be specified\n");
++		return -1;
++	}
++
+ 	if (gbp)
+ 		addattr_l(n, 1024, IFLA_VXLAN_GBP, NULL, 0);
+ 
++	if (gpe)
++		addattr_l(n, 1024, IFLA_VXLAN_GPE, NULL, 0);
+ 
+ 	return 0;
+ }
+@@ -445,6 +457,9 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 
+ 	if (tb[IFLA_VXLAN_GBP])
+ 		fputs("gbp ", f);
++
++	if (tb[IFLA_VXLAN_GPE])
++		fputs("gpe ", f);
+ }
+ 
+ static void vxlan_print_help(struct link_util *lu, int argc, char **argv,
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 4d32343..2b92e81 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -422,7 +422,7 @@ the following additional arguments are supported:
+ ] [
+ .BI maxaddress " NUMBER "
+ ] [
+-.B gbp
++.BR gbp " | " gpe
+ ]
+ 
+ .in +8
+@@ -554,6 +554,16 @@ Example:
+ 
+ .in -4
+ 
++.sp
++.B gpe
++- enables the Generic Protocol extension (VXLAN-GPE). This parameter cannot
++be specified with the
++.B gbp
++parameter. Sending packets with encapsulations other than ethernet requires
++that the
++.B remote
++parameter be specified.
++
+ .in -8
+ 
+ .TP
 -- 
 2.1.4
