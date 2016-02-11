@@ -1,22 +1,22 @@
 From: LAURENT@srv-zimbra1.globalinformatica.com.br,
 	"EYADEMA <berndmenker"@versanet.de
 Subject: Business Partnership
-Date: Thu, 11 Feb 2016 08:02:30 +0700
-Message-ID: <20160211010617.5AEF7F88317@srv-zimbra1.globalinformatica.com.br>
+Date: Thu, 11 Feb 2016 08:30:58 +0700
+Message-ID: <20160211013445.34C63F8766D@srv-zimbra1.globalinformatica.com.br>
 Reply-To: lau.eya66@gmail.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1136229827=="
+Content-Type: multipart/mixed; boundary="===============1113887127=="
 To: Recipients <berndmenker@versanet.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from globalinformatica.com.br ([186.249.1.145]:35533 "EHLO
+Received: from globalinformatica.com.br ([186.249.1.145]:43491 "EHLO
 	srv-zimbra1.globalinformatica.com.br" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750770AbcBKBoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 20:44:32 -0500
+	by vger.kernel.org with ESMTP id S1753067AbcBKCVe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 21:21:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 You will not see this in a MIME-aware mail reader.
---===============1136229827==
+--===============1113887127==
 Content-Type: text/plain; charset="iso-8859-1"
 MIME-Version: 1.0
 Content-Transfer-Encoding: quoted-printable
@@ -30,7 +30,7 @@ Thanks in anticipation of your urgent response,
 
 
 LAURENT EYADEMA
---===============1136229827==
+--===============1113887127==
 Content-Type: application/octet-stream
 MIME-Version: 1.0
 Content-Transfer-Encoding: base64
@@ -92,4 +92,4 @@ AAATCAAAd29yZC9udW1iZXJpbmcueG1sUEsBAi0AFAAIAAgAVShLSK9TyEF5AAAAigAAAA8AAAAA
 AAAAAAAAAAAAzwgAAHdvcmQvc3R5bGVzLnhtbFBLAQItABQACAAIAFUoS0i17ehY5AAAAEgCAAAT
 AAAAAAAAAAAAAAAAAIUJAABbQ29udGVudF9UeXBlc10ueG1sUEsFBgAAAAAGAAYAgAEAAKoKAAAA
 AA==
---===============1136229827==--
+--===============1113887127==--
