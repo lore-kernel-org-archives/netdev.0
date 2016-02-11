@@ -1,51 +1,36 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Subject: Re: [PATCH] iwlwifi: fix erroneous return value
-Date: Thu, 11 Feb 2016 06:36:33 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32EA0DC45@hasmsx107.ger.corp.intel.com>
-References: <1455124113-27024-1-git-send-email-a.s.protopopov@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v4] r8169: Bad implementation of netif_carrier_*
+Date: Thu, 11 Feb 2016 03:39:15 -0500 (EST)
+Message-ID: <20160211.033915.51059595679987845.davem@davemloft.net>
+References: <1455172063-1959-1-git-send-email-asd@marian1000.go.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: linuxwifi <linuxwifi@intel.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Anton Protopopov <a.s.protopopov@gmail.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Eran Harary <eran.harary@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: asd@marian1000.go.ro
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:33132 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750757AbcBKGhN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 01:37:13 -0500
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:49228 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751053AbcBKIjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 03:39:23 -0500
+In-Reply-To: <1455172063-1959-1-git-send-email-asd@marian1000.go.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Corcodel Marian <asd@marian1000.go.ro>
+Date: Thu, 11 Feb 2016 08:27:43 +0200
 
+>   On probe stage what carrier to stop and rest two situation
+>   netif_carrier_* is slow and disturbing autonegociation process.
+> 
+> Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
 
-On 02/10/2016 07:10 PM, Anton Protopopov wrote:
-> The iwl_trans_pcie_start_fw() function may return the positive value EIO
-> instead of -EIO in case of error.
->
-> Signed-off-by: Anton Protopopov <a.s.protopopov@gmail.com>
-> ---
->  drivers/net/wireless/intel/iwlwifi/pcie/trans.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/trans.c b/drivers/net/wireless/intel/iwlwifi/pcie/trans.c
-> index d60a467..920ea9d 100644
-> --- a/drivers/net/wireless/intel/iwlwifi/pcie/trans.c
-> +++ b/drivers/net/wireless/intel/iwlwifi/pcie/trans.c
-> @@ -1034,7 +1034,7 @@ static int iwl_trans_pcie_start_fw(struct iwl_trans *trans,
->  	if (trans_pcie->is_down) {
->  		IWL_WARN(trans,
->  			 "Can't start_fw since the HW hasn't been started\n");
-> -		ret = EIO;
-> +		ret = -EIO;
->  		goto out;
->  	}
->  
+This doesn't tell us at all why your change is valid.  You aren't
+going into the details of what you mean by "disturbing" and why it
+being "slow" is really a problem.
 
-applied - thanks.
+In general, your patches are of a very low quality.  You give never
+give us enough information to properly evaluate your patch.
+
+It is unlikely that even one of your patches will be applied by
+me until you fix this fundamental problem with your submissions.
