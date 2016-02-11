@@ -1,59 +1,86 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH net-next] be2net: don't report EVB for older chipsets when
- SR-IOV is disabled
-Date: Thu, 11 Feb 2016 12:38:15 +0100
-Message-ID: <56BC72A7.3040100@redhat.com>
-References: <1455106400-16330-1-git-send-email-ivecera@redhat.com>
- <CAKvpyk1u=59YZLoX9kTpTFm0=bXdyE-LaZpCobZwmWo+wa5RTg@mail.gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next] lwt: fix rx checksum setting for lwt devices
+ tunneling over ipv6
+Date: Thu, 11 Feb 2016 12:38:51 +0100
+Message-ID: <1455190731.4855.50.camel@redhat.com>
+References: <8d2a6ece65b17ae61343dce27f3709d3cd249832.1455118911.git.pabeni@redhat.com>
+	 <20160211114124.17ae429a@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ajit Khaparde <ajit.khaparde@broadcom.com>,
-	Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>,
-	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
-	Somnath Kotur <somnath.kotur@broadcom.com>
-To: Sathya Perla <sathya.perla@broadcom.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Thomas Graf <tgraf@suug.ch>, Jesse Gross <jesse@kernel.org>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39788 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:47273 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751140AbcBKLiV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Feb 2016 06:38:21 -0500
-In-Reply-To: <CAKvpyk1u=59YZLoX9kTpTFm0=bXdyE-LaZpCobZwmWo+wa5RTg@mail.gmail.com>
+	id S1751140AbcBKLi4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Feb 2016 06:38:56 -0500
+In-Reply-To: <20160211114124.17ae429a@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11.2.2016 10:56, Sathya Perla wrote:
-> On Wed, Feb 10, 2016 at 1:13 PM, Ivan Vecera <ivecera@redhat.com> wrote:
->>
->> The EVB (virtual bridge) functionality should be disabled on older BE3
->> and Lancer chips if SR-IOV is disabled in the NIC's BIOS. This setting
->> is identified by the zero value of total VFs reported by the card.
->> The GET_HSW_CONFIG command cannot be used as it is not supported > by these older chipset's FW.
->>
-> ..
->> ---
->>   drivers/net/ethernet/emulex/benet/be_main.c | 2 ++
->>   1 file changed, 2 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
->> index 9c1fc9d..886fe95 100644
->> --- a/drivers/net/ethernet/emulex/benet/be_main.c
->> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
->> @@ -4588,6 +4588,8 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
->>
->>          /* BE and Lancer chips support VEB mode only */
->>          if (BEx_chip(adapter) || lancer_chip(adapter)) {
->> +               if (!pci_sriov_get_totalvfs(adapter->pdev))
->> +                       return 0;
->
-> Ivan, could you add a one line comment above this check that says "On
-> BE3/Lancer the VEB is disabled in non-SRIOV profiles". This is to
-> differentiate this behavior from Skyhawk, where the VEB may be enabled
-> even in non-SRIOV profiles, like nPAR...
->
-> thanks,
-> -Sathya
->
-Sure Sathya, will send v2.
+On Thu, 2016-02-11 at 11:41 +0100, Jiri Benc wrote:
+> On Wed, 10 Feb 2016 16:47:21 +0100, Paolo Abeni wrote:
+> > --- a/drivers/net/geneve.c
+> > +++ b/drivers/net/geneve.c
+> > @@ -1441,7 +1441,8 @@ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
+> >  		return dev;
+> >  
+> >  	err = geneve_configure(net, dev, &geneve_remote_unspec,
+> > -			       0, 0, 0, htons(dst_port), true, 0);
+> > +			       0, 0, 0, htons(dst_port), true,
+> > +			       GENEVE_F_UDP_ZERO_CSUM6_RX);
+> >  	if (err) {
+> >  		free_netdev(dev);
+> >  		return ERR_PTR(err);
+> > diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+> > index 1605691..d933cb8 100644
+> > --- a/net/openvswitch/vport-vxlan.c
+> > +++ b/net/openvswitch/vport-vxlan.c
+> > @@ -90,7 +90,7 @@ static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
+> >  	int err;
+> >  	struct vxlan_config conf = {
+> >  		.no_share = true,
+> > -		.flags = VXLAN_F_COLLECT_METADATA,
+> > +		.flags = VXLAN_F_COLLECT_METADATA | VXLAN_F_UDP_ZERO_CSUM6_RX,
+> 
+> I'm afraid this looks wrong, we should not default to zero UDP checksum
+> over IPv6. See RFC 2460, section 8.1:
+> 
+>       o  Unlike IPv4, when UDP packets are originated by an IPv6 node,
+>          the UDP checksum is not optional.  That is, whenever
+>          originating a UDP packet, an IPv6 node must compute a UDP
+>          checksum over the packet and the pseudo-header, and, if that
+>          computation yields a result of zero, it must be changed to hex
+>          FFFF for placement in the UDP header.  IPv6 receivers must
+>          discard UDP packets containing a zero checksum, and should log
+>          the error.
+> 
+> One may argue that with tunneling, the situation is different but
+> that's the reason why we have the IPv6 checksum flag and why it has
+> opposite meaning to the IPv4 one. We shouldn't default to non-RFC
+> behavior by default.
 
-Ivan
+Agreed. As far as I can understand RFC 6936, Section 5 do allows
+specific tunneling protocol to accept zero UDP checksum on specific
+ports.
+
+We are already sending by default zero UDP checksum when tunneling over
+vxlan/geneve light weight tunnel since the commit 35e2d1152b22
+("tunnels: Allow IPv6 UDP checksums to be correctly controlled.").
+
+Currently, geneve/vxlan lwt pairs tunneling over ipv6 are not able to
+talk each-other with default setting since the sender will set zero UDP
+checksum in the external header and the receiver will discard such
+packets.
+
+This commit is intended to address the above issue.
+
+Such issue could be addressed also by defaulting all lwt geneve/vxlan
+flows (comprising those tunneling over ipv4) to set the external UDP
+checksum, but a single lwt tunnel device can be used to terminate flows
+with different checksum settings.
+
+Paolo
