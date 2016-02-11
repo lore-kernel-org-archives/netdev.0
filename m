@@ -1,85 +1,45 @@
-From: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] codel: add forgotten inline to functions in header file
-Date: Thu, 11 Feb 2016 08:09:34 -0800
-Message-ID: <CAA93jw5=6zxg8P77VkgDEZFM+u+5zHBuW5ODoWqFV59PoSWtgQ@mail.gmail.com>
-References: <1455199701-25767-1-git-send-email-emmanuel.grumbach@intel.com>
-	<1455201038.19473.12.camel@edumazet-glaptop2.roam.corp.google.com>
-	<0BA3FCBA62E2DC44AF3030971E174FB32EA0E6FD@hasmsx107.ger.corp.intel.com>
-	<1455203555.19473.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	<0BA3FCBA62E2DC44AF3030971E174FB32EA0E809@hasmsx107.ger.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB32EA0E809-Jy8z56yoSI9wl47ZQwxUxrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: sunil.kovvuri@gmail.com
+Subject: [PATCH v2 0/6] net: thunderx: Setting IRQ affinity hints and other optimizations
+Date: Thu, 11 Feb 2016 21:50:20 +0530
+Message-ID: <1455207626-35488-1-git-send-email-sunil.kovvuri@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	sgoutham@cavium.com, robert.richter@caviumnetworks.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 11, 2016 at 7:29 AM, Grumbach, Emmanuel
-<emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
->
->
-> On 02/11/2016 05:12 PM, Eric Dumazet wrote:
->> On Thu, 2016-02-11 at 15:05 +0000, Grumbach, Emmanuel wrote:
->>
->>
->>> Yeah :) codel_should_drop seemed very long indeed... I wanted to use the
->>> codel_get_time and associated utils (_before, _after) in iwlwifi.
->>> They're better than jiffies... So maybe I can just copy that code to
->>> iwlwifi.
+From: Sunil Goutham <sgoutham@cavium.com>
 
-Definately better than jiffies.
+This patch series contains changes
+- To add support for virtual function's irq affinity hint
+- Replace napi_schedule() with napi_schedule_irqoff()
+- Reduce page allocation overhead by allocating pages
+  of higher order when pagesize is 4KB.
+- Add couple of stats which helps in debugging
+- Some miscellaneous changes to BGX driver.
 
->>
->> You certainly can submit a patch adding the inline, but not on all
->> functions present in this file ;)
->>
->> Thanks !
->>
->
-> Actually... All I need *has* the inline, but if I include codel.h,
-> codel_dequeue is defined but not used and you definitely don't want to
-> inline that one. So I guess the only other option I have is to split
-> that header file which I don't think is really worth it. So, unless you
-> object it, I'll just copy the code.
+Changes from v1:
+- As suggested changed MAC address invalid log message 
+  to dev_err() instead of dev_warn().
 
-I think it is best to start with another base implementation of codel
-for wifi, yes.
+David Daney (1):
+  net: thunderx: bgx: Use standard firmware node infrastructure.
 
-What I think is the currently best performing codel implementation (on
-the wire, for ethernet) we have is in:
+Robert Richter (1):
+  net: thunderx: bgx: Add log message when setting mac address
 
-https://github.com/dtaht/bcake/codel5.h
+Sunil Goutham (3):
+  net: thunderx: Use napi_schedule_irqoff()
+  net: thunderx: Assign affinity hints to vf's interrupts
+  net: thunderx: Alloc higher order pages when pagesize is small
 
-which has a few differences from eric's implementation (64 bit
-timestamps, inlining, not a lot of cpu profiling on it - still aiming
-for algorithmic correctness here, it is closer to the original
-paper... We'd used a different means of injecting the callback in it,
-too)
+Thanneeru Srinivasulu (1):
+  net, thunderx: Add TX timeout and RX buffer alloc failure stats.
 
-The one currently in the main cake had issues in the last test round
-but has been updated since. (sch_cake is also on github).
-
-In neither case it is the right thing for wifi either.
-
-the "starting plan" such as it was was to get to "one aggregate in the
-hardware, one in the driver, one ready to be formed on the completion
-interrupt", and pull a smoothed service time from start to completion
-interrupt to dynamically modify the codel target. (other headaches,
-like multicast, abound).
-
-(It's the per station queue + fq as close to the hardware as possible
-that matters most, IMHO.)
-
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/ethernet/cavium/thunder/nic.h          |    4 ++
+ .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |    2 +
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   |   40 ++++++++++++++++++-
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    5 +-
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |   38 +++++++++++--------
+ 5 files changed, 67 insertions(+), 22 deletions(-)
