@@ -1,31 +1,57 @@
-From: Huw Davies <huw@codeweavers.com>
-Subject: Re: [RFC PATCH v2 00/18] CALIPSO Implementation
-Date: Thu, 11 Feb 2016 14:57:59 +0000
-Message-ID: <20160211145759.GC31695@merlot>
-References: <1452246774-13241-1-git-send-email-huw@codeweavers.com>
- <2084590.x0rrIneakS@sifl>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] codel: add forgotten inline to functions in header file
+Date: Thu, 11 Feb 2016 15:05:44 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32EA0E6FD@hasmsx107.ger.corp.intel.com>
+References: <1455199701-25767-1-git-send-email-emmanuel.grumbach@intel.com>
+ <1455201038.19473.12.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <2084590.x0rrIneakS@sifl>
-Sender: owner-linux-security-module@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 07, 2016 at 02:56:18PM -0500, Paul Moore wrote:
-> Thanks for fixing this patchset up and sending out a v2.  I took a closer look 
-> and just sent out my comments, let me know if you have any questions.
-> 
-> Once we get to a v3 patchset, I think it's time to reach out Oracle and try 
-> some interop with Solaris TX.  Let me know when you are ready and I'll put 
-> everybody in touch to try to get some testing going.
+fixing linux-wireless address ...
 
-Thanks for your comments, Paul.  I've replied to a couple of them with
-answers.  For all of others, assume that I have incorporated those
-suggestions.  I should get v3 out sometime next week.
+On 02/11/2016 04:30 PM, Eric Dumazet wrote:
+> On Thu, 2016-02-11 at 16:08 +0200, Emmanuel Grumbach wrote:
+>> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+>> ---
+>> -static bool codel_should_drop(const struct sk_buff *skb,
+>> -			      struct Qdisc *sch,
+>> -			      struct codel_vars *vars,
+>> -			      struct codel_params *params,
+>> -			      struct codel_stats *stats,
+>> -			      codel_time_t now)
+>> +static inline bool codel_should_drop(const struct sk_buff *skb,
+>> +				     struct Qdisc *sch,
+>> +				     struct codel_vars *vars,
+>> +				     struct codel_params *params,
+>> +				     struct codel_stats *stats,
+>> +				     codel_time_t now)
+>
+> The lack of inline was done on purpose.
+>
+> This include file is kind of special, being included by codel and
+> fq_codel.
+>
+> Hint : we do not want to force the compiler to inline
+> codel_should_drop() (or any other function).
+>
+>
+> See this file as if it was a .c really.
+>
+>
 
-Thanks again,
-Huw.
+Yeah :) codel_should_drop seemed very long indeed... I wanted to use the
+codel_get_time and associated utils (_before, _after) in iwlwifi.
+They're better than jiffies... So maybe I can just copy that code to
+iwlwifi.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
