@@ -1,71 +1,102 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next 1/2] nsh: encapsulation module
-Date: Thu, 11 Feb 2016 17:17:45 +0100
-Message-ID: <56BCB429.2060600@brocade.com>
-References: <1455186914-8952-1-git-send-email-brussell@brocade.com>
- <1455186914-8952-3-git-send-email-brussell@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Brian Russell <brussell@brocade.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:45230 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751868AbcBKQSD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 11:18:03 -0500
-Received: from pps.filterd (m0048192.ppops.net [127.0.0.1])
-	by mx0b-000f0801.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u1BG3fcW021883
-	for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 08:18:02 -0800
-Received: from brmwp-exmb12.corp.brocade.com ([208.47.132.227])
-	by mx0b-000f0801.pphosted.com with ESMTP id 20wh08chgu-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 08:18:02 -0800
-In-Reply-To: <1455186914-8952-3-git-send-email-brussell@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: sunil.kovvuri@gmail.com
+Subject: [PATCH v2 3/6] net: thunderx: Assign affinity hints to vf's interrupts
+Date: Thu, 11 Feb 2016 21:50:23 +0530
+Message-ID: <1455207626-35488-4-git-send-email-sunil.kovvuri@gmail.com>
+References: <1455207626-35488-1-git-send-email-sunil.kovvuri@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	sgoutham@cavium.com, robert.richter@caviumnetworks.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455207626-35488-1-git-send-email-sunil.kovvuri@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/02/16 11:35, Brian Russell wrote:
-...
-> diff --git a/include/net/nsh.h b/include/net/nsh.h
-> new file mode 100644
-> index 0000000..7a5fb95
-> --- /dev/null
-> +++ b/include/net/nsh.h
-> @@ -0,0 +1,158 @@
-> +/*
-> + * Network Service Header (NSH) inserted onto encapsulated packets
-> + * or frames to realize service function paths.
-> + * NSH also provides a mechanism for metadata exchange along the
-> + * instantiated service path.
-> + *
-> + * https://tools.ietf.org/html/draft-ietf-sfc-nsh-01
-> + *
-> + * Copyright (c) 2015 by Brocade Communications Systems, Inc.
-> + * All rights reserved.
-> + */
+From: Sunil Goutham <sgoutham@cavium.com>
 
-All rights reserved isn't really compatible with the GPL :-)
+This affinity hint can be used by user space irqbalance tool to set
+preferred CPU mask for irqs registered by this VF. Irqbalance needs
+to be in 'exact' mode to set irq affinity same as indicated by
+affinity hint.
 
-...
-> diff --git a/net/ipv4/nsh.c b/net/ipv4/nsh.c
-> new file mode 100644
-> index 0000000..70e5ef0
-> --- /dev/null
-> +++ b/net/ipv4/nsh.c
-> @@ -0,0 +1,362 @@
-> +/*
-> + * Network Service Header (NSH) inserted onto encapsulated packets
-> + * or frames to realize service function paths.
-> + * NSH also provides a mechanism for metadata exchange along the
-> + * instantiated service path.
-> + *
-> + * https://tools.ietf.org/html/draft-ietf-sfc-nsh-01
-> + *
-> + * Copyright (c) 2015 by Brocade Communications Systems, Inc.
-> + * All rights reserved.
-> + */
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+---
+ drivers/net/ethernet/cavium/thunder/nic.h        |    1 +
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c |   37 ++++++++++++++++++++-
+ 2 files changed, 36 insertions(+), 2 deletions(-)
 
-Ditto.
-
-Thanks,
-Rob
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 8af363a..00cc915 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -309,6 +309,7 @@ struct nicvf {
+ 	struct msix_entry	msix_entries[NIC_VF_MSIX_VECTORS];
+ 	char			irq_name[NIC_VF_MSIX_VECTORS][20];
+ 	bool			irq_allocated[NIC_VF_MSIX_VECTORS];
++	cpumask_var_t		affinity_mask[NIC_VF_MSIX_VECTORS];
+ 
+ 	/* VF <-> PF mailbox communication */
+ 	bool			pf_acked;
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index c6f146c..90ce93e 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -899,6 +899,31 @@ static void nicvf_disable_msix(struct nicvf *nic)
+ 	}
+ }
+ 
++static void nicvf_set_irq_affinity(struct nicvf *nic)
++{
++	int vec, cpu;
++	int irqnum;
++
++	for (vec = 0; vec < nic->num_vec; vec++) {
++		if (!nic->irq_allocated[vec])
++			continue;
++
++		if (!zalloc_cpumask_var(&nic->affinity_mask[vec], GFP_KERNEL))
++			return;
++		 /* CQ interrupts */
++		if (vec < NICVF_INTR_ID_SQ)
++			/* Leave CPU0 for RBDR and other interrupts */
++			cpu = nicvf_netdev_qidx(nic, vec) + 1;
++		else
++			cpu = 0;
++
++		cpumask_set_cpu(cpumask_local_spread(cpu, nic->node),
++				nic->affinity_mask[vec]);
++		irqnum = nic->msix_entries[vec].vector;
++		irq_set_affinity_hint(irqnum, nic->affinity_mask[vec]);
++	}
++}
++
+ static int nicvf_register_interrupts(struct nicvf *nic)
+ {
+ 	int irq, ret = 0;
+@@ -944,8 +969,13 @@ static int nicvf_register_interrupts(struct nicvf *nic)
+ 	ret = request_irq(nic->msix_entries[irq].vector,
+ 			  nicvf_qs_err_intr_handler,
+ 			  0, nic->irq_name[irq], nic);
+-	if (!ret)
+-		nic->irq_allocated[irq] = true;
++	if (ret)
++		goto err;
++
++	nic->irq_allocated[irq] = true;
++
++	/* Set IRQ affinities */
++	nicvf_set_irq_affinity(nic);
+ 
+ err:
+ 	if (ret)
+@@ -963,6 +993,9 @@ static void nicvf_unregister_interrupts(struct nicvf *nic)
+ 		if (!nic->irq_allocated[irq])
+ 			continue;
+ 
++		irq_set_affinity_hint(nic->msix_entries[irq].vector, NULL);
++		free_cpumask_var(nic->affinity_mask[irq]);
++
+ 		if (irq < NICVF_INTR_ID_SQ)
+ 			free_irq(nic->msix_entries[irq].vector, nic->napi[irq]);
+ 		else
+-- 
+1.7.1
