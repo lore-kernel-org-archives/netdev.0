@@ -1,47 +1,46 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH 2/2] net: dsa: remove phy_disconnect from error path
-Date: Thu, 11 Feb 2016 10:39:03 -0500
-Message-ID: <8737szi7e0.fsf@ketchup.mtl.sfl>
-References: <1455187489-30771-1-git-send-email-s.hauer@pengutronix.de> <1455187489-30771-2-git-send-email-s.hauer@pengutronix.de>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/2] net: dsa: mv88e6xxx: Add support for Marvell 88E6240
+Date: Thu, 11 Feb 2016 16:45:23 +0100
+Message-ID: <20160211154523.GA23857@lunn.ch>
+References: <1455187489-30771-1-git-send-email-s.hauer@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Sascha Hauer <s.hauer@pengutronix.de>, narmstrong@baylibre.com
-To: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Guenter Roeck <linux@roeck-us.net>
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455187489-30771-2-git-send-email-s.hauer@pengutronix.de>
+Content-Disposition: inline
+In-Reply-To: <1455187489-30771-1-git-send-email-s.hauer@pengutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sascha,
-
-Sascha Hauer <s.hauer@pengutronix.de> writes:
-
-> The phy has not been initialized, disconnecting it in the error
-> path results in a NULL pointer exception. Drop the phy_disconnect
-> from the error path.
->
+On Thu, Feb 11, 2016 at 11:44:48AM +0100, Sascha Hauer wrote:
+> The Marvell 88E6240 has been tested successfully without further
+> changes. Add entry to the table of supported devices.
+> 
 > Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+Thanks
+	Andrew
+
 > ---
->  net/dsa/slave.c | 1 -
->  1 file changed, 1 deletion(-)
->
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index 40b9ca7..91e3b2f 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -1194,7 +1194,6 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
->  	if (ret) {
->  		netdev_err(master, "error %d registering interface %s\n",
->  			   ret, slave_dev->name);
-> -		phy_disconnect(p->phy);
->  		ds->ports[port] = NULL;
->  		free_netdev(slave_dev);
->  		return ret;
-
-I'm adding Neil in the loop, since he did some work similar to this, if
-I'm not mistaken.
-
-Thanks,
--v
+>  drivers/net/dsa/mv88e6352.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+> index cc6c545..a47f52f 100644
+> --- a/drivers/net/dsa/mv88e6352.c
+> +++ b/drivers/net/dsa/mv88e6352.c
+> @@ -25,6 +25,7 @@
+>  static const struct mv88e6xxx_switch_id mv88e6352_table[] = {
+>  	{ PORT_SWITCH_ID_6172, "Marvell 88E6172" },
+>  	{ PORT_SWITCH_ID_6176, "Marvell 88E6176" },
+> +	{ PORT_SWITCH_ID_6240, "Marvell 88E6240" },
+>  	{ PORT_SWITCH_ID_6320, "Marvell 88E6320" },
+>  	{ PORT_SWITCH_ID_6320_A1, "Marvell 88E6320 (A1)" },
+>  	{ PORT_SWITCH_ID_6320_A2, "Marvell 88e6320 (A2)" },
+> -- 
+> 2.7.0.rc3
+> 
