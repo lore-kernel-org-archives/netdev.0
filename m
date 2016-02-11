@@ -1,107 +1,85 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: [PATCH 3/5] net/mlx4: fix some error handling in
- mlx4_multi_func_init()
-Date: Thu, 11 Feb 2016 11:02:10 -0500
-Message-ID: <56BCB082.4030701@redhat.com>
-References: <1455048677-19882-1-git-send-email-linux@rasmusvillemoes.dk>
- <1455048677-19882-4-git-send-email-linux@rasmusvillemoes.dk>
+From: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] codel: add forgotten inline to functions in header file
+Date: Thu, 11 Feb 2016 08:09:34 -0800
+Message-ID: <CAA93jw5=6zxg8P77VkgDEZFM+u+5zHBuW5ODoWqFV59PoSWtgQ@mail.gmail.com>
+References: <1455199701-25767-1-git-send-email-emmanuel.grumbach@intel.com>
+	<1455201038.19473.12.camel@edumazet-glaptop2.roam.corp.google.com>
+	<0BA3FCBA62E2DC44AF3030971E174FB32EA0E6FD@hasmsx107.ger.corp.intel.com>
+	<1455203555.19473.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	<0BA3FCBA62E2DC44AF3030971E174FB32EA0E809@hasmsx107.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="6CtGDLX8xG9kQD68FaNV7IHKnhQBqTMQL"
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	Yishai Hadas <yishaih@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455048677-19882-4-git-send-email-linux@rasmusvillemoes.dk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB32EA0E809-Jy8z56yoSI9wl47ZQwxUxrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---6CtGDLX8xG9kQD68FaNV7IHKnhQBqTMQL
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+On Thu, Feb 11, 2016 at 7:29 AM, Grumbach, Emmanuel
+<emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
+>
+>
+> On 02/11/2016 05:12 PM, Eric Dumazet wrote:
+>> On Thu, 2016-02-11 at 15:05 +0000, Grumbach, Emmanuel wrote:
+>>
+>>
+>>> Yeah :) codel_should_drop seemed very long indeed... I wanted to use the
+>>> codel_get_time and associated utils (_before, _after) in iwlwifi.
+>>> They're better than jiffies... So maybe I can just copy that code to
+>>> iwlwifi.
 
-On 02/09/2016 03:11 PM, Rasmus Villemoes wrote:
-> The while loop after err_slaves should use post-decrement; otherwise
-> we'll fail to do the kfrees for i=3D=3D0, and will run into out-of-boun=
-ds
-> accesses if the setup above failed already at i=3D=3D0.
->=20
-> The predecrement in the --port is ok, since ->vlan_filter is
-> (bizarrely) 1-indexed. But I'm changing 'if' to 'while' since it's a
-> bit ugly to rely on MLX4_MAX_PORTS being 2.
->=20
-> [I'm not sure why one even bothers populating the ->vlan_filter array:
-> mlx4.h isn't #included by anything outside
-> drivers/net/ethernet/mellanox/mlx4/, and "git grep -C2 -w vlan_filter
-> drivers/net/ethernet/mellanox/mlx4/" seems to suggest that the
-> vlan_filter elements aren't used at all.]
->=20
-> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/cmd.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/eth=
-ernet/mellanox/mlx4/cmd.c
-> index d48d5793407d..bfe8234abbba 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-> @@ -2369,7 +2369,7 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
->  					kzalloc(sizeof(struct mlx4_vlan_fltr),
->  						GFP_KERNEL);
->  				if (!s_state->vlan_filter[port]) {
-> -					if (--port)
-> +					while (--port)
->  						kfree(s_state->vlan_filter[port]);
->  					goto err_slaves;
->  				}
-> @@ -2429,7 +2429,7 @@ err_thread:
->  	flush_workqueue(priv->mfunc.master.comm_wq);
->  	destroy_workqueue(priv->mfunc.master.comm_wq);
->  err_slaves:
-> -	while (--i) {
-> +	while (i--) {
->  		for (port =3D 1; port <=3D MLX4_MAX_PORTS; port++)
->  			kfree(priv->mfunc.master.slave_state[i].vlan_filter[port]);
->  	}
->=20
+Definately better than jiffies.
 
-I'm modifying your patch slightly (dropping the first hunk, it isn't
-really necessary as Yishai pointed out in review) and adjusting the
-description to compensate.  I'll apply the result to my next for-rc serie=
-s.
+>>
+>> You certainly can submit a patch adding the inline, but not on all
+>> functions present in this file ;)
+>>
+>> Thanks !
+>>
+>
+> Actually... All I need *has* the inline, but if I include codel.h,
+> codel_dequeue is defined but not used and you definitely don't want to
+> inline that one. So I guess the only other option I have is to split
+> that header file which I don't think is really worth it. So, unless you
+> object it, I'll just copy the code.
 
---=20
-Doug Ledford <dledford@redhat.com>
-              GPG KeyID: 0E572FDD
+I think it is best to start with another base implementation of codel
+for wifi, yes.
 
+What I think is the currently best performing codel implementation (on
+the wire, for ethernet) we have is in:
 
+https://github.com/dtaht/bcake/codel5.h
 
---6CtGDLX8xG9kQD68FaNV7IHKnhQBqTMQL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+which has a few differences from eric's implementation (64 bit
+timestamps, inlining, not a lot of cpu profiling on it - still aiming
+for algorithmic correctness here, it is closer to the original
+paper... We'd used a different means of injecting the callback in it,
+too)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+The one currently in the main cake had issues in the last test round
+but has been updated since. (sch_cake is also on github).
 
-iQIcBAEBCAAGBQJWvLCCAAoJELgmozMOVy/dKSAP/iVuuwBs4zyk6ZZGQiqZ0+a+
-QoUw8M7aj7MOEs25qMLxVCiQRzsRpgHp1zfGxyUmHXX3LyxpxwIqeFfhN4Ycxc4l
-0lO4Z/xxRX2aT0Nvgg+R6oPq6RgaOIlSAZ5WU2cCOSUZvrYXPRfuIa5czhQee+/m
-UHkcBgSm+TxrgwMLwm9GKa8T/WZ7Pf9IeZhkhBKu+Z314wthuwPEZkw9e3Jj3TN0
-Fa0TWPLRNeYTlOSw4FZz49TYvuoVDRZEtHeH0kgC/lXiB7AtRs78FYObNunJb8CU
-tDEfubAyl3jImPpOKM/hT074kOpyem1o7tWHlOPmOMNRRv1mGbLsZ+13a1y/TkPj
-+7he4felQAO7U1Xb4xskYx6xcRZVkLNAgywiIP5XtKJMBogu0WWCPu18eBqvTaUt
-CZ0W+u8FJ7VeIuEXKX3d/3Qo4omWgwS8kkzgs/Tf1yFaLdM4RHbm5lidxik18V4P
-kwJCZDggX4S6DBWBxfsaBXcFL9kTF60ym++Mwl/yWfXNNEo49xjKzL1im5GC20S0
-Npsp1gAUFd6JZFd4HbtUdlbsV0nFotlnIGPeS3SzcvuHsGFjDxYVK4fkst8yDZQ2
-cefUst/Cag/L4SeZPj8dW+KZXwaJQhTiUEOdxIY7L3xb3UGfNrCaUQZ0Ij8YLT69
-IxuLaRW6M/PEAy7GWDfl
-=nPkL
------END PGP SIGNATURE-----
+In neither case it is the right thing for wifi either.
 
---6CtGDLX8xG9kQD68FaNV7IHKnhQBqTMQL--
+the "starting plan" such as it was was to get to "one aggregate in the
+hardware, one in the driver, one ready to be formed on the completion
+interrupt", and pull a smoothed service time from start to completion
+interrupt to dynamically modify the codel target. (other headaches,
+like multicast, abound).
+
+(It's the per station queue + fq as close to the hardware as possible
+that matters most, IMHO.)
+
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
