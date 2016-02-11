@@ -1,28 +1,26 @@
 From: Ken Kawasaki <ken_kawasaki@nifty.com>
 Subject: [PATCH] pcnet_cs: add new id
-Date: Thu, 11 Feb 2016 20:15:21 +0900
-Message-ID: <20160211201521.99e71913b7aa86a9408b16a6@nifty.com>
+Date: Thu, 11 Feb 2016 20:27:04 +0900
+Message-ID: <20160211202704.50796b8e353205dfdd8b7959@nifty.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from condef008-v.nifty.com ([210.131.4.245]:36141 "EHLO
-	condef008-v.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751240AbcBKLVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 06:21:52 -0500
-Received: from conuserg012-v.nifty.com ([10.16.229.199])by condef008-v.nifty.com with ESMTP id u1BBFOAb019854
-	for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 20:15:24 +0900
+Received: from conuserg011.nifty.com ([202.248.44.37]:43631 "EHLO
+	conuserg011-v.nifty.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751236AbcBKL1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 06:27:12 -0500
 Received: from localhost.localdomain (49.253.223.69.eo.eaccess.ne.jp [49.253.223.69]) (authenticated)
-	by conuserg012-v.nifty.com with ESMTP id u1BBFLq1031361
-	for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 20:15:22 +0900
+	by conuserg011-v.nifty.com with ESMTP id u1BBR5in023601
+	for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 20:27:05 +0900
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 add new id (CONTEC C-NET(PC)C-100TX2)
 
-Signed-off-by: Ken Kawasaki <ken_kawasaki@.nifty.com>
+Signed-off-by: Ken Kawasaki <ken_kawasaki@nifty.com>
 
 ---
 
