@@ -1,129 +1,110 @@
-From: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
-Subject: [PATCH] codel: add forgotten inline to functions in header file
-Date: Thu, 11 Feb 2016 16:08:21 +0200
-Message-ID: <1455199701-25767-1-git-send-email-emmanuel.grumbach@intel.com>
-Cc: linux-wireles@vger.kernel.org,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:20827 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751780AbcBKOIX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Feb 2016 09:08:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH 3.12 28/64] =?UTF-8?q?veth:=20don=E2=80=99t=20modify=20ip?= =?UTF-8?q?=5Fsummed;=20doing=20so=20treats=20packets=20with=20bad=20check?= =?UTF-8?q?sums=20as=20good.?=
+Date: Thu, 11 Feb 2016 14:59:04 +0100
+Message-ID: <0f915418573abbc0dbb610f711e01567ac0f1dde.1455198893.git.jslaby@suse.cz>
+References: <74c0820133f1dada0d70c74bc70a9530b2697f86.1455198893.git.jslaby@suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, Vijay Pandurangan <vijayp@vijayp.ca>,
+	Evan Jones <ej@evanjones.ca>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Phil Sutter <phil@nwl.cc>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
+	Jiri Slaby <jslaby@suse.cz>
+To: stable@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <74c0820133f1dada0d70c74bc70a9530b2697f86.1455198893.git.jslaby@suse.cz>
+In-Reply-To: <cover.1455198893.git.jslaby@suse.cz>
+References: <cover.1455198893.git.jslaby@suse.cz>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+=46rom: Vijay Pandurangan <vijayp@vijayp.ca>
+
+3.12-stable review patch.  If anyone has any objections, please let me =
+know.
+
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+
+[ Upstream commit ce8c839b74e3017996fad4e1b7ba2e2625ede82f ]
+
+Packets that arrive from real hardware devices have ip_summed =3D=3D
+CHECKSUM_UNNECESSARY if the hardware verified the checksums, or
+CHECKSUM_NONE if the packet is bad or it was unable to verify it. The
+current version of veth will replace CHECKSUM_NONE with
+CHECKSUM_UNNECESSARY, which causes corrupt packets routed from hardware=
+ to
+a veth device to be delivered to the application. This caused applicati=
+ons
+at Twitter to receive corrupt data when network hardware was corrupting
+packets.
+
+We believe this was added as an optimization to skip computing and
+verifying checksums for communication between containers. However, loca=
+lly
+generated packets have ip_summed =3D=3D CHECKSUM_PARTIAL, so the code a=
+s
+written does nothing for them. As far as we can tell, after removing th=
+is
+code, these packets are transmitted from one stack to another unmodifie=
+d
+(tcpdump shows invalid checksums on both sides, as expected), and they =
+are
+delivered correctly to applications. We didn=E2=80=99t test every possi=
+ble network
+configuration, but we tried a few common ones such as bridging containe=
+rs,
+using NAT between the host and a container, and routing from hardware
+devices to containers. We have effectively deployed this in production =
+at
+Twitter (by disabling RX checksum offloading on veth devices).
+
+This code dates back to the first version of the driver, commit
+<e314dbdc1c0dc6a548ecf> ("[NET]: Virtual ethernet device driver"), so I
+suspect this bug occurred mostly because the driver API has evolved
+significantly since then. Commit <0b7967503dc97864f283a> ("net/veth: Fi=
+x
+packet checksumming") (in December 2010) fixed this for packets that ge=
+t
+created locally and sent to hardware devices, by not changing
+CHECKSUM_PARTIAL. However, the same issue still occurs for packets comi=
+ng
+in from hardware devices.
+
+Co-authored-by: Evan Jones <ej@evanjones.ca>
+Signed-off-by: Evan Jones <ej@evanjones.ca>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: Phil Sutter <phil@nwl.cc>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Vijay Pandurangan <vijayp@vijayp.ca>
+Acked-by: Cong Wang <cwang@twopensource.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
 ---
- include/net/codel.h | 44 ++++++++++++++++++++++----------------------
- 1 file changed, 22 insertions(+), 22 deletions(-)
+ drivers/net/veth.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
-diff --git a/include/net/codel.h b/include/net/codel.h
-index 267e702..0775c24 100644
---- a/include/net/codel.h
-+++ b/include/net/codel.h
-@@ -92,18 +92,18 @@ struct codel_skb_cb {
- 	codel_time_t enqueue_time;
- };
- 
--static struct codel_skb_cb *get_codel_cb(const struct sk_buff *skb)
-+static inline struct codel_skb_cb *get_codel_cb(const struct sk_buff *skb)
- {
- 	qdisc_cb_private_validate(skb, sizeof(struct codel_skb_cb));
- 	return (struct codel_skb_cb *)qdisc_skb_cb(skb)->data;
- }
- 
--static codel_time_t codel_get_enqueue_time(const struct sk_buff *skb)
-+static inline codel_time_t codel_get_enqueue_time(const struct sk_buff *skb)
- {
- 	return get_codel_cb(skb)->enqueue_time;
- }
- 
--static void codel_set_enqueue_time(struct sk_buff *skb)
-+static inline void codel_set_enqueue_time(struct sk_buff *skb)
- {
- 	get_codel_cb(skb)->enqueue_time = codel_get_time();
- }
-@@ -174,8 +174,8 @@ struct codel_stats {
- 
- #define CODEL_DISABLED_THRESHOLD INT_MAX
- 
--static void codel_params_init(struct codel_params *params,
--			      const struct Qdisc *sch)
-+static inline void codel_params_init(struct codel_params *params,
-+				     const struct Qdisc *sch)
- {
- 	params->interval = MS2TIME(100);
- 	params->target = MS2TIME(5);
-@@ -184,12 +184,12 @@ static void codel_params_init(struct codel_params *params,
- 	params->ecn = false;
- }
- 
--static void codel_vars_init(struct codel_vars *vars)
-+static inline void codel_vars_init(struct codel_vars *vars)
- {
- 	memset(vars, 0, sizeof(*vars));
- }
- 
--static void codel_stats_init(struct codel_stats *stats)
-+static inline void codel_stats_init(struct codel_stats *stats)
- {
- 	stats->maxpacket = 0;
- }
-@@ -200,7 +200,7 @@ static void codel_stats_init(struct codel_stats *stats)
-  *
-  * Here, invsqrt is a fixed point number (< 1.0), 32bit mantissa, aka Q0.32
-  */
--static void codel_Newton_step(struct codel_vars *vars)
-+static inline void codel_Newton_step(struct codel_vars *vars)
- {
- 	u32 invsqrt = ((u32)vars->rec_inv_sqrt) << REC_INV_SQRT_SHIFT;
- 	u32 invsqrt2 = ((u64)invsqrt * invsqrt) >> 32;
-@@ -217,19 +217,19 @@ static void codel_Newton_step(struct codel_vars *vars)
-  * We maintain in rec_inv_sqrt the reciprocal value of sqrt(count) to avoid
-  * both sqrt() and divide operation.
-  */
--static codel_time_t codel_control_law(codel_time_t t,
--				      codel_time_t interval,
--				      u32 rec_inv_sqrt)
-+static inline codel_time_t codel_control_law(codel_time_t t,
-+					     codel_time_t interval,
-+					     u32 rec_inv_sqrt)
- {
- 	return t + reciprocal_scale(interval, rec_inv_sqrt << REC_INV_SQRT_SHIFT);
- }
- 
--static bool codel_should_drop(const struct sk_buff *skb,
--			      struct Qdisc *sch,
--			      struct codel_vars *vars,
--			      struct codel_params *params,
--			      struct codel_stats *stats,
--			      codel_time_t now)
-+static inline bool codel_should_drop(const struct sk_buff *skb,
-+				     struct Qdisc *sch,
-+				     struct codel_vars *vars,
-+				     struct codel_params *params,
-+				     struct codel_stats *stats,
-+				     codel_time_t now)
- {
- 	bool ok_to_drop;
- 
-@@ -265,11 +265,11 @@ static bool codel_should_drop(const struct sk_buff *skb,
- typedef struct sk_buff * (*codel_skb_dequeue_t)(struct codel_vars *vars,
- 						struct Qdisc *sch);
- 
--static struct sk_buff *codel_dequeue(struct Qdisc *sch,
--				     struct codel_params *params,
--				     struct codel_vars *vars,
--				     struct codel_stats *stats,
--				     codel_skb_dequeue_t dequeue_func)
-+static inline struct sk_buff *codel_dequeue(struct Qdisc *sch,
-+					    struct codel_params *params,
-+					    struct codel_vars *vars,
-+					    struct codel_stats *stats,
-+					    codel_skb_dequeue_t dequeue_func)
- {
- 	struct sk_buff *skb = dequeue_func(vars, sch);
- 	codel_time_t now;
--- 
-2.5.0
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 61c4044f644e..917abeae77ad 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -116,12 +116,6 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, =
+struct net_device *dev)
+ 		kfree_skb(skb);
+ 		goto drop;
+ 	}
+-	/* don't change ip_summed =3D=3D CHECKSUM_PARTIAL, as that
+-	 * will cause bad checksum on forwarded packets
+-	 */
+-	if (skb->ip_summed =3D=3D CHECKSUM_NONE &&
+-	    rcv->features & NETIF_F_RXCSUM)
+-		skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+=20
+ 	if (likely(dev_forward_skb(rcv, skb) =3D=3D NET_RX_SUCCESS)) {
+ 		struct pcpu_vstats *stats =3D this_cpu_ptr(dev->vstats);
+--=20
+2.7.1
