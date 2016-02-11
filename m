@@ -1,35 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] codel: add forgotten inline to functions in header file
-Date: Thu, 11 Feb 2016 07:12:35 -0800
-Message-ID: <1455203555.19473.14.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1455199701-25767-1-git-send-email-emmanuel.grumbach@intel.com>
-	 <1455201038.19473.12.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <0BA3FCBA62E2DC44AF3030971E174FB32EA0E6FD@hasmsx107.ger.corp.intel.com>
+From: Robert Richter <robert.richter@caviumnetworks.com>
+Subject: Re: [PATCH 0/6] net: thunderx: Setting IRQ affinity hints and other
+ optimizations
+Date: Thu, 11 Feb 2016 16:12:51 +0100
+Message-ID: <20160211151251.GQ24726@rric.localdomain>
+References: <1454933272-45005-1-git-send-email-sunil.kovvuri@gmail.com>
+ <CA+sq2CdXHcWM=PrimSvoQ6dJyCPi0QsiiDzA5=YKKn6zHVsojg@mail.gmail.com>
+ <20160211.093341.2157216466193671957.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:36547 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750812AbcBKPMg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 10:12:36 -0500
-In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB32EA0E6FD@hasmsx107.ger.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <sunil.kovvuri@gmail.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <sgoutham@cavium.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160211.093341.2157216466193671957.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-02-11 at 15:05 +0000, Grumbach, Emmanuel wrote:
+On 11.02.16 09:33:41, David Miller wrote:
+> From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+> Date: Thu, 11 Feb 2016 18:56:48 +0530
+> 
+> > If time permits, can you please look at this patchset.
+> 
+> You were given feedback and I expect you to address that feedback
+> and resubmit this series.
+> 
+> This is what the "Changed Requested" state in patchwork means.
 
+Sunil, should I send a reworked version of my patch to you, or do you
+just want to change it to dev_err() for me?
 
-> Yeah :) codel_should_drop seemed very long indeed... I wanted to use the
-> codel_get_time and associated utils (_before, _after) in iwlwifi.
-> They're better than jiffies... So maybe I can just copy that code to
-> iwlwifi.
+Thanks,
 
-
-You certainly can submit a patch adding the inline, but not on all
-functions present in this file ;)
-
-Thanks !
+-Robert
