@@ -1,36 +1,59 @@
-From: Ken Kawasaki <ken_kawasaki@nifty.com>
-Subject: [PATCH] pcnet_cs: add new id
-Date: Thu, 11 Feb 2016 20:27:04 +0900
-Message-ID: <20160211202704.50796b8e353205dfdd8b7959@nifty.com>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [PATCH net-next] be2net: don't report EVB for older chipsets when
+ SR-IOV is disabled
+Date: Thu, 11 Feb 2016 12:38:15 +0100
+Message-ID: <56BC72A7.3040100@redhat.com>
+References: <1455106400-16330-1-git-send-email-ivecera@redhat.com>
+ <CAKvpyk1u=59YZLoX9kTpTFm0=bXdyE-LaZpCobZwmWo+wa5RTg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Ajit Khaparde <ajit.khaparde@broadcom.com>,
+	Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>,
+	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+	Somnath Kotur <somnath.kotur@broadcom.com>
+To: Sathya Perla <sathya.perla@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from conuserg011.nifty.com ([202.248.44.37]:43631 "EHLO
-	conuserg011-v.nifty.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751236AbcBKL1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 06:27:12 -0500
-Received: from localhost.localdomain (49.253.223.69.eo.eaccess.ne.jp [49.253.223.69]) (authenticated)
-	by conuserg011-v.nifty.com with ESMTP id u1BBR5in023601
-	for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 20:27:05 +0900
+Received: from mx1.redhat.com ([209.132.183.28]:39788 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751140AbcBKLiV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Feb 2016 06:38:21 -0500
+In-Reply-To: <CAKvpyk1u=59YZLoX9kTpTFm0=bXdyE-LaZpCobZwmWo+wa5RTg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 11.2.2016 10:56, Sathya Perla wrote:
+> On Wed, Feb 10, 2016 at 1:13 PM, Ivan Vecera <ivecera@redhat.com> wrote:
+>>
+>> The EVB (virtual bridge) functionality should be disabled on older BE3
+>> and Lancer chips if SR-IOV is disabled in the NIC's BIOS. This setting
+>> is identified by the zero value of total VFs reported by the card.
+>> The GET_HSW_CONFIG command cannot be used as it is not supported > by these older chipset's FW.
+>>
+> ..
+>> ---
+>>   drivers/net/ethernet/emulex/benet/be_main.c | 2 ++
+>>   1 file changed, 2 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+>> index 9c1fc9d..886fe95 100644
+>> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+>> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+>> @@ -4588,6 +4588,8 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>>
+>>          /* BE and Lancer chips support VEB mode only */
+>>          if (BEx_chip(adapter) || lancer_chip(adapter)) {
+>> +               if (!pci_sriov_get_totalvfs(adapter->pdev))
+>> +                       return 0;
+>
+> Ivan, could you add a one line comment above this check that says "On
+> BE3/Lancer the VEB is disabled in non-SRIOV profiles". This is to
+> differentiate this behavior from Skyhawk, where the VEB may be enabled
+> even in non-SRIOV profiles, like nPAR...
+>
+> thanks,
+> -Sathya
+>
+Sure Sathya, will send v2.
 
-add new id (CONTEC C-NET(PC)C-100TX2)
-
-Signed-off-by: Ken Kawasaki <ken_kawasaki@nifty.com>
-
----
-
---- linux-4.4.1/drivers/net/ethernet/8390/pcnet_cs.c.orig	2016-02-11 19:26:02.281108472 +0900
-+++ linux-4.4.1/drivers/net/ethernet/8390/pcnet_cs.c	2016-02-11 19:27:21.353595301 +0900
-@@ -1501,6 +1501,7 @@ static const struct pcmcia_device_id pcn
- 	PCMCIA_DEVICE_MANF_CARD(0x026f, 0x030a),
- 	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1103),
- 	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1121),
-+	PCMCIA_DEVICE_MANF_CARD(0xc001, 0x0009),
- 	PCMCIA_DEVICE_PROD_ID12("2408LAN", "Ethernet", 0x352fff7f, 0x00b2e941),
- 	PCMCIA_DEVICE_PROD_ID1234("Socket", "CF 10/100 Ethernet Card", "Revision B", "05/11/06", 0xb38bcc2e, 0x4de88352, 0xeaca6c8d, 0x7e57c22e),
- 	PCMCIA_DEVICE_PROD_ID123("Cardwell", "PCMCIA", "ETHERNET", 0x9533672e, 0x281f1c5d, 0x3ff7175b),
+Ivan
