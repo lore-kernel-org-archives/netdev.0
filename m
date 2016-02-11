@@ -1,184 +1,63 @@
-From: Ilya Dryomov <idryomov@gmail.com>
-Subject: BUG: held lock freed! - request_sock_queue::rskq_lock
-Date: Thu, 11 Feb 2016 23:43:34 +0100
-Message-ID: <CAOi1vP9b78Y7-ddcZna2xM+vST6iuw+RmRL+BxR3HQZKbaa0ZA@mail.gmail.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: gigaset: memory leak in gigaset_initcshw
+Date: Thu, 11 Feb 2016 23:54:15 +0100
+Message-ID: <1455231255.4135.46.camel@tiscali.nl>
+References: <CACT4Y+Y+P7-pM0D4HTz4ZF6i+Rya22eOkPdnrv_OmDCMB7eQtg@mail.gmail.com>
+	 <1454516189.14366.8.camel@tiscali.nl>
+	 <1454526665.14366.22.camel@tiscali.nl>
+	 <CACT4Y+aDi8L_GELzVv7QM8YdtMD7q-wH4uO7LhioeSvaEU5PJg@mail.gmail.com>
+	 <1454591389.14366.49.camel@tiscali.nl>
+	 <CACT4Y+aXo83LjyOjVG2ihyR94kex-z+=Of+x8o4i+0q8964-1g@mail.gmail.com>
+	 <1454593604.14366.65.camel@tiscali.nl>
+	 <CACT4Y+b2z0NHVPQbyYP1CA_80hXxhk+VOG6dzduMEsi+27Pi7Q@mail.gmail.com>
+	 <1454598375.14366.72.camel@tiscali.nl>
+	 <CACT4Y+aNN8AAtRSvxxrP5RfsTZdd49odnQ_GRq86Y=jXr=pANw@mail.gmail.com>
+	 <1454688387.28847.34.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1148d7c4d73081052b8647d6
-Cc: netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Karsten Keil <isdn@linux-pingi.de>,
 	"David S. Miller" <davem@davemloft.net>,
-	Ceph Development <ceph-devel@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <ceph-devel-owner@vger.kernel.org>
-Sender: ceph-devel-owner@vger.kernel.org
+	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454688387.28847.34.camel@tiscali.nl>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---001a1148d7c4d73081052b8647d6
-Content-Type: text/plain; charset=UTF-8
+Hi Dmitry,
 
-Hi Eric,
+On vr, 2016-02-05 at 17:06 +0100, Paul Bolle wrote:
+> On vr, 2016-02-05 at 14:28 +0100, Dmitry Vyukov wrote:
+> > I wonder why you don't see the leak I am seeing...
+> 
+> So do I, for a few days now.
 
-I'm hitting the following splat (attached in full):
+0) I finally managed to reliably trigger this leak on an i686, single
+core machine (yet another ThinkPad).
 
-kernel: =========================
-kernel: [ BUG: held lock freed! ]
-kernel: 4.5.0-rc1-ceph-00026-g5e0a311 #1 Not tainted
-kernel: -------------------------
-kernel: swapper/5/0 is freeing memory
-ffff880035c9d200-ffff880035c9dbff, with a lock still held there!
-kernel: (&(&queue->rskq_lock)->rlock){+.-...}, at:
-[<ffffffff816f6a88>] inet_csk_reqsk_queue_add+0x28/0xa0
-kernel: 4 locks held by swapper/5/0:
-kernel: #0:  (rcu_read_lock){......}, at: [<ffffffff8169ef6b>]
-netif_receive_skb_internal+0x4b/0x1f0
-kernel: #1:  (rcu_read_lock){......}, at: [<ffffffff816e977f>]
-ip_local_deliver_finish+0x3f/0x380
-kernel: #2:  (slock-AF_INET){+.-...}, at: [<ffffffff81685ffb>]
-sk_clone_lock+0x19b/0x440
-kernel: #3:  (&(&queue->rskq_lock)->rlock){+.-...}, at:
-[<ffffffff816f6a88>] inet_csk_reqsk_queue_add+0x28/0xa0
+1) Note that on that machine the leak was noticeable under the kmalloc
+-512 line (struct ser_cardstate is 456 bytes on that machine). I'm
+_guessing_ the kmalloc-2048 line, which I stared at for quite some time,
+is only relevant here for x86_64 and when there's a bit of
+instrumentation, or whatever, added to the slab objects (as they are in
+your VM?).
 
-The first couple of occurrences were on 4.4-rc2, a couple of recent ones
-on 4.5-rc1.  I'm suspecting your ebb516af60e1 ("tcp/dccp: fix race at
-listener dismantle phase") and/or a bunch of related commits before it,
-authored in the first half of Oct 2015.
+2) More important was that this i686 machine ran a tree that actually
+included the offending commit:
+	25cad69f21f5 ("base/platform: Fix platform drivers with no probe callback").
 
-The spinlock that lockdep complains about is embedded in
-inet_connection_sock, which I think is getting freed in
-inet_child_forget(), called from inet_csk_reqsk_queue_add():
+See, after staring at the gigaset code for way too long I decided to
+just use brute force. Ie, I bisected this issue.
 
-inet_csk_complete_hashdance
-  inet_csk_reqsk_queue_add
-    spin_lock(&queue->rskq_lock)
-    inet_child_forget
-      reqsk_put
-        reqsk_free
-          sock_put(req->rsk_listener)
-          # rsk_listener is sk that queue is embedded in #
+2) Anyhow, thanks again for the report. Now on to the next question: how
+on earth does that commit make ser_gigaset leak struct ser_cardstate?
 
-Your comment in inet_csk_complete_hashdance()
+To be continued,
 
-                /* Warning: caller must not call reqsk_put(req);
-                 * child stole last reference on it.
-                 */
 
-suggests that there is only one reference to req at that point in time
-and yet ebb516af60e1 added a reqsk_put() to that path: there was one in
-inet_csk_listen_stop() before, but not in inet_csk_reqsk_queue_add().
-
-This is from a quick and dirty git blame analysis, so don't shout if
-all of it is wrong...
-
-Thanks,
-
-                Ilya
-
---001a1148d7c4d73081052b8647d6
-Content-Type: text/plain; charset=US-ASCII; name="rskq_lock.txt"
-Content-Disposition: attachment; filename="rskq_lock.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ikiuoyr00
-
-MjAxNi0wMi0wNVQxMjoyNTozMy44NDk0MjkrMDA6MDAgc21pdGhpMDEzIGtlcm5lbDogPT09PT09
-PT09PT09PT09PT09PT09PT09PQoyMDE2LTAyLTA1VDEyOjI1OjMzLjg0OTQ2MiswMDowMCBzbWl0
-aGkwMTMga2VybmVsOiBbIEJVRzogaGVsZCBsb2NrIGZyZWVkISBdCjIwMTYtMDItMDVUMTI6MjU6
-MzMuODQ5NDg2KzAwOjAwIHNtaXRoaTAxMyBrZXJuZWw6IDQuNS4wLXJjMS1jZXBoLTAwMDI2LWc1
-ZTBhMzExICMxIE5vdCB0YWludGVkCjIwMTYtMDItMDVUMTI6MjU6MzMuODQ5NTEwKzAwOjAwIHNt
-aXRoaTAxMyBrZXJuZWw6IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KMjAxNi0wMi0wNVQxMjoy
-NTozMy44NDk1NDYrMDA6MDAgc21pdGhpMDEzIGtlcm5lbDogc3dhcHBlci81LzAgaXMgZnJlZWlu
-ZyBtZW1vcnkgZmZmZjg4MDAzNWM5ZDIwMC1mZmZmODgwMDM1YzlkYmZmLCB3aXRoIGEgbG9jayBz
-dGlsbCBoZWxkIHRoZXJlIQoyMDE2LTAyLTA1VDEyOjI1OjMzLjg0OTU3MCswMDowMCBzbWl0aGkw
-MTMga2VybmVsOiAoJigmcXVldWUtPnJza3FfbG9jayktPnJsb2NrKXsrLi0uLi59LCBhdDogWzxm
-ZmZmZmZmZjgxNmY2YTg4Pl0gaW5ldF9jc2tfcmVxc2tfcXVldWVfYWRkKzB4MjgvMHhhMAoyMDE2
-LTAyLTA1VDEyOjI1OjMzLjg0OTU5MyswMDowMCBzbWl0aGkwMTMga2VybmVsOiA0IGxvY2tzIGhl
-bGQgYnkgc3dhcHBlci81LzA6CjIwMTYtMDItMDVUMTI6MjU6MzMuODQ5NjE3KzAwOjAwIHNtaXRo
-aTAxMyBrZXJuZWw6ICMwOiAgKHJjdV9yZWFkX2xvY2spey4uLi4uLn0sIGF0OiBbPGZmZmZmZmZm
-ODE2OWVmNmI+XSBuZXRpZl9yZWNlaXZlX3NrYl9pbnRlcm5hbCsweDRiLzB4MWYwCjIwMTYtMDIt
-MDVUMTI6MjU6MzMuODQ5NjM5KzAwOjAwIHNtaXRoaTAxMyBrZXJuZWw6ICMxOiAgKHJjdV9yZWFk
-X2xvY2spey4uLi4uLn0sIGF0OiBbPGZmZmZmZmZmODE2ZTk3N2Y+XSBpcF9sb2NhbF9kZWxpdmVy
-X2ZpbmlzaCsweDNmLzB4MzgwCjIwMTYtMDItMDVUMTI6MjU6MzMuODQ5NjYyKzAwOjAwIHNtaXRo
-aTAxMyBrZXJuZWw6ICMyOiAgKHNsb2NrLUFGX0lORVQpeysuLS4uLn0sIGF0OiBbPGZmZmZmZmZm
-ODE2ODVmZmI+XSBza19jbG9uZV9sb2NrKzB4MTliLzB4NDQwCjIwMTYtMDItMDVUMTI6MjU6MzMu
-ODQ5Njg1KzAwOjAwIHNtaXRoaTAxMyBrZXJuZWw6ICMzOiAgKCYoJnF1ZXVlLT5yc2txX2xvY2sp
-LT5ybG9jayl7Ky4tLi4ufSwgYXQ6IFs8ZmZmZmZmZmY4MTZmNmE4OD5dIGluZXRfY3NrX3JlcXNr
-X3F1ZXVlX2FkZCsweDI4LzB4YTAKMjAxNi0wMi0wNVQxMjoyNTozMy44NDk3MDkrMDA6MDAgc21p
-dGhpMDEzIGtlcm5lbDogIzAxMnN0YWNrIGJhY2t0cmFjZToKMjAxNi0wMi0wNVQxMjoyNTozMy44
-NDk3MzMrMDA6MDAgc21pdGhpMDEzIGtlcm5lbDogQ1BVOiA1IFBJRDogMCBDb21tOiBzd2FwcGVy
-LzUgTm90IHRhaW50ZWQgNC41LjAtcmMxLWNlcGgtMDAwMjYtZzVlMGEzMTEgIzEKMjAxNi0wMi0w
-NVQxMjoyNTozMy44NDk3NjArMDA6MDAgc21pdGhpMDEzIGtlcm5lbDogSGFyZHdhcmUgbmFtZTog
-U3VwZXJtaWNybyBTWVMtNTAxOFItV1IvWDEwU1JXLUYsIEJJT1MgMS4wYyAwOS8wNy8yMDE1CjIw
-MTYtMDItMDVUMTI6MjU6MzMuODQ5NzgzKzAwOjAwIHNtaXRoaTAxMyBrZXJuZWw6IDAwMDAwMDAw
-MDAwMDAwMDAgOTU0YmJiNjZjNmE4OTA4OSBmZmZmODgwODdmZDQzOGQwIGZmZmZmZmZmODEzZjdi
-MjcKMjAxNi0wMi0wNVQxMjoyNTozMy44NDk4MDYrMDA6MDAgc21pdGhpMDEzIGtlcm5lbDogZmZm
-Zjg4MDg1YjlhYWZjOCBmZmZmODgwODdmZDQzOTA4IGZmZmZmZmZmODEwZmUwMmMgZmZmZjg4MDAz
-NWM5ZDIwMAoyMDE2LTAyLTA1VDEyOjI1OjMzLjg0OTgyOCswMDowMCBzbWl0aGkwMTMga2VybmVs
-OiBmZmZmODgwODViNzc2ODAwIGZmZmZlYTAwMDBkNzI2MDAgZmZmZmZmZmY4MTY4NWM1MSAwMDAw
-MDAwMDAwMDAwMjAyCjIwMTYtMDItMDVUMTI6MjU6MzMuODQ5ODUxKzAwOjAwIHNtaXRoaTAxMyBr
-ZXJuZWw6IENhbGwgVHJhY2U6CjIwMTYtMDItMDVUMTI6MjU6MzMuODQ5ODczKzAwOjAwIHNtaXRo
-aTAxMyBrZXJuZWw6IDxJUlE+ICBbPGZmZmZmZmZmODEzZjdiMjc+XSBkdW1wX3N0YWNrKzB4NGIv
-MHg2NAoyMDE2LTAyLTA1VDEyOjI1OjMzLjg0OTg5NiswMDowMCBzbWl0aGkwMTMga2VybmVsOiBb
-PGZmZmZmZmZmODEwZmUwMmM+XSBkZWJ1Z19jaGVja19ub19sb2Nrc19mcmVlZCsweDExYy8weDE4
-MAoyMDE2LTAyLTA1VDEyOjI1OjMzLjg0OTkxOCswMDowMCBzbWl0aGkwMTMga2VybmVsOiBbPGZm
-ZmZmZmZmODE2ODVjNTE+XSA/IHNrX2Rlc3RydWN0KzB4MTQxLzB4MTcwCjIwMTYtMDItMDVUMTI6
-MjU6MzMuODQ5OTQ3KzAwOjAwIHNtaXRoaTAxMyBrZXJuZWw6IFs8ZmZmZmZmZmY4MTIzMmVkNT5d
-IGttZW1fY2FjaGVfZnJlZSsweDEwNS8weDJkMAoyMDE2LTAyLTA1VDEyOjI1OjMzLjg0OTk3Mysw
-MDowMCBzbWl0aGkwMTMga2VybmVsOiBbPGZmZmZmZmZmODE2ODVjNTE+XSBza19kZXN0cnVjdCsw
-eDE0MS8weDE3MAoyMDE2LTAyLTA1VDEyOjI1OjMzLjg0OTk5NSswMDowMCBzbWl0aGkwMTMga2Vy
-bmVsOiBbPGZmZmZmZmZmODE2ODVjZWY+XSBfX3NrX2ZyZWUrMHg2Zi8weGIwCjIwMTYtMDItMDVU
-MTI6MjU6MzMuODUwMDE4KzAwOjAwIHNtaXRoaTAxMyBrZXJuZWw6IFs8ZmZmZmZmZmY4MTY4NWQ0
-OD5dIHNrX2ZyZWUrMHgxOC8weDIwCjIwMTYtMDItMDVUMTI6MjU6MzMuODUwMDQ1KzAwOjAwIHNt
-aXRoaTAxMyBrZXJuZWw6IFs8ZmZmZmZmZmY4MTZmNmE0ZD5dIGluZXRfY2hpbGRfZm9yZ2V0KzB4
-MTNkLzB4MTUwCjIwMTYtMDItMDVUMTI6MjU6MzMuODUwMDY3KzAwOjAwIHNtaXRoaTAxMyBrZXJu
-ZWw6IFs8ZmZmZmZmZmY4MTZmNmE5ZT5dIGluZXRfY3NrX3JlcXNrX3F1ZXVlX2FkZCsweDNlLzB4
-YTAKMjAxNi0wMi0wNVQxMjoyNTozMy44NTAwOTArMDA6MDAgc21pdGhpMDEzIGtlcm5lbDogWzxm
-ZmZmZmZmZjgxNmY3MGJhPl0gaW5ldF9jc2tfY29tcGxldGVfaGFzaGRhbmNlKzB4NGEvMHg4MAoy
-MDE2LTAyLTA1VDEyOjI1OjMzLjg1MDExMyswMDowMCBzbWl0aGkwMTMga2VybmVsOiBbPGZmZmZm
-ZmZmODE3MTIwNzQ+XSB0Y3BfY2hlY2tfcmVxKzB4Mzc0LzB4NDUwCjIwMTYtMDItMDVUMTI6MjU6
-MzMuODUwMTM5KzAwOjAwIHNtaXRoaTAxMyBrZXJuZWw6IFs8ZmZmZmZmZmY4MTcxMGJmND5dIHRj
-cF92NF9yY3YrMHgzZjQvMHhhYzAKMjAxNi0wMi0wNVQxMjoyNTozMy44NTAxNjErMDA6MDAgc21p
-dGhpMDEzIGtlcm5lbDogWzxmZmZmZmZmZjgxMGZiN2VlPl0gPyBfX2xvY2tfaXNfaGVsZCsweDNl
-LzB4NjAKMjAxNi0wMi0wNVQxMjoyNTozMy44NTAxODQrMDA6MDAgc21pdGhpMDEzIGtlcm5lbDog
-WzxmZmZmZmZmZjgxNmU5OTA5Pl0gaXBfbG9jYWxfZGVsaXZlcl9maW5pc2grMHgxYzkvMHgzODAK
-MjAxNi0wMi0wNVQxMjoyNTozMy44NTAyMDYrMDA6MDAgc21pdGhpMDEzIGtlcm5lbDogWzxmZmZm
-ZmZmZjgxNmU5NzdmPl0gPyBpcF9sb2NhbF9kZWxpdmVyX2ZpbmlzaCsweDNmLzB4MzgwCjIwMTYt
-MDItMDVUMTI6MjU6MzMuODUwMjQ0KzAwOjAwIHNtaXRoaTAxMyBrZXJuZWw6IFs8ZmZmZmZmZmY4
-MTZlOWNkZj5dIGlwX2xvY2FsX2RlbGl2ZXIrMHg2Zi8weGUwCjIwMTYtMDItMDVUMTI6MjU6MzMu
-ODUwMjY3KzAwOjAwIHNtaXRoaTAxMyBrZXJuZWw6IFs8ZmZmZmZmZmY4MTBmYjcwMj5dID8gbWF0
-Y2hfaGVsZF9sb2NrKzB4ZjIvMHgxYTAKMjAxNi0wMi0wNVQxMjoyNTozMy44NTAyOTArMDA6MDAg
-c21pdGhpMDEzIGtlcm5lbDogWzxmZmZmZmZmZjgxNmU5NzQwPl0gPyBpcF9yY3ZfZmluaXNoKzB4
-NGYwLzB4NGYwCjIwMTYtMDItMDVUMTI6MjU6MzMuODUwMzEzKzAwOjAwIHNtaXRoaTAxMyBrZXJu
-ZWw6IFs8ZmZmZmZmZmY4MTZlOTYyND5dIGlwX3Jjdl9maW5pc2grMHgzZDQvMHg0ZjAKMjAxNi0w
-Mi0wNVQxMjoyNTozMy44NTAzMzUrMDA6MDAgc21pdGhpMDEzIGtlcm5lbDogWzxmZmZmZmZmZjgx
-NmVhMDVmPl0gaXBfcmN2KzB4MzBmLzB4M2MwCjIwMTYtMDItMDVUMTI6MjU6MzMuODUwMzU4KzAw
-OjAwIHNtaXRoaTAxMyBrZXJuZWw6IFs8ZmZmZmZmZmY4MTdiYzgwNz5dID8gcGFja2V0X3Jjdisw
-eDM4Ny8weDNjMAoyMDE2LTAyLTA1VDEyOjI1OjMzLjg1MDM4NSswMDowMCBzbWl0aGkwMTMga2Vy
-bmVsOiBbPGZmZmZmZmZmODE2OWRmODY+XSBfX25ldGlmX3JlY2VpdmVfc2tiX2NvcmUrMHg5NjYv
-MHhhMzAKMjAxNi0wMi0wNVQxMjoyNTozMy44NTA0MDgrMDA6MDAgc21pdGhpMDEzIGtlcm5lbDog
-WzxmZmZmZmZmZjgxNjllZjZiPl0gPyBuZXRpZl9yZWNlaXZlX3NrYl9pbnRlcm5hbCsweDRiLzB4
-MWYwCjIwMTYtMDItMDVUMTI6MjU6MzMuODUwNDMxKzAwOjAwIHNtaXRoaTAxMyBrZXJuZWw6IFs8
-ZmZmZmZmZmY4MTY5ZTA5ZT5dIF9fbmV0aWZfcmVjZWl2ZV9za2IrMHg0ZS8weDYwCjIwMTYtMDIt
-MDVUMTI6MjU6MzMuODUwNDUzKzAwOjAwIHNtaXRoaTAxMyBrZXJuZWw6IFs8ZmZmZmZmZmY4MTY5
-ZjA0ZD5dIG5ldGlmX3JlY2VpdmVfc2tiX2ludGVybmFsKzB4MTJkLzB4MWYwCjIwMTYtMDItMDVU
-MTI6MjU6MzMuODUwNDc5KzAwOjAwIHNtaXRoaTAxMyBrZXJuZWw6IFs8ZmZmZmZmZmY4MTY5ZWY2
-Yj5dID8gbmV0aWZfcmVjZWl2ZV9za2JfaW50ZXJuYWwrMHg0Yi8weDFmMAoyMDE2LTAyLTA1VDEy
-OjI1OjMzLjg1MDUwMiswMDowMCBzbWl0aGkwMTMga2VybmVsOiBbPGZmZmZmZmZmODE2YTA3OGM+
-XSBuYXBpX2dyb19yZWNlaXZlKzB4ZmMvMHgxODAKMjAxNi0wMi0wNVQxMjoyNTozMy44NTA1MjUr
-MDA6MDAgc21pdGhpMDEzIGtlcm5lbDogWzxmZmZmZmZmZmEwMGMyODkxPl0gaXhnYmVfY2xlYW5f
-cnhfaXJxKzB4ODQxLzB4OWIwIFtpeGdiZV0KMjAxNi0wMi0wNVQxMjoyNTozMy44NTA1NDgrMDA6
-MDAgc21pdGhpMDEzIGtlcm5lbDogWzxmZmZmZmZmZmEwMGMzNzNiPl0gaXhnYmVfcG9sbCsweDUw
-Yi8weDcxMCBbaXhnYmVdCjIwMTYtMDItMDVUMTI6MjU6MzMuODUwNTc4KzAwOjAwIHNtaXRoaTAx
-MyBrZXJuZWw6IFs8ZmZmZmZmZmY4MTRlYzdkYz5dID8gYWRkX2ludGVycnVwdF9yYW5kb21uZXNz
-KzB4MTljLzB4MWMwCjIwMTYtMDItMDVUMTI6MjU6MzMuODUwNjA0KzAwOjAwIHNtaXRoaTAxMyBr
-ZXJuZWw6IFs8ZmZmZmZmZmY4MTY5ZjlkMT5dIG5ldF9yeF9hY3Rpb24rMHgxNDEvMHgzZTAKMjAx
-Ni0wMi0wNVQxMjoyNTozMy44NTA2MjcrMDA6MDAgc21pdGhpMDEzIGtlcm5lbDogWzxmZmZmZmZm
-ZjgxMGFiZDlhPl0gX19kb19zb2Z0aXJxKzB4MWVhLzB4NDUwCjIwMTYtMDItMDVUMTI6MjU6MzMu
-ODUwNjUwKzAwOjAwIHNtaXRoaTAxMyBrZXJuZWw6IFs8ZmZmZmZmZmY4MTBhYzJhNj5dIGlycV9l
-eGl0KzB4NTYvMHgxMDAKMjAxNi0wMi0wNVQxMjoyNTozMy44NTA2NzIrMDA6MDAgc21pdGhpMDEz
-IGtlcm5lbDogWzxmZmZmZmZmZjgxN2RjMjhmPl0gZG9fSVJRKzB4ZWYvMHgxMTAKMjAxNi0wMi0w
-NVQxMjoyNTozMy44NTA2OTUrMDA6MDAgc21pdGhpMDEzIGtlcm5lbDogWzxmZmZmZmZmZjgxN2Q5
-ZmQ2Pl0gY29tbW9uX2ludGVycnVwdCsweDk2LzB4OTYKMjAxNi0wMi0wNVQxMjoyNTozMy44NTA3
-MTcrMDA6MDAgc21pdGhpMDEzIGtlcm5lbDogPEVPST4gIFs8ZmZmZmZmZmY4MTFlZDNjMT5dID8g
-cXVpZXRfdm1zdGF0KzB4MzEvMHg2MAoyMDE2LTAyLTA1VDEyOjI1OjMzLjg1MDc0MCswMDowMCBz
-bWl0aGkwMTMga2VybmVsOiBbPGZmZmZmZmZmODEwZjM3ZjA+XSBjcHVfc3RhcnR1cF9lbnRyeSsw
-eDkwLzB4NDAwCjIwMTYtMDItMDVUMTI6MjU6MzMuODUwNzYzKzAwOjAwIHNtaXRoaTAxMyBrZXJu
-ZWw6IFs8ZmZmZmZmZmY4MTA1NTI2Mj5dIHN0YXJ0X3NlY29uZGFyeSsweDE4Mi8weDFhMAo=
---001a1148d7c4d73081052b8647d6--
+Paul Bolle
