@@ -1,37 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 4/4] ipv6: add option to drop unsolicited neighbor
- advertisements
-Date: Thu, 11 Feb 2016 04:28:10 -0500 (EST)
-Message-ID: <20160211.042810.974143616679450202.davem@davemloft.net>
-References: <1454589080-21354-1-git-send-email-johannes@sipsolutions.net>
-	<1454589080-21354-4-git-send-email-johannes@sipsolutions.net>
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Subject: Re: [PATCH 3/5] net/mlx4: fix some error handling in
+ mlx4_multi_func_init()
+Date: Thu, 11 Feb 2016 11:29:43 +0200
+Message-ID: <20160211112943.20c0de19@jpm-OptiPlex-GX620>
+References: <1455048677-19882-1-git-send-email-linux@rasmusvillemoes.dk>
+	<1455048677-19882-4-git-send-email-linux@rasmusvillemoes.dk>
+	<56BB0577.8000000@dev.mellanox.co.il>
+	<87twlgtosn.fsf@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org, ja@ssi.bg,
-	johannes.berg@intel.com
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49720 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751044AbcBKJ2N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 04:28:13 -0500
-In-Reply-To: <1454589080-21354-4-git-send-email-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Yishai Hadas <yishaih@dev.mellanox.co.il>,
+	Yishai Hadas <yishaih@mellanox.com>, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"jackm\@mellanox.com" <jackm@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87twlgtosn.fsf@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Thu,  4 Feb 2016 13:31:20 +0100
+On Wed, 10 Feb 2016 19:15:20 +0100
+Rasmus Villemoes <linux@rasmusvillemoes.dk> wrote:
 
-> From: Johannes Berg <johannes.berg@intel.com>
+> On Wed, Feb 10 2016, Yishai Hadas <yishaih@dev.mellanox.co.il> wrote:
 > 
-> In certain 802.11 wireless deployments, there will be NA proxies
-> that use knowledge of the network to correctly answer requests.
-> To prevent unsolicitd advertisements on the shared medium from
-> being a problem, on such deployments wireless needs to drop them.
+> >> @@ -2429,7 +2429,7 @@ err_thread:
+> >>   	flush_workqueue(priv->mfunc.master.comm_wq);
+> >>   	destroy_workqueue(priv->mfunc.master.comm_wq);
+> >>   err_slaves:
+> >> -	while (--i) {
+> >> +	while (i--) {
+> >
+> > This fix is wrong as it hits the case that i arrived the last value
+> > then below code will access to a non valid entry in the array.
+> >
+> > The expected fix should be:
+> > while (--i >= 0)
+> >
 > 
-> Enable this by providing an option called "drop_unsolicited_na".
-> 
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+> Huh? They're completely equivalent (given that i is necessarily
+> non-negative before we evaluate the loop condition)
 
-Applied.
+No, they are not equivalent.
+if i == the max value (dev->num_slaves) when entering your proposed
+while loop, the kfree call index (i) will be out of range!  This can
+happen, for example, if the failure occurs downstream from the "i"
+for-loop (e.g., if the call to mlx4_init_resource_tracker() fails).
+
+Therefore, we DO require the pre-decrement format.  Therefore, the
+one-line fix proposed by Yishai is the correct fix.
+>. I don't really
+> care either way, but git grep says that 'while (i--)' is 5 times more
+> common than 'while (--i >= 0)'.
+Not relevant, while (i--) is simply not correct, because of the case
+where the for-loop involving i completes successfully and an error
+occurs later.
+
+FYI, you also had another bug in your solution -- a double-free when
+kzalloc for port 2 fails.  For your code, you should also have reset
+s_state->vlan_filter[port] to NULL as shown below:
+			for (port = 1; port <= MLX4_MAX_PORTS; port++) {
+				struct mlx4_vport_state *admin_vport;
+				struct mlx4_vport_state *oper_vport;
+
+				s_state->vlan_filter[port] =
+					kzalloc(sizeof(struct
+				mlx4_vlan_fltr), GFP_KERNEL);
+				if (!s_state->vlan_filter[port]) {
+					if (--port) {
+ 						kfree(s_state->vlan_filter[port]);
+	==> You should have added this		s_state->vlan_filter[port] = NULL;
+					}
+					goto err_slaves;
+				}
+
+However, again, the correct solution is to do what Yishai suggests:
+	while (--i >= 0)
+so that if i is already zero the while-loop will not be entered.
+
+-Jack
+> 
+> Rasmus
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma"
+> in the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
