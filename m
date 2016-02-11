@@ -1,50 +1,51 @@
-From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: [PATCH net v4] r8169: Bad implementation of netif_carrier_*
-Date: Thu, 11 Feb 2016 08:27:43 +0200
-Message-ID: <1455172063-1959-1-git-send-email-asd@marian1000.go.ro>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+Subject: Re: [PATCH] iwlwifi: fix erroneous return value
+Date: Thu, 11 Feb 2016 06:36:33 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32EA0DC45@hasmsx107.ger.corp.intel.com>
+References: <1455124113-27024-1-git-send-email-a.s.protopopov@gmail.com>
 Mime-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Cc: Corcodel Marian <asd@marian1000.go.ro>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: linuxwifi <linuxwifi@intel.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Anton Protopopov <a.s.protopopov@gmail.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Eran Harary <eran.harary@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-14-227-192.residential.rdsnet.ro ([5.14.227.192]:43710 "EHLO
-	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750757AbcBKG1v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 01:27:51 -0500
+Received: from mga01.intel.com ([192.55.52.88]:33132 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750757AbcBKGhN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 01:37:13 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  On probe stage what carrier to stop and rest two situation
-  netif_carrier_* is slow and disturbing autonegociation process.
 
-Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
----
- drivers/net/ethernet/realtek/r8169.c | 3 ---
- 1 file changed, 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 1f75478..0f1adfa 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1675,11 +1675,9 @@ static void __rtl8169_check_link_status(struct net_device *dev,
- 		/* This is to cancel a scheduled suspend if there's one. */
- 		if (pm)
- 			pm_request_resume(&tp->pci_dev->dev);
--		netif_carrier_on(dev);
- 		if (net_ratelimit())
- 			netif_info(tp, ifup, dev, "link up\n");
- 	} else {
--		netif_carrier_off(dev);
- 		netif_info(tp, ifdown, dev, "link down\n");
- 		if (pm)
- 			pm_schedule_suspend(&tp->pci_dev->dev, 5000);
-@@ -8441,7 +8439,6 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (pci_dev_run_wake(pdev))
- 		pm_runtime_put_noidle(&pdev->dev);
- 
--	netif_carrier_off(dev);
- 
- out:
- 	return rc;
--- 
-2.5.0
+On 02/10/2016 07:10 PM, Anton Protopopov wrote:
+> The iwl_trans_pcie_start_fw() function may return the positive value EIO
+> instead of -EIO in case of error.
+>
+> Signed-off-by: Anton Protopopov <a.s.protopopov@gmail.com>
+> ---
+>  drivers/net/wireless/intel/iwlwifi/pcie/trans.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/trans.c b/drivers/net/wireless/intel/iwlwifi/pcie/trans.c
+> index d60a467..920ea9d 100644
+> --- a/drivers/net/wireless/intel/iwlwifi/pcie/trans.c
+> +++ b/drivers/net/wireless/intel/iwlwifi/pcie/trans.c
+> @@ -1034,7 +1034,7 @@ static int iwl_trans_pcie_start_fw(struct iwl_trans *trans,
+>  	if (trans_pcie->is_down) {
+>  		IWL_WARN(trans,
+>  			 "Can't start_fw since the HW hasn't been started\n");
+> -		ret = EIO;
+> +		ret = -EIO;
+>  		goto out;
+>  	}
+>  
+
+applied - thanks.
