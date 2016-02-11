@@ -1,42 +1,69 @@
-From: Vijay Pandurangan <vijayp@vijayp.ca>
-Subject: =?UTF-8?Q?Re=3A_=5BPATCH=5D_veth=3A_don=E2=80=99t_modify_ip=5Fsummed=3B_doing_so?=
-	=?UTF-8?Q?_treats_packets_with_bad_checksums_as_good=2E?=
-Date: Thu, 11 Feb 2016 11:19:36 -0800
-Message-ID: <CAKUBDd8q9s4bm-_Dq2skyXVYkfNW7Xg6QdyD9TiOui8oTV+-1w@mail.gmail.com>
-References: <CAM_iQpUOKGoNNDF2Nbut8a0q2rGY6pCXBm3NVkBMe=63K7L9bg@mail.gmail.com>
- <1450467299-7188-1-git-send-email-vijayp@vijayp.ca> <20151222.151612.206719325623084440.davem@davemloft.net>
- <CAKUBDd83j1yL+HR24K+qdQBcN66BZ4U50Dj7H_STRrjHb85-zA@mail.gmail.com> <CAM_iQpVXzPWeM2AOkBGPO7dFQ6Jj1vyWou3ZTCq1qewq1KdwhA@mail.gmail.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: [PATCH net] af_unix: Guard against other == sk in unix_dgram_sendmsg
+Date: Thu, 11 Feb 2016 19:37:27 +0000
+Message-ID: <87r3gj11jc.fsf_-_@doppelsaurus.mobileactivedefense.com>
+References: <56B4BF9D.9070609@pmhahn.de> <56BC90E7.7040007@pmhahn.de>
+	<87fuwzkzr5.fsf@doppelsaurus.mobileactivedefense.com>
+	<1455210224.2801.21.camel@decadent.org.uk>
+	<87r3gjjgbu.fsf@doppelsaurus.mobileactivedefense.com>
+	<87egcjcd5j.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Evan Jones <ej@evanjones.ca>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Phil Sutter <phil@nwl.cc>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpVXzPWeM2AOkBGPO7dFQ6Jj1vyWou3ZTCq1qewq1KdwhA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Philipp Hahn <pmhahn@pmhahn.de>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, Karolin Seeger <kseeger@samba.org>,
+	Jason Baron <jbaron@akamai.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Arvid Requate <requate@univention.de>,
+	Stefan Gohmann <gohmann@univention.de>, netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tiger.mobileactivedefense.com ([217.174.251.109]:46849 "EHLO
+	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750820AbcBKTh6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 14:37:58 -0500
+In-Reply-To: <87egcjcd5j.fsf@doppelsaurus.mobileactivedefense.com> (Rainer
+	Weikusat's message of "Thu, 11 Feb 2016 18:31:04 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Just as a followup, I wrote a short blog detailing the bug and our
-resolution: (https://twitter.com/vijayp/status/697837808417779716)
+The unix_dgram_sendmsg routine use the following test
 
-Thanks again for your help in guiding us through our first kernel
-patch. This was a great experience!
+if (unlikely(unix_peer(other) != sk && unix_recvq_full(other))) {
 
-direct link: https://medium.com/vijay-pandurangan/linux-kernel-bug-delivers-corrupt-tcp-ip-data-to-mesos-kubernetes-docker-containers-4986f88f7a19#.aymvnbaa8
+to determine if sk and other are in an n:1 association (either
+established via connect or by using sendto to send messages to an
+unrelated socket identified by address). This isn't correct as the
+specified address could have been bound to the sending socket itself or
+because this socket could have been connected to itself by the time of
+the unix_peer_get but disconnected before the unix_state_lock(other). In
+both cases, the if-block would be entered despite other == sk which
+might either block the sender unintentionally or lead to trying to unlock
+the same spin lock twice for a non-blocking send. Add a other != sk
+check to guard against this.
 
-On Wed, Dec 23, 2015 at 9:57 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Tue, Dec 22, 2015 at 11:37 PM, Vijay Pandurangan <vijayp@vijayp.ca> wrote:
->> Cool, thanks! I see it in the -stable queue. Is there anything else I need
->> to do to help with getting this into main or backporting?  Happy to pitch in
->> if I can be helpful.
->>
->
-> DaveM usually just backports it to a few recent stable tree, if you want
-> to backport further, for example 3.14, you probably need to send
-> the commit ID to Greg KH.
->
-> Thanks.
+Fixes: 7d267278a9ec ("unix: avoid use-after-free in ep_remove_wait_queue")
+Reported-By: Philipp Hahn <pmhahn@pmhahn.de>
+Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+---
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 29be035..f1ca279 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1781,7 +1781,12 @@ restart_locked:
+ 			goto out_unlock;
+ 	}
+ 
+-	if (unlikely(unix_peer(other) != sk && unix_recvq_full(other))) {
++	/* other == sk && unix_peer(other) != sk if
++	 * - unix_peer(sk) == NULL, destination address bound to sk
++	 * - unix_peer(sk) == sk by time of get but disconnected before lock
++	 */
++	if (other != sk &&
++	    unlikely(unix_peer(other) != sk && unix_recvq_full(other))) {
+ 		if (timeo) {
+ 			timeo = unix_wait_for_peer(other, timeo);
+ 
