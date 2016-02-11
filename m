@@ -1,69 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
-Date: Thu, 11 Feb 2016 22:55:23 +0100
-Message-ID: <20160211215523.GE26333@lunn.ch>
-References: <90A7E81AE28BAE4CBDDB3B35F187D264402EF4A2@CHN-SV-EXMX02.mchp-main.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: gigaset: memory leak in gigaset_initcshw
+Date: Thu, 11 Feb 2016 23:34:53 +0100
+Message-ID: <1455230093.4135.29.camel@tiscali.nl>
+References: <CACT4Y+Y+P7-pM0D4HTz4ZF6i+Rya22eOkPdnrv_OmDCMB7eQtg@mail.gmail.com>
+	 <1454516189.14366.8.camel@tiscali.nl>
+	 <1454526665.14366.22.camel@tiscali.nl>
+	 <CACT4Y+aDi8L_GELzVv7QM8YdtMD7q-wH4uO7LhioeSvaEU5PJg@mail.gmail.com>
+	 <1454591389.14366.49.camel@tiscali.nl>
+	 <CACT4Y+aXo83LjyOjVG2ihyR94kex-z+=Of+x8o4i+0q8964-1g@mail.gmail.com>
+	 <1454593604.14366.65.camel@tiscali.nl>
+	 <CACT4Y+b2z0NHVPQbyYP1CA_80hXxhk+VOG6dzduMEsi+27Pi7Q@mail.gmail.com>
+	 <1454598375.14366.72.camel@tiscali.nl>
+	 <CACT4Y+aNN8AAtRSvxxrP5RfsTZdd49odnQ_GRq86Y=jXr=pANw@mail.gmail.com>
+	 <1454688387.28847.34.camel@tiscali.nl>
+	 <1454697361.28847.39.camel@tiscali.nl>
+	 <CACT4Y+Zw7V3h_Lt9kuF=fSht5qPz0CnmdwY0p+k0qr3b0KadpQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Bryan.Whitehead@microchip.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:54767 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751467AbcBKVz3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Feb 2016 16:55:29 -0500
-Content-Disposition: inline
-In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264402EF4A2@CHN-SV-EXMX02.mchp-main.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	gigaset307x-common@lists.sourceforge.net,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+Zw7V3h_Lt9kuF=fSht5qPz0CnmdwY0p+k0qr3b0KadpQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 11, 2016 at 06:58:52PM +0000, Bryan.Whitehead@microchip.com wrote:
-> This is the initial submission of an ethernet driver for
-> the Microchip LAN9352.
-> 
-> The LAN9352 is a 2-Port 10/100 Managed Ethernet Switch with
-> 16-Bit Non-PCI CPU Interface. The CPU interface includes a basic
-> ethernet controller interface whose virtual phy is connected
-> internally to a 3rd port on the embedded switch.
-> 
-> This driver only operates as a simple ethernet controller
-> on the CPU interface. Since this interface is connected directly
-> to the embedded switch, the result is that traffic can be sent and
-> received on both physical ports.
-> 
-> Signed-off-by: Bryan Whitehead <Bryan.Whitehead@microchip.com>
-> ---
->  Documentation/devicetree/bindings/net/mchp9352.txt |   31 +
->  MAINTAINERS                                        |    9 +
->  drivers/net/ethernet/microchip/Kconfig             |   32 +-
->  drivers/net/ethernet/microchip/Makefile            |    1 +
->  drivers/net/ethernet/microchip/mchp9352.c          | 2587 ++++++++++++++++++++
->  drivers/net/ethernet/microchip/mchp9352.h          |  443 ++++
->  6 files changed, 3102 insertions(+), 1 deletion(-)
->  create mode 100644 Documentation/devicetree/bindings/net/mchp9352.txt
->  create mode 100644 drivers/net/ethernet/microchip/mchp9352.c
->  create mode 100644 drivers/net/ethernet/microchip/mchp9352.h
-> 
-> diff --git a/Documentation/devicetree/bindings/net/mchp9352.txt b/Documentation/devicetree/bindings/net/mchp9352.txt
-> new file mode 100644
-> index 0000000..5b22e73
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/mchp9352.txt
-> @@ -0,0 +1,31 @@
-> +* Microchip LAN9352 Controller
-> +
-> +Required properties:
-> +- compatible : Should be "microchip,lan9352"
-> +- reg : Address and length of the io space for Microchip LAN
-> +- interrupts : Should contain Microchip LAN interrupt line
-> +- interrupt-parent : Should be the phandle for the interrupt controller
-> +  that services interrupts for this device
-> +- phy-mode : See ethernet.txt file in the same directory
+On vr, 2016-02-05 at 22:25 +0100, Dmitry Vyukov wrote:
+> On Fri, Feb 5, 2016 at 7:36 PM, Paul Bolle <pebolle@tiscali.nl> wrote:
+> > Does that make any difference?
 
-Hi Bryan
+> Nope.
+> Almost 500 objects leaked in less than 10 seconds:
 
-You still have not explained which of the two phys this phy-mode
-applies to? What if i want phy #0 to be rgmii and phy #1 to be
-rgmii-txid?
+Too bad. Still a nice (potential) clean up though.
 
-	Andrew
+Thanks,
+
+
+Paul Bolle
