@@ -1,148 +1,54 @@
-From: Richard Alpe <richard.alpe@ericsson.com>
-Subject: [PATCH net-next v1] tipc: refactor node xmit and
-	fix memory leaks
-Date: Thu, 11 Feb 2016 10:43:15 +0100
-Message-ID: <1455183795-15303-1-git-send-email-richard.alpe@ericsson.com>
+From: Sathya Perla <sathya.perla@broadcom.com>
+Subject: Re: [PATCH net-next] be2net: don't report EVB for older chipsets when
+ SR-IOV is disabled
+Date: Thu, 11 Feb 2016 10:56:35 +0100
+Message-ID: <CAKvpyk1u=59YZLoX9kTpTFm0=bXdyE-LaZpCobZwmWo+wa5RTg@mail.gmail.com>
+References: <1455106400-16330-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net, Richard
-To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Ajit Khaparde <ajit.khaparde@broadcom.com>,
+	Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>,
+	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+	Somnath Kotur <somnath.kotur@broadcom.com>
+To: Ivan Vecera <ivecera@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f177.google.com ([209.85.161.177]:36271 "EHLO
+	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750925AbcBKJ4g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 04:56:36 -0500
+Received: by mail-yw0-f177.google.com with SMTP id q190so35123221ywd.3
+        for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 01:56:36 -0800 (PST)
+In-Reply-To: <1455106400-16330-1-git-send-email-ivecera@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Refactor tipc_node_xmit() to fail fast and fail early. Fix several
-potential memory leaks in unexpected error paths.
+On Wed, Feb 10, 2016 at 1:13 PM, Ivan Vecera <ivecera@redhat.com> wrote:
+>
+> The EVB (virtual bridge) functionality should be disabled on older BE3
+> and Lancer chips if SR-IOV is disabled in the NIC's BIOS. This setting
+> is identified by the zero value of total VFs reported by the card.
+> The GET_HSW_CONFIG command cannot be used as it is not supported > by these older chipset's FW.
+>
+..
+> ---
+>  drivers/net/ethernet/emulex/benet/be_main.c | 2 ++
+>  1 file changed, 2 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+> index 9c1fc9d..886fe95 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+> @@ -4588,6 +4588,8 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>
+>         /* BE and Lancer chips support VEB mode only */
+>         if (BEx_chip(adapter) || lancer_chip(adapter)) {
+> +               if (!pci_sriov_get_totalvfs(adapter->pdev))
+> +                       return 0;
 
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
----
- net/tipc/link.c |  8 ++++++--
- net/tipc/node.c | 54 ++++++++++++++++++++++++++++++++----------------------
- 2 files changed, 38 insertions(+), 24 deletions(-)
+Ivan, could you add a one line comment above this check that says "On
+BE3/Lancer the VEB is disabled in non-SRIOV profiles". This is to
+differentiate this behavior from Skyhawk, where the VEB may be enabled
+even in non-SRIOV profiles, like nPAR...
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 6f4a6d9..3e513da 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -903,8 +903,10 @@ int tipc_link_xmit(struct tipc_link *l, struct sk_buff_head *list,
- 		if (unlikely(l->backlog[i].len >= l->backlog[i].limit))
- 			return link_schedule_user(l, list);
- 	}
--	if (unlikely(msg_size(hdr) > mtu))
-+	if (unlikely(msg_size(hdr) > mtu)) {
-+		skb_queue_purge(list);
- 		return -EMSGSIZE;
-+	}
- 
- 	/* Prepare each packet for sending, and add to relevant queue: */
- 	while (skb_queue_len(list)) {
-@@ -916,8 +918,10 @@ int tipc_link_xmit(struct tipc_link *l, struct sk_buff_head *list,
- 
- 		if (likely(skb_queue_len(transmq) < maxwin)) {
- 			_skb = skb_clone(skb, GFP_ATOMIC);
--			if (!_skb)
-+			if (!_skb) {
-+				skb_queue_purge(list);
- 				return -ENOBUFS;
-+			}
- 			__skb_dequeue(list);
- 			__skb_queue_tail(transmq, skb);
- 			__skb_queue_tail(xmitq, _skb);
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index f8a8255..10a1e87 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -1166,7 +1166,7 @@ msg_full:
-  * @dnode: address of destination node
-  * @selector: a number used for deterministic link selection
-  * Consumes the buffer chain, except when returning -ELINKCONG
-- * Returns 0 if success, otherwise errno: -ELINKCONG,-EHOSTUNREACH,-EMSGSIZE
-+ * Returns 0 if success, otherwise: -ELINKCONG,-EHOSTUNREACH,-EMSGSIZE,-ENOBUF
-  */
- int tipc_node_xmit(struct net *net, struct sk_buff_head *list,
- 		   u32 dnode, int selector)
-@@ -1174,33 +1174,43 @@ int tipc_node_xmit(struct net *net, struct sk_buff_head *list,
- 	struct tipc_link_entry *le = NULL;
- 	struct tipc_node *n;
- 	struct sk_buff_head xmitq;
--	int bearer_id = -1;
--	int rc = -EHOSTUNREACH;
-+	int bearer_id;
-+	int rc;
-+
-+	if (in_own_node(net, dnode)) {
-+		tipc_sk_rcv(net, list);
-+		return 0;
-+	}
- 
--	__skb_queue_head_init(&xmitq);
- 	n = tipc_node_find(net, dnode);
--	if (likely(n)) {
--		tipc_node_read_lock(n);
--		bearer_id = n->active_links[selector & 1];
--		if (bearer_id >= 0) {
--			le = &n->links[bearer_id];
--			spin_lock_bh(&le->lock);
--			rc = tipc_link_xmit(le->link, list, &xmitq);
--			spin_unlock_bh(&le->lock);
--		}
-+	if (unlikely(!n)) {
-+		skb_queue_purge(list);
-+		return -EHOSTUNREACH;
-+	}
-+
-+	tipc_node_read_lock(n);
-+	bearer_id = n->active_links[selector & 1];
-+	if (unlikely(bearer_id == INVALID_BEARER_ID)) {
- 		tipc_node_read_unlock(n);
--		if (likely(!rc))
--			tipc_bearer_xmit(net, bearer_id, &xmitq, &le->maddr);
--		else if (rc == -ENOBUFS)
--			tipc_node_link_down(n, bearer_id, false);
- 		tipc_node_put(n);
--		return rc;
-+		skb_queue_purge(list);
-+		return -EHOSTUNREACH;
- 	}
- 
--	if (likely(in_own_node(net, dnode))) {
--		tipc_sk_rcv(net, list);
--		return 0;
--	}
-+	__skb_queue_head_init(&xmitq);
-+	le = &n->links[bearer_id];
-+	spin_lock_bh(&le->lock);
-+	rc = tipc_link_xmit(le->link, list, &xmitq);
-+	spin_unlock_bh(&le->lock);
-+	tipc_node_read_unlock(n);
-+
-+	if (likely(rc == 0))
-+		tipc_bearer_xmit(net, bearer_id, &xmitq, &le->maddr);
-+	else if (rc == -ENOBUFS)
-+		tipc_node_link_down(n, bearer_id, false);
-+
-+	tipc_node_put(n);
-+
- 	return rc;
- }
- 
--- 
-2.1.4
-
-
-------------------------------------------------------------------------------
-Site24x7 APM Insight: Get Deep Visibility into Application Performance
-APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
-Monitor end-to-end web transactions and take corrective actions now
-Troubleshoot faster and improve end-user experience. Signup Now!
-http://pubads.g.doubleclick.net/gampad/clk?id=272487151&iu=/4140
+thanks,
+-Sathya
