@@ -1,47 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH V2 0/3] net: mitigating kmem_cache free
- slowpath
-Date: Thu, 11 Feb 2016 11:59:58 -0500 (EST)
-Message-ID: <20160211.115958.619724929941930296.davem@davemloft.net>
-References: <20160207.142526.1252110536030712971.davem@davemloft.net>
-	<20160208121328.8860.67014.stgit@localhost>
+From: <Woojung.Huh@microchip.com>
+Subject: [PATCH net] phy: keep pause flags in phy driver features
+Date: Thu, 11 Feb 2016 17:29:47 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D404AC676@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
- akpm@linux-foundation.org, tom@herbertland.com, alexander.duyck@gmail.com,
- alexei.starovoitov@gmail.com, linux-mm@kvack.org, cl@linux.com
-To: brouer@redhat.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160208121328.8860.67014.stgit@localhost>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <andrew@lunn.ch>
+To: <davem@davemloft.net>, <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exsmtp01.microchip.com ([198.175.253.37]:26814 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751098AbcBKR3s convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 12:29:48 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Mon, 08 Feb 2016 13:14:54 +0100
 
-> This patchset is the first real use-case for kmem_cache bulk _free_.
-> The use of bulk _alloc_ is NOT included in this patchset. The full use
-> have previously been posted here [1].
-> 
-> The bulk free side have the largest benefit for the network stack
-> use-case, because network stack is hitting the kmem_cache/SLUB
-> slowpath when freeing SKBs, due to the amount of outstanding SKBs.
-> This is solved by using the new API kmem_cache_free_bulk().
-> 
-> Introduce new API napi_consume_skb(), that hides/handles bulk freeing
-> for the caller.  The drivers simply need to use this call when freeing
-> SKBs in NAPI context, e.g. replacing their calles to dev_kfree_skb() /
-> dev_consume_skb_any().
-> 
-> Driver ixgbe is the first user of this new API.
-> 
-> [1] http://thread.gmane.org/gmane.linux.network/384302/focus=397373
+genphy_config_init() masked out pause flags set in phy driver structure.
+Pause flags needs to be preserved in phydev->supported &
+phydev->advertising.
 
-Series applied, thanks.
+Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+---
+ drivers/net/phy/phy_device.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index bad3f00..e551f3a 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1410,7 +1410,7 @@ int genphy_config_init(struct phy_device *phydev)
+ 
+ 	features = (SUPPORTED_TP | SUPPORTED_MII
+ 			| SUPPORTED_AUI | SUPPORTED_FIBRE |
+-			SUPPORTED_BNC);
++			SUPPORTED_BNC | SUPPORTED_Pause | SUPPORTED_Asym_Pause);
+ 
+ 	/* Do we support autonegotiation? */
+ 	val = phy_read(phydev, MII_BMSR);
+-- 
+2.7.0
