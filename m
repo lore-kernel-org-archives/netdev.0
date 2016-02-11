@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hamradio: baycom_ser_fdx: Replace timeval with
- timespec64
-Date: Thu, 11 Feb 2016 09:55:34 -0500 (EST)
-Message-ID: <20160211.095534.840091300723732679.davem@davemloft.net>
-References: <20160210043854.GA29381@amitoj-Inspiron-3542>
+Subject: Re: [net-next v2] bonding: use return instead of goto
+Date: Thu, 11 Feb 2016 09:57:24 -0500 (EST)
+Message-ID: <20160211.095724.1673577316117980850.davem@davemloft.net>
+References: <1455014266-17190-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: t.sailer@alumni.ethz.ch, linux-hams@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	y2038@lists.linaro.org
-To: amitoj1606@gmail.com
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20160210043854.GA29381@amitoj-Inspiron-3542>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: j.vosburgh@gmail.com, netdev@vger.kernel.org
+To: zhangshengju@cmss.chinamobile.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53437 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750955AbcBKO51 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 09:57:27 -0500
+In-Reply-To: <1455014266-17190-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Date: Wed, 10 Feb 2016 10:08:54 +0530
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Date: Tue,  9 Feb 2016 10:37:46 +0000
 
-> 32 bit systems using 'struct timeval' will break in the year 2038, so
-> we replace the code appropriately. However, this driver is not broken
-> in 2038 since we are only using microseconds portion of the time.
+> Replace 'goto' with 'return' to remove unnecessary check at label:
+> err_undo_flags.
 > 
-> This patch replaces 'struct timeval' with 'struct timespec64'. We only
-> need to find elapsed microseconds rather than absolute time, so it's
-> better to use monotonic time, so using ktime_get_ts64() makes the code
-> more efficient and more robust against concurrent settimeofday()
-> calls.
+> The reason is that 'err_undo_flags' do two things for the first slave device:
+> 1.revert bond mac address if it is set by the slave device.
+> 2.revert bond device type if it's not ARPHRD_ETHER.
 > 
-> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-> Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+> It's not necessary for the following three places, they changed neither bond 
+> mac address nor type. It's straightforward to return directly.
+> 
+> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 
-Applied.
+Applied, thanks.
