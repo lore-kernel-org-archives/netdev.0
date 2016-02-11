@@ -1,46 +1,47 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] codel: add forgotten inline to functions in header file
-Date: Thu, 11 Feb 2016 15:29:41 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32EA0E809@hasmsx107.ger.corp.intel.com>
-References: <1455199701-25767-1-git-send-email-emmanuel.grumbach@intel.com>
- <1455201038.19473.12.camel@edumazet-glaptop2.roam.corp.google.com>
- <0BA3FCBA62E2DC44AF3030971E174FB32EA0E6FD@hasmsx107.ger.corp.intel.com>
- <1455203555.19473.14.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH 2/2] net: dsa: remove phy_disconnect from error path
+Date: Thu, 11 Feb 2016 10:39:03 -0500
+Message-ID: <8737szi7e0.fsf@ketchup.mtl.sfl>
+References: <1455187489-30771-1-git-send-email-s.hauer@pengutronix.de> <1455187489-30771-2-git-send-email-s.hauer@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Sascha Hauer <s.hauer@pengutronix.de>, narmstrong@baylibre.com
+To: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455187489-30771-2-git-send-email-s.hauer@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Sascha,
 
+Sascha Hauer <s.hauer@pengutronix.de> writes:
 
-On 02/11/2016 05:12 PM, Eric Dumazet wrote:
-> On Thu, 2016-02-11 at 15:05 +0000, Grumbach, Emmanuel wrote:
+> The phy has not been initialized, disconnecting it in the error
+> path results in a NULL pointer exception. Drop the phy_disconnect
+> from the error path.
 >
+> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+> ---
+>  net/dsa/slave.c | 1 -
+>  1 file changed, 1 deletion(-)
 >
->> Yeah :) codel_should_drop seemed very long indeed... I wanted to use the
->> codel_get_time and associated utils (_before, _after) in iwlwifi.
->> They're better than jiffies... So maybe I can just copy that code to
->> iwlwifi.
->
-> You certainly can submit a patch adding the inline, but not on all
-> functions present in this file ;)
->
-> Thanks !
->
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index 40b9ca7..91e3b2f 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -1194,7 +1194,6 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+>  	if (ret) {
+>  		netdev_err(master, "error %d registering interface %s\n",
+>  			   ret, slave_dev->name);
+> -		phy_disconnect(p->phy);
+>  		ds->ports[port] = NULL;
+>  		free_netdev(slave_dev);
+>  		return ret;
 
-Actually... All I need *has* the inline, but if I include codel.h,
-codel_dequeue is defined but not used and you definitely don't want to
-inline that one. So I guess the only other option I have is to split
-that header file which I don't think is really worth it. So, unless you
-object it, I'll just copy the code.
+I'm adding Neil in the loop, since he did some work similar to this, if
+I'm not mistaken.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+-v
