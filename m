@@ -1,52 +1,95 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net-next v2] be2net: don't report EVB for older chipsets when SR-IOV is disabled
-Date: Thu, 11 Feb 2016 12:42:26 +0100
-Message-ID: <1455190946-2906-1-git-send-email-ivecera@redhat.com>
-Cc: Sathya Perla <sathya.perla@broadcom.com>,
-	Ajit Khaparde <ajit.khaparde@broadcom.com>,
-	Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>,
-	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
-	Somnath Kotur <somnath.kotur@broadcom.com>
-To: netdev@vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 5/7] net: add dst_cache to ovs vxlan lwtunnel
+Date: Thu, 11 Feb 2016 12:48:38 +0100
+Message-ID: <20160211124838.0b22d29b@griffin>
+References: <cover.1455184959.git.pabeni@redhat.com>
+	<3e02e47b27bfa69fc2ed6c5a76b3cb20b89a655c.1455184959.git.pabeni@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Tom Herbert <therbert@google.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48923 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53882 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752430AbcBKLma (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Feb 2016 06:42:30 -0500
+	id S1751974AbcBKLso (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Feb 2016 06:48:44 -0500
+In-Reply-To: <3e02e47b27bfa69fc2ed6c5a76b3cb20b89a655c.1455184959.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The EVB (virtual bridge) functionality should be disabled on older BE3
-and Lancer chips if SR-IOV is disabled in the NIC's BIOS. This setting
-is identified by the zero value of total VFs reported by the card.
-The GET_HSW_CONFIG command cannot be used as it is not supported by
-these older chipset's FW.
+On Thu, 11 Feb 2016 11:12:01 +0100, Paolo Abeni wrote:
+> In case of UDP traffic with datagram length
+> below MTU this give about 2% performance increase
 
-v2: added the comment
+The performance increase is not that great probably because of the
+addition of the pointer to ip_tunnel_info, making it even fatter than
+it is now.
 
-Cc: Sathya Perla <sathya.perla@broadcom.com>
-Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
-Cc: Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>
-Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-Cc: Somnath Kotur <somnath.kotur@broadcom.com>
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 3 +++
- 1 file changed, 3 insertions(+)
+> diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+> index d1bd4a4..f181186 100644
+> --- a/net/openvswitch/flow_netlink.c
+> +++ b/net/openvswitch/flow_netlink.c
+> @@ -1698,6 +1698,7 @@ static void ovs_nla_free_set_action(const struct nlattr *a)
+>  	case OVS_KEY_ATTR_TUNNEL_INFO:
+>  		ovs_tun = nla_data(ovs_key);
+>  		dst_release((struct dst_entry *)ovs_tun->tun_dst);
+> +		dst_cache_destroy(&ovs_tun->dst_cache);
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 9c1fc9d..10a0ad5 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4588,6 +4588,9 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 
- 	/* BE and Lancer chips support VEB mode only */
- 	if (BEx_chip(adapter) || lancer_chip(adapter)) {
-+		/* VEB is disabled in non-SR-IOV profiles on BE3/Lancer */
-+		if (!pci_sriov_get_totalvfs(adapter->pdev))
-+			return 0;
- 		hsw_mode = PORT_FWD_TYPE_VEB;
- 	} else {
- 		status = be_cmd_get_hsw_config(adapter, NULL, 0,
+We need a helper function for this, operating on ovs_tunnel_info.
+
+>  		break;
+>  	}
+>  }
+> @@ -1928,6 +1929,7 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+>  {
+>  	struct sw_flow_match match;
+>  	struct sw_flow_key key;
+> +	struct dst_cache dst_cache;
+>  	struct metadata_dst *tun_dst;
+>  	struct ip_tunnel_info *tun_info;
+>  	struct ovs_tunnel_info *ovs_tun;
+> @@ -1959,15 +1961,24 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+>  	if (!tun_dst)
+>  		return -ENOMEM;
+>  
+> +	err = dst_cache_init(&dst_cache, GFP_KERNEL);
+> +	if (err) {
+> +		dst_release((struct dst_entry *)tun_dst);
+> +		return err;
+> +	}
+> +
+>  	a = __add_action(sfa, OVS_KEY_ATTR_TUNNEL_INFO, NULL,
+>  			 sizeof(*ovs_tun), log);
+>  	if (IS_ERR(a)) {
+>  		dst_release((struct dst_entry *)tun_dst);
+> +		dst_cache_destroy(&dst_cache);
+
+Make the local variable be of ovs_tunnel_info type and use the helper
+function here.
+
+>  		return PTR_ERR(a);
+>  	}
+>  
+>  	ovs_tun = nla_data(a);
+>  	ovs_tun->tun_dst = tun_dst;
+> +	ovs_tun->dst_cache = dst_cache;
+
+Why are you copying the data here? The cache should be initialized in
+place in ovs_tun.
+
+> +	tun_dst->u.tun_info.dst_cache = &ovs_tun->dst_cache;
+
+The absence of reference counting here will lead to use after free when
+processing a packet referencing tun_dst while the corresponding
+dst_cache memory is freed on flow deletion. Note that tun_dst is
+reference counted (see execute_set_action).
+
+ Jiri
+
 -- 
-2.4.10
+Jiri Benc
