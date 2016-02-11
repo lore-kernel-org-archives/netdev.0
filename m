@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH for-next 0/3] Add TOS support and some cleanup
-Date: Thu, 11 Feb 2016 07:14:07 -0500 (EST)
-Message-ID: <20160211.071407.1112903195515587326.davem@davemloft.net>
-References: <1454652810-25086-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH v2 net-next 0/2] IPv6 NFC
+Date: Thu, 11 Feb 2016 07:16:53 -0500 (EST)
+Message-ID: <20160211.071653.289290792718100657.davem@davemloft.net>
+References: <56B483A1.4070901@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	dledford@redhat.com, swise@opengridcomputing.com,
-	nirranjan@chelsio.com
-To: hariprasad@chelsio.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	ben@decadent.org.uk
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51737 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51759 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751779AbcBKMPK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 07:15:10 -0500
-In-Reply-To: <1454652810-25086-1-git-send-email-hariprasad@chelsio.com>
+	with ESMTP id S1751099AbcBKMQ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 07:16:56 -0500
+In-Reply-To: <56B483A1.4070901@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Fri,  5 Feb 2016 11:43:27 +0530
+From: Edward Cree <ecree@solarflare.com>
+Date: Fri, 5 Feb 2016 11:12:33 +0000
 
-> This series adds TOS support for iWARP and also does some cleanup to make
-> code more readable. Patch series is created against infiniband tree and 
-> includes patches on iw_cxgb4 and cxgb4 driver.
-> 
-> We have included all the maintainers of respective drivers. Kindly review
-> the change and let us know in case of any review comments.
+> This series adds support for steering IPv6 flows using the ethtool NFC
+>  interface, and implements it for sfc devices.
+> Tested using an in-development patch to the ethtool utility.
 
 Series applied, thanks.
