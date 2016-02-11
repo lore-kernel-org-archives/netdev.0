@@ -1,37 +1,34 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next] lwt: fix rx checksum setting for lwt devices
- tunneling over ipv6
-Date: Thu, 11 Feb 2016 13:20:58 +0100
-Message-ID: <20160211132058.303acad9@griffin>
-References: <8d2a6ece65b17ae61343dce27f3709d3cd249832.1455118911.git.pabeni@redhat.com>
-	<20160211114124.17ae429a@griffin>
-	<1455190731.4855.50.camel@redhat.com>
-	<20160211131652.0b7066cb@griffin>
+From: Sathya Perla <sathya.perla@broadcom.com>
+Subject: Re: [PATCH net-next v2] be2net: don't report EVB for older chipsets
+ when SR-IOV is disabled
+Date: Thu, 11 Feb 2016 13:22:20 +0100
+Message-ID: <CAKvpyk3RieXKNNXY-3G1h6=v+1+sN+b39gVMVaR1kvNZZr7O3A@mail.gmail.com>
+References: <1455190946-2906-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Thomas Graf <tgraf@suug.ch>, Jesse Gross <jesse@kernel.org>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Ajit Khaparde <ajit.khaparde@broadcom.com>,
+	Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>,
+	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+	Somnath Kotur <somnath.kotur@broadcom.com>
+To: Ivan Vecera <ivecera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56777 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753174AbcBKMVC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Feb 2016 07:21:02 -0500
-In-Reply-To: <20160211131652.0b7066cb@griffin>
+Received: from mail-yw0-f177.google.com ([209.85.161.177]:36396 "EHLO
+	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751742AbcBKMWU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 07:22:20 -0500
+Received: by mail-yw0-f177.google.com with SMTP id q190so37338311ywd.3
+        for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 04:22:20 -0800 (PST)
+In-Reply-To: <1455190946-2906-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 11 Feb 2016 13:16:52 +0100, Jiri Benc wrote:
-> I don't see a better way out of this now. Fortunately, this does not
-> affect route based tunneling.
-> 
-> Acked-by: Jiri Benc <jbenc@redhat.com>
+On Thu, Feb 11, 2016 at 12:42 PM, Ivan Vecera <ivecera@redhat.com> wrote:
+> The EVB (virtual bridge) functionality should be disabled on older BE3
+> and Lancer chips if SR-IOV is disabled in the NIC's BIOS. This setting
+> is identified by the zero value of total VFs reported by the card.
+> The GET_HSW_CONFIG command cannot be used as it is not supported by
+> these older chipset's FW.
+>
+> v2: added the comment
 
-Oh, and this should go to net, not net-next.
-
- Jiri
-
--- 
-Jiri Benc
+Acked-by: Sathya Perla <sathya.perla@broadcom.com>
