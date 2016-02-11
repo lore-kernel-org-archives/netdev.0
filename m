@@ -1,42 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 0/7] Faster SO_REUSEPORT for TCP
-Date: Thu, 11 Feb 2016 03:54:48 -0500 (EST)
-Message-ID: <20160211.035448.1600254996189463191.davem@davemloft.net>
-References: <1455123041-22638-1-git-send-email-kraigatgoog@gmail.com>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH v3] openvswitch: allow management from inside user namespaces
+Date: Thu, 11 Feb 2016 10:10:59 +0100
+Message-ID: <CAOrHB_CLkirGUf4r=0pyJppaKgbV7nm8u5guXcM=sdup2YJCnA@mail.gmail.com>
+References: <1454689252-18749-1-git-send-email-tycho.andersen@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kraigatgoog@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49366 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932103AbcBKIyv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 03:54:51 -0500
-In-Reply-To: <1455123041-22638-1-git-send-email-kraigatgoog@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org,
+	containers@lists.linux-foundation.org,
+	Eric Biederman <ebiederm@xmission.com>,
+	Justin Pettit <jpettit@nicira.com>
+To: Tycho Andersen <tycho.andersen@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454689252-18749-1-git-send-email-tycho.andersen@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Craig Gallek <kraigatgoog@gmail.com>
-Date: Wed, 10 Feb 2016 11:50:34 -0500
+On Fri, Feb 5, 2016 at 5:20 PM, Tycho Andersen
+<tycho.andersen@canonical.com> wrote:
+> Operations with the GENL_ADMIN_PERM flag fail permissions checks because
+> this flag means we call netlink_capable, which uses the init user ns.
+>
+> Instead, let's introduce a new flag, GENL_UNS_ADMIN_PERM for operations
+> which should be allowed inside a user namespace.
+>
+> The motivation for this is to be able to run openvswitch in unprivileged
+> containers. I've tested this and it seems to work, but I really have no
+> idea about the security consequences of this patch, so thoughts would be
+> much appreciated.
+>
+> v2: use the GENL_UNS_ADMIN_PERM flag instead of a check in each function
+> v3: use separate ifs for UNS_ADMIN_PERM and ADMIN_PERM, instead of one
+>     massive one
+>
+> Reported-by: James Page <james.page@canonical.com>
+> Signed-off-by: Tycho Andersen <tycho.andersen@canonical.com>
+> CC: Eric Biederman <ebiederm@xmission.com>
+> CC: Pravin Shelar <pshelar@ovn.org>
+> CC: Justin Pettit <jpettit@nicira.com>
+> CC: "David S. Miller" <davem@davemloft.net>
+> ---
+>  include/uapi/linux/genetlink.h |  1 +
+>  net/netlink/genetlink.c        |  4 ++++
+>  net/openvswitch/datapath.c     | 20 ++++++++++----------
+>  3 files changed, 15 insertions(+), 10 deletions(-)
+>
+Looks good.
 
-> This patch series complements an earlier series (6a5ef90c58da)
-> which added faster SO_REUSEPORT lookup for UDP sockets by
-> extending the feature to TCP sockets.  It uses the same
-> array-based data structure which allows for socket selection
-> after finding the first listening socket that matches an incoming
-> packet.  Prior to this feature, every socket in the reuseport
-> group needed to be found and examined before a selection could be
-> made.
-> 
-> With this series the SO_ATTACH_REUSEPORT_CBPF and
-> SO_ATTACH_REUSEPORT_EBPF socket options now work for TCP sockets
-> as well.  The test at the end of the series includes an example of
-> how to use these options to select a reuseport socket based on the
-> cpu core id handling the incoming packet.
-> 
-> There are several refactoring patches that precede the feature
-> implementation.  Only the last two patches in this series
-> should result in any behavioral changes.
-
-Series applied, thanks Craig.
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
