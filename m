@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: Return correct error code
-Date: Thu, 11 Feb 2016 09:44:09 -0500 (EST)
-Message-ID: <20160211.094409.391383365173722850.davem@davemloft.net>
-References: <20160207052624.GA9263@amitoj-Inspiron-3542>
+Subject: Re: [PATCH net-next] rds: duplicate include net/tcp.h
+Date: Thu, 11 Feb 2016 09:45:56 -0500 (EST)
+Message-ID: <20160211.094556.1635493776768601015.davem@davemloft.net>
+References: <20160209220447.382b28a6@xeon-e3>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: amitoj1606@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160207052624.GA9263@amitoj-Inspiron-3542>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: chien.yen@oracle.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53308 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751689AbcBKOp7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 09:45:59 -0500
+In-Reply-To: <20160209220447.382b28a6@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Date: Sun, 7 Feb 2016 10:56:25 +0530
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 9 Feb 2016 22:04:47 -0800
 
-> The return value of kzalloc on failure of allocation of memory should
-> be -ENOMEM and not -1.
+> Duplicate include detected.
 > 
-> Found using Coccinelle. A simplified version of the semantic patch
-> used is:
- ...
-> The single call site only checks that the return value is not 0,
-> hence no change is required at the call site.
-> 
-> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied, thanks.
+Applied.
