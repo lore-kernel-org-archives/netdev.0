@@ -1,37 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] nsh: encapsulation module
-Date: Thu, 11 Feb 2016 11:39:46 -0500 (EST)
-Message-ID: <20160211.113946.1731145198917250643.davem@davemloft.net>
-References: <1455186914-8952-1-git-send-email-brussell@brocade.com>
-	<1455186914-8952-3-git-send-email-brussell@brocade.com>
+Subject: Re: [PATCH net-next 0/2] tcp/dccp: better use of ephemeral ports
+Date: Thu, 11 Feb 2016 11:48:25 -0500 (EST)
+Message-ID: <20160211.114825.2144275138787010650.davem@davemloft.net>
+References: <1454724538-13556-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: brussell@brocade.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54490 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54575 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751083AbcBKQju (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 11:39:50 -0500
-In-Reply-To: <1455186914-8952-3-git-send-email-brussell@brocade.com>
+	with ESMTP id S1751018AbcBKQs3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 11:48:29 -0500
+In-Reply-To: <1454724538-13556-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Brian Russell <brussell@brocade.com>
-Date: Thu, 11 Feb 2016 10:35:13 +0000
+From: Eric Dumazet <edumazet@google.com>
+Date: Fri,  5 Feb 2016 18:08:56 -0800
 
-> +++ b/include/net/nsh.h
-> +struct nsh_metadata {
-> +	u_short class;
-> +	u_char crit;
-> +	u_char type;
-> +	u_int len;  /* 4 byte words */
-> +	void *data;
+> Big servers have bloated bind table, making very hard to succeed
+> ephemeral port allocations, without special containers/namespace tricks.
+> 
+> This patch series extends the strategy added in commit 07f4c90062f8 
+> ("tcp/dccp: try to not exhaust ip_local_port_range in connect()").
+> 
+> Since ports used by connect() are much likely to be shared among them,
+> we give a hint to both bind() and connect() to keep the crowds separated
+> if possible.
+> 
+> Of course, if on a specific host an application needs to allocate ~30000
+> ports using bind(), it will still be able to do so. Same for ~30000 connect()
+> to a unique 2-tuple (dst addr, dst port)
+> 
+> New implemetation is also more friendly to softirqs and reschedules.
 
-Do not use these shorthands, spell out "unsigned short" etc. explicitly.
+I'm getting rejects on the second patch, please respin and repost.
 
-But in these cases you should be using fixed sized types like "u16".
-
-Also, in a header file such as this one which is private to the kernel
-you should be using the variants of these types without the leading underscores.
+Thanks Eric.
