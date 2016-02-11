@@ -1,45 +1,39 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH v2 0/6] net: thunderx: Setting IRQ affinity hints and other optimizations
-Date: Thu, 11 Feb 2016 21:50:20 +0530
-Message-ID: <1455207626-35488-1-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH v2 2/6] net: thunderx: Use napi_schedule_irqoff()
+Date: Thu, 11 Feb 2016 21:50:22 +0530
+Message-ID: <1455207626-35488-3-git-send-email-sunil.kovvuri@gmail.com>
+References: <1455207626-35488-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	sgoutham@cavium.com, robert.richter@caviumnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455207626-35488-1-git-send-email-sunil.kovvuri@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-This patch series contains changes
-- To add support for virtual function's irq affinity hint
-- Replace napi_schedule() with napi_schedule_irqoff()
-- Reduce page allocation overhead by allocating pages
-  of higher order when pagesize is 4KB.
-- Add couple of stats which helps in debugging
-- Some miscellaneous changes to BGX driver.
+napi_schedule is being called from hard irq context, hence
+switch to napi_schedule_irqoff which avoids unneeded call
+to local_irq_save and local_irq_restore.
 
-Changes from v1:
-- As suggested changed MAC address invalid log message 
-  to dev_err() instead of dev_warn().
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+---
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-David Daney (1):
-  net: thunderx: bgx: Use standard firmware node infrastructure.
-
-Robert Richter (1):
-  net: thunderx: bgx: Add log message when setting mac address
-
-Sunil Goutham (3):
-  net: thunderx: Use napi_schedule_irqoff()
-  net: thunderx: Assign affinity hints to vf's interrupts
-  net: thunderx: Alloc higher order pages when pagesize is small
-
-Thanneeru Srinivasulu (1):
-  net, thunderx: Add TX timeout and RX buffer alloc failure stats.
-
- drivers/net/ethernet/cavium/thunder/nic.h          |    4 ++
- .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |    2 +
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   |   40 ++++++++++++++++++-
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |    5 +-
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |   38 +++++++++++--------
- 5 files changed, 67 insertions(+), 22 deletions(-)
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 95db6b7..c6f146c 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -828,7 +828,7 @@ static irqreturn_t nicvf_intr_handler(int irq, void *cq_irq)
+ 	nicvf_disable_intr(nic, NICVF_INTR_CQ, qidx);
+ 
+ 	/* Schedule NAPI */
+-	napi_schedule(&cq_poll->napi);
++	napi_schedule_irqoff(&cq_poll->napi);
+ 
+ 	/* Clear interrupt */
+ 	nicvf_clear_intr(nic, NICVF_INTR_CQ, qidx);
+-- 
+1.7.1
