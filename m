@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request [net-next]: batman-adv 20160210
-Date: Thu, 11 Feb 2016 03:50:33 -0500 (EST)
-Message-ID: <20160211.035033.2047139693612194678.davem@davemloft.net>
-References: <1455119847-5862-1-git-send-email-a@unstable.cc>
+Subject: Re: [PATCH net-next v4 0/7] Faster SO_REUSEPORT for TCP
+Date: Thu, 11 Feb 2016 03:54:48 -0500 (EST)
+Message-ID: <20160211.035448.1600254996189463191.davem@davemloft.net>
+References: <1455123041-22638-1-git-send-email-kraigatgoog@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: a@unstable.cc
+Cc: netdev@vger.kernel.org
+To: kraigatgoog@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49324 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49366 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751921AbcBKIuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 03:50:37 -0500
-In-Reply-To: <1455119847-5862-1-git-send-email-a@unstable.cc>
+	with ESMTP id S932103AbcBKIyv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 03:54:51 -0500
+In-Reply-To: <1455123041-22638-1-git-send-email-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <a@unstable.cc>
-Date: Wed, 10 Feb 2016 23:57:06 +0800
+From: Craig Gallek <kraigatgoog@gmail.com>
+Date: Wed, 10 Feb 2016 11:50:34 -0500
 
-> this is another pull request intended for net-next.
+> This patch series complements an earlier series (6a5ef90c58da)
+> which added faster SO_REUSEPORT lookup for UDP sockets by
+> extending the feature to TCP sockets.  It uses the same
+> array-based data structure which allows for socket selection
+> after finding the first listening socket that matches an incoming
+> packet.  Prior to this feature, every socket in the reuseport
+> group needed to be found and examined before a selection could be
+> made.
 > 
-> Here you have a batch of patches by Sven Eckelmann that
-> drops our private reference counting implementation and
-> substitutes it with the kref objects/functions.
+> With this series the SO_ATTACH_REUSEPORT_CBPF and
+> SO_ATTACH_REUSEPORT_EBPF socket options now work for TCP sockets
+> as well.  The test at the end of the series includes an example of
+> how to use these options to select a reuseport socket based on the
+> cpu core id handling the incoming packet.
 > 
-> Then you have a patch, by Simon Wunderlich, that
-> makes the broadcast protection window code more generic so
-> that it can be re-used in the future by other components
-> with different requirements.
-> 
-> Lastly, Sven is also introducing two lockdep asserts in
-> functions operating on our TVLV container list, to make
-> sure that the proper lock is always acquired by the users.
+> There are several refactoring patches that precede the feature
+> implementation.  Only the last two patches in this series
+> should result in any behavioral changes.
 
-Pulled, thanks Antonio.
+Series applied, thanks Craig.
