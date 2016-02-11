@@ -1,34 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/6] net: thunderx: Setting IRQ affinity hints and
- other optimizations
-Date: Thu, 11 Feb 2016 11:30:53 -0500 (EST)
-Message-ID: <20160211.113053.1221794797998213409.davem@davemloft.net>
-References: <1455207626-35488-1-git-send-email-sunil.kovvuri@gmail.com>
+Subject: Re: [PATCH v3 0/6] Add support for MICREL KSZ8795CLX 5-port switch
+Date: Thu, 11 Feb 2016 11:34:52 -0500 (EST)
+Message-ID: <20160211.113452.2275425217787053901.davem@davemloft.net>
+References: <1455047238-111358-1-git-send-email-helmut.buchsbaum@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, sgoutham@cavium.com,
-	robert.richter@caviumnetworks.com
-To: sunil.kovvuri@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455207626-35488-1-git-send-email-sunil.kovvuri@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: f.fainelli@gmail.com, andrew@lunn.ch,
+	sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
+To: helmut.buchsbaum@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54418 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750959AbcBKQe6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 11:34:58 -0500
+In-Reply-To: <1455047238-111358-1-git-send-email-helmut.buchsbaum@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: sunil.kovvuri@gmail.com
-Date: Thu, 11 Feb 2016 21:50:20 +0530
+From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+Date: Tue,  9 Feb 2016 20:47:12 +0100
 
-> This patch series contains changes
-> - To add support for virtual function's irq affinity hint
-> - Replace napi_schedule() with napi_schedule_irqoff()
-> - Reduce page allocation overhead by allocating pages
->   of higher order when pagesize is 4KB.
-> - Add couple of stats which helps in debugging
-> - Some miscellaneous changes to BGX driver.
-> 
-> Changes from v1:
-> - As suggested changed MAC address invalid log message 
->   to dev_err() instead of dev_warn().
+> This patch series refactors the spi-ks8995 driver to finally add support
+> for the MICREL KSZ8795CLX. Additionally support for controlling a GPIO
+> line for resetting the switch is added.
 
 Series applied, thanks.
