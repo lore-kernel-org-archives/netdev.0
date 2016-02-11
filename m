@@ -1,38 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next] hv_netvsc: cleanup netdev feature flags
- for netvsc
-Date: Thu, 11 Feb 2016 07:18:25 -0500 (EST)
-Message-ID: <20160211.071825.110405374981021993.davem@davemloft.net>
-References: <1454629774-22257-1-git-send-email-sixiao@microsoft.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next] lwt: fix rx checksum setting for lwt devices
+ tunneling over ipv6
+Date: Thu, 11 Feb 2016 13:20:58 +0100
+Message-ID: <20160211132058.303acad9@griffin>
+References: <8d2a6ece65b17ae61343dce27f3709d3cd249832.1455118911.git.pabeni@redhat.com>
+	<20160211114124.17ae429a@griffin>
+	<1455190731.4855.50.camel@redhat.com>
+	<20160211131652.0b7066cb@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, haiyangz@microsoft.com,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: sixiao@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1454629774-22257-1-git-send-email-sixiao@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Thomas Graf <tgraf@suug.ch>, Jesse Gross <jesse@kernel.org>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56777 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753174AbcBKMVC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Feb 2016 07:21:02 -0500
+In-Reply-To: <20160211131652.0b7066cb@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Xiao <sixiao@microsoft.com>
-Date: Thu,  4 Feb 2016 15:49:34 -0800
-
-> 1. Adding NETIF_F_TSO6 feature flag;
-> 2. Adding NETIF_F_HW_CSUM. NETIF_F_IPV6_CSUM and NETIF_F_IP_CSUM are 
-> being deprecated;
-> 3. Cleanup the coding style of flag assignment by using macro.
+On Thu, 11 Feb 2016 13:16:52 +0100, Jiri Benc wrote:
+> I don't see a better way out of this now. Fortunately, this does not
+> affect route based tunneling.
 > 
-> Signed-off-by: Simon Xiao <sixiao@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Acked-by: Jiri Benc <jbenc@redhat.com>
 
-Applied, thanks.
+Oh, and this should go to net, not net-next.
+
+ Jiri
+
+-- 
+Jiri Benc
