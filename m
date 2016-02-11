@@ -1,86 +1,75 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next] lwt: fix rx checksum setting for lwt devices
- tunneling over ipv6
-Date: Thu, 11 Feb 2016 12:38:51 +0100
-Message-ID: <1455190731.4855.50.camel@redhat.com>
-References: <8d2a6ece65b17ae61343dce27f3709d3cd249832.1455118911.git.pabeni@redhat.com>
-	 <20160211114124.17ae429a@griffin>
+From: Corcodel Marian <asd@marian1000.go.ro>
+Subject: Re: [PATCH net v4] r8169: Bad implementation of netif_carrier_*
+Date: Thu, 11 Feb 2016 13:41:23 +0200
+Message-ID: <1455190883.2484.9.camel@marian1000.go.ro>
+References: <1455172063-1959-1-git-send-email-asd@marian1000.go.ro>
+	 <20160211.033915.51059595679987845.davem@davemloft.net>
+	 <1455187969.3447.4.camel@marian1000.go.ro>
+	 <20160211.061250.1340671752357908695.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Thomas Graf <tgraf@suug.ch>, Jesse Gross <jesse@kernel.org>
-To: Jiri Benc <jbenc@redhat.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47273 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751140AbcBKLi4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Feb 2016 06:38:56 -0500
-In-Reply-To: <20160211114124.17ae429a@griffin>
+Received: from 5-14-227-192.residential.rdsnet.ro ([5.14.227.192]:55459 "EHLO
+	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751140AbcBKLl2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 06:41:28 -0500
+In-Reply-To: <20160211.061250.1340671752357908695.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-02-11 at 11:41 +0100, Jiri Benc wrote:
-> On Wed, 10 Feb 2016 16:47:21 +0100, Paolo Abeni wrote:
-> > --- a/drivers/net/geneve.c
-> > +++ b/drivers/net/geneve.c
-> > @@ -1441,7 +1441,8 @@ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
-> >  		return dev;
-> >  
-> >  	err = geneve_configure(net, dev, &geneve_remote_unspec,
-> > -			       0, 0, 0, htons(dst_port), true, 0);
-> > +			       0, 0, 0, htons(dst_port), true,
-> > +			       GENEVE_F_UDP_ZERO_CSUM6_RX);
-> >  	if (err) {
-> >  		free_netdev(dev);
-> >  		return ERR_PTR(err);
-> > diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-> > index 1605691..d933cb8 100644
-> > --- a/net/openvswitch/vport-vxlan.c
-> > +++ b/net/openvswitch/vport-vxlan.c
-> > @@ -90,7 +90,7 @@ static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
-> >  	int err;
-> >  	struct vxlan_config conf = {
-> >  		.no_share = true,
-> > -		.flags = VXLAN_F_COLLECT_METADATA,
-> > +		.flags = VXLAN_F_COLLECT_METADATA | VXLAN_F_UDP_ZERO_CSUM6_RX,
+On Thu, 2016-02-11 at 06:12 -0500, David Miller wrote:
+> From: Corcodel Marian <asd@marian1000.go.ro>
+> Date: Thu, 11 Feb 2016 12:52:49 +0200
 > 
-> I'm afraid this looks wrong, we should not default to zero UDP checksum
-> over IPv6. See RFC 2460, section 8.1:
+> > On Thu, 2016-02-11 at 03:39 -0500, David Miller wrote:
+> >> From: Corcodel Marian <asd@marian1000.go.ro>
+> >> Date: Thu, 11 Feb 2016 08:27:43 +0200
+> >> 
+> >> >   On probe stage what carrier to stop and rest two situation
+> >> >   netif_carrier_* is slow and disturbing autonegociation
+> process.
+> >> > 
+> >> > Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+> >> 
+> >> This doesn't tell us at all why your change is valid.  You aren't
+> >> going into the details of what you mean by "disturbing" and why it
+> >> being "slow" is really a problem.
+> >> 
+> >> In general, your patches are of a very low quality.  You give
+> never
+> >> give us enough information to properly evaluate your patch.
+> >> 
+> >> It is unlikely that even one of your patches will be applied by
+> >> me until you fix this fundamental problem with your submissions.
+> > 
+> > May bee netif_carrier_* is good on slow changes of link good status
+> of
+> > interrupt ,is unable to keep track changes from link good
+> interrupt.
 > 
->       o  Unlike IPv4, when UDP packets are originated by an IPv6 node,
->          the UDP checksum is not optional.  That is, whenever
->          originating a UDP packet, an IPv6 node must compute a UDP
->          checksum over the packet and the pseudo-header, and, if that
->          computation yields a result of zero, it must be changed to hex
->          FFFF for placement in the UDP header.  IPv6 receivers must
->          discard UDP packets containing a zero checksum, and should log
->          the error.
+> You're still not telling us anything.
 > 
-> One may argue that with tunneling, the situation is different but
-> that's the reason why we have the IPv6 checksum flag and why it has
-> opposite meaning to the IPv4 one. We shouldn't default to non-RFC
-> behavior by default.
+> The situation with your submissions is not improving.
+> 
+> Sorry.
+ 
+On my opinion  dmesg  must have one line with "link down" and one line
+with "link up"
+One mee result of dmesg | grep r8169 is :
 
-Agreed. As far as I can understand RFC 6936, Section 5 do allows
-specific tunneling protocol to accept zero UDP checksum on specific
-ports.
+$ dmesg | grep r8169
+[    2.476418] r8169: module verification failed: signature and/or
+required key missing - tainting kernel
+[    2.477605] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[    2.478760] r8169 0000:01:00.0 eth0: RTL8102e at 0xf842a000,
+00:22:15:4b:fd:ce, XID 14a00000 IRQ 24
+[   39.513256] r8169 0000:01:00.0 eth0: link down
+[   39.513284] r8169 0000:01:00.0 eth0: link down
+[   53.153284] r8169 0000:01:00.0 eth0: link up
 
-We are already sending by default zero UDP checksum when tunneling over
-vxlan/geneve light weight tunnel since the commit 35e2d1152b22
-("tunnels: Allow IPv6 UDP checksums to be correctly controlled.").
-
-Currently, geneve/vxlan lwt pairs tunneling over ipv6 are not able to
-talk each-other with default setting since the sender will set zero UDP
-checksum in the external header and the receiver will discard such
-packets.
-
-This commit is intended to address the above issue.
-
-Such issue could be addressed also by defaulting all lwt geneve/vxlan
-flows (comprising those tunneling over ipv4) to set the external UDP
-checksum, but a single lwt tunnel device can be used to terminate flows
-with different checksum settings.
-
-Paolo
+On good cases, on worst case "link down" and "link up" messages will
+succeed from 3-4 times and produce unlikely result with netif_carrier_*
+on  combination.
