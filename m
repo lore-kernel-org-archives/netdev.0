@@ -1,89 +1,37 @@
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Subject: Re: [PATCH 3/5] net/mlx4: fix some error handling in
- mlx4_multi_func_init()
-Date: Thu, 11 Feb 2016 11:29:43 +0200
-Message-ID: <20160211112943.20c0de19@jpm-OptiPlex-GX620>
-References: <1455048677-19882-1-git-send-email-linux@rasmusvillemoes.dk>
-	<1455048677-19882-4-git-send-email-linux@rasmusvillemoes.dk>
-	<56BB0577.8000000@dev.mellanox.co.il>
-	<87twlgtosn.fsf@rasmusvillemoes.dk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bonding: 3ad: allow to set ad_actor settings
+ while the bond is up
+Date: Thu, 11 Feb 2016 04:31:42 -0500 (EST)
+Message-ID: <20160211.043142.1134359294601410129.davem@davemloft.net>
+References: <1454604148-28658-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yishai Hadas <yishaih@dev.mellanox.co.il>,
-	Yishai Hadas <yishaih@mellanox.com>, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"jackm\@mellanox.com" <jackm@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87twlgtosn.fsf@rasmusvillemoes.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com
+To: razor@blackwall.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49763 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750761AbcBKJbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 04:31:47 -0500
+In-Reply-To: <1454604148-28658-1-git-send-email-razor@blackwall.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 10 Feb 2016 19:15:20 +0100
-Rasmus Villemoes <linux@rasmusvillemoes.dk> wrote:
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Date: Thu,  4 Feb 2016 17:42:28 +0100
 
-> On Wed, Feb 10 2016, Yishai Hadas <yishaih@dev.mellanox.co.il> wrote:
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > 
-> >> @@ -2429,7 +2429,7 @@ err_thread:
-> >>   	flush_workqueue(priv->mfunc.master.comm_wq);
-> >>   	destroy_workqueue(priv->mfunc.master.comm_wq);
-> >>   err_slaves:
-> >> -	while (--i) {
-> >> +	while (i--) {
-> >
-> > This fix is wrong as it hits the case that i arrived the last value
-> > then below code will access to a non valid entry in the array.
-> >
-> > The expected fix should be:
-> > while (--i >= 0)
-> >
+> No need to require the bond down while changing these settings, the change
+> will be reflected immediately and the 3ad mode will sort itself out.
+> For faster convergence set port->ntt to true in order to generate new
+> LACPDUs immediately.
 > 
-> Huh? They're completely equivalent (given that i is necessarily
-> non-negative before we evaluate the loop condition)
+> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> CC: Veaceslav Falico <vfalico@gmail.com>
+> CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-No, they are not equivalent.
-if i == the max value (dev->num_slaves) when entering your proposed
-while loop, the kfree call index (i) will be out of range!  This can
-happen, for example, if the failure occurs downstream from the "i"
-for-loop (e.g., if the call to mlx4_init_resource_tracker() fails).
-
-Therefore, we DO require the pre-decrement format.  Therefore, the
-one-line fix proposed by Yishai is the correct fix.
->. I don't really
-> care either way, but git grep says that 'while (i--)' is 5 times more
-> common than 'while (--i >= 0)'.
-Not relevant, while (i--) is simply not correct, because of the case
-where the for-loop involving i completes successfully and an error
-occurs later.
-
-FYI, you also had another bug in your solution -- a double-free when
-kzalloc for port 2 fails.  For your code, you should also have reset
-s_state->vlan_filter[port] to NULL as shown below:
-			for (port = 1; port <= MLX4_MAX_PORTS; port++) {
-				struct mlx4_vport_state *admin_vport;
-				struct mlx4_vport_state *oper_vport;
-
-				s_state->vlan_filter[port] =
-					kzalloc(sizeof(struct
-				mlx4_vlan_fltr), GFP_KERNEL);
-				if (!s_state->vlan_filter[port]) {
-					if (--port) {
- 						kfree(s_state->vlan_filter[port]);
-	==> You should have added this		s_state->vlan_filter[port] = NULL;
-					}
-					goto err_slaves;
-				}
-
-However, again, the correct solution is to do what Yishai suggests:
-	while (--i >= 0)
-so that if i is already zero the while-loop will not be entered.
-
--Jack
-> 
-> Rasmus
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma"
-> in the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
