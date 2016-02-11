@@ -1,54 +1,46 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH net-next 2/3] lan78xx: setting phy features in phy driver
-Date: Thu, 11 Feb 2016 15:17:44 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D404AC532@CHN-SV-EXMX02.mchp-main.com>
-References: <9235D6609DB808459E95D78E17F2E43D404AB9F9@CHN-SV-EXMX02.mchp-main.com>
- <56BBC0BB.3010100@gmail.com>
- <9235D6609DB808459E95D78E17F2E43D404ABB4D@CHN-SV-EXMX02.mchp-main.com>
- <56BC089B.6090309@gmail.com>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] codel: add forgotten inline to functions in header file
+Date: Thu, 11 Feb 2016 15:29:41 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32EA0E809@hasmsx107.ger.corp.intel.com>
+References: <1455199701-25767-1-git-send-email-emmanuel.grumbach@intel.com>
+ <1455201038.19473.12.camel@edumazet-glaptop2.roam.corp.google.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB32EA0E6FD@hasmsx107.ger.corp.intel.com>
+ <1455203555.19473.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <opendmb@gmail.com>
-To: <f.fainelli@gmail.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp01.microchip.com ([198.175.253.37]:58657 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750911AbcBKPRp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 10:17:45 -0500
-In-Reply-To: <56BC089B.6090309@gmail.com>
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I'll submit patch for review.
 
-- Woojung
 
-> On 10/02/2016 15:18, Woojung.Huh@microchip.com wrote:
-> >>> +static int lan88xx_config_init(struct phy_device *phydev)
-> >>> +{
-> >>> +	phydev->supported &= phydev->drv->features;
-> >>> +	phydev->advertising &= phydev->drv->features;
-> >>
-> >> This looks suspicious, phy_probe() takes the driver supported features
-> >> and assigns it to phydev->supported, and phydev->advertising, is not
-> >> that working somehow?
-> >>
-> >> genphy_config_init() does look at the current MII_BMRS value to
-> >> determine what is supported by the PHY, and masks it in
-> >> phydev->supported, so that could indeed be an issue if we had not had a
-> >> change to mask with the supported modes before.
-> >>
-> >> I think we need more explanation here as to what kind of bug you may
-> >> have been observing, there could be one.
-> >
-> > SUPPORTED_Pause & SUPPORTED_Asym_Pause set at phydev->features
-> are removed by genphy_config_init().
-> > As you pointed, it may be better to modify genphy_config_init() than each
-> driver's config_init routine.
-> 
-> I see, that is definitively a bug, we should not clear these bits if the
-> Ethernet MAC driver asked for them.
-> --
-> Florian
+On 02/11/2016 05:12 PM, Eric Dumazet wrote:
+> On Thu, 2016-02-11 at 15:05 +0000, Grumbach, Emmanuel wrote:
+>
+>
+>> Yeah :) codel_should_drop seemed very long indeed... I wanted to use the
+>> codel_get_time and associated utils (_before, _after) in iwlwifi.
+>> They're better than jiffies... So maybe I can just copy that code to
+>> iwlwifi.
+>
+> You certainly can submit a patch adding the inline, but not on all
+> functions present in this file ;)
+>
+> Thanks !
+>
+
+Actually... All I need *has* the inline, but if I include codel.h,
+codel_dequeue is defined but not used and you definitely don't want to
+inline that one. So I guess the only other option I have is to split
+that header file which I don't think is really worth it. So, unless you
+object it, I'll just copy the code.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
