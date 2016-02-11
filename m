@@ -1,62 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2 0/8] net: fec: cleanup/fixes
-Date: Thu, 11 Feb 2016 06:15:27 -0500 (EST)
-Message-ID: <20160211.061527.2243215315106334340.davem@davemloft.net>
-References: <1454709170-19527-1-git-send-email-troy.kisky@boundarydevices.com>
+From: Ken Kawasaki <ken_kawasaki@nifty.com>
+Subject: [PATCH] pcnet_cs: add new id
+Date: Thu, 11 Feb 2016 20:15:21 +0900
+Message-ID: <20160211201521.99e71913b7aa86a9408b16a6@nifty.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, B38611@freescale.com,
-	fabio.estevam@freescale.com, l.stach@pengutronix.de,
-	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
-	linux-arm-kernel@lists.infradead.org, laci@boundarydevices.com,
-	shawnguo@kernel.org, johannes@sipsolutions.net, arnd@arndb.de
-To: troy.kisky@boundarydevices.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51100 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751954AbcBKLPd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 06:15:33 -0500
-In-Reply-To: <1454709170-19527-1-git-send-email-troy.kisky@boundarydevices.com>
+Received: from condef008-v.nifty.com ([210.131.4.245]:36141 "EHLO
+	condef008-v.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751240AbcBKLVw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 06:21:52 -0500
+Received: from conuserg012-v.nifty.com ([10.16.229.199])by condef008-v.nifty.com with ESMTP id u1BBFOAb019854
+	for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 20:15:24 +0900
+Received: from localhost.localdomain (49.253.223.69.eo.eaccess.ne.jp [49.253.223.69]) (authenticated)
+	by conuserg012-v.nifty.com with ESMTP id u1BBFLq1031361
+	for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 20:15:22 +0900
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Date: Fri,  5 Feb 2016 14:52:42 -0700
 
-> 
-> V2 is a rebase on top of johannes endian-safe patch and
-> is only the 1st eight patches.
-> The testing for this series was done on a nitrogen6x.
-> The base commit was
-> commit b45efa30a626e915192a6c548cd8642379cd47cc
->     Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-> 
-> Testing showed no change in performance.
-> Testing used imx_v6_v7_defconfig + CONFIG_MICREL_PHY.
-> The processor was running at 996Mhz.
-> The following commands were used to get the transfer rates.
-> 
-> On an x86 ubunto system,
-> iperf -s -i.5 -u
-> 
-> 
-> On a nitrogen6x board, running via SD Card.
-> I first stopped some background processes
-> 
-> stop cron
-> stop upstart-file-bridge
-> stop upstart-socket-bridge
-> stop upstart-udev-bridge
-> stop rsyslog
-> stop dbus
-> killall dhclient
-> echo performance >/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
-> 
-> taskset 0x2 iperf -c 192.168.0.201 -u -t60 -b500M -r
-> 
-> There is a branch available on github with this series, and the rest of
-> my fec patches, for those who would like to test it.
-> https://github.com:boundarydevices/linux-imx6.git branch net-next_master
+add new id (CONTEC C-NET(PC)C-100TX2)
 
-Series applied, thanks.
+Signed-off-by: Ken Kawasaki <ken_kawasaki@.nifty.com>
+
+---
+
+--- linux-4.4.1/drivers/net/ethernet/8390/pcnet_cs.c.orig	2016-02-11 19:26:02.281108472 +0900
++++ linux-4.4.1/drivers/net/ethernet/8390/pcnet_cs.c	2016-02-11 19:27:21.353595301 +0900
+@@ -1501,6 +1501,7 @@ static const struct pcmcia_device_id pcn
+ 	PCMCIA_DEVICE_MANF_CARD(0x026f, 0x030a),
+ 	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1103),
+ 	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1121),
++	PCMCIA_DEVICE_MANF_CARD(0xc001, 0x0009),
+ 	PCMCIA_DEVICE_PROD_ID12("2408LAN", "Ethernet", 0x352fff7f, 0x00b2e941),
+ 	PCMCIA_DEVICE_PROD_ID1234("Socket", "CF 10/100 Ethernet Card", "Revision B", "05/11/06", 0xb38bcc2e, 0x4de88352, 0xeaca6c8d, 0x7e57c22e),
+ 	PCMCIA_DEVICE_PROD_ID123("Cardwell", "PCMCIA", "ETHERNET", 0x9533672e, 0x281f1c5d, 0x3ff7175b),
