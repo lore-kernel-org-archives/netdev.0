@@ -1,41 +1,41 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: [PATCH 2/2] net: dsa: remove phy_disconnect from error path
-Date: Thu, 11 Feb 2016 11:44:49 +0100
-Message-ID: <1455187489-30771-2-git-send-email-s.hauer@pengutronix.de>
-References: <1455187489-30771-1-git-send-email-s.hauer@pengutronix.de>
-Cc: linux-kernel@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Sascha Hauer <s.hauer@pengutronix.de>
-To: netdev@vger.kernel.org
+From: Corcodel Marian <asd@marian1000.go.ro>
+Subject: Re: [PATCH net v4] r8169: Bad implementation of netif_carrier_*
+Date: Thu, 11 Feb 2016 12:52:49 +0200
+Message-ID: <1455187969.3447.4.camel@marian1000.go.ro>
+References: <1455172063-1959-1-git-send-email-asd@marian1000.go.ro>
+	 <20160211.033915.51059595679987845.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:57850 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751799AbcBKKpC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 05:45:02 -0500
-In-Reply-To: <1455187489-30771-1-git-send-email-s.hauer@pengutronix.de>
+Received: from 5-14-227-192.residential.rdsnet.ro ([5.14.227.192]:55457 "EHLO
+	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751164AbcBKKxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 05:53:03 -0500
+In-Reply-To: <20160211.033915.51059595679987845.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The phy has not been initialized, disconnecting it in the error
-path results in a NULL pointer exception. Drop the phy_disconnect
-from the error path.
+On Thu, 2016-02-11 at 03:39 -0500, David Miller wrote:
+> From: Corcodel Marian <asd@marian1000.go.ro>
+> Date: Thu, 11 Feb 2016 08:27:43 +0200
+> 
+> >   On probe stage what carrier to stop and rest two situation
+> >   netif_carrier_* is slow and disturbing autonegociation process.
+> > 
+> > Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+> 
+> This doesn't tell us at all why your change is valid.  You aren't
+> going into the details of what you mean by "disturbing" and why it
+> being "slow" is really a problem.
+> 
+> In general, your patches are of a very low quality.  You give never
+> give us enough information to properly evaluate your patch.
+> 
+> It is unlikely that even one of your patches will be applied by
+> me until you fix this fundamental problem with your submissions.
 
-Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
----
- net/dsa/slave.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 40b9ca7..91e3b2f 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -1194,7 +1194,6 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	if (ret) {
- 		netdev_err(master, "error %d registering interface %s\n",
- 			   ret, slave_dev->name);
--		phy_disconnect(p->phy);
- 		ds->ports[port] = NULL;
- 		free_netdev(slave_dev);
- 		return ret;
--- 
-2.7.0.rc3
+May bee netif_carrier_* is good on slow changes of link good status of
+interrupt ,is unable to keep track changes from link good interrupt.
