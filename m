@@ -1,7 +1,7 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next 1/7] net: add dst_cache support
-Date: Thu, 11 Feb 2016 11:11:57 +0100
-Message-ID: <55d87f42b4870d60dd268b3f1c69f7abcbbc2cf7.1455184959.git.pabeni@redhat.com>
+Subject: [PATCH net-next 2/7] net: replace dst_cache ip6_tunnel implementation with the generic one
+Date: Thu, 11 Feb 2016 11:11:58 +0100
+Message-ID: <b625c84cc67747a2ce519821ff6c52e63d2935f6.1455184959.git.pabeni@redhat.com>
 References: <cover.1455184959.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Thomas Graf <tgraf@suug.ch>,
@@ -11,330 +11,326 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Tom Herbert <therbert@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51584 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57903 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750725AbcBKKNL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Feb 2016 05:13:11 -0500
+	id S1751019AbcBKKNO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Feb 2016 05:13:14 -0500
 In-Reply-To: <cover.1455184959.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch add a generic, lockless dst cache implementation.
-The need for lock is avoided updating the dst cache fields
-only in per cpu scope, and requiring that the cache manipulation
-functions are invoked with the local bh disabled.
+This also fix a potential race into the existing tunnel code, which
+could lead to the wrong dst to be permanenty cached:
 
-The refresh_ts and reset_ts fields are used to ensure the cache
-consistency in case of cuncurrent cache update (dst_cache_set*) and
-reset operation (dst_cache_reset).
+CPU1:					CPU2:
+  <xmit on ip6_tunnel>
+  <cache lookup fails>
+  dst = ip6_route_output(...)
+					<tunnel params are changed via nl>
+					dst_cache_reset() // no effect,
+							// the cache is empty
+  dst_cache_set() // the wrong dst
+	// is permanenty stored
+	// into the cache
 
-Consider the following scenario:
-
-CPU1:                                   	CPU2:
-  <cache lookup with emtpy cache: it fails>
-  <get dst via uncached route lookup>
-						<related configuration changes>
-                                        	dst_cache_reset()
-  dst_cache_set()
-
-The dst entry set passed to dst_cache_set() should not be used
-for later dst cache lookup, because it's obtained using old
-configuration values.
-
-Since the refresh_ts is updated only on dst_cache lookup, the
-cached value in the above scenario will be discarded on the next
-lookup.
+With the new dst implementation the above race is not possible
+since the first cache lookup after dst_cache_reset will fail due
+to the timestamp check
 
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 Suggested-and-acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/dst_cache.h |  97 ++++++++++++++++++++++++++++++++
- net/Kconfig             |   4 ++
- net/core/Makefile       |   1 +
- net/core/dst_cache.c    | 147 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 249 insertions(+)
- create mode 100644 include/net/dst_cache.h
- create mode 100644 net/core/dst_cache.c
+ include/net/ip6_tunnel.h |  14 +------
+ net/ipv6/Kconfig         |   1 +
+ net/ipv6/ip6_gre.c       |  12 +++---
+ net/ipv6/ip6_tunnel.c    | 103 +++--------------------------------------------
+ net/ipv6/ip6_vti.c       |   2 +-
+ 5 files changed, 16 insertions(+), 116 deletions(-)
 
-diff --git a/include/net/dst_cache.h b/include/net/dst_cache.h
-new file mode 100644
-index 0000000..151accae
---- /dev/null
-+++ b/include/net/dst_cache.h
-@@ -0,0 +1,97 @@
-+#ifndef _NET_DST_CACHE_H
-+#define _NET_DST_CACHE_H
-+
-+#include <linux/jiffies.h>
-+#include <net/dst.h>
-+#if IS_ENABLED(CONFIG_IPV6)
-+#include <net/ip6_fib.h>
-+#endif
-+
-+struct dst_cache {
-+	struct dst_cache_pcpu __percpu *cache;
-+	unsigned long reset_ts;
-+};
-+
-+/**
-+ *	dst_cache_get - perform cache lookup
-+ *	@dst_cache: the cache
-+ *
-+ *	The caller should use dst_cache_get_ip4() if it need to retrieve the
-+ *	source address to be used when xmitting to the cached dst.
-+ *	local BH must be disabled.
-+ */
-+struct dst_entry *dst_cache_get(struct dst_cache *dst_cache);
-+
-+/**
-+ *	dst_cache_get_ip4 - perform cache lookup and fetch ipv4 source address
-+ *	@dst_cache: the cache
-+ *	@saddr: return value for the retrieved source address
-+ *
-+ *	local BH must be disabled.
-+ */
-+struct rtable *dst_cache_get_ip4(struct dst_cache *dst_cache, __be32 *saddr);
-+
-+/**
-+ *	dst_cache_set_ip4 - store the ipv4 dst into the cache
-+ *	@dst_cache: the cache
-+ *	@dst: the entry to be cached
-+ *	@saddr: the source address to be stored inside the cache
-+ *
-+ *	local BH must be disabled.
-+ */
-+void dst_cache_set_ip4(struct dst_cache *dst_cache, struct dst_entry *dst,
-+		       __be32 saddr);
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+
-+/**
-+ *	dst_cache_set_ip6 - store the ipv6 dst into the cache
-+ *	@dst_cache: the cache
-+ *	@dst: the entry to be cached
-+ *	@saddr: the source address to be stored inside the cache
-+ *
-+ *	local BH must be disabled.
-+ */
-+void dst_cache_set_ip6(struct dst_cache *dst_cache, struct dst_entry *dst,
-+		       const struct in6_addr *addr);
-+
-+/**
-+ *	dst_cache_get_ip6 - perform cache lookup and fetch ipv6 source address
-+ *	@dst_cache: the cache
-+ *	@saddr: return value for the retrieved source address
-+ *
-+ *	local BH must be disabled.
-+ */
-+struct dst_entry *dst_cache_get_ip6(struct dst_cache *dst_cache,
-+				    struct in6_addr *saddr);
-+#endif
-+
-+/**
-+ *	dst_cache_reset - invalidate the cache contents
-+ *	@dst_cache: the cache
-+ *
-+ *	This do not free the cached dst to avoid races and contentions.
-+ *	the dst will be freed on later cache lookup.
-+ */
-+static inline void dst_cache_reset(struct dst_cache *dst_cache)
-+{
-+	dst_cache->reset_ts = jiffies;
-+}
-+
-+/**
-+ *	dst_cache_init - initialize the cache, allocating the required storage
-+ *	@dst_cache: the cache
-+ *	@gfp: allocation flags
-+ */
-+int dst_cache_init(struct dst_cache *dst_cache, gfp_t gfp);
-+
-+/**
-+ *	dst_cache_destroy - empty the cache and free the allocated storage
-+ *	@dst_cache: the cache
-+ *
-+ *	No synchronization is enforced: it must be called only when the cache
-+ *	is unsed.
-+ */
-+void dst_cache_destroy(struct dst_cache *dst_cache);
-+
-+#endif
-diff --git a/net/Kconfig b/net/Kconfig
-index 1743546..b80efec 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -392,6 +392,10 @@ config LWTUNNEL
- 	  weight tunnel endpoint. Tunnel encapsulation parameters are stored
- 	  with light weight tunnel state associated with fib routes.
- 
-+config DST_CACHE
-+	bool "dst cache"
-+	default n
-+
- endif   # if NET
- 
- # Used by archs to tell that they support BPF_JIT
-diff --git a/net/core/Makefile b/net/core/Makefile
-index 0b835de..7a8fb8a 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -24,3 +24,4 @@ obj-$(CONFIG_NET_PTP_CLASSIFY) += ptp_classifier.o
- obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
- obj-$(CONFIG_CGROUP_NET_CLASSID) += netclassid_cgroup.o
- obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
-+obj-$(CONFIG_DST_CACHE) += dst_cache.o
-diff --git a/net/core/dst_cache.c b/net/core/dst_cache.c
-new file mode 100644
-index 0000000..e566f5c
---- /dev/null
-+++ b/net/core/dst_cache.c
-@@ -0,0 +1,147 @@
-+/*
-+ * net/core/dst_cache.c - dst entry cache
-+ *
-+ * Copyright (c) 2016 Paolo Abeni <pabeni@redhat.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/percpu.h>
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index 0d0ce0b..499a707 100644
+--- a/include/net/ip6_tunnel.h
++++ b/include/net/ip6_tunnel.h
+@@ -6,6 +6,7 @@
+ #include <linux/if_tunnel.h>
+ #include <linux/ip6_tunnel.h>
+ #include <net/ip_tunnels.h>
 +#include <net/dst_cache.h>
-+#include <net/route.h>
-+#if IS_ENABLED(CONFIG_IPV6)
-+#include <net/ip6_fib.h>
-+#endif
-+#include <uapi/linux/in.h>
-+
-+struct dst_cache_pcpu {
-+	unsigned long refresh_ts;
-+	struct dst_entry *dst;
-+	u32 cookie;
-+	union {
-+		struct in_addr in_saddr;
-+		struct in6_addr in6_saddr;
-+	};
-+};
-+
-+void dst_cache_per_cpu_dst_set(struct dst_cache_pcpu *dst_cache,
-+			       struct dst_entry *dst, u32 cookie)
-+{
-+	dst_release(dst_cache->dst);
-+	if (dst)
-+		dst_hold(dst);
-+
-+	dst_cache->cookie = cookie;
-+	dst_cache->dst = dst;
-+}
-+
-+struct dst_entry *dst_cache_per_cpu_get(struct dst_cache *dst_cache,
-+					struct dst_cache_pcpu *idst)
-+{
-+	struct dst_entry *dst;
-+
-+	dst = idst->dst;
-+	if (!dst)
-+		goto fail;
-+
-+	/* the cache already hold a dst reference; it can't go away */
-+	dst_hold(dst);
-+
-+	if (unlikely(!time_after(idst->refresh_ts, dst_cache->reset_ts) ||
-+		     (dst->obsolete && !dst->ops->check(dst, idst->cookie)))) {
-+		dst_cache_per_cpu_dst_set(idst, NULL, 0);
-+		dst_release(dst);
-+		goto fail;
-+	}
-+	return dst;
-+
-+fail:
-+	idst->refresh_ts = jiffies;
-+	return NULL;
-+}
-+
-+struct dst_entry *dst_cache_get(struct dst_cache *dst_cache)
-+{
-+	return dst_cache_per_cpu_get(dst_cache, this_cpu_ptr(dst_cache->cache));
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_get);
-+
-+struct rtable *dst_cache_get_ip4(struct dst_cache *dst_cache, __be32 *saddr)
-+{
-+	struct dst_cache_pcpu *idst = this_cpu_ptr(dst_cache->cache);
-+	struct dst_entry *dst = dst_cache_per_cpu_get(dst_cache, idst);
-+
-+	if (!dst)
-+		return NULL;
-+
-+	*saddr = idst->in_saddr.s_addr;
-+	return container_of(dst, struct rtable, dst);
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_get_ip4);
-+
-+void dst_cache_set_ip4(struct dst_cache *dst_cache, struct dst_entry *dst,
-+		       __be32 saddr)
-+{
-+	struct dst_cache_pcpu *idst = this_cpu_ptr(dst_cache->cache);
-+
-+	dst_cache_per_cpu_dst_set(idst, dst, 0);
-+	idst->in_saddr.s_addr = saddr;
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_set_ip4);
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+void dst_cache_set_ip6(struct dst_cache *dst_cache, struct dst_entry *dst,
-+		       const struct in6_addr *addr)
-+{
-+	struct dst_cache_pcpu *idst = this_cpu_ptr(dst_cache->cache);
-+
-+	dst_cache_per_cpu_dst_set(this_cpu_ptr(dst_cache->cache), dst,
-+				  rt6_get_cookie((struct rt6_info *)dst));
-+	idst->in6_saddr = *addr;
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_set_ip6);
-+
-+struct dst_entry *dst_cache_get_ip6(struct dst_cache *dst_cache,
-+				    struct in6_addr *saddr)
-+{
-+	struct dst_cache_pcpu *idst = this_cpu_ptr(dst_cache->cache);
-+	struct dst_entry *dst = dst_cache_per_cpu_get(dst_cache, idst);
-+
-+	if (!dst)
-+		return NULL;
-+
-+	*saddr = idst->in6_saddr;
-+	return dst;
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_get_ip6);
-+#endif
-+
-+int dst_cache_init(struct dst_cache *dst_cache, gfp_t gfp)
-+{
-+	dst_cache->cache = alloc_percpu_gfp(struct dst_cache_pcpu,
-+					    gfp | __GFP_ZERO);
-+	if (!dst_cache->cache)
-+		return -ENOMEM;
-+
-+	dst_cache_reset(dst_cache);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_init);
-+
-+void dst_cache_destroy(struct dst_cache *dst_cache)
-+{
-+	int i;
-+
-+	if (!dst_cache->cache)
-+		return;
-+
-+	for_each_possible_cpu(i)
-+		dst_release(per_cpu_ptr(dst_cache->cache, i)->dst);
-+
-+	free_percpu(dst_cache->cache);
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_destroy);
+ 
+ #define IP6TUNNEL_ERR_TIMEO (30*HZ)
+ 
+@@ -33,12 +34,6 @@ struct __ip6_tnl_parm {
+ 	__be32			o_key;
+ };
+ 
+-struct ip6_tnl_dst {
+-	seqlock_t lock;
+-	struct dst_entry __rcu *dst;
+-	u32 cookie;
+-};
+-
+ /* IPv6 tunnel */
+ struct ip6_tnl {
+ 	struct ip6_tnl __rcu *next;	/* next tunnel in list */
+@@ -46,7 +41,7 @@ struct ip6_tnl {
+ 	struct net *net;	/* netns for packet i/o */
+ 	struct __ip6_tnl_parm parms;	/* tunnel configuration parameters */
+ 	struct flowi fl;	/* flowi template for xmit */
+-	struct ip6_tnl_dst __percpu *dst_cache;	/* cached dst */
++	struct dst_cache dst_cache;	/* cached dst */
+ 
+ 	int err_count;
+ 	unsigned long err_time;
+@@ -66,11 +61,6 @@ struct ipv6_tlv_tnl_enc_lim {
+ 	__u8 encap_limit;	/* tunnel encapsulation limit   */
+ } __packed;
+ 
+-struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t);
+-int ip6_tnl_dst_init(struct ip6_tnl *t);
+-void ip6_tnl_dst_destroy(struct ip6_tnl *t);
+-void ip6_tnl_dst_reset(struct ip6_tnl *t);
+-void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst);
+ int ip6_tnl_rcv_ctl(struct ip6_tnl *t, const struct in6_addr *laddr,
+ 		const struct in6_addr *raddr);
+ int ip6_tnl_xmit_ctl(struct ip6_tnl *t, const struct in6_addr *laddr,
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+index 40c8975..11e875f 100644
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -207,6 +207,7 @@ config IPV6_NDISC_NODETYPE
+ config IPV6_TUNNEL
+ 	tristate "IPv6: IP-in-IPv6 tunnel (RFC2473)"
+ 	select INET6_TUNNEL
++	select DST_CACHE
+ 	---help---
+ 	  Support for IPv6-in-IPv6 and IPv4-in-IPv6 tunnels described in
+ 	  RFC 2473.
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index f37f18b..a94e506 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -360,7 +360,7 @@ static void ip6gre_tunnel_uninit(struct net_device *dev)
+ 	struct ip6gre_net *ign = net_generic(t->net, ip6gre_net_id);
+ 
+ 	ip6gre_tunnel_unlink(ign, t);
+-	ip6_tnl_dst_reset(t);
++	dst_cache_reset(&t->dst_cache);
+ 	dev_put(dev);
+ }
+ 
+@@ -633,7 +633,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+ 	}
+ 
+ 	if (!fl6->flowi6_mark)
+-		dst = ip6_tnl_dst_get(tunnel);
++		dst = dst_cache_get(&tunnel->dst_cache);
+ 
+ 	if (!dst) {
+ 		dst = ip6_route_output(net, NULL, fl6);
+@@ -702,7 +702,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+ 	}
+ 
+ 	if (!fl6->flowi6_mark && ndst)
+-		ip6_tnl_dst_set(tunnel, ndst);
++		dst_cache_set_ip6(&tunnel->dst_cache, ndst, &fl6->saddr);
+ 	skb_dst_set(skb, dst);
+ 
+ 	proto = NEXTHDR_GRE;
+@@ -1009,7 +1009,7 @@ static int ip6gre_tnl_change(struct ip6_tnl *t,
+ 	t->parms.o_key = p->o_key;
+ 	t->parms.i_flags = p->i_flags;
+ 	t->parms.o_flags = p->o_flags;
+-	ip6_tnl_dst_reset(t);
++	dst_cache_reset(&t->dst_cache);
+ 	ip6gre_tnl_link_config(t, set_mtu);
+ 	return 0;
+ }
+@@ -1219,7 +1219,7 @@ static void ip6gre_dev_free(struct net_device *dev)
+ {
+ 	struct ip6_tnl *t = netdev_priv(dev);
+ 
+-	ip6_tnl_dst_destroy(t);
++	dst_cache_destroy(&t->dst_cache);
+ 	free_percpu(dev->tstats);
+ 	free_netdev(dev);
+ }
+@@ -1257,7 +1257,7 @@ static int ip6gre_tunnel_init_common(struct net_device *dev)
+ 	if (!dev->tstats)
+ 		return -ENOMEM;
+ 
+-	ret = ip6_tnl_dst_init(tunnel);
++	ret = dst_cache_init(&tunnel->dst_cache, GFP_KERNEL);
+ 	if (ret) {
+ 		free_percpu(dev->tstats);
+ 		dev->tstats = NULL;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 137fca4..3f3aabd 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -122,97 +122,6 @@ static struct net_device_stats *ip6_get_stats(struct net_device *dev)
+ 	return &dev->stats;
+ }
+ 
+-/*
+- * Locking : hash tables are protected by RCU and RTNL
+- */
+-
+-static void ip6_tnl_per_cpu_dst_set(struct ip6_tnl_dst *idst,
+-				    struct dst_entry *dst)
+-{
+-	write_seqlock_bh(&idst->lock);
+-	dst_release(rcu_dereference_protected(
+-			    idst->dst,
+-			    lockdep_is_held(&idst->lock.lock)));
+-	if (dst) {
+-		dst_hold(dst);
+-		idst->cookie = rt6_get_cookie((struct rt6_info *)dst);
+-	} else {
+-		idst->cookie = 0;
+-	}
+-	rcu_assign_pointer(idst->dst, dst);
+-	write_sequnlock_bh(&idst->lock);
+-}
+-
+-struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t)
+-{
+-	struct ip6_tnl_dst *idst;
+-	struct dst_entry *dst;
+-	unsigned int seq;
+-	u32 cookie;
+-
+-	idst = raw_cpu_ptr(t->dst_cache);
+-
+-	rcu_read_lock();
+-	do {
+-		seq = read_seqbegin(&idst->lock);
+-		dst = rcu_dereference(idst->dst);
+-		cookie = idst->cookie;
+-	} while (read_seqretry(&idst->lock, seq));
+-
+-	if (dst && !atomic_inc_not_zero(&dst->__refcnt))
+-		dst = NULL;
+-	rcu_read_unlock();
+-
+-	if (dst && dst->obsolete && !dst->ops->check(dst, cookie)) {
+-		ip6_tnl_per_cpu_dst_set(idst, NULL);
+-		dst_release(dst);
+-		dst = NULL;
+-	}
+-	return dst;
+-}
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_get);
+-
+-void ip6_tnl_dst_reset(struct ip6_tnl *t)
+-{
+-	int i;
+-
+-	for_each_possible_cpu(i)
+-		ip6_tnl_per_cpu_dst_set(per_cpu_ptr(t->dst_cache, i), NULL);
+-}
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_reset);
+-
+-void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst)
+-{
+-	ip6_tnl_per_cpu_dst_set(raw_cpu_ptr(t->dst_cache), dst);
+-
+-}
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_set);
+-
+-void ip6_tnl_dst_destroy(struct ip6_tnl *t)
+-{
+-	if (!t->dst_cache)
+-		return;
+-
+-	ip6_tnl_dst_reset(t);
+-	free_percpu(t->dst_cache);
+-}
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_destroy);
+-
+-int ip6_tnl_dst_init(struct ip6_tnl *t)
+-{
+-	int i;
+-
+-	t->dst_cache = alloc_percpu(struct ip6_tnl_dst);
+-	if (!t->dst_cache)
+-		return -ENOMEM;
+-
+-	for_each_possible_cpu(i)
+-		seqlock_init(&per_cpu_ptr(t->dst_cache, i)->lock);
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_init);
+-
+ /**
+  * ip6_tnl_lookup - fetch tunnel matching the end-point addresses
+  *   @remote: the address of the tunnel exit-point
+@@ -329,7 +238,7 @@ static void ip6_dev_free(struct net_device *dev)
+ {
+ 	struct ip6_tnl *t = netdev_priv(dev);
+ 
+-	ip6_tnl_dst_destroy(t);
++	dst_cache_destroy(&t->dst_cache);
+ 	free_percpu(dev->tstats);
+ 	free_netdev(dev);
+ }
+@@ -462,7 +371,7 @@ ip6_tnl_dev_uninit(struct net_device *dev)
+ 		RCU_INIT_POINTER(ip6n->tnls_wc[0], NULL);
+ 	else
+ 		ip6_tnl_unlink(ip6n, t);
+-	ip6_tnl_dst_reset(t);
++	dst_cache_reset(&t->dst_cache);
+ 	dev_put(dev);
+ }
+ 
+@@ -1069,7 +978,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 		memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
+ 		neigh_release(neigh);
+ 	} else if (!fl6->flowi6_mark)
+-		dst = ip6_tnl_dst_get(t);
++		dst = dst_cache_get(&t->dst_cache);
+ 
+ 	if (!ip6_tnl_xmit_ctl(t, &fl6->saddr, &fl6->daddr))
+ 		goto tx_err_link_failure;
+@@ -1133,7 +1042,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 	}
+ 
+ 	if (!fl6->flowi6_mark && ndst)
+-		ip6_tnl_dst_set(t, ndst);
++		dst_cache_set_ip6(&t->dst_cache, ndst, &fl6->saddr);
+ 	skb_dst_set(skb, dst);
+ 
+ 	skb->transport_header = skb->network_header;
+@@ -1366,7 +1275,7 @@ ip6_tnl_change(struct ip6_tnl *t, const struct __ip6_tnl_parm *p)
+ 	t->parms.flowinfo = p->flowinfo;
+ 	t->parms.link = p->link;
+ 	t->parms.proto = p->proto;
+-	ip6_tnl_dst_reset(t);
++	dst_cache_reset(&t->dst_cache);
+ 	ip6_tnl_link_config(t);
+ 	return 0;
+ }
+@@ -1637,7 +1546,7 @@ ip6_tnl_dev_init_gen(struct net_device *dev)
+ 	if (!dev->tstats)
+ 		return -ENOMEM;
+ 
+-	ret = ip6_tnl_dst_init(t);
++	ret = dst_cache_init(&t->dst_cache, GFP_KERNEL);
+ 	if (ret) {
+ 		free_percpu(dev->tstats);
+ 		dev->tstats = NULL;
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index 0a8610b..d90a11f 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -640,7 +640,7 @@ vti6_tnl_change(struct ip6_tnl *t, const struct __ip6_tnl_parm *p)
+ 	t->parms.i_key = p->i_key;
+ 	t->parms.o_key = p->o_key;
+ 	t->parms.proto = p->proto;
+-	ip6_tnl_dst_reset(t);
++	dst_cache_reset(&t->dst_cache);
+ 	vti6_link_config(t);
+ 	return 0;
+ }
 -- 
 1.8.3.1
