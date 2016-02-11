@@ -1,51 +1,48 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] igb: Fix VLAN tag stripping on Intel
-	i350
-Date: Thu, 11 Feb 2016 03:59:37 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81E88113@ORSMSX101.amr.corp.intel.com>
-References: <1453901284-32628-1-git-send-email-vinschen@redhat.com>
- <1453922722.3014.29.camel@intel.com>,<20160128125323.GA17357@calimero.vinschen.de>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 2/3] lan78xx: setting phy features in phy driver
+Date: Wed, 10 Feb 2016 20:05:47 -0800
+Message-ID: <56BC089B.6090309@gmail.com>
+References: <9235D6609DB808459E95D78E17F2E43D404AB9F9@CHN-SV-EXMX02.mchp-main.com>
+ <56BBC0BB.3010100@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D404ABB4D@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: Corinna Vinschen <vinschen@redhat.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, opendmb@gmail.com
+To: Woojung.Huh@microchip.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:29248 "EHLO mga04.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750765AbcBKD7j convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 22:59:39 -0500
-In-Reply-To: <20160128125323.GA17357@calimero.vinschen.de>
-Content-Language: en-US
+Received: from mail-ob0-f193.google.com ([209.85.214.193]:35272 "EHLO
+	mail-ob0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752086AbcBKEFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2016 23:05:50 -0500
+Received: by mail-ob0-f193.google.com with SMTP id il1so4256367obb.2
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2016 20:05:50 -0800 (PST)
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404ABB4D@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Intel-wired-lan [intel-wired-lan-bounces@lists.osuosl.org] on behalf of Corinna Vinschen [vinschen@redhat.com]
-> Sent: Thursday, January 28, 2016 4:53 AM
-> To: Kirsher, Jeffrey T
-> Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org
-> Subject: Re: [Intel-wired-lan] [PATCH] igb: Fix VLAN tag stripping on Intel     i350
-> 
-> Hi Jeff,
 
-On Jan 27 11:25, Jeff Kirsher wrote:
-> On Wed, 2016-01-27 at 14:28 +0100, Corinna Vinschen wrote:
-> > Problem: When switching off VLAN offloading on an i350, the VLAN
-> > interface gets unusable.  For testing, set up a VLAN on an i350
-> > and some remote machine, e.g.:
-> > [...]
-> I tried applying your patch to my tree for review and validation, but
-> due to patches already applied against the igb driver in my tree, your
-> patch does not apply cleanly.
->
-> Can you please update your patch to apply cleanly to my tree?
-> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git
-> dev-queue
->
-> (next-queue tree and dev-queue branch)
-> 
-> The attached patch is against the dev-queue branch of your next-queue tree.
 
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+On 10/02/2016 15:18, Woojung.Huh@microchip.com wrote:
+>>> +static int lan88xx_config_init(struct phy_device *phydev)
+>>> +{
+>>> +	phydev->supported &= phydev->drv->features;
+>>> +	phydev->advertising &= phydev->drv->features;
+>>
+>> This looks suspicious, phy_probe() takes the driver supported features
+>> and assigns it to phydev->supported, and phydev->advertising, is not
+>> that working somehow?
+>>
+>> genphy_config_init() does look at the current MII_BMRS value to
+>> determine what is supported by the PHY, and masks it in
+>> phydev->supported, so that could indeed be an issue if we had not had a
+>> change to mask with the supported modes before.
+>>
+>> I think we need more explanation here as to what kind of bug you may
+>> have been observing, there could be one.
+> 
+> SUPPORTED_Pause & SUPPORTED_Asym_Pause set at phydev->features  are removed by genphy_config_init().
+> As you pointed, it may be better to modify genphy_config_init() than each driver's config_init routine.
+
+I see, that is definitively a bug, we should not clear these bits if the
+Ethernet MAC driver asked for them.
