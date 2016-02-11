@@ -1,23 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/5] net: phy: dp83848: Add support for TI TLK10x
- Ethernet PHYs
-Date: Thu, 11 Feb 2016 11:53:19 -0500 (EST)
-Message-ID: <20160211.115319.1597622696050325874.davem@davemloft.net>
-References: <1454867241-20928-1-git-send-email-afd@ti.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 1/6] Introduce devlink infrastructure
+Date: Thu, 11 Feb 2016 17:54:37 +0100
+Message-ID: <20160211165437.GA2487@nanopsycho.us.es>
+References: <1454496482-13961-1-git-send-email-jiri@resnulli.us>
+ <1454496482-13961-2-git-send-email-jiri@resnulli.us>
+ <56BC9B48.5080708@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: afd@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454867241-20928-1-git-send-email-afd@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, eugenia@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
+	jeffrey.t.kirsher@intel.com, jbenc@redhat.com
+To: Ivan Vecera <ivecera@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:36765 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750925AbcBKQyk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 11:54:40 -0500
+Received: by mail-wm0-f44.google.com with SMTP id p63so82315385wmp.1
+        for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 08:54:39 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <56BC9B48.5080708@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Andrew F. Davis" <afd@ti.com>
-Date: Sun, 7 Feb 2016 11:47:16 -0600
+Thu, Feb 11, 2016 at 03:31:36PM CET, ivecera@redhat.com wrote:
+>On 3.2.2016 11:47, Jiri Pirko wrote:
+>>+struct devlink_ops {
+>>+	size_t priv_size;
+>>+	int (*port_type_set)(struct devlink_port *devlink_port,
+>>+			     enum devlink_port_type port_type);
+>>+};
+>It does not make sense to have priv_size member here... If it is necessary it
+>should be placed in struct devlink.
 
-> This series is [0] split into its logical components.
-
-Series applied, thanks.
+I forgot to remove this. Will do that. Thanks!
