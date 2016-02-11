@@ -1,63 +1,62 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: gigaset: memory leak in gigaset_initcshw
-Date: Thu, 11 Feb 2016 23:54:15 +0100
-Message-ID: <1455231255.4135.46.camel@tiscali.nl>
-References: <CACT4Y+Y+P7-pM0D4HTz4ZF6i+Rya22eOkPdnrv_OmDCMB7eQtg@mail.gmail.com>
-	 <1454516189.14366.8.camel@tiscali.nl>
-	 <1454526665.14366.22.camel@tiscali.nl>
-	 <CACT4Y+aDi8L_GELzVv7QM8YdtMD7q-wH4uO7LhioeSvaEU5PJg@mail.gmail.com>
-	 <1454591389.14366.49.camel@tiscali.nl>
-	 <CACT4Y+aXo83LjyOjVG2ihyR94kex-z+=Of+x8o4i+0q8964-1g@mail.gmail.com>
-	 <1454593604.14366.65.camel@tiscali.nl>
-	 <CACT4Y+b2z0NHVPQbyYP1CA_80hXxhk+VOG6dzduMEsi+27Pi7Q@mail.gmail.com>
-	 <1454598375.14366.72.camel@tiscali.nl>
-	 <CACT4Y+aNN8AAtRSvxxrP5RfsTZdd49odnQ_GRq86Y=jXr=pANw@mail.gmail.com>
-	 <1454688387.28847.34.camel@tiscali.nl>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH] ath10k: fix erroneous return value
+Date: Fri, 12 Feb 2016 10:24:09 +1100
+Message-ID: <CAGRGNgXr-XS+sCBDCKMKT0x_uQBeiUqS9fNigkBt6x7LbNJkPQ@mail.gmail.com>
+References: <1455123535-26751-1-git-send-email-a.s.protopopov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>, ath10k@lists.infradead.org,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Anton Protopopov <a.s.protopopov@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454688387.28847.34.camel@tiscali.nl>
+In-Reply-To: <1455123535-26751-1-git-send-email-a.s.protopopov@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dmitry,
+Hi All,
 
-On vr, 2016-02-05 at 17:06 +0100, Paul Bolle wrote:
-> On vr, 2016-02-05 at 14:28 +0100, Dmitry Vyukov wrote:
-> > I wonder why you don't see the leak I am seeing...
-> 
-> So do I, for a few days now.
+On Thu, Feb 11, 2016 at 3:58 AM, Anton Protopopov
+<a.s.protopopov@gmail.com> wrote:
+> The ath10k_pci_hif_exchange_bmi_msg() function may return the positive
+> value EIO instead of -EIO in case of error.
+>
+> Signed-off-by: Anton Protopopov <a.s.protopopov@gmail.com>
 
-0) I finally managed to reliably trigger this leak on an i686, single
-core machine (yet another ThinkPad).
+This looks right to me.
 
-1) Note that on that machine the leak was noticeable under the kmalloc
--512 line (struct ser_cardstate is 456 bytes on that machine). I'm
-_guessing_ the kmalloc-2048 line, which I stared at for quite some time,
-is only relevant here for x86_64 and when there's a bit of
-instrumentation, or whatever, added to the slab objects (as they are in
-your VM?).
+Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
 
-2) More important was that this i686 machine ran a tree that actually
-included the offending commit:
-	25cad69f21f5 ("base/platform: Fix platform drivers with no probe callback").
+> ---
+>  drivers/net/wireless/ath/ath10k/pci.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/ath/ath10k/pci.c b/drivers/net/wireless/ath/ath10k/pci.c
+> index ee925c6..526acde 100644
+> --- a/drivers/net/wireless/ath/ath10k/pci.c
+> +++ b/drivers/net/wireless/ath/ath10k/pci.c
+> @@ -1756,7 +1756,7 @@ static int ath10k_pci_hif_exchange_bmi_msg(struct ath10k *ar,
+>                                             DMA_FROM_DEVICE);
+>                 ret = dma_mapping_error(ar->dev, resp_paddr);
+>                 if (ret) {
+> -                       ret = EIO;
+> +                       ret = -EIO;
+>                         goto err_req;
+>                 }
+>
+> --
+> 2.6.5
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-See, after staring at the gigaset code for way too long I decided to
-just use brute force. Ie, I bisected this issue.
-
-2) Anyhow, thanks again for the report. Now on to the next question: how
-on earth does that commit make ser_gigaset leak struct ser_cardstate?
-
-To be continued,
 
 
-Paul Bolle
+-- 
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
