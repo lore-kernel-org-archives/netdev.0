@@ -1,82 +1,44 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Thu, 11 Feb 2016 11:59:41 +1100
-Message-ID: <20160211115941.701f67b2@canb.auug.org.au>
+From: Jonathan Corbet <corbet@lwn.net>
+Subject: Re: possible patch
+Date: Wed, 10 Feb 2016 18:25:35 -0700
+Message-ID: <20160210182535.5d46bbca@lwn.net>
+References: <CALah4Nc5Bx6FYfSnQWNaSd3YpurhKU1viqZx1KdU_M6sO0cG2Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Wragg <david@weave.works>, Jiri Benc <jbenc@redhat.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, isdn@linux-pingi.de,
+	netdev@vger.kernel.org
+To: Justin Keller <justincompsci@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALah4Nc5Bx6FYfSnQWNaSd3YpurhKU1viqZx1KdU_M6sO0cG2Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Wed, 10 Feb 2016 19:49:11 -0500
+Justin Keller <justincompsci@gmail.com> wrote:
 
-Today's linux-next merge of the net-next tree got a conflict in:
+> I am new to submitting patches, so sorry if I am doing it wrong. My idea was
+> to change line 147 in drivers/isdn/pcbit/callbacks.c from
+> if (cbdata->data.setup.CallingPN == NULL) {
+> 
+> to
+> 
+> if (cbdata->data.setup.CallingPN == NULL ||
+> sizeof(cbdata->data.setup.CallingPN)>sizeof(ictl.parm.setup.phone) {
 
-  drivers/net/vxlan.c
+If you want to patch the kernel, the best way to describe what you want to
+do is to ... send a patch.
 
-between commit:
+Before you do so, though:
 
-  72564b59ffc4 ("vxlan: Relax MTU constraints")
+- Please read the available documentation, including SubmittingPatches and
+  development-process/*
 
-from the net tree and commit:
+- Prepare a proper changelog saying *why* you want to make this change.
+  You are trying to change the ISDN subsystem, which is pretty static
+  these days; what current problem are you running into that makes you
+  think this change needs to be applied to the kernel?
 
-  1a8496ba4091 ("vxlan: consolidate output route calculation")
+Thanks,
 
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/net/vxlan.c
-index a31cd954b308,65f52472a52c..000000000000
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@@ -2395,40 -2316,6 +2321,15 @@@ static int __vxlan_change_mtu(struct ne
-  	return 0;
-  }
-  
- +static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
- +{
- +	struct vxlan_dev *vxlan = netdev_priv(dev);
- +	struct vxlan_rdst *dst = &vxlan->default_dst;
- +	struct net_device *lowerdev = __dev_get_by_index(vxlan->net,
- +							 dst->remote_ifindex);
- +	return __vxlan_change_mtu(dev, lowerdev, dst, new_mtu, true);
- +}
- +
-- static int egress_ipv4_tun_info(struct net_device *dev, struct sk_buff *skb,
-- 				struct ip_tunnel_info *info,
-- 				__be16 sport, __be16 dport)
-- {
-- 	struct vxlan_dev *vxlan = netdev_priv(dev);
-- 	struct rtable *rt;
-- 	struct flowi4 fl4;
-- 
-- 	memset(&fl4, 0, sizeof(fl4));
-- 	fl4.flowi4_tos = RT_TOS(info->key.tos);
-- 	fl4.flowi4_mark = skb->mark;
-- 	fl4.flowi4_proto = IPPROTO_UDP;
-- 	fl4.daddr = info->key.u.ipv4.dst;
-- 
-- 	rt = ip_route_output_key(vxlan->net, &fl4);
-- 	if (IS_ERR(rt))
-- 		return PTR_ERR(rt);
-- 	ip_rt_put(rt);
-- 
-- 	info->key.u.ipv4.src = fl4.saddr;
-- 	info->key.tp_src = sport;
-- 	info->key.tp_dst = dport;
-- 	return 0;
-- }
-- 
-  static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
-  {
-  	struct vxlan_dev *vxlan = netdev_priv(dev);
+jon
