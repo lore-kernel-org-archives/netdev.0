@@ -1,58 +1,56 @@
-From: Nicolas Cavallari <nicolas.cavallari@green-communications.fr>
-Subject: [PATCH iproute2] netns: Fix an off-by-one strcpy() in netns_map_add().
-Date: Fri, 12 Feb 2016 14:47:39 +0100
-Message-ID: <1455284859-31210-1-git-send-email-nicolas.cavallari@green-communications.fr>
-To: netdev@vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Same data to several sockets with just one syscall ?
+Date: Fri, 12 Feb 2016 15:25:19 +0100
+Message-ID: <CALx6S34dXkRMyW72HKw-j+Qsgrt3P1Xpz1ktf41hoXNak-=cOg@mail.gmail.com>
+References: <CAGWmfYrGv8NdJQHs6OA=b=ao8=25JUoZAK_i65+GMFX1OyV-fg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Claudio Scordino <claudio@evidence.eu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([217.72.192.73]:49953 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752424AbcBLNrr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 08:47:47 -0500
+Received: from mail-io0-f181.google.com ([209.85.223.181]:34004 "EHLO
+	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750863AbcBLOZU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 09:25:20 -0500
+Received: by mail-io0-f181.google.com with SMTP id 9so93187952iom.1
+        for <netdev@vger.kernel.org>; Fri, 12 Feb 2016 06:25:20 -0800 (PST)
+In-Reply-To: <CAGWmfYrGv8NdJQHs6OA=b=ao8=25JUoZAK_i65+GMFX1OyV-fg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netns_map_add() does a malloc of (sizeof (struct nsid_cache) +
-strlen(name)) and then proceed with strcpy() of name into the
-zero-length member at the end of the nsid_cache structure.  The
-nul-terminator is written outside of the allocated memory and may
-overwrite the allocator's internal structure.
+On Fri, Feb 12, 2016 at 9:53 AM, Claudio Scordino
+<claudio@evidence.eu.com> wrote:
+> Hi all.
+>
+> Suppose I have an application that needs to send the very same data to
+> several sockets already connected. In this case, the application has
+> to call the sendto() syscall several times:
+>
+>       for(...)
+>                sendto(...)
+>
+> This makes the application waste time in entering/exiting the kernel
+> level several times.
+> Moreover, if I'm not wrong, the kernel is free to execute pending work
+> (e.g., softirqs) when returning from a syscall, making the application
+> experience further latency.
+>
+> I therefore wonder if a mechanism exists for sending the data to
+> several sockets using just a single syscall. If not, has anybody ever
+> thought about adding a syscall like the following ?
+>
+>       sendto-multicast(..., int number_of_sockets, int* const sockets [])
+>
+> I can't see any obvious reason why such an approach could be wrong.
+>
+The design of KCM allows for this where sendmmsg can be used to send
+messages over TCP to various connections. Overcoming HOL blocking
+becomes the biggest issue to address with something like that I think.
+Using recvmmsg to get messages from multiple TCP sockets should be
+doable in KCM.
 
-This can trigger a segmentation fault on i386 uclibc with names of size 8:
-after the corruption occurs, the call to closedir() on netns_map_init()
-crashes while freeing the DIR structure.
+Tom
 
-Here is the relevant valgrind output:
-
-==1251== Memcheck, a memory error detector
-==1251== Copyright (C) 2002-2015, and GNU GPL'd, by Julian Seward et al.
-==1251== Using Valgrind-3.11.0 and LibVEX; rerun with -h for copyright
-info
-==1251== Command: ./ip netns
-==1251==
-==1251== Invalid write of size 1
-==1251==    at 0x4011975: strcpy (in
-/usr/lib/valgrind/vgpreload_memcheck-x86-linux.so)
-==1251==    by 0x8058B00: netns_map_add (ipnetns.c:181)
-==1251==    by 0x8058E2A: netns_map_init (ipnetns.c:226)
-==1251==    by 0x8058E79: do_netns (ipnetns.c:776)
-==1251==    by 0x804D9FF: do_cmd (ip.c:110)
-==1251==    by 0x804D814: main (ip.c:300)
----
- ip/ipnetns.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 088096f..4ce5989 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -172,7 +172,7 @@ static int netns_map_add(int nsid, const char *name)
- 	if (netns_map_get_by_nsid(nsid) != NULL)
- 		return -EEXIST;
- 
--	c = malloc(sizeof(*c) + strlen(name));
-+	c = malloc(sizeof(*c) + strlen(name) + 1);
- 	if (c == NULL) {
- 		perror("malloc");
- 		return -ENOMEM;
--- 
-2.7.0
+> Many thanks,
+>
+>                Claudio
