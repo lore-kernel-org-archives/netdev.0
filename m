@@ -1,86 +1,197 @@
-From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Subject: Re: [PATCH net-next v8 05/19] net: ethtool: add new
- ETHTOOL_GSETTINGS/SSETTINGS API
-Date: Sat, 13 Feb 2016 01:49:09 +0000
-Message-ID: <1455328149.2801.82.camel@decadent.org.uk>
-References: <1455064168-5102-1-git-send-email-ddecotig@gmail.com>
-	 <1455064168-5102-6-git-send-email-ddecotig@gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-NCwJIfUL82hmdvCgSQ0U"
-Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Ido Shamay <idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>,
-	Venkata Duvvuru <VenkatKumar.Duvvuru-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>,
-	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
-	Ed Swierk <eswierk-FilZDy9cOaHkQYj/0HfcvtBPR1lH4CV8@public.gmane.org>,
-	Robert Love <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"James E.Yuval Mintz" <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-	Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>,
-	David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
-To: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1455064168-5102-6-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: "Christopher S. Hall" <christopher.s.hall@intel.com>
+Subject: [PATCH v7 8/8] net: e1000e: Adds hardware supported cross timestamp on e1000e nic
+Date: Fri, 12 Feb 2016 12:25:29 -0800
+Message-ID: <1455308729-6280-9-git-send-email-christopher.s.hall@intel.com>
+References: <1455308729-6280-1-git-send-email-christopher.s.hall@intel.com>
+Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
+	x86@kernel.org, linux-kernel@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	kevin.b.stanton@intel.com, kevin.j.clarke@intel.com
+To: tglx@linutronix.de, richardcochran@gmail.com, mingo@redhat.com,
+	john.stultz@linaro.org, hpa@zytor.com, jeffrey.t.kirsher@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455308729-6280-1-git-send-email-christopher.s.hall@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Modern Intel systems supports cross timestamping of the network device
+clock and Always Running Timer (ART) in hardware.  This allows the
+device time and system time to be precisely correlated. The timestamp
+pair is returned through e1000e_phc_get_syncdevicetime() used by
+get_system_device_crosststamp().  The hardware cross-timestamp result
+is made available to applications through the PTP_SYS_OFFSET_PRECISE
+ioctl which calls e1000e_phc_getcrosststamp().
 
---=-NCwJIfUL82hmdvCgSQ0U
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
+[jstultz: Reworked to use new interface, commit message tweaks]
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ drivers/net/ethernet/intel/Kconfig          |  9 +++
+ drivers/net/ethernet/intel/e1000e/defines.h |  5 ++
+ drivers/net/ethernet/intel/e1000e/ptp.c     | 85 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/e1000e/regs.h    |  4 ++
+ 4 files changed, 103 insertions(+)
 
-On Tue, 2016-02-09 at 16:29 -0800, David Decotigny wrote:
-> From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
->=20
-> This patch defines a new ETHTOOL_GSETTINGS/SSETTINGS API, handled by
-> the new get_ksettings/set_ksettings callbacks. This API provides
-> support for most legacy ethtool_cmd fields, adds support for larger
-> link mode masks (up to 4064 bits, variable length), and removes
-> ethtool_cmd deprecated fields (transceiver/maxrxpkt/maxtxpkt).
-[...]
-
-I previously asked you to include 'link' in the command names and
-structure name. =C2=A0This would clarify that these are now only for link
-settings and reduce the risk of confusion between old and new commands.
-However, you didn't reply to that review. =C2=A0Do you have any objection t=
-o
-doing this?
-
-Ben.
-
---=20
-Ben Hutchings
-Sturgeon's Law: Ninety percent of everything is crap.
---=-NCwJIfUL82hmdvCgSQ0U
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVr6Llee/yOyVhhEJAQptQxAAqHw6JCPN3b1UNtl5CkykMq9sgZ+j8VOi
-9b6BaMefBawGFNaPzk6xQBpnwfrGdcofFw+r3Y+OThloB1NB5orhWTnX8citmnlA
-zFuKYE0Si1YC23nlITS+n3U8xJnQKyjwN4jB+acYc3YqELGg6qXvLGQYYpRXKBa0
-rwlYT13ZjTF9oar0dpEXJo9Y3uUsWDVnAeG1E3AAqel5llKzr0n+bUdjO76rdNMQ
-/B2IOq2H09ufZdRKJl9Mtd0LrcvNXZzFepfRqW86kd9NqClwwLsHsinlUVttYaz2
-I5DprGRLIC2CCh82aqLwBMqvnwcR2erOANIPdGpnHS8vUpkgCdClxEXujB3IOzcs
-+CYF4FMZjjVZp0fsedds4hkTKdgn1ALKurMoyfWPKbzFBdgJR8qGbpzAdR2uz3Vg
-+AzeRqLv9EP3VnctF9Cmndlmy0ycmpb1Vd3sU3x+2MNFy1lPavzmbXULtB1T+GsN
-TRnfUfvWQ2T+dadHpqH+tVElNivQoiaKOpL2FVWUPZEs+0ngI9I74VKQuMG2RbBu
-3EzolbI3XfCt+kMbvnkJuCXHdvt63OOcVGy6QBfQW+Hy64aUaDB7ojau+/3NJjwl
-K9F+jJF07SRDWToWHNO2h98fnZt2/9dxazlELgwAnyU7PpK1RieS9huDeHvXG8Ge
-QM9yzxMhV4s=
-=aMKY
------END PGP SIGNATURE-----
-
---=-NCwJIfUL82hmdvCgSQ0U--
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index fa593dd..3772f3a 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -83,6 +83,15 @@ config E1000E
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called e1000e.
+ 
++config E1000E_HWTS
++	bool "Support HW cross-timestamp on PCH devices"
++	default y
++	depends on E1000E && X86
++	---help---
++	 Say Y to enable hardware supported cross-timestamping on PCH
++	 devices. The cross-timestamp is available through the PTP clock
++	 driver precise cross-timestamp ioctl (PTP_SYS_OFFSET_PRECISE).
++
+ config IGB
+ 	tristate "Intel(R) 82575/82576 PCI-Express Gigabit Ethernet support"
+ 	depends on PCI
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index f7c7804..0641c00 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -528,6 +528,11 @@
+ #define E1000_RXCW_C          0x20000000        /* Receive config */
+ #define E1000_RXCW_SYNCH      0x40000000        /* Receive config synch */
+ 
++/* HH Time Sync */
++#define E1000_TSYNCTXCTL_MAX_ALLOWED_DLY_MASK	0x0000F000 /* max delay */
++#define E1000_TSYNCTXCTL_SYNC_COMP		0x40000000 /* sync complete */
++#define E1000_TSYNCTXCTL_START_SYNC		0x80000000 /* initiate sync */
++
+ #define E1000_TSYNCTXCTL_VALID		0x00000001 /* Tx timestamp valid */
+ #define E1000_TSYNCTXCTL_ENABLED	0x00000010 /* enable Tx timestamping */
+ 
+diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
+index 25a0ad5..e2ff3ef 100644
+--- a/drivers/net/ethernet/intel/e1000e/ptp.c
++++ b/drivers/net/ethernet/intel/e1000e/ptp.c
+@@ -26,6 +26,12 @@
+ 
+ #include "e1000.h"
+ 
++#ifdef CONFIG_E1000E_HWTS
++#include <linux/clocksource.h>
++#include <linux/ktime.h>
++#include <asm/tsc.h>
++#endif
++
+ /**
+  * e1000e_phc_adjfreq - adjust the frequency of the hardware clock
+  * @ptp: ptp clock structure
+@@ -98,6 +104,78 @@ static int e1000e_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_E1000E_HWTS
++#define MAX_HW_WAIT_COUNT (3)
++
++/**
++ * e1000e_phc_get_syncdevicetime - Callback given to timekeeping code reads system/device registers
++ * @device: current device time
++ * @system: system counter value read synchronously with device time
++ * @ctx: context provided by timekeeping code
++ *
++ * Read device and system (ART) clock simultaneously and return the corrected
++ * clock values in ns.
++ **/
++static int e1000e_phc_get_syncdevicetime(ktime_t *device,
++					 struct system_counterval_t *system,
++					 void *ctx)
++{
++	struct e1000_adapter *adapter = (struct e1000_adapter *)ctx;
++	struct e1000_hw *hw = &adapter->hw;
++	unsigned long flags;
++	int i;
++	u32 tsync_ctrl;
++	cycle_t dev_cycles;
++	cycle_t sys_cycles;
++
++	tsync_ctrl = er32(TSYNCTXCTL);
++	tsync_ctrl |= E1000_TSYNCTXCTL_START_SYNC |
++		E1000_TSYNCTXCTL_MAX_ALLOWED_DLY_MASK;
++	ew32(TSYNCTXCTL, tsync_ctrl);
++	for (i = 0; i < MAX_HW_WAIT_COUNT; ++i) {
++		udelay(1);
++		tsync_ctrl = er32(TSYNCTXCTL);
++		if (tsync_ctrl & E1000_TSYNCTXCTL_SYNC_COMP)
++			break;
++	}
++
++	if (i == MAX_HW_WAIT_COUNT)
++		return -ETIMEDOUT;
++
++	dev_cycles = er32(SYSSTMPH);
++	dev_cycles <<= 32;
++	dev_cycles |= er32(SYSSTMPL);
++	spin_lock_irqsave(&adapter->systim_lock, flags);
++	*device = ns_to_ktime(timecounter_cyc2time(&adapter->tc, dev_cycles));
++	spin_unlock_irqrestore(&adapter->systim_lock, flags);
++
++	sys_cycles = er32(PLTSTMPH);
++	sys_cycles <<= 32;
++	sys_cycles |= er32(PLTSTMPL);
++	*system = convert_art_to_tsc(sys_cycles);
++
++	return 0;
++}
++
++/**
++ * e1000e_phc_getsynctime - Reads the current system/device cross timestamp
++ * @ptp: ptp clock structure
++ * @cts: structure containing timestamp
++ *
++ * Read device and system (ART) clock simultaneously and return the scaled
++ * clock values in ns.
++ **/
++static int e1000e_phc_getcrosststamp(struct ptp_clock_info *ptp,
++				     struct system_device_crosststamp *xtstamp)
++{
++	struct e1000_adapter *adapter = container_of(ptp, struct e1000_adapter,
++						     ptp_clock_info);
++
++	return get_device_system_crosststamp(e1000e_phc_get_syncdevicetime,
++						adapter, NULL, xtstamp);
++}
++#endif/*CONFIG_E1000E_HWTS*/
++
+ /**
+  * e1000e_phc_gettime - Reads the current time from the hardware clock
+  * @ptp: ptp clock structure
+@@ -236,6 +314,13 @@ void e1000e_ptp_init(struct e1000_adapter *adapter)
+ 		break;
+ 	}
+ 
++#ifdef CONFIG_E1000E_HWTS
++	/* CPU must have ART and GBe must be from Sunrise Point or greater */
++	if (hw->mac.type >= e1000_pch_spt && boot_cpu_has(X86_FEATURE_ART))
++		adapter->ptp_clock_info.getcrosststamp =
++			e1000e_phc_getcrosststamp;
++#endif/*CONFIG_E1000E_HWTS*/
++
+ 	INIT_DELAYED_WORK(&adapter->systim_overflow_work,
+ 			  e1000e_systim_overflow_work);
+ 
+diff --git a/drivers/net/ethernet/intel/e1000e/regs.h b/drivers/net/ethernet/intel/e1000e/regs.h
+index 1d5e0b7..0cb4d36 100644
+--- a/drivers/net/ethernet/intel/e1000e/regs.h
++++ b/drivers/net/ethernet/intel/e1000e/regs.h
+@@ -245,6 +245,10 @@
+ #define E1000_SYSTIML	0x0B600	/* System time register Low - RO */
+ #define E1000_SYSTIMH	0x0B604	/* System time register High - RO */
+ #define E1000_TIMINCA	0x0B608	/* Increment attributes register - RW */
++#define E1000_SYSSTMPL  0x0B648 /* HH Timesync system stamp low register */
++#define E1000_SYSSTMPH  0x0B64C /* HH Timesync system stamp hi register */
++#define E1000_PLTSTMPL  0x0B640 /* HH Timesync platform stamp low register */
++#define E1000_PLTSTMPH  0x0B644 /* HH Timesync platform stamp hi register */
+ #define E1000_RXMTRL	0x0B634	/* Time sync Rx EtherType and Msg Type - RW */
+ #define E1000_RXUDP	0x0B638	/* Time Sync Rx UDP Port - RW */
+ 
+-- 
+2.1.4
