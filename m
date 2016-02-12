@@ -1,65 +1,46 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: [PATCH 00/33] Compile-time stack metadata validation
-Date: Fri, 12 Feb 2016 11:41:06 +0100
-Message-ID: <56BDB6C2.4050205@suse.cz>
-References: <cover.1453405861.git.jpoimboe@redhat.com>
- <56BDB5A8.9030006@suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
-	Michal Marek <mmarek@suse.cz>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Andy Lutomirski <luto@kernel.org>,
-	Borislav Petkov <bp@alien8.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	Pedro Alves <palves@redhat.com>,
-	Namhyung Kim <namhyung@gmail.com>,
-	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
-	Chris J Arges <chris.j.arges@canonical.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Arnaldo Carvalho de Melo <acme@kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Borislav Petkov <bp@suse.de>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Chris Wright <chrisw@sous-sol.org>,
-	Alok Kataria <akataria@vmware.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Herbert Xu <herbert@gondor.apana.o
-To: Josh Poimboeuf <jpoimboe@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: phy: spi_ks8995: include linux/gpio/consumer.h
+Date: Fri, 12 Feb 2016 11:42:34 +0100
+Message-ID: <1455273762-161477-1-git-send-email-arnd@arndb.de>
+Cc: linux-arm-kernel@lists.infradead.org,
+	Arnd Bergmann <arnd@arndb.de>,
+	Helmut Buchsbaum <helmut.buchsbaum@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56BDB5A8.9030006@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/12/2016, 11:36 AM, Jiri Slaby wrote:
-> It there some compilation flag missing? -f flags when compiling that file are:
-> -falign-jumps=1
-> -falign-loops=1
-> -fconserve-stack
-> -fno-asynchronous-unwind-tables
-> -fno-common
-> -fno-delete-null-pointer-checks
-> -fno-inline-functions-called-once
-> -fno-omit-frame-pointer
-> -fno-optimize-sibling-calls
-> -fno-strict-aliasing
-> -fno-strict-overflow
-> -fno-var-tracking-assignments
-> -fstack-protector
-> -funit-at-a-time
+The ks8995 phy driver just started using gpiod_* functions, which are
+declared in linux/gpio/consumer.h, not linux/gpio.h, resulting in a
+build failure in randconfig builds that do not have CONFIG_GPIOLIB
+enabled:
 
-Happens with:
-gcc (SUSE Linux) 5.3.1 20151207 [gcc-5-branch revision 231355]
-gcc-6 (SUSE Linux) 6.0.0 20160202 (experimental) [trunk revision 233076]
+drivers/net/phy/spi_ks8995.c: In function 'ks8995_probe':
+drivers/net/phy/spi_ks8995.c:477:3: error: implicit declaration of function 'gpiod_set_value' [-Werror=implicit-function-declaration]
 
-> thanks,
+This changes the header inclusion so it builds in all configurations.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: cd6f288cbaab ("net: phy: spi_ks8995: add support for resetting switch using GPIO")
+---
+ drivers/net/phy/spi_ks8995.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
+index 5e7340f6b37c..b5d50d458728 100644
+--- a/drivers/net/phy/spi_ks8995.c
++++ b/drivers/net/phy/spi_ks8995.c
+@@ -18,8 +18,8 @@
+ #include <linux/module.h>
+ #include <linux/delay.h>
+ #include <linux/device.h>
++#include <linux/gpio/consumer.h>
+ #include <linux/of.h>
+-#include <linux/gpio.h>
+ #include <linux/of_gpio.h>
+ 
+ #include <linux/spi/spi.h>
 -- 
-js
-suse labs
+2.7.0
