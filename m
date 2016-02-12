@@ -1,60 +1,54 @@
 From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH net] af_unix: Guard against other == sk in unix_dgram_sendmsg
-Date: Fri, 12 Feb 2016 13:25:15 +0000
-Message-ID: <8760xuvz5w.fsf@doppelsaurus.mobileactivedefense.com>
-References: <56B4BF9D.9070609@pmhahn.de> <56BC90E7.7040007@pmhahn.de>
-	<87fuwzkzr5.fsf@doppelsaurus.mobileactivedefense.com>
-	<1455210224.2801.21.camel@decadent.org.uk>
-	<87r3gjjgbu.fsf@doppelsaurus.mobileactivedefense.com>
-	<87egcjcd5j.fsf@doppelsaurus.mobileactivedefense.com>
-	<87r3gj11jc.fsf_-_@doppelsaurus.mobileactivedefense.com>
-	<56BDA3A8.6070807@pmhahn.de>
+Subject: Re: [PATCH] af_unix: Don't set err in unix_stream_read_generic unless there was an error
+Date: Fri, 12 Feb 2016 13:31:44 +0000
+Message-ID: <871t8ivyv3.fsf@doppelsaurus.mobileactivedefense.com>
+References: <56B4EF04.2060407@canonical.com>
+	<87zivebxjr.fsf@doppelsaurus.mobileactivedefense.com>
+	<56BCFDC8.6010406@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Karolin Seeger <kseeger@samba.org>,
-	Jason Baron <jbaron@akamai.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Arvid Requate <requate@univention.de>,
-	Stefan Gohmann <gohmann@univention.de>, netdev@vger.kernel.org
-To: Philipp Hahn <pmhahn@pmhahn.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tiger.mobileactivedefense.com ([217.174.251.109]:45092 "EHLO
-	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752309AbcBLNZp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 08:25:45 -0500
-In-Reply-To: <56BDA3A8.6070807@pmhahn.de> (Philipp Hahn's message of "Fri, 12
-	Feb 2016 10:19:36 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	"davem\@davemloft.net" <davem@davemloft.net>,
+	hannes@stressinduktion.org, edumazet@google.com,
+	dhowells@redhat.com, ying.xue@windriver.com,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"stable\@vger.kernel.org" <stable@vger.kernel.org>,
+	Tim Gardner <tim.gardner@canonical.com>
+To: Joseph Salisbury <joseph.salisbury@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56BCFDC8.6010406@canonical.com> (Joseph Salisbury's message of
+	"Thu, 11 Feb 2016 16:31:52 -0500")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Philipp Hahn <pmhahn@pmhahn.de> writes:
-
-> Hello Rainer,
->
-> Am 11.02.2016 um 20:37 schrieb Rainer Weikusat:
->> The unix_dgram_sendmsg routine use the following test
->> 
->> if (unlikely(unix_peer(other) != sk && unix_recvq_full(other))) {
+Joseph Salisbury <joseph.salisbury@canonical.com> writes:
+> On 02/05/2016 05:30 PM, Rainer Weikusat wrote:
+>> The present unix_stream_read_generic contains various code sequences of
+>> the form
+>>
+>> err = -EDISASTER;
+>> if (<test>)
+>> 	goto out;
 
 [...]
 
->> This isn't correct as the> specified address could have been bound to
->> the sending socket itself
+>> Change it such that err is only set if an error condition was detected.
 
 [...]
 
-> After applying that patch at least my machine running the samba test no
-> longer crashes.
+> I tested your patch, Rainer.  I can confirm that it fixes the reported
+> bug[0].
 
-There's a possible gotcha in there: Send-to-self used to be limited by
-the queue limit. But the rationale for that (IIRC) was that someone
-could keep using newly created sockets to queue ever more data to a
-single, unrelated receiver. I don't think this should apply when
-receiving and sending sockets are identical. But that's just my
-opinion. The other option would be to avoid the unix_state_double_lock
-for sk == other. I'd be willing to change this accordingly if someone
-thinks the queue limit should apply to send-to-self.
+This is only a partial fix: The launchpad test case will no longer fail
+with EOPNOTSUPP and it will actually receive the credentials because the
+message they're attached to was available by the time of the
+recvmsg. But if this isn't the case, ie, if the receiver has to wait for
+a message, the continue in the do { } while (size) loop will cause the
+loop to be terminated without copying the credential information as the
+continue will cause the size (of the remaining 'receive area' which is
+zero for this case) to be checked before any of the other loop code is
+executed again.
+
+I posted a test case for this and a patch addressing that elsewhere in
+this thread.
