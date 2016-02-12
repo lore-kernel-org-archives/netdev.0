@@ -1,57 +1,46 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
-Date: Fri, 12 Feb 2016 01:14:24 +0100
-Message-ID: <56BD23E0.1090403@gmx.de>
-References: <90A7E81AE28BAE4CBDDB3B35F187D264402EF4A2@CHN-SV-EXMX02.mchp-main.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Bryan.Whitehead@microchip.com, davem@davemloft.net
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 0/2] tcp/dccp: better use of ephemeral ports
+Date: Thu, 11 Feb 2016 16:28:48 -0800
+Message-ID: <1455236930-17919-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:63049 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750890AbcBLAOf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Feb 2016 19:14:35 -0500
-In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264402EF4A2@CHN-SV-EXMX02.mchp-main.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35823 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbcBLA24 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2016 19:28:56 -0500
+Received: by mail-pa0-f41.google.com with SMTP id ho8so37250127pac.2
+        for <netdev@vger.kernel.org>; Thu, 11 Feb 2016 16:28:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Big servers have bloated bind table, making very hard to succeed
+ephemeral port allocations, without special containers/namespace tricks.
 
-> +static int mchp9352_open(struct net_device *dev)
-> +{
+This patch series extends the strategy added in commit 07f4c90062f8 
+("tcp/dccp: try to not exhaust ip_local_port_range in connect()").
 
-> +
-> +	MCHP_TRACE(pdata, ifup, "Testing irq handler using IRQ %d", dev->irq);
-> +	pdata->software_irq_signal = 0;
-> +
-> +	/* Testing irq handler */
-> +	smp_wmb();
+Since ports used by connect() are much likely to be shared among them,
+we give a hint to both bind() and connect() to keep the crowds separated
+if possible.
 
-Should not there at least be a matching smp_rmb() in the irq handler?
-Maybe an atomic_t would be a better choice for a flag like
-software_irq_signal here.
+Of course, if on a specific host an application needs to allocate ~30000
+ports using bind(), it will still be able to do so. Same for ~30000 connect()
+to a unique 2-tuple (dst addr, dst port)
 
-> +
-> +static int mchp9352_drv_probe(struct platform_device *pdev)
+New implemetation is also more friendly to softirqs and reschedules.
 
-> +
-> +	netif_carrier_off(dev);
-> +
-> +	retval = register_netdev(dev);
-> +	if (retval) {
-> +		MCHP_WARN(pdata, probe, "Error %i registering device", retval);
-> +		goto out_free_irq;
-> +	} else {
-> +		MCHP_TRACE(pdata, probe,
-> +			   "Network interface: \"%s\"", dev->name);
-> +	}
+v2: rebase after TCP SO_REUSEPORT changes
 
-Note that as soon as the network device is registered "open" may be
-called so everything should be set up already. In this case the mac
-address (dev->dev_addr) is accessed in open but may not yet contain
-valid data when register_netdev is called.
+Eric Dumazet (2):
+  tcp/dccp: better use of ephemeral ports in connect()
+  tcp/dccp: better use of ephemeral ports in bind()
 
-Regards,
-Lino
+ net/ipv4/inet_connection_sock.c | 240 +++++++++++++++++++---------------------
+ net/ipv4/inet_hashtables.c      | 170 ++++++++++++++--------------
+ 2 files changed, 199 insertions(+), 211 deletions(-)
+
+-- 
+2.7.0.rc3.207.g0ac5344
