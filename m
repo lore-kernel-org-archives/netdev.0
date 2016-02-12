@@ -1,78 +1,52 @@
-From: <Bryan.Whitehead@microchip.com>
-Subject: RE: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
-Date: Fri, 12 Feb 2016 19:10:52 +0000
-Message-ID: <90A7E81AE28BAE4CBDDB3B35F187D264402EF62A@CHN-SV-EXMX02.mchp-main.com>
-References: <90A7E81AE28BAE4CBDDB3B35F187D264402EF4A2@CHN-SV-EXMX02.mchp-main.com>
- <56BD23E0.1090403@gmx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <LinoSanfilippo@gmx.de>, <davem@davemloft.net>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH/RFC] openvswitch: loosen restriction of output of MPLS to tunnel vports
+Date: Fri, 12 Feb 2016 20:25:33 +0100
+Message-ID: <1455305133-23285-1-git-send-email-simon.horman@netronome.com>
+Cc: dev@openvswitch.org, Pravin Shelar <pshelar@nicira.com>,
+	Simon Horman <simon.horman@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp01.microchip.com ([198.175.253.37]:62679 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750853AbcBLTKy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 14:10:54 -0500
-In-Reply-To: <56BD23E0.1090403@gmx.de>
-Content-Language: en-US
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:34280 "EHLO
+	mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750707AbcBLT0B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 14:26:01 -0500
+Received: by mail-lf0-f54.google.com with SMTP id j78so57803620lfb.1
+        for <netdev@vger.kernel.org>; Fri, 12 Feb 2016 11:26:00 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lino,
+If an skb was not MPLS initially then it may be GSO and in that case if it
+became MPLS then GSO can't be performed because both MPLS and tunnels make
+use of the inner_protocol field of struct skbuff in order to allow GSO to
+be performed in the inner packet.
 
-Regarding "a matching smp_rmb() in the irq handler"
-There is a smp_wmb() in the irq handler, since in both cases we are forcing a write operation on software_irq_signal.
+On the other hand if an skb was MPLS initially then it will not be GSO,
+as there is no support for GRO for MPLS. Thus in this case it is safe
+to allow output of MPLS on tunnel vports.
 
-I suppose using atomic operations on software_irq_signal would also work, but this driver was based on 
-drivers/net/ethernet/smsc/smsc911x.c
-And if possible I'd prefer to keep logical changes to a minimum.
-Plus this is not a "read modify write" scenario so I think the memory barrier is sufficient.
-Do you agree?
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ net/openvswitch/flow_netlink.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-Regarding register_netdev.
-I'll move register_netdev till after the mac address is set.
-
-Thanks,
-Bryan
-
------Original Message-----
-From: Lino Sanfilippo [mailto:LinoSanfilippo@gmx.de] 
-Sent: Thursday, February 11, 2016 7:14 PM
-To: Bryan Whitehead - C21958; davem@davemloft.net
-Cc: netdev@vger.kernel.org
-Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
-
-Hi,
-
-> +static int mchp9352_open(struct net_device *dev) {
-
-> +
-> +	MCHP_TRACE(pdata, ifup, "Testing irq handler using IRQ %d", dev->irq);
-> +	pdata->software_irq_signal = 0;
-> +
-> +	/* Testing irq handler */
-> +	smp_wmb();
-
-Should not there at least be a matching smp_rmb() in the irq handler?
-Maybe an atomic_t would be a better choice for a flag like software_irq_signal here.
-
-> +
-> +static int mchp9352_drv_probe(struct platform_device *pdev)
-
-> +
-> +	netif_carrier_off(dev);
-> +
-> +	retval = register_netdev(dev);
-> +	if (retval) {
-> +		MCHP_WARN(pdata, probe, "Error %i registering device", retval);
-> +		goto out_free_irq;
-> +	} else {
-> +		MCHP_TRACE(pdata, probe,
-> +			   "Network interface: \"%s\"", dev->name);
-> +	}
-
-Note that as soon as the network device is registered "open" may be called so everything should be set up already. In this case the mac address (dev->dev_addr) is accessed in open but may not yet contain valid data when register_netdev is called.
-
-Regards,
-Lino
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index d1bd4a45ca2d..a574796f35d2 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -2038,7 +2038,13 @@ static int validate_set(const struct nlattr *a,
+ 		break;
+ 
+ 	case OVS_KEY_ATTR_TUNNEL:
+-		if (eth_p_mpls(eth_type))
++		/* If an skb was not MPLS initially then it may be GSO
++		 * and in that case if it became MPLS then GSO can't be
++		 * performed because both MPLS and tunnels make use
++		 * of the inner_protocol field of struct skbuff in order
++		 * to allow GSO to be performed in the inner packet.
++		 */
++		if (!eth_p_mpls(flow_key->eth.type) && eth_p_mpls(eth_type))
+ 			return -EINVAL;
+ 
+ 		if (masked)
+-- 
+2.7.0.rc3.207.g0ac5344
