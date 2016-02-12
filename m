@@ -1,47 +1,95 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next v1 0/8] xen-netback: support toeplitz hashing
-Date: Fri, 12 Feb 2016 16:59:01 +0000
-Message-ID: <708813d655494f2785fda3bb4f83e1d9@AMSPEX02CL03.citrite.net>
-References: <1455272005-17144-1-git-send-email-paul.durrant@citrix.com>
-	<20160212.055408.1901988218281607996.davem@davemloft.net>
-	<47dcce9fc54b42f591284cd8ea72ddba@AMSPEX02CL03.citrite.net>
- <20160212.114146.557404301623026279.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([185.25.65.24]:24691 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751783AbcBLRBj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 12:01:39 -0500
-In-Reply-To: <20160212.114146.557404301623026279.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 4/4] net: dsa: remove dsa_bridge_check_vlan_range
+Date: Fri, 12 Feb 2016 12:09:41 -0500
+Message-ID: <1455296981-27998-5-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: 12 February 2016 16:42
-> To: Paul Durrant
-> Cc: netdev@vger.kernel.org; xen-devel@lists.xenproject.org
-> Subject: Re: [PATCH net-next v1 0/8] xen-netback: support toeplitz hashing
-> 
-> From: Paul Durrant <Paul.Durrant@citrix.com>
-> Date: Fri, 12 Feb 2016 11:07:50 +0000
-> 
-> > Windows *requires* use of Teoplitz so your position completely rules
-> > out being able to support receive side scaling in Windows PV
-> > frontends on Linux kernel backends, not only for Xen but for any
-> > other hypervisor, which I think is totally unreasonable.
-> 
-> We have strong reason to believe that Toeplitz has properties that
-> make it very weak if not exploitable, therefore doing software RSS
-> with Jenkins is superior.
+DSA drivers may support multiple bridge groups with the same hardware
+VLAN. The mv88e6xxx driver which cannot yet, already has its own check
+for overlapping bridges. Thus remove the check from the DSA layer.
 
-I don't disagree, but there is really no choice of algorithm where a Windows frontend is concerned. My patches only add Toeplitz hashing into xen-netback according to the specification in xen's netif.h; the algorithm is not exposed for use by any other part of the kernel.
-If it would help I can add a module parameter to xen-netback to control advertising the option of the hash to frontends so that it can be globally disabled if it is deployed on host where there are no Windows guests.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/slave.c | 50 --------------------------------------------------
+ 1 file changed, 50 deletions(-)
 
-  Paul
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 755b005..bcf383c 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -201,47 +201,6 @@ out:
+ 	return 0;
+ }
+ 
+-static int dsa_bridge_check_vlan_range(struct dsa_switch *ds,
+-				       const struct net_device *bridge,
+-				       u16 vid_begin, u16 vid_end)
+-{
+-	struct dsa_slave_priv *p;
+-	struct net_device *dev, *vlan_br;
+-	DECLARE_BITMAP(members, DSA_MAX_PORTS);
+-	DECLARE_BITMAP(untagged, DSA_MAX_PORTS);
+-	u16 vid;
+-	int member, err;
+-
+-	if (!ds->drv->vlan_getnext || !vid_begin)
+-		return -EOPNOTSUPP;
+-
+-	vid = vid_begin - 1;
+-
+-	do {
+-		err = ds->drv->vlan_getnext(ds, &vid, members, untagged);
+-		if (err)
+-			break;
+-
+-		if (vid > vid_end)
+-			break;
+-
+-		member = find_first_bit(members, DSA_MAX_PORTS);
+-		if (member == DSA_MAX_PORTS)
+-			continue;
+-
+-		dev = ds->ports[member];
+-		p = netdev_priv(dev);
+-		vlan_br = p->bridge_dev;
+-		if (vlan_br == bridge)
+-			continue;
+-
+-		netdev_dbg(vlan_br, "hardware VLAN %d already in use\n", vid);
+-		return -EOPNOTSUPP;
+-	} while (vid < vid_end);
+-
+-	return err == -ENOENT ? 0 : err;
+-}
+-
+ static int dsa_slave_port_vlan_add(struct net_device *dev,
+ 				   const struct switchdev_obj_port_vlan *vlan,
+ 				   struct switchdev_trans *trans)
+@@ -254,15 +213,6 @@ static int dsa_slave_port_vlan_add(struct net_device *dev,
+ 		if (!ds->drv->port_vlan_prepare || !ds->drv->port_vlan_add)
+ 			return -EOPNOTSUPP;
+ 
+-		/* If the requested port doesn't belong to the same bridge as
+-		 * the VLAN members, fallback to software VLAN (hopefully).
+-		 */
+-		err = dsa_bridge_check_vlan_range(ds, p->bridge_dev,
+-						  vlan->vid_begin,
+-						  vlan->vid_end);
+-		if (err)
+-			return err;
+-
+ 		err = ds->drv->port_vlan_prepare(ds, p->port, vlan, trans);
+ 		if (err)
+ 			return err;
+-- 
+2.7.1
