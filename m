@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH RFC 1/3] net: bridge: log state when setting it
-Date: Fri, 12 Feb 2016 16:34:18 -0500
-Message-ID: <1455312860-24666-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH RFC 3/3] net: dsa: remove dsa_slave_stp_update
+Date: Fri, 12 Feb 2016 16:34:20 -0500
+Message-ID: <1455312860-24666-4-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1455312860-24666-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,59 +14,55 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Andrew Lunn <andrew@lunn.ch>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:48921 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751334AbcBLVfE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 16:35:04 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1455312860-24666-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Every call to br_set_state is followed by a call to br_log_state.
-Directly call it within br_set_state instead.
+When a port leaves a bridge, the bridge layer now restores its STP state
+to Forwarding, if the device belong to a switchdev user.
+
+Thus remove this redundant action from the DSA layer.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/bridge/br_stp.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ net/dsa/slave.c | 17 -----------------
+ 1 file changed, 17 deletions(-)
 
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index b3cca12..077afca 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -52,6 +52,8 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
- 	if (err && err != -EOPNOTSUPP)
- 		br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
- 				(unsigned int) p->port_no, p->dev->name);
-+	else
-+		br_log_state(p);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 40b9ca7..2b3774e 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -410,18 +410,6 @@ static u32 dsa_slave_br_port_mask(struct dsa_switch *ds,
+ 	return mask;
  }
  
- /* called under bridge lock */
-@@ -126,7 +128,6 @@ static void br_root_port_block(const struct net_bridge *br,
- 		  (unsigned int) p->port_no, p->dev->name);
+-static int dsa_slave_stp_update(struct net_device *dev, u8 state)
+-{
+-	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct dsa_switch *ds = p->parent;
+-	int ret = -EOPNOTSUPP;
+-
+-	if (ds->drv->port_stp_update)
+-		ret = ds->drv->port_stp_update(ds, p->port, state);
+-
+-	return ret;
+-}
+-
+ static int dsa_slave_port_attr_set(struct net_device *dev,
+ 				   const struct switchdev_attr *attr,
+ 				   struct switchdev_trans *trans)
+@@ -552,11 +540,6 @@ static int dsa_slave_bridge_port_leave(struct net_device *dev)
  
- 	br_set_state(p, BR_STATE_LISTENING);
--	br_log_state(p);
- 	br_ifinfo_notify(RTM_NEWLINK, p);
+ 	p->bridge_dev = NULL;
  
- 	if (br->forward_delay > 0)
-@@ -407,7 +408,6 @@ static void br_make_blocking(struct net_bridge_port *p)
- 			br_topology_change_detection(p->br);
+-	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
+-	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
+-	 */
+-	dsa_slave_stp_update(dev, BR_STATE_FORWARDING);
+-
+ 	return ret;
+ }
  
- 		br_set_state(p, BR_STATE_BLOCKING);
--		br_log_state(p);
- 		br_ifinfo_notify(RTM_NEWLINK, p);
- 
- 		del_timer(&p->forward_delay_timer);
-@@ -431,7 +431,6 @@ static void br_make_forwarding(struct net_bridge_port *p)
- 	else
- 		br_set_state(p, BR_STATE_LEARNING);
- 
--	br_log_state(p);
- 	br_ifinfo_notify(RTM_NEWLINK, p);
- 
- 	if (br->forward_delay != 0)
 -- 
 2.7.1
