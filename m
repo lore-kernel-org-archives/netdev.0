@@ -1,36 +1,57 @@
-From: Alban Crequy <alban.crequy-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 8/8] netfilter: implement xt_cgroup cgroup2 path match
-Date: Fri, 12 Feb 2016 01:10:18 +0100
-Message-ID: <CAMXgnP7Eue2NQrUcRSNgM8NJT5XOscPWwqVkuh7LnwQn-1oQ_A@mail.gmail.com>
-References: <1449527935-27056-1-git-send-email-tj@kernel.org> <1449527935-27056-9-git-send-email-tj@kernel.org>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+Date: Fri, 12 Feb 2016 01:14:24 +0100
+Message-ID: <56BD23E0.1090403@gmx.de>
+References: <90A7E81AE28BAE4CBDDB3B35F187D264402EF4A2@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
-	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	kernel-team-b10kYP2dOMg@public.gmane.org, ninasc-b10kYP2dOMg@public.gmane.org, Jan Engelhardt <jengelh-9+2X+4sQBs8@public.gmane.org>
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1449527935-27056-9-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Bryan.Whitehead@microchip.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.19]:63049 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750890AbcBLAOf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Feb 2016 19:14:35 -0500
+In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264402EF4A2@CHN-SV-EXMX02.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi,
 
-On 7 December 2015 at 23:38, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
-> This patch implements xt_cgroup path match which matches cgroup2
-> membership of the associated socket.  The match is recursive and
-> invertible.
+> +static int mchp9352_open(struct net_device *dev)
+> +{
 
-Is there any plans to implement a similar cgroup2 path match in a
-cgroup classifier in tc?
-I wonder if it will be possible to use cgroup to classify packets in
-tc without net_cls.class_id in cgroup2.
+> +
+> +	MCHP_TRACE(pdata, ifup, "Testing irq handler using IRQ %d", dev->irq);
+> +	pdata->software_irq_signal = 0;
+> +
+> +	/* Testing irq handler */
+> +	smp_wmb();
 
-Thanks!
-Alban
+Should not there at least be a matching smp_rmb() in the irq handler?
+Maybe an atomic_t would be a better choice for a flag like
+software_irq_signal here.
+
+> +
+> +static int mchp9352_drv_probe(struct platform_device *pdev)
+
+> +
+> +	netif_carrier_off(dev);
+> +
+> +	retval = register_netdev(dev);
+> +	if (retval) {
+> +		MCHP_WARN(pdata, probe, "Error %i registering device", retval);
+> +		goto out_free_irq;
+> +	} else {
+> +		MCHP_TRACE(pdata, probe,
+> +			   "Network interface: \"%s\"", dev->name);
+> +	}
+
+Note that as soon as the network device is registered "open" may be
+called so everything should be set up already. In this case the mac
+address (dev->dev_addr) is accessed in open but may not yet contain
+valid data when register_netdev is called.
+
+Regards,
+Lino
