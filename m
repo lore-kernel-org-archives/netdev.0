@@ -1,40 +1,46 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] net: phy: spi_ks8995: add dependency on GPIO
-Date: Fri, 12 Feb 2016 15:48:26 +0530
-Message-ID: <1455272306-30251-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, kernel-testers@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next v1 4/8] xen-netback: reduce log spam
+Date: Fri, 12 Feb 2016 10:13:21 +0000
+Message-ID: <1455272005-17144-5-git-send-email-paul.durrant@citrix.com>
+References: <1455272005-17144-1-git-send-email-paul.durrant@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:2563 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751220AbcBLKVk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Feb 2016 05:21:40 -0500
+In-Reply-To: <1455272005-17144-1-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The builds of allmodconfig of s390, m68k, tilegx, tilepro is failing
-with the error:
- drivers/net/phy/spi_ks8995.c:477:3: error: implicit declaration of function 'gpiod_set_value'
- drivers/net/phy/spi_ks8995.c:477:19: error: implicit declaration of function 'gpio_to_desc'
+Remove the "prepare for reconnect" pr_info in xenbus.c. It's largely
+uninteresting and the states of the frontend and backend can easily be
+observed by watching the (o)xenstored log.
 
-GPIO is now used to reset the switch so we should have a dependency on
-GPIOLIB. 
-
-Fixes: cd6f288cbaab ("net: phy: spi_ks8995: add support for resetting switch using GPIO")
-Cc: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
 ---
- drivers/net/phy/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/xen-netback/xenbus.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index f0a7702..c6a4fe1 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -261,4 +261,4 @@ endif # PHYLIB
- 
- config MICREL_KS8995MA
- 	tristate "Micrel KS8995MA 5-ports 10/100 managed Ethernet switch"
--	depends on SPI
-+	depends on SPI && GPIOLIB
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index 39a303d..bd182cd 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -511,8 +511,6 @@ static void set_backend_state(struct backend_info *be,
+ 			switch (state) {
+ 			case XenbusStateInitWait:
+ 			case XenbusStateConnected:
+-				pr_info("%s: prepare for reconnect\n",
+-					be->dev->nodename);
+ 				backend_switch_state(be, XenbusStateInitWait);
+ 				break;
+ 			case XenbusStateClosing:
 -- 
-1.9.1
+2.1.4
