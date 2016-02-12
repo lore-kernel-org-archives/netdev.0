@@ -1,910 +1,306 @@
 From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net-next v1 2/8] xen-netback: re-import canonical netif header
-Date: Fri, 12 Feb 2016 10:13:19 +0000
-Message-ID: <1455272005-17144-3-git-send-email-paul.durrant@citrix.com>
+Subject: [PATCH net-next v1 1/8] skbuff: store hash type in socket buffer...
+Date: Fri, 12 Feb 2016 10:13:18 +0000
+Message-ID: <1455272005-17144-2-git-send-email-paul.durrant@citrix.com>
 References: <1455272005-17144-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Paul Durrant <paul.durrant@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	"David Vrabel" <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
+	"David S. Miller" <davem@davemloft.net>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
 To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp.citrix.com ([66.165.176.89]:2563 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751695AbcBLKVr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Feb 2016 05:21:47 -0500
+	id S1751713AbcBLKVl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Feb 2016 05:21:41 -0500
 In-Reply-To: <1455272005-17144-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The canonical netif header (in the Xen source repo) and the Linux variant
-have diverged significantly. Recently much documentation has been added to
-the canonical header and new definitions and types to support packet hash
-configuration. Subsequent patches in this series add support for packet
-hash configuration in xen-netback so this patch re-imports the canonical
-header in readiness.
+...rather than a boolean merely indicating a canonical L4 hash.
 
-To maintain compatibility and some style consistency with the old Linux
-variant, the header was stripped of its emacs boilerplate, and
-post-processed and copied into place with the following commands:
+skb_set_hash() takes a hash type (from enum pkt_hash_types) as an
+argument but information is lost since only a single bit in the skb
+stores whether that hash type is PKT_HASH_TYPE_L4 or not.
 
-ed -s netif.h << EOF
-H
-,s/NETTXF_/XEN_NETTXF_/g
-,s/NETRXF_/XEN_NETRXF_/g
-,s/NETIF_RSP/XEN_NETIF_RSP/g
-,s/NETIF_CTRL/XEN_NETIF_CTRL/g
-,s/netif_tx/xen_netif_tx/g
-,s/netif_rx/xen_netif_rx/g
-,s/netif_ctrl/xen_netif_ctrl/g
-,s/netif_extra_info/xen_netif_extra_info/g
-$
-w
-EOF
-
-indent --line-length 80 --linux-style netif.h \
--o include/xen/interface/io/netif.h
+By using two bits it's possible to store the complete hash type
+information for use by drivers. A subsequent patch to xen-netback
+needs this information to forward packet hashes to VM frontend drivers.
 
 Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>
+Cc: Veaceslav Falico <vfalico@gmail.com>
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
 ---
- include/xen/interface/io/netif.h | 758 ++++++++++++++++++++++++++++++++++-----
- 1 file changed, 667 insertions(+), 91 deletions(-)
+ drivers/net/bonding/bond_main.c |  2 +-
+ include/linux/skbuff.h          | 53 ++++++++++++++++++++++++++++-------------
+ include/net/flow_dissector.h    |  5 ++++
+ include/net/sock.h              |  2 +-
+ include/trace/events/net.h      |  2 +-
+ net/core/flow_dissector.c       | 27 ++++++++++++++++-----
+ 6 files changed, 65 insertions(+), 26 deletions(-)
 
-diff --git a/include/xen/interface/io/netif.h b/include/xen/interface/io/netif.h
-index 252ffd4..78e0815 100644
---- a/include/xen/interface/io/netif.h
-+++ b/include/xen/interface/io/netif.h
-@@ -3,14 +3,32 @@
-  *
-  * Unified network-device I/O interface for Xen guest OSes.
-  *
-+ * Permission is hereby granted, free of charge, to any person obtaining a copy
-+ * of this software and associated documentation files (the "Software"), to
-+ * deal in the Software without restriction, including without limitation the
-+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-+ * sell copies of the Software, and to permit persons to whom the Software is
-+ * furnished to do so, subject to the following conditions:
-+ *
-+ * The above copyright notice and this permission notice shall be included in
-+ * all copies or substantial portions of the Software.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-+ * DEALINGS IN THE SOFTWARE.
-+ *
-  * Copyright (c) 2003-2004, Keir Fraser
-  */
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 45bdd87..ad0ee00 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3173,7 +3173,7 @@ u32 bond_xmit_hash(struct bonding *bond, struct sk_buff *skb)
+ 	u32 hash;
  
- #ifndef __XEN_PUBLIC_IO_NETIF_H__
- #define __XEN_PUBLIC_IO_NETIF_H__
+ 	if (bond->params.xmit_policy == BOND_XMIT_POLICY_ENCAP34 &&
+-	    skb->l4_hash)
++	    skb_has_l4_hash(skb))
+ 		return skb->hash;
  
--#include <xen/interface/io/ring.h>
--#include <xen/interface/grant_table.h>
-+#include "ring.h"
-+#include "../grant_table.h"
+ 	if (bond->params.xmit_policy == BOND_XMIT_POLICY_LAYER2 ||
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 6ec86f1..9021b52 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -595,8 +595,7 @@ static inline bool skb_mstamp_after(const struct skb_mstamp *t1,
+  *	@xmit_more: More SKBs are pending for this queue
+  *	@ndisc_nodetype: router type (from link layer)
+  *	@ooo_okay: allow the mapping of a socket to a queue to be changed
+- *	@l4_hash: indicate hash is a canonical 4-tuple hash over transport
+- *		ports.
++ *	@hash_type: indicates type of hash (see enum pkt_hash_types below)
+  *	@sw_hash: indicates hash was computed in software stack
+  *	@wifi_acked_valid: wifi_acked was set
+  *	@wifi_acked: whether frame was acked on wifi or not
+@@ -701,10 +700,10 @@ struct sk_buff {
+ 	__u8			nf_trace:1;
+ 	__u8			ip_summed:2;
+ 	__u8			ooo_okay:1;
+-	__u8			l4_hash:1;
+ 	__u8			sw_hash:1;
+ 	__u8			wifi_acked_valid:1;
+ 	__u8			wifi_acked:1;
++	/* 1 bit hole */
  
- /*
-  * Older implementation of Xen network frontend / backend has an
-@@ -38,10 +56,10 @@
-  * that it cannot safely queue packets (as it may not be kicked to send them).
-  */
+ 	__u8			no_fcs:1;
+ 	/* Indicates the inner headers are valid in the skbuff. */
+@@ -721,7 +720,8 @@ struct sk_buff {
+ 	__u8			ipvs_property:1;
+ 	__u8			inner_protocol_type:1;
+ 	__u8			remcsum_offload:1;
+-	/* 3 or 5 bit hole */
++	__u8			hash_type:2;
++	/* 1 or 3 bit hole */
  
-- /*
-+/*
-  * "feature-split-event-channels" is introduced to separate guest TX
-- * and RX notificaion. Backend either doesn't support this feature or
-- * advertise it via xenstore as 0 (disabled) or 1 (enabled).
-+ * and RX notification. Backend either doesn't support this feature or
-+ * advertises it via xenstore as 0 (disabled) or 1 (enabled).
-  *
-  * To make use of this feature, frontend should allocate two event
-  * channels for TX and RX, advertise them to backend as
-@@ -118,151 +136,709 @@
-  */
+ #ifdef CONFIG_NET_SCHED
+ 	__u16			tc_index;	/* traffic control index */
+@@ -1030,19 +1030,35 @@ static inline void skb_clear_hash(struct sk_buff *skb)
+ {
+ 	skb->hash = 0;
+ 	skb->sw_hash = 0;
+-	skb->l4_hash = 0;
++	skb->hash_type = 0;
++}
++
++static inline enum pkt_hash_types skb_hash_type(struct sk_buff *skb)
++{
++	return skb->hash_type;
++}
++
++static inline bool skb_has_l4_hash(struct sk_buff *skb)
++{
++	return skb_hash_type(skb) == PKT_HASH_TYPE_L4;
++}
++
++static inline bool skb_has_sw_hash(struct sk_buff *skb)
++{
++	return !!skb->sw_hash;
+ }
  
- /*
-- * This is the 'wire' format for packets:
-- *  Request 1: xen_netif_tx_request  -- XEN_NETTXF_* (any flags)
-- * [Request 2: xen_netif_extra_info]    (only if request 1 has XEN_NETTXF_extra_info)
-- * [Request 3: xen_netif_extra_info]    (only if request 2 has XEN_NETIF_EXTRA_MORE)
-- *  Request 4: xen_netif_tx_request  -- XEN_NETTXF_more_data
-- *  Request 5: xen_netif_tx_request  -- XEN_NETTXF_more_data
-+ * "feature-multicast-control" and "feature-dynamic-multicast-control"
-+ * advertise the capability to filter ethernet multicast packets in the
-+ * backend. If the frontend wishes to take advantage of this feature then
-+ * it may set "request-multicast-control". If the backend only advertises
-+ * "feature-multicast-control" then "request-multicast-control" must be set
-+ * before the frontend moves into the connected state. The backend will
-+ * sample the value on this state transition and any subsequent change in
-+ * value will have no effect. However, if the backend also advertises
-+ * "feature-dynamic-multicast-control" then "request-multicast-control"
-+ * may be set by the frontend at any time. In this case, the backend will
-+ * watch the value and re-sample on watch events.
-+ *
-+ * If the sampled value of "request-multicast-control" is set then the
-+ * backend transmit side should no longer flood multicast packets to the
-+ * frontend, it should instead drop any multicast packet that does not
-+ * match in a filter list.
-+ * The list is amended by the frontend by sending dummy transmit requests
-+ * containing XEN_NETIF_EXTRA_TYPE_MCAST_{ADD,DEL} extra-info fragments as
-+ * specified below.
-+ * Note that the filter list may be amended even if the sampled value of
-+ * "request-multicast-control" is not set, however the filter should only
-+ * be applied if it is set.
-+ */
-+
-+/*
-+ * Control ring
-+ * ============
-+ *
-+ * Some features, such as toeplitz hashing (detailed below), require a
-+ * significant amount of out-of-band data to be passed from frontend to
-+ * backend. Use of xenstore is not suitable for large quantities of data
-+ * because of quota limitations and so a dedicated 'control ring' is used.
-+ * The ability of the backend to use a control ring is advertised by
-+ * setting:
-+ *
-+ * /local/domain/X/backend/<domid>/<vif>/feature-ctrl-ring = "1"
-+ *
-+ * The frontend provides a control ring to the backend by setting:
-+ *
-+ * /local/domain/<domid>/device/vif/<vif>/ctrl-ring-ref = <gref>
-+ * /local/domain/<domid>/device/vif/<vif>/event-channel-ctrl = <port>
-+ *
-+ * where <gref> is the grant reference of the shared page used to
-+ * implement the control ring and <port> is an event channel to be used
-+ * as a mailbox interrupt. These keys must be set before the frontend
-+ * moves into the connected state.
-+ *
-+ * The control ring uses a fixed request/response message size and is
-+ * balanced (i.e. one request to one response), so operationally it is much
-+ * the same as a transmit or receive ring.
-+ * Note that there is no requirement that responses are issued in the same
-+ * order as requests.
-+ */
-+
-+/*
-+ * Toeplitz hash types
-+ * ===================
-+ *
-+ * For the purposes of the definitions below, 'Packet[]' is an array of
-+ * octets containing an IP packet without options, 'Array[X..Y]' means a
-+ * sub-array of 'Array' containing bytes X thru Y inclusive, and '+' is
-+ * used to indicate concatenation of arrays.
-+ */
-+
-+/*
-+ * A hash calculated over an IP version 4 header as follows:
-+ *
-+ * Buffer[0..8] = Packet[12..15] (source address) +
-+ *                Packet[16..19] (destination address)
-+ *
-+ * Result = ToeplitzHash(Buffer, 8)
-+ */
-+#define _XEN_NETIF_CTRL_TOEPLITZ_HASH_IPV4     0
-+#define XEN_NETIF_CTRL_TOEPLITZ_HASH_IPV4      (1 << _XEN_NETIF_CTRL_TOEPLITZ_HASH_IPV4)
-+
-+/*
-+ * A hash calculated over an IP version 4 header and TCP header as
-+ * follows:
-+ *
-+ * Buffer[0..12] = Packet[12..15] (source address) +
-+ *                 Packet[16..19] (destination address) +
-+ *                 Packet[20..21] (source port) +
-+ *                 Packet[22..23] (destination port)
-+ *
-+ * Result = ToeplitzHash(Buffer, 12)
-+ */
-+#define _XEN_NETIF_CTRL_TOEPLITZ_HASH_IPV4_TCP 1
-+#define XEN_NETIF_CTRL_TOEPLITZ_HASH_IPV4_TCP  (1 << _XEN_NETIF_CTRL_TOEPLITZ_HASH_IPV4_TCP)
-+
-+/*
-+ * A hash calculated over an IP version 6 header as follows:
-+ *
-+ * Buffer[0..32] = Packet[8..23]  (source address ) +
-+ *                 Packet[24..39] (destination address)
-+ *
-+ * Result = ToeplitzHash(Buffer, 32)
-+ */
-+#define _XEN_NETIF_CTRL_TOEPLITZ_HASH_IPV6     2
-+#define XEN_NETIF_CTRL_TOEPLITZ_HASH_IPV6      (1 << _XEN_NETIF_CTRL_TOEPLITZ_HASH_IPV6)
-+
-+/*
-+ * A hash calculated over an IP version 6 header and TCP header as
-+ * follows:
-+ *
-+ * Buffer[0..36] = Packet[8..23]  (source address) +
-+ *                 Packet[24..39] (destination address) +
-+ *                 Packet[40..41] (source port) +
-+ *                 Packet[42..43] (destination port)
-+ *
-+ * Result = ToeplitzHash(Buffer, 36)
-+ */
-+#define _XEN_NETIF_CTRL_TOEPLITZ_HASH_IPV6_TCP 3
-+#define XEN_NETIF_CTRL_TOEPLITZ_HASH_IPV6_TCP  (1 << _XEN_NETIF_CTRL_TOEPLITZ_HASH_IPV6_TCP)
-+
-+/*
-+ * Control requests (xen_netif_ctrl_request_t)
-+ * =======================================
-+ *
-+ * All requests have the following format:
-+ *
-+ *    0     1     2     3     4     5     6     7  octet
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * |    id     |   type    |         data[0]       |
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * |         data[1]       |         data[2]       |
-+ * +-----+-----+-----+-----+-----------------------+
-+ *
-+ * id: the request identifier, echoed in response.
-+ * type: the type of request (see below)
-+ * data[]: any data associated with the request (determined by type)
-+ */
-+
-+struct xen_netif_ctrl_request {
-+	uint16_t id;
-+	uint16_t type;
-+
-+#define XEN_NETIF_CTRL_TYPE_INVALID                    0
-+#define XEN_NETIF_CTRL_TYPE_GET_TOEPLITZ_FLAGS         1
-+#define XEN_NETIF_CTRL_TYPE_SET_TOEPLITZ_FLAGS         2
-+#define XEN_NETIF_CTRL_TYPE_SET_TOEPLITZ_KEY           3
-+#define XEN_NETIF_CTRL_TYPE_GET_TOEPLITZ_MAPPING_ORDER 4
-+#define XEN_NETIF_CTRL_TYPE_SET_TOEPLITZ_MAPPING_ORDER 5
-+#define XEN_NETIF_CTRL_TYPE_SET_TOEPLITZ_MAPPING       6
-+
-+	uint32_t data[3];
-+};
-+typedef struct xen_netif_ctrl_request xen_netif_ctrl_request_t;
-+
-+/*
-+ * Control responses (xen_netif_ctrl_response_t)
-+ * =========================================
-+ *
-+ * All responses have the following format:
-+ *
-+ *    0     1     2     3     4     5     6     7  octet
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * |    id     |   type    |         status        |
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * |         data          |
-+ * +-----+-----+-----+-----+
-+ *
-+ * id: the corresponding request identifier
-+ * type: the type of the corresponding request
-+ * status: the status of request processing
-+ * data: any data associated with the response (determined by type and
-+ *       status)
-+ */
-+
-+struct xen_netif_ctrl_response {
-+	uint16_t id;
-+	uint16_t type;
-+	uint32_t status;
-+
-+#define XEN_NETIF_CTRL_STATUS_SUCCESS           0
-+#define XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED     1
-+#define XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER 2
-+#define XEN_NETIF_CTRL_STATUS_BUFFER_OVERFLOW   3
-+
-+	uint32_t data;
-+};
-+typedef struct xen_netif_ctrl_response xen_netif_ctrl_response_t;
-+
-+/*
-+ * Control messages
-+ * ================
-+ *
-+ * XEN_NETIF_CTRL_TYPE_GET_TOEPLITZ_FLAGS
-+ * ----------------------------------
-+ *
-+ * This is sent by the frontend to query the types of toeplitz
-+ * hash supported by the backend.
-+ *
-+ * Request:
-+ *
-+ *  type    = XEN_NETIF_CTRL_TYPE_GET_TOEPLITZ_FLAGS
-+ *  data[0] = 0
-+ *  data[1] = 0
-+ *  data[2] = 0
-+ *
-+ * Response:
-+ *
-+ *  status = XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED - Operation not supported
-+ *           XEN_NETIF_CTRL_STATUS_SUCCESS       - Operation successful
-+ *  data   = supported hash types (if operation was successful)
-+ *
-+ * XEN_NETIF_CTRL_TYPE_SET_TOEPLITZ_FLAGS
-+ * ----------------------------------
-+ *
-+ * This is sent by the frontend to set the types of toeplitz hash that
-+ * the backend should calculate. (See above for hash type definitions).
-+ * Note that the 'maximal' type of hash should always be chosen. For
-+ * example, if the frontend sets both IPV4 and IPV4_TCP hash types then
-+ * the latter hash type should be calculated for any TCP packet and the
-+ * former only calculated for non-TCP packets.
-+ *
-+ * Request:
-+ *
-+ *  type    = XEN_NETIF_CTRL_TYPE_SET_TOEPLITZ_FLAGS
-+ *  data[0] = bitwise OR of XEN_NETIF_CTRL_TOEPLITZ_HASH_* values
-+ *  data[1] = 0
-+ *  data[2] = 0
-+ *
-+ * Response:
-+ *
-+ *  status = XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED     - Operation not supported
-+ *           XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER - One or more flag value
-+ *                                                 is invalid or
-+ *                                                 unsupported
-+ *           XEN_NETIF_CTRL_STATUS_SUCCESS           - Operation successful
-+ *  data   = 0
-+ *
-+ * NOTE: Setting data[0] to zero disables toeplitz hashing and the backend
-+ *       is free to choose how it steers packets to queues (which is the
-+ *       default behaviour).
-+ *
-+ * XEN_NETIF_CTRL_TYPE_SET_TOEPLITZ_KEY
-+ * --------------------------------
-+ *
-+ * This is sent by the frontend to set the key of the toeplitz hash that
-+ * the backend should calculate. The toeplitz algorithm is illustrated
-+ * by the following pseudo-code:
-+ *
-+ * (Buffer[] and Key[] are treated as shift-registers where the MSB of
-+ * Buffer/Key[0] is considered 'left-most' and the LSB of Buffer/Key[N-1]
-+ * is the 'right-most').
-+ *
-+ * Value = 0
-+ * For number of bits in Buffer[]
-+ *    If (left-most bit of Buffer[] is 1)
-+ *        Value ^= left-most 32 bits of Key[]
-+ *    Key[] << 1
-+ *    Buffer[] << 1
-+ *
-+ * Request:
-+ *
-+ *  type    = XEN_NETIF_CTRL_TYPE_SET_TOEPLITZ_KEY
-+ *  data[0] = grant reference of page containing the key (assumed to
-+ *            start at beginning of grant)
-+ *  data[1] = size of key in octets
-+ *  data[2] = 0
-+ *
-+ * Response:
-+ *
-+ *  status = XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED     - Operation not supported
-+ *           XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER - Key size is invalid
-+ *           XEN_NETIF_CTRL_STATUS_BUFFER_OVERFLOW   - Key size is larger than
-+ *                                                 the backend supports
-+ *           XEN_NETIF_CTRL_STATUS_SUCCESS           - Operation successful
-+ *  data   = 0
-+ *
-+ * NOTE: Any key octets not specified are assumed to be zero (the key
-+ *       is assumed to be empty by default) and specifying a new key
-+ *       invalidates any previous key, hence specifying a key size of
-+ *       zero will clear the key (which ensures that the calculated hash
-+ *       will always be zero).
-+ *       The maximum size of key is backend specific, but is also limited
-+ *       by the single grant reference.
-+ *       The grant reference may be read-only and must remain valid until
-+ *       the response has been processed.
-+ *
-+ * XEN_NETIF_CTRL_TYPE_GET_TOEPLITZ_MAPPING_ORDER
-+ * ------------------------------------------
-+ *
-+ * This is sent by the frontend to query the maximum order of mapping
-+ * table supported by the backend. The order is specified in terms of
-+ * table entries i.e. the table may contain up to 2^order entries.
-+ *
-+ * Request:
-+ *
-+ *  type    = XEN_NETIF_CTRL_TYPE_GET_TOEPLITZ_MAPPING_ORDER
-+ *  data[0] = 0
-+ *  data[1] = 0
-+ *  data[2] = 0
-+ *
-+ * Response:
-+ *
-+ *  status = XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED - Operation not supported
-+ *           XEN_NETIF_CTRL_STATUS_SUCCESS       - Operation successful
-+ *  data   = maximum order of mapping table (if operation was successful)
-+ *
-+ * XEN_NETIF_CTRL_TYPE_SET_TOEPLITZ_MAPPING_ORDER
-+ * ------------------------------------------
-+ *
-+ * This is sent by the frontend to set the actual order of the mapping
-+ * table to be used by the backend. The order is specified in terms of
-+ * table entries i.e. the table will contain to 2^order entries.
-+ * Any previous table is invalidated by this message and any new table
-+ * is assumed to be zero filled. The default order is zero and hence the
-+ * default table contains a single entry mapping all hashes to queue-0.
-+ *
-+ * Request:
-+ *
-+ *  type    = XEN_NETIF_CTRL_TYPE_SET_TOEPLITZ_MAPPING_ORDER
-+ *  data[0] = order of mapping table
-+ *  data[1] = 0
-+ *  data[2] = 0
-+ *
-+ * Response:
-+ *
-+ *  status = XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED     - Operation not supported
-+ *           XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER - Table order is invalid
-+ *           XEN_NETIF_CTRL_STATUS_SUCCESS           - Operation successful
-+ *  data   = 0
-+ *
-+ * XEN_NETIF_CTRL_TYPE_SET_TOEPLITZ_MAPPING
-+ * ------------------------------------
-+ *
-+ * This is sent by the frontend to set the content of the table mapping
-+ * toeplitz hash value to queue number. The backend should calculate the
-+ * hash from the packet header, use it as an index into the table (modulo
-+ * the size of the table) and then steer the packet to the queue number
-+ * found at that index.
-+ *
-+ * Request:
-+ *
-+ *  type    = XEN_NETIF_CTRL_TYPE_SET_TOEPLITZ_MAPPING
-+ *  data[0] = grant reference of page containing the mapping (sub-)table
-+ *            (assumed to start at beginning of grant)
-+ *  data[1] = size of (sub-)table in entries
-+ *  data[2] = offset, in entries, of sub-table within overall table
-+ *
-+ * Response:
-+ *
-+ *  status = XEN_NETIF_CTRL_STATUS_NOT_SUPPORTED     - Operation not supported
-+ *           XEN_NETIF_CTRL_STATUS_INVALID_PARAMETER - Table size or content is
-+ *                                                 invalid
-+ *           XEN_NETIF_CTRL_STATUS_BUFFER_OVERFLOW   - Table size is larger than
-+ *                                                 the backend supports
-+ *           XEN_NETIF_CTRL_STATUS_SUCCESS           - Operation successful
-+ *  data   = 0
-+ *
-+ * NOTE: The overall table has the following format:
-+ *
-+ *          0     1     2     3     4     5     6     7  octet
-+ *       +-----+-----+-----+-----+-----+-----+-----+-----+
-+ *       |       mapping[0]      |       mapping[1]      |
-+ *       +-----+-----+-----+-----+-----+-----+-----+-----+
-+ *       |                       .                       |
-+ *       |                       .                       |
-+ *       |                       .                       |
-+ *       +-----+-----+-----+-----+-----+-----+-----+-----+
-+ *       |      mapping[N-2]     |      mapping[N-1]     |
-+ *       +-----+-----+-----+-----+-----+-----+-----+-----+
-+ *
-+ *       where N == 2^order as specified by a
-+ *       XEN_NETIF_CTRL_TYPE_SET_TOEPLITZ_MAPPING_ORDER message and each
-+ *       mapping must specifies a queue between 0 and
-+ *       "multi-queue-num-queues" (see above).
-+ *       The backend may support a mapping table larger than can be
-+ *       mapped by a single grant reference. Thus sub-tables within a
-+ *       larger table can be individually set by sending multiple messages
-+ *       with differing offset values. Specifying a new sub-table does not
-+ *       invalidate any table data outside that range.
-+ *       The grant reference may be read-only and must remain valid until
-+ *       the response has been processed.
-+ */
-+
-+DEFINE_RING_TYPES(xen_netif_ctrl, struct xen_netif_ctrl_request,
-+		  struct xen_netif_ctrl_response);
-+
-+/*
-+ * Guest transmit
-+ * ==============
-+ *
-+ * This is the 'wire' format for transmit (frontend -> backend) packets:
-+ *
-+ *  Fragment 1: xen_netif_tx_request_t  - flags = XEN_NETTXF_*
-+ *                                    size = total packet size
-+ * [Extra 1: xen_netif_extra_info_t]    - (only if fragment 1 flags include
-+ *                                     XEN_NETTXF_extra_info)
-+ *  ...
-+ * [Extra N: xen_netif_extra_info_t]    - (only if extra N-1 flags include
-+ *                                     XEN_NETIF_EXTRA_MORE)
-+ *  ...
-+ *  Fragment N: xen_netif_tx_request_t  - (only if fragment N-1 flags include
-+ *                                     XEN_NETTXF_more_data - flags on preceding
-+ *                                     extras are not relevent here)
-+ *                                    flags = 0
-+ *                                    size = fragment size
-+ *
-+ * NOTE:
-+ *
-+ * This format slightly is different from that used for receive
-+ * (backend -> frontend) packets. Specifically, in a multi-fragment
-+ * packet the actual size of fragment 1 can only be determined by
-+ * subtracting the sizes of fragments 2..N from the total packet size.
-+ *
-+ * Ring slot size is 12 octets, however not all request/response
-+ * structs use the full size.
-+ *
-+ * tx request data (xen_netif_tx_request_t)
-+ * ------------------------------------
-+ *
-+ *    0     1     2     3     4     5     6     7  octet
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * | grant ref             | offset    | flags     |
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * | id        | size      |
-+ * +-----+-----+-----+-----+
-+ *
-+ * grant ref: Reference to buffer page.
-+ * offset: Offset within buffer page.
-+ * flags: XEN_NETTXF_*.
-+ * id: request identifier, echoed in response.
-+ * size: packet size in bytes.
-+ *
-+ * tx response (xen_netif_tx_response_t)
-+ * ---------------------------------
-+ *
-+ *    0     1     2     3     4     5     6     7  octet
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * | id        | status    | unused                |
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * | unused                |
-+ * +-----+-----+-----+-----+
-+ *
-+ * id: reflects id in transmit request
-+ * status: XEN_NETIF_RSP_*
-+ *
-+ * Guest receive
-+ * =============
-+ *
-+ * This is the 'wire' format for receive (backend -> frontend) packets:
-+ *
-+ *  Fragment 1: xen_netif_rx_request_t  - flags = XEN_NETRXF_*
-+ *                                    size = fragment size
-+ * [Extra 1: xen_netif_extra_info_t]    - (only if fragment 1 flags include
-+ *                                     XEN_NETRXF_extra_info)
-+ *  ...
-+ * [Extra N: xen_netif_extra_info_t]    - (only if extra N-1 flags include
-+ *                                     XEN_NETIF_EXTRA_MORE)
-  *  ...
-- *  Request N: xen_netif_tx_request  -- 0
-+ *  Fragment N: xen_netif_rx_request_t  - (only if fragment N-1 flags include
-+ *                                     XEN_NETRXF_more_data - flags on preceding
-+ *                                     extras are not relevent here)
-+ *                                    flags = 0
-+ *                                    size = fragment size
-+ *
-+ * NOTE:
-+ *
-+ * This format slightly is different from that used for transmit
-+ * (frontend -> backend) packets. Specifically, in a multi-fragment
-+ * packet the size of the packet can only be determined by summing the
-+ * sizes of fragments 1..N.
-+ *
-+ * Ring slot size is 8 octets.
-+ *
-+ * rx request (xen_netif_rx_request_t)
-+ * -------------------------------
-+ *
-+ *    0     1     2     3     4     5     6     7  octet
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * | id        | pad       | gref                  |
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ *
-+ * id: request identifier, echoed in response.
-+ * gref: reference to incoming granted frame.
-+ *
-+ * rx response (xen_netif_rx_response_t)
-+ * ---------------------------------
-+ *
-+ *    0     1     2     3     4     5     6     7  octet
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * | id        | offset    | flags     | status    |
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ *
-+ * id: reflects id in receive request
-+ * offset: offset in page of start of received packet
-+ * flags: XEN_NETRXF_*
-+ * status: -ve: XEN_NETIF_RSP_*; +ve: Rx'ed pkt size.
-+ *
-+ * NOTE: Historically, to support GSO on the frontend receive side, Linux
-+ *       netfront does not make use of the rx response id (because, as
-+ *       described below, extra info structures overlay the id field).
-+ *       Instead it assumes that responses always appear in the same ring
-+ *       slot as their corresponding request. Thus, to maintain
-+ *       compatibilty, backends must make sure this is the case.
-+ *
-+ * Extra Info
-+ * ==========
-+ *
-+ * Can be present if initial request or response has NET{T,R}XF_extra_info,
-+ * or previous extra request has XEN_NETIF_EXTRA_MORE.
-+ *
-+ * The struct therefore needs to fit into either a tx or rx slot and
-+ * is therefore limited to 8 octets.
-+ *
-+ * NOTE: Because extra info data overlays the usual request/response
-+ *       structures, there is no id information in the opposite direction.
-+ *       So, if an extra info overlays an rx response the frontend can
-+ *       assume that it is in the same ring slot as the request that was
-+ *       consumed to make the slot available, and the backend must ensure
-+ *       this assumption is true.
-+ *
-+ * extra info (xen_netif_extra_info_t)
-+ * -------------------------------
-+ *
-+ * General format:
-+ *
-+ *    0     1     2     3     4     5     6     7  octet
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * |type |flags| type specific data                |
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * | padding for tx        |
-+ * +-----+-----+-----+-----+
-+ *
-+ * type: XEN_NETIF_EXTRA_TYPE_*
-+ * flags: XEN_NETIF_EXTRA_FLAG_*
-+ * padding for tx: present only in the tx case due to 8 octet limit
-+ *                 from rx case. Not shown in type specific entries
-+ *                 below.
-+ *
-+ * XEN_NETIF_EXTRA_TYPE_GSO:
-+ *
-+ *    0     1     2     3     4     5     6     7  octet
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * |type |flags| size      |type | pad | features  |
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ *
-+ * type: Must be XEN_NETIF_EXTRA_TYPE_GSO
-+ * flags: XEN_NETIF_EXTRA_FLAG_*
-+ * size: Maximum payload size of each segment. For example,
-+ *       for TCP this is just the path MSS.
-+ * type: XEN_NETIF_GSO_TYPE_*: This determines the protocol of
-+ *       the packet and any extra features required to segment the
-+ *       packet properly.
-+ * features: EN_NETIF_GSO_FEAT_*: This specifies any extra GSO
-+ *           features required to process this packet, such as ECN
-+ *           support for TCPv4.
-+ *
-+ * XEN_NETIF_EXTRA_TYPE_MCAST_{ADD,DEL}:
-+ *
-+ *    0     1     2     3     4     5     6     7  octet
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * |type |flags| addr                              |
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ *
-+ * type: Must be XEN_NETIF_EXTRA_TYPE_MCAST_{ADD,DEL}
-+ * flags: XEN_NETIF_EXTRA_FLAG_*
-+ * addr: address to add/remove
-+ *
-+ * XEN_NETIF_EXTRA_TYPE_TOEPLITZ:
-+ *
-+ * A backend that supports teoplitz hashing is assumed to accept
-+ * this type of extra info in transmit packets.
-+ * A frontend that enables toeplitz hashing is assumed to accept
-+ * this type of extra info in receive packets.
-+ *
-+ *    0     1     2     3     4     5     6     7  octet
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ * |type |flags|htype| pad |LSB ---- value ---- MSB|
-+ * +-----+-----+-----+-----+-----+-----+-----+-----+
-+ *
-+ * type: Must be XEN_NETIF_EXTRA_TYPE_TOEPLITZ
-+ * flags: XEN_NETIF_EXTRA_FLAG_*
-+ * htype: Hash type (one of _XEN_NETIF_CTRL_TOEPLITZ_HASH_* - see above)
-+ * value: Hash value
-  */
+ static inline void skb_clear_hash_if_not_l4(struct sk_buff *skb)
+ {
+-	if (!skb->l4_hash)
++	if (!skb_has_l4_hash(skb))
+ 		skb_clear_hash(skb);
+ }
  
- /* Protocol checksum field is blank in the packet (hardware offload)? */
--#define _XEN_NETTXF_csum_blank		(0)
--#define  XEN_NETTXF_csum_blank		(1U<<_XEN_NETTXF_csum_blank)
-+#define _XEN_NETTXF_csum_blank     (0)
-+#define  XEN_NETTXF_csum_blank     (1U<<_XEN_NETTXF_csum_blank)
+ static inline void
+-__skb_set_hash(struct sk_buff *skb, __u32 hash, bool is_sw, bool is_l4)
++__skb_set_hash(struct sk_buff *skb, __u32 hash, bool is_sw,
++	       enum pkt_hash_types type)
+ {
+-	skb->l4_hash = is_l4;
++	skb->hash_type = type;
+ 	skb->sw_hash = is_sw;
+ 	skb->hash = hash;
+ }
+@@ -1051,13 +1067,13 @@ static inline void
+ skb_set_hash(struct sk_buff *skb, __u32 hash, enum pkt_hash_types type)
+ {
+ 	/* Used by drivers to set hash from HW */
+-	__skb_set_hash(skb, hash, false, type == PKT_HASH_TYPE_L4);
++	__skb_set_hash(skb, hash, false, type);
+ }
  
- /* Packet data has been validated against protocol checksum. */
--#define _XEN_NETTXF_data_validated	(1)
--#define  XEN_NETTXF_data_validated	(1U<<_XEN_NETTXF_data_validated)
-+#define _XEN_NETTXF_data_validated (1)
-+#define  XEN_NETTXF_data_validated (1U<<_XEN_NETTXF_data_validated)
+ static inline void
+-__skb_set_sw_hash(struct sk_buff *skb, __u32 hash, bool is_l4)
++__skb_set_sw_hash(struct sk_buff *skb, __u32 hash, enum pkt_hash_types type)
+ {
+-	__skb_set_hash(skb, hash, true, is_l4);
++	__skb_set_hash(skb, hash, true, type);
+ }
  
- /* Packet continues in the next request descriptor. */
--#define _XEN_NETTXF_more_data		(2)
--#define  XEN_NETTXF_more_data		(1U<<_XEN_NETTXF_more_data)
-+#define _XEN_NETTXF_more_data      (2)
-+#define  XEN_NETTXF_more_data      (1U<<_XEN_NETTXF_more_data)
+ void __skb_get_hash(struct sk_buff *skb);
+@@ -1110,9 +1126,10 @@ static inline bool skb_flow_dissect_flow_keys_buf(struct flow_keys *flow,
+ 				  data, proto, nhoff, hlen, flags);
+ }
  
- /* Packet to be followed by extra descriptor(s). */
--#define _XEN_NETTXF_extra_info		(3)
--#define  XEN_NETTXF_extra_info		(1U<<_XEN_NETTXF_extra_info)
-+#define _XEN_NETTXF_extra_info     (3)
-+#define  XEN_NETTXF_extra_info     (1U<<_XEN_NETTXF_extra_info)
++
+ static inline __u32 skb_get_hash(struct sk_buff *skb)
+ {
+-	if (!skb->l4_hash && !skb->sw_hash)
++	if (!skb_has_l4_hash(skb) && !skb_has_sw_hash(skb))
+ 		__skb_get_hash(skb);
  
- #define XEN_NETIF_MAX_TX_SIZE 0xFFFF
- struct xen_netif_tx_request {
--    grant_ref_t gref;      /* Reference to buffer page */
--    uint16_t offset;       /* Offset within buffer page */
--    uint16_t flags;        /* XEN_NETTXF_* */
--    uint16_t id;           /* Echoed in response message. */
--    uint16_t size;         /* Packet size in bytes.       */
-+	grant_ref_t gref;
-+	uint16_t offset;
-+	uint16_t flags;
-+	uint16_t id;
-+	uint16_t size;
+ 	return skb->hash;
+@@ -1122,11 +1139,12 @@ __u32 __skb_get_hash_flowi6(struct sk_buff *skb, const struct flowi6 *fl6);
+ 
+ static inline __u32 skb_get_hash_flowi6(struct sk_buff *skb, const struct flowi6 *fl6)
+ {
+-	if (!skb->l4_hash && !skb->sw_hash) {
++	if (!skb_has_l4_hash(skb) && !skb_has_sw_hash(skb)) {
+ 		struct flow_keys keys;
+ 		__u32 hash = __get_hash_from_flowi6(fl6, &keys);
+ 
+-		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys));
++		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys) ?
++				  PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
+ 	}
+ 
+ 	return skb->hash;
+@@ -1136,11 +1154,12 @@ __u32 __skb_get_hash_flowi4(struct sk_buff *skb, const struct flowi4 *fl);
+ 
+ static inline __u32 skb_get_hash_flowi4(struct sk_buff *skb, const struct flowi4 *fl4)
+ {
+-	if (!skb->l4_hash && !skb->sw_hash) {
++	if (!skb_has_l4_hash(skb) && !skb_has_sw_hash(skb)) {
+ 		struct flow_keys keys;
+ 		__u32 hash = __get_hash_from_flowi4(fl4, &keys);
+ 
+-		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys));
++		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys) ?
++				  PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
+ 	}
+ 
+ 	return skb->hash;
+@@ -1157,7 +1176,7 @@ static inline void skb_copy_hash(struct sk_buff *to, const struct sk_buff *from)
+ {
+ 	to->hash = from->hash;
+ 	to->sw_hash = from->sw_hash;
+-	to->l4_hash = from->l4_hash;
++	to->hash_type = from->hash_type;
  };
-+typedef struct xen_netif_tx_request xen_netif_tx_request_t;
  
- /* Types of xen_netif_extra_info descriptors. */
--#define XEN_NETIF_EXTRA_TYPE_NONE	(0)  /* Never used - invalid */
--#define XEN_NETIF_EXTRA_TYPE_GSO	(1)  /* u.gso */
--#define XEN_NETIF_EXTRA_TYPE_MCAST_ADD	(2)  /* u.mcast */
--#define XEN_NETIF_EXTRA_TYPE_MCAST_DEL	(3)  /* u.mcast */
--#define XEN_NETIF_EXTRA_TYPE_MAX	(4)
-+#define XEN_NETIF_EXTRA_TYPE_NONE      (0)	/* Never used - invalid */
-+#define XEN_NETIF_EXTRA_TYPE_GSO       (1)	/* u.gso */
-+#define XEN_NETIF_EXTRA_TYPE_MCAST_ADD (2)	/* u.mcast */
-+#define XEN_NETIF_EXTRA_TYPE_MCAST_DEL (3)	/* u.mcast */
-+#define XEN_NETIF_EXTRA_TYPE_TOEPLITZ  (4)	/* u.toeplitz */
-+#define XEN_NETIF_EXTRA_TYPE_MAX       (5)
+ static inline void skb_sender_cpu_clear(struct sk_buff *skb)
+diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
+index 8c8548c..418b8c5 100644
+--- a/include/net/flow_dissector.h
++++ b/include/net/flow_dissector.h
+@@ -182,6 +182,11 @@ static inline bool flow_keys_have_l4(struct flow_keys *keys)
+ 	return (keys->ports.ports || keys->tags.flow_label);
+ }
  
--/* xen_netif_extra_info flags. */
--#define _XEN_NETIF_EXTRA_FLAG_MORE	(0)
--#define  XEN_NETIF_EXTRA_FLAG_MORE	(1U<<_XEN_NETIF_EXTRA_FLAG_MORE)
-+/* xen_netif_extra_info_t flags. */
-+#define _XEN_NETIF_EXTRA_FLAG_MORE (0)
-+#define XEN_NETIF_EXTRA_FLAG_MORE  (1U<<_XEN_NETIF_EXTRA_FLAG_MORE)
- 
- /* GSO types */
--#define XEN_NETIF_GSO_TYPE_NONE		(0)
--#define XEN_NETIF_GSO_TYPE_TCPV4	(1)
--#define XEN_NETIF_GSO_TYPE_TCPV6	(2)
-+#define XEN_NETIF_GSO_TYPE_NONE         (0)
-+#define XEN_NETIF_GSO_TYPE_TCPV4        (1)
-+#define XEN_NETIF_GSO_TYPE_TCPV6        (2)
- 
- /*
-- * This structure needs to fit within both netif_tx_request and
-- * netif_rx_response for compatibility.
-+ * This structure needs to fit within both xen_netif_tx_request_t and
-+ * xen_netif_rx_response_t for compatibility.
-  */
- struct xen_netif_extra_info {
--	uint8_t type;  /* XEN_NETIF_EXTRA_TYPE_* */
--	uint8_t flags; /* XEN_NETIF_EXTRA_FLAG_* */
--
-+	uint8_t type;
-+	uint8_t flags;
- 	union {
- 		struct {
--			/*
--			 * Maximum payload size of each segment. For
--			 * example, for TCP this is just the path MSS.
--			 */
- 			uint16_t size;
--
--			/*
--			 * GSO type. This determines the protocol of
--			 * the packet and any extra features required
--			 * to segment the packet properly.
--			 */
--			uint8_t type; /* XEN_NETIF_GSO_TYPE_* */
--
--			/* Future expansion. */
-+			uint8_t type;
- 			uint8_t pad;
--
--			/*
--			 * GSO features. This specifies any extra GSO
--			 * features required to process this packet,
--			 * such as ECN support for TCPv4.
--			 */
--			uint16_t features; /* XEN_NETIF_GSO_FEAT_* */
-+			uint16_t features;
- 		} gso;
--
- 		struct {
--			uint8_t addr[6]; /* Address to add/remove. */
-+			uint8_t addr[6];
- 		} mcast;
--
-+		struct {
-+			uint8_t type;
-+			uint8_t pad;
-+			uint8_t value[4];
-+		} toeplitz;
- 		uint16_t pad[3];
- 	} u;
- };
-+typedef struct xen_netif_extra_info xen_netif_extra_info_t;
- 
- struct xen_netif_tx_response {
- 	uint16_t id;
--	int16_t  status;       /* XEN_NETIF_RSP_* */
-+	int16_t status;
- };
-+typedef struct xen_netif_tx_response xen_netif_tx_response_t;
- 
- struct xen_netif_rx_request {
--	uint16_t    id;        /* Echoed in response message.        */
--	grant_ref_t gref;      /* Reference to incoming granted frame */
-+	uint16_t id;		/* Echoed in response message.        */
-+	uint16_t pad;
-+	grant_ref_t gref;
- };
-+typedef struct xen_netif_rx_request xen_netif_rx_request_t;
- 
- /* Packet data has been validated against protocol checksum. */
--#define _XEN_NETRXF_data_validated	(0)
--#define  XEN_NETRXF_data_validated	(1U<<_XEN_NETRXF_data_validated)
-+#define _XEN_NETRXF_data_validated (0)
-+#define  XEN_NETRXF_data_validated (1U<<_XEN_NETRXF_data_validated)
- 
- /* Protocol checksum field is blank in the packet (hardware offload)? */
--#define _XEN_NETRXF_csum_blank		(1)
--#define  XEN_NETRXF_csum_blank		(1U<<_XEN_NETRXF_csum_blank)
-+#define _XEN_NETRXF_csum_blank     (1)
-+#define  XEN_NETRXF_csum_blank     (1U<<_XEN_NETRXF_csum_blank)
- 
- /* Packet continues in the next request descriptor. */
--#define _XEN_NETRXF_more_data		(2)
--#define  XEN_NETRXF_more_data		(1U<<_XEN_NETRXF_more_data)
-+#define _XEN_NETRXF_more_data      (2)
-+#define  XEN_NETRXF_more_data      (1U<<_XEN_NETRXF_more_data)
- 
- /* Packet to be followed by extra descriptor(s). */
--#define _XEN_NETRXF_extra_info		(3)
--#define  XEN_NETRXF_extra_info		(1U<<_XEN_NETRXF_extra_info)
-+#define _XEN_NETRXF_extra_info     (3)
-+#define  XEN_NETRXF_extra_info     (1U<<_XEN_NETRXF_extra_info)
- 
--/* GSO Prefix descriptor. */
--#define _XEN_NETRXF_gso_prefix		(4)
--#define  XEN_NETRXF_gso_prefix		(1U<<_XEN_NETRXF_gso_prefix)
-+/* Packet has GSO prefix. Deprecated but included for compatibility */
-+#define _XEN_NETRXF_gso_prefix     (4)
-+#define  XEN_NETRXF_gso_prefix     (1U<<_XEN_NETRXF_gso_prefix)
- 
- struct xen_netif_rx_response {
--    uint16_t id;
--    uint16_t offset;       /* Offset in page of start of received packet  */
--    uint16_t flags;        /* XEN_NETRXF_* */
--    int16_t  status;       /* -ve: BLKIF_RSP_* ; +ve: Rx'ed pkt size. */
-+	uint16_t id;
-+	uint16_t offset;
-+	uint16_t flags;
-+	int16_t status;
- };
-+typedef struct xen_netif_rx_response xen_netif_rx_response_t;
- 
- /*
-  * Generate netif ring structures and types.
-  */
- 
--DEFINE_RING_TYPES(xen_netif_tx,
--		  struct xen_netif_tx_request,
-+DEFINE_RING_TYPES(xen_netif_tx, struct xen_netif_tx_request,
- 		  struct xen_netif_tx_response);
--DEFINE_RING_TYPES(xen_netif_rx,
--		  struct xen_netif_rx_request,
-+DEFINE_RING_TYPES(xen_netif_rx, struct xen_netif_rx_request,
- 		  struct xen_netif_rx_response);
- 
--#define XEN_NETIF_RSP_DROPPED	-2
--#define XEN_NETIF_RSP_ERROR	-1
--#define XEN_NETIF_RSP_OKAY	 0
--/* No response: used for auxiliary requests (e.g., xen_netif_extra_info). */
--#define XEN_NETIF_RSP_NULL	 1
-+#define XEN_NETIF_RSP_DROPPED         -2
-+#define XEN_NETIF_RSP_ERROR           -1
-+#define XEN_NETIF_RSP_OKAY             0
-+/* No response: used for auxiliary requests (e.g., xen_netif_extra_info_t). */
-+#define XEN_NETIF_RSP_NULL             1
++static inline bool flow_keys_have_l3(struct flow_keys *keys)
++{
++	return !!keys->control.addr_type;
++}
++
+ u32 flow_hash_from_keys(struct flow_keys *keys);
  
  #endif
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 255d3e0..21b8cdc 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1828,7 +1828,7 @@ static inline void sock_poll_wait(struct file *filp,
+ static inline void skb_set_hash_from_sk(struct sk_buff *skb, struct sock *sk)
+ {
+ 	if (sk->sk_txhash) {
+-		skb->l4_hash = 1;
++		skb->hash_type = PKT_HASH_TYPE_L4;
+ 		skb->hash = sk->sk_txhash;
+ 	}
+ }
+diff --git a/include/trace/events/net.h b/include/trace/events/net.h
+index 49cc7c3..25e7979 100644
+--- a/include/trace/events/net.h
++++ b/include/trace/events/net.h
+@@ -180,7 +180,7 @@ DECLARE_EVENT_CLASS(net_dev_rx_verbose_template,
+ 		__entry->protocol = ntohs(skb->protocol);
+ 		__entry->ip_summed = skb->ip_summed;
+ 		__entry->hash = skb->hash;
+-		__entry->l4_hash = skb->l4_hash;
++		__entry->l4_hash = skb->hash_type == PKT_HASH_TYPE_L4;
+ 		__entry->len = skb->len;
+ 		__entry->data_len = skb->data_len;
+ 		__entry->truesize = skb->truesize;
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index d79699c..956208b 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -658,17 +658,30 @@ EXPORT_SYMBOL(make_flow_keys_digest);
+  *
+  * This function calculates a flow hash based on src/dst addresses
+  * and src/dst port numbers.  Sets hash in skb to non-zero hash value
+- * on success, zero indicates no valid hash.  Also, sets l4_hash in skb
+- * if hash is a canonical 4-tuple hash over transport ports.
++ * on success, zero indicates no valid hash in which case the hash type
++ * is set to NONE. If the hash is a canonical 4-tuple hash over transport
++ * ports then type is set to L4. If the hash did not include transport
++ * then type is set to L3, otherwise it is assumed to be L2 only.
+  */
+ void __skb_get_hash(struct sk_buff *skb)
+ {
+ 	struct flow_keys keys;
++	u32 hash;
++	enum pkt_hash_types type;
+ 
+ 	__flow_hash_secret_init();
+ 
+-	__skb_set_sw_hash(skb, ___skb_get_hash(skb, &keys, hashrnd),
+-			  flow_keys_have_l4(&keys));
++	hash = ___skb_get_hash(skb, &keys, hashrnd);
++	if (hash == 0)
++		type = PKT_HASH_TYPE_NONE;
++	else if (flow_keys_have_l4(&keys))
++		type = PKT_HASH_TYPE_L4;
++	else if (flow_keys_have_l3(&keys))
++		type = PKT_HASH_TYPE_L3;
++	else
++		type = PKT_HASH_TYPE_L2;
++
++	__skb_set_sw_hash(skb, hash, type);
+ }
+ EXPORT_SYMBOL(__skb_get_hash);
+ 
+@@ -698,7 +711,8 @@ __u32 __skb_get_hash_flowi6(struct sk_buff *skb, const struct flowi6 *fl6)
+ 	keys.basic.ip_proto = fl6->flowi6_proto;
+ 
+ 	__skb_set_sw_hash(skb, flow_hash_from_keys(&keys),
+-			  flow_keys_have_l4(&keys));
++			  flow_keys_have_l4(&keys) ?
++			  PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
+ 
+ 	return skb->hash;
+ }
+@@ -719,7 +733,8 @@ __u32 __skb_get_hash_flowi4(struct sk_buff *skb, const struct flowi4 *fl4)
+ 	keys.basic.ip_proto = fl4->flowi4_proto;
+ 
+ 	__skb_set_sw_hash(skb, flow_hash_from_keys(&keys),
+-			  flow_keys_have_l4(&keys));
++			  flow_keys_have_l4(&keys) ?
++			  PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
+ 
+ 	return skb->hash;
+ }
 -- 
 2.1.4
