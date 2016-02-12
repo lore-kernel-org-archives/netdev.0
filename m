@@ -1,66 +1,78 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] Revert "net: phy: turn carrier off on phy attach"
-Date: Fri, 12 Feb 2016 10:56:04 -0800
-Message-ID: <56BE2AC4.2040908@gmail.com>
-References: <1455300113-2335-1-git-send-email-clemens.gruber@pqgruber.com>
+From: <Bryan.Whitehead@microchip.com>
+Subject: RE: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+Date: Fri, 12 Feb 2016 19:10:52 +0000
+Message-ID: <90A7E81AE28BAE4CBDDB3B35F187D264402EF62A@CHN-SV-EXMX02.mchp-main.com>
+References: <90A7E81AE28BAE4CBDDB3B35F187D264402EF4A2@CHN-SV-EXMX02.mchp-main.com>
+ <56BD23E0.1090403@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
-	"David S . Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Clemens Gruber <clemens.gruber@pqgruber.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455300113-2335-1-git-send-email-clemens.gruber@pqgruber.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <LinoSanfilippo@gmx.de>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exsmtp01.microchip.com ([198.175.253.37]:62679 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750853AbcBLTKy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 14:10:54 -0500
+In-Reply-To: <56BD23E0.1090403@gmx.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/02/16 10:01, Clemens Gruber wrote:
-> Commit 113c74d83eef ("net: phy: turn carrier off on phy attach") breaks
-> the eth0 link coming up on all my i.MX6Q boards with a Marvell 88E1510.
-> If I then do a ifconfig eth0 down/up cycle I first get a MDIO read
-> timeout but then the link becomes ready and everything is back to
-> normal.
-> Without this step however, the link stays down forever, an unusually
-> high amount of phy interrupts occur (about 10000/second) and kworker/0:2
-> is constantly using over 60% of the CPU.
-> 
-> Reverting it fixes the problems with the link not coming up at boot as
-> well as the high amount of phy interrupts and kworker load in that
-> state.
+Lino,
 
-You are seeing this with the FEC driver right? We probably want to
-carefully audit the driver and understand what could be going wrong, the
-initial change is correct, so there must be something else going on here.
+Regarding "a matching smp_rmb() in the irq handler"
+There is a smp_wmb() in the irq handler, since in both cases we are forcing a write operation on software_irq_signal.
 
-> 
-> This reverts commit 113c74d83eef870e43a0d9279044e9d5435f0d07.
-> 
-> Signed-off-by: Clemens Gruber <clemens.gruber@pqgruber.com>
-> ---
->  drivers/net/phy/phy_device.c | 5 -----
->  1 file changed, 5 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index bad3f00..903737a 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -901,11 +901,6 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
->  
->  	phydev->state = PHY_READY;
->  
-> -	/* Initial carrier state is off as the phy is about to be
-> -	 * (re)initialized.
-> -	 */
-> -	netif_carrier_off(phydev->attached_dev);
-> -
->  	/* Do initial configuration here, now that
->  	 * we have certain key parameters
->  	 * (dev_flags and interface)
-> 
+I suppose using atomic operations on software_irq_signal would also work, but this driver was based on 
+drivers/net/ethernet/smsc/smsc911x.c
+And if possible I'd prefer to keep logical changes to a minimum.
+Plus this is not a "read modify write" scenario so I think the memory barrier is sufficient.
+Do you agree?
 
+Regarding register_netdev.
+I'll move register_netdev till after the mac address is set.
 
--- 
-Florian
+Thanks,
+Bryan
+
+-----Original Message-----
+From: Lino Sanfilippo [mailto:LinoSanfilippo@gmx.de] 
+Sent: Thursday, February 11, 2016 7:14 PM
+To: Bryan Whitehead - C21958; davem@davemloft.net
+Cc: netdev@vger.kernel.org
+Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+
+Hi,
+
+> +static int mchp9352_open(struct net_device *dev) {
+
+> +
+> +	MCHP_TRACE(pdata, ifup, "Testing irq handler using IRQ %d", dev->irq);
+> +	pdata->software_irq_signal = 0;
+> +
+> +	/* Testing irq handler */
+> +	smp_wmb();
+
+Should not there at least be a matching smp_rmb() in the irq handler?
+Maybe an atomic_t would be a better choice for a flag like software_irq_signal here.
+
+> +
+> +static int mchp9352_drv_probe(struct platform_device *pdev)
+
+> +
+> +	netif_carrier_off(dev);
+> +
+> +	retval = register_netdev(dev);
+> +	if (retval) {
+> +		MCHP_WARN(pdata, probe, "Error %i registering device", retval);
+> +		goto out_free_irq;
+> +	} else {
+> +		MCHP_TRACE(pdata, probe,
+> +			   "Network interface: \"%s\"", dev->name);
+> +	}
+
+Note that as soon as the network device is registered "open" may be called so everything should be set up already. In this case the mac address (dev->dev_addr) is accessed in open but may not yet contain valid data when register_netdev is called.
+
+Regards,
+Lino
