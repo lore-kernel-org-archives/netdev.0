@@ -1,53 +1,93 @@
-From: Clemens Gruber <clemens.gruber@pqgruber.com>
-Subject: [PATCH] Revert "net: phy: turn carrier off on phy attach"
-Date: Fri, 12 Feb 2016 19:01:53 +0100
-Message-ID: <1455300113-2335-1-git-send-email-clemens.gruber@pqgruber.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
-	"David S . Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Clemens Gruber <clemens.gruber@pqgruber.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Josh Poimboeuf <jpoimboe@redhat.com>
+Subject: Re: [PATCH 00/33] Compile-time stack metadata validation
+Date: Fri, 12 Feb 2016 12:32:06 -0600
+Message-ID: <20160212183206.GB29004@treble.redhat.com>
+References: <cover.1453405861.git.jpoimboe@redhat.com>
+ <56BDB5A8.9030006@suse.cz>
+ <20160212144543.GA29004@treble.redhat.com>
+ <20160212171037.GV6357@twins.programming.kicks-ass.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Jiri Slaby <jslaby@suse.cz>, Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
+	Michal Marek <mmarek@suse.cz>,
+	Andy Lutomirski <luto@kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Pedro Alves <palves@redhat.com>,
+	Namhyung Kim <namhyung@gmail.com>,
+	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
+	Chris J Arges <chris.j.arges@canonical.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Arnaldo Carvalho de Melo <acme@kernel.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Borislav Petkov <bp@suse.de>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	Chris Wright <chrisw@sous-sol.org>,
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38332 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752672AbcBLScU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Feb 2016 13:32:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20160212171037.GV6357@twins.programming.kicks-ass.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 113c74d83eef ("net: phy: turn carrier off on phy attach") breaks
-the eth0 link coming up on all my i.MX6Q boards with a Marvell 88E1510.
-If I then do a ifconfig eth0 down/up cycle I first get a MDIO read
-timeout but then the link becomes ready and everything is back to
-normal.
-Without this step however, the link stays down forever, an unusually
-high amount of phy interrupts occur (about 10000/second) and kworker/0:2
-is constantly using over 60% of the CPU.
+On Fri, Feb 12, 2016 at 06:10:37PM +0100, Peter Zijlstra wrote:
+> On Fri, Feb 12, 2016 at 08:45:43AM -0600, Josh Poimboeuf wrote:
+> > On Fri, Feb 12, 2016 at 11:36:24AM +0100, Jiri Slaby wrote:
+> > 
+> > This seems like a real frame pointer bug caused by the following line in
+> > arch/x86/include/asm/preempt.h:
+> > 
+> >   # define __preempt_schedule() asm ("call ___preempt_schedule")
+> 
+> The purpose there is that:
+> 
+> 	preempt_enable();
+> 
+> turns into:
+> 
+> 	decl	__percpu_prefix:__preempt_count
+> 	jnz	1f:
+> 	call	___preempt_schedule
+> 1:
+> 
+> See arch/x86/include/asm/preempt.h:__preempt_count_dec_and_test()
 
-Reverting it fixes the problems with the link not coming up at boot as
-well as the high amount of phy interrupts and kworker load in that
-state.
+Sorry, I'm kind of confused.  Do you mean that's what preempt_enable()
+would turn into *without* the above define?
 
-This reverts commit 113c74d83eef870e43a0d9279044e9d5435f0d07.
+What I actually see in the listing is:
 
-Signed-off-by: Clemens Gruber <clemens.gruber@pqgruber.com>
----
- drivers/net/phy/phy_device.c | 5 -----
- 1 file changed, 5 deletions(-)
+ 	decl	__percpu_prefix:__preempt_count
+ 	je	1f:
+	....
+ 1:
+ 	call	___preempt_schedule
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index bad3f00..903737a 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -901,11 +901,6 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 
- 	phydev->state = PHY_READY;
- 
--	/* Initial carrier state is off as the phy is about to be
--	 * (re)initialized.
--	 */
--	netif_carrier_off(phydev->attached_dev);
--
- 	/* Do initial configuration here, now that
- 	 * we have certain key parameters
- 	 * (dev_flags and interface)
+So it puts the "call ___preempt_schedule" in the slow path.
+
+I also don't see how that would be related to the use of the asm
+statement in the __preempt_schedule() macro.  Doesn't the use of
+unlikely() in preempt_enable() put the call in the slow path?
+
+  #define preempt_enable() \
+  do { \
+	  barrier(); \
+	  if (unlikely(preempt_count_dec_and_test())) \
+		  preempt_schedule(); \
+  } while (0)
+
+Also, why is the thunk needed?  Any reason why preempt_enable() can't be
+called directly from C?
+
 -- 
-2.7.1
+Josh
