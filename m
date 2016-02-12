@@ -1,7 +1,7 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v2 3/7] ip_tunnel: replace dst_cache with generic implementation
-Date: Fri, 12 Feb 2016 15:43:55 +0100
-Message-ID: <797a2e249c8e70ebd41998c9b854412227d551c2.1455287867.git.pabeni@redhat.com>
+Subject: [PATCH net-next v2 2/7] net: replace dst_cache ip6_tunnel implementation with the generic one
+Date: Fri, 12 Feb 2016 15:43:54 +0100
+Message-ID: <fd2ad3eddff3905a46d59e71e44edde035fb800c.1455287867.git.pabeni@redhat.com>
 References: <cover.1455287867.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Thomas Graf <tgraf@suug.ch>,
@@ -12,295 +12,326 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34144 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:55885 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751149AbcBLOoY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Feb 2016 09:44:24 -0500
+	id S1751149AbcBLOoW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Feb 2016 09:44:22 -0500
 In-Reply-To: <cover.1455287867.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current ip_tunnel cache implementation is prone to a race
-that will cause the wrong dst to be cached on cuncurrent dst cache
-miss and ip tunnel update via netlink.
+This also fix a potential race into the existing tunnel code, which
+could lead to the wrong dst to be permanenty cached:
 
-Replacing with the generic implementation fix the issue.
+CPU1:					CPU2:
+  <xmit on ip6_tunnel>
+  <cache lookup fails>
+  dst = ip6_route_output(...)
+					<tunnel params are changed via nl>
+					dst_cache_reset() // no effect,
+							// the cache is empty
+  dst_cache_set() // the wrong dst
+	// is permanenty stored
+	// into the cache
+
+With the new dst implementation the above race is not possible
+since the first cache lookup after dst_cache_reset will fail due
+to the timestamp check
 
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 Suggested-and-acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/ip_tunnels.h |  9 ++----
- net/ipv4/Kconfig         |  1 +
- net/ipv4/ip_tunnel.c     | 78 ++++++++----------------------------------------
- net/ipv6/sit.c           | 17 ++++++-----
- 4 files changed, 25 insertions(+), 80 deletions(-)
+ include/net/ip6_tunnel.h |  14 +------
+ net/ipv6/Kconfig         |   1 +
+ net/ipv6/ip6_gre.c       |  12 +++---
+ net/ipv6/ip6_tunnel.c    | 103 +++--------------------------------------------
+ net/ipv6/ip6_vti.c       |   2 +-
+ 5 files changed, 16 insertions(+), 116 deletions(-)
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 6db96ea..d66797e 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -13,6 +13,7 @@
- #include <net/netns/generic.h>
- #include <net/rtnetlink.h>
- #include <net/lwtunnel.h>
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index 0d0ce0b..499a707 100644
+--- a/include/net/ip6_tunnel.h
++++ b/include/net/ip6_tunnel.h
+@@ -6,6 +6,7 @@
+ #include <linux/if_tunnel.h>
+ #include <linux/ip6_tunnel.h>
+ #include <net/ip_tunnels.h>
 +#include <net/dst_cache.h>
  
- #if IS_ENABLED(CONFIG_IPV6)
- #include <net/ipv6.h>
-@@ -85,11 +86,6 @@ struct ip_tunnel_prl_entry {
- 	struct rcu_head			rcu_head;
+ #define IP6TUNNEL_ERR_TIMEO (30*HZ)
+ 
+@@ -33,12 +34,6 @@ struct __ip6_tnl_parm {
+ 	__be32			o_key;
  };
  
--struct ip_tunnel_dst {
--	struct dst_entry __rcu 		*dst;
--	__be32				 saddr;
+-struct ip6_tnl_dst {
+-	seqlock_t lock;
+-	struct dst_entry __rcu *dst;
+-	u32 cookie;
 -};
 -
- struct metadata_dst;
+ /* IPv6 tunnel */
+ struct ip6_tnl {
+ 	struct ip6_tnl __rcu *next;	/* next tunnel in list */
+@@ -46,7 +41,7 @@ struct ip6_tnl {
+ 	struct net *net;	/* netns for packet i/o */
+ 	struct __ip6_tnl_parm parms;	/* tunnel configuration parameters */
+ 	struct flowi fl;	/* flowi template for xmit */
+-	struct ip6_tnl_dst __percpu *dst_cache;	/* cached dst */
++	struct dst_cache dst_cache;	/* cached dst */
  
- struct ip_tunnel {
-@@ -108,7 +104,7 @@ struct ip_tunnel {
- 	int		tun_hlen;	/* Precalculated header length */
- 	int		mlink;
+ 	int err_count;
+ 	unsigned long err_time;
+@@ -66,11 +61,6 @@ struct ipv6_tlv_tnl_enc_lim {
+ 	__u8 encap_limit;	/* tunnel encapsulation limit   */
+ } __packed;
  
--	struct ip_tunnel_dst __percpu *dst_cache;
-+	struct dst_cache dst_cache;
- 
- 	struct ip_tunnel_parm parms;
- 
-@@ -247,7 +243,6 @@ int ip_tunnel_changelink(struct net_device *dev, struct nlattr *tb[],
- int ip_tunnel_newlink(struct net_device *dev, struct nlattr *tb[],
- 		      struct ip_tunnel_parm *p);
- void ip_tunnel_setup(struct net_device *dev, int net_id);
--void ip_tunnel_dst_reset_all(struct ip_tunnel *t);
- int ip_tunnel_encap_setup(struct ip_tunnel *t,
- 			  struct ip_tunnel_encap *ipencap);
- 
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 7758247..395d827 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -186,6 +186,7 @@ config NET_IPGRE_DEMUX
- 
- config NET_IP_TUNNEL
- 	tristate
+-struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t);
+-int ip6_tnl_dst_init(struct ip6_tnl *t);
+-void ip6_tnl_dst_destroy(struct ip6_tnl *t);
+-void ip6_tnl_dst_reset(struct ip6_tnl *t);
+-void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst);
+ int ip6_tnl_rcv_ctl(struct ip6_tnl *t, const struct in6_addr *laddr,
+ 		const struct in6_addr *raddr);
+ int ip6_tnl_xmit_ctl(struct ip6_tnl *t, const struct in6_addr *laddr,
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+index 40c8975..11e875f 100644
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -207,6 +207,7 @@ config IPV6_NDISC_NODETYPE
+ config IPV6_TUNNEL
+ 	tristate "IPv6: IP-in-IPv6 tunnel (RFC2473)"
+ 	select INET6_TUNNEL
 +	select DST_CACHE
- 	default n
+ 	---help---
+ 	  Support for IPv6-in-IPv6 and IPv4-in-IPv6 tunnels described in
+ 	  RFC 2473.
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index f37f18b..a94e506 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -360,7 +360,7 @@ static void ip6gre_tunnel_uninit(struct net_device *dev)
+ 	struct ip6gre_net *ign = net_generic(t->net, ip6gre_net_id);
  
- config NET_IPGRE
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index c7bd72e..4569da7 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -68,61 +68,6 @@ static unsigned int ip_tunnel_hash(__be32 key, __be32 remote)
- 			 IP_TNL_HASH_BITS);
+ 	ip6gre_tunnel_unlink(ign, t);
+-	ip6_tnl_dst_reset(t);
++	dst_cache_reset(&t->dst_cache);
+ 	dev_put(dev);
  }
  
--static void __tunnel_dst_set(struct ip_tunnel_dst *idst,
--			     struct dst_entry *dst, __be32 saddr)
--{
--	struct dst_entry *old_dst;
+@@ -633,7 +633,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+ 	}
+ 
+ 	if (!fl6->flowi6_mark)
+-		dst = ip6_tnl_dst_get(tunnel);
++		dst = dst_cache_get(&tunnel->dst_cache);
+ 
+ 	if (!dst) {
+ 		dst = ip6_route_output(net, NULL, fl6);
+@@ -702,7 +702,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+ 	}
+ 
+ 	if (!fl6->flowi6_mark && ndst)
+-		ip6_tnl_dst_set(tunnel, ndst);
++		dst_cache_set_ip6(&tunnel->dst_cache, ndst, &fl6->saddr);
+ 	skb_dst_set(skb, dst);
+ 
+ 	proto = NEXTHDR_GRE;
+@@ -1009,7 +1009,7 @@ static int ip6gre_tnl_change(struct ip6_tnl *t,
+ 	t->parms.o_key = p->o_key;
+ 	t->parms.i_flags = p->i_flags;
+ 	t->parms.o_flags = p->o_flags;
+-	ip6_tnl_dst_reset(t);
++	dst_cache_reset(&t->dst_cache);
+ 	ip6gre_tnl_link_config(t, set_mtu);
+ 	return 0;
+ }
+@@ -1219,7 +1219,7 @@ static void ip6gre_dev_free(struct net_device *dev)
+ {
+ 	struct ip6_tnl *t = netdev_priv(dev);
+ 
+-	ip6_tnl_dst_destroy(t);
++	dst_cache_destroy(&t->dst_cache);
+ 	free_percpu(dev->tstats);
+ 	free_netdev(dev);
+ }
+@@ -1257,7 +1257,7 @@ static int ip6gre_tunnel_init_common(struct net_device *dev)
+ 	if (!dev->tstats)
+ 		return -ENOMEM;
+ 
+-	ret = ip6_tnl_dst_init(tunnel);
++	ret = dst_cache_init(&tunnel->dst_cache, GFP_KERNEL);
+ 	if (ret) {
+ 		free_percpu(dev->tstats);
+ 		dev->tstats = NULL;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 137fca4..3f3aabd 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -122,97 +122,6 @@ static struct net_device_stats *ip6_get_stats(struct net_device *dev)
+ 	return &dev->stats;
+ }
+ 
+-/*
+- * Locking : hash tables are protected by RCU and RTNL
+- */
 -
--	dst_clone(dst);
--	old_dst = xchg((__force struct dst_entry **)&idst->dst, dst);
--	dst_release(old_dst);
--	idst->saddr = saddr;
+-static void ip6_tnl_per_cpu_dst_set(struct ip6_tnl_dst *idst,
+-				    struct dst_entry *dst)
+-{
+-	write_seqlock_bh(&idst->lock);
+-	dst_release(rcu_dereference_protected(
+-			    idst->dst,
+-			    lockdep_is_held(&idst->lock.lock)));
+-	if (dst) {
+-		dst_hold(dst);
+-		idst->cookie = rt6_get_cookie((struct rt6_info *)dst);
+-	} else {
+-		idst->cookie = 0;
+-	}
+-	rcu_assign_pointer(idst->dst, dst);
+-	write_sequnlock_bh(&idst->lock);
 -}
 -
--static noinline void tunnel_dst_set(struct ip_tunnel *t,
--			   struct dst_entry *dst, __be32 saddr)
+-struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t)
 -{
--	__tunnel_dst_set(raw_cpu_ptr(t->dst_cache), dst, saddr);
--}
+-	struct ip6_tnl_dst *idst;
+-	struct dst_entry *dst;
+-	unsigned int seq;
+-	u32 cookie;
 -
--static void tunnel_dst_reset(struct ip_tunnel *t)
--{
--	tunnel_dst_set(t, NULL, 0);
--}
+-	idst = raw_cpu_ptr(t->dst_cache);
 -
--void ip_tunnel_dst_reset_all(struct ip_tunnel *t)
+-	rcu_read_lock();
+-	do {
+-		seq = read_seqbegin(&idst->lock);
+-		dst = rcu_dereference(idst->dst);
+-		cookie = idst->cookie;
+-	} while (read_seqretry(&idst->lock, seq));
+-
+-	if (dst && !atomic_inc_not_zero(&dst->__refcnt))
+-		dst = NULL;
+-	rcu_read_unlock();
+-
+-	if (dst && dst->obsolete && !dst->ops->check(dst, cookie)) {
+-		ip6_tnl_per_cpu_dst_set(idst, NULL);
+-		dst_release(dst);
+-		dst = NULL;
+-	}
+-	return dst;
+-}
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_get);
+-
+-void ip6_tnl_dst_reset(struct ip6_tnl *t)
 -{
 -	int i;
 -
 -	for_each_possible_cpu(i)
--		__tunnel_dst_set(per_cpu_ptr(t->dst_cache, i), NULL, 0);
+-		ip6_tnl_per_cpu_dst_set(per_cpu_ptr(t->dst_cache, i), NULL);
 -}
--EXPORT_SYMBOL(ip_tunnel_dst_reset_all);
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_reset);
 -
--static struct rtable *tunnel_rtable_get(struct ip_tunnel *t,
--					u32 cookie, __be32 *saddr)
+-void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst)
 -{
--	struct ip_tunnel_dst *idst;
--	struct dst_entry *dst;
+-	ip6_tnl_per_cpu_dst_set(raw_cpu_ptr(t->dst_cache), dst);
 -
--	rcu_read_lock();
--	idst = raw_cpu_ptr(t->dst_cache);
--	dst = rcu_dereference(idst->dst);
--	if (dst && !atomic_inc_not_zero(&dst->__refcnt))
--		dst = NULL;
--	if (dst) {
--		if (!dst->obsolete || dst->ops->check(dst, cookie)) {
--			*saddr = idst->saddr;
--		} else {
--			tunnel_dst_reset(t);
--			dst_release(dst);
--			dst = NULL;
--		}
--	}
--	rcu_read_unlock();
--	return (struct rtable *)dst;
 -}
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_set);
 -
- static bool ip_tunnel_key_match(const struct ip_tunnel_parm *p,
- 				__be16 flags, __be32 key)
+-void ip6_tnl_dst_destroy(struct ip6_tnl *t)
+-{
+-	if (!t->dst_cache)
+-		return;
+-
+-	ip6_tnl_dst_reset(t);
+-	free_percpu(t->dst_cache);
+-}
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_destroy);
+-
+-int ip6_tnl_dst_init(struct ip6_tnl *t)
+-{
+-	int i;
+-
+-	t->dst_cache = alloc_percpu(struct ip6_tnl_dst);
+-	if (!t->dst_cache)
+-		return -ENOMEM;
+-
+-	for_each_possible_cpu(i)
+-		seqlock_init(&per_cpu_ptr(t->dst_cache, i)->lock);
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_init);
+-
+ /**
+  * ip6_tnl_lookup - fetch tunnel matching the end-point addresses
+  *   @remote: the address of the tunnel exit-point
+@@ -329,7 +238,7 @@ static void ip6_dev_free(struct net_device *dev)
  {
-@@ -381,7 +326,8 @@ static int ip_tunnel_bind_dev(struct net_device *dev)
+ 	struct ip6_tnl *t = netdev_priv(dev);
  
- 		if (!IS_ERR(rt)) {
- 			tdev = rt->dst.dev;
--			tunnel_dst_set(tunnel, &rt->dst, fl4.saddr);
-+			dst_cache_set_ip4(&tunnel->dst_cache, &rt->dst,
-+					  fl4.saddr);
- 			ip_rt_put(rt);
- 		}
- 		if (dev->type != ARPHRD_ETHER)
-@@ -729,7 +675,8 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 	if (ip_tunnel_encap(skb, tunnel, &protocol, &fl4) < 0)
- 		goto tx_error;
- 
--	rt = connected ? tunnel_rtable_get(tunnel, 0, &fl4.saddr) : NULL;
-+	rt = connected ? dst_cache_get_ip4(&tunnel->dst_cache, &fl4.saddr) :
-+			 NULL;
- 
- 	if (!rt) {
- 		rt = ip_route_output_key(tunnel->net, &fl4);
-@@ -739,7 +686,8 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 			goto tx_error;
- 		}
- 		if (connected)
--			tunnel_dst_set(tunnel, &rt->dst, fl4.saddr);
-+			dst_cache_set_ip4(&tunnel->dst_cache, &rt->dst,
-+					  fl4.saddr);
- 	}
- 
- 	if (rt->dst.dev == dev) {
-@@ -836,7 +784,7 @@ static void ip_tunnel_update(struct ip_tunnel_net *itn,
- 		if (set_mtu)
- 			dev->mtu = mtu;
- 	}
--	ip_tunnel_dst_reset_all(t);
-+	dst_cache_reset(&t->dst_cache);
- 	netdev_state_change(dev);
- }
- 
-@@ -961,7 +909,7 @@ static void ip_tunnel_dev_free(struct net_device *dev)
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
- 
- 	gro_cells_destroy(&tunnel->gro_cells);
--	free_percpu(tunnel->dst_cache);
-+	dst_cache_destroy(&tunnel->dst_cache);
+-	ip6_tnl_dst_destroy(t);
++	dst_cache_destroy(&t->dst_cache);
  	free_percpu(dev->tstats);
  	free_netdev(dev);
  }
-@@ -1155,15 +1103,15 @@ int ip_tunnel_init(struct net_device *dev)
- 	if (!dev->tstats)
- 		return -ENOMEM;
- 
--	tunnel->dst_cache = alloc_percpu(struct ip_tunnel_dst);
--	if (!tunnel->dst_cache) {
-+	err = dst_cache_init(&tunnel->dst_cache, GFP_KERNEL);
-+	if (err) {
- 		free_percpu(dev->tstats);
--		return -ENOMEM;
-+		return err;
- 	}
- 
- 	err = gro_cells_init(&tunnel->gro_cells, dev);
- 	if (err) {
--		free_percpu(tunnel->dst_cache);
-+		dst_cache_destroy(&tunnel->dst_cache);
- 		free_percpu(dev->tstats);
- 		return err;
- 	}
-@@ -1193,7 +1141,7 @@ void ip_tunnel_uninit(struct net_device *dev)
- 	if (itn->fb_tunnel_dev != dev)
- 		ip_tunnel_del(itn, netdev_priv(dev));
- 
--	ip_tunnel_dst_reset_all(tunnel);
-+	dst_cache_reset(&tunnel->dst_cache);
- }
- EXPORT_SYMBOL_GPL(ip_tunnel_uninit);
- 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 2066d1c..801b735 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -475,7 +475,7 @@ static void ipip6_tunnel_uninit(struct net_device *dev)
- 		ipip6_tunnel_unlink(sitn, tunnel);
- 		ipip6_tunnel_del_prl(tunnel, NULL);
- 	}
--	ip_tunnel_dst_reset_all(tunnel);
-+	dst_cache_reset(&tunnel->dst_cache);
+@@ -462,7 +371,7 @@ ip6_tnl_dev_uninit(struct net_device *dev)
+ 		RCU_INIT_POINTER(ip6n->tnls_wc[0], NULL);
+ 	else
+ 		ip6_tnl_unlink(ip6n, t);
+-	ip6_tnl_dst_reset(t);
++	dst_cache_reset(&t->dst_cache);
  	dev_put(dev);
  }
  
-@@ -1093,7 +1093,7 @@ static void ipip6_tunnel_update(struct ip_tunnel *t, struct ip_tunnel_parm *p)
- 		t->parms.link = p->link;
- 		ipip6_tunnel_bind_dev(t->dev);
- 	}
--	ip_tunnel_dst_reset_all(t);
-+	dst_cache_reset(&t->dst_cache);
- 	netdev_state_change(t->dev);
- }
+@@ -1069,7 +978,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 		memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
+ 		neigh_release(neigh);
+ 	} else if (!fl6->flowi6_mark)
+-		dst = ip6_tnl_dst_get(t);
++		dst = dst_cache_get(&t->dst_cache);
  
-@@ -1124,7 +1124,7 @@ static int ipip6_tunnel_update_6rd(struct ip_tunnel *t,
- 	t->ip6rd.relay_prefix = relay_prefix;
- 	t->ip6rd.prefixlen = ip6rd->prefixlen;
- 	t->ip6rd.relay_prefixlen = ip6rd->relay_prefixlen;
--	ip_tunnel_dst_reset_all(t);
+ 	if (!ip6_tnl_xmit_ctl(t, &fl6->saddr, &fl6->daddr))
+ 		goto tx_err_link_failure;
+@@ -1133,7 +1042,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 	}
+ 
+ 	if (!fl6->flowi6_mark && ndst)
+-		ip6_tnl_dst_set(t, ndst);
++		dst_cache_set_ip6(&t->dst_cache, ndst, &fl6->saddr);
+ 	skb_dst_set(skb, dst);
+ 
+ 	skb->transport_header = skb->network_header;
+@@ -1366,7 +1275,7 @@ ip6_tnl_change(struct ip6_tnl *t, const struct __ip6_tnl_parm *p)
+ 	t->parms.flowinfo = p->flowinfo;
+ 	t->parms.link = p->link;
+ 	t->parms.proto = p->proto;
+-	ip6_tnl_dst_reset(t);
 +	dst_cache_reset(&t->dst_cache);
- 	netdev_state_change(t->dev);
+ 	ip6_tnl_link_config(t);
  	return 0;
  }
-@@ -1278,7 +1278,7 @@ ipip6_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 			err = ipip6_tunnel_add_prl(t, &prl, cmd == SIOCCHGPRL);
- 			break;
- 		}
--		ip_tunnel_dst_reset_all(t);
-+		dst_cache_reset(&t->dst_cache);
- 		netdev_state_change(dev);
- 		break;
- 
-@@ -1339,7 +1339,7 @@ static void ipip6_dev_free(struct net_device *dev)
- {
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
- 
--	free_percpu(tunnel->dst_cache);
-+	dst_cache_destroy(&tunnel->dst_cache);
- 	free_percpu(dev->tstats);
- 	free_netdev(dev);
- }
-@@ -1372,6 +1372,7 @@ static void ipip6_tunnel_setup(struct net_device *dev)
- static int ipip6_tunnel_init(struct net_device *dev)
- {
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
-+	int err;
- 
- 	tunnel->dev = dev;
- 	tunnel->net = dev_net(dev);
-@@ -1382,10 +1383,10 @@ static int ipip6_tunnel_init(struct net_device *dev)
+@@ -1637,7 +1546,7 @@ ip6_tnl_dev_init_gen(struct net_device *dev)
  	if (!dev->tstats)
  		return -ENOMEM;
  
--	tunnel->dst_cache = alloc_percpu(struct ip_tunnel_dst);
--	if (!tunnel->dst_cache) {
-+	err = dst_cache_init(&tunnel->dst_cache, GFP_KERNEL);
-+	if (err) {
+-	ret = ip6_tnl_dst_init(t);
++	ret = dst_cache_init(&t->dst_cache, GFP_KERNEL);
+ 	if (ret) {
  		free_percpu(dev->tstats);
--		return -ENOMEM;
-+		return err;
- 	}
- 
+ 		dev->tstats = NULL;
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index 0a8610b..d90a11f 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -640,7 +640,7 @@ vti6_tnl_change(struct ip6_tnl *t, const struct __ip6_tnl_parm *p)
+ 	t->parms.i_key = p->i_key;
+ 	t->parms.o_key = p->o_key;
+ 	t->parms.proto = p->proto;
+-	ip6_tnl_dst_reset(t);
++	dst_cache_reset(&t->dst_cache);
+ 	vti6_link_config(t);
  	return 0;
+ }
 -- 
 1.8.3.1
