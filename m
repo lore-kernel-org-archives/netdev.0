@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 4/4] net: dsa: remove dsa_bridge_check_vlan_range
-Date: Fri, 12 Feb 2016 12:09:41 -0500
-Message-ID: <1455296981-27998-5-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 3/4] net: dsa: mv88e6xxx: check hardware VLAN in use
+Date: Fri, 12 Feb 2016 12:09:40 -0500
+Message-ID: <1455296981-27998-4-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,82 +14,97 @@ In-Reply-To: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DSA drivers may support multiple bridge groups with the same hardware
-VLAN. The mv88e6xxx driver which cannot yet, already has its own check
-for overlapping bridges. Thus remove the check from the DSA layer.
+The DSA drivers now have access to the VLAN prepare phase and the bridge
+net_device. It is easier to check for overlapping bridges from within
+the driver. Thus add such check in mv88e6xxx_port_vlan_prepare.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/slave.c | 50 --------------------------------------------------
- 1 file changed, 50 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 64 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 64 insertions(+)
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 755b005..bcf383c 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -201,47 +201,6 @@ out:
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 2e515e8..685dcb0 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1471,14 +1471,78 @@ static int _mv88e6xxx_vlan_init(struct dsa_switch *ds, u16 vid,
  	return 0;
  }
  
--static int dsa_bridge_check_vlan_range(struct dsa_switch *ds,
--				       const struct net_device *bridge,
--				       u16 vid_begin, u16 vid_end)
--{
--	struct dsa_slave_priv *p;
--	struct net_device *dev, *vlan_br;
--	DECLARE_BITMAP(members, DSA_MAX_PORTS);
--	DECLARE_BITMAP(untagged, DSA_MAX_PORTS);
--	u16 vid;
--	int member, err;
--
--	if (!ds->drv->vlan_getnext || !vid_begin)
--		return -EOPNOTSUPP;
--
--	vid = vid_begin - 1;
--
--	do {
--		err = ds->drv->vlan_getnext(ds, &vid, members, untagged);
--		if (err)
--			break;
--
--		if (vid > vid_end)
--			break;
--
--		member = find_first_bit(members, DSA_MAX_PORTS);
--		if (member == DSA_MAX_PORTS)
--			continue;
--
--		dev = ds->ports[member];
--		p = netdev_priv(dev);
--		vlan_br = p->bridge_dev;
--		if (vlan_br == bridge)
--			continue;
--
--		netdev_dbg(vlan_br, "hardware VLAN %d already in use\n", vid);
--		return -EOPNOTSUPP;
--	} while (vid < vid_end);
--
--	return err == -ENOENT ? 0 : err;
--}
--
- static int dsa_slave_port_vlan_add(struct net_device *dev,
- 				   const struct switchdev_obj_port_vlan *vlan,
- 				   struct switchdev_trans *trans)
-@@ -254,15 +213,6 @@ static int dsa_slave_port_vlan_add(struct net_device *dev,
- 		if (!ds->drv->port_vlan_prepare || !ds->drv->port_vlan_add)
- 			return -EOPNOTSUPP;
++static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
++					u16 vid_begin, u16 vid_end)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct mv88e6xxx_vtu_stu_entry vlan;
++	int i, err;
++
++	if (!vid_begin)
++		return -EOPNOTSUPP;
++
++	mutex_lock(&ps->smi_mutex);
++
++	err = _mv88e6xxx_vtu_vid_write(ds, vid_begin - 1);
++	if (err)
++		goto unlock;
++
++	do {
++		err = _mv88e6xxx_vtu_getnext(ds, &vlan);
++		if (err)
++			goto unlock;
++
++		if (!vlan.valid)
++			break;
++
++		if (vlan.vid > vid_end)
++			break;
++
++		for (i = 0; i < ps->num_ports; ++i) {
++			if (dsa_is_dsa_port(ds, i) || dsa_is_cpu_port(ds, i))
++				continue;
++
++			if (vlan.data[i] ==
++			    GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
++				continue;
++
++			if (ps->ports[i].bridge_dev ==
++			    ps->ports[port].bridge_dev)
++				break; /* same bridge, check next VLAN */
++
++			netdev_warn(ds->ports[port],
++				    "hardware VLAN %d already used by %s\n",
++				    vlan.vid,
++				    netdev_name(ps->ports[i].bridge_dev));
++			err = -EOPNOTSUPP;
++			goto unlock;
++		}
++	} while (vlan.vid < vid_end);
++
++unlock:
++	mutex_unlock(&ps->smi_mutex);
++
++	return err;
++}
++
+ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
+ 				const struct switchdev_obj_port_vlan *vlan,
+ 				struct switchdev_trans *trans)
+ {
++	int err;
++
+ 	/* We reserve a few VLANs to isolate unbridged ports */
+ 	if (vlan->vid_end >= 4000)
+ 		return -EOPNOTSUPP;
  
--		/* If the requested port doesn't belong to the same bridge as
--		 * the VLAN members, fallback to software VLAN (hopefully).
--		 */
--		err = dsa_bridge_check_vlan_range(ds, p->bridge_dev,
--						  vlan->vid_begin,
--						  vlan->vid_end);
--		if (err)
--			return err;
--
- 		err = ds->drv->port_vlan_prepare(ds, p->port, vlan, trans);
- 		if (err)
- 			return err;
++	/* If the requested port doesn't belong to the same bridge as the VLAN
++	 * members, do not support it (yet) and fallback to software VLAN.
++	 */
++	err = mv88e6xxx_port_check_hw_vlan(ds, port, vlan->vid_begin,
++					   vlan->vid_end);
++	if (err)
++		return err;
++
+ 	/* We don't need any dynamic resource from the kernel (yet),
+ 	 * so skip the prepare phase.
+ 	 */
 -- 
 2.7.1
