@@ -1,49 +1,36 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 0/4] net: dsa: pass bridge device to drivers
-Date: Fri, 12 Feb 2016 12:09:37 -0500
-Message-ID: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+Date: Fri, 12 Feb 2016 18:18:29 +0100
+Message-ID: <20160212171829.GD13273@lunn.ch>
+References: <90A7E81AE28BAE4CBDDB3B35F187D264402EF4A2@CHN-SV-EXMX02.mchp-main.com>
+ <56BD40F1.2030707@gmail.com>
+ <20160212072040.GC8046@lunn.ch>
+ <90A7E81AE28BAE4CBDDB3B35F187D264402EF5BB@CHN-SV-EXMX02.mchp-main.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, davem@davemloft.net, netdev@vger.kernel.org
+To: Bryan.Whitehead@microchip.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:45236 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752262AbcBLRSc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Feb 2016 12:18:32 -0500
+Content-Disposition: inline
+In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264402EF5BB@CHN-SV-EXMX02.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patchset simplifies the DSA layer.
+> At this point my plan is to just get a basic Ethernet controller
+> driver submitted, and later work on switch features.
 
-A switch may support multiple bridges with the same hardware VLAN. Thus a check
-such as dsa_bridge_check_vlan_range must be moved from the DSA layer to the
-concerned driver.
+They are not really separable. 
 
-The first purpose of this patchset is to help moving this check to the
-mv88e6xxx driver, which is the only one affected at the moment.
+The linux way of dealing with switches is to model each port as a net
+device. So you should have a lan0 device and a lan1 device for this
+two port switch. You can put IP addresses on the ports, and use them
+as separate ports. If you want to bridge the two ports, you create a
+linux bridge and add the ports to the bridge. Using netdev or DSA, you
+can then push this configuration down to the hardware, so it performs
+the actual bridging of packets between ports.
 
-To do that, pass directly the bridge net_device structure down to the DSA
-drivers, instead of calculating a bitmask of bridge members.
-
-The second purpose is to prepare the replacement of the complex
-port_vlan_getnext approach. A second patchset is ready to follow, implementing
-port_vlan_dump and thus simplifying the DSA slave code one more time.
-
-Note that this patchset applies on top of https://lkml.org/lkml/2016/2/5/532.
-
-Vivien Didelot (4):
-  net: dsa: mv88e6xxx: add port private structure
-  net: dsa: pass bridge down to drivers
-  net: dsa: mv88e6xxx: check hardware VLAN in use
-  net: dsa: remove dsa_bridge_check_vlan_range
-
- Documentation/networking/dsa/dsa.txt |  7 +---
- drivers/net/dsa/bcm_sf2.c            | 12 +++---
- drivers/net/dsa/bcm_sf2.h            |  2 +
- drivers/net/dsa/mv88e6xxx.c          | 81 ++++++++++++++++++++++++++++++++++--
- drivers/net/dsa/mv88e6xxx.h          | 13 ++++--
- include/net/dsa.h                    |  5 +--
- net/dsa/slave.c                      | 81 +-----------------------------------
- 7 files changed, 102 insertions(+), 99 deletions(-)
-
--- 
-2.7.1
+    Andrew
