@@ -1,46 +1,90 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
-Date: Fri, 12 Feb 2016 08:20:40 +0100
-Message-ID: <20160212072040.GC8046@lunn.ch>
-References: <90A7E81AE28BAE4CBDDB3B35F187D264402EF4A2@CHN-SV-EXMX02.mchp-main.com>
- <56BD40F1.2030707@gmail.com>
+From: Diego Viola <diego.viola@gmail.com>
+Subject: Re: Computer fails to resume from suspend unless I rmmod jme before
+ initiating the suspend
+Date: Fri, 12 Feb 2016 06:17:18 -0200
+Message-ID: <CA+ToGPHfV5NbSAFWJPzDVfUT9fdp86MqoFbF8Uhmf9T+3e9n7Q@mail.gmail.com>
+References: <CA+ToGPGC8APhN-_F5fzyR4CWqWgZ9Hs0PNqykhEgEV7g3PJjTg@mail.gmail.com>
+	<CA+ToGPF9cpdVLEHc7Vz79=-P7Jp76Y=M=p=bORhUNrXtb6+LNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bryan.Whitehead@microchip.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44854 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750827AbcBLHUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Feb 2016 02:20:46 -0500
-Content-Disposition: inline
-In-Reply-To: <56BD40F1.2030707@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: cooldavid@cooldavid.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+ToGPF9cpdVLEHc7Vz79=-P7Jp76Y=M=p=bORhUNrXtb6+LNA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 11, 2016 at 06:18:25PM -0800, Florian Fainelli wrote:
-> On 11/02/16 10:58, Bryan.Whitehead@microchip.com wrote:
-> > This is the initial submission of an ethernet driver for
-> > the Microchip LAN9352.
-> > 
-> > The LAN9352 is a 2-Port 10/100 Managed Ethernet Switch with
-> > 16-Bit Non-PCI CPU Interface. The CPU interface includes a basic
-> > ethernet controller interface whose virtual phy is connected
-> > internally to a 3rd port on the embedded switch.
-> > 
-> > This driver only operates as a simple ethernet controller
-> > on the CPU interface. Since this interface is connected directly
-> > to the embedded switch, the result is that traffic can be sent and
-> > received on both physical ports.
-> 
-> If this is an integrated switch, have you considered using the DSA
-> subsystem and having this driver just be the Ethernet driver that
-> interfaces to your CPU interface, but does not attempt to configure the
-> switch in any way?
+On Wed, Feb 10, 2016 at 7:36 PM, Diego Viola <diego.viola@gmail.com> wrote:
+> On Wed, Feb 10, 2016 at 2:19 AM, Diego Viola <diego.viola@gmail.com> wrote:
+>> Hi Guo,
+>>
+>> I have an x86 computer with this network card:
+>>
+>> 02:00.0 Ethernet controller: JMicron Technology Corp. JMC260 PCI
+>> Express Fast Ethernet Controller (rev 03)
+>>
+>> Every time I initiate a suspend (systemctl suspend) the machine hangs
+>> at resume unless I unload the jme driver.
+>>
+>> Here is a Call Trace I was able to get after it hanged:
+>>
+>> <IRQ>
+>> tasklet_action+0xb0/0xd0
+>> __do_softirq+0xcf/0x290
+>> irq_exit+0xa3/0xb0
+>> do_IRQ+0x54/0xd0
+>> common_interrupt+0x82/0x82
+>>
+>> <EOI>
+>> jme_start_irq+0x84/0xa0 [jme]
+>> jme_resume+0x12f/0x210 [jme]
+>> pci_pm_resume+0x64/0xa0
+>> ? pci_pm_thaw+0x90/0x90
+>> dpm_run_callback+0x4e/0x130
+>> device_resume+0xd3/0x1f0
+>> async_resume+0x1d/0x50
+>> async_run_entry_fn+0x48/0x150
+>> process_one_work+0x14b/0x440
+>> worker_thread+0x48/0x4a0
+>> ? process_one_work+0x440/0x440
+>> kthread+0xd8/0xf0
+>> ? kthread_worker_fn+0x170/0x170
+>> ret_from_fork+0x3f/0x70
+>> ? kthread_worker_fn+0x170/0x170
+>>
+>> Please note that I had to type the calltrace above as I don't have a
+>> serial cable and netconsole didn't work for me for some reason, so
+>> there could be typos I didn't notice.
+>>
+>> I run Arch Linux (x86-64), my uname is:
+>>
+>> $ uname -a
+>> Linux myhost 4.4.1-2-ARCH #1 SMP PREEMPT Wed Feb 3 13:12:33 UTC 2016
+>> x86_64 GNU/Linux
+>>
+>> Please let me know if you have any questions or need any other information.
+>>
+>> Thanks,
+>>
+>> Diego
+>
+> I found something interesting, I can suspend/resume just fine when the
+> module is loaded and when I do this:
+>
+> $ ip link set ens34 down
+>
+> When I bring the device up again the hang still occurs.
+>
+> Diego
 
-I actually think switchdev might be the better model. Hard to say. The
-datasheet suggests it could be modelled as a three port switch, so DSA
-might be appropriate...
+I have tried to reproduce this problem with the latest git
+(torvalds/linux.git) and also went back to Linux 3.11 and I still got
+the hang with both, my plan was to run git bisect, but the problem
+still occurs.
 
-      Andrew
+I opened this bug in bugzilla if it's preferred to deal with the problem there:
+
+https://bugzilla.kernel.org/show_bug.cgi?id=112351
+
+Thanks,
+Diego
