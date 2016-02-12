@@ -1,75 +1,62 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH net] af_unix: Guard against other == sk in unix_dgram_sendmsg
-Date: Fri, 12 Feb 2016 20:59:57 +0000
-Message-ID: <87a8n5able.fsf@doppelsaurus.mobileactivedefense.com>
-References: <56B4BF9D.9070609@pmhahn.de> <56BC90E7.7040007@pmhahn.de>
-	<87fuwzkzr5.fsf@doppelsaurus.mobileactivedefense.com>
-	<1455210224.2801.21.camel@decadent.org.uk>
-	<87r3gjjgbu.fsf@doppelsaurus.mobileactivedefense.com>
-	<87egcjcd5j.fsf@doppelsaurus.mobileactivedefense.com>
-	<87r3gj11jc.fsf_-_@doppelsaurus.mobileactivedefense.com>
-	<56BDA3A8.6070807@pmhahn.de>
-	<8760xuvz5w.fsf@doppelsaurus.mobileactivedefense.com>
-	<1455306847.2801.45.camel@decadent.org.uk>
-	<87egchadk4.fsf@doppelsaurus.mobileactivedefense.com>
-	<1455310037.2801.61.camel@decadent.org.uk>
+From: Clemens Gruber <clemens.gruber@pqgruber.com>
+Subject: Re: [PATCH] Revert "net: phy: turn carrier off on phy attach"
+Date: Fri, 12 Feb 2016 22:07:28 +0100
+Message-ID: <20160212210728.GA5454@archie.tuxnet.lan>
+References: <1455300113-2335-1-git-send-email-clemens.gruber@pqgruber.com>
+ <56BE2AC4.2040908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	Philipp Hahn <pmhahn@pmhahn.de>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Karolin Seeger <kseeger@samba.org>,
-	Jason Baron <jbaron@akamai.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Arvid Requate <requate@univention.de>,
-	Stefan Gohmann <gohmann@univention.de>, netdev@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455310037.2801.61.camel@decadent.org.uk> (Ben Hutchings's
-	message of "Fri, 12 Feb 2016 20:47:17 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
+	"David S . Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Nimrod Andy <B38611@freescale.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Russell King <rmk+kernel@arm.linux.org.uk>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.pqgruber.com ([178.189.19.235]:40244 "EHLO
+	mail.pqgruber.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750865AbcBLVHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 16:07:34 -0500
+Content-Disposition: inline
+In-Reply-To: <56BE2AC4.2040908@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings <ben@decadent.org.uk> writes:
-> On Fri, 2016-02-12 at 20:17 +0000, Rainer Weikusat wrote:
+Hi Florian,
 
-[...]
+On Fri, Feb 12, 2016 at 10:56:04AM -0800, Florian Fainelli wrote:
+> On 12/02/16 10:01, Clemens Gruber wrote:
+> > Commit 113c74d83eef ("net: phy: turn carrier off on phy attach") breaks
+> > the eth0 link coming up on all my i.MX6Q boards with a Marvell 88E1510.
+> > If I then do a ifconfig eth0 down/up cycle I first get a MDIO read
+> > timeout but then the link becomes ready and everything is back to
+> > normal.
+> > Without this step however, the link stays down forever, an unusually
+> > high amount of phy interrupts occur (about 10000/second) and kworker/0:2
+> > is constantly using over 60% of the CPU.
+> > 
+> > Reverting it fixes the problems with the link not coming up at boot as
+> > well as the high amount of phy interrupts and kworker load in that
+> > state.
+> 
+> You are seeing this with the FEC driver right? We probably want to
+> carefully audit the driver and understand what could be going wrong, the
+> initial change is correct, so there must be something else going on here.
+> 
 
->>>> I don't think this should apply when
->>>> receiving and sending sockets are identical. But that's just my
->>>> opinion. The other option would be to avoid the unix_state_double_=
-lock
->>>> for sk =3D=3D other.
->>>=20
->>> Given that unix_state_double_lock() already handles sk =3D=3D other=
-, I'm
->>> not sure why you think it needs to be avoided.
->>=20
->> Because the whole complication of restarting the operation after loc=
-king
->> both sk and other because other had to be unlocked before calling
->> unix_state_double_lock is useless for this case:
+Yes, this occurs with the fec driver.
 
-[...]
+In the fec_probe function at line 3471 of
+net/ethernet/freescale/fec_main.c, netif_carrier_off is called and a
+comment states "Carrier starts down, phylib will bring it up".
+Could this be the source of the problem, both fec and phy expecting the
+other one to turn on the carrier?
 
-> Well of course it's useless, but it's also harmless. =C2=A0
+If you have an idea about what could be going wrong in the fec driver,
+please let me know.
 
-As is adding a
-
-for (i =3D 0; i < 1000000; ++i);
-
-between any two statements. And this isn't even entirely true as the
-pointless double-lock will then require "did we pointlessly
-doube-lock" checks elsewhere. I think it should be possible to do this
-in a simpler way by not pointlessly double-locking (this may be
-wrong but it's worth a try).
-
-> If we really wanted to optimise this we could also skip unlocking if
-> other < sk.
-
-I wouldn't want to hardcode assumptions about the unix_state_double_loc=
-k
-algorithm in functions using it.=20
+Thanks,
+Clemens
