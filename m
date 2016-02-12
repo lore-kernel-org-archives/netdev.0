@@ -1,65 +1,48 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCHv2 next 1/3] ipvlan: scrub skb before routing in L3 mode.
-Date: Fri, 12 Feb 2016 14:24:00 -0800
-Message-ID: <CAM_iQpVgSOs5F6L6n2MhFxxuHaZizm7xzmYTE6HyRJXP9O67cg@mail.gmail.com>
-References: <1455118406-428-1-git-send-email-mahesh@bandewar.net>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH net-next V2 6/6] e1000e: call
+ ndo_stop()	instead of dev_close() when running offline selftest
+Date: Fri, 12 Feb 2016 23:17:09 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81E89BCE@ORSMSX101.amr.corp.intel.com>
+References: <1454487652-1545-1-git-send-email-sassmann@kpanic.de>,<1454487652-1545-7-git-send-email-sassmann@kpanic.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Mahesh Bandewar <mahesh@bandewar.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Stefan Assmann <sassmann@kpanic.de>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f173.google.com ([209.85.161.173]:36681 "EHLO
-	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987AbcBLWcB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 17:32:01 -0500
-Received: by mail-yw0-f173.google.com with SMTP id q190so76146575ywd.3
-        for <netdev@vger.kernel.org>; Fri, 12 Feb 2016 14:32:01 -0800 (PST)
-In-Reply-To: <1455118406-428-1-git-send-email-mahesh@bandewar.net>
+Received: from mga02.intel.com ([134.134.136.20]:46490 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750981AbcBLXRL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 18:17:11 -0500
+In-Reply-To: <1454487652-1545-7-git-send-email-sassmann@kpanic.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 10, 2016 at 7:33 AM, Mahesh Bandewar <mahesh@bandewar.net> wrote:
-> From: Mahesh Bandewar <maheshb@google.com>
->
-> Scrub skb before hitting the iptable hooks to ensure packets hit
-> these hooks.
->
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> From: Intel-wired-lan [intel-wired-lan-bounces@lists.osuosl.org] on behalf of Stefan Assmann [sassmann@kpanic.de]
+> Sent: Wednesday, February 03, 2016 12:20 AM
+> To: intel-wired-lan@lists.osuosl.org
+> Cc: netdev@vger.kernel.org; davem@davemloft.net; sassmann@kpanic.de
+> Subject: [Intel-wired-lan] [PATCH net-next V2 6/6] e1000e: call ndo_stop()      instead of dev_close() when running offline selftest
+> 
+> Calling dev_close() causes IFF_UP to be cleared which will remove the
+> interfaces routes and some addresses. That's probably not what the user
+> intended when running the offline selftest. Besides this does not happen
+> if the interface is brought down before the test, so the current
+> behaviour is inconsistent.
+> Instead call the net_device_ops ndo_stop function directly and avoid
+> touching IFF_UP at all.
+> 
+> V2: rename e1000_open(), e1000_close() to e1000e_open(), e1000e_close()
+> to avoid name clash with e1000.
+> 
+> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 > ---
-> v1: initial patch
-> v2: resend
->
->  drivers/net/ipvlan/ipvlan_core.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-> index 8c48bb2a94ea..21c380f9ccd5 100644
-> --- a/drivers/net/ipvlan/ipvlan_core.c
-> +++ b/drivers/net/ipvlan/ipvlan_core.c
-> @@ -365,7 +365,7 @@ static int ipvlan_process_v4_outbound(struct sk_buff *skb)
->                 ip_rt_put(rt);
->                 goto err;
->         }
-> -       skb_dst_drop(skb);
-> +       skb_scrub_packet(skb, false);
+>  drivers/net/ethernet/intel/e1000e/e1000.h   |  2 ++
+>  drivers/net/ethernet/intel/e1000e/ethtool.c |  4 ++--
+>  drivers/net/ethernet/intel/e1000e/netdev.c  | 12 ++++++------
+>  3 files changed, 10 insertions(+), 8 deletions(-)
 
-Hmm, I am feeling we should set the xnet param to be true here when the ipvlan
-device is in a different namespace with the physical one?
-
-
->         skb_dst_set(skb, &rt->dst);
->         err = ip_local_out(net, skb->sk, skb);
->         if (unlikely(net_xmit_eval(err)))
-> @@ -403,7 +403,7 @@ static int ipvlan_process_v6_outbound(struct sk_buff *skb)
->                 dst_release(dst);
->                 goto err;
->         }
-> -       skb_dst_drop(skb);
-> +       skb_scrub_packet(skb, false);
-
-Ditto.
-
-Thanks!
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
