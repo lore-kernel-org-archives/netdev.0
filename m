@@ -1,32 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 0/8] xen-netback: support toeplitz hashing
-Date: Fri, 12 Feb 2016 11:41:46 -0500 (EST)
-Message-ID: <20160212.114146.557404301623026279.davem@davemloft.net>
-References: <1455272005-17144-1-git-send-email-paul.durrant@citrix.com>
-	<20160212.055408.1901988218281607996.davem@davemloft.net>
-	<47dcce9fc54b42f591284cd8ea72ddba@AMSPEX02CL03.citrite.net>
+From: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Subject: ipv6 csum failures on MLX4 VFs
+Date: Fri, 12 Feb 2016 17:43:20 +0100 (CET)
+Message-ID: <alpine.LFD.2.20.1602121732310.20641@schleppi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
-To: Paul.Durrant@citrix.com
+Content-Type: text/plain; charset=US-ASCII
+Cc: Carol L Soto <clsoto@linux.vnet.ibm.com>,
+	Muhammad Mahajna <muhammadm@mellanox.com>,
+	netdev@vger.kernel.org
+To: Yishai Hadas <yishaih@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39735 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751117AbcBLQl5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 11:41:57 -0500
-In-Reply-To: <47dcce9fc54b42f591284cd8ea72ddba@AMSPEX02CL03.citrite.net>
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:35068 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750961AbcBLQnZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 11:43:25 -0500
+Received: from localhost
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <sebott@linux.vnet.ibm.com>;
+	Fri, 12 Feb 2016 16:43:23 -0000
+Received: from b06cxnps3074.portsmouth.uk.ibm.com (d06relay09.portsmouth.uk.ibm.com [9.149.109.194])
+	by d06dlp01.portsmouth.uk.ibm.com (Postfix) with ESMTP id 9EC5F17D8042
+	for <netdev@vger.kernel.org>; Fri, 12 Feb 2016 16:43:38 +0000 (GMT)
+Received: from d06av06.portsmouth.uk.ibm.com (d06av06.portsmouth.uk.ibm.com [9.149.37.217])
+	by b06cxnps3074.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u1CGhMMU30933230
+	for <netdev@vger.kernel.org>; Fri, 12 Feb 2016 16:43:22 GMT
+Received: from d06av06.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av06.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u1CGhLQM024024
+	for <netdev@vger.kernel.org>; Fri, 12 Feb 2016 11:43:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Date: Fri, 12 Feb 2016 11:07:50 +0000
+Hi,
 
-> Windows *requires* use of Teoplitz so your position completely rules
-> out being able to support receive side scaling in Windows PV
-> frontends on Linux kernel backends, not only for Xen but for any
-> other hypervisor, which I think is totally unreasonable.
+I receive tons of these csum failure warnings. The patch mentioned here:
+	https://patchwork.ozlabs.org/patch/512005/
 
-We have strong reason to believe that Toeplitz has properties that
-make it very weak if not exploitable, therefore doing software RSS
-with Jenkins is superior.
+seems to work. Will something like that be integrated upstream?
+
+Sebastian
