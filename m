@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 3/4] net: dsa: mv88e6xxx: check hardware VLAN in use
-Date: Fri, 12 Feb 2016 12:09:40 -0500
-Message-ID: <1455296981-27998-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 1/4] net: dsa: mv88e6xxx: add port private structure
+Date: Fri, 12 Feb 2016 12:09:38 -0500
+Message-ID: <1455296981-27998-2-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,97 +14,65 @@ In-Reply-To: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The DSA drivers now have access to the VLAN prepare phase and the bridge
-net_device. It is easier to check for overlapping bridges from within
-the driver. Thus add such check in mv88e6xxx_port_vlan_prepare.
+Add a per-port mv88e6xxx_priv_port structure to store per-port related
+data, instead of adding several arrays of DSA_MAX_PORTS elements in the
+mv88e6xxx_priv_state structure.
+
+It currently only contains the port STP state.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 64 +++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 64 insertions(+)
+ drivers/net/dsa/mv88e6xxx.c | 4 ++--
+ drivers/net/dsa/mv88e6xxx.h | 7 ++++++-
+ 2 files changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 2e515e8..685dcb0 100644
+index 512c8c0..b0e00ed 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1471,14 +1471,78 @@ static int _mv88e6xxx_vlan_init(struct dsa_switch *ds, u16 vid,
- 	return 0;
+@@ -1131,7 +1131,7 @@ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state)
+ 	/* mv88e6xxx_port_stp_update may be called with softirqs disabled,
+ 	 * so we can not update the port state directly but need to schedule it.
+ 	 */
+-	ps->port_state[port] = stp_state;
++	ps->ports[port].state = stp_state;
+ 	set_bit(port, &ps->port_state_update_mask);
+ 	schedule_work(&ps->bridge_work);
+ 
+@@ -1925,7 +1925,7 @@ static void mv88e6xxx_bridge_work(struct work_struct *work)
+ 	while (ps->port_state_update_mask) {
+ 		port = __ffs(ps->port_state_update_mask);
+ 		clear_bit(port, &ps->port_state_update_mask);
+-		mv88e6xxx_set_port_state(ds, port, ps->port_state[port]);
++		mv88e6xxx_set_port_state(ds, port, ps->ports[port].state);
+ 	}
  }
  
-+static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
-+					u16 vid_begin, u16 vid_end)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	struct mv88e6xxx_vtu_stu_entry vlan;
-+	int i, err;
-+
-+	if (!vid_begin)
-+		return -EOPNOTSUPP;
-+
-+	mutex_lock(&ps->smi_mutex);
-+
-+	err = _mv88e6xxx_vtu_vid_write(ds, vid_begin - 1);
-+	if (err)
-+		goto unlock;
-+
-+	do {
-+		err = _mv88e6xxx_vtu_getnext(ds, &vlan);
-+		if (err)
-+			goto unlock;
-+
-+		if (!vlan.valid)
-+			break;
-+
-+		if (vlan.vid > vid_end)
-+			break;
-+
-+		for (i = 0; i < ps->num_ports; ++i) {
-+			if (dsa_is_dsa_port(ds, i) || dsa_is_cpu_port(ds, i))
-+				continue;
-+
-+			if (vlan.data[i] ==
-+			    GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
-+				continue;
-+
-+			if (ps->ports[i].bridge_dev ==
-+			    ps->ports[port].bridge_dev)
-+				break; /* same bridge, check next VLAN */
-+
-+			netdev_warn(ds->ports[port],
-+				    "hardware VLAN %d already used by %s\n",
-+				    vlan.vid,
-+				    netdev_name(ps->ports[i].bridge_dev));
-+			err = -EOPNOTSUPP;
-+			goto unlock;
-+		}
-+	} while (vlan.vid < vid_end);
-+
-+unlock:
-+	mutex_unlock(&ps->smi_mutex);
-+
-+	return err;
-+}
-+
- int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
- 				const struct switchdev_obj_port_vlan *vlan,
- 				struct switchdev_trans *trans)
- {
-+	int err;
-+
- 	/* We reserve a few VLANs to isolate unbridged ports */
- 	if (vlan->vid_end >= 4000)
- 		return -EOPNOTSUPP;
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index ca08f91..63a6f58 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -379,6 +379,10 @@ struct mv88e6xxx_vtu_stu_entry {
+ 	u8	data[DSA_MAX_PORTS];
+ };
  
-+	/* If the requested port doesn't belong to the same bridge as the VLAN
-+	 * members, do not support it (yet) and fallback to software VLAN.
-+	 */
-+	err = mv88e6xxx_port_check_hw_vlan(ds, port, vlan->vid_begin,
-+					   vlan->vid_end);
-+	if (err)
-+		return err;
++struct mv88e6xxx_priv_port {
++	u8 state;
++};
 +
- 	/* We don't need any dynamic resource from the kernel (yet),
- 	 * so skip the prepare phase.
- 	 */
+ struct mv88e6xxx_priv_state {
+ 	/* When using multi-chip addressing, this mutex protects
+ 	 * access to the indirect access registers.  (In single-chip
+@@ -415,8 +419,9 @@ struct mv88e6xxx_priv_state {
+ 	int		id; /* switch product id */
+ 	int		num_ports;	/* number of switch ports */
+ 
++	struct mv88e6xxx_priv_port	ports[DSA_MAX_PORTS];
++
+ 	unsigned long port_state_update_mask;
+-	u8 port_state[DSA_MAX_PORTS];
+ 
+ 	struct work_struct bridge_work;
+ };
 -- 
 2.7.1
