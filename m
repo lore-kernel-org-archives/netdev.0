@@ -1,365 +1,179 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v2 1/7] net: add dst_cache support
-Date: Fri, 12 Feb 2016 15:43:53 +0100
-Message-ID: <fe6e87d83804dac314d24fa1496120d52a48d066.1455287867.git.pabeni@redhat.com>
-References: <cover.1455287867.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Tom Herbert <therbert@google.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42823 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751149AbcBLOoU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Feb 2016 09:44:20 -0500
-In-Reply-To: <cover.1455287867.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Josh Poimboeuf <jpoimboe@redhat.com>
+Subject: Re: [PATCH 00/33] Compile-time stack metadata validation
+Date: Fri, 12 Feb 2016 08:45:43 -0600
+Message-ID: <20160212144543.GA29004@treble.redhat.com>
+References: <cover.1453405861.git.jpoimboe@redhat.com>
+ <56BDB5A8.9030006@suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
+	Michal Marek <mmarek@suse.cz>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Andy Lutomirski <luto@kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Pedro Alves <palves@redhat.com>,
+	Namhyung Kim <namhyung@gmail.com>,
+	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
+	Chris J Arges <chris.j.arges@canonical.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Arnaldo Carvalho de Melo <acme@kernel.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Borislav Petkov <bp@suse.de>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	Chris Wright <chrisw@sous
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <56BDB5A8.9030006@suse.cz>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch add a generic, lockless dst cache implementation.
-The need for lock is avoided updating the dst cache fields
-only in per cpu scope, and requiring that the cache manipulation
-functions are invoked with the local bh disabled.
+On Fri, Feb 12, 2016 at 11:36:24AM +0100, Jiri Slaby wrote:
+> On 01/21/2016, 11:49 PM, Josh Poimboeuf wrote:
+> > This is v16 of the compile-time stack metadata validation patch set,
+> > along with proposed fixes for most of the warnings it found.  It's based
+> > on the tip/master branch.
+> 
+> Hi,
+> 
+> with this config:
+> https://github.com/openSUSE/kernel-source/blob/master/config/x86_64/vanilla
+> 
+> I am seeing a lot of functions in C which do not have frame pointer setup/cleanup:
 
-The refresh_ts and reset_ts fields are used to ensure the cache
-consistency in case of cuncurrent cache update (dst_cache_set*) and
-reset operation (dst_cache_reset).
+Hi Jiri,
 
-Consider the following scenario:
+Thanks for testing.
 
-CPU1:                                   	CPU2:
-  <cache lookup with emtpy cache: it fails>
-  <get dst via uncached route lookup>
-						<related configuration changes>
-                                        	dst_cache_reset()
-  dst_cache_set()
+> stacktool: drivers/scsi/hpsa.o: hpsa_scsi_do_simple_cmd.constprop.106()+0x79: call without frame pointer save/setup
 
-The dst entry set passed to dst_cache_set() should not be used
-for later dst cache lookup, because it's obtained using old
-configuration values.
+This seems like a real frame pointer bug caused by the following line in
+arch/x86/include/asm/preempt.h:
 
-Since the refresh_ts is updated only on dst_cache lookup, the
-cached value in the above scenario will be discarded on the next
-lookup.
+  # define __preempt_schedule() asm ("call ___preempt_schedule")
 
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-Suggested-and-acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+The asm statement doesn't have the stack pointer as an output operand,
+so gcc doesn't skips the frame pointer setup before calling.
 
----
-v2: protect lookup functions against uninitalized cache access
----
- include/net/dst_cache.h |  97 ++++++++++++++++++++++++++++
- net/Kconfig             |   4 ++
- net/core/Makefile       |   1 +
- net/core/dst_cache.c    | 168 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 270 insertions(+)
- create mode 100644 include/net/dst_cache.h
- create mode 100644 net/core/dst_cache.c
+However, I suspect the "bug" is intentional for optimization purposes.
 
-diff --git a/include/net/dst_cache.h b/include/net/dst_cache.h
-new file mode 100644
-index 0000000..151accae
---- /dev/null
-+++ b/include/net/dst_cache.h
-@@ -0,0 +1,97 @@
-+#ifndef _NET_DST_CACHE_H
-+#define _NET_DST_CACHE_H
-+
-+#include <linux/jiffies.h>
-+#include <net/dst.h>
-+#if IS_ENABLED(CONFIG_IPV6)
-+#include <net/ip6_fib.h>
-+#endif
-+
-+struct dst_cache {
-+	struct dst_cache_pcpu __percpu *cache;
-+	unsigned long reset_ts;
-+};
-+
-+/**
-+ *	dst_cache_get - perform cache lookup
-+ *	@dst_cache: the cache
-+ *
-+ *	The caller should use dst_cache_get_ip4() if it need to retrieve the
-+ *	source address to be used when xmitting to the cached dst.
-+ *	local BH must be disabled.
-+ */
-+struct dst_entry *dst_cache_get(struct dst_cache *dst_cache);
-+
-+/**
-+ *	dst_cache_get_ip4 - perform cache lookup and fetch ipv4 source address
-+ *	@dst_cache: the cache
-+ *	@saddr: return value for the retrieved source address
-+ *
-+ *	local BH must be disabled.
-+ */
-+struct rtable *dst_cache_get_ip4(struct dst_cache *dst_cache, __be32 *saddr);
-+
-+/**
-+ *	dst_cache_set_ip4 - store the ipv4 dst into the cache
-+ *	@dst_cache: the cache
-+ *	@dst: the entry to be cached
-+ *	@saddr: the source address to be stored inside the cache
-+ *
-+ *	local BH must be disabled.
-+ */
-+void dst_cache_set_ip4(struct dst_cache *dst_cache, struct dst_entry *dst,
-+		       __be32 saddr);
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+
-+/**
-+ *	dst_cache_set_ip6 - store the ipv6 dst into the cache
-+ *	@dst_cache: the cache
-+ *	@dst: the entry to be cached
-+ *	@saddr: the source address to be stored inside the cache
-+ *
-+ *	local BH must be disabled.
-+ */
-+void dst_cache_set_ip6(struct dst_cache *dst_cache, struct dst_entry *dst,
-+		       const struct in6_addr *addr);
-+
-+/**
-+ *	dst_cache_get_ip6 - perform cache lookup and fetch ipv6 source address
-+ *	@dst_cache: the cache
-+ *	@saddr: return value for the retrieved source address
-+ *
-+ *	local BH must be disabled.
-+ */
-+struct dst_entry *dst_cache_get_ip6(struct dst_cache *dst_cache,
-+				    struct in6_addr *saddr);
-+#endif
-+
-+/**
-+ *	dst_cache_reset - invalidate the cache contents
-+ *	@dst_cache: the cache
-+ *
-+ *	This do not free the cached dst to avoid races and contentions.
-+ *	the dst will be freed on later cache lookup.
-+ */
-+static inline void dst_cache_reset(struct dst_cache *dst_cache)
-+{
-+	dst_cache->reset_ts = jiffies;
-+}
-+
-+/**
-+ *	dst_cache_init - initialize the cache, allocating the required storage
-+ *	@dst_cache: the cache
-+ *	@gfp: allocation flags
-+ */
-+int dst_cache_init(struct dst_cache *dst_cache, gfp_t gfp);
-+
-+/**
-+ *	dst_cache_destroy - empty the cache and free the allocated storage
-+ *	@dst_cache: the cache
-+ *
-+ *	No synchronization is enforced: it must be called only when the cache
-+ *	is unsed.
-+ */
-+void dst_cache_destroy(struct dst_cache *dst_cache);
-+
-+#endif
-diff --git a/net/Kconfig b/net/Kconfig
-index 1743546..b80efec 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -392,6 +392,10 @@ config LWTUNNEL
- 	  weight tunnel endpoint. Tunnel encapsulation parameters are stored
- 	  with light weight tunnel state associated with fib routes.
- 
-+config DST_CACHE
-+	bool "dst cache"
-+	default n
-+
- endif   # if NET
- 
- # Used by archs to tell that they support BPF_JIT
-diff --git a/net/core/Makefile b/net/core/Makefile
-index 0b835de..7a8fb8a 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -24,3 +24,4 @@ obj-$(CONFIG_NET_PTP_CLASSIFY) += ptp_classifier.o
- obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
- obj-$(CONFIG_CGROUP_NET_CLASSID) += netclassid_cgroup.o
- obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
-+obj-$(CONFIG_DST_CACHE) += dst_cache.o
-diff --git a/net/core/dst_cache.c b/net/core/dst_cache.c
-new file mode 100644
-index 0000000..3938f3f
---- /dev/null
-+++ b/net/core/dst_cache.c
-@@ -0,0 +1,168 @@
-+/*
-+ * net/core/dst_cache.c - dst entry cache
-+ *
-+ * Copyright (c) 2016 Paolo Abeni <pabeni@redhat.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/percpu.h>
-+#include <net/dst_cache.h>
-+#include <net/route.h>
-+#if IS_ENABLED(CONFIG_IPV6)
-+#include <net/ip6_fib.h>
-+#endif
-+#include <uapi/linux/in.h>
-+
-+struct dst_cache_pcpu {
-+	unsigned long refresh_ts;
-+	struct dst_entry *dst;
-+	u32 cookie;
-+	union {
-+		struct in_addr in_saddr;
-+		struct in6_addr in6_saddr;
-+	};
-+};
-+
-+void dst_cache_per_cpu_dst_set(struct dst_cache_pcpu *dst_cache,
-+			       struct dst_entry *dst, u32 cookie)
-+{
-+	dst_release(dst_cache->dst);
-+	if (dst)
-+		dst_hold(dst);
-+
-+	dst_cache->cookie = cookie;
-+	dst_cache->dst = dst;
-+}
-+
-+struct dst_entry *dst_cache_per_cpu_get(struct dst_cache *dst_cache,
-+					struct dst_cache_pcpu *idst)
-+{
-+	struct dst_entry *dst;
-+
-+	dst = idst->dst;
-+	if (!dst)
-+		goto fail;
-+
-+	/* the cache already hold a dst reference; it can't go away */
-+	dst_hold(dst);
-+
-+	if (unlikely(!time_after(idst->refresh_ts, dst_cache->reset_ts) ||
-+		     (dst->obsolete && !dst->ops->check(dst, idst->cookie)))) {
-+		dst_cache_per_cpu_dst_set(idst, NULL, 0);
-+		dst_release(dst);
-+		goto fail;
-+	}
-+	return dst;
-+
-+fail:
-+	idst->refresh_ts = jiffies;
-+	return NULL;
-+}
-+
-+struct dst_entry *dst_cache_get(struct dst_cache *dst_cache)
-+{
-+	if (!dst_cache->cache)
-+		return NULL;
-+
-+	return dst_cache_per_cpu_get(dst_cache, this_cpu_ptr(dst_cache->cache));
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_get);
-+
-+struct rtable *dst_cache_get_ip4(struct dst_cache *dst_cache, __be32 *saddr)
-+{
-+	struct dst_cache_pcpu *idst;
-+	struct dst_entry *dst;
-+
-+	if (!dst_cache->cache)
-+		return NULL;
-+
-+	idst = this_cpu_ptr(dst_cache->cache);
-+	dst = dst_cache_per_cpu_get(dst_cache, idst);
-+	if (!dst)
-+		return NULL;
-+
-+	*saddr = idst->in_saddr.s_addr;
-+	return container_of(dst, struct rtable, dst);
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_get_ip4);
-+
-+void dst_cache_set_ip4(struct dst_cache *dst_cache, struct dst_entry *dst,
-+		       __be32 saddr)
-+{
-+	struct dst_cache_pcpu *idst;
-+
-+	if (!dst_cache->cache)
-+		return;
-+
-+	idst = this_cpu_ptr(dst_cache->cache);
-+	dst_cache_per_cpu_dst_set(idst, dst, 0);
-+	idst->in_saddr.s_addr = saddr;
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_set_ip4);
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+void dst_cache_set_ip6(struct dst_cache *dst_cache, struct dst_entry *dst,
-+		       const struct in6_addr *addr)
-+{
-+	struct dst_cache_pcpu *idst;
-+
-+	if (!dst_cache->cache)
-+		return;
-+
-+	idst = this_cpu_ptr(dst_cache->cache);
-+	dst_cache_per_cpu_dst_set(this_cpu_ptr(dst_cache->cache), dst,
-+				  rt6_get_cookie((struct rt6_info *)dst));
-+	idst->in6_saddr = *addr;
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_set_ip6);
-+
-+struct dst_entry *dst_cache_get_ip6(struct dst_cache *dst_cache,
-+				    struct in6_addr *saddr)
-+{
-+	struct dst_cache_pcpu *idst;
-+	struct dst_entry *dst;
-+
-+	if (!dst_cache->cache)
-+		return NULL;
-+
-+	idst = this_cpu_ptr(dst_cache->cache);
-+	dst = dst_cache_per_cpu_get(dst_cache, idst);
-+	if (!dst)
-+		return NULL;
-+
-+	*saddr = idst->in6_saddr;
-+	return dst;
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_get_ip6);
-+#endif
-+
-+int dst_cache_init(struct dst_cache *dst_cache, gfp_t gfp)
-+{
-+	dst_cache->cache = alloc_percpu_gfp(struct dst_cache_pcpu,
-+					    gfp | __GFP_ZERO);
-+	if (!dst_cache->cache)
-+		return -ENOMEM;
-+
-+	dst_cache_reset(dst_cache);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_init);
-+
-+void dst_cache_destroy(struct dst_cache *dst_cache)
-+{
-+	int i;
-+
-+	if (!dst_cache->cache)
-+		return;
-+
-+	for_each_possible_cpu(i)
-+		dst_release(per_cpu_ptr(dst_cache->cache, i)->dst);
-+
-+	free_percpu(dst_cache->cache);
-+}
-+EXPORT_SYMBOL_GPL(dst_cache_destroy);
+> stacktool: drivers/staging/lustre/lnet/klnds/o2iblnd/o2iblnd_cb.o: cfs_cdebug_show.part.5.constprop.35()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lnet/klnds/o2iblnd/o2iblnd_cb.o: cfs_cdebug_show.part.5.constprop.35()+0x8: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lnet/klnds/o2iblnd/o2iblnd_cb.o: cfs_cdebug_show.part.5.constprop.35()+0x9: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lnet/klnds/socklnd/socklnd.o: ksocknal_connsock_decref()+0x0: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lnet/klnds/socklnd/socklnd.o: ksocknal_connsock_decref()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lnet/klnds/socklnd/socklnd.o: ksocknal_connsock_decref()+0x1: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lnet/klnds/socklnd/socklnd.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lnet/lnet/lib-move.o: cfs_cdebug_show.part.1.constprop.16()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lnet/lnet/lib-move.o: cfs_cdebug_show.part.1.constprop.16()+0x8: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lnet/lnet/lib-move.o: cfs_cdebug_show.part.1.constprop.16()+0x9: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lnet/lnet/lib-move.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lnet/lnet/lo.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lnet/lnet/nidstrings.o: cfs_print_nidlist()+0x220: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lnet/lnet/peer.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lnet/lnet/router.o: cfs_cdebug_show.part.0.constprop.16()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lnet/lnet/router.o: cfs_cdebug_show.part.0.constprop.16()+0x8: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lnet/lnet/router.o: cfs_cdebug_show.part.0.constprop.16()+0x9: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lnet/lnet/router.o: lnet_find_net_locked()+0x8a: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lnet/lnet/router.o: lnet_find_net_locked()+0x8a: return without frame pointer restore
+> stacktool: drivers/staging/lustre/lustre/fid/fid_request.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/fld/lproc_fld.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/libcfs/libcfs_lock.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/libcfs/libcfs_mem.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/llite/dir.o: obd_unpackmd()+0x0: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lustre/llite/dir.o: obd_unpackmd()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/llite/dir.o: obd_unpackmd()+0x4: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lustre/llite/file.o: md_intent_lock.part.28()+0x0: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lustre/llite/file.o: md_intent_lock.part.28()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/llite/file.o: md_intent_lock.part.28()+0x24: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lustre/llite/../lclient/glimpse.o: cl_io_get()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/llite/../lclient/glimpse.o: cl_io_get()+0x1a: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lustre/llite/../lclient/glimpse.o: cl_io_get()+0x1b: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lustre/llite/../lclient/glimpse.o: cl_io_get()+0x19: return without frame pointer restore
+> stacktool: drivers/staging/lustre/lustre/llite/../lclient/lcommon_misc.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/llite/llite_mmap.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/llite/lproc_llite.o: checksum_pages_store()+0x19e: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/llite/namei.o: ll_test_inode()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/llite/namei.o: ll_test_inode()+0x5: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lustre/llite/namei.o: ll_test_inode()+0x9: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lustre/llite/rw.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/llite/statahead.o: md_revalidate_lock.part.26()+0x0: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lustre/llite/statahead.o: md_revalidate_lock.part.26()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/llite/statahead.o: md_revalidate_lock.part.26()+0x24: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lustre/llite/statahead.o: sa_args_fini()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/llite/statahead.o: sa_args_fini()+0x5: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lustre/llite/statahead.o: sa_args_fini()+0x9: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lustre/llite/statahead.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/llite/vvp_page.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/llite/xattr_cache.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/llite/xattr.o: get_xattr_type()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/llite/xattr.o: get_xattr_type()+0x1f: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lustre/llite/xattr.o: get_xattr_type()+0x5: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lustre/lmv/lmv_intent.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/lmv/lmv_obd.o: __lmv_fid_alloc()+0x185: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/lov/lov_io.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/lov/lovsub_dev.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/mdc/mdc_lib.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/mdc/mdc_locks.o: .text.unlikely: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/obdclass/debug.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/obdclass/genops.o: class_name2dev()+0xc7: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/obdclass/lustre_handles.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/obdclass/obd_config.o: lustre_cfg_string()+0x0: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lustre/obdclass/obd_config.o: lustre_cfg_string()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/obdclass/obd_config.o: lustre_cfg_string()+0x4: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lustre/osc/osc_cache.o: __client_obd_list_lock()+0x0: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lustre/osc/osc_cache.o: __client_obd_list_lock()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/osc/osc_cache.o: __client_obd_list_lock()+0x1: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lustre/osc/osc_cache.o: osc_extent_search()+0x78: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/osc/osc_cache.o: osc_extent_search()+0x78: return without frame pointer restore
+> stacktool: drivers/staging/lustre/lustre/osc/osc_dev.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/osc/osc_page.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/connection.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/import.o: deuuidify.constprop.8()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/import.o: deuuidify.constprop.8()+0x5: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/import.o: deuuidify.constprop.8()+0x6: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/llog_net.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/../../lustre/ldlm/ldlm_extent.o: ldlm_extent_shift_kms()+0x93: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/../../lustre/ldlm/ldlm_lock.o: ldlm_work_bl_ast_lock()+0x156: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/../../lustre/ldlm/ldlm_lock.o: ldlm_work_cp_ast_lock()+0xda: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/nrs.o: nrs_policy_register()+0x0: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/nrs.o: nrs_policy_register()+0x5: duplicate frame pointer save
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/nrs.o: nrs_policy_register()+0x6: duplicate frame pointer setup
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/nrs.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/pack_generic.o: lustre_swab_mgs_nidtbl_entry()+0x89: frame pointer state mismatch
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/pack_generic.o: lustre_swab_mgs_nidtbl_entry()+0x89: return without frame pointer restore
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/sec_bulk.o: .text: unexpected end of section
+> stacktool: drivers/staging/lustre/lustre/ptlrpc/sec_config.o: .text: unexpected end of section
+
+These staging driver issues are caused by stacktool getting confused by
+gcc optimizations related to noreturn functions.  I have it on the TODO
+list to make the noreturn function detection more intelligent.
+
+> stacktool: fs/mbcache.o: mb_cache_entry_find_first()+0x70: call without frame pointer save/setup
+> stacktool: fs/mbcache.o: mb_cache_entry_find_first()+0x92: call without frame pointer save/setup
+> stacktool: fs/mbcache.o: mb_cache_entry_free()+0xff: call without frame pointer save/setup
+> stacktool: fs/mbcache.o: mb_cache_entry_free()+0xf5: call without frame pointer save/setup
+> stacktool: fs/mbcache.o: mb_cache_entry_free()+0x11a: call without frame pointer save/setup
+> stacktool: fs/mbcache.o: mb_cache_entry_get()+0x225: call without frame pointer save/setup
+> stacktool: kernel/locking/percpu-rwsem.o: percpu_up_read()+0x27: call without frame pointer save/setup
+> stacktool: kernel/profile.o: do_profile_hits.isra.5()+0x139: call without frame pointer save/setup
+> stacktool: lib/nmi_backtrace.o: nmi_trigger_all_cpu_backtrace()+0x2b6: call without frame pointer save/setup
+> stacktool: net/rds/ib_cm.o: rds_ib_cq_comp_handler_recv()+0x58: call without frame pointer save/setup
+> stacktool: net/rds/ib_cm.o: rds_ib_cq_comp_handler_send()+0x58: call without frame pointer save/setup
+> stacktool: net/rds/ib_recv.o: rds_ib_attempt_ack()+0xc1: call without frame pointer save/setup
+> stacktool: net/rds/iw_recv.o: rds_iw_attempt_ack()+0xc1: call without frame pointer save/setup
+> stacktool: net/rds/iw_recv.o: rds_iw_recv_cq_comp_handler()+0x55: call without frame pointer save/setup
+
+These are all the same "call ___preempt_schedule" issue from above.
+I'll need to look into it to figure out if it's a real bug or if it's a
+"feature" we should ignore.
+
 -- 
-1.8.3.1
+Josh
