@@ -1,45 +1,60 @@
-From: Helmut Buchsbaum <helmut.buchsbaum-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net: phy: spi_ks8995: add dependency on GPIO
-Date: Fri, 12 Feb 2016 13:33:58 +0100
-Message-ID: <56BDD136.50208@gmail.com>
-References: <1455272306-30251-1-git-send-email-sudipm.mukherjee@gmail.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH net] af_unix: Guard against other == sk in unix_dgram_sendmsg
+Date: Fri, 12 Feb 2016 13:25:15 +0000
+Message-ID: <8760xuvz5w.fsf@doppelsaurus.mobileactivedefense.com>
+References: <56B4BF9D.9070609@pmhahn.de> <56BC90E7.7040007@pmhahn.de>
+	<87fuwzkzr5.fsf@doppelsaurus.mobileactivedefense.com>
+	<1455210224.2801.21.camel@decadent.org.uk>
+	<87r3gjjgbu.fsf@doppelsaurus.mobileactivedefense.com>
+	<87egcjcd5j.fsf@doppelsaurus.mobileactivedefense.com>
+	<87r3gj11jc.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<56BDA3A8.6070807@pmhahn.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1455272306-30251-1-git-send-email-sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, Karolin Seeger <kseeger@samba.org>,
+	Jason Baron <jbaron@akamai.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Arvid Requate <requate@univention.de>,
+	Stefan Gohmann <gohmann@univention.de>, netdev@vger.kernel.org
+To: Philipp Hahn <pmhahn@pmhahn.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tiger.mobileactivedefense.com ([217.174.251.109]:45092 "EHLO
+	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752309AbcBLNZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 08:25:45 -0500
+In-Reply-To: <56BDA3A8.6070807@pmhahn.de> (Philipp Hahn's message of "Fri, 12
+	Feb 2016 10:19:36 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/12/2016 11:18 AM, Sudip Mukherjee wrote:
-> The builds of allmodconfig of s390, m68k, tilegx, tilepro is failing
-> with the error:
->   drivers/net/phy/spi_ks8995.c:477:3: error: implicit declaration of function 'gpiod_set_value'
->   drivers/net/phy/spi_ks8995.c:477:19: error: implicit declaration of function 'gpio_to_desc'
+Philipp Hahn <pmhahn@pmhahn.de> writes:
+
+> Hello Rainer,
 >
-> GPIO is now used to reset the switch so we should have a dependency on
-> GPIOLIB.
->
-> Fixes: cd6f288cbaab ("net: phy: spi_ks8995: add support for resetting switch using GPIO")
-> Cc: Helmut Buchsbaum <helmut.buchsbaum-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Sudip Mukherjee <sudip-ofJRbWXBVFamYgehrs7/Lw@public.gmane.org>
-> ---
->   drivers/net/phy/Kconfig | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-> index f0a7702..c6a4fe1 100644
-> --- a/drivers/net/phy/Kconfig
-> +++ b/drivers/net/phy/Kconfig
-> @@ -261,4 +261,4 @@ endif # PHYLIB
->
->   config MICREL_KS8995MA
->   	tristate "Micrel KS8995MA 5-ports 10/100 managed Ethernet switch"
-> -	depends on SPI
-> +	depends on SPI && GPIOLIB
->
-You're definitely right! This somehow slipped through, sorry for that!
+> Am 11.02.2016 um 20:37 schrieb Rainer Weikusat:
+>> The unix_dgram_sendmsg routine use the following test
+>> 
+>> if (unlikely(unix_peer(other) != sk && unix_recvq_full(other))) {
+
+[...]
+
+>> This isn't correct as the> specified address could have been bound to
+>> the sending socket itself
+
+[...]
+
+> After applying that patch at least my machine running the samba test no
+> longer crashes.
+
+There's a possible gotcha in there: Send-to-self used to be limited by
+the queue limit. But the rationale for that (IIRC) was that someone
+could keep using newly created sockets to queue ever more data to a
+single, unrelated receiver. I don't think this should apply when
+receiving and sending sockets are identical. But that's just my
+opinion. The other option would be to avoid the unix_state_double_lock
+for sk == other. I'd be willing to change this accordingly if someone
+thinks the queue limit should apply to send-to-self.
