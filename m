@@ -1,376 +1,323 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH 1/4] net: ethernet: dwmac: add Ethernet glue logic for
- stm32 chip
-Date: Fri, 12 Feb 2016 22:28:19 +0800
-Message-ID: <201602122254.EsWZQE5Z%fengguang.wu@intel.com>
-References: <1454511275-9791-2-git-send-email-alexandre.torgue@gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: pull-request: wireless-drivers-next 2016-02-12
+Date: Fri, 12 Feb 2016 16:40:23 +0200
+Message-ID: <87fuwyt2js.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="bp/iNruPH9dso1Pn"
-Cc: kbuild-all@01.org, Maxime Coquelin <mcoquelin.stm32@gmail.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: Alexandre TORGUE <alexandre.torgue@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1454511275-9791-2-git-send-email-alexandre.torgue@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:44916 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750802AbcBLOk3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 09:40:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hi Dave,
+
+here's first pull request for 4.6. We have a new kconfig option
+CONFIG_IWLWIFI_PCIE_RTPM for iwlwifi runtime power management. wl12xxx
+got device tree support for the spi bus and added a bindings document
+for it. More info in the tag below.
+
+Please let me know if you have any problems.
+
+Kalle
+
+The following changes since commit 7a26019fdecdb45ff784ae4e3b7e0cc90451=
+00ca:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2016-0=
+1-15 18:36:23 -0500)
+
+are available in the git repository at:
 
 
---bp/iNruPH9dso1Pn
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-=
+next.git tags/wireless-drivers-next-for-davem-2016-02-12
 
-Hi Alexandre,
+for you to fetch changes up to 11e70824e75f2cfbad9ae066ca5b29e1c361f19e=
+:
 
-[auto build test WARNING on net/master]
-[also build test WARNING on v4.5-rc3 next-20160212]
-[if your patch is applied to the wrong git tree, please drop us a note to help improving the system]
+  mwifiex: firmware dump support for w8997 chipset (2016-02-07 09:15:44=
+ +0200)
 
-url:    https://github.com/0day-ci/linux/commits/Alexandre-TORGUE/Add-Ethernet-support-on-STM32F429/20160203-225940
-config: um-allyesconfig (attached as .config)
-reproduce:
-        # save the attached .config to linux build tree
-        make ARCH=um 
+----------------------------------------------------------------
+Major changes:
 
-All warnings (new ones prefixed by >>):
+wl12xx
 
-warning: (ST_IRQCHIP && HIP04_ETH && STMMAC_PLATFORM && DWMAC_IPQ806X && DWMAC_LPC18XX && DWMAC_ROCKCHIP && DWMAC_SOCFPGA && DWMAC_STI && DWMAC_STM32 && TI_CPSW && PINCTRL_ROCKCHIP && PINCTRL_DOVE && POWER_RESET_KEYSTONE && POWER_RESET_SYSCON && POWER_RESET_SYSCON_POWEROFF && S3C2410_WATCHDOG && VIDEO_OMAP3 && VIDEO_S5P_FIMC && USB_XHCI_MTK && RTC_DRV_AT91SAM9 && LPC18XX_DMAMUX && VIDEO_OMAP4 && HWSPINLOCK_QCOM && ATMEL_ST && QCOM_GSBI && PHY_HI6220_USB) selects MFD_SYSCON which has unmet direct dependencies (HAS_IOMEM)
+* add device tree support for SPI
 
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+mwifiex
 
---bp/iNruPH9dso1Pn
-Content-Type: application/octet-stream
-Content-Disposition: attachment; filename=".config.gz"
-Content-Transfer-Encoding: base64
+* add debugfs file to read chip information
+* add MSIx support for newer pcie chipsets (8997 onwards)
+* add schedule scan support
+* add WoWLAN net-detect support
+* firmware dump support for w8997 chipset
 
-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
-/WlmqDHxcMx/Y7mWfrMOJsp/AdxA0hzxCQEA
+iwlwifi
 
---bp/iNruPH9dso1Pn--
+* continue the work on multiple Rx queues
+* add support for beacon storing used in low power states
+* use the regular firmware image of WoWLAN
+* fix 8000 devices for Big Endian machines
+* more firmware debug hooks
+* add support for P2P Client snoozing
+* make the beacon filtering for AP mode configurable
+* fix transmit queues overflow with LSO
+
+libertas
+
+* add support for setting power save via cfg80211
+
+----------------------------------------------------------------
+Amitkumar Karwar (2):
+      mwifiex: use SYNC flag for canceling host sleep
+      mwifiex: increase the priority of firmware dump message
+
+Andreas Kemnade (6):
+      libertas: fix pointer bugs for PS_MODE commands
+      libertas: check whether bus can do more than polling
+      libertas: do not confirm sleep if commands are pending
+      libertas: go back to ps mode without commands pending
+      libertas: fix ps-mode related removal problems
+      libertas: add an cfg80211 interface for powersaving
+
+Andrei Otcheretianski (1):
+      iwlwifi: mvm: allow to disable beacon filtering for AP/GO interfa=
+ce
+
+Andrzej Hajda (1):
+      wlcore: fix error handling in wlcore_event_fw_logger
+
+Arnd Bergmann (1):
+      hostap: avoid uninitialized variable use in hfa384x_get_rid
+
+Avri Altman (3):
+      iwlwifi: mvm: Add P2P client snoozing
+      iwlwifi: mvm: Remove bf_vif from iwl_power_vifs
+      iwlwifi: mvm: Remove iwl_mvm_update_beacon_abort
+
+Chaya Rachel Ivgi (1):
+      iwlwifi: mvm: add support for negative temperatures
+
+Dan Carpenter (1):
+      mwifiex: fix a reversed condition
+
+Emmanuel Grumbach (2):
+      iwlwifi: pcie: buffer packets to avoid overflowing Tx queues
+      iwlwifi: various comments and code cleanups
+
+Ganapathi Bhat (1):
+      mwifiex: add RSSI support for net-detect
+
+Golan Ben-Ami (2):
+      iwlwifi: mvm: add trigger for firmware dump upon TX response stat=
+us
+      iwlwifi: mvm: make collecting fw debug data optional
+
+Gregory Greenman (1):
+      iwlwifi: mvm: rs: fix TPC action decision algorithm
+
+Hubert Tarasiuk (1):
+      iwlwifi: dvm: handle zero brightness for wifi LED
+
+Johannes Berg (5):
+      iwlwifi: mvm: remove shadowing variable
+      iwlwifi: mvm: fix debugfs signedness warning
+      iwlwifi: mvm: track low-latency sources separately
+      iwlwifi: mvm: support setting minimum quota from debugfs
+      iwlwifi: treat iwl_parse_nvm_data() MAC addr as little endian
+
+Kalle Valo (1):
+      Merge tag 'iwlwifi-next-for-kalle-2016-01-31_2' of https://git.ke=
+rnel.org/.../iwlwifi/iwlwifi-next
+
+Luca Coelho (1):
+      iwlwifi: pcie: add initial RTPM support for PCI
+
+Luciano Coelho (1):
+      iwlwifi: pcie: add RTPM support when wifi is enabled
+
+Matti Gottlieb (1):
+      iwlwifi: mvm: Do not switch to D3 image on suspend
+
+Max Stepanov (1):
+      iwlwifi: mvm: add debug print if scan config is ignored
+
+Nachiket Kukade (1):
+      mwifiex: fix bandwidth display problem
+
+Paul Mcquade (3):
+      net: wireless: rt2x00: Fixed Spacing issues
+      net: wireless: rt2x00: Space issue
+      net: wireless: rt2x00: Space Required
+
+Rafa=C5=82 Mi=C5=82ecki (15):
+      bcma: support identifying MX25L25635F serial flash
+      bcma: identify bus cores (devices) found on BCM47189
+      bcma: support chipsets with PMU and GCI cores (devices)
+      bcma: use _PMU_ in all names of PMU registers
+      bcma: support PMU present as separated bus core
+      brcmfmac: fix setting primary channel for 80 MHz width
+      bcma: init serial console directly from ChipCommon code
+      bcma: add support for BCM47094
+      bcma: claim only 14e4:4365 PCI Dell card with SoftMAC BCM43142
+      brcmfmac: analyze descriptors of current component only
+      brcmfmac: allow storing PMU core without wrapper address
+      brcmfmac: read extended capabilities of ChipCommon core
+      brcmfmac: access PMU registers using standalone PMU core if avail=
+able
+      brcmfmac: add support for 14e4:4365 PCI ID with BCM4366 chipset
+      brcmfmac: treat NULL character in NVRAM as separator
+
+Rodrigo Freire (1):
+      iwlwifi: Document missing module options
+
+Sara Sharon (10):
+      iwlwifi: pcie: add infrastructure for multi-queue rx
+      iwlwifi: pcie: add 9000 series multi queue rx DMA support
+      iwlwifi: mvm: support beacon storing
+      iwlwifi: mvm: change access to ieee80211_hdr
+      iwlwifi: mvm: change the check for ADD_STA status
+      iwlwifi: mvm: add tlv for multi queue rx support
+      iwlwifi: mvm: add new ADD_STA command version
+      iwlwifi: mvm: support rss queues configuration command
+      iwlwifi: pcie: enable multi-queue rx path
+      iwlwifi: pcie: update iwl_mpdu_desc fields
+
+Shengzhen Li (1):
+      mwifiex: fix power state out of sync problem
+
+Sjoerd Simons (1):
+      brcmfmac: sdio: Increase the default timeouts a bit
+
+Uri Mashiach (2):
+      wlcore/wl12xx: spi: add power operation function
+      wlcore/wl12xx: spi: add device tree support
+
+Xinming Hu (10):
+      mwifiex: add debugfs file to read chip information
+      mwifiex: enable pcie MSIx interrupt mode support
+      mwifiex: add schedule scan support
+      mwifiex: display right transmit packet delay
+      mwifiex: process pcie io memory read failure case
+      mwifiex: skip firmware dump when read_regs() fails
+      mwifiex: keep original structure in decl header file
+      mwifiex: use an extensible framework for firmware dump solution
+      mwifiex: dynamically increase preallocated firmware dump memory s=
+ize
+      mwifiex: firmware dump support for w8997 chipset
+
+chunfan chen (5):
+      mwifiex: firmware download enhancements
+      mwifiex: fix IBSS data path issue.
+      mwifiex: add wowlan info messages
+      mwifiex: add wowlan net-detect support
+      mwifiex: report wakeup reason to cfg80211
+
+ .../bindings/net/wireless/ti,wlcore,spi.txt        |   36 ++
+ drivers/bcma/bcma_private.h                        |    1 -
+ drivers/bcma/driver_chipcommon.c                   |   16 +-
+ drivers/bcma/driver_chipcommon_pmu.c               |   94 ++--
+ drivers/bcma/driver_chipcommon_sflash.c            |    1 +
+ drivers/bcma/driver_gpio.c                         |    1 +
+ drivers/bcma/driver_mips.c                         |    3 -
+ drivers/bcma/host_pci.c                            |    2 +-
+ drivers/bcma/scan.c                                |    5 +
+ drivers/net/wireless/broadcom/b43/main.c           |    8 +-
+ .../broadcom/brcm80211/brcmfmac/cfg80211.c         |   23 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/chip.c    |   45 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/chip.h    |    3 +
+ .../broadcom/brcm80211/brcmfmac/firmware.c         |    2 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/pcie.c    |    4 +
+ .../wireless/broadcom/brcm80211/brcmfmac/sdio.c    |   13 +-
+ drivers/net/wireless/intel/iwlwifi/Kconfig         |   12 +
+ drivers/net/wireless/intel/iwlwifi/dvm/led.c       |    5 +-
+ drivers/net/wireless/intel/iwlwifi/dvm/mac80211.c  |    4 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-9000.c      |    3 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-config.h    |    2 +
+ drivers/net/wireless/intel/iwlwifi/iwl-fh.h        |   77 +++
+ .../net/wireless/intel/iwlwifi/iwl-fw-error-dump.h |    3 +
+ drivers/net/wireless/intel/iwlwifi/iwl-fw-file.h   |   21 +
+ drivers/net/wireless/intel/iwlwifi/iwl-modparams.h |    2 +
+ drivers/net/wireless/intel/iwlwifi/iwl-nvm-parse.c |    7 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-nvm-parse.h |    2 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-trans.h     |   20 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/constants.h |    8 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/d3.c        |   73 ++-
+ .../net/wireless/intel/iwlwifi/mvm/debugfs-vif.c   |   75 ++-
+ drivers/net/wireless/intel/iwlwifi/mvm/debugfs.c   |   58 ++-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-api-d3.h |    1 +
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-api-rx.h |   42 +-
+ .../net/wireless/intel/iwlwifi/mvm/fw-api-sta.h    |   69 ++-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-api.h    |   31 ++
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-dbg.c    |    6 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw.c        |   29 ++
+ drivers/net/wireless/intel/iwlwifi/mvm/mac-ctxt.c  |   43 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/mac80211.c  |    4 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/mvm.h       |   36 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/nvm.c       |    8 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/ops.c       |   28 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/power.c     |  131 +++--
+ drivers/net/wireless/intel/iwlwifi/mvm/quota.c     |   16 +
+ drivers/net/wireless/intel/iwlwifi/mvm/rs.c        |    3 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c      |   13 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/scan.c      |    9 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/sta.c       |   50 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/sta.h       |    2 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/tt.c        |   17 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/tx.c        |   33 ++
+ drivers/net/wireless/intel/iwlwifi/mvm/utils.c     |    6 +-
+ drivers/net/wireless/intel/iwlwifi/pcie/drv.c      |  134 ++++-
+ drivers/net/wireless/intel/iwlwifi/pcie/internal.h |   42 +-
+ drivers/net/wireless/intel/iwlwifi/pcie/rx.c       |  536 ++++++++++++=
++-------
+ drivers/net/wireless/intel/iwlwifi/pcie/trans.c    |  155 ++++--
+ drivers/net/wireless/intel/iwlwifi/pcie/tx.c       |   87 +++-
+ drivers/net/wireless/intersil/hostap/hostap_hw.c   |   15 +-
+ drivers/net/wireless/marvell/libertas/cfg.c        |   38 ++
+ drivers/net/wireless/marvell/libertas/cmd.c        |   40 +-
+ drivers/net/wireless/marvell/libertas/cmdresp.c    |    9 +-
+ drivers/net/wireless/marvell/libertas/dev.h        |    1 +
+ drivers/net/wireless/marvell/libertas/if_sdio.c    |    2 +-
+ drivers/net/wireless/marvell/libertas/if_usb.c     |    1 +
+ drivers/net/wireless/marvell/libertas/main.c       |    7 +-
+ drivers/net/wireless/marvell/mwifiex/README        |   10 +
+ drivers/net/wireless/marvell/mwifiex/cfg80211.c    |  248 ++++++++-
+ drivers/net/wireless/marvell/mwifiex/cmdevt.c      |   13 +
+ drivers/net/wireless/marvell/mwifiex/debugfs.c     |   51 +-
+ drivers/net/wireless/marvell/mwifiex/decl.h        |   24 +
+ drivers/net/wireless/marvell/mwifiex/fw.h          |   90 +++-
+ drivers/net/wireless/marvell/mwifiex/init.c        |   16 +-
+ drivers/net/wireless/marvell/mwifiex/ioctl.h       |    5 +
+ drivers/net/wireless/marvell/mwifiex/join.c        |   15 +
+ drivers/net/wireless/marvell/mwifiex/main.c        |   14 +
+ drivers/net/wireless/marvell/mwifiex/main.h        |   44 +-
+ drivers/net/wireless/marvell/mwifiex/pcie.c        |  321 +++++++++---
+ drivers/net/wireless/marvell/mwifiex/pcie.h        |   50 +-
+ drivers/net/wireless/marvell/mwifiex/scan.c        |  310 +++++++++++
+ drivers/net/wireless/marvell/mwifiex/sdio.c        |   35 +-
+ drivers/net/wireless/marvell/mwifiex/sta_cmd.c     |   23 +
+ drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c |    6 +
+ drivers/net/wireless/marvell/mwifiex/sta_event.c   |   20 +-
+ drivers/net/wireless/marvell/mwifiex/sta_ioctl.c   |   33 +-
+ drivers/net/wireless/marvell/mwifiex/wmm.c         |    7 +-
+ drivers/net/wireless/ralink/rt2x00/rt2x00.h        |   18 +-
+ drivers/net/wireless/ralink/rt2x00/rt2x00debug.c   |    4 +-
+ drivers/net/wireless/ralink/rt2x00/rt61pci.h       |   20 +-
+ drivers/net/wireless/ti/wlcore/Kconfig             |    2 +-
+ drivers/net/wireless/ti/wlcore/event.c             |    2 +-
+ drivers/net/wireless/ti/wlcore/spi.c               |   86 +++-
+ include/linux/bcma/bcma.h                          |    3 +
+ include/linux/bcma/bcma_driver_chipcommon.h        |   31 +-
+ 94 files changed, 3046 insertions(+), 728 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/wireless/ti,w=
+lcore,spi.txt
+
+--=20
+Kalle Valo
