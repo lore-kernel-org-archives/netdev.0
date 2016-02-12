@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 5/9] amd-xgbe: Enable/disable PFC per traffic
- class
-Date: Fri, 12 Feb 2016 08:33:05 -0600
-Message-ID: <20160212143305.23973.49474.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 8/9] amd-xgbe: Check Rx queue fifos before
+ stopping Rx DMA
+Date: Fri, 12 Feb 2016 08:33:34 -0600
+Message-ID: <20160212143334.23973.71493.stgit@tlendack-t1.amdoffice.net>
 References: <20160212143215.23973.1043.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,74 +10,109 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0061.outbound.protection.outlook.com ([157.56.111.61]:52428
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mail-by2on0075.outbound.protection.outlook.com ([207.46.100.75]:26177
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751117AbcBLOtD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Feb 2016 09:49:03 -0500
+	id S1751726AbcBLOti (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Feb 2016 09:49:38 -0500
 In-Reply-To: <20160212143215.23973.1043.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the PFC flow control is enabled on all traffic classes if
-one or more traffic classes request it. The PFC enable setting of the
-traffic class should be used to determine whether to enable or disable
-flow control for the traffic class.
+Check to be sure that the Rx queue fifos are empty before stopping the
+Rx DMA channels.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c |   36 ++++++++++++++++++++++++++++--
- 1 file changed, 34 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h |   10 ++++++---
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |   30 +++++++++++++++++++++++++++
+ 2 files changed, 37 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+index b6fa891..bbef959 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+@@ -6,7 +6,7 @@
+  *
+  * License 1: GPLv2
+  *
+- * Copyright (c) 2014 Advanced Micro Devices, Inc.
++ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
+  *
+  * This file is free software; you may copy, redistribute and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -56,7 +56,7 @@
+  *
+  * License 2: Modified BSD
+  *
+- * Copyright (c) 2014 Advanced Micro Devices, Inc.
++ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -768,12 +768,16 @@
+ #define MTL_Q_TQDR			0x08
+ #define MTL_Q_RQOMR			0x40
+ #define MTL_Q_RQMPOCR			0x44
+-#define MTL_Q_RQDR			0x4c
++#define MTL_Q_RQDR			0x48
+ #define MTL_Q_RQFCR			0x50
+ #define MTL_Q_IER			0x70
+ #define MTL_Q_ISR			0x74
+ 
+ /* MTL queue register entry bit positions and sizes */
++#define MTL_Q_RQDR_PRXQ_INDEX		16
++#define MTL_Q_RQDR_PRXQ_WIDTH		14
++#define MTL_Q_RQDR_RXQSTS_INDEX		4
++#define MTL_Q_RQDR_RXQSTS_WIDTH		2
+ #define MTL_Q_RQFCR_RFA_INDEX		1
+ #define MTL_Q_RQFCR_RFA_WIDTH		6
+ #define MTL_Q_RQFCR_RFD_INDEX		17
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index f988392..c1620c1 100644
+index 92bc031..c41cc50 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -518,13 +518,45 @@ static int xgbe_disable_tx_flow_control(struct xgbe_prv_data *pdata)
+@@ -2659,6 +2659,32 @@ static void xgbe_disable_tx(struct xgbe_prv_data *pdata)
+ 	}
+ }
  
- static int xgbe_enable_tx_flow_control(struct xgbe_prv_data *pdata)
- {
-+	struct ieee_pfc *pfc = pdata->pfc;
-+	struct ieee_ets *ets = pdata->ets;
- 	unsigned int max_q_count, q_count;
- 	unsigned int reg, reg_val;
- 	unsigned int i;
- 
- 	/* Set MTL flow control */
--	for (i = 0; i < pdata->rx_q_count; i++)
--		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, EHFC, 1);
-+	for (i = 0; i < pdata->rx_q_count; i++) {
-+		unsigned int ehfc = 0;
++static void xgbe_prepare_rx_stop(struct xgbe_prv_data *pdata,
++				 unsigned int queue)
++{
++	unsigned int rx_status;
++	unsigned long rx_timeout;
 +
-+		if (pfc && ets) {
-+			unsigned int prio;
++	/* The Rx engine cannot be stopped if it is actively processing
++	 * packets. Wait for the Rx queue to empty the Rx fifo.  Don't
++	 * wait forever though...
++	 */
++	rx_timeout = jiffies + (XGBE_DMA_STOP_TIMEOUT * HZ);
++	while (time_before(jiffies, rx_timeout)) {
++		rx_status = XGMAC_MTL_IOREAD(pdata, queue, MTL_Q_RQDR);
++		if ((XGMAC_GET_BITS(rx_status, MTL_Q_RQDR, PRXQ) == 0) &&
++		    (XGMAC_GET_BITS(rx_status, MTL_Q_RQDR, RXQSTS) == 0))
++			break;
 +
-+			for (prio = 0; prio < IEEE_8021QAZ_MAX_TCS; prio++) {
-+				unsigned int tc;
-+
-+				/* Does this queue handle the priority? */
-+				if (pdata->prio2q_map[prio] != i)
-+					continue;
-+
-+				/* Get the Traffic Class for this priority */
-+				tc = ets->prio_tc[prio];
-+
-+				/* Check if flow control should be enabled */
-+				if (pfc->pfc_en & (1 << tc)) {
-+					ehfc = 1;
-+					break;
-+				}
-+			}
-+		} else {
-+			ehfc = 1;
-+		}
-+
-+		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, EHFC, ehfc);
-+
-+		netif_dbg(pdata, drv, pdata->netdev,
-+			  "flow control %s for RXq%u\n",
-+			  ehfc ? "enabled" : "disabled", i);
++		usleep_range(500, 1000);
 +	}
++
++	if (!time_before(jiffies, rx_timeout))
++		netdev_info(pdata->netdev,
++			    "timed out waiting for Rx queue %u to empty\n",
++			    queue);
++}
++
+ static void xgbe_enable_rx(struct xgbe_prv_data *pdata)
+ {
+ 	struct xgbe_channel *channel;
+@@ -2697,6 +2723,10 @@ static void xgbe_disable_rx(struct xgbe_prv_data *pdata)
+ 	XGMAC_IOWRITE_BITS(pdata, MAC_RCR, ACS, 0);
+ 	XGMAC_IOWRITE_BITS(pdata, MAC_RCR, RE, 0);
  
- 	/* Set MAC flow control */
- 	max_q_count = XGMAC_MAX_FLOW_CONTROL_QUEUES;
++	/* Prepare for Rx DMA channel stop */
++	for (i = 0; i < pdata->rx_q_count; i++)
++		xgbe_prepare_rx_stop(pdata, i);
++
+ 	/* Disable each Rx queue */
+ 	XGMAC_IOWRITE(pdata, MAC_RQC0R, 0);
+ 
