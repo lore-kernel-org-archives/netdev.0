@@ -1,67 +1,75 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: Bonding MAC failover behavior with VLAN interfaces
-Date: Fri, 12 Feb 2016 12:58:44 -0800
-Message-ID: <12288.1455310724@famine>
-References: <56BAA15F.4080609@cisco.com>
-Cc: netdev@vger.kernel.org, "Dwight Frye (dfrye)" <dfrye@cisco.com>,
-	Wally Dixon <wdixon@cisco.com>,
-	"Leo Lee (lelee2)" <lelee2@cisco.com>,
-	"Nishant Thakre (nthakre)" <nthakre@cisco.com>,
-	"Parvez Shaikh (pshaikh)" <pshaikh@cisco.com>
-To: John Valko <jovalko@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:49694 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784AbcBLU6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 15:58:47 -0500
-In-reply-to: <56BAA15F.4080609@cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH net] af_unix: Guard against other == sk in unix_dgram_sendmsg
+Date: Fri, 12 Feb 2016 20:59:57 +0000
+Message-ID: <87a8n5able.fsf@doppelsaurus.mobileactivedefense.com>
+References: <56B4BF9D.9070609@pmhahn.de> <56BC90E7.7040007@pmhahn.de>
+	<87fuwzkzr5.fsf@doppelsaurus.mobileactivedefense.com>
+	<1455210224.2801.21.camel@decadent.org.uk>
+	<87r3gjjgbu.fsf@doppelsaurus.mobileactivedefense.com>
+	<87egcjcd5j.fsf@doppelsaurus.mobileactivedefense.com>
+	<87r3gj11jc.fsf_-_@doppelsaurus.mobileactivedefense.com>
+	<56BDA3A8.6070807@pmhahn.de>
+	<8760xuvz5w.fsf@doppelsaurus.mobileactivedefense.com>
+	<1455306847.2801.45.camel@decadent.org.uk>
+	<87egchadk4.fsf@doppelsaurus.mobileactivedefense.com>
+	<1455310037.2801.61.camel@decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Philipp Hahn <pmhahn@pmhahn.de>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, Karolin Seeger <kseeger@samba.org>,
+	Jason Baron <jbaron@akamai.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Arvid Requate <requate@univention.de>,
+	Stefan Gohmann <gohmann@univention.de>, netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455310037.2801.61.camel@decadent.org.uk> (Ben Hutchings's
+	message of "Fri, 12 Feb 2016 20:47:17 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-John Valko <jovalko@cisco.com> wrote:
+Ben Hutchings <ben@decadent.org.uk> writes:
+> On Fri, 2016-02-12 at 20:17 +0000, Rainer Weikusat wrote:
 
->Hi all,
->
->I have observed the following on CentOS 6 using the
->2.6.32-573.8.1.el6.x86_64 kernel as well as Ubuntu 15.10 with
->4.2.0-25-generic.. I have not yet tried with a vanilla kernel but with the
->large time/distro gap it didn't seem likely to be caused by distro
->changes.
-
-[ ...example of VLAN-over-bond's MAC not changing when bonding
-fail_over_mac=active has a failover... ]
-
->So, herein lies my confusion.  I expect that the VLAN interfaces should
->also pick up the new MAC address, but they don't.  It seems like a bug to
->me, but I don't want to be presumptuous so if in fact this is expected
->behavior, how do you recommend we approach making it switch when the bond
->fails over?  Right now, the MAC must be manually set for each vlan
->interface.
 [...]
->I can see it set the mac of the bond to the new active slave MAC, but I
->don't see any indication of looping over vlan interfaces or anything, if
->that is expected... or would it be expected that the 8021q module receives
->an event that should make it change?
 
-	Your observation is correct: the fail_over_mac functionality
-does not propagate beyond the bonding master device itself.  The
-presumption at the VLAN level is that the underlying device can support
-multiple MAC addresses; this same effect (different MACs between VLAN
-and its lower device) occurs if the device logically below a VLAN
-interface changes its MAC.  This is handled by vlan_sync_address, which
-is called via the NETDEV_CHANGEADDR notifier (which happens when the
-bonding master changes its MAC due to f_o_m=active).
+>>>> I don't think this should apply when
+>>>> receiving and sending sockets are identical. But that's just my
+>>>> opinion. The other option would be to avoid the unix_state_double_=
+lock
+>>>> for sk =3D=3D other.
+>>>=20
+>>> Given that unix_state_double_lock() already handles sk =3D=3D other=
+, I'm
+>>> not sure why you think it needs to be avoided.
+>>=20
+>> Because the whole complication of restarting the operation after loc=
+king
+>> both sk and other because other had to be unlocked before calling
+>> unix_state_double_lock is useless for this case:
 
-	The original need for f_o_m=active was IPoIB devices that cannot
-change their MAC address.  Those don't support VLANs, either, so
-propagation to VLANs was not a consideration.
+[...]
 
-	In your "real" SR-IOV sitation, is there something that
-necessitates the use of fail_over_mac=active (I don't recall that SR-IOV
-itself prohibits a VF from changing its MAC address), or is this being
-done for other reasons?
+> Well of course it's useless, but it's also harmless. =C2=A0
 
-	-J
+As is adding a
 
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+for (i =3D 0; i < 1000000; ++i);
+
+between any two statements. And this isn't even entirely true as the
+pointless double-lock will then require "did we pointlessly
+doube-lock" checks elsewhere. I think it should be possible to do this
+in a simpler way by not pointlessly double-locking (this may be
+wrong but it's worth a try).
+
+> If we really wanted to optimise this we could also skip unlocking if
+> other < sk.
+
+I wouldn't want to hardcode assumptions about the unix_state_double_loc=
+k
+algorithm in functions using it.=20
