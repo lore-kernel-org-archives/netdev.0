@@ -1,135 +1,53 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH net-next 03/10] net: mvneta: bm: add support for hardware buffer management
-Date: Fri, 12 Feb 2016 19:04:26 +0100
-Message-ID: <87a8n5x0t1.fsf@free-electrons.com>
-References: <1452625834-22166-1-git-send-email-gregory.clement@free-electrons.com>
-	<1452625834-22166-4-git-send-email-gregory.clement@free-electrons.com>
-	<CAPv3WKeEXUmH4gqBm7=gkNYwjhR1YybCBZJND_Vidj+Q6U_8=g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jason Cooper <jason@lakedaemon.net>,
+From: Clemens Gruber <clemens.gruber@pqgruber.com>
+Subject: [PATCH] Revert "net: phy: turn carrier off on phy attach"
+Date: Fri, 12 Feb 2016 19:01:53 +0100
+Message-ID: <1455300113-2335-1-git-send-email-clemens.gruber@pqgruber.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
+	"David S . Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	"linux-arm-kernel\@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Willy Tarreau <w@1wt.eu>, Arnd Bergmann <arnd@arndb.de>
-To: Marcin Wojtas <mw@semihalf.com>
+	Clemens Gruber <clemens.gruber@pqgruber.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPv3WKeEXUmH4gqBm7=gkNYwjhR1YybCBZJND_Vidj+Q6U_8=g@mail.gmail.com>
-	(Marcin Wojtas's message of "Tue, 12 Jan 2016 21:12:25 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Marcin,
+Commit 113c74d83eef ("net: phy: turn carrier off on phy attach") breaks
+the eth0 link coming up on all my i.MX6Q boards with a Marvell 88E1510.
+If I then do a ifconfig eth0 down/up cycle I first get a MDIO read
+timeout but then the link becomes ready and everything is back to
+normal.
+Without this step however, the link stays down forever, an unusually
+high amount of phy interrupts occur (about 10000/second) and kworker/0:2
+is constantly using over 60% of the CPU.
+
+Reverting it fixes the problems with the link not coming up at boot as
+well as the high amount of phy interrupts and kworker load in that
+state.
+
+This reverts commit 113c74d83eef870e43a0d9279044e9d5435f0d07.
+
+Signed-off-by: Clemens Gruber <clemens.gruber@pqgruber.com>
+---
+ drivers/net/phy/phy_device.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index bad3f00..903737a 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -901,11 +901,6 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
  
- On mar., janv. 12 2016, Marcin Wojtas <mw@semihalf.com> wrote:
-
-> Hi Gregory,
->
-> I have two remarks to my own code. Please let me know before patch v2,
-> I will provide you with corrected version (I already did it locally).
-
-I resumled my work on the subject yestaerdy, and I just remebered this
-email now.
-
-Could you provide the correct version of your patches?
-
-Thanks!
-
->
->> @@ -1556,17 +1777,20 @@ static void mvneta_rxq_drop_pkts(struct mvneta_port *pp,
->>         int rx_done, i;
->>
->>         rx_done = mvneta_rxq_busy_desc_num_get(pp, rxq);
->> +       if (rx_done)
->> +               mvneta_rxq_desc_num_update(pp, rxq, rx_done, rx_done);
->> +
->> +       if (pp->bm_priv)
->> +               return;
->> +
->
-> This is wrong - buffers that are supposed to be dropped should return
-> to bm_pool.
->
->> @@ -1587,23 +1812,35 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
->>
->>         rx_done = 0;
->>
->> +       bm_in_use = pp->bm_priv ? true : false;
->> +
->>         /* Fairness NAPI loop */
->>         while (rx_done < rx_todo) {
->>                 struct mvneta_rx_desc *rx_desc = mvneta_rxq_next_desc_get(rxq);
->> +               struct mvneta_bm_pool *bm_pool = NULL;
->>                 struct sk_buff *skb;
->>                 unsigned char *data;
->>                 dma_addr_t phys_addr;
->> -               u32 rx_status;
->> +               u32 rx_status, frag_size;
->>                 int rx_bytes, err;
->> +               u8 pool_id;
->>
->>                 rx_done++;
->>                 rx_status = rx_desc->status;
->>                 rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
->>                 data = (unsigned char *)rx_desc->buf_cookie;
->>                 phys_addr = rx_desc->buf_phys_addr;
->> +               if (bm_in_use) {
->> +                       pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc);
->> +                       bm_pool = &pp->bm_priv->bm_pools[pool_id];
->> +               }
->>
->>                 if (!mvneta_rxq_desc_is_first_last(rx_status) ||
->>                     (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
->> +                       /* Return the buffer to the pool */
->> +                       if (bm_in_use)
->> +                               mvneta_bm_pool_put_bp(pp->bm_priv, bm_pool,
->> +                                                     rx_desc->buf_phys_addr);
->>                 err_drop_frame:
->>                         dev->stats.rx_errors++;
->>                         mvneta_rx_error(pp, rx_desc);
->> @@ -1633,25 +1870,38 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
->>                         rcvd_pkts++;
->>                         rcvd_bytes += rx_bytes;
->>
->> +                       /* Return the buffer to the pool */
->> +                       if (bm_in_use)
->> +                               mvneta_bm_pool_put_bp(pp->bm_priv, bm_pool,
->> +                                                     rx_desc->buf_phys_addr);
->> +
->>                         /* leave the descriptor and buffer untouched */
->>                         continue;
->>                 }
->>
->>                 /* Refill processing */
->> -               err = mvneta_rx_refill(pp, rx_desc);
->> +               err = bm_in_use ? mvneta_bm_pool_refill(pp->bm_priv, bm_pool) :
->> +                                 mvneta_rx_refill(pp, rx_desc);
->>                 if (err) {
->>                         netdev_err(dev, "Linux processing - Can't refill\n");
->>                         rxq->missed++;
->>                         goto err_drop_frame;
->
-> Wrong - on refill fail, original buffer should be returned to bm_pool.
-> Same case is, when netdev_alloc_skb_ip_align fail inside copybreak
-> (this should also be fixed).
->
-> Best regards,
-> Marcin
-
+ 	phydev->state = PHY_READY;
+ 
+-	/* Initial carrier state is off as the phy is about to be
+-	 * (re)initialized.
+-	 */
+-	netif_carrier_off(phydev->attached_dev);
+-
+ 	/* Do initial configuration here, now that
+ 	 * we have certain key parameters
+ 	 * (dev_flags and interface)
 -- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+2.7.1
