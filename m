@@ -1,118 +1,49 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 8/9] amd-xgbe: Check Rx queue fifos before
- stopping Rx DMA
-Date: Fri, 12 Feb 2016 08:33:34 -0600
-Message-ID: <20160212143334.23973.71493.stgit@tlendack-t1.amdoffice.net>
-References: <20160212143215.23973.1043.stgit@tlendack-t1.amdoffice.net>
+From: Alexandre Torgue <alexandre.torgue@gmail.com>
+Subject: Re: [PATCH 0/4] Add Ethernet support on STM32F429
+Date: Fri, 12 Feb 2016 16:01:10 +0100
+Message-ID: <CAJgp7zxMoHD+zqHgsOvB=+wx=TtqqL0HH_3o=J=712QsvJvZwQ@mail.gmail.com>
+References: <1454511275-9791-1-git-send-email-alexandre.torgue@gmail.com>
+	<20160209.045214.805916119264070573.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0075.outbound.protection.outlook.com ([207.46.100.75]:26177
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751726AbcBLOti (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Feb 2016 09:49:38 -0500
-In-Reply-To: <20160212143215.23973.1043.stgit@tlendack-t1.amdoffice.net>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:34336 "EHLO
+	mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750802AbcBLPBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 10:01:11 -0500
+In-Reply-To: <20160209.045214.805916119264070573.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check to be sure that the Rx queue fifos are empty before stopping the
-Rx DMA channels.
+Hi David,
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-common.h |   10 ++++++---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |   30 +++++++++++++++++++++++++++
- 2 files changed, 37 insertions(+), 3 deletions(-)
+I will fix it in next patch version.
+I just find a corruption issue in stmmac driver, I will also fix it in
+next version.
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-index b6fa891..bbef959 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-@@ -6,7 +6,7 @@
-  *
-  * License 1: GPLv2
-  *
-- * Copyright (c) 2014 Advanced Micro Devices, Inc.
-+ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
-  *
-  * This file is free software; you may copy, redistribute and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -56,7 +56,7 @@
-  *
-  * License 2: Modified BSD
-  *
-- * Copyright (c) 2014 Advanced Micro Devices, Inc.
-+ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -768,12 +768,16 @@
- #define MTL_Q_TQDR			0x08
- #define MTL_Q_RQOMR			0x40
- #define MTL_Q_RQMPOCR			0x44
--#define MTL_Q_RQDR			0x4c
-+#define MTL_Q_RQDR			0x48
- #define MTL_Q_RQFCR			0x50
- #define MTL_Q_IER			0x70
- #define MTL_Q_ISR			0x74
- 
- /* MTL queue register entry bit positions and sizes */
-+#define MTL_Q_RQDR_PRXQ_INDEX		16
-+#define MTL_Q_RQDR_PRXQ_WIDTH		14
-+#define MTL_Q_RQDR_RXQSTS_INDEX		4
-+#define MTL_Q_RQDR_RXQSTS_WIDTH		2
- #define MTL_Q_RQFCR_RFA_INDEX		1
- #define MTL_Q_RQFCR_RFA_WIDTH		6
- #define MTL_Q_RQFCR_RFD_INDEX		17
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 92bc031..c41cc50 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -2659,6 +2659,32 @@ static void xgbe_disable_tx(struct xgbe_prv_data *pdata)
- 	}
- }
- 
-+static void xgbe_prepare_rx_stop(struct xgbe_prv_data *pdata,
-+				 unsigned int queue)
-+{
-+	unsigned int rx_status;
-+	unsigned long rx_timeout;
-+
-+	/* The Rx engine cannot be stopped if it is actively processing
-+	 * packets. Wait for the Rx queue to empty the Rx fifo.  Don't
-+	 * wait forever though...
-+	 */
-+	rx_timeout = jiffies + (XGBE_DMA_STOP_TIMEOUT * HZ);
-+	while (time_before(jiffies, rx_timeout)) {
-+		rx_status = XGMAC_MTL_IOREAD(pdata, queue, MTL_Q_RQDR);
-+		if ((XGMAC_GET_BITS(rx_status, MTL_Q_RQDR, PRXQ) == 0) &&
-+		    (XGMAC_GET_BITS(rx_status, MTL_Q_RQDR, RXQSTS) == 0))
-+			break;
-+
-+		usleep_range(500, 1000);
-+	}
-+
-+	if (!time_before(jiffies, rx_timeout))
-+		netdev_info(pdata->netdev,
-+			    "timed out waiting for Rx queue %u to empty\n",
-+			    queue);
-+}
-+
- static void xgbe_enable_rx(struct xgbe_prv_data *pdata)
- {
- 	struct xgbe_channel *channel;
-@@ -2697,6 +2723,10 @@ static void xgbe_disable_rx(struct xgbe_prv_data *pdata)
- 	XGMAC_IOWRITE_BITS(pdata, MAC_RCR, ACS, 0);
- 	XGMAC_IOWRITE_BITS(pdata, MAC_RCR, RE, 0);
- 
-+	/* Prepare for Rx DMA channel stop */
-+	for (i = 0; i < pdata->rx_q_count; i++)
-+		xgbe_prepare_rx_stop(pdata, i);
-+
- 	/* Disable each Rx queue */
- 	XGMAC_IOWRITE(pdata, MAC_RQC0R, 0);
- 
+Best regards
+
+Alex
+
+2016-02-09 10:52 GMT+01:00 David Miller <davem@davemloft.net>:
+> From: Alexandre TORGUE <alexandre.torgue@gmail.com>
+> Date: Wed,  3 Feb 2016 15:54:31 +0100
+>
+>> STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
+>> This series:
+>>       -enhance current stmmac driver to control it (code already available) and
+>>        adds basic glue for STM32F429 chip.
+>>       -Enable basic Net config in kernel.
+>>
+>> Note that DT patches are not present because STM32 pinctrl code is not
+>> yet avalaible.
+>
+> Looks like this needs to be respun to deal with the warnings the kbuild
+> robot reported.
+>
+> Thanks.
