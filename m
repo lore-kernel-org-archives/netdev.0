@@ -1,52 +1,35 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC] openvswitch: loosen restriction of output of MPLS to tunnel vports
-Date: Fri, 12 Feb 2016 20:25:33 +0100
-Message-ID: <1455305133-23285-1-git-send-email-simon.horman@netronome.com>
-Cc: dev@openvswitch.org, Pravin Shelar <pshelar@nicira.com>,
-	Simon Horman <simon.horman@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:34280 "EHLO
-	mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707AbcBLT0B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 14:26:01 -0500
-Received: by mail-lf0-f54.google.com with SMTP id j78so57803620lfb.1
-        for <netdev@vger.kernel.org>; Fri, 12 Feb 2016 11:26:00 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v2] net: fec: Add "phy-reset-active-low" property to DT
+Date: Fri, 12 Feb 2016 13:44:28 -0600
+Message-ID: <CAL_JsqJX+MuN3LXW-bSTo1cj2JM0h_dw3JYx6jF7EUZVgDf=gQ@mail.gmail.com>
+References: <1455048072-869-1-git-send-email-bernhard@bwalle.de>
+ <20160212152011.GA28563@rob-hp-laptop> <CAOMZO5CQmVf7EuOWY+e_+jWjzxXodpTcahJBnzP0x1uapO+okQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Bernhard Walle <bernhard@bwalle.de>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOMZO5CQmVf7EuOWY+e_+jWjzxXodpTcahJBnzP0x1uapO+okQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If an skb was not MPLS initially then it may be GSO and in that case if it
-became MPLS then GSO can't be performed because both MPLS and tunnels make
-use of the inner_protocol field of struct skbuff in order to allow GSO to
-be performed in the inner packet.
+On Fri, Feb 12, 2016 at 9:24 AM, Fabio Estevam <festevam@gmail.com> wrote:
+> On Fri, Feb 12, 2016 at 1:20 PM, Rob Herring <robh@kernel.org> wrote:
+>
+>> This is what the gpio flags are for. Why can't you use that?
+>
+> This has already been discussed in v1:
+> https://lkml.org/lkml/2016/2/8/867
 
-On the other hand if an skb was MPLS initially then it will not be GSO,
-as there is no support for GRO for MPLS. Thus in this case it is safe
-to allow output of MPLS on tunnel vports.
+Thanks. That's fine, but that detail should be explained in the
+binding. Is there a specific compatible string this can be limited to?
+It should also be stated that the GPIO flags should be correct rather
+than ignored implying I can put in whatever I want there. Then someday
+if no more wrong dtbs are in the wild, it can switch back to using
+gpio flags. Also, phy-reset-active-low should be prefixed with "fsl,".
 
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
- net/openvswitch/flow_netlink.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
-
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index d1bd4a45ca2d..a574796f35d2 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -2038,7 +2038,13 @@ static int validate_set(const struct nlattr *a,
- 		break;
- 
- 	case OVS_KEY_ATTR_TUNNEL:
--		if (eth_p_mpls(eth_type))
-+		/* If an skb was not MPLS initially then it may be GSO
-+		 * and in that case if it became MPLS then GSO can't be
-+		 * performed because both MPLS and tunnels make use
-+		 * of the inner_protocol field of struct skbuff in order
-+		 * to allow GSO to be performed in the inner packet.
-+		 */
-+		if (!eth_p_mpls(flow_key->eth.type) && eth_p_mpls(eth_type))
- 			return -EINVAL;
- 
- 		if (masked)
--- 
-2.7.0.rc3.207.g0ac5344
+Rob
