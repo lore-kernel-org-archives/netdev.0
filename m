@@ -1,41 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] tcp/dccp: better use of ephemeral ports
-Date: Fri, 12 Feb 2016 05:46:06 -0500 (EST)
-Message-ID: <20160212.054606.1764643049260890459.davem@davemloft.net>
-References: <1455236930-17919-1-git-send-email-edumazet@google.com>
+Subject: Re: [PATCH v5 net-next 0/8] Local Checksum Offload
+Date: Fri, 12 Feb 2016 05:53:12 -0500 (EST)
+Message-ID: <20160212.055312.319096573102657816.davem@davemloft.net>
+References: <alpine.LFD.2.20.1602112024140.14893@ec-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: edumazet@google.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	tom@herbertland.net
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35637 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35700 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751102AbcBLKqN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 05:46:13 -0500
-In-Reply-To: <1455236930-17919-1-git-send-email-edumazet@google.com>
+	with ESMTP id S1751621AbcBLKxQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 05:53:16 -0500
+In-Reply-To: <alpine.LFD.2.20.1602112024140.14893@ec-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Thu, 11 Feb 2016 16:28:48 -0800
+From: Edward Cree <ecree@solarflare.com>
+Date: Thu, 11 Feb 2016 20:46:00 +0000
 
-> Big servers have bloated bind table, making very hard to succeed
-> ephemeral port allocations, without special containers/namespace tricks.
+> Re-tested VxLAN; everything else is unchanged from v4.
 > 
-> This patch series extends the strategy added in commit 07f4c90062f8 
-> ("tcp/dccp: try to not exhaust ip_local_port_range in connect()").
+> Changes from v4:
+>  * Rebased series to fix conflicts with vxlan/vxlan6 merge.
 > 
-> Since ports used by connect() are much likely to be shared among them,
-> we give a hint to both bind() and connect() to keep the crowds separated
-> if possible.
+> Changes from v3:
+>  * Fixed inverted checksum values introduced in v3.
+>  * Don't mangle zero checksums in GRE.
+>  * Clear skb->encapsulation in iptunnel_handle_offloads when not using
+>    CHECKSUM_PARTIAL, lest drivers incorrectly interpret that as a request
+>    for inner checksum offload.
 > 
-> Of course, if on a specific host an application needs to allocate ~30000
-> ports using bind(), it will still be able to do so. Same for ~30000 connect()
-> to a unique 2-tuple (dst addr, dst port)
+> Changes from v2:
+>  * Added support for IPv4 GRE.
+>  * Split out 'always set up for checksum offload' into its own patch.
+>  * Removed csum_help from iptunnel_handle_offloads.
+>  * Rewrote LCO callers to only fold once.
+>  * Simplified nocheck handling.
 > 
-> New implemetation is also more friendly to softirqs and reschedules.
-> 
-> v2: rebase after TCP SO_REUSEPORT changes
+> Changes from v1:
+>  * Enabled support in more encapsulation protocols.
+>    I think it now covers everything except GRE.
+>  * Wrote up some documentation covering TX checksum offload, LCO and RCO.
 
-Series applied, thanks.
+Series applied, thanks Edward.
