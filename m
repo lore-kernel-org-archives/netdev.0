@@ -1,123 +1,105 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 3/4] net: dsa: mv88e6xxx: check hardware VLAN in
- use
-Date: Sat, 13 Feb 2016 23:08:49 +0300
-Message-ID: <56BF8D51.5010108@cogentembedded.com>
-References: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1455296981-27998-4-git-send-email-vivien.didelot@savoirfairelinux.com>
- <56BF731F.8000008@cogentembedded.com> <87mvr44cbh.fsf@ketchup.mtl.sfl>
+From: Diego Viola <diego.viola@gmail.com>
+Subject: Re: Computer fails to resume from suspend unless I rmmod jme before
+ initiating the suspend
+Date: Sat, 13 Feb 2016 18:38:16 -0200
+Message-ID: <CA+ToGPF0OT7NKCjaBMomqZg-+eO7Eq9hqSmLt0-UOHnyGPHd8Q@mail.gmail.com>
+References: <CA+ToGPGC8APhN-_F5fzyR4CWqWgZ9Hs0PNqykhEgEV7g3PJjTg@mail.gmail.com>
+	<CA+ToGPF9cpdVLEHc7Vz79=-P7Jp76Y=M=p=bORhUNrXtb6+LNA@mail.gmail.com>
+	<CA+ToGPHfV5NbSAFWJPzDVfUT9fdp86MqoFbF8Uhmf9T+3e9n7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: cooldavid@cooldavid.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:33529 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751239AbcBMUIy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2016 15:08:54 -0500
-Received: by mail-lb0-f174.google.com with SMTP id x4so61370280lbm.0
-        for <netdev@vger.kernel.org>; Sat, 13 Feb 2016 12:08:53 -0800 (PST)
-In-Reply-To: <87mvr44cbh.fsf@ketchup.mtl.sfl>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:38762 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751229AbcBMUiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2016 15:38:16 -0500
+In-Reply-To: <CA+ToGPHfV5NbSAFWJPzDVfUT9fdp86MqoFbF8Uhmf9T+3e9n7Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/13/2016 10:53 PM, Vivien Didelot wrote:
-
->>> The DSA drivers now have access to the VLAN prepare phase and the bridge
->>> net_device. It is easier to check for overlapping bridges from within
->>> the driver. Thus add such check in mv88e6xxx_port_vlan_prepare.
+On Fri, Feb 12, 2016 at 6:17 AM, Diego Viola <diego.viola@gmail.com> wrote:
+> On Wed, Feb 10, 2016 at 7:36 PM, Diego Viola <diego.viola@gmail.com> wrote:
+>> On Wed, Feb 10, 2016 at 2:19 AM, Diego Viola <diego.viola@gmail.com> wrote:
+>>> Hi Guo,
 >>>
->>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->>> ---
->>>    drivers/net/dsa/mv88e6xxx.c | 64 +++++++++++++++++++++++++++++++++++++++++++++
->>>    1 file changed, 64 insertions(+)
+>>> I have an x86 computer with this network card:
 >>>
->>> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
->>> index 2e515e8..685dcb0 100644
->>> --- a/drivers/net/dsa/mv88e6xxx.c
->>> +++ b/drivers/net/dsa/mv88e6xxx.c
->>> @@ -1471,14 +1471,78 @@ static int _mv88e6xxx_vlan_init(struct dsa_switch *ds, u16 vid,
->>>    	return 0;
->>>    }
+>>> 02:00.0 Ethernet controller: JMicron Technology Corp. JMC260 PCI
+>>> Express Fast Ethernet Controller (rev 03)
 >>>
->>> +static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
->>> +					u16 vid_begin, u16 vid_end)
->>> +{
->>> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
->>> +	struct mv88e6xxx_vtu_stu_entry vlan;
->>> +	int i, err;
->>> +
->>> +	if (!vid_begin)
->>> +		return -EOPNOTSUPP;
->>> +
->>> +	mutex_lock(&ps->smi_mutex);
->>> +
->>> +	err = _mv88e6xxx_vtu_vid_write(ds, vid_begin - 1);
->>> +	if (err)
->>> +		goto unlock;
->>> +
->>> +	do {
->>> +		err = _mv88e6xxx_vtu_getnext(ds, &vlan);
->>> +		if (err)
->>> +			goto unlock;
+>>> Every time I initiate a suspend (systemctl suspend) the machine hangs
+>>> at resume unless I unload the jme driver.
+>>>
+>>> Here is a Call Trace I was able to get after it hanged:
+>>>
+>>> <IRQ>
+>>> tasklet_action+0xb0/0xd0
+>>> __do_softirq+0xcf/0x290
+>>> irq_exit+0xa3/0xb0
+>>> do_IRQ+0x54/0xd0
+>>> common_interrupt+0x82/0x82
+>>>
+>>> <EOI>
+>>> jme_start_irq+0x84/0xa0 [jme]
+>>> jme_resume+0x12f/0x210 [jme]
+>>> pci_pm_resume+0x64/0xa0
+>>> ? pci_pm_thaw+0x90/0x90
+>>> dpm_run_callback+0x4e/0x130
+>>> device_resume+0xd3/0x1f0
+>>> async_resume+0x1d/0x50
+>>> async_run_entry_fn+0x48/0x150
+>>> process_one_work+0x14b/0x440
+>>> worker_thread+0x48/0x4a0
+>>> ? process_one_work+0x440/0x440
+>>> kthread+0xd8/0xf0
+>>> ? kthread_worker_fn+0x170/0x170
+>>> ret_from_fork+0x3f/0x70
+>>> ? kthread_worker_fn+0x170/0x170
+>>>
+>>> Please note that I had to type the calltrace above as I don't have a
+>>> serial cable and netconsole didn't work for me for some reason, so
+>>> there could be typos I didn't notice.
+>>>
+>>> I run Arch Linux (x86-64), my uname is:
+>>>
+>>> $ uname -a
+>>> Linux myhost 4.4.1-2-ARCH #1 SMP PREEMPT Wed Feb 3 13:12:33 UTC 2016
+>>> x86_64 GNU/Linux
+>>>
+>>> Please let me know if you have any questions or need any other information.
+>>>
+>>> Thanks,
+>>>
+>>> Diego
 >>
->>      Why are you not using *break*?
+>> I found something interesting, I can suspend/resume just fine when the
+>> module is loaded and when I do this:
+>>
+>> $ ip link set ens34 down
+>>
+>> When I bring the device up again the hang still occurs.
+>>
+>> Diego
 >
-> I use goto for explicit error handling, and break for expected flow.
-
-    Thought you'd say so. :-)
-    I still think *break* is preferable...
-
->>> +
->>> +		if (!vlan.valid)
->>> +			break;
->>> +
->>> +		if (vlan.vid > vid_end)
->>> +			break;
->>> +
->>> +		for (i = 0; i < ps->num_ports; ++i) {
->>> +			if (dsa_is_dsa_port(ds, i) || dsa_is_cpu_port(ds, i))
->>> +				continue;
->>> +
->>> +			if (vlan.data[i] ==
->>> +			    GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
->>> +				continue;
->>> +
->>> +			if (ps->ports[i].bridge_dev ==
->>> +			    ps->ports[port].bridge_dev)
->>> +				break; /* same bridge, check next VLAN */
->>> +
->>> +			netdev_warn(ds->ports[port],
->>> +				    "hardware VLAN %d already used by %s\n",
->>> +				    vlan.vid,
->>> +				    netdev_name(ps->ports[i].bridge_dev));
->>> +			err = -EOPNOTSUPP;
->>> +			goto unlock;
->>> +		}
->>
->>      Why not *break*?
+> I have tried to reproduce this problem with the latest git
+> (torvalds/linux.git) and also went back to Linux 3.11 and I still got
+> the hang with both, my plan was to run git bisect, but the problem
+> still occurs.
 >
-> Because here it would only break the for loop, and not the while loop.
-
-    Oops, I overlooked the *for* loop. Sorry about that.
-
->>
->>> +	} while (vlan.vid < vid_end);
->>> +
->>> +unlock:
->>> +	mutex_unlock(&ps->smi_mutex);
->>> +
->>> +	return err;
->>> +}
->>> +
->> [...]
+> I opened this bug in bugzilla if it's preferred to deal with the problem there:
+>
+> https://bugzilla.kernel.org/show_bug.cgi?id=112351
 >
 > Thanks,
-> -v
+> Diego
 
-MBR, Sergei
+So I found that disabling async as in:
+
+$ echo 0 > /sys/power/pm_async
+
+Helps with my issue, I can't reproduce the hang anymore, tried
+suspend/resume almost ~15 times.
+
+Diego
