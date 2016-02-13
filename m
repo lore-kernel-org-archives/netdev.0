@@ -1,61 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] bonding: Fix ARP monitor validation
-Date: Sat, 13 Feb 2016 05:55:17 -0500 (EST)
-Message-ID: <20160213.055517.692667015750288172.davem@davemloft.net>
-References: <29855.1454448956@famine>
+Subject: Re: [PATCH 1/3] net: cavium: liquidio: Return correct error code
+Date: Sat, 13 Feb 2016 05:58:21 -0500 (EST)
+Message-ID: <20160213.055821.121289885645162222.davem@davemloft.net>
+References: <20160204135512.GA8297@amitoj-Inspiron-3542>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vfalico@gmail.com,
-	gospo@cumulusnetworks.com
-To: jay.vosburgh@canonical.com
+Cc: derek.chickles@caviumnetworks.com,
+	satananda.burla@caviumnetworks.com,
+	felix.manlunas@caviumnetworks.com,
+	raghu.vatsavayi@caviumnetworks.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
+To: amitoj1606@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48200 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48213 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949AbcBMKzX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2016 05:55:23 -0500
-In-Reply-To: <29855.1454448956@famine>
+	with ESMTP id S1750977AbcBMK60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2016 05:58:26 -0500
+In-Reply-To: <20160204135512.GA8297@amitoj-Inspiron-3542>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Date: Tue, 02 Feb 2016 13:35:56 -0800
+From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Date: Thu, 4 Feb 2016 19:25:13 +0530
 
+> The return value of vmalloc on failure of allocation of memory should
+> be -ENOMEM and not -1.
 > 
-> 	The current logic in bond_arp_rcv will accept an incoming ARP for
-> validation if (a) the receiving slave is either "active" (which includes
-> the currently active slave, or the current ARP slave) or, (b) there is a
-> currently active slave, and it has received an ARP since it became active.
-> For case (b), the receiving slave isn't the currently active slave, and is
-> receiving the original broadcast ARP request, not an ARP reply from the
-> target.
+> Found using Coccinelle. A simplified version of the semantic patch
+> used is:
+ ...
+> The single call site of the containing function checks whether the
+> returned value is -1, so this check is changed as well. The single call 
+> site of this call site, however, only checks whether the value is not 0,
+> so no further change was required.
 > 
-> 	This logic can fail if there is no currently active slave.  In
-> this situation, the ARP probe logic cycles through all slaves, assigning
-> each in turn as the "current_arp_slave" for one arp_interval, then setting
-> that one as "active," and sending an ARP probe from that slave.  The
-> current logic expects the ARP reply to arrive on the sending
-> current_arp_slave, however, due to switch FDB updating delays, the reply
-> may be directed to another slave.
-> 
-> 	This can arise if the bonding slaves and switch are working, but
-> the ARP target is not responding.  When the ARP target recovers, a
-> condition may result wherein the ARP target host replies faster than the
-> switch can update its forwarding table, causing each ARP reply to be sent
-> to the previous current_arp_slave.  This will never pass the logic in
-> bond_arp_rcv, as neither of the above conditions (a) or (b) are met.
-> 
-> 	Some experimentation on a LAN shows ARP reply round trips in the
-> 200 usec range, but my available switches never update their FDB in less
-> than 4000 usec.
-> 
-> 	This patch changes the logic in bond_arp_rcv to additionally
-> accept an ARP reply for validation on any slave if there is a current ARP
-> slave and it sent an ARP probe during the previous arp_interval.
-> 
-> Fixes: aeea64ac717a ("bonding: don't trust arp requests unless active slave really works")
-> Cc: Veaceslav Falico <vfalico@gmail.com>
-> Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
-> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
 
-Applied, thanks Jay.
+Applied.
