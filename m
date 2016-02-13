@@ -1,96 +1,392 @@
-From: John Holland <jotihojr@gmail.com>
-Subject: [Intel-wired-lan] [next] igb: allow setting MAC address on i211 using
- a device tree blob V2
-Date: Sat, 13 Feb 2016 23:04:45 +0100
-Message-ID: <56BFA87D.1010609@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] net: ipv6: Make address flushing on ifdown optional
+Date: Sat, 13 Feb 2016 14:23:27 -0800
+Message-ID: <1455402207-9217-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: hannes@stressinduktion.org, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:38595 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750961AbcBMWEs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2016 17:04:48 -0500
-Received: by mail-wm0-f53.google.com with SMTP id a4so10531149wme.1
-        for <netdev@vger.kernel.org>; Sat, 13 Feb 2016 14:04:48 -0800 (PST)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34257 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750961AbcBMWXi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2016 17:23:38 -0500
+Received: by mail-pf0-f169.google.com with SMTP id x65so66225123pfb.1
+        for <netdev@vger.kernel.org>; Sat, 13 Feb 2016 14:23:38 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Currently, all ipv6 addresses are flushed when the interface is configured
+down, including global, static addresses:
 
-The Intel i211 LOM pcie ethernet controllers' iNVM operates as an OTP 
-and has no externel EEPROM interface [1]. The following allows the 
-driver to pickup the MAC address from a device tree blob when CONFIG_OF 
-has been enabled.
+    $ ip -6 addr add dev eth1 2000:11:1:1::1/64
+    $ ip addr show dev eth1
+    3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
+        link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+        inet6 2000:11:1:1::1/64 scope global tentative
+           valid_lft forever preferred_lft forever
+    $ ip link set dev eth1 up
+    $ ip link set dev eth1 down
+    $ ip addr show dev eth1
+    3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+        link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
 
-[1] 
-http://www.intel.com/content/www/us/en/embedded/products/networking/i211-ethernet-controller-datasheet.html
+Add a new sysctl to make this behavior optional. The new setting defaults to
+flush all addresses to maintain backwards compatibility. When the set global
+addresses with no expire times are not flushed on an admin down:
 
-Changes V2
-- Restrict searching for compatible devices to current pci device.
+    $ echo 1 > /proc/sys/net/ipv6/conf/eth1/keep_addr_on_down
+    $ ip -6 addr add dev eth1 2000:11:1:1::1/64
+    $ ip addr show dev eth1
+    3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+        link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+        inet6 2000:11:1:1::1/64 scope global tentative
+           valid_lft forever preferred_lft forever
+    $ ip link set dev eth1 up
+    $ ip link set dev eth1 down
+    $ ip addr show dev eth1
+    3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+        link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+        inet6 2000:11:1:1::1/64 scope global
+           valid_lft forever preferred_lft forever
+        inet6 fe80::4:11ff:fe22:3301/64 scope link
+           valid_lft forever preferred_lft forever
 
-Signed-off-by: John Holland <jotihojr@gmail.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
+Dave: per the discussion at netconf tossing this out again. While the
+      failure semantics are not ideal it only occurs on GFP_ATOMIC
+      memory failures.
 
-  drivers/net/ethernet/intel/igb/igb_main.c | 30 
-++++++++++++++++++++++++++++++
-  1 file changed, 30 insertions(+)
+v6:
+- rebase to 4.5.0-rc2
+- flip logic from flush_addr to keep_addr with default 0. makes it easier
+  to use the 'all' conf for interfaces.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c 
-b/drivers/net/ethernet/intel/igb/igb_main.c
-index 31e5f39..f7788fa 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -56,6 +56,11 @@
-  #include <linux/i2c.h>
-  #include "igb.h"
+v5:
+- renamed managed to user_managed as requested by Hannes
+- handle addrconf_dst_alloc failure and cleanup ifp as noted by Dave
+  -- tested by faking allocation failure
+- minor ordering changes in addrconf_ifdown() to handle changes under lock
 
-+#ifdef CONFIG_OF
-+#include <linux/of_net.h>
-+#include <linux/etherdevice.h>
-+#endif
+v4:
+- rebased to top of tree
+- updated to clear all routes on admin down and re-added on admin up
+- verified the route tables (main and local) on a link down have *no*
+  remnants of the configured, global address. On a link up all routes
+  are restored -- multicast, linklocal, local routes and connected.
+
+v3:
+- fix local variable ordering and comment style per Dave's comment
+- consistency in DEVCONF naming per Brian Haley's comment
+- added entry to Documentation/networking/ip-sysctl.txt
+
+v2:
+- only keep static addresses as suggested by Hannes
+- added new managed flag to track configured addresses
+- on ifdown do not remove from configured address from inet6_addr_lst
+- on ifdown reset the TENTATIVE flag and set state to DAD so that DAD is
+  redone when link is brought up again
+
+
+ Documentation/networking/ip-sysctl.txt |   6 ++
+ include/linux/ipv6.h                   |   1 +
+ include/net/if_inet6.h                 |   1 +
+ include/uapi/linux/ipv6.h              |   1 +
+ net/ipv6/addrconf.c                    | 128 +++++++++++++++++++++++++++++----
+ 5 files changed, 122 insertions(+), 15 deletions(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 24ce97f42d35..7ddbbb67f0db 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1563,6 +1563,12 @@ temp_prefered_lft - INTEGER
+ 	Preferred lifetime (in seconds) for temporary addresses.
+ 	Default: 86400 (1 day)
+ 
++keep_addr_on_down - BOOLEAN
++	Keep all IPv6 addresses on an interface down event. If set static
++	global addresses with no expiration time are not flushed.
 +
-  #define MAJ 5
-  #define MIN 3
-  #define BUILD 0
-@@ -2216,6 +2221,26 @@ static s32 igb_init_i2c(struct igb_adapter *adapter)
-         return status;
-  }
-
-+#ifdef CONFIG_OF
-+/**
-+ *  igb_read_mac_addr_dts - Read mac address from the device tree blob
-+ *  @dev: pointer to device structure
-+ *  @mac_addr: pointer to found mac address
-+ **/
-+static void igb_read_mac_addr_dts(const struct device *dev, u8 *mac_addr)
++	Default: disabled
++
+ max_desync_factor - INTEGER
+ 	Maximum value for DESYNC_FACTOR, which is a random value
+ 	that ensures that clients don't synchronize with each
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 4b2267e1b7c3..7edc14fb66b6 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -62,6 +62,7 @@ struct ipv6_devconf {
+ 		struct in6_addr secret;
+ 	} stable_secret;
+ 	__s32		use_oif_addrs_only;
++	__s32		keep_addr_on_down;
+ 	void		*sysctl;
+ };
+ 
+diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+index 1c8b6820b694..01ba6a286a4b 100644
+--- a/include/net/if_inet6.h
++++ b/include/net/if_inet6.h
+@@ -72,6 +72,7 @@ struct inet6_ifaddr {
+ 	int			regen_count;
+ 
+ 	bool			tokenized;
++	bool			user_managed;
+ 
+ 	struct rcu_head		rcu;
+ 	struct in6_addr		peer_addr;
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index ec117b65d5a5..395876060f50 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -176,6 +176,7 @@ enum {
+ 	DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
+ 	DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
+ 	DEVCONF_DROP_UNSOLICITED_NA,
++	DEVCONF_KEEP_ADDR_ON_DOWN,
+ 	DEVCONF_MAX
+ };
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index ac0ba9e4e06b..0bcb0f538e54 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -216,6 +216,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	},
+ 	.use_oif_addrs_only	= 0,
+ 	.ignore_routes_with_linkdown = 0,
++	.keep_addr_on_down	= 0,
+ };
+ 
+ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+@@ -260,6 +261,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	},
+ 	.use_oif_addrs_only	= 0,
+ 	.ignore_routes_with_linkdown = 0,
++	.keep_addr_on_down	= 0,
+ };
+ 
+ /* Check if a valid qdisc is available */
+@@ -962,6 +964,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 	ifa->prefered_lft = prefered_lft;
+ 	ifa->cstamp = ifa->tstamp = jiffies;
+ 	ifa->tokenized = false;
++	ifa->user_managed = false;
+ 
+ 	ifa->rt = rt;
+ 
+@@ -2701,6 +2704,9 @@ static int inet6_addr_add(struct net *net, int ifindex,
+ 			    valid_lft, prefered_lft);
+ 
+ 	if (!IS_ERR(ifp)) {
++		if (!expires)
++			ifp->user_managed = true;
++
+ 		if (!(ifa_flags & IFA_F_NOPREFIXROUTE)) {
+ 			addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
+ 					      expires, flags);
+@@ -3168,6 +3174,55 @@ static void addrconf_gre_config(struct net_device *dev)
+ }
+ #endif
+ 
++static int fixup_user_managed_addr(struct inet6_dev *idev,
++				   struct inet6_ifaddr *ifp)
 +{
-+       const u8 *mac;
-+       struct device_node *dn;
++	if (!ifp->rt) {
++		struct rt6_info *rt;
 +
-+       dn = of_find_compatible_node(dev->of_node, NULL, "intel,i210");
-+       if (dn) {
-+               mac = of_get_mac_address(dn);
-+               if (mac)
-+                       ether_addr_copy(mac_addr, mac);
-+       }
++		rt = addrconf_dst_alloc(idev, &ifp->addr, false);
++		if (unlikely(IS_ERR(rt)))
++			return PTR_ERR(rt);
++
++		ifp->rt = rt;
++	}
++
++	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
++		addrconf_prefix_route(&ifp->addr, ifp->prefix_len,
++				      idev->dev, 0, 0);
++	}
++
++	addrconf_dad_start(ifp);
++
++	return 0;
 +}
-+#endif
 +
-  /**
-   *  igb_probe - Device Initialization Routine
-   *  @pdev: PCI device information struct
-@@ -2420,6 +2445,11 @@ static int igb_probe(struct pci_dev *pdev, const 
-struct pci_device_id *ent)
-         if (hw->mac.ops.read_mac_addr(hw))
-                 dev_err(&pdev->dev, "NVM Read Error\n");
-
-+#ifdef CONFIG_OF
-+       if (!is_valid_ether_addr(hw->mac.addr))
-+               igb_read_mac_addr_dts(&pdev->dev, hw->mac.addr);
-+#endif
++static void addrconf_user_managed_addr(struct net_device *dev)
++{
++	struct inet6_ifaddr *ifp, *tmp;
++	struct inet6_dev *idev;
 +
-         memcpy(netdev->dev_addr, hw->mac.addr, netdev->addr_len);
-
-         if (!is_valid_ether_addr(netdev->dev_addr)) {
++	idev = __in6_dev_get(dev);
++	if (!idev)
++		return;
++
++	write_lock_bh(&idev->lock);
++
++	list_for_each_entry_safe(ifp, tmp, &idev->addr_list, if_list) {
++		if (ifp->user_managed &&
++		    fixup_user_managed_addr(idev, ifp) < 0) {
++			write_unlock_bh(&idev->lock);
++			ipv6_del_addr(ifp);
++			write_lock_bh(&idev->lock);
++
++			net_info_ratelimited("%s: Failed to add prefix route for address %pI6c; dropping\n",
++					     idev->dev->name, &ifp->addr);
++		}
++	}
++
++	write_unlock_bh(&idev->lock);
++}
++
+ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 			   void *ptr)
+ {
+@@ -3253,6 +3308,8 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 			run_pending = 1;
+ 		}
+ 
++		addrconf_user_managed_addr(dev);
++
+ 		switch (dev->type) {
+ #if IS_ENABLED(CONFIG_IPV6_SIT)
+ 		case ARPHRD_SIT:
+@@ -3356,7 +3413,9 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ {
+ 	struct net *net = dev_net(dev);
+ 	struct inet6_dev *idev;
+-	struct inet6_ifaddr *ifa;
++	struct inet6_ifaddr *ifa, *tmp;
++	struct list_head del_list;
++	int keep_addr;
+ 	int state, i;
+ 
+ 	ASSERT_RTNL();
+@@ -3383,6 +3442,10 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 
+ 	}
+ 
++	keep_addr = net->ipv6.devconf_all->keep_addr_on_down;
++	if (!keep_addr)
++		keep_addr = idev->cnf.keep_addr_on_down;
++
+ 	/* Step 2: clear hash table */
+ 	for (i = 0; i < IN6_ADDR_HSIZE; i++) {
+ 		struct hlist_head *h = &inet6_addr_lst[i];
+@@ -3391,9 +3454,12 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ restart:
+ 		hlist_for_each_entry_rcu(ifa, h, addr_lst) {
+ 			if (ifa->idev == idev) {
+-				hlist_del_init_rcu(&ifa->addr_lst);
+ 				addrconf_del_dad_work(ifa);
+-				goto restart;
++				if (how || !keep_addr || !ifa->user_managed) {
++					hlist_del_init_rcu(&ifa->addr_lst);
++					goto restart;
++				}
++
+ 			}
+ 		}
+ 		spin_unlock_bh(&addrconf_hash_lock);
+@@ -3427,31 +3493,52 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 		write_lock_bh(&idev->lock);
+ 	}
+ 
+-	while (!list_empty(&idev->addr_list)) {
+-		ifa = list_first_entry(&idev->addr_list,
+-				       struct inet6_ifaddr, if_list);
+-		addrconf_del_dad_work(ifa);
++	INIT_LIST_HEAD(&del_list);
++	list_for_each_entry_safe(ifa, tmp, &idev->addr_list, if_list) {
++		bool keep_ifa = false;
+ 
+-		list_del(&ifa->if_list);
++		if (!how && keep_addr && ifa->user_managed)
++			keep_ifa = true;
+ 
+-		write_unlock_bh(&idev->lock);
++		addrconf_del_dad_work(ifa);
+ 
++		write_unlock_bh(&idev->lock);
+ 		spin_lock_bh(&ifa->lock);
+-		state = ifa->state;
+-		ifa->state = INET6_IFADDR_STATE_DEAD;
++
++		if (unlikely(keep_ifa)) {
++			/* set state to skip the notifier below */
++			state = INET6_IFADDR_STATE_DEAD;
++			ifa->state = 0;
++			if (!(ifa->flags & IFA_F_NODAD))
++				ifa->flags |= IFA_F_TENTATIVE;
++		} else {
++			state = ifa->state;
++			ifa->state = INET6_IFADDR_STATE_DEAD;
++
++			list_del(&ifa->if_list);
++			list_add(&ifa->if_list, &del_list);
++		}
++
+ 		spin_unlock_bh(&ifa->lock);
+ 
+ 		if (state != INET6_IFADDR_STATE_DEAD) {
+ 			__ipv6_ifa_notify(RTM_DELADDR, ifa);
+ 			inet6addr_notifier_call_chain(NETDEV_DOWN, ifa);
+ 		}
+-		in6_ifa_put(ifa);
+ 
+ 		write_lock_bh(&idev->lock);
+ 	}
+ 
+ 	write_unlock_bh(&idev->lock);
+ 
++	while (!list_empty(&del_list)) {
++		ifa = list_first_entry(&del_list,
++				       struct inet6_ifaddr, if_list);
++		list_del(&ifa->if_list);
++
++		in6_ifa_put(ifa);
++	}
++
+ 	/* Step 5: Discard anycast and multicast list */
+ 	if (how) {
+ 		ipv6_ac_destroy_dev(idev);
+@@ -4713,6 +4800,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_USE_OIF_ADDRS_ONLY] = cnf->use_oif_addrs_only;
+ 	array[DEVCONF_DROP_UNICAST_IN_L2_MULTICAST] = cnf->drop_unicast_in_l2_multicast;
+ 	array[DEVCONF_DROP_UNSOLICITED_NA] = cnf->drop_unsolicited_na;
++	array[DEVCONF_KEEP_ADDR_ON_DOWN] = cnf->keep_addr_on_down;
+ }
+ 
+ static inline size_t inet6_ifla6_size(void)
+@@ -5194,10 +5282,12 @@ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
+ 			if (rt)
+ 				ip6_del_rt(rt);
+ 		}
+-		dst_hold(&ifp->rt->dst);
+-
+-		ip6_del_rt(ifp->rt);
++		if (ifp->rt) {
++			dst_hold(&ifp->rt->dst);
+ 
++			ip6_del_rt(ifp->rt);
++			ifp->rt = NULL;
++		}
+ 		rt_genid_bump_ipv6(net);
+ 		break;
+ 	}
+@@ -5801,6 +5891,14 @@ static struct addrconf_sysctl_table
+ 			.proc_handler	= proc_dointvec,
+ 		},
+ 		{
++			.procname       = "keep_addr_on_down",
++			.data           = &ipv6_devconf.keep_addr_on_down,
++			.maxlen         = sizeof(int),
++			.mode           = 0644,
++			.proc_handler   = proc_dointvec,
++
++		},
++		{
+ 			/* sentinel */
+ 		}
+ 	},
+-- 
+2.1.4
