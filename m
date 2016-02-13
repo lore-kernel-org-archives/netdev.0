@@ -1,88 +1,123 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [PATCH RFC 1/3] net: bridge: log state when setting it
-Date: Sat, 13 Feb 2016 22:03:53 +0200
-Message-ID: <20160213200353.GA17193@colbert.idosch.org>
-References: <1455312860-24666-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1455312860-24666-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 3/4] net: dsa: mv88e6xxx: check hardware VLAN in
+ use
+Date: Sat, 13 Feb 2016 23:08:49 +0300
+Message-ID: <56BF8D51.5010108@cogentembedded.com>
+References: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1455296981-27998-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <56BF731F.8000008@cogentembedded.com> <87mvr44cbh.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel@savoirfairelinux.com>,
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0092.outbound.protection.outlook.com ([157.55.234.92]:35616
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751228AbcBMUEs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Feb 2016 15:04:48 -0500
-Content-Disposition: inline
-In-Reply-To: <1455312860-24666-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:33529 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751239AbcBMUIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2016 15:08:54 -0500
+Received: by mail-lb0-f174.google.com with SMTP id x4so61370280lbm.0
+        for <netdev@vger.kernel.org>; Sat, 13 Feb 2016 12:08:53 -0800 (PST)
+In-Reply-To: <87mvr44cbh.fsf@ketchup.mtl.sfl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Feb 12, 2016 at 11:34:18PM IST, vivien.didelot@savoirfairelinux.com wrote:
+On 02/13/2016 10:53 PM, Vivien Didelot wrote:
 
-Hi Vivien,
-
->Every call to br_set_state is followed by a call to br_log_state.
->Directly call it within br_set_state instead.
+>>> The DSA drivers now have access to the VLAN prepare phase and the bridge
+>>> net_device. It is easier to check for overlapping bridges from within
+>>> the driver. Thus add such check in mv88e6xxx_port_vlan_prepare.
+>>>
+>>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>>> ---
+>>>    drivers/net/dsa/mv88e6xxx.c | 64 +++++++++++++++++++++++++++++++++++++++++++++
+>>>    1 file changed, 64 insertions(+)
+>>>
+>>> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+>>> index 2e515e8..685dcb0 100644
+>>> --- a/drivers/net/dsa/mv88e6xxx.c
+>>> +++ b/drivers/net/dsa/mv88e6xxx.c
+>>> @@ -1471,14 +1471,78 @@ static int _mv88e6xxx_vlan_init(struct dsa_switch *ds, u16 vid,
+>>>    	return 0;
+>>>    }
+>>>
+>>> +static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
+>>> +					u16 vid_begin, u16 vid_end)
+>>> +{
+>>> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+>>> +	struct mv88e6xxx_vtu_stu_entry vlan;
+>>> +	int i, err;
+>>> +
+>>> +	if (!vid_begin)
+>>> +		return -EOPNOTSUPP;
+>>> +
+>>> +	mutex_lock(&ps->smi_mutex);
+>>> +
+>>> +	err = _mv88e6xxx_vtu_vid_write(ds, vid_begin - 1);
+>>> +	if (err)
+>>> +		goto unlock;
+>>> +
+>>> +	do {
+>>> +		err = _mv88e6xxx_vtu_getnext(ds, &vlan);
+>>> +		if (err)
+>>> +			goto unlock;
+>>
+>>      Why are you not using *break*?
 >
->Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->---
+> I use goto for explicit error handling, and break for expected flow.
 
-Maybe I'm missing something, but there are other instances of this
-pattern throughout the code, so why not convert them as well? See
-br_set_port_state() for example.
+    Thought you'd say so. :-)
+    I still think *break* is preferable...
 
-Thanks.
-
-> net/bridge/br_stp.c | 5 ++---
-> 1 file changed, 2 insertions(+), 3 deletions(-)
+>>> +
+>>> +		if (!vlan.valid)
+>>> +			break;
+>>> +
+>>> +		if (vlan.vid > vid_end)
+>>> +			break;
+>>> +
+>>> +		for (i = 0; i < ps->num_ports; ++i) {
+>>> +			if (dsa_is_dsa_port(ds, i) || dsa_is_cpu_port(ds, i))
+>>> +				continue;
+>>> +
+>>> +			if (vlan.data[i] ==
+>>> +			    GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
+>>> +				continue;
+>>> +
+>>> +			if (ps->ports[i].bridge_dev ==
+>>> +			    ps->ports[port].bridge_dev)
+>>> +				break; /* same bridge, check next VLAN */
+>>> +
+>>> +			netdev_warn(ds->ports[port],
+>>> +				    "hardware VLAN %d already used by %s\n",
+>>> +				    vlan.vid,
+>>> +				    netdev_name(ps->ports[i].bridge_dev));
+>>> +			err = -EOPNOTSUPP;
+>>> +			goto unlock;
+>>> +		}
+>>
+>>      Why not *break*?
 >
->diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
->index b3cca12..077afca 100644
->--- a/net/bridge/br_stp.c
->+++ b/net/bridge/br_stp.c
->@@ -52,6 +52,8 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
-> 	if (err && err != -EOPNOTSUPP)
-> 		br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
-> 				(unsigned int) p->port_no, p->dev->name);
->+	else
->+		br_log_state(p);
-> }
-> 
-> /* called under bridge lock */
->@@ -126,7 +128,6 @@ static void br_root_port_block(const struct net_bridge *br,
-> 		  (unsigned int) p->port_no, p->dev->name);
-> 
-> 	br_set_state(p, BR_STATE_LISTENING);
->-	br_log_state(p);
-> 	br_ifinfo_notify(RTM_NEWLINK, p);
-> 
-> 	if (br->forward_delay > 0)
->@@ -407,7 +408,6 @@ static void br_make_blocking(struct net_bridge_port *p)
-> 			br_topology_change_detection(p->br);
-> 
-> 		br_set_state(p, BR_STATE_BLOCKING);
->-		br_log_state(p);
-> 		br_ifinfo_notify(RTM_NEWLINK, p);
-> 
-> 		del_timer(&p->forward_delay_timer);
->@@ -431,7 +431,6 @@ static void br_make_forwarding(struct net_bridge_port *p)
-> 	else
-> 		br_set_state(p, BR_STATE_LEARNING);
-> 
->-	br_log_state(p);
-> 	br_ifinfo_notify(RTM_NEWLINK, p);
-> 
-> 	if (br->forward_delay != 0)
->-- 
->2.7.1
+> Because here it would only break the for loop, and not the while loop.
+
+    Oops, I overlooked the *for* loop. Sorry about that.
+
+>>
+>>> +	} while (vlan.vid < vid_end);
+>>> +
+>>> +unlock:
+>>> +	mutex_unlock(&ps->smi_mutex);
+>>> +
+>>> +	return err;
+>>> +}
+>>> +
+>> [...]
 >
+> Thanks,
+> -v
+
+MBR, Sergei
