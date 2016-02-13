@@ -1,63 +1,99 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional
-Date: Sat, 13 Feb 2016 23:25:19 +0100
-Message-ID: <56BFAD4F.5080600@cumulusnetworks.com>
-References: <1455402207-9217-1-git-send-email-dsa@cumulusnetworks.com>
+From: John Valko <jovalko@cisco.com>
+Subject: Re: Bonding MAC failover behavior with VLAN interfaces
+Date: Sat, 13 Feb 2016 18:28:20 -0500
+Message-ID: <56BFBC14.5010807@cisco.com>
+References: <56BAA15F.4080609@cisco.com> <12288.1455310724@famine>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "Dwight Frye (dfrye)" <dfrye@cisco.com>,
+	Wally Dixon <wdixon@cisco.com>,
+	"Leo Lee (lelee2)" <lelee2@cisco.com>,
+	"Nishant Thakre (nthakre)" <nthakre@cisco.com>,
+	"Parvez Shaikh (pshaikh)" <pshaikh@cisco.com>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:37387 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750961AbcBMWZW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2016 17:25:22 -0500
-Received: by mail-wm0-f41.google.com with SMTP id g62so63259152wme.0
-        for <netdev@vger.kernel.org>; Sat, 13 Feb 2016 14:25:21 -0800 (PST)
-In-Reply-To: <1455402207-9217-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from rcdn-iport-3.cisco.com ([173.37.86.74]:55035 "EHLO
+	rcdn-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751060AbcBMXh4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2016 18:37:56 -0500
+In-Reply-To: <12288.1455310724@famine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-grrr.... changed the subject in send-email editor which dropped it. 
-obviously this is for net-next
-
-On 2/13/16 11:23 PM, David Ahern wrote:
-> Currently, all ipv6 addresses are flushed when the interface is configured
-> down, including global, static addresses:
+On 02/12/2016 03:58 PM, Jay Vosburgh wrote:
+> John Valko <jovalko@cisco.com> wrote:
 >
->      $ ip -6 addr add dev eth1 2000:11:1:1::1/64
->      $ ip addr show dev eth1
->      3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
->          link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->          inet6 2000:11:1:1::1/64 scope global tentative
->             valid_lft forever preferred_lft forever
->      $ ip link set dev eth1 up
->      $ ip link set dev eth1 down
->      $ ip addr show dev eth1
->      3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
->          link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+>> Hi all,
+>>
+>> I have observed the following on CentOS 6 using the
+>> 2.6.32-573.8.1.el6.x86_64 kernel as well as Ubuntu 15.10 with
+>> 4.2.0-25-generic.. I have not yet tried with a vanilla kernel but with the
+>> large time/distro gap it didn't seem likely to be caused by distro
+>> changes.
+> [ ...example of VLAN-over-bond's MAC not changing when bonding
+> fail_over_mac=active has a failover... ]
 >
-> Add a new sysctl to make this behavior optional. The new setting defaults to
-> flush all addresses to maintain backwards compatibility. When the set global
-> addresses with no expire times are not flushed on an admin down:
+>> So, herein lies my confusion.  I expect that the VLAN interfaces should
+>> also pick up the new MAC address, but they don't.  It seems like a bug to
+>> me, but I don't want to be presumptuous so if in fact this is expected
+>> behavior, how do you recommend we approach making it switch when the bond
+>> fails over?  Right now, the MAC must be manually set for each vlan
+>> interface.
+> [...]
+>> I can see it set the mac of the bond to the new active slave MAC, but I
+>> don't see any indication of looping over vlan interfaces or anything, if
+>> that is expected... or would it be expected that the 8021q module receives
+>> an event that should make it change?
+> 	Your observation is correct: the fail_over_mac functionality
+> does not propagate beyond the bonding master device itself.  The
+> presumption at the VLAN level is that the underlying device can support
+> multiple MAC addresses; this same effect (different MACs between VLAN
+> and its lower device) occurs if the device logically below a VLAN
+> interface changes its MAC.  This is handled by vlan_sync_address, which
+> is called via the NETDEV_CHANGEADDR notifier (which happens when the
+> bonding master changes its MAC due to f_o_m=active).
 >
->      $ echo 1 > /proc/sys/net/ipv6/conf/eth1/keep_addr_on_down
->      $ ip -6 addr add dev eth1 2000:11:1:1::1/64
->      $ ip addr show dev eth1
->      3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
->          link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->          inet6 2000:11:1:1::1/64 scope global tentative
->             valid_lft forever preferred_lft forever
->      $ ip link set dev eth1 up
->      $ ip link set dev eth1 down
->      $ ip addr show dev eth1
->      3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
->          link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->          inet6 2000:11:1:1::1/64 scope global
->             valid_lft forever preferred_lft forever
->          inet6 fe80::4:11ff:fe22:3301/64 scope link
->             valid_lft forever preferred_lft forever
+> 	The original need for f_o_m=active was IPoIB devices that cannot
+> change their MAC address.  Those don't support VLANs, either, so
+> propagation to VLANs was not a consideration.
 >
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> 	In your "real" SR-IOV sitation, is there something that
+> necessitates the use of fail_over_mac=active (I don't recall that SR-IOV
+> itself prohibits a VF from changing its MAC address), or is this being
+> done for other reasons?
+>
+> 	-J
+>
 > ---
+> 	-Jay Vosburgh, jay.vosburgh@canonical.com
+Hi Jay,
+
+Thanks for your response.  I see in vlan.c the code you mentioned where 
+the VLAN interface receives the NETDEV_CHANGEADDR.  And, after thinking 
+on it for a while it would probably be undesirable (or at least not so 
+useful) for a VLAN interface to follow the MAC of whatever interface 
+it's attached to in general.
+
+However, with SR-IOV in our case the reason we are using the active 
+f_o_m policy is that the Intel NIC we are using implements anti-spoofing 
+rules which will cause any frames with the old MAC to appear as spoofed 
+and to be dropped.  While it is possible to disable this feature, we are 
+deploying into a customer cloud where the customer has said they do not 
+want it turned off.
+
+Our current plan is to work around this by instead creating the VLAN 
+interfaces directly on top of the VFs and then bonding each pair of 
+those, so that the MAC of each VLAN interface never needs to change.  
+The result feels perhaps less elegant but should work we think.
+
+Since the original implementation of the active failover policy didn't 
+consider VLAN interfaces, would it be reasonable to extend it so that 
+when this policy is selected and there are VLAN interfaces on top of the 
+bond that those change as well (e.g. by adding a check in 
+vlan_sync_address())?  If that's a reasonable proposal I may be 
+interested in taking a crack at a patch to submit.
+
+Thanks,
+
+--John
