@@ -1,40 +1,114 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 2/4] net: dsa: pass bridge down to drivers
-Date: Sat, 13 Feb 2016 10:42:51 -0800
-Message-ID: <CAGVrzcb3Oxwr5qidP=cuOxW81wShmqKVEWs8k8hWcoCHe+T5CQ@mail.gmail.com>
-References: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1455296981-27998-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 3/4] net: dsa: mv88e6xxx: check hardware VLAN in use
+Date: Sat, 13 Feb 2016 14:53:06 -0500
+Message-ID: <87mvr44cbh.fsf@ketchup.mtl.sfl>
+References: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1455296981-27998-4-git-send-email-vivien.didelot@savoirfairelinux.com> <56BF731F.8000008@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>,
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
 	Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455296981-27998-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <56BF731F.8000008@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2016-02-12 9:09 GMT-08:00 Vivien Didelot <vivien.didelot@savoirfairelinux.com>:
-> Some DSA drivers may or may not support multiple software bridges on top
-> of an hardware switch.
->
-> It is more convenient for them to access the bridge's net_device for
-> finer configuration.
->
-> Removing the need to craft and access a bitmask also simplifies the
-> code.
->
-> This patch changes the signature of bridge related functions, update DSA
-> drivers, and removes dsa_slave_br_port_mask.
+Hi Sergei,
 
-This is the specific patch that depends on the patch you mention in
-your cover letter, I applied it anyway, ignored the rejects in the
-mv88e6xxx driver since I wanted to test bcm_sf2 only and the hardware
-is still programmed the same way before and after:
+Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> writes:
 
-Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+> Hello.
+>
+> On 2/12/2016 8:09 PM, Vivien Didelot wrote:
+>
+>> The DSA drivers now have access to the VLAN prepare phase and the bridge
+>> net_device. It is easier to check for overlapping bridges from within
+>> the driver. Thus add such check in mv88e6xxx_port_vlan_prepare.
+>>
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>> ---
+>>   drivers/net/dsa/mv88e6xxx.c | 64 +++++++++++++++++++++++++++++++++++++++++++++
+>>   1 file changed, 64 insertions(+)
+>>
+>> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+>> index 2e515e8..685dcb0 100644
+>> --- a/drivers/net/dsa/mv88e6xxx.c
+>> +++ b/drivers/net/dsa/mv88e6xxx.c
+>> @@ -1471,14 +1471,78 @@ static int _mv88e6xxx_vlan_init(struct dsa_switch *ds, u16 vid,
+>>   	return 0;
+>>   }
+>>
+>> +static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
+>> +					u16 vid_begin, u16 vid_end)
+>> +{
+>> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+>> +	struct mv88e6xxx_vtu_stu_entry vlan;
+>> +	int i, err;
+>> +
+>> +	if (!vid_begin)
+>> +		return -EOPNOTSUPP;
+>> +
+>> +	mutex_lock(&ps->smi_mutex);
+>> +
+>> +	err = _mv88e6xxx_vtu_vid_write(ds, vid_begin - 1);
+>> +	if (err)
+>> +		goto unlock;
+>> +
+>> +	do {
+>> +		err = _mv88e6xxx_vtu_getnext(ds, &vlan);
+>> +		if (err)
+>> +			goto unlock;
+>
+>     Why are you not using *break*?
 
-Thanks!
+I use goto for explicit error handling, and break for expected flow.
+
+>> +
+>> +		if (!vlan.valid)
+>> +			break;
+>> +
+>> +		if (vlan.vid > vid_end)
+>> +			break;
+>> +
+>> +		for (i = 0; i < ps->num_ports; ++i) {
+>> +			if (dsa_is_dsa_port(ds, i) || dsa_is_cpu_port(ds, i))
+>> +				continue;
+>> +
+>> +			if (vlan.data[i] ==
+>> +			    GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
+>> +				continue;
+>> +
+>> +			if (ps->ports[i].bridge_dev ==
+>> +			    ps->ports[port].bridge_dev)
+>> +				break; /* same bridge, check next VLAN */
+>> +
+>> +			netdev_warn(ds->ports[port],
+>> +				    "hardware VLAN %d already used by %s\n",
+>> +				    vlan.vid,
+>> +				    netdev_name(ps->ports[i].bridge_dev));
+>> +			err = -EOPNOTSUPP;
+>> +			goto unlock;
+>> +		}
+>
+>     Why not *break*?
+
+Because here it would only break the for loop, and not the while loop.
+
+>
+>> +	} while (vlan.vid < vid_end);
+>> +
+>> +unlock:
+>> +	mutex_unlock(&ps->smi_mutex);
+>> +
+>> +	return err;
+>> +}
+>> +
+> [...]
+>
+> MBR, Sergei
+
+Thanks,
+-v
