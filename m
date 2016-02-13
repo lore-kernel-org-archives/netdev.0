@@ -1,549 +1,100 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next v2 2/4] drivers: net: xgene: Add support for RSS
-Date: Fri, 12 Feb 2016 17:37:03 -0800
-Message-ID: <1455327425-8294-3-git-send-email-isubramanian@apm.com>
-References: <1455327425-8294-1-git-send-email-isubramanian@apm.com>
-Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	patches@apm.com, toanle@apm.com,
-	Iyappan Subramanian <isubramanian@apm.com>,
-	Khuong Dinh <kdinh@apm.com>, Tanmay Inamdar <tinamdar@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:33864 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752234AbcBMBga (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2016 20:36:30 -0500
-Received: by mail-pf0-f181.google.com with SMTP id x65so55973238pfb.1
-        for <netdev@vger.kernel.org>; Fri, 12 Feb 2016 17:36:29 -0800 (PST)
-In-Reply-To: <1455327425-8294-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Subject: Re: [PATCH net-next v8 02/19] test_bitmap: unit tests for
+ lib/bitmap.c
+Date: Sat, 13 Feb 2016 01:39:03 +0000
+Message-ID: <1455327543.2801.79.camel@decadent.org.uk>
+References: <1455064168-5102-1-git-send-email-ddecotig@gmail.com>
+	 <1455064168-5102-3-git-send-email-ddecotig@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-dMEmN+NpsyqIDHiwxqFo"
+Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Ido Shamay <idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>,
+	Venkata Duvvuru <VenkatKumar.Duvvuru-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+	Ed Swierk <eswierk-FilZDy9cOaHkQYj/0HfcvtBPR1lH4CV8@public.gmane.org>,
+	Robert Love <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+	Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>,
+	David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
+To: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
+	fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1455064168-5102-3-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Signed-off-by: Khuong Dinh <kdinh@apm.com>
-Signed-off-by: Tanmay Inamdar <tinamdar@apm.com>
-Tested-by: Toan Le <toanle@apm.com>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_cle.c | 386 +++++++++++++++++++++++-
- drivers/net/ethernet/apm/xgene/xgene_enet_cle.h |  41 +++
- 2 files changed, 422 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-index 7eea982..933eac4 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-@@ -21,6 +21,25 @@
- 
- #include "xgene_enet_main.h"
- 
-+/* interfaces to convert structures to HW recognized bit formats */
-+static void xgene_cle_sband_to_hw(u8 frag, enum xgene_cle_prot_version ver,
-+				  enum xgene_cle_prot_type type, u32 len,
-+				  u32 *reg)
-+{
-+	*reg =  SET_VAL(SB_IPFRAG, frag) |
-+		SET_VAL(SB_IPPROT, type) |
-+		SET_VAL(SB_IPVER, ver) |
-+		SET_VAL(SB_HDRLEN, len);
-+}
-+
-+static void xgene_cle_idt_to_hw(u32 dstqid, u32 fpsel,
-+				u32 nfpsel, u32 *idt_reg)
-+{
-+	*idt_reg =  SET_VAL(IDT_DSTQID, dstqid) |
-+		    SET_VAL(IDT_FPSEL, fpsel) |
-+		    SET_VAL(IDT_NFPSEL, nfpsel);
-+}
-+
- static void xgene_cle_dbptr_to_hw(struct xgene_enet_pdata *pdata,
- 				  struct xgene_cle_dbptr *dbptr, u32 *buf)
- {
-@@ -258,29 +277,372 @@ static void xgene_cle_setup_def_dbptr(struct xgene_enet_pdata *pdata,
- 	}
- }
- 
-+static int xgene_cle_set_rss_sband(struct xgene_enet_cle *cle)
-+{
-+	u32 sband, reg = 0;
-+	u32 idx = CLE_PKTRAM_SIZE / sizeof(u32);
-+	u32 mac_hdr_len = 14;
-+	u32 ipv4_ihl = 5;
-+	u32 hdr_len;
-+	int ret;
-+
-+	/* Sideband: IPV4/TCP packets */
-+	hdr_len = (mac_hdr_len << 5) | ipv4_ihl;
-+	xgene_cle_sband_to_hw(0, XGENE_CLE_IPV4, XGENE_CLE_TCP, hdr_len, &reg);
-+	sband = reg;
-+
-+	/* Sideband: IPv4/UDP packets */
-+	hdr_len = (mac_hdr_len << 5) | ipv4_ihl;
-+	xgene_cle_sband_to_hw(1, XGENE_CLE_IPV4, XGENE_CLE_UDP, hdr_len, &reg);
-+	sband |= (reg << 16);
-+
-+	ret = xgene_cle_dram_wr(cle, &sband, 1, idx, PKT_RAM, CLE_CMD_WR);
-+	if (ret)
-+		return ret;
-+
-+	/* Sideband: IPv4/RAW packets */
-+	hdr_len = (mac_hdr_len << 5) | ipv4_ihl;
-+	xgene_cle_sband_to_hw(0, XGENE_CLE_IPV4, XGENE_CLE_OTHER,
-+			      hdr_len, &reg);
-+	sband = reg;
-+
-+	/* Sideband: Ethernet II/RAW packets */
-+	hdr_len = (mac_hdr_len << 5);
-+	xgene_cle_sband_to_hw(0, XGENE_CLE_IPV4, XGENE_CLE_OTHER,
-+			      hdr_len, &reg);
-+	sband |= (reg << 16);
-+
-+	ret = xgene_cle_dram_wr(cle, &sband, 1, idx + 1, PKT_RAM, CLE_CMD_WR);
-+	if (ret)
-+		return ret;
-+
-+	return 0;
-+}
-+
-+static int xgene_cle_set_rss_skeys(struct xgene_enet_cle *cle)
-+{
-+	int ret = 0;
-+	u32 secret_key_ipv4[4];  /* 16 Bytes*/
-+
-+	get_random_bytes(secret_key_ipv4, 16);
-+	ret = xgene_cle_dram_wr(cle, secret_key_ipv4, 4, 0,
-+				RSS_IPV4_HASH_SKEY, CLE_CMD_WR);
-+	return ret;
-+}
-+
-+static int xgene_cle_set_rss_idt(struct xgene_enet_pdata *pdata)
-+{
-+	int i, ret = 0;
-+	u32 fpsel, dstqid, nfpsel, idt_reg;
-+	u16 pool_id;
-+
-+	for (i = 0; i < XGENE_CLE_IDT_ENTRIES; i++) {
-+		pool_id = pdata->rx_ring->buf_pool->id;
-+		fpsel = xgene_enet_ring_bufnum(pool_id) - 0x20;
-+		dstqid = xgene_enet_dst_ring_num(pdata->rx_ring);
-+		nfpsel = 0;
-+		idt_reg = 0;
-+
-+		xgene_cle_idt_to_hw(dstqid, fpsel, nfpsel, &idt_reg);
-+		ret = xgene_cle_dram_wr(&pdata->cle, &idt_reg, 1, i,
-+					RSS_IDT, CLE_CMD_WR);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	ret = xgene_cle_set_rss_skeys(&pdata->cle);
-+	if (ret)
-+		return ret;
-+
-+	return 0;
-+}
-+
-+static int xgene_cle_setup_rss(struct xgene_enet_pdata *pdata)
-+{
-+	struct xgene_enet_cle *cle = &pdata->cle;
-+	void __iomem *base = cle->base;
-+	u32 offset, val = 0;
-+	int i, ret = 0;
-+
-+	offset = CLE_PORT_OFFSET;
-+	for (i = 0; i < cle->parsers; i++) {
-+		if (cle->active_parser != PARSER_ALL)
-+			offset = cle->active_parser * CLE_PORT_OFFSET;
-+		else
-+			offset = i * CLE_PORT_OFFSET;
-+
-+		/* enable RSS */
-+		val = (RSS_IPV4_12B << 1) | 0x1;
-+		writel(val, base + RSS_CTRL0 + offset);
-+	}
-+
-+	/* setup sideband data */
-+	ret = xgene_cle_set_rss_sband(cle);
-+	if (ret)
-+		return ret;
-+
-+	/* setup indirection table */
-+	ret = xgene_cle_set_rss_idt(pdata);
-+	if (ret)
-+		return ret;
-+
-+	return 0;
-+}
-+
- static int xgene_enet_cle_init(struct xgene_enet_pdata *pdata)
- {
- 	struct xgene_enet_cle *enet_cle = &pdata->cle;
- 	struct xgene_cle_ptree *ptree = &enet_cle->ptree;
- 	struct xgene_cle_dbptr dbptr[DB_MAX_PTRS];
- 	struct xgene_cle_ptree_kn kn;
-+	struct xgene_cle_ptree_branch *br;
- 	u32 def_qid, def_fpsel, pool_id;
-+	int ret;
- 	struct xgene_cle_ptree_ewdn ptree_dn[] = {
- 		{
- 			/* PKT_TYPE_NODE */
- 			.node_type = EWDN,
- 			.last_node = 0,
--			.hdr_len_store = 0,
-+			.hdr_len_store = 1,
- 			.hdr_extn = NO_BYTE,
- 			.byte_store = NO_BYTE,
- 			.search_byte_store = NO_BYTE,
- 			.result_pointer = DB_RES_DROP,
--			.num_branches = 1,
-+			.num_branches = 2,
- 			.branch = {
- 				{
--					/* Allow all packet type */
-+					/* IPV4 */
- 					.valid = 0,
--					.next_packet_pointer = 0,
-+					.next_packet_pointer = 22,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = PKT_PROT_NODE,
-+					.next_branch = 0,
-+					.data = 0x8,
-+					.mask = 0xffff
-+				},
-+				{
-+					.valid = 0,
-+					.next_packet_pointer = 262,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = LAST_NODE,
-+					.next_branch = 0,
-+					.data = 0x0,
-+					.mask = 0xffff
-+				}
-+			},
-+		},
-+		{
-+			/* PKT_PROT_NODE */
-+			.node_type = EWDN,
-+			.last_node = 0,
-+			.hdr_len_store = 1,
-+			.hdr_extn = NO_BYTE,
-+			.byte_store = NO_BYTE,
-+			.search_byte_store = NO_BYTE,
-+			.result_pointer = DB_RES_DROP,
-+			.num_branches = 3,
-+			.branch = {
-+				{
-+					/* TCP */
-+					.valid = 1,
-+					.next_packet_pointer = 26,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = RSS_IPV4_TCP_NODE,
-+					.next_branch = 0,
-+					.data = 0x0600,
-+					.mask = 0xffff
-+				},
-+				{
-+					/* UDP */
-+					.valid = 1,
-+					.next_packet_pointer = 26,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = RSS_IPV4_UDP_NODE,
-+					.next_branch = 0,
-+					.data = 0x1100,
-+					.mask = 0xffff
-+				},
-+				{
-+					.valid = 0,
-+					.next_packet_pointer = 260,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = LAST_NODE,
-+					.next_branch = 0,
-+					.data = 0x0,
-+					.mask = 0xffff
-+				}
-+			}
-+		},
-+		{
-+			/* RSS_IPV4_TCP_NODE */
-+			.node_type = EWDN,
-+			.last_node = 0,
-+			.hdr_len_store = 1,
-+			.hdr_extn = NO_BYTE,
-+			.byte_store = NO_BYTE,
-+			.search_byte_store = BOTH_BYTES,
-+			.result_pointer = DB_RES_DROP,
-+			.num_branches = 6,
-+			.branch = {
-+				{
-+					/* SRC IPV4 B01 */
-+					.valid = 0,
-+					.next_packet_pointer = 28,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = RSS_IPV4_TCP_NODE,
-+					.next_branch = 1,
-+					.data = 0x0,
-+					.mask = 0xffff
-+				},
-+				{
-+					/* SRC IPV4 B23 */
-+					.valid = 0,
-+					.next_packet_pointer = 30,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = RSS_IPV4_TCP_NODE,
-+					.next_branch = 2,
-+					.data = 0x0,
-+					.mask = 0xffff
-+				},
-+				{
-+					/* DST IPV4 B01 */
-+					.valid = 0,
-+					.next_packet_pointer = 32,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = RSS_IPV4_TCP_NODE,
-+					.next_branch = 3,
-+					.data = 0x0,
-+					.mask = 0xffff
-+				},
-+				{
-+					/* DST IPV4 B23 */
-+					.valid = 0,
-+					.next_packet_pointer = 34,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = RSS_IPV4_TCP_NODE,
-+					.next_branch = 4,
-+					.data = 0x0,
-+					.mask = 0xffff
-+				},
-+				{
-+					/* TCP SRC Port */
-+					.valid = 0,
-+					.next_packet_pointer = 36,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = RSS_IPV4_TCP_NODE,
-+					.next_branch = 5,
-+					.data = 0x0,
-+					.mask = 0xffff
-+				},
-+				{
-+					/* TCP DST Port */
-+					.valid = 0,
-+					.next_packet_pointer = 256,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = LAST_NODE,
-+					.next_branch = 0,
-+					.data = 0x0,
-+					.mask = 0xffff
-+				}
-+			}
-+		},
-+		{
-+			/* RSS_IPV4_UDP_NODE */
-+			.node_type = EWDN,
-+			.last_node = 0,
-+			.hdr_len_store = 1,
-+			.hdr_extn = NO_BYTE,
-+			.byte_store = NO_BYTE,
-+			.search_byte_store = BOTH_BYTES,
-+			.result_pointer = DB_RES_DROP,
-+			.num_branches = 6,
-+			.branch = {
-+				{
-+					/* SRC IPV4 B01 */
-+					.valid = 0,
-+					.next_packet_pointer = 28,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = RSS_IPV4_UDP_NODE,
-+					.next_branch = 1,
-+					.data = 0x0,
-+					.mask = 0xffff
-+				},
-+				{
-+					/* SRC IPV4 B23 */
-+					.valid = 0,
-+					.next_packet_pointer = 30,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = RSS_IPV4_UDP_NODE,
-+					.next_branch = 2,
-+					.data = 0x0,
-+					.mask = 0xffff
-+				},
-+				{
-+					/* DST IPV4 B01 */
-+					.valid = 0,
-+					.next_packet_pointer = 32,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = RSS_IPV4_UDP_NODE,
-+					.next_branch = 3,
-+					.data = 0x0,
-+					.mask = 0xffff
-+				},
-+				{
-+					/* DST IPV4 B23 */
-+					.valid = 0,
-+					.next_packet_pointer = 34,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = RSS_IPV4_UDP_NODE,
-+					.next_branch = 4,
-+					.data = 0x0,
-+					.mask = 0xffff
-+				},
-+				{
-+					/* TCP SRC Port */
-+					.valid = 0,
-+					.next_packet_pointer = 36,
-+					.jump_bw = JMP_FW,
-+					.jump_rel = JMP_ABS,
-+					.operation = EQT,
-+					.next_node = RSS_IPV4_UDP_NODE,
-+					.next_branch = 5,
-+					.data = 0x0,
-+					.mask = 0xffff
-+				},
-+				{
-+					/* TCP DST Port */
-+					.valid = 0,
-+					.next_packet_pointer = 256,
- 					.jump_bw = JMP_FW,
- 					.jump_rel = JMP_ABS,
- 					.operation = EQT,
-@@ -295,7 +657,7 @@ static int xgene_enet_cle_init(struct xgene_enet_pdata *pdata)
- 			/* LAST NODE */
- 			.node_type = EWDN,
- 			.last_node = 1,
--			.hdr_len_store = 0,
-+			.hdr_len_store = 1,
- 			.hdr_extn = NO_BYTE,
- 			.byte_store = NO_BYTE,
- 			.search_byte_store = NO_BYTE,
-@@ -318,6 +680,20 @@ static int xgene_enet_cle_init(struct xgene_enet_pdata *pdata)
- 	};
- 
- 	ptree->start_pkt = 12; /* Ethertype */
-+	if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII) {
-+		ret = xgene_cle_setup_rss(pdata);
-+		if (ret) {
-+			netdev_err(pdata->ndev, "RSS initialization failed\n");
-+			return ret;
-+		}
-+	} else {
-+		br = &ptree_dn[PKT_PROT_NODE].branch[0];
-+		br->valid = 0;
-+		br->next_packet_pointer = 260;
-+		br->next_node = LAST_NODE;
-+		br->data = 0x0000;
-+		br->mask = 0xffff;
-+	}
- 
- 	def_qid = xgene_enet_dst_ring_num(pdata->rx_ring);
- 	pool_id = pdata->rx_ring->buf_pool->id;
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-index 1db2fd7..29a17ab 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-@@ -34,6 +34,7 @@
- #define SPPTR0			0x0104
- #define DFCLSRESDBPTR0		0x0108
- #define DFCLSRESDB00		0x010c
-+#define RSS_CTRL0		0x0000013c
- 
- #define CLE_CMD_TO		10	/* ms */
- #define CLE_PKTRAM_SIZE		256	/* bytes */
-@@ -98,6 +99,9 @@
- 
- enum xgene_cle_ptree_nodes {
- 	PKT_TYPE_NODE,
-+	PKT_PROT_NODE,
-+	RSS_IPV4_TCP_NODE,
-+	RSS_IPV4_UDP_NODE,
- 	LAST_NODE,
- 	MAX_NODES
- };
-@@ -137,6 +141,8 @@ enum xgene_cle_parser {
- #define XGENE_CLE_DRAM(type)	(((type) & 0xf) << 28)
- enum xgene_cle_dram_type {
- 	PKT_RAM,
-+	RSS_IDT,
-+	RSS_IPV4_HASH_SKEY,
- 	PTREE_RAM = 0xc,
- 	AVL_RAM,
- 	DB_RAM
-@@ -150,6 +156,22 @@ enum xgene_cle_cmd_type {
- 	CLE_CMD_AVL_SRCH = 32
- };
- 
-+enum xgene_cle_ipv4_rss_hashtype {
-+	RSS_IPV4_8B,
-+	RSS_IPV4_12B,
-+};
-+
-+enum xgene_cle_prot_type {
-+	XGENE_CLE_TCP,
-+	XGENE_CLE_UDP,
-+	XGENE_CLE_ESP,
-+	XGENE_CLE_OTHER
-+};
-+
-+enum xgene_cle_prot_version {
-+	XGENE_CLE_IPV4,
-+};
-+
- enum xgene_cle_ptree_dbptrs {
- 	DB_RES_DROP,
- 	DB_RES_DEF,
-@@ -157,6 +179,25 @@ enum xgene_cle_ptree_dbptrs {
- 	DB_MAX_PTRS
- };
- 
-+/* RSS sideband signal info */
-+#define SB_IPFRAG_POS	0
-+#define SB_IPFRAG_LEN	1
-+#define SB_IPPROT_POS	1
-+#define SB_IPPROT_LEN	2
-+#define SB_IPVER_POS	3
-+#define SB_IPVER_LEN	1
-+#define SB_HDRLEN_POS	4
-+#define SB_HDRLEN_LEN	12
-+
-+/* RSS indirection table */
-+#define XGENE_CLE_IDT_ENTRIES	128
-+#define IDT_DSTQID_POS		0
-+#define IDT_DSTQID_LEN		12
-+#define IDT_FPSEL_POS		12
-+#define IDT_FPSEL_LEN		4
-+#define IDT_NFPSEL_POS		16
-+#define IDT_NFPSEL_LEN		4
-+
- struct xgene_cle_ptree_branch {
- 	bool valid;
- 	u16 next_packet_pointer;
--- 
-1.9.1
+--=-dMEmN+NpsyqIDHiwxqFo
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2016-02-09 at 16:29 -0800, David Decotigny wrote:
+> From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
+>=20
+> This is mainly testing bitmap construction and conversion to/from u32[]
+> for now.
+>=20
+> Tested:
+> =C2=A0 qemu i386, x86_64, ppc, ppc64 BE and LE, ARM.
+>=20
+> Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
+[...]
+> diff --git a/tools/testing/selftests/lib/bitmap.sh b/tools/testing/selfte=
+sts/lib/bitmap.sh
+> new file mode 100644
+
+This needs to have mode 755.
+
+Ben.
+
+> index 0000000..2da187b
+> --- /dev/null
+> +++ b/tools/testing/selftests/lib/bitmap.sh
+> @@ -0,0 +1,10 @@
+> +#!/bin/sh
+> +# Runs bitmap infrastructure tests using test_bitmap kernel module
+> +
+> +if /sbin/modprobe -q test_bitmap; then
+> +	/sbin/modprobe -q -r test_bitmap
+> +	echo "bitmap: ok"
+> +else
+> +	echo "bitmap: [FAIL]"
+> +	exit 1
+> +fi
+--=20
+Ben Hutchings
+Sturgeon's Law: Ninety percent of everything is crap.
+--=-dMEmN+NpsyqIDHiwxqFo
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVr6JN+e/yOyVhhEJAQoreg/8CyAqnMX0OsvT/Kq3OZbYtJ+ox8k0w7lY
+QF1kUm532EjcM+eS0ebXuzngeuty2jMLnJ7d4jI6ZtMqCVt5jY4vxvsELPbYut3W
+zFVW1WRatPwQA7aa4TUDprR5CuvYqpEp+EVoVUdoMRIgBgOSHHEJJSS1E2Esm4IY
+7rtk1thYjbSSXqEFSR5SvVVZ+E8gkh5Awkmr2t67oxhw2aU6kzDq4TD4NP/6OeXu
+OFx+hCh7BCu3kkUdkVswWvISiDbXcgKy7khDcAJSI6pvjmMz13Sl9UEOdsqwV/H9
+5BRQM4FXyG6Mmc1u6M6vIwWKL5DNcstr0Zp9WA8xwkFimdA/uphCONzWTb4PQZ41
+Y0PkQ3qbvAsPsuCyKIxAKi815RzYCbiUn1nhLgXvmJVCw5NHD3lkjJjqh4ejaFIP
+nyUOpCJWLPeKAxmH0P1C4827mGJCAbd9zUEjamWqJ6E+NhjyTW7u6VI9yAqQv9oQ
+T5cwgec4O2trPqTD2JYLxeXPTtiJQxIBh8ofW9s1V3cdIw5v3or3t2JRvKwNIy2Y
+kgXpjr433jhbrxL+cgwX9bRzOmbKlK1xvJpzVze+SO7Vay8tnqlHQu3R5eoNASWs
+1jNTYHbo0ARZMMqZDpS0vIAvoBJLG7oBir6qjj2NYT6aby24No5BLNALr8KZMi7X
+EFKHaJ7Brcg=
+=hORQ
+-----END PGP SIGNATURE-----
+
+--=-dMEmN+NpsyqIDHiwxqFo--
