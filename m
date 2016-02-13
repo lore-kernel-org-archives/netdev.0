@@ -1,67 +1,61 @@
-From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Subject: Re: [PATCH] net: phy: spi_ks8995: add dependency on GPIO
-Date: Sat, 13 Feb 2016 11:12:45 +0100
-Message-ID: <CAMuHMdXRD-XJODqd1M+MWkseyJgU52GRniP_Ld_EOMSyWg+MVg@mail.gmail.com>
-References: <1455272306-30251-1-git-send-email-sudipm.mukherjee@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] bonding: Fix ARP monitor validation
+Date: Sat, 13 Feb 2016 05:55:17 -0500 (EST)
+Message-ID: <20160213.055517.692667015750288172.davem@davemloft.net>
+References: <29855.1454448956@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Helmut Buchsbaum <helmut.buchsbaum-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1455272306-30251-1-git-send-email-sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, vfalico@gmail.com,
+	gospo@cumulusnetworks.com
+To: jay.vosburgh@canonical.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48200 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750949AbcBMKzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2016 05:55:23 -0500
+In-Reply-To: <29855.1454448956@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 12, 2016 at 11:18 AM, Sudip Mukherjee
-<sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> The builds of allmodconfig of s390, m68k, tilegx, tilepro is failing
-> with the error:
->  drivers/net/phy/spi_ks8995.c:477:3: error: implicit declaration of function 'gpiod_set_value'
->  drivers/net/phy/spi_ks8995.c:477:19: error: implicit declaration of function 'gpio_to_desc'
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Date: Tue, 02 Feb 2016 13:35:56 -0800
 
-Does that file include include/linux/gpio/consumer.h?
-The GPIO subsystem provides dummies of these functions when CONFIG_GPIOLIB=n.
+> 
+> 	The current logic in bond_arp_rcv will accept an incoming ARP for
+> validation if (a) the receiving slave is either "active" (which includes
+> the currently active slave, or the current ARP slave) or, (b) there is a
+> currently active slave, and it has received an ARP since it became active.
+> For case (b), the receiving slave isn't the currently active slave, and is
+> receiving the original broadcast ARP request, not an ARP reply from the
+> target.
+> 
+> 	This logic can fail if there is no currently active slave.  In
+> this situation, the ARP probe logic cycles through all slaves, assigning
+> each in turn as the "current_arp_slave" for one arp_interval, then setting
+> that one as "active," and sending an ARP probe from that slave.  The
+> current logic expects the ARP reply to arrive on the sending
+> current_arp_slave, however, due to switch FDB updating delays, the reply
+> may be directed to another slave.
+> 
+> 	This can arise if the bonding slaves and switch are working, but
+> the ARP target is not responding.  When the ARP target recovers, a
+> condition may result wherein the ARP target host replies faster than the
+> switch can update its forwarding table, causing each ARP reply to be sent
+> to the previous current_arp_slave.  This will never pass the logic in
+> bond_arp_rcv, as neither of the above conditions (a) or (b) are met.
+> 
+> 	Some experimentation on a LAN shows ARP reply round trips in the
+> 200 usec range, but my available switches never update their FDB in less
+> than 4000 usec.
+> 
+> 	This patch changes the logic in bond_arp_rcv to additionally
+> accept an ARP reply for validation on any slave if there is a current ARP
+> slave and it sent an ARP probe during the previous arp_interval.
+> 
+> Fixes: aeea64ac717a ("bonding: don't trust arp requests unless active slave really works")
+> Cc: Veaceslav Falico <vfalico@gmail.com>
+> Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
 
-> GPIO is now used to reset the switch so we should have a dependency on
-> GPIOLIB.
->
-> Fixes: cd6f288cbaab ("net: phy: spi_ks8995: add support for resetting switch using GPIO")
-> Cc: Helmut Buchsbaum <helmut.buchsbaum-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Sudip Mukherjee <sudip-ofJRbWXBVFamYgehrs7/Lw@public.gmane.org>
-> ---
->  drivers/net/phy/Kconfig | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-> index f0a7702..c6a4fe1 100644
-> --- a/drivers/net/phy/Kconfig
-> +++ b/drivers/net/phy/Kconfig
-> @@ -261,4 +261,4 @@ endif # PHYLIB
->
->  config MICREL_KS8995MA
->         tristate "Micrel KS8995MA 5-ports 10/100 managed Ethernet switch"
-> -       depends on SPI
-> +       depends on SPI && GPIOLIB
-
-I think that can become
-
-    depends on SPI
-    depends on GPIOLIB || COMPILE_TEST
-
-after you've added the missing include.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Applied, thanks Jay.
