@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] vsock: Fix blocking ops call in prepare_to_wait
-Date: Sat, 13 Feb 2016 05:59:40 -0500 (EST)
-Message-ID: <20160213.055940.1894427692019983187.davem@davemloft.net>
-References: <1454611845-5358-1-git-send-email-labbott@fedoraproject.org>
+Subject: Re: [PATCH v3 net 0/7] mvneta fixes for SMP
+Date: Sat, 13 Feb 2016 06:03:14 -0500 (EST)
+Message-ID: <20160213.060314.257506721983765240.davem@davemloft.net>
+References: <1454620169-8156-1-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: asarwade@vmware.com, thellstrom@vmware.com, jhansen@vmware.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: labbott@fedoraproject.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	thomas.petazzoni@free-electrons.com, jason@lakedaemon.net,
+	andrew@lunn.ch, sebastian.hesselbarth@gmail.com,
+	linux-arm-kernel@lists.infradead.org, alior@marvell.com,
+	nadavh@marvell.com, mw@semihalf.com, linux@arm.linux.org.uk,
+	w@1wt.eu
+To: gregory.clement@free-electrons.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454611845-5358-1-git-send-email-labbott@fedoraproject.org>
+In-Reply-To: <1454620169-8156-1-git-send-email-gregory.clement@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Laura Abbott <labbott@fedoraproject.org>
-Date: Thu,  4 Feb 2016 10:50:45 -0800
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Date: Thu,  4 Feb 2016 22:09:22 +0100
 
-> We receoved a bug report from someone using vmware:
- ...
-> transport->stream_enqueue may call copy_to_user so it should
-> not be called inside a prepare_to_wait. Narrow the scope of
-> the prepare_to_wait to avoid the bad call. This also applies
-> to vsock_stream_recvmsg as well.
+> Following this bug report:
+> http://thread.gmane.org/gmane.linux.ports.arm.kernel/468173 and the
+> suggestions from Russell King, I reviewed all the code involving
+> multi-CPU. It ended with this series of patches which should improve
+> the stability of the driver.
 > 
-> Reported-by: Vinson Lee <vlee@freedesktop.org>
-> Tested-by: Vinson Lee <vlee@freedesktop.org>
-> Signed-off-by: Laura Abbott <labbott@fedoraproject.org>
+> During my test I found another bug which is fixed by new patch (the
+> second one of this new version of the series)
+> 
+> The two first patches fix real bugs, the others fix potential issues
+> in the driver.
 
-Applied.
+Series applied, thanks.
