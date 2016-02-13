@@ -1,71 +1,82 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] af_unix: Don't set err in unix_stream_read_generic
- unless there was an error
-Date: Sat, 13 Feb 2016 00:18:49 +0000
-Message-ID: <1455322729.2801.71.camel@decadent.org.uk>
-References: <56B4EF04.2060407@canonical.com>
-	 <87zivebxjr.fsf@doppelsaurus.mobileactivedefense.com>
+From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
+Subject: [PATCH] drivers: net: cpsw-phy-sel: add dev_warn() for unsupported
+ PHY mode
+Date: Fri, 12 Feb 2016 19:45:36 -0500
+Message-ID: <1455324336-3884-1-git-send-email-drivshin.allworx@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-RpDbW5AZgxGOlY6is3SL"
-Cc: hannes@stressinduktion.org, edumazet@google.com,
-	dhowells@redhat.com, ying.xue@windriver.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <87zivebxjr.fsf@doppelsaurus.mobileactivedefense.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Chauvet <kwizart@gmail.com>, Mugunthan V N <mugunthanvnm@ti.com>,
+ linux-omap@vger.kernel.org, David Miller <davem@davemloft.net>,
+ linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
+From: David Rivshin <drivshin@allworx.com>
 
---=-RpDbW5AZgxGOlY6is3SL
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The cpsw-phy-sel driver supports only MII, RMII, and RGMII PHY modes,
+and silently handled any other values as if MII was specified. In a
+case where the PHY mode was incorrectly specified, or a bug elsewhere,
+there would be no indication of a problem. If MII was the correct mode,
+then this will go unnoticed, otherwise the symptom will be a failure
+to transmit/receive data over the RMII/RGMII link.
 
-On Fri, 2016-02-05 at 22:30 +0000, Rainer Weikusat wrote:
-> The present unix_stream_read_generic contains various code sequences of
-> the form
->=20
-> err =3D -EDISASTER;
-> if ()
-> 	goto out;
-[...]
+Add a dev_warn() to make this condition obvious and provide a
+breadcrumb to follow.
 
-I wish people would stop writing code like this. =C2=A0At one time it may
-have been a useful micro-optimisation, avoiding an extra branch in the
-successful case, but gcc now appears to do that itself. =C2=A0So it makes
-the code less clear and runs the risk of introducing this sort of bug,
-for no obvious benefit.
+Cc: Mugunthan V N <mugunthanvnm@ti.com>
+Signed-off-by: David Rivshin <drivshin@allworx.com>
+---
 
-Ben.
+Dave,
+ I'm not sure if you'd consider this net or net-next material, but it will
+apply cleanly to either. Indeed, if you want it for -stable, it applies back
+as far as 3.18.
 
---=20
-Ben Hutchings
-Sturgeon's Law: Ninety percent of everything is crap.
---=-RpDbW5AZgxGOlY6is3SL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+ drivers/net/ethernet/ti/cpsw-phy-sel.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVr52aee/yOyVhhEJAQrlPRAAib7GvkTeP2kfgOz3+Mx0G2x0pLjLIVAd
-W8Lkwr3Y8gqYviXJOPiBK9Cse+8TtI0SMh4rzgc2ij1ybv1cWTq+S+mX2zFZCQse
-WOJDFtLYKJbhjTYk1L1aZbehb3kcMIEQNkoRkwYu35sx6bm1ZEjBGCCpN7RpdZ//
-hae1mtpYqRJbEeJLlcuE8x0IW+6Q4SAUwF/4lNAdd4rBUIzAsEuHRRRiXlIIEo/6
-O6CtUP3fdolBhHSfbdrlN2JmjSSc8Ul9++zSaTI1lixBWEcdQWBjEgTrnjbZhZCs
-Iw8wqnM7H/8PJyHMAO6DaEquwTlkBp4zHso6kJX7ojX+sPutS3V9LChIFXkEJYSi
-dM2XgvtF+4mSrAY0/8bQkUGG0iH6pVrNU3tgZXZvhlJxDeMuvxfsGzGn3IBNvADh
-zKKPuTjFDb15qF7O/KbeGb60p52YiR+nMWIu/BITAnyy/2UMeqty1LgvWa46XtE1
-gcUQOsBUXfk55MfbFGRCnyvRWQr9dWcbe1rru7O1iP8trny4kXG9NJTfcfhCe+zV
-Tz3TgZK7eea0zQTh/gqawi/N8GXRRj4hN28C6Cx2qFzETHYmjUeeWQM3571K4jgY
-8ohFN2SeM/gWeJYuMsYIy+fVkgAKZJAnNfczKUb/QJ9clhDx45QJJuvdVXbSBHu2
-5jftT1IW6QE=
-=fS2a
------END PGP SIGNATURE-----
-
---=-RpDbW5AZgxGOlY6is3SL--
+diff --git a/drivers/net/ethernet/ti/cpsw-phy-sel.c b/drivers/net/ethernet/ti/cpsw-phy-sel.c
+index e9cc61e..c3e85ac 100644
+--- a/drivers/net/ethernet/ti/cpsw-phy-sel.c
++++ b/drivers/net/ethernet/ti/cpsw-phy-sel.c
+@@ -63,8 +63,12 @@ static void cpsw_gmii_sel_am3352(struct cpsw_phy_sel_priv *priv,
+ 		mode = AM33XX_GMII_SEL_MODE_RGMII;
+ 		break;
+ 
+-	case PHY_INTERFACE_MODE_MII:
+ 	default:
++		dev_warn(priv->dev,
++			 "Unsupported PHY mode: \"%s\". Defaulting to MII.\n",
++			phy_modes(phy_mode));
++		/* fallthrough */
++	case PHY_INTERFACE_MODE_MII:
+ 		mode = AM33XX_GMII_SEL_MODE_MII;
+ 		break;
+ 	};
+@@ -106,8 +110,12 @@ static void cpsw_gmii_sel_dra7xx(struct cpsw_phy_sel_priv *priv,
+ 		mode = AM33XX_GMII_SEL_MODE_RGMII;
+ 		break;
+ 
+-	case PHY_INTERFACE_MODE_MII:
+ 	default:
++		dev_warn(priv->dev,
++			 "Unsupported PHY mode: \"%s\". Defaulting to MII.\n",
++			phy_modes(phy_mode));
++		/* fallthrough */
++	case PHY_INTERFACE_MODE_MII:
+ 		mode = AM33XX_GMII_SEL_MODE_MII;
+ 		break;
+ 	};
+-- 
+2.5.0
