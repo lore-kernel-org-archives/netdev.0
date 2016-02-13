@@ -1,133 +1,105 @@
-From: Nathan Rossi <nathan@nathanrossi.com>
-Subject: [PATCH] net: macb: Add support for phy-handle binding
-Date: Sun, 14 Feb 2016 02:02:48 +1000
-Message-ID: <1455379368-18739-1-git-send-email-nathan@nathanrossi.com>
-Cc: Nathan Rossi <nathan@nathanrossi.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:36106 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750928AbcBMQDC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2016 11:03:02 -0500
-Received: by mail-pf0-f176.google.com with SMTP id e127so63448376pfe.3
-        for <netdev@vger.kernel.org>; Sat, 13 Feb 2016 08:03:01 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 3/4] net: dsa: mv88e6xxx: check hardware VLAN in
+ use
+Date: Sat, 13 Feb 2016 21:17:03 +0300
+Message-ID: <56BF731F.8000008@cogentembedded.com>
+References: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1455296981-27998-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455296981-27998-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds support for the 'phy-handle' binding which allows for a
-system to specifically select a phy which can be attached via any MDIO
-bus available in the system.
+Hello.
 
-Signed-off-by: Nathan Rossi <nathan@nathanrossi.com>
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
----
- drivers/net/ethernet/cadence/macb.c | 58 ++++++++++++++++++++++---------------
- drivers/net/ethernet/cadence/macb.h |  1 +
- 2 files changed, 36 insertions(+), 23 deletions(-)
+On 2/12/2016 8:09 PM, Vivien Didelot wrote:
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 50c9410..ea8ec32 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -375,27 +375,37 @@ static int macb_mii_probe(struct net_device *dev)
- 	int phy_irq;
- 	int ret;
- 
--	phydev = phy_find_first(bp->mii_bus);
--	if (!phydev) {
--		netdev_err(dev, "no PHY found\n");
--		return -ENXIO;
--	}
-+	if (bp->phy_node) {
-+		phydev = of_phy_connect(dev, bp->phy_node,
-+					&macb_handle_link_change, 0,
-+					bp->phy_interface);
-+		if (!phydev)
-+			return -EPROBE_DEFER;
-+	} else {
-+		phydev = phy_find_first(bp->mii_bus);
-+		if (!phydev) {
-+			netdev_err(dev, "no PHY found\n");
-+			return -ENXIO;
-+		}
- 
--	pdata = dev_get_platdata(&bp->pdev->dev);
--	if (pdata && gpio_is_valid(pdata->phy_irq_pin)) {
--		ret = devm_gpio_request(&bp->pdev->dev, pdata->phy_irq_pin, "phy int");
--		if (!ret) {
--			phy_irq = gpio_to_irq(pdata->phy_irq_pin);
--			phydev->irq = (phy_irq < 0) ? PHY_POLL : phy_irq;
-+		pdata = dev_get_platdata(&bp->pdev->dev);
-+		if (pdata && gpio_is_valid(pdata->phy_irq_pin)) {
-+			ret = devm_gpio_request(&bp->pdev->dev,
-+						pdata->phy_irq_pin, "phy int");
-+			if (!ret) {
-+				phy_irq = gpio_to_irq(pdata->phy_irq_pin);
-+				phydev->irq = (phy_irq < 0) ? PHY_POLL :
-+						phy_irq;
-+			}
- 		}
--	}
- 
--	/* attach the mac to the phy */
--	ret = phy_connect_direct(dev, phydev, &macb_handle_link_change,
--				 bp->phy_interface);
--	if (ret) {
--		netdev_err(dev, "Could not attach to PHY\n");
--		return ret;
-+		/* attach the mac to the phy */
-+		ret = phy_connect_direct(dev, phydev, &macb_handle_link_change,
-+					 bp->phy_interface);
-+		if (ret) {
-+			netdev_err(dev, "Could not attach to PHY\n");
-+			return ret;
-+		}
- 	}
- 
- 	/* mask with MAC supported features */
-@@ -2821,7 +2831,6 @@ static int macb_probe(struct platform_device *pdev)
- 					      = macb_clk_init;
- 	int (*init)(struct platform_device *) = macb_init;
- 	struct device_node *np = pdev->dev.of_node;
--	struct device_node *phy_node;
- 	const struct macb_config *macb_config = NULL;
- 	struct clk *pclk, *hclk = NULL, *tx_clk = NULL;
- 	unsigned int queue_mask, num_queues;
-@@ -2909,15 +2918,18 @@ static int macb_probe(struct platform_device *pdev)
- 	else
- 		macb_get_hwaddr(bp);
- 
-+	bp->phy_node = of_parse_phandle(pdev->dev.of_node, "phy-handle", 0);
-+	/* If phy-handle not provided assume first child is the phy node. */
-+	if (!bp->phy_node)
-+		bp->phy_node = of_get_next_available_child(np, NULL);
-+
- 	/* Power up the PHY if there is a GPIO reset */
--	phy_node =  of_get_next_available_child(np, NULL);
--	if (phy_node) {
--		int gpio = of_get_named_gpio(phy_node, "reset-gpios", 0);
-+	if (bp->phy_node) {
-+		int gpio = of_get_named_gpio(bp->phy_node, "reset-gpios", 0);
- 		if (gpio_is_valid(gpio))
- 			bp->reset_gpio = gpio_to_desc(gpio);
- 		gpiod_set_value(bp->reset_gpio, GPIOD_OUT_HIGH);
- 	}
--	of_node_put(phy_node);
- 
- 	err = of_get_phy_mode(np);
- 	if (err < 0) {
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 0d4ecfc..0373aa47 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -822,6 +822,7 @@ struct macb {
- 
- 	struct mii_bus		*mii_bus;
- 	struct phy_device	*phy_dev;
-+	struct device_node	*phy_node;
- 	int 			link;
- 	int 			speed;
- 	int 			duplex;
--- 
-2.7.0
+> The DSA drivers now have access to the VLAN prepare phase and the bridge
+> net_device. It is easier to check for overlapping bridges from within
+> the driver. Thus add such check in mv88e6xxx_port_vlan_prepare.
+>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>   drivers/net/dsa/mv88e6xxx.c | 64 +++++++++++++++++++++++++++++++++++++++++++++
+>   1 file changed, 64 insertions(+)
+>
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+> index 2e515e8..685dcb0 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+> @@ -1471,14 +1471,78 @@ static int _mv88e6xxx_vlan_init(struct dsa_switch *ds, u16 vid,
+>   	return 0;
+>   }
+>
+> +static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
+> +					u16 vid_begin, u16 vid_end)
+> +{
+> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+> +	struct mv88e6xxx_vtu_stu_entry vlan;
+> +	int i, err;
+> +
+> +	if (!vid_begin)
+> +		return -EOPNOTSUPP;
+> +
+> +	mutex_lock(&ps->smi_mutex);
+> +
+> +	err = _mv88e6xxx_vtu_vid_write(ds, vid_begin - 1);
+> +	if (err)
+> +		goto unlock;
+> +
+> +	do {
+> +		err = _mv88e6xxx_vtu_getnext(ds, &vlan);
+> +		if (err)
+> +			goto unlock;
+
+    Why are you not using *break*?
+
+> +
+> +		if (!vlan.valid)
+> +			break;
+> +
+> +		if (vlan.vid > vid_end)
+> +			break;
+> +
+> +		for (i = 0; i < ps->num_ports; ++i) {
+> +			if (dsa_is_dsa_port(ds, i) || dsa_is_cpu_port(ds, i))
+> +				continue;
+> +
+> +			if (vlan.data[i] ==
+> +			    GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
+> +				continue;
+> +
+> +			if (ps->ports[i].bridge_dev ==
+> +			    ps->ports[port].bridge_dev)
+> +				break; /* same bridge, check next VLAN */
+> +
+> +			netdev_warn(ds->ports[port],
+> +				    "hardware VLAN %d already used by %s\n",
+> +				    vlan.vid,
+> +				    netdev_name(ps->ports[i].bridge_dev));
+> +			err = -EOPNOTSUPP;
+> +			goto unlock;
+> +		}
+
+    Why not *break*?
+
+> +	} while (vlan.vid < vid_end);
+> +
+> +unlock:
+> +	mutex_unlock(&ps->smi_mutex);
+> +
+> +	return err;
+> +}
+> +
+[...]
+
+MBR, Sergei
