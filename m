@@ -1,119 +1,67 @@
-From: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Subject: [PATCH v7 0/8] Patchset enabling hardware based cross-timestamps for next gen Intel platforms
-Date: Fri, 12 Feb 2016 12:25:21 -0800
-Message-ID: <1455308729-6280-1-git-send-email-christopher.s.hall@intel.com>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: Re: [PATCH] net: phy: spi_ks8995: add dependency on GPIO
+Date: Sat, 13 Feb 2016 11:12:45 +0100
+Message-ID: <CAMuHMdXRD-XJODqd1M+MWkseyJgU52GRniP_Ld_EOMSyWg+MVg@mail.gmail.com>
+References: <1455272306-30251-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
-	x86@kernel.org, linux-kernel@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	kevin.b.stanton@intel.com, kevin.j.clarke@intel.com
-To: tglx@linutronix.de, richardcochran@gmail.com, mingo@redhat.com,
-	john.stultz@linaro.org, hpa@zytor.com, jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Helmut Buchsbaum <helmut.buchsbaum-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1455272306-30251-1-git-send-email-sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Modern Intel hardware adds an Always Running Timer (ART) that allows the
-network and audio device clocks to precisely cross timestamp the device
-clock with the system clock. This allows a precise correlation of the
-device time and system time.
+On Fri, Feb 12, 2016 at 11:18 AM, Sudip Mukherjee
+<sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> The builds of allmodconfig of s390, m68k, tilegx, tilepro is failing
+> with the error:
+>  drivers/net/phy/spi_ks8995.c:477:3: error: implicit declaration of function 'gpiod_set_value'
+>  drivers/net/phy/spi_ks8995.c:477:19: error: implicit declaration of function 'gpio_to_desc'
 
-This patchset adds interfaces to the timekeeping code allowing drivers
-to translate ART time to system time.
+Does that file include include/linux/gpio/consumer.h?
+The GPIO subsystem provides dummies of these functions when CONFIG_GPIOLIB=n.
 
-Changelog:
+> GPIO is now used to reset the switch so we should have a dependency on
+> GPIOLIB.
+>
+> Fixes: cd6f288cbaab ("net: phy: spi_ks8995: add support for resetting switch using GPIO")
+> Cc: Helmut Buchsbaum <helmut.buchsbaum-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Sudip Mukherjee <sudip-ofJRbWXBVFamYgehrs7/Lw@public.gmane.org>
+> ---
+>  drivers/net/phy/Kconfig | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index f0a7702..c6a4fe1 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -261,4 +261,4 @@ endif # PHYLIB
+>
+>  config MICREL_KS8995MA
+>         tristate "Micrel KS8995MA 5-ports 10/100 managed Ethernet switch"
+> -       depends on SPI
+> +       depends on SPI && GPIOLIB
 
-Changes from v6 to v7:
+I think that can become
 
-*	Reorder several patches
-*	Removed correlated clocksource
-*	Fixed 32-bit compile issues
-*	Added multiplication overflow detection to history computation
-*	Added invariant tsc CPU feature - this is related to ART, but
-	is a separate feature
+    depends on SPI
+    depends on GPIOLIB || COMPILE_TEST
 
+after you've added the missing include.
 
-Changes from v5 to v6:
+Gr{oetje,eeting}s,
 
-*	Pulled supporting code for snapshotting, correlated
-	clocksource, and cycles to nanoseconds translation to separate
-	patches. Added patches are marked as NEW below. There is,
-	however, very little *actually* new code, just reorganized
-	code
-*	Renamed and moved clocksource change sequence to timekeeper
-	struct (out of tk_read_base)
-*	Renamed structs for system counter and synced device time
-	callback to system_counterval_t and sync_device_time_cb,
-	respectively
-*	Changed PTP cross-timestamp callback name to getcrosststamp
-	for consistency with the timekeeping code - corresponding
-	function name changes in e1000e driver
-*	Simplified PTP time calculations making use of ktime_to_* code
+                        Geert
 
-Changes from v4 to v5:
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
 
-*	Changes the history mechanism to interpolate system time using
-	a single historic system time pair (monotonic raw, realtime)
-	rather than implementing a precise history using shadow
-	timekeeper (see v4 changes). The advantage of this approach is
-	that the history can be arbitrarily long. This approach may
-	also be simpler in terms of coding. The major disadvantage is
-	that the realtime clock can be adjusted.  When adjusted, the
-	realtime clock time (when interpolating from history) is
-	always approximate. In general, the longer the interpolation
-	period the larger the potential error. There isn't any error
-	interpolating the monotonic raw clock time.
-*	This patchset also addresses objections to the previous
-	patchsets overly complex correlated timestamp structure. This
-	patchset splits that structure into several smaller
-	structures.  The correlated timestamp interface is renamed
-	cross timestamp to avoid any confusion with the correlated
-	clocksource.
-*	The correlated clocksource is separated from the cross
-	timestamp mechanism.
-*	Add monotonic raw to the PTP user interface
-*	Add e1000e driver configuration option that wraps Intel PCH
-	specific code
-
-Changes v3 to v4: 
-
-*	Adds a history mechanism to accomodate slower devices. In this
-	case the response time for timestamp reads to the Intel DSP
-	are too slow to be accomodated by the original correlated time
-	mechanism. The history mechanism turns shadow timekeeper into
-	an array where the history is stored.
-
-Christopher S. Hall (8):
-  time: Add cycles to nanoseconds translation
-  time: Add timekeeping snapshot code capturing system time and counter
-  time: Remove duplicated code in ktime_get_raw_and_real()
-  time: Add driver cross timestamp interface for higher precision time
-    synchronization
-  time: Add history to cross timestamp interface supporting slower
-    devices
-  x86: tsc: Always Running Timer (ART) correlated clocksource
-  ptp: Add PTP_SYS_OFFSET_PRECISE for driver crosstimestamping
-  net: e1000e: Adds hardware supported cross timestamp on e1000e nic
-
- Documentation/ptp/testptp.c                 |   6 +-
- arch/x86/include/asm/cpufeature.h           |   3 +-
- arch/x86/include/asm/tsc.h                  |   2 +
- arch/x86/kernel/cpu/scattered.c             |   1 +
- arch/x86/kernel/tsc.c                       |  50 +++++
- drivers/net/ethernet/intel/Kconfig          |   9 +
- drivers/net/ethernet/intel/e1000e/defines.h |   5 +
- drivers/net/ethernet/intel/e1000e/ptp.c     |  85 ++++++++
- drivers/net/ethernet/intel/e1000e/regs.h    |   4 +
- drivers/ptp/ptp_chardev.c                   |  27 +++
- include/linux/pps_kernel.h                  |  17 +-
- include/linux/ptp_clock_kernel.h            |   8 +
- include/linux/timekeeper_internal.h         |   2 +
- include/linux/timekeeping.h                 |  58 ++++++
- include/uapi/linux/ptp_clock.h              |  13 +-
- kernel/time/timekeeping.c                   | 289 +++++++++++++++++++++++++---
- 16 files changed, 539 insertions(+), 40 deletions(-)
-
--- 
-2.1.4
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
