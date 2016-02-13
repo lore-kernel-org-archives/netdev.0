@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: dsa: mv88e6xxx: do not leave reserved VLANs
-Date: Sat, 13 Feb 2016 06:08:44 -0500 (EST)
-Message-ID: <20160213.060844.528410343007511546.davem@davemloft.net>
-References: <1454699234-6157-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH] dscc4: Undefined signed int shift
+Date: Sat, 13 Feb 2016 06:10:54 -0500 (EST)
+Message-ID: <20160213.061054.267616558308643316.davem@davemloft.net>
+References: <20160206014624.GA20990@thinkpad.swarthmore.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, andrew@lunn.ch,
-	kevin.smith@elecsyscorp.com
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454699234-6157-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
+To: mmcco@mykolab.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48330 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751101AbcBMLK5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2016 06:10:57 -0500
+In-Reply-To: <20160206014624.GA20990@thinkpad.swarthmore.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Fri,  5 Feb 2016 14:07:14 -0500
+From: Michael McConville <mmcco@mykolab.com>
+Date: Fri, 5 Feb 2016 20:46:25 -0500
 
-> BRIDGE_VLAN_FILTERING automatically adds a newly bridged port to the
-> VLAN with the bridge's default_pvid.
+> My analysis in the below mail applies, although the second part is
+> unnecessary because i isn't used in arithmetic operations here:
 > 
-> The mv88e6xxx driver currently reserves VLANs 4000+ for unbridged ports
-> isolation. When a port joins a bridge, it leaves its reserved VLAN. When
-> a port leaves a bridge, it joins again its reserved VLAN.
+> https://marc.info/?l=openbsd-tech&m=145377854103866&w=2
 > 
-> But if the VLAN filtering is disabled, or if this hardware VLAN is
-> already in use, the bridged port ends up with no default VLAN, and the
-> communication with the CPU is thus broken.
+> Thanks for your time.
 > 
-> To fix this, make a port join its reserved VLAN once on setup, never
-> leave it, and restore its PVID after another one was eventually used.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Signed-off-by: Michael McConville <mmcco@mykolab.com>
 
-Applied.
+Applied, thanks.
