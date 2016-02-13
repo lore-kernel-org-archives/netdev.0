@@ -1,105 +1,76 @@
-From: Diego Viola <diego.viola@gmail.com>
-Subject: Re: Computer fails to resume from suspend unless I rmmod jme before
- initiating the suspend
-Date: Sat, 13 Feb 2016 18:38:16 -0200
-Message-ID: <CA+ToGPF0OT7NKCjaBMomqZg-+eO7Eq9hqSmLt0-UOHnyGPHd8Q@mail.gmail.com>
-References: <CA+ToGPGC8APhN-_F5fzyR4CWqWgZ9Hs0PNqykhEgEV7g3PJjTg@mail.gmail.com>
-	<CA+ToGPF9cpdVLEHc7Vz79=-P7Jp76Y=M=p=bORhUNrXtb6+LNA@mail.gmail.com>
-	<CA+ToGPHfV5NbSAFWJPzDVfUT9fdp86MqoFbF8Uhmf9T+3e9n7Q@mail.gmail.com>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [PATCH RFC 2/3] net: bridge: set forwarding state on port removal
+Date: Sat, 13 Feb 2016 22:37:38 +0200
+Message-ID: <20160213203738.GB17193@colbert.idosch.org>
+References: <1455312860-24666-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1455312860-24666-3-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: cooldavid@cooldavid.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:38762 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751229AbcBMUiQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2016 15:38:16 -0500
-In-Reply-To: <CA+ToGPHfV5NbSAFWJPzDVfUT9fdp86MqoFbF8Uhmf9T+3e9n7Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<kernel@savoirfairelinux.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1455312860-24666-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 12, 2016 at 6:17 AM, Diego Viola <diego.viola@gmail.com> wrote:
-> On Wed, Feb 10, 2016 at 7:36 PM, Diego Viola <diego.viola@gmail.com> wrote:
->> On Wed, Feb 10, 2016 at 2:19 AM, Diego Viola <diego.viola@gmail.com> wrote:
->>> Hi Guo,
->>>
->>> I have an x86 computer with this network card:
->>>
->>> 02:00.0 Ethernet controller: JMicron Technology Corp. JMC260 PCI
->>> Express Fast Ethernet Controller (rev 03)
->>>
->>> Every time I initiate a suspend (systemctl suspend) the machine hangs
->>> at resume unless I unload the jme driver.
->>>
->>> Here is a Call Trace I was able to get after it hanged:
->>>
->>> <IRQ>
->>> tasklet_action+0xb0/0xd0
->>> __do_softirq+0xcf/0x290
->>> irq_exit+0xa3/0xb0
->>> do_IRQ+0x54/0xd0
->>> common_interrupt+0x82/0x82
->>>
->>> <EOI>
->>> jme_start_irq+0x84/0xa0 [jme]
->>> jme_resume+0x12f/0x210 [jme]
->>> pci_pm_resume+0x64/0xa0
->>> ? pci_pm_thaw+0x90/0x90
->>> dpm_run_callback+0x4e/0x130
->>> device_resume+0xd3/0x1f0
->>> async_resume+0x1d/0x50
->>> async_run_entry_fn+0x48/0x150
->>> process_one_work+0x14b/0x440
->>> worker_thread+0x48/0x4a0
->>> ? process_one_work+0x440/0x440
->>> kthread+0xd8/0xf0
->>> ? kthread_worker_fn+0x170/0x170
->>> ret_from_fork+0x3f/0x70
->>> ? kthread_worker_fn+0x170/0x170
->>>
->>> Please note that I had to type the calltrace above as I don't have a
->>> serial cable and netconsole didn't work for me for some reason, so
->>> there could be typos I didn't notice.
->>>
->>> I run Arch Linux (x86-64), my uname is:
->>>
->>> $ uname -a
->>> Linux myhost 4.4.1-2-ARCH #1 SMP PREEMPT Wed Feb 3 13:12:33 UTC 2016
->>> x86_64 GNU/Linux
->>>
->>> Please let me know if you have any questions or need any other information.
->>>
->>> Thanks,
->>>
->>> Diego
->>
->> I found something interesting, I can suspend/resume just fine when the
->> module is loaded and when I do this:
->>
->> $ ip link set ens34 down
->>
->> When I bring the device up again the hang still occurs.
->>
->> Diego
+Fri, Feb 12, 2016 at 11:34:19PM IST, vivien.didelot@savoirfairelinux.com wrote:
+
+Hi Vivien,
+
+>When a port leaves a bridge, the bridge layer puts its STP state to
+>Disabled. If the port is part of an hardware switch, the mode needs to
+>be set to Forwarding in order to restore communication with the CPU.
 >
-> I have tried to reproduce this problem with the latest git
-> (torvalds/linux.git) and also went back to Linux 3.11 and I still got
-> the hang with both, my plan was to run git bisect, but the problem
-> still occurs.
+>Call br_set_state() in del_nbp(), which only affects switchdev users.
 >
-> I opened this bug in bugzilla if it's preferred to deal with the problem there:
+>Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>---
+
+If you have a LAG device in the bridge and one of the ports leaves the
+LAG, then the bridge's teardown sequence isn't invoked and you need to
+do the cleanup yourself, by calling your dsa_slave_bridge_port_leave()
+function (just an example, I know you don't currently support this).
+
+With this change, you'll have to call both the
+dsa_slave_bridge_port_leave() function and dsa_slave_stp_update()
+instead of always calling the same one when leaving a bridge.
+
+Also, I think this kind of things should be done by drivers, as it's
+specific to them. For example, in the case of a physical port, this
+wouldn't benefit mlxsw at all, as STP state is a per-VLAN setting and
+since VLANs were already flushed in nbp_vlan_flush(), then nothing would
+happen.
+
+Thanks!
+
+> net/bridge/br_if.c | 5 +++++
+> 1 file changed, 5 insertions(+)
 >
-> https://bugzilla.kernel.org/show_bug.cgi?id=112351
+>diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+>index c367b3e..93e7b24 100644
+>--- a/net/bridge/br_if.c
+>+++ b/net/bridge/br_if.c
+>@@ -251,6 +251,11 @@ static void del_nbp(struct net_bridge_port *p)
+> 
+> 	nbp_vlan_flush(p);
+> 	br_fdb_delete_by_port(br, p, 0, 1);
+>+
+>+	/* If the port is part of an hardware switch, set its STP state to
+>+	 * forwarding to restore communication with the CPU port.
+>+	 */
+>+	br_set_state(p, BR_STATE_FORWARDING);
+> 	switchdev_deferred_process();
+> 
+> 	nbp_update_port_count(br);
+>-- 
+>2.7.1
 >
-> Thanks,
-> Diego
-
-So I found that disabling async as in:
-
-$ echo 0 > /sys/power/pm_async
-
-Helps with my issue, I can't reproduce the hang anymore, tried
-suspend/resume almost ~15 times.
-
-Diego
