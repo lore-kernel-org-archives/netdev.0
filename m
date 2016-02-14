@@ -1,95 +1,64 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [PATCH net] bridge: fix regression in ageing time
-Date: Sun, 14 Feb 2016 17:15:57 +0200
-Message-ID: <20160214151557.GA5580@colbert.mtl.com>
-References: <20160212133109.218ed423@xeon-e3>
+From: Clemens Gruber <clemens.gruber@pqgruber.com>
+Subject: Re: [PATCH] Revert "net: phy: turn carrier off on phy attach"
+Date: Sun, 14 Feb 2016 19:25:30 +0100
+Message-ID: <20160214182530.GA1498@archie.tuxnet.lan>
+References: <1455300113-2335-1-git-send-email-clemens.gruber@pqgruber.com>
+ <56BE2AC4.2040908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>, <netdev@vger.kernel.org>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Jouni Malinen <jouni@codeaurora.org>,
-	<bridge@lists.linux-foundation.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
+	"David S . Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0065.outbound.protection.outlook.com ([157.55.234.65]:38624
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751399AbcBNPQx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Feb 2016 10:16:53 -0500
+Received: from mail.pqgruber.com ([178.189.19.235]:34340 "EHLO
+	mail.pqgruber.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002AbcBNSZe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2016 13:25:34 -0500
 Content-Disposition: inline
-In-Reply-To: <20160212133109.218ed423@xeon-e3>
+In-Reply-To: <56BE2AC4.2040908@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Feb 12, 2016 at 11:31:09PM IST, stephen@networkplumber.org wrote:
->This fixes a regression in the bridge ageing time caused by:
->
->commit c62987bbd8a1 ("bridge: push bridge setting ageing_time down to switchdev")
->
->There are users of Linux bridge which use the feature that if ageing time
->is set to 0 it causes entries to never expire.
->This feature is even listed on the web page:
->  https://www.linuxfoundation.org/collaborate/workgroups/networking/bridge
->
->For a pure software bridge, it is unnecessary for the code to have
->arbitrary restrictions on what values are allowable.
->
->Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->
->---
->Please apply to 4.4 for stable as well.
->
-> include/linux/if_bridge.h |    5 -----
-> net/bridge/br_stp.c       |    9 ++++++---
-> 2 files changed, 6 insertions(+), 8 deletions(-)
->
->--- a/include/linux/if_bridge.h	2015-09-23 16:17:25.387594110 -0700
->+++ b/include/linux/if_bridge.h	2016-02-11 07:49:35.016689397 -0800
->@@ -45,11 +45,6 @@ struct br_ip_list {
-> #define BR_PROXYARP		BIT(8)
-> #define BR_LEARNING_SYNC	BIT(9)
-> #define BR_PROXYARP_WIFI	BIT(10)
->-
->-/* values as per ieee8021QBridgeFdbAgingTime */
->-#define BR_MIN_AGEING_TIME	(10 * HZ)
->-#define BR_MAX_AGEING_TIME	(1000000 * HZ)
->-
-> #define BR_DEFAULT_AGEING_TIME	(300 * HZ)
+On Fri, Feb 12, 2016 at 10:56:04AM -0800, Florian Fainelli wrote:
+> On 12/02/16 10:01, Clemens Gruber wrote:
+> > Commit 113c74d83eef ("net: phy: turn carrier off on phy attach") breaks
+> > the eth0 link coming up on all my i.MX6Q boards with a Marvell 88E1510.
+> > If I then do a ifconfig eth0 down/up cycle I first get a MDIO read
+> > timeout but then the link becomes ready and everything is back to
+> > normal.
+> > Without this step however, the link stays down forever, an unusually
+> > high amount of phy interrupts occur (about 10000/second) and kworker/0:2
+> > is constantly using over 60% of the CPU.
+> > 
+> > Reverting it fixes the problems with the link not coming up at boot as
+> > well as the high amount of phy interrupts and kworker load in that
+> > state.
 > 
-> extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __user *));
->--- a/net/bridge/br_stp.c	2015-12-17 17:17:18.650746679 -0800
->+++ b/net/bridge/br_stp.c	2016-02-11 07:49:53.240772672 -0800
->@@ -568,6 +568,12 @@ int br_set_max_age(struct net_bridge *br
-> 
-> }
-> 
->+/* Set the how long dynamic forwarding database entries live.
->+ * The Linux bridge allows values outside the standard 802.1
->+ * specification to allow for special cases:
->+ *   0 - means entry never age.
+> You are seeing this with the FEC driver right? We probably want to
+> carefully audit the driver and understand what could be going wrong, the
+> initial change is correct, so there must be something else going on here.
 
-Looking at the code I didn't quite understand how this could happen and
-indeed with your patch I see that the FDB is never populated. Maybe
-that's the expected behavior? I also found the following, which seems to
-support this:
+I think I found the underlying problem!
+It was not the fec driver but the marvell phy driver, more specifically
+the marvell_of_reg_init call being made too late, which lead to the
+observed problem at half the boot ups where the link never came up.
 
-https://lists.linuxfoundation.org/pipermail/bridge/2010-November/007410.html
+With the marvell,reg-init device tree parameter, a flag needs to be set
+to tell the Marvell 88E1510 that it should enable the interrupt output.
+(At a specific pin, in my case LED[2])
+If this is not set (or set too late), the phydev->state is set to UP in
+phy_start (called from fec_enet_open) but then, the auto-negotiation
+never starts.
+In comparison, now, after I called marvell_of_reg_init not in
+m88e1510_config_aneg but in marvell_probe, everything works again :)
+About a second after the fec_enet_open/phy_start calls, the
+auto-negotiation starts (m88e1510_config_aneg) and the phy state changes
+from UP to AN, to CHANGELINK and finally to RUNNING.
+
+I will send a patch shortly, calling marvell_of_reg_init from a new
+m88e1510_probe function instead of the m88e1510_config_aneg function.
 
 Thanks.
-
->+ *   1 - means entries disappear in next clock tick
->+ */
-> int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
-> {
-> 	struct switchdev_attr attr = {
->@@ -579,9 +585,6 @@ int br_set_ageing_time(struct net_bridge
-> 	unsigned long t = clock_t_to_jiffies(ageing_time);
-> 	int err;
-> 
->-	if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
->-		return -ERANGE;
->-
-> 	err = switchdev_port_attr_set(br->dev, &attr);
-> 	if (err)
-> 		return err;
+Clemens
