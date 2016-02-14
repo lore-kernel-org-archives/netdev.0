@@ -1,72 +1,102 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] Revert "net: phy: turn carrier off on phy attach"
-Date: Sun, 14 Feb 2016 10:56:05 -0800
-Message-ID: <74B0B2A9-72EA-4B9B-BC93-5A7E5E46C046@gmail.com>
-References: <1455300113-2335-1-git-send-email-clemens.gruber@pqgruber.com> <56BE2AC4.2040908@gmail.com> <20160214182530.GA1498@archie.tuxnet.lan>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH V4 6/8] i40e: queue-specific settings for interrupt
+ moderation
+Date: Sun, 14 Feb 2016 18:57:34 +0000
+Message-ID: <1455476254.2801.149.camel@decadent.org.uk>
+References: <1454917540-10648-1-git-send-email-kan.liang@intel.com>
+	 <1454917540-10648-7-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org,
-	Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
-	"David S . Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Clemens Gruber <clemens.gruber@pqgruber.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160214182530.GA1498@archie.tuxnet.lan>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-AY30Atr6NB145MeSWHKb"
+Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, f.fainelli@gmail.com,
+	alexander.duyck@gmail.com, jeffrey.t.kirsher@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	mitch.a.williams@intel.com, ogerlitz@mellanox.com,
+	edumazet@google.com, jiri@mellanox.com, sfeldma@gmail.com,
+	gospo@cumulusnetworks.com, sasha.levin@oracle.com,
+	dsahern@gmail.com, tj@kernel.org, cascardo@redhat.com,
+	corbet@lwn.net, decot@googlers.com
+To: Kan Liang <kan.liang@intel.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, bwh@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58129 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751091AbcBNS5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2016 13:57:41 -0500
+In-Reply-To: <1454917540-10648-7-git-send-email-kan.liang@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On February 14, 2016 10:25:30 AM PST, Clemens Gruber <clemens.gruber@pqgruber.com> wrote:
->On Fri, Feb 12, 2016 at 10:56:04AM -0800, Florian Fainelli wrote:
->> On 12/02/16 10:01, Clemens Gruber wrote:
->> > Commit 113c74d83eef ("net: phy: turn carrier off on phy attach")
->breaks
->> > the eth0 link coming up on all my i.MX6Q boards with a Marvell
->88E1510.
->> > If I then do a ifconfig eth0 down/up cycle I first get a MDIO read
->> > timeout but then the link becomes ready and everything is back to
->> > normal.
->> > Without this step however, the link stays down forever, an
->unusually
->> > high amount of phy interrupts occur (about 10000/second) and
->kworker/0:2
->> > is constantly using over 60% of the CPU.
->> > 
->> > Reverting it fixes the problems with the link not coming up at boot
->as
->> > well as the high amount of phy interrupts and kworker load in that
->> > state.
->> 
->> You are seeing this with the FEC driver right? We probably want to
->> carefully audit the driver and understand what could be going wrong,
->the
->> initial change is correct, so there must be something else going on
->here.
->
->I think I found the underlying problem!
->It was not the fec driver but the marvell phy driver, more specifically
->the marvell_of_reg_init call being made too late, which lead to the
->observed problem at half the boot ups where the link never came up.
->
->With the marvell,reg-init device tree parameter, a flag needs to be set
->to tell the Marvell 88E1510 that it should enable the interrupt output.
->(At a specific pin, in my case LED[2])
->If this is not set (or set too late), the phydev->state is set to UP in
->phy_start (called from fec_enet_open) but then, the auto-negotiation
->never starts.
->In comparison, now, after I called marvell_of_reg_init not in
->m88e1510_config_aneg but in marvell_probe, everything works again :)
->About a second after the fec_enet_open/phy_start calls, the
->auto-negotiation starts (m88e1510_config_aneg) and the phy state
->changes
->from UP to AN, to CHANGELINK and finally to RUNNING.
->
->I will send a patch shortly, calling marvell_of_reg_init from a new
->m88e1510_probe function instead of the m88e1510_config_aneg function.
 
-config_init is more appropriate here since this call back will be called even if there is a software reset (e.g: from phy_init_hw). config_aneg is definitely too late, thanks for finding this!
+--=-AY30Atr6NB145MeSWHKb
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
--- 
-Florian
+On Mon, 2016-02-08 at 02:45 -0500, Kan Liang wrote:
+[...]
+> --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+> @@ -1849,23 +1849,37 @@ static int i40e_set_phys_id(struct net_device *ne=
+tdev,
+> =C2=A0 * 125us (8000 interrupts per second) =3D=3D ITR(62)
+> =C2=A0 */
+> =C2=A0
+> -static int i40e_get_coalesce(struct net_device *netdev,
+> -			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0struct ethtool_coalesce *ec)
+> +static int __i40e_get_coalesce(struct net_device *netdev,
+> +			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0struct ethtool_coalesce *ec=
+,
+> +			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0int queue)
+> =C2=A0{
+> =C2=A0	struct i40e_netdev_priv *np =3D netdev_priv(netdev);
+> =C2=A0	struct i40e_vsi *vsi =3D np->vsi;
+> +	struct i40e_pf *pf =3D vsi->back;
+> =C2=A0
+> =C2=A0	ec->tx_max_coalesced_frames_irq =3D vsi->work_limit;
+> =C2=A0	ec->rx_max_coalesced_frames_irq =3D vsi->work_limit;
+> =C2=A0
+> -	if (ITR_IS_DYNAMIC(vsi->rx_itr_setting))
+> +	/* rx and tx usecs has per queue value. If user doesn't specify the que=
+ue,
+> +	=C2=A0* return queue 0's value to represent.
+> +	=C2=A0*/
+> +	if (queue < 0) {
+> +		queue =3D 0;
+> +	} else if (queue >=3D vsi->num_queue_pairs) {
+> +		netif_info(pf, drv, netdev, "Invalid queue value, queue range is 0 - %=
+d\n",
+> +			=C2=A0=C2=A0=C2=A0vsi->num_queue_pairs - 1);
+[...]
+
+Don't log this error message; it allows an unprivileged user to spam
+the system log.
+
+Ben.
+
+--=20
+Ben Hutchings
+Sturgeon's Law: Ninety percent of everything is crap.
+--=-AY30Atr6NB145MeSWHKb
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVsDOHue/yOyVhhEJAQqpeBAAlmgVj+eGn1hWQXkuc+C53O73OHbcqVD8
+JTz9Wnd7GWTbjz/mPYXV9AxhOmR30pp+clOgUjZiX1g21ISDnC2OKF/s4Da8vhzh
+8H9SRaYVBY33hCz/DuG0n5Mbz1elnHsT5D0kp9Wzwj73eEwmF/3CBGmxQN2Rb5bG
+mQC0yfhh7JYNxfh2ifCEMcB22ccq28cuGLXg5l5P6fNQu8ChqXqjwtPIgMWsCCwG
+VpiBLV8QFfdZ7ROSqvIHQL9KvZ/XTBPiD67WtB8GmiW8k1Ti07+bdSOyyoh3bul0
+zPlGhL8VripliLM/gIJrtkuKRZLkc0sf1qUg2PUVoZdqARTXiwYDOvCjQieSDO2X
+IUy4kAIyS09yhgUqxVEdkr3Aq4S68Tdnagnqw+P94AGpTimZw88KtqvU+tqJ6hJF
+q14S96EllvCrrBGNUmgcVwbDDvcH9a40E0x6LWu/x3Qm72uQfsisEEI1kyMh3Ay1
+rAyxA457jhFpFVbwQGN1NTF8USVXXtRbcF7+QELtUbfYJBxDAfAY7GvpNfVUjvc5
+Cm9bRBotsO06sRgMxwCtpZf4TMHKEbbhROQLn3nvdsDzasvIsoliJ9IZBZWDo1iY
+XhS4JPbONmiKYmpyfTItiugS6ZE01md4gM87lBMtwreFag6ovHdYLbUvt+5Q4VXA
+WTdJcetnaqo=
+=Gcc/
+-----END PGP SIGNATURE-----
+
+--=-AY30Atr6NB145MeSWHKb--
