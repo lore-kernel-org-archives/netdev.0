@@ -1,64 +1,73 @@
-From: Clemens Gruber <clemens.gruber@pqgruber.com>
-Subject: Re: [PATCH] Revert "net: phy: turn carrier off on phy attach"
-Date: Sun, 14 Feb 2016 19:25:30 +0100
-Message-ID: <20160214182530.GA1498@archie.tuxnet.lan>
-References: <1455300113-2335-1-git-send-email-clemens.gruber@pqgruber.com>
- <56BE2AC4.2040908@gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH V4 3/8] net/ethtool: introduce a new ioctl for per queue
+ setting
+Date: Sun, 14 Feb 2016 18:33:02 +0000
+Message-ID: <1455474782.2801.133.camel@decadent.org.uk>
+References: <1454917540-10648-1-git-send-email-kan.liang@intel.com>
+	 <1454917540-10648-4-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
-	"David S . Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-c4AHe4oF1MgwXIZnxdT9"
+Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, f.fainelli@gmail.com,
+	alexander.duyck@gmail.com, jeffrey.t.kirsher@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	mitch.a.williams@intel.com, ogerlitz@mellanox.com,
+	edumazet@google.com, jiri@mellanox.com, sfeldma@gmail.com,
+	gospo@cumulusnetworks.com, sasha.levin@oracle.com,
+	dsahern@gmail.com, tj@kernel.org, cascardo@redhat.com,
+	corbet@lwn.net, decot@googlers.com
+To: Kan Liang <kan.liang@intel.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, bwh@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pqgruber.com ([178.189.19.235]:34340 "EHLO
-	mail.pqgruber.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751002AbcBNSZe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2016 13:25:34 -0500
-Content-Disposition: inline
-In-Reply-To: <56BE2AC4.2040908@gmail.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57996 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751074AbcBNSdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2016 13:33:20 -0500
+In-Reply-To: <1454917540-10648-4-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 12, 2016 at 10:56:04AM -0800, Florian Fainelli wrote:
-> On 12/02/16 10:01, Clemens Gruber wrote:
-> > Commit 113c74d83eef ("net: phy: turn carrier off on phy attach") breaks
-> > the eth0 link coming up on all my i.MX6Q boards with a Marvell 88E1510.
-> > If I then do a ifconfig eth0 down/up cycle I first get a MDIO read
-> > timeout but then the link becomes ready and everything is back to
-> > normal.
-> > Without this step however, the link stays down forever, an unusually
-> > high amount of phy interrupts occur (about 10000/second) and kworker/0:2
-> > is constantly using over 60% of the CPU.
-> > 
-> > Reverting it fixes the problems with the link not coming up at boot as
-> > well as the high amount of phy interrupts and kworker load in that
-> > state.
-> 
-> You are seeing this with the FEC driver right? We probably want to
-> carefully audit the driver and understand what could be going wrong, the
-> initial change is correct, so there must be something else going on here.
 
-I think I found the underlying problem!
-It was not the fec driver but the marvell phy driver, more specifically
-the marvell_of_reg_init call being made too late, which lead to the
-observed problem at half the boot ups where the link never came up.
+--=-c4AHe4oF1MgwXIZnxdT9
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-With the marvell,reg-init device tree parameter, a flag needs to be set
-to tell the Marvell 88E1510 that it should enable the interrupt output.
-(At a specific pin, in my case LED[2])
-If this is not set (or set too late), the phydev->state is set to UP in
-phy_start (called from fec_enet_open) but then, the auto-negotiation
-never starts.
-In comparison, now, after I called marvell_of_reg_init not in
-m88e1510_config_aneg but in marvell_probe, everything works again :)
-About a second after the fec_enet_open/phy_start calls, the
-auto-negotiation starts (m88e1510_config_aneg) and the phy state changes
-from UP to AN, to CHANGELINK and finally to RUNNING.
+On Mon, 2016-02-08 at 02:45 -0500, Kan Liang wrote:
+> From: Kan Liang <kan.liang@intel.com>
+>=20
+> Introduce a new ioctl ETHTOOL_PERQUEUE for per queue parameters setting.
+> The following patches will enable some SUB_COMMANDs for per queue
+> setting.
+>=20
+> Signed-off-by: Kan Liang <kan.liang@intel.com>
+[...]
 
-I will send a patch shortly, calling marvell_of_reg_init from a new
-m88e1510_probe function instead of the m88e1510_config_aneg function.
+Reviewed-by: Ben Hutchings <ben@decadent.org.uk>
 
-Thanks.
-Clemens
+--=20
+Ben Hutchings
+Sturgeon's Law: Ninety percent of everything is crap.
+--=-c4AHe4oF1MgwXIZnxdT9
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVsDIXue/yOyVhhEJAQpRJg//WcOMlAxz8hZ6YgjqEc217tF/9WpPrWhZ
+e8v0z1rnJebsSJ253k+WUgz1WxhDA8ooOUXXQ6dnVNlCv9mxXokgbexuDrEZ/ipM
+2AzKv7z1F7RVRo6smo6HcHRKjBZukWHJVYcX+F2tRNGYtbwLlUbPKcmIt3LoG/H6
+kEnXw6ErfGw7W1/A01DQ1rated6o2qaCeBH8W86WTLondj24I5257I5VdQ8mBiHD
+JOuhWYD/EpqqQbRw0eW2OfAre6MPAYOf9ZjrTOkSEgJjmFeef8CORMd9igMF3vMW
+GbahKAH0x/laeypMTiXKqKGn5ZigbQzcllSODj9PwPqd62mNh7K9yWhQ47f5PFel
+8GgEjBGTLT/+YDf7pqJKgl2Z0C8cC+yU45z67Fmj8kKXcbtdpMTOH5BKhoQXCA+P
+b1jxhArCk8HOSOgZ0ysJR6AT2+2PmeXQpxDL5Fx0u5nVblTeYNwO7yEhFZLyqUnP
+hfmKmHArO0jz4SkI0um2qwCifqW1503j+zhwWtwk26Zy0xTYKjkf2ghNq9A/Ebh6
+q8NzQB7kPLxBRVsAkeAhLS6S6FvbSUeuUSYxHOLf9I81Ty5iKS2SgkbP1Cc4T7wY
+YMCmSqP3iE0ma33VQl1ij3bsBxmuh2yTRca+JQRpCEJrExS5Vni3W2hNcqojAh9i
+7EZpfcGazVw=
+=pA7x
+-----END PGP SIGNATURE-----
+
+--=-c4AHe4oF1MgwXIZnxdT9--
