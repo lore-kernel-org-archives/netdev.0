@@ -1,88 +1,105 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 2/2] sh_eth: kill useless *switch* defaults
-Date: Sun, 14 Feb 2016 22:56:33 +0300
-Message-ID: <2512597.mgWUpMzAO5@wasted.cogentembedded.com>
-References: <2504091.pf4fyK11eg@wasted.cogentembedded.com>
+From: Diego Viola <diego.viola@gmail.com>
+Subject: Re: Computer fails to resume from suspend unless I rmmod jme before
+ initiating the suspend
+Date: Sun, 14 Feb 2016 18:16:47 -0200
+Message-ID: <CA+ToGPFP5a76TS2C_A7WJUWM9Eo60Ym5OtwHcKtY+OreoRVoFA@mail.gmail.com>
+References: <CA+ToGPGC8APhN-_F5fzyR4CWqWgZ9Hs0PNqykhEgEV7g3PJjTg@mail.gmail.com>
+	<CA+ToGPF9cpdVLEHc7Vz79=-P7Jp76Y=M=p=bORhUNrXtb6+LNA@mail.gmail.com>
+	<CA+ToGPHfV5NbSAFWJPzDVfUT9fdp86MqoFbF8Uhmf9T+3e9n7Q@mail.gmail.com>
+	<CA+ToGPF0OT7NKCjaBMomqZg-+eO7Eq9hqSmLt0-UOHnyGPHd8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-renesas-soc@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:35651 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751317AbcBNT4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2016 14:56:36 -0500
-Received: by mail-lb0-f178.google.com with SMTP id bc4so68395784lbc.2
-        for <netdev@vger.kernel.org>; Sun, 14 Feb 2016 11:56:36 -0800 (PST)
-In-Reply-To: <2504091.pf4fyK11eg@wasted.cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: cooldavid@cooldavid.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+ToGPF0OT7NKCjaBMomqZg-+eO7Eq9hqSmLt0-UOHnyGPHd8Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The driver often has the *default* cases doing nothing in the *switch*
-statements with  the integer expressions -- remove them.
+On Sat, Feb 13, 2016 at 6:38 PM, Diego Viola <diego.viola@gmail.com> wrote:
+> On Fri, Feb 12, 2016 at 6:17 AM, Diego Viola <diego.viola@gmail.com> wrote:
+>> On Wed, Feb 10, 2016 at 7:36 PM, Diego Viola <diego.viola@gmail.com> wrote:
+>>> On Wed, Feb 10, 2016 at 2:19 AM, Diego Viola <diego.viola@gmail.com> wrote:
+>>>> Hi Guo,
+>>>>
+>>>> I have an x86 computer with this network card:
+>>>>
+>>>> 02:00.0 Ethernet controller: JMicron Technology Corp. JMC260 PCI
+>>>> Express Fast Ethernet Controller (rev 03)
+>>>>
+>>>> Every time I initiate a suspend (systemctl suspend) the machine hangs
+>>>> at resume unless I unload the jme driver.
+>>>>
+>>>> Here is a Call Trace I was able to get after it hanged:
+>>>>
+>>>> <IRQ>
+>>>> tasklet_action+0xb0/0xd0
+>>>> __do_softirq+0xcf/0x290
+>>>> irq_exit+0xa3/0xb0
+>>>> do_IRQ+0x54/0xd0
+>>>> common_interrupt+0x82/0x82
+>>>>
+>>>> <EOI>
+>>>> jme_start_irq+0x84/0xa0 [jme]
+>>>> jme_resume+0x12f/0x210 [jme]
+>>>> pci_pm_resume+0x64/0xa0
+>>>> ? pci_pm_thaw+0x90/0x90
+>>>> dpm_run_callback+0x4e/0x130
+>>>> device_resume+0xd3/0x1f0
+>>>> async_resume+0x1d/0x50
+>>>> async_run_entry_fn+0x48/0x150
+>>>> process_one_work+0x14b/0x440
+>>>> worker_thread+0x48/0x4a0
+>>>> ? process_one_work+0x440/0x440
+>>>> kthread+0xd8/0xf0
+>>>> ? kthread_worker_fn+0x170/0x170
+>>>> ret_from_fork+0x3f/0x70
+>>>> ? kthread_worker_fn+0x170/0x170
+>>>>
+>>>> Please note that I had to type the calltrace above as I don't have a
+>>>> serial cable and netconsole didn't work for me for some reason, so
+>>>> there could be typos I didn't notice.
+>>>>
+>>>> I run Arch Linux (x86-64), my uname is:
+>>>>
+>>>> $ uname -a
+>>>> Linux myhost 4.4.1-2-ARCH #1 SMP PREEMPT Wed Feb 3 13:12:33 UTC 2016
+>>>> x86_64 GNU/Linux
+>>>>
+>>>> Please let me know if you have any questions or need any other information.
+>>>>
+>>>> Thanks,
+>>>>
+>>>> Diego
+>>>
+>>> I found something interesting, I can suspend/resume just fine when the
+>>> module is loaded and when I do this:
+>>>
+>>> $ ip link set ens34 down
+>>>
+>>> When I bring the device up again the hang still occurs.
+>>>
+>>> Diego
+>>
+>> I have tried to reproduce this problem with the latest git
+>> (torvalds/linux.git) and also went back to Linux 3.11 and I still got
+>> the hang with both, my plan was to run git bisect, but the problem
+>> still occurs.
+>>
+>> I opened this bug in bugzilla if it's preferred to deal with the problem there:
+>>
+>> https://bugzilla.kernel.org/show_bug.cgi?id=112351
+>>
+>> Thanks,
+>> Diego
+>
+> So I found that disabling async as in:
+>
+> $ echo 0 > /sys/power/pm_async
+>
+> Helps with my issue, I can't reproduce the hang anymore, tried
+> suspend/resume almost ~15 times.
+>
+> Diego
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
----
- drivers/net/ethernet/renesas/sh_eth.c |   12 ------------
- 1 file changed, 12 deletions(-)
-
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -500,8 +500,6 @@ static void sh_eth_set_rate_gether(struc
- 	case 1000: /* 1000BASE */
- 		sh_eth_write(ndev, GECMR_1000, GECMR);
- 		break;
--	default:
--		break;
- 	}
- }
- 
-@@ -592,8 +590,6 @@ static void sh_eth_set_rate_r8a777x(stru
- 	case 100:/* 100BASE */
- 		sh_eth_modify(ndev, ECMR, ECMR_ELB, ECMR_ELB);
- 		break;
--	default:
--		break;
- 	}
- }
- 
-@@ -658,8 +654,6 @@ static void sh_eth_set_rate_sh7724(struc
- 	case 100:/* 100BASE */
- 		sh_eth_modify(ndev, ECMR, ECMR_RTM, ECMR_RTM);
- 		break;
--	default:
--		break;
- 	}
- }
- 
-@@ -698,8 +692,6 @@ static void sh_eth_set_rate_sh7757(struc
- 	case 100:/* 100BASE */
- 		sh_eth_write(ndev, 1, RTRATE);
- 		break;
--	default:
--		break;
- 	}
- }
- 
-@@ -767,8 +759,6 @@ static void sh_eth_set_rate_giga(struct
- 	case 1000: /* 1000BASE */
- 		sh_eth_write(ndev, 0x00000020, GECMR);
- 		break;
--	default:
--		break;
- 	}
- }
- 
-@@ -2917,8 +2907,6 @@ static const u16 *sh_eth_get_register_of
- 	case SH_ETH_REG_FAST_SH3_SH2:
- 		reg_offset = sh_eth_offset_fast_sh3_sh2;
- 		break;
--	default:
--		break;
- 	}
- 
- 	return reg_offset;
+Can someone please help?
