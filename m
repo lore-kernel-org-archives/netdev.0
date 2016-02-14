@@ -1,192 +1,72 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH V4 5/8] net/ethtool: support set coalesce per queue
-Date: Sun, 14 Feb 2016 18:55:05 +0000
-Message-ID: <1455476105.2801.148.camel@decadent.org.uk>
-References: <1454917540-10648-1-git-send-email-kan.liang@intel.com>
-	 <1454917540-10648-6-git-send-email-kan.liang@intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] Revert "net: phy: turn carrier off on phy attach"
+Date: Sun, 14 Feb 2016 10:56:05 -0800
+Message-ID: <74B0B2A9-72EA-4B9B-BC93-5A7E5E46C046@gmail.com>
+References: <1455300113-2335-1-git-send-email-clemens.gruber@pqgruber.com> <56BE2AC4.2040908@gmail.com> <20160214182530.GA1498@archie.tuxnet.lan>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Z1VJcKuJq9hJ8Lz1DyBJ"
-Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, f.fainelli@gmail.com,
-	alexander.duyck@gmail.com, jeffrey.t.kirsher@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	mitch.a.williams@intel.com, ogerlitz@mellanox.com,
-	edumazet@google.com, jiri@mellanox.com, sfeldma@gmail.com,
-	gospo@cumulusnetworks.com, sasha.levin@oracle.com,
-	dsahern@gmail.com, tj@kernel.org, cascardo@redhat.com,
-	corbet@lwn.net, decot@googlers.com
-To: Kan Liang <kan.liang@intel.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, bwh@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58107 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751074AbcBNSzX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2016 13:55:23 -0500
-In-Reply-To: <1454917540-10648-6-git-send-email-kan.liang@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org,
+	Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
+	"David S . Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Clemens Gruber <clemens.gruber@pqgruber.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160214182530.GA1498@archie.tuxnet.lan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On February 14, 2016 10:25:30 AM PST, Clemens Gruber <clemens.gruber@pqgruber.com> wrote:
+>On Fri, Feb 12, 2016 at 10:56:04AM -0800, Florian Fainelli wrote:
+>> On 12/02/16 10:01, Clemens Gruber wrote:
+>> > Commit 113c74d83eef ("net: phy: turn carrier off on phy attach")
+>breaks
+>> > the eth0 link coming up on all my i.MX6Q boards with a Marvell
+>88E1510.
+>> > If I then do a ifconfig eth0 down/up cycle I first get a MDIO read
+>> > timeout but then the link becomes ready and everything is back to
+>> > normal.
+>> > Without this step however, the link stays down forever, an
+>unusually
+>> > high amount of phy interrupts occur (about 10000/second) and
+>kworker/0:2
+>> > is constantly using over 60% of the CPU.
+>> > 
+>> > Reverting it fixes the problems with the link not coming up at boot
+>as
+>> > well as the high amount of phy interrupts and kworker load in that
+>> > state.
+>> 
+>> You are seeing this with the FEC driver right? We probably want to
+>> carefully audit the driver and understand what could be going wrong,
+>the
+>> initial change is correct, so there must be something else going on
+>here.
+>
+>I think I found the underlying problem!
+>It was not the fec driver but the marvell phy driver, more specifically
+>the marvell_of_reg_init call being made too late, which lead to the
+>observed problem at half the boot ups where the link never came up.
+>
+>With the marvell,reg-init device tree parameter, a flag needs to be set
+>to tell the Marvell 88E1510 that it should enable the interrupt output.
+>(At a specific pin, in my case LED[2])
+>If this is not set (or set too late), the phydev->state is set to UP in
+>phy_start (called from fec_enet_open) but then, the auto-negotiation
+>never starts.
+>In comparison, now, after I called marvell_of_reg_init not in
+>m88e1510_config_aneg but in marvell_probe, everything works again :)
+>About a second after the fec_enet_open/phy_start calls, the
+>auto-negotiation starts (m88e1510_config_aneg) and the phy state
+>changes
+>from UP to AN, to CHANGELINK and finally to RUNNING.
+>
+>I will send a patch shortly, calling marvell_of_reg_init from a new
+>m88e1510_probe function instead of the m88e1510_config_aneg function.
 
---=-Z1VJcKuJq9hJ8Lz1DyBJ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+config_init is more appropriate here since this call back will be called even if there is a software reset (e.g: from phy_init_hw). config_aneg is definitely too late, thanks for finding this!
 
-On Mon, 2016-02-08 at 02:45 -0500, Kan Liang wrote:
-> From: Kan Liang <kan.liang@intel.com>
->=20
-> This patch implements sub command ETHTOOL_SCOALESCE for ioctl
-> ETHTOOL_PERQUEUE. It introduces an interface set_per_queue_coalesce to
-> set coalesce of each masked queue to device driver. The wanted coalesce
-> information are stored in "data" for each masked queue, which can copy
-> from userspace.
-> If it fails to set coalesce to device driver, the value which already
-> set to specific queue will be tried to rollback.
->=20
-> Signed-off-by: Kan Liang <kan.liang@intel.com>
-> ---
-> =C2=A0include/linux/ethtool.h |=C2=A0=C2=A08 +++++++
-> =C2=A0net/core/ethtool.c=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0| 60 ++++++++=
-+++++++++++++++++++++++++++++++++++++++++
-> =C2=A02 files changed, 68 insertions(+)
->=20
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index a83566f..0c699b8 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -208,6 +208,12 @@ static inline u32 ethtool_rxfh_indir_default(u32 ind=
-ex, u32 n_rx_rings)
-> =C2=A0 *	zero should return. But related unavailable fields should be set=
- to ~0,
-> =C2=A0 *	which indicates RX or TX is not in the range.
-> =C2=A0 *	Returns a negative error code or zero.
-> + * @set_per_queue_coalesce: Set interrupt coalescing parameters per queu=
-e.
-> + *	It needs to do range check for the input queue number. Only if
-> + *	neither RX nor TX queue number is in the range, a negative error code
-> + *	returns. For the case that only RX or only TX is not in the range,
-> + *	zero should return. The related unavailable fields should be avoid.
-> + *	Returns a negative error code or zero.
-
-This is poorly worded.=C2=A0=C2=A0I suggest:
-
-"It must check that the given queue number is valid. If neither a RX
-nor a TX queue has this number, return -EINVAL. If only a RX queue or a
-TX queue has this number, ignore the inapplicable fields."
-
-> =C2=A0 *
-> =C2=A0 * All operations are optional (i.e. the function pointer may be se=
-t
-> =C2=A0 * to %NULL) and callers must take this into account.=C2=A0=C2=A0Ca=
-llers must
-> @@ -288,6 +294,8 @@ struct ethtool_ops {
-> =C2=A0			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0const struct ethtool_t=
-unable *, const void *);
-> =C2=A0	int	(*get_per_queue_coalesce)(struct net_device *, int,
-> =C2=A0					=C2=A0=C2=A0struct ethtool_coalesce *);
-> +	int	(*set_per_queue_coalesce)(struct net_device *, int,
-> +					=C2=A0=C2=A0struct ethtool_coalesce *);
-
-Again, please use unsigned int for the queue number.
-
-[...]
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index ccefbf5..933de09 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -1854,6 +1854,64 @@ static int ethtool_get_per_queue_coalesce(struct n=
-et_device *dev,
-> =C2=A0	return 0;
-> =C2=A0}
-> =C2=A0
-> +static int ethtool_set_per_queue_coalesce(struct net_device *dev,
-> +					=C2=A0=C2=A0void __user *useraddr,
-> +					=C2=A0=C2=A0struct ethtool_per_queue_op *per_queue_opt)
-> +{
-> +	int bit, i, ret =3D 0;
-> +	int queue_num;
-
-It would be clearer to call this n_queues ('number of queues') rather
-than queue_num.
-
-> +	struct ethtool_coalesce *backup =3D NULL, *tmp =3D NULL;
-> +	DECLARE_BITMAP(queue_mask, MAX_NUM_QUEUE);
-> +
-> +	if ((!dev->ethtool_ops->set_per_queue_coalesce) ||
-> +	=C2=A0=C2=A0=C2=A0=C2=A0(!dev->ethtool_ops->get_per_queue_coalesce))
-> +		return -EOPNOTSUPP;
-> +
-> +	useraddr +=3D sizeof(*per_queue_opt);
-> +
-> +	bitmap_from_u32array(queue_mask,
-> +			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0MAX_NUM_QUEUE,
-> +			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0per_queue_opt->queue_mask,
-> +			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0DIV_ROUND_UP(MAX_NUM_QUEUE, 32));
-> +	queue_num =3D bitmap_weight(queue_mask, MAX_NUM_QUEUE);
-> +	tmp =3D backup =3D kmalloc_array(queue_num, sizeof(*backup), GFP_KERNEL=
-);
-> +	if (!backup)
-> +		return -ENOMEM;
-> +
-> +	for_each_set_bit(bit, queue_mask, MAX_NUM_QUEUE) {
-> +		struct ethtool_coalesce coalesce;
-> +
-> +		ret =3D dev->ethtool_ops->get_per_queue_coalesce(dev, bit, tmp);
-> +		if (ret !=3D 0)
-> +			goto roll_back;
-> +
-> +		tmp +=3D sizeof(struct ethtool_coalesce);
-
-No! =C2=A0tmp is a pointer to struct ethtool_coalesce, so it must be
-incremented by 1.
-
-> +		if (copy_from_user(&coalesce, useraddr, sizeof(coalesce))) {
-> +			ret =3D -EFAULT;
-> +			goto roll_back;
-> +		}
-> +
-> +		ret =3D dev->ethtool_ops->set_per_queue_coalesce(dev, bit, &coalesce);
-> +		if (ret !=3D 0)
-> +			goto roll_back;
-> +
-> +		useraddr +=3D sizeof(coalesce);
-> +	}
-> +
-> +roll_back:
-> +	if (ret !=3D 0) {
-> +		tmp =3D backup;
-> +		for_each_set_bit(i, queue_mask, bit) {
-> +			dev->ethtool_ops->set_per_queue_coalesce(dev, i, tmp);
-> +			tmp +=3D sizeof(struct ethtool_coalesce);
-[...]
-
-Again, increment by 1.
-
-Ben.
-
---=20
-Ben Hutchings
-Sturgeon's Law: Ninety percent of everything is crap.
---=-Z1VJcKuJq9hJ8Lz1DyBJ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVsDNiee/yOyVhhEJAQpy3g//ZPIe3Q5Juk5XM5XPgaugf7nUOfCKaTiw
-MkOae4Zm1t4kYKui0TV2mVlxec10196hOOOQ/M8Dr40NzGNByVi70ROWJOICqRgF
-tjlsS79aFZv5FBR+Blk7ahAELvbilc0IIT9TCG4hCP849CACsbTiCDhQhncIaQfC
-rQlNSYnTNLQRTY5r4lBJ/EhWeCCcMwADSWuLRg9uNeZsALjzFtOixbAGLqqH/4TX
-HYPlNYTaNBfT6aIWnSiIdm9M2gj8SmBcxvV1YXcyUMQGaohaBP337JeuPoY4UfDX
-byilLUZZcM6tmy25X9QNPr6Fy7EAr0fGbKAQtx1fHJdsGLoYXCnGcC6AxpAEbykO
-EsViW2pnvc98qTkzTz+PCqqysKQYSWuVd07V0KHQkoAZvoBd2nGs6yZIYLADc5VL
-VW/TO6rEd80EFl4QJWNeh1uGVu6moa0VocbuOtg34QtB8cr1I0Agr1syeWhF+asR
-ZJ7RifAjTODm4qfi/UPtY61fQgI0+OsFEmSkbVikXea9pMh5akp59/sKTBXruFZu
-z3envCeHXmOol/BPlyTGZHC1Saj62I4qPsW5S0P312VUIz8C9xjANouv09ZgMNoz
-CO4JUoH49/CDSykQDxmqm/3X/QDta+M/EMMUrGlSUmIYDcIrYofZ0r1zEYKIAQw7
-th0BnltPwWY=
-=LxrN
------END PGP SIGNATURE-----
-
---=-Z1VJcKuJq9hJ8Lz1DyBJ--
+-- 
+Florian
