@@ -1,107 +1,389 @@
-From: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH 00/33] Compile-time stack metadata validation
-Date: Mon, 15 Feb 2016 17:49:52 +0100
-Message-ID: <20160215164952.GL6357@twins.programming.kicks-ass.net>
-References: <cover.1453405861.git.jpoimboe@redhat.com>
- <56BDB5A8.9030006@suse.cz>
- <20160212144543.GA29004@treble.redhat.com>
- <20160212171037.GV6357@twins.programming.kicks-ass.net>
- <20160212183206.GB29004@treble.redhat.com>
- <20160212201011.GW6357@twins.programming.kicks-ass.net>
- <20160215163134.GA20585@treble.redhat.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next v2 1/2] nsh: encapsulation module
+Date: Mon, 15 Feb 2016 18:01:34 +0100
+Message-ID: <20160215180134.31deb606@griffin>
+References: <1455220626-28244-1-git-send-email-brussell@brocade.com>
+	<1455220626-28244-2-git-send-email-brussell@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, live-patching-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Michal Marek <mmarek-AlSwsSmVLrQ@public.gmane.org>,
-	Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Borislav Petkov <bp-Gina5bIWoIWzQB+pC5nmwQ@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>,
-	Pedro Alves <palves-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Namhyung Kim <namhyung-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Bernd Petrovitsch <bernd-JY8rjfDgnXcb9sJ47jD7nuTv7YV0F9Eg@public.gmane.org>,
-	Chris J Arges <chris.j.arges-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	David Vrabel <david.vrabel-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>,
-	Borislav Petkov <bp-l3A5Bk7waGM@public.gmane.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	Boris Ostrovsky <boris.ostrovsky-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	Jeremy Fitzhardinge <jeremy-TSDbQ3PG+2Y@public.gmane.org>,
-	Chris Wright <chrisw-69jw2NvuJkxg9hUCZPvPmw@public.gmane.org>,
-To: Josh Poimboeuf <jpoimboe-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-watchdog-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160215163134.GA20585-8wJ5/zUtDR0XGNroddHbYwC/G2K4zDHf@public.gmane.org>
-Sender: linux-watchdog-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Brian Russell <brussell@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36719 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751452AbcBORBh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Feb 2016 12:01:37 -0500
+In-Reply-To: <1455220626-28244-2-git-send-email-brussell@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 15, 2016 at 10:31:34AM -0600, Josh Poimboeuf wrote:
-> On Fri, Feb 12, 2016 at 09:10:11PM +0100, Peter Zijlstra wrote:
-> > On Fri, Feb 12, 2016 at 12:32:06PM -0600, Josh Poimboeuf wrote:
-> > > What I actually see in the listing is:
-> > > 
-> > >  	decl	__percpu_prefix:__preempt_count
-> > >  	je	1f:
-> > > 	....
-> > >  1:
-> > >  	call	___preempt_schedule
-> > > 
-> > > So it puts the "call ___preempt_schedule" in the slow path.
-> > 
-> > Ah yes indeed. Same difference though.
-> > 
-> > > I also don't see how that would be related to the use of the asm
-> > > statement in the __preempt_schedule() macro.  Doesn't the use of
-> > > unlikely() in preempt_enable() put the call in the slow path?
-> > 
-> > Sadly no, unlikely() and asm_goto don't work well together. But the slow
-> > path or not isn't the reason we do the asm call thing.
-> > 
-> > >   #define preempt_enable() \
-> > >   do { \
-> > > 	  barrier(); \
-> > > 	  if (unlikely(preempt_count_dec_and_test())) \
-> > > 		  preempt_schedule(); \
-> > >   } while (0)
-> > > 
-> > > Also, why is the thunk needed?  Any reason why preempt_enable() can't be
-> > > called directly from C?
-> > 
-> > That would make the call-site save registers and increase the size of
-> > every preempt_enable(). By using the thunk we can do callee saved
-> > registers and avoid blowing up the call site.
-> 
-> So is the goal to optimize for size?  
+On Thu, 11 Feb 2016 19:57:05 +0000, Brian Russell wrote:
+> --- /dev/null
+> +++ b/net/ipv4/nsh.c
+> @@ -0,0 +1,365 @@
+> +/*
+> + * Network Service Header (NSH) inserted onto encapsulated packets
+> + * or frames to realize service function paths.
+> + * NSH also provides a mechanism for metadata exchange along the
+> + * instantiated service path.
+> + *
+> + * https://tools.ietf.org/html/draft-ietf-sfc-nsh-01
+> + *
+> + * Copyright (c) 2016 by Brocade Communications Systems, Inc.
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License version 2 as
+> + * published by the Free Software Foundation.
+> + */
+> +#include <linux/module.h>
+> +#include <net/nsh.h>
+> +
+> +static struct list_head nsh_listeners;
+> +static DEFINE_MUTEX(nsh_listener_mutex);
+> +static struct nsh_metadata *decap_ctx_hdrs;
+> +static unsigned char limit_ctx_hdrs = 10;
+> +module_param_named(nsh_hdrs, limit_ctx_hdrs, byte, 0444);
+> +MODULE_PARM_DESC(nsh_hdrs, "Maximum NSH metadata headers per packet");
 
-General performance impact of preempt_enable().
+No module parameters, please. Especially not for something like
+encapsulation where multiple users will want different settings.
 
-> If I replace the calls to
-> __preempt_schedule[_notrace]() with real C calls and remove the thunks,
-> it only adds about 2k to vmlinux.
+> +
+> +int nsh_register_listener(struct nsh_listener *listener)
+> +{
+> +	if (listener->max_ctx_hdrs > limit_ctx_hdrs)
+> +		return -ENOMEM;
+> +
+> +	mutex_lock(&nsh_listener_mutex);
+> +	list_add(&listener->list, &nsh_listeners);
+> +	mutex_unlock(&nsh_listener_mutex);
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(nsh_register_listener);
+> +
+> +int nsh_unregister_listener(struct nsh_listener *listener)
+> +{
+> +	mutex_lock(&nsh_listener_mutex);
+> +	list_del(&listener->list);
+> +	mutex_unlock(&nsh_listener_mutex);
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(nsh_unregister_listener);
 
-That's less than I had expected, but probably still worth it.
+I'd like to see how this listener stuff is used. Please do not submit
+patches adding API without actual users. It's hard (or, in this case,
+I'd say even impossible) to properly review this without seeing how it
+is used.
 
-And is that added text purely in the slow path? We really want to avoid
-putting any more register pressure on the preempt_enable() call sites.
-The single memop and Jcc is about as fast we can get and we spend quite
-a bit of effort getting there.
+> +
+> +static int
+> +notify_listeners(struct sk_buff *skb,
 
-> There are two ways to fix the warnings:
-> 
-> 1. get rid of the thunks and call the C functions directly; or
-> 
-> 2. add the stack pointer to the asm() statement output operand list to
-> ensure a stack frame gets created in the caller function before the
-> call.  (Note this still allows the thunks to do callee saved registers.)
-> 
-> I like #1 better, but maybe I'm still missing the point of the thunks.
+Please do not break lines between the return type and name of the function.
 
-Ingo, Linus?
---
-To unsubscribe from this list: send the line "unsubscribe linux-watchdog" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +		 u32 service_path_id,
+> +		 u8 service_index,
+> +		 u8 next_proto,
+> +		 struct nsh_metadata *ctx_hdrs,
+> +		 unsigned int num_ctx_hdrs)
+> +{
+> +	struct nsh_listener *listener;
+> +	int i, err = 0;
+> +
+> +	mutex_lock(&nsh_listener_mutex);
+> +	list_for_each_entry(listener, &nsh_listeners, list) {
+> +		for (i = 0; i < num_ctx_hdrs; i++)
+> +			if (listener->class == ctx_hdrs[i].class) {
+> +				err = listener->notify(skb,
+> +						       service_path_id,
+> +						       service_index,
+> +						       next_proto,
+> +						       ctx_hdrs,
+> +						       num_ctx_hdrs);
+> +				if (err < 0) {
+> +					mutex_unlock(&nsh_listener_mutex);
+> +					return err;
+> +				}
+> +				break;
+> +			}
+> +	}
+> +	mutex_unlock(&nsh_listener_mutex);
+> +	return 0;
+> +}
+> +
+> +static int
+> +type_1_decap(struct sk_buff *skb,
+> +	     struct nsh_md_type_1 *md,
+> +	     unsigned int max_ctx_hdrs,
+> +	     struct nsh_metadata *ctx_hdrs,
+> +	     unsigned int *num_ctx_hdrs)
+> +{
+> +	int i;
+> +	u32 *data =  &md->ctx_hdr1;
+> +
+> +	if (max_ctx_hdrs == 0)
+> +		return -ENOMEM;
+> +
+> +	ctx_hdrs[0].class = NSH_MD_CLASS_TYPE_1;
+> +	ctx_hdrs[0].type = NSH_MD_TYPE_TYPE_1;
+> +	ctx_hdrs[0].len = NSH_MD_LEN_TYPE_1;
+> +	ctx_hdrs[0].data = data;
+> +
+> +	for (i = 0; i < NSH_MD_TYPE_1_NUM_HDRS; i++, data++)
+> +		*data = ntohl(*data);
+> +
+> +	*num_ctx_hdrs = 1;
+> +
+> +	return 0;
+> +}
+> +
+> +static int
+> +type_2_decap(struct sk_buff *skb,
+> +	     struct nsh_md_type_2 *md,
+> +	     u8 md_len,
+> +	     unsigned int max_ctx_hdrs,
+> +	     struct nsh_metadata *ctx_hdrs,
+> +	     unsigned int *num_ctx_hdrs)
+> +{
+> +	u32 *data;
+> +	int i = 0, j;
+> +
+> +	while (md_len > 0) {
+> +		if (i > max_ctx_hdrs)
+> +			return -ENOMEM;
+> +
+> +		ctx_hdrs[i].class = ntohs(md->tlv_class);
+> +		ctx_hdrs[i].type = md->tlv_type;
+> +		if (ctx_hdrs[i].type & NSH_TYPE_CRIT) {
+> +			ctx_hdrs[i].type &= ~NSH_TYPE_CRIT;
+> +			ctx_hdrs[i].crit = 1;
+> +		}
+> +		ctx_hdrs[i].len = md->length;
+> +
+> +		data = (u32 *) ++md;
+> +		md_len--;
+> +
+> +		ctx_hdrs[i].data = data;
+> +
+> +		for (j = 0; j < ctx_hdrs[i].len; j++)
+> +			data[j] = ntohl(data[j]);
+> +
+> +		md = (struct nsh_md_type_2 *)&data[j];
+> +		md_len -= j;
+> +		i++;
+> +	}
+> +	*num_ctx_hdrs = i;
+> +
+> +	return 0;
+> +}
+> +
+> +/* Parse NSH header.
+> + *
+> + * No additional memory is allocated. Context header data is pointed
+> + * to in the buffer payload. Context headers and skb are passed to anyone
+> + * who has registered interest in the class(es) of metadata received.
+> + *
+> + * Returns the total number of 4 byte words in the NSH headers, <0 on failure.
+> + */
+> +int nsh_decap(struct sk_buff *skb,
+> +	      u32 *spi,
+> +	      u8 *si,
+> +	      u8 *np)
+
+No reason to have each parameter on a separate line, please put as many
+of them as fit the 80 chars limit on the same line.
+
+> +{
+> +	struct nsh_header *nsh = (struct nsh_header *)skb->data;
+> +	struct nsh_base *base = &nsh->base;
+> +	unsigned int max_ctx_hdrs = limit_ctx_hdrs;
+> +	unsigned int num_ctx_hdrs;
+> +	u32 service_path_id;
+> +	u8 service_index;
+> +	u8 next_proto;
+> +	u32 sph;
+> +	u8 md_type;
+> +	u8 hdrlen; /* 4 byte words */
+> +	unsigned int len; /* bytes */
+> +	int err;
+> +
+> +	hdrlen = base->length;
+> +	len = hdrlen * sizeof(u32);
+> +
+> +	if (unlikely(!pskb_may_pull(skb, len)))
+> +		return -ENOMEM;
+> +
+> +	skb_pull_rcsum(skb, len);
+> +
+> +	if (((base->base_flags & NSH_BF_VER_MASK) >> 6) != NSH_BF_VER0)
+> +		return -EINVAL;
+> +
+> +	next_proto = base->next_proto;
+> +
+> +	switch (next_proto) {
+> +	case NSH_NEXT_PROTO_IPv4:
+> +		skb->protocol = htons(ETH_P_IP);
+> +		break;
+> +	case NSH_NEXT_PROTO_IPv6:
+> +		skb->protocol = htons(ETH_P_IPV6);
+> +		break;
+> +	case NSH_NEXT_PROTO_ETH:
+> +		skb->protocol = htons(ETH_P_TEB);
+> +		break;
+> +	default:
+> +		return -EINVAL;
+> +	}
+> +
+> +	if (np)
+> +		*np = next_proto;
+> +
+> +	md_type = base->md_type;
+> +
+> +	switch (md_type) {
+> +	case NSH_MD_TYPE_1:
+> +		if (hdrlen != NSH_LEN_TYPE_1)
+> +			return -EINVAL;
+> +		err = type_1_decap(skb, (struct nsh_md_type_1 *) ++nsh,
+> +				   max_ctx_hdrs, decap_ctx_hdrs, &num_ctx_hdrs);
+> +		break;
+> +	case NSH_MD_TYPE_2:
+> +		if (hdrlen < NSH_LEN_TYPE_2_MIN)
+> +			return -EINVAL;
+> +		err = type_2_decap(skb, (struct nsh_md_type_2 *) ++nsh,
+> +				   hdrlen - NSH_LEN_TYPE_2_MIN,
+> +				   max_ctx_hdrs, decap_ctx_hdrs, &num_ctx_hdrs);
+> +		break;
+> +	default:
+> +		return -EINVAL;
+> +	}
+> +
+> +	if (err < 0)
+> +		return err;
+> +
+> +	sph = ntohl(nsh->sp_header);
+> +	service_path_id = (sph & NSH_SPI_MASK) >> 8;
+> +	service_index = sph & NSH_SI_MASK;
+> +
+> +	if (spi)
+> +		*spi = service_path_id;
+> +	if (si)
+> +		*si = service_index;
+> +
+> +	err = notify_listeners(skb, service_path_id,
+> +			       service_index, next_proto,
+> +			       decap_ctx_hdrs, num_ctx_hdrs);
+> +	if (err < 0)
+> +		return err;
+> +
+> +	return hdrlen;
+> +}
+> +EXPORT_SYMBOL_GPL(nsh_decap);
+> +
+> +static void
+> +type_1_encap(u32 *data_out,
+> +	     struct nsh_metadata *ctx_hdrs)
+> +{
+> +	int i;
+> +	u32 *data_in = (u32 *)ctx_hdrs[0].data;
+> +
+> +	for (i = 0; i < NSH_MD_TYPE_1_NUM_HDRS; i++)
+> +		data_out[i] = htonl(data_in[i]);
+> +}
+> +
+> +static void
+> +type_2_encap(struct nsh_md_type_2 *md,
+> +	     unsigned int num_ctx_hdrs,
+> +	     struct nsh_metadata *ctx_hdrs)
+> +{
+> +	int i, j;
+> +	u32 *data_in, *data_out;
+> +
+> +	for (i = 0; i < num_ctx_hdrs; i++) {
+> +		md->tlv_class = htons(ctx_hdrs[i].class);
+> +		md->tlv_type = ctx_hdrs[i].type;
+> +		if (ctx_hdrs[i].crit)
+> +			md->tlv_type |= NSH_TYPE_CRIT;
+> +		md->length = ctx_hdrs[i].len;
+> +
+> +		data_out = (u32 *) ++md;
+> +		data_in = (u32 *)ctx_hdrs[i].data;
+> +
+> +		for (j = 0; j < ctx_hdrs[i].len; j++)
+> +			data_out[j] = htonl(data_in[j]);
+> +
+> +		md = (struct nsh_md_type_2 *)&data_out[j];
+> +	}
+> +}
+> +
+> +/* Add NSH header.
+> + */
+> +int nsh_encap(struct sk_buff *skb,
+> +	      u32 spi,
+> +	      u8 si,
+> +	      u8 np,
+> +	      unsigned int num_ctx_hdrs,
+> +	      struct nsh_metadata *ctx_hdrs)
+> +{
+> +	bool has_t1 = false, has_t2 = false;
+> +	bool has_crit = false;
+> +	unsigned int headroom = sizeof(struct nsh_header);
+> +	struct nsh_header *nsh;
+> +	struct nsh_base *base;
+> +	int i;
+> +	int err;
+> +
+> +	if (np != NSH_NEXT_PROTO_IPv4 &&
+> +	    np != NSH_NEXT_PROTO_IPv6 &&
+> +	    np != NSH_NEXT_PROTO_ETH)
+> +		return -EINVAL;
+> +
+> +	if (spi >= NSH_N_SPI)
+> +		return -EINVAL;
+> +
+> +	for (i = 0; i < num_ctx_hdrs; i++) {
+> +		if (ctx_hdrs[i].class == NSH_MD_CLASS_TYPE_1) {
+> +			if (num_ctx_hdrs != 1)
+> +				return -EINVAL;
+> +			headroom += NSH_MD_LEN_TYPE_1 * sizeof(u32);
+> +			has_t1 |= true;
+> +		} else {
+> +			headroom += ctx_hdrs[i].len * sizeof(u32) +
+> +				sizeof(struct nsh_md_type_2);
+> +			has_t2 |= true;
+> +			has_crit |= ctx_hdrs[i].type & NSH_TYPE_CRIT;
+> +		}
+> +
+> +		if (has_t1 && has_t2)
+> +			return -EINVAL;
+> +	}
+> +
+> +	err = skb_cow_head(skb, headroom);
+> +	if (err)
+> +		return err;
+> +
+> +	nsh = (struct nsh_header *)__skb_push(skb, headroom);
+> +
+> +	base = &nsh->base;
+> +	base->base_flags = has_crit ? NSH_BF_CRIT : 0; /* Ver 0, OAM 0 */
+> +	base->length = headroom / sizeof(u32);
+> +	base->md_type = has_t1 ? NSH_MD_TYPE_1 : NSH_MD_TYPE_2;
+> +	base->next_proto = np;
+> +
+> +	nsh->sp_header = htonl((spi << 8) | si);
+> +
+> +	if (has_t1)
+> +		type_1_encap((u32 *) ++nsh, ctx_hdrs);
+> +	else
+> +		type_2_encap((struct nsh_md_type_2 *) ++nsh, num_ctx_hdrs,
+> +			     ctx_hdrs);
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(nsh_encap);
+
+Again, no user, no idea whether something is missing or wrong.
+
+ Jiri
+
+-- 
+Jiri Benc
