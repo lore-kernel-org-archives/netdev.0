@@ -1,214 +1,91 @@
-From: Nikolay Borisov <kernel@kyup.com>
-Subject: [PATCH 1/6] ipv4: Namespaceify ip_default_ttl sysctl knob
-Date: Mon, 15 Feb 2016 12:11:27 +0200
-Message-ID: <1455531092-23184-2-git-send-email-kernel@kyup.com>
-References: <1455531092-23184-1-git-send-email-kernel@kyup.com>
-Cc: netfilter-devel@vger.kernel.org, ebiederm@xmission.com,
-	pabeni@redhat.com, jmorris@namei.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1455531092-23184-1-git-send-email-kernel@kyup.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net] bridge: fix regression in ageing time
+Date: Mon, 15 Feb 2016 11:16:54 +0100
+Message-ID: <20160215101654.GA2281@nanopsycho.orion>
+References: <20160212133109.218ed423@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>, netdev@vger.kernel.org,
+	Jouni Malinen <jouni@codeaurora.org>,
+	bridge@lists.linux-foundation.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34304 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751689AbcBOKQ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 05:16:57 -0500
+Received: by mail-wm0-f67.google.com with SMTP id b205so7472912wmb.1
+        for <netdev@vger.kernel.org>; Mon, 15 Feb 2016 02:16:56 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20160212133109.218ed423@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Nikolay Borisov <kernel@kyup.com>
----
- include/net/netns/ipv4.h                 |  1 +
- include/net/route.h                      |  5 ++---
- net/bridge/netfilter/nft_reject_bridge.c |  8 +++++---
- net/ipv4/ip_output.c                     |  3 ---
- net/ipv4/ip_sockglue.c                   |  5 ++++-
- net/ipv4/netfilter/ipt_SYNPROXY.c        |  3 ++-
- net/ipv4/proc.c                          |  2 +-
- net/ipv4/sysctl_net_ipv4.c               | 20 +++++++++++---------
- 8 files changed, 26 insertions(+), 21 deletions(-)
+Fri, Feb 12, 2016 at 10:31:09PM CET, stephen@networkplumber.org wrote:
+>This fixes a regression in the bridge ageing time caused by:
+>
+>commit c62987bbd8a1 ("bridge: push bridge setting ageing_time down to switchdev")
+>
+>There are users of Linux bridge which use the feature that if ageing time
+>is set to 0 it causes entries to never expire.
+>This feature is even listed on the web page:
+>  https://www.linuxfoundation.org/collaborate/workgroups/networking/bridge
+>
+>For a pure software bridge, it is unnecessary for the code to have
+>arbitrary restrictions on what values are allowable.
+>
+>Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>
+>---
+>Please apply to 4.4 for stable as well.
+>
+> include/linux/if_bridge.h |    5 -----
+> net/bridge/br_stp.c       |    9 ++++++---
+> 2 files changed, 6 insertions(+), 8 deletions(-)
+>
+>--- a/include/linux/if_bridge.h	2015-09-23 16:17:25.387594110 -0700
+>+++ b/include/linux/if_bridge.h	2016-02-11 07:49:35.016689397 -0800
+>@@ -45,11 +45,6 @@ struct br_ip_list {
+> #define BR_PROXYARP		BIT(8)
+> #define BR_LEARNING_SYNC	BIT(9)
+> #define BR_PROXYARP_WIFI	BIT(10)
+>-
+>-/* values as per ieee8021QBridgeFdbAgingTime */
+>-#define BR_MIN_AGEING_TIME	(10 * HZ)
+>-#define BR_MAX_AGEING_TIME	(1000000 * HZ)
+>-
+> #define BR_DEFAULT_AGEING_TIME	(300 * HZ)
+> 
+> extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __user *));
+>--- a/net/bridge/br_stp.c	2015-12-17 17:17:18.650746679 -0800
+>+++ b/net/bridge/br_stp.c	2016-02-11 07:49:53.240772672 -0800
+>@@ -568,6 +568,12 @@ int br_set_max_age(struct net_bridge *br
+> 
+> }
+> 
+>+/* Set the how long dynamic forwarding database entries live.
+>+ * The Linux bridge allows values outside the standard 802.1
+>+ * specification to allow for special cases:
+>+ *   0 - means entry never age.
+>+ *   1 - means entries disappear in next clock tick
+>+ */
+> int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
+> {
+> 	struct switchdev_attr attr = {
+>@@ -579,9 +585,6 @@ int br_set_ageing_time(struct net_bridge
+> 	unsigned long t = clock_t_to_jiffies(ageing_time);
+> 	int err;
+> 
+>-	if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
+>-		return -ERANGE;
+>-
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 848fe8056534..bc8f7f94abcb 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -80,6 +80,7 @@ struct netns_ipv4 {
- 	int sysctl_tcp_ecn;
- 	int sysctl_tcp_ecn_fallback;
- 
-+	int sysctl_ip_default_ttl;
- 	int sysctl_ip_no_pmtu_disc;
- 	int sysctl_ip_fwd_use_pmtu;
- 	int sysctl_ip_nonlocal_bind;
-diff --git a/include/net/route.h b/include/net/route.h
-index a3b9ef74a389..9b0a523bb428 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -329,14 +329,13 @@ static inline int inet_iif(const struct sk_buff *skb)
- 	return skb->skb_iif;
- }
- 
--extern int sysctl_ip_default_ttl;
--
- static inline int ip4_dst_hoplimit(const struct dst_entry *dst)
- {
- 	int hoplimit = dst_metric_raw(dst, RTAX_HOPLIMIT);
-+	struct net *net = dev_net(dst->dev);
- 
- 	if (hoplimit == 0)
--		hoplimit = sysctl_ip_default_ttl;
-+		hoplimit = net->ipv4.sysctl_ip_default_ttl;
- 	return hoplimit;
- }
- 
-diff --git a/net/bridge/netfilter/nft_reject_bridge.c b/net/bridge/netfilter/nft_reject_bridge.c
-index fdba3d9fbff3..adc8d7221dbb 100644
---- a/net/bridge/netfilter/nft_reject_bridge.c
-+++ b/net/bridge/netfilter/nft_reject_bridge.c
-@@ -48,6 +48,7 @@ static void nft_reject_br_send_v4_tcp_reset(struct sk_buff *oldskb,
- 	struct iphdr *niph;
- 	const struct tcphdr *oth;
- 	struct tcphdr _oth;
-+	struct net *net = sock_net(oldskb->sk);
- 
- 	if (!nft_bridge_iphdr_validate(oldskb))
- 		return;
-@@ -63,9 +64,9 @@ static void nft_reject_br_send_v4_tcp_reset(struct sk_buff *oldskb,
- 
- 	skb_reserve(nskb, LL_MAX_HEADER);
- 	niph = nf_reject_iphdr_put(nskb, oldskb, IPPROTO_TCP,
--				   sysctl_ip_default_ttl);
-+				   net->ipv4.sysctl_ip_default_ttl);
- 	nf_reject_ip_tcphdr_put(nskb, oldskb, oth);
--	niph->ttl	= sysctl_ip_default_ttl;
-+	niph->ttl	= net->ipv4.sysctl_ip_default_ttl;
- 	niph->tot_len	= htons(nskb->len);
- 	ip_send_check(niph);
- 
-@@ -85,6 +86,7 @@ static void nft_reject_br_send_v4_unreach(struct sk_buff *oldskb,
- 	void *payload;
- 	__wsum csum;
- 	u8 proto;
-+	struct net *net = sock_net(oldskb->sk);
- 
- 	if (oldskb->csum_bad || !nft_bridge_iphdr_validate(oldskb))
- 		return;
-@@ -119,7 +121,7 @@ static void nft_reject_br_send_v4_unreach(struct sk_buff *oldskb,
- 
- 	skb_reserve(nskb, LL_MAX_HEADER);
- 	niph = nf_reject_iphdr_put(nskb, oldskb, IPPROTO_ICMP,
--				   sysctl_ip_default_ttl);
-+				   net->ipv4.sysctl_ip_default_ttl);
- 
- 	skb_reset_transport_header(nskb);
- 	icmph = (struct icmphdr *)skb_put(nskb, sizeof(struct icmphdr));
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 64878efa045c..f734c42acdaf 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -79,9 +79,6 @@
- #include <linux/netlink.h>
- #include <linux/tcp.h>
- 
--int sysctl_ip_default_ttl __read_mostly = IPDEFTTL;
--EXPORT_SYMBOL(sysctl_ip_default_ttl);
--
- static int
- ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
- 	    unsigned int mtu,
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 92808f147ef5..3f1befc4e17b 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -1341,10 +1341,13 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
- 		val = inet->tos;
- 		break;
- 	case IP_TTL:
-+	{
-+		struct net *net = sock_net(sk);
- 		val = (inet->uc_ttl == -1 ?
--		       sysctl_ip_default_ttl :
-+		       net->ipv4.sysctl_ip_default_ttl :
- 		       inet->uc_ttl);
- 		break;
-+	}
- 	case IP_HDRINCL:
- 		val = inet->hdrincl;
- 		break;
-diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
-index 5fdc556514ba..7b8fbb352877 100644
---- a/net/ipv4/netfilter/ipt_SYNPROXY.c
-+++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
-@@ -21,6 +21,7 @@ static struct iphdr *
- synproxy_build_ip(struct sk_buff *skb, __be32 saddr, __be32 daddr)
- {
- 	struct iphdr *iph;
-+	struct net *net = sock_net(skb->sk);
- 
- 	skb_reset_network_header(skb);
- 	iph = (struct iphdr *)skb_put(skb, sizeof(*iph));
-@@ -29,7 +30,7 @@ synproxy_build_ip(struct sk_buff *skb, __be32 saddr, __be32 daddr)
- 	iph->tos	= 0;
- 	iph->id		= 0;
- 	iph->frag_off	= htons(IP_DF);
--	iph->ttl	= sysctl_ip_default_ttl;
-+	iph->ttl	= net->ipv4.sysctl_ip_default_ttl;
- 	iph->protocol	= IPPROTO_TCP;
- 	iph->check	= 0;
- 	iph->saddr	= saddr;
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 3abd9d7a3adf..9f665b63a927 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -390,7 +390,7 @@ static int snmp_seq_show(struct seq_file *seq, void *v)
- 
- 	seq_printf(seq, "\nIp: %d %d",
- 		   IPV4_DEVCONF_ALL(net, FORWARDING) ? 1 : 2,
--		   sysctl_ip_default_ttl);
-+		   net->ipv4.sysctl_ip_default_ttl);
- 
- 	BUILD_BUG_ON(offsetof(struct ipstats_mib, mibs) != 0);
- 	for (i = 0; snmp4_ipstats_list[i].name != NULL; i++)
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index b537338f5c97..a833a9f9e4cd 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -283,15 +283,6 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec
- 	},
- 	{
--		.procname	= "ip_default_ttl",
--		.data		= &sysctl_ip_default_ttl,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &ip_ttl_min,
--		.extra2		= &ip_ttl_max,
--	},
--	{
- 		.procname	= "tcp_max_orphans",
- 		.data		= &sysctl_tcp_max_orphans,
- 		.maxlen		= sizeof(int),
-@@ -753,6 +744,15 @@ static struct ctl_table ipv4_net_table[] = {
- 		.proc_handler	= proc_dointvec
- 	},
- 	{
-+		.procname	= "ip_default_ttl",
-+		.data		= &init_net.ipv4.sysctl_ip_default_ttl,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &ip_ttl_min,
-+		.extra2		= &ip_ttl_max,
-+	},
-+	{
- 		.procname	= "ip_local_port_range",
- 		.maxlen		= sizeof(init_net.ipv4.ip_local_ports.range),
- 		.data		= &init_net.ipv4.ip_local_ports.range,
-@@ -988,6 +988,8 @@ static __net_init int ipv4_sysctl_init_net(struct net *net)
- 	if (!net->ipv4.sysctl_local_reserved_ports)
- 		goto err_ports;
- 
-+	net->ipv4.sysctl_ip_default_ttl = IPDEFTTL;
-+
- 	return 0;
- 
- err_ports:
--- 
-2.5.0
+rocker and mlxsw rely on this check. If you remove it here, you have to
+add it there.
 
+
+
+> 	err = switchdev_port_attr_set(br->dev, &attr);
+> 	if (err)
+> 		return err;
