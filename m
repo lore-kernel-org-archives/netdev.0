@@ -1,67 +1,171 @@
-From: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
-Subject: [PATCH] l2tp: Fix error creating L2TP tunnels
-Date: Mon, 15 Feb 2016 16:24:44 +1300
-Message-ID: <1455506684-27033-1-git-send-email-mark.tomlinson@alliedtelesis.co.nz>
-Cc: davem@davemloft.net, bhong@brocade.com,
-	Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:46090 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751861AbcBODZV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2016 22:25:21 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ross Green <rgkernel@gmail.com>
+Subject: Re: wlcore: Fix regression in wlcore_set_partition()
+Date: Mon, 15 Feb 2016 15:01:49 +1100
+Message-ID: <CANfgCY02_AkRi2EMNZsneK8UdwLvAWxF_X0ts6WZbaM0=5c63A@mail.gmail.com>
+References: <20160210012216.GA18819@lianli>
+	<20160212094526.EC572611CE@smtp.codeaurora.org>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=001a1140769c8be956052bc713a7
+Cc: Emil Goode <emil.fsw@goode.io>, Shahar Patury <shaharp@ti.com>,
+	Guy Mishol <guym@ti.com>,
+	Igor Grinberg <grinberg@compulab.co.il>,
+	Uri Mashiach <uri.mashiach@compulab.co.il>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160212094526.EC572611CE@smtp.codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A previous commit (33f72e6) added notification via netlink for tunnels
-when created/modified/deleted. If the notification returned an error,
-this error was returned from the tunnel function. If there were no
-listeners, the error code ESRCH was returned, even though having no
-listeners is not an error. Other calls to this and other similar
-notification functions either ignore the error code, or filter ESRCH.
-This patch checks for ESRCH and does not flag this as an error.
+--001a1140769c8be956052bc713a7
+Content-Type: text/plain; charset=UTF-8
 
-Reviewed-by: Hamish Martin <hamish.martin@alliedtelesis.co.nz>
-Signed-off-by: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
----
- net/l2tp/l2tp_netlink.c | 18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
+On Fri, Feb 12, 2016 at 8:45 PM, Kalle Valo <kvalo@codeaurora.org> wrote:
+>
+>> The commit 3719c17e1816 ("wlcore/wl18xx: fw logger over sdio") introduced a
+>> regression causing the wlcore to time out and go into recovery. Reverting the
+>> changes regarding write of the last partition size brings the module back to
+>> it's functional state.
+>>
+>> Fixes: 3719c17e1816 ("wlcore/wl18xx: fw logger over sdio")
+>> Reported-by: Ross Green <rgkernel@gmail.com>
+>> Signed-off-by: Emil Goode <emil.fsw@goode.io>
+>> [kvalo@codeaurora.org: improved commit log]
+>
+> Thanks, applied to wireless-drivers.git.
+>
+> Kalle Valo
 
-diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
-index f93c5be..2caaa84 100644
---- a/net/l2tp/l2tp_netlink.c
-+++ b/net/l2tp/l2tp_netlink.c
-@@ -124,8 +124,13 @@ static int l2tp_tunnel_notify(struct genl_family *family,
- 	ret = l2tp_nl_tunnel_send(msg, info->snd_portid, info->snd_seq,
- 				  NLM_F_ACK, tunnel, cmd);
- 
--	if (ret >= 0)
--		return genlmsg_multicast_allns(family, msg, 0,	0, GFP_ATOMIC);
-+	if (ret >= 0) {
-+		ret = genlmsg_multicast_allns(family, msg, 0, 0, GFP_ATOMIC);
-+		/* We don't care if no one is listening */
-+		if (ret == -ESRCH)
-+			ret = 0;
-+		return ret;
-+	}
- 
- 	nlmsg_free(msg);
- 
-@@ -147,8 +152,13 @@ static int l2tp_session_notify(struct genl_family *family,
- 	ret = l2tp_nl_session_send(msg, info->snd_portid, info->snd_seq,
- 				   NLM_F_ACK, session, cmd);
- 
--	if (ret >= 0)
--		return genlmsg_multicast_allns(family, msg, 0,	0, GFP_ATOMIC);
-+	if (ret >= 0) {
-+		ret = genlmsg_multicast_allns(family, msg, 0, 0, GFP_ATOMIC);
-+		/* We don't care if no one is listening */
-+		if (ret == -ESRCH)
-+			ret = 0;
-+		return ret;
-+	}
- 
- 	nlmsg_free(msg);
- 
--- 
-2.7.1
+I just tested linux-4.5-rc4 it appears the above fix missed the release for rc4!
+So the behaviour of firmware reset being called after the access of
+the last partition timesout.
+
+Again tested patch with the new release - 4.5-rc4 and found everything
+to work as expected again.
+
+So Hopefully for rc5 - Please!
+
+please find attached a copy of the dmesg output for 4.5-rc4
+
+Regards,
+
+Ross Green
+
+--001a1140769c8be956052bc713a7
+Content-Type: application/octet-stream; name="dmesg-4.5-rc4"
+Content-Disposition: attachment; filename="dmesg-4.5-rc4"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ikngane50
+
+IyB1bmFtZSAtYSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgCkxpbnV4IGJ1aWxkcm9vdCA0LjUuMC1yYzQtcGFuZGEgIzEgU01QIFBSRUVN
+UFQgTW9uIEZlYiAxNSAxMjozNTo1MiBBRURUIDIwMTYgYXJtdjdsIEdOVS9MaW51eCAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgIAojICAgICAgICAKIyBkbWVzZwpbICAgIDAuMDAwMDAw
+XSBCb290aW5nIExpbnV4IG9uIHBoeXNpY2FsIENQVSAweDAKWyAgICAwLjAwMDAwMF0gTGludXgg
+dmVyc2lvbiA0LjUuMC1yYzQtcGFuZGEgKHJmZ0ByZWQuZHdhcmYpIChnY2MgdmVyc2lvbiA1LjMu
+MCAoQnVpbGRyb290IDIwMTYuMDItZ2l0LTAwMTgzLWcxNjgyYWVlKSApICMxIFNNUCBQUkVFTVBU
+IE1vbiBGZWIgMTUgMTI6MzU6NTIgQUVEVCAyMDE2ClsgICAgMC4wMDAwMDBdIENQVTogQVJNdjcg
+UHJvY2Vzc29yIFs0MTJmYzA5YV0gcmV2aXNpb24gMTAgKEFSTXY3KSwgY3I9MTBjNTM4N2QKWyAg
+ICAwLjAwMDAwMF0gQ1BVOiBQSVBUIC8gVklQVCBub25hbGlhc2luZyBkYXRhIGNhY2hlLCBWSVBU
+IGFsaWFzaW5nIGluc3RydWN0aW9uIGNhY2hlCgouLi4KLi4uClsgICA4NC44MDU1NzJdIC0tLVsg
+ZW5kIHRyYWNlIGRiODU0OWI5OWMyZmRjZWEgXS0tLSAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIApbICAgODQu
+ODEwNjA3XSB3bGNvcmU6IEhhcmR3YXJlIHJlY292ZXJ5IGluIHByb2dyZXNzLiBGVyB2ZXI6IFJl
+diA2LjMuMTAuMC4xMzMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAKWyAgIDg0LjgxODM4OV0gd2xjb3JlOiBwYzogMHgwLCBoaW50X3N0czogMHgwMDAwMDAy
+MCBjb3VudDogMiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgClsgICA4NC44MjQ1NTRdIHdsY29yZTogZG93bgpbICAgODQuODI3
+MzAxXSBpZWVlODAyMTEgcGh5MDogSGFyZHdhcmUgcmVzdGFydCB3YXMgcmVxdWVzdGVkClsgICA4
+NS40NTEyOTNdIHdsY29yZTogZmlybXdhcmUgYm9vdGVkIChSZXYgNi4zLjEwLjAuMTMzKQpbICAg
+OTAuNTI1NjM0XSB3bGNvcmU6IEVSUk9SIFR4IHN0dWNrIChpbiBGVykgZm9yIDUwMDAgbXMuIFN0
+YXJ0aW5nIHJlY292ZXJ5ClsgICA5MC41MzI4MzZdIC0tLS0tLS0tLS0tLVsgY3V0IGhlcmUgXS0t
+LS0tLS0tLS0tLQpbICAgOTAuNTM3NzUwXSBXQVJOSU5HOiBDUFU6IDAgUElEOiA0MjMgYXQgZHJp
+dmVycy9uZXQvd2lyZWxlc3MvdGkvd2xjb3JlL21haW4uYzo3ODcgd2wxMjcxX29wX2NhbmNlbF9o
+d19zY2FuKzB4ODM4LzB4ODNjIFt3bCkKWyAgIDkwLjU1MDE3MF0gTW9kdWxlcyBsaW5rZWQgaW46
+IGJ0d2lsaW5rIHN0X2RydiB3bDEyeHggd2xjb3JlX3NkaW8gd2xjb3JlIG1hYzgwMjExIGNmZzgw
+MjExIGJsdWV0b290aApbICAgOTAuNTU5OTA2XSBDUFU6IDAgUElEOiA0MjMgQ29tbToga3dvcmtl
+ci91NDoyIFRhaW50ZWQ6IEcgICAgICAgIFcgICAgICAgNC41LjAtcmM0LXBhbmRhICMxClsgICA5
+MC41NTk5MDZdIEhhcmR3YXJlIG5hbWU6IEdlbmVyaWMgT01BUDQgKEZsYXR0ZW5lZCBEZXZpY2Ug
+VHJlZSkKWyAgIDkwLjU2OTg4NV0gV29ya3F1ZXVlOiBwaHkwIHdsMTJ4eF90eF93YXRjaGRvZ193
+b3JrIFt3bGNvcmVdClsgICA5MC41NzU3MTRdIEJhY2t0cmFjZTogClsgICA5MC41ODE1NzNdIFs8
+YzAwMTNmODA+XSAoZHVtcF9iYWNrdHJhY2UpIGZyb20gWzxjMDAxNDE3Yz5dIChzaG93X3N0YWNr
+KzB4MTgvMHgxYykKWyAgIDkwLjU5MTczNV0gIHI3OmJmMGU2YmY0IHI2OjYwMDgwMTEzIHI1OmMw
+OTQ3ZDM0IHI0OjAwMDAwMDAwClsgICA5MC41OTE3MzVdIFs8YzAwMTQxNjQ+XSAoc2hvd19zdGFj
+aykgZnJvbSBbPGMwM2ExOWM0Pl0gKGR1bXBfc3RhY2srMHg5NC8weGE4KQpbICAgOTAuNTk5ODg0
+XSBbPGMwM2ExOTMwPl0gKGR1bXBfc3RhY2spIGZyb20gWzxjMDAzNGM5OD5dICh3YXJuX3Nsb3dw
+YXRoX2NvbW1vbisweDg4LzB4YjgpClsgICA5MC42MTM5ODNdICByNzpiZjBlNmJmNCByNjowMDAw
+MDMxMyByNTowMDAwMDAwOSByNDowMDAwMDAwMApbICAgOTAuNjE5OTAzXSBbPGMwMDM0YzEwPl0g
+KHdhcm5fc2xvd3BhdGhfY29tbW9uKSBmcm9tIFs8YzAwMzRkNmM+XSAod2Fybl9zbG93cGF0aF9u
+dWxsKzB4MjQvMHgyYykKWyAgIDkwLjYxOTkwM10gIHI4OjAwMDAwMDAwIHI3OmVlYTk4ZDQwIHI2
+OmVlYTk4ZDdjIHI1OmVlYTk4ZDQ4IHI0OmVlYTk4ZDQwClsgICA5MC42MzU4MzNdIFs8YzAwMzRk
+NDg+XSAod2Fybl9zbG93cGF0aF9udWxsKSBmcm9tIFs8YmYwZTZiZjQ+XSAod2wxMjcxX29wX2Nh
+bmNlbF9od19zY2FuKzB4ODM4LzB4ODNjIFt3bGNvcmVdKQpbICAgOTAuNjQ3MTI1XSBbPGJmMGU2
+Yjk0Pl0gKHdsMTI3MV9vcF9jYW5jZWxfaHdfc2NhbiBbd2xjb3JlXSkgZnJvbSBbPGJmMGU2ZDFj
+Pl0gKHdsMTJ4eF90eF93YXRjaGRvZ193b3JrKzB4MTI0LzB4MTI4IFt3bGNvcikKWyAgIDkwLjY1
+NTQyNl0gIHI1OmVlYTk4ZDQ4IHI0OmVlYTk5YjA4ClsgICA5MC42NTU0MjZdIFs8YmYwZTZiZjg+
+XSAod2wxMnh4X3R4X3dhdGNoZG9nX3dvcmsgW3dsY29yZV0pIGZyb20gWzxjMDA0YTZlYz5dIChw
+cm9jZXNzX29uZV93b3JrKzB4MTI4LzB4NDAwKQpbICAgOTAuNjY5ODkxXSAgcjc6ZWVhZjY1MDAg
+cjY6ZWYwMGIwMDAgcjU6ZWYwYzNmODAgcjQ6ZWVhOTliMDgKWyAgIDkwLjY3MzMwOV0gWzxjMDA0
+YTVjND5dIChwcm9jZXNzX29uZV93b3JrKSBmcm9tIFs8YzAwNGFhMTg+XSAod29ya2VyX3RocmVh
+ZCsweDU0LzB4NThjKQpbICAgOTAuNjczMzA5XSAgcjEwOmVmMGMzZjgwIHI5OmVmM2YwMDIwIHI4
+OmVmMDBiMDE4IHI3OmMwOTJhMTAwIHI2OjAwMDAwMDg4IHI1OmVmMGMzZjk4ClsgICA5MC42OTMx
+MTVdICByNDplZjAwYjAwMApbICAgOTAuNjk2MTk3XSBbPGMwMDRhOWM0Pl0gKHdvcmtlcl90aHJl
+YWQpIGZyb20gWzxjMDA1MDUzND5dIChrdGhyZWFkKzB4ZTQvMHhmYykKWyAgIDkwLjcwMzU4Ml0g
+IHIxMDowMDAwMDAwMCByOTowMDAwMDAwMCByODowMDAwMDAwMCByNzpjMDA0YTljNCByNjplZjBj
+M2Y4MCByNTplZjBiYTI4MApbICAgOTAuNzA5ODk5XSAgcjQ6MDAwMDAwMDAKWyAgIDkwLjcxNDg0
+M10gWzxjMDA1MDQ1MD5dIChrdGhyZWFkKSBmcm9tIFs8YzAwMGZiOTg+XSAocmV0X2Zyb21fZm9y
+aysweDE0LzB4M2MpClsgICA5MC43MTQ4NDNdICByNzowMDAwMDAwMCByNjowMDAwMDAwMCByNTpj
+MDA1MDQ1MCByNDplZjBiYTI4MApbICAgOTAuNzMxMjMxXSAtLS1bIGVuZCB0cmFjZSBkYjg1NDli
+OTljMmZkY2ViIF0tLS0KWyAgIDkwLjc0MjA5NV0gd2xjb3JlOiBIYXJkd2FyZSByZWNvdmVyeSBp
+biBwcm9ncmVzcy4gRlcgdmVyOiBSZXYgNi4zLjEwLjAuMTMzClsgICA5MC43NDk4NzddIHdsY29y
+ZTogcGM6IDB4MCwgaGludF9zdHM6IDB4MDAwMDAwMjAgY291bnQ6IDMKWyAgIDkwLjc1NjAxMV0g
+d2xjb3JlOiBkb3duClsgICA5MC43NTg3ODldIGllZWU4MDIxMSBwaHkwOiBIYXJkd2FyZSByZXN0
+YXJ0IHdhcyByZXF1ZXN0ZWQKWyAgIDkxLjMxMDE1MF0gd2xjb3JlOiBmaXJtd2FyZSBib290ZWQg
+KFJldiA2LjMuMTAuMC4xMzMpClsgICA5Ni4zNzIwNzBdIHdsY29yZTogRVJST1IgVHggc3R1Y2sg
+KGluIEZXKSBmb3IgNTAwMCBtcy4gU3RhcnRpbmcgcmVjb3ZlcnkKWyAgIDk2LjM3OTMwMl0gLS0t
+LS0tLS0tLS0tWyBjdXQgaGVyZSBdLS0tLS0tLS0tLS0tClsgICA5Ni4zODU4OTRdIFdBUk5JTkc6
+IENQVTogMCBQSUQ6IDE3IGF0IGRyaXZlcnMvbmV0L3dpcmVsZXNzL3RpL3dsY29yZS9tYWluLmM6
+Nzg3IHdsMTI3MV9vcF9jYW5jZWxfaHdfc2NhbisweDgzOC8weDgzYyBbd2xjKQpbICAgOTYuMzk4
+Mjg0XSBNb2R1bGVzIGxpbmtlZCBpbjogYnR3aWxpbmsgc3RfZHJ2IHdsMTJ4eCB3bGNvcmVfc2Rp
+byB3bGNvcmUgbWFjODAyMTEgY2ZnODAyMTEgYmx1ZXRvb3RoClsgICA5Ni40MDE2MTFdIENQVTog
+MCBQSUQ6IDE3IENvbW06IGt3b3JrZXIvdTQ6MSBUYWludGVkOiBHICAgICAgICBXICAgICAgIDQu
+NS4wLXJjNC1wYW5kYSAjMQpbICAgOTYuNDAxNjExXSBIYXJkd2FyZSBuYW1lOiBHZW5lcmljIE9N
+QVA0IChGbGF0dGVuZWQgRGV2aWNlIFRyZWUpClsgICA5Ni40MTgxODJdIFdvcmtxdWV1ZTogcGh5
+MCB3bDEyeHhfdHhfd2F0Y2hkb2dfd29yayBbd2xjb3JlXQpbICAgOTYuNDI5MjkwXSBCYWNrdHJh
+Y2U6IApbICAgOTYuNDMxOTE1XSBbPGMwMDEzZjgwPl0gKGR1bXBfYmFja3RyYWNlKSBmcm9tIFs8
+YzAwMTQxN2M+XSAoc2hvd19zdGFjaysweDE4LzB4MWMpClsgICA5Ni40MzE5MTVdICByNzpiZjBl
+NmJmNCByNjo2MDA4MDExMyByNTpjMDk0N2QzNCByNDowMDAwMDAwMApbICAgOTYuNDMxOTE1XSBb
+PGMwMDE0MTY0Pl0gKHNob3dfc3RhY2spIGZyb20gWzxjMDNhMTljND5dIChkdW1wX3N0YWNrKzB4
+OTQvMHhhOCkKWyAgIDk2LjQ0ODQ1NV0gWzxjMDNhMTkzMD5dIChkdW1wX3N0YWNrKSBmcm9tIFs8
+YzAwMzRjOTg+XSAod2Fybl9zbG93cGF0aF9jb21tb24rMHg4OC8weGI4KQpbICAgOTYuNDYyMTU4
+XSAgcjc6YmYwZTZiZjQgcjY6MDAwMDAzMTMgcjU6MDAwMDAwMDkgcjQ6MDAwMDAwMDAKWyAgIDk2
+LjQ2MjE1OF0gWzxjMDAzNGMxMD5dICh3YXJuX3Nsb3dwYXRoX2NvbW1vbikgZnJvbSBbPGMwMDM0
+ZDZjPl0gKHdhcm5fc2xvd3BhdGhfbnVsbCsweDI0LzB4MmMpClsgICA5Ni40Nzc0NzhdICByODow
+MDAwMDAwMCByNzplZWE5OGQ0MCByNjplZWE5OGQ3YyByNTplZWE5OGQ0OCByNDplZWE5OGQ0MApb
+ICAgOTYuNDgxNTY3XSBbPGMwMDM0ZDQ4Pl0gKHdhcm5fc2xvd3BhdGhfbnVsbCkgZnJvbSBbPGJm
+MGU2YmY0Pl0gKHdsMTI3MV9vcF9jYW5jZWxfaHdfc2NhbisweDgzOC8weDgzYyBbd2xjb3JlXSkK
+WyAgIDk2LjQ4MTU2N10gWzxiZjBlNmI5ND5dICh3bDEyNzFfb3BfY2FuY2VsX2h3X3NjYW4gW3ds
+Y29yZV0pIGZyb20gWzxiZjBlNmQxYz5dICh3bDEyeHhfdHhfd2F0Y2hkb2dfd29yaysweDEyNC8w
+eDEyOCBbd2xjb3IpClsgICA5Ni40OTk5MDhdICByNTplZWE5OGQ0OCByNDplZWE5OWIwOApbICAg
+OTYuNTA5ODg3XSBbPGJmMGU2YmY4Pl0gKHdsMTJ4eF90eF93YXRjaGRvZ193b3JrIFt3bGNvcmVd
+KSBmcm9tIFs8YzAwNGE2ZWM+XSAocHJvY2Vzc19vbmVfd29yaysweDEyOC8weDQwMCkKWyAgIDk2
+LjUxOTg5N10gIHI3OmVlYWY2NTAwIHI2OmVmMDBiMDAwIHI1OmVmMDQzZjgwIHI0OmVlYTk5YjA4
+ClsgICA5Ni41MTk4OTddIFs8YzAwNGE1YzQ+XSAocHJvY2Vzc19vbmVfd29yaykgZnJvbSBbPGMw
+MDRhYTE4Pl0gKHdvcmtlcl90aHJlYWQrMHg1NC8weDU4YykKWyAgIDk2LjUyOTkwN10gIHIxMDpl
+ZjA0M2Y4MCByOTplZjE0YTAyMCByODplZjAwYjAxOCByNzpjMDkyYTEwMCByNjowMDAwMDA4OCBy
+NTplZjA0M2Y5OApbICAgOTYuNTI5OTA3XSAgcjQ6ZWYwMGIwMDAKWyAgIDk2LjUyOTkwN10gWzxj
+MDA0YTljND5dICh3b3JrZXJfdGhyZWFkKSBmcm9tIFs8YzAwNTA1MzQ+XSAoa3RocmVhZCsweGU0
+LzB4ZmMpClsgICA5Ni41NTI2NzNdICByMTA6MDAwMDAwMDAgcjk6MDAwMDAwMDAgcjg6MDAwMDAw
+MDAgcjc6YzAwNGE5YzQgcjY6ZWYwNDNmODAgcjU6ZWYxNDA0YzAKWyAgIDk2LjU2MjY4M10gIHI0
+OjAwMDAwMDAwClsgICA5Ni41NjI2ODNdIFs8YzAwNTA0NTA+XSAoa3RocmVhZCkgZnJvbSBbPGMw
+MDBmYjk4Pl0gKHJldF9mcm9tX2ZvcmsrMHgxNC8weDNjKQpbICAgOTYuNTY5ODg1XSAgcjc6MDAw
+MDAwMDAgcjY6MDAwMDAwMDAgcjU6YzAwNTA0NTAgcjQ6ZWYxNDA0YzAKWyAgIDk2LjU4MjE1M10g
+LS0tWyBlbmQgdHJhY2UgZGI4NTQ5Yjk5YzJmZGNlYyBdLS0tClsgICA5Ni41OTMxMzldIHdsY29y
+ZTogSGFyZHdhcmUgcmVjb3ZlcnkgaW4gcHJvZ3Jlc3MuIEZXIHZlcjogUmV2IDYuMy4xMC4wLjEz
+MwpbICAgOTYuNjAwOTgyXSB3bGNvcmU6IHBjOiAweDAsIGhpbnRfc3RzOiAweDAwMDAwMDIwIGNv
+dW50OiA0ClsgICA5Ni42MDcxMTZdIHdsY29yZTogZG93bgpbICAgOTYuNjExMTc1XSBpZWVlODAy
+MTEgcGh5MDogSGFyZHdhcmUgcmVzdGFydCB3YXMgcmVxdWVzdGVkClsgICA5Ny4xOTcyNjVdIHds
+Y29yZTogZmlybXdhcmUgYm9vdGVkIChSZXYgNi4zLjEwLjAuMTMzKQoK
+--001a1140769c8be956052bc713a7--
