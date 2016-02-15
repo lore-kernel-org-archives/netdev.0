@@ -1,82 +1,48 @@
-From: Robert Sander <r.sander@heinlein-support.de>
-Subject: Re: Configure ICMP error source address
-Date: Mon, 15 Feb 2016 10:13:15 +0100
-Message-ID: <56C196AB.5080403@heinlein-support.de>
-References: <568F8207.9040305@heinlein-support.de>
+From: Claudio Scordino <claudio@evidence.eu.com>
+Subject: Re: Same data to several sockets with just one syscall ?
+Date: Mon, 15 Feb 2016 11:03:01 +0100
+Message-ID: <CAGWmfYru4zP1n7aSbjtpO4J=aCBfp47B8AV-ACv8XuY-n9E+Hg@mail.gmail.com>
+References: <CAGWmfYrGv8NdJQHs6OA=b=ao8=25JUoZAK_i65+GMFX1OyV-fg@mail.gmail.com>
+	<1455273356.31770.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="m9DWpMgi1JtEKTwMJipgPCktUTHEf1ugj"
-To: netfilter@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.heinlein-support.de ([91.198.250.30]:41954 "EHLO
-	mx3.heinlein-support.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751791AbcBOJTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 04:19:32 -0500
-In-Reply-To: <568F8207.9040305@heinlein-support.de>
+Received: from mail-vk0-f50.google.com ([209.85.213.50]:34399 "EHLO
+	mail-vk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750857AbcBOKDC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 05:03:02 -0500
+Received: by mail-vk0-f50.google.com with SMTP id e185so103359400vkb.1
+        for <netdev@vger.kernel.org>; Mon, 15 Feb 2016 02:03:01 -0800 (PST)
+In-Reply-To: <1455273356.31770.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---m9DWpMgi1JtEKTwMJipgPCktUTHEf1ugj
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Hi Eric,
 
-On 08.01.2016 10:31, Robert Sander wrote:
+2016-02-12 11:35 GMT+01:00 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Fri, 2016-02-12 at 09:53 +0100, Claudio Scordino wrote:
+>
+>> This makes the application waste time in entering/exiting the kernel
+>> level several times.
+>
+> syscall overhead is usually small. Real cost is actually getting to the
+> socket objects (fd manipulation), that you wont avoid with a
+> super-syscall anyway.
 
-> We have the situation that our routers use RFC1918 addresses on their
-> transfer networks (which should be quite common nowadays to save on
-> public IPv4 addresses). ICMP errors are generated with RFC1918 source
-> addresses and therefor never reach the original sender.
+Thank you for answering. I see your point.
 
-A follow-up to this request:
+However, assuming that a switch from user-space to kernel-space (and
+back) needs about 200nsec of computation (which I guess is a
+reasonable value for a 3GHz x86 architecture), the 50th receiver
+experiences a latency of about 10 usec. In some domains (e.g.,
+finance) this delay is not negligible.
 
-It is much easier to accomplish when settings routes with a source
-address that is a public IP like this:
+Moving the "fan-out" code into kernel space would remove this waste of
+time. IMHO, the latency reduction would pay back the 100 lines of code
+for adding a new syscall.
 
-ip route add default via 10.10.10.1 src 192.0.2.24
+Many thanks and best regards,
 
-ICMP errors will then use 192.0.2.24 as the source address.
-
-No need for a kernel patch. Thanks for all the input.
-
-Regards
---=20
-Robert Sander
-Heinlein Support GmbH
-Schwedter Str. 8/9b, 10119 Berlin
-
-http://www.heinlein-support.de
-
-Tel: 030 / 405051-43
-Fax: 030 / 405051-19
-
-Zwangsangaben lt. =C2=A735a GmbHG:
-HRB 93818 B / Amtsgericht Berlin-Charlottenburg,
-Gesch=C3=A4ftsf=C3=BChrer: Peer Heinlein -- Sitz: Berlin
-
-
---m9DWpMgi1JtEKTwMJipgPCktUTHEf1ugj
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBAgAGBQJWwZarAAoJEPC7kVgj3lsohsoQALzturAhgCT3vtJCsLIdu8U+
-RpqrDBJ8SuLwjQ5F20FgMAZ+K0QF2399pdDH/CmT8vilbNNlI9Ty6asdgq3PDRSD
-4WOpoHlQPHqJa3pWN1njGHDgDNxu3kFUDQnIE/XJMWWVz5qNqUaZ4XWZsrm96asq
-982XY5Iwo3gJLDNQ1Gwrx3rBMJEjYGXupwFPH5T0kkNrTzEnmZBMdeAeoWM1GWA/
-qTC//B2MmkLORFKoZ8h/Z6gUfd2WTpZrJtIdySIN7FC9ebfefwkBRh9+BLVECSSB
-+eG0OjaMf6gcoKdd8zBYzh7b5gXEx6Uc/T6W/t1iRato41ipySB5EyLSpLN987wp
-w4Ii9T+6hB9ACjWYFn3S0dNAp6394lpJSkep3TtQIkhmQiQsWhYFJ+k9KfVPvPHu
-c/1tuVHxNQHtexPZ5usl9Bkxa1saYM4PWVfDvfdllT0asdwa5ERawmhK9lOjYGaU
-nGlUDrAbZ9OusXKTvD+/1G2KJg5Ndj0gZFrhK1wS4eMm/ghbBPvbx1IMsP6fAtXX
-7Eb9xEOM8SfgXv8Nyxq1lg5Npt5kjHmbXfEfM45MHDtBy1jV2ZCAGjpQl8kPHi2t
-S8UxsL702VsfOK42eFMGlH4buoUU6OjM2rYz893mZW/1sEXnLDLgXl0R2M5CH3ki
-J3VFY7AtVbGvdpsq7BSL
-=uwg9
------END PGP SIGNATURE-----
-
---m9DWpMgi1JtEKTwMJipgPCktUTHEf1ugj--
+                 Claudio
