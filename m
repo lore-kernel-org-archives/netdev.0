@@ -1,52 +1,46 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 1/3] lwtunnel: autoload of lwt modules
-Date: Mon, 15 Feb 2016 17:32:09 +0100
-Message-ID: <20160215173209.055b7b6b@griffin>
-References: <1455550923-23673-1-git-send-email-rshearma@brocade.com>
-	<1455550923-23673-2-git-send-email-rshearma@brocade.com>
-	<20160215170232.5f73b111@griffin>
-	<56C1FB30.8090005@brocade.com>
+Subject: Re: [PATCH net-next v2 2/2] vxlan: support GPE/NSH
+Date: Mon, 15 Feb 2016 17:49:17 +0100
+Message-ID: <20160215174917.025b066c@griffin>
+References: <1455220626-28244-1-git-send-email-brussell@brocade.com>
+	<1455220626-28244-3-git-send-email-brussell@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Robert Shearman <rshearma@Brocade.com>
+Cc: <netdev@vger.kernel.org>
+To: Brian Russell <brussell@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45485 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49755 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752455AbcBOQcP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Feb 2016 11:32:15 -0500
-In-Reply-To: <56C1FB30.8090005@brocade.com>
+	id S1751635AbcBOQtU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Feb 2016 11:49:20 -0500
+In-Reply-To: <1455220626-28244-3-git-send-email-brussell@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 Feb 2016 16:22:08 +0000, Robert Shearman wrote:
-> Yeah, it's the C preprocessor. MODULE_ALIAS_RTNL_LWT includes the string 
-> for the encap type in the module alias, and since the LWT encap types 
-> are defined as enums this is symbolic name. I can't see any way of 
-> getting the preprocessor to convert 
-> MODULE_ALIAS_RTNL_LWT(LWTUNNEL_ENCAP_MPLS) into "rtnl-lwt-MPLS", but I'm 
-> open to suggestions.
+On Thu, 11 Feb 2016 19:57:06 +0000, Brian Russell wrote:
+> +skip_l2:
+>  	skb_reset_network_header(skb);
+> +
+>  	/* In flow-based mode, GBP is carried in dst_metadata */
+> -	if (!(vs->flags & VXLAN_F_COLLECT_METADATA))
+> +	if (!(vs->flags & VXLAN_F_COLLECT_METADATA) &&
+> +	    !(vs->flags & VXLAN_F_GPE))
+>  		skb->mark = md->gbp;
 
-MODULE_ALIAS_RTNL_LWT(MPLS)?
+This is completely wrong. You cannot return a packet with a garbage in
+place of the Ethernet header from ARPHRD_ETHER interface. For proper
+VXLAN-GPE support, the vxlan interface needs to be in L3 mode, e.g.
+ARPHRD_NONE.
 
-But whatever, as I said, no strong preference.
+To support L3 mode, the vxlan driver needs *tons* of cleanups (or tons
+of duplicate code). This is exactly what I've done and what I'm in
+process of merging. The number of patches is too big to be submitted as
+a single patchset, hence I'm submitting in parts. The first one has
+been already merged (net-next commit 19f76f63507f). For the full code,
+look at: https://github.com/jbenc/linux-vxlan/commits/master
 
-> True, but I figured that it was cleaner for the lwtunnel infra to not 
-> assume whether how those modules are implemented. If you disagree, then 
-> I can change to doing as you suggest.
-
-It's not completely transparent to the infrastructure anyway, the
-tunnel type needs to be added to lwtunnel_encap_str for new tunnels.
-The way I suggested, it's only added for those tunnels having the
-module alias set.
-
-Just trying to get rid of the unnecessary strings in
-lwtunnel_encap_str. There's no need to bloat kernel with them if
-they're never used.
+Comments are welcome.
 
  Jiri
 
