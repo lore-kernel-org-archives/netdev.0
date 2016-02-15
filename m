@@ -1,59 +1,45 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] ipv4: fix memory leaks in ip_cmsg_send() callers
-Date: Mon, 15 Feb 2016 12:11:34 -0800
-Message-ID: <CAM_iQpWq2=Z70Qxh=WFgsPer7XwDo9T7P0ZhCDbk2zaBr3ZmWQ@mail.gmail.com>
-References: <CACT4Y+YMUc8j4_-oJfi0XmQebhaTZa2NTipSFY_ra38V-TAyXQ@mail.gmail.com>
-	<1454594653.7627.290.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1454595808.7627.296.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Clemens Gruber <clemens.gruber@pqgruber.com>
+Subject: Re: [PATCH] phy: marvell: Fix and unify reg-init behavior
+Date: Mon, 15 Feb 2016 21:14:35 +0100
+Message-ID: <20160215201435.GA12064@archie.tuxnet.lan>
+References: <1455558779-15953-1-git-send-email-clemens.gruber@pqgruber.com>
+ <56C21695.1030809@gmail.com>
+ <56C21756.1020702@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f182.google.com ([209.85.160.182]:34719 "EHLO
-	mail-yk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751785AbcBOULe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 15:11:34 -0500
-Received: by mail-yk0-f182.google.com with SMTP id u9so64614472ykd.1
-        for <netdev@vger.kernel.org>; Mon, 15 Feb 2016 12:11:34 -0800 (PST)
-In-Reply-To: <1454595808.7627.296.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail.pqgruber.com ([178.189.19.235]:49729 "EHLO
+	mail.pqgruber.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751662AbcBOUOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 15:14:38 -0500
+Content-Disposition: inline
+In-Reply-To: <56C21756.1020702@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 4, 2016 at 6:23 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Dmitry reported memory leaks of IP options allocated in
-> ip_cmsg_send() when/if this function returns an error.
->
-> Callers are responsible for the freeing.
+Hi Florian,
 
-Right, because there is a loop in ip_cmsg_send(), so the callers
-are easier to free it than the callee.
+On Mon, Feb 15, 2016 at 10:22:14AM -0800, Florian Fainelli wrote:
+> 
+> 
+> On 15/02/2016 10:19, Florian Fainelli wrote:
+> > On 15/02/2016 09:52, Clemens Gruber wrote:
+> >> For the Marvell 88E1510, marvell_of_reg_init was called too late (in
+> >> m88e1510_config_aneg), which lead to the phy state machine being stuck
+> >> at waiting for interrupts, which are off by default on the 88E1510.
+> >> This further lead to the ethernet link not coming up at boot.
+> >> For some Marvell PHYs, marvell_of_reg_init was not called at all.
+> > 
+> > You could mention that this became apparent with
+> 
+> ...
+> 113c74d83eef ("net: phy: turn carrier off on phy attach")
 
-The other thing is we perhaps have another leak in the following code:
+Thanks for your comments. I thought it would be better to just leave all
+PHYs with special requirements (resets, ..) as they were and only change
+the behavior of those who were missing the marvell_of_reg_init calls.
+What do you think?
 
-        if (ipc.opt && ipc.opt->opt.srr) {
-                if (!daddr)
-                        return -EINVAL;
-                faddr = ipc.opt->opt.faddr;
-        }
-
-since ipc.opt could be allocated on heap... We need something like:
-
-@@ -770,8 +770,11 @@ static int ping_v4_sendmsg(struct sock *sk,
-struct msghdr *msg, size_t len)
-        ipc.addr = faddr = daddr;
-
-        if (ipc.opt && ipc.opt->opt.srr) {
--               if (!daddr)
-+               if (!daddr) {
-+                       if (free)
-+                               kfree(ipc.opt);
-                        return -EINVAL;
-+               }
-                faddr = ipc.opt->opt.faddr;
-        }
-        tos = get_rttos(&ipc, inet);
+Clemens
