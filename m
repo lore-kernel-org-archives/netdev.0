@@ -1,301 +1,69 @@
-From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net-next] store complete hash type information in socket buffer...
-Date: Mon, 15 Feb 2016 08:32:08 +0000
-Message-ID: <1455525128-27795-1-git-send-email-paul.durrant@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Durrant <paul.durrant@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: <netdev@vger.kernel.org>
+From: Jaedon Shin <jaedon.shin@gmail.com>
+Subject: [PATCH] net: bcmgenet: Add MDIO_INTR in GENETv2
+Date: Mon, 15 Feb 2016 17:42:13 +0900
+Message-ID: <1455525733-11736-1-git-send-email-jaedon.shin@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Petri Gynther <pgynther@google.com>,
+	Jaedon Shin <jaedon.shin@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:6490 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752333AbcBOIkf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Feb 2016 03:40:35 -0500
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35589 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752239AbcBOIma (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 03:42:30 -0500
+Received: by mail-pa0-f43.google.com with SMTP id ho8so83458892pac.2
+        for <netdev@vger.kernel.org>; Mon, 15 Feb 2016 00:42:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-...rather than a boolean merely indicating a canonical L4 hash.
+The GENETv2 chipsets has MDIO interrupt like the GENETv3+ chipsets.
 
-skb_set_hash() takes a hash type (from enum pkt_hash_types) as an
-argument but information is lost since only a single bit in the skb
-stores whether that hash type is PKT_HASH_TYPE_L4 or not. By using
-two bits it's possible to store the complete hash type information.
+The previous commit d5c3d84657db ("net: phy: Avoid polling PHY with
+PHY_IGNORE_INTERRUPTS") and commit 49f7a471e4d1 ("net: bcmgenet: Properly
+configure PHY to ignore interrupt") cause link-down PHY always in some
+40nm generation chipsets.
 
-Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>
-Cc: Veaceslav Falico <vfalico@gmail.com>
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
+Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
 ---
- drivers/net/bonding/bond_main.c |  2 +-
- include/linux/skbuff.h          | 53 ++++++++++++++++++++++++++++-------------
- include/net/flow_dissector.h    |  5 ++++
- include/net/sock.h              |  2 +-
- include/trace/events/net.h      |  2 +-
- net/core/flow_dissector.c       | 27 ++++++++++++++++-----
- 6 files changed, 65 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 4 ++--
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 45bdd87..ad0ee00 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3173,7 +3173,7 @@ u32 bond_xmit_hash(struct bonding *bond, struct sk_buff *skb)
- 	u32 hash;
- 
- 	if (bond->params.xmit_policy == BOND_XMIT_POLICY_ENCAP34 &&
--	    skb->l4_hash)
-+	    skb_has_l4_hash(skb))
- 		return skb->hash;
- 
- 	if (bond->params.xmit_policy == BOND_XMIT_POLICY_LAYER2 ||
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 3920675..b991ca2 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -595,8 +595,7 @@ static inline bool skb_mstamp_after(const struct skb_mstamp *t1,
-  *	@xmit_more: More SKBs are pending for this queue
-  *	@ndisc_nodetype: router type (from link layer)
-  *	@ooo_okay: allow the mapping of a socket to a queue to be changed
-- *	@l4_hash: indicate hash is a canonical 4-tuple hash over transport
-- *		ports.
-+ *	@hash_type: indicates type of hash (see enum pkt_hash_types below)
-  *	@sw_hash: indicates hash was computed in software stack
-  *	@wifi_acked_valid: wifi_acked was set
-  *	@wifi_acked: whether frame was acked on wifi or not
-@@ -701,10 +700,10 @@ struct sk_buff {
- 	__u8			nf_trace:1;
- 	__u8			ip_summed:2;
- 	__u8			ooo_okay:1;
--	__u8			l4_hash:1;
- 	__u8			sw_hash:1;
- 	__u8			wifi_acked_valid:1;
- 	__u8			wifi_acked:1;
-+	/* 1 bit hole */
- 
- 	__u8			no_fcs:1;
- 	/* Indicates the inner headers are valid in the skbuff. */
-@@ -721,7 +720,8 @@ struct sk_buff {
- 	__u8			ipvs_property:1;
- 	__u8			inner_protocol_type:1;
- 	__u8			remcsum_offload:1;
--	/* 3 or 5 bit hole */
-+	__u8			hash_type:2;
-+	/* 1 or 3 bit hole */
- 
- #ifdef CONFIG_NET_SCHED
- 	__u16			tc_index;	/* traffic control index */
-@@ -1030,19 +1030,35 @@ static inline void skb_clear_hash(struct sk_buff *skb)
- {
- 	skb->hash = 0;
- 	skb->sw_hash = 0;
--	skb->l4_hash = 0;
-+	skb->hash_type = 0;
-+}
-+
-+static inline enum pkt_hash_types skb_hash_type(struct sk_buff *skb)
-+{
-+	return skb->hash_type;
-+}
-+
-+static inline bool skb_has_l4_hash(struct sk_buff *skb)
-+{
-+	return skb_hash_type(skb) == PKT_HASH_TYPE_L4;
-+}
-+
-+static inline bool skb_has_sw_hash(struct sk_buff *skb)
-+{
-+	return !!skb->sw_hash;
- }
- 
- static inline void skb_clear_hash_if_not_l4(struct sk_buff *skb)
- {
--	if (!skb->l4_hash)
-+	if (!skb_has_l4_hash(skb))
- 		skb_clear_hash(skb);
- }
- 
- static inline void
--__skb_set_hash(struct sk_buff *skb, __u32 hash, bool is_sw, bool is_l4)
-+__skb_set_hash(struct sk_buff *skb, __u32 hash, bool is_sw,
-+	       enum pkt_hash_types type)
- {
--	skb->l4_hash = is_l4;
-+	skb->hash_type = type;
- 	skb->sw_hash = is_sw;
- 	skb->hash = hash;
- }
-@@ -1051,13 +1067,13 @@ static inline void
- skb_set_hash(struct sk_buff *skb, __u32 hash, enum pkt_hash_types type)
- {
- 	/* Used by drivers to set hash from HW */
--	__skb_set_hash(skb, hash, false, type == PKT_HASH_TYPE_L4);
-+	__skb_set_hash(skb, hash, false, type);
- }
- 
- static inline void
--__skb_set_sw_hash(struct sk_buff *skb, __u32 hash, bool is_l4)
-+__skb_set_sw_hash(struct sk_buff *skb, __u32 hash, enum pkt_hash_types type)
- {
--	__skb_set_hash(skb, hash, true, is_l4);
-+	__skb_set_hash(skb, hash, true, type);
- }
- 
- void __skb_get_hash(struct sk_buff *skb);
-@@ -1110,9 +1126,10 @@ static inline bool skb_flow_dissect_flow_keys_buf(struct flow_keys *flow,
- 				  data, proto, nhoff, hlen, flags);
- }
- 
-+
- static inline __u32 skb_get_hash(struct sk_buff *skb)
- {
--	if (!skb->l4_hash && !skb->sw_hash)
-+	if (!skb_has_l4_hash(skb) && !skb_has_sw_hash(skb))
- 		__skb_get_hash(skb);
- 
- 	return skb->hash;
-@@ -1122,11 +1139,12 @@ __u32 __skb_get_hash_flowi6(struct sk_buff *skb, const struct flowi6 *fl6);
- 
- static inline __u32 skb_get_hash_flowi6(struct sk_buff *skb, const struct flowi6 *fl6)
- {
--	if (!skb->l4_hash && !skb->sw_hash) {
-+	if (!skb_has_l4_hash(skb) && !skb_has_sw_hash(skb)) {
- 		struct flow_keys keys;
- 		__u32 hash = __get_hash_from_flowi6(fl6, &keys);
- 
--		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys));
-+		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys) ?
-+				  PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index b15a60d787c7..8e9aa8f6390d 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1904,7 +1904,7 @@ static int init_umac(struct bcmgenet_priv *priv)
+ 		bcmgenet_bp_mc_set(priv, reg);
  	}
  
- 	return skb->hash;
-@@ -1136,11 +1154,12 @@ __u32 __skb_get_hash_flowi4(struct sk_buff *skb, const struct flowi4 *fl);
+-	/* Enable MDIO interrupts on GENET v3+ */
++	/* Enable MDIO interrupts on GENET v2+ */
+ 	if (priv->hw_params->flags & GENET_HAS_MDIO_INTR)
+ 		int0_enable |= (UMAC_IRQ_MDIO_DONE | UMAC_IRQ_MDIO_ERROR);
  
- static inline __u32 skb_get_hash_flowi4(struct sk_buff *skb, const struct flowi4 *fl4)
- {
--	if (!skb->l4_hash && !skb->sw_hash) {
-+	if (!skb_has_l4_hash(skb) && !skb_has_sw_hash(skb)) {
- 		struct flow_keys keys;
- 		__u32 hash = __get_hash_from_flowi4(fl4, &keys);
+@@ -3168,7 +3168,7 @@ static struct bcmgenet_hw_params bcmgenet_hw_params[] = {
+ 		.rdma_offset = 0x3000,
+ 		.tdma_offset = 0x4000,
+ 		.words_per_bd = 2,
+-		.flags = GENET_HAS_EXT,
++		.flags = GENET_HAS_EXT | GENET_HAS_MDIO_INTR,
+ 	},
+ 	[GENET_V3] = {
+ 		.tx_queues = 4,
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index 967367557309..c14bfbfbe06a 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -310,7 +310,7 @@ struct bcmgenet_mib_counters {
+ #define UMAC_IRQ_TXDMA_BDONE		(1 << 18)
+ #define UMAC_IRQ_TXDMA_DONE		UMAC_IRQ_TXDMA_MBDONE
  
--		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys));
-+		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys) ?
-+				  PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
- 	}
+-/* Only valid for GENETv3+ */
++/* Only valid for GENETv2+ */
+ #define UMAC_IRQ_MDIO_DONE		(1 << 23)
+ #define UMAC_IRQ_MDIO_ERROR		(1 << 24)
  
- 	return skb->hash;
-@@ -1157,7 +1176,7 @@ static inline void skb_copy_hash(struct sk_buff *to, const struct sk_buff *from)
- {
- 	to->hash = from->hash;
- 	to->sw_hash = from->sw_hash;
--	to->l4_hash = from->l4_hash;
-+	to->hash_type = from->hash_type;
- };
- 
- static inline void skb_sender_cpu_clear(struct sk_buff *skb)
-diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 8c8548c..418b8c5 100644
---- a/include/net/flow_dissector.h
-+++ b/include/net/flow_dissector.h
-@@ -182,6 +182,11 @@ static inline bool flow_keys_have_l4(struct flow_keys *keys)
- 	return (keys->ports.ports || keys->tags.flow_label);
- }
- 
-+static inline bool flow_keys_have_l3(struct flow_keys *keys)
-+{
-+	return !!keys->control.addr_type;
-+}
-+
- u32 flow_hash_from_keys(struct flow_keys *keys);
- 
- #endif
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 255d3e0..21b8cdc 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1828,7 +1828,7 @@ static inline void sock_poll_wait(struct file *filp,
- static inline void skb_set_hash_from_sk(struct sk_buff *skb, struct sock *sk)
- {
- 	if (sk->sk_txhash) {
--		skb->l4_hash = 1;
-+		skb->hash_type = PKT_HASH_TYPE_L4;
- 		skb->hash = sk->sk_txhash;
- 	}
- }
-diff --git a/include/trace/events/net.h b/include/trace/events/net.h
-index 49cc7c3..25e7979 100644
---- a/include/trace/events/net.h
-+++ b/include/trace/events/net.h
-@@ -180,7 +180,7 @@ DECLARE_EVENT_CLASS(net_dev_rx_verbose_template,
- 		__entry->protocol = ntohs(skb->protocol);
- 		__entry->ip_summed = skb->ip_summed;
- 		__entry->hash = skb->hash;
--		__entry->l4_hash = skb->l4_hash;
-+		__entry->l4_hash = skb->hash_type == PKT_HASH_TYPE_L4;
- 		__entry->len = skb->len;
- 		__entry->data_len = skb->data_len;
- 		__entry->truesize = skb->truesize;
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index d79699c..956208b 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -658,17 +658,30 @@ EXPORT_SYMBOL(make_flow_keys_digest);
-  *
-  * This function calculates a flow hash based on src/dst addresses
-  * and src/dst port numbers.  Sets hash in skb to non-zero hash value
-- * on success, zero indicates no valid hash.  Also, sets l4_hash in skb
-- * if hash is a canonical 4-tuple hash over transport ports.
-+ * on success, zero indicates no valid hash in which case the hash type
-+ * is set to NONE. If the hash is a canonical 4-tuple hash over transport
-+ * ports then type is set to L4. If the hash did not include transport
-+ * then type is set to L3, otherwise it is assumed to be L2 only.
-  */
- void __skb_get_hash(struct sk_buff *skb)
- {
- 	struct flow_keys keys;
-+	u32 hash;
-+	enum pkt_hash_types type;
- 
- 	__flow_hash_secret_init();
- 
--	__skb_set_sw_hash(skb, ___skb_get_hash(skb, &keys, hashrnd),
--			  flow_keys_have_l4(&keys));
-+	hash = ___skb_get_hash(skb, &keys, hashrnd);
-+	if (hash == 0)
-+		type = PKT_HASH_TYPE_NONE;
-+	else if (flow_keys_have_l4(&keys))
-+		type = PKT_HASH_TYPE_L4;
-+	else if (flow_keys_have_l3(&keys))
-+		type = PKT_HASH_TYPE_L3;
-+	else
-+		type = PKT_HASH_TYPE_L2;
-+
-+	__skb_set_sw_hash(skb, hash, type);
- }
- EXPORT_SYMBOL(__skb_get_hash);
- 
-@@ -698,7 +711,8 @@ __u32 __skb_get_hash_flowi6(struct sk_buff *skb, const struct flowi6 *fl6)
- 	keys.basic.ip_proto = fl6->flowi6_proto;
- 
- 	__skb_set_sw_hash(skb, flow_hash_from_keys(&keys),
--			  flow_keys_have_l4(&keys));
-+			  flow_keys_have_l4(&keys) ?
-+			  PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
- 
- 	return skb->hash;
- }
-@@ -719,7 +733,8 @@ __u32 __skb_get_hash_flowi4(struct sk_buff *skb, const struct flowi4 *fl4)
- 	keys.basic.ip_proto = fl4->flowi4_proto;
- 
- 	__skb_set_sw_hash(skb, flow_hash_from_keys(&keys),
--			  flow_keys_have_l4(&keys));
-+			  flow_keys_have_l4(&keys) ?
-+			  PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
- 
- 	return skb->hash;
- }
 -- 
-2.1.4
+2.7.1
