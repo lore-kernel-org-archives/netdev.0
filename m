@@ -1,117 +1,130 @@
 From: Nikolay Borisov <kernel@kyup.com>
-Subject: [PATCH 5/6] ipv4: namespacify ip fragment max dist sysctl knob
-Date: Mon, 15 Feb 2016 12:11:31 +0200
-Message-ID: <1455531092-23184-6-git-send-email-kernel@kyup.com>
+Subject: [PATCH 4/6] ipv4: namespacify ip_early_demux sysctl knob
+Date: Mon, 15 Feb 2016 12:11:30 +0200
+Message-ID: <1455531092-23184-5-git-send-email-kernel@kyup.com>
 References: <1455531092-23184-1-git-send-email-kernel@kyup.com>
 Cc: netfilter-devel@vger.kernel.org, ebiederm@xmission.com,
 	pabeni@redhat.com, jmorris@namei.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:35354 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752732AbcBOKLm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 05:11:42 -0500
-Received: by mail-wm0-f50.google.com with SMTP id c200so105167149wme.0
-        for <netdev@vger.kernel.org>; Mon, 15 Feb 2016 02:11:41 -0800 (PST)
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:34270 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752670AbcBOKLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 05:11:40 -0500
+Received: by mail-wm0-f45.google.com with SMTP id b205so60594406wmb.1
+        for <netdev@vger.kernel.org>; Mon, 15 Feb 2016 02:11:40 -0800 (PST)
 In-Reply-To: <1455531092-23184-1-git-send-email-kernel@kyup.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Nikolay Borisov <kernel@kyup.com>
 ---
- include/net/inet_frag.h |  1 +
- net/ipv4/ip_fragment.c  | 25 +++++++++++++------------
- 2 files changed, 14 insertions(+), 12 deletions(-)
+ include/net/ip.h           |  3 ---
+ include/net/netns/ipv4.h   |  1 +
+ net/ipv4/ip_input.c        |  5 +----
+ net/ipv4/sysctl_net_ipv4.c | 15 ++++++++-------
+ net/ipv6/ip6_input.c       |  2 +-
+ 5 files changed, 11 insertions(+), 15 deletions(-)
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 12aac0fd6ee7..909972aa3acd 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -13,6 +13,7 @@ struct netns_frags {
- 	int			timeout;
- 	int			high_thresh;
- 	int			low_thresh;
-+	int			max_dist;
- };
+diff --git a/include/net/ip.h b/include/net/ip.h
+index e3fb25d76421..cbb134b2f0e4 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -245,9 +245,6 @@ extern int inet_peer_threshold;
+ extern int inet_peer_minttl;
+ extern int inet_peer_maxttl;
  
- /**
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 187c6fcc3027..957161413335 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -54,8 +54,6 @@
-  * code now. If you change something here, _PLEASE_ update ipv6/reassembly.c
-  * as well. Or notify me, at least. --ANK
-  */
+-/* From ip_input.c */
+-extern int sysctl_ip_early_demux;
 -
--static int sysctl_ipfrag_max_dist __read_mostly = 64;
- static const char ip_frag_cache_name[] = "ip4-frags";
+ void ipfrag_init(void);
  
- struct ipfrag_skb_cb
-@@ -150,7 +148,7 @@ static void ip4_frag_init(struct inet_frag_queue *q, const void *a)
- 	qp->daddr = arg->iph->daddr;
- 	qp->vif = arg->vif;
- 	qp->user = arg->user;
--	qp->peer = sysctl_ipfrag_max_dist ?
-+	qp->peer = q->net->max_dist ?
- 		inet_getpeer_v4(net->ipv4.peers, arg->iph->saddr, arg->vif, 1) :
- 		NULL;
+ void ip_static_sysctl_init(void);
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index b7e3fb2587da..a69cde3ce460 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -86,6 +86,7 @@ struct netns_ipv4 {
+ 	int sysctl_ip_nonlocal_bind;
+ 	/* Shall we try to damage output packets if routing dev changes? */
+ 	int sysctl_ip_dynaddr;
++	int sysctl_ip_early_demux;
+ 
+ 	int sysctl_fwmark_reflect;
+ 	int sysctl_tcp_fwmark_accept;
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 852002f64c68..e3d782746d9d 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -308,15 +308,12 @@ drop:
+ 	return true;
  }
-@@ -275,7 +273,7 @@ static struct ipq *ip_find(struct net *net, struct iphdr *iph,
- static int ip_frag_too_far(struct ipq *qp)
+ 
+-int sysctl_ip_early_demux __read_mostly = 1;
+-EXPORT_SYMBOL(sysctl_ip_early_demux);
+-
+ static int ip_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
  {
- 	struct inet_peer *peer = qp->peer;
--	unsigned int max = sysctl_ipfrag_max_dist;
-+	unsigned int max = qp->q.net->max_dist;
- 	unsigned int start, end;
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	struct rtable *rt;
  
- 	int rc;
-@@ -749,6 +747,14 @@ static struct ctl_table ip4_frags_ns_ctl_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
+-	if (sysctl_ip_early_demux &&
++	if (net->ipv4.sysctl_ip_early_demux &&
+ 	    !skb_dst(skb) &&
+ 	    !skb->sk &&
+ 	    !ip_is_fragment(iph)) {
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 04ac5b763385..1e1fe6086dd9 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -297,13 +297,6 @@ static struct ctl_table ipv4_table[] = {
+ 		.proc_handler	= proc_dointvec
  	},
-+	{
-+		.procname	= "ipfrag_max_dist",
-+		.data		= &init_net.ipv4.frags.max_dist,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero
-+	},
- 	{ }
- };
- 
-@@ -762,14 +768,6 @@ static struct ctl_table ip4_frags_ctl_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
--	{
--		.procname	= "ipfrag_max_dist",
--		.data		= &sysctl_ipfrag_max_dist,
+ 	{
+-		.procname	= "ip_early_demux",
+-		.data		= &sysctl_ip_early_demux,
 -		.maxlen		= sizeof(int),
 -		.mode		= 0644,
--		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &zero
+-		.proc_handler	= proc_dointvec
 -	},
- 	{ }
- };
+-	{
+ 		.procname	= "tcp_fastopen",
+ 		.data		= &sysctl_tcp_fastopen,
+ 		.maxlen		= sizeof(int),
+@@ -744,6 +737,13 @@ static struct ctl_table ipv4_net_table[] = {
+ 		.proc_handler	= proc_dointvec
+ 	},
+ 	{
++		.procname	= "ip_early_demux",
++		.data		= &init_net.ipv4.sysctl_ip_early_demux,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
++	{
+ 		.procname	= "ip_default_ttl",
+ 		.data		= &init_net.ipv4.sysctl_ip_default_ttl,
+ 		.maxlen		= sizeof(int),
+@@ -990,6 +990,7 @@ static __net_init int ipv4_sysctl_init_net(struct net *net)
  
-@@ -790,6 +788,7 @@ static int __net_init ip4_frags_ns_ctl_register(struct net *net)
- 		table[1].data = &net->ipv4.frags.low_thresh;
- 		table[1].extra2 = &net->ipv4.frags.high_thresh;
- 		table[2].data = &net->ipv4.frags.timeout;
-+		table[3].data = &net->ipv4.frags.max_dist;
+ 	net->ipv4.sysctl_ip_default_ttl = IPDEFTTL;
+ 	net->ipv4.sysctl_ip_dynaddr = 0;
++	net->ipv4.sysctl_ip_early_demux = 1;
  
- 		/* Don't export sysctls to unprivileged users */
- 		if (net->user_ns != &init_user_ns)
-@@ -865,6 +864,8 @@ static int __net_init ipv4_frags_init_net(struct net *net)
- 	 */
- 	net->ipv4.frags.timeout = IP_FRAG_TIME;
+ 	return 0;
  
-+	net->ipv4.frags.max_dist = 64;
-+
- 	res = inet_frags_init_net(&net->ipv4.frags);
- 	if (res)
- 		return res;
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 31ac3c56da4b..c05c425c2389 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -49,7 +49,7 @@
+ 
+ int ip6_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
+ {
+-	if (sysctl_ip_early_demux && !skb_dst(skb) && skb->sk == NULL) {
++	if (net->ipv4.sysctl_ip_early_demux && !skb_dst(skb) && skb->sk == NULL) {
+ 		const struct inet6_protocol *ipprot;
+ 
+ 		ipprot = rcu_dereference(inet6_protos[ipv6_hdr(skb)->nexthdr]);
 -- 
 2.5.0
