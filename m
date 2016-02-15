@@ -1,31 +1,29 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 0/2] mlxsw fixes
-Date: Mon, 15 Feb 2016 13:19:52 +0100
-Message-ID: <1455538794-2823-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Ben Taylor <davide.pietro@alice.it>
+Subject: I have registered your CHECK WORTH of $3.5 MILLION USD
+Date: Mon, 15 Feb 2016 13:23:56 +0100 (CET)
+Message-ID: <152e4e32206.davide.pietro@alice.it>
+Reply-To: delivery.agency11@outlook.com
+Mime-Version: 1.0
+Content-Type: text/plain;charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:35666 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753028AbcBOMT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 07:19:57 -0500
-Received: by mail-wm0-f46.google.com with SMTP id c200so110482805wme.0
-        for <netdev@vger.kernel.org>; Mon, 15 Feb 2016 04:19:56 -0800 (PST)
+Received: from smtp302.alice.it ([82.57.200.118]:32351 "EHLO smtp302.alice.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753131AbcBOMY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Feb 2016 07:24:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+I have registered your CHECK WORTH of $3.5 MILLION USD(THREE MILLION,FIVE
+HUNDRED THOUSAND DOLLARS) with delivery agency.
+Please Contact them with your delivery information such as,
+Your Name---,
+Your Address---,
+ID CARD COPY---, and Your Telephone Number:
+Contact Person: Mr. Mike Uwaa:
+E-mail: (delivery.agency11@outlook.com)
+Tel: +229-+229-6331-4984
 
-Just a couple of fixes from Ido.
-
-Ido Schimmel (2):
-  mlxsw: Treat local port 64 as valid
-  mlxsw: spectrum: Set STP state when leaving 802.1D bridge
-
- drivers/net/ethernet/mellanox/mlxsw/port.h     | 2 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 8 ++++++++
- 2 files changed, 9 insertions(+), 1 deletion(-)
-
--- 
-1.9.3
+Thank you,
+Ben Taylor
