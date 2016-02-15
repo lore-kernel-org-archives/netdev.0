@@ -1,61 +1,114 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: IPv4/IPv6 sysctl defaults in new namespace
-Date: Mon, 15 Feb 2016 15:26:07 -0600
-Message-ID: <87k2m57jio.fsf@x220.int.ebiederm.org>
-References: <CALYGNiNJ=LCyo4v7B1BUZH-27bc22ap-RQKpPQN7m0V3kBjkPw@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 1/3] lwtunnel: autoload of lwt modules
+Date: Mon, 15 Feb 2016 15:33:18 -0600
+Message-ID: <878u2l7j6p.fsf@x220.int.ebiederm.org>
+References: <1455550923-23673-1-git-send-email-rshearma@brocade.com>
+	<1455550923-23673-2-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Vasily Averin <vvs-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Pavel Emelyanov <xemul-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
-To: Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <CALYGNiNJ=LCyo4v7B1BUZH-27bc22ap-RQKpPQN7m0V3kBjkPw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-	(Konstantin Khlebnikov's message of "Mon, 15 Feb 2016 13:49:18 +0300")
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"Tom Herbert" <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
+	Jiri Benc <jbenc@redhat.com>
+To: Robert Shearman <rshearma@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:57471 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752444AbcBOVms (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 16:42:48 -0500
+In-Reply-To: <1455550923-23673-2-git-send-email-rshearma@brocade.com> (Robert
+	Shearman's message of "Mon, 15 Feb 2016 15:42:01 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+Robert Shearman <rshearma@brocade.com> writes:
 
-> IPv6 initialized with default. That's ok.
-> IPv4 makes a copy from init_net. Looks like a bug, here
-> v2.6.24-2577-g752d14dc6aa9
+> The lwt implementations using net devices can autoload using the
+> existing mechanism using IFLA_INFO_KIND. However, there's no mechanism
+> that lwt modules not using net devices can use.
 >
-> root@zurg:~# sysctl net.ipv4.conf.all.forwarding=0
-> net.ipv6.conf.all.forwarding=0
-> net.ipv4.conf.all.forwarding = 0
-> net.ipv6.conf.all.forwarding = 0
-> root@zurg:~# unshare -n sysctl net.ipv4.conf.all.forwarding
-> net.ipv6.conf.all.forwarding
-> net.ipv4.conf.all.forwarding = 0
-> net.ipv6.conf.all.forwarding = 0
-> root@zurg:~# sysctl net.ipv4.conf.all.forwarding=1
-> net.ipv6.conf.all.forwarding=1
-> net.ipv4.conf.all.forwarding = 1
-> net.ipv6.conf.all.forwarding = 1
-> root@zurg:~# unshare -n sysctl net.ipv4.conf.all.forwarding
-> net.ipv6.conf.all.forwarding
-> net.ipv4.conf.all.forwarding = 1
-> net.ipv6.conf.all.forwarding = 0
+> Therefore, add the ability to autoload modules registering lwt
+> operations for lwt implementations not using a net device so that
+> users don't have to manually load the modules.
 >
-> This is nasty. Could we fix this or this bug set in stone?
+> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+> ---
+>  include/net/lwtunnel.h |  4 +++-
+>  net/core/lwtunnel.c    | 32 ++++++++++++++++++++++++++++++++
+>  2 files changed, 35 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
+> index 66350ce3e955..e9f116e29c22 100644
+> --- a/include/net/lwtunnel.h
+> +++ b/include/net/lwtunnel.h
+> @@ -170,6 +170,8 @@ static inline int lwtunnel_input(struct sk_buff *skb)
+>  	return -EOPNOTSUPP;
+>  }
+>  
+> -#endif
+> +#endif /* CONFIG_LWTUNNEL */
+> +
+> +#define MODULE_ALIAS_RTNL_LWT(encap_type) MODULE_ALIAS("rtnl-lwt-" __stringify(encap_type))
+>  
+>  #endif /* __NET_LWTUNNEL_H */
+> diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
+> index 299cfc24d888..8ef5e5cec03e 100644
+> --- a/net/core/lwtunnel.c
+> +++ b/net/core/lwtunnel.c
+> @@ -27,6 +27,30 @@
+>  #include <net/rtnetlink.h>
+>  #include <net/ip6_fib.h>
+>  
+> +#ifdef CONFIG_MODULES
+> +
+> +static const char *lwtunnel_encap_str(enum lwtunnel_encap_types encap_type)
+> +{
+> +	switch (encap_type) {
+> +	case LWTUNNEL_ENCAP_MPLS:
+> +		return "LWTUNNEL_ENCAP_MPLS";
+> +	case LWTUNNEL_ENCAP_IP:
+> +		return "LWTUNNEL_ENCAP_IP";
+> +	case LWTUNNEL_ENCAP_ILA:
+> +		return "LWTUNNEL_ENCAP_ILA";
+> +	case LWTUNNEL_ENCAP_IP6:
+> +		return "LWTUNNEL_ENCAP_IP6";
+> +	case LWTUNNEL_ENCAP_NONE:
+> +	case __LWTUNNEL_ENCAP_MAX:
+> +		/* should not have got here */
+> +		break;
+> +	}
+> +	WARN_ON(1);
+> +	return "LWTUNNEL_ENCAP_NONE";
+> +}
+> +
+> +#endif /* CONFIG_MODULES */
+> +
+>  struct lwtunnel_state *lwtunnel_state_alloc(int encap_len)
+>  {
+>  	struct lwtunnel_state *lws;
+> @@ -85,6 +109,14 @@ int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
+>  	ret = -EOPNOTSUPP;
+>  	rcu_read_lock();
+>  	ops = rcu_dereference(lwtun_encaps[encap_type]);
+> +#ifdef CONFIG_MODULES
+> +	if (!ops) {
+> +		rcu_read_unlock();
+> +		request_module("rtnl-lwt-%s", lwtunnel_encap_str(encap_type));
+> +		rcu_read_lock();
+> +		ops = rcu_dereference(lwtun_encaps[encap_type]);
+> +	}
+> +#endif
+>  	if (likely(ops && ops->build_state))
+>  		ret = ops->build_state(dev, encap, family, cfg, lws);
+>  	rcu_read_unlock();
 
-The test is do we break anyone, and the initial network namespace
-is arbitrary enough I don't think anyone can depend upon a specific
-value when creating a new network namespace.  So if someone is willing
-to do the work we can fix this.
+My memory is fuzzy on how this is done elsewhere but this looks like it
+needs a capability check to ensure that non-root user's can't trigger
+this.
 
-Of course the fixes would have to made against a recent kernel not
-something as ancient as 2.6.24.
+It tends to be problematic if a non-root user can trigger an autoload of
+a known-buggy module.  With a combination of user namespaces and network
+namespaces unprivileged users can cause just about every corner of the
+network stack to be exercised.
 
 Eric
