@@ -1,69 +1,87 @@
-From: Jaedon Shin <jaedon.shin@gmail.com>
-Subject: [PATCH] net: bcmgenet: Add MDIO_INTR in GENETv2
-Date: Mon, 15 Feb 2016 17:42:13 +0900
-Message-ID: <1455525733-11736-1-git-send-email-jaedon.shin@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Petri Gynther <pgynther@google.com>,
-	Jaedon Shin <jaedon.shin@gmail.com>
-To: netdev@vger.kernel.org
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next v1 0/8] xen-netback: support toeplitz hashing
+Date: Mon, 15 Feb 2016 08:48:19 +0000
+Message-ID: <397b42445807445fb6439ab36c91cdbf@AMSPEX02CL03.citrite.net>
+References: <1455272005-17144-1-git-send-email-paul.durrant@citrix.com>
+	<20160212.055408.1901988218281607996.davem@davemloft.net>
+	<47dcce9fc54b42f591284cd8ea72ddba@AMSPEX02CL03.citrite.net>
+	<20160212.114146.557404301623026279.davem@davemloft.net>
+	<708813d655494f2785fda3bb4f83e1d9@AMSPEX02CL03.citrite.net>
+ <CALx6S37K9i0WH-bbfYS3p5EUzGnpHdzOAULVp5qozG3Ph+YFLg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35589 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752239AbcBOIma (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 03:42:30 -0500
-Received: by mail-pa0-f43.google.com with SMTP id ho8so83458892pac.2
-        for <netdev@vger.kernel.org>; Mon, 15 Feb 2016 00:42:30 -0800 (PST)
+Received: from smtp.eu.citrix.com ([185.25.65.24]:37082 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752201AbcBOIsV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 03:48:21 -0500
+In-Reply-To: <CALx6S37K9i0WH-bbfYS3p5EUzGnpHdzOAULVp5qozG3Ph+YFLg@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The GENETv2 chipsets has MDIO interrupt like the GENETv3+ chipsets.
-
-The previous commit d5c3d84657db ("net: phy: Avoid polling PHY with
-PHY_IGNORE_INTERRUPTS") and commit 49f7a471e4d1 ("net: bcmgenet: Properly
-configure PHY to ignore interrupt") cause link-down PHY always in some
-40nm generation chipsets.
-
-Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 4 ++--
- drivers/net/ethernet/broadcom/genet/bcmgenet.h | 2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index b15a60d787c7..8e9aa8f6390d 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1904,7 +1904,7 @@ static int init_umac(struct bcmgenet_priv *priv)
- 		bcmgenet_bp_mc_set(priv, reg);
- 	}
- 
--	/* Enable MDIO interrupts on GENET v3+ */
-+	/* Enable MDIO interrupts on GENET v2+ */
- 	if (priv->hw_params->flags & GENET_HAS_MDIO_INTR)
- 		int0_enable |= (UMAC_IRQ_MDIO_DONE | UMAC_IRQ_MDIO_ERROR);
- 
-@@ -3168,7 +3168,7 @@ static struct bcmgenet_hw_params bcmgenet_hw_params[] = {
- 		.rdma_offset = 0x3000,
- 		.tdma_offset = 0x4000,
- 		.words_per_bd = 2,
--		.flags = GENET_HAS_EXT,
-+		.flags = GENET_HAS_EXT | GENET_HAS_MDIO_INTR,
- 	},
- 	[GENET_V3] = {
- 		.tx_queues = 4,
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-index 967367557309..c14bfbfbe06a 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-@@ -310,7 +310,7 @@ struct bcmgenet_mib_counters {
- #define UMAC_IRQ_TXDMA_BDONE		(1 << 18)
- #define UMAC_IRQ_TXDMA_DONE		UMAC_IRQ_TXDMA_MBDONE
- 
--/* Only valid for GENETv3+ */
-+/* Only valid for GENETv2+ */
- #define UMAC_IRQ_MDIO_DONE		(1 << 23)
- #define UMAC_IRQ_MDIO_ERROR		(1 << 24)
- 
--- 
-2.7.1
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBUb20gSGVyYmVydCBbbWFpbHRv
+OnRvbUBoZXJiZXJ0bGFuZC5jb21dDQo+IFNlbnQ6IDE0IEZlYnJ1YXJ5IDIwMTYgMjI6MDINCj4g
+VG86IFBhdWwgRHVycmFudA0KPiBDYzogRGF2aWQgTWlsbGVyOyBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnOyB4ZW4tZGV2ZWxAbGlzdHMueGVucHJvamVjdC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRD
+SCBuZXQtbmV4dCB2MSAwLzhdIHhlbi1uZXRiYWNrOiBzdXBwb3J0IHRvZXBsaXR6IGhhc2hpbmcN
+Cj4gDQo+IE9uIEZyaSwgRmViIDEyLCAyMDE2IGF0IDU6NTkgUE0sIFBhdWwgRHVycmFudCA8UGF1
+bC5EdXJyYW50QGNpdHJpeC5jb20+DQo+IHdyb3RlOg0KPiA+PiAtLS0tLU9yaWdpbmFsIE1lc3Nh
+Z2UtLS0tLQ0KPiA+PiBGcm9tOiBEYXZpZCBNaWxsZXIgW21haWx0bzpkYXZlbUBkYXZlbWxvZnQu
+bmV0XQ0KPiA+PiBTZW50OiAxMiBGZWJydWFyeSAyMDE2IDE2OjQyDQo+ID4+IFRvOiBQYXVsIER1
+cnJhbnQNCj4gPj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHhlbi1kZXZlbEBsaXN0cy54
+ZW5wcm9qZWN0Lm9yZw0KPiA+PiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0IHYxIDAvOF0g
+eGVuLW5ldGJhY2s6IHN1cHBvcnQgdG9lcGxpdHoNCj4gaGFzaGluZw0KPiA+Pg0KPiA+PiBGcm9t
+OiBQYXVsIER1cnJhbnQgPFBhdWwuRHVycmFudEBjaXRyaXguY29tPg0KPiA+PiBEYXRlOiBGcmks
+IDEyIEZlYiAyMDE2IDExOjA3OjUwICswMDAwDQo+ID4+DQo+ID4+ID4gV2luZG93cyAqcmVxdWly
+ZXMqIHVzZSBvZiBUZW9wbGl0eiBzbyB5b3VyIHBvc2l0aW9uIGNvbXBsZXRlbHkgcnVsZXMNCj4g
+Pj4gPiBvdXQgYmVpbmcgYWJsZSB0byBzdXBwb3J0IHJlY2VpdmUgc2lkZSBzY2FsaW5nIGluIFdp
+bmRvd3MgUFYNCj4gPj4gPiBmcm9udGVuZHMgb24gTGludXgga2VybmVsIGJhY2tlbmRzLCBub3Qg
+b25seSBmb3IgWGVuIGJ1dCBmb3IgYW55DQo+ID4+ID4gb3RoZXIgaHlwZXJ2aXNvciwgd2hpY2gg
+SSB0aGluayBpcyB0b3RhbGx5IHVucmVhc29uYWJsZS4NCj4gPj4NCj4gPj4gV2UgaGF2ZSBzdHJv
+bmcgcmVhc29uIHRvIGJlbGlldmUgdGhhdCBUb2VwbGl0eiBoYXMgcHJvcGVydGllcyB0aGF0DQo+
+ID4+IG1ha2UgaXQgdmVyeSB3ZWFrIGlmIG5vdCBleHBsb2l0YWJsZSwgdGhlcmVmb3JlIGRvaW5n
+IHNvZnR3YXJlIFJTUw0KPiA+PiB3aXRoIEplbmtpbnMgaXMgc3VwZXJpb3IuDQo+ID4NCj4gPiBJ
+IGRvbid0IGRpc2FncmVlLCBidXQgdGhlcmUgaXMgcmVhbGx5IG5vIGNob2ljZSBvZiBhbGdvcml0
+aG0gd2hlcmUgYSBXaW5kb3dzDQo+IGZyb250ZW5kIGlzIGNvbmNlcm5lZC4gTXkgcGF0Y2hlcyBv
+bmx5IGFkZCBUb2VwbGl0eiBoYXNoaW5nIGludG8geGVuLQ0KPiBuZXRiYWNrIGFjY29yZGluZyB0
+byB0aGUgc3BlY2lmaWNhdGlvbiBpbiB4ZW4ncyBuZXRpZi5oOyB0aGUgYWxnb3JpdGhtIGlzIG5v
+dA0KPiBleHBvc2VkIGZvciB1c2UgYnkgYW55IG90aGVyIHBhcnQgb2YgdGhlIGtlcm5lbC4NCj4g
+DQo+IFlvdSBhcmUgdG91Y2hpbmcgc3RydWN0IHNrX2J1ZmYgZm9yIHRoaXMuIENoYW5naW5nIHN1
+Y2ggYSBjb3JlDQo+IG5ldHdvcmtpbmcgZGF0YSBzdHJ1Y3R1cmUganVzdCB0byBzYXRpc2Z5IGEg
+cmVxdWlyZW1lbnQgb2YgV2luZG93cw0KPiBzZWVtcyBsaWtlIGEgbG9uZyBzaG90IHRvIG1lLi4u
+DQoNClRoZSBwYXRjaCB0byBza19idWZmIGlzIG5vdGhpbmcgdG8gZG8gd2l0aCBUb2VwbGl0eiBo
+YXNoaW5nLiBJdCdzIG1lcmVseSBiZWNhdXNlIEkgbm90aWNlZCB0aGF0IHNrX2J1ZmYgd2FzIHVu
+YWJsZSB0byBzdG9yZSBjb21wbGV0ZSBoYXNoIHR5cGUgaW5mb3JtYXRpb24gYXQgdGhlIG1vbWVu
+dCBhbmQgdGhhdCBzZWVtcyBzdWJvcHRpbWFsLiBJJ3ZlIHJlLXdvcmRlZCBhbmQgcmVzZW50IHRo
+YXQgcGF0Y2ggc2VwYXJhdGVseS4NCg0KPiANCj4gPiBJZiBpdCB3b3VsZCBoZWxwIEkgY2FuIGFk
+ZCBhIG1vZHVsZSBwYXJhbWV0ZXIgdG8geGVuLW5ldGJhY2sgdG8gY29udHJvbA0KPiBhZHZlcnRp
+c2luZyB0aGUgb3B0aW9uIG9mIHRoZSBoYXNoIHRvIGZyb250ZW5kcyBzbyB0aGF0IGl0IGNhbiBi
+ZSBnbG9iYWxseQ0KPiBkaXNhYmxlZCBpZiBpdCBpcyBkZXBsb3llZCBvbiBob3N0IHdoZXJlIHRo
+ZXJlIGFyZSBubyBXaW5kb3dzIGd1ZXN0cy4NCj4gDQo+IFRvZXBsaXR6IGlzIGRvZy1zbG93IHRv
+IGNvbXB1dGUgaW4gc29mdHdhcmUuIENvbXBhcmluZyB5b3VyDQo+IGltcGxlbWVudGF0aW9uIHRv
+IEplbmtpbnMgaGFzaCAoaGFzaCkgaXQncyBhYm91dCAxMnggc2xvd2VyICgxMDIgbnNlY3MNCj4g
+dmVyc3VzIDggbnNlY3MgZm9yIElQdjQgb24gbXkgc3lzdGVtKS4gRG9pbmcgdGhpcyBmb3IgZXZl
+cnkgcGFja2V0DQo+IHNlZW1zIGxpa2UgYSBub24tc3RhcnRlciB0byBtZS4gSSBzdXNwZWN0IHRo
+ZSBtYWpvcml0eSB1c2UgY2FzZSBmb3INCj4gcmVjZWl2ZSBpcyBzaW1wbGUgdW5pZm9ybSBsb2Fk
+IGJhbGFuY2luZyBhY3Jvc3MgdGhlIHZpcnR1YWwgcXVldWVzIGluDQo+IHdoaWNoIGNhc2Ugamhh
+c2ggd2lsbCBiZSBwZXJmZWN0bHkgZmluZS4gVGhlIGNhc2Ugd2hlcmUgaXQgcHJvYmFibHkNCj4g
+bWF0dGVycyBpcyBpZiB0aGUgV2luZG93cyBPUyBpcyB0cnlpbmcgdG8gY29uZmlndXJlIHNvbWUg
+bm9uLXVuaWZvcm0NCj4gZGlzdHJpYnV0aW9uIChpc29sYXRpbmcgYSBzaW5nbGUgZmxvdyBmb3Ig
+aW5zdGFuY2UpLiBUbyBoYW5kbGUgdGhpcw0KPiBjYXNlLCB5b3UgY291bGQgaW1wbGVtZW50IGEg
+c2ltcGxlIGxvb2sgdXAgZmxvdyB0YWJsZSB0byBtYXAgYQ0KPiBza2ItPmhhc2ggdG8gYSBUb2Vw
+bGl0eiBoYXNoLCBzbyB0aGF0IHRoZSBUb2VwbGl0eiBoYXNoIG9ubHkgbmVlZHMgdG8NCj4gYmUg
+Y2FsY3VsYXRlZCBvbmUgdGltZSBmb3IgYSBmbG93IChyZWNvbXB1dGVkIHdpdGggc29tZSBwZXJp
+b2RpYw0KPiB0aW1lb3V0KS4gVGhpcyB3b3VsZCBiZSBwcm9iYWJpbGlzdGljIHRob3VnaCwgc28g
+aWYgcmVhbGx5IFdpbmRvd3MNCj4gcmVxdWlyZXMgdGhlIGhhc2ggdG8gYmUgc2V0IGNvcnJlY3Rs
+eSAxMDAlIG9mIHRoZSB0aW1lIGl0IHdvbid0IHdvcmsuDQo+IA0KDQpJIGFncmVlIHRoYXQgVG9l
+cGxpdHogaXMgZG9nLXNsb3cgdG8gY2FsY3VsYXRpb24gaW4gcy93LiBLZWVwaW5nIGEgY2FjaGUg
+b2YgdGhlIE4gbW9zdCByZWNlbnQgZmxvd3MgYW5kIGZsdXNoaW5nIGl0IGlmIHRoZSBrZXkgY2hh
+bmdlcyAod2hpY2ggaXMgdGhlIG9ubHkgdGhpbmcgdGhhdCdzIGdvaW5nIHRvIGNhdXNlIHRoZSBo
+YXNoIHRvIGNoYW5nZSkgc291bmRzIGxpa2UgYSBnb29kIG9wdGltaXphdGlvbi4gSSdsbCBjZXJ0
+YWlubHkgYWRkIHRoYXQuDQoNCiAgUGF1bA0KDQo+IFRvbQ0KPiANCj4gPg0KPiA+ICAgUGF1bA0K
