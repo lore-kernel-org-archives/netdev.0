@@ -1,44 +1,60 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: tee: select NF_DUP_IPV6 unconditionally
-Date: Mon, 15 Feb 2016 19:14:36 +0100
-Message-ID: <20160215181436.GA3462@salvia>
-References: <1454664040-1344109-1-git-send-email-arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Same data to several sockets with just one syscall ?
+Date: Mon, 15 Feb 2016 19:16:20 +0100
+Message-ID: <1455560180.11190.12.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAGWmfYrGv8NdJQHs6OA=b=ao8=25JUoZAK_i65+GMFX1OyV-fg@mail.gmail.com>
+	 <1455273356.31770.1.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAGWmfYru4zP1n7aSbjtpO4J=aCBfp47B8AV-ACv8XuY-n9E+Hg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.infradead.org,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1454664040-1344109-1-git-send-email-arnd@arndb.de>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Claudio Scordino <claudio@evidence.eu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:36066 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752507AbcBOSQY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 13:16:24 -0500
+Received: by mail-wm0-f44.google.com with SMTP id g62so71326070wme.1
+        for <netdev@vger.kernel.org>; Mon, 15 Feb 2016 10:16:23 -0800 (PST)
+In-Reply-To: <CAGWmfYru4zP1n7aSbjtpO4J=aCBfp47B8AV-ACv8XuY-n9E+Hg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 05, 2016 at 10:20:21AM +0100, Arnd Bergmann wrote:
-> The NETFILTER_XT_TARGET_TEE option selects NF_DUP_IPV6 whenever
-> IP6_NF_IPTABLES is enabled, and it ensures that it cannot be
-> builtin itself if NF_CONNTRACK is a loadable module, as that
-> is a dependency for NF_DUP_IPV6.
+On Mon, 2016-02-15 at 11:03 +0100, Claudio Scordino wrote:
+> Hi Eric,
 > 
-> However, NF_DUP_IPV6 can be enabled even if IP6_NF_IPTABLES is
-> turned off, and it only really depends on IPV6. With the current
-> check in tee_tg6, we call nf_dup_ipv6() whenever NF_DUP_IPV6
-> is enabled. This can however be a loadable module which is
-> unreachable from a built-in xt_TEE:
+> 2016-02-12 11:35 GMT+01:00 Eric Dumazet <eric.dumazet@gmail.com>:
+> > On Fri, 2016-02-12 at 09:53 +0100, Claudio Scordino wrote:
+> >
+> >> This makes the application waste time in entering/exiting the kernel
+> >> level several times.
+> >
+> > syscall overhead is usually small. Real cost is actually getting to the
+> > socket objects (fd manipulation), that you wont avoid with a
+> > super-syscall anyway.
 > 
-> net/built-in.o: In function `tee_tg6':
-> :(.text+0x67728): undefined reference to `nf_dup_ipv6'
+> Thank you for answering. I see your point.
 > 
-> The bug was originally introduced in the split of the xt_TEE module
-> into separate modules for ipv4 and ipv6, and two patches tried
-> to fix it unsuccessfully afterwards.
-> 
-> This is a revert of the the first incorrect attempt to fix it,
-> going back to depending on IPV6 as the dependency, and we
-> adapt the 'select' condition accordingly.
+> However, assuming that a switch from user-space to kernel-space (and
+> back) needs about 200nsec of computation (which I guess is a
+> reasonable value for a 3GHz x86 architecture), the 50th receiver
+> experiences a latency of about 10 usec. In some domains (e.g.,
+> finance) this delay is not negligible.
 
-Applied, thanks Arnd.
+I thought these domains were using multicast.
+
+> 
+> Moving the "fan-out" code into kernel space would remove this waste of
+> time. IMHO, the latency reduction would pay back the 100 lines of code
+> for adding a new syscall.
+
+It wont reduce the latency at all, and add a lot of maintenance hassle.
+
+syscall overhead is about 40 ns.
+This is the time taken to transmit ~50 bytes on 10Gbit link.
+
+40ns * 50 = 2 usec only.
+
+Feel free to implement your idea and test it, you'll discover the added
+complexity is not worth it.
