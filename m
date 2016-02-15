@@ -1,43 +1,71 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net-next 2/3] mpls: autoload lwt module
-Date: Mon, 15 Feb 2016 15:42:02 +0000
-Message-ID: <1455550923-23673-3-git-send-email-rshearma@brocade.com>
-References: <1455550923-23673-1-git-send-email-rshearma@brocade.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: sctp: bad hash index calculation
+Date: Mon, 15 Feb 2016 10:50:18 -0500
+Message-ID: <20160215155017.GB24321@hmsreliant.think-freely.org>
+References: <CACT4Y+bKiens=uiZ99t+9ThtXi33W_bQLqh_AgWkQeQDmyUE5w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"Tom Herbert" <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	"Robert Shearman" <rshearma@brocade.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	linux-sctp@vger.kernel.org,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:31607 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751375AbcBOPnC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 10:43:02 -0500
-In-Reply-To: <1455550923-23673-1-git-send-email-rshearma@brocade.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57416 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750857AbcBOPuj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 10:50:39 -0500
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+bKiens=uiZ99t+9ThtXi33W_bQLqh_AgWkQeQDmyUE5w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid users having to manually load the module by adding a module
-alias allowing it to be autoloaded by the lwt infra.
+On Mon, Feb 15, 2016 at 04:11:22PM +0100, Dmitry Vyukov wrote:
+> Hello,
+> 
+> While looking into some memory leaks of sctp ports I've noticed that
+> sctp_init initializes port hash table as follows:
+> 
+>     /* Allocate and initialize the SCTP port hash table.  */
+>     do {
+>         sctp_port_hashsize = (1UL << order) * PAGE_SIZE /
+>                     sizeof(struct sctp_bind_hashbucket);
+>         if ((sctp_port_hashsize > (64 * 1024)) && order > 0)
+>             continue;
+>         sctp_port_hashtable = (struct sctp_bind_hashbucket *)
+>             __get_free_pages(GFP_KERNEL | __GFP_NOWARN, order);
+>     } while (!sctp_port_hashtable && --order > 0);
+> 
+> and then hash index is computed as follows:
+> 
+> /* Warning: The following hash functions assume a power of two 'size'. */
+> /* This is the hash function for the SCTP port hash table. */
+> static inline int sctp_phashfn(struct net *net, __u16 lport)
+> {
+>     return (net_hash_mix(net) + lport) & (sctp_port_hashsize - 1);
+> }
+> 
+> I don't see what ensures that sctp_port_hashsize is in fact a power-of-2.
+> 
+> spinlock_t in sctp_bind_hashbucket can be 2 words in some configs,
+> then sizeof(sctp_bind_hashbucket) == 24, which can render half of hash
+> table unused.
+> 
+> struct sctp_bind_hashbucket {
+>         spinlock_t      lock;
+>         struct hlist_head       chain;
+> };
+> 
+> Am I missing something?
+> 
+You're right, its not.  It seems to me that sctp_port_hashsize is meant to
+simply bound the upper index of the hashtable array, and as such the phashfn
+should not assume that its a power of 2 (i.e. it should simply mod the hash
+value by sctp_port_hashsize rather than and-ing it).  Alternatively we could
+simply use alloc_large_system_hash to allocate this hash table here, the way tcp
+does.  I'm traveling right now, but can take care of this as soon as i get home
+on wednesday
 
-Signed-off-by: Robert Shearman <rshearma@brocade.com>
----
- net/mpls/mpls_iptunnel.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
-index fb31aa87de81..1b4536960f79 100644
---- a/net/mpls/mpls_iptunnel.c
-+++ b/net/mpls/mpls_iptunnel.c
-@@ -227,5 +227,6 @@ static void __exit mpls_iptunnel_exit(void)
- }
- module_exit(mpls_iptunnel_exit);
- 
-+MODULE_ALIAS_RTNL_LWT(LWTUNNEL_ENCAP_MPLS);
- MODULE_DESCRIPTION("MultiProtocol Label Switching IP Tunnels");
- MODULE_LICENSE("GPL v2");
--- 
-2.1.4
+Neil
