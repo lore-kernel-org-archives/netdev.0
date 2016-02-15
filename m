@@ -1,25 +1,25 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next 1/3] pasemi_mac: Replace LRO with GRO
-Date: Mon, 15 Feb 2016 21:25:11 +0000
-Message-ID: <20160215212511.GC5231@decadent.org.uk>
+Subject: [PATCH net-next 2/3] RDMA/nes: Replace LRO with GRO
+Date: Mon, 15 Feb 2016 21:25:44 +0000
+Message-ID: <20160215212544.GD5231@decadent.org.uk>
 References: <20160215212351.GB5231@decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha512;
-	protocol="application/pgp-signature"; boundary="da4uJneut+ArUgXk"
-Cc: Olof Johansson <olof@lixom.net>
+	protocol="application/pgp-signature"; boundary="9dgjiU4MmWPVapMU"
+Cc: Faisal Latif <faisal.latif@intel.com>, linux-rdma@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36449 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36456 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751104AbcBOVZN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 16:25:13 -0500
+	by vger.kernel.org with ESMTP id S1751373AbcBOVZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 16:25:47 -0500
 Content-Disposition: inline
 In-Reply-To: <20160215212351.GB5231@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---da4uJneut+ArUgXk
+--9dgjiU4MmWPVapMU
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
@@ -31,201 +31,223 @@ Compile-tested only.
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- drivers/net/ethernet/pasemi/Kconfig              |  5 +--
- drivers/net/ethernet/pasemi/pasemi_mac.c         | 50 +-------------------=
+ drivers/infiniband/hw/nes/Kconfig   |  1 -
+ drivers/infiniband/hw/nes/nes_hw.c  | 44 +--------------------------------=
 ----
- drivers/net/ethernet/pasemi/pasemi_mac.h         |  4 --
- drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c |  1 -
- 4 files changed, 3 insertions(+), 57 deletions(-)
+ drivers/infiniband/hw/nes/nes_hw.h  |  7 ------
+ drivers/infiniband/hw/nes/nes_nic.c |  7 ------
+ 4 files changed, 1 insertion(+), 58 deletions(-)
 
-diff --git a/drivers/net/ethernet/pasemi/Kconfig b/drivers/net/ethernet/pas=
-emi/Kconfig
-index db19c6f49859..7c92e8306c19 100644
---- a/drivers/net/ethernet/pasemi/Kconfig
-+++ b/drivers/net/ethernet/pasemi/Kconfig
-@@ -5,7 +5,7 @@
- config NET_VENDOR_PASEMI
- 	bool "PA Semi devices"
- 	default y
--	depends on PPC_PASEMI && PCI && INET
-+	depends on PPC_PASEMI && PCI
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y.
-=20
-@@ -18,9 +18,8 @@ if NET_VENDOR_PASEMI
-=20
- config PASEMI_MAC
- 	tristate "PA Semi 1/10Gbit MAC"
--	depends on PPC_PASEMI && PCI && INET
-+	depends on PPC_PASEMI && PCI
- 	select PHYLIB
+diff --git a/drivers/infiniband/hw/nes/Kconfig b/drivers/infiniband/hw/nes/=
+Kconfig
+index 846dc97cf260..7964eba8e7ed 100644
+--- a/drivers/infiniband/hw/nes/Kconfig
++++ b/drivers/infiniband/hw/nes/Kconfig
+@@ -2,7 +2,6 @@ config INFINIBAND_NES
+ 	tristate "NetEffect RNIC Driver"
+ 	depends on PCI && INET && INFINIBAND
+ 	select LIBCRC32C
 -	select INET_LRO
  	---help---
- 	  This driver supports the on-chip 1/10Gbit Ethernet controller on
- 	  PA Semi's PWRficient line of chips.
-diff --git a/drivers/net/ethernet/pasemi/pasemi_mac.c b/drivers/net/etherne=
-t/pasemi/pasemi_mac.c
-index 57a6e6cd74fc..af54df52aa6b 100644
---- a/drivers/net/ethernet/pasemi/pasemi_mac.c
-+++ b/drivers/net/ethernet/pasemi/pasemi_mac.c
-@@ -30,9 +30,7 @@
- #include <linux/skbuff.h>
-=20
- #include <linux/ip.h>
+ 	  This is the RDMA Network Interface Card (RNIC) driver for
+ 	  NetEffect Ethernet Cluster Server Adapters.
+diff --git a/drivers/infiniband/hw/nes/nes_hw.c b/drivers/infiniband/hw/nes=
+/nes_hw.c
+index 4713dd7ed764..a1c6481d8038 100644
+--- a/drivers/infiniband/hw/nes/nes_hw.c
++++ b/drivers/infiniband/hw/nes/nes_hw.c
+@@ -35,18 +35,11 @@
+ #include <linux/moduleparam.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+-#include <linux/ip.h>
 -#include <linux/tcp.h>
- #include <net/checksum.h>
+ #include <linux/if_vlan.h>
 -#include <linux/inet_lro.h>
- #include <linux/prefetch.h>
+ #include <linux/slab.h>
 =20
- #include <asm/irq.h>
-@@ -52,12 +50,9 @@
-  *
-  * - Multicast support
-  * - Large MTU support
-- * - SW LRO
-  * - Multiqueue RX/TX
-  */
+ #include "nes.h"
 =20
--#define LRO_MAX_AGGR 64
+-static unsigned int nes_lro_max_aggr =3D NES_LRO_MAX_AGGR;
+-module_param(nes_lro_max_aggr, uint, 0444);
+-MODULE_PARM_DESC(nes_lro_max_aggr, "NIC LRO max packet aggregation");
 -
- #define PE_MIN_MTU	64
- #define PE_MAX_MTU	9000
- #define PE_DEF_MTU	ETH_DATA_LEN
-@@ -257,37 +252,6 @@ static int pasemi_mac_set_mac_addr(struct net_device *=
-dev, void *p)
- 	return 0;
+ static int wide_ppm_offset;
+ module_param(wide_ppm_offset, int, 0644);
+ MODULE_PARM_DESC(wide_ppm_offset, "Increase CX4 interface clock ppm offset=
+, 0=3D100ppm (default), 1=3D300ppm");
+@@ -1642,25 +1635,6 @@ static void nes_rq_wqes_timeout(unsigned long parm)
  }
 =20
--static int get_skb_hdr(struct sk_buff *skb, void **iphdr,
--		       void **tcph, u64 *hdr_flags, void *data)
+=20
+-static int nes_lro_get_skb_hdr(struct sk_buff *skb, void **iphdr,
+-			       void **tcph, u64 *hdr_flags, void *priv)
 -{
--	u64 macrx =3D (u64) data;
 -	unsigned int ip_len;
 -	struct iphdr *iph;
--
--	/* IPv4 header checksum failed */
--	if ((macrx & XCT_MACRX_HTY_M) !=3D XCT_MACRX_HTY_IPV4_OK)
--		return -1;
--
--	/* non tcp packet */
 -	skb_reset_network_header(skb);
 -	iph =3D ip_hdr(skb);
 -	if (iph->protocol !=3D IPPROTO_TCP)
 -		return -1;
--
 -	ip_len =3D ip_hdrlen(skb);
 -	skb_set_transport_header(skb, ip_len);
 -	*tcph =3D tcp_hdr(skb);
 -
--	/* check if ip header and tcp header are complete */
--	if (ntohs(iph->tot_len) < ip_len + tcp_hdrlen(skb))
--		return -1;
--
 -	*hdr_flags =3D LRO_IPV4 | LRO_TCP;
 -	*iphdr =3D iph;
--
 -	return 0;
 -}
 -
- static int pasemi_mac_unmap_tx_skb(struct pasemi_mac *mac,
- 				    const int nfrags,
- 				    struct sk_buff *skb,
-@@ -817,7 +781,7 @@ static int pasemi_mac_clean_rx(struct pasemi_mac_rxring=
- *rx,
- 		skb_put(skb, len-4);
-=20
- 		skb->protocol =3D eth_type_trans(skb, mac->netdev);
--		lro_receive_skb(&mac->lro_mgr, skb, (void *)macrx);
-+		napi_gro_receive(&mac->napi, skb);
-=20
- next:
- 		RX_DESC(rx, n) =3D 0;
-@@ -839,8 +803,6 @@ next:
-=20
- 	rx_ring(mac)->next_to_clean =3D n;
-=20
--	lro_flush_all(&mac->lro_mgr);
 -
- 	/* Increase is in number of 16-byte entries, and since each descriptor
- 	 * with an 8BRES takes up 3x8 bytes (padded to 4x8), increase with
- 	 * count*2.
-@@ -1754,16 +1716,6 @@ pasemi_mac_probe(struct pci_dev *pdev, const struct =
-pci_device_id *ent)
- 	dev->features =3D NETIF_F_IP_CSUM | NETIF_F_LLTX | NETIF_F_SG |
- 			NETIF_F_HIGHDMA | NETIF_F_GSO;
+ /**
+  * nes_init_nic_qp
+  */
+@@ -1895,14 +1869,6 @@ int nes_init_nic_qp(struct nes_device *nesdev, struc=
+t net_device *netdev)
+ 		return -ENOMEM;
+ 	}
 =20
--	mac->lro_mgr.max_aggr =3D LRO_MAX_AGGR;
--	mac->lro_mgr.max_desc =3D MAX_LRO_DESCRIPTORS;
--	mac->lro_mgr.lro_arr =3D mac->lro_desc;
--	mac->lro_mgr.get_skb_header =3D get_skb_hdr;
--	mac->lro_mgr.features =3D LRO_F_NAPI | LRO_F_EXTRACT_VLAN_ID;
--	mac->lro_mgr.dev =3D mac->netdev;
--	mac->lro_mgr.ip_summed =3D CHECKSUM_UNNECESSARY;
--	mac->lro_mgr.ip_summed_aggr =3D CHECKSUM_UNNECESSARY;
--
--
- 	mac->dma_pdev =3D pci_get_device(PCI_VENDOR_ID_PASEMI, 0xa007, NULL);
- 	if (!mac->dma_pdev) {
- 		dev_err(&mac->pdev->dev, "Can't find DMA Controller\n");
-diff --git a/drivers/net/ethernet/pasemi/pasemi_mac.h b/drivers/net/etherne=
-t/pasemi/pasemi_mac.h
-index a5807703ab96..161c99a98403 100644
---- a/drivers/net/ethernet/pasemi/pasemi_mac.h
-+++ b/drivers/net/ethernet/pasemi/pasemi_mac.h
-@@ -31,7 +31,6 @@
- #define CS_RING_SIZE (TX_RING_SIZE*2)
+-	nesvnic->lro_mgr.max_aggr       =3D nes_lro_max_aggr;
+-	nesvnic->lro_mgr.max_desc       =3D NES_MAX_LRO_DESCRIPTORS;
+-	nesvnic->lro_mgr.lro_arr        =3D nesvnic->lro_desc;
+-	nesvnic->lro_mgr.get_skb_header =3D nes_lro_get_skb_hdr;
+-	nesvnic->lro_mgr.features       =3D LRO_F_NAPI | LRO_F_EXTRACT_VLAN_ID;
+-	nesvnic->lro_mgr.dev            =3D netdev;
+-	nesvnic->lro_mgr.ip_summed      =3D CHECKSUM_UNNECESSARY;
+-	nesvnic->lro_mgr.ip_summed_aggr =3D CHECKSUM_UNNECESSARY;
+ 	return 0;
+ }
 =20
+@@ -2809,13 +2775,10 @@ void nes_nic_ce_handler(struct nes_device *nesdev, =
+struct nes_hw_nic_cq *cq)
+ 	u16 pkt_type;
+ 	u16 rqes_processed =3D 0;
+ 	u8 sq_cqes =3D 0;
+-	u8 nes_use_lro =3D 0;
 =20
--#define MAX_LRO_DESCRIPTORS 8
- #define MAX_CS	2
+ 	head =3D cq->cq_head;
+ 	cq_size =3D cq->cq_size;
+ 	cq->cqes_pending =3D 1;
+-	if (nesvnic->netdev->features & NETIF_F_LRO)
+-		nes_use_lro =3D 1;
+ 	do {
+ 		if (le32_to_cpu(cq->cq_vbase[head].cqe_words[NES_NIC_CQE_MISC_IDX]) &
+ 				NES_NIC_CQE_VALID) {
+@@ -2950,10 +2913,7 @@ void nes_nic_ce_handler(struct nes_device *nesdev, s=
+truct nes_hw_nic_cq *cq)
 =20
- struct pasemi_mac_txring {
-@@ -84,10 +83,7 @@ struct pasemi_mac {
+ 					__vlan_hwaccel_put_tag(rx_skb, htons(ETH_P_8021Q), vlan_tag);
+ 				}
+-				if (nes_use_lro)
+-					lro_receive_skb(&nesvnic->lro_mgr, rx_skb, NULL);
+-				else
+-					netif_receive_skb(rx_skb);
++				napi_gro_receive(&nesvnic->napi, rx_skb);
 =20
- 	u8		mac_addr[ETH_ALEN];
+ skip_rx_indicate0:
+ 				;
+@@ -2984,8 +2944,6 @@ skip_rx_indicate0:
 =20
--	struct net_lro_mgr	lro_mgr;
--	struct net_lro_desc	lro_desc[MAX_LRO_DESCRIPTORS];
- 	struct timer_list	rxtimer;
--	unsigned int		lro_max_aggr;
+ 	} while (1);
 =20
- 	struct pasemi_mac_txring *tx;
- 	struct pasemi_mac_rxring *rx;
-diff --git a/drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c b/drivers/net=
-/ethernet/pasemi/pasemi_mac_ethtool.c
-index 25fae568261f..f046bfc18e7d 100644
---- a/drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c
-+++ b/drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c
-@@ -20,7 +20,6 @@
- #include <linux/netdevice.h>
- #include <linux/ethtool.h>
- #include <linux/pci.h>
+-	if (nes_use_lro)
+-		lro_flush_all(&nesvnic->lro_mgr);
+ 	if (sq_cqes) {
+ 		barrier();
+ 		/* restart the queue if it had been stopped */
+diff --git a/drivers/infiniband/hw/nes/nes_hw.h b/drivers/infiniband/hw/nes=
+/nes_hw.h
+index c9080208aad2..1b66ef1e9937 100644
+--- a/drivers/infiniband/hw/nes/nes_hw.h
++++ b/drivers/infiniband/hw/nes/nes_hw.h
+@@ -33,8 +33,6 @@
+ #ifndef __NES_HW_H
+ #define __NES_HW_H
+=20
 -#include <linux/inet_lro.h>
+-
+ #define NES_PHY_TYPE_CX4       1
+ #define NES_PHY_TYPE_1G        2
+ #define NES_PHY_TYPE_ARGUS     4
+@@ -1049,8 +1047,6 @@ struct nes_hw_tune_timer {
+ #define NES_TIMER_ENABLE_LIMIT      4
+ #define NES_MAX_LINK_INTERRUPTS     128
+ #define NES_MAX_LINK_CHECK          200
+-#define NES_MAX_LRO_DESCRIPTORS     32
+-#define NES_LRO_MAX_AGGR            64
 =20
- #include <asm/pasemi_dma.h>
- #include "pasemi_mac.h"
+ struct nes_adapter {
+ 	u64              fw_ver;
+@@ -1263,9 +1259,6 @@ struct nes_vnic {
+ 	u8  next_qp_nic_index;
+ 	u8  of_device_registered;
+ 	u8  rdma_enabled;
+-	u32 lro_max_aggr;
+-	struct net_lro_mgr lro_mgr;
+-	struct net_lro_desc lro_desc[NES_MAX_LRO_DESCRIPTORS];
+ 	struct timer_list event_timer;
+ 	enum ib_event_type delayed_event;
+ 	enum ib_event_type last_dispatched_event;
+diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/ne=
+s/nes_nic.c
+index 6a0bdfa0ce2e..3ea9e055fdd3 100644
+--- a/drivers/infiniband/hw/nes/nes_nic.c
++++ b/drivers/infiniband/hw/nes/nes_nic.c
+@@ -1085,9 +1085,6 @@ static const char nes_ethtool_stringset[][ETH_GSTRING=
+_LEN] =3D {
+ 	"Free 4Kpbls",
+ 	"Free 256pbls",
+ 	"Timer Inits",
+-	"LRO aggregated",
+-	"LRO flushed",
+-	"LRO no_desc",
+ 	"PAU CreateQPs",
+ 	"PAU DestroyQPs",
+ };
+@@ -1302,9 +1299,6 @@ static void nes_netdev_get_ethtool_stats(struct net_d=
+evice *netdev,
+ 	target_stat_values[++index] =3D nesadapter->free_4kpbl;
+ 	target_stat_values[++index] =3D nesadapter->free_256pbl;
+ 	target_stat_values[++index] =3D int_mod_timer_init;
+-	target_stat_values[++index] =3D nesvnic->lro_mgr.stats.aggregated;
+-	target_stat_values[++index] =3D nesvnic->lro_mgr.stats.flushed;
+-	target_stat_values[++index] =3D nesvnic->lro_mgr.stats.no_desc;
+ 	target_stat_values[++index] =3D atomic_read(&pau_qps_created);
+ 	target_stat_values[++index] =3D atomic_read(&pau_qps_destroyed);
+ }
+@@ -1709,7 +1703,6 @@ struct net_device *nes_netdev_init(struct nes_device =
+*nesdev,
+ 		netdev->hw_features |=3D NETIF_F_TSO;
+=20
+ 	netdev->features =3D netdev->hw_features | NETIF_F_HIGHDMA | NETIF_F_HW_V=
+LAN_CTAG_TX;
+-	netdev->hw_features |=3D NETIF_F_LRO;
+=20
+ 	nes_debug(NES_DBG_INIT, "nesvnic =3D %p, reported features =3D 0x%lX, QPi=
+d =3D %d,"
+ 			" nic_index =3D %d, logical_port =3D %d, mac_index =3D %d.\n",
 
 
---da4uJneut+ArUgXk
+--9dgjiU4MmWPVapMU
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUBVsJCN+e/yOyVhhEJAQrWQQ//UlXdqsySYIVF0z+MK0kCHLtv/ItcJtLf
-w9HooASGCv6qx7tPG8W8JUzzW0I2tif7wdNrw9Ilw7a3k0jF7JqMROZjmKMqDK0L
-36Csd5B1DMO92VFtsTCgtzVD5JTuzuLhr2kenPBKMOc1cEsWrsmKUcleP6BW5tqY
-05gFTF9BzAae6dDbjaUtrNMdiLTp33mT3wWM1ldp4N3szFSj3R86ojAsYxNqbQ/M
-uck30H4ZxUw1XhTBx7VPWdjjLIoJaMhox6N2dhQVjdDFh47AbO4nyWHtz5j1DpSL
-NblAn/8iW2PiA9CrZ8lXz+hQyv2V//mMxcTcHaZA5aQrNavGl4aUwSYtHsk//F/b
-9qE47+u8yfHjWb/HKq9vmH4fiXyNzl70Qg/xzj9TyW+MGP7x+32qoLSAILkPokUa
-jzWpbdyUgwNhK0u0hN+JfmrwYrHfTrWOAyFJ3S75HhuxV4aQe6FP0jZ1auG+LnH0
-3v5gm4Ds+JsGc7x6OXzBD9qXOAZ/fNctvkIc/deL9/onXbxyRxsMt8LSF54oS2TW
-nIvXJgCFctJJ1HJGmyY+wE3vYifVDaPlhaocHcc94Y1cwyhTC1zGEAsEBYCcJNQE
-cDJFav8/SKyiaFD9fdN6U4uQNEElf1fVuNOWCDBpHWPh4CilRXfbO+KwAme2+6E/
-Niatwm7i2OI=
-=YR3N
+iQIVAwUBVsJCV+e/yOyVhhEJAQqSDg//Ul34zkO5V7LnXGCGPYcXhr9xv7ahmaNg
+7XcSJ6PJ8ZUhxGYynas9BqBobIANkUorkFqlksx3fvmHgCmWtcpljYFQF80DCx2o
+sVjr2/jcVssWjwqasBOM6FiFjyyxgwKs9WrTzFfL10dbC0V5zeZid5YymL/1I95x
+09kZPlFlQHo/OzSXzaNx2aEgnpbhOwHMrBqPL09PTF4/lL/3B9WVVSdffZdZKmwx
+JoyABXuFuKStph8qOmL2tH2xIRxyhD3zlibtHfRxbDVWNcO/airjPe5cXTJxLzcm
+cS2REeT8pJ0lRqMu2V3fHQKEoVg4jPzRu6yfazLeRTAQTnY6GFHdio1ZuxI/4xhL
++d4IB8oXyvphwWGpOI+A5NBDLaQRI9bCrOQPDERoJjjV1p7NqzVuMYRg5fqiq4aR
+KOSwtXG173Q3eFJK9PgzwVa6nOFo4v4e/uPF+fdq+AHUisnUoHnXnqPnkVJhzk8F
+Of9asOHJazpsH8RuH+Zl26Axhd2wPTc3K4uBXYqfJ7VR5vOkg5+0SXGUriwegHu7
+uwIT/NmLU7M+TMuDxkmbxZYJYhB7QPBXDFQ6FHf0IEnvnbuE/yCc6DEn8BY6xUph
+Arcoosxc9sc9TFI6vziQoUs8dl1DQYm/fiokoX4Rq3aq/HS+AOcg+ZoXv/Tdlr9m
+gYChlSw7/20=
+=BMHH
 -----END PGP SIGNATURE-----
 
---da4uJneut+ArUgXk--
+--9dgjiU4MmWPVapMU--
