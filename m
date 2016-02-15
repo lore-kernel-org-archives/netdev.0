@@ -1,59 +1,41 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: sctp: bad hash index calculation
-Date: Mon, 15 Feb 2016 16:11:22 +0100
-Message-ID: <CACT4Y+bKiens=uiZ99t+9ThtXi33W_bQLqh_AgWkQeQDmyUE5w@mail.gmail.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [PATCH net-next 0/3] lwtunnel: autoload of lwt modules
+Date: Mon, 15 Feb 2016 15:42:00 +0000
+Message-ID: <1455550923-23673-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	linux-sctp@vger.kernel.org,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"Tom Herbert" <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	"Robert Shearman" <rshearma@brocade.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:33731 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751105AbcBOPLn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 10:11:43 -0500
-Received: by mail-wm0-f49.google.com with SMTP id g62so153064876wme.0
-        for <netdev@vger.kernel.org>; Mon, 15 Feb 2016 07:11:42 -0800 (PST)
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:62127 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751619AbcBOPmo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 10:42:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+The lwt implementations using net devices can autoload using the
+existing mechanism using IFLA_INFO_KIND. However, there's no mechanism
+that lwt modules not using net devices can use.
 
-While looking into some memory leaks of sctp ports I've noticed that
-sctp_init initializes port hash table as follows:
+Therefore, add the ability to autoload modules registering lwt
+operations for lwt implementations not using a net device so that
+users don't have to manually load the modules.
 
-    /* Allocate and initialize the SCTP port hash table.  */
-    do {
-        sctp_port_hashsize = (1UL << order) * PAGE_SIZE /
-                    sizeof(struct sctp_bind_hashbucket);
-        if ((sctp_port_hashsize > (64 * 1024)) && order > 0)
-            continue;
-        sctp_port_hashtable = (struct sctp_bind_hashbucket *)
-            __get_free_pages(GFP_KERNEL | __GFP_NOWARN, order);
-    } while (!sctp_port_hashtable && --order > 0);
+Robert Shearman (3):
+  lwtunnel: autoload of lwt modules
+  mpls: autoload lwt module
+  ila: autoload module
 
-and then hash index is computed as follows:
+ include/net/lwtunnel.h    |  4 +++-
+ net/core/lwtunnel.c       | 32 ++++++++++++++++++++++++++++++++
+ net/ipv6/ila/ila_common.c |  1 +
+ net/mpls/mpls_iptunnel.c  |  1 +
+ 4 files changed, 37 insertions(+), 1 deletion(-)
 
-/* Warning: The following hash functions assume a power of two 'size'. */
-/* This is the hash function for the SCTP port hash table. */
-static inline int sctp_phashfn(struct net *net, __u16 lport)
-{
-    return (net_hash_mix(net) + lport) & (sctp_port_hashsize - 1);
-}
-
-I don't see what ensures that sctp_port_hashsize is in fact a power-of-2.
-
-spinlock_t in sctp_bind_hashbucket can be 2 words in some configs,
-then sizeof(sctp_bind_hashbucket) == 24, which can render half of hash
-table unused.
-
-struct sctp_bind_hashbucket {
-        spinlock_t      lock;
-        struct hlist_head       chain;
-};
-
-Am I missing something?
+-- 
+2.1.4
