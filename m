@@ -1,7 +1,7 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH ethtool 1/3] ethtool-copy.h: sync with net-next
-Date: Mon, 15 Feb 2016 14:59:46 +0000
-Message-ID: <56C1E7E2.9090605@solarflare.com>
+Subject: [PATCH ethtool 2/3] Add IPv6 support to NFC
+Date: Mon, 15 Feb 2016 14:59:56 +0000
+Message-ID: <56C1E7EC.8020700@solarflare.com>
 References: <56C1E73A.5090603@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,266 +9,431 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>
 To: Ben Hutchings <bwh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:36756 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753394AbcBOO7x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 09:59:53 -0500
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:60894 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753394AbcBOPAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 10:00:04 -0500
 In-Reply-To: <56C1E73A.5090603@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This covers kernel changes up to:
-
-commit 72bb68721f80a1441e871b6afc9ab0b3793d5031
-Author: Edward Cree <ecree@solarflare.com>
-Date:   Fri Feb 5 11:16:21 2016 +0000
-
-    ethtool: add IPv6 to the NFC API
-
 Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- ethtool-copy.h | 149 ++++++++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 142 insertions(+), 7 deletions(-)
+ ethtool.c |  21 +++++
+ rxclass.c | 272 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++----
+ 2 files changed, 279 insertions(+), 14 deletions(-)
 
-diff --git a/ethtool-copy.h b/ethtool-copy.h
-index d23ffc4..39e89e3 100644
---- a/ethtool-copy.h
-+++ b/ethtool-copy.h
-@@ -215,6 +215,11 @@ enum tunable_id {
- 	ETHTOOL_ID_UNSPEC,
- 	ETHTOOL_RX_COPYBREAK,
- 	ETHTOOL_TX_COPYBREAK,
-+	/*
-+	 * Add your fresh new tubale attribute above and remember to update
-+	 * tunable_strings[] in net/core/ethtool.c
-+	 */
-+	__ETHTOOL_TUNABLE_COUNT,
- };
+diff --git a/ethtool.c b/ethtool.c
+index 92c40b8..f18ad73 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -32,6 +32,7 @@
+ #include <sys/stat.h>
+ #include <stdio.h>
+ #include <stddef.h>
++#include <stdbool.h>
+ #include <errno.h>
+ #include <sys/utsname.h>
+ #include <limits.h>
+@@ -3492,6 +3493,22 @@ static int do_permaddr(struct cmd_context *ctx)
+ 	return err;
+ }
  
- enum tunable_type_id {
-@@ -537,6 +542,7 @@ struct ethtool_pauseparam {
-  *	now deprecated
-  * @ETH_SS_FEATURES: Device feature names
-  * @ETH_SS_RSS_HASH_FUNCS: RSS hush function names
-+ * @ETH_SS_PHY_STATS: Statistic names, for use with %ETHTOOL_GPHYSTATS
-  */
- enum ethtool_stringset {
- 	ETH_SS_TEST		= 0,
-@@ -545,6 +551,8 @@ enum ethtool_stringset {
- 	ETH_SS_NTUPLE_FILTERS,
- 	ETH_SS_FEATURES,
- 	ETH_SS_RSS_HASH_FUNCS,
-+	ETH_SS_TUNABLES,
-+	ETH_SS_PHY_STATS,
- };
- 
- /**
-@@ -740,6 +748,56 @@ struct ethtool_usrip4_spec {
- 	__u8    proto;
- };
- 
-+/**
-+ * struct ethtool_tcpip6_spec - flow specification for TCP/IPv6 etc.
-+ * @ip6src: Source host
-+ * @ip6dst: Destination host
-+ * @psrc: Source port
-+ * @pdst: Destination port
-+ * @tclass: Traffic Class
-+ *
-+ * This can be used to specify a TCP/IPv6, UDP/IPv6 or SCTP/IPv6 flow.
-+ */
-+struct ethtool_tcpip6_spec {
-+	__be32	ip6src[4];
-+	__be32	ip6dst[4];
-+	__be16	psrc;
-+	__be16	pdst;
-+	__u8    tclass;
-+};
-+
-+/**
-+ * struct ethtool_ah_espip6_spec - flow specification for IPsec/IPv6
-+ * @ip6src: Source host
-+ * @ip6dst: Destination host
-+ * @spi: Security parameters index
-+ * @tclass: Traffic Class
-+ *
-+ * This can be used to specify an IPsec transport or tunnel over IPv6.
-+ */
-+struct ethtool_ah_espip6_spec {
-+	__be32	ip6src[4];
-+	__be32	ip6dst[4];
-+	__be32	spi;
-+	__u8    tclass;
-+};
-+
-+/**
-+ * struct ethtool_usrip6_spec - general flow specification for IPv6
-+ * @ip6src: Source host
-+ * @ip6dst: Destination host
-+ * @l4_4_bytes: First 4 bytes of transport (layer 4) header
-+ * @tclass: Traffic Class
-+ * @l4_proto: Transport protocol number (nexthdr after any Extension Headers)
-+ */
-+struct ethtool_usrip6_spec {
-+	__be32	ip6src[4];
-+	__be32	ip6dst[4];
-+	__be32	l4_4_bytes;
-+	__u8    tclass;
-+	__u8    l4_proto;
-+};
-+
- union ethtool_flow_union {
- 	struct ethtool_tcpip4_spec		tcp_ip4_spec;
- 	struct ethtool_tcpip4_spec		udp_ip4_spec;
-@@ -747,6 +805,12 @@ union ethtool_flow_union {
- 	struct ethtool_ah_espip4_spec		ah_ip4_spec;
- 	struct ethtool_ah_espip4_spec		esp_ip4_spec;
- 	struct ethtool_usrip4_spec		usr_ip4_spec;
-+	struct ethtool_tcpip6_spec		tcp_ip6_spec;
-+	struct ethtool_tcpip6_spec		udp_ip6_spec;
-+	struct ethtool_tcpip6_spec		sctp_ip6_spec;
-+	struct ethtool_ah_espip6_spec		ah_ip6_spec;
-+	struct ethtool_ah_espip6_spec		esp_ip6_spec;
-+	struct ethtool_usrip6_spec		usr_ip6_spec;
- 	struct ethhdr				ether_spec;
- 	__u8					hdata[52];
- };
-@@ -796,6 +860,31 @@ struct ethtool_rx_flow_spec {
- 	__u32		location;
- };
- 
-+/* How rings are layed out when accessing virtual functions or
-+ * offloaded queues is device specific. To allow users to do flow
-+ * steering and specify these queues the ring cookie is partitioned
-+ * into a 32bit queue index with an 8 bit virtual function id.
-+ * This also leaves the 3bytes for further specifiers. It is possible
-+ * future devices may support more than 256 virtual functions if
-+ * devices start supporting PCIe w/ARI. However at the moment I
-+ * do not know of any devices that support this so I do not reserve
-+ * space for this at this time. If a future patch consumes the next
-+ * byte it should be aware of this possiblity.
-+ */
-+#define ETHTOOL_RX_FLOW_SPEC_RING	0x00000000FFFFFFFFLL
-+#define ETHTOOL_RX_FLOW_SPEC_RING_VF	0x000000FF00000000LL
-+#define ETHTOOL_RX_FLOW_SPEC_RING_VF_OFF 32
-+static __inline__ __u64 ethtool_get_flow_spec_ring(__u64 ring_cookie)
++static bool flow_type_is_ntuple_supported(__u32 flow_type)
 +{
-+	return ETHTOOL_RX_FLOW_SPEC_RING & ring_cookie;
-+};
-+
-+static __inline__ __u64 ethtool_get_flow_spec_ring_vf(__u64 ring_cookie)
-+{
-+	return (ETHTOOL_RX_FLOW_SPEC_RING_VF & ring_cookie) >>
-+				ETHTOOL_RX_FLOW_SPEC_RING_VF_OFF;
-+};
-+
- /**
-  * struct ethtool_rxnfc - command to get or set RX flow classification rules
-  * @cmd: Specific command number - %ETHTOOL_GRXFH, %ETHTOOL_SRXFH,
-@@ -1062,6 +1151,11 @@ struct ethtool_sfeatures {
-  * the 'hwtstamp_tx_types' and 'hwtstamp_rx_filters' enumeration values,
-  * respectively.  For example, if the device supports HWTSTAMP_TX_ON,
-  * then (1 << HWTSTAMP_TX_ON) in 'tx_types' will be set.
-+ *
-+ * Drivers should only report the filters they actually support without
-+ * upscaling in the SIOCSHWTSTAMP ioctl. If the SIOCSHWSTAMP request for
-+ * HWTSTAMP_FILTER_V1_SYNC is supported by HWTSTAMP_FILTER_V1_EVENT, then the
-+ * driver should only report HWTSTAMP_FILTER_V1_EVENT in this op.
-  */
- struct ethtool_ts_info {
- 	__u32	cmd;
-@@ -1189,6 +1283,7 @@ enum ethtool_sfeatures_retval_bits {
- #define ETHTOOL_SRSSH		0x00000047 /* Set RX flow hash configuration */
- #define ETHTOOL_GTUNABLE	0x00000048 /* Get tunable configuration */
- #define ETHTOOL_STUNABLE	0x00000049 /* Set tunable configuration */
-+#define ETHTOOL_GPHYSTATS	0x0000004a /* get PHY-specific statistics */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-@@ -1264,23 +1359,61 @@ enum ethtool_sfeatures_retval_bits {
-  * it was forced up into this mode or autonegotiated.
-  */
- 
--/* The forced speed, 10Mb, 100Mb, gigabit, [2.5|10|20|40|56]GbE. */
-+/* The forced speed, 10Mb, 100Mb, gigabit, [2.5|5|10|20|25|40|50|56|100]GbE. */
- #define SPEED_10		10
- #define SPEED_100		100
- #define SPEED_1000		1000
- #define SPEED_2500		2500
-+#define SPEED_5000		5000
- #define SPEED_10000		10000
- #define SPEED_20000		20000
-+#define SPEED_25000		25000
- #define SPEED_40000		40000
-+#define SPEED_50000		50000
- #define SPEED_56000		56000
-+#define SPEED_100000		100000
- 
- #define SPEED_UNKNOWN		-1
- 
-+static __inline__ int ethtool_validate_speed(__u32 speed)
-+{
-+	switch (speed) {
-+	case SPEED_10:
-+	case SPEED_100:
-+	case SPEED_1000:
-+	case SPEED_2500:
-+	case SPEED_5000:
-+	case SPEED_10000:
-+	case SPEED_20000:
-+	case SPEED_25000:
-+	case SPEED_40000:
-+	case SPEED_50000:
-+	case SPEED_56000:
-+	case SPEED_100000:
-+	case SPEED_UNKNOWN:
-+		return 1;
++	switch (flow_type) {
++	case TCP_V4_FLOW:
++	case UDP_V4_FLOW:
++	case SCTP_V4_FLOW:
++	case AH_V4_FLOW:
++	case ESP_V4_FLOW:
++	case IPV4_USER_FLOW:
++	case ETHER_FLOW:
++		return true;
++	default:
++		return false;
 +	}
++}
++
+ static int flow_spec_to_ntuple(struct ethtool_rx_flow_spec *fsp,
+ 			       struct ethtool_rx_ntuple_flow_spec *ntuple)
+ {
+@@ -3515,6 +3532,10 @@ static int flow_spec_to_ntuple(struct ethtool_rx_flow_spec *fsp,
+ 	    fsp->m_ext.vlan_etype)
+ 		return -1;
+ 
++	/* IPv6 flow types are not supported by ntuple */
++	if (!flow_type_is_ntuple_supported(fsp->flow_type & ~FLOW_EXT))
++		return -1;
++
+ 	/* Set entire ntuple to ~0 to guarantee all masks are set */
+ 	memset(ntuple, ~0, sizeof(*ntuple));
+ 
+diff --git a/rxclass.c b/rxclass.c
+index cd686a3..d3150d5 100644
+--- a/rxclass.c
++++ b/rxclass.c
+@@ -39,6 +39,25 @@ static void rxclass_print_ipv4_rule(__be32 sip, __be32 sipm, __be32 dip,
+ 		tos, tosm);
+ }
+ 
++static void rxclass_print_ipv6_rule(__be32 *sip, __be32 *sipm, __be32 *dip,
++				    __be32 *dipm, u8 tclass, u8 tclassm)
++{
++	char sip_str[INET6_ADDRSTRLEN];
++	char sipm_str[INET6_ADDRSTRLEN];
++	char dip_str[INET6_ADDRSTRLEN];
++	char dipm_str[INET6_ADDRSTRLEN];
++
++	fprintf(stdout,
++		"\tSrc IP addr: %s mask: %s\n"
++		"\tDest IP addr: %s mask: %s\n"
++		"\tTraffic Class: 0x%x mask: 0x%x\n",
++		inet_ntop(AF_INET6, sip, sip_str, INET6_ADDRSTRLEN),
++		inet_ntop(AF_INET6, sipm, sipm_str, INET6_ADDRSTRLEN),
++		inet_ntop(AF_INET6, dip, dip_str, INET6_ADDRSTRLEN),
++		inet_ntop(AF_INET6, dipm, dipm_str, INET6_ADDRSTRLEN),
++		tclass, tclassm);
++}
++
+ static void rxclass_print_nfc_spec_ext(struct ethtool_rx_flow_spec *fsp)
+ {
+ 	if (fsp->flow_type & FLOW_EXT) {
+@@ -127,7 +146,7 @@ static void rxclass_print_nfc_rule(struct ethtool_rx_flow_spec *fsp)
+ 			ntohl(fsp->h_u.esp_ip4_spec.spi),
+ 			ntohl(fsp->m_u.esp_ip4_spec.spi));
+ 		break;
+-	case IP_USER_FLOW:
++	case IPV4_USER_FLOW:
+ 		fprintf(stdout, "\tRule Type: Raw IPv4\n");
+ 		rxclass_print_ipv4_rule(fsp->h_u.usr_ip4_spec.ip4src,
+ 				     fsp->m_u.usr_ip4_spec.ip4src,
+@@ -143,6 +162,62 @@ static void rxclass_print_nfc_rule(struct ethtool_rx_flow_spec *fsp)
+ 			ntohl(fsp->h_u.usr_ip4_spec.l4_4_bytes),
+ 			ntohl(fsp->m_u.usr_ip4_spec.l4_4_bytes));
+ 		break;
++	case TCP_V6_FLOW:
++	case UDP_V6_FLOW:
++	case SCTP_V6_FLOW:
++		if (flow_type == TCP_V6_FLOW)
++			fprintf(stdout, "\tRule Type: TCP over IPv6\n");
++		else if (flow_type == UDP_V6_FLOW)
++			fprintf(stdout, "\tRule Type: UDP over IPv6\n");
++		else
++			fprintf(stdout, "\tRule Type: SCTP over IPv6\n");
++		rxclass_print_ipv6_rule(fsp->h_u.tcp_ip6_spec.ip6src,
++				     fsp->m_u.tcp_ip6_spec.ip6src,
++				     fsp->h_u.tcp_ip6_spec.ip6dst,
++				     fsp->m_u.tcp_ip6_spec.ip6dst,
++				     fsp->h_u.tcp_ip6_spec.tclass,
++				     fsp->m_u.tcp_ip6_spec.tclass);
++		fprintf(stdout,
++			"\tSrc port: %d mask: 0x%x\n"
++			"\tDest port: %d mask: 0x%x\n",
++			ntohs(fsp->h_u.tcp_ip6_spec.psrc),
++			ntohs(fsp->m_u.tcp_ip6_spec.psrc),
++			ntohs(fsp->h_u.tcp_ip6_spec.pdst),
++			ntohs(fsp->m_u.tcp_ip6_spec.pdst));
++		break;
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++		if (flow_type == AH_V6_FLOW)
++			fprintf(stdout, "\tRule Type: IPSEC AH over IPv6\n");
++		else
++			fprintf(stdout, "\tRule Type: IPSEC ESP over IPv6\n");
++		rxclass_print_ipv6_rule(fsp->h_u.ah_ip6_spec.ip6src,
++				     fsp->m_u.ah_ip6_spec.ip6src,
++				     fsp->h_u.ah_ip6_spec.ip6dst,
++				     fsp->m_u.ah_ip6_spec.ip6dst,
++				     fsp->h_u.ah_ip6_spec.tclass,
++				     fsp->m_u.ah_ip6_spec.tclass);
++		fprintf(stdout,
++			"\tSPI: %d mask: 0x%x\n",
++			ntohl(fsp->h_u.esp_ip6_spec.spi),
++			ntohl(fsp->m_u.esp_ip6_spec.spi));
++		break;
++	case IPV6_USER_FLOW:
++		fprintf(stdout, "\tRule Type: Raw IPv6\n");
++		rxclass_print_ipv6_rule(fsp->h_u.usr_ip6_spec.ip6src,
++				     fsp->m_u.usr_ip6_spec.ip6src,
++				     fsp->h_u.usr_ip6_spec.ip6dst,
++				     fsp->m_u.usr_ip6_spec.ip6dst,
++				     fsp->h_u.usr_ip6_spec.tclass,
++				     fsp->m_u.usr_ip6_spec.tclass);
++		fprintf(stdout,
++			"\tProtocol: %d mask: 0x%x\n"
++			"\tL4 bytes: 0x%x mask: 0x%x\n",
++			fsp->h_u.usr_ip6_spec.l4_proto,
++			fsp->m_u.usr_ip6_spec.l4_proto,
++			ntohl(fsp->h_u.usr_ip6_spec.l4_4_bytes),
++			ntohl(fsp->m_u.usr_ip6_spec.l4_4_bytes));
++		break;
+ 	case ETHER_FLOW:
+ 		dmac = fsp->h_u.ether_spec.h_dest;
+ 		dmacm = fsp->m_u.ether_spec.h_dest;
+@@ -190,21 +265,20 @@ static void rxclass_print_rule(struct ethtool_rx_flow_spec *fsp)
+ 	case SCTP_V4_FLOW:
+ 	case AH_V4_FLOW:
+ 	case ESP_V4_FLOW:
+-	case ETHER_FLOW:
+-		rxclass_print_nfc_rule(fsp);
+-		break;
+-	case IP_USER_FLOW:
+-		if (fsp->h_u.usr_ip4_spec.ip_ver == ETH_RX_NFC_IP4) {
+-			rxclass_print_nfc_rule(fsp);
+-			break;
+-		}
+-		/* IPv6 User Flow falls through to the case below */
+ 	case TCP_V6_FLOW:
+ 	case UDP_V6_FLOW:
+ 	case SCTP_V6_FLOW:
+ 	case AH_V6_FLOW:
+ 	case ESP_V6_FLOW:
+-		fprintf(stderr, "IPv6 flows not implemented\n");
++	case IPV6_USER_FLOW:
++	case ETHER_FLOW:
++		rxclass_print_nfc_rule(fsp);
++		break;
++	case IPV4_USER_FLOW:
++		if (fsp->h_u.usr_ip4_spec.ip_ver == ETH_RX_NFC_IP4)
++			rxclass_print_nfc_rule(fsp);
++		else /* IPv6 uses IPV6_USER_FLOW */
++			fprintf(stderr, "IPV4_USER_FLOW with wrong ip_ver\n");
+ 		break;
+ 	default:
+ 		fprintf(stderr, "rxclass: Unknown flow type\n");
+@@ -530,6 +604,7 @@ typedef enum {
+ 	OPT_BE32,
+ 	OPT_BE64,
+ 	OPT_IP4,
++	OPT_IP6,
+ 	OPT_MAC,
+ } rule_opt_type_t;
+ 
+@@ -663,6 +738,114 @@ static const struct rule_opts rule_nfc_usr_ip4[] = {
+ 	  offsetof(struct ethtool_rx_flow_spec, m_ext.h_dest) },
+ };
+ 
++static const struct rule_opts rule_nfc_tcp_ip6[] = {
++	{ "src-ip", OPT_IP6, NFC_FLAG_SADDR,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.tcp_ip6_spec.ip6src),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.tcp_ip6_spec.ip6src) },
++	{ "dst-ip", OPT_IP6, NFC_FLAG_DADDR,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.tcp_ip6_spec.ip6dst),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.tcp_ip6_spec.ip6dst) },
++	{ "tclass", OPT_U8, NFC_FLAG_TOS,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.tcp_ip6_spec.tclass),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.tcp_ip6_spec.tclass) },
++	{ "src-port", OPT_BE16, NFC_FLAG_SPORT,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.tcp_ip6_spec.psrc),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.tcp_ip6_spec.psrc) },
++	{ "dst-port", OPT_BE16, NFC_FLAG_DPORT,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.tcp_ip6_spec.pdst),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.tcp_ip6_spec.pdst) },
++	{ "action", OPT_U64, NFC_FLAG_RING,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "loc", OPT_U32, NFC_FLAG_LOC,
++	  offsetof(struct ethtool_rx_flow_spec, location), -1 },
++	{ "vlan-etype", OPT_BE16, NTUPLE_FLAG_VETH,
++	  offsetof(struct ethtool_rx_flow_spec, h_ext.vlan_etype),
++	  offsetof(struct ethtool_rx_flow_spec, m_ext.vlan_etype) },
++	{ "vlan", OPT_BE16, NTUPLE_FLAG_VLAN,
++	  offsetof(struct ethtool_rx_flow_spec, h_ext.vlan_tci),
++	  offsetof(struct ethtool_rx_flow_spec, m_ext.vlan_tci) },
++	{ "user-def", OPT_BE64, NTUPLE_FLAG_UDEF,
++	  offsetof(struct ethtool_rx_flow_spec, h_ext.data),
++	  offsetof(struct ethtool_rx_flow_spec, m_ext.data) },
++	{ "dst-mac", OPT_MAC, NFC_FLAG_MAC_ADDR,
++	  offsetof(struct ethtool_rx_flow_spec, h_ext.h_dest),
++	  offsetof(struct ethtool_rx_flow_spec, m_ext.h_dest) },
++};
++
++static const struct rule_opts rule_nfc_esp_ip6[] = {
++	{ "src-ip", OPT_IP6, NFC_FLAG_SADDR,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.esp_ip6_spec.ip6src),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.esp_ip6_spec.ip6src) },
++	{ "dst-ip", OPT_IP6, NFC_FLAG_DADDR,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.esp_ip6_spec.ip6dst),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.esp_ip6_spec.ip6dst) },
++	{ "tclass", OPT_U8, NFC_FLAG_TOS,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.esp_ip6_spec.tclass),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.esp_ip6_spec.tclass) },
++	{ "spi", OPT_BE32, NFC_FLAG_SPI,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.esp_ip6_spec.spi),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.esp_ip6_spec.spi) },
++	{ "action", OPT_U64, NFC_FLAG_RING,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "loc", OPT_U32, NFC_FLAG_LOC,
++	  offsetof(struct ethtool_rx_flow_spec, location), -1 },
++	{ "vlan-etype", OPT_BE16, NTUPLE_FLAG_VETH,
++	  offsetof(struct ethtool_rx_flow_spec, h_ext.vlan_etype),
++	  offsetof(struct ethtool_rx_flow_spec, m_ext.vlan_etype) },
++	{ "vlan", OPT_BE16, NTUPLE_FLAG_VLAN,
++	  offsetof(struct ethtool_rx_flow_spec, h_ext.vlan_tci),
++	  offsetof(struct ethtool_rx_flow_spec, m_ext.vlan_tci) },
++	{ "user-def", OPT_BE64, NTUPLE_FLAG_UDEF,
++	  offsetof(struct ethtool_rx_flow_spec, h_ext.data),
++	  offsetof(struct ethtool_rx_flow_spec, m_ext.data) },
++	{ "dst-mac", OPT_MAC, NFC_FLAG_MAC_ADDR,
++	  offsetof(struct ethtool_rx_flow_spec, h_ext.h_dest),
++	  offsetof(struct ethtool_rx_flow_spec, m_ext.h_dest) },
++};
++
++static const struct rule_opts rule_nfc_usr_ip6[] = {
++	{ "src-ip", OPT_IP6, NFC_FLAG_SADDR,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip6_spec.ip6src),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.usr_ip6_spec.ip6src) },
++	{ "dst-ip", OPT_IP6, NFC_FLAG_DADDR,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip6_spec.ip6dst),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.usr_ip6_spec.ip6dst) },
++	{ "tclass", OPT_U8, NFC_FLAG_TOS,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip6_spec.tclass),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.usr_ip6_spec.tclass) },
++	{ "l4proto", OPT_U8, NFC_FLAG_PROTO,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip6_spec.l4_proto),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.usr_ip6_spec.l4_proto) },
++	{ "l4data", OPT_BE32, NFC_FLAG_SPI,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip6_spec.l4_4_bytes),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.usr_ip6_spec.l4_4_bytes) },
++	{ "spi", OPT_BE32, NFC_FLAG_SPI,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip6_spec.l4_4_bytes),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.usr_ip6_spec.l4_4_bytes) },
++	{ "src-port", OPT_BE16, NFC_FLAG_SPORT,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip6_spec.l4_4_bytes),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.usr_ip6_spec.l4_4_bytes) },
++	{ "dst-port", OPT_BE16, NFC_FLAG_DPORT,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip6_spec.l4_4_bytes) + 2,
++	  offsetof(struct ethtool_rx_flow_spec, m_u.usr_ip6_spec.l4_4_bytes) + 2 },
++	{ "action", OPT_U64, NFC_FLAG_RING,
++	  offsetof(struct ethtool_rx_flow_spec, ring_cookie), -1 },
++	{ "loc", OPT_U32, NFC_FLAG_LOC,
++	  offsetof(struct ethtool_rx_flow_spec, location), -1 },
++	{ "vlan-etype", OPT_BE16, NTUPLE_FLAG_VETH,
++	  offsetof(struct ethtool_rx_flow_spec, h_ext.vlan_etype),
++	  offsetof(struct ethtool_rx_flow_spec, m_ext.vlan_etype) },
++	{ "vlan", OPT_BE16, NTUPLE_FLAG_VLAN,
++	  offsetof(struct ethtool_rx_flow_spec, h_ext.vlan_tci),
++	  offsetof(struct ethtool_rx_flow_spec, m_ext.vlan_tci) },
++	{ "user-def", OPT_BE64, NTUPLE_FLAG_UDEF,
++	  offsetof(struct ethtool_rx_flow_spec, h_ext.data),
++	  offsetof(struct ethtool_rx_flow_spec, m_ext.data) },
++	{ "dst-mac", OPT_MAC, NFC_FLAG_MAC_ADDR,
++	  offsetof(struct ethtool_rx_flow_spec, h_ext.h_dest),
++	  offsetof(struct ethtool_rx_flow_spec, m_ext.h_dest) },
++};
++
+ static const struct rule_opts rule_nfc_ether[] = {
+ 	{ "src", OPT_MAC, NFC_FLAG_SADDR,
+ 	  offsetof(struct ethtool_rx_flow_spec, h_u.ether_spec.h_source),
+@@ -726,6 +909,14 @@ static int rxclass_get_ipv4(char *str, __be32 *val)
+ 	return 0;
+ }
+ 
++static int rxclass_get_ipv6(char *str, __be32 *val)
++{
++	if (!inet_pton(AF_INET6, str, val))
++		return -1;
 +
 +	return 0;
 +}
 +
- /* Duplex, half or full. */
- #define DUPLEX_HALF		0x00
- #define DUPLEX_FULL		0x01
- #define DUPLEX_UNKNOWN		0xff
- 
-+static __inline__ int ethtool_validate_duplex(__u8 duplex)
-+{
-+	switch (duplex) {
-+	case DUPLEX_HALF:
-+	case DUPLEX_FULL:
-+	case DUPLEX_UNKNOWN:
-+		return 1;
+ static int rxclass_get_ether(char *str, unsigned char *val)
+ {
+ 	unsigned int buf[ETH_ALEN];
+@@ -851,6 +1042,19 @@ static int rxclass_get_val(char *str, unsigned char *p, u32 *flags,
+ 			*(__be32 *)&p[opt->moffset] = (__be32)mask;
+ 		break;
+ 	}
++	case OPT_IP6: {
++		__be32 val[4];
++		int i;
++		err = rxclass_get_ipv6(str, val);
++		if (err)
++			return -1;
++		for (i = 0; i < 4; i++) {
++			((__be32 *)&p[opt->offset])[i] = val[i];
++			if (opt->moffset >= 0)
++				((__be32 *)&p[opt->moffset])[i] = (__be32)mask;
++		}
++		break;
 +	}
-+
-+	return 0;
-+}
-+
- /* Which connector port. */
- #define PORT_TP			0x00
- #define PORT_AUI		0x01
-@@ -1324,15 +1457,17 @@ enum ethtool_sfeatures_retval_bits {
- #define	UDP_V4_FLOW	0x02	/* hash or spec (udp_ip4_spec) */
- #define	SCTP_V4_FLOW	0x03	/* hash or spec (sctp_ip4_spec) */
- #define	AH_ESP_V4_FLOW	0x04	/* hash only */
--#define	TCP_V6_FLOW	0x05	/* hash only */
--#define	UDP_V6_FLOW	0x06	/* hash only */
--#define	SCTP_V6_FLOW	0x07	/* hash only */
-+#define	TCP_V6_FLOW	0x05	/* hash or spec (tcp_ip6_spec; nfc only) */
-+#define	UDP_V6_FLOW	0x06	/* hash or spec (udp_ip6_spec; nfc only) */
-+#define	SCTP_V6_FLOW	0x07	/* hash or spec (sctp_ip6_spec; nfc only) */
- #define	AH_ESP_V6_FLOW	0x08	/* hash only */
- #define	AH_V4_FLOW	0x09	/* hash or spec (ah_ip4_spec) */
- #define	ESP_V4_FLOW	0x0a	/* hash or spec (esp_ip4_spec) */
--#define	AH_V6_FLOW	0x0b	/* hash only */
--#define	ESP_V6_FLOW	0x0c	/* hash only */
--#define	IP_USER_FLOW	0x0d	/* spec only (usr_ip4_spec) */
-+#define	AH_V6_FLOW	0x0b	/* hash or spec (ah_ip6_spec; nfc only) */
-+#define	ESP_V6_FLOW	0x0c	/* hash or spec (esp_ip6_spec; nfc only) */
-+#define	IPV4_USER_FLOW	0x0d	/* spec only (usr_ip4_spec) */
-+#define	IP_USER_FLOW	IPV4_USER_FLOW
-+#define	IPV6_USER_FLOW	0x0e	/* spec only (usr_ip6_spec; nfc only) */
- #define	IPV4_FLOW	0x10	/* hash only */
- #define	IPV6_FLOW	0x11	/* hash only */
- #define	ETHER_FLOW	0x12	/* spec only (ether_spec) */
+ 	case OPT_MAC: {
+ 		unsigned char val[ETH_ALEN];
+ 		err = rxclass_get_ether(str, val);
+@@ -950,6 +1154,19 @@ static int rxclass_get_mask(char *str, unsigned char *p,
+ 		*(__be32 *)&p[opt->moffset] = ~val;
+ 		break;
+ 	}
++	case OPT_IP6: {
++		__be32 val[4];
++		int i;
++		err = rxclass_get_ipv6(str, val);
++		if (err)
++			return -1;
++		for (i = 0; i < 4; i++) {
++			((__be32 *)&p[opt->offset])[i] = val[i];
++			if (opt->moffset >= 0)
++				((__be32 *)&p[opt->moffset])[i] = ~val[i];
++		}
++		break;
++	}
+ 	case OPT_MAC: {
+ 		unsigned char val[ETH_ALEN];
+ 		int i;
+@@ -996,7 +1213,19 @@ int rxclass_parse_ruleopts(struct cmd_context *ctx,
+ 	else if (!strcmp(argp[0], "esp4"))
+ 		flow_type = ESP_V4_FLOW;
+ 	else if (!strcmp(argp[0], "ip4"))
+-		flow_type = IP_USER_FLOW;
++		flow_type = IPV4_USER_FLOW;
++	else if (!strcmp(argp[0], "tcp6"))
++		flow_type = TCP_V6_FLOW;
++	else if (!strcmp(argp[0], "udp6"))
++		flow_type = UDP_V6_FLOW;
++	else if (!strcmp(argp[0], "sctp6"))
++		flow_type = SCTP_V6_FLOW;
++	else if (!strcmp(argp[0], "ah6"))
++		flow_type = AH_V6_FLOW;
++	else if (!strcmp(argp[0], "esp6"))
++		flow_type = ESP_V6_FLOW;
++	else if (!strcmp(argp[0], "ip6"))
++		flow_type = IPV6_USER_FLOW;
+ 	else if (!strcmp(argp[0], "ether"))
+ 		flow_type = ETHER_FLOW;
+ 	else
+@@ -1014,10 +1243,25 @@ int rxclass_parse_ruleopts(struct cmd_context *ctx,
+ 		options = rule_nfc_esp_ip4;
+ 		n_opts = ARRAY_SIZE(rule_nfc_esp_ip4);
+ 		break;
+-	case IP_USER_FLOW:
++	case IPV4_USER_FLOW:
+ 		options = rule_nfc_usr_ip4;
+ 		n_opts = ARRAY_SIZE(rule_nfc_usr_ip4);
+ 		break;
++	case TCP_V6_FLOW:
++	case UDP_V6_FLOW:
++	case SCTP_V6_FLOW:
++		options = rule_nfc_tcp_ip6;
++		n_opts = ARRAY_SIZE(rule_nfc_tcp_ip6);
++		break;
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++		options = rule_nfc_esp_ip6;
++		n_opts = ARRAY_SIZE(rule_nfc_esp_ip6);
++		break;
++	case IPV6_USER_FLOW:
++		options = rule_nfc_usr_ip6;
++		n_opts = ARRAY_SIZE(rule_nfc_usr_ip6);
++		break;
+ 	case ETHER_FLOW:
+ 		options = rule_nfc_ether;
+ 		n_opts = ARRAY_SIZE(rule_nfc_ether);
+@@ -1081,7 +1325,7 @@ int rxclass_parse_ruleopts(struct cmd_context *ctx,
+ 		}
+ 	}
+ 
+-	if (flow_type == IP_USER_FLOW)
++	if (flow_type == IPV4_USER_FLOW)
+ 		fsp->h_u.usr_ip4_spec.ip_ver = ETH_RX_NFC_IP4;
+ 	if (flags & (NTUPLE_FLAG_VLAN | NTUPLE_FLAG_UDEF | NTUPLE_FLAG_VETH))
+ 		fsp->flow_type |= FLOW_EXT;
