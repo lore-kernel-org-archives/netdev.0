@@ -1,48 +1,58 @@
-From: Claudio Scordino <claudio@evidence.eu.com>
-Subject: Re: Same data to several sockets with just one syscall ?
-Date: Mon, 15 Feb 2016 11:03:01 +0100
-Message-ID: <CAGWmfYru4zP1n7aSbjtpO4J=aCBfp47B8AV-ACv8XuY-n9E+Hg@mail.gmail.com>
-References: <CAGWmfYrGv8NdJQHs6OA=b=ao8=25JUoZAK_i65+GMFX1OyV-fg@mail.gmail.com>
-	<1455273356.31770.1.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Nikolay Borisov <kernel@kyup.com>
+Subject: [PATCH 0/6] Namespacify various ip sysctl knobs
+Date: Mon, 15 Feb 2016 12:11:26 +0200
+Message-ID: <1455531092-23184-1-git-send-email-kernel@kyup.com>
+Cc: netfilter-devel@vger.kernel.org, ebiederm@xmission.com,
+	pabeni@redhat.com, jmorris@namei.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f50.google.com ([209.85.213.50]:34399 "EHLO
-	mail-vk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750857AbcBOKDC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 05:03:02 -0500
-Received: by mail-vk0-f50.google.com with SMTP id e185so103359400vkb.1
-        for <netdev@vger.kernel.org>; Mon, 15 Feb 2016 02:03:01 -0800 (PST)
-In-Reply-To: <1455273356.31770.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:35225 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751016AbcBOKLg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 05:11:36 -0500
+Received: by mail-wm0-f42.google.com with SMTP id c200so105162937wme.0
+        for <netdev@vger.kernel.org>; Mon, 15 Feb 2016 02:11:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+[Resending since I forgot to cc linux-netdev]
 
-2016-02-12 11:35 GMT+01:00 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Fri, 2016-02-12 at 09:53 +0100, Claudio Scordino wrote:
->
->> This makes the application waste time in entering/exiting the kernel
->> level several times.
->
-> syscall overhead is usually small. Real cost is actually getting to the
-> socket objects (fd manipulation), that you wont avoid with a
-> super-syscall anyway.
+Hello, 
 
-Thank you for answering. I see your point.
+This series continues namespacifying more net related knobs.
+The focus here is on ip options. Patches 1,3,4,5 namespacify
+the respective sysctl knobs. Patch 2 moves some igmp code to the 
+correct file (and function) and also adds some #ifdef guards to 
+silence compilation warnings. 
 
-However, assuming that a switch from user-space to kernel-space (and
-back) needs about 200nsec of computation (which I guess is a
-reasonable value for a 3GHz x86 architecture), the 50th receiver
-experiences a latency of about 10 usec. In some domains (e.g.,
-finance) this delay is not negligible.
+Finally, patch 5 exposes the ip fragmentation related sysctls 
+since all of the knobs are namespaced.
 
-Moving the "fan-out" code into kernel space would remove this waste of
-time. IMHO, the latency reduction would pay back the 100 lines of code
-for adding a new syscall.
+Nikolay Borisov (6):
+  ipv4: Namespaceify ip_default_ttl sysctl knob
+  igmp: net: Move igmp namespace init to correct file
+  ipv4: Namespacify ip_dynaddr sysctl knob
+  ipv4: namespacify ip_early_demux sysctl knob
+  ipv4: namespacify ip fragment max dist sysctl knob
+  net: Export ip fragment sysctl to unprivileged users
 
-Many thanks and best regards,
+ include/net/inet_frag.h                  |  1 +
+ include/net/ip.h                         |  6 ----
+ include/net/netns/ipv4.h                 |  4 +++
+ include/net/route.h                      |  5 ++--
+ net/bridge/netfilter/nft_reject_bridge.c |  8 +++--
+ net/ipv4/af_inet.c                       | 10 ++-----
+ net/ipv4/igmp.c                          | 14 +++++++++
+ net/ipv4/ip_fragment.c                   | 29 +++++++++---------
+ net/ipv4/ip_input.c                      |  5 +---
+ net/ipv4/ip_output.c                     |  3 --
+ net/ipv4/ip_sockglue.c                   |  5 +++-
+ net/ipv4/netfilter/ipt_SYNPROXY.c        |  3 +-
+ net/ipv4/proc.c                          |  2 +-
+ net/ipv4/sysctl_net_ipv4.c               | 50 +++++++++++++++++---------------
+ net/ipv4/tcp_ipv4.c                      |  6 ----
+ net/ipv6/ip6_input.c                     |  2 +-
+ 16 files changed, 77 insertions(+), 76 deletions(-)
 
-                 Claudio
+-- 
+2.5.0
