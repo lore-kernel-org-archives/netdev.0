@@ -1,60 +1,44 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next 1/3] lwtunnel: autoload of lwt modules
-Date: Mon, 15 Feb 2016 18:08:13 +0000
-Message-ID: <56C2140D.9090708@brocade.com>
-References: <1455550923-23673-1-git-send-email-rshearma@brocade.com>
- <1455550923-23673-2-git-send-email-rshearma@brocade.com>
- <20160215170232.5f73b111@griffin> <56C1FB30.8090005@brocade.com>
- <20160215173209.055b7b6b@griffin>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: tee: select NF_DUP_IPV6 unconditionally
+Date: Mon, 15 Feb 2016 19:14:36 +0100
+Message-ID: <20160215181436.GA3462@salvia>
+References: <1454664040-1344109-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:42678 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751709AbcBOSI3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 13:08:29 -0500
-In-Reply-To: <20160215173209.055b7b6b@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1454664040-1344109-1-git-send-email-arnd@arndb.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 15/02/16 16:32, Jiri Benc wrote:
-> On Mon, 15 Feb 2016 16:22:08 +0000, Robert Shearman wrote:
->> Yeah, it's the C preprocessor. MODULE_ALIAS_RTNL_LWT includes the string
->> for the encap type in the module alias, and since the LWT encap types
->> are defined as enums this is symbolic name. I can't see any way of
->> getting the preprocessor to convert
->> MODULE_ALIAS_RTNL_LWT(LWTUNNEL_ENCAP_MPLS) into "rtnl-lwt-MPLS", but I'm
->> open to suggestions.
->
-> MODULE_ALIAS_RTNL_LWT(MPLS)?
->
-> But whatever, as I said, no strong preference.
+On Fri, Feb 05, 2016 at 10:20:21AM +0100, Arnd Bergmann wrote:
+> The NETFILTER_XT_TARGET_TEE option selects NF_DUP_IPV6 whenever
+> IP6_NF_IPTABLES is enabled, and it ensures that it cannot be
+> builtin itself if NF_CONNTRACK is a loadable module, as that
+> is a dependency for NF_DUP_IPV6.
+> 
+> However, NF_DUP_IPV6 can be enabled even if IP6_NF_IPTABLES is
+> turned off, and it only really depends on IPV6. With the current
+> check in tee_tg6, we call nf_dup_ipv6() whenever NF_DUP_IPV6
+> is enabled. This can however be a loadable module which is
+> unreachable from a built-in xt_TEE:
+> 
+> net/built-in.o: In function `tee_tg6':
+> :(.text+0x67728): undefined reference to `nf_dup_ipv6'
+> 
+> The bug was originally introduced in the split of the xt_TEE module
+> into separate modules for ipv4 and ipv6, and two patches tried
+> to fix it unsuccessfully afterwards.
+> 
+> This is a revert of the the first incorrect attempt to fix it,
+> going back to depending on IPV6 as the dependency, and we
+> adapt the 'select' condition accordingly.
 
-I was so hung up on the making the string match the name of the enum 
-that I'd discounted that, but you're right that doing that would reduce 
-duplication in the alias string.
-
->> True, but I figured that it was cleaner for the lwtunnel infra to not
->> assume whether how those modules are implemented. If you disagree, then
->> I can change to doing as you suggest.
->
-> It's not completely transparent to the infrastructure anyway, the
-> tunnel type needs to be added to lwtunnel_encap_str for new tunnels.
-> The way I suggested, it's only added for those tunnels having the
-> module alias set.
->
-> Just trying to get rid of the unnecessary strings in
-> lwtunnel_encap_str. There's no need to bloat kernel with them if
-> they're never used.
-
-Ok, will resubmit without the unnecessary strings in that function as 
-well as with your suggestion above.
-
-Thanks for the review,
-Rob
+Applied, thanks Arnd.
