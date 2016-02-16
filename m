@@ -1,175 +1,45 @@
-From: "=?UTF-8?q?Bendik=20R=C3=B8nning=20Opstad?=" <bro.devel@gmail.com>
-Subject: [PATCH v4 net-next 1/2] tcp: Add DPIFL thin stream detection mechanism
-Date: Tue, 16 Feb 2016 14:51:02 +0100
-Message-ID: <1455630663-18400-2-git-send-email-bro.devel+kernel@gmail.com>
-References: <1455630663-18400-1-git-send-email-bro.devel+kernel@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Andreas Petlund <apetlund@simula.no>,
-	Carsten Griwodz <griff@simula.no>,
-	=?UTF-8?q?P=C3=A5l=20Halvorsen?= <paalh@simula.no>,
-	Jonas Markussen <jonassm@ifi.uio.no>,
-	Kristian Evensen <kristian.evensen@gmail.com>,
-	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Corcodel Marian <asd@marian1000.go.ro>
+Subject: [PATCH net v4]r8169: Correcting start poll() operations.
+Date: Tue, 16 Feb 2016 15:19:56 +0200
+Message-ID: <1455628796-1750-1-git-send-email-asd@marian1000.go.ro>
+Cc: Corcodel Marian <asd@marian1000.go.ro>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:33396 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932326AbcBPNvV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 08:51:21 -0500
-Received: by mail-lb0-f179.google.com with SMTP id x4so96282862lbm.0
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 05:51:20 -0800 (PST)
-In-Reply-To: <1455630663-18400-1-git-send-email-bro.devel+kernel@gmail.com>
-In-Reply-To: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
-References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
+Received: from 5-14-226-11.residential.rdsnet.ro ([5.14.226.11]:56294 "EHLO
+	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932254AbcBPNxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 08:53:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The existing mechanism for detecting thin streams (tcp_stream_is_thin)
-is based on a static limit of less than 4 packets in flight. This treat=
-s
-streams differently depending on the connections RTT, such that a strea=
-m
-on a high RTT link may never be considered thin, whereas the same
-application would produce a stream that would always be thin in a low R=
-TT
-scenario (e.g. data center).
+  This patch enable poll operations when chip is ready.
+  poll op. Will start after autoneg process, after transmission is started.
 
-By calculating a dynamic packets in flight limit (DPIFL), the thin stre=
-am
-detection will be independent of the RTT and treat streams equally base=
-d
-on the transmission pattern, i.e. the inter-transmission time (ITT).
-
-Cc: Andreas Petlund <apetlund@simula.no>
-Cc: Carsten Griwodz <griff@simula.no>
-Cc: P=C3=A5l Halvorsen <paalh@simula.no>
-Cc: Jonas Markussen <jonassm@ifi.uio.no>
-Cc: Kristian Evensen <kristian.evensen@gmail.com>
-Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Signed-off-by: Bendik R=C3=B8nning Opstad <bro.devel+kernel@gmail.com>
+Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
 ---
- Documentation/networking/ip-sysctl.txt |  8 ++++++++
- include/net/tcp.h                      | 21 +++++++++++++++++++++
- net/ipv4/sysctl_net_ipv4.c             |  9 +++++++++
- net/ipv4/tcp.c                         |  2 ++
- 4 files changed, 40 insertions(+)
+ drivers/net/ethernet/realtek/r8169.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/net=
-working/ip-sysctl.txt
-index 24ce97f..3b23ed8f 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -708,6 +708,14 @@ tcp_thin_dupack - BOOLEAN
- 	Documentation/networking/tcp-thin.txt
- 	Default: 0
-=20
-+tcp_thin_dpifl_itt_lower_bound - INTEGER
-+	Controls the lower bound inter-transmission time (ITT) threshold
-+	for when a stream is considered thin. The value is specified in
-+	microseconds, and may not be lower than 10000 (10 ms). Based on
-+	this threshold, a dynamic packets in flight limit (DPIFL) is
-+	calculated, which is used to classify whether a stream is thin.
-+	Default: 10000
-+
- tcp_limit_output_bytes - INTEGER
- 	Controls TCP Small Queue limit per tcp socket.
- 	TCP bulk sender tends to increase packets in flight until it
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index bdd5e1c..a23ce24 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -215,6 +215,8 @@ void tcp_time_wait(struct sock *sk, int state, int =
-timeo);
-=20
- /* TCP thin-stream limits */
- #define TCP_THIN_LINEAR_RETRIES 6       /* After 6 linear retries, do =
-exp. backoff */
-+/* Lowest possible DPIFL lower bound ITT is 10 ms (10000 usec) */
-+#define TCP_THIN_DPIFL_ITT_LOWER_BOUND_MIN 10000
-=20
- /* TCP initial congestion window as per rfc6928 */
- #define TCP_INIT_CWND		10
-@@ -264,6 +266,7 @@ extern int sysctl_tcp_workaround_signed_windows;
- extern int sysctl_tcp_slow_start_after_idle;
- extern int sysctl_tcp_thin_linear_timeouts;
- extern int sysctl_tcp_thin_dupack;
-+extern int sysctl_tcp_thin_dpifl_itt_lower_bound;
- extern int sysctl_tcp_early_retrans;
- extern int sysctl_tcp_limit_output_bytes;
- extern int sysctl_tcp_challenge_ack_limit;
-@@ -1645,6 +1648,24 @@ static inline bool tcp_stream_is_thin(struct tcp=
-_sock *tp)
- 	return tp->packets_out < 4 && !tcp_in_initial_slowstart(tp);
- }
-=20
-+/**
-+ * tcp_stream_is_thin_dpifl() - Tests if the stream is thin based on d=
-ynamic PIF
-+ *                              limit
-+ * @tp: the tcp_sock struct
-+ *
-+ * Return: true if current packets in flight (PIF) count is lower than
-+ *         the dynamic PIF limit, else false
-+ */
-+static inline bool tcp_stream_is_thin_dpifl(const struct tcp_sock *tp)
-+{
-+	/* Calculate the maximum allowed PIF limit by dividing the RTT by
-+	 * the minimum allowed inter-transmission time (ITT).
-+	 * Tests if PIF < RTT / ITT-lower-bound
-+	 */
-+	return (u64) tcp_packets_in_flight(tp) *
-+		sysctl_tcp_thin_dpifl_itt_lower_bound < (tp->srtt_us >> 3);
-+}
-+
- /* /proc */
- enum tcp_seq_states {
- 	TCP_SEQ_STATE_LISTENING,
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index b537338..e7b1b30 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -41,6 +41,7 @@ static int tcp_syn_retries_min =3D 1;
- static int tcp_syn_retries_max =3D MAX_TCP_SYNCNT;
- static int ip_ping_group_range_min[] =3D { 0, 0 };
- static int ip_ping_group_range_max[] =3D { GID_T_MAX, GID_T_MAX };
-+static int tcp_thin_dpifl_itt_lower_bound_min =3D TCP_THIN_DPIFL_ITT_L=
-OWER_BOUND_MIN;
-=20
- /* Update system visible IP port range */
- static void set_local_port_range(struct net *net, int range[2])
-@@ -595,6 +596,14 @@ static struct ctl_table ipv4_table[] =3D {
- 		.proc_handler   =3D proc_dointvec
- 	},
- 	{
-+		.procname	=3D "tcp_thin_dpifl_itt_lower_bound",
-+		.data		=3D &sysctl_tcp_thin_dpifl_itt_lower_bound,
-+		.maxlen		=3D sizeof(int),
-+		.mode		=3D 0644,
-+		.proc_handler	=3D &proc_dointvec_minmax,
-+		.extra1		=3D &tcp_thin_dpifl_itt_lower_bound_min,
-+	},
-+	{
- 		.procname	=3D "tcp_early_retrans",
- 		.data		=3D &sysctl_tcp_early_retrans,
- 		.maxlen		=3D sizeof(int),
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 014f18e..0a2144a 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -286,6 +286,8 @@ int sysctl_tcp_min_tso_segs __read_mostly =3D 2;
-=20
- int sysctl_tcp_autocorking __read_mostly =3D 1;
-=20
-+int sysctl_tcp_thin_dpifl_itt_lower_bound __read_mostly =3D TCP_THIN_D=
-PIFL_ITT_LOWER_BOUND_MIN;
-+
- struct percpu_counter tcp_orphan_count;
- EXPORT_SYMBOL_GPL(tcp_orphan_count);
-=20
---=20
-1.9.1
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 537974c..a1fa760 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -7685,7 +7685,6 @@ static int rtl_open(struct net_device *dev)
+ 
+ 	set_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
+ 
+-	napi_enable(&tp->napi);
+ 
+ 	rtl8169_init_phy(dev, tp);
+ 
+@@ -7699,7 +7698,7 @@ static int rtl_open(struct net_device *dev)
+ 		netif_warn(tp, hw, dev, "counter reset/update failed\n");
+ 
+ 	netif_start_queue(dev);
+-
++	napi_enable(&tp->napi);
+ 	rtl_unlock_work(tp);
+ 
+ 	tp->saved_wolopts = 0;
+-- 
+2.1.4
