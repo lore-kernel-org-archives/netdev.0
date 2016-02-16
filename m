@@ -1,64 +1,40 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: [net-next] net: l3mdev: prefer VRF master for source address selection
-Date: Wed, 17 Feb 2016 00:48:28 +0100
-Message-ID: <1455666508-672875-1-git-send-email-equinox@diac24.net>
-References: <20160216234115.GI659150@eidolon>
-Cc: David Lamparter <equinox@diac24.net>,
-	David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [net-next] net: l3mdev: address selection should only consider
+ devices in L3 domain
+Date: Tue, 16 Feb 2016 16:49:03 -0700
+Message-ID: <56C3B56F.4020106@cumulusnetworks.com>
+References: <1455663591-27615-1-git-send-email-dsa@cumulusnetworks.com>
+ <20160216234115.GI659150@eidolon>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, david@opensourcerouting.org
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eidolon.nox.tf ([85.239.127.252]:43490 "EHLO eidolon.nox.tf"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933243AbcBPXsl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2016 18:48:41 -0500
+Received: from mail-io0-f169.google.com ([209.85.223.169]:34090 "EHLO
+	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933313AbcBPXtG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 18:49:06 -0500
+Received: by mail-io0-f169.google.com with SMTP id 9so7204124iom.1
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 15:49:06 -0800 (PST)
 In-Reply-To: <20160216234115.GI659150@eidolon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When selecting an address in context of a VRF, the vrf master should be
-preferred for address selection.  If it isn't, the user has a hard time
-getting the system to select to their preference - the code will pick
-the address off the first in-VRF interface it can find, which on a
-router could well be a non-routable address.
+On 2/16/16 4:41 PM, David Lamparter wrote:
+> ... this won't do enough.  If you look at the 4.3 patch I sent you, I
+> was adding a comment:
+>
+> + /* For VRFs, the VRF device takes the place of the loopback device,
+> +    with addresses on it being preferred.  Note in such cases the
+> +    loopback device will be among the devices that fail the vrf_ifi
+> +    equality check in the loop below.
+> +  */
+>
 
-Cc: David Ahern <dsa@cumulusnetworks.com>
-Signed-off-by: David Lamparter <equinox@diac24.net>
----
+Sure, I was focused on fixing the 'ignore devices not in the VRF' but 
+certainly for unnumbered use cases you want the VRF loopback address to 
+be preferred. Missed that earlier.
 
-This patch applies on top of the one by dsa@ in the root of this thread.
-
----
- net/ipv4/devinet.c | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
-
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 614904c..4ba5790 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1217,6 +1217,24 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
- no_in_dev:
- 	master_idx = l3mdev_master_ifindex_rcu(dev);
- 
-+	/* For VRFs, the VRF device takes the place of the loopback device,
-+	   with addresses on it being preferred.  Note in such cases the
-+	   loopback device will be among the devices that fail the master_idx
-+	   equality check in the loop below.
-+	 */
-+	if (master_idx &&
-+	    (dev = dev_get_by_index_rcu(net, master_idx)) &&
-+	    (in_dev = __in_dev_get_rcu(dev))) {
-+
-+		for_primary_ifa(in_dev) {
-+			if (ifa->ifa_scope != RT_SCOPE_LINK &&
-+			    ifa->ifa_scope <= scope) {
-+				addr = ifa->ifa_local;
-+				goto out_unlock;
-+			}
-+		} endfor_ifa(in_dev);
-+	}
-+
- 	/* Not loopback addresses on loopback should be preferred
- 	   in this case. It is important that lo is the first interface
- 	   in dev_base list.
--- 
-2.4.10
+Rather than spinning a patch on top of mine, fold this change into your 
+and make it 1 patch to achieve the goal.
