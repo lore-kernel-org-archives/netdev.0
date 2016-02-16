@@ -1,51 +1,39 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 04/12] net/mlx5e: Support DCBNL IEEE ETS
-Date: Tue, 16 Feb 2016 23:38:46 +0200
-Message-ID: <CAJ3xEMjbOAyzu_6B23HPJshY+p9Dm23P6Sr2SxA=caHz6iuk6A@mail.gmail.com>
-References: <1455653401-9808-1-git-send-email-saeedm@mellanox.com>
-	<1455653401-9808-5-git-send-email-saeedm@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+Date: Tue, 16 Feb 2016 16:38:57 -0500 (EST)
+Message-ID: <20160216.163857.1276474496395829938.davem@davemloft.net>
+References: <90A7E81AE28BAE4CBDDB3B35F187D264402EFB5D@CHN-SV-EXMX02.mchp-main.com>
+	<20160216.155244.2052910262411568012.davem@davemloft.net>
+	<90A7E81AE28BAE4CBDDB3B35F187D264402EFB82@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org
+To: Bryan.Whitehead@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f182.google.com ([209.85.223.182]:32786 "EHLO
-	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751375AbcBPVir (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 16:38:47 -0500
-Received: by mail-io0-f182.google.com with SMTP id z135so996226iof.0
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 13:38:47 -0800 (PST)
-In-Reply-To: <1455653401-9808-5-git-send-email-saeedm@mellanox.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40483 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756067AbcBPVi6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 16:38:58 -0500
+In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264402EFB82@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 16, 2016 at 10:09 PM, Saeed Mahameed <saeedm@mellanox.com>
-> @@ -1602,7 +1622,7 @@ static int mlx5e_create_tis(struct mlx5e_priv
-*priv, int tc)
->
->         memset(in, 0, sizeof(in));
->
-> -       MLX5_SET(tisc, tisc, prio,  tc);
-> +       MLX5_SET(tisc, tisc, prio, tc << 1);
+From: <Bryan.Whitehead@microchip.com>
+Date: Tue, 16 Feb 2016 21:32:20 +0000
 
-point bug fix? or we could never hit that prior to the patch as ## TCs
-was always 0?
+> I just spoke with my manager, and we would like to change the target
+> device from LAN9352 to LAN9250. The LAN9250 is the same as the
+> LAN9352 but without the switch. It has one mac and one phy.
+> 
+> Since there is no switch in that product, will that make a pure
+> Ethernet driver easier to accept?
 
->         MLX5_SET(tisc, tisc, transport_domain, priv->tdn);
->
->         return mlx5_core_create_tis(mdev, in, sizeof(in), &priv->tisn[tc]);
-> @@ -1618,7 +1638,7 @@ static int mlx5e_create_tises(struct mlx5e_priv *priv)
->         int err;
->         int tc;
->
-> -       for (tc = 0; tc < priv->params.num_tc; tc++) {
-> +       for (tc = 0; tc < MLX5E_MAX_NUM_TC; tc++) {
->                 err = mlx5e_create_tis(priv, tc);
+I'm not going to allow you to weasel away from doing things correctly
+by doing this.
 
-various places in the patch use priv->params.num_tc, wasn't sure if
-it's correct to hard code things here, and if it does, why not hard
-code everywhere
+You are doing this so you can still put the pure ethernet driver into
+the tree, and then off-tree you'll just add the device ID for the
+switch device.
+
+Sorry, that won't pass.
