@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/14] igb: Merge VLVF configuration into igb_vfta_set
-Date: Mon, 15 Feb 2016 19:21:50 -0800
-Message-ID: <1455592915-82261-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/14] igb: Drop unnecessary checks in transmit path
+Date: Mon, 15 Feb 2016 19:21:53 -0800
+Message-ID: <1455592915-82261-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455592915-82261-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,7 +10,7 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:57142 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753345AbcBPDWF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753352AbcBPDWF (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 15 Feb 2016 22:22:05 -0500
 In-Reply-To: <1455592915-82261-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,375 +18,37 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <aduyck@mirantis.com>
 
-This change makes it so that we can merge the configuration of the VLVF
-registers into the setting of the VFTA register.  By doing this we simplify
-the logic and make use of similar functionality that we have already added
-for ixgbe making it easier to maintain both drivers.
+This patch drops several checks that we dropped from ixgbe some ago.  It
+should not be possible for us to be called with either of the conditional
+statements returning true so we can just drop them from the hot-path.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_mac.c | 119 ++++++++++++++++++++++++++++-
- drivers/net/ethernet/intel/igb/e1000_mac.h |   3 +-
- drivers/net/ethernet/intel/igb/igb_main.c  | 105 +++++--------------------
- 3 files changed, 135 insertions(+), 92 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 10 ----------
+ 1 file changed, 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.c b/drivers/net/ethernet/intel/igb/e1000_mac.c
-index 97f6fae..07cf4fe 100644
---- a/drivers/net/ethernet/intel/igb/e1000_mac.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_mac.c
-@@ -141,21 +141,69 @@ void igb_init_rx_addrs(struct e1000_hw *hw, u16 rar_count)
- }
- 
- /**
-+ *  igb_find_vlvf_slot - find the VLAN id or the first empty slot
-+ *  @hw: pointer to hardware structure
-+ *  @vlan: VLAN id to write to VLAN filter
-+ *  @vlvf_bypass: skip VLVF if no match is found
-+ *
-+ *  return the VLVF index where this VLAN id should be placed
-+ *
-+ **/
-+static s32 igb_find_vlvf_slot(struct e1000_hw *hw, u32 vlan, bool vlvf_bypass)
-+{
-+	s32 regindex, first_empty_slot;
-+	u32 bits;
-+
-+	/* short cut the special case */
-+	if (vlan == 0)
-+		return 0;
-+
-+	/* if vlvf_bypass is set we don't want to use an empty slot, we
-+	 * will simply bypass the VLVF if there are no entries present in the
-+	 * VLVF that contain our VLAN
-+	 */
-+	first_empty_slot = vlvf_bypass ? -E1000_ERR_NO_SPACE : 0;
-+
-+	/* Search for the VLAN id in the VLVF entries. Save off the first empty
-+	 * slot found along the way.
-+	 *
-+	 * pre-decrement loop covering (IXGBE_VLVF_ENTRIES - 1) .. 1
-+	 */
-+	for (regindex = E1000_VLVF_ARRAY_SIZE; --regindex > 0;) {
-+		bits = rd32(E1000_VLVF(regindex)) & E1000_VLVF_VLANID_MASK;
-+		if (bits == vlan)
-+			return regindex;
-+		if (!first_empty_slot && !bits)
-+			first_empty_slot = regindex;
-+	}
-+
-+	return first_empty_slot ? : -E1000_ERR_NO_SPACE;
-+}
-+
-+/**
-  *  igb_vfta_set - enable or disable vlan in VLAN filter table
-  *  @hw: pointer to the HW structure
-  *  @vlan: VLAN id to add or remove
-+ *  @vind: VMDq output index that maps queue to VLAN id
-  *  @vlan_on: if true add filter, if false remove
-  *
-  *  Sets or clears a bit in the VLAN filter table array based on VLAN id
-  *  and if we are adding or removing the filter
-  **/
--s32 igb_vfta_set(struct e1000_hw *hw, u32 vlan, bool vlan_on)
-+s32 igb_vfta_set(struct e1000_hw *hw, u32 vlan, u32 vind,
-+		 bool vlan_on, bool vlvf_bypass)
- {
- 	struct igb_adapter *adapter = hw->back;
--	u32 regidx, vfta_delta, vfta;
-+	u32 regidx, vfta_delta, vfta, bits;
-+	s32 vlvf_index;
- 
--	if (vlan > 4095)
--		return E1000_ERR_PARAM;
-+	if ((vlan > 4095) || (vind > 7))
-+		return -E1000_ERR_PARAM;
-+
-+	/* this is a 2 part operation - first the VFTA, then the
-+	 * VLVF and VLVFB if VT Mode is set
-+	 * We don't write the VFTA until we know the VLVF part succeeded.
-+	 */
- 
- 	/* Part 1
- 	 * The VFTA is a bitstring made up of 128 32-bit registers
-@@ -174,6 +222,69 @@ s32 igb_vfta_set(struct e1000_hw *hw, u32 vlan, bool vlan_on)
- 	vfta_delta &= vlan_on ? ~vfta : vfta;
- 	vfta ^= vfta_delta;
- 
-+	/* Part 2
-+	 * If VT Mode is set
-+	 *   Either vlan_on
-+	 *     make sure the VLAN is in VLVF
-+	 *     set the vind bit in the matching VLVFB
-+	 *   Or !vlan_on
-+	 *     clear the pool bit and possibly the vind
-+	 */
-+	if (!adapter->vfs_allocated_count)
-+		goto vfta_update;
-+
-+	vlvf_index = igb_find_vlvf_slot(hw, vlan, vlvf_bypass);
-+	if (vlvf_index < 0) {
-+		if (vlvf_bypass)
-+			goto vfta_update;
-+		return vlvf_index;
-+	}
-+
-+	bits = rd32(E1000_VLVF(vlvf_index));
-+
-+	/* set the pool bit */
-+	bits |= 1 << (E1000_VLVF_POOLSEL_SHIFT + vind);
-+	if (vlan_on)
-+		goto vlvf_update;
-+
-+	/* clear the pool bit */
-+	bits ^= 1 << (E1000_VLVF_POOLSEL_SHIFT + vind);
-+
-+	if (!(bits & E1000_VLVF_POOLSEL_MASK)) {
-+		/* Clear VFTA first, then disable VLVF.  Otherwise
-+		 * we run the risk of stray packets leaking into
-+		 * the PF via the default pool
-+		 */
-+		if (vfta_delta)
-+			hw->mac.ops.write_vfta(hw, regidx, vfta);
-+
-+		/* disable VLVF and clear remaining bit from pool */
-+		wr32(E1000_VLVF(vlvf_index), 0);
-+
-+		return 0;
-+	}
-+
-+	/* If there are still bits set in the VLVFB registers
-+	 * for the VLAN ID indicated we need to see if the
-+	 * caller is requesting that we clear the VFTA entry bit.
-+	 * If the caller has requested that we clear the VFTA
-+	 * entry bit but there are still pools/VFs using this VLAN
-+	 * ID entry then ignore the request.  We're not worried
-+	 * about the case where we're turning the VFTA VLAN ID
-+	 * entry bit on, only when requested to turn it off as
-+	 * there may be multiple pools and/or VFs using the
-+	 * VLAN ID entry.  In that case we cannot clear the
-+	 * VFTA bit until all pools/VFs using that VLAN ID have also
-+	 * been cleared.  This will be indicated by "bits" being
-+	 * zero.
-+	 */
-+	vfta_delta = 0;
-+
-+vlvf_update:
-+	/* record pool change and enable VLAN ID if not already enabled */
-+	wr32(E1000_VLVF(vlvf_index), bits | vlan | E1000_VLVF_VLANID_ENABLE);
-+
-+vfta_update:
- 	/* bit was set/cleared before we started */
- 	if (vfta_delta)
- 		hw->mac.ops.write_vfta(hw, regidx, vfta);
-diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.h b/drivers/net/ethernet/intel/igb/e1000_mac.h
-index 4fbb953..90c8893 100644
---- a/drivers/net/ethernet/intel/igb/e1000_mac.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_mac.h
-@@ -57,7 +57,8 @@ s32  igb_write_8bit_ctrl_reg(struct e1000_hw *hw, u32 reg,
- void igb_clear_hw_cntrs_base(struct e1000_hw *hw);
- void igb_clear_vfta(struct e1000_hw *hw);
- void igb_write_vfta(struct e1000_hw *hw, u32 offset, u32 value);
--s32  igb_vfta_set(struct e1000_hw *hw, u32 vid, bool add);
-+s32  igb_vfta_set(struct e1000_hw *hw, u32 vid, u32 vind,
-+		  bool vlan_on, bool vlvf_bypass);
- void igb_config_collision_dist(struct e1000_hw *hw);
- void igb_init_rx_addrs(struct e1000_hw *hw, u16 rar_count);
- void igb_mta_set(struct e1000_hw *hw, u32 hash_value);
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index f3e1738..e7c3a94 100644
+index 7366d4f..bb5be40 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1534,12 +1534,13 @@ static void igb_irq_enable(struct igb_adapter *adapter)
- static void igb_update_mng_vlan(struct igb_adapter *adapter)
+@@ -5193,16 +5193,6 @@ static netdev_tx_t igb_xmit_frame(struct sk_buff *skb,
  {
- 	struct e1000_hw *hw = &adapter->hw;
-+	u16 pf_id = adapter->vfs_allocated_count;
- 	u16 vid = adapter->hw.mng_cookie.vlan_id;
- 	u16 old_vid = adapter->mng_vlan_id;
- 
- 	if (hw->mng_cookie.status & E1000_MNG_DHCP_COOKIE_STATUS_VLAN) {
- 		/* add VID to filter table */
--		igb_vfta_set(hw, vid, true);
-+		igb_vfta_set(hw, vid, pf_id, true, true);
- 		adapter->mng_vlan_id = vid;
- 	} else {
- 		adapter->mng_vlan_id = IGB_MNG_VLAN_NONE;
-@@ -1549,7 +1550,7 @@ static void igb_update_mng_vlan(struct igb_adapter *adapter)
- 	    (vid != old_vid) &&
- 	    !test_bit(old_vid, adapter->active_vlans)) {
- 		/* remove VID from filter table */
--		igb_vfta_set(hw, old_vid, false);
-+		igb_vfta_set(hw, vid, pf_id, false, true);
- 	}
- }
- 
-@@ -5778,75 +5779,13 @@ static void igb_clear_vf_vfta(struct igb_adapter *adapter, u32 vf)
- 		    (reg & E1000_VLVF_VLANID_ENABLE)) {
- 			reg = 0;
- 			vid = reg & E1000_VLVF_VLANID_MASK;
--			igb_vfta_set(hw, vid, false);
-+			igb_vfta_set(hw, vid, vf, false, true);
- 		}
- 
- 		wr32(E1000_VLVF(i), reg);
- 	}
- }
- 
--static s32 igb_vlvf_set(struct igb_adapter *adapter, u32 vid, bool add, u32 vf)
--{
--	struct e1000_hw *hw = &adapter->hw;
--	u32 reg, i;
--
--	/* The vlvf table only exists on 82576 hardware and newer */
--	if (hw->mac.type < e1000_82576)
--		return -1;
--
--	/* we only need to do this if VMDq is enabled */
--	if (!adapter->vfs_allocated_count)
--		return -1;
--
--	/* Find the vlan filter for this id */
--	for (i = 0; i < E1000_VLVF_ARRAY_SIZE; i++) {
--		reg = rd32(E1000_VLVF(i));
--		if ((reg & E1000_VLVF_VLANID_ENABLE) &&
--		    vid == (reg & E1000_VLVF_VLANID_MASK))
--			break;
--	}
--
--	if (add) {
--		if (i == E1000_VLVF_ARRAY_SIZE) {
--			/* Did not find a matching VLAN ID entry that was
--			 * enabled.  Search for a free filter entry, i.e.
--			 * one without the enable bit set
--			 */
--			for (i = 0; i < E1000_VLVF_ARRAY_SIZE; i++) {
--				reg = rd32(E1000_VLVF(i));
--				if (!(reg & E1000_VLVF_VLANID_ENABLE))
--					break;
--			}
--		}
--		if (i < E1000_VLVF_ARRAY_SIZE) {
--			/* Found an enabled/available entry */
--			reg |= 1 << (E1000_VLVF_POOLSEL_SHIFT + vf);
--
--			/* if !enabled we need to set this up in vfta */
--			if (!(reg & E1000_VLVF_VLANID_ENABLE)) {
--				/* add VID to filter table */
--				igb_vfta_set(hw, vid, true);
--				reg |= E1000_VLVF_VLANID_ENABLE;
--			}
--			reg &= ~E1000_VLVF_VLANID_MASK;
--			reg |= vid;
--			wr32(E1000_VLVF(i), reg);
--		}
--	} else {
--		if (i < E1000_VLVF_ARRAY_SIZE) {
--			/* remove vf from the pool */
--			reg &= ~(1 << (E1000_VLVF_POOLSEL_SHIFT + vf));
--			/* if pool is empty then remove entry from vfta */
--			if (!(reg & E1000_VLVF_POOLSEL_MASK)) {
--				reg = 0;
--				igb_vfta_set(hw, vid, false);
--			}
--			wr32(E1000_VLVF(i), reg);
--		}
--	}
--	return 0;
--}
--
- static void igb_set_vmvir(struct igb_adapter *adapter, u32 vid, u32 vf)
- {
- 	struct e1000_hw *hw = &adapter->hw;
-@@ -5860,13 +5799,14 @@ static void igb_set_vmvir(struct igb_adapter *adapter, u32 vid, u32 vf)
- static int igb_ndo_set_vf_vlan(struct net_device *netdev,
- 			       int vf, u16 vlan, u8 qos)
- {
--	int err = 0;
  	struct igb_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_hw *hw = &adapter->hw;
-+	int err = 0;
  
- 	if ((vf >= adapter->vfs_allocated_count) || (vlan > 4095) || (qos > 7))
- 		return -EINVAL;
- 	if (vlan || qos) {
--		err = igb_vlvf_set(adapter, vlan, !!vlan, vf);
-+		err = igb_vfta_set(hw, vlan, vf, !!vlan, false);
- 		if (err)
- 			goto out;
- 		igb_set_vmvir(adapter, vlan | (qos << VLAN_PRIO_SHIFT), vf);
-@@ -5882,8 +5822,8 @@ static int igb_ndo_set_vf_vlan(struct net_device *netdev,
- 				 "Bring the PF device up before attempting to use the VF device.\n");
- 		}
- 	} else {
--		igb_vlvf_set(adapter, adapter->vf_data[vf].pf_vlan,
--			     false, vf);
-+		igb_vfta_set(hw, adapter->vf_data[vf].pf_vlan, vf,
-+			     false, false);
- 		igb_set_vmvir(adapter, vlan, vf);
- 		igb_set_vmolr(adapter, vf, true);
- 		adapter->vf_data[vf].pf_vlan = 0;
-@@ -5924,12 +5864,12 @@ static int igb_set_vf_vlan(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
- 	 * the VLAN filter set.
+-	if (test_bit(__IGB_DOWN, &adapter->state)) {
+-		dev_kfree_skb_any(skb);
+-		return NETDEV_TX_OK;
+-	}
+-
+-	if (skb->len <= 0) {
+-		dev_kfree_skb_any(skb);
+-		return NETDEV_TX_OK;
+-	}
+-
+ 	/* The minimum packet size with TCTL.PSP set is 17 so pad the skb
+ 	 * in order to meet this minimum size requirement.
  	 */
- 	if (add && (adapter->netdev->flags & IFF_PROMISC))
--		err = igb_vlvf_set(adapter, vid, add,
--				   adapter->vfs_allocated_count);
-+		err = igb_vfta_set(hw, vid, adapter->vfs_allocated_count,
-+				   true, false);
- 	if (err)
- 		goto out;
- 
--	err = igb_vlvf_set(adapter, vid, add, vf);
-+	err = igb_vfta_set(hw, vid, vf, !!add, false);
- 
- 	if (err)
- 		goto out;
-@@ -5956,8 +5896,8 @@ static int igb_set_vf_vlan(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
- 		if ((vlvf & VLAN_VID_MASK) == vid &&
- 		    !test_bit(vid, adapter->active_vlans) &&
- 		    !bits)
--			igb_vlvf_set(adapter, vid, add,
--				     adapter->vfs_allocated_count);
-+			igb_vfta_set(hw, vid, adapter->vfs_allocated_count,
-+				     false, false);
- 	}
- 
- out:
-@@ -7144,12 +7084,8 @@ static int igb_vlan_rx_add_vid(struct net_device *netdev,
- 	struct e1000_hw *hw = &adapter->hw;
- 	int pf_id = adapter->vfs_allocated_count;
- 
--	/* attempt to add filter to vlvf array */
--	igb_vlvf_set(adapter, vid, true, pf_id);
--
- 	/* add the filter since PF can receive vlans w/o entry in vlvf */
--	igb_vfta_set(hw, vid, true);
--
-+	igb_vfta_set(hw, vid, pf_id, true, true);
- 	set_bit(vid, adapter->active_vlans);
- 
- 	return 0;
-@@ -7159,16 +7095,11 @@ static int igb_vlan_rx_kill_vid(struct net_device *netdev,
- 				__be16 proto, u16 vid)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
--	struct e1000_hw *hw = &adapter->hw;
- 	int pf_id = adapter->vfs_allocated_count;
--	s32 err;
--
--	/* remove vlan from VLVF table array */
--	err = igb_vlvf_set(adapter, vid, false, pf_id);
-+	struct e1000_hw *hw = &adapter->hw;
- 
--	/* if vid was not present in VLVF just remove it from table */
--	if (err)
--		igb_vfta_set(hw, vid, false);
-+	/* remove VID from filter table */
-+	igb_vfta_set(hw, vid, pf_id, false, true);
- 
- 	clear_bit(vid, adapter->active_vlans);
- 
 -- 
 2.5.0
