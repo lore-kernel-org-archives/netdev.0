@@ -1,66 +1,87 @@
-From: Shannon Nelson <shannon.nelson@intel.com>
-Subject: Re: [PATCH] i40e: remove redundant check on vsi->active_vlans
-Date: Tue, 16 Feb 2016 09:58:27 -0800
-Message-ID: <CAP-MU4Mjq6oXfvuO=tadWyXgvovVTgTnmJPf4gHbdHd34Y=xAw@mail.gmail.com>
-References: <1455407836-7188-1-git-send-email-colin.king@canonical.com>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [PATCH net-next] lwt: fix rx checksum setting for lwt devices
+ tunneling over ipv6
+Date: Tue, 16 Feb 2016 10:22:38 -0800
+Message-ID: <CAEh+42jyFVjM4A5HzJQ94xW+XZOTG5iBEFu2VHKCJU0sRwNgWA@mail.gmail.com>
+References: <8d2a6ece65b17ae61343dce27f3709d3cd249832.1455118911.git.pabeni@redhat.com>
+ <20160211114124.17ae429a@griffin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455407836-7188-1-git-send-email-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Paolo Abeni <pabeni@redhat.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Pravin Shelar <pshelar@nicira.com>, Thomas Graf <tgraf@suug.ch>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:55644 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755862AbcBPSW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 13:22:56 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id 05A58202A1
+	for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 18:22:55 +0000 (UTC)
+Received: from mail-qg0-f42.google.com (mail-qg0-f42.google.com [209.85.192.42])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 78DBA202B8
+	for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 18:22:53 +0000 (UTC)
+Received: by mail-qg0-f42.google.com with SMTP id b67so139877236qgb.1
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 10:22:53 -0800 (PST)
+In-Reply-To: <20160211114124.17ae429a@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 13, 2016 at 3:57 PM, Colin King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
+On Thu, Feb 11, 2016 at 2:41 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Wed, 10 Feb 2016 16:47:21 +0100, Paolo Abeni wrote:
+>> --- a/drivers/net/geneve.c
+>> +++ b/drivers/net/geneve.c
+>> @@ -1441,7 +1441,8 @@ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
+>>               return dev;
+>>
+>>       err = geneve_configure(net, dev, &geneve_remote_unspec,
+>> -                            0, 0, 0, htons(dst_port), true, 0);
+>> +                            0, 0, 0, htons(dst_port), true,
+>> +                            GENEVE_F_UDP_ZERO_CSUM6_RX);
+>>       if (err) {
+>>               free_netdev(dev);
+>>               return ERR_PTR(err);
+>> diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+>> index 1605691..d933cb8 100644
+>> --- a/net/openvswitch/vport-vxlan.c
+>> +++ b/net/openvswitch/vport-vxlan.c
+>> @@ -90,7 +90,7 @@ static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
+>>       int err;
+>>       struct vxlan_config conf = {
+>>               .no_share = true,
+>> -             .flags = VXLAN_F_COLLECT_METADATA,
+>> +             .flags = VXLAN_F_COLLECT_METADATA | VXLAN_F_UDP_ZERO_CSUM6_RX,
 >
-> active_vlans is an unsigned long array, hence a null check on this
-> array is superfluous and can be removed.
+> I'm afraid this looks wrong, we should not default to zero UDP checksum
+> over IPv6. See RFC 2460, section 8.1:
 >
-> Detected with static analysis by smatch:
+>       o  Unlike IPv4, when UDP packets are originated by an IPv6 node,
+>          the UDP checksum is not optional.  That is, whenever
+>          originating a UDP packet, an IPv6 node must compute a UDP
+>          checksum over the packet and the pseudo-header, and, if that
+>          computation yields a result of zero, it must be changed to hex
+>          FFFF for placement in the UDP header.  IPv6 receivers must
+>          discard UDP packets containing a zero checksum, and should log
+>          the error.
 >
-> drivers/net/ethernet/intel/i40e/i40e_debugfs.c:386
->   i40e_dbg_dump_vsi_seid() warn: this array is probably
->   non-NULL. 'vsi->active_vlans'
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-> index 10744a6..aba28be 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-> @@ -383,9 +383,8 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
->                 dev_info(&pf->pdev->dev,
->                          "    netdev: name = %s\n",
->                          vsi->netdev->name);
-> -       if (vsi->active_vlans)
-> -               dev_info(&pf->pdev->dev,
-> -                        "    vlgrp: & = %p\n", vsi->active_vlans);
-> +       dev_info(&pf->pdev->dev,
-> +                "    vlgrp: & = %p\n", vsi->active_vlans);
->         dev_info(&pf->pdev->dev,
->                  "    netdev_registered = %i, current_netdev_flags = 0x%04x, state = %li flags = 0x%08lx\n",
->                  vsi->netdev_registered,
-> --
-> 2.7.0
->
+> One may argue that with tunneling, the situation is different but
+> that's the reason why we have the IPv6 checksum flag and why it has
+> opposite meaning to the IPv4 one. We shouldn't default to non-RFC
+> behavior by default.
 
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+There's a bigger problem here, not really related to lightweight tunnels or OVS.
 
--- 
-==============================================
-Mr. Shannon Nelson                        Network Division, Intel Corp.
-Shannon.Nelson@intel.com                I don't speak for Intel
-                 Parents can't afford to be squeamish
+The VXLAN RFC says (referring to the UDP checksum and not specific to IPv4/v6):
+"It SHOULD be transmitted as zero. When a packet is received with a
+UDP checksum of zero, it MUST be accepted for decapsulation."
+
+We can debate whether this is correct or whether it conflicts with RFC
+2460 but this is what essentially everyone is going to implement. With
+the default settings of the flags in IPv6, we are violating both
+statements. With the second one in particular, the result is that
+Linux will not be able to communicate with any non-Linux VXLAN
+endpoint over IPv6 with default settings.
