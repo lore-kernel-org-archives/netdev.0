@@ -1,43 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V2 0/3] mlx5 driver fixes for 4.5-rc2
-Date: Tue, 16 Feb 2016 15:22:14 -0500 (EST)
-Message-ID: <20160216.152214.2268006538747996254.davem@davemloft.net>
-References: <1455022664-15202-1-git-send-email-saeedm@mellanox.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+Date: Tue, 16 Feb 2016 21:21:52 +0100
+Message-ID: <20160216202152.GB2558@lunn.ch>
+References: <90A7E81AE28BAE4CBDDB3B35F187D264402EF4A2@CHN-SV-EXMX02.mchp-main.com>
+ <20160211215523.GE26333@lunn.ch>
+ <90A7E81AE28BAE4CBDDB3B35F187D264402EF5AC@CHN-SV-EXMX02.mchp-main.com>
+ <20160212171113.GC13273@lunn.ch>
+ <90A7E81AE28BAE4CBDDB3B35F187D264402EFAF5@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, matanb@mellanox.com,
-	eranbe@mellanox.com, majd@mellanox.com
-To: saeedm@mellanox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Bryan.Whitehead@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39485 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754932AbcBPUWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 15:22:16 -0500
-In-Reply-To: <1455022664-15202-1-git-send-email-saeedm@mellanox.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:47722 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756010AbcBPUV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 15:21:56 -0500
+Content-Disposition: inline
+In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264402EFAF5@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Tue,  9 Feb 2016 14:57:41 +0200
+So you mean mdiobus_scan()
+http://lxr.free-electrons.com/source/drivers/net/phy/mdio_bus.c#L349
 
-> We added here a patch from Matan and Alaa for addressing Linus comments on
-> the mess w.r.t reserved field names in the driver/firmware auto-generated file.
-> 
-> Once the patch hits linus tree, we'll ask Doug to rebase his tree on that
-> rc so both net-next and rdma-next development for 4.6 will be done under
-> the fixed robust form.
-> 
-> Also provided two patches that addresses the dynamic ndo initialization
-> issue of mlx5e netdevice.
-> 
-> Or and Saeed.
-> 
-> changes from V1: (Only first patch was changed)
-> In this V we fixed the issues addressed in Or's previous e-mail.
-> 	1. Offsets took into account two dimensional u8 arrays
-> 	2. Offsets took into account nesting unions and structs
-> 	3. Offsets for unions
-> 	4. Offsets for any reserved field
+actually finds three PHY devices. Two are real phys with magnetics and
+somewhere to attach a copper cable, and one is virtual.
 
-Series applied, thanks.
+This is non-obvious. I think it would be good to add some ASCII art to
+the binding documentation to explain what this device looks like, and
+which address on the MDIO bus maps to what phy.
+
+There is also the issue of which way around is this phy. Typically in
+a DSA setup you have:
+
+      +-----------+       +-----------+
+      |           | RGMII |           |
+      |           +-------+           +------ 1000baseT MDI ("WAN")
+      |           |       |  6-port   +------ 1000baseT MDI ("LAN1")
+      |    CPU    |       |  ethernet +------ 1000baseT MDI ("LAN2")
+      |           |MIImgmt|  switch   +------ 1000baseT MDI ("LAN3")
+      |           +-------+  w/5 PHYs +------ 1000baseT MDI ("LAN4")
+      |           |       |           |
+      +-----------+       +-----------+
+
+Each MDI port has a phy on it. These are your two real PHYs.
+
+Another possible setup, but not very frequently seen is:
+
+      +-----------+                        +-----------+
+      |           | RGMII             RGMII|           |
+      |           +-------PHY -- PHY ------+           +------ 1000baseT MDI ("WAN")
+      |           |                        |  6-port   +------ 1000baseT MDI ("LAN1")
+      |    CPU    |                        |  ethernet +------ 1000baseT MDI ("LAN2")
+      |           |    MIImgmt             |  switch   +------ 1000baseT MDI ("LAN3")
+      |           +------------------------+  w/5 PHYs +------ 1000baseT MDI ("LAN4")
+      |           |                        |           |
+      +-----------+                        +-----------+
+
+In this setup, you have a short copper section between the two PHYs
+copper ports, and the MAC side is connected to a MAC, be it the CPU
+MAC or the switch MAC.
+
+The switch you are talking about only has one of these PHYs. Does it
+connect to the CPU MAC or the switch MAC? What use is that? Does the
+link status tell you anything? Can it be down? Auto negotiation is
+meaningless, since there is no link partner. Can you change the speed
+to 10/half? What does ethtool show for this phy?
+
+I think we need to understand this PHY before deciding if we need to
+include it in the driver model or not. It is so odd, it might be
+better to ignore it.
+
+Thanks
+	Andrew
