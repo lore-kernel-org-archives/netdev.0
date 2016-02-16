@@ -1,48 +1,49 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 3/5] bnx2x: Add support for single-port DCBx
-Date: Tue, 16 Feb 2016 18:07:59 +0200
-Message-ID: <1455638881-2527-4-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 5/5] bnx2x: Warn about grc timeouts in register dump
+Date: Tue, 16 Feb 2016 18:08:01 +0200
+Message-ID: <1455638881-2527-6-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1455638881-2527-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:52382 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:23647 "EHLO
 	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932261AbcBPQIt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 11:08:49 -0500
+	by vger.kernel.org with ESMTP id S933120AbcBPQIx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 11:08:53 -0500
 In-Reply-To: <1455638881-2527-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Driver is currently looking at shared information for determining whether
-DCBx can be supported for a given port.
-On 4-port devices, up-to-date management firmware can support DCBx on
-each port of a given engine independently - but that would cause bnx2x to
-misinterpert the support and assume DCBx is supported on both.
+There are several scenarios where taking a register dump from a device
+might log benign GRC timeout attentions to system logs.
+Most common of those is when taking the dump from a 2-port device.
+
+Sadly, there's no easy way to mask the problematic attentions during the
+flow - Changing this behvaior would require a firmware update.
+For now, simply warn users to ignore the warnings.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 5d6b2d9..c584525 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12429,8 +12429,10 @@ static int bnx2x_init_bp(struct bnx2x *bp)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index 820b7e0..85a7800 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -981,6 +981,11 @@ static void bnx2x_get_regs(struct net_device *dev,
+ 	memcpy(p, &dump_hdr, sizeof(struct dump_header));
+ 	p += dump_hdr.header_size + 1;
  
- 	if (SHMEM2_HAS(bp, dcbx_lldp_params_offset) &&
- 	    SHMEM2_HAS(bp, dcbx_lldp_dcbx_stat_offset) &&
-+	    SHMEM2_HAS(bp, dcbx_en) &&
- 	    SHMEM2_RD(bp, dcbx_lldp_params_offset) &&
--	    SHMEM2_RD(bp, dcbx_lldp_dcbx_stat_offset)) {
-+	    SHMEM2_RD(bp, dcbx_lldp_dcbx_stat_offset) &&
-+	    SHMEM2_RD(bp, dcbx_en[BP_PORT(bp)])) {
- 		bnx2x_dcbx_set_state(bp, true, BNX2X_DCBX_ENABLED_ON_NEG_ON);
- 		bnx2x_dcbx_init_params(bp);
- 	} else {
++	/* This isn't really an error, but since attention handling is going
++	 * to print the GRC timeouts using this macro, we use the same.
++	 */
++	BNX2X_ERR("Generating register dump. Might trigger harmless GRC timeouts\n");
++
+ 	/* Actually read the registers */
+ 	__bnx2x_get_regs(bp, p);
+ 
 -- 
 1.9.3
