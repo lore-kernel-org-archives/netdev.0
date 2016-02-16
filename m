@@ -1,64 +1,52 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH 08/13] ARM: mvebu: enable SRAM support in mvebu_v7_defconfig
-Date: Tue, 16 Feb 2016 11:51:44 +0100
-Message-ID: <874md9udvj.fsf@free-electrons.com>
-References: <1448178839-3541-1-git-send-email-mw@semihalf.com>
-	<1448178839-3541-9-git-send-email-mw@semihalf.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: ravb: Possible Regression In "net: phy: Avoid polling PHY with
+ PHY_IGNORE_INTERRUPTS"
+Date: Tue, 16 Feb 2016 14:06:55 +0300
+Message-ID: <56C302CF.2030300@cogentembedded.com>
+References: <20160216032642.GE23315@verge.net.au>
+ <CAMuHMdXvnY0i69jSfxk_2K0Ac0PtjF7G7QMXKOh6KOLQE8MsMg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	linux@arm.linux.org.uk, sebastian.hesselbarth@gmail.com,
-	andrew@lunn.ch, jason@lakedaemon.net,
-	thomas.petazzoni@free-electrons.com, simon.guinot@sequanux.org,
-	nadavh@marvell.com, alior@marvell.com, xswang@marvell.com,
-	myair@marvell.com, nitroshift@yahoo.com, jaz@semihalf.com,
-	tn@semihalf.com
-To: Marcin Wojtas <mw@semihalf.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:51703 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754806AbcBPK6i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 05:58:38 -0500
-In-Reply-To: <1448178839-3541-9-git-send-email-mw@semihalf.com> (Marcin
-	Wojtas's message of "Sun, 22 Nov 2015 08:53:54 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-renesas-soc@vger.kernel.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Simon Horman <horms@verge.net.au>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdXvnY0i69jSfxk_2K0Ac0PtjF7G7QMXKOh6KOLQE8MsMg@mail.gmail.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Marcin,
- 
- On dim., nov. 22 2015, Marcin Wojtas <mw@semihalf.com> wrote:
+Hello.
 
-As this config will be needed in any case, I have applied on
-mvebu/defconfig. I also added a commit log.
+On 2/16/2016 10:42 AM, Geert Uytterhoeven wrote:
 
-Thanks,
-
-Gregory
-
-> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-> ---
->  arch/arm/configs/mvebu_v7_defconfig | 1 +
->  1 file changed, 1 insertion(+)
+>> I have observed what appears to be a regression in the ravb ethernet driver
+>> caused by d5c3d84657db ("net: phy: Avoid polling PHY with
+>> PHY_IGNORE_INTERRUPTS").
+>>
+>> When booting net-next configured with the ARM64 defconfig on the Renesas
+>> r8a7795/salvator-x I see the following and the ravb is unable to access the
+>> network. With the above mentioned patch reverted I am able to boot to
+>> user-space using nfsroot.
 >
-> diff --git a/arch/arm/configs/mvebu_v7_defconfig b/arch/arm/configs/mvebu_v7_defconfig
-> index c6729bf..fe57e20 100644
-> --- a/arch/arm/configs/mvebu_v7_defconfig
-> +++ b/arch/arm/configs/mvebu_v7_defconfig
-> @@ -58,6 +58,7 @@ CONFIG_MTD_M25P80=y
->  CONFIG_MTD_NAND=y
->  CONFIG_MTD_NAND_PXA3xx=y
->  CONFIG_MTD_SPI_NOR=y
-> +CONFIG_SRAM=y
->  CONFIG_EEPROM_AT24=y
->  CONFIG_BLK_DEV_SD=y
->  CONFIG_ATA=y
-> -- 
-> 1.8.3.1
+> The ravb interrupt is connected to a GPIO controller, which is
+> runtime-suspended and thus not serving the interrupt.
 >
+> Cfr. "[PATCH/RFC] gpio: rcar: Add Runtime PM handling for interrupts"
+> (http://www.spinics.net/lists/linux-renesas-soc/msg00532.html).
+>
+> I assume it worked before as the PHY driver polled the PHY instead of relying
+> solely on the interrupt.
 
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+    Correct. BTW, I'm going to look at handling AVB_PHY_INT in the ravb 
+driver, thus removing the need for routing it to the GPIO controller now that 
+phylib allows this again...
+
+> Gr{oetje,eeting}s,
+>
+>                          Geert
+
+MBR, Sergei
