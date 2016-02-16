@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 11/13] rocker: call rocker_cmd_exec function with "nowait" boolean instead of flags
-Date: Tue, 16 Feb 2016 15:14:49 +0100
-Message-ID: <1455632091-10716-12-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 01/13] rocker: remove unused rocker_port param from alloc funcs and shorten their names
+Date: Tue, 16 Feb 2016 15:14:39 +0100
+Message-ID: <1455632091-10716-2-git-send-email-jiri@resnulli.us>
 References: <1455632091-10716-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, David.Laight@ACULAB.COM,
@@ -9,178 +9,344 @@ Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	daniel@iogearbox.net, prem@barefootnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:36316 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932992AbcBPOPH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 09:15:07 -0500
-Received: by mail-wm0-f50.google.com with SMTP id g62so109587071wme.1
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 06:15:07 -0800 (PST)
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:37016 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932795AbcBPOOy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 09:14:54 -0500
+Received: by mail-wm0-f51.google.com with SMTP id g62so154724648wme.0
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 06:14:54 -0800 (PST)
 In-Reply-To: <1455632091-10716-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-No need to push down rocker flags just to check if this is nowait or
-not. Let the caller handle that.
+No need to pass rocker_port around to alloc/free rocker functions,
+since they now use switchdev_trans for memory management storage.
+With the param removal, shorten the name of the functions since they now
+has nothing to do with rocker port.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Acked-by: Scott Feldman <sfeldma@gmail.com>
 ---
- drivers/net/ethernet/rocker/rocker_main.c | 38 +++++++++++++++++++------------
- 1 file changed, 23 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/rocker/rocker.c | 87 +++++++++++++++++-------------------
+ 1 file changed, 42 insertions(+), 45 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index 8113b15..0260249 100644
---- a/drivers/net/ethernet/rocker/rocker_main.c
-+++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -262,6 +262,11 @@ static bool rocker_port_is_ovsed(const struct rocker_port *rocker_port)
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 166a7fc..e91efd7 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -341,9 +341,8 @@ static bool rocker_port_is_ovsed(const struct rocker_port *rocker_port)
  #define ROCKER_OP_FLAG_LEARNED		BIT(2)
  #define ROCKER_OP_FLAG_REFRESH		BIT(3)
  
-+static bool rocker_flags_nowait(int flags)
-+{
-+	return flags & ROCKER_OP_FLAG_NOWAIT;
-+}
-+
- static void *__rocker_mem_alloc(struct switchdev_trans *trans, int flags,
- 				size_t size)
+-static void *__rocker_port_mem_alloc(struct rocker_port *rocker_port,
+-				     struct switchdev_trans *trans, int flags,
+-				     size_t size)
++static void *__rocker_mem_alloc(struct switchdev_trans *trans, int flags,
++				size_t size)
  {
-@@ -1337,14 +1342,13 @@ typedef int (*rocker_cmd_proc_cb_t)(const struct rocker_port *rocker_port,
- 				    const struct rocker_desc_info *desc_info,
- 				    void *priv);
+ 	struct switchdev_trans_item *elem = NULL;
+ 	gfp_t gfp_flags = (flags & ROCKER_OP_FLAG_NOWAIT) ?
+@@ -372,21 +371,19 @@ static void *__rocker_port_mem_alloc(struct rocker_port *rocker_port,
+ 	return elem ? elem + 1 : NULL;
+ }
  
--static int rocker_cmd_exec(struct rocker_port *rocker_port, int flags,
-+static int rocker_cmd_exec(struct rocker_port *rocker_port, bool nowait,
- 			   rocker_cmd_prep_cb_t prepare, void *prepare_priv,
- 			   rocker_cmd_proc_cb_t process, void *process_priv)
+-static void *rocker_port_kzalloc(struct rocker_port *rocker_port,
+-				 struct switchdev_trans *trans, int flags,
+-				 size_t size)
++static void *rocker_kzalloc(struct switchdev_trans *trans, int flags,
++			    size_t size)
  {
- 	struct rocker *rocker = rocker_port->rocker;
- 	struct rocker_desc_info *desc_info;
+-	return __rocker_port_mem_alloc(rocker_port, trans, flags, size);
++	return __rocker_mem_alloc(trans, flags, size);
+ }
+ 
+-static void *rocker_port_kcalloc(struct rocker_port *rocker_port,
+-				 struct switchdev_trans *trans, int flags,
+-				 size_t n, size_t size)
++static void *rocker_kcalloc(struct switchdev_trans *trans, int flags,
++			    size_t n, size_t size)
+ {
+-	return __rocker_port_mem_alloc(rocker_port, trans, flags, n * size);
++	return __rocker_mem_alloc(trans, flags, n * size);
+ }
+ 
+-static void rocker_port_kfree(struct switchdev_trans *trans, const void *mem)
++static void rocker_kfree(struct switchdev_trans *trans, const void *mem)
+ {
+ 	struct switchdev_trans_item *elem;
+ 
+@@ -426,7 +423,7 @@ static struct rocker_wait *rocker_wait_create(struct rocker_port *rocker_port,
+ {
  	struct rocker_wait *wait;
--	bool nowait = !!(flags & ROCKER_OP_FLAG_NOWAIT);
- 	unsigned long lock_flags;
- 	int err;
  
-@@ -1647,7 +1651,7 @@ rocker_cmd_set_port_learning_prep(const struct rocker_port *rocker_port,
- static int rocker_cmd_get_port_settings_ethtool(struct rocker_port *rocker_port,
- 						struct ethtool_cmd *ecmd)
+-	wait = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*wait));
++	wait = rocker_kzalloc(trans, flags, sizeof(*wait));
+ 	if (!wait)
+ 		return NULL;
+ 	rocker_wait_init(wait);
+@@ -436,7 +433,7 @@ static struct rocker_wait *rocker_wait_create(struct rocker_port *rocker_port,
+ static void rocker_wait_destroy(struct switchdev_trans *trans,
+ 				struct rocker_wait *wait)
  {
--	return rocker_cmd_exec(rocker_port, 0,
-+	return rocker_cmd_exec(rocker_port, false,
- 			       rocker_cmd_get_port_settings_prep, NULL,
- 			       rocker_cmd_get_port_settings_ethtool_proc,
- 			       ecmd);
-@@ -1656,7 +1660,7 @@ static int rocker_cmd_get_port_settings_ethtool(struct rocker_port *rocker_port,
- static int rocker_cmd_get_port_settings_macaddr(struct rocker_port *rocker_port,
- 						unsigned char *macaddr)
- {
--	return rocker_cmd_exec(rocker_port, 0,
-+	return rocker_cmd_exec(rocker_port, false,
- 			       rocker_cmd_get_port_settings_prep, NULL,
- 			       rocker_cmd_get_port_settings_macaddr_proc,
- 			       macaddr);
-@@ -1665,7 +1669,7 @@ static int rocker_cmd_get_port_settings_macaddr(struct rocker_port *rocker_port,
- static int rocker_cmd_get_port_settings_mode(struct rocker_port *rocker_port,
- 					     u8 *p_mode)
- {
--	return rocker_cmd_exec(rocker_port, 0,
-+	return rocker_cmd_exec(rocker_port, false,
- 			       rocker_cmd_get_port_settings_prep, NULL,
- 			       rocker_cmd_get_port_settings_mode_proc, p_mode);
+-	rocker_port_kfree(trans, wait);
++	rocker_kfree(trans, wait);
  }
-@@ -1673,7 +1677,7 @@ static int rocker_cmd_get_port_settings_mode(struct rocker_port *rocker_port,
- static int rocker_cmd_set_port_settings_ethtool(struct rocker_port *rocker_port,
- 						struct ethtool_cmd *ecmd)
- {
--	return rocker_cmd_exec(rocker_port, 0,
-+	return rocker_cmd_exec(rocker_port, false,
- 			       rocker_cmd_set_port_settings_ethtool_prep,
- 			       ecmd, NULL, NULL);
- }
-@@ -1681,7 +1685,7 @@ static int rocker_cmd_set_port_settings_ethtool(struct rocker_port *rocker_port,
- static int rocker_cmd_set_port_settings_macaddr(struct rocker_port *rocker_port,
- 						unsigned char *macaddr)
- {
--	return rocker_cmd_exec(rocker_port, 0,
-+	return rocker_cmd_exec(rocker_port, false,
- 			       rocker_cmd_set_port_settings_macaddr_prep,
- 			       macaddr, NULL, NULL);
- }
-@@ -1689,7 +1693,7 @@ static int rocker_cmd_set_port_settings_macaddr(struct rocker_port *rocker_port,
- static int rocker_cmd_set_port_settings_mtu(struct rocker_port *rocker_port,
- 					    int mtu)
- {
--	return rocker_cmd_exec(rocker_port, 0,
-+	return rocker_cmd_exec(rocker_port, false,
- 			       rocker_cmd_set_port_settings_mtu_prep,
- 			       &mtu, NULL, NULL);
- }
-@@ -1697,7 +1701,7 @@ static int rocker_cmd_set_port_settings_mtu(struct rocker_port *rocker_port,
- static int rocker_port_set_learning(struct rocker_port *rocker_port,
- 				    bool learning)
- {
--	return rocker_cmd_exec(rocker_port, 0,
-+	return rocker_cmd_exec(rocker_port, false,
- 			       rocker_cmd_set_port_learning_prep,
- 			       &learning, NULL, NULL);
- }
-@@ -2575,7 +2579,8 @@ static int rocker_flow_tbl_add(struct rocker_port *rocker_port,
+ 
+ static bool rocker_wait_event_timeout(struct rocker_wait *wait,
+@@ -2441,7 +2438,7 @@ static int rocker_flow_tbl_add(struct rocker_port *rocker_port,
+ 		match->cookie = found->cookie;
+ 		if (!switchdev_trans_ph_prepare(trans))
+ 			hash_del(&found->entry);
+-		rocker_port_kfree(trans, found);
++		rocker_kfree(trans, found);
+ 		found = match;
+ 		found->cmd = ROCKER_TLV_CMD_TYPE_OF_DPA_FLOW_MOD;
+ 	} else {
+@@ -2483,13 +2480,13 @@ static int rocker_flow_tbl_del(struct rocker_port *rocker_port,
+ 
  	spin_unlock_irqrestore(&rocker->flow_tbl_lock, lock_flags);
  
- 	if (!switchdev_trans_ph_prepare(trans))
--		return rocker_cmd_exec(rocker_port, flags,
-+		return rocker_cmd_exec(rocker_port,
-+				       rocker_flags_nowait(flags),
- 				       rocker_cmd_flow_tbl_add,
- 				       found, NULL, NULL);
- 	return 0;
-@@ -2609,7 +2614,8 @@ static int rocker_flow_tbl_del(struct rocker_port *rocker_port,
+-	rocker_port_kfree(trans, match);
++	rocker_kfree(trans, match);
  
  	if (found) {
- 		if (!switchdev_trans_ph_prepare(trans))
--			err = rocker_cmd_exec(rocker_port, flags,
-+			err = rocker_cmd_exec(rocker_port,
-+					      rocker_flags_nowait(flags),
- 					      rocker_cmd_flow_tbl_del,
- 					      found, NULL, NULL);
- 		rocker_kfree(trans, found);
-@@ -2900,7 +2906,8 @@ static int rocker_group_tbl_add(struct rocker_port *rocker_port,
- 	spin_unlock_irqrestore(&rocker->group_tbl_lock, lock_flags);
+ 		err = rocker_cmd_exec(rocker_port, trans, flags,
+ 				      rocker_cmd_flow_tbl_del,
+ 				      found, NULL, NULL);
+-		rocker_port_kfree(trans, found);
++		rocker_kfree(trans, found);
+ 	}
  
- 	if (!switchdev_trans_ph_prepare(trans))
--		return rocker_cmd_exec(rocker_port, flags,
-+		return rocker_cmd_exec(rocker_port,
-+				       rocker_flags_nowait(flags),
- 				       rocker_cmd_group_tbl_add,
- 				       found, NULL, NULL);
- 	return 0;
-@@ -2931,7 +2938,8 @@ static int rocker_group_tbl_del(struct rocker_port *rocker_port,
- 
- 	if (found) {
- 		if (!switchdev_trans_ph_prepare(trans))
--			err = rocker_cmd_exec(rocker_port, flags,
-+			err = rocker_cmd_exec(rocker_port,
-+					      rocker_flags_nowait(flags),
- 					      rocker_cmd_group_tbl_del,
- 					      found, NULL, NULL);
- 		rocker_group_tbl_entry_free(trans, found);
-@@ -4409,7 +4417,7 @@ static int rocker_port_get_phys_port_name(struct net_device *dev,
- 	struct port_name name = { .buf = buf, .len = len };
- 	int err;
- 
--	err = rocker_cmd_exec(rocker_port, 0,
-+	err = rocker_cmd_exec(rocker_port, false,
- 			      rocker_cmd_get_port_settings_prep, NULL,
- 			      rocker_cmd_get_port_settings_phys_name_proc,
- 			      &name);
-@@ -4962,7 +4970,7 @@ rocker_cmd_get_port_stats_ethtool_proc(const struct rocker_port *rocker_port,
- static int rocker_cmd_get_port_stats_ethtool(struct rocker_port *rocker_port,
- 					     void *priv)
+ 	return err;
+@@ -2512,7 +2509,7 @@ static int rocker_flow_tbl_ig_port(struct rocker_port *rocker_port,
  {
--	return rocker_cmd_exec(rocker_port, 0,
-+	return rocker_cmd_exec(rocker_port, false,
- 			       rocker_cmd_get_port_stats_prep, NULL,
- 			       rocker_cmd_get_port_stats_ethtool_proc,
- 			       priv);
+ 	struct rocker_flow_tbl_entry *entry;
+ 
+-	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
++	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
+ 	if (!entry)
+ 		return -ENOMEM;
+ 
+@@ -2534,7 +2531,7 @@ static int rocker_flow_tbl_vlan(struct rocker_port *rocker_port,
+ {
+ 	struct rocker_flow_tbl_entry *entry;
+ 
+-	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
++	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
+ 	if (!entry)
+ 		return -ENOMEM;
+ 
+@@ -2561,7 +2558,7 @@ static int rocker_flow_tbl_term_mac(struct rocker_port *rocker_port,
+ {
+ 	struct rocker_flow_tbl_entry *entry;
+ 
+-	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
++	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
+ 	if (!entry)
+ 		return -ENOMEM;
+ 
+@@ -2601,7 +2598,7 @@ static int rocker_flow_tbl_bridge(struct rocker_port *rocker_port,
+ 	bool dflt = !eth_dst || (eth_dst && eth_dst_mask);
+ 	bool wild = false;
+ 
+-	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
++	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
+ 	if (!entry)
+ 		return -ENOMEM;
+ 
+@@ -2651,7 +2648,7 @@ static int rocker_flow_tbl_ucast4_routing(struct rocker_port *rocker_port,
+ {
+ 	struct rocker_flow_tbl_entry *entry;
+ 
+-	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
++	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
+ 	if (!entry)
+ 		return -ENOMEM;
+ 
+@@ -2681,7 +2678,7 @@ static int rocker_flow_tbl_acl(struct rocker_port *rocker_port,
+ 	u32 priority;
+ 	struct rocker_flow_tbl_entry *entry;
+ 
+-	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
++	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
+ 	if (!entry)
+ 		return -ENOMEM;
+ 
+@@ -2740,12 +2737,12 @@ static void rocker_group_tbl_entry_free(struct switchdev_trans *trans,
+ 	switch (ROCKER_GROUP_TYPE_GET(entry->group_id)) {
+ 	case ROCKER_OF_DPA_GROUP_TYPE_L2_FLOOD:
+ 	case ROCKER_OF_DPA_GROUP_TYPE_L2_MCAST:
+-		rocker_port_kfree(trans, entry->group_ids);
++		rocker_kfree(trans, entry->group_ids);
+ 		break;
+ 	default:
+ 		break;
+ 	}
+-	rocker_port_kfree(trans, entry);
++	rocker_kfree(trans, entry);
+ }
+ 
+ static int rocker_group_tbl_add(struct rocker_port *rocker_port,
+@@ -2830,7 +2827,7 @@ static int rocker_group_l2_interface(struct rocker_port *rocker_port,
+ {
+ 	struct rocker_group_tbl_entry *entry;
+ 
+-	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
++	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
+ 	if (!entry)
+ 		return -ENOMEM;
+ 
+@@ -2847,17 +2844,17 @@ static int rocker_group_l2_fan_out(struct rocker_port *rocker_port,
+ {
+ 	struct rocker_group_tbl_entry *entry;
+ 
+-	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
++	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
+ 	if (!entry)
+ 		return -ENOMEM;
+ 
+ 	entry->group_id = group_id;
+ 	entry->group_count = group_count;
+ 
+-	entry->group_ids = rocker_port_kcalloc(rocker_port, trans, flags,
+-					       group_count, sizeof(u32));
++	entry->group_ids = rocker_kcalloc(trans, flags,
++					  group_count, sizeof(u32));
+ 	if (!entry->group_ids) {
+-		rocker_port_kfree(trans, entry);
++		rocker_kfree(trans, entry);
+ 		return -ENOMEM;
+ 	}
+ 	memcpy(entry->group_ids, group_ids, group_count * sizeof(u32));
+@@ -2882,7 +2879,7 @@ static int rocker_group_l3_unicast(struct rocker_port *rocker_port,
+ {
+ 	struct rocker_group_tbl_entry *entry;
+ 
+-	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
++	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
+ 	if (!entry)
+ 		return -ENOMEM;
+ 
+@@ -2931,7 +2928,7 @@ static void _rocker_neigh_del(struct switchdev_trans *trans,
+ 		return;
+ 	if (--entry->ref_count == 0) {
+ 		hash_del(&entry->entry);
+-		rocker_port_kfree(trans, entry);
++		rocker_kfree(trans, entry);
+ 	}
+ }
+ 
+@@ -2965,7 +2962,7 @@ static int rocker_port_ipv4_neigh(struct rocker_port *rocker_port,
+ 	bool removing;
+ 	int err = 0;
+ 
+-	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
++	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
+ 	if (!entry)
+ 		return -ENOMEM;
+ 
+@@ -3034,7 +3031,7 @@ static int rocker_port_ipv4_neigh(struct rocker_port *rocker_port,
+ 
+ err_out:
+ 	if (!adding)
+-		rocker_port_kfree(trans, entry);
++		rocker_kfree(trans, entry);
+ 
+ 	return err;
+ }
+@@ -3082,7 +3079,7 @@ static int rocker_port_ipv4_nh(struct rocker_port *rocker_port,
+ 	bool resolved = true;
+ 	int err = 0;
+ 
+-	entry = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*entry));
++	entry = rocker_kzalloc(trans, flags, sizeof(*entry));
+ 	if (!entry)
+ 		return -ENOMEM;
+ 
+@@ -3114,7 +3111,7 @@ static int rocker_port_ipv4_nh(struct rocker_port *rocker_port,
+ 	spin_unlock_irqrestore(&rocker->neigh_tbl_lock, lock_flags);
+ 
+ 	if (!adding)
+-		rocker_port_kfree(trans, entry);
++		rocker_kfree(trans, entry);
+ 
+ 	if (err)
+ 		return err;
+@@ -3139,8 +3136,8 @@ static int rocker_port_vlan_flood_group(struct rocker_port *rocker_port,
+ 	int err = 0;
+ 	int i;
+ 
+-	group_ids = rocker_port_kcalloc(rocker_port, trans, flags,
+-					rocker->port_count, sizeof(u32));
++	group_ids = rocker_kcalloc(trans, flags,
++				   rocker->port_count, sizeof(u32));
+ 	if (!group_ids)
+ 		return -ENOMEM;
+ 
+@@ -3172,7 +3169,7 @@ static int rocker_port_vlan_flood_group(struct rocker_port *rocker_port,
+ 			   "Error (%d) port VLAN l2 flood group\n", err);
+ 
+ no_ports_in_vlan:
+-	rocker_port_kfree(trans, group_ids);
++	rocker_kfree(trans, group_ids);
+ 	return err;
+ }
+ 
+@@ -3540,7 +3537,7 @@ static void rocker_port_fdb_learn_work(struct work_struct *work)
+ 					 lw->rocker_port->dev, &info.info);
+ 	rtnl_unlock();
+ 
+-	rocker_port_kfree(lw->trans, work);
++	rocker_kfree(lw->trans, work);
+ }
+ 
+ static int rocker_port_fdb_learn(struct rocker_port *rocker_port,
+@@ -3574,7 +3571,7 @@ static int rocker_port_fdb_learn(struct rocker_port *rocker_port,
+ 	if (!rocker_port_is_bridged(rocker_port))
+ 		return 0;
+ 
+-	lw = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*lw));
++	lw = rocker_kzalloc(trans, flags, sizeof(*lw));
+ 	if (!lw)
+ 		return -ENOMEM;
+ 
+@@ -3587,7 +3584,7 @@ static int rocker_port_fdb_learn(struct rocker_port *rocker_port,
+ 	lw->vid = rocker_port_vlan_to_vid(rocker_port, vlan_id);
+ 
+ 	if (switchdev_trans_ph_prepare(trans))
+-		rocker_port_kfree(trans, lw);
++		rocker_kfree(trans, lw);
+ 	else
+ 		schedule_work(&lw->work);
+ 
+@@ -3618,7 +3615,7 @@ static int rocker_port_fdb(struct rocker_port *rocker_port,
+ 	bool removing = (flags & ROCKER_OP_FLAG_REMOVE);
+ 	unsigned long lock_flags;
+ 
+-	fdb = rocker_port_kzalloc(rocker_port, trans, flags, sizeof(*fdb));
++	fdb = rocker_kzalloc(trans, flags, sizeof(*fdb));
+ 	if (!fdb)
+ 		return -ENOMEM;
+ 
+@@ -3636,7 +3633,7 @@ static int rocker_port_fdb(struct rocker_port *rocker_port,
+ 	if (found) {
+ 		found->touched = jiffies;
+ 		if (removing) {
+-			rocker_port_kfree(trans, fdb);
++			rocker_kfree(trans, fdb);
+ 			if (!switchdev_trans_ph_prepare(trans))
+ 				hash_del(&found->entry);
+ 		}
+@@ -3650,7 +3647,7 @@ static int rocker_port_fdb(struct rocker_port *rocker_port,
+ 
+ 	/* Check if adding and already exists, or removing and can't find */
+ 	if (!found != !removing) {
+-		rocker_port_kfree(trans, fdb);
++		rocker_kfree(trans, fdb);
+ 		if (!found && removing)
+ 			return 0;
+ 		/* Refreshing existing to update aging timers */
 -- 
 1.9.3
