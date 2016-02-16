@@ -1,35 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] Netfilter fixes for net
-Date: Tue, 16 Feb 2016 12:56:25 -0500 (EST)
-Message-ID: <20160216.125625.1100677710458478020.davem@davemloft.net>
-References: <1455642157-6864-1-git-send-email-pablo@netfilter.org>
+From: Shannon Nelson <shannon.nelson@intel.com>
+Subject: Re: [PATCH] i40e: remove redundant check on vsi->active_vlans
+Date: Tue, 16 Feb 2016 09:58:27 -0800
+Message-ID: <CAP-MU4Mjq6oXfvuO=tadWyXgvovVTgTnmJPf4gHbdHd34Y=xAw@mail.gmail.com>
+References: <1455407836-7188-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37983 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755197AbcBPR41 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 12:56:27 -0500
-In-Reply-To: <1455642157-6864-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455407836-7188-1-git-send-email-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 16 Feb 2016 18:02:31 +0100
+On Sat, Feb 13, 2016 at 3:57 PM, Colin King <colin.king@canonical.com> wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+>
+> active_vlans is an unsigned long array, hence a null check on this
+> array is superfluous and can be removed.
+>
+> Detected with static analysis by smatch:
+>
+> drivers/net/ethernet/intel/i40e/i40e_debugfs.c:386
+>   i40e_dbg_dump_vsi_seid() warn: this array is probably
+>   non-NULL. 'vsi->active_vlans'
+>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+> index 10744a6..aba28be 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+> @@ -383,9 +383,8 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
+>                 dev_info(&pf->pdev->dev,
+>                          "    netdev: name = %s\n",
+>                          vsi->netdev->name);
+> -       if (vsi->active_vlans)
+> -               dev_info(&pf->pdev->dev,
+> -                        "    vlgrp: & = %p\n", vsi->active_vlans);
+> +       dev_info(&pf->pdev->dev,
+> +                "    vlgrp: & = %p\n", vsi->active_vlans);
+>         dev_info(&pf->pdev->dev,
+>                  "    netdev_registered = %i, current_netdev_flags = 0x%04x, state = %li flags = 0x%08lx\n",
+>                  vsi->netdev_registered,
+> --
+> 2.7.0
+>
 
-> The following patchset contain a rather large batch for your net that
-> includes accumulated bugfixes, they are:
- ...
-> Due to the NetDev 1.1 organization burden, I had no chance to pass up
-> this to you any sooner in this release cycle, sorry about that.
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
 
-Understood :)
-
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Pulled, thanks.
+-- 
+==============================================
+Mr. Shannon Nelson                        Network Division, Intel Corp.
+Shannon.Nelson@intel.com                I don't speak for Intel
+                 Parents can't afford to be squeamish
