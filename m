@@ -1,51 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v2 0/8] tc offload for cls_u32 on ixgbe
-Date: Tue, 16 Feb 2016 14:50:55 -0500 (EST)
-Message-ID: <20160216.145055.1581160555302651949.davem@davemloft.net>
-References: <20160216055819.32452.84181.stgit@john-Precision-Tower-5810>
-	<CAJ3xEMhqHbHDH06O5+Y_2mNQM3BNVA9bCLBS70ZK+=-6upDtaA@mail.gmail.com>
+Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+Date: Tue, 16 Feb 2016 14:51:41 -0500 (EST)
+Message-ID: <20160216.145141.249856692805261502.davem@davemloft.net>
+References: <90A7E81AE28BAE4CBDDB3B35F187D264402EF5AC@CHN-SV-EXMX02.mchp-main.com>
+	<20160212171113.GC13273@lunn.ch>
+	<90A7E81AE28BAE4CBDDB3B35F187D264402EFAF5@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.fastabend@gmail.com, amir@vadai.me, jhs@mojatatu.com,
-	netdev@vger.kernel.org, jiri@resnulli.us,
-	jeffrey.t.kirsher@intel.com
-To: gerlitz.or@gmail.com
+Cc: andrew@lunn.ch, netdev@vger.kernel.org
+To: Bryan.Whitehead@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39140 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39160 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751872AbcBPTu5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 14:50:57 -0500
-In-Reply-To: <CAJ3xEMhqHbHDH06O5+Y_2mNQM3BNVA9bCLBS70ZK+=-6upDtaA@mail.gmail.com>
+	with ESMTP id S1751190AbcBPTvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 14:51:42 -0500
+In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264402EFAF5@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Date: Tue, 16 Feb 2016 21:30:18 +0200
+From: <Bryan.Whitehead@microchip.com>
+Date: Tue, 16 Feb 2016 19:34:26 +0000
 
-> On Tue, Feb 16, 2016 at 8:00 AM, John Fastabend
-> <john.fastabend@gmail.com> wrote:
-> [...]
+> Hi Andrew,
 > 
->> Specifically this uses a 'big hammer' feature bit
->> to do the offload or not. If the bit is set you get offloaded rules
->> if it is not then rules will not be offloaded. If we can agree on
->> this patch series there are some more patches on my queue we can
->> talk about to make the offload decision per rule using flags similar
->> to how we do l2 mac updates. Additionally the error strategy can
->> be improved to be hard aborting, log and continue, etc. I think
->> these are nice to have improvements but shouldn't block this series.
-> 
-> John,
-> 
-> I thought we've got into agreement in netdev that the offloading
-> directive would be a tri-state creature (sw, hw and fail the op if
-> can't, hw and fallback to sw). Can you please elaborate what do you
-> mean by "make the offload decision per rule using flags similar to how
-> we do l2 mac updates"
+> You can find my comments below wrapped in <BW> ... </BW>
 
-I think John's changes are an intermediate step in a long term
-evoluation.
+Do not do this.
 
-I'm going to apply John's changes as-is, and people can submit relative
-changes on top if they want.
+Please reply to emails appropriately, which means proper quotation and
+no top-posting.
+
+Look at how other people reply to postings on this list, how it is
+formatted, and how the replied text is placed.
+
+Thank you.
