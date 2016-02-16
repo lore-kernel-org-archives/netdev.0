@@ -1,65 +1,139 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH iproute2 3/5] iplink: bridge_slave: add support for IFLA_BRPORT_PROXYARP_WIFI
-Date: Tue, 16 Feb 2016 16:08:53 +0100
-Message-ID: <1455635335-9973-4-git-send-email-razor@blackwall.org>
-References: <1455635335-9973-1-git-send-email-razor@blackwall.org>
-Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: bridge: log port STP state on change
+Date: Tue, 16 Feb 2016 10:09:51 -0500
+Message-ID: <1455635391-25311-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:34491 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932233AbcBPPJd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 10:09:33 -0500
-Received: by mail-wm0-f45.google.com with SMTP id b205so114325029wmb.1
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 07:09:32 -0800 (PST)
-In-Reply-To: <1455635335-9973-1-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Remove the shared br_log_state function and print the info directly in
+br_set_state, where the net_bridge_port state is actually changed.
 
-Add support to be able to view and change IFLA_BRPORT_PROXYARP_WIFI port
-attribute.
-
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- ip/iplink_bridge_slave.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ net/bridge/br_netlink.c   |  1 -
+ net/bridge/br_private.h   |  1 -
+ net/bridge/br_stp.c       | 14 ++++----------
+ net/bridge/br_stp_if.c    |  2 --
+ net/bridge/br_stp_timer.c |  1 -
+ 5 files changed, 4 insertions(+), 15 deletions(-)
 
-diff --git a/ip/iplink_bridge_slave.c b/ip/iplink_bridge_slave.c
-index c27d71837a2f..68d140894529 100644
---- a/ip/iplink_bridge_slave.c
-+++ b/ip/iplink_bridge_slave.c
-@@ -30,6 +30,7 @@ static void print_explain(FILE *f)
- 		"                        [ learning {on | off} ]\n"
- 		"                        [ flood {on | off} ]\n"
- 		"                        [ proxy_arp {on | off} ]\n"
-+		"                        [ proxy_arp_wifi {on | off} ]\n"
- 	);
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 40197ff..e9c635e 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -598,7 +598,6 @@ static int br_set_port_state(struct net_bridge_port *p, u8 state)
+ 		return -ENETDOWN;
+ 
+ 	br_set_state(p, state);
+-	br_log_state(p);
+ 	br_port_state_selection(p->br);
+ 	return 0;
+ }
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 302ab0a..1b5d145 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -900,7 +900,6 @@ static inline void br_nf_core_fini(void) {}
+ #endif
+ 
+ /* br_stp.c */
+-void br_log_state(const struct net_bridge_port *p);
+ void br_set_state(struct net_bridge_port *p, unsigned int state);
+ struct net_bridge_port *br_get_port(struct net_bridge *br, u16 port_no);
+ void br_init_port(struct net_bridge_port *p);
+diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+index b3cca12..c22816a 100644
+--- a/net/bridge/br_stp.c
++++ b/net/bridge/br_stp.c
+@@ -30,13 +30,6 @@ static const char *const br_port_state_names[] = {
+ 	[BR_STATE_BLOCKING] = "blocking",
+ };
+ 
+-void br_log_state(const struct net_bridge_port *p)
+-{
+-	br_info(p->br, "port %u(%s) entered %s state\n",
+-		(unsigned int) p->port_no, p->dev->name,
+-		br_port_state_names[p->state]);
+-}
+-
+ void br_set_state(struct net_bridge_port *p, unsigned int state)
+ {
+ 	struct switchdev_attr attr = {
+@@ -52,6 +45,10 @@ void br_set_state(struct net_bridge_port *p, unsigned int state)
+ 	if (err && err != -EOPNOTSUPP)
+ 		br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
+ 				(unsigned int) p->port_no, p->dev->name);
++	else
++		br_info(p->br, "port %u(%s) entered %s state\n",
++				(unsigned int) p->port_no, p->dev->name,
++				br_port_state_names[p->state]);
  }
  
-@@ -172,6 +173,10 @@ static void bridge_slave_print_opt(struct link_util *lu, FILE *f,
- 	if (tb[IFLA_BRPORT_PROXYARP])
- 		print_onoff(f, "proxy_arp",
- 			    rta_getattr_u8(tb[IFLA_BRPORT_PROXYARP]));
-+
-+	if (tb[IFLA_BRPORT_PROXYARP_WIFI])
-+		print_onoff(f, "proxy_arp_wifi",
-+			    rta_getattr_u8(tb[IFLA_BRPORT_PROXYARP_WIFI]));
+ /* called under bridge lock */
+@@ -126,7 +123,6 @@ static void br_root_port_block(const struct net_bridge *br,
+ 		  (unsigned int) p->port_no, p->dev->name);
+ 
+ 	br_set_state(p, BR_STATE_LISTENING);
+-	br_log_state(p);
+ 	br_ifinfo_notify(RTM_NEWLINK, p);
+ 
+ 	if (br->forward_delay > 0)
+@@ -407,7 +403,6 @@ static void br_make_blocking(struct net_bridge_port *p)
+ 			br_topology_change_detection(p->br);
+ 
+ 		br_set_state(p, BR_STATE_BLOCKING);
+-		br_log_state(p);
+ 		br_ifinfo_notify(RTM_NEWLINK, p);
+ 
+ 		del_timer(&p->forward_delay_timer);
+@@ -431,7 +426,6 @@ static void br_make_forwarding(struct net_bridge_port *p)
+ 	else
+ 		br_set_state(p, BR_STATE_LEARNING);
+ 
+-	br_log_state(p);
+ 	br_ifinfo_notify(RTM_NEWLINK, p);
+ 
+ 	if (br->forward_delay != 0)
+diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+index a31ac6a..984d462 100644
+--- a/net/bridge/br_stp_if.c
++++ b/net/bridge/br_stp_if.c
+@@ -102,7 +102,6 @@ void br_stp_enable_port(struct net_bridge_port *p)
+ {
+ 	br_init_port(p);
+ 	br_port_state_selection(p->br);
+-	br_log_state(p);
+ 	br_ifinfo_notify(RTM_NEWLINK, p);
  }
  
- static void bridge_slave_parse_on_off(char *arg_name, char *arg_val,
-@@ -240,6 +245,10 @@ static int bridge_slave_parse_opt(struct link_util *lu, int argc, char **argv,
- 			NEXT_ARG();
- 			bridge_slave_parse_on_off("proxy_arp", *argv, n,
- 						  IFLA_BRPORT_PROXYARP);
-+		} else if (matches(*argv, "proxy_arp_wifi") == 0) {
-+			NEXT_ARG();
-+			bridge_slave_parse_on_off("proxy_arp_wifi", *argv, n,
-+						  IFLA_BRPORT_PROXYARP_WIFI);
- 		} else if (matches(*argv, "help") == 0) {
- 			explain();
- 			return -1;
+@@ -118,7 +117,6 @@ void br_stp_disable_port(struct net_bridge_port *p)
+ 	p->topology_change_ack = 0;
+ 	p->config_pending = 0;
+ 
+-	br_log_state(p);
+ 	br_ifinfo_notify(RTM_NEWLINK, p);
+ 
+ 	del_timer(&p->message_age_timer);
+diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
+index 5f0f5af..da058b8 100644
+--- a/net/bridge/br_stp_timer.c
++++ b/net/bridge/br_stp_timer.c
+@@ -98,7 +98,6 @@ static void br_forward_delay_timer_expired(unsigned long arg)
+ 			br_topology_change_detection(br);
+ 		netif_carrier_on(br->dev);
+ 	}
+-	br_log_state(p);
+ 	rcu_read_lock();
+ 	br_ifinfo_notify(RTM_NEWLINK, p);
+ 	rcu_read_unlock();
 -- 
-2.4.3
+2.7.1
