@@ -1,68 +1,44 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH net-next] net: macb: make magic-packet property generic
-Date: Tue, 16 Feb 2016 17:23:47 +0300
-Message-ID: <56C330F3.3090400@cogentembedded.com>
-References: <1455581638-27771-1-git-send-email-sergio.prado@e-labworks.com>
+From: Greg Kurz <gkurz@linux.vnet.ibm.com>
+Subject: [PATCH v2 0/3] vhost: cross-endian code cleanup
+Date: Tue, 16 Feb 2016 15:54:18 +0100
+Message-ID: <20160216145418.7448.71329.stgit@bahia.lab.toulouse-stg.fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sergio Prado <sergio.prado-1e4yhPs3/ABSwrhanM7KvQ@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
-	michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
-	boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1455581638-27771-1-git-send-email-sergio.prado-1e4yhPs3/ABSwrhanM7KvQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+This series is a new tentative to have cleaner cross-endian code.
 
-On 2/16/2016 3:13 AM, Sergio Prado wrote:
+Patches 1/3 is new: it fixes a side-effect in case vhost_init_used() fails.
 
-> Signed-off-by: Sergio Prado <sergio.prado-1e4yhPs3/ABSwrhanM7KvQ@public.gmane.org>
-> ---
-> As requested by Rob Herring on patch
-> https://patchwork.ozlabs.org/patch/580862/
-> ---
->   Documentation/devicetree/bindings/net/macb.txt | 2 +-
->   drivers/net/ethernet/cadence/macb.c            | 2 +-
->   2 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
-> index c6b1cb5ffa87..b5a42df4c928 100644
-> --- a/Documentation/devicetree/bindings/net/macb.txt
-> +++ b/Documentation/devicetree/bindings/net/macb.txt
-> @@ -25,7 +25,7 @@ Required properties:
->
->   Optional properties for PHY child node:
->   - reset-gpios : Should specify the gpio for phy reset
-> -- cdns,magic-packet : If present, indicates that the hardware supports waking
-> +- magic-packet : If present, indicates that the hardware supports waking
->     up via magic packet.
->
->   Examples:
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 69af049e55a8..7ccf2298a5fa 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -2929,7 +2929,7 @@ static int macb_probe(struct platform_device *pdev)
->   		bp->jumbo_max_len = macb_config->jumbo_max_len;
->
->   	bp->wol = 0;
-> -	if (of_get_property(np, "cdns,magic-packet", NULL))
-> +	if (of_get_property(np, "magic-packet", NULL))
+Patch 2/3 comes from v1: it renames cross-endian helpers
 
-    Could as well use of_property_read_bool().
+Patch 3/3 is new: it simply renames vhost_init_used() as suggested by Michael.
 
-[...]
+---
 
-MBR, Sergei
+Greg Kurz (3):
+      vhost: fix error path in vhost_init_used()
+      vhost: rename cross-endian helpers
+      vhost: rename vhost_init_used()
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+ drivers/vhost/net.c   |    2 +-
+ drivers/vhost/scsi.c  |    2 +-
+ drivers/vhost/test.c  |    2 +-
+ drivers/vhost/vhost.c |   49 +++++++++++++++++++++++++++++++++++++------------
+ drivers/vhost/vhost.h |    2 +-
+ 5 files changed, 41 insertions(+), 16 deletions(-)
