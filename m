@@ -1,45 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] af_unix: Guard against other == sk in
- unix_dgram_sendmsg
-Date: Tue, 16 Feb 2016 12:54:58 -0500 (EST)
-Message-ID: <20160216.125458.1817148468081256050.davem@davemloft.net>
-References: <87r3gjjgbu.fsf@doppelsaurus.mobileactivedefense.com>
-	<87egcjcd5j.fsf@doppelsaurus.mobileactivedefense.com>
-	<87r3gj11jc.fsf_-_@doppelsaurus.mobileactivedefense.com>
+Subject: Re: [PATCH 0/6] Netfilter fixes for net
+Date: Tue, 16 Feb 2016 12:56:25 -0500 (EST)
+Message-ID: <20160216.125625.1100677710458478020.davem@davemloft.net>
+References: <1455642157-6864-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, pmhahn@pmhahn.de, hannes@stressinduktion.org,
-	sasha.levin@oracle.com, linux-kernel@vger.kernel.org,
-	kseeger@samba.org, jbaron@akamai.com, gregkh@linuxfoundation.org,
-	requate@univention.de, gohmann@univention.de,
-	netdev@vger.kernel.org
-To: rweikusat@mobileactivedefense.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87r3gj11jc.fsf_-_@doppelsaurus.mobileactivedefense.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37983 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755197AbcBPR41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 12:56:27 -0500
+In-Reply-To: <1455642157-6864-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Date: Thu, 11 Feb 2016 19:37:27 +0000
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue, 16 Feb 2016 18:02:31 +0100
 
-> The unix_dgram_sendmsg routine use the following test
-> 
-> if (unlikely(unix_peer(other) != sk && unix_recvq_full(other))) {
-> 
-> to determine if sk and other are in an n:1 association (either
-> established via connect or by using sendto to send messages to an
-> unrelated socket identified by address). This isn't correct as the
-> specified address could have been bound to the sending socket itself or
-> because this socket could have been connected to itself by the time of
-> the unix_peer_get but disconnected before the unix_state_lock(other). In
-> both cases, the if-block would be entered despite other == sk which
-> might either block the sender unintentionally or lead to trying to unlock
-> the same spin lock twice for a non-blocking send. Add a other != sk
-> check to guard against this.
-> 
-> Fixes: 7d267278a9ec ("unix: avoid use-after-free in ep_remove_wait_queue")
-> Reported-By: Philipp Hahn <pmhahn@pmhahn.de>
-> Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+> The following patchset contain a rather large batch for your net that
+> includes accumulated bugfixes, they are:
+ ...
+> Due to the NetDev 1.1 organization burden, I had no chance to pass up
+> this to you any sooner in this release cycle, sorry about that.
 
-Also applied and queued up for -stable, thanks.
+Understood :)
+
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Pulled, thanks.
