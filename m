@@ -1,43 +1,46 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC 4/6] mlx4: Implement devlink interface
-Date: Tue, 16 Feb 2016 17:51:10 +0100
-Message-ID: <20160216165110.GG2227@nanopsycho.orion>
-References: <1454496482-13961-1-git-send-email-jiri@resnulli.us>
- <1454496482-13961-5-git-send-email-jiri@resnulli.us>
- <56C351C9.9010203@mellanox.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on i211
+ using a device tree blob V2
+Date: Tue, 16 Feb 2016 17:58:50 +0100
+Message-ID: <20160216165850.GF29482@lunn.ch>
+References: <56BFA87D.1010609@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, yishaih@mellanox.com,
-	dledford@redhat.com, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, eugenia@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
-	jeffrey.t.kirsher@intel.com, jbenc@redhat.com
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: John Holland <jotihojr@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:32912 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754641AbcBPQvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 11:51:13 -0500
-Received: by mail-wm0-f48.google.com with SMTP id g62so200244814wme.0
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 08:51:12 -0800 (PST)
+Received: from vps0.lunn.ch ([178.209.37.122]:47524 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753193AbcBPQ6y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 11:58:54 -0500
 Content-Disposition: inline
-In-Reply-To: <56C351C9.9010203@mellanox.com>
+In-Reply-To: <56BFA87D.1010609@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Feb 16, 2016 at 05:43:53PM CET, ogerlitz@mellanox.com wrote:
->On 2/3/2016 12:48 PM, Jiri Pirko wrote:
->>Implement newly introduced devlink interface. Add devlink port instances
->>for every port and set the port types accordingly.
->>
->
->Lets see how to use the newly introduced interface in a way which would allow
->us to get a configuration
->profile from user-space and program it to the firmware. This is generic
->problem for other drivers too - we've triedsolving it with configfs in the
->past but the patches were not accepted.
+On Sat, Feb 13, 2016 at 11:04:45PM +0100, John Holland wrote:
+> Hello,
+> 
+> The Intel i211 LOM pcie ethernet controllers' iNVM operates as an
+> OTP and has no externel EEPROM interface [1]. The following allows
+> the driver to pickup the MAC address from a device tree blob when
+> CONFIG_OF has been enabled.
+> 
+> [1] http://www.intel.com/content/www/us/en/embedded/products/networking/i211-ethernet-controller-datasheet.html
+> 
+> Changes V2
+> - Restrict searching for compatible devices to current pci device.
+> 
+> Signed-off-by: John Holland <jotihojr@gmail.com>
 
-That we plan to do for mlxsw as well via devlink. That will be in a
-follow-up patchset.
+Hi John
+
+Thanks for fixing multiple device support.
+
+Please could you add documentation in
+Documentation/devicetree/bindings/net. I know these are standard
+properties, but it is somewhat unusual to attach them to a PCI node,
+so having an example would be good.
+
+   Thanks
+	Andrew
