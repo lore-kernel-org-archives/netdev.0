@@ -1,69 +1,43 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH net 1/6] net/mlx4_en: Do not count dropped packets twice
-Date: Tue, 16 Feb 2016 10:31:57 -0800
-Message-ID: <56C36B1D.3050007@hpe.com>
-References: <1455634911-31206-1-git-send-email-ogerlitz@mellanox.com>
- <1455634911-31206-2-git-send-email-ogerlitz@mellanox.com>
+From: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH net] geneve: Refine MTU limit
+Date: Tue, 16 Feb 2016 10:32:15 -0800
+Message-ID: <CAEh+42i628VNoXh5=vtFKzqVGeF4NqY3=GKbdNVeqmYnWK_oBg@mail.gmail.com>
+References: <1455625999-9781-1-git-send-email-david@weave.works>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Amir Vadai <amir@vadai.me>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3425.houston.hp.com ([15.201.208.53]:56592 "EHLO
-	g4t3425.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964838AbcBPScA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 13:32:00 -0500
-In-Reply-To: <1455634911-31206-2-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
+To: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1455625999-9781-1-git-send-email-david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 02/16/2016 07:01 AM, Or Gerlitz wrote:
-> From: Amir Vadai <amir@vadai.me>
->
-> RdropOvflw counter was mistakenly copied into rx_missed_errors. Because
-> of that it was counted twice for the device dropped packets accounting.
->
-> Fixes: c27a02cd94d6 ('mlx4_en: Add driver for Mellanox ConnectX 10GbE NIC')
-> Signed-off-by: Amir Vadai <amir@vadai.me>
-> Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> ---
->   drivers/net/ethernet/mellanox/mlx4/en_port.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-> index ee99e67..7b511a5 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-> @@ -242,7 +242,7 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
->   	stats->rx_crc_errors = be32_to_cpu(mlx4_en_stats->RCRC);
->   	stats->rx_frame_errors = 0;
->   	stats->rx_fifo_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
-> -	stats->rx_missed_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
-> +	stats->rx_missed_errors = 0;
->   	stats->tx_aborted_errors = 0;
->   	stats->tx_carrier_errors = 0;
->   	stats->tx_fifo_errors = 0;
->
-
-I'm still not clear on when an Acked-by is appropriate, but given that 
-this has been a non-trivial frustration for a long time, a hearty 
-endorsement from me.  Perhaps not important enough but it would be nice 
-to have it flow back a release or two.
-
-That said, should mlx4_en_stats->RdropOvflw still be going into both 
-rx_fifo_errors and rx_over_errors?
-
-         stats->rx_over_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
-         stats->rx_crc_errors = be32_to_cpu(mlx4_en_stats->RCRC);
-         stats->rx_frame_errors = 0;
-         stats->rx_fifo_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
-
-happy benchmarking,
-
-rick jones
+T24gVHVlLCBGZWIgMTYsIDIwMTYgYXQgNDozMyBBTSwgRGF2aWQgV3JhZ2cgPGRhdmlkQHdlYXZl
+LndvcmtzPiB3cm90ZToKPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZ2VuZXZlLmMgYi9kcml2
+ZXJzL25ldC9nZW5ldmUuYwo+IGluZGV4IDAyOGUzODcuLmY1N2Y5YmMgMTAwNjQ0Cj4gLS0tIGEv
+ZHJpdmVycy9uZXQvZ2VuZXZlLmMKPiArKysgYi9kcml2ZXJzL25ldC9nZW5ldmUuYwo+IEBAIC0z
+Nyw2ICszNyw5IEBAIE1PRFVMRV9QQVJNX0RFU0MobG9nX2Vjbl9lcnJvciwgIkxvZyBwYWNrZXRz
+IHJlY2VpdmVkIHdpdGggY29ycnVwdGVkIEVDTiIpOwo+Cj4gICNkZWZpbmUgR0VORVZFX1ZFUiAw
+Cj4gICNkZWZpbmUgR0VORVZFX0JBU0VfSExFTiAoc2l6ZW9mKHN0cnVjdCB1ZHBoZHIpICsgc2l6
+ZW9mKHN0cnVjdCBnZW5ldmVoZHIpKQo+ICsjZGVmaW5lIEdFTkVWRV9NQVhfT1BUSU9OU19MRU4g
+KDYzICogNCkKPiArI2RlZmluZSBHRU5FVkVfTUFYX01UVSAoSVBfTUFYX01UVSAtIHNpemVvZihz
+dHJ1Y3QgaXBoZHIpIC0gR0VORVZFX0JBU0VfSExFTiBcCj4gKyAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgLSBHRU5FVkVfTUFYX09QVElPTlNfTEVOKQoKSW4g
+YWRkaXRpb24gdG8gVG9tJ3MgY29tbWVudCBhYm91dCB0YWtpbmcgaW50byBhY2NvdW50CmRldi0+
+aGFyZF9oZWFkZXJfbGVuLCBjYW4geW91IHBsZWFzZSBub3QgaW5jbHVkZQpHRU5FVkVfTUFYX09Q
+VElPTlNfTEVOIGluIHRoZSBNVFUgY2FsY3VsYXRpb24gYmFzZWQgb24gdGhlIGRpc2N1c3Npb24K
+b24gdGhlIG90aGVyIHRocmVhZD8gT3RoZXJ3aXNlLCB5b3UgYXJlIGV4Y2x1ZGluZyBzb21lIHBv
+dGVudGlhbGx5CnZhbGlkIGNvbmZpZ3VyYXRpb25zLgpfX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5v
+cmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
