@@ -1,54 +1,142 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/14] igb: Drop unnecessary checks in transmit path
-Date: Mon, 15 Feb 2016 19:21:53 -0800
-Message-ID: <1455592915-82261-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/14] igb: Add workaround for VLAN tag stripping on 82576
+Date: Mon, 15 Feb 2016 19:21:55 -0800
+Message-ID: <1455592915-82261-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455592915-82261-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:57142 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:35022 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753352AbcBPDWF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Feb 2016 22:22:05 -0500
+	id S1753357AbcBPDWG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Feb 2016 22:22:06 -0500
 In-Reply-To: <1455592915-82261-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <aduyck@mirantis.com>
 
-This patch drops several checks that we dropped from ixgbe some ago.  It
-should not be possible for us to be called with either of the conditional
-statements returning true so we can just drop them from the hot-path.
+There was a workaround partially implemented for the 82576 that is needed
+in order for VLAN tag stripping to function correctly.  The original code
+had side effects that would make it so the workaround was active on all
+MACs.  I have updated the code so that the workaround is enabled, but
+limited to the 82576, or activated if we exceed the available unicast
+addresses.
+
+The workaround has a side effect of mirroring all of the traffic outgoing
+from the VFs back to the PF.  As such it is not recommended to use the
+82576 in promiscuous mode as it will take a performance hit, though this is
+now consistent with the performance as seen on the out-of-tree igb driver.
+
+I also limited the scope of the UTA bits all being set to only when the
+VMOLR register is enabled.  This should limit the effects of the UTA
+register so that we don't pick up any excess traffic unless promiscuous
+mode has been enabled on the PF, whereas before the PF would have ended up
+in something equivalent to unicast promiscuous mode with VLAN filtering
+otherwise.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 10 ----------
- 1 file changed, 10 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.c |  2 ++
+ drivers/net/ethernet/intel/igb/igb_main.c    | 26 ++++++++++++++------------
+ 2 files changed, 16 insertions(+), 12 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index fff5052..9a1a9c7 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -425,6 +425,8 @@ static s32 igb_init_mac_params_82575(struct e1000_hw *hw)
+ 
+ 	/* Set mta register count */
+ 	mac->mta_reg_count = 128;
++	/* Set uta register count */
++	mac->uta_reg_count = (hw->mac.type == e1000_82575) ? 0 : 128;
+ 	/* Set rar entry count */
+ 	switch (mac->type) {
+ 	case e1000_82576:
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 7366d4f..bb5be40 100644
+index e9bdad7..af46fcf 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -5193,16 +5193,6 @@ static netdev_tx_t igb_xmit_frame(struct sk_buff *skb,
+@@ -140,7 +140,7 @@ static struct rtnl_link_stats64 *igb_get_stats64(struct net_device *dev,
+ 					  struct rtnl_link_stats64 *stats);
+ static int igb_change_mtu(struct net_device *, int);
+ static int igb_set_mac(struct net_device *, void *);
+-static void igb_set_uta(struct igb_adapter *adapter);
++static void igb_set_uta(struct igb_adapter *adapter, bool set);
+ static irqreturn_t igb_intr(int irq, void *);
+ static irqreturn_t igb_intr_msi(int irq, void *);
+ static irqreturn_t igb_msix_other(int irq, void *);
+@@ -3670,9 +3670,6 @@ static void igb_configure_rx(struct igb_adapter *adapter)
  {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 	int i;
  
--	if (test_bit(__IGB_DOWN, &adapter->state)) {
--		dev_kfree_skb_any(skb);
--		return NETDEV_TX_OK;
--	}
+-	/* set UTA to appropriate mode */
+-	igb_set_uta(adapter);
 -
--	if (skb->len <= 0) {
--		dev_kfree_skb_any(skb);
--		return NETDEV_TX_OK;
--	}
+ 	/* set the correct pool for the PF default MAC address in entry 0 */
+ 	igb_rar_set_qsel(adapter, adapter->hw.mac.addr, 0,
+ 			 adapter->vfs_allocated_count);
+@@ -4134,7 +4131,11 @@ static void igb_set_rx_mode(struct net_device *netdev)
+ 	/* Check for Promiscuous and All Multicast modes */
+ 	if (netdev->flags & IFF_PROMISC) {
+ 		rctl |= E1000_RCTL_UPE | E1000_RCTL_MPE;
+-		vmolr |= E1000_VMOLR_ROPE | E1000_VMOLR_MPME;
++		vmolr |= E1000_VMOLR_MPME;
++
++		/* enable use of UTA filter to force packets to default pool */
++		if (hw->mac.type == e1000_82576)
++			vmolr |= E1000_VMOLR_ROPE;
+ 	} else {
+ 		if (netdev->flags & IFF_ALLMULTI) {
+ 			rctl |= E1000_RCTL_MPE;
+@@ -4190,6 +4191,9 @@ static void igb_set_rx_mode(struct net_device *netdev)
+ 	if ((hw->mac.type < e1000_82576) || (hw->mac.type > e1000_i350))
+ 		return;
+ 
++	/* set UTA to appropriate mode */
++	igb_set_uta(adapter, !!(vmolr & E1000_VMOLR_ROPE));
++
+ 	vmolr |= rd32(E1000_VMOLR(vfn)) &
+ 		 ~(E1000_VMOLR_ROPE | E1000_VMOLR_MPME | E1000_VMOLR_ROMPE);
+ 
+@@ -6323,6 +6327,7 @@ static void igb_msg_task(struct igb_adapter *adapter)
+ /**
+  *  igb_set_uta - Set unicast filter table address
+  *  @adapter: board private structure
++ *  @set: boolean indicating if we are setting or clearing bits
+  *
+  *  The unicast table address is a register array of 32-bit registers.
+  *  The table is meant to be used in a way similar to how the MTA is used
+@@ -6330,21 +6335,18 @@ static void igb_msg_task(struct igb_adapter *adapter)
+  *  set all the hash bits to 1 and use the VMOLR ROPE bit as a promiscuous
+  *  enable bit to allow vlan tag stripping when promiscuous mode is enabled
+  **/
+-static void igb_set_uta(struct igb_adapter *adapter)
++static void igb_set_uta(struct igb_adapter *adapter, bool set)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
++	u32 uta = set ? ~0 : 0;
+ 	int i;
+ 
+-	/* The UTA table only exists on 82576 hardware and newer */
+-	if (hw->mac.type < e1000_82576)
+-		return;
 -
- 	/* The minimum packet size with TCTL.PSP set is 17 so pad the skb
- 	 * in order to meet this minimum size requirement.
- 	 */
+ 	/* we only need to do this if VMDq is enabled */
+ 	if (!adapter->vfs_allocated_count)
+ 		return;
+ 
+-	for (i = 0; i < hw->mac.uta_reg_count; i++)
+-		array_wr32(E1000_UTA, i, ~0);
++	for (i = hw->mac.uta_reg_count; i--;)
++		array_wr32(E1000_UTA, i, uta);
+ }
+ 
+ /**
 -- 
 2.5.0
