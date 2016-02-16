@@ -1,88 +1,309 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 2/6] net/mlx4_en: Choose time-stamping shift value according to HW frequency
-Date: Tue, 16 Feb 2016 17:01:47 +0200
-Message-ID: <1455634911-31206-3-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net 5/6] net/mlx4_core: Set UAR page size to 4KB regardless of system page size
+Date: Tue, 16 Feb 2016 17:01:50 +0200
+Message-ID: <1455634911-31206-6-git-send-email-ogerlitz@mellanox.com>
 References: <1455634911-31206-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
 	Yishai Hadas <yishaih@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
+	Huy Nguyen <huyn@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59395 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59416 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754471AbcBPPDU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2016 10:03:20 -0500
+	id S932880AbcBPPD0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 10:03:26 -0500
 In-Reply-To: <1455634911-31206-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
+From: Huy Nguyen <huyn@mellanox.com>
 
-Previously, the shift value used for time-stamping was constant and didn't
-depend on the HW chip frequency. Change that to take the frequency into account
-and calculate the maximal value in cycles per wraparound of ten seconds. This
-time slot was chosen since it gives a good accuracy in time synchronization.
+problem description:
 
-Algorithm for shift value calculation:
- * Round up the maximal value in cycles to nearest power of two
+The current code sets UAR page size equal to system page size.
+The ConnectX-3 and ConnectX-3 Pro HWs require minimum 128 UAR pages.
+The mlx4 kernel drivers are not loaded if there is less than 128 UAR pages.
 
- * Calculate maximal multiplier by division of all 64 bits set
-   to above result
+solution:
 
- * Then, invert the function clocksource_khz2mult() to get the shift from
-   maximal mult value
+Always set UAR page to 4KB. This allows more UAR pages if the OS
+has PAGE_SIZE larger than 4KB. For example, PowerPC kernel use 64KB
+system page size, with 4MB uar region, there are 4MB/2/64KB = 32
+uars (half for uar, half for blueflame). This does not meet minimum 128
+UAR pages requirement. With 4KB UAR page, there are 4MB/2/4KB = 512 uars
+which meet the minimum requirement.
 
-Fixes: ec693d47010e ('net/mlx4_en: Add HW timestamping (TS) support')
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Reviewed-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Note that only codes in mlx4_core that deal with firmware know that uar
+page size is 4KB. Codes that deal with usr page in cq and qp context
+(mlx4_ib, mlx4_en and part of mlx4_core) still have the same assumption
+that uar page size equals to system page size.
+
+Note that with this implementation, on 64KB system page size kernel, there
+are 16 uars per system page but only one uars is used. The other 15
+uars are ignored because of the above assumption.
+
+Regarding SR-IOV, mlx4_core in hypervisor will set the uar page size
+to 4KB and mlx4_core code in virtual OS will obtain the uar page size from
+firmware.
+
+Regarding backward compatibility in SR-IOV, if hypervisor has this new code,
+the virtual OS must be updated. If hypervisor has old code, and the virtual
+OS has this new code, the new code will be backward compatible with the
+old code. If the uar size is big enough, this new code in VF continues to
+work with 64 KB uar page size (on PowerPc kernel). If the uar size does not
+meet 128 uars requirement, this new code not loaded in VF and print the same
+error message as the old code in Hypervisor.
+
+Signed-off-by: Huy Nguyen <huyn@mellanox.com>
+Reviewed-by: Yishai Hadas <yishaih@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_clock.c | 25 +++++++++++++++++++------
- 1 file changed, 19 insertions(+), 6 deletions(-)
+ drivers/infiniband/hw/mlx4/qp.c                   |  7 ++-
+ drivers/net/ethernet/mellanox/mlx4/cq.c           |  4 +-
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c |  3 +-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |  4 +-
+ drivers/net/ethernet/mellanox/mlx4/eq.c           |  7 +--
+ drivers/net/ethernet/mellanox/mlx4/main.c         | 56 ++++++++++++++++++-----
+ drivers/net/ethernet/mellanox/mlx4/pd.c           | 12 +++--
+ include/linux/mlx4/device.h                       | 13 ++++++
+ 8 files changed, 84 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-index 038f9ce..1494997 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-@@ -236,6 +236,24 @@ static const struct ptp_clock_info mlx4_en_ptp_clock_info = {
- 	.enable		= mlx4_en_phc_enable,
- };
+diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
+index bc5536f..fd97534 100644
+--- a/drivers/infiniband/hw/mlx4/qp.c
++++ b/drivers/infiniband/hw/mlx4/qp.c
+@@ -1681,9 +1681,12 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+ 	}
  
-+#define MLX4_EN_WRAP_AROUND_SEC	10ULL
-+
-+/* This function calculates the max shift that enables the user range
-+ * of MLX4_EN_WRAP_AROUND_SEC values in the cycles register.
-+ */
-+static u32 freq_to_shift(u16 freq)
+ 	if (qp->ibqp.uobject)
+-		context->usr_page = cpu_to_be32(to_mucontext(ibqp->uobject->context)->uar.index);
++		context->usr_page = cpu_to_be32(
++			mlx4_to_hw_uar_index(dev->dev,
++					     to_mucontext(ibqp->uobject->context)->uar.index));
+ 	else
+-		context->usr_page = cpu_to_be32(dev->priv_uar.index);
++		context->usr_page = cpu_to_be32(
++			mlx4_to_hw_uar_index(dev->dev, dev->priv_uar.index));
+ 
+ 	if (attr_mask & IB_QP_DEST_QPN)
+ 		context->remote_qpn = cpu_to_be32(attr->dest_qp_num);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cq.c b/drivers/net/ethernet/mellanox/mlx4/cq.c
+index 3348e64..a849da9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cq.c
+@@ -318,7 +318,9 @@ int mlx4_cq_alloc(struct mlx4_dev *dev, int nent,
+ 	if (timestamp_en)
+ 		cq_context->flags  |= cpu_to_be32(1 << 19);
+ 
+-	cq_context->logsize_usrpage = cpu_to_be32((ilog2(nent) << 24) | uar->index);
++	cq_context->logsize_usrpage =
++		cpu_to_be32((ilog2(nent) << 24) |
++			    mlx4_to_hw_uar_index(dev, uar->index));
+ 	cq_context->comp_eqn	    = priv->eq_table.eq[MLX4_CQ_TO_EQ_VECTOR(vector)].eqn;
+ 	cq_context->log_page_size   = mtt->page_shift - MLX4_ICM_PAGE_SHIFT;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_resources.c b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
+index 12aab5a..02e925d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_resources.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
+@@ -58,7 +58,8 @@ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
+ 	} else {
+ 		context->sq_size_stride = ilog2(TXBB_SIZE) - 4;
+ 	}
+-	context->usr_page = cpu_to_be32(mdev->priv_uar.index);
++	context->usr_page = cpu_to_be32(mlx4_to_hw_uar_index(mdev->dev,
++					mdev->priv_uar.index));
+ 	context->local_qpn = cpu_to_be32(qpn);
+ 	context->pri_path.ackto = 1 & 0x07;
+ 	context->pri_path.sched_queue = 0x83 | (priv->port - 1) << 6;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 4421bf5..e0946ab 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -213,7 +213,9 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
+ 	mlx4_en_fill_qp_context(priv, ring->size, ring->stride, 1, 0, ring->qpn,
+ 				ring->cqn, user_prio, &ring->context);
+ 	if (ring->bf_alloced)
+-		ring->context.usr_page = cpu_to_be32(ring->bf.uar->index);
++		ring->context.usr_page =
++			cpu_to_be32(mlx4_to_hw_uar_index(mdev->dev,
++							 ring->bf.uar->index));
+ 
+ 	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, &ring->context,
+ 			       &ring->qp, &ring->qp_state);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
+index 4696053..f613977 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
+@@ -940,9 +940,10 @@ static void __iomem *mlx4_get_eq_uar(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 
+ 	if (!priv->eq_table.uar_map[index]) {
+ 		priv->eq_table.uar_map[index] =
+-			ioremap(pci_resource_start(dev->persist->pdev, 2) +
+-				((eq->eqn / 4) << PAGE_SHIFT),
+-				PAGE_SIZE);
++			ioremap(
++				pci_resource_start(dev->persist->pdev, 2) +
++				((eq->eqn / 4) << (dev->uar_page_shift)),
++				(1 << (dev->uar_page_shift)));
+ 		if (!priv->eq_table.uar_map[index]) {
+ 			mlx4_err(dev, "Couldn't map EQ doorbell for EQN 0x%06x\n",
+ 				 eq->eqn);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index f1b6d21..2cc3c62 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -168,6 +168,20 @@ struct mlx4_port_config {
+ 
+ static atomic_t pf_loading = ATOMIC_INIT(0);
+ 
++static inline void mlx4_set_num_reserved_uars(struct mlx4_dev *dev,
++					      struct mlx4_dev_cap *dev_cap)
 +{
-+	u32 freq_khz = freq * 1000;
-+	u64 max_val_cycles = freq_khz * 1000 * MLX4_EN_WRAP_AROUND_SEC;
-+	u64 max_val_cycles_rounded = is_power_of_2(max_val_cycles + 1) ?
-+		max_val_cycles : roundup_pow_of_two(max_val_cycles) - 1;
-+	/* calculate max possible multiplier in order to fit in 64bit */
-+	u64 max_mul = div_u64(0xffffffffffffffffULL, max_val_cycles_rounded);
-+
-+	/* This comes from the reverse of clocksource_khz2mult */
-+	return ilog2(div_u64(max_mul * freq_khz, 1000000));
++	/* The reserved_uars is calculated by system page size unit.
++	 * Therefore, adjustment is added when the uar page size is less
++	 * than the system page size
++	 */
++	dev->caps.reserved_uars	=
++		max_t(int,
++		      mlx4_get_num_reserved_uar(dev),
++		      dev_cap->reserved_uars /
++			(1 << (PAGE_SHIFT - dev->uar_page_shift)));
 +}
 +
- void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
+ int mlx4_check_port_params(struct mlx4_dev *dev,
+ 			   enum mlx4_port_type *port_type)
  {
- 	struct mlx4_dev *dev = mdev->dev;
-@@ -254,12 +272,7 @@ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
- 	memset(&mdev->cycles, 0, sizeof(mdev->cycles));
- 	mdev->cycles.read = mlx4_en_read_clock;
- 	mdev->cycles.mask = CLOCKSOURCE_MASK(48);
--	/* Using shift to make calculation more accurate. Since current HW
--	 * clock frequency is 427 MHz, and cycles are given using a 48 bits
--	 * register, the biggest shift when calculating using u64, is 14
--	 * (max_cycles * multiplier < 2^64)
--	 */
--	mdev->cycles.shift = 14;
-+	mdev->cycles.shift = freq_to_shift(dev->caps.hca_core_clock);
- 	mdev->cycles.mult =
- 		clocksource_khz2mult(1000 * dev->caps.hca_core_clock, mdev->cycles.shift);
- 	mdev->nominal_c_mult = mdev->cycles.mult;
+@@ -386,8 +400,6 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 	dev->caps.reserved_mtts      = dev_cap->reserved_mtts;
+ 	dev->caps.reserved_mrws	     = dev_cap->reserved_mrws;
+ 
+-	/* The first 128 UARs are used for EQ doorbells */
+-	dev->caps.reserved_uars	     = max_t(int, 128, dev_cap->reserved_uars);
+ 	dev->caps.reserved_pds	     = dev_cap->reserved_pds;
+ 	dev->caps.reserved_xrcds     = (dev->caps.flags & MLX4_DEV_CAP_FLAG_XRC) ?
+ 					dev_cap->reserved_xrcds : 0;
+@@ -405,6 +417,15 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 	dev->caps.max_gso_sz	     = dev_cap->max_gso_sz;
+ 	dev->caps.max_rss_tbl_sz     = dev_cap->max_rss_tbl_sz;
+ 
++	/* Save uar page shift */
++	if (!mlx4_is_slave(dev)) {
++		/* Virtual PCI function needs to determine UAR page size from
++		 * firmware. Only master PCI function can set the uar page size
++		 */
++		dev->uar_page_shift = DEFAULT_UAR_PAGE_SHIFT;
++		mlx4_set_num_reserved_uars(dev, dev_cap);
++	}
++
+ 	if (dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_PHV_EN) {
+ 		struct mlx4_init_hca_param hca_param;
+ 
+@@ -815,16 +836,25 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
+ 		return -ENODEV;
+ 	}
+ 
+-	/* slave gets uar page size from QUERY_HCA fw command */
+-	dev->caps.uar_page_size = 1 << (hca_param.uar_page_sz + 12);
++	/* Set uar_page_shift for VF */
++	dev->uar_page_shift = hca_param.uar_page_sz + 12;
+ 
+-	/* TODO: relax this assumption */
+-	if (dev->caps.uar_page_size != PAGE_SIZE) {
+-		mlx4_err(dev, "UAR size:%d != kernel PAGE_SIZE of %ld\n",
+-			 dev->caps.uar_page_size, PAGE_SIZE);
+-		return -ENODEV;
++	/* Make sure the master uar page size is valid */
++	if (dev->uar_page_shift > PAGE_SHIFT) {
++		mlx4_err(dev,
++			 "Invalid configuration: uar page size is larger than system page size\n");
++		return  -ENODEV;
+ 	}
+ 
++	/* Set reserved_uars based on the uar_page_shift */
++	mlx4_set_num_reserved_uars(dev, &dev_cap);
++
++	/* Although uar page size in FW differs from system page size,
++	 * upper software layers (mlx4_ib, mlx4_en and part of mlx4_core)
++	 * still works with assumption that uar page size == system page size
++	 */
++	dev->caps.uar_page_size = PAGE_SIZE;
++
+ 	memset(&func_cap, 0, sizeof(func_cap));
+ 	err = mlx4_QUERY_FUNC_CAP(dev, 0, &func_cap);
+ 	if (err) {
+@@ -2179,8 +2209,12 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
+ 
+ 		dev->caps.max_fmr_maps = (1 << (32 - ilog2(dev->caps.num_mpts))) - 1;
+ 
+-		init_hca.log_uar_sz = ilog2(dev->caps.num_uars);
+-		init_hca.uar_page_sz = PAGE_SHIFT - 12;
++		/* Always set UAR page size 4KB, set log_uar_sz accordingly */
++		init_hca.log_uar_sz = ilog2(dev->caps.num_uars) +
++				      PAGE_SHIFT -
++				      DEFAULT_UAR_PAGE_SHIFT;
++		init_hca.uar_page_sz = DEFAULT_UAR_PAGE_SHIFT - 12;
++
+ 		init_hca.mw_enabled = 0;
+ 		if (dev->caps.flags & MLX4_DEV_CAP_FLAG_MEM_WINDOW ||
+ 		    dev->caps.bmme_flags & MLX4_BMME_FLAG_TYPE_2_WIN)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/pd.c b/drivers/net/ethernet/mellanox/mlx4/pd.c
+index 609c59d..b3cc3ab 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/pd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/pd.c
+@@ -269,9 +269,15 @@ EXPORT_SYMBOL_GPL(mlx4_bf_free);
+ 
+ int mlx4_init_uar_table(struct mlx4_dev *dev)
+ {
+-	if (dev->caps.num_uars <= 128) {
+-		mlx4_err(dev, "Only %d UAR pages (need more than 128)\n",
+-			 dev->caps.num_uars);
++	int num_reserved_uar = mlx4_get_num_reserved_uar(dev);
++
++	mlx4_dbg(dev, "uar_page_shift = %d", dev->uar_page_shift);
++	mlx4_dbg(dev, "Effective reserved_uars=%d", dev->caps.reserved_uars);
++
++	if (dev->caps.num_uars <= num_reserved_uar) {
++		mlx4_err(
++			dev, "Only %d UAR pages (need more than %d)\n",
++			dev->caps.num_uars, num_reserved_uar);
+ 		mlx4_err(dev, "Increase firmware log2_uar_bar_megabytes?\n");
+ 		return -ENODEV;
+ 	}
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 430a929..a0e8cc8 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -44,6 +44,8 @@
+ 
+ #include <linux/timecounter.h>
+ 
++#define DEFAULT_UAR_PAGE_SHIFT  12
++
+ #define MAX_MSIX_P_PORT		17
+ #define MAX_MSIX		64
+ #define MIN_MSIX_P_PORT		5
+@@ -856,6 +858,7 @@ struct mlx4_dev {
+ 	u64			regid_promisc_array[MLX4_MAX_PORTS + 1];
+ 	u64			regid_allmulti_array[MLX4_MAX_PORTS + 1];
+ 	struct mlx4_vf_dev     *dev_vfs;
++	u8  uar_page_shift;
+ };
+ 
+ struct mlx4_clock_params {
+@@ -1528,4 +1531,14 @@ int mlx4_ACCESS_PTYS_REG(struct mlx4_dev *dev,
+ int mlx4_get_internal_clock_params(struct mlx4_dev *dev,
+ 				   struct mlx4_clock_params *params);
+ 
++static inline int mlx4_to_hw_uar_index(struct mlx4_dev *dev, int index)
++{
++	return (index << (PAGE_SHIFT - dev->uar_page_shift));
++}
++
++static inline int mlx4_get_num_reserved_uar(struct mlx4_dev *dev)
++{
++	/* The first 128 UARs are used for EQ doorbells */
++	return (128 >> (PAGE_SHIFT - dev->uar_page_shift));
++}
+ #endif /* MLX4_DEVICE_H */
 -- 
 2.3.7
