@@ -1,39 +1,72 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 00/13] rocker: do world split
-Date: Tue, 16 Feb 2016 15:13:35 +0100
-Message-ID: <20160216141335.GD2227@nanopsycho.orion>
-References: <1455627338-9872-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [patch net-next v2 00/13] rocker: do world split
+Date: Tue, 16 Feb 2016 15:14:38 +0100
+Message-ID: <1455632091-10716-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, David.Laight@ACULAB.COM,
 	john.fastabend@gmail.com, alexei.starovoitov@gmail.com,
 	daniel@iogearbox.net, prem@barefootnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:34846 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932836AbcBPONi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 09:13:38 -0500
-Received: by mail-wm0-f54.google.com with SMTP id c200so163530140wme.0
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 06:13:37 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1455627338-9872-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:35701 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932614AbcBPOOx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 09:14:53 -0500
+Received: by mail-wm0-f43.google.com with SMTP id c200so163591940wme.0
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 06:14:52 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Feb 16, 2016 at 01:55:25PM CET, jiri@resnulli.us wrote:
->From: Jiri Pirko <jiri@mellanox.com>
->
->This patchset allows new rocker worlds to be easily added in future.
->Two new worlds are now under development: P4 and eBPF.
->
->The main part of the patchset is the OF-DPA carve-out. It resuts in OF-DPA
->specific file. Clean cut.
->
->Note this patchset is based on my original attempt in October 2015.
->I had to rebase, included all suggestions and did lot of small changes.
->Main change to go with all-port-one-world approach. Port world is set according
->to what is setup in HW. Not possible to change worlds from driver.
+From: Jiri Pirko <jiri@mellanox.com>
 
-I found an issue in 12/13. Will send v2 soon.
+This patchset allows new rocker worlds to be easily added in future.
+Two new worlds are now under development: P4 and eBPF.
+
+The main part of the patchset is the OF-DPA carve-out. It resuts in OF-DPA
+specific file. Clean cut.
+
+Note this patchset is based on my original attempt in October 2015.
+I had to rebase, included all suggestions and did lot of small changes.
+Main change to go with all-port-one-world approach. Port world is set according
+to what is setup in HW. Not possible to change worlds from driver.
+---
+v1->v2:
+  patch 12/13:
+  - split port_init into pre-init and init
+
+Jiri Pirko (13):
+  rocker: remove unused rocker_port param from alloc funcs and shorten
+    their names
+  rocker: rename rocker.h to rocker_hw.h
+  rocker: rename rocker.c to rocker_main.c
+  rocker: push tlv processing into separate files
+  rocker: implement get settings mode command
+  rocker: move rocker and rocker_port structs into header
+  rocker: introduce worlds infrastructure
+  rocker: pass "learning" value as a parameter to
+    rocker_port_set_learning
+  rocker: pre-allocate wait structures during cmd ring init
+  rocker: remove trans parameter to rocker_cmd_exec function
+  rocker: call rocker_cmd_exec function with "nowait" boolean instead of
+    flags
+  rocker: move OF-DPA stuff into separate file
+  rocker: return -EOPNOTSUPP for undefined world ops
+
+ drivers/net/ethernet/rocker/Makefile       |    1 +
+ drivers/net/ethernet/rocker/rocker.c       | 5495 ----------------------------
+ drivers/net/ethernet/rocker/rocker.h       |  583 +--
+ drivers/net/ethernet/rocker/rocker_hw.h    |  467 +++
+ drivers/net/ethernet/rocker/rocker_main.c  | 2910 +++++++++++++++
+ drivers/net/ethernet/rocker/rocker_ofdpa.c | 2952 +++++++++++++++
+ drivers/net/ethernet/rocker/rocker_tlv.c   |   53 +
+ drivers/net/ethernet/rocker/rocker_tlv.h   |  201 +
+ 8 files changed, 6716 insertions(+), 5946 deletions(-)
+ delete mode 100644 drivers/net/ethernet/rocker/rocker.c
+ create mode 100644 drivers/net/ethernet/rocker/rocker_hw.h
+ create mode 100644 drivers/net/ethernet/rocker/rocker_main.c
+ create mode 100644 drivers/net/ethernet/rocker/rocker_ofdpa.c
+ create mode 100644 drivers/net/ethernet/rocker/rocker_tlv.c
+ create mode 100644 drivers/net/ethernet/rocker/rocker_tlv.h
+
+-- 
+1.9.3
