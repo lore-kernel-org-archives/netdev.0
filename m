@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 08/12] net/mlx5e: Move to checksum complete
-Date: Tue, 16 Feb 2016 22:09:57 +0200
-Message-ID: <1455653401-9808-9-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 09/12] net/mlx5e: Protect en header file from redefinitions
+Date: Tue, 16 Feb 2016 22:09:58 +0200
+Message-ID: <1455653401-9808-10-git-send-email-saeedm@mellanox.com>
 References: <1455653401-9808-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -13,56 +13,49 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59264 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59282 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756066AbcBPULN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2016 15:11:13 -0500
+	id S1755629AbcBPULQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 15:11:16 -0500
 In-Reply-To: <1455653401-9808-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Matthew Finlay <matt@mellanox.com>
 
-Use checksum complete for all IP packets, unless they are HW LRO,
-in which case, use checksum unnecessary.
+add ifndef to en.h. needed for upcoming vxlan patchset.
 
 Signed-off-by: Matt Finlay <matt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index dd959d9..519a07f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -167,14 +167,15 @@ static inline bool is_first_ethertype_ip(struct sk_buff *skb)
- static inline void mlx5e_handle_csum(struct net_device *netdev,
- 				     struct mlx5_cqe64 *cqe,
- 				     struct mlx5e_rq *rq,
--				     struct sk_buff *skb)
-+				     struct sk_buff *skb,
-+				     bool   lro)
- {
- 	if (unlikely(!(netdev->features & NETIF_F_RXCSUM)))
- 		goto csum_none;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index dfbc4e5..786a247 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2015-2016, Mellanox Technologies. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+@@ -29,6 +29,8 @@
+  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  * SOFTWARE.
+  */
++#ifndef __MLX5_EN_H__
++#define __MLX5_EN_H__
  
--	if (likely(cqe->hds_ip_ext & CQE_L4_OK)) {
-+	if (lro) {
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
--	} else if (is_first_ethertype_ip(skb)) {
-+	} else if (likely(is_first_ethertype_ip(skb))) {
- 		skb->ip_summed = CHECKSUM_COMPLETE;
- 		skb->csum = csum_unfold((__force __sum16)cqe->check_sum);
- 		rq->stats.csum_sw++;
-@@ -211,7 +212,7 @@ static inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
- 	if (unlikely(mlx5e_rx_hw_stamp(tstamp)))
- 		mlx5e_fill_hwstamp(tstamp, get_cqe_ts(cqe), skb_hwtstamps(skb));
+ #include <linux/if_vlan.h>
+ #include <linux/etherdevice.h>
+@@ -678,3 +680,5 @@ int mlx5e_dcbnl_ieee_setets_core(struct mlx5e_priv *priv, struct ieee_ets *ets);
+ #endif
  
--	mlx5e_handle_csum(netdev, cqe, rq, skb);
-+	mlx5e_handle_csum(netdev, cqe, rq, skb, !!lro_num_seg);
- 
- 	skb->protocol = eth_type_trans(skb, netdev);
- 
+ u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev);
++
++#endif /* __MLX5_EN_H__ */
 -- 
 1.7.1
