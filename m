@@ -1,210 +1,373 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: ravb: Possible Regression In "net: phy: Avoid polling PHY with
- PHY_IGNORE_INTERRUPTS"
-Date: Tue, 16 Feb 2016 12:26:46 +0900
-Message-ID: <20160216032642.GE23315@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 1/2] cxgb4: Use __dev_uc_sync/__dev_mc_sync to sync MAC address
+Date: Tue, 16 Feb 2016 10:07:09 +0530
+Message-ID: <1455597430-17173-2-git-send-email-hariprasad@chelsio.com>
+References: <1455597430-17173-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, nirranjan@chelsio.com, leedom@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:33534 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751967AbcBPEet (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2016 23:34:49 -0500
+In-Reply-To: <1455597430-17173-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  27 +++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 138 ++++++++++++++----------
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |  92 +++++++++++++---
+ 3 files changed, 184 insertions(+), 73 deletions(-)
 
-I have observed what appears to be a regression in the ravb ethernet driver
-caused by d5c3d84657db ("net: phy: Avoid polling PHY with
-PHY_IGNORE_INTERRUPTS").
-
-When booting net-next configured with the ARM64 defconfig on the Renesas
-r8a7795/salvator-x I see the following and the ravb is unable to access the
-network. With the above mentioned patch reverted I am able to boot to
-user-space using nfsroot.
-
-
-[    0.000000] Booting Linux on physical CPU 0x0
-[    0.000000] Linux version 4.5.0-rc2+ (horms@ayumi.isobedori.kobe.vergenet.net) (gcc version 4.8.5 (Linaro GCC 4.8-2015.06) ) #90 SMP PREEMPT Tue Feb 16 12:22:08 JST 2016
-[    0.000000] Boot CPU: AArch64 Processor [411fd073]
-[    0.000000] debug: ignoring loglevel setting.
-[    0.000000] efi: Getting EFI parameters from FDT:
-[    0.000000] efi: UEFI not found.
-[    0.000000] cma: Reserved 16 MiB at 0x000000007f000000
-[    0.000000] On node 0 totalpages: 229376
-[    0.000000]   DMA zone: 3584 pages used for memmap
-[    0.000000]   DMA zone: 0 pages reserved
-[    0.000000]   DMA zone: 229376 pages, LIFO batch:31
-[    0.000000] psci: probing for conduit method from DT.
-[    0.000000] psci: PSCIv1.0 detected in firmware.
-[    0.000000] psci: Using standard PSCI v0.2 function IDs
-[    0.000000] psci: Trusted OS migration not required
-[    0.000000] PERCPU: Embedded 20 pages/cpu @ffffffc036f8f000 s42496 r8192 d31232 u81920
-[    0.000000] pcpu-alloc: s42496 r8192 d31232 u81920 alloc=20*4096
-[    0.000000] pcpu-alloc: [0] 0 [0] 1 [0] 2 [0] 3 
-[    0.000000] Detected PIPT I-cache on CPU0
-[    0.000000] Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 225792
-[    0.000000] Kernel command line: ignore_loglevel rw root=/dev/nfs ip=dhcp nfsroot=10.3.3.135:/srv/nfs/salvator-x-arm64
-[    0.000000] log_buf_len individual max cpu contribution: 4096 bytes
-[    0.000000] log_buf_len total cpu_extra contributions: 12288 bytes
-[    0.000000] log_buf_len min size: 16384 bytes
-[    0.000000] log_buf_len: 32768 bytes
-[    0.000000] early log buf free: 14796(90%)
-[    0.000000] PID hash table entries: 4096 (order: 3, 32768 bytes)
-[    0.000000] Dentry cache hash table entries: 131072 (order: 8, 1048576 bytes)
-[    0.000000] Inode-cache hash table entries: 65536 (order: 7, 524288 bytes)
-[    0.000000] software IO TLB [mem 0x79c00000-0x7dc00000] (64MB) mapped at [ffffffc031c00000-ffffffc035bfffff]
-[    0.000000] Memory: 805744K/917504K available (6468K kernel code, 593K rwdata, 2900K rodata, 724K init, 242K bss, 95376K reserved, 16384K cma-reserved)
-[    0.000000] Virtual kernel memory layout:
-[    0.000000]     vmalloc : 0xffffff8000000000 - 0xffffffbdbfff0000   (   246 GB)
-[    0.000000]     vmemmap : 0xffffffbdc0000000 - 0xffffffbfc0000000   (     8 GB maximum)
-[    0.000000]               0xffffffbdc1200000 - 0xffffffbdc2000000   (    14 MB actual)
-[    0.000000]     fixed   : 0xffffffbffa7fd000 - 0xffffffbffac00000   (  4108 KB)
-[    0.000000]     PCI I/O : 0xffffffbffae00000 - 0xffffffbffbe00000   (    16 MB)
-[    0.000000]     modules : 0xffffffbffc000000 - 0xffffffc000000000   (    64 MB)
-[    0.000000]     memory  : 0xffffffc000000000 - 0xffffffc038000000   (   896 MB)
-[    0.000000]       .init : 0xffffffc0009a9000 - 0xffffffc000a5e000   (   724 KB)
-[    0.000000]       .text : 0xffffffc000080000 - 0xffffffc0009a8244   (  9377 KB)
-[    0.000000]       .data : 0xffffffc000a5e000 - 0xffffffc000af2600   (   594 KB)
-[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
-[    0.000000] Preemptible hierarchical RCU implementation.
-[    0.000000]  Build-time adjustment of leaf fanout to 64.
-[    0.000000]  RCU restricting CPUs from NR_CPUS=64 to nr_cpu_ids=4.
-[    0.000000] RCU: Adjusting geometry for rcu_fanout_leaf=64, nr_cpu_ids=4
-[    0.000000] NR_IRQS:64 nr_irqs:64 0
-[    0.000000] Architected cp15 timer(s) running at 16.66MHz (virt).
-[    0.000000] clocksource: arch_sys_counter: mask: 0xffffffffffffff max_cycles: 0x3d7a162dd, max_idle_ns: 440795202225 ns
-[    0.000001] sched_clock: 56 bits at 16MHz, resolution 60ns, wraps every 2199023255551ns
-[    0.000055] Console: colour dummy device 80x25
-[    0.000217] console [tty0] enabled
-[    0.000229] Calibrating delay loop (skipped), value calculated using timer frequency.. 33.32 BogoMIPS (lpj=66640)
-[    0.000238] pid_max: default: 32768 minimum: 301
-[    0.000263] Security Framework initialized
-[    0.000278] Mount-cache hash table entries: 2048 (order: 2, 16384 bytes)
-[    0.000283] Mountpoint-cache hash table entries: 2048 (order: 2, 16384 bytes)
-[    0.000678] ASID allocator initialised with 65536 entries
-[    0.020145] EFI services will not be available.
-[    0.036098] Detected PIPT I-cache on CPU1
-[    0.036121] CPU1: Booted secondary processor [411fd073]
-[    0.048089] Detected PIPT I-cache on CPU2
-[    0.048097] CPU2: Booted secondary processor [411fd073]
-[    0.060095] Detected PIPT I-cache on CPU3
-[    0.060104] CPU3: Booted secondary processor [411fd073]
-[    0.060121] Brought up 4 CPUs
-[    0.060146] SMP: Total of 4 processors activated.
-[    0.060152] CPU: All CPU(s) started at EL1
-[    0.060409] devtmpfs: initialized
-[    0.061400] DMI not present or invalid.
-[    0.061486] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
-[    0.061670] pinctrl core: initialized pinctrl subsystem
-[    0.062109] NET: Registered protocol family 16
-[    0.072043] cpuidle: using governor menu
-[    0.072107] vdso: 2 pages (1 code @ ffffffc000a65000, 1 data @ ffffffc000a64000)
-[    0.072128] hw-breakpoint: found 6 breakpoint and 4 watchpoint registers.
-[    0.072442] DMA: preallocated 256 KiB pool for atomic allocations
-[    0.072531] Serial: AMBA PL011 UART driver
-[    0.073660] sh-pfc e6060000.pfc: r8a77950_pfc support registered
-[    0.088316] HugeTLB registered 2 MB page size, pre-allocated 0 pages
-[    0.088974] vgaarb: loaded
-[    0.089063] SCSI subsystem initialized
-[    0.089121] libata version 3.00 loaded.
-[    0.089222] usbcore: registered new interface driver usbfs
-[    0.089244] usbcore: registered new interface driver hub
-[    0.089266] usbcore: registered new device driver usb
-[    0.089308] pps_core: LinuxPPS API ver. 1 registered
-[    0.089312] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
-[    0.089325] PTP clock support registered
-[    0.089376] dmi: Firmware registration failed.
-[    0.089732] Advanced Linux Sound Architecture Driver Initialized.
-[    0.090006] clocksource: Switched to clocksource arch_sys_counter
-[    0.090062] VFS: Disk quotas dquot_6.6.0
-[    0.090084] VFS: Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
-[    0.092799] NET: Registered protocol family 2
-[    0.092981] TCP established hash table entries: 8192 (order: 4, 65536 bytes)
-[    0.093001] TCP bind hash table entries: 8192 (order: 5, 131072 bytes)
-[    0.093048] TCP: Hash tables configured (established 8192 bind 8192)
-[    0.093097] UDP hash table entries: 512 (order: 2, 16384 bytes)
-[    0.093105] UDP-Lite hash table entries: 512 (order: 2, 16384 bytes)
-[    0.093171] NET: Registered protocol family 1
-[    0.093287] RPC: Registered named UNIX socket transport module.
-[    0.093292] RPC: Registered udp transport module.
-[    0.093296] RPC: Registered tcp transport module.
-[    0.093300] RPC: Registered tcp NFSv4.1 backchannel transport module.
-[    0.093310] PCI: CLS 0 bytes, default 128
-[    0.093516] hw perfevents: enabled with armv8_pmuv3 PMU driver, 7 counters available
-[    0.093577] kvm [1]: HYP mode not available
-[    0.094396] futex hash table entries: 1024 (order: 5, 131072 bytes)
-[    0.094458] audit: initializing netlink subsys (disabled)
-[    0.094483] audit: type=2000 audit(0.088:1): initialized
-[    0.097585] squashfs: version 4.0 (2009/01/31) Phillip Lougher
-[    0.097876] NFS: Registering the id_resolver key type
-[    0.097899] Key type id_resolver registered
-[    0.097903] Key type id_legacy registered
-[    0.097990] fuse init (API version 7.24)
-[    0.098207] 9p: Installing v9fs 9p2000 file system support
-[    0.098925] io scheduler noop registered
-[    0.098996] io scheduler cfq registered (default)
-[    0.099465] gpio_rcar e6050000.gpio: driving 16 GPIOs
-[    0.099567] gpio_rcar e6051000.gpio: driving 28 GPIOs
-[    0.099629] gpio_rcar e6052000.gpio: driving 15 GPIOs
-[    0.099686] gpio_rcar e6053000.gpio: driving 16 GPIOs
-[    0.099747] gpio_rcar e6054000.gpio: driving 18 GPIOs
-[    0.099818] gpio_rcar e6055000.gpio: driving 26 GPIOs
-[    0.099896] gpio_rcar e6055400.gpio: driving 32 GPIOs
-[    0.099943] gpio_rcar e6055800.gpio: driving 4 GPIOs
-[    0.102240] xenfs: not registering filesystem on non-xen platform
-[    0.103259] Serial: 8250/16550 driver, 4 ports, IRQ sharing disabled
-[    0.103771] SuperH (H)SCI(F) driver initialized
-[    0.103894] e6e68000.serial: ttySC1 at MMIO 0xe6e68000 (irq = 77, base_baud = 0) is a scif
-[    0.104112] e6e88000.serial: ttySC0 at MMIO 0xe6e88000 (irq = 78, base_baud = 0) is a scif
-[    0.482589] console [ttySC0] enabled
-[    0.484631] msm_serial: driver initialized
-[    0.486847] Unable to detect cache hierarchy from DT for CPU 0
-[    0.491419] loop: module loaded
-[    0.493560] scsi host0: sata_rcar
-[    0.495317] ata1: SATA max UDMA/133 irq 80
-[    0.497576] tun: Universal TUN/TAP device driver, 1.6
-[    0.500101] tun: (C) 1999-2004 Max Krasnyansky <maxk@qualcomm.com>
-[    0.503319] e1000e: Intel(R) PRO/1000 Network Driver - 3.2.6-k
-[    0.506230] e1000e: Copyright(c) 1999 - 2015 Intel Corporation.
-[    0.509198] igb: Intel(R) Gigabit Ethernet Network Driver - version 5.3.0-k
-[    0.512688] igb: Copyright (c) 2007-2014 Intel Corporation.
-[    0.515484] igbvf: Intel(R) Gigabit Virtual Function Network Driver - version 2.0.2-k
-[    0.519387] igbvf: Copyright (c) 2009 - 2012 Intel Corporation.
-[    0.522354] sky2: driver version 1.30
-[    0.524472] libphy: ravb_mii: probed
-[    0.526745] ravb e6800000.ethernet eth0: Base address at 0xe6800000, 2e:09:0a:00:83:92, IRQ 74.
-[    0.531260] VFIO - User Level meta-driver version: 0.3
-[    0.534057] ehci_hcd: USB 2.0 'Enhanced' Host Controller (EHCI) Driver
-[    0.537310] ehci-pci: EHCI PCI platform driver
-[    0.539550] ehci-platform: EHCI generic platform driver
-[    0.542184] ohci_hcd: USB 1.1 'Open' Host Controller (OHCI) Driver
-[    0.545269] ohci-pci: OHCI PCI platform driver
-[    0.547507] ohci-platform: OHCI generic platform driver
-[    0.550157] usbcore: registered new interface driver usb-storage
-[    0.553260] mousedev: PS/2 mouse device common for all mice
-[    0.556529] i2c-rcar e6510000.i2c: probed
-[    0.558697] sdhci: Secure Digital Host Controller Interface driver
-[    0.561774] sdhci: Copyright(c) Pierre Ossman
-[    0.563965] Synopsys Designware Multimedia Card Interface Driver
-[    0.567020] sdhci-pltfm: SDHCI platform and OF driver helper
-[    0.569913] ledtrig-cpu: registered to indicate activity on CPUs
-[    0.573146] usbcore: registered new interface driver usbhid
-[    0.575926] usbhid: USB HID core driver
-[    0.580375] cs2000-cp 2-004f: revision - C1
-[    0.582756] ak4613-codec 2-0010: No cache used with register defaults set!
-[    0.588226] rcar_sound ec500000.sound: probed
-[    0.590702] NET: Registered protocol family 17
-[    0.592959] 9pnet: Installing 9P2000 support
-[    0.595129] Key type dns_resolver registered
-[    0.597492] registered taskstats version 1
-[    0.600031] asoc-simple-card sound: ak4613-hifi <-> ec500000.sound mapping ok
-[    0.606510] hctosys: unable to open rtc device (rtc0)
-[    0.676475] ravb e6800000.ethernet eth0: limited PHY to 100Mbit/s
-[    0.679528] Micrel KSZ9031 Gigabit PHY e6800000.etherne:00: attached PHY driver [Micrel KSZ9031 Gigabit PHY] (mii_bus:phy_addr=e6800000.etherne:00, irq=136)
-[    0.902003] ata1: link resume succeeded after 1 retries
-[    1.010734] ata1: SATA link down (SStatus 0 SControl 300)
-[   10.686002] Waiting up to 110 more seconds for network.
-...
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index ec6e849676c1..1dac6c6111bf 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -702,6 +702,11 @@ struct doorbell_stats {
+ 	u32 db_full;
+ };
+ 
++struct hash_mac_addr {
++	struct list_head list;
++	u8 addr[ETH_ALEN];
++};
++
+ struct adapter {
+ 	void __iomem *regs;
+ 	void __iomem *bar2;
+@@ -740,6 +745,7 @@ struct adapter {
+ 	void *uld_handle[CXGB4_ULD_MAX];
+ 	struct list_head list_node;
+ 	struct list_head rcu_node;
++	struct list_head mac_hlist; /* list of MAC addresses in MPS Hash */
+ 
+ 	struct tid_info tids;
+ 	void **tid_release_head;
+@@ -1207,6 +1213,24 @@ static inline int t4_wr_mbox_ns(struct adapter *adap, int mbox, const void *cmd,
+ 	return t4_wr_mbox_meat(adap, mbox, cmd, size, rpl, false);
+ }
+ 
++/**
++ *	hash_mac_addr - return the hash value of a MAC address
++ *	@addr: the 48-bit Ethernet MAC address
++ *
++ *	Hashes a MAC address according to the hash function used by HW inexact
++ *	(hash) address matching.
++ */
++static inline int hash_mac_addr(const u8 *addr)
++{
++	u32 a = ((u32)addr[0] << 16) | ((u32)addr[1] << 8) | addr[2];
++	u32 b = ((u32)addr[3] << 16) | ((u32)addr[4] << 8) | addr[5];
++
++	a ^= b;
++	a ^= (a >> 12);
++	a ^= (a >> 6);
++	return a & 0x3f;
++}
++
+ void t4_write_indirect(struct adapter *adap, unsigned int addr_reg,
+ 		       unsigned int data_reg, const u32 *vals,
+ 		       unsigned int nregs, unsigned int start_idx);
+@@ -1389,6 +1413,9 @@ int t4_set_rxmode(struct adapter *adap, unsigned int mbox, unsigned int viid,
+ int t4_alloc_mac_filt(struct adapter *adap, unsigned int mbox,
+ 		      unsigned int viid, bool free, unsigned int naddr,
+ 		      const u8 **addr, u16 *idx, u64 *hash, bool sleep_ok);
++int t4_free_mac_filt(struct adapter *adap, unsigned int mbox,
++		     unsigned int viid, unsigned int naddr,
++		     const u8 **addr, bool sleep_ok);
+ int t4_change_mac(struct adapter *adap, unsigned int mbox, unsigned int viid,
+ 		  int idx, const u8 *addr, bool persist, bool add_smt);
+ int t4_set_addr_hash(struct adapter *adap, unsigned int mbox, unsigned int viid,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index b8a5fb0c32d4..adad73f7c8cd 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -338,84 +338,108 @@ void t4_os_portmod_changed(const struct adapter *adap, int port_id)
+ 		netdev_info(dev, "%s module inserted\n", mod_str[pi->mod_type]);
+ }
+ 
++int dbfifo_int_thresh = 10; /* 10 == 640 entry threshold */
++module_param(dbfifo_int_thresh, int, 0644);
++MODULE_PARM_DESC(dbfifo_int_thresh, "doorbell fifo interrupt threshold");
++
+ /*
+- * Configure the exact and hash address filters to handle a port's multicast
+- * and secondary unicast MAC addresses.
++ * usecs to sleep while draining the dbfifo
+  */
+-static int set_addr_filters(const struct net_device *dev, bool sleep)
++static int dbfifo_drain_delay = 1000;
++module_param(dbfifo_drain_delay, int, 0644);
++MODULE_PARM_DESC(dbfifo_drain_delay,
++		 "usecs to sleep while draining the dbfifo");
++
++static inline int cxgb4_set_addr_hash(struct port_info *pi)
+ {
++	struct adapter *adap = pi->adapter;
++	u64 vec = 0;
++	bool ucast = false;
++	struct hash_mac_addr *entry;
++
++	/* Calculate the hash vector for the updated list and program it */
++	list_for_each_entry(entry, &adap->mac_hlist, list) {
++		ucast |= is_unicast_ether_addr(entry->addr);
++		vec |= (1ULL << hash_mac_addr(entry->addr));
++	}
++	return t4_set_addr_hash(adap, adap->mbox, pi->viid, ucast,
++				vec, false);
++}
++
++static int cxgb4_mac_sync(struct net_device *netdev, const u8 *mac_addr)
++{
++	struct port_info *pi = netdev_priv(netdev);
++	struct adapter *adap = pi->adapter;
++	int ret;
+ 	u64 mhash = 0;
+ 	u64 uhash = 0;
+-	bool free = true;
+-	u16 filt_idx[7];
+-	const u8 *addr[7];
+-	int ret, naddr = 0;
+-	const struct netdev_hw_addr *ha;
+-	int uc_cnt = netdev_uc_count(dev);
+-	int mc_cnt = netdev_mc_count(dev);
+-	const struct port_info *pi = netdev_priv(dev);
+-	unsigned int mb = pi->adapter->pf;
++	bool free = false;
++	bool ucast = is_unicast_ether_addr(mac_addr);
++	const u8 *maclist[1] = {mac_addr};
++	struct hash_mac_addr *new_entry;
+ 
+-	/* first do the secondary unicast addresses */
+-	netdev_for_each_uc_addr(ha, dev) {
+-		addr[naddr++] = ha->addr;
+-		if (--uc_cnt == 0 || naddr >= ARRAY_SIZE(addr)) {
+-			ret = t4_alloc_mac_filt(pi->adapter, mb, pi->viid, free,
+-					naddr, addr, filt_idx, &uhash, sleep);
+-			if (ret < 0)
+-				return ret;
+-
+-			free = false;
+-			naddr = 0;
+-		}
++	ret = t4_alloc_mac_filt(adap, adap->mbox, pi->viid, free, 1, maclist,
++				NULL, ucast ? &uhash : &mhash, false);
++	if (ret < 0)
++		goto out;
++	/* if hash != 0, then add the addr to hash addr list
++	 * so on the end we will calculate the hash for the
++	 * list and program it
++	 */
++	if (uhash || mhash) {
++		new_entry = kzalloc(sizeof(*new_entry), GFP_ATOMIC);
++		if (!new_entry)
++			return -ENOMEM;
++		ether_addr_copy(new_entry->addr, mac_addr);
++		list_add_tail(&new_entry->list, &adap->mac_hlist);
++		ret = cxgb4_set_addr_hash(pi);
+ 	}
++out:
++	return ret < 0 ? ret : 0;
++}
+ 
+-	/* next set up the multicast addresses */
+-	netdev_for_each_mc_addr(ha, dev) {
+-		addr[naddr++] = ha->addr;
+-		if (--mc_cnt == 0 || naddr >= ARRAY_SIZE(addr)) {
+-			ret = t4_alloc_mac_filt(pi->adapter, mb, pi->viid, free,
+-					naddr, addr, filt_idx, &mhash, sleep);
+-			if (ret < 0)
+-				return ret;
++static int cxgb4_mac_unsync(struct net_device *netdev, const u8 *mac_addr)
++{
++	struct port_info *pi = netdev_priv(netdev);
++	struct adapter *adap = pi->adapter;
++	int ret;
++	const u8 *maclist[1] = {mac_addr};
++	struct hash_mac_addr *entry, *tmp;
+ 
+-			free = false;
+-			naddr = 0;
++	/* If the MAC address to be removed is in the hash addr
++	 * list, delete it from the list and update hash vector
++	 */
++	list_for_each_entry_safe(entry, tmp, &adap->mac_hlist, list) {
++		if (ether_addr_equal(entry->addr, mac_addr)) {
++			list_del(&entry->list);
++			kfree(entry);
++			return cxgb4_set_addr_hash(pi);
+ 		}
+ 	}
+ 
+-	return t4_set_addr_hash(pi->adapter, mb, pi->viid, uhash != 0,
+-				uhash | mhash, sleep);
++	ret = t4_free_mac_filt(adap, adap->mbox, pi->viid, 1, maclist, false);
++	return ret < 0 ? -EINVAL : 0;
+ }
+ 
+-int dbfifo_int_thresh = 10; /* 10 == 640 entry threshold */
+-module_param(dbfifo_int_thresh, int, 0644);
+-MODULE_PARM_DESC(dbfifo_int_thresh, "doorbell fifo interrupt threshold");
+-
+-/*
+- * usecs to sleep while draining the dbfifo
+- */
+-static int dbfifo_drain_delay = 1000;
+-module_param(dbfifo_drain_delay, int, 0644);
+-MODULE_PARM_DESC(dbfifo_drain_delay,
+-		 "usecs to sleep while draining the dbfifo");
+-
+ /*
+  * Set Rx properties of a port, such as promiscruity, address filters, and MTU.
+  * If @mtu is -1 it is left unchanged.
+  */
+ static int set_rxmode(struct net_device *dev, int mtu, bool sleep_ok)
+ {
+-	int ret;
+ 	struct port_info *pi = netdev_priv(dev);
++	struct adapter *adapter = pi->adapter;
+ 
+-	ret = set_addr_filters(dev, sleep_ok);
+-	if (ret == 0)
+-		ret = t4_set_rxmode(pi->adapter, pi->adapter->pf, pi->viid, mtu,
+-				    (dev->flags & IFF_PROMISC) ? 1 : 0,
+-				    (dev->flags & IFF_ALLMULTI) ? 1 : 0, 1, -1,
+-				    sleep_ok);
+-	return ret;
++	if (!(dev->flags & IFF_PROMISC)) {
++		__dev_uc_sync(dev, cxgb4_mac_sync, cxgb4_mac_unsync);
++		if (!(dev->flags & IFF_ALLMULTI))
++			__dev_mc_sync(dev, cxgb4_mac_sync, cxgb4_mac_unsync);
++	}
++
++	return t4_set_rxmode(adapter, adapter->mbox, pi->viid, mtu,
++			     (dev->flags & IFF_PROMISC) ? 1 : 0,
++			     (dev->flags & IFF_ALLMULTI) ? 1 : 0, 1, -1,
++			     sleep_ok);
+ }
+ 
+ /**
+@@ -2677,6 +2701,8 @@ static int cxgb_up(struct adapter *adap)
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	update_clip(adap);
+ #endif
++	/* Initialize hash mac addr list*/
++	INIT_LIST_HEAD(&adap->mac_hlist);
+  out:
+ 	return err;
+  irq_err:
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 636b4691f252..cc1736bece0f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -4433,23 +4433,6 @@ void t4_intr_disable(struct adapter *adapter)
+ }
+ 
+ /**
+- *	hash_mac_addr - return the hash value of a MAC address
+- *	@addr: the 48-bit Ethernet MAC address
+- *
+- *	Hashes a MAC address according to the hash function used by HW inexact
+- *	(hash) address matching.
+- */
+-static int hash_mac_addr(const u8 *addr)
+-{
+-	u32 a = ((u32)addr[0] << 16) | ((u32)addr[1] << 8) | addr[2];
+-	u32 b = ((u32)addr[3] << 16) | ((u32)addr[4] << 8) | addr[5];
+-	a ^= b;
+-	a ^= (a >> 12);
+-	a ^= (a >> 6);
+-	return a & 0x3f;
+-}
+-
+-/**
+  *	t4_config_rss_range - configure a portion of the RSS mapping table
+  *	@adapter: the adapter
+  *	@mbox: mbox to use for the FW command
+@@ -6738,6 +6721,81 @@ int t4_alloc_mac_filt(struct adapter *adap, unsigned int mbox,
+ }
+ 
+ /**
++ *	t4_free_mac_filt - frees exact-match filters of given MAC addresses
++ *	@adap: the adapter
++ *	@mbox: mailbox to use for the FW command
++ *	@viid: the VI id
++ *	@naddr: the number of MAC addresses to allocate filters for (up to 7)
++ *	@addr: the MAC address(es)
++ *	@sleep_ok: call is allowed to sleep
++ *
++ *	Frees the exact-match filter for each of the supplied addresses
++ *
++ *	Returns a negative error number or the number of filters freed.
++ */
++int t4_free_mac_filt(struct adapter *adap, unsigned int mbox,
++		     unsigned int viid, unsigned int naddr,
++		     const u8 **addr, bool sleep_ok)
++{
++	int offset, ret = 0;
++	struct fw_vi_mac_cmd c;
++	unsigned int nfilters = 0;
++	unsigned int max_naddr = is_t4(adap->params.chip) ?
++				       NUM_MPS_CLS_SRAM_L_INSTANCES :
++				       NUM_MPS_T5_CLS_SRAM_L_INSTANCES;
++	unsigned int rem = naddr;
++
++	if (naddr > max_naddr)
++		return -EINVAL;
++
++	for (offset = 0; offset < (int)naddr ; /**/) {
++		unsigned int fw_naddr = (rem < ARRAY_SIZE(c.u.exact)
++					 ? rem
++					 : ARRAY_SIZE(c.u.exact));
++		size_t len16 = DIV_ROUND_UP(offsetof(struct fw_vi_mac_cmd,
++						     u.exact[fw_naddr]), 16);
++		struct fw_vi_mac_exact *p;
++		int i;
++
++		memset(&c, 0, sizeof(c));
++		c.op_to_viid = cpu_to_be32(FW_CMD_OP_V(FW_VI_MAC_CMD) |
++				     FW_CMD_REQUEST_F |
++				     FW_CMD_WRITE_F |
++				     FW_CMD_EXEC_V(0) |
++				     FW_VI_MAC_CMD_VIID_V(viid));
++		c.freemacs_to_len16 =
++				cpu_to_be32(FW_VI_MAC_CMD_FREEMACS_V(0) |
++					    FW_CMD_LEN16_V(len16));
++
++		for (i = 0, p = c.u.exact; i < (int)fw_naddr; i++, p++) {
++			p->valid_to_idx = cpu_to_be16(
++				FW_VI_MAC_CMD_VALID_F |
++				FW_VI_MAC_CMD_IDX_V(FW_VI_MAC_MAC_BASED_FREE));
++			memcpy(p->macaddr, addr[offset+i], sizeof(p->macaddr));
++		}
++
++		ret = t4_wr_mbox_meat(adap, mbox, &c, sizeof(c), &c, sleep_ok);
++		if (ret)
++			break;
++
++		for (i = 0, p = c.u.exact; i < fw_naddr; i++, p++) {
++			u16 index = FW_VI_MAC_CMD_IDX_G(
++						be16_to_cpu(p->valid_to_idx));
++
++			if (index < max_naddr)
++				nfilters++;
++		}
++
++		offset += fw_naddr;
++		rem -= fw_naddr;
++	}
++
++	if (ret == 0)
++		ret = nfilters;
++	return ret;
++}
++
++/**
+  *	t4_change_mac - modifies the exact-match filter for a MAC address
+  *	@adap: the adapter
+  *	@mbox: mailbox to use for the FW command
+-- 
+2.3.4
