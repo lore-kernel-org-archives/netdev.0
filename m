@@ -1,367 +1,77 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 07/12] net/mlx5e: Wake On LAN support
-Date: Tue, 16 Feb 2016 22:09:56 +0200
-Message-ID: <1455653401-9808-8-git-send-email-saeedm@mellanox.com>
-References: <1455653401-9808-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Rana Shahout <ranas@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Matthew Finlay <matt@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [PATCH net-next] lwt: fix rx checksum setting for lwt devices
+ tunneling over ipv6
+Date: Tue, 16 Feb 2016 12:11:57 -0800
+Message-ID: <CAEh+42jbaryH8J4vZYXM0yVQcaXZ23Q59_iHr8QT_2PHRmDGgg@mail.gmail.com>
+References: <8d2a6ece65b17ae61343dce27f3709d3cd249832.1455118911.git.pabeni@redhat.com>
+ <20160211114124.17ae429a@griffin> <CAEh+42jyFVjM4A5HzJQ94xW+XZOTG5iBEFu2VHKCJU0sRwNgWA@mail.gmail.com>
+ <20160216.144759.1984502562641417028.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Benc <jbenc@redhat.com>, Paolo Abeni <pabeni@redhat.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Thomas Graf <tgraf@suug.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59272 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753394AbcBPULO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2016 15:11:14 -0500
-In-Reply-To: <1455653401-9808-1-git-send-email-saeedm@mellanox.com>
+Received: from mail.kernel.org ([198.145.29.136]:35846 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755865AbcBPUMO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 15:12:14 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id 66C9420304
+	for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 20:12:13 +0000 (UTC)
+Received: from mail-qk0-f172.google.com (mail-qk0-f172.google.com [209.85.220.172])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 6BAA8202BE
+	for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 20:12:12 +0000 (UTC)
+Received: by mail-qk0-f172.google.com with SMTP id o6so71441793qkc.2
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 12:12:12 -0800 (PST)
+In-Reply-To: <20160216.144759.1984502562641417028.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
+On Tue, Feb 16, 2016 at 11:47 AM, David Miller <davem@davemloft.net> wrote:
+> From: Jesse Gross <jesse@kernel.org>
+> Date: Tue, 16 Feb 2016 10:22:38 -0800
+>
+>> On Thu, Feb 11, 2016 at 2:41 AM, Jiri Benc <jbenc@redhat.com> wrote:
+>> There's a bigger problem here, not really related to lightweight tunnels or OVS.
+>>
+>> The VXLAN RFC says (referring to the UDP checksum and not specific to IPv4/v6):
+>> "It SHOULD be transmitted as zero. When a packet is received with a
+>> UDP checksum of zero, it MUST be accepted for decapsulation."
+>>
+>> We can debate whether this is correct or whether it conflicts with RFC
+>> 2460 but this is what essentially everyone is going to implement. With
+>> the default settings of the flags in IPv6, we are violating both
+>> statements. With the second one in particular, the result is that
+>> Linux will not be able to communicate with any non-Linux VXLAN
+>> endpoint over IPv6 with default settings.
+>
+> I do not see any such conflict here.
+>
+> It's a SHOULD, therefore a recommendation.  Likely they thought this
+> would improve performance, and ironically it has the opposite effect.
+>
+> The text of the VXLAN RFC does not say that the checksum MUST be sent
+> as zero, and it also does not say that receiving a non-zero checksum
+> is violating the RFC.
+>
+> I therefore do not see the interoperability issue.  Maybe some
+> deployed systems will run more slowly or hit a slot path (which is not
+> our problem), but they absolutely should not drop such frames.
 
-Implement set/get WOL by ethtool and added the needed
-device commands and structures to mlx5_ifc.
+"When a packet is received with a UDP checksum of zero, it MUST be
+accepted for decapsulation."
 
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Signed-off-by: Rana Shahout <ranas@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |    6 +
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  125 ++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/port.c     |   38 ++++++
- include/linux/mlx5/device.h                        |   11 ++
- include/linux/mlx5/mlx5_ifc.h                      |   62 ++++++++++-
- include/linux/mlx5/port.h                          |    2 +
- 6 files changed, 243 insertions(+), 1 deletions(-)
+This is a requirement and directly in conflict with having
+VXLAN_F_UDP_ZERO_CSUM6_RX set to false as the default.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index 037fc4c..9ce87c6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -560,6 +560,12 @@ const char *mlx5_command_str(int command)
- 	case MLX5_CMD_OP_ACCESS_REG:
- 		return "MLX5_CMD_OP_ACCESS_REG";
- 
-+	case MLX5_CMD_OP_SET_WOL_ROL:
-+		return "SET_WOL_ROL";
-+
-+	case MLX5_CMD_OP_QUERY_WOL_ROL:
-+		return "QUERY_WOL_ROL";
-+
- 	default: return "unknown command opcode";
- 	}
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 65624ac..e9760f8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -884,6 +884,129 @@ static int mlx5e_get_ts_info(struct net_device *dev,
- 	return 0;
- }
- 
-+static __u32 mlx5e_get_wol_supported(struct mlx5_core_dev *mdev)
-+{
-+	__u32 ret = 0;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_g))
-+		ret |= WAKE_MAGIC;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_s))
-+		ret |= WAKE_MAGICSECURE;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_a))
-+		ret |= WAKE_ARP;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_b))
-+		ret |= WAKE_BCAST;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_m))
-+		ret |= WAKE_MCAST;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_u))
-+		ret |= WAKE_UCAST;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_p))
-+		ret |= WAKE_PHY;
-+
-+	return ret;
-+}
-+
-+static __u32 mlx5e_refomrat_wol_mode_mlx5_to_linux(u8 mode)
-+{
-+	__u32 ret = 0;
-+
-+	if (mode & MLX5_WOL_MAGIC)
-+		ret |= WAKE_MAGIC;
-+
-+	if (mode & MLX5_WOL_SECURED_MAGIC)
-+		ret |= WAKE_MAGICSECURE;
-+
-+	if (mode & MLX5_WOL_ARP)
-+		ret |= WAKE_ARP;
-+
-+	if (mode & MLX5_WOL_BROADCAST)
-+		ret |= WAKE_BCAST;
-+
-+	if (mode & MLX5_WOL_MULTICAST)
-+		ret |= WAKE_MCAST;
-+
-+	if (mode & MLX5_WOL_UNICAST)
-+		ret |= WAKE_UCAST;
-+
-+	if (mode & MLX5_WOL_PHY_ACTIVITY)
-+		ret |= WAKE_PHY;
-+
-+	return ret;
-+}
-+
-+static u8 mlx5e_refomrat_wol_mode_linux_to_mlx5(__u32 mode)
-+{
-+	u8 ret = 0;
-+
-+	if (mode & WAKE_MAGIC)
-+		ret |= MLX5_WOL_MAGIC;
-+
-+	if (mode & WAKE_MAGICSECURE)
-+		ret |= MLX5_WOL_SECURED_MAGIC;
-+
-+	if (mode & WAKE_ARP)
-+		ret |= MLX5_WOL_ARP;
-+
-+	if (mode & WAKE_BCAST)
-+		ret |= MLX5_WOL_BROADCAST;
-+
-+	if (mode & WAKE_MCAST)
-+		ret |= MLX5_WOL_MULTICAST;
-+
-+	if (mode & WAKE_UCAST)
-+		ret |= MLX5_WOL_UNICAST;
-+
-+	if (mode & WAKE_PHY)
-+		ret |= MLX5_WOL_PHY_ACTIVITY;
-+
-+	return ret;
-+}
-+
-+static void mlx5e_get_wol(struct net_device *netdev,
-+			  struct ethtool_wolinfo *wol)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	u8 mlx5_wol_mode;
-+	int err;
-+
-+	memset(wol, 0, sizeof(*wol));
-+
-+	wol->supported = mlx5e_get_wol_supported(mdev);
-+	if (!wol->supported)
-+		return;
-+
-+	err = mlx5_query_port_wol(mdev, &mlx5_wol_mode);
-+	if (err)
-+		return;
-+
-+	wol->wolopts = mlx5e_refomrat_wol_mode_mlx5_to_linux(mlx5_wol_mode);
-+}
-+
-+static int mlx5e_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	__u32 wol_supported = mlx5e_get_wol_supported(mdev);
-+	u32 mlx5_wol_mode;
-+
-+	if (!wol_supported)
-+		return -ENOTSUPP;
-+
-+	if (wol->wolopts & ~wol_supported)
-+		return -EINVAL;
-+
-+	mlx5_wol_mode = mlx5e_refomrat_wol_mode_linux_to_mlx5(wol->wolopts);
-+
-+	return mlx5_set_port_wol(mdev, mlx5_wol_mode);
-+}
-+
- const struct ethtool_ops mlx5e_ethtool_ops = {
- 	.get_drvinfo       = mlx5e_get_drvinfo,
- 	.get_link          = ethtool_op_get_link,
-@@ -908,4 +1031,6 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
- 	.get_pauseparam    = mlx5e_get_pauseparam,
- 	.set_pauseparam    = mlx5e_set_pauseparam,
- 	.get_ts_info       = mlx5e_get_ts_info,
-+	.get_wol	   = mlx5e_get_wol,
-+	.set_wol	   = mlx5e_set_wol,
- };
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index cff1798..19571de 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -541,3 +541,41 @@ int mlx5_query_port_ets_rate_limit(struct mlx5_core_dev *mdev,
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx5_query_port_ets_rate_limit);
-+
-+int mlx5_set_port_wol(struct mlx5_core_dev *mdev, u8 wol_mode)
-+{
-+	u32 in[MLX5_ST_SZ_DW(set_wol_rol_in)];
-+	u32 out[MLX5_ST_SZ_DW(set_wol_rol_out)];
-+
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+	MLX5_SET(set_wol_rol_in, in, opcode, MLX5_CMD_OP_SET_WOL_ROL);
-+	MLX5_SET(set_wol_rol_in, in, wol_mode_valid, 1);
-+	MLX5_SET(set_wol_rol_in, in, wol_mode, wol_mode);
-+
-+	return mlx5_cmd_exec_check_status(mdev, in, sizeof(in),
-+					  out, sizeof(out));
-+}
-+EXPORT_SYMBOL_GPL(mlx5_set_port_wol);
-+
-+int mlx5_query_port_wol(struct mlx5_core_dev *mdev, u8 *wol_mode)
-+{
-+	u32 in[MLX5_ST_SZ_DW(query_wol_rol_in)];
-+	u32 out[MLX5_ST_SZ_DW(query_wol_rol_out)];
-+	int err;
-+
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+	MLX5_SET(query_wol_rol_in, in, opcode, MLX5_CMD_OP_QUERY_WOL_ROL);
-+
-+	err = mlx5_cmd_exec_check_status(mdev, in, sizeof(in),
-+					 out, sizeof(out));
-+
-+	if (!err)
-+		*wol_mode = MLX5_GET(query_wol_rol_out, out, wol_mode);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_query_port_wol);
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index bfc1ab0..68a56bc 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -1183,6 +1183,17 @@ enum {
- 	MLX5_RQC_RQ_TYPE_MEMORY_RQ_RPM    = 0x1,
- };
- 
-+enum mlx5_wol_mode {
-+	MLX5_WOL_DISABLE        = 0,
-+	MLX5_WOL_SECURED_MAGIC  = 1 << 1,
-+	MLX5_WOL_MAGIC          = 1 << 2,
-+	MLX5_WOL_ARP            = 1 << 3,
-+	MLX5_WOL_BROADCAST      = 1 << 4,
-+	MLX5_WOL_MULTICAST      = 1 << 5,
-+	MLX5_WOL_UNICAST        = 1 << 6,
-+	MLX5_WOL_PHY_ACTIVITY   = 1 << 7,
-+};
-+
- /* MLX5 DEV CAPs */
- 
- /* TODO: EAT.ME */
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index ecbdbbf..26f2964 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -166,6 +166,8 @@ enum {
- 	MLX5_CMD_OP_SET_L2_TABLE_ENTRY            = 0x829,
- 	MLX5_CMD_OP_QUERY_L2_TABLE_ENTRY          = 0x82a,
- 	MLX5_CMD_OP_DELETE_L2_TABLE_ENTRY         = 0x82b,
-+	MLX5_CMD_OP_SET_WOL_ROL                   = 0x830,
-+	MLX5_CMD_OP_QUERY_WOL_ROL                 = 0x831,
- 	MLX5_CMD_OP_CREATE_TIR                    = 0x900,
- 	MLX5_CMD_OP_MODIFY_TIR                    = 0x901,
- 	MLX5_CMD_OP_DESTROY_TIR                   = 0x902,
-@@ -731,7 +733,17 @@ struct mlx5_ifc_cmd_hca_cap_bits {
- 	u8         log_max_msg[0x5];
- 	u8         reserved_at_1c7[0x4];
- 	u8         max_tc[0x4];
--	u8         reserved_at_1cf[0x10];
-+	u8         reserved_at_1cf[0x6];
-+	u8         rol_s[0x1];
-+	u8         rol_g[0x1];
-+	u8         reserved_at_1d7[0x1];
-+	u8         wol_s[0x1];
-+	u8         wol_g[0x1];
-+	u8         wol_a[0x1];
-+	u8         wol_b[0x1];
-+	u8         wol_m[0x1];
-+	u8         wol_u[0x1];
-+	u8         wol_p[0x1];
- 
- 	u8         stat_rate_support[0x10];
- 	u8         reserved_at_1ef[0xc];
-@@ -6873,6 +6885,54 @@ struct mlx5_ifc_mtt_bits {
- 	u8         rd_en[0x1];
- };
- 
-+struct mlx5_ifc_query_wol_rol_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x10];
-+	u8         rol_mode[0x8];
-+	u8         wol_mode[0x8];
-+
-+	u8         reserved_at_60[0x20];
-+};
-+
-+struct mlx5_ifc_query_wol_rol_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         reserved_at_40[0x40];
-+};
-+
-+struct mlx5_ifc_set_wol_rol_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x40];
-+};
-+
-+struct mlx5_ifc_set_wol_rol_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         rol_mode_valid[0x1];
-+	u8         wol_mode_valid[0x1];
-+	u8         reserved_at_42[0xe];
-+	u8         rol_mode[0x8];
-+	u8         wol_mode[0x8];
-+
-+	u8         reserved_at_60[0x20];
-+};
-+
- enum {
- 	MLX5_INITIAL_SEG_NIC_INTERFACE_FULL_DRIVER  = 0x0,
- 	MLX5_INITIAL_SEG_NIC_INTERFACE_DISABLED     = 0x1,
-diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
-index 66dbd1a..899927c 100644
---- a/include/linux/mlx5/port.h
-+++ b/include/linux/mlx5/port.h
-@@ -81,5 +81,7 @@ int mlx5_modify_port_ets_rate_limit(struct mlx5_core_dev *mdev,
- int mlx5_query_port_ets_rate_limit(struct mlx5_core_dev *mdev,
- 				   u8 *max_bw_value,
- 				   u8 *max_bw_unit);
-+int mlx5_set_port_wol(struct mlx5_core_dev *mdev, u8 wol_mode);
-+int mlx5_query_port_wol(struct mlx5_core_dev *mdev, u8 *wol_mode);
- 
- #endif /* __MLX5_PORT_H__ */
--- 
-1.7.1
+As far as the use of checksums, saying that it improves performance is
+only valid for a class of devices. It is not true as a blanket
+statement, such as for switching ASICs. In these cases, the
+performance drop in hitting a slow path is so big that it is
+equivalent to dropping frames and creates a de-facto interoperability
+issue.
