@@ -1,7 +1,7 @@
 From: Greg Kurz <gkurz@linux.vnet.ibm.com>
-Subject: [PATCH v2 2/3] vhost: rename cross-endian helpers
-Date: Tue, 16 Feb 2016 15:59:34 +0100
-Message-ID: <20160216145433.7448.15494.stgit@bahia.lab.toulouse-stg.fr.ibm.com>
+Subject: [PATCH v2 3/3] vhost: rename vhost_init_used()
+Date: Tue, 16 Feb 2016 15:59:44 +0100
+Message-ID: <20160216145939.7448.64811.stgit@bahia.lab.toulouse-stg.fr.ibm.com>
 References: <20160216145418.7448.71329.stgit@bahia.lab.toulouse-stg.fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,128 +22,99 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-The default use case for vhost is when the host and the vring have the
-same endianness (default native endianness). But there are cases where
-they differ and vhost should byteswap when accessing the vring.
+Looking at how callers use this, maybe we should just rename init_used
+to vhost_vq_init_access. The _used suffix was a hint that we
+access the vq used ring. But maybe what callers care about is
+that it must be called after access_ok.
 
-The first case is when the host is big endian and the vring belongs to
-a virtio 1.0 device, which is always little endian.
+Also, this function manipulates the vq->is_le field which isn't related
+to the vq used ring.
 
-This is covered by the vq->is_le field. This field is initialized when
-userspace calls the VHOST_SET_FEATURES ioctl. It is reset when the device
-stops.
-
-We already have a vhost_init_is_le() helper, but the reset operation is
-opencoded as follows:
-
-	vq->is_le = virtio_legacy_is_little_endian();
-
-It isn't clear that we are resetting vq->is_le here.
-
-This patch moves the code to a helper with a more explicit name.
-
-The other case where we may have to byteswap is when the architecture can
-switch endianness at runtime (bi-endian). If endianness differs in the host
-and in the guest, then legacy devices need to be used in cross-endian mode.
-
-This mode is available with CONFIG_VHOST_CROSS_ENDIAN_LEGACY=y, which
-introduces a vq->user_be field. Userspace may enable cross-endian mode
-by calling the SET_VRING_ENDIAN ioctl before the device is started. The
-cross-endian mode is disabled when the device is stopped.
-
-The current names of the helpers that manipulate vq->user_be are unclear.
-
-This patch renames those helpers to clearly show that this is cross-endian
-stuff and with explicit enable/disable semantics.
+This patch simply renames vhost_init_used() to vhost_vq_init_access() as
+suggested by Michael.
 
 No behaviour change.
 
 Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
 ---
-Changes since v1:
-- use init/reset semantics for vq->is_le (Michael)
-- use enable/disable semantics for vq->user_be (Cornelia)
-- rewrote the changelog
----
- drivers/vhost/vhost.c |   30 ++++++++++++++++++++++++------
- 1 file changed, 24 insertions(+), 6 deletions(-)
+ drivers/vhost/net.c   |    2 +-
+ drivers/vhost/scsi.c  |    2 +-
+ drivers/vhost/test.c  |    2 +-
+ drivers/vhost/vhost.c |    4 ++--
+ drivers/vhost/vhost.h |    2 +-
+ 5 files changed, 6 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 9eda69e40678..7bd75ff8be26 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -917,7 +917,7 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ 
+ 		vhost_net_disable_vq(n, vq);
+ 		vq->private_data = sock;
+-		r = vhost_init_used(vq);
++		r = vhost_vq_init_access(vq);
+ 		if (r)
+ 			goto err_used;
+ 		r = vhost_net_enable_vq(n, vq);
+diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
+index 29cfc57d496e..f898686cdd93 100644
+--- a/drivers/vhost/scsi.c
++++ b/drivers/vhost/scsi.c
+@@ -1274,7 +1274,7 @@ vhost_scsi_set_endpoint(struct vhost_scsi *vs,
+ 			vq = &vs->vqs[i].vq;
+ 			mutex_lock(&vq->mutex);
+ 			vq->private_data = vs_tpg;
+-			vhost_init_used(vq);
++			vhost_vq_init_access(vq);
+ 			mutex_unlock(&vq->mutex);
+ 		}
+ 		ret = 0;
+diff --git a/drivers/vhost/test.c b/drivers/vhost/test.c
+index f2882ac98726..388eec4e1a90 100644
+--- a/drivers/vhost/test.c
++++ b/drivers/vhost/test.c
+@@ -196,7 +196,7 @@ static long vhost_test_run(struct vhost_test *n, int test)
+ 		oldpriv = vq->private_data;
+ 		vq->private_data = priv;
+ 
+-		r = vhost_init_used(&n->vqs[index]);
++		r = vhost_vq_init_access(&n->vqs[index]);
+ 
+ 		mutex_unlock(&vq->mutex);
+ 
 diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 236553e81027..69f6463e11bd 100644
+index 69f6463e11bd..328c54ab0154 100644
 --- a/drivers/vhost/vhost.c
 +++ b/drivers/vhost/vhost.c
-@@ -43,11 +43,21 @@ enum {
- #define vhost_avail_event(vq) ((__virtio16 __user *)&vq->used->ring[vq->num])
- 
- #ifdef CONFIG_VHOST_CROSS_ENDIAN_LEGACY
--static void vhost_vq_reset_user_be(struct vhost_virtqueue *vq)
-+static void vhost_disable_cross_endian(struct vhost_virtqueue *vq)
- {
- 	vq->user_be = !virtio_legacy_is_little_endian();
- }
- 
-+static void vhost_enable_cross_endian_big(struct vhost_virtqueue *vq)
-+{
-+	vq->user_be = true;
-+}
-+
-+static void vhost_enable_cross_endian_little(struct vhost_virtqueue *vq)
-+{
-+	vq->user_be = false;
-+}
-+
- static long vhost_set_vring_endian(struct vhost_virtqueue *vq, int __user *argp)
- {
- 	struct vhost_vring_state s;
-@@ -62,7 +72,10 @@ static long vhost_set_vring_endian(struct vhost_virtqueue *vq, int __user *argp)
- 	    s.num != VHOST_VRING_BIG_ENDIAN)
- 		return -EINVAL;
- 
--	vq->user_be = s.num;
-+	if (s.num == VHOST_VRING_BIG_ENDIAN)
-+		vhost_enable_cross_endian_big(vq);
-+	else
-+		vhost_enable_cross_endian_little(vq);
- 
+@@ -1170,7 +1170,7 @@ static int vhost_update_avail_event(struct vhost_virtqueue *vq, u16 avail_event)
  	return 0;
  }
-@@ -91,7 +104,7 @@ static void vhost_init_is_le(struct vhost_virtqueue *vq)
- 	vq->is_le = vhost_has_feature(vq, VIRTIO_F_VERSION_1) || !vq->user_be;
- }
- #else
--static void vhost_vq_reset_user_be(struct vhost_virtqueue *vq)
-+static void vhost_disable_cross_endian(struct vhost_virtqueue *vq)
+ 
+-int vhost_init_used(struct vhost_virtqueue *vq)
++int vhost_vq_init_access(struct vhost_virtqueue *vq)
  {
+ 	__virtio16 last_used_idx;
+ 	int r;
+@@ -1200,7 +1200,7 @@ err:
+ 	vq->is_le = is_le;
+ 	return r;
  }
+-EXPORT_SYMBOL_GPL(vhost_init_used);
++EXPORT_SYMBOL_GPL(vhost_vq_init_access);
  
-@@ -113,6 +126,11 @@ static void vhost_init_is_le(struct vhost_virtqueue *vq)
- }
- #endif /* CONFIG_VHOST_CROSS_ENDIAN_LEGACY */
+ static int translate_desc(struct vhost_virtqueue *vq, u64 addr, u32 len,
+ 			  struct iovec iov[], int iov_size)
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index d3f767448a72..8f0dd0d915d4 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -148,7 +148,7 @@ int vhost_get_vq_desc(struct vhost_virtqueue *,
+ 		      struct vhost_log *log, unsigned int *log_num);
+ void vhost_discard_vq_desc(struct vhost_virtqueue *, int n);
  
-+static void vhost_reset_is_le(struct vhost_virtqueue *vq)
-+{
-+	vq->is_le = virtio_legacy_is_little_endian();
-+}
-+
- static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
- 			    poll_table *pt)
- {
-@@ -276,8 +294,8 @@ static void vhost_vq_reset(struct vhost_dev *dev,
- 	vq->call = NULL;
- 	vq->log_ctx = NULL;
- 	vq->memory = NULL;
--	vq->is_le = virtio_legacy_is_little_endian();
--	vhost_vq_reset_user_be(vq);
-+	vhost_reset_is_le(vq);
-+	vhost_disable_cross_endian(vq);
- }
- 
- static int vhost_worker(void *data)
-@@ -1159,7 +1177,7 @@ int vhost_init_used(struct vhost_virtqueue *vq)
- 	bool is_le = vq->is_le;
- 
- 	if (!vq->private_data) {
--		vq->is_le = virtio_legacy_is_little_endian();
-+		vhost_reset_is_le(vq);
- 		return 0;
- 	}
+-int vhost_init_used(struct vhost_virtqueue *);
++int vhost_vq_init_access(struct vhost_virtqueue *);
+ int vhost_add_used(struct vhost_virtqueue *, unsigned int head, int len);
+ int vhost_add_used_n(struct vhost_virtqueue *, struct vring_used_elem *heads,
+ 		     unsigned count);
