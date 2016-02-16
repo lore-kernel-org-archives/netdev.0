@@ -1,48 +1,56 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 1/6] net/mlx4_en: Do not count dropped packets twice
-Date: Tue, 16 Feb 2016 17:01:46 +0200
-Message-ID: <1455634911-31206-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net 4/6] net/mlx4_core: Do not BUG_ON during reset when PCI is offline
+Date: Tue, 16 Feb 2016 17:01:49 +0200
+Message-ID: <1455634911-31206-5-git-send-email-ogerlitz@mellanox.com>
 References: <1455634911-31206-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
 	Yishai Hadas <yishaih@mellanox.com>,
-	Amir Vadai <amir@vadai.me>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
+	Daniel Jurgens <danielj@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59321 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59369 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932229AbcBPPCf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2016 10:02:35 -0500
+	id S1753779AbcBPPDE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 10:03:04 -0500
 In-Reply-To: <1455634911-31206-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amir@vadai.me>
+From: Daniel Jurgens <danielj@mellanox.com>
 
-RdropOvflw counter was mistakenly copied into rx_missed_errors. Because
-of that it was counted twice for the device dropped packets accounting.
+The PCI channel could go offline during reset due to EEH.  Don't bug on in
+this case, the error is recoverable.
 
-Fixes: c27a02cd94d6 ('mlx4_en: Add driver for Mellanox ConnectX 10GbE NIC')
-Signed-off-by: Amir Vadai <amir@vadai.me>
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Fixes: f6bc11e42646 ('net/mlx4_core: Enhance the catas flow to support device reset')
+Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
+Reviewed-by: Yishai Hadas <yishaih@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_port.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx4/catas.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-index ee99e67..7b511a5 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-@@ -242,7 +242,7 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 	stats->rx_crc_errors = be32_to_cpu(mlx4_en_stats->RCRC);
- 	stats->rx_frame_errors = 0;
- 	stats->rx_fifo_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
--	stats->rx_missed_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
-+	stats->rx_missed_errors = 0;
- 	stats->tx_aborted_errors = 0;
- 	stats->tx_carrier_errors = 0;
- 	stats->tx_fifo_errors = 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
+index 715de8a..e866082 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/catas.c
++++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
+@@ -182,10 +182,17 @@ void mlx4_enter_error_state(struct mlx4_dev_persistent *persist)
+ 		err = mlx4_reset_slave(dev);
+ 	else
+ 		err = mlx4_reset_master(dev);
+-	BUG_ON(err != 0);
++
++	if (!err)
++		mlx4_err(dev, "device was reset successfully\n");
++	else
++		/* EEH could have disabled the PCI channel during reset. That's
++		 * recoverable and the PCI error flow will handle it.
++		 */
++		if (!pci_channel_offline(dev->persist->pdev))
++			BUG_ON(1);
+ 
+ 	dev->persist->state |= MLX4_DEVICE_STATE_INTERNAL_ERROR;
+-	mlx4_err(dev, "device was reset successfully\n");
+ 	mutex_unlock(&persist->device_state_mutex);
+ 
+ 	/* At that step HW was already reset, now notify clients */
 -- 
 2.3.7
