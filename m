@@ -1,58 +1,63 @@
-From: Sergio Prado <sergio.prado-1e4yhPs3/ABSwrhanM7KvQ@public.gmane.org>
-Subject: [PATCH net-next] net: macb: make magic-packet property generic
-Date: Mon, 15 Feb 2016 22:13:58 -0200
-Message-ID: <1455581638-27771-1-git-send-email-sergio.prado@e-labworks.com>
-Cc: Sergio Prado <sergio.prado-1e4yhPs3/ABSwrhanM7KvQ@public.gmane.org>
-To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
-	michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
-	boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
+Subject: [PATCH v2] gre: Avoid kernel panic by clearing IPCB before dst_link_failure called
+Date: Tue, 16 Feb 2016 14:10:16 +1300
+Message-ID: <1455585016-7253-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+References: <1454990874-10497-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, stable@vger.kernel.org,
+	bernie.harris@alliedtelesis.co.nz
+To: netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1454990874-10497-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Sergio Prado <sergio.prado-1e4yhPs3/ABSwrhanM7KvQ@public.gmane.org>
----
-As requested by Rob Herring on patch
-https://patchwork.ozlabs.org/patch/580862/
----
- Documentation/devicetree/bindings/net/macb.txt | 2 +-
- drivers/net/ethernet/cadence/macb.c            | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+skb->cb may contain data from previous layers (in the observed case the
+qdisc layer). In the observed scenario, the data was misinterpreted as
+ip header options, which later caused the ihl to be set to an invalid
+value (<5). This resulted in an infinite loop in the mips implementation
+of ip_fast_csum.
 
-diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
-index c6b1cb5ffa87..b5a42df4c928 100644
---- a/Documentation/devicetree/bindings/net/macb.txt
-+++ b/Documentation/devicetree/bindings/net/macb.txt
-@@ -25,7 +25,7 @@ Required properties:
+This patch clears IPCB before dst_link_failure is called from the functions
+ip_tunnel_xmit and ip6gre_xmit2, similar to what commit 11c21a30 does for
+an ipv4 case.
+
+Signed-off-by: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
+---
+ net/ipv4/ip_tunnel.c | 1 +
+ net/ipv6/ip6_gre.c   | 2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 89e8861..946091a 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -799,6 +799,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
  
- Optional properties for PHY child node:
- - reset-gpios : Should specify the gpio for phy reset
--- cdns,magic-packet : If present, indicates that the hardware supports waking
-+- magic-packet : If present, indicates that the hardware supports waking
-   up via magic packet.
+ #if IS_ENABLED(CONFIG_IPV6)
+ tx_error_icmp:
++	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+ 	dst_link_failure(skb);
+ #endif
+ tx_error:
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index f37f18b..93fc6f9 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -678,6 +678,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+ 				tunnel->err_time + IP6TUNNEL_ERR_TIMEO)) {
+ 			tunnel->err_count--;
  
- Examples:
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 69af049e55a8..7ccf2298a5fa 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2929,7 +2929,7 @@ static int macb_probe(struct platform_device *pdev)
- 		bp->jumbo_max_len = macb_config->jumbo_max_len;
- 
- 	bp->wol = 0;
--	if (of_get_property(np, "cdns,magic-packet", NULL))
-+	if (of_get_property(np, "magic-packet", NULL))
- 		bp->wol |= MACB_WOL_HAS_MAGIC_PACKET;
- 	device_init_wakeup(&pdev->dev, bp->wol & MACB_WOL_HAS_MAGIC_PACKET);
- 
++			memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+ 			dst_link_failure(skb);
+ 		} else
+ 			tunnel->err_count = 0;
+@@ -761,6 +762,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+ 	return 0;
+ tx_err_link_failure:
+ 	stats->tx_carrier_errors++;
++	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+ 	dst_link_failure(skb);
+ tx_err_dst_release:
+ 	dst_release(dst);
 -- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.7.1
