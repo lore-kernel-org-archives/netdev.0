@@ -1,69 +1,72 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] net: igmp: use IS_ENABLED(CONFIG_IP_MULTICAST) instead of ifdef
-Date: Tue, 16 Feb 2016 17:33:18 +0100
-Message-ID: <13046365.7R7s0XiHQi@wuerfel>
-References: <1455638393-3269483-1-git-send-email-arnd@arndb.de> <56C34A0C.9040207@kyup.com>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net-next 08/10] bus: mvenus-mbus: Fix size test for mvebu_mbus_get_dram_win_info
+Date: Tue, 16 Feb 2016 17:18:52 +0100
+Message-ID: <87mvr0tyqb.fsf@free-electrons.com>
+References: <1452625834-22166-1-git-send-email-gregory.clement@free-electrons.com>
+	<1452625834-22166-9-git-send-email-gregory.clement@free-electrons.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CCC5C65@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nikolay Borisov <kernel@kyup.com>
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	"linux-arm-kernel\@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	"Simon Guinot" <simon.guinot@sequanux.org>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>, Arnd Bergmann <arnd@arndb.de>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56C34A0C.9040207@kyup.com>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CCC5C65@AcuExch.aculab.com>
+	(David Laight's message of "Thu, 14 Jan 2016 14:00:21 +0000")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 16 February 2016 18:10:52 Nikolay Borisov wrote:
-> On 02/16/2016 05:59 PM, Arnd Bergmann wrote:
-> > @@ -1821,17 +1807,15 @@ static int ip_mc_del_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
-> >  		if (!err && rv < 0)
-> >  			err = rv;
-> >  	}
-> > -	if (pmc->sfmode == MCAST_EXCLUDE &&
-> > +	if (IS_ENABLED(CONFIG_IP_MULTICAST) &&
-> > +	    pmc->sfmode == MCAST_EXCLUDE &&
-> >  	    pmc->sfcount[MCAST_EXCLUDE] == 0 &&
-> >  	    pmc->sfcount[MCAST_INCLUDE]) {
-> > -#ifdef CONFIG_IP_MULTICAST
-> >  		struct ip_sf_list *psf;
-> >  		struct net *net = dev_net(in_dev->dev);
-> > -#endif
-> >  
-> >  		/* filter mode change */
-> >  		pmc->sfmode = MCAST_INCLUDE;
-> 
-> The above line was always executed, whereas now it wouldn't execute
-> unless IS_ENABLED passes.
+Hi David,
+ 
+ On jeu., janv. 14 2016, David Laight <David.Laight@ACULAB.COM> wrote:
 
-This was not intentional, I've sent a v2 patch to fix it up now, and
-tried to simplify it a little further, making the logic the
-same for  ip_mc_del_src and ip_mc_add_src.
+> From: Gregory CLEMENT
+>> Sent: 12 January 2016 19:11
+>> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+>> ---
+>>  drivers/bus/mvebu-mbus.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>> 
+>> diff --git a/drivers/bus/mvebu-mbus.c b/drivers/bus/mvebu-mbus.c
+>> index 3d1c0c3880ec..214bb964165b 100644
+>> --- a/drivers/bus/mvebu-mbus.c
+>> +++ b/drivers/bus/mvebu-mbus.c
+>> @@ -964,7 +964,7 @@ int mvebu_mbus_get_dram_win_info(phys_addr_t phyaddr, u8 *target, u8 *attr)
+>>  	for (i = 0; i < dram->num_cs; i++) {
+>>  		const struct mbus_dram_window *cs = dram->cs + i;
+>> 
+>> -		if (cs->base <= phyaddr && phyaddr <= (cs->base + cs->size)) {
+>> +		if (cs->base <= phyaddr && phyaddr <= (cs->base + cs->size - 1)) {
+>
+> Wouldn't it be better to change the line to:
+>> +		if (cs->base <= phyaddr && phyaddr < (cs->base +
+>cs->size)) {
 
-> >  /*
-> >   * Add multicast source filter list to the interface list
-> > @@ -1977,9 +1961,7 @@ static int ip_mc_add_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
-> >  	spin_lock_bh(&pmc->lock);
-> >  	rcu_read_unlock();
-> >  
-> > -#ifdef CONFIG_IP_MULTICAST
-> >  	sf_markstate(pmc);
-> > -#endif
-> 
-> This would be executed unconditionally, which is contrary to the
-> original intention. Dunno if it makes a difference though.
+It doesn't work if there is 4GB of memory in this case we can have
+cs->base + cs->size which wrap to 0 and the test fails. It was exactly
+what happened on Armada XP GP board.
 
-This was intentional, I have changed sf_markstate() to do nothing when
-IP_MULTICAST is disabled. However, there was another caller where
-I should have done the same thing rather than adding an if().
+Gregory
 
-> Reviewed-by: Nikolay Borisov <kernel@kyup.com>
-
-Thanks!
-
-	Arnd
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
