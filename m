@@ -1,56 +1,56 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 4/6] net/mlx4_core: Do not BUG_ON during reset when PCI is offline
-Date: Tue, 16 Feb 2016 17:01:49 +0200
-Message-ID: <1455634911-31206-5-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net 3/6] net/mlx4_core: Fix potential corruption in counters database
+Date: Tue, 16 Feb 2016 17:01:48 +0200
+Message-ID: <1455634911-31206-4-git-send-email-ogerlitz@mellanox.com>
 References: <1455634911-31206-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
 	Yishai Hadas <yishaih@mellanox.com>,
-	Daniel Jurgens <danielj@mellanox.com>
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59369 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59380 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753779AbcBPPDE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2016 10:03:04 -0500
+	id S1754471AbcBPPDI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 10:03:08 -0500
 In-Reply-To: <1455634911-31206-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Jurgens <danielj@mellanox.com>
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-The PCI channel could go offline during reset due to EEH.  Don't bug on in
-this case, the error is recoverable.
+The error flow in procedure handle_existing_counter() is wrong.
 
-Fixes: f6bc11e42646 ('net/mlx4_core: Enhance the catas flow to support device reset')
-Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
-Reviewed-by: Yishai Hadas <yishaih@mellanox.com>
+The procedure should exit after encountering the error, not continue
+as if everything is OK.
+
+Fixes: 68230242cdbc ('net/mlx4_core: Add port attribute when tracking counters')
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 ---
- drivers/net/ethernet/mellanox/mlx4/catas.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
-index 715de8a..e866082 100644
---- a/drivers/net/ethernet/mellanox/mlx4/catas.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
-@@ -182,10 +182,17 @@ void mlx4_enter_error_state(struct mlx4_dev_persistent *persist)
- 		err = mlx4_reset_slave(dev);
- 	else
- 		err = mlx4_reset_master(dev);
--	BUG_ON(err != 0);
-+
-+	if (!err)
-+		mlx4_err(dev, "device was reset successfully\n");
-+	else
-+		/* EEH could have disabled the PCI channel during reset. That's
-+		 * recoverable and the PCI error flow will handle it.
-+		 */
-+		if (!pci_channel_offline(dev->persist->pdev))
-+			BUG_ON(1);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index b46dbe2..25ce1b0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -915,11 +915,13 @@ static int handle_existing_counter(struct mlx4_dev *dev, u8 slave, int port,
  
- 	dev->persist->state |= MLX4_DEVICE_STATE_INTERNAL_ERROR;
--	mlx4_err(dev, "device was reset successfully\n");
- 	mutex_unlock(&persist->device_state_mutex);
+ 	spin_lock_irq(mlx4_tlock(dev));
+ 	r = find_res(dev, counter_index, RES_COUNTER);
+-	if (!r || r->owner != slave)
++	if (!r || r->owner != slave) {
+ 		ret = -EINVAL;
+-	counter = container_of(r, struct res_counter, com);
+-	if (!counter->port)
+-		counter->port = port;
++	} else {
++		counter = container_of(r, struct res_counter, com);
++		if (!counter->port)
++			counter->port = port;
++	}
  
- 	/* At that step HW was already reset, now notify clients */
+ 	spin_unlock_irq(mlx4_tlock(dev));
+ 	return ret;
 -- 
 2.3.7
