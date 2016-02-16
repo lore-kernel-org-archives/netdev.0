@@ -1,37 +1,38 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next] net: macb: make magic-packet property generic
-Date: Tue, 16 Feb 2016 10:12 +0100
-Message-ID: <18886571.p5aYQgREQI@wuerfel>
-References: <1455581638-27771-1-git-send-email-sergio.prado@e-labworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	nicolas.ferre@atmel.com, davem@davemloft.net,
-	gregory.clement@free-electrons.com, narmstrong@baylibre.com,
-	michal.simek@xilinx.com, harini.katakam@xilinx.com,
-	boris.brezillon@free-electrons.com, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Sergio Prado <sergio.prado@e-labworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([217.72.192.73]:64112 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754621AbcBPJM3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 04:12:29 -0500
-In-Reply-To: <1455581638-27771-1-git-send-email-sergio.prado@e-labworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: sunil.kovvuri@gmail.com
+Subject: [PATCH 1/3] net: thunderx: Fix for multiqset not configured upon interface toggle
+Date: Tue, 16 Feb 2016 16:29:49 +0530
+Message-ID: <1455620391-31619-2-git-send-email-sunil.kovvuri@gmail.com>
+References: <1455620391-31619-1-git-send-email-sunil.kovvuri@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	sgoutham@cavium.com, robert.richter@caviumnetworks.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455620391-31619-1-git-send-email-sunil.kovvuri@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 15 February 2016 22:13:58 Sergio Prado wrote:
-> Signed-off-by: Sergio Prado <sergio.prado@e-labworks.com>
-> ---
-> As requested by Rob Herring on patch
-> https://patchwork.ozlabs.org/patch/580862/
-> 
+From: Sunil Goutham <sgoutham@cavium.com>
 
-This needs a changelog comment, at least clarify that the existing
-value has never been used in production, so we are not breaking
-anything with the incompatible binding  change.
+When a interface is assigned morethan 8 queues and the logical interface
+is toggled i.e down & up, additional queues or qsets are not initialized
+as secondary qset count is being set to zero while tearing down.
 
-	Arnd
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+---
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index c24cb2a..f8012c4 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -1125,7 +1125,6 @@ int nicvf_stop(struct net_device *netdev)
+ 
+ 	/* Clear multiqset info */
+ 	nic->pnicvf = nic;
+-	nic->sqs_count = 0;
+ 
+ 	return 0;
+ }
+-- 
+1.7.1
