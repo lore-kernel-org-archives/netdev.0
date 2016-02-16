@@ -1,87 +1,74 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] igmp: fix build warning
-Date: Tue, 16 Feb 2016 13:52:30 +0530
-Message-ID: <1455610950-27802-1-git-send-email-sudipm.mukherjee@gmail.com>
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: Re: Query regarding GTP-U code implementation in upstream linux
+ kernel
+Date: Tue, 16 Feb 2016 09:22:30 +0100
+Message-ID: <56C2DC46.901@tpip.net>
+References: <OF611F346A.45AF9DB0-ON65257F5B.002B5962-65257F5B.002B5964@tcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Partha Datta <partha.datta@tcs.com>,
+	Deepankar Gupta <deepankar.gupta@tcs.com>,
+	openbsc@lists.osmocom.org
+To: Niti Rohilla <niti.rohilla@tcs.com>, netdev@vger.kernel.org,
+	aschultz@travelping.com, hwelte@sysmocom.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tpip.net ([92.43.49.48]:45881 "EHLO mail.tpip.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751115AbcBPIbz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 03:31:55 -0500
+In-Reply-To: <OF611F346A.45AF9DB0-ON65257F5B.002B5962-65257F5B.002B5964@tcs.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We were getting build warnings about:
-net/ipv4/igmp.c: In function =E2=80=98igmp_group_added=E2=80=99:
-net/ipv4/igmp.c:1227:14: warning: unused variable =E2=80=98net=E2=80=99=
- [-Wunused-variable]
-	=09
-net/ipv4/igmp.c: In function =E2=80=98ip_mc_inc_group=E2=80=99:
-net/ipv4/igmp.c:1319:14: warning: unused variable =E2=80=98net=E2=80=99=
- [-Wunused-variable]
+Hi Niti,
 
-net/ipv4/igmp.c: In function =E2=80=98ip_mc_init_dev=E2=80=99:
-net/ipv4/igmp.c:1646:14: warning: unused variable =E2=80=98net=E2=80=99=
- [-Wunused-variable]
+On 02/16/2016 08:53 AM, Niti Rohilla wrote:
+> Hi All,
+>
+> I want to enable GTP-U in OpenVswitch. I have implemented the code for the GTP-U in ovs and submitted the same on ovs-dev.
+>
+> As currently, GTP-U support is not available in upstream linux kernel, so to create a GTP port in ovs we have to load the openvswitch kernel
+> module to linux kernel.
+>
+> I have received some review comments stating that first I have to implement the code for GTP-U in upstream linux kernel in netdev net-next
+> tree then it can be incorporated into ovs.
+>
+> I want to know the process of how to implement and get the code for GTP-U into upstream linux kernel.
+>
+> If anybody is working on the same how can I help them to get it in into the upstream linux kernel quickly.
 
-net/ipv4/igmp.c: In function =E2=80=98ip_mc_up=E2=80=99:
-net/ipv4/igmp.c:1665:14: warning: unused variable =E2=80=98net=E2=80=99=
- [-Wunused-variable]
+I'm a bit out of touch with OVS, so my idea on how this should work might be wrong.
+As far as I understand OVS, the way forward would be to use the lwtunnel infrastructure to enable OVS to use a kernel GTP module.
 
-These variables are only used when CONFIG_IP_MULTICAST is defined. Mark
-them as '__maybe_unused'.
+Our current OVS module ([1], [2]) is not (yet) using lwtunnel, but we do plan on switching to that.
 
-Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
----
- net/ipv4/igmp.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+So far, we have been coordinating the GTP kernel module development on the OpenBSC ML [3]. The goal is to upstream it as soon as all the 
+basics are covered (smallish netlink API changes, final touches on IPv6 and maybe lwtunnel).
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 7c95335..0ba241b 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1224,7 +1224,7 @@ static void igmp_group_dropped(struct ip_mc_list =
-*im)
- static void igmp_group_added(struct ip_mc_list *im)
- {
- 	struct in_device *in_dev =3D im->interface;
--	struct net *net =3D dev_net(in_dev->dev);
-+	struct net __maybe_unused *net =3D dev_net(in_dev->dev);
-=20
- 	if (im->loaded =3D=3D 0) {
- 		im->loaded =3D 1;
-@@ -1316,7 +1316,7 @@ static void ip_mc_hash_remove(struct in_device *i=
-n_dev,
- void ip_mc_inc_group(struct in_device *in_dev, __be32 addr)
- {
- 	struct ip_mc_list *im;
--	struct net *net =3D dev_net(in_dev->dev);
-+	struct net __maybe_unused *net =3D dev_net(in_dev->dev);
-=20
- 	ASSERT_RTNL();
-=20
-@@ -1643,7 +1643,7 @@ void ip_mc_down(struct in_device *in_dev)
-=20
- void ip_mc_init_dev(struct in_device *in_dev)
- {
--	struct net *net =3D dev_net(in_dev->dev);
-+	struct net __maybe_unused *net =3D dev_net(in_dev->dev);
- 	ASSERT_RTNL();
-=20
- #ifdef CONFIG_IP_MULTICAST
-@@ -1662,7 +1662,7 @@ void ip_mc_init_dev(struct in_device *in_dev)
- void ip_mc_up(struct in_device *in_dev)
- {
- 	struct ip_mc_list *pmc;
--	struct net *net =3D dev_net(in_dev->dev);
-+	struct net __maybe_unused *net =3D dev_net(in_dev->dev);
-=20
- 	ASSERT_RTNL();
-=20
---=20
-1.9.1
+On the OVS side, someone would then need to implement the necessary ops to handle GTP lwtunnel integration.
+
+Andreas
+
+[1]: http://git.osmocom.org/osmo-gtp-kernel
+[2]: https://github.com/RoadRunnr/osmo-ggsn
+[3]: https://lists.osmocom.org/mailman/listinfo/openbsc
+
+>
+>
+> Thanks & Regards
+> Niti Rohilla
+>
+> =====-----=====-----=====
+> Notice: The information contained in this e-mail
+> message and/or attachments to it may contain
+> confidential or privileged information. If you are
+> not the intended recipient, any dissemination, use,
+> review, distribution, printing or copying of the
+> information contained in this e-mail message
+> and/or attachments to it are strictly prohibited. If
+> you have received this communication in error,
+> please notify us by reply e-mail or telephone and
+> immediately and permanently delete the message
+> and any attachments. Thank you
+>
