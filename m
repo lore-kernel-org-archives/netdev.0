@@ -1,39 +1,87 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v7 4/8] time: Add driver cross timestamp interface for
- higher precision time synchronization
-Date: Tue, 16 Feb 2016 08:56:38 +0100
-Message-ID: <20160216075638.GB2461@localhost.localdomain>
-References: <1455308729-6280-1-git-send-email-christopher.s.hall@intel.com>
- <1455308729-6280-5-git-send-email-christopher.s.hall@intel.com>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: [PATCH] igmp: fix build warning
+Date: Tue, 16 Feb 2016 13:52:30 +0530
+Message-ID: <1455610950-27802-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tglx@linutronix.de, mingo@redhat.com, john.stultz@linaro.org,
-	hpa@zytor.com, jeffrey.t.kirsher@intel.com, x86@kernel.org,
-	linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, kevin.b.stanton@intel.com,
-	kevin.j.clarke@intel.com
-To: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:33488 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754270AbcBPH4o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 02:56:44 -0500
-Content-Disposition: inline
-In-Reply-To: <1455308729-6280-5-git-send-email-christopher.s.hall@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 12, 2016 at 12:25:25PM -0800, Christopher S. Hall wrote:
->  /**
-> + * get_device_system_crosststamp - Synchronously capture system/device timestamp
-> + * @sync_devicetime:	Callback to get simultaneous device time and
-> + *	system counter from the device driver
-> + * @xtstamp:		Receives simultaneously captured system and device time
-      @ctx:             Private context passed to the 'get_time_fn' callback.
+We were getting build warnings about:
+net/ipv4/igmp.c: In function =E2=80=98igmp_group_added=E2=80=99:
+net/ipv4/igmp.c:1227:14: warning: unused variable =E2=80=98net=E2=80=99=
+ [-Wunused-variable]
+	=09
+net/ipv4/igmp.c: In function =E2=80=98ip_mc_inc_group=E2=80=99:
+net/ipv4/igmp.c:1319:14: warning: unused variable =E2=80=98net=E2=80=99=
+ [-Wunused-variable]
 
-> + *
-> + * Reads a timestamp from a device and correlates it to system time
-> + */
+net/ipv4/igmp.c: In function =E2=80=98ip_mc_init_dev=E2=80=99:
+net/ipv4/igmp.c:1646:14: warning: unused variable =E2=80=98net=E2=80=99=
+ [-Wunused-variable]
 
-Thanks,
-Richard
+net/ipv4/igmp.c: In function =E2=80=98ip_mc_up=E2=80=99:
+net/ipv4/igmp.c:1665:14: warning: unused variable =E2=80=98net=E2=80=99=
+ [-Wunused-variable]
+
+These variables are only used when CONFIG_IP_MULTICAST is defined. Mark
+them as '__maybe_unused'.
+
+Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+---
+ net/ipv4/igmp.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 7c95335..0ba241b 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1224,7 +1224,7 @@ static void igmp_group_dropped(struct ip_mc_list =
+*im)
+ static void igmp_group_added(struct ip_mc_list *im)
+ {
+ 	struct in_device *in_dev =3D im->interface;
+-	struct net *net =3D dev_net(in_dev->dev);
++	struct net __maybe_unused *net =3D dev_net(in_dev->dev);
+=20
+ 	if (im->loaded =3D=3D 0) {
+ 		im->loaded =3D 1;
+@@ -1316,7 +1316,7 @@ static void ip_mc_hash_remove(struct in_device *i=
+n_dev,
+ void ip_mc_inc_group(struct in_device *in_dev, __be32 addr)
+ {
+ 	struct ip_mc_list *im;
+-	struct net *net =3D dev_net(in_dev->dev);
++	struct net __maybe_unused *net =3D dev_net(in_dev->dev);
+=20
+ 	ASSERT_RTNL();
+=20
+@@ -1643,7 +1643,7 @@ void ip_mc_down(struct in_device *in_dev)
+=20
+ void ip_mc_init_dev(struct in_device *in_dev)
+ {
+-	struct net *net =3D dev_net(in_dev->dev);
++	struct net __maybe_unused *net =3D dev_net(in_dev->dev);
+ 	ASSERT_RTNL();
+=20
+ #ifdef CONFIG_IP_MULTICAST
+@@ -1662,7 +1662,7 @@ void ip_mc_init_dev(struct in_device *in_dev)
+ void ip_mc_up(struct in_device *in_dev)
+ {
+ 	struct ip_mc_list *pmc;
+-	struct net *net =3D dev_net(in_dev->dev);
++	struct net __maybe_unused *net =3D dev_net(in_dev->dev);
+=20
+ 	ASSERT_RTNL();
+=20
+--=20
+1.9.1
