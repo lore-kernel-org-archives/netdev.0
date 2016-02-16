@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH] net: Copy inner L3 and L4 headers as unaligned on
- GRE TEB
-Date: Tue, 16 Feb 2016 15:25:25 -0500 (EST)
-Message-ID: <20160216.152525.733686383348968748.davem@davemloft.net>
-References: <20160209141234.19305.82202.stgit@localhost.localdomain>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/2] mpls: packet stats
+Date: Tue, 16 Feb 2016 12:26:08 -0800
+Message-ID: <56C385E0.2000405@cumulusnetworks.com>
+References: <1454700472-13543-1-git-send-email-rshearma@brocade.com> <1454700472-13543-2-git-send-email-rshearma@brocade.com> <20160216.104115.1576720778383292937.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com,
-	tom@herbertland.com
-To: aduyck@mirantis.com
+Cc: rshearma@brocade.com, netdev@vger.kernel.org, ebiederm@xmission.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39524 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753394AbcBPUZ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 15:25:26 -0500
-In-Reply-To: <20160209141234.19305.82202.stgit@localhost.localdomain>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35081 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755984AbcBPU0K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 15:26:10 -0500
+Received: by mail-pa0-f46.google.com with SMTP id ho8so110440033pac.2
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 12:26:10 -0800 (PST)
+In-Reply-To: <20160216.104115.1576720778383292937.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
-Date: Tue, 09 Feb 2016 06:14:43 -0800
+On 2/16/16, 7:41 AM, David Miller wrote:
+> Statistics not provided via netlink are useless in real installations.
+>
+> In fact I would say to forego the proc interface entirely, it's a second
+> class citizen for statistics gathering and has a non-triviel per-device
+> cost for instantiation.
+>
++1
 
-> This patch corrects the unaligned accesses seen on GRE TEB tunnels when
-> generating hash keys.  Specifically what this patch does is make it so that
-> we force the use of skb_copy_bits when the GRE inner headers will be
-> unaligned due to NET_IP_ALIGNED being a non-zero value.
-> 
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+I agree with the cost too.
 
-Applied and queued up for -stable, thanks Alex.
+Robert, I was thinking of responding to your series to add netlink stats for AF_MPLS in
+ rtnl_af_ops (similar to  IFLA_INET6_STATS). But, soon realized that it is currently used by ipv6 alone
+and it also ended up with a skip filter (RTEXT_FILTER_SKIP_STATS). So, extending that interface for
+mpls is not the right thing to do either.
+
+There is work being done for a separate netlink infrastructure for stats.
+I would wait for that infrastructure to be ready to add mpls stats. It should be available soon.
+
+thanks,
+Roopa
