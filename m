@@ -1,7 +1,8 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v2 net-next 0/8] API set for HW Buffer management
-Date: Tue, 16 Feb 2016 16:33:35 +0100
-Message-ID: <1455636823-14470-1-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH v2 2/8] ARM: dts: armada-38x: enable buffer manager support on Armada 38x boards
+Date: Tue, 16 Feb 2016 16:33:37 +0100
+Message-ID: <1455636823-14470-3-git-send-email-gregory.clement@free-electrons.com>
+References: <1455636823-14470-1-git-send-email-gregory.clement@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
 	Gregory CLEMENT <gregory.clement@free-electrons.com>,
@@ -17,102 +18,270 @@ To: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:59785 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755236AbcBPPeN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 10:34:13 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455636823-14470-1-git-send-email-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+From: Marcin Wojtas <mw@semihalf.com>
 
-A few weeks ago I sent a proposal for a API set for HW Buffer
-management, to have a better view of the motivation for this API see
-the cover letter of this proposal:
-http://thread.gmane.org/gmane.linux.kernel/2125152
+Since mvneta driver supports using hardware buffer management (BM), in
+order to use it, board files have to be adjusted accordingly. This commit
+enables BM on:
+* A385-DB-AP - each port has its own pool for long and common pool for
+short packets,
+* A388-ClearFog - same as above,
+* A388-DB - to each port unique 'short' and 'long' pools are mapped,
+* A388-GP - same as above.
 
-Since this version I took into account the review from Florian:
-- The hardware buffer management helpers are no more built by default
-  and now depend on a hidden config symbol which has to be selected
-  by the driver if needed
-- The hwbm_pool_refill() and hwbm_pool_add() now receive a gfp_t as
-  argument allowing the caller to specify the flag it needs.
-- buf_num is now tested to ensure there is no wrapping
-- A spinlock has been added to protect the hwbm_pool_add() function in
-  SMP or irq context.
+Moreover appropriate entry is added to 'soc' node ranges, as well as "okay"
+status for 'bm' and 'bm-bppi' (internal SRAM) nodes.
 
-I also used pr_warn instead of pr_debug in case of errors.
+[gregory.clement@free-electrons.com: add suppport for the ClearFog board]
 
-I fixed the mvneta implementation by returning the buffer to the pool
-at various place instead of ignoring it.
+Signed-off-by: Marcin Wojtas <mw@semihalf.com>
+Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ arch/arm/boot/dts/armada-385-db-ap.dts              | 20 +++++++++++++++++++-
+ arch/arm/boot/dts/armada-388-clearfog.dts           |  6 ++++++
+ arch/arm/boot/dts/armada-388-db.dts                 | 17 ++++++++++++++++-
+ arch/arm/boot/dts/armada-388-gp.dts                 | 17 ++++++++++++++++-
+ arch/arm/boot/dts/armada-38x-solidrun-microsom.dtsi | 15 ++++++++++++++-
+ 5 files changed, 71 insertions(+), 4 deletions(-)
 
-About the series itself I tried to make this series easier to merge:
-- Squashed "bus: mvenus-mbus: Fix size test for
-   mvebu_mbus_get_dram_win_info" into bus: mvebu-mbus: provide api for
-   obtaining IO and DRAM window information.
-- Added my signed-otf-by on all the patches as submitter of the series.
-- Renamed the dts patches with the pattern "ARM: dts: platform:"
-- Removed the patch "ARM: mvebu: enable SRAM support in
-  mvebu_v7_defconfig" of this series and already applied it
-- Rodified the order of the patches.
-
-In order to ease the test the branch mvneta-BM-framework-v2 is
-available at git@github.com:MISL-EBU-System-SW/mainline-public.git.
-
-David,
-
-I would like to merge the 4 first patches myself once you will have
-take the 4 last patches of the series. Patch 5 do not modify files in
-the net subsystem, but as there is a build dependency it is better if
-you merge it in the same time as the 3 other ones.
-
-Thanks,
-
-Gregory
-
-Gregory CLEMENT (2):
-  net: add a hardware buffer management helper API
-  net: mvneta: Use the new hwbm framework
-
-Marcin Wojtas (6):
-  ARM: dts: armada-38x: add buffer manager nodes
-  ARM: dts: armada-38x: enable buffer manager support on Armada 38x
-    boards
-  ARM: dts: armada-xp: add buffer manager nodes
-  ARM: dts: armada-xp: enable buffer manager support on Armada XP boards
-  bus: mvebu-mbus: provide api for obtaining IO and DRAM window
-    information
-  net: mvneta: bm: add support for hardware buffer management
-
- .../bindings/net/marvell-armada-370-neta.txt       |  19 +-
- .../devicetree/bindings/net/marvell-neta-bm.txt    |  49 +++
- arch/arm/boot/dts/armada-385-db-ap.dts             |  20 +-
- arch/arm/boot/dts/armada-388-clearfog.dts          |   6 +
- arch/arm/boot/dts/armada-388-db.dts                |  17 +-
- arch/arm/boot/dts/armada-388-gp.dts                |  17 +-
- .../arm/boot/dts/armada-38x-solidrun-microsom.dtsi |  15 +-
- arch/arm/boot/dts/armada-38x.dtsi                  |  18 +
- arch/arm/boot/dts/armada-xp-db.dts                 |  19 +-
- arch/arm/boot/dts/armada-xp-gp.dts                 |  19 +-
- arch/arm/boot/dts/armada-xp.dtsi                   |  18 +
- drivers/bus/mvebu-mbus.c                           |  51 +++
- drivers/net/ethernet/marvell/Kconfig               |  15 +
- drivers/net/ethernet/marvell/Makefile              |   1 +
- drivers/net/ethernet/marvell/mvneta.c              | 430 +++++++++++++++---
- drivers/net/ethernet/marvell/mvneta_bm.c           | 486 +++++++++++++++++++++
- drivers/net/ethernet/marvell/mvneta_bm.h           | 162 +++++++
- include/linux/mbus.h                               |   3 +
- include/net/hwbm.h                                 |  21 +
- net/Kconfig                                        |   3 +
- net/core/Makefile                                  |   1 +
- net/core/hwbm.c                                    |  87 ++++
- 22 files changed, 1415 insertions(+), 62 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/marvell-neta-bm.txt
- create mode 100644 drivers/net/ethernet/marvell/mvneta_bm.c
- create mode 100644 drivers/net/ethernet/marvell/mvneta_bm.h
- create mode 100644 include/net/hwbm.h
- create mode 100644 net/core/hwbm.c
-
+diff --git a/arch/arm/boot/dts/armada-385-db-ap.dts b/arch/arm/boot/dts/armada-385-db-ap.dts
+index acd5b1519edb..5f9451be21ff 100644
+--- a/arch/arm/boot/dts/armada-385-db-ap.dts
++++ b/arch/arm/boot/dts/armada-385-db-ap.dts
+@@ -61,7 +61,8 @@
+ 		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
+ 			  MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
+ 			  MBUS_ID(0x09, 0x19) 0 0xf1100000 0x10000
+-			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000>;
++			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000
++			  MBUS_ID(0x0c, 0x04) 0 0xf1200000 0x100000>;
+ 
+ 		internal-regs {
+ 			spi1: spi@10680 {
+@@ -138,12 +139,18 @@
+ 				status = "okay";
+ 				phy = <&phy2>;
+ 				phy-mode = "sgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <1>;
++				bm,pool-short = <3>;
+ 			};
+ 
+ 			ethernet@34000 {
+ 				status = "okay";
+ 				phy = <&phy1>;
+ 				phy-mode = "sgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <2>;
++				bm,pool-short = <3>;
+ 			};
+ 
+ 			ethernet@70000 {
+@@ -157,6 +164,13 @@
+ 				status = "okay";
+ 				phy = <&phy0>;
+ 				phy-mode = "rgmii-id";
++				buffer-manager = <&bm>;
++				bm,pool-long = <0>;
++				bm,pool-short = <3>;
++			};
++
++			bm@c8000 {
++				status = "okay";
+ 			};
+ 
+ 			nfc: flash@d0000 {
+@@ -178,6 +192,10 @@
+ 			};
+ 		};
+ 
++		bm-bppi {
++			status = "okay";
++		};
++
+ 		pcie-controller {
+ 			status = "okay";
+ 
+diff --git a/arch/arm/boot/dts/armada-388-clearfog.dts b/arch/arm/boot/dts/armada-388-clearfog.dts
+index c6e180eb3b11..c60206efb583 100644
+--- a/arch/arm/boot/dts/armada-388-clearfog.dts
++++ b/arch/arm/boot/dts/armada-388-clearfog.dts
+@@ -78,6 +78,9 @@
+ 		internal-regs {
+ 			ethernet@30000 {
+ 				phy-mode = "sgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <2>;
++				bm,pool-short = <1>;
+ 				status = "okay";
+ 
+ 				fixed-link {
+@@ -88,6 +91,9 @@
+ 
+ 			ethernet@34000 {
+ 				phy-mode = "sgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <3>;
++				bm,pool-short = <1>;
+ 				status = "okay";
+ 
+ 				fixed-link {
+diff --git a/arch/arm/boot/dts/armada-388-db.dts b/arch/arm/boot/dts/armada-388-db.dts
+index ff47af57f091..ea93ed727030 100644
+--- a/arch/arm/boot/dts/armada-388-db.dts
++++ b/arch/arm/boot/dts/armada-388-db.dts
+@@ -66,7 +66,8 @@
+ 		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
+ 			  MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
+ 			  MBUS_ID(0x09, 0x19) 0 0xf1100000 0x10000
+-			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000>;
++			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000
++			  MBUS_ID(0x0c, 0x04) 0 0xf1200000 0x100000>;
+ 
+ 		internal-regs {
+ 			spi@10600 {
+@@ -99,6 +100,9 @@
+ 				status = "okay";
+ 				phy = <&phy1>;
+ 				phy-mode = "rgmii-id";
++				buffer-manager = <&bm>;
++				bm,pool-long = <2>;
++				bm,pool-short = <3>;
+ 			};
+ 
+ 			usb@58000 {
+@@ -109,6 +113,9 @@
+ 				status = "okay";
+ 				phy = <&phy0>;
+ 				phy-mode = "rgmii-id";
++				buffer-manager = <&bm>;
++				bm,pool-long = <0>;
++				bm,pool-short = <1>;
+ 			};
+ 
+ 			mdio@72004 {
+@@ -129,6 +136,10 @@
+ 				status = "okay";
+ 			};
+ 
++			bm@c8000 {
++				status = "okay";
++			};
++
+ 			flash@d0000 {
+ 				status = "okay";
+ 				num-cs = <1>;
+@@ -169,6 +180,10 @@
+ 			};
+ 		};
+ 
++		bm-bppi {
++			status = "okay";
++		};
++
+ 		pcie-controller {
+ 			status = "okay";
+ 			/*
+diff --git a/arch/arm/boot/dts/armada-388-gp.dts b/arch/arm/boot/dts/armada-388-gp.dts
+index cd316021d6ce..466b01eb1038 100644
+--- a/arch/arm/boot/dts/armada-388-gp.dts
++++ b/arch/arm/boot/dts/armada-388-gp.dts
+@@ -60,7 +60,8 @@
+ 		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
+ 			  MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
+ 			  MBUS_ID(0x09, 0x19) 0 0xf1100000 0x10000
+-			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000>;
++			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000
++			  MBUS_ID(0x0c, 0x04) 0 0xf1200000 0x100000>;
+ 
+ 		internal-regs {
+ 			spi@10600 {
+@@ -133,6 +134,9 @@
+ 				status = "okay";
+ 				phy = <&phy1>;
+ 				phy-mode = "rgmii-id";
++				buffer-manager = <&bm>;
++				bm,pool-long = <2>;
++				bm,pool-short = <3>;
+ 			};
+ 
+ 			/* CON4 */
+@@ -152,6 +156,9 @@
+ 				status = "okay";
+ 				phy = <&phy0>;
+ 				phy-mode = "rgmii-id";
++				buffer-manager = <&bm>;
++				bm,pool-long = <0>;
++				bm,pool-short = <1>;
+ 			};
+ 
+ 
+@@ -186,6 +193,10 @@
+ 				};
+ 			};
+ 
++			bm@c8000 {
++				status = "okay";
++			};
++
+ 			sata@e0000 {
+ 				pinctrl-names = "default";
+ 				pinctrl-0 = <&sata2_pins>, <&sata3_pins>;
+@@ -240,6 +251,10 @@
+ 			};
+ 		};
+ 
++		bm-bppi {
++			status = "okay";
++		};
++
+ 		pcie-controller {
+ 			status = "okay";
+ 			/*
+diff --git a/arch/arm/boot/dts/armada-38x-solidrun-microsom.dtsi b/arch/arm/boot/dts/armada-38x-solidrun-microsom.dtsi
+index 3f792a563c05..8c9842237b60 100644
+--- a/arch/arm/boot/dts/armada-38x-solidrun-microsom.dtsi
++++ b/arch/arm/boot/dts/armada-38x-solidrun-microsom.dtsi
+@@ -58,7 +58,8 @@
+ 		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
+ 			  MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
+ 			  MBUS_ID(0x09, 0x19) 0 0xf1100000 0x10000
+-			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000>;
++			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000
++			  MBUS_ID(0x0c, 0x04) 0 0xf1200000 0x100000>;
+ 
+ 		internal-regs {
+ 			ethernet@70000 {
+@@ -66,6 +67,9 @@
+ 				pinctrl-names = "default";
+ 				phy = <&phy_dedicated>;
+ 				phy-mode = "rgmii-id";
++				buffer-manager = <&bm>;
++				bm,pool-long = <0>;
++				bm,pool-short = <1>;
+ 				status = "okay";
+ 			};
+ 
+@@ -110,6 +114,15 @@
+ 				pinctrl-names = "default";
+ 				status = "okay";
+ 			};
++
++			bm@c8000 {
++				status = "okay";
++			};
+ 		};
++
++		bm-bppi {
++			status = "okay";
++		};
++
+ 	};
+ };
 -- 
 2.5.0
