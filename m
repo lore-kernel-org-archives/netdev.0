@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 06/13] rocker: move rocker and rocker_port structs into header
-Date: Tue, 16 Feb 2016 13:55:31 +0100
-Message-ID: <1455627338-9872-7-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 13/13] rocker: return -EOPNOTSUPP for undefined world ops
+Date: Tue, 16 Feb 2016 13:55:38 +0100
+Message-ID: <1455627338-9872-14-git-send-email-jiri@resnulli.us>
 References: <1455627338-9872-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, David.Laight@ACULAB.COM,
@@ -9,201 +9,177 @@ Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	daniel@iogearbox.net, prem@barefootnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:37292 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932097AbcBPMzu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 07:55:50 -0500
-Received: by mail-wm0-f47.google.com with SMTP id g62so151409786wme.0
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 04:55:49 -0800 (PST)
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:32845 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932137AbcBPMz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 07:55:59 -0500
+Received: by mail-wm0-f51.google.com with SMTP id g62so190330584wme.0
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 04:55:58 -0800 (PST)
 In-Reply-To: <1455627338-9872-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
-
-And take some other related thing along. They are going to be pushed
-into of-dpa part anyway.
-
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Suggested-by: Scott Feldman <sfeldma@gmail.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/ethernet/rocker/rocker.h      | 75 +++++++++++++++++++++++++++++++
- drivers/net/ethernet/rocker/rocker_main.c | 73 ------------------------------
- 2 files changed, 75 insertions(+), 73 deletions(-)
+ drivers/net/ethernet/rocker/rocker_main.c | 33 ++++++++++++++++---------------
+ 1 file changed, 17 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
-index 23b5e3d..05c1e1a 100644
---- a/drivers/net/ethernet/rocker/rocker.h
-+++ b/drivers/net/ethernet/rocker/rocker.h
-@@ -13,6 +13,8 @@
- #define _ROCKER_H
- 
- #include <linux/types.h>
-+#include <linux/hashtable.h>
-+#include <linux/if_vlan.h>
- 
- #include "rocker_hw.h"
- 
-@@ -24,4 +26,77 @@ struct rocker_desc_info {
- 	dma_addr_t mapaddr;
- };
- 
-+struct rocker_dma_ring_info {
-+	size_t size;
-+	u32 head;
-+	u32 tail;
-+	struct rocker_desc *desc; /* mapped */
-+	dma_addr_t mapaddr;
-+	struct rocker_desc_info *desc_info;
-+	unsigned int type;
-+};
-+
-+struct rocker;
-+
-+enum {
-+	ROCKER_CTRL_LINK_LOCAL_MCAST,
-+	ROCKER_CTRL_LOCAL_ARP,
-+	ROCKER_CTRL_IPV4_MCAST,
-+	ROCKER_CTRL_IPV6_MCAST,
-+	ROCKER_CTRL_DFLT_BRIDGING,
-+	ROCKER_CTRL_DFLT_OVS,
-+	ROCKER_CTRL_MAX,
-+};
-+
-+#define ROCKER_INTERNAL_VLAN_ID_BASE	0x0f00
-+#define ROCKER_N_INTERNAL_VLANS		255
-+#define ROCKER_VLAN_BITMAP_LEN		BITS_TO_LONGS(VLAN_N_VID)
-+#define ROCKER_INTERNAL_VLAN_BITMAP_LEN	BITS_TO_LONGS(ROCKER_N_INTERNAL_VLANS)
-+
-+struct rocker_port {
-+	struct net_device *dev;
-+	struct net_device *bridge_dev;
-+	struct rocker *rocker;
-+	unsigned int port_number;
-+	u32 pport;
-+	__be16 internal_vlan_id;
-+	int stp_state;
-+	u32 brport_flags;
-+	unsigned long ageing_time;
-+	bool ctrls[ROCKER_CTRL_MAX];
-+	unsigned long vlan_bitmap[ROCKER_VLAN_BITMAP_LEN];
-+	struct napi_struct napi_tx;
-+	struct napi_struct napi_rx;
-+	struct rocker_dma_ring_info tx_ring;
-+	struct rocker_dma_ring_info rx_ring;
-+};
-+
-+struct rocker {
-+	struct pci_dev *pdev;
-+	u8 __iomem *hw_addr;
-+	struct msix_entry *msix_entries;
-+	unsigned int port_count;
-+	struct rocker_port **ports;
-+	struct {
-+		u64 id;
-+	} hw;
-+	spinlock_t cmd_ring_lock;		/* for cmd ring accesses */
-+	struct rocker_dma_ring_info cmd_ring;
-+	struct rocker_dma_ring_info event_ring;
-+	DECLARE_HASHTABLE(flow_tbl, 16);
-+	spinlock_t flow_tbl_lock;		/* for flow tbl accesses */
-+	u64 flow_tbl_next_cookie;
-+	DECLARE_HASHTABLE(group_tbl, 16);
-+	spinlock_t group_tbl_lock;		/* for group tbl accesses */
-+	struct timer_list fdb_cleanup_timer;
-+	DECLARE_HASHTABLE(fdb_tbl, 16);
-+	spinlock_t fdb_tbl_lock;		/* for fdb tbl accesses */
-+	unsigned long internal_vlan_bitmap[ROCKER_INTERNAL_VLAN_BITMAP_LEN];
-+	DECLARE_HASHTABLE(internal_vlan_tbl, 8);
-+	spinlock_t internal_vlan_tbl_lock;	/* for vlan tbl accesses */
-+	DECLARE_HASHTABLE(neigh_tbl, 16);
-+	spinlock_t neigh_tbl_lock;		/* for neigh tbl accesses */
-+	u32 neigh_tbl_next_index;
-+};
-+
- #endif
 diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index 1a99b35..a67a6c7 100644
+index 1efd8b7..acafbf8 100644
 --- a/drivers/net/ethernet/rocker/rocker_main.c
 +++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -179,79 +179,6 @@ struct rocker_neigh_tbl_entry {
- 	bool ttl_check;
- };
+@@ -1547,7 +1547,7 @@ static int rocker_world_port_attr_stp_state_set(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
  
--struct rocker_dma_ring_info {
--	size_t size;
--	u32 head;
--	u32 tail;
--	struct rocker_desc *desc; /* mapped */
--	dma_addr_t mapaddr;
--	struct rocker_desc_info *desc_info;
--	unsigned int type;
--};
--
--struct rocker;
--
--enum {
--	ROCKER_CTRL_LINK_LOCAL_MCAST,
--	ROCKER_CTRL_LOCAL_ARP,
--	ROCKER_CTRL_IPV4_MCAST,
--	ROCKER_CTRL_IPV6_MCAST,
--	ROCKER_CTRL_DFLT_BRIDGING,
--	ROCKER_CTRL_DFLT_OVS,
--	ROCKER_CTRL_MAX,
--};
--
--#define ROCKER_INTERNAL_VLAN_ID_BASE	0x0f00
--#define ROCKER_N_INTERNAL_VLANS		255
--#define ROCKER_VLAN_BITMAP_LEN		BITS_TO_LONGS(VLAN_N_VID)
--#define ROCKER_INTERNAL_VLAN_BITMAP_LEN	BITS_TO_LONGS(ROCKER_N_INTERNAL_VLANS)
--
--struct rocker_port {
--	struct net_device *dev;
--	struct net_device *bridge_dev;
--	struct rocker *rocker;
--	unsigned int port_number;
--	u32 pport;
--	__be16 internal_vlan_id;
--	int stp_state;
--	u32 brport_flags;
--	unsigned long ageing_time;
--	bool ctrls[ROCKER_CTRL_MAX];
--	unsigned long vlan_bitmap[ROCKER_VLAN_BITMAP_LEN];
--	struct napi_struct napi_tx;
--	struct napi_struct napi_rx;
--	struct rocker_dma_ring_info tx_ring;
--	struct rocker_dma_ring_info rx_ring;
--};
--
--struct rocker {
--	struct pci_dev *pdev;
--	u8 __iomem *hw_addr;
--	struct msix_entry *msix_entries;
--	unsigned int port_count;
--	struct rocker_port **ports;
--	struct {
--		u64 id;
--	} hw;
--	spinlock_t cmd_ring_lock;		/* for cmd ring accesses */
--	struct rocker_dma_ring_info cmd_ring;
--	struct rocker_dma_ring_info event_ring;
--	DECLARE_HASHTABLE(flow_tbl, 16);
--	spinlock_t flow_tbl_lock;		/* for flow tbl accesses */
--	u64 flow_tbl_next_cookie;
--	DECLARE_HASHTABLE(group_tbl, 16);
--	spinlock_t group_tbl_lock;		/* for group tbl accesses */
--	struct timer_list fdb_cleanup_timer;
--	DECLARE_HASHTABLE(fdb_tbl, 16);
--	spinlock_t fdb_tbl_lock;		/* for fdb tbl accesses */
--	unsigned long internal_vlan_bitmap[ROCKER_INTERNAL_VLAN_BITMAP_LEN];
--	DECLARE_HASHTABLE(internal_vlan_tbl, 8);
--	spinlock_t internal_vlan_tbl_lock;	/* for vlan tbl accesses */
--	DECLARE_HASHTABLE(neigh_tbl, 16);
--	spinlock_t neigh_tbl_lock;		/* for neigh tbl accesses */
--	u32 neigh_tbl_next_index;
--};
--
- static const u8 zero_mac[ETH_ALEN]   = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
- static const u8 ff_mac[ETH_ALEN]     = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
- static const u8 ll_mac[ETH_ALEN]     = { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
+ 	if (!wops->port_attr_stp_state_set)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_attr_stp_state_set(rocker_port, state, trans);
+ }
+ 
+@@ -1559,7 +1559,7 @@ rocker_world_port_attr_bridge_flags_set(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_attr_bridge_flags_set)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_attr_bridge_flags_set(rocker_port, brport_flags,
+ 						trans);
+ }
+@@ -1571,7 +1571,7 @@ rocker_world_port_attr_bridge_flags_get(const struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_attr_bridge_flags_get)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_attr_bridge_flags_get(rocker_port, p_brport_flags);
+ }
+ 
+@@ -1584,7 +1584,7 @@ rocker_world_port_attr_bridge_ageing_time_set(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_attr_bridge_ageing_time_set)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_attr_bridge_ageing_time_set(rocker_port, ageing_time,
+ 						      trans);
+ }
+@@ -1597,6 +1597,7 @@ rocker_world_port_obj_vlan_add(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_obj_vlan_add)
++		return -EOPNOTSUPP;
+ 		return 0;
+ 	return wops->port_obj_vlan_add(rocker_port, vlan, trans);
+ }
+@@ -1608,7 +1609,7 @@ rocker_world_port_obj_vlan_del(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_obj_vlan_del)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_obj_vlan_del(rocker_port, vlan);
+ }
+ 
+@@ -1620,7 +1621,7 @@ rocker_world_port_obj_vlan_dump(const struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_obj_vlan_dump)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_obj_vlan_dump(rocker_port, vlan, cb);
+ }
+ 
+@@ -1632,7 +1633,7 @@ rocker_world_port_obj_fib4_add(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_obj_fib4_add)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_obj_fib4_add(rocker_port, fib4, trans);
+ }
+ 
+@@ -1643,7 +1644,7 @@ rocker_world_port_obj_fib4_del(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_obj_fib4_del)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_obj_fib4_del(rocker_port, fib4);
+ }
+ 
+@@ -1655,7 +1656,7 @@ rocker_world_port_obj_fdb_add(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_obj_fdb_add)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_obj_fdb_add(rocker_port, fdb, trans);
+ }
+ 
+@@ -1666,7 +1667,7 @@ rocker_world_port_obj_fdb_del(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_obj_fdb_del)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_obj_fdb_del(rocker_port, fdb);
+ }
+ 
+@@ -1678,7 +1679,7 @@ rocker_world_port_obj_fdb_dump(const struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_obj_fdb_dump)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_obj_fdb_dump(rocker_port, fdb, cb);
+ }
+ 
+@@ -1688,7 +1689,7 @@ static int rocker_world_port_master_linked(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_master_linked)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_master_linked(rocker_port, master);
+ }
+ 
+@@ -1698,7 +1699,7 @@ static int rocker_world_port_master_unlinked(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_master_unlinked)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_master_unlinked(rocker_port, master);
+ }
+ 
+@@ -1708,7 +1709,7 @@ static int rocker_world_port_neigh_update(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_neigh_update)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_neigh_update(rocker_port, n);
+ }
+ 
+@@ -1718,7 +1719,7 @@ static int rocker_world_port_neigh_destroy(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_neigh_destroy)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_neigh_destroy(rocker_port, n);
+ }
+ 
+@@ -1729,7 +1730,7 @@ static int rocker_world_port_ev_mac_vlan_seen(struct rocker_port *rocker_port,
+ 	struct rocker_world_ops *wops = rocker_port->rocker->wops;
+ 
+ 	if (!wops->port_ev_mac_vlan_seen)
+-		return 0;
++		return -EOPNOTSUPP;
+ 	return wops->port_ev_mac_vlan_seen(rocker_port, addr, vlan_id);
+ }
+ 
 -- 
 1.9.3
