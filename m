@@ -1,73 +1,98 @@
-From: =?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@gmail.com>
-Subject: Re: [PATCH 8/9] rfkill: Userspace control for airplane mode
-Date: Tue, 16 Feb 2016 10:12:45 -0500
-Message-ID: <CA+A7VXWuMfGpLCyv+veq1GxMzZe+P1F99470KT7B_Q3+6v9fdQ@mail.gmail.com>
-References: <1454946096-9752-1-git-send-email-jprvita@endlessm.com>
- <1454946096-9752-9-git-send-email-jprvita@endlessm.com> <1454947887.5325.8.camel@redhat.com>
- <1455120444.4991.1.camel@sipsolutions.net> <1455123205.19821.34.camel@redhat.com>
- <ec4b7edcda0a62cd4e36e501f5ad56f9@sipsolutions.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional
+Date: Tue, 16 Feb 2016 08:16:47 -0700
+Message-ID: <56C33D5F.2060005@cumulusnetworks.com>
+References: <1455402207-9217-1-git-send-email-dsa@cumulusnetworks.com>
+ <56C2E1BD.30006@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Williams <dcbw@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Darren Hart <dvhart@infradead.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	linux@endlessm.com,
-	=?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@endlessm.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <ec4b7edcda0a62cd4e36e501f5ad56f9@sipsolutions.net>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org
+To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:36657 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751832AbcBPPRX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 10:17:23 -0500
+Received: by mail-ob0-f171.google.com with SMTP id gc3so161555453obb.3
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 07:17:22 -0800 (PST)
+In-Reply-To: <56C2E1BD.30006@miraclelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10 February 2016 at 12:12, Johannes Berg <johannes@sipsolutions.net>=
- wrote:
-> On 2016-02-10 17:53, Dan Williams wrote:
->>
->> Yeah, I get that now.  It's just that to me, something called
->> "AIRPLANE_MODE_CHANGE" seems like it should actually change airplane
->> mode on/off, which implies killing radios.  I wouldn't have had the
->> problem if it was named AIRPLANE_MODE_INDICATOR_CHANGE, which makes =
-it
->> clear this is simply an indicator and has no actual effect on anythi=
-ng
->> other than a LED.
->
+On 2/16/16 1:45 AM, YOSHIFUJI Hideaki wrote:
+>> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+>> index 24ce97f42d35..7ddbbb67f0db 100644
+>> --- a/Documentation/networking/ip-sysctl.txt
+>> +++ b/Documentation/networking/ip-sysctl.txt
+>> @@ -1563,6 +1563,12 @@ temp_prefered_lft - INTEGER
+>>   	Preferred lifetime (in seconds) for temporary addresses.
+>>   	Default: 86400 (1 day)
+>>   
+>> +keep_addr_on_down - BOOLEAN
+>> +	Keep all IPv6 addresses on an interface down event. If set static
+>> +	global addresses with no expiration time are not flushed.
+>> +
+>> +	Default: disabled
+>> +
+> 
+> How about this:
+>     1: enabled
+>     0: system default
+>    -1: disabled
+> so that an iterface can override system-wide config?
 
-I also agree the AIRPLANE_MODE_INDICATOR_* prefix makes things more
-clear here. Thanks for the feedback, Dan!
+It is my understanding that the 'all' settings override the individual
+interface settings. From Documentation/networking/ip-sysctl.txt +1346:
 
->
-> Yeah, I agree. I'm not even sure that it's a good idea to subsume thi=
-s into
-> the regular operations in the API, although that's obviously the easi=
-est
-> extension. I'll need to think about that a bit more with the code at =
-hand
-> though.
->
+conf/all/*:
+        Change all the interface-specific settings.
 
-Initially I have thought about creating and additional RFKill switch
-for that, but I think it would be a bit hackish since we would have to
-treat it specially in sysfs attributes and probably other places, and
-userspace would also need a special case when going through the list
-of RFKill switches in the system. The proposed solution has equivalent
-semantics to an RFKill switch, is backward-compatible (users would
-only ignore the unknown operations and evens -- although gsd has a
-"default:" case to abort execution on an unknown event) and does not
-extend the RFKill event struct.
 
-One alternative would be to move the control point to a separate
-device, like /dev/rfkill-airplane-mode, but I'm not sure this is a
-very elegant approach. Anyway, I'm open to work on changes to the API,
-but it would be great if you could at least pick or reject the
-non-polemical patches of the series, so I don't need to carry them
-anymore.
+-----8<-----
 
---
-Jo=C3=A3o Paulo Rechi Vita
-http://about.me/jprvita
+
+>> diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+>> index 1c8b6820b694..01ba6a286a4b 100644
+>> --- a/include/net/if_inet6.h
+>> +++ b/include/net/if_inet6.h
+>> @@ -72,6 +72,7 @@ struct inet6_ifaddr {
+>>   	int			regen_count;
+>>   
+>>   	bool			tokenized;
+>> +	bool			user_managed;
+> 
+> Can't we use IFA_F_PERMANENT?
+
+I think so. Will fix.
+
+
+-----8<-----
+
+>> @@ -3356,7 +3413,9 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+>>   {
+>>   	struct net *net = dev_net(dev);
+>>   	struct inet6_dev *idev;
+>> -	struct inet6_ifaddr *ifa;
+>> +	struct inet6_ifaddr *ifa, *tmp;
+>> +	struct list_head del_list;
+>> +	int keep_addr;
+>>   	int state, i;
+>>   
+>>   	ASSERT_RTNL();
+>> @@ -3383,6 +3442,10 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+>>   
+>>   	}
+>>   
+>> +	keep_addr = net->ipv6.devconf_all->keep_addr_on_down;
+>> +	if (!keep_addr)
+>> +		keep_addr = idev->cnf.keep_addr_on_down;
+>> +
+>>   	/* Step 2: clear hash table */
+>>   	for (i = 0; i < IN6_ADDR_HSIZE; i++) {
+>>   		struct hlist_head *h = &inet6_addr_lst[i];
+
+So what I have here is if the system-wide setting says keep the address
+it is kept. Else if the individual interface setting is enabled the
+address is kept.
