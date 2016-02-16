@@ -1,71 +1,200 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next 1/3] lwtunnel: autoload of lwt modules
-Date: Tue, 16 Feb 2016 14:14:59 +0000
-Message-ID: <56C32EE3.6090802@brocade.com>
-References: <1455550923-23673-1-git-send-email-rshearma@brocade.com>
- <1455550923-23673-2-git-send-email-rshearma@brocade.com>
- <878u2l7j6p.fsf@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
-	Jiri Benc <jbenc@redhat.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 09/13] rocker: pre-allocate wait structures during cmd ring init
+Date: Tue, 16 Feb 2016 15:14:47 +0100
+Message-ID: <1455632091-10716-10-git-send-email-jiri@resnulli.us>
+References: <1455632091-10716-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
+	eladr@mellanox.com, tgraf@suug.ch, David.Laight@ACULAB.COM,
+	john.fastabend@gmail.com, alexei.starovoitov@gmail.com,
+	daniel@iogearbox.net, prem@barefootnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:49911 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932614AbcBPOPO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 09:15:14 -0500
-In-Reply-To: <878u2l7j6p.fsf@x220.int.ebiederm.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:33987 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932849AbcBPOPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 09:15:05 -0500
+Received: by mail-wm0-f41.google.com with SMTP id b205so111968499wmb.1
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 06:15:04 -0800 (PST)
+In-Reply-To: <1455632091-10716-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15/02/16 21:33, Eric W. Biederman wrote:
-> Robert Shearman <rshearma@brocade.com> writes:
->> @@ -85,6 +109,14 @@ int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
->>   	ret = -EOPNOTSUPP;
->>   	rcu_read_lock();
->>   	ops = rcu_dereference(lwtun_encaps[encap_type]);
->> +#ifdef CONFIG_MODULES
->> +	if (!ops) {
->> +		rcu_read_unlock();
->> +		request_module("rtnl-lwt-%s", lwtunnel_encap_str(encap_type));
->> +		rcu_read_lock();
->> +		ops = rcu_dereference(lwtun_encaps[encap_type]);
->> +	}
->> +#endif
->>   	if (likely(ops && ops->build_state))
->>   		ret = ops->build_state(dev, encap, family, cfg, lws);
->>   	rcu_read_unlock();
->
-> My memory is fuzzy on how this is done elsewhere but this looks like it
-> needs a capability check to ensure that non-root user's can't trigger
-> this.
->
-> It tends to be problematic if a non-root user can trigger an autoload of
-> a known-buggy module.  With a combination of user namespaces and network
-> namespaces unprivileged users can cause just about every corner of the
-> network stack to be exercised.
+From: Jiri Pirko <jiri@mellanox.com>
 
-The same protections apply to this as to the IFLA_INFO_KIND module 
-autoloading, namely by rtnetlink_rcv_msg ensuring that no messages other 
-than gets can be done by an unprivileged user:
+This avoids need to alloc/free wait structure for every command call.
 
-	type = nlh->nlmsg_type;
-...
-	type -= RTM_BASE;
-...
-	kind = type&3;
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/rocker/rocker_main.c | 87 +++++++++++++++++++++++--------
+ 1 file changed, 66 insertions(+), 21 deletions(-)
 
-	if (kind != 2 && !netlink_net_capable(skb, CAP_NET_ADMIN))
-		return -EPERM;
-
-The lwtunnel_build_state function is only called by the processing of 
-non-get message types.
-
-Is this sufficient or are you looking for something in addition?
-
-Thanks,
-Rob
+diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+index 0015dcb..8585d98 100644
+--- a/drivers/net/ethernet/rocker/rocker_main.c
++++ b/drivers/net/ethernet/rocker/rocker_main.c
+@@ -338,23 +338,19 @@ static void rocker_wait_init(struct rocker_wait *wait)
+ 	rocker_wait_reset(wait);
+ }
+ 
+-static struct rocker_wait *rocker_wait_create(struct rocker_port *rocker_port,
+-					      struct switchdev_trans *trans,
+-					      int flags)
++static struct rocker_wait *rocker_wait_create(void)
+ {
+ 	struct rocker_wait *wait;
+ 
+-	wait = rocker_kzalloc(trans, flags, sizeof(*wait));
++	wait = kzalloc(sizeof(*wait), GFP_KERNEL);
+ 	if (!wait)
+ 		return NULL;
+-	rocker_wait_init(wait);
+ 	return wait;
+ }
+ 
+-static void rocker_wait_destroy(struct switchdev_trans *trans,
+-				struct rocker_wait *wait)
++static void rocker_wait_destroy(struct rocker_wait *wait)
+ {
+-	rocker_kfree(trans, wait);
++	kfree(wait);
+ }
+ 
+ static bool rocker_wait_event_timeout(struct rocker_wait *wait,
+@@ -831,6 +827,53 @@ static void rocker_dma_ring_bufs_free(const struct rocker *rocker,
+ 	}
+ }
+ 
++static int rocker_dma_cmd_ring_wait_alloc(struct rocker_desc_info *desc_info)
++{
++	struct rocker_wait *wait;
++
++	wait = rocker_wait_create();
++	if (!wait)
++		return -ENOMEM;
++	rocker_desc_cookie_ptr_set(desc_info, wait);
++	return 0;
++}
++
++static void
++rocker_dma_cmd_ring_wait_free(const struct rocker_desc_info *desc_info)
++{
++	struct rocker_wait *wait = rocker_desc_cookie_ptr_get(desc_info);
++
++	rocker_wait_destroy(wait);
++}
++
++static int rocker_dma_cmd_ring_waits_alloc(const struct rocker *rocker)
++{
++	const struct rocker_dma_ring_info *cmd_ring = &rocker->cmd_ring;
++	int i;
++	int err;
++
++	for (i = 0; i < cmd_ring->size; i++) {
++		err = rocker_dma_cmd_ring_wait_alloc(&cmd_ring->desc_info[i]);
++		if (err)
++			goto rollback;
++	}
++	return 0;
++
++rollback:
++	for (i--; i >= 0; i--)
++		rocker_dma_cmd_ring_wait_free(&cmd_ring->desc_info[i]);
++	return err;
++}
++
++static void rocker_dma_cmd_ring_waits_free(const struct rocker *rocker)
++{
++	const struct rocker_dma_ring_info *cmd_ring = &rocker->cmd_ring;
++	int i;
++
++	for (i = 0; i < cmd_ring->size; i++)
++		rocker_dma_cmd_ring_wait_free(&cmd_ring->desc_info[i]);
++}
++
+ static int rocker_dma_rings_init(struct rocker *rocker)
+ {
+ 	const struct pci_dev *pdev = rocker->pdev;
+@@ -853,6 +896,12 @@ static int rocker_dma_rings_init(struct rocker *rocker)
+ 		goto err_dma_cmd_ring_bufs_alloc;
+ 	}
+ 
++	err = rocker_dma_cmd_ring_waits_alloc(rocker);
++	if (err) {
++		dev_err(&pdev->dev, "failed to alloc command dma ring waits\n");
++		goto err_dma_cmd_ring_waits_alloc;
++	}
++
+ 	err = rocker_dma_ring_create(rocker, ROCKER_DMA_EVENT,
+ 				     ROCKER_DMA_EVENT_DEFAULT_SIZE,
+ 				     &rocker->event_ring);
+@@ -875,6 +924,8 @@ err_dma_event_ring_bufs_alloc:
+ err_dma_event_ring_create:
+ 	rocker_dma_ring_bufs_free(rocker, &rocker->cmd_ring,
+ 				  PCI_DMA_BIDIRECTIONAL);
++err_dma_cmd_ring_waits_alloc:
++	rocker_dma_cmd_ring_waits_free(rocker);
+ err_dma_cmd_ring_bufs_alloc:
+ 	rocker_dma_ring_destroy(rocker, &rocker->cmd_ring);
+ 	return err;
+@@ -885,6 +936,7 @@ static void rocker_dma_rings_fini(struct rocker *rocker)
+ 	rocker_dma_ring_bufs_free(rocker, &rocker->event_ring,
+ 				  PCI_DMA_BIDIRECTIONAL);
+ 	rocker_dma_ring_destroy(rocker, &rocker->event_ring);
++	rocker_dma_cmd_ring_waits_free(rocker);
+ 	rocker_dma_ring_bufs_free(rocker, &rocker->cmd_ring,
+ 				  PCI_DMA_BIDIRECTIONAL);
+ 	rocker_dma_ring_destroy(rocker, &rocker->cmd_ring);
+@@ -1106,7 +1158,6 @@ static irqreturn_t rocker_cmd_irq_handler(int irq, void *dev_id)
+ 		wait = rocker_desc_cookie_ptr_get(desc_info);
+ 		if (wait->nowait) {
+ 			rocker_desc_gen_clear(desc_info);
+-			rocker_wait_destroy(NULL, wait);
+ 		} else {
+ 			rocker_wait_wake_up(wait);
+ 		}
+@@ -1298,28 +1349,24 @@ static int rocker_cmd_exec(struct rocker_port *rocker_port,
+ 	unsigned long lock_flags;
+ 	int err;
+ 
+-	wait = rocker_wait_create(rocker_port, trans, flags);
+-	if (!wait)
+-		return -ENOMEM;
+-	wait->nowait = nowait;
+-
+ 	spin_lock_irqsave(&rocker->cmd_ring_lock, lock_flags);
+ 
+ 	desc_info = rocker_desc_head_get(&rocker->cmd_ring);
+ 	if (!desc_info) {
+ 		spin_unlock_irqrestore(&rocker->cmd_ring_lock, lock_flags);
+-		err = -EAGAIN;
+-		goto out;
++		return -EAGAIN;
+ 	}
+ 
++	wait = rocker_desc_cookie_ptr_get(desc_info);
++	rocker_wait_init(wait);
++	wait->nowait = nowait;
++
+ 	err = prepare(rocker_port, desc_info, prepare_priv);
+ 	if (err) {
+ 		spin_unlock_irqrestore(&rocker->cmd_ring_lock, lock_flags);
+-		goto out;
++		return err;
+ 	}
+ 
+-	rocker_desc_cookie_ptr_set(desc_info, wait);
+-
+ 	if (!switchdev_trans_ph_prepare(trans))
+ 		rocker_desc_head_set(rocker, &rocker->cmd_ring, desc_info);
+ 
+@@ -1340,8 +1387,6 @@ static int rocker_cmd_exec(struct rocker_port *rocker_port,
+ 		err = process(rocker_port, desc_info, process_priv);
+ 
+ 	rocker_desc_gen_clear(desc_info);
+-out:
+-	rocker_wait_destroy(trans, wait);
+ 	return err;
+ }
+ 
+-- 
+1.9.3
