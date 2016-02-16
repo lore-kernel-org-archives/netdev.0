@@ -1,51 +1,57 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next PATCH v2 0/8] tc offload for cls_u32 on ixgbe
-Date: Tue, 16 Feb 2016 22:46:19 +0200
-Message-ID: <CAJ3xEMizet2Cz53dd1LxseO6F=CSO1doFuThJYCQquR7n=cBuQ@mail.gmail.com>
-References: <20160216055819.32452.84181.stgit@john-Precision-Tower-5810>
-	<CAJ3xEMhqHbHDH06O5+Y_2mNQM3BNVA9bCLBS70ZK+=-6upDtaA@mail.gmail.com>
-	<20160216.145055.1581160555302651949.davem@davemloft.net>
+From: <Bryan.Whitehead@microchip.com>
+Subject: RE: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+Date: Tue, 16 Feb 2016 20:48:14 +0000
+Message-ID: <90A7E81AE28BAE4CBDDB3B35F187D264402EFB5D@CHN-SV-EXMX02.mchp-main.com>
+References: <20160212171829.GD13273@lunn.ch>
+	<90A7E81AE28BAE4CBDDB3B35F187D264402EFB12@CHN-SV-EXMX02.mchp-main.com>
+	<20160216203625.GC2558@lunn.ch>
+ <20160216.154358.164326104187806534.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: john fastabend <john.fastabend@gmail.com>,
-	Amir Vadai <amir@vadai.me>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
+To: <davem@davemloft.net>, <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:36290 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752311AbcBPUqU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 15:46:20 -0500
-Received: by mail-ig0-f174.google.com with SMTP id xg9so83004969igb.1
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 12:46:20 -0800 (PST)
-In-Reply-To: <20160216.145055.1581160555302651949.davem@davemloft.net>
+Received: from exsmtp03.microchip.com ([198.175.253.49]:9317 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751522AbcBPUsQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 15:48:16 -0500
+In-Reply-To: <20160216.154358.164326104187806534.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 16, 2016 at 9:50 PM, David Miller <davem@davemloft.net> wrote:
-> From: Or Gerlitz <gerlitz.or@gmail.com>
-> Date: Tue, 16 Feb 2016 21:30:18 +0200
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, February 16, 2016 3:44 PM
+> To: andrew@lunn.ch
+> Cc: Bryan Whitehead - C21958; f.fainelli@gmail.com; netdev@vger.kernel.org
+> Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+> 
+> From: Andrew Lunn <andrew@lunn.ch>
+> Date: Tue, 16 Feb 2016 21:36:25 +0100
+> 
+> > So this is the discussion we need to have.
+> >
+> > The interface to the outside work is the two switch ports with real
+> > PHYs. What you are implementing is an Ethernet driver for an internal
+> > port connected to the switch. This port does not go to the outside
+> > world. This driver provides no way to control the ports to the outside
+> > world and you have no short term plan to actually implement control of
+> > the ports connected to the outside world.
+> >
+> > Should the Linux community accept this driver in this state?
+> >
+> > I would prefer to see a simple switchdev or DSA driver which exposes
+> > the two external ports.
+> 
+> I do not think, with all the infrastructure we have, that we should accept pure
+> ethernet drivers for such devices any more.
+> 
+> About year ago I would have responded differently, but these days all of the
+> necessary support and infrastructure is there, and reasonable easy for driver
+> authors to use.
 
->> I thought we've got into agreement in netdev that the offloading
->> directive would be a tri-state creature (sw, hw and fail the op if
->> can't, hw and fallback to sw). Can you please elaborate what do you
->> mean by "make the offload decision per rule using flags similar to how
->> we do l2 mac updates"
+I believe I can make the physical phys accessible through ethertool. Would that be reasonable?
 
-> I think John's changes are an intermediate step in a long term evolution.
-
-sure
-
-> I'm going to apply John's changes as-is, and people can submit relative
-> changes on top if they want.
-
-Understood, still I'd be happy to hear what does make the offload
-decision per rule using flags similar to how we do l2 mac updates
-means. Re the tri-state which you've referred to in netdev -- my
-understanding is that we're talking on that flag coming from the user
-as part of the tc command line.
-
-Or.
+Bryan
