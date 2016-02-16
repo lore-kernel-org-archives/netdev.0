@@ -1,54 +1,77 @@
-From: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-Subject: [PATCH net] geneve: Refine MTU limit
-Date: Tue, 16 Feb 2016 12:33:19 +0000
-Message-ID: <1455625999-9781-1-git-send-email-david@weave.works>
+From: David Wragg <david@weave.works>
+Subject: Re: [PATCH net v2 2/3] geneve: Relax MTU constraints
+Date: Tue, 16 Feb 2016 12:33:42 +0000
+Message-ID: <86vb5o3kd5.fsf@weave.works>
+References: <1455036424-6403-1-git-send-email-david@weave.works>
+	<1455036424-6403-3-git-send-email-david@weave.works>
+	<CALx6S37sD+MNK+kp9oLnEYHEUkOy_NdQK6bq-aMQP2Mvw9M4Qg@mail.gmail.com>
+	<86a8n86bcs.fsf@weave.works>
+	<CAEh+42iGHk9zVYPcpSz5w5XPg450p8avuQLbMZZH+B5fZvF9WQ@mail.gmail.com>
+	<CALx6S36kvXJUZM8_vEmF8L3bxnRiBh98Rs0wAd-HGBJ9Yyde_Q@mail.gmail.com>
+	<CAEh+42gyHEALCjZZGjMWTLQsPgp191c4dfZYFffOL6iV7pwYHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Jesse Gross <jesse@kernel.org>, Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:36302 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755044AbcBPMdo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 07:33:44 -0500
+Received: by mail-wm0-f54.google.com with SMTP id g62so104690825wme.1
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 04:33:43 -0800 (PST)
+In-Reply-To: <CAEh+42gyHEALCjZZGjMWTLQsPgp191c4dfZYFffOL6iV7pwYHw@mail.gmail.com>
+	(Jesse Gross's message of "Wed, 10 Feb 2016 15:52:04 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-V2hpbGUgR0VORVZFIGFsbG93cyB2YXJpYWJsZSBsZW5ndGggb3B0aW9ucywgdGhlIG1heGltdW0g
-bGVuZ3RoIG9mIHRoZQpvcHRpb25zIGlzIDYzICogNCBieXRlcy4gIFNvIHdlIGNhbiByZWFzb25h
-Ymx5IHNldCBhbiBNVFUgbGltaXQgb3RoZXIKdGhhbiBJUF9NQVhfTVRVLCBhcyB0aGUgb3RoZXIg
-dHVubmVsIGRldmljZXMgZG8uCgpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBXcmFnZyA8ZGF2aWRAd2Vh
-dmUud29ya3M+Ci0tLQogZHJpdmVycy9uZXQvZ2VuZXZlLmMgfCAxMSArKysrKystLS0tLQogMSBm
-aWxlIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQg
-YS9kcml2ZXJzL25ldC9nZW5ldmUuYyBiL2RyaXZlcnMvbmV0L2dlbmV2ZS5jCmluZGV4IDAyOGUz
-ODcuLmY1N2Y5YmMgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2dlbmV2ZS5jCisrKyBiL2RyaXZl
-cnMvbmV0L2dlbmV2ZS5jCkBAIC0zNyw2ICszNyw5IEBAIE1PRFVMRV9QQVJNX0RFU0MobG9nX2Vj
-bl9lcnJvciwgIkxvZyBwYWNrZXRzIHJlY2VpdmVkIHdpdGggY29ycnVwdGVkIEVDTiIpOwogCiAj
-ZGVmaW5lIEdFTkVWRV9WRVIgMAogI2RlZmluZSBHRU5FVkVfQkFTRV9ITEVOIChzaXplb2Yoc3Ry
-dWN0IHVkcGhkcikgKyBzaXplb2Yoc3RydWN0IGdlbmV2ZWhkcikpCisjZGVmaW5lIEdFTkVWRV9N
-QVhfT1BUSU9OU19MRU4gKDYzICogNCkKKyNkZWZpbmUgR0VORVZFX01BWF9NVFUgKElQX01BWF9N
-VFUgLSBzaXplb2Yoc3RydWN0IGlwaGRyKSAtIEdFTkVWRV9CQVNFX0hMRU4gXAorCQkJCQkJLSBH
-RU5FVkVfTUFYX09QVElPTlNfTEVOKQogCiAvKiBwZXItbmV0d29yayBuYW1lc3BhY2UgcHJpdmF0
-ZSBkYXRhIGZvciB0aGlzIG1vZHVsZSAqLwogc3RydWN0IGdlbmV2ZV9uZXQgewpAQCAtMTA0MSwx
-MSArMTA0NCw5IEBAIHN0YXRpYyBuZXRkZXZfdHhfdCBnZW5ldmVfeG1pdChzdHJ1Y3Qgc2tfYnVm
-ZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCiBzdGF0aWMgaW50IGdlbmV2ZV9jaGFu
-Z2VfbXR1KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIGludCBuZXdfbXR1KQogewotCS8qIEdFTkVW
-RSBvdmVyaGVhZCBpcyBub3QgZml4ZWQsIHNvIHdlIGNhbid0IGVuZm9yY2UgYSBtb3JlCi0JICog
-cHJlY2lzZSBtYXggTVRVLgotCSAqLwotCWlmIChuZXdfbXR1IDwgNjggfHwgbmV3X210dSA+IElQ
-X01BWF9NVFUpCisJaWYgKG5ld19tdHUgPCA2OCB8fCBuZXdfbXR1ID4gR0VORVZFX01BWF9NVFUp
-CiAJCXJldHVybiAtRUlOVkFMOworCiAJZGV2LT5tdHUgPSBuZXdfbXR1OwogCXJldHVybiAwOwog
-fQpAQCAtMTQ1OSw3ICsxNDYwLDcgQEAgc3RydWN0IG5ldF9kZXZpY2UgKmdlbmV2ZV9kZXZfY3Jl
-YXRlX2ZiKHN0cnVjdCBuZXQgKm5ldCwgY29uc3QgY2hhciAqbmFtZSwKIAkvKiBvcGVudnN3aXRj
-aCB1c2VycyBleHBlY3QgcGFja2V0IHNpemVzIHRvIGJlIHVucmVzdHJpY3RlZCwKIAkgKiBzbyBz
-ZXQgdGhlIGxhcmdlc3QgTVRVIHdlIGNhbi4KIAkgKi8KLQllcnIgPSBnZW5ldmVfY2hhbmdlX210
-dShkZXYsIElQX01BWF9NVFUpOworCWVyciA9IGdlbmV2ZV9jaGFuZ2VfbXR1KGRldiwgR0VORVZF
-X01BWF9NVFUpOwogCWlmIChlcnIpCiAJCWdvdG8gZXJyOwogCi0tIAoyLjUuMAoKX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApk
-ZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5m
-by9kZXYK
+Jesse Gross <jesse@kernel.org> writes:
+> On Wed, Feb 10, 2016 at 3:21 PM, Tom Herbert <tom@herbertland.com> wrote:
+>> On Wed, Feb 10, 2016 at 12:59 PM, Jesse Gross <jesse@kernel.org> wrote:
+>>> On Wed, Feb 10, 2016 at 12:41 PM, David Wragg <david@weave.works> wrote:
+>>>> Tom Herbert <tom@herbertland.com> writes:
+>>>>> The correct thing to do is determine the maximum amount of
+>>>>> encapsulation overhead that can ever be set in a packet and use for
+>>>>> setting the MTU. For instance, when RCO is enable in GUE, the size of
+>>>>> the option is included in tunnel->encap_hlen even though it will not
+>>>>> be used in all packets (via ip_tunnel_change_mtu). If there is no way
+>>>>> to determine a maximum overhead a priori from configuration, then
+>>>>> maximum overhead could be assumed to be maximum possible encapsulation
+>>>>> header size which for Geneve is 132 bytes IIRC.
+>>>>
+>>>> Ok, I'll come up with a patch to address this.
+>>>
+>>> I don't think that this really applies in this situation. The concerns
+>>> here relate to what the MTU is actually set to but this patch affects
+>>> the range of MTUs allowed to be set by the user. I don't see a reason
+>>> to disallow the user from setting a precise value if they know what it
+>>> should be.
+>>>
+>> Right, but if the user sets a bad value and packets are silently
+>> dropped on the floor then that seems like a bad result that could have
+>> easily been prevented.
+>
+> Sure, we might as well prevent the extreme edge cases that can never
+> be valid. In the case of Geneve though, this would be the minimum
+> header size, not the maximum, since it's possible that the user
+> actually knows how big the options are that they want to use.
+>
+> But as I said, the practical impact is low because IP_MAX_MTU is so
+> much larger than the MTU of real devices. There will always be many
+> values that the MTU can be set to that result in dropped packets. This
+> is true of all tunnel types.
+
+I agree with Jesse, and if there was a debate about lifting the MTU
+limit on all tunnel types to IP_MAX_MTU, I'd be for that.
+
+But for the other tunnel types, I followed the precedent of the code
+that was already there, and geneve might as well be consistent.
+
+Patch sent to the lists.
+
+David
