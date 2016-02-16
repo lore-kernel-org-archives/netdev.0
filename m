@@ -1,60 +1,77 @@
-From: Sergio Prado <sergio.prado@e-labworks.com>
-Subject: [PATCH net-next,V2] net: macb: make magic-packet property generic
-Date: Tue, 16 Feb 2016 21:10:45 -0200
-Message-ID: <1455664245-6842-1-git-send-email-sergio.prado@e-labworks.com>
-Cc: Sergio Prado <sergio.prado@e-labworks.com>
-To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	nicolas.ferre@atmel.com, davem@davemloft.net,
-	gregory.clement@free-electrons.com, narmstrong@baylibre.com,
-	michal.simek@xilinx.com, harini.katakam@xilinx.com,
-	boris.brezillon@free-electrons.com, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [net-next] net: l3mdev: address selection should only consider
+ devices in L3 domain
+Date: Wed, 17 Feb 2016 00:41:15 +0100
+Message-ID: <20160216234115.GI659150@eidolon>
+References: <1455663591-27615-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, david@opensourcerouting.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eidolon.nox.tf ([85.239.127.252]:43492 "EHLO eidolon.nox.tf"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933313AbcBPXsl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 18:48:41 -0500
+Content-Disposition: inline
+In-Reply-To: <1455663591-27615-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As requested by Rob Herring on patch
-https://patchwork.ozlabs.org/patch/580862/.
+Well, unfortunately...  [below]
 
-This is a new property that it's still in net-next and has never been
-used in production, so we are not breaking anything with the
-incompatible binding change.
+On Tue, Feb 16, 2016 at 02:59:51PM -0800, David Ahern wrote:
+> +++ b/net/ipv4/devinet.c
+> @@ -1214,12 +1215,16 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+>  	if (addr)
+>  		goto out_unlock;
+>  no_in_dev:
+> +	master_idx = l3mdev_master_ifindex_rcu(dev);
+>  
+>  	/* Not loopback addresses on loopback should be preferred
+>  	   in this case. It is important that lo is the first interface
+>  	   in dev_base list.
+>  	 */
+>  	for_each_netdev_rcu(net, dev) {
+> +		if (l3mdev_master_ifindex_rcu(dev) != master_idx)
+> +			continue;
+> +
+>  		in_dev = __in_dev_get_rcu(dev);
+>  		if (!in_dev)
+>  			continue;
 
-Signed-off-by: Sergio Prado <sergio.prado@e-labworks.com>
----
-Changes v1 -> v2: add changelog comment to clarify that the existing
-property has never been used in production.
----
- Documentation/devicetree/bindings/net/macb.txt | 2 +-
- drivers/net/ethernet/cadence/macb.c            | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+... this won't do enough.  If you look at the 4.3 patch I sent you, I
+was adding a comment:
 
-diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
-index c6b1cb5ffa87..b5a42df4c928 100644
---- a/Documentation/devicetree/bindings/net/macb.txt
-+++ b/Documentation/devicetree/bindings/net/macb.txt
-@@ -25,7 +25,7 @@ Required properties:
- 
- Optional properties for PHY child node:
- - reset-gpios : Should specify the gpio for phy reset
--- cdns,magic-packet : If present, indicates that the hardware supports waking
-+- magic-packet : If present, indicates that the hardware supports waking
-   up via magic packet.
- 
- Examples:
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 69af049e55a8..7ccf2298a5fa 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2929,7 +2929,7 @@ static int macb_probe(struct platform_device *pdev)
- 		bp->jumbo_max_len = macb_config->jumbo_max_len;
- 
- 	bp->wol = 0;
--	if (of_get_property(np, "cdns,magic-packet", NULL))
-+	if (of_get_property(np, "magic-packet", NULL))
- 		bp->wol |= MACB_WOL_HAS_MAGIC_PACKET;
- 	device_init_wakeup(&pdev->dev, bp->wol & MACB_WOL_HAS_MAGIC_PACKET);
- 
--- 
-1.9.1
++ /* For VRFs, the VRF device takes the place of the loopback device,
++    with addresses on it being preferred.  Note in such cases the
++    loopback device will be among the devices that fail the vrf_ifi
++    equality check in the loop below.
++  */
+
+And then it goes on to try the vrf0 interface before anything else.
+This is needed for a case like this - note the interface indexes:
+
+123: some_internal: <...> master vrf0
+    inet 192.168.123.45/24 scope global
+234: my_unnumbered: <...> master vrf0
+    # no address
+345: vrf0: <...>
+    inet 198.145.20.140/32 scope global
+
+Since the "some_internal" interface will be hit before the "vrf0"
+interface, the 192.168.123.45 address will be selected as source.  This
+is quite likely not what the administrator intended, and in fact it's
+suddenly hard for the admin to influence the system to get the correct
+result.  (prefsrc on routes would work, but try beating that into
+dynamic routing.)
+
+This is also why there is that other comment that is included in your
+context diff, about "important that lo is the first interface in
+dev_base list".
+
+I'll send a patch (on top of your patch) to get this behavior in a few
+minutes.
+
+
+-David
