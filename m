@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 06/13] rocker: move rocker and rocker_port structs into header
-Date: Tue, 16 Feb 2016 15:14:44 +0100
-Message-ID: <1455632091-10716-7-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 08/13] rocker: pass "learning" value as a parameter to rocker_port_set_learning
+Date: Tue, 16 Feb 2016 15:14:46 +0100
+Message-ID: <1455632091-10716-9-git-send-email-jiri@resnulli.us>
 References: <1455632091-10716-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, David.Laight@ACULAB.COM,
@@ -9,201 +9,81 @@ Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	daniel@iogearbox.net, prem@barefootnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:37159 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932871AbcBPOPB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 09:15:01 -0500
-Received: by mail-wm0-f46.google.com with SMTP id g62so154729464wme.0
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 06:15:00 -0800 (PST)
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:33072 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932853AbcBPOPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 09:15:04 -0500
+Received: by mail-wm0-f53.google.com with SMTP id g62so193568439wme.0
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 06:15:03 -0800 (PST)
 In-Reply-To: <1455632091-10716-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-And take some other related thing along. They are going to be pushed
-into of-dpa part anyway.
+Be consistent with the rest of the setting functions, and pass
+"learning" as a bool function parameter.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/rocker/rocker.h      | 75 +++++++++++++++++++++++++++++++
- drivers/net/ethernet/rocker/rocker_main.c | 73 ------------------------------
- 2 files changed, 75 insertions(+), 73 deletions(-)
+ drivers/net/ethernet/rocker/rocker_main.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
-index 23b5e3d..05c1e1a 100644
---- a/drivers/net/ethernet/rocker/rocker.h
-+++ b/drivers/net/ethernet/rocker/rocker.h
-@@ -13,6 +13,8 @@
- #define _ROCKER_H
- 
- #include <linux/types.h>
-+#include <linux/hashtable.h>
-+#include <linux/if_vlan.h>
- 
- #include "rocker_hw.h"
- 
-@@ -24,4 +26,77 @@ struct rocker_desc_info {
- 	dma_addr_t mapaddr;
- };
- 
-+struct rocker_dma_ring_info {
-+	size_t size;
-+	u32 head;
-+	u32 tail;
-+	struct rocker_desc *desc; /* mapped */
-+	dma_addr_t mapaddr;
-+	struct rocker_desc_info *desc_info;
-+	unsigned int type;
-+};
-+
-+struct rocker;
-+
-+enum {
-+	ROCKER_CTRL_LINK_LOCAL_MCAST,
-+	ROCKER_CTRL_LOCAL_ARP,
-+	ROCKER_CTRL_IPV4_MCAST,
-+	ROCKER_CTRL_IPV6_MCAST,
-+	ROCKER_CTRL_DFLT_BRIDGING,
-+	ROCKER_CTRL_DFLT_OVS,
-+	ROCKER_CTRL_MAX,
-+};
-+
-+#define ROCKER_INTERNAL_VLAN_ID_BASE	0x0f00
-+#define ROCKER_N_INTERNAL_VLANS		255
-+#define ROCKER_VLAN_BITMAP_LEN		BITS_TO_LONGS(VLAN_N_VID)
-+#define ROCKER_INTERNAL_VLAN_BITMAP_LEN	BITS_TO_LONGS(ROCKER_N_INTERNAL_VLANS)
-+
-+struct rocker_port {
-+	struct net_device *dev;
-+	struct net_device *bridge_dev;
-+	struct rocker *rocker;
-+	unsigned int port_number;
-+	u32 pport;
-+	__be16 internal_vlan_id;
-+	int stp_state;
-+	u32 brport_flags;
-+	unsigned long ageing_time;
-+	bool ctrls[ROCKER_CTRL_MAX];
-+	unsigned long vlan_bitmap[ROCKER_VLAN_BITMAP_LEN];
-+	struct napi_struct napi_tx;
-+	struct napi_struct napi_rx;
-+	struct rocker_dma_ring_info tx_ring;
-+	struct rocker_dma_ring_info rx_ring;
-+};
-+
-+struct rocker {
-+	struct pci_dev *pdev;
-+	u8 __iomem *hw_addr;
-+	struct msix_entry *msix_entries;
-+	unsigned int port_count;
-+	struct rocker_port **ports;
-+	struct {
-+		u64 id;
-+	} hw;
-+	spinlock_t cmd_ring_lock;		/* for cmd ring accesses */
-+	struct rocker_dma_ring_info cmd_ring;
-+	struct rocker_dma_ring_info event_ring;
-+	DECLARE_HASHTABLE(flow_tbl, 16);
-+	spinlock_t flow_tbl_lock;		/* for flow tbl accesses */
-+	u64 flow_tbl_next_cookie;
-+	DECLARE_HASHTABLE(group_tbl, 16);
-+	spinlock_t group_tbl_lock;		/* for group tbl accesses */
-+	struct timer_list fdb_cleanup_timer;
-+	DECLARE_HASHTABLE(fdb_tbl, 16);
-+	spinlock_t fdb_tbl_lock;		/* for fdb tbl accesses */
-+	unsigned long internal_vlan_bitmap[ROCKER_INTERNAL_VLAN_BITMAP_LEN];
-+	DECLARE_HASHTABLE(internal_vlan_tbl, 8);
-+	spinlock_t internal_vlan_tbl_lock;	/* for vlan tbl accesses */
-+	DECLARE_HASHTABLE(neigh_tbl, 16);
-+	spinlock_t neigh_tbl_lock;		/* for neigh tbl accesses */
-+	u32 neigh_tbl_next_index;
-+};
-+
- #endif
 diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index 1a99b35..a67a6c7 100644
+index 871ccbe..0015dcb 100644
 --- a/drivers/net/ethernet/rocker/rocker_main.c
 +++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -179,79 +179,6 @@ struct rocker_neigh_tbl_entry {
- 	bool ttl_check;
- };
+@@ -1583,6 +1583,7 @@ rocker_cmd_set_port_learning_prep(const struct rocker_port *rocker_port,
+ 				  struct rocker_desc_info *desc_info,
+ 				  void *priv)
+ {
++	bool learning = *(bool *)priv;
+ 	struct rocker_tlv *cmd_info;
  
--struct rocker_dma_ring_info {
--	size_t size;
--	u32 head;
--	u32 tail;
--	struct rocker_desc *desc; /* mapped */
--	dma_addr_t mapaddr;
--	struct rocker_desc_info *desc_info;
--	unsigned int type;
--};
--
--struct rocker;
--
--enum {
--	ROCKER_CTRL_LINK_LOCAL_MCAST,
--	ROCKER_CTRL_LOCAL_ARP,
--	ROCKER_CTRL_IPV4_MCAST,
--	ROCKER_CTRL_IPV6_MCAST,
--	ROCKER_CTRL_DFLT_BRIDGING,
--	ROCKER_CTRL_DFLT_OVS,
--	ROCKER_CTRL_MAX,
--};
--
--#define ROCKER_INTERNAL_VLAN_ID_BASE	0x0f00
--#define ROCKER_N_INTERNAL_VLANS		255
--#define ROCKER_VLAN_BITMAP_LEN		BITS_TO_LONGS(VLAN_N_VID)
--#define ROCKER_INTERNAL_VLAN_BITMAP_LEN	BITS_TO_LONGS(ROCKER_N_INTERNAL_VLANS)
--
--struct rocker_port {
--	struct net_device *dev;
--	struct net_device *bridge_dev;
--	struct rocker *rocker;
--	unsigned int port_number;
--	u32 pport;
--	__be16 internal_vlan_id;
--	int stp_state;
--	u32 brport_flags;
--	unsigned long ageing_time;
--	bool ctrls[ROCKER_CTRL_MAX];
--	unsigned long vlan_bitmap[ROCKER_VLAN_BITMAP_LEN];
--	struct napi_struct napi_tx;
--	struct napi_struct napi_rx;
--	struct rocker_dma_ring_info tx_ring;
--	struct rocker_dma_ring_info rx_ring;
--};
--
--struct rocker {
--	struct pci_dev *pdev;
--	u8 __iomem *hw_addr;
--	struct msix_entry *msix_entries;
--	unsigned int port_count;
--	struct rocker_port **ports;
--	struct {
--		u64 id;
--	} hw;
--	spinlock_t cmd_ring_lock;		/* for cmd ring accesses */
--	struct rocker_dma_ring_info cmd_ring;
--	struct rocker_dma_ring_info event_ring;
--	DECLARE_HASHTABLE(flow_tbl, 16);
--	spinlock_t flow_tbl_lock;		/* for flow tbl accesses */
--	u64 flow_tbl_next_cookie;
--	DECLARE_HASHTABLE(group_tbl, 16);
--	spinlock_t group_tbl_lock;		/* for group tbl accesses */
--	struct timer_list fdb_cleanup_timer;
--	DECLARE_HASHTABLE(fdb_tbl, 16);
--	spinlock_t fdb_tbl_lock;		/* for fdb tbl accesses */
--	unsigned long internal_vlan_bitmap[ROCKER_INTERNAL_VLAN_BITMAP_LEN];
--	DECLARE_HASHTABLE(internal_vlan_tbl, 8);
--	spinlock_t internal_vlan_tbl_lock;	/* for vlan tbl accesses */
--	DECLARE_HASHTABLE(neigh_tbl, 16);
--	spinlock_t neigh_tbl_lock;		/* for neigh tbl accesses */
--	u32 neigh_tbl_next_index;
--};
--
- static const u8 zero_mac[ETH_ALEN]   = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
- static const u8 ff_mac[ETH_ALEN]     = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
- static const u8 ll_mac[ETH_ALEN]     = { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
+ 	if (rocker_tlv_put_u16(desc_info, ROCKER_TLV_CMD_TYPE,
+@@ -1595,7 +1596,7 @@ rocker_cmd_set_port_learning_prep(const struct rocker_port *rocker_port,
+ 			       rocker_port->pport))
+ 		return -EMSGSIZE;
+ 	if (rocker_tlv_put_u8(desc_info, ROCKER_TLV_CMD_PORT_SETTINGS_LEARNING,
+-			      !!(rocker_port->brport_flags & BR_LEARNING)))
++			      learning))
+ 		return -EMSGSIZE;
+ 	rocker_tlv_nest_end(desc_info, cmd_info);
+ 	return 0;
+@@ -1652,11 +1653,12 @@ static int rocker_cmd_set_port_settings_mtu(struct rocker_port *rocker_port,
+ }
+ 
+ static int rocker_port_set_learning(struct rocker_port *rocker_port,
+-				    struct switchdev_trans *trans)
++				    struct switchdev_trans *trans,
++				    bool learning)
+ {
+ 	return rocker_cmd_exec(rocker_port, trans, 0,
+ 			       rocker_cmd_set_port_learning_prep,
+-			       NULL, NULL, NULL);
++			       &learning, NULL, NULL);
+ }
+ 
+ /**********************
+@@ -4447,7 +4449,8 @@ static int rocker_port_brport_flags_set(struct rocker_port *rocker_port,
+ 	orig_flags = rocker_port->brport_flags;
+ 	rocker_port->brport_flags = brport_flags;
+ 	if ((orig_flags ^ rocker_port->brport_flags) & BR_LEARNING)
+-		err = rocker_port_set_learning(rocker_port, trans);
++		err = rocker_port_set_learning(rocker_port, trans,
++					       !!(rocker_port->brport_flags & BR_LEARNING));
+ 
+ 	if (switchdev_trans_ph_prepare(trans))
+ 		rocker_port->brport_flags = orig_flags;
+@@ -5182,7 +5185,8 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+ 
+ 	switchdev_port_fwd_mark_set(rocker_port->dev, NULL, false);
+ 
+-	rocker_port_set_learning(rocker_port, NULL);
++	rocker_port_set_learning(rocker_port, NULL,
++				 !!(rocker_port->brport_flags & BR_LEARNING));
+ 
+ 	err = rocker_port_ig_tbl(rocker_port, NULL, 0);
+ 	if (err) {
 -- 
 1.9.3
