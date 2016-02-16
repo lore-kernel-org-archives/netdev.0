@@ -1,44 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
-Date: Tue, 16 Feb 2016 23:15:36 +0100
-Message-ID: <20160216221536.GB6033@lunn.ch>
-References: <20160216203625.GC2558@lunn.ch>
- <20160216.154358.164326104187806534.davem@davemloft.net>
- <90A7E81AE28BAE4CBDDB3B35F187D264402EFB5D@CHN-SV-EXMX02.mchp-main.com>
- <20160216.155244.2052910262411568012.davem@davemloft.net>
- <90A7E81AE28BAE4CBDDB3B35F187D264402EFB82@CHN-SV-EXMX02.mchp-main.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, f.fainelli@gmail.com, netdev@vger.kernel.org
-To: Bryan.Whitehead@microchip.com
+From: John Holland <jotihojr@gmail.com>
+Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on i211 using a device tree blob V2
+Date: Tue, 16 Feb 2016 23:34:07 +0100
+Message-ID: <255BB17A-515B-467A-8ED6-96F1173D233E@gmail.com>
+References: <56BFA87D.1010609@gmail.com> <20160216165850.GF29482@lunn.ch>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:47851 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756269AbcBPWPk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2016 17:15:40 -0500
-Content-Disposition: inline
-In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264402EFB82@CHN-SV-EXMX02.mchp-main.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:34629 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756115AbcBPWeK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 17:34:10 -0500
+Received: by mail-wm0-f51.google.com with SMTP id b205so130819234wmb.1
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 14:34:09 -0800 (PST)
+In-Reply-To: <20160216165850.GF29482@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I just spoke with my manager, and we would like to change the target
-> device from LAN9352 to LAN9250. The LAN9250 is the same as the
-> LAN9352 but without the switch. It has one mac and one phy.
 
-It is not so easy to get an overview from the website, but it looks
-like:
+> On Feb 16, 2016, at 17:58, Andrew Lunn <andrew@lunn.ch> wrote:
+> 
+>> On Sat, Feb 13, 2016 at 11:04:45PM +0100, John Holland wrote:
+>> Hello,
+>> 
+>> The Intel i211 LOM pcie ethernet controllers' iNVM operates as an
+>> OTP and has no externel EEPROM interface [1]. The following allows
+>> the driver to pickup the MAC address from a device tree blob when
+>> CONFIG_OF has been enabled.
+>> 
+>> [1] http://www.intel.com/content/www/us/en/embedded/products/networking/i211-ethernet-controller-datasheet.html
+>> 
+>> Changes V2
+>> - Restrict searching for compatible devices to current pci device.
+>> 
+>> Signed-off-by: John Holland <jotihojr@gmail.com>
+> 
+> Hi John
+> 
+> Thanks for fixing multiple device support.
+> 
+> Please could you add documentation in
+> Documentation/devicetree/bindings/net. I know these are standard
+> properties, but it is somewhat unusual to attach them to a PCI node,
+> so having an example would be good.
+> 
+>   Thanks
+>    Andrew
 
-LAN9250 - one port MAC/PHY
-LAN9352 - 10/100 2-Port Managed Ethernet Switch
-LAN9353 - 10/100 3-Port Managed Ethernet with Dual RMII or Single MII/RMII/Turbo MII
-LAN9354 - 10/100 3-Port Managed Ethernet Switch with Single RMII
-LAN9355 - 10/100 3-Port Managed Ethernet Switch with Dual MII/RMII/Turbo MII
+Odd that the marvel sky2 allows just that, but supplies no documentation.
 
-So i get the feeling this product line is for switches, and the
-LAN9250 is an oddball in the series.
+I can supply some kind of usage description/example, showing how to use this feature to pull in the MAC address from u-boot and route it to the i210. Just uncertain as how to name the respective file. igb.txt or i210.txt come to mind. Do you prefer one over the other?
 
-You are already 1/2 way to a DSA driver, since you have a MAC
-driver. So i agree with David, do it right and add a simple DSA
-driver.
-
-	Andrew
+John
