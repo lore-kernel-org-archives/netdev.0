@@ -1,98 +1,82 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional
-Date: Tue, 16 Feb 2016 08:16:47 -0700
-Message-ID: <56C33D5F.2060005@cumulusnetworks.com>
-References: <1455402207-9217-1-git-send-email-dsa@cumulusnetworks.com>
- <56C2E1BD.30006@miraclelinux.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next PATCH v2 1/1] net_sched fix: reclassification needs
+ to consider ether protocol changes
+Date: Tue, 16 Feb 2016 16:20:56 +0100
+Message-ID: <56C33E58.9090007@iogearbox.net>
+References: <1455626225-16382-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:36657 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751832AbcBPPRX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 10:17:23 -0500
-Received: by mail-ob0-f171.google.com with SMTP id gc3so161555453obb.3
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 07:17:22 -0800 (PST)
-In-Reply-To: <56C2E1BD.30006@miraclelinux.com>
+Received: from www62.your-server.de ([213.133.104.62]:56398 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750897AbcBPPVA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 10:21:00 -0500
+In-Reply-To: <1455626225-16382-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/16/16 1:45 AM, YOSHIFUJI Hideaki wrote:
->> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
->> index 24ce97f42d35..7ddbbb67f0db 100644
->> --- a/Documentation/networking/ip-sysctl.txt
->> +++ b/Documentation/networking/ip-sysctl.txt
->> @@ -1563,6 +1563,12 @@ temp_prefered_lft - INTEGER
->>   	Preferred lifetime (in seconds) for temporary addresses.
->>   	Default: 86400 (1 day)
->>   
->> +keep_addr_on_down - BOOLEAN
->> +	Keep all IPv6 addresses on an interface down event. If set static
->> +	global addresses with no expiration time are not flushed.
->> +
->> +	Default: disabled
->> +
-> 
-> How about this:
->     1: enabled
->     0: system default
->    -1: disabled
-> so that an iterface can override system-wide config?
+On 02/16/2016 01:37 PM, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>
+> actions could change the etherproto in particular with ethernet
+> tunnelled data. Typically such actions, after peeling the outer heade=
+r,
+> will ask for the packet to be  reclassified. We then need to restart
+> the classification with the new proto header.
+>
+> Example setup used to catch this:
+> sudo tc qdisc add dev $ETH ingress
+> sudo $TC filter add dev $ETH parent ffff: pref 1 protocol 802.1Q \
+> u32 match u32 0 0 flowid 1:1 \
+> action vlan pop reclassify
+>
+> Fixes: 3b3ae880266d ("net: sched: consolidate tc_classify{,_compat}")
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> ---
+>   net/sched/sch_api.c | 7 ++++---
+>   1 file changed, 4 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+> index b5c2cf2..22ab634 100644
+> --- a/net/sched/sch_api.c
+> +++ b/net/sched/sch_api.c
+> @@ -1818,13 +1818,14 @@ done:
+>   int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+>   		struct tcf_result *res, bool compat_mode)
+>   {
+> -	__be16 protocol =3D tc_skb_protocol(skb);
+>   #ifdef CONFIG_NET_CLS_ACT
+> -	const struct tcf_proto *old_tp =3D tp;
+>   	int limit =3D 0;
+> +#endif
+> +	const struct tcf_proto *old_tp =3D tp;
+> +	__be16 protocol;
+>
+>   reclassify:
+> -#endif
+> +	protocol =3D tc_skb_protocol(skb);
+>   	for (; tp; tp =3D rcu_dereference_bh(tp->next)) {
+>   		int err;
+>
 
-It is my understanding that the 'all' settings override the individual
-interface settings. From Documentation/networking/ip-sysctl.txt +1346:
+But, how is that better than the one-liner I suggested to you in
+my earlier mail?
 
-conf/all/*:
-        Change all the interface-specific settings.
+With this patch, I now get :
 
-
------8<-----
-
-
->> diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
->> index 1c8b6820b694..01ba6a286a4b 100644
->> --- a/include/net/if_inet6.h
->> +++ b/include/net/if_inet6.h
->> @@ -72,6 +72,7 @@ struct inet6_ifaddr {
->>   	int			regen_count;
->>   
->>   	bool			tokenized;
->> +	bool			user_managed;
-> 
-> Can't we use IFA_F_PERMANENT?
-
-I think so. Will fix.
-
-
------8<-----
-
->> @@ -3356,7 +3413,9 @@ static int addrconf_ifdown(struct net_device *dev, int how)
->>   {
->>   	struct net *net = dev_net(dev);
->>   	struct inet6_dev *idev;
->> -	struct inet6_ifaddr *ifa;
->> +	struct inet6_ifaddr *ifa, *tmp;
->> +	struct list_head del_list;
->> +	int keep_addr;
->>   	int state, i;
->>   
->>   	ASSERT_RTNL();
->> @@ -3383,6 +3442,10 @@ static int addrconf_ifdown(struct net_device *dev, int how)
->>   
->>   	}
->>   
->> +	keep_addr = net->ipv6.devconf_all->keep_addr_on_down;
->> +	if (!keep_addr)
->> +		keep_addr = idev->cnf.keep_addr_on_down;
->> +
->>   	/* Step 2: clear hash table */
->>   	for (i = 0; i < IN6_ADDR_HSIZE; i++) {
->>   		struct hlist_head *h = &inet6_addr_lst[i];
-
-So what I have here is if the system-wide setting says keep the address
-it is kept. Else if the individual interface setting is enabled the
-address is kept.
+   CC      net/sched/sch_api.o
+net/sched/sch_api.c: In function =91tc_classify=92:
+net/sched/sch_api.c:1827:1: warning: label =91reclassify=92 defined but=
+ not used [-Wunused-label]
+  reclassify:
+  ^
+net/sched/sch_api.c:1824:26: warning: unused variable =91old_tp=92 [-Wu=
+nused-variable]
+   const struct tcf_proto *old_tp =3D tp;
+                           ^
+Thanks,
+Daniel
