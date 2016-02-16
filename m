@@ -1,244 +1,260 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/14] igb: Allow asymmetric configuration of MTU versus Rx frame size
-Date: Mon, 15 Feb 2016 19:21:47 -0800
-Message-ID: <1455592915-82261-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/14] igb: Clean-up configuration of VF port VLANs
+Date: Mon, 15 Feb 2016 19:21:51 -0800
+Message-ID: <1455592915-82261-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455592915-82261-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:57142 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:14083 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753324AbcBPDWD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Feb 2016 22:22:03 -0500
+	id S1753348AbcBPDWF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Feb 2016 22:22:05 -0500
 In-Reply-To: <1455592915-82261-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <aduyck@mirantis.com>
 
-Since the igb driver is using page based receive there is no point in
-limiting the Rx capabilities of the device.  The driver can receive 9K
-jumbo frames at all times.  The only changes needed due to MTU changes are
-updates for the FIFO sizes and flow-control watermarks.
-
-Update the maximum frame size to reflect the 9.5K limitation of the
-hardware, and replace all instances of max_frame_size with
-MAX_JUMBO_FRAME_SIZE when referring to an Rx FIFO or frame.
+This patch is meant to clean-up the configuration of the VF port based VLAN
+configuration.  The original logic was a bit muddled and had some
+undesirable side effects such as VLANs being either completely stripped
+from the port or VLANs being left when they shouldn't be.  The idea behind
+this code is to avoid any events such as spurious spoof notifications when
+we are removing one VLAN tag and replacing it with another.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_defines.h |   3 +-
- drivers/net/ethernet/intel/igb/igb_main.c      | 107 +++++++++----------------
- 2 files changed, 42 insertions(+), 68 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 181 ++++++++++++++++++------------
+ 1 file changed, 110 insertions(+), 71 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index c3c598c..e9f23ee 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -356,7 +356,8 @@
- /* Ethertype field values */
- #define ETHERNET_IEEE_VLAN_TYPE 0x8100  /* 802.3ac packet */
- 
--#define MAX_JUMBO_FRAME_SIZE    0x3F00
-+/* As per the EAS the maximum supported size is 9.5KB (9728 bytes) */
-+#define MAX_JUMBO_FRAME_SIZE	0x2600
- 
- /* PBA constants */
- #define E1000_PBA_34K 0x0022
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 02f19e4..b676881 100644
+index e7c3a94..6876ae5 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1862,7 +1862,7 @@ void igb_reset(struct igb_adapter *adapter)
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct e1000_mac_info *mac = &hw->mac;
- 	struct e1000_fc_info *fc = &hw->fc;
--	u32 pba = 0, tx_space, min_tx_space, min_rx_space, hwm;
-+	u32 pba, hwm;
- 
- 	/* Repartition Pba for greater than 9k mtu
- 	 * To take effect CTRL.RST is required.
-@@ -1886,9 +1886,10 @@ void igb_reset(struct igb_adapter *adapter)
- 		break;
+@@ -5786,53 +5786,6 @@ static void igb_clear_vf_vfta(struct igb_adapter *adapter, u32 vf)
  	}
- 
--	if ((adapter->max_frame_size > ETH_FRAME_LEN + ETH_FCS_LEN) &&
--	    (mac->type < e1000_82576)) {
--		/* adjust PBA for jumbo frames */
-+	if (mac->type == e1000_82575) {
-+		u32 min_rx_space, min_tx_space, needed_tx_space;
-+
-+		/* write Rx PBA so that hardware can report correct Tx PBA */
- 		wr32(E1000_PBA, pba);
- 
- 		/* To maintain wire speed transmits, the Tx FIFO should be
-@@ -1898,31 +1899,26 @@ void igb_reset(struct igb_adapter *adapter)
- 		 * one full receive packet and is similarly rounded up and
- 		 * expressed in KB.
- 		 */
--		pba = rd32(E1000_PBA);
--		/* upper 16 bits has Tx packet buffer allocation size in KB */
--		tx_space = pba >> 16;
--		/* lower 16 bits has Rx packet buffer allocation size in KB */
--		pba &= 0xffff;
--		/* the Tx fifo also stores 16 bytes of information about the Tx
--		 * but don't include ethernet FCS because hardware appends it
-+		min_rx_space = DIV_ROUND_UP(MAX_JUMBO_FRAME_SIZE, 1024);
-+
-+		/* The Tx FIFO also stores 16 bytes of information about the Tx
-+		 * but don't include Ethernet FCS because hardware appends it.
-+		 * We only need to round down to the nearest 512 byte block
-+		 * count since the value we care about is 2 frames, not 1.
- 		 */
--		min_tx_space = (adapter->max_frame_size +
--				sizeof(union e1000_adv_tx_desc) -
--				ETH_FCS_LEN) * 2;
--		min_tx_space = ALIGN(min_tx_space, 1024);
--		min_tx_space >>= 10;
--		/* software strips receive CRC, so leave room for it */
--		min_rx_space = adapter->max_frame_size;
--		min_rx_space = ALIGN(min_rx_space, 1024);
--		min_rx_space >>= 10;
-+		min_tx_space = adapter->max_frame_size;
-+		min_tx_space += sizeof(union e1000_adv_tx_desc) - ETH_FCS_LEN;
-+		min_tx_space = DIV_ROUND_UP(min_tx_space, 512);
-+
-+		/* upper 16 bits has Tx packet buffer allocation size in KB */
-+		needed_tx_space = min_tx_space - (rd32(E1000_PBA) >> 16);
- 
- 		/* If current Tx allocation is less than the min Tx FIFO size,
- 		 * and the min Tx FIFO size is less than the current Rx FIFO
--		 * allocation, take space away from current Rx allocation
-+		 * allocation, take space away from current Rx allocation.
- 		 */
--		if (tx_space < min_tx_space &&
--		    ((min_tx_space - tx_space) < pba)) {
--			pba = pba - (min_tx_space - tx_space);
-+		if (needed_tx_space < pba) {
-+			pba -= needed_tx_space;
- 
- 			/* if short on Rx space, Rx wins and must trump Tx
- 			 * adjustment
-@@ -1930,18 +1926,20 @@ void igb_reset(struct igb_adapter *adapter)
- 			if (pba < min_rx_space)
- 				pba = min_rx_space;
- 		}
-+
-+		/* adjust PBA for jumbo frames */
- 		wr32(E1000_PBA, pba);
- 	}
- 
--	/* flow control settings */
--	/* The high water mark must be low enough to fit one full frame
--	 * (or the size used for early receive) above it in the Rx FIFO.
--	 * Set it to the lower of:
--	 * - 90% of the Rx FIFO size, or
--	 * - the full Rx FIFO size minus one full frame
-+	/* flow control settings
-+	 * The high water mark must be low enough to fit one full frame
-+	 * after transmitting the pause frame.  As such we must have enough
-+	 * space to allow for us to complete our current transmit and then
-+	 * receive the frame that is in progress from the link partner.
-+	 * Set it to:
-+	 * - the full Rx FIFO size minus one full Tx plus one full Rx frame
- 	 */
--	hwm = min(((pba << 10) * 9 / 10),
--			((pba << 10) - 2 * adapter->max_frame_size));
-+	hwm = (pba << 10) - (adapter->max_frame_size + MAX_JUMBO_FRAME_SIZE);
- 
- 	fc->high_water = hwm & 0xFFFFFFF0;	/* 16-byte granularity */
- 	fc->low_water = fc->high_water - 16;
-@@ -3492,7 +3490,7 @@ void igb_setup_rctl(struct igb_adapter *adapter)
- 	/* disable store bad packets and clear size bits. */
- 	rctl &= ~(E1000_RCTL_SBP | E1000_RCTL_SZ_256);
- 
--	/* enable LPE to prevent packets larger than max_frame_size */
-+	/* enable LPE to allow for reception of jumbo frames */
- 	rctl |= E1000_RCTL_LPE;
- 
- 	/* disable queue 0 to prevent tail write w/o re-config */
-@@ -3548,32 +3546,6 @@ static inline int igb_set_vf_rlpml(struct igb_adapter *adapter, int size,
- 	return 0;
  }
  
--/**
-- *  igb_rlpml_set - set maximum receive packet size
-- *  @adapter: board private structure
-- *
-- *  Configure maximum receivable packet size.
-- **/
--static void igb_rlpml_set(struct igb_adapter *adapter)
+-static void igb_set_vmvir(struct igb_adapter *adapter, u32 vid, u32 vf)
 -{
--	u32 max_frame_size = adapter->max_frame_size;
 -	struct e1000_hw *hw = &adapter->hw;
--	u16 pf_id = adapter->vfs_allocated_count;
 -
--	if (pf_id) {
--		igb_set_vf_rlpml(adapter, max_frame_size, pf_id);
--		/* If we're in VMDQ or SR-IOV mode, then set global RLPML
--		 * to our max jumbo frame size, in case we need to enable
--		 * jumbo frames on one of the rings later.
--		 * This will not pass over-length frames into the default
--		 * queue because it's gated by the VMOLR.RLPML.
--		 */
--		max_frame_size = MAX_JUMBO_FRAME_SIZE;
--	}
--
--	wr32(E1000_RLPML, max_frame_size);
+-	if (vid)
+-		wr32(E1000_VMVIR(vf), (vid | E1000_VMVIR_VLANA_DEFAULT));
+-	else
+-		wr32(E1000_VMVIR(vf), 0);
 -}
 -
- static inline void igb_set_vmolr(struct igb_adapter *adapter,
- 				 int vfn, bool aupe)
- {
-@@ -4067,7 +4039,14 @@ static void igb_set_rx_mode(struct net_device *netdev)
- 
- 	vmolr |= rd32(E1000_VMOLR(vfn)) &
- 		 ~(E1000_VMOLR_ROPE | E1000_VMOLR_MPME | E1000_VMOLR_ROMPE);
-+
-+	/* enable Rx jumbo frames, no need for restriction */
-+	vmolr &= ~E1000_VMOLR_RLPML_MASK;
-+	vmolr |= MAX_JUMBO_FRAME_SIZE | E1000_VMOLR_LPE;
-+
- 	wr32(E1000_VMOLR(vfn), vmolr);
-+	wr32(E1000_RLPML, MAX_JUMBO_FRAME_SIZE);
-+
- 	igb_restore_vf_multicasts(adapter);
- }
- 
-@@ -7195,8 +7174,6 @@ static void igb_vlan_mode(struct net_device *netdev, netdev_features_t features)
- 		ctrl &= ~E1000_CTRL_VME;
- 		wr32(E1000_CTRL, ctrl);
- 	}
+-static int igb_ndo_set_vf_vlan(struct net_device *netdev,
+-			       int vf, u16 vlan, u8 qos)
+-{
+-	struct igb_adapter *adapter = netdev_priv(netdev);
+-	struct e1000_hw *hw = &adapter->hw;
+-	int err = 0;
 -
--	igb_rlpml_set(adapter);
+-	if ((vf >= adapter->vfs_allocated_count) || (vlan > 4095) || (qos > 7))
+-		return -EINVAL;
+-	if (vlan || qos) {
+-		err = igb_vfta_set(hw, vlan, vf, !!vlan, false);
+-		if (err)
+-			goto out;
+-		igb_set_vmvir(adapter, vlan | (qos << VLAN_PRIO_SHIFT), vf);
+-		igb_set_vmolr(adapter, vf, !vlan);
+-		adapter->vf_data[vf].pf_vlan = vlan;
+-		adapter->vf_data[vf].pf_qos = qos;
+-		dev_info(&adapter->pdev->dev,
+-			 "Setting VLAN %d, QOS 0x%x on VF %d\n", vlan, qos, vf);
+-		if (test_bit(__IGB_DOWN, &adapter->state)) {
+-			dev_warn(&adapter->pdev->dev,
+-				 "The VF VLAN has been set, but the PF device is not up.\n");
+-			dev_warn(&adapter->pdev->dev,
+-				 "Bring the PF device up before attempting to use the VF device.\n");
+-		}
+-	} else {
+-		igb_vfta_set(hw, adapter->vf_data[vf].pf_vlan, vf,
+-			     false, false);
+-		igb_set_vmvir(adapter, vlan, vf);
+-		igb_set_vmolr(adapter, vf, true);
+-		adapter->vf_data[vf].pf_vlan = 0;
+-		adapter->vf_data[vf].pf_qos = 0;
+-	}
+-out:
+-	return err;
+-}
+-
+ static int igb_find_vlvf_entry(struct igb_adapter *adapter, int vid)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+@@ -5853,23 +5806,25 @@ static int igb_find_vlvf_entry(struct igb_adapter *adapter, int vid)
+ 	return i;
  }
  
- static int igb_vlan_rx_add_vid(struct net_device *netdev,
-@@ -7952,9 +7929,7 @@ static void igb_init_dmac(struct igb_adapter *adapter, u32 pba)
- 			 * than the Rx threshold. Set hwm to PBA - max frame
- 			 * size in 16B units, capping it at PBA - 6KB.
- 			 */
--			hwm = 64 * pba - adapter->max_frame_size / 16;
--			if (hwm < 64 * (pba - 6))
--				hwm = 64 * (pba - 6);
-+			hwm = 64 * (pba - 6);
- 			reg = rd32(E1000_FCRTC);
- 			reg &= ~E1000_FCRTC_RTH_COAL_MASK;
- 			reg |= ((hwm << E1000_FCRTC_RTH_COAL_SHIFT)
-@@ -7964,9 +7939,7 @@ static void igb_init_dmac(struct igb_adapter *adapter, u32 pba)
- 			/* Set the DMA Coalescing Rx threshold to PBA - 2 * max
- 			 * frame size, capping it at PBA - 10KB.
- 			 */
--			dmac_thr = pba - adapter->max_frame_size / 512;
--			if (dmac_thr < pba - 10)
--				dmac_thr = pba - 10;
-+			dmac_thr = pba - 10;
- 			reg = rd32(E1000_DMACR);
- 			reg &= ~E1000_DMACR_DMACTHR_MASK;
- 			reg |= ((dmac_thr << E1000_DMACR_DMACTHR_SHIFT)
+-static int igb_set_vf_vlan(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
++static s32 igb_set_vf_vlan(struct igb_adapter *adapter, u32 vid,
++			   bool add, u32 vf)
+ {
++	int pf_id = adapter->vfs_allocated_count;
+ 	struct e1000_hw *hw = &adapter->hw;
+-	int add = (msgbuf[0] & E1000_VT_MSGINFO_MASK) >> E1000_VT_MSGINFO_SHIFT;
+-	int vid = (msgbuf[1] & E1000_VLVF_VLANID_MASK);
+-	int err = 0;
++	int err;
+ 
+-	/* If in promiscuous mode we need to make sure the PF also has
+-	 * the VLAN filter set.
++	/* If VLAN overlaps with one the PF is currently monitoring make
++	 * sure that we are able to allocate a VLVF entry.  This may be
++	 * redundant but it guarantees PF will maintain visibility to
++	 * the VLAN.
+ 	 */
+-	if (add && (adapter->netdev->flags & IFF_PROMISC))
+-		err = igb_vfta_set(hw, vid, adapter->vfs_allocated_count,
+-				   true, false);
+-	if (err)
+-		goto out;
++	if (add && (adapter->netdev->flags & IFF_PROMISC)) {
++		err = igb_vfta_set(hw, vid, pf_id, true, false);
++		if (err)
++			return err;
++	}
+ 
+-	err = igb_vfta_set(hw, vid, vf, !!add, false);
++	err = igb_vfta_set(hw, vid, vf, add, false);
+ 
+ 	if (err)
+ 		goto out;
+@@ -5904,23 +5859,107 @@ out:
+ 	return err;
+ }
+ 
+-static inline void igb_vf_reset(struct igb_adapter *adapter, u32 vf)
++static void igb_set_vmvir(struct igb_adapter *adapter, u32 vid, u32 vf)
+ {
+-	/* clear flags - except flag that indicates PF has set the MAC */
+-	adapter->vf_data[vf].flags &= IGB_VF_FLAG_PF_SET_MAC;
+-	adapter->vf_data[vf].last_nack = jiffies;
++	struct e1000_hw *hw = &adapter->hw;
+ 
+-	/* reset offloads to defaults */
++	if (vid)
++		wr32(E1000_VMVIR(vf), (vid | E1000_VMVIR_VLANA_DEFAULT));
++	else
++		wr32(E1000_VMVIR(vf), 0);
++}
++
++static int igb_enable_port_vlan(struct igb_adapter *adapter, int vf,
++				u16 vlan, u8 qos)
++{
++	int err;
++
++	err = igb_set_vf_vlan(adapter, vlan, true, vf);
++	if (err)
++		return err;
++
++	igb_set_vmvir(adapter, vlan | (qos << VLAN_PRIO_SHIFT), vf);
++	igb_set_vmolr(adapter, vf, !vlan);
++
++	/* revoke access to previous VLAN */
++	if (vlan != adapter->vf_data[vf].pf_vlan)
++		igb_set_vf_vlan(adapter, adapter->vf_data[vf].pf_vlan,
++				false, vf);
++
++	adapter->vf_data[vf].pf_vlan = vlan;
++	adapter->vf_data[vf].pf_qos = qos;
++	dev_info(&adapter->pdev->dev,
++		 "Setting VLAN %d, QOS 0x%x on VF %d\n", vlan, qos, vf);
++	if (test_bit(__IGB_DOWN, &adapter->state)) {
++		dev_warn(&adapter->pdev->dev,
++			 "The VF VLAN has been set, but the PF device is not up.\n");
++		dev_warn(&adapter->pdev->dev,
++			 "Bring the PF device up before attempting to use the VF device.\n");
++	}
++
++	return err;
++}
++
++static int igb_disable_port_vlan(struct igb_adapter *adapter, int vf)
++{
++	/* Restore tagless access via VLAN 0 */
++	igb_set_vf_vlan(adapter, 0, true, vf);
++
++	igb_set_vmvir(adapter, 0, vf);
+ 	igb_set_vmolr(adapter, vf, true);
+ 
++	/* Remove any PF assigned VLAN */
++	if (adapter->vf_data[vf].pf_vlan)
++		igb_set_vf_vlan(adapter, adapter->vf_data[vf].pf_vlan,
++				false, vf);
++
++	adapter->vf_data[vf].pf_vlan = 0;
++	adapter->vf_data[vf].pf_qos = 0;
++
++	return 0;
++}
++
++static int igb_ndo_set_vf_vlan(struct net_device *netdev,
++			       int vf, u16 vlan, u8 qos)
++{
++	struct igb_adapter *adapter = netdev_priv(netdev);
++
++	if ((vf >= adapter->vfs_allocated_count) || (vlan > 4095) || (qos > 7))
++		return -EINVAL;
++
++	return (vlan || qos) ? igb_enable_port_vlan(adapter, vf, vlan, qos) :
++			       igb_disable_port_vlan(adapter, vf);
++}
++
++static int igb_set_vf_vlan_msg(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
++{
++	int add = (msgbuf[0] & E1000_VT_MSGINFO_MASK) >> E1000_VT_MSGINFO_SHIFT;
++	int vid = (msgbuf[1] & E1000_VLVF_VLANID_MASK);
++
++	if (adapter->vf_data[vf].pf_vlan)
++		return -1;
++
++	/* VLAN 0 is a special case, don't allow it to be removed */
++	if (!vid && !add)
++		return 0;
++
++	return igb_set_vf_vlan(adapter, vid, !!add, vf);
++}
++
++static inline void igb_vf_reset(struct igb_adapter *adapter, u32 vf)
++{
++	struct vf_data_storage *vf_data = &adapter->vf_data[vf];
++
++	/* clear flags - except flag that indicates PF has set the MAC */
++	vf_data->flags &= IGB_VF_FLAG_PF_SET_MAC;
++	vf_data->last_nack = jiffies;
++
+ 	/* reset vlans for device */
+ 	igb_clear_vf_vfta(adapter, vf);
+-	if (adapter->vf_data[vf].pf_vlan)
+-		igb_ndo_set_vf_vlan(adapter->netdev, vf,
+-				    adapter->vf_data[vf].pf_vlan,
+-				    adapter->vf_data[vf].pf_qos);
+-	else
+-		igb_clear_vf_vfta(adapter, vf);
++	igb_set_vf_vlan(adapter, vf_data->pf_vlan, true, vf);
++	igb_set_vmvir(adapter, vf_data->pf_vlan |
++			       (vf_data->pf_qos << VLAN_PRIO_SHIFT), vf);
++	igb_set_vmolr(adapter, vf, !vf_data->pf_vlan);
+ 
+ 	/* reset multicast table array for vf */
+ 	adapter->vf_data[vf].num_vf_mc_hashes = 0;
+@@ -6065,7 +6104,7 @@ static void igb_rcv_msg_from_vf(struct igb_adapter *adapter, u32 vf)
+ 				 "VF %d attempted to override administratively set VLAN tag\nReload the VF driver to resume operations\n",
+ 				 vf);
+ 		else
+-			retval = igb_set_vf_vlan(adapter, msgbuf, vf);
++			retval = igb_set_vf_vlan_msg(adapter, msgbuf, vf);
+ 		break;
+ 	default:
+ 		dev_err(&pdev->dev, "Unhandled Msg %08x\n", msgbuf[0]);
 -- 
 2.5.0
