@@ -1,52 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] tipc: fix premature addition
- of node to lookup table
-Date: Tue, 16 Feb 2016 15:58:06 -0500 (EST)
-Message-ID: <20160216.155806.1011700239493236935.davem@davemloft.net>
-References: <1455138898-3648-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1455138898-3648-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next 0/7] vxlan: clean up rx path, consolidating extension handling
+Date: Tue, 16 Feb 2016 21:58:56 +0100
+Message-ID: <cover.1455656217.git.jbenc@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43137 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751838AbcBPU7b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 15:59:31 -0500
+Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
+	by mx1.redhat.com (Postfix) with ESMTPS id 00C368DFF6
+	for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 20:59:30 +0000 (UTC)
+Received: from griffin.upir.cz (ovpn-204-84.brq.redhat.com [10.40.204.84])
+	by int-mx13.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u1GKxTxs018384
+	for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 15:59:30 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Wed, 10 Feb 2016 16:14:57 -0500
+The rx path of VXLAN turned over time into kind of spaghetti code. The rx
+processing is split between vxlan_udp_encap_recv and vxlan_rcv but in an
+artificial way: vxlan_rcv is just called at the end of vxlan_udp_encap_recv,
+continuing the rx processing where vxlan_udp_encap_recv left it. There's no
+clear border between those two functions.
 
-> In commit 5266698661401a ("tipc: let broadcast packet reception
-> use new link receive function") we introduced a new per-node
-> broadcast reception link instance. This link is created at the
-> moment the node itself is created. Unfortunately, the allocation
-> is done after the node instance has already been added to the node
-> lookup hash table. This creates a potential race condition, where
-> arriving broadcast packets are able to find and access the node
-> before it has been fully initialized, and before the above mentioned
-> link has been created. The result is occasional crashes in the function
-> tipc_bcast_rcv(), which is trying to access the not-yet existing link.
-> 
-> We fix this by deferring the addition of the node instance until after
-> it has been fully initialized in the function tipc_node_create().
-> 
-> Acked-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+It makes sense to combine those functions into one; this will be actually
+needed for VXLAN-GPE where we'll need to skip part of the processing which
+is hard to do with the current code.
 
-Applied and queued up for -stable, thanks.
+However, both functions are too long already. This patchset is shortening
+them, consolidating extension handling that is spread all around together
+and moving it to separate functions. (Later patchsets will do more
+consolidation in other parts of the functions with the final goal of merging
+vxlan_udp_encap_recv and vxlan_rcv.)
 
-------------------------------------------------------------------------------
-Site24x7 APM Insight: Get Deep Visibility into Application Performance
-APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
-Monitor end-to-end web transactions and take corrective actions now
-Troubleshoot faster and improve end-user experience. Signup Now!
-http://pubads.g.doubleclick.net/gampad/clk?id=272487151&iu=/4140
+In process of consolidation of the extension handling, I needed to deal with
+vni field in a generic way, as its lower 8 bits mean different things for
+different extensions. While cleaning up the code to strictly distinguish
+between "vni" and "vni field" (which contains vni plus an additional byte),
+I also converted the code not to convert endianess back and forth.
+
+The full picture can be seen at:
+https://github.com/jbenc/linux-vxlan/commits/master
+
+Jiri Benc (7):
+  vxlan: introduce vxlan_hdr
+  vxlan: keep flags and vni in network byte order
+  vxlan: simplify vxlan_remcsum
+  vxlan: move GBP header parsing to a separate function
+  vxlan: clean up extension handling on rx
+  vxlan: clean up rx error path
+  vxlan: treat vni in metadata based tunnels consistently
+
+ drivers/net/vxlan.c | 228 +++++++++++++++++++++++++---------------------------
+ include/net/vxlan.h |  75 ++++++++++++++---
+ 2 files changed, 173 insertions(+), 130 deletions(-)
+
+-- 
+1.8.3.1
