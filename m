@@ -1,78 +1,54 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH 1/1] net_sched fix: reclassification needs to
- consider ether protocol changes
-Date: Tue, 16 Feb 2016 07:12:40 -0500
-Message-ID: <56C31238.3070807@mojatatu.com>
-References: <1455565749-30951-1-git-send-email-jhs@emojatatu.com>
- <56C23C29.2060101@iogearbox.net>
+From: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+Subject: [PATCH net] geneve: Refine MTU limit
+Date: Tue, 16 Feb 2016 12:33:19 +0000
+Message-ID: <1455625999-9781-1-git-send-email-david@weave.works>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:35919 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754934AbcBPMMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 07:12:47 -0500
-Received: by mail-ig0-f181.google.com with SMTP id xg9so71571333igb.1
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 04:12:47 -0800 (PST)
-In-Reply-To: <56C23C29.2060101@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 16-02-15 03:59 PM, Daniel Borkmann wrote:
-> On 02/15/2016 08:49 PM, Jamal Hadi Salim wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>
->> actions could change the etherproto in particular with ethernet
->> tunnelled data. Typically such actions, after peeling the outer header,
->> will ask for the packet to be  reclassified. We then need to restart
->> the classification with the new proto header.
->>
->> Example setup used to catch this:
->> sudo tc qdisc add dev $ETH ingress
->> sudo tc filter add dev $ETH parent ffff: prio 2 protocol 0xbeef \
->> u32 match u32 0 0 flowid 1:1 \
->> action ife decode reclassify
->
-> ife action is out of tree, but I believe this should be possible with
-> vlan action and using reclassify as tc opcode.
->
-
-Ok, let me do some test with vlan example.(Note: Caught this when i was
-trying to test the IFE code for submission on the flight home).
-
->> Fixes: 3b3ae880266d ("net: sched: consolidate tc_classify{,_compat}")
->> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> Has kbuild bot issues, I'd probably just move this under 'reset' label,
-> like:
->
- >
-> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> index b5c2cf2..af1acf0 100644
-> --- a/net/sched/sch_api.c
-> +++ b/net/sched/sch_api.c
-> @@ -1852,6 +1852,7 @@ reset:
->       }
->
->       tp = old_tp;
-> +    protocol = tc_skb_protocol(skb);
->       goto reclassify;
->   #endif
->   }
-
-
-The polite bot is confused in its report. I had to look at .config to
-figure it out. I guess this is the point where human intervention is
-needed. Basically the problem is it turned off CONFIG_NET_CLS_ACT
-and recompiled; for a second i thought it was i386 specific.
-I will juggle things around to make it happy.
-
-cheers,
-jamal
-
-
-> Thanks,
-> Daniel
+V2hpbGUgR0VORVZFIGFsbG93cyB2YXJpYWJsZSBsZW5ndGggb3B0aW9ucywgdGhlIG1heGltdW0g
+bGVuZ3RoIG9mIHRoZQpvcHRpb25zIGlzIDYzICogNCBieXRlcy4gIFNvIHdlIGNhbiByZWFzb25h
+Ymx5IHNldCBhbiBNVFUgbGltaXQgb3RoZXIKdGhhbiBJUF9NQVhfTVRVLCBhcyB0aGUgb3RoZXIg
+dHVubmVsIGRldmljZXMgZG8uCgpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBXcmFnZyA8ZGF2aWRAd2Vh
+dmUud29ya3M+Ci0tLQogZHJpdmVycy9uZXQvZ2VuZXZlLmMgfCAxMSArKysrKystLS0tLQogMSBm
+aWxlIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQg
+YS9kcml2ZXJzL25ldC9nZW5ldmUuYyBiL2RyaXZlcnMvbmV0L2dlbmV2ZS5jCmluZGV4IDAyOGUz
+ODcuLmY1N2Y5YmMgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2dlbmV2ZS5jCisrKyBiL2RyaXZl
+cnMvbmV0L2dlbmV2ZS5jCkBAIC0zNyw2ICszNyw5IEBAIE1PRFVMRV9QQVJNX0RFU0MobG9nX2Vj
+bl9lcnJvciwgIkxvZyBwYWNrZXRzIHJlY2VpdmVkIHdpdGggY29ycnVwdGVkIEVDTiIpOwogCiAj
+ZGVmaW5lIEdFTkVWRV9WRVIgMAogI2RlZmluZSBHRU5FVkVfQkFTRV9ITEVOIChzaXplb2Yoc3Ry
+dWN0IHVkcGhkcikgKyBzaXplb2Yoc3RydWN0IGdlbmV2ZWhkcikpCisjZGVmaW5lIEdFTkVWRV9N
+QVhfT1BUSU9OU19MRU4gKDYzICogNCkKKyNkZWZpbmUgR0VORVZFX01BWF9NVFUgKElQX01BWF9N
+VFUgLSBzaXplb2Yoc3RydWN0IGlwaGRyKSAtIEdFTkVWRV9CQVNFX0hMRU4gXAorCQkJCQkJLSBH
+RU5FVkVfTUFYX09QVElPTlNfTEVOKQogCiAvKiBwZXItbmV0d29yayBuYW1lc3BhY2UgcHJpdmF0
+ZSBkYXRhIGZvciB0aGlzIG1vZHVsZSAqLwogc3RydWN0IGdlbmV2ZV9uZXQgewpAQCAtMTA0MSwx
+MSArMTA0NCw5IEBAIHN0YXRpYyBuZXRkZXZfdHhfdCBnZW5ldmVfeG1pdChzdHJ1Y3Qgc2tfYnVm
+ZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCiBzdGF0aWMgaW50IGdlbmV2ZV9jaGFu
+Z2VfbXR1KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIGludCBuZXdfbXR1KQogewotCS8qIEdFTkVW
+RSBvdmVyaGVhZCBpcyBub3QgZml4ZWQsIHNvIHdlIGNhbid0IGVuZm9yY2UgYSBtb3JlCi0JICog
+cHJlY2lzZSBtYXggTVRVLgotCSAqLwotCWlmIChuZXdfbXR1IDwgNjggfHwgbmV3X210dSA+IElQ
+X01BWF9NVFUpCisJaWYgKG5ld19tdHUgPCA2OCB8fCBuZXdfbXR1ID4gR0VORVZFX01BWF9NVFUp
+CiAJCXJldHVybiAtRUlOVkFMOworCiAJZGV2LT5tdHUgPSBuZXdfbXR1OwogCXJldHVybiAwOwog
+fQpAQCAtMTQ1OSw3ICsxNDYwLDcgQEAgc3RydWN0IG5ldF9kZXZpY2UgKmdlbmV2ZV9kZXZfY3Jl
+YXRlX2ZiKHN0cnVjdCBuZXQgKm5ldCwgY29uc3QgY2hhciAqbmFtZSwKIAkvKiBvcGVudnN3aXRj
+aCB1c2VycyBleHBlY3QgcGFja2V0IHNpemVzIHRvIGJlIHVucmVzdHJpY3RlZCwKIAkgKiBzbyBz
+ZXQgdGhlIGxhcmdlc3QgTVRVIHdlIGNhbi4KIAkgKi8KLQllcnIgPSBnZW5ldmVfY2hhbmdlX210
+dShkZXYsIElQX01BWF9NVFUpOworCWVyciA9IGdlbmV2ZV9jaGFuZ2VfbXR1KGRldiwgR0VORVZF
+X01BWF9NVFUpOwogCWlmIChlcnIpCiAJCWdvdG8gZXJyOwogCi0tIAoyLjUuMAoKX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApk
+ZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5m
+by9kZXYK
