@@ -1,45 +1,39 @@
-From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: [PATCH net v4]r8169: Correcting start poll() operations.
-Date: Tue, 16 Feb 2016 15:19:56 +0200
-Message-ID: <1455628796-1750-1-git-send-email-asd@marian1000.go.ro>
-Cc: Corcodel Marian <asd@marian1000.go.ro>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 00/13] rocker: do world split
+Date: Tue, 16 Feb 2016 15:13:35 +0100
+Message-ID: <20160216141335.GD2227@nanopsycho.orion>
+References: <1455627338-9872-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
+	eladr@mellanox.com, tgraf@suug.ch, David.Laight@ACULAB.COM,
+	john.fastabend@gmail.com, alexei.starovoitov@gmail.com,
+	daniel@iogearbox.net, prem@barefootnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-14-226-11.residential.rdsnet.ro ([5.14.226.11]:56294 "EHLO
-	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932254AbcBPNxp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 08:53:45 -0500
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:34846 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932836AbcBPONi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 09:13:38 -0500
+Received: by mail-wm0-f54.google.com with SMTP id c200so163530140wme.0
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 06:13:37 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1455627338-9872-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This patch enable poll operations when chip is ready.
-  poll op. Will start after autoneg process, after transmission is started.
+Tue, Feb 16, 2016 at 01:55:25PM CET, jiri@resnulli.us wrote:
+>From: Jiri Pirko <jiri@mellanox.com>
+>
+>This patchset allows new rocker worlds to be easily added in future.
+>Two new worlds are now under development: P4 and eBPF.
+>
+>The main part of the patchset is the OF-DPA carve-out. It resuts in OF-DPA
+>specific file. Clean cut.
+>
+>Note this patchset is based on my original attempt in October 2015.
+>I had to rebase, included all suggestions and did lot of small changes.
+>Main change to go with all-port-one-world approach. Port world is set according
+>to what is setup in HW. Not possible to change worlds from driver.
 
-Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
----
- drivers/net/ethernet/realtek/r8169.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 537974c..a1fa760 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -7685,7 +7685,6 @@ static int rtl_open(struct net_device *dev)
- 
- 	set_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
- 
--	napi_enable(&tp->napi);
- 
- 	rtl8169_init_phy(dev, tp);
- 
-@@ -7699,7 +7698,7 @@ static int rtl_open(struct net_device *dev)
- 		netif_warn(tp, hw, dev, "counter reset/update failed\n");
- 
- 	netif_start_queue(dev);
--
-+	napi_enable(&tp->napi);
- 	rtl_unlock_work(tp);
- 
- 	tp->saved_wolopts = 0;
--- 
-2.1.4
+I found an issue in 12/13. Will send v2 soon.
