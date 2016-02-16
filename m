@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/14] igb: Clean-up configuration of VF port VLANs
-Date: Mon, 15 Feb 2016 19:21:51 -0800
-Message-ID: <1455592915-82261-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/14] igb: Do not factor VLANs into RLPML calculation
+Date: Mon, 15 Feb 2016 19:21:48 -0800
+Message-ID: <1455592915-82261-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455592915-82261-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,251 +10,113 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:14083 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753348AbcBPDWF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Feb 2016 22:22:05 -0500
+	id S1753327AbcBPDWD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Feb 2016 22:22:03 -0500
 In-Reply-To: <1455592915-82261-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <aduyck@mirantis.com>
 
-This patch is meant to clean-up the configuration of the VF port based VLAN
-configuration.  The original logic was a bit muddled and had some
-undesirable side effects such as VLANs being either completely stripped
-from the port or VLANs being left when they shouldn't be.  The idea behind
-this code is to avoid any events such as spurious spoof notifications when
-we are removing one VLAN tag and replacing it with another.
+The RLPML registers already take the size of VLAN headers into account when
+determining the maximum packet length.  This is called out in EAS documents
+for several parts including the 82576 and the i350.  As such we can drop
+the addition of size to the value programmed into the RLPML registers.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 181 ++++++++++++++++++------------
- 1 file changed, 110 insertions(+), 71 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h      |  1 -
+ drivers/net/ethernet/intel/igb/igb_main.c | 43 ++-----------------------------
+ 2 files changed, 2 insertions(+), 42 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index e3cb93b..d135261 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -95,7 +95,6 @@ struct vf_data_storage {
+ 	unsigned char vf_mac_addresses[ETH_ALEN];
+ 	u16 vf_mc_hashes[IGB_MAX_VF_MC_ENTRIES];
+ 	u16 num_vf_mc_hashes;
+-	u16 vlans_enabled;
+ 	u32 flags;
+ 	unsigned long last_nack;
+ 	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index e7c3a94..6876ae5 100644
+index b676881..9461480 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -5786,53 +5786,6 @@ static void igb_clear_vf_vfta(struct igb_adapter *adapter, u32 vf)
+@@ -3531,12 +3531,8 @@ static inline int igb_set_vf_rlpml(struct igb_adapter *adapter, int size,
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 vmolr;
+ 
+-	/* if it isn't the PF check to see if VFs are enabled and
+-	 * increase the size to support vlan tags
+-	 */
+-	if (vfn < adapter->vfs_allocated_count &&
+-	    adapter->vf_data[vfn].vlans_enabled)
+-		size += VLAN_TAG_SIZE;
++	if (size > MAX_JUMBO_FRAME_SIZE)
++		size = MAX_JUMBO_FRAME_SIZE;
+ 
+ 	vmolr = rd32(E1000_VMOLR(vfn));
+ 	vmolr &= ~E1000_VMOLR_RLPML_MASK;
+@@ -5787,8 +5783,6 @@ static void igb_clear_vf_vfta(struct igb_adapter *adapter, u32 vf)
+ 
+ 		wr32(E1000_VLVF(i), reg);
  	}
+-
+-	adapter->vf_data[vf].vlans_enabled = 0;
  }
  
--static void igb_set_vmvir(struct igb_adapter *adapter, u32 vid, u32 vf)
--{
--	struct e1000_hw *hw = &adapter->hw;
+ static s32 igb_vlvf_set(struct igb_adapter *adapter, u32 vid, bool add, u32 vf)
+@@ -5837,23 +5831,6 @@ static s32 igb_vlvf_set(struct igb_adapter *adapter, u32 vid, bool add, u32 vf)
+ 			reg &= ~E1000_VLVF_VLANID_MASK;
+ 			reg |= vid;
+ 			wr32(E1000_VLVF(i), reg);
 -
--	if (vid)
--		wr32(E1000_VMVIR(vf), (vid | E1000_VMVIR_VLANA_DEFAULT));
--	else
--		wr32(E1000_VMVIR(vf), 0);
--}
+-			/* do not modify RLPML for PF devices */
+-			if (vf >= adapter->vfs_allocated_count)
+-				return 0;
 -
--static int igb_ndo_set_vf_vlan(struct net_device *netdev,
--			       int vf, u16 vlan, u8 qos)
--{
--	struct igb_adapter *adapter = netdev_priv(netdev);
--	struct e1000_hw *hw = &adapter->hw;
--	int err = 0;
+-			if (!adapter->vf_data[vf].vlans_enabled) {
+-				u32 size;
 -
--	if ((vf >= adapter->vfs_allocated_count) || (vlan > 4095) || (qos > 7))
--		return -EINVAL;
--	if (vlan || qos) {
--		err = igb_vfta_set(hw, vlan, vf, !!vlan, false);
--		if (err)
--			goto out;
--		igb_set_vmvir(adapter, vlan | (qos << VLAN_PRIO_SHIFT), vf);
--		igb_set_vmolr(adapter, vf, !vlan);
--		adapter->vf_data[vf].pf_vlan = vlan;
--		adapter->vf_data[vf].pf_qos = qos;
--		dev_info(&adapter->pdev->dev,
--			 "Setting VLAN %d, QOS 0x%x on VF %d\n", vlan, qos, vf);
--		if (test_bit(__IGB_DOWN, &adapter->state)) {
--			dev_warn(&adapter->pdev->dev,
--				 "The VF VLAN has been set, but the PF device is not up.\n");
--			dev_warn(&adapter->pdev->dev,
--				 "Bring the PF device up before attempting to use the VF device.\n");
--		}
--	} else {
--		igb_vfta_set(hw, adapter->vf_data[vf].pf_vlan, vf,
--			     false, false);
--		igb_set_vmvir(adapter, vlan, vf);
--		igb_set_vmolr(adapter, vf, true);
--		adapter->vf_data[vf].pf_vlan = 0;
--		adapter->vf_data[vf].pf_qos = 0;
--	}
--out:
--	return err;
--}
+-				reg = rd32(E1000_VMOLR(vf));
+-				size = reg & E1000_VMOLR_RLPML_MASK;
+-				size += 4;
+-				reg &= ~E1000_VMOLR_RLPML_MASK;
+-				reg |= size;
+-				wr32(E1000_VMOLR(vf), reg);
+-			}
 -
- static int igb_find_vlvf_entry(struct igb_adapter *adapter, int vid)
- {
- 	struct e1000_hw *hw = &adapter->hw;
-@@ -5853,23 +5806,25 @@ static int igb_find_vlvf_entry(struct igb_adapter *adapter, int vid)
- 	return i;
- }
- 
--static int igb_set_vf_vlan(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
-+static s32 igb_set_vf_vlan(struct igb_adapter *adapter, u32 vid,
-+			   bool add, u32 vf)
- {
-+	int pf_id = adapter->vfs_allocated_count;
- 	struct e1000_hw *hw = &adapter->hw;
--	int add = (msgbuf[0] & E1000_VT_MSGINFO_MASK) >> E1000_VT_MSGINFO_SHIFT;
--	int vid = (msgbuf[1] & E1000_VLVF_VLANID_MASK);
--	int err = 0;
-+	int err;
- 
--	/* If in promiscuous mode we need to make sure the PF also has
--	 * the VLAN filter set.
-+	/* If VLAN overlaps with one the PF is currently monitoring make
-+	 * sure that we are able to allocate a VLVF entry.  This may be
-+	 * redundant but it guarantees PF will maintain visibility to
-+	 * the VLAN.
- 	 */
--	if (add && (adapter->netdev->flags & IFF_PROMISC))
--		err = igb_vfta_set(hw, vid, adapter->vfs_allocated_count,
--				   true, false);
--	if (err)
--		goto out;
-+	if (add && (adapter->netdev->flags & IFF_PROMISC)) {
-+		err = igb_vfta_set(hw, vid, pf_id, true, false);
-+		if (err)
-+			return err;
-+	}
- 
--	err = igb_vfta_set(hw, vid, vf, !!add, false);
-+	err = igb_vfta_set(hw, vid, vf, add, false);
- 
- 	if (err)
- 		goto out;
-@@ -5904,23 +5859,107 @@ out:
- 	return err;
- }
- 
--static inline void igb_vf_reset(struct igb_adapter *adapter, u32 vf)
-+static void igb_set_vmvir(struct igb_adapter *adapter, u32 vid, u32 vf)
- {
--	/* clear flags - except flag that indicates PF has set the MAC */
--	adapter->vf_data[vf].flags &= IGB_VF_FLAG_PF_SET_MAC;
--	adapter->vf_data[vf].last_nack = jiffies;
-+	struct e1000_hw *hw = &adapter->hw;
- 
--	/* reset offloads to defaults */
-+	if (vid)
-+		wr32(E1000_VMVIR(vf), (vid | E1000_VMVIR_VLANA_DEFAULT));
-+	else
-+		wr32(E1000_VMVIR(vf), 0);
-+}
-+
-+static int igb_enable_port_vlan(struct igb_adapter *adapter, int vf,
-+				u16 vlan, u8 qos)
-+{
-+	int err;
-+
-+	err = igb_set_vf_vlan(adapter, vlan, true, vf);
-+	if (err)
-+		return err;
-+
-+	igb_set_vmvir(adapter, vlan | (qos << VLAN_PRIO_SHIFT), vf);
-+	igb_set_vmolr(adapter, vf, !vlan);
-+
-+	/* revoke access to previous VLAN */
-+	if (vlan != adapter->vf_data[vf].pf_vlan)
-+		igb_set_vf_vlan(adapter, adapter->vf_data[vf].pf_vlan,
-+				false, vf);
-+
-+	adapter->vf_data[vf].pf_vlan = vlan;
-+	adapter->vf_data[vf].pf_qos = qos;
-+	dev_info(&adapter->pdev->dev,
-+		 "Setting VLAN %d, QOS 0x%x on VF %d\n", vlan, qos, vf);
-+	if (test_bit(__IGB_DOWN, &adapter->state)) {
-+		dev_warn(&adapter->pdev->dev,
-+			 "The VF VLAN has been set, but the PF device is not up.\n");
-+		dev_warn(&adapter->pdev->dev,
-+			 "Bring the PF device up before attempting to use the VF device.\n");
-+	}
-+
-+	return err;
-+}
-+
-+static int igb_disable_port_vlan(struct igb_adapter *adapter, int vf)
-+{
-+	/* Restore tagless access via VLAN 0 */
-+	igb_set_vf_vlan(adapter, 0, true, vf);
-+
-+	igb_set_vmvir(adapter, 0, vf);
- 	igb_set_vmolr(adapter, vf, true);
- 
-+	/* Remove any PF assigned VLAN */
-+	if (adapter->vf_data[vf].pf_vlan)
-+		igb_set_vf_vlan(adapter, adapter->vf_data[vf].pf_vlan,
-+				false, vf);
-+
-+	adapter->vf_data[vf].pf_vlan = 0;
-+	adapter->vf_data[vf].pf_qos = 0;
-+
-+	return 0;
-+}
-+
-+static int igb_ndo_set_vf_vlan(struct net_device *netdev,
-+			       int vf, u16 vlan, u8 qos)
-+{
-+	struct igb_adapter *adapter = netdev_priv(netdev);
-+
-+	if ((vf >= adapter->vfs_allocated_count) || (vlan > 4095) || (qos > 7))
-+		return -EINVAL;
-+
-+	return (vlan || qos) ? igb_enable_port_vlan(adapter, vf, vlan, qos) :
-+			       igb_disable_port_vlan(adapter, vf);
-+}
-+
-+static int igb_set_vf_vlan_msg(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
-+{
-+	int add = (msgbuf[0] & E1000_VT_MSGINFO_MASK) >> E1000_VT_MSGINFO_SHIFT;
-+	int vid = (msgbuf[1] & E1000_VLVF_VLANID_MASK);
-+
-+	if (adapter->vf_data[vf].pf_vlan)
-+		return -1;
-+
-+	/* VLAN 0 is a special case, don't allow it to be removed */
-+	if (!vid && !add)
-+		return 0;
-+
-+	return igb_set_vf_vlan(adapter, vid, !!add, vf);
-+}
-+
-+static inline void igb_vf_reset(struct igb_adapter *adapter, u32 vf)
-+{
-+	struct vf_data_storage *vf_data = &adapter->vf_data[vf];
-+
-+	/* clear flags - except flag that indicates PF has set the MAC */
-+	vf_data->flags &= IGB_VF_FLAG_PF_SET_MAC;
-+	vf_data->last_nack = jiffies;
-+
- 	/* reset vlans for device */
- 	igb_clear_vf_vfta(adapter, vf);
--	if (adapter->vf_data[vf].pf_vlan)
--		igb_ndo_set_vf_vlan(adapter->netdev, vf,
--				    adapter->vf_data[vf].pf_vlan,
--				    adapter->vf_data[vf].pf_qos);
--	else
--		igb_clear_vf_vfta(adapter, vf);
-+	igb_set_vf_vlan(adapter, vf_data->pf_vlan, true, vf);
-+	igb_set_vmvir(adapter, vf_data->pf_vlan |
-+			       (vf_data->pf_qos << VLAN_PRIO_SHIFT), vf);
-+	igb_set_vmolr(adapter, vf, !vf_data->pf_vlan);
- 
- 	/* reset multicast table array for vf */
- 	adapter->vf_data[vf].num_vf_mc_hashes = 0;
-@@ -6065,7 +6104,7 @@ static void igb_rcv_msg_from_vf(struct igb_adapter *adapter, u32 vf)
- 				 "VF %d attempted to override administratively set VLAN tag\nReload the VF driver to resume operations\n",
- 				 vf);
- 		else
--			retval = igb_set_vf_vlan(adapter, msgbuf, vf);
-+			retval = igb_set_vf_vlan_msg(adapter, msgbuf, vf);
- 		break;
- 	default:
- 		dev_err(&pdev->dev, "Unhandled Msg %08x\n", msgbuf[0]);
+-			adapter->vf_data[vf].vlans_enabled++;
+ 		}
+ 	} else {
+ 		if (i < E1000_VLVF_ARRAY_SIZE) {
+@@ -5865,22 +5842,6 @@ static s32 igb_vlvf_set(struct igb_adapter *adapter, u32 vid, bool add, u32 vf)
+ 				igb_vfta_set(hw, vid, false);
+ 			}
+ 			wr32(E1000_VLVF(i), reg);
+-
+-			/* do not modify RLPML for PF devices */
+-			if (vf >= adapter->vfs_allocated_count)
+-				return 0;
+-
+-			adapter->vf_data[vf].vlans_enabled--;
+-			if (!adapter->vf_data[vf].vlans_enabled) {
+-				u32 size;
+-
+-				reg = rd32(E1000_VMOLR(vf));
+-				size = reg & E1000_VMOLR_RLPML_MASK;
+-				size -= 4;
+-				reg &= ~E1000_VMOLR_RLPML_MASK;
+-				reg |= size;
+-				wr32(E1000_VMOLR(vf), reg);
+-			}
+ 		}
+ 	}
+ 	return 0;
 -- 
 2.5.0
