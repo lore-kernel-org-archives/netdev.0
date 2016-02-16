@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ti: netcp: restore get/set_pad_info()
- functionality
-Date: Tue, 16 Feb 2016 15:24:21 -0500 (EST)
-Message-ID: <20160216.152421.2271194730635382792.davem@davemloft.net>
-References: <1455026303-17014-1-git-send-email-grygorii.strashko@ti.com>
+Subject: Re: [net PATCH] net: Copy inner L3 and L4 headers as unaligned on
+ GRE TEB
+Date: Tue, 16 Feb 2016 15:25:25 -0500 (EST)
+Message-ID: <20160216.152525.733686383348968748.davem@davemloft.net>
+References: <20160209141234.19305.82202.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arnd@arndb.de, fcooper@ti.com,
-	nsekhar@ti.com, linux-kernel@vger.kernel.org, w-kwok2@ti.com,
-	m-karicheri2@ti.com, mugunthanvnm@ti.com
-To: grygorii.strashko@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455026303-17014-1-git-send-email-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com,
+	tom@herbertland.com
+To: aduyck@mirantis.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39524 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753394AbcBPUZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 15:25:26 -0500
+In-Reply-To: <20160209141234.19305.82202.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Alexander Duyck <aduyck@mirantis.com>
+Date: Tue, 09 Feb 2016 06:14:43 -0800
 
-I would like some of the feedback to be taken into consideration and
-integrated into this patch.
+> This patch corrects the unaligned accesses seen on GRE TEB tunnels when
+> generating hash keys.  Specifically what this patch does is make it so that
+> we force the use of skb_copy_bits when the GRE inner headers will be
+> unaligned due to NET_IP_ALIGNED being a non-zero value.
+> 
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 
-Part of the reason this regression was introduced was probably because
-the purpose of some fields or descriptor semantics was not defined
-properly.
-
-Therefore it is absolutely appropriate to properly name and document
-these fields as part of the bug fix.
-
-Thank you.
+Applied and queued up for -stable, thanks Alex.
