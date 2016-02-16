@@ -1,132 +1,161 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 4/5] bnx2x: extend DCBx support
-Date: Tue, 16 Feb 2016 18:08:00 +0200
-Message-ID: <1455638881-2527-5-git-send-email-Yuval.Mintz@qlogic.com>
-References: <1455638881-2527-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Nikolay Borisov <kernel@kyup.com>
+Subject: Re: [PATCH] net: igmp: use IS_ENABLED(CONFIG_IP_MULTICAST) instead of
+ ifdef
+Date: Tue, 16 Feb 2016 18:10:52 +0200
+Message-ID: <56C34A0C.9040207@kyup.com>
+References: <1455638393-3269483-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:26991 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933120AbcBPQIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 11:08:51 -0500
-In-Reply-To: <1455638881-2527-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455638393-3269483-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This adds support for default application priority.
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c | 57 +++++++++++++++++++------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h |  5 ++-
- 2 files changed, 47 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-index 7ccf668..2c6ba04 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-@@ -195,6 +195,7 @@ static void bnx2x_dcbx_get_ap_feature(struct bnx2x *bp,
- 				   u32 error) {
- 	u8 index;
- 	u32 *ttp = bp->dcbx_port_params.app.traffic_type_priority;
-+	u8 iscsi_pri_found = 0, fcoe_pri_found = 0;
- 
- 	if (GET_FLAGS(error, DCBX_LOCAL_APP_ERROR))
- 		DP(BNX2X_MSG_DCB, "DCBX_LOCAL_APP_ERROR\n");
-@@ -210,29 +211,57 @@ static void bnx2x_dcbx_get_ap_feature(struct bnx2x *bp,
- 
- 		bp->dcbx_port_params.app.enabled = true;
- 
-+		/* Use 0 as the default application priority for all. */
- 		for (index = 0 ; index < LLFC_DRIVER_TRAFFIC_TYPE_MAX; index++)
- 			ttp[index] = 0;
- 
--		if (app->default_pri < MAX_PFC_PRIORITIES)
--			ttp[LLFC_TRAFFIC_TYPE_NW] = app->default_pri;
--
- 		for (index = 0 ; index < DCBX_MAX_APP_PROTOCOL; index++) {
- 			struct dcbx_app_priority_entry *entry =
- 							app->app_pri_tbl;
-+			enum traffic_type type = MAX_TRAFFIC_TYPE;
- 
- 			if (GET_FLAGS(entry[index].appBitfield,
--				     DCBX_APP_SF_ETH_TYPE) &&
--			   ETH_TYPE_FCOE == entry[index].app_id)
--				bnx2x_dcbx_get_ap_priority(bp,
--						entry[index].pri_bitmap,
--						LLFC_TRAFFIC_TYPE_FCOE);
-+				      DCBX_APP_SF_DEFAULT) &&
-+			    GET_FLAGS(entry[index].appBitfield,
-+				      DCBX_APP_SF_ETH_TYPE)) {
-+				type = LLFC_TRAFFIC_TYPE_NW;
-+			} else if (GET_FLAGS(entry[index].appBitfield,
-+					     DCBX_APP_SF_PORT) &&
-+				   TCP_PORT_ISCSI == entry[index].app_id) {
-+				type = LLFC_TRAFFIC_TYPE_ISCSI;
-+				iscsi_pri_found = 1;
-+			} else if (GET_FLAGS(entry[index].appBitfield,
-+					     DCBX_APP_SF_ETH_TYPE) &&
-+				   ETH_TYPE_FCOE == entry[index].app_id) {
-+				type = LLFC_TRAFFIC_TYPE_FCOE;
-+				fcoe_pri_found = 1;
-+			}
- 
--			if (GET_FLAGS(entry[index].appBitfield,
--				     DCBX_APP_SF_PORT) &&
--			   TCP_PORT_ISCSI == entry[index].app_id)
--				bnx2x_dcbx_get_ap_priority(bp,
--						entry[index].pri_bitmap,
--						LLFC_TRAFFIC_TYPE_ISCSI);
-+			if (type == MAX_TRAFFIC_TYPE)
-+				continue;
-+
-+			bnx2x_dcbx_get_ap_priority(bp,
-+						   entry[index].pri_bitmap,
-+						   type);
-+		}
-+
-+		/* If we have received a non-zero default application
-+		 * priority, then use that for applications which are
-+		 * not configured with any priority.
-+		 */
-+		if (ttp[LLFC_TRAFFIC_TYPE_NW] != 0) {
-+			if (!iscsi_pri_found) {
-+				ttp[LLFC_TRAFFIC_TYPE_ISCSI] =
-+					ttp[LLFC_TRAFFIC_TYPE_NW];
-+				DP(BNX2X_MSG_DCB,
-+				   "ISCSI is using default priority.\n");
-+			}
-+			if (!fcoe_pri_found) {
-+				ttp[LLFC_TRAFFIC_TYPE_FCOE] =
-+					ttp[LLFC_TRAFFIC_TYPE_NW];
-+				DP(BNX2X_MSG_DCB,
-+				   "FCoE is using default priority.\n");
-+			}
- 		}
- 	} else {
- 		DP(BNX2X_MSG_DCB, "DCBX_LOCAL_APP_DISABLED\n");
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-index 27aa080..dd9d6e6 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-@@ -1831,10 +1831,13 @@ struct dcbx_app_priority_entry {
- #elif defined(__LITTLE_ENDIAN)
- 	u8 appBitfield;
- 	#define DCBX_APP_ENTRY_VALID         0x01
--	#define DCBX_APP_ENTRY_SF_MASK       0x30
-+	#define DCBX_APP_ENTRY_SF_MASK       0xF0
- 	#define DCBX_APP_ENTRY_SF_SHIFT      4
-+	#define DCBX_APP_ENTRY_VALID         0x01
- 	#define DCBX_APP_SF_ETH_TYPE         0x10
- 	#define DCBX_APP_SF_PORT             0x20
-+	#define DCBX_APP_SF_UDP              0x40
-+	#define DCBX_APP_SF_DEFAULT          0x80
- 	u8  pri_bitmap;
- 	u16  app_id;
- #endif
--- 
-1.9.3
+On 02/16/2016 05:59 PM, Arnd Bergmann wrote:
+> A recent change to use correct network namespace in net/ipv4/igmp.c
+> caused a couple of harmless build warnings when CONFIG_MULTICAST is
+> disabled:
+> 
+> net/ipv4/igmp.c: In function 'igmp_group_added':
+> net/ipv4/igmp.c:1227:14: error: unused variable 'net' [-Werror=unused-variable]
+> net/ipv4/igmp.c: In function 'ip_mc_inc_group':
+> net/ipv4/igmp.c:1319:14: error: unused variable 'net' [-Werror=unused-variable]
+> net/ipv4/igmp.c: In function 'ip_mc_init_dev':
+> net/ipv4/igmp.c:1646:14: error: unused variable 'net' [-Werror=unused-variable]
+> net/ipv4/igmp.c: In function 'ip_mc_up':
+> net/ipv4/igmp.c:1665:14: error: unused variable 'net' [-Werror=unused-variable]
+> 
+> This reworks the entire file to change each instance if '#ifdef
+> CONFIG_IP_MULTICAST' to 'if (IS_ENABLED(CONFIG_IP_MULTICAST)', which
+> should avoid these problems forever, and makes the whole file more
+> readable.
+> 
+> Build-tested only.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 87a8a2ae65b7 ("igmp: Namespaceify igmp_llm_reports sysctl knob")
+
+Overall it looks OK, just 2 minor points I could spot. See below.
+
+[...]
+> +		sf_markstate(pmc);
+> +
+>  	if (!delta) {
+>  		err = -EINVAL;
+>  		if (!pmc->sfcount[sfmode])
+> @@ -1821,17 +1807,15 @@ static int ip_mc_del_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
+>  		if (!err && rv < 0)
+>  			err = rv;
+>  	}
+> -	if (pmc->sfmode == MCAST_EXCLUDE &&
+> +	if (IS_ENABLED(CONFIG_IP_MULTICAST) &&
+> +	    pmc->sfmode == MCAST_EXCLUDE &&
+>  	    pmc->sfcount[MCAST_EXCLUDE] == 0 &&
+>  	    pmc->sfcount[MCAST_INCLUDE]) {
+> -#ifdef CONFIG_IP_MULTICAST
+>  		struct ip_sf_list *psf;
+>  		struct net *net = dev_net(in_dev->dev);
+> -#endif
+>  
+>  		/* filter mode change */
+>  		pmc->sfmode = MCAST_INCLUDE;
+
+The above line was always executed, whereas now it wouldn't execute
+unless IS_ENABLED passes.
+
+> -#ifdef CONFIG_IP_MULTICAST
+>  		pmc->crcount = in_dev->mr_qrv ?: net->ipv4.sysctl_igmp_qrv;
+>  		in_dev->mr_ifc_count = pmc->crcount;
+>  		for (psf = pmc->sources; psf; psf = psf->sf_next)
+> @@ -1839,7 +1823,6 @@ static int ip_mc_del_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
+>  		igmp_ifc_event(pmc->interface);
+>  	} else if (sf_setstate(pmc) || changerec) {
+>  		igmp_ifc_event(pmc->interface);
+> -#endif
+>  	}
+....
+>  /*
+>   * Add multicast source filter list to the interface list
+> @@ -1977,9 +1961,7 @@ static int ip_mc_add_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
+>  	spin_lock_bh(&pmc->lock);
+>  	rcu_read_unlock();
+>  
+> -#ifdef CONFIG_IP_MULTICAST
+>  	sf_markstate(pmc);
+> -#endif
+
+This would be executed unconditionally, which is contrary to the
+original intention. Dunno if it makes a difference though.
+
+
+>  	isexclude = pmc->sfmode == MCAST_EXCLUDE;
+>  	if (!delta)
+>  		pmc->sfcount[sfmode]++;
+> @@ -1997,28 +1979,26 @@ static int ip_mc_add_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
+>  		for (j = 0; j < i; j++)
+>  			(void) ip_mc_del1_src(pmc, sfmode, &psfsrc[j]);
+>  	} else if (isexclude != (pmc->sfcount[MCAST_EXCLUDE] != 0)) {
+> -#ifdef CONFIG_IP_MULTICAST
+>  		struct ip_sf_list *psf;
+>  		struct net *net = dev_net(pmc->interface->dev);
+>  		in_dev = pmc->interface;
+> -#endif
+>  
+>  		/* filter mode change */
+>  		if (pmc->sfcount[MCAST_EXCLUDE])
+>  			pmc->sfmode = MCAST_EXCLUDE;
+>  		else if (pmc->sfcount[MCAST_INCLUDE])
+>  			pmc->sfmode = MCAST_INCLUDE;
+> -#ifdef CONFIG_IP_MULTICAST
+>  		/* else no filters; keep old mode for reports */
+> -
+> -		pmc->crcount = in_dev->mr_qrv ?: net->ipv4.sysctl_igmp_qrv;
+> -		in_dev->mr_ifc_count = pmc->crcount;
+> -		for (psf = pmc->sources; psf; psf = psf->sf_next)
+> -			psf->sf_crcount = 0;
+> -		igmp_ifc_event(in_dev);
+> -	} else if (sf_setstate(pmc)) {
+> +		if (IS_ENABLED(CONFIG_IP_MULTICAST)) {
+> +			pmc->crcount = in_dev->mr_qrv ?:
+> +				       net->ipv4.sysctl_igmp_qrv;
+> +			in_dev->mr_ifc_count = pmc->crcount;
+> +			for (psf = pmc->sources; psf; psf = psf->sf_next)
+> +				psf->sf_crcount = 0;
+> +			igmp_ifc_event(in_dev);
+> +		}
+> +	} else if (IS_ENABLED(CONFIG_IP_MULTICAST) && sf_setstate(pmc)) {
+>  		igmp_ifc_event(in_dev);
+> -#endif
+>  	}
+>  	spin_unlock_bh(&pmc->lock);
+>  	return err;
+> @@ -2711,13 +2691,10 @@ static int igmp_mc_seq_show(struct seq_file *seq, void *v)
+>  		char   *querier;
+>  		long delta;
+>  
+> -#ifdef CONFIG_IP_MULTICAST
+> -		querier = IGMP_V1_SEEN(state->in_dev) ? "V1" :
+> +		querier = !IS_ENABLED(CONFIG_IP_MULTICAST) ? "NONE" :
+> +			  IGMP_V1_SEEN(state->in_dev) ? "V1" :
+>  			  IGMP_V2_SEEN(state->in_dev) ? "V2" :
+>  			  "V3";
+> -#else
+> -		querier = "NONE";
+> -#endif
+>  
+>  		if (rcu_access_pointer(state->in_dev->mc_list) == im) {
+>  			seq_printf(seq, "%d\t%-10s: %5d %7s\n",
+> 
+
+Reviewed-by: Nikolay Borisov <kernel@kyup.com>
