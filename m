@@ -1,7 +1,8 @@
 From: Kan Liang <kan.liang@intel.com>
-Subject: [PATCH V5 0/8] ethtool per queue parameters support
-Date: Tue, 16 Feb 2016 07:32:36 -0500
-Message-ID: <1455625964-8943-1-git-send-email-kan.liang@intel.com>
+Subject: [PATCH V5 3/8] net/ethtool: introduce a new ioctl for per queue setting
+Date: Tue, 16 Feb 2016 07:32:39 -0500
+Message-ID: <1455625964-8943-4-git-send-email-kan.liang@intel.com>
+References: <1455625964-8943-1-git-send-email-kan.liang@intel.com>
 Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
 	shannon.nelson@intel.com, f.fainelli@gmail.com,
 	alexander.duyck@gmail.com, jeffrey.t.kirsher@intel.com,
@@ -14,84 +15,120 @@ Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
 To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org,
 	ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:31690 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:28475 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751284AbcBPTw7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2016 14:52:59 -0500
+	id S1751284AbcBPTxB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 14:53:01 -0500
+In-Reply-To: <1455625964-8943-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Modern network interface controllers usually support multiple receive
-and transmit queues. Each queue may have its own parameters. For
-example, Intel XL710/X710 hardware supports per queue interrupt
-moderation. However, current ethtool does not support per queue
-parameters option. User has to set parameters for the whole NIC.
-This series extends ethtool to support per queue parameters option.
+From: Kan Liang <kan.liang@intel.com>
 
-Since the support of per queue parameters vary with different cards,
-it is impossible to address all cards in one patch. This series only
-supports per queue coalesce options on i40e driver. The framework used
-in the patch can be easily extended to other cards and parameters.
+Introduce a new ioctl ETHTOOL_PERQUEUE for per queue parameters setting.
+The following patches will enable some SUB_COMMANDs for per queue
+setting.
 
-The lib bitmap needs to be extended to facilitate exchanging queue bitmaps
-between user space and kernel space. Two patches from David's latest V6
-patch series are also cited in this series. You may refer to
-https://lwn.net/Articles/672517/ for more details.
+Signed-off-by: Kan Liang <kan.liang@intel.com>
+Reviewed-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ include/uapi/linux/ethtool.h | 17 +++++++++++++++++
+ net/core/ethtool.c           | 27 +++++++++++++++++++++++++--
+ 2 files changed, 42 insertions(+), 2 deletions(-)
 
-Changes since V4:
- - Modify set/get_per_queue_coalesce function description
- - Change the queue number to be u32
- - Correct an error of calculating coalesce backup buffer address
- - Rename queue_num to n_queues
- - Don't log error message in __i40e_get_coalesce
-
-Changes since V3:
- - Based on David's lib bitmap.
- - ETHTOOL_PERQUEUE should be handled before the containing switch
- - Make the rollback code unconditional
- - some minor changes according to Ben's feedback
-
-Changes since V2:
- - Add queue-specific settings for interrupt moderation in i40e
-
-Changes since V1:
- - Checking the sub-command number to determine whether the command
-   requires CAP_NET_ADMIN
- - Refine the struct ethtool_per_queue_op and improve the comments
- - Use bitmap functions to parse queue mask
- - Improve comments
- - Use bitmap functions to parse queue mask
- - Improve comments
- - Add rollback support
- - Correct the way to find the vector for specific queue.
-
-David Decotigny (2):
-  lib/bitmap.c: conversion routines to/from u32 array
-  test_bitmap: unit tests for lib/bitmap.c
-
-Kan Liang (6):
-  net/ethtool: introduce a new ioctl for per queue setting
-  net/ethtool: support get coalesce per queue
-  net/ethtool: support set coalesce per queue
-  i40e: queue-specific settings for interrupt moderation
-  i40e/ethtool: support coalesce getting by queue
-  i40e/ethtool: support coalesce setting by queue
-
- drivers/net/ethernet/intel/i40e/i40e.h         |   7 --
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c |  15 ++-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 151 +++++++++++++++++--------
- drivers/net/ethernet/intel/i40e/i40e_main.c    |  12 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c    |   9 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.h    |   8 ++
- include/linux/bitmap.h                         |   6 +
- include/linux/ethtool.h                        |  15 ++-
- include/uapi/linux/ethtool.h                   |  17 +++
- lib/Kconfig.debug                              |   8 ++
- lib/Makefile                                   |   1 +
- lib/bitmap.c                                   |  86 ++++++++++++++
- net/core/ethtool.c                             | 121 +++++++++++++++++++-
- tools/testing/selftests/lib/Makefile           |   2 +-
- 14 files changed, 385 insertions(+), 73 deletions(-)
-
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 190aea0..f15ae02 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -1202,6 +1202,21 @@ enum ethtool_sfeatures_retval_bits {
+ #define ETHTOOL_F_WISH          (1 << ETHTOOL_F_WISH__BIT)
+ #define ETHTOOL_F_COMPAT        (1 << ETHTOOL_F_COMPAT__BIT)
+ 
++#define MAX_NUM_QUEUE		4096
++
++/**
++ * struct ethtool_per_queue_op - apply sub command to the queues in mask.
++ * @cmd: ETHTOOL_PERQUEUE
++ * @sub_command: the sub command which apply to each queues
++ * @queue_mask: Bitmap of the queues which sub command apply to
++ * @data: A complete command structure following for each of the queues addressed
++ */
++struct ethtool_per_queue_op {
++	__u32	cmd;
++	__u32	sub_command;
++	__u32	queue_mask[DIV_ROUND_UP(MAX_NUM_QUEUE, 32)];
++	char	data[];
++};
+ 
+ /* CMDs currently supported */
+ #define ETHTOOL_GSET		0x00000001 /* Get settings. */
+@@ -1285,6 +1300,8 @@ enum ethtool_sfeatures_retval_bits {
+ #define ETHTOOL_STUNABLE	0x00000049 /* Set tunable configuration */
+ #define ETHTOOL_GPHYSTATS	0x0000004a /* get PHY-specific statistics */
+ 
++#define ETHTOOL_PERQUEUE	0x0000004b /* Set per queue options */
++
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+ #define SPARC_ETH_SSET		ETHTOOL_SSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 453c803..d0f7146 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1823,13 +1823,27 @@ out:
+ 	return ret;
+ }
+ 
++static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
++{
++	struct ethtool_per_queue_op per_queue_opt;
++
++	if (copy_from_user(&per_queue_opt, useraddr, sizeof(per_queue_opt)))
++		return -EFAULT;
++
++	switch (per_queue_opt.sub_command) {
++
++	default:
++		return -EOPNOTSUPP;
++	};
++}
++
+ /* The main entry point in this file.  Called from net/core/dev_ioctl.c */
+ 
+ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ {
+ 	struct net_device *dev = __dev_get_by_name(net, ifr->ifr_name);
+ 	void __user *useraddr = ifr->ifr_data;
+-	u32 ethcmd;
++	u32 ethcmd, sub_cmd;
+ 	int rc;
+ 	netdev_features_t old_features;
+ 
+@@ -1839,8 +1853,14 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	if (copy_from_user(&ethcmd, useraddr, sizeof(ethcmd)))
+ 		return -EFAULT;
+ 
++	if (ethcmd == ETHTOOL_PERQUEUE) {
++		if (copy_from_user(&sub_cmd, useraddr + sizeof(ethcmd), sizeof(sub_cmd)))
++			return -EFAULT;
++	} else {
++		sub_cmd = ethcmd;
++	}
+ 	/* Allow some commands to be done by anyone */
+-	switch (ethcmd) {
++	switch (sub_cmd) {
+ 	case ETHTOOL_GSET:
+ 	case ETHTOOL_GDRVINFO:
+ 	case ETHTOOL_GMSGLVL:
+@@ -2070,6 +2090,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GPHYSTATS:
+ 		rc = ethtool_get_phy_stats(dev, useraddr);
+ 		break;
++	case ETHTOOL_PERQUEUE:
++		rc = ethtool_set_per_queue(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
 -- 
 1.8.3.1
