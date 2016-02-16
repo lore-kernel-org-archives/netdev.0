@@ -1,56 +1,88 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 3/6] net/mlx4_core: Fix potential corruption in counters database
-Date: Tue, 16 Feb 2016 17:01:48 +0200
-Message-ID: <1455634911-31206-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net 2/6] net/mlx4_en: Choose time-stamping shift value according to HW frequency
+Date: Tue, 16 Feb 2016 17:01:47 +0200
+Message-ID: <1455634911-31206-3-git-send-email-ogerlitz@mellanox.com>
 References: <1455634911-31206-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
 	Yishai Hadas <yishaih@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59380 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59395 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754471AbcBPPDI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2016 10:03:08 -0500
+	id S1754471AbcBPPDU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 10:03:20 -0500
 In-Reply-To: <1455634911-31206-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+From: Eugenia Emantayev <eugenia@mellanox.com>
 
-The error flow in procedure handle_existing_counter() is wrong.
+Previously, the shift value used for time-stamping was constant and didn't
+depend on the HW chip frequency. Change that to take the frequency into account
+and calculate the maximal value in cycles per wraparound of ten seconds. This
+time slot was chosen since it gives a good accuracy in time synchronization.
 
-The procedure should exit after encountering the error, not continue
-as if everything is OK.
+Algorithm for shift value calculation:
+ * Round up the maximal value in cycles to nearest power of two
 
-Fixes: 68230242cdbc ('net/mlx4_core: Add port attribute when tracking counters')
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+ * Calculate maximal multiplier by division of all 64 bits set
+   to above result
+
+ * Then, invert the function clocksource_khz2mult() to get the shift from
+   maximal mult value
+
+Fixes: ec693d47010e ('net/mlx4_en: Add HW timestamping (TS) support')
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Reviewed-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_clock.c | 25 +++++++++++++++++++------
+ 1 file changed, 19 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index b46dbe2..25ce1b0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -915,11 +915,13 @@ static int handle_existing_counter(struct mlx4_dev *dev, u8 slave, int port,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+index 038f9ce..1494997 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+@@ -236,6 +236,24 @@ static const struct ptp_clock_info mlx4_en_ptp_clock_info = {
+ 	.enable		= mlx4_en_phc_enable,
+ };
  
- 	spin_lock_irq(mlx4_tlock(dev));
- 	r = find_res(dev, counter_index, RES_COUNTER);
--	if (!r || r->owner != slave)
-+	if (!r || r->owner != slave) {
- 		ret = -EINVAL;
--	counter = container_of(r, struct res_counter, com);
--	if (!counter->port)
--		counter->port = port;
-+	} else {
-+		counter = container_of(r, struct res_counter, com);
-+		if (!counter->port)
-+			counter->port = port;
-+	}
- 
- 	spin_unlock_irq(mlx4_tlock(dev));
- 	return ret;
++#define MLX4_EN_WRAP_AROUND_SEC	10ULL
++
++/* This function calculates the max shift that enables the user range
++ * of MLX4_EN_WRAP_AROUND_SEC values in the cycles register.
++ */
++static u32 freq_to_shift(u16 freq)
++{
++	u32 freq_khz = freq * 1000;
++	u64 max_val_cycles = freq_khz * 1000 * MLX4_EN_WRAP_AROUND_SEC;
++	u64 max_val_cycles_rounded = is_power_of_2(max_val_cycles + 1) ?
++		max_val_cycles : roundup_pow_of_two(max_val_cycles) - 1;
++	/* calculate max possible multiplier in order to fit in 64bit */
++	u64 max_mul = div_u64(0xffffffffffffffffULL, max_val_cycles_rounded);
++
++	/* This comes from the reverse of clocksource_khz2mult */
++	return ilog2(div_u64(max_mul * freq_khz, 1000000));
++}
++
+ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
+ {
+ 	struct mlx4_dev *dev = mdev->dev;
+@@ -254,12 +272,7 @@ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
+ 	memset(&mdev->cycles, 0, sizeof(mdev->cycles));
+ 	mdev->cycles.read = mlx4_en_read_clock;
+ 	mdev->cycles.mask = CLOCKSOURCE_MASK(48);
+-	/* Using shift to make calculation more accurate. Since current HW
+-	 * clock frequency is 427 MHz, and cycles are given using a 48 bits
+-	 * register, the biggest shift when calculating using u64, is 14
+-	 * (max_cycles * multiplier < 2^64)
+-	 */
+-	mdev->cycles.shift = 14;
++	mdev->cycles.shift = freq_to_shift(dev->caps.hca_core_clock);
+ 	mdev->cycles.mult =
+ 		clocksource_khz2mult(1000 * dev->caps.hca_core_clock, mdev->cycles.shift);
+ 	mdev->nominal_c_mult = mdev->cycles.mult;
 -- 
 2.3.7
