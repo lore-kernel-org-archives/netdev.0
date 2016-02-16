@@ -1,7 +1,7 @@
 From: Kan Liang <kan.liang@intel.com>
-Subject: [PATCH V6 2/8] test_bitmap: unit tests for lib/bitmap.c
-Date: Tue, 16 Feb 2016 07:32:38 -0500
-Message-ID: <1455625964-8943-3-git-send-email-kan.liang@intel.com>
+Subject: [PATCH V5 8/8] i40e/ethtool: support coalesce setting by queue
+Date: Tue, 16 Feb 2016 07:32:44 -0500
+Message-ID: <1455625964-8943-9-git-send-email-kan.liang@intel.com>
 References: <1455625964-8943-1-git-send-email-kan.liang@intel.com>
 Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
 	shannon.nelson@intel.com, f.fainelli@gmail.com,
@@ -15,71 +15,47 @@ Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
 To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org,
 	ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:31690 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:28475 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751795AbcBPTxB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2016 14:53:01 -0500
+	id S1753239AbcBPTxD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 14:53:03 -0500
 In-Reply-To: <1455625964-8943-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <decot@googlers.com>
+From: Kan Liang <kan.liang@intel.com>
 
-This is mainly testing bitmap construction and conversion to/from u32[]
-for now.
+This patch implements set_per_queue_coalesce for i40e driver.
 
-Tested:
-  qemu i386, x86_64, ppc, ppc64 BE and LE, ARM.
-
-Signed-off-by: David Decotigny <decot@googlers.com>
+Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- lib/Kconfig.debug                    | 8 ++++++++
- lib/Makefile                         | 1 +
- tools/testing/selftests/lib/Makefile | 2 +-
- 3 files changed, 10 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index ecb9e75..f890ee5 100644
---- a/lib/Kconfig.debug
-+++ b/lib/Kconfig.debug
-@@ -1738,6 +1738,14 @@ config TEST_KSTRTOX
- config TEST_PRINTF
- 	tristate "Test printf() family of functions at runtime"
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index f9f27bc..9f287f0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -2005,6 +2005,12 @@ static int i40e_set_coalesce(struct net_device *netdev,
+ 	return __i40e_set_coalesce(netdev, ec, -1);
+ }
  
-+config TEST_BITMAP
-+	tristate "Test bitmap_*() family of functions at runtime"
-+	default n
-+	help
-+	  Enable this option to test the bitmap functions at boot.
++static int i40e_set_per_queue_coalesce(struct net_device *netdev, u32 queue,
++				       struct ethtool_coalesce *ec)
++{
++	return __i40e_set_coalesce(netdev, ec, queue);
++}
 +
-+	  If unsure, say N.
-+
- config TEST_RHASHTABLE
- 	tristate "Perform selftest on resizable hash table"
- 	default n
-diff --git a/lib/Makefile b/lib/Makefile
-index a7c26a4..dda4039 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -43,6 +43,7 @@ obj-$(CONFIG_TEST_USER_COPY) += test_user_copy.o
- obj-$(CONFIG_TEST_STATIC_KEYS) += test_static_keys.o
- obj-$(CONFIG_TEST_STATIC_KEYS) += test_static_key_base.o
- obj-$(CONFIG_TEST_PRINTF) += test_printf.o
-+obj-$(CONFIG_TEST_BITMAP) += test_bitmap.o
+ /**
+  * i40e_get_rss_hash_opts - Get RSS hash Input Set for each flow type
+  * @pf: pointer to the physical function struct
+@@ -2878,6 +2884,7 @@ static const struct ethtool_ops i40e_ethtool_ops = {
+ 	.get_priv_flags		= i40e_get_priv_flags,
+ 	.set_priv_flags		= i40e_set_priv_flags,
+ 	.get_per_queue_coalesce	= i40e_get_per_queue_coalesce,
++	.set_per_queue_coalesce	= i40e_set_per_queue_coalesce,
+ };
  
- ifeq ($(CONFIG_DEBUG_KOBJECT),y)
- CFLAGS_kobject.o += -DDEBUG
-diff --git a/tools/testing/selftests/lib/Makefile b/tools/testing/selftests/lib/Makefile
-index 47147b9..0836006 100644
---- a/tools/testing/selftests/lib/Makefile
-+++ b/tools/testing/selftests/lib/Makefile
-@@ -3,6 +3,6 @@
- # No binaries, but make sure arg-less "make" doesn't trigger "run_tests"
- all:
- 
--TEST_PROGS := printf.sh
-+TEST_PROGS := printf.sh bitmap.sh
- 
- include ../lib.mk
+ void i40e_set_ethtool_ops(struct net_device *netdev)
 -- 
 1.8.3.1
