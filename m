@@ -1,77 +1,60 @@
-From: David Wragg <david@weave.works>
-Subject: Re: [PATCH net v2 2/3] geneve: Relax MTU constraints
-Date: Tue, 16 Feb 2016 12:33:42 +0000
-Message-ID: <86vb5o3kd5.fsf@weave.works>
-References: <1455036424-6403-1-git-send-email-david@weave.works>
-	<1455036424-6403-3-git-send-email-david@weave.works>
-	<CALx6S37sD+MNK+kp9oLnEYHEUkOy_NdQK6bq-aMQP2Mvw9M4Qg@mail.gmail.com>
-	<86a8n86bcs.fsf@weave.works>
-	<CAEh+42iGHk9zVYPcpSz5w5XPg450p8avuQLbMZZH+B5fZvF9WQ@mail.gmail.com>
-	<CALx6S36kvXJUZM8_vEmF8L3bxnRiBh98Rs0wAd-HGBJ9Yyde_Q@mail.gmail.com>
-	<CAEh+42gyHEALCjZZGjMWTLQsPgp191c4dfZYFffOL6iV7pwYHw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	ovs dev <dev@openvswitch.org>,
-	David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Jesse Gross <jesse@kernel.org>, Tom Herbert <tom@herbertland.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net-next PATCH v2 1/1] net_sched fix: reclassification needs to consider ether protocol changes
+Date: Tue, 16 Feb 2016 07:37:05 -0500
+Message-ID: <1455626225-16382-1-git-send-email-jhs@emojatatu.com>
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:36302 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755044AbcBPMdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 07:33:44 -0500
-Received: by mail-wm0-f54.google.com with SMTP id g62so104690825wme.1
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 04:33:43 -0800 (PST)
-In-Reply-To: <CAEh+42gyHEALCjZZGjMWTLQsPgp191c4dfZYFffOL6iV7pwYHw@mail.gmail.com>
-	(Jesse Gross's message of "Wed, 10 Feb 2016 15:52:04 +0100")
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:35325 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755005AbcBPMhO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 07:37:14 -0500
+Received: by mail-ig0-f169.google.com with SMTP id hb3so71991785igb.0
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 04:37:14 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesse Gross <jesse@kernel.org> writes:
-> On Wed, Feb 10, 2016 at 3:21 PM, Tom Herbert <tom@herbertland.com> wrote:
->> On Wed, Feb 10, 2016 at 12:59 PM, Jesse Gross <jesse@kernel.org> wrote:
->>> On Wed, Feb 10, 2016 at 12:41 PM, David Wragg <david@weave.works> wrote:
->>>> Tom Herbert <tom@herbertland.com> writes:
->>>>> The correct thing to do is determine the maximum amount of
->>>>> encapsulation overhead that can ever be set in a packet and use for
->>>>> setting the MTU. For instance, when RCO is enable in GUE, the size of
->>>>> the option is included in tunnel->encap_hlen even though it will not
->>>>> be used in all packets (via ip_tunnel_change_mtu). If there is no way
->>>>> to determine a maximum overhead a priori from configuration, then
->>>>> maximum overhead could be assumed to be maximum possible encapsulation
->>>>> header size which for Geneve is 132 bytes IIRC.
->>>>
->>>> Ok, I'll come up with a patch to address this.
->>>
->>> I don't think that this really applies in this situation. The concerns
->>> here relate to what the MTU is actually set to but this patch affects
->>> the range of MTUs allowed to be set by the user. I don't see a reason
->>> to disallow the user from setting a precise value if they know what it
->>> should be.
->>>
->> Right, but if the user sets a bad value and packets are silently
->> dropped on the floor then that seems like a bad result that could have
->> easily been prevented.
->
-> Sure, we might as well prevent the extreme edge cases that can never
-> be valid. In the case of Geneve though, this would be the minimum
-> header size, not the maximum, since it's possible that the user
-> actually knows how big the options are that they want to use.
->
-> But as I said, the practical impact is low because IP_MAX_MTU is so
-> much larger than the MTU of real devices. There will always be many
-> values that the MTU can be set to that result in dropped packets. This
-> is true of all tunnel types.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-I agree with Jesse, and if there was a debate about lifting the MTU
-limit on all tunnel types to IP_MAX_MTU, I'd be for that.
+actions could change the etherproto in particular with ethernet
+tunnelled data. Typically such actions, after peeling the outer header,
+will ask for the packet to be  reclassified. We then need to restart
+the classification with the new proto header.
 
-But for the other tunnel types, I followed the precedent of the code
-that was already there, and geneve might as well be consistent.
+Example setup used to catch this:
+sudo tc qdisc add dev $ETH ingress
+sudo $TC filter add dev $ETH parent ffff: pref 1 protocol 802.1Q \
+u32 match u32 0 0 flowid 1:1 \
+action vlan pop reclassify
 
-Patch sent to the lists.
+Fixes: 3b3ae880266d ("net: sched: consolidate tc_classify{,_compat}")
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ net/sched/sch_api.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-David
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index b5c2cf2..22ab634 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -1818,13 +1818,14 @@ done:
+ int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 		struct tcf_result *res, bool compat_mode)
+ {
+-	__be16 protocol = tc_skb_protocol(skb);
+ #ifdef CONFIG_NET_CLS_ACT
+-	const struct tcf_proto *old_tp = tp;
+ 	int limit = 0;
++#endif
++	const struct tcf_proto *old_tp = tp;
++	__be16 protocol;
+ 
+ reclassify:
+-#endif
++	protocol = tc_skb_protocol(skb);
+ 	for (; tp; tp = rcu_dereference_bh(tp->next)) {
+ 		int err;
+ 
+-- 
+1.9.1
