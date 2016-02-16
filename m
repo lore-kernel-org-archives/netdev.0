@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 09/13] rocker: pre-allocate wait structures during cmd ring init
-Date: Tue, 16 Feb 2016 15:14:47 +0100
-Message-ID: <1455632091-10716-10-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 11/13] rocker: call rocker_cmd_exec function with "nowait" boolean instead of flags
+Date: Tue, 16 Feb 2016 15:14:49 +0100
+Message-ID: <1455632091-10716-12-git-send-email-jiri@resnulli.us>
 References: <1455632091-10716-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	eladr@mellanox.com, tgraf@suug.ch, David.Laight@ACULAB.COM,
@@ -9,192 +9,178 @@ Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com,
 	daniel@iogearbox.net, prem@barefootnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:33987 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932849AbcBPOPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 09:15:05 -0500
-Received: by mail-wm0-f41.google.com with SMTP id b205so111968499wmb.1
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 06:15:04 -0800 (PST)
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36316 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932992AbcBPOPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 09:15:07 -0500
+Received: by mail-wm0-f50.google.com with SMTP id g62so109587071wme.1
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 06:15:07 -0800 (PST)
 In-Reply-To: <1455632091-10716-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-This avoids need to alloc/free wait structure for every command call.
+No need to push down rocker flags just to check if this is nowait or
+not. Let the caller handle that.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/rocker/rocker_main.c | 87 +++++++++++++++++++++++--------
- 1 file changed, 66 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/rocker/rocker_main.c | 38 +++++++++++++++++++------------
+ 1 file changed, 23 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index 0015dcb..8585d98 100644
+index 8113b15..0260249 100644
 --- a/drivers/net/ethernet/rocker/rocker_main.c
 +++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -338,23 +338,19 @@ static void rocker_wait_init(struct rocker_wait *wait)
- 	rocker_wait_reset(wait);
- }
+@@ -262,6 +262,11 @@ static bool rocker_port_is_ovsed(const struct rocker_port *rocker_port)
+ #define ROCKER_OP_FLAG_LEARNED		BIT(2)
+ #define ROCKER_OP_FLAG_REFRESH		BIT(3)
  
--static struct rocker_wait *rocker_wait_create(struct rocker_port *rocker_port,
--					      struct switchdev_trans *trans,
--					      int flags)
-+static struct rocker_wait *rocker_wait_create(void)
++static bool rocker_flags_nowait(int flags)
++{
++	return flags & ROCKER_OP_FLAG_NOWAIT;
++}
++
+ static void *__rocker_mem_alloc(struct switchdev_trans *trans, int flags,
+ 				size_t size)
  {
+@@ -1337,14 +1342,13 @@ typedef int (*rocker_cmd_proc_cb_t)(const struct rocker_port *rocker_port,
+ 				    const struct rocker_desc_info *desc_info,
+ 				    void *priv);
+ 
+-static int rocker_cmd_exec(struct rocker_port *rocker_port, int flags,
++static int rocker_cmd_exec(struct rocker_port *rocker_port, bool nowait,
+ 			   rocker_cmd_prep_cb_t prepare, void *prepare_priv,
+ 			   rocker_cmd_proc_cb_t process, void *process_priv)
+ {
+ 	struct rocker *rocker = rocker_port->rocker;
+ 	struct rocker_desc_info *desc_info;
  	struct rocker_wait *wait;
- 
--	wait = rocker_kzalloc(trans, flags, sizeof(*wait));
-+	wait = kzalloc(sizeof(*wait), GFP_KERNEL);
- 	if (!wait)
- 		return NULL;
--	rocker_wait_init(wait);
- 	return wait;
- }
- 
--static void rocker_wait_destroy(struct switchdev_trans *trans,
--				struct rocker_wait *wait)
-+static void rocker_wait_destroy(struct rocker_wait *wait)
- {
--	rocker_kfree(trans, wait);
-+	kfree(wait);
- }
- 
- static bool rocker_wait_event_timeout(struct rocker_wait *wait,
-@@ -831,6 +827,53 @@ static void rocker_dma_ring_bufs_free(const struct rocker *rocker,
- 	}
- }
- 
-+static int rocker_dma_cmd_ring_wait_alloc(struct rocker_desc_info *desc_info)
-+{
-+	struct rocker_wait *wait;
-+
-+	wait = rocker_wait_create();
-+	if (!wait)
-+		return -ENOMEM;
-+	rocker_desc_cookie_ptr_set(desc_info, wait);
-+	return 0;
-+}
-+
-+static void
-+rocker_dma_cmd_ring_wait_free(const struct rocker_desc_info *desc_info)
-+{
-+	struct rocker_wait *wait = rocker_desc_cookie_ptr_get(desc_info);
-+
-+	rocker_wait_destroy(wait);
-+}
-+
-+static int rocker_dma_cmd_ring_waits_alloc(const struct rocker *rocker)
-+{
-+	const struct rocker_dma_ring_info *cmd_ring = &rocker->cmd_ring;
-+	int i;
-+	int err;
-+
-+	for (i = 0; i < cmd_ring->size; i++) {
-+		err = rocker_dma_cmd_ring_wait_alloc(&cmd_ring->desc_info[i]);
-+		if (err)
-+			goto rollback;
-+	}
-+	return 0;
-+
-+rollback:
-+	for (i--; i >= 0; i--)
-+		rocker_dma_cmd_ring_wait_free(&cmd_ring->desc_info[i]);
-+	return err;
-+}
-+
-+static void rocker_dma_cmd_ring_waits_free(const struct rocker *rocker)
-+{
-+	const struct rocker_dma_ring_info *cmd_ring = &rocker->cmd_ring;
-+	int i;
-+
-+	for (i = 0; i < cmd_ring->size; i++)
-+		rocker_dma_cmd_ring_wait_free(&cmd_ring->desc_info[i]);
-+}
-+
- static int rocker_dma_rings_init(struct rocker *rocker)
- {
- 	const struct pci_dev *pdev = rocker->pdev;
-@@ -853,6 +896,12 @@ static int rocker_dma_rings_init(struct rocker *rocker)
- 		goto err_dma_cmd_ring_bufs_alloc;
- 	}
- 
-+	err = rocker_dma_cmd_ring_waits_alloc(rocker);
-+	if (err) {
-+		dev_err(&pdev->dev, "failed to alloc command dma ring waits\n");
-+		goto err_dma_cmd_ring_waits_alloc;
-+	}
-+
- 	err = rocker_dma_ring_create(rocker, ROCKER_DMA_EVENT,
- 				     ROCKER_DMA_EVENT_DEFAULT_SIZE,
- 				     &rocker->event_ring);
-@@ -875,6 +924,8 @@ err_dma_event_ring_bufs_alloc:
- err_dma_event_ring_create:
- 	rocker_dma_ring_bufs_free(rocker, &rocker->cmd_ring,
- 				  PCI_DMA_BIDIRECTIONAL);
-+err_dma_cmd_ring_waits_alloc:
-+	rocker_dma_cmd_ring_waits_free(rocker);
- err_dma_cmd_ring_bufs_alloc:
- 	rocker_dma_ring_destroy(rocker, &rocker->cmd_ring);
- 	return err;
-@@ -885,6 +936,7 @@ static void rocker_dma_rings_fini(struct rocker *rocker)
- 	rocker_dma_ring_bufs_free(rocker, &rocker->event_ring,
- 				  PCI_DMA_BIDIRECTIONAL);
- 	rocker_dma_ring_destroy(rocker, &rocker->event_ring);
-+	rocker_dma_cmd_ring_waits_free(rocker);
- 	rocker_dma_ring_bufs_free(rocker, &rocker->cmd_ring,
- 				  PCI_DMA_BIDIRECTIONAL);
- 	rocker_dma_ring_destroy(rocker, &rocker->cmd_ring);
-@@ -1106,7 +1158,6 @@ static irqreturn_t rocker_cmd_irq_handler(int irq, void *dev_id)
- 		wait = rocker_desc_cookie_ptr_get(desc_info);
- 		if (wait->nowait) {
- 			rocker_desc_gen_clear(desc_info);
--			rocker_wait_destroy(NULL, wait);
- 		} else {
- 			rocker_wait_wake_up(wait);
- 		}
-@@ -1298,28 +1349,24 @@ static int rocker_cmd_exec(struct rocker_port *rocker_port,
+-	bool nowait = !!(flags & ROCKER_OP_FLAG_NOWAIT);
  	unsigned long lock_flags;
  	int err;
  
--	wait = rocker_wait_create(rocker_port, trans, flags);
--	if (!wait)
--		return -ENOMEM;
--	wait->nowait = nowait;
--
- 	spin_lock_irqsave(&rocker->cmd_ring_lock, lock_flags);
- 
- 	desc_info = rocker_desc_head_get(&rocker->cmd_ring);
- 	if (!desc_info) {
- 		spin_unlock_irqrestore(&rocker->cmd_ring_lock, lock_flags);
--		err = -EAGAIN;
--		goto out;
-+		return -EAGAIN;
- 	}
- 
-+	wait = rocker_desc_cookie_ptr_get(desc_info);
-+	rocker_wait_init(wait);
-+	wait->nowait = nowait;
-+
- 	err = prepare(rocker_port, desc_info, prepare_priv);
- 	if (err) {
- 		spin_unlock_irqrestore(&rocker->cmd_ring_lock, lock_flags);
--		goto out;
-+		return err;
- 	}
- 
--	rocker_desc_cookie_ptr_set(desc_info, wait);
--
- 	if (!switchdev_trans_ph_prepare(trans))
- 		rocker_desc_head_set(rocker, &rocker->cmd_ring, desc_info);
- 
-@@ -1340,8 +1387,6 @@ static int rocker_cmd_exec(struct rocker_port *rocker_port,
- 		err = process(rocker_port, desc_info, process_priv);
- 
- 	rocker_desc_gen_clear(desc_info);
--out:
--	rocker_wait_destroy(trans, wait);
- 	return err;
+@@ -1647,7 +1651,7 @@ rocker_cmd_set_port_learning_prep(const struct rocker_port *rocker_port,
+ static int rocker_cmd_get_port_settings_ethtool(struct rocker_port *rocker_port,
+ 						struct ethtool_cmd *ecmd)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_get_port_settings_prep, NULL,
+ 			       rocker_cmd_get_port_settings_ethtool_proc,
+ 			       ecmd);
+@@ -1656,7 +1660,7 @@ static int rocker_cmd_get_port_settings_ethtool(struct rocker_port *rocker_port,
+ static int rocker_cmd_get_port_settings_macaddr(struct rocker_port *rocker_port,
+ 						unsigned char *macaddr)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_get_port_settings_prep, NULL,
+ 			       rocker_cmd_get_port_settings_macaddr_proc,
+ 			       macaddr);
+@@ -1665,7 +1669,7 @@ static int rocker_cmd_get_port_settings_macaddr(struct rocker_port *rocker_port,
+ static int rocker_cmd_get_port_settings_mode(struct rocker_port *rocker_port,
+ 					     u8 *p_mode)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_get_port_settings_prep, NULL,
+ 			       rocker_cmd_get_port_settings_mode_proc, p_mode);
  }
+@@ -1673,7 +1677,7 @@ static int rocker_cmd_get_port_settings_mode(struct rocker_port *rocker_port,
+ static int rocker_cmd_set_port_settings_ethtool(struct rocker_port *rocker_port,
+ 						struct ethtool_cmd *ecmd)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_set_port_settings_ethtool_prep,
+ 			       ecmd, NULL, NULL);
+ }
+@@ -1681,7 +1685,7 @@ static int rocker_cmd_set_port_settings_ethtool(struct rocker_port *rocker_port,
+ static int rocker_cmd_set_port_settings_macaddr(struct rocker_port *rocker_port,
+ 						unsigned char *macaddr)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_set_port_settings_macaddr_prep,
+ 			       macaddr, NULL, NULL);
+ }
+@@ -1689,7 +1693,7 @@ static int rocker_cmd_set_port_settings_macaddr(struct rocker_port *rocker_port,
+ static int rocker_cmd_set_port_settings_mtu(struct rocker_port *rocker_port,
+ 					    int mtu)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_set_port_settings_mtu_prep,
+ 			       &mtu, NULL, NULL);
+ }
+@@ -1697,7 +1701,7 @@ static int rocker_cmd_set_port_settings_mtu(struct rocker_port *rocker_port,
+ static int rocker_port_set_learning(struct rocker_port *rocker_port,
+ 				    bool learning)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_set_port_learning_prep,
+ 			       &learning, NULL, NULL);
+ }
+@@ -2575,7 +2579,8 @@ static int rocker_flow_tbl_add(struct rocker_port *rocker_port,
+ 	spin_unlock_irqrestore(&rocker->flow_tbl_lock, lock_flags);
  
+ 	if (!switchdev_trans_ph_prepare(trans))
+-		return rocker_cmd_exec(rocker_port, flags,
++		return rocker_cmd_exec(rocker_port,
++				       rocker_flags_nowait(flags),
+ 				       rocker_cmd_flow_tbl_add,
+ 				       found, NULL, NULL);
+ 	return 0;
+@@ -2609,7 +2614,8 @@ static int rocker_flow_tbl_del(struct rocker_port *rocker_port,
+ 
+ 	if (found) {
+ 		if (!switchdev_trans_ph_prepare(trans))
+-			err = rocker_cmd_exec(rocker_port, flags,
++			err = rocker_cmd_exec(rocker_port,
++					      rocker_flags_nowait(flags),
+ 					      rocker_cmd_flow_tbl_del,
+ 					      found, NULL, NULL);
+ 		rocker_kfree(trans, found);
+@@ -2900,7 +2906,8 @@ static int rocker_group_tbl_add(struct rocker_port *rocker_port,
+ 	spin_unlock_irqrestore(&rocker->group_tbl_lock, lock_flags);
+ 
+ 	if (!switchdev_trans_ph_prepare(trans))
+-		return rocker_cmd_exec(rocker_port, flags,
++		return rocker_cmd_exec(rocker_port,
++				       rocker_flags_nowait(flags),
+ 				       rocker_cmd_group_tbl_add,
+ 				       found, NULL, NULL);
+ 	return 0;
+@@ -2931,7 +2938,8 @@ static int rocker_group_tbl_del(struct rocker_port *rocker_port,
+ 
+ 	if (found) {
+ 		if (!switchdev_trans_ph_prepare(trans))
+-			err = rocker_cmd_exec(rocker_port, flags,
++			err = rocker_cmd_exec(rocker_port,
++					      rocker_flags_nowait(flags),
+ 					      rocker_cmd_group_tbl_del,
+ 					      found, NULL, NULL);
+ 		rocker_group_tbl_entry_free(trans, found);
+@@ -4409,7 +4417,7 @@ static int rocker_port_get_phys_port_name(struct net_device *dev,
+ 	struct port_name name = { .buf = buf, .len = len };
+ 	int err;
+ 
+-	err = rocker_cmd_exec(rocker_port, 0,
++	err = rocker_cmd_exec(rocker_port, false,
+ 			      rocker_cmd_get_port_settings_prep, NULL,
+ 			      rocker_cmd_get_port_settings_phys_name_proc,
+ 			      &name);
+@@ -4962,7 +4970,7 @@ rocker_cmd_get_port_stats_ethtool_proc(const struct rocker_port *rocker_port,
+ static int rocker_cmd_get_port_stats_ethtool(struct rocker_port *rocker_port,
+ 					     void *priv)
+ {
+-	return rocker_cmd_exec(rocker_port, 0,
++	return rocker_cmd_exec(rocker_port, false,
+ 			       rocker_cmd_get_port_stats_prep, NULL,
+ 			       rocker_cmd_get_port_stats_ethtool_proc,
+ 			       priv);
 -- 
 1.9.3
