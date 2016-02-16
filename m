@@ -1,134 +1,26 @@
-From: Kan Liang <kan.liang@intel.com>
-Subject: [PATCH V5 3/8] net/ethtool: introduce a new ioctl for per queue setting
-Date: Tue, 16 Feb 2016 07:32:39 -0500
-Message-ID: <1455625964-8943-4-git-send-email-kan.liang@intel.com>
-References: <1455625964-8943-1-git-send-email-kan.liang@intel.com>
-Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, f.fainelli@gmail.com,
-	alexander.duyck@gmail.com, jeffrey.t.kirsher@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	mitch.a.williams@intel.com, ogerlitz@mellanox.com,
-	edumazet@google.com, jiri@mellanox.com, sfeldma@gmail.com,
-	gospo@cumulusnetworks.com, sasha.levin@oracle.com,
-	dsahern@gmail.com, tj@kernel.org, cascardo@redhat.com,
-	corbet@lwn.net, decot@googlers.com, Kan Liang <kan.liang@intel.com>
-To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org,
-	ben@decadent.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:28475 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751284AbcBPTxB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2016 14:53:01 -0500
-In-Reply-To: <1455625964-8943-1-git-send-email-kan.liang@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] ravb: fix the fallout of R-Car gen3 gPTP support
+Date: Tue, 16 Feb 2016 14:53:19 -0500 (EST)
+Message-ID: <20160216.145319.1918944273067707762.davem@davemloft.net>
+References: <15000430.RmSAhz5Ejy@wasted.cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <15000430.RmSAhz5Ejy@wasted.cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kan Liang <kan.liang@intel.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sat, 06 Feb 2016 17:45:37 +0300
 
-Introduce a new ioctl ETHTOOL_PERQUEUE for per queue parameters setting.
-The following patches will enable some SUB_COMMANDs for per queue
-setting.
+>    Here's a set of 2 patches against DaveM's 'net.git' repo fixing up the
+> incomplete commit f5d7837f96e5 ("ravb: ptp: Add CONFIG mode support").
+> I'm proposing these as fixes but they can be merged as cleanups as well...
+> 
+> [1/2] ravb: kill duplicate setting of CCC.CSEL
+> [2/2] ravb: skip gPTP start/stop on R-Car gen3
 
-Signed-off-by: Kan Liang <kan.liang@intel.com>
-Reviewed-by: Ben Hutchings <ben@decadent.org.uk>
----
- include/uapi/linux/ethtool.h | 17 +++++++++++++++++
- net/core/ethtool.c           | 27 +++++++++++++++++++++++++--
- 2 files changed, 42 insertions(+), 2 deletions(-)
-
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 190aea0..f15ae02 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -1202,6 +1202,21 @@ enum ethtool_sfeatures_retval_bits {
- #define ETHTOOL_F_WISH          (1 << ETHTOOL_F_WISH__BIT)
- #define ETHTOOL_F_COMPAT        (1 << ETHTOOL_F_COMPAT__BIT)
- 
-+#define MAX_NUM_QUEUE		4096
-+
-+/**
-+ * struct ethtool_per_queue_op - apply sub command to the queues in mask.
-+ * @cmd: ETHTOOL_PERQUEUE
-+ * @sub_command: the sub command which apply to each queues
-+ * @queue_mask: Bitmap of the queues which sub command apply to
-+ * @data: A complete command structure following for each of the queues addressed
-+ */
-+struct ethtool_per_queue_op {
-+	__u32	cmd;
-+	__u32	sub_command;
-+	__u32	queue_mask[DIV_ROUND_UP(MAX_NUM_QUEUE, 32)];
-+	char	data[];
-+};
- 
- /* CMDs currently supported */
- #define ETHTOOL_GSET		0x00000001 /* Get settings. */
-@@ -1285,6 +1300,8 @@ enum ethtool_sfeatures_retval_bits {
- #define ETHTOOL_STUNABLE	0x00000049 /* Set tunable configuration */
- #define ETHTOOL_GPHYSTATS	0x0000004a /* get PHY-specific statistics */
- 
-+#define ETHTOOL_PERQUEUE	0x0000004b /* Set per queue options */
-+
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
- #define SPARC_ETH_SSET		ETHTOOL_SSET
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 453c803..d0f7146 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1823,13 +1823,27 @@ out:
- 	return ret;
- }
- 
-+static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
-+{
-+	struct ethtool_per_queue_op per_queue_opt;
-+
-+	if (copy_from_user(&per_queue_opt, useraddr, sizeof(per_queue_opt)))
-+		return -EFAULT;
-+
-+	switch (per_queue_opt.sub_command) {
-+
-+	default:
-+		return -EOPNOTSUPP;
-+	};
-+}
-+
- /* The main entry point in this file.  Called from net/core/dev_ioctl.c */
- 
- int dev_ethtool(struct net *net, struct ifreq *ifr)
- {
- 	struct net_device *dev = __dev_get_by_name(net, ifr->ifr_name);
- 	void __user *useraddr = ifr->ifr_data;
--	u32 ethcmd;
-+	u32 ethcmd, sub_cmd;
- 	int rc;
- 	netdev_features_t old_features;
- 
-@@ -1839,8 +1853,14 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	if (copy_from_user(&ethcmd, useraddr, sizeof(ethcmd)))
- 		return -EFAULT;
- 
-+	if (ethcmd == ETHTOOL_PERQUEUE) {
-+		if (copy_from_user(&sub_cmd, useraddr + sizeof(ethcmd), sizeof(sub_cmd)))
-+			return -EFAULT;
-+	} else {
-+		sub_cmd = ethcmd;
-+	}
- 	/* Allow some commands to be done by anyone */
--	switch (ethcmd) {
-+	switch (sub_cmd) {
- 	case ETHTOOL_GSET:
- 	case ETHTOOL_GDRVINFO:
- 	case ETHTOOL_GMSGLVL:
-@@ -2070,6 +2090,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_GPHYSTATS:
- 		rc = ethtool_get_phy_stats(dev, useraddr);
- 		break;
-+	case ETHTOOL_PERQUEUE:
-+		rc = ethtool_set_per_queue(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
--- 
-1.8.3.1
+Series applied, thanks Sergei.
