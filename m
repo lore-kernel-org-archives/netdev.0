@@ -1,38 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dmascc: Return correct error codes
-Date: Tue, 16 Feb 2016 15:33:01 -0500 (EST)
-Message-ID: <20160216.153301.170926451372426076.davem@davemloft.net>
-References: <20160209184236.GA23644@amitoj-Inspiron-3542>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+Date: Tue, 16 Feb 2016 21:36:25 +0100
+Message-ID: <20160216203625.GC2558@lunn.ch>
+References: <90A7E81AE28BAE4CBDDB3B35F187D264402EF4A2@CHN-SV-EXMX02.mchp-main.com>
+ <56BD40F1.2030707@gmail.com>
+ <20160212072040.GC8046@lunn.ch>
+ <90A7E81AE28BAE4CBDDB3B35F187D264402EF5BB@CHN-SV-EXMX02.mchp-main.com>
+ <20160212171829.GD13273@lunn.ch>
+ <90A7E81AE28BAE4CBDDB3B35F187D264402EFB12@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jreuter@yaina.de, linux-hams@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: amitoj1606@gmail.com
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20160209184236.GA23644@amitoj-Inspiron-3542>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, davem@davemloft.net, netdev@vger.kernel.org
+To: Bryan.Whitehead@microchip.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:47747 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932189AbcBPUg2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 15:36:28 -0500
+Content-Disposition: inline
+In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264402EFB12@CHN-SV-EXMX02.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Date: Wed, 10 Feb 2016 00:12:36 +0530
+On Tue, Feb 16, 2016 at 07:41:46PM +0000, Bryan.Whitehead@microchip.com wrote:
+> Andrew,
+> 
+> At this point, I am not tasked with implementing switch features,
+> which would likely take a long time to complete.
 
-> This change has been made with the goal that kernel functions should
-> return something more descriptive than -1 on failure.
-> 
-> A variable `err` has been introduced for storing error codes.
-> 
-> The return value of kzalloc on failure should return a -1 and not a
-> -ENOMEM. This was found using Coccinelle. A simplified version of
-> the semantic patch used is:
- ...
-> Furthermore, set `err` to -ENOMEM on failure of alloc_netdev(), and to
-> -ENODEV on failure of register_netdev() and probe_irq_off().
-> 
-> The single call site only checks that the return value is not 0,
-> hence no change is required at the call site.
-> 
-> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+So this is the discussion we need to have.
 
-Applied to net-next, thanks.
+The interface to the outside work is the two switch ports with real
+PHYs. What you are implementing is an Ethernet driver for an internal
+port connected to the switch. This port does not go to the outside
+world. This driver provides no way to control the ports to the outside
+world and you have no short term plan to actually implement control of
+the ports connected to the outside world.
+
+Should the Linux community accept this driver in this state?
+
+I would prefer to see a simple switchdev or DSA driver which exposes
+the two external ports.
+
+    Andrew
