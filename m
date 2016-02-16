@@ -1,81 +1,85 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/6] Netfilter fixes for net
-Date: Tue, 16 Feb 2016 18:02:31 +0100
-Message-ID: <1455642157-6864-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/6] netfilter: nfnetlink: correctly validate length of batch messages
+Date: Tue, 16 Feb 2016 18:02:35 +0100
+Message-ID: <1455642157-6864-5-git-send-email-pablo@netfilter.org>
+References: <1455642157-6864-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1455642157-6864-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Phil Turnbull <phil.turnbull@oracle.com>
 
-The following patchset contain a rather large batch for your net that
-includes accumulated bugfixes, they are:
+If nlh->nlmsg_len is zero then an infinite loop is triggered because
+'skb_pull(skb, msglen);' pulls zero bytes.
 
-1) Run conntrack cleanup from workqueue process context to avoid hitting
-   soft lockup via watchdog for large tables. This is required by the
-   IPv6 masquerading extension. From Florian Westphal.
+The calculation in nlmsg_len() underflows if 'nlh->nlmsg_len <
+NLMSG_HDRLEN' which bypasses the length validation and will later
+trigger an out-of-bound read.
 
-2) Use original skbuff from nfnetlink batch when calling netlink_ack()
-   on error since this needs to access the skb->sk pointer.
+If the length validation does fail then the malformed batch message is
+copied back to userspace. However, we cannot do this because the
+nlh->nlmsg_len can be invalid. This leads to an out-of-bounds read in
+netlink_ack:
 
-3) Incremental fix on top of recent Sasha Levin's lock fix for conntrack
-   resizing.
+    [   41.455421] ==================================================================
+    [   41.456431] BUG: KASAN: slab-out-of-bounds in memcpy+0x1d/0x40 at addr ffff880119e79340
+    [   41.456431] Read of size 4294967280 by task a.out/987
+    [   41.456431] =============================================================================
+    [   41.456431] BUG kmalloc-512 (Not tainted): kasan: bad access detected
+    [   41.456431] -----------------------------------------------------------------------------
+    ...
+    [   41.456431] Bytes b4 ffff880119e79310: 00 00 00 00 d5 03 00 00 b0 fb fe ff 00 00 00 00  ................
+    [   41.456431] Object ffff880119e79320: 20 00 00 00 10 00 05 00 00 00 00 00 00 00 00 00   ...............
+    [   41.456431] Object ffff880119e79330: 14 00 0a 00 01 03 fc 40 45 56 11 22 33 10 00 05  .......@EV."3...
+    [   41.456431] Object ffff880119e79340: f0 ff ff ff 88 99 aa bb 00 14 00 0a 00 06 fe fb  ................
+                                            ^^ start of batch nlmsg with
+                                               nlmsg_len=4294967280
+    ...
+    [   41.456431] Memory state around the buggy address:
+    [   41.456431]  ffff880119e79400: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    [   41.456431]  ffff880119e79480: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    [   41.456431] >ffff880119e79500: 00 00 00 00 fc fc fc fc fc fc fc fc fc fc fc fc
+    [   41.456431]                                ^
+    [   41.456431]  ffff880119e79580: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+    [   41.456431]  ffff880119e79600: fc fc fc fc fc fc fc fc fc fc fb fb fb fb fb fb
+    [   41.456431] ==================================================================
 
-4) Fix several problems in nfnetlink batch message header sanitization
-   and error handling, from Phil Turnbull.
+Fix this with better validation of nlh->nlmsg_len and by setting
+NFNL_BATCH_FAILURE if any batch message fails length validation.
 
-5) Select NF_DUP_IPV6 based on CONFIG_IPV6, from Arnd Bergmann.
+CAP_NET_ADMIN is required to trigger the bugs.
 
-6) Fix wrong signess in return values on nf_tables counter expression,
-   from Anton Protopopov.
+Fixes: 9ea2aa8b7dba ("netfilter: nfnetlink: validate nfnetlink header from batch")
+Signed-off-by: Phil Turnbull <phil.turnbull@oracle.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nfnetlink.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-Due to the NetDev 1.1 organization burden, I had no chance to pass up
-this to you any sooner in this release cycle, sorry about that.
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index 62e92af..857ae89 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -328,10 +328,12 @@ replay:
+ 		nlh = nlmsg_hdr(skb);
+ 		err = 0;
+ 
+-		if (nlmsg_len(nlh) < sizeof(struct nfgenmsg) ||
+-		    skb->len < nlh->nlmsg_len) {
+-			err = -EINVAL;
+-			goto ack;
++		if (nlh->nlmsg_len < NLMSG_HDRLEN ||
++		    skb->len < nlh->nlmsg_len ||
++		    nlmsg_len(nlh) < sizeof(struct nfgenmsg)) {
++			nfnl_err_reset(&err_list);
++			status |= NFNL_BATCH_FAILURE;
++			goto done;
+ 		}
+ 
+ 		/* Only requests are handled by the kernel */
+-- 
+2.1.4
 
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 53729eb174c1589f9185340ffe8c10b3f39f3ef3:
-
-  Merge branch 'for-upstream' of git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth (2016-01-30 15:32:42 -0800)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
-
-for you to fetch changes up to 5cc6ce9ff27565949a1001a2889a8dd9fd09e772:
-
-  netfilter: nft_counter: fix erroneous return values (2016-02-08 13:05:02 +0100)
-
-----------------------------------------------------------------
-Anton Protopopov (1):
-      netfilter: nft_counter: fix erroneous return values
-
-Arnd Bergmann (1):
-      netfilter: tee: select NF_DUP_IPV6 unconditionally
-
-Florian Westphal (2):
-      netfilter: conntrack: resched in nf_ct_iterate_cleanup
-      netfilter: cttimeout: fix deadlock due to erroneous unlock/lock conversion
-
-Pablo Neira Ayuso (1):
-      netfilter: nfnetlink: use original skbuff when acking batches
-
-Phil Turnbull (1):
-      netfilter: nfnetlink: correctly validate length of batch messages
-
- net/ipv6/netfilter/nf_nat_masquerade_ipv6.c | 74 +++++++++++++++++++++++++++--
- net/netfilter/Kconfig                       |  2 +-
- net/netfilter/nf_conntrack_core.c           |  5 ++
- net/netfilter/nfnetlink.c                   | 16 ++++---
- net/netfilter/nfnetlink_cttimeout.c         |  2 +-
- net/netfilter/nft_counter.c                 |  4 +-
- net/netfilter/xt_TEE.c                      |  4 +-
- 7 files changed, 91 insertions(+), 16 deletions(-)
