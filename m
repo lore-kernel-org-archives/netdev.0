@@ -1,27 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/14][pull request] 1GbE Intel Wired LAN Driver
- Updates 2016-02-15
-Date: Tue, 16 Feb 2016 15:30:44 -0500 (EST)
-Message-ID: <20160216.153044.1671462961731150952.davem@davemloft.net>
-References: <1455592915-82261-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] dmascc: Return correct error codes
+Date: Tue, 16 Feb 2016 15:33:01 -0500 (EST)
+Message-ID: <20160216.153301.170926451372426076.davem@davemloft.net>
+References: <20160209184236.GA23644@amitoj-Inspiron-3542>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39589 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756007AbcBPUaq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 15:30:46 -0500
-In-Reply-To: <1455592915-82261-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jreuter@yaina.de, linux-hams@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	julia.lawall@lip6.fr
+To: amitoj1606@gmail.com
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20160209184236.GA23644@amitoj-Inspiron-3542>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 15 Feb 2016 19:21:41 -0800
+From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Date: Wed, 10 Feb 2016 00:12:36 +0530
 
-> This series contains updates to igb only.
+> This change has been made with the goal that kernel functions should
+> return something more descriptive than -1 on failure.
+> 
+> A variable `err` has been introduced for storing error codes.
+> 
+> The return value of kzalloc on failure should return a -1 and not a
+> -ENOMEM. This was found using Coccinelle. A simplified version of
+> the semantic patch used is:
+ ...
+> Furthermore, set `err` to -ENOMEM on failure of alloc_netdev(), and to
+> -ENODEV on failure of register_netdev() and probe_irq_off().
+> 
+> The single call site only checks that the return value is not 0,
+> hence no change is required at the call site.
+> 
+> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
 
-Pulled, thanks Jeff.
+Applied to net-next, thanks.
