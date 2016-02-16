@@ -1,43 +1,46 @@
-From: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net] geneve: Refine MTU limit
-Date: Tue, 16 Feb 2016 10:32:15 -0800
-Message-ID: <CAEh+42i628VNoXh5=vtFKzqVGeF4NqY3=GKbdNVeqmYnWK_oBg@mail.gmail.com>
-References: <1455625999-9781-1-git-send-email-david@weave.works>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next PATCH v2 0/8] tc offload for cls_u32 on ixgbe
+Date: Tue, 16 Feb 2016 21:30:18 +0200
+Message-ID: <CAJ3xEMhqHbHDH06O5+Y_2mNQM3BNVA9bCLBS70ZK+=-6upDtaA@mail.gmail.com>
+References: <20160216055819.32452.84181.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-To: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1455625999-9781-1-git-send-email-david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amir@vadai.me>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:34044 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755454AbcBPTaS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 14:30:18 -0500
+Received: by mail-ig0-f174.google.com with SMTP id g6so39109357igt.1
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 11:30:18 -0800 (PST)
+In-Reply-To: <20160216055819.32452.84181.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBGZWIgMTYsIDIwMTYgYXQgNDozMyBBTSwgRGF2aWQgV3JhZ2cgPGRhdmlkQHdlYXZl
-LndvcmtzPiB3cm90ZToKPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZ2VuZXZlLmMgYi9kcml2
-ZXJzL25ldC9nZW5ldmUuYwo+IGluZGV4IDAyOGUzODcuLmY1N2Y5YmMgMTAwNjQ0Cj4gLS0tIGEv
-ZHJpdmVycy9uZXQvZ2VuZXZlLmMKPiArKysgYi9kcml2ZXJzL25ldC9nZW5ldmUuYwo+IEBAIC0z
-Nyw2ICszNyw5IEBAIE1PRFVMRV9QQVJNX0RFU0MobG9nX2Vjbl9lcnJvciwgIkxvZyBwYWNrZXRz
-IHJlY2VpdmVkIHdpdGggY29ycnVwdGVkIEVDTiIpOwo+Cj4gICNkZWZpbmUgR0VORVZFX1ZFUiAw
-Cj4gICNkZWZpbmUgR0VORVZFX0JBU0VfSExFTiAoc2l6ZW9mKHN0cnVjdCB1ZHBoZHIpICsgc2l6
-ZW9mKHN0cnVjdCBnZW5ldmVoZHIpKQo+ICsjZGVmaW5lIEdFTkVWRV9NQVhfT1BUSU9OU19MRU4g
-KDYzICogNCkKPiArI2RlZmluZSBHRU5FVkVfTUFYX01UVSAoSVBfTUFYX01UVSAtIHNpemVvZihz
-dHJ1Y3QgaXBoZHIpIC0gR0VORVZFX0JBU0VfSExFTiBcCj4gKyAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgLSBHRU5FVkVfTUFYX09QVElPTlNfTEVOKQoKSW4g
-YWRkaXRpb24gdG8gVG9tJ3MgY29tbWVudCBhYm91dCB0YWtpbmcgaW50byBhY2NvdW50CmRldi0+
-aGFyZF9oZWFkZXJfbGVuLCBjYW4geW91IHBsZWFzZSBub3QgaW5jbHVkZQpHRU5FVkVfTUFYX09Q
-VElPTlNfTEVOIGluIHRoZSBNVFUgY2FsY3VsYXRpb24gYmFzZWQgb24gdGhlIGRpc2N1c3Npb24K
-b24gdGhlIG90aGVyIHRocmVhZD8gT3RoZXJ3aXNlLCB5b3UgYXJlIGV4Y2x1ZGluZyBzb21lIHBv
-dGVudGlhbGx5CnZhbGlkIGNvbmZpZ3VyYXRpb25zLgpfX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5v
-cmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On Tue, Feb 16, 2016 at 8:00 AM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+[...]
+
+> Specifically this uses a 'big hammer' feature bit
+> to do the offload or not. If the bit is set you get offloaded rules
+> if it is not then rules will not be offloaded. If we can agree on
+> this patch series there are some more patches on my queue we can
+> talk about to make the offload decision per rule using flags similar
+> to how we do l2 mac updates. Additionally the error strategy can
+> be improved to be hard aborting, log and continue, etc. I think
+> these are nice to have improvements but shouldn't block this series.
+
+John,
+
+I thought we've got into agreement in netdev that the offloading
+directive would be a tri-state creature (sw, hw and fail the op if
+can't, hw and fallback to sw). Can you please elaborate what do you
+mean by "make the offload decision per rule using flags similar to how
+we do l2 mac updates"
+
+Or.
