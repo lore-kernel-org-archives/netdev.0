@@ -1,105 +1,49 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v2 8/8] net: ixgbe: abort with cls u32 divisor
- groups greater than 1
-Date: Mon, 15 Feb 2016 22:03:41 -0800
-Message-ID: <20160216060341.32452.24832.stgit@john-Precision-Tower-5810>
-References: <20160216055819.32452.84181.stgit@john-Precision-Tower-5810>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: ravb: Possible Regression In "net: phy: Avoid polling PHY with PHY_IGNORE_INTERRUPTS"
+Date: Tue, 16 Feb 2016 08:42:04 +0100
+Message-ID: <CAMuHMdXvnY0i69jSfxk_2K0Ac0PtjF7G7QMXKOh6KOLQE8MsMg@mail.gmail.com>
+References: <20160216032642.GE23315@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us,
-	jeffrey.t.kirsher@intel.com
-To: amir@vadai.me, john.fastabend@gmail.com, jhs@mojatatu.com,
-	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34761 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753641AbcBPGEF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 01:04:05 -0500
-Received: by mail-pa0-f44.google.com with SMTP id fy10so57985635pac.1
-        for <netdev@vger.kernel.org>; Mon, 15 Feb 2016 22:04:04 -0800 (PST)
-In-Reply-To: <20160216055819.32452.84181.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-renesas-soc@vger.kernel.org,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20160216032642.GE23315@verge.net.au>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch ensures ixgbe will not try to offload hash tables from the
-u32 module. The device class does not currently support this so until
-it is enabled just abort on these tables.
+Hi Simon,
 
-Interestingly the more flexible your hardware is the less code you
-need to implement to guard against these cases.
+On Tue, Feb 16, 2016 at 4:26 AM, Simon Horman <horms@verge.net.au> wrote:
+> I have observed what appears to be a regression in the ravb ethernet driver
+> caused by d5c3d84657db ("net: phy: Avoid polling PHY with
+> PHY_IGNORE_INTERRUPTS").
+>
+> When booting net-next configured with the ARM64 defconfig on the Renesas
+> r8a7795/salvator-x I see the following and the ravb is unable to access the
+> network. With the above mentioned patch reverted I am able to boot to
+> user-space using nfsroot.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   31 +++++++++++++++++++++++++
- 2 files changed, 32 insertions(+)
+The ravb interrupt is connected to a GPIO controller, which is
+runtime-suspended and thus not serving the interrupt.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index fc877c7..84fa28c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -798,6 +798,7 @@ struct ixgbe_adapter {
- 
- #define IXGBE_MAX_LINK_HANDLE 10
- 	struct ixgbe_mat_field *jump_tables[IXGBE_MAX_LINK_HANDLE];
-+	unsigned long tables;
- 
- /* maximum number of RETA entries among all devices supported by ixgbe
-  * driver: currently it's x550 device in non-SRIOV mode
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index adbb7c7..3d154c9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8217,6 +8217,27 @@ static int ixgbe_delete_clsu32(struct ixgbe_adapter *adapter,
- 	return err;
- }
- 
-+static int ixgbe_configure_clsu32_add_hnode(struct ixgbe_adapter *adapter,
-+					    __be16 protocol,
-+					    struct tc_cls_u32_offload *cls)
-+{
-+	/* This ixgbe devices do not support hash tables at the moment
-+	 * so abort when given hash tables.
-+	 */
-+	if (cls->hnode.divisor > 0)
-+		return -EINVAL;
-+
-+	set_bit(TC_U32_USERHTID(cls->hnode.handle), &adapter->tables);
-+	return 0;
-+}
-+
-+static int ixgbe_configure_clsu32_del_hnode(struct ixgbe_adapter *adapter,
-+					    struct tc_cls_u32_offload *cls)
-+{
-+	clear_bit(TC_U32_USERHTID(cls->hnode.handle), &adapter->tables);
-+	return 0;
-+}
-+
- static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
- 				  __be16 protocol,
- 				  struct tc_cls_u32_offload *cls)
-@@ -8251,6 +8272,9 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
- 		struct ixgbe_nexthdr *nexthdr = ixgbe_ipv4_jumps;
- 		u32 uhtid = TC_U32_USERHTID(cls->knode.link_handle);
- 
-+		if (!test_bit(uhtid, &adapter->tables))
-+			return -EINVAL;
-+
- 		for (i = 0; nexthdr[i].jump; i++) {
- 			if (nexthdr->o != cls->knode.sel->offoff ||
- 			    nexthdr->s != cls->knode.sel->offshift ||
-@@ -8386,6 +8410,13 @@ int __ixgbe_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
- 						      proto, tc->cls_u32);
- 		case TC_CLSU32_DELETE_KNODE:
- 			return ixgbe_delete_clsu32(adapter, tc->cls_u32);
-+		case TC_CLSU32_NEW_HNODE:
-+		case TC_CLSU32_REPLACE_HNODE:
-+			return ixgbe_configure_clsu32_add_hnode(adapter, proto,
-+								tc->cls_u32);
-+		case TC_CLSU32_DELETE_HNODE:
-+			return ixgbe_configure_clsu32_del_hnode(adapter,
-+								tc->cls_u32);
- 		default:
- 			return -EINVAL;
- 		}
+Cfr. "[PATCH/RFC] gpio: rcar: Add Runtime PM handling for interrupts"
+(http://www.spinics.net/lists/linux-renesas-soc/msg00532.html).
+
+I assume it worked before as the PHY driver polled the PHY instead of relying
+solely on the interrupt.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
