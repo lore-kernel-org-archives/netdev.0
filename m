@@ -1,7 +1,7 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v2 3/8] ARM: dts: armada-xp: add buffer manager nodes
-Date: Tue, 16 Feb 2016 16:33:38 +0100
-Message-ID: <1455636823-14470-4-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH v2 4/8] ARM: dts: armada-xp: enable buffer manager support on Armada XP boards
+Date: Tue, 16 Feb 2016 16:33:39 +0100
+Message-ID: <1455636823-14470-5-git-send-email-gregory.clement@free-electrons.com>
 References: <1455636823-14470-1-git-send-email-gregory.clement@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -25,56 +25,144 @@ List-Id: netdev.vger.kernel.org
 
 From: Marcin Wojtas <mw@semihalf.com>
 
-Armada XP network controller supports hardware buffer management (BM).
-Since it is now enabled in mvneta driver, appropriate nodes can be added
-to armada-xp.dtsi - for the actual common BM unit (bm@c0000) and its
-internal SRAM (bm-bppi), which is used for indirect access to buffer
-pointer ring residing in DRAM.
+Since mvneta driver supports using hardware buffer management (BM), in
+order to use it, board files have to be adjusted accordingly. This commit
+enables BM on AXP-DB and AXP-GP in same manner - because number of ports
+on those boards is the same as number of possible pools, each port is
+supposed to use single pool for all kind of packets.
 
-Pools - ports mapping, bm-bppi entry in 'soc' node's ranges and optional
-parameters are supposed to be set in board files.
+Moreover appropriate entry is added to 'soc' node ranges, as well as "okay"
+status for 'bm' and 'bm-bppi' (internal SRAM) nodes.
 
 Signed-off-by: Marcin Wojtas <mw@semihalf.com>
 Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 ---
- arch/arm/boot/dts/armada-xp.dtsi | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+ arch/arm/boot/dts/armada-xp-db.dts | 19 ++++++++++++++++++-
+ arch/arm/boot/dts/armada-xp-gp.dts | 19 ++++++++++++++++++-
+ 2 files changed, 36 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm/boot/dts/armada-xp.dtsi b/arch/arm/boot/dts/armada-xp.dtsi
-index be23196829bb..bd459360d7a6 100644
---- a/arch/arm/boot/dts/armada-xp.dtsi
-+++ b/arch/arm/boot/dts/armada-xp.dtsi
-@@ -253,6 +253,14 @@
- 				marvell,crypto-sram-size = <0x800>;
- 			};
+diff --git a/arch/arm/boot/dts/armada-xp-db.dts b/arch/arm/boot/dts/armada-xp-db.dts
+index f774101416a5..30657302305d 100644
+--- a/arch/arm/boot/dts/armada-xp-db.dts
++++ b/arch/arm/boot/dts/armada-xp-db.dts
+@@ -77,7 +77,8 @@
+ 			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
+ 			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000
+ 			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
+-			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000>;
++			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
++			  MBUS_ID(0x0c, 0x04) 0 0 0xf1200000 0x100000>;
  
-+			bm: bm@c0000 {
-+				compatible = "marvell,armada-380-neta-bm";
-+				reg = <0xc0000 0xac>;
-+				clocks = <&gateclk 13>;
-+				internal-mem = <&bm_bppi>;
-+				status = "disabled";
+ 		devbus-bootcs {
+ 			status = "okay";
+@@ -181,21 +182,33 @@
+ 				status = "okay";
+ 				phy = <&phy0>;
+ 				phy-mode = "rgmii-id";
++				buffer-manager = <&bm>;
++				bm,pool-long = <0>;
+ 			};
+ 			ethernet@74000 {
+ 				status = "okay";
+ 				phy = <&phy1>;
+ 				phy-mode = "rgmii-id";
++				buffer-manager = <&bm>;
++				bm,pool-long = <1>;
+ 			};
+ 			ethernet@30000 {
+ 				status = "okay";
+ 				phy = <&phy2>;
+ 				phy-mode = "sgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <2>;
+ 			};
+ 			ethernet@34000 {
+ 				status = "okay";
+ 				phy = <&phy3>;
+ 				phy-mode = "sgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <3>;
 +			};
 +
- 			xor@f0900 {
- 				compatible = "marvell,orion-xor";
- 				reg = <0xF0900 0x100
-@@ -291,6 +299,16 @@
- 			#size-cells = <1>;
- 			ranges = <0 MBUS_ID(0x09, 0x05) 0 0x800>;
++			bm@c0000 {
++				status = "okay";
+ 			};
+ 
+ 			mvsdio@d4000 {
+@@ -230,5 +243,9 @@
+ 				};
+ 			};
  		};
 +
-+		bm_bppi: bm-bppi {
-+			compatible = "mmio-sram";
-+			reg = <MBUS_ID(0x0c, 0x04) 0 0x100000>;
-+			ranges = <0 MBUS_ID(0x0c, 0x04) 0 0x100000>;
-+			#address-cells = <1>;
-+			#size-cells = <1>;
-+			clocks = <&gateclk 13>;
-+			status = "disabled";
++		bm-bppi {
++			status = "okay";
 +		};
  	};
+ };
+diff --git a/arch/arm/boot/dts/armada-xp-gp.dts b/arch/arm/boot/dts/armada-xp-gp.dts
+index 4878d7353069..a1ded01d0c07 100644
+--- a/arch/arm/boot/dts/armada-xp-gp.dts
++++ b/arch/arm/boot/dts/armada-xp-gp.dts
+@@ -96,7 +96,8 @@
+ 			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
+ 			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000
+ 			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
+-			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000>;
++			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
++			  MBUS_ID(0x0c, 0x04) 0 0 0xf1200000 0x100000>;
  
- 	clocks {
+ 		devbus-bootcs {
+ 			status = "okay";
+@@ -196,21 +197,29 @@
+ 				status = "okay";
+ 				phy = <&phy0>;
+ 				phy-mode = "qsgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <0>;
+ 			};
+ 			ethernet@74000 {
+ 				status = "okay";
+ 				phy = <&phy1>;
+ 				phy-mode = "qsgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <1>;
+ 			};
+ 			ethernet@30000 {
+ 				status = "okay";
+ 				phy = <&phy2>;
+ 				phy-mode = "qsgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <2>;
+ 			};
+ 			ethernet@34000 {
+ 				status = "okay";
+ 				phy = <&phy3>;
+ 				phy-mode = "qsgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <3>;
+ 			};
+ 
+ 			/* Front-side USB slot */
+@@ -235,6 +244,10 @@
+ 				};
+ 			};
+ 
++			bm@c0000 {
++				status = "okay";
++			};
++
+ 			nand@d0000 {
+ 				status = "okay";
+ 				num-cs = <1>;
+@@ -243,5 +256,9 @@
+ 				nand-on-flash-bbt;
+ 			};
+ 		};
++
++		bm-bppi {
++			status = "okay";
++		};
+ 	};
+ };
 -- 
 2.5.0
