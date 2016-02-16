@@ -1,26 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] ravb: fix the fallout of R-Car gen3 gPTP support
-Date: Tue, 16 Feb 2016 14:53:19 -0500 (EST)
-Message-ID: <20160216.145319.1918944273067707762.davem@davemloft.net>
-References: <15000430.RmSAhz5Ejy@wasted.cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <15000430.RmSAhz5Ejy@wasted.cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Kan Liang <kan.liang@intel.com>
+Subject: [PATCH V5 7/8] i40e/ethtool: support coalesce getting by queue
+Date: Tue, 16 Feb 2016 07:32:43 -0500
+Message-ID: <1455625964-8943-8-git-send-email-kan.liang@intel.com>
+References: <1455625964-8943-1-git-send-email-kan.liang@intel.com>
+Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, f.fainelli@gmail.com,
+	alexander.duyck@gmail.com, jeffrey.t.kirsher@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	mitch.a.williams@intel.com, ogerlitz@mellanox.com,
+	edumazet@google.com, jiri@mellanox.com, sfeldma@gmail.com,
+	gospo@cumulusnetworks.com, sasha.levin@oracle.com,
+	dsahern@gmail.com, tj@kernel.org, cascardo@redhat.com,
+	corbet@lwn.net, decot@googlers.com, Kan Liang <kan.liang@intel.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org,
+	ben@decadent.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:31690 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753193AbcBPTxD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 14:53:03 -0500
+In-Reply-To: <1455625964-8943-1-git-send-email-kan.liang@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sat, 06 Feb 2016 17:45:37 +0300
+From: Kan Liang <kan.liang@intel.com>
 
->    Here's a set of 2 patches against DaveM's 'net.git' repo fixing up the
-> incomplete commit f5d7837f96e5 ("ravb: ptp: Add CONFIG mode support").
-> I'm proposing these as fixes but they can be merged as cleanups as well...
-> 
-> [1/2] ravb: kill duplicate setting of CCC.CSEL
-> [2/2] ravb: skip gPTP start/stop on R-Car gen3
+This patch implements get_per_queue_coalesce for i40e driver.
 
-Series applied, thanks Sergei.
+Signed-off-by: Kan Liang <kan.liang@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 4193ab9..f9f27bc 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1895,6 +1895,12 @@ static int i40e_get_coalesce(struct net_device *netdev,
+ 	return __i40e_get_coalesce(netdev, ec, -1);
+ }
+ 
++static int i40e_get_per_queue_coalesce(struct net_device *netdev, u32 queue,
++				       struct ethtool_coalesce *ec)
++{
++	return __i40e_get_coalesce(netdev, ec, queue);
++}
++
+ static void i40e_set_itr_per_queue(struct i40e_vsi *vsi,
+ 				   struct ethtool_coalesce *ec,
+ 				   int queue)
+@@ -2871,6 +2877,7 @@ static const struct ethtool_ops i40e_ethtool_ops = {
+ 	.get_ts_info		= i40e_get_ts_info,
+ 	.get_priv_flags		= i40e_get_priv_flags,
+ 	.set_priv_flags		= i40e_set_priv_flags,
++	.get_per_queue_coalesce	= i40e_get_per_queue_coalesce,
+ };
+ 
+ void i40e_set_ethtool_ops(struct net_device *netdev)
+-- 
+1.8.3.1
