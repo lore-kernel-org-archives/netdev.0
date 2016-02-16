@@ -1,82 +1,55 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next PATCH v2 1/1] net_sched fix: reclassification needs
- to consider ether protocol changes
-Date: Tue, 16 Feb 2016 16:20:56 +0100
-Message-ID: <56C33E58.9090007@iogearbox.net>
-References: <1455626225-16382-1-git-send-email-jhs@emojatatu.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: wlcore: Fix regression in wlcore_set_partition()
+Date: Tue, 16 Feb 2016 17:24:15 +0200
+Message-ID: <87bn7gu19c.fsf@kamboji.qca.qualcomm.com>
+References: <20160210012216.GA18819@lianli>
+	<20160212094526.EC572611CE@smtp.codeaurora.org>
+	<CANfgCY02_AkRi2EMNZsneK8UdwLvAWxF_X0ts6WZbaM0=5c63A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56398 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750897AbcBPPVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 10:21:00 -0500
-In-Reply-To: <1455626225-16382-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Emil Goode <emil.fsw@goode.io>, Shahar Patury <shaharp@ti.com>,
+	Guy Mishol <guym@ti.com>,
+	Igor Grinberg <grinberg@compulab.co.il>,
+	Uri Mashiach <uri.mashiach@compulab.co.il>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ross Green <rgkernel@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANfgCY02_AkRi2EMNZsneK8UdwLvAWxF_X0ts6WZbaM0=5c63A@mail.gmail.com>
+	(Ross Green's message of "Mon, 15 Feb 2016 15:01:49 +1100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/16/2016 01:37 PM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> actions could change the etherproto in particular with ethernet
-> tunnelled data. Typically such actions, after peeling the outer heade=
-r,
-> will ask for the packet to be  reclassified. We then need to restart
-> the classification with the new proto header.
->
-> Example setup used to catch this:
-> sudo tc qdisc add dev $ETH ingress
-> sudo $TC filter add dev $ETH parent ffff: pref 1 protocol 802.1Q \
-> u32 match u32 0 0 flowid 1:1 \
-> action vlan pop reclassify
->
-> Fixes: 3b3ae880266d ("net: sched: consolidate tc_classify{,_compat}")
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> ---
->   net/sched/sch_api.c | 7 ++++---
->   1 file changed, 4 insertions(+), 3 deletions(-)
->
-> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> index b5c2cf2..22ab634 100644
-> --- a/net/sched/sch_api.c
-> +++ b/net/sched/sch_api.c
-> @@ -1818,13 +1818,14 @@ done:
->   int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->   		struct tcf_result *res, bool compat_mode)
->   {
-> -	__be16 protocol =3D tc_skb_protocol(skb);
->   #ifdef CONFIG_NET_CLS_ACT
-> -	const struct tcf_proto *old_tp =3D tp;
->   	int limit =3D 0;
-> +#endif
-> +	const struct tcf_proto *old_tp =3D tp;
-> +	__be16 protocol;
->
->   reclassify:
-> -#endif
-> +	protocol =3D tc_skb_protocol(skb);
->   	for (; tp; tp =3D rcu_dereference_bh(tp->next)) {
->   		int err;
->
+Ross Green <rgkernel@gmail.com> writes:
 
-But, how is that better than the one-liner I suggested to you in
-my earlier mail?
+> On Fri, Feb 12, 2016 at 8:45 PM, Kalle Valo <kvalo@codeaurora.org> wrote:
+>>
+>>> The commit 3719c17e1816 ("wlcore/wl18xx: fw logger over sdio") introduced a
+>>> regression causing the wlcore to time out and go into recovery. Reverting the
+>>> changes regarding write of the last partition size brings the module back to
+>>> it's functional state.
+>>>
+>>> Fixes: 3719c17e1816 ("wlcore/wl18xx: fw logger over sdio")
+>>> Reported-by: Ross Green <rgkernel@gmail.com>
+>>> Signed-off-by: Emil Goode <emil.fsw@goode.io>
+>>> [kvalo@codeaurora.org: improved commit log]
+>>
+>> Thanks, applied to wireless-drivers.git.
+>>
+>> Kalle Valo
+>
+> I just tested linux-4.5-rc4 it appears the above fix missed the release for rc4!
+> So the behaviour of firmware reset being called after the access of
+> the last partition timesout.
+>
+> Again tested patch with the new release - 4.5-rc4 and found everything
+> to work as expected again.
+>
+> So Hopefully for rc5 - Please!
 
-With this patch, I now get :
+It takes some time to get patches into Linus' tree. And being in a
+conference and then getting sick is not really helping. I'm not sure if
+this patch makes to rc5 on time, but I'll try.
 
-   CC      net/sched/sch_api.o
-net/sched/sch_api.c: In function =91tc_classify=92:
-net/sched/sch_api.c:1827:1: warning: label =91reclassify=92 defined but=
- not used [-Wunused-label]
-  reclassify:
-  ^
-net/sched/sch_api.c:1824:26: warning: unused variable =91old_tp=92 [-Wu=
-nused-variable]
-   const struct tcf_proto *old_tp =3D tp;
-                           ^
-Thanks,
-Daniel
+-- 
+Kalle Valo
