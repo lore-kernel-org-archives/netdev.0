@@ -1,7 +1,7 @@
 From: Kan Liang <kan.liang@intel.com>
-Subject: [PATCH V5 7/8] i40e/ethtool: support coalesce getting by queue
-Date: Tue, 16 Feb 2016 07:32:43 -0500
-Message-ID: <1455625964-8943-8-git-send-email-kan.liang@intel.com>
+Subject: [PATCH V6 2/8] test_bitmap: unit tests for lib/bitmap.c
+Date: Tue, 16 Feb 2016 07:32:38 -0500
+Message-ID: <1455625964-8943-3-git-send-email-kan.liang@intel.com>
 References: <1455625964-8943-1-git-send-email-kan.liang@intel.com>
 Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
 	shannon.nelson@intel.com, f.fainelli@gmail.com,
@@ -17,45 +17,69 @@ To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:31690 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753193AbcBPTxD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2016 14:53:03 -0500
+	id S1751795AbcBPTxB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 14:53:01 -0500
 In-Reply-To: <1455625964-8943-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kan Liang <kan.liang@intel.com>
+From: David Decotigny <decot@googlers.com>
 
-This patch implements get_per_queue_coalesce for i40e driver.
+This is mainly testing bitmap construction and conversion to/from u32[]
+for now.
 
-Signed-off-by: Kan Liang <kan.liang@intel.com>
+Tested:
+  qemu i386, x86_64, ppc, ppc64 BE and LE, ARM.
+
+Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ lib/Kconfig.debug                    | 8 ++++++++
+ lib/Makefile                         | 1 +
+ tools/testing/selftests/lib/Makefile | 2 +-
+ 3 files changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 4193ab9..f9f27bc 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1895,6 +1895,12 @@ static int i40e_get_coalesce(struct net_device *netdev,
- 	return __i40e_get_coalesce(netdev, ec, -1);
- }
+diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+index ecb9e75..f890ee5 100644
+--- a/lib/Kconfig.debug
++++ b/lib/Kconfig.debug
+@@ -1738,6 +1738,14 @@ config TEST_KSTRTOX
+ config TEST_PRINTF
+ 	tristate "Test printf() family of functions at runtime"
  
-+static int i40e_get_per_queue_coalesce(struct net_device *netdev, u32 queue,
-+				       struct ethtool_coalesce *ec)
-+{
-+	return __i40e_get_coalesce(netdev, ec, queue);
-+}
++config TEST_BITMAP
++	tristate "Test bitmap_*() family of functions at runtime"
++	default n
++	help
++	  Enable this option to test the bitmap functions at boot.
 +
- static void i40e_set_itr_per_queue(struct i40e_vsi *vsi,
- 				   struct ethtool_coalesce *ec,
- 				   int queue)
-@@ -2871,6 +2877,7 @@ static const struct ethtool_ops i40e_ethtool_ops = {
- 	.get_ts_info		= i40e_get_ts_info,
- 	.get_priv_flags		= i40e_get_priv_flags,
- 	.set_priv_flags		= i40e_set_priv_flags,
-+	.get_per_queue_coalesce	= i40e_get_per_queue_coalesce,
- };
++	  If unsure, say N.
++
+ config TEST_RHASHTABLE
+ 	tristate "Perform selftest on resizable hash table"
+ 	default n
+diff --git a/lib/Makefile b/lib/Makefile
+index a7c26a4..dda4039 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -43,6 +43,7 @@ obj-$(CONFIG_TEST_USER_COPY) += test_user_copy.o
+ obj-$(CONFIG_TEST_STATIC_KEYS) += test_static_keys.o
+ obj-$(CONFIG_TEST_STATIC_KEYS) += test_static_key_base.o
+ obj-$(CONFIG_TEST_PRINTF) += test_printf.o
++obj-$(CONFIG_TEST_BITMAP) += test_bitmap.o
  
- void i40e_set_ethtool_ops(struct net_device *netdev)
+ ifeq ($(CONFIG_DEBUG_KOBJECT),y)
+ CFLAGS_kobject.o += -DDEBUG
+diff --git a/tools/testing/selftests/lib/Makefile b/tools/testing/selftests/lib/Makefile
+index 47147b9..0836006 100644
+--- a/tools/testing/selftests/lib/Makefile
++++ b/tools/testing/selftests/lib/Makefile
+@@ -3,6 +3,6 @@
+ # No binaries, but make sure arg-less "make" doesn't trigger "run_tests"
+ all:
+ 
+-TEST_PROGS := printf.sh
++TEST_PROGS := printf.sh bitmap.sh
+ 
+ include ../lib.mk
 -- 
 1.8.3.1
