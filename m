@@ -1,87 +1,45 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [PATCH net-next] lwt: fix rx checksum setting for lwt devices
- tunneling over ipv6
-Date: Tue, 16 Feb 2016 10:22:38 -0800
-Message-ID: <CAEh+42jyFVjM4A5HzJQ94xW+XZOTG5iBEFu2VHKCJU0sRwNgWA@mail.gmail.com>
-References: <8d2a6ece65b17ae61343dce27f3709d3cd249832.1455118911.git.pabeni@redhat.com>
- <20160211114124.17ae429a@griffin>
+From: "Christopher Hall" <christopher.s.hall@intel.com>
+Subject: Re: [PATCH v7 3/8] time: Remove duplicated code in
+ ktime_get_raw_and_real()
+Date: Tue, 16 Feb 2016 10:23:01 -0800
+Message-ID: <op.ycxuonx01774gr@chall-mobl2.amr.corp.intel.com>
+References: <1455308729-6280-1-git-send-email-christopher.s.hall@intel.com>
+ <1455308729-6280-4-git-send-email-christopher.s.hall@intel.com>
+ <20160216075210.GA2461@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Paolo Abeni <pabeni@redhat.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Pravin Shelar <pshelar@nicira.com>, Thomas Graf <tgraf@suug.ch>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:55644 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755862AbcBPSW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2016 13:22:56 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 05A58202A1
-	for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 18:22:55 +0000 (UTC)
-Received: from mail-qg0-f42.google.com (mail-qg0-f42.google.com [209.85.192.42])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 78DBA202B8
-	for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 18:22:53 +0000 (UTC)
-Received: by mail-qg0-f42.google.com with SMTP id b67so139877236qgb.1
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 10:22:53 -0800 (PST)
-In-Reply-To: <20160211114124.17ae429a@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: tglx@linutronix.de, mingo@redhat.com, john.stultz@linaro.org,
+	hpa@zytor.com, jeffrey.t.kirsher@intel.com, x86@kernel.org,
+	linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, kevin.b.stanton@intel.com,
+	kevin.j.clarke@intel.com
+To: "Richard Cochran" <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160216075210.GA2461@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 11, 2016 at 2:41 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> On Wed, 10 Feb 2016 16:47:21 +0100, Paolo Abeni wrote:
->> --- a/drivers/net/geneve.c
->> +++ b/drivers/net/geneve.c
->> @@ -1441,7 +1441,8 @@ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
->>               return dev;
+On Mon, 15 Feb 2016 23:52:10 -0800, Richard Cochran  
+<richardcochran@gmail.com> wrote:
+>> @@ -888,6 +888,8 @@ void ktime_get_snapshot(struct system_time_snapshot  
+>> *systime_snapshot)
+>>  	s64 nsec_real;
+>>  	cycle_t now;
 >>
->>       err = geneve_configure(net, dev, &geneve_remote_unspec,
->> -                            0, 0, 0, htons(dst_port), true, 0);
->> +                            0, 0, 0, htons(dst_port), true,
->> +                            GENEVE_F_UDP_ZERO_CSUM6_RX);
->>       if (err) {
->>               free_netdev(dev);
->>               return ERR_PTR(err);
->> diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
->> index 1605691..d933cb8 100644
->> --- a/net/openvswitch/vport-vxlan.c
->> +++ b/net/openvswitch/vport-vxlan.c
->> @@ -90,7 +90,7 @@ static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
->>       int err;
->>       struct vxlan_config conf = {
->>               .no_share = true,
->> -             .flags = VXLAN_F_COLLECT_METADATA,
->> +             .flags = VXLAN_F_COLLECT_METADATA | VXLAN_F_UDP_ZERO_CSUM6_RX,
+>> +	WARN_ON(timekeeping_suspended);
+> ...
+>> -	WARN_ON_ONCE(timekeeping_suspended);
 >
-> I'm afraid this looks wrong, we should not default to zero UDP checksum
-> over IPv6. See RFC 2460, section 8.1:
->
->       o  Unlike IPv4, when UDP packets are originated by an IPv6 node,
->          the UDP checksum is not optional.  That is, whenever
->          originating a UDP packet, an IPv6 node must compute a UDP
->          checksum over the packet and the pseudo-header, and, if that
->          computation yields a result of zero, it must be changed to hex
->          FFFF for placement in the UDP header.  IPv6 receivers must
->          discard UDP packets containing a zero checksum, and should log
->          the error.
->
-> One may argue that with tunneling, the situation is different but
-> that's the reason why we have the IPv6 checksum flag and why it has
-> opposite meaning to the IPv4 one. We shouldn't default to non-RFC
-> behavior by default.
+> Is this change intentional?
 
-There's a bigger problem here, not really related to lightweight tunnels or OVS.
+Yes it is. The code I replaced in pps_kernel.h (pps_get_ts()) has two call  
+paths depending on whether CONFIG_NTP_PPS is set. On one call path  
+(realtime only, config unset) WARN_ON(), from getnstimeofday64, is used,  
+on the other WARN_ON_ONCE(), from ktime_get_raw_and_real_ts64(), is used.  
+I opted for the greater verbosity of the two when I combined the code.
 
-The VXLAN RFC says (referring to the UDP checksum and not specific to IPv4/v6):
-"It SHOULD be transmitted as zero. When a packet is received with a
-UDP checksum of zero, it MUST be accepted for decapsulation."
+Is WARN_ON_ONCE() better here?
 
-We can debate whether this is correct or whether it conflicts with RFC
-2460 but this is what essentially everyone is going to implement. With
-the default settings of the flags in IPv6, we are violating both
-statements. With the second one in particular, the result is that
-Linux will not be able to communicate with any non-Linux VXLAN
-endpoint over IPv6 with default settings.
+Thanks,
+Chris
