@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 8/9] amd-xgbe: Check Rx queue fifos before
- stopping Rx DMA
-Date: Wed, 17 Feb 2016 11:49:16 -0600
-Message-ID: <20160217174916.26246.99839.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v2 9/9] amd-xgbe: Mask auto-negotiation interrupts
+ in ISR
+Date: Wed, 17 Feb 2016 11:49:28 -0600
+Message-ID: <20160217174928.26246.61123.stgit@tlendack-t1.amdoffice.net>
 References: <20160217174758.26246.15641.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,28 +10,82 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0090.outbound.protection.outlook.com ([207.46.100.90]:3392
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1on0070.outbound.protection.outlook.com ([157.56.110.70]:2896
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1161429AbcBQRtY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 12:49:24 -0500
+	id S1161540AbcBQRtj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 12:49:39 -0500
 In-Reply-To: <20160217174758.26246.15641.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check to be sure that the Rx queue fifos are empty before stopping the
-Rx DMA channels.
+Currently the auto-negotiation interrupt handling disables the irq
+instead of masking off the interrupts. This was done because the phy
+library was originally used to read and write the PCS registers, which
+could not be performed in interrupt context. Now that the phy library is
+no longer used to read and write the PCS registers the interrupts can be
+masked off in the interrupt service routine eliminating the need to call
+disable_irq/enable_irq. This also requires changing the protection mutex
+to a spinlock.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-common.h |   10 ++++++---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |   30 +++++++++++++++++++++++++++
- 2 files changed, 37 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c  |   10 +++--
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c |    6 ++-
+ drivers/net/ethernet/amd/xgbe/xgbe-mdio.c |   53 ++++++++++++++++-------------
+ drivers/net/ethernet/amd/xgbe/xgbe.h      |    5 ++-
+ 4 files changed, 41 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-index b6fa891..bbef959 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index b48c6ec..1babcc1 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -1022,6 +1022,7 @@ static int xgbe_config_rx_mode(struct xgbe_prv_data *pdata)
+ static int xgbe_read_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
+ 			      int mmd_reg)
+ {
++	unsigned long flags;
+ 	unsigned int mmd_address;
+ 	int mmd_data;
+ 
+@@ -1039,10 +1040,10 @@ static int xgbe_read_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
+ 	 * register offsets must therefore be adjusted by left shifting the
+ 	 * offset 2 bits and reading 32 bits of data.
+ 	 */
+-	mutex_lock(&pdata->xpcs_mutex);
++	spin_lock_irqsave(&pdata->xpcs_lock, flags);
+ 	XPCS_IOWRITE(pdata, PCS_MMD_SELECT << 2, mmd_address >> 8);
+ 	mmd_data = XPCS_IOREAD(pdata, (mmd_address & 0xff) << 2);
+-	mutex_unlock(&pdata->xpcs_mutex);
++	spin_unlock_irqrestore(&pdata->xpcs_lock, flags);
+ 
+ 	return mmd_data;
+ }
+@@ -1051,6 +1052,7 @@ static void xgbe_write_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
+ 				int mmd_reg, int mmd_data)
+ {
+ 	unsigned int mmd_address;
++	unsigned long flags;
+ 
+ 	if (mmd_reg & MII_ADDR_C45)
+ 		mmd_address = mmd_reg & ~MII_ADDR_C45;
+@@ -1066,10 +1068,10 @@ static void xgbe_write_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
+ 	 * register offsets must therefore be adjusted by left shifting the
+ 	 * offset 2 bits and reading 32 bits of data.
+ 	 */
+-	mutex_lock(&pdata->xpcs_mutex);
++	spin_lock_irqsave(&pdata->xpcs_lock, flags);
+ 	XPCS_IOWRITE(pdata, PCS_MMD_SELECT << 2, mmd_address >> 8);
+ 	XPCS_IOWRITE(pdata, (mmd_address & 0xff) << 2, mmd_data);
+-	mutex_unlock(&pdata->xpcs_mutex);
++	spin_unlock_irqrestore(&pdata->xpcs_lock, flags);
+ }
+ 
+ static int xgbe_tx_complete(struct xgbe_ring_desc *rdesc)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+index 618d952..3eee320 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
 @@ -6,7 +6,7 @@
   *
   * License 1: GPLv2
@@ -50,69 +104,157 @@ index b6fa891..bbef959 100644
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without
-@@ -768,12 +768,16 @@
- #define MTL_Q_TQDR			0x08
- #define MTL_Q_RQOMR			0x40
- #define MTL_Q_RQMPOCR			0x44
--#define MTL_Q_RQDR			0x4c
-+#define MTL_Q_RQDR			0x48
- #define MTL_Q_RQFCR			0x50
- #define MTL_Q_IER			0x70
- #define MTL_Q_ISR			0x74
+@@ -363,7 +363,7 @@ static int xgbe_probe(struct platform_device *pdev)
+ 	platform_set_drvdata(pdev, netdev);
  
- /* MTL queue register entry bit positions and sizes */
-+#define MTL_Q_RQDR_PRXQ_INDEX		16
-+#define MTL_Q_RQDR_PRXQ_WIDTH		14
-+#define MTL_Q_RQDR_RXQSTS_INDEX		4
-+#define MTL_Q_RQDR_RXQSTS_WIDTH		2
- #define MTL_Q_RQFCR_RFA_INDEX		1
- #define MTL_Q_RQFCR_RFA_WIDTH		6
- #define MTL_Q_RQFCR_RFD_INDEX		17
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 43273c98..b48c6ec 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -2656,6 +2656,32 @@ static void xgbe_disable_tx(struct xgbe_prv_data *pdata)
- 	}
- }
+ 	spin_lock_init(&pdata->lock);
+-	mutex_init(&pdata->xpcs_mutex);
++	spin_lock_init(&pdata->xpcs_lock);
+ 	mutex_init(&pdata->rss_mutex);
+ 	spin_lock_init(&pdata->tstamp_lock);
  
-+static void xgbe_prepare_rx_stop(struct xgbe_prv_data *pdata,
-+				 unsigned int queue)
-+{
-+	unsigned int rx_status;
-+	unsigned long rx_timeout;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+index 4460580..84c5d29 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+@@ -6,7 +6,7 @@
+  *
+  * License 1: GPLv2
+  *
+- * Copyright (c) 2014 Advanced Micro Devices, Inc.
++ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
+  *
+  * This file is free software; you may copy, redistribute and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -56,7 +56,7 @@
+  *
+  * License 2: Modified BSD
+  *
+- * Copyright (c) 2014 Advanced Micro Devices, Inc.
++ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -626,10 +626,22 @@ static irqreturn_t xgbe_an_isr(int irq, void *data)
+ 
+ 	netif_dbg(pdata, intr, pdata->netdev, "AN interrupt received\n");
+ 
+-	/* Interrupt reason must be read and cleared outside of IRQ context */
+-	disable_irq_nosync(pdata->an_irq);
++	/* Disable AN interrupts */
++	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, 0);
 +
-+	/* The Rx engine cannot be stopped if it is actively processing
-+	 * packets. Wait for the Rx queue to empty the Rx fifo.  Don't
-+	 * wait forever though...
-+	 */
-+	rx_timeout = jiffies + (XGBE_DMA_STOP_TIMEOUT * HZ);
-+	while (time_before(jiffies, rx_timeout)) {
-+		rx_status = XGMAC_MTL_IOREAD(pdata, queue, MTL_Q_RQDR);
-+		if ((XGMAC_GET_BITS(rx_status, MTL_Q_RQDR, PRXQ) == 0) &&
-+		    (XGMAC_GET_BITS(rx_status, MTL_Q_RQDR, RXQSTS) == 0))
-+			break;
++	/* Save the interrupt(s) that fired */
++	pdata->an_int = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_INT);
+ 
+-	queue_work(pdata->an_workqueue, &pdata->an_irq_work);
++	if (pdata->an_int) {
++		/* Clear the interrupt(s) that fired and process them */
++		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, ~pdata->an_int);
 +
-+		usleep_range(500, 1000);
++		queue_work(pdata->an_workqueue, &pdata->an_irq_work);
++	} else {
++		/* Enable AN interrupts */
++		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK,
++			    XGBE_AN_INT_MASK);
 +	}
-+
-+	if (!time_before(jiffies, rx_timeout))
-+		netdev_info(pdata->netdev,
-+			    "timed out waiting for Rx queue %u to empty\n",
-+			    queue);
-+}
-+
- static void xgbe_enable_rx(struct xgbe_prv_data *pdata)
- {
- 	struct xgbe_channel *channel;
-@@ -2694,6 +2720,10 @@ static void xgbe_disable_rx(struct xgbe_prv_data *pdata)
- 	XGMAC_IOWRITE_BITS(pdata, MAC_RCR, ACS, 0);
- 	XGMAC_IOWRITE_BITS(pdata, MAC_RCR, RE, 0);
  
-+	/* Prepare for Rx DMA channel stop */
-+	for (i = 0; i < pdata->rx_q_count; i++)
-+		xgbe_prepare_rx_stop(pdata, i);
-+
- 	/* Disable each Rx queue */
- 	XGMAC_IOWRITE(pdata, MAC_RQC0R, 0);
+ 	return IRQ_HANDLED;
+ }
+@@ -673,34 +685,26 @@ static void xgbe_an_state_machine(struct work_struct *work)
+ 						   struct xgbe_prv_data,
+ 						   an_work);
+ 	enum xgbe_an cur_state = pdata->an_state;
+-	unsigned int int_reg, int_mask;
  
+ 	mutex_lock(&pdata->an_mutex);
+ 
+-	/* Read the interrupt */
+-	int_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_INT);
+-	if (!int_reg)
++	if (!pdata->an_int)
+ 		goto out;
+ 
+ next_int:
+-	if (int_reg & XGBE_AN_PG_RCV) {
++	if (pdata->an_int & XGBE_AN_PG_RCV) {
+ 		pdata->an_state = XGBE_AN_PAGE_RECEIVED;
+-		int_mask = XGBE_AN_PG_RCV;
+-	} else if (int_reg & XGBE_AN_INC_LINK) {
++		pdata->an_int &= ~XGBE_AN_PG_RCV;
++	} else if (pdata->an_int & XGBE_AN_INC_LINK) {
+ 		pdata->an_state = XGBE_AN_INCOMPAT_LINK;
+-		int_mask = XGBE_AN_INC_LINK;
+-	} else if (int_reg & XGBE_AN_INT_CMPLT) {
++		pdata->an_int &= ~XGBE_AN_INC_LINK;
++	} else if (pdata->an_int & XGBE_AN_INT_CMPLT) {
+ 		pdata->an_state = XGBE_AN_COMPLETE;
+-		int_mask = XGBE_AN_INT_CMPLT;
++		pdata->an_int &= ~XGBE_AN_INT_CMPLT;
+ 	} else {
+ 		pdata->an_state = XGBE_AN_ERROR;
+-		int_mask = 0;
+ 	}
+ 
+-	/* Clear the interrupt to be processed */
+-	int_reg &= ~int_mask;
+-	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, int_reg);
+-
+ 	pdata->an_result = pdata->an_state;
+ 
+ again:
+@@ -740,14 +744,14 @@ again:
+ 	}
+ 
+ 	if (pdata->an_state == XGBE_AN_NO_LINK) {
+-		int_reg = 0;
++		pdata->an_int = 0;
+ 		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
+ 	} else if (pdata->an_state == XGBE_AN_ERROR) {
+ 		netdev_err(pdata->netdev,
+ 			   "error during auto-negotiation, state=%u\n",
+ 			   cur_state);
+ 
+-		int_reg = 0;
++		pdata->an_int = 0;
+ 		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
+ 	}
+ 
+@@ -765,11 +769,12 @@ again:
+ 	if (cur_state != pdata->an_state)
+ 		goto again;
+ 
+-	if (int_reg)
++	if (pdata->an_int)
+ 		goto next_int;
+ 
+ out:
+-	enable_irq(pdata->an_irq);
++	/* Enable AN interrupts on the way out */
++	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, XGBE_AN_INT_MASK);
+ 
+ 	mutex_unlock(&pdata->an_mutex);
+ }
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
+index ca28354..98d9d63 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
+@@ -774,8 +774,8 @@ struct xgbe_prv_data {
+ 	/* Overall device lock */
+ 	spinlock_t lock;
+ 
+-	/* XPCS indirect addressing mutex */
+-	struct mutex xpcs_mutex;
++	/* XPCS indirect addressing lock */
++	spinlock_t xpcs_lock;
+ 
+ 	/* RSS addressing mutex */
+ 	struct mutex rss_mutex;
+@@ -927,6 +927,7 @@ struct xgbe_prv_data {
+ 	u32 serdes_dfe_tap_ena[XGBE_SPEEDS];
+ 
+ 	/* Auto-negotiation state machine support */
++	unsigned int an_int;
+ 	struct mutex an_mutex;
+ 	enum xgbe_an an_result;
+ 	enum xgbe_an an_state;
