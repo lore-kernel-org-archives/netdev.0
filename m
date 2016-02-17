@@ -1,37 +1,51 @@
-From: Anton Protopopov <a.s.protopopov@gmail.com>
-Subject: [PATCH] mISDN: prevent possible NULL pointer dereference
-Date: Wed, 17 Feb 2016 11:19:56 -0500
-Message-ID: <1455725996-10538-1-git-send-email-a.s.protopopov@gmail.com>
-Cc: Anton Protopopov <a.s.protopopov@gmail.com>
-To: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v1 1/9] amd-xgbe: Disable VLAN filtering when
+ in promiscuous mode
+Date: Wed, 17 Feb 2016 11:31:06 -0500 (EST)
+Message-ID: <20160217.113106.1360496601754038100.davem@davemloft.net>
+References: <20160212143224.23973.91104.stgit@tlendack-t1.amdoffice.net>
+	<20160216.201934.2034325737936595643.davem@davemloft.net>
+	<56C49B3E.9030202@amd.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54019 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423748AbcBQQbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 11:31:09 -0500
+In-Reply-To: <56C49B3E.9030202@amd.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A return value of the bchannel_get_rxbuf() function is compared with the
-positive ENOMEM value instead of the negative -ENOMEM value to detect a
-memory allocation problem. Thus, after a possible memory allocation
-failure the bc->bch.rx_skb will be NULL which will lead to a NULL
-pointer dereference.
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Wed, 17 Feb 2016 10:09:34 -0600
 
-Signed-off-by: Anton Protopopov <a.s.protopopov@gmail.com>
----
- drivers/isdn/hardware/mISDN/netjet.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> On 02/16/2016 07:19 PM, David Miller wrote:
+>> From: Tom Lendacky <thomas.lendacky@amd.com>
+>> Date: Fri, 12 Feb 2016 08:32:24 -0600
+>> 
+>>> +#ifndef CRCPOLY_LE
+>>> +#define CRCPOLY_LE 0xedb88320
+>>> +#endif
+>>> +static u32 xgbe_vid_crc32_le(__le16 vid_le)
+>> 
+>> Please do not implement yet another copy of a CRC implementation.
+>> 
+>> Make use of the various versions the kernel provides already instead,
+>> add Kconfig dependencies as needed.
+> 
+> I can't use the existing kernel implementations because there aren't
+> any that support the 12-bit length of the VLAN VID (lengths are all
+> at the byte level). I created this function (back when I added VLAN
+> filtering support in 2014 - it's only being moved in this patch)
+> because of this 12-bit length.
+> 
+> I do use the kernel functions in other areas, I just can't use them
+> here.
 
-diff --git a/drivers/isdn/hardware/mISDN/netjet.c b/drivers/isdn/hardware/mISDN/netjet.c
-index 8e29447..afde4ed 100644
---- a/drivers/isdn/hardware/mISDN/netjet.c
-+++ b/drivers/isdn/hardware/mISDN/netjet.c
-@@ -392,7 +392,7 @@ read_dma(struct tiger_ch *bc, u32 idx, int cnt)
- 	}
- 	stat = bchannel_get_rxbuf(&bc->bch, cnt);
- 	/* only transparent use the count here, HDLC overun is detected later */
--	if (stat == ENOMEM) {
-+	if (stat == -ENOMEM) {
- 		pr_warning("%s.B%d: No memory for %d bytes\n",
- 			   card->name, bc->bch.nr, cnt);
- 		return;
--- 
-2.6.5
+This crummy ifdef looks terrible though, is it even needed?
+
+Please remove it.
