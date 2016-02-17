@@ -1,8 +1,8 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v3 1/8] net: rework ndo tc op to consume additional
- qdisc handle parameter
-Date: Tue, 16 Feb 2016 21:16:15 -0800
-Message-ID: <20160217051615.17139.95379.stgit@john-Precision-Tower-5810>
+Subject: [net-next PATCH v3 2/8] net: rework setup_tc ndo op to consume
+ general tc operand
+Date: Tue, 16 Feb 2016 21:16:43 -0800
+Message-ID: <20160217051643.17139.34617.stgit@john-Precision-Tower-5810>
 References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,399 +11,379 @@ Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
 To: jiri@resnulli.us, amir@vadai.me, john.fastabend@gmail.com,
 	jhs@mojatatu.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:33113 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751701AbcBQFQh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 00:16:37 -0500
-Received: by mail-pf0-f173.google.com with SMTP id q63so4780967pfb.0
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 21:16:37 -0800 (PST)
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:33987 "EHLO
+	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751030AbcBQFRD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 00:17:03 -0500
+Received: by mail-pf0-f175.google.com with SMTP id x65so4764063pfb.1
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 21:17:02 -0800 (PST)
 In-Reply-To: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ndo_setup_tc() op was added to support drivers offloading tx
-qdiscs however only support for mqprio was ever added. So we
-only ever added support for passing the number of traffic classes
-to the driver.
+This patch updates setup_tc so we can pass additional parameters into
+the ndo op in a generic way. To do this we provide structured union
+and type flag.
 
-This patch generalizes the ndo_setup_tc op so that a handle can
-be provided to indicate if the offload is for ingress or egress
-or potentially even child qdiscs.
+This lets each classifier and qdisc provide its own set of attributes
+without having to add new ndo ops or grow the signature of the
+callback.
 
-CC: Murali Karicheri <m-karicheri2@ti.com>
-CC: Shradha Shah <sshah@solarflare.com>
-CC: Or Gerlitz <ogerlitz@mellanox.com>
-CC: Ariel Elior <ariel.elior@qlogic.com>
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: Bruce Allan <bruce.w.allan@intel.com>
-CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Don Skidmore <donald.c.skidmore@intel.com>
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Acked-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c         |    5 ++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |    7 +++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |    1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt.c        |    5 ++++-
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  |   10 +++++++++-
- drivers/net/ethernet/intel/i40e/i40e.h           |    2 +-
- drivers/net/ethernet/intel/i40e/i40e_fcoe.c      |    2 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c      |   17 ++++++++++++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   11 ++++++++++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |   12 ++++++++++--
- drivers/net/ethernet/sfc/efx.h                   |    2 +-
- drivers/net/ethernet/sfc/tx.c                    |    5 ++++-
- drivers/net/ethernet/ti/netcp_core.c             |    5 ++++-
- include/linux/netdevice.h                        |    3 ++-
- net/sched/sch_mqprio.c                           |    5 +++--
- 16 files changed, 74 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c        |    9 ++++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    7 ++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h |    3 ++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c       |    8 ++++++--
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |    7 ++++---
+ drivers/net/ethernet/intel/i40e/i40e.h          |    3 ++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c     |   10 ++++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |    7 ++++---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    7 ++++---
+ drivers/net/ethernet/sfc/efx.h                  |    3 ++-
+ drivers/net/ethernet/sfc/tx.c                   |    9 ++++++---
+ drivers/net/ethernet/ti/netcp_core.c            |   13 +++++++------
+ include/linux/netdevice.h                       |   20 +++++++++++++++++++-
+ net/sched/sch_mqprio.c                          |    9 ++++++---
+ 14 files changed, 78 insertions(+), 37 deletions(-)
 
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 8a9b493..9955cae 100644
+index 9955cae..cfd3f7e 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -1626,12 +1626,15 @@ static void xgbe_poll_controller(struct net_device *netdev)
+@@ -1626,15 +1626,18 @@ static void xgbe_poll_controller(struct net_device *netdev)
  }
  #endif /* End CONFIG_NET_POLL_CONTROLLER */
  
--static int xgbe_setup_tc(struct net_device *netdev, u8 tc)
-+static int xgbe_setup_tc(struct net_device *netdev, u32 handle, u8 tc)
+-static int xgbe_setup_tc(struct net_device *netdev, u32 handle, u8 tc)
++static int xgbe_setup_tc(struct net_device *netdev, u32 handle, __be16 proto,
++			 struct tc_to_netdev *tc_to_netdev)
  {
  	struct xgbe_prv_data *pdata = netdev_priv(netdev);
  	unsigned int offset, queue;
- 	u8 i;
+-	u8 i;
++	u8 i, tc;
  
-+	if (handle != TC_H_ROOT)
-+		return -EINVAL;
+-	if (handle != TC_H_ROOT)
++	if (handle != TC_H_ROOT || tc_to_netdev->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
++	tc = tc_to_netdev->tc;
 +
  	if (tc && (tc != pdata->hw_feat.tc_cnt))
  		return -EINVAL;
  
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 9e42bca..b262cba 100644
+index b262cba..45843d1 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -4272,6 +4272,13 @@ int bnx2x_setup_tc(struct net_device *dev, u8 num_tc)
+@@ -4272,11 +4272,12 @@ int bnx2x_setup_tc(struct net_device *dev, u8 num_tc)
  	return 0;
  }
  
-+int __bnx2x_setup_tc(struct net_device *dev, u32 handle, u8 num_tc)
-+{
-+	if (handle != TC_H_ROOT)
-+		return -EINVAL;
-+	return bnx2x_setup_tc(dev, num_tc);
-+}
-+
- /* called with rtnl_lock */
- int bnx2x_change_mac_addr(struct net_device *dev, void *p)
+-int __bnx2x_setup_tc(struct net_device *dev, u32 handle, u8 num_tc)
++int __bnx2x_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
++		     struct tc_to_netdev *tc)
  {
+-	if (handle != TC_H_ROOT)
++	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+-	return bnx2x_setup_tc(dev, num_tc);
++	return bnx2x_setup_tc(dev, tc->tc);
+ }
+ 
+ /* called with rtnl_lock */
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index 3736986..60a4109 100644
+index 60a4109..0e68fad 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -486,6 +486,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev);
+@@ -486,7 +486,8 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev);
  
  /* setup_tc callback */
  int bnx2x_setup_tc(struct net_device *dev, u8 num_tc);
-+int __bnx2x_setup_tc(struct net_device *dev, u32 handle, u8 num_tc);
+-int __bnx2x_setup_tc(struct net_device *dev, u32 handle, u8 num_tc);
++int __bnx2x_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
++		     struct tc_to_netdev *tc);
  
  int bnx2x_get_vf_config(struct net_device *dev, int vf,
  			struct ifla_vf_info *ivi);
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index c584525..81fc51c 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -13061,7 +13061,7 @@ static const struct net_device_ops bnx2x_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= poll_bnx2x,
- #endif
--	.ndo_setup_tc		= bnx2x_setup_tc,
-+	.ndo_setup_tc		= __bnx2x_setup_tc,
- #ifdef CONFIG_BNX2X_SRIOV
- 	.ndo_set_vf_mac		= bnx2x_set_vf_mac,
- 	.ndo_set_vf_vlan	= bnx2x_set_vf_vlan,
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 5dc89e5..ff08faf 100644
+index ff08faf..169920a 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -5370,10 +5370,13 @@ static int bnxt_change_mtu(struct net_device *dev, int new_mtu)
+@@ -5370,13 +5370,17 @@ static int bnxt_change_mtu(struct net_device *dev, int new_mtu)
  	return 0;
  }
  
--static int bnxt_setup_tc(struct net_device *dev, u8 tc)
-+static int bnxt_setup_tc(struct net_device *dev, u32 handle, u8 tc)
+-static int bnxt_setup_tc(struct net_device *dev, u32 handle, u8 tc)
++static int bnxt_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
++			 struct tc_to_netdev *ntc)
  {
  	struct bnxt *bp = netdev_priv(dev);
++	u8 tc;
  
-+	if (handle != TC_H_ROOT)
-+		return -EINVAL;
+-	if (handle != TC_H_ROOT)
++	if (handle != TC_H_ROOT || ntc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
++	tc = ntc->tc;
 +
  	if (tc > bp->max_tc) {
  		netdev_err(dev, "too many traffic classes requested: %d Max supported is %d\n",
  			   tc, bp->max_tc);
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 662569d..12701a4 100644
+index 12701a4..dc1a821 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -1204,6 +1204,14 @@ err_queueing_scheme:
+@@ -1204,12 +1204,13 @@ err_queueing_scheme:
  	return err;
  }
  
-+static int __fm10k_setup_tc(struct net_device *dev, u32 handle, u8 tc)
-+{
-+	if (handle != TC_H_ROOT)
-+		return -EINVAL;
-+
-+	return fm10k_setup_tc(dev, tc);
-+}
-+
- static int fm10k_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+-static int __fm10k_setup_tc(struct net_device *dev, u32 handle, u8 tc)
++static int __fm10k_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
++			    struct tc_to_netdev *tc)
  {
- 	switch (cmd) {
-@@ -1386,7 +1394,7 @@ static const struct net_device_ops fm10k_netdev_ops = {
- 	.ndo_vlan_rx_kill_vid	= fm10k_vlan_rx_kill_vid,
- 	.ndo_set_rx_mode	= fm10k_set_rx_mode,
- 	.ndo_get_stats64	= fm10k_get_stats64,
--	.ndo_setup_tc		= fm10k_setup_tc,
-+	.ndo_setup_tc		= __fm10k_setup_tc,
- 	.ndo_set_vf_mac		= fm10k_ndo_set_vf_mac,
- 	.ndo_set_vf_vlan	= fm10k_ndo_set_vf_vlan,
- 	.ndo_set_vf_rate	= fm10k_ndo_set_vf_bw,
+-	if (handle != TC_H_ROOT)
++	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
+-	return fm10k_setup_tc(dev, tc);
++	return fm10k_setup_tc(dev, tc->tc);
+ }
+ 
+ static int fm10k_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 53ed3bd..ef9ca07 100644
+index ef9ca07..933c4b3 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -788,7 +788,7 @@ struct i40e_mac_filter *i40e_find_mac(struct i40e_vsi *vsi, u8 *macaddr,
+@@ -788,7 +788,8 @@ struct i40e_mac_filter *i40e_find_mac(struct i40e_vsi *vsi, u8 *macaddr,
  				      bool is_vf, bool is_netdev);
  #ifdef I40E_FCOE
  int i40e_close(struct net_device *netdev);
--int i40e_setup_tc(struct net_device *netdev, u8 tc);
-+int __i40e_setup_tc(struct net_device *netdev, u32 handle, u8 tc);
+-int __i40e_setup_tc(struct net_device *netdev, u32 handle, u8 tc);
++int __i40e_setup_tc(struct net_device *netdev, u32 handle, __be16 proto,
++		    struct tc_to_netdev *tc);
  void i40e_netpoll(struct net_device *netdev);
  int i40e_fcoe_enable(struct net_device *netdev);
  int i40e_fcoe_disable(struct net_device *netdev);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
-index 579a46c..7c66ce4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
-@@ -1457,7 +1457,7 @@ static const struct net_device_ops i40e_fcoe_netdev_ops = {
- 	.ndo_tx_timeout		= i40e_tx_timeout,
- 	.ndo_vlan_rx_add_vid	= i40e_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= i40e_vlan_rx_kill_vid,
--	.ndo_setup_tc		= i40e_setup_tc,
-+	.ndo_setup_tc		= __i40e_setup_tc,
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= i40e_netpoll,
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 320b049..abcb6c1 100644
+index abcb6c1..257d162 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5253,11 +5253,7 @@ void i40e_down(struct i40e_vsi *vsi)
-  * @netdev: net device to configure
-  * @tc: number of traffic classes to enable
-  **/
--#ifdef I40E_FCOE
--int i40e_setup_tc(struct net_device *netdev, u8 tc)
--#else
- static int i40e_setup_tc(struct net_device *netdev, u8 tc)
--#endif
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
-@@ -5310,6 +5306,17 @@ exit:
- 	return ret;
+@@ -5307,14 +5307,16 @@ exit:
  }
  
-+#ifdef I40E_FCOE
-+int __i40e_setup_tc(struct net_device *netdev, u32 handle, u8 tc)
-+#else
-+static int __i40e_setup_tc(struct net_device *netdev, u32 handle, u8 tc)
-+#endif
-+{
-+	if (handle != TC_H_ROOT)
-+		return -EINVAL;
-+	return i40e_setup_tc(netdev, tc);
-+}
-+
- /**
-  * i40e_open - Called when a network interface is made active
-  * @netdev: network interface device structure
-@@ -8951,7 +8958,7 @@ static const struct net_device_ops i40e_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= i40e_netpoll,
- #endif
--	.ndo_setup_tc		= i40e_setup_tc,
-+	.ndo_setup_tc		= __i40e_setup_tc,
  #ifdef I40E_FCOE
- 	.ndo_fcoe_enable	= i40e_fcoe_enable,
- 	.ndo_fcoe_disable	= i40e_fcoe_disable,
+-int __i40e_setup_tc(struct net_device *netdev, u32 handle, u8 tc)
++int __i40e_setup_tc(struct net_device *netdev, u32 handle, __be16 proto,
++		    struct tc_to_netdev *tc)
+ #else
+-static int __i40e_setup_tc(struct net_device *netdev, u32 handle, u8 tc)
++static int __i40e_setup_tc(struct net_device *netdev, u32 handle, __be16 proto,
++			   struct tc_to_netdev *tc)
+ #endif
+ {
+-	if (handle != TC_H_ROOT)
++	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+-	return i40e_setup_tc(netdev, tc);
++	return i40e_setup_tc(netdev, tc->tc);
+ }
+ 
+ /**
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 0c701b8..1ba714e 100644
+index 1ba714e..dca2298 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8200,6 +8200,15 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
+@@ -8200,13 +8200,14 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
  	return 0;
  }
  
-+int __ixgbe_setup_tc(struct net_device *dev, u32 handle, u8 tc)
-+{
-+	/* Only support egress tc setup for now */
-+	if (handle != TC_H_ROOT)
-+		return -EINVAL;
-+
-+	return ixgbe_setup_tc(dev, tc);
-+}
-+
- #ifdef CONFIG_PCI_IOV
- void ixgbe_sriov_reinit(struct ixgbe_adapter *adapter)
+-int __ixgbe_setup_tc(struct net_device *dev, u32 handle, u8 tc)
++int __ixgbe_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
++		     struct tc_to_netdev *tc)
  {
-@@ -8658,7 +8667,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_get_vf_config	= ixgbe_ndo_get_vf_config,
- 	.ndo_get_stats64	= ixgbe_get_stats64,
- #ifdef CONFIG_IXGBE_DCB
--	.ndo_setup_tc		= ixgbe_setup_tc,
-+	.ndo_setup_tc		= __ixgbe_setup_tc,
- #endif
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= ixgbe_netpoll,
+ 	/* Only support egress tc setup for now */
+-	if (handle != TC_H_ROOT)
++	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
+-	return ixgbe_setup_tc(dev, tc);
++	return ixgbe_setup_tc(dev, tc->tc);
+ }
+ 
+ #ifdef CONFIG_PCI_IOV
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 0c7e3f6..d5c6c16 100644
+index d5c6c16..01d6a96 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -69,6 +69,14 @@ int mlx4_en_setup_tc(struct net_device *dev, u8 up)
+@@ -69,12 +69,13 @@ int mlx4_en_setup_tc(struct net_device *dev, u8 up)
  	return 0;
  }
  
-+static int __mlx4_en_setup_tc(struct net_device *dev, u32 handle, u8 up)
-+{
-+	if (handle != TC_H_ROOT)
-+		return -EINVAL;
-+
-+	return mlx4_en_setup_tc(dev, up);
-+}
-+
- #ifdef CONFIG_RFS_ACCEL
+-static int __mlx4_en_setup_tc(struct net_device *dev, u32 handle, u8 up)
++static int __mlx4_en_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
++			      struct tc_to_netdev *tc)
+ {
+-	if (handle != TC_H_ROOT)
++	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
  
- struct mlx4_en_filter {
-@@ -2466,7 +2474,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
- #endif
- 	.ndo_set_features	= mlx4_en_set_features,
- 	.ndo_fix_features	= mlx4_en_fix_features,
--	.ndo_setup_tc		= mlx4_en_setup_tc,
-+	.ndo_setup_tc		= __mlx4_en_setup_tc,
+-	return mlx4_en_setup_tc(dev, up);
++	return mlx4_en_setup_tc(dev, tc->tc);
+ }
+ 
  #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
- #endif
-@@ -2504,7 +2512,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
- #endif
- 	.ndo_set_features	= mlx4_en_set_features,
- 	.ndo_fix_features	= mlx4_en_fix_features,
--	.ndo_setup_tc		= mlx4_en_setup_tc,
-+	.ndo_setup_tc		= __mlx4_en_setup_tc,
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
- #endif
 diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
-index 1082747..7815fa0 100644
+index 7815fa0..5e3f93f 100644
 --- a/drivers/net/ethernet/sfc/efx.h
 +++ b/drivers/net/ethernet/sfc/efx.h
-@@ -32,7 +32,7 @@ netdev_tx_t efx_hard_start_xmit(struct sk_buff *skb,
+@@ -32,7 +32,8 @@ netdev_tx_t efx_hard_start_xmit(struct sk_buff *skb,
  				struct net_device *net_dev);
  netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb);
  void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index);
--int efx_setup_tc(struct net_device *net_dev, u8 num_tc);
-+int efx_setup_tc(struct net_device *net_dev, u32 handle, u8 num_tc);
+-int efx_setup_tc(struct net_device *net_dev, u32 handle, u8 num_tc);
++int efx_setup_tc(struct net_device *net_dev, u32 handle, __be16 proto,
++		 struct tc_to_netdev *tc);
  unsigned int efx_tx_max_skb_descs(struct efx_nic *efx);
  extern unsigned int efx_piobuf_size;
  extern bool efx_separate_tx_channels;
 diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index f7a0ec1..8f1d53e 100644
+index 8f1d53e..2cdb571 100644
 --- a/drivers/net/ethernet/sfc/tx.c
 +++ b/drivers/net/ethernet/sfc/tx.c
-@@ -562,7 +562,7 @@ void efx_init_tx_queue_core_txq(struct efx_tx_queue *tx_queue)
+@@ -562,17 +562,20 @@ void efx_init_tx_queue_core_txq(struct efx_tx_queue *tx_queue)
  				     efx->n_tx_channels : 0));
  }
  
--int efx_setup_tc(struct net_device *net_dev, u8 num_tc)
-+int efx_setup_tc(struct net_device *net_dev, u32 handle, u8 num_tc)
+-int efx_setup_tc(struct net_device *net_dev, u32 handle, u8 num_tc)
++int efx_setup_tc(struct net_device *net_dev, u32 handle, __be16 proto,
++		 struct tc_to_netdev *ntc)
  {
  	struct efx_nic *efx = netdev_priv(net_dev);
  	struct efx_channel *channel;
-@@ -570,6 +570,9 @@ int efx_setup_tc(struct net_device *net_dev, u8 num_tc)
- 	unsigned tc;
+ 	struct efx_tx_queue *tx_queue;
+-	unsigned tc;
++	unsigned tc, num_tc;
  	int rc;
  
-+	if (handle != TC_H_ROOT)
-+		return -EINVAL;
+-	if (handle != TC_H_ROOT)
++	if (handle != TC_H_ROOT || ntc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
++	num_tc = ntc->tc;
 +
  	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0 || num_tc > EFX_MAX_TX_TC)
  		return -EINVAL;
  
 diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index c61d66d..40cde81 100644
+index 40cde81..8586a20 100644
 --- a/drivers/net/ethernet/ti/netcp_core.c
 +++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -1835,13 +1835,16 @@ static u16 netcp_select_queue(struct net_device *dev, struct sk_buff *skb,
+@@ -1835,25 +1835,26 @@ static u16 netcp_select_queue(struct net_device *dev, struct sk_buff *skb,
  	return 0;
  }
  
--static int netcp_setup_tc(struct net_device *dev, u8 num_tc)
-+static int netcp_setup_tc(struct net_device *dev, u32 handle, u8 num_tc)
+-static int netcp_setup_tc(struct net_device *dev, u32 handle, u8 num_tc)
++static int netcp_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
++			  struct tc_to_netdev tc)
  {
  	int i;
  
  	/* setup tc must be called under rtnl lock */
  	ASSERT_RTNL();
  
-+	if (handle != TC_H_ROOT)
-+		return -EINVAL;
-+
+-	if (handle != TC_H_ROOT)
++	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
  	/* Sanity-check the number of traffic classes requested */
  	if ((dev->real_num_tx_queues <= 1) ||
- 	    (dev->real_num_tx_queues < num_tc))
+-	    (dev->real_num_tx_queues < num_tc))
++	    (dev->real_num_tx_queues < tc->tc))
+ 		return -EINVAL;
+ 
+ 	/* Configure traffic class to queue mappings */
+-	if (num_tc) {
+-		netdev_set_num_tc(dev, num_tc);
+-		for (i = 0; i < num_tc; i++)
++	if (tc->tc) {
++		netdev_set_num_tc(dev, tc->tc);
++		for (i = 0; i < tc->tc; i++)
+ 			netdev_set_tc_queue(dev, i, 1, i);
+ 	} else {
+ 		netdev_reset_tc(dev);
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 0499569..48928b6 100644
+index 48928b6..e396060 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -51,6 +51,7 @@
- #include <linux/neighbour.h>
- #include <uapi/linux/netdevice.h>
- #include <uapi/linux/if_bonding.h>
-+#include <uapi/linux/pkt_cls.h>
+@@ -779,6 +779,21 @@ static inline bool netdev_phys_item_id_same(struct netdev_phys_item_id *a,
+ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+ 				       struct sk_buff *skb);
  
- struct netpoll_info;
- struct device;
-@@ -1150,7 +1151,7 @@ struct net_device_ops {
++/* This structure holds attributes of qdisc and classifiers
++ * that are being passed to the netdevice through the setup_tc op.
++ */
++enum {
++	TC_SETUP_MQPRIO,
++};
++
++struct tc_to_netdev {
++	unsigned int type;
++	union {
++		u8 tc;
++	};
++};
++
++
+ /*
+  * This structure defines the management hooks for network devices.
+  * The following hooks can be defined; unless noted otherwise, they are
+@@ -1151,7 +1166,10 @@ struct net_device_ops {
  	int			(*ndo_set_vf_rss_query_en)(
  						   struct net_device *dev,
  						   int vf, bool setting);
--	int			(*ndo_setup_tc)(struct net_device *dev, u8 tc);
-+	int			(*ndo_setup_tc)(struct net_device *dev, u32 handle, u8 tc);
+-	int			(*ndo_setup_tc)(struct net_device *dev, u32 handle, u8 tc);
++	int			(*ndo_setup_tc)(struct net_device *dev,
++						u32 handle,
++						__be16 protocol,
++						struct tc_to_netdev *tc);
  #if IS_ENABLED(CONFIG_FCOE)
  	int			(*ndo_fcoe_enable)(struct net_device *dev);
  	int			(*ndo_fcoe_disable)(struct net_device *dev);
 diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index ad70ecf..f5a0e8a 100644
+index f5a0e8a..f9947d1 100644
 --- a/net/sched/sch_mqprio.c
 +++ b/net/sched/sch_mqprio.c
-@@ -39,7 +39,7 @@ static void mqprio_destroy(struct Qdisc *sch)
+@@ -28,6 +28,7 @@ static void mqprio_destroy(struct Qdisc *sch)
+ {
+ 	struct net_device *dev = qdisc_dev(sch);
+ 	struct mqprio_sched *priv = qdisc_priv(sch);
++	struct tc_to_netdev tc = {.type = TC_SETUP_MQPRIO};
+ 	unsigned int ntx;
+ 
+ 	if (priv->qdiscs) {
+@@ -39,7 +40,7 @@ static void mqprio_destroy(struct Qdisc *sch)
  	}
  
  	if (priv->hw_owned && dev->netdev_ops->ndo_setup_tc)
--		dev->netdev_ops->ndo_setup_tc(dev, 0);
-+		dev->netdev_ops->ndo_setup_tc(dev, sch->handle, 0);
+-		dev->netdev_ops->ndo_setup_tc(dev, sch->handle, 0);
++		dev->netdev_ops->ndo_setup_tc(dev, sch->handle, 0, &tc);
  	else
  		netdev_set_num_tc(dev, 0);
  }
-@@ -141,7 +141,8 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
+@@ -140,9 +141,11 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
+ 	 * supplied and verified mapping
  	 */
  	if (qopt->hw) {
++		struct tc_to_netdev tc = {.type = TC_SETUP_MQPRIO,
++					  .tc = qopt->num_tc};
++
  		priv->hw_owned = 1;
--		err = dev->netdev_ops->ndo_setup_tc(dev, qopt->num_tc);
-+		err = dev->netdev_ops->ndo_setup_tc(dev, sch->handle,
-+						    qopt->num_tc);
+-		err = dev->netdev_ops->ndo_setup_tc(dev, sch->handle,
+-						    qopt->num_tc);
++		err = dev->netdev_ops->ndo_setup_tc(dev, sch->handle, 0, &tc);
  		if (err)
  			goto err;
  	} else {
