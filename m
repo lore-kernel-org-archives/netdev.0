@@ -1,35 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 1/9] amd-xgbe: Disable VLAN filtering when
- in promiscuous mode
-Date: Tue, 16 Feb 2016 20:19:34 -0500 (EST)
-Message-ID: <20160216.201934.2034325737936595643.davem@davemloft.net>
-References: <20160212143215.23973.1043.stgit@tlendack-t1.amdoffice.net>
-	<20160212143224.23973.91104.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [PATCH net-next v2 0/7] net: unify dst caching for tunnel
+ devices
+Date: Tue, 16 Feb 2016 20:22:21 -0500 (EST)
+Message-ID: <20160216.202221.489011866131335381.davem@davemloft.net>
+References: <cover.1455287867.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+Cc: netdev@vger.kernel.org, tgraf@suug.ch, pshelar@nicira.com,
+	jbenc@redhat.com, hannes@stressinduktion.org, therbert@google.com,
+	sergei.shtylyov@cogentembedded.com
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42487 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42511 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933275AbcBQBTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 20:19:36 -0500
-In-Reply-To: <20160212143224.23973.91104.stgit@tlendack-t1.amdoffice.net>
+	with ESMTP id S933275AbcBQBWY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 20:22:24 -0500
+In-Reply-To: <cover.1455287867.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Fri, 12 Feb 2016 08:32:24 -0600
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Fri, 12 Feb 2016 15:43:52 +0100
 
-> +#ifndef CRCPOLY_LE
-> +#define CRCPOLY_LE 0xedb88320
-> +#endif
-> +static u32 xgbe_vid_crc32_le(__le16 vid_le)
+> This patch series try to unify the dst cache implementations currently
+> present in the kernel, namely in ip_tunnel.c and ip6_tunnel.c, introducing a
+> new generic implementation, replacing the existing ones, and then using
+> the new implementation in other tunnel devices which currently lack it.
+> 
+> The new dst implementation is compiled, as built-in, only if any device using
+> it is enabled.
+> 
+> Caching the dst for the tunnel remote address gives small, but measurable,
+> performance improvement when tunneling over ipv4 (in the 2%-4% range) and
+> significant ones when tunneling over ipv6 (roughly 60% when no
+> fragmentation/segmentation take place and the tunnel local address
+> is not specified).
+> 
+> v2:
+> - move the vxlan dst_cache usage inside the device lookup functions
+> - fix usage after free for lwt tunnel moving the dst cache storage inside
+>   the dst_metadata,
+> - sparse codying style cleanup
 
-Please do not implement yet another copy of a CRC implementation.
-
-Make use of the various versions the kernel provides already instead,
-add Kconfig dependencies as needed.
-
-Thanks.
+Series applied, thanks for doing this work as it is a major improvement.
