@@ -1,12 +1,12 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH V5 4/8] net/ethtool: support get coalesce per queue
-Date: Wed, 17 Feb 2016 00:57:54 +0000
-Message-ID: <1455670674.1143.19.camel@decadent.org.uk>
+Subject: Re: [PATCH V5 5/8] net/ethtool: support set coalesce per queue
+Date: Wed, 17 Feb 2016 01:00:26 +0000
+Message-ID: <1455670826.1143.20.camel@decadent.org.uk>
 References: <1455625964-8943-1-git-send-email-kan.liang@intel.com>
-	 <1455625964-8943-5-git-send-email-kan.liang@intel.com>
+	 <1455625964-8943-6-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-gfBJPOyhCUkL8rsGcL4T"
+	protocol="application/pgp-signature"; boundary="=-Nxndir5sDflXBNlZTQTu"
 Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
 	shannon.nelson@intel.com, f.fainelli@gmail.com,
 	alexander.duyck@gmail.com, jeffrey.t.kirsher@intel.com,
@@ -19,26 +19,29 @@ Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
 To: Kan Liang <kan.liang@intel.com>, netdev@vger.kernel.org,
 	davem@davemloft.net, bwh@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46779 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46802 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933415AbcBQA6L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 19:58:11 -0500
-In-Reply-To: <1455625964-8943-5-git-send-email-kan.liang@intel.com>
+	by vger.kernel.org with ESMTP id S964874AbcBQBAd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 20:00:33 -0500
+In-Reply-To: <1455625964-8943-6-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-gfBJPOyhCUkL8rsGcL4T
+--=-Nxndir5sDflXBNlZTQTu
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Tue, 2016-02-16 at 07:32 -0500, Kan Liang wrote:
 > From: Kan Liang <kan.liang@intel.com>
 >=20
-> This patch implements sub command ETHTOOL_GCOALESCE for ioctl
-> ETHTOOL_PERQUEUE. It introduces an interface get_per_queue_coalesce to
-> get coalesce of each masked queue from device driver. Then the interrupt
-> coalescing parameters will be copied back to user space one by one.
+> This patch implements sub command ETHTOOL_SCOALESCE for ioctl
+> ETHTOOL_PERQUEUE. It introduces an interface set_per_queue_coalesce to
+> set coalesce of each masked queue to device driver. The wanted coalesce
+> information are stored in "data" for each masked queue, which can copy
+> from userspace.
+> If it fails to set coalesce to device driver, the value which already
+> set to specific queue will be tried to rollback.
 >=20
 > Signed-off-by: Kan Liang <kan.liang@intel.com>
 [...]
@@ -50,26 +53,26 @@ Ben Hutchings
 Lowery's Law:
              If it jams, force it. If it breaks, it needed replacing anyway=
 .
---=-gfBJPOyhCUkL8rsGcL4T
+--=-Nxndir5sDflXBNlZTQTu
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAVsPFkue/yOyVhhEJAQrOiA//abE+yYS5OjaUjf3ptU6Ku7jPQQ16xBT4
-JEnNVyD9gFW6hpbpDPQUlVb+qoMTiA0/0Av0G+lOlOMV7VcOWMNX0abnWZjA4Ibq
-nH+PCeJ1N0gY72Bj+UQnHpTwm5ZHVB84j9shHr6g6tVWXB+uPFWQyKcwZUJ7F5m3
-SX02lOEiol96oB8Yvn8naKjxvTF2I6z6W+pKSz8Jv7m4LES5zGezl5k2xb1VHx0W
-cCy38BSsyC5jJhovyj7sT4cwUfx06aQvcQ+ymJyFJFx0BE60trM1pppLjs14LQS+
-YKvwRmhs2z6UiU4e9P4Kx4YO3ZIdv5CIFkaSjHPIvkDSYj3qr1TMO9iQ1kb2GIAC
-hEs9DY8hYvRzNGkPj6ZIDKSHEpSRtIHhi5NCLXVD8Ntt/Dypcb80GZmoyYU0IjWe
-+R7IMgFUmqvptDK9ic9f8Yy0IdkftFfgnWo0AMC5jvDzotOrkM1pDFo4kSNcmWpp
-arKb4hb5wCsnCe4AHTnNZqdYQyzSkaXkrjl8UiCB3uiJ6w96K7+oL9FHsl9cAX/C
-bq4DC/5VMueIkGrmA6GIRtVdjoOFGb28H7T0bu1ZWiKn0gyKVYgIPdH5gwvtrwb0
-FXc2bCk2MXCJhfH+0u3Eugi5FdfreGUxIPNPFRugbQ4Cg+xFaFSHUXW47OFp48+x
-QLQw9h2S2gs=
-=SWCF
+iQIVAwUAVsPGKue/yOyVhhEJAQoh4hAAs+AGb9I47TsS3BYuEF5RzErtY6WylMQz
+u8etuI5ZVFqkpC2sOuGQiTL18rfGNUexwebmBV8JY7RydhDx/Bi1gkb6XgydOW0h
+DBUxc62IDHHuj2SUrLkeMNoeHe/Tc1u8ilzc0K/K9uJZv/g/8I4UwfzNtwwxcTjH
+vOjU0tCb7886zA2RvaWWJQJcdRbohmTE589RXgCEmsgZEhd8ak0cgtdF3kgyvjiq
+Uad+Nbnu+ZloQ6vVfd+3SueYUCxwCKdJNZhuS8DsRKCaKXyByZqnJTs9NT9aORWQ
+ZnAjHWAZ5sh4AS2e07LWr51a0OQxOF9CUYWD3PtpEUcc7r4e+vv34YuiPKL2ECYk
+1zjjVyiqCwdyQNn5PS3gjCXEioTDMALZI53sezT3dTztLHLVFUIOWkdWAu7TXBPN
+o53LY++uyYk8FxtMmGkL68UA2Im92H2Z2xYgSjUGRTUd+JCmb5g+gqaQcpMMxQkz
+tvIwitz/1/xyG4cOcmheg8KFDo9KQdy/vZD2rH68AEwp1jEHsLEECb95CvXliEN4
+/dKjKR/p1Lq/1uHFp8AsuE7bAyCHNyGIBLUMWtv85TqWq1iBzqEHJpta0bNFAsPz
+3SF2dFXrPyakLtaBqpWAveq85VbcqzmztWovnVuTRBcJmxyYrMDqeRmDE9Tv02Uk
+vszR6BoO5GU=
+=kD+4
 -----END PGP SIGNATURE-----
 
---=-gfBJPOyhCUkL8rsGcL4T--
+--=-Nxndir5sDflXBNlZTQTu--
