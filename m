@@ -1,95 +1,70 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [PATCH 1/1] cxgb3: fix up vpd strings for kstrto*()
-Date: Wed, 17 Feb 2016 12:36:37 -0800
-Message-ID: <20160217233126.E0815E0753@smtp.ogc.us>
-Cc: santosh@chelsio.com, davem@davemloft.net, hariprasad@chelsio.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.opengridcomputing.com ([72.48.136.20]:47164 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1030368AbcBQXb1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 18:31:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Andrew F. Davis" <afd@ti.com>
+Subject: Re: [PATCH v2 2/5] net: phy: dp83848: Add PHY ID for TI version of
+ DP83848C
+Date: Wed, 17 Feb 2016 17:37:39 -0600
+Message-ID: <56C50443.8060802@ti.com>
+References: <1454867241-20928-1-git-send-email-afd@ti.com>
+ <1454867241-20928-3-git-send-email-afd@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1454867241-20928-3-git-send-email-afd@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The vpd strings are left justified, in a fixed length array, with possible
-trailing white space and no NUL.  So fix them up before calling kstrto*().
+On 02/07/2016 11:47 AM, Andrew F. Davis wrote:
+> After acquiring National Semiconductor, TI appears to have
+> changed the Vendor Model Number for the DP83848C PHYs,
+> add this new ID to supported IDs.
+>
+> Signed-off-by: Andrew F. Davis <afd@ti.com>
+> ---
+>   drivers/net/phy/dp83848.c | 9 ++++++---
+>   1 file changed, 6 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
+> index 4e78f54..d4686d5f 100644
+> --- a/drivers/net/phy/dp83848.c
+> +++ b/drivers/net/phy/dp83848.c
+> @@ -16,7 +16,8 @@
+>   #include <linux/module.h>
+>   #include <linux/phy.h>
+>
+> -#define DP83848_PHY_ID			0x20005c90
+> +#define TI_DP83848C_PHY_ID		0x20005ca0
+> +#define NS_DP83848C_PHY_ID		0x20005c90
+>
+>   /* Registers */
+>   #define DP83848_MICR			0x11
+> @@ -65,7 +66,8 @@ static int dp83848_config_intr(struct phy_device *phydev)
+>   }
+>
+>   static struct mdio_device_id __maybe_unused dp83848_tbl[] = {
+> -	{ DP83848_PHY_ID, 0xfffffff0 },
+> +	{ TI_DP83848C_PHY_ID, 0xfffffff0 },
+> +	{ NS_DP83848C_PHY_ID, 0xfffffff0 },
+>   	{ }
+>   };
+>   MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
+> @@ -91,7 +93,8 @@ MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
+>   	}
+>
+>   static struct phy_driver dp83848_driver[] = {
+> -	DP83848_PHY_DRIVER(DP83848_PHY_ID, "TI DP83848 10/100 Mbps PHY"),
+> +	DP83848_PHY_DRIVER(TI_DP83848C_PHY_ID, "TI DP83848C 10/100 Mbps PHY"),
+> +	DP83848_PHY_DRIVER(NS_DP83848C_PHY_ID, "TI DP83848C 10/100 Mbps PHY"),
 
-This is a recent regression which causes cxgb3 to fail to load.
+This seems to be causing a warning about duplicate file names (driver name in
+sysfs), so the bottom one can probably s/TI/NS, can this be changed in-tree
+before the merge or should I submit a patch?
 
-Fixes:e72c932('cxgb3: Convert simple_strtoul to kstrtox')
+Andrew
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
----
- drivers/net/ethernet/chelsio/cxgb3/t3_hw.c | 32 +++++++++++++++++++++++-------
- 1 file changed, 25 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
-index ee04caa..bfd4a7f 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
-@@ -681,6 +681,24 @@ int t3_seeprom_wp(struct adapter *adapter, int enable)
- 	return t3_seeprom_write(adapter, EEPROM_STAT_ADDR, enable ? 0xc : 0);
- }
- 
-+static int vpdstrtouint(char *s, int len, unsigned int base, unsigned int *val)
-+{
-+	char tok[len+1];
-+
-+	memcpy(tok, s, len);
-+	tok[len] = 0;
-+	return kstrtouint(strim(tok), base, val);
-+}
-+
-+static int vpdstrtou16(char *s, int len, unsigned int base, u16 *val)
-+{
-+	char tok[len+1];
-+
-+	memcpy(tok, s, len);
-+	tok[len] = 0;
-+	return kstrtou16(strim(tok), base, val);
-+}
-+
- /**
-  *	get_vpd_params - read VPD parameters from VPD EEPROM
-  *	@adapter: adapter to read
-@@ -709,19 +727,19 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 			return ret;
- 	}
- 
--	ret = kstrtouint(vpd.cclk_data, 10, &p->cclk);
-+	ret = vpdstrtouint(vpd.cclk_data, vpd.cclk_len, 10, &p->cclk);
- 	if (ret)
- 		return ret;
--	ret = kstrtouint(vpd.mclk_data, 10, &p->mclk);
-+	ret = vpdstrtouint(vpd.mclk_data, vpd.mclk_len, 10, &p->mclk);
- 	if (ret)
- 		return ret;
--	ret = kstrtouint(vpd.uclk_data, 10, &p->uclk);
-+	ret = vpdstrtouint(vpd.uclk_data, vpd.uclk_len, 10, &p->uclk);
- 	if (ret)
- 		return ret;
--	ret = kstrtouint(vpd.mdc_data, 10, &p->mdc);
-+	ret = vpdstrtouint(vpd.mdc_data, vpd.mdc_len, 10, &p->mdc);
- 	if (ret)
- 		return ret;
--	ret = kstrtouint(vpd.mt_data, 10, &p->mem_timing);
-+	ret = vpdstrtouint(vpd.mt_data, vpd.mt_len, 10, &p->mem_timing);
- 	if (ret)
- 		return ret;
- 	memcpy(p->sn, vpd.sn_data, SERNUM_LEN);
-@@ -733,10 +751,10 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 	} else {
- 		p->port_type[0] = hex_to_bin(vpd.port0_data[0]);
- 		p->port_type[1] = hex_to_bin(vpd.port1_data[0]);
--		ret = kstrtou16(vpd.xaui0cfg_data, 16, &p->xauicfg[0]);
-+		ret = vpdstrtou16(vpd.xaui0cfg_data, vpd.xaui0cfg_len, 16, &p->xauicfg[0]);
- 		if (ret)
- 			return ret;
--		ret = kstrtou16(vpd.xaui1cfg_data, 16, &p->xauicfg[1]);
-+		ret = vpdstrtou16(vpd.xaui1cfg_data, vpd.xaui1cfg_len, 16, &p->xauicfg[1]);
- 		if (ret)
- 			return ret;
- 	}
--- 
-2.7.0
+>   };
+>   module_phy_driver(dp83848_driver);
+>
+>
