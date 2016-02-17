@@ -1,55 +1,53 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net] gre: clear IFF_TX_SKB_SHARING
-Date: Wed, 17 Feb 2016 15:32:53 +0100
-Message-ID: <48849b92d89431da841577f06cfd90a4b4130702.1455719517.git.jbenc@redhat.com>
-Cc: Jesse Gross <jesse@kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34141 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030268AbcBQOdK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 09:33:10 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [net PATCH] IFF_NO_QUEUE: Fix for drivers not calling ether_setup()
+Date: Wed, 17 Feb 2016 15:37:43 +0100
+Message-ID: <1455719863-25730-1-git-send-email-phil@nwl.cc>
+References: <1027362736.325.1455717462229.JavaMail.zimbra@efficios.com>
+Cc: mathieu.desnoyers@efficios.com, linux-kernel@vger.kernel.org,
+	jhs@mojatatu.com, netdev@vger.kernel.org, stable@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1027362736.325.1455717462229.JavaMail.zimbra@efficios.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ether_setup sets IFF_TX_SKB_SHARING but this is not supported by gre as it
-modifies the skb on xmit.
+My implementation around IFF_NO_QUEUE driver flag assumed that leaving
+tx_queue_len untouched (specifically: not setting it to zero) by drivers
+would make it possible to assign a regular qdisc to them without having
+to worry about setting tx_queue_len to a useful value. This was only
+partially true: I overlooked that some drivers don't call ether_setup()
+and therefore not initialize tx_queue_len to the default value of 1000.
+Consequently, removing the workarounds in place for that case in qdisc
+implementations which cared about it (namely, pfifo, bfifo, gred, htb,
+plug and sfb) leads to problems with these specific interface types and
+qdiscs.
 
-Also, clean up whitespace in ipgre_tap_setup when we're already touching it.
+Luckily, there's already a sanitization point for drivers setting
+tx_queue_len to zero, which can be reused to assign the fallback value
+most qdisc implementations used, which is 1.
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
+Fixes: 348e3435cbefa ("net: sched: drop all special handling of tx_queue_len == 0")
+Tested-by: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- net/ipv4/ip_gre.c  | 5 +++--
- net/ipv6/ip6_gre.c | 1 +
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ net/core/dev.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 56fdf4e0dce4..41ba68de46d8 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -1054,8 +1054,9 @@ static const struct net_device_ops gre_tap_netdev_ops = {
- static void ipgre_tap_setup(struct net_device *dev)
- {
- 	ether_setup(dev);
--	dev->netdev_ops		= &gre_tap_netdev_ops;
--	dev->priv_flags 	|= IFF_LIVE_ADDR_CHANGE;
-+	dev->netdev_ops	= &gre_tap_netdev_ops;
-+	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
-+	dev->priv_flags	|= IFF_LIVE_ADDR_CHANGE;
- 	ip_tunnel_setup(dev, gre_tap_net_id);
- }
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 3f4071a84a03f..75383f40e7ced 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -7440,8 +7440,10 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 	dev->priv_flags = IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM;
+ 	setup(dev);
  
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index f37f18b6b40c..a69aad1e29d1 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -1512,6 +1512,7 @@ static void ip6gre_tap_setup(struct net_device *dev)
- 	dev->destructor = ip6gre_dev_free;
+-	if (!dev->tx_queue_len)
++	if (!dev->tx_queue_len) {
+ 		dev->priv_flags |= IFF_NO_QUEUE;
++		dev->tx_queue_len = 1;
++	}
  
- 	dev->features |= NETIF_F_NETNS_LOCAL;
-+	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- }
- 
- static int ip6gre_newlink(struct net *src_net, struct net_device *dev,
+ 	dev->num_tx_queues = txqs;
+ 	dev->real_num_tx_queues = txqs;
 -- 
-1.8.3.1
+2.7.0
