@@ -1,63 +1,66 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v3 3/8] net: sched: add cls_u32 offload hooks
- for netdevs
-Date: Wed, 17 Feb 2016 15:07:23 -0800
-Message-ID: <56C4FD2B.9000009@gmail.com>
-References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810> <20160217051709.17139.88337.stgit@john-Precision-Tower-5810> <56C4528E.5090505@mojatatu.com> <56C48295.9030806@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [net-next] vlan: change return type of vlan_proc_rem_dev
+Date: Wed, 17 Feb 2016 15:19:12 -0800
+Message-ID: <CAM_iQpXj1DFfu_DAV=M+=v-Ri2XKCuUP869=ckH=UvVZn4fm2A@mail.gmail.com>
+References: <1455709458-1439-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, jiri@resnulli.us,
-	amir@vadai.me, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Patrick McHardy <kaber@trash.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:35360 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030340AbcBQXHe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 18:07:34 -0500
-Received: by mail-pf0-f177.google.com with SMTP id c10so19953691pfc.2
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 15:07:34 -0800 (PST)
-In-Reply-To: <56C48295.9030806@gmail.com>
+Received: from mail-yw0-f177.google.com ([209.85.161.177]:34796 "EHLO
+	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965013AbcBQXTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 18:19:13 -0500
+Received: by mail-yw0-f177.google.com with SMTP id h129so26622242ywb.1
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 15:19:13 -0800 (PST)
+In-Reply-To: <1455709458-1439-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[...]
+On Wed, Feb 17, 2016 at 3:44 AM, Zhang Shengju
+<zhangshengju@cmss.chinamobile.com> wrote:
+> Since function vlan_proc_rem_dev() will only return 0, it's better to
+> return void instead of int.
+>
+> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> ---
+>  net/8021q/vlanproc.c | 3 +--
+>  net/8021q/vlanproc.h | 2 +-
+>  2 files changed, 2 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
+> index ae63cf7..5f1446c 100644
+> --- a/net/8021q/vlanproc.c
+> +++ b/net/8021q/vlanproc.c
+> @@ -184,12 +184,11 @@ int vlan_proc_add_dev(struct net_device *vlandev)
+>  /*
+>   *     Delete directory entry for VLAN device.
+>   */
+> -int vlan_proc_rem_dev(struct net_device *vlandev)
+> +void vlan_proc_rem_dev(struct net_device *vlandev)
+>  {
+>         /** NOTE:  This will consume the memory pointed to by dent, it seems. */
+>         proc_remove(vlan_dev_priv(vlandev)->dent);
+>         vlan_dev_priv(vlandev)->dent = NULL;
+> -       return 0;
+>  }
+>
+>  /****** Proc filesystem entry points ****************************************/
+> diff --git a/net/8021q/vlanproc.h b/net/8021q/vlanproc.h
+> index 063f60a..a9d8734 100644
+> --- a/net/8021q/vlanproc.h
+> +++ b/net/8021q/vlanproc.h
+> @@ -5,7 +5,7 @@
+>  struct net;
+>
+>  int vlan_proc_init(struct net *net);
+> -int vlan_proc_rem_dev(struct net_device *vlandev);
+> +void vlan_proc_rem_dev(struct net_device *vlandev);
+>  int vlan_proc_add_dev(struct net_device *vlandev);
+>  void vlan_proc_cleanup(struct net *net);
 
->>
->>> +static void u32_replace_hw_hnode(struct tcf_proto *tp, struct
->>> tc_u_hnode *h)
->>> +{
->>> +    struct net_device *dev = tp->q->dev_queue->dev;
->>> +    struct tc_cls_u32_offload u32_offload = {0};
->>> +    struct tc_to_netdev offload;
->>> +
->>> +    offload.type = TC_SETUP_CLSU32;
->>> +    offload.cls_u32 = &u32_offload;
->>> +
->>> +    if (dev->netdev_ops->ndo_setup_tc) {
->>> +        offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
->>
->> TC_CLSU32_REPLACE_HNODE?
->>
-> 
-> Yep I made this change and will send out v4.
-> 
-> [...]
-> 
->>
+You forget to change the !PROC_FS case:
 
-Actually thinking about this a bit more I wrote this thinking
-that there existed some hardware that actually cared if it was
-a new rule or an existing rule. For me it doesn't matter I do
-the same thing in the new/replace cases I just write into the
-slot on the hardware table and if it happens to have something
-in it well its overwritten e.g. "replaced". This works because
-the cls_u32 layer protects us from doing something unexpected.
-
-I'm wondering (mostly asking the mlx folks) is there hardware
-out there that cares to make this distinction between new and
-replace? Otherwise I can just drop new and always use replace.
-Or vice versa which is the case in its current form.
-
-Thanks,
-John
+#define vlan_proc_rem_dev(dev)  ({(void)(dev), 0; })
