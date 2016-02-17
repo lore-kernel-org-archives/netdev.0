@@ -1,53 +1,63 @@
-From: Simon Xiao <sixiao@microsoft.com>
-Subject: [PATCH net-next] hv_netvsc: add software transmit timestamp support
-Date: Wed, 17 Feb 2016 16:43:59 -0800
-Message-ID: <1455756239-20721-1-git-send-email-sixiao@microsoft.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v3 3/8] net: sched: add cls_u32 offload hooks
+ for netdevs
+Date: Wed, 17 Feb 2016 15:07:23 -0800
+Message-ID: <56C4FD2B.9000009@gmail.com>
+References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810> <20160217051709.17139.88337.stgit@john-Precision-Tower-5810> <56C4528E.5090505@mojatatu.com> <56C48295.9030806@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-To: kys@microsoft.com, haiyangz@microsoft.com, devel@linuxdriverproject.org,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>, jiri@resnulli.us,
+	amir@vadai.me, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:35360 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030340AbcBQXHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 18:07:34 -0500
+Received: by mail-pf0-f177.google.com with SMTP id c10so19953691pfc.2
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 15:07:34 -0800 (PST)
+In-Reply-To: <56C48295.9030806@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Enable skb_tx_timestamp in hyperv netvsc.
+[...]
 
-Signed-off-by: Simon Xiao <sixiao@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c | 3 +++
- 1 file changed, 3 insertions(+)
+>>
+>>> +static void u32_replace_hw_hnode(struct tcf_proto *tp, struct
+>>> tc_u_hnode *h)
+>>> +{
+>>> +    struct net_device *dev = tp->q->dev_queue->dev;
+>>> +    struct tc_cls_u32_offload u32_offload = {0};
+>>> +    struct tc_to_netdev offload;
+>>> +
+>>> +    offload.type = TC_SETUP_CLSU32;
+>>> +    offload.cls_u32 = &u32_offload;
+>>> +
+>>> +    if (dev->netdev_ops->ndo_setup_tc) {
+>>> +        offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
+>>
+>> TC_CLSU32_REPLACE_HNODE?
+>>
+> 
+> Yep I made this change and will send out v4.
+> 
+> [...]
+> 
+>>
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index c72e5b8..202e2b1 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -550,6 +550,8 @@ do_send:
- 	packet->page_buf_cnt = init_page_array(rndis_msg, rndis_msg_size,
- 					       skb, packet, &pb);
- 
-+	/* timestamp packet in software */
-+	skb_tx_timestamp(skb);
- 	ret = netvsc_send(net_device_ctx->device_ctx, packet,
- 			  rndis_msg, &pb, skb);
- 
-@@ -920,6 +922,7 @@ static const struct ethtool_ops ethtool_ops = {
- 	.get_link	= ethtool_op_get_link,
- 	.get_channels   = netvsc_get_channels,
- 	.set_channels   = netvsc_set_channels,
-+	.get_ts_info	= ethtool_op_get_ts_info,
- };
- 
- static const struct net_device_ops device_ops = {
--- 
-2.5.0
+Actually thinking about this a bit more I wrote this thinking
+that there existed some hardware that actually cared if it was
+a new rule or an existing rule. For me it doesn't matter I do
+the same thing in the new/replace cases I just write into the
+slot on the hardware table and if it happens to have something
+in it well its overwritten e.g. "replaced". This works because
+the cls_u32 layer protects us from doing something unexpected.
+
+I'm wondering (mostly asking the mlx folks) is there hardware
+out there that cares to make this distinction between new and
+replace? Otherwise I can just drop new and always use replace.
+Or vice versa which is the case in its current form.
+
+Thanks,
+John
