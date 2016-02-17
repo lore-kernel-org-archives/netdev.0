@@ -1,56 +1,59 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net V1 3/6] net/mlx4_core: Fix potential corruption in counters database
-Date: Wed, 17 Feb 2016 17:24:24 +0200
-Message-ID: <1455722667-23179-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net V1 1/6] net/mlx4_en: Count HW buffer overrun only once
+Date: Wed, 17 Feb 2016 17:24:22 +0200
+Message-ID: <1455722667-23179-2-git-send-email-ogerlitz@mellanox.com>
 References: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
 	Yishai Hadas <yishaih@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>
+	Amir Vadai <amir@vadai.me>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:44302 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:44321 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S964960AbcBQPYx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 10:24:53 -0500
+	id S965184AbcBQPY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 10:24:56 -0500
 In-Reply-To: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+From: Amir Vadai <amir@vadai.me>
 
-The error flow in procedure handle_existing_counter() is wrong.
+RdropOvflw counts overrun of HW buffer, therefore should
+be used for rx_fifo_errors only.
 
-The procedure should exit after encountering the error, not continue
-as if everything is OK.
+Currently RdropOvflw counter is mistakenly also set into
+rx_missed_errors and rx_over_errors too, which makes the
+device total dropped packets accounting to show wrong results.
 
-Fixes: 68230242cdbc ('net/mlx4_core: Add port attribute when tracking counters')
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Fix that. Use it for rx_fifo_errors only.
+
+Fixes: c27a02cd94d6 ('mlx4_en: Add driver for Mellanox ConnectX 10GbE NIC')
+Signed-off-by: Amir Vadai <amir@vadai.me>
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_port.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index b46dbe2..25ce1b0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -915,11 +915,13 @@ static int handle_existing_counter(struct mlx4_dev *dev, u8 slave, int port,
- 
- 	spin_lock_irq(mlx4_tlock(dev));
- 	r = find_res(dev, counter_index, RES_COUNTER);
--	if (!r || r->owner != slave)
-+	if (!r || r->owner != slave) {
- 		ret = -EINVAL;
--	counter = container_of(r, struct res_counter, com);
--	if (!counter->port)
--		counter->port = port;
-+	} else {
-+		counter = container_of(r, struct res_counter, com);
-+		if (!counter->port)
-+			counter->port = port;
-+	}
- 
- 	spin_unlock_irq(mlx4_tlock(dev));
- 	return ret;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+index ee99e67..3904b5f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+@@ -238,11 +238,11 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
+ 	stats->collisions = 0;
+ 	stats->rx_dropped = be32_to_cpu(mlx4_en_stats->RDROP);
+ 	stats->rx_length_errors = be32_to_cpu(mlx4_en_stats->RdropLength);
+-	stats->rx_over_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
++	stats->rx_over_errors = 0;
+ 	stats->rx_crc_errors = be32_to_cpu(mlx4_en_stats->RCRC);
+ 	stats->rx_frame_errors = 0;
+ 	stats->rx_fifo_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
+-	stats->rx_missed_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
++	stats->rx_missed_errors = 0;
+ 	stats->tx_aborted_errors = 0;
+ 	stats->tx_carrier_errors = 0;
+ 	stats->tx_fifo_errors = 0;
 -- 
 2.3.7
