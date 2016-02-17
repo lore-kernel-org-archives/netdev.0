@@ -1,114 +1,71 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [linux-nics] e1000e: initialization breaks IPMI support on
-	80003ES2LAN
-Date: Wed, 17 Feb 2016 19:22:58 +0000
-Message-ID: <87618083B2453E4A8714035B62D6799250577DB7@FMSMSX105.amr.corp.intel.com>
-References: <20160212155847.GA22910@xanadu.blop.info>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net-next PATCH] net: Optimize local checksum offload
+Date: Wed, 17 Feb 2016 11:23:55 -0800
+Message-ID: <20160217192355.11040.3502.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Linux NICS <Linux-nics@isotope.jf.intel.com>,
-	"Ertman, David M" <david.m.ertman@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Lucas Nussbaum <lucas.nussbaum@loria.fr>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:45019 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030290AbcBQTXR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 14:23:17 -0500
-In-Reply-To: <20160212155847.GA22910@xanadu.blop.info>
-Content-Language: en-US
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:33132 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030384AbcBQTX5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 14:23:57 -0500
+Received: by mail-pa0-f54.google.com with SMTP id fl4so16218930pad.0
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 11:23:57 -0800 (PST)
+Received: from localhost.localdomain (static-50-53-29-36.bvtn.or.frontiernet.net. [50.53.29.36])
+        by smtp.gmail.com with ESMTPSA id 85sm4545279pfl.18.2016.02.17.11.23.56
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 17 Feb 2016 11:23:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: linux-nics-bounces@isotope.jf.intel.com [mailto:linux-nics-
->bounces@isotope.jf.intel.com] On Behalf Of Lucas Nussbaum
->Sent: Friday, February 12, 2016 7:59 AM
->To: Linux Kernel Network Developers <netdev@vger.kernel.org>
->Cc: Linux NICS <Linux-nics@isotope.jf.intel.com>; Ertman, David M
-><david.m.ertman@intel.com>; Kirsher, Jeffrey T
-><jeffrey.t.kirsher@intel.com>; e1000-devel@lists.sourceforge.net
->Subject: [linux-nics] e1000e: initialization breaks IPMI support on
->80003ES2LAN
->
->Hi,
->
->We have Intel 80003ES2LAN nics on SGI Altix XE310 servers (SuperMicro
->Baseboard, with product name X7DGT). On those machines, one of the NIC
->port is bridged internally with the BMC.
->
->It seems that during the e1000e driver initialization (at boot time),
->the NIC is reset, which causes the BMC to stop working (it stops
->responding to pings, the IPMI SOL console stops working; a reboot
->restores it, until the next driver initialization).
->
->The exact same problem also occurs on Bull Novascale R422E1 nodes, with
->the SuperMicro X7DWT baseboard.
->
->It worked in the past (we noticed it when upgrading from Debian wheezy
->(3.2 kernel) to Debian jessie (3.16 kernel)). Using git bisect, I tracked
->this down to commit 2800209994f878b00724ceabb65d744855c8f99a (included
->in Linux 3.15).
->
->Digging further (as this commit is quite large), it seems that this
->specific change introduced the problem:
->
->--- a/drivers/net/ethernet/intel/e1000e/netdev.c
->+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
->@@ -3687,10 +3687,6 @@ void e1000e_power_up_phy(struct e1000_adapter
->*adapter)
->  */
-> static void e1000_power_down_phy(struct e1000_adapter *adapter)
-> {
->-       /* WoL is enabled */
->-       if (adapter->wol)
->-               return;
->-
->        if (adapter->hw.phy.ops.power_down)
->                adapter->hw.phy.ops.power_down(&adapter->hw);
-> }
+This patch takes advantage of several assumptions we can make about the
+headers of the frame in order to reduce overall processing overhead for
+computing the outer header checksum.
 
-The WOL check protected you before because it was always done inside
-e1000_power_down_phy() and just so happened you had WOL enabled.
+First we can assume the entire header is in the region pointed to by
+skb->head as this is what csum_start is based on.
 
-The power down PHY function has a check for manageability, but it's
-not detecting it in your case.
+Second, as a result of our first assumption, we can just call csum_partial
+instead of making a call to skb_checksum which would end up having to
+configure things so that we could walk through the frags list.
 
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+---
+ include/linux/skbuff.h |   17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
->I also confirmed that reverting this change on top of a 4.4 kernel, with
->the following patch, fixes the problem (i.e. the BMC works again).
->
->--- a/drivers/net/ethernet/intel/e1000e/netdev.c
->+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
->@@ -3791,6 +3791,8 @@ void e1000e_power_up_phy(struct e1000_adapter
->*adapter)
->  */
-> static void e1000_power_down_phy(struct e1000_adapter *adapter)
-> {
->+       return;
->+
->        if (adapter->hw.phy.ops.power_down)
->                adapter->hw.phy.ops.power_down(&adapter->hw);
-> }
->
->
->My understanding is that, during driver initialization, e1000e_reset()
->is called, which calls e1000_power_down_phy(), which breaks the BMC.
-
-e1000_power_down_phy() is only called in reset if the interface is down.
-If you are not using the interface, then you can blacklist the driver.
-Otherwise bringing up the interface should power the PHY back up and 
-restore the link for the BMC.
-
->Given the comment above the code that was removed, I suspected that it
->could also break WoL, but I haven't confirmed that.
-
-For WOL the driver has to leave the PHY power on after shutdown - this
-check was moved to __e1000_shutdown() from what I can see.
-
-Thanks,
-Emil
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 39206751463e..89b536796e53 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -3713,19 +3713,18 @@ static inline unsigned int skb_gso_network_seglen(const struct sk_buff *skb)
+  */
+ static inline __wsum lco_csum(struct sk_buff *skb)
+ {
+-	char *inner_csum_field;
+-	__wsum csum;
++	unsigned char *csum_start = skb_checksum_start(skb);
++	unsigned char *l4_hdr = skb_transport_header(skb);
++	__wsum partial;
+ 
+ 	/* Start with complement of inner checksum adjustment */
+-	inner_csum_field = skb->data + skb_checksum_start_offset(skb) +
+-				skb->csum_offset;
+-	csum = ~csum_unfold(*(__force __sum16 *)inner_csum_field);
++	partial = ~csum_unfold(*(__force __sum16 *)(csum_start +
++						    skb->csum_offset));
++
+ 	/* Add in checksum of our headers (incl. outer checksum
+-	 * adjustment filled in by caller)
++	 * adjustment filled in by caller) and return result.
+ 	 */
+-	csum = skb_checksum(skb, 0, skb_checksum_start_offset(skb), csum);
+-	/* The result is the checksum from skb->data to end of packet */
+-	return csum;
++	return csum_partial(l4_hdr, csum_start - l4_hdr, partial);
+ }
+ 
+ #endif	/* __KERNEL__ */
