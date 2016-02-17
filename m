@@ -1,46 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/7] net: unify dst caching for tunnel
- devices
-Date: Tue, 16 Feb 2016 20:22:21 -0500 (EST)
-Message-ID: <20160216.202221.489011866131335381.davem@davemloft.net>
-References: <cover.1455287867.git.pabeni@redhat.com>
+Subject: Re: [PATCH net] tcp: md5: release request socket instead of
+ listener
+Date: Tue, 16 Feb 2016 20:26:45 -0500 (EST)
+Message-ID: <20160216.202645.701144805274843634.davem@davemloft.net>
+References: <1455259829-17501-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch, pshelar@nicira.com,
-	jbenc@redhat.com, hannes@stressinduktion.org, therbert@google.com,
-	sergei.shtylyov@cogentembedded.com
-To: pabeni@redhat.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42511 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42564 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933275AbcBQBWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 20:22:24 -0500
-In-Reply-To: <cover.1455287867.git.pabeni@redhat.com>
+	with ESMTP id S933123AbcBQB0s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 20:26:48 -0500
+In-Reply-To: <1455259829-17501-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Fri, 12 Feb 2016 15:43:52 +0100
+From: Eric Dumazet <edumazet@google.com>
+Date: Thu, 11 Feb 2016 22:50:29 -0800
 
-> This patch series try to unify the dst cache implementations currently
-> present in the kernel, namely in ip_tunnel.c and ip6_tunnel.c, introducing a
-> new generic implementation, replacing the existing ones, and then using
-> the new implementation in other tunnel devices which currently lack it.
+> If tcp_v4_inbound_md5_hash() returns an error, we must release
+> the refcount on the request socket, not on the listener.
 > 
-> The new dst implementation is compiled, as built-in, only if any device using
-> it is enabled.
+> The bug was added for IPv4 only.
 > 
-> Caching the dst for the tunnel remote address gives small, but measurable,
-> performance improvement when tunneling over ipv4 (in the 2%-4% range) and
-> significant ones when tunneling over ipv6 (roughly 60% when no
-> fragmentation/segmentation take place and the tunnel local address
-> is not specified).
-> 
-> v2:
-> - move the vxlan dst_cache usage inside the device lookup functions
-> - fix usage after free for lwt tunnel moving the dst cache storage inside
->   the dst_metadata,
-> - sparse codying style cleanup
+> Fixes: 079096f103fac ("tcp/dccp: install syn_recv requests into ehash table")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Series applied, thanks for doing this work as it is a major improvement.
+Applied and queued up for -stable, thanks Eric.
