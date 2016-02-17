@@ -1,88 +1,56 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net V1 2/6] net/mlx4_en: Choose time-stamping shift value according to HW frequency
-Date: Wed, 17 Feb 2016 17:24:23 +0200
-Message-ID: <1455722667-23179-3-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net V1 4/6] net/mlx4_core: Do not BUG_ON during reset when PCI is offline
+Date: Wed, 17 Feb 2016 17:24:25 +0200
+Message-ID: <1455722667-23179-5-git-send-email-ogerlitz@mellanox.com>
 References: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
 	Yishai Hadas <yishaih@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
+	Daniel Jurgens <danielj@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:44307 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:44376 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965188AbcBQPYy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 10:24:54 -0500
+	id S965188AbcBQPZ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 10:25:26 -0500
 In-Reply-To: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
+From: Daniel Jurgens <danielj@mellanox.com>
 
-Previously, the shift value used for time-stamping was constant and didn't
-depend on the HW chip frequency. Change that to take the frequency into account
-and calculate the maximal value in cycles per wraparound of ten seconds. This
-time slot was chosen since it gives a good accuracy in time synchronization.
+The PCI channel could go offline during reset due to EEH.  Don't bug on in
+this case, the error is recoverable.
 
-Algorithm for shift value calculation:
- * Round up the maximal value in cycles to nearest power of two
-
- * Calculate maximal multiplier by division of all 64 bits set
-   to above result
-
- * Then, invert the function clocksource_khz2mult() to get the shift from
-   maximal mult value
-
-Fixes: ec693d47010e ('net/mlx4_en: Add HW timestamping (TS) support')
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Reviewed-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Fixes: f6bc11e42646 ('net/mlx4_core: Enhance the catas flow to support device reset')
+Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
+Reviewed-by: Yishai Hadas <yishaih@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_clock.c | 25 +++++++++++++++++++------
- 1 file changed, 19 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/catas.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-index 038f9ce..1494997 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-@@ -236,6 +236,24 @@ static const struct ptp_clock_info mlx4_en_ptp_clock_info = {
- 	.enable		= mlx4_en_phc_enable,
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
+index 715de8a..c7e9399 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/catas.c
++++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
+@@ -182,10 +182,17 @@ void mlx4_enter_error_state(struct mlx4_dev_persistent *persist)
+ 		err = mlx4_reset_slave(dev);
+ 	else
+ 		err = mlx4_reset_master(dev);
+-	BUG_ON(err != 0);
  
-+#define MLX4_EN_WRAP_AROUND_SEC	10ULL
-+
-+/* This function calculates the max shift that enables the user range
-+ * of MLX4_EN_WRAP_AROUND_SEC values in the cycles register.
-+ */
-+static u32 freq_to_shift(u16 freq)
-+{
-+	u32 freq_khz = freq * 1000;
-+	u64 max_val_cycles = freq_khz * 1000 * MLX4_EN_WRAP_AROUND_SEC;
-+	u64 max_val_cycles_rounded = is_power_of_2(max_val_cycles + 1) ?
-+		max_val_cycles : roundup_pow_of_two(max_val_cycles) - 1;
-+	/* calculate max possible multiplier in order to fit in 64bit */
-+	u64 max_mul = div_u64(0xffffffffffffffffULL, max_val_cycles_rounded);
-+
-+	/* This comes from the reverse of clocksource_khz2mult */
-+	return ilog2(div_u64(max_mul * freq_khz, 1000000));
-+}
-+
- void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
- {
- 	struct mlx4_dev *dev = mdev->dev;
-@@ -254,12 +272,7 @@ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
- 	memset(&mdev->cycles, 0, sizeof(mdev->cycles));
- 	mdev->cycles.read = mlx4_en_read_clock;
- 	mdev->cycles.mask = CLOCKSOURCE_MASK(48);
--	/* Using shift to make calculation more accurate. Since current HW
--	 * clock frequency is 427 MHz, and cycles are given using a 48 bits
--	 * register, the biggest shift when calculating using u64, is 14
--	 * (max_cycles * multiplier < 2^64)
--	 */
--	mdev->cycles.shift = 14;
-+	mdev->cycles.shift = freq_to_shift(dev->caps.hca_core_clock);
- 	mdev->cycles.mult =
- 		clocksource_khz2mult(1000 * dev->caps.hca_core_clock, mdev->cycles.shift);
- 	mdev->nominal_c_mult = mdev->cycles.mult;
++	if (!err) {
++		mlx4_err(dev, "device was reset successfully\n");
++	} else {
++		/* EEH could have disabled the PCI channel during reset. That's
++		 * recoverable and the PCI error flow will handle it.
++		 */
++		if (!pci_channel_offline(dev->persist->pdev))
++			BUG_ON(1);
++	}
+ 	dev->persist->state |= MLX4_DEVICE_STATE_INTERNAL_ERROR;
+-	mlx4_err(dev, "device was reset successfully\n");
+ 	mutex_unlock(&persist->device_state_mutex);
+ 
+ 	/* At that step HW was already reset, now notify clients */
 -- 
 2.3.7
