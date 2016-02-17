@@ -1,89 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver Updates 2016-02-17
-Date: Wed, 17 Feb 2016 09:51:31 -0800
-Message-ID: <1455731506-62165-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+Subject: [net-next 01/15] i40e: trivial: drop duplicate definition
+Date: Wed, 17 Feb 2016 09:51:32 -0800
+Message-ID: <1455731506-62165-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1455731506-62165-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:4789 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161411AbcBQRvt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1161464AbcBQRvt (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 17 Feb 2016 12:51:49 -0500
+In-Reply-To: <1455731506-62165-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e/i40evf only.
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Jesse cleans up a duplicate declaration in probe.  Then fixes a bug where the
-driver was using a offset based off a DMA handle while mapping and unmapping
-using sync_single_range_for_[cpu|device], when it should be using DMA handle
-(returned from alloc_coherent) and the offset of the memory to be sync'd.
-Fixed an issue where sync_vsi_filter() was allocating memory in a way that
-could sleep (GFP_KERNEL) which was causing a problem when called by the
-team driver under rcu_read_lock().
+The probe routine already had a u32 val declared, no need
+to do it again.  Found by W=2 compile.
 
-Shannon adds a check to ensure we do not attempt to do TSO when
-skb->ip_summed is not set to CHECKSUM_PARTIAL.
+Change-ID: Id7b65f6d0ef6bb71067d0557f5be0202b6d8741e
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-Kiran add functions related to port mirroring features such as add/delete
-mirror rule.
-
-Jacob assigns the i40e_pf structure directly instead of using a large
-memcpy, to avoid a sparse warning and lets the compiler optimize the copy
-since it know the size of the structure in advance.
-
-Anjali enables GENEVE capability for XL710/X710 devices with firmware API
-version higher than 1.4.  Added flag for automatic rule eviction feature 
-for X722, which is disabled by default.
-
-The following are changes since commit f55158859504ead847e56211f3dadadaf883a6ee:
-  Merge branch '40GbE' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Anjali Singhai (1):
-  i40e: Enable Geneve offload for FW API ver > 1.4 for XL710/X710
-    devices
-
-Anjali Singhai Jain (1):
-  i40e: add priv flag for automatic rule eviction
-
-Jacob Keller (1):
-  i40e: avoid large memcpy by assigning struct
-
-Jesse Brandeburg (8):
-  i40e: trivial: drop duplicate definition
-  i40e: trivial: fix missing space
-  i40e: fix bug in dma sync
-  i40e: allocate memory safer
-  i40e: fix: do not sleep in netdev_ops
-  i40e: drop unused function
-  i40e: count allocation errors
-  i40e/i40evf: bump version to 1.4.12/1.4.8
-
-Kiran Patil (1):
-  i40e: APIs to Add/remove port mirroring rules
-
-Shannon Nelson (2):
-  i40e: do TSO only if CHECKSUM_PARTIAL is set
-  i40e: negate PHY int mask bits
-
-Sowmini Varadhan (1):
-  i40e: use eth_platform_get_mac_address()
-
- drivers/net/ethernet/intel/i40e/i40e.h           |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 162 +++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c   |   8 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c   |  11 ++
- drivers/net/ethernet/intel/i40e/i40e_main.c      |  90 ++++++-------
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  12 ++
- drivers/net/ethernet/intel/i40e/i40e_txrx.c      |  17 ++-
- drivers/net/ethernet/intel/i40e/i40e_type.h      |   4 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c    |  11 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c  |   2 +-
- 10 files changed, 254 insertions(+), 65 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 6b158c4..90ad7d7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -11008,8 +11008,6 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if ((pf->flags & I40E_FLAG_SRIOV_ENABLED) &&
+ 	    (pf->flags & I40E_FLAG_MSIX_ENABLED) &&
+ 	    !test_bit(__I40E_BAD_EEPROM, &pf->state)) {
+-		u32 val;
+-
+ 		/* disable link interrupts for VFs */
+ 		val = rd32(hw, I40E_PFGEN_PORTMDIO_NUM);
+ 		val &= ~I40E_PFGEN_PORTMDIO_NUM_VFLINK_STAT_ENA_MASK;
 -- 
 2.5.0
