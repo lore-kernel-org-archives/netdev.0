@@ -1,65 +1,38 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net-next v1 1/9] amd-xgbe: Disable VLAN filtering when in
- promiscuous mode
-Date: Wed, 17 Feb 2016 10:35:31 -0600
-Message-ID: <56C4A153.1020403@amd.com>
-References: <20160212143224.23973.91104.stgit@tlendack-t1.amdoffice.net>
- <20160216.201934.2034325737936595643.davem@davemloft.net>
- <56C49B3E.9030202@amd.com>
- <20160217.113106.1360496601754038100.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0092.outbound.protection.outlook.com ([207.46.100.92]:20331
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1422903AbcBQQfo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 11:35:44 -0500
-In-Reply-To: <20160217.113106.1360496601754038100.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Insu Yun <wuninsu@gmail.com>
+Subject: [PATCH] tipc: unlock in error path
+Date: Wed, 17 Feb 2016 11:47:35 -0500
+Message-ID: <1455727655-32106-1-git-send-email-wuninsu@gmail.com>
+Cc: taesoo@gatech.edu, yeongjin.jang@gatech.edu, insu@gatech.edu,
+	changwoo@gatech.edu, Insu Yun <wuninsu@gmail.com>
+To: jon.maloy@ericsson.com, ying.xue@windriver.com,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/17/2016 10:31 AM, David Miller wrote:
-> From: Tom Lendacky <thomas.lendacky@amd.com>
-> Date: Wed, 17 Feb 2016 10:09:34 -0600
-> 
->> On 02/16/2016 07:19 PM, David Miller wrote:
->>> From: Tom Lendacky <thomas.lendacky@amd.com>
->>> Date: Fri, 12 Feb 2016 08:32:24 -0600
->>>
->>>> +#ifndef CRCPOLY_LE
->>>> +#define CRCPOLY_LE 0xedb88320
->>>> +#endif
->>>> +static u32 xgbe_vid_crc32_le(__le16 vid_le)
->>>
->>> Please do not implement yet another copy of a CRC implementation.
->>>
->>> Make use of the various versions the kernel provides already instead,
->>> add Kconfig dependencies as needed.
->>
->> I can't use the existing kernel implementations because there aren't
->> any that support the 12-bit length of the VLAN VID (lengths are all
->> at the byte level). I created this function (back when I added VLAN
->> filtering support in 2014 - it's only being moved in this patch)
->> because of this 12-bit length.
->>
->> I do use the kernel functions in other areas, I just can't use them
->> here.
-> 
-> This crummy ifdef looks terrible though, is it even needed?
+tipc_bcast_unlock need to be unlocked in error path.
 
-I probably added it in case the #defines in the crc32defs.h were ever
-made public.
+Signed-off-by: Insu Yun <wuninsu@gmail.com>
+---
+ net/tipc/link.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-> 
-> Please remove it.
-
-Will do.  I'll send out a v2 with the ifdef removed.
-
-Thanks,
-Tom
-
-> 
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 0c2944f..347cdc9 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1973,8 +1973,10 @@ int tipc_nl_add_bc_link(struct net *net, struct tipc_nl_msg *msg)
+ 
+ 	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
+ 			  NLM_F_MULTI, TIPC_NL_LINK_GET);
+-	if (!hdr)
++	if (!hdr) {
++		tipc_bcast_unlock(net);
+ 		return -EMSGSIZE;
++	}
+ 
+ 	attrs = nla_nest_start(msg->skb, TIPC_NLA_LINK);
+ 	if (!attrs)
+-- 
+1.9.1
