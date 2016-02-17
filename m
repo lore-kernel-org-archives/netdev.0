@@ -1,52 +1,80 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net-next v1 1/9] amd-xgbe: Disable VLAN filtering when in
- promiscuous mode
-Date: Wed, 17 Feb 2016 10:09:34 -0600
-Message-ID: <56C49B3E.9030202@amd.com>
-References: <20160212143215.23973.1043.stgit@tlendack-t1.amdoffice.net>
- <20160212143224.23973.91104.stgit@tlendack-t1.amdoffice.net>
- <20160216.201934.2034325737936595643.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net 1/3] sctp: move rcu_read_lock from
+ __sctp_lookup_association to sctp_lookup_association
+Date: Wed, 17 Feb 2016 11:11:04 -0500
+Message-ID: <20160217161104.GA17476@hmsreliant.think-freely.org>
+References: <cover.1455517541.git.lucien.xin@gmail.com>
+ <c805e4a1994f53947351e8d4dd79609fd206e807.1455517541.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0068.outbound.protection.outlook.com ([207.46.100.68]:15979
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755639AbcBQQJm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 11:09:42 -0500
-In-Reply-To: <20160216.201934.2034325737936595643.davem@davemloft.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:40786 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161077AbcBQQLS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 11:11:18 -0500
+Content-Disposition: inline
+In-Reply-To: <c805e4a1994f53947351e8d4dd79609fd206e807.1455517541.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/16/2016 07:19 PM, David Miller wrote:
-> From: Tom Lendacky <thomas.lendacky@amd.com>
-> Date: Fri, 12 Feb 2016 08:32:24 -0600
+On Mon, Feb 15, 2016 at 02:28:03PM +0800, Xin Long wrote:
+> __sctp_lookup_association() is only invoked by sctp_v4_err() and
+> sctp_rcv(), both which run on the rx BH, and it has been protected
+> by rcu_read_lock [see ip_local_deliver_finish() / ipv6_rcv()].
 > 
->> +#ifndef CRCPOLY_LE
->> +#define CRCPOLY_LE 0xedb88320
->> +#endif
->> +static u32 xgbe_vid_crc32_le(__le16 vid_le)
+> So we can move it to sctp_lookup_association, only let
+> sctp_lookup_association use rcu_read_lock.
 > 
-> Please do not implement yet another copy of a CRC implementation.
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+
+Not that it was right before if this is true, but if we're using rcu in a bottom
+half path, shouldn't rcu_read_lock_bh be used instead here?
+
+Neil
+
+> ---
+>  net/sctp/input.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> Make use of the various versions the kernel provides already instead,
-> add Kconfig dependencies as needed.
-
-I can't use the existing kernel implementations because there aren't
-any that support the 12-bit length of the VLAN VID (lengths are all
-at the byte level). I created this function (back when I added VLAN
-filtering support in 2014 - it's only being moved in this patch)
-because of this 12-bit length.
-
-I do use the kernel functions in other areas, I just can't use them
-here.
-
-Thanks,
-Tom
-
+> diff --git a/net/sctp/input.c b/net/sctp/input.c
+> index 49d2cc7..21a2d6b 100644
+> --- a/net/sctp/input.c
+> +++ b/net/sctp/input.c
+> @@ -937,7 +937,6 @@ static struct sctp_association *__sctp_lookup_association(
+>  	struct sctp_transport *t;
+>  	struct sctp_association *asoc = NULL;
+>  
+> -	rcu_read_lock();
+>  	t = sctp_addrs_lookup_transport(net, local, peer);
+>  	if (!t || !sctp_transport_hold(t))
+>  		goto out;
+> @@ -949,7 +948,6 @@ static struct sctp_association *__sctp_lookup_association(
+>  	sctp_transport_put(t);
+>  
+>  out:
+> -	rcu_read_unlock();
+>  	return asoc;
+>  }
+>  
+> @@ -962,7 +960,9 @@ struct sctp_association *sctp_lookup_association(struct net *net,
+>  {
+>  	struct sctp_association *asoc;
+>  
+> +	rcu_read_lock();
+>  	asoc = __sctp_lookup_association(net, laddr, paddr, transportp);
+> +	rcu_read_unlock();
+>  
+>  	return asoc;
+>  }
+> -- 
+> 2.1.0
 > 
-> Thanks.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
