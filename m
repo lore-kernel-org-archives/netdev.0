@@ -1,44 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] store complete hash type information in socket
- buffer...
-Date: Wed, 17 Feb 2016 22:30:01 +0100
-Message-ID: <1455744601.648.2.camel@edumazet-ThinkPad-T530>
-References: <1455525128-27795-1-git-send-email-paul.durrant@citrix.com>
-	 <20160217.154432.788293606088459412.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] gre: Avoid kernel panic by clearing IPCB before
+ dst_link_failure called
+Date: Wed, 17 Feb 2016 16:31:52 -0500 (EST)
+Message-ID: <20160217.163152.1172947398779694144.davem@davemloft.net>
+References: <1454990874-10497-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+	<1455585016-7253-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.durrant@citrix.com, netdev@vger.kernel.org,
-	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	tom@herbertland.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:34908 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423542AbcBQVaM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 16:30:12 -0500
-Received: by mail-wm0-f51.google.com with SMTP id c200so234990615wme.0
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 13:30:11 -0800 (PST)
-In-Reply-To: <20160217.154432.788293606088459412.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	stable@vger.kernel.org
+To: bernie.harris@alliedtelesis.co.nz
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1455585016-7253-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On mer., 2016-02-17 at 15:44 -0500, David Miller wrote:
-> From: Paul Durrant <paul.durrant@citrix.com>
-> Date: Mon, 15 Feb 2016 08:32:08 +0000
+From: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
+Date: Tue, 16 Feb 2016 14:10:16 +1300
+
+> skb->cb may contain data from previous layers (in the observed case the
+> qdisc layer). In the observed scenario, the data was misinterpreted as
+> ip header options, which later caused the ihl to be set to an invalid
+> value (<5). This resulted in an infinite loop in the mips implementation
+> of ip_fast_csum.
 > 
-> > ...rather than a boolean merely indicating a canonical L4 hash.
-> > 
-> > skb_set_hash() takes a hash type (from enum pkt_hash_types) as an
-> > argument but information is lost since only a single bit in the skb
-> > stores whether that hash type is PKT_HASH_TYPE_L4 or not. By using
-> > two bits it's possible to store the complete hash type information.
-> > 
-> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> This patch clears IPCB before dst_link_failure is called from the functions
+> ip_tunnel_xmit and ip6gre_xmit2, similar to what commit 11c21a30 does for
+> an ipv4 case.
 > 
-> Tom and/or Eric, please have a look at this.
+> Signed-off-by: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
 
-I guess my question is simply 'why do we need this' ?
+Again, I want to see this implemented in a way which causes things to be
+treated consistently across all tunneling types.
 
-Consuming a bit in our precious sk_buff is not something we want for
-some obscure feature.
+Which means fixing the exact problem, IPCB(skb)->opt needing initilization.
+
+Thanks.
