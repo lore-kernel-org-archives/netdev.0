@@ -1,68 +1,46 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCHv2 next 1/3] ipvlan: scrub skb before routing in L3 mode.
-Date: Wed, 17 Feb 2016 11:15:29 -0800
-Message-ID: <CAF2d9jgpuGQzxcLu6PvtJXZGs6zmLwF9FTvVV1KJxLf_CfRXDw@mail.gmail.com>
-References: <1455118406-428-1-git-send-email-mahesh@bandewar.net> <CAM_iQpVgSOs5F6L6n2MhFxxuHaZizm7xzmYTE6HyRJXP9O67cg@mail.gmail.com>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [PATCH net v2] lwt: fix rx checksum setting for lwt devices
+ tunneling over ipv6
+Date: Wed, 17 Feb 2016 11:19:10 -0800
+Message-ID: <CAEh+42isC=4nmKz-Sjc9VreCbOkqdEcPc2uXyxcgGRJQsdSWSw@mail.gmail.com>
+References: <244994c83cb73d98205f39aaefcee846dab48260.1455731463.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Benc <jbenc@redhat.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f175.google.com ([209.85.160.175]:33150 "EHLO
-	mail-yk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423790AbcBQTPt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 14:15:49 -0500
-Received: by mail-yk0-f175.google.com with SMTP id z13so11047682ykd.0
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 11:15:49 -0800 (PST)
-In-Reply-To: <CAM_iQpVgSOs5F6L6n2MhFxxuHaZizm7xzmYTE6HyRJXP9O67cg@mail.gmail.com>
+Received: from mail.kernel.org ([198.145.29.136]:41216 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965380AbcBQTT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 14:19:27 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id 7F2BC203C0
+	for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 19:19:26 +0000 (UTC)
+Received: from mail-qg0-f49.google.com (mail-qg0-f49.google.com [209.85.192.49])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id B6600203A5
+	for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 19:19:25 +0000 (UTC)
+Received: by mail-qg0-f49.google.com with SMTP id b35so19725446qge.0
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 11:19:25 -0800 (PST)
+In-Reply-To: <244994c83cb73d98205f39aaefcee846dab48260.1455731463.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 12, 2016 at 2:24 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Wed, Feb 10, 2016 at 7:33 AM, Mahesh Bandewar <mahesh@bandewar.net> wrote:
->> From: Mahesh Bandewar <maheshb@google.com>
->>
->> Scrub skb before hitting the iptable hooks to ensure packets hit
->> these hooks.
->>
->> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->> ---
->> v1: initial patch
->> v2: resend
->>
->>  drivers/net/ipvlan/ipvlan_core.c | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
->> index 8c48bb2a94ea..21c380f9ccd5 100644
->> --- a/drivers/net/ipvlan/ipvlan_core.c
->> +++ b/drivers/net/ipvlan/ipvlan_core.c
->> @@ -365,7 +365,7 @@ static int ipvlan_process_v4_outbound(struct sk_buff *skb)
->>                 ip_rt_put(rt);
->>                 goto err;
->>         }
->> -       skb_dst_drop(skb);
->> +       skb_scrub_packet(skb, false);
+On Wed, Feb 17, 2016 at 10:30 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> the commit 35e2d1152b22 ("tunnels: Allow IPv6 UDP checksums to be
+> correctly controlled.") changed the default xmit checksum setting
+> for lwt vxlan/geneve ipv6 tunnels, so that now the checksum is not
+> set into external UDP header.
+> This commit changes the rx checksum setting for both lwt vxlan/geneve
+> devices created by openvswitch accordingly, so that lwt over ipv6
+> tunnel pairs are again able to communicate with default values.
 >
-> Hmm, I am feeling we should set the xnet param to be true here when the ipvlan
-> device is in a different namespace with the physical one?
->
-Yes, that makes sense. I'll update the patch to reflect that.
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
->
->>         skb_dst_set(skb, &rt->dst);
->>         err = ip_local_out(net, skb->sk, skb);
->>         if (unlikely(net_xmit_eval(err)))
->> @@ -403,7 +403,7 @@ static int ipvlan_process_v6_outbound(struct sk_buff *skb)
->>                 dst_release(dst);
->>                 goto err;
->>         }
->> -       skb_dst_drop(skb);
->> +       skb_scrub_packet(skb, false);
->
-> Ditto.
->
-> Thanks!
+This is compat code that is being changed here. Based on the previous
+discussion, shouldn't these be made the default for all users?
