@@ -1,43 +1,49 @@
-From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Subject: [PATCH] lance: Return correct error code
-Date: Wed, 17 Feb 2016 19:05:16 +0530
-Message-ID: <20160217133516.GA31497@amitoj-Inspiron-3542>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: julia.lawall@lip6.fr
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>
+Subject: [PATCH net-next] be2net: Fix pcie error recovery in case of NIC+RoCE adapters
+Date: Thu, 18 Feb 2016 03:09:34 +0530
+Message-ID: <1455745174-25211-1-git-send-email-padmanabh.ratnakar@broadcom.com>
+Cc: Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmrelayp1.emulex.com ([138.239.112.140]:53523 "EHLO
+	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1422925AbcBQNj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 08:39:56 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The return value of kzalloc on failure should be -ENOMEM and
-not -ENODEV.
+Interrupts registered by RoCE driver are not unregistered when
+msix interrupts are disabled during error recovery causing a
+crash. Detach the adapter instance from RoCE driver when error
+is detected to complete the cleanup. Attach the driver again after
+the adapter is recovered from error.
 
-Additionally, removed the following checkpatch warnings:
-ERROR: spaces required around that '==' (ctx:VxV)
-ERROR: space required before the open parenthesis '('
-CHECK: Comparison to NULL could be written "!lp"
-
-Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>
 ---
- drivers/net/ethernet/amd/lance.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/amd/lance.c b/drivers/net/ethernet/amd/lance.c
-index 256f590..3a7ebfd 100644
---- a/drivers/net/ethernet/amd/lance.c
-+++ b/drivers/net/ethernet/amd/lance.c
-@@ -547,8 +547,8 @@ static int __init lance_probe1(struct net_device *dev, int ioaddr, int irq, int
- 	/* Make certain the data structures used by the LANCE are aligned and DMAble. */
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 88f427c..4624846 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -5456,6 +5456,8 @@ static pci_ers_result_t be_eeh_err_detected(struct pci_dev *pdev,
  
- 	lp = kzalloc(sizeof(*lp), GFP_DMA | GFP_KERNEL);
--	if(lp==NULL)
--		return -ENODEV;
-+	if (!lp)
-+		return -ENOMEM;
- 	if (lance_debug > 6) printk(" (#0x%05lx)", (unsigned long)lp);
- 	dev->ml_priv = lp;
- 	lp->name = chipname;
+ 	dev_err(&adapter->pdev->dev, "EEH error detected\n");
+ 
++	be_roce_dev_remove(adapter);
++
+ 	if (!be_check_error(adapter, BE_ERROR_EEH)) {
+ 		be_set_error(adapter, BE_ERROR_EEH);
+ 
+@@ -5520,6 +5522,8 @@ static void be_eeh_resume(struct pci_dev *pdev)
+ 	if (status)
+ 		goto err;
+ 
++	be_roce_dev_add(adapter);
++
+ 	be_schedule_err_detection(adapter, ERR_DETECTION_DELAY);
+ 	return;
+ err:
 -- 
-1.9.1
+2.7.1.287.g4943984
