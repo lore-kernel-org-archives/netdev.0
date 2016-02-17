@@ -1,42 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: cpsw-phy-sel: add dev_warn() for
- unsupported PHY mode
-Date: Wed, 17 Feb 2016 10:51:04 -0500 (EST)
-Message-ID: <20160217.105104.143723229571677119.davem@davemloft.net>
-References: <1455324336-3884-1-git-send-email-drivshin.allworx@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-omap@vger.kernel.org, mugunthanvnm@ti.com, kwizart@gmail.com
-To: drivshin.allworx@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53552 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423032AbcBQPvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 10:51:06 -0500
-In-Reply-To: <1455324336-3884-1-git-send-email-drivshin.allworx@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Anton Protopopov <a.s.protopopov@gmail.com>
+Subject: [PATCH] appletalk: fix erroneous return value
+Date: Wed, 17 Feb 2016 10:53:59 -0500
+Message-ID: <1455724439-10018-1-git-send-email-a.s.protopopov@gmail.com>
+Cc: Anton Protopopov <a.s.protopopov@gmail.com>
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
-Date: Fri, 12 Feb 2016 19:45:36 -0500
+The atalk_sendmsg() function might return wrong value ENETUNREACH
+instead of -ENETUNREACH.
 
-> From: David Rivshin <drivshin@allworx.com>
-> 
-> The cpsw-phy-sel driver supports only MII, RMII, and RGMII PHY modes,
-> and silently handled any other values as if MII was specified. In a
-> case where the PHY mode was incorrectly specified, or a bug elsewhere,
-> there would be no indication of a problem. If MII was the correct mode,
-> then this will go unnoticed, otherwise the symptom will be a failure
-> to transmit/receive data over the RMII/RGMII link.
-> 
-> Add a dev_warn() to make this condition obvious and provide a
-> breadcrumb to follow.
-> 
-> Cc: Mugunthan V N <mugunthanvnm@ti.com>
-> Signed-off-by: David Rivshin <drivshin@allworx.com>
+Signed-off-by: Anton Protopopov <a.s.protopopov@gmail.com>
+---
+ net/appletalk/ddp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Applied to 'net', thanks.  I don't think I'll queue this up for -stable.
-
-Thanks.
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index d5871ac..f066781 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -1625,7 +1625,7 @@ static int atalk_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ 
+ 		rt = atrtr_find(&at_hint);
+ 	}
+-	err = ENETUNREACH;
++	err = -ENETUNREACH;
+ 	if (!rt)
+ 		goto out;
+ 
+-- 
+2.6.5
