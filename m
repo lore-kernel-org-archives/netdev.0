@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 4/9] amd-xgbe: Verify forced speed matches the
- active speedset
-Date: Wed, 17 Feb 2016 11:48:39 -0600
-Message-ID: <20160217174839.26246.5006.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v2 5/9] amd-xgbe: Enable/disable PFC per traffic
+ class
+Date: Wed, 17 Feb 2016 11:48:48 -0600
+Message-ID: <20160217174848.26246.57325.stgit@tlendack-t1.amdoffice.net>
 References: <20160217174758.26246.15641.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,63 +10,74 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0057.outbound.protection.outlook.com ([207.46.100.57]:28575
+Received: from mail-by2on0072.outbound.protection.outlook.com ([207.46.100.72]:59930
 	"EHLO na01-by2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S964878AbcBQRsp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 12:48:45 -0500
+	id S1161447AbcBQRsy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 12:48:54 -0500
 In-Reply-To: <20160217174758.26246.15641.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using ethtool to set the speed for the device, verify that the
-specified speed is valid within the active speedset.
+Currently the PFC flow control is enabled on all traffic classes if
+one or more traffic classes request it. The PFC enable setting of the
+traffic class should be used to determine whether to enable or disable
+flow control for the traffic class.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   16 ++++++++++++++--
- 1 file changed, 14 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c |   36 ++++++++++++++++++++++++++++--
+ 1 file changed, 34 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-index 6040293..11d9f0c 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-@@ -6,7 +6,7 @@
-  *
-  * License 1: GPLv2
-  *
-- * Copyright (c) 2014 Advanced Micro Devices, Inc.
-+ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
-  *
-  * This file is free software; you may copy, redistribute and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -56,7 +56,7 @@
-  *
-  * License 2: Modified BSD
-  *
-- * Copyright (c) 2014 Advanced Micro Devices, Inc.
-+ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -318,8 +318,20 @@ static int xgbe_set_settings(struct net_device *netdev,
- 	if (cmd->autoneg == AUTONEG_DISABLE) {
- 		switch (speed) {
- 		case SPEED_10000:
-+			break;
- 		case SPEED_2500:
-+			if (pdata->speed_set != XGBE_SPEEDSET_2500_10000) {
-+				netdev_err(netdev, "unsupported speed %u\n",
-+					   speed);
-+				return -EINVAL;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index 931e374..6b98a99 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -518,13 +518,45 @@ static int xgbe_disable_tx_flow_control(struct xgbe_prv_data *pdata)
+ 
+ static int xgbe_enable_tx_flow_control(struct xgbe_prv_data *pdata)
+ {
++	struct ieee_pfc *pfc = pdata->pfc;
++	struct ieee_ets *ets = pdata->ets;
+ 	unsigned int max_q_count, q_count;
+ 	unsigned int reg, reg_val;
+ 	unsigned int i;
+ 
+ 	/* Set MTL flow control */
+-	for (i = 0; i < pdata->rx_q_count; i++)
+-		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, EHFC, 1);
++	for (i = 0; i < pdata->rx_q_count; i++) {
++		unsigned int ehfc = 0;
++
++		if (pfc && ets) {
++			unsigned int prio;
++
++			for (prio = 0; prio < IEEE_8021QAZ_MAX_TCS; prio++) {
++				unsigned int tc;
++
++				/* Does this queue handle the priority? */
++				if (pdata->prio2q_map[prio] != i)
++					continue;
++
++				/* Get the Traffic Class for this priority */
++				tc = ets->prio_tc[prio];
++
++				/* Check if flow control should be enabled */
++				if (pfc->pfc_en & (1 << tc)) {
++					ehfc = 1;
++					break;
++				}
 +			}
-+			break;
- 		case SPEED_1000:
-+			if (pdata->speed_set != XGBE_SPEEDSET_1000_10000) {
-+				netdev_err(netdev, "unsupported speed %u\n",
-+					   speed);
-+				return -EINVAL;
-+			}
- 			break;
- 		default:
- 			netdev_err(netdev, "unsupported speed %u\n", speed);
++		} else {
++			ehfc = 1;
++		}
++
++		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, EHFC, ehfc);
++
++		netif_dbg(pdata, drv, pdata->netdev,
++			  "flow control %s for RXq%u\n",
++			  ehfc ? "enabled" : "disabled", i);
++	}
+ 
+ 	/* Set MAC flow control */
+ 	max_q_count = XGMAC_MAX_FLOW_CONTROL_QUEUES;
