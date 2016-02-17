@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] net: l3mdev: address selection should only consider
- devices in L3 domain
-Date: Tue, 16 Feb 2016 20:05:18 -0500 (EST)
-Message-ID: <20160216.200518.1495764396935534189.davem@davemloft.net>
-References: <1455663591-27615-1-git-send-email-dsa@cumulusnetworks.com>
-	<20160216234115.GI659150@eidolon>
+Subject: Re: [PATCH] af_unix: Don't set err in unix_stream_read_generic
+ unless there was an error
+Date: Tue, 16 Feb 2016 20:07:03 -0500 (EST)
+Message-ID: <20160216.200703.2116723624769185830.davem@davemloft.net>
+References: <87bn7rrqdk.fsf@doppelsaurus.mobileactivedefense.com>
+	<20160216.125157.1927195719504877809.davem@davemloft.net>
+	<1455668691.1143.18.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org,
-	david@opensourcerouting.org
-To: equinox@diac24.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42343 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933415AbcBQBFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 20:05:21 -0500
-In-Reply-To: <20160216234115.GI659150@eidolon>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: rweikusat@mobileactivedefense.com, hannes@stressinduktion.org,
+	edumazet@google.com, dhowells@redhat.com, ying.xue@windriver.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org, joseph.salisbury@canonical.com
+To: ben@decadent.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455668691.1143.18.camel@decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Lamparter <equinox@diac24.net>
-Date: Wed, 17 Feb 2016 00:41:15 +0100
+=46rom: Ben Hutchings <ben@decadent.org.uk>
+Date: Wed, 17 Feb 2016 00:24:51 +0000
 
-> ... this won't do enough.  If you look at the 4.3 patch I sent you, I
-> was adding a comment:
-> 
-> + /* For VRFs, the VRF device takes the place of the loopback device,
-> +    with addresses on it being preferred.  Note in such cases the
-> +    loopback device will be among the devices that fail the vrf_ifi
-> +    equality check in the loop below.
-> +  */
+> I agree that 'if (err) goto cleanup;' is widely used and is generally
+> understandable (though more creative uses of goto are often not).
+>=20
+> My objection was to 'err =3D -EFOO; if (cond) goto cleanup;'. =A0That=
+ is
+> definitely not clear and it hides mistakes like this.
 
-I know that some parts of of net/ipv4/devinet.c uses this comment
-style, it is not correct for new networking code.  Therefore,
-please update your patch to use the proper style:
+I don't see any difference whatsoever.
 
-	/* Like
-	 * this.
-	 */
+Part of the convention of the cleanup blob at the end of the
+function is that error propagate to it's return statement via
+a variable.
 
-Thanks.
+If this code wanted to handle that in more than one way, it is
+the problem of this function, not of the convention itself.
