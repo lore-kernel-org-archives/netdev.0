@@ -1,48 +1,38 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net 1/6] net/mlx4_en: Do not count dropped packets twice
-Date: Wed, 17 Feb 2016 12:19:48 +0200
-Message-ID: <56C44944.20803@mellanox.com>
-References: <1455634911-31206-1-git-send-email-ogerlitz@mellanox.com>
- <1455634911-31206-2-git-send-email-ogerlitz@mellanox.com>
- <56C36B1D.3050007@hpe.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Ask some help for the netstat Send-Q
+Date: Wed, 17 Feb 2016 18:34:07 +0800
+Message-ID: <56C44C9F.8090504@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Eran Ben Elisha <eranbe@mellanox.com>,
-	"Yishai Hadas" <yishaih@mellanox.com>, Amir Vadai <amir@vadai.me>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Rick Jones <rick.jones2@hpe.com>,
-	"David S. Miller" <davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>, <kuznet@ms2.inr.ac.r>,
+	"James Morris" <jmorris@namei.org>, <yoshfuji@linux-ipv6.org>,
+	<kaber@trash.net>, Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0097.outbound.protection.outlook.com ([157.56.112.97]:36620
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965210AbcBQKUB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 05:20:01 -0500
-In-Reply-To: <56C36B1D.3050007@hpe.com>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:12373 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161041AbcBQKee (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 05:34:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/16/2016 8:31 PM, Rick Jones wrote:
->
-> I'm still not clear on when an Acked-by is appropriate, but given that 
-> this has been a non-trivial frustration for a long time, a hearty 
-> endorsement from me.  Perhaps not important enough but it would be 
-> nice to have it flow back a release or two.
+Hi David S. Miller and maintainers:
 
-sure, will ask stable inclusion as well
+I use the 4.1.16 kernel to build my system and use the iperf to test the netstat, it looks very strange that the client shows:
 
->
-> That said, should mlx4_en_stats->RdropOvflw still be going into both 
-> rx_fifo_errors and rx_over_errors?
->
->         stats->rx_over_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
->         stats->rx_crc_errors = be32_to_cpu(mlx4_en_stats->RCRC);
->         stats->rx_frame_errors = 0;
->         stats->rx_fifo_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
+netstat -at | grep 10.175.112.105                                                                             
+tcp        0      0 10.175.112.191:ssh      10.175.112.105:58400    ESTABLISHED                                                     
+tcp        0      0 10.175.112.191:33230    10.175.112.105:5001     TIME_WAIT                                                       
+tcp        0 4202096 10.175.112.191:33231    10.175.112.105:5001     ESTABLISHED                                                    
+tcp        0      0 10.175.112.191:ssh      10.175.112.105:58335    ESTABLISHED  
 
-yep, point taken, we will leave it only for the over ones, thanks for 
-pointing this out
+and the speed is:
+ [  3]  0.0-300.0 sec  32.5 GBytes   929 Mbits/sec
 
+It looks like that the speed is fine, But I don't know why the Send-Q has so many buffers, 
+the tcp_wmem is big enough and I couldn't found any difference, did I miss something or 
+is there something wrong for the TCP config?
+Thanks for any suggestion.
 
-Or.
+Ding
