@@ -1,57 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/16] i40e: trivial: remove unnecessary local var
-Date: Tue, 16 Feb 2016 21:34:21 -0800
-Message-ID: <1455687262-20453-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 16/16] i40e/i40evf: Bump i40e to 1.4.11 and i40evf to 1.4.7
+Date: Tue, 16 Feb 2016 21:34:22 -0800
+Message-ID: <1455687262-20453-17-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455687262-20453-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:54509 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:14537 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756432AbcBQFe3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756433AbcBQFe3 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 17 Feb 2016 00:34:29 -0500
 In-Reply-To: <1455687262-20453-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Probe routine already has too many locals, just convert one
-used for kzalloc into a kcalloc, eliminating the local.
+Bump.
 
-Change-ID: I349049872b71f858cbeb91ad7836e6767fc7b7d1
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Reviewed-by: Anjali Singhai <anjali.singhai@intel.com>
+Change-ID: I21aa520a3c8c5f4f562a98019bf8b76b3706c480
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 7323e32..a2643fe 100644
+index a2643fe..9978c39 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -10637,7 +10637,6 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	u16 wol_nvm_bits;
- 	u16 link_status;
- 	int err;
--	u32 len;
- 	u32 val;
- 	u32 i;
- 	u8 set_fc_aq_fail;
-@@ -10896,8 +10895,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		pf->num_alloc_vsi = pf->hw.func_caps.num_vsis;
+@@ -51,7 +51,7 @@ static const char i40e_driver_string[] =
  
- 	/* Set up the *vsi struct and our local tracking of the MAIN PF vsi. */
--	len = sizeof(struct i40e_vsi *) * pf->num_alloc_vsi;
--	pf->vsi = kzalloc(len, GFP_KERNEL);
-+	pf->vsi = kcalloc(pf->num_alloc_vsi, sizeof(struct i40e_vsi *),
-+			  GFP_KERNEL);
- 	if (!pf->vsi) {
- 		err = -ENOMEM;
- 		goto err_switch_setup;
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 4
+-#define DRV_VERSION_BUILD 10
++#define DRV_VERSION_BUILD 11
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 933f1fc..ae6c6e1 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -38,7 +38,7 @@ static const char i40evf_driver_string[] =
+ 
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 4
+-#define DRV_VERSION_BUILD 4
++#define DRV_VERSION_BUILD 7
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD) \
 -- 
 2.5.0
