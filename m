@@ -1,34 +1,37 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 0/2] Add support for PHY packet generators
-Date: Wed, 17 Feb 2016 21:32:05 +0100
-Message-ID: <1455741127-25453-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] l2tp: Fix error creating L2TP tunnels
+Date: Wed, 17 Feb 2016 15:36:35 -0500 (EST)
+Message-ID: <20160217.153635.188688180228329961.davem@davemloft.net>
+References: <1455506684-27033-1-git-send-email-mark.tomlinson@alliedtelesis.co.nz>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bhong@brocade.com
+To: mark.tomlinson@alliedtelesis.co.nz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:50607 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965453AbcBQUca (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 15:32:30 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:57134 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964970AbcBQUgh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 15:36:37 -0500
+In-Reply-To: <1455506684-27033-1-git-send-email-mark.tomlinson@alliedtelesis.co.nz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some Ethernet PHYs contain a simple packet generator. This can be
-useful for bringing up new devices, trying to determine if a problem
-lies in the MAC-PHY connection or PHY-Socket. Also, the PHY generators
-can generate invalid packets, which is hard to do in software.
+From: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
+Date: Mon, 15 Feb 2016 16:24:44 +1300
 
-Add support ethtool(1) and wire up the Marvell PHY packet generator.
+> A previous commit (33f72e6) added notification via netlink for tunnels
+> when created/modified/deleted. If the notification returned an error,
+> this error was returned from the tunnel function. If there were no
+> listeners, the error code ESRCH was returned, even though having no
+> listeners is not an error. Other calls to this and other similar
+> notification functions either ignore the error code, or filter ESRCH.
+> This patch checks for ESRCH and does not flag this as an error.
+> 
+> Reviewed-by: Hamish Martin <hamish.martin@alliedtelesis.co.nz>
+> Signed-off-by: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
 
-Andrew Lunn (2):
-  net: ethtool: Add support for PHY packet generators
-  phy: marvell: Add support for phy packet generator
+Applied and queued up for -stable, thanks.
 
- drivers/net/phy/marvell.c    | 92 ++++++++++++++++++++++++++++++++++++++++++++
- include/linux/phy.h          |  4 ++
- include/uapi/linux/ethtool.h | 26 +++++++++++++
- net/core/ethtool.c           | 22 +++++++++++
- 4 files changed, 144 insertions(+)
-
--- 
-2.7.0
+But it seems like we might want to filter out that error in a common
+location instead of in all of these various spots.
