@@ -1,63 +1,35 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 2/2] ethtool: Add --phy_pkt_gen command
-Date: Wed, 17 Feb 2016 21:08:43 +0000
-Message-ID: <1455743323.21571.8.camel@decadent.org.uk>
-References: <1455741436-25728-1-git-send-email-andrew@lunn.ch>
-	 <1455741436-25728-3-git-send-email-andrew@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2] af_llc: fix types on llc_ui_wait_for_conn
+Date: Wed, 17 Feb 2016 16:12:46 -0500 (EST)
+Message-ID: <20160217.161246.355892499509813898.davem@davemloft.net>
+References: <20160215194129.18888.95792.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-T19Xd8Cov9L2jgKfnGoD"
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: gnomes@lxorguk.ukuu.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50619 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965348AbcBQVIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 16:08:51 -0500
-In-Reply-To: <1455741436-25728-3-git-send-email-andrew@lunn.ch>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57908 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965348AbcBQVMt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 16:12:49 -0500
+In-Reply-To: <20160215194129.18888.95792.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Alan <gnomes@lxorguk.ukuu.org.uk>
+Date: Mon, 15 Feb 2016 19:41:51 +0000
 
---=-T19Xd8Cov9L2jgKfnGoD
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> The timeout is a long, we return it truncated if it is huge. Basically
+> harmless as the only caller does a boolean check, but tidy it up anyway.
+> 
+> (64bit build tested this time. Thank you 0day)
+> 
+> Signed-off-by: Alan Cox <alan@linux.intel.com>
 
-This needs some test cases for the command-line parsing. =C2=A0Also:
+Applied, thanks Alan.
 
-[...]
-> --- a/ethtool.8.in
-> +++ b/ethtool.8.in
-[...]
-> +.TP
-> +.B \-\-phy\-pkt\-get\-eee
-[...]
+Please take into consideration Simon's idea to change the return type to
+bool as a follow-up.
 
-...is not the name of the new option.
-
-Ben.
-
---=-T19Xd8Cov9L2jgKfnGoD
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVsThXOe/yOyVhhEJAQpGww//ei32BYuBiNmXLneVXt8vtajKXgOYrIWJ
-sYRFxHs95trkR1ZvKl9aHTzEvjXaC4TmDQCr89zEGLsEAijr5+t22TV9kjTVtkS/
-6h268LuZolddhCJ87k1vrFpb7NKJ5hsWQ72ozocquiF4qRVD88Wemmtcor5y/UG1
-+zM/Dn7Y8KsJS8LvVcTyivPQ97CqxMIj91n02EUxqAU5Hw6BO8ywwujZB4Sz53H6
-AgH/pnRxRjj2ugUHhku3prv3J5Mf/q0JlBquBvM4qLDNagYkcFsUg+VOikNoE2Qx
-e8JRucLmxuEGtGkFQEIUDnafI35+20P9wyc1pgZlUIqprqBSCPKJLeN9pJonddOX
-bftJixh2tLfqmzYMlDdH9CHr+Cx8qyi+CkPns6r/01J7+Daf/Y+KS3axZrcPQqpl
-K2fgnmSNdrV6OYAz0VLXATL2+en4hdTYT8y4UwybVcGmnqocb3dO8e6KQB1LM5iY
-nROCbEoY5u+YqAS7HhgnGfCdQUqWn1+GcRRyRiKGfVnpIYa4MBeDHzvrmBoedX6W
-q/QMmCbdvjsS9uTa0n8gOb1Xy6fIULYQcx33JVczwkgWJTxu1MHyAnzIdUrOFdn9
-7HmzPevKxDCDemC4Jl2i5AJfshYT6h37DWJdFXcoNpQFWz04NIg/0h0yciut9HKM
-xhybp/q0XWs=
-=itZ/
------END PGP SIGNATURE-----
-
---=-T19Xd8Cov9L2jgKfnGoD--
+Thanks.
