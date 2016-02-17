@@ -1,79 +1,44 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on i211
- using a device tree blob V3
-Date: Wed, 17 Feb 2016 13:24:01 -0800
-Message-ID: <1455744241.2958.14.camel@intel.com>
-References: <56C4167B.7080705@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] store complete hash type information in socket
+ buffer...
+Date: Wed, 17 Feb 2016 22:30:01 +0100
+Message-ID: <1455744601.648.2.camel@edumazet-ThinkPad-T530>
+References: <1455525128-27795-1-git-send-email-paul.durrant@citrix.com>
+	 <20160217.154432.788293606088459412.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Z7SSC/BhEsr9vKxm3RC8"
-To: John Holland <jotihojr@gmail.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: paul.durrant@citrix.com, netdev@vger.kernel.org,
+	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	tom@herbertland.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34648 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423553AbcBQVYD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 16:24:03 -0500
-In-Reply-To: <56C4167B.7080705@gmail.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:34908 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423542AbcBQVaM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 16:30:12 -0500
+Received: by mail-wm0-f51.google.com with SMTP id c200so234990615wme.0
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 13:30:11 -0800 (PST)
+In-Reply-To: <20160217.154432.788293606088459412.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On mer., 2016-02-17 at 15:44 -0500, David Miller wrote:
+> From: Paul Durrant <paul.durrant@citrix.com>
+> Date: Mon, 15 Feb 2016 08:32:08 +0000
+> 
+> > ...rather than a boolean merely indicating a canonical L4 hash.
+> > 
+> > skb_set_hash() takes a hash type (from enum pkt_hash_types) as an
+> > argument but information is lost since only a single bit in the skb
+> > stores whether that hash type is PKT_HASH_TYPE_L4 or not. By using
+> > two bits it's possible to store the complete hash type information.
+> > 
+> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> 
+> Tom and/or Eric, please have a look at this.
 
---=-Z7SSC/BhEsr9vKxm3RC8
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I guess my question is simply 'why do we need this' ?
 
-On Wed, 2016-02-17 at 07:43 +0100, John Holland wrote:
-> Hello,
->=20
-> The Intel i211 LOM pcie ethernet controllers' iNVM operates as an OTP
-> and has no externel EEPROM interface [1]. The following allows the
-> driver to pickup the MAC address from a device tree blob when
-> CONFIG_OF
-> has been enabled.
->=20
-> [1]http://www.intel.com/content/www/us/en/embedded/products/networkin
-> g/i211-ethernet-controller-datasheet.html
->=20
-> Changes V2
-> - Restrict searching for compatible devices to current pci device.
->=20
-> Changes V3
-> - Add device tree binding documentation.
->=20
-> Signed-off-by: John Holland<jotihojr@gmail.com>
-> ---
->=20
-> =C2=A0 Documentation/devicetree/bindings/net/intel,i210.txt | 36
-> ++++++++++++++++++++++++++++++++++++
-> =C2=A0 drivers/net/ethernet/intel/igb/igb_main.c=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 | 30
-> ++++++++++++++++++++++++++++++
-> =C2=A0 2 files changed, 66 insertions(+)
-
-Does not apply cleanly to my tree, please make sure you rebase your
-patches based off my dev-queue branch on my next-queue tree.
---=-Z7SSC/BhEsr9vKxm3RC8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABCgAGBQJWxOTxAAoJEOVv75VaS+3O6gEQAIo8+8qwrnuwWFinfu+iSpqe
-DgGTVUYW3sE5Zq2DV6yJDX1WjfbmWsWnPzM1mpRaRrnJF8EcA+zECoUQQpjt1RPP
-xOE3GqCoUnoxdF0ffcwQiNCGwSmiCXJdbiqr3Tf8bzAVwZZfsUzB1WmuCkD2Yhow
-DGHk5XM7Jc4Nk2+xzOx/1dxZKqlR/TV/dM8yCcGLZHGH2hUyA7+WVWFHVlZLPcCB
-dDjkWd4L8Pu7VUQCqtJxki/RHFLM6c48lNVUVHXqjm5uwVibp7fv+X3XzigWSBkO
-YvK99GTrqUOjXeCDCTJEpVZ1rcd+4gG/dRmcT6z1uzte84PL40VPKcM7Aq0l5P3H
-pwHA6wSs2wZXkZOOpxi4vCIBDEgBF2xLiaweTPJ3Ba0BWu7W9/SVxEq73MnrDPKt
-0BZig4IRO83MWBBXZyzfolIXyqy+f2urQD9RCRhYRZUxn3buLETVtcJV7F11b2Uy
-wBwztM70bM4sMR7K0v46zDkSfCGa2mr9y/TeeSW+V564jGm0RMNhAq7wyfGUE5k5
-1AzlLpaxNbRztcBcSadk1k6u84JxscxH2JUY70j+/6e6YRpgJ6aC1MmpEiJRnRIl
-nJSxR+fn4xlVS7gK7+BvTzdwtnisFFOiRsnP8cHW07khm+JUifVf24apmsdG7db9
-pGcUbyc9Th9u/4P9QcUf
-=QIx8
------END PGP SIGNATURE-----
-
---=-Z7SSC/BhEsr9vKxm3RC8--
+Consuming a bit in our precious sk_buff is not something we want for
+some obscure feature.
