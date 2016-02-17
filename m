@@ -1,48 +1,52 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH v3 6/8] net: ixgbe: add minimal parser details
- for ixgbe
-Date: Wed, 17 Feb 2016 06:06:02 -0500
-Message-ID: <56C4541A.5070508@mojatatu.com>
-References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
- <20160217051828.17139.51653.stgit@john-Precision-Tower-5810>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next] bnx2x: Add missing HSI for big-endian machines
+Date: Wed, 17 Feb 2016 13:15:14 +0200
+Message-ID: <1455707714-5262-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: John Fastabend <john.fastabend@gmail.com>, jiri@resnulli.us,
-	amir@vadai.me, davem@davemloft.net
+Content-Type: text/plain
+Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:35521 "EHLO
-	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161137AbcBQLGF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 06:06:05 -0500
-Received: by mail-io0-f176.google.com with SMTP id g203so32906884iof.2
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 03:06:04 -0800 (PST)
-In-Reply-To: <20160217051828.17139.51653.stgit@john-Precision-Tower-5810>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:25636 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1161108AbcBQLP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 06:15:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-17 12:18 AM, John Fastabend wrote:
-> This adds an ixgbe data structure that is used to determine what
-> headers:fields can be matched and in what order they are supported.
->
-> For hardware devices this can be a bit tricky because typically
-> only pre-programmed (firmware, ucode, rtl) parse graphs will be
-> supported and we don't yet have an interface to change these from
-> the OS. So its sort of a you get whatever your friendly vendor
-> provides affair at the moment.
->
-> In the future we can add the get routines and set routines to
-> update this data structure. One interesting thing to note here
-> is the data structure here identifies ethernet, ip, and tcp
-> fields without having to hardcode them as enumerations or use
-> other identifiers.
->
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Commit e5d3a51cefbb "bnx2x: extend DCBx support" was missing HSI changes
+for big-endian machine, breaking compilation on such platforms.
 
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+---
+Hi Dave,
 
-should __u32 be u32? Also at some points you seem to interchangeably
-use unsigned int vs u32. I think most of unsigned ints should be u32.
+Sorry about this. Please consider applying this to `net-next'.
 
+Thanks,
+Yuval
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+index dd9d6e6..04523d4 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+@@ -1824,10 +1824,12 @@ struct dcbx_app_priority_entry {
+ 	u8  pri_bitmap;
+ 	u8  appBitfield;
+ 	#define DCBX_APP_ENTRY_VALID         0x01
+-	#define DCBX_APP_ENTRY_SF_MASK       0x30
++	#define DCBX_APP_ENTRY_SF_MASK       0xF0
+ 	#define DCBX_APP_ENTRY_SF_SHIFT      4
+ 	#define DCBX_APP_SF_ETH_TYPE         0x10
+ 	#define DCBX_APP_SF_PORT             0x20
++	#define DCBX_APP_SF_UDP              0x40
++	#define DCBX_APP_SF_DEFAULT          0x80
+ #elif defined(__LITTLE_ENDIAN)
+ 	u8 appBitfield;
+ 	#define DCBX_APP_ENTRY_VALID         0x01
+-- 
+1.9.3
