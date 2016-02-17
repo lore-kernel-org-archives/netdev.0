@@ -1,32 +1,161 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH v3 4/8] net: add tc offload feature flag
-Date: Wed, 17 Feb 2016 06:01:10 -0500
-Message-ID: <56C452F6.1070306@mojatatu.com>
-References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
- <20160217051737.17139.5230.stgit@john-Precision-Tower-5810>
+From: Gabriel Fernandez <gabriel.fernandez@st.com>
+Subject: Re: [v6,1/4] stmmac: create of compatible mdio bus for stmmac driver
+Date: Wed, 17 Feb 2016 12:00:47 +0100
+Message-ID: <56C452DF.5040609@st.com>
+References: <1450063922-19481-2-git-send-email-preid@electromag.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: John Fastabend <john.fastabend@gmail.com>, jiri@resnulli.us,
-	amir@vadai.me, davem@davemloft.net
+Cc: <robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<davem@davemloft.net>, <vbridger@opensource.altera.com>,
+	<devicetree@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Phil Reid <preid@electromag.com.au>, <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:38050 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422641AbcBQLBN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 06:01:13 -0500
-Received: by mail-ig0-f171.google.com with SMTP id y8so12297605igp.1
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 03:01:12 -0800 (PST)
-In-Reply-To: <20160217051737.17139.5230.stgit@john-Precision-Tower-5810>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:23380 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1422647AbcBQLB2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 06:01:28 -0500
+In-Reply-To: <1450063922-19481-2-git-send-email-preid@electromag.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-17 12:17 AM, John Fastabend wrote:
-> Its useful to turn off the qdisc offload feature at a per device
-> level. This gives us a big hammer to enable/disable offloading.
-> More fine grained control (i.e. per rule) may be supported later.
->
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
+Hi all,
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+I work on STih410B2120 board and i have a regression since this patch 
+(eth0: No PHY found)
+
+My configuration is an Ethernet MAC with a "fixed link", and not 
+connected to a normal MDIO-managed PHY device.
+
+Please find my remark below.
+
+On 12/14/2015 04:31 AM, Phil Reid wrote:
+> The DSA driver needs to be passed a reference to an mdio bus. Typically
+> the mac is configured to use a fixed link but the mdio bus still needs
+> to be registered so that it con configure the switch.
+> This patch follows the same process as the altera tse ethernet driver for
+> creation of the mdio bus.
+>
+> Acked-by: Rob Herring <robh@kernel.org>
+> Signed-off-by: Phil Reid <preid@electromag.com.au>
+> ---
+>   Documentation/devicetree/bindings/net/stmmac.txt   |  8 +++++++
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  | 26 +++++++++++++++++++---
+>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  2 +-
+>   3 files changed, 32 insertions(+), 4 deletions(-)
+>
+> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> index f34fc3c..fd5ddf8 100644
+> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> @@ -47,6 +47,7 @@ Optional properties:
+>   - snps,burst_len: The AXI burst lenth value of the AXI BUS MODE register.
+>   - tx-fifo-depth: See ethernet.txt file in the same directory
+>   - rx-fifo-depth: See ethernet.txt file in the same directory
+> +- mdio: with compatible = "snps,dwmac-mdio", create and register mdio bus.
+>   
+>   Examples:
+>   
+> @@ -65,4 +66,11 @@ Examples:
+>   		tx-fifo-depth = <16384>;
+>   		clocks = <&clock>;
+>   		clock-names = "stmmaceth";
+> +		mdio0 {
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +			compatible = "snps,dwmac-mdio";
+> +			phy1: ethernet-phy@0 {
+> +			};
+> +		};
+>   	};
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> index bba670c..16c85cc 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> @@ -29,7 +29,7 @@
+>   #include <linux/slab.h>
+>   #include <linux/of.h>
+>   #include <linux/of_gpio.h>
+> -
+> +#include <linux/of_mdio.h>
+>   #include <asm/io.h>
+>   
+>   #include "stmmac.h"
+> @@ -200,10 +200,29 @@ int stmmac_mdio_register(struct net_device *ndev)
+>   	struct stmmac_priv *priv = netdev_priv(ndev);
+>   	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
+>   	int addr, found;
+> +	struct device_node *mdio_node = NULL;
+> +	struct device_node *child_node = NULL;
+>   
+>   	if (!mdio_bus_data)
+>   		return 0;
+>   
+> +	if (IS_ENABLED(CONFIG_OF)) {
+> +		for_each_child_of_node(priv->device->of_node, child_node) {
+> +			if (of_device_is_compatible(child_node,
+> +						    "snps,dwmac-mdio")) {
+> +				mdio_node = child_node;
+> +				break;
+> +			}
+> +		}
+> +
+> +		if (mdio_node) {
+> +			netdev_dbg(ndev, "FOUND MDIO subnode\n");
+> +		} else {
+> +			netdev_err(ndev, "NO MDIO subnode\n");
+> +			return 0;
+> +		}
+> +	}
+> +
+>   	new_bus = mdiobus_alloc();
+>   	if (new_bus == NULL)
+>   		return -ENOMEM;
+> @@ -231,7 +250,8 @@ int stmmac_mdio_register(struct net_device *ndev)
+>   	new_bus->irq = irqlist;
+>   	new_bus->phy_mask = mdio_bus_data->phy_mask;
+>   	new_bus->parent = priv->device;
+> -	err = mdiobus_register(new_bus);
+> +
+> +	err = of_mdiobus_register(new_bus, mdio_node);
+>   	if (err != 0) {
+>   		pr_err("%s: Cannot register as MDIO bus\n", new_bus->name);
+>   		goto bus_register_fail;
+> @@ -284,7 +304,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+>   		}
+>   	}
+>   
+> -	if (!found) {
+> +	if (!found && !mdio_node) {
+>   		pr_warn("%s: No PHY found\n", ndev->name);
+>   		mdiobus_unregister(new_bus);
+>   		mdiobus_free(new_bus);
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index d02691b..6a52fa1 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -146,7 +146,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+>   	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) == 0)
+>   		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
+>   
+> -	if (plat->phy_node || plat->phy_bus_name)
+> +	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || plat->phy_bus_name)
+>   		plat->mdio_bus_data = NULL;
+>   	else
+>   		plat->mdio_bus_data =
+
+It's impossible for me now to enter in the case "plat->mdio_bus_data = 
+NULL;"
+
+Due to the test of "&& !of_phy_is_fixed_link(np)", because i have a 
+fixed_link.
+
+And "plat->phy_bus_name" is always NULL (never affected...)
+
+Maybe we should test mdio node here ? what is your opinion ?
+
+
+Best Regards
+
+Gabriel
