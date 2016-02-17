@@ -1,47 +1,81 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/16] i40evf: enable bus master after reset
-Date: Tue, 16 Feb 2016 21:34:18 -0800
-Message-ID: <1455687262-20453-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/16] i40e: refactor DCB function
+Date: Tue, 16 Feb 2016 21:34:16 -0800
+Message-ID: <1455687262-20453-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455687262-20453-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:43674 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:54509 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756426AbcBQFe2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756422AbcBQFe2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 17 Feb 2016 00:34:28 -0500
 In-Reply-To: <1455687262-20453-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-If the VF is reset via VFLR, the device will be knocked out of bus
-master mode, and the driver will fail to recover from the reset. Fix
-this by enabling bus mastering after every reset. In a non-VFLR case,
-the bus master bit will not be disabled, and this call will have no effect.
+This is a simple refactor suggested by the community
+to change a multi-level if statement into a switch.
 
-Change-ID: Id515859ac7a691db478222228add6d149e96801a
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: I831cf3c40426022220aa9b43990022d22dfd50db
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/intel/i40e/i40e_dcb.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 66964eb..933f1fc 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1837,6 +1837,7 @@ static void i40evf_reset_task(struct work_struct *work)
- 			break;
- 		msleep(I40EVF_RESET_WAIT_MS);
- 	}
-+	pci_set_master(adapter->pdev);
- 	/* extra wait to make sure minimum wait is met */
- 	msleep(I40EVF_RESET_WAIT_MS);
- 	if (i == I40EVF_RESET_WAIT_COUNT) {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_dcb.c b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
+index 582daa7..0fab3a9 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_dcb.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
+@@ -380,17 +380,20 @@ static void i40e_parse_cee_app_tlv(struct i40e_cee_feat_tlv *tlv,
+ {
+ 	u16 length, typelength, offset = 0;
+ 	struct i40e_cee_app_prio *app;
+-	u8 i, up, selector;
++	u8 i;
+ 
+ 	typelength = ntohs(tlv->hdr.typelen);
+ 	length = (u16)((typelength & I40E_LLDP_TLV_LEN_MASK) >>
+ 		       I40E_LLDP_TLV_LEN_SHIFT);
+ 
+ 	dcbcfg->numapps = length / sizeof(*app);
++
+ 	if (!dcbcfg->numapps)
+ 		return;
+ 
+ 	for (i = 0; i < dcbcfg->numapps; i++) {
++		u8 up, selector;
++
+ 		app = (struct i40e_cee_app_prio *)(tlv->tlvinfo + offset);
+ 		for (up = 0; up < I40E_MAX_USER_PRIORITY; up++) {
+ 			if (app->prio_map & BIT(up))
+@@ -400,13 +403,17 @@ static void i40e_parse_cee_app_tlv(struct i40e_cee_feat_tlv *tlv,
+ 
+ 		/* Get Selector from lower 2 bits, and convert to IEEE */
+ 		selector = (app->upper_oui_sel & I40E_CEE_APP_SELECTOR_MASK);
+-		if (selector == I40E_CEE_APP_SEL_ETHTYPE)
++		switch (selector) {
++		case I40E_CEE_APP_SEL_ETHTYPE:
+ 			dcbcfg->app[i].selector = I40E_APP_SEL_ETHTYPE;
+-		else if (selector == I40E_CEE_APP_SEL_TCPIP)
++			break;
++		case I40E_CEE_APP_SEL_TCPIP:
+ 			dcbcfg->app[i].selector = I40E_APP_SEL_TCPIP;
+-		else
++			break;
++		default:
+ 			/* Keep selector as it is for unknown types */
+ 			dcbcfg->app[i].selector = selector;
++		}
+ 
+ 		dcbcfg->app[i].protocolid = ntohs(app->protocol);
+ 		/* Move to next app */
 -- 
 2.5.0
