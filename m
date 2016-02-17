@@ -1,37 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: add tcpi_min_rtt and tcpi_notsent_bytes
- to tcp_info
-Date: Tue, 16 Feb 2016 20:28:07 -0500 (EST)
-Message-ID: <20160216.202807.2176931987212796992.davem@davemloft.net>
-References: <1455256973.18740.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2] net: phy: spi_ks8995: add dependency on GPIO
+Date: Tue, 16 Feb 2016 20:36:06 -0500 (EST)
+Message-ID: <20160216.203606.1431228679408727525.davem@davemloft.net>
+References: <1455372195-10825-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42584 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933587AbcBQB2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 20:28:09 -0500
-In-Reply-To: <1455256973.18740.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org, helmut.buchsbaum-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1455372195-10825-1-git-send-email-sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 11 Feb 2016 22:02:53 -0800
+From: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Sat, 13 Feb 2016 19:33:15 +0530
 
-> From: Eric Dumazet <edumazet@google.com>
+> The builds of allmodconfig of s390, m68k, tilegx, tilepro is failing
+> with the error:
+>  drivers/net/phy/spi_ks8995.c:477:3: error: implicit declaration of function 'gpiod_set_value'
+>  drivers/net/phy/spi_ks8995.c:477:19: error: implicit declaration of function 'gpio_to_desc'
 > 
-> tcpi_min_rtt reports the minimal rtt observed by TCP stack for the flow,
-> in usec unit. Might be ~0U if not yet known.
+> GPIO is now used to reset the switch so we should have a dependency on
+> GPIOLIB. While adding the dependency also add COMPILE_TEST so that we
+> can build test it.
 > 
-> tcpi_notsent_bytes reports the amount of bytes in the write queue that
-> were not yet sent.
+> Fixes: cd6f288cbaab ("net: phy: spi_ks8995: add support for resetting switch using GPIO")
+> Cc: Helmut Buchsbaum <helmut.buchsbaum-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Sudip Mukherjee <sudip-ofJRbWXBVFamYgehrs7/Lw@public.gmane.org>
+> ---
 > 
-> This is done in a single patch to not add a temporary 32bit padding hole
-> in tcp_info.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> v2: added COMPILE_TEST and gpio/consumer.h
 
-Applied, thanks.
+I'm going to apply Arnd's patch because it properly removes the
+unnecessary linux/gpio.h include.
+
+Thanks.
