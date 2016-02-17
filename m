@@ -1,55 +1,57 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] vlan: change return type of vlan_proc_rem_dev
-Date: Wed, 17 Feb 2016 11:44:18 +0000
-Message-ID: <1455709458-1439-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: kaber@trash.net, netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH v3 7/8] net: ixgbe: add support for tc_u32
+ offload
+Date: Wed, 17 Feb 2016 06:47:15 -0500
+Message-ID: <56C45DC3.1050607@mojatatu.com>
+References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
+ <20160217051853.17139.76889.stgit@john-Precision-Tower-5810>
+ <56C456C6.60308@mojatatu.com> <20160217114204.GI2213@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>, amir@vadai.me,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:3371 "EHLO
-	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161300AbcBQLn2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 06:43:28 -0500
+Received: from mail-io0-f178.google.com ([209.85.223.178]:33195 "EHLO
+	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161224AbcBQLrS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 06:47:18 -0500
+Received: by mail-io0-f178.google.com with SMTP id z135so34126912iof.0
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 03:47:17 -0800 (PST)
+In-Reply-To: <20160217114204.GI2213@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since function vlan_proc_rem_dev() will only return 0, it's better to
-return void instead of int.
+On 16-02-17 06:42 AM, Jiri Pirko wrote:
+> Wed, Feb 17, 2016 at 12:17:26PM CET, jhs@mojatatu.com wrote:
+>> On 16-02-17 12:18 AM, John Fastabend wrote:
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- net/8021q/vlanproc.c | 3 +--
- net/8021q/vlanproc.h | 2 +-
- 2 files changed, 2 insertions(+), 3 deletions(-)
+>>
+>> Note: i dont see anything that says "hw". Are you delegating ht 0x800
+>> for h/w only? It is the default ht; so may not be the best choice.
+>
+> That is not implemented in this patchset. hw/sw/hwsw flag will be done
+> in a follow up. So far, the user has only possibility to enable/disable
+> the whole thing by ethtool feature flag.
 
-diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
-index ae63cf7..5f1446c 100644
---- a/net/8021q/vlanproc.c
-+++ b/net/8021q/vlanproc.c
-@@ -184,12 +184,11 @@ int vlan_proc_add_dev(struct net_device *vlandev)
- /*
-  *	Delete directory entry for VLAN device.
-  */
--int vlan_proc_rem_dev(struct net_device *vlandev)
-+void vlan_proc_rem_dev(struct net_device *vlandev)
- {
- 	/** NOTE:  This will consume the memory pointed to by dent, it seems. */
- 	proc_remove(vlan_dev_priv(vlandev)->dent);
- 	vlan_dev_priv(vlandev)->dent = NULL;
--	return 0;
- }
- 
- /****** Proc filesystem entry points ****************************************/
-diff --git a/net/8021q/vlanproc.h b/net/8021q/vlanproc.h
-index 063f60a..a9d8734 100644
---- a/net/8021q/vlanproc.h
-+++ b/net/8021q/vlanproc.h
-@@ -5,7 +5,7 @@
- struct net;
- 
- int vlan_proc_init(struct net *net);
--int vlan_proc_rem_dev(struct net_device *vlandev);
-+void vlan_proc_rem_dev(struct net_device *vlandev);
- int vlan_proc_add_dev(struct net_device *vlandev);
- void vlan_proc_cleanup(struct net *net);
- 
--- 
-1.8.3.1
+[..]
+>> All looks cool but I am just worried about the lack of intent that
+>> something needs to go to hw vs sw. Other worry:
+>> What happens when things fail to install in hw?
+>
+> Silently fail. I believe that this should be handled in the same
+> follow-up I referred to above.
+>
+
+I can live with the above. John, please consider my comments when
+sending next update.
+So only outstanding issue is you need to fix that NEW with REPLACE
+in patch 3.
+
+For this patch:
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+cheers,
+jamal
