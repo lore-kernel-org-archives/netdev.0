@@ -1,40 +1,36 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [net-next] net: l3mdev: address selection should only consider
- devices in L3 domain
-Date: Tue, 16 Feb 2016 16:49:03 -0700
-Message-ID: <56C3B56F.4020106@cumulusnetworks.com>
-References: <1455663591-27615-1-git-send-email-dsa@cumulusnetworks.com>
- <20160216234115.GI659150@eidolon>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [PATCH net] vxlan: clear IFF_TX_SKB_SHARING
+Date: Tue, 16 Feb 2016 16:04:33 -0800
+Message-ID: <CAEh+42hjEfke5jgxWWQENWRn1G-uycar+n-8Y9EQ90Bv6OTgZA@mail.gmail.com>
+References: <ad978a069caa3c84931b9f0eca7a268f9b459963.1455656611.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, david@opensourcerouting.org
-To: David Lamparter <equinox@diac24.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f169.google.com ([209.85.223.169]:34090 "EHLO
-	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933313AbcBPXtG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 18:49:06 -0500
-Received: by mail-io0-f169.google.com with SMTP id 9so7204124iom.1
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 15:49:06 -0800 (PST)
-In-Reply-To: <20160216234115.GI659150@eidolon>
+Received: from mail.kernel.org ([198.145.29.136]:51576 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933342AbcBQAEu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2016 19:04:50 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id 543FB202FF
+	for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 00:04:49 +0000 (UTC)
+Received: from mail-qg0-f46.google.com (mail-qg0-f46.google.com [209.85.192.46])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id A280320268
+	for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 00:04:48 +0000 (UTC)
+Received: by mail-qg0-f46.google.com with SMTP id y9so330593qgd.3
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 16:04:48 -0800 (PST)
+In-Reply-To: <ad978a069caa3c84931b9f0eca7a268f9b459963.1455656611.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/16/16 4:41 PM, David Lamparter wrote:
-> ... this won't do enough.  If you look at the 4.3 patch I sent you, I
-> was adding a comment:
+On Tue, Feb 16, 2016 at 1:16 PM, Jiri Benc <jbenc@redhat.com> wrote:
+> ether_setup sets IFF_TX_SKB_SHARING but this is not supported by vxlan as it
+> modifies the skb on xmit.
 >
-> + /* For VRFs, the VRF device takes the place of the loopback device,
-> +    with addresses on it being preferred.  Note in such cases the
-> +    loopback device will be among the devices that fail the vrf_ifi
-> +    equality check in the loop below.
-> +  */
->
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-Sure, I was focused on fixing the 'ignore devices not in the VRF' but 
-certainly for unnumbered use cases you want the VRF loopback address to 
-be preferred. Missed that earlier.
-
-Rather than spinning a patch on top of mine, fold this change into your 
-and make it 1 patch to achieve the goal.
+Presumably this is something that should be done on all tunnels that
+can carry Ethernet frames, right?
