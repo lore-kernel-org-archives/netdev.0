@@ -1,58 +1,56 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v3 6/8] net: ixgbe: add minimal parser details
- for ixgbe
-Date: Wed, 17 Feb 2016 07:14:11 -0800
-Message-ID: <56C48E43.7050207@gmail.com>
-References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>	<20160217051828.17139.51653.stgit@john-Precision-Tower-5810>	<56C4541A.5070508@mojatatu.com> <20160217.100906.816402468592090571.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, amir@vadai.me, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: David Miller <davem@davemloft.net>, jhs@mojatatu.com
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net V1 3/6] net/mlx4_core: Fix potential corruption in counters database
+Date: Wed, 17 Feb 2016 17:24:24 +0200
+Message-ID: <1455722667-23179-4-git-send-email-ogerlitz@mellanox.com>
+References: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34169 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752605AbcBQPOY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 10:14:24 -0500
-Received: by mail-pa0-f52.google.com with SMTP id fy10so12782351pac.1
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 07:14:23 -0800 (PST)
-In-Reply-To: <20160217.100906.816402468592090571.davem@davemloft.net>
+Received: from [193.47.165.129] ([193.47.165.129]:44302 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S964960AbcBQPYx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 10:24:53 -0500
+In-Reply-To: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-17 07:09 AM, David Miller wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> Date: Wed, 17 Feb 2016 06:06:02 -0500
-> 
->> On 16-02-17 12:18 AM, John Fastabend wrote:
->>> This adds an ixgbe data structure that is used to determine what
->>> headers:fields can be matched and in what order they are supported.
->>>
->>> For hardware devices this can be a bit tricky because typically
->>> only pre-programmed (firmware, ucode, rtl) parse graphs will be
->>> supported and we don't yet have an interface to change these from
->>> the OS. So its sort of a you get whatever your friendly vendor
->>> provides affair at the moment.
->>>
->>> In the future we can add the get routines and set routines to
->>> update this data structure. One interesting thing to note here
->>> is the data structure here identifies ethernet, ip, and tcp
->>> fields without having to hardcode them as enumerations or use
->>> other identifiers.
->>>
->>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->>
->>
->> should __u32 be u32? Also at some points you seem to interchangeably
->> use unsigned int vs u32. I think most of unsigned ints should be u32.
-> 
-> Anything only kernel visible should be 'u32', whereas if the object is
-> exported via a uapi header file it should be '__u32'.
-> 
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-yep, it looks like you may have applied the series so I'll push a
-fix for this and another to align the structs a bit better in cls_u32 as
-well per Jamals feedback.
+The error flow in procedure handle_existing_counter() is wrong.
 
-Thanks.
+The procedure should exit after encountering the error, not continue
+as if everything is OK.
+
+Fixes: 68230242cdbc ('net/mlx4_core: Add port attribute when tracking counters')
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+---
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index b46dbe2..25ce1b0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -915,11 +915,13 @@ static int handle_existing_counter(struct mlx4_dev *dev, u8 slave, int port,
+ 
+ 	spin_lock_irq(mlx4_tlock(dev));
+ 	r = find_res(dev, counter_index, RES_COUNTER);
+-	if (!r || r->owner != slave)
++	if (!r || r->owner != slave) {
+ 		ret = -EINVAL;
+-	counter = container_of(r, struct res_counter, com);
+-	if (!counter->port)
+-		counter->port = port;
++	} else {
++		counter = container_of(r, struct res_counter, com);
++		if (!counter->port)
++			counter->port = port;
++	}
+ 
+ 	spin_unlock_irq(mlx4_tlock(dev));
+ 	return ret;
+-- 
+2.3.7
