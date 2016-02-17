@@ -1,130 +1,162 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Wed, 17 Feb 2016 11:56:07 +1100
-Message-ID: <20160217115607.720d3d44@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Subject: [PATCH] Revert "net: sched: drop all special handling of tx_queue_len == 0"
+Date: Tue, 16 Feb 2016 19:56:23 -0500
+Message-ID: <1455670592-5649-1-git-send-email-mathieu.desnoyers@efficios.com>
+Cc: linux-kernel@vger.kernel.org,
+	Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
+	Phil Sutter <phil@nwl.cc>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	netdev@vger.kernel.org, stable@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+This reverts commit 348e3435cbefa815bd56a5205c1412b5afe7b92e.
+It breaks HTB classful qdiscs on the loopback interface.
 
-Today's linux-next merge of the net-next tree got a conflict in:
+It has been broken since kernel v4.2. The offending commit has
+been identified by bissection of the issue with the following
+test-case. It appears that the loopback interface does indeed
+still have tx_queue_len == 0.
 
-  drivers/net/phy/bcm7xxx.c
+Reverting the commit on a v4.4.1 kernel fixes the issue.
 
-between commit:
+When the problem occurs, no network traffic (at all), not
+even an ICMP ping, can go through the loopback interface.
 
-  c6dd213abe40 ("net: phy: bcm7xxx: Fix 40nm EPHY features")
-  815717d1473e ("net: phy: bcm7xxx: Remove wildcard entries"
+The following bash script reproduces the issue:
 
-from the net tree and commit:
+SESSIOND_CTRL_PORT=5342
+SESSIOND_DATA_PORT=5343
+DEFAULT_IF="lo"
 
-  3125c081a593 ("net: phy: bcm7xxx: Reduce boilerplate code for 40nm EPHY")
+function set_bw_limit
+{
+        limit=$1
+        ctrlportlimit=$(($limit/10))
+        [ $ctrlportlimit = 0 ] && ctrlportlimit=1
+        dataportlimit=$((9*${ctrlportlimit}))
 
-from the net-next tree.
+        tc qdisc add dev $DEFAULT_IF root handle 1: htb default 15
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+        tc class add dev $DEFAULT_IF parent 1: classid 1:1 htb rate ${limit}kbit ceil ${limit}kbit
+        tc class add dev $DEFAULT_IF parent 1:1 classid 1:10 htb rate ${ctrlportlimit}kbit ceil ${limit}kbit prio 1
+        tc class add dev $DEFAULT_IF parent 1:1 classid 1:11 htb rate ${dataportlimit}kbit ceil ${limit}kbit prio 2
 
+        tc filter add dev $DEFAULT_IF parent 1: protocol ip u32 match ip dport $SESSIOND_CTRL_PORT 0xffff flowid 1:10
+        tc filter add dev $DEFAULT_IF parent 1: protocol ip u32 match ip dport $SESSIOND_DATA_PORT 0xffff flowid 1:11
+
+        echo "Set bandwidth limits to ${limit}kbits, ${ctrlportlimit} for control and ${dataportlimit} for data"
+}
+
+function reset_bw_limit
+{
+        tc qdisc del dev $DEFAULT_IF root
+        echo "Reset bandwith limits"
+}
+
+trap reset_bw_limit SIGINT SIGTERM
+
+set_bw_limit 3200
+sleep 1
+ping localhost
+
+Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Reported-by: Jonathan Rajotte-Julien <joraj@efficios.com>
+CC: Phil Sutter <phil@nwl.cc>
+CC: Jamal Hadi Salim <jhs@mojatatu.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: netdev@vger.kernel.org
+CC: stable@vger.kernel.org # 4.2+
+---
+ net/sched/sch_fifo.c | 2 +-
+ net/sched/sch_gred.c | 8 +++++---
+ net/sched/sch_htb.c  | 6 ++++--
+ net/sched/sch_plug.c | 8 ++++++--
+ net/sched/sch_sfb.c  | 2 +-
+ 5 files changed, 17 insertions(+), 9 deletions(-)
+
+diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
+index 2177eac..2e2398c 100644
+--- a/net/sched/sch_fifo.c
++++ b/net/sched/sch_fifo.c
+@@ -54,7 +54,7 @@ static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
+ 	bool is_bfifo = sch->ops == &bfifo_qdisc_ops;
+ 
+ 	if (opt == NULL) {
+-		u32 limit = qdisc_dev(sch)->tx_queue_len;
++		u32 limit = qdisc_dev(sch)->tx_queue_len ? : 1;
+ 
+ 		if (is_bfifo)
+ 			limit *= psched_mtu(qdisc_dev(sch));
+diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
+index 8010510..abb9f2f 100644
+--- a/net/sched/sch_gred.c
++++ b/net/sched/sch_gred.c
+@@ -512,9 +512,11 @@ static int gred_init(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 	if (tb[TCA_GRED_LIMIT])
+ 		sch->limit = nla_get_u32(tb[TCA_GRED_LIMIT]);
+-	else
+-		sch->limit = qdisc_dev(sch)->tx_queue_len
+-		             * psched_mtu(qdisc_dev(sch));
++	else {
++		u32 qlen = qdisc_dev(sch)->tx_queue_len ? : 1;
++
++		sch->limit = qlen * psched_mtu(qdisc_dev(sch));
++	}
+ 
+ 	return gred_change_table_def(sch, tb[TCA_GRED_DPS]);
+ }
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 15ccd7f..366ba83 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1048,9 +1048,11 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 	if (tb[TCA_HTB_DIRECT_QLEN])
+ 		q->direct_qlen = nla_get_u32(tb[TCA_HTB_DIRECT_QLEN]);
+-	else
++	else {
+ 		q->direct_qlen = qdisc_dev(sch)->tx_queue_len;
+-
++		if (q->direct_qlen < 2)	/* some devices have zero tx_queue_len */
++			q->direct_qlen = 2;
++	}
+ 	if ((q->rate2quantum = gopt->rate2quantum) < 1)
+ 		q->rate2quantum = 1;
+ 	q->defcls = gopt->defcls;
+diff --git a/net/sched/sch_plug.c b/net/sched/sch_plug.c
+index 5abfe44..ade9445 100644
+--- a/net/sched/sch_plug.c
++++ b/net/sched/sch_plug.c
+@@ -130,8 +130,12 @@ static int plug_init(struct Qdisc *sch, struct nlattr *opt)
+ 	q->unplug_indefinite = false;
+ 
+ 	if (opt == NULL) {
+-		q->limit = qdisc_dev(sch)->tx_queue_len
+-		           * psched_mtu(qdisc_dev(sch));
++		/* We will set a default limit of 100 pkts (~150kB)
++		 * in case tx_queue_len is not available. The
++		 * default value is completely arbitrary.
++		 */
++		u32 pkt_limit = qdisc_dev(sch)->tx_queue_len ? : 100;
++		q->limit = pkt_limit * psched_mtu(qdisc_dev(sch));
+ 	} else {
+ 		struct tc_plug_qopt *ctl = nla_data(opt);
+ 
+diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
+index 5bbb633..d5c1c1d 100644
+--- a/net/sched/sch_sfb.c
++++ b/net/sched/sch_sfb.c
+@@ -502,7 +502,7 @@ static int sfb_change(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 	limit = ctl->limit;
+ 	if (limit == 0)
+-		limit = qdisc_dev(sch)->tx_queue_len;
++		limit = max_t(u32, qdisc_dev(sch)->tx_queue_len, 1);
+ 
+ 	child = fifo_create_dflt(sch, &pfifo_qdisc_ops, limit);
+ 	if (IS_ERR(child))
 -- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/net/phy/bcm7xxx.c
-index db507e3bcab9,9b311041ebfb..000000000000
---- a/drivers/net/phy/bcm7xxx.c
-+++ b/drivers/net/phy/bcm7xxx.c
-@@@ -247,9 -247,13 +247,9 @@@ static int bcm7xxx_config_init(struct p
-  	int ret;
-  
-  	/* Enable 64 clock MDIO */
-- 	phy_write(phydev, MII_BCM7XXX_AUX_MODE, MII_BCM7XX_64CLK_MDIO);
-+ 	phy_write(phydev, MII_BCM7XXX_AUX_MODE, MII_BCM7XXX_64CLK_MDIO);
-  	phy_read(phydev, MII_BCM7XXX_AUX_MODE);
-  
- -	/* Workaround only required for 100Mbits/sec capable PHYs */
- -	if (phydev->supported & PHY_GBIT_FEATURES)
- -		return 0;
- -
-  	/* set shadow mode 2 */
-  	ret = phy_set_clr_bits(phydev, MII_BCM7XXX_TEST,
-  			MII_BCM7XXX_SHD_MODE_2, MII_BCM7XXX_SHD_MODE_2);
-@@@ -324,43 -348,34 +339,10 @@@ static struct phy_driver bcm7xxx_driver
-  	BCM7XXX_28NM_GPHY(PHY_ID_BCM7439, "Broadcom BCM7439"),
-  	BCM7XXX_28NM_GPHY(PHY_ID_BCM7439_2, "Broadcom BCM7439 (2)"),
-  	BCM7XXX_28NM_GPHY(PHY_ID_BCM7445, "Broadcom BCM7445"),
-- {
-- 	.phy_id         = PHY_ID_BCM7425,
-- 	.phy_id_mask    = 0xfffffff0,
-- 	.name           = "Broadcom BCM7425",
-- 	.features       = PHY_BASIC_FEATURES |
-- 			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-- 	.flags          = PHY_IS_INTERNAL,
-- 	.config_init    = bcm7xxx_config_init,
-- 	.config_aneg    = genphy_config_aneg,
-- 	.read_status    = genphy_read_status,
-- 	.suspend        = bcm7xxx_suspend,
-- 	.resume         = bcm7xxx_config_init,
-- }, {
-- 	.phy_id         = PHY_ID_BCM7429,
-- 	.phy_id_mask    = 0xfffffff0,
-- 	.name           = "Broadcom BCM7429",
-- 	.features       = PHY_BASIC_FEATURES |
-- 			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-- 	.flags          = PHY_IS_INTERNAL,
-- 	.config_init    = bcm7xxx_config_init,
-- 	.config_aneg    = genphy_config_aneg,
-- 	.read_status    = genphy_read_status,
-- 	.suspend        = bcm7xxx_suspend,
-- 	.resume         = bcm7xxx_config_init,
-- }, {
-- 	.phy_id         = PHY_ID_BCM7435,
-- 	.phy_id_mask    = 0xfffffff0,
-- 	.name           = "Broadcom BCM7435",
-- 	.features       = PHY_BASIC_FEATURES |
-- 			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-- 	.flags          = PHY_IS_INTERNAL,
-- 	.config_init    = bcm7xxx_config_init,
-- 	.config_aneg    = genphy_config_aneg,
-- 	.read_status    = genphy_read_status,
-- 	.suspend        = bcm7xxx_suspend,
-- 	.resume         = bcm7xxx_config_init,
-- } };
-+ 	BCM7XXX_40NM_EPHY(PHY_ID_BCM7425, "Broadcom BCM7425"),
-+ 	BCM7XXX_40NM_EPHY(PHY_ID_BCM7429, "Broadcom BCM7429"),
-+ 	BCM7XXX_40NM_EPHY(PHY_ID_BCM7435, "Broadcom BCM7435"),
- -{
- -	.phy_id		= PHY_BCM_OUI_4,
- -	.phy_id_mask	= 0xffff0000,
- -	.name		= "Broadcom BCM7XXX 40nm",
- -	.features	= PHY_GBIT_FEATURES |
- -			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
- -	.flags		= PHY_IS_INTERNAL,
- -	.config_init	= bcm7xxx_config_init,
- -	.config_aneg	= genphy_config_aneg,
- -	.read_status	= genphy_read_status,
- -	.suspend	= bcm7xxx_suspend,
- -	.resume		= bcm7xxx_config_init,
- -}, {
- -	.phy_id		= PHY_BCM_OUI_5,
- -	.phy_id_mask	= 0xffffff00,
- -	.name		= "Broadcom BCM7XXX 65nm",
- -	.features	= PHY_BASIC_FEATURES |
- -			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
- -	.flags		= PHY_IS_INTERNAL,
- -	.config_init	= bcm7xxx_dummy_config_init,
- -	.config_aneg	= genphy_config_aneg,
- -	.read_status	= genphy_read_status,
- -	.suspend	= bcm7xxx_suspend,
- -	.resume		= bcm7xxx_config_init,
- -} };
-++};
-  
-  static struct mdio_device_id __maybe_unused bcm7xxx_tbl[] = {
-  	{ PHY_ID_BCM7250, 0xfffffff0, },
+1.9.1
