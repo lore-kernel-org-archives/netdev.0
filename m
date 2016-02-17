@@ -1,59 +1,246 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] i40e/i40evf: bump version to 1.4.12/1.4.8
-Date: Wed, 17 Feb 2016 09:51:43 -0800
-Message-ID: <1455731506-62165-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] i40e: APIs to Add/remove port mirroring rules
+Date: Wed, 17 Feb 2016 09:51:38 -0800
+Message-ID: <1455731506-62165-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455731506-62165-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Kiran Patil <kiran.patil@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:17063 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:4789 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161616AbcBQRvw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 12:51:52 -0500
+	id S1161618AbcBQRvv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 12:51:51 -0500
 In-Reply-To: <1455731506-62165-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Kiran Patil <kiran.patil@intel.com>
 
-Bump driver versions to i40e-1.4.12 and i40evf-1.4.8
+This patch implements necessary functions related to port
+mirroring features such as add/delete mirror rule, function
+to set promiscuous VLAN mode for VSI if mirror rule_type is
+"VLAN Mirroring".
 
-Change-ID: I0ad82668c4ded04250391fda396ce191a42ab754
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: Iaf513fd5f188f99dcb977b48f99e73185dfddc40
+Signed-off-by: Kiran Patil <kiran.patil@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c    | 162 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |  12 ++
+ 2 files changed, 174 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 38fd942..6e12626 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -51,7 +51,7 @@ static const char i40e_driver_string[] =
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 9018f28..976b03f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -2033,6 +2033,37 @@ i40e_status i40e_aq_set_vsi_broadcast(struct i40e_hw *hw,
+ }
  
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 4
--#define DRV_VERSION_BUILD 11
-+#define DRV_VERSION_BUILD 12
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index ae6c6e1..045cc7f 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -38,7 +38,7 @@ static const char i40evf_driver_string[] =
+ /**
++ * i40e_aq_set_vsi_vlan_promisc - control the VLAN promiscuous setting
++ * @hw: pointer to the hw struct
++ * @seid: vsi number
++ * @enable: set MAC L2 layer unicast promiscuous enable/disable for a given VLAN
++ * @cmd_details: pointer to command details structure or NULL
++ **/
++i40e_status i40e_aq_set_vsi_vlan_promisc(struct i40e_hw *hw,
++				       u16 seid, bool enable,
++				       struct i40e_asq_cmd_details *cmd_details)
++{
++	struct i40e_aq_desc desc;
++	struct i40e_aqc_set_vsi_promiscuous_modes *cmd =
++		(struct i40e_aqc_set_vsi_promiscuous_modes *)&desc.params.raw;
++	i40e_status status;
++	u16 flags = 0;
++
++	i40e_fill_default_direct_cmd_desc(&desc,
++					i40e_aqc_opc_set_vsi_promiscuous_modes);
++	if (enable)
++		flags |= I40E_AQC_SET_VSI_PROMISC_VLAN;
++
++	cmd->promiscuous_flags = cpu_to_le16(flags);
++	cmd->valid_flags = cpu_to_le16(I40E_AQC_SET_VSI_PROMISC_VLAN);
++	cmd->seid = cpu_to_le16(seid);
++
++	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
++
++	return status;
++}
++
++/**
+  * i40e_get_vsi_params - get VSI configuration info
+  * @hw: pointer to the hw struct
+  * @vsi_ctx: pointer to a vsi context struct
+@@ -2470,6 +2501,137 @@ i40e_status i40e_aq_remove_macvlan(struct i40e_hw *hw, u16 seid,
+ }
  
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 4
--#define DRV_VERSION_BUILD 7
-+#define DRV_VERSION_BUILD 8
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD) \
+ /**
++ * i40e_mirrorrule_op - Internal helper function to add/delete mirror rule
++ * @hw: pointer to the hw struct
++ * @opcode: AQ opcode for add or delete mirror rule
++ * @sw_seid: Switch SEID (to which rule refers)
++ * @rule_type: Rule Type (ingress/egress/VLAN)
++ * @id: Destination VSI SEID or Rule ID
++ * @count: length of the list
++ * @mr_list: list of mirrored VSI SEIDs or VLAN IDs
++ * @cmd_details: pointer to command details structure or NULL
++ * @rule_id: Rule ID returned from FW
++ * @rule_used: Number of rules used in internal switch
++ * @rule_free: Number of rules free in internal switch
++ *
++ * Add/Delete a mirror rule to a specific switch. Mirror rules are supported for
++ * VEBs/VEPA elements only
++ **/
++static i40e_status i40e_mirrorrule_op(struct i40e_hw *hw,
++				u16 opcode, u16 sw_seid, u16 rule_type, u16 id,
++				u16 count, __le16 *mr_list,
++				struct i40e_asq_cmd_details *cmd_details,
++				u16 *rule_id, u16 *rules_used, u16 *rules_free)
++{
++	struct i40e_aq_desc desc;
++	struct i40e_aqc_add_delete_mirror_rule *cmd =
++		(struct i40e_aqc_add_delete_mirror_rule *)&desc.params.raw;
++	struct i40e_aqc_add_delete_mirror_rule_completion *resp =
++	(struct i40e_aqc_add_delete_mirror_rule_completion *)&desc.params.raw;
++	i40e_status status;
++	u16 buf_size;
++
++	buf_size = count * sizeof(*mr_list);
++
++	/* prep the rest of the request */
++	i40e_fill_default_direct_cmd_desc(&desc, opcode);
++	cmd->seid = cpu_to_le16(sw_seid);
++	cmd->rule_type = cpu_to_le16(rule_type &
++				     I40E_AQC_MIRROR_RULE_TYPE_MASK);
++	cmd->num_entries = cpu_to_le16(count);
++	/* Dest VSI for add, rule_id for delete */
++	cmd->destination = cpu_to_le16(id);
++	if (mr_list) {
++		desc.flags |= cpu_to_le16((u16)(I40E_AQ_FLAG_BUF |
++						I40E_AQ_FLAG_RD));
++		if (buf_size > I40E_AQ_LARGE_BUF)
++			desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
++	}
++
++	status = i40e_asq_send_command(hw, &desc, mr_list, buf_size,
++				       cmd_details);
++	if (!status ||
++	    hw->aq.asq_last_status == I40E_AQ_RC_ENOSPC) {
++		if (rule_id)
++			*rule_id = le16_to_cpu(resp->rule_id);
++		if (rules_used)
++			*rules_used = le16_to_cpu(resp->mirror_rules_used);
++		if (rules_free)
++			*rules_free = le16_to_cpu(resp->mirror_rules_free);
++	}
++	return status;
++}
++
++/**
++ * i40e_aq_add_mirrorrule - add a mirror rule
++ * @hw: pointer to the hw struct
++ * @sw_seid: Switch SEID (to which rule refers)
++ * @rule_type: Rule Type (ingress/egress/VLAN)
++ * @dest_vsi: SEID of VSI to which packets will be mirrored
++ * @count: length of the list
++ * @mr_list: list of mirrored VSI SEIDs or VLAN IDs
++ * @cmd_details: pointer to command details structure or NULL
++ * @rule_id: Rule ID returned from FW
++ * @rule_used: Number of rules used in internal switch
++ * @rule_free: Number of rules free in internal switch
++ *
++ * Add mirror rule. Mirror rules are supported for VEBs or VEPA elements only
++ **/
++i40e_status i40e_aq_add_mirrorrule(struct i40e_hw *hw, u16 sw_seid,
++			u16 rule_type, u16 dest_vsi, u16 count, __le16 *mr_list,
++			struct i40e_asq_cmd_details *cmd_details,
++			u16 *rule_id, u16 *rules_used, u16 *rules_free)
++{
++	if (!(rule_type == I40E_AQC_MIRROR_RULE_TYPE_ALL_INGRESS ||
++	    rule_type == I40E_AQC_MIRROR_RULE_TYPE_ALL_EGRESS)) {
++		if (count == 0 || !mr_list)
++			return I40E_ERR_PARAM;
++	}
++
++	return i40e_mirrorrule_op(hw, i40e_aqc_opc_add_mirror_rule, sw_seid,
++				  rule_type, dest_vsi, count, mr_list,
++				  cmd_details, rule_id, rules_used, rules_free);
++}
++
++/**
++ * i40e_aq_delete_mirrorrule - delete a mirror rule
++ * @hw: pointer to the hw struct
++ * @sw_seid: Switch SEID (to which rule refers)
++ * @rule_type: Rule Type (ingress/egress/VLAN)
++ * @count: length of the list
++ * @rule_id: Rule ID that is returned in the receive desc as part of
++ *		add_mirrorrule.
++ * @mr_list: list of mirrored VLAN IDs to be removed
++ * @cmd_details: pointer to command details structure or NULL
++ * @rule_used: Number of rules used in internal switch
++ * @rule_free: Number of rules free in internal switch
++ *
++ * Delete a mirror rule. Mirror rules are supported for VEBs/VEPA elements only
++ **/
++i40e_status i40e_aq_delete_mirrorrule(struct i40e_hw *hw, u16 sw_seid,
++			u16 rule_type, u16 rule_id, u16 count, __le16 *mr_list,
++			struct i40e_asq_cmd_details *cmd_details,
++			u16 *rules_used, u16 *rules_free)
++{
++	/* Rule ID has to be valid except rule_type: INGRESS VLAN mirroring */
++	if (rule_type != I40E_AQC_MIRROR_RULE_TYPE_VLAN) {
++		if (!rule_id)
++			return I40E_ERR_PARAM;
++	} else {
++		/* count and mr_list shall be valid for rule_type INGRESS VLAN
++		 * mirroring. For other rule_type, count and rule_type should
++		 * not matter.
++		 */
++		if (count == 0 || !mr_list)
++			return I40E_ERR_PARAM;
++	}
++
++	return i40e_mirrorrule_op(hw, i40e_aqc_opc_delete_mirror_rule, sw_seid,
++				  rule_type, rule_id, count, mr_list,
++				  cmd_details, NULL, rules_used, rules_free);
++}
++
++/**
+  * i40e_aq_send_msg_to_vf
+  * @hw: pointer to the hardware structure
+  * @vfid: VF id to send msg
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index bb9d583..45af29b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -127,6 +127,9 @@ i40e_status i40e_aq_set_vsi_unicast_promiscuous(struct i40e_hw *hw,
+ 		u16 vsi_id, bool set, struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_set_vsi_multicast_promiscuous(struct i40e_hw *hw,
+ 		u16 vsi_id, bool set, struct i40e_asq_cmd_details *cmd_details);
++i40e_status i40e_aq_set_vsi_vlan_promisc(struct i40e_hw *hw,
++				u16 seid, bool enable,
++				struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_get_vsi_params(struct i40e_hw *hw,
+ 				struct i40e_vsi_context *vsi_ctx,
+ 				struct i40e_asq_cmd_details *cmd_details);
+@@ -149,6 +152,15 @@ i40e_status i40e_aq_add_macvlan(struct i40e_hw *hw, u16 vsi_id,
+ i40e_status i40e_aq_remove_macvlan(struct i40e_hw *hw, u16 vsi_id,
+ 			struct i40e_aqc_remove_macvlan_element_data *mv_list,
+ 			u16 count, struct i40e_asq_cmd_details *cmd_details);
++i40e_status i40e_aq_add_mirrorrule(struct i40e_hw *hw, u16 sw_seid,
++			u16 rule_type, u16 dest_vsi, u16 count, __le16 *mr_list,
++			struct i40e_asq_cmd_details *cmd_details,
++			u16 *rule_id, u16 *rules_used, u16 *rules_free);
++i40e_status i40e_aq_delete_mirrorrule(struct i40e_hw *hw, u16 sw_seid,
++			u16 rule_type, u16 rule_id, u16 count, __le16 *mr_list,
++			struct i40e_asq_cmd_details *cmd_details,
++			u16 *rules_used, u16 *rules_free);
++
+ i40e_status i40e_aq_send_msg_to_vf(struct i40e_hw *hw, u16 vfid,
+ 				u32 v_opcode, u32 v_retval, u8 *msg, u16 msglen,
+ 				struct i40e_asq_cmd_details *cmd_details);
 -- 
 2.5.0
