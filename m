@@ -1,39 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/4] drivers: net: xgene: Add support for
- Classifier engine
-Date: Wed, 17 Feb 2016 12:05:17 -0500 (EST)
-Message-ID: <20160217.120517.1874370262056055172.davem@davemloft.net>
-References: <1455327425-8294-1-git-send-email-isubramanian@apm.com>
-	<1455327425-8294-2-git-send-email-isubramanian@apm.com>
+Subject: Re: [PATCH] net: macb: Add support for phy-handle binding
+Date: Wed, 17 Feb 2016 12:14:14 -0500 (EST)
+Message-ID: <20160217.121414.529895298809970981.davem@davemloft.net>
+References: <1455379368-18739-1-git-send-email-nathan@nathanrossi.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	toanle@apm.com, kdinh@apm.com, tinamdar@apm.com
-To: isubramanian@apm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54433 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965115AbcBQRFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 12:05:22 -0500
-In-Reply-To: <1455327425-8294-2-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nicolas.ferre@atmel.com
+To: nathan@nathanrossi.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455379368-18739-1-git-send-email-nathan@nathanrossi.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Iyappan Subramanian <isubramanian@apm.com>
-Date: Fri, 12 Feb 2016 17:37:02 -0800
+From: Nathan Rossi <nathan@nathanrossi.com>
+Date: Sun, 14 Feb 2016 02:02:48 +1000
 
-> +static void xgene_cle_dn_to_hw(struct xgene_cle_ptree_ewdn *dn,
-> +			       u32 *buf, u32 jb)
-> +{
-> +	u32 i, j = 0;
-> +	u32 npp;
-> +	struct xgene_cle_ptree_branch *br;
+> This patch adds support for the 'phy-handle' binding which allows for a
+> system to specifically select a phy which can be attached via any MDIO
+> bus available in the system.
+> 
+> Signed-off-by: Nathan Rossi <nathan@nathanrossi.com>
+> Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Please order local variables from longest to shortest line (reverse christmas
-tree format).
+I don't see how this can be backwards compatible at all.
 
-Please address this for your entire submission.
+In my opinion we are way too loose about handling things like this.
 
-Thank you.
+Existing chips that happened to have an OF node but lack a phy-handle
+property are going to be broken by that change.
+
+I know you are now going to bombard me with all kinds of reasons why
+this won't happen.
+
+Don't bother, I'm simply not interested.
+
+All of these special cases we use (all the DT bindings are in text
+files in the kernel sources, we control all of the bootloaders, etc.)
+is the most shaky foundation I've ever seen upon which to erect a
+stable device probing mechanism.
+
+I'm not applying this patch until you add an error handling path from
+the of_phy_connect() call that will do the existing PHY probing sequence
+by hand using phy_find_first().
