@@ -1,28 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v3 0/8] tc offload for cls_u32 on ixgbe
-Date: Wed, 17 Feb 2016 09:48:04 -0500 (EST)
-Message-ID: <20160217.094804.2116619701024963115.davem@davemloft.net>
-References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
+Subject: Re: [net-next 00/16][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2016-02-16
+Date: Wed, 17 Feb 2016 09:49:05 -0500 (EST)
+Message-ID: <20160217.094905.273099292933606707.davem@davemloft.net>
+References: <1455687262-20453-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, amir@vadai.me, jhs@mojatatu.com,
-	netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: john.fastabend@gmail.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52684 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52709 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423553AbcBQOsI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 09:48:08 -0500
-In-Reply-To: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
+	with ESMTP id S1423553AbcBQOtH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 09:49:07 -0500
+In-Reply-To: <1455687262-20453-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Tue, 16 Feb 2016 21:15:50 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 16 Feb 2016 21:34:06 -0800
 
-> This extends the setup_tc framework so it can support more than just
-> the mqprio offload and push other classifiers and qdiscs into the
-> hardware.
+> This series contains updates to i40e/i40evf only.
 
-Series applied, thanks John!
+Pulled, thanks Jeff.
