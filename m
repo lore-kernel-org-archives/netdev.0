@@ -1,38 +1,43 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH v3 2/8] net: rework setup_tc ndo op to consume
- general tc operand
-Date: Wed, 17 Feb 2016 05:42:53 -0500
-Message-ID: <56C44EAD.6060606@mojatatu.com>
-References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
- <20160217051643.17139.34617.stgit@john-Precision-Tower-5810>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 0/7] fix IS_ERR_VALUE usage
+Date: Wed, 17 Feb 2016 11:48:38 +0100
+Message-ID: <7443859.JK6ybmGO1A@wuerfel>
+References: <1455546925-22119-1-git-send-email-a.hajda@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: John Fastabend <john.fastabend@gmail.com>, jiri@resnulli.us,
-	amir@vadai.me, davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Andrzej Hajda <a.hajda@samsung.com>, linux-kernel@vger.kernel.org,
+	linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org,
+	linux-samsung-soc@vger.kernel.org,
+	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
+	linux-serial@vger.kernel.org,
+	Marek Szyprowski <m.szyprowski@samsung.com>,
+	linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:37683 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161083AbcBQKmz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 05:42:55 -0500
-Received: by mail-ig0-f170.google.com with SMTP id 5so12337089igt.0
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 02:42:55 -0800 (PST)
-In-Reply-To: <20160217051643.17139.34617.stgit@john-Precision-Tower-5810>
+Received: from mout.kundenserver.de ([217.72.192.75]:57787 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934008AbcBQKtL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 05:49:11 -0500
+In-Reply-To: <1455546925-22119-1-git-send-email-a.hajda@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-17 12:16 AM, John Fastabend wrote:
-> This patch updates setup_tc so we can pass additional parameters into
-> the ndo op in a generic way. To do this we provide structured union
-> and type flag.
->
-> This lets each classifier and qdisc provide its own set of attributes
-> without having to add new ndo ops or grow the signature of the
-> callback.
->
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
+On Monday 15 February 2016 15:35:18 Andrzej Hajda wrote:
+> 
+> Andrzej Hajda (7):
+>   netfilter: fix IS_ERR_VALUE usage
+>   MIPS: module: fix incorrect IS_ERR_VALUE macro usages
+>   drivers: char: mem: fix IS_ERROR_VALUE usage
+>   atmel-isi: fix IS_ERR_VALUE usage
+>   serial: clps711x: fix IS_ERR_VALUE usage
+>   fbdev: exynos: fix IS_ERR_VALUE usage
+>   usb: gadget: fsl_qe_udc: fix IS_ERR_VALUE usage
+> 
 
+Can you Cc me the next time on all of the patches? I only got
+three of them this time.
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+	Arnd
