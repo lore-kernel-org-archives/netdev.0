@@ -1,56 +1,47 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net V1 4/6] net/mlx4_core: Do not BUG_ON during reset when PCI is offline
-Date: Wed, 17 Feb 2016 17:24:25 +0200
-Message-ID: <1455722667-23179-5-git-send-email-ogerlitz@mellanox.com>
-References: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Daniel Jurgens <danielj@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ip6_gre: clear IPCB in ip6gre_xmit2 in case
+ dst_link_failure called
+Date: Wed, 17 Feb 2016 10:26:31 -0500 (EST)
+Message-ID: <20160217.102631.728315767953679869.davem@davemloft.net>
+References: <1454990874-10497-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	stable@vger.kernel.org
+To: bernie.harris@alliedtelesis.co.nz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:44376 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965188AbcBQPZ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 10:25:26 -0500
-In-Reply-To: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53251 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965188AbcBQP0d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 10:26:33 -0500
+In-Reply-To: <1454990874-10497-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Jurgens <danielj@mellanox.com>
+From: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
+Date: Tue,  9 Feb 2016 17:07:54 +1300
 
-The PCI channel could go offline during reset due to EEH.  Don't bug on in
-this case, the error is recoverable.
+> @@ -678,6 +678,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+>  				tunnel->err_time + IP6TUNNEL_ERR_TIMEO)) {
+>  			tunnel->err_count--;
+>  
+> +			memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+>  			dst_link_failure(skb);
+>  		} else
+>  			tunnel->err_count = 0;
+> -- 
+> 2.7.1
+> 
 
-Fixes: f6bc11e42646 ('net/mlx4_core: Enhance the catas flow to support device reset')
-Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
-Reviewed-by: Yishai Hadas <yishaih@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/catas.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+I have a hard time accepting this because I see no other place in ipv6 tunnel
+handling where we have to handle this kind of case.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
-index 715de8a..c7e9399 100644
---- a/drivers/net/ethernet/mellanox/mlx4/catas.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
-@@ -182,10 +182,17 @@ void mlx4_enter_error_state(struct mlx4_dev_persistent *persist)
- 		err = mlx4_reset_slave(dev);
- 	else
- 		err = mlx4_reset_master(dev);
--	BUG_ON(err != 0);
- 
-+	if (!err) {
-+		mlx4_err(dev, "device was reset successfully\n");
-+	} else {
-+		/* EEH could have disabled the PCI channel during reset. That's
-+		 * recoverable and the PCI error flow will handle it.
-+		 */
-+		if (!pci_channel_offline(dev->persist->pdev))
-+			BUG_ON(1);
-+	}
- 	dev->persist->state |= MLX4_DEVICE_STATE_INTERNAL_ERROR;
--	mlx4_err(dev, "device was reset successfully\n");
- 	mutex_unlock(&persist->device_state_mutex);
- 
- 	/* At that step HW was already reset, now notify clients */
--- 
-2.3.7
+If anything, this code should mimick the code in ip6_udp_tunnel6_xmit_skb()
+which clears only the IPCH(skb)->opt field, and does so unconditionally.
+
+If this happens for GRE ipv6 tunnels, it potentially could happen for any
+tunnel.  Therefore we should apply consistent handling of this problem
+to every ipv6 tunnel implementation rather than just one spot.
+
+Thanks.
