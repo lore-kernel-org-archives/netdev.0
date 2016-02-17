@@ -1,65 +1,71 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] i40e: fix: do not sleep in netdev_ops
-Date: Wed, 17 Feb 2016 09:51:37 -0800
-Message-ID: <1455731506-62165-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] i40e: use eth_platform_get_mac_address()
+Date: Wed, 17 Feb 2016 09:51:46 -0800
+Message-ID: <1455731506-62165-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455731506-62165-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:17063 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161613AbcBQRvv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 12:51:51 -0500
+	id S1422654AbcBQRvx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 12:51:53 -0500
 In-Reply-To: <1455731506-62165-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 
-The driver was being called by VLAN, bonding, teaming operations
-that expected to be able to hold locks like rcu_read_lock().
+This commit converts commit b499ffb0a22c ("i40e: Look up MAC address in
+Open Firmware or IDPROM") to use eth_platform_get_mac_address()
+added by commit c7f5d105495a ("net: Add eth_platform_get_mac_address()
+helper.")
 
-This causes the driver to be held to the requirement to not sleep,
-and was found by the kernel debug options for checking sleep
-inside critical section, and the locking validator.
-
-Change-ID: Ibc68c835f5ffa8ffe0638ffe910a66fc5649a7f7
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Reviewed-by: Nelson, Shannon <shannon.nelson@intel.com>
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 19 +------------------
+ 1 file changed, 1 insertion(+), 18 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index fe67b90..ac89739 100644
+index f6d61cc..04417e6 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1542,7 +1542,11 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
+@@ -28,11 +28,6 @@
+ #include <linux/of_net.h>
+ #include <linux/pci.h>
  
- 	ether_addr_copy(netdev->dev_addr, addr->sa_data);
- 
--	return i40e_sync_vsi_filters(vsi);
-+	/* schedule our worker thread which will take care of
-+	 * applying the new filter changes
-+	 */
-+	i40e_service_event_schedule(vsi->back);
-+	return 0;
- }
- 
- /**
-@@ -1766,6 +1770,11 @@ bottom_of_search_loop:
- 		vsi->flags |= I40E_VSI_FLAG_FILTER_CHANGED;
- 		vsi->back->flags |= I40E_FLAG_FILTER_SYNC;
- 	}
-+
-+	/* schedule our worker thread which will take care of
-+	 * applying the new filter changes
-+	 */
-+	i40e_service_event_schedule(vsi->back);
+-#ifdef CONFIG_SPARC
+-#include <asm/idprom.h>
+-#include <asm/prom.h>
+-#endif
+-
+ /* Local includes */
+ #include "i40e.h"
+ #include "i40e_diag.h"
+@@ -10618,21 +10613,9 @@ static void i40e_print_features(struct i40e_pf *pf)
+  **/
+ static void i40e_get_platform_mac_addr(struct pci_dev *pdev, struct i40e_pf *pf)
+ {
+-	struct device_node *dp = pci_device_to_OF_node(pdev);
+-	const unsigned char *addr;
+-	u8 *mac_addr = pf->hw.mac.addr;
+-
+ 	pf->flags &= ~I40E_FLAG_PF_MAC;
+-	addr = of_get_mac_address(dp);
+-	if (addr) {
+-		ether_addr_copy(mac_addr, addr);
++	if (!eth_platform_get_mac_address(&pdev->dev, pf->hw.mac.addr))
+ 		pf->flags |= I40E_FLAG_PF_MAC;
+-#ifdef CONFIG_SPARC
+-	} else {
+-		ether_addr_copy(mac_addr, idprom->id_ethaddr);
+-		pf->flags |= I40E_FLAG_PF_MAC;
+-#endif /* CONFIG_SPARC */
+-	}
  }
  
  /**
