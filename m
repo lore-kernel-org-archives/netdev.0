@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ravb: Update DT binding example for final CPG/MSSR
- bindings
-Date: Wed, 17 Feb 2016 15:56:09 -0500 (EST)
-Message-ID: <20160217.155609.159176764114530209.davem@davemloft.net>
-References: <1455540091-23427-1-git-send-email-geert+renesas@glider.be>
+Subject: Re: [PATCH net] pppoe: fix reference counting in PPPoE proxy
+Date: Wed, 17 Feb 2016 16:03:13 -0500 (EST)
+Message-ID: <20160217.160313.2285933128016667199.davem@davemloft.net>
+References: <20160215160110.GA1186@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, horms+renesas@verge.net.au,
-	linux-renesas-soc@vger.kernel.org, netdev@vger.kernel.org
-To: geert+renesas@glider.be
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1455540091-23427-1-git-send-email-geert+renesas@glider.be>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: g.nault@alphalink.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57649 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161042AbcBQVDP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 16:03:15 -0500
+In-Reply-To: <20160215160110.GA1186@alphalink.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Date: Mon, 15 Feb 2016 13:41:31 +0100
+From: Guillaume Nault <g.nault@alphalink.fr>
+Date: Mon, 15 Feb 2016 17:01:10 +0100
 
-> The example in the DT binding documentation uses the preliminary DT
-> bindings for the r8a7795 MSTP clocks, which never went upstream.
-> Update the example to use the DT bindings for the upstream Clock Pulse
-> Generator / Module Standby and Software Reset hardware block.
+> Drop reference on the relay_po socket when __pppoe_xmit() succeeds.
+> This is already handled correctly in the error path.
 > 
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+> ---
+> No 'Fixes' tag, since this issue seems to predate git's history.
 
-Applied, thanks.
+Hard to believe that such an obvious leak has existed for so long.
+
+Applied, and queued up for -stable, thanks!
