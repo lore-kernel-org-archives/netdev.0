@@ -1,130 +1,181 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 1/2] net: ethtool: Add support for PHY packet generators
-Date: Wed, 17 Feb 2016 21:32:06 +0100
-Message-ID: <1455741127-25453-2-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 2/2] phy: marvell: Add support for phy packet generator
+Date: Wed, 17 Feb 2016 21:32:07 +0100
+Message-ID: <1455741127-25453-3-git-send-email-andrew@lunn.ch>
 References: <1455741127-25453-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:50597 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:50602 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964970AbcBQUcO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 15:32:14 -0500
+	id S1422737AbcBQUcW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 15:32:22 -0500
 In-Reply-To: <1455741127-25453-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some PHY devices contain a simple packet generator. Features vary, but
-often they can be used to generate packets of different sizes,
-different contents, with or without errors, and with different inter
-packet gaps. Add support to the core ethtool code to support this.
+Most of the Marvell PHYs include a packet generator, for sending up to
+255 packets, of size 64 or 1518 bytes. Packets can either contain
+repeated 0x5a 0xa5, or random bytes. Packets can contain CRC errors or
+symbol errors. Some PHYs allow the inter packet gap to be changed.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- include/linux/phy.h          |  4 ++++
- include/uapi/linux/ethtool.h | 26 ++++++++++++++++++++++++++
- net/core/ethtool.c           | 22 ++++++++++++++++++++++
- 3 files changed, 52 insertions(+)
+ drivers/net/phy/marvell.c | 92 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 92 insertions(+)
 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index d6f3641e7933..f7770c687b4e 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -589,6 +589,10 @@ struct phy_driver {
- 	void (*get_strings)(struct phy_device *dev, u8 *data);
- 	void (*get_stats)(struct phy_device *dev,
- 			  struct ethtool_stats *stats, u64 *data);
-+
-+	/* Make use of the PHY packet generator */
-+	int (*pkt_gen)(struct phy_device *dev,
-+		       struct ethtool_phy_pkt_gen *pkt_gen);
- };
- #define to_phy_driver(d) container_of(to_mdio_common_driver(d),		\
- 				      struct phy_driver, mdiodrv)
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 190aea0faaf4..bce6c95f458c 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -1167,6 +1167,31 @@ struct ethtool_ts_info {
- 	__u32	rx_reserved[3];
- };
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index e3eb96443c97..1c42aef6dcf3 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -133,6 +133,15 @@
+ #define MII_88E3016_DISABLE_SCRAMBLER	0x0200
+ #define MII_88E3016_AUTO_MDIX_CROSSOVER	0x0030
  
-+enum ethtool_phy_pkg_gen_flags {
-+	ETH_PKT_RANDOM	= (1 << 0),
-+	ETH_PKT_ERROR	= (1 << 1),
-+};
++#define MII_88E1540_PKT_GEN		16
++#define MII_88E1540_PKT_GEN_BURST_SHIFT	8
++#define MII_88E1540_PKT_GEN_ENABLE	BIT(3)
++#define MII_88E1540_PKT_GEN_FIXED	BIT(2)
++#define MII_88E1540_PKT_GEN_LEN_1518	BIT(1)
++#define MII_88E1540_PKT_GEN_ERROR	BIT(0)
 +
-+/**
-+ * struct ethtool_phy_pkt_get - command to request the phy to generate packets.
-+ * @cmd: command number = %ETHTOOL_PHY_PKT_GEN
-+ * @count: number of packets to generate
-+ * @len: length of generated packets
-+ * @ipg: inter packet gap in bytes.
-+ * @flags: a bitmask of flags from &enum ethtool_phy_pkg_gen_flags
-+ *
-+ * PHY drivers may not support all of these parameters. If the
-+ * requested parameter value cannot be supported an error should be
-+ * returned.
-+ */
-+struct ethtool_phy_pkt_gen {
-+	__u32	cmd;
-+	__u32	count;
-+	__u32	len;
-+	__u32	ipg;
-+	__u32	flags;
-+};
++#define MII_88E1540_PKT_GEN_IPG		19
 +
- /*
-  * %ETHTOOL_SFEATURES changes features present in features[].valid to the
-  * values of corresponding bits in features[].requested. Bits in .requested
-@@ -1284,6 +1309,7 @@ enum ethtool_sfeatures_retval_bits {
- #define ETHTOOL_GTUNABLE	0x00000048 /* Get tunable configuration */
- #define ETHTOOL_STUNABLE	0x00000049 /* Set tunable configuration */
- #define ETHTOOL_GPHYSTATS	0x0000004a /* get PHY-specific statistics */
-+#define ETHTOOL_PHY_PKT_GEN	0x0000004b /* Gnerate packets in the PHY */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index c2d3118b1395..d5e8cd6a26e9 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1541,6 +1541,25 @@ static int ethtool_get_phy_stats(struct net_device *dev, void __user *useraddr)
- 	return ret;
+ MODULE_DESCRIPTION("Marvell PHY driver");
+ MODULE_AUTHOR("Andy Fleming");
+ MODULE_LICENSE("GPL");
+@@ -1057,6 +1066,83 @@ static void marvell_get_stats(struct phy_device *phydev,
+ 		data[i] = marvell_get_stat(phydev, i);
  }
  
-+static int ethtool_phy_pkt_gen(struct net_device *dev, void __user *useraddr)
++static int marvell_pkt_gen(struct phy_device *phydev,
++			   struct ethtool_phy_pkt_gen *pkt_gen)
 +{
-+	struct phy_device *phydev = dev->phydev;
-+	struct ethtool_phy_pkt_gen pkt_gen;
-+	int err;
++	int err, oldpage, reg, max_loop = 100;
++	u32 phy_id = phydev->drv->phy_id;
++	bool has_ipg = false;
 +
-+	if (!phydev || !phydev->drv->pkt_gen)
-+		return -EOPNOTSUPP;
++	switch (phy_id) {
++	case MARVELL_PHY_ID_88E1510:
++	case MARVELL_PHY_ID_88E1540:
++		has_ipg = true;
++	}
 +
-+	if (copy_from_user(&pkt_gen, useraddr, sizeof(pkt_gen)))
-+		return -EFAULT;
++	if (pkt_gen->count < 1 || pkt_gen->count > 255)
++		return -EINVAL;
 +
-+	mutex_lock(&phydev->lock);
-+	err = phydev->drv->pkt_gen(phydev, &pkt_gen);
-+	mutex_unlock(&phydev->lock);
++	if (pkt_gen->len == 0)
++		pkt_gen->len = 64;
++
++	if (pkt_gen->len != 64 && pkt_gen->len != 1518)
++		return -EINVAL;
++
++	if (has_ipg) {
++		if (pkt_gen->ipg == 0)
++			pkt_gen->ipg = 12;
++
++		if (pkt_gen->ipg > 256)
++			return -EINVAL;
++	} else {
++		if (pkt_gen->ipg != 0)
++			return -EINVAL;
++	}
++
++	oldpage = phy_read(phydev, MII_MARVELL_PHY_PAGE);
++	if (oldpage < 0) {
++		err = oldpage;
++		goto out;
++	}
++
++	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 6);
++	if (err)
++		goto out;
++
++	if (has_ipg) {
++		err = phy_write(phydev, MII_88E1540_PKT_GEN_IPG,
++				pkt_gen->ipg - 1);
++		if (err)
++			goto out;
++	}
++
++	reg = MII_88E1540_PKT_GEN_ENABLE;
++	reg |= pkt_gen->count << MII_88E1540_PKT_GEN_BURST_SHIFT;
++	if (pkt_gen->len == 1518)
++		reg |= MII_88E1540_PKT_GEN_LEN_1518;
++	if (!(pkt_gen->flags & ETH_PKT_RANDOM))
++		reg |= MII_88E1540_PKT_GEN_FIXED;
++	if (pkt_gen->flags & ETH_PKT_ERROR)
++		reg |= MII_88E1540_PKT_GEN_ERROR;
++
++	err = phy_write(phydev, MII_88E1540_PKT_GEN, reg);
++	if (err)
++		goto out;
++
++	do {
++		usleep_range(3000, 4000);
++		reg = phy_read(phydev, MII_88E1540_PKT_GEN);
++	} while (max_loop-- && (reg & MII_88E1540_PKT_GEN_ENABLE));
++
++	if (!max_loop)
++		err = -ETIMEDOUT;
++
++out:
++	phy_write(phydev, MII_MARVELL_PHY_PAGE, oldpage);
 +
 +	return err;
 +}
 +
- static int ethtool_get_perm_addr(struct net_device *dev, void __user *useraddr)
+ static int marvell_probe(struct phy_device *phydev)
  {
- 	struct ethtool_perm_addr epaddr;
-@@ -2135,6 +2154,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_GPHYSTATS:
- 		rc = ethtool_get_phy_stats(dev, useraddr);
- 		break;
-+	case ETHTOOL_PHY_PKT_GEN:
-+		rc = ethtool_phy_pkt_gen(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
+ 	struct marvell_priv *priv;
+@@ -1102,6 +1188,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.config_intr = &marvell_config_intr,
+ 		.resume = &genphy_resume,
+ 		.suspend = &genphy_suspend,
++		.pkt_gen = marvell_pkt_gen,
+ 		.get_sset_count = marvell_get_sset_count,
+ 		.get_strings = marvell_get_strings,
+ 		.get_stats = marvell_get_stats,
+@@ -1156,6 +1243,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.did_interrupt = &m88e1121_did_interrupt,
+ 		.resume = &genphy_resume,
+ 		.suspend = &genphy_suspend,
++		.pkt_gen = marvell_pkt_gen,
+ 		.get_sset_count = marvell_get_sset_count,
+ 		.get_strings = marvell_get_strings,
+ 		.get_stats = marvell_get_stats,
+@@ -1212,6 +1300,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.config_intr = &marvell_config_intr,
+ 		.resume = &genphy_resume,
+ 		.suspend = &genphy_suspend,
++		.pkt_gen = marvell_pkt_gen,
+ 		.get_sset_count = marvell_get_sset_count,
+ 		.get_strings = marvell_get_strings,
+ 		.get_stats = marvell_get_stats,
+@@ -1248,6 +1337,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.config_intr = &marvell_config_intr,
+ 		.resume = &genphy_resume,
+ 		.suspend = &genphy_suspend,
++		.pkt_gen = marvell_pkt_gen,
+ 		.get_sset_count = marvell_get_sset_count,
+ 		.get_strings = marvell_get_strings,
+ 		.get_stats = marvell_get_stats,
+@@ -1284,6 +1374,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.did_interrupt = &m88e1121_did_interrupt,
+ 		.resume = &genphy_resume,
+ 		.suspend = &genphy_suspend,
++		.pkt_gen = marvell_pkt_gen,
+ 		.get_sset_count = marvell_get_sset_count,
+ 		.get_strings = marvell_get_strings,
+ 		.get_stats = marvell_get_stats,
+@@ -1304,6 +1395,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.did_interrupt = &m88e1121_did_interrupt,
+ 		.resume = &genphy_resume,
+ 		.suspend = &genphy_suspend,
++		.pkt_gen = marvell_pkt_gen,
+ 		.get_sset_count = marvell_get_sset_count,
+ 		.get_strings = marvell_get_strings,
+ 		.get_stats = marvell_get_stats,
 -- 
 2.7.0
