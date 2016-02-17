@@ -1,44 +1,48 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH net V1 1/6] net/mlx4_en: Count HW buffer overrun only once
-Date: Wed, 17 Feb 2016 10:04:34 -0800
-Message-ID: <56C4B632.8030700@hpe.com>
-References: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
- <1455722667-23179-2-git-send-email-ogerlitz@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional
+Date: Wed, 17 Feb 2016 13:05:04 -0500 (EST)
+Message-ID: <20160217.130504.1799252766739262191.davem@davemloft.net>
+References: <1455402207-9217-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Amir Vadai <amir@vadai.me>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3426.houston.hp.com ([15.201.208.54]:24340 "EHLO
-	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161024AbcBQSEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 13:04:36 -0500
-In-Reply-To: <1455722667-23179-2-git-send-email-ogerlitz@mellanox.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55325 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423145AbcBQSFJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 13:05:09 -0500
+In-Reply-To: <1455402207-9217-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/17/2016 07:24 AM, Or Gerlitz wrote:
-> From: Amir Vadai <amir@vadai.me>
->
-> RdropOvflw counts overrun of HW buffer, therefore should
-> be used for rx_fifo_errors only.
->
-> Currently RdropOvflw counter is mistakenly also set into
-> rx_missed_errors and rx_over_errors too, which makes the
-> device total dropped packets accounting to show wrong results.
->
-> Fix that. Use it for rx_fifo_errors only.
->
-> Fixes: c27a02cd94d6 ('mlx4_en: Add driver for Mellanox ConnectX 10GbE NIC')
-> Signed-off-by: Amir Vadai <amir@vadai.me>
-> Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Sat, 13 Feb 2016 14:23:27 -0800
 
-Reviewed-By: Rick Jones <rick.jones2@hpe.com>
+> @@ -3427,31 +3493,52 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+>  		write_lock_bh(&idev->lock);
+>  	}
+>  
+> -	while (!list_empty(&idev->addr_list)) {
+> -		ifa = list_first_entry(&idev->addr_list,
+> -				       struct inet6_ifaddr, if_list);
+> -		addrconf_del_dad_work(ifa);
+> +	INIT_LIST_HEAD(&del_list);
+> +	list_for_each_entry_safe(ifa, tmp, &idev->addr_list, if_list) {
+> +		bool keep_ifa = false;
+>  
+> -		list_del(&ifa->if_list);
+> +		if (!how && keep_addr && ifa->user_managed)
+> +			keep_ifa = true;
 
-rick
+I think it would make sense to evaluate "!how && keep_addr" outside the
+loop.  The only thing that changes is ifa->user_managed on each iteration.
+
+But I also want some more documentation in what you are doing here.
+
+I understand the address flushing on ifdown avoidance, but all of this
+user_managed logic is not mentioned at all.  Why do you need it?  What
+role does it play in achieving your goal?
+
+Thanks.
