@@ -1,8 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v3 3/8] net: sched: add cls_u32 offload hooks for
- netdevs
-Date: Tue, 16 Feb 2016 21:17:09 -0800
-Message-ID: <20160217051709.17139.88337.stgit@john-Precision-Tower-5810>
+Subject: [net-next PATCH v3 4/8] net: add tc offload feature flag
+Date: Tue, 16 Feb 2016 21:17:37 -0800
+Message-ID: <20160217051737.17139.5230.stgit@john-Precision-Tower-5810>
 References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,256 +10,57 @@ Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
 To: jiri@resnulli.us, amir@vadai.me, john.fastabend@gmail.com,
 	jhs@mojatatu.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36704 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751030AbcBQFRa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 00:17:30 -0500
-Received: by mail-pa0-f44.google.com with SMTP id yy13so4656427pab.3
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 21:17:30 -0800 (PST)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35279 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751583AbcBQFR4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 00:17:56 -0500
+Received: by mail-pa0-f43.google.com with SMTP id ho8so4845578pac.2
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 21:17:56 -0800 (PST)
 In-Reply-To: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows netdev drivers to consume cls_u32 offloads via
-the ndo_setup_tc ndo op.
-
-This works aligns with how network drivers have been doing qdisc
-offloads for mqprio.
+Its useful to turn off the qdisc offload feature at a per device
+level. This gives us a big hammer to enable/disable offloading.
+More fine grained control (i.e. per rule) may be supported later.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Acked-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/linux/netdevice.h |    6 ++-
- include/net/pkt_cls.h     |   34 +++++++++++++++
- net/sched/cls_u32.c       |   99 ++++++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 136 insertions(+), 3 deletions(-)
+ include/linux/netdev_features.h |    3 +++
+ net/core/ethtool.c              |    1 +
+ 2 files changed, 4 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e396060..47671ce0 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -779,17 +779,21 @@ static inline bool netdev_phys_item_id_same(struct netdev_phys_item_id *a,
- typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
- 				       struct sk_buff *skb);
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index d9654f0e..a734bf4 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -67,6 +67,8 @@ enum {
+ 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
+ 	NETIF_F_BUSY_POLL_BIT,		/* Busy poll */
  
--/* This structure holds attributes of qdisc and classifiers
-+/* These structures hold the attributes of qdisc and classifiers
-  * that are being passed to the netdevice through the setup_tc op.
-  */
- enum {
- 	TC_SETUP_MQPRIO,
-+	TC_SETUP_CLSU32,
++	NETIF_F_HW_TC_BIT,		/* Offload TC infrastructure */
++
+ 	/*
+ 	 * Add your fresh new feature above and remember to update
+ 	 * netdev_features_strings[] in net/core/ethtool.c and maybe
+@@ -124,6 +126,7 @@ enum {
+ #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
+ #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
+ #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
++#define NETIF_F_HW_TC		__NETIF_F(HW_TC)
+ 
+ #define for_each_netdev_feature(mask_addr, bit)	\
+ 	for_each_set_bit(bit, (unsigned long *)mask_addr, NETDEV_FEATURE_COUNT)
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 65f907a..c2d3118 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -98,6 +98,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_RXALL_BIT] =            "rx-all",
+ 	[NETIF_F_HW_L2FW_DOFFLOAD_BIT] = "l2-fwd-offload",
+ 	[NETIF_F_BUSY_POLL_BIT] =        "busy-poll",
++	[NETIF_F_HW_TC_BIT] =		 "hw-tc-offload",
  };
  
-+struct tc_cls_u32_offload;
-+
- struct tc_to_netdev {
- 	unsigned int type;
- 	union {
- 		u8 tc;
-+		struct tc_cls_u32_offload *cls_u32;
- 	};
- };
- 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index bc49967..59789ca 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -358,4 +358,38 @@ tcf_match_indev(struct sk_buff *skb, int ifindex)
- }
- #endif /* CONFIG_NET_CLS_IND */
- 
-+struct tc_cls_u32_knode {
-+	struct tcf_exts *exts;
-+	u8 fshift;
-+	u32 handle;
-+	u32 val;
-+	u32 mask;
-+	u32 link_handle;
-+	struct tc_u32_sel *sel;
-+};
-+
-+struct tc_cls_u32_hnode {
-+	u32 handle;
-+	u32 prio;
-+	unsigned int divisor;
-+};
-+
-+enum tc_clsu32_command {
-+	TC_CLSU32_NEW_KNODE,
-+	TC_CLSU32_REPLACE_KNODE,
-+	TC_CLSU32_DELETE_KNODE,
-+	TC_CLSU32_NEW_HNODE,
-+	TC_CLSU32_REPLACE_HNODE,
-+	TC_CLSU32_DELETE_HNODE,
-+};
-+
-+struct tc_cls_u32_offload {
-+	/* knode values */
-+	enum tc_clsu32_command command;
-+	union {
-+		struct tc_cls_u32_knode knode;
-+		struct tc_cls_u32_hnode hnode;
-+	};
-+};
-+
- #endif
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 4fbb674..d54bc94 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -43,6 +43,7 @@
- #include <net/netlink.h>
- #include <net/act_api.h>
- #include <net/pkt_cls.h>
-+#include <linux/netdevice.h>
- 
- struct tc_u_knode {
- 	struct tc_u_knode __rcu	*next;
-@@ -424,6 +425,93 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
- 	return 0;
- }
- 
-+static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
-+{
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tc_cls_u32_offload u32_offload = {0};
-+	struct tc_to_netdev offload;
-+
-+	offload.type = TC_SETUP_CLSU32;
-+	offload.cls_u32 = &u32_offload;
-+
-+	if (dev->netdev_ops->ndo_setup_tc) {
-+		offload.cls_u32->command = TC_CLSU32_DELETE_KNODE;
-+		offload.cls_u32->knode.handle = handle;
-+		dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
-+					      tp->protocol, &offload);
-+	}
-+}
-+
-+static void u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
-+{
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tc_cls_u32_offload u32_offload = {0};
-+	struct tc_to_netdev offload;
-+
-+	offload.type = TC_SETUP_CLSU32;
-+	offload.cls_u32 = &u32_offload;
-+
-+	if (dev->netdev_ops->ndo_setup_tc) {
-+		offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
-+		offload.cls_u32->hnode.divisor = h->divisor;
-+		offload.cls_u32->hnode.handle = h->handle;
-+		offload.cls_u32->hnode.prio = h->prio;
-+
-+		dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
-+					      tp->protocol, &offload);
-+	}
-+}
-+
-+static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
-+{
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tc_cls_u32_offload u32_offload = {0};
-+	struct tc_to_netdev offload;
-+
-+	offload.type = TC_SETUP_CLSU32;
-+	offload.cls_u32 = &u32_offload;
-+
-+	if (dev->netdev_ops->ndo_setup_tc) {
-+		offload.cls_u32->command = TC_CLSU32_DELETE_HNODE;
-+		offload.cls_u32->hnode.divisor = h->divisor;
-+		offload.cls_u32->hnode.handle = h->handle;
-+		offload.cls_u32->hnode.prio = h->prio;
-+
-+		dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
-+					      tp->protocol, &offload);
-+	}
-+}
-+
-+static void u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n)
-+{
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tc_cls_u32_offload u32_offload = {0};
-+	struct tc_to_netdev offload;
-+
-+	offload.type = TC_SETUP_CLSU32;
-+	offload.cls_u32 = &u32_offload;
-+
-+	if (dev->netdev_ops->ndo_setup_tc) {
-+		offload.cls_u32->command = TC_CLSU32_REPLACE_KNODE;
-+		offload.cls_u32->knode.handle = n->handle;
-+		offload.cls_u32->knode.fshift = n->fshift;
-+#ifdef CONFIG_CLS_U32_MARK
-+		offload.cls_u32->knode.val = n->val;
-+		offload.cls_u32->knode.mask = n->mask;
-+#else
-+		offload.cls_u32->knode.val = 0;
-+		offload.cls_u32->knode.mask = 0;
-+#endif
-+		offload.cls_u32->knode.sel = &n->sel;
-+		offload.cls_u32->knode.exts = &n->exts;
-+		if (n->ht_down)
-+			offload.cls_u32->knode.link_handle = n->ht_down->handle;
-+
-+		dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
-+					      tp->protocol, &offload);
-+	}
-+}
-+
- static void u32_clear_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
- {
- 	struct tc_u_knode *n;
-@@ -434,6 +522,7 @@ static void u32_clear_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
- 			RCU_INIT_POINTER(ht->ht[h],
- 					 rtnl_dereference(n->next));
- 			tcf_unbind_filter(tp, &n->res);
-+			u32_remove_hw_knode(tp, n->handle);
- 			call_rcu(&n->rcu, u32_delete_key_freepf_rcu);
- 		}
- 	}
-@@ -454,6 +543,7 @@ static int u32_destroy_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
- 	     phn;
- 	     hn = &phn->next, phn = rtnl_dereference(*hn)) {
- 		if (phn == ht) {
-+			u32_clear_hw_hnode(tp, ht);
- 			RCU_INIT_POINTER(*hn, ht->next);
- 			kfree_rcu(ht, rcu);
- 			return 0;
-@@ -540,8 +630,10 @@ static int u32_delete(struct tcf_proto *tp, unsigned long arg)
- 	if (ht == NULL)
- 		return 0;
- 
--	if (TC_U32_KEY(ht->handle))
-+	if (TC_U32_KEY(ht->handle)) {
-+		u32_remove_hw_knode(tp, ht->handle);
- 		return u32_delete_key(tp, (struct tc_u_knode *)ht);
-+	}
- 
- 	if (root_ht == ht)
- 		return -EINVAL;
-@@ -769,6 +861,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
- 		u32_replace_knode(tp, tp_c, new);
- 		tcf_unbind_filter(tp, &n->res);
- 		call_rcu(&n->rcu, u32_delete_key_rcu);
-+		u32_replace_hw_knode(tp, new);
- 		return 0;
- 	}
- 
-@@ -795,6 +888,8 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
- 		RCU_INIT_POINTER(ht->next, tp_c->hlist);
- 		rcu_assign_pointer(tp_c->hlist, ht);
- 		*arg = (unsigned long)ht;
-+
-+		u32_replace_hw_hnode(tp, ht);
- 		return 0;
- 	}
- 
-@@ -877,7 +972,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
- 
- 		RCU_INIT_POINTER(n->next, pins);
- 		rcu_assign_pointer(*ins, n);
--
-+		u32_replace_hw_knode(tp, n);
- 		*arg = (unsigned long)n;
- 		return 0;
- 	}
+ static const char
