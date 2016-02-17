@@ -1,32 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: md5: release request socket instead of
- listener
-Date: Tue, 16 Feb 2016 20:26:45 -0500 (EST)
-Message-ID: <20160216.202645.701144805274843634.davem@davemloft.net>
-References: <1455259829-17501-1-git-send-email-edumazet@google.com>
+Subject: Re: [PATCH net-next] tcp: add tcpi_min_rtt and tcpi_notsent_bytes
+ to tcp_info
+Date: Tue, 16 Feb 2016 20:28:07 -0500 (EST)
+Message-ID: <20160216.202807.2176931987212796992.davem@davemloft.net>
+References: <1455256973.18740.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: edumazet@google.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42564 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42584 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933123AbcBQB0s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 20:26:48 -0500
-In-Reply-To: <1455259829-17501-1-git-send-email-edumazet@google.com>
+	with ESMTP id S933587AbcBQB2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 20:28:09 -0500
+In-Reply-To: <1455256973.18740.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Thu, 11 Feb 2016 22:50:29 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 11 Feb 2016 22:02:53 -0800
 
-> If tcp_v4_inbound_md5_hash() returns an error, we must release
-> the refcount on the request socket, not on the listener.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> The bug was added for IPv4 only.
+> tcpi_min_rtt reports the minimal rtt observed by TCP stack for the flow,
+> in usec unit. Might be ~0U if not yet known.
 > 
-> Fixes: 079096f103fac ("tcp/dccp: install syn_recv requests into ehash table")
+> tcpi_notsent_bytes reports the amount of bytes in the write queue that
+> were not yet sent.
+> 
+> This is done in a single patch to not add a temporary 32bit padding hole
+> in tcp_info.
+> 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied and queued up for -stable, thanks Eric.
+Applied, thanks.
