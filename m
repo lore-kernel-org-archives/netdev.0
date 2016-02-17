@@ -1,81 +1,76 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH v3 7/8] net: ixgbe: add support for tc_u32
- offload
-Date: Wed, 17 Feb 2016 06:17:26 -0500
-Message-ID: <56C456C6.60308@mojatatu.com>
-References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
- <20160217051853.17139.76889.stgit@john-Precision-Tower-5810>
+Subject: Re: [net-next PATCH v2 1/1] net_sched fix: reclassification needs to
+ consider ether protocol changes
+Date: Wed, 17 Feb 2016 06:19:59 -0500
+Message-ID: <56C4575F.5080609@mojatatu.com>
+References: <1455626225-16382-1-git-send-email-jhs@emojatatu.com>
+ <56C33E58.9090007@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: John Fastabend <john.fastabend@gmail.com>, jiri@resnulli.us,
-	amir@vadai.me, davem@davemloft.net
+Cc: netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:36773 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161149AbcBQLR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 06:17:29 -0500
-Received: by mail-io0-f173.google.com with SMTP id l127so32799854iof.3
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 03:17:28 -0800 (PST)
-In-Reply-To: <20160217051853.17139.76889.stgit@john-Precision-Tower-5810>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:35199 "EHLO
+	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161157AbcBQLUB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 06:20:01 -0500
+Received: by mail-io0-f180.google.com with SMTP id g203so33239791iof.2
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 03:20:01 -0800 (PST)
+In-Reply-To: <56C33E58.9090007@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-17 12:18 AM, John Fastabend wrote:
-> This adds initial support for offloading the u32 tc classifier. This
-> initial implementation only implements a few base matches and actions
-> to illustrate the use of the infrastructure patches.
+On 16-02-16 10:20 AM, Daniel Borkmann wrote:
+> On 02/16/2016 01:37 PM, Jamal Hadi Salim wrote:
+>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>>
+>> actions could change the etherproto in particular with ethernet
+>> tunnelled data. Typically such actions, after peeling the outer header,
+>> will ask for the packet to be  reclassified. We then need to restart
+>> the classification with the new proto header.
+>>
+>> Example setup used to catch this:
+>> sudo tc qdisc add dev $ETH ingress
+>> sudo $TC filter add dev $ETH parent ffff: pref 1 protocol 802.1Q \
+>> u32 match u32 0 0 flowid 1:1 \
+>> action vlan pop reclassify
+>>
+>> Fixes: 3b3ae880266d ("net: sched: consolidate tc_classify{,_compat}")
+>> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>> ---
+>>   net/sched/sch_api.c | 7 ++++---
+>>   1 file changed, 4 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+>> index b5c2cf2..22ab634 100644
+>> --- a/net/sched/sch_api.c
+>> +++ b/net/sched/sch_api.c
+>> @@ -1818,13 +1818,14 @@ done:
+>>   int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+>>           struct tcf_result *res, bool compat_mode)
+>>   {
+>> -    __be16 protocol = tc_skb_protocol(skb);
+>>   #ifdef CONFIG_NET_CLS_ACT
+>> -    const struct tcf_proto *old_tp = tp;
+>>       int limit = 0;
+>> +#endif
+>> +    const struct tcf_proto *old_tp = tp;
+>> +    __be16 protocol;
+>>
+>>   reclassify:
+>> -#endif
+>> +    protocol = tc_skb_protocol(skb);
+>>       for (; tp; tp = rcu_dereference_bh(tp->next)) {
+>>           int err;
+>>
 >
-> However it is an interesting subset because it handles the u32 next
-> hdr logic to correctly map tcp packets from ip headers using the ihl
-> and protocol fields. After this is accepted we can extend the match
-> and action fields easily by updating the model header file.
->
-> Also only the drop action is supported initially.
->
-> Here is a short test script,
->
->   #tc qdisc add dev eth4 ingress
->   #tc filter add dev eth4 parent ffff: protocol ip \
-> 	u32 ht 800: order 1 \
-> 	match ip dst 15.0.0.1/32 match ip src 15.0.0.2/32 action drop
+> But, how is that better than the one-liner I suggested to you in
+> my earlier mail?
 >
 
-Note: i dont see anything that says "hw". Are you delegating ht 0x800
-for h/w only? It is the default ht; so may not be the best choice.
-
-> <-- hardware has dst/src ip match rule installed -->
->
->   #tc filter del dev eth4 parent ffff: prio 49152
-
-Would be useful to dump the installed rule so user gets to
-see kernel-assigned prio 49152. The better way
-to do this is use the handle 800::1 as opposed to prio.
-
->   #tc filter add dev eth4 parent ffff: protocol ip prio 99 \
-> 	handle 1: u32 divisor 1
->   #tc filter add dev eth4 protocol ip parent ffff: prio 99 \
-> 	u32 ht 800: order 1 link 1: \
-> 	offset at 0 mask 0f00 shift 6 plus 0 eat match ip protocol 6 ff
->   #tc filter add dev eth4 parent ffff: protocol ip \
-> 	u32 ht 1: order 3 match tcp src 23 ffff action drop
->
-> <-- hardware has tcp src port rule installed -->
->
->   #tc qdisc del dev eth4 parent ffff:
->
-> <-- hardware cleaned up -->
->
-
-All looks cool but I am just worried about the lack of intent that
-something needs to go to hw vs sw. Other worry:
-What happens when things fail to install in hw?
-As it stands right now your assumption is all default rules go to h/w.
-And failure to install is not handled.
-I know Dave wants to push this in so a followup sets of patches to
-address this is fine by me. Otherwise if it is not too much work, please
-address this.
+Thats how the original code was (and what i tested). I dont have time
+to test right now but i will send an update with your suggestion.
 
 cheers,
 jamal
