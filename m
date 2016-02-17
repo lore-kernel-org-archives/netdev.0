@@ -1,37 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: macb: Add support for phy-handle binding
-Date: Wed, 17 Feb 2016 13:55:15 -0500 (EST)
-Message-ID: <20160217.135515.2062303835595535344.davem@davemloft.net>
-References: <1455379368-18739-1-git-send-email-nathan@nathanrossi.com>
-	<20160217.121414.529895298809970981.davem@davemloft.net>
-	<CA+aJhH13H87z4=SBvZaOjND3RZRDSyxBp1ctYD5ssHKHg5eToQ@mail.gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net] net: make netdev_for_each_lower_dev safe for device
+ removal
+Date: Wed, 17 Feb 2016 12:01:10 -0700
+Message-ID: <56C4C376.2000400@cumulusnetworks.com>
+References: <1455728431-21976-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nicolas.ferre@atmel.com
-To: nathan@nathanrossi.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+aJhH13H87z4=SBvZaOjND3RZRDSyxBp1ctYD5ssHKHg5eToQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: Nikolay Aleksandrov <razor@blackwall.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:33542 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030250AbcBQTBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 14:01:12 -0500
+Received: by mail-ob0-f172.google.com with SMTP id jq7so29094146obb.0
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 11:01:12 -0800 (PST)
+In-Reply-To: <1455728431-21976-1-git-send-email-razor@blackwall.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nathan Rossi <nathan@nathanrossi.com>
-Date: Thu, 18 Feb 2016 04:44:35 +1000
+On 2/17/16 10:00 AM, Nikolay Aleksandrov wrote:
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>
+> When I used netdev_for_each_lower_dev in commit bad531623253 ("vrf:
+> remove slave queue and private slave struct") I thought that it acts
+> like netdev_for_each_lower_private and can be used to remove the current
+> device from the list while walking, but unfortunately it acts more like
+> netdev_for_each_lower_private_rcu and doesn't allow it. The difference
+> is where the "iter" points to, right now it points to the current element
+> and that makes it impossible to remove it. Change the logic to be
+> similar to netdev_for_each_lower_private and make it point to the "next"
+> element so we can safely delete the current one. VRF is the only such
+> user right now, there's no change for the read-only users.
+>
 
-> On Thu, Feb 18, 2016 at 3:14 AM, David Miller <davem@davemloft.net> wrote:
->> All of these special cases we use (all the DT bindings are in text
->> files in the kernel sources, we control all of the bootloaders, etc.)
->> is the most shaky foundation I've ever seen upon which to erect a
->> stable device probing mechanism.
->>
->> I'm not applying this patch until you add an error handling path from
->> the of_phy_connect() call that will do the existing PHY probing sequence
->> by hand using phy_find_first().
-> 
-> I am not quite sure how to handle that in a way such as to also allow
-> for the probe deferral in the event that the phydev/mdio bus which the
-> phy-handle points at is not yet probed itself. But I guess the real
-> question is whether or not to handle the deferral at all?
+-----8<-----
 
-I think we need some experts in this area to chime in on this issue.
+>
+> CC: David Ahern <dsa@cumulusnetworks.com>
+> CC: David S. Miller <davem@davemloft.net>
+> CC: Roopa Prabhu <roopa@cumulusnetworks.com>
+> CC: Vlad Yasevich <vyasevic@redhat.com>
+> Fixes: bad531623253 ("vrf: remove slave queue and private slave struct")
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> ---
+>   include/linux/netdevice.h | 2 +-
+>   net/core/dev.c            | 4 ++--
+>   2 files changed, 3 insertions(+), 3 deletions(-)
+
+Solves the problem for me. Thanks for the quick turnaround, Nik.
+
+Reviewed-by / Tested-by: David Ahern <dsa@cumulusnetworks.com>
