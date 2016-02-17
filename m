@@ -1,48 +1,57 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 2/2] phy: marvell: Add support for phy packet
- generator
-Date: Wed, 17 Feb 2016 15:49:45 -0800
-Message-ID: <56C50719.7070608@gmail.com>
-References: <1455741127-25453-1-git-send-email-andrew@lunn.ch>
- <1455741127-25453-3-git-send-email-andrew@lunn.ch>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH nf-next v7 4/7] openvswitch: Find existing conntrack entry
+ after upcall.
+Date: Wed, 17 Feb 2016 15:50:32 -0800
+Message-ID: <CAPWQB7E7bKQVKxhLwA5_VJnon+U3j+1nZOiNWcqQ=CjEG=jn5w@mail.gmail.com>
+References: <1454722865-59558-1-git-send-email-jarno@ovn.org> <1454722865-59558-5-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>
+To: Jarno Rajahalme <jarno@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:34168 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965013AbcBQXts (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 18:49:48 -0500
-Received: by mail-ob0-f174.google.com with SMTP id wb13so41129155obb.1
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 15:49:47 -0800 (PST)
-In-Reply-To: <1455741127-25453-3-git-send-email-andrew@lunn.ch>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:44933 "EHLO
+	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965013AbcBQXu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 18:50:56 -0500
+In-Reply-To: <1454722865-59558-5-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17/02/2016 12:32, Andrew Lunn wrote:
-> +static int marvell_pkt_gen(struct phy_device *phydev,
-> +			   struct ethtool_phy_pkt_gen *pkt_gen)
-> +{
-> +	int err, oldpage, reg, max_loop = 100;
-> +	u32 phy_id = phydev->drv->phy_id;
-> +	bool has_ipg = false;
+On 5 February 2016 at 17:41, Jarno Rajahalme <jarno@ovn.org> wrote:
+<snip>
+>  /* Determine whether skb->nfct is equal to the result of conntrack lookup. */
+> -static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
+> -                           const struct ovs_conntrack_info *info)
+> +static bool skb_nfct_cached(struct net *net,
+> +                           const struct sw_flow_key *key,
+> +                           const struct ovs_conntrack_info *info,
+> +                           struct sk_buff *skb)
+>  {
+>         enum ip_conntrack_info ctinfo;
+>         struct nf_conn *ct;
+>
+>         ct = nf_ct_get(skb, &ctinfo);
+> +       /* If no ct, check if we have evidence that an existing conntrack entry
+> +        * might be found for this skb.  This happens when we lose a skb->nfct
+> +        * due to an upcall.  If the connection was not confirmed, it is not
+> +        * cached and needs to be run through conntrack again. */
+> +       if (!ct && key->ct.state & OVS_CS_F_TRACKED
+> +           && !(key->ct.state & OVS_CS_F_INVALID)
+> +           && key->ct.zone == info->zone.id)
+> +               ct = ovs_ct_find_existing(net, &info->zone, info->family, skb,
+> +                                         &ctinfo);
+>         if (!ct)
+>                 return false;
 
-[snip]
+Logically I think that this makes more sense residing within
+__ovs_ct_lookup() and actually populating skb->{nfct,nfctinfo} prior
+to making this call to skb_nfct_cached() which answers the question
+"Is skb->nfct the same as if I did a lookup?". Maybe a better name for
+this function is something like ovs_ct_cmp() as it compares the skb's
+nfct against the OVS structures.
 
-
-> +
-> +	do {
-> +		usleep_range(3000, 4000);
-> +		reg = phy_read(phydev, MII_88E1540_PKT_GEN);
-> +	} while (max_loop-- && (reg & MII_88E1540_PKT_GEN_ENABLE));
-> +
-> +	if (!max_loop)
-> +		err = -ETIMEDOUT;
-
-If I am a HW engineer trying to qualify a PHY after enabling the random
-packet generator built into it, I might prefer a "start generation" and
-"stop generation" (this echoes back to Ben's comments on the ethtool
-API) as opposed to calling the same function multiple times, because the
-duration will vary based on link speed, and potentially models of PHYs too.
+The call to nf_ct_get() could move out into __ovs_ct_lookup(), then
+just pass the 'ct' into here. I see that a later patch already adds
+another call to nf_ct_get() into __ovs_ct_lookup(), which should only
+be necessary in the case where it is not already cached.
