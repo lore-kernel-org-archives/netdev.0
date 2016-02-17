@@ -1,56 +1,63 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional
-Date: Wed, 17 Feb 2016 11:09:29 -0700
-Message-ID: <56C4B759.70504@cumulusnetworks.com>
-References: <1455402207-9217-1-git-send-email-dsa@cumulusnetworks.com>
- <20160217.130504.1799252766739262191.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: David Miller <davem@davemloft.net>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net v2] lwt: fix rx checksum setting for lwt devices tunneling over ipv6
+Date: Wed, 17 Feb 2016 19:30:01 +0100
+Message-ID: <244994c83cb73d98205f39aaefcee846dab48260.1455731463.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+	Jiri Benc <jbenc@redhat.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Tom Herbert <tom@herbertland.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:36080 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752605AbcBQSJc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 13:09:32 -0500
-Received: by mail-ob0-f182.google.com with SMTP id gc3so26194111obb.3
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 10:09:31 -0800 (PST)
-In-Reply-To: <20160217.130504.1799252766739262191.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:43115 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932113AbcBQSaP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 13:30:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/17/16 11:05 AM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Sat, 13 Feb 2016 14:23:27 -0800
->
->> @@ -3427,31 +3493,52 @@ static int addrconf_ifdown(struct net_device *dev, int how)
->>   		write_lock_bh(&idev->lock);
->>   	}
->>
->> -	while (!list_empty(&idev->addr_list)) {
->> -		ifa = list_first_entry(&idev->addr_list,
->> -				       struct inet6_ifaddr, if_list);
->> -		addrconf_del_dad_work(ifa);
->> +	INIT_LIST_HEAD(&del_list);
->> +	list_for_each_entry_safe(ifa, tmp, &idev->addr_list, if_list) {
->> +		bool keep_ifa = false;
->>
->> -		list_del(&ifa->if_list);
->> +		if (!how && keep_addr && ifa->user_managed)
->> +			keep_ifa = true;
->
-> I think it would make sense to evaluate "!how && keep_addr" outside the
-> loop.  The only thing that changes is ifa->user_managed on each iteration.
->
-> But I also want some more documentation in what you are doing here.
->
-> I understand the address flushing on ifdown avoidance, but all of this
-> user_managed logic is not mentioned at all.  Why do you need it?  What
-> role does it play in achieving your goal?
->
+the commit 35e2d1152b22 ("tunnels: Allow IPv6 UDP checksums to be
+correctly controlled.") changed the default xmit checksum setting
+for lwt vxlan/geneve ipv6 tunnels, so that now the checksum is not
+set into external UDP header.
+This commit changes the rx checksum setting for both lwt vxlan/geneve
+devices created by openvswitch accordingly, so that lwt over ipv6
+tunnel pairs are again able to communicate with default values.
 
-Per prior comment user_managed will go away in favor of checking 
-IFA_F_PERMANENT. We are only keeping permanent addresses which in past 
-versions of the patch were marked with user_managed flag but it is 
-redundant.
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+v2: rebased against current -net
+---
+ drivers/net/geneve.c          | 3 ++-
+ net/openvswitch/vport-vxlan.c | 2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 028e387..3496d78 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -1452,7 +1452,8 @@ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
+ 		return dev;
+ 
+ 	err = geneve_configure(net, dev, &geneve_remote_unspec,
+-			       0, 0, 0, htons(dst_port), true, 0);
++			       0, 0, 0, htons(dst_port), true,
++			       GENEVE_F_UDP_ZERO_CSUM6_RX);
+ 	if (err)
+ 		goto err;
+ 
+diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+index de9cb19..5eb7694 100644
+--- a/net/openvswitch/vport-vxlan.c
++++ b/net/openvswitch/vport-vxlan.c
+@@ -90,7 +90,7 @@ static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
+ 	int err;
+ 	struct vxlan_config conf = {
+ 		.no_share = true,
+-		.flags = VXLAN_F_COLLECT_METADATA,
++		.flags = VXLAN_F_COLLECT_METADATA | VXLAN_F_UDP_ZERO_CSUM6_RX,
+ 		/* Don't restrict the packets that can be sent by MTU */
+ 		.mtu = IP_MAX_MTU,
+ 	};
+-- 
+1.8.3.1
