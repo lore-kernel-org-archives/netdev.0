@@ -1,260 +1,135 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 9/9] amd-xgbe: Mask auto-negotiation interrupts
- in ISR
-Date: Wed, 17 Feb 2016 11:49:28 -0600
-Message-ID: <20160217174928.26246.61123.stgit@tlendack-t1.amdoffice.net>
-References: <20160217174758.26246.15641.stgit@tlendack-t1.amdoffice.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/15] i40e: add priv flag for automatic rule eviction
+Date: Wed, 17 Feb 2016 09:51:45 -0800
+Message-ID: <1455731506-62165-15-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1455731506-62165-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0070.outbound.protection.outlook.com ([157.56.110.70]:2896
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1161540AbcBQRtj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 12:49:39 -0500
-In-Reply-To: <20160217174758.26246.15641.stgit@tlendack-t1.amdoffice.net>
+Received: from mga11.intel.com ([192.55.52.93]:28480 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161651AbcBQRvx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 12:51:53 -0500
+In-Reply-To: <1455731506-62165-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the auto-negotiation interrupt handling disables the irq
-instead of masking off the interrupts. This was done because the phy
-library was originally used to read and write the PCS registers, which
-could not be performed in interrupt context. Now that the phy library is
-no longer used to read and write the PCS registers the interrupts can be
-masked off in the interrupt service routine eliminating the need to call
-disable_irq/enable_irq. This also requires changing the protection mutex
-to a spinlock.
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+The X722 can support automatic rule eviction for automatically added
+flow director rules.  Feature is (should be) disabled by default.
+
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c  |   10 +++--
- drivers/net/ethernet/amd/xgbe/xgbe-main.c |    6 ++-
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c |   53 ++++++++++++++++-------------
- drivers/net/ethernet/amd/xgbe/xgbe.h      |    5 ++-
- 4 files changed, 41 insertions(+), 33 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         | 1 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 9 +++++++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 3 +++
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c    | 6 ++++--
+ drivers/net/ethernet/intel/i40e/i40e_type.h    | 4 ++++
+ 5 files changed, 21 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index b48c6ec..1babcc1 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1022,6 +1022,7 @@ static int xgbe_config_rx_mode(struct xgbe_prv_data *pdata)
- static int xgbe_read_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
- 			      int mmd_reg)
- {
-+	unsigned long flags;
- 	unsigned int mmd_address;
- 	int mmd_data;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 65cf344..05af33e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -104,6 +104,7 @@
+ #define I40E_PRIV_FLAGS_FD_ATR		BIT(2)
+ #define I40E_PRIV_FLAGS_VEB_STATS	BIT(3)
+ #define I40E_PRIV_FLAGS_PS		BIT(4)
++#define I40E_PRIV_FLAGS_HW_ATR_EVICT	BIT(5)
  
-@@ -1039,10 +1040,10 @@ static int xgbe_read_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
- 	 * register offsets must therefore be adjusted by left shifting the
- 	 * offset 2 bits and reading 32 bits of data.
- 	 */
--	mutex_lock(&pdata->xpcs_mutex);
-+	spin_lock_irqsave(&pdata->xpcs_lock, flags);
- 	XPCS_IOWRITE(pdata, PCS_MMD_SELECT << 2, mmd_address >> 8);
- 	mmd_data = XPCS_IOREAD(pdata, (mmd_address & 0xff) << 2);
--	mutex_unlock(&pdata->xpcs_mutex);
-+	spin_unlock_irqrestore(&pdata->xpcs_lock, flags);
+ #define I40E_NVM_VERSION_LO_SHIFT  0
+ #define I40E_NVM_VERSION_LO_MASK   (0xff << I40E_NVM_VERSION_LO_SHIFT)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 9dcdf34..89ad2f7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -235,6 +235,7 @@ static const char i40e_priv_flags_strings[][ETH_GSTRING_LEN] = {
+ 	"flow-director-atr",
+ 	"veb-stats",
+ 	"packet-split",
++	"hw-atr-eviction",
+ };
  
- 	return mmd_data;
+ #define I40E_PRIV_FLAGS_STR_LEN ARRAY_SIZE(i40e_priv_flags_strings)
+@@ -2731,6 +2732,8 @@ static u32 i40e_get_priv_flags(struct net_device *dev)
+ 		I40E_PRIV_FLAGS_VEB_STATS : 0;
+ 	ret_flags |= pf->flags & I40E_FLAG_RX_PS_ENABLED ?
+ 		I40E_PRIV_FLAGS_PS : 0;
++	ret_flags |= pf->auto_disable_flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE ?
++		0 : I40E_PRIV_FLAGS_HW_ATR_EVICT;
+ 
+ 	return ret_flags;
  }
-@@ -1051,6 +1052,7 @@ static void xgbe_write_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
- 				int mmd_reg, int mmd_data)
- {
- 	unsigned int mmd_address;
-+	unsigned long flags;
+@@ -2787,6 +2790,12 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
+ 	else
+ 		pf->flags &= ~I40E_FLAG_VEB_STATS_ENABLED;
  
- 	if (mmd_reg & MII_ADDR_C45)
- 		mmd_address = mmd_reg & ~MII_ADDR_C45;
-@@ -1066,10 +1068,10 @@ static void xgbe_write_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
- 	 * register offsets must therefore be adjusted by left shifting the
- 	 * offset 2 bits and reading 32 bits of data.
- 	 */
--	mutex_lock(&pdata->xpcs_mutex);
-+	spin_lock_irqsave(&pdata->xpcs_lock, flags);
- 	XPCS_IOWRITE(pdata, PCS_MMD_SELECT << 2, mmd_address >> 8);
- 	XPCS_IOWRITE(pdata, (mmd_address & 0xff) << 2, mmd_data);
--	mutex_unlock(&pdata->xpcs_mutex);
-+	spin_unlock_irqrestore(&pdata->xpcs_lock, flags);
- }
- 
- static int xgbe_tx_complete(struct xgbe_ring_desc *rdesc)
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index 618d952..3eee320 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -6,7 +6,7 @@
-  *
-  * License 1: GPLv2
-  *
-- * Copyright (c) 2014 Advanced Micro Devices, Inc.
-+ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
-  *
-  * This file is free software; you may copy, redistribute and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -56,7 +56,7 @@
-  *
-  * License 2: Modified BSD
-  *
-- * Copyright (c) 2014 Advanced Micro Devices, Inc.
-+ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -363,7 +363,7 @@ static int xgbe_probe(struct platform_device *pdev)
- 	platform_set_drvdata(pdev, netdev);
- 
- 	spin_lock_init(&pdata->lock);
--	mutex_init(&pdata->xpcs_mutex);
-+	spin_lock_init(&pdata->xpcs_lock);
- 	mutex_init(&pdata->rss_mutex);
- 	spin_lock_init(&pdata->tstamp_lock);
- 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-index 4460580..84c5d29 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-@@ -6,7 +6,7 @@
-  *
-  * License 1: GPLv2
-  *
-- * Copyright (c) 2014 Advanced Micro Devices, Inc.
-+ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
-  *
-  * This file is free software; you may copy, redistribute and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -56,7 +56,7 @@
-  *
-  * License 2: Modified BSD
-  *
-- * Copyright (c) 2014 Advanced Micro Devices, Inc.
-+ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -626,10 +626,22 @@ static irqreturn_t xgbe_an_isr(int irq, void *data)
- 
- 	netif_dbg(pdata, intr, pdata->netdev, "AN interrupt received\n");
- 
--	/* Interrupt reason must be read and cleared outside of IRQ context */
--	disable_irq_nosync(pdata->an_irq);
-+	/* Disable AN interrupts */
-+	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, 0);
++	if ((flags & I40E_PRIV_FLAGS_HW_ATR_EVICT) &&
++	    (pf->flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE))
++		pf->auto_disable_flags &= ~I40E_FLAG_HW_ATR_EVICT_CAPABLE;
++	else
++		pf->auto_disable_flags |= I40E_FLAG_HW_ATR_EVICT_CAPABLE;
 +
-+	/* Save the interrupt(s) that fired */
-+	pdata->an_int = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_INT);
- 
--	queue_work(pdata->an_workqueue, &pdata->an_irq_work);
-+	if (pdata->an_int) {
-+		/* Clear the interrupt(s) that fired and process them */
-+		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, ~pdata->an_int);
-+
-+		queue_work(pdata->an_workqueue, &pdata->an_irq_work);
+ 	/* if needed, issue reset to cause things to take effect */
+ 	if (reset_required)
+ 		i40e_do_reset(pf, BIT(__I40E_PF_RESET_REQUESTED));
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 99d7a5c..f6d61cc 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8464,6 +8464,9 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 		    (pf->hw.aq.api_min_ver > 4))) {
+ 		/* Supported in FW API version higher than 1.4 */
+ 		pf->flags |= I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
++		pf->auto_disable_flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
 +	} else {
-+		/* Enable AN interrupts */
-+		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK,
-+			    XGBE_AN_INT_MASK);
-+	}
- 
- 	return IRQ_HANDLED;
- }
-@@ -673,34 +685,26 @@ static void xgbe_an_state_machine(struct work_struct *work)
- 						   struct xgbe_prv_data,
- 						   an_work);
- 	enum xgbe_an cur_state = pdata->an_state;
--	unsigned int int_reg, int_mask;
- 
- 	mutex_lock(&pdata->an_mutex);
- 
--	/* Read the interrupt */
--	int_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_INT);
--	if (!int_reg)
-+	if (!pdata->an_int)
- 		goto out;
- 
- next_int:
--	if (int_reg & XGBE_AN_PG_RCV) {
-+	if (pdata->an_int & XGBE_AN_PG_RCV) {
- 		pdata->an_state = XGBE_AN_PAGE_RECEIVED;
--		int_mask = XGBE_AN_PG_RCV;
--	} else if (int_reg & XGBE_AN_INC_LINK) {
-+		pdata->an_int &= ~XGBE_AN_PG_RCV;
-+	} else if (pdata->an_int & XGBE_AN_INC_LINK) {
- 		pdata->an_state = XGBE_AN_INCOMPAT_LINK;
--		int_mask = XGBE_AN_INC_LINK;
--	} else if (int_reg & XGBE_AN_INT_CMPLT) {
-+		pdata->an_int &= ~XGBE_AN_INC_LINK;
-+	} else if (pdata->an_int & XGBE_AN_INT_CMPLT) {
- 		pdata->an_state = XGBE_AN_COMPLETE;
--		int_mask = XGBE_AN_INT_CMPLT;
-+		pdata->an_int &= ~XGBE_AN_INT_CMPLT;
- 	} else {
- 		pdata->an_state = XGBE_AN_ERROR;
--		int_mask = 0;
++		pf->auto_disable_flags = I40E_FLAG_HW_ATR_EVICT_CAPABLE;
  	}
  
--	/* Clear the interrupt to be processed */
--	int_reg &= ~int_mask;
--	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, int_reg);
--
- 	pdata->an_result = pdata->an_state;
+ 	pf->eeprom_version = 0xDEAD;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 15130b5d..6d1dd60 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2047,7 +2047,8 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	/* Due to lack of space, no more new filters can be programmed */
+ 	if (th->syn && (pf->auto_disable_flags & I40E_FLAG_FD_ATR_ENABLED))
+ 		return;
+-	if (pf->flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE) {
++	if ((pf->flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE) &&
++	    (!(pf->auto_disable_flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE))) {
+ 		/* HW ATR eviction will take care of removing filters on FIN
+ 		 * and RST packets.
+ 		 */
+@@ -2109,7 +2110,8 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 			I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT) &
+ 			I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
  
- again:
-@@ -740,14 +744,14 @@ again:
- 	}
+-	if (pf->flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE)
++	if ((pf->flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE) &&
++	    (!(pf->auto_disable_flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE)))
+ 		dtype_cmd |= I40E_TXD_FLTR_QW1_ATR_MASK;
  
- 	if (pdata->an_state == XGBE_AN_NO_LINK) {
--		int_reg = 0;
-+		pdata->an_int = 0;
- 		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
- 	} else if (pdata->an_state == XGBE_AN_ERROR) {
- 		netdev_err(pdata->netdev,
- 			   "error during auto-negotiation, state=%u\n",
- 			   cur_state);
+ 	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32(flex_ptype);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index dd2da35..b59a021 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -1098,6 +1098,10 @@ enum i40e_filter_program_desc_pcmd {
+ 					 I40E_TXD_FLTR_QW1_CMD_SHIFT)
+ #define I40E_TXD_FLTR_QW1_ATR_MASK	BIT_ULL(I40E_TXD_FLTR_QW1_ATR_SHIFT)
  
--		int_reg = 0;
-+		pdata->an_int = 0;
- 		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
- 	}
- 
-@@ -765,11 +769,12 @@ again:
- 	if (cur_state != pdata->an_state)
- 		goto again;
- 
--	if (int_reg)
-+	if (pdata->an_int)
- 		goto next_int;
- 
- out:
--	enable_irq(pdata->an_irq);
-+	/* Enable AN interrupts on the way out */
-+	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, XGBE_AN_INT_MASK);
- 
- 	mutex_unlock(&pdata->an_mutex);
- }
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index ca28354..98d9d63 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -774,8 +774,8 @@ struct xgbe_prv_data {
- 	/* Overall device lock */
- 	spinlock_t lock;
- 
--	/* XPCS indirect addressing mutex */
--	struct mutex xpcs_mutex;
-+	/* XPCS indirect addressing lock */
-+	spinlock_t xpcs_lock;
- 
- 	/* RSS addressing mutex */
- 	struct mutex rss_mutex;
-@@ -927,6 +927,7 @@ struct xgbe_prv_data {
- 	u32 serdes_dfe_tap_ena[XGBE_SPEEDS];
- 
- 	/* Auto-negotiation state machine support */
-+	unsigned int an_int;
- 	struct mutex an_mutex;
- 	enum xgbe_an an_result;
- 	enum xgbe_an an_state;
++#define I40E_TXD_FLTR_QW1_ATR_SHIFT	(0xEULL + \
++					 I40E_TXD_FLTR_QW1_CMD_SHIFT)
++#define I40E_TXD_FLTR_QW1_ATR_MASK	BIT_ULL(I40E_TXD_FLTR_QW1_ATR_SHIFT)
++
+ #define I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT 20
+ #define I40E_TXD_FLTR_QW1_CNTINDEX_MASK	(0x1FFUL << \
+ 					 I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT)
+-- 
+2.5.0
