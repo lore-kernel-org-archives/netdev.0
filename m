@@ -1,27 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/16][pull request] 40GbE Intel Wired LAN Driver
- Updates 2016-02-16
-Date: Wed, 17 Feb 2016 09:49:05 -0500 (EST)
-Message-ID: <20160217.094905.273099292933606707.davem@davemloft.net>
-References: <1455687262-20453-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Subject: [PATCH v2] lance: Return correct error code
+Date: Wed, 17 Feb 2016 20:33:26 +0530
+Message-ID: <20160217150326.GA3116@amitoj-Inspiron-3542>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52709 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423553AbcBQOtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 09:49:07 -0500
-In-Reply-To: <1455687262-20453-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: julia.lawall@lip6.fr
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 16 Feb 2016 21:34:06 -0800
+Failure of kzalloc should cause the enclosing function
+to return -ENOMEM, not -ENODEV.
 
-> This series contains updates to i40e/i40evf only.
+Additionally, removed the following checkpatch warnings:
+ERROR: spaces required around that '==' (ctx:VxV)
+ERROR: space required before the open parenthesis '('
+CHECK: Comparison to NULL could be written "!lp"
 
-Pulled, thanks Jeff.
+Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+---
+Changes in v2:
+        -Modified commit message to properly describe the change.
+
+ drivers/net/ethernet/amd/lance.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/lance.c b/drivers/net/ethernet/amd/lance.c
+index 256f590..3a7ebfd 100644
+--- a/drivers/net/ethernet/amd/lance.c
++++ b/drivers/net/ethernet/amd/lance.c
+@@ -547,8 +547,8 @@ static int __init lance_probe1(struct net_device *dev, int ioaddr, int irq, int
+ 	/* Make certain the data structures used by the LANCE are aligned and DMAble. */
+ 
+ 	lp = kzalloc(sizeof(*lp), GFP_DMA | GFP_KERNEL);
+-	if(lp==NULL)
+-		return -ENODEV;
++	if (!lp)
++		return -ENOMEM;
+ 	if (lance_debug > 6) printk(" (#0x%05lx)", (unsigned long)lp);
+ 	dev->ml_priv = lp;
+ 	lp->name = chipname;
+-- 
+1.9.1
