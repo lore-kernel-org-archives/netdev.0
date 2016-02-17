@@ -1,34 +1,30 @@
-From: "Drouet, Christian" <CDrouet@chu-grenoble.fr>
-Subject: =?iso-8859-1?Q?Copyright_=A9_2016.?=
-Date: Wed, 17 Feb 2016 22:43:14 +0000
-Message-ID: <23717C8460A9D0448877E3BCEE54C7FC7A8DC578@PROBACK15.exploitation.chug.alp>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] rtnl: RTM_GETNETCONF: fix wrong return value
+Date: Wed, 17 Feb 2016 14:57:38 -0800
+Message-ID: <CAM_iQpWUFmwoC8ovyE-+QKT1X9m+oyQWRSues72Ntttbi59jew@mail.gmail.com>
+References: <1455676996-6335-1-git-send-email-a.s.protopopov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "no-reply@webmail.edu.au" <no-reply@webmail.edu.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.chu-grenoble.fr ([193.54.74.13]:59753 "EHLO
-	mx1.chu-grenoble.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423801AbcBQWnW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 17:43:22 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Anton Protopopov <a.s.protopopov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455676996-6335-1-git-send-email-a.s.protopopov@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Feb 16, 2016 at 6:43 PM, Anton Protopopov
+<a.s.protopopov@gmail.com> wrote:
+> An error response from a RTM_GETNETCONF request can return the positive
+> error value EINVAL in the struct nlmsgerr that can mislead userspace.
+>
+> Signed-off-by: Anton Protopopov <a.s.protopopov@gmail.com>
 
+LGTM,
 
-Please Follow the link below for your mail Box account to be Upgrade to=
- the New Standard Version for fast internet protocol.
-Click on UPGRADE<http://wed455776452686.wix.com/e-mailverification> for=
- proper confirmation and verification to the new standard version.
-
-
-Thank You for your cooperation.
-
-Jay  Vankling
-
-Webmail Upgrade & Communication Department.
-
-webmail incorporation
-
-Copyright =A9 2016.
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
