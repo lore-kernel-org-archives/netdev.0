@@ -1,121 +1,52 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional
-Date: Wed, 17 Feb 2016 11:10:43 +0900
-Message-ID: <56C3D6A3.7030605@miraclelinux.com>
-References: <1455402207-9217-1-git-send-email-dsa@cumulusnetworks.com>
- <56C2E1BD.30006@miraclelinux.com> <56C33D5F.2060005@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com, hannes@stressinduktion.org
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:33298 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964967AbcBQCKr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2016 21:10:47 -0500
-Received: by mail-pf0-f173.google.com with SMTP id q63so2126673pfb.0
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2016 18:10:46 -0800 (PST)
-In-Reply-To: <56C33D5F.2060005@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Anton Protopopov <a.s.protopopov@gmail.com>
+Subject: [PATCH] rtnl: RTM_GETNETCONF: fix wrong return value
+Date: Tue, 16 Feb 2016 21:43:16 -0500
+Message-ID: <1455676996-6335-1-git-send-email-a.s.protopopov@gmail.com>
+Cc: Anton Protopopov <a.s.protopopov@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+An error response from a RTM_GETNETCONF request can return the positive
+error value EINVAL in the struct nlmsgerr that can mislead userspace.
 
-David Ahern wrote:
-> On 2/16/16 1:45 AM, YOSHIFUJI Hideaki wrote:
->>> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
->>> index 24ce97f42d35..7ddbbb67f0db 100644
->>> --- a/Documentation/networking/ip-sysctl.txt
->>> +++ b/Documentation/networking/ip-sysctl.txt
->>> @@ -1563,6 +1563,12 @@ temp_prefered_lft - INTEGER
->>>   	Preferred lifetime (in seconds) for temporary addresses.
->>>   	Default: 86400 (1 day)
->>>   
->>> +keep_addr_on_down - BOOLEAN
->>> +	Keep all IPv6 addresses on an interface down event. If set static
->>> +	global addresses with no expiration time are not flushed.
->>> +
->>> +	Default: disabled
->>> +
->>
->> How about this:
->>     1: enabled
->>     0: system default
->>    -1: disabled
->> so that an iterface can override system-wide config?
-> 
-> It is my understanding that the 'all' settings override the individual
-> interface settings. From Documentation/networking/ip-sysctl.txt +1346:
-> 
-> conf/all/*:
->         Change all the interface-specific settings.
+Signed-off-by: Anton Protopopov <a.s.protopopov@gmail.com>
+---
+ net/ipv4/devinet.c  | 2 +-
+ net/ipv6/addrconf.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Well, document is not correct.
-1) Some of "all" variables set all interface specific settings.
-2) Some of "all" variables override interface specific settings.
-3) Some provide "fall-back" values; such an interface specific
-   setting overrides the corresponding "all" variable.
-   (Note: "default" variables are values per-interface settings
-   are initialized to.)
-4) Others are ignored (the exists but no-ops).
-
-> 
-> 
-> -----8<-----
-> 
-> 
->>> diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
->>> index 1c8b6820b694..01ba6a286a4b 100644
->>> --- a/include/net/if_inet6.h
->>> +++ b/include/net/if_inet6.h
->>> @@ -72,6 +72,7 @@ struct inet6_ifaddr {
->>>   	int			regen_count;
->>>   
->>>   	bool			tokenized;
->>> +	bool			user_managed;
->>
->> Can't we use IFA_F_PERMANENT?
-> 
-> I think so. Will fix.
-> 
-> 
-> -----8<-----
-> 
->>> @@ -3356,7 +3413,9 @@ static int addrconf_ifdown(struct net_device *dev, int how)
->>>   {
->>>   	struct net *net = dev_net(dev);
->>>   	struct inet6_dev *idev;
->>> -	struct inet6_ifaddr *ifa;
->>> +	struct inet6_ifaddr *ifa, *tmp;
->>> +	struct list_head del_list;
->>> +	int keep_addr;
->>>   	int state, i;
->>>   
->>>   	ASSERT_RTNL();
->>> @@ -3383,6 +3442,10 @@ static int addrconf_ifdown(struct net_device *dev, int how)
->>>   
->>>   	}
->>>   
->>> +	keep_addr = net->ipv6.devconf_all->keep_addr_on_down;
->>> +	if (!keep_addr)
->>> +		keep_addr = idev->cnf.keep_addr_on_down;
->>> +
->>>   	/* Step 2: clear hash table */
->>>   	for (i = 0; i < IN6_ADDR_HSIZE; i++) {
->>>   		struct hlist_head *h = &inet6_addr_lst[i];
-> 
-> So what I have here is if the system-wide setting says keep the address
-> it is kept. Else if the individual interface setting is enabled the
-> address is kept.
-> 
-> 
-> 
-
-Other admin may want to enable it system-wide with some exceptions.
-
-And well, you could just check per-interface configuration; 4 above.
-
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index cebd9d3..f6303b1 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1847,7 +1847,7 @@ static int inet_netconf_get_devconf(struct sk_buff *in_skb,
+ 	if (err < 0)
+ 		goto errout;
+ 
+-	err = EINVAL;
++	err = -EINVAL;
+ 	if (!tb[NETCONFA_IFINDEX])
+ 		goto errout;
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 9efd9ff..bdd7eac 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -583,7 +583,7 @@ static int inet6_netconf_get_devconf(struct sk_buff *in_skb,
+ 	if (err < 0)
+ 		goto errout;
+ 
+-	err = EINVAL;
++	err = -EINVAL;
+ 	if (!tb[NETCONFA_IFINDEX])
+ 		goto errout;
+ 
 -- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+2.6.5
