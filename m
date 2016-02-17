@@ -1,69 +1,112 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH] Revert "net: sched: drop all special handling of
- tx_queue_len == 0"
-Date: Wed, 17 Feb 2016 13:47:07 +0100
-Message-ID: <20160217124707.GB19575@orbyte.nwl.cc>
-References: <1455670592-5649-1-git-send-email-mathieu.desnoyers@efficios.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-	netdev@vger.kernel.org, stable@vger.kernel.org
-To: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:45204 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934224AbcBQMxe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 07:53:34 -0500
-Content-Disposition: inline
-In-Reply-To: <1455670592-5649-1-git-send-email-mathieu.desnoyers@efficios.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Huw Davies <huw@codeweavers.com>
+Subject: [RFC PATCH v3 00/19] CALIPSO Implementation
+Date: Wed, 17 Feb 2016 13:21:50 +0000
+Message-ID: <1455715329-9601-1-git-send-email-huw@codeweavers.com>
+Cc: Paul Moore <pmoore@redhat.com>
+To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+This patch series implements RFC 5570 - Common Architecture Label IPv6
+Security Option (CALIPSO).  Its goal is to set MLS sensitivity labels
+on IPv6 packets using a hop-by-hop option.  CALIPSO is very similar to
+its IPv4 cousin CIPSO and much of this series is based on that code.
 
-On Tue, Feb 16, 2016 at 07:56:23PM -0500, Mathieu Desnoyers wrote:
-> This reverts commit 348e3435cbefa815bd56a5205c1412b5afe7b92e.
-> It breaks HTB classful qdiscs on the loopback interface.
-> 
-> It has been broken since kernel v4.2. The offending commit has
-> been identified by bissection of the issue with the following
-> test-case. It appears that the loopback interface does indeed
-> still have tx_queue_len == 0.
-> 
-> Reverting the commit on a v4.4.1 kernel fixes the issue.
+If anybody actually wants to play with this, then you'll need some patches
+to netlabel-tools that are currently available on the 'calipso' branch at:
+https://github.com/hdmdavies/netlabel_tools.git .  The protocol has changed
+very slightly from the v2 patches, so please update to the latest.
 
-Indeed, this is ugly. Affected are all drivers not calling ether_setup()
-in their setup callback, and therefore not initializing tx_queue_len.
+This patch series is based off v4.5-rc4.
 
-As the commit to be reverted shows, there is no common fallback value
-for tx_queue_len - most qdisc implementations used 1, but HTB fell back
-to 2 and PLUG to 100. But as the removed comment in sch_plug.c stated:
+Thanks to Paul Moore, Hannes Frederic Sowa, Casey Schaufler and Julia
+Lawall for their comments so far.
 
-| /* We will set a default limit of 100 pkts (~150kB)
-|  * in case tx_queue_len is not available. The
-|  * default value is completely arbitrary.
-|  */
+Changes between v3 and v2:
 
-It seems not to be overly important to fallback to the exact value each
-qdisc had before. Therefore I guess the following change should
-appropriately fix the issue at hand:
+* Change CALIPSO_MAP_PASS to 2.
+* Move calipso_init() before ipv6_sysctl_register().
+* Rewrite calipso_tlv_len() to check for overflows.
+* Simplify calispo_opt_find().
+* Simplify calipso_opt_insert().
+* Use calipso_tlv_len() in calipso_sock_getattr().
+* Simplify calipso_skbuff_setattr().
+* Return early from netlbl_domhsh_search_def() when a match is found.
+* Remove nested if from netlbl_domhsh_validate().
+* Don't return from netlbl_domhsh_add() with lock held.
+* Various style changes.
+* Rebased to v4.5-rc4.
 
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7440,8 +7440,10 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
-        dev->priv_flags = IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM;
-        setup(dev);
- 
--       if (!dev->tx_queue_len)
-+       if (!dev->tx_queue_len) {
-                dev->priv_flags |= IFF_NO_QUEUE;
-+               dev->tx_queue_len = 1;
-+       }
- 
-        dev->num_tx_queues = txqs;
-        dev->real_num_tx_queues = txqs;
+Changes between v2 and v1:
 
-Unless there is concern, I will formally submit this later.
+* Simplify ipv6_renew_options_kern() to use set_fs(KERNEL_DS).
+  Thanks to Hannes Frederic Sowa for suggesting this.
+* Use the parent socket to account for the listener socket
+  option's memory usage.  Again, thanks for Hannes for this.
+* Added netlbl_cfg_calipso_* functions for SMACK.
+* Rebased to v4.4-rc8.
 
-Thanks, Phil
+Huw Davies (19):
+  netlabel: Mark rcu pointers with __rcu.
+  netlabel: Add an address family to domain hash entries.
+  netlabel: Initial support for the CALIPSO netlink protocol.
+  netlabel: Add support for querying a CALIPSO DOI.
+  netlabel: Add support for enumerating the CALIPSO DOI list.
+  netlabel: Add support for creating a CALIPSO protocol domain mapping.
+  netlabel: Add support for removing a CALIPSO DOI.
+  ipv6: Add ipv6_renew_options_kern() that accepts a kernel mem pointer.
+  netlabel: Move bitmap manipulation functions to the NetLabel core.
+  calipso: Set the calipso socket label to match the secattr.
+  netlabel: Prevent setsockopt() from changing the hop-by-hop option.
+  ipv6: Allow request socks to contain IPv6 options.
+  calipso: Allow request sockets to be relabelled by the lsm.
+  ipv6: constify the skb pointer of ipv6_find_tlv().
+  calipso: Allow the lsm to label the skbuff directly.
+  netlabel: Pass a family parameter to netlbl_skbuff_err().
+  calipso: Add validation of CALIPSO option.
+  calipso: Add a label cache.
+  netlabel: Implement CALIPSO config functions for SMACK.
+
+ include/net/calipso.h               |   91 +++
+ include/net/inet_sock.h             |    7 +-
+ include/net/ipv6.h                  |   10 +-
+ include/net/netlabel.h              |  101 ++-
+ include/uapi/linux/audit.h          |    2 +
+ include/uapi/linux/in6.h            |    1 +
+ net/dccp/ipv6.c                     |   12 +-
+ net/ipv4/cipso_ipv4.c               |   88 +--
+ net/ipv4/tcp_input.c                |    3 +
+ net/ipv6/Makefile                   |    1 +
+ net/ipv6/af_inet6.c                 |    9 +-
+ net/ipv6/calipso.c                  | 1474 +++++++++++++++++++++++++++++++++++
+ net/ipv6/exthdrs.c                  |   76 ++
+ net/ipv6/exthdrs_core.c             |    2 +-
+ net/ipv6/ipv6_sockglue.c            |    1 -
+ net/ipv6/sysctl_net_ipv6.c          |   19 +
+ net/ipv6/tcp_ipv6.c                 |   12 +-
+ net/netlabel/Kconfig                |    1 +
+ net/netlabel/Makefile               |    2 +-
+ net/netlabel/netlabel_calipso.c     |  740 ++++++++++++++++++
+ net/netlabel/netlabel_calipso.h     |  151 ++++
+ net/netlabel/netlabel_domainhash.c  |  293 +++++--
+ net/netlabel/netlabel_domainhash.h  |   17 +-
+ net/netlabel/netlabel_kapi.c        |  385 ++++++++-
+ net/netlabel/netlabel_mgmt.c        |   85 +-
+ net/netlabel/netlabel_mgmt.h        |   27 +-
+ net/netlabel/netlabel_unlabeled.c   |    5 +-
+ net/netlabel/netlabel_user.c        |    5 +
+ security/selinux/hooks.c            |   21 +-
+ security/selinux/include/netlabel.h |    4 +-
+ security/selinux/netlabel.c         |   36 +-
+ security/smack/smack_lsm.c          |    2 +-
+ 32 files changed, 3480 insertions(+), 203 deletions(-)
+ create mode 100644 include/net/calipso.h
+ create mode 100644 net/ipv6/calipso.c
+ create mode 100644 net/netlabel/netlabel_calipso.c
+ create mode 100644 net/netlabel/netlabel_calipso.h
+
+-- 
+2.7.0
+
