@@ -1,83 +1,98 @@
-From: Wei Wang <tracywwnj@gmail.com>
-Subject: [PATCH net-next] ipv6: pass up EMSGSIZE msg for UDP socket in Ipv6
-Date: Wed, 17 Feb 2016 13:58:22 -0800
-Message-ID: <1455746302-53543-1-git-send-email-tracywwnj@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>, Wei Wang <weiwan@google.com>
-To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33854 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161234AbcBQV7Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 16:59:24 -0500
-Received: by mail-pa0-f54.google.com with SMTP id fy10so18129990pac.1
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 13:59:24 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH nf-next v7 4/7] openvswitch: Find existing
+ conntrack entry after upcall.
+Date: Wed, 17 Feb 2016 14:03:17 -0800
+Message-ID: <CAPWQB7Ehm6d79XiR2DdR6swPHH4K_S0wkGXSTN2z+awiGk0Gug@mail.gmail.com>
+References: <1454722865-59558-1-git-send-email-jarno@ovn.org>
+ <1454722865-59558-5-git-send-email-jarno@ovn.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1454722865-59558-5-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Wei Wang <weiwan@google.com>
-
-In ipv4,  when  the machine receives a ICMP_FRAG_NEEDED message,  the
-connected UDP socket will get EMSGSIZE message on its next read from the
-socket.
-However, this is not the case for ipv6.
-This fix modifies the udp err handler in Ipv6 for ICMP6_PKT_TOOBIG to
-make it similar to ipv4 behavior. That is when the machine gets an
-ICMP6_PKT_TOOBIG message, the connected UDP socket will get EMSGSIZE
-message on its next read from the socket.
-
-Signed-off-by: Wei Wang <weiwan@google.com>
----
- net/ipv6/udp.c | 20 +++++++++++---------
- 1 file changed, 11 insertions(+), 9 deletions(-)
-
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 22e28a4..a0da656 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -590,6 +590,7 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	const struct in6_addr *daddr = &hdr->daddr;
- 	struct udphdr *uh = (struct udphdr *)(skb->data+offset);
- 	struct sock *sk;
-+	int harderr;
- 	int err;
- 	struct net *net = dev_net(skb->dev);
- 
-@@ -601,26 +602,27 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		return;
- 	}
- 
-+	harderr = icmpv6_err_convert(type, code, &err);
-+	np = inet6_sk(sk);
-+
- 	if (type == ICMPV6_PKT_TOOBIG) {
- 		if (!ip6_sk_accept_pmtu(sk))
- 			goto out;
- 		ip6_sk_update_pmtu(skb, sk, info);
-+		if (np->pmtudisc != IPV6_PMTUDISC_DONT)
-+			harderr = 1;
- 	}
- 	if (type == NDISC_REDIRECT) {
- 		ip6_sk_redirect(skb, sk);
- 		goto out;
- 	}
- 
--	np = inet6_sk(sk);
--
--	if (!icmpv6_err_convert(type, code, &err) && !np->recverr)
--		goto out;
--
--	if (sk->sk_state != TCP_ESTABLISHED && !np->recverr)
--		goto out;
--
--	if (np->recverr)
-+	if (!np->recverr) {
-+		if (!harderr || sk->sk_state != TCP_ESTABLISHED)
-+			goto out;
-+	} else {
- 		ipv6_icmp_error(sk, skb, err, uh->dest, ntohl(info), (u8 *)(uh+1));
-+	}
- 
- 	sk->sk_err = err;
- 	sk->sk_error_report(sk);
--- 
-2.7.0.rc3.207.g0ac5344
+T24gNSBGZWJydWFyeSAyMDE2IGF0IDE3OjQxLCBKYXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5v
+cmc+IHdyb3RlOgo+IEFkZCBhIG5ldyBmdW5jdGlvbiBvdnNfY3RfZmluZF9leGlzdGluZygpIHRv
+IGZpbmQgYW4gZXhpc3RpbmcKPiBjb25udHJhY2sgZW50cnkgZm9yIHdoaWNoIHRoaXMgcGFja2V0
+IHdhcyBhbHJlYWR5IGFwcGxpZWQgdG8uICBUaGlzIGlzCj4gb25seSB0byBiZSBjYWxsZWQgd2hl
+biB0aGVyZSBpcyBldmlkZW5jZSB0aGF0IHRoZSBwYWNrZXQgd2FzIGFscmVhZHkKPiB0cmFja2Vk
+IGFuZCBjb21taXR0ZWQsIGJ1dCB3ZSBsb3N0IHRoZSBjdCByZWZlcmVuY2UgZHVlIHRvIGFuCj4g
+dXNlcnNwYWNlIHVwY2FsbC4KPgo+IG92c19jdF9maW5kX2V4aXN0aW5nKCkgaXMgY2FsbGVkIGZy
+b20gc2tiX25mY3RfY2FjaGVkKCksIHdoaWNoIGNhbiBub3cKPiBoaWRlIHRoZSBmYWN0IHRoYXQg
+dGhlIGN0IHJlZmVyZW5jZSBtYXkgaGF2ZSBiZWVuIGxvc3QgZHVlIHRvIGFuCj4gdXBjYWxsLiAg
+VGhpcyBhbGxvd3Mgb3ZzX2N0X2NvbW1pdCgpIHRvIGJlIHNpbXBsaWZpZWQuCj4KPiBUaGlzIHBh
+dGNoIGlzIG5lZWRlZCBieSBsYXRlciAib3BlbnZzd2l0Y2g6IEludGVyZmFjZSB3aXRoIE5BVCIg
+cGF0Y2gsCj4gYXMgd2UgbmVlZCB0byBiZSBhYmxlIHRvIHBhc3MgdGhlIHBhY2tldCB0aHJvdWdo
+IE5BVCB1c2luZyB0aGUKPiBvcmlnaW5hbCBjdCByZWZlcmVuY2UgYWxzbyBhZnRlciB0aGUgcmVm
+ZXJlbmNlIGlzIGxvc3QgYWZ0ZXIgYW4KPiB1cGNhbGwuCj4KPiBTaWduZWQtb2ZmLWJ5OiBKYXJu
+byBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+CgpQbGVhc2UgcnVuIGNoZWNrcGF0Y2gucGwgYWdh
+aW5zdCB5b3VyIHNlcmllczsgdGhlcmUgYXJlIHZhcmlvdXMgc3R5bGUKaXNzdWVzIGFuZCBhbHNv
+IHRoaW5ncyBsaWtlIHdlIHNob3VsZCBub3QgaGl0IEJVR19PTigpIGluIHBhY2tldApwcm9jZXNz
+aW5nIHBhdGguCgo+ICsvKiBGaW5kIGFuIGV4aXN0aW5nIGNvbm50cmFjayBlbnRyeSBmb3Igd2hp
+Y2ggdGhpcyBwYWNrZXQgd2FzIGFscmVhZHkgYXBwbGllZAo+ICsgKiB0by4gIFRoaXMgaXMgb25s
+eSBjYWxsZWQgd2hlbiB0aGVyZSBpcyBldmlkZW5jZSB0aGF0IHRoZSBwYWNrZXQgd2FzIGFscmVh
+ZHkKPiArICogdHJhY2tlZCBhbmQgY29tbWl0ZWQsIGJ1dCB3ZSBsb3N0IHRoZSBjdCByZWZlcmVu
+Y2UgZHVlIHRvIGFuIHVzZXJzcGFjZQo+ICsgKiB1cGNhbGwuIFRoaXMgbWVhbnMgdGhhdCBvbiBl
+bnRyeSBza2ItPm5mY3QgaXMgTlVMTC4KPiArICogT24gc3VjY2VzcywgcmV0dXJucyBjb25udHJh
+Y2sgcHRyLCBzZXRzIHNrYi0+bmZjdCBhbmQgY3RpbmZvLgo+ICsgKiBNdXN0IGJlIGNhbGxlZCBy
+Y3VfcmVhZF9sb2NrKCllZC4gKi8KCkkgdGhpbmsgdGhpcyByZWFkcyBhIGJpdCBtb3JlIG5hdHVy
+YWw6CgovKiBGaW5kIGFuIGV4aXN0aW5nIGNvbm5lY3Rpb24gd2hpY2ggdGhpcyBwYWNrZXQgYmVs
+b25ncyB0byB3aXRob3V0CnJlLWF0dHJpYnV0aW5nCiAqIHN0YXRpc3RpY3Mgb3IgbW9kaWZ5aW5n
+IHRoZSBjb25uZWN0aW9uIHN0YXRlLiBEdXJpbmcgdXBjYWxsIHByb2Nlc3NpbmcsCiAqIHNrYi0+
+bmZjdCBpcyBsb3N0LCBzbyB0aGlzIGFsbG93cyBpdCB0byBiZSByZWNvdmVyZWQgZHVyaW5nIGFj
+dGlvbnMKZXhlY3V0aW9uLgogKiBNdXN0IGJlIGNhbGxlZCB3aXRoIHJjdV9yZWFkX2xvY2suCiAq
+CiAqIE9uIHN1Y2Nlc3MsIHBvcHVsYXRlcyBza2ItPm5mY3QgYW5kIHNrYi0+bmZjdGluZm8sIGFu
+ZCByZXR1cm5zIHRoZQogKiBjb25uZWN0aW9uLiBSZXR1cm5zIE5VTEwgaWYgdGhlcmUgaXMgbm8g
+ZXhpc3RpbmcgZW50cnkuCiAqLwoKPiArc3RhdGljIHN0cnVjdCBuZl9jb25uICoKPiArb3ZzX2N0
+X2ZpbmRfZXhpc3Rpbmcoc3RydWN0IG5ldCAqbmV0LCBjb25zdCBzdHJ1Y3QgbmZfY29ubnRyYWNr
+X3pvbmUgKnpvbmUsCj4gKyAgICAgICAgICAgICAgICAgICAgdV9pbnQ4X3QgbDNudW0sIHN0cnVj
+dCBza19idWZmICpza2IsCj4gKyAgICAgICAgICAgICAgICAgICAgZW51bSBpcF9jb25udHJhY2tf
+aW5mbyAqY3RpbmZvKQoKVGhlIGNhbGxlciBkb2Vzbid0IHVzZSBjdGluZm8sIHNvIHRoaXMgYXJn
+dW1lbnQgY291bGQgYmUgZHJvcHBlZD8KCjxzbmlwPgoKPiAgICAgICAgIGN0ID0gbmZfY3RfZ2V0
+KHNrYiwgJmN0aW5mbyk7Cj4gKyAgICAgICAvKiBJZiBubyBjdCwgY2hlY2sgaWYgd2UgaGF2ZSBl
+dmlkZW5jZSB0aGF0IGFuIGV4aXN0aW5nIGNvbm50cmFjayBlbnRyeQo+ICsgICAgICAgICogbWln
+aHQgYmUgZm91bmQgZm9yIHRoaXMgc2tiLiAgVGhpcyBoYXBwZW5zIHdoZW4gd2UgbG9zZSBhIHNr
+Yi0+bmZjdAo+ICsgICAgICAgICogZHVlIHRvIGFuIHVwY2FsbC4gIElmIHRoZSBjb25uZWN0aW9u
+IHdhcyBub3QgY29uZmlybWVkLCBpdCBpcyBub3QKPiArICAgICAgICAqIGNhY2hlZCBhbmQgbmVl
+ZHMgdG8gYmUgcnVuIHRocm91Z2ggY29ubnRyYWNrIGFnYWluLiAqLwo+ICsgICAgICAgaWYgKCFj
+dCAmJiBrZXktPmN0LnN0YXRlICYgT1ZTX0NTX0ZfVFJBQ0tFRAo+ICsgICAgICAgICAgICYmICEo
+a2V5LT5jdC5zdGF0ZSAmIE9WU19DU19GX0lOVkFMSUQpCj4gKyAgICAgICAgICAgJiYga2V5LT5j
+dC56b25lID09IGluZm8tPnpvbmUuaWQpCj4gKyAgICAgICAgICAgICAgIGN0ID0gb3ZzX2N0X2Zp
+bmRfZXhpc3RpbmcobmV0LCAmaW5mby0+em9uZSwgaW5mby0+ZmFtaWx5LCBza2IsCj4gKyAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgJmN0aW5mbyk7CgpPcGVyYXRvciBz
+dHlsZSBpbiBuZXQgaXMgYSBiaXQgZGlmZmVyZW50IGZyb20gT1ZTIHVzZXJzcGFjZS4KCj4gICAg
+ICAgICBpZiAoIWN0KQo+ICAgICAgICAgICAgICAgICByZXR1cm4gZmFsc2U7Cj4gKwo+ICAgICAg
+ICAgaWYgKCFuZXRfZXEobmV0LCByZWFkX3BuZXQoJmN0LT5jdF9uZXQpKSkKPiAgICAgICAgICAg
+ICAgICAgcmV0dXJuIGZhbHNlOwo+ICAgICAgICAgaWYgKCFuZl9jdF96b25lX2VxdWFsX2FueShp
+bmZvLT5jdCwgbmZfY3Rfem9uZShjdCkpKQoKVW5yZWxhdGVkIHdoaXRlc3BhY2UuCgo+IEBAIC00
+MjEsNiArNTA4LDEzIEBAIHN0YXRpYyBpbnQgb3ZzX2N0X2xvb2t1cChzdHJ1Y3QgbmV0ICpuZXQs
+IHN0cnVjdCBzd19mbG93X2tleSAqa2V5LAo+ICB7Cj4gICAgICAgICBzdHJ1Y3QgbmZfY29ubnRy
+YWNrX2V4cGVjdCAqZXhwOwo+Cj4gKyAgICAgICAvKiBJZiB3ZSBwYXNzIGFuIGV4cGVjdGVkIHBh
+Y2tldCB0aHJvdWdoIG5mX2Nvbm50cmFja19pbigpIHRoZQo+ICsgICAgICAgICogZXhwZWN0aWF0
+aW9uIHdpbGwgYmUgcmVtb3ZlZCwgYnV0IHRoZSBwYWNrZXQgY291bGQgc3RpbGwgYmUgbG9zdCBp
+bgo+ICsgICAgICAgICogdXBjYWxsIHByb2Nlc3NpbmcuICBUbyBwcmV2ZW50IHRoaXMgZnJvbSBo
+YXBwZW5pbmcgd2UgcGVyZm9ybSBhbgo+ICsgICAgICAgICogZXhwbGljaXQgZXhwZWN0YXRpb24g
+bG9va3VwLiAgRXhwZWN0ZWQgY29ubmVjdGlvbnMgYXJlIGFsd2F5cyBuZXcsCj4gKyAgICAgICAg
+KiBhbmQgd2lsbCBiZSBwYXNzZWQgdGhyb3VnaCBjb25udHJhY2sgb25seSB3aGVuIHRoZXkgYXJl
+IGNvbW1pdHRlZCwKPiArICAgICAgICAqIGFzIGl0IGlzIE9LIHRvIHJlbW92ZSB0aGUgZXhwZWN0
+YXRpb24gYXQgdGhhdCB0aW1lLgo+ICsgICAgICAgICovCgpUaGUgZXhwZWN0YXRpb24gL21heS8g
+YmUgcmVtb3ZlZCwgYnV0IGFzIEkgdW5kZXJzdGFuZCBpdCBkZXBlbmRzIG9uCnRoZSBwcm90b2Nv
+bCBoYW5kbGVyLiBNaW5vciB3b3JkaW5nIHR3ZWFrLCBidXQgdGhpcyBjb21tZW50IG1ha2VzCnNl
+bnNlLiBUaGlzIGh1bmsgY291bGQgYmUgYSBzZXBhcmF0ZSBwYXRjaCB0byBkb2N1bWVudCBleGlz
+dGluZwpiZWhhdmlvdXIsIGJ1dCBJJ20gbm90IGZ1c3NlZCBob3cgaXQncyBzdWJtaXR0ZWQuCgpU
+aGFua3MsCkpvZQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNo
+Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
