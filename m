@@ -1,29 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] phy: keep pause flags in phy driver features
-Date: Wed, 17 Feb 2016 10:48:59 -0500 (EST)
-Message-ID: <20160217.104859.1010107210386086622.davem@davemloft.net>
-References: <9235D6609DB808459E95D78E17F2E43D404AC676@CHN-SV-EXMX02.mchp-main.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 04/12] net/mlx5e: Support DCBNL IEEE ETS
+Date: Wed, 17 Feb 2016 17:49:29 +0200
+Message-ID: <CAJ3xEMgXhaSE8d5NxcjDdHxzXe=X0eU_71ncxtrZ8EN9SBZoGg@mail.gmail.com>
+References: <1455653401-9808-1-git-send-email-saeedm@mellanox.com>
+	<1455653401-9808-5-git-send-email-saeedm@mellanox.com>
+	<CAJ3xEMjbOAyzu_6B23HPJshY+p9Dm23P6Sr2SxA=caHz6iuk6A@mail.gmail.com>
+	<CALzJLG_7bkC1nZix_SHD_OmumAm8vC-Bhjj6dD95QzNamLsstA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, andrew@lunn.ch
-To: Woojung.Huh@microchip.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53532 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161412AbcBQPtB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 10:49:01 -0500
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404AC676@CHN-SV-EXMX02.mchp-main.com>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:36546 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161721AbcBQPt3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 10:49:29 -0500
+Received: by mail-io0-f174.google.com with SMTP id l127so40811906iof.3
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 07:49:29 -0800 (PST)
+In-Reply-To: <CALzJLG_7bkC1nZix_SHD_OmumAm8vC-Bhjj6dD95QzNamLsstA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <Woojung.Huh@microchip.com>
-Date: Thu, 11 Feb 2016 17:29:47 +0000
+On Wed, Feb 17, 2016 at 2:07 PM, Saeed Mahameed
+<saeedm@dev.mellanox.co.il> wrote:
+> On Tue, Feb 16, 2016 at 11:38 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
 
-> genphy_config_init() masked out pause flags set in phy driver structure.
-> Pause flags needs to be preserved in phydev->supported &
-> phydev->advertising.
-> 
-> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+>>> -       for (tc = 0; tc < priv->params.num_tc; tc++) {
+>>> +       for (tc = 0; tc < MLX5E_MAX_NUM_TC; tc++) {
+>>>                 err = mlx5e_create_tis(priv, tc);
 
-Applied, thanks.
+>> various places in the patch use priv->params.num_tc, wasn't sure if
+>> it's correct to hard code things here, and if it does, why not hard
+>> code everywhere
+
+> TISs and TIRs unlike SQs and RQs are created once on driver load, so
+> we create the MAX supported TISs (TIS per prio)  and when you create
+> the rings/channels (SQs) we create them according to the dynamic
+> "priv->params.num_tc" and then we assign the pre allocated TIS to the
+> SQ according to SQ TC/Prio configuration.
+
+makes sense. Maybe spare few words on that in the change-log, or with
+a small comment
+in the code?
