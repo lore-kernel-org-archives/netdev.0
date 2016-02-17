@@ -1,85 +1,89 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH] net: pack tc_cls_u32_knode struct slighter better
-Date: Wed, 17 Feb 2016 14:59:30 -0800
-Message-ID: <20160217225930.25736.17844.stgit@john-Precision-Tower-5810>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH v2 net-next 0/8] API set for HW Buffer management
+Date: Wed, 17 Feb 2016 23:59:58 +0100
+Message-ID: <20160217225958.GA31113@1wt.eu>
+References: <1455636823-14470-1-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: john.fastabend@gmail.com, jhs@mojatatu.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:35132 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965386AbcBQW7m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 17:59:42 -0500
-Received: by mail-pf0-f173.google.com with SMTP id c10so19840488pfc.2
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 14:59:42 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Timor Kardashov <timork@marvell.com>,
+	Sebastian Careba <nitroshift@yahoo.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1455636823-14470-1-git-send-email-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-By packing the structure we can remove a few holes as Jamal
-suggests.
+Hi Gregory,
 
-before:
+On Tue, Feb 16, 2016 at 04:33:35PM +0100, Gregory CLEMENT wrote:
+> Hello,
+> 
+> A few weeks ago I sent a proposal for a API set for HW Buffer
+> management, to have a better view of the motivation for this API see
+> the cover letter of this proposal:
+> http://thread.gmane.org/gmane.linux.kernel/2125152
+> 
+> Since this version I took into account the review from Florian:
+> - The hardware buffer management helpers are no more built by default
+>   and now depend on a hidden config symbol which has to be selected
+>   by the driver if needed
+> - The hwbm_pool_refill() and hwbm_pool_add() now receive a gfp_t as
+>   argument allowing the caller to specify the flag it needs.
+> - buf_num is now tested to ensure there is no wrapping
+> - A spinlock has been added to protect the hwbm_pool_add() function in
+>   SMP or irq context.
+> 
+> I also used pr_warn instead of pr_debug in case of errors.
+> 
+> I fixed the mvneta implementation by returning the buffer to the pool
+> at various place instead of ignoring it.
+> 
+> About the series itself I tried to make this series easier to merge:
+> - Squashed "bus: mvenus-mbus: Fix size test for
+>    mvebu_mbus_get_dram_win_info" into bus: mvebu-mbus: provide api for
+>    obtaining IO and DRAM window information.
+> - Added my signed-otf-by on all the patches as submitter of the series.
+> - Renamed the dts patches with the pattern "ARM: dts: platform:"
+> - Removed the patch "ARM: mvebu: enable SRAM support in
+>   mvebu_v7_defconfig" of this series and already applied it
+> - Rodified the order of the patches.
+> 
+> In order to ease the test the branch mvneta-BM-framework-v2 is
+> available at git@github.com:MISL-EBU-System-SW/mainline-public.git.
 
-struct tc_cls_u32_knode {
-	struct tcf_exts *          exts;                 /*     0     8 */
-	u8                         fshift;               /*     8     1 */
+Well, I tested this patch series on top of latest master (from today)
+on my fresh new clearfog board. I compared carefully with and without
+the patchset. My workload was haproxy receiving connections and forwarding
+them to my PC via the same port. I tested both with short connections
+(HTTP GET of an empty file) and long ones (1 MB or more). No trouble
+was detected at all, which is pretty good. I noticed a very tiny
+performance drop which is more noticeable on short connections (high
+packet rates), my forwarded connection rate went down from 17500/s to
+17300/s. But I have not checked yet what can be tuned when using the
+BM, nor did I compare CPU usage. I remember having run some tests in
+the past, I guess it was on the XP-GP board, and noticed that the BM
+could save a significant amount of CPU and improve cache efficiency,
+so if this is the case here, we don't really care about a possible 1%
+performance drop.
 
-	/* XXX 3 bytes hole, try to pack */
+I'll try to provide more results as time permits.
 
-	u32                        handle;               /*    12     4 */
-	u32                        val;                  /*    16     4 */
-	u32                        mask;                 /*    20     4 */
-	u32                        link_handle;          /*    24     4 */
+In the mean time if you want (or plan to submit a next batch), feel
+free to add a Tested-by: Willy Tarreau <w@1wt.eu>.
 
-	/* XXX 4 bytes hole, try to pack */
-
-	struct tc_u32_sel *        sel;                  /*    32     8 */
-
-	/* size: 40, cachelines: 1, members: 7 */
-	/* sum members: 33, holes: 2, sum holes: 7 */
-	/* last cacheline: 40 bytes */
-};
-
-after:
-
-struct tc_cls_u32_knode {
-	struct tcf_exts *          exts;                 /*     0     8 */
-	struct tc_u32_sel *        sel;                  /*     8     8 */
-	u32                        handle;               /*    16     4 */
-	u32                        val;                  /*    20     4 */
-	u32                        mask;                 /*    24     4 */
-	u32                        link_handle;          /*    28     4 */
-	u8                         fshift;               /*    32     1 */
-
-	/* size: 40, cachelines: 1, members: 7 */
-	/* padding: 7 */
-	/* last cacheline: 40 bytes */
-};
-
-Suggested-by: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- include/net/pkt_cls.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 59789ca..2121df5 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -360,12 +360,12 @@ tcf_match_indev(struct sk_buff *skb, int ifindex)
- 
- struct tc_cls_u32_knode {
- 	struct tcf_exts *exts;
--	u8 fshift;
-+	struct tc_u32_sel *sel;
- 	u32 handle;
- 	u32 val;
- 	u32 mask;
- 	u32 link_handle;
--	struct tc_u32_sel *sel;
-+	u8 fshift;
- };
- 
- struct tc_cls_u32_hnode {
+cheers,
+Willy
