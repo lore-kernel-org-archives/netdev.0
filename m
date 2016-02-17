@@ -1,47 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip6_gre: clear IPCB in ip6gre_xmit2 in case
- dst_link_failure called
-Date: Wed, 17 Feb 2016 10:26:31 -0500 (EST)
-Message-ID: <20160217.102631.728315767953679869.davem@davemloft.net>
-References: <1454990874-10497-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+Subject: Re: [PATCH V1 net 0/6] Mellanox 10/40G mlx4 driver fixes for 4.5-rc
+Date: Wed, 17 Feb 2016 10:30:21 -0500 (EST)
+Message-ID: <20160217.103021.984865367228451401.davem@davemloft.net>
+References: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	stable@vger.kernel.org
-To: bernie.harris@alliedtelesis.co.nz
+Cc: netdev@vger.kernel.org, eranbe@mellanox.com, yishaih@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53251 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53298 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965188AbcBQP0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 10:26:33 -0500
-In-Reply-To: <1454990874-10497-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+	with ESMTP id S1423823AbcBQPaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 10:30:22 -0500
+In-Reply-To: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
-Date: Tue,  9 Feb 2016 17:07:54 +1300
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Wed, 17 Feb 2016 17:24:21 +0200
 
-> @@ -678,6 +678,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
->  				tunnel->err_time + IP6TUNNEL_ERR_TIMEO)) {
->  			tunnel->err_count--;
->  
-> +			memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
->  			dst_link_failure(skb);
->  		} else
->  			tunnel->err_count = 0;
-> -- 
-> 2.7.1
+> Bunch of fixes from the team to the mlx4 Eth and core drivers.
 > 
+> Series generated against net commit aac8d3c "qmi_wwan: add "4G LTE usb-modem U901""
+> 
+> Please push patches 1,2 and 6 to -stable  as well
 
-I have a hard time accepting this because I see no other place in ipv6 tunnel
-handling where we have to handle this kind of case.
-
-If anything, this code should mimick the code in ip6_udp_tunnel6_xmit_skb()
-which clears only the IPCH(skb)->opt field, and does so unconditionally.
-
-If this happens for GRE ipv6 tunnels, it potentially could happen for any
-tunnel.  Therefore we should apply consistent handling of this problem
-to every ipv6 tunnel implementation rather than just one spot.
-
-Thanks.
+Series applied and 1, 2, and 6 queued up for -stable, thanks.
