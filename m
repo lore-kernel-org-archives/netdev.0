@@ -1,35 +1,34 @@
-From: Zhen <24281412@qq.com>
-Subject: Re: [RFC] net: tcp: null pointer crash in =?utf-8?b?X19pbmV0X3B1dF9wb3J0?=
-Date: Wed, 17 Feb 2016 10:01:22 +0000 (UTC)
-Message-ID: <loom.20160217T105831-603@post.gmane.org>
-References: <1422460613-10782-1-git-send-email-harouth@codeaurora.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net-next PATCH v2 0/1] tc reclassification needs to consider ether protocol changes
+Date: Wed, 17 Feb 2016 06:37:34 -0500
+Message-ID: <1455709055-30881-1-git-send-email-jhs@emojatatu.com>
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:42467 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161285AbcBQLf0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 06:35:26 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1aW0Nw-0005Gl-JJ
-	for netdev@vger.kernel.org; Wed, 17 Feb 2016 12:35:15 +0100
-Received: from 218.249.47.126 ([218.249.47.126])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 12:35:03 +0100
-Received: from 24281412 by 218.249.47.126 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 12:35:03 +0100
+Received: from mail-io0-f177.google.com ([209.85.223.177]:33859 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161304AbcBQLhr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 06:37:47 -0500
+Received: by mail-io0-f177.google.com with SMTP id 9so32327957iom.1
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 03:37:47 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Harout
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-I met the same issue.
+v2:
+Use Daniel's suggestion on when to set the skb proto
+v1:
+fix compile error found by build bot when CONFIG_NET_CLS_ACT was off
 
-Is the issue has been fixed by your patch?
 
-Zhen
+Jamal Hadi Salim (1):
+  net_sched fix: reclassification needs to consider ether protocol
+    changes
+
+ net/sched/sch_api.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+-- 
+1.9.1
