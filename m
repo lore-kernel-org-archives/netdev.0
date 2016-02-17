@@ -1,152 +1,39 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net] net: make netdev_for_each_lower_dev safe for device removal
-Date: Wed, 17 Feb 2016 18:00:31 +0100
-Message-ID: <1455728431-21976-1-git-send-email-razor@blackwall.org>
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 1/4] drivers: net: xgene: Add support for
+ Classifier engine
+Date: Wed, 17 Feb 2016 12:05:17 -0500 (EST)
+Message-ID: <20160217.120517.1874370262056055172.davem@davemloft.net>
+References: <1455327425-8294-1-git-send-email-isubramanian@apm.com>
+	<1455327425-8294-2-git-send-email-isubramanian@apm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, patches@apm.com,
+	toanle@apm.com, kdinh@apm.com, tinamdar@apm.com
+To: isubramanian@apm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:33725 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756696AbcBQRBM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 12:01:12 -0500
-Received: by mail-wm0-f46.google.com with SMTP id g62so246199088wme.0
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 09:01:11 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:54433 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965115AbcBQRFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 12:05:22 -0500
+In-Reply-To: <1455327425-8294-2-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Date: Fri, 12 Feb 2016 17:37:02 -0800
 
-When I used netdev_for_each_lower_dev in commit bad531623253 ("vrf:
-remove slave queue and private slave struct") I thought that it acts
-like netdev_for_each_lower_private and can be used to remove the current
-device from the list while walking, but unfortunately it acts more like
-netdev_for_each_lower_private_rcu and doesn't allow it. The difference
-is where the "iter" points to, right now it points to the current element
-and that makes it impossible to remove it. Change the logic to be
-similar to netdev_for_each_lower_private and make it point to the "next"
-element so we can safely delete the current one. VRF is the only such
-user right now, there's no change for the read-only users.
+> +static void xgene_cle_dn_to_hw(struct xgene_cle_ptree_ewdn *dn,
+> +			       u32 *buf, u32 jb)
+> +{
+> +	u32 i, j = 0;
+> +	u32 npp;
+> +	struct xgene_cle_ptree_branch *br;
 
-Here's what can happen now:
-[98423.249858] general protection fault: 0000 [#1] SMP
-[98423.250175] Modules linked in: vrf bridge(O) stp llc nfsd auth_rpcgss
-oid_registry nfs_acl nfs lockd grace sunrpc crct10dif_pclmul
-crc32_pclmul crc32c_intel ghash_clmulni_intel jitterentropy_rng
-sha256_generic hmac drbg ppdev aesni_intel aes_x86_64 glue_helper lrw
-gf128mul ablk_helper cryptd evdev serio_raw pcspkr virtio_balloon
-parport_pc parport i2c_piix4 i2c_core virtio_console acpi_cpufreq button
-9pnet_virtio 9p 9pnet fscache ipv6 autofs4 ext4 crc16 mbcache jbd2 sg
-virtio_blk virtio_net sr_mod cdrom e1000 ata_generic ehci_pci uhci_hcd
-ehci_hcd usbcore usb_common virtio_pci ata_piix libata floppy
-virtio_ring virtio scsi_mod [last unloaded: bridge]
-[98423.255040] CPU: 1 PID: 14173 Comm: ip Tainted: G           O
-4.5.0-rc2+ #81
-[98423.255386] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
-BIOS 1.8.1-20150318_183358- 04/01/2014
-[98423.255777] task: ffff8800547f5540 ti: ffff88003428c000 task.ti:
-ffff88003428c000
-[98423.256123] RIP: 0010:[<ffffffff81514f3e>]  [<ffffffff81514f3e>]
-netdev_lower_get_next+0x1e/0x30
-[98423.256534] RSP: 0018:ffff88003428f940  EFLAGS: 00010207
-[98423.256766] RAX: 0002000100000004 RBX: ffff880054ff9000 RCX:
-0000000000000000
-[98423.257039] RDX: ffff88003428f8b8 RSI: ffff88003428f950 RDI:
-ffff880054ff90c0
-[98423.257287] RBP: ffff88003428f940 R08: 0000000000000000 R09:
-0000000000000000
-[98423.257537] R10: 0000000000000001 R11: 0000000000000000 R12:
-ffff88003428f9e0
-[98423.257802] R13: ffff880054a5fd00 R14: ffff88003428f970 R15:
-0000000000000001
-[98423.258055] FS:  00007f3d76881700(0000) GS:ffff88005d000000(0000)
-knlGS:0000000000000000
-[98423.258418] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[98423.258650] CR2: 00007ffe5951ffa8 CR3: 0000000052077000 CR4:
-00000000000406e0
-[98423.258902] Stack:
-[98423.259075]  ffff88003428f960 ffffffffa0442636 0002000100000004
-ffff880054ff9000
-[98423.259647]  ffff88003428f9b0 ffffffff81518205 ffff880054ff9000
-ffff88003428f978
-[98423.260208]  ffff88003428f978 ffff88003428f9e0 ffff88003428f9e0
-ffff880035b35f00
-[98423.260739] Call Trace:
-[98423.260920]  [<ffffffffa0442636>] vrf_dev_uninit+0x76/0xa0 [vrf]
-[98423.261156]  [<ffffffff81518205>]
-rollback_registered_many+0x205/0x390
-[98423.261401]  [<ffffffff815183ec>] unregister_netdevice_many+0x1c/0x70
-[98423.261641]  [<ffffffff8153223c>] rtnl_delete_link+0x3c/0x50
-[98423.271557]  [<ffffffff815335bb>] rtnl_dellink+0xcb/0x1d0
-[98423.271800]  [<ffffffff811cd7da>] ? __inc_zone_state+0x4a/0x90
-[98423.272049]  [<ffffffff815337b4>] rtnetlink_rcv_msg+0x84/0x200
-[98423.272279]  [<ffffffff810cfe7d>] ? trace_hardirqs_on+0xd/0x10
-[98423.272513]  [<ffffffff8153370b>] ? rtnetlink_rcv+0x1b/0x40
-[98423.272755]  [<ffffffff81533730>] ? rtnetlink_rcv+0x40/0x40
-[98423.272983]  [<ffffffff8155d6e7>] netlink_rcv_skb+0x97/0xb0
-[98423.273209]  [<ffffffff8153371a>] rtnetlink_rcv+0x2a/0x40
-[98423.273476]  [<ffffffff8155ce8b>] netlink_unicast+0x11b/0x1a0
-[98423.273710]  [<ffffffff8155d2f1>] netlink_sendmsg+0x3e1/0x610
-[98423.273947]  [<ffffffff814fbc98>] sock_sendmsg+0x38/0x70
-[98423.274175]  [<ffffffff814fc253>] ___sys_sendmsg+0x2e3/0x2f0
-[98423.274416]  [<ffffffff810d841e>] ? do_raw_spin_unlock+0xbe/0x140
-[98423.274658]  [<ffffffff811e1bec>] ? handle_mm_fault+0x26c/0x2210
-[98423.274894]  [<ffffffff811e19cd>] ? handle_mm_fault+0x4d/0x2210
-[98423.275130]  [<ffffffff81269611>] ? __fget_light+0x91/0xb0
-[98423.275365]  [<ffffffff814fcd42>] __sys_sendmsg+0x42/0x80
-[98423.275595]  [<ffffffff814fcd92>] SyS_sendmsg+0x12/0x20
-[98423.275827]  [<ffffffff81611bb6>] entry_SYSCALL_64_fastpath+0x16/0x7a
-[98423.276073] Code: c3 31 c0 5d c3 0f 1f 84 00 00 00 00 00 66 66 66 66
-90 48 8b 06 55 48 81 c7 c0 00 00 00 48 89 e5 48 8b 00 48 39 f8 74 09 48
-89 06 <48> 8b 40 e8 5d c3 31 c0 5d c3 0f 1f 84 00 00 00 00 00 66 66 66
-[98423.279639] RIP  [<ffffffff81514f3e>] netdev_lower_get_next+0x1e/0x30
-[98423.279920]  RSP <ffff88003428f940>
+Please order local variables from longest to shortest line (reverse christmas
+tree format).
 
-CC: David Ahern <dsa@cumulusnetworks.com>
-CC: David S. Miller <davem@davemloft.net>
-CC: Roopa Prabhu <roopa@cumulusnetworks.com>
-CC: Vlad Yasevich <vyasevic@redhat.com>
-Fixes: bad531623253 ("vrf: remove slave queue and private slave struct")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- include/linux/netdevice.h | 2 +-
- net/core/dev.c            | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+Please address this for your entire submission.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 289c2314d766..5440b7b705eb 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3718,7 +3718,7 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
- void *netdev_lower_get_next(struct net_device *dev,
- 				struct list_head **iter);
- #define netdev_for_each_lower_dev(dev, ldev, iter) \
--	for (iter = &(dev)->adj_list.lower, \
-+	for (iter = (dev)->adj_list.lower.next, \
- 	     ldev = netdev_lower_get_next(dev, &(iter)); \
- 	     ldev; \
- 	     ldev = netdev_lower_get_next(dev, &(iter)))
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8cba3d852f25..4392ef45864c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5379,12 +5379,12 @@ void *netdev_lower_get_next(struct net_device *dev, struct list_head **iter)
- {
- 	struct netdev_adjacent *lower;
- 
--	lower = list_entry((*iter)->next, struct netdev_adjacent, list);
-+	lower = list_entry(*iter, struct netdev_adjacent, list);
- 
- 	if (&lower->list == &dev->adj_list.lower)
- 		return NULL;
- 
--	*iter = &lower->list;
-+	*iter = lower->list.next;
- 
- 	return lower->dev;
- }
--- 
-2.4.3
+Thank you.
