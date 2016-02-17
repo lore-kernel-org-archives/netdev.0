@@ -1,30 +1,28 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net-next] bnx2x: Add missing HSI for big-endian machines
-Date: Wed, 17 Feb 2016 14:06:43 +0000
-Message-ID: <CO2PR11MB008837CED01B07A4FE88E2E497AE0@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1455707714-5262-1-git-send-email-Yuval.Mintz@qlogic.com>
- <56C47D4A.50302@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v3 0/8] tc offload for cls_u32 on ixgbe
+Date: Wed, 17 Feb 2016 09:48:04 -0500 (EST)
+Message-ID: <20160217.094804.2116619701024963115.davem@davemloft.net>
+References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us, amir@vadai.me, jhs@mojatatu.com,
+	netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
+To: john.fastabend@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0118.outbound.protection.outlook.com ([157.56.110.118]:60960
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S964898AbcBQOju convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 09:39:50 -0500
-In-Reply-To: <56C47D4A.50302@cogentembedded.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:52684 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423553AbcBQOsI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 09:48:08 -0500
+In-Reply-To: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > Commit e5d3a51cefbb "bnx2x: extend DCBx support" was missing HSI
-> changes
->     You forgot to also enclose the commit summary in parens.
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Tue, 16 Feb 2016 21:15:50 -0800
 
-Good to see we've managed to fix everything else.
-:-)
+> This extends the setup_tc framework so it can support more than just
+> the mqprio offload and push other classifiers and qdiscs into the
+> hardware.
+
+Series applied, thanks John!
