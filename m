@@ -1,37 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] l2tp: Fix error creating L2TP tunnels
-Date: Wed, 17 Feb 2016 15:36:35 -0500 (EST)
-Message-ID: <20160217.153635.188688180228329961.davem@davemloft.net>
-References: <1455506684-27033-1-git-send-email-mark.tomlinson@alliedtelesis.co.nz>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhong@brocade.com
-To: mark.tomlinson@alliedtelesis.co.nz
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH 0/2] Add support for PHY packet generator to ethtool(1)
+Date: Wed, 17 Feb 2016 21:37:14 +0100
+Message-ID: <1455741436-25728-1-git-send-email-andrew@lunn.ch>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57134 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964970AbcBQUgh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 15:36:37 -0500
-In-Reply-To: <1455506684-27033-1-git-send-email-mark.tomlinson@alliedtelesis.co.nz>
+Received: from vps0.lunn.ch ([178.209.37.122]:50615 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965253AbcBQUhY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 15:37:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
-Date: Mon, 15 Feb 2016 16:24:44 +1300
+Import the latests ethtool.h and add an option to make use of the
+PHY packet generators. 
 
-> A previous commit (33f72e6) added notification via netlink for tunnels
-> when created/modified/deleted. If the notification returned an error,
-> this error was returned from the tunnel function. If there were no
-> listeners, the error code ESRCH was returned, even though having no
-> listeners is not an error. Other calls to this and other similar
-> notification functions either ignore the error code, or filter ESRCH.
-> This patch checks for ESRCH and does not flag this as an error.
-> 
-> Reviewed-by: Hamish Martin <hamish.martin@alliedtelesis.co.nz>
-> Signed-off-by: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
+Andrew Lunn (2):
+  ethtool-copy.h: sync with net
+  ethtool: Add --phy_pkt_gen command
 
-Applied and queued up for -stable, thanks.
+ ethtool-copy.h | 119 ++++++++++++++++++++++++++++++++++++++++++++++++++++-----
+ ethtool.8.in   |  30 +++++++++++++++
+ ethtool.c      |  44 +++++++++++++++++++++
+ internal.h     |   3 ++
+ 4 files changed, 187 insertions(+), 9 deletions(-)
 
-But it seems like we might want to filter out that error in a common
-location instead of in all of these various spots.
+-- 
+2.1.4
