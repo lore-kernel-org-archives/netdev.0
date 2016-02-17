@@ -1,7 +1,8 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH 1/2] ixgbe: use u32 instead of __u32 in model header
-Date: Wed, 17 Feb 2016 14:34:53 -0800
-Message-ID: <20160217223453.9858.76096.stgit@john-Precision-Tower-5810>
+Subject: [net-next PATCH 2/2] ixgbe: fix dates on header of ixgbe_model.h
+Date: Wed, 17 Feb 2016 14:35:23 -0800
+Message-ID: <20160217223523.9858.45576.stgit@john-Precision-Tower-5810>
+References: <20160217223453.9858.76096.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,86 +10,33 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net
 To: john.fastabend@gmail.com, jhs@mojatatu.com,
 	jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:35979 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423442AbcBQWfL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 17:35:11 -0500
-Received: by mail-pf0-f172.google.com with SMTP id e127so18907707pfe.3
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 14:35:11 -0800 (PST)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:36214 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423442AbcBQWfi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 17:35:38 -0500
+Received: by mail-pf0-f180.google.com with SMTP id e127so18913862pfe.3
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 14:35:38 -0800 (PST)
+In-Reply-To: <20160217223453.9858.76096.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I incorrectly used __u32 types where we should be using u32 types when
-I added the ixgbe_model.h file.
-
 Fixes: 9d35cf062e05 ("net: ixgbe: add minimal parser details for ixgbe")
-Suggested-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Reported-by: Mark Rustad <mark.d.rustad@intel.com>
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_model.h |   18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_model.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
-index 43ebec4..62ea2e7 100644
+index 62ea2e7..ce48872 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
-@@ -35,13 +35,13 @@ struct ixgbe_mat_field {
- 	unsigned int mask;
- 	int (*val)(struct ixgbe_fdir_filter *input,
- 		   union ixgbe_atr_input *mask,
--		   __u32 val, __u32 m);
-+		   u32 val, u32 m);
- 	unsigned int type;
- };
- 
- static inline int ixgbe_mat_prgm_sip(struct ixgbe_fdir_filter *input,
- 				     union ixgbe_atr_input *mask,
--				     __u32 val, __u32 m)
-+				     u32 val, u32 m)
- {
- 	input->filter.formatted.src_ip[0] = val;
- 	mask->formatted.src_ip[0] = m;
-@@ -50,7 +50,7 @@ static inline int ixgbe_mat_prgm_sip(struct ixgbe_fdir_filter *input,
- 
- static inline int ixgbe_mat_prgm_dip(struct ixgbe_fdir_filter *input,
- 				     union ixgbe_atr_input *mask,
--				     __u32 val, __u32 m)
-+				     u32 val, u32 m)
- {
- 	input->filter.formatted.dst_ip[0] = val;
- 	mask->formatted.dst_ip[0] = m;
-@@ -67,7 +67,7 @@ static struct ixgbe_mat_field ixgbe_ipv4_fields[] = {
- 
- static inline int ixgbe_mat_prgm_sport(struct ixgbe_fdir_filter *input,
- 				       union ixgbe_atr_input *mask,
--				       __u32 val, __u32 m)
-+				       u32 val, u32 m)
- {
- 	input->filter.formatted.src_port = val & 0xffff;
- 	mask->formatted.src_port = m & 0xffff;
-@@ -76,7 +76,7 @@ static inline int ixgbe_mat_prgm_sport(struct ixgbe_fdir_filter *input,
- 
- static inline int ixgbe_mat_prgm_dport(struct ixgbe_fdir_filter *input,
- 				       union ixgbe_atr_input *mask,
--				       __u32 val, __u32 m)
-+				       u32 val, u32 m)
- {
- 	input->filter.formatted.dst_port = val & 0xffff;
- 	mask->formatted.dst_port = m & 0xffff;
-@@ -94,12 +94,12 @@ static struct ixgbe_mat_field ixgbe_tcp_fields[] = {
- struct ixgbe_nexthdr {
- 	/* offset, shift, and mask of position to next header */
- 	unsigned int o;
--	__u32 s;
--	__u32 m;
-+	u32 s;
-+	u32 m;
- 	/* match criteria to make this jump*/
- 	unsigned int off;
--	__u32 val;
--	__u32 mask;
-+	u32 val;
-+	u32 mask;
- 	/* location of jump to make */
- 	struct ixgbe_mat_field *jump;
- };
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel 10 Gigabit PCI Express Linux drive
+- * Copyright(c) 2013 - 2015 Intel Corporation.
++ * Copyright(c) 2016 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
