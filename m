@@ -1,73 +1,89 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/15] i40e: drop unused function
-Date: Wed, 17 Feb 2016 09:51:40 -0800
-Message-ID: <1455731506-62165-10-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1455731506-62165-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver Updates 2016-02-17
+Date: Wed, 17 Feb 2016 09:51:31 -0800
+Message-ID: <1455731506-62165-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:17063 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:4789 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161628AbcBQRvv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 12:51:51 -0500
-In-Reply-To: <1455731506-62165-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1161411AbcBQRvt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 12:51:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+This series contains updates to i40e/i40evf only.
 
-Delete the unused irq_dynamic_disable function.
+Jesse cleans up a duplicate declaration in probe.  Then fixes a bug where the
+driver was using a offset based off a DMA handle while mapping and unmapping
+using sync_single_range_for_[cpu|device], when it should be using DMA handle
+(returned from alloc_coherent) and the offset of the memory to be sync'd.
+Fixed an issue where sync_vsi_filter() was allocating memory in a way that
+could sleep (GFP_KERNEL) which was causing a problem when called by the
+team driver under rcu_read_lock().
 
-Change-ID: Ia46071066babd121c7c90f141b6210b00078de3f
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Reviewed-by: Anjali Singhai <anjali.singhai@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h      |  1 -
- drivers/net/ethernet/intel/i40e/i40e_main.c | 16 ----------------
- 2 files changed, 17 deletions(-)
+Shannon adds a check to ensure we do not attempt to do TSO when
+skb->ip_summed is not set to CHECKSUM_PARTIAL.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 175bec3..65cf344 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -757,7 +757,6 @@ static inline void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector)
- 	/* skip the flush */
- }
- 
--void i40e_irq_dynamic_disable(struct i40e_vsi *vsi, int vector);
- void i40e_irq_dynamic_disable_icr0(struct i40e_pf *pf);
- void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf);
- #ifdef I40E_FCOE
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index e147db2..38fd942 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -3273,22 +3273,6 @@ void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf)
- }
- 
- /**
-- * i40e_irq_dynamic_disable - Disable default interrupt generation settings
-- * @vsi: pointer to a vsi
-- * @vector: disable a particular Hw Interrupt vector
-- **/
--void i40e_irq_dynamic_disable(struct i40e_vsi *vsi, int vector)
--{
--	struct i40e_pf *pf = vsi->back;
--	struct i40e_hw *hw = &pf->hw;
--	u32 val;
--
--	val = I40E_ITR_NONE << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT;
--	wr32(hw, I40E_PFINT_DYN_CTLN(vector - 1), val);
--	i40e_flush(hw);
--}
--
--/**
-  * i40e_msix_clean_rings - MSIX mode Interrupt Handler
-  * @irq: interrupt number
-  * @data: pointer to a q_vector
+Kiran add functions related to port mirroring features such as add/delete
+mirror rule.
+
+Jacob assigns the i40e_pf structure directly instead of using a large
+memcpy, to avoid a sparse warning and lets the compiler optimize the copy
+since it know the size of the structure in advance.
+
+Anjali enables GENEVE capability for XL710/X710 devices with firmware API
+version higher than 1.4.  Added flag for automatic rule eviction feature 
+for X722, which is disabled by default.
+
+The following are changes since commit f55158859504ead847e56211f3dadadaf883a6ee:
+  Merge branch '40GbE' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
+
+Anjali Singhai (1):
+  i40e: Enable Geneve offload for FW API ver > 1.4 for XL710/X710
+    devices
+
+Anjali Singhai Jain (1):
+  i40e: add priv flag for automatic rule eviction
+
+Jacob Keller (1):
+  i40e: avoid large memcpy by assigning struct
+
+Jesse Brandeburg (8):
+  i40e: trivial: drop duplicate definition
+  i40e: trivial: fix missing space
+  i40e: fix bug in dma sync
+  i40e: allocate memory safer
+  i40e: fix: do not sleep in netdev_ops
+  i40e: drop unused function
+  i40e: count allocation errors
+  i40e/i40evf: bump version to 1.4.12/1.4.8
+
+Kiran Patil (1):
+  i40e: APIs to Add/remove port mirroring rules
+
+Shannon Nelson (2):
+  i40e: do TSO only if CHECKSUM_PARTIAL is set
+  i40e: negate PHY int mask bits
+
+Sowmini Varadhan (1):
+  i40e: use eth_platform_get_mac_address()
+
+ drivers/net/ethernet/intel/i40e/i40e.h           |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_common.c    | 162 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c   |   8 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c   |  11 ++
+ drivers/net/ethernet/intel/i40e/i40e_main.c      |  90 ++++++-------
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |  12 ++
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c      |  17 ++-
+ drivers/net/ethernet/intel/i40e/i40e_type.h      |   4 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c    |  11 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c  |   2 +-
+ 10 files changed, 254 insertions(+), 65 deletions(-)
+
 -- 
 2.5.0
