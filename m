@@ -1,46 +1,114 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [PATCH net v2] lwt: fix rx checksum setting for lwt devices
- tunneling over ipv6
-Date: Wed, 17 Feb 2016 11:19:10 -0800
-Message-ID: <CAEh+42isC=4nmKz-Sjc9VreCbOkqdEcPc2uXyxcgGRJQsdSWSw@mail.gmail.com>
-References: <244994c83cb73d98205f39aaefcee846dab48260.1455731463.git.pabeni@redhat.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [linux-nics] e1000e: initialization breaks IPMI support on
+	80003ES2LAN
+Date: Wed, 17 Feb 2016 19:22:58 +0000
+Message-ID: <87618083B2453E4A8714035B62D6799250577DB7@FMSMSX105.amr.corp.intel.com>
+References: <20160212155847.GA22910@xanadu.blop.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Benc <jbenc@redhat.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Tom Herbert <tom@herbertland.com>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Linux NICS <Linux-nics@isotope.jf.intel.com>,
+	"Ertman, David M" <david.m.ertman@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Lucas Nussbaum <lucas.nussbaum@loria.fr>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:41216 "EHLO mail.kernel.org"
+Received: from mga01.intel.com ([192.55.52.88]:45019 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965380AbcBQTT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 14:19:27 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 7F2BC203C0
-	for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 19:19:26 +0000 (UTC)
-Received: from mail-qg0-f49.google.com (mail-qg0-f49.google.com [209.85.192.49])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id B6600203A5
-	for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 19:19:25 +0000 (UTC)
-Received: by mail-qg0-f49.google.com with SMTP id b35so19725446qge.0
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 11:19:25 -0800 (PST)
-In-Reply-To: <244994c83cb73d98205f39aaefcee846dab48260.1455731463.git.pabeni@redhat.com>
+	id S1030290AbcBQTXR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 14:23:17 -0500
+In-Reply-To: <20160212155847.GA22910@xanadu.blop.info>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 17, 2016 at 10:30 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> the commit 35e2d1152b22 ("tunnels: Allow IPv6 UDP checksums to be
-> correctly controlled.") changed the default xmit checksum setting
-> for lwt vxlan/geneve ipv6 tunnels, so that now the checksum is not
-> set into external UDP header.
-> This commit changes the rx checksum setting for both lwt vxlan/geneve
-> devices created by openvswitch accordingly, so that lwt over ipv6
-> tunnel pairs are again able to communicate with default values.
+>-----Original Message-----
+>From: linux-nics-bounces@isotope.jf.intel.com [mailto:linux-nics-
+>bounces@isotope.jf.intel.com] On Behalf Of Lucas Nussbaum
+>Sent: Friday, February 12, 2016 7:59 AM
+>To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+>Cc: Linux NICS <Linux-nics@isotope.jf.intel.com>; Ertman, David M
+><david.m.ertman@intel.com>; Kirsher, Jeffrey T
+><jeffrey.t.kirsher@intel.com>; e1000-devel@lists.sourceforge.net
+>Subject: [linux-nics] e1000e: initialization breaks IPMI support on
+>80003ES2LAN
 >
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+>Hi,
+>
+>We have Intel 80003ES2LAN nics on SGI Altix XE310 servers (SuperMicro
+>Baseboard, with product name X7DGT). On those machines, one of the NIC
+>port is bridged internally with the BMC.
+>
+>It seems that during the e1000e driver initialization (at boot time),
+>the NIC is reset, which causes the BMC to stop working (it stops
+>responding to pings, the IPMI SOL console stops working; a reboot
+>restores it, until the next driver initialization).
+>
+>The exact same problem also occurs on Bull Novascale R422E1 nodes, with
+>the SuperMicro X7DWT baseboard.
+>
+>It worked in the past (we noticed it when upgrading from Debian wheezy
+>(3.2 kernel) to Debian jessie (3.16 kernel)). Using git bisect, I tracked
+>this down to commit 2800209994f878b00724ceabb65d744855c8f99a (included
+>in Linux 3.15).
+>
+>Digging further (as this commit is quite large), it seems that this
+>specific change introduced the problem:
+>
+>--- a/drivers/net/ethernet/intel/e1000e/netdev.c
+>+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+>@@ -3687,10 +3687,6 @@ void e1000e_power_up_phy(struct e1000_adapter
+>*adapter)
+>  */
+> static void e1000_power_down_phy(struct e1000_adapter *adapter)
+> {
+>-       /* WoL is enabled */
+>-       if (adapter->wol)
+>-               return;
+>-
+>        if (adapter->hw.phy.ops.power_down)
+>                adapter->hw.phy.ops.power_down(&adapter->hw);
+> }
 
-This is compat code that is being changed here. Based on the previous
-discussion, shouldn't these be made the default for all users?
+The WOL check protected you before because it was always done inside
+e1000_power_down_phy() and just so happened you had WOL enabled.
+
+The power down PHY function has a check for manageability, but it's
+not detecting it in your case.
+
+
+>I also confirmed that reverting this change on top of a 4.4 kernel, with
+>the following patch, fixes the problem (i.e. the BMC works again).
+>
+>--- a/drivers/net/ethernet/intel/e1000e/netdev.c
+>+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+>@@ -3791,6 +3791,8 @@ void e1000e_power_up_phy(struct e1000_adapter
+>*adapter)
+>  */
+> static void e1000_power_down_phy(struct e1000_adapter *adapter)
+> {
+>+       return;
+>+
+>        if (adapter->hw.phy.ops.power_down)
+>                adapter->hw.phy.ops.power_down(&adapter->hw);
+> }
+>
+>
+>My understanding is that, during driver initialization, e1000e_reset()
+>is called, which calls e1000_power_down_phy(), which breaks the BMC.
+
+e1000_power_down_phy() is only called in reset if the interface is down.
+If you are not using the interface, then you can blacklist the driver.
+Otherwise bringing up the interface should power the PHY back up and 
+restore the link for the BMC.
+
+>Given the comment above the code that was removed, I suspected that it
+>could also break WoL, but I haven't confirmed that.
+
+For WOL the driver has to leave the PHY power on after shutdown - this
+check was moved to __e1000_shutdown() from what I can see.
+
+Thanks,
+Emil
