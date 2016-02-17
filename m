@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] af_llc: fix types on llc_ui_wait_for_conn
-Date: Wed, 17 Feb 2016 16:12:46 -0500 (EST)
-Message-ID: <20160217.161246.355892499509813898.davem@davemloft.net>
-References: <20160215194129.18888.95792.stgit@localhost.localdomain>
+Subject: Re: [PATCH net-next 0/3] Remove the inet_lro library
+Date: Wed, 17 Feb 2016 16:16:20 -0500 (EST)
+Message-ID: <20160217.161620.999480340574338356.davem@davemloft.net>
+References: <20160215212351.GB5231@decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: gnomes@lxorguk.ukuu.org.uk
+To: ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57908 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57950 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965348AbcBQVMt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 16:12:49 -0500
-In-Reply-To: <20160215194129.18888.95792.stgit@localhost.localdomain>
+	with ESMTP id S1161462AbcBQVQW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 16:16:22 -0500
+In-Reply-To: <20160215212351.GB5231@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan <gnomes@lxorguk.ukuu.org.uk>
-Date: Mon, 15 Feb 2016 19:41:51 +0000
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Mon, 15 Feb 2016 21:23:52 +0000
 
-> The timeout is a long, we return it truncated if it is huge. Basically
-> harmless as the only caller does a boolean check, but tidy it up anyway.
-> 
-> (64bit build tested this time. Thank you 0day)
-> 
-> Signed-off-by: Alan Cox <alan@linux.intel.com>
+> The old inet_lro library has been deprecated ever since GRO was
+> introduced, but there are still a few drivers using it.  Convert
+> them to GRO and remove it.
 
-Applied, thanks Alan.
+A nice and long overdue cleanups.
 
-Please take into consideration Simon's idea to change the return type to
-bool as a follow-up.
-
-Thanks.
+Applied, thanks Ben.
