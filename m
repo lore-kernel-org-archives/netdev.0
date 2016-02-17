@@ -1,38 +1,26 @@
-From: Insu Yun <wuninsu@gmail.com>
-Subject: [PATCH] rose: correct integer overflow check
-Date: Wed, 17 Feb 2016 15:25:13 -0500
-Message-ID: <1455740713-18262-1-git-send-email-wuninsu@gmail.com>
-Cc: taesoo@gatech.edu, yeongjin.jang@gatech.edu, insu@gatech.edu,
-	changwoo@gatech.edu, Insu Yun <wuninsu@gmail.com>
-To: ralf@linux-mips.org, davem@davemloft.net,
-	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-Sender: linux-hams-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] Kill useless *switch* defaults in the Renesas
+ Ethernet drivers
+Date: Wed, 17 Feb 2016 15:30:55 -0500 (EST)
+Message-ID: <20160217.153055.21559109055018686.davem@davemloft.net>
+References: <2504091.pf4fyK11eg@wasted.cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <2504091.pf4fyK11eg@wasted.cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since rose_ndevs is signed integer type,
-it can be overflowed when it is negative.
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sun, 14 Feb 2016 22:55:05 +0300
 
-Signed-off-by: Insu Yun <wuninsu@gmail.com>
----
- net/rose/af_rose.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+>    Here's a set of 2 patches against DaveM's 'net-next.git' repo removing
+> often used *default* cases doing nothing.
+> 
+> [1/2] ravb: kill useless *switch* defaults
+> [2/2] sh_eth: kill useless *switch* defaults
 
-diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
-index 129d357..4f37fae 100644
---- a/net/rose/af_rose.c
-+++ b/net/rose/af_rose.c
-@@ -1514,7 +1514,8 @@ static int __init rose_proto_init(void)
- 	int i;
- 	int rc;
- 
--	if (rose_ndevs > 0x7FFFFFFF/sizeof(struct net_device *)) {
-+	if (rose_ndevs < 0 ||
-+	    rose_ndevs > 0x7FFFFFFF / sizeof(struct net_device *)) {
- 		printk(KERN_ERR "ROSE: rose_proto_init - rose_ndevs parameter to large\n");
- 		rc = -EINVAL;
- 		goto out;
--- 
-1.9.1
-
+Series applied, thanks Sergei.
