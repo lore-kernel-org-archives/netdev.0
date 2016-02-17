@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/16] i40e: add a little more to an NVM update debug message
-Date: Tue, 16 Feb 2016 21:34:17 -0800
-Message-ID: <1455687262-20453-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/16] i40e: Bump AQ minor version to 1.5 for new FW features
+Date: Tue, 16 Feb 2016 21:34:11 -0800
+Message-ID: <1455687262-20453-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455687262-20453-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,43 +10,51 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:14537 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756421AbcBQFe2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 00:34:28 -0500
+	id S1754085AbcBQFe0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 00:34:26 -0500
 In-Reply-To: <1455687262-20453-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Add a little more detail to an NVM update debug message in order to
-see the full ethtool request data.
+Bump AQ minor version to 1.5 for new FW features.
 
-Change-ID: Iab10437cb32d6fddc67ee347e7c0b42511e152cd
+Change-ID: I5a790f7f519a2a8921aaa1c5663727dd1897ffec
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Acked-by: Kevin Scott <kevin.c.scott@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index 6100cdd..5730f80 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -693,10 +693,11 @@ i40e_status i40e_nvmupd_command(struct i40e_hw *hw,
- 	/* early check for status command and debug msgs */
- 	upd_cmd = i40e_nvmupd_validate_command(hw, cmd, perrno);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index 9684572..5699299 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -34,7 +34,7 @@
+  */
  
--	i40e_debug(hw, I40E_DEBUG_NVM, "%s state %d nvm_release_on_hold %d\n",
-+	i40e_debug(hw, I40E_DEBUG_NVM, "%s state %d nvm_release_on_hold %d cmd 0x%08x config 0x%08x offset 0x%08x data_size 0x%08x\n",
- 		   i40e_nvm_update_state_str[upd_cmd],
- 		   hw->nvmupd_state,
--		   hw->aq.nvm_release_on_done);
-+		   hw->aq.nvm_release_on_done,
-+		   cmd->command, cmd->config, cmd->offset, cmd->data_size);
+ #define I40E_FW_API_VERSION_MAJOR	0x0001
+-#define I40E_FW_API_VERSION_MINOR	0x0004
++#define I40E_FW_API_VERSION_MINOR	0x0005
  
- 	if (upd_cmd == I40E_NVMUPD_INVALID) {
- 		*perrno = -EFAULT;
+ struct i40e_aq_desc {
+ 	__le16 flags;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index 6468537..ed963bc 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -34,7 +34,7 @@
+  */
+ 
+ #define I40E_FW_API_VERSION_MAJOR	0x0001
+-#define I40E_FW_API_VERSION_MINOR	0x0004
++#define I40E_FW_API_VERSION_MINOR	0x0005
+ 
+ struct i40e_aq_desc {
+ 	__le16 flags;
 -- 
 2.5.0
