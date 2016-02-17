@@ -1,51 +1,44 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 3/9] amd-xgbe: Use __napi_schedule_irqoff
-Date: Wed, 17 Feb 2016 11:48:29 -0600
-Message-ID: <20160217174829.26246.21639.stgit@tlendack-t1.amdoffice.net>
-References: <20160217174758.26246.15641.stgit@tlendack-t1.amdoffice.net>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [PATCH net V1 1/6] net/mlx4_en: Count HW buffer overrun only once
+Date: Wed, 17 Feb 2016 10:04:34 -0800
+Message-ID: <56C4B632.8030700@hpe.com>
+References: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
+ <1455722667-23179-2-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Amir Vadai <amir@vadai.me>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0079.outbound.protection.outlook.com ([157.56.110.79]:55486
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1161024AbcBQSDo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 13:03:44 -0500
-In-Reply-To: <20160217174758.26246.15641.stgit@tlendack-t1.amdoffice.net>
+Received: from g4t3426.houston.hp.com ([15.201.208.54]:24340 "EHLO
+	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161024AbcBQSEg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 13:04:36 -0500
+In-Reply-To: <1455722667-23179-2-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change from calling __napi_schedule to __napi_schedule_irqoff when running
-in interrupt context or when called by netpoll with interrupts already
-disabled. The Tx timer function will continue to use __napi_schedule.
+On 02/17/2016 07:24 AM, Or Gerlitz wrote:
+> From: Amir Vadai <amir@vadai.me>
+>
+> RdropOvflw counts overrun of HW buffer, therefore should
+> be used for rx_fifo_errors only.
+>
+> Currently RdropOvflw counter is mistakenly also set into
+> rx_missed_errors and rx_over_errors too, which makes the
+> device total dropped packets accounting to show wrong results.
+>
+> Fix that. Use it for rx_fifo_errors only.
+>
+> Fixes: c27a02cd94d6 ('mlx4_en: Add driver for Mellanox ConnectX 10GbE NIC')
+> Signed-off-by: Amir Vadai <amir@vadai.me>
+> Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Reviewed-By: Rick Jones <rick.jones2@hpe.com>
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 5a4d9ca..80ef404 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -356,7 +356,7 @@ static irqreturn_t xgbe_isr(int irq, void *data)
- 				xgbe_disable_rx_tx_ints(pdata);
- 
- 				/* Turn on polling */
--				__napi_schedule(&pdata->napi);
-+				__napi_schedule_irqoff(&pdata->napi);
- 			}
- 		}
- 
-@@ -409,7 +409,7 @@ static irqreturn_t xgbe_dma_isr(int irq, void *data)
- 		disable_irq_nosync(channel->dma_irq);
- 
- 		/* Turn on polling */
--		__napi_schedule(&channel->napi);
-+		__napi_schedule_irqoff(&channel->napi);
- 	}
- 
- 	return IRQ_HANDLED;
+rick
