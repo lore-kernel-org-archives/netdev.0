@@ -1,62 +1,64 @@
-From: Nathan Rossi <nathan@nathanrossi.com>
-Subject: Re: [PATCH] net: macb: Add support for phy-handle binding
-Date: Thu, 18 Feb 2016 04:44:35 +1000
-Message-ID: <CA+aJhH13H87z4=SBvZaOjND3RZRDSyxBp1ctYD5ssHKHg5eToQ@mail.gmail.com>
-References: <1455379368-18739-1-git-send-email-nathan@nathanrossi.com>
-	<20160217.121414.529895298809970981.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net 4/6] net/mlx4_core: Do not BUG_ON during reset when
+ PCI is offline
+Date: Wed, 17 Feb 2016 21:50:02 +0300
+Message-ID: <56C4C0DA.8050002@cogentembedded.com>
+References: <1455634911-31206-1-git-send-email-ogerlitz@mellanox.com>
+ <1455634911-31206-5-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nicolas.ferre@atmel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160217.121414.529895298809970981.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Daniel Jurgens <danielj@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:33416 "EHLO
+	mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030261AbcBQSuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 13:50:06 -0500
+Received: by mail-lf0-f42.google.com with SMTP id m1so17362751lfg.0
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 10:50:05 -0800 (PST)
+In-Reply-To: <1455634911-31206-5-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 18, 2016 at 3:14 AM, David Miller <davem@davemloft.net> wrote:
-> From: Nathan Rossi <nathan@nathanrossi.com>
-> Date: Sun, 14 Feb 2016 02:02:48 +1000
->
->> This patch adds support for the 'phy-handle' binding which allows for a
->> system to specifically select a phy which can be attached via any MDIO
->> bus available in the system.
->>
->> Signed-off-by: Nathan Rossi <nathan@nathanrossi.com>
->> Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
->
-> I don't see how this can be backwards compatible at all.
->
-> In my opinion we are way too loose about handling things like this.
->
-> Existing chips that happened to have an OF node but lack a phy-handle
-> property are going to be broken by that change.
->
-> I know you are now going to bombard me with all kinds of reasons why
-> this won't happen.
->
-> Don't bother, I'm simply not interested.
+Hello.
 
-The intention with this patch is to maintain existing dt bindings
-alongside being able to use phy-handle, but I am not completely
-familiar with all the use cases of the macb driver so I can't know for
-sure if this change does not break certain cases. So I fully
-understand your point.
+On 02/16/2016 06:01 PM, Or Gerlitz wrote:
 
+> From: Daniel Jurgens <danielj@mellanox.com>
 >
-> All of these special cases we use (all the DT bindings are in text
-> files in the kernel sources, we control all of the bootloaders, etc.)
-> is the most shaky foundation I've ever seen upon which to erect a
-> stable device probing mechanism.
+> The PCI channel could go offline during reset due to EEH.  Don't bug on in
+> this case, the error is recoverable.
 >
-> I'm not applying this patch until you add an error handling path from
-> the of_phy_connect() call that will do the existing PHY probing sequence
-> by hand using phy_find_first().
+> Fixes: f6bc11e42646 ('net/mlx4_core: Enhance the catas flow to support device reset')
+> Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
+> Reviewed-by: Yishai Hadas <yishaih@mellanox.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx4/catas.c | 11 +++++++++--
+>   1 file changed, 9 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
+> index 715de8a..e866082 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/catas.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
+> @@ -182,10 +182,17 @@ void mlx4_enter_error_state(struct mlx4_dev_persistent *persist)
+>   		err = mlx4_reset_slave(dev);
+>   	else
+>   		err = mlx4_reset_master(dev);
+> -	BUG_ON(err != 0);
+> +
+> +	if (!err)
+> +		mlx4_err(dev, "device was reset successfully\n");
+> +	else
+> +		/* EEH could have disabled the PCI channel during reset. That's
+> +		 * recoverable and the PCI error flow will handle it.
+> +		 */
+> +		if (!pci_channel_offline(dev->persist->pdev))
+> +			BUG_ON(1);
 
-I am not quite sure how to handle that in a way such as to also allow
-for the probe deferral in the event that the phydev/mdio bus which the
-phy-handle points at is not yet probed itself. But I guess the real
-question is whether or not to handle the deferral at all?
+    BTW, why not just BUG_ON(!pci_channel_offline(dev->persist->pdev));
 
-Thanks,
-Nathan
+WBR, Sergei
