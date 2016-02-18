@@ -1,33 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] route: check and remove route cache when we get
- route
-Date: Thu, 18 Feb 2016 11:32:17 -0500 (EST)
-Message-ID: <20160218.113217.1484051937122168598.davem@davemloft.net>
-References: <e190b1f6eb762c5770faef080ef6080a6dbdedfb.1455801679.git.lucien.xin@gmail.com>
+From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
+Subject: Re: [PATCH] b43: fix memory leak
+Date: Thu, 18 Feb 2016 17:32:12 +0100
+Message-ID: <20160218173212.03670d97@wiggum>
+References: <1455798876-32186-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: lucien.xin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43640 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1425080AbcBRQcT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 11:32:19 -0500
-In-Reply-To: <e190b1f6eb762c5770faef080ef6080a6dbdedfb.1455801679.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/N+AMpw_YurTwNNl3eaDOEP0"; protocol="application/pgp-signature"
+Cc: Kalle Valo <kvalo@codeaurora.org>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	b43-dev@lists.infradead.org, Jia-Ju Bai <baijiaju1990@163.com>
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455798876-32186-1-git-send-email-sudipm.mukherjee@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Thu, 18 Feb 2016 21:21:19 +0800
+--Sig_/N+AMpw_YurTwNNl3eaDOEP0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-> Since the gc of ipv4 route was removed, the route cached would has
-> no chance to be removed, and even it has been timeout, it still could
-> be used, cause no code to check it's expires.
-> 
-> Fix this issue by checking  and removing route cache when we get route.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+On Thu, 18 Feb 2016 18:04:36 +0530
+Sudip Mukherjee <sudipm.mukherjee@gmail.com> wrote:
 
-Applied and queued up for -stable, thanks.
+> From: Sudip Mukherjee <sudip@vectorindia.org>
+>=20
+> On error we jumped to the label bcma_out and returned the error code but
+> we missed freeing dev.
+>=20
+> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+> ---
+>  drivers/net/wireless/broadcom/b43/main.c | 1 +
+>  1 file changed, 1 insertion(+)
+>=20
+> diff --git a/drivers/net/wireless/broadcom/b43/main.c b/drivers/net/wirel=
+ess/broadcom/b43/main.c
+> index c279211..78f670a 100644
+> --- a/drivers/net/wireless/broadcom/b43/main.c
+> +++ b/drivers/net/wireless/broadcom/b43/main.c
+> @@ -5671,6 +5671,7 @@ static int b43_bcma_probe(struct bcma_device *core)
+>  	wl =3D b43_wireless_init(dev);
+>  	if (IS_ERR(wl)) {
+>  		err =3D PTR_ERR(wl);
+> +		kfree(dev);
+>  		goto bcma_out;
+>  	}
+> =20
+
+We recently had a patch that fixes this, among more leaks. Subject:
+[PATCH v2 resend] b43: Fix memory leaks in b43_bus_dev_ssb_init and
+b43_bus_dev_bcma_init
+
+Please test that patch instead, so we can finally apply it.
+
+It needs to be tested on both ssb and bcma. Come on. This isn't too
+hard. :) Please somebody with any hardware test it. (I currently don't
+have any b43 hardware)
+
+--=20
+Michael
+
+--Sig_/N+AMpw_YurTwNNl3eaDOEP0
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJWxfIMAAoJEPUyvh2QjYsOnjoQAJi1ySB/xUc+f1kQXy4LjfjZ
+A4GSt/U3ZQzZyZORq6zqCdUTZRUZXq1KerEdeTox9KGu1T13XtKc59PI2b2kYK3C
+PwxgtPhpZ2woJ/hnMtDyDNBy8uUTET3zyr2FQ8s8kXeqSrm4Aaj6OVv/t5csmrQd
+xlHQ2XuAFc8rzWaJWOqF+T/+sunv9hj2juPCrcI2Onn7MalcHaxPQRzIIuvN9POB
+E7ABC9doWzNfI3vJheH9EUoCkDPJua5+J8XVW2ogTsaC2Ao/1J5mhAo3WyTebUyV
+40S0ZeyzK8l+6+uhW+NJ2tasMwofK2jRg21BCRwMORbSgRZsjn9eIhqT3k3JwuB4
+UGmUz2m6xgQiKX+Wi5wF7CQMTZk4EDC+MVWSM8evgolZPrbNenYO1Bs32ViUSIn7
+Hf7+gsMOoJFYNEyzZaANDcfwnoOiumxy/0llAn1bCXuMSd2mlIISFfwb2x2IhqUm
+t41k0l65h6t8z/xgh5MVQfDkVI13bmSMGLnfc5qbZF8bUTygsu3bNwR73vZ/wqH4
+i3axYq01l3bJ7qlIJhu87H6kl1t18xeQT1VJQt9daoXMnQuTA4YNBBLhBayVsrom
+UuvWDGwZh4hBA0u/I/9lh5bvW8DbzIgbSiQ3fRQBcfA9rDafLWkLXuZl3l1xB1bt
+bBSqA8EYqZOw8W2CIHum
+=Ll4K
+-----END PGP SIGNATURE-----
+
+--Sig_/N+AMpw_YurTwNNl3eaDOEP0--
