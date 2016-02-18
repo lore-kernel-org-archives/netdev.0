@@ -1,33 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on
- i211 using a device tree blob V4
-Date: Wed, 17 Feb 2016 21:29:10 -0500 (EST)
-Message-ID: <20160217.212910.1758016077144502307.davem@davemloft.net>
-References: <56C506FD.5040408@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: jotihojr@gmail.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net v2] net: dsa: Unregister slave_dev in error path
+Date: Wed, 17 Feb 2016 18:43:22 -0800
+Message-ID: <1455763402-4399-1-git-send-email-f.fainelli@gmail.com>
+References: <1455761951-26408-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch, opendmb@gmail.com,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32990 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424809AbcBRC3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 21:29:12 -0500
-In-Reply-To: <56C506FD.5040408@gmail.com>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:36639 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1424140AbcBRCn2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 21:43:28 -0500
+Received: by mail-ob0-f180.google.com with SMTP id gc3so45388615obb.3
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 18:43:28 -0800 (PST)
+In-Reply-To: <1455761951-26408-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Holland <jotihojr@gmail.com>
-Date: Thu, 18 Feb 2016 00:49:17 +0100
+With commit 0071f56e46da ("dsa: Register netdev before phy"), we are now trying
+to free a network device that has been previously registered, and in case of
+errors, this will make us hit the BUG_ON(dev->reg_state != NETREG_UNREGISTERED)
+condition.
 
-> The Intel i211 LOM pcie ethernet controllers' iNVM operates as an OTP
-> and has no externel EEPROM interface [1]. The following allows the
-> driver to pickup the MAC address from a device tree blob when
-> CONFIG_OF
-> has been enabled.
+Fix this by adding a missing unregister_netdev() before free_netdev().
 
-Please use the generic eth_platform_get_mac_address(), or
-alternatively structure your code like the ixgbe and other cases so
-that SPARC and other OF platforms get this support as well.
+Fixes: 0071f56e46da ("dsa: Register netdev before phy")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Changes in v2:
+
+- fixed commit message to accurately reflect what we are doing s/unregister/free
+
+ net/dsa/slave.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 91e3b2ff364a..ab24521beb4d 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1204,6 +1204,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 	ret = dsa_slave_phy_setup(p, slave_dev);
+ 	if (ret) {
+ 		netdev_err(master, "error %d setting up slave phy\n", ret);
++		unregister_netdev(slave_dev);
+ 		free_netdev(slave_dev);
+ 		return ret;
+ 	}
+-- 
+2.5.0
