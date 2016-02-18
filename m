@@ -1,48 +1,46 @@
-From: Benjamin Poirier <bpoirier@suse.com>
-Subject: [PATCH] ipv6: Annotate change of locking mechanism for np->opt
-Date: Wed, 17 Feb 2016 16:20:33 -0800
-Message-ID: <1455754833-31567-1-git-send-email-bpoirier@suse.com>
-Cc: linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH nf-next 1/2] netfilter: ipvs: Remove noisy debug print from ip_vs_del_service
+Date: Thu, 18 Feb 2016 09:28:41 +0900
+Message-ID: <1455755322-19972-2-git-send-email-horms@verge.net.au>
+References: <1455755322-19972-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Yannick Brosseau <scientist@fb.com>,
+	Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:50137 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161920AbcBRAVs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 19:21:48 -0500
+Received: from kirsty.vergenet.net ([202.4.237.240]:40451 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161979AbcBRA3E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 19:29:04 -0500
+In-Reply-To: <1455755322-19972-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-follows up commit 45f6fad84cc3 ("ipv6: add complete rcu protection around
-np->opt") which added mixed rcu/refcount protection to np->opt.
+From: Yannick Brosseau <scientist@fb.com>
 
-Given the current implementation of rcu_pointer_handoff(), this has no
-effect at runtime.
+This have been there for a long time, but does not seem to add value
 
-Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+Signed-off-by: Yannick Brosseau <scientist@fb.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/ipv6.h | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ net/netfilter/ipvs/ip_vs_ctl.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 6570f37..f3c9857 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -259,8 +259,12 @@ static inline struct ipv6_txoptions *txopt_get(const struct ipv6_pinfo *np)
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index e7c1b052c2a3..daf4cb746974 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1376,8 +1376,6 @@ static void __ip_vs_del_service(struct ip_vs_service *svc, bool cleanup)
+ 	struct ip_vs_pe *old_pe;
+ 	struct netns_ipvs *ipvs = svc->ipvs;
  
- 	rcu_read_lock();
- 	opt = rcu_dereference(np->opt);
--	if (opt && !atomic_inc_not_zero(&opt->refcnt))
--		opt = NULL;
-+	if (opt) {
-+		if (!atomic_inc_not_zero(&opt->refcnt))
-+			opt = NULL;
-+		else
-+			opt = rcu_pointer_handoff(opt);
-+	}
- 	rcu_read_unlock();
- 	return opt;
- }
+-	pr_info("%s: enter\n", __func__);
+-
+ 	/* Count only IPv4 services for old get/setsockopt interface */
+ 	if (svc->af == AF_INET)
+ 		ipvs->num_services--;
 -- 
-2.7.0
+2.1.4
