@@ -1,32 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net, thunderx: Use bool in structs where possible
-Date: Thu, 18 Feb 2016 11:05:14 -0500 (EST)
-Message-ID: <20160218.110514.652169911099659792.davem@davemloft.net>
-References: <1455799149-19590-1-git-send-email-rrichter@caviumnetworks.com>
-	<1455799149-19590-3-git-send-email-rrichter@caviumnetworks.com>
+Subject: Re: [RESEND PATCH v3] isdn: divamnt: use y2038-safe
+ ktime_get_ts64() for trace data timestamps
+Date: Thu, 18 Feb 2016 11:10:07 -0500 (EST)
+Message-ID: <20160218.111007.1949710047777164403.davem@davemloft.net>
+References: <20151120182307.GA3513@d830.WORKGROUP>
+	<1455777311-3190-1-git-send-email-amsfield22@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sgoutham@cavium.com, rric@kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	rrichter@cavium.com
-To: rrichter@caviumnetworks.com
+Cc: mac@melware.de, isdn@linux-pingi.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, y2038@lists.linaro.org
+To: amsfield22@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455799149-19590-3-git-send-email-rrichter@caviumnetworks.com>
+In-Reply-To: <1455777311-3190-1-git-send-email-amsfield22@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Robert Richter <rrichter@caviumnetworks.com>
-Date: Thu, 18 Feb 2016 13:39:09 +0100
+From: Alison Schofield <amsfield22@gmail.com>
+Date: Wed, 17 Feb 2016 22:35:11 -0800
 
-> From: Robert Richter <rrichter@cavium.com>
+> divamnt stores a start_time at module init and uses it to calculate
+> elapsed time. The elapsed time, stored in secs and usecs, is part of
+> the trace data the driver maintains for the DIVA Server ISDN cards.
+> No change to the format of that time data is required.
 > 
-> Looks like the :1 notation was accidentally introduced (this still
-> uses 1 byte per flag). Using bool instead, which is the common use.
+> To avoid overflow on 32-bit systems use ktime_get_ts64() to return
+> the elapsed monotonic time since system boot.
 > 
-> Signed-off-by: Robert Richter <rrichter@cavium.com>
+> This is a change from real to monotonic time. Since the driver only
+> stores elapsed time, monotonic time is sufficient and more robust
+> against real time clock changes. These new monotonic values can be
+> more useful for debugging because they can be easily compared to
+> other monotonic timestamps.
+> 
+> Note elaspsed time values will now start at system boot time rather
+> than module load time, so they will differ slightly from previously
+> reported values.
+> 
+> Remove declaration and init of previously unused time constants:
+> start_sec, start_usec.
+> 
+> Signed-off-by: Alison Schofield <amsfield22@gmail.com>
+> Reviewed-by: Arnd Bergmann <arnd@arndb.de>
 
-Such cleanups are not appropriate for 'net'.  Only real bug fixes should
-be targetted that.
-
-Respin these patches targetting the correct tree(s).
+Applied to net-next, thanks.
