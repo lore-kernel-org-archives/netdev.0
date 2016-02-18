@@ -1,34 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Add support for PHY packet generators
-Date: Thu, 18 Feb 2016 15:45:39 -0500 (EST)
-Message-ID: <20160218.154539.340432973192973342.davem@davemloft.net>
-References: <1455741127-25453-1-git-send-email-andrew@lunn.ch>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/2] bridge: mdb: add support for extended
+ attributes
+Date: Thu, 18 Feb 2016 21:51:26 +0100
+Message-ID: <56C62ECE.6000900@cumulusnetworks.com>
+References: <1455623214-2951-1-git-send-email-razor@blackwall.org>
+ <20160218.153740.101157132273397459.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>, razor@blackwall.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47195 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1425560AbcBRUpl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:45:41 -0500
-In-Reply-To: <1455741127-25453-1-git-send-email-andrew@lunn.ch>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:38310 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1947555AbcBRUv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:51:29 -0500
+Received: by mail-wm0-f48.google.com with SMTP id a4so43265996wme.1
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:51:28 -0800 (PST)
+In-Reply-To: <20160218.153740.101157132273397459.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Wed, 17 Feb 2016 21:32:05 +0100
-
-> Some Ethernet PHYs contain a simple packet generator. This can be
-> useful for bringing up new devices, trying to determine if a problem
-> lies in the MAC-PHY connection or PHY-Socket. Also, the PHY generators
-> can generate invalid packets, which is hard to do in software.
+On 02/18/2016 09:37 PM, David Miller wrote:
+> From: Nikolay Aleksandrov <razor@blackwall.org>
+> Date: Tue, 16 Feb 2016 12:46:52 +0100
 > 
-> Add support ethtool(1) and wire up the Marvell PHY packet generator.
+>> Note that the reason we can't simply add an attribute after
+>> MDBA_MDB_ENTRY_INFO is that current users (e.g. iproute2) walk over
+>> the attribute list directly without checking for the attribute type.
+> 
+> Honestly that sounds like a bug in iproute2 to me...
+> 
 
-You really cannot make this blocking, every time we've added a blocking
-ethtool op that could take a non-trivial amount of time we've been
-burnt.
+I agree, but changing this in the kernel would make older iproute2 versions
+incompatible with newer kernels, possibly outputting garbage from the additional
+attributes, besides we still will have to turn MDBA_MDB_ENTRY_INFO into a nested
+attribute and insert the struct with a header as that's the per-mdb entry attribute
+currently.
 
-So as Ben mentioned blocking for 0.3 seconds or whatever is a non-starter.
+Alternatively I have a version that uses a request flag in the dump request and
+sends back an alternative/"extended" version of the mdbs where every field is
+a netlink attribute and is extensible, thus keeping the old format in place
+and offering extended attribute support to anyone who requests it.
+
+I just thought this version is a middle ground between the two solutions and
+still doesn't break user-space while being extensible.
+
+There're no more holes in the mdb entry struct to reuse.. :-)
+
+Cheers,
+ Nik
