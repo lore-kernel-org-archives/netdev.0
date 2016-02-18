@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 1/3] perf: generalize perf_callchain
-Date: Wed, 17 Feb 2016 19:58:57 -0800
-Message-ID: <1455767939-2700534-2-git-send-email-ast@fb.com>
+Subject: [PATCH net-next 3/3] samples/bpf: offwaketime example
+Date: Wed, 17 Feb 2016 19:58:59 -0800
+Message-ID: <1455767939-2700534-4-git-send-email-ast@fb.com>
 References: <1455767939-2700534-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -18,248 +18,403 @@ In-Reply-To: <1455767939-2700534-1-git-send-email-ast@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-. avoid walking the stack when there is no room left in the buffer
-. generalize get_perf_callchain() to be called from bpf helper
+This is simplified version of Brendan Gregg's offwaketime:
+This program shows kernel stack traces and task names that were blocked and
+"off-CPU", along with the stack traces and task names for the threads that woke
+them, and the total elapsed time from when they blocked to when they were woken
+up. The combined stacks, task names, and total time is summarized in kernel
+context for efficiency.
+
+Example:
+$ sudo ./offwaketime | flamegraph.pl > demo.svg
+Open demo.svg in the browser as FlameGraph visualization.
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- arch/x86/include/asm/stacktrace.h |  2 +-
- arch/x86/kernel/cpu/perf_event.c  |  4 ++--
- arch/x86/kernel/dumpstack.c       |  6 ++++--
- arch/x86/kernel/stacktrace.c      | 18 +++++++++++-------
- arch/x86/oprofile/backtrace.c     |  3 ++-
- include/linux/perf_event.h        | 13 +++++++++++--
- kernel/events/callchain.c         | 32 ++++++++++++++++++++------------
- kernel/events/internal.h          |  2 --
- 8 files changed, 51 insertions(+), 29 deletions(-)
+ samples/bpf/Makefile           |   4 +
+ samples/bpf/bpf_helpers.h      |   2 +
+ samples/bpf/offwaketime_kern.c | 131 +++++++++++++++++++++++++++++
+ samples/bpf/offwaketime_user.c | 185 +++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 322 insertions(+)
+ create mode 100644 samples/bpf/offwaketime_kern.c
+ create mode 100644 samples/bpf/offwaketime_user.c
 
-diff --git a/arch/x86/include/asm/stacktrace.h b/arch/x86/include/asm/stacktrace.h
-index 70bbe39043a9..7c247e7404be 100644
---- a/arch/x86/include/asm/stacktrace.h
-+++ b/arch/x86/include/asm/stacktrace.h
-@@ -37,7 +37,7 @@ print_context_stack_bp(struct thread_info *tinfo,
- /* Generic stack tracer with callbacks */
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index edd638b5825f..c4f8ae0c8afe 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -16,6 +16,7 @@ hostprogs-y += tracex5
+ hostprogs-y += tracex6
+ hostprogs-y += trace_output
+ hostprogs-y += lathist
++hostprogs-y += offwaketime
  
- struct stacktrace_ops {
--	void (*address)(void *data, unsigned long address, int reliable);
-+	int (*address)(void *data, unsigned long address, int reliable);
- 	/* On negative return stop dumping */
- 	int (*stack)(void *data, char *name);
- 	walk_stack_t	walk_stack;
-diff --git a/arch/x86/kernel/cpu/perf_event.c b/arch/x86/kernel/cpu/perf_event.c
-index 1b443db2db50..d276b31ca473 100644
---- a/arch/x86/kernel/cpu/perf_event.c
-+++ b/arch/x86/kernel/cpu/perf_event.c
-@@ -2180,11 +2180,11 @@ static int backtrace_stack(void *data, char *name)
- 	return 0;
- }
+ test_verifier-objs := test_verifier.o libbpf.o
+ test_maps-objs := test_maps.o libbpf.o
+@@ -32,6 +33,7 @@ tracex5-objs := bpf_load.o libbpf.o tracex5_user.o
+ tracex6-objs := bpf_load.o libbpf.o tracex6_user.o
+ trace_output-objs := bpf_load.o libbpf.o trace_output_user.o
+ lathist-objs := bpf_load.o libbpf.o lathist_user.o
++offwaketime-objs := bpf_load.o libbpf.o offwaketime_user.o
  
--static void backtrace_address(void *data, unsigned long addr, int reliable)
-+static int backtrace_address(void *data, unsigned long addr, int reliable)
- {
- 	struct perf_callchain_entry *entry = data;
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -47,6 +49,7 @@ always += tracex6_kern.o
+ always += trace_output_kern.o
+ always += tcbpf1_kern.o
+ always += lathist_kern.o
++always += offwaketime_kern.o
  
--	perf_callchain_store(entry, addr);
-+	return perf_callchain_store(entry, addr);
- }
+ HOSTCFLAGS += -I$(objtree)/usr/include
  
- static const struct stacktrace_ops backtrace_ops = {
-diff --git a/arch/x86/kernel/dumpstack.c b/arch/x86/kernel/dumpstack.c
-index 9c30acfadae2..0d1ff4b407d4 100644
---- a/arch/x86/kernel/dumpstack.c
-+++ b/arch/x86/kernel/dumpstack.c
-@@ -135,7 +135,8 @@ print_context_stack_bp(struct thread_info *tinfo,
- 		if (!__kernel_text_address(addr))
- 			break;
+@@ -63,6 +66,7 @@ HOSTLOADLIBES_tracex5 += -lelf
+ HOSTLOADLIBES_tracex6 += -lelf
+ HOSTLOADLIBES_trace_output += -lelf -lrt
+ HOSTLOADLIBES_lathist += -lelf
++HOSTLOADLIBES_offwaketime += -lelf
  
--		ops->address(data, addr, 1);
-+		if (ops->address(data, addr, 1))
-+			break;
- 		frame = frame->next_frame;
- 		ret_addr = &frame->return_address;
- 		print_ftrace_graph_addr(addr, data, ops, tinfo, graph);
-@@ -154,10 +155,11 @@ static int print_trace_stack(void *data, char *name)
- /*
-  * Print one address/symbol entries per line.
-  */
--static void print_trace_address(void *data, unsigned long addr, int reliable)
-+static int print_trace_address(void *data, unsigned long addr, int reliable)
- {
- 	touch_nmi_watchdog();
- 	printk_stack_address(addr, reliable, data);
+ # point this to your LLVM backend with bpf support
+ LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
+diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+index 7ad19e1dbaf4..811bcca0f29d 100644
+--- a/samples/bpf/bpf_helpers.h
++++ b/samples/bpf/bpf_helpers.h
+@@ -39,6 +39,8 @@ static int (*bpf_redirect)(int ifindex, int flags) =
+ 	(void *) BPF_FUNC_redirect;
+ static int (*bpf_perf_event_output)(void *ctx, void *map, int index, void *data, int size) =
+ 	(void *) BPF_FUNC_perf_event_output;
++static int (*bpf_get_stackid)(void *ctx, void *map, int flags) =
++	(void *) BPF_FUNC_get_stackid;
+ 
+ /* llvm builtin functions that eBPF C program may use to
+  * emit BPF_LD_ABS and BPF_LD_IND instructions
+diff --git a/samples/bpf/offwaketime_kern.c b/samples/bpf/offwaketime_kern.c
+new file mode 100644
+index 000000000000..c0aa5a9b9c48
+--- /dev/null
++++ b/samples/bpf/offwaketime_kern.c
+@@ -0,0 +1,131 @@
++/* Copyright (c) 2016 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <uapi/linux/bpf.h>
++#include "bpf_helpers.h"
++#include <uapi/linux/ptrace.h>
++#include <uapi/linux/perf_event.h>
++#include <linux/version.h>
++#include <linux/sched.h>
++
++#define _(P) ({typeof(P) val = 0; bpf_probe_read(&val, sizeof(val), &P); val;})
++
++#define MINBLOCK_US	1
++
++struct key_t {
++	char waker[TASK_COMM_LEN];
++	char target[TASK_COMM_LEN];
++	u32 wret;
++	u32 tret;
++};
++
++struct bpf_map_def SEC("maps") counts = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(struct key_t),
++	.value_size = sizeof(u64),
++	.max_entries = 10000,
++};
++
++struct bpf_map_def SEC("maps") start = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(u64),
++	.max_entries = 10000,
++};
++
++struct wokeby_t {
++	char name[TASK_COMM_LEN];
++	u32 ret;
++};
++
++struct bpf_map_def SEC("maps") wokeby = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(struct wokeby_t),
++	.max_entries = 10000,
++};
++
++struct bpf_map_def SEC("maps") stackmap = {
++	.type = BPF_MAP_TYPE_STACK_TRACE,
++	.key_size = sizeof(u32),
++	.value_size = PERF_MAX_STACK_DEPTH * sizeof(u64),
++	.max_entries = 10000,
++};
++
++#define STACKID_FLAGS (0 | BPF_F_FAST_STACK_CMP)
++
++SEC("kprobe/try_to_wake_up")
++int waker(struct pt_regs *ctx)
++{
++	struct task_struct *p = (void *) PT_REGS_PARM1(ctx);
++	struct wokeby_t woke = {};
++	u32 pid;
++
++	pid = _(p->pid);
++
++	bpf_get_current_comm(&woke.name, sizeof(woke.name));
++	woke.ret = bpf_get_stackid(ctx, &stackmap, STACKID_FLAGS);
++
++	bpf_map_update_elem(&wokeby, &pid, &woke, BPF_ANY);
 +	return 0;
- }
- 
- static const struct stacktrace_ops print_trace_ops = {
-diff --git a/arch/x86/kernel/stacktrace.c b/arch/x86/kernel/stacktrace.c
-index fdd0c6430e5a..9ee98eefc44d 100644
---- a/arch/x86/kernel/stacktrace.c
-+++ b/arch/x86/kernel/stacktrace.c
-@@ -14,30 +14,34 @@ static int save_stack_stack(void *data, char *name)
- 	return 0;
- }
- 
--static void
-+static int
- __save_stack_address(void *data, unsigned long addr, bool reliable, bool nosched)
- {
- 	struct stack_trace *trace = data;
- #ifdef CONFIG_FRAME_POINTER
- 	if (!reliable)
--		return;
-+		return 0;
- #endif
- 	if (nosched && in_sched_functions(addr))
--		return;
-+		return 0;
- 	if (trace->skip > 0) {
- 		trace->skip--;
--		return;
-+		return 0;
- 	}
--	if (trace->nr_entries < trace->max_entries)
-+	if (trace->nr_entries < trace->max_entries) {
- 		trace->entries[trace->nr_entries++] = addr;
-+		return 0;
-+	} else {
-+		return -1; /* no more room, stop walking the stack */
-+	}
- }
- 
--static void save_stack_address(void *data, unsigned long addr, int reliable)
-+static int save_stack_address(void *data, unsigned long addr, int reliable)
- {
- 	return __save_stack_address(data, addr, reliable, false);
- }
- 
--static void
-+static int
- save_stack_address_nosched(void *data, unsigned long addr, int reliable)
- {
- 	return __save_stack_address(data, addr, reliable, true);
-diff --git a/arch/x86/oprofile/backtrace.c b/arch/x86/oprofile/backtrace.c
-index 4e664bdb535a..cb31a4440e58 100644
---- a/arch/x86/oprofile/backtrace.c
-+++ b/arch/x86/oprofile/backtrace.c
-@@ -23,12 +23,13 @@ static int backtrace_stack(void *data, char *name)
- 	return 0;
- }
- 
--static void backtrace_address(void *data, unsigned long addr, int reliable)
-+static int backtrace_address(void *data, unsigned long addr, int reliable)
- {
- 	unsigned int *depth = data;
- 
- 	if ((*depth)--)
- 		oprofile_add_trace(addr);
-+	return 0;
- }
- 
- static struct stacktrace_ops backtrace_ops = {
-diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
-index b35a61a481fa..7da3c25999df 100644
---- a/include/linux/perf_event.h
-+++ b/include/linux/perf_event.h
-@@ -964,11 +964,20 @@ DECLARE_PER_CPU(struct perf_callchain_entry, perf_callchain_entry);
- 
- extern void perf_callchain_user(struct perf_callchain_entry *entry, struct pt_regs *regs);
- extern void perf_callchain_kernel(struct perf_callchain_entry *entry, struct pt_regs *regs);
-+extern struct perf_callchain_entry *
-+get_perf_callchain(struct pt_regs *regs, u32 init_nr, bool kernel, bool user,
-+		   bool crosstask, bool add_mark);
-+extern int get_callchain_buffers(void);
-+extern void put_callchain_buffers(void);
- 
--static inline void perf_callchain_store(struct perf_callchain_entry *entry, u64 ip)
-+static inline int perf_callchain_store(struct perf_callchain_entry *entry, u64 ip)
- {
--	if (entry->nr < PERF_MAX_STACK_DEPTH)
-+	if (entry->nr < PERF_MAX_STACK_DEPTH) {
- 		entry->ip[entry->nr++] = ip;
-+		return 0;
-+	} else {
-+		return -1; /* no more room, stop walking the stack */
-+	}
- }
- 
- extern int sysctl_perf_event_paranoid;
-diff --git a/kernel/events/callchain.c b/kernel/events/callchain.c
-index 9c418002b8c1..343c22f5e867 100644
---- a/kernel/events/callchain.c
-+++ b/kernel/events/callchain.c
-@@ -159,15 +159,24 @@ put_callchain_entry(int rctx)
- struct perf_callchain_entry *
- perf_callchain(struct perf_event *event, struct pt_regs *regs)
- {
--	int rctx;
--	struct perf_callchain_entry *entry;
--
--	int kernel = !event->attr.exclude_callchain_kernel;
--	int user   = !event->attr.exclude_callchain_user;
-+	bool kernel = !event->attr.exclude_callchain_kernel;
-+	bool user   = !event->attr.exclude_callchain_user;
-+	/* Disallow cross-task user callchains. */
-+	bool crosstask = event->ctx->task && event->ctx->task != current;
- 
- 	if (!kernel && !user)
- 		return NULL;
- 
-+	return get_perf_callchain(regs, 0, kernel, user, crosstask, true);
 +}
 +
-+struct perf_callchain_entry *
-+get_perf_callchain(struct pt_regs *regs, u32 init_nr, bool kernel, bool user,
-+		   bool crosstask, bool add_mark)
++static inline int update_counts(struct pt_regs *ctx, u32 pid, u64 delta)
 +{
-+	struct perf_callchain_entry *entry;
-+	int rctx;
++	struct key_t key = {};
++	struct wokeby_t *woke;
++	u64 zero = 0, *val;
 +
- 	entry = get_callchain_entry(&rctx);
- 	if (rctx == -1)
- 		return NULL;
-@@ -175,10 +184,11 @@ perf_callchain(struct perf_event *event, struct pt_regs *regs)
- 	if (!entry)
- 		goto exit_put;
- 
--	entry->nr = 0;
-+	entry->nr = init_nr;
- 
- 	if (kernel && !user_mode(regs)) {
--		perf_callchain_store(entry, PERF_CONTEXT_KERNEL);
-+		if (add_mark)
-+			perf_callchain_store(entry, PERF_CONTEXT_KERNEL);
- 		perf_callchain_kernel(entry, regs);
- 	}
- 
-@@ -191,13 +201,11 @@ perf_callchain(struct perf_event *event, struct pt_regs *regs)
- 		}
- 
- 		if (regs) {
--			/*
--			 * Disallow cross-task user callchains.
--			 */
--			if (event->ctx->task && event->ctx->task != current)
-+			if (crosstask)
- 				goto exit_put;
- 
--			perf_callchain_store(entry, PERF_CONTEXT_USER);
-+			if (add_mark)
-+				perf_callchain_store(entry, PERF_CONTEXT_USER);
- 			perf_callchain_user(entry, regs);
- 		}
- 	}
-diff --git a/kernel/events/internal.h b/kernel/events/internal.h
-index 2bbad9c1274c..4199b6d193f5 100644
---- a/kernel/events/internal.h
-+++ b/kernel/events/internal.h
-@@ -182,8 +182,6 @@ DEFINE_OUTPUT_COPY(__output_copy_user, arch_perf_out_copy_user)
- /* Callchain handling */
- extern struct perf_callchain_entry *
- perf_callchain(struct perf_event *event, struct pt_regs *regs);
--extern int get_callchain_buffers(void);
--extern void put_callchain_buffers(void);
- 
- static inline int get_recursion_context(int *recursion)
- {
++	bpf_get_current_comm(&key.target, sizeof(key.target));
++	key.tret = bpf_get_stackid(ctx, &stackmap, STACKID_FLAGS);
++
++	woke = bpf_map_lookup_elem(&wokeby, &pid);
++	if (woke) {
++		key.wret = woke->ret;
++		__builtin_memcpy(&key.waker, woke->name, TASK_COMM_LEN);
++		bpf_map_delete_elem(&wokeby, &pid);
++	}
++
++	val = bpf_map_lookup_elem(&counts, &key);
++	if (!val) {
++		bpf_map_update_elem(&counts, &key, &zero, BPF_NOEXIST);
++		val = bpf_map_lookup_elem(&counts, &key);
++		if (!val)
++			return 0;
++	}
++	(*val) += delta;
++	return 0;
++}
++
++SEC("kprobe/finish_task_switch")
++int oncpu(struct pt_regs *ctx)
++{
++	struct task_struct *p = (void *) PT_REGS_PARM1(ctx);
++	u64 delta, ts, *tsp;
++	u32 pid;
++
++	/* record previous thread sleep time */
++	pid = _(p->pid);
++	ts = bpf_ktime_get_ns();
++	bpf_map_update_elem(&start, &pid, &ts, BPF_ANY);
++
++	/* calculate current thread's delta time */
++	pid = bpf_get_current_pid_tgid();
++	tsp = bpf_map_lookup_elem(&start, &pid);
++	if (!tsp)
++		/* missed start or filtered */
++		return 0;
++
++	delta = bpf_ktime_get_ns() - *tsp;
++	bpf_map_delete_elem(&start, &pid);
++	delta = delta / 1000;
++	if (delta < MINBLOCK_US)
++		return 0;
++
++	return update_counts(ctx, pid, delta);
++}
++char _license[] SEC("license") = "GPL";
++u32 _version SEC("version") = LINUX_VERSION_CODE;
+diff --git a/samples/bpf/offwaketime_user.c b/samples/bpf/offwaketime_user.c
+new file mode 100644
+index 000000000000..17cf3024e22c
+--- /dev/null
++++ b/samples/bpf/offwaketime_user.c
+@@ -0,0 +1,185 @@
++/* Copyright (c) 2016 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <stdio.h>
++#include <unistd.h>
++#include <stdlib.h>
++#include <signal.h>
++#include <linux/bpf.h>
++#include <string.h>
++#include <linux/perf_event.h>
++#include <errno.h>
++#include <assert.h>
++#include <stdbool.h>
++#include <sys/resource.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++
++#define MAX_SYMS 300000
++#define PRINT_RAW_ADDR 0
++
++static struct ksym {
++	long addr;
++	char *name;
++} syms[MAX_SYMS];
++static int sym_cnt;
++
++static int ksym_cmp(const void *p1, const void *p2)
++{
++	return ((struct ksym *)p1)->addr - ((struct ksym *)p2)->addr;
++}
++
++static int load_kallsyms(void)
++{
++	FILE *f = fopen("/proc/kallsyms", "r");
++	char func[256], buf[256];
++	char symbol;
++	void *addr;
++	int i = 0;
++
++	if (!f)
++		return -ENOENT;
++
++	while (!feof(f)) {
++		if (!fgets(buf, sizeof(buf), f))
++			break;
++		if (sscanf(buf, "%p %c %s", &addr, &symbol, func) != 3)
++			break;
++		if (!addr)
++			continue;
++		syms[i].addr = (long) addr;
++		syms[i].name = strdup(func);
++		i++;
++	}
++	sym_cnt = i;
++	qsort(syms, sym_cnt, sizeof(struct ksym), ksym_cmp);
++	return 0;
++}
++
++static void *search(long key)
++{
++	int start = 0, end = sym_cnt;
++	int result;
++
++	while (start < end) {
++		size_t mid = start + (end - start) / 2;
++
++		result = key - syms[mid].addr;
++		if (result < 0)
++			end = mid;
++		else if (result > 0)
++			start = mid + 1;
++		else
++			return &syms[mid];
++	}
++
++	if (start >= 1 && syms[start - 1].addr < key &&
++	    key < syms[start].addr)
++		/* valid ksym */
++		return &syms[start - 1];
++
++	/* out of range. return _stext */
++	return &syms[0];
++}
++
++static void print_ksym(__u64 addr)
++{
++	struct ksym *sym;
++
++	if (!addr)
++		return;
++	sym = search(addr);
++	if (PRINT_RAW_ADDR)
++		printf("%s/%llx;", sym->name, addr);
++	else
++		printf("%s;", sym->name);
++}
++
++#define TASK_COMM_LEN 16
++
++struct key_t {
++	char waker[TASK_COMM_LEN];
++	char target[TASK_COMM_LEN];
++	__u32 wret;
++	__u32 tret;
++};
++
++static void print_stack(struct key_t *key, __u64 count)
++{
++	__u64 ip[PERF_MAX_STACK_DEPTH] = {};
++	static bool warned;
++	int i;
++
++	printf("%s;", key->target);
++	if (bpf_lookup_elem(map_fd[3], &key->tret, ip) != 0) {
++		printf("---;");
++	} else {
++		for (i = PERF_MAX_STACK_DEPTH - 1; i >= 0; i--)
++			print_ksym(ip[i]);
++	}
++	printf("-;");
++	if (bpf_lookup_elem(map_fd[3], &key->wret, ip) != 0) {
++		printf("---;");
++	} else {
++		for (i = 0; i < PERF_MAX_STACK_DEPTH; i++)
++			print_ksym(ip[i]);
++	}
++	printf(";%s %lld\n", key->waker, count);
++
++	if ((key->tret == -EEXIST || key->wret == -EEXIST) && !warned) {
++		printf("stackmap collisions seen. Consider increasing size\n");
++		warned = true;
++	} else if (((int)(key->tret) < 0 || (int)(key->wret) < 0)) {
++		printf("err stackid %d %d\n", key->tret, key->wret);
++	}
++}
++
++static void print_stacks(int fd)
++{
++	struct key_t key = {}, next_key;
++	__u64 value;
++
++	while (bpf_get_next_key(fd, &key, &next_key) == 0) {
++		bpf_lookup_elem(fd, &next_key, &value);
++		print_stack(&next_key, value);
++		key = next_key;
++	}
++}
++
++static void int_exit(int sig)
++{
++	print_stacks(map_fd[0]);
++	exit(0);
++}
++
++int main(int argc, char **argv)
++{
++	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
++	char filename[256];
++	int delay = 1;
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++	setrlimit(RLIMIT_MEMLOCK, &r);
++
++	signal(SIGINT, int_exit);
++
++	if (load_kallsyms()) {
++		printf("failed to process /proc/kallsyms\n");
++		return 2;
++	}
++
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++
++	if (argc > 1)
++		delay = atoi(argv[1]);
++	sleep(delay);
++	print_stacks(map_fd[0]);
++
++	return 0;
++}
 -- 
 2.4.6
