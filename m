@@ -1,95 +1,257 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/15] i40e/i40evf: use __GFP_NOWARN
-Date: Wed, 17 Feb 2016 19:38:53 -0800
-Message-ID: <1455766737-11911-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/15] i40e: Refactor force_wb and WB_ON_ITR functionality code
+Date: Wed, 17 Feb 2016 19:38:48 -0800
+Message-ID: <1455766737-11911-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455766737-11911-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:14529 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:4847 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1424877AbcBRDjG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 22:39:06 -0500
+	id S1424151AbcBRDjE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 22:39:04 -0500
 In-Reply-To: <1455766737-11911-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-The i40e and i40evf drivers now cleanly handle allocation
-failures and can avoid kernel log spew from the memory allocator
-when allocations fail, so set __GFP_NOWARN on Rx buffer alloc.
+Now that the Force-WriteBack functionality in X710/XL710 devices
+has been moved out of the clean routine and into the service task,
+we need to make sure WriteBack-On-ITR is separated out since it
+is still called from clean.
 
-Change-ID: Ic9e1b83c495e2a3ef6b069ba7fb6e52ce134cd23
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+In the X722 devices, Force-WriteBack implies WriteBack-On-ITR but
+without the interrupt, which put the driver into a missed
+interrupt scenario and a potential tx-timeout report.
+
+With this patch, we break the two functions out, and call the
+appropriate ones at the right place. This will avoid creating missed
+interrupt like scenarios for X722 devices.
+
+Also update copyright year in file headers.
+
+Change-ID: Iacbde39f95f332f82be8736864675052c3583a40
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 12 ++++++++----
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 12 ++++++++----
- 2 files changed, 16 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 57 ++++++++++++++----------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 63 +++++++++++++++------------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h |  3 +-
+ 3 files changed, 72 insertions(+), 51 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 8049206..baaf093 100644
+index 6d1dd60..7dfd45e 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1292,8 +1292,10 @@ bool i40e_alloc_rx_buffers_1buf(struct i40e_ring *rx_ring, u16 cleaned_count)
- 		skb = bi->skb;
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 - 2014 Intel Corporation.
++ * Copyright(c) 2013 - 2016 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -774,37 +774,48 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
+ }
  
- 		if (!skb) {
--			skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
--							rx_ring->rx_buf_len);
-+			skb = __netdev_alloc_skb_ip_align(rx_ring->netdev,
-+							  rx_ring->rx_buf_len,
-+							  GFP_ATOMIC |
-+							  __GFP_NOWARN);
- 			if (!skb) {
- 				rx_ring->rx_stats.alloc_buff_failed++;
- 				goto no_buffers;
-@@ -1571,8 +1573,10 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, const int budget)
- 		rx_bi = &rx_ring->rx_bi[i];
- 		skb = rx_bi->skb;
- 		if (likely(!skb)) {
--			skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
--							rx_ring->rx_hdr_len);
-+			skb = __netdev_alloc_skb_ip_align(rx_ring->netdev,
-+							  rx_ring->rx_hdr_len,
-+							  GFP_ATOMIC |
-+							  __GFP_NOWARN);
- 			if (!skb) {
- 				rx_ring->rx_stats.alloc_buff_failed++;
- 				failure = true;
+ /**
+- * i40e_force_wb - Arm hardware to do a wb on noncache aligned descriptors
++ * i40e_enable_wb_on_itr - Arm hardware to do a wb, interrupts are not enabled
+  * @vsi: the VSI we care about
+- * @q_vector: the vector  on which to force writeback
++ * @q_vector: the vector on which to enable writeback
+  *
+  **/
+-void i40e_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
++static void i40e_enable_wb_on_itr(struct i40e_vsi *vsi,
++				  struct i40e_q_vector *q_vector)
+ {
+ 	u16 flags = q_vector->tx.ring[0].flags;
++	u32 val;
+ 
+-	if (flags & I40E_TXR_FLAGS_WB_ON_ITR) {
+-		u32 val;
++	if (!(flags & I40E_TXR_FLAGS_WB_ON_ITR))
++		return;
+ 
+-		if (q_vector->arm_wb_state)
+-			return;
++	if (q_vector->arm_wb_state)
++		return;
+ 
+-		if (vsi->back->flags & I40E_FLAG_MSIX_ENABLED) {
+-			val = I40E_PFINT_DYN_CTLN_WB_ON_ITR_MASK |
+-			      I40E_PFINT_DYN_CTLN_ITR_INDX_MASK; /* set noitr */
++	if (vsi->back->flags & I40E_FLAG_MSIX_ENABLED) {
++		val = I40E_PFINT_DYN_CTLN_WB_ON_ITR_MASK |
++		      I40E_PFINT_DYN_CTLN_ITR_INDX_MASK; /* set noitr */
+ 
+-			wr32(&vsi->back->hw,
+-			     I40E_PFINT_DYN_CTLN(q_vector->v_idx +
+-						 vsi->base_vector - 1),
+-			     val);
+-		} else {
+-			val = I40E_PFINT_DYN_CTL0_WB_ON_ITR_MASK |
+-			      I40E_PFINT_DYN_CTL0_ITR_INDX_MASK; /* set noitr */
++		wr32(&vsi->back->hw,
++		     I40E_PFINT_DYN_CTLN(q_vector->v_idx + vsi->base_vector - 1),
++		     val);
++	} else {
++		val = I40E_PFINT_DYN_CTL0_WB_ON_ITR_MASK |
++		      I40E_PFINT_DYN_CTL0_ITR_INDX_MASK; /* set noitr */
+ 
+-			wr32(&vsi->back->hw, I40E_PFINT_DYN_CTL0, val);
+-		}
+-		q_vector->arm_wb_state = true;
+-	} else if (vsi->back->flags & I40E_FLAG_MSIX_ENABLED) {
++		wr32(&vsi->back->hw, I40E_PFINT_DYN_CTL0, val);
++	}
++	q_vector->arm_wb_state = true;
++}
++
++/**
++ * i40e_force_wb - Issue SW Interrupt so HW does a wb
++ * @vsi: the VSI we care about
++ * @q_vector: the vector  on which to force writeback
++ *
++ **/
++void i40e_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
++{
++	if (vsi->back->flags & I40E_FLAG_MSIX_ENABLED) {
+ 		u32 val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
+ 			  I40E_PFINT_DYN_CTLN_ITR_INDX_MASK | /* set noitr */
+ 			  I40E_PFINT_DYN_CTLN_SWINT_TRIG_MASK |
+@@ -1946,7 +1957,7 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
+ tx_only:
+ 		if (arm_wb) {
+ 			q_vector->tx.ring[0].tx_stats.tx_force_wb++;
+-			i40e_force_wb(vsi, q_vector);
++			i40e_enable_wb_on_itr(vsi, q_vector);
+ 		}
+ 		return budget;
+ 	}
 diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 616daae..1dbdcf8 100644
+index 4205aef..1c62cf5 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -764,8 +764,10 @@ bool i40evf_alloc_rx_buffers_1buf(struct i40e_ring *rx_ring, u16 cleaned_count)
- 		skb = bi->skb;
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
+- * Copyright(c) 2013 - 2014 Intel Corporation.
++ * Copyright(c) 2013 - 2016 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -292,40 +292,49 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
+ }
  
- 		if (!skb) {
--			skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
--							rx_ring->rx_buf_len);
-+			skb = __netdev_alloc_skb_ip_align(rx_ring->netdev,
-+							  rx_ring->rx_buf_len,
-+							  GFP_ATOMIC |
-+							  __GFP_NOWARN);
- 			if (!skb) {
- 				rx_ring->rx_stats.alloc_buff_failed++;
- 				goto no_buffers;
-@@ -1034,8 +1036,10 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, const int budget)
- 		rx_bi = &rx_ring->rx_bi[i];
- 		skb = rx_bi->skb;
- 		if (likely(!skb)) {
--			skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
--							rx_ring->rx_hdr_len);
-+			skb = __netdev_alloc_skb_ip_align(rx_ring->netdev,
-+							  rx_ring->rx_hdr_len,
-+							  GFP_ATOMIC |
-+							  __GFP_NOWARN);
- 			if (!skb) {
- 				rx_ring->rx_stats.alloc_buff_failed++;
- 				failure = true;
+ /**
+- * i40evf_force_wb -Arm hardware to do a wb on noncache aligned descriptors
++ * i40evf_enable_wb_on_itr - Arm hardware to do a wb, interrupts are not enabled
+  * @vsi: the VSI we care about
+- * @q_vector: the vector  on which to force writeback
++ * @q_vector: the vector on which to enable writeback
+  *
+  **/
+-static void i40evf_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
++static void i40e_enable_wb_on_itr(struct i40e_vsi *vsi,
++				  struct i40e_q_vector *q_vector)
+ {
+ 	u16 flags = q_vector->tx.ring[0].flags;
++	u32 val;
+ 
+-	if (flags & I40E_TXR_FLAGS_WB_ON_ITR) {
+-		u32 val;
++	if (!(flags & I40E_TXR_FLAGS_WB_ON_ITR))
++		return;
+ 
+-		if (q_vector->arm_wb_state)
+-			return;
++	if (q_vector->arm_wb_state)
++		return;
+ 
+-		val = I40E_VFINT_DYN_CTLN1_WB_ON_ITR_MASK |
+-		      I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK; /* set noitr */
++	val = I40E_VFINT_DYN_CTLN1_WB_ON_ITR_MASK |
++	      I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK; /* set noitr */
+ 
+-		wr32(&vsi->back->hw,
+-		     I40E_VFINT_DYN_CTLN1(q_vector->v_idx +
+-					  vsi->base_vector - 1),
+-		     val);
+-		q_vector->arm_wb_state = true;
+-	} else {
+-		u32 val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
+-			  I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK | /* set noitr */
+-			  I40E_VFINT_DYN_CTLN1_SWINT_TRIG_MASK |
+-			  I40E_VFINT_DYN_CTLN1_SW_ITR_INDX_ENA_MASK;
+-			  /* allow 00 to be written to the index */
+-
+-		wr32(&vsi->back->hw,
+-		     I40E_VFINT_DYN_CTLN1(q_vector->v_idx +
+-					  vsi->base_vector - 1), val);
+-	}
++	wr32(&vsi->back->hw,
++	     I40E_VFINT_DYN_CTLN1(q_vector->v_idx +
++				  vsi->base_vector - 1), val);
++	q_vector->arm_wb_state = true;
++}
++
++/**
++ * i40evf_force_wb - Issue SW Interrupt so HW does a wb
++ * @vsi: the VSI we care about
++ * @q_vector: the vector  on which to force writeback
++ *
++ **/
++void i40evf_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
++{
++	u32 val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
++		  I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK | /* set noitr */
++		  I40E_VFINT_DYN_CTLN1_SWINT_TRIG_MASK |
++		  I40E_VFINT_DYN_CTLN1_SW_ITR_INDX_ENA_MASK
++		  /* allow 00 to be written to the index */;
++
++	wr32(&vsi->back->hw,
++	     I40E_VFINT_DYN_CTLN1(q_vector->v_idx + vsi->base_vector - 1),
++	     val);
+ }
+ 
+ /**
+@@ -1384,7 +1393,7 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
+ tx_only:
+ 		if (arm_wb) {
+ 			q_vector->tx.ring[0].tx_stats.tx_force_wb++;
+-			i40evf_force_wb(vsi, q_vector);
++			i40e_enable_wb_on_itr(vsi, q_vector);
+ 		}
+ 		return budget;
+ 	}
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index e29bb3e..da701c5 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
+- * Copyright(c) 2013 - 2014 Intel Corporation.
++ * Copyright(c) 2013 - 2016 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -324,6 +324,7 @@ int i40evf_setup_rx_descriptors(struct i40e_ring *rx_ring);
+ void i40evf_free_tx_resources(struct i40e_ring *tx_ring);
+ void i40evf_free_rx_resources(struct i40e_ring *rx_ring);
+ int i40evf_napi_poll(struct napi_struct *napi, int budget);
++void i40evf_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector);
+ u32 i40evf_get_tx_pending(struct i40e_ring *ring);
+ 
+ /**
 -- 
 2.5.0
