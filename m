@@ -1,57 +1,53 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv3 net 2/5] nfp: free buffers before changing MTU
-Date: Thu, 18 Feb 2016 20:38:10 +0000
-Message-ID: <1455827893-26366-3-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv3 net 5/5] nfp: don't trust netif_running() in debug code
+Date: Thu, 18 Feb 2016 20:38:13 +0000
+Message-ID: <1455827893-26366-6-git-send-email-jakub.kicinski@netronome.com>
 References: <1455827893-26366-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: netdev@vger.kernel.org,
 	Jakub Kicinski <jakub.kicinski@netronome.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:37793 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1948040AbcBRUiV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:21 -0500
-Received: by mail-wm0-f47.google.com with SMTP id g62so42984754wme.0
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:20 -0800 (PST)
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:33095 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1948081AbcBRUiX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:23 -0500
+Received: by mail-wm0-f49.google.com with SMTP id g62so42101173wme.0
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:23 -0800 (PST)
 In-Reply-To: <1455827893-26366-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For freeing DMA buffers we depend on nfp_net.fl_bufsz having the same
-value as during allocation therefore in .ndo_change_mtu we must first
-free the buffers and then change the setting.
+Since change_mtu() can fail and leave us with netif_running()
+returning true even though all rings were freed - we should
+look at NFP_NET_CFG_CTRL_ENABLE flag to determine if device
+is really opened.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Rolf Neugebauer <rolf.neugebauer@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 006d9600240f..b381682de3d6 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -1921,17 +1921,17 @@ static int nfp_net_change_mtu(struct net_device *netdev, int new_mtu)
- 		return -EINVAL;
- 	}
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
+index 4c97c713121c..7af404d492cc 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
+@@ -52,7 +52,7 @@ static int nfp_net_debugfs_rx_q_read(struct seq_file *file, void *data)
+ 	if (!rx_ring->r_vec || !rx_ring->r_vec->nfp_net)
+ 		goto out;
+ 	nn = rx_ring->r_vec->nfp_net;
+-	if (!netif_running(nn->netdev))
++	if (!(nn->ctrl & NFP_NET_CFG_CTRL_ENABLE))
+ 		goto out;
  
-+	if (netif_running(netdev))
-+		nfp_net_netdev_close(netdev);
-+
- 	netdev->mtu = new_mtu;
+ 	rxd_cnt = rx_ring->cnt;
+@@ -127,7 +127,7 @@ static int nfp_net_debugfs_tx_q_read(struct seq_file *file, void *data)
+ 	if (!tx_ring->r_vec || !tx_ring->r_vec->nfp_net)
+ 		goto out;
+ 	nn = tx_ring->r_vec->nfp_net;
+-	if (!netif_running(nn->netdev))
++	if (!(nn->ctrl & NFP_NET_CFG_CTRL_ENABLE))
+ 		goto out;
  
- 	/* Freelist buffer size rounded up to the nearest 1K */
- 	tmp = new_mtu + ETH_HLEN + VLAN_HLEN + NFP_NET_MAX_PREPEND;
- 	nn->fl_bufsz = roundup(tmp, 1024);
- 
--	/* restart if running */
--	if (netif_running(netdev)) {
--		nfp_net_netdev_close(netdev);
-+	if (netif_running(netdev))
- 		ret = nfp_net_netdev_open(netdev);
--	}
- 
- 	return ret;
- }
+ 	txd_cnt = tx_ring->cnt;
 -- 
 1.9.1
