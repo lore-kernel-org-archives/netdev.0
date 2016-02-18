@@ -1,75 +1,51 @@
-From: "Amir Vadai\"" <amir@vadai.me>
-Subject: Re: [net-next PATCH v3 3/8] net: sched: add cls_u32 offload hooks
- for netdevs
-Date: Thu, 18 Feb 2016 11:23:35 +0200
-Message-ID: <20160218092335.GA15192@office.Home>
-References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
- <20160217051709.17139.88337.stgit@john-Precision-Tower-5810>
- <56C4528E.5090505@mojatatu.com>
- <56C48295.9030806@gmail.com>
- <56C4FD2B.9000009@gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net v2] lwt: fix rx checksum setting for lwt devices
+ tunneling over ipv6
+Date: Thu, 18 Feb 2016 10:42:04 +0100
+Message-ID: <1455788524.29084.8.camel@redhat.com>
+References: <244994c83cb73d98205f39aaefcee846dab48260.1455731463.git.pabeni@redhat.com>
+	 <CAEh+42isC=4nmKz-Sjc9VreCbOkqdEcPc2uXyxcgGRJQsdSWSw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, jiri@resnulli.us,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Benc <jbenc@redhat.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Jesse Gross <jesse@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:33424 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1425290AbcBRJUA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 04:20:00 -0500
-Received: by mail-wm0-f51.google.com with SMTP id g62so15941181wme.0
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 01:20:00 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <56C4FD2B.9000009@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42678 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1425615AbcBRJmK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 04:42:10 -0500
+In-Reply-To: <CAEh+42isC=4nmKz-Sjc9VreCbOkqdEcPc2uXyxcgGRJQsdSWSw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 17, 2016 at 03:07:23PM -0800, John Fastabend wrote:
-> [...]
+On Wed, 2016-02-17 at 11:19 -0800, Jesse Gross wrote:
+> On Wed, Feb 17, 2016 at 10:30 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> > the commit 35e2d1152b22 ("tunnels: Allow IPv6 UDP checksums to be
+> > correctly controlled.") changed the default xmit checksum setting
+> > for lwt vxlan/geneve ipv6 tunnels, so that now the checksum is not
+> > set into external UDP header.
+> > This commit changes the rx checksum setting for both lwt vxlan/geneve
+> > devices created by openvswitch accordingly, so that lwt over ipv6
+> > tunnel pairs are again able to communicate with default values.
+> >
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 > 
-> >>
-> >>> +static void u32_replace_hw_hnode(struct tcf_proto *tp, struct
-> >>> tc_u_hnode *h)
-> >>> +{
-> >>> +    struct net_device *dev = tp->q->dev_queue->dev;
-> >>> +    struct tc_cls_u32_offload u32_offload = {0};
-> >>> +    struct tc_to_netdev offload;
-> >>> +
-> >>> +    offload.type = TC_SETUP_CLSU32;
-> >>> +    offload.cls_u32 = &u32_offload;
-> >>> +
-> >>> +    if (dev->netdev_ops->ndo_setup_tc) {
-> >>> +        offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
-> >>
-> >> TC_CLSU32_REPLACE_HNODE?
-> >>
-> > 
-> > Yep I made this change and will send out v4.
-> > 
-> > [...]
-> > 
-> >>
-> 
-> Actually thinking about this a bit more I wrote this thinking
-> that there existed some hardware that actually cared if it was
-> a new rule or an existing rule. For me it doesn't matter I do
-> the same thing in the new/replace cases I just write into the
-> slot on the hardware table and if it happens to have something
-> in it well its overwritten e.g. "replaced". This works because
-> the cls_u32 layer protects us from doing something unexpected.
-> 
-> I'm wondering (mostly asking the mlx folks) is there hardware
-> out there that cares to make this distinction between new and
-> replace? Otherwise I can just drop new and always use replace.
-> Or vice versa which is the case in its current form.
-I don't see a need for such a distinction in mlx hardware.
+> This is compat code that is being changed here. Based on the previous
+> discussion, shouldn't these be made the default for all users?
 
-Thanks,
-Amir.
+This change was initially aimed at a smaller scope: use self consistent
+default for ovs lwt devices/tunnel terminations.
 
-> 
-> Thanks,
-> John
-> 
+If there is agreement, I can post a separate patch changing the default
+rx checksum setting for plain vxlan and geneve[1] devices tunneling over
+ipv6.
+
+Paolo
+
+[1] according to the ietf draft the geneve devices have the same
+checksum requirement than vxlan ones
