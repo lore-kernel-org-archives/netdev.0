@@ -1,55 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Thu, 18 Feb 2016 15:28:35 -0500 (EST)
-Message-ID: <20160218.152835.353900764459662279.davem@davemloft.net>
-References: <20160218122855.55e3f09d@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Yuval.Mintz@qlogic.com,
-	Ariel.Elior@qlogic.com
-To: sfr@canb.auug.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46801 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1948297AbcBRU2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:28:37 -0500
-In-Reply-To: <20160218122855.55e3f09d@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [PATCH 1/1] ser_gigaset: use container_of() instead of detour
+Date: Thu, 18 Feb 2016 21:29:08 +0100
+Message-ID: <1455827348-8574-2-git-send-email-pebolle@tiscali.nl>
+References: <1455827348-8574-1-git-send-email-pebolle@tiscali.nl>
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Martin Wilck <Martin.Wilck@ts.fujitsu.com>,
+	Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>,
+	Tilman Schmidt <tilman@imap.cc>, linux-kernel@vger.kernel.org,
+	gigaset307x-common@lists.sourceforge.net
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455827348-8574-1-git-send-email-pebolle@tiscali.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 18 Feb 2016 12:28:55 +1100
+The purpose of gigaset_device_release() is to kfree() the struct
+ser_cardstate that contains our struct device. This is done via a bit of
+a detour. First we make our struct device's driver_data point to the
+container of our struct ser_cardstate (which is a struct cardstate). In
+gigaset_device_release() we then retrieve that driver_data again. And
+after that we finally kfree() the struct ser_cardstate that was saved in
+the struct cardstate.
 
-> After merging the net-next tree, today's linux-next build (powerpc
-> ppc64_defconfig) failed like this:
-> 
-> In file included from drivers/net/ethernet/broadcom/bnx2x/bnx2x.h:56:0,
->                  from drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c:30:
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c: In function 'bnx2x_dcbx_get_ap_feature':
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c:224:11: error: 'DCBX_APP_SF_DEFAULT' undeclared (first use in this function)
->            DCBX_APP_SF_DEFAULT) &&  
->            ^
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h:120:45: note: in definition of macro 'GET_FLAGS'
->  #define GET_FLAGS(flags, bits)  ((flags) & (bits))
->                                              ^
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c:224:11: note: each undeclared identifier is reported only once for each function it appears in
->            DCBX_APP_SF_DEFAULT) &&  
->            ^
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h:120:45: note: in definition of macro 'GET_FLAGS'
->  #define GET_FLAGS(flags, bits)  ((flags) & (bits))
->                                              ^
-> 
-> Caused by commit
-> 
->   e5d3a51cefbb ("This adds support for default application priority.")
-> 
-> This build is big endian.
+All of this can be achieved much easier by using container_of() to get
+from our struct device to its container, struct ser_cardstate. Do so.
 
-Yuval and Ariel, you _MUST_ fix this.
+Note that at the time the detour was implemented commit b8b2c7d845d5
+("base/platform: assert that dev_pm_domain callbacks are called
+unconditionally") had just entered the tree. That commit disconnected
+our platform_device and our platform_driver. These were reconnected
+again in v4.5-rc2 through commit 25cad69f21f5 ("base/platform: Fix
+platform drivers with no probe callback"). And one of the consequences
+of that fix was that it broke the detour via driver_data. That's because
+it made __device_release_driver() stop being a NOP for our struct device
+and actually do stuff again. One of the things it now does, is setting
+our driver_data to NULL. That, in turn, makes it impossible for
+gigaset_device_release() to get to our struct cardstate. Which has the
+net effect of leaking a struct ser_cardstate at every call of this
+driver's tty close() operation. So using container_of() has the
+additional benefit of actually working.
 
-This build failure has been in the tree for 24 hours and I haven't heard anything
-from you two yet.
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Tested-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+---
+ drivers/isdn/gigaset/ser-gigaset.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
 
-If this persists for another day I'm reverting all of your changes.
+diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
+index 2a506fe0c8a4..d1f8ab915b15 100644
+--- a/drivers/isdn/gigaset/ser-gigaset.c
++++ b/drivers/isdn/gigaset/ser-gigaset.c
+@@ -373,13 +373,7 @@ static void gigaset_freecshw(struct cardstate *cs)
+ 
+ static void gigaset_device_release(struct device *dev)
+ {
+-	struct cardstate *cs = dev_get_drvdata(dev);
+-
+-	if (!cs)
+-		return;
+-	dev_set_drvdata(dev, NULL);
+-	kfree(cs->hw.ser);
+-	cs->hw.ser = NULL;
++	kfree(container_of(dev, struct ser_cardstate, dev.dev));
+ }
+ 
+ /*
+@@ -408,7 +402,6 @@ static int gigaset_initcshw(struct cardstate *cs)
+ 		cs->hw.ser = NULL;
+ 		return rc;
+ 	}
+-	dev_set_drvdata(&cs->hw.ser->dev.dev, cs);
+ 
+ 	tasklet_init(&cs->write_tasklet,
+ 		     gigaset_modem_fill, (unsigned long) cs);
+-- 
+2.4.3
