@@ -1,44 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net, thunderx: Use bool in structs where possible
-Date: Thu, 18 Feb 2016 15:06:31 -0500 (EST)
-Message-ID: <20160218.150631.574392083739567663.davem@davemloft.net>
-References: <1455799149-19590-3-git-send-email-rrichter@caviumnetworks.com>
-	<20160218.110514.652169911099659792.davem@davemloft.net>
-	<20160218164217.GP24726@rric.localdomain>
+Subject: Re: [PATCH net v2 2/3] geneve: Relax MTU constraints
+Date: Thu, 18 Feb 2016 15:07:15 -0500 (EST)
+Message-ID: <20160218.150715.2026246274939635940.davem@davemloft.net>
+References: <86vb5o3kd5.fsf@weave.works>
+	<CALx6S37OgkxTLv6XEjFN4T=W8ZdZV_kx4wtPqtVwMizoUXbpVw@mail.gmail.com>
+	<86bn7e2c3t.fsf@weave.works>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sgoutham@cavium.com, rric@kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: robert.richter@caviumnetworks.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160218164217.GP24726@rric.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: tom@herbertland.com, jesse@kernel.org, netdev@vger.kernel.org,
+	dev@openvswitch.org, hannes@stressinduktion.org, tgraf@suug.ch,
+	roopa@cumulusnetworks.com
+To: david@weave.works
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46473 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1425675AbcBRUHR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:07:17 -0500
+In-Reply-To: <86bn7e2c3t.fsf@weave.works>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Robert Richter <robert.richter@caviumnetworks.com>
-Date: Thu, 18 Feb 2016 17:42:17 +0100
+From: David Wragg <david@weave.works>
+Date: Thu, 18 Feb 2016 16:54:14 +0000
 
-> On 18.02.16 11:05:14, David Miller wrote:
->> From: Robert Richter <rrichter@caviumnetworks.com>
->> Date: Thu, 18 Feb 2016 13:39:09 +0100
->> 
->> > From: Robert Richter <rrichter@cavium.com>
->> > 
->> > Looks like the :1 notation was accidentally introduced (this still
->> > uses 1 byte per flag). Using bool instead, which is the common use.
->> > 
->> > Signed-off-by: Robert Richter <rrichter@cavium.com>
->> 
->> Such cleanups are not appropriate for 'net'.  Only real bug fixes should
->> be targetted that.
->> 
->> Respin these patches targetting the correct tree(s).
+> Tom Herbert <tom@herbertland.com> writes:
+>> Please implement like in ip_tunnel_change_mtu (or better yet call it),
+>> that is the precedent for tunnels.
 > 
-> Do you mean posting the two as "trivial" patches?
+> I've made geneve_change_mtu follow ip_tunnel_change_mtu in v2.
+> 
+> If it were to call it instead, are you suggesting just passing in
+> t_hlen?  Or restructuring geneve.c to re-use the whole ip_tunnel
+> infrastructure?
+> 
+> Also, I'm not sure where the 0xFFF8 comes from in
+> __ip_tunnel_change_mtu.  Any ideas why 0xFFF8 rather than 0xffff?  It
+> goes all the way back to the inital import of the kernel into git.
 
-No I mean posting #1 targetted at my 'net' GIT tree as a bug fix,
-and posting #2 targetted separately at my 'net-next' GIT tree as
-a cleanup.
-
-This is how we've been doing things for more than a decade.
+Some 8 byte multiple requirement, perhaps to do with fragmentation.
