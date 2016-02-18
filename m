@@ -1,49 +1,55 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v7 5/8] time: Add history to cross timestamp interface
- supporting slower devices
-Date: Thu, 18 Feb 2016 23:17:04 +0100
-Message-ID: <20160218221704.GA26007@localhost.localdomain>
-References: <1455308729-6280-1-git-send-email-christopher.s.hall@intel.com>
- <1455308729-6280-6-git-send-email-christopher.s.hall@intel.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: linux-next: build failure after merge of the net-next tree
+Date: Thu, 18 Feb 2016 22:14:41 +0000
+Message-ID: <CO2PR11MB0088B5140CE07D0AC952E23C97AF0@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <20160218122855.55e3f09d@canb.auug.org.au>
+ <20160218.152835.353900764459662279.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tglx@linutronix.de, mingo@redhat.com, john.stultz@linaro.org,
-	hpa@zytor.com, jeffrey.t.kirsher@intel.com, x86@kernel.org,
-	linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, kevin.b.stanton@intel.com,
-	kevin.j.clarke@intel.com
-To: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1455308729-6280-6-git-send-email-christopher.s.hall@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: David Miller <davem@davemloft.net>,
+	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bn0104.outbound.protection.outlook.com ([157.56.110.104]:64032
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757190AbcBRW3k convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 17:29:40 -0500
+In-Reply-To: <20160218.152835.353900764459662279.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 12, 2016 at 12:25:26PM -0800, Christopher S. Hall wrote:
->  /**
->   * get_device_system_crosststamp - Synchronously capture system/device timestamp
-> - * @sync_devicetime:	Callback to get simultaneous device time and
-> + * @get_time_fn:	Callback to get simultaneous device time and
+> > After merging the net-next tree, today's linux-next build (powerpc
+> > ppc64_defconfig) failed like this:
+> >
+> > In file included from drivers/net/ethernet/broadcom/bnx2x/bnx2x.h:56:0,
+> >                  from drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c:30:
+> > drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c: In function
+> 'bnx2x_dcbx_get_ap_feature':
+> > drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c:224:11: error:
+> 'DCBX_APP_SF_DEFAULT' undeclared (first use in this function)
+> >            DCBX_APP_SF_DEFAULT) &&
+> >            ^
+> > Caused by commit
+> >
+> >   e5d3a51cefbb ("This adds support for default application priority.")
+> >
+> > This build is big endian.
+> 
+> Yuval and Ariel, you _MUST_ fix this.
+> 
+> This build failure has been in the tree for 24 hours and I haven't heard anything
+> from you two yet.
 
-Fold this into earlier patch?
+Hi Dave,
 
->   *	system counter from the device driver
-> + * @history_ref:	Historical reference point used to interpolate system
-> + *	time when counter provided by the driver is before the current interval
+Perhaps I wasn't clear enough in the title I've provided for the fixing patch,
+but I've sent it yesterday and it's marked as 'under review' for net-next.
+The patch is "bnx2x: Add missing HSI for big-endian machines".
 
-KernelDoc says history_ref,
-
->   * @xtstamp:		Receives simultaneously captured system and device time
->   *
->   * Reads a timestamp from a device and correlates it to system time
-> @@ -920,6 +1035,7 @@ int get_device_system_crosststamp(int (*get_time_fn)
->  				   struct system_counterval_t *sys_counterval,
->  				   void *ctx),
->  				  void *ctx,
-> +				  struct system_time_snapshot *history_begin,
->  				  struct system_device_crosststamp *xtstamp)
-
-... but parameter is called history_begin.
-
-Thanks,
-Richard
+Sorry about all the noise.
