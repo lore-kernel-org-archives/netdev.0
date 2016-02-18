@@ -1,257 +1,87 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] i40e: Refactor force_wb and WB_ON_ITR functionality code
-Date: Wed, 17 Feb 2016 19:38:48 -0800
-Message-ID: <1455766737-11911-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/15] i40e: use new add_veb calling with VEB stats control
+Date: Wed, 17 Feb 2016 19:38:47 -0800
+Message-ID: <1455766737-11911-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455766737-11911-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:4847 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:14529 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1424151AbcBRDjE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1424829AbcBRDjE (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 17 Feb 2016 22:39:04 -0500
 In-Reply-To: <1455766737-11911-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Now that the Force-WriteBack functionality in X710/XL710 devices
-has been moved out of the clean routine and into the service task,
-we need to make sure WriteBack-On-ITR is separated out since it
-is still called from clean.
+The new parameters for add_veb allow us to enable and disable VEB stats,
+so let's use them.
 
-In the X722 devices, Force-WriteBack implies WriteBack-On-ITR but
-without the interrupt, which put the driver into a missed
-interrupt scenario and a potential tx-timeout report.
+Update copyright year.
 
-With this patch, we break the two functions out, and call the
-appropriate ones at the right place. This will avoid creating missed
-interrupt like scenarios for X722 devices.
-
-Also update copyright year in file headers.
-
-Change-ID: Iacbde39f95f332f82be8736864675052c3583a40
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: Ie6e68c68e2d1d459e42168eda661051b56bf0a65
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 57 ++++++++++++++----------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 63 +++++++++++++++------------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h |  3 +-
- 3 files changed, 72 insertions(+), 51 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 11 ++++++++---
+ drivers/net/ethernet/intel/i40e/i40e_main.c    |  4 ++--
+ 2 files changed, 10 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 6d1dd60..7dfd45e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 89ad2f7..230fa40 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
 @@ -1,7 +1,7 @@
  /*******************************************************************************
   *
   * Intel Ethernet Controller XL710 Family Linux Driver
-- * Copyright(c) 2013 - 2014 Intel Corporation.
+- * Copyright(c) 2013 - 2015 Intel Corporation.
 + * Copyright(c) 2013 - 2016 Intel Corporation.
   *
   * This program is free software; you can redistribute it and/or modify it
   * under the terms and conditions of the GNU General Public License,
-@@ -774,37 +774,48 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- }
+@@ -2785,10 +2785,15 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
+ 		pf->auto_disable_flags |= I40E_FLAG_FD_ATR_ENABLED;
+ 	}
  
- /**
-- * i40e_force_wb - Arm hardware to do a wb on noncache aligned descriptors
-+ * i40e_enable_wb_on_itr - Arm hardware to do a wb, interrupts are not enabled
-  * @vsi: the VSI we care about
-- * @q_vector: the vector  on which to force writeback
-+ * @q_vector: the vector on which to enable writeback
-  *
-  **/
--void i40e_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
-+static void i40e_enable_wb_on_itr(struct i40e_vsi *vsi,
-+				  struct i40e_q_vector *q_vector)
- {
- 	u16 flags = q_vector->tx.ring[0].flags;
-+	u32 val;
- 
--	if (flags & I40E_TXR_FLAGS_WB_ON_ITR) {
--		u32 val;
-+	if (!(flags & I40E_TXR_FLAGS_WB_ON_ITR))
-+		return;
- 
--		if (q_vector->arm_wb_state)
--			return;
-+	if (q_vector->arm_wb_state)
-+		return;
- 
--		if (vsi->back->flags & I40E_FLAG_MSIX_ENABLED) {
--			val = I40E_PFINT_DYN_CTLN_WB_ON_ITR_MASK |
--			      I40E_PFINT_DYN_CTLN_ITR_INDX_MASK; /* set noitr */
-+	if (vsi->back->flags & I40E_FLAG_MSIX_ENABLED) {
-+		val = I40E_PFINT_DYN_CTLN_WB_ON_ITR_MASK |
-+		      I40E_PFINT_DYN_CTLN_ITR_INDX_MASK; /* set noitr */
- 
--			wr32(&vsi->back->hw,
--			     I40E_PFINT_DYN_CTLN(q_vector->v_idx +
--						 vsi->base_vector - 1),
--			     val);
--		} else {
--			val = I40E_PFINT_DYN_CTL0_WB_ON_ITR_MASK |
--			      I40E_PFINT_DYN_CTL0_ITR_INDX_MASK; /* set noitr */
-+		wr32(&vsi->back->hw,
-+		     I40E_PFINT_DYN_CTLN(q_vector->v_idx + vsi->base_vector - 1),
-+		     val);
-+	} else {
-+		val = I40E_PFINT_DYN_CTL0_WB_ON_ITR_MASK |
-+		      I40E_PFINT_DYN_CTL0_ITR_INDX_MASK; /* set noitr */
- 
--			wr32(&vsi->back->hw, I40E_PFINT_DYN_CTL0, val);
--		}
--		q_vector->arm_wb_state = true;
--	} else if (vsi->back->flags & I40E_FLAG_MSIX_ENABLED) {
-+		wr32(&vsi->back->hw, I40E_PFINT_DYN_CTL0, val);
+-	if (flags & I40E_PRIV_FLAGS_VEB_STATS)
++	if ((flags & I40E_PRIV_FLAGS_VEB_STATS) &&
++	    !(pf->flags & I40E_FLAG_VEB_STATS_ENABLED)) {
+ 		pf->flags |= I40E_FLAG_VEB_STATS_ENABLED;
+-	else
++		reset_required = true;
++	} else if (!(flags & I40E_PRIV_FLAGS_VEB_STATS) &&
++		   (pf->flags & I40E_FLAG_VEB_STATS_ENABLED)) {
+ 		pf->flags &= ~I40E_FLAG_VEB_STATS_ENABLED;
++		reset_required = true;
 +	}
-+	q_vector->arm_wb_state = true;
-+}
-+
-+/**
-+ * i40e_force_wb - Issue SW Interrupt so HW does a wb
-+ * @vsi: the VSI we care about
-+ * @q_vector: the vector  on which to force writeback
-+ *
-+ **/
-+void i40e_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
-+{
-+	if (vsi->back->flags & I40E_FLAG_MSIX_ENABLED) {
- 		u32 val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
- 			  I40E_PFINT_DYN_CTLN_ITR_INDX_MASK | /* set noitr */
- 			  I40E_PFINT_DYN_CTLN_SWINT_TRIG_MASK |
-@@ -1946,7 +1957,7 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
- tx_only:
- 		if (arm_wb) {
- 			q_vector->tx.ring[0].tx_stats.tx_force_wb++;
--			i40e_force_wb(vsi, q_vector);
-+			i40e_enable_wb_on_itr(vsi, q_vector);
- 		}
- 		return budget;
- 	}
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 4205aef..1c62cf5 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
-  *
-  * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
-- * Copyright(c) 2013 - 2014 Intel Corporation.
-+ * Copyright(c) 2013 - 2016 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -292,40 +292,49 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- }
  
- /**
-- * i40evf_force_wb -Arm hardware to do a wb on noncache aligned descriptors
-+ * i40evf_enable_wb_on_itr - Arm hardware to do a wb, interrupts are not enabled
-  * @vsi: the VSI we care about
-- * @q_vector: the vector  on which to force writeback
-+ * @q_vector: the vector on which to enable writeback
-  *
-  **/
--static void i40evf_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
-+static void i40e_enable_wb_on_itr(struct i40e_vsi *vsi,
-+				  struct i40e_q_vector *q_vector)
+ 	if ((flags & I40E_PRIV_FLAGS_HW_ATR_EVICT) &&
+ 	    (pf->flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE))
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 95fb342..0acec51 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -10069,13 +10069,13 @@ static int i40e_add_veb(struct i40e_veb *veb, struct i40e_vsi *vsi)
  {
- 	u16 flags = q_vector->tx.ring[0].flags;
-+	u32 val;
+ 	struct i40e_pf *pf = veb->pf;
+ 	bool is_default = veb->pf->cur_promisc;
+-	bool is_cloud = false;
++	bool enable_stats = !!(pf->flags & I40E_FLAG_VEB_STATS_ENABLED);
+ 	int ret;
  
--	if (flags & I40E_TXR_FLAGS_WB_ON_ITR) {
--		u32 val;
-+	if (!(flags & I40E_TXR_FLAGS_WB_ON_ITR))
-+		return;
- 
--		if (q_vector->arm_wb_state)
--			return;
-+	if (q_vector->arm_wb_state)
-+		return;
- 
--		val = I40E_VFINT_DYN_CTLN1_WB_ON_ITR_MASK |
--		      I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK; /* set noitr */
-+	val = I40E_VFINT_DYN_CTLN1_WB_ON_ITR_MASK |
-+	      I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK; /* set noitr */
- 
--		wr32(&vsi->back->hw,
--		     I40E_VFINT_DYN_CTLN1(q_vector->v_idx +
--					  vsi->base_vector - 1),
--		     val);
--		q_vector->arm_wb_state = true;
--	} else {
--		u32 val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
--			  I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK | /* set noitr */
--			  I40E_VFINT_DYN_CTLN1_SWINT_TRIG_MASK |
--			  I40E_VFINT_DYN_CTLN1_SW_ITR_INDX_ENA_MASK;
--			  /* allow 00 to be written to the index */
--
--		wr32(&vsi->back->hw,
--		     I40E_VFINT_DYN_CTLN1(q_vector->v_idx +
--					  vsi->base_vector - 1), val);
--	}
-+	wr32(&vsi->back->hw,
-+	     I40E_VFINT_DYN_CTLN1(q_vector->v_idx +
-+				  vsi->base_vector - 1), val);
-+	q_vector->arm_wb_state = true;
-+}
-+
-+/**
-+ * i40evf_force_wb - Issue SW Interrupt so HW does a wb
-+ * @vsi: the VSI we care about
-+ * @q_vector: the vector  on which to force writeback
-+ *
-+ **/
-+void i40evf_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
-+{
-+	u32 val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
-+		  I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK | /* set noitr */
-+		  I40E_VFINT_DYN_CTLN1_SWINT_TRIG_MASK |
-+		  I40E_VFINT_DYN_CTLN1_SW_ITR_INDX_ENA_MASK
-+		  /* allow 00 to be written to the index */;
-+
-+	wr32(&vsi->back->hw,
-+	     I40E_VFINT_DYN_CTLN1(q_vector->v_idx + vsi->base_vector - 1),
-+	     val);
- }
- 
- /**
-@@ -1384,7 +1393,7 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
- tx_only:
- 		if (arm_wb) {
- 			q_vector->tx.ring[0].tx_stats.tx_force_wb++;
--			i40evf_force_wb(vsi, q_vector);
-+			i40e_enable_wb_on_itr(vsi, q_vector);
- 		}
- 		return budget;
- 	}
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index e29bb3e..da701c5 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
-  *
-  * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
-- * Copyright(c) 2013 - 2014 Intel Corporation.
-+ * Copyright(c) 2013 - 2016 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -324,6 +324,7 @@ int i40evf_setup_rx_descriptors(struct i40e_ring *rx_ring);
- void i40evf_free_tx_resources(struct i40e_ring *tx_ring);
- void i40evf_free_rx_resources(struct i40e_ring *rx_ring);
- int i40evf_napi_poll(struct napi_struct *napi, int budget);
-+void i40evf_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector);
- u32 i40evf_get_tx_pending(struct i40e_ring *ring);
- 
- /**
+ 	/* get a VEB from the hardware */
+ 	ret = i40e_aq_add_veb(&pf->hw, veb->uplink_seid, vsi->seid,
+ 			      veb->enabled_tc, is_default,
+-			      &veb->seid, is_cloud, NULL);
++			      &veb->seid, enable_stats, NULL);
+ 	if (ret) {
+ 		dev_info(&pf->pdev->dev,
+ 			 "couldn't add VEB, err %s aq_err %s\n",
 -- 
 2.5.0
