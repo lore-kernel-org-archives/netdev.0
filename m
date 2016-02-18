@@ -1,112 +1,50 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 8/9] rfkill: Userspace control for airplane mode
-Date: Thu, 18 Feb 2016 21:12:44 +0100
-Message-ID: <1455826364.2084.22.camel@sipsolutions.net>
-References: <1454946096-9752-1-git-send-email-jprvita@endlessm.com>
-	 <1454946096-9752-9-git-send-email-jprvita@endlessm.com>
-	 (sfid-20160208_164148_881936_346879EA)
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Darren Hart <dvhart@infradead.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux@endlessm.com,
-	=?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita@endlessm.com>
-To: =?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1454946096-9752-9-git-send-email-jprvita@endlessm.com> (sfid-20160208_164148_881936_346879EA)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH v2 net] bonding: don't use stale speed and duplex information
+Date: Thu, 18 Feb 2016 12:25:52 -0800
+Message-ID: <17965.1455827152@famine>
+References: <25869.1454962202@famine> <20160216.151448.1415574551982584505.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, emil.s.tantilov@intel.com,
+	zyjzyj2000@gmail.com, vfalico@gmail.com, dingtianhong@huawei.com,
+	gospo@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:41479 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1947701AbcBRU0F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:26:05 -0500
+In-reply-to: <20160216.151448.1415574551982584505.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+David Miller <davem@davemloft.net> wrote:
+[...]
+>> 	This was done historically in bonding, but the call to
+>> bond_update_speed_duplex was removed in commit 876254ae2758 ("bonding:
+>> don't call update_speed_duplex() under spinlocks"), as it might sleep
+>> under lock.  Later, the locking was changed to only hold RTNL, and so
+>> after commit 876254ae2758 ("bonding: don't call update_speed_duplex()
+>> under spinlocks") this call is again safe.
+>> 
+>> Tested-by: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+>> Cc: Veaceslav Falico <vfalico@gmail.com>
+>> Cc: dingtianhong <dingtianhong@huawei.com>
+>> Fixes: 876254ae2758 ("bonding: don't call update_speed_duplex() under spinlocks")
+>> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+>
+>Applied, thanks Jay.
 
-Sorry for the delay reviewing this.
+	Rereading the above, I just noticed that I put the wrong commit
+into the fixes tag (and the "Later, the locking was changed" text); the
+correct fixes tag should be:
 
+Fixes: 4cb4f97b7e36 ("bonding: rebuild the lock use for bond_mii_monitor()")
 
+	Kernels between 876254ae2758 and 4cb4f97b7e36 should not have
+this patch applied, as it might sleep under lock.
 
-On Mon, 2016-02-08 at 10:41 -0500, Jo=C3=A3o Paulo Rechi Vita wrote:
-> Provide an interface for the airplane-mode indicator be controlled
-> from
-> userspace. User has to first acquire the control through
-> RFKILL_OP_AIRPLANE_MODE_ACQUIRE and keep the fd open for the whole
-> time
-> it wants to be in control of the indicator. Closing the fd or using
-> RFKILL_OP_AIRPLANE_MODE_RELEASE restores the default policy.
+	Sorry for the error,
 
-I've come to the conclusion that the new ops are probably the best
-thing to do here.
+	-J
 
-> +Userspace can also override the default airplane-mode indicator
-> policy through
-> +/dev/rfkill. Control of the airplane mode indicator has to be
-> acquired first,
-> +using RFKILL_OP_AIRPLANE_MODE_ACQUIRE, and is only available for one
-> userspace
-> +application at a time. Closing the fd or using
-> RFKILL_OP_AIRPLANE_MODE_RELEASE
-> +reverts the airplane-mode indicator back to the default kernel
-> policy and makes
-> +it available for other applications to take control. Changes to the
-> +airplane-mode indicator state can be made using
-> RFKILL_OP_AIRPLANE_MODE_CHANGE,
-> +passing the new value in the 'soft' field of 'struct rfkill_event'.
-
-I don't really see any value in _RELEASE, since an application can just
-close the fd? I'd prefer not having the duplicate functionality
-and=C2=A0force us to exercise the single code path every time.
-
-> =C2=A0For further details consult Documentation/ABI/stable/sysfs-clas=
-s-
-> rfkill.
-> diff --git a/include/uapi/linux/rfkill.h
-> b/include/uapi/linux/rfkill.h
-> index 2e00dce..9cb999b 100644
-> --- a/include/uapi/linux/rfkill.h
-> +++ b/include/uapi/linux/rfkill.h
-> @@ -67,6 +67,9 @@ enum rfkill_operation {
-> =C2=A0	RFKILL_OP_DEL,
-> =C2=A0	RFKILL_OP_CHANGE,
-> =C2=A0	RFKILL_OP_CHANGE_ALL,
-> +	RFKILL_OP_AIRPLANE_MODE_ACQUIRE,
-> +	RFKILL_OP_AIRPLANE_MODE_RELEASE,
-> +	RFKILL_OP_AIRPLANE_MODE_CHANGE,
-> =C2=A0};
-=C2=A0
-> @@ -1199,7 +1202,7 @@ static ssize_t rfkill_fop_write(struct file
-> *file, const char __user *buf,
-> =C2=A0	if (copy_from_user(&ev, buf, count))
-> =C2=A0		return -EFAULT;
-> =C2=A0
-> -	if (ev.op !=3D RFKILL_OP_CHANGE && ev.op !=3D
-> RFKILL_OP_CHANGE_ALL)
-> +	if (ev.op < RFKILL_OP_CHANGE)
-> =C2=A0		return -EINVAL;
-
-You need to also reject invalid high values, like 27.
-
-> =C2=A0	mutex_lock(&rfkill_global_mutex);
-> =C2=A0
-> +	if (ev.op =3D=3D RFKILL_OP_AIRPLANE_MODE_ACQUIRE) {
-> +		if (rfkill_apm_owned && !data->is_apm_owner) {
-> +			count =3D -EACCES;
-> +		} else {
-> +			rfkill_apm_owned =3D true;
-> +			data->is_apm_owner =3D true;
-> +		}
-> +	}
-> +
-> +	if (ev.op =3D=3D RFKILL_OP_AIRPLANE_MODE_RELEASE) {
-
-It would probably be better to simply use "switch (ev.op)" and make the
-default case do a reject.
-
-> =C2=A0	if (ev.op =3D=3D RFKILL_OP_CHANGE_ALL)
-> =C2=A0		rfkill_update_global_state(ev.type, ev.soft);
-
-Also moving the existing code inside the switch, of course.
-
-johannes
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
