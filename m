@@ -1,32 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on
- i211 using a device tree blob V4
-Date: Thu, 18 Feb 2016 10:22:37 -0500 (EST)
-Message-ID: <20160218.102237.2040974178950445305.davem@davemloft.net>
-References: <56C506FD.5040408@gmail.com>
-	<20160217.212910.1758016077144502307.davem@davemloft.net>
-	<97579B9E-E7C6-4DBE-B1A2-027C2EA7F754@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v3 3/8] net: sched: add cls_u32 offload hooks
+ for netdevs
+Date: Thu, 18 Feb 2016 07:24:02 -0800
+Message-ID: <56C5E212.50505@gmail.com>
+References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810> <20160217051709.17139.88337.stgit@john-Precision-Tower-5810> <56C4528E.5090505@mojatatu.com> <56C48295.9030806@gmail.com> <56C4FD2B.9000009@gmail.com> <56C5B5A0.7010305@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: jotihojr@gmail.com
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>, jiri@resnulli.us,
+	amir@vadai.me, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42690 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1426370AbcBRPWl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 10:22:41 -0500
-In-Reply-To: <97579B9E-E7C6-4DBE-B1A2-027C2EA7F754@gmail.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35167 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1426451AbcBRPYP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 10:24:15 -0500
+Received: by mail-pa0-f49.google.com with SMTP id ho8so33378572pac.2
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 07:24:15 -0800 (PST)
+In-Reply-To: <56C5B5A0.7010305@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Holland <jotihojr@gmail.com>
-Date: Thu, 18 Feb 2016 08:53:07 +0100
+On 16-02-18 04:14 AM, Jamal Hadi Salim wrote:
+> On 16-02-17 06:07 PM, John Fastabend wrote:
+>> [...]
+>>
+> 
+>> Actually thinking about this a bit more I wrote this thinking
+>> that there existed some hardware that actually cared if it was
+>> a new rule or an existing rule. For me it doesn't matter I do
+>> the same thing in the new/replace cases I just write into the
+>> slot on the hardware table and if it happens to have something
+>> in it well its overwritten e.g. "replaced". This works because
+>> the cls_u32 layer protects us from doing something unexpected.
+>>
+> 
+> You are describing create-or-update which is a reasonable default
+> BUT: counting on the user to specify the htid+bktid+nodeid
+> for every filter and knowing what that means is prone to mistakes
+> when for example (using your big hammer approach right now) they
+> dont specify the handle and the kernel creates one for them.
+> 
+> IMO, it would be better at this early stage to enforce the correct
+> behavior for future generations.
+> To follow the netlink semantics which a lot of people are already
+> trained to think in.
+> 
+> Current netlink behavior is supposed to be:
+> 
+> 1) NEW ==> "Create".
+> Ambigous - could mean a)"create if it doesnt exist" or b) "fail if it
+> exists otherwise create"
+> Unfortunately different parts of the kernel often assume some
+> default from either #a or #b.
+> 
 
-> The PCI path in eth_platform_get_mac_address() didn't return a devicetree node...
+But this is already handled by the core cls_api.c code. We never
+get to u32_change if the flags are not correct.
 
-Then fix your platform such that pci_device_to_OF_node() works
-properly instead of adding localized hacks to device drivers.
+Look at the block right above the op call into the classifiers
+change() code in cls_api.c. Starting at line 287.
 
-Jeff, do not apply this patch.
+> 2) NEW|REPLACE flag ==> "Create if it doesnt exist and replace
+> if it exists"
+> 
+> 3)NEW|EXCLUSIVE ==> "Create if it doesnt exist and fail if it
+> exists"
+> 
+> 4)NEW|APPEND ==> "just fscking create; i dont care if it exists".
+> 
+> IOW, just add the flag field which is intepreted from whatever
+> the user explicitly asks for. And reject say what the hardware
+> doesnt support.
+
+I think I agree with what your saying but I'm fairly sure this is
+working as you describe.
+
+> I have worked with tcams where we support #3. It is a bit inefficient
+> because you have to check if a rule exists first. And i have worked
+> in cases where #1 is assumed to mean #2 and at times #4. It is better
+> user experience to be explicit.
+
+Agreed, and I think it is :)
+
+> 
+> cheers,
+> jamal
