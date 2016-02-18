@@ -1,85 +1,159 @@
-From: David Decotigny <ddecotig@gmail.com>
-Subject: Re: [PATCH net-next v8 05/19] net: ethtool: add new
- ETHTOOL_GSETTINGS/SSETTINGS API
-Date: Thu, 18 Feb 2016 11:49:55 -0800
-Message-ID: <CAG88wWZNB5bT7ywMbcfGbQS=f2gdbC6NpKVt5Opcs-oAbMUjLw@mail.gmail.com>
-References: <1455064168-5102-1-git-send-email-ddecotig@gmail.com>
- <1455064168-5102-6-git-send-email-ddecotig@gmail.com> <1455328149.2801.82.camel@decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
-	linux-mips@linux-mips.org, fcoe-devel@open-fcoe.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>, Eric Dumazet <edumazet@google.com>,
-	Eugenia Emantayev <eugenia@mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	Venkata Duvvuru <VenkatKumar.Duvvuru@emulex.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ed Swierk <eswierk@skyportsystems.com>,
-	Robert Love <robert.w.love@intel.com>,
-	"James E.Yuval Mintz" <Yuval.Mintz@qlogic.com>,
-	Rasmus Villemoes <linu
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455328149.2801.82.camel@decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH iproute2] iplink: bridge: remove unnecessary returns
+Date: Thu, 18 Feb 2016 20:54:34 +0100
+Message-ID: <1455825274-8001-1-git-send-email-razor@blackwall.org>
+Cc: stephen@networkplumber.org,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:36360 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1425165AbcBRTyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 14:54:45 -0500
+Received: by mail-wm0-f49.google.com with SMTP id g62so45253769wme.1
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 11:54:45 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sure, I will send an update:
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-struct ethtool_link_settings {
-        __u32   cmd;
-        __u32   speed;
-        __u8    duplex;
-        __u8    port;
-        __u8    phy_address;
-        __u8    autoneg;
-        __u8    mdio_support;
-        __u8    eth_tp_mdix;
-        __u8    eth_tp_mdix_ctrl;
-        __s8    link_mode_masks_nwords;
-        __u32   reserved[8];
-        __u32   link_mode_masks[0];
-};
+invarg exits so no need to return, remove this c&p error from my recent
+patches
 
-(+ same renaming for the ioctl sub-cmds)
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ ip/iplink_bridge.c | 50 ++++++++++++++++++++------------------------------
+ 1 file changed, 20 insertions(+), 30 deletions(-)
 
-that would still replace GSET/SSET/ethtool_cmd.
-
-would that be ok?
-
-Or, just to make sure: would you rather keep GSET/SSET/ethtool_cmd as
-now for everything but the link mode masks (that would be marked as
-deprecated), and have only a new command G/SLINK_MODES + struct
-ethtool_link_mode_support that would only take care of the link mode
-masks?
-
-On Fri, Feb 12, 2016 at 5:49 PM, Ben Hutchings <ben@decadent.org.uk> wrote:
-> On Tue, 2016-02-09 at 16:29 -0800, David Decotigny wrote:
->> From: David Decotigny <decot@googlers.com>
->>
->> This patch defines a new ETHTOOL_GSETTINGS/SSETTINGS API, handled by
->> the new get_ksettings/set_ksettings callbacks. This API provides
->> support for most legacy ethtool_cmd fields, adds support for larger
->> link mode masks (up to 4064 bits, variable length), and removes
->> ethtool_cmd deprecated fields (transceiver/maxrxpkt/maxtxpkt).
-> [...]
->
-> I previously asked you to include 'link' in the command names and
-> structure name.  This would clarify that these are now only for link
-> settings and reduce the risk of confusion between old and new commands.
-> However, you didn't reply to that review.  Do you have any objection to
-> doing this?
->
-> Ben.
->
-> --
-> Ben Hutchings
-> Sturgeon's Law: Ninety percent of everything is crap.
+diff --git a/ip/iplink_bridge.c b/ip/iplink_bridge.c
+index 79f15eff7c39..d2d4202660eb 100644
+--- a/ip/iplink_bridge.c
++++ b/ip/iplink_bridge.c
+@@ -116,19 +116,17 @@ static int bridge_parse_opt(struct link_util *lu, int argc, char **argv,
+ 			__u8 vlan_filter;
+ 
+ 			NEXT_ARG();
+-			if (get_u8(&vlan_filter, *argv, 0)) {
++			if (get_u8(&vlan_filter, *argv, 0))
+ 				invarg("invalid vlan_filtering", *argv);
+-				return -1;
+-			}
++
+ 			addattr8(n, 1024, IFLA_BR_VLAN_FILTERING, vlan_filter);
+ 		} else if (matches(*argv, "vlan_protocol") == 0) {
+ 			__u16 vlan_proto;
+ 
+ 			NEXT_ARG();
+-			if (ll_proto_a2n(&vlan_proto, *argv)) {
++			if (ll_proto_a2n(&vlan_proto, *argv))
+ 				invarg("invalid vlan_protocol", *argv);
+-				return -1;
+-			}
++
+ 			addattr16(n, 1024, IFLA_BR_VLAN_PROTOCOL, vlan_proto);
+ 		} else if (matches(*argv, "group_fwd_mask") == 0) {
+ 			__u16 fwd_mask;
+@@ -243,85 +241,77 @@ static int bridge_parse_opt(struct link_util *lu, int argc, char **argv,
+ 			__u64 mcast_membership_intvl;
+ 
+ 			NEXT_ARG();
+-			if (get_u64(&mcast_membership_intvl, *argv, 0)) {
++			if (get_u64(&mcast_membership_intvl, *argv, 0))
+ 				invarg("invalid mcast_membership_interval",
+ 				       *argv);
+-				return -1;
+-			}
++
+ 			addattr64(n, 1024, IFLA_BR_MCAST_MEMBERSHIP_INTVL,
+ 				  mcast_membership_intvl);
+ 		} else if (matches(*argv, "mcast_querier_interval") == 0) {
+ 			__u64 mcast_querier_intvl;
+ 
+ 			NEXT_ARG();
+-			if (get_u64(&mcast_querier_intvl, *argv, 0)) {
++			if (get_u64(&mcast_querier_intvl, *argv, 0))
+ 				invarg("invalid mcast_querier_interval",
+ 				       *argv);
+-				return -1;
+-			}
++
+ 			addattr64(n, 1024, IFLA_BR_MCAST_QUERIER_INTVL,
+ 				  mcast_querier_intvl);
+ 		} else if (matches(*argv, "mcast_query_interval") == 0) {
+ 			__u64 mcast_query_intvl;
+ 
+ 			NEXT_ARG();
+-			if (get_u64(&mcast_query_intvl, *argv, 0)) {
++			if (get_u64(&mcast_query_intvl, *argv, 0))
+ 				invarg("invalid mcast_query_interval",
+ 				       *argv);
+-				return -1;
+-			}
++
+ 			addattr64(n, 1024, IFLA_BR_MCAST_QUERY_INTVL,
+ 				  mcast_query_intvl);
+ 		} else if (!matches(*argv, "mcast_query_response_interval")) {
+ 			__u64 mcast_query_resp_intvl;
+ 
+ 			NEXT_ARG();
+-			if (get_u64(&mcast_query_resp_intvl, *argv, 0)) {
++			if (get_u64(&mcast_query_resp_intvl, *argv, 0))
+ 				invarg("invalid mcast_query_response_interval",
+ 				       *argv);
+-				return -1;
+-			}
++
+ 			addattr64(n, 1024, IFLA_BR_MCAST_QUERY_RESPONSE_INTVL,
+ 				  mcast_query_resp_intvl);
+ 		} else if (!matches(*argv, "mcast_startup_query_interval")) {
+ 			__u64 mcast_startup_query_intvl;
+ 
+ 			NEXT_ARG();
+-			if (get_u64(&mcast_startup_query_intvl, *argv, 0)) {
++			if (get_u64(&mcast_startup_query_intvl, *argv, 0))
+ 				invarg("invalid mcast_startup_query_interval",
+ 				       *argv);
+-				return -1;
+-			}
++
+ 			addattr64(n, 1024, IFLA_BR_MCAST_STARTUP_QUERY_INTVL,
+ 				  mcast_startup_query_intvl);
+ 		} else if (matches(*argv, "nf_call_iptables") == 0) {
+ 			__u8 nf_call_ipt;
+ 
+ 			NEXT_ARG();
+-			if (get_u8(&nf_call_ipt, *argv, 0)) {
++			if (get_u8(&nf_call_ipt, *argv, 0))
+ 				invarg("invalid nf_call_iptables", *argv);
+-				return -1;
+-			}
++
+ 			addattr8(n, 1024, IFLA_BR_NF_CALL_IPTABLES,
+ 				 nf_call_ipt);
+ 		} else if (matches(*argv, "nf_call_ip6tables") == 0) {
+ 			__u8 nf_call_ip6t;
+ 
+ 			NEXT_ARG();
+-			if (get_u8(&nf_call_ip6t, *argv, 0)) {
++			if (get_u8(&nf_call_ip6t, *argv, 0))
+ 				invarg("invalid nf_call_ip6tables", *argv);
+-				return -1;
+-			}
++
+ 			addattr8(n, 1024, IFLA_BR_NF_CALL_IP6TABLES,
+ 				 nf_call_ip6t);
+ 		} else if (matches(*argv, "nf_call_arptables") == 0) {
+ 			__u8 nf_call_arpt;
+ 
+ 			NEXT_ARG();
+-			if (get_u8(&nf_call_arpt, *argv, 0)) {
++			if (get_u8(&nf_call_arpt, *argv, 0))
+ 				invarg("invalid nf_call_arptables", *argv);
+-				return -1;
+-			}
++
+ 			addattr8(n, 1024, IFLA_BR_NF_CALL_ARPTABLES,
+ 				 nf_call_arpt);
+ 		} else if (matches(*argv, "help") == 0) {
+-- 
+2.4.3
