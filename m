@@ -1,315 +1,308 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/15] i40evf: support packet split receive
-Date: Thu, 18 Feb 2016 01:04:00 -0800
-Message-ID: <1455786252-71881-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/15] i40e: drop unused debugfs file "dump"
+Date: Thu, 18 Feb 2016 01:03:59 -0800
+Message-ID: <1455786252-71881-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455786252-71881-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:39536 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:36842 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1425646AbcBRJEU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2016 04:04:20 -0500
+	id S1425595AbcBRJES (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 04:04:18 -0500
 In-Reply-To: <1455786252-71881-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Support packet split receive on VFs. This is off by default but can be
-enabled using ethtool private flags. Because we need to trigger a reset
-from outside of i40evf_main.c, create a new function to do so, and
-export it.
+There was a completely unused file "dump" in debugfs that
+never panned out to be useful.
 
-Also update copyright year in file headers.
-
-Change-ID: I721aa5d70113d3d6d94102e5f31526f6fc57cbbb
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: I12bb9e37b5a83299725dda815a8746157baf6562
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  6 +-
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 67 +++++++++++++++++++++-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 64 +++++++++++----------
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  4 ++
- 4 files changed, 110 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 250 -------------------------
+ 1 file changed, 250 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 9e15f68..e657ecc 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
-  *
-  * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
-- * Copyright(c) 2013 - 2014 Intel Corporation.
-+ * Copyright(c) 2013 - 2016 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -274,6 +274,9 @@ struct i40evf_adapter {
- };
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 34da53b..631c2d6 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -72,248 +72,6 @@ static struct i40e_veb *i40e_dbg_find_veb(struct i40e_pf *pf, int seid)
+ }
  
+ /**************************************************************
+- * dump
+- * The dump entry in debugfs is for getting a data snapshow of
+- * the driver's current configuration and runtime details.
+- * When the filesystem entry is written, a snapshot is taken.
+- * When the entry is read, the most recent snapshot data is dumped.
+- **************************************************************/
+-static char *i40e_dbg_dump_buf;
+-static ssize_t i40e_dbg_dump_data_len;
+-static ssize_t i40e_dbg_dump_buffer_len;
+-
+-/**
+- * i40e_dbg_dump_read - read the dump data
+- * @filp: the opened file
+- * @buffer: where to write the data for the user to read
+- * @count: the size of the user's buffer
+- * @ppos: file position offset
+- **/
+-static ssize_t i40e_dbg_dump_read(struct file *filp, char __user *buffer,
+-				  size_t count, loff_t *ppos)
+-{
+-	int bytes_not_copied;
+-	int len;
+-
+-	/* is *ppos bigger than the available data? */
+-	if (*ppos >= i40e_dbg_dump_data_len || !i40e_dbg_dump_buf)
+-		return 0;
+-
+-	/* be sure to not read beyond the end of available data */
+-	len = min_t(int, count, (i40e_dbg_dump_data_len - *ppos));
+-
+-	bytes_not_copied = copy_to_user(buffer, &i40e_dbg_dump_buf[*ppos], len);
+-	if (bytes_not_copied)
+-		return -EFAULT;
+-
+-	*ppos += len;
+-	return len;
+-}
+-
+-/**
+- * i40e_dbg_prep_dump_buf
+- * @pf: the PF we're working with
+- * @buflen: the desired buffer length
+- *
+- * Return positive if success, 0 if failed
+- **/
+-static int i40e_dbg_prep_dump_buf(struct i40e_pf *pf, int buflen)
+-{
+-	/* if not already big enough, prep for re alloc */
+-	if (i40e_dbg_dump_buffer_len && i40e_dbg_dump_buffer_len < buflen) {
+-		kfree(i40e_dbg_dump_buf);
+-		i40e_dbg_dump_buffer_len = 0;
+-		i40e_dbg_dump_buf = NULL;
+-	}
+-
+-	/* get a new buffer if needed */
+-	if (!i40e_dbg_dump_buf) {
+-		i40e_dbg_dump_buf = kzalloc(buflen, GFP_KERNEL);
+-		if (i40e_dbg_dump_buf != NULL)
+-			i40e_dbg_dump_buffer_len = buflen;
+-	}
+-
+-	return i40e_dbg_dump_buffer_len;
+-}
+-
+-/**
+- * i40e_dbg_dump_write - trigger a datadump snapshot
+- * @filp: the opened file
+- * @buffer: where to find the user's data
+- * @count: the length of the user's data
+- * @ppos: file position offset
+- *
+- * Any write clears the stats
+- **/
+-static ssize_t i40e_dbg_dump_write(struct file *filp,
+-				   const char __user *buffer,
+-				   size_t count, loff_t *ppos)
+-{
+-	struct i40e_pf *pf = filp->private_data;
+-	bool seid_found = false;
+-	long seid = -1;
+-	int buflen = 0;
+-	int i, ret;
+-	int len;
+-	u8 *p;
+-
+-	/* don't allow partial writes */
+-	if (*ppos != 0)
+-		return 0;
+-
+-	/* decode the SEID given to be dumped */
+-	ret = kstrtol_from_user(buffer, count, 0, &seid);
+-
+-	if (ret) {
+-		dev_info(&pf->pdev->dev, "bad seid value\n");
+-	} else if (seid == 0) {
+-		seid_found = true;
+-
+-		kfree(i40e_dbg_dump_buf);
+-		i40e_dbg_dump_buffer_len = 0;
+-		i40e_dbg_dump_data_len = 0;
+-		i40e_dbg_dump_buf = NULL;
+-		dev_info(&pf->pdev->dev, "debug buffer freed\n");
+-
+-	} else if (seid == pf->pf_seid || seid == 1) {
+-		seid_found = true;
+-
+-		buflen = sizeof(struct i40e_pf);
+-		buflen += (sizeof(struct i40e_aq_desc)
+-		     * (pf->hw.aq.num_arq_entries + pf->hw.aq.num_asq_entries));
+-
+-		if (i40e_dbg_prep_dump_buf(pf, buflen)) {
+-			p = i40e_dbg_dump_buf;
+-
+-			/* avoid use of memcpy here due to sparse warning
+-			 * about copy size.
+-			 */
+-			*((struct i40e_pf *)p) = *pf;
+-			p += sizeof(struct i40e_pf);
+-
+-			len = (sizeof(struct i40e_aq_desc)
+-					* pf->hw.aq.num_asq_entries);
+-			memcpy(p, pf->hw.aq.asq.desc_buf.va, len);
+-			p += len;
+-
+-			len = (sizeof(struct i40e_aq_desc)
+-					* pf->hw.aq.num_arq_entries);
+-			memcpy(p, pf->hw.aq.arq.desc_buf.va, len);
+-			p += len;
+-
+-			i40e_dbg_dump_data_len = buflen;
+-			dev_info(&pf->pdev->dev,
+-				 "PF seid %ld dumped %d bytes\n",
+-				 seid, (int)i40e_dbg_dump_data_len);
+-		}
+-	} else if (seid >= I40E_BASE_VSI_SEID) {
+-		struct i40e_vsi *vsi = NULL;
+-		struct i40e_mac_filter *f;
+-		int filter_count = 0;
+-
+-		mutex_lock(&pf->switch_mutex);
+-		vsi = i40e_dbg_find_vsi(pf, seid);
+-		if (!vsi) {
+-			mutex_unlock(&pf->switch_mutex);
+-			goto write_exit;
+-		}
+-
+-		buflen = sizeof(struct i40e_vsi);
+-		buflen += sizeof(struct i40e_q_vector) * vsi->num_q_vectors;
+-		buflen += sizeof(struct i40e_ring) * 2 * vsi->num_queue_pairs;
+-		buflen += sizeof(struct i40e_tx_buffer) * vsi->num_queue_pairs;
+-		buflen += sizeof(struct i40e_rx_buffer) * vsi->num_queue_pairs;
+-		list_for_each_entry(f, &vsi->mac_filter_list, list)
+-			filter_count++;
+-		buflen += sizeof(struct i40e_mac_filter) * filter_count;
+-
+-		if (i40e_dbg_prep_dump_buf(pf, buflen)) {
+-			p = i40e_dbg_dump_buf;
+-			seid_found = true;
+-
+-			len = sizeof(struct i40e_vsi);
+-			memcpy(p, vsi, len);
+-			p += len;
+-
+-			if (vsi->num_q_vectors) {
+-				len = (sizeof(struct i40e_q_vector)
+-					* vsi->num_q_vectors);
+-				memcpy(p, vsi->q_vectors, len);
+-				p += len;
+-			}
+-
+-			if (vsi->num_queue_pairs) {
+-				len = (sizeof(struct i40e_ring) *
+-				      vsi->num_queue_pairs);
+-				memcpy(p, vsi->tx_rings, len);
+-				p += len;
+-				memcpy(p, vsi->rx_rings, len);
+-				p += len;
+-			}
+-
+-			if (vsi->tx_rings[0]) {
+-				len = sizeof(struct i40e_tx_buffer);
+-				for (i = 0; i < vsi->num_queue_pairs; i++) {
+-					memcpy(p, vsi->tx_rings[i]->tx_bi, len);
+-					p += len;
+-				}
+-				len = sizeof(struct i40e_rx_buffer);
+-				for (i = 0; i < vsi->num_queue_pairs; i++) {
+-					memcpy(p, vsi->rx_rings[i]->rx_bi, len);
+-					p += len;
+-				}
+-			}
+-
+-			/* macvlan filter list */
+-			len = sizeof(struct i40e_mac_filter);
+-			list_for_each_entry(f, &vsi->mac_filter_list, list) {
+-				memcpy(p, f, len);
+-				p += len;
+-			}
+-
+-			i40e_dbg_dump_data_len = buflen;
+-			dev_info(&pf->pdev->dev,
+-				 "VSI seid %ld dumped %d bytes\n",
+-				 seid, (int)i40e_dbg_dump_data_len);
+-		}
+-		mutex_unlock(&pf->switch_mutex);
+-	} else if (seid >= I40E_BASE_VEB_SEID) {
+-		struct i40e_veb *veb = NULL;
+-
+-		mutex_lock(&pf->switch_mutex);
+-		veb = i40e_dbg_find_veb(pf, seid);
+-		if (!veb) {
+-			mutex_unlock(&pf->switch_mutex);
+-			goto write_exit;
+-		}
+-
+-		buflen = sizeof(struct i40e_veb);
+-		if (i40e_dbg_prep_dump_buf(pf, buflen)) {
+-			seid_found = true;
+-			memcpy(i40e_dbg_dump_buf, veb, buflen);
+-			i40e_dbg_dump_data_len = buflen;
+-			dev_info(&pf->pdev->dev,
+-				 "VEB seid %ld dumped %d bytes\n",
+-				 seid, (int)i40e_dbg_dump_data_len);
+-		}
+-		mutex_unlock(&pf->switch_mutex);
+-	}
+-
+-write_exit:
+-	if (!seid_found)
+-		dev_info(&pf->pdev->dev, "unknown seid %ld\n", seid);
+-
+-	return count;
+-}
+-
+-static const struct file_operations i40e_dbg_dump_fops = {
+-	.owner = THIS_MODULE,
+-	.open =  simple_open,
+-	.read =  i40e_dbg_dump_read,
+-	.write = i40e_dbg_dump_write,
+-};
+-
+-/**************************************************************
+  * command
+  * The command entry in debugfs is for giving the driver commands
+  * to be executed - these may be for changing the internal switch
+@@ -2217,11 +1975,6 @@ void i40e_dbg_pf_init(struct i40e_pf *pf)
+ 	if (!pfile)
+ 		goto create_failed;
  
-+/* Ethtool Private Flags */
-+#define I40EVF_PRIV_FLAGS_PS		BIT(0)
-+
- /* needed by i40evf_ethtool.c */
- extern char i40evf_driver_name[];
- extern const char i40evf_driver_version[];
-@@ -281,6 +284,7 @@ extern const char i40evf_driver_version[];
- int i40evf_up(struct i40evf_adapter *adapter);
- void i40evf_down(struct i40evf_adapter *adapter);
- int i40evf_process_config(struct i40evf_adapter *adapter);
-+void i40evf_schedule_reset(struct i40evf_adapter *adapter);
- void i40evf_reset(struct i40evf_adapter *adapter);
- void i40evf_set_ethtool_ops(struct net_device *netdev);
- void i40evf_update_stats(struct i40evf_adapter *adapter);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-index bd1c272..dd4430a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
-  *
-  * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
-- * Copyright(c) 2013 - 2015 Intel Corporation.
-+ * Copyright(c) 2013 - 2016 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -63,6 +63,12 @@ static const struct i40evf_stats i40evf_gstrings_stats[] = {
- #define I40EVF_STATS_LEN(_dev) \
- 	(I40EVF_GLOBAL_STATS_LEN + I40EVF_QUEUE_STATS_LEN(_dev))
- 
-+static const char i40evf_priv_flags_strings[][ETH_GSTRING_LEN] = {
-+	"packet-split",
-+};
-+
-+#define I40EVF_PRIV_FLAGS_STR_LEN ARRAY_SIZE(i40evf_priv_flags_strings)
-+
- /**
-  * i40evf_get_settings - Get Link Speed and Duplex settings
-  * @netdev: network interface device structure
-@@ -97,6 +103,8 @@ static int i40evf_get_sset_count(struct net_device *netdev, int sset)
+-	pfile = debugfs_create_file("dump", 0600, pf->i40e_dbg_pf, pf,
+-				    &i40e_dbg_dump_fops);
+-	if (!pfile)
+-		goto create_failed;
+-
+ 	pfile = debugfs_create_file("netdev_ops", 0600, pf->i40e_dbg_pf, pf,
+ 				    &i40e_dbg_netdev_ops_fops);
+ 	if (!pfile)
+@@ -2242,9 +1995,6 @@ void i40e_dbg_pf_exit(struct i40e_pf *pf)
  {
- 	if (sset == ETH_SS_STATS)
- 		return I40EVF_STATS_LEN(netdev);
-+	else if (sset == ETH_SS_PRIV_FLAGS)
-+		return I40EVF_PRIV_FLAGS_STR_LEN;
- 	else
- 		return -EINVAL;
- }
-@@ -162,6 +170,12 @@ static void i40evf_get_strings(struct net_device *netdev, u32 sset, u8 *data)
- 			snprintf(p, ETH_GSTRING_LEN, "rx-%u.bytes", i);
- 			p += ETH_GSTRING_LEN;
- 		}
-+	} else if (sset == ETH_SS_PRIV_FLAGS) {
-+		for (i = 0; i < I40EVF_PRIV_FLAGS_STR_LEN; i++) {
-+			memcpy(data, i40evf_priv_flags_strings[i],
-+			       ETH_GSTRING_LEN);
-+			data += ETH_GSTRING_LEN;
-+		}
- 	}
- }
- 
-@@ -211,6 +225,7 @@ static void i40evf_get_drvinfo(struct net_device *netdev,
- 	strlcpy(drvinfo->version, i40evf_driver_version, 32);
- 	strlcpy(drvinfo->fw_version, "N/A", 4);
- 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev), 32);
-+	drvinfo->n_priv_flags = I40EVF_PRIV_FLAGS_STR_LEN;
- }
- 
- /**
-@@ -710,6 +725,54 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
- 				 I40EVF_HLUT_ARRAY_SIZE);
- }
- 
-+/**
-+ * i40evf_get_priv_flags - report device private flags
-+ * @dev: network interface device structure
-+ *
-+ * The get string set count and the string set should be matched for each
-+ * flag returned.  Add new strings for each flag to the i40e_priv_flags_strings
-+ * array.
-+ *
-+ * Returns a u32 bitmap of flags.
-+ **/
-+static u32 i40evf_get_priv_flags(struct net_device *dev)
-+{
-+	struct i40evf_adapter *adapter = netdev_priv(dev);
-+	u32 ret_flags = 0;
-+
-+	ret_flags |= adapter->flags & I40EVF_FLAG_RX_PS_ENABLED ?
-+		I40EVF_PRIV_FLAGS_PS : 0;
-+
-+	return ret_flags;
-+}
-+
-+/**
-+ * i40evf_set_priv_flags - set private flags
-+ * @dev: network interface device structure
-+ * @flags: bit flags to be set
-+ **/
-+static int i40evf_set_priv_flags(struct net_device *dev, u32 flags)
-+{
-+	struct i40evf_adapter *adapter = netdev_priv(dev);
-+	bool reset_required = false;
-+
-+	if ((flags & I40EVF_PRIV_FLAGS_PS) &&
-+	    !(adapter->flags & I40EVF_FLAG_RX_PS_ENABLED)) {
-+		adapter->flags |= I40EVF_FLAG_RX_PS_ENABLED;
-+		reset_required = true;
-+	} else if (!(flags & I40EVF_PRIV_FLAGS_PS) &&
-+		   (adapter->flags & I40EVF_FLAG_RX_PS_ENABLED)) {
-+		adapter->flags &= ~I40EVF_FLAG_RX_PS_ENABLED;
-+		reset_required = true;
-+	}
-+
-+	/* if needed, issue reset to cause things to take effect */
-+	if (reset_required)
-+		i40evf_schedule_reset(adapter);
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops i40evf_ethtool_ops = {
- 	.get_settings		= i40evf_get_settings,
- 	.get_drvinfo		= i40evf_get_drvinfo,
-@@ -719,6 +782,8 @@ static const struct ethtool_ops i40evf_ethtool_ops = {
- 	.get_strings		= i40evf_get_strings,
- 	.get_ethtool_stats	= i40evf_get_ethtool_stats,
- 	.get_sset_count		= i40evf_get_sset_count,
-+	.get_priv_flags		= i40evf_get_priv_flags,
-+	.set_priv_flags		= i40evf_set_priv_flags,
- 	.get_msglevel		= i40evf_get_msglevel,
- 	.set_msglevel		= i40evf_set_msglevel,
- 	.get_coalesce		= i40evf_get_coalesce,
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 1d81d57..1176326 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -173,6 +173,19 @@ void i40evf_debug_d(void *hw, u32 mask, char *fmt_str, ...)
- }
- 
- /**
-+ * i40evf_schedule_reset - Set the flags and schedule a reset event
-+ * @adapter: board private structure
-+ **/
-+void i40evf_schedule_reset(struct i40evf_adapter *adapter)
-+{
-+	if (!(adapter->flags &
-+	      (I40EVF_FLAG_RESET_PENDING | I40EVF_FLAG_RESET_NEEDED))) {
-+		adapter->flags |= I40EVF_FLAG_RESET_NEEDED;
-+		schedule_work(&adapter->reset_task);
-+	}
-+}
-+
-+/**
-  * i40evf_tx_timeout - Respond to a Tx Hang
-  * @netdev: network interface device structure
-  **/
-@@ -181,11 +194,7 @@ static void i40evf_tx_timeout(struct net_device *netdev)
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 
- 	adapter->tx_timeout_count++;
--	if (!(adapter->flags & (I40EVF_FLAG_RESET_PENDING |
--				I40EVF_FLAG_RESET_NEEDED))) {
--		adapter->flags |= I40EVF_FLAG_RESET_NEEDED;
--		queue_work(i40evf_wq, &adapter->reset_task);
--	}
-+	i40evf_schedule_reset(adapter);
- }
- 
- /**
-@@ -638,35 +647,22 @@ static void i40evf_configure_rx(struct i40evf_adapter *adapter)
- 	int rx_buf_len;
- 
- 
--	adapter->flags &= ~I40EVF_FLAG_RX_PS_CAPABLE;
--	adapter->flags |= I40EVF_FLAG_RX_1BUF_CAPABLE;
+ 	debugfs_remove_recursive(pf->i40e_dbg_pf);
+ 	pf->i40e_dbg_pf = NULL;
 -
--	/* Decide whether to use packet split mode or not */
--	if (netdev->mtu > ETH_DATA_LEN) {
--		if (adapter->flags & I40EVF_FLAG_RX_PS_CAPABLE)
--			adapter->flags |= I40EVF_FLAG_RX_PS_ENABLED;
--		else
--			adapter->flags &= ~I40EVF_FLAG_RX_PS_ENABLED;
--	} else {
--		if (adapter->flags & I40EVF_FLAG_RX_1BUF_CAPABLE)
--			adapter->flags &= ~I40EVF_FLAG_RX_PS_ENABLED;
--		else
--			adapter->flags |= I40EVF_FLAG_RX_PS_ENABLED;
--	}
--
- 	/* Set the RX buffer length according to the mode */
--	if (adapter->flags & I40EVF_FLAG_RX_PS_ENABLED) {
--		rx_buf_len = I40E_RX_HDR_SIZE;
--	} else {
--		if (netdev->mtu <= ETH_DATA_LEN)
--			rx_buf_len = I40EVF_RXBUFFER_2048;
--		else
--			rx_buf_len = ALIGN(max_frame, 1024);
--	}
-+	if (adapter->flags & I40EVF_FLAG_RX_PS_ENABLED ||
-+	    netdev->mtu <= ETH_DATA_LEN)
-+		rx_buf_len = I40EVF_RXBUFFER_2048;
-+	else
-+		rx_buf_len = ALIGN(max_frame, 1024);
- 
- 	for (i = 0; i < adapter->num_active_queues; i++) {
- 		adapter->rx_rings[i].tail = hw->hw_addr + I40E_QRX_TAIL1(i);
- 		adapter->rx_rings[i].rx_buf_len = rx_buf_len;
-+		if (adapter->flags & I40EVF_FLAG_RX_PS_ENABLED) {
-+			set_ring_ps_enabled(&adapter->rx_rings[i]);
-+			adapter->rx_rings[i].rx_hdr_len = I40E_RX_HDR_SIZE;
-+		} else {
-+			clear_ring_ps_enabled(&adapter->rx_rings[i]);
-+		}
- 	}
+-	kfree(i40e_dbg_dump_buf);
+-	i40e_dbg_dump_buf = NULL;
  }
  
-@@ -1003,7 +999,12 @@ static void i40evf_configure(struct i40evf_adapter *adapter)
- 	for (i = 0; i < adapter->num_active_queues; i++) {
- 		struct i40e_ring *ring = &adapter->rx_rings[i];
- 
-+	if (adapter->flags & I40EVF_FLAG_RX_PS_ENABLED) {
-+		i40evf_alloc_rx_headers(ring);
-+		i40evf_alloc_rx_buffers_ps(ring, ring->count);
-+	} else {
- 		i40evf_alloc_rx_buffers_1buf(ring, ring->count);
-+	}
- 		ring->next_to_use = ring->count - 1;
- 		writel(ring->next_to_use, ring->tail);
- 	}
-@@ -2481,6 +2482,11 @@ static void i40evf_init_task(struct work_struct *work)
- 	adapter->current_op = I40E_VIRTCHNL_OP_UNKNOWN;
- 
- 	adapter->flags |= I40EVF_FLAG_RX_CSUM_ENABLED;
-+	adapter->flags |= I40EVF_FLAG_RX_1BUF_CAPABLE;
-+	adapter->flags |= I40EVF_FLAG_RX_PS_CAPABLE;
-+
-+	/* Default to single buffer rx, can be changed through ethtool. */
-+	adapter->flags &= ~I40EVF_FLAG_RX_PS_ENABLED;
- 
- 	netdev->netdev_ops = &i40evf_netdev_ops;
- 	i40evf_set_ethtool_ops(netdev);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index d3739cc..488e738 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -270,6 +270,10 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
- 		vqpi->rxq.max_pkt_size = adapter->netdev->mtu
- 					+ ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN;
- 		vqpi->rxq.databuffer_size = adapter->rx_rings[i].rx_buf_len;
-+		if (adapter->flags & I40EVF_FLAG_RX_PS_ENABLED) {
-+			vqpi->rxq.splithdr_enabled = true;
-+			vqpi->rxq.hdr_size = I40E_RX_HDR_SIZE;
-+		}
- 		vqpi++;
- 	}
- 
+ /**
 -- 
 2.5.0
