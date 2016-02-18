@@ -1,103 +1,39 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [PATCH v2 1/1] cxgb3: fix up vpd strings for kstrto*()
-Date: Thu, 18 Feb 2016 06:34:24 -0800
-Message-ID: <20160218143946.0546CE09D8@smtp.ogc.us>
-Cc: santosh@chelsio.com, davem@davemloft.net, hariprasad@chelsio.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.opengridcomputing.com ([72.48.136.20]:48225 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1946473AbcBROjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 09:39:46 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH net-next,V2] net: macb: make magic-packet property generic
+Date: Thu, 18 Feb 2016 08:37:20 -0600
+Message-ID: <20160218143720.GP9654@rob-hp-laptop>
+References: <1455664245-6842-1-git-send-email-sergio.prado@e-labworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	nicolas.ferre@atmel.com, davem@davemloft.net,
+	gregory.clement@free-electrons.com, narmstrong@baylibre.com,
+	michal.simek@xilinx.com, harini.katakam@xilinx.com,
+	boris.brezillon@free-electrons.com, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Sergio Prado <sergio.prado@e-labworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1455664245-6842-1-git-send-email-sergio.prado@e-labworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The vpd strings are left justified, in a fixed length array, with possible
-trailing white space and no NUL.  So fix them up before calling kstrto*().
+On Tue, Feb 16, 2016 at 09:10:45PM -0200, Sergio Prado wrote:
+> As requested by Rob Herring on patch
+> https://patchwork.ozlabs.org/patch/580862/.
+> 
+> This is a new property that it's still in net-next and has never been
+> used in production, so we are not breaking anything with the
+> incompatible binding change.
+> 
+> Signed-off-by: Sergio Prado <sergio.prado@e-labworks.com>
+> ---
+> Changes v1 -> v2: add changelog comment to clarify that the existing
+> property has never been used in production.
+> ---
+>  Documentation/devicetree/bindings/net/macb.txt | 2 +-
+>  drivers/net/ethernet/cadence/macb.c            | 2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
 
-This is a recent regression which causes cxgb3 to fail to load.
-
-Fixes:e72c932('cxgb3: Convert simple_strtoul to kstrtox')
-
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
----
-
-Changes since v1:
-- checkpatched (forgot to do that initially)
-- minor code format tweaks per review feedback
-
----
- drivers/net/ethernet/chelsio/cxgb3/t3_hw.c | 34 ++++++++++++++++++++++++------
- 1 file changed, 27 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
-index ee04caa..a89721f 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
-@@ -681,6 +681,24 @@ int t3_seeprom_wp(struct adapter *adapter, int enable)
- 	return t3_seeprom_write(adapter, EEPROM_STAT_ADDR, enable ? 0xc : 0);
- }
- 
-+static int vpdstrtouint(char *s, int len, unsigned int base, unsigned int *val)
-+{
-+	char tok[len + 1];
-+
-+	memcpy(tok, s, len);
-+	tok[len] = 0;
-+	return kstrtouint(strim(tok), base, val);
-+}
-+
-+static int vpdstrtou16(char *s, int len, unsigned int base, u16 *val)
-+{
-+	char tok[len + 1];
-+
-+	memcpy(tok, s, len);
-+	tok[len] = 0;
-+	return kstrtou16(strim(tok), base, val);
-+}
-+
- /**
-  *	get_vpd_params - read VPD parameters from VPD EEPROM
-  *	@adapter: adapter to read
-@@ -709,19 +727,19 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 			return ret;
- 	}
- 
--	ret = kstrtouint(vpd.cclk_data, 10, &p->cclk);
-+	ret = vpdstrtouint(vpd.cclk_data, vpd.cclk_len, 10, &p->cclk);
- 	if (ret)
- 		return ret;
--	ret = kstrtouint(vpd.mclk_data, 10, &p->mclk);
-+	ret = vpdstrtouint(vpd.mclk_data, vpd.mclk_len, 10, &p->mclk);
- 	if (ret)
- 		return ret;
--	ret = kstrtouint(vpd.uclk_data, 10, &p->uclk);
-+	ret = vpdstrtouint(vpd.uclk_data, vpd.uclk_len, 10, &p->uclk);
- 	if (ret)
- 		return ret;
--	ret = kstrtouint(vpd.mdc_data, 10, &p->mdc);
-+	ret = vpdstrtouint(vpd.mdc_data, vpd.mdc_len, 10, &p->mdc);
- 	if (ret)
- 		return ret;
--	ret = kstrtouint(vpd.mt_data, 10, &p->mem_timing);
-+	ret = vpdstrtouint(vpd.mt_data, vpd.mt_len, 10, &p->mem_timing);
- 	if (ret)
- 		return ret;
- 	memcpy(p->sn, vpd.sn_data, SERNUM_LEN);
-@@ -733,10 +751,12 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 	} else {
- 		p->port_type[0] = hex_to_bin(vpd.port0_data[0]);
- 		p->port_type[1] = hex_to_bin(vpd.port1_data[0]);
--		ret = kstrtou16(vpd.xaui0cfg_data, 16, &p->xauicfg[0]);
-+		ret = vpdstrtou16(vpd.xaui0cfg_data, vpd.xaui0cfg_len, 16,
-+				  &p->xauicfg[0]);
- 		if (ret)
- 			return ret;
--		ret = kstrtou16(vpd.xaui1cfg_data, 16, &p->xauicfg[1]);
-+		ret = vpdstrtou16(vpd.xaui1cfg_data, vpd.xaui1cfg_len, 16,
-+				  &p->xauicfg[1]);
- 		if (ret)
- 			return ret;
- 	}
--- 
-2.7.0
+Acked-by: Rob Herring <robh@kernel.org>
