@@ -1,42 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH v3 1/1] net_sched fix: reclassification needs to
- consider ether protocol changes
-Date: Thu, 18 Feb 2016 11:15:13 -0500 (EST)
-Message-ID: <20160218.111513.881417469088873961.davem@davemloft.net>
-References: <1455799084-6166-1-git-send-email-jhs@emojatatu.com>
-	<1455799084-6166-2-git-send-email-jhs@emojatatu.com>
+Subject: Re: [patch net-next] bridge: switchdev: Offload VLAN flags to
+ hardware bridge
+Date: Thu, 18 Feb 2016 11:18:32 -0500 (EST)
+Message-ID: <20160218.111832.1197390152083718401.davem@davemloft.net>
+References: <1455800506-13190-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-	xiyou.wangcong@gmail.com
-To: jhs@mojatatu.com
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43469 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43512 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946584AbcBRQPP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 11:15:15 -0500
-In-Reply-To: <1455799084-6166-2-git-send-email-jhs@emojatatu.com>
+	with ESMTP id S1946584AbcBRQSe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 11:18:34 -0500
+In-Reply-To: <1455800506-13190-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Thu, 18 Feb 2016 07:38:04 -0500
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 18 Feb 2016 14:01:46 +0100
 
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> From: Ido Schimmel <idosch@mellanox.com>
 > 
-> actions could change the etherproto in particular with ethernet
-> tunnelled data. Typically such actions, after peeling the outer header,
-> will ask for the packet to be  reclassified. We then need to restart
-> the classification with the new proto header.
+> When VLANs are created / destroyed on a VLAN filtering bridge (MASTER
+> flag set), the configuration is passed down to the hardware. However,
+> when only the flags (e.g. PVID) are toggled, the configuration is done
+> in the software bridge alone.
 > 
-> Example setup used to catch this:
-> sudo tc qdisc add dev $ETH ingress
-> sudo $TC filter add dev $ETH parent ffff: pref 1 protocol 802.1Q \
-> u32 match u32 0 0 flowid 1:1 \
-> action  vlan pop reclassify
+> While it is possible to pass these flags to hardware when invoked with
+> the SELF flag set, this creates inconsistency with regards to the way
+> the VLANs are initially configured.
 > 
-> Fixes: 3b3ae880266d ("net: sched: consolidate tc_classify{,_compat}")
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Pass the flags down to the hardware even when the VLAN already exists
+> and only the flags are toggled.
+> 
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Applied and queued up for -stable, thanks Jamal.
+Applied, thanks guys.
