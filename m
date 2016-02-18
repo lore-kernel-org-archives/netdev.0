@@ -1,72 +1,38 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net V1 4/6] net/mlx4_core: Do not BUG_ON during reset when
- PCI is offline
-Date: Thu, 18 Feb 2016 15:45:40 +0300
-Message-ID: <56C5BCF4.7000707@cogentembedded.com>
-References: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
- <1455722667-23179-5-git-send-email-ogerlitz@mellanox.com>
+From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+Subject: Re: [PATCH] net: fix bridge multicast packet checksum validation
+Date: Thu, 18 Feb 2016 13:51:34 +0100
+Message-ID: <20160218125134.GA20283@sesse.net>
+References: <1455502026-23144-1-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Daniel Jurgens <danielj@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:34690 "EHLO
-	mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1425268AbcBRMpm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 07:45:42 -0500
-Received: by mail-lf0-f50.google.com with SMTP id j78so31515005lfb.1
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 04:45:42 -0800 (PST)
-In-Reply-To: <1455722667-23179-5-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	=?utf-8?B?w4FsdmFybyBGZXJuw6FuZGV6?= Rojas <noltari@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1455502026-23144-1-git-send-email-linus.luessing@c0d3.blue>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Mon, Feb 15, 2016 at 03:07:06AM +0100, Linus L=C3=BCssing wrote:
+> Steinar, can you check whether this fixes the bridge issues you repor=
+ted on
+> bugzilla #99081? Not quite sure whether it is the same as yours as yo=
+u
+> do not seem to have any such call traces.
 
-On 2/17/2016 6:24 PM, Or Gerlitz wrote:
+It doesn't immediately sound like the same problem; why would promisc c=
+hange
+anything if the problem is the checksumming?
 
-> From: Daniel Jurgens <danielj@mellanox.com>
->
-> The PCI channel could go offline during reset due to EEH.  Don't bug on in
-> this case, the error is recoverable.
->
-> Fixes: f6bc11e42646 ('net/mlx4_core: Enhance the catas flow to support device reset')
-> Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
-> Reviewed-by: Yishai Hadas <yishaih@mellanox.com>
-> ---
->   drivers/net/ethernet/mellanox/mlx4/catas.c | 11 +++++++++--
->   1 file changed, 9 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
-> index 715de8a..c7e9399 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/catas.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
-> @@ -182,10 +182,17 @@ void mlx4_enter_error_state(struct mlx4_dev_persistent *persist)
->   		err = mlx4_reset_slave(dev);
->   	else
->   		err = mlx4_reset_master(dev);
-> -	BUG_ON(err != 0);
->
-> +	if (!err) {
+I don't have any reboots scheduled for this machine right now, but I'll=
+ see
+what I can do wrt. testing.
 
-    Grr, couldn't you add your new code just *instead* of BUG_ON()? There's 
-really no need for empty line before the *if*.
-
-> +		mlx4_err(dev, "device was reset successfully\n");
-> +	} else {
-> +		/* EEH could have disabled the PCI channel during reset. That's
-> +		 * recoverable and the PCI error flow will handle it.
-> +		 */
-> +		if (!pci_channel_offline(dev->persist->pdev))
-> +			BUG_ON(1);
-> +	}
->   	dev->persist->state |= MLX4_DEVICE_STATE_INTERNAL_ERROR;
-> -	mlx4_err(dev, "device was reset successfully\n");
->   	mutex_unlock(&persist->device_state_mutex);
->
->   	/* At that step HW was already reset, now notify clients */
-
-MBR, Sergei
+/* Steinar */
+--=20
+Homepage: https://www.sesse.net/
