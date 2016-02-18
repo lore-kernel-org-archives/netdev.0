@@ -1,50 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next 13/15] i40e/i40evf: use logical operators, not bitwise
-Date: Wed, 17 Feb 2016 20:58:56 -0800
-Message-ID: <1455771536.4031.4.camel@perches.com>
-References: <1455766737-11911-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1455766737-11911-14-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [net] r8169   Remove duplicate command which set RxVlan and
+ RxChksum bits.
+Date: Thu, 18 Feb 2016 14:25:43 +0900
+Message-ID: <20160218052543.GA15955@verge.net.au>
+References: <1454254388-15523-1-git-send-email-asd@marian1000.go.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Corcodel Marian <asd@marian1000.go.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0160.hostedemail.com ([216.40.44.160]:47398 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1424543AbcBRE7A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 23:59:00 -0500
-In-Reply-To: <1455766737-11911-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:45932 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1424723AbcBRFZy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 00:25:54 -0500
+Content-Disposition: inline
+In-Reply-To: <1454254388-15523-1-git-send-email-asd@marian1000.go.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-02-17 at 19:38 -0800, Jeff Kirsher wrote:
-> From: Mitch Williams <mitch.a.williams@intel.com>
->=20
-> Mr. Spock would certainly raise an eyebrow to see us using bitwise
-> operators, when we should clearly be relying on logic. Fascinating.
+On Sun, Jan 31, 2016 at 05:33:08PM +0200, Corcodel Marian wrote:
+>  These bits is already set on set geatures stage.
+> 
+> Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+> ---
+>  drivers/net/ethernet/realtek/r8169.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index 17d5571..a8fb86d 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -8368,7 +8368,6 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
+>  		NETIF_F_HIGHDMA;
+>  
+> -	tp->cp_cmd |= RxChkSum | RxVlan;
+>  
 
-I think it read better before this change.
+To avoid two consecutive blank lines, which seems excessive here,
+you may want to consider removing the blank line before or after the
+line of code you are removing.
 
-Spock might have looked at the type of the
-variable before raising that eyebrow.
-
-clean_complete is bool so it's not actually a
-bitwise operation,
-
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/ne=
-t/ethernet/intel/i40e/i40e_txrx.c
-[]
-> @@ -1996,7 +1996,8 @@ int i40e_napi_poll(struct napi_struct *napi, in=
-t budget)
-> =A0	=A0* budget and be more aggressive about cleaning up the Tx descr=
-iptors.
-> =A0	=A0*/
-> =A0	i40e_for_each_ring(ring, q_vector->tx) {
-> -		clean_complete &=3D i40e_clean_tx_irq(ring, vsi->work_limit);
-> +		clean_complete =3D clean_complete &&
-> +				=A0i40e_clean_tx_irq(ring, vsi->work_limit);
-
-etc...
+>  	/*
+>  	 * Pretend we are using VLANs; This bypasses a nasty bug where
+> -- 
+> 2.5.0
+> 
