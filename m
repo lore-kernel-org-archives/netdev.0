@@ -1,82 +1,34 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv3 net-next 00/14] nfp: MTU fixes for net
-Date: Thu, 18 Feb 2016 20:38:15 +0000
-Message-ID: <1455827909-26443-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: netdev@vger.kernel.org,
-	Jakub Kicinski <jakub.kicinski@netronome.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] Add support for PHY packet generators
+Date: Thu, 18 Feb 2016 15:45:39 -0500 (EST)
+Message-ID: <20160218.154539.340432973192973342.davem@davemloft.net>
+References: <1455741127-25453-1-git-send-email-andrew@lunn.ch>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37016 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1948099AbcBRUif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:35 -0500
-Received: by mail-wm0-f48.google.com with SMTP id g62so42992633wme.0
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:35 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:47195 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1425560AbcBRUpl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:45:41 -0500
+In-Reply-To: <1455741127-25453-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave!
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed, 17 Feb 2016 21:32:05 +0100
 
-This is the second part of MTU reconfiguration fixes, targeted
-at net-next.
+> Some Ethernet PHYs contain a simple packet generator. This can be
+> useful for bringing up new devices, trying to determine if a problem
+> lies in the MAC-PHY connection or PHY-Socket. Also, the PHY generators
+> can generate invalid packets, which is hard to do in software.
+> 
+> Add support ethtool(1) and wire up the Marvell PHY packet generator.
 
-Patches 1-8 refactor open/stop paths to look like this:
- - alloc;
- - dev/FW init;
- - stack init/start.
-stop:
- - stack quiescence/stop;
- - dev/FW down;
- - free.
-That's a quite a bit of code churn I did my best to split
-it up but probably still not much fun to review.
+You really cannot make this blocking, every time we've added a blocking
+ethtool op that could take a non-trivial amount of time we've been
+burnt.
 
-Patch 9 splits the open/stop into chunks I can call later.
-
-Patch 10 makes sure that FW start/stop operations are
-reflected in SW state (which was not needed earlier since
-we always did full down/up).
-
-[Patches 11 and 13 are trivial, split for readability.]
-
-Patch 12 does what you requested for MTU change:
- - alloc new resources;
- - stop dev;
- - try to start dev with new config;
- - if failed try with old config;
- - if failed die loudly.
-
-Patch 14 does the same thing for ring resize.
-
-I tested this with various error injection hacks and it 
-seems quite solid.
-
-This is on top of the first series, merge of net into
-net-next will be required for this to apply.
-
-Thanks!
-
-
-Jakub Kicinski (14):
-  nfp: move link state interrupt request/free calls
-  nfp: break up nfp_net_{alloc|free}_rings
-  nfp: make *x_ring_init do all the init
-  nfp: allocate ring SW structs dynamically
-  nfp: cleanup tx ring flush and rename to reset
-  nfp: reorganize initial filling of RX rings
-  nfp: preallocate RX buffers early in .ndo_open
-  nfp: move filling ring information to FW config
-  nfp: slice .ndo_open() and .ndo_stop() up
-  nfp: sync ring state during FW reconfiguration
-  nfp: propagate list buffer size in struct rx_ring
-  nfp: convert .ndo_change_mtu() to prepare/commit paradigm
-  nfp: pass ring count as function parameter
-  nfp: allow ring size reconfiguration at runtime
-
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  10 +-
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 898 ++++++++++++++-------
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |  30 +-
- 3 files changed, 615 insertions(+), 323 deletions(-)
-
--- 
-1.9.1
+So as Ben mentioned blocking for 0.3 seconds or whatever is a non-starter.
