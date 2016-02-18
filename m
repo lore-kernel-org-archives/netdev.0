@@ -1,79 +1,75 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on i211
- using a device tree blob V4
-Date: Thu, 18 Feb 2016 01:15:01 -0800
-Message-ID: <1455786901.3128.13.camel@intel.com>
-References: <56C506FD.5040408@gmail.com>
-	 <20160217.212910.1758016077144502307.davem@davemloft.net>
-	 <97579B9E-E7C6-4DBE-B1A2-027C2EA7F754@gmail.com>
+From: "Amir Vadai\"" <amir@vadai.me>
+Subject: Re: [net-next PATCH v3 3/8] net: sched: add cls_u32 offload hooks
+ for netdevs
+Date: Thu, 18 Feb 2016 11:23:35 +0200
+Message-ID: <20160218092335.GA15192@office.Home>
+References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
+ <20160217051709.17139.88337.stgit@john-Precision-Tower-5810>
+ <56C4528E.5090505@mojatatu.com>
+ <56C48295.9030806@gmail.com>
+ <56C4FD2B.9000009@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ROvRVFBr24mAnx70Vv/c"
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: John Holland <jotihojr@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, jiri@resnulli.us,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:2212 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1425593AbcBRJPD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2016 04:15:03 -0500
-In-Reply-To: <97579B9E-E7C6-4DBE-B1A2-027C2EA7F754@gmail.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:33424 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1425290AbcBRJUA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 04:20:00 -0500
+Received: by mail-wm0-f51.google.com with SMTP id g62so15941181wme.0
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 01:20:00 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <56C4FD2B.9000009@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Feb 17, 2016 at 03:07:23PM -0800, John Fastabend wrote:
+> [...]
+> 
+> >>
+> >>> +static void u32_replace_hw_hnode(struct tcf_proto *tp, struct
+> >>> tc_u_hnode *h)
+> >>> +{
+> >>> +    struct net_device *dev = tp->q->dev_queue->dev;
+> >>> +    struct tc_cls_u32_offload u32_offload = {0};
+> >>> +    struct tc_to_netdev offload;
+> >>> +
+> >>> +    offload.type = TC_SETUP_CLSU32;
+> >>> +    offload.cls_u32 = &u32_offload;
+> >>> +
+> >>> +    if (dev->netdev_ops->ndo_setup_tc) {
+> >>> +        offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
+> >>
+> >> TC_CLSU32_REPLACE_HNODE?
+> >>
+> > 
+> > Yep I made this change and will send out v4.
+> > 
+> > [...]
+> > 
+> >>
+> 
+> Actually thinking about this a bit more I wrote this thinking
+> that there existed some hardware that actually cared if it was
+> a new rule or an existing rule. For me it doesn't matter I do
+> the same thing in the new/replace cases I just write into the
+> slot on the hardware table and if it happens to have something
+> in it well its overwritten e.g. "replaced". This works because
+> the cls_u32 layer protects us from doing something unexpected.
+> 
+> I'm wondering (mostly asking the mlx folks) is there hardware
+> out there that cares to make this distinction between new and
+> replace? Otherwise I can just drop new and always use replace.
+> Or vice versa which is the case in its current form.
+I don't see a need for such a distinction in mlx hardware.
 
---=-ROvRVFBr24mAnx70Vv/c
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Thanks,
+Amir.
 
-On Thu, 2016-02-18 at 08:53 +0100, John Holland wrote:
->=20
-> > On Feb 18, 2016, at 03:29, David Miller <davem@davemloft.net>
-> wrote:
-> >=C2=A0
-> > From: John Holland <jotihojr@gmail.com>
-> > Date: Thu, 18 Feb 2016 00:49:17 +0100
-> >=C2=A0
-> >> The Intel i211 LOM pcie ethernet controllers' iNVM operates as an
-> OTP
-> >> and has no externel EEPROM interface [1]. The following allows the
-> >> driver to pickup the MAC address from a device tree blob when
-> >> CONFIG_OF
-> >> has been enabled.
-> >=C2=A0
-> > Please use the generic eth_platform_get_mac_address(), or
-> > alternatively structure your code like the ixgbe and other cases so
-> > that SPARC and other OF platforms get this support as well.
->=20
-> Don't know what you mean. The PCI path in
-> eth_platform_get_mac_address() didn't return a devicetree node and I
-> can find no instance of of_<function> use in ixgbe.
-
-See commit=C2=A0e1be080f292eba2ef96af999057d1603cd50b473 in my dev-queue
-branch. =C2=A0Sowmini Varadhan provided a patch to
-use=C2=A0eth_platform_get_mac_address() instead of the "CONFIG_SPARC"
-solution.
---=-ROvRVFBr24mAnx70Vv/c
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABCgAGBQJWxYuVAAoJEOVv75VaS+3OrXsP/35JO/rOfdTB9W+zVLT0BMmO
-AMTRIUuwjWYMTdjRdOEKnbkOjajBk8t6qKkc1C27v2kj+gsHhf+0KXuwYlZwxPlZ
-0NZqPb1M+/Ie0O9tySvR+nOWOJXFSKGPtgpozeQAjdt3vjKQ2WeSJlIlMjMhxGDc
-cpRPb/xpb51nF05ikDHJe73Q5jaTqajYo66RadI1vLW7UBZVLhGKNGwjGogQYuo9
-CuWx0ljjxODjk4Zee8vKBPFF2v2utRT+nmvrAL2v4YwLLr3uKoveMYHB97JlqXkB
-0WXrd3+Fn6se4ZaO6pF4OBpZNhkiKTwgY9CY/ffmbu/Hq0HBGW2G7LeBydXFPGwa
-W1BIXCxJAgZLIvU1S69kLd8BKPdQ1GqgRXceJ5mtUO1HupDkt6J4dTJZ6CQXzYmT
-9vnmdVq7rXGhrts+WkHqo08qMscDfg5J7bhzk2BM6tj2TlHWT9Odda7NSuZO2PEb
-5tBtj9DZK/GdwHUxZPW8eJIkK+BAxc1bPqHpDcpvMkM0i4qfl+2wU79vU4dOlQ0P
-NZBRgfUUEZzpZqHYOb/aZ38LelibypviRDkTa4z5fMYUhw3MQU4rvp/pKdUoT5Tl
-rEgDN18sqKjNN8pztCaJ/ZISfYapsVs7ULmCUZ3tlm4y9uC1bAMZtoI4YQKr3665
-KvjkGiP6YskJmzfJK4aK
-=li9p
------END PGP SIGNATURE-----
-
---=-ROvRVFBr24mAnx70Vv/c--
+> 
+> Thanks,
+> John
+> 
