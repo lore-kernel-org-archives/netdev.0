@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 05/12] net/mlx5e: Support DCBNL IEEE PFC
-Date: Thu, 18 Feb 2016 12:32:46 +0200
-Message-ID: <1455791573-5270-6-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 11/12] net/mlx5e: Add TX stateless offloads for tunneling
+Date: Thu, 18 Feb 2016 12:32:52 +0200
+Message-ID: <1455791573-5270-12-git-send-email-saeedm@mellanox.com>
 References: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,84 +10,72 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Rana Shahout <ranas@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Matthew Finlay <matt@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:34246 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:34168 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1945939AbcBRKmt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2016 05:42:49 -0500
+	id S1945989AbcBRKlx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 05:41:53 -0500
 In-Reply-To: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Achiad Shochat <achiad@mellanox.com>
+From: Matthew Finlay <matt@mellanox.com>
 
-Implement the set/get DCBNL IEEE PFC callbacks.
+Add support for TSO and TX checksum when using hw assisted,
+tunneled offloads.
 
-Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Matt Finlay <matt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c |   39 ++++++++++++++++++++
- 1 files changed, 39 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c |   22 ++++++++++++++++------
+ 1 files changed, 16 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-index 402d032..cdbf39c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-@@ -160,6 +160,43 @@ static int mlx5e_dcbnl_ieee_setets(struct net_device *netdev,
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 00d855a..6ce2884 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2015-2016, Mellanox Technologies. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+@@ -185,9 +185,14 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
  
-+static int mlx5e_dcbnl_ieee_getpfc(struct net_device *dev,
-+				   struct ieee_pfc *pfc)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
+ 	memset(wqe, 0, sizeof(*wqe));
+ 
+-	if (likely(skb->ip_summed == CHECKSUM_PARTIAL))
+-		eseg->cs_flags	= MLX5_ETH_WQE_L3_CSUM | MLX5_ETH_WQE_L4_CSUM;
+-	else
++	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
++		eseg->cs_flags = MLX5_ETH_WQE_L3_CSUM;
++		if (skb->encapsulation)
++			eseg->cs_flags |= MLX5_ETH_WQE_L3_INNER_CSUM |
++					  MLX5_ETH_WQE_L4_INNER_CSUM;
++		else
++			eseg->cs_flags |= MLX5_ETH_WQE_L4_CSUM;
++	} else
+ 		sq->stats.csum_offload_none++;
+ 
+ 	if (sq->cc != sq->prev_cc) {
+@@ -200,8 +205,13 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 
+ 		eseg->mss    = cpu_to_be16(skb_shinfo(skb)->gso_size);
+ 		opcode       = MLX5_OPCODE_LSO;
+-		ihs          = skb_transport_offset(skb) + tcp_hdrlen(skb);
+-		payload_len  = skb->len - ihs;
 +
-+	pfc->pfc_cap = mlx5_max_tc(mdev) + 1;
++		if (skb->encapsulation)
++			ihs = skb_inner_transport_offset(skb) + inner_tcp_hdrlen(skb);
++		else
++			ihs = skb_transport_offset(skb) + tcp_hdrlen(skb);
 +
-+	return mlx5_query_port_pfc(mdev, &pfc->pfc_en, NULL);
-+}
-+
-+static int mlx5e_dcbnl_ieee_setpfc(struct net_device *dev,
-+				   struct ieee_pfc *pfc)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	enum mlx5_port_status ps;
-+	u8 curr_pfc_en;
-+	int ret;
-+
-+	mlx5_query_port_pfc(mdev, &curr_pfc_en, NULL);
-+
-+	if (pfc->pfc_en == curr_pfc_en)
-+		return 0;
-+
-+	mlx5_query_port_admin_status(mdev, &ps);
-+	if (ps == MLX5_PORT_UP)
-+		mlx5_set_port_admin_status(mdev, MLX5_PORT_DOWN);
-+
-+	ret = mlx5_set_port_pfc(mdev, pfc->pfc_en, pfc->pfc_en);
-+
-+	if (ps == MLX5_PORT_UP)
-+		mlx5_set_port_admin_status(mdev, MLX5_PORT_UP);
-+
-+	return ret;
-+}
-+
- static u8 mlx5e_dcbnl_getdcbx(struct net_device *dev)
- {
- 	return DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_IEEE;
-@@ -179,6 +216,8 @@ static u8 mlx5e_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- const struct dcbnl_rtnl_ops mlx5e_dcbnl_ops = {
- 	.ieee_getets	= mlx5e_dcbnl_ieee_getets,
- 	.ieee_setets	= mlx5e_dcbnl_ieee_setets,
-+	.ieee_getpfc	= mlx5e_dcbnl_ieee_getpfc,
-+	.ieee_setpfc	= mlx5e_dcbnl_ieee_setpfc,
- 	.getdcbx	= mlx5e_dcbnl_getdcbx,
- 	.setdcbx	= mlx5e_dcbnl_setdcbx,
- };
++		payload_len   = skb->len - ihs;
+ 		wi->num_bytes = skb->len +
+ 				(skb_shinfo(skb)->gso_segs - 1) * ihs;
+ 		sq->stats.tso_packets++;
 -- 
 1.7.1
