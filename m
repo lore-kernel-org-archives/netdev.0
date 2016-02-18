@@ -1,53 +1,56 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv3 net 5/5] nfp: don't trust netif_running() in debug code
-Date: Thu, 18 Feb 2016 20:38:13 +0000
-Message-ID: <1455827893-26366-6-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv3 net 1/5] nfp: return error if MTU change fails
+Date: Thu, 18 Feb 2016 20:38:09 +0000
+Message-ID: <1455827893-26366-2-git-send-email-jakub.kicinski@netronome.com>
 References: <1455827893-26366-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: netdev@vger.kernel.org,
 	Jakub Kicinski <jakub.kicinski@netronome.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:33095 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1948081AbcBRUiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:23 -0500
-Received: by mail-wm0-f49.google.com with SMTP id g62so42101173wme.0
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:23 -0800 (PST)
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36027 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1947773AbcBRUiU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:20 -0500
+Received: by mail-wm0-f50.google.com with SMTP id g62so46836898wme.1
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:19 -0800 (PST)
 In-Reply-To: <1455827893-26366-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since change_mtu() can fail and leave us with netif_running()
-returning true even though all rings were freed - we should
-look at NFP_NET_CFG_CTRL_ENABLE flag to determine if device
-is really opened.
+When reopening device fails after MTU change, let the userspace
+know.  MTU remains changed even though error is returned, this
+is what all ethernet devices are doing.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Reviewed-by: Rolf Neugebauer <rolf.neugebauer@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
-index 4c97c713121c..7af404d492cc 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
-@@ -52,7 +52,7 @@ static int nfp_net_debugfs_rx_q_read(struct seq_file *file, void *data)
- 	if (!rx_ring->r_vec || !rx_ring->r_vec->nfp_net)
- 		goto out;
- 	nn = rx_ring->r_vec->nfp_net;
--	if (!netif_running(nn->netdev))
-+	if (!(nn->ctrl & NFP_NET_CFG_CTRL_ENABLE))
- 		goto out;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 43c618bafdb6..006d9600240f 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -1911,6 +1911,7 @@ static void nfp_net_set_rx_mode(struct net_device *netdev)
+ static int nfp_net_change_mtu(struct net_device *netdev, int new_mtu)
+ {
+ 	struct nfp_net *nn = netdev_priv(netdev);
++	int ret = 0;
+ 	u32 tmp;
  
- 	rxd_cnt = rx_ring->cnt;
-@@ -127,7 +127,7 @@ static int nfp_net_debugfs_tx_q_read(struct seq_file *file, void *data)
- 	if (!tx_ring->r_vec || !tx_ring->r_vec->nfp_net)
- 		goto out;
- 	nn = tx_ring->r_vec->nfp_net;
--	if (!netif_running(nn->netdev))
-+	if (!(nn->ctrl & NFP_NET_CFG_CTRL_ENABLE))
- 		goto out;
+ 	nn_dbg(nn, "New MTU = %d\n", new_mtu);
+@@ -1929,10 +1930,10 @@ static int nfp_net_change_mtu(struct net_device *netdev, int new_mtu)
+ 	/* restart if running */
+ 	if (netif_running(netdev)) {
+ 		nfp_net_netdev_close(netdev);
+-		nfp_net_netdev_open(netdev);
++		ret = nfp_net_netdev_open(netdev);
+ 	}
  
- 	txd_cnt = tx_ring->cnt;
+-	return 0;
++	return ret;
+ }
+ 
+ static struct rtnl_link_stats64 *nfp_net_stat64(struct net_device *netdev,
 -- 
 1.9.1
