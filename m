@@ -1,68 +1,121 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 2/5] openvswitch: Revert: "Enable memory mapped Netlink i/o"
-Date: Thu, 18 Feb 2016 15:03:25 +0100
-Message-ID: <1455804208-30512-3-git-send-email-fw@strlen.de>
-References: <1455804208-30512-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:50167 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1425963AbcBRODw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 09:03:52 -0500
-In-Reply-To: <1455804208-30512-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net/bluetooth: workqueue destruction WARNING in hci_unregister_dev
+Date: Thu, 18 Feb 2016 15:22:36 +0100
+Message-ID: <CACT4Y+bVXfY=wBZ+08rq16tHFw9s3YDrE_LCS=to-GF70AffRQ@mail.gmail.com>
+References: <CACT4Y+ax7zMOxe+kd4tw5Xdbvt=qPdBhXGO0j7qJwdn5tsfNNg@mail.gmail.com>
+ <56C5CE85.6090808@suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>, Tejun Heo <tj@kernel.org>,
+	Takashi Iwai <tiwai@suse.com>
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56C5CE85.6090808@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-revert commit 795449d8b846 ("openvswitch: Enable memory mapped Netlink i/o").
-Following the mmaped netlink removal this code can be removed.
+On Thu, Feb 18, 2016 at 3:00 PM, Jiri Slaby <jslaby@suse.cz> wrote:
+> Cc Tejun (workqueues), Takashi (debug patch)
+>
+> On 01/26/2016, 12:53 PM, Dmitry Vyukov wrote:
+>> Hello,
+>>
+>> I've hit the following warning while running syzkaller fuzzer:
+>
+> Hi,
+>
+> I am hitting it over and over again using syzkaller.
+>
+>> WARNING: CPU: 2 PID: 17409 at kernel/workqueue.c:3968
+>> destroy_workqueue+0x172/0x550()
+>
+> Which of the warnings is it in your case?
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/openvswitch/datapath.c | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index d6f7fe9..35a2659 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -422,10 +422,6 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 	struct sk_buff *nskb = NULL;
- 	struct sk_buff *user_skb = NULL; /* to be queued to userspace */
- 	struct nlattr *nla;
--	struct genl_info info = {
--		.dst_sk = ovs_dp_get_net(dp)->genl_sock,
--		.snd_portid = upcall_info->portid,
--	};
- 	size_t len;
- 	unsigned int hlen;
- 	int err, dp_ifindex;
-@@ -466,7 +462,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 		hlen = skb->len;
- 
- 	len = upcall_msg_size(upcall_info, hlen);
--	user_skb = genlmsg_new_unicast(len, &info, GFP_ATOMIC);
-+	user_skb = genlmsg_new(len, GFP_ATOMIC);
- 	if (!user_skb) {
- 		err = -ENOMEM;
- 		goto out;
-@@ -876,7 +872,7 @@ static struct sk_buff *ovs_flow_cmd_alloc_info(const struct sw_flow_actions *act
- 		return NULL;
- 
- 	len = ovs_flow_cmd_msg_size(acts, sfid, ufid_flags);
--	skb = genlmsg_new_unicast(len, info, GFP_KERNEL);
-+	skb = genlmsg_new(len, GFP_KERNEL);
- 	if (!skb)
- 		return ERR_PTR(-ENOMEM);
- 
-@@ -1483,7 +1479,7 @@ error:
- 
- static struct sk_buff *ovs_dp_cmd_alloc_info(struct genl_info *info)
- {
--	return genlmsg_new_unicast(ovs_dp_cmd_msg_size(), info, GFP_KERNEL);
-+	return genlmsg_new(ovs_dp_cmd_msg_size(), GFP_KERNEL);
- }
- 
- /* Called with rcu_read_lock or ovs_mutex. */
--- 
-2.4.10
+The line number points to WARN_ON(pwq->nr_active), but there can well
+be a off-by-one error, so I am not sure.
+If you are hitting it all the time, so probably it is the same. Or at
+least if makes sense to fix yours first since it is more easily
+reproducible.
+
+
+> I hit "(pwq != wq->dfl_pwq) && (pwq->refcnt > 1)". So I have this in the
+> code:
+> if (WARN_ON((pwq != wq->dfl_pwq) && (pwq->refcnt > 1))) {
+>         pr_info("%s: pwq=%p wq->dfl_pwq=%p pwq->refcnt=%d\n",
+>                         __func__, pwq, wq->dfl_pwq,
+>                         pwq->refcnt);
+>         mutex_unlock(&wq->mutex);
+>         return;
+> }
+>
+> if (WARN_ON(pwq->nr_active)) {
+> ...
+>
+> And the values are:
+> pwq=ffff88006e271500 wq->dfl_pwq=ffff88006e272400 pwq->refcnt=2
+> pwq=ffff88002ec48300 wq->dfl_pwq=ffff88002ec4bc00 pwq->refcnt=2
+> pwq=ffff880020f76400 wq->dfl_pwq=ffff880020f75500 pwq->refcnt=2
+> pwq=ffff88002a908f00 wq->dfl_pwq=ffff88002a90bc00 pwq->refcnt=1
+> pwq=ffff8800348e0300 wq->dfl_pwq=ffff8800348e0000 pwq->refcnt=2
+> pwq=ffff88006e276400 wq->dfl_pwq=ffff88006e275800 pwq->refcnt=2
+>
+>
+> Note the single "pwq->refcnt=1" in there. So this is perhaps a race?
+>
+> Takashi also provided me with a debug patch included in the attached
+> patch. It did not trigger though.
+>
+>> CPU: 2 PID: 17409 Comm: syz-executor Not tainted 4.5.0-rc1+ #283
+>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>>  00000000ffffffff ffff88003665f8a0 ffffffff8299a06d 0000000000000000
+>>  ffff88003599c740 ffffffff8643f0c0 ffff88003665f8e0 ffffffff8134fcf9
+>>  ffffffff8139d4c2 ffffffff8643f0c0 0000000000000f80 ffff8800630c5ae8
+>> Call Trace:
+>>  [<     inline     >] __dump_stack lib/dump_stack.c:15
+>>  [<ffffffff8299a06d>] dump_stack+0x6f/0xa2 lib/dump_stack.c:50
+>>  [<ffffffff8134fcf9>] warn_slowpath_common+0xd9/0x140 kernel/panic.c:482
+>>  [<ffffffff8134ff29>] warn_slowpath_null+0x29/0x30 kernel/panic.c:515
+>>  [<ffffffff8139d4c2>] destroy_workqueue+0x172/0x550 kernel/workqueue.c:3968
+>>  [<ffffffff85a714a4>] hci_unregister_dev+0x264/0x700
+>> net/bluetooth/hci_core.c:3162
+>>  [<ffffffff84595ce6>] vhci_release+0x76/0xe0 drivers/bluetooth/hci_vhci.c:341
+>>  [<ffffffff817b2376>] __fput+0x236/0x780 fs/file_table.c:208
+>>  [<ffffffff817b2945>] ____fput+0x15/0x20 fs/file_table.c:244
+>>  [<ffffffff813ad760>] task_work_run+0x170/0x210 kernel/task_work.c:115
+>>  [<     inline     >] exit_task_work include/linux/task_work.h:21
+>>  [<ffffffff81358da5>] do_exit+0x8b5/0x2c60 kernel/exit.c:748
+>>  [<ffffffff8135b2c8>] do_group_exit+0x108/0x330 kernel/exit.c:878
+>>  [<ffffffff8137e434>] get_signal+0x5e4/0x14f0 kernel/signal.c:2307
+>>  [<ffffffff811a1db3>] do_signal+0x83/0x1c90 arch/x86/kernel/signal.c:712
+>>  [<ffffffff81006685>] exit_to_usermode_loop+0x1a5/0x210
+>> arch/x86/entry/common.c:247
+>>  [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:282
+>>  [<ffffffff810084ea>] syscall_return_slowpath+0x2ba/0x340
+>> arch/x86/entry/common.c:344
+>>  [<ffffffff863597a2>] int_ret_from_sys_call+0x25/0x9f
+>> arch/x86/entry/entry_64.S:281
+>> ---[ end trace f627386faee7426f ]---
+>>
+>> Unfortunately I cannot reproduce it in a controlled environment, but
+>> I've hit it twice in different VMs. So maybe if you see something
+>> obvious there. Is it possible that something is submitted into the
+>> workqueue between it is drained and destroyed in hci_unregister_dev?
+>>
+>> On commit 92e963f50fc74041b5e9e744c330dca48e04f08d (Jan 24).
+>>
+>
+> thanks,
+> --
+> js
+> suse labs
