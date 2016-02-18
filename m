@@ -1,8 +1,7 @@
 From: Paul Bolle <pebolle@tiscali.nl>
-Subject: [PATCH 1/1] ser_gigaset: use container_of() instead of detour
-Date: Thu, 18 Feb 2016 21:29:08 +0100
-Message-ID: <1455827348-8574-2-git-send-email-pebolle@tiscali.nl>
-References: <1455827348-8574-1-git-send-email-pebolle@tiscali.nl>
+Subject: [PATCH 0/1] ser_gigaset: use container_of() instead of detour
+Date: Thu, 18 Feb 2016 21:29:07 +0100
+Message-ID: <1455827348-8574-1-git-send-email-pebolle@tiscali.nl>
 Cc: Dmitry Vyukov <dvyukov@google.com>,
 	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
 	<u.kleine-koenig@pengutronix.de>,
@@ -13,69 +12,24 @@ Cc: Dmitry Vyukov <dvyukov@google.com>,
 	gigaset307x-common@lists.sourceforge.net
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455827348-8574-1-git-send-email-pebolle@tiscali.nl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The purpose of gigaset_device_release() is to kfree() the struct
-ser_cardstate that contains our struct device. This is done via a bit of
-a detour. First we make our struct device's driver_data point to the
-container of our struct ser_cardstate (which is a struct cardstate). In
-gigaset_device_release() we then retrieve that driver_data again. And
-after that we finally kfree() the struct ser_cardstate that was saved in
-the struct cardstate.
+Dmitry Vyukov reported that the syzkaller fuzzer uncovered a leak in
+ser_gigaset (see
+https://lkml.kernel.org/g/CACT4Y+Y+P7-pM0D4HTz4ZF6i+Rya22eOkPdnrv_OmDCMB7eQtg@mail.gmail.com).
+This small patch fixes that. The commit explanation contains all the details to
+understand how this leak made its way into the code.
 
-All of this can be achieved much easier by using container_of() to get
-from our struct device to its container, struct ser_cardstate. Do so.
+This should eventually land in stable. No fixes tag because backporting is
+probably not so straightforward for v4.3 and earlier. So I suggest I'll send
+proper backports in about two weeks.
 
-Note that at the time the detour was implemented commit b8b2c7d845d5
-("base/platform: assert that dev_pm_domain callbacks are called
-unconditionally") had just entered the tree. That commit disconnected
-our platform_device and our platform_driver. These were reconnected
-again in v4.5-rc2 through commit 25cad69f21f5 ("base/platform: Fix
-platform drivers with no probe callback"). And one of the consequences
-of that fix was that it broke the detour via driver_data. That's because
-it made __device_release_driver() stop being a NOP for our struct device
-and actually do stuff again. One of the things it now does, is setting
-our driver_data to NULL. That, in turn, makes it impossible for
-gigaset_device_release() to get to our struct cardstate. Which has the
-net effect of leaking a struct ser_cardstate at every call of this
-driver's tty close() operation. So using container_of() has the
-additional benefit of actually working.
+Paul Bolle (1):
+  ser_gigaset: use container_of() instead of detour
 
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Tested-by: Dmitry Vyukov <dvyukov@google.com>
-Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
----
  drivers/isdn/gigaset/ser-gigaset.c | 9 +--------
  1 file changed, 1 insertion(+), 8 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
-index 2a506fe0c8a4..d1f8ab915b15 100644
---- a/drivers/isdn/gigaset/ser-gigaset.c
-+++ b/drivers/isdn/gigaset/ser-gigaset.c
-@@ -373,13 +373,7 @@ static void gigaset_freecshw(struct cardstate *cs)
- 
- static void gigaset_device_release(struct device *dev)
- {
--	struct cardstate *cs = dev_get_drvdata(dev);
--
--	if (!cs)
--		return;
--	dev_set_drvdata(dev, NULL);
--	kfree(cs->hw.ser);
--	cs->hw.ser = NULL;
-+	kfree(container_of(dev, struct ser_cardstate, dev.dev));
- }
- 
- /*
-@@ -408,7 +402,6 @@ static int gigaset_initcshw(struct cardstate *cs)
- 		cs->hw.ser = NULL;
- 		return rc;
- 	}
--	dev_set_drvdata(&cs->hw.ser->dev.dev, cs);
- 
- 	tasklet_init(&cs->write_tasklet,
- 		     gigaset_modem_fill, (unsigned long) cs);
 -- 
 2.4.3
