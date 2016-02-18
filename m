@@ -1,71 +1,59 @@
-From: =?utf-8?B?5byg6IOc5Li+?= <zhangshengju@cmss.chinamobile.com>
-Subject: Re: [net-next] vlan: change return type of vlan_proc_rem_dev
-Date: Thu, 18 Feb 2016 10:25:04 +0800
-Message-ID: <002201d169f3$93dc6900$bb953b00$@cmss.chinamobile.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net] net: dsa: Unregister slave_dev in error path
+Date: Wed, 17 Feb 2016 18:28:22 -0800
+Message-ID: <56C52C46.6070203@gmail.com>
+References: <1455761951-26408-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "'Patrick McHardy'" <kaber@trash.net>,
-	"'Linux Kernel Network Developers'" <netdev@vger.kernel.org>
-To: "'Cong Wang'" <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, andrew@lunn.ch, opendmb@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta3.chinamobile.com ([221.176.66.81]:9338 "EHLO
-	cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423366AbcBRCXy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 21:23:54 -0500
-Content-Language: en-us
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:35155 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423366AbcBRC2Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 21:28:24 -0500
+Received: by mail-ob0-f180.google.com with SMTP id xk3so45873320obc.2
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 18:28:24 -0800 (PST)
+In-Reply-To: <1455761951-26408-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 
-> On Wed, Feb 17, 2016 at 3:44 AM, Zhang Shengju
-> <zhangshengju@cmss.chinamobile.com> wrote:
-> > Since function vlan_proc_rem_dev() will only return 0, it's better to
-> > return void instead of int.
-> >
-> > Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> > ---
-> >  net/8021q/vlanproc.c | 3 +--
-> >  net/8021q/vlanproc.h | 2 +-
-> >  2 files changed, 2 insertions(+), 3 deletions(-)
-> >
-> > diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c index
-> > ae63cf7..5f1446c 100644
-> > --- a/net/8021q/vlanproc.c
-> > +++ b/net/8021q/vlanproc.c
-> > @@ -184,12 +184,11 @@ int vlan_proc_add_dev(struct net_device
-> > *vlandev)
-> >  /*
-> >   *     Delete directory entry for VLAN device.
-> >   */
-> > -int vlan_proc_rem_dev(struct net_device *vlandev)
-> > +void vlan_proc_rem_dev(struct net_device *vlandev)
-> >  {
-> >         /** NOTE:  This will consume the memory pointed to by dent, it seems.
-> */
-> >         proc_remove(vlan_dev_priv(vlandev)->dent);
-> >         vlan_dev_priv(vlandev)->dent = NULL;
-> > -       return 0;
-> >  }
-> >
-> >  /****** Proc filesystem entry points
-> > ****************************************/
-> > diff --git a/net/8021q/vlanproc.h b/net/8021q/vlanproc.h index
-> > 063f60a..a9d8734 100644
-> > --- a/net/8021q/vlanproc.h
-> > +++ b/net/8021q/vlanproc.h
-> > @@ -5,7 +5,7 @@
-> >  struct net;
-> >
-> >  int vlan_proc_init(struct net *net);
-> > -int vlan_proc_rem_dev(struct net_device *vlandev);
-> > +void vlan_proc_rem_dev(struct net_device *vlandev);
-> >  int vlan_proc_add_dev(struct net_device *vlandev);  void
-> > vlan_proc_cleanup(struct net *net);
-> 
-> You forget to change the !PROC_FS case:
-> 
-> #define vlan_proc_rem_dev(dev)  ({(void)(dev), 0; })
+Le 17/02/2016 18:19, Florian Fainelli a =C3=A9crit :
+> With commit 0071f56e46da ("dsa: Register netdev before phy"), we are =
+now trying
+> to unregister
 
-Thanks, I will add the missing part. 
+s/unregister/free/...
+
+ a network device that has been previously registered, and in case
+> of errors, this will make us hit the BUG_ON(dev->reg_state !=3D
+> NETREG_UNREGISTERED) condition.
+>=20
+> Fix this by adding a missing unregister_netdev() before free_netdev()=
+=2E
+>=20
+> Fixes: 0071f56e46da ("dsa: Register netdev before phy")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  net/dsa/slave.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index 40b9ca7..e685042 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -1205,6 +1205,7 @@ int dsa_slave_create(struct dsa_switch *ds, str=
+uct device *parent,
+>  	ret =3D dsa_slave_phy_setup(p, slave_dev);
+>  	if (ret) {
+>  		netdev_err(master, "error %d setting up slave phy\n", ret);
+> +		unregister_netdev(slave_dev);
+>  		free_netdev(slave_dev);
+>  		return ret;
+>  	}
+>=20
+
+
+--=20
+=46lorian
