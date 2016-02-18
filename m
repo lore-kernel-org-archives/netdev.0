@@ -1,149 +1,137 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv3 net-next 11/14] nfp: propagate list buffer size in struct rx_ring
-Date: Thu, 18 Feb 2016 20:38:26 +0000
-Message-ID: <1455827909-26443-12-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv3 net-next 10/14] nfp: sync ring state during FW reconfiguration
+Date: Thu, 18 Feb 2016 20:38:25 +0000
+Message-ID: <1455827909-26443-11-git-send-email-jakub.kicinski@netronome.com>
 References: <1455827909-26443-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: netdev@vger.kernel.org,
 	Jakub Kicinski <jakub.kicinski@netronome.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:38363 "EHLO
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:38348 "EHLO
 	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1948149AbcBRUip (ORCPT
+	with ESMTP id S1948203AbcBRUip (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:45 -0500
-Received: by mail-wm0-f44.google.com with SMTP id a4so42855155wme.1
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:45 -0800 (PST)
+Received: by mail-wm0-f44.google.com with SMTP id a4so42854702wme.1
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:44 -0800 (PST)
 In-Reply-To: <1455827909-26443-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Free list buffer size needs to be propagated to few functions
-as a parameter and added to struct nfp_net_rx_ring since soon
-some of the functions will be reused to manage rings with
-buffers of size different than nn->fl_bufsz.
+FW reconfiguration in .ndo_open()/.ndo_stop() should reset/
+restore queue state.  Since we need IRQs to be disabled when
+filling rings on RX path we have to move disable_irq() from
+.ndo_open() all the way up to IRQ allocation.
+
+Since nfp_net_start_vec() becomes trivial now it can be
+inlined.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  3 +++
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 24 ++++++++++++++--------
- 2 files changed, 19 insertions(+), 8 deletions(-)
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 45 ++++++++--------------
+ 1 file changed, 16 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index 0a87571a7d9c..1e08c9cf3ee0 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -298,6 +298,8 @@ struct nfp_net_rx_buf {
-  * @rxds:       Virtual address of FL/RX ring in host memory
-  * @dma:        DMA address of the FL/RX ring
-  * @size:       Size, in bytes, of the FL/RX ring (needed to free)
-+ * @bufsz:	Buffer allocation size for convenience of management routines
-+ *		(NOTE: this is in second cache line, do not use on fast path!)
-  */
- struct nfp_net_rx_ring {
- 	struct nfp_net_r_vector *r_vec;
-@@ -319,6 +321,7 @@ struct nfp_net_rx_ring {
- 
- 	dma_addr_t dma;
- 	unsigned int size;
-+	unsigned int bufsz;
- } ____cacheline_aligned;
- 
- /**
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 15d695cd8c44..fd226d2e8606 100644
+index 4ce17cb95e6f..15d695cd8c44 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -958,25 +958,27 @@ static inline int nfp_net_rx_space(struct nfp_net_rx_ring *rx_ring)
-  * nfp_net_rx_alloc_one() - Allocate and map skb for RX
-  * @rx_ring:	RX ring structure of the skb
-  * @dma_addr:	Pointer to storage for DMA address (output param)
-+ * @fl_bufsz:	size of freelist buffers
-  *
-  * This function will allcate a new skb, map it for DMA.
-  *
-  * Return: allocated skb or NULL on failure.
-  */
- static struct sk_buff *
--nfp_net_rx_alloc_one(struct nfp_net_rx_ring *rx_ring, dma_addr_t *dma_addr)
-+nfp_net_rx_alloc_one(struct nfp_net_rx_ring *rx_ring, dma_addr_t *dma_addr,
-+		     unsigned int fl_bufsz)
- {
- 	struct nfp_net *nn = rx_ring->r_vec->nfp_net;
- 	struct sk_buff *skb;
- 
--	skb = netdev_alloc_skb(nn->netdev, nn->fl_bufsz);
-+	skb = netdev_alloc_skb(nn->netdev, fl_bufsz);
- 	if (!skb) {
- 		nn_warn_ratelimit(nn, "Failed to alloc receive SKB\n");
- 		return NULL;
+@@ -1517,6 +1517,7 @@ nfp_net_prepare_vector(struct nfp_net *nn, struct nfp_net_r_vector *r_vec,
+ 		nn_err(nn, "Error requesting IRQ %d\n", entry->vector);
+ 		return err;
  	}
++	disable_irq(entry->vector);
  
- 	*dma_addr = dma_map_single(&nn->pdev->dev, skb->data,
--				  nn->fl_bufsz, DMA_FROM_DEVICE);
-+				   fl_bufsz, DMA_FROM_DEVICE);
- 	if (dma_mapping_error(&nn->pdev->dev, *dma_addr)) {
- 		dev_kfree_skb_any(skb);
- 		nn_warn_ratelimit(nn, "Failed to map DMA RX buffer\n");
-@@ -1069,7 +1071,7 @@ nfp_net_rx_ring_bufs_free(struct nfp_net *nn, struct nfp_net_rx_ring *rx_ring)
- 			continue;
+ 	/* Setup NAPI */
+ 	netif_napi_add(nn->netdev, &r_vec->napi,
+@@ -1645,13 +1646,14 @@ static void nfp_net_clear_config_and_disable(struct nfp_net *nn)
  
- 		dma_unmap_single(&pdev->dev, rx_ring->rxbufs[i].dma_addr,
--				 nn->fl_bufsz, DMA_FROM_DEVICE);
-+				 rx_ring->bufsz, DMA_FROM_DEVICE);
- 		dev_kfree_skb_any(rx_ring->rxbufs[i].skb);
- 		rx_ring->rxbufs[i].dma_addr = 0;
- 		rx_ring->rxbufs[i].skb = NULL;
-@@ -1091,7 +1093,8 @@ nfp_net_rx_ring_bufs_alloc(struct nfp_net *nn, struct nfp_net_rx_ring *rx_ring)
+ 	nn_writel(nn, NFP_NET_CFG_CTRL, new_ctrl);
+ 	err = nfp_net_reconfig(nn, update);
+-	if (err) {
++	if (err)
+ 		nn_err(nn, "Could not disable device: %d\n", err);
+-		return;
+-	}
  
- 	for (i = 0; i < rx_ring->cnt - 1; i++) {
- 		rxbufs[i].skb =
--			nfp_net_rx_alloc_one(rx_ring, &rxbufs[i].dma_addr);
-+			nfp_net_rx_alloc_one(rx_ring, &rxbufs[i].dma_addr,
-+					     rx_ring->bufsz);
- 		if (!rxbufs[i].skb) {
- 			nfp_net_rx_ring_bufs_free(nn, rx_ring);
- 			return -ENOMEM;
-@@ -1279,7 +1282,8 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+-	for (r = 0; r < nn->num_r_vecs; r++)
++	for (r = 0; r < nn->num_r_vecs; r++) {
++		nfp_net_rx_ring_reset(nn->r_vecs[r].rx_ring);
++		nfp_net_tx_ring_reset(nn, nn->r_vecs[r].tx_ring);
+ 		nfp_net_vec_clear_ring_data(nn, r);
++	}
  
- 		skb = rx_ring->rxbufs[idx].skb;
+ 	nn->ctrl = new_ctrl;
+ }
+@@ -1725,6 +1727,9 @@ static int nfp_net_set_config_and_enable(struct nfp_net *nn)
  
--		new_skb = nfp_net_rx_alloc_one(rx_ring, &new_dma_addr);
-+		new_skb = nfp_net_rx_alloc_one(rx_ring, &new_dma_addr,
-+					       nn->fl_bufsz);
- 		if (!new_skb) {
- 			nfp_net_rx_give_one(rx_ring, rx_ring->rxbufs[idx].skb,
- 					    rx_ring->rxbufs[idx].dma_addr);
-@@ -1463,10 +1467,12 @@ static void nfp_net_rx_ring_free(struct nfp_net_rx_ring *rx_ring)
+ 	nn->ctrl = new_ctrl;
+ 
++	for (r = 0; r < nn->num_r_vecs; r++)
++		nfp_net_rx_ring_fill_freelist(nn->r_vecs[r].rx_ring);
++
+ 	/* Since reconfiguration requests while NFP is down are ignored we
+ 	 * have to wipe the entire VXLAN configuration and reinitialize it.
+ 	 */
+@@ -1742,26 +1747,6 @@ err_clear_config:
+ }
+ 
  /**
-  * nfp_net_rx_ring_alloc() - Allocate resource for a RX ring
-  * @rx_ring:  RX ring to allocate
-+ * @fl_bufsz: Size of buffers to allocate
-  *
-  * Return: 0 on success, negative errno otherwise.
+- * nfp_net_start_vec() - Start ring vector
+- * @nn:      NFP Net device structure
+- * @r_vec:   Ring vector to be started
+- */
+-static void
+-nfp_net_start_vec(struct nfp_net *nn, struct nfp_net_r_vector *r_vec)
+-{
+-	unsigned int irq_vec;
+-
+-	irq_vec = nn->irq_entries[r_vec->irq_idx].vector;
+-
+-	disable_irq(irq_vec);
+-
+-	nfp_net_rx_ring_fill_freelist(r_vec->rx_ring);
+-	napi_enable(&r_vec->napi);
+-
+-	enable_irq(irq_vec);
+-}
+-
+-/**
+  * nfp_net_open_stack() - Start the device from stack's perspective
+  * @nn:      NFP Net device to reconfigure
   */
--static int nfp_net_rx_ring_alloc(struct nfp_net_rx_ring *rx_ring)
-+static int
-+nfp_net_rx_ring_alloc(struct nfp_net_rx_ring *rx_ring, unsigned int fl_bufsz)
+@@ -1769,8 +1754,10 @@ static void nfp_net_open_stack(struct nfp_net *nn)
  {
- 	struct nfp_net_r_vector *r_vec = rx_ring->r_vec;
- 	struct nfp_net *nn = r_vec->nfp_net;
-@@ -1474,6 +1480,7 @@ static int nfp_net_rx_ring_alloc(struct nfp_net_rx_ring *rx_ring)
- 	int sz;
+ 	unsigned int r;
  
- 	rx_ring->cnt = nn->rxd_cnt;
-+	rx_ring->bufsz = fl_bufsz;
+-	for (r = 0; r < nn->num_r_vecs; r++)
+-		nfp_net_start_vec(nn, &nn->r_vecs[r]);
++	for (r = 0; r < nn->num_r_vecs; r++) {
++		napi_enable(&nn->r_vecs[r].napi);
++		enable_irq(nn->irq_entries[nn->r_vecs[r].irq_idx].vector);
++	}
  
- 	rx_ring->size = sizeof(*rx_ring->rxds) * rx_ring->cnt;
- 	rx_ring->rxds = dma_zalloc_coherent(&pdev->dev, rx_ring->size,
-@@ -1810,7 +1817,8 @@ static int nfp_net_netdev_open(struct net_device *netdev)
- 		if (err)
- 			goto err_cleanup_vec_p;
+ 	netif_tx_wake_all_queues(nn->netdev);
  
--		err = nfp_net_rx_ring_alloc(nn->r_vecs[r].rx_ring);
-+		err = nfp_net_rx_ring_alloc(nn->r_vecs[r].rx_ring,
-+					    nn->fl_bufsz);
- 		if (err)
- 			goto err_free_tx_ring_p;
+@@ -1895,8 +1882,10 @@ static void nfp_net_close_stack(struct nfp_net *nn)
+ 	netif_carrier_off(nn->netdev);
+ 	nn->link_up = false;
  
+-	for (r = 0; r < nn->num_r_vecs; r++)
++	for (r = 0; r < nn->num_r_vecs; r++) {
++		disable_irq(nn->irq_entries[nn->r_vecs[r].irq_idx].vector);
+ 		napi_disable(&nn->r_vecs[r].napi);
++	}
+ 
+ 	netif_tx_disable(nn->netdev);
+ }
+@@ -1910,9 +1899,7 @@ static void nfp_net_close_free_all(struct nfp_net *nn)
+ 	unsigned int r;
+ 
+ 	for (r = 0; r < nn->num_r_vecs; r++) {
+-		nfp_net_rx_ring_reset(nn->r_vecs[r].rx_ring);
+ 		nfp_net_rx_ring_bufs_free(nn, nn->r_vecs[r].rx_ring);
+-		nfp_net_tx_ring_reset(nn, nn->r_vecs[r].tx_ring);
+ 		nfp_net_rx_ring_free(nn->r_vecs[r].rx_ring);
+ 		nfp_net_tx_ring_free(nn->r_vecs[r].tx_ring);
+ 		nfp_net_cleanup_vector(nn, &nn->r_vecs[r]);
 -- 
 1.9.1
