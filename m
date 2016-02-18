@@ -1,258 +1,103 @@
-From: Tom Zanussi <tom.zanussi@linux.intel.com>
-Subject: Re: [RFC][PATCH 00/10] Add trace event support to eBPF
-Date: Thu, 18 Feb 2016 15:27:18 -0600
-Message-ID: <1455830838.14359.58.camel@tzanussi-mobl.amr.corp.intel.com>
-References: <cover.1455291671.git.tom.zanussi@linux.intel.com>
-	 <20160214000236.GA16236@ast-mbp.kubiwireless.com>
-	 <1455662127.2641.157.camel@tzanussi-mobl.amr.corp.intel.com>
-	 <20160217045103.GA47275@ast-mbp.thefacebook.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [PATCH 1/1] ser_gigaset: use container_of() instead of detour
+Date: Thu, 18 Feb 2016 22:42:15 +0100
+Message-ID: <56C63AB7.9060401@imap.cc>
+References: <1455827348-8574-1-git-send-email-pebolle@tiscali.nl>
+ <1455827348-8574-2-git-send-email-pebolle@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: rostedt@goodmis.org, masami.hiramatsu.pt@hitachi.com,
-	namhyung@kernel.org, peterz@infradead.org,
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="8SknfINgPsWPJfUcXEVaq1H9iEJJt7e7L"
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+	=?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Martin Wilck <Martin.Wilck@ts.fujitsu.com>,
+	Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>,
 	linux-kernel@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+	gigaset307x-common@lists.sourceforge.net
+To: Paul Bolle <pebolle@tiscali.nl>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:54647 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757143AbcBRV12 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2016 16:27:28 -0500
-In-Reply-To: <20160217045103.GA47275@ast-mbp.thefacebook.com>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:41821 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757255AbcBRVm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 16:42:29 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id AE7FD20860
+	for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 16:42:28 -0500 (EST)
+In-Reply-To: <1455827348-8574-2-git-send-email-pebolle@tiscali.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-02-16 at 20:51 -0800, Alexei Starovoitov wrote:
-> On Tue, Feb 16, 2016 at 04:35:27PM -0600, Tom Zanussi wrote:
-> > On Sun, 2016-02-14 at 01:02 +0100, Alexei Starovoitov wrote:
-> > > On Fri, Feb 12, 2016 at 10:11:18AM -0600, Tom Zanussi wrote:
-> 
-> > > this hist triggers belong in the kernel. BPF already can do
-> > > way more complex aggregation and histograms.
-> > 
-> > Way more?  I still can't accomplish with eBPF some of the most basic and
-> > helpful use cases that I can with hist triggers, such as using
-> > stacktraces as hash keys.  And the locking in the eBPF hashmap
-> > implementation prevents anything like the function_hist [1] tracer from
-> > being implemented on top of it:
-> 
-> Both statements are not true.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--8SknfINgPsWPJfUcXEVaq1H9iEJJt7e7L
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: quoted-printable
 
-Erm, not exactly...
+Am 18.02.2016 um 21:29 schrieb Paul Bolle:
+> The purpose of gigaset_device_release() is to kfree() the struct
+> ser_cardstate that contains our struct device. This is done via a bit o=
+f
+> a detour. First we make our struct device's driver_data point to the
+> container of our struct ser_cardstate (which is a struct cardstate). In=
 
-> In the link from previous email take a look at funccount_example.txt:
-> # ./funccount 'vfs_*'
-> Tracing... Ctrl-C to end.
-> ^C
-> ADDR             FUNC                          COUNT
-> ffffffff811efe81 vfs_create                        1
-> ffffffff811f24a1 vfs_rename                        1
-> ffffffff81215191 vfs_fsync_range                   2
-> ffffffff81231df1 vfs_lock_file                    30
-> ffffffff811e8dd1 vfs_fstatat                     152
-> ffffffff811e8d71 vfs_fstat                       154
-> ffffffff811e4381 vfs_write                       166
-> ffffffff811e8c71 vfs_getattr_nosec               262
-> ffffffff811e8d41 vfs_getattr                     262
-> ffffffff811e3221 vfs_open                        264
-> ffffffff811e4251 vfs_read                        470
-> Detaching...
-> 
+> gigaset_device_release() we then retrieve that driver_data again. And
+> after that we finally kfree() the struct ser_cardstate that was saved i=
+n
+> the struct cardstate.
+>=20
+> All of this can be achieved much easier by using container_of() to get
+> from our struct device to its container, struct ser_cardstate. Do so.
 
-When I tried to use it to trace all functions:
+You're absolutely right. Very nice!
 
-  # ./funccount.py '*'
+> Note that at the time the detour was implemented commit b8b2c7d845d5
+> ("base/platform: assert that dev_pm_domain callbacks are called
+> unconditionally") had just entered the tree. That commit disconnected
+> our platform_device and our platform_driver. These were reconnected
+> again in v4.5-rc2 through commit 25cad69f21f5 ("base/platform: Fix
+> platform drivers with no probe callback"). And one of the consequences
+> of that fix was that it broke the detour via driver_data. That's becaus=
+e
+> it made __device_release_driver() stop being a NOP for our struct devic=
+e
+> and actually do stuff again. One of the things it now does, is setting
+> our driver_data to NULL. That, in turn, makes it impossible for
+> gigaset_device_release() to get to our struct cardstate. Which has the
+> net effect of leaking a struct ser_cardstate at every call of this
+> driver's tty close() operation. So using container_of() has the
+> additional benefit of actually working.
+>=20
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Tested-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
 
-I got about 5 minutes worth of these kinds of error messages, which I
-couldn't break out of:
+Acked-by: Tilman Schmidt <tilman@imap.cc>
 
-write of "p:kprobes/p_rootfs_mount rootfs_mount" into kprobe_events failed: Device or resource busy
-open(/sys/kernel/debug/tracing/events/kprobes/p_legacy_pic_int_noop/id): Too many open files
-open(/sys/kernel/debug/tracing/events/kprobes/p_legacy_pic_irq_pending_noop/id): Too many open files
-open(/sys/kernel/debug/tracing/events/kprobes/p_legacy_pic_probe/id): Too many open files
-open(/sys/kernel/debug/tracing/events/kprobes/p_unmask_8259A_irq/id): Too many open files
-open(/sys/kernel/debug/tracing/events/kprobes/p_enable_8259A_irq/id): Too many open files
-open(/sys/kernel/debug/tracing/events/kprobes/p_mask_8259A_irq/id): Too many open files
-open(/sys/kernel/debug/tracing/events/kprobes/p_disable_8259A_irq/id): Too many open files
-open(/sys/kernel/debug/tracing/events/kprobes/p_i8259A_irq_pending/id): Too many open files
-...
+Thanks for cleaning up the mess I left behind.
 
-Which is probably a good thing, since that's a relatively common thing
-for someone to try, whereas this subset probably isn't:
+Tilman
 
-  # ./funccount.py '*spin*'
+--=20
+Tilman Schmidt                              E-Mail: tilman@imap.cc
+Bonn, Germany
+Nous, on a des fleurs et des bougies pour nous prot=E9ger.
 
-Which on my machine resulted in a hard lockup on all CPUs.  I'm not set
-up to grab serial output on that machine, but here's a screenshot of
-most of the stacktrace, all I could get:
 
-  http://picpaste.com/bcc-spinstar-hardlock-fobQbcuG.JPG
+--8SknfINgPsWPJfUcXEVaq1H9iEJJt7e7L
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-There's nothing special about that machine and it's running a stock
-4.4.0 kernel, so it should be pretty easy to reproduce on anything with
-just a BPF-enabled config.  If not, let me know and I'll send more
-specific info.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-> And this is done without adding new code to the kernel.
-> 
-> Another example is offwaketime that uses two stack traces as
-> part of single key.
-> 
+iQEcBAEBCAAGBQJWxjrBAAoJEFPuqx0v+F+q2m0H/RYEi0600xQFH5HGYa2ORTte
+Ut/Ib4V1CT4GdDmHlRZn9AQ2LgQzW9Ek0m1tbNUSy5eRbkQcoErZ1omxR6b6O+zn
+CaacONx9l3PDtwr+R0q1WRt1PHwAGtKZnH9Ou5yAVADGEnXg4GAbTZZk7XoKR4YB
+aqB9I/axlTnu2853sm9OVzR2xTxucQYrciI+kP1oPM6vFe3SZlXJT7ewxnA5E2bY
+f+hB0YRczGJCPPZZ+svtVxIOsISZeg0l0zev3GUC1dy6I62ZG2NiVpSYR4i+uSUT
+oYOSgarWM071OIMH1BkAvkqtR0fRqCr6WKExfWkZkAIsteILYz1LmBtcnJhkLrA=
+=UmQp
+-----END PGP SIGNATURE-----
 
-Which has the below code in the script itself implementing a stack
-walker:
-
-static u64 get_frame(u64 *bp) {
-    if (*bp) {
-        // The following stack walker is x86_64 specific
-        u64 ret = 0;
-        if (bpf_probe_read(&ret, sizeof(ret), (void *)(*bp+8)))
-            return 0;
-        if (bpf_probe_read(bp, sizeof(*bp), (void *)*bp))
-            *bp = 0;
-        if (ret < __START_KERNEL_map)
-            return 0;
-        return ret;
-    }
-    return 0;
-}
-
-int waker(struct pt_regs *ctx, struct task_struct *p) {
-    u32 pid = p->pid;
-
-    if (!(FILTER))
-        return 0;
-
-    u64 bp = 0;
-    struct wokeby_t woke = {};
-    int depth = 0;
-    bpf_get_current_comm(&woke.name, sizeof(woke.name));
-    bp = ctx->bp;
-
-    // unrolled loop (MAXWDEPTH):
-    if (!(woke.ret[depth++] = get_frame(&bp))) goto out;
-    if (!(woke.ret[depth++] = get_frame(&bp))) goto out;
-    if (!(woke.ret[depth++] = get_frame(&bp))) goto out;
-    if (!(woke.ret[depth++] = get_frame(&bp))) goto out;
-    if (!(woke.ret[depth++] = get_frame(&bp))) goto out;
-    if (!(woke.ret[depth++] = get_frame(&bp))) goto out;
-    if (!(woke.ret[depth++] = get_frame(&bp))) goto out;
-    if (!(woke.ret[depth++] = get_frame(&bp))) goto out;
-    if (!(woke.ret[depth++] = get_frame(&bp))) goto out;
-    woke.ret[depth] = get_frame(&bp);
-
-I think one call to this pretty much cancels out any performance gains
-you might have made by fastidiously avoiding trace events.
-
-So technically users can use stacktraces as hash keys, but they're
-expected to use the bpf_probe_read() kernel primitives to write a stack
-walker themselves.  Not exactly what I was hoping for..
-
-> > > Take a look at all the tools written on top of it:
-> > > https://github.com/iovisor/bcc/tree/master/tools
-> > 
-> > That's great, but it's all out-of-tree.  Supporting out-of-tree users
-> > has never been justification for merging in-kernel code (or for blocking
-> > it from being merged). 
-> 
-> huh? perf is the only in-tree user space project.
-> All others tools and libraries are out-of-tree and that makes sense.
-> 
-
-What about all the other things under tools/?
-
-> Actually would be great to merge bcc with perf eventually, but choice
-> of C++ isn't going to make it easy. The only real difference
-> between perf+bpf and bcc is that bcc integrates clang/llvm
-> as a library whereas perf+bpf deals with elf files and standalone compiler.
-> There are pros and cons for both and it's great that both are actively
-> growing and gaining user traction.
-> 
-
-Why worry about merging bcc with perf?  Why not a tools/bcc?
-
-> > I have systems with tiny amounts of memory and storage that have zero
-> > chance of ever having a compiler or Python running on them.  It's
-> 
-> if your system is so short on memory, then you don't want to bloat
-> the kernel with histtriggers especially since they're not
-> going to be used 24/7 due to the overhead.
-> 
-> > I haven't measured the overhead of the cost of accessing data from the
-> > trace buffers, but I do know that the hist triggers have no problem
-> > logging millions of events per second.
-> > 
-> > In the past I have measured the basic hist triggers mechanism and found
-> > it to be somewhat faster than the ftrace function tracer itself:
-> > 
-> >     over a kernel compile:
-> > 
-> >     no tracing:
-> > 
-> >       real   110m47.817s
-> >       user    99m34.144s
-> >       sys      7m19.928s
-> ... 
-> >     function_hist tracer enabled:
-> >       real   128m44.682s
-> >       user   100m29.080s
-> >       sys     26m52.880s
-> 
-> 78% of cpu time is in user space. Not a great test of kernel
-> datapath, but 'sys 7m19.928s vs 26m52.880s' actually means that
-> the kernel part is 3 times slower. That is your enormous overhead.
-> 
-
-Like I said, I didn't drill down on any measurements to see which part
-was due to hist triggers code vs the ftrace calls - my point was only to
-show that the hist triggers are actually faster than the function
-tracer.
-
-I guess that anything that does useful work on every single function
-call is going to add some measurable amount of overhead.  I'm still
-interested in seeing what that would be for eBPF.
-
-> 2 hours to compile the kernel. ouch. that must be very low end device.
-> For comparison full kernel build on my box:
-> real    2m49.693s
-> user    66m44.204s
-> sys     5m29.257s
-> 
-> > One point I would make about this though is that while it might be
-> > slower to access this particular field that way, the user who's just
-> > trying to get something done doesn't need to know about
-> > bpf_get_current_pid_tgid() and can just look at the available fields in
-> > the trace event format file and use them directly - trading off
-> > efficiency for ease-of-use.
-> 
-> sorry, but nack for such 'ease-of-use'.
-> We're not going to sacrifice performance even if there are few raw edges
-> in the user space. User tools can be improved, new compilers and
-> front-ends written, but kernel API will stay fixed and must be fast
-> from the start.
-> 
-
-OK, so it sounds like eBPF will never support access to trace events.
-Good to know, that officially makes our work completely orthogonal.
-
-> > surrounding that even in the comments.  I guess I'd have to spend a few
-> > hours reading the BPF code and the verifier even, to understand that.
-> 
-> not sure what is your goal. Runtime lookup via field name is not acceptable
-> whether it's cached or not. There is no place for strcmp in the critical path.
-> 
-
-Exactly - that's why I was asking about a 'begin probe', in order to do
-the lookup once, in an non-critical path.
-
-> > > please cc netdev every time kernel/bpf/ is touched.
-> > > 
-> > 
-> > Why netdev?  This has nothing to do with networking.
-> 
-> because that's what MAINTAINERS file says.
-> kernel/bpf/* is used for both tracing and networking and all significant
-> changes should be going through net-next to avoid conflicts and
-> to make sure that active developers can do a thorough review.
-> 
+--8SknfINgPsWPJfUcXEVaq1H9iEJJt7e7L--
