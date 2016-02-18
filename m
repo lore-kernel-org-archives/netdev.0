@@ -1,42 +1,53 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next V1 04/12] net/mlx5e: Support DCBNL IEEE ETS
-Date: Thu, 18 Feb 2016 19:02:46 +0200
-Message-ID: <CAJ3xEMh-6WS4VADHbKgLDduz6rpECate7giXqSNpQP3Se-ZpQw@mail.gmail.com>
-References: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
-	<1455791573-5270-5-git-send-email-saeedm@mellanox.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH] net: ti: netcp: restore get/set_pad_info() functionality
+Date: Thu, 18 Feb 2016 12:02:34 -0500
+Message-ID: <56C5F92A.3070403@ti.com>
+References: <1455026303-17014-1-git-send-email-grygorii.strashko@ti.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CCDC216@AcuExch.aculab.com>
+ <3E54258959B69E4282D79E01AB1F32B704D12E49@DFLE11.ent.ti.com>
+ <4072312.pCFuaqSbhC@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Rana Shahout <ranas@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Matthew Finlay <matt@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:34965 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946020AbcBRRCr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 12:02:47 -0500
-Received: by mail-ig0-f173.google.com with SMTP id hb3so16866643igb.0
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 09:02:47 -0800 (PST)
-In-Reply-To: <1455791573-5270-5-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@aculab.com>,
+	"Strashko, Grygorii" <grygorii.strashko@ti.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S . Miller" <davem@davemloft.net>,
+	"Cooper Jr., Franklin" <fcooper@ti.com>,
+	"Nori, Sekhar" <nsekhar@ti.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Kwok, WingMan" <w-kwok2@ti.com>,
+	"N, Mugunthan V" <mugunthanvnm@ti.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4072312.pCFuaqSbhC@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 18, 2016 at 12:32 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+On 02/09/2016 02:38 PM, Arnd Bergmann wrote:
+> On Tuesday 09 February 2016 16:55:42 Karicheri, Muralidharan wrote:
+>>
+>> The descriptors are usable by different drivers, one driver may use it as 
+>> buf ptr/ len, other for something else. So they should remain as generic
+>> and it is up to individual drivers to use it in whatever way it requires.
+>> My suggestion is to rename pad field in struct knav_dma_desc to sw_data
+>> to avoid confusion. i.e 
+>>
+>> +       __le32  pad[4];
+>>
+>> to 
+>>
+>> +       __le32  sw_data[4];
+>>
+> 
+> If the hardware doesn't access them, they can probably just be u32
+> and not do any byte swapping.
+> 
+Ok. Will do in v1
+> 	Arnd
+> 
 
-> @@ -2164,6 +2233,9 @@ static void mlx5e_build_netdev(struct net_device *netdev)
->         netdev->watchdog_timeo    = 15 * HZ;
->
->         netdev->ethtool_ops       = &mlx5e_ethtool_ops;
-> +#ifdef CONFIG_MLX5_CORE_EN_DCB
-> +       netdev->dcbnl_ops         = &mlx5e_dcbnl_ops;
-> +#endif
 
-I guess we don't want VF drivers to control the uplink port QoS
-arbiter, PFC setup and such, agree -- I gave this comment on V0
-and you somehow missed addressing that, please do for V2.
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
