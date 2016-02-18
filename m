@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/4] Add support for Classifier and RSS
-Date: Wed, 17 Feb 2016 22:08:58 -0500 (EST)
-Message-ID: <20160217.220858.1360154606807063304.davem@davemloft.net>
-References: <1455750042-1521-1-git-send-email-isubramanian@apm.com>
+Subject: Re: [PATCH] tcp: correctly crypto_alloc_hash return check
+Date: Wed, 17 Feb 2016 22:23:24 -0500 (EST)
+Message-ID: <20160217.222324.221201149229609628.davem@davemloft.net>
+References: <1455589833-7571-1-git-send-email-wuninsu@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	toanle@apm.com
-To: isubramanian@apm.com
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, taesoo@gatech.edu,
+	yeongjin.jang@gatech.edu, insu@gatech.edu, changwoo@gatech.edu
+To: wuninsu@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33469 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33624 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424050AbcBRDJB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 22:09:01 -0500
-In-Reply-To: <1455750042-1521-1-git-send-email-isubramanian@apm.com>
+	with ESMTP id S1423890AbcBRDX2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 22:23:28 -0500
+In-Reply-To: <1455589833-7571-1-git-send-email-wuninsu@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Iyappan Subramanian <isubramanian@apm.com>
-Date: Wed, 17 Feb 2016 15:00:38 -0800
+From: Insu Yun <wuninsu@gmail.com>
+Date: Mon, 15 Feb 2016 21:30:33 -0500
 
-> This patch set enables,
+> crypto_alloc_hash never returns NULL
 > 
-> (i) Classifier engine that is used for parsing
-> through the packet and extracting a search string that is then used
-> to search a database to find associative data.
-> 
-> (ii) Receive Side Scaling (RSS) that does dynamic load
-> balancing of the CPUs by controlling the number of messages enqueued
-> per CPU though the help of Toeplitz Hash function of 4-tuple of
-> source TCP/UDP port, destination TCP/UDP port, source IPV4 address and
-> destination IPV4 address.
-> 
-> (iii) Multi queue, to make advantage of RSS
- ...
+> Signed-off-by: Insu Yun <wuninsu@gmail.com>
 
-Series applied, thanks.
+Applied, thanks.
