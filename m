@@ -1,7 +1,8 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 00/12] QoS and VxLAN offloads support for Mellanox 100G mlx5 driver
-Date: Thu, 18 Feb 2016 12:32:41 +0200
-Message-ID: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 12/12] net/mlx5e: Add tx inner packet counters
+Date: Thu, 18 Feb 2016 12:32:53 +0200
+Message-ID: <1455791573-5270-13-git-send-email-saeedm@mellanox.com>
+References: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
@@ -12,81 +13,184 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:34119 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:34178 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1425528AbcBRKlo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2016 05:41:44 -0500
+	id S1945990AbcBRKly (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 05:41:54 -0500
+In-Reply-To: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Matthew Finlay <matt@mellanox.com>
 
-This patch series introduces QoS IEEE dcbnl support for
-PFC, ETS and max rate.
+Add TSO and TX checksum counters for tunneled, inner packets
 
-In addition we added VxLAN support and introduced a patch
-that modifies the driver to report checksum complete in RX path 
-for all IP (tunneled and non-tunneled) traffic which is non HW LRO.
+Signed-off-by: Matt Finlay <matt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |   16 ++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    8 +++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |   20 +++++++++++---------
+ 3 files changed, 32 insertions(+), 12 deletions(-)
 
-This series is applied on top of the latest mlx5_ifc and NDO fixes 
-we sent to the net tree:
-	net/mlx5e: Use static constant netdevice ndos
-	net/mlx5e: Remove select queue ndo initialization
-	net/mlx5: Use offset based reserved field names in the IFC header file
-
-The QoS patches depend on the IFC change since they expose new fields in 
-the driver/firmware API. Both QoS and VxLAN patches depend on the NDO changes,
-since they add new ndo entries.
-
-Changes from V0:
-	- Added change log comments on default_vlan_prio and why we use 
-          MLX5E_MAX_NUM_TC on netdev creation.
-	- Fixed Copyright notes to 2016 for new files.
-	- Fixed a copy-paste bug in "Add TX stateless offloads for tunneling" 
-          to use inner_tcp_hdrlen(skb) rather than tcp_hdrlen(skb) for 
-          encapsulated LSO packets.
-
-Saeed.
-
-Achiad Shochat (3):
-  net/mlx5: Introduce a new header file for physical port functions
-  net/mlx5: Introduce physical port PFC access functions
-  net/mlx5e: Support DCBNL IEEE PFC
-
-Matthew Finlay (5):
-  net/mlx5e: Move to checksum complete
-  net/mlx5e: Protect en header file from redefinitions
-  net/mlx5e: Add netdev support for VXLAN tunneling
-  net/mlx5e: Add TX stateless offloads for tunneling
-  net/mlx5e: Add tx inner packet counters
-
-Saeed Mahameed (2):
-  net/mlx5: Introduce physical port TC/prio access functions
-  net/mlx5e: Support DCBNL IEEE ETS
-
-Tariq Toukan (2):
-  net/mlx5e: Implement DCBNL IEEE max rate
-  net/mlx5e: Wake On LAN support
-
- drivers/infiniband/hw/mlx5/main.c                  |    1 +
- drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |   12 +
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    5 +-
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |   14 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   44 +++-
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c |  296 ++++++++++++++++++++
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  125 ++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  198 +++++++++++++-
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |    9 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |   40 ++-
- drivers/net/ethernet/mellanox/mlx5/core/port.c     |  216 ++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/vxlan.c    |  170 +++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/vxlan.h    |   54 ++++
- include/linux/mlx5/device.h                        |   17 ++
- include/linux/mlx5/driver.h                        |   33 +--
- include/linux/mlx5/mlx5_ifc.h                      |  109 +++++++-
- include/linux/mlx5/port.h                          |   87 ++++++
- 17 files changed, 1364 insertions(+), 66 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vxlan.h
- create mode 100644 include/linux/mlx5/port.h
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index a700c57..1dca3dc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -103,12 +103,15 @@ static const char vport_strings[][ETH_GSTRING_LEN] = {
+ 	/* SW counters */
+ 	"tso_packets",
+ 	"tso_bytes",
++	"tso_inner_packets",
++	"tso_inner_bytes",
+ 	"lro_packets",
+ 	"lro_bytes",
+ 	"rx_csum_good",
+ 	"rx_csum_none",
+ 	"rx_csum_sw",
+ 	"tx_csum_offload",
++	"tx_csum_inner",
+ 	"tx_queue_stopped",
+ 	"tx_queue_wake",
+ 	"tx_queue_dropped",
+@@ -141,18 +144,21 @@ struct mlx5e_vport_stats {
+ 	/* SW counters */
+ 	u64 tso_packets;
+ 	u64 tso_bytes;
++	u64 tso_inner_packets;
++	u64 tso_inner_bytes;
+ 	u64 lro_packets;
+ 	u64 lro_bytes;
+ 	u64 rx_csum_good;
+ 	u64 rx_csum_none;
+ 	u64 rx_csum_sw;
+ 	u64 tx_csum_offload;
++	u64 tx_csum_inner;
+ 	u64 tx_queue_stopped;
+ 	u64 tx_queue_wake;
+ 	u64 tx_queue_dropped;
+ 	u64 rx_wqe_err;
+ 
+-#define NUM_VPORT_COUNTERS     32
++#define NUM_VPORT_COUNTERS     35
+ };
+ 
+ static const char pport_strings[][ETH_GSTRING_LEN] = {
+@@ -252,7 +258,10 @@ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"packets",
+ 	"tso_packets",
+ 	"tso_bytes",
++	"tso_inner_packets",
++	"tso_inner_bytes",
+ 	"csum_offload_none",
++	"csum_offload_inner",
+ 	"stopped",
+ 	"wake",
+ 	"dropped",
+@@ -263,12 +272,15 @@ struct mlx5e_sq_stats {
+ 	u64 packets;
+ 	u64 tso_packets;
+ 	u64 tso_bytes;
++	u64 tso_inner_packets;
++	u64 tso_inner_bytes;
+ 	u64 csum_offload_none;
++	u64 csum_offload_inner;
+ 	u64 stopped;
+ 	u64 wake;
+ 	u64 dropped;
+ 	u64 nop;
+-#define NUM_SQ_STATS 8
++#define NUM_SQ_STATS 11
+ };
+ 
+ struct mlx5e_stats {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 3a31e27..95046fd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -145,9 +145,12 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 	/* Collect firts the SW counters and then HW for consistency */
+ 	s->tso_packets		= 0;
+ 	s->tso_bytes		= 0;
++	s->tso_inner_packets	= 0;
++	s->tso_inner_bytes	= 0;
+ 	s->tx_queue_stopped	= 0;
+ 	s->tx_queue_wake	= 0;
+ 	s->tx_queue_dropped	= 0;
++	s->tx_csum_inner	= 0;
+ 	tx_offload_none		= 0;
+ 	s->lro_packets		= 0;
+ 	s->lro_bytes		= 0;
+@@ -168,9 +171,12 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 
+ 			s->tso_packets		+= sq_stats->tso_packets;
+ 			s->tso_bytes		+= sq_stats->tso_bytes;
++			s->tso_inner_packets	+= sq_stats->tso_inner_packets;
++			s->tso_inner_bytes	+= sq_stats->tso_inner_bytes;
+ 			s->tx_queue_stopped	+= sq_stats->stopped;
+ 			s->tx_queue_wake	+= sq_stats->wake;
+ 			s->tx_queue_dropped	+= sq_stats->dropped;
++			s->tx_csum_inner	+= sq_stats->csum_offload_inner;
+ 			tx_offload_none		+= sq_stats->csum_offload_none;
+ 		}
+ 	}
+@@ -245,7 +251,7 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 		s->tx_broadcast_bytes;
+ 
+ 	/* Update calculated offload counters */
+-	s->tx_csum_offload = s->tx_packets - tx_offload_none;
++	s->tx_csum_offload = s->tx_packets - tx_offload_none - s->tx_csum_inner;
+ 	s->rx_csum_good    = s->rx_packets - s->rx_csum_none -
+ 			       s->rx_csum_sw;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 6ce2884..a05c070 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -187,11 +187,13 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 
+ 	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
+ 		eseg->cs_flags = MLX5_ETH_WQE_L3_CSUM;
+-		if (skb->encapsulation)
++		if (skb->encapsulation) {
+ 			eseg->cs_flags |= MLX5_ETH_WQE_L3_INNER_CSUM |
+ 					  MLX5_ETH_WQE_L4_INNER_CSUM;
+-		else
++			sq->stats.csum_offload_inner++;
++		} else {
+ 			eseg->cs_flags |= MLX5_ETH_WQE_L4_CSUM;
++		}
+ 	} else
+ 		sq->stats.csum_offload_none++;
+ 
+@@ -201,21 +203,21 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 	}
+ 
+ 	if (skb_is_gso(skb)) {
+-		u32 payload_len;
+-
+ 		eseg->mss    = cpu_to_be16(skb_shinfo(skb)->gso_size);
+ 		opcode       = MLX5_OPCODE_LSO;
+ 
+-		if (skb->encapsulation)
++		if (skb->encapsulation) {
+ 			ihs = skb_inner_transport_offset(skb) + inner_tcp_hdrlen(skb);
+-		else
++			sq->stats.tso_inner_packets++;
++			sq->stats.tso_inner_bytes += skb->len - ihs;
++		} else {
+ 			ihs = skb_transport_offset(skb) + tcp_hdrlen(skb);
++			sq->stats.tso_packets++;
++			sq->stats.tso_bytes += skb->len - ihs;
++		}
+ 
+-		payload_len   = skb->len - ihs;
+ 		wi->num_bytes = skb->len +
+ 				(skb_shinfo(skb)->gso_segs - 1) * ihs;
+-		sq->stats.tso_packets++;
+-		sq->stats.tso_bytes += payload_len;
+ 	} else {
+ 		bf = sq->bf_budget &&
+ 		     !skb->xmit_more &&
+-- 
+1.7.1
