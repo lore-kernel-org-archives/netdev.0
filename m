@@ -1,36 +1,32 @@
-From: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net v3] geneve: Refine MTU limit
-Date: Thu, 18 Feb 2016 10:35:55 -0800
-Message-ID: <CAEh+42ijouX7nqF1uz1mmn9HkvoYNmbnB0iosMJ7whV-SgmRmQ@mail.gmail.com>
-References: <1455817409-15995-1-git-send-email-david@weave.works>
+From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Subject: Re: [PATCH net-next] vxlan: tun_id is 64bit, not 32bit
+Date: Thu, 18 Feb 2016 16:36:38 -0200
+Message-ID: <20160218183638.GP18570@indiana.gru.redhat.com>
+References: <7fe6a16a4d1170ed72b7d5c36ca5e4fc4ee54488.1455819507.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-To: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1455817409-15995-1-git-send-email-david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Paolo Abeni <pabeni@redhat.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37441 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1426516AbcBRSgn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 13:36:43 -0500
+Received: from int-mx14.intmail.prod.int.phx2.redhat.com (int-mx14.intmail.prod.int.phx2.redhat.com [10.5.11.27])
+	by mx1.redhat.com (Postfix) with ESMTPS id 520911E2F
+	for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 18:36:43 +0000 (UTC)
+Content-Disposition: inline
+In-Reply-To: <7fe6a16a4d1170ed72b7d5c36ca5e4fc4ee54488.1455819507.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBGZWIgMTgsIDIwMTYgYXQgOTo0MyBBTSwgRGF2aWQgV3JhZ2cgPGRhdmlkQHdlYXZl
-LndvcmtzPiB3cm90ZToKPiBDYWxjdWxhdGUgdGhlIG1heGltdW0gTVRVIHRha2luZyBpbnRvIGFj
-Y291bnQgdGhlIHNpemUgb2YgaGVhZGVycwo+IGludm9sdmVkIGluIEdFTkVWRSBlbmNhcHN1bGF0
-aW9uLCBhcyBmb3Igb3RoZXIgdHVubmVsIHR5cGVzLgo+Cj4gQ2hhbmdlcyBpbiB2MzoKPiAtIENv
-cnJlY3QgY29tbWVudCBzdHlsZQo+IENoYW5nZXMgaW4gdjI6Cj4gLSBDb25mb3JtIG1vcmUgY2xv
-c2VseSB0byBpcF90dW5uZWxfY2hhbmdlX210dQo+IC0gRXhjbHVkZSBHRU5FVkUgb3B0aW9ucyBm
-cm9tIG1heCBNVFUgY2FsY3VsYXRpb24KPgo+IFNpZ25lZC1vZmYtYnk6IERhdmlkIFdyYWdnIDxk
-YXZpZEB3ZWF2ZS53b3Jrcz4KCkFja2VkLWJ5OiBKZXNzZSBHcm9zcyA8amVzc2VAa2VybmVsLm9y
-Zz4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1h
-aWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFp
-bG1hbi9saXN0aW5mby9kZXYK
+On Thu, Feb 18, 2016 at 07:19:29PM +0100, Jiri Benc wrote:
+> The tun_id field in struct ip_tunnel_key is __be64, not __be32. We need to
+> convert the vni to tun_id correctly.
+> 
+> Fixes: 54bfd872bf16 ("vxlan: keep flags and vni in network byte order")
+> Reported-by: Paolo Abeni <pabeni@redhat.com>
+> Tested-by: Paolo Abeni <pabeni@redhat.com>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+
+Acked-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
