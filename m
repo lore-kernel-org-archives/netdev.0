@@ -1,159 +1,110 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCHv2] sctp: Fix port hash table size computation
-Date: Thu, 18 Feb 2016 16:10:57 -0500
-Message-ID: <1455829857-15797-1-git-send-email-nhorman@tuxdriver.com>
-References: <20160218.153921.2010668846576353053.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36433 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1948010AbcBRVLQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 16:11:16 -0500
-In-Reply-To: <20160218.153921.2010668846576353053.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Lutomirski <luto@kernel.org>
+Subject: Re: [PATCH v7 6/8] x86: tsc: Always Running Timer (ART) correlated
+ clocksource
+Date: Thu, 18 Feb 2016 13:11:33 -0800
+Message-ID: <56C63385.9050703@kernel.org>
+References: <1455308729-6280-1-git-send-email-christopher.s.hall@intel.com>
+ <1455308729-6280-7-git-send-email-christopher.s.hall@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: x86@kernel.org, linux-kernel@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	kevin.b.stanton@intel.com, kevin.j.clarke@intel.com
+To: "Christopher S. Hall" <christopher.s.hall@intel.com>,
+	tglx@linutronix.de, richardcochran@gmail.com, mingo@redhat.com,
+	john.stultz@linaro.org, hpa@zytor.com, jeffrey.t.kirsher@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455308729-6280-7-git-send-email-christopher.s.hall@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dmitry Vyukov noted recently that the sctp_port_hashtable had an error in
-its size computation, observing that the current method never guaranteed
-that the hashsize (measured in number of entries) would be a power of two,
-which the input hash function for that table requires.  The root cause of
-the problem is that two values need to be computed (one, the allocation
-order of the storage requries, as passed to __get_free_pages, and two the
-number of entries for the hash table).  Both need to be ^2, but for
-different reasons, and the existing code is simply computing one order
-value, and using it as the basis for both, which is wrong (i.e. it assumes
-that ((1<<order)*PAGE_SIZE)/sizeof(bucket) is still ^2 when its not).
+On 02/12/2016 12:25 PM, Christopher S. Hall wrote:
+> On modern Intel systems TSC is derived from the new Always Running Ti=
+mer
+> (ART). ART can be captured simultaneous to the capture of
+> audio and network device clocks, allowing a correlation between timeb=
+ases
+> to be constructed. Upon capture, the driver converts the captured ART
+> value to the appropriate system clock using the correlated clocksourc=
+e
+> mechanism.
+>
+> On systems that support ART a new CPUID leaf (0x15) returns parameter=
+s
+> =E2=80=9Cm=E2=80=9D and =E2=80=9Cn=E2=80=9D such that:
+>
+> TSC_value =3D (ART_value * m) / n + k [n >=3D 2]
+>
+> [k is an offset that can adjusted by a privileged agent. The
+> IA32_TSC_ADJUST MSR is an example of an interface to adjust k.
+> See 17.14.4 of the Intel SDM for more details]
+>
+> Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
+> [jstultz: Tweaked to fix build issue, also reworked math for
+> 64bit division on 32bit systems]
+> Signed-off-by: John Stultz <john.stultz@linaro.org>
+> ---
+>   arch/x86/include/asm/cpufeature.h |  3 ++-
+>   arch/x86/include/asm/tsc.h        |  2 ++
+>   arch/x86/kernel/cpu/scattered.c   |  1 +
+>   arch/x86/kernel/tsc.c             | 50 ++++++++++++++++++++++++++++=
++++++++++++
+>   4 files changed, 55 insertions(+), 1 deletion(-)
+>
+> diff --git a/arch/x86/include/asm/cpufeature.h b/arch/x86/include/asm=
+/cpufeature.h
+> index 7ad8c94..111b892 100644
+> --- a/arch/x86/include/asm/cpufeature.h
+> +++ b/arch/x86/include/asm/cpufeature.h
+> @@ -85,7 +85,7 @@
+>   #define X86_FEATURE_P4		( 3*32+ 7) /* "" P4 */
+>   #define X86_FEATURE_CONSTANT_TSC ( 3*32+ 8) /* TSC ticks at a const=
+ant rate */
+>   #define X86_FEATURE_UP		( 3*32+ 9) /* smp kernel running on up */
+> -/* free, was #define X86_FEATURE_FXSAVE_LEAK ( 3*32+10) * "" FXSAVE =
+leaks FOP/FIP/FOP */
+> +#define X86_FEATURE_ART		(3*32+10) /* Platform has always running ti=
+mer (ART) */
+>   #define X86_FEATURE_ARCH_PERFMON ( 3*32+11) /* Intel Architectural =
+PerfMon */
+>   #define X86_FEATURE_PEBS	( 3*32+12) /* Precise-Event Based Sampling=
+ */
+>   #define X86_FEATURE_BTS		( 3*32+13) /* Branch Trace Store */
+> @@ -188,6 +188,7 @@
+>
+>   #define X86_FEATURE_CPB		( 7*32+ 2) /* AMD Core Performance Boost *=
+/
+>   #define X86_FEATURE_EPB		( 7*32+ 3) /* IA32_ENERGY_PERF_BIAS suppor=
+t */
+> +#define X86_FEATURE_INVARIANT_TSC (7*32+4) /* Intel Invariant TSC */
 
-To fix this, we change the logic slightly.  We start by computing a goal
-allocation order (which is limited by the maximum size hash table we want
-to support.  Then we attempt to allocate that size table, decreasing the
-order until a successful allocation is made.  Then, with the resultant
-successful order we compute the number of buckets that hash table supports,
-which we then round down to the nearest power of two, giving us the number
-of entries the table actually supports.
+How is this related to the rest of the patch?
 
-I've tested this locally here, using non-debug and spinlock-debug kernels,
-and the number of entries in the hashtable consistently work out to be
-powers of two in all cases.
+> +/*
+> + * Convert ART to TSC given numerator/denominator found in detect_ar=
+t()
+> + */
+> +struct system_counterval_t convert_art_to_tsc(cycle_t art)
+> +{
+> +	u64 tmp, res, rem;
+> +
+> +	rem =3D do_div(art, art_to_tsc_denominator);
+> +
+> +	res =3D art * art_to_tsc_numerator;
+> +	tmp =3D rem * art_to_tsc_numerator;
+> +
+> +	do_div(tmp, art_to_tsc_denominator);
+> +	res +=3D tmp;
+> +
+> +	return (struct system_counterval_t) {.cs =3D art_related_clocksourc=
+e,
+> +			.cycles =3D res};
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-CC: Dmitry Vyukov <dvyukov@google.com>
-CC: Vladislav Yasevich <vyasevich@gmail.com>
-CC: "David S. Miller" <davem@davemloft.net>
+The SDM and the patch description both mention an offset "k".  Shouldn'=
+t=20
+this code at least have a comment about how it deals with the k !=3D 0 =
+case?
 
----
-Change notes:
-
-v2) Fix type error for num_entries and max_entry_order.  Should have caught
-that, sorry Dave
----
- net/sctp/protocol.c | 46 ++++++++++++++++++++++++++++++++++++++--------
- 1 file changed, 38 insertions(+), 8 deletions(-)
-
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index ab0d538..1099e99 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -60,6 +60,8 @@
- #include <net/inet_common.h>
- #include <net/inet_ecn.h>
- 
-+#define MAX_SCTP_PORT_HASH_ENTRIES (64 * 1024)
-+
- /* Global data structures. */
- struct sctp_globals sctp_globals __read_mostly;
- 
-@@ -1355,6 +1357,8 @@ static __init int sctp_init(void)
- 	unsigned long limit;
- 	int max_share;
- 	int order;
-+	int num_entries;
-+	int max_entry_order;
- 
- 	sock_skb_cb_check_size(sizeof(struct sctp_ulpevent));
- 
-@@ -1407,14 +1411,24 @@ static __init int sctp_init(void)
- 
- 	/* Size and allocate the association hash table.
- 	 * The methodology is similar to that of the tcp hash tables.
-+	 * Though not identical.  Start by getting a goal size
- 	 */
- 	if (totalram_pages >= (128 * 1024))
- 		goal = totalram_pages >> (22 - PAGE_SHIFT);
- 	else
- 		goal = totalram_pages >> (24 - PAGE_SHIFT);
- 
--	for (order = 0; (1UL << order) < goal; order++)
--		;
-+	/* Then compute the page order for said goal */
-+	order = get_order(goal);
-+
-+	/* Now compute the required page order for the maximum sized table we
-+	 * want to create
-+	 */
-+	max_entry_order = get_order(MAX_SCTP_PORT_HASH_ENTRIES *
-+				    sizeof(struct sctp_bind_hashbucket));
-+
-+	/* Limit the page order by that maximum hash table size */
-+	order = min(order, max_entry_order);
- 
- 	/* Allocate and initialize the endpoint hash table.  */
- 	sctp_ep_hashsize = 64;
-@@ -1430,20 +1444,35 @@ static __init int sctp_init(void)
- 		INIT_HLIST_HEAD(&sctp_ep_hashtable[i].chain);
- 	}
- 
--	/* Allocate and initialize the SCTP port hash table.  */
-+	/* Allocate and initialize the SCTP port hash table.
-+	 * Note that order is initalized to start at the max sized
-+	 * table we want to support.  If we can't get that many pages
-+	 * reduce the order and try again
-+	 */
- 	do {
--		sctp_port_hashsize = (1UL << order) * PAGE_SIZE /
--					sizeof(struct sctp_bind_hashbucket);
--		if ((sctp_port_hashsize > (64 * 1024)) && order > 0)
--			continue;
- 		sctp_port_hashtable = (struct sctp_bind_hashbucket *)
- 			__get_free_pages(GFP_KERNEL | __GFP_NOWARN, order);
- 	} while (!sctp_port_hashtable && --order > 0);
-+
- 	if (!sctp_port_hashtable) {
- 		pr_err("Failed bind hash alloc\n");
- 		status = -ENOMEM;
- 		goto err_bhash_alloc;
- 	}
-+
-+	/* Now compute the number of entries that will fit in the
-+	 * port hash space we allocated
-+	 */
-+	num_entries = (1UL << order) * PAGE_SIZE /
-+		      sizeof(struct sctp_bind_hashbucket);
-+
-+	/* And finish by rounding it down to the nearest power of two
-+	 * this wastes some memory of course, but its needed because
-+	 * the hash function operates based on the assumption that
-+	 * that the number of entries is a power of two
-+	 */
-+	sctp_port_hashsize = rounddown_pow_of_two(num_entries);
-+
- 	for (i = 0; i < sctp_port_hashsize; i++) {
- 		spin_lock_init(&sctp_port_hashtable[i].lock);
- 		INIT_HLIST_HEAD(&sctp_port_hashtable[i].chain);
-@@ -1452,7 +1481,8 @@ static __init int sctp_init(void)
- 	if (sctp_transport_hashtable_init())
- 		goto err_thash_alloc;
- 
--	pr_info("Hash tables configured (bind %d)\n", sctp_port_hashsize);
-+	pr_info("Hash tables configured (bind %d/%d)\n", sctp_port_hashsize,
-+		num_entries);
- 
- 	sctp_sysctl_register();
- 
--- 
-2.5.0
+--Andy
