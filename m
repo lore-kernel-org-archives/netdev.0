@@ -1,139 +1,88 @@
 From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next v3 3/3] ipvlan: misc perf changes
-Date: Wed, 17 Feb 2016 19:52:40 -0800
-Message-ID: <1455767560-17034-1-git-send-email-mahesh@bandewar.net>
+Subject: [PATCH next v3 2/3] ipvlan: mode is u16
+Date: Wed, 17 Feb 2016 19:52:35 -0800
+Message-ID: <1455767555-16966-1-git-send-email-mahesh@bandewar.net>
 Cc: Mahesh Bandewar <maheshb@google.com>,
 	Eric Dumazet <edumazet@google.com>,
 	netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:32823 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424752AbcBRDwo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 22:52:44 -0500
-Received: by mail-pf0-f193.google.com with SMTP id c10so1536546pfc.0
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 19:52:44 -0800 (PST)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35078 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1424680AbcBRDwk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 22:52:40 -0500
+Received: by mail-pf0-f195.google.com with SMTP id w128so1528391pfb.2
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 19:52:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mahesh Bandewar <maheshb@google.com>
 
-1. scope correction for few functions that are used in single file.
-2. Adjust variables that are used in fast-path to fit into single cacheline
-3. Update rcv_frame() to skip shared check for frames coming over wire
+The mode argument was erronusly defined as u32 but it has always
+been u16. Also use ipvlan_set_mode() helper to set the mode instead
+of assigning directly. This should avoid future erronus assignments /
+updates.
 
 Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- drivers/net/ipvlan/ipvlan.h      |  9 +++------
- drivers/net/ipvlan/ipvlan_core.c | 27 ++++++++++++++++-----------
- drivers/net/ipvlan/ipvlan_main.c |  2 +-
- 3 files changed, 20 insertions(+), 18 deletions(-)
+ drivers/net/ipvlan/ipvlan.h      | 1 -
+ drivers/net/ipvlan/ipvlan_main.c | 9 ++++++---
+ 2 files changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-index 817cab1a7959..695a5dc9ace3 100644
+index 9542b7bac61a..817cab1a7959 100644
 --- a/drivers/net/ipvlan/ipvlan.h
 +++ b/drivers/net/ipvlan/ipvlan.h
-@@ -84,19 +84,19 @@ struct ipvl_addr {
- #define ip4addr ipu.ip4
- 	struct hlist_node	hlnode;  /* Hash-table linkage */
- 	struct list_head	anode;   /* logical-interface linkage */
--	struct rcu_head		rcu;
- 	ipvl_hdr_type		atype;
-+	struct rcu_head		rcu;
- };
- 
- struct ipvl_port {
- 	struct net_device	*dev;
- 	struct hlist_head	hlhead[IPVLAN_HASH_SIZE];
- 	struct list_head	ipvlans;
--	struct rcu_head		rcu;
-+	u16			mode;
- 	struct work_struct	wq;
- 	struct sk_buff_head	backlog;
- 	int			count;
--	u16			mode;
-+	struct rcu_head		rcu;
- };
- 
- static inline struct ipvl_port *ipvlan_port_get_rcu(const struct net_device *d)
-@@ -114,7 +114,6 @@ static inline struct ipvl_port *ipvlan_port_get_rtnl(const struct net_device *d)
- 	return rtnl_dereference(d->rx_handler_data);
+@@ -115,7 +115,6 @@ static inline struct ipvl_port *ipvlan_port_get_rtnl(const struct net_device *d)
  }
  
--void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev);
+ void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev);
+-void ipvlan_set_port_mode(struct ipvl_port *port, u32 nval);
  void ipvlan_init_secret(void);
  unsigned int ipvlan_mac_hash(const unsigned char *addr);
  rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb);
-@@ -124,7 +123,5 @@ void ipvlan_ht_addr_add(struct ipvl_dev *ipvlan, struct ipvl_addr *addr);
- struct ipvl_addr *ipvlan_find_addr(const struct ipvl_dev *ipvlan,
- 				   const void *iaddr, bool is_v6);
- bool ipvlan_addr_busy(struct ipvl_port *port, void *iaddr, bool is_v6);
--struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
--					const void *iaddr, bool is_v6);
- void ipvlan_ht_addr_del(struct ipvl_addr *addr);
- #endif /* __IPVLAN_H */
-diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-index a1f87ec316cf..9864bb45b3ec 100644
---- a/drivers/net/ipvlan/ipvlan_core.c
-+++ b/drivers/net/ipvlan/ipvlan_core.c
-@@ -53,8 +53,8 @@ static u8 ipvlan_get_v4_hash(const void *iaddr)
- 	       IPVLAN_HASH_MASK;
- }
- 
--struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
--					const void *iaddr, bool is_v6)
-+static struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
-+					       const void *iaddr, bool is_v6)
- {
- 	struct ipvl_addr *addr;
- 	u8 hash;
-@@ -265,20 +265,25 @@ static int ipvlan_rcv_frame(struct ipvl_addr *addr, struct sk_buff **pskb,
- 	struct sk_buff *skb = *pskb;
- 
- 	len = skb->len + ETH_HLEN;
--	if (unlikely(!(dev->flags & IFF_UP))) {
--		kfree_skb(skb);
--		goto out;
--	}
-+	/* Only packets exchanged between two local slaves need to have
-+	 * device-up check as well as skb-share check.
-+	 */
-+	if (local) {
-+		if (unlikely(!(dev->flags & IFF_UP))) {
-+			kfree_skb(skb);
-+			goto out;
-+		}
- 
--	skb = skb_share_check(skb, GFP_ATOMIC);
--	if (!skb)
--		goto out;
-+		skb = skb_share_check(skb, GFP_ATOMIC);
-+		if (!skb)
-+			goto out;
- 
--	*pskb = skb;
-+		*pskb = skb;
-+	}
- 	skb->dev = dev;
--	skb->pkt_type = PACKET_HOST;
- 
- 	if (local) {
-+		skb->pkt_type = PACKET_HOST;
- 		if (dev_forward_skb(ipvlan->dev, skb) == NET_RX_SUCCESS)
- 			success = true;
- 	} else {
 diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 5bcb852c5500..a7ca1c519a0d 100644
+index 7a3b41468a55..5bcb852c5500 100644
 --- a/drivers/net/ipvlan/ipvlan_main.c
 +++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -9,7 +9,7 @@
- 
- #include "ipvlan.h"
- 
--void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev)
-+static void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev)
- {
+@@ -14,7 +14,7 @@ void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev)
  	ipvlan->dev->mtu = dev->mtu - ipvlan->mtu_adj;
  }
+ 
+-void ipvlan_set_port_mode(struct ipvl_port *port, u32 nval)
++static void ipvlan_set_port_mode(struct ipvl_port *port, u16 nval)
+ {
+ 	struct ipvl_dev *ipvlan;
+ 
+@@ -442,6 +442,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+ 	struct ipvl_port *port;
+ 	struct net_device *phy_dev;
+ 	int err;
++	u16 mode = IPVLAN_MODE_L3;
+ 
+ 	if (!tb[IFLA_LINK])
+ 		return -EINVAL;
+@@ -460,10 +461,10 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+ 			return err;
+ 	}
+ 
+-	port = ipvlan_port_get_rtnl(phy_dev);
+ 	if (data && data[IFLA_IPVLAN_MODE])
+-		port->mode = nla_get_u16(data[IFLA_IPVLAN_MODE]);
++		mode = nla_get_u16(data[IFLA_IPVLAN_MODE]);
+ 
++	port = ipvlan_port_get_rtnl(phy_dev);
+ 	ipvlan->phy_dev = phy_dev;
+ 	ipvlan->dev = dev;
+ 	ipvlan->port = port;
+@@ -489,6 +490,8 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+ 		goto ipvlan_destroy_port;
+ 
+ 	list_add_tail_rcu(&ipvlan->pnode, &port->ipvlans);
++	ipvlan_set_port_mode(port, mode);
++
+ 	netif_stacked_transfer_operstate(phy_dev, dev);
+ 	return 0;
+ 
 -- 
 2.7.0.rc3.207.g0ac5344
