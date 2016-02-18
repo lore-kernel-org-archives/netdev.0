@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 07/12] net/mlx5e: Wake On LAN support
-Date: Thu, 18 Feb 2016 12:32:48 +0200
-Message-ID: <1455791573-5270-8-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 04/12] net/mlx5e: Support DCBNL IEEE ETS
+Date: Thu, 18 Feb 2016 12:32:45 +0200
+Message-ID: <1455791573-5270-5-git-send-email-saeedm@mellanox.com>
 References: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -13,355 +13,537 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:34159 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:34152 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1945987AbcBRKlw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2016 05:41:52 -0500
+	id S1945981AbcBRKlv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 05:41:51 -0500
 In-Reply-To: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
+Support the ndo_setup_tc callback and the needed methods
+for multi TC/UP support, and removed the default_vlan_prio
+from mlx5e_priv which is always 0, it was replaced with
+hardcoded "0" in the new select queue method.
 
-Implement set/get WOL by ethtool and added the needed
-device commands and structures to mlx5_ifc.
+For that we now create MAX_NUM_TC num of TISs (one per prio)
+on netdevice creation instead of priv->params.num_tc which
+was always 1.
 
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Signed-off-by: Rana Shahout <ranas@mellanox.com>
+So far each channel had a single TXQ, Now each channel has a
+TXQ per TC (Traffic Class).
+
+Added en_dcbnl.c which implements the set/get DCBNL IEEE ETS,
+set/get dcbx and registers the mlx5e dcbnl ops.
+
+We still use the kernel's default TXQ selection method to select the
+channel to transmit through but now we use our own method to select
+the TXQ inside the channel based on VLAN priority.
+
+In mlx5, as opposed to mlx4, tc group N gets lower priority than
+tc group N+1.
+
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Rana Shahout <ranas@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |    6 +
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  125 ++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/port.c     |   38 ++++++
- include/linux/mlx5/device.h                        |   11 ++
- include/linux/mlx5/mlx5_ifc.h                      |   62 ++++++++++-
- include/linux/mlx5/port.h                          |    2 +
- 6 files changed, 243 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |   12 ++
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    3 +
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   15 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c |  184 ++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   92 +++++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |    8 +-
+ 6 files changed, 301 insertions(+), 13 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index 037fc4c..9ce87c6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -560,6 +560,12 @@ const char *mlx5_command_str(int command)
- 	case MLX5_CMD_OP_ACCESS_REG:
- 		return "MLX5_CMD_OP_ACCESS_REG";
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+index c503ea0..1cf722e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+@@ -19,3 +19,15 @@ config MLX5_CORE_EN
+ 	  Ethernet support in Mellanox Technologies ConnectX-4 NIC.
+ 	  Ethernet and Infiniband support in ConnectX-4 are currently mutually
+ 	  exclusive.
++
++config MLX5_CORE_EN_DCB
++	bool "Data Center Bridging (DCB) Support"
++	default y
++	depends on MLX5_CORE_EN && DCB
++	---help---
++	  Say Y here if you want to use Data Center Bridging (DCB) in the
++	  driver.
++	  If set to N, will not be able to configure QoS and ratelimit attributes.
++	  This flag is depended on the kernel's DCB support.
++
++	  If unsure, set to Y
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 01c0256..1a82e23 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -3,6 +3,9 @@ obj-$(CONFIG_MLX5_CORE)		+= mlx5_core.o
+ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ 		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o   \
+ 		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o
++
+ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o \
+ 		en_main.o en_fs.o en_ethtool.o en_tx.o en_rx.o \
+ 		en_txrx.o en_clock.o
++
++mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 15f6cdb..dfbc4e5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -70,6 +70,11 @@
  
-+	case MLX5_CMD_OP_SET_WOL_ROL:
-+		return "SET_WOL_ROL";
+ #define MLX5E_NUM_MAIN_GROUPS 9
+ 
++#ifdef CONFIG_MLX5_CORE_EN_DCB
++#define MLX5E_MAX_BW_ALLOC 100 /* Max percentage of BW allocation */
++#define MLX5E_MIN_BW_ALLOC 1   /* Min percentage of BW allocation */
++#endif
 +
-+	case MLX5_CMD_OP_QUERY_WOL_ROL:
-+		return "QUERY_WOL_ROL";
-+
- 	default: return "unknown command opcode";
- 	}
+ static const char vport_strings[][ETH_GSTRING_LEN] = {
+ 	/* vport statistics */
+ 	"rx_packets",
+@@ -273,7 +278,6 @@ struct mlx5e_params {
+ 	u8  log_sq_size;
+ 	u8  log_rq_size;
+ 	u16 num_channels;
+-	u8  default_vlan_prio;
+ 	u8  num_tc;
+ 	u16 rx_cq_moderation_usec;
+ 	u16 rx_cq_moderation_pkts;
+@@ -286,6 +290,9 @@ struct mlx5e_params {
+ 	u8  rss_hfunc;
+ 	u8  toeplitz_hash_key[40];
+ 	u32 indirection_rqt[MLX5E_INDIR_RQT_SIZE];
++#ifdef CONFIG_MLX5_CORE_EN_DCB
++	struct ieee_ets ets;
++#endif
+ };
+ 
+ struct mlx5e_tstamp {
+@@ -506,7 +513,6 @@ struct mlx5e_flow_tables {
+ 
+ struct mlx5e_priv {
+ 	/* priv data path fields - start */
+-	int                        default_vlan_prio;
+ 	struct mlx5e_sq            **txq_to_sq_map;
+ 	int channeltc_to_txq_map[MLX5E_MAX_NUM_CHANNELS][MLX5E_MAX_NUM_TC];
+ 	/* priv data path fields - end */
+@@ -666,4 +672,9 @@ static inline int mlx5e_get_max_num_channels(struct mlx5_core_dev *mdev)
  }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 65624ac..e9760f8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -884,6 +884,129 @@ static int mlx5e_get_ts_info(struct net_device *dev,
+ 
+ extern const struct ethtool_ops mlx5e_ethtool_ops;
++#ifdef CONFIG_MLX5_CORE_EN_DCB
++extern const struct dcbnl_rtnl_ops mlx5e_dcbnl_ops;
++int mlx5e_dcbnl_ieee_setets_core(struct mlx5e_priv *priv, struct ieee_ets *ets);
++#endif
++
+ u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
+new file mode 100644
+index 0000000..402d032
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
+@@ -0,0 +1,184 @@
++/*
++ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++#include <linux/device.h>
++#include <linux/netdevice.h>
++#include "en.h"
++
++#define MLX5E_MAX_PRIORITY 8
++
++static int mlx5e_dcbnl_ieee_getets(struct net_device *netdev,
++				   struct ieee_ets *ets)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++
++	memcpy(ets, &priv->params.ets, sizeof(*ets));
++	return 0;
++}
++
++enum {
++	MLX5E_VENDOR_TC_GROUP_NUM = 7,
++	MLX5E_ETS_TC_GROUP_NUM    = 0,
++};
++
++static void mlx5e_build_tc_group(struct ieee_ets *ets, u8 *tc_group, int max_tc)
++{
++	bool any_tc_mapped_to_ets = false;
++	int strict_group;
++	int i;
++
++	for (i = 0; i <= max_tc; i++)
++		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_ETS)
++			any_tc_mapped_to_ets = true;
++
++	strict_group = any_tc_mapped_to_ets ? 1 : 0;
++
++	for (i = 0; i <= max_tc; i++) {
++		switch (ets->tc_tsa[i]) {
++		case IEEE_8021QAZ_TSA_VENDOR:
++			tc_group[i] = MLX5E_VENDOR_TC_GROUP_NUM;
++			break;
++		case IEEE_8021QAZ_TSA_STRICT:
++			tc_group[i] = strict_group++;
++			break;
++		case IEEE_8021QAZ_TSA_ETS:
++			tc_group[i] = MLX5E_ETS_TC_GROUP_NUM;
++			break;
++		}
++	}
++}
++
++static void mlx5e_build_tc_tx_bw(struct ieee_ets *ets, u8 *tc_tx_bw,
++				 u8 *tc_group, int max_tc)
++{
++	int i;
++
++	for (i = 0; i <= max_tc; i++) {
++		switch (ets->tc_tsa[i]) {
++		case IEEE_8021QAZ_TSA_VENDOR:
++			tc_tx_bw[i] = MLX5E_MAX_BW_ALLOC;
++			break;
++		case IEEE_8021QAZ_TSA_STRICT:
++			tc_tx_bw[i] = MLX5E_MAX_BW_ALLOC;
++			break;
++		case IEEE_8021QAZ_TSA_ETS:
++			tc_tx_bw[i] = ets->tc_tx_bw[i] ?: MLX5E_MIN_BW_ALLOC;
++			break;
++		}
++	}
++}
++
++int mlx5e_dcbnl_ieee_setets_core(struct mlx5e_priv *priv, struct ieee_ets *ets)
++{
++	struct mlx5_core_dev *mdev = priv->mdev;
++	u8 tc_tx_bw[IEEE_8021QAZ_MAX_TCS];
++	u8 tc_group[IEEE_8021QAZ_MAX_TCS];
++	int max_tc = mlx5_max_tc(mdev);
++	int err;
++
++	mlx5e_build_tc_group(ets, tc_group, max_tc);
++	mlx5e_build_tc_tx_bw(ets, tc_tx_bw, tc_group, max_tc);
++
++	err = mlx5_set_port_prio_tc(mdev, ets->prio_tc);
++	if (err)
++		return err;
++
++	err = mlx5_set_port_tc_group(mdev, tc_group);
++	if (err)
++		return err;
++
++	return mlx5_set_port_tc_bw_alloc(mdev, tc_tx_bw);
++}
++
++static int mlx5e_dbcnl_validate_ets(struct ieee_ets *ets)
++{
++	int bw_sum = 0;
++	int i;
++
++	/* Validate Priority */
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
++		if (ets->prio_tc[i] >= MLX5E_MAX_PRIORITY)
++			return -EINVAL;
++	}
++
++	/* Validate Bandwidth Sum */
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
++		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_ETS)
++			bw_sum += ets->tc_tx_bw[i];
++	}
++
++	if (bw_sum != 0 && bw_sum != 100)
++		return -EINVAL;
++	return 0;
++}
++
++static int mlx5e_dcbnl_ieee_setets(struct net_device *netdev,
++				   struct ieee_ets *ets)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++	int err;
++
++	err = mlx5e_dbcnl_validate_ets(ets);
++	if (err)
++		return err;
++
++	err = mlx5e_dcbnl_ieee_setets_core(priv, ets);
++	if (err)
++		return err;
++
++	memcpy(&priv->params.ets, ets, sizeof(*ets));
++	priv->params.ets.ets_cap = mlx5_max_tc(priv->mdev) + 1;
++
++	return 0;
++}
++
++static u8 mlx5e_dcbnl_getdcbx(struct net_device *dev)
++{
++	return DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_IEEE;
++}
++
++static u8 mlx5e_dcbnl_setdcbx(struct net_device *dev, u8 mode)
++{
++	if ((mode & DCB_CAP_DCBX_LLD_MANAGED) ||
++	    (mode & DCB_CAP_DCBX_VER_CEE) ||
++	    !(mode & DCB_CAP_DCBX_VER_IEEE) ||
++	    !(mode & DCB_CAP_DCBX_HOST))
++		return 1;
++
++	return 0;
++}
++
++const struct dcbnl_rtnl_ops mlx5e_dcbnl_ops = {
++	.ieee_getets	= mlx5e_dcbnl_ieee_getets,
++	.ieee_setets	= mlx5e_dcbnl_ieee_setets,
++	.getdcbx	= mlx5e_dcbnl_getdcbx,
++	.setdcbx	= mlx5e_dcbnl_setdcbx,
++};
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index d4e1c30..edfae98 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1400,6 +1400,24 @@ static int mlx5e_set_dev_port_mtu(struct net_device *netdev)
  	return 0;
  }
  
-+static __u32 mlx5e_get_wol_supported(struct mlx5_core_dev *mdev)
-+{
-+	__u32 ret = 0;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_g))
-+		ret |= WAKE_MAGIC;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_s))
-+		ret |= WAKE_MAGICSECURE;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_a))
-+		ret |= WAKE_ARP;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_b))
-+		ret |= WAKE_BCAST;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_m))
-+		ret |= WAKE_MCAST;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_u))
-+		ret |= WAKE_UCAST;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_p))
-+		ret |= WAKE_PHY;
-+
-+	return ret;
-+}
-+
-+static __u32 mlx5e_refomrat_wol_mode_mlx5_to_linux(u8 mode)
-+{
-+	__u32 ret = 0;
-+
-+	if (mode & MLX5_WOL_MAGIC)
-+		ret |= WAKE_MAGIC;
-+
-+	if (mode & MLX5_WOL_SECURED_MAGIC)
-+		ret |= WAKE_MAGICSECURE;
-+
-+	if (mode & MLX5_WOL_ARP)
-+		ret |= WAKE_ARP;
-+
-+	if (mode & MLX5_WOL_BROADCAST)
-+		ret |= WAKE_BCAST;
-+
-+	if (mode & MLX5_WOL_MULTICAST)
-+		ret |= WAKE_MCAST;
-+
-+	if (mode & MLX5_WOL_UNICAST)
-+		ret |= WAKE_UCAST;
-+
-+	if (mode & MLX5_WOL_PHY_ACTIVITY)
-+		ret |= WAKE_PHY;
-+
-+	return ret;
-+}
-+
-+static u8 mlx5e_refomrat_wol_mode_linux_to_mlx5(__u32 mode)
-+{
-+	u8 ret = 0;
-+
-+	if (mode & WAKE_MAGIC)
-+		ret |= MLX5_WOL_MAGIC;
-+
-+	if (mode & WAKE_MAGICSECURE)
-+		ret |= MLX5_WOL_SECURED_MAGIC;
-+
-+	if (mode & WAKE_ARP)
-+		ret |= MLX5_WOL_ARP;
-+
-+	if (mode & WAKE_BCAST)
-+		ret |= MLX5_WOL_BROADCAST;
-+
-+	if (mode & WAKE_MCAST)
-+		ret |= MLX5_WOL_MULTICAST;
-+
-+	if (mode & WAKE_UCAST)
-+		ret |= MLX5_WOL_UNICAST;
-+
-+	if (mode & WAKE_PHY)
-+		ret |= MLX5_WOL_PHY_ACTIVITY;
-+
-+	return ret;
-+}
-+
-+static void mlx5e_get_wol(struct net_device *netdev,
-+			  struct ethtool_wolinfo *wol)
++static void mlx5e_netdev_set_tcs(struct net_device *netdev)
 +{
 +	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	u8 mlx5_wol_mode;
-+	int err;
++	int nch = priv->params.num_channels;
++	int ntc = priv->params.num_tc;
++	int tc;
 +
-+	memset(wol, 0, sizeof(*wol));
++	netdev_reset_tc(netdev);
 +
-+	wol->supported = mlx5e_get_wol_supported(mdev);
-+	if (!wol->supported)
++	if (ntc == 1)
 +		return;
 +
-+	err = mlx5_query_port_wol(mdev, &mlx5_wol_mode);
-+	if (err)
-+		return;
++	netdev_set_num_tc(netdev, ntc);
 +
-+	wol->wolopts = mlx5e_refomrat_wol_mode_mlx5_to_linux(mlx5_wol_mode);
++	for (tc = 0; tc < ntc; tc++)
++		netdev_set_tc_queue(netdev, tc, nch, tc * nch);
 +}
 +
-+static int mlx5e_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ int mlx5e_open_locked(struct net_device *netdev)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+@@ -1408,6 +1426,8 @@ int mlx5e_open_locked(struct net_device *netdev)
+ 
+ 	set_bit(MLX5E_STATE_OPENED, &priv->state);
+ 
++	mlx5e_netdev_set_tcs(netdev);
++
+ 	num_txqs = priv->params.num_channels * priv->params.num_tc;
+ 	netif_set_real_num_tx_queues(netdev, num_txqs);
+ 	netif_set_real_num_rx_queues(netdev, priv->params.num_channels);
+@@ -1602,7 +1622,7 @@ static int mlx5e_create_tis(struct mlx5e_priv *priv, int tc)
+ 
+ 	memset(in, 0, sizeof(in));
+ 
+-	MLX5_SET(tisc, tisc, prio,  tc);
++	MLX5_SET(tisc, tisc, prio, tc << 1);
+ 	MLX5_SET(tisc, tisc, transport_domain, priv->tdn);
+ 
+ 	return mlx5_core_create_tis(mdev, in, sizeof(in), &priv->tisn[tc]);
+@@ -1618,7 +1638,7 @@ static int mlx5e_create_tises(struct mlx5e_priv *priv)
+ 	int err;
+ 	int tc;
+ 
+-	for (tc = 0; tc < priv->params.num_tc; tc++) {
++	for (tc = 0; tc < MLX5E_MAX_NUM_TC; tc++) {
+ 		err = mlx5e_create_tis(priv, tc);
+ 		if (err)
+ 			goto err_close_tises;
+@@ -1637,7 +1657,7 @@ static void mlx5e_destroy_tises(struct mlx5e_priv *priv)
+ {
+ 	int tc;
+ 
+-	for (tc = 0; tc < priv->params.num_tc; tc++)
++	for (tc = 0; tc < MLX5E_MAX_NUM_TC; tc++)
+ 		mlx5e_destroy_tis(priv, tc);
+ }
+ 
+@@ -1824,6 +1844,31 @@ static void mlx5e_destroy_tirs(struct mlx5e_priv *priv)
+ 		mlx5e_destroy_tir(priv, i);
+ }
+ 
++static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
 +{
 +	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	__u32 wol_supported = mlx5e_get_wol_supported(mdev);
-+	u32 mlx5_wol_mode;
++	bool was_opened;
++	int err = 0;
 +
-+	if (!wol_supported)
-+		return -ENOTSUPP;
-+
-+	if (wol->wolopts & ~wol_supported)
++	if (tc && tc != MLX5E_MAX_NUM_TC)
 +		return -EINVAL;
 +
-+	mlx5_wol_mode = mlx5e_refomrat_wol_mode_linux_to_mlx5(wol->wolopts);
++	mutex_lock(&priv->state_lock);
 +
-+	return mlx5_set_port_wol(mdev, mlx5_wol_mode);
-+}
++	was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
++	if (was_opened)
++		mlx5e_close_locked(priv->netdev);
 +
- const struct ethtool_ops mlx5e_ethtool_ops = {
- 	.get_drvinfo       = mlx5e_get_drvinfo,
- 	.get_link          = ethtool_op_get_link,
-@@ -908,4 +1031,6 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
- 	.get_pauseparam    = mlx5e_get_pauseparam,
- 	.set_pauseparam    = mlx5e_set_pauseparam,
- 	.get_ts_info       = mlx5e_get_ts_info,
-+	.get_wol	   = mlx5e_get_wol,
-+	.set_wol	   = mlx5e_set_wol,
- };
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index cff1798..19571de 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -541,3 +541,41 @@ int mlx5_query_port_ets_rate_limit(struct mlx5_core_dev *mdev,
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx5_query_port_ets_rate_limit);
++	priv->params.num_tc = tc ? tc : 1;
 +
-+int mlx5_set_port_wol(struct mlx5_core_dev *mdev, u8 wol_mode)
-+{
-+	u32 in[MLX5_ST_SZ_DW(set_wol_rol_in)];
-+	u32 out[MLX5_ST_SZ_DW(set_wol_rol_out)];
++	if (was_opened)
++		err = mlx5e_open_locked(priv->netdev);
 +
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+	MLX5_SET(set_wol_rol_in, in, opcode, MLX5_CMD_OP_SET_WOL_ROL);
-+	MLX5_SET(set_wol_rol_in, in, wol_mode_valid, 1);
-+	MLX5_SET(set_wol_rol_in, in, wol_mode, wol_mode);
-+
-+	return mlx5_cmd_exec_check_status(mdev, in, sizeof(in),
-+					  out, sizeof(out));
-+}
-+EXPORT_SYMBOL_GPL(mlx5_set_port_wol);
-+
-+int mlx5_query_port_wol(struct mlx5_core_dev *mdev, u8 *wol_mode)
-+{
-+	u32 in[MLX5_ST_SZ_DW(query_wol_rol_in)];
-+	u32 out[MLX5_ST_SZ_DW(query_wol_rol_out)];
-+	int err;
-+
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+	MLX5_SET(query_wol_rol_in, in, opcode, MLX5_CMD_OP_QUERY_WOL_ROL);
-+
-+	err = mlx5_cmd_exec_check_status(mdev, in, sizeof(in),
-+					 out, sizeof(out));
-+
-+	if (!err)
-+		*wol_mode = MLX5_GET(query_wol_rol_out, out, wol_mode);
++	mutex_unlock(&priv->state_lock);
 +
 +	return err;
 +}
-+EXPORT_SYMBOL_GPL(mlx5_query_port_wol);
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index bfc1ab0..68a56bc 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -1183,6 +1183,17 @@ enum {
- 	MLX5_RQC_RQ_TYPE_MEMORY_RQ_RPM    = 0x1,
- };
++
+ static struct rtnl_link_stats64 *
+ mlx5e_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ {
+@@ -2028,6 +2073,8 @@ static const struct net_device_ops mlx5e_netdev_ops_basic = {
+ 	.ndo_open                = mlx5e_open,
+ 	.ndo_stop                = mlx5e_close,
+ 	.ndo_start_xmit          = mlx5e_xmit,
++	.ndo_setup_tc            = mlx5e_setup_tc,
++	.ndo_select_queue        = mlx5e_select_queue,
+ 	.ndo_get_stats64         = mlx5e_get_stats,
+ 	.ndo_set_rx_mode         = mlx5e_set_rx_mode,
+ 	.ndo_set_mac_address     = mlx5e_set_mac,
+@@ -2042,6 +2089,8 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
+ 	.ndo_open                = mlx5e_open,
+ 	.ndo_stop                = mlx5e_close,
+ 	.ndo_start_xmit          = mlx5e_xmit,
++	.ndo_setup_tc            = mlx5e_setup_tc,
++	.ndo_select_queue        = mlx5e_select_queue,
+ 	.ndo_get_stats64         = mlx5e_get_stats,
+ 	.ndo_set_rx_mode         = mlx5e_set_rx_mode,
+ 	.ndo_set_mac_address     = mlx5e_set_mac,
+@@ -2089,6 +2138,24 @@ u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev)
+ 	       2 /*sizeof(mlx5e_tx_wqe.inline_hdr_start)*/;
+ }
  
-+enum mlx5_wol_mode {
-+	MLX5_WOL_DISABLE        = 0,
-+	MLX5_WOL_SECURED_MAGIC  = 1 << 1,
-+	MLX5_WOL_MAGIC          = 1 << 2,
-+	MLX5_WOL_ARP            = 1 << 3,
-+	MLX5_WOL_BROADCAST      = 1 << 4,
-+	MLX5_WOL_MULTICAST      = 1 << 5,
-+	MLX5_WOL_UNICAST        = 1 << 6,
-+	MLX5_WOL_PHY_ACTIVITY   = 1 << 7,
-+};
++#ifdef CONFIG_MLX5_CORE_EN_DCB
++static void mlx5e_ets_init(struct mlx5e_priv *priv)
++{
++	int i;
 +
- /* MLX5 DEV CAPs */
++	priv->params.ets.ets_cap = mlx5_max_tc(priv->mdev) + 1;
++	for (i = 0; i < priv->params.ets.ets_cap; i++) {
++		priv->params.ets.tc_tx_bw[i] = MLX5E_MAX_BW_ALLOC;
++		priv->params.ets.tc_tsa[i] = IEEE_8021QAZ_TSA_VENDOR;
++		priv->params.ets.prio_tc[i] = i;
++	}
++
++	/* tclass[prio=0]=1, tclass[prio=1]=0, tclass[prio=i]=i (for i>1) */
++	priv->params.ets.prio_tc[0] = 1;
++	priv->params.ets.prio_tc[1] = 0;
++}
++#endif
++
+ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
+ 				    struct net_device *netdev,
+ 				    int num_channels)
+@@ -2112,7 +2179,6 @@ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
+ 	priv->params.min_rx_wqes           =
+ 		MLX5E_PARAMS_DEFAULT_MIN_RX_WQES;
+ 	priv->params.num_tc                = 1;
+-	priv->params.default_vlan_prio     = 0;
+ 	priv->params.rss_hfunc             = ETH_RSS_HASH_XOR;
  
- /* TODO: EAT.ME */
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index ecbdbbf..26f2964 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -166,6 +166,8 @@ enum {
- 	MLX5_CMD_OP_SET_L2_TABLE_ENTRY            = 0x829,
- 	MLX5_CMD_OP_QUERY_L2_TABLE_ENTRY          = 0x82a,
- 	MLX5_CMD_OP_DELETE_L2_TABLE_ENTRY         = 0x82b,
-+	MLX5_CMD_OP_SET_WOL_ROL                   = 0x830,
-+	MLX5_CMD_OP_QUERY_WOL_ROL                 = 0x831,
- 	MLX5_CMD_OP_CREATE_TIR                    = 0x900,
- 	MLX5_CMD_OP_MODIFY_TIR                    = 0x901,
- 	MLX5_CMD_OP_DESTROY_TIR                   = 0x902,
-@@ -731,7 +733,17 @@ struct mlx5_ifc_cmd_hca_cap_bits {
- 	u8         log_max_msg[0x5];
- 	u8         reserved_at_1c7[0x4];
- 	u8         max_tc[0x4];
--	u8         reserved_at_1cf[0x10];
-+	u8         reserved_at_1cf[0x6];
-+	u8         rol_s[0x1];
-+	u8         rol_g[0x1];
-+	u8         reserved_at_1d7[0x1];
-+	u8         wol_s[0x1];
-+	u8         wol_g[0x1];
-+	u8         wol_a[0x1];
-+	u8         wol_b[0x1];
-+	u8         wol_m[0x1];
-+	u8         wol_u[0x1];
-+	u8         wol_p[0x1];
+ 	netdev_rss_key_fill(priv->params.toeplitz_hash_key,
+@@ -2127,7 +2193,10 @@ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
+ 	priv->mdev                         = mdev;
+ 	priv->netdev                       = netdev;
+ 	priv->params.num_channels          = num_channels;
+-	priv->default_vlan_prio            = priv->params.default_vlan_prio;
++
++#ifdef CONFIG_MLX5_CORE_EN_DCB
++	mlx5e_ets_init(priv);
++#endif
  
- 	u8         stat_rate_support[0x10];
- 	u8         reserved_at_1ef[0xc];
-@@ -6873,6 +6885,54 @@ struct mlx5_ifc_mtt_bits {
- 	u8         rd_en[0x1];
- };
+ 	spin_lock_init(&priv->async_events_spinlock);
+ 	mutex_init(&priv->state_lock);
+@@ -2164,6 +2233,9 @@ static void mlx5e_build_netdev(struct net_device *netdev)
+ 	netdev->watchdog_timeo    = 15 * HZ;
  
-+struct mlx5_ifc_query_wol_rol_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x10];
-+	u8         rol_mode[0x8];
-+	u8         wol_mode[0x8];
-+
-+	u8         reserved_at_60[0x20];
-+};
-+
-+struct mlx5_ifc_query_wol_rol_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         reserved_at_40[0x40];
-+};
-+
-+struct mlx5_ifc_set_wol_rol_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x40];
-+};
-+
-+struct mlx5_ifc_set_wol_rol_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         rol_mode_valid[0x1];
-+	u8         wol_mode_valid[0x1];
-+	u8         reserved_at_42[0xe];
-+	u8         rol_mode[0x8];
-+	u8         wol_mode[0x8];
-+
-+	u8         reserved_at_60[0x20];
-+};
-+
- enum {
- 	MLX5_INITIAL_SEG_NIC_INTERFACE_FULL_DRIVER  = 0x0,
- 	MLX5_INITIAL_SEG_NIC_INTERFACE_DISABLED     = 0x1,
-diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
-index 595c7b2..a1d145a 100644
---- a/include/linux/mlx5/port.h
-+++ b/include/linux/mlx5/port.h
-@@ -81,5 +81,7 @@ int mlx5_modify_port_ets_rate_limit(struct mlx5_core_dev *mdev,
- int mlx5_query_port_ets_rate_limit(struct mlx5_core_dev *mdev,
- 				   u8 *max_bw_value,
- 				   u8 *max_bw_unit);
-+int mlx5_set_port_wol(struct mlx5_core_dev *mdev, u8 wol_mode);
-+int mlx5_query_port_wol(struct mlx5_core_dev *mdev, u8 *wol_mode);
+ 	netdev->ethtool_ops	  = &mlx5e_ethtool_ops;
++#ifdef CONFIG_MLX5_CORE_EN_DCB
++	netdev->dcbnl_ops	  = &mlx5e_dcbnl_ops;
++#endif
  
- #endif /* __MLX5_PORT_H__ */
+ 	netdev->vlan_features    |= NETIF_F_SG;
+ 	netdev->vlan_features    |= NETIF_F_IP_CSUM;
+@@ -2228,7 +2300,9 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
+ 	if (mlx5e_check_required_hca_cap(mdev))
+ 		return NULL;
+ 
+-	netdev = alloc_etherdev_mqs(sizeof(struct mlx5e_priv), nch, nch);
++	netdev = alloc_etherdev_mqs(sizeof(struct mlx5e_priv),
++				    nch * MLX5E_MAX_NUM_TC,
++				    nch);
+ 	if (!netdev) {
+ 		mlx5_core_err(mdev, "alloc_etherdev_mqs() failed\n");
+ 		return NULL;
+@@ -2241,6 +2315,12 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
+ 
+ 	priv = netdev_priv(netdev);
+ 
++#ifdef CONFIG_MLX5_CORE_EN_DCB
++	err = mlx5e_dcbnl_ieee_setets_core(priv, &priv->params.ets);
++	if (err)
++		goto err_free_netdev;
++#endif
++
+ 	err = mlx5_alloc_map_uar(mdev, &priv->cq_uar);
+ 	if (err) {
+ 		mlx5_core_err(mdev, "alloc_map uar failed, %d\n", err);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 2c3fba0..00d855a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -109,12 +109,10 @@ u16 mlx5e_select_queue(struct net_device *dev, struct sk_buff *skb,
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 	int channel_ix = fallback(dev, skb);
+-	int up = skb_vlan_tag_present(skb)        ?
+-		 skb->vlan_tci >> VLAN_PRIO_SHIFT :
+-		 priv->default_vlan_prio;
+-	int tc = netdev_get_prio_tc_map(dev, up);
++	int up = (netdev_get_num_tc(dev) && skb_vlan_tag_present(skb)) ?
++		 skb->vlan_tci >> VLAN_PRIO_SHIFT : 0;
+ 
+-	return priv->channeltc_to_txq_map[channel_ix][tc];
++	return priv->channeltc_to_txq_map[channel_ix][up];
+ }
+ 
+ static inline u16 mlx5e_get_inline_hdr_size(struct mlx5e_sq *sq,
 -- 
 1.7.1
