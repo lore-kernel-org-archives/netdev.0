@@ -1,91 +1,106 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: pull-request: wireless-drivers 2016-02-18
-Date: Thu, 18 Feb 2016 17:28:14 +0200
-Message-ID: <87mvqyqbqp.fsf@kamboji.qca.qualcomm.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next V1 04/12] net/mlx5e: Support DCBNL IEEE ETS
+Date: Thu, 18 Feb 2016 07:30:03 -0800
+Message-ID: <56C5E37B.20207@gmail.com>
+References: <1455791573-5270-1-git-send-email-saeedm@mellanox.com> <1455791573-5270-5-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Rana Shahout <ranas@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Matthew Finlay <matt@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:34601 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1424370AbcBRPaT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 10:30:19 -0500
+Received: by mail-pf0-f172.google.com with SMTP id x65so33182867pfb.1
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 07:30:18 -0800 (PST)
+In-Reply-To: <1455791573-5270-5-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On 16-02-18 02:32 AM, Saeed Mahameed wrote:
+> Support the ndo_setup_tc callback and the needed methods
+> for multi TC/UP support, and removed the default_vlan_prio
+> from mlx5e_priv which is always 0, it was replaced with
+> hardcoded "0" in the new select queue method.
+> 
+> For that we now create MAX_NUM_TC num of TISs (one per prio)
+> on netdevice creation instead of priv->params.num_tc which
+> was always 1.
+> 
+> So far each channel had a single TXQ, Now each channel has a
+> TXQ per TC (Traffic Class).
+> 
+> Added en_dcbnl.c which implements the set/get DCBNL IEEE ETS,
+> set/get dcbx and registers the mlx5e dcbnl ops.
+> 
+> We still use the kernel's default TXQ selection method to select the
+> channel to transmit through but now we use our own method to select
+> the TXQ inside the channel based on VLAN priority.
+> 
+> In mlx5, as opposed to mlx4, tc group N gets lower priority than
+> tc group N+1.
+> 
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+> Signed-off-by: Rana Shahout <ranas@mellanox.com>
+> ---
 
-I have some important fixes I would like to get 4.5 still, more info in
-the signed tag. Please let me know if you have problems.
 
-Kalle
+[...]
 
-The following changes since commit f9ead9beef3f44be0db4b542a8c2ce698fb1530e:
+>  
+> +static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
+> +{
+> +	struct mlx5e_priv *priv = netdev_priv(netdev);
+> +	bool was_opened;
+> +	int err = 0;
+> +
+> +	if (tc && tc != MLX5E_MAX_NUM_TC)
+> +		return -EINVAL;
+> +
+> +	mutex_lock(&priv->state_lock);
+> +
+> +	was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
+> +	if (was_opened)
+> +		mlx5e_close_locked(priv->netdev);
+> +
+> +	priv->params.num_tc = tc ? tc : 1;
+> +
+> +	if (was_opened)
+> +		err = mlx5e_open_locked(priv->netdev);
+> +
+> +	mutex_unlock(&priv->state_lock);
+> +
+> +	return err;
+> +}
+> +
 
-  Merge tag 'iwlwifi-for-kalle-2016-01-26_2' of https://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2016-01-27 14:19:18 +0200)
+Hi Saeed,
 
-are available in the git repository at:
+I just changed the signature on the setup_tc ndo hook so you will
+need to change this to something like,
+
+static int __mlx5e_setup_tc(struct net_device *dev, u32 handle,
+			    __be16 proto, struct tc_to_netdev *tc)
+{
+	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
+		return -EINVAL;
+	return mlx5e_setup_tc(dev, tc->tc)
+}
 
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2016-02-18
+and then use __mlx5e_setup_tc() to populate the ndo op hook. If you
+look at the mlx4 drivers I did this change there already.
 
-for you to fetch changes up to c699404db182836498bd9d9a36ef044de2cab4fd:
+Other than that nice to see another dcb supporting driver.
 
-  Merge tag 'iwlwifi-for-kalle-2016-02-15' of https://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2016-02-16 17:58:30 +0200)
-
-----------------------------------------------------------------
-
-rtlwifi
-
-* fix broken VHT (802.11ac) support, reported by Linus
-
-wlcore
-
-* fix firmware initialisation regression on wl1271
-
-iwlwifi
-
-* fix a race that users reported when we try to load the firmware
-  and the hardware rfkill interrupt triggers at the same time
-* fix a very visible bug in scheduled scan: the firmware
-  doesn't support scheduled scan with no profile configured and
-  the supplicant sometimes requests such scheduled scans
-* build system fix to be able to link iwlwifi statically into kernel
-* firmware name update for 8265
-* typo fix in return value
-
-----------------------------------------------------------------
-Anton Protopopov (1):
-      iwlwifi: pcie: fix erroneous return value
-
-Emil Goode (1):
-      wlcore: Fix regression in wlcore_set_partition()
-
-Emmanuel Grumbach (2):
-      iwlwifi: dvm: remove a wrong dependency on m
-      iwlwifi: pcie: fix RF-Kill vs. firmware load race
-
-Kalle Valo (1):
-      Merge tag 'iwlwifi-for-kalle-2016-02-15' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
-
-Larry Finger (1):
-      rtlwifi: fix broken VHT support
-
-Luca Coelho (1):
-      iwlwifi: mvm: don't allow sched scans without matches to be started
-
-Oren Givon (1):
-      iwlwifi: fix name of ucode loaded for 8265 series
-
- drivers/net/wireless/intel/iwlwifi/Kconfig         |    1 -
- drivers/net/wireless/intel/iwlwifi/iwl-8000.c      |   42 ++++-
- drivers/net/wireless/intel/iwlwifi/iwl-drv.c       |    6 +-
- drivers/net/wireless/intel/iwlwifi/mvm/scan.c      |    4 +
- drivers/net/wireless/intel/iwlwifi/pcie/internal.h |    9 +
- drivers/net/wireless/intel/iwlwifi/pcie/rx.c       |    8 +-
- drivers/net/wireless/intel/iwlwifi/pcie/trans.c    |  188 ++++++++++++--------
- drivers/net/wireless/realtek/rtlwifi/rc.c          |    5 +
- drivers/net/wireless/ti/wlcore/io.c                |    8 +-
- drivers/net/wireless/ti/wlcore/io.h                |    4 +-
- 10 files changed, 175 insertions(+), 100 deletions(-)
-
--- 
-Kalle Valo
+Thanks,
+John
