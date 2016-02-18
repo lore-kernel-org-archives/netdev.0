@@ -1,113 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] i40e: clean event descriptor before use
-Date: Thu, 18 Feb 2016 01:04:10 -0800
-Message-ID: <1455786252-71881-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/15] i40e: trivial: cleanup use of pf->hw
+Date: Thu, 18 Feb 2016 01:04:01 -0800
+Message-ID: <1455786252-71881-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455786252-71881-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:39536 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:14291 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1425570AbcBRJEg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2016 04:04:36 -0500
+	id S1425669AbcBRJEV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 04:04:21 -0500
 In-Reply-To: <1455786252-71881-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-In one obscure corner case, it was possible to clear the NVM update wait
-flag when no update_done message was actually received.  This patch
-cleans the event descriptor before use, and moves the opcode check to
-where it won't get done if there was no event to clean.
+This patch makes use of a pointer called hw consistent
+in the i40e_remove function.
 
-Also update copyright year in file headers.
-
-Change-ID: I68bbc41965e93f4adf07cbe98b9dfd63d41509a4
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: Idacc7ff0a09a68289c57457a78618bf5497de077
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 20 +++++++++++---------
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c |  5 ++++-
- 2 files changed, 15 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 1fd5ea8..df8e2fd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
-  *
-  * Intel Ethernet Controller XL710 Family Linux Driver
-- * Copyright(c) 2013 - 2014 Intel Corporation.
-+ * Copyright(c) 2013 - 2016 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -953,6 +953,9 @@ i40e_status i40e_clean_arq_element(struct i40e_hw *hw,
- 	u16 flags;
- 	u16 ntu;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 8d41c6c..161603b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -11219,8 +11219,8 @@ static void i40e_remove(struct pci_dev *pdev)
+ 		i40e_vsi_release(pf->vsi[pf->lan_vsi]);
  
-+	/* pre-clean the event info */
-+	memset(&e->desc, 0, sizeof(e->desc));
-+
- 	/* take the lock before we start messing with the ring */
- 	mutex_lock(&hw->aq.arq_mutex);
- 
-@@ -1020,14 +1023,6 @@ i40e_status i40e_clean_arq_element(struct i40e_hw *hw,
- 	hw->aq.arq.next_to_clean = ntc;
- 	hw->aq.arq.next_to_use = ntu;
- 
--clean_arq_element_out:
--	/* Set pending if needed, unlock and return */
--	if (pending != NULL)
--		*pending = (ntc > ntu ? hw->aq.arq.count : 0) + (ntu - ntc);
--
--clean_arq_element_err:
--	mutex_unlock(&hw->aq.arq_mutex);
--
- 	if (i40e_is_nvm_update_op(&e->desc)) {
- 		if (hw->aq.nvm_release_on_done) {
- 			i40e_release_nvm(hw);
-@@ -1048,6 +1043,13 @@ clean_arq_element_err:
- 		}
+ 	/* shutdown and destroy the HMC */
+-	if (pf->hw.hmc.hmc_obj) {
+-		ret_code = i40e_shutdown_lan_hmc(&pf->hw);
++	if (hw->hmc.hmc_obj) {
++		ret_code = i40e_shutdown_lan_hmc(hw);
+ 		if (ret_code)
+ 			dev_warn(&pdev->dev,
+ 				 "Failed to destroy the HMC resources: %d\n",
+@@ -11228,7 +11228,7 @@ static void i40e_remove(struct pci_dev *pdev)
  	}
  
-+clean_arq_element_out:
-+	/* Set pending if needed, unlock and return */
-+	if (pending)
-+		*pending = (ntc > ntu ? hw->aq.arq.count : 0) + (ntu - ntc);
-+clean_arq_element_err:
-+	mutex_unlock(&hw->aq.arq_mutex);
-+
- 	return ret_code;
- }
+ 	/* shutdown the adminq */
+-	ret_code = i40e_shutdown_adminq(&pf->hw);
++	ret_code = i40e_shutdown_adminq(hw);
+ 	if (ret_code)
+ 		dev_warn(&pdev->dev,
+ 			 "Failed to destroy the Admin Queue resources: %d\n",
+@@ -11256,7 +11256,7 @@ static void i40e_remove(struct pci_dev *pdev)
+ 	kfree(pf->qp_pile);
+ 	kfree(pf->vsi);
  
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-index 3f65e39..44f7ed7 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
-  *
-  * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
-- * Copyright(c) 2013 - 2014 Intel Corporation.
-+ * Copyright(c) 2013 - 2016 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -887,6 +887,9 @@ i40e_status i40evf_clean_arq_element(struct i40e_hw *hw,
- 	u16 flags;
- 	u16 ntu;
- 
-+	/* pre-clean the event info */
-+	memset(&e->desc, 0, sizeof(e->desc));
-+
- 	/* take the lock before we start messing with the ring */
- 	mutex_lock(&hw->aq.arq_mutex);
- 
+-	iounmap(pf->hw.hw_addr);
++	iounmap(hw->hw_addr);
+ 	kfree(pf);
+ 	pci_release_selected_regions(pdev,
+ 				     pci_select_bars(pdev, IORESOURCE_MEM));
 -- 
 2.5.0
