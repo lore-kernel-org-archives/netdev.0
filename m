@@ -1,29 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv6: Annotate change of locking mechanism for np->opt
-Date: Thu, 18 Feb 2016 09:08:27 +0100
-Message-ID: <1455782907.648.6.camel@edumazet-ThinkPad-T530>
-References: <1455754833-31567-1-git-send-email-bpoirier@suse.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Benjamin Poirier <bpoirier@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455754833-31567-1-git-send-email-bpoirier@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/15] i40e: expand comment
+Date: Thu, 18 Feb 2016 01:04:07 -0800
+Message-ID: <1455786252-71881-11-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1455786252-71881-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:60482 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1425570AbcBRJES (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 04:04:18 -0500
+In-Reply-To: <1455786252-71881-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On mer., 2016-02-17 at 16:20 -0800, Benjamin Poirier wrote:
-> follows up commit 45f6fad84cc3 ("ipv6: add complete rcu protection around
-> np->opt") which added mixed rcu/refcount protection to np->opt.
-> 
-> Given the current implementation of rcu_pointer_handoff(), this has no
-> effect at runtime.
-> 
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
-> ---
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-LGTM
+Explain why we cannot remove this code, even though it works differently
+than any of our other interrupt cause handling code.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Change-ID: Ie66203bd037a466066036611c31d44f759ec5176
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 597f209..5dcd198 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2037,7 +2037,11 @@ int i40e_vc_process_vflr_event(struct i40e_pf *pf)
+ 	if (!test_bit(__I40E_VFLR_EVENT_PENDING, &pf->state))
+ 		return 0;
+ 
+-	/* re-enable vflr interrupt cause */
++	/* Re-enable the VFLR interrupt cause here, before looking for which
++	 * VF got reset. Otherwise, if another VF gets a reset while the
++	 * first one is being processed, that interrupt will be lost, and
++	 * that VF will be stuck in reset forever.
++	 */
+ 	reg = rd32(hw, I40E_PFINT_ICR0_ENA);
+ 	reg |= I40E_PFINT_ICR0_ENA_VFLR_MASK;
+ 	wr32(hw, I40E_PFINT_ICR0_ENA, reg);
+-- 
+2.5.0
