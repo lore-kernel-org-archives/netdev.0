@@ -1,62 +1,76 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next PATCH v2 1/1] net_sched fix: reclassification needs
- to consider ether protocol changes
-Date: Thu, 18 Feb 2016 12:53:15 +0100
-Message-ID: <56C5B0AB.8040802@iogearbox.net>
-References: <1455709055-30881-1-git-send-email-jhs@emojatatu.com>	<1455709055-30881-2-git-send-email-jhs@emojatatu.com> <CAM_iQpX+b7F87gx4PcEhs0xFA6KtUssJAQo7+Jo9g9kLcOfB6w@mail.gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH v3 3/8] net: sched: add cls_u32 offload hooks for
+ netdevs
+Date: Thu, 18 Feb 2016 07:14:24 -0500
+Message-ID: <56C5B5A0.7010305@mojatatu.com>
+References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
+ <20160217051709.17139.88337.stgit@john-Precision-Tower-5810>
+ <56C4528E.5090505@mojatatu.com> <56C48295.9030806@gmail.com>
+ <56C4FD2B.9000009@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
+To: John Fastabend <john.fastabend@gmail.com>, jiri@resnulli.us,
+	amir@vadai.me, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57459 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1425548AbcBRLxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 06:53:20 -0500
-In-Reply-To: <CAM_iQpX+b7F87gx4PcEhs0xFA6KtUssJAQo7+Jo9g9kLcOfB6w@mail.gmail.com>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:34063 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1425638AbcBRMO1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 07:14:27 -0500
+Received: by mail-ig0-f180.google.com with SMTP id g6so12116125igt.1
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 04:14:27 -0800 (PST)
+In-Reply-To: <56C4FD2B.9000009@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/17/2016 06:27 PM, Cong Wang wrote:
-> On Wed, Feb 17, 2016 at 3:37 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>
->> actions could change the etherproto in particular with ethernet
->> tunnelled data. Typically such actions, after peeling the outer header,
->> will ask for the packet to be  reclassified. We then need to restart
->> the classification with the new proto header.
->>
->> Example setup used to catch this:
->> sudo tc qdisc add dev $ETH ingress
->> sudo $TC filter add dev $ETH parent ffff: pref 1 protocol 802.1Q \
->> u32 match u32 0 0 flowid 1:1 \
->> action  vlan pop reclassify
->>
->> Fixes: 3b3ae880266d ("net: sched: consolidate tc_classify{,_compat}")
->> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
->> ---
->>   net/sched/sch_api.c | 2 +-
->>   1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
->> index b5c2cf2..af46fee 100644
->> --- a/net/sched/sch_api.c
->> +++ b/net/sched/sch_api.c
->> @@ -1822,7 +1822,6 @@ int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->>   #ifdef CONFIG_NET_CLS_ACT
->>          const struct tcf_proto *old_tp = tp;
->>          int limit = 0;
->> -
+On 16-02-17 06:07 PM, John Fastabend wrote:
+> [...]
 >
-> Why remove this empty line? I think it is still useful. :)
+
+> Actually thinking about this a bit more I wrote this thinking
+> that there existed some hardware that actually cared if it was
+> a new rule or an existing rule. For me it doesn't matter I do
+> the same thing in the new/replace cases I just write into the
+> slot on the hardware table and if it happens to have something
+> in it well its overwritten e.g. "replaced". This works because
+> the cls_u32 layer protects us from doing something unexpected.
 >
-> Also your patch should be targeted to -net instead of -net-next, since it
-> fixes a bug.
 
-Yeah, good point. That should go to -net (minus the unrelated white space change).
+You are describing create-or-update which is a reasonable default
+BUT: counting on the user to specify the htid+bktid+nodeid
+for every filter and knowing what that means is prone to mistakes
+when for example (using your big hammer approach right now) they
+dont specify the handle and the kernel creates one for them.
 
-Thanks,
-Daniel
+IMO, it would be better at this early stage to enforce the correct
+behavior for future generations.
+To follow the netlink semantics which a lot of people are already
+trained to think in.
+
+Current netlink behavior is supposed to be:
+
+1) NEW ==> "Create".
+Ambigous - could mean a)"create if it doesnt exist" or b) "fail if it 
+exists otherwise create"
+Unfortunately different parts of the kernel often assume some
+default from either #a or #b.
+
+2) NEW|REPLACE flag ==> "Create if it doesnt exist and replace
+if it exists"
+
+3)NEW|EXCLUSIVE ==> "Create if it doesnt exist and fail if it
+exists"
+
+4)NEW|APPEND ==> "just fscking create; i dont care if it exists".
+
+IOW, just add the flag field which is intepreted from whatever
+the user explicitly asks for. And reject say what the hardware
+doesnt support.
+I have worked with tcams where we support #3. It is a bit inefficient
+because you have to check if a rule exists first. And i have worked
+in cases where #1 is assumed to mean #2 and at times #4. It is better
+user experience to be explicit.
+
+cheers,
+jamal
