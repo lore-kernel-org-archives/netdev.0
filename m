@@ -1,35 +1,37 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] b43: fix memory leak
-Date: Thu, 18 Feb 2016 18:04:36 +0530
-Message-ID: <1455798876-32186-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	b43-dev@lists.infradead.org, netdev@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net PATCH v3 0/1] tc reclassification needs to consider ether protocol changes
+Date: Thu, 18 Feb 2016 07:38:03 -0500
+Message-ID: <1455799084-6166-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+	xiyou.wangcong@gmail.com, Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:33351 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422694AbcBRMiN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 07:38:13 -0500
+Received: by mail-ig0-f170.google.com with SMTP id y8so12538725igp.0
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 04:38:13 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sudip Mukherjee <sudip@vectorindia.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-On error we jumped to the label bcma_out and returned the error code but
-we missed freeing dev.
+v3:
+Cong says this needs to go to -net. And to put back the removed new line
 
-Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
----
- drivers/net/wireless/broadcom/b43/main.c | 1 +
+v2:
+Use Daniel's suggestion on when to set the skb proto
+
+v1:
+fix compile error found by build bot when CONFIG_NET_CLS_ACT was off
+
+Jamal Hadi Salim (1):
+  net_sched fix: reclassification needs to consider ether protocol
+    changes
+
+ net/sched/sch_api.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/wireless/broadcom/b43/main.c b/drivers/net/wireless/broadcom/b43/main.c
-index c279211..78f670a 100644
---- a/drivers/net/wireless/broadcom/b43/main.c
-+++ b/drivers/net/wireless/broadcom/b43/main.c
-@@ -5671,6 +5671,7 @@ static int b43_bcma_probe(struct bcma_device *core)
- 	wl = b43_wireless_init(dev);
- 	if (IS_ERR(wl)) {
- 		err = PTR_ERR(wl);
-+		kfree(dev);
- 		goto bcma_out;
- 	}
- 
 -- 
 1.9.1
