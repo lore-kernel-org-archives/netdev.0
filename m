@@ -1,37 +1,61 @@
-From: John Holland <jotihojr@gmail.com>
-Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on i211 using a device tree blob V4
-Date: Thu, 18 Feb 2016 16:47:31 +0100
-Message-ID: <CC80C810-63DC-48F0-9DA8-5B9ACFC6205A@gmail.com>
-References: <56C506FD.5040408@gmail.com> <20160217.212910.1758016077144502307.davem@davemloft.net> <97579B9E-E7C6-4DBE-B1A2-027C2EA7F754@gmail.com> <20160218.102237.2040974178950445305.davem@davemloft.net>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain;
-	charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: David Miller <davem@davemloft.net>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V1 04/12] net/mlx5e: Support DCBNL IEEE ETS
+Date: Thu, 18 Feb 2016 17:58:12 +0200
+Message-ID: <CALzJLG-A5nrtUcCVXrxfUxggtbZ34x==NySXWbWzOtdGsS19cA@mail.gmail.com>
+References: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
+	<1455791573-5270-5-git-send-email-saeedm@mellanox.com>
+	<56C5E37B.20207@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Rana Shahout <ranas@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Matthew Finlay <matt@mellanox.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:34602 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1426504AbcBRPrj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 10:47:39 -0500
-Received: by mail-wm0-f42.google.com with SMTP id b205so31001385wmb.1
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 07:47:39 -0800 (PST)
-In-Reply-To: <20160218.102237.2040974178950445305.davem@davemloft.net>
+Received: from mail-yk0-f194.google.com ([209.85.160.194]:34510 "EHLO
+	mail-yk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1425202AbcBRP6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 10:58:13 -0500
+Received: by mail-yk0-f194.google.com with SMTP id z7so1011753yka.1
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 07:58:13 -0800 (PST)
+In-Reply-To: <56C5E37B.20207@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Feb 18, 2016 at 5:30 PM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+>
+> Hi Saeed,
+>
+> I just changed the signature on the setup_tc ndo hook so you will
+> need to change this to something like,
+>
+> static int __mlx5e_setup_tc(struct net_device *dev, u32 handle,
+>                             __be16 proto, struct tc_to_netdev *tc)
+> {
+>         if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
+>                 return -EINVAL;
+>         return mlx5e_setup_tc(dev, tc->tc)
+> }
+>
+>
+> and then use __mlx5e_setup_tc() to populate the ndo op hook. If you
+> look at the mlx4 drivers I did this change there already.
+>
+> Other than that nice to see another dcb supporting driver.
+>
+> Thanks,
+> John
+Hi John,
 
-> On Feb 18, 2016, at 16:22, David Miller <davem@davemloft.net> wrote:
-> 
-> From: John Holland <jotihojr@gmail.com>
-> Date: Thu, 18 Feb 2016 08:53:07 +0100
-> 
->> The PCI path in eth_platform_get_mac_address() didn't return a devicetree node...
-> 
-> Then fix your platform such that pci_device_to_OF_node() works
-> properly instead of adding localized hacks to device drivers.
-> 
-> Jeff, do not apply this patch.
+Thanks for pointing that out, will fix this out.
 
-Please take a look at V5.
+Thanks,
+Saeed
