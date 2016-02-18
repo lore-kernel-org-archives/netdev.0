@@ -1,123 +1,151 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 1/2] qed: Lay infrastructure for vlan filtering offload
-Date: Thu, 18 Feb 2016 17:00:39 +0200
-Message-ID: <1455807640-28165-2-git-send-email-Yuval.Mintz@qlogic.com>
-References: <1455807640-28165-1-git-send-email-Yuval.Mintz@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] sctp: Fix port hash table size computation
+Date: Thu, 18 Feb 2016 10:02:04 -0500
+Message-ID: <1455807724-7985-1-git-send-email-nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:32147 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1426020AbcBRPBF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 10:01:05 -0500
-In-Reply-To: <1455807640-28165-1-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:58153 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946159AbcBRPCW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 10:02:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Today, interfaces are working in vlan-promisc mode; But once
-vlan filtering offloaded would be supported, we'll need a method to
-control it directly [e.g., when setting device to PROMISC, or when
-running out of vlan credits].
+Dmitry Vyukov noted recently that the sctp_port_hashtable had an error in
+its size computation, observing that the current method never guaranteed
+that the hashsize (measured in number of entries) would be a power of two,
+which the input hash function for that table requires.  The root cause of
+the problem is that two values need to be computed (one, the allocation
+order of the storage requries, as passed to __get_free_pages, and two the
+number of entries for the hash table).  Both need to be ^2, but for
+different reasons, and the existing code is simply computing one order
+value, and using it as the basis for both, which is wrong (i.e. it assumes
+that ((1<<order)*PAGE_SIZE)/sizeof(bucket) is still ^2 when its not).
 
-This adds the necessary API for L2 client to manually choose whether to
-accept all vlans or only those for which filters were configured.
+To fix this, we change the logic slightly.  We start by computing a goal
+allocation order (which is limited by the maximum size hash table we want
+to support.  Then we attempt to allocate that size table, decreasing the
+order until a successful allocation is made.  Then, with the resultant
+successful order we compute the number of buckets that hash table supports,
+which we then round down to the nearest power of two, giving us the number
+of entries the table actually supports.
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+I've tested this locally here, using non-debug and spinlock-debug kernels,
+and the number of entries in the hashtable consistently work out to be
+powers of two in all cases.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+CC: Dmitry Vyukov <dvyukov@google.com>
+CC: Vladislav Yasevich <vyasevich@gmail.com>
+CC: "David S. Miller" <davem@davemloft.net>
 ---
- drivers/net/ethernet/qlogic/qed/qed_l2.c | 23 +++++++++++++++++++----
- include/linux/qed/qed_eth_if.h           |  2 ++
- 2 files changed, 21 insertions(+), 4 deletions(-)
+ net/sctp/protocol.c | 46 ++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 38 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index 978d07a..63f2287 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -124,6 +124,8 @@ struct qed_sp_vport_update_params {
- 	u8				update_vport_active_tx_flg;
- 	u8				vport_active_tx_flg;
- 	u8				update_approx_mcast_flg;
-+	u8				update_accept_any_vlan_flg;
-+	u8				accept_any_vlan;
- 	unsigned long			bins[8];
- 	struct qed_rss_params		*rss_params;
- 	struct qed_filter_accept_flags	accept_flags;
-@@ -393,7 +395,9 @@ qed_sp_vport_update(struct qed_hwfn *p_hwfn,
- 	p_cmn->update_rx_active_flg = p_params->update_vport_active_rx_flg;
- 	p_cmn->tx_active_flg = p_params->vport_active_tx_flg;
- 	p_cmn->update_tx_active_flg = p_params->update_vport_active_tx_flg;
--
-+	p_cmn->accept_any_vlan = p_params->accept_any_vlan;
-+	p_cmn->update_accept_any_vlan_flg =
-+			p_params->update_accept_any_vlan_flg;
- 	rc = qed_sp_vport_update_rss(p_hwfn, p_ramrod, p_rss_params);
- 	if (rc) {
- 		/* Return spq entry which is taken in qed_sp_init_request()*/
-@@ -444,8 +448,10 @@ static int qed_sp_vport_stop(struct qed_hwfn *p_hwfn,
- static int qed_filter_accept_cmd(struct qed_dev *cdev,
- 				 u8 vport,
- 				 struct qed_filter_accept_flags accept_flags,
--				 enum spq_mode comp_mode,
--				 struct qed_spq_comp_cb *p_comp_data)
-+				 u8 update_accept_any_vlan,
-+				 u8 accept_any_vlan,
-+				enum spq_mode comp_mode,
-+				struct qed_spq_comp_cb *p_comp_data)
- {
- 	struct qed_sp_vport_update_params vport_update_params;
- 	int i, rc;
-@@ -454,6 +460,8 @@ static int qed_filter_accept_cmd(struct qed_dev *cdev,
- 	memset(&vport_update_params, 0, sizeof(vport_update_params));
- 	vport_update_params.vport_id = vport;
- 	vport_update_params.accept_flags = accept_flags;
-+	vport_update_params.update_accept_any_vlan_flg = update_accept_any_vlan;
-+	vport_update_params.accept_any_vlan = accept_any_vlan;
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index ab0d538..779ebee 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -60,6 +60,8 @@
+ #include <net/inet_common.h>
+ #include <net/inet_ecn.h>
  
- 	for_each_hwfn(cdev, i) {
- 		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
-@@ -471,6 +479,10 @@ static int qed_filter_accept_cmd(struct qed_dev *cdev,
- 			   "Accept filter configured, flags = [Rx]%x [Tx]%x\n",
- 			   accept_flags.rx_accept_filter,
- 			   accept_flags.tx_accept_filter);
-+		if (update_accept_any_vlan)
-+			DP_VERBOSE(p_hwfn, QED_MSG_SP,
-+				   "accept_any_vlan=%d configured\n",
-+				   accept_any_vlan);
++#define MAX_SCTP_PORT_HASH_ENTRIES (64 * 1024)
++
+ /* Global data structures. */
+ struct sctp_globals sctp_globals __read_mostly;
+ 
+@@ -1355,6 +1357,8 @@ static __init int sctp_init(void)
+ 	unsigned long limit;
+ 	int max_share;
+ 	int order;
++	unsigned long num_entries;
++	unsigned long max_entry_order;
+ 
+ 	sock_skb_cb_check_size(sizeof(struct sctp_ulpevent));
+ 
+@@ -1407,14 +1411,24 @@ static __init int sctp_init(void)
+ 
+ 	/* Size and allocate the association hash table.
+ 	 * The methodology is similar to that of the tcp hash tables.
++	 * Though not identical.  Start by getting a goal size
+ 	 */
+ 	if (totalram_pages >= (128 * 1024))
+ 		goal = totalram_pages >> (22 - PAGE_SHIFT);
+ 	else
+ 		goal = totalram_pages >> (24 - PAGE_SHIFT);
+ 
+-	for (order = 0; (1UL << order) < goal; order++)
+-		;
++	/* Then compute the page order for said goal */
++	order = get_order(goal);
++
++	/* Now compute the required page order for the maximum sized table we
++	 * want to create
++	 */
++	max_entry_order = get_order(MAX_SCTP_PORT_HASH_ENTRIES *
++				    sizeof(struct sctp_bind_hashbucket));
++
++	/* Limit the page order by that maximum hash table size */
++	order = min(order, max_entry_order);
+ 
+ 	/* Allocate and initialize the endpoint hash table.  */
+ 	sctp_ep_hashsize = 64;
+@@ -1430,20 +1444,35 @@ static __init int sctp_init(void)
+ 		INIT_HLIST_HEAD(&sctp_ep_hashtable[i].chain);
  	}
  
- 	return 0;
-@@ -1347,6 +1359,9 @@ static int qed_update_vport(struct qed_dev *cdev,
- 		params->update_vport_active_flg;
- 	sp_params.vport_active_rx_flg = params->vport_active_flg;
- 	sp_params.vport_active_tx_flg = params->vport_active_flg;
-+	sp_params.accept_any_vlan = params->accept_any_vlan;
-+	sp_params.update_accept_any_vlan_flg =
-+		params->update_accept_any_vlan_flg;
+-	/* Allocate and initialize the SCTP port hash table.  */
++	/* Allocate and initialize the SCTP port hash table.
++	 * Note that order is initalized to start at the max sized
++	 * table we want to support.  If we can't get that many pages
++	 * reduce the order and try again
++	 */
+ 	do {
+-		sctp_port_hashsize = (1UL << order) * PAGE_SIZE /
+-					sizeof(struct sctp_bind_hashbucket);
+-		if ((sctp_port_hashsize > (64 * 1024)) && order > 0)
+-			continue;
+ 		sctp_port_hashtable = (struct sctp_bind_hashbucket *)
+ 			__get_free_pages(GFP_KERNEL | __GFP_NOWARN, order);
+ 	} while (!sctp_port_hashtable && --order > 0);
++
+ 	if (!sctp_port_hashtable) {
+ 		pr_err("Failed bind hash alloc\n");
+ 		status = -ENOMEM;
+ 		goto err_bhash_alloc;
+ 	}
++
++	/* Now compute the number of entries that will fit in the
++	 * port hash space we allocated
++	 */
++	num_entries = (1UL << order) * PAGE_SIZE /
++		      sizeof(struct sctp_bind_hashbucket);
++
++	/* And finish by rounding it down to the nearest power of two
++	 * this wastes some memory of course, but its needed because
++	 * the hash function operates based on the assumption that
++	 * that the number of entries is a power of two
++	 */
++	sctp_port_hashsize = rounddown_pow_of_two(num_entries);
++
+ 	for (i = 0; i < sctp_port_hashsize; i++) {
+ 		spin_lock_init(&sctp_port_hashtable[i].lock);
+ 		INIT_HLIST_HEAD(&sctp_port_hashtable[i].chain);
+@@ -1452,7 +1481,8 @@ static __init int sctp_init(void)
+ 	if (sctp_transport_hashtable_init())
+ 		goto err_thash_alloc;
  
- 	/* RSS - is a bit tricky, since upper-layer isn't familiar with hwfns.
- 	 * We need to re-fix the rss values per engine for CMT.
-@@ -1566,7 +1581,7 @@ static int qed_configure_filter_rx_mode(struct qed_dev *cdev,
- 	else if (type == QED_FILTER_RX_MODE_TYPE_MULTI_PROMISC)
- 		accept_flags.rx_accept_filter |= QED_ACCEPT_MCAST_UNMATCHED;
+-	pr_info("Hash tables configured (bind %d)\n", sctp_port_hashsize);
++	pr_info("Hash tables configured (bind %d/%d)\n", sctp_port_hashsize,
++		num_entries);
  
--	return qed_filter_accept_cmd(cdev, 0, accept_flags,
-+	return qed_filter_accept_cmd(cdev, 0, accept_flags, false, false,
- 				     QED_SPQ_MODE_CB, NULL);
- }
+ 	sctp_sysctl_register();
  
-diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
-index 81ab178..e53b0ca 100644
---- a/include/linux/qed/qed_eth_if.h
-+++ b/include/linux/qed/qed_eth_if.h
-@@ -33,6 +33,8 @@ struct qed_update_vport_params {
- 	u8 vport_id;
- 	u8 update_vport_active_flg;
- 	u8 vport_active_flg;
-+	u8 update_accept_any_vlan_flg;
-+	u8 accept_any_vlan;
- 	u8 update_rss_flg;
- 	struct qed_update_vport_rss_params rss_params;
- };
 -- 
-1.9.3
+2.5.0
