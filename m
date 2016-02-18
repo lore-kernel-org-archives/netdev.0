@@ -1,74 +1,80 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] i40e: move sync_vsi_filters up in service_task
-Date: Wed, 17 Feb 2016 19:38:43 -0800
-Message-ID: <1455766737-11911-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] i40e/i40evf: use logical operators, not bitwise
+Date: Wed, 17 Feb 2016 19:38:55 -0800
+Message-ID: <1455766737-11911-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455766737-11911-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:4847 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:1599 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1424795AbcBRDjB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 22:39:01 -0500
+	id S1424883AbcBRDjH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 22:39:07 -0500
 In-Reply-To: <1455766737-11911-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-The sync_vsi_filters function is moved up in the service_task because
-it may need to request a reset, and we don't want to wait another round
-of service task time.
+Mr. Spock would certainly raise an eyebrow to see us using bitwise
+operators, when we should clearly be relying on logic. Fascinating.
 
-NOTE: Filters will be replayed by sync_vsi_filters including broadcast
-and promiscuous settings.
-
-Also, added some error handling in this space in case any of these
-fail the driver will retry correctly.
-
-Also update copyright year.
-
-Change-ID: I23f3d552100baecea69466339f738f27614efd47
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: Ie338010c016f93e9faa2002c07c90b15134b7477
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 5 +++--
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 5 +++--
+ 2 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 04417e6..e974db3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
-  *
-  * Intel Ethernet Controller XL710 Family Linux Driver
-- * Copyright(c) 2013 - 2015 Intel Corporation.
-+ * Copyright(c) 2013 - 2016 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -2168,6 +2168,10 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 		}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 1abef01..0ffa9a8 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1996,7 +1996,8 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
+ 	 * budget and be more aggressive about cleaning up the Tx descriptors.
+ 	 */
+ 	i40e_for_each_ring(ring, q_vector->tx) {
+-		clean_complete &= i40e_clean_tx_irq(ring, vsi->work_limit);
++		clean_complete = clean_complete &&
++				 i40e_clean_tx_irq(ring, vsi->work_limit);
+ 		arm_wb = arm_wb || ring->arm_wb;
+ 		ring->arm_wb = false;
  	}
- out:
-+	/* if something went wrong then set the changed flag so we try again */
-+	if (retval)
-+		vsi->flags |= I40E_VSI_FLAG_FILTER_CHANGED;
-+
- 	clear_bit(__I40E_CONFIG_BUSY, &vsi->state);
- 	return retval;
- }
-@@ -7113,6 +7117,7 @@ static void i40e_service_task(struct work_struct *work)
+@@ -2020,7 +2021,7 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
+ 
+ 		work_done += cleaned;
+ 		/* if we didn't clean as many as budgeted, we must be done */
+-		clean_complete &= (budget_per_ring != cleaned);
++		clean_complete = clean_complete && (budget_per_ring > cleaned);
  	}
  
- 	i40e_detect_recover_hung(pf);
-+	i40e_sync_filters_subtask(pf);
- 	i40e_reset_subtask(pf);
- 	i40e_handle_mdd_event(pf);
- 	i40e_vc_process_vflr_event(pf);
+ 	/* If work not completed, return budget and polling will return */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 6f739a7..76bad75 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1432,7 +1432,8 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
+ 	 * budget and be more aggressive about cleaning up the Tx descriptors.
+ 	 */
+ 	i40e_for_each_ring(ring, q_vector->tx) {
+-		clean_complete &= i40e_clean_tx_irq(ring, vsi->work_limit);
++		clean_complete = clean_complete &&
++				 i40e_clean_tx_irq(ring, vsi->work_limit);
+ 		arm_wb = arm_wb || ring->arm_wb;
+ 		ring->arm_wb = false;
+ 	}
+@@ -1456,7 +1457,7 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
+ 
+ 		work_done += cleaned;
+ 		/* if we didn't clean as many as budgeted, we must be done */
+-		clean_complete &= (budget_per_ring != cleaned);
++		clean_complete = clean_complete && (budget_per_ring > cleaned);
+ 	}
+ 
+ 	/* If work not completed, return budget and polling will return */
 -- 
 2.5.0
