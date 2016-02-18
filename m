@@ -1,43 +1,48 @@
-From: "Andrew F. Davis" <afd@ti.com>
-Subject: [PATCH] net: phy: dp83848: Fix sysfs naming collision warning
-Date: Wed, 17 Feb 2016 18:10:00 -0600
-Message-ID: <1455754200-4593-1-git-send-email-afd@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"Andrew F. Davis" <afd@ti.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>
+From: Benjamin Poirier <bpoirier@suse.com>
+Subject: [PATCH] ipv6: Annotate change of locking mechanism for np->opt
+Date: Wed, 17 Feb 2016 16:20:33 -0800
+Message-ID: <1455754833-31567-1-git-send-email-bpoirier@suse.com>
+Cc: linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:48268 "EHLO bear.ext.ti.com"
+Received: from mx2.suse.de ([195.135.220.15]:50137 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965331AbcBRAKN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2016 19:10:13 -0500
+	id S1161920AbcBRAVs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2016 19:21:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Files in sysfs are created using the name from the phy_driver struct,
-when two names are the same we may get a duplicate filename warning,
-fix this.
+follows up commit 45f6fad84cc3 ("ipv6: add complete rcu protection around
+np->opt") which added mixed rcu/refcount protection to np->opt.
 
-Reported-by: kernel test robot <ying.huang@linux.intel.com>
-Signed-off-by: Andrew F. Davis <afd@ti.com>
+Given the current implementation of rcu_pointer_handoff(), this has no
+effect at runtime.
+
+Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
 ---
- drivers/net/phy/dp83848.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/net/ipv6.h | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
-index 556904f..03d54c4 100644
---- a/drivers/net/phy/dp83848.c
-+++ b/drivers/net/phy/dp83848.c
-@@ -103,7 +103,7 @@ MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 6570f37..f3c9857 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -259,8 +259,12 @@ static inline struct ipv6_txoptions *txopt_get(const struct ipv6_pinfo *np)
  
- static struct phy_driver dp83848_driver[] = {
- 	DP83848_PHY_DRIVER(TI_DP83848C_PHY_ID, "TI DP83848C 10/100 Mbps PHY"),
--	DP83848_PHY_DRIVER(NS_DP83848C_PHY_ID, "TI DP83848C 10/100 Mbps PHY"),
-+	DP83848_PHY_DRIVER(NS_DP83848C_PHY_ID, "NS DP83848C 10/100 Mbps PHY"),
- 	DP83848_PHY_DRIVER(TLK10X_PHY_ID, "TI TLK10X 10/100 Mbps PHY"),
- };
- module_phy_driver(dp83848_driver);
+ 	rcu_read_lock();
+ 	opt = rcu_dereference(np->opt);
+-	if (opt && !atomic_inc_not_zero(&opt->refcnt))
+-		opt = NULL;
++	if (opt) {
++		if (!atomic_inc_not_zero(&opt->refcnt))
++			opt = NULL;
++		else
++			opt = rcu_pointer_handoff(opt);
++	}
+ 	rcu_read_unlock();
+ 	return opt;
+ }
 -- 
-2.7.1
+2.7.0
