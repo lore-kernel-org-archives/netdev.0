@@ -1,46 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND PATCH v3] isdn: divamnt: use y2038-safe
- ktime_get_ts64() for trace data timestamps
-Date: Thu, 18 Feb 2016 11:10:07 -0500 (EST)
-Message-ID: <20160218.111007.1949710047777164403.davem@davemloft.net>
-References: <20151120182307.GA3513@d830.WORKGROUP>
-	<1455777311-3190-1-git-send-email-amsfield22@gmail.com>
+Subject: Re: [PATCH] net: phy: Add SGMII support for Marvell
+ 88E1510/1512/1514/1518
+Date: Thu, 18 Feb 2016 11:13:26 -0500 (EST)
+Message-ID: <20160218.111326.2190099567181965162.davem@davemloft.net>
+References: <1455789547-6382-1-git-send-email-sr@denx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mac@melware.de, isdn@linux-pingi.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, y2038@lists.linaro.org
-To: amsfield22@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455777311-3190-1-git-send-email-amsfield22@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com
+To: sr@denx.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43454 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946808AbcBRQN2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 11:13:28 -0500
+In-Reply-To: <1455789547-6382-1-git-send-email-sr@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alison Schofield <amsfield22@gmail.com>
-Date: Wed, 17 Feb 2016 22:35:11 -0800
+From: Stefan Roese <sr@denx.de>
+Date: Thu, 18 Feb 2016 10:59:07 +0100
 
-> divamnt stores a start_time at module init and uses it to calculate
-> elapsed time. The elapsed time, stored in secs and usecs, is part of
-> the trace data the driver maintains for the DIVA Server ISDN cards.
-> No change to the format of that time data is required.
+> Add code to select SGMII-to-copper mode upon SGMII interface selection.
 > 
-> To avoid overflow on 32-bit systems use ktime_get_ts64() to return
-> the elapsed monotonic time since system boot.
-> 
-> This is a change from real to monotonic time. Since the driver only
-> stores elapsed time, monotonic time is sufficient and more robust
-> against real time clock changes. These new monotonic values can be
-> more useful for debugging because they can be easily compared to
-> other monotonic timestamps.
-> 
-> Note elaspsed time values will now start at system boot time rather
-> than module load time, so they will differ slightly from previously
-> reported values.
-> 
-> Remove declaration and init of previously unused time constants:
-> start_sec, start_usec.
-> 
-> Signed-off-by: Alison Schofield <amsfield22@gmail.com>
-> Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Stefan Roese <sr@denx.de>
 
 Applied to net-next, thanks.
