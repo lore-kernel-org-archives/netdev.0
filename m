@@ -1,50 +1,42 @@
-From: David Wragg <david@weave.works>
-Subject: Re: [PATCH net v2 2/3] geneve: Relax MTU constraints
-Date: Thu, 18 Feb 2016 16:54:14 +0000
-Message-ID: <86bn7e2c3t.fsf@weave.works>
-References: <1455036424-6403-1-git-send-email-david@weave.works>
-	<1455036424-6403-3-git-send-email-david@weave.works>
-	<CALx6S37sD+MNK+kp9oLnEYHEUkOy_NdQK6bq-aMQP2Mvw9M4Qg@mail.gmail.com>
-	<86a8n86bcs.fsf@weave.works>
-	<CAEh+42iGHk9zVYPcpSz5w5XPg450p8avuQLbMZZH+B5fZvF9WQ@mail.gmail.com>
-	<CALx6S36kvXJUZM8_vEmF8L3bxnRiBh98Rs0wAd-HGBJ9Yyde_Q@mail.gmail.com>
-	<CAEh+42gyHEALCjZZGjMWTLQsPgp191c4dfZYFffOL6iV7pwYHw@mail.gmail.com>
-	<86vb5o3kd5.fsf@weave.works>
-	<CALx6S37OgkxTLv6XEjFN4T=W8ZdZV_kx4wtPqtVwMizoUXbpVw@mail.gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next V1 04/12] net/mlx5e: Support DCBNL IEEE ETS
+Date: Thu, 18 Feb 2016 19:02:46 +0200
+Message-ID: <CAJ3xEMh-6WS4VADHbKgLDduz6rpECate7giXqSNpQP3Se-ZpQw@mail.gmail.com>
+References: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
+	<1455791573-5270-5-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jesse Gross <jesse@kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	ovs dev <dev@openvswitch.org>,
-	David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Rana Shahout <ranas@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Matthew Finlay <matt@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:35244 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751270AbcBRQyQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 11:54:16 -0500
-Received: by mail-wm0-f54.google.com with SMTP id c200so37522712wme.0
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 08:54:16 -0800 (PST)
-In-Reply-To: <CALx6S37OgkxTLv6XEjFN4T=W8ZdZV_kx4wtPqtVwMizoUXbpVw@mail.gmail.com>
-	(Tom Herbert's message of "Tue, 16 Feb 2016 08:44:02 -0800")
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:34965 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946020AbcBRRCr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 12:02:47 -0500
+Received: by mail-ig0-f173.google.com with SMTP id hb3so16866643igb.0
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 09:02:47 -0800 (PST)
+In-Reply-To: <1455791573-5270-5-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert <tom@herbertland.com> writes:
-> Please implement like in ip_tunnel_change_mtu (or better yet call it),
-> that is the precedent for tunnels.
+On Thu, Feb 18, 2016 at 12:32 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
 
-I've made geneve_change_mtu follow ip_tunnel_change_mtu in v2.
+> @@ -2164,6 +2233,9 @@ static void mlx5e_build_netdev(struct net_device *netdev)
+>         netdev->watchdog_timeo    = 15 * HZ;
+>
+>         netdev->ethtool_ops       = &mlx5e_ethtool_ops;
+> +#ifdef CONFIG_MLX5_CORE_EN_DCB
+> +       netdev->dcbnl_ops         = &mlx5e_dcbnl_ops;
+> +#endif
 
-If it were to call it instead, are you suggesting just passing in
-t_hlen?  Or restructuring geneve.c to re-use the whole ip_tunnel
-infrastructure?
-
-Also, I'm not sure where the 0xFFF8 comes from in
-__ip_tunnel_change_mtu.  Any ideas why 0xFFF8 rather than 0xffff?  It
-goes all the way back to the inital import of the kernel into git.
-
-David
+I guess we don't want VF drivers to control the uplink port QoS
+arbiter, PFC setup and such, agree -- I gave this comment on V0
+and you somehow missed addressing that, please do for V2.
