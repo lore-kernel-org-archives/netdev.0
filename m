@@ -1,122 +1,82 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv3 net-next 13/14] nfp: pass ring count as function parameter
-Date: Thu, 18 Feb 2016 20:38:28 +0000
-Message-ID: <1455827909-26443-14-git-send-email-jakub.kicinski@netronome.com>
-References: <1455827909-26443-1-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv3 net-next 00/14] nfp: MTU fixes for net
+Date: Thu, 18 Feb 2016 20:38:15 +0000
+Message-ID: <1455827909-26443-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: netdev@vger.kernel.org,
 	Jakub Kicinski <jakub.kicinski@netronome.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:35738 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1948042AbcBRUir (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:47 -0500
-Received: by mail-wm0-f41.google.com with SMTP id c200so46510661wme.0
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:47 -0800 (PST)
-In-Reply-To: <1455827909-26443-1-git-send-email-jakub.kicinski@netronome.com>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:37016 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1948099AbcBRUif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:35 -0500
+Received: by mail-wm0-f48.google.com with SMTP id g62so42992633wme.0
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Soon ring resize will call this functions with values
-different than the current configuration we need to
-explicitly pass the ring count as parameter.
+Hi Dave!
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 23 +++++++++++++---------
- 1 file changed, 14 insertions(+), 9 deletions(-)
+This is the second part of MTU reconfiguration fixes, targeted
+at net-next.
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 0153fce33dff..2c86a10abcd3 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -1405,17 +1405,18 @@ static void nfp_net_tx_ring_free(struct nfp_net_tx_ring *tx_ring)
- /**
-  * nfp_net_tx_ring_alloc() - Allocate resource for a TX ring
-  * @tx_ring:   TX Ring structure to allocate
-+ * @cnt:       Ring buffer count
-  *
-  * Return: 0 on success, negative errno otherwise.
-  */
--static int nfp_net_tx_ring_alloc(struct nfp_net_tx_ring *tx_ring)
-+static int nfp_net_tx_ring_alloc(struct nfp_net_tx_ring *tx_ring, u32 cnt)
- {
- 	struct nfp_net_r_vector *r_vec = tx_ring->r_vec;
- 	struct nfp_net *nn = r_vec->nfp_net;
- 	struct pci_dev *pdev = nn->pdev;
- 	int sz;
- 
--	tx_ring->cnt = nn->txd_cnt;
-+	tx_ring->cnt = cnt;
- 
- 	tx_ring->size = sizeof(*tx_ring->txds) * tx_ring->cnt;
- 	tx_ring->txds = dma_zalloc_coherent(&pdev->dev, tx_ring->size,
-@@ -1468,18 +1469,20 @@ static void nfp_net_rx_ring_free(struct nfp_net_rx_ring *rx_ring)
-  * nfp_net_rx_ring_alloc() - Allocate resource for a RX ring
-  * @rx_ring:  RX ring to allocate
-  * @fl_bufsz: Size of buffers to allocate
-+ * @cnt:      Ring buffer count
-  *
-  * Return: 0 on success, negative errno otherwise.
-  */
- static int
--nfp_net_rx_ring_alloc(struct nfp_net_rx_ring *rx_ring, unsigned int fl_bufsz)
-+nfp_net_rx_ring_alloc(struct nfp_net_rx_ring *rx_ring, unsigned int fl_bufsz,
-+		      u32 cnt)
- {
- 	struct nfp_net_r_vector *r_vec = rx_ring->r_vec;
- 	struct nfp_net *nn = r_vec->nfp_net;
- 	struct pci_dev *pdev = nn->pdev;
- 	int sz;
- 
--	rx_ring->cnt = nn->rxd_cnt;
-+	rx_ring->cnt = cnt;
- 	rx_ring->bufsz = fl_bufsz;
- 
- 	rx_ring->size = sizeof(*rx_ring->rxds) * rx_ring->cnt;
-@@ -1505,7 +1508,8 @@ err_alloc:
- }
- 
- static struct nfp_net_rx_ring *
--nfp_net_shadow_rx_rings_prepare(struct nfp_net *nn, unsigned int fl_bufsz)
-+nfp_net_shadow_rx_rings_prepare(struct nfp_net *nn, unsigned int fl_bufsz,
-+				u32 buf_cnt)
- {
- 	struct nfp_net_rx_ring *rings;
- 	unsigned int r;
-@@ -1517,7 +1521,7 @@ nfp_net_shadow_rx_rings_prepare(struct nfp_net *nn, unsigned int fl_bufsz)
- 	for (r = 0; r < nn->num_rx_rings; r++) {
- 		nfp_net_rx_ring_init(&rings[r], nn->rx_rings[r].r_vec, r);
- 
--		if (nfp_net_rx_ring_alloc(&rings[r], fl_bufsz))
-+		if (nfp_net_rx_ring_alloc(&rings[r], fl_bufsz, buf_cnt))
- 			goto err_free_prev;
- 
- 		if (nfp_net_rx_ring_bufs_alloc(nn, &rings[r]))
-@@ -1871,12 +1875,12 @@ static int nfp_net_netdev_open(struct net_device *netdev)
- 		if (err)
- 			goto err_free_prev_vecs;
- 
--		err = nfp_net_tx_ring_alloc(nn->r_vecs[r].tx_ring);
-+		err = nfp_net_tx_ring_alloc(nn->r_vecs[r].tx_ring, nn->txd_cnt);
- 		if (err)
- 			goto err_cleanup_vec_p;
- 
- 		err = nfp_net_rx_ring_alloc(nn->r_vecs[r].rx_ring,
--					    nn->fl_bufsz);
-+					    nn->fl_bufsz, nn->rxd_cnt);
- 		if (err)
- 			goto err_free_tx_ring_p;
- 
-@@ -2057,7 +2061,8 @@ static int nfp_net_change_mtu(struct net_device *netdev, int new_mtu)
- 	}
- 
- 	/* Prepare new rings */
--	tmp_rings = nfp_net_shadow_rx_rings_prepare(nn, new_fl_bufsz);
-+	tmp_rings = nfp_net_shadow_rx_rings_prepare(nn, new_fl_bufsz,
-+						    nn->rxd_cnt);
- 	if (!tmp_rings)
- 		return -ENOMEM;
- 
+Patches 1-8 refactor open/stop paths to look like this:
+ - alloc;
+ - dev/FW init;
+ - stack init/start.
+stop:
+ - stack quiescence/stop;
+ - dev/FW down;
+ - free.
+That's a quite a bit of code churn I did my best to split
+it up but probably still not much fun to review.
+
+Patch 9 splits the open/stop into chunks I can call later.
+
+Patch 10 makes sure that FW start/stop operations are
+reflected in SW state (which was not needed earlier since
+we always did full down/up).
+
+[Patches 11 and 13 are trivial, split for readability.]
+
+Patch 12 does what you requested for MTU change:
+ - alloc new resources;
+ - stop dev;
+ - try to start dev with new config;
+ - if failed try with old config;
+ - if failed die loudly.
+
+Patch 14 does the same thing for ring resize.
+
+I tested this with various error injection hacks and it 
+seems quite solid.
+
+This is on top of the first series, merge of net into
+net-next will be required for this to apply.
+
+Thanks!
+
+
+Jakub Kicinski (14):
+  nfp: move link state interrupt request/free calls
+  nfp: break up nfp_net_{alloc|free}_rings
+  nfp: make *x_ring_init do all the init
+  nfp: allocate ring SW structs dynamically
+  nfp: cleanup tx ring flush and rename to reset
+  nfp: reorganize initial filling of RX rings
+  nfp: preallocate RX buffers early in .ndo_open
+  nfp: move filling ring information to FW config
+  nfp: slice .ndo_open() and .ndo_stop() up
+  nfp: sync ring state during FW reconfiguration
+  nfp: propagate list buffer size in struct rx_ring
+  nfp: convert .ndo_change_mtu() to prepare/commit paradigm
+  nfp: pass ring count as function parameter
+  nfp: allow ring size reconfiguration at runtime
+
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  10 +-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 898 ++++++++++++++-------
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |  30 +-
+ 3 files changed, 615 insertions(+), 323 deletions(-)
+
 -- 
 1.9.1
