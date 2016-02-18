@@ -1,94 +1,71 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv3 net-next 03/14] nfp: make *x_ring_init do all the init
-Date: Thu, 18 Feb 2016 20:38:18 +0000
-Message-ID: <1455827909-26443-4-git-send-email-jakub.kicinski@netronome.com>
-References: <1455827909-26443-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: netdev@vger.kernel.org,
-	Jakub Kicinski <jakub.kicinski@netronome.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sctp: Fix port hash table size computation
+Date: Thu, 18 Feb 2016 15:39:21 -0500 (EST)
+Message-ID: <20160218.153921.2010668846576353053.davem@davemloft.net>
+References: <1455807724-7985-1-git-send-email-nhorman@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	dvyukov@google.com, vyasevich@gmail.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:37060 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1948081AbcBRUii (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:38 -0500
-Received: by mail-wm0-f46.google.com with SMTP id g62so42994074wme.0
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:37 -0800 (PST)
-In-Reply-To: <1455827909-26443-1-git-send-email-jakub.kicinski@netronome.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47129 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1948081AbcBRUjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:39:23 -0500
+In-Reply-To: <1455807724-7985-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-nfp_net_[rt]x_ring_init functions used to be called from probe
-path only and some of their functionality was spilled to the
-call site.  In order to reuse them for ring reconfiguration
-we need them to do all the init.
-
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 28 ++++++++++++++--------
- 1 file changed, 18 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index d39ac3553e1e..8299d4c002fb 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -348,12 +348,18 @@ static irqreturn_t nfp_net_irq_exn(int irq, void *data)
- /**
-  * nfp_net_tx_ring_init() - Fill in the boilerplate for a TX ring
-  * @tx_ring:  TX ring structure
-+ * @r_vec:    IRQ vector servicing this ring
-+ * @idx:      Ring index
-  */
--static void nfp_net_tx_ring_init(struct nfp_net_tx_ring *tx_ring)
-+static void
-+nfp_net_tx_ring_init(struct nfp_net_tx_ring *tx_ring,
-+		     struct nfp_net_r_vector *r_vec, unsigned int idx)
- {
--	struct nfp_net_r_vector *r_vec = tx_ring->r_vec;
- 	struct nfp_net *nn = r_vec->nfp_net;
- 
-+	tx_ring->idx = idx;
-+	tx_ring->r_vec = r_vec;
-+
- 	tx_ring->qcidx = tx_ring->idx * nn->stride_tx;
- 	tx_ring->qcp_q = nn->tx_bar + NFP_QCP_QUEUE_OFF(tx_ring->qcidx);
- }
-@@ -361,12 +367,18 @@ static void nfp_net_tx_ring_init(struct nfp_net_tx_ring *tx_ring)
- /**
-  * nfp_net_rx_ring_init() - Fill in the boilerplate for a RX ring
-  * @rx_ring:  RX ring structure
-+ * @r_vec:    IRQ vector servicing this ring
-+ * @idx:      Ring index
-  */
--static void nfp_net_rx_ring_init(struct nfp_net_rx_ring *rx_ring)
-+static void
-+nfp_net_rx_ring_init(struct nfp_net_rx_ring *rx_ring,
-+		     struct nfp_net_r_vector *r_vec, unsigned int idx)
- {
--	struct nfp_net_r_vector *r_vec = rx_ring->r_vec;
- 	struct nfp_net *nn = r_vec->nfp_net;
- 
-+	rx_ring->idx = idx;
-+	rx_ring->r_vec = r_vec;
-+
- 	rx_ring->fl_qcidx = rx_ring->idx * nn->stride_rx;
- 	rx_ring->rx_qcidx = rx_ring->fl_qcidx + (nn->stride_rx - 1);
- 
-@@ -404,14 +416,10 @@ static void nfp_net_irqs_assign(struct net_device *netdev)
- 		cpumask_set_cpu(r, &r_vec->affinity_mask);
- 
- 		r_vec->tx_ring = &nn->tx_rings[r];
--		nn->tx_rings[r].idx = r;
--		nn->tx_rings[r].r_vec = r_vec;
--		nfp_net_tx_ring_init(r_vec->tx_ring);
-+		nfp_net_tx_ring_init(r_vec->tx_ring, r_vec, r);
- 
- 		r_vec->rx_ring = &nn->rx_rings[r];
--		nn->rx_rings[r].idx = r;
--		nn->rx_rings[r].r_vec = r_vec;
--		nfp_net_rx_ring_init(r_vec->rx_ring);
-+		nfp_net_rx_ring_init(r_vec->rx_ring, r_vec, r);
- 	}
- }
- 
--- 
-1.9.1
+RnJvbTogTmVpbCBIb3JtYW4gPG5ob3JtYW5AdHV4ZHJpdmVyLmNvbT4NCkRhdGU6IFRodSwgMTgg
+RmViIDIwMTYgMTA6MDI6MDQgLTA1MDANCg0KPiBEbWl0cnkgVnl1a292IG5vdGVkIHJlY2VudGx5
+IHRoYXQgdGhlIHNjdHBfcG9ydF9oYXNodGFibGUgaGFkIGFuIGVycm9yIGluDQo+IGl0cyBzaXpl
+IGNvbXB1dGF0aW9uLCBvYnNlcnZpbmcgdGhhdCB0aGUgY3VycmVudCBtZXRob2QgbmV2ZXIgZ3Vh
+cmFudGVlZA0KPiB0aGF0IHRoZSBoYXNoc2l6ZSAobWVhc3VyZWQgaW4gbnVtYmVyIG9mIGVudHJp
+ZXMpIHdvdWxkIGJlIGEgcG93ZXIgb2YgdHdvLA0KPiB3aGljaCB0aGUgaW5wdXQgaGFzaCBmdW5j
+dGlvbiBmb3IgdGhhdCB0YWJsZSByZXF1aXJlcy4gIFRoZSByb290IGNhdXNlIG9mDQo+IHRoZSBw
+cm9ibGVtIGlzIHRoYXQgdHdvIHZhbHVlcyBuZWVkIHRvIGJlIGNvbXB1dGVkIChvbmUsIHRoZSBh
+bGxvY2F0aW9uDQo+IG9yZGVyIG9mIHRoZSBzdG9yYWdlIHJlcXVyaWVzLCBhcyBwYXNzZWQgdG8g
+X19nZXRfZnJlZV9wYWdlcywgYW5kIHR3byB0aGUNCj4gbnVtYmVyIG9mIGVudHJpZXMgZm9yIHRo
+ZSBoYXNoIHRhYmxlKS4gIEJvdGggbmVlZCB0byBiZSBeMiwgYnV0IGZvcg0KPiBkaWZmZXJlbnQg
+cmVhc29ucywgYW5kIHRoZSBleGlzdGluZyBjb2RlIGlzIHNpbXBseSBjb21wdXRpbmcgb25lIG9y
+ZGVyDQo+IHZhbHVlLCBhbmQgdXNpbmcgaXQgYXMgdGhlIGJhc2lzIGZvciBib3RoLCB3aGljaCBp
+cyB3cm9uZyAoaS5lLiBpdCBhc3N1bWVzDQo+IHRoYXQgKCgxPDxvcmRlcikqUEFHRV9TSVpFKS9z
+aXplb2YoYnVja2V0KSBpcyBzdGlsbCBeMiB3aGVuIGl0cyBub3QpLg0KPiANCj4gVG8gZml4IHRo
+aXMsIHdlIGNoYW5nZSB0aGUgbG9naWMgc2xpZ2h0bHkuICBXZSBzdGFydCBieSBjb21wdXRpbmcg
+YSBnb2FsDQo+IGFsbG9jYXRpb24gb3JkZXIgKHdoaWNoIGlzIGxpbWl0ZWQgYnkgdGhlIG1heGlt
+dW0gc2l6ZSBoYXNoIHRhYmxlIHdlIHdhbnQNCj4gdG8gc3VwcG9ydC4gIFRoZW4gd2UgYXR0ZW1w
+dCB0byBhbGxvY2F0ZSB0aGF0IHNpemUgdGFibGUsIGRlY3JlYXNpbmcgdGhlDQo+IG9yZGVyIHVu
+dGlsIGEgc3VjY2Vzc2Z1bCBhbGxvY2F0aW9uIGlzIG1hZGUuICBUaGVuLCB3aXRoIHRoZSByZXN1
+bHRhbnQNCj4gc3VjY2Vzc2Z1bCBvcmRlciB3ZSBjb21wdXRlIHRoZSBudW1iZXIgb2YgYnVja2V0
+cyB0aGF0IGhhc2ggdGFibGUgc3VwcG9ydHMsDQo+IHdoaWNoIHdlIHRoZW4gcm91bmQgZG93biB0
+byB0aGUgbmVhcmVzdCBwb3dlciBvZiB0d28sIGdpdmluZyB1cyB0aGUgbnVtYmVyDQo+IG9mIGVu
+dHJpZXMgdGhlIHRhYmxlIGFjdHVhbGx5IHN1cHBvcnRzLg0KPiANCj4gSSd2ZSB0ZXN0ZWQgdGhp
+cyBsb2NhbGx5IGhlcmUsIHVzaW5nIG5vbi1kZWJ1ZyBhbmQgc3BpbmxvY2stZGVidWcga2VybmVs
+cywNCj4gYW5kIHRoZSBudW1iZXIgb2YgZW50cmllcyBpbiB0aGUgaGFzaHRhYmxlIGNvbnNpc3Rl
+bnRseSB3b3JrIG91dCB0byBiZQ0KPiBwb3dlcnMgb2YgdHdvIGluIGFsbCBjYXNlcy4NCj4gDQo+
+IFNpZ25lZC1vZmYtYnk6IE5laWwgSG9ybWFuIDxuaG9ybWFuQHR1eGRyaXZlci5jb20+DQo+IFJl
+cG9ydGVkLWJ5OiBEbWl0cnkgVnl1a292IDxkdnl1a292QGdvb2dsZS5jb20+DQoNClRoaXMgbmVl
+ZHMgc29tZSB3b3JrOg0KDQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gaW5jbHVkZS9saW51eC9saXN0
+Lmg6ODowLA0KICBmcm9tIGluY2x1ZGUvbGludXgvbW9kdWxlLmg6OSwgZnJvbSBuZXQvc2N0cC9w
+cm90b2NvbC5jOjQ0Og0KICBuZXQvc2N0cC9wcm90b2NvbC5jOiBJbiBmdW5jdGlvbiChc2N0cF9p
+bml0ojoNCiAgaW5jbHVkZS9saW51eC9rZXJuZWwuaDo3NTI6MTc6IHdhcm5pbmc6IGNvbXBhcmlz
+b24gb2YgZGlzdGluY3QNCiAgcG9pbnRlciB0eXBlcyBsYWNrcyBhIGNhc3QgKHZvaWQpICgmX21p
+bjEgPT0gJl9taW4yKTsgXCBeDQogIG5ldC9zY3RwL3Byb3RvY29sLmM6MTQzMToxMDogbm90ZTog
+aW4gZXhwYW5zaW9uIG9mIG1hY3JvIKFtaW6iIG9yZGVyDQogID0gbWluKG9yZGVyLCBtYXhfZW50
+cnlfb3JkZXIpOyBeIEluIGZpbGUgaW5jbHVkZWQgZnJvbQ0KICBpbmNsdWRlL2xpbnV4L3ByaW50
+ay5oOjY6MCwgZnJvbSBpbmNsdWRlL2xpbnV4L2tlcm5lbC5oOjEzLCBmcm9tDQogIGluY2x1ZGUv
+bGludXgvbGlzdC5oOjgsIGZyb20gaW5jbHVkZS9saW51eC9tb2R1bGUuaDo5LCBmcm9tDQogIG5l
+dC9zY3RwL3Byb3RvY29sLmM6NDQ6DQppbmNsdWRlL2xpbnV4L2tlcm5fbGV2ZWxzLmg6NDoxODog
+d2FybmluZzogZm9ybWF0IKElZKIgZXhwZWN0cyBhcmd1bWVudCBvZiB0eXBlIKFpbnSiLCBidXQg
+YXJndW1lbnQgMyBoYXMgdHlwZSChbG9uZyB1bnNpZ25lZCBpbnSiIFstV2Zvcm1hdD1dDQogI2Rl
+ZmluZSBLRVJOX1NPSCAiXDAwMSIgIC8qIEFTQ0lJIFN0YXJ0IE9mIEhlYWRlciAqLw0KICAgICAg
+ICAgICAgICAgICAgXg0KaW5jbHVkZS9saW51eC9rZXJuX2xldmVscy5oOjEzOjE5OiBub3RlOiBp
+biBleHBhbnNpb24gb2YgbWFjcm8goUtFUk5fU09Iog0KICNkZWZpbmUgS0VSTl9JTkZPIEtFUk5f
+U09IICI2IiAvKiBpbmZvcm1hdGlvbmFsICovDQogICAgICAgICAgICAgICAgICAgXg0KaW5jbHVk
+ZS9saW51eC9wcmludGsuaDoyNTk6OTogbm90ZTogaW4gZXhwYW5zaW9uIG9mIG1hY3JvIKFLRVJO
+X0lORk+iDQogIHByaW50ayhLRVJOX0lORk8gcHJfZm10KGZtdCksICMjX19WQV9BUkdTX18pDQog
+ICAgICAgICBeDQpuZXQvc2N0cC9wcm90b2NvbC5jOjE0ODQ6Mjogbm90ZTogaW4gZXhwYW5zaW9u
+IG9mIG1hY3JvIKFwcl9pbmZvog0KICBwcl9pbmZvKCJIYXNoIHRhYmxlcyBjb25maWd1cmVkIChi
+aW5kICVkLyVkKVxuIiwgc2N0cF9wb3J0X2hhc2hzaXplLA0KICBeDQo=
