@@ -1,67 +1,38 @@
-From: Robert Richter <rrichter@caviumnetworks.com>
-Subject: [PATCH 2/2] net, thunderx: Use bool in structs where possible
-Date: Thu, 18 Feb 2016 13:39:09 +0100
-Message-ID: <1455799149-19590-3-git-send-email-rrichter@caviumnetworks.com>
-References: <1455799149-19590-1-git-send-email-rrichter@caviumnetworks.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net PATCH v3 1/1] net_sched fix: reclassification needs to consider
+ ether protocol changes
+Date: Thu, 18 Feb 2016 13:43:20 +0100
+Message-ID: <56C5BC68.9060705@iogearbox.net>
+References: <1455799084-6166-1-git-send-email-jhs@emojatatu.com> <1455799084-6166-2-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert Richter <rrichter@cavium.com>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: "David S . Miller" <davem@davemloft.net>, Sunil Goutham
- <sgoutham@cavium.com>, Robert Richter <rric@kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1455799149-19590-1-git-send-email-rrichter@caviumnetworks.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:38382 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1425371AbcBRMnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 07:43:23 -0500
+In-Reply-To: <1455799084-6166-2-git-send-email-jhs@emojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Robert Richter <rrichter@cavium.com>
+On 02/18/2016 01:38 PM, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>
+> actions could change the etherproto in particular with ethernet
+> tunnelled data. Typically such actions, after peeling the outer header,
+> will ask for the packet to be  reclassified. We then need to restart
+> the classification with the new proto header.
+>
+> Example setup used to catch this:
+> sudo tc qdisc add dev $ETH ingress
+> sudo $TC filter add dev $ETH parent ffff: pref 1 protocol 802.1Q \
+> u32 match u32 0 0 flowid 1:1 \
+> action  vlan pop reclassify
+>
+> Fixes: 3b3ae880266d ("net: sched: consolidate tc_classify{,_compat}")
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Looks like the :1 notation was accidentally introduced (this still
-uses 1 byte per flag). Using bool instead, which is the common use.
-
-Signed-off-by: Robert Richter <rrichter@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/nic.h | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index 688828865c48..fa5b1d2d8e23 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -262,9 +262,9 @@ struct nicvf {
- 	struct pci_dev		*pdev;
- 	u8			vf_id;
- 	u8			node;
--	u8			tns_mode:1;
--	u8			sqs_mode:1;
--	u8			loopback_supported:1;
-+	bool			tns_mode;
-+	bool                    sqs_mode;
-+	bool			loopback_supported;
- 	bool			hw_tso;
- 	u16			mtu;
- 	struct queue_set	*qs;
-@@ -353,9 +353,9 @@ struct nic_cfg_msg {
- 	u8    msg;
- 	u8    vf_id;
- 	u8    node_id;
--	u8    tns_mode:1;
--	u8    sqs_mode:1;
--	u8    loopback_supported:1;
-+	bool  tns_mode;
-+	bool  sqs_mode;
-+	bool  loopback_supported;
- 	u8    mac_addr[ETH_ALEN];
- };
- 
--- 
-2.7.0.rc3
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
