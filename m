@@ -1,7 +1,8 @@
 From: Kan Liang <kan.liang@intel.com>
-Subject: [PATCH V6 0/8] ethtool per queue parameters support
-Date: Thu, 18 Feb 2016 07:39:48 -0500
-Message-ID: <1455799196-8947-1-git-send-email-kan.liang@intel.com>
+Subject: [PATCH V6 5/8] net/ethtool: support set coalesce per queue
+Date: Thu, 18 Feb 2016 07:39:53 -0500
+Message-ID: <1455799196-8947-6-git-send-email-kan.liang@intel.com>
+References: <1455799196-8947-1-git-send-email-kan.liang@intel.com>
 Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
 	shannon.nelson@intel.com, f.fainelli@gmail.com,
 	alexander.duyck@gmail.com, jeffrey.t.kirsher@intel.com,
@@ -14,91 +15,134 @@ Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
 To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org,
 	ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:40499 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:29079 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1947704AbcBRUAM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2016 15:00:12 -0500
+	id S1947704AbcBRUAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 15:00:16 -0500
+In-Reply-To: <1455799196-8947-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Modern network interface controllers usually support multiple receive
-and transmit queues. Each queue may have its own parameters. For
-example, Intel XL710/X710 hardware supports per queue interrupt
-moderation. However, current ethtool does not support per queue
-parameters option. User has to set parameters for the whole NIC.
-This series extends ethtool to support per queue parameters option.
+From: Kan Liang <kan.liang@intel.com>
 
-Since the support of per queue parameters vary with different cards,
-it is impossible to address all cards in one patch. This series only
-supports per queue coalesce options on i40e driver. The framework used
-in the patch can be easily extended to other cards and parameters.
+This patch implements sub command ETHTOOL_SCOALESCE for ioctl
+ETHTOOL_PERQUEUE. It introduces an interface set_per_queue_coalesce to
+set coalesce of each masked queue to device driver. The wanted coalesce
+information are stored in "data" for each masked queue, which can copy
+from userspace.
+If it fails to set coalesce to device driver, the value which already
+set to specific queue will be tried to rollback.
 
-The lib bitmap needs to be extended to facilitate exchanging queue bitmaps
-between user space and kernel space. Two patches from David's latest V8
-patch series are also cited in this series. You may refer to
-https://lkml.org/lkml/2016/2/9/919 for more details.
+Signed-off-by: Kan Liang <kan.liang@intel.com>
+Reviewed-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ include/linux/ethtool.h |  7 ++++++
+ net/core/ethtool.c      | 61 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 68 insertions(+)
 
-Changes since V5:
- - Update the first two patches to David's latest V8 version
-
-Changes since V4:
- - Modify set/get_per_queue_coalesce function description
- - Change the queue number to be u32
- - Correct an error of calculating coalesce backup buffer address
- - Rename queue_num to n_queues
- - Don't log error message in __i40e_get_coalesce
-
-Changes since V3:
- - Based on David's lib bitmap.
- - ETHTOOL_PERQUEUE should be handled before the containing switch
- - Make the rollback code unconditional
- - some minor changes according to Ben's feedback
-
-Changes since V2:
- - Add queue-specific settings for interrupt moderation in i40e
-
-Changes since V1:
- - Checking the sub-command number to determine whether the command
-   requires CAP_NET_ADMIN
- - Refine the struct ethtool_per_queue_op and improve the comments
- - Use bitmap functions to parse queue mask
- - Improve comments
- - Use bitmap functions to parse queue mask
- - Improve comments
- - Add rollback support
- - Correct the way to find the vector for specific queue.
-
-David Decotigny (2):
-  lib/bitmap.c: conversion routines to/from u32 array
-  test_bitmap: unit tests for lib/bitmap.c
-
-Kan Liang (6):
-  net/ethtool: introduce a new ioctl for per queue setting
-  net/ethtool: support get coalesce per queue
-  net/ethtool: support set coalesce per queue
-  i40e: queue-specific settings for interrupt moderation
-  i40e/ethtool: support coalesce getting by queue
-  i40e/ethtool: support coalesce setting by queue
-
- drivers/net/ethernet/intel/i40e/i40e.h         |   7 -
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c |  15 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 151 +++++++----
- drivers/net/ethernet/intel/i40e/i40e_main.c    |  12 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c    |   9 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.h    |   8 +
- include/linux/bitmap.h                         |  10 +
- include/linux/ethtool.h                        |  15 +-
- include/uapi/linux/ethtool.h                   |  17 ++
- lib/Kconfig.debug                              |   8 +
- lib/Makefile                                   |   1 +
- lib/bitmap.c                                   |  89 ++++++
- lib/test_bitmap.c                              | 358 +++++++++++++++++++++++++
- net/core/ethtool.c                             | 121 ++++++++-
- tools/testing/selftests/lib/Makefile           |   2 +-
- tools/testing/selftests/lib/bitmap.sh          |  10 +
- 16 files changed, 760 insertions(+), 73 deletions(-)
- create mode 100644 lib/test_bitmap.c
- create mode 100755 tools/testing/selftests/lib/bitmap.sh
-
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index de56600..472d7d7 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -206,6 +206,11 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
+  *	a TX queue has this number, return -EINVAL. If only a RX queue or a TX
+  *	queue has this number, set the inapplicable fields to ~0 and return 0.
+  *	Returns a negative error code or zero.
++ * @set_per_queue_coalesce: Set interrupt coalescing parameters per queue.
++ *	It must check that the given queue number is valid. If neither a RX nor
++ *	a TX queue has this number, return -EINVAL. If only a RX queue or a TX
++ *	queue has this number, ignore the inapplicable fields.
++ *	Returns a negative error code or zero.
+  *
+  * All operations are optional (i.e. the function pointer may be set
+  * to %NULL) and callers must take this into account.  Callers must
+@@ -286,6 +291,8 @@ struct ethtool_ops {
+ 			       const struct ethtool_tunable *, const void *);
+ 	int	(*get_per_queue_coalesce)(struct net_device *, u32,
+ 					  struct ethtool_coalesce *);
++	int	(*set_per_queue_coalesce)(struct net_device *, u32,
++					  struct ethtool_coalesce *);
+ 
+ };
+ #endif /* _LINUX_ETHTOOL_H */
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 2a6c3a2..2406101 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1920,6 +1920,65 @@ static int ethtool_get_per_queue_coalesce(struct net_device *dev,
+ 	return 0;
+ }
+ 
++static int ethtool_set_per_queue_coalesce(struct net_device *dev,
++					  void __user *useraddr,
++					  struct ethtool_per_queue_op *per_queue_opt)
++{
++	u32 bit;
++	int i, ret = 0;
++	int n_queue;
++	struct ethtool_coalesce *backup = NULL, *tmp = NULL;
++	DECLARE_BITMAP(queue_mask, MAX_NUM_QUEUE);
++
++	if ((!dev->ethtool_ops->set_per_queue_coalesce) ||
++	    (!dev->ethtool_ops->get_per_queue_coalesce))
++		return -EOPNOTSUPP;
++
++	useraddr += sizeof(*per_queue_opt);
++
++	bitmap_from_u32array(queue_mask,
++			     MAX_NUM_QUEUE,
++			     per_queue_opt->queue_mask,
++			     DIV_ROUND_UP(MAX_NUM_QUEUE, 32));
++	n_queue = bitmap_weight(queue_mask, MAX_NUM_QUEUE);
++	tmp = backup = kmalloc_array(n_queue, sizeof(*backup), GFP_KERNEL);
++	if (!backup)
++		return -ENOMEM;
++
++	for_each_set_bit(bit, queue_mask, MAX_NUM_QUEUE) {
++		struct ethtool_coalesce coalesce;
++
++		ret = dev->ethtool_ops->get_per_queue_coalesce(dev, bit, tmp);
++		if (ret != 0)
++			goto roll_back;
++
++		tmp++;
++
++		if (copy_from_user(&coalesce, useraddr, sizeof(coalesce))) {
++			ret = -EFAULT;
++			goto roll_back;
++		}
++
++		ret = dev->ethtool_ops->set_per_queue_coalesce(dev, bit, &coalesce);
++		if (ret != 0)
++			goto roll_back;
++
++		useraddr += sizeof(coalesce);
++	}
++
++roll_back:
++	if (ret != 0) {
++		tmp = backup;
++		for_each_set_bit(i, queue_mask, bit) {
++			dev->ethtool_ops->set_per_queue_coalesce(dev, i, tmp);
++			tmp++;
++		}
++	}
++	kfree(backup);
++
++	return ret;
++}
++
+ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_per_queue_op per_queue_opt;
+@@ -1930,6 +1989,8 @@ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
+ 	switch (per_queue_opt.sub_command) {
+ 	case ETHTOOL_GCOALESCE:
+ 		return ethtool_get_per_queue_coalesce(dev, useraddr, &per_queue_opt);
++	case ETHTOOL_SCOALESCE:
++		return ethtool_set_per_queue_coalesce(dev, useraddr, &per_queue_opt);
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	};
 -- 
 1.8.3.1
