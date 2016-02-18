@@ -1,27 +1,159 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] qed{,e}: Add vlan filtering offload
-Date: Thu, 18 Feb 2016 16:08:08 -0500 (EST)
-Message-ID: <20160218.160808.1952360206800642142.davem@davemloft.net>
-References: <1455807640-28165-1-git-send-email-Yuval.Mintz@qlogic.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCHv2] sctp: Fix port hash table size computation
+Date: Thu, 18 Feb 2016 16:10:57 -0500
+Message-ID: <1455829857-15797-1-git-send-email-nhorman@tuxdriver.com>
+References: <20160218.153921.2010668846576353053.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47430 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964793AbcBRVIK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 16:08:10 -0500
-In-Reply-To: <1455807640-28165-1-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36433 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1948010AbcBRVLQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 16:11:16 -0500
+In-Reply-To: <20160218.153921.2010668846576353053.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Thu, 18 Feb 2016 17:00:38 +0200
+Dmitry Vyukov noted recently that the sctp_port_hashtable had an error in
+its size computation, observing that the current method never guaranteed
+that the hashsize (measured in number of entries) would be a power of two,
+which the input hash function for that table requires.  The root cause of
+the problem is that two values need to be computed (one, the allocation
+order of the storage requries, as passed to __get_free_pages, and two the
+number of entries for the hash table).  Both need to be ^2, but for
+different reasons, and the existing code is simply computing one order
+value, and using it as the basis for both, which is wrong (i.e. it assumes
+that ((1<<order)*PAGE_SIZE)/sizeof(bucket) is still ^2 when its not).
 
-> This series adds vlan filtering offload to qede.
-> First patch introduces small additional infrastructure needed in
-> qed to support it, while second contains the main bulk of driver changes.
+To fix this, we change the logic slightly.  We start by computing a goal
+allocation order (which is limited by the maximum size hash table we want
+to support.  Then we attempt to allocate that size table, decreasing the
+order until a successful allocation is made.  Then, with the resultant
+successful order we compute the number of buckets that hash table supports,
+which we then round down to the nearest power of two, giving us the number
+of entries the table actually supports.
 
-Series applied to net-next, thanks.
+I've tested this locally here, using non-debug and spinlock-debug kernels,
+and the number of entries in the hashtable consistently work out to be
+powers of two in all cases.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+CC: Dmitry Vyukov <dvyukov@google.com>
+CC: Vladislav Yasevich <vyasevich@gmail.com>
+CC: "David S. Miller" <davem@davemloft.net>
+
+---
+Change notes:
+
+v2) Fix type error for num_entries and max_entry_order.  Should have caught
+that, sorry Dave
+---
+ net/sctp/protocol.c | 46 ++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 38 insertions(+), 8 deletions(-)
+
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index ab0d538..1099e99 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -60,6 +60,8 @@
+ #include <net/inet_common.h>
+ #include <net/inet_ecn.h>
+ 
++#define MAX_SCTP_PORT_HASH_ENTRIES (64 * 1024)
++
+ /* Global data structures. */
+ struct sctp_globals sctp_globals __read_mostly;
+ 
+@@ -1355,6 +1357,8 @@ static __init int sctp_init(void)
+ 	unsigned long limit;
+ 	int max_share;
+ 	int order;
++	int num_entries;
++	int max_entry_order;
+ 
+ 	sock_skb_cb_check_size(sizeof(struct sctp_ulpevent));
+ 
+@@ -1407,14 +1411,24 @@ static __init int sctp_init(void)
+ 
+ 	/* Size and allocate the association hash table.
+ 	 * The methodology is similar to that of the tcp hash tables.
++	 * Though not identical.  Start by getting a goal size
+ 	 */
+ 	if (totalram_pages >= (128 * 1024))
+ 		goal = totalram_pages >> (22 - PAGE_SHIFT);
+ 	else
+ 		goal = totalram_pages >> (24 - PAGE_SHIFT);
+ 
+-	for (order = 0; (1UL << order) < goal; order++)
+-		;
++	/* Then compute the page order for said goal */
++	order = get_order(goal);
++
++	/* Now compute the required page order for the maximum sized table we
++	 * want to create
++	 */
++	max_entry_order = get_order(MAX_SCTP_PORT_HASH_ENTRIES *
++				    sizeof(struct sctp_bind_hashbucket));
++
++	/* Limit the page order by that maximum hash table size */
++	order = min(order, max_entry_order);
+ 
+ 	/* Allocate and initialize the endpoint hash table.  */
+ 	sctp_ep_hashsize = 64;
+@@ -1430,20 +1444,35 @@ static __init int sctp_init(void)
+ 		INIT_HLIST_HEAD(&sctp_ep_hashtable[i].chain);
+ 	}
+ 
+-	/* Allocate and initialize the SCTP port hash table.  */
++	/* Allocate and initialize the SCTP port hash table.
++	 * Note that order is initalized to start at the max sized
++	 * table we want to support.  If we can't get that many pages
++	 * reduce the order and try again
++	 */
+ 	do {
+-		sctp_port_hashsize = (1UL << order) * PAGE_SIZE /
+-					sizeof(struct sctp_bind_hashbucket);
+-		if ((sctp_port_hashsize > (64 * 1024)) && order > 0)
+-			continue;
+ 		sctp_port_hashtable = (struct sctp_bind_hashbucket *)
+ 			__get_free_pages(GFP_KERNEL | __GFP_NOWARN, order);
+ 	} while (!sctp_port_hashtable && --order > 0);
++
+ 	if (!sctp_port_hashtable) {
+ 		pr_err("Failed bind hash alloc\n");
+ 		status = -ENOMEM;
+ 		goto err_bhash_alloc;
+ 	}
++
++	/* Now compute the number of entries that will fit in the
++	 * port hash space we allocated
++	 */
++	num_entries = (1UL << order) * PAGE_SIZE /
++		      sizeof(struct sctp_bind_hashbucket);
++
++	/* And finish by rounding it down to the nearest power of two
++	 * this wastes some memory of course, but its needed because
++	 * the hash function operates based on the assumption that
++	 * that the number of entries is a power of two
++	 */
++	sctp_port_hashsize = rounddown_pow_of_two(num_entries);
++
+ 	for (i = 0; i < sctp_port_hashsize; i++) {
+ 		spin_lock_init(&sctp_port_hashtable[i].lock);
+ 		INIT_HLIST_HEAD(&sctp_port_hashtable[i].chain);
+@@ -1452,7 +1481,8 @@ static __init int sctp_init(void)
+ 	if (sctp_transport_hashtable_init())
+ 		goto err_thash_alloc;
+ 
+-	pr_info("Hash tables configured (bind %d)\n", sctp_port_hashsize);
++	pr_info("Hash tables configured (bind %d/%d)\n", sctp_port_hashsize,
++		num_entries);
+ 
+ 	sctp_sysctl_register();
+ 
+-- 
+2.5.0
