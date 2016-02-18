@@ -1,38 +1,72 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net PATCH v3 1/1] net_sched fix: reclassification needs to consider
- ether protocol changes
-Date: Thu, 18 Feb 2016 13:43:20 +0100
-Message-ID: <56C5BC68.9060705@iogearbox.net>
-References: <1455799084-6166-1-git-send-email-jhs@emojatatu.com> <1455799084-6166-2-git-send-email-jhs@emojatatu.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net V1 4/6] net/mlx4_core: Do not BUG_ON during reset when
+ PCI is offline
+Date: Thu, 18 Feb 2016 15:45:40 +0300
+Message-ID: <56C5BCF4.7000707@cogentembedded.com>
+References: <1455722667-23179-1-git-send-email-ogerlitz@mellanox.com>
+ <1455722667-23179-5-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Daniel Jurgens <danielj@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38382 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1425371AbcBRMnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 07:43:23 -0500
-In-Reply-To: <1455799084-6166-2-git-send-email-jhs@emojatatu.com>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:34690 "EHLO
+	mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1425268AbcBRMpm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 07:45:42 -0500
+Received: by mail-lf0-f50.google.com with SMTP id j78so31515005lfb.1
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 04:45:42 -0800 (PST)
+In-Reply-To: <1455722667-23179-5-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/18/2016 01:38 PM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> actions could change the etherproto in particular with ethernet
-> tunnelled data. Typically such actions, after peeling the outer header,
-> will ask for the packet to be  reclassified. We then need to restart
-> the classification with the new proto header.
->
-> Example setup used to catch this:
-> sudo tc qdisc add dev $ETH ingress
-> sudo $TC filter add dev $ETH parent ffff: pref 1 protocol 802.1Q \
-> u32 match u32 0 0 flowid 1:1 \
-> action  vlan pop reclassify
->
-> Fixes: 3b3ae880266d ("net: sched: consolidate tc_classify{,_compat}")
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Hello.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+On 2/17/2016 6:24 PM, Or Gerlitz wrote:
+
+> From: Daniel Jurgens <danielj@mellanox.com>
+>
+> The PCI channel could go offline during reset due to EEH.  Don't bug on in
+> this case, the error is recoverable.
+>
+> Fixes: f6bc11e42646 ('net/mlx4_core: Enhance the catas flow to support device reset')
+> Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
+> Reviewed-by: Yishai Hadas <yishaih@mellanox.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx4/catas.c | 11 +++++++++--
+>   1 file changed, 9 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
+> index 715de8a..c7e9399 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/catas.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
+> @@ -182,10 +182,17 @@ void mlx4_enter_error_state(struct mlx4_dev_persistent *persist)
+>   		err = mlx4_reset_slave(dev);
+>   	else
+>   		err = mlx4_reset_master(dev);
+> -	BUG_ON(err != 0);
+>
+> +	if (!err) {
+
+    Grr, couldn't you add your new code just *instead* of BUG_ON()? There's 
+really no need for empty line before the *if*.
+
+> +		mlx4_err(dev, "device was reset successfully\n");
+> +	} else {
+> +		/* EEH could have disabled the PCI channel during reset. That's
+> +		 * recoverable and the PCI error flow will handle it.
+> +		 */
+> +		if (!pci_channel_offline(dev->persist->pdev))
+> +			BUG_ON(1);
+> +	}
+>   	dev->persist->state |= MLX4_DEVICE_STATE_INTERNAL_ERROR;
+> -	mlx4_err(dev, "device was reset successfully\n");
+>   	mutex_unlock(&persist->device_state_mutex);
+>
+>   	/* At that step HW was already reset, now notify clients */
+
+MBR, Sergei
