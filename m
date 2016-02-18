@@ -1,52 +1,53 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [net PATCH v3 1/1] net_sched fix: reclassification needs to consider ether protocol changes
-Date: Thu, 18 Feb 2016 07:38:04 -0500
-Message-ID: <1455799084-6166-2-git-send-email-jhs@emojatatu.com>
-References: <1455799084-6166-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-	xiyou.wangcong@gmail.com, Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:35711 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1425249AbcBRMiQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 07:38:16 -0500
-Received: by mail-ig0-f178.google.com with SMTP id hb3so11235983igb.0
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 04:38:16 -0800 (PST)
-In-Reply-To: <1455799084-6166-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: [PATCH net] af_unix: Don't use continue to re-execute unix_stream_read_generic loop
+Date: Thu, 18 Feb 2016 12:39:46 +0000
+Message-ID: <877fi2gpkd.fsf@doppelsaurus.mobileactivedefense.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	hannes@stressinduktion.org, <joseph.salisbury@canonical.com>,
+	edumazet@google.com, rweikusat@mobileactivedefense.com
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+The unix_stream_read_generic function tries to use a continue statement
+to restart the receive loop after waiting for a message. This may not
+work as intended as the caller might use a recvmsg call to peek at
+control messages without specifying a message buffer. If this was the
+case, the continue will cause the function to return without an error
+and without the credential information if the function had to wait for a
+message while it had returned with the credentials otherwise. Change to
+using goto to restart the loop without checking the condition first in
+this case so that credentials are returned either way.
 
-actions could change the etherproto in particular with ethernet
-tunnelled data. Typically such actions, after peeling the outer header,
-will ask for the packet to be  reclassified. We then need to restart
-the classification with the new proto header.
-
-Example setup used to catch this:
-sudo tc qdisc add dev $ETH ingress
-sudo $TC filter add dev $ETH parent ffff: pref 1 protocol 802.1Q \
-u32 match u32 0 0 flowid 1:1 \
-action  vlan pop reclassify
-
-Fixes: 3b3ae880266d ("net: sched: consolidate tc_classify{,_compat}")
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/sched/sch_api.c | 1 +
- 1 file changed, 1 insertion(+)
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index b5c2cf2..af1acf0 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1852,6 +1852,7 @@ reset:
- 	}
+I'm resending this as the original patch seems to have been classified
+as superseded without anything actually superseding it. I hope the net
+is appropriate. I consider this a bugfix.
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index c51e283..f75f847 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2312,6 +2312,7 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state)
+ 		bool drop_skb;
+ 		struct sk_buff *skb, *last;
  
- 	tp = old_tp;
-+	protocol = tc_skb_protocol(skb);
- 	goto reclassify;
- #endif
- }
--- 
-1.9.1
++redo:
+ 		unix_state_lock(sk);
+ 		if (sock_flag(sk, SOCK_DEAD)) {
+ 			err = -ECONNRESET;
+@@ -2353,7 +2354,7 @@ again:
+ 			}
+ 
+ 			mutex_lock(&u->readlock);
+-			continue;
++			goto redo;
+ unlock:
+ 			unix_state_unlock(sk);
+ 			break;
