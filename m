@@ -1,68 +1,58 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 1/1] ser_gigaset: use container_of() instead of detour
-Date: Thu, 18 Feb 2016 15:46:07 -0800
-Message-ID: <20160218234607.GA4517@kroah.com>
-References: <1455827348-8574-1-git-send-email-pebolle@tiscali.nl>
- <1455827348-8574-2-git-send-email-pebolle@tiscali.nl>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH] rose: correct integer overflow check
+Date: Fri, 19 Feb 2016 00:21:36 +0100
+Message-ID: <20160218232136.GB11796@linux-mips.org>
+References: <1455740713-18262-1-git-send-email-wuninsu@gmail.com>
+ <20160218.153329.28621505199573578.davem@davemloft.net>
+ <CAGoFzNd3egg-36bg3DRU=2b5weyuf-CLTcgfWUQmY7kjdBwuNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Dmitry Vyukov <dvyukov@google.com>,
-	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>,
-	Martin Wilck <Martin.Wilck@ts.fujitsu.com>,
-	Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>,
-	Tilman Schmidt <tilman@imap.cc>, linux-kernel@vger.kernel.org,
-	gigaset307x-common@lists.sourceforge.net
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:36766 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1947614AbcBRXqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 18:46:08 -0500
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, linux-hams@vger.kernel.org,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Taesoo Kim <taesoo@gatech.edu>,
+	Yeongjin Jang <yeongjin.jang@gatech.edu>,
+	"Yun, Insu" <insu@gatech.edu>, Changwoo Min <changwoo@gatech.edu>
+To: Insu Yun <wuninsu@gmail.com>
+Return-path: <linux-hams-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1455827348-8574-2-git-send-email-pebolle@tiscali.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAGoFzNd3egg-36bg3DRU=2b5weyuf-CLTcgfWUQmY7kjdBwuNg@mail.gmail.com>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 18, 2016 at 09:29:08PM +0100, Paul Bolle wrote:
-> The purpose of gigaset_device_release() is to kfree() the struct
-> ser_cardstate that contains our struct device. This is done via a bit of
-> a detour. First we make our struct device's driver_data point to the
-> container of our struct ser_cardstate (which is a struct cardstate). In
-> gigaset_device_release() we then retrieve that driver_data again. And
-> after that we finally kfree() the struct ser_cardstate that was saved in
-> the struct cardstate.
-> 
-> All of this can be achieved much easier by using container_of() to get
-> from our struct device to its container, struct ser_cardstate. Do so.
-> 
-> Note that at the time the detour was implemented commit b8b2c7d845d5
-> ("base/platform: assert that dev_pm_domain callbacks are called
-> unconditionally") had just entered the tree. That commit disconnected
-> our platform_device and our platform_driver. These were reconnected
-> again in v4.5-rc2 through commit 25cad69f21f5 ("base/platform: Fix
-> platform drivers with no probe callback"). And one of the consequences
-> of that fix was that it broke the detour via driver_data. That's because
-> it made __device_release_driver() stop being a NOP for our struct device
-> and actually do stuff again. One of the things it now does, is setting
-> our driver_data to NULL. That, in turn, makes it impossible for
-> gigaset_device_release() to get to our struct cardstate. Which has the
-> net effect of leaking a struct ser_cardstate at every call of this
-> driver's tty close() operation. So using container_of() has the
-> additional benefit of actually working.
-> 
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Tested-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-> ---
->  drivers/isdn/gigaset/ser-gigaset.c | 9 +--------
->  1 file changed, 1 insertion(+), 8 deletions(-)
+On Thu, Feb 18, 2016 at 04:03:16PM -0500, Insu Yun wrote:
 
+>=20
+>     Because of the types on the right hand side of the comparison
+>     the expressions are all promoted to unsigned.
+>=20
+>     Did you look at the compiler's assembler output?=A0 I did when
+>     reviewing your patch.
+>=20
+>=20
+> I checked the assembler output right now.
+> You are right.
+> I realized that right hand side becomes unsigned due to sizeof.
+> I think this patch is wrong.=A0
+> Thanks.=A0
 
-<formletter>
+On a different level, the current whole approach of ROSE to just genera=
+te
+a fixed number of devices at initialization time of ROSE is if not wron=
+g
+then at least very archaic.  The default number is 10 devices and proba=
+bly
+of those 9 are unused on a typical setup - that is, if the module has
+been loaded intentionally at all.
 
-This is not the correct way to submit patches for inclusion in the
-stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
-for how to do this properly.
+As a solution I've implemented a patch to support creating of ROSE
+devices through netlink plus the necessary changes to iproute2 to go
+along with that.
 
-</formletter>
+  Ralf
+--
+To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
