@@ -1,106 +1,61 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next V1 04/12] net/mlx5e: Support DCBNL IEEE ETS
-Date: Thu, 18 Feb 2016 07:30:03 -0800
-Message-ID: <56C5E37B.20207@gmail.com>
-References: <1455791573-5270-1-git-send-email-saeedm@mellanox.com> <1455791573-5270-5-git-send-email-saeedm@mellanox.com>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [PATCH net v2] lwt: fix rx checksum setting for lwt devices
+ tunneling over ipv6
+Date: Thu, 18 Feb 2016 07:31:45 -0800
+Message-ID: <CAEh+42jrerZ=b3Tj08ekCBAnf+K4zEbZWio+p=KLoBwMXpxSbw@mail.gmail.com>
+References: <244994c83cb73d98205f39aaefcee846dab48260.1455731463.git.pabeni@redhat.com>
+ <CAEh+42isC=4nmKz-Sjc9VreCbOkqdEcPc2uXyxcgGRJQsdSWSw@mail.gmail.com> <1455788524.29084.8.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Rana Shahout <ranas@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Matthew Finlay <matt@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Benc <jbenc@redhat.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:34601 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424370AbcBRPaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 10:30:19 -0500
-Received: by mail-pf0-f172.google.com with SMTP id x65so33182867pfb.1
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 07:30:18 -0800 (PST)
-In-Reply-To: <1455791573-5270-5-git-send-email-saeedm@mellanox.com>
+Received: from mail.kernel.org ([198.145.29.136]:60048 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752464AbcBRPcD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 10:32:03 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id 87BDA20382
+	for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 15:32:02 +0000 (UTC)
+Received: from mail-qg0-f42.google.com (mail-qg0-f42.google.com [209.85.192.42])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 322F4202FF
+	for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 15:32:01 +0000 (UTC)
+Received: by mail-qg0-f42.google.com with SMTP id b35so39093780qge.0
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 07:32:01 -0800 (PST)
+In-Reply-To: <1455788524.29084.8.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-18 02:32 AM, Saeed Mahameed wrote:
-> Support the ndo_setup_tc callback and the needed methods
-> for multi TC/UP support, and removed the default_vlan_prio
-> from mlx5e_priv which is always 0, it was replaced with
-> hardcoded "0" in the new select queue method.
-> 
-> For that we now create MAX_NUM_TC num of TISs (one per prio)
-> on netdevice creation instead of priv->params.num_tc which
-> was always 1.
-> 
-> So far each channel had a single TXQ, Now each channel has a
-> TXQ per TC (Traffic Class).
-> 
-> Added en_dcbnl.c which implements the set/get DCBNL IEEE ETS,
-> set/get dcbx and registers the mlx5e dcbnl ops.
-> 
-> We still use the kernel's default TXQ selection method to select the
-> channel to transmit through but now we use our own method to select
-> the TXQ inside the channel based on VLAN priority.
-> 
-> In mlx5, as opposed to mlx4, tc group N gets lower priority than
-> tc group N+1.
-> 
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-> Signed-off-by: Rana Shahout <ranas@mellanox.com>
-> ---
+On Thu, Feb 18, 2016 at 1:42 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> On Wed, 2016-02-17 at 11:19 -0800, Jesse Gross wrote:
+>> On Wed, Feb 17, 2016 at 10:30 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+>> > the commit 35e2d1152b22 ("tunnels: Allow IPv6 UDP checksums to be
+>> > correctly controlled.") changed the default xmit checksum setting
+>> > for lwt vxlan/geneve ipv6 tunnels, so that now the checksum is not
+>> > set into external UDP header.
+>> > This commit changes the rx checksum setting for both lwt vxlan/geneve
+>> > devices created by openvswitch accordingly, so that lwt over ipv6
+>> > tunnel pairs are again able to communicate with default values.
+>> >
+>> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+>>
+>> This is compat code that is being changed here. Based on the previous
+>> discussion, shouldn't these be made the default for all users?
+>
+> This change was initially aimed at a smaller scope: use self consistent
+> default for ovs lwt devices/tunnel terminations.
+>
+> If there is agreement, I can post a separate patch changing the default
+> rx checksum setting for plain vxlan and geneve[1] devices tunneling over
+> ipv6.
 
+OK. I think it's important to do the followup to keep things
+consistent but this is fine to start.
 
-[...]
-
->  
-> +static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
-> +{
-> +	struct mlx5e_priv *priv = netdev_priv(netdev);
-> +	bool was_opened;
-> +	int err = 0;
-> +
-> +	if (tc && tc != MLX5E_MAX_NUM_TC)
-> +		return -EINVAL;
-> +
-> +	mutex_lock(&priv->state_lock);
-> +
-> +	was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
-> +	if (was_opened)
-> +		mlx5e_close_locked(priv->netdev);
-> +
-> +	priv->params.num_tc = tc ? tc : 1;
-> +
-> +	if (was_opened)
-> +		err = mlx5e_open_locked(priv->netdev);
-> +
-> +	mutex_unlock(&priv->state_lock);
-> +
-> +	return err;
-> +}
-> +
-
-Hi Saeed,
-
-I just changed the signature on the setup_tc ndo hook so you will
-need to change this to something like,
-
-static int __mlx5e_setup_tc(struct net_device *dev, u32 handle,
-			    __be16 proto, struct tc_to_netdev *tc)
-{
-	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
-		return -EINVAL;
-	return mlx5e_setup_tc(dev, tc->tc)
-}
-
-
-and then use __mlx5e_setup_tc() to populate the ndo op hook. If you
-look at the mlx4 drivers I did this change there already.
-
-Other than that nice to see another dcb supporting driver.
-
-Thanks,
-John
+Acked-by: Jesse Gross <jesse@kernel.org>
