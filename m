@@ -1,181 +1,202 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv3 net-next 12/14] nfp: convert .ndo_change_mtu() to prepare/commit paradigm
-Date: Thu, 18 Feb 2016 20:38:27 +0000
-Message-ID: <1455827909-26443-13-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv3 net-next 02/14] nfp: break up nfp_net_{alloc|free}_rings
+Date: Thu, 18 Feb 2016 20:38:17 +0000
+Message-ID: <1455827909-26443-3-git-send-email-jakub.kicinski@netronome.com>
 References: <1455827909-26443-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: netdev@vger.kernel.org,
 	Jakub Kicinski <jakub.kicinski@netronome.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:33460 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1948210AbcBRUiq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:46 -0500
-Received: by mail-wm0-f45.google.com with SMTP id g62so42113259wme.0
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:46 -0800 (PST)
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:35564 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946394AbcBRUih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:37 -0500
+Received: by mail-wm0-f42.google.com with SMTP id c200so46505010wme.0
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:37 -0800 (PST)
 In-Reply-To: <1455827909-26443-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When changing MTU on running device first allocate new rings
-and buffers and once it succeeds proceed with changing MTU.
-
-Allocation of new rings is not really necessary for this
-operation - it's done to keep the code simple and because
-size of the extra ring memory is quite small compared to
-the size of buffers.
-
-Operation can still fail midway through if FW communication
-times out.  In that case we retry with old rings and if fail
-persists there is little we can do, we just free all resources
-and leave device in fully closed state.
+nfp_net_{alloc|free}_rings contained strange mix of allocations
+and vector initialization.  Remove it, declare vector init as
+a separate function and handle allocations explicitly.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 113 +++++++++++++++++++--
- 1 file changed, 105 insertions(+), 8 deletions(-)
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 126 ++++++++-------------
+ 1 file changed, 47 insertions(+), 79 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index fd226d2e8606..0153fce33dff 100644
+index bebdae80ccda..d39ac3553e1e 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -1504,6 +1504,64 @@ err_alloc:
+@@ -1486,91 +1486,40 @@ err_alloc:
  	return -ENOMEM;
  }
  
-+static struct nfp_net_rx_ring *
-+nfp_net_shadow_rx_rings_prepare(struct nfp_net *nn, unsigned int fl_bufsz)
-+{
-+	struct nfp_net_rx_ring *rings;
-+	unsigned int r;
-+
-+	rings = kcalloc(nn->num_rx_rings, sizeof(*rings), GFP_KERNEL);
-+	if (!rings)
-+		return NULL;
-+
-+	for (r = 0; r < nn->num_rx_rings; r++) {
-+		nfp_net_rx_ring_init(&rings[r], nn->rx_rings[r].r_vec, r);
-+
-+		if (nfp_net_rx_ring_alloc(&rings[r], fl_bufsz))
-+			goto err_free_prev;
-+
-+		if (nfp_net_rx_ring_bufs_alloc(nn, &rings[r]))
-+			goto err_free_ring;
-+	}
-+
-+	return rings;
-+
-+err_free_prev:
-+	while (r--) {
-+		nfp_net_rx_ring_bufs_free(nn, &rings[r]);
-+err_free_ring:
-+		nfp_net_rx_ring_free(&rings[r]);
-+	}
-+	kfree(rings);
-+	return NULL;
-+}
-+
-+static struct nfp_net_rx_ring *
-+nfp_net_shadow_rx_rings_swap(struct nfp_net *nn, struct nfp_net_rx_ring *rings)
-+{
-+	struct nfp_net_rx_ring *old = nn->rx_rings;
-+	unsigned int r;
-+
-+	for (r = 0; r < nn->num_rx_rings; r++)
-+		old[r].r_vec->rx_ring = &rings[r];
-+
-+	nn->rx_rings = rings;
-+	return old;
-+}
-+
-+static void
-+nfp_net_shadow_rx_rings_free(struct nfp_net *nn, struct nfp_net_rx_ring *rings)
-+{
-+	unsigned int r;
-+
-+	for (r = 0; r < nn->num_r_vecs; r++) {
-+		nfp_net_rx_ring_bufs_free(nn, &rings[r]);
-+		nfp_net_rx_ring_free(&rings[r]);
-+	}
-+
-+	kfree(rings);
-+}
-+
- static int
- nfp_net_prepare_vector(struct nfp_net *nn, struct nfp_net_r_vector *r_vec,
- 		       int idx)
-@@ -1977,25 +2035,64 @@ static void nfp_net_set_rx_mode(struct net_device *netdev)
- 
- static int nfp_net_change_mtu(struct net_device *netdev, int new_mtu)
+-static void __nfp_net_free_rings(struct nfp_net *nn, unsigned int n_free)
++static int
++nfp_net_prepare_vector(struct nfp_net *nn, struct nfp_net_r_vector *r_vec,
++		       int idx)
  {
-+	unsigned int old_mtu, old_fl_bufsz, new_fl_bufsz;
- 	struct nfp_net *nn = netdev_priv(netdev);
--	int ret = 0;
-+	struct nfp_net_rx_ring *tmp_rings;
-+	int err, err2;
+-	struct nfp_net_r_vector *r_vec;
+-	struct msix_entry *entry;
++	struct msix_entry *entry = &nn->irq_entries[r_vec->irq_idx];
++	int err;
  
- 	if (new_mtu < 68 || new_mtu > nn->max_mtu) {
- 		nn_err(nn, "New MTU (%d) is not valid\n", new_mtu);
- 		return -EINVAL;
- 	}
- 
--	if (netif_running(netdev))
--		nfp_net_netdev_close(netdev);
-+	old_mtu = netdev->mtu;
-+	old_fl_bufsz = nn->fl_bufsz;
-+	new_fl_bufsz = NFP_NET_MAX_PREPEND + ETH_HLEN + VLAN_HLEN * 2 +
-+		MPLS_HLEN * 8 + new_mtu;
-+
-+	if (!(nn->ctrl & NFP_NET_CFG_CTRL_ENABLE)) {
-+		netdev->mtu = new_mtu;
-+		nn->fl_bufsz = new_fl_bufsz;
-+		return 0;
-+	}
-+
-+	/* Prepare new rings */
-+	tmp_rings = nfp_net_shadow_rx_rings_prepare(nn, new_fl_bufsz);
-+	if (!tmp_rings)
-+		return -ENOMEM;
-+
-+	/* Stop device, swap in new rings, try to start the device */
-+	nfp_net_close_stack(nn);
-+	nfp_net_clear_config_and_disable(nn);
-+
-+	tmp_rings = nfp_net_shadow_rx_rings_swap(nn, tmp_rings);
- 
- 	netdev->mtu = new_mtu;
--	nn->fl_bufsz = NFP_NET_MAX_PREPEND + ETH_HLEN + VLAN_HLEN * 2 +
--		MPLS_HLEN * 8 + new_mtu;
-+	nn->fl_bufsz = new_fl_bufsz;
-+
-+	err = nfp_net_set_config_and_enable(nn);
+-	while (n_free--) {
+-		r_vec = &nn->r_vecs[n_free];
+-		entry = &nn->irq_entries[r_vec->irq_idx];
++	snprintf(r_vec->name, sizeof(r_vec->name),
++		 "%s-rxtx-%d", nn->netdev->name, idx);
++	err = request_irq(entry->vector, r_vec->handler, 0, r_vec->name, r_vec);
 +	if (err) {
-+		/* Try with old configuration and old rings */
-+		tmp_rings = nfp_net_shadow_rx_rings_swap(nn, tmp_rings);
-+
-+		netdev->mtu = old_mtu;
-+		nn->fl_bufsz = old_fl_bufsz;
-+
-+		err2 = nfp_net_set_config_and_enable(nn);
-+		if (err2) {
-+			nn_err(nn, "Can't restore MTU - FW communication failed (%d,%d)\n",
-+			       err, err2);
-+			nfp_net_shadow_rx_rings_free(nn, tmp_rings);
-+			nfp_net_close_free_all(nn);
-+			return err2;
-+		}
++		nn_err(nn, "Error requesting IRQ %d\n", entry->vector);
++		return err;
 +	}
  
--	if (netif_running(netdev))
--		ret = nfp_net_netdev_open(netdev);
-+	nfp_net_shadow_rx_rings_free(nn, tmp_rings);
+-		nfp_net_rx_ring_free(r_vec->rx_ring);
+-		nfp_net_tx_ring_free(r_vec->tx_ring);
++	/* Setup NAPI */
++	netif_napi_add(nn->netdev, &r_vec->napi,
++		       nfp_net_poll, NAPI_POLL_WEIGHT);
  
--	return ret;
-+	nfp_net_open_stack(nn);
-+
-+	return err;
+-		irq_set_affinity_hint(entry->vector, NULL);
+-		free_irq(entry->vector, r_vec);
++	irq_set_affinity_hint(entry->vector, &r_vec->affinity_mask);
+ 
+-		netif_napi_del(&r_vec->napi);
+-	}
+-}
++	nn_dbg(nn, "RV%02d: irq=%03d/%03d\n", idx, entry->vector, entry->entry);
+ 
+-/**
+- * nfp_net_free_rings() - Free all ring resources
+- * @nn:      NFP Net device to reconfigure
+- */
+-static void nfp_net_free_rings(struct nfp_net *nn)
+-{
+-	__nfp_net_free_rings(nn, nn->num_r_vecs);
++	return 0;
  }
  
- static struct rtnl_link_stats64 *nfp_net_stat64(struct net_device *netdev,
+-/**
+- * nfp_net_alloc_rings() - Allocate resources for RX and TX rings
+- * @nn:      NFP Net device to reconfigure
+- *
+- * Return: 0 on success or negative errno on error.
+- */
+-static int nfp_net_alloc_rings(struct nfp_net *nn)
++static void
++nfp_net_cleanup_vector(struct nfp_net *nn, struct nfp_net_r_vector *r_vec)
+ {
+-	struct nfp_net_r_vector *r_vec;
+-	struct msix_entry *entry;
+-	int err;
+-	int r;
++	struct msix_entry *entry = &nn->irq_entries[r_vec->irq_idx];
+ 
+-	for (r = 0; r < nn->num_r_vecs; r++) {
+-		r_vec = &nn->r_vecs[r];
+-		entry = &nn->irq_entries[r_vec->irq_idx];
+-
+-		/* Setup NAPI */
+-		netif_napi_add(nn->netdev, &r_vec->napi,
+-			       nfp_net_poll, NAPI_POLL_WEIGHT);
+-
+-		snprintf(r_vec->name, sizeof(r_vec->name),
+-			 "%s-rxtx-%d", nn->netdev->name, r);
+-		err = request_irq(entry->vector, r_vec->handler, 0,
+-				  r_vec->name, r_vec);
+-		if (err) {
+-			nn_dbg(nn, "Error requesting IRQ %d\n", entry->vector);
+-			goto err_napi_del;
+-		}
+-
+-		irq_set_affinity_hint(entry->vector, &r_vec->affinity_mask);
+-
+-		nn_dbg(nn, "RV%02d: irq=%03d/%03d\n",
+-		       r, entry->vector, entry->entry);
+-
+-		/* Allocate TX ring resources */
+-		err = nfp_net_tx_ring_alloc(r_vec->tx_ring);
+-		if (err)
+-			goto err_free_irq;
+-
+-		/* Allocate RX ring resources */
+-		err = nfp_net_rx_ring_alloc(r_vec->rx_ring);
+-		if (err)
+-			goto err_free_tx;
+-	}
+-
+-	return 0;
+-
+-err_free_tx:
+-	nfp_net_tx_ring_free(r_vec->tx_ring);
+-err_free_irq:
+ 	irq_set_affinity_hint(entry->vector, NULL);
+-	free_irq(entry->vector, r_vec);
+-err_napi_del:
+ 	netif_napi_del(&r_vec->napi);
+-	__nfp_net_free_rings(nn, r);
+-	return err;
++	free_irq(entry->vector, r_vec);
+ }
+ 
+ /**
+@@ -1734,9 +1683,19 @@ static int nfp_net_netdev_open(struct net_device *netdev)
+ 		goto err_free_exn;
+ 	disable_irq(nn->irq_entries[NFP_NET_CFG_LSC].vector);
+ 
+-	err = nfp_net_alloc_rings(nn);
+-	if (err)
+-		goto err_free_lsc;
++	for (r = 0; r < nn->num_r_vecs; r++) {
++		err = nfp_net_prepare_vector(nn, &nn->r_vecs[r], r);
++		if (err)
++			goto err_free_prev_vecs;
++
++		err = nfp_net_tx_ring_alloc(nn->r_vecs[r].tx_ring);
++		if (err)
++			goto err_cleanup_vec_p;
++
++		err = nfp_net_rx_ring_alloc(nn->r_vecs[r].rx_ring);
++		if (err)
++			goto err_free_tx_ring_p;
++	}
+ 
+ 	err = netif_set_real_num_tx_queues(netdev, nn->num_tx_rings);
+ 	if (err)
+@@ -1829,8 +1788,15 @@ err_disable_napi:
+ err_clear_config:
+ 	nfp_net_clear_config_and_disable(nn);
+ err_free_rings:
+-	nfp_net_free_rings(nn);
+-err_free_lsc:
++	r = nn->num_r_vecs;
++err_free_prev_vecs:
++	while (r--) {
++		nfp_net_rx_ring_free(nn->r_vecs[r].rx_ring);
++err_free_tx_ring_p:
++		nfp_net_tx_ring_free(nn->r_vecs[r].tx_ring);
++err_cleanup_vec_p:
++		nfp_net_cleanup_vector(nn, &nn->r_vecs[r]);
++	}
+ 	nfp_net_aux_irq_free(nn, NFP_NET_CFG_LSC, NFP_NET_IRQ_LSC_IDX);
+ err_free_exn:
+ 	nfp_net_aux_irq_free(nn, NFP_NET_CFG_EXN, NFP_NET_IRQ_EXN_IDX);
+@@ -1871,9 +1837,11 @@ static int nfp_net_netdev_close(struct net_device *netdev)
+ 	for (r = 0; r < nn->num_r_vecs; r++) {
+ 		nfp_net_rx_flush(nn->r_vecs[r].rx_ring);
+ 		nfp_net_tx_flush(nn->r_vecs[r].tx_ring);
++		nfp_net_rx_ring_free(nn->r_vecs[r].rx_ring);
++		nfp_net_tx_ring_free(nn->r_vecs[r].tx_ring);
++		nfp_net_cleanup_vector(nn, &nn->r_vecs[r]);
+ 	}
+ 
+-	nfp_net_free_rings(nn);
+ 	nfp_net_aux_irq_free(nn, NFP_NET_CFG_LSC, NFP_NET_IRQ_LSC_IDX);
+ 	nfp_net_aux_irq_free(nn, NFP_NET_CFG_EXN, NFP_NET_IRQ_EXN_IDX);
+ 
 -- 
 1.9.1
