@@ -1,59 +1,35 @@
-From: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
-Subject: [PATCH net v2] geneve: Refine MTU limit
-Date: Thu, 18 Feb 2016 16:40:28 +0000
-Message-ID: <1455813628-14201-1-git-send-email-david@weave.works>
+From: David Wragg <david@weave.works>
+Subject: Re: [PATCH net] geneve: Refine MTU limit
+Date: Thu, 18 Feb 2016 16:41:17 +0000
+Message-ID: <86fuwq2cpe.fsf@weave.works>
+References: <1455625999-9781-1-git-send-email-david@weave.works>
+	<CAEh+42i628VNoXh5=vtFKzqVGeF4NqY3=GKbdNVeqmYnWK_oBg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Wragg <david-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Wragg <david@weave.works>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>,
+	Tom Herbert <tom@herbertland.com>
+To: Jesse Gross <jesse@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:33840 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946232AbcBRQlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 11:41:19 -0500
+Received: by mail-wm0-f47.google.com with SMTP id b205so33320967wmb.1
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 08:41:19 -0800 (PST)
+In-Reply-To: <CAEh+42i628VNoXh5=vtFKzqVGeF4NqY3=GKbdNVeqmYnWK_oBg@mail.gmail.com>
+	(Jesse Gross's message of "Tue, 16 Feb 2016 10:32:15 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Q2FsY3VsYXRlIHRoZSBtYXhpbXVtIE1UVSB0YWtpbmcgaW50byBhY2NvdW50IHRoZSBzaXplIG9m
-IGhlYWRlcnMKaW52b2x2ZWQgaW4gR0VORVZFIGVuY2Fwc3VsYXRpb24sIGFzIGZvciBvdGhlciB0
-dW5uZWwgdHlwZXMuCgpDaGFuZ2VzIGluIHYyOgotIENvbmZvcm0gbW9yZSBjbG9zZWx5IHRvIGlw
-X3R1bm5lbF9jaGFuZ2VfbXR1Ci0gRXhjbHVkZSBHRU5FVkUgb3B0aW9ucyBmcm9tIG1heCBNVFUg
-Y2FsY3VsYXRpb24KClNpZ25lZC1vZmYtYnk6IERhdmlkIFdyYWdnIDxkYXZpZEB3ZWF2ZS53b3Jr
-cz4KLS0tCiBkcml2ZXJzL25ldC9nZW5ldmUuYyB8IDI4ICsrKysrKysrKysrKysrKysrKysrKyst
-LS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAyMiBpbnNlcnRpb25zKCspLCA2IGRlbGV0aW9ucygtKQoK
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2dlbmV2ZS5jIGIvZHJpdmVycy9uZXQvZ2VuZXZlLmMK
-aW5kZXggMDI4ZTM4Ny4uZTgwZjNhMSAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvZ2VuZXZlLmMK
-KysrIGIvZHJpdmVycy9uZXQvZ2VuZXZlLmMKQEAgLTEwMzksMTcgKzEwMzksMzMgQEAgc3RhdGlj
-IG5ldGRldl90eF90IGdlbmV2ZV94bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZXRf
-ZGV2aWNlICpkZXYpCiAJcmV0dXJuIGdlbmV2ZV94bWl0X3NrYihza2IsIGRldiwgaW5mbyk7CiB9
-CiAKLXN0YXRpYyBpbnQgZ2VuZXZlX2NoYW5nZV9tdHUoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwg
-aW50IG5ld19tdHUpCitzdGF0aWMgaW50IF9fZ2VuZXZlX2NoYW5nZV9tdHUoc3RydWN0IG5ldF9k
-ZXZpY2UgKmRldiwgaW50IG5ld19tdHUsIGJvb2wgc3RyaWN0KQogewotCS8qIEdFTkVWRSBvdmVy
-aGVhZCBpcyBub3QgZml4ZWQsIHNvIHdlIGNhbid0IGVuZm9yY2UgYSBtb3JlCi0JICogcHJlY2lz
-ZSBtYXggTVRVLgotCSAqLwotCWlmIChuZXdfbXR1IDwgNjggfHwgbmV3X210dSA+IElQX01BWF9N
-VFUpCisJLy8gVGhlIG1heF9tdHUgY2FsY3VsYXRpb24gZG9lcyBub3QgdGFrZSBhY2NvdW50IG9m
-IEdFTkVWRQorCS8vIG9wdGlvbnMsIHRvIGF2b2lkIGV4Y2x1ZGluZyBwb3RlbnRpYWxseSB2YWxp
-ZAorCS8vIGNvbmZpZ3VyYXRpb25zLgorCWludCBtYXhfbXR1ID0gSVBfTUFYX01UVSAtIEdFTkVW
-RV9CQVNFX0hMRU4gLSBzaXplb2Yoc3RydWN0IGlwaGRyKQorCQktIGRldi0+aGFyZF9oZWFkZXJf
-bGVuOworCisJaWYgKG5ld19tdHUgPCA2OCkKIAkJcmV0dXJuIC1FSU5WQUw7CisKKwlpZiAobmV3
-X210dSA+IG1heF9tdHUpIHsKKwkJaWYgKHN0cmljdCkKKwkJCXJldHVybiAtRUlOVkFMOworCisJ
-CW5ld19tdHUgPSBtYXhfbXR1OworCX0KKwogCWRldi0+bXR1ID0gbmV3X210dTsKIAlyZXR1cm4g
-MDsKIH0KIAorc3RhdGljIGludCBnZW5ldmVfY2hhbmdlX210dShzdHJ1Y3QgbmV0X2RldmljZSAq
-ZGV2LCBpbnQgbmV3X210dSkKK3sKKwlyZXR1cm4gX19nZW5ldmVfY2hhbmdlX210dShkZXYsIG5l
-d19tdHUsIHRydWUpOworfQorCiBzdGF0aWMgaW50IGdlbmV2ZV9maWxsX21ldGFkYXRhX2RzdChz
-dHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogewogCXN0cnVjdCBp
-cF90dW5uZWxfaW5mbyAqaW5mbyA9IHNrYl90dW5uZWxfaW5mbyhza2IpOwpAQCAtMTQ1OSw3ICsx
-NDc1LDcgQEAgc3RydWN0IG5ldF9kZXZpY2UgKmdlbmV2ZV9kZXZfY3JlYXRlX2ZiKHN0cnVjdCBu
-ZXQgKm5ldCwgY29uc3QgY2hhciAqbmFtZSwKIAkvKiBvcGVudnN3aXRjaCB1c2VycyBleHBlY3Qg
-cGFja2V0IHNpemVzIHRvIGJlIHVucmVzdHJpY3RlZCwKIAkgKiBzbyBzZXQgdGhlIGxhcmdlc3Qg
-TVRVIHdlIGNhbi4KIAkgKi8KLQllcnIgPSBnZW5ldmVfY2hhbmdlX210dShkZXYsIElQX01BWF9N
-VFUpOworCWVyciA9IF9fZ2VuZXZlX2NoYW5nZV9tdHUoZGV2LCBJUF9NQVhfTVRVLCBmYWxzZSk7
-CiAJaWYgKGVycikKIAkJZ290byBlcnI7CiAKLS0gCjIuNS4wCgpfX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3
-aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Jesse Gross <jesse@kernel.org> writes:
+> In addition to Tom's comment about taking into account
+> dev->hard_header_len, can you please not include
+> GENEVE_MAX_OPTIONS_LEN in the MTU calculation based on the discussion
+> on the other thread? Otherwise, you are excluding some potentially
+> valid configurations.
+
+Addressed in v2.
+
+David
