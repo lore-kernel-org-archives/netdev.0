@@ -1,57 +1,88 @@
 From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH nf-next v7 4/7] openvswitch: Find existing conntrack entry
- after upcall.
-Date: Wed, 17 Feb 2016 15:50:32 -0800
-Message-ID: <CAPWQB7E7bKQVKxhLwA5_VJnon+U3j+1nZOiNWcqQ=CjEG=jn5w@mail.gmail.com>
-References: <1454722865-59558-1-git-send-email-jarno@ovn.org> <1454722865-59558-5-git-send-email-jarno@ovn.org>
+Subject: Re: [ovs-dev] [PATCH nf-next v7 6/7] openvswitch: Delay conntrack
+ helper call for new connections.
+Date: Wed, 17 Feb 2016 16:00:27 -0800
+Message-ID: <CAPWQB7FrMyad6D-wGyPQow079uW=uhTAW5azjKVTOV378k-TmA@mail.gmail.com>
+References: <1454722865-59558-1-git-send-email-jarno@ovn.org> <1454722865-59558-7-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	ovs dev <dev@openvswitch.org>
+Cc: netfilter-devel@vger.kernel.org, ovs dev <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
 To: Jarno Rajahalme <jarno@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:44933 "EHLO
-	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965013AbcBQXu4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 18:50:56 -0500
-In-Reply-To: <1454722865-59558-5-git-send-email-jarno@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1454722865-59558-7-git-send-email-jarno@ovn.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On 5 February 2016 at 17:41, Jarno Rajahalme <jarno@ovn.org> wrote:
-<snip>
->  /* Determine whether skb->nfct is equal to the result of conntrack lookup. */
-> -static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
-> -                           const struct ovs_conntrack_info *info)
-> +static bool skb_nfct_cached(struct net *net,
-> +                           const struct sw_flow_key *key,
-> +                           const struct ovs_conntrack_info *info,
-> +                           struct sk_buff *skb)
->  {
->         enum ip_conntrack_info ctinfo;
->         struct nf_conn *ct;
+> There is no need to help connections that are not confirmed, so we can
+> delay helping new connections to the time when they are confirmed.
+> This change is needed for NAT support, and having this as a separate
+> patch will make the following NAT patch a bit easier to review.
 >
->         ct = nf_ct_get(skb, &ctinfo);
-> +       /* If no ct, check if we have evidence that an existing conntrack entry
-> +        * might be found for this skb.  This happens when we lose a skb->nfct
-> +        * due to an upcall.  If the connection was not confirmed, it is not
-> +        * cached and needs to be run through conntrack again. */
-> +       if (!ct && key->ct.state & OVS_CS_F_TRACKED
-> +           && !(key->ct.state & OVS_CS_F_INVALID)
-> +           && key->ct.zone == info->zone.id)
-> +               ct = ovs_ct_find_existing(net, &info->zone, info->family, skb,
-> +                                         &ctinfo);
->         if (!ct)
->                 return false;
+> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+> ---
+>  net/openvswitch/conntrack.c | 20 +++++++++++++++-----
+>  1 file changed, 15 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+> index fa9ab25..fc0ef11 100644
+> --- a/net/openvswitch/conntrack.c
+> +++ b/net/openvswitch/conntrack.c
+> @@ -464,6 +464,7 @@ static bool skb_nfct_cached(struct net *net,
+>  /* Pass 'skb' through conntrack in 'net', using zone configured in 'info', if
+>   * not done already.  Update key with new CT state after passing the packet
+>   * through conntrack.
+> + * Note that invalid packets are accepted while the skb->nfct remains unset!
+>   */
+>  static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+>                            const struct ovs_conntrack_info *info,
 
-Logically I think that this makes more sense residing within
-__ovs_ct_lookup() and actually populating skb->{nfct,nfctinfo} prior
-to making this call to skb_nfct_cached() which answers the question
-"Is skb->nfct the same as if I did a lookup?". Maybe a better name for
-this function is something like ovs_ct_cmp() as it compares the skb's
-nfct against the OVS structures.
+This seems unrelated to the patch.
 
-The call to nf_ct_get() could move out into __ovs_ct_lookup(), then
-just pass the 'ct' into here. I see that a later patch already adds
-another call to nf_ct_get() into __ovs_ct_lookup(), which should only
-be necessary in the case where it is not already cached.
+I *think* that you're trying to say that 'if the packet is deemed
+invalid by conntrack, skb->nfct will be set to NULL and 0 will be
+returned.' I think that this is a documentation issue separate from
+this patch (Maybe could be combined with one of the earlier fragments
+in the series?).
+
+> @@ -474,7 +475,11 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+>          * actually run the packet through conntrack twice unless it's for a
+>          * different zone.
+>          */
+> -       if (!skb_nfct_cached(net, key, info, skb)) {
+> +       bool cached = skb_nfct_cached(net, key, info, skb);
+> +       enum ip_conntrack_info ctinfo;
+> +       struct nf_conn *ct;
+> +
+> +       if (!cached) {
+>                 struct nf_conn *tmpl = info->ct;
+>                 int err;
+>
+> @@ -497,11 +502,16 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+>                         return -ENOENT;
+>
+>                 ovs_ct_update_key(skb, info, key, true);
+> +       }
+>
+> -               if (ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
+> -                       WARN_ONCE(1, "helper rejected packet");
+> -                       return -EINVAL;
+> -               }
+> +       /* Call the helper right after nf_conntrack_in() for confirmed
+> +        * connections, but only when commiting for unconfirmed connections.
+> +        */
+> +       ct = nf_ct_get(skb, &ctinfo);
+> +       if (ct && (nf_ct_is_confirmed(ct) ? !cached : info->commit)
+> +           && ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
+> +               WARN_ONCE(1, "helper rejected packet");
+> +               return -EINVAL;
+>         }
+
+The comment points out what I think is the more obvious piece here:
+that the helper should be executed when the connection is/will be
+committed. The piece that I found less obvious was that "cached"
+implies that the helper was already executed (and therefore it
+shouldn't be run again). I don't know if there's a way to make this
+more obvious, for example with a "helper_executed" variable or
+similar. Up to you.
