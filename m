@@ -1,47 +1,44 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCHv2 3/4] ARM: tegra: use build-in device properties with
- rfkill_gpio
-Date: Thu, 18 Feb 2016 21:04:49 +0100
-Message-ID: <1455825889.2084.16.camel@sipsolutions.net>
-References: <1453712629-143317-1-git-send-email-heikki.krogerus@linux.intel.com>
-	 <1453712629-143317-4-git-send-email-heikki.krogerus@linux.intel.com>
-	 <20160125121840.GA20452@ulmo.nvidia.com>
-	 (sfid-20160125_131846_334590_41466BBA) <1453797724.2759.4.camel@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] net, thunderx: Use bool in structs where possible
+Date: Thu, 18 Feb 2016 15:06:31 -0500 (EST)
+Message-ID: <20160218.150631.574392083739567663.davem@davemloft.net>
+References: <1455799149-19590-3-git-send-email-rrichter@caviumnetworks.com>
+	<20160218.110514.652169911099659792.davem@davemloft.net>
+	<20160218164217.GP24726@rric.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-tegra@vger.kernel.org,
-	Alexandre Courbot <gnurou@gmail.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Marc Dietrich <marvin24@gmx.de>
-To: Thierry Reding <thierry.reding@gmail.com>,
-	Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sgoutham@cavium.com, rric@kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: robert.richter@caviumnetworks.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1453797724.2759.4.camel@sipsolutions.net>
+In-Reply-To: <20160218164217.GP24726@rric.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-01-26 at 09:42 +0100, Johannes Berg wrote:
-> On Mon, 2016-01-25 at 13:18 +0100, Thierry Reding wrote:
-> > =C2=A0
-> > Johannes, I assume that you'll want to take this through your tree
-> > because of the dependency? In that case:
-> >=20
-> > Acked-by: Thierry Reding <treding@nvidia.com>
->=20
-> I can, but I don't really care - perhaps you'd rather take the entire
-> series through your tree to get it into one place for Marc?
->=20
-> In which case, you have my
->=20
-> Acked-by: Johannes Berg <johannes@sipsolutions.net>
->=20
-> for the other 3 patches.
->=20
-> Let me know which you prefer.
->=20
-Did these patches get applied anywhere? Otherwise I'm willing to pick
-them up.
+From: Robert Richter <robert.richter@caviumnetworks.com>
+Date: Thu, 18 Feb 2016 17:42:17 +0100
 
-johannes
+> On 18.02.16 11:05:14, David Miller wrote:
+>> From: Robert Richter <rrichter@caviumnetworks.com>
+>> Date: Thu, 18 Feb 2016 13:39:09 +0100
+>> 
+>> > From: Robert Richter <rrichter@cavium.com>
+>> > 
+>> > Looks like the :1 notation was accidentally introduced (this still
+>> > uses 1 byte per flag). Using bool instead, which is the common use.
+>> > 
+>> > Signed-off-by: Robert Richter <rrichter@cavium.com>
+>> 
+>> Such cleanups are not appropriate for 'net'.  Only real bug fixes should
+>> be targetted that.
+>> 
+>> Respin these patches targetting the correct tree(s).
+> 
+> Do you mean posting the two as "trivial" patches?
+
+No I mean posting #1 targetted at my 'net' GIT tree as a bug fix,
+and posting #2 targetted separately at my 'net-next' GIT tree as
+a cleanup.
+
+This is how we've been doing things for more than a decade.
