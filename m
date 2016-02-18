@@ -1,46 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ti: netcp: restore get/set_pad_info()
- functionality
-Date: Thu, 18 Feb 2016 15:08:01 -0500 (EST)
-Message-ID: <20160218.150801.1433459291829189521.davem@davemloft.net>
-References: <1455026303-17014-1-git-send-email-grygorii.strashko@ti.com>
-	<20160216.152421.2271194730635382792.davem@davemloft.net>
-	<56C5FBA6.3040204@ti.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 7/9] rfkill: Create "rfkill-airplane_mode" LED trigger
+Date: Thu, 18 Feb 2016 21:08:41 +0100
+Message-ID: <1455826121.2084.17.camel@sipsolutions.net>
+References: <1454946096-9752-1-git-send-email-jprvita@endlessm.com>
+	 <1454946096-9752-8-git-send-email-jprvita@endlessm.com>
+	 (sfid-20160208_164147_435264_67EE08E5)
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: grygorii.strashko@ti.com, netdev@vger.kernel.org, arnd@arndb.de,
-	fcooper@ti.com, nsekhar@ti.com, linux-kernel@vger.kernel.org,
-	w-kwok2@ti.com, mugunthanvnm@ti.com
-To: m-karicheri2@ti.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Darren Hart <dvhart@infradead.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux@endlessm.com,
+	=?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
+	<jprvita@endlessm.com>
+To: =?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56C5FBA6.3040204@ti.com>
+In-Reply-To: <1454946096-9752-8-git-send-email-jprvita@endlessm.com> (sfid-20160208_164147_435264_67EE08E5)
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Murali Karicheri <m-karicheri2@ti.com>
-Date: Thu, 18 Feb 2016 12:13:10 -0500
+On Mon, 2016-02-08 at 10:41 -0500, Jo=C3=A3o Paulo Rechi Vita wrote:
+> This creates a new LED trigger to be used by platform drivers as a
+> default trigger for airplane-mode indicator LEDs.
+>=20
+> By default this trigger will fire when RFKILL_OP_CHANGE_ALL is called
+> for all types (RFKILL_TYPE_ALL), setting the LED brightness to
+> LED_FULL
+> when the changing the state to blocked, and to LED_OFF when the
+> changing
+> the state to unblocked. In the future there will be a mechanism for
+> userspace to override the default policy, so it can implement its
+> own.
+>=20
+> This trigger will be used by the asus-wireless x86 platform driver.
 
-> On 02/16/2016 03:24 PM, David Miller wrote:
->> 
->> I would like some of the feedback to be taken into consideration and
->> integrated into this patch.
->> 
->> Part of the reason this regression was introduced was probably because
->> the purpose of some fields or descriptor semantics was not defined
->> properly.
->> 
->> Therefore it is absolutely appropriate to properly name and document
->> these fields as part of the bug fix.
->> 
->> Thank you.
->> 
-> David,
-> 
-> I will take over this from Grygorii as he is out of office. 
-> 
-> I propose to keep this patch as is and add additional patch to address
-> the feedback in the same series (v1). Is that fine with you?
+Just one comment - I think you should be consistent with the _ vs - and
+just use "rfkill-airplane-mode" as the name.
 
-No, I want the code to be clarified along with the bug fix so that
-this bug is unlikely to resurface.
+johannes
