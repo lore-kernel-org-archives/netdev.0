@@ -1,88 +1,52 @@
 From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next v3 2/3] ipvlan: mode is u16
-Date: Wed, 17 Feb 2016 19:52:35 -0800
-Message-ID: <1455767555-16966-1-git-send-email-mahesh@bandewar.net>
+Subject: [PATCH next v3 1/3] ipvlan: scrub skb before routing in L3 mode.
+Date: Wed, 17 Feb 2016 19:52:30 -0800
+Message-ID: <1455767550-16896-1-git-send-email-mahesh@bandewar.net>
 Cc: Mahesh Bandewar <maheshb@google.com>,
 	Eric Dumazet <edumazet@google.com>,
 	netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35078 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424680AbcBRDwk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 22:52:40 -0500
-Received: by mail-pf0-f195.google.com with SMTP id w128so1528391pfb.2
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 19:52:40 -0800 (PST)
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:34195 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1424679AbcBRDwf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2016 22:52:35 -0500
+Received: by mail-pa0-f68.google.com with SMTP id yy13so1470421pab.1
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 19:52:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mahesh Bandewar <maheshb@google.com>
 
-The mode argument was erronusly defined as u32 but it has always
-been u16. Also use ipvlan_set_mode() helper to set the mode instead
-of assigning directly. This should avoid future erronus assignments /
-updates.
+Scrub skb before hitting the iptable hooks to ensure packets hit
+these hooks in master's namespace.
 
 Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- drivers/net/ipvlan/ipvlan.h      | 1 -
- drivers/net/ipvlan/ipvlan_main.c | 9 ++++++---
- 2 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/ipvlan/ipvlan_core.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-index 9542b7bac61a..817cab1a7959 100644
---- a/drivers/net/ipvlan/ipvlan.h
-+++ b/drivers/net/ipvlan/ipvlan.h
-@@ -115,7 +115,6 @@ static inline struct ipvl_port *ipvlan_port_get_rtnl(const struct net_device *d)
- }
- 
- void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev);
--void ipvlan_set_port_mode(struct ipvl_port *port, u32 nval);
- void ipvlan_init_secret(void);
- unsigned int ipvlan_mac_hash(const unsigned char *addr);
- rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb);
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 7a3b41468a55..5bcb852c5500 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -14,7 +14,7 @@ void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev)
- 	ipvlan->dev->mtu = dev->mtu - ipvlan->mtu_adj;
- }
- 
--void ipvlan_set_port_mode(struct ipvl_port *port, u32 nval)
-+static void ipvlan_set_port_mode(struct ipvl_port *port, u16 nval)
- {
- 	struct ipvl_dev *ipvlan;
- 
-@@ -442,6 +442,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
- 	struct ipvl_port *port;
- 	struct net_device *phy_dev;
- 	int err;
-+	u16 mode = IPVLAN_MODE_L3;
- 
- 	if (!tb[IFLA_LINK])
- 		return -EINVAL;
-@@ -460,10 +461,10 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
- 			return err;
+diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+index 8c48bb2a94ea..a1f87ec316cf 100644
+--- a/drivers/net/ipvlan/ipvlan_core.c
++++ b/drivers/net/ipvlan/ipvlan_core.c
+@@ -365,7 +365,7 @@ static int ipvlan_process_v4_outbound(struct sk_buff *skb)
+ 		ip_rt_put(rt);
+ 		goto err;
  	}
- 
--	port = ipvlan_port_get_rtnl(phy_dev);
- 	if (data && data[IFLA_IPVLAN_MODE])
--		port->mode = nla_get_u16(data[IFLA_IPVLAN_MODE]);
-+		mode = nla_get_u16(data[IFLA_IPVLAN_MODE]);
- 
-+	port = ipvlan_port_get_rtnl(phy_dev);
- 	ipvlan->phy_dev = phy_dev;
- 	ipvlan->dev = dev;
- 	ipvlan->port = port;
-@@ -489,6 +490,8 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
- 		goto ipvlan_destroy_port;
- 
- 	list_add_tail_rcu(&ipvlan->pnode, &port->ipvlans);
-+	ipvlan_set_port_mode(port, mode);
-+
- 	netif_stacked_transfer_operstate(phy_dev, dev);
- 	return 0;
- 
+-	skb_dst_drop(skb);
++	skb_scrub_packet(skb, true);
+ 	skb_dst_set(skb, &rt->dst);
+ 	err = ip_local_out(net, skb->sk, skb);
+ 	if (unlikely(net_xmit_eval(err)))
+@@ -403,7 +403,7 @@ static int ipvlan_process_v6_outbound(struct sk_buff *skb)
+ 		dst_release(dst);
+ 		goto err;
+ 	}
+-	skb_dst_drop(skb);
++	skb_scrub_packet(skb, true);
+ 	skb_dst_set(skb, dst);
+ 	err = ip6_local_out(net, skb->sk, skb);
+ 	if (unlikely(net_xmit_eval(err)))
 -- 
 2.7.0.rc3.207.g0ac5344
