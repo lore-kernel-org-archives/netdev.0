@@ -1,40 +1,57 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv3 net 0/5] nfp: MTU fixes for net
-Date: Thu, 18 Feb 2016 20:38:08 +0000
-Message-ID: <1455827893-26366-1-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv3 net 2/5] nfp: free buffers before changing MTU
+Date: Thu, 18 Feb 2016 20:38:10 +0000
+Message-ID: <1455827893-26366-3-git-send-email-jakub.kicinski@netronome.com>
+References: <1455827893-26366-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: netdev@vger.kernel.org,
 	Jakub Kicinski <jakub.kicinski@netronome.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:34544 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946394AbcBRUiS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:18 -0500
-Received: by mail-wm0-f41.google.com with SMTP id b205so41796467wmb.1
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:18 -0800 (PST)
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:37793 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1948040AbcBRUiV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:21 -0500
+Received: by mail-wm0-f47.google.com with SMTP id g62so42984754wme.0
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:20 -0800 (PST)
+In-Reply-To: <1455827893-26366-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave!
+For freeing DMA buffers we depend on nfp_net.fl_bufsz having the same
+value as during allocation therefore in .ndo_change_mtu we must first
+free the buffers and then change the setting.
 
-This is the first part of MTU reconfiguration fixes.  These
-are the patches which I would like to get into -net.  The
-requested overhaul of the way MTU configuration is done is
-posted as a separate series targeted at net-next.
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Reviewed-by: Rolf Neugebauer <rolf.neugebauer@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Thanks!
-
-
-Jakub Kicinski (5):
-  nfp: return error if MTU change fails
-  nfp: free buffers before changing MTU
-  nfp: correct RX buffer length calculation
-  nfp: fix RX buffer length validation
-  nfp: don't trust netif_running() in debug code
-
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 42 ++++++++++------------
- .../net/ethernet/netronome/nfp/nfp_net_debugfs.c   |  4 +--
- 2 files changed, 20 insertions(+), 26 deletions(-)
-
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 006d9600240f..b381682de3d6 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -1921,17 +1921,17 @@ static int nfp_net_change_mtu(struct net_device *netdev, int new_mtu)
+ 		return -EINVAL;
+ 	}
+ 
++	if (netif_running(netdev))
++		nfp_net_netdev_close(netdev);
++
+ 	netdev->mtu = new_mtu;
+ 
+ 	/* Freelist buffer size rounded up to the nearest 1K */
+ 	tmp = new_mtu + ETH_HLEN + VLAN_HLEN + NFP_NET_MAX_PREPEND;
+ 	nn->fl_bufsz = roundup(tmp, 1024);
+ 
+-	/* restart if running */
+-	if (netif_running(netdev)) {
+-		nfp_net_netdev_close(netdev);
++	if (netif_running(netdev))
+ 		ret = nfp_net_netdev_open(netdev);
+-	}
+ 
+ 	return ret;
+ }
 -- 
 1.9.1
