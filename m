@@ -1,63 +1,131 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net] vxlan: do not use fdb in metadata mode
-Date: Thu, 18 Feb 2016 15:32:40 +0900
-Message-ID: <20160218063238.GB22357@vergenet.net>
-References: <6003cfff14ce8e36bfbe4929fce56d06e4ebec58.1455657466.git.jbenc@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:35306 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424013AbcBRGcz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 01:32:55 -0500
-Received: by mail-pa0-f44.google.com with SMTP id ho8so25917230pac.2
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2016 22:32:55 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <6003cfff14ce8e36bfbe4929fce56d06e4ebec58.1455657466.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alison Schofield <amsfield22@gmail.com>
+Subject: [RESEND PATCH v3] isdn: divamnt: use y2038-safe ktime_get_ts64() for trace data timestamps
+Date: Wed, 17 Feb 2016 22:35:11 -0800
+Message-ID: <1455777311-3190-1-git-send-email-amsfield22@gmail.com>
+References: <20151120182307.GA3513@d830.WORKGROUP>
+To: mac@melware.de, isdn@linux-pingi.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, y2038@lists.linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20151120182307.GA3513@d830.WORKGROUP>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jiri,
+divamnt stores a start_time at module init and uses it to calculate
+elapsed time. The elapsed time, stored in secs and usecs, is part of
+the trace data the driver maintains for the DIVA Server ISDN cards.
+No change to the format of that time data is required.
 
-On Tue, Feb 16, 2016 at 10:18:26PM +0100, Jiri Benc wrote:
-> In metadata mode, the vxlan interface is not supposed to use the fdb control
-> plane but an external one (openvswitch or static routes). With the current
-> code, packets may leak into the fdb handling code which usually causes them
-> to be dropped anyway but may have strange side effects.
-> 
-> Just drop the packets directly when in metadata mode if the destination data
-> are not correctly provided on egress.
-> 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+To avoid overflow on 32-bit systems use ktime_get_ts64() to return
+the elapsed monotonic time since system boot.
 
-The logic here looks correct to me but I am curious to know
-what circumstances would lead to the kfree_skb() case.
+This is a change from real to monotonic time. Since the driver only
+stores elapsed time, monotonic time is sufficient and more robust
+against real time clock changes. These new monotonic values can be
+more useful for debugging because they can be easily compared to
+other monotonic timestamps.
 
-> ---
->  drivers/net/vxlan.c | 8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index db96f3a16f6c..e6944b29588e 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -2171,9 +2171,11 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
->  #endif
->  	}
->  
-> -	if (vxlan->flags & VXLAN_F_COLLECT_METADATA &&
-> -	    info && info->mode & IP_TUNNEL_INFO_TX) {
-> -		vxlan_xmit_one(skb, dev, NULL, false);
-> +	if (vxlan->flags & VXLAN_F_COLLECT_METADATA) {
-> +		if (info && info->mode & IP_TUNNEL_INFO_TX)
-> +			vxlan_xmit_one(skb, dev, NULL, false);
-> +		else
-> +			kfree_skb(skb);
->  		return NETDEV_TX_OK;
->  	}
->  
-> -- 
-> 1.8.3.1
-> 
+Note elaspsed time values will now start at system boot time rather
+than module load time, so they will differ slightly from previously
+reported values.
+
+Remove declaration and init of previously unused time constants:
+start_sec, start_usec.
+
+Signed-off-by: Alison Schofield <amsfield22@gmail.com>
+Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+---
+Changes in v3:
+  - use elapsed time since system boot in place of
+    elapsed time since module load
+  - commit message updated
+  - changelog updated
+
+Changes in v2:
+ - switched to monotonic time
+ - removed the unused time constants
+ - changelog updated
+
+
+ drivers/isdn/hardware/eicon/debug.c   |  4 ----
+ drivers/isdn/hardware/eicon/divamnt.c | 30 ++++++------------------------
+ 2 files changed, 6 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/isdn/hardware/eicon/debug.c b/drivers/isdn/hardware/eicon/debug.c
+index b5226af..576b7b4 100644
+--- a/drivers/isdn/hardware/eicon/debug.c
++++ b/drivers/isdn/hardware/eicon/debug.c
+@@ -192,8 +192,6 @@ static diva_os_spin_lock_t dbg_q_lock;
+ static diva_os_spin_lock_t dbg_adapter_lock;
+ static int                 dbg_q_busy;
+ static volatile dword      dbg_sequence;
+-static dword               start_sec;
+-static dword               start_usec;
+ 
+ /*
+   INTERFACE:
+@@ -215,8 +213,6 @@ int diva_maint_init(byte *base, unsigned long length, int do_init) {
+ 
+ 	dbg_base = base;
+ 
+-	diva_os_get_time(&start_sec, &start_usec);
+-
+ 	*(dword *)base  = (dword)DBG_MAGIC; /* Store Magic */
+ 	base   += sizeof(dword);
+ 	length -= sizeof(dword);
+diff --git a/drivers/isdn/hardware/eicon/divamnt.c b/drivers/isdn/hardware/eicon/divamnt.c
+index 48db08d..0de29b7b 100644
+--- a/drivers/isdn/hardware/eicon/divamnt.c
++++ b/drivers/isdn/hardware/eicon/divamnt.c
+@@ -45,7 +45,6 @@ char *DRIVERRELEASE_MNT = "2.0";
+ 
+ static wait_queue_head_t msgwaitq;
+ static unsigned long opened;
+-static struct timeval start_time;
+ 
+ extern int mntfunc_init(int *, void **, unsigned long);
+ extern void mntfunc_finit(void);
+@@ -88,28 +87,12 @@ int diva_os_copy_from_user(void *os_handle, void *dst, const void __user *src,
+  */
+ void diva_os_get_time(dword *sec, dword *usec)
+ {
+-	struct timeval tv;
+-
+-	do_gettimeofday(&tv);
+-
+-	if (tv.tv_sec > start_time.tv_sec) {
+-		if (start_time.tv_usec > tv.tv_usec) {
+-			tv.tv_sec--;
+-			tv.tv_usec += 1000000;
+-		}
+-		*sec = (dword) (tv.tv_sec - start_time.tv_sec);
+-		*usec = (dword) (tv.tv_usec - start_time.tv_usec);
+-	} else if (tv.tv_sec == start_time.tv_sec) {
+-		*sec = 0;
+-		if (start_time.tv_usec < tv.tv_usec) {
+-			*usec = (dword) (tv.tv_usec - start_time.tv_usec);
+-		} else {
+-			*usec = 0;
+-		}
+-	} else {
+-		*sec = (dword) tv.tv_sec;
+-		*usec = (dword) tv.tv_usec;
+-	}
++	struct timespec64 time;
++
++	ktime_get_ts64(&time);
++
++	*sec = (dword) time.tv_sec;
++	*usec = (dword) (time.tv_nsec / NSEC_PER_USEC);
+ }
+ 
+ /*
+@@ -213,7 +196,6 @@ static int __init maint_init(void)
+ 	int ret = 0;
+ 	void *buffer = NULL;
+ 
+-	do_gettimeofday(&start_time);
+ 	init_waitqueue_head(&msgwaitq);
+ 
+ 	printk(KERN_INFO "%s\n", DRIVERNAME);
+-- 
+2.1.4
