@@ -1,56 +1,72 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv3 net 1/5] nfp: return error if MTU change fails
-Date: Thu, 18 Feb 2016 20:38:09 +0000
-Message-ID: <1455827893-26366-2-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv3 net 4/5] nfp: fix RX buffer length validation
+Date: Thu, 18 Feb 2016 20:38:12 +0000
+Message-ID: <1455827893-26366-5-git-send-email-jakub.kicinski@netronome.com>
 References: <1455827893-26366-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: netdev@vger.kernel.org,
 	Jakub Kicinski <jakub.kicinski@netronome.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:36027 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1947773AbcBRUiU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:20 -0500
-Received: by mail-wm0-f50.google.com with SMTP id g62so46836898wme.1
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:19 -0800 (PST)
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:37823 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1947773AbcBRUiW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:38:22 -0500
+Received: by mail-wm0-f45.google.com with SMTP id g62so42985719wme.0
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 12:38:22 -0800 (PST)
 In-Reply-To: <1455827893-26366-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When reopening device fails after MTU change, let the userspace
-know.  MTU remains changed even though error is returned, this
-is what all ethernet devices are doing.
+Meaning of data_len and meta_len RX WB descriptor fields depend
+slightly on whether rx_offset is dynamic or not.  For dynamic
+offsets data_len includes meta_len.  This makes the code harder
+to follow, in fact our RX buffer length check is incorrect -
+we are comparing allocation length to data_len while we should
+also account for meta_len.
+
+Let's adjust the values of data_len and meta_len to their natural
+meaning and simplify the logic.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Rolf Neugebauer <rolf.neugebauer@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 19 ++++++++-----------
+ 1 file changed, 8 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 43c618bafdb6..006d9600240f 100644
+index 553ae64e2f7f..070645f9bc21 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -1911,6 +1911,7 @@ static void nfp_net_set_rx_mode(struct net_device *netdev)
- static int nfp_net_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct nfp_net *nn = netdev_priv(netdev);
-+	int ret = 0;
- 	u32 tmp;
+@@ -1259,22 +1259,19 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
  
- 	nn_dbg(nn, "New MTU = %d\n", new_mtu);
-@@ -1929,10 +1930,10 @@ static int nfp_net_change_mtu(struct net_device *netdev, int new_mtu)
- 	/* restart if running */
- 	if (netif_running(netdev)) {
- 		nfp_net_netdev_close(netdev);
--		nfp_net_netdev_open(netdev);
-+		ret = nfp_net_netdev_open(netdev);
- 	}
+ 		meta_len = rxd->rxd.meta_len_dd & PCIE_DESC_RX_META_LEN_MASK;
+ 		data_len = le16_to_cpu(rxd->rxd.data_len);
++		/* For dynamic offset data_len includes meta_len, adjust */
++		if (nn->rx_offset == NFP_NET_CFG_RX_OFFSET_DYNAMIC)
++			data_len -= meta_len;
++		else
++			meta_len = nn->rx_offset;
  
--	return 0;
-+	return ret;
- }
+-		if (WARN_ON_ONCE(data_len > nn->fl_bufsz)) {
++		if (WARN_ON_ONCE(meta_len + data_len > nn->fl_bufsz)) {
+ 			dev_kfree_skb_any(skb);
+ 			continue;
+ 		}
  
- static struct rtnl_link_stats64 *nfp_net_stat64(struct net_device *netdev,
+-		if (nn->rx_offset == NFP_NET_CFG_RX_OFFSET_DYNAMIC) {
+-			/* The packet data starts after the metadata */
+-			skb_reserve(skb, meta_len);
+-		} else {
+-			/* The packet data starts at a fixed offset */
+-			skb_reserve(skb, nn->rx_offset);
+-		}
+-
+-		/* Adjust the SKB for the dynamic meta data pre-pended */
+-		skb_put(skb, data_len - meta_len);
++		skb_reserve(skb, meta_len);
++		skb_put(skb, data_len);
+ 
+ 		nfp_net_set_hash(nn->netdev, skb, rxd);
+ 
 -- 
 1.9.1
