@@ -1,113 +1,100 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 1/2] mlxsw: reg: Add the Switch Port Acceptable Frame Types register
-Date: Thu, 18 Feb 2016 11:30:01 +0100
-Message-ID: <1455791402-12976-2-git-send-email-jiri@resnulli.us>
-References: <1455791402-12976-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V1 02/12] net/mlx5: Introduce physical port PFC access functions
+Date: Thu, 18 Feb 2016 12:32:43 +0200
+Message-ID: <1455791573-5270-3-git-send-email-saeedm@mellanox.com>
+References: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Rana Shahout <ranas@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Matthew Finlay <matt@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:34843 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424770AbcBRKaH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 05:30:07 -0500
-Received: by mail-wm0-f47.google.com with SMTP id c200so19535083wme.0
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 02:30:07 -0800 (PST)
-In-Reply-To: <1455791402-12976-1-git-send-email-jiri@resnulli.us>
+Received: from [193.47.165.129] ([193.47.165.129]:34110 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1425322AbcBRKll (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 05:41:41 -0500
+In-Reply-To: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Achiad Shochat <achiad@mellanox.com>
 
-When VLAN filtering is enabled on a bridge and PVID is deleted from a
-bridge port, then untagged frames are not allowed to ingress into the
-bridge from this port.
+Add access functions to set and query a physical port PFC
+(Priority Flow Control) parameters.
 
-Add the Switch Port Acceptable Frame Types (SPAFT) register, which
-configures the frame admittance of the port.
-
-Fixes: 56ade8fe3fe1 ("mlxsw: spectrum: Add initial support for Spectrum ASIC")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 58 +++++++++++++++++++++++++++++++
- 1 file changed, 58 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/port.c |   41 ++++++++++++++++++++++++
+ include/linux/mlx5/port.h                      |    4 ++
+ 2 files changed, 45 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index bb77e22..ffe4c03 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -873,6 +873,62 @@ static inline void mlxsw_reg_spvm_pack(char *payload, u8 local_port,
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index 1e86321..dae7050 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -364,3 +364,44 @@ int mlx5_query_port_pause(struct mlx5_core_dev *dev,
+ 	return 0;
  }
- 
-+/* SPAFT - Switch Port Acceptable Frame Types
-+ * ------------------------------------------
-+ * The Switch Port Acceptable Frame Types register configures the frame
-+ * admittance of the port.
-+ */
-+#define MLXSW_REG_SPAFT_ID 0x2010
-+#define MLXSW_REG_SPAFT_LEN 0x08
+ EXPORT_SYMBOL_GPL(mlx5_query_port_pause);
 +
-+static const struct mlxsw_reg_info mlxsw_reg_spaft = {
-+	.id = MLXSW_REG_SPAFT_ID,
-+	.len = MLXSW_REG_SPAFT_LEN,
-+};
-+
-+/* reg_spaft_local_port
-+ * Local port number.
-+ * Access: Index
-+ *
-+ * Note: CPU port is not supported (all tag types are allowed).
-+ */
-+MLXSW_ITEM32(reg, spaft, local_port, 0x00, 16, 8);
-+
-+/* reg_spaft_sub_port
-+ * Virtual port within the physical port.
-+ * Should be set to 0 when virtual ports are not enabled on the port.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, spaft, sub_port, 0x00, 8, 8);
-+
-+/* reg_spaft_allow_untagged
-+ * When set, untagged frames on the ingress are allowed (default).
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, spaft, allow_untagged, 0x04, 31, 1);
-+
-+/* reg_spaft_allow_prio_tagged
-+ * When set, priority tagged frames on the ingress are allowed (default).
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, spaft, allow_prio_tagged, 0x04, 30, 1);
-+
-+/* reg_spaft_allow_tagged
-+ * When set, tagged frames on the ingress are allowed (default).
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, spaft, allow_tagged, 0x04, 29, 1);
-+
-+static inline void mlxsw_reg_spaft_pack(char *payload, u8 local_port,
-+					bool allow_untagged)
++int mlx5_set_port_pfc(struct mlx5_core_dev *dev, u8 pfc_en_tx, u8 pfc_en_rx)
 +{
-+	MLXSW_REG_ZERO(spaft, payload);
-+	mlxsw_reg_spaft_local_port_set(payload, local_port);
-+	mlxsw_reg_spaft_allow_untagged_set(payload, allow_untagged);
-+	mlxsw_reg_spaft_allow_prio_tagged_set(payload, true);
-+	mlxsw_reg_spaft_allow_tagged_set(payload, true);
-+}
++	u32 in[MLX5_ST_SZ_DW(pfcc_reg)];
++	u32 out[MLX5_ST_SZ_DW(pfcc_reg)];
 +
- /* SFGC - Switch Flooding Group Configuration
-  * ------------------------------------------
-  * The following register controls the association of flooding tables and MIDs
-@@ -3203,6 +3259,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "SPVID";
- 	case MLXSW_REG_SPVM_ID:
- 		return "SPVM";
-+	case MLXSW_REG_SPAFT_ID:
-+		return "SPAFT";
- 	case MLXSW_REG_SFGC_ID:
- 		return "SFGC";
- 	case MLXSW_REG_SFTR_ID:
++	memset(in, 0, sizeof(in));
++	MLX5_SET(pfcc_reg, in, local_port, 1);
++	MLX5_SET(pfcc_reg, in, pfctx, pfc_en_tx);
++	MLX5_SET(pfcc_reg, in, pfcrx, pfc_en_rx);
++	MLX5_SET_TO_ONES(pfcc_reg, in, prio_mask_tx);
++	MLX5_SET_TO_ONES(pfcc_reg, in, prio_mask_rx);
++
++	return mlx5_core_access_reg(dev, in, sizeof(in), out,
++				    sizeof(out), MLX5_REG_PFCC, 0, 1);
++}
++EXPORT_SYMBOL_GPL(mlx5_set_port_pfc);
++
++int mlx5_query_port_pfc(struct mlx5_core_dev *dev, u8 *pfc_en_tx, u8 *pfc_en_rx)
++{
++	u32 in[MLX5_ST_SZ_DW(pfcc_reg)];
++	u32 out[MLX5_ST_SZ_DW(pfcc_reg)];
++	int err;
++
++	memset(in, 0, sizeof(in));
++	MLX5_SET(pfcc_reg, in, local_port, 1);
++
++	err = mlx5_core_access_reg(dev, in, sizeof(in), out,
++				   sizeof(out), MLX5_REG_PFCC, 0, 0);
++	if (err)
++		return err;
++
++	if (pfc_en_tx)
++		*pfc_en_tx = MLX5_GET(pfcc_reg, out, pfctx);
++
++	if (pfc_en_rx)
++		*pfc_en_rx = MLX5_GET(pfcc_reg, out, pfcrx);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(mlx5_query_port_pfc);
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index 7accd4a..4b3644c 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -66,4 +66,8 @@ int mlx5_set_port_pause(struct mlx5_core_dev *dev, u32 rx_pause, u32 tx_pause);
+ int mlx5_query_port_pause(struct mlx5_core_dev *dev,
+ 			  u32 *rx_pause, u32 *tx_pause);
+ 
++int mlx5_set_port_pfc(struct mlx5_core_dev *dev, u8 pfc_en_tx, u8 pfc_en_rx);
++int mlx5_query_port_pfc(struct mlx5_core_dev *dev, u8 *pfc_en_tx,
++			u8 *pfc_en_rx);
++
+ #endif /* __MLX5_PORT_H__ */
 -- 
-2.5.0
+1.7.1
