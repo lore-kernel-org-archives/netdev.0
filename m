@@ -1,112 +1,126 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/15] i40e: When in promisc mode apply promisc mode to Tx Traffic as well
-Date: Thu, 18 Feb 2016 01:04:11 -0800
-Message-ID: <1455786252-71881-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/15] i40e: better error reporting for nvmupdate
+Date: Thu, 18 Feb 2016 01:04:08 -0800
+Message-ID: <1455786252-71881-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455786252-71881-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:14291 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1425731AbcBRJEl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2016 04:04:41 -0500
+	id S1425723AbcBRJEf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 04:04:35 -0500
 In-Reply-To: <1455786252-71881-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-In MFP mode particularly when we were setting the PF VSI in limited
-promiscuous, the HW switch was still mirroring the outgoing packets
-from other VSIs (VF/VMdq) onto the PF VSI.
+Make sure we return EBUSY while finishing up a reset, and add a few bits
+for better debug messages.
 
-With this new bit set, the mirroring doesn't happen any more and so
-we are in limited promiscuous on the PF VSI in MFP which is similar
-to defport.
-
-An API check is not required, since this bit is reserved for FW API
-version < 1.5
-
-Also update copyright year in file headers.
-
-Change-ID: I9840cb95f11dde733d943cb03ce84f68b9611bc8
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: I23f6c28a8d96d7aa171abcc265737cec7826c292
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 3 ++-
- drivers/net/ethernet/intel/i40e/i40e_common.c       | 9 ++++++++-
- drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 3 ++-
- 3 files changed, 12 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 39 +++++++++++++-------------
+ drivers/net/ethernet/intel/i40e/i40e_main.c    |  5 +++-
+ 2 files changed, 24 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 5699299..bb7ecbb 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
-  *
-  * Intel Ethernet Controller XL710 Family Linux Driver
-- * Copyright(c) 2013 - 2014 Intel Corporation.
-+ * Copyright(c) 2013 - 2016 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -1087,6 +1087,7 @@ struct i40e_aqc_set_vsi_promiscuous_modes {
- #define I40E_AQC_SET_VSI_PROMISC_BROADCAST	0x04
- #define I40E_AQC_SET_VSI_DEFAULT		0x08
- #define I40E_AQC_SET_VSI_PROMISC_VLAN		0x10
-+#define I40E_AQC_SET_VSI_PROMISC_TX		0x8000
- 	__le16	seid;
- #define I40E_AQC_VSI_PROM_CMD_SEID_MASK		0x3FF
- 	__le16	vlan_tag;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 354e36c..f923933 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -1952,12 +1952,19 @@ i40e_status i40e_aq_set_vsi_unicast_promiscuous(struct i40e_hw *hw,
- 	i40e_fill_default_direct_cmd_desc(&desc,
- 					i40e_aqc_opc_set_vsi_promiscuous_modes);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 5778f9e..9fc7546b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1005,16 +1005,19 @@ static int i40e_get_eeprom(struct net_device *netdev,
+ 	/* check for NVMUpdate access method */
+ 	magic = hw->vendor_id | (hw->device_id << 16);
+ 	if (eeprom->magic && eeprom->magic != magic) {
+-		struct i40e_nvm_access *cmd;
+-		int errno;
++		struct i40e_nvm_access *cmd = (struct i40e_nvm_access *)eeprom;
++		int errno = 0;
  
--	if (set)
-+	if (set) {
- 		flags |= I40E_AQC_SET_VSI_PROMISC_UNICAST;
-+		if (((hw->aq.api_maj_ver == 1) && (hw->aq.api_min_ver >= 5)) ||
-+		    (hw->aq.api_maj_ver > 1))
-+			flags |= I40E_AQC_SET_VSI_PROMISC_TX;
-+	}
+ 		/* make sure it is the right magic for NVMUpdate */
+ 		if ((eeprom->magic >> 16) != hw->device_id)
+-			return -EINVAL;
++			errno = -EINVAL;
++		else if (test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state) ||
++			 test_bit(__I40E_RESET_INTR_RECEIVED, &pf->state))
++			errno = -EBUSY;
++		else
++			ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
  
- 	cmd->promiscuous_flags = cpu_to_le16(flags);
+-		cmd = (struct i40e_nvm_access *)eeprom;
+-		ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
+-		if (ret_val && (hw->debug_mask & I40E_DEBUG_NVM))
++		if ((errno || ret_val) && (hw->debug_mask & I40E_DEBUG_NVM))
+ 			dev_info(&pf->pdev->dev,
+ 				 "NVMUpdate read failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
+ 				 ret_val, hw->aq.asq_last_status, errno,
+@@ -1098,27 +1101,25 @@ static int i40e_set_eeprom(struct net_device *netdev,
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_hw *hw = &np->vsi->back->hw;
+ 	struct i40e_pf *pf = np->vsi->back;
+-	struct i40e_nvm_access *cmd;
++	struct i40e_nvm_access *cmd = (struct i40e_nvm_access *)eeprom;
+ 	int ret_val = 0;
+-	int errno;
++	int errno = 0;
+ 	u32 magic;
  
- 	cmd->valid_flags = cpu_to_le16(I40E_AQC_SET_VSI_PROMISC_UNICAST);
-+	if (((hw->aq.api_maj_ver >= 1) && (hw->aq.api_min_ver >= 5)) ||
-+	    (hw->aq.api_maj_ver > 1))
-+		cmd->valid_flags |= cpu_to_le16(I40E_AQC_SET_VSI_PROMISC_TX);
+ 	/* normal ethtool set_eeprom is not supported */
+ 	magic = hw->vendor_id | (hw->device_id << 16);
+ 	if (eeprom->magic == magic)
+-		return -EOPNOTSUPP;
+-
++		errno = -EOPNOTSUPP;
+ 	/* check for NVMUpdate access method */
+-	if (!eeprom->magic || (eeprom->magic >> 16) != hw->device_id)
+-		return -EINVAL;
+-
+-	if (test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state) ||
+-	    test_bit(__I40E_RESET_INTR_RECEIVED, &pf->state))
+-		return -EBUSY;
++	else if (!eeprom->magic || (eeprom->magic >> 16) != hw->device_id)
++		errno = -EINVAL;
++	else if (test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state) ||
++		 test_bit(__I40E_RESET_INTR_RECEIVED, &pf->state))
++		errno = -EBUSY;
++	else
++		ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
  
- 	cmd->seid = cpu_to_le16(seid);
- 	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index ed963bc..815e481 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
-  *
-  * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
-- * Copyright(c) 2013 - 2014 Intel Corporation.
-+ * Copyright(c) 2013 - 2016 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -1084,6 +1084,7 @@ struct i40e_aqc_set_vsi_promiscuous_modes {
- #define I40E_AQC_SET_VSI_PROMISC_BROADCAST	0x04
- #define I40E_AQC_SET_VSI_DEFAULT		0x08
- #define I40E_AQC_SET_VSI_PROMISC_VLAN		0x10
-+#define I40E_AQC_SET_VSI_PROMISC_TX		0x8000
- 	__le16	seid;
- #define I40E_AQC_VSI_PROM_CMD_SEID_MASK		0x3FF
- 	__le16	vlan_tag;
+-	cmd = (struct i40e_nvm_access *)eeprom;
+-	ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
+-	if (ret_val && (hw->debug_mask & I40E_DEBUG_NVM))
++	if ((errno || ret_val) && (hw->debug_mask & I40E_DEBUG_NVM))
+ 		dev_info(&pf->pdev->dev,
+ 			 "NVMUpdate write failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
+ 			 ret_val, hw->aq.asq_last_status, errno,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 7869d74..384912b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3475,6 +3475,7 @@ static irqreturn_t i40e_intr(int irq, void *data)
+ 	if (icr0 & I40E_PFINT_ICR0_ADMINQ_MASK) {
+ 		ena_mask &= ~I40E_PFINT_ICR0_ENA_ADMINQ_MASK;
+ 		set_bit(__I40E_ADMINQ_EVENT_PENDING, &pf->state);
++		i40e_debug(&pf->hw, I40E_DEBUG_NVM, "AdminQ event\n");
+ 	}
+ 
+ 	if (icr0 & I40E_PFINT_ICR0_MAL_DETECT_MASK) {
+@@ -6332,7 +6333,9 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
+ 		case i40e_aqc_opc_nvm_erase:
+ 		case i40e_aqc_opc_nvm_update:
+ 		case i40e_aqc_opc_oem_post_update:
+-			i40e_debug(&pf->hw, I40E_DEBUG_NVM, "ARQ NVM operation completed\n");
++			i40e_debug(&pf->hw, I40E_DEBUG_NVM,
++				   "ARQ NVM operation 0x%04x completed\n",
++				   opcode);
+ 			break;
+ 		default:
+ 			dev_info(&pf->pdev->dev,
 -- 
 2.5.0
