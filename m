@@ -1,95 +1,315 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver Updates 2016-02-17
-Date: Thu, 18 Feb 2016 01:03:57 -0800
-Message-ID: <1455786252-71881-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+Subject: [net-next 03/15] i40evf: support packet split receive
+Date: Thu, 18 Feb 2016 01:04:00 -0800
+Message-ID: <1455786252-71881-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1455786252-71881-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:39536 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1425574AbcBRJEQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2016 04:04:16 -0500
+	id S1425646AbcBRJEU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 04:04:20 -0500
+In-Reply-To: <1455786252-71881-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e/i40evf once again.
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Mitch updates the use of a define instead of a magic number.  Adds support
-for packet split receive on VFs, which is disabled by default.  Expands on
-a code comment which was not verbose or really helpful.  Fixes an issue
-where if a reset fails to complete and was not properly setting the
-adapter state, which would cause a panic on rmmod, so set the adpater
-state to DOWN to avoid a panic.
+Support packet split receive on VFs. This is off by default but can be
+enabled using ethtool private flags. Because we need to trigger a reset
+from outside of i40evf_main.c, create a new function to do so, and
+export it.
 
-Jesse cleans up a "dump" in debugfs that never panned out to be useful.
+Also update copyright year in file headers.
 
-Anjali adds a workaround for cases where we might have interrupts that get
-lost but wright-back (WB) happened.  Fixes an issue by falling back to
-enabling unicast, multicast and broadcast promiscuous mode when the driver
-must disable it's use of "default port" (defport mode) due to internal
-incompatibility with Multiple Function per Port (MFP).  Fixes an issue
-where queues should never be enabled/disabled in the interrupt handler.
+Change-ID: I721aa5d70113d3d6d94102e5f31526f6fc57cbbb
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  6 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 67 +++++++++++++++++++++-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 64 +++++++++++----------
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  4 ++
+ 4 files changed, 110 insertions(+), 31 deletions(-)
 
-Kiran cleans up th code which used hard coded base VEB SEID since it was
-removed from the specification.
-
-Shannon adds a few bits for better debug messages.  Fixes an obscure corner
-case, where it was possible to clear the NVM update wait flag when no
-update_done message was actually received.
-
-The following are changes since commit 5270c4dade091681313141a75f8401c61b72e82c:
-  Merge branch 'vxlan-cleanups'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Anjali Singhai Jain (4):
-  i40e: Add a SW workaround for lost interrupts
-  i40e: Fix PROMISC mode for Multi-function per port (MFP) devices
-  i40e: Do not disable queues in the Legacy/MSI Interrupt handler
-  i40e: When in promisc mode apply promisc mode to Tx Traffic as well
-
-Catherine Sullivan (1):
-  i40e/i40evf: Bump i40e to 1.4.15 and i40evf to 1.4.11.
-
-Jesse Brandeburg (2):
-  i40e: drop unused debugfs file "dump"
-  i40e: trivial: cleanup use of pf->hw
-
-Kiran Patil (1):
-  i40e: Removal of code which relies on BASE VEB SEID
-
-Mitch Williams (5):
-  i40e: get rid of magic number
-  i40evf: support packet split receive
-  i40e/i40evf: avoid atomics
-  i40e: expand comment
-  i40evf: set adapter state on reset failure
-
-Shannon Nelson (2):
-  i40e: better error reporting for nvmupdate
-  i40e: clean event descriptor before use
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   4 +-
- drivers/net/ethernet/intel/i40e/i40e_adminq.c      |  20 +-
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |   3 +-
- drivers/net/ethernet/intel/i40e/i40e_common.c      |   9 +-
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     | 266 +--------------------
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  40 ++--
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  69 +++---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  44 ++--
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   3 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   8 +-
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c    |   5 +-
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |   3 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  31 ++-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |   3 +-
- drivers/net/ethernet/intel/i40evf/i40evf.h         |   6 +-
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  67 +++++-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  67 +++---
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |   4 +
- 18 files changed, 253 insertions(+), 399 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
+index 9e15f68..e657ecc 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf.h
++++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
+- * Copyright(c) 2013 - 2014 Intel Corporation.
++ * Copyright(c) 2013 - 2016 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -274,6 +274,9 @@ struct i40evf_adapter {
+ };
+ 
+ 
++/* Ethtool Private Flags */
++#define I40EVF_PRIV_FLAGS_PS		BIT(0)
++
+ /* needed by i40evf_ethtool.c */
+ extern char i40evf_driver_name[];
+ extern const char i40evf_driver_version[];
+@@ -281,6 +284,7 @@ extern const char i40evf_driver_version[];
+ int i40evf_up(struct i40evf_adapter *adapter);
+ void i40evf_down(struct i40evf_adapter *adapter);
+ int i40evf_process_config(struct i40evf_adapter *adapter);
++void i40evf_schedule_reset(struct i40evf_adapter *adapter);
+ void i40evf_reset(struct i40evf_adapter *adapter);
+ void i40evf_set_ethtool_ops(struct net_device *netdev);
+ void i40evf_update_stats(struct i40evf_adapter *adapter);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index bd1c272..dd4430a 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
+- * Copyright(c) 2013 - 2015 Intel Corporation.
++ * Copyright(c) 2013 - 2016 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -63,6 +63,12 @@ static const struct i40evf_stats i40evf_gstrings_stats[] = {
+ #define I40EVF_STATS_LEN(_dev) \
+ 	(I40EVF_GLOBAL_STATS_LEN + I40EVF_QUEUE_STATS_LEN(_dev))
+ 
++static const char i40evf_priv_flags_strings[][ETH_GSTRING_LEN] = {
++	"packet-split",
++};
++
++#define I40EVF_PRIV_FLAGS_STR_LEN ARRAY_SIZE(i40evf_priv_flags_strings)
++
+ /**
+  * i40evf_get_settings - Get Link Speed and Duplex settings
+  * @netdev: network interface device structure
+@@ -97,6 +103,8 @@ static int i40evf_get_sset_count(struct net_device *netdev, int sset)
+ {
+ 	if (sset == ETH_SS_STATS)
+ 		return I40EVF_STATS_LEN(netdev);
++	else if (sset == ETH_SS_PRIV_FLAGS)
++		return I40EVF_PRIV_FLAGS_STR_LEN;
+ 	else
+ 		return -EINVAL;
+ }
+@@ -162,6 +170,12 @@ static void i40evf_get_strings(struct net_device *netdev, u32 sset, u8 *data)
+ 			snprintf(p, ETH_GSTRING_LEN, "rx-%u.bytes", i);
+ 			p += ETH_GSTRING_LEN;
+ 		}
++	} else if (sset == ETH_SS_PRIV_FLAGS) {
++		for (i = 0; i < I40EVF_PRIV_FLAGS_STR_LEN; i++) {
++			memcpy(data, i40evf_priv_flags_strings[i],
++			       ETH_GSTRING_LEN);
++			data += ETH_GSTRING_LEN;
++		}
+ 	}
+ }
+ 
+@@ -211,6 +225,7 @@ static void i40evf_get_drvinfo(struct net_device *netdev,
+ 	strlcpy(drvinfo->version, i40evf_driver_version, 32);
+ 	strlcpy(drvinfo->fw_version, "N/A", 4);
+ 	strlcpy(drvinfo->bus_info, pci_name(adapter->pdev), 32);
++	drvinfo->n_priv_flags = I40EVF_PRIV_FLAGS_STR_LEN;
+ }
+ 
+ /**
+@@ -710,6 +725,54 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
+ 				 I40EVF_HLUT_ARRAY_SIZE);
+ }
+ 
++/**
++ * i40evf_get_priv_flags - report device private flags
++ * @dev: network interface device structure
++ *
++ * The get string set count and the string set should be matched for each
++ * flag returned.  Add new strings for each flag to the i40e_priv_flags_strings
++ * array.
++ *
++ * Returns a u32 bitmap of flags.
++ **/
++static u32 i40evf_get_priv_flags(struct net_device *dev)
++{
++	struct i40evf_adapter *adapter = netdev_priv(dev);
++	u32 ret_flags = 0;
++
++	ret_flags |= adapter->flags & I40EVF_FLAG_RX_PS_ENABLED ?
++		I40EVF_PRIV_FLAGS_PS : 0;
++
++	return ret_flags;
++}
++
++/**
++ * i40evf_set_priv_flags - set private flags
++ * @dev: network interface device structure
++ * @flags: bit flags to be set
++ **/
++static int i40evf_set_priv_flags(struct net_device *dev, u32 flags)
++{
++	struct i40evf_adapter *adapter = netdev_priv(dev);
++	bool reset_required = false;
++
++	if ((flags & I40EVF_PRIV_FLAGS_PS) &&
++	    !(adapter->flags & I40EVF_FLAG_RX_PS_ENABLED)) {
++		adapter->flags |= I40EVF_FLAG_RX_PS_ENABLED;
++		reset_required = true;
++	} else if (!(flags & I40EVF_PRIV_FLAGS_PS) &&
++		   (adapter->flags & I40EVF_FLAG_RX_PS_ENABLED)) {
++		adapter->flags &= ~I40EVF_FLAG_RX_PS_ENABLED;
++		reset_required = true;
++	}
++
++	/* if needed, issue reset to cause things to take effect */
++	if (reset_required)
++		i40evf_schedule_reset(adapter);
++
++	return 0;
++}
++
+ static const struct ethtool_ops i40evf_ethtool_ops = {
+ 	.get_settings		= i40evf_get_settings,
+ 	.get_drvinfo		= i40evf_get_drvinfo,
+@@ -719,6 +782,8 @@ static const struct ethtool_ops i40evf_ethtool_ops = {
+ 	.get_strings		= i40evf_get_strings,
+ 	.get_ethtool_stats	= i40evf_get_ethtool_stats,
+ 	.get_sset_count		= i40evf_get_sset_count,
++	.get_priv_flags		= i40evf_get_priv_flags,
++	.set_priv_flags		= i40evf_set_priv_flags,
+ 	.get_msglevel		= i40evf_get_msglevel,
+ 	.set_msglevel		= i40evf_set_msglevel,
+ 	.get_coalesce		= i40evf_get_coalesce,
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 1d81d57..1176326 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -173,6 +173,19 @@ void i40evf_debug_d(void *hw, u32 mask, char *fmt_str, ...)
+ }
+ 
+ /**
++ * i40evf_schedule_reset - Set the flags and schedule a reset event
++ * @adapter: board private structure
++ **/
++void i40evf_schedule_reset(struct i40evf_adapter *adapter)
++{
++	if (!(adapter->flags &
++	      (I40EVF_FLAG_RESET_PENDING | I40EVF_FLAG_RESET_NEEDED))) {
++		adapter->flags |= I40EVF_FLAG_RESET_NEEDED;
++		schedule_work(&adapter->reset_task);
++	}
++}
++
++/**
+  * i40evf_tx_timeout - Respond to a Tx Hang
+  * @netdev: network interface device structure
+  **/
+@@ -181,11 +194,7 @@ static void i40evf_tx_timeout(struct net_device *netdev)
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
+ 
+ 	adapter->tx_timeout_count++;
+-	if (!(adapter->flags & (I40EVF_FLAG_RESET_PENDING |
+-				I40EVF_FLAG_RESET_NEEDED))) {
+-		adapter->flags |= I40EVF_FLAG_RESET_NEEDED;
+-		queue_work(i40evf_wq, &adapter->reset_task);
+-	}
++	i40evf_schedule_reset(adapter);
+ }
+ 
+ /**
+@@ -638,35 +647,22 @@ static void i40evf_configure_rx(struct i40evf_adapter *adapter)
+ 	int rx_buf_len;
+ 
+ 
+-	adapter->flags &= ~I40EVF_FLAG_RX_PS_CAPABLE;
+-	adapter->flags |= I40EVF_FLAG_RX_1BUF_CAPABLE;
+-
+-	/* Decide whether to use packet split mode or not */
+-	if (netdev->mtu > ETH_DATA_LEN) {
+-		if (adapter->flags & I40EVF_FLAG_RX_PS_CAPABLE)
+-			adapter->flags |= I40EVF_FLAG_RX_PS_ENABLED;
+-		else
+-			adapter->flags &= ~I40EVF_FLAG_RX_PS_ENABLED;
+-	} else {
+-		if (adapter->flags & I40EVF_FLAG_RX_1BUF_CAPABLE)
+-			adapter->flags &= ~I40EVF_FLAG_RX_PS_ENABLED;
+-		else
+-			adapter->flags |= I40EVF_FLAG_RX_PS_ENABLED;
+-	}
+-
+ 	/* Set the RX buffer length according to the mode */
+-	if (adapter->flags & I40EVF_FLAG_RX_PS_ENABLED) {
+-		rx_buf_len = I40E_RX_HDR_SIZE;
+-	} else {
+-		if (netdev->mtu <= ETH_DATA_LEN)
+-			rx_buf_len = I40EVF_RXBUFFER_2048;
+-		else
+-			rx_buf_len = ALIGN(max_frame, 1024);
+-	}
++	if (adapter->flags & I40EVF_FLAG_RX_PS_ENABLED ||
++	    netdev->mtu <= ETH_DATA_LEN)
++		rx_buf_len = I40EVF_RXBUFFER_2048;
++	else
++		rx_buf_len = ALIGN(max_frame, 1024);
+ 
+ 	for (i = 0; i < adapter->num_active_queues; i++) {
+ 		adapter->rx_rings[i].tail = hw->hw_addr + I40E_QRX_TAIL1(i);
+ 		adapter->rx_rings[i].rx_buf_len = rx_buf_len;
++		if (adapter->flags & I40EVF_FLAG_RX_PS_ENABLED) {
++			set_ring_ps_enabled(&adapter->rx_rings[i]);
++			adapter->rx_rings[i].rx_hdr_len = I40E_RX_HDR_SIZE;
++		} else {
++			clear_ring_ps_enabled(&adapter->rx_rings[i]);
++		}
+ 	}
+ }
+ 
+@@ -1003,7 +999,12 @@ static void i40evf_configure(struct i40evf_adapter *adapter)
+ 	for (i = 0; i < adapter->num_active_queues; i++) {
+ 		struct i40e_ring *ring = &adapter->rx_rings[i];
+ 
++	if (adapter->flags & I40EVF_FLAG_RX_PS_ENABLED) {
++		i40evf_alloc_rx_headers(ring);
++		i40evf_alloc_rx_buffers_ps(ring, ring->count);
++	} else {
+ 		i40evf_alloc_rx_buffers_1buf(ring, ring->count);
++	}
+ 		ring->next_to_use = ring->count - 1;
+ 		writel(ring->next_to_use, ring->tail);
+ 	}
+@@ -2481,6 +2482,11 @@ static void i40evf_init_task(struct work_struct *work)
+ 	adapter->current_op = I40E_VIRTCHNL_OP_UNKNOWN;
+ 
+ 	adapter->flags |= I40EVF_FLAG_RX_CSUM_ENABLED;
++	adapter->flags |= I40EVF_FLAG_RX_1BUF_CAPABLE;
++	adapter->flags |= I40EVF_FLAG_RX_PS_CAPABLE;
++
++	/* Default to single buffer rx, can be changed through ethtool. */
++	adapter->flags &= ~I40EVF_FLAG_RX_PS_ENABLED;
+ 
+ 	netdev->netdev_ops = &i40evf_netdev_ops;
+ 	i40evf_set_ethtool_ops(netdev);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index d3739cc..488e738 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -270,6 +270,10 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
+ 		vqpi->rxq.max_pkt_size = adapter->netdev->mtu
+ 					+ ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN;
+ 		vqpi->rxq.databuffer_size = adapter->rx_rings[i].rx_buf_len;
++		if (adapter->flags & I40EVF_FLAG_RX_PS_ENABLED) {
++			vqpi->rxq.splithdr_enabled = true;
++			vqpi->rxq.hdr_size = I40E_RX_HDR_SIZE;
++		}
+ 		vqpi++;
+ 	}
+ 
 -- 
 2.5.0
