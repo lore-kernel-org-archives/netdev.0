@@ -1,7 +1,7 @@
 From: Robert Richter <rrichter@caviumnetworks.com>
-Subject: [PATCH 1/2] net: thunderx: Fix const type in nicvf_set_rxfh()
-Date: Thu, 18 Feb 2016 13:39:08 +0100
-Message-ID: <1455799149-19590-2-git-send-email-rrichter@caviumnetworks.com>
+Subject: [PATCH 2/2] net, thunderx: Use bool in structs where possible
+Date: Thu, 18 Feb 2016 13:39:09 +0100
+Message-ID: <1455799149-19590-3-git-send-email-rrichter@caviumnetworks.com>
 References: <1455799149-19590-1-git-send-email-rrichter@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,30 +25,43 @@ List-Id: netdev.vger.kernel.org
 
 From: Robert Richter <rrichter@cavium.com>
 
->From struct ethtool_ops:
-
-        int     (*set_rxfh)(struct net_device *, const u32 *indir,
-                            const u8 *key, const u8 hfunc);
-
-Change function arg of hfunc to const type.
+Looks like the :1 notation was accidentally introduced (this still
+uses 1 byte per flag). Using bool instead, which is the common use.
 
 Signed-off-by: Robert Richter <rrichter@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/cavium/thunder/nic.h | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-index a12b2e38cf61..fb79529ac8c7 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-@@ -581,7 +581,7 @@ static int nicvf_get_rxfh(struct net_device *dev, u32 *indir, u8 *hkey,
- }
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 688828865c48..fa5b1d2d8e23 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -262,9 +262,9 @@ struct nicvf {
+ 	struct pci_dev		*pdev;
+ 	u8			vf_id;
+ 	u8			node;
+-	u8			tns_mode:1;
+-	u8			sqs_mode:1;
+-	u8			loopback_supported:1;
++	bool			tns_mode;
++	bool                    sqs_mode;
++	bool			loopback_supported;
+ 	bool			hw_tso;
+ 	u16			mtu;
+ 	struct queue_set	*qs;
+@@ -353,9 +353,9 @@ struct nic_cfg_msg {
+ 	u8    msg;
+ 	u8    vf_id;
+ 	u8    node_id;
+-	u8    tns_mode:1;
+-	u8    sqs_mode:1;
+-	u8    loopback_supported:1;
++	bool  tns_mode;
++	bool  sqs_mode;
++	bool  loopback_supported;
+ 	u8    mac_addr[ETH_ALEN];
+ };
  
- static int nicvf_set_rxfh(struct net_device *dev, const u32 *indir,
--			  const u8 *hkey, u8 hfunc)
-+			const u8 *hkey, const u8 hfunc)
- {
- 	struct nicvf *nic = netdev_priv(dev);
- 	struct nicvf_rss_info *rss = &nic->rss_info;
 -- 
 2.7.0.rc3
