@@ -1,46 +1,33 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next 0/4] iptunnel: scrub packet in iptunnel_pull_header
-Date: Thu, 18 Feb 2016 11:22:48 +0100
-Message-ID: <cover.1455790645.git.jbenc@redhat.com>
-Cc: Jesse Gross <jesse@kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Pravin B Shelar <pshelar@nicira.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net 0/2] mlxsw fixes
+Date: Thu, 18 Feb 2016 11:30:00 +0100
+Message-ID: <1455791402-12976-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44758 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1426118AbcBRKXk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2016 05:23:40 -0500
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:35839 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1426261AbcBRKaG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 05:30:06 -0500
+Received: by mail-wm0-f50.google.com with SMTP id c200so19534205wme.0
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 02:30:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As every IP tunnel has to scrub skb on decapsulation, iptunnel_pull_header
-tried to do that and open coded part of skb_scrub_packet. Various tunneling
-protocols (VXLAN, Geneve) then called full skb_scrub_packet on their own,
-duplicating part of the scrubbing already done.
+From: Jiri Pirko <jiri@mellanox.com>
 
-Consolidate the code, calling skb_scrub_packet from iptunnel_pull_header.
-This will allow additional cleanups in VXLAN code, as the packet is scrubbed
-early during rx processing after this patchset and VXLAN can start filling
-out skb fields earlier.
+Another bulk of fixes from Ido.
 
-The full picture of vxlan cleanup patches can be seen at:
-https://github.com/jbenc/linux-vxlan/commits/master
+Ido Schimmel (2):
+  mlxsw: reg: Add the Switch Port Acceptable Frame Types register
+  mlxsw: spectrum: Allow for PVID deletion
 
-Jiri Benc (4):
-  geneve: implement geneve_get_sk_family helper
-  geneve: move geneve device lookup before iptunnel_pull_header
-  vxlan: move vxlan device lookup before iptunnel_pull_header
-  iptunnel: scrub packet in iptunnel_pull_header
-
- drivers/net/geneve.c      | 98 +++++++++++++++++++++++++++--------------------
- drivers/net/vxlan.c       | 25 ++++++------
- include/net/ip_tunnels.h  |  3 +-
- net/ipv4/ip_gre.c         |  2 +-
- net/ipv4/ip_tunnel_core.c |  8 ++--
- net/ipv4/ipip.c           |  2 +-
- net/ipv6/sit.c            |  2 +-
- 7 files changed, 76 insertions(+), 64 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          | 58 ++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  2 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  1 +
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 69 +++++++++++++++++++---
+ 4 files changed, 121 insertions(+), 9 deletions(-)
 
 -- 
-1.8.3.1
+2.5.0
