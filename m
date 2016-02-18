@@ -1,53 +1,38 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: [PATCH net] af_unix: Don't use continue to re-execute unix_stream_read_generic loop
-Date: Thu, 18 Feb 2016 12:39:46 +0000
-Message-ID: <877fi2gpkd.fsf@doppelsaurus.mobileactivedefense.com>
+From: Robert Richter <rrichter@caviumnetworks.com>
+Subject: [PATCH 0/2] net: thunderx: Small cleanups
+Date: Thu, 18 Feb 2016 13:39:07 +0100
+Message-ID: <1455799149-19590-1-git-send-email-rrichter@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	hannes@stressinduktion.org, <joseph.salisbury@canonical.com>,
-	edumazet@google.com, rweikusat@mobileactivedefense.com
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Robert Richter <rric@kernel.org>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>,
+ Sunil Goutham <sgoutham@cavium.com>, linux-arm-kernel@lists.infradead.org
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-The unix_stream_read_generic function tries to use a continue statement
-to restart the receive loop after waiting for a message. This may not
-work as intended as the caller might use a recvmsg call to peek at
-control messages without specifying a message buffer. If this was the
-case, the continue will cause the function to return without an error
-and without the credential information if the function had to wait for a
-message while it had returned with the credentials otherwise. Change to
-using goto to restart the loop without checking the condition first in
-this case so that credentials are returned either way.
+From: Robert Richter <rrichter@cavium.com>
 
-Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
+Sending two small cleanups of the driver fixing issues found during
+code review.
 
-I'm resending this as the original patch seems to have been classified
-as superseded without anything actually superseding it. I hope the net
-is appropriate. I consider this a bugfix.
+Robert Richter (2):
+  net: thunderx: Fix const type in nicvf_set_rxfh()
+  net, thunderx: Use bool in structs where possible
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index c51e283..f75f847 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2312,6 +2312,7 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state)
- 		bool drop_skb;
- 		struct sk_buff *skb, *last;
- 
-+redo:
- 		unix_state_lock(sk);
- 		if (sock_flag(sk, SOCK_DEAD)) {
- 			err = -ECONNRESET;
-@@ -2353,7 +2354,7 @@ again:
- 			}
- 
- 			mutex_lock(&u->readlock);
--			continue;
-+			goto redo;
- unlock:
- 			unix_state_unlock(sk);
- 			break;
+ drivers/net/ethernet/cavium/thunder/nic.h           | 12 ++++++------
+ drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c |  2 +-
+ 2 files changed, 7 insertions(+), 7 deletions(-)
+
+-- 
+2.7.0.rc3
