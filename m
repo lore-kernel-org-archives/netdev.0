@@ -1,102 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/15] i40e: Removal of code which relies on BASE VEB SEID
-Date: Thu, 18 Feb 2016 01:04:04 -0800
-Message-ID: <1455786252-71881-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] i40evf: set adapter state on reset failure
+Date: Thu, 18 Feb 2016 01:04:09 -0800
+Message-ID: <1455786252-71881-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455786252-71881-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kiran Patil <kiran.patil@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:14291 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:36842 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1425719AbcBRJE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2016 04:04:29 -0500
+	id S1425727AbcBRJEg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 04:04:36 -0500
 In-Reply-To: <1455786252-71881-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kiran Patil <kiran.patil@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Fixed mapping of SEID is removed from specification. Hence
-this patch removes code which was using hard coded base VEB SEID.
+If a reset fails to complete, the driver gets its affairs in order and
+awaits the cold solace of rmmod. Unfortunately, it was not properly
+setting the adapter state, which would cause a panic on rmmod, instead
+of the desired surcease.
 
-Changed FCoE code to use "hw->pf_id" to obtain correct "idx"
-and verified.
+Set the adapter state to DOWN in this case, and avoid a panic.
 
-Removed defines for BASE VSI/VEB SEID and BASE_PF_SEID since it
-is not used anymore.
-
-Change-ID: Id507cf4b1fae1c0145e3f08ae9ea5846ea5840de
-Signed-off-by: Kiran Patil <kiran.patil@intel.com>
+Change-ID: I6fdd9906da52e023f8dc744f7da44b5d95278ca9
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         |  3 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 16 +++-------------
- drivers/net/ethernet/intel/i40e/i40e_main.c    |  2 +-
- 3 files changed, 4 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 5d8e159..e0758dd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -64,9 +64,6 @@
- #include "i40e_dcb.h"
- 
- /* Useful i40e defaults */
--#define I40E_BASE_PF_SEID     16
--#define I40E_BASE_VSI_SEID    512
--#define I40E_BASE_VEB_SEID    288
- #define I40E_MAX_VEB          16
- 
- #define I40E_MAX_NUM_DESCRIPTORS      4096
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 631c2d6..2a44f2e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -61,13 +61,9 @@ static struct i40e_veb *i40e_dbg_find_veb(struct i40e_pf *pf, int seid)
- {
- 	int i;
- 
--	if ((seid < I40E_BASE_VEB_SEID) ||
--	    (seid > (I40E_BASE_VEB_SEID + I40E_MAX_VEB)))
--		dev_info(&pf->pdev->dev, "%d: bad seid\n", seid);
--	else
--		for (i = 0; i < I40E_MAX_VEB; i++)
--			if (pf->veb[i] && pf->veb[i]->seid == seid)
--				return pf->veb[i];
-+	for (i = 0; i < I40E_MAX_VEB; i++)
-+		if (pf->veb[i] && pf->veb[i]->seid == seid)
-+			return pf->veb[i];
- 	return NULL;
- }
- 
-@@ -691,12 +687,6 @@ static void i40e_dbg_dump_veb_seid(struct i40e_pf *pf, int seid)
- {
- 	struct i40e_veb *veb;
- 
--	if ((seid < I40E_BASE_VEB_SEID) ||
--	    (seid >= (I40E_MAX_VEB + I40E_BASE_VEB_SEID))) {
--		dev_info(&pf->pdev->dev, "%d: bad seid\n", seid);
--		return;
--	}
--
- 	veb = i40e_dbg_find_veb(pf, seid);
- 	if (!veb) {
- 		dev_info(&pf->pdev->dev, "can't find veb %d\n", seid);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 41d6d55..adb2a04 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -768,7 +768,7 @@ static void i40e_update_fcoe_stats(struct i40e_vsi *vsi)
- 	if (vsi->type != I40E_VSI_FCOE)
- 		return;
- 
--	idx = (pf->pf_seid - I40E_BASE_PF_SEID) + I40E_FCOE_PF_STAT_OFFSET;
-+	idx = hw->pf_id + I40E_FCOE_PF_STAT_OFFSET;
- 	fs = &vsi->fcoe_stats;
- 	ofs = &vsi->fcoe_stats_offsets;
- 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 1176326..cbb7507 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1883,6 +1883,7 @@ static void i40evf_reset_task(struct work_struct *work)
+ 		adapter->netdev->flags &= ~IFF_UP;
+ 		clear_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section);
+ 		adapter->flags &= ~I40EVF_FLAG_RESET_PENDING;
++		adapter->state = __I40EVF_DOWN;
+ 		dev_info(&adapter->pdev->dev, "Reset task did not complete, VF disabled\n");
+ 		return; /* Do not attempt to reinit. It's dead, Jim. */
+ 	}
 -- 
 2.5.0
