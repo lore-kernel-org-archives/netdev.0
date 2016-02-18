@@ -1,88 +1,91 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v3 3/8] net: sched: add cls_u32 offload hooks
- for netdevs
-Date: Thu, 18 Feb 2016 07:24:02 -0800
-Message-ID: <56C5E212.50505@gmail.com>
-References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810> <20160217051709.17139.88337.stgit@john-Precision-Tower-5810> <56C4528E.5090505@mojatatu.com> <56C48295.9030806@gmail.com> <56C4FD2B.9000009@gmail.com> <56C5B5A0.7010305@mojatatu.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 1/4] geneve: implement geneve_get_sk_family
+ helper
+Date: Thu, 18 Feb 2016 16:24:35 +0100
+Message-ID: <20160218162435.29efcf36@griffin>
+References: <cover.1455790645.git.jbenc@redhat.com>
+	<4d1533364167a04892cb7ec573b3b19dc01c682b.1455790645.git.jbenc@redhat.com>
+	<20160218144409.GA12622@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, jiri@resnulli.us,
-	amir@vadai.me, davem@davemloft.net
+Cc: netdev@vger.kernel.org, Jesse Gross <jesse@kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35167 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1426451AbcBRPYP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 10:24:15 -0500
-Received: by mail-pa0-f49.google.com with SMTP id ho8so33378572pac.2
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 07:24:15 -0800 (PST)
-In-Reply-To: <56C5B5A0.7010305@mojatatu.com>
+Received: from mx1.redhat.com ([209.132.183.28]:56878 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1946374AbcBRPYj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 10:24:39 -0500
+In-Reply-To: <20160218144409.GA12622@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-18 04:14 AM, Jamal Hadi Salim wrote:
-> On 16-02-17 06:07 PM, John Fastabend wrote:
->> [...]
->>
+On Thu, 18 Feb 2016 09:44:10 -0500, John W. Linville wrote:
+> On Thu, Feb 18, 2016 at 11:22:49AM +0100, Jiri Benc wrote:
+> > +static sa_family_t geneve_get_sk_family(struct geneve_sock *gs)
+> > +{
+> > +	return gs->sock->sk->sk_family;
+> > +}
+> > +
 > 
->> Actually thinking about this a bit more I wrote this thinking
->> that there existed some hardware that actually cared if it was
->> a new rule or an existing rule. For me it doesn't matter I do
->> the same thing in the new/replace cases I just write into the
->> slot on the hardware table and if it happens to have something
->> in it well its overwritten e.g. "replaced". This works because
->> the cls_u32 layer protects us from doing something unexpected.
->>
-> 
-> You are describing create-or-update which is a reasonable default
-> BUT: counting on the user to specify the htid+bktid+nodeid
-> for every filter and knowing what that means is prone to mistakes
-> when for example (using your big hammer approach right now) they
-> dont specify the handle and the kernel creates one for them.
-> 
-> IMO, it would be better at this early stage to enforce the correct
-> behavior for future generations.
-> To follow the netlink semantics which a lot of people are already
-> trained to think in.
-> 
-> Current netlink behavior is supposed to be:
-> 
-> 1) NEW ==> "Create".
-> Ambigous - could mean a)"create if it doesnt exist" or b) "fail if it
-> exists otherwise create"
-> Unfortunately different parts of the kernel often assume some
-> default from either #a or #b.
-> 
+> Should this be inline?
 
-But this is already handled by the core cls_api.c code. We never
-get to u32_change if the flags are not correct.
+AFAIK the kernel policy is to not add inlines in .c files, instead let
+the compiler do its job.
 
-Look at the block right above the op call into the classifiers
-change() code in cls_api.c. Starting at line 287.
+> Can we count on GCC to inline geneve_get_sk_family on its own?
 
-> 2) NEW|REPLACE flag ==> "Create if it doesnt exist and replace
-> if it exists"
+Yes.
+
+> Otherwise, we are calling the same function as many as three times
+> on receive.
+[...]
+> Then on these three you are caching the results of the function
+> call instead...
+
+The reason I removed the sa_family local variable from geneve_rx is the
+next patch in the set where I need to put part of the family references
+into a separate function.
+
+I kept the rest of the file as it was - I thought about removing the
+local variables in geneve_notify_add/del_rx_port, too, but it would
+lead to ugly long lines here:
+
+        for_each_netdev_rcu(net, dev) {
+                if (dev->netdev_ops->ndo_add_geneve_port)
+                        dev->netdev_ops->ndo_add_geneve_port(dev, sa_family,
+                                                             port);
+        }
+
+Thus, the local variable makes sense in the these two functions, makes
+the code more comprehensible.
+
+> > @@ -596,7 +598,7 @@ static struct geneve_sock *geneve_find_sock(struct geneve_net *gn,
+> >  
+> >  	list_for_each_entry(gs, &gn->sock_list, list) {
+> >  		if (inet_sk(gs->sock->sk)->inet_sport == dst_port &&
+> > -		    inet_sk(gs->sock->sk)->sk.sk_family == family) {
+> > +		    geneve_get_sk_family(gs) == family) {
+> >  			return gs;
+> >  		}
+> >  	}
 > 
-> 3)NEW|EXCLUSIVE ==> "Create if it doesnt exist and fail if it
-> exists"
-> 
-> 4)NEW|APPEND ==> "just fscking create; i dont care if it exists".
-> 
-> IOW, just add the flag field which is intepreted from whatever
-> the user explicitly asks for. And reject say what the hardware
-> doesnt support.
+> And back to calling it each time (as necessary inside the
+> list_for_each_entry).
 
-I think I agree with what your saying but I'm fairly sure this is
-working as you describe.
+Just replacing the direct sk_family dereference with the helper, no
+real change here. No need to introduce a local variable here, this is
+still short enough.
 
-> I have worked with tcams where we support #3. It is a bit inefficient
-> because you have to check if a rule exists first. And i have worked
-> in cases where #1 is assumed to mean #2 and at times #4. It is better
-> user experience to be explicit.
+> So, it seems like geneve_get_sk_family needs to be inline -- maybe GCC
+> is doing that on its own?  FWIW, I probably would cache the results
+> inside of geneve_rx like you have done in geneve_notify_add_rx_port
+> and geneve_notify_del_rx_port.
 
-Agreed, and I think it is :)
+Then I would just have to remove or duplicate the local variable in the
+next patch. Not worth it, I think.
 
-> 
-> cheers,
-> jamal
+Thanks for review,
+
+ Jiri
