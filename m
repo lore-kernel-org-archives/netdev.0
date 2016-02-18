@@ -1,41 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 2/3] geneve: Relax MTU constraints
-Date: Thu, 18 Feb 2016 15:07:15 -0500 (EST)
-Message-ID: <20160218.150715.2026246274939635940.davem@davemloft.net>
-References: <86vb5o3kd5.fsf@weave.works>
-	<CALx6S37OgkxTLv6XEjFN4T=W8ZdZV_kx4wtPqtVwMizoUXbpVw@mail.gmail.com>
-	<86bn7e2c3t.fsf@weave.works>
+Subject: Re: [PATCH] net: ti: netcp: restore get/set_pad_info()
+ functionality
+Date: Thu, 18 Feb 2016 15:08:01 -0500 (EST)
+Message-ID: <20160218.150801.1433459291829189521.davem@davemloft.net>
+References: <1455026303-17014-1-git-send-email-grygorii.strashko@ti.com>
+	<20160216.152421.2271194730635382792.davem@davemloft.net>
+	<56C5FBA6.3040204@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, jesse@kernel.org, netdev@vger.kernel.org,
-	dev@openvswitch.org, hannes@stressinduktion.org, tgraf@suug.ch,
-	roopa@cumulusnetworks.com
-To: david@weave.works
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46473 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1425675AbcBRUHR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 15:07:17 -0500
-In-Reply-To: <86bn7e2c3t.fsf@weave.works>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: grygorii.strashko@ti.com, netdev@vger.kernel.org, arnd@arndb.de,
+	fcooper@ti.com, nsekhar@ti.com, linux-kernel@vger.kernel.org,
+	w-kwok2@ti.com, mugunthanvnm@ti.com
+To: m-karicheri2@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56C5FBA6.3040204@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Wragg <david@weave.works>
-Date: Thu, 18 Feb 2016 16:54:14 +0000
+From: Murali Karicheri <m-karicheri2@ti.com>
+Date: Thu, 18 Feb 2016 12:13:10 -0500
 
-> Tom Herbert <tom@herbertland.com> writes:
->> Please implement like in ip_tunnel_change_mtu (or better yet call it),
->> that is the precedent for tunnels.
+> On 02/16/2016 03:24 PM, David Miller wrote:
+>> 
+>> I would like some of the feedback to be taken into consideration and
+>> integrated into this patch.
+>> 
+>> Part of the reason this regression was introduced was probably because
+>> the purpose of some fields or descriptor semantics was not defined
+>> properly.
+>> 
+>> Therefore it is absolutely appropriate to properly name and document
+>> these fields as part of the bug fix.
+>> 
+>> Thank you.
+>> 
+> David,
 > 
-> I've made geneve_change_mtu follow ip_tunnel_change_mtu in v2.
+> I will take over this from Grygorii as he is out of office. 
 > 
-> If it were to call it instead, are you suggesting just passing in
-> t_hlen?  Or restructuring geneve.c to re-use the whole ip_tunnel
-> infrastructure?
-> 
-> Also, I'm not sure where the 0xFFF8 comes from in
-> __ip_tunnel_change_mtu.  Any ideas why 0xFFF8 rather than 0xffff?  It
-> goes all the way back to the inital import of the kernel into git.
+> I propose to keep this patch as is and add additional patch to address
+> the feedback in the same series (v1). Is that fine with you?
 
-Some 8 byte multiple requirement, perhaps to do with fragmentation.
+No, I want the code to be clarified along with the bug fix so that
+this bug is unlikely to resurface.
