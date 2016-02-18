@@ -1,69 +1,76 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] bridge: switchdev: Offload VLAN flags to hardware bridge
-Date: Thu, 18 Feb 2016 14:01:46 +0100
-Message-ID: <1455800506-13190-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com
-To: netdev@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/1] cxgb3: fix up vpd strings for kstrto*()
+Date: Thu, 18 Feb 2016 16:04:39 +0300
+Message-ID: <56C5C167.7080205@cogentembedded.com>
+References: <20160217233126.E0815E0753@smtp.ogc.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: santosh@chelsio.com, davem@davemloft.net, hariprasad@chelsio.com
+To: Steve Wise <swise@opengridcomputing.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:34856 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945978AbcBRNBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 08:01:53 -0500
-Received: by mail-wm0-f41.google.com with SMTP id c200so26002940wme.0
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 05:01:53 -0800 (PST)
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:32831 "EHLO
+	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945948AbcBRNEm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 08:04:42 -0500
+Received: by mail-lf0-f47.google.com with SMTP id m1so32232921lfg.0
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 05:04:41 -0800 (PST)
+In-Reply-To: <20160217233126.E0815E0753@smtp.ogc.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+Hello.
 
-When VLANs are created / destroyed on a VLAN filtering bridge (MASTER
-flag set), the configuration is passed down to the hardware. However,
-when only the flags (e.g. PVID) are toggled, the configuration is done
-in the software bridge alone.
+On 2/17/2016 11:36 PM, Steve Wise wrote:
 
-While it is possible to pass these flags to hardware when invoked with
-the SELF flag set, this creates inconsistency with regards to the way
-the VLANs are initially configured.
+> The vpd strings are left justified, in a fixed length array, with possible
+> trailing white space and no NUL.  So fix them up before calling kstrto*().
+>
+> This is a recent regression which causes cxgb3 to fail to load.
+>
+> Fixes:e72c932('cxgb3: Convert simple_strtoul to kstrtox')
+>
+> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+> ---
+>   drivers/net/ethernet/chelsio/cxgb3/t3_hw.c | 32 +++++++++++++++++++++++-------
+>   1 file changed, 25 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+> index ee04caa..bfd4a7f 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+> @@ -681,6 +681,24 @@ int t3_seeprom_wp(struct adapter *adapter, int enable)
+>   	return t3_seeprom_write(adapter, EEPROM_STAT_ADDR, enable ? 0xc : 0);
+>   }
+>
+> +static int vpdstrtouint(char *s, int len, unsigned int base, unsigned int *val)
+> +{
+> +	char tok[len+1];
 
-Pass the flags down to the hardware even when the VLAN already exists
-and only the flags are toggled.
+    The Linus coding style generally requires the operators to be surrounded 
+by spaces.
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/bridge/br_vlan.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+> +
+> +	memcpy(tok, s, len);
+> +	tok[len] = 0;
+> +	return kstrtouint(strim(tok), base, val);
+> +}
+> +
+> +static int vpdstrtou16(char *s, int len, unsigned int base, u16 *val)
+> +{
+> +	char tok[len+1];
 
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 85e43af..9309bb4 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -955,6 +955,13 @@ err_rhtbl:
-  */
- int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
- {
-+	struct switchdev_obj_port_vlan v = {
-+		.obj.orig_dev = port->dev,
-+		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
-+		.flags = flags,
-+		.vid_begin = vid,
-+		.vid_end = vid,
-+	};
- 	struct net_bridge_vlan *vlan;
- 	int ret;
- 
-@@ -962,6 +969,10 @@ int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
- 
- 	vlan = br_vlan_find(nbp_vlan_group(port), vid);
- 	if (vlan) {
-+		/* Pass the flags to the hardware bridge */
-+		ret = switchdev_port_obj_add(port->dev, &v.obj);
-+		if (ret && ret != -EOPNOTSUPP)
-+			return ret;
- 		__vlan_add_flags(vlan, flags);
- 		return 0;
- 	}
--- 
-2.5.0
+    Likewise.
+
+> +
+> +	memcpy(tok, s, len);
+> +	tok[len] = 0;
+> +	return kstrtou16(strim(tok), base, val);
+> +}
+> +
+>   /**
+>    *	get_vpd_params - read VPD parameters from VPD EEPROM
+>    *	@adapter: adapter to read
+[...]
+
+MBR, Sergei
