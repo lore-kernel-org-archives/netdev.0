@@ -1,93 +1,56 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: net/bluetooth: workqueue destruction WARNING in
- hci_unregister_dev
-Date: Thu, 18 Feb 2016 12:44:27 -0500
-Message-ID: <20160218174427.GG13177@mtj.duckdns.org>
-References: <CACT4Y+ax7zMOxe+kd4tw5Xdbvt=qPdBhXGO0j7qJwdn5tsfNNg@mail.gmail.com>
- <56C5CE85.6090808@suse.cz>
- <CACT4Y+bVXfY=wBZ+08rq16tHFw9s3YDrE_LCS=to-GF70AffRQ@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH next v3 1/3] ipvlan: scrub skb before routing in L3 mode.
+Date: Thu, 18 Feb 2016 09:55:40 -0800
+Message-ID: <CAM_iQpXUv1s1xw9g9uox25fYrRXpTjFLE5_OwUYE_tCZAoGF3w@mail.gmail.com>
+References: <1455767550-16896-1-git-send-email-mahesh@bandewar.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="mP3DRpeJDSE+ciuQ"
-Cc: Jiri Slaby <jslaby@suse.cz>, Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Mahesh Bandewar <maheshb@google.com>,
 	Eric Dumazet <edumazet@google.com>,
-	Takashi Iwai <tiwai@suse.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACT4Y+bVXfY=wBZ+08rq16tHFw9s3YDrE_LCS=to-GF70AffRQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	netdev <netdev@vger.kernel.org>
+To: Mahesh Bandewar <mahesh@bandewar.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f169.google.com ([209.85.161.169]:35071 "EHLO
+	mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1426666AbcBRRzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 12:55:40 -0500
+Received: by mail-yw0-f169.google.com with SMTP id g127so47029388ywf.2
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 09:55:40 -0800 (PST)
+In-Reply-To: <1455767550-16896-1-git-send-email-mahesh@bandewar.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Feb 17, 2016 at 7:52 PM, Mahesh Bandewar <mahesh@bandewar.net> wrote:
+> From: Mahesh Bandewar <maheshb@google.com>
+>
+> Scrub skb before hitting the iptable hooks to ensure packets hit
+> these hooks in master's namespace.
+>
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+>  drivers/net/ipvlan/ipvlan_core.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+> index 8c48bb2a94ea..a1f87ec316cf 100644
+> --- a/drivers/net/ipvlan/ipvlan_core.c
+> +++ b/drivers/net/ipvlan/ipvlan_core.c
+> @@ -365,7 +365,7 @@ static int ipvlan_process_v4_outbound(struct sk_buff *skb)
+>                 ip_rt_put(rt);
+>                 goto err;
+>         }
+> -       skb_dst_drop(skb);
+> +       skb_scrub_packet(skb, true);
+>         skb_dst_set(skb, &rt->dst);
+>         err = ip_local_out(net, skb->sk, skb);
+>         if (unlikely(net_xmit_eval(err)))
+> @@ -403,7 +403,7 @@ static int ipvlan_process_v6_outbound(struct sk_buff *skb)
+>                 dst_release(dst);
+>                 goto err;
+>         }
+> -       skb_dst_drop(skb);
+> +       skb_scrub_packet(skb, true);
 
---mP3DRpeJDSE+ciuQ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-Hello,
-
-Can you please do the followings?
-
-1. Remove WQ_MEM_RECLAIM from the affected workqueue and see whether
-   the problem is reproducible.  WQ_MEM_RECLAIM on anything bluetooth
-   doesn't make sense btw.  Why is it there?
-
-2. If WQ_MEM_RECLAIM makes the issue go away, see whether the attached
-   patch works too.
-
-Thanks.
-
--- 
-tejun
-
---mP3DRpeJDSE+ciuQ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=patch
-
-diff --git a/kernel/workqueue.c b/kernel/workqueue.c
-index 7ff5dc7..9824d4f 100644
---- a/kernel/workqueue.c
-+++ b/kernel/workqueue.c
-@@ -4012,7 +4012,7 @@ void destroy_workqueue(struct workqueue_struct *wq)
- 	/* drain it before proceeding with destruction */
- 	drain_workqueue(wq);
- 
--	/* sanity checks */
-+	/* nothing should be in flight */
- 	mutex_lock(&wq->mutex);
- 	for_each_pwq(pwq, wq) {
- 		int i;
-@@ -4024,8 +4024,7 @@ void destroy_workqueue(struct workqueue_struct *wq)
- 			}
- 		}
- 
--		if (WARN_ON((pwq != wq->dfl_pwq) && (pwq->refcnt > 1)) ||
--		    WARN_ON(pwq->nr_active) ||
-+		if (WARN_ON(pwq->nr_active) ||
- 		    WARN_ON(!list_empty(&pwq->delayed_works))) {
- 			mutex_unlock(&wq->mutex);
- 			return;
-@@ -4046,6 +4045,13 @@ void destroy_workqueue(struct workqueue_struct *wq)
- 	if (wq->rescuer)
- 		kthread_stop(wq->rescuer->task);
- 
-+	/* rescuer is gone, everything should be quiescent now */
-+	WARN_ON(!list_empty(&wq->maydays));
-+	mutex_lock(&wq->mutex);
-+	for_each_pwq(pwq, wq)
-+		WARN_ON((pwq != wq->dfl_pwq) && (pwq->refcnt > 1));
-+	mutex_unlock(&wq->mutex);
-+
- 	if (!(wq->flags & WQ_UNBOUND)) {
- 		/*
- 		 * The base ref is never dropped on per-cpu pwqs.  Directly
-
---mP3DRpeJDSE+ciuQ--
+At least this patch is still same with the previous version. Or am I
+missing anything?
