@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: add software transmit timestamp
- support
-Date: Fri, 19 Feb 2016 15:47:18 -0500 (EST)
-Message-ID: <20160219.154718.157614848411478611.davem@davemloft.net>
-References: <1455756239-20721-1-git-send-email-sixiao@microsoft.com>
+Subject: Re: [PATCH v2 1/1] cxgb3: fix up vpd strings for kstrto*()
+Date: Fri, 19 Feb 2016 15:50:41 -0500 (EST)
+Message-ID: <20160219.155041.2218228385135091410.davem@davemloft.net>
+References: <20160218143946.0546CE09D8@smtp.ogc.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, haiyangz@microsoft.com,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: sixiao@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1455756239-20721-1-git-send-email-sixiao@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, santosh@chelsio.com, hariprasad@chelsio.com
+To: swise@opengridcomputing.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38319 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993278AbcBSUun (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 15:50:43 -0500
+In-Reply-To: <20160218143946.0546CE09D8@smtp.ogc.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Xiao <sixiao@microsoft.com>
-Date: Wed, 17 Feb 2016 16:43:59 -0800
+From: Steve Wise <swise@opengridcomputing.com>
+Date: Thu, 18 Feb 2016 06:34:24 -0800
 
-> Enable skb_tx_timestamp in hyperv netvsc.
+> The vpd strings are left justified, in a fixed length array, with possible
+> trailing white space and no NUL.  So fix them up before calling kstrto*().
 > 
-> Signed-off-by: Simon Xiao <sixiao@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+> This is a recent regression which causes cxgb3 to fail to load.
+> 
+> Fixes:e72c932('cxgb3: Convert simple_strtoul to kstrtox')
 
-Applied.
+Space after "Fixes: ", and after the commit ID too.  Double quotes to surround
+the commit change log header line.
+
+> 
+> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+Applied, thanks.
