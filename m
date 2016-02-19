@@ -1,75 +1,35 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next] store complete hash type information in socket
- buffer...
-Date: Fri, 19 Feb 2016 08:55:20 +0000
-Message-ID: <de5bb6116dde4a288838e8ef5978c8d1@AMSPEX02CL03.citrite.net>
-References: <1455525128-27795-1-git-send-email-paul.durrant@citrix.com>
-	<20160217.154432.788293606088459412.davem@davemloft.net>
-	<1455744601.648.2.camel@edumazet-ThinkPad-T530>
- <CALx6S37736iQM_t80pR3ZH1TiQvCwomcFdajVwf1h=Y7Eq+EKA@mail.gmail.com>
+From: Marcus Furlong <furlongm@gmail.com>
+Subject: iproute2 query
+Date: Fri, 19 Feb 2016 20:12:04 +1100
+Message-ID: <CAH4CTx4zv_zEgdJYLehReC=JU0-uuWgVNRyLgSjS5CwhY8c2iA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	"Veaceslav Falico" <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Tom Herbert <tom@herbertland.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:36529 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1426727AbcBSIzX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 03:55:23 -0500
-In-Reply-To: <CALx6S37736iQM_t80pR3ZH1TiQvCwomcFdajVwf1h=Y7Eq+EKA@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-qg0-f46.google.com ([209.85.192.46]:35566 "EHLO
+	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1948055AbcBSJMY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 04:12:24 -0500
+Received: by mail-qg0-f46.google.com with SMTP id y89so56857965qge.2
+        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 01:12:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBUb20gSGVyYmVydCBbbWFpbHRv
-OnRvbUBoZXJiZXJ0bGFuZC5jb21dDQo+IFNlbnQ6IDE5IEZlYnJ1YXJ5IDIwMTYgMDI6MjINCj4g
-VG86IEVyaWMgRHVtYXpldA0KPiBDYzogRGF2aWQgTWlsbGVyOyBQYXVsIER1cnJhbnQ7IExpbnV4
-IEtlcm5lbCBOZXR3b3JrIERldmVsb3BlcnM7IEpheQ0KPiBWb3NidXJnaDsgVmVhY2VzbGF2IEZh
-bGljbzsgQW5keSBHb3Nwb2RhcmVrDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHRdIHN0
-b3JlIGNvbXBsZXRlIGhhc2ggdHlwZSBpbmZvcm1hdGlvbiBpbg0KPiBzb2NrZXQgYnVmZmVyLi4u
-DQo+IA0KPiBPbiBXZWQsIEZlYiAxNywgMjAxNiBhdCAxOjMwIFBNLCBFcmljIER1bWF6ZXQgPGVy
-aWMuZHVtYXpldEBnbWFpbC5jb20+DQo+IHdyb3RlOg0KPiA+IE9uIG1lci4sIDIwMTYtMDItMTcg
-YXQgMTU6NDQgLTA1MDAsIERhdmlkIE1pbGxlciB3cm90ZToNCj4gPj4gRnJvbTogUGF1bCBEdXJy
-YW50IDxwYXVsLmR1cnJhbnRAY2l0cml4LmNvbT4NCj4gPj4gRGF0ZTogTW9uLCAxNSBGZWIgMjAx
-NiAwODozMjowOCArMDAwMA0KPiA+Pg0KPiA+PiA+IC4uLnJhdGhlciB0aGFuIGEgYm9vbGVhbiBt
-ZXJlbHkgaW5kaWNhdGluZyBhIGNhbm9uaWNhbCBMNCBoYXNoLg0KPiA+PiA+DQo+ID4+ID4gc2ti
-X3NldF9oYXNoKCkgdGFrZXMgYSBoYXNoIHR5cGUgKGZyb20gZW51bSBwa3RfaGFzaF90eXBlcykg
-YXMgYW4NCj4gPj4gPiBhcmd1bWVudCBidXQgaW5mb3JtYXRpb24gaXMgbG9zdCBzaW5jZSBvbmx5
-IGEgc2luZ2xlIGJpdCBpbiB0aGUgc2tiDQo+ID4+ID4gc3RvcmVzIHdoZXRoZXIgdGhhdCBoYXNo
-IHR5cGUgaXMgUEtUX0hBU0hfVFlQRV9MNCBvciBub3QuIEJ5IHVzaW5nDQo+ID4+ID4gdHdvIGJp
-dHMgaXQncyBwb3NzaWJsZSB0byBzdG9yZSB0aGUgY29tcGxldGUgaGFzaCB0eXBlIGluZm9ybWF0
-aW9uLg0KPiA+PiA+DQo+ID4+ID4gU2lnbmVkLW9mZi1ieTogUGF1bCBEdXJyYW50IDxwYXVsLmR1
-cnJhbnRAY2l0cml4LmNvbT4NCj4gPj4NCj4gPj4gVG9tIGFuZC9vciBFcmljLCBwbGVhc2UgaGF2
-ZSBhIGxvb2sgYXQgdGhpcy4NCj4gPg0KPiA+IEkgZ3Vlc3MgbXkgcXVlc3Rpb24gaXMgc2ltcGx5
-ICd3aHkgZG8gd2UgbmVlZCB0aGlzJyA/DQo+ID4NCj4gPiBDb25zdW1pbmcgYSBiaXQgaW4gb3Vy
-IHByZWNpb3VzIHNrX2J1ZmYgaXMgbm90IHNvbWV0aGluZyB3ZSB3YW50IGZvcg0KPiA+IHNvbWUg
-b2JzY3VyZSBmZWF0dXJlLg0KPiA+DQo+IFJpZ2h0LiBJIHRoaW5rIHRoZSByZWFzb24gUGF1bCB3
-YW50cyB0aGlzIGlzIGJlIGFibGUgdG8gcGFzcyB0aGUgaGFzaA0KPiB0byBhIFdpbmRvd3MgZ3Vl
-c3QuIEFzIEkgcG9pbnRlZCBvdXQgdGhvdWdoLCB3ZSdkIGFsc28gbmVlZCBhbg0KPiBpbmRpY2F0
-aW9uIHRoYXQgdGhlIGhhc2ggaXMgVG9lcGxpdHogdG8gYmUgcmVhbGx5IGNvcnJlY3Qgd2l0aCBX
-aW5kb3dzDQo+IGludGVyZmFjZS4NCg0KVG9tLA0KDQogIEFjdHVhbGx5IHhlbi1uZXRiYWNrIGNh
-biBsaXZlIHdpdGhvdXQgdGhpcyBjaGFuZ2UuIFdpbmRvd3MgKGF0IHRoZSBtb21lbnQgYXQgbGVh
-c3QpIG9ubHkgY2FyZXMgYWJvdXQgTDMgYW5kIEw0IGhhc2hlcy4gVGhlIG1vdGl2YXRpb24gZm9y
-IHRoaXMgY2hhbmdlIHdhcyBqdXN0IHRvIGZpeCB0aGUgYXBwYXJlbnQgbWlzbWF0Y2ggd2hlcmUg
-c29tZSBmdW5jdGlvbnMgZGVhbCB3aXRoIHRoZSBoYXNoIHR5cGUgZW51bSBhbmQgc29tZSB0aGUg
-c2luZ2xlICdpcyBsNCcgYml0LiBJIGFncmVlIGl0IHdvdWxkIGFsc28gYmUgdXNlZnVsIGFuZCBz
-ZW5zaWJsZSBmb3Igc2tfYnVmZiB0byBhbHNvIGVuY29kZSBhIGhhc2ggYWxnb3JpdGhtIGFzIG1v
-c3QgTklDIGgvdyBvdXQgdGhlcmUgd2lsbCBwcm9iYWJseSB1c2UgVG9lcGxpdHogKHNpbmNlIGl0
-J3MgYSBoYXJkIHJlcXVpcmVtZW50IGZvciBXaW5kb3dzKSBidXQgbWF5IGFsc28gYmUgYWJsZSB1
-c2UgYWx0ZXJuYXRpdmUgaGFzaGVzLg0KDQo+IFRoZSBMaW51eCBkcml2ZXIgaW50ZXJmYWNlIGRv
-ZXMgYWxsb3cgaW5kaWNhdGluZyBMMiwgTDMsIG9yDQo+IEw0IGhhc2ggd2l0aCB0aGUgYXNzdW1w
-dGlvbiB0aGF0IGRpZmZlcmVudGlhdGlvbiBtaWdodCBiZSB1c2VmdWwgc29tZQ0KPiBkYXksIGJ1
-dCBzbyBmYXIgaXQgb25seSBhcHBlYXJzIHRoYXQgZGlzdGluZ3Vpc2hpbmcgTDQgZnJvbSBvdGhl
-cnMgaGFzDQo+IGFueSB2YWx1ZS4gSXQgd291bGQgYmUgaW50ZXJlc3RpbmcgdG8ga25vdyBpZiBX
-aW5kb3dzIGFjdHVhbGx5IGRvZXMNCj4gYW55dGhpbmcgdXNlZnVsIGluIGRpZmZlcmVudGlhdGlu
-ZyBMMiBhbmQgTDMgaGFzaGVzLg0KPiANCg0KICBBcyBJIHNhaWQgYWJvdmUsIGl0IGRvZXMgbm90
-IGRpc3Rpbmd1aXNoIEwyIGFuZCBMMyBhdCB0aGUgbW9tZW50IHNvIHRoaXMgcGF0Y2ggaXMgbm90
-IG5lY2Vzc2FyeS4gSSBzdGlsbCB0aGluayBpdOKAmXMgYSBzdGVwIGluIHRoZSByaWdodCBkaXJl
-Y3Rpb24gdGhvdWdoLg0KDQogIENoZWVycywNCg0KICAgIFBhdWwNCg0KPiBUb20NCj4gDQo+ID4N
-Cj4gPg0K
+Hi,
+
+Just wondering if the following command should work:
+
+# ip route add 192.168.27.27/24 dev eth0 scope link src 192.168.27.27
+RTNETLINK answers: Invalid argument
+
+However, this command works:
+
+# ip route add 192.168.27.0/24 dev eth0 scope link src 192.168.27.27
+
+192.168.27.0/24 and 192.168.27.27/24 describe the same subnet?
+
+Regards,
+Marcus.
+
+-- 
+Marcus Furlong
