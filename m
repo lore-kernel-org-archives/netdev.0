@@ -1,72 +1,74 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: Re: [PATCH] b43: fix memory leak
-Date: Fri, 19 Feb 2016 20:37:18 +0530
-Message-ID: <56C72FA6.3090102@gmail.com>
-References: <1455798876-32186-1-git-send-email-sudipm.mukherjee@gmail.com>	<20160218173212.03670d97@wiggum> <87io1lqh3j.fsf@purkki.adurom.net>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [PATCH/RFC] openvswitch: loosen restriction of output of MPLS to
+ tunnel vports
+Date: Fri, 19 Feb 2016 07:45:33 -0800
+Message-ID: <CAEh+42j2iuvrVZwMCPVYcqQZS7PVrn=t4ms-iX83FquwxNypSg@mail.gmail.com>
+References: <1455305133-23285-1-git-send-email-simon.horman@netronome.com>
+ <CAEh+42g5GXduCgr0WCyAKvSO6LeATFuZoWU2aR0sfNDbJqG=6Q@mail.gmail.com> <20160219075940.GB6589@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, b43-dev@lists.infradead.org,
-	Jia-Ju Bai <baijiaju1990@163.com>
-To: Kalle Valo <kvalo@codeaurora.org>,
-	=?UTF-8?B?TWljaGFlbCBCw7xzY2g=?= <m@bues.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87io1lqh3j.fsf@purkki.adurom.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>,
+	Pravin Shelar <pshelar@nicira.com>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:60649 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422908AbcBSPpu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Feb 2016 10:45:50 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id 8FC9320459
+	for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 15:45:49 +0000 (UTC)
+Received: from mail-qg0-f47.google.com (mail-qg0-f47.google.com [209.85.192.47])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 64F6A203C4
+	for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 15:45:48 +0000 (UTC)
+Received: by mail-qg0-f47.google.com with SMTP id b67so64182364qgb.1
+        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 07:45:48 -0800 (PST)
+In-Reply-To: <20160219075940.GB6589@vergenet.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 19 February 2016 01:14 PM, Kalle Valo wrote:
-> Michael B=C3=BCsch <m@bues.ch> writes:
+On Thu, Feb 18, 2016 at 11:59 PM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> On Tue, Feb 16, 2016 at 02:53:39PM -0800, Jesse Gross wrote:
+>> On Fri, Feb 12, 2016 at 11:25 AM, Simon Horman
+>> <simon.horman@netronome.com> wrote:
+>> > If an skb was not MPLS initially then it may be GSO and in that case if it
+>> > became MPLS then GSO can't be performed because both MPLS and tunnels make
+>> > use of the inner_protocol field of struct skbuff in order to allow GSO to
+>> > be performed in the inner packet.
+>> >
+>> > On the other hand if an skb was MPLS initially then it will not be GSO,
+>> > as there is no support for GRO for MPLS. Thus in this case it is safe
+>> > to allow output of MPLS on tunnel vports.
+>> >
+>> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
+>>
+>> I don't think that any tunnel implementations expose support for MPLS
+>> offloads as part of their features. In that case, if we have an MPLS
+>> GSO packet (regardless of how it came to be), I think it will be
+>> broken apart in software before encapsulation. At that point, it
+>> should be safe for the tunnel to overwrite any fields MPLS was
+>> previously using for offloading. As a result, I believe we can allow
+>> all combinations of MPLS with tunnels. (Note that historically this
+>> wasn't true, the change is a result of lightweight tunnels.)
 >
->> On Thu, 18 Feb 2016 18:04:36 +0530
->> Sudip Mukherjee <sudipm.mukherjee@gmail.com> wrote:
->>
->>> From: Sudip Mukherjee <sudip@vectorindia.org>
->>>
->>> On error we jumped to the label bcma_out and returned the error cod=
-e but
->>> we missed freeing dev.
->>>
->>> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
->>> ---
->>>   drivers/net/wireless/broadcom/b43/main.c | 1 +
->>>   1 file changed, 1 insertion(+)
->>>
->>> diff --git a/drivers/net/wireless/broadcom/b43/main.c b/drivers/net=
-/wireless/broadcom/b43/main.c
->>> index c279211..78f670a 100644
->>> --- a/drivers/net/wireless/broadcom/b43/main.c
->>> +++ b/drivers/net/wireless/broadcom/b43/main.c
->>> @@ -5671,6 +5671,7 @@ static int b43_bcma_probe(struct bcma_device =
-*core)
->>>   	wl =3D b43_wireless_init(dev);
->>>   	if (IS_ERR(wl)) {
->>>   		err =3D PTR_ERR(wl);
->>> +		kfree(dev);
->>>   		goto bcma_out;
->>>   	}
->>>
->>
->> We recently had a patch that fixes this, among more leaks. Subject:
->> [PATCH v2 resend] b43: Fix memory leaks in b43_bus_dev_ssb_init and
->> b43_bus_dev_bcma_init
->>
->> Please test that patch instead, so we can finally apply it.
->>
->> It needs to be tested on both ssb and bcma. Come on. This isn't too
->> hard. :) Please somebody with any hardware test it. (I currently don=
-'t
->> have any b43 hardware)
+> Hi Jesse,
 >
-> And the patch can be downloaded from patchwork:
+> wow, that does sound very promising.
+> I would certainly be in favour of allowing MPLS with tunnels.
 >
-> https://patchwork.kernel.org/patch/8049041/
+> I am wondering if you could point me in the general direction of the changes
+> you mention above.
 
-I have an old laptop running on 800Mhz CPU. It has "Broadcom BCM4311=20
-[14e4:4311] (rev 01)".
-I will try to test it on this weekend.
+I actually don't think that any changes are really needed to make this
+work. All we should have to do is remove the checks similar to the one
+you are modifying here in flow_netlink.c and the the runtime one in
+actions.c.
 
-regards
-sudip
+It's probably good to look through the overall code path to double
+check but as long as tunnel devices don't enable support for MPLS
+offloading by the time that encapsulation happens MPLS should really
+just look like any other packet received off the wire.
