@@ -1,68 +1,72 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v1 1/4] net: ti: netcp: restore get/set_pad_info() functionality
-Date: Fri, 19 Feb 2016 15:41:26 +0100
-Message-ID: <7111317.k6f7A38a4k@wuerfel>
-References: <1455824777-15571-1-git-send-email-m-karicheri2@ti.com>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH] b43: fix memory leak
+Date: Fri, 19 Feb 2016 20:37:18 +0530
+Message-ID: <56C72FA6.3090102@gmail.com>
+References: <1455798876-32186-1-git-send-email-sudipm.mukherjee@gmail.com>	<20160218173212.03670d97@wiggum> <87io1lqh3j.fsf@purkki.adurom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([217.72.192.73]:53330 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751342AbcBSOlh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 09:41:37 -0500
-In-Reply-To: <1455824777-15571-1-git-send-email-m-karicheri2@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org, b43-dev@lists.infradead.org,
+	Jia-Ju Bai <baijiaju1990@163.com>
+To: Kalle Valo <kvalo@codeaurora.org>,
+	=?UTF-8?B?TWljaGFlbCBCw7xzY2g=?= <m@bues.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87io1lqh3j.fsf@purkki.adurom.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 18 February 2016 14:46:14 Murali Karicheri wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
-> 
-> The commit 899077791403 ("netcp: try to reduce type confusion in
-> descriptors") introduces a regression in Kernel 4.5-rc1 and it breaks
-> get/set_pad_info() functionality.
-> 
-> The TI NETCP driver uses pad0 and pad1 fields of knav_dma_desc to
-> store DMA/MEM buffer pointer and buffer size respectively. And in both
-> cases for Keystone 2 the pointer type size is 32 bit regardless of
-> LAPE enabled or not, because CONFIG_ARCH_DMA_ADDR_T_64BIT originally
-> is not expected to be defined.
-> 
-> 			!LAPE	LPAE
-> sizeof(void*)		32bit	32bit
-> sizeof(dma_addr_t) 	32bit	32bit
-> sizeof(phys_addr_t) 	32bit	64bit
+On Friday 19 February 2016 01:14 PM, Kalle Valo wrote:
+> Michael B=C3=BCsch <m@bues.ch> writes:
+>
+>> On Thu, 18 Feb 2016 18:04:36 +0530
+>> Sudip Mukherjee <sudipm.mukherjee@gmail.com> wrote:
+>>
+>>> From: Sudip Mukherjee <sudip@vectorindia.org>
+>>>
+>>> On error we jumped to the label bcma_out and returned the error cod=
+e but
+>>> we missed freeing dev.
+>>>
+>>> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+>>> ---
+>>>   drivers/net/wireless/broadcom/b43/main.c | 1 +
+>>>   1 file changed, 1 insertion(+)
+>>>
+>>> diff --git a/drivers/net/wireless/broadcom/b43/main.c b/drivers/net=
+/wireless/broadcom/b43/main.c
+>>> index c279211..78f670a 100644
+>>> --- a/drivers/net/wireless/broadcom/b43/main.c
+>>> +++ b/drivers/net/wireless/broadcom/b43/main.c
+>>> @@ -5671,6 +5671,7 @@ static int b43_bcma_probe(struct bcma_device =
+*core)
+>>>   	wl =3D b43_wireless_init(dev);
+>>>   	if (IS_ERR(wl)) {
+>>>   		err =3D PTR_ERR(wl);
+>>> +		kfree(dev);
+>>>   		goto bcma_out;
+>>>   	}
+>>>
+>>
+>> We recently had a patch that fixes this, among more leaks. Subject:
+>> [PATCH v2 resend] b43: Fix memory leaks in b43_bus_dev_ssb_init and
+>> b43_bus_dev_bcma_init
+>>
+>> Please test that patch instead, so we can finally apply it.
+>>
+>> It needs to be tested on both ssb and bcma. Come on. This isn't too
+>> hard. :) Please somebody with any hardware test it. (I currently don=
+'t
+>> have any b43 hardware)
+>
+> And the patch can be downloaded from patchwork:
+>
+> https://patchwork.kernel.org/patch/8049041/
 
-As this was never relevant or true, I don't think it needs to be
-mentioned here, it just confuses things. Please just assume that
-dma_addr_t can be 64-bit wide, but will only contain 32-bit
-numbers on keystone.
+I have an old laptop running on 800Mhz CPU. It has "Broadcom BCM4311=20
+[14e4:4311] (rev 01)".
+I will try to test it on this weekend.
 
-> Unfortunately, above commit changed buffer's pointers save/restore
-> code (get/set_pad_info()) and added intermediate conversation to u64
-> which works incorrectly on 32bit Keystone 2 and causes TI NETCP driver
-> crash in RX/TX path due to "Unable to handle kernel NULL pointer"
-> exception. This issue was reported and discussed in [1].
-
-Have you been able to figure out why it actually broke? I'd still
-like to know.
-
-> Hence, fix it by partially reverting above commit and restoring
-> get/set_pad_info() functionality as it was before.
-> 
-> [1] https://www.mail-archive.com/netdev@vger.kernel.org/msg95361.html
-> Cc: Wingman Kwok <w-kwok2@ti.com>
-> Cc: Mugunthan V N <mugunthanvnm@ti.com>
-> CC: David Laight <David.Laight@ACULAB.COM>
-> Reported-by: Franklin S Cooper Jr <fcooper@ti.com>
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
-
-I don't think I sent this patch with a 'Signed-off-by', did I?
-(I could be misremembering that).
-
-	Arnd
+regards
+sudip
