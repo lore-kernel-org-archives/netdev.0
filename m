@@ -1,33 +1,33 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v1 1/4] net: ti: netcp: restore get/set_pad_info() functionality
-Date: Fri, 19 Feb 2016 21:59:05 +0100
-Message-ID: <3483781.SODp7Sjq4b@wuerfel>
-References: <1455824777-15571-1-git-send-email-m-karicheri2@ti.com> <7111317.k6f7A38a4k@wuerfel> <56C75897.5080103@ti.com>
+From: <Bryan.Whitehead@microchip.com>
+Subject: RE: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+Date: Fri, 19 Feb 2016 21:21:39 +0000
+Message-ID: <90A7E81AE28BAE4CBDDB3B35F187D264402F0052@CHN-SV-EXMX02.mchp-main.com>
+References: <20160216203625.GC2558@lunn.ch>
+ <20160216.154358.164326104187806534.davem@davemloft.net>
+ <90A7E81AE28BAE4CBDDB3B35F187D264402EFB5D@CHN-SV-EXMX02.mchp-main.com>
+ <20160216.155244.2052910262411568012.davem@davemloft.net>
+ <90A7E81AE28BAE4CBDDB3B35F187D264402EFB82@CHN-SV-EXMX02.mchp-main.com>
+ <20160216221536.GB6033@lunn.ch>
+ <90A7E81AE28BAE4CBDDB3B35F187D264402F0018@CHN-SV-EXMX02.mchp-main.com>
+ <20160219201415.GA9884@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56C75897.5080103@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <f.fainelli@gmail.com>,
+	<netdev@vger.kernel.org>
+To: <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exsmtp03.microchip.com ([198.175.253.49]:8429 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S2993964AbcBSVVl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 16:21:41 -0500
+In-Reply-To: <20160219201415.GA9884@lunn.ch>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 19 February 2016 13:01:59 Murali Karicheri wrote:
-> > 
-> I have just send v2. I will investigate your original patch that added
-> regression this afternoon and respond with my observation as soon as
-> my investigation is complete.
+Thanks Andrew,
 
-Thanks.
+Your tips are much appreciated.
 
-> I assume, you are trying to make the change
-> such that the virtual pointers stored in sw_data/pad works across
-> 32bit and 64bit machine, right? 
-
-Yes, that was the idea. The way I intended it, pointers were supposed
-to always get stored in a pair of swdata fields and take up 64 bits,
-independent of the architecture.
-
-	Arnd
+Bryan
