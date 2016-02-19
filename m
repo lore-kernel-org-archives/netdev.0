@@ -1,90 +1,73 @@
-From: Shuyu Wei <sy.w-1ViLX0X+lBJBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH RESEND] ethernet:arc: Move arc_emac_tx_clean() into
- arc_emac_tx() and disable tx interrut
-Date: Fri, 19 Feb 2016 14:59:42 +0800
-Message-ID: <BLU436-SMTP169C63F9B677DE7B0A77CF38FA00@phx.gbl>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] b43: fix memory leak
+Date: Fri, 19 Feb 2016 09:44:48 +0200
+Message-ID: <87io1lqh3j.fsf@purkki.adurom.net>
+References: <1455798876-32186-1-git-send-email-sudipm.mukherjee@gmail.com>
+	<20160218173212.03670d97@wiggum>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: caesar.upstream-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
- zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline; filename="mail.txt"
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org, b43-dev@lists.infradead.org,
+	Jia-Ju Bai <baijiaju1990@163.com>
+To: Michael =?utf-8?Q?B=C3=BCsch?= <m@bues.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:48103 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757342AbcBSHoy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 02:44:54 -0500
+In-Reply-To: <20160218173212.03670d97@wiggum> ("Michael =?utf-8?Q?B=C3=BCs?=
+ =?utf-8?Q?ch=22's?= message of
+	"Thu, 18 Feb 2016 17:32:12 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Doing tx_clean() inside poll() may scramble the tx ring buffer if 
-tx() is running. This will cause tx to stop working, which can be
-reproduced by simultaneously downloading two large files at high speed.
+Michael B=C3=BCsch <m@bues.ch> writes:
 
-Moving tx_clean() into tx() will prevent this. And tx interrupt is no
-longer needed now.
+> On Thu, 18 Feb 2016 18:04:36 +0530
+> Sudip Mukherjee <sudipm.mukherjee@gmail.com> wrote:
+>
+>> From: Sudip Mukherjee <sudip@vectorindia.org>
+>>=20
+>> On error we jumped to the label bcma_out and returned the error code=
+ but
+>> we missed freeing dev.
+>>=20
+>> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+>> ---
+>>  drivers/net/wireless/broadcom/b43/main.c | 1 +
+>>  1 file changed, 1 insertion(+)
+>>=20
+>> diff --git a/drivers/net/wireless/broadcom/b43/main.c b/drivers/net/=
+wireless/broadcom/b43/main.c
+>> index c279211..78f670a 100644
+>> --- a/drivers/net/wireless/broadcom/b43/main.c
+>> +++ b/drivers/net/wireless/broadcom/b43/main.c
+>> @@ -5671,6 +5671,7 @@ static int b43_bcma_probe(struct bcma_device *=
+core)
+>>  	wl =3D b43_wireless_init(dev);
+>>  	if (IS_ERR(wl)) {
+>>  		err =3D PTR_ERR(wl);
+>> +		kfree(dev);
+>>  		goto bcma_out;
+>>  	}
+>> =20
+>
+> We recently had a patch that fixes this, among more leaks. Subject:
+> [PATCH v2 resend] b43: Fix memory leaks in b43_bus_dev_ssb_init and
+> b43_bus_dev_bcma_init
+>
+> Please test that patch instead, so we can finally apply it.
+>
+> It needs to be tested on both ssb and bcma. Come on. This isn't too
+> hard. :) Please somebody with any hardware test it. (I currently don'=
+t
+> have any b43 hardware)
 
-Signed-off-by: Shuyu Wei <sy.w-1ViLX0X+lBJBDgjK7y7TUQ@public.gmane.org>
----
+And the patch can be downloaded from patchwork:
 
-diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
-index abe1eab..34531b3 100644
---- a/drivers/net/ethernet/arc/emac_main.c
-+++ b/drivers/net/ethernet/arc/emac_main.c
-@@ -311,12 +311,10 @@ static int arc_emac_poll(struct napi_struct *napi, int budget)
- 	struct arc_emac_priv *priv = netdev_priv(ndev);
- 	unsigned int work_done;
- 
--	arc_emac_tx_clean(ndev);
--
- 	work_done = arc_emac_rx(ndev, budget);
- 	if (work_done < budget) {
- 		napi_complete(napi);
--		arc_reg_or(priv, R_ENABLE, RXINT_MASK | TXINT_MASK);
-+		arc_reg_or(priv, R_ENABLE, RXINT_MASK);
- 	}
- 
- 	return work_done;
-@@ -345,9 +343,9 @@ static irqreturn_t arc_emac_intr(int irq, void *dev_instance)
- 	/* Reset all flags except "MDIO complete" */
- 	arc_reg_set(priv, R_STATUS, status);
- 
--	if (status & (RXINT_MASK | TXINT_MASK)) {
-+	if (status & RXINT_MASK) {
- 		if (likely(napi_schedule_prep(&priv->napi))) {
--			arc_reg_clr(priv, R_ENABLE, RXINT_MASK | TXINT_MASK);
-+			arc_reg_clr(priv, R_ENABLE, RXINT_MASK);
- 			__napi_schedule(&priv->napi);
- 		}
- 	}
-@@ -458,7 +456,7 @@ static int arc_emac_open(struct net_device *ndev)
- 	arc_reg_set(priv, R_TX_RING, (unsigned int)priv->txbd_dma);
- 
- 	/* Enable interrupts */
--	arc_reg_set(priv, R_ENABLE, RXINT_MASK | TXINT_MASK | ERR_MASK);
-+	arc_reg_set(priv, R_ENABLE, RXINT_MASK | ERR_MASK);
- 
- 	/* Set CONTROL */
- 	arc_reg_set(priv, R_CTRL,
-@@ -529,7 +527,7 @@ static int arc_emac_stop(struct net_device *ndev)
- 	netif_stop_queue(ndev);
- 
- 	/* Disable interrupts */
--	arc_reg_clr(priv, R_ENABLE, RXINT_MASK | TXINT_MASK | ERR_MASK);
-+	arc_reg_clr(priv, R_ENABLE, RXINT_MASK | ERR_MASK);
- 
- 	/* Disable EMAC */
- 	arc_reg_clr(priv, R_CTRL, EN_MASK);
-@@ -587,6 +585,8 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
- 	__le32 *info = &priv->txbd[*txbd_curr].info;
- 	dma_addr_t addr;
- 
-+	arc_emac_tx_clean(ndev);
-+
- 	if (skb_padto(skb, ETH_ZLEN))
- 		return NETDEV_TX_OK;
+https://patchwork.kernel.org/patch/8049041/
+
+--=20
+Kalle Valo
