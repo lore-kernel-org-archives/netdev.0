@@ -1,52 +1,39 @@
-From: <Bryan.Whitehead@microchip.com>
-Subject: RE: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
-Date: Fri, 19 Feb 2016 19:29:46 +0000
-Message-ID: <90A7E81AE28BAE4CBDDB3B35F187D264402F0018@CHN-SV-EXMX02.mchp-main.com>
-References: <20160216203625.GC2558@lunn.ch>
- <20160216.154358.164326104187806534.davem@davemloft.net>
- <90A7E81AE28BAE4CBDDB3B35F187D264402EFB5D@CHN-SV-EXMX02.mchp-main.com>
- <20160216.155244.2052910262411568012.davem@davemloft.net>
- <90A7E81AE28BAE4CBDDB3B35F187D264402EFB82@CHN-SV-EXMX02.mchp-main.com>
- <20160216221536.GB6033@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 10/16] i40e: add check for null VSI
+Date: Fri, 19 Feb 2016 14:41:17 -0500 (EST)
+Message-ID: <20160219.144117.1906425963316380038.davem@davemloft.net>
+References: <1455875651-21696-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1455875651-21696-11-git-send-email-jeffrey.t.kirsher@intel.com>
+	<49FCCD093EDAFE45B73804AC3C1112E52E5CC6@ORSMSX116.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <f.fainelli@gmail.com>,
-	<netdev@vger.kernel.org>
-To: <andrew@lunn.ch>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: johnx.underwood@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp03.microchip.com ([198.175.253.49]:20190 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S2993202AbcBST3s convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 14:29:48 -0500
-In-Reply-To: <20160216221536.GB6033@lunn.ch>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:37095 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946006AbcBSTlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 14:41:21 -0500
+In-Reply-To: <49FCCD093EDAFE45B73804AC3C1112E52E5CC6@ORSMSX116.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Andrew Lunn [mailto:andrew@lunn.ch]
-> Sent: Tuesday, February 16, 2016 5:16 PM
-> 
-> You are already 1/2 way to a DSA driver, since you have a MAC driver. So i
-> agree with David, do it right and add a simple DSA driver.
-> 
-Andrew,
+From: "Underwood, JohnX" <johnx.underwood@intel.com>
+Date: Fri, 19 Feb 2016 19:15:53 +0000
 
-I've done a little research on DSA.
-I've read Documentation/networking/dsa/dsa.txt
-And I've looked over some examples in drivers/net/dsa/
+> ACK
 
-It appears there are about 40 functions to implement.
-I see examples from only 2 manufacturers, and they average more than 2000 lines of code.
-I'm not yet sure how it attaches to the underlying Ethernet driver.
-And I have no idea how I would test it at the end. 
+You should never top-post on this mailing list.
 
-Given these issues, it will be hard to sell it to my manager.
-Since you claim it is simple. Can you explain your reasons?
+But in this specific case it is even more important.
 
-I've never done a DSA driver before. Given that, can you generally outline the steps.
-If it can be partly implemented, which parts should be implemented first?
+So just in case it is not clear:
 
-I appreciate any pointers you can provide.
+	Please, pretty please, DO NOT top-post ACKs to patches like this.
 
-Bryan
+It looks like a new, fresh, patch submission to patchwork therefore you
+are creating a significant burdon for me.
+
+Thanks.
