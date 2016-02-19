@@ -1,74 +1,106 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [PATCH/RFC] openvswitch: loosen restriction of output of MPLS to
- tunnel vports
-Date: Fri, 19 Feb 2016 07:45:33 -0800
-Message-ID: <CAEh+42j2iuvrVZwMCPVYcqQZS7PVrn=t4ms-iX83FquwxNypSg@mail.gmail.com>
-References: <1455305133-23285-1-git-send-email-simon.horman@netronome.com>
- <CAEh+42g5GXduCgr0WCyAKvSO6LeATFuZoWU2aR0sfNDbJqG=6Q@mail.gmail.com> <20160219075940.GB6589@vergenet.net>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH v1 1/4] net: ti: netcp: restore get/set_pad_info()
+ functionality
+Date: Fri, 19 Feb 2016 10:48:30 -0500
+Message-ID: <56C7394E.50207@ti.com>
+References: <1455824777-15571-1-git-send-email-m-karicheri2@ti.com>
+ <7111317.k6f7A38a4k@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	ovs dev <dev@openvswitch.org>,
-	Pravin Shelar <pshelar@nicira.com>
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:60649 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422908AbcBSPpu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2016 10:45:50 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 8FC9320459
-	for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 15:45:49 +0000 (UTC)
-Received: from mail-qg0-f47.google.com (mail-qg0-f47.google.com [209.85.192.47])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 64F6A203C4
-	for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 15:45:48 +0000 (UTC)
-Received: by mail-qg0-f47.google.com with SMTP id b67so64182364qgb.1
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 07:45:48 -0800 (PST)
-In-Reply-To: <20160219075940.GB6589@vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7111317.k6f7A38a4k@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 18, 2016 at 11:59 PM, Simon Horman
-<simon.horman@netronome.com> wrote:
-> On Tue, Feb 16, 2016 at 02:53:39PM -0800, Jesse Gross wrote:
->> On Fri, Feb 12, 2016 at 11:25 AM, Simon Horman
->> <simon.horman@netronome.com> wrote:
->> > If an skb was not MPLS initially then it may be GSO and in that case if it
->> > became MPLS then GSO can't be performed because both MPLS and tunnels make
->> > use of the inner_protocol field of struct skbuff in order to allow GSO to
->> > be performed in the inner packet.
->> >
->> > On the other hand if an skb was MPLS initially then it will not be GSO,
->> > as there is no support for GRO for MPLS. Thus in this case it is safe
->> > to allow output of MPLS on tunnel vports.
->> >
->> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
+On 02/19/2016 09:41 AM, Arnd Bergmann wrote:
+> On Thursday 18 February 2016 14:46:14 Murali Karicheri wrote:
+>> From: Arnd Bergmann <arnd@arndb.de>
 >>
->> I don't think that any tunnel implementations expose support for MPLS
->> offloads as part of their features. In that case, if we have an MPLS
->> GSO packet (regardless of how it came to be), I think it will be
->> broken apart in software before encapsulation. At that point, it
->> should be safe for the tunnel to overwrite any fields MPLS was
->> previously using for offloading. As a result, I believe we can allow
->> all combinations of MPLS with tunnels. (Note that historically this
->> wasn't true, the change is a result of lightweight tunnels.)
->
-> Hi Jesse,
->
-> wow, that does sound very promising.
-> I would certainly be in favour of allowing MPLS with tunnels.
->
-> I am wondering if you could point me in the general direction of the changes
-> you mention above.
+>> The commit 899077791403 ("netcp: try to reduce type confusion in
+>> descriptors") introduces a regression in Kernel 4.5-rc1 and it breaks
+>> get/set_pad_info() functionality.
+>>
+>> The TI NETCP driver uses pad0 and pad1 fields of knav_dma_desc to
+>> store DMA/MEM buffer pointer and buffer size respectively. And in both
+>> cases for Keystone 2 the pointer type size is 32 bit regardless of
+>> LAPE enabled or not, because CONFIG_ARCH_DMA_ADDR_T_64BIT originally
+>> is not expected to be defined.
+>>
+>> 			!LAPE	LPAE
+>> sizeof(void*)		32bit	32bit
+>> sizeof(dma_addr_t) 	32bit	32bit
+>> sizeof(phys_addr_t) 	32bit	64bit
+> 
+> As this was never relevant or true, I don't think it needs to be
+> mentioned here, it just confuses things. Please just assume that
+> dma_addr_t can be 64-bit wide, but will only contain 32-bit
+> numbers on keystone.
+> 
 
-I actually don't think that any changes are really needed to make this
-work. All we should have to do is remove the checks similar to the one
-you are modifying here in flow_netlink.c and the the runtime one in
-actions.c.
+I can remove this from the commit description and re-send.
 
-It's probably good to look through the overall code path to double
-check but as long as tunnel devices don't enable support for MPLS
-offloading by the time that encapsulation happens MPLS should really
-just look like any other packet received off the wire.
+>> Unfortunately, above commit changed buffer's pointers save/restore
+>> code (get/set_pad_info()) and added intermediate conversation to u64
+>> which works incorrectly on 32bit Keystone 2 and causes TI NETCP driver
+>> crash in RX/TX path due to "Unable to handle kernel NULL pointer"
+>> exception. This issue was reported and discussed in [1].
+> 
+> Have you been able to figure out why it actually broke? I'd still
+> like to know.
+> 
+As Grygorii is out of office until Monday, I would like to step in.
+I will take some time today to try review the reverted changes for
+failure reason and get back. But as you have agreed in the discussion
+at https://www.mail-archive.com/netdev@vger.kernel.org/msg96311.html
+Can we fix the regression by applying this patch and rest of the series
+if it looks good? If I need to separate this from rest of the series,
+let me know and I can take care of that.
+
+>> Hence, fix it by partially reverting above commit and restoring
+>> get/set_pad_info() functionality as it was before.
+>>
+>> [1] https://www.mail-archive.com/netdev@vger.kernel.org/msg95361.html
+>> Cc: Wingman Kwok <w-kwok2@ti.com>
+>> Cc: Mugunthan V N <mugunthanvnm@ti.com>
+>> CC: David Laight <David.Laight@ACULAB.COM>
+>> Reported-by: Franklin S Cooper Jr <fcooper@ti.com>
+>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+>> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+> 
+> I don't think I sent this patch with a 'Signed-off-by', did I?
+> (I could be misremembering that).
+> 
+
+I think you had agreed based on what I read at
+https://www.mail-archive.com/netdev@vger.kernel.org/msg96311.html
+
+reproduced below for your convenience.
+=============================================================================
+
+> What I could do now is update your/my patch as i mentioned in [1]
+> and re-send it at the weekend (with your authorship and my signoff).
+> Do you agree?
+> 
+> 
+> [1] https://www.mail-archive.com/netdev@vger.kernel.org/msg95831.html
+
+Yes, let's do that in the meantime. I can also make sure that that
+the driver doesn't build on 64-bit, just in case.
+=============================================================================
+
+Hope I can keep your sign-off when I re-send this. Please confirm.
+
+Murali
+
+> 	Arnd
+> 
+
+
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
