@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH stable v2 1/1] net/ipv6: add sysctl option
- accept_ra_min_hop_limit
-Date: Fri, 19 Feb 2016 11:14:23 -0500 (EST)
-Message-ID: <20160219.111423.805323521899765528.davem@davemloft.net>
-References: <1454464576-17776-1-git-send-email-machida.yuki@jp.fujitsu.com>
-	<56C6D736.20901@jp.fujitsu.com>
+Subject: Re: [net-next 00/16][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2016-02-19
+Date: Fri, 19 Feb 2016 11:18:40 -0500 (EST)
+Message-ID: <20160219.111840.1037341920019332882.davem@davemloft.net>
+References: <1455875651-21696-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hideaki.yoshifuji@miraclelinux.com,
-	yoshfuji@linux-ipv6.org, liuhangbin@gmail.com
-To: machida.yuki@jp.fujitsu.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34206 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34270 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1427492AbcBSQOZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 11:14:25 -0500
-In-Reply-To: <56C6D736.20901@jp.fujitsu.com>
+	with ESMTP id S1427824AbcBSQSp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 11:18:45 -0500
+In-Reply-To: <1455875651-21696-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuki Machida <machida.yuki@jp.fujitsu.com>
-Date: Fri, 19 Feb 2016 17:49:58 +0900
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 19 Feb 2016 01:53:55 -0800
 
-> ping? thanks.
+> This series contains updates to i40e/i40evf only.
 
-If your patch is properly queued in patchwork, you never need to do
-pings on the mailing list like this.
+Pulled, thanks Jeff.
 
-Someone knows the patch need to be dealt with, and if it is not being
-reviewed it simply means that other patches are other older or have
-a much higher priority than your's.
+> Mitch provides another colorful patch description on letting go of 
+> the stale local VSI pointer when the VF resets.
+
+Speaking of colors, I see rainbows when I pull this many i40e changes
+into my tree.
