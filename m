@@ -1,38 +1,39 @@
-From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Subject: [PATCH] ehea: Drop owner assignment from platform_driver
-Date: Fri, 19 Feb 2016 16:52:19 +0530
-Message-ID: <20160219112219.GA2366@amitoj-Inspiron-3542>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH] MAINTAINERS: Drop myself as xen netback maintainer
+Date: Fri, 19 Feb 2016 11:44:51 +0000
+Message-ID: <1455882291-1867-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: julia.lawall@lip6.fr
-To: cascardo@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:15905 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1427711AbcBSLox (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Feb 2016 06:44:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-platform_driver does not need to set an owner, it will be populated by
-the driver core.
+Wei has been picking this up for quite a while now.
 
-Generated-by: scripts/coccinelle/api/platform_no_drv_owner.cocci
-
-Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
 ---
- drivers/net/ethernet/ibm/ehea/ehea_main.c | 1 -
+ MAINTAINERS | 1 -
  1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-index 2a0dc12..d4b022f 100644
---- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
-+++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-@@ -127,7 +127,6 @@ static const struct of_device_id ehea_device_table[] = {
- static struct platform_driver ehea_driver = {
- 	.driver = {
- 		.name = "ehea",
--		.owner = THIS_MODULE,
- 		.of_match_table = ehea_device_table,
- 	},
- 	.probe = ehea_probe_adapter,
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 28eb61b..ef30060 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -12013,7 +12013,6 @@ F:	arch/arm64/xen/
+ F:	arch/arm64/include/asm/xen/
+ 
+ XEN NETWORK BACKEND DRIVER
+-M:	Ian Campbell <ian.campbell@citrix.com>
+ M:	Wei Liu <wei.liu2@citrix.com>
+ L:	xen-devel@lists.xenproject.org (moderated for non-subscribers)
+ L:	netdev@vger.kernel.org
 -- 
-1.9.1
+2.1.4
