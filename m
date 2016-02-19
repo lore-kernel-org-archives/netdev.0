@@ -1,70 +1,29 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH v3 3/8] net: sched: add cls_u32 offload hooks for
- netdevs
-Date: Fri, 19 Feb 2016 07:52:33 -0500
-Message-ID: <56C71011.7060105@mojatatu.com>
-References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
- <20160217051709.17139.88337.stgit@john-Precision-Tower-5810>
- <56C4528E.5090505@mojatatu.com> <56C48295.9030806@gmail.com>
- <56C4FD2B.9000009@gmail.com> <56C5B5A0.7010305@mojatatu.com>
- <56C5E212.50505@gmail.com>
+From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Subject: Re: [PATCH] ehea: Drop owner assignment from platform_driver
+Date: Fri, 19 Feb 2016 18:37:24 +0530
+Message-ID: <CA+5yK5Ej0TJ3cD-uwNoKdr_JQ+3-smrrWeZoorPKRszO_d4U0Q@mail.gmail.com>
+References: <20160219112219.GA2366@amitoj-Inspiron-3542>
+	<20160219113524.GR4148@siri.cascardo.eti.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: John Fastabend <john.fastabend@gmail.com>, jiri@resnulli.us,
-	amir@vadai.me, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:35617 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757470AbcBSMwf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 07:52:35 -0500
-Received: by mail-io0-f175.google.com with SMTP id g203so107945446iof.2
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 04:52:35 -0800 (PST)
-In-Reply-To: <56C5E212.50505@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: cascardo@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Thadeu Lima de Souza Cascardo <cascardo@debian.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160219113524.GR4148@siri.cascardo.eti.br>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-02-18 10:24 AM, John Fastabend wrote:
-> On 16-02-18 04:14 AM, Jamal Hadi Salim wrote:
->> On 16-02-17 06:07 PM, John Fastabend wrote:
->>> [...]
->>>
->>
-
->> IMO, it would be better at this early stage to enforce the correct
->> behavior for future generations.
->> To follow the netlink semantics which a lot of people are already
->> trained to think in.
->>
->> Current netlink behavior is supposed to be:
->>
->> 1) NEW ==> "Create".
->> Ambigous - could mean a)"create if it doesnt exist" or b) "fail if it
->> exists otherwise create"
->> Unfortunately different parts of the kernel often assume some
->> default from either #a or #b.
->>
+On Fri, Feb 19, 2016 at 5:05 PM, Thadeu Lima de Souza Cascardo
+<cascardo@debian.org> wrote:
+> NACK.
 >
-> But this is already handled by the core cls_api.c code. We never
-> get to u32_change if the flags are not correct.
+> ehea does not use platform_driver_register, it uses
+> ibmebus_register_driver, which does not set owner.
 >
-> Look at the block right above the op call into the classifiers
-> change() code in cls_api.c. Starting at line 287.
->
->
+> Cascardo.
 
-Indeed that would cover s/ware filters but not h/ware. That will
-depend on what hardware can do. Really,
-all you need is to propagate those flags. Your
-driver ndo can ignore them. I know i will need them.
+Thanks for the feedback. I'll make sure to check for this in the future.
 
-Alternatively: If we say all filters are going to be stored in
-s/ware as well i.e the tri-state we talked about then the cls_api
-checks will work as well. But when you are talking millions
-of filters (such as i deal with) - that may become impractical
-(and then you are going to have all kind of clever things to find
-whether an EXCLUSIVE will work or not etc).
-
-cheers,
-jamal
+Amitoj
