@@ -1,84 +1,65 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH V2 net-next 2/3] lan78xx: add ethtool set & get pause
- functions
-Date: Fri, 19 Feb 2016 01:20:48 +0000
-Message-ID: <1455844848.2794.61.camel@decadent.org.uk>
-References: <9235D6609DB808459E95D78E17F2E43D404B37B5@CHN-SV-EXMX02.mchp-main.com>
-	 <1455839111.2794.51.camel@decadent.org.uk>
-	 <9235D6609DB808459E95D78E17F2E43D404B3871@CHN-SV-EXMX02.mchp-main.com>
-	 <1455840387.2794.59.camel@decadent.org.uk>
-	 <9235D6609DB808459E95D78E17F2E43D404B389F@CHN-SV-EXMX02.mchp-main.com>
+From: "Dmitry V. Levin" <ldv@altlinux.org>
+Subject: [PATCH] unix_diag: fix incorrect sign extension in unix_lookup_by_ino
+Date: Fri, 19 Feb 2016 04:27:48 +0300
+Message-ID: <20160219012748.GA17251@altlinux.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-rNHQ7XQZU/tIZ9fxOR96"
-Cc: netdev@vger.kernel.org
-To: Woojung.Huh@microchip.com, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Pavel Emelyanov <xemul@parallels.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:55935 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1947990AbcBSBVF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 20:21:05 -0500
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404B389F@CHN-SV-EXMX02.mchp-main.com>
+Received: from pegasus3.altlinux.org ([194.107.17.103]:54429 "EHLO
+	pegasus3.altlinux.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1947436AbcBSB1u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 20:27:50 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The value passed by unix_diag_get_exact to unix_lookup_by_ino has type
+__u32, but unix_lookup_by_ino's argument ino has type int, which is not
+a problem yet.
+However, when ino is compared with sock_i_ino return value of type
+unsigned long, ino is sign extended to signed long, and this results
+to incorrect comparison on 64-bit architectures for inode numbers
+greater than INT_MAX.
 
---=-rNHQ7XQZU/tIZ9fxOR96
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+This bug was found by strace test suite.
 
-On Fri, 2016-02-19 at 00:16 +0000, Woojung.Huh@microchip.com wrote:
-> > > Ben, thanks for comments.
-> > > How about comment in include/uapi/linux/ethtool.h?
-> > > It says
-> > > ** struct ethtool_pauseparam - Ethernet pause (flow control) paramete=
-rs
-> > > ...
-> > > * If @autoneg is non-zero, the MAC is configured to send and/or
-> > > * receive pause frames according to the result of autonegotiation.
-> > >=20
-> > > Doesn't this mean get_pauseparam() returns pause settings based on
-> > > Result of autonegotation? Not manual settings of rx_param & tx_param?
-> >=20
-> > No, get_pauseparam should return the same settings that were passed to
-> > the last set_pauseparam.
-> >=20
-> > Ben.
->=20
-> I used drivers/net/ethernet/intel/e1000e driver as reference.
-> It's implementation also returns status updated after autonegotiation.
-> Look into wrong one?
+Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
+Cc: <stable@vger.kernel.org>
+---
+ net/unix/diag.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Unfortunately the API has not always been clearly defined and there are
-lots of bugs (or at least inconsistencies) in drivers.  The comments in
-include/uapi/linux/ethtool.h are supposed to be definitive; if they are
-not clear then please suggest additional or alternative wording.
-
-Ben.
-
---=20
-Ben Hutchings
-Tomorrow will be cancelled due to lack of interest.
---=-rNHQ7XQZU/tIZ9fxOR96
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVsZt8Oe/yOyVhhEJAQo0hg/+Omru8MArLkBFcIPX7qlCY+biomX6A4p1
-V/av5n9eyy/IR9KAnJHKn+KxJrSnd7u67zZiL4UfSX+3u3zixJBIKNDmrpzHqUIZ
-zuAuET8e0LgMnSa/LRxDcuANj1jPQkUbqaVtZqxRGmjN0FTNrnTp/5ij4inFMw8Z
-FafIaauUBAxHRSjOM/tlM3xXJS6PPbZhydwnT6iTr+aimtY9s5MYZBxc0xMM4OVb
-QxY6aemeMUDRd2twM5FS3rJ1sZXJrUXnRoDijyywcqEbDAnsd9YcYqqELuUVo2on
-DXHVd2BD60PWbKEoUctVMUIJYx/keRV6uFUn75c7RUGXVO8Pw9mQZ9yzSjqNzDnV
-RwGur78iepos0nEJvR1pTzcFPZj8YaezjgsxtV5bTIDebTI5iqONCGtAzz8VAE5+
-n05gkqV4uErcWfZczQQe216LhvD1AevWbYOiqwmS+BY4/EIT1t1985/KArZc9AtO
-rRW/3IHjIHGSkiQ+TrOOlfGmV8zt03okKutb+wZF8ogo4lHKg4kOyHJWnk1j+b5R
-NRyt3jFfntcVUwtOJkEPSTdf8PP+ukKilxIBsbRTWCELYsJ6RZHpNO1szW1s7mGD
-lrcuxw1lhsgZvZmKU7lYDSiWPzWuPg0CCSxsHx6C3EZQFCVvycnSrYieKYyGvlLB
-GuLVcv2Q8+4=
-=O3qN
------END PGP SIGNATURE-----
-
---=-rNHQ7XQZU/tIZ9fxOR96--
+diff --git a/net/unix/diag.c b/net/unix/diag.c
+index c512f64..4d96797 100644
+--- a/net/unix/diag.c
++++ b/net/unix/diag.c
+@@ -220,23 +220,23 @@ done:
+ 	return skb->len;
+ }
+ 
+-static struct sock *unix_lookup_by_ino(int ino)
++static struct sock *unix_lookup_by_ino(unsigned int ino)
+ {
+ 	int i;
+ 	struct sock *sk;
+ 
+ 	spin_lock(&unix_table_lock);
+ 	for (i = 0; i < ARRAY_SIZE(unix_socket_table); i++) {
+ 		sk_for_each(sk, &unix_socket_table[i])
+ 			if (ino == sock_i_ino(sk)) {
+ 				sock_hold(sk);
+ 				spin_unlock(&unix_table_lock);
+ 
+ 				return sk;
+ 			}
+ 	}
+ 
+ 	spin_unlock(&unix_table_lock);
+ 	return NULL;
+ }
+ 
+-- 
+ldv
