@@ -1,72 +1,98 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next 2/3] gianfar: Use skb_frag_t pointers inside xmit()
-Date: Fri, 19 Feb 2016 12:47:33 +0200
-Message-ID: <1455878854-28290-3-git-send-email-claudiu.manoil@freescale.com>
-References: <1455878854-28290-1-git-send-email-claudiu.manoil@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: Michael Niewoehner <linux@mniewoehner.de>
+Subject: Re: [PATCH RESEND] ethernet:arc: Move arc_emac_tx_clean() into arc_emac_tx() and disable tx interrut
+Date: Fri, 19 Feb 2016 12:13:56 +0100
+Message-ID: <85B47C95-B524-4A25-90C7-95AE614AB3A2@mniewoehner.de>
+References: <BLU436-SMTP169C63F9B677DE7B0A77CF38FA00@phx.gbl>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: caesar.upstream@gmail.com, heiko@sntech.de, davem@davemloft.net,
+	zhengxing@rock-chips.com, netdev@vger.kernel.org,
+	linux-rockchip@lists.infradead.org
+To: Shuyu Wei <sy.w@outlook.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0147.outbound.protection.outlook.com ([65.55.169.147]:55314
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1426794AbcBSLJu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2016 06:09:50 -0500
-In-Reply-To: <1455878854-28290-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from sender163-mail.zoho.com ([74.201.84.163]:25504 "EHLO
+	sender163-mail.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1425751AbcBSLOJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 06:14:09 -0500
+In-Reply-To: <BLU436-SMTP169C63F9B677DE7B0A77CF38FA00@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+Am 19.02.2016 um 07:59 schrieb Shuyu Wei <sy.w@outlook.com>:
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 43fbded..090f4f0 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -2322,6 +2322,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct txfcb *fcb = NULL;
- 	struct txbd8 *txbdp, *txbdp_start, *base, *txbdp_tstamp = NULL;
- 	u32 lstatus;
-+	skb_frag_t *frag;
- 	int i, rq = 0;
- 	int do_tstamp, do_csum, do_vlan;
- 	u32 bufaddr;
-@@ -2448,25 +2449,24 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		u32 lstatus_start = lstatus;
- 
- 		/* Place the fragment addresses and lengths into the TxBDs */
--		for (i = 0; i < nr_frags; i++) {
--			unsigned int frag_len;
-+		frag = &skb_shinfo(skb)->frags[0];
-+		for (i = 0; i < nr_frags; i++, frag++) {
-+			unsigned int size;
-+
- 			/* Point at the next BD, wrapping as needed */
- 			txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
- 
--			frag_len = skb_shinfo(skb)->frags[i].size;
-+			size = skb_frag_size(frag);
- 
--			lstatus = be32_to_cpu(txbdp->lstatus) | frag_len |
-+			lstatus = be32_to_cpu(txbdp->lstatus) | size |
- 				  BD_LFLAG(TXBD_READY);
- 
- 			/* Handle the last BD specially */
- 			if (i == nr_frags - 1)
- 				lstatus |= BD_LFLAG(TXBD_LAST | TXBD_INTERRUPT);
- 
--			bufaddr = skb_frag_dma_map(priv->dev,
--						   &skb_shinfo(skb)->frags[i],
--						   0,
--						   frag_len,
--						   DMA_TO_DEVICE);
-+			bufaddr = skb_frag_dma_map(priv->dev, frag, 0,
-+						   size, DMA_TO_DEVICE);
- 			if (unlikely(dma_mapping_error(priv->dev, bufaddr)))
- 				goto dma_map_err;
- 
--- 
-1.7.11.7
+> Doing tx_clean() inside poll() may scramble the tx ring buffer if 
+> tx() is running. This will cause tx to stop working, which can be
+> reproduced by simultaneously downloading two large files at high speed.
+> 
+> Moving tx_clean() into tx() will prevent this. And tx interrupt is no
+> longer needed now.
+> 
+> Signed-off-by: Shuyu Wei <sy.w@outlook.com>
+
+Tested-by: Michael Niewoehner <linux@mniewoehner.de>
+
+> ---
+> 
+> diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+> index abe1eab..34531b3 100644
+> --- a/drivers/net/ethernet/arc/emac_main.c
+> +++ b/drivers/net/ethernet/arc/emac_main.c
+> @@ -311,12 +311,10 @@ static int arc_emac_poll(struct napi_struct *napi, int budget)
+> 	struct arc_emac_priv *priv = netdev_priv(ndev);
+> 	unsigned int work_done;
+> 
+> -	arc_emac_tx_clean(ndev);
+> -
+> 	work_done = arc_emac_rx(ndev, budget);
+> 	if (work_done < budget) {
+> 		napi_complete(napi);
+> -		arc_reg_or(priv, R_ENABLE, RXINT_MASK | TXINT_MASK);
+> +		arc_reg_or(priv, R_ENABLE, RXINT_MASK);
+> 	}
+> 
+> 	return work_done;
+> @@ -345,9 +343,9 @@ static irqreturn_t arc_emac_intr(int irq, void *dev_instance)
+> 	/* Reset all flags except "MDIO complete" */
+> 	arc_reg_set(priv, R_STATUS, status);
+> 
+> -	if (status & (RXINT_MASK | TXINT_MASK)) {
+> +	if (status & RXINT_MASK) {
+> 		if (likely(napi_schedule_prep(&priv->napi))) {
+> -			arc_reg_clr(priv, R_ENABLE, RXINT_MASK | TXINT_MASK);
+> +			arc_reg_clr(priv, R_ENABLE, RXINT_MASK);
+> 			__napi_schedule(&priv->napi);
+> 		}
+> 	}
+> @@ -458,7 +456,7 @@ static int arc_emac_open(struct net_device *ndev)
+> 	arc_reg_set(priv, R_TX_RING, (unsigned int)priv->txbd_dma);
+> 
+> 	/* Enable interrupts */
+> -	arc_reg_set(priv, R_ENABLE, RXINT_MASK | TXINT_MASK | ERR_MASK);
+> +	arc_reg_set(priv, R_ENABLE, RXINT_MASK | ERR_MASK);
+> 
+> 	/* Set CONTROL */
+> 	arc_reg_set(priv, R_CTRL,
+> @@ -529,7 +527,7 @@ static int arc_emac_stop(struct net_device *ndev)
+> 	netif_stop_queue(ndev);
+> 
+> 	/* Disable interrupts */
+> -	arc_reg_clr(priv, R_ENABLE, RXINT_MASK | TXINT_MASK | ERR_MASK);
+> +	arc_reg_clr(priv, R_ENABLE, RXINT_MASK | ERR_MASK);
+> 
+> 	/* Disable EMAC */
+> 	arc_reg_clr(priv, R_CTRL, EN_MASK);
+> @@ -587,6 +585,8 @@ static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
+> 	__le32 *info = &priv->txbd[*txbd_curr].info;
+> 	dma_addr_t addr;
+> 
+> +	arc_emac_tx_clean(ndev);
+> +
+> 	if (skb_padto(skb, ETH_ZLEN))
+> 		return NETDEV_TX_OK;
+> 
+> 
+> _______________________________________________
+> Linux-rockchip mailing list
+> Linux-rockchip@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-rockchip
