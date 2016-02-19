@@ -1,54 +1,178 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [net-next PATCH 2/2] VXLAN: Support outer IPv4 Tx checksums by default
-Date: Fri, 19 Feb 2016 13:36:34 -0800
-Message-ID: <CAEh+42iPR4LRLpQzV7bw21Q0h45t0WoE4RCg7tv-2TGbKSY-Yw@mail.gmail.com>
-References: <20160219191806.15687.37621.stgit@localhost.localdomain>
- <20160219192631.15687.78165.stgit@localhost.localdomain> <CALx6S36VDm6Cku1bN-OvNAdu=U5TV-ZAMmStdsdmjWzbD+F3Ng@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: Tom Herbert <tom@herbertland.com>
+From: Kan Liang <kan.liang@intel.com>
+Subject: [PATCH V7 1/8] lib/bitmap.c: conversion routines to/from u32 array
+Date: Fri, 19 Feb 2016 09:23:59 -0500
+Message-ID: <1455891846-12271-2-git-send-email-kan.liang@intel.com>
+References: <1455891846-12271-1-git-send-email-kan.liang@intel.com>
+Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, f.fainelli@gmail.com,
+	alexander.duyck@gmail.com, jeffrey.t.kirsher@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	mitch.a.williams@intel.com, ogerlitz@mellanox.com,
+	edumazet@google.com, jiri@mellanox.com, sfeldma@gmail.com,
+	gospo@cumulusnetworks.com, sasha.levin@oracle.com,
+	dsahern@gmail.com, tj@kernel.org, cascardo@redhat.com,
+	corbet@lwn.net, decot@googlers.com, Kan Liang <kan.liang@intel.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org,
+	ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:53352 "EHLO mail.kernel.org"
+Received: from mga03.intel.com ([134.134.136.65]:48161 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1424914AbcBSVgv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2016 16:36:51 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 8C5642050E
-	for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 21:36:50 +0000 (UTC)
-Received: from mail-qg0-f43.google.com (mail-qg0-f43.google.com [209.85.192.43])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 46F142049E
-	for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 21:36:49 +0000 (UTC)
-Received: by mail-qg0-f43.google.com with SMTP id b67so72225092qgb.1
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 13:36:49 -0800 (PST)
-In-Reply-To: <CALx6S36VDm6Cku1bN-OvNAdu=U5TV-ZAMmStdsdmjWzbD+F3Ng@mail.gmail.com>
+	id S1757173AbcBSVoT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Feb 2016 16:44:19 -0500
+In-Reply-To: <1455891846-12271-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 19, 2016 at 12:27 PM, Tom Herbert <tom@herbertland.com> wrote:
-> I would also note RFC7348 specifies:
->
-> UDP Checksum: It SHOULD be transmitted as zero. ...
->
-> The RFC doesn't provide any rationale as to why this is a SHOULD
-> (neither is there any discussion as to whether this pertains to IPv6
-> which has stronger requirements for non-zero UDP checksum). I think
-> there are two possibilities in the intent: 1) The authors assume that
-> computing UDP checksums is a significant performance hit which is
-> dis-proven by this patch 2) They are worried about devices that are
-> unable to compute receive checksums, however this would be addressed
-> by an allowance that devices can ignore non-zero UDP checksums for
-> VXLAN ("When a decapsulating end point receives a packet with a
-> non-zero checksum, it MAY choose to verify the checksum value.")
+From: David Decotigny <decot@googlers.com>
 
-It's #2.
+Aimed at transferring bitmaps to/from user-space in a 32/64-bit agnostic
+way.
 
-All of the performance concerns around checksums and tunneling stem
-from devices implemented using switching ASICs. In those devices,
-computing/verifying checksums is so slow (software path) that they are
-effectively unable to do it.
+Tested:
+  unit tests (next patch) on qemu i386, x86_64, ppc, ppc64 BE and LE,
+  ARM.
+
+Signed-off-by: David Decotigny <decot@googlers.com>
+Reviewed-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ include/linux/bitmap.h | 10 ++++++
+ lib/bitmap.c           | 89 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 99 insertions(+)
+
+diff --git a/include/linux/bitmap.h b/include/linux/bitmap.h
+index 9653fdb..e9b0b9a 100644
+--- a/include/linux/bitmap.h
++++ b/include/linux/bitmap.h
+@@ -59,6 +59,8 @@
+  * bitmap_find_free_region(bitmap, bits, order)	Find and allocate bit region
+  * bitmap_release_region(bitmap, pos, order)	Free specified bit region
+  * bitmap_allocate_region(bitmap, pos, order)	Allocate specified bit region
++ * bitmap_from_u32array(dst, nbits, buf, nwords) *dst = *buf (nwords 32b words)
++ * bitmap_to_u32array(buf, nwords, src, nbits)	*buf = *dst (nwords 32b words)
+  */
+ 
+ /*
+@@ -163,6 +165,14 @@ extern void bitmap_fold(unsigned long *dst, const unsigned long *orig,
+ extern int bitmap_find_free_region(unsigned long *bitmap, unsigned int bits, int order);
+ extern void bitmap_release_region(unsigned long *bitmap, unsigned int pos, int order);
+ extern int bitmap_allocate_region(unsigned long *bitmap, unsigned int pos, int order);
++extern unsigned int bitmap_from_u32array(unsigned long *bitmap,
++					 unsigned int nbits,
++					 const u32 *buf,
++					 unsigned int nwords);
++extern unsigned int bitmap_to_u32array(u32 *buf,
++				       unsigned int nwords,
++				       const unsigned long *bitmap,
++				       unsigned int nbits);
+ #ifdef __BIG_ENDIAN
+ extern void bitmap_copy_le(unsigned long *dst, const unsigned long *src, unsigned int nbits);
+ #else
+diff --git a/lib/bitmap.c b/lib/bitmap.c
+index 8148143..c66da50 100644
+--- a/lib/bitmap.c
++++ b/lib/bitmap.c
+@@ -12,6 +12,8 @@
+ #include <linux/bitmap.h>
+ #include <linux/bitops.h>
+ #include <linux/bug.h>
++#include <linux/kernel.h>
++#include <linux/string.h>
+ 
+ #include <asm/page.h>
+ #include <asm/uaccess.h>
+@@ -1060,6 +1062,93 @@ int bitmap_allocate_region(unsigned long *bitmap, unsigned int pos, int order)
+ EXPORT_SYMBOL(bitmap_allocate_region);
+ 
+ /**
++ * bitmap_from_u32array - copy the contents of a u32 array of bits to bitmap
++ *	@bitmap: array of unsigned longs, the destination bitmap, non NULL
++ *	@nbits: number of bits in @bitmap
++ *	@buf: array of u32 (in host byte order), the source bitmap, non NULL
++ *	@nwords: number of u32 words in @buf
++ *
++ * copy min(nbits, 32*nwords) bits from @buf to @bitmap, remaining
++ * bits between nword and nbits in @bitmap (if any) are cleared. In
++ * last word of @bitmap, the bits beyond nbits (if any) are kept
++ * unchanged.
++ *
++ * Return the number of bits effectively copied.
++ */
++unsigned int
++bitmap_from_u32array(unsigned long *bitmap, unsigned int nbits,
++		     const u32 *buf, unsigned int nwords)
++{
++	unsigned int dst_idx, src_idx;
++
++	for (src_idx = dst_idx = 0; dst_idx < BITS_TO_LONGS(nbits); ++dst_idx) {
++		unsigned long part = 0;
++
++		if (src_idx < nwords)
++			part = buf[src_idx++];
++
++#if BITS_PER_LONG == 64
++		if (src_idx < nwords)
++			part |= ((unsigned long) buf[src_idx++]) << 32;
++#endif
++
++		if (dst_idx < nbits/BITS_PER_LONG)
++			bitmap[dst_idx] = part;
++		else {
++			unsigned long mask = BITMAP_LAST_WORD_MASK(nbits);
++
++			bitmap[dst_idx] = (bitmap[dst_idx] & ~mask)
++				| (part & mask);
++		}
++	}
++
++	return min_t(unsigned int, nbits, 32*nwords);
++}
++EXPORT_SYMBOL(bitmap_from_u32array);
++
++/**
++ * bitmap_to_u32array - copy the contents of bitmap to a u32 array of bits
++ *	@buf: array of u32 (in host byte order), the dest bitmap, non NULL
++ *	@nwords: number of u32 words in @buf
++ *	@bitmap: array of unsigned longs, the source bitmap, non NULL
++ *	@nbits: number of bits in @bitmap
++ *
++ * copy min(nbits, 32*nwords) bits from @bitmap to @buf. Remaining
++ * bits after nbits in @buf (if any) are cleared.
++ *
++ * Return the number of bits effectively copied.
++ */
++unsigned int
++bitmap_to_u32array(u32 *buf, unsigned int nwords,
++		   const unsigned long *bitmap, unsigned int nbits)
++{
++	unsigned int dst_idx = 0, src_idx = 0;
++
++	while (dst_idx < nwords) {
++		unsigned long part = 0;
++
++		if (src_idx < BITS_TO_LONGS(nbits)) {
++			part = bitmap[src_idx];
++			if (src_idx >= nbits/BITS_PER_LONG)
++				part &= BITMAP_LAST_WORD_MASK(nbits);
++			src_idx++;
++		}
++
++		buf[dst_idx++] = part & 0xffffffffUL;
++
++#if BITS_PER_LONG == 64
++		if (dst_idx < nwords) {
++			part >>= 32;
++			buf[dst_idx++] = part & 0xffffffffUL;
++		}
++#endif
++	}
++
++	return min_t(unsigned int, nbits, 32*nwords);
++}
++EXPORT_SYMBOL(bitmap_to_u32array);
++
++/**
+  * bitmap_copy_le - copy a bitmap, putting the bits into little-endian order.
+  * @dst:   destination buffer
+  * @src:   bitmap to copy
+-- 
+1.8.3.1
