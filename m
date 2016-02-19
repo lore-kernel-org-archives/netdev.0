@@ -1,58 +1,50 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next 1/2] mpls: packet stats
-Date: Fri, 19 Feb 2016 09:57:47 +0000
-Message-ID: <56C6E71B.3080509@brocade.com>
-References: <1454700472-13543-1-git-send-email-rshearma@brocade.com>
- <1454700472-13543-2-git-send-email-rshearma@brocade.com>
- <20160216.104115.1576720778383292937.davem@davemloft.net>
- <56C385E0.2000405@cumulusnetworks.com>
+From: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: net/bluetooth: workqueue destruction WARNING in
+ hci_unregister_dev
+Date: Fri, 19 Feb 2016 11:20:18 +0100
+Message-ID: <56C6EC62.8080107@suse.cz>
+References: <CACT4Y+ax7zMOxe+kd4tw5Xdbvt=qPdBhXGO0j7qJwdn5tsfNNg@mail.gmail.com>
+ <56C5CE85.6090808@suse.cz>
+ <CACT4Y+bVXfY=wBZ+08rq16tHFw9s3YDrE_LCS=to-GF70AffRQ@mail.gmail.com>
+ <20160218174427.GG13177@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <ebiederm@xmission.com>
-To: roopa <roopa@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:56762 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1427374AbcBSJ6D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 04:58:03 -0500
-In-Reply-To: <56C385E0.2000405@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	syzkaller <syzkaller-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+	Kostya Serebryany <kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Alexander Potapenko <glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Takashi Iwai <tiwai-IBi9RG/b67k@public.gmane.org>
+To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160218174427.GG13177-qYNAdHglDFBN0TnZuCh8vA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 16/02/16 20:26, roopa wrote:
-> On 2/16/16, 7:41 AM, David Miller wrote:
->> Statistics not provided via netlink are useless in real installations.
->>
->> In fact I would say to forego the proc interface entirely, it's a second
->> class citizen for statistics gathering and has a non-triviel per-device
->> cost for instantiation.
->>
-> +1
->
-> I agree with the cost too.
->
-> Robert, I was thinking of responding to your series to add netlink stats for AF_MPLS in
->   rtnl_af_ops (similar to  IFLA_INET6_STATS). But, soon realized that it is currently used by ipv6 alone
-> and it also ended up with a skip filter (RTEXT_FILTER_SKIP_STATS). So, extending that interface for
-> mpls is not the right thing to do either.
+On 02/18/2016, 06:44 PM, Tejun Heo wrote:
+> Hello,
+> 
+> Can you please do the followings?
+> 
+> 1. Remove WQ_MEM_RECLAIM from the affected workqueue and see whether
+>    the problem is reproducible.  WQ_MEM_RECLAIM on anything bluetooth
+>    doesn't make sense btw.  Why is it there?
+> 
+> 2. If WQ_MEM_RECLAIM makes the issue go away, see whether the attached
+>    patch works too.
 
-ipv4 doesn't have per-interface stats, so the fact that it doesn't use 
-fill_link_af to export stats doesn't really add much to the argument.
+Hello,
 
-The real issue with the IFLA_INET6_STATS mechanism is that they are 
-included in netlink broadcasts, not just netlink unicasts and there is 
-no way of filtering for broadcasts at the moment.
+1. didn't help, the problem persists. So I haven't applied the patch from 2.
 
-> There is work being done for a separate netlink infrastructure for stats.
-> I would wait for that infrastructure to be ready to add mpls stats. It should be available soon.
-
-Great, any details on what it would look like? Can I assist in any way 
-in the development?
-
-In the mean time, I'll rebase and resubmit the ip ttl propagation patch 
-separately.
-
-Thanks,
-Rob
+thanks,
+-- 
+js
+suse labs
