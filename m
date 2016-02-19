@@ -1,68 +1,155 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH V7 8/8] i40e/ethtool: support coalesce setting by queue
-Date: Fri, 19 Feb 2016 13:56:50 -0800
-Message-ID: <1455919010.3016.40.camel@intel.com>
-References: <1455891846-12271-1-git-send-email-kan.liang@intel.com>
-	 <1455891846-12271-9-git-send-email-kan.liang@intel.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-IOkeFhG05oNC/oJVX+Fk"
-Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, f.fainelli@gmail.com,
-	alexander.duyck@gmail.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, mitch.a.williams@intel.com,
-	ogerlitz@mellanox.com, edumazet@google.com, jiri@mellanox.com,
-	sfeldma@gmail.com, gospo@cumulusnetworks.com,
-	sasha.levin@oracle.com, dsahern@gmail.com, tj@kernel.org,
-	cascardo@redhat.com, corbet@lwn.net, decot@googlers.com
-To: Kan Liang <kan.liang@intel.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, bwh@kernel.org, ben@decadent.org.uk
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 1/6] bpf: add new arg_type that allows for 0 sized stack buffer
+Date: Fri, 19 Feb 2016 23:05:22 +0100
+Message-ID: <e3080bbbd37524fbc121edbeb68bb6cbfbae393d.1455899111.git.daniel@iogearbox.net>
+References: <cover.1455899111.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:38395 "EHLO mga04.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030467AbcBSV4w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2016 16:56:52 -0500
-In-Reply-To: <1455891846-12271-9-git-send-email-kan.liang@intel.com>
+Received: from www62.your-server.de ([213.133.104.62]:35326 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751021AbcBSWFh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 17:05:37 -0500
+In-Reply-To: <cover.1455899111.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1455899111.git.daniel@iogearbox.net>
+References: <cover.1455899111.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Currently, when we pass a buffer from the eBPF stack into a helper
+function, the function proto indicates argument types as ARG_PTR_TO_STACK
+and ARG_CONST_STACK_SIZE pair. If R<X> contains the former, then R<X+1>
+must be of the latter type. Then, verifier checks whether the buffer
+points into eBPF stack, is initialized, etc. The verifier also guarantees
+that the constant value passed in R<X+1> is greater than 0, so helper
+functions don't need to test for it and can always assume a non-NULL
+initialized buffer as well as non-0 buffer size.
 
---=-IOkeFhG05oNC/oJVX+Fk
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+This patch adds a new argument types ARG_CONST_STACK_SIZE_OR_ZERO that
+allows to also pass NULL as R<X> and 0 as R<X+1> into the helper function.
+Such helper functions, of course, need to be able to handle these cases
+internally then. Verifier guarantees that either R<X> == NULL && R<X+1> == 0
+or R<X> != NULL && R<X+1> != 0 (like the case of ARG_CONST_STACK_SIZE), any
+other combinations are not possible to load.
 
-On Fri, 2016-02-19 at 09:24 -0500, Kan Liang wrote:
-> From: Kan Liang <kan.liang@intel.com>
->=20
-> This patch implements set_per_queue_coalesce for i40e driver.
->=20
-> Signed-off-by: Kan Liang <kan.liang@intel.com>
-> ---
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 7 +++++++
-> =C2=A01 file changed, 7 insertions(+)
+I went through various options of extending the verifier, and introducing
+the type ARG_CONST_STACK_SIZE_OR_ZERO seems to have most minimal changes
+needed to the verifier.
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
---=-IOkeFhG05oNC/oJVX+Fk
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ include/linux/bpf.h   |  1 +
+ kernel/bpf/verifier.c | 42 ++++++++++++++++++++++++++++++++----------
+ 2 files changed, 33 insertions(+), 10 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABCgAGBQJWx4+iAAoJEOVv75VaS+3OPtYP/3qUsfZkAyfTwtNDYR3GlMBz
-RMW4+1Q0WOTIuNjHhmIdNu4wsUKvNXDAxDgow//8iD6rN1xmY6CNPZdN9WX7mjO3
-HrWhBxvS02AKAAH39U+hoxrOw0+6GXNe0BMQz4LfpMEkx8zI0vAOA5DsvZFxmG5x
-5+GWzg4P+TdKEHfz5mzNf5dr8dvnJL06ibKdSRXs5SiKqEM71oT7uVkIehfVjRXR
-nemFuhvSCsWyIoSQqaK1d+Fz398qw9AL40dmDTZmM5w7rJ8Ycjos+WzSq8JDIzeN
-J3B6lPsYP4SXS/pOG7h/L1irFWs5eYg9PfslHc4Ltq5hpHKEQUaR6TxxlHy4XGqw
-MT9AKtpnkhfzyeiEJkIqilmzpyP8K7tfJSuJyFzKgSHPfUFeChCr2JJ5/yk/3m8I
-pwQXyYzyvNDdzBW4y2+RSRTkTNlYkmcDJIJ6rOwvEEaK6BlY59jmZnyCx9cqgxhN
-uRhAY8XE/M7J6NbXZh9NUe7VHzgRTiZNdDD7RFdwQcEMGSLAu1wZX0+CmDpiwDNT
-8EhDiVR+IR33yGexucY5L9+2RBTJZhQHWrqB/nZP+OZQkEu4j+wr3vCGmQ1zwFMN
-GFbwMyqwHtG3M0C2ktaq5oEkkEoZC8JssdQuxkpDKNskH1a9gtOYwoZUjL1yVGGj
-fn0e21A4dsYE681o1bFm
-=1PMK
------END PGP SIGNATURE-----
-
---=-IOkeFhG05oNC/oJVX+Fk--
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 0cadbb7..51e498e 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -65,6 +65,7 @@ enum bpf_arg_type {
+ 	 */
+ 	ARG_PTR_TO_STACK,	/* any pointer to eBPF program stack */
+ 	ARG_CONST_STACK_SIZE,	/* number of bytes accessed from stack */
++	ARG_CONST_STACK_SIZE_OR_ZERO, /* number of bytes accessed from stack or 0 */
+ 
+ 	ARG_PTR_TO_CTX,		/* pointer to context */
+ 	ARG_ANYTHING,		/* any (initialized) argument is ok */
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 42ba4cc..36dc497 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -779,15 +779,24 @@ static int check_xadd(struct verifier_env *env, struct bpf_insn *insn)
+  * bytes from that pointer, make sure that it's within stack boundary
+  * and all elements of stack are initialized
+  */
+-static int check_stack_boundary(struct verifier_env *env,
+-				int regno, int access_size)
++static int check_stack_boundary(struct verifier_env *env, int regno,
++				int access_size, bool zero_size_allowed)
+ {
+ 	struct verifier_state *state = &env->cur_state;
+ 	struct reg_state *regs = state->regs;
+ 	int off, i;
+ 
+-	if (regs[regno].type != PTR_TO_STACK)
++	if (regs[regno].type != PTR_TO_STACK) {
++		if (zero_size_allowed && access_size == 0 &&
++		    regs[regno].type == CONST_IMM &&
++		    regs[regno].imm  == 0)
++			return 0;
++
++		verbose("R%d type=%s expected=%s\n", regno,
++			reg_type_str[regs[regno].type],
++			reg_type_str[PTR_TO_STACK]);
+ 		return -EACCES;
++	}
+ 
+ 	off = regs[regno].imm;
+ 	if (off >= 0 || off < -MAX_BPF_STACK || off + access_size > 0 ||
+@@ -830,15 +839,24 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
+ 		return 0;
+ 	}
+ 
+-	if (arg_type == ARG_PTR_TO_STACK || arg_type == ARG_PTR_TO_MAP_KEY ||
++	if (arg_type == ARG_PTR_TO_MAP_KEY ||
+ 	    arg_type == ARG_PTR_TO_MAP_VALUE) {
+ 		expected_type = PTR_TO_STACK;
+-	} else if (arg_type == ARG_CONST_STACK_SIZE) {
++	} else if (arg_type == ARG_CONST_STACK_SIZE ||
++		   arg_type == ARG_CONST_STACK_SIZE_OR_ZERO) {
+ 		expected_type = CONST_IMM;
+ 	} else if (arg_type == ARG_CONST_MAP_PTR) {
+ 		expected_type = CONST_PTR_TO_MAP;
+ 	} else if (arg_type == ARG_PTR_TO_CTX) {
+ 		expected_type = PTR_TO_CTX;
++	} else if (arg_type == ARG_PTR_TO_STACK) {
++		expected_type = PTR_TO_STACK;
++		/* One exception here. In case function allows for NULL to be
++		 * passed in as argument, it's a CONST_IMM type. Final test
++		 * happens during stack boundary checking.
++		 */
++		if (reg->type == CONST_IMM && reg->imm == 0)
++			expected_type = CONST_IMM;
+ 	} else {
+ 		verbose("unsupported arg_type %d\n", arg_type);
+ 		return -EFAULT;
+@@ -868,8 +886,8 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
+ 			verbose("invalid map_ptr to access map->key\n");
+ 			return -EACCES;
+ 		}
+-		err = check_stack_boundary(env, regno, (*mapp)->key_size);
+-
++		err = check_stack_boundary(env, regno, (*mapp)->key_size,
++					   false);
+ 	} else if (arg_type == ARG_PTR_TO_MAP_VALUE) {
+ 		/* bpf_map_xxx(..., map_ptr, ..., value) call:
+ 		 * check [value, value + map->value_size) validity
+@@ -879,9 +897,12 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
+ 			verbose("invalid map_ptr to access map->value\n");
+ 			return -EACCES;
+ 		}
+-		err = check_stack_boundary(env, regno, (*mapp)->value_size);
++		err = check_stack_boundary(env, regno, (*mapp)->value_size,
++					   false);
++	} else if (arg_type == ARG_CONST_STACK_SIZE ||
++		   arg_type == ARG_CONST_STACK_SIZE_OR_ZERO) {
++		bool zero_size_allowed = (arg_type == ARG_CONST_STACK_SIZE_OR_ZERO);
+ 
+-	} else if (arg_type == ARG_CONST_STACK_SIZE) {
+ 		/* bpf_xxx(..., buf, len) call will access 'len' bytes
+ 		 * from stack pointer 'buf'. Check it
+ 		 * note: regno == len, regno - 1 == buf
+@@ -891,7 +912,8 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
+ 			verbose("ARG_CONST_STACK_SIZE cannot be first argument\n");
+ 			return -EACCES;
+ 		}
+-		err = check_stack_boundary(env, regno - 1, reg->imm);
++		err = check_stack_boundary(env, regno - 1, reg->imm,
++					   zero_size_allowed);
+ 	}
+ 
+ 	return err;
+-- 
+1.9.3
