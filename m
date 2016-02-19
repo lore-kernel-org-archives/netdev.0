@@ -1,8 +1,7 @@
 From: Kan Liang <kan.liang@intel.com>
-Subject: [PATCH V7 2/8] test_bitmap: unit tests for lib/bitmap.c
-Date: Fri, 19 Feb 2016 09:24:00 -0500
-Message-ID: <1455891846-12271-3-git-send-email-kan.liang@intel.com>
-References: <1455891846-12271-1-git-send-email-kan.liang@intel.com>
+Subject: [PATCH V7 0/8] ethtool per queue parameters support
+Date: Fri, 19 Feb 2016 09:23:58 -0500
+Message-ID: <1455891846-12271-1-git-send-email-kan.liang@intel.com>
 Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
 	shannon.nelson@intel.com, f.fainelli@gmail.com,
 	alexander.duyck@gmail.com, jeffrey.t.kirsher@intel.com,
@@ -15,455 +14,100 @@ Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
 To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org,
 	ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:26393 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:48161 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757190AbcBSVoU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757179AbcBSVoU (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 19 Feb 2016 16:44:20 -0500
-In-Reply-To: <1455891846-12271-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <decot@googlers.com>
+Modern network interface controllers usually support multiple receive
+and transmit queues. Each queue may have its own parameters. For
+example, Intel XL710/X710 hardware supports per queue interrupt
+moderation. However, current ethtool does not support per queue
+parameters option. User has to set parameters for the whole NIC.
+This series extends ethtool to support per queue parameters option.
 
-This is mainly testing bitmap construction and conversion to/from u32[]
-for now.
+Since the support of per queue parameters vary with different cards,
+it is impossible to address all cards in one patch. This series only
+supports per queue coalesce options on i40e driver. The framework used
+in the patch can be easily extended to other cards and parameters.
 
-Tested:
-  qemu i386, x86_64, ppc, ppc64 BE and LE, ARM.
+The lib bitmap needs to be extended to facilitate exchanging queue bitmaps
+between user space and kernel space. Two patches from David's latest V8
+patch series are also cited in this series. You may refer to
+https://lkml.org/lkml/2016/2/9/919 for more details.
 
-Signed-off-by: David Decotigny <decot@googlers.com>
----
- lib/Kconfig.debug                     |   8 +
- lib/Makefile                          |   1 +
- lib/test_bitmap.c                     | 358 ++++++++++++++++++++++++++++++++++
- tools/testing/selftests/lib/Makefile  |   2 +-
- tools/testing/selftests/lib/bitmap.sh |  10 +
- 5 files changed, 378 insertions(+), 1 deletion(-)
+Changes since V6:
+ - Rebase on commit 76d13b568776. Did minor change in patch 6.
+
+Changes since V5:
+ - Add test_bitmap.c and bitmap.sh in the series. They are forgot
+   to be added previously.
+ - Update the first two patches to David's latest V8 version. The changes
+   include
+      - bitmap u32 API returns number of bits copied, unit tests updated
+      - module_exit in test_bitmap
+ - Also change the mode of bitmap.sh to 755 according to Ben's suggestion
+
+Changes since V4:
+ - Modify set/get_per_queue_coalesce function description
+ - Change the queue number to be u32
+ - Correct an error of calculating coalesce backup buffer address
+ - Rename queue_num to n_queues
+ - Don't log error message in __i40e_get_coalesce
+
+Changes since V3:
+ - Based on David's lib bitmap.
+ - ETHTOOL_PERQUEUE should be handled before the containing switch
+ - Make the rollback code unconditional
+ - some minor changes according to Ben's feedback
+
+Changes since V2:
+ - Add queue-specific settings for interrupt moderation in i40e
+
+Changes since V1:
+ - Checking the sub-command number to determine whether the command
+   requires CAP_NET_ADMIN
+ - Refine the struct ethtool_per_queue_op and improve the comments
+ - Use bitmap functions to parse queue mask
+ - Improve comments
+ - Use bitmap functions to parse queue mask
+ - Improve comments
+ - Add rollback support
+ - Correct the way to find the vector for specific queue.
+
+David Decotigny (2):
+  lib/bitmap.c: conversion routines to/from u32 array
+  test_bitmap: unit tests for lib/bitmap.c
+
+Kan Liang (6)
+  net/ethtool: introduce a new ioctl for per queue setting
+  net/ethtool: support get coalesce per queue
+  net/ethtool: support set coalesce per queue
+  i40e: queue-specific settings for interrupt moderation
+  i40e/ethtool: support coalesce getting by queue
+  i40e/ethtool: support coalesce setting by queue
+
+ drivers/net/ethernet/intel/i40e/i40e.h         |   7 -
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c |  15 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 151 +++++++----
+ drivers/net/ethernet/intel/i40e/i40e_main.c    |  12 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c    |   9 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h    |   8 +
+ include/linux/bitmap.h                         |  10 +
+ include/linux/ethtool.h                        |  15 +-
+ include/uapi/linux/ethtool.h                   |  17 ++
+ lib/Kconfig.debug                              |   8 +
+ lib/Makefile                                   |   1 +
+ lib/bitmap.c                                   |  89 ++++++
+ lib/test_bitmap.c                              | 358 +++++++++++++++++++++++++
+ net/core/ethtool.c                             | 121 ++++++++-
+ tools/testing/selftests/lib/Makefile           |   2 +-
+ tools/testing/selftests/lib/bitmap.sh          |  10 +
+ 16 files changed, 760 insertions(+), 73 deletions(-)
  create mode 100644 lib/test_bitmap.c
  create mode 100755 tools/testing/selftests/lib/bitmap.sh
 
-diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index ecb9e75..f890ee5 100644
---- a/lib/Kconfig.debug
-+++ b/lib/Kconfig.debug
-@@ -1738,6 +1738,14 @@ config TEST_KSTRTOX
- config TEST_PRINTF
- 	tristate "Test printf() family of functions at runtime"
- 
-+config TEST_BITMAP
-+	tristate "Test bitmap_*() family of functions at runtime"
-+	default n
-+	help
-+	  Enable this option to test the bitmap functions at boot.
-+
-+	  If unsure, say N.
-+
- config TEST_RHASHTABLE
- 	tristate "Perform selftest on resizable hash table"
- 	default n
-diff --git a/lib/Makefile b/lib/Makefile
-index a7c26a4..dda4039 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -43,6 +43,7 @@ obj-$(CONFIG_TEST_USER_COPY) += test_user_copy.o
- obj-$(CONFIG_TEST_STATIC_KEYS) += test_static_keys.o
- obj-$(CONFIG_TEST_STATIC_KEYS) += test_static_key_base.o
- obj-$(CONFIG_TEST_PRINTF) += test_printf.o
-+obj-$(CONFIG_TEST_BITMAP) += test_bitmap.o
- 
- ifeq ($(CONFIG_DEBUG_KOBJECT),y)
- CFLAGS_kobject.o += -DDEBUG
-diff --git a/lib/test_bitmap.c b/lib/test_bitmap.c
-new file mode 100644
-index 0000000..e2cbd43
---- /dev/null
-+++ b/lib/test_bitmap.c
-@@ -0,0 +1,358 @@
-+/*
-+ * Test cases for printf facility.
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/bitmap.h>
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/printk.h>
-+#include <linux/slab.h>
-+#include <linux/string.h>
-+
-+static unsigned total_tests __initdata;
-+static unsigned failed_tests __initdata;
-+
-+static char pbl_buffer[PAGE_SIZE] __initdata;
-+
-+
-+static bool __init
-+__check_eq_uint(const char *srcfile, unsigned int line,
-+		const unsigned int exp_uint, unsigned int x)
-+{
-+	if (exp_uint != x) {
-+		pr_warn("[%s:%u] expected %u, got %u\n",
-+			srcfile, line, exp_uint, x);
-+		return false;
-+	}
-+	return true;
-+}
-+
-+
-+static bool __init
-+__check_eq_bitmap(const char *srcfile, unsigned int line,
-+		  const unsigned long *exp_bmap, unsigned int exp_nbits,
-+		  const unsigned long *bmap, unsigned int nbits)
-+{
-+	if (exp_nbits != nbits) {
-+		pr_warn("[%s:%u] bitmap length mismatch: expected %u, got %u\n",
-+			srcfile, line, exp_nbits, nbits);
-+		return false;
-+	}
-+
-+	if (!bitmap_equal(exp_bmap, bmap, nbits)) {
-+		pr_warn("[%s:%u] bitmaps contents differ: expected \"%*pbl\", got \"%*pbl\"\n",
-+			srcfile, line,
-+			exp_nbits, exp_bmap, nbits, bmap);
-+		return false;
-+	}
-+	return true;
-+}
-+
-+static bool __init
-+__check_eq_pbl(const char *srcfile, unsigned int line,
-+	       const char *expected_pbl,
-+	       const unsigned long *bitmap, unsigned int nbits)
-+{
-+	snprintf(pbl_buffer, sizeof(pbl_buffer), "%*pbl", nbits, bitmap);
-+	if (strcmp(expected_pbl, pbl_buffer)) {
-+		pr_warn("[%s:%u] expected \"%s\", got \"%s\"\n",
-+			srcfile, line,
-+			expected_pbl, pbl_buffer);
-+		return false;
-+	}
-+	return true;
-+}
-+
-+static bool __init
-+__check_eq_u32_array(const char *srcfile, unsigned int line,
-+		     const u32 *exp_arr, unsigned int exp_len,
-+		     const u32 *arr, unsigned int len)
-+{
-+	if (exp_len != len) {
-+		pr_warn("[%s:%u] array length differ: expected %u, got %u\n",
-+			srcfile, line,
-+			exp_len, len);
-+		return false;
-+	}
-+
-+	if (memcmp(exp_arr, arr, len*sizeof(*arr))) {
-+		pr_warn("[%s:%u] array contents differ\n", srcfile, line);
-+		print_hex_dump(KERN_WARNING, "  exp:  ", DUMP_PREFIX_OFFSET,
-+			       32, 4, exp_arr, exp_len*sizeof(*exp_arr), false);
-+		print_hex_dump(KERN_WARNING, "  got:  ", DUMP_PREFIX_OFFSET,
-+			       32, 4, arr, len*sizeof(*arr), false);
-+		return false;
-+	}
-+
-+	return true;
-+}
-+
-+#define __expect_eq(suffix, ...)					\
-+	({								\
-+		int result = 0;						\
-+		total_tests++;						\
-+		if (!__check_eq_ ## suffix(__FILE__, __LINE__,		\
-+					   ##__VA_ARGS__)) {		\
-+			failed_tests++;					\
-+			result = 1;					\
-+		}							\
-+		result;							\
-+	})
-+
-+#define expect_eq_uint(...)		__expect_eq(uint, ##__VA_ARGS__)
-+#define expect_eq_bitmap(...)		__expect_eq(bitmap, ##__VA_ARGS__)
-+#define expect_eq_pbl(...)		__expect_eq(pbl, ##__VA_ARGS__)
-+#define expect_eq_u32_array(...)	__expect_eq(u32_array, ##__VA_ARGS__)
-+
-+static void __init test_zero_fill_copy(void)
-+{
-+	DECLARE_BITMAP(bmap1, 1024);
-+	DECLARE_BITMAP(bmap2, 1024);
-+
-+	bitmap_zero(bmap1, 1024);
-+	bitmap_zero(bmap2, 1024);
-+
-+	/* single-word bitmaps */
-+	expect_eq_pbl("", bmap1, 23);
-+
-+	bitmap_fill(bmap1, 19);
-+	expect_eq_pbl("0-18", bmap1, 1024);
-+
-+	bitmap_copy(bmap2, bmap1, 23);
-+	expect_eq_pbl("0-18", bmap2, 1024);
-+
-+	bitmap_fill(bmap2, 23);
-+	expect_eq_pbl("0-22", bmap2, 1024);
-+
-+	bitmap_copy(bmap2, bmap1, 23);
-+	expect_eq_pbl("0-18", bmap2, 1024);
-+
-+	bitmap_zero(bmap1, 23);
-+	expect_eq_pbl("", bmap1, 1024);
-+
-+	/* multi-word bitmaps */
-+	bitmap_zero(bmap1, 1024);
-+	expect_eq_pbl("", bmap1, 1024);
-+
-+	bitmap_fill(bmap1, 109);
-+	expect_eq_pbl("0-108", bmap1, 1024);
-+
-+	bitmap_copy(bmap2, bmap1, 1024);
-+	expect_eq_pbl("0-108", bmap2, 1024);
-+
-+	bitmap_fill(bmap2, 1024);
-+	expect_eq_pbl("0-1023", bmap2, 1024);
-+
-+	bitmap_copy(bmap2, bmap1, 1024);
-+	expect_eq_pbl("0-108", bmap2, 1024);
-+
-+	/* the following tests assume a 32- or 64-bit arch (even 128b
-+	 * if we care)
-+	 */
-+
-+	bitmap_fill(bmap2, 1024);
-+	bitmap_copy(bmap2, bmap1, 109);  /* ... but 0-padded til word length */
-+	expect_eq_pbl("0-108,128-1023", bmap2, 1024);
-+
-+	bitmap_fill(bmap2, 1024);
-+	bitmap_copy(bmap2, bmap1, 97);  /* ... but aligned on word length */
-+	expect_eq_pbl("0-108,128-1023", bmap2, 1024);
-+
-+	bitmap_zero(bmap2, 97);  /* ... but 0-padded til word length */
-+	expect_eq_pbl("128-1023", bmap2, 1024);
-+}
-+
-+static void __init test_bitmap_u32_array_conversions(void)
-+{
-+	DECLARE_BITMAP(bmap1, 1024);
-+	DECLARE_BITMAP(bmap2, 1024);
-+	u32 exp_arr[32], arr[32];
-+	unsigned nbits;
-+
-+	for (nbits = 0 ; nbits < 257 ; ++nbits) {
-+		const unsigned int used_u32s = DIV_ROUND_UP(nbits, 32);
-+		unsigned int i, rv;
-+
-+		bitmap_zero(bmap1, nbits);
-+		bitmap_set(bmap1, nbits, 1024 - nbits);  /* garbage */
-+
-+		memset(arr, 0xff, sizeof(arr));
-+		rv = bitmap_to_u32array(arr, used_u32s, bmap1, nbits);
-+		expect_eq_uint(nbits, rv);
-+
-+		memset(exp_arr, 0xff, sizeof(exp_arr));
-+		memset(exp_arr, 0, used_u32s*sizeof(*exp_arr));
-+		expect_eq_u32_array(exp_arr, 32, arr, 32);
-+
-+		bitmap_fill(bmap2, 1024);
-+		rv = bitmap_from_u32array(bmap2, nbits, arr, used_u32s);
-+		expect_eq_uint(nbits, rv);
-+		expect_eq_bitmap(bmap1, 1024, bmap2, 1024);
-+
-+		for (i = 0 ; i < nbits ; ++i) {
-+			/*
-+			 * test conversion bitmap -> u32[]
-+			 */
-+
-+			bitmap_zero(bmap1, 1024);
-+			__set_bit(i, bmap1);
-+			bitmap_set(bmap1, nbits, 1024 - nbits);  /* garbage */
-+
-+			memset(arr, 0xff, sizeof(arr));
-+			rv = bitmap_to_u32array(arr, used_u32s, bmap1, nbits);
-+			expect_eq_uint(nbits, rv);
-+
-+			/* 1st used u32 words contain expected bit set, the
-+			 * remaining words are left unchanged (0xff)
-+			 */
-+			memset(exp_arr, 0xff, sizeof(exp_arr));
-+			memset(exp_arr, 0, used_u32s*sizeof(*exp_arr));
-+			exp_arr[i/32] = (1U<<(i%32));
-+			expect_eq_u32_array(exp_arr, 32, arr, 32);
-+
-+
-+			/* same, with longer array to fill
-+			 */
-+			memset(arr, 0xff, sizeof(arr));
-+			rv = bitmap_to_u32array(arr, 32, bmap1, nbits);
-+			expect_eq_uint(nbits, rv);
-+
-+			/* 1st used u32 words contain expected bit set, the
-+			 * remaining words are all 0s
-+			 */
-+			memset(exp_arr, 0, sizeof(exp_arr));
-+			exp_arr[i/32] = (1U<<(i%32));
-+			expect_eq_u32_array(exp_arr, 32, arr, 32);
-+
-+			/*
-+			 * test conversion u32[] -> bitmap
-+			 */
-+
-+			/* the 1st nbits of bmap2 are identical to
-+			 * bmap1, the remaining bits of bmap2 are left
-+			 * unchanged (all 1s)
-+			 */
-+			bitmap_fill(bmap2, 1024);
-+			rv = bitmap_from_u32array(bmap2, nbits,
-+						  exp_arr, used_u32s);
-+			expect_eq_uint(nbits, rv);
-+
-+			expect_eq_bitmap(bmap1, 1024, bmap2, 1024);
-+
-+			/* same, with more bits to fill
-+			 */
-+			memset(arr, 0xff, sizeof(arr));  /* garbage */
-+			memset(arr, 0, used_u32s*sizeof(u32));
-+			arr[i/32] = (1U<<(i%32));
-+
-+			bitmap_fill(bmap2, 1024);
-+			rv = bitmap_from_u32array(bmap2, 1024, arr, used_u32s);
-+			expect_eq_uint(used_u32s*32, rv);
-+
-+			/* the 1st nbits of bmap2 are identical to
-+			 * bmap1, the remaining bits of bmap2 are cleared
-+			 */
-+			bitmap_zero(bmap1, 1024);
-+			__set_bit(i, bmap1);
-+			expect_eq_bitmap(bmap1, 1024, bmap2, 1024);
-+
-+
-+			/*
-+			 * test short conversion bitmap -> u32[] (1
-+			 * word too short)
-+			 */
-+			if (used_u32s > 1) {
-+				bitmap_zero(bmap1, 1024);
-+				__set_bit(i, bmap1);
-+				bitmap_set(bmap1, nbits,
-+					   1024 - nbits);  /* garbage */
-+				memset(arr, 0xff, sizeof(arr));
-+
-+				rv = bitmap_to_u32array(arr, used_u32s - 1,
-+							bmap1, nbits);
-+				expect_eq_uint((used_u32s - 1)*32, rv);
-+
-+				/* 1st used u32 words contain expected
-+				 * bit set, the remaining words are
-+				 * left unchanged (0xff)
-+				 */
-+				memset(exp_arr, 0xff, sizeof(exp_arr));
-+				memset(exp_arr, 0,
-+				       (used_u32s-1)*sizeof(*exp_arr));
-+				if ((i/32) < (used_u32s - 1))
-+					exp_arr[i/32] = (1U<<(i%32));
-+				expect_eq_u32_array(exp_arr, 32, arr, 32);
-+			}
-+
-+			/*
-+			 * test short conversion u32[] -> bitmap (3
-+			 * bits too short)
-+			 */
-+			if (nbits > 3) {
-+				memset(arr, 0xff, sizeof(arr));  /* garbage */
-+				memset(arr, 0, used_u32s*sizeof(*arr));
-+				arr[i/32] = (1U<<(i%32));
-+
-+				bitmap_zero(bmap1, 1024);
-+				rv = bitmap_from_u32array(bmap1, nbits - 3,
-+							  arr, used_u32s);
-+				expect_eq_uint(nbits - 3, rv);
-+
-+				/* we are expecting the bit < nbits -
-+				 * 3 (none otherwise), and the rest of
-+				 * bmap1 unchanged (0-filled)
-+				 */
-+				bitmap_zero(bmap2, 1024);
-+				if (i < nbits - 3)
-+					__set_bit(i, bmap2);
-+				expect_eq_bitmap(bmap2, 1024, bmap1, 1024);
-+
-+				/* do the same with bmap1 initially
-+				 * 1-filled
-+				 */
-+
-+				bitmap_fill(bmap1, 1024);
-+				rv = bitmap_from_u32array(bmap1, nbits - 3,
-+							 arr, used_u32s);
-+				expect_eq_uint(nbits - 3, rv);
-+
-+				/* we are expecting the bit < nbits -
-+				 * 3 (none otherwise), and the rest of
-+				 * bmap1 unchanged (1-filled)
-+				 */
-+				bitmap_zero(bmap2, 1024);
-+				if (i < nbits - 3)
-+					__set_bit(i, bmap2);
-+				bitmap_set(bmap2, nbits-3, 1024 - nbits + 3);
-+				expect_eq_bitmap(bmap2, 1024, bmap1, 1024);
-+			}
-+		}
-+	}
-+}
-+
-+static int __init test_bitmap_init(void)
-+{
-+	test_zero_fill_copy();
-+	test_bitmap_u32_array_conversions();
-+
-+	if (failed_tests == 0)
-+		pr_info("all %u tests passed\n", total_tests);
-+	else
-+		pr_warn("failed %u out of %u tests\n",
-+			failed_tests, total_tests);
-+
-+	return failed_tests ? -EINVAL : 0;
-+}
-+
-+static void __exit test_bitmap_cleanup(void)
-+{
-+}
-+
-+module_init(test_bitmap_init);
-+module_exit(test_bitmap_cleanup);
-+
-+MODULE_AUTHOR("david decotigny <david.decotigny@googlers.com>");
-+MODULE_LICENSE("GPL");
-diff --git a/tools/testing/selftests/lib/Makefile b/tools/testing/selftests/lib/Makefile
-index 47147b9..0836006 100644
---- a/tools/testing/selftests/lib/Makefile
-+++ b/tools/testing/selftests/lib/Makefile
-@@ -3,6 +3,6 @@
- # No binaries, but make sure arg-less "make" doesn't trigger "run_tests"
- all:
- 
--TEST_PROGS := printf.sh
-+TEST_PROGS := printf.sh bitmap.sh
- 
- include ../lib.mk
-diff --git a/tools/testing/selftests/lib/bitmap.sh b/tools/testing/selftests/lib/bitmap.sh
-new file mode 100755
-index 0000000..2da187b
---- /dev/null
-+++ b/tools/testing/selftests/lib/bitmap.sh
-@@ -0,0 +1,10 @@
-+#!/bin/sh
-+# Runs bitmap infrastructure tests using test_bitmap kernel module
-+
-+if /sbin/modprobe -q test_bitmap; then
-+	/sbin/modprobe -q -r test_bitmap
-+	echo "bitmap: ok"
-+else
-+	echo "bitmap: [FAIL]"
-+	exit 1
-+fi
 -- 
 1.8.3.1
