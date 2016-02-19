@@ -1,31 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 10/16] i40e: add check for null VSI
-Date: Fri, 19 Feb 2016 15:57:05 -0500 (EST)
-Message-ID: <20160219.155705.1326687085404730718.davem@davemloft.net>
-References: <20160219.144117.1906425963316380038.davem@davemloft.net>
-	<1455911339.3016.7.camel@intel.com>
-	<49FCCD093EDAFE45B73804AC3C1112E52E5CFF@ORSMSX116.amr.corp.intel.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v1 1/4] net: ti: netcp: restore get/set_pad_info() functionality
+Date: Fri, 19 Feb 2016 21:59:05 +0100
+Message-ID: <3483781.SODp7Sjq4b@wuerfel>
+References: <1455824777-15571-1-git-send-email-m-karicheri2@ti.com> <7111317.k6f7A38a4k@wuerfel> <56C75897.5080103@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: johnx.underwood@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38400 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2993747AbcBSU5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 15:57:07 -0500
-In-Reply-To: <49FCCD093EDAFE45B73804AC3C1112E52E5CFF@ORSMSX116.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Murali Karicheri <m-karicheri2@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56C75897.5080103@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Underwood, JohnX" <johnx.underwood@intel.com>
-Date: Fri, 19 Feb 2016 19:51:39 +0000
+On Friday 19 February 2016 13:01:59 Murali Karicheri wrote:
+> > 
+> I have just send v2. I will investigate your original patch that added
+> regression this afternoon and respond with my observation as soon as
+> my investigation is complete.
 
-> Sorry, folks.  I was confused.  The patch looked familiar, but I
-> wasn't able to find the email where I originally sent it out.
+Thanks.
 
-Please stop top-posting!!!!
+> I assume, you are trying to make the change
+> such that the virtual pointers stored in sw_data/pad works across
+> 32bit and 64bit machine, right? 
 
-Quote the relevant material, then add your response, not the other way around!
+Yes, that was the idea. The way I intended it, pointers were supposed
+to always get stored in a pair of swdata fields and take up 64 bits,
+independent of the architecture.
+
+	Arnd
