@@ -1,93 +1,180 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable outer Tx checksum by default
-Date: Fri, 19 Feb 2016 13:53:05 -0800
-Message-ID: <CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
-References: <20160219191806.15687.37621.stgit@localhost.localdomain>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH V7 6/8] i40e: queue-specific settings for interrupt
+ moderation
+Date: Fri, 19 Feb 2016 13:54:24 -0800
+Message-ID: <1455918864.3016.38.camel@intel.com>
+References: <1455891846-12271-1-git-send-email-kan.liang@intel.com>
+	 <1455891846-12271-7-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: Alexander Duyck <aduyck@mirantis.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-oEXg0doaaZnBrUZ5psDQ"
+Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, f.fainelli@gmail.com,
+	alexander.duyck@gmail.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, mitch.a.williams@intel.com,
+	ogerlitz@mellanox.com, edumazet@google.com, jiri@mellanox.com,
+	sfeldma@gmail.com, gospo@cumulusnetworks.com,
+	sasha.levin@oracle.com, dsahern@gmail.com, tj@kernel.org,
+	cascardo@redhat.com, corbet@lwn.net, decot@googlers.com
+To: Kan Liang <kan.liang@intel.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, bwh@kernel.org, ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:54112 "EHLO mail.kernel.org"
+Received: from mga09.intel.com ([134.134.136.24]:30205 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030331AbcBSVxW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2016 16:53:22 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id CDA09204B0
-	for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 21:53:21 +0000 (UTC)
-Received: from mail-qk0-f175.google.com (mail-qk0-f175.google.com [209.85.220.175])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 35E1B20504
-	for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 21:53:20 +0000 (UTC)
-Received: by mail-qk0-f175.google.com with SMTP id x1so36321562qkc.1
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 13:53:20 -0800 (PST)
-In-Reply-To: <20160219191806.15687.37621.stgit@localhost.localdomain>
+	id S1030346AbcBSVy0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Feb 2016 16:54:26 -0500
+In-Reply-To: <1455891846-12271-7-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 19, 2016 at 11:26 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> This patch series makes it so that we enable the outer Tx checksum for IPv4
-> tunnels by default.  This makes the behavior consistent with how we were
-> handling this for IPv6.  In addition I have updated the internal flags for
-> these tunnels so that we use a ZERO_CSUM_TX flag for IPv4 which should
-> match up will with the ZERO_CSUM6_TX flag which was already in use for
-> IPv6.
->
-> For most network devices this should be a net gain in terms of performance
-> as having the outer header checksum present allows for devices to report
-> CHECKSUM_UNNECESSARY which we can then convert to CHECKSUM_COMPLETE in order
-> to determine if the inner header checksum is valid.
->
-> Below is some data I collected with ixgbe with an X540 that demonstrates
-> this.  I located two PFs connected back to back in two different name
-> spaces and then setup a pair of tunnels on each, one with checksum enabled
-> and one without.
->
-> Recv   Send    Send                          Utilization
-> Socket Socket  Message  Elapsed              Send
-> Size   Size    Size     Time     Throughput  local
-> bytes  bytes   bytes    secs.    10^6bits/s  % S
->
-> noudpcsum:
->  87380  16384  16384    30.00      8898.67   12.80
-> udpcsum:
->  87380  16384  16384    30.00      9088.47   5.69
->
-> The one spot where this may cause a performance regression is if the
-> environment contains devices that can parse the inner headers and a device
-> supports NETIF_F_GSO_UDP_TUNNEL but not NETIF_F_GSO_UDP_TUNNEL_CSUM.  In
-> the case of such a device we have to fall back to using GSO to segment the
-> tunnel instead of TSO and as a result we may take a performance hit as seen
-> below with i40e.
 
-Do you have any numbers from 40G links? Obviously, at 10G the links
-are basically saturated and while I can see a difference in the
-utilization rate, I suspect that the change will be much more apparent
-at higher speeds.
+--=-oEXg0doaaZnBrUZ5psDQ
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: base64
 
-I'm concerned about the drop in performance for devices that currently
-support offloads (almost none of which expose
-NETIF_F_GSO_UDP_TUNNEL_CSUM as a feature). Presumably the people that
-care most about tunnel performance are the ones that already have
-these NICs and will be the most impacted by the drop.
+T24gRnJpLCAyMDE2LTAyLTE5IGF0IDA5OjI0IC0wNTAwLCBLYW4gTGlhbmcgd3JvdGU6Cj4gRnJv
+bTogS2FuIExpYW5nIDxrYW4ubGlhbmdAaW50ZWwuY29tPgo+IAo+IEZvciBpNDBlIGRyaXZlciwg
+ZWFjaCB2ZWN0b3IgaGFzIGl0cyBvd24gSVRSIHJlZ2lzdGVyLiBIb3dldmVyLCB0aGVyZQo+IGFy
+ZSBubyBjb25jZXB0IG9mIHF1ZXVlLXNwZWNpZmljIHNldHRpbmdzIGluIHRoZSBkcml2ZXIgcHJv
+cGVyLiBPbmx5Cj4gZ2xvYmFsIHZhcmlhYmxlIGlzIHVzZWQgdG8gc3RvcmUgSVRSIHZhbHVlcy4g
+VGhhdCB3aWxsIGNhdXNlIHByb2JsZW1zCj4gZXNwZWNpYWxseSB3aGVuIHJlc2V0dGluZyB0aGUg
+dmVjdG9yLiBUaGUgc3BlY2lmaWMgSVRSIHZhbHVlcyBjb3VsZAo+IGJlCj4gbG9zdC4KPiBUaGlz
+IHBhdGNoIG1vdmUgcnhfaXRyX3NldHRpbmcgYW5kIHR4X2l0cl9zZXR0aW5nIHRvIGk0MGVfcmlu
+ZyB0bwo+IHN0b3JlCj4gc3BlY2lmaWMgSVRSIHJlZ2lzdGVyIGZvciBlYWNoIHF1ZXVlLgo+IGk0
+MGVfZ2V0X2NvYWxlc2NlIGFuZCBpNDBlX3NldF9jb2FsZXNjZSBhcmUgYWxzbyBtb2RpZmllZCBh
+Y2NvcmRpbmdseQo+IHRvCj4gc3VwcG9ydCBxdWV1ZS1zcGVjaWZpYyBzZXR0aW5ncy4gVG8gbWFr
+ZSBpdCBjb21wYXRpYmxlIHdpdGggb2xkCj4gZXRodG9vbCwKPiBpZiB1c2VyIGRvZXNuJ3Qgc3Bl
+Y2lmeSB0aGUgcXVldWUgbnVtYmVyLCBpNDBlX2dldF9jb2FsZXNjZSB3aWxsCj4gcmV0dXJuCj4g
+cXVldWUgMCdzIHZhbHVlLiBXaGlsZSBpNDBlX3NldF9jb2FsZXNjZSB3aWxsIGFwcGx5IHZhbHVl
+IHRvIGFsbAo+IHF1ZXVlcy4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBLYW4gTGlhbmcgPGthbi5saWFu
+Z0BpbnRlbC5jb20+Cj4gQWNrZWQtYnk6IFNoYW5ub24gTmVsc29uIDxzaGFubm9uLm5lbHNvbkBp
+bnRlbC5jb20+CgpBY2tlZC1ieTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRl
+bC5jb20+CgpUaGVyZSBpcyBvbmUgbWlub3Igbml0cGljayBub3RlZCBiZWxvdywgYnV0IHRoYXQg
+c2hvdWxkIG5vdCBob2xkIHVwCnRoaXMgcGF0Y2guCgo+IC0tLQo+IMKgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvaW50ZWwvaTQwZS9pNDBlLmjCoMKgwqDCoMKgwqDCoMKgIHzCoMKgIDcgLS0KPiDCoGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV9kZWJ1Z2ZzLmMgfMKgIDE1ICsrLQo+
+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX2V0aHRvb2wuYyB8IDEzOQo+
+ICsrKysrKysrKysrKysrKystLS0tLS0tLS0KPiDCoGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2k0MGUvaTQwZV9tYWluLmPCoMKgwqAgfMKgIDEyICstLQo+IMKgZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvaW50ZWwvaTQwZS9pNDBlX3R4cnguY8KgwqDCoCB8wqDCoCA5ICstCj4gwqBkcml2ZXJzL25l
+dC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfdHhyeC5owqDCoMKgIHzCoMKgIDggKysKPiDCoDYg
+ZmlsZXMgY2hhbmdlZCwgMTIwIGluc2VydGlvbnMoKyksIDcwIGRlbGV0aW9ucygtKQo+IAo+IGRp
+ZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGUuaAo+IGIvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlLmgKPiBpbmRleCBlOTliZTlmLi4yZjYy
+MTBhIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZS5o
+Cj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlLmgKPiBAQCAtNTIx
+LDEzICs1MjEsNiBAQCBzdHJ1Y3QgaTQwZV92c2kgewo+IMKgwqDCoMKgwqDCoMKgwqBzdHJ1Y3Qg
+aTQwZV9yaW5nICoqdHhfcmluZ3M7Cj4gwqAKPiDCoMKgwqDCoMKgwqDCoMKgdTE2IHdvcmtfbGlt
+aXQ7Cj4gLcKgwqDCoMKgwqDCoMKgLyogaGlnaCBiaXQgc2V0IG1lYW5zIGR5bmFtaWMsIHVzZSBh
+Y2Nlc3NvciByb3V0aW5lcyB0bwo+IHJlYWQvd3JpdGUuCj4gLcKgwqDCoMKgwqDCoMKgICogaGFy
+ZHdhcmUgb25seSBzdXBwb3J0cyAydXMgcmVzb2x1dGlvbiBmb3IgdGhlIElUUgo+IHJlZ2lzdGVy
+cy4KPiAtwqDCoMKgwqDCoMKgwqAgKiB0aGVzZSB2YWx1ZXMgYWx3YXlzIHN0b3JlIHRoZSBVU0VS
+IHNldHRpbmcsIGFuZCBtdXN0IGJlCj4gY29udmVydGVkCj4gLcKgwqDCoMKgwqDCoMKgICogYmVm
+b3JlIHByb2dyYW1taW5nIHRvIGEgcmVnaXN0ZXIuCj4gLcKgwqDCoMKgwqDCoMKgICovCj4gLcKg
+wqDCoMKgwqDCoMKgdTE2IHJ4X2l0cl9zZXR0aW5nOwo+IC3CoMKgwqDCoMKgwqDCoHUxNiB0eF9p
+dHJfc2V0dGluZzsKPiDCoMKgwqDCoMKgwqDCoMKgdTE2IGludF9yYXRlX2xpbWl0O8KgIC8qIHZh
+bHVlIGluIHVzZWNzICovCj4gwqAKPiDCoMKgwqDCoMKgwqDCoMKgdTE2IHJzc190YWJsZV9zaXpl
+OyAvKiBIVyBSU1MgdGFibGUgc2l6ZSAqLwo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9pbnRlbC9pNDBlL2k0MGVfZGVidWdmcy5jCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9p
+bnRlbC9pNDBlL2k0MGVfZGVidWdmcy5jCj4gaW5kZXggMmE0NGYyZS4uMGM5NzczMyAxMDA2NDQK
+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfZGVidWdmcy5jCj4g
+KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX2RlYnVnZnMuYwo+IEBA
+IC0zMDIsNiArMzAyLDEwIEBAIHN0YXRpYyB2b2lkIGk0MGVfZGJnX2R1bXBfdnNpX3NlaWQoc3Ry
+dWN0Cj4gaTQwZV9wZiAqcGYsIGludCBzZWlkKQo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoCAiwqDCoMKgIHJ4X3JpbmdzWyVpXTogdnNpID0gJXAsIHFf
+dmVjdG9yID0KPiAlcFxuIiwKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqAgaSwgcnhfcmluZy0+dnNpLAo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoCByeF9yaW5nLT5xX3ZlY3Rvcik7Cj4gK8KgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoGRldl9pbmZvKCZwZi0+cGRldi0+ZGV2LAo+ICvCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgICLCoMKgwqAgcnhfcmluZ3NbJWld
+OiByeF9pdHJfc2V0dGluZyA9ICVkCj4gKCVzKVxuIiwKPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBpLCByeF9yaW5nLT5yeF9pdHJfc2V0dGluZywKPiAr
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBJVFJfSVNfRFlO
+QU1JQyhyeF9yaW5nLT5yeF9pdHJfc2V0dGluZykgPwo+ICJkeW5hbWljIiA6ICJmaXhlZCIpOwo+
+IMKgwqDCoMKgwqDCoMKgwqB9Cj4gwqDCoMKgwqDCoMKgwqDCoGZvciAoaSA9IDA7IGkgPCB2c2kt
+Pm51bV9xdWV1ZV9wYWlyczsgaSsrKSB7Cj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqBzdHJ1Y3QgaTQwZV9yaW5nICp0eF9yaW5nID0gQUNDRVNTX09OQ0UodnNpLQo+ID50eF9yaW5n
+c1tpXSk7Cj4gQEAgLTM1MiwxNCArMzU2LDE1IEBAIHN0YXRpYyB2b2lkIGk0MGVfZGJnX2R1bXBf
+dnNpX3NlaWQoc3RydWN0Cj4gaTQwZV9wZiAqcGYsIGludCBzZWlkKQo+IMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgZGV2X2luZm8oJnBmLT5wZGV2LT5kZXYsCj4gwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgICLCoMKgwqAgdHhfcmluZ3NbJWld
+OiBEQ0IgdGMgPSAlZFxuIiwKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqAgaSwgdHhfcmluZy0+ZGNiX3RjKTsKPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgZGV2X2luZm8oJnBmLT5wZGV2LT5kZXYsCj4gK8KgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgIsKgwqDCoCB0eF9yaW5nc1slaV06IHR4X2l0cl9z
+ZXR0aW5nID0gJWQKPiAoJXMpXG4iLAo+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgIGksIHR4X3JpbmctPnR4X2l0cl9zZXR0aW5nLAo+ICvCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIElUUl9JU19EWU5BTUlDKHR4X3Jp
+bmctPnR4X2l0cl9zZXR0aW5nKSA/Cj4gImR5bmFtaWMiIDogImZpeGVkIik7Cj4gwqDCoMKgwqDC
+oMKgwqDCoH0KPiDCoMKgwqDCoMKgwqDCoMKgcmN1X3JlYWRfdW5sb2NrKCk7Cj4gwqDCoMKgwqDC
+oMKgwqDCoGRldl9pbmZvKCZwZi0+cGRldi0+ZGV2LAo+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqAgIsKgwqDCoCB3b3JrX2xpbWl0ID0gJWQsIHJ4X2l0cl9zZXR0aW5nID0gJWQgKCVz
+KSwKPiB0eF9pdHJfc2V0dGluZyA9ICVkICglcylcbiIsCj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoCB2c2ktPndvcmtfbGltaXQsIHZzaS0+cnhfaXRyX3NldHRpbmcsCj4gLcKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBJVFJfSVNfRFlOQU1JQyh2c2ktPnJ4X2l0cl9zZXR0
+aW5nKSA/ICJkeW5hbWljIiA6Cj4gImZpeGVkIiwKPiAtwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgIHZzaS0+dHhfaXRyX3NldHRpbmcsCj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoCBJVFJfSVNfRFlOQU1JQyh2c2ktPnR4X2l0cl9zZXR0aW5nKSA/ICJkeW5hbWljIiA6Cj4g
+ImZpeGVkIik7Cj4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCAiwqDCoMKgIHdvcmtf
+bGltaXQgPSAlZFxuIiwKPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHZzaS0+d29y
+a19saW1pdCk7Cj4gwqDCoMKgwqDCoMKgwqDCoGRldl9pbmZvKCZwZi0+cGRldi0+ZGV2LAo+IMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgICLCoMKgwqAgbWF4X2ZyYW1lID0gJWQsIHJ4
+X2hkcl9sZW4gPSAlZCwgcnhfYnVmX2xlbiA9Cj4gJWQgZHR5cGUgPSAlZFxuIiwKPiDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB2c2ktPm1heF9mcmFtZSwgdnNpLT5yeF9oZHJfbGVu
+LCB2c2ktPnJ4X2J1Zl9sZW4sCj4gdnNpLT5kdHlwZSk7Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV9ldGh0b29sLmMKPiBiL2RyaXZlcnMvbmV0L2V0
+aGVybmV0L2ludGVsL2k0MGUvaTQwZV9ldGh0b29sLmMKPiBpbmRleCBhODViYzk0Li5hNDcwNTk5
+IDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV9ldGh0
+b29sLmMKPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfZXRodG9v
+bC5jCj4gQEAgLTE4NzksOCArMTg3OSw5IEBAIHN0YXRpYyBpbnQgaTQwZV9zZXRfcGh5c19pZChz
+dHJ1Y3QgbmV0X2RldmljZQo+ICpuZXRkZXYsCj4gwqAgKiAxMjV1cyAoODAwMCBpbnRlcnJ1cHRz
+IHBlciBzZWNvbmQpID09IElUUig2MikKPiDCoCAqLwo+IMKgCj4gLXN0YXRpYyBpbnQgaTQwZV9n
+ZXRfY29hbGVzY2Uoc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwKPiAtwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHN0cnVjdCBldGh0b29sX2Nv
+YWxlc2NlICplYykKPiArc3RhdGljIGludCBfX2k0MGVfZ2V0X2NvYWxlc2NlKHN0cnVjdCBuZXRf
+ZGV2aWNlICpuZXRkZXYsCj4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqAgc3RydWN0IGV0aHRvb2xfY29hbGVzY2UgKmVjLAo+ICvCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIGlu
+dCBxdWV1ZSkKPiDCoHsKPiDCoMKgwqDCoMKgwqDCoMKgc3RydWN0IGk0MGVfbmV0ZGV2X3ByaXYg
+Km5wID0gbmV0ZGV2X3ByaXYobmV0ZGV2KTsKPiDCoMKgwqDCoMKgwqDCoMKgc3RydWN0IGk0MGVf
+dnNpICp2c2kgPSBucC0+dnNpOwo+IEBAIC0xODg4LDE0ICsxODg5LDI0IEBAIHN0YXRpYyBpbnQg
+aTQwZV9nZXRfY29hbGVzY2Uoc3RydWN0Cj4gbmV0X2RldmljZSAqbmV0ZGV2LAo+IMKgwqDCoMKg
+wqDCoMKgwqBlYy0+dHhfbWF4X2NvYWxlc2NlZF9mcmFtZXNfaXJxID0gdnNpLT53b3JrX2xpbWl0
+Owo+IMKgwqDCoMKgwqDCoMKgwqBlYy0+cnhfbWF4X2NvYWxlc2NlZF9mcmFtZXNfaXJxID0gdnNp
+LT53b3JrX2xpbWl0Owo+IMKgCj4gLcKgwqDCoMKgwqDCoMKgaWYgKElUUl9JU19EWU5BTUlDKHZz
+aS0+cnhfaXRyX3NldHRpbmcpKQo+ICvCoMKgwqDCoMKgwqDCoC8qIHJ4IGFuZCB0eCB1c2VjcyBo
+YXMgcGVyIHF1ZXVlIHZhbHVlLiBJZiB1c2VyIGRvZXNuJ3QKPiBzcGVjaWZ5IHRoZSBxdWV1ZSwK
+PiArwqDCoMKgwqDCoMKgwqAgKiByZXR1cm4gcXVldWUgMCdzIHZhbHVlIHRvIHJlcHJlc2VudC4K
+PiArwqDCoMKgwqDCoMKgwqAgKi8KPiArwqDCoMKgwqDCoMKgwqBpZiAocXVldWUgPCAwKSB7Cj4g
+K8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHF1ZXVlID0gMDsKPiArwqDCoMKgwqDCoMKg
+wqB9IGVsc2UgaWYgKHF1ZXVlID49IHZzaS0+bnVtX3F1ZXVlX3BhaXJzKSB7Cj4gK8KgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoHJldHVybiAtRUlOVkFMOwo+ICvCoMKgwqDCoMKgwqDCoH0K
+PiArCj4gK8KgwqDCoMKgwqDCoMKgaWYgKElUUl9JU19EWU5BTUlDKHZzaS0+cnhfcmluZ3NbcXVl
+dWVdLT5yeF9pdHJfc2V0dGluZykpCgpUaGUgY3VybHkgYnJhY2VzIGFyZSBub3QgbmVlZGVkIGlu
+IHRoZSBhYm92ZSBpZi9lbHNlIGlmIHN0YXRlbWVudC4=
 
-My hope is that we can continue to use TSO on devices that only
-support NETIF_F_GSO_UDP_TUNNEL. The main problem is that the UDP
-length field may vary across segments. However, in practice this is
-the only on the final segment and only in cases where the total length
-is not a multiple of the MSS. If we could detect cases where those
-conditions are met, we could continue to use TSO with the UDP checksum
-field pre-populated. A possible step even further would be to break
-off the final segment into a separate packet to make things conform if
-necessary. This would avoid a performance regression and I think make
-this more palatable to a lot of people.
 
-> I also haven't investigated the effect this will have on OVS.  However I
-> suspect the impact should be minimal as the worst case scenario should be
-> that Tx checksumming will become enabled by default which should be
-> consistent with the existing behavior for IPv6.
+--=-oEXg0doaaZnBrUZ5psDQ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-I don't think that it should cause any problems.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAABCgAGBQJWx48QAAoJEOVv75VaS+3O5zQP/2nVwVyNUz9j1qVRFB+KpXm4
+o3i8vSvFoWpfCqw/NtphxSA1w871vyBcTQ9lo8zgCg79bwF+F7TWa2kTQx1r/j3t
+m+mpz+tw4IjJJP6CfZ85/lsVUKC5YZz7MT9sczQMHsTAnPz4mXGa5KpL6TvVYvy3
+jZjBFwnL91hJUq1YCFev5iSJ8OpPlaqcFOXFBW6xSp9GHP1osC5dJbGKl+NTs0Ao
+77kjIYKpjQ6sZQ9AT//g+t+tBSPA57OJqsnU+iVduv+9fdJl0FpNiAlQnqc+BHnF
+JLg/szZUcGt/x76JSWkEiBvHR6gw8R16nGDw+RH/kfrHNasC5u/lebnKqC/vAaXt
+xQjnBXUhMgBNyixcxIVqld+n5dAbZ1OTkMhL7WHA7+jTFka9O+K5SXIReBgCDNfH
+/LzNkV74xIJRIkvEVffItyZA4rstvIjY1j8eDeri7YVxyeXxgqWKP5pFh7alswrZ
+KfOYplxpEzXiHBYbkeZAtMn3WL5CkEDOSrrzjVabQC2+aXyLGoWIE4N4hyKPpwXg
+IFTqWq/0+ubY7n/Upu1qy2Y7v4RwI07/aI95fMIlkxtGaMGd82npWUFBvTM27Zq3
+uhcAf9hHt6mIVV0HOWRCbinTkc8gx0H2KzEl4lC7qD/jujNoeu6gAJxdU92PJbJT
+Ty+PlpXjCCVnq7PLfYY3
+=jiQJ
+-----END PGP SIGNATURE-----
+
+--=-oEXg0doaaZnBrUZ5psDQ--
