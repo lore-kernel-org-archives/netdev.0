@@ -1,65 +1,58 @@
-From: "Dmitry V. Levin" <ldv@altlinux.org>
-Subject: [PATCH] unix_diag: fix incorrect sign extension in unix_lookup_by_ino
-Date: Fri, 19 Feb 2016 04:27:48 +0300
-Message-ID: <20160219012748.GA17251@altlinux.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] net: fix bridge multicast packet checksum
+	validation
+Date: Thu, 18 Feb 2016 17:38:25 -0800
+Message-ID: <20160218173825.3dca8d27@xeon-e3>
+References: <1455502026-23144-1-git-send-email-linus.luessing@c0d3.blue>
+	<20160218.153542.67284853154438064.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@parallels.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pegasus3.altlinux.org ([194.107.17.103]:54429 "EHLO
-	pegasus3.altlinux.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1947436AbcBSB1u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 20:27:50 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, sgunderson@bigfoot.com, tom@herbertland.com
+To: David Miller <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160218.153542.67284853154438064.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-The value passed by unix_diag_get_exact to unix_lookup_by_ino has type
-__u32, but unix_lookup_by_ino's argument ino has type int, which is not
-a problem yet.
-However, when ino is compared with sock_i_ino return value of type
-unsigned long, ino is sign extended to signed long, and this results
-to incorrect comparison on 64-bit architectures for inode numbers
-greater than INT_MAX.
+On Thu, 18 Feb 2016 15:35:42 -0500 (EST)
+David Miller <davem@davemloft.net> wrote:
 
-This bug was found by strace test suite.
+> From: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+> Date: Mon, 15 Feb 2016 03:07:06 +0100
+>=20
+> > @@ -4084,10 +4089,22 @@ struct sk_buff *skb_checksum_trimmed(struct sk_=
+buff *skb,
+> >  	if (!pskb_may_pull(skb_chk, offset))
+> >  		goto err;
+> > =20
+> > -	__skb_pull(skb_chk, offset);
+> > +	ip_summed =3D skb->ip_summed;
+> > +	csum_valid =3D skb->csum_valid;
+> > +	csum_level =3D skb->csum_level;
+> > +	csum_bad =3D skb->csum_bad;
+> > +	csum =3D skb->csum;
+> > +
+> > +	skb_pull_rcsum(skb_chk, offset);
+> >  	ret =3D skb_chkf(skb_chk);
+> >  	__skb_push(skb_chk, offset);
+> > =20
+> > +	skb->ip_summed =3D ip_summed;
+> > +	skb->csum_valid =3D csum_valid;
+> > +	skb->csum_level =3D csum_level;
+> > +	skb->csum_bad =3D csum_bad;
+> > +	skb->csum =3D csum;
+> > +
+>=20
+> There really has to be a better way to fix this :-/
 
-Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
-Cc: <stable@vger.kernel.org>
----
- net/unix/diag.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/unix/diag.c b/net/unix/diag.c
-index c512f64..4d96797 100644
---- a/net/unix/diag.c
-+++ b/net/unix/diag.c
-@@ -220,23 +220,23 @@ done:
- 	return skb->len;
- }
- 
--static struct sock *unix_lookup_by_ino(int ino)
-+static struct sock *unix_lookup_by_ino(unsigned int ino)
- {
- 	int i;
- 	struct sock *sk;
- 
- 	spin_lock(&unix_table_lock);
- 	for (i = 0; i < ARRAY_SIZE(unix_socket_table); i++) {
- 		sk_for_each(sk, &unix_socket_table[i])
- 			if (ino == sock_i_ino(sk)) {
- 				sock_hold(sk);
- 				spin_unlock(&unix_table_lock);
- 
- 				return sk;
- 			}
- 	}
- 
- 	spin_unlock(&unix_table_lock);
- 	return NULL;
- }
- 
--- 
-ldv
+Agreed, this is gross.
