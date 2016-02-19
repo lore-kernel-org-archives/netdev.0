@@ -1,41 +1,65 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 3/3] net: netcp: rework the code for get/set sw_data in dma desc
-Date: Fri, 19 Feb 2016 23:25:11 +0100
-Message-ID: <4850949.nFTN7kbEd4@wuerfel>
-References: <1455904724-17952-1-git-send-email-m-karicheri2@ti.com> <3256728.DYdlef6xAF@wuerfel> <56C79585.1090905@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56C79585.1090905@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Douglas Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: [PATCH] Bluetooth: hci_core: Avoid mixing up req_complete and req_complete_skb
+Date: Fri, 19 Feb 2016 14:25:21 -0800
+Message-ID: <1455920722-20892-1-git-send-email-dianders@chromium.org>
+Cc: Douglas Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org,
+	johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johan Hedberg <johan.hedberg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 19 February 2016 17:21:57 Murali Karicheri wrote:
-> >>              get_pkt_info(&dma_buf, &tmp, &dma_desc, ndesc);
-> >> -            get_sw_data((u32 *)&buf_ptr, &buf_len, ndesc);
-> >> +            /* warning!!!! We are retrieving the virtual ptr in the sw_data
-> >> +             * field as a 32bit value. Will not work on 64bit machines
-> >> +             */
-> >> +            buf_ptr = (void *)GET_SW_DATA0(ndesc);
-> >> +            buf_len = (int)GET_SW_DATA1(desc);
-> > 
-> > I would have abstracted the retrieval of a pointer again,
-> > and added the comment in the helper function once, it doesn't
-> > really need to be duplicated everywhere.
-> > 
-> Arnd,
-> 
-> I thought about it to add it to the API. API currently set buffer
-> and ptr. It would be an issue only if store/retrieve ptr in/from the sw_data.
-> So for the comment to be really useful to someone who is changing the code,
-> doesn't it make sense to add it at the point of invocation as done in this
-> patch? No?
-> 
+In commit 44d271377479 ("Bluetooth: Compress the size of struct
+hci_ctrl") we squashed down the size of the structure by using a union
+with the assumption that all users would use the flag to determine
+whether we had a req_complete or a req_complete_skb.
 
-Up to you, it was just an idea and you have my Ack either way.
+Unfortunately we had a case in hci_req_cmd_complete() where we weren't
+looking at the flag.  This can result in a situation where we might be
+storing a hci_req_complete_skb_t in a hci_req_complete_t variable, or
+vice versa.
 
-	Arnd
+During some testing I found at least one case where the function
+hci_req_sync_complete() was called improperly because the kernel thought
+that it didn't require an SKB.  Looking through the stack in kgdb I
+found that it was called by hci_event_packet() and that
+hci_event_packet() had both of its locals "req_complete" and
+"req_complete_skb" pointing to the same place: both to
+hci_req_sync_complete().
+
+Let's make sure we always check the flag.
+
+For more details on debugging done, see <http://crbug.com/588288>.
+
+Fixes: 44d271377479 ("Bluetooth: Compress the size of struct hci_ctrl")
+Signed-off-by: Douglas Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+---
+Testing was done on a Chrome OS device on kernel 3.14 w/
+bluetooth-next backports.  Since I couldn't reliably reproduce the
+problem, I simply confirmed that existing functionality worked.
+
+ net/bluetooth/hci_core.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+index 541760fe53d4..9c0a6830ff92 100644
+--- a/net/bluetooth/hci_core.c
++++ b/net/bluetooth/hci_core.c
+@@ -4118,8 +4118,10 @@ void hci_req_cmd_complete(struct hci_dev *hdev, u16 opcode, u8 status,
+ 			break;
+ 		}
+ 
+-		*req_complete = bt_cb(skb)->hci.req_complete;
+-		*req_complete_skb = bt_cb(skb)->hci.req_complete_skb;
++		if (bt_cb(skb)->hci.req_flags & HCI_REQ_SKB)
++			*req_complete_skb = bt_cb(skb)->hci.req_complete_skb;
++		else
++			*req_complete = bt_cb(skb)->hci.req_complete;
+ 		kfree_skb(skb);
+ 	}
+ 	spin_unlock_irqrestore(&hdev->cmd_q.lock, flags);
+-- 
+2.7.0.rc3.207.g0ac5344
