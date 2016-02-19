@@ -1,106 +1,58 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/16] i40e: Expose some registers to program parser, FD and RSS logic
-Date: Fri, 19 Feb 2016 01:54:04 -0800
-Message-ID: <1455875651-21696-10-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1455875651-21696-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net-next 1/2] mpls: packet stats
+Date: Fri, 19 Feb 2016 09:57:47 +0000
+Message-ID: <56C6E71B.3080509@brocade.com>
+References: <1454700472-13543-1-git-send-email-rshearma@brocade.com>
+ <1454700472-13543-2-git-send-email-rshearma@brocade.com>
+ <20160216.104115.1576720778383292937.davem@davemloft.net>
+ <56C385E0.2000405@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <ebiederm@xmission.com>
+To: roopa <roopa@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:35306 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1427414AbcBSJyW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2016 04:54:22 -0500
-In-Reply-To: <1455875651-21696-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:56762 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1427374AbcBSJ6D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 04:58:03 -0500
+In-Reply-To: <56C385E0.2000405@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+On 16/02/16 20:26, roopa wrote:
+> On 2/16/16, 7:41 AM, David Miller wrote:
+>> Statistics not provided via netlink are useless in real installations.
+>>
+>> In fact I would say to forego the proc interface entirely, it's a second
+>> class citizen for statistics gathering and has a non-triviel per-device
+>> cost for instantiation.
+>>
+> +1
+>
+> I agree with the cost too.
+>
+> Robert, I was thinking of responding to your series to add netlink stats for AF_MPLS in
+>   rtnl_af_ops (similar to  IFLA_INET6_STATS). But, soon realized that it is currently used by ipv6 alone
+> and it also ended up with a skip filter (RTEXT_FILTER_SKIP_STATS). So, extending that interface for
+> mpls is not the right thing to do either.
 
-This patch adds 7 new register definitions for programming the
-parser, flow director and RSS blocks in the HW.
+ipv4 doesn't have per-interface stats, so the fact that it doesn't use 
+fill_link_af to export stats doesn't really add much to the argument.
 
-Change-ID: I31e76673125275f3c69a14c646361919d04dc987
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_register.h | 48 +++++++++++++++++++++++++
- 1 file changed, 48 insertions(+)
+The real issue with the IFLA_INET6_STATS mechanism is that they are 
+included in netlink broadcasts, not just netlink unicasts and there is 
+no way of filtering for broadcasts at the moment.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_register.h b/drivers/net/ethernet/intel/i40e/i40e_register.h
-index dc0402f..86ca27f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_register.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_register.h
-@@ -2045,6 +2045,14 @@
- #define I40E_PRTPM_TLPIC 0x001E43C0 /* Reset: GLOBR */
- #define I40E_PRTPM_TLPIC_ETLPIC_SHIFT 0
- #define I40E_PRTPM_TLPIC_ETLPIC_MASK I40E_MASK(0xFFFFFFFF, I40E_PRTPM_TLPIC_ETLPIC_SHIFT)
-+#define I40E_GL_PRS_FVBM(_i) (0x00269760 + ((_i) * 4)) /* _i=0...3 */ /* Reset: CORER */
-+#define I40E_GL_PRS_FVBM_MAX_INDEX 3
-+#define I40E_GL_PRS_FVBM_FV_BYTE_INDX_SHIFT 0
-+#define I40E_GL_PRS_FVBM_FV_BYTE_INDX_MASK I40E_MASK(0x7F, I40E_GL_PRS_FVBM_FV_BYTE_INDX_SHIFT)
-+#define I40E_GL_PRS_FVBM_RULE_BUS_INDX_SHIFT 8
-+#define I40E_GL_PRS_FVBM_RULE_BUS_INDX_MASK I40E_MASK(0x3F, I40E_GL_PRS_FVBM_RULE_BUS_INDX_SHIFT)
-+#define I40E_GL_PRS_FVBM_MSK_ENA_SHIFT 31
-+#define I40E_GL_PRS_FVBM_MSK_ENA_MASK I40E_MASK(0x1, I40E_GL_PRS_FVBM_MSK_ENA_SHIFT)
- #define I40E_GLRPB_DPSS 0x000AC828 /* Reset: CORER */
- #define I40E_GLRPB_DPSS_DPS_TCN_SHIFT 0
- #define I40E_GLRPB_DPSS_DPS_TCN_MASK I40E_MASK(0xFFFFF, I40E_GLRPB_DPSS_DPS_TCN_SHIFT)
-@@ -2216,6 +2224,14 @@
- #define I40E_PRTQF_FD_FLXINSET_MAX_INDEX 63
- #define I40E_PRTQF_FD_FLXINSET_INSET_SHIFT 0
- #define I40E_PRTQF_FD_FLXINSET_INSET_MASK I40E_MASK(0xFF, I40E_PRTQF_FD_FLXINSET_INSET_SHIFT)
-+#define I40E_PRTQF_FD_INSET(_i, _j) (0x00250000 + ((_i) * 64 + (_j) * 32)) /* _i=0...63, _j=0...1 */ /* Reset: CORER */
-+#define I40E_PRTQF_FD_INSET_MAX_INDEX 63
-+#define I40E_PRTQF_FD_INSET_INSET_SHIFT 0
-+#define I40E_PRTQF_FD_INSET_INSET_MASK I40E_MASK(0xFFFFFFFF, I40E_PRTQF_FD_INSET_INSET_SHIFT)
-+#define I40E_PRTQF_FD_INSET(_i, _j) (0x00250000 + ((_i) * 64 + (_j) * 32)) /* _i=0...63, _j=0...1 */ /* Reset: CORER */
-+#define I40E_PRTQF_FD_INSET_MAX_INDEX 63
-+#define I40E_PRTQF_FD_INSET_INSET_SHIFT 0
-+#define I40E_PRTQF_FD_INSET_INSET_MASK I40E_MASK(0xFFFFFFFF, I40E_PRTQF_FD_INSET_INSET_SHIFT)
- #define I40E_PRTQF_FD_MSK(_i, _j) (0x00252000 + ((_i) * 64 + (_j) * 32)) /* _i=0...63, _j=0...1 */ /* Reset: CORER */
- #define I40E_PRTQF_FD_MSK_MAX_INDEX 63
- #define I40E_PRTQF_FD_MSK_MASK_SHIFT 0
-@@ -5155,6 +5171,38 @@
- #define I40E_GLQF_FD_PCTYPES_MAX_INDEX 63
- #define I40E_GLQF_FD_PCTYPES_FD_PCTYPE_SHIFT 0
- #define I40E_GLQF_FD_PCTYPES_FD_PCTYPE_MASK I40E_MASK(0x3F, I40E_GLQF_FD_PCTYPES_FD_PCTYPE_SHIFT)
-+#define I40E_GLQF_FD_MSK(_i, _j) (0x00267200 + ((_i) * 4 + (_j) * 8)) /* _i=0...1, _j=0...63 */ /* Reset: CORER */
-+#define I40E_GLQF_FD_MSK_MAX_INDEX 1
-+#define I40E_GLQF_FD_MSK_MASK_SHIFT 0
-+#define I40E_GLQF_FD_MSK_MASK_MASK I40E_MASK(0xFFFF, I40E_GLQF_FD_MSK_MASK_SHIFT)
-+#define I40E_GLQF_FD_MSK_OFFSET_SHIFT 16
-+#define I40E_GLQF_FD_MSK_OFFSET_MASK I40E_MASK(0x3F, I40E_GLQF_FD_MSK_OFFSET_SHIFT)
-+#define I40E_GLQF_HASH_INSET(_i, _j) (0x00267600 + ((_i) * 4 + (_j) * 8)) /* _i=0...1, _j=0...63 */ /* Reset: CORER */
-+#define I40E_GLQF_HASH_INSET_MAX_INDEX 1
-+#define I40E_GLQF_HASH_INSET_INSET_SHIFT 0
-+#define I40E_GLQF_HASH_INSET_INSET_MASK I40E_MASK(0xFFFFFFFF, I40E_GLQF_HASH_INSET_INSET_SHIFT)
-+#define I40E_GLQF_HASH_MSK(_i, _j) (0x00267A00 + ((_i) * 4 + (_j) * 8)) /* _i=0...1, _j=0...63 */ /* Reset: CORER */
-+#define I40E_GLQF_HASH_MSK_MAX_INDEX 1
-+#define I40E_GLQF_HASH_MSK_MASK_SHIFT 0
-+#define I40E_GLQF_HASH_MSK_MASK_MASK I40E_MASK(0xFFFF, I40E_GLQF_HASH_MSK_MASK_SHIFT)
-+#define I40E_GLQF_HASH_MSK_OFFSET_SHIFT 16
-+#define I40E_GLQF_HASH_MSK_OFFSET_MASK I40E_MASK(0x3F, I40E_GLQF_HASH_MSK_OFFSET_SHIFT)
-+#define I40E_GLQF_ORT(_i) (0x00268900 + ((_i) * 4)) /* _i=0...63 */ /* Reset: CORER */
-+#define I40E_GLQF_ORT_MAX_INDEX 63
-+#define I40E_GLQF_ORT_PIT_INDX_SHIFT 0
-+#define I40E_GLQF_ORT_PIT_INDX_MASK I40E_MASK(0x1F, I40E_GLQF_ORT_PIT_INDX_SHIFT)
-+#define I40E_GLQF_ORT_FIELD_CNT_SHIFT 5
-+#define I40E_GLQF_ORT_FIELD_CNT_MASK I40E_MASK(0x3, I40E_GLQF_ORT_FIELD_CNT_SHIFT)
-+#define I40E_GLQF_ORT_FLX_PAYLOAD_SHIFT 7
-+#define I40E_GLQF_ORT_FLX_PAYLOAD_MASK I40E_MASK(0x1, I40E_GLQF_ORT_FLX_PAYLOAD_SHIFT)
-+#define I40E_GLQF_PIT(_i) (0x00268C80 + ((_i) * 4)) /* _i=0...23 */ /* Reset: CORER */
-+#define I40E_GLQF_PIT_MAX_INDEX 23
-+#define I40E_GLQF_PIT_SOURCE_OFF_SHIFT 0
-+#define I40E_GLQF_PIT_SOURCE_OFF_MASK I40E_MASK(0x1F, I40E_GLQF_PIT_SOURCE_OFF_SHIFT)
-+#define I40E_GLQF_PIT_FSIZE_SHIFT 5
-+#define I40E_GLQF_PIT_FSIZE_MASK I40E_MASK(0x1F, I40E_GLQF_PIT_FSIZE_SHIFT)
-+#define I40E_GLQF_PIT_DEST_OFF_SHIFT 10
-+#define I40E_GLQF_PIT_DEST_OFF_MASK I40E_MASK(0x3F, I40E_GLQF_PIT_DEST_OFF_SHIFT)
- #define I40E_GLQF_FDEVICTENA(_i) (0x00270384 + ((_i) * 4)) /* _i=0...1 */ /* Reset: CORER */
- #define I40E_GLQF_FDEVICTENA_MAX_INDEX 1
- #define I40E_GLQF_FDEVICTENA_GLQF_FDEVICTENA_SHIFT 0
--- 
-2.5.0
+> There is work being done for a separate netlink infrastructure for stats.
+> I would wait for that infrastructure to be ready to add mpls stats. It should be available soon.
+
+Great, any details on what it would look like? Can I assist in any way 
+in the development?
+
+In the mean time, I'll rebase and resubmit the ip ttl propagation patch 
+separately.
+
+Thanks,
+Rob
