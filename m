@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/16] i40e/i40evf: Add exception handling for Tx checksum
-Date: Thu, 18 Feb 2016 16:31:14 -0800
-Message-ID: <1455841881-128892-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/16] i40evf: Update feature flags to reflect newly enabled features
+Date: Thu, 18 Feb 2016 16:31:20 -0800
+Message-ID: <1455841881-128892-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1455841881-128892-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,211 +10,83 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:49646 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965702AbcBSAbf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2016 19:31:35 -0500
+	id S965677AbcBSAbi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 19:31:38 -0500
 In-Reply-To: <1455841881-128892-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <aduyck@mirantis.com>
 
-Add exception handling to the Tx checksum path so that we can handle cases
-of TSO where the frame is bad, or Tx checksum where we didn't recognize a
-protocol
+Recent changes should have enabled support for IPv6 based tunnels and
+support for TSO with outer UDP checksums.  As such we can update the
+feature flags to reflect that.
 
-Drop I40E_TX_FLAGS_CSUM as it is unused, move the CHECKSUM_PARTIAL check
-into the function itself so that we can decrease indent.
+In addition we can clean-up the flags that aren't needed such as SCTP and
+RXCSUM since having the bits there doesn't add any value.
+
+I also found one spot where we were setting the same flag twice.  It looks
+like it was probably a git merge error that resulted in the line being
+duplicated.  As such I have dropped it in this patch.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Acked-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 34 +++++++++++++++++---------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h   |  1 -
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 35 ++++++++++++++++++---------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h |  1 -
- 4 files changed, 45 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 23 +++++++++++++++++++----
+ 1 file changed, 19 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 5b591b8..6b08b0f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2387,10 +2387,10 @@ static int i40e_tsyn(struct i40e_ring *tx_ring, struct sk_buff *skb,
-  * @tx_ring: Tx descriptor ring
-  * @cd_tunneling: ptr to context desc bits
-  **/
--static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
--				u32 *td_cmd, u32 *td_offset,
--				struct i40e_ring *tx_ring,
--				u32 *cd_tunneling)
-+static int i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
-+			       u32 *td_cmd, u32 *td_offset,
-+			       struct i40e_ring *tx_ring,
-+			       u32 *cd_tunneling)
- {
- 	union {
- 		struct iphdr *v4;
-@@ -2407,6 +2407,9 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
- 	__be16 frag_off;
- 	u8 l4_proto = 0;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 41369a3..3396fe3 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2337,9 +2337,24 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
+ 			    NETIF_F_IPV6_CSUM |
+ 			    NETIF_F_TSO |
+ 			    NETIF_F_TSO6 |
++			    NETIF_F_TSO_ECN |
++			    NETIF_F_GSO_GRE	       |
++			    NETIF_F_GSO_UDP_TUNNEL |
+ 			    NETIF_F_RXCSUM |
+ 			    NETIF_F_GRO;
  
-+	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+		return 0;
++	netdev->hw_enc_features |= NETIF_F_IP_CSUM	       |
++				   NETIF_F_IPV6_CSUM	       |
++				   NETIF_F_TSO		       |
++				   NETIF_F_TSO6		       |
++				   NETIF_F_TSO_ECN	       |
++				   NETIF_F_GSO_GRE	       |
++				   NETIF_F_GSO_UDP_TUNNEL      |
++				   NETIF_F_GSO_UDP_TUNNEL_CSUM;
 +
- 	ip.hdr = skb_network_header(skb);
- 	l4.hdr = skb_transport_header(skb);
- 
-@@ -2449,7 +2452,11 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
- 			*tx_flags |= I40E_TX_FLAGS_UDP_TUNNEL;
- 			break;
- 		default:
--			return;
-+			if (*tx_flags & I40E_TX_FLAGS_TSO)
-+				return -1;
++	if (adapter->flags & I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE)
++		netdev->features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
 +
-+			skb_checksum_help(skb);
-+			return 0;
- 		}
- 
- 		/* compute tunnel header size */
-@@ -2513,11 +2520,16 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
- 			  I40E_TX_DESC_LENGTH_L4_FC_LEN_SHIFT;
- 		break;
+ 	/* copy netdev features into list of user selectable features */
+ 	netdev->hw_features |= netdev->features;
+ 	netdev->hw_features &= ~NETIF_F_RXCSUM;
+@@ -2478,6 +2493,10 @@ static void i40evf_init_task(struct work_struct *work)
  	default:
--		break;
-+		if (*tx_flags & I40E_TX_FLAGS_TSO)
-+			return -1;
-+		skb_checksum_help(skb);
-+		return 0;
+ 		goto err_alloc;
  	}
- 
- 	*td_cmd |= cmd;
- 	*td_offset |= offset;
 +
-+	return 1;
- }
- 
- /**
-@@ -2954,12 +2966,10 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	td_cmd |= I40E_TX_DESC_CMD_ICRC;
- 
- 	/* Always offload the checksum, since it's in the data descriptor */
--	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		tx_flags |= I40E_TX_FLAGS_CSUM;
++	if (hw->mac.type == I40E_MAC_X722_VF)
++		adapter->flags |= I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE;
++
+ 	if (i40evf_process_config(adapter))
+ 		goto err_alloc;
+ 	adapter->current_op = I40E_VIRTCHNL_OP_UNKNOWN;
+@@ -2519,10 +2538,6 @@ static void i40evf_init_task(struct work_struct *work)
+ 		goto err_sw_init;
+ 	i40evf_map_rings_to_vectors(adapter);
+ 	if (adapter->vf_res->vf_offload_flags &
+-		    I40E_VIRTCHNL_VF_OFFLOAD_WB_ON_ITR)
+-		adapter->flags |= I40EVF_FLAG_WB_ON_ITR_CAPABLE;
 -
--		i40e_tx_enable_csum(skb, &tx_flags, &td_cmd, &td_offset,
--				    tx_ring, &cd_tunneling);
--	}
-+	tso = i40e_tx_enable_csum(skb, &tx_flags, &td_cmd, &td_offset,
-+				  tx_ring, &cd_tunneling);
-+	if (tso < 0)
-+		goto out_drop;
+-	if (adapter->vf_res->vf_offload_flags &
+ 	    I40E_VIRTCHNL_VF_OFFLOAD_WB_ON_ITR)
+ 		adapter->flags |= I40EVF_FLAG_WB_ON_ITR_CAPABLE;
  
- 	i40e_create_tx_ctx(tx_ring, cd_type_cmd_tso_mss,
- 			   cd_tunneling, cd_l2tag2);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index fb065d4..fde5f42 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -153,7 +153,6 @@ enum i40e_dyn_idx_t {
- #define DESC_NEEDED (MAX_SKB_FRAGS + 4)
- #define I40E_MIN_DESC_PENDING	4
- 
--#define I40E_TX_FLAGS_CSUM		BIT(0)
- #define I40E_TX_FLAGS_HW_VLAN		BIT(1)
- #define I40E_TX_FLAGS_SW_VLAN		BIT(2)
- #define I40E_TX_FLAGS_TSO		BIT(3)
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 0ee13f6..143c570 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1602,12 +1602,13 @@ static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
-  * @tx_flags: pointer to Tx flags currently set
-  * @td_cmd: Tx descriptor command bits to set
-  * @td_offset: Tx descriptor header offsets to set
-+ * @tx_ring: Tx descriptor ring
-  * @cd_tunneling: ptr to context desc bits
-  **/
--static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
--				u32 *td_cmd, u32 *td_offset,
--				struct i40e_ring *tx_ring,
--				u32 *cd_tunneling)
-+static int i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
-+			       u32 *td_cmd, u32 *td_offset,
-+			       struct i40e_ring *tx_ring,
-+			       u32 *cd_tunneling)
- {
- 	union {
- 		struct iphdr *v4;
-@@ -1624,6 +1625,9 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
- 	__be16 frag_off;
- 	u8 l4_proto = 0;
- 
-+	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+		return 0;
-+
- 	ip.hdr = skb_network_header(skb);
- 	l4.hdr = skb_transport_header(skb);
- 
-@@ -1666,7 +1670,11 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
- 			*tx_flags |= I40E_TX_FLAGS_VXLAN_TUNNEL;
- 			break;
- 		default:
--			return;
-+			if (*tx_flags & I40E_TX_FLAGS_TSO)
-+				return -1;
-+
-+			skb_checksum_help(skb);
-+			return 0;
- 		}
- 
- 		/* compute tunnel header size */
-@@ -1730,11 +1738,16 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
- 			  I40E_TX_DESC_LENGTH_L4_FC_LEN_SHIFT;
- 		break;
- 	default:
--		break;
-+		if (*tx_flags & I40E_TX_FLAGS_TSO)
-+			return -1;
-+		skb_checksum_help(skb);
-+		return 0;
- 	}
- 
- 	*td_cmd |= cmd;
- 	*td_offset |= offset;
-+
-+	return 1;
- }
- 
- /**
-@@ -2150,12 +2163,10 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	td_cmd |= I40E_TX_DESC_CMD_ICRC;
- 
- 	/* Always offload the checksum, since it's in the data descriptor */
--	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		tx_flags |= I40E_TX_FLAGS_CSUM;
--
--		i40e_tx_enable_csum(skb, &tx_flags, &td_cmd, &td_offset,
--				    tx_ring, &cd_tunneling);
--	}
-+	tso = i40e_tx_enable_csum(skb, &tx_flags, &td_cmd, &td_offset,
-+				  tx_ring, &cd_tunneling);
-+	if (tso < 0)
-+		goto out_drop;
- 
- 	i40e_create_tx_ctx(tx_ring, cd_type_cmd_tso_mss,
- 			   cd_tunneling, cd_l2tag2);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index 043b955..6ea8701 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -153,7 +153,6 @@ enum i40e_dyn_idx_t {
- #define DESC_NEEDED (MAX_SKB_FRAGS + 4)
- #define I40E_MIN_DESC_PENDING	4
- 
--#define I40E_TX_FLAGS_CSUM		BIT(0)
- #define I40E_TX_FLAGS_HW_VLAN		BIT(1)
- #define I40E_TX_FLAGS_SW_VLAN		BIT(2)
- #define I40E_TX_FLAGS_TSO		BIT(3)
 -- 
 2.5.0
