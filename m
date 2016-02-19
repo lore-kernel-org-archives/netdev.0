@@ -1,7 +1,7 @@
 From: Kan Liang <kan.liang@intel.com>
-Subject: [PATCH V7 1/8] lib/bitmap.c: conversion routines to/from u32 array
-Date: Fri, 19 Feb 2016 09:23:59 -0500
-Message-ID: <1455891846-12271-2-git-send-email-kan.liang@intel.com>
+Subject: [PATCH V7 3/8] net/ethtool: introduce a new ioctl for per queue setting
+Date: Fri, 19 Feb 2016 09:24:01 -0500
+Message-ID: <1455891846-12271-4-git-send-email-kan.liang@intel.com>
 References: <1455891846-12271-1-git-send-email-kan.liang@intel.com>
 Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
 	shannon.nelson@intel.com, f.fainelli@gmail.com,
@@ -17,162 +17,118 @@ To: netdev@vger.kernel.org, davem@davemloft.net, bwh@kernel.org,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:48161 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757173AbcBSVoT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2016 16:44:19 -0500
+	id S1757260AbcBSVoU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Feb 2016 16:44:20 -0500
 In-Reply-To: <1455891846-12271-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <decot@googlers.com>
+From: Kan Liang <kan.liang@intel.com>
 
-Aimed at transferring bitmaps to/from user-space in a 32/64-bit agnostic
-way.
+Introduce a new ioctl ETHTOOL_PERQUEUE for per queue parameters setting.
+The following patches will enable some SUB_COMMANDs for per queue
+setting.
 
-Tested:
-  unit tests (next patch) on qemu i386, x86_64, ppc, ppc64 BE and LE,
-  ARM.
-
-Signed-off-by: David Decotigny <decot@googlers.com>
+Signed-off-by: Kan Liang <kan.liang@intel.com>
 Reviewed-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- include/linux/bitmap.h | 10 ++++++
- lib/bitmap.c           | 89 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 99 insertions(+)
+ include/uapi/linux/ethtool.h | 17 +++++++++++++++++
+ net/core/ethtool.c           | 27 +++++++++++++++++++++++++--
+ 2 files changed, 42 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/bitmap.h b/include/linux/bitmap.h
-index 9653fdb..e9b0b9a 100644
---- a/include/linux/bitmap.h
-+++ b/include/linux/bitmap.h
-@@ -59,6 +59,8 @@
-  * bitmap_find_free_region(bitmap, bits, order)	Find and allocate bit region
-  * bitmap_release_region(bitmap, pos, order)	Free specified bit region
-  * bitmap_allocate_region(bitmap, pos, order)	Allocate specified bit region
-+ * bitmap_from_u32array(dst, nbits, buf, nwords) *dst = *buf (nwords 32b words)
-+ * bitmap_to_u32array(buf, nwords, src, nbits)	*buf = *dst (nwords 32b words)
-  */
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 190aea0..f15ae02 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -1202,6 +1202,21 @@ enum ethtool_sfeatures_retval_bits {
+ #define ETHTOOL_F_WISH          (1 << ETHTOOL_F_WISH__BIT)
+ #define ETHTOOL_F_COMPAT        (1 << ETHTOOL_F_COMPAT__BIT)
  
- /*
-@@ -163,6 +165,14 @@ extern void bitmap_fold(unsigned long *dst, const unsigned long *orig,
- extern int bitmap_find_free_region(unsigned long *bitmap, unsigned int bits, int order);
- extern void bitmap_release_region(unsigned long *bitmap, unsigned int pos, int order);
- extern int bitmap_allocate_region(unsigned long *bitmap, unsigned int pos, int order);
-+extern unsigned int bitmap_from_u32array(unsigned long *bitmap,
-+					 unsigned int nbits,
-+					 const u32 *buf,
-+					 unsigned int nwords);
-+extern unsigned int bitmap_to_u32array(u32 *buf,
-+				       unsigned int nwords,
-+				       const unsigned long *bitmap,
-+				       unsigned int nbits);
- #ifdef __BIG_ENDIAN
- extern void bitmap_copy_le(unsigned long *dst, const unsigned long *src, unsigned int nbits);
- #else
-diff --git a/lib/bitmap.c b/lib/bitmap.c
-index 8148143..c66da50 100644
---- a/lib/bitmap.c
-+++ b/lib/bitmap.c
-@@ -12,6 +12,8 @@
- #include <linux/bitmap.h>
- #include <linux/bitops.h>
- #include <linux/bug.h>
-+#include <linux/kernel.h>
-+#include <linux/string.h>
- 
- #include <asm/page.h>
- #include <asm/uaccess.h>
-@@ -1060,6 +1062,93 @@ int bitmap_allocate_region(unsigned long *bitmap, unsigned int pos, int order)
- EXPORT_SYMBOL(bitmap_allocate_region);
- 
- /**
-+ * bitmap_from_u32array - copy the contents of a u32 array of bits to bitmap
-+ *	@bitmap: array of unsigned longs, the destination bitmap, non NULL
-+ *	@nbits: number of bits in @bitmap
-+ *	@buf: array of u32 (in host byte order), the source bitmap, non NULL
-+ *	@nwords: number of u32 words in @buf
-+ *
-+ * copy min(nbits, 32*nwords) bits from @buf to @bitmap, remaining
-+ * bits between nword and nbits in @bitmap (if any) are cleared. In
-+ * last word of @bitmap, the bits beyond nbits (if any) are kept
-+ * unchanged.
-+ *
-+ * Return the number of bits effectively copied.
-+ */
-+unsigned int
-+bitmap_from_u32array(unsigned long *bitmap, unsigned int nbits,
-+		     const u32 *buf, unsigned int nwords)
-+{
-+	unsigned int dst_idx, src_idx;
-+
-+	for (src_idx = dst_idx = 0; dst_idx < BITS_TO_LONGS(nbits); ++dst_idx) {
-+		unsigned long part = 0;
-+
-+		if (src_idx < nwords)
-+			part = buf[src_idx++];
-+
-+#if BITS_PER_LONG == 64
-+		if (src_idx < nwords)
-+			part |= ((unsigned long) buf[src_idx++]) << 32;
-+#endif
-+
-+		if (dst_idx < nbits/BITS_PER_LONG)
-+			bitmap[dst_idx] = part;
-+		else {
-+			unsigned long mask = BITMAP_LAST_WORD_MASK(nbits);
-+
-+			bitmap[dst_idx] = (bitmap[dst_idx] & ~mask)
-+				| (part & mask);
-+		}
-+	}
-+
-+	return min_t(unsigned int, nbits, 32*nwords);
-+}
-+EXPORT_SYMBOL(bitmap_from_u32array);
++#define MAX_NUM_QUEUE		4096
 +
 +/**
-+ * bitmap_to_u32array - copy the contents of bitmap to a u32 array of bits
-+ *	@buf: array of u32 (in host byte order), the dest bitmap, non NULL
-+ *	@nwords: number of u32 words in @buf
-+ *	@bitmap: array of unsigned longs, the source bitmap, non NULL
-+ *	@nbits: number of bits in @bitmap
-+ *
-+ * copy min(nbits, 32*nwords) bits from @bitmap to @buf. Remaining
-+ * bits after nbits in @buf (if any) are cleared.
-+ *
-+ * Return the number of bits effectively copied.
++ * struct ethtool_per_queue_op - apply sub command to the queues in mask.
++ * @cmd: ETHTOOL_PERQUEUE
++ * @sub_command: the sub command which apply to each queues
++ * @queue_mask: Bitmap of the queues which sub command apply to
++ * @data: A complete command structure following for each of the queues addressed
 + */
-+unsigned int
-+bitmap_to_u32array(u32 *buf, unsigned int nwords,
-+		   const unsigned long *bitmap, unsigned int nbits)
++struct ethtool_per_queue_op {
++	__u32	cmd;
++	__u32	sub_command;
++	__u32	queue_mask[DIV_ROUND_UP(MAX_NUM_QUEUE, 32)];
++	char	data[];
++};
+ 
+ /* CMDs currently supported */
+ #define ETHTOOL_GSET		0x00000001 /* Get settings. */
+@@ -1285,6 +1300,8 @@ enum ethtool_sfeatures_retval_bits {
+ #define ETHTOOL_STUNABLE	0x00000049 /* Set tunable configuration */
+ #define ETHTOOL_GPHYSTATS	0x0000004a /* get PHY-specific statistics */
+ 
++#define ETHTOOL_PERQUEUE	0x0000004b /* Set per queue options */
++
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+ #define SPARC_ETH_SSET		ETHTOOL_SSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index c2d3118..d640ecf 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1888,13 +1888,27 @@ out:
+ 	return ret;
+ }
+ 
++static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
 +{
-+	unsigned int dst_idx = 0, src_idx = 0;
++	struct ethtool_per_queue_op per_queue_opt;
 +
-+	while (dst_idx < nwords) {
-+		unsigned long part = 0;
++	if (copy_from_user(&per_queue_opt, useraddr, sizeof(per_queue_opt)))
++		return -EFAULT;
 +
-+		if (src_idx < BITS_TO_LONGS(nbits)) {
-+			part = bitmap[src_idx];
-+			if (src_idx >= nbits/BITS_PER_LONG)
-+				part &= BITMAP_LAST_WORD_MASK(nbits);
-+			src_idx++;
-+		}
++	switch (per_queue_opt.sub_command) {
 +
-+		buf[dst_idx++] = part & 0xffffffffUL;
-+
-+#if BITS_PER_LONG == 64
-+		if (dst_idx < nwords) {
-+			part >>= 32;
-+			buf[dst_idx++] = part & 0xffffffffUL;
-+		}
-+#endif
-+	}
-+
-+	return min_t(unsigned int, nbits, 32*nwords);
++	default:
++		return -EOPNOTSUPP;
++	};
 +}
-+EXPORT_SYMBOL(bitmap_to_u32array);
 +
-+/**
-  * bitmap_copy_le - copy a bitmap, putting the bits into little-endian order.
-  * @dst:   destination buffer
-  * @src:   bitmap to copy
+ /* The main entry point in this file.  Called from net/core/dev_ioctl.c */
+ 
+ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ {
+ 	struct net_device *dev = __dev_get_by_name(net, ifr->ifr_name);
+ 	void __user *useraddr = ifr->ifr_data;
+-	u32 ethcmd;
++	u32 ethcmd, sub_cmd;
+ 	int rc;
+ 	netdev_features_t old_features;
+ 
+@@ -1904,8 +1918,14 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	if (copy_from_user(&ethcmd, useraddr, sizeof(ethcmd)))
+ 		return -EFAULT;
+ 
++	if (ethcmd == ETHTOOL_PERQUEUE) {
++		if (copy_from_user(&sub_cmd, useraddr + sizeof(ethcmd), sizeof(sub_cmd)))
++			return -EFAULT;
++	} else {
++		sub_cmd = ethcmd;
++	}
+ 	/* Allow some commands to be done by anyone */
+-	switch (ethcmd) {
++	switch (sub_cmd) {
+ 	case ETHTOOL_GSET:
+ 	case ETHTOOL_GDRVINFO:
+ 	case ETHTOOL_GMSGLVL:
+@@ -2135,6 +2155,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GPHYSTATS:
+ 		rc = ethtool_get_phy_stats(dev, useraddr);
+ 		break;
++	case ETHTOOL_PERQUEUE:
++		rc = ethtool_set_per_queue(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
 -- 
 1.8.3.1
