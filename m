@@ -1,47 +1,70 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH]fmvj18x_cs: The MAC address of FMV-J182 is stored at
- buf[5].
-Date: Fri, 19 Feb 2016 15:52:33 +0300
-Message-ID: <56C71011.2020509@cogentembedded.com>
-References: <20160219213835.c16a60105e0342ff64b7b8aa@nifty.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH v3 3/8] net: sched: add cls_u32 offload hooks for
+ netdevs
+Date: Fri, 19 Feb 2016 07:52:33 -0500
+Message-ID: <56C71011.7060105@mojatatu.com>
+References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
+ <20160217051709.17139.88337.stgit@john-Precision-Tower-5810>
+ <56C4528E.5090505@mojatatu.com> <56C48295.9030806@gmail.com>
+ <56C4FD2B.9000009@gmail.com> <56C5B5A0.7010305@mojatatu.com>
+ <56C5E212.50505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Ken Kawasaki <ken_kawasaki@nifty.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
+To: John Fastabend <john.fastabend@gmail.com>, jiri@resnulli.us,
+	amir@vadai.me, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:36118 "EHLO
-	mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757175AbcBSMwf (ORCPT
+Received: from mail-io0-f175.google.com ([209.85.223.175]:35617 "EHLO
+	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757470AbcBSMwf (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 07:52:35 -0500
-Received: by mail-lf0-f43.google.com with SMTP id 78so52952419lfy.3
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 04:52:34 -0800 (PST)
-In-Reply-To: <20160219213835.c16a60105e0342ff64b7b8aa@nifty.com>
+Received: by mail-io0-f175.google.com with SMTP id g203so107945446iof.2
+        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 04:52:35 -0800 (PST)
+In-Reply-To: <56C5E212.50505@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 16-02-18 10:24 AM, John Fastabend wrote:
+> On 16-02-18 04:14 AM, Jamal Hadi Salim wrote:
+>> On 16-02-17 06:07 PM, John Fastabend wrote:
+>>> [...]
+>>>
+>>
 
-On 2/19/2016 3:38 PM, Ken Kawasaki wrote:
-
-> The MAC address of FMV-J182 is stored at buf[5].
+>> IMO, it would be better at this early stage to enforce the correct
+>> behavior for future generations.
+>> To follow the netlink semantics which a lot of people are already
+>> trained to think in.
+>>
+>> Current netlink behavior is supposed to be:
+>>
+>> 1) NEW ==> "Create".
+>> Ambigous - could mean a)"create if it doesnt exist" or b) "fail if it
+>> exists otherwise create"
+>> Unfortunately different parts of the kernel often assume some
+>> default from either #a or #b.
+>>
 >
-> Signed-off-by: Ken Kawasaki <ken_kawasaki@nifty.com>
+> But this is already handled by the core cls_api.c code. We never
+> get to u32_change if the flags are not correct.
 >
-> ---
+> Look at the block right above the op call into the classifiers
+> change() code in cls_api.c. Starting at line 287.
 >
-> --- linux-4.4.1/drivers/net/ethernet/fujitsu/fmvj18x_cs.c.orig	2016-02-19 20:48:40.143852346 +0900
-> +++ linux-4.4.1/drivers/net/ethernet/fujitsu/fmvj18x_cs.c	2016-02-19 20:54:52.345568822 +0900
-> @@ -469,8 +469,8 @@ static int fmvj18x_config(struct pcmcia_
->   		    goto failed;
->   	    }
->   	    /* Read MACID from CIS */
-> -	    for (i = 5; i < 11; i++)
-> -		    dev->dev_addr[i] = buf[i];
-> +	    for (i = 0; i < 6; i++)
-> +		    dev->dev_addr[i] = buf[i+5];
+>
 
-    Be consistent please, surround + with spaces.
+Indeed that would cover s/ware filters but not h/ware. That will
+depend on what hardware can do. Really,
+all you need is to propagate those flags. Your
+driver ndo can ignore them. I know i will need them.
 
-[...]
+Alternatively: If we say all filters are going to be stored in
+s/ware as well i.e the tri-state we talked about then the cls_api
+checks will work as well. But when you are talking millions
+of filters (such as i deal with) - that may become impractical
+(and then you are going to have all kind of clever things to find
+whether an EXCLUSIVE will work or not etc).
 
-MBR, Sergei
+cheers,
+jamal
