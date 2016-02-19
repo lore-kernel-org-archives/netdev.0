@@ -1,55 +1,55 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH] ehea: Drop owner assignment from platform_driver
-Date: Fri, 19 Feb 2016 07:06:46 -0500 (EST)
-Message-ID: <alpine.DEB.2.10.1602190706200.2801@hadrien>
-References: <20160219112219.GA2366@amitoj-Inspiron-3542> <20160219113524.GR4148@siri.cascardo.eti.br>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: net/bluetooth: workqueue destruction WARNING in
+ hci_unregister_dev
+Date: Fri, 19 Feb 2016 13:10:00 +0100
+Message-ID: <56C70618.3010902@suse.cz>
+References: <CACT4Y+ax7zMOxe+kd4tw5Xdbvt=qPdBhXGO0j7qJwdn5tsfNNg@mail.gmail.com>
+ <56C5CE85.6090808@suse.cz>
+ <CACT4Y+bVXfY=wBZ+08rq16tHFw9s3YDrE_LCS=to-GF70AffRQ@mail.gmail.com>
+ <20160218174427.GG13177@mtj.duckdns.org> <56C6EC62.8080107@suse.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Amitoj Kaur Chawla <amitoj1606@gmail.com>,
-	cascardo@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Thadeu Lima de Souza Cascardo <cascardo@debian.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Takashi Iwai <tiwai@suse.com>
+To: Tejun Heo <tj@kernel.org>, Dmitry Vyukov <dvyukov@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160219113524.GR4148@siri.cascardo.eti.br>
+In-Reply-To: <56C6EC62.8080107@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 02/19/2016, 11:20 AM, Jiri Slaby wrote:
+> On 02/18/2016, 06:44 PM, Tejun Heo wrote:
+>> Hello,
+>>
+>> Can you please do the followings?
+>>
+>> 1. Remove WQ_MEM_RECLAIM from the affected workqueue and see whether
+>>    the problem is reproducible.  WQ_MEM_RECLAIM on anything bluetooth
+>>    doesn't make sense btw.  Why is it there?
+>>
+>> 2. If WQ_MEM_RECLAIM makes the issue go away, see whether the attached
+>>    patch works too.
+> 
+> Hello,
+> 
+> 1. didn't help, the problem persists. So I haven't applied the patch from 2.
 
+FWIW I dumped more info about the wq:
+wq->name='hci0' pwq=ffff8800390d7600 wq->dfl_pwq=ffff8800390d5200
+pwq->refcnt=2 pwq->nr_active=0 delayed_works: <nothing>
 
-On Fri, 19 Feb 2016, Thadeu Lima de Souza Cascardo wrote:
-
-> On Fri, Feb 19, 2016 at 04:52:19PM +0530, Amitoj Kaur Chawla wrote:
-> > platform_driver does not need to set an owner, it will be populated by
-> > the driver core.
-> >
-> > Generated-by: scripts/coccinelle/api/platform_no_drv_owner.cocci
-> >
-> > Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-> > ---
-> >  drivers/net/ethernet/ibm/ehea/ehea_main.c | 1 -
-> >  1 file changed, 1 deletion(-)
-> >
-> > diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-> > index 2a0dc12..d4b022f 100644
-> > --- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
-> > +++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-> > @@ -127,7 +127,6 @@ static const struct of_device_id ehea_device_table[] = {
-> >  static struct platform_driver ehea_driver = {
-> >  	.driver = {
-> >  		.name = "ehea",
-> > -		.owner = THIS_MODULE,
-> >  		.of_match_table = ehea_device_table,
-> >  	},
-> >  	.probe = ehea_probe_adapter,
-> > --
-> > 1.9.1
-> >
->
-> NACK.
->
-> ehea does not use platform_driver_register, it uses
-> ibmebus_register_driver, which does not set owner.
-
-Thanks for the information.  I will try to update the saemantic patch.
-
-julia
+> thanks,
+-- 
+js
+suse labs
