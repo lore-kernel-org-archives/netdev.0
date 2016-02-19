@@ -1,66 +1,121 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCHv2] sctp: Fix port hash table size computation
-Date: Fri, 19 Feb 2016 11:46:14 -0500
-Message-ID: <20160219164614.GB20372@hmsreliant.think-freely.org>
-References: <20160218.153921.2010668846576353053.davem@davemloft.net>
- <1455829857-15797-1-git-send-email-nhorman@tuxdriver.com>
- <1455877730.648.21.camel@edumazet-ThinkPad-T530>
- <20160219140703.GA20372@hmsreliant.think-freely.org>
- <1455892869.648.22.camel@edumazet-ThinkPad-T530>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH v1 1/4] net: ti: netcp: restore get/set_pad_info()
+ functionality
+Date: Fri, 19 Feb 2016 11:48:35 -0500
+Message-ID: <56C74763.5040902@ti.com>
+References: <1455824777-15571-1-git-send-email-m-karicheri2@ti.com>
+ <7111317.k6f7A38a4k@wuerfel> <56C7394E.50207@ti.com>
+ <15189559.iSkBKBkX2y@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50412 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1427257AbcBSQqb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 11:46:31 -0500
-Content-Disposition: inline
-In-Reply-To: <1455892869.648.22.camel@edumazet-ThinkPad-T530>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <15189559.iSkBKBkX2y@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 19, 2016 at 03:41:09PM +0100, Eric Dumazet wrote:
-> On ven., 2016-02-19 at 09:07 -0500, Neil Horman wrote:
+On 02/19/2016 11:41 AM, Arnd Bergmann wrote:
+> On Friday 19 February 2016 10:48:30 Murali Karicheri wrote:
+>> On 02/19/2016 09:41 AM, Arnd Bergmann wrote:
+>>> On Thursday 18 February 2016 14:46:14 Murali Karicheri wrote:
+>>>> From: Arnd Bergmann <arnd@arndb.de>
+>>>>
+>>>> The commit 899077791403 ("netcp: try to reduce type confusion in
+>>>> descriptors") introduces a regression in Kernel 4.5-rc1 and it breaks
+>>>> get/set_pad_info() functionality.
+>>>>
+>>>> The TI NETCP driver uses pad0 and pad1 fields of knav_dma_desc to
+>>>> store DMA/MEM buffer pointer and buffer size respectively. And in both
+>>>> cases for Keystone 2 the pointer type size is 32 bit regardless of
+>>>> LAPE enabled or not, because CONFIG_ARCH_DMA_ADDR_T_64BIT originally
+>>>> is not expected to be defined.
+>>>>
+>>>>                      !LAPE   LPAE
+>>>> sizeof(void*)                32bit   32bit
+>>>> sizeof(dma_addr_t)   32bit   32bit
+>>>> sizeof(phys_addr_t)  32bit   64bit
+>>>
+>>> As this was never relevant or true, I don't think it needs to be
+>>> mentioned here, it just confuses things. Please just assume that
+>>> dma_addr_t can be 64-bit wide, but will only contain 32-bit
+>>> numbers on keystone.
+>>>
+>>
+>> I can remove this from the commit description and re-send.
 > 
-> > I had actually thought about that, but to be frank I felt like the logic to
-> > compute the hashsize was complex the way it was presented currently, and that my
-> > rewite made it more clear, breaking it down into a few easy steps:
-> > 
-> > 1) compute a goal size order
-> > 2) compute the target order for the largest table we want to support
-> > 3) select the minimum of (1) and (2)
-> > 4) allocated the largest table we can up to the size in (3)
-> > 5) compute how many buckets the table we allocated in (4) supports
-> > 
-> > 
-> > I'm happy to use your suggestion above if the consensus is that its more clear,
-> > but it took me a bit to figure out what exactly the existing code was trying to
-> > do (especially given the dual use of the order variable), so I thought some
-> > additional clarity was called for.
+> Ok
 > 
-> No strong feelings. I only took a look in other places like
-> net/dccp/proto.c for similar problem.
+>>>> Unfortunately, above commit changed buffer's pointers save/restore
+>>>> code (get/set_pad_info()) and added intermediate conversation to u64
+>>>> which works incorrectly on 32bit Keystone 2 and causes TI NETCP driver
+>>>> crash in RX/TX path due to "Unable to handle kernel NULL pointer"
+>>>> exception. This issue was reported and discussed in [1].
+>>>
+>>> Have you been able to figure out why it actually broke? I'd still
+>>> like to know.
+>>>
+>> As Grygorii is out of office until Monday, I would like to step in.
+>> I will take some time today to try review the reverted changes for
+>> failure reason and get back. But as you have agreed in the discussion
+>> at https://www.mail-archive.com/netdev@vger.kernel.org/msg96311.html
+>> Can we fix the regression by applying this patch and rest of the series
+>> if it looks good? If I need to separate this from rest of the series,
+>> let me know and I can take care of that.
 > 
-Understood. Its clear that sctp lifted the code from dccp (or perhaps vice
-versa).  Either way, looking at it, it appears dccp has the same problem that
-sctp does in this area.
+> Yes, sounds fine.
+> 
+>>>> Hence, fix it by partially reverting above commit and restoring
+>>>> get/set_pad_info() functionality as it was before.
+>>>>
+>>>> [1] https://www.mail-archive.com/netdev@vger.kernel.org/msg95361.html
+>>>> Cc: Wingman Kwok <w-kwok2@ti.com>
+>>>> Cc: Mugunthan V N <mugunthanvnm@ti.com>
+>>>> CC: David Laight <David.Laight@ACULAB.COM>
+>>>> Reported-by: Franklin S Cooper Jr <fcooper@ti.com>
+>>>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>>>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+>>>> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+>>>
+>>> I don't think I sent this patch with a 'Signed-off-by', did I?
+>>> (I could be misremembering that).
+>>>
+>>
+>> I think you had agreed based on what I read at
+>> https://www.mail-archive.com/netdev@vger.kernel.org/msg96311.html
+>>
+>> reproduced below for your convenience.
+>> =============================================================================
+>>
+>>> What I could do now is update your/my patch as i mentioned in [1]
+>>> and re-send it at the weekend (with your authorship and my signoff).
+>>> Do you agree?
+>>>
+>>>
+>>> [1] https://www.mail-archive.com/netdev@vger.kernel.org/msg95831.html
+>>
+>> Yes, let's do that in the meantime. I can also make sure that that
+>> the driver doesn't build on 64-bit, just in case.
+>> =============================================================================
+>>
+>> Hope I can keep your sign-off when I re-send this. Please confirm.
+> 
+> The most important part here is that you don't add a "Signed-off-by"
+> tag unless it was provided by that person as part of the submission.
+> 
+> I'm slightly uncomfortable with having my Signed-off-by as the first
+> one when I did not write the changelog myself, so I'd prefer if
+> you just add my Acked-by once I provide that. If that doesn't
+> work for you, let's follow up in private to sort it out.
+> 
+Ok. I will remove it.
 
-As you don't have strong feelings, if its all the same to Dave and Vlad, I'm
-happy with the way this patch is laid out, and will move on to fix dccp in the
-same manner.
+> 	Arnd
+> 
 
-Best
-Neil
 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
