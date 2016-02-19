@@ -1,40 +1,46 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 1/1] ser_gigaset: use container_of() instead of detour
-Date: Fri, 19 Feb 2016 00:53:55 +0100
-Message-ID: <1455839635.2379.34.camel@tiscali.nl>
-References: <1455827348-8574-1-git-send-email-pebolle@tiscali.nl>
-	 <1455827348-8574-2-git-send-email-pebolle@tiscali.nl>
-	 <20160218234607.GA4517@kroah.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH V2 net-next 2/3] lan78xx: add ethtool set & get pause
+ functions
+Date: Fri, 19 Feb 2016 00:03:50 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D404B3871@CHN-SV-EXMX02.mchp-main.com>
+References: <9235D6609DB808459E95D78E17F2E43D404B37B5@CHN-SV-EXMX02.mchp-main.com>
+ <1455839111.2794.51.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dmitry Vyukov <dvyukov@google.com>,
-	Uwe =?ISO-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>,
-	Martin Wilck <Martin.Wilck@ts.fujitsu.com>,
-	Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>,
-	Tilman Schmidt <tilman@imap.cc>, linux-kernel@vger.kernel.org,
-	gigaset307x-common@lists.sourceforge.net
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160218234607.GA4517@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: <ben@decadent.org.uk>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exsmtp03.microchip.com ([198.175.253.49]:48065 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1426976AbcBSADw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 19:03:52 -0500
+In-Reply-To: <1455839111.2794.51.camel@decadent.org.uk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Greg,
-
-On do, 2016-02-18 at 15:46 -0800, Greg KH wrote:
-> <formletter>
-> 
-> This is not the correct way to submit patches for inclusion in the
-> stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
-> for how to do this properly.
-> 
-> </formletter>
-
-What in my submission triggers this formletter?
-
-Thanks,
-
-
-Paul Bolle
+PiA+IEFkZCBldGh0b29sIG9wZXJhdGlvbnMgb2Ygc2V0X3BhdXNlcmFtIGFuZCBnZXRfcGF1c2Vw
+YXJtLg0KPiBbLi4uXQ0KPiA+ICtzdGF0aWMgdm9pZCBsYW43OHh4X2dldF9wYXVzZShzdHJ1Y3Qg
+bmV0X2RldmljZSAqbmV0LA0KPiA+ICsJCQnCoMKgwqDCoMKgwqBzdHJ1Y3QgZXRodG9vbF9wYXVz
+ZXBhcmFtICpwYXVzZSkNCj4gPiArew0KPiA+ICsJc3RydWN0IGxhbjc4eHhfbmV0ICpkZXYgPSBu
+ZXRkZXZfcHJpdihuZXQpOw0KPiA+ICsJc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldiA9IG5ldC0+
+cGh5ZGV2Ow0KPiA+ICsJc3RydWN0IGV0aHRvb2xfY21kIGVjbWQgPSB7IC5jbWQgPSBFVEhUT09M
+X0dTRVQgfTsNCj4gPiArDQo+ID4gKwlwaHlfZXRodG9vbF9nc2V0KHBoeWRldiwgJmVjbWQpOw0K
+PiA+ICsNCj4gPiArCXBhdXNlLT5hdXRvbmVnID0gZGV2LT5mY19hdXRvbmVnOw0KPiA+ICsNCj4g
+PiArCWlmIChkZXYtPmZjX2F1dG9uZWcpIHsNCj4gPiArCQlpZiAoZGV2LT5mY19hdXRvbmVnX2Nv
+bnRyb2wgJiBGTE9XX0NUUkxfVFgpDQo+ID4gKwkJCXBhdXNlLT50eF9wYXVzZSA9IDE7DQo+ID4g
+Kw0KPiA+ICsJCWlmIChkZXYtPmZjX2F1dG9uZWdfY29udHJvbCAmIEZMT1dfQ1RSTF9SWCkNCj4g
+PiArCQkJcGF1c2UtPnJ4X3BhdXNlID0gMTsNCj4gDQo+IFRoaXMgaXMgaW5jb3JyZWN0OyB5b3Ug
+c2hvdWxkIGFsd2F5cyByZXR1cm4gdGhlIG1hbnVhbCBzZXR0aW5ncw0KPiAoZmNfcmVxdWVzdF9j
+b250cm9sIGZsYWdzKSBoZXJlLiDCoElmIGF1dG9uZWdvdGlhdGlvbiBpcyBlbmFibGVkIHRoZW4N
+Cj4geW91ciBnZXRfc2V0dGluZ3MgZnVuY3Rpb24gd2lsbCByZXR1cm4gdGhlIGFjdHVhbCBwYXVz
+ZSBmbGFncy4NCj4gDQo+IEJlbi4NCg0KQmVuLCB0aGFua3MgZm9yIGNvbW1lbnRzLg0KSG93IGFi
+b3V0IGNvbW1lbnQgaW4gaW5jbHVkZS91YXBpL2xpbnV4L2V0aHRvb2wuaD8NCkl0IHNheXMgDQoq
+KiBzdHJ1Y3QgZXRodG9vbF9wYXVzZXBhcmFtIC0gRXRoZXJuZXQgcGF1c2UgKGZsb3cgY29udHJv
+bCkgcGFyYW1ldGVycw0KLi4uDQoqIElmIEBhdXRvbmVnIGlzIG5vbi16ZXJvLCB0aGUgTUFDIGlz
+IGNvbmZpZ3VyZWQgdG8gc2VuZCBhbmQvb3INCiogcmVjZWl2ZSBwYXVzZSBmcmFtZXMgYWNjb3Jk
+aW5nIHRvIHRoZSByZXN1bHQgb2YgYXV0b25lZ290aWF0aW9uLg0KDQpEb2Vzbid0IHRoaXMgbWVh
+biBnZXRfcGF1c2VwYXJhbSgpIHJldHVybnMgcGF1c2Ugc2V0dGluZ3MgYmFzZWQgb24gDQpSZXN1
+bHQgb2YgYXV0b25lZ290YXRpb24/IE5vdCBtYW51YWwgc2V0dGluZ3Mgb2YgcnhfcGFyYW0gJiB0
+eF9wYXJhbT8NCg0KV29vanVuZw0K
