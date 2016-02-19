@@ -1,32 +1,47 @@
-From: Hau <hau@realtek.com>
-Subject: RE: [PATCH net] r8169:fix "rtl_counters_cond == 1 (loop: 1000, delay: 10)" log spam.
-Date: Fri, 19 Feb 2016 11:46:43 +0000
-Message-ID: <80377ECBC5453840BA8C7155328B53770135AE5F@RTITMBSV03.realtek.com.tw>
-References: <1455807427-3177-1-git-send-email-hau@realtek.com>
- <20160218203516.GA18173@electric-eye.fr.zoreil.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH] MAINTAINERS: Drop myself as xen netback maintainer
+Date: Fri, 19 Feb 2016 11:50:06 +0000
+Message-ID: <20160219115006.GS3723@citrix.com>
+References: <1455882291-1867-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160218203516.GA18173@electric-eye.fr.zoreil.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Ian Campbell <ian.campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:53574 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1427811AbcBSLuI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Feb 2016 06:50:08 -0500
+Content-Disposition: inline
+In-Reply-To: <1455882291-1867-1-git-send-email-ian.campbell@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Chunhao Lin <hau@realtek.com> :
-> [...]
-> > I add checking driver's pm runtime status in rtl8169_get_stats64() to fix
-> > this issue.
+On Fri, Feb 19, 2016 at 11:44:51AM +0000, Ian Campbell wrote:
+> Wei has been picking this up for quite a while now.
 > 
-> Would you consider taking the device out of suspended mode during
-> rtl8169_get_stats64 to prevent outdated stats ?
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+
+> ---
+>  MAINTAINERS | 1 -
+>  1 file changed, 1 deletion(-)
 > 
-
-When in runtime suspend, it mean there is no traffic on NIC, so I did not wake the device during rtl8169_get_stats64().
-Maybe we can update tally counter before entering runtime suspend mode.
-
-------Please consider the environment before printing this e-mail.
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 28eb61b..ef30060 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -12013,7 +12013,6 @@ F:	arch/arm64/xen/
+>  F:	arch/arm64/include/asm/xen/
+>  
+>  XEN NETWORK BACKEND DRIVER
+> -M:	Ian Campbell <ian.campbell@citrix.com>
+>  M:	Wei Liu <wei.liu2@citrix.com>
+>  L:	xen-devel@lists.xenproject.org (moderated for non-subscribers)
+>  L:	netdev@vger.kernel.org
+> -- 
+> 2.1.4
+> 
