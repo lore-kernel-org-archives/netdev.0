@@ -1,47 +1,101 @@
-From: "Underwood, JohnX" <johnx.underwood@intel.com>
-Subject: RE: [net-next 10/16] i40e: add check for null VSI
-Date: Fri, 19 Feb 2016 19:51:39 +0000
-Message-ID: <49FCCD093EDAFE45B73804AC3C1112E52E5CFF@ORSMSX116.amr.corp.intel.com>
-References: <1455875651-21696-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1455875651-21696-11-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <49FCCD093EDAFE45B73804AC3C1112E52E5CC6@ORSMSX116.amr.corp.intel.com>
-	 <20160219.144117.1906425963316380038.davem@davemloft.net>
- <1455911339.3016.7.camel@intel.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+Date: Fri, 19 Feb 2016 21:14:15 +0100
+Message-ID: <20160219201415.GA9884@lunn.ch>
+References: <20160216203625.GC2558@lunn.ch>
+ <20160216.154358.164326104187806534.davem@davemloft.net>
+ <90A7E81AE28BAE4CBDDB3B35F187D264402EFB5D@CHN-SV-EXMX02.mchp-main.com>
+ <20160216.155244.2052910262411568012.davem@davemloft.net>
+ <90A7E81AE28BAE4CBDDB3B35F187D264402EFB82@CHN-SV-EXMX02.mchp-main.com>
+ <20160216221536.GB6033@lunn.ch>
+ <90A7E81AE28BAE4CBDDB3B35F187D264402F0018@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, f.fainelli@gmail.com, netdev@vger.kernel.org
+To: Bryan.Whitehead@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:37762 "EHLO mga09.intel.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:52798 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1424609AbcBSTvl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2016 14:51:41 -0500
-In-Reply-To: <1455911339.3016.7.camel@intel.com>
-Content-Language: en-US
+	id S1428546AbcBSUOV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Feb 2016 15:14:21 -0500
+Content-Disposition: inline
+In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264402F0018@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-U29ycnksIGZvbGtzLiAgSSB3YXMgY29uZnVzZWQuICBUaGUgcGF0Y2ggbG9va2VkIGZhbWlsaWFy
-LCBidXQgSSB3YXNuJ3QgYWJsZSB0byBmaW5kIHRoZSBlbWFpbCB3aGVyZSBJIG9yaWdpbmFsbHkg
-c2VudCBpdCBvdXQuDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBLaXJzaGVy
-LCBKZWZmcmV5IFQgDQpTZW50OiBGcmlkYXksIEZlYnJ1YXJ5IDE5LCAyMDE2IDExOjQ5IEFNDQpU
-bzogRGF2aWQgTWlsbGVyOyBVbmRlcndvb2QsIEpvaG5YDQpDYzogbmV0ZGV2QHZnZXIua2VybmVs
-Lm9yZzsgbmhvcm1hbkByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tOyBqb2dyZWVuZUBy
-ZWRoYXQuY29tDQpTdWJqZWN0OiBSZTogW25ldC1uZXh0IDEwLzE2XSBpNDBlOiBhZGQgY2hlY2sg
-Zm9yIG51bGwgVlNJDQoNCk9uIEZyaSwgMjAxNi0wMi0xOSBhdCAxNDo0MSAtMDUwMCwgRGF2aWQg
-TWlsbGVyIHdyb3RlOg0KPiBGcm9tOiAiVW5kZXJ3b29kLCBKb2huWCIgPGpvaG54LnVuZGVyd29v
-ZEBpbnRlbC5jb20+DQo+IERhdGU6IEZyaSwgMTkgRmViIDIwMTYgMTk6MTU6NTMgKzAwMDANCj4g
-DQo+ID4gQUNLDQo+IA0KPiBZb3Ugc2hvdWxkIG5ldmVyIHRvcC1wb3N0IG9uIHRoaXMgbWFpbGlu
-ZyBsaXN0Lg0KPiANCj4gQnV0IGluIHRoaXMgc3BlY2lmaWMgY2FzZSBpdCBpcyBldmVuIG1vcmUg
-aW1wb3J0YW50Lg0KPiANCj4gU28ganVzdCBpbiBjYXNlIGl0IGlzIG5vdCBjbGVhcjoNCj4gDQo+
-IMKgwqDCoMKgwqDCoMKgwqBQbGVhc2UsIHByZXR0eSBwbGVhc2UsIERPIE5PVCB0b3AtcG9zdCBB
-Q0tzIHRvIHBhdGNoZXMgbGlrZSANCj4gdGhpcy4NCj4gDQo+IEl0IGxvb2tzIGxpa2UgYSBuZXcs
-IGZyZXNoLCBwYXRjaCBzdWJtaXNzaW9uIHRvIHBhdGNod29yayB0aGVyZWZvcmUgDQo+IHlvdSBh
-cmUgY3JlYXRpbmcgYSBzaWduaWZpY2FudCBidXJkb24gZm9yIG1lLg0KDQpOb3QgdG8gbWVudGlv
-biBoZSB3YXMgQUNLJ2luZyBoaXMgb3duIHBhdGNoIHRoYXQgaGUgYXV0aG9yZWQuIDotKA0KDQpT
-b3JyeSBEYXZlLCBJIHdpbGwgd29yayB3aXRoIGhpbSBvZmZsaW5lLg0K
+On Fri, Feb 19, 2016 at 07:29:46PM +0000, Bryan.Whitehead@microchip.com wrote:
+> > From: Andrew Lunn [mailto:andrew@lunn.ch]
+> > Sent: Tuesday, February 16, 2016 5:16 PM
+> > 
+> > You are already 1/2 way to a DSA driver, since you have a MAC driver. So i
+> > agree with David, do it right and add a simple DSA driver.
+> > 
+> Andrew,
+> 
+> I've done a little research on DSA.
+> I've read Documentation/networking/dsa/dsa.txt
+> And I've looked over some examples in drivers/net/dsa/
+> 
+> It appears there are about 40 functions to implement.
+
+For a minimal driver, you need a lot less. mv88e6060.c is a standalone
+DSA driver and has 5 functions. 250 lines of code. You will also need
+a new tag implementation, named something like net/dsa/tag_lan935x.c,
+but that is only two functions.
+
+> I see examples from only 2 manufacturers, and they average more than
+> 2000 lines of code.
+
+These are more fully featured switches, and the drivers do more than
+the minimum. You should be aiming for your first submission to be a
+minimal driver. Expose two ports, with a PHY each, send and receive
+frames on each port.
+
+Latter patches can add more features, like EEE, MIB counters, hardware
+bridging of the ports, 802.1Q, reading and writing the EEPROM
+etc. These are all optional features you can add later.
+
+> I'm not yet sure how it attaches to the underlying Ethernet driver.
+
+The DSA core does that for you. If you look at the device tree
+binding:
+
+        dsa@0 {
+                compatible = "marvell,dsa";
+                #address-cells = <2>;
+                #size-cells = <0>;
+
+                interrupts = <10>;
+                dsa,ethernet = <&ethernet0>;
+
+So this says which Ethernet interface to use. net/dsa/dsa.c will
+create a slave interface per external port of your switch. This slave
+is a netdev. Frames transmitted by this slave are fed through the tag
+code to add additional headers/trailers, and then passed to this
+ethernet device. Frames received by the ethernet again through the tag
+code, stripping off any headers/trails and demuxing to the correct
+slave.
+
+> And I have no idea how I would test it at the end. 
+
+The whole concept behind this is that the ports of the switch
+behaviour like normal network interfaces. So test it the same way you
+test an linux ethernet driver. ping, iperf, ethtool, etc. And add some
+tests using a linux bridge.
+ 
+> Given these issues, it will be hard to sell it to my manager.
+
+With time, you can expect to see more switch chips gaining mainline
+support. There is interest in implementing a DSA driver for the
+Micrel/Kendin KS8995M and KSZ8864RMN chips, for example, which i think
+are in the same or similar market segment as the lan935x devices.
+ 
+> If it can be partly implemented, which parts should be implemented first?
+
+I would suggest you first understand what the tag_ files are about,
+and look at implementing for the lan935x. The datasheet talks about a
+special VLAN tag with bits 0 and 1 indicating the outgoing port, if
+bit 3 is zero. Then do a minimal driver, equivalent to
+mv88e6060.c. FYI the datasheet of this device is publicly available.
+
+	     Andrew
