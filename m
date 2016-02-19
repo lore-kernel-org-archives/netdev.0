@@ -1,78 +1,108 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCHv2] sctp: Fix port hash table size computation
-Date: Fri, 19 Feb 2016 09:07:03 -0500
-Message-ID: <20160219140703.GA20372@hmsreliant.think-freely.org>
-References: <20160218.153921.2010668846576353053.davem@davemloft.net>
- <1455829857-15797-1-git-send-email-nhorman@tuxdriver.com>
- <1455877730.648.21.camel@edumazet-ThinkPad-T530>
+From: =?UTF-8?Q?Bendik_R=c3=b8nning_Opstad?= <bro.devel@gmail.com>
+Subject: Re: [PATCH v4 net-next 2/2] tcp: Add Redundant Data Bundling (RDB)
+Date: Fri, 19 Feb 2016 15:12:01 +0100
+Message-ID: <56C722B1.5090504@gmail.com>
+References: <1455630663-18400-1-git-send-email-bro.devel+kernel@gmail.com>
+ <1455630663-18400-3-git-send-email-bro.devel+kernel@gmail.com>
+ <1455808685.648.16.camel@edumazet-ThinkPad-T530>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Andreas Petlund <apetlund@simula.no>,
+	Carsten Griwodz <griff@simula.no>,
+	=?UTF-8?Q?P=c3=a5l_Halvorsen?= <paalh@simula.no>,
+	Jonas Markussen <jonassm@ifi.uio.no>,
+	Kristian Evensen <kristian.evensen@gmail.com>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47611 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1948804AbcBSOHQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 09:07:16 -0500
-Content-Disposition: inline
-In-Reply-To: <1455877730.648.21.camel@edumazet-ThinkPad-T530>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37216 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1947080AbcBSOME (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 09:12:04 -0500
+Received: by mail-wm0-f41.google.com with SMTP id g62so72816019wme.0
+        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 06:12:03 -0800 (PST)
+In-Reply-To: <1455808685.648.16.camel@edumazet-ThinkPad-T530>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 19, 2016 at 11:28:50AM +0100, Eric Dumazet wrote:
-> On jeu., 2016-02-18 at 16:10 -0500, Neil Horman wrote:
-> > Dmitry Vyukov noted recently that the sctp_port_hashtable had an error in
-> > its size computation, observing that the current method never guaranteed
-> > that the hashsize (measured in number of entries) would be a power of two,
-> > which the input hash function for that table requires.  The root cause of
-> > the problem is that two values need to be computed (one, the allocation
-> > order of the storage requries, as passed to __get_free_pages, and two the
-> > number of entries for the hash table).  Both need to be ^2, but for
-> > different reasons, and the existing code is simply computing one order
-> > value, and using it as the basis for both, which is wrong (i.e. it assumes
-> > that ((1<<order)*PAGE_SIZE)/sizeof(bucket) is still ^2 when its not).
+On 02/18/2016 04:18 PM, Eric Dumazet wrote:
+>>  
+>> -static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+>> +void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+>>  {
+>>  	__copy_skb_header(new, old);
+>>  
+>> @@ -1061,6 +1061,7 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+>>  	skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
+>>  	skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
+>>  }
+>> +EXPORT_SYMBOL(copy_skb_header);
 > 
-> Looks complicated for a stable submission.
-> 
-> What about reusing existing trick instead ?
-> 
-> 
-> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-> index ab0d538..3e4e11b 100644
-> --- a/net/sctp/protocol.c
-> +++ b/net/sctp/protocol.c
-> @@ -1434,6 +1434,10 @@ static __init int sctp_init(void)
->  	do {
->  		sctp_port_hashsize = (1UL << order) * PAGE_SIZE /
->  					sizeof(struct sctp_bind_hashbucket);
-> +
-> +		while (sctp_port_hashsize & (sctp_port_hashsize - 1))
-> +			sctp_port_hashsize--;
-> +
->  	if ((sctp_port_hashsize > (64 * 1024)) && order > 0)
->  		continue;
->  	sctp_port_hashtable = (struct sctp_bind_hashbucket *)
-> 
-> 
-> 
+> Why are you exporting this ? tcp is statically linked into vmlinux.
 
-I had actually thought about that, but to be frank I felt like the logic to
-compute the hashsize was complex the way it was presented currently, and that my
-rewite made it more clear, breaking it down into a few easy steps:
+Ah, this is actually leftover from the earlier module based
+implementation of RDB. Will remove.
 
-1) compute a goal size order
-2) compute the target order for the largest table we want to support
-3) select the minimum of (1) and (2)
-4) allocated the largest table we can up to the size in (3)
-5) compute how many buckets the table we allocated in (4) supports
+>> +EXPORT_SYMBOL(skb_append_data);
+> 
+> Same remark here.
+
+Will remove.
+
+> And this is really a tcp helper, you should add a tcp_ prefix.
+
+Certainly.
+
+> About rdb_build_skb() : I do not see where you make sure
+> @bytes_in_rdb_skb is not too big ?
+
+The number of previous SKBs in the queue to copy data from is given
+by rdb_can_bundle_test(), which tests if total payload does not
+exceed the MSS. Only if there is room (within the MSS) will it test
+the sysctl options to further restrict bundling:
+
++       /* We start at xmit_skb->prev, and go backwards. */
++       tcp_for_write_queue_reverse_from_safe(skb, tmp, sk) {
++               if ((total_payload + skb->len) > mss_now)
++                       break;
++
++               if (sysctl_tcp_rdb_max_bytes &&
++                   ((total_payload + skb->len) > sysctl_tcp_rdb_max_bytes))
++                       break;
+
+I'll combine these two to (total_payload + skb->len) > max_payload
+
+> tcp_rdb_max_bytes & tcp_rdb_max_packets seem to have no .extra2 upper
+> limit, so a user could do something really stupid and attempt to crash
+> the kernel.
+
+Those sysctl additions are actually a bit buggy, specifically the
+proc_handlers.
+
+Is it not sufficient to ensure that 0 is the lowest possible value?
+The max payload limit is really min(mss_now, sysctl_tcp_rdb_max_bytes),
+so if sysctl_tcp_rdb_max_bytes or sysctl_tcp_rdb_max_packets are set too
+large, bundling will simply be limited by the MSS.
+
+> Presumably I would use SKB_MAX_HEAD(MAX_TCP_HEADER) so that we do not
+> try high order page allocation.
+
+Do you suggest something like this?:
+bytes_in_rdb_skb = min_t(u32, bytes_in_rdb_skb, SKB_MAX_HEAD(MAX_TCP_HEADER));
+
+Is this necessary when bytes_in_rdb_skb will always contain exactly
+the required number of bytes for the payload of the (RDB) packet,
+which will never be greater than mss_now?
+
+Or is it aimed at scenarios where the page size is so small that
+allocating to an MSS (of e.g. 1460) will require high order page
+allocation?
 
 
-I'm happy to use your suggestion above if the consensus is that its more clear,
-but it took me a bit to figure out what exactly the existing code was trying to
-do (especially given the dual use of the order variable), so I thought some
-additional clarity was called for.
+Thanks for looking over the code!
 
-Neil
+Bendik
