@@ -1,47 +1,55 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] MAINTAINERS: Drop myself as xen netback maintainer
-Date: Fri, 19 Feb 2016 11:50:06 +0000
-Message-ID: <20160219115006.GS3723@citrix.com>
-References: <1455882291-1867-1-git-send-email-ian.campbell@citrix.com>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH] ehea: Drop owner assignment from platform_driver
+Date: Fri, 19 Feb 2016 07:06:46 -0500 (EST)
+Message-ID: <alpine.DEB.2.10.1602190706200.2801@hadrien>
+References: <20160219112219.GA2366@amitoj-Inspiron-3542> <20160219113524.GR4148@siri.cascardo.eti.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>
-To: Ian Campbell <ian.campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:53574 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1427811AbcBSLuI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2016 06:50:08 -0500
-Content-Disposition: inline
-In-Reply-To: <1455882291-1867-1-git-send-email-ian.campbell@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Amitoj Kaur Chawla <amitoj1606@gmail.com>,
+	cascardo@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Thadeu Lima de Souza Cascardo <cascardo@debian.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160219113524.GR4148@siri.cascardo.eti.br>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 19, 2016 at 11:44:51AM +0000, Ian Campbell wrote:
-> Wei has been picking this up for quite a while now.
-> 
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
 
-> ---
->  MAINTAINERS | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index 28eb61b..ef30060 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -12013,7 +12013,6 @@ F:	arch/arm64/xen/
->  F:	arch/arm64/include/asm/xen/
->  
->  XEN NETWORK BACKEND DRIVER
-> -M:	Ian Campbell <ian.campbell@citrix.com>
->  M:	Wei Liu <wei.liu2@citrix.com>
->  L:	xen-devel@lists.xenproject.org (moderated for non-subscribers)
->  L:	netdev@vger.kernel.org
-> -- 
-> 2.1.4
-> 
+On Fri, 19 Feb 2016, Thadeu Lima de Souza Cascardo wrote:
+
+> On Fri, Feb 19, 2016 at 04:52:19PM +0530, Amitoj Kaur Chawla wrote:
+> > platform_driver does not need to set an owner, it will be populated by
+> > the driver core.
+> >
+> > Generated-by: scripts/coccinelle/api/platform_no_drv_owner.cocci
+> >
+> > Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+> > ---
+> >  drivers/net/ethernet/ibm/ehea/ehea_main.c | 1 -
+> >  1 file changed, 1 deletion(-)
+> >
+> > diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> > index 2a0dc12..d4b022f 100644
+> > --- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> > +++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> > @@ -127,7 +127,6 @@ static const struct of_device_id ehea_device_table[] = {
+> >  static struct platform_driver ehea_driver = {
+> >  	.driver = {
+> >  		.name = "ehea",
+> > -		.owner = THIS_MODULE,
+> >  		.of_match_table = ehea_device_table,
+> >  	},
+> >  	.probe = ehea_probe_adapter,
+> > --
+> > 1.9.1
+> >
+>
+> NACK.
+>
+> ehea does not use platform_driver_register, it uses
+> ibmebus_register_driver, which does not set owner.
+
+Thanks for the information.  I will try to update the saemantic patch.
+
+julia
