@@ -1,55 +1,53 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH/RFC] openvswitch: loosen restriction of output
- of MPLS to tunnel vports
-Date: Fri, 19 Feb 2016 16:59:42 +0900
-Message-ID: <20160219075940.GB6589@vergenet.net>
-References: <1455305133-23285-1-git-send-email-simon.horman@netronome.com>
- <CAEh+42g5GXduCgr0WCyAKvSO6LeATFuZoWU2aR0sfNDbJqG=6Q@mail.gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next PATCH v3 3/8] net: sched: add cls_u32 offload hooks for netdevs
+Date: Fri, 19 Feb 2016 10:16:10 +0200
+Message-ID: <CAJ3xEMhrAa7+rzdA9Ejs3YTMa3QP0v=VQPOAz0rJ-6pOQoz3WA@mail.gmail.com>
+References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
+	<20160217051709.17139.88337.stgit@john-Precision-Tower-5810>
+	<56C4528E.5090505@mojatatu.com>
+	<56C48295.9030806@gmail.com>
+	<56C4FD2B.9000009@gmail.com>
+	<20160218092335.GA15192@office.Home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAEh+42g5GXduCgr0WCyAKvSO6LeATFuZoWU2aR0sfNDbJqG=6Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Amir Vadai <amir@vadai.me>,
+	John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:37948 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1424220AbcBSIQL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 03:16:11 -0500
+Received: by mail-ig0-f176.google.com with SMTP id y8so30981584igp.1
+        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 00:16:11 -0800 (PST)
+In-Reply-To: <20160218092335.GA15192@office.Home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBGZWIgMTYsIDIwMTYgYXQgMDI6NTM6MzlQTSAtMDgwMCwgSmVzc2UgR3Jvc3Mgd3Jv
-dGU6Cj4gT24gRnJpLCBGZWIgMTIsIDIwMTYgYXQgMTE6MjUgQU0sIFNpbW9uIEhvcm1hbgo+IDxz
-aW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gPiBJZiBhbiBza2Igd2FzIG5vdCBN
-UExTIGluaXRpYWxseSB0aGVuIGl0IG1heSBiZSBHU08gYW5kIGluIHRoYXQgY2FzZSBpZiBpdAo+
-ID4gYmVjYW1lIE1QTFMgdGhlbiBHU08gY2FuJ3QgYmUgcGVyZm9ybWVkIGJlY2F1c2UgYm90aCBN
-UExTIGFuZCB0dW5uZWxzIG1ha2UKPiA+IHVzZSBvZiB0aGUgaW5uZXJfcHJvdG9jb2wgZmllbGQg
-b2Ygc3RydWN0IHNrYnVmZiBpbiBvcmRlciB0byBhbGxvdyBHU08gdG8KPiA+IGJlIHBlcmZvcm1l
-ZCBpbiB0aGUgaW5uZXIgcGFja2V0Lgo+ID4KPiA+IE9uIHRoZSBvdGhlciBoYW5kIGlmIGFuIHNr
-YiB3YXMgTVBMUyBpbml0aWFsbHkgdGhlbiBpdCB3aWxsIG5vdCBiZSBHU08sCj4gPiBhcyB0aGVy
-ZSBpcyBubyBzdXBwb3J0IGZvciBHUk8gZm9yIE1QTFMuIFRodXMgaW4gdGhpcyBjYXNlIGl0IGlz
-IHNhZmUKPiA+IHRvIGFsbG93IG91dHB1dCBvZiBNUExTIG9uIHR1bm5lbCB2cG9ydHMuCj4gPgo+
-ID4gU2lnbmVkLW9mZi1ieTogU2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNv
-bT4KPiAKPiBJIGRvbid0IHRoaW5rIHRoYXQgYW55IHR1bm5lbCBpbXBsZW1lbnRhdGlvbnMgZXhw
-b3NlIHN1cHBvcnQgZm9yIE1QTFMKPiBvZmZsb2FkcyBhcyBwYXJ0IG9mIHRoZWlyIGZlYXR1cmVz
-LiBJbiB0aGF0IGNhc2UsIGlmIHdlIGhhdmUgYW4gTVBMUwo+IEdTTyBwYWNrZXQgKHJlZ2FyZGxl
-c3Mgb2YgaG93IGl0IGNhbWUgdG8gYmUpLCBJIHRoaW5rIGl0IHdpbGwgYmUKPiBicm9rZW4gYXBh
-cnQgaW4gc29mdHdhcmUgYmVmb3JlIGVuY2Fwc3VsYXRpb24uIEF0IHRoYXQgcG9pbnQsIGl0Cj4g
-c2hvdWxkIGJlIHNhZmUgZm9yIHRoZSB0dW5uZWwgdG8gb3ZlcndyaXRlIGFueSBmaWVsZHMgTVBM
-UyB3YXMKPiBwcmV2aW91c2x5IHVzaW5nIGZvciBvZmZsb2FkaW5nLiBBcyBhIHJlc3VsdCwgSSBi
-ZWxpZXZlIHdlIGNhbiBhbGxvdwo+IGFsbCBjb21iaW5hdGlvbnMgb2YgTVBMUyB3aXRoIHR1bm5l
-bHMuIChOb3RlIHRoYXQgaGlzdG9yaWNhbGx5IHRoaXMKPiB3YXNuJ3QgdHJ1ZSwgdGhlIGNoYW5n
-ZSBpcyBhIHJlc3VsdCBvZiBsaWdodHdlaWdodCB0dW5uZWxzLikKCkhpIEplc3NlLAoKd293LCB0
-aGF0IGRvZXMgc291bmQgdmVyeSBwcm9taXNpbmcuCkkgd291bGQgY2VydGFpbmx5IGJlIGluIGZh
-dm91ciBvZiBhbGxvd2luZyBNUExTIHdpdGggdHVubmVscy4KCkkgYW0gd29uZGVyaW5nIGlmIHlv
-dSBjb3VsZCBwb2ludCBtZSBpbiB0aGUgZ2VuZXJhbCBkaXJlY3Rpb24gb2YgdGhlIGNoYW5nZXMK
-eW91IG1lbnRpb24gYWJvdmUuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3Bl
-bnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+On Thu, Feb 18, 2016 at 11:23 AM, Amir Vadai" <amir@vadai.me> wrote:
+> On Wed, Feb 17, 2016 at 03:07:23PM -0800, John Fastabend wrote:
+
+>> Actually thinking about this a bit more I wrote this thinking
+>> that there existed some hardware that actually cared if it was
+>> a new rule or an existing rule. For me it doesn't matter I do
+>> the same thing in the new/replace cases I just write into the
+>> slot on the hardware table and if it happens to have something
+>> in it well its overwritten e.g. "replaced". This works because
+>> the cls_u32 layer protects us from doing something unexpected.
+
+>> I'm wondering (mostly asking the mlx folks) is there hardware
+>> out there that cares to make this distinction between new and
+>> replace? Otherwise I can just drop new and always use replace.
+>> Or vice versa which is the case in its current form.
+
+> I don't see a need for such a distinction in mlx hardware.
+
+If you (say) have the same match and different action for a given rule
+we have HW API to modify existing steering entry under which we would
+end up calling the FW once instead of twice (delete old, add new).
+
+Or.
