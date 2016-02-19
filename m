@@ -1,11 +1,11 @@
 From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [PATCH v1 1/4] net: ti: netcp: restore get/set_pad_info()
- functionality
-Date: Fri, 19 Feb 2016 11:48:35 -0500
-Message-ID: <56C74763.5040902@ti.com>
+Subject: Re: [PATCH v1 3/4] net: netcp: rename {get/set}pad_info to
+ {get/set}_sw_data
+Date: Fri, 19 Feb 2016 11:49:05 -0500
+Message-ID: <56C74781.7020407@ti.com>
 References: <1455824777-15571-1-git-send-email-m-karicheri2@ti.com>
- <7111317.k6f7A38a4k@wuerfel> <56C7394E.50207@ti.com>
- <15189559.iSkBKBkX2y@wuerfel>
+ <1455824777-15571-3-git-send-email-m-karicheri2@ti.com>
+ <3448016.8sm2r4rFcb@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
@@ -13,104 +13,71 @@ Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
 	<davem@davemloft.net>
 To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <15189559.iSkBKBkX2y@wuerfel>
+In-Reply-To: <3448016.8sm2r4rFcb@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/19/2016 11:41 AM, Arnd Bergmann wrote:
-> On Friday 19 February 2016 10:48:30 Murali Karicheri wrote:
->> On 02/19/2016 09:41 AM, Arnd Bergmann wrote:
->>> On Thursday 18 February 2016 14:46:14 Murali Karicheri wrote:
->>>> From: Arnd Bergmann <arnd@arndb.de>
->>>>
->>>> The commit 899077791403 ("netcp: try to reduce type confusion in
->>>> descriptors") introduces a regression in Kernel 4.5-rc1 and it breaks
->>>> get/set_pad_info() functionality.
->>>>
->>>> The TI NETCP driver uses pad0 and pad1 fields of knav_dma_desc to
->>>> store DMA/MEM buffer pointer and buffer size respectively. And in both
->>>> cases for Keystone 2 the pointer type size is 32 bit regardless of
->>>> LAPE enabled or not, because CONFIG_ARCH_DMA_ADDR_T_64BIT originally
->>>> is not expected to be defined.
->>>>
->>>>                      !LAPE   LPAE
->>>> sizeof(void*)                32bit   32bit
->>>> sizeof(dma_addr_t)   32bit   32bit
->>>> sizeof(phys_addr_t)  32bit   64bit
->>>
->>> As this was never relevant or true, I don't think it needs to be
->>> mentioned here, it just confuses things. Please just assume that
->>> dma_addr_t can be 64-bit wide, but will only contain 32-bit
->>> numbers on keystone.
->>>
+On 02/19/2016 09:37 AM, Arnd Bergmann wrote:
+> On Thursday 18 February 2016 14:46:16 Murali Karicheri wrote:
+>> Rename the helpers to match with the updated dma desc field sw_data.
 >>
->> I can remove this from the commit description and re-send.
-> 
-> Ok
-> 
->>>> Unfortunately, above commit changed buffer's pointers save/restore
->>>> code (get/set_pad_info()) and added intermediate conversation to u64
->>>> which works incorrectly on 32bit Keystone 2 and causes TI NETCP driver
->>>> crash in RX/TX path due to "Unable to handle kernel NULL pointer"
->>>> exception. This issue was reported and discussed in [1].
->>>
->>> Have you been able to figure out why it actually broke? I'd still
->>> like to know.
->>>
->> As Grygorii is out of office until Monday, I would like to step in.
->> I will take some time today to try review the reverted changes for
->> failure reason and get back. But as you have agreed in the discussion
->> at https://www.mail-archive.com/netdev@vger.kernel.org/msg96311.html
->> Can we fix the regression by applying this patch and rest of the series
->> if it looks good? If I need to separate this from rest of the series,
->> let me know and I can take care of that.
-> 
-> Yes, sounds fine.
-> 
->>>> Hence, fix it by partially reverting above commit and restoring
->>>> get/set_pad_info() functionality as it was before.
->>>>
->>>> [1] https://www.mail-archive.com/netdev@vger.kernel.org/msg95361.html
->>>> Cc: Wingman Kwok <w-kwok2@ti.com>
->>>> Cc: Mugunthan V N <mugunthanvnm@ti.com>
->>>> CC: David Laight <David.Laight@ACULAB.COM>
->>>> Reported-by: Franklin S Cooper Jr <fcooper@ti.com>
->>>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->>>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
->>>> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
->>>
->>> I don't think I sent this patch with a 'Signed-off-by', did I?
->>> (I could be misremembering that).
->>>
+>> Cc: Wingman Kwok <w-kwok2@ti.com>
+>> Cc: Mugunthan V N <mugunthanvnm@ti.com>
+>> CC: Arnd Bergmann <arnd@arndb.de>
+>> CC: Grygorii Strashko <grygorii.strashko@ti.com>
+>> CC: David Laight <David.Laight@ACULAB.COM>
+>> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+>> ---
+>>  v1 - new patch to based on discussion at
+>> 	https://patchwork.ozlabs.org/patch/580860/
+>>  drivers/net/ethernet/ti/netcp_core.c | 40 +++++++++++++++++++-----------------
+>>  1 file changed, 21 insertions(+), 19 deletions(-)
 >>
->> I think you had agreed based on what I read at
->> https://www.mail-archive.com/netdev@vger.kernel.org/msg96311.html
->>
->> reproduced below for your convenience.
->> =============================================================================
->>
->>> What I could do now is update your/my patch as i mentioned in [1]
->>> and re-send it at the weekend (with your authorship and my signoff).
->>> Do you agree?
->>>
->>>
->>> [1] https://www.mail-archive.com/netdev@vger.kernel.org/msg95831.html
->>
->> Yes, let's do that in the meantime. I can also make sure that that
->> the driver doesn't build on 64-bit, just in case.
->> =============================================================================
->>
->> Hope I can keep your sign-off when I re-send this. Please confirm.
+>> diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+>> index 0b26e52..1d07cca 100644
+>> --- a/drivers/net/ethernet/ti/netcp_core.c
+>> +++ b/drivers/net/ethernet/ti/netcp_core.c
+>> @@ -117,10 +117,11 @@ static void get_pkt_info(dma_addr_t *buff, u32 *buff_len, dma_addr_t *ndesc,
+>>  	*ndesc = le32_to_cpu(desc->next_desc);
+>>  }
+>>  
+>> -static void get_pad_info(u32 *pad0, u32 *pad1, struct knav_dma_desc *desc)
+>> +static void get_sw_data(u32 *data0, u32 *data1, struct knav_dma_desc *desc)
+>>  {
+>> -	*pad0 = le32_to_cpu(desc->pad[0]);
+>> -	*pad1 = le32_to_cpu(desc->pad[1]);
+>> +	/* No Endian conversion needed as this data is untouched by hw */
+>> +	*data0 = desc->sw_data[0];
+>> +	*data1 = desc->sw_data[1];
+>>  }
 > 
-> The most important part here is that you don't add a "Signed-off-by"
-> tag unless it was provided by that person as part of the submission.
+> Actually this needs to be done together with patch 2, or you
+> get a build failure if this one is not yet applied.
+I have realized that. Only reason was that it belongs to drivers/soc which is
+merged through Santosh. I will combine it and re-send.
 > 
-> I'm slightly uncomfortable with having my Signed-off-by as the first
-> one when I did not write the changelog myself, so I'd prefer if
-> you just add my Acked-by once I provide that. If that doesn't
-> work for you, let's follow up in private to sort it out.
+>> @@ -1174,7 +1176,7 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
+>>  	}
+>>  
+>>  	set_words(&tmp, 1, &desc->packet_info);
+>> -	set_words((u32 *)&skb, 1, &desc->pad[0]);
+>> +	set_words((u32 *)&skb, 1, &desc->sw_data[0]);
+>>  
+>>  	if (tx_pipe->flags & SWITCH_TO_PORT_IN_TAGINFO) {
+>>  		tmp = tx_pipe->switch_to_port;
+>>
 > 
-Ok. I will remove it.
+> This seems to introduce a bug, and should produce an "sparse" warning
+> about a u32 being passed into a function expecting a __le32.
+> 
+Ahah, this was changed recently. I will take a look.
+
+> The other bug I originally tried to address here is the way an indirect
+> pointer is converted to a 'u32' pointer, which won't work on 64-bit
+> architectures when pointers are wider than u32. Maybe at least put a
+> comment here that this is a known deficiency.
+> 
+Ok. Let me check and respond.
 
 > 	Arnd
 > 
