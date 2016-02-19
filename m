@@ -1,97 +1,52 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH 2/2] VXLAN: Support outer IPv4 Tx checksums by
- default
-Date: Fri, 19 Feb 2016 11:26:31 -0800
-Message-ID: <20160219192631.15687.78165.stgit@localhost.localdomain>
-References: <20160219191806.15687.37621.stgit@localhost.localdomain>
+From: <Bryan.Whitehead@microchip.com>
+Subject: RE: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+Date: Fri, 19 Feb 2016 19:29:46 +0000
+Message-ID: <90A7E81AE28BAE4CBDDB3B35F187D264402F0018@CHN-SV-EXMX02.mchp-main.com>
+References: <20160216203625.GC2558@lunn.ch>
+ <20160216.154358.164326104187806534.davem@davemloft.net>
+ <90A7E81AE28BAE4CBDDB3B35F187D264402EFB5D@CHN-SV-EXMX02.mchp-main.com>
+ <20160216.155244.2052910262411568012.davem@davemloft.net>
+ <90A7E81AE28BAE4CBDDB3B35F187D264402EFB82@CHN-SV-EXMX02.mchp-main.com>
+ <20160216221536.GB6033@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	alexander.duyck@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <f.fainelli@gmail.com>,
+	<netdev@vger.kernel.org>
+To: <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:33244 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2993343AbcBST0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 14:26:33 -0500
-Received: by mail-pf0-f174.google.com with SMTP id q63so55907705pfb.0
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 11:26:32 -0800 (PST)
-In-Reply-To: <20160219191806.15687.37621.stgit@localhost.localdomain>
+Received: from exsmtp03.microchip.com ([198.175.253.49]:20190 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S2993202AbcBST3s convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 14:29:48 -0500
+In-Reply-To: <20160216221536.GB6033@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change makes it so that if UDP CSUM is not specified we will default
-to enabling it.  The main motivation behind this is the fact that with the
-use of outer checksum we can greatly improve the performance for VXLAN
-tunnels on devices that don't know how to parse tunnel headers.
+> From: Andrew Lunn [mailto:andrew@lunn.ch]
+> Sent: Tuesday, February 16, 2016 5:16 PM
+> 
+> You are already 1/2 way to a DSA driver, since you have a MAC driver. So i
+> agree with David, do it right and add a simple DSA driver.
+> 
+Andrew,
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
- drivers/net/vxlan.c |   19 +++++++++----------
- include/net/vxlan.h |    2 +-
- 2 files changed, 10 insertions(+), 11 deletions(-)
+I've done a little research on DSA.
+I've read Documentation/networking/dsa/dsa.txt
+And I've looked over some examples in drivers/net/dsa/
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 766e6114a37f..909f7931c297 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1957,13 +1957,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			goto drop;
- 		sk = vxlan->vn4_sock->sock->sk;
- 
--		if (info) {
--			if (info->key.tun_flags & TUNNEL_DONT_FRAGMENT)
--				df = htons(IP_DF);
--		} else {
--			udp_sum = !!(flags & VXLAN_F_UDP_CSUM);
--		}
--
- 		rt = vxlan_get_route(vxlan, skb,
- 				     rdst ? rdst->remote_ifindex : 0, tos,
- 				     dst->sin.sin_addr.s_addr, &saddr,
-@@ -1997,6 +1990,11 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			return;
- 		}
- 
-+		if (!info)
-+			udp_sum = !(flags & VXLAN_F_UDP_ZERO_CSUM_TX);
-+		else if (info->key.tun_flags & TUNNEL_DONT_FRAGMENT)
-+			df = htons(IP_DF);
-+
- 		tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
- 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
- 		err = vxlan_build_skb(skb, &rt->dst, sizeof(struct iphdr),
-@@ -2920,8 +2918,9 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
- 	if (data[IFLA_VXLAN_PORT])
- 		conf.dst_port = nla_get_be16(data[IFLA_VXLAN_PORT]);
- 
--	if (data[IFLA_VXLAN_UDP_CSUM] && nla_get_u8(data[IFLA_VXLAN_UDP_CSUM]))
--		conf.flags |= VXLAN_F_UDP_CSUM;
-+	if (data[IFLA_VXLAN_UDP_CSUM] &&
-+	    !nla_get_u8(data[IFLA_VXLAN_UDP_CSUM]))
-+		conf.flags |= VXLAN_F_UDP_ZERO_CSUM_TX;
- 
- 	if (data[IFLA_VXLAN_UDP_ZERO_CSUM6_TX] &&
- 	    nla_get_u8(data[IFLA_VXLAN_UDP_ZERO_CSUM6_TX]))
-@@ -3065,7 +3064,7 @@ static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_u32(skb, IFLA_VXLAN_LIMIT, vxlan->cfg.addrmax) ||
- 	    nla_put_be16(skb, IFLA_VXLAN_PORT, vxlan->cfg.dst_port) ||
- 	    nla_put_u8(skb, IFLA_VXLAN_UDP_CSUM,
--			!!(vxlan->flags & VXLAN_F_UDP_CSUM)) ||
-+			!(vxlan->flags & VXLAN_F_UDP_ZERO_CSUM_TX)) ||
- 	    nla_put_u8(skb, IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
- 			!!(vxlan->flags & VXLAN_F_UDP_ZERO_CSUM6_TX)) ||
- 	    nla_put_u8(skb, IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 748083de367a..6eda4ed4d78b 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -197,7 +197,7 @@ struct vxlan_dev {
- #define VXLAN_F_L2MISS			0x08
- #define VXLAN_F_L3MISS			0x10
- #define VXLAN_F_IPV6			0x20
--#define VXLAN_F_UDP_CSUM		0x40
-+#define VXLAN_F_UDP_ZERO_CSUM_TX	0x40
- #define VXLAN_F_UDP_ZERO_CSUM6_TX	0x80
- #define VXLAN_F_UDP_ZERO_CSUM6_RX	0x100
- #define VXLAN_F_REMCSUM_TX		0x200
+It appears there are about 40 functions to implement.
+I see examples from only 2 manufacturers, and they average more than 2000 lines of code.
+I'm not yet sure how it attaches to the underlying Ethernet driver.
+And I have no idea how I would test it at the end. 
+
+Given these issues, it will be hard to sell it to my manager.
+Since you claim it is simple. Can you explain your reasons?
+
+I've never done a DSA driver before. Given that, can you generally outline the steps.
+If it can be partly implemented, which parts should be implemented first?
+
+I appreciate any pointers you can provide.
+
+Bryan
