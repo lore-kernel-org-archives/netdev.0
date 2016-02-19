@@ -1,73 +1,66 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [net-next PATCH v3 3/8] net: sched: add cls_u32 offload hooks
- for netdevs
-Date: Fri, 19 Feb 2016 12:37:15 +0900
-Message-ID: <20160219033712.GA5799@vergenet.net>
-References: <20160217051418.17139.41052.stgit@john-Precision-Tower-5810>
- <20160217051709.17139.88337.stgit@john-Precision-Tower-5810>
- <56C4528E.5090505@mojatatu.com>
- <56C48295.9030806@gmail.com>
- <56C4FD2B.9000009@gmail.com>
- <20160218092335.GA15192@office.Home>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [RFC][PATCH 00/10] Add trace event support to eBPF
+Date: Thu, 18 Feb 2016 20:16:23 -0800
+Message-ID: <20160219041622.GA88036@ast-mbp.thefacebook.com>
+References: <cover.1455291671.git.tom.zanussi@linux.intel.com>
+ <20160214000236.GA16236@ast-mbp.kubiwireless.com>
+ <1455662127.2641.157.camel@tzanussi-mobl.amr.corp.intel.com>
+ <20160217045103.GA47275@ast-mbp.thefacebook.com>
+ <1455830838.14359.58.camel@tzanussi-mobl.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, jiri@resnulli.us,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: "Amir Vadai\"" <amir@vadai.me>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:35245 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423529AbcBSDhb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 22:37:31 -0500
-Received: by mail-pf0-f169.google.com with SMTP id c10so44561288pfc.2
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 19:37:31 -0800 (PST)
+Cc: rostedt@goodmis.org, masami.hiramatsu.pt@hitachi.com,
+	namhyung@kernel.org, peterz@infradead.org,
+	linux-kernel@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Tom Zanussi <tom.zanussi@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160218092335.GA15192@office.Home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1455830838.14359.58.camel@tzanussi-mobl.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 18, 2016 at 11:23:35AM +0200, Amir Vadai" wrote:
-> On Wed, Feb 17, 2016 at 03:07:23PM -0800, John Fastabend wrote:
-> > [...]
+On Thu, Feb 18, 2016 at 03:27:18PM -0600, Tom Zanussi wrote:
+> On Tue, 2016-02-16 at 20:51 -0800, Alexei Starovoitov wrote:
+> > On Tue, Feb 16, 2016 at 04:35:27PM -0600, Tom Zanussi wrote:
+> > > On Sun, 2016-02-14 at 01:02 +0100, Alexei Starovoitov wrote:
+> > > > On Fri, Feb 12, 2016 at 10:11:18AM -0600, Tom Zanussi wrote:
 > > 
-> > >>
-> > >>> +static void u32_replace_hw_hnode(struct tcf_proto *tp, struct
-> > >>> tc_u_hnode *h)
-> > >>> +{
-> > >>> +    struct net_device *dev = tp->q->dev_queue->dev;
-> > >>> +    struct tc_cls_u32_offload u32_offload = {0};
-> > >>> +    struct tc_to_netdev offload;
-> > >>> +
-> > >>> +    offload.type = TC_SETUP_CLSU32;
-> > >>> +    offload.cls_u32 = &u32_offload;
-> > >>> +
-> > >>> +    if (dev->netdev_ops->ndo_setup_tc) {
-> > >>> +        offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
-> > >>
-> > >> TC_CLSU32_REPLACE_HNODE?
-> > >>
-> > > 
-> > > Yep I made this change and will send out v4.
-> > > 
-> > > [...]
-> > > 
-> > >>
-> > 
-> > Actually thinking about this a bit more I wrote this thinking
-> > that there existed some hardware that actually cared if it was
-> > a new rule or an existing rule. For me it doesn't matter I do
-> > the same thing in the new/replace cases I just write into the
-> > slot on the hardware table and if it happens to have something
-> > in it well its overwritten e.g. "replaced". This works because
-> > the cls_u32 layer protects us from doing something unexpected.
-> > 
-> > I'm wondering (mostly asking the mlx folks) is there hardware
-> > out there that cares to make this distinction between new and
-> > replace? Otherwise I can just drop new and always use replace.
-> > Or vice versa which is the case in its current form.
-> I don't see a need for such a distinction in mlx hardware.
+> 
+>   # ./funccount.py '*spin*'
+> 
+> Which on my machine resulted in a hard lockup on all CPUs.  I'm not set
 
-FWIW, I think it is unlikely such a distinction would
-be needed for Netronome hardware.
+thanks for the report. looks like something got broken. After:
+# ./funccount.par '*spin*'
+Tracing 12 functions for "*spin*"... Hit Ctrl-C to end.
+^C
+ADDR             FUNC                          COUNT
+ffffffff810aeb91 mutex_spin_on_owner             530
+ffffffff8177f241 _raw_spin_unlock_bh            1325
+ffffffff810aebe1 mutex_optimistic_spin          1696
+ffffffff8177f581 _raw_spin_lock_bh              1985
+ffffffff8177f511 _raw_spin_trylock             55337
+ffffffff8177f3c1 _raw_spin_lock_irq           787875
+ffffffff8177f551 _raw_spin_lock              2211324
+ffffffff8177f331 _raw_spin_lock_irqsave      3556740
+ffffffff8177f1c1 __lock_text_start           3593983
+[  275.175524] Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 11
+it seems kprobe cleanup is racing with bpf cleanup...
+
+> > > surrounding that even in the comments.  I guess I'd have to spend a few
+> > > hours reading the BPF code and the verifier even, to understand that.
+> > 
+> > not sure what is your goal. Runtime lookup via field name is not acceptable
+> > whether it's cached or not. There is no place for strcmp in the critical path.
+> 
+> Exactly - that's why I was asking about a 'begin probe', in order to do
+> the lookup once, in an non-critical path.
+
+It is critical path. When program is called million times for_each{strcmp}
+at the beginning of every program is unacceptable overhead.
+In the crash above, Ctrl-C was pressed in a split second, yet bpf
+already processed 2.2M + 3.5M + 3.5M events and then hung while unloading.
+In the upcoming tracepoint+bpf patches the programs will have
+direct access to tracepoint data without wasting time on strcmp.
+The steps to do that were already outlined in the previous email.
