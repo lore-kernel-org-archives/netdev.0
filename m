@@ -1,46 +1,98 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH V2 net-next 2/3] lan78xx: add ethtool set & get pause
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH V2 net-next 2/3] lan78xx: add ethtool set & get pause
  functions
-Date: Fri, 19 Feb 2016 00:03:50 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D404B3871@CHN-SV-EXMX02.mchp-main.com>
+Date: Fri, 19 Feb 2016 00:06:27 +0000
+Message-ID: <1455840387.2794.59.camel@decadent.org.uk>
 References: <9235D6609DB808459E95D78E17F2E43D404B37B5@CHN-SV-EXMX02.mchp-main.com>
- <1455839111.2794.51.camel@decadent.org.uk>
+	 <1455839111.2794.51.camel@decadent.org.uk>
+	 <9235D6609DB808459E95D78E17F2E43D404B3871@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <ben@decadent.org.uk>, <davem@davemloft.net>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-HlYuMMHGqF+dVzlAbRsd"
+Cc: netdev@vger.kernel.org
+To: Woojung.Huh@microchip.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp03.microchip.com ([198.175.253.49]:48065 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1426976AbcBSADw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 19:03:52 -0500
-In-Reply-To: <1455839111.2794.51.camel@decadent.org.uk>
-Content-Language: en-US
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:55699 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1426944AbcBSAGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 19:06:35 -0500
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404B3871@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+IEFkZCBldGh0b29sIG9wZXJhdGlvbnMgb2Ygc2V0X3BhdXNlcmFtIGFuZCBnZXRfcGF1c2Vw
-YXJtLg0KPiBbLi4uXQ0KPiA+ICtzdGF0aWMgdm9pZCBsYW43OHh4X2dldF9wYXVzZShzdHJ1Y3Qg
-bmV0X2RldmljZSAqbmV0LA0KPiA+ICsJCQnCoMKgwqDCoMKgwqBzdHJ1Y3QgZXRodG9vbF9wYXVz
-ZXBhcmFtICpwYXVzZSkNCj4gPiArew0KPiA+ICsJc3RydWN0IGxhbjc4eHhfbmV0ICpkZXYgPSBu
-ZXRkZXZfcHJpdihuZXQpOw0KPiA+ICsJc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldiA9IG5ldC0+
-cGh5ZGV2Ow0KPiA+ICsJc3RydWN0IGV0aHRvb2xfY21kIGVjbWQgPSB7IC5jbWQgPSBFVEhUT09M
-X0dTRVQgfTsNCj4gPiArDQo+ID4gKwlwaHlfZXRodG9vbF9nc2V0KHBoeWRldiwgJmVjbWQpOw0K
-PiA+ICsNCj4gPiArCXBhdXNlLT5hdXRvbmVnID0gZGV2LT5mY19hdXRvbmVnOw0KPiA+ICsNCj4g
-PiArCWlmIChkZXYtPmZjX2F1dG9uZWcpIHsNCj4gPiArCQlpZiAoZGV2LT5mY19hdXRvbmVnX2Nv
-bnRyb2wgJiBGTE9XX0NUUkxfVFgpDQo+ID4gKwkJCXBhdXNlLT50eF9wYXVzZSA9IDE7DQo+ID4g
-Kw0KPiA+ICsJCWlmIChkZXYtPmZjX2F1dG9uZWdfY29udHJvbCAmIEZMT1dfQ1RSTF9SWCkNCj4g
-PiArCQkJcGF1c2UtPnJ4X3BhdXNlID0gMTsNCj4gDQo+IFRoaXMgaXMgaW5jb3JyZWN0OyB5b3Ug
-c2hvdWxkIGFsd2F5cyByZXR1cm4gdGhlIG1hbnVhbCBzZXR0aW5ncw0KPiAoZmNfcmVxdWVzdF9j
-b250cm9sIGZsYWdzKSBoZXJlLiDCoElmIGF1dG9uZWdvdGlhdGlvbiBpcyBlbmFibGVkIHRoZW4N
-Cj4geW91ciBnZXRfc2V0dGluZ3MgZnVuY3Rpb24gd2lsbCByZXR1cm4gdGhlIGFjdHVhbCBwYXVz
-ZSBmbGFncy4NCj4gDQo+IEJlbi4NCg0KQmVuLCB0aGFua3MgZm9yIGNvbW1lbnRzLg0KSG93IGFi
-b3V0IGNvbW1lbnQgaW4gaW5jbHVkZS91YXBpL2xpbnV4L2V0aHRvb2wuaD8NCkl0IHNheXMgDQoq
-KiBzdHJ1Y3QgZXRodG9vbF9wYXVzZXBhcmFtIC0gRXRoZXJuZXQgcGF1c2UgKGZsb3cgY29udHJv
-bCkgcGFyYW1ldGVycw0KLi4uDQoqIElmIEBhdXRvbmVnIGlzIG5vbi16ZXJvLCB0aGUgTUFDIGlz
-IGNvbmZpZ3VyZWQgdG8gc2VuZCBhbmQvb3INCiogcmVjZWl2ZSBwYXVzZSBmcmFtZXMgYWNjb3Jk
-aW5nIHRvIHRoZSByZXN1bHQgb2YgYXV0b25lZ290aWF0aW9uLg0KDQpEb2Vzbid0IHRoaXMgbWVh
-biBnZXRfcGF1c2VwYXJhbSgpIHJldHVybnMgcGF1c2Ugc2V0dGluZ3MgYmFzZWQgb24gDQpSZXN1
-bHQgb2YgYXV0b25lZ290YXRpb24/IE5vdCBtYW51YWwgc2V0dGluZ3Mgb2YgcnhfcGFyYW0gJiB0
-eF9wYXJhbT8NCg0KV29vanVuZw0K
+
+--=-HlYuMMHGqF+dVzlAbRsd
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2016-02-19 at 00:03 +0000, Woojung.Huh@microchip.com wrote:
+> > > Add ethtool operations of set_pauseram and get_pauseparm.
+> > [...]
+> > > +static void lan78xx_get_pause(struct net_device *net,
+> > > +			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0struct ethtool_pauseparam *pa=
+use)
+> > > +{
+> > > +	struct lan78xx_net *dev =3D netdev_priv(net);
+> > > +	struct phy_device *phydev =3D net->phydev;
+> > > +	struct ethtool_cmd ecmd =3D { .cmd =3D ETHTOOL_GSET };
+> > > +
+> > > +	phy_ethtool_gset(phydev, &ecmd);
+> > > +
+> > > +	pause->autoneg =3D dev->fc_autoneg;
+> > > +
+> > > +	if (dev->fc_autoneg) {
+> > > +		if (dev->fc_autoneg_control & FLOW_CTRL_TX)
+> > > +			pause->tx_pause =3D 1;
+> > > +
+> > > +		if (dev->fc_autoneg_control & FLOW_CTRL_RX)
+> > > +			pause->rx_pause =3D 1;
+> >=20
+> > This is incorrect; you should always return the manual settings
+> > (fc_request_control flags) here. =C2=A0If autonegotiation is enabled th=
+en
+> > your get_settings function will return the actual pause flags.
+> >=20
+> > Ben.
+>=20
+> Ben, thanks for comments.
+> How about comment in include/uapi/linux/ethtool.h?
+> It says=C2=A0
+> ** struct ethtool_pauseparam - Ethernet pause (flow control) parameters
+> ...
+> * If @autoneg is non-zero, the MAC is configured to send and/or
+> * receive pause frames according to the result of autonegotiation.
+>=20
+> Doesn't this mean get_pauseparam() returns pause settings based on=C2=A0
+> Result of autonegotation? Not manual settings of rx_param & tx_param?
+
+No, get_pauseparam should return the same settings that were passed to
+the last set_pauseparam.
+
+Ben.
+
+--=20
+Ben Hutchings
+Tomorrow will be cancelled due to lack of interest.
+--=-HlYuMMHGqF+dVzlAbRsd
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVsZcg+e/yOyVhhEJAQq5pA//YoaPJaWkXQJDg0snTCo7wTDIojxY1qAb
+vgY6g8Xx0mHfUSm+Qu5aFhmemTKyJaKu0Xqs3FHxvzV8yN40tOJBpJIbEJGqJzMp
+TZhbuFkTRcGyo/5/Qr91Vfx1gN8HSeACYHMArgG6Zb0Uf+L2Tn9zN719EviDgYow
+JDXoB1E+ql0v8KJneMYOQey5aw5yrRVstSGIWz6naclMCIjsdkAfb/dJjA9g/5h7
+EyRyvmzDe3f+zWefQfZ7O+3j+EK0mUatn1T+Dl9Hfi/Zk6of02VTF5Ko+uD+KyTf
+XvxHHT8tLcBAJLyqJCJAmzFp6tuXIB6ouT/AKTYtYLYV4BAhTBx6KkNHYscIFiNB
+9yODsYmZe1uMvp2vu2MXUWoThiAKmu/kMHmLo7OPWQqOvt4s6iNcSbBjinIKbat+
+9QrS1GNSKvc4bRLsEqgOZLVmhs2orYBIWWaRU+dlXJK7BC0RZJCQZqFQdTNkvJfq
+ch6k94mBhoxjLuECISvsv/bmMvPN1LubYTK9LILAnELMp1iNWHJuNaey/LC8daC1
+EpoWDbU5iR49OQZGbrmN0g6/hwRrTUgpsBmfOQI6qIvACLBDPTEvMTQHE/AL71+g
+MjlGy0IWWOZWpA3+F7JN5M7U1kRzRW43x5xPlZTSzlzEle/DDfvsn+YCTFjjqTII
+IB0dVd7T98k=
+=wczh
+-----END PGP SIGNATURE-----
+
+--=-HlYuMMHGqF+dVzlAbRsd--
