@@ -1,45 +1,47 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next V1 08/12] net/mlx5e: Move to checksum complete
-Date: Fri, 19 Feb 2016 10:21:24 +0200
-Message-ID: <CAJ3xEMibGLtTVYVHqjvHTMUPB3xU6MHnLJ4dhKPPnzq-e==-+Q@mail.gmail.com>
-References: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
-	<1455791573-5270-9-git-send-email-saeedm@mellanox.com>
-	<CALx6S36MtF+Z44_ti57tJ+RMKNehTLYW18HfAHsvGJpUDXty4g@mail.gmail.com>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH v2] net: phy: spi_ks8995: add dependency on GPIO
+Date: Fri, 19 Feb 2016 13:59:09 +0530
+Message-ID: <20160219082909.GA6312@sudip-pc>
+References: <1455372195-10825-1-git-send-email-sudipm.mukherjee@gmail.com>
+ <20160216.203606.1431228679408727525.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Rana Shahout <ranas@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Matthew Finlay <matt@mellanox.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:33919 "EHLO
-	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1426497AbcBSIVZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 03:21:25 -0500
-Received: by mail-io0-f176.google.com with SMTP id 9so101845183iom.1
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 00:21:25 -0800 (PST)
-In-Reply-To: <CALx6S36MtF+Z44_ti57tJ+RMKNehTLYW18HfAHsvGJpUDXty4g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, linux-kernel@vger.kernel.org,
+	kernel-testers@vger.kernel.org, netdev@vger.kernel.org,
+	geert@linux-m68k.org, helmut.buchsbaum@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160216.203606.1431228679408727525.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 19, 2016 at 4:25 AM, Tom Herbert <tom@herbertland.com> wrote:
-> On Thu, Feb 18, 2016 at 2:32 AM, Saeed Mahameed <saeedm@mellanox.com> wrote:
->> From: Matthew Finlay <matt@mellanox.com>
+On Tue, Feb 16, 2016 at 08:36:06PM -0500, David Miller wrote:
+> From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+> Date: Sat, 13 Feb 2016 19:33:15 +0530
+> 
+> > The builds of allmodconfig of s390, m68k, tilegx, tilepro is failing
+> > with the error:
+> >  drivers/net/phy/spi_ks8995.c:477:3: error: implicit declaration of function 'gpiod_set_value'
+> >  drivers/net/phy/spi_ks8995.c:477:19: error: implicit declaration of function 'gpio_to_desc'
+> > 
+> > GPIO is now used to reset the switch so we should have a dependency on
+> > GPIOLIB. While adding the dependency also add COMPILE_TEST so that we
+> > can build test it.
+> > 
+> > Fixes: cd6f288cbaab ("net: phy: spi_ks8995: add support for resetting switch using GPIO")
+> > Cc: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+> > Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+> > ---
+> > 
+> > v2: added COMPILE_TEST and gpio/consumer.h
+> 
+> I'm going to apply Arnd's patch because it properly removes the
+> unnecessary linux/gpio.h include.
 
->> Use checksum complete for all IP packets, unless they are HW LRO,
->> in which case, use checksum unnecessary.
+I think Arnd's patch is still not applied as we are still having build
+failures for the implicit declarations. Or you want me to send v3 after
+removing unnecessary linux/gpio.h include?
 
-> Awesome!
-
-I know...
-
-> Thanks for this fix.
-
-we consider it  a feature ...
+regards
+suduo
