@@ -1,64 +1,39 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@debian.org>
-Subject: Re: [PATCH] ehea: Drop owner assignment from platform_driver
-Date: Fri, 19 Feb 2016 10:15:08 -0200
-Message-ID: <20160219121501.GS4148@siri.cascardo.eti.br>
-References: <20160219112219.GA2366@amitoj-Inspiron-3542>
- <20160219113524.GR4148@siri.cascardo.eti.br>
- <alpine.DEB.2.10.1602190706200.2801@hadrien>
+From: Ken Kawasaki <ken_kawasaki@nifty.com>
+Subject: [PATCH]fmvj18x_cs: The MAC address of FMV-J182 is stored at buf[5].
+Date: Fri, 19 Feb 2016 21:38:35 +0900
+Message-ID: <20160219213835.c16a60105e0342ff64b7b8aa@nifty.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Amitoj Kaur Chawla <amitoj1606@gmail.com>,
-	cascardo@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia Lawall <julia.lawall@lip6.fr>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from trem.minaslivre.org ([148.251.208.85]:55127 "EHLO
-	grilo.cascardo.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992987AbcBSMPS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 07:15:18 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.10.1602190706200.2801@hadrien>
+Received: from conuserg010.nifty.com ([202.248.44.36]:27059 "EHLO
+	conuserg010-v.nifty.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757578AbcBSMix (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 07:38:53 -0500
+Received: from localhost.localdomain (49.253.220.168.eo.eaccess.ne.jp [49.253.220.168]) (authenticated)
+	by conuserg010-v.nifty.com with ESMTP id u1JCcanY015380
+	for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 21:38:36 +0900
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 19, 2016 at 07:06:46AM -0500, Julia Lawall wrote:
-> On Fri, 19 Feb 2016, Thadeu Lima de Souza Cascardo wrote:
-> > On Fri, Feb 19, 2016 at 04:52:19PM +0530, Amitoj Kaur Chawla wrote:
-> > > platform_driver does not need to set an owner, it will be populated by
-> > > the driver core.
-> > >
-> > > Generated-by: scripts/coccinelle/api/platform_no_drv_owner.cocci
-> > >
-> > > Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-> > > ---
-> > >  drivers/net/ethernet/ibm/ehea/ehea_main.c | 1 -
-> > >  1 file changed, 1 deletion(-)
-> > >
-> > > diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-> > > index 2a0dc12..d4b022f 100644
-> > > --- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
-> > > +++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-> > > @@ -127,7 +127,6 @@ static const struct of_device_id ehea_device_table[] = {
-> > >  static struct platform_driver ehea_driver = {
-> > >  	.driver = {
-> > >  		.name = "ehea",
-> > > -		.owner = THIS_MODULE,
-> > >  		.of_match_table = ehea_device_table,
-> > >  	},
-> > >  	.probe = ehea_probe_adapter,
-> > > --
-> > > 1.9.1
-> > >
-> >
-> > NACK.
-> >
-> > ehea does not use platform_driver_register, it uses
-> > ibmebus_register_driver, which does not set owner.
-> 
-> Thanks for the information.  I will try to update the saemantic patch.
-> 
-> julia
 
-Thanks, Julia. I appreciate your work on that.
+The MAC address of FMV-J182 is stored at buf[5].
 
-Cascardo.
+Signed-off-by: Ken Kawasaki <ken_kawasaki@nifty.com>
+
+---
+
+--- linux-4.4.1/drivers/net/ethernet/fujitsu/fmvj18x_cs.c.orig	2016-02-19 20:48:40.143852346 +0900
++++ linux-4.4.1/drivers/net/ethernet/fujitsu/fmvj18x_cs.c	2016-02-19 20:54:52.345568822 +0900
+@@ -469,8 +469,8 @@ static int fmvj18x_config(struct pcmcia_
+ 		    goto failed;
+ 	    }
+ 	    /* Read MACID from CIS */
+-	    for (i = 5; i < 11; i++)
+-		    dev->dev_addr[i] = buf[i];
++	    for (i = 0; i < 6; i++)
++		    dev->dev_addr[i] = buf[i+5];
+ 	    kfree(buf);
+ 	} else {
+ 	    if (pcmcia_get_mac_from_cis(link, dev))
