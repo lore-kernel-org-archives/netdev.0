@@ -1,108 +1,30 @@
-From: =?UTF-8?Q?Bendik_R=c3=b8nning_Opstad?= <bro.devel@gmail.com>
-Subject: Re: [PATCH v4 net-next 2/2] tcp: Add Redundant Data Bundling (RDB)
-Date: Fri, 19 Feb 2016 15:12:01 +0100
-Message-ID: <56C722B1.5090504@gmail.com>
-References: <1455630663-18400-1-git-send-email-bro.devel+kernel@gmail.com>
- <1455630663-18400-3-git-send-email-bro.devel+kernel@gmail.com>
- <1455808685.648.16.camel@edumazet-ThinkPad-T530>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v1 2/4] soc: ti: knav_dma: rename pad in struct knav_dma_desc to sw_data
+Date: Fri, 19 Feb 2016 15:33:17 +0100
+Message-ID: <4255231.ICxc506b9g@wuerfel>
+References: <1455824777-15571-1-git-send-email-m-karicheri2@ti.com> <1455824777-15571-2-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Andreas Petlund <apetlund@simula.no>,
-	Carsten Griwodz <griff@simula.no>,
-	=?UTF-8?Q?P=c3=a5l_Halvorsen?= <paalh@simula.no>,
-	Jonas Markussen <jonassm@ifi.uio.no>,
-	Kristian Evensen <kristian.evensen@gmail.com>,
-	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:37216 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1947080AbcBSOME (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 09:12:04 -0500
-Received: by mail-wm0-f41.google.com with SMTP id g62so72816019wme.0
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 06:12:03 -0800 (PST)
-In-Reply-To: <1455808685.648.16.camel@edumazet-ThinkPad-T530>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Murali Karicheri <m-karicheri2@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455824777-15571-2-git-send-email-m-karicheri2@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/18/2016 04:18 PM, Eric Dumazet wrote:
->>  
->> -static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
->> +void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
->>  {
->>  	__copy_skb_header(new, old);
->>  
->> @@ -1061,6 +1061,7 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
->>  	skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
->>  	skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
->>  }
->> +EXPORT_SYMBOL(copy_skb_header);
+On Thursday 18 February 2016 14:46:15 Murali Karicheri wrote:
+> Rename the pad to sw_data as per description of this field in the hardware
+> spec(refer sprugr9 from www.ti.com). Latest version of the document is
+> at http://www.ti.com/lit/ug/sprugr9h/sprugr9h.pdf and section 3.1
+> Host Packet Descriptor describes this field.
 > 
-> Why are you exporting this ? tcp is statically linked into vmlinux.
-
-Ah, this is actually leftover from the earlier module based
-implementation of RDB. Will remove.
-
->> +EXPORT_SYMBOL(skb_append_data);
+> Also define and use a constant for the size of sw_data field similar to
+> other fields in the struct for desc and document the sw_data field
+> in the header. As the sw_data is not touched by hw, it's type can be
+> changed to u32.
 > 
-> Same remark here.
+> 
 
-Will remove.
-
-> And this is really a tcp helper, you should add a tcp_ prefix.
-
-Certainly.
-
-> About rdb_build_skb() : I do not see where you make sure
-> @bytes_in_rdb_skb is not too big ?
-
-The number of previous SKBs in the queue to copy data from is given
-by rdb_can_bundle_test(), which tests if total payload does not
-exceed the MSS. Only if there is room (within the MSS) will it test
-the sysctl options to further restrict bundling:
-
-+       /* We start at xmit_skb->prev, and go backwards. */
-+       tcp_for_write_queue_reverse_from_safe(skb, tmp, sk) {
-+               if ((total_payload + skb->len) > mss_now)
-+                       break;
-+
-+               if (sysctl_tcp_rdb_max_bytes &&
-+                   ((total_payload + skb->len) > sysctl_tcp_rdb_max_bytes))
-+                       break;
-
-I'll combine these two to (total_payload + skb->len) > max_payload
-
-> tcp_rdb_max_bytes & tcp_rdb_max_packets seem to have no .extra2 upper
-> limit, so a user could do something really stupid and attempt to crash
-> the kernel.
-
-Those sysctl additions are actually a bit buggy, specifically the
-proc_handlers.
-
-Is it not sufficient to ensure that 0 is the lowest possible value?
-The max payload limit is really min(mss_now, sysctl_tcp_rdb_max_bytes),
-so if sysctl_tcp_rdb_max_bytes or sysctl_tcp_rdb_max_packets are set too
-large, bundling will simply be limited by the MSS.
-
-> Presumably I would use SKB_MAX_HEAD(MAX_TCP_HEADER) so that we do not
-> try high order page allocation.
-
-Do you suggest something like this?:
-bytes_in_rdb_skb = min_t(u32, bytes_in_rdb_skb, SKB_MAX_HEAD(MAX_TCP_HEADER));
-
-Is this necessary when bytes_in_rdb_skb will always contain exactly
-the required number of bytes for the payload of the (RDB) packet,
-which will never be greater than mss_now?
-
-Or is it aimed at scenarios where the page size is so small that
-allocating to an MSS (of e.g. 1460) will require high order page
-allocation?
-
-
-Thanks for looking over the code!
-
-Bendik
+Acked-by: Arnd Bergmann <arnd@arndb.de>
