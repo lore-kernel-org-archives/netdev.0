@@ -1,119 +1,125 @@
-From: Alex Duyck <aduyck@mirantis.com>
-Subject: Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable outer Tx checksum by default
-Date: Fri, 19 Feb 2016 15:10:29 -0800
-Message-ID: <CAMt9YRrOxCmJbrftixdJTXZcySZ_mARqCT6C=4-Nqv_ZJKnTwA@mail.gmail.com>
-References: <20160219191806.15687.37621.stgit@localhost.localdomain>
-	<CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: Jesse Gross <jesse@kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] net: use skb_postpush_rcsum instead of own implementations
+Date: Sat, 20 Feb 2016 00:29:30 +0100
+Message-ID: <bb805bd677f8ba6f5c40b485ed41009d3fef1f3d.1455924108.git.daniel@iogearbox.net>
+Cc: hannes@stressinduktion.org, jesse@kernel.org, ast@kernel.org,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f44.google.com ([209.85.213.44]:36805 "EHLO
-	mail-vk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1428813AbcBSXKb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 18:10:31 -0500
-Received: by mail-vk0-f44.google.com with SMTP id c3so87960989vkb.3
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 15:10:30 -0800 (PST)
-In-Reply-To: <CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:42211 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946732AbcBSX3i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 18:29:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 19, 2016 at 1:53 PM, Jesse Gross <jesse@kernel.org> wrote:
-> On Fri, Feb 19, 2016 at 11:26 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
->> This patch series makes it so that we enable the outer Tx checksum for IPv4
->> tunnels by default.  This makes the behavior consistent with how we were
->> handling this for IPv6.  In addition I have updated the internal flags for
->> these tunnels so that we use a ZERO_CSUM_TX flag for IPv4 which should
->> match up will with the ZERO_CSUM6_TX flag which was already in use for
->> IPv6.
->>
->> For most network devices this should be a net gain in terms of performance
->> as having the outer header checksum present allows for devices to report
->> CHECKSUM_UNNECESSARY which we can then convert to CHECKSUM_COMPLETE in order
->> to determine if the inner header checksum is valid.
->>
->> Below is some data I collected with ixgbe with an X540 that demonstrates
->> this.  I located two PFs connected back to back in two different name
->> spaces and then setup a pair of tunnels on each, one with checksum enabled
->> and one without.
->>
->> Recv   Send    Send                          Utilization
->> Socket Socket  Message  Elapsed              Send
->> Size   Size    Size     Time     Throughput  local
->> bytes  bytes   bytes    secs.    10^6bits/s  % S
->>
->> noudpcsum:
->>  87380  16384  16384    30.00      8898.67   12.80
->> udpcsum:
->>  87380  16384  16384    30.00      9088.47   5.69
->>
->> The one spot where this may cause a performance regression is if the
->> environment contains devices that can parse the inner headers and a device
->> supports NETIF_F_GSO_UDP_TUNNEL but not NETIF_F_GSO_UDP_TUNNEL_CSUM.  In
->> the case of such a device we have to fall back to using GSO to segment the
->> tunnel instead of TSO and as a result we may take a performance hit as seen
->> below with i40e.
->
-> Do you have any numbers from 40G links? Obviously, at 10G the links
-> are basically saturated and while I can see a difference in the
-> utilization rate, I suspect that the change will be much more apparent
-> at higher speeds.
+Replace individual implementations with the recently introduced
+skb_postpush_rcsum() helper.
 
-Unfortunately I don't have any true 40G links to test with.  The
-closest I can get is to run PF to VF on an i40e.  Running that I have
-seen the numbers go from about 20Gb/s to 15Gb/s with almost all the
-difference being related to the fact that we are having to
-allocate/free more skbs and make more trips through the
-i40e_lan_xmit_frame function resulting in more descriptors.
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ net/core/skbuff.c              | 4 +---
+ net/ipv6/reassembly.c          | 6 ++----
+ net/openvswitch/actions.c      | 8 +++-----
+ net/openvswitch/vport-netdev.c | 2 +-
+ net/openvswitch/vport.h        | 7 -------
+ 5 files changed, 7 insertions(+), 20 deletions(-)
 
-> I'm concerned about the drop in performance for devices that currently
-> support offloads (almost none of which expose
-> NETIF_F_GSO_UDP_TUNNEL_CSUM as a feature). Presumably the people that
-> care most about tunnel performance are the ones that already have
-> these NICs and will be the most impacted by the drop.
-
-The problem is being able to transmit fast is kind of pointless if the
-receiving end cannot handle it.  We hadn't gotten around to really
-getting the Rx checksum bits working until the 3.18 kernel which I
-don't suspect many people are running so at this point messing with
-the TSO bits isn't really making much of a difference.  Then on top of
-that most devices have certain limitations on how many ports they can
-handle and such.  I know the i40e is supposed to support something
-like 10 port numbers, but the fm10k and ixgbe are limited to one port
-as I recall.  So this whole thing is already really brittle as it is.
-My goal with this change is to make the behavior more consistent
-across the board.
-
-> My hope is that we can continue to use TSO on devices that only
-> support NETIF_F_GSO_UDP_TUNNEL. The main problem is that the UDP
-> length field may vary across segments. However, in practice this is
-> the only on the final segment and only in cases where the total length
-> is not a multiple of the MSS. If we could detect cases where those
-> conditions are met, we could continue to use TSO with the UDP checksum
-> field pre-populated. A possible step even further would be to break
-> off the final segment into a separate packet to make things conform if
-> necessary. This would avoid a performance regression and I think make
-> this more palatable to a lot of people.
-
-I think Tom and I had discussed this possibility a bit at netconf.
-The GSO logic is something I planned on looking at over the next
-several weeks as I suspect there is probably room for improvement
-there.
-
->> I also haven't investigated the effect this will have on OVS.  However I
->> suspect the impact should be minimal as the worst case scenario should be
->> that Tx checksumming will become enabled by default which should be
->> consistent with the existing behavior for IPv6.
->
-> I don't think that it should cause any problems.
-
-Good to hear.
-
-Do you know if OVS has some way to control the VXLAN configuration so
-that it could disable Tx checksums?  If so that would probably be a
-good way to address the 40G issues assuming someone is running an
-environment hat had nothing but NICs that can support the TSO and Rx
-checksum on inner headers.
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index a5bd067..8bd4b79 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -4496,9 +4496,7 @@ int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci)
+ 		skb->mac_len += VLAN_HLEN;
+ 		__skb_pull(skb, offset);
+ 
+-		if (skb->ip_summed == CHECKSUM_COMPLETE)
+-			skb->csum = csum_add(skb->csum, csum_partial(skb->data
+-					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
++		skb_postpush_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
+ 	}
+ 	__vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
+ 	return 0;
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 18f3498..e2ea311 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -496,10 +496,8 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
+ 	IP6CB(head)->flags |= IP6SKB_FRAGMENTED;
+ 
+ 	/* Yes, and fold redundant checksum back. 8) */
+-	if (head->ip_summed == CHECKSUM_COMPLETE)
+-		head->csum = csum_partial(skb_network_header(head),
+-					  skb_network_header_len(head),
+-					  head->csum);
++	skb_postpush_rcsum(head, skb_network_header(head),
++			   skb_network_header_len(head));
+ 
+ 	rcu_read_lock();
+ 	IP6_INC_STATS_BH(net, __in6_dev_get(dev), IPSTATS_MIB_REASMOKS);
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 2d59df5..e9dd47b 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -158,9 +158,7 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 	new_mpls_lse = (__be32 *)skb_mpls_header(skb);
+ 	*new_mpls_lse = mpls->mpls_lse;
+ 
+-	if (skb->ip_summed == CHECKSUM_COMPLETE)
+-		skb->csum = csum_add(skb->csum, csum_partial(new_mpls_lse,
+-							     MPLS_HLEN, 0));
++	skb_postpush_rcsum(skb, new_mpls_lse, MPLS_HLEN);
+ 
+ 	hdr = eth_hdr(skb);
+ 	hdr->h_proto = mpls->mpls_ethertype;
+@@ -280,7 +278,7 @@ static int set_eth_addr(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 	ether_addr_copy_masked(eth_hdr(skb)->h_dest, key->eth_dst,
+ 			       mask->eth_dst);
+ 
+-	ovs_skb_postpush_rcsum(skb, eth_hdr(skb), ETH_ALEN * 2);
++	skb_postpush_rcsum(skb, eth_hdr(skb), ETH_ALEN * 2);
+ 
+ 	ether_addr_copy(flow_key->eth.src, eth_hdr(skb)->h_source);
+ 	ether_addr_copy(flow_key->eth.dst, eth_hdr(skb)->h_dest);
+@@ -639,7 +637,7 @@ static int ovs_vport_output(struct net *net, struct sock *sk, struct sk_buff *sk
+ 	/* Reconstruct the MAC header.  */
+ 	skb_push(skb, data->l2_len);
+ 	memcpy(skb->data, &data->l2_data, data->l2_len);
+-	ovs_skb_postpush_rcsum(skb, skb->data, data->l2_len);
++	skb_postpush_rcsum(skb, skb->data, data->l2_len);
+ 	skb_reset_mac_header(skb);
+ 
+ 	ovs_vport_send(vport, skb);
+diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
+index 6a6adf3..4e39723 100644
+--- a/net/openvswitch/vport-netdev.c
++++ b/net/openvswitch/vport-netdev.c
+@@ -58,7 +58,7 @@ static void netdev_port_receive(struct sk_buff *skb)
+ 		return;
+ 
+ 	skb_push(skb, ETH_HLEN);
+-	ovs_skb_postpush_rcsum(skb, skb->data, ETH_HLEN);
++	skb_postpush_rcsum(skb, skb->data, ETH_HLEN);
+ 	ovs_vport_receive(vport, skb, skb_tunnel_info(skb));
+ 	return;
+ error:
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index c10899cb..f01f28a 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -185,13 +185,6 @@ static inline struct vport *vport_from_priv(void *priv)
+ int ovs_vport_receive(struct vport *, struct sk_buff *,
+ 		      const struct ip_tunnel_info *);
+ 
+-static inline void ovs_skb_postpush_rcsum(struct sk_buff *skb,
+-				      const void *start, unsigned int len)
+-{
+-	if (skb->ip_summed == CHECKSUM_COMPLETE)
+-		skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
+-}
+-
+ static inline const char *ovs_vport_name(struct vport *vport)
+ {
+ 	return vport->dev->name;
+-- 
+1.9.3
