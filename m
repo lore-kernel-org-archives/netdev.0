@@ -1,73 +1,55 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] b43: fix memory leak
-Date: Fri, 19 Feb 2016 09:44:48 +0200
-Message-ID: <87io1lqh3j.fsf@purkki.adurom.net>
-References: <1455798876-32186-1-git-send-email-sudipm.mukherjee@gmail.com>
-	<20160218173212.03670d97@wiggum>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCH/RFC] openvswitch: loosen restriction of output
+ of MPLS to tunnel vports
+Date: Fri, 19 Feb 2016 16:59:42 +0900
+Message-ID: <20160219075940.GB6589@vergenet.net>
+References: <1455305133-23285-1-git-send-email-simon.horman@netronome.com>
+ <CAEh+42g5GXduCgr0WCyAKvSO6LeATFuZoWU2aR0sfNDbJqG=6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, b43-dev@lists.infradead.org,
-	Jia-Ju Bai <baijiaju1990@163.com>
-To: Michael =?utf-8?Q?B=C3=BCsch?= <m@bues.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:48103 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757342AbcBSHoy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 02:44:54 -0500
-In-Reply-To: <20160218173212.03670d97@wiggum> ("Michael =?utf-8?Q?B=C3=BCs?=
- =?utf-8?Q?ch=22's?= message of
-	"Thu, 18 Feb 2016 17:32:12 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAEh+42g5GXduCgr0WCyAKvSO6LeATFuZoWU2aR0sfNDbJqG=6Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Michael B=C3=BCsch <m@bues.ch> writes:
-
-> On Thu, 18 Feb 2016 18:04:36 +0530
-> Sudip Mukherjee <sudipm.mukherjee@gmail.com> wrote:
->
->> From: Sudip Mukherjee <sudip@vectorindia.org>
->>=20
->> On error we jumped to the label bcma_out and returned the error code=
- but
->> we missed freeing dev.
->>=20
->> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
->> ---
->>  drivers/net/wireless/broadcom/b43/main.c | 1 +
->>  1 file changed, 1 insertion(+)
->>=20
->> diff --git a/drivers/net/wireless/broadcom/b43/main.c b/drivers/net/=
-wireless/broadcom/b43/main.c
->> index c279211..78f670a 100644
->> --- a/drivers/net/wireless/broadcom/b43/main.c
->> +++ b/drivers/net/wireless/broadcom/b43/main.c
->> @@ -5671,6 +5671,7 @@ static int b43_bcma_probe(struct bcma_device *=
-core)
->>  	wl =3D b43_wireless_init(dev);
->>  	if (IS_ERR(wl)) {
->>  		err =3D PTR_ERR(wl);
->> +		kfree(dev);
->>  		goto bcma_out;
->>  	}
->> =20
->
-> We recently had a patch that fixes this, among more leaks. Subject:
-> [PATCH v2 resend] b43: Fix memory leaks in b43_bus_dev_ssb_init and
-> b43_bus_dev_bcma_init
->
-> Please test that patch instead, so we can finally apply it.
->
-> It needs to be tested on both ssb and bcma. Come on. This isn't too
-> hard. :) Please somebody with any hardware test it. (I currently don'=
-t
-> have any b43 hardware)
-
-And the patch can be downloaded from patchwork:
-
-https://patchwork.kernel.org/patch/8049041/
-
---=20
-Kalle Valo
+T24gVHVlLCBGZWIgMTYsIDIwMTYgYXQgMDI6NTM6MzlQTSAtMDgwMCwgSmVzc2UgR3Jvc3Mgd3Jv
+dGU6Cj4gT24gRnJpLCBGZWIgMTIsIDIwMTYgYXQgMTE6MjUgQU0sIFNpbW9uIEhvcm1hbgo+IDxz
+aW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gPiBJZiBhbiBza2Igd2FzIG5vdCBN
+UExTIGluaXRpYWxseSB0aGVuIGl0IG1heSBiZSBHU08gYW5kIGluIHRoYXQgY2FzZSBpZiBpdAo+
+ID4gYmVjYW1lIE1QTFMgdGhlbiBHU08gY2FuJ3QgYmUgcGVyZm9ybWVkIGJlY2F1c2UgYm90aCBN
+UExTIGFuZCB0dW5uZWxzIG1ha2UKPiA+IHVzZSBvZiB0aGUgaW5uZXJfcHJvdG9jb2wgZmllbGQg
+b2Ygc3RydWN0IHNrYnVmZiBpbiBvcmRlciB0byBhbGxvdyBHU08gdG8KPiA+IGJlIHBlcmZvcm1l
+ZCBpbiB0aGUgaW5uZXIgcGFja2V0Lgo+ID4KPiA+IE9uIHRoZSBvdGhlciBoYW5kIGlmIGFuIHNr
+YiB3YXMgTVBMUyBpbml0aWFsbHkgdGhlbiBpdCB3aWxsIG5vdCBiZSBHU08sCj4gPiBhcyB0aGVy
+ZSBpcyBubyBzdXBwb3J0IGZvciBHUk8gZm9yIE1QTFMuIFRodXMgaW4gdGhpcyBjYXNlIGl0IGlz
+IHNhZmUKPiA+IHRvIGFsbG93IG91dHB1dCBvZiBNUExTIG9uIHR1bm5lbCB2cG9ydHMuCj4gPgo+
+ID4gU2lnbmVkLW9mZi1ieTogU2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNv
+bT4KPiAKPiBJIGRvbid0IHRoaW5rIHRoYXQgYW55IHR1bm5lbCBpbXBsZW1lbnRhdGlvbnMgZXhw
+b3NlIHN1cHBvcnQgZm9yIE1QTFMKPiBvZmZsb2FkcyBhcyBwYXJ0IG9mIHRoZWlyIGZlYXR1cmVz
+LiBJbiB0aGF0IGNhc2UsIGlmIHdlIGhhdmUgYW4gTVBMUwo+IEdTTyBwYWNrZXQgKHJlZ2FyZGxl
+c3Mgb2YgaG93IGl0IGNhbWUgdG8gYmUpLCBJIHRoaW5rIGl0IHdpbGwgYmUKPiBicm9rZW4gYXBh
+cnQgaW4gc29mdHdhcmUgYmVmb3JlIGVuY2Fwc3VsYXRpb24uIEF0IHRoYXQgcG9pbnQsIGl0Cj4g
+c2hvdWxkIGJlIHNhZmUgZm9yIHRoZSB0dW5uZWwgdG8gb3ZlcndyaXRlIGFueSBmaWVsZHMgTVBM
+UyB3YXMKPiBwcmV2aW91c2x5IHVzaW5nIGZvciBvZmZsb2FkaW5nLiBBcyBhIHJlc3VsdCwgSSBi
+ZWxpZXZlIHdlIGNhbiBhbGxvdwo+IGFsbCBjb21iaW5hdGlvbnMgb2YgTVBMUyB3aXRoIHR1bm5l
+bHMuIChOb3RlIHRoYXQgaGlzdG9yaWNhbGx5IHRoaXMKPiB3YXNuJ3QgdHJ1ZSwgdGhlIGNoYW5n
+ZSBpcyBhIHJlc3VsdCBvZiBsaWdodHdlaWdodCB0dW5uZWxzLikKCkhpIEplc3NlLAoKd293LCB0
+aGF0IGRvZXMgc291bmQgdmVyeSBwcm9taXNpbmcuCkkgd291bGQgY2VydGFpbmx5IGJlIGluIGZh
+dm91ciBvZiBhbGxvd2luZyBNUExTIHdpdGggdHVubmVscy4KCkkgYW0gd29uZGVyaW5nIGlmIHlv
+dSBjb3VsZCBwb2ludCBtZSBpbiB0aGUgZ2VuZXJhbCBkaXJlY3Rpb24gb2YgdGhlIGNoYW5nZXMK
+eW91IG1lbnRpb24gYWJvdmUuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3Bl
+bnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
