@@ -1,24 +1,35 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 3/3] net: netcp: rework the code for get/set sw_data in dma desc
-Date: Fri, 19 Feb 2016 21:55:14 +0100
-Message-ID: <3256728.DYdlef6xAF@wuerfel>
-References: <1455904724-17952-1-git-send-email-m-karicheri2@ti.com> <1455904724-17952-4-git-send-email-m-karicheri2@ti.com>
+Subject: Re: [PATCH v2 2/3] soc: ti: knav_dma: rename pad in struct knav_dma_desc to sw_data
+Date: Fri, 19 Feb 2016 21:55:35 +0100
+Message-ID: <3375345.7dW4C2g0zE@wuerfel>
+References: <1455904724-17952-1-git-send-email-m-karicheri2@ti.com> <1455904724-17952-3-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	davem@davemloft.net
 To: Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455904724-17952-4-git-send-email-m-karicheri2@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.131]:55696 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423122AbcBSUzr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 15:55:47 -0500
+In-Reply-To: <1455904724-17952-3-git-send-email-m-karicheri2@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 19 February 2016 12:58:44 Murali Karicheri wrote:
-> SW data field in descriptor can be used by software to hold private
-> data for the driver. As there are 4 words available for this purpose,
-> use separate macros to place it or retrieve the same to/from
-> descriptors. Also do type cast of data types accordingly.
+On Friday 19 February 2016 12:58:43 Murali Karicheri wrote:
+> Rename the pad to sw_data as per description of this field in the hardware
+> spec(refer sprugr9 from www.ti.com). Latest version of the document is
+> at http://www.ti.com/lit/ug/sprugr9h/sprugr9h.pdf and section 3.1
+> Host Packet Descriptor describes this field.
+> 
+> Define and use a constant for the size of sw_data field similar to
+> other fields in the struct for desc and document the sw_data field
+> in the header. As the sw_data is not touched by hw, it's type can be
+> changed to u32.
+> 
+> Rename the helpers to match with the updated dma desc field sw_data.
 > 
 > Cc: Wingman Kwok <w-kwok2@ti.com>
 > Cc: Mugunthan V N <mugunthanvnm@ti.com>
@@ -26,21 +37,6 @@ On Friday 19 February 2016 12:58:44 Murali Karicheri wrote:
 > CC: Grygorii Strashko <grygorii.strashko@ti.com>
 > CC: David Laight <David.Laight@ACULAB.COM>
 > Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
-
-Looks ok in principle.
+> 
 
 Acked-by: Arnd Bergmann <arnd@arndb.de>
-
->  		get_pkt_info(&dma_buf, &tmp, &dma_desc, ndesc);
-> -		get_sw_data((u32 *)&buf_ptr, &buf_len, ndesc);
-> +		/* warning!!!! We are retrieving the virtual ptr in the sw_data
-> +		 * field as a 32bit value. Will not work on 64bit machines
-> +		 */
-> +		buf_ptr = (void *)GET_SW_DATA0(ndesc);
-> +		buf_len = (int)GET_SW_DATA1(desc);
-
-I would have abstracted the retrieval of a pointer again,
-and added the comment in the helper function once, it doesn't
-really need to be duplicated everywhere.
-
-	Arnd
