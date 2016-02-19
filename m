@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH 1/2] GENEVE: Support outer IPv4 Tx checksums by
+Subject: [net-next PATCH 2/2] VXLAN: Support outer IPv4 Tx checksums by
  default
-Date: Fri, 19 Feb 2016 11:26:24 -0800
-Message-ID: <20160219192624.15687.55933.stgit@localhost.localdomain>
+Date: Fri, 19 Feb 2016 11:26:31 -0800
+Message-ID: <20160219192631.15687.78165.stgit@localhost.localdomain>
 References: <20160219191806.15687.37621.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,86 +10,88 @@ Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org, davem@davemloft.net,
 	alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33500 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1948908AbcBST00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 14:26:26 -0500
-Received: by mail-pa0-f51.google.com with SMTP id fl4so55091666pad.0
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 11:26:26 -0800 (PST)
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:33244 "EHLO
+	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993343AbcBST0d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 14:26:33 -0500
+Received: by mail-pf0-f174.google.com with SMTP id q63so55907705pfb.0
+        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 11:26:32 -0800 (PST)
 In-Reply-To: <20160219191806.15687.37621.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This change makes it so that if UDP CSUM is not specified we will default
 to enabling it.  The main motivation behind this is the fact that with the
-use of outer checksum we can greatly improve the performance for GENEVE
-tunnels on hardware that doesn't know how to parse them.
+use of outer checksum we can greatly improve the performance for VXLAN
+tunnels on devices that don't know how to parse tunnel headers.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/geneve.c |   16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/vxlan.c |   19 +++++++++----------
+ include/net/vxlan.h |    2 +-
+ 2 files changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 1b5deaf7e3c8..2acaf2b209cd 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -76,7 +76,7 @@ struct geneve_dev {
- };
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 766e6114a37f..909f7931c297 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1957,13 +1957,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 			goto drop;
+ 		sk = vxlan->vn4_sock->sock->sk;
  
- /* Geneve device flags */
--#define GENEVE_F_UDP_CSUM		BIT(0)
-+#define GENEVE_F_UDP_ZERO_CSUM_TX	BIT(0)
- #define GENEVE_F_UDP_ZERO_CSUM6_TX	BIT(1)
- #define GENEVE_F_UDP_ZERO_CSUM6_RX	BIT(2)
+-		if (info) {
+-			if (info->key.tun_flags & TUNNEL_DONT_FRAGMENT)
+-				df = htons(IP_DF);
+-		} else {
+-			udp_sum = !!(flags & VXLAN_F_UDP_CSUM);
+-		}
+-
+ 		rt = vxlan_get_route(vxlan, skb,
+ 				     rdst ? rdst->remote_ifindex : 0, tos,
+ 				     dst->sin.sin_addr.s_addr, &saddr,
+@@ -1997,6 +1990,11 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 			return;
+ 		}
  
-@@ -703,7 +703,7 @@ static int geneve_build_skb(struct rtable *rt, struct sk_buff *skb,
- 	struct genevehdr *gnvh;
- 	int min_headroom;
- 	int err;
--	bool udp_sum = !!(flags & GENEVE_F_UDP_CSUM);
-+	bool udp_sum = !(flags & GENEVE_F_UDP_ZERO_CSUM_TX);
++		if (!info)
++			udp_sum = !(flags & VXLAN_F_UDP_ZERO_CSUM_TX);
++		else if (info->key.tun_flags & TUNNEL_DONT_FRAGMENT)
++			df = htons(IP_DF);
++
+ 		tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
+ 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
+ 		err = vxlan_build_skb(skb, &rt->dst, sizeof(struct iphdr),
+@@ -2920,8 +2918,9 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
+ 	if (data[IFLA_VXLAN_PORT])
+ 		conf.dst_port = nla_get_be16(data[IFLA_VXLAN_PORT]);
  
- 	skb_scrub_packet(skb, xnet);
+-	if (data[IFLA_VXLAN_UDP_CSUM] && nla_get_u8(data[IFLA_VXLAN_UDP_CSUM]))
+-		conf.flags |= VXLAN_F_UDP_CSUM;
++	if (data[IFLA_VXLAN_UDP_CSUM] &&
++	    !nla_get_u8(data[IFLA_VXLAN_UDP_CSUM]))
++		conf.flags |= VXLAN_F_UDP_ZERO_CSUM_TX;
  
-@@ -944,9 +944,9 @@ static netdev_tx_t geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 			opts = ip_tunnel_info_opts(info);
- 
- 		if (key->tun_flags & TUNNEL_CSUM)
--			flags |= GENEVE_F_UDP_CSUM;
-+			flags &= ~GENEVE_F_UDP_ZERO_CSUM_TX;
- 		else
--			flags &= ~GENEVE_F_UDP_CSUM;
-+			flags |= GENEVE_F_UDP_ZERO_CSUM_TX;
- 
- 		err = geneve_build_skb(rt, skb, key->tun_flags, vni,
- 				       info->options_len, opts, flags, xnet);
-@@ -972,7 +972,7 @@ static netdev_tx_t geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 	udp_tunnel_xmit_skb(rt, gs4->sock->sk, skb, fl4.saddr, fl4.daddr,
- 			    tos, ttl, df, sport, geneve->dst_port,
- 			    !net_eq(geneve->net, dev_net(geneve->dev)),
--			    !(flags & GENEVE_F_UDP_CSUM));
-+			    !!(flags & GENEVE_F_UDP_ZERO_CSUM_TX));
- 
- 	return NETDEV_TX_OK;
- 
-@@ -1412,8 +1412,8 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
- 		metadata = true;
- 
- 	if (data[IFLA_GENEVE_UDP_CSUM] &&
--	    nla_get_u8(data[IFLA_GENEVE_UDP_CSUM]))
--		flags |= GENEVE_F_UDP_CSUM;
-+	    !nla_get_u8(data[IFLA_GENEVE_UDP_CSUM]))
-+		flags |= GENEVE_F_UDP_ZERO_CSUM_TX;
- 
- 	if (data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX] &&
- 	    nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]))
-@@ -1483,7 +1483,7 @@ static int geneve_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	}
- 
- 	if (nla_put_u8(skb, IFLA_GENEVE_UDP_CSUM,
--		       !!(geneve->flags & GENEVE_F_UDP_CSUM)) ||
-+		       !(geneve->flags & GENEVE_F_UDP_ZERO_CSUM_TX)) ||
- 	    nla_put_u8(skb, IFLA_GENEVE_UDP_ZERO_CSUM6_TX,
- 		       !!(geneve->flags & GENEVE_F_UDP_ZERO_CSUM6_TX)) ||
- 	    nla_put_u8(skb, IFLA_GENEVE_UDP_ZERO_CSUM6_RX,
+ 	if (data[IFLA_VXLAN_UDP_ZERO_CSUM6_TX] &&
+ 	    nla_get_u8(data[IFLA_VXLAN_UDP_ZERO_CSUM6_TX]))
+@@ -3065,7 +3064,7 @@ static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	    nla_put_u32(skb, IFLA_VXLAN_LIMIT, vxlan->cfg.addrmax) ||
+ 	    nla_put_be16(skb, IFLA_VXLAN_PORT, vxlan->cfg.dst_port) ||
+ 	    nla_put_u8(skb, IFLA_VXLAN_UDP_CSUM,
+-			!!(vxlan->flags & VXLAN_F_UDP_CSUM)) ||
++			!(vxlan->flags & VXLAN_F_UDP_ZERO_CSUM_TX)) ||
+ 	    nla_put_u8(skb, IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
+ 			!!(vxlan->flags & VXLAN_F_UDP_ZERO_CSUM6_TX)) ||
+ 	    nla_put_u8(skb, IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 748083de367a..6eda4ed4d78b 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -197,7 +197,7 @@ struct vxlan_dev {
+ #define VXLAN_F_L2MISS			0x08
+ #define VXLAN_F_L3MISS			0x10
+ #define VXLAN_F_IPV6			0x20
+-#define VXLAN_F_UDP_CSUM		0x40
++#define VXLAN_F_UDP_ZERO_CSUM_TX	0x40
+ #define VXLAN_F_UDP_ZERO_CSUM6_TX	0x80
+ #define VXLAN_F_UDP_ZERO_CSUM6_RX	0x100
+ #define VXLAN_F_REMCSUM_TX		0x200
