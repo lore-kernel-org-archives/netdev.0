@@ -1,46 +1,80 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH next v3 1/3] ipvlan: scrub skb before routing in L3 mode.
-Date: Thu, 18 Feb 2016 16:44:21 -0800
-Message-ID: <CAM_iQpWnXjumJE8_7vqFa-rfw6zgRp+hw1e-duzmaqvWDsJ6Cw@mail.gmail.com>
-References: <1455767550-16896-1-git-send-email-mahesh@bandewar.net>
-	<CAM_iQpXUv1s1xw9g9uox25fYrRXpTjFLE5_OwUYE_tCZAoGF3w@mail.gmail.com>
-	<CAF2d9jjPc6pwuZZiuLCc27ex+Hqc9-x0MdyyaR=ErwVV===DEQ@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v7 8/8] net: e1000e: Adds hardware supported cross
+ timestamp on e1000e nic
+Date: Thu, 18 Feb 2016 16:43:23 -0800
+Message-ID: <1455842603.3128.61.camel@intel.com>
+References: <1455308729-6280-1-git-send-email-christopher.s.hall@intel.com>
+	 <1455308729-6280-9-git-send-email-christopher.s.hall@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f169.google.com ([209.85.160.169]:36413 "EHLO
-	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423449AbcBSAoW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 19:44:22 -0500
-Received: by mail-yk0-f169.google.com with SMTP id z7so28800647yka.3
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2016 16:44:21 -0800 (PST)
-In-Reply-To: <CAF2d9jjPc6pwuZZiuLCc27ex+Hqc9-x0MdyyaR=ErwVV===DEQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-bHIfEZfFARIxevVYQY+t"
+Cc: x86@kernel.org, linux-kernel@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	kevin.b.stanton@intel.com, kevin.j.clarke@intel.com
+To: "Christopher S. Hall" <christopher.s.hall@intel.com>,
+	tglx@linutronix.de, richardcochran@gmail.com, mingo@redhat.com,
+	john.stultz@linaro.org, hpa@zytor.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455308729-6280-9-git-send-email-christopher.s.hall@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 18, 2016 at 4:39 PM, Mahesh Bandewar <maheshb@google.com> wrote:
-> [snip]
->>> -       skb_dst_drop(skb);
->>> +       skb_scrub_packet(skb, true);
->>
->> At least this patch is still same with the previous version. Or am I
->> missing anything?
->
->  xnet param is now set to 'true'.
 
-Oh, I was suggesting to set xnet based on the netns of both ipvlan
-device and physical device, not setting it to be true or false
-unconditionally.
+--=-bHIfEZfFARIxevVYQY+t
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Something like:
+On Fri, 2016-02-12 at 12:25 -0800, Christopher S. Hall wrote:
+> Modern Intel systems supports cross timestamping of the network
+> device
+> clock and Always Running Timer (ART) in hardware.=C2=A0 This allows the
+> device time and system time to be precisely correlated. The timestamp
+> pair is returned through e1000e_phc_get_syncdevicetime() used by
+> get_system_device_crosststamp().=C2=A0 The hardware cross-timestamp resul=
+t
+> is made available to applications through the PTP_SYS_OFFSET_PRECISE
+> ioctl which calls e1000e_phc_getcrosststamp().
+>=20
+> Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
+> [jstultz: Reworked to use new interface, commit message tweaks]
+> Signed-off-by: John Stultz <john.stultz@linaro.org>
+> ---
+> =C2=A0drivers/net/ethernet/intel/Kconfig=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0 |=C2=A0 9 +++
+> =C2=A0drivers/net/ethernet/intel/e1000e/defines.h |=C2=A0 5 ++
+> =C2=A0drivers/net/ethernet/intel/e1000e/ptp.c=C2=A0=C2=A0=C2=A0=C2=A0 | 8=
+5
+> +++++++++++++++++++++++++++++
+> =C2=A0drivers/net/ethernet/intel/e1000e/regs.h=C2=A0=C2=A0=C2=A0 |=C2=A0 =
+4 ++
+> =C2=A04 files changed, 103 insertions(+)
 
-xnet = !netns_eq(dev_net(ipvlan_dev), dev_net(phy_dev));
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-(not real code, just to show my idea)
+I am fine with Christopher's changes, so when the issues with the other
+patches in the series gets ironed out, your good to apply this patch as
+well John.
+--=-bHIfEZfFARIxevVYQY+t
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-Makes any sense?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAABCgAGBQJWxmUrAAoJEOVv75VaS+3OAgcP/0eI6plS41gJETN17cEEyOPg
+5aXpG/w8huWFykXQYaQIYKveJ9KNv51ArdqUU10cBwMJG7OCV85/OkOpwR5U7kQL
+TiV9TIjB0Y7JI1MfyQdc8TYlfGuYUdwd5UkQzbJLHjcanrEGJMgPfC4Ub36oL5n2
+/3hgb4R5qmh2hFBpvD0TCYasZ0l1axuXxFgpD9IYt2kXty4nEGQObjsmncn5rd4c
+0vihY8PIM2rgIuDGyzlVk0YVz/kIxjGuRH7BH0OQgm4vTPY1cOmaiXvrQB2IHz1W
+Za1CpSY9ub/KkhOW2w55YLWk8hM2c3t434bKyVIV1p81bzKUiXE0Xu8kRYouxhwr
+nXD7vj9dOXoBoI/FgeyBX7d33dRfdlSBVubqu4wP0t4gWirN8uIk/2lSKyPfuLxB
+WWGeb3GXIc+ix85QkdSAVLaIlqWZ9wXZW8iojLFUS2hZyPZ7O/rFbZQGV4k4PTao
+98zjKvxhZjaAVNSSxKP99MCokLNedOptj03WnZeNz653FOEngy7Gxgf3hDiYoX9J
+uNTh1mT4t+kNuhfUJXhXe1mKm2b4R4/Y38+ILWPnGUlqR1SVklHndFlK5Hpv7ENH
+DN+a2czZN44ppfj8E2CYOaZVHgEussBhGCObtX8MOL1gxYHeo2SJt/zcjFOsgRcl
+C3qFHja1LCiHEeJd6gGE
+=9vbl
+-----END PGP SIGNATURE-----
+
+--=-bHIfEZfFARIxevVYQY+t--
