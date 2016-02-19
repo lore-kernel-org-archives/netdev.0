@@ -1,146 +1,93 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH V7 0/8] ethtool per queue parameters support
-Date: Fri, 19 Feb 2016 13:50:18 -0800
-Message-ID: <1455918618.3016.36.camel@intel.com>
-References: <1455891846-12271-1-git-send-email-kan.liang@intel.com>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable outer Tx checksum by default
+Date: Fri, 19 Feb 2016 13:53:05 -0800
+Message-ID: <CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
+References: <20160219191806.15687.37621.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-1eCrVoVFGLDN8RUwXTru"
-Cc: andi@firstfloor.org, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, f.fainelli@gmail.com,
-	alexander.duyck@gmail.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, mitch.a.williams@intel.com,
-	ogerlitz@mellanox.com, edumazet@google.com, jiri@mellanox.com,
-	sfeldma@gmail.com, gospo@cumulusnetworks.com,
-	sasha.levin@oracle.com, dsahern@gmail.com, tj@kernel.org,
-	cascardo@redhat.com, corbet@lwn.net, decot@googlers.com
-To: Kan Liang <kan.liang@intel.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, bwh@kernel.org, ben@decadent.org.uk
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:9818 "EHLO mga03.intel.com"
+Received: from mail.kernel.org ([198.145.29.136]:54112 "EHLO mail.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030331AbcBSVuf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2016 16:50:35 -0500
-In-Reply-To: <1455891846-12271-1-git-send-email-kan.liang@intel.com>
+	id S1030331AbcBSVxW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Feb 2016 16:53:22 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id CDA09204B0
+	for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 21:53:21 +0000 (UTC)
+Received: from mail-qk0-f175.google.com (mail-qk0-f175.google.com [209.85.220.175])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 35E1B20504
+	for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 21:53:20 +0000 (UTC)
+Received: by mail-qk0-f175.google.com with SMTP id x1so36321562qkc.1
+        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 13:53:20 -0800 (PST)
+In-Reply-To: <20160219191806.15687.37621.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Feb 19, 2016 at 11:26 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> This patch series makes it so that we enable the outer Tx checksum for IPv4
+> tunnels by default.  This makes the behavior consistent with how we were
+> handling this for IPv6.  In addition I have updated the internal flags for
+> these tunnels so that we use a ZERO_CSUM_TX flag for IPv4 which should
+> match up will with the ZERO_CSUM6_TX flag which was already in use for
+> IPv6.
+>
+> For most network devices this should be a net gain in terms of performance
+> as having the outer header checksum present allows for devices to report
+> CHECKSUM_UNNECESSARY which we can then convert to CHECKSUM_COMPLETE in order
+> to determine if the inner header checksum is valid.
+>
+> Below is some data I collected with ixgbe with an X540 that demonstrates
+> this.  I located two PFs connected back to back in two different name
+> spaces and then setup a pair of tunnels on each, one with checksum enabled
+> and one without.
+>
+> Recv   Send    Send                          Utilization
+> Socket Socket  Message  Elapsed              Send
+> Size   Size    Size     Time     Throughput  local
+> bytes  bytes   bytes    secs.    10^6bits/s  % S
+>
+> noudpcsum:
+>  87380  16384  16384    30.00      8898.67   12.80
+> udpcsum:
+>  87380  16384  16384    30.00      9088.47   5.69
+>
+> The one spot where this may cause a performance regression is if the
+> environment contains devices that can parse the inner headers and a device
+> supports NETIF_F_GSO_UDP_TUNNEL but not NETIF_F_GSO_UDP_TUNNEL_CSUM.  In
+> the case of such a device we have to fall back to using GSO to segment the
+> tunnel instead of TSO and as a result we may take a performance hit as seen
+> below with i40e.
 
---=-1eCrVoVFGLDN8RUwXTru
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Do you have any numbers from 40G links? Obviously, at 10G the links
+are basically saturated and while I can see a difference in the
+utilization rate, I suspect that the change will be much more apparent
+at higher speeds.
 
-On Fri, 2016-02-19 at 09:23 -0500, Kan Liang wrote:
-> Modern network interface controllers usually support multiple receive
-> and transmit queues. Each queue may have its own parameters. For
-> example, Intel XL710/X710 hardware supports per queue interrupt
-> moderation. However, current ethtool does not support per queue
-> parameters option. User has to set parameters for the whole NIC.
-> This series extends ethtool to support per queue parameters option.
->=20
-> Since the support of per queue parameters vary with different cards,
-> it is impossible to address all cards in one patch. This series only
-> supports per queue coalesce options on i40e driver. The framework
-> used
-> in the patch can be easily extended to other cards and parameters.
->=20
-> The lib bitmap needs to be extended to facilitate exchanging queue
-> bitmaps
-> between user space and kernel space. Two patches from David's latest
-> V8
-> patch series are also cited in this series. You may refer to
-> https://lkml.org/lkml/2016/2/9/919=C2=A0for more details.
->=20
-> Changes since V6:
-> =C2=A0- Rebase on commit 76d13b568776. Did minor change in patch 6.
->=20
-> Changes since V5:
-> =C2=A0- Add test_bitmap.c and bitmap.sh in the series. They are forgot
-> =C2=A0=C2=A0 to be added previously.
-> =C2=A0- Update the first two patches to David's latest V8 version. The
-> changes
-> =C2=A0=C2=A0 include
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 - bitmap u32 API returns number of bits co=
-pied, unit tests
-> updated
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 - module_exit in test_bitmap
-> =C2=A0- Also change the mode of bitmap.sh to 755 according to Ben's
-> suggestion
->=20
-> Changes since V4:
-> =C2=A0- Modify set/get_per_queue_coalesce function description
-> =C2=A0- Change the queue number to be u32
-> =C2=A0- Correct an error of calculating coalesce backup buffer address
-> =C2=A0- Rename queue_num to n_queues
-> =C2=A0- Don't log error message in __i40e_get_coalesce
->=20
-> Changes since V3:
-> =C2=A0- Based on David's lib bitmap.
-> =C2=A0- ETHTOOL_PERQUEUE should be handled before the containing switch
-> =C2=A0- Make the rollback code unconditional
-> =C2=A0- some minor changes according to Ben's feedback
->=20
-> Changes since V2:
-> =C2=A0- Add queue-specific settings for interrupt moderation in i40e
->=20
-> Changes since V1:
-> =C2=A0- Checking the sub-command number to determine whether the command
-> =C2=A0=C2=A0 requires CAP_NET_ADMIN
-> =C2=A0- Refine the struct ethtool_per_queue_op and improve the comments
-> =C2=A0- Use bitmap functions to parse queue mask
-> =C2=A0- Improve comments
-> =C2=A0- Use bitmap functions to parse queue mask
-> =C2=A0- Improve comments
-> =C2=A0- Add rollback support
-> =C2=A0- Correct the way to find the vector for specific queue.
->=20
-> David Decotigny (2):
-> =C2=A0 lib/bitmap.c: conversion routines to/from u32 array
-> =C2=A0 test_bitmap: unit tests for lib/bitmap.c
->=20
-> Kan Liang (6)
-> =C2=A0 net/ethtool: introduce a new ioctl for per queue setting
-> =C2=A0 net/ethtool: support get coalesce per queue
-> =C2=A0 net/ethtool: support set coalesce per queue
-> =C2=A0 i40e: queue-specific settings for interrupt moderation
-> =C2=A0 i40e/ethtool: support coalesce getting by queue
-> =C2=A0 i40e/ethtool: support coalesce setting by queue
->=20
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0 |=C2=A0=C2=A0 7 -
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e_debugfs.c |=C2=A0 15 +-
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 151 +++++++----
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e_main.c=C2=A0=C2=A0=C2=A0 |=C2=
-=A0 12 +-
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e_txrx.c=C2=A0=C2=A0=C2=A0 |=C2=
-=A0=C2=A0 9 +-
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e_txrx.h=C2=A0=C2=A0=C2=A0 |=C2=
-=A0=C2=A0 8 +
+I'm concerned about the drop in performance for devices that currently
+support offloads (almost none of which expose
+NETIF_F_GSO_UDP_TUNNEL_CSUM as a feature). Presumably the people that
+care most about tunnel performance are the ones that already have
+these NICs and will be the most impacted by the drop.
 
-Dave, I have pretty much cleared out my i40e queue of patches, so I am
-fine if you want to apply the entire series (of course after proper
-review) :-)
---=-1eCrVoVFGLDN8RUwXTru
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+My hope is that we can continue to use TSO on devices that only
+support NETIF_F_GSO_UDP_TUNNEL. The main problem is that the UDP
+length field may vary across segments. However, in practice this is
+the only on the final segment and only in cases where the total length
+is not a multiple of the MSS. If we could detect cases where those
+conditions are met, we could continue to use TSO with the UDP checksum
+field pre-populated. A possible step even further would be to break
+off the final segment into a separate packet to make things conform if
+necessary. This would avoid a performance regression and I think make
+this more palatable to a lot of people.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+> I also haven't investigated the effect this will have on OVS.  However I
+> suspect the impact should be minimal as the worst case scenario should be
+> that Tx checksumming will become enabled by default which should be
+> consistent with the existing behavior for IPv6.
 
-iQIcBAABCgAGBQJWx44bAAoJEOVv75VaS+3OXD0P/0liN6DCN1ira9T1L4RI6/PY
-3A5LdLAi7DjXHiKOucxPOlBrZCX8wHqnJ09hc8n873Sy9YAJ5LKxnnMjsJBoRBWK
-SoDfI0fxl5vZ3O2iOzcRZ4YLT7ke39YH49SbLwdj0y9VlzBwXuDOuXRQki2fnGr3
-1frWcWqM8Pzk1DPICADiN4cq848s82Sy1789K5TSVk+HZecqI/zSJg4hCt+i8JJb
-jUmKdylv/KleArB/Ha9YMqzKy1NaGFNhmq8dmCxfot6cl2uo1cM2MsKO1hJ/1/KN
-3oENE3cKC6BxVNvzFFtkK/X7OcHHYoCaPeXbIaMx8E750gOSmhpG+gxsNKb2lRdK
-W9fV9Zm7iH5GlHfoUdLteMqzbHdlnUtO60XWkBmRRDLNk8LUrV8/YPZShc7trxaR
-uMw+TuapjVjj9BIi8A4Ykx3oh1uGiTpWEuDHD3qliksHp2cO9XOvvUpOOwSWWsRG
-JZTnf3shMAXlVn2xeJLU0Yku8seFUaS2HY7U8OzCokkuRaWLUJMpqwrJzD8YNvdZ
-I4lyTwizwmryexRxqI/vfVHCTHOTd2jS79FCacUe8kcvuZWfL+0Q0hY+Sv85Sos2
-Bl3e45WJgQQVviSUTIDsfnLgtnwlJNFbdY0VUsutj9ixEG+85gEo/MGq8zoCTke9
-kTHsCFB3HSwKCDEHvNLj
-=1BP6
------END PGP SIGNATURE-----
-
---=-1eCrVoVFGLDN8RUwXTru--
+I don't think that it should cause any problems.
