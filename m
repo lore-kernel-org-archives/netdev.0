@@ -1,45 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2] sctp: Fix port hash table size computation
-Date: Fri, 19 Feb 2016 15:41:09 +0100
-Message-ID: <1455892869.648.22.camel@edumazet-ThinkPad-T530>
-References: <20160218.153921.2010668846576353053.davem@davemloft.net>
-	 <1455829857-15797-1-git-send-email-nhorman@tuxdriver.com>
-	 <1455877730.648.21.camel@edumazet-ThinkPad-T530>
-	 <20160219140703.GA20372@hmsreliant.think-freely.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v1 1/4] net: ti: netcp: restore get/set_pad_info() functionality
+Date: Fri, 19 Feb 2016 15:41:26 +0100
+Message-ID: <7111317.k6f7A38a4k@wuerfel>
+References: <1455824777-15571-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Murali Karicheri <m-karicheri2@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:36799 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424112AbcBSOlN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 09:41:13 -0500
-In-Reply-To: <20160219140703.GA20372@hmsreliant.think-freely.org>
+Received: from mout.kundenserver.de ([217.72.192.73]:53330 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342AbcBSOlh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 09:41:37 -0500
+In-Reply-To: <1455824777-15571-1-git-send-email-m-karicheri2@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On ven., 2016-02-19 at 09:07 -0500, Neil Horman wrote:
+On Thursday 18 February 2016 14:46:14 Murali Karicheri wrote:
+> From: Arnd Bergmann <arnd@arndb.de>
+> 
+> The commit 899077791403 ("netcp: try to reduce type confusion in
+> descriptors") introduces a regression in Kernel 4.5-rc1 and it breaks
+> get/set_pad_info() functionality.
+> 
+> The TI NETCP driver uses pad0 and pad1 fields of knav_dma_desc to
+> store DMA/MEM buffer pointer and buffer size respectively. And in both
+> cases for Keystone 2 the pointer type size is 32 bit regardless of
+> LAPE enabled or not, because CONFIG_ARCH_DMA_ADDR_T_64BIT originally
+> is not expected to be defined.
+> 
+> 			!LAPE	LPAE
+> sizeof(void*)		32bit	32bit
+> sizeof(dma_addr_t) 	32bit	32bit
+> sizeof(phys_addr_t) 	32bit	64bit
 
-> I had actually thought about that, but to be frank I felt like the logic to
-> compute the hashsize was complex the way it was presented currently, and that my
-> rewite made it more clear, breaking it down into a few easy steps:
-> 
-> 1) compute a goal size order
-> 2) compute the target order for the largest table we want to support
-> 3) select the minimum of (1) and (2)
-> 4) allocated the largest table we can up to the size in (3)
-> 5) compute how many buckets the table we allocated in (4) supports
-> 
-> 
-> I'm happy to use your suggestion above if the consensus is that its more clear,
-> but it took me a bit to figure out what exactly the existing code was trying to
-> do (especially given the dual use of the order variable), so I thought some
-> additional clarity was called for.
+As this was never relevant or true, I don't think it needs to be
+mentioned here, it just confuses things. Please just assume that
+dma_addr_t can be 64-bit wide, but will only contain 32-bit
+numbers on keystone.
 
-No strong feelings. I only took a look in other places like
-net/dccp/proto.c for similar problem.
+> Unfortunately, above commit changed buffer's pointers save/restore
+> code (get/set_pad_info()) and added intermediate conversation to u64
+> which works incorrectly on 32bit Keystone 2 and causes TI NETCP driver
+> crash in RX/TX path due to "Unable to handle kernel NULL pointer"
+> exception. This issue was reported and discussed in [1].
+
+Have you been able to figure out why it actually broke? I'd still
+like to know.
+
+> Hence, fix it by partially reverting above commit and restoring
+> get/set_pad_info() functionality as it was before.
+> 
+> [1] https://www.mail-archive.com/netdev@vger.kernel.org/msg95361.html
+> Cc: Wingman Kwok <w-kwok2@ti.com>
+> Cc: Mugunthan V N <mugunthanvnm@ti.com>
+> CC: David Laight <David.Laight@ACULAB.COM>
+> Reported-by: Franklin S Cooper Jr <fcooper@ti.com>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+
+I don't think I sent this patch with a 'Signed-off-by', did I?
+(I could be misremembering that).
+
+	Arnd
