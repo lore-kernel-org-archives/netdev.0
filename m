@@ -1,182 +1,75 @@
-From: Yuki Machida <machida.yuki@jp.fujitsu.com>
-Subject: Re: [PATCH stable v2 1/1] net/ipv6: add sysctl option
- accept_ra_min_hop_limit
-Date: Fri, 19 Feb 2016 17:49:58 +0900
-Message-ID: <56C6D736.20901@jp.fujitsu.com>
-References: <1454464576-17776-1-git-send-email-machida.yuki@jp.fujitsu.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next] store complete hash type information in socket
+ buffer...
+Date: Fri, 19 Feb 2016 08:55:20 +0000
+Message-ID: <de5bb6116dde4a288838e8ef5978c8d1@AMSPEX02CL03.citrite.net>
+References: <1455525128-27795-1-git-send-email-paul.durrant@citrix.com>
+	<20160217.154432.788293606088459412.davem@davemloft.net>
+	<1455744601.648.2.camel@edumazet-ThinkPad-T530>
+ <CALx6S37736iQM_t80pR3ZH1TiQvCwomcFdajVwf1h=Y7Eq+EKA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: Hangbin Liu <liuhangbin@gmail.com>
-To: netdev@vger.kernel.org, hideaki.yoshifuji@miraclelinux.com,
-	yoshfuji@linux-ipv6.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	"Veaceslav Falico" <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Tom Herbert <tom@herbertland.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm01.jp.fujitsu.com ([202.219.69.168]:62716 "EHLO
-	mgwkm01.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030289AbcBSIuC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 03:50:02 -0500
-Received: from m3050.s.css.fujitsu.com (msm.b.css.fujitsu.com [10.134.21.208])
-	by kw-mxoi2.gw.nic.fujitsu.com (Postfix) with ESMTP id 8C304AC0258
-	for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 17:49:58 +0900 (JST)
-In-Reply-To: <1454464576-17776-1-git-send-email-machida.yuki@jp.fujitsu.com>
+Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:36529 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1426727AbcBSIzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 03:55:23 -0500
+In-Reply-To: <CALx6S37736iQM_t80pR3ZH1TiQvCwomcFdajVwf1h=Y7Eq+EKA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ping? thanks.
-
-On 2016年02月03日 10:56, Yuki Machida wrote:
-> Please apply the following patch to v4.1.x.
-> 
-> By commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
-> that have been added in the 4.0-rc7, it no longer comply with RFC4861.
-> This problem has been fixed in the commit 8013d1d7eafb
-> ("net/ipv6: add sysctl option accept_ra_min_hop_limit")
-> in 4.3-rc1, but 4.1.x is still.
-> 
-> [ Upstream 8013d1d7eafb0589ca766db6b74026f76b7f5cb4 ]
-> 
-> Commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
-> disabled accept hop limit from RA if it is smaller than the current hop
-> limit for security stuff. But this behavior kind of break the RFC definition.
-> 
-> RFC 4861, 6.3.4.  Processing Received Router Advertisements
->     A Router Advertisement field (e.g., Cur Hop Limit, Reachable Time,
->     and Retrans Timer) may contain a value denoting that it is
->     unspecified.  In such cases, the parameter should be ignored and the
->     host should continue using whatever value it is already using.
-> 
->     If the received Cur Hop Limit value is non-zero, the host SHOULD set
->     its CurHopLimit variable to the received value.
-> 
-> So add sysctl option accept_ra_min_hop_limit to let user choose the minimum
-> hop limit value they can accept from RA. And set default to 1 to meet RFC
-> standards.
-> 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> Acked-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->   Documentation/networking/ip-sysctl.txt |  8 ++++++++
->   include/linux/ipv6.h                   |  1 +
->   include/uapi/linux/ipv6.h              |  2 ++
->   net/ipv6/addrconf.c                    | 10 ++++++++++
->   net/ipv6/ndisc.c                       | 16 +++++++---------
->   5 files changed, 28 insertions(+), 9 deletions(-)
-> 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index 071fb18..07fad3d 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -1321,6 +1321,14 @@ accept_ra_from_local - BOOLEAN
->   	   disabled if accept_ra_from_local is disabled
->                  on a specific interface.
->   
-> +accept_ra_min_hop_limit - INTEGER
-> +	Minimum hop limit Information in Router Advertisement.
-> +
-> +	Hop limit Information in Router Advertisement less than this
-> +	variable shall be ignored.
-> +
-> +	Default: 1
-> +
->   accept_ra_pinfo - BOOLEAN
->   	Learn Prefix Information in Router Advertisement.
->   
-> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-> index e4b4649..01c2592 100644
-> --- a/include/linux/ipv6.h
-> +++ b/include/linux/ipv6.h
-> @@ -29,6 +29,7 @@ struct ipv6_devconf {
->   	__s32		max_desync_factor;
->   	__s32		max_addresses;
->   	__s32		accept_ra_defrtr;
-> +	__s32		accept_ra_min_hop_limit;
->   	__s32		accept_ra_pinfo;
->   #ifdef CONFIG_IPV6_ROUTER_PREF
->   	__s32		accept_ra_rtr_pref;
-> diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-> index 5efa54a..21cfddf 100644
-> --- a/include/uapi/linux/ipv6.h
-> +++ b/include/uapi/linux/ipv6.h
-> @@ -171,6 +171,8 @@ enum {
->   	DEVCONF_USE_OPTIMISTIC,
->   	DEVCONF_ACCEPT_RA_MTU,
->   	DEVCONF_STABLE_SECRET,
-> +	__DEVCONF_USE_OIF_ADDRS_ONLY,	/* not implemented */
-> +	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
->   	DEVCONF_MAX
->   };
->   
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index f4795b0..28c4bc5 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -195,6 +195,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
->   	.max_addresses		= IPV6_MAX_ADDRESSES,
->   	.accept_ra_defrtr	= 1,
->   	.accept_ra_from_local	= 0,
-> +	.accept_ra_min_hop_limit= 1,
->   	.accept_ra_pinfo	= 1,
->   #ifdef CONFIG_IPV6_ROUTER_PREF
->   	.accept_ra_rtr_pref	= 1,
-> @@ -236,6 +237,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
->   	.max_addresses		= IPV6_MAX_ADDRESSES,
->   	.accept_ra_defrtr	= 1,
->   	.accept_ra_from_local	= 0,
-> +	.accept_ra_min_hop_limit= 1,
->   	.accept_ra_pinfo	= 1,
->   #ifdef CONFIG_IPV6_ROUTER_PREF
->   	.accept_ra_rtr_pref	= 1,
-> @@ -4565,6 +4567,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
->   	array[DEVCONF_MAX_DESYNC_FACTOR] = cnf->max_desync_factor;
->   	array[DEVCONF_MAX_ADDRESSES] = cnf->max_addresses;
->   	array[DEVCONF_ACCEPT_RA_DEFRTR] = cnf->accept_ra_defrtr;
-> +	array[DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT] = cnf->accept_ra_min_hop_limit;
->   	array[DEVCONF_ACCEPT_RA_PINFO] = cnf->accept_ra_pinfo;
->   #ifdef CONFIG_IPV6_ROUTER_PREF
->   	array[DEVCONF_ACCEPT_RA_RTR_PREF] = cnf->accept_ra_rtr_pref;
-> @@ -5458,6 +5461,13 @@ static struct addrconf_sysctl_table
->   			.proc_handler	= proc_dointvec,
->   		},
->   		{
-> +			.procname	= "accept_ra_min_hop_limit",
-> +			.data		= &ipv6_devconf.accept_ra_min_hop_limit,
-> +			.maxlen		= sizeof(int),
-> +			.mode		= 0644,
-> +			.proc_handler	= proc_dointvec,
-> +		},
-> +		{
->   			.procname	= "accept_ra_pinfo",
->   			.data		= &ipv6_devconf.accept_ra_pinfo,
->   			.maxlen		= sizeof(int),
-> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-> index 96f153c..abb0bdd 100644
-> --- a/net/ipv6/ndisc.c
-> +++ b/net/ipv6/ndisc.c
-> @@ -1225,18 +1225,16 @@ static void ndisc_router_discovery(struct sk_buff *skb)
->   
->   	if (rt)
->   		rt6_set_expires(rt, jiffies + (HZ * lifetime));
-> -	if (ra_msg->icmph.icmp6_hop_limit) {
-> -		/* Only set hop_limit on the interface if it is higher than
-> -		 * the current hop_limit.
-> -		 */
-> -		if (in6_dev->cnf.hop_limit < ra_msg->icmph.icmp6_hop_limit) {
-> +	if (in6_dev->cnf.accept_ra_min_hop_limit < 256 &&
-> +	    ra_msg->icmph.icmp6_hop_limit) {
-> +		if (in6_dev->cnf.accept_ra_min_hop_limit <= ra_msg->icmph.icmp6_hop_limit) {
->   			in6_dev->cnf.hop_limit = ra_msg->icmph.icmp6_hop_limit;
-> +			if (rt)
-> +				dst_metric_set(&rt->dst, RTAX_HOPLIMIT,
-> +					       ra_msg->icmph.icmp6_hop_limit);
->   		} else {
-> -			ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than current\n");
-> +			ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than minimum\n");
->   		}
-> -		if (rt)
-> -			dst_metric_set(&rt->dst, RTAX_HOPLIMIT,
-> -				       ra_msg->icmph.icmp6_hop_limit);
->   	}
->   
->   skip_defrtr:
-> 
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBUb20gSGVyYmVydCBbbWFpbHRv
+OnRvbUBoZXJiZXJ0bGFuZC5jb21dDQo+IFNlbnQ6IDE5IEZlYnJ1YXJ5IDIwMTYgMDI6MjINCj4g
+VG86IEVyaWMgRHVtYXpldA0KPiBDYzogRGF2aWQgTWlsbGVyOyBQYXVsIER1cnJhbnQ7IExpbnV4
+IEtlcm5lbCBOZXR3b3JrIERldmVsb3BlcnM7IEpheQ0KPiBWb3NidXJnaDsgVmVhY2VzbGF2IEZh
+bGljbzsgQW5keSBHb3Nwb2RhcmVrDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHRdIHN0
+b3JlIGNvbXBsZXRlIGhhc2ggdHlwZSBpbmZvcm1hdGlvbiBpbg0KPiBzb2NrZXQgYnVmZmVyLi4u
+DQo+IA0KPiBPbiBXZWQsIEZlYiAxNywgMjAxNiBhdCAxOjMwIFBNLCBFcmljIER1bWF6ZXQgPGVy
+aWMuZHVtYXpldEBnbWFpbC5jb20+DQo+IHdyb3RlOg0KPiA+IE9uIG1lci4sIDIwMTYtMDItMTcg
+YXQgMTU6NDQgLTA1MDAsIERhdmlkIE1pbGxlciB3cm90ZToNCj4gPj4gRnJvbTogUGF1bCBEdXJy
+YW50IDxwYXVsLmR1cnJhbnRAY2l0cml4LmNvbT4NCj4gPj4gRGF0ZTogTW9uLCAxNSBGZWIgMjAx
+NiAwODozMjowOCArMDAwMA0KPiA+Pg0KPiA+PiA+IC4uLnJhdGhlciB0aGFuIGEgYm9vbGVhbiBt
+ZXJlbHkgaW5kaWNhdGluZyBhIGNhbm9uaWNhbCBMNCBoYXNoLg0KPiA+PiA+DQo+ID4+ID4gc2ti
+X3NldF9oYXNoKCkgdGFrZXMgYSBoYXNoIHR5cGUgKGZyb20gZW51bSBwa3RfaGFzaF90eXBlcykg
+YXMgYW4NCj4gPj4gPiBhcmd1bWVudCBidXQgaW5mb3JtYXRpb24gaXMgbG9zdCBzaW5jZSBvbmx5
+IGEgc2luZ2xlIGJpdCBpbiB0aGUgc2tiDQo+ID4+ID4gc3RvcmVzIHdoZXRoZXIgdGhhdCBoYXNo
+IHR5cGUgaXMgUEtUX0hBU0hfVFlQRV9MNCBvciBub3QuIEJ5IHVzaW5nDQo+ID4+ID4gdHdvIGJp
+dHMgaXQncyBwb3NzaWJsZSB0byBzdG9yZSB0aGUgY29tcGxldGUgaGFzaCB0eXBlIGluZm9ybWF0
+aW9uLg0KPiA+PiA+DQo+ID4+ID4gU2lnbmVkLW9mZi1ieTogUGF1bCBEdXJyYW50IDxwYXVsLmR1
+cnJhbnRAY2l0cml4LmNvbT4NCj4gPj4NCj4gPj4gVG9tIGFuZC9vciBFcmljLCBwbGVhc2UgaGF2
+ZSBhIGxvb2sgYXQgdGhpcy4NCj4gPg0KPiA+IEkgZ3Vlc3MgbXkgcXVlc3Rpb24gaXMgc2ltcGx5
+ICd3aHkgZG8gd2UgbmVlZCB0aGlzJyA/DQo+ID4NCj4gPiBDb25zdW1pbmcgYSBiaXQgaW4gb3Vy
+IHByZWNpb3VzIHNrX2J1ZmYgaXMgbm90IHNvbWV0aGluZyB3ZSB3YW50IGZvcg0KPiA+IHNvbWUg
+b2JzY3VyZSBmZWF0dXJlLg0KPiA+DQo+IFJpZ2h0LiBJIHRoaW5rIHRoZSByZWFzb24gUGF1bCB3
+YW50cyB0aGlzIGlzIGJlIGFibGUgdG8gcGFzcyB0aGUgaGFzaA0KPiB0byBhIFdpbmRvd3MgZ3Vl
+c3QuIEFzIEkgcG9pbnRlZCBvdXQgdGhvdWdoLCB3ZSdkIGFsc28gbmVlZCBhbg0KPiBpbmRpY2F0
+aW9uIHRoYXQgdGhlIGhhc2ggaXMgVG9lcGxpdHogdG8gYmUgcmVhbGx5IGNvcnJlY3Qgd2l0aCBX
+aW5kb3dzDQo+IGludGVyZmFjZS4NCg0KVG9tLA0KDQogIEFjdHVhbGx5IHhlbi1uZXRiYWNrIGNh
+biBsaXZlIHdpdGhvdXQgdGhpcyBjaGFuZ2UuIFdpbmRvd3MgKGF0IHRoZSBtb21lbnQgYXQgbGVh
+c3QpIG9ubHkgY2FyZXMgYWJvdXQgTDMgYW5kIEw0IGhhc2hlcy4gVGhlIG1vdGl2YXRpb24gZm9y
+IHRoaXMgY2hhbmdlIHdhcyBqdXN0IHRvIGZpeCB0aGUgYXBwYXJlbnQgbWlzbWF0Y2ggd2hlcmUg
+c29tZSBmdW5jdGlvbnMgZGVhbCB3aXRoIHRoZSBoYXNoIHR5cGUgZW51bSBhbmQgc29tZSB0aGUg
+c2luZ2xlICdpcyBsNCcgYml0LiBJIGFncmVlIGl0IHdvdWxkIGFsc28gYmUgdXNlZnVsIGFuZCBz
+ZW5zaWJsZSBmb3Igc2tfYnVmZiB0byBhbHNvIGVuY29kZSBhIGhhc2ggYWxnb3JpdGhtIGFzIG1v
+c3QgTklDIGgvdyBvdXQgdGhlcmUgd2lsbCBwcm9iYWJseSB1c2UgVG9lcGxpdHogKHNpbmNlIGl0
+J3MgYSBoYXJkIHJlcXVpcmVtZW50IGZvciBXaW5kb3dzKSBidXQgbWF5IGFsc28gYmUgYWJsZSB1
+c2UgYWx0ZXJuYXRpdmUgaGFzaGVzLg0KDQo+IFRoZSBMaW51eCBkcml2ZXIgaW50ZXJmYWNlIGRv
+ZXMgYWxsb3cgaW5kaWNhdGluZyBMMiwgTDMsIG9yDQo+IEw0IGhhc2ggd2l0aCB0aGUgYXNzdW1w
+dGlvbiB0aGF0IGRpZmZlcmVudGlhdGlvbiBtaWdodCBiZSB1c2VmdWwgc29tZQ0KPiBkYXksIGJ1
+dCBzbyBmYXIgaXQgb25seSBhcHBlYXJzIHRoYXQgZGlzdGluZ3Vpc2hpbmcgTDQgZnJvbSBvdGhl
+cnMgaGFzDQo+IGFueSB2YWx1ZS4gSXQgd291bGQgYmUgaW50ZXJlc3RpbmcgdG8ga25vdyBpZiBX
+aW5kb3dzIGFjdHVhbGx5IGRvZXMNCj4gYW55dGhpbmcgdXNlZnVsIGluIGRpZmZlcmVudGlhdGlu
+ZyBMMiBhbmQgTDMgaGFzaGVzLg0KPiANCg0KICBBcyBJIHNhaWQgYWJvdmUsIGl0IGRvZXMgbm90
+IGRpc3Rpbmd1aXNoIEwyIGFuZCBMMyBhdCB0aGUgbW9tZW50IHNvIHRoaXMgcGF0Y2ggaXMgbm90
+IG5lY2Vzc2FyeS4gSSBzdGlsbCB0aGluayBpdOKAmXMgYSBzdGVwIGluIHRoZSByaWdodCBkaXJl
+Y3Rpb24gdGhvdWdoLg0KDQogIENoZWVycywNCg0KICAgIFBhdWwNCg0KPiBUb20NCj4gDQo+ID4N
+Cj4gPg0K
