@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bgmac: support Ethernet device on BCM47094 SoC
-Date: Fri, 19 Feb 2016 15:37:29 -0500 (EST)
-Message-ID: <20160219.153729.2239673565372497259.davem@davemloft.net>
-References: <1455691708-24649-1-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH] tipc: unlock in error path
+Date: Fri, 19 Feb 2016 15:40:25 -0500 (EST)
+Message-ID: <20160219.154025.1131784731536194813.davem@davemloft.net>
+References: <1455727655-32106-1-git-send-email-wuninsu@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de
-To: zajec5@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, ying.xue@windriver.com,
+	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, taesoo@gatech.edu,
+	yeongjin.jang@gatech.edu, insu@gatech.edu, changwoo@gatech.edu
+To: wuninsu@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37954 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38005 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992763AbcBSUha (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 15:37:30 -0500
-In-Reply-To: <1455691708-24649-1-git-send-email-zajec5@gmail.com>
+	with ESMTP id S2992835AbcBSUk2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 15:40:28 -0500
+In-Reply-To: <1455727655-32106-1-git-send-email-wuninsu@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Wed, 17 Feb 2016 07:48:28 +0100
+From: Insu Yun <wuninsu@gmail.com>
+Date: Wed, 17 Feb 2016 11:47:35 -0500
 
-> It needs very similar workarounds to the one on BCM4707. It was teste=
-d
-> on D-Link DIR-885L home router.
->=20
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+> tipc_bcast_unlock need to be unlocked in error path.
+> 
+> Signed-off-by: Insu Yun <wuninsu@gmail.com>
 
-This patch doesn't apply, I get rejects.
+Applied.
