@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] lwt: fix rx checksum setting for lwt devices
- tunneling over ipv6
-Date: Fri, 19 Feb 2016 15:40:31 -0500 (EST)
-Message-ID: <20160219.154031.711717032204820849.davem@davemloft.net>
-References: <244994c83cb73d98205f39aaefcee846dab48260.1455731463.git.pabeni@redhat.com>
+Subject: Re: [PATCH net-next] be2net: Fix pcie error recovery in case of
+ NIC+RoCE adapters
+Date: Fri, 19 Feb 2016 15:41:24 -0500 (EST)
+Message-ID: <20160219.154124.1703304175474746678.davem@davemloft.net>
+References: <1455745174-25211-1-git-send-email-padmanabh.ratnakar@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@kernel.org, tgraf@suug.ch,
-	jbenc@redhat.com, pshelar@nicira.com, tom@herbertland.com
-To: pabeni@redhat.com
+Cc: netdev@vger.kernel.org
+To: padmanabh.ratnakar@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38013 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38019 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992835AbcBSUkd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 15:40:33 -0500
-In-Reply-To: <244994c83cb73d98205f39aaefcee846dab48260.1455731463.git.pabeni@redhat.com>
+	with ESMTP id S1946460AbcBSUlZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 15:41:25 -0500
+In-Reply-To: <1455745174-25211-1-git-send-email-padmanabh.ratnakar@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Wed, 17 Feb 2016 19:30:01 +0100
+From: Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>
+Date: Thu, 18 Feb 2016 03:09:34 +0530
 
-> the commit 35e2d1152b22 ("tunnels: Allow IPv6 UDP checksums to be
-> correctly controlled.") changed the default xmit checksum setting
-> for lwt vxlan/geneve ipv6 tunnels, so that now the checksum is not
-> set into external UDP header.
-> This commit changes the rx checksum setting for both lwt vxlan/geneve
-> devices created by openvswitch accordingly, so that lwt over ipv6
-> tunnel pairs are again able to communicate with default values.
+> Interrupts registered by RoCE driver are not unregistered when
+> msix interrupts are disabled during error recovery causing a
+> crash. Detach the adapter instance from RoCE driver when error
+> is detected to complete the cleanup. Attach the driver again after
+> the adapter is recovered from error.
 > 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>
 
 Applied.
