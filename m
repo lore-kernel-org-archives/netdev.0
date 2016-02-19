@@ -1,51 +1,41 @@
-From: Phoebe Calkins <pcalkins@aimdigitalpros.com>
-Subject: Avaya Users List
-Date: Fri, 19 Feb 2016 13:10:18 -0500
-Message-ID: <56C75A8A.6050000@aimdigitalpros.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33985 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423636AbcBSSiG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 13:38:06 -0500
-Received: by mail-pa0-f48.google.com with SMTP id fy10so54385725pac.1
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 10:38:06 -0800 (PST)
-Received: from [127.0.0.1] ([103.6.157.159])
-        by smtp.gmail.com with ESMTPSA id e1sm19618828pas.1.2016.02.19.10.38.04
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Fri, 19 Feb 2016 10:38:05 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH v2] bpf: grab rcu read lock for bpf_percpu_hash_update
+Date: Fri, 19 Feb 2016 13:53:10 -0500
+Message-ID: <1455907990-22250-1-git-send-email-sasha.levin@oracle.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, Sasha Levin <sasha.levin@oracle.com>
+To: ast@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+bpf_percpu_hash_update() expects rcu lock to be held and warns if it's not,
+which pointed out a missing rcu read lock.
 
-Hi,
-
-Would you be interested in reaching out =E2=80=9CAvaya Users List=E2=80=
-=9D with opt-in verified contact information from USA?
-
-We also have Avaya Aura Users, Avaya Network Hardware, Avaya CentreVu S=
-upervisor, Avaya Intuity, Avaya Octel, Avaya PBX, Avaya IP Agent, Avaya=
- Unified Communications, and many more.....
-
-We provide 30+ Data fields on each record which contains: Company Name =
-,Contact First Name, Last Name, Title, HQ Phone, Direct No, Email, Addr=
-ess1, Address2, City, State, Zip, Country, Industry, Revenue, Fiscal Ye=
-ar End, Employees, IT Budget, IT Employees, Website, Technology, Compan=
-y HQ Address1, Company HQ Address2, Company HQ City, Company HQ State, =
-Company HQ Zip, Company HQ Country and LinkedIn link
-
-Please let me know your targeted criteria, so that i can help you out t=
-o driver your sales effort in the right direction.
-
-Thanks & Regards,
-Phoebe Calkins
-
-
+Fixes: 15a07b338 ("bpf: add lookup/update support for per-cpu hash and array maps")
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 ---
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+ kernel/bpf/hashtab.c |    8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index fd5db8f..a68e951 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -619,7 +619,13 @@ out:
+ int bpf_percpu_hash_update(struct bpf_map *map, void *key, void *value,
+ 			   u64 map_flags)
+ {
+-	return __htab_percpu_map_update_elem(map, key, value, map_flags, true);
++	int ret;
++
++	rcu_read_lock();
++	ret = __htab_percpu_map_update_elem(map, key, value, map_flags, true);
++	rcu_read_unlock();
++
++	return ret;
+ }
+ 
+ static const struct bpf_map_ops htab_percpu_ops = {
+-- 
+1.7.10.4
