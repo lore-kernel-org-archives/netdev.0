@@ -1,101 +1,61 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [net-next PATCH 1/2] GENEVE: Support outer IPv4 Tx checksums by default
-Date: Fri, 19 Feb 2016 12:28:46 -0800
-Message-ID: <CALx6S35MHqu2nedd1YRz2LJZ4n7bzWYagngNXQ-=CBw8yRppSA@mail.gmail.com>
-References: <20160219191806.15687.37621.stgit@localhost.localdomain>
-	<20160219192624.15687.55933.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: make netdev_for_each_lower_dev safe for
+ device removal
+Date: Fri, 19 Feb 2016 15:31:10 -0500 (EST)
+Message-ID: <20160219.153110.795725800045343996.davem@davemloft.net>
+References: <1455728431-21976-1-git-send-email-razor@blackwall.org>
+	<56C4C376.2000400@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: Alexander Duyck <aduyck@mirantis.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: razor@blackwall.org, netdev@vger.kernel.org,
+	nikolay@cumulusnetworks.com, roopa@cumulusnetworks.com,
+	vyasevic@redhat.com
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:34693 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422953AbcBSU2r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 15:28:47 -0500
-Received: by mail-ig0-f172.google.com with SMTP id g6so47368816igt.1
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 12:28:47 -0800 (PST)
-In-Reply-To: <20160219192624.15687.55933.stgit@localhost.localdomain>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37902 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422953AbcBSUbM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 15:31:12 -0500
+In-Reply-To: <56C4C376.2000400@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 19, 2016 at 11:26 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> This change makes it so that if UDP CSUM is not specified we will default
-> to enabling it.  The main motivation behind this is the fact that with the
-> use of outer checksum we can greatly improve the performance for GENEVE
-> tunnels on hardware that doesn't know how to parse them.
->
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Wed, 17 Feb 2016 12:01:10 -0700
 
-Acked-by: Tom Herbert <tom@herbertland.com>
+> On 2/17/16 10:00 AM, Nikolay Aleksandrov wrote:
+>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>
+>> When I used netdev_for_each_lower_dev in commit bad531623253 ("vrf:
+>> remove slave queue and private slave struct") I thought that it acts
+>> like netdev_for_each_lower_private and can be used to remove the
+>> current
+>> device from the list while walking, but unfortunately it acts more
+>> like
+>> netdev_for_each_lower_private_rcu and doesn't allow it. The difference
+>> is where the "iter" points to, right now it points to the current
+>> element
+>> and that makes it impossible to remove it. Change the logic to be
+>> similar to netdev_for_each_lower_private and make it point to the
+>> "next"
+>> element so we can safely delete the current one. VRF is the only such
+>> user right now, there's no change for the read-only users.
+ ...
+>> Fixes: bad531623253 ("vrf: remove slave queue and private slave
+>> struct")
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>> ---
+>>   include/linux/netdevice.h | 2 +-
+>>   net/core/dev.c            | 4 ++--
+>>   2 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> Solves the problem for me. Thanks for the quick turnaround, Nik.
+> 
+> Reviewed-by / Tested-by: David Ahern <dsa@cumulusnetworks.com>
 
-> ---
->  drivers/net/geneve.c |   16 ++++++++--------
->  1 file changed, 8 insertions(+), 8 deletions(-)
->
-> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-> index 1b5deaf7e3c8..2acaf2b209cd 100644
-> --- a/drivers/net/geneve.c
-> +++ b/drivers/net/geneve.c
-> @@ -76,7 +76,7 @@ struct geneve_dev {
->  };
->
->  /* Geneve device flags */
-> -#define GENEVE_F_UDP_CSUM              BIT(0)
-> +#define GENEVE_F_UDP_ZERO_CSUM_TX      BIT(0)
->  #define GENEVE_F_UDP_ZERO_CSUM6_TX     BIT(1)
->  #define GENEVE_F_UDP_ZERO_CSUM6_RX     BIT(2)
->
-> @@ -703,7 +703,7 @@ static int geneve_build_skb(struct rtable *rt, struct sk_buff *skb,
->         struct genevehdr *gnvh;
->         int min_headroom;
->         int err;
-> -       bool udp_sum = !!(flags & GENEVE_F_UDP_CSUM);
-> +       bool udp_sum = !(flags & GENEVE_F_UDP_ZERO_CSUM_TX);
->
->         skb_scrub_packet(skb, xnet);
->
-> @@ -944,9 +944,9 @@ static netdev_tx_t geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
->                         opts = ip_tunnel_info_opts(info);
->
->                 if (key->tun_flags & TUNNEL_CSUM)
-> -                       flags |= GENEVE_F_UDP_CSUM;
-> +                       flags &= ~GENEVE_F_UDP_ZERO_CSUM_TX;
->                 else
-> -                       flags &= ~GENEVE_F_UDP_CSUM;
-> +                       flags |= GENEVE_F_UDP_ZERO_CSUM_TX;
->
->                 err = geneve_build_skb(rt, skb, key->tun_flags, vni,
->                                        info->options_len, opts, flags, xnet);
-> @@ -972,7 +972,7 @@ static netdev_tx_t geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
->         udp_tunnel_xmit_skb(rt, gs4->sock->sk, skb, fl4.saddr, fl4.daddr,
->                             tos, ttl, df, sport, geneve->dst_port,
->                             !net_eq(geneve->net, dev_net(geneve->dev)),
-> -                           !(flags & GENEVE_F_UDP_CSUM));
-> +                           !!(flags & GENEVE_F_UDP_ZERO_CSUM_TX));
->
->         return NETDEV_TX_OK;
->
-> @@ -1412,8 +1412,8 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
->                 metadata = true;
->
->         if (data[IFLA_GENEVE_UDP_CSUM] &&
-> -           nla_get_u8(data[IFLA_GENEVE_UDP_CSUM]))
-> -               flags |= GENEVE_F_UDP_CSUM;
-> +           !nla_get_u8(data[IFLA_GENEVE_UDP_CSUM]))
-> +               flags |= GENEVE_F_UDP_ZERO_CSUM_TX;
->
->         if (data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX] &&
->             nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]))
-> @@ -1483,7 +1483,7 @@ static int geneve_fill_info(struct sk_buff *skb, const struct net_device *dev)
->         }
->
->         if (nla_put_u8(skb, IFLA_GENEVE_UDP_CSUM,
-> -                      !!(geneve->flags & GENEVE_F_UDP_CSUM)) ||
-> +                      !(geneve->flags & GENEVE_F_UDP_ZERO_CSUM_TX)) ||
->             nla_put_u8(skb, IFLA_GENEVE_UDP_ZERO_CSUM6_TX,
->                        !!(geneve->flags & GENEVE_F_UDP_ZERO_CSUM6_TX)) ||
->             nla_put_u8(skb, IFLA_GENEVE_UDP_ZERO_CSUM6_RX,
->
+David, please explicitly list these tags one by one, patchwork is not
+able to pick them up if you try to free-form the tags.  I had to
+incorporate them by hand, but that makes more work for me.
+
+Applied, thanks.
