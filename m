@@ -1,38 +1,88 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH V2 net-next 2/3] lan78xx: add ethtool set & get pause
- functions
-Date: Fri, 19 Feb 2016 00:16:03 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D404B389F@CHN-SV-EXMX02.mchp-main.com>
-References: <9235D6609DB808459E95D78E17F2E43D404B37B5@CHN-SV-EXMX02.mchp-main.com>
-	 <1455839111.2794.51.camel@decadent.org.uk>
-	 <9235D6609DB808459E95D78E17F2E43D404B3871@CHN-SV-EXMX02.mchp-main.com>
- <1455840387.2794.59.camel@decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <ben@decadent.org.uk>, <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/16] i40e/i40evf: Use u64 values instead of casting them in TSO function
+Date: Thu, 18 Feb 2016 16:31:07 -0800
+Message-ID: <1455841881-128892-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1455841881-128892-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp01.microchip.com ([198.175.253.37]:8033 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1427083AbcBSAQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2016 19:16:06 -0500
-In-Reply-To: <1455840387.2794.59.camel@decadent.org.uk>
-Content-Language: en-US
+Received: from mga02.intel.com ([134.134.136.20]:49646 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965452AbcBSAbX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2016 19:31:23 -0500
+In-Reply-To: <1455841881-128892-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+IEJlbiwgdGhhbmtzIGZvciBjb21tZW50cy4NCj4gPiBIb3cgYWJvdXQgY29tbWVudCBpbiBp
-bmNsdWRlL3VhcGkvbGludXgvZXRodG9vbC5oPw0KPiA+IEl0IHNheXMNCj4gPiAqKiBzdHJ1Y3Qg
-ZXRodG9vbF9wYXVzZXBhcmFtIC0gRXRoZXJuZXQgcGF1c2UgKGZsb3cgY29udHJvbCkgcGFyYW1l
-dGVycw0KPiA+IC4uLg0KPiA+ICogSWYgQGF1dG9uZWcgaXMgbm9uLXplcm8sIHRoZSBNQUMgaXMg
-Y29uZmlndXJlZCB0byBzZW5kIGFuZC9vcg0KPiA+ICogcmVjZWl2ZSBwYXVzZSBmcmFtZXMgYWNj
-b3JkaW5nIHRvIHRoZSByZXN1bHQgb2YgYXV0b25lZ290aWF0aW9uLg0KPiA+DQo+ID4gRG9lc24n
-dCB0aGlzIG1lYW4gZ2V0X3BhdXNlcGFyYW0oKSByZXR1cm5zIHBhdXNlIHNldHRpbmdzIGJhc2Vk
-IG9uDQo+ID4gUmVzdWx0IG9mIGF1dG9uZWdvdGF0aW9uPyBOb3QgbWFudWFsIHNldHRpbmdzIG9m
-IHJ4X3BhcmFtICYgdHhfcGFyYW0/DQo+IA0KPiBObywgZ2V0X3BhdXNlcGFyYW0gc2hvdWxkIHJl
-dHVybiB0aGUgc2FtZSBzZXR0aW5ncyB0aGF0IHdlcmUgcGFzc2VkIHRvDQo+IHRoZSBsYXN0IHNl
-dF9wYXVzZXBhcmFtLg0KPiANCj4gQmVuLg0KDQpJIHVzZWQgZHJpdmVycy9uZXQvZXRoZXJuZXQv
-aW50ZWwvZTEwMDBlIGRyaXZlciBhcyByZWZlcmVuY2UuDQpJdCdzIGltcGxlbWVudGF0aW9uIGFs
-c28gcmV0dXJucyBzdGF0dXMgdXBkYXRlZCBhZnRlciBhdXRvbmVnb3RpYXRpb24uDQpMb29rIGlu
-dG8gd3Jvbmcgb25lPw0KDQpXb29qdW5nDQo=
+From: Alexander Duyck <aduyck@mirantis.com>
+
+Instead of casing u32 values to u64 it makes more sense to just start out
+with u64 values in the first place.  This way we don't need to create a
+mess with all of the casts needed to populate a 64b value.
+
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 9 ++++-----
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 9 ++++-----
+ 2 files changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index d4364ec..5e82589 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2267,7 +2267,7 @@ out:
+ static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 		    u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
+ {
+-	u32 cd_cmd, cd_tso_len, cd_mss;
++	u64 cd_cmd, cd_tso_len, cd_mss;
+ 	struct ipv6hdr *ipv6h;
+ 	struct tcphdr *tcph;
+ 	struct iphdr *iph;
+@@ -2309,10 +2309,9 @@ static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	cd_cmd = I40E_TX_CTX_DESC_TSO;
+ 	cd_tso_len = skb->len - *hdr_len;
+ 	cd_mss = skb_shinfo(skb)->gso_size;
+-	*cd_type_cmd_tso_mss |= ((u64)cd_cmd << I40E_TXD_CTX_QW1_CMD_SHIFT) |
+-				((u64)cd_tso_len <<
+-				 I40E_TXD_CTX_QW1_TSO_LEN_SHIFT) |
+-				((u64)cd_mss << I40E_TXD_CTX_QW1_MSS_SHIFT);
++	*cd_type_cmd_tso_mss |= (cd_cmd << I40E_TXD_CTX_QW1_CMD_SHIFT) |
++				(cd_tso_len << I40E_TXD_CTX_QW1_TSO_LEN_SHIFT) |
++				(cd_mss << I40E_TXD_CTX_QW1_MSS_SHIFT);
+ 	return 1;
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 8b20ed3..c5f98cb 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1527,7 +1527,7 @@ out:
+ static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 		    u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
+ {
+-	u32 cd_cmd, cd_tso_len, cd_mss;
++	u64 cd_cmd, cd_tso_len, cd_mss;
+ 	struct ipv6hdr *ipv6h;
+ 	struct tcphdr *tcph;
+ 	struct iphdr *iph;
+@@ -1569,10 +1569,9 @@ static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	cd_cmd = I40E_TX_CTX_DESC_TSO;
+ 	cd_tso_len = skb->len - *hdr_len;
+ 	cd_mss = skb_shinfo(skb)->gso_size;
+-	*cd_type_cmd_tso_mss |= ((u64)cd_cmd << I40E_TXD_CTX_QW1_CMD_SHIFT) |
+-				((u64)cd_tso_len <<
+-				 I40E_TXD_CTX_QW1_TSO_LEN_SHIFT) |
+-				((u64)cd_mss << I40E_TXD_CTX_QW1_MSS_SHIFT);
++	*cd_type_cmd_tso_mss |= (cd_cmd << I40E_TXD_CTX_QW1_CMD_SHIFT) |
++				(cd_tso_len << I40E_TXD_CTX_QW1_TSO_LEN_SHIFT) |
++				(cd_mss << I40E_TXD_CTX_QW1_MSS_SHIFT);
+ 	return 1;
+ }
+ 
+-- 
+2.5.0
