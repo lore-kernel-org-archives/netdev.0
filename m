@@ -1,48 +1,42 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH next v3 1/3] ipvlan: scrub skb before routing in L3 mode.
-Date: Fri, 19 Feb 2016 16:30:22 -0800
-Message-ID: <CAM_iQpXbrdvEA=t0s5p2BA0iw2stTpiiBXFy1wJ8e+xcAUGdzA@mail.gmail.com>
-References: <1455767550-16896-1-git-send-email-mahesh@bandewar.net>
-	<CAM_iQpXUv1s1xw9g9uox25fYrRXpTjFLE5_OwUYE_tCZAoGF3w@mail.gmail.com>
-	<CAF2d9jjPc6pwuZZiuLCc27ex+Hqc9-x0MdyyaR=ErwVV===DEQ@mail.gmail.com>
-	<CAM_iQpWnXjumJE8_7vqFa-rfw6zgRp+hw1e-duzmaqvWDsJ6Cw@mail.gmail.com>
-	<CAF2d9jgdBD6+PUKJ6BBB9h6mD7vTmuCNS5hupBSFcXs+K_Vobw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Mahesh Bandewar <maheshb@google.com>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net 3/3] bnxt_en: Failure to update PHY is not fatal condition.
+Date: Fri, 19 Feb 2016 19:43:21 -0500
+Message-ID: <1455929001-12039-4-git-send-email-michael.chan@broadcom.com>
+References: <1455929001-12039-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f182.google.com ([209.85.161.182]:32826 "EHLO
-	mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753213AbcBTAaX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 19:30:23 -0500
-Received: by mail-yw0-f182.google.com with SMTP id u200so80514057ywf.0
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 16:30:22 -0800 (PST)
-In-Reply-To: <CAF2d9jgdBD6+PUKJ6BBB9h6mD7vTmuCNS5hupBSFcXs+K_Vobw@mail.gmail.com>
+Received: from 5520-maca-inet1-outside.broadcom.com ([216.31.211.11]:4147 "EHLO
+	mail-irv-18.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1428905AbcBTAnY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 19:43:24 -0500
+In-Reply-To: <1455929001-12039-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 18, 2016 at 5:06 PM, Mahesh Bandewar <maheshb@google.com> wrote:
-> On Thu, Feb 18, 2016 at 4:44 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> On Thu, Feb 18, 2016 at 4:39 PM, Mahesh Bandewar <maheshb@google.com> wrote:
->>> [snip]
->>>>> -       skb_dst_drop(skb);
->>>>> +       skb_scrub_packet(skb, true);
->>>>
->>>> At least this patch is still same with the previous version. Or am I
->>>> missing anything?
->>>
->>>  xnet param is now set to 'true'.
->>
->> Oh, I was suggesting to set xnet based on the netns of both ipvlan
->> device and physical device, not setting it to be true or false
->> unconditionally.
->>
-> Well, thought about that but don't know any use case / user who is
-> using the ipvlan slave devices in the same ns as master hence decided
-> to do it this way.
+From: Michael Chan <mchan@broadcom.com>
 
-In practice, probably, but in theory we still need to consider it. ;)
+If we fail to update the PHY, we should print a warning and continue.
+The current code to exit is buggy as it has not freed up the NIC
+resources yet.
+
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 78f6b5a..8ab000d 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -4642,7 +4642,7 @@ static int __bnxt_open_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
+ 	if (link_re_init) {
+ 		rc = bnxt_update_phy_setting(bp);
+ 		if (rc)
+-			goto open_err;
++			netdev_warn(bp->dev, "failed to update phy settings\n");
+ 	}
+ 
+ 	if (irq_re_init) {
+-- 
+1.8.3.1
