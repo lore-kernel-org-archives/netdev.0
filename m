@@ -1,156 +1,155 @@
-From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [net-next][PATCH 04/13] RDS: IB: Remove the RDS_IB_SEND_OP dependency
-Date: Sat, 20 Feb 2016 03:29:55 -0800
-Message-ID: <1455967804-27644-5-git-send-email-santosh.shilimkar@oracle.com>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH 02/13] RDS: Add support for SO_TIMESTAMP for incoming messages
+Date: Sat, 20 Feb 2016 03:29:53 -0800
+Message-ID: <1455967804-27644-3-git-send-email-santosh.shilimkar@oracle.com>
 References: <1455967804-27644-1-git-send-email-santosh.shilimkar@oracle.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1455967804-27644-1-git-send-email-santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Santosh Shilimkar <santosh.shilimkar@oracle.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:25222 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2994091AbcBTLaz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2016 06:30:55 -0500
+In-Reply-To: <1455967804-27644-1-git-send-email-santosh.shilimkar@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This helps to combine asynchronous fastreg MR completion handler
-with send completion handler.
+The SO_TIMESTAMP generates time stamp for each incoming RDS messages
+User app can enable it by using SO_TIMESTAMP setsocketopt() at
+SOL_SOCKET level. CMSG data of cmsg type SO_TIMESTAMP contains the
+time stamp in struct timeval format.
 
-No functional change.
-
-Signed-off-by: Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Signed-off-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.h      |  1 -
- net/rds/ib_cm.c   | 42 +++++++++++++++++++++++++++---------------
- net/rds/ib_send.c |  6 ++----
- 3 files changed, 29 insertions(+), 20 deletions(-)
+ net/rds/af_rds.c | 26 ++++++++++++++++++++++++++
+ net/rds/rds.h    |  1 +
+ net/rds/recv.c   | 20 ++++++++++++++++++--
+ 3 files changed, 45 insertions(+), 2 deletions(-)
 
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index b3fdebb..09cd8e3 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -28,7 +28,6 @@
- #define RDS_IB_RECYCLE_BATCH_COUNT	32
- 
- #define RDS_IB_WC_MAX			32
--#define RDS_IB_SEND_OP			BIT_ULL(63)
- 
- extern struct rw_semaphore rds_ib_devices_lock;
- extern struct list_head rds_ib_devices;
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index da5a7fb..7f68abc 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -236,12 +236,10 @@ static void rds_ib_cq_comp_handler_recv(struct ib_cq *cq, void *context)
- 	tasklet_schedule(&ic->i_recv_tasklet);
+diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
+index b5476aeb..6beaeb1 100644
+--- a/net/rds/af_rds.c
++++ b/net/rds/af_rds.c
+@@ -277,6 +277,27 @@ static int rds_set_transport(struct rds_sock *rs, char __user *optval,
+ 	return rs->rs_transport ? 0 : -ENOPROTOOPT;
  }
  
--static void poll_cq(struct rds_ib_connection *ic, struct ib_cq *cq,
--		    struct ib_wc *wcs,
--		    struct rds_ib_ack_state *ack_state)
-+static void poll_scq(struct rds_ib_connection *ic, struct ib_cq *cq,
-+		     struct ib_wc *wcs)
- {
--	int nr;
--	int i;
-+	int nr, i;
- 	struct ib_wc *wc;
- 
- 	while ((nr = ib_poll_cq(cq, RDS_IB_WC_MAX, wcs)) > 0) {
-@@ -251,10 +249,7 @@ static void poll_cq(struct rds_ib_connection *ic, struct ib_cq *cq,
- 				 (unsigned long long)wc->wr_id, wc->status,
- 				 wc->byte_len, be32_to_cpu(wc->ex.imm_data));
- 
--			if (wc->wr_id & RDS_IB_SEND_OP)
--				rds_ib_send_cqe_handler(ic, wc);
--			else
--				rds_ib_recv_cqe_handler(ic, wc, ack_state);
-+			rds_ib_send_cqe_handler(ic, wc);
- 		}
- 	}
- }
-@@ -263,14 +258,12 @@ static void rds_ib_tasklet_fn_send(unsigned long data)
- {
- 	struct rds_ib_connection *ic = (struct rds_ib_connection *)data;
- 	struct rds_connection *conn = ic->conn;
--	struct rds_ib_ack_state state;
- 
- 	rds_ib_stats_inc(s_ib_tasklet_call);
- 
--	memset(&state, 0, sizeof(state));
--	poll_cq(ic, ic->i_send_cq, ic->i_send_wc, &state);
-+	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
- 	ib_req_notify_cq(ic->i_send_cq, IB_CQ_NEXT_COMP);
--	poll_cq(ic, ic->i_send_cq, ic->i_send_wc, &state);
-+	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
- 
- 	if (rds_conn_up(conn) &&
- 	    (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags) ||
-@@ -278,6 +271,25 @@ static void rds_ib_tasklet_fn_send(unsigned long data)
- 		rds_send_xmit(ic->conn);
- }
- 
-+static void poll_rcq(struct rds_ib_connection *ic, struct ib_cq *cq,
-+		     struct ib_wc *wcs,
-+		     struct rds_ib_ack_state *ack_state)
++static int rds_enable_recvtstamp(struct sock *sk, char __user *optval,
++				 int optlen)
 +{
-+	int nr, i;
-+	struct ib_wc *wc;
++	int val, valbool;
 +
-+	while ((nr = ib_poll_cq(cq, RDS_IB_WC_MAX, wcs)) > 0) {
-+		for (i = 0; i < nr; i++) {
-+			wc = wcs + i;
-+			rdsdebug("wc wr_id 0x%llx status %u byte_len %u imm_data %u\n",
-+				 (unsigned long long)wc->wr_id, wc->status,
-+				 wc->byte_len, be32_to_cpu(wc->ex.imm_data));
++	if (optlen != sizeof(int))
++		return -EFAULT;
 +
-+			rds_ib_recv_cqe_handler(ic, wc, ack_state);
-+		}
-+	}
++	if (get_user(val, (int __user *)optval))
++		return -EFAULT;
++
++	valbool = val ? 1 : 0;
++
++	if (valbool)
++		sock_set_flag(sk, SOCK_RCVTSTAMP);
++	else
++		sock_reset_flag(sk, SOCK_RCVTSTAMP);
++
++	return 0;
 +}
 +
- static void rds_ib_tasklet_fn_recv(unsigned long data)
+ static int rds_setsockopt(struct socket *sock, int level, int optname,
+ 			  char __user *optval, unsigned int optlen)
  {
- 	struct rds_ib_connection *ic = (struct rds_ib_connection *)data;
-@@ -291,9 +303,9 @@ static void rds_ib_tasklet_fn_recv(unsigned long data)
- 	rds_ib_stats_inc(s_ib_tasklet_call);
+@@ -312,6 +333,11 @@ static int rds_setsockopt(struct socket *sock, int level, int optname,
+ 		ret = rds_set_transport(rs, optval, optlen);
+ 		release_sock(sock->sk);
+ 		break;
++	case SO_TIMESTAMP:
++		lock_sock(sock->sk);
++		ret = rds_enable_recvtstamp(sock->sk, optval, optlen);
++		release_sock(sock->sk);
++		break;
+ 	default:
+ 		ret = -ENOPROTOOPT;
+ 	}
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index 0e2797b..80256b0 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -222,6 +222,7 @@ struct rds_incoming {
+ 	__be32			i_saddr;
  
- 	memset(&state, 0, sizeof(state));
--	poll_cq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
-+	poll_rcq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
- 	ib_req_notify_cq(ic->i_recv_cq, IB_CQ_SOLICITED);
--	poll_cq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
-+	poll_rcq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
+ 	rds_rdma_cookie_t	i_rdma_cookie;
++	struct timeval		i_rx_tstamp;
+ };
  
- 	if (state.ack_next_valid)
- 		rds_ib_set_ack(ic, state.ack_next, state.ack_required);
-diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
-index eac30bf..f27d2c8 100644
---- a/net/rds/ib_send.c
-+++ b/net/rds/ib_send.c
-@@ -195,7 +195,7 @@ void rds_ib_send_init_ring(struct rds_ib_connection *ic)
+ struct rds_mr {
+diff --git a/net/rds/recv.c b/net/rds/recv.c
+index a00462b..c0be1ec 100644
+--- a/net/rds/recv.c
++++ b/net/rds/recv.c
+@@ -35,6 +35,8 @@
+ #include <net/sock.h>
+ #include <linux/in.h>
+ #include <linux/export.h>
++#include <linux/time.h>
++#include <linux/rds.h>
  
- 		send->s_op = NULL;
+ #include "rds.h"
  
--		send->s_wr.wr_id = i | RDS_IB_SEND_OP;
-+		send->s_wr.wr_id = i;
- 		send->s_wr.sg_list = send->s_sge;
- 		send->s_wr.ex.imm_data = 0;
+@@ -46,6 +48,8 @@ void rds_inc_init(struct rds_incoming *inc, struct rds_connection *conn,
+ 	inc->i_conn = conn;
+ 	inc->i_saddr = saddr;
+ 	inc->i_rdma_cookie = 0;
++	inc->i_rx_tstamp.tv_sec = 0;
++	inc->i_rx_tstamp.tv_usec = 0;
+ }
+ EXPORT_SYMBOL_GPL(rds_inc_init);
  
-@@ -263,9 +263,7 @@ void rds_ib_send_cqe_handler(struct rds_ib_connection *ic, struct ib_wc *wc)
+@@ -228,6 +232,8 @@ void rds_recv_incoming(struct rds_connection *conn, __be32 saddr, __be32 daddr,
+ 		rds_recv_rcvbuf_delta(rs, sk, inc->i_conn->c_lcong,
+ 				      be32_to_cpu(inc->i_hdr.h_len),
+ 				      inc->i_hdr.h_dport);
++		if (sock_flag(sk, SOCK_RCVTSTAMP))
++			do_gettimeofday(&inc->i_rx_tstamp);
+ 		rds_inc_addref(inc);
+ 		list_add_tail(&inc->i_item, &rs->rs_recv_queue);
+ 		__rds_wake_sk_sleep(sk);
+@@ -381,7 +387,8 @@ static int rds_notify_cong(struct rds_sock *rs, struct msghdr *msghdr)
+ /*
+  * Receive any control messages.
+  */
+-static int rds_cmsg_recv(struct rds_incoming *inc, struct msghdr *msg)
++static int rds_cmsg_recv(struct rds_incoming *inc, struct msghdr *msg,
++			 struct rds_sock *rs)
+ {
+ 	int ret = 0;
  
- 	oldest = rds_ib_ring_oldest(&ic->i_send_ring);
+@@ -392,6 +399,15 @@ static int rds_cmsg_recv(struct rds_incoming *inc, struct msghdr *msg)
+ 			return ret;
+ 	}
  
--	completed = rds_ib_ring_completed(&ic->i_send_ring,
--					  (wc->wr_id & ~RDS_IB_SEND_OP),
--					  oldest);
-+	completed = rds_ib_ring_completed(&ic->i_send_ring, wc->wr_id, oldest);
++	if ((inc->i_rx_tstamp.tv_sec != 0) &&
++	    sock_flag(rds_rs_to_sk(rs), SOCK_RCVTSTAMP)) {
++		ret = put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMP,
++			       sizeof(struct timeval),
++			       &inc->i_rx_tstamp);
++		if (ret)
++			return ret;
++	}
++
+ 	return 0;
+ }
  
- 	for (i = 0; i < completed; i++) {
- 		send = &ic->i_sends[oldest];
+@@ -474,7 +490,7 @@ int rds_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
+ 			msg->msg_flags |= MSG_TRUNC;
+ 		}
+ 
+-		if (rds_cmsg_recv(inc, msg)) {
++		if (rds_cmsg_recv(inc, msg, rs)) {
+ 			ret = -EFAULT;
+ 			goto out;
+ 		}
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
