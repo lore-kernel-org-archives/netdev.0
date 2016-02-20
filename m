@@ -1,191 +1,138 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable outer Tx checksum by default
-Date: Sat, 20 Feb 2016 11:51:32 -0800
-Message-ID: <CALx6S36EyzjWKi_iK_uAVcCceFnZe3QmLcw7BBejKuB79Uo7PA@mail.gmail.com>
-References: <20160219191806.15687.37621.stgit@localhost.localdomain>
-	<CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
-	<CAMt9YRrOxCmJbrftixdJTXZcySZ_mARqCT6C=4-Nqv_ZJKnTwA@mail.gmail.com>
-	<CAEh+42hStEh=5z8KBic0hmEZNti4tjahySjjv7kU3YUes_R4Zg@mail.gmail.com>
-	<CALx6S351KYGFFLi08cX=DFCucZtGJLoMJGvFAW1_H-cRXZ0rQg@mail.gmail.com>
-	<CAEh+42hEVQOFaFk7BW=wZ-gb9HCfYqbr7Q600gbm1q1Oz+yZcA@mail.gmail.com>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: [PATCH v3] net: ethernet: davicom: fix devicetree irq resource
+Date: Sat, 20 Feb 2016 21:45:26 +0100
+Message-ID: <1456001126-13129-1-git-send-email-robert.jarzmik@free.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alex Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: Jesse Gross <jesse@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:38442 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751117AbcBTTvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2016 14:51:33 -0500
-Received: by mail-ig0-f173.google.com with SMTP id y8so57068119igp.1
-        for <netdev@vger.kernel.org>; Sat, 20 Feb 2016 11:51:32 -0800 (PST)
-In-Reply-To: <CAEh+42hEVQOFaFk7BW=wZ-gb9HCfYqbr7Q600gbm1q1Oz+yZcA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Robert Jarzmik <robert.jarzmik@free.fr>
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 19, 2016 at 6:18 PM, Jesse Gross <jesse@kernel.org> wrote:
-> On Fri, Feb 19, 2016 at 4:14 PM, Tom Herbert <tom@herbertland.com> wrote:
->> On Fri, Feb 19, 2016 at 4:08 PM, Jesse Gross <jesse@kernel.org> wrote:
->>> On Fri, Feb 19, 2016 at 3:10 PM, Alex Duyck <aduyck@mirantis.com> wrote:
->>>> On Fri, Feb 19, 2016 at 1:53 PM, Jesse Gross <jesse@kernel.org> wrote:
->>>>> On Fri, Feb 19, 2016 at 11:26 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
->>>>>> This patch series makes it so that we enable the outer Tx checksum for IPv4
->>>>>> tunnels by default.  This makes the behavior consistent with how we were
->>>>>> handling this for IPv6.  In addition I have updated the internal flags for
->>>>>> these tunnels so that we use a ZERO_CSUM_TX flag for IPv4 which should
->>>>>> match up will with the ZERO_CSUM6_TX flag which was already in use for
->>>>>> IPv6.
->>>>>>
->>>>>> For most network devices this should be a net gain in terms of performance
->>>>>> as having the outer header checksum present allows for devices to report
->>>>>> CHECKSUM_UNNECESSARY which we can then convert to CHECKSUM_COMPLETE in order
->>>>>> to determine if the inner header checksum is valid.
->>>>>>
->>>>>> Below is some data I collected with ixgbe with an X540 that demonstrates
->>>>>> this.  I located two PFs connected back to back in two different name
->>>>>> spaces and then setup a pair of tunnels on each, one with checksum enabled
->>>>>> and one without.
->>>>>>
->>>>>> Recv   Send    Send                          Utilization
->>>>>> Socket Socket  Message  Elapsed              Send
->>>>>> Size   Size    Size     Time     Throughput  local
->>>>>> bytes  bytes   bytes    secs.    10^6bits/s  % S
->>>>>>
->>>>>> noudpcsum:
->>>>>>  87380  16384  16384    30.00      8898.67   12.80
->>>>>> udpcsum:
->>>>>>  87380  16384  16384    30.00      9088.47   5.69
->>>>>>
->>>>>> The one spot where this may cause a performance regression is if the
->>>>>> environment contains devices that can parse the inner headers and a device
->>>>>> supports NETIF_F_GSO_UDP_TUNNEL but not NETIF_F_GSO_UDP_TUNNEL_CSUM.  In
->>>>>> the case of such a device we have to fall back to using GSO to segment the
->>>>>> tunnel instead of TSO and as a result we may take a performance hit as seen
->>>>>> below with i40e.
->>>>>
->>>>> Do you have any numbers from 40G links? Obviously, at 10G the links
->>>>> are basically saturated and while I can see a difference in the
->>>>> utilization rate, I suspect that the change will be much more apparent
->>>>> at higher speeds.
->>>>
->>>> Unfortunately I don't have any true 40G links to test with.  The
->>>> closest I can get is to run PF to VF on an i40e.  Running that I have
->>>> seen the numbers go from about 20Gb/s to 15Gb/s with almost all the
->>>> difference being related to the fact that we are having to
->>>> allocate/free more skbs and make more trips through the
->>>> i40e_lan_xmit_frame function resulting in more descriptors.
->>>
->>> OK, I guess that is more or less in line with what I would expect off
->>> the top my head. There is a reasonably significant drop in the worst
->>> case.
->>>
->>>>> I'm concerned about the drop in performance for devices that currently
->>>>> support offloads (almost none of which expose
->>>>> NETIF_F_GSO_UDP_TUNNEL_CSUM as a feature). Presumably the people that
->>>>> care most about tunnel performance are the ones that already have
->>>>> these NICs and will be the most impacted by the drop.
->>>>
->>>> The problem is being able to transmit fast is kind of pointless if the
->>>> receiving end cannot handle it.  We hadn't gotten around to really
->>>> getting the Rx checksum bits working until the 3.18 kernel which I
->>>> don't suspect many people are running so at this point messing with
->>>> the TSO bits isn't really making much of a difference.  Then on top of
->>>> that most devices have certain limitations on how many ports they can
->>>> handle and such.  I know the i40e is supposed to support something
->>>> like 10 port numbers, but the fm10k and ixgbe are limited to one port
->>>> as I recall.  So this whole thing is already really brittle as it is.
->>>> My goal with this change is to make the behavior more consistent
->>>> across the board.
->>>
->>> That's true to some degree but there are certainly plenty of cases
->>> where TSO makes a difference - lower CPU usage, transmitting to
->>> multiple receivers, people will upgrade their kernels, etc. It's
->>> clearly good to make things more consistent but hopefully not by
->>> reducing existing performance. :)
->>>
->>>>> My hope is that we can continue to use TSO on devices that only
->>>>> support NETIF_F_GSO_UDP_TUNNEL. The main problem is that the UDP
->>>>> length field may vary across segments. However, in practice this is
->>>>> the only on the final segment and only in cases where the total length
->>>>> is not a multiple of the MSS. If we could detect cases where those
->>>>> conditions are met, we could continue to use TSO with the UDP checksum
->>>>> field pre-populated. A possible step even further would be to break
->>>>> off the final segment into a separate packet to make things conform if
->>>>> necessary. This would avoid a performance regression and I think make
->>>>> this more palatable to a lot of people.
->>>>
->>>> I think Tom and I had discussed this possibility a bit at netconf.
->>>> The GSO logic is something I planned on looking at over the next
->>>> several weeks as I suspect there is probably room for improvement
->>>> there.
->>>
->>> That sounds great.
->>>
->>>>>> I also haven't investigated the effect this will have on OVS.  However I
->>>>>> suspect the impact should be minimal as the worst case scenario should be
->>>>>> that Tx checksumming will become enabled by default which should be
->>>>>> consistent with the existing behavior for IPv6.
->>>>>
->>>>> I don't think that it should cause any problems.
->>>>
->>>> Good to hear.
->>>>
->>>> Do you know if OVS has some way to control the VXLAN configuration so
->>>> that it could disable Tx checksums?  If so that would probably be a
->>>> good way to address the 40G issues assuming someone is running an
->>>> environment hat had nothing but NICs that can support the TSO and Rx
->>>> checksum on inner headers.
->>>
->>> Yes - OVS can control tx checksums on a per-endpoint basis (actually,
->>> rx checksum present requirements as well though it's not exposed to
->>> the user at the moment). If you had the information then you could
->>> optimize what to use in an environment of, say, hypervisors and
->>> hardware switches.
->>>
->>> However, it's certainly possible that you have a mixed set of NICs
->>> such as an encap aware NIC on the transmit side and non-aware on the
->>> receive side. In that case, both possible checksum settings penalize
->>> somebody: off (lose GRO on receiver), on (lose TSO on sender assuming
->>> no support for NETIF_F_GSO_UDP_TUNNEL_CSUM). That's why I think it's
->>> important to be able to use encap TSO with local checksum to avoid
->>> these bad tradeoffs, not to mention being cleaner.
->>
->> By "local checksum" do you mean LCO?
->
-> Yes, that's what I meant.
->
-Right. To use LCO with TSO we would need to ensure that all packets
-are the same size so that the UDP length field and thus checksum are
-constant for all created segments. But this property this would also
-make any payload lengths in headers constant for all packets so that
-the only fields that need be set per generated packet would be the TCP
-sequence number and checksum. This simplifying assumption could be
-used to make a very protocol-generic GSO/TSO (up to the transport
-header)!
+The dm9000 driver doesn't work in at least one device-tree
+configuration, spitting an error message on irq resource :
+[=C2=A0=C2=A0=C2=A0=C2=A01.062495] dm9000 8000000.ethernet: insufficien=
+t resources
+[=C2=A0=C2=A0=C2=A0=C2=A01.068439] dm9000 8000000.ethernet: not found (=
+-2).
+[=C2=A0=C2=A0=C2=A0=C2=A01.073451] dm9000: probe of 8000000.ethernet fa=
+iled with error -2
 
-Conceptually, a device would just need to know the start of the
-packet, the offset of the transport header, and the size of each
-segment. Any bits from the start of the packet to the beginning of the
-transport header are just copied to each segment, so any combination
-of encapsulation/network protocols is  supported as long as they are
-constant for each segment (e.g. MPLS, NSH, etc. are on the horizon for
-needing TSO support).
+The reason behind is that the interrupt might be provided by a gpio
+controller, not probed when dm9000 is probed, and needing the probe
+deferral mechanism to apply.
 
-If we are able to do this then GSO could be a lot simpler and more
-extensible. We should be able to eliminate all the GSO flags for GRE,
-IPIP, SIT, UDP, checksum variants, shouldn't need to distinguish
-between TCPv4 and TCPv6, and wouldn't need to disallow nested
-encapsulations. The inner headers in the skbuf might also be removed.
-GSO for SCTP or FCOE still needs a little thought, we'd need to
-consider the possibility of needing both a CRC and checksum in a
-single packet.
+Currently, the interrupt is directly taken from resources. This patch
+changes this to use the more generic platform_get_irq(), which handles
+the deferral.
 
-Tom
+Moreover, since commit Fixes: 7085a7401ba5 ("drivers: platform: parse
+IRQ flags from resources"), the interrupt trigger flags are honored in
+platform_get_irq(), so remove the needless code in dm9000.
 
->> Seems like we should be able to
->> get that to work with NETIF_F_GSO_TUNNEL_CSUM.
->
-> I assume you mean NETIF_F_GSO_TUNNEL (no _CSUM)?
+Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+Acked-by: Marcel Ziswiler <marcel@ziswiler.com>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+---
+Since v1: comment style and requested irq test < 0
+          David, you should know that Sergei is concerned with the
+	  subsystem prefix in the patch subject (too long for him).
+Since v2: leak of the ethernet device
+---
+ drivers/net/ethernet/davicom/dm9000.c | 34 +++++++++++++++++----------=
+-------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethern=
+et/davicom/dm9000.c
+index cf94b72dbacd..48d91941408d 100644
+--- a/drivers/net/ethernet/davicom/dm9000.c
++++ b/drivers/net/ethernet/davicom/dm9000.c
+@@ -128,7 +128,6 @@ struct board_info {
+ 	struct resource *data_res;
+ 	struct resource	*addr_req;   /* resources requested */
+ 	struct resource *data_req;
+-	struct resource *irq_res;
+=20
+ 	int		 irq_wake;
+=20
+@@ -1300,22 +1299,16 @@ static int
+ dm9000_open(struct net_device *dev)
+ {
+ 	struct board_info *db =3D netdev_priv(dev);
+-	unsigned long irqflags =3D db->irq_res->flags & IRQF_TRIGGER_MASK;
+=20
+ 	if (netif_msg_ifup(db))
+ 		dev_dbg(db->dev, "enabling %s\n", dev->name);
+=20
+-	/* If there is no IRQ type specified, default to something that
+-	 * may work, and tell the user that this is a problem */
+-
+-	if (irqflags =3D=3D IRQF_TRIGGER_NONE)
+-		irqflags =3D irq_get_trigger_type(dev->irq);
+-
+-	if (irqflags =3D=3D IRQF_TRIGGER_NONE)
++	/* If there is no IRQ type specified, tell the user that this is a
++	 * problem
++	 */
++	if (irq_get_trigger_type(dev->irq) =3D=3D IRQF_TRIGGER_NONE)
+ 		dev_warn(db->dev, "WARNING: no IRQ resource flags set.\n");
+=20
+-	irqflags |=3D IRQF_SHARED;
+-
+ 	/* GPIO0 on pre-activate PHY, Reg 1F is not set by reset */
+ 	iow(db, DM9000_GPR, 0);	/* REG_1F bit0 activate phyxcer */
+ 	mdelay(1); /* delay needs by DM9000B */
+@@ -1323,7 +1316,8 @@ dm9000_open(struct net_device *dev)
+ 	/* Initialize DM9000 board */
+ 	dm9000_init_dm9000(dev);
+=20
+-	if (request_irq(dev->irq, dm9000_interrupt, irqflags, dev->name, dev)=
+)
++	if (request_irq(dev->irq, dm9000_interrupt, IRQF_SHARED,
++			dev->name, dev))
+ 		return -EAGAIN;
+ 	/* Now that we have an interrupt handler hooked up we can unmask
+ 	 * our interrupts
+@@ -1500,15 +1494,22 @@ dm9000_probe(struct platform_device *pdev)
+=20
+ 	db->addr_res =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	db->data_res =3D platform_get_resource(pdev, IORESOURCE_MEM, 1);
+-	db->irq_res  =3D platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+=20
+-	if (db->addr_res =3D=3D NULL || db->data_res =3D=3D NULL ||
+-	    db->irq_res =3D=3D NULL) {
+-		dev_err(db->dev, "insufficient resources\n");
++	if (!db->addr_res || !db->data_res) {
++		dev_err(db->dev, "insufficient resources addr=3D%p data=3D%p\n",
++			db->addr_res, db->data_res);
+ 		ret =3D -ENOENT;
+ 		goto out;
+ 	}
+=20
++	ndev->irq =3D platform_get_irq(pdev, 0);
++	if (ndev->irq < 0) {
++		dev_err(db->dev, "interrupt resource unavailable: %d\n",
++			ndev->irq);
++		ret =3D ndev->irq;
++		goto out;
++	}
++
+ 	db->irq_wake =3D platform_get_irq(pdev, 1);
+ 	if (db->irq_wake >=3D 0) {
+ 		dev_dbg(db->dev, "wakeup irq %d\n", db->irq_wake);
+@@ -1570,7 +1571,6 @@ dm9000_probe(struct platform_device *pdev)
+=20
+ 	/* fill in parameters for net-dev structure */
+ 	ndev->base_addr =3D (unsigned long)db->io_addr;
+-	ndev->irq	=3D db->irq_res->start;
+=20
+ 	/* ensure at least we have a default set of IO routines */
+ 	dm9000_set_io(db, iosize);
+--=20
+2.1.4
