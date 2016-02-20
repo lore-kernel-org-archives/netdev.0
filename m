@@ -1,37 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] phy: marvell/micrel: Fix Unpossible condition
-Date: Fri, 19 Feb 2016 23:42:09 -0500 (EST)
-Message-ID: <20160219.234209.1817149741397354640.davem@davemloft.net>
-References: <1455924929-12462-1-git-send-email-andrew@lunn.ch>
+Subject: Re: [PATCH net-next] net: use skb_postpush_rcsum instead of own
+ implementations
+Date: Fri, 19 Feb 2016 23:43:34 -0500 (EST)
+Message-ID: <20160219.234334.1254668686162658568.davem@davemloft.net>
+References: <bb805bd677f8ba6f5c40b485ed41009d3fef1f3d.1455924108.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andrew@lunn.ch
+Cc: hannes@stressinduktion.org, jesse@kernel.org, ast@kernel.org,
+	netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42570 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42591 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423636AbcBTEmL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 23:42:11 -0500
-In-Reply-To: <1455924929-12462-1-git-send-email-andrew@lunn.ch>
+	with ESMTP id S1423636AbcBTEng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 23:43:36 -0500
+In-Reply-To: <bb805bd677f8ba6f5c40b485ed41009d3fef1f3d.1455924108.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Sat, 20 Feb 2016 00:35:29 +0100
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Sat, 20 Feb 2016 00:29:30 +0100
 
-> commit 2b2427d06426 ("phy: micrel: Add ethtool statistics counters")
-> from Dec 30, 2015, leads to the following static checker
-> warning:
+> Replace individual implementations with the recently introduced
+> skb_postpush_rcsum() helper.
 > 
->         drivers/net/phy/micrel.c:609 kszphy_get_stat()
->         warn: unsigned 'val' is never less than zero.
- ...
-> The same problem exists in the Marvell driver. Fix both.
-> 
-> Fixes: 2b2427d06426 ("phy: micrel: Add ethtool statistics counters")
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Reported-by: Julia.Lawall <julia.lawall@lip6.fr>
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Applied, thanks.
+Applied, thanks Daniel.
