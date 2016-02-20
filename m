@@ -1,42 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] r8169:fix "rtl_counters_cond == 1 (loop: 1000,
- delay: 10)" log spam.
-Date: Fri, 19 Feb 2016 23:55:33 -0500 (EST)
-Message-ID: <20160219.235533.1135050085277533832.davem@davemloft.net>
-References: <1455807427-3177-1-git-send-email-hau@realtek.com>
+Subject: Re: [PATCHv3 net 5/5] nfp: don't trust netif_running() in debug
+ code
+Date: Sat, 20 Feb 2016 00:01:45 -0500 (EST)
+Message-ID: <20160220.000145.1464068847848293405.davem@davemloft.net>
+References: <1455827893-26366-1-git-send-email-jakub.kicinski@netronome.com>
+	<1455827893-26366-6-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org
-To: hau@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455807427-3177-1-git-send-email-hau@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jakub.kicinski@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42735 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750710AbcBTFBr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2016 00:01:47 -0500
+In-Reply-To: <1455827893-26366-6-git-send-email-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chunhao Lin <hau@realtek.com>
-Date: Thu, 18 Feb 2016 22:57:07 +0800
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Thu, 18 Feb 2016 20:38:13 +0000
 
-> There will be a log spam when there is no cable plugged.
-> Please refer to following links.
-> https://bugzilla.kernel.org/show_bug.cgi?id=104351
-> https://bugzilla.kernel.org/show_bug.cgi?id=107421
+> Since change_mtu() can fail and leave us with netif_running()
+> returning true even though all rings were freed - we should
+> look at NFP_NET_CFG_CTRL_ENABLE flag to determine if device
+> is really opened.
 > 
-> This issue is caused by runtime power management. When there is no cable
-> plugged, the driver will be suspend (runtime suspend) by OS and NIC will
-> be put into the D3 state. During this time, if OS call rtl8169_get_stats64()
-> to dump tally counter, because NIC is in D3 state, the register value read by
-> driver will return all 0xff. This will let driver think tally counter flag is not
-> toggled and then sends the warning  message "rtl_counters_cond == 1 (loop: 1000,
-> delay: 10)" to kernel log.
-> 
-> I add checking driver's pm runtime status in rtl8169_get_stats64() to fix
-> this issue.
-> 
-> Signed-off-by: Chunhao Lin <hau@realtek.com>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 
-If you are going to do this, then you need to quiesce the device RX/TX
-and capture all of the statistics from the chip before suspending it.
+This is exactly why I don't like how you are doing your MTU change at
+all.
 
-Otherwise what we're returning from rtl8169_get_stats64() is inaccurate.
+You must not make the device inoperative if you simply cannot perform
+the MTU change.  I'm pretty sure I've told you this already, this
+whole ->close(), MTU change, ->open() OOPS THAT FAILED sequence is a
+non-starter.  You can't do this.
+
+You are leaving the netdev object in an illegal state when this
+happens.
+
+You must return from ->change_mtu() with the device in the UP
+and running state if you cannot make the MTU change.
+
+I don't care how invasive it is, you must fix this properly if
+you want to fix this because as-is this patch series is a cure
+worse than the disease.
+
+I'm not applying any of your currently submitted changes, both for net
+and net-next, sorry.
