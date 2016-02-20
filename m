@@ -1,35 +1,44 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] Bluetooth: hci_core: cancel power off delayed work properly
-Date: Sat, 20 Feb 2016 00:12:23 -0800
-Message-ID: <B2631016-F0BA-4938-BAA3-66456FA99EDD@holtmann.org>
-References: <1455527391-13622-1-git-send-email-wnhuang@google.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Linux Bluetooth <linux-bluetooth@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Johan Hedberg <johan.hedberg@intel.com>, snanda@chromium.org,
-	djkurtz@chromium.org, "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Wei-Ning Huang <wnhuang@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455527391-13622-1-git-send-email-wnhuang@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rami Rosen <rami.rosen@intel.com>
+Subject: [PATCH net-next] i40e: remove broken link.
+Date: Sat, 20 Feb 2016 10:59:39 +0200
+Message-ID: <1455958779-13399-1-git-send-email-rami.rosen@intel.com>
+Cc: netdev@vger.kernel.org, Rami Rosen <rami.rosen@intel.com>
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:44341 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2992561AbcBTI6c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Feb 2016 03:58:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Wei-Ning,
+This patch removes a broken link from Documentation/networking/i40e.txt.
 
-> When the HCI_AUTO_OFF flag is cleared, the power_off delayed work need
-> to be cancel or HCI will be powered off even if it's managed.
-> 
-> Signed-off-by: Wei-Ning Huang <wnhuang@chromium.org>
-> ---
-> net/bluetooth/hci_core.c | 1 +
-> 1 file changed, 1 insertion(+)
+Signed-off-by: Rami Rosen <rami.rosen@intel.com>
+---
+ Documentation/networking/i40e.txt | 9 ---------
+ 1 file changed, 9 deletions(-)
 
-patch has been applied to bluetooth-next tree.
-
-Regards
-
-Marcel
+diff --git a/Documentation/networking/i40e.txt b/Documentation/networking/i40e.txt
+index a251bf4..09f8f3b 100644
+--- a/Documentation/networking/i40e.txt
++++ b/Documentation/networking/i40e.txt
+@@ -88,15 +88,6 @@ Additional Configurations
+ 
+   Where n=the VF that attempted to do the spoofing.
+ 
+-
+-Performance Tuning
+-==================
+-
+-An excellent article on performance tuning can be found at:
+-
+-http://www.redhat.com/promo/summit/2008/downloads/pdf/Thursday/Mark_Wagner.pdf
+-
+-
+ Known Issues
+ ============
+ 
+-- 
+1.9.3
