@@ -1,44 +1,41 @@
-From: Rami Rosen <rami.rosen@intel.com>
-Subject: [PATCH net-next] i40e: remove broken link.
-Date: Sat, 20 Feb 2016 10:59:39 +0200
-Message-ID: <1455958779-13399-1-git-send-email-rami.rosen@intel.com>
-Cc: netdev@vger.kernel.org, Rami Rosen <rami.rosen@intel.com>
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	davem@davemloft.net
+From: Ken Kawasaki <ken_kawasaki@nifty.com>
+Subject: [PATCH] fmvj18x_cs: fix incorrect indexing of dev->dev_addr[] when
+ copying the MAC address
+Date: Sat, 20 Feb 2016 19:14:36 +0900
+Message-ID: <20160220191436.346fd0e6c63db659ea6582b9@nifty.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:44341 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992561AbcBTI6c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Feb 2016 03:58:32 -0500
+Received: from conuserg009.nifty.com ([202.248.44.35]:35872 "EHLO
+	conuserg009-v.nifty.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1427571AbcBTKOn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2016 05:14:43 -0500
+Received: from localhost.localdomain (49.253.212.56.eo.eaccess.ne.jp [49.253.212.56]) (authenticated)
+	by conuserg009-v.nifty.com with ESMTP id u1KAEbtH029234
+	for <netdev@vger.kernel.org>; Sat, 20 Feb 2016 19:14:37 +0900
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes a broken link from Documentation/networking/i40e.txt.
 
-Signed-off-by: Rami Rosen <rami.rosen@intel.com>
+fix incorrect indexing of dev->dev_addr[] when copying the MAC address 
+of FMV-J182 at buf[5].
+
+Signed-off-by: Ken Kawasaki <ken_kawasaki@nifty.com>
+
 ---
- Documentation/networking/i40e.txt | 9 ---------
- 1 file changed, 9 deletions(-)
 
-diff --git a/Documentation/networking/i40e.txt b/Documentation/networking/i40e.txt
-index a251bf4..09f8f3b 100644
---- a/Documentation/networking/i40e.txt
-+++ b/Documentation/networking/i40e.txt
-@@ -88,15 +88,6 @@ Additional Configurations
- 
-   Where n=the VF that attempted to do the spoofing.
- 
--
--Performance Tuning
--==================
--
--An excellent article on performance tuning can be found at:
--
--http://www.redhat.com/promo/summit/2008/downloads/pdf/Thursday/Mark_Wagner.pdf
--
--
- Known Issues
- ============
- 
--- 
-1.9.3
+--- linux-4.4.1/drivers/net/ethernet/fujitsu/fmvj18x_cs.c.orig	2016-02-19 20:48:40.143852346 +0900
++++ linux-4.4.1/drivers/net/ethernet/fujitsu/fmvj18x_cs.c	2016-02-20 10:33:42.137713831 +0900
+@@ -469,8 +469,8 @@ static int fmvj18x_config(struct pcmcia_
+ 		    goto failed;
+ 	    }
+ 	    /* Read MACID from CIS */
+-	    for (i = 5; i < 11; i++)
+-		    dev->dev_addr[i] = buf[i];
++	    for (i = 0; i < 6; i++)
++		    dev->dev_addr[i] = buf[i + 5];
+ 	    kfree(buf);
+ 	} else {
+ 	    if (pcmcia_get_mac_from_cis(link, dev))
