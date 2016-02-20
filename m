@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [net-next][PATCH 12/13] RDS: IB: allocate extra space on queues for FRMR support
-Date: Sat, 20 Feb 2016 03:30:03 -0800
-Message-ID: <1455967804-27644-13-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH 04/13] RDS: IB: Remove the RDS_IB_SEND_OP dependency
+Date: Sat, 20 Feb 2016 03:29:55 -0800
+Message-ID: <1455967804-27644-5-git-send-email-santosh.shilimkar@oracle.com>
 References: <1455967804-27644-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
@@ -11,101 +11,142 @@ In-Reply-To: <1455967804-27644-1-git-send-email-santosh.shilimkar-QHcLZuEGTsvQT0
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Fastreg MR(FRMR) memory registration and invalidation makes use
-of work request and completion queues for its operation. Patch
-allocates extra queue space towards these operation(s).
+This helps to combine asynchronous fastreg MR completion handler
+with send completion handler.
+
+No functional change.
 
 Signed-off-by: Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 ---
- net/rds/ib.h    |  4 ++++
- net/rds/ib_cm.c | 16 ++++++++++++----
- 2 files changed, 16 insertions(+), 4 deletions(-)
+ net/rds/ib.h      |  1 -
+ net/rds/ib_cm.c   | 42 +++++++++++++++++++++++++++---------------
+ net/rds/ib_send.c |  6 ++----
+ 3 files changed, 29 insertions(+), 20 deletions(-)
 
 diff --git a/net/rds/ib.h b/net/rds/ib.h
-index c5eddc2..eeb0d6c 100644
+index b3fdebb..09cd8e3 100644
 --- a/net/rds/ib.h
 +++ b/net/rds/ib.h
-@@ -14,6 +14,7 @@
+@@ -28,7 +28,6 @@
+ #define RDS_IB_RECYCLE_BATCH_COUNT	32
  
- #define RDS_IB_DEFAULT_RECV_WR		1024
- #define RDS_IB_DEFAULT_SEND_WR		256
-+#define RDS_IB_DEFAULT_FR_WR		512
+ #define RDS_IB_WC_MAX			32
+-#define RDS_IB_SEND_OP			BIT_ULL(63)
  
- #define RDS_IB_DEFAULT_RETRY_COUNT	2
- 
-@@ -122,6 +123,9 @@ struct rds_ib_connection {
- 	struct ib_wc		i_send_wc[RDS_IB_WC_MAX];
- 	struct ib_wc		i_recv_wc[RDS_IB_WC_MAX];
- 
-+	/* To control the number of wrs from fastreg */
-+	atomic_t		i_fastreg_wrs;
-+
- 	/* interrupt handling */
- 	struct tasklet_struct	i_send_tasklet;
- 	struct tasklet_struct	i_recv_tasklet;
+ extern struct rw_semaphore rds_ib_devices_lock;
+ extern struct list_head rds_ib_devices;
 diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index 7f68abc..83f4673 100644
+index da5a7fb..7f68abc 100644
 --- a/net/rds/ib_cm.c
 +++ b/net/rds/ib_cm.c
-@@ -363,7 +363,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	struct ib_qp_init_attr attr;
- 	struct ib_cq_init_attr cq_attr = {};
- 	struct rds_ib_device *rds_ibdev;
--	int ret;
-+	int ret, fr_queue_space;
+@@ -236,12 +236,10 @@ static void rds_ib_cq_comp_handler_recv(struct ib_cq *cq, void *context)
+ 	tasklet_schedule(&ic->i_recv_tasklet);
+ }
  
- 	/*
- 	 * It's normal to see a null device if an incoming connection races
-@@ -373,6 +373,12 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	if (!rds_ibdev)
- 		return -EOPNOTSUPP;
+-static void poll_cq(struct rds_ib_connection *ic, struct ib_cq *cq,
+-		    struct ib_wc *wcs,
+-		    struct rds_ib_ack_state *ack_state)
++static void poll_scq(struct rds_ib_connection *ic, struct ib_cq *cq,
++		     struct ib_wc *wcs)
+ {
+-	int nr;
+-	int i;
++	int nr, i;
+ 	struct ib_wc *wc;
  
-+	/* The fr_queue_space is currently set to 512, to add extra space on
-+	 * completion queue and send queue. This extra space is used for FRMR
-+	 * registration and invalidation work requests
-+	 */
-+	fr_queue_space = (rds_ibdev->use_fastreg ? RDS_IB_DEFAULT_FR_WR : 0);
+ 	while ((nr = ib_poll_cq(cq, RDS_IB_WC_MAX, wcs)) > 0) {
+@@ -251,10 +249,7 @@ static void poll_cq(struct rds_ib_connection *ic, struct ib_cq *cq,
+ 				 (unsigned long long)wc->wr_id, wc->status,
+ 				 wc->byte_len, be32_to_cpu(wc->ex.imm_data));
+ 
+-			if (wc->wr_id & RDS_IB_SEND_OP)
+-				rds_ib_send_cqe_handler(ic, wc);
+-			else
+-				rds_ib_recv_cqe_handler(ic, wc, ack_state);
++			rds_ib_send_cqe_handler(ic, wc);
+ 		}
+ 	}
+ }
+@@ -263,14 +258,12 @@ static void rds_ib_tasklet_fn_send(unsigned long data)
+ {
+ 	struct rds_ib_connection *ic = (struct rds_ib_connection *)data;
+ 	struct rds_connection *conn = ic->conn;
+-	struct rds_ib_ack_state state;
+ 
+ 	rds_ib_stats_inc(s_ib_tasklet_call);
+ 
+-	memset(&state, 0, sizeof(state));
+-	poll_cq(ic, ic->i_send_cq, ic->i_send_wc, &state);
++	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
+ 	ib_req_notify_cq(ic->i_send_cq, IB_CQ_NEXT_COMP);
+-	poll_cq(ic, ic->i_send_cq, ic->i_send_wc, &state);
++	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
+ 
+ 	if (rds_conn_up(conn) &&
+ 	    (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags) ||
+@@ -278,6 +271,25 @@ static void rds_ib_tasklet_fn_send(unsigned long data)
+ 		rds_send_xmit(ic->conn);
+ }
+ 
++static void poll_rcq(struct rds_ib_connection *ic, struct ib_cq *cq,
++		     struct ib_wc *wcs,
++		     struct rds_ib_ack_state *ack_state)
++{
++	int nr, i;
++	struct ib_wc *wc;
 +
- 	/* add the conn now so that connection establishment has the dev */
- 	rds_ib_add_conn(rds_ibdev, conn);
++	while ((nr = ib_poll_cq(cq, RDS_IB_WC_MAX, wcs)) > 0) {
++		for (i = 0; i < nr; i++) {
++			wc = wcs + i;
++			rdsdebug("wc wr_id 0x%llx status %u byte_len %u imm_data %u\n",
++				 (unsigned long long)wc->wr_id, wc->status,
++				 wc->byte_len, be32_to_cpu(wc->ex.imm_data));
++
++			rds_ib_recv_cqe_handler(ic, wc, ack_state);
++		}
++	}
++}
++
+ static void rds_ib_tasklet_fn_recv(unsigned long data)
+ {
+ 	struct rds_ib_connection *ic = (struct rds_ib_connection *)data;
+@@ -291,9 +303,9 @@ static void rds_ib_tasklet_fn_recv(unsigned long data)
+ 	rds_ib_stats_inc(s_ib_tasklet_call);
  
-@@ -384,7 +390,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	/* Protection domain and memory range */
- 	ic->i_pd = rds_ibdev->pd;
+ 	memset(&state, 0, sizeof(state));
+-	poll_cq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
++	poll_rcq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
+ 	ib_req_notify_cq(ic->i_recv_cq, IB_CQ_SOLICITED);
+-	poll_cq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
++	poll_rcq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
  
--	cq_attr.cqe = ic->i_send_ring.w_nr + 1;
-+	cq_attr.cqe = ic->i_send_ring.w_nr + fr_queue_space + 1;
+ 	if (state.ack_next_valid)
+ 		rds_ib_set_ack(ic, state.ack_next, state.ack_required);
+diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
+index eac30bf..f27d2c8 100644
+--- a/net/rds/ib_send.c
++++ b/net/rds/ib_send.c
+@@ -195,7 +195,7 @@ void rds_ib_send_init_ring(struct rds_ib_connection *ic)
  
- 	ic->i_send_cq = ib_create_cq(dev, rds_ib_cq_comp_handler_send,
- 				     rds_ib_cq_event_handler, conn,
-@@ -424,7 +430,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	attr.event_handler = rds_ib_qp_event_handler;
- 	attr.qp_context = conn;
- 	/* + 1 to allow for the single ack message */
--	attr.cap.max_send_wr = ic->i_send_ring.w_nr + 1;
-+	attr.cap.max_send_wr = ic->i_send_ring.w_nr + fr_queue_space + 1;
- 	attr.cap.max_recv_wr = ic->i_recv_ring.w_nr + 1;
- 	attr.cap.max_send_sge = rds_ibdev->max_sge;
- 	attr.cap.max_recv_sge = RDS_IB_RECV_SGE;
-@@ -432,6 +438,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	attr.qp_type = IB_QPT_RC;
- 	attr.send_cq = ic->i_send_cq;
- 	attr.recv_cq = ic->i_recv_cq;
-+	atomic_set(&ic->i_fastreg_wrs, RDS_IB_DEFAULT_FR_WR);
+ 		send->s_op = NULL;
  
- 	/*
- 	 * XXX this can fail if max_*_wr is too large?  Are we supposed
-@@ -751,7 +758,8 @@ void rds_ib_conn_shutdown(struct rds_connection *conn)
- 		 */
- 		wait_event(rds_ib_ring_empty_wait,
- 			   rds_ib_ring_empty(&ic->i_recv_ring) &&
--			   (atomic_read(&ic->i_signaled_sends) == 0));
-+			   (atomic_read(&ic->i_signaled_sends) == 0) &&
-+			   (atomic_read(&ic->i_fastreg_wrs) == RDS_IB_DEFAULT_FR_WR));
- 		tasklet_kill(&ic->i_send_tasklet);
- 		tasklet_kill(&ic->i_recv_tasklet);
+-		send->s_wr.wr_id = i | RDS_IB_SEND_OP;
++		send->s_wr.wr_id = i;
+ 		send->s_wr.sg_list = send->s_sge;
+ 		send->s_wr.ex.imm_data = 0;
  
+@@ -263,9 +263,7 @@ void rds_ib_send_cqe_handler(struct rds_ib_connection *ic, struct ib_wc *wc)
+ 
+ 	oldest = rds_ib_ring_oldest(&ic->i_send_ring);
+ 
+-	completed = rds_ib_ring_completed(&ic->i_send_ring,
+-					  (wc->wr_id & ~RDS_IB_SEND_OP),
+-					  oldest);
++	completed = rds_ib_ring_completed(&ic->i_send_ring, wc->wr_id, oldest);
+ 
+ 	for (i = 0; i < completed; i++) {
+ 		send = &ic->i_sends[oldest];
 -- 
 1.9.1
 
