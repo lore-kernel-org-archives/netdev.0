@@ -1,138 +1,115 @@
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: [PATCH v3] net: ethernet: davicom: fix devicetree irq resource
-Date: Sat, 20 Feb 2016 21:45:26 +0100
-Message-ID: <1456001126-13129-1-git-send-email-robert.jarzmik@free.fr>
+From: Maximilian Engelhardt <maxi@daemonizer.de>
+Subject: Re: r8169 nic sometimes doesn't work after changing the mac address
+Date: Sat, 20 Feb 2016 21:54:23 +0100
+Message-ID: <2548019.66mqNrkh6O@fuchs>
+References: <2484998.nsOrLucHGd@fuchs>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Robert Jarzmik <robert.jarzmik@free.fr>
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; boundary="nextPart2050384.IMq3ntE0Zx"; micalg="pgp-sha512"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org
+To: Realtek linux nic maintainers <nic_swsd@realtek.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from daemonizer.de ([87.230.17.38]:55761 "EHLO daemonizer.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1427090AbcBTVEL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Feb 2016 16:04:11 -0500
+In-Reply-To: <2484998.nsOrLucHGd@fuchs>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The dm9000 driver doesn't work in at least one device-tree
-configuration, spitting an error message on irq resource :
-[=C2=A0=C2=A0=C2=A0=C2=A01.062495] dm9000 8000000.ethernet: insufficien=
-t resources
-[=C2=A0=C2=A0=C2=A0=C2=A01.068439] dm9000 8000000.ethernet: not found (=
--2).
-[=C2=A0=C2=A0=C2=A0=C2=A01.073451] dm9000: probe of 8000000.ethernet fa=
-iled with error -2
 
-The reason behind is that the interrupt might be provided by a gpio
-controller, not probed when dm9000 is probed, and needing the probe
-deferral mechanism to apply.
+--nextPart2050384.IMq3ntE0Zx
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
 
-Currently, the interrupt is directly taken from resources. This patch
-changes this to use the more generic platform_get_irq(), which handles
-the deferral.
+On Saturday 12 December 2015 22:43:45 Maximilian Engelhardt wrote:
+> Hello,
+> 
+> I'm using a Lenovo TinkPad Edge E135 notebook that has a Realtek wired
+> network interface inbuilt. Under some conditions the nic doesn't work after
+> changing the mac address.
+> 
+> It took me some time to figure out that it makes a difference if I (re)boot
+> my notebook with or without the power supply plugged in. When I boot the
+> system with the power supply plugged in everything does work fine as
+> expected. But if I boot with the power supply unplugged and I change the
+> mac address the network card doesn't work.
+> 
+> 
+> This is how I am testing and how I can reproduce the behavior on my system:
+> 
+> * Boot Linux (Debian stable with a newer kernel)
+> * Network is still turned off, only loopback is enabled by default in my
+> setup. * I run the following commands:
+>   ip link set dev eth0 address 00:12:0c:96:a7:2e # a randomly generated mac
+>   ip link set dev eth0 up
+>   ip addr add dev eth0 10.0.252.50/24
+>   ip route add default via 10.0.252.1
+> 
+> When the notebook is booted with the power supply plugged in the network is
+> working as expected, e. g. I can ping the gateway.
+> 
+> But when the notebook was booted without the power supply attached the
+> network is not working e. g. pinging the gateway doesn't get any replies.
+> 
+> I found two ways to get the network working from this state (beside
+> rebooting with power plugged in):
+> 
+> * If I enable promiscous mode the network connections are working again:
+>   # ip link set dev eth0 promisc on
+> 
+> * Alternatively I can set the same mac address again while the interface is
+> up:
+>   # ip link set dev eth0 address 00:12:0c:96:a7:2e # same mac as before
+> 
+> 
+> So it seems like a mac filter in the network card is not set up right.
+> 
+> 
+> Attached are dmesg output of a boot with and without power supply attached
+> as well as the output of lspci -vvv.
+> 
+> 
+> Please let me know If you need more information.
+> 
+> Thanks,
+> Maxi
 
-Moreover, since commit Fixes: 7085a7401ba5 ("drivers: platform: parse
-IRQ flags from resources"), the interrupt trigger flags are honored in
-platform_get_irq(), so remove the needless code in dm9000.
 
-Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
-Acked-by: Marcel Ziswiler <marcel@ziswiler.com>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
----
-Since v1: comment style and requested irq test < 0
-          David, you should know that Sergei is concerned with the
-	  subsystem prefix in the patch subject (too long for him).
-Since v2: leak of the ethernet device
----
- drivers/net/ethernet/davicom/dm9000.c | 34 +++++++++++++++++----------=
--------
- 1 file changed, 17 insertions(+), 17 deletions(-)
+Hello,
 
-diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethern=
-et/davicom/dm9000.c
-index cf94b72dbacd..48d91941408d 100644
---- a/drivers/net/ethernet/davicom/dm9000.c
-+++ b/drivers/net/ethernet/davicom/dm9000.c
-@@ -128,7 +128,6 @@ struct board_info {
- 	struct resource *data_res;
- 	struct resource	*addr_req;   /* resources requested */
- 	struct resource *data_req;
--	struct resource *irq_res;
-=20
- 	int		 irq_wake;
-=20
-@@ -1300,22 +1299,16 @@ static int
- dm9000_open(struct net_device *dev)
- {
- 	struct board_info *db =3D netdev_priv(dev);
--	unsigned long irqflags =3D db->irq_res->flags & IRQF_TRIGGER_MASK;
-=20
- 	if (netif_msg_ifup(db))
- 		dev_dbg(db->dev, "enabling %s\n", dev->name);
-=20
--	/* If there is no IRQ type specified, default to something that
--	 * may work, and tell the user that this is a problem */
--
--	if (irqflags =3D=3D IRQF_TRIGGER_NONE)
--		irqflags =3D irq_get_trigger_type(dev->irq);
--
--	if (irqflags =3D=3D IRQF_TRIGGER_NONE)
-+	/* If there is no IRQ type specified, tell the user that this is a
-+	 * problem
-+	 */
-+	if (irq_get_trigger_type(dev->irq) =3D=3D IRQF_TRIGGER_NONE)
- 		dev_warn(db->dev, "WARNING: no IRQ resource flags set.\n");
-=20
--	irqflags |=3D IRQF_SHARED;
--
- 	/* GPIO0 on pre-activate PHY, Reg 1F is not set by reset */
- 	iow(db, DM9000_GPR, 0);	/* REG_1F bit0 activate phyxcer */
- 	mdelay(1); /* delay needs by DM9000B */
-@@ -1323,7 +1316,8 @@ dm9000_open(struct net_device *dev)
- 	/* Initialize DM9000 board */
- 	dm9000_init_dm9000(dev);
-=20
--	if (request_irq(dev->irq, dm9000_interrupt, irqflags, dev->name, dev)=
-)
-+	if (request_irq(dev->irq, dm9000_interrupt, IRQF_SHARED,
-+			dev->name, dev))
- 		return -EAGAIN;
- 	/* Now that we have an interrupt handler hooked up we can unmask
- 	 * our interrupts
-@@ -1500,15 +1494,22 @@ dm9000_probe(struct platform_device *pdev)
-=20
- 	db->addr_res =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	db->data_res =3D platform_get_resource(pdev, IORESOURCE_MEM, 1);
--	db->irq_res  =3D platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-=20
--	if (db->addr_res =3D=3D NULL || db->data_res =3D=3D NULL ||
--	    db->irq_res =3D=3D NULL) {
--		dev_err(db->dev, "insufficient resources\n");
-+	if (!db->addr_res || !db->data_res) {
-+		dev_err(db->dev, "insufficient resources addr=3D%p data=3D%p\n",
-+			db->addr_res, db->data_res);
- 		ret =3D -ENOENT;
- 		goto out;
- 	}
-=20
-+	ndev->irq =3D platform_get_irq(pdev, 0);
-+	if (ndev->irq < 0) {
-+		dev_err(db->dev, "interrupt resource unavailable: %d\n",
-+			ndev->irq);
-+		ret =3D ndev->irq;
-+		goto out;
-+	}
-+
- 	db->irq_wake =3D platform_get_irq(pdev, 1);
- 	if (db->irq_wake >=3D 0) {
- 		dev_dbg(db->dev, "wakeup irq %d\n", db->irq_wake);
-@@ -1570,7 +1571,6 @@ dm9000_probe(struct platform_device *pdev)
-=20
- 	/* fill in parameters for net-dev structure */
- 	ndev->base_addr =3D (unsigned long)db->io_addr;
--	ndev->irq	=3D db->irq_res->start;
-=20
- 	/* ensure at least we have a default set of IO routines */
- 	dm9000_set_io(db, iosize);
---=20
-2.1.4
+Anyone had a look at this? I can confirm that the problem is still present in 
+kernel 4.4.2.
+
+I just did a quick tcpdump and found out that packets are transmitted fine, but 
+the replay of the other end gets lost somewhere in the nic/driver e. i. it 
+seems to never reach the kernel network stack.
+
+Please let me know if you need more information from me.
+
+Thanks,
+Maxi
+
+--nextPart2050384.IMq3ntE0Zx
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJWyNJ/AAoJEIHqZH0kK9IVeHQP/R613g7DcR7cdk2R06F2i+qw
+OR1jgdQQXuVmtaEjiDiPdgsTkMeXTfZBZnZmzqgpQVa0kvkf3p7hORvSVQ0MZQXq
+b5xb/YGGhqil/k+vMWDEZemTYowbVxeru16FWS8VM22KgPiwl4m6GgbDSv2ydA6T
+3PvtS0xD4mstATFu/zYzl1Y+d/09qfeEMI9OGR1XNT3E4tCgBTiZmSick/FO+dkm
+QlW3LvBI4Lh0eQ2gPQfZ4zJVDVM5djw4FyMNw+NO+SpSm40wdg/tc97dJhg143dP
+8CqxfN5gdW4hxKUWZ3tWsdzpHgpY8ZtUDJUpumczkhSsbuWqmGlmfcnoppGdj7bG
+d7CH9OigF2nB1ZkwOIW5P8p+hkqlfP1HiAvdGGXwD0xkcEwEKUMr7MGIKUXD88ta
+1lHdxnd/gBLZN2t2QUx+GR2BlDq84lhDC9/PVShOyfsaJD/qq9b7YRcyRxT3rUN+
+2SnthnpHBh+7x+PlRuIeym1e+ZuXVTOzgNZEytd6MYXRtPQ7/0xgq9nUgYmSmqjX
+ZN2K0AGWxBpTfPhLj87OGxc27HYl4tWgOrq3j7Xl7Gd7Mfp9j2+3c9OCp80GOuwO
+Bzgyut6kXulS4rKuH3AHBryotZGvCs0RkV1S30GagICmHPSg0CGOKYwlnsAA1VxX
+bUhTDtCZHx4/yPc23Zvm
+=3lnB
+-----END PGP SIGNATURE-----
+
+--nextPart2050384.IMq3ntE0Zx--
