@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bgmac: support Ethernet device on BCM47094 SoC
-Date: Fri, 19 Feb 2016 19:56:47 -0500 (EST)
-Message-ID: <20160219.195647.2084670596178428477.davem@davemloft.net>
-References: <1455691708-24649-1-git-send-email-zajec5@gmail.com>
-	<20160219.153729.2239673565372497259.davem@davemloft.net>
-	<CACna6rzGWQBu7ZncdsiHgrnfhgF9bEqZVdX2xiMcAYX7LZ5gbg@mail.gmail.com>
+Subject: Re: [PATCH V7 0/8] ethtool per queue parameters support
+Date: Fri, 19 Feb 2016 19:59:07 -0500 (EST)
+Message-ID: <20160219.195907.2031651665459332026.davem@davemloft.net>
+References: <1455891846-12271-1-git-send-email-kan.liang@intel.com>
+	<1455918618.3016.36.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de
-To: zajec5@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kan.liang@intel.com, netdev@vger.kernel.org, bwh@kernel.org,
+	ben@decadent.org.uk, andi@firstfloor.org,
+	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
+	f.fainelli@gmail.com, alexander.duyck@gmail.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	mitch.a.williams@intel.com, ogerlitz@mellanox.com,
+	edumazet@google.com, jiri@mellanox.com, sfeldma@gmail.com,
+	gospo@cumulusnetworks.com, sasha.levin@oracle.com,
+	dsahern@gmail.com, tj@kernel.org, cascardo@redhat.com,
+	corbet@lwn.net, decot@googlers.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40607 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40642 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1426935AbcBTA4u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 19:56:50 -0500
-In-Reply-To: <CACna6rzGWQBu7ZncdsiHgrnfhgF9bEqZVdX2xiMcAYX7LZ5gbg@mail.gmail.com>
+	with ESMTP id S1426935AbcBTA7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 19:59:11 -0500
+In-Reply-To: <1455918618.3016.36.camel@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Fri, 19 Feb 2016 22:26:48 +0100
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 19 Feb 2016 13:50:18 -0800
 
-> Are you applying it to net-next? It way my intention, sorry if I was
-> supposed to make it more clear.
+> Dave, I have pretty much cleared out my i40e queue of patches, so I am
+> fine if you want to apply the entire series (of course after proper
+> review) :-)
 
-You are always supposed to specify this explicitly, in the
-Subject line, after PATCH, like "[PATCH net-next] bgmac: ..."
+Ok, thanks Jeff.
