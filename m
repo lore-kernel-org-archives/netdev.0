@@ -1,39 +1,31 @@
-From: Ken Kawasaki <ken_kawasaki@nifty.com>
-Subject: [PATCH] fmvj18x_cs: The MAC address of FMV-J182 is stored at buf[5]
-Date: Sat, 20 Feb 2016 10:57:06 +0900
-Message-ID: <20160220105706.c4da2bbf13902b8bb4df3808@nifty.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] net: use skb_postpush_rcsum instead of own
+ implementations
+Date: Fri, 19 Feb 2016 18:13:09 -0800
+Message-ID: <20160220021308.GA2620@ast-mbp.thefacebook.com>
+References: <bb805bd677f8ba6f5c40b485ed41009d3fef1f3d.1455924108.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, hannes@stressinduktion.org, jesse@kernel.org,
+	ast@kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from conuserg010.nifty.com ([202.248.44.36]:51906 "EHLO
-	conuserg010-v.nifty.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S965103AbcBTB5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 20:57:22 -0500
-Received: from localhost.localdomain (49.253.220.168.eo.eaccess.ne.jp [49.253.220.168]) (authenticated)
-	by conuserg010-v.nifty.com with ESMTP id u1K1v6BE022461
-	for <netdev@vger.kernel.org>; Sat, 20 Feb 2016 10:57:07 +0900
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34929 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1428310AbcBTCNN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2016 21:13:13 -0500
+Received: by mail-pa0-f49.google.com with SMTP id ho8so60998679pac.2
+        for <netdev@vger.kernel.org>; Fri, 19 Feb 2016 18:13:13 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <bb805bd677f8ba6f5c40b485ed41009d3fef1f3d.1455924108.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Feb 20, 2016 at 12:29:30AM +0100, Daniel Borkmann wrote:
+> Replace individual implementations with the recently introduced
+> skb_postpush_rcsum() helper.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-The MAC address of FMV-J182 is stored at buf[5].
-
-Signed-off-by: Ken Kawasaki <ken_kawasaki@nifty.com>
-
----
-
---- linux-4.4.1/drivers/net/ethernet/fujitsu/fmvj18x_cs.c.orig	2016-02-19 20:48:40.143852346 +0900
-+++ linux-4.4.1/drivers/net/ethernet/fujitsu/fmvj18x_cs.c	2016-02-20 10:33:42.137713831 +0900
-@@ -469,8 +469,8 @@ static int fmvj18x_config(struct pcmcia_
- 		    goto failed;
- 	    }
- 	    /* Read MACID from CIS */
--	    for (i = 5; i < 11; i++)
--		    dev->dev_addr[i] = buf[i];
-+	    for (i = 0; i < 6; i++)
-+		    dev->dev_addr[i] = buf[i + 5];
- 	    kfree(buf);
- 	} else {
- 	    if (pcmcia_get_mac_from_cis(link, dev))
+nice follow up to f8ffad69c9f8 indeed.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
