@@ -1,70 +1,64 @@
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: pull request: bluetooth 2016-02-20
-Date: Sat, 20 Feb 2016 20:16:25 +0200
-Message-ID: <20160220181625.GA1231@t440s.P-661HNU-F1>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [Patch net-next] net_sched: add network namespace support for
+ tc actions
+Date: Sat, 20 Feb 2016 19:36:14 +0100
+Message-ID: <56C8B21E.7070307@iogearbox.net>
+References: <1455928994-9726-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="tKW2IUtsqtDRztdT"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:54580 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751748AbcBTSgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2016 13:36:17 -0500
+In-Reply-To: <1455928994-9726-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 02/20/2016 01:43 AM, Cong Wang wrote:
+> Currently tc actions are stored in a per-module hashtable,
+> therefore are visible to all network namespaces. This is
+> probably the last part of the tc subsystem which is not
+> aware of netns now. This patch makes them per-netns,
+> several tc action API's need to be adjusted for this.
+>
+> The tc action API code is ugly due to historical reasons,
+> we need to refactor that code in the future.
+>
+> Also this patch is on top of my other patch
+> "net_sched: fix memory leaks when rmmod tc action modules",
+> therefore should be applied after -net is merged into
+> net-next.
+>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>   include/net/act_api.h    |  28 +++++---
+>   net/sched/act_api.c      |  88 ++++++++++-------------
+>   net/sched/act_bpf.c      |  71 +++++++++++++++++--
+>   net/sched/act_connmark.c |  73 +++++++++++++++++--
+>   net/sched/act_csum.c     |  78 +++++++++++++++++++--
+>   net/sched/act_gact.c     |  74 ++++++++++++++++++--
+>   net/sched/act_ipt.c      | 178 +++++++++++++++++++++++++++++++++++++++++++----
+>   net/sched/act_mirred.c   |  75 ++++++++++++++++++--
+>   net/sched/act_nat.c      |  73 +++++++++++++++++--
+>   net/sched/act_pedit.c    |  73 +++++++++++++++++--
+>   net/sched/act_police.c   |  69 ++++++++++++++++--
+>   net/sched/act_simple.c   |  76 ++++++++++++++++++--
+>   net/sched/act_skbedit.c  |  73 +++++++++++++++++--
+>   net/sched/act_vlan.c     |  73 +++++++++++++++++--
+>   14 files changed, 969 insertions(+), 133 deletions(-)
 
---tKW2IUtsqtDRztdT
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Thanks for working on this!
 
-Hi Dave,
+Do you see a way to reduce the code duplication needed across all
+the action modules? I.e. that each of them now needs to register
+a new per netns subsystem, etc. In other words, is there a way the
+action API could be reworked to handle most of this in the tc core
+framework instead?
 
-Here's an important patch for 4.5 which fixes potential invalid pointer
-access when processing completed Bluetooth HCI commands.
-
-Please let me know if there are any issues pulling. Thanks.
-
-Johan
-
----
-The following changes since commit d07c0278da1f4cfc91c3d46d0d07a0d13a949892:
-
-  net: bcmgenet: Fix internal PHY link state (2016-02-19 23:51:40 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
-
-for you to fetch changes up to 3bd7594e69bd97c962faa6a5ae15dd8c6c082636:
-
-  Bluetooth: hci_core: Avoid mixing up req_complete and req_complete_skb (2016-02-20 08:52:28 +0100)
-
-----------------------------------------------------------------
-Douglas Anderson (1):
-      Bluetooth: hci_core: Avoid mixing up req_complete and req_complete_skb
-
- net/bluetooth/hci_core.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
---tKW2IUtsqtDRztdT
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJWyK15AAoJECQj9vv5qNQSCyoP/iz263tzD+pQq0pyRXp2xXeZ
-DEGSG3Vvsyykv2L85qsYTN0sZkSW9tE3Vuy9xCER+s4YE8KqGNCk/wE6INzEGHMw
-PMtKTtSGJAZHKnkz2DNpNxwJeFTSnOA0TUpGSHpI5qzbegJYRSk5d/bL+AdgfnuP
-yrHMe07WQF6Owj82YgIKfJ02PH86x2BuldYl1u1l/8UY1bMfqRGiyXa7yEgjmvO7
-0p9fCO80mQsQ5rYJqlix+tQNze85qjvot9q8VcVFa11PeRotZ0sMFBuqZgI4M+Eu
-HhhlM4yrE0Rq51F9bDvyrlptnCfWcQ3nPbxSItBAuuk259hjtDXn14GRVGXq0cG+
-oHGcZcbww6tNr7J348cNzq5HsvV3KTK3Z8BlZdrlykJKZEtO5Zb5PyytW1ch8IAD
-0EjuxTWisR4TYAXcYgpkOcXUrieRpyQWOk5bTDxUpc5Ls9mcOHuMxoMl1gSd94wv
-fBoe30aKU8SrRIwLzrAV+v3w4vcz2AgAlaWRq/JUASV2dB1r0QpAlMKf1RDJ17RX
-oBzlh/Wv3qqsyOcYt+oOy1w+hKpYIwdo9vfdBiaM3Q9/P0xlBMK0aVKDLEASh6D7
-LFfAmSAig08CnjKb0GKRYgmMS2EyLRzfw/A0ogWqDeH5fH9q47QqxRyDuep3oBUu
-O20Zldui/4QHNwEKU5B3
-=xYJ7
------END PGP SIGNATURE-----
-
---tKW2IUtsqtDRztdT--
+Cheers,
+Daniel
