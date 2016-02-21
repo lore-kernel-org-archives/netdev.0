@@ -1,38 +1,47 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next v4 0/3] IPvlan misc patches
-Date: Sat, 20 Feb 2016 19:31:22 -0800
-Message-ID: <1456025482-30203-1-git-send-email-mahesh@bandewar.net>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Rana Shahout <rana.shahot@gmail.com>
+Subject: Re: Tools for sampling ethtool --statistics
+Date: Sun, 21 Feb 2016 11:40:57 +0200
+Message-ID: <CALYk33gHWBcQ7T_4FKxwG2x56pMK6YU+qcyTogx4pMVqGsvcmA@mail.gmail.com>
+References: <20160120101311.5266cac6@redhat.com>
+	<CAKHjkj=+zaYXvHQWkWuU2LLVRxT_V7Pvmd3QqoGUdOL=HDjsRA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: brouer@redhat.com, netdev@vger.kernel.org, ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36650 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750705AbcBUSzc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 13:55:32 -0500
-Received: by mail-pf0-f195.google.com with SMTP id e127so6169505pfe.3
-        for <netdev@vger.kernel.org>; Sun, 21 Feb 2016 10:55:32 -0800 (PST)
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:33846 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734AbcBUTDY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 14:03:24 -0500
+Received: by mail-ob0-f169.google.com with SMTP id ts10so33010167obc.1
+        for <netdev@vger.kernel.org>; Sun, 21 Feb 2016 11:03:24 -0800 (PST)
+In-Reply-To: <CAKHjkj=+zaYXvHQWkWuU2LLVRxT_V7Pvmd3QqoGUdOL=HDjsRA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+> Hi All,
+>
+> I wrote a small tool[1] to extract ethtool --statistics|-S, sample and
+> present it in a more human readable manor.  You might also find this
+> useful...
+>
+> https://github.com/netoptimizer/network-testing/blob/master/bin/ethtool_stats.pl
+>
+> The reason I wrote this script is that the mlx5 driver (Mellanox 100 Gbit/s)
+> does not report correct ifconfig stats.  It reports the HW counters,
+> not what the network stack is able to handle.  I/we obviously need the
+> stack number when working on improving the stack.
 
-This is a collection of unrelated patches for IPvlan driver.
-a. crub_skb() changes are added to ensure that the packets hit the
-NF_HOOKS in masters' ns in L3 mode.
-b. u16 change is bug fix while
-c. the third patch is to group tx/rx variables in single cacheline
+mlx5 drive does not report correct counters also in ethtool statistics
+(ethtool -S).
+ethtool statistics reports also the HW counters, so all counters
+except counters per channel are wrong.
+We are working on fix. It will be available soon.
 
-Mahesh Bandewar (3):
-  ipvlan: scrub skb before routing in L3 mode.
-  ipvlan: mode is u16
-  ipvlan: misc changes
-
- drivers/net/ipvlan/ipvlan.h      | 10 +++------
- drivers/net/ipvlan/ipvlan_core.c | 46 +++++++++++++++++++++++-----------------
- drivers/net/ipvlan/ipvlan_main.c | 11 ++++++----
- 3 files changed, 36 insertions(+), 31 deletions(-)
-
--- 
-2.7.0.rc3.207.g0ac5344
+>
+> --
+> Best regards,
+>   Jesper Dangaard Brouer
+>   MSc.CS, Principal Kernel Engineer at Red Hat
+>   Author of http://www.iptv-analyzer.org
+>   LinkedIn: http://www.linkedin.com/in/brouer
+>
