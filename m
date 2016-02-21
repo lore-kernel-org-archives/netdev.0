@@ -1,63 +1,48 @@
-From: Diego Viola <diego.viola@gmail.com>
-Subject: Re: [PATCH] jme: remove the jme driver as it is no longer maintained
-Date: Sun, 21 Feb 2016 14:17:23 -0300
-Message-ID: <CA+ToGPEQwdOvgN3OHEjHLrnAyQsCR7zHzvtHmYeKZzoq26ehjQ@mail.gmail.com>
-References: <1456003203-10863-1-git-send-email-diego.viola@gmail.com>
-	<20160220.191659.1399118945067159430.davem@davemloft.net>
-	<CA+ToGPEZoe3tnJQHNYED1bxSGrcdZP+AyQHjv==pMovwqYniig@mail.gmail.com>
-	<20160221124506.00237916@lxorguk.ukuu.org.uk>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V1 04/12] net/mlx5e: Support DCBNL IEEE ETS
+Date: Sun, 21 Feb 2016 14:16:04 +0200
+Message-ID: <CALzJLG93PRVfjvJpEf8eFKH09uRYxCmvNrazAL+6NyLGsB3Cxw@mail.gmail.com>
+References: <1455791573-5270-1-git-send-email-saeedm@mellanox.com>
+	<1455791573-5270-5-git-send-email-saeedm@mellanox.com>
+	<CAJ3xEMh-6WS4VADHbKgLDduz6rpECate7giXqSNpQP3Se-ZpQw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, cooldavid@cooldavid.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160221124506.00237916@lxorguk.ukuu.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Rana Shahout <ranas@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Matthew Finlay <matt@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f170.google.com ([209.85.161.170]:33913 "EHLO
+	mail-yw0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752933AbcBURZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 12:25:56 -0500
+Received: by mail-yw0-f170.google.com with SMTP id h129so102907307ywb.1
+        for <netdev@vger.kernel.org>; Sun, 21 Feb 2016 09:25:56 -0800 (PST)
+In-Reply-To: <CAJ3xEMh-6WS4VADHbKgLDduz6rpECate7giXqSNpQP3Se-ZpQw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 21, 2016 at 9:45 AM, One Thousand Gnomes
-<gnomes@lxorguk.ukuu.org.uk> wrote:
->> I would appreciate some hint from someone who is more experienced with drivers.
+On Thu, Feb 18, 2016 at 7:02 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Thu, Feb 18, 2016 at 12:32 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
 >
-> Start by testing
+>> @@ -2164,6 +2233,9 @@ static void mlx5e_build_netdev(struct net_device *netdev)
+>>         netdev->watchdog_timeo    = 15 * HZ;
+>>
+>>         netdev->ethtool_ops       = &mlx5e_ethtool_ops;
+>> +#ifdef CONFIG_MLX5_CORE_EN_DCB
+>> +       netdev->dcbnl_ops         = &mlx5e_dcbnl_ops;
+>> +#endif
 >
-> - loading the driver as a module
-> - using the networking
-> - unloading the module (and checking it stays unloaded!)
->
-> then suspend/resume
->
-> If that works then you have a good starting point because you know a
-> sequence of actions that suspends properly. If it fails then it's going
-> to be rather more fun because it implies something in the hardware has
-> not been properly shut down.
->
-> Alan
+> I guess we don't want VF drivers to control the uplink port QoS
+> arbiter, PFC setup and such, agree -- I gave this comment on V0
+> and you somehow missed addressing that, please do for V2.
 
-Hi Alan,
-
-Thanks for your email, did you see my bug report? Because I tried all
-this already.
-
-The only workarounds I've found to work is one of these:
-
-$ rmmod jme # before suspend
-
-or
-
-$ ip link set ens34 down
-
-or
-
-$ echo 0 > /sys/power/pm_async # disable async power management
-
-Then resume works fine (I can't reproduce the hang).
-
-I'm not a C developer nor a kernel developer, I tried looking at the
-jme.c driver code but it's not clear what is broken and what needs
-fixing, so I would appreciate someone more experienced looking at the
-issue and giving me an idea or two.
-
-Thanks,
-Diego
+Agree, sorry I missed your comment on V0, will fix it in V3 along with
+John's comment.
