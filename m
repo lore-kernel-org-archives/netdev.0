@@ -1,199 +1,170 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net 5/5] bnx2x: Fix 84833 phy command handler
-Date: Sun, 21 Feb 2016 15:07:29 +0200
-Message-ID: <1456060049-10678-6-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net 3/5] bnx2x: Correct 84858 PHY fw version
+Date: Sun, 21 Feb 2016 15:07:27 +0200
+Message-ID: <1456060049-10678-4-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1456060049-10678-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:32279 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:51162 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751162AbcBURpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 12:45:15 -0500
+	by vger.kernel.org with ESMTP id S1751652AbcBURp3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 12:45:29 -0500
 In-Reply-To: <1456060049-10678-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current initialization sequence is lacking, causing some configurations
-to fail.
+The phy's firmware version isn't being parsed properly as it's
+currently parsed like the rest of the 848xx phys.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c | 81 +++++++++++++++---------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |  4 ++
- 2 files changed, 56 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c | 92 ++++++++++++++++++++----
+ 1 file changed, 79 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 8779f15..1fb8010 100644
+index b496e4a..0c7b1c7 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -10117,15 +10117,20 @@ static int bnx2x_84858_cmd_hdlr(struct bnx2x_phy *phy,
- 
- static int bnx2x_84833_cmd_hdlr(struct bnx2x_phy *phy,
- 				struct link_params *params, u16 fw_cmd,
--				u16 cmd_args[], int argc)
-+				u16 cmd_args[], int argc, int process)
- {
- 	int idx;
- 	u16 val;
- 	struct bnx2x *bp = params->bp;
--	/* Write CMD_OPEN_OVERRIDE to STATUS reg */
--	bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
--			MDIO_848xx_CMD_HDLR_STATUS,
--			PHY84833_STATUS_CMD_OPEN_OVERRIDE);
-+	int rc = 0;
+@@ -6185,26 +6185,80 @@ static int bnx2x_format_ver(u32 num, u8 *str, u16 *len)
+ 		shift -= 4;
+ 		digit = ((num & mask) >> shift);
+ 		if (digit == 0 && remove_leading_zeros) {
+-			mask = mask >> 4;
+-			continue;
+-		} else if (digit < 0xa)
+-			*str_ptr = digit + '0';
+-		else
+-			*str_ptr = digit - 0xa + 'a';
+-		remove_leading_zeros = 0;
+-		str_ptr++;
+-		(*len)--;
++			*str_ptr = '0';
++		} else {
++			if (digit < 0xa)
++				*str_ptr = digit + '0';
++			else
++				*str_ptr = digit - 0xa + 'a';
 +
-+	if (process == PHY84833_MB_PROCESS2) {
-+		/* Write CMD_OPEN_OVERRIDE to STATUS reg */
-+		bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
-+				 MDIO_848xx_CMD_HDLR_STATUS,
-+				 PHY84833_STATUS_CMD_OPEN_OVERRIDE);
-+	}
-+
- 	for (idx = 0; idx < PHY848xx_CMDHDLR_WAIT; idx++) {
- 		bnx2x_cl45_read(bp, phy, MDIO_CTL_DEVAD,
- 				MDIO_848xx_CMD_HDLR_STATUS, &val);
-@@ -10135,15 +10140,27 @@ static int bnx2x_84833_cmd_hdlr(struct bnx2x_phy *phy,
- 	}
- 	if (idx >= PHY848xx_CMDHDLR_WAIT) {
- 		DP(NETIF_MSG_LINK, "FW cmd: FW not ready.\n");
-+		/* if the status is CMD_COMPLETE_PASS or CMD_COMPLETE_ERROR
-+		 * clear the status to CMD_CLEAR_COMPLETE
-+		 */
-+		if (val == PHY84833_STATUS_CMD_COMPLETE_PASS ||
-+		    val == PHY84833_STATUS_CMD_COMPLETE_ERROR) {
-+			bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
-+					 MDIO_848xx_CMD_HDLR_STATUS,
-+					 PHY84833_STATUS_CMD_CLEAR_COMPLETE);
++			remove_leading_zeros = 0;
++			str_ptr++;
++			(*len)--;
 +		}
- 		return -EINVAL;
+ 		mask = mask >> 4;
+ 		if (shift == 4*4) {
++			if (remove_leading_zeros) {
++				str_ptr++;
++				(*len)--;
++			}
+ 			*str_ptr = '.';
+ 			str_ptr++;
+ 			(*len)--;
+ 			remove_leading_zeros = 1;
+ 		}
  	}
--
--	/* Prepare argument(s) and issue command */
--	for (idx = 0; idx < argc; idx++) {
--		bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
--				MDIO_848xx_CMD_HDLR_DATA1 + idx,
--				cmd_args[idx]);
-+	if (process == PHY84833_MB_PROCESS1 ||
-+	    process == PHY84833_MB_PROCESS2) {
-+		/* Prepare argument(s) */
-+		for (idx = 0; idx < argc; idx++) {
-+			bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
-+					 MDIO_848xx_CMD_HDLR_DATA1 + idx,
-+					 cmd_args[idx]);
-+		}
- 	}
-+
- 	bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
- 			MDIO_848xx_CMD_HDLR_COMMAND, fw_cmd);
- 	for (idx = 0; idx < PHY848xx_CMDHDLR_WAIT; idx++) {
-@@ -10157,24 +10174,30 @@ static int bnx2x_84833_cmd_hdlr(struct bnx2x_phy *phy,
- 	if ((idx >= PHY848xx_CMDHDLR_WAIT) ||
- 	    (val == PHY84833_STATUS_CMD_COMPLETE_ERROR)) {
- 		DP(NETIF_MSG_LINK, "FW cmd failed.\n");
--		return -EINVAL;
-+		rc = -EINVAL;
- 	}
--	/* Gather returning data */
--	for (idx = 0; idx < argc; idx++) {
--		bnx2x_cl45_read(bp, phy, MDIO_CTL_DEVAD,
--				MDIO_848xx_CMD_HDLR_DATA1 + idx,
--				&cmd_args[idx]);
-+	if (process == PHY84833_MB_PROCESS3 && rc == 0) {
-+		/* Gather returning data */
-+		for (idx = 0; idx < argc; idx++) {
-+			bnx2x_cl45_read(bp, phy, MDIO_CTL_DEVAD,
-+					MDIO_848xx_CMD_HDLR_DATA1 + idx,
-+					&cmd_args[idx]);
-+		}
- 	}
--	bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
--			MDIO_848xx_CMD_HDLR_STATUS,
--			PHY84833_STATUS_CMD_CLEAR_COMPLETE);
--	return 0;
-+	if (val == PHY84833_STATUS_CMD_COMPLETE_ERROR ||
-+	    val == PHY84833_STATUS_CMD_COMPLETE_PASS) {
-+		bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
-+				 MDIO_848xx_CMD_HDLR_STATUS,
-+				 PHY84833_STATUS_CMD_CLEAR_COMPLETE);
-+	}
-+	return rc;
++	if (remove_leading_zeros)
++		(*len)--;
+ 	return 0;
  }
  
- static int bnx2x_848xx_cmd_hdlr(struct bnx2x_phy *phy,
- 				struct link_params *params,
- 				u16 fw_cmd,
--				u16 cmd_args[], int argc)
-+					   u16 cmd_args[], int argc,
-+					   int process)
- {
- 	struct bnx2x *bp = params->bp;
++static int bnx2x_3_seq_format_ver(u32 num, u8 *str, u16 *len)
++{
++	u8 *str_ptr = str;
++	u32 mask = 0x00f00000;
++	u8 shift = 8*3;
++	u8 digit;
++	u8 remove_leading_zeros = 1;
++
++	if (*len < 10) {
++		/* Need more than 10chars for this format */
++		*str_ptr = '\0';
++		(*len)--;
++		return -EINVAL;
++	}
++
++	while (shift > 0) {
++		shift -= 4;
++		digit = ((num & mask) >> shift);
++		if (digit == 0 && remove_leading_zeros) {
++			*str_ptr = '0';
++		} else {
++			if (digit < 0xa)
++				*str_ptr = digit + '0';
++			else
++				*str_ptr = digit - 0xa + 'a';
++
++			remove_leading_zeros = 0;
++			str_ptr++;
++			(*len)--;
++		}
++		mask = mask >> 4;
++		if ((shift == 4*4) || (shift == 4*2)) {
++			if (remove_leading_zeros) {
++				str_ptr++;
++				(*len)--;
++			}
++			*str_ptr = '.';
++			str_ptr++;
++			(*len)--;
++			remove_leading_zeros = 1;
++		}
++	}
++	if (remove_leading_zeros)
++		(*len)--;
++	return 0;
++}
  
-@@ -10187,7 +10210,7 @@ static int bnx2x_848xx_cmd_hdlr(struct bnx2x_phy *phy,
- 					    argc);
+ static int bnx2x_null_format_ver(u32 spirom_ver, u8 *str, u16 *len)
+ {
+@@ -9677,8 +9731,9 @@ static void bnx2x_save_848xx_spirom_version(struct bnx2x_phy *phy,
+ 
+ 	if (bnx2x_is_8483x_8485x(phy)) {
+ 		bnx2x_cl45_read(bp, phy, MDIO_CTL_DEVAD, 0x400f, &fw_ver1);
+-		bnx2x_save_spirom_version(bp, port, fw_ver1 & 0xfff,
+-				phy->ver_addr);
++		if (phy->type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84858)
++			fw_ver1 &= 0xfff;
++		bnx2x_save_spirom_version(bp, port, fw_ver1, phy->ver_addr);
  	} else {
- 		return bnx2x_84833_cmd_hdlr(phy, params, fw_cmd, cmd_args,
--					    argc);
-+					    argc, process);
- 	}
+ 		/* For 32-bit registers in 848xx, access via MDIO2ARM i/f. */
+ 		/* (1) set reg 0xc200_0014(SPI_BRIDGE_CTRL_2) to 0x03000000 */
+@@ -9775,7 +9830,7 @@ static void bnx2x_848xx_specific_func(struct bnx2x_phy *phy,
+ 	struct bnx2x *bp = params->bp;
+ 	switch (action) {
+ 	case PHY_INIT:
+-		if (!bnx2x_is_8483x_8485x(phy)) {
++		if (bnx2x_is_8483x_8485x(phy)) {
+ 			/* Save spirom version */
+ 			bnx2x_save_848xx_spirom_version(phy, bp, params->port);
+ 		}
+@@ -10581,6 +10636,17 @@ static u8 bnx2x_848xx_read_status(struct bnx2x_phy *phy,
+ 	return link_up;
  }
  
-@@ -10214,7 +10237,7 @@ static int bnx2x_848xx_pair_swap_cfg(struct bnx2x_phy *phy,
- 
- 	status = bnx2x_848xx_cmd_hdlr(phy, params,
- 				      PHY848xx_CMD_SET_PAIR_SWAP, data,
--				      PHY848xx_CMDHDLR_MAX_ARGS);
-+				      2, PHY84833_MB_PROCESS2);
- 	if (status == 0)
- 		DP(NETIF_MSG_LINK, "Pairswap OK, val=0x%x\n", data[1]);
- 
-@@ -10303,8 +10326,8 @@ static int bnx2x_8483x_disable_eee(struct bnx2x_phy *phy,
- 	DP(NETIF_MSG_LINK, "Don't Advertise 10GBase-T EEE\n");
- 
- 	/* Prevent Phy from working in EEE and advertising it */
--	rc = bnx2x_848xx_cmd_hdlr(phy, params,
--				  PHY848xx_CMD_SET_EEE_MODE, &cmd_args, 1);
-+	rc = bnx2x_848xx_cmd_hdlr(phy, params, PHY848xx_CMD_SET_EEE_MODE,
-+				  &cmd_args, 1, PHY84833_MB_PROCESS1);
- 	if (rc) {
- 		DP(NETIF_MSG_LINK, "EEE disable failed.\n");
- 		return rc;
-@@ -10321,8 +10344,8 @@ static int bnx2x_8483x_enable_eee(struct bnx2x_phy *phy,
- 	struct bnx2x *bp = params->bp;
- 	u16 cmd_args = 1;
- 
--	rc = bnx2x_848xx_cmd_hdlr(phy, params,
--				  PHY848xx_CMD_SET_EEE_MODE, &cmd_args, 1);
-+	rc = bnx2x_848xx_cmd_hdlr(phy, params, PHY848xx_CMD_SET_EEE_MODE,
-+				  &cmd_args, 1, PHY84833_MB_PROCESS1);
- 	if (rc) {
- 		DP(NETIF_MSG_LINK, "EEE enable failed.\n");
- 		return rc;
-@@ -10443,7 +10466,7 @@ static int bnx2x_848x3_config_init(struct bnx2x_phy *phy,
- 		cmd_args[3] = PHY84833_CONSTANT_LATENCY;
- 		rc = bnx2x_848xx_cmd_hdlr(phy, params,
- 					  PHY848xx_CMD_SET_EEE_MODE, cmd_args,
--					  PHY848xx_CMDHDLR_MAX_ARGS);
-+					  4, PHY84833_MB_PROCESS1);
- 		if (rc)
- 			DP(NETIF_MSG_LINK, "Cfg AutogrEEEn failed.\n");
- 	}
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-index d27d40e..a43dea2 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-@@ -7339,6 +7339,10 @@ Theotherbitsarereservedandshouldbezero*/
- #define PHY84833_STATUS_CMD_NOT_OPEN_FOR_CMDS		0x0040
- #define PHY84833_STATUS_CMD_CLEAR_COMPLETE		0x0080
- #define PHY84833_STATUS_CMD_OPEN_OVERRIDE		0xa5a5
-+/* Mailbox Process */
-+#define PHY84833_MB_PROCESS1				1
-+#define PHY84833_MB_PROCESS2				2
-+#define PHY84833_MB_PROCESS3				3
- 
- /* Mailbox status set used by 84858 only */
- #define PHY84858_STATUS_CMD_RECEIVED			0x0001
++static int bnx2x_8485x_format_ver(u32 raw_ver, u8 *str, u16 *len)
++{
++	int status = 0;
++	u32 num;
++
++	num = ((raw_ver & 0xF80) >> 7) << 16 | ((raw_ver & 0x7F) << 8) |
++	      ((raw_ver & 0xF000) >> 12);
++	status = bnx2x_3_seq_format_ver(num, str, len);
++	return status;
++}
++
+ static int bnx2x_848xx_format_ver(u32 raw_ver, u8 *str, u16 *len)
+ {
+ 	int status = 0;
+@@ -12008,7 +12074,7 @@ static const struct bnx2x_phy phy_84858 = {
+ 	.read_status	= (read_status_t)bnx2x_848xx_read_status,
+ 	.link_reset	= (link_reset_t)bnx2x_848x3_link_reset,
+ 	.config_loopback = (config_loopback_t)NULL,
+-	.format_fw_ver	= (format_fw_ver_t)bnx2x_848xx_format_ver,
++	.format_fw_ver	= (format_fw_ver_t)bnx2x_8485x_format_ver,
+ 	.hw_reset	= (hw_reset_t)bnx2x_84833_hw_reset_phy,
+ 	.set_link_led	= (set_link_led_t)bnx2x_848xx_set_link_led,
+ 	.phy_specific_func = (phy_specific_func_t)bnx2x_848xx_specific_func
 -- 
 1.9.3
