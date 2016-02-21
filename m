@@ -1,54 +1,44 @@
-From: Diego Viola <diego.viola@gmail.com>
-Subject: Re: [PATCH] jme: remove the jme driver as it is no longer maintained
-Date: Sat, 20 Feb 2016 22:33:19 -0200
-Message-ID: <CA+ToGPEZoe3tnJQHNYED1bxSGrcdZP+AyQHjv==pMovwqYniig@mail.gmail.com>
-References: <1456003203-10863-1-git-send-email-diego.viola@gmail.com>
-	<20160220.191659.1399118945067159430.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next] net_sched: add network namespace support for tc actions
+Date: Sat, 20 Feb 2016 16:46:04 -0800
+Message-ID: <CAM_iQpWzVoy7eYdf2Yxz2qfoAO5-pDZioACyu7Hws6u7vvP1Yw@mail.gmail.com>
+References: <1455928994-9726-1-git-send-email-xiyou.wangcong@gmail.com>
+	<56C8B21E.7070307@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	cooldavid@cooldavid.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160220.191659.1399118945067159430.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f178.google.com ([209.85.160.178]:36479 "EHLO
+	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751179AbcBUAqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2016 19:46:06 -0500
+Received: by mail-yk0-f178.google.com with SMTP id z7so48954090yka.3
+        for <netdev@vger.kernel.org>; Sat, 20 Feb 2016 16:46:05 -0800 (PST)
+In-Reply-To: <56C8B21E.7070307@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 20, 2016 at 10:16 PM, David Miller <davem@davemloft.net> wrote:
+On Sat, Feb 20, 2016 at 10:36 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
 >
-> Sorry, this is not how things work.
->
-> You can suggest marking the driver unmaintained in MAINTAINERS if the
-> listed developer has been unresponsive for a very long time.
->
-> But removing the driver altogether is not prudent at all.
->
-> Just because it doesn't work %100 the way you like, and nobody
-> has worked on fixing your specific problems, isn't a reason to
-> remove an entire driver _nor_ move it to -staging.
->
-> In fact, this driver is quite cleanly written, follows all of the
-> various coding style rules we have, and uses the vast majority of the
-> kernel APIs properly.
->
-> And those are the criteria for having something in staging, not that
-> it has bugs.
->
-> In fact it is so cleanly written, that you should be able to read it
-> and figure out what the suspend/resume problem might be.  These are
-> exactly the kind of drivers we want to keep in the tree.
->
-> I'm sorry that your bugs didn't get fixed, but your response to that
-> happening is not reasonable at all.
+> Do you see a way to reduce the code duplication needed across all
+> the action modules? I.e. that each of them now needs to register
+> a new per netns subsystem, etc. In other words, is there a way the
+> action API could be reworked to handle most of this in the tc core
+> framework instead?
 
-OK my sincere apologies.
+I definitely agree.
 
-I've been very frustrated trying to deal with this bug and I couldn't
-find a solution yet, but I will continue to see what I can do to fix
-it.
+Initially I made a wrapper macro for the per netns API for each tc
+action, but it didn't work as I thought, mostly due to the per net ops and
+net_id stuffs.
 
-I would appreciate some hint from someone who is more experienced with drivers.
+So it is not as easy as it appears, it needs more work. At least the
+current code is more readable than using any macro. We can always
+refactor the API in the future, and as I mentioned in the changelog that
+is in my plan.
 
-Anyways, sorry about my behavior.
+Or do you have any quick and easy way to reduce the code?
 
-Diego
+Thanks.
