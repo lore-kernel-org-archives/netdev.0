@@ -1,90 +1,63 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] can: ems_usb: Fix possible tx overflow
-Date: Sun, 21 Feb 2016 16:27:38 +0100
-Message-ID: <1456068458-14271-2-git-send-email-mkl@pengutronix.de>
-References: <1456068458-14271-1-git-send-email-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de,
-	Gerhard Uttenthaler <uttenthaler@ems-wuensche.com>,
-	linux-stable <stable@vger.kernel.org>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:40719 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752807AbcBURXF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 12:23:05 -0500
-In-Reply-To: <1456068458-14271-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Diego Viola <diego.viola@gmail.com>
+Subject: Re: [PATCH] jme: remove the jme driver as it is no longer maintained
+Date: Sun, 21 Feb 2016 14:17:23 -0300
+Message-ID: <CA+ToGPEQwdOvgN3OHEjHLrnAyQsCR7zHzvtHmYeKZzoq26ehjQ@mail.gmail.com>
+References: <1456003203-10863-1-git-send-email-diego.viola@gmail.com>
+	<20160220.191659.1399118945067159430.davem@davemloft.net>
+	<CA+ToGPEZoe3tnJQHNYED1bxSGrcdZP+AyQHjv==pMovwqYniig@mail.gmail.com>
+	<20160221124506.00237916@lxorguk.ukuu.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, cooldavid@cooldavid.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160221124506.00237916@lxorguk.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gerhard Uttenthaler <uttenthaler@ems-wuensche.com>
+On Sun, Feb 21, 2016 at 9:45 AM, One Thousand Gnomes
+<gnomes@lxorguk.ukuu.org.uk> wrote:
+>> I would appreciate some hint from someone who is more experienced with drivers.
+>
+> Start by testing
+>
+> - loading the driver as a module
+> - using the networking
+> - unloading the module (and checking it stays unloaded!)
+>
+> then suspend/resume
+>
+> If that works then you have a good starting point because you know a
+> sequence of actions that suspends properly. If it fails then it's going
+> to be rather more fun because it implies something in the hardware has
+> not been properly shut down.
+>
+> Alan
 
-This patch fixes the problem that more CAN messages could be sent to the
-interface as could be send on the CAN bus. This was more likely for slow baud
-rates. The sleeping _start_xmit was woken up in the _write_bulk_callback. Under
-heavy TX load this produced another bulk transfer without checking the
-free_slots variable and hence caused the overflow in the interface.
+Hi Alan,
 
-Signed-off-by: Gerhard Uttenthaler <uttenthaler@ems-wuensche.com>
-Cc: linux-stable <stable@vger.kernel.org>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/usb/ems_usb.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+Thanks for your email, did you see my bug report? Because I tried all
+this already.
 
-diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
-index fc5b75675cd8..eb7192fab593 100644
---- a/drivers/net/can/usb/ems_usb.c
-+++ b/drivers/net/can/usb/ems_usb.c
-@@ -117,6 +117,9 @@ MODULE_LICENSE("GPL v2");
-  */
- #define EMS_USB_ARM7_CLOCK 8000000
- 
-+#define CPC_TX_QUEUE_TRIGGER_LOW	25
-+#define CPC_TX_QUEUE_TRIGGER_HIGH	35
-+
- /*
-  * CAN-Message representation in a CPC_MSG. Message object type is
-  * CPC_MSG_TYPE_CAN_FRAME or CPC_MSG_TYPE_RTR_FRAME or
-@@ -278,6 +281,11 @@ static void ems_usb_read_interrupt_callback(struct urb *urb)
- 	switch (urb->status) {
- 	case 0:
- 		dev->free_slots = dev->intr_in_buffer[1];
-+		if(dev->free_slots > CPC_TX_QUEUE_TRIGGER_HIGH){
-+			if (netif_queue_stopped(netdev)){
-+				netif_wake_queue(netdev);
-+			}
-+		}
- 		break;
- 
- 	case -ECONNRESET: /* unlink */
-@@ -526,8 +534,6 @@ static void ems_usb_write_bulk_callback(struct urb *urb)
- 	/* Release context */
- 	context->echo_index = MAX_TX_URBS;
- 
--	if (netif_queue_stopped(netdev))
--		netif_wake_queue(netdev);
- }
- 
- /*
-@@ -587,7 +593,7 @@ static int ems_usb_start(struct ems_usb *dev)
- 	int err, i;
- 
- 	dev->intr_in_buffer[0] = 0;
--	dev->free_slots = 15; /* initial size */
-+	dev->free_slots = 50; /* initial size */
- 
- 	for (i = 0; i < MAX_RX_URBS; i++) {
- 		struct urb *urb = NULL;
-@@ -835,7 +841,7 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
- 
- 		/* Slow down tx path */
- 		if (atomic_read(&dev->active_tx_urbs) >= MAX_TX_URBS ||
--		    dev->free_slots < 5) {
-+		    dev->free_slots < CPC_TX_QUEUE_TRIGGER_LOW) {
- 			netif_stop_queue(netdev);
- 		}
- 	}
--- 
-2.7.0
+The only workarounds I've found to work is one of these:
+
+$ rmmod jme # before suspend
+
+or
+
+$ ip link set ens34 down
+
+or
+
+$ echo 0 > /sys/power/pm_async # disable async power management
+
+Then resume works fine (I can't reproduce the hang).
+
+I'm not a C developer nor a kernel developer, I tried looking at the
+jme.c driver code but it's not clear what is broken and what needs
+fixing, so I would appreciate someone more experienced looking at the
+issue and giving me an idea or two.
+
+Thanks,
+Diego
