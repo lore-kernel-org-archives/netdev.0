@@ -1,16 +1,19 @@
 From: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
 Subject: [PATCH v3] tunnel: Clear IPCB(skb)->opt before dst_link_failure called
-Date: Mon, 22 Feb 2016 12:24:58 +1300
-Message-ID: <1456097098-23398-2-git-send-email-bernie.harris@alliedtelesis.co.nz>
+Date: Mon, 22 Feb 2016 12:58:05 +1300
+Message-ID: <1456099085-24097-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
 References: <1455585016-7253-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
- <1456097098-23398-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
 Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, stable@vger.kernel.org,
 	bernie.harris@alliedtelesis.co.nz
 To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1456097098-23398-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:60817 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751460AbcBUX6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 18:58:30 -0500
+In-Reply-To: <1455585016-7253-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 IPCB may contain data from previous layers (in the observed case the
 qdisc layer). In the observed scenario, the data was misinterpreted as
