@@ -1,170 +1,182 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net 3/5] bnx2x: Correct 84858 PHY fw version
-Date: Sun, 21 Feb 2016 15:07:27 +0200
-Message-ID: <1456060049-10678-4-git-send-email-Yuval.Mintz@qlogic.com>
-References: <1456060049-10678-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 1/5] qed: Turn most GFP_ATOMIC into GFP_KERNEL
+Date: Sun, 21 Feb 2016 11:40:07 +0200
+Message-ID: <1456047611-11222-2-git-send-email-Yuval.Mintz@qlogic.com>
+References: <1456047611-11222-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
+Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:51162 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751652AbcBURp3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 12:45:29 -0500
-In-Reply-To: <1456060049-10678-1-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:46415 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751302AbcBURpa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 12:45:30 -0500
+In-Reply-To: <1456047611-11222-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The phy's firmware version isn't being parsed properly as it's
-currently parsed like the rest of the 848xx phys.
+Initial driver submission used GFP_ATOMIC almost inclusively when
+allocating memory. We now remedy this point, using GFP_KERNEL where
+it's possible.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c | 92 ++++++++++++++++++++----
- 1 file changed, 79 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c | 2 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev.c | 6 +++---
+ drivers/net/ethernet/qlogic/qed/qed_hw.c  | 2 +-
+ drivers/net/ethernet/qlogic/qed/qed_int.c | 8 ++++----
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c | 6 +++---
+ drivers/net/ethernet/qlogic/qed/qed_spq.c | 6 +++---
+ 6 files changed, 15 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index b496e4a..0c7b1c7 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -6185,26 +6185,80 @@ static int bnx2x_format_ver(u32 num, u8 *str, u16 *len)
- 		shift -= 4;
- 		digit = ((num & mask) >> shift);
- 		if (digit == 0 && remove_leading_zeros) {
--			mask = mask >> 4;
--			continue;
--		} else if (digit < 0xa)
--			*str_ptr = digit + '0';
--		else
--			*str_ptr = digit - 0xa + 'a';
--		remove_leading_zeros = 0;
--		str_ptr++;
--		(*len)--;
-+			*str_ptr = '0';
-+		} else {
-+			if (digit < 0xa)
-+				*str_ptr = digit + '0';
-+			else
-+				*str_ptr = digit - 0xa + 'a';
-+
-+			remove_leading_zeros = 0;
-+			str_ptr++;
-+			(*len)--;
-+		}
- 		mask = mask >> 4;
- 		if (shift == 4*4) {
-+			if (remove_leading_zeros) {
-+				str_ptr++;
-+				(*len)--;
-+			}
- 			*str_ptr = '.';
- 			str_ptr++;
- 			(*len)--;
- 			remove_leading_zeros = 1;
- 		}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_cxt.c b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
+index d3f7a02..fc767c0 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_cxt.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
+@@ -448,7 +448,7 @@ int qed_cxt_mngr_alloc(struct qed_hwfn *p_hwfn)
+ 	struct qed_cxt_mngr *p_mngr;
+ 	u32 i;
+ 
+-	p_mngr = kzalloc(sizeof(*p_mngr), GFP_ATOMIC);
++	p_mngr = kzalloc(sizeof(*p_mngr), GFP_KERNEL);
+ 	if (!p_mngr) {
+ 		DP_NOTICE(p_hwfn, "Failed to allocate `struct qed_cxt_mngr'\n");
+ 		return -ENOMEM;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index bc17ed2..acfe7be 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -134,17 +134,17 @@ static int qed_init_qm_info(struct qed_hwfn *p_hwfn)
+ 	/* PQs will be arranged as follows: First per-TC PQ then pure-LB quete.
+ 	 */
+ 	qm_info->qm_pq_params = kzalloc(sizeof(*qm_info->qm_pq_params) *
+-					num_pqs, GFP_ATOMIC);
++					num_pqs, GFP_KERNEL);
+ 	if (!qm_info->qm_pq_params)
+ 		goto alloc_err;
+ 
+ 	qm_info->qm_vport_params = kzalloc(sizeof(*qm_info->qm_vport_params) *
+-					   num_vports, GFP_ATOMIC);
++					   num_vports, GFP_KERNEL);
+ 	if (!qm_info->qm_vport_params)
+ 		goto alloc_err;
+ 
+ 	qm_info->qm_port_params = kzalloc(sizeof(*qm_info->qm_port_params) *
+-					  MAX_NUM_PORTS, GFP_ATOMIC);
++					  MAX_NUM_PORTS, GFP_KERNEL);
+ 	if (!qm_info->qm_port_params)
+ 		goto alloc_err;
+ 
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hw.c b/drivers/net/ethernet/qlogic/qed/qed_hw.c
+index ffa9927..a95a3e4 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hw.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_hw.c
+@@ -44,7 +44,7 @@ struct qed_ptt_pool {
+ int qed_ptt_pool_alloc(struct qed_hwfn *p_hwfn)
+ {
+ 	struct qed_ptt_pool *p_pool = kmalloc(sizeof(*p_pool),
+-					      GFP_ATOMIC);
++					      GFP_KERNEL);
+ 	int i;
+ 
+ 	if (!p_pool)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
+index 9cc9d62..90ba1d7 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_int.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
+@@ -399,7 +399,7 @@ static int qed_int_sb_attn_alloc(struct qed_hwfn *p_hwfn,
+ 	dma_addr_t p_phys = 0;
+ 
+ 	/* SB struct */
+-	p_sb = kmalloc(sizeof(*p_sb), GFP_ATOMIC);
++	p_sb = kmalloc(sizeof(*p_sb), GFP_KERNEL);
+ 	if (!p_sb) {
+ 		DP_NOTICE(cdev, "Failed to allocate `struct qed_sb_attn_info'\n");
+ 		return -ENOMEM;
+@@ -666,7 +666,7 @@ static int qed_int_sp_sb_alloc(struct qed_hwfn *p_hwfn,
+ 	void *p_virt;
+ 
+ 	/* SB struct */
+-	p_sb = kmalloc(sizeof(*p_sb), GFP_ATOMIC);
++	p_sb = kmalloc(sizeof(*p_sb), GFP_KERNEL);
+ 	if (!p_sb) {
+ 		DP_NOTICE(p_hwfn, "Failed to allocate `struct qed_sb_info'\n");
+ 		return -ENOMEM;
+@@ -946,7 +946,7 @@ int qed_int_igu_read_cam(struct qed_hwfn *p_hwfn,
+ 	u16 sb_id;
+ 	u16 prev_sb_id = 0xFF;
+ 
+-	p_hwfn->hw_info.p_igu_info = kzalloc(sizeof(*p_igu_info), GFP_ATOMIC);
++	p_hwfn->hw_info.p_igu_info = kzalloc(sizeof(*p_igu_info), GFP_KERNEL);
+ 
+ 	if (!p_hwfn->hw_info.p_igu_info)
+ 		return -ENOMEM;
+@@ -1072,7 +1072,7 @@ static void qed_int_sp_dpc_setup(struct qed_hwfn *p_hwfn)
+ 
+ static int qed_int_sp_dpc_alloc(struct qed_hwfn *p_hwfn)
+ {
+-	p_hwfn->sp_dpc = kmalloc(sizeof(*p_hwfn->sp_dpc), GFP_ATOMIC);
++	p_hwfn->sp_dpc = kmalloc(sizeof(*p_hwfn->sp_dpc), GFP_KERNEL);
+ 	if (!p_hwfn->sp_dpc)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+index 1457e30..f23ce73 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+@@ -147,7 +147,7 @@ int qed_mcp_cmd_init(struct qed_hwfn *p_hwfn,
+ 	u32 size;
+ 
+ 	/* Allocate mcp_info structure */
+-	p_hwfn->mcp_info = kzalloc(sizeof(*p_hwfn->mcp_info), GFP_ATOMIC);
++	p_hwfn->mcp_info = kzalloc(sizeof(*p_hwfn->mcp_info), GFP_KERNEL);
+ 	if (!p_hwfn->mcp_info)
+ 		goto err;
+ 	p_info = p_hwfn->mcp_info;
+@@ -161,10 +161,10 @@ int qed_mcp_cmd_init(struct qed_hwfn *p_hwfn,
  	}
-+	if (remove_leading_zeros)
-+		(*len)--;
- 	return 0;
- }
  
-+static int bnx2x_3_seq_format_ver(u32 num, u8 *str, u16 *len)
-+{
-+	u8 *str_ptr = str;
-+	u32 mask = 0x00f00000;
-+	u8 shift = 8*3;
-+	u8 digit;
-+	u8 remove_leading_zeros = 1;
-+
-+	if (*len < 10) {
-+		/* Need more than 10chars for this format */
-+		*str_ptr = '\0';
-+		(*len)--;
-+		return -EINVAL;
-+	}
-+
-+	while (shift > 0) {
-+		shift -= 4;
-+		digit = ((num & mask) >> shift);
-+		if (digit == 0 && remove_leading_zeros) {
-+			*str_ptr = '0';
-+		} else {
-+			if (digit < 0xa)
-+				*str_ptr = digit + '0';
-+			else
-+				*str_ptr = digit - 0xa + 'a';
-+
-+			remove_leading_zeros = 0;
-+			str_ptr++;
-+			(*len)--;
-+		}
-+		mask = mask >> 4;
-+		if ((shift == 4*4) || (shift == 4*2)) {
-+			if (remove_leading_zeros) {
-+				str_ptr++;
-+				(*len)--;
-+			}
-+			*str_ptr = '.';
-+			str_ptr++;
-+			(*len)--;
-+			remove_leading_zeros = 1;
-+		}
-+	}
-+	if (remove_leading_zeros)
-+		(*len)--;
-+	return 0;
-+}
+ 	size = MFW_DRV_MSG_MAX_DWORDS(p_info->mfw_mb_length) * sizeof(u32);
+-	p_info->mfw_mb_cur = kzalloc(size, GFP_ATOMIC);
++	p_info->mfw_mb_cur = kzalloc(size, GFP_KERNEL);
+ 	p_info->mfw_mb_shadow =
+ 		kzalloc(sizeof(u32) * MFW_DRV_MSG_MAX_DWORDS(
+-				p_info->mfw_mb_length), GFP_ATOMIC);
++				p_info->mfw_mb_length), GFP_KERNEL);
+ 	if (!p_info->mfw_mb_shadow || !p_info->mfw_mb_addr)
+ 		goto err;
  
- static int bnx2x_null_format_ver(u32 spirom_ver, u8 *str, u16 *len)
- {
-@@ -9677,8 +9731,9 @@ static void bnx2x_save_848xx_spirom_version(struct bnx2x_phy *phy,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+index 3dd548a..f6c6c21 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+@@ -327,7 +327,7 @@ struct qed_eq *qed_eq_alloc(struct qed_hwfn *p_hwfn,
+ 	struct qed_eq *p_eq;
  
- 	if (bnx2x_is_8483x_8485x(phy)) {
- 		bnx2x_cl45_read(bp, phy, MDIO_CTL_DEVAD, 0x400f, &fw_ver1);
--		bnx2x_save_spirom_version(bp, port, fw_ver1 & 0xfff,
--				phy->ver_addr);
-+		if (phy->type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84858)
-+			fw_ver1 &= 0xfff;
-+		bnx2x_save_spirom_version(bp, port, fw_ver1, phy->ver_addr);
- 	} else {
- 		/* For 32-bit registers in 848xx, access via MDIO2ARM i/f. */
- 		/* (1) set reg 0xc200_0014(SPI_BRIDGE_CTRL_2) to 0x03000000 */
-@@ -9775,7 +9830,7 @@ static void bnx2x_848xx_specific_func(struct bnx2x_phy *phy,
- 	struct bnx2x *bp = params->bp;
- 	switch (action) {
- 	case PHY_INIT:
--		if (!bnx2x_is_8483x_8485x(phy)) {
-+		if (bnx2x_is_8483x_8485x(phy)) {
- 			/* Save spirom version */
- 			bnx2x_save_848xx_spirom_version(phy, bp, params->port);
- 		}
-@@ -10581,6 +10636,17 @@ static u8 bnx2x_848xx_read_status(struct bnx2x_phy *phy,
- 	return link_up;
- }
+ 	/* Allocate EQ struct */
+-	p_eq = kzalloc(sizeof(*p_eq), GFP_ATOMIC);
++	p_eq = kzalloc(sizeof(*p_eq), GFP_KERNEL);
+ 	if (!p_eq) {
+ 		DP_NOTICE(p_hwfn, "Failed to allocate `struct qed_eq'\n");
+ 		return NULL;
+@@ -457,7 +457,7 @@ int qed_spq_alloc(struct qed_hwfn *p_hwfn)
  
-+static int bnx2x_8485x_format_ver(u32 raw_ver, u8 *str, u16 *len)
-+{
-+	int status = 0;
-+	u32 num;
-+
-+	num = ((raw_ver & 0xF80) >> 7) << 16 | ((raw_ver & 0x7F) << 8) |
-+	      ((raw_ver & 0xF000) >> 12);
-+	status = bnx2x_3_seq_format_ver(num, str, len);
-+	return status;
-+}
-+
- static int bnx2x_848xx_format_ver(u32 raw_ver, u8 *str, u16 *len)
- {
- 	int status = 0;
-@@ -12008,7 +12074,7 @@ static const struct bnx2x_phy phy_84858 = {
- 	.read_status	= (read_status_t)bnx2x_848xx_read_status,
- 	.link_reset	= (link_reset_t)bnx2x_848x3_link_reset,
- 	.config_loopback = (config_loopback_t)NULL,
--	.format_fw_ver	= (format_fw_ver_t)bnx2x_848xx_format_ver,
-+	.format_fw_ver	= (format_fw_ver_t)bnx2x_8485x_format_ver,
- 	.hw_reset	= (hw_reset_t)bnx2x_84833_hw_reset_phy,
- 	.set_link_led	= (set_link_led_t)bnx2x_848xx_set_link_led,
- 	.phy_specific_func = (phy_specific_func_t)bnx2x_848xx_specific_func
+ 	/* SPQ struct */
+ 	p_spq =
+-		kzalloc(sizeof(struct qed_spq), GFP_ATOMIC);
++		kzalloc(sizeof(struct qed_spq), GFP_KERNEL);
+ 	if (!p_spq) {
+ 		DP_NOTICE(p_hwfn, "Failed to allocate `struct qed_spq'\n");
+ 		return -ENOMEM;
+@@ -853,7 +853,7 @@ struct qed_consq *qed_consq_alloc(struct qed_hwfn *p_hwfn)
+ 	struct qed_consq *p_consq;
+ 
+ 	/* Allocate ConsQ struct */
+-	p_consq = kzalloc(sizeof(*p_consq), GFP_ATOMIC);
++	p_consq = kzalloc(sizeof(*p_consq), GFP_KERNEL);
+ 	if (!p_consq) {
+ 		DP_NOTICE(p_hwfn, "Failed to allocate `struct qed_consq'\n");
+ 		return NULL;
 -- 
 1.9.3
