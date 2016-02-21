@@ -1,39 +1,141 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH next v4 1/3] ipvlan: scrub skb before routing in L3 mode.
-Date: Sat, 20 Feb 2016 20:35:42 -0800
-Message-ID: <CAM_iQpWsSQSUVb0tAALmGBnua11ORY5NkWhv8xrXzjwd20eoqQ@mail.gmail.com>
-References: <1456025492-30274-1-git-send-email-mahesh@bandewar.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] virtio_net: switch to build_skb for mrg_rxbuf
+Date: Sun, 21 Feb 2016 20:40:59 +0200
+Message-ID: <1456079998-5240-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Mahesh Bandewar <mahesh@bandewar.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f169.google.com ([209.85.161.169]:34830 "EHLO
-	mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751117AbcBUR5D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 12:57:03 -0500
-Received: by mail-yw0-f169.google.com with SMTP id g127so103391255ywf.2
-        for <netdev@vger.kernel.org>; Sun, 21 Feb 2016 09:57:03 -0800 (PST)
-In-Reply-To: <1456025492-30274-1-git-send-email-mahesh@bandewar.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 20, 2016 at 7:31 PM, Mahesh Bandewar <mahesh@bandewar.net> wrote:
-> From: Mahesh Bandewar <maheshb@google.com>
->
-> Scrub skb before hitting the iptable hooks to ensure packets hit
-> these hooks. Set the xnet param only when the packet is crossing the
-> ns boundry so if the IPvlan slave and master belong to the same ns,
-> the param will be set to false.
->
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> CC: Cong Wang <xiyou.wangcong@gmail.com>
+For small packets data copy was observed to
+take up about 15% CPU time. Switch to build_skb
+and avoid the copy when using mergeable rx buffers.
 
-Looks good to me now,
+As a bonus, medium-size skbs that fit in a page will be
+completely linear.
 
-Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
+Of course, we now need to lower the lower bound on packet size,
+to make sure a sane number of skbs fits in rx socket buffer.
+By how much? I don't know yet.
 
-Thanks for updating it!
+It might also be useful to prefetch the packet buffer since
+net stack will likely use it soon.
+
+Lightly tested, in particular, I didn't yet test what this
+actually does to performance - sending this out for early
+feedback/flames.
+
+TODO: it appears that Linux won't handle correctly the case of first
+buffer being very small (or consisting exclusively of virtio header).
+This is already the case for current code, so don't bother
+testing yet.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/virtio_net.c | 44 +++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 35 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 767ab11..20f8dda 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -347,6 +347,26 @@ err:
+ 	return NULL;
+ }
+ 
++#define VNET_SKB_PAD (NET_SKB_PAD + NET_IP_ALIGN)
++#define VNET_SKB_BUG (VNET_SKB_PAD < sizeof(struct virtio_net_hdr_mrg_rxbuf))
++#define VNET_SKB_LEN(len) ((len) - sizeof(struct virtio_net_hdr_mrg_rxbuf))
++#define VNET_SKB_OFF VNET_SKB_LEN(VNET_SKB_PAD)
++
++static struct sk_buff *vnet_build_skb(struct virtnet_info *vi,
++				      void *buf,
++				      unsigned int len, unsigned int truesize)
++{
++	struct sk_buff *skb = build_skb(buf, truesize);
++
++	if (!skb)
++		return NULL;
++
++	skb_reserve(skb, VNET_SKB_PAD);
++	skb_put(skb, VNET_SKB_LEN(len));
++
++	return skb;
++}
++
+ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 					 struct virtnet_info *vi,
+ 					 struct receive_queue *rq,
+@@ -354,14 +374,13 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 					 unsigned int len)
+ {
+ 	void *buf = mergeable_ctx_to_buf_address(ctx);
+-	struct virtio_net_hdr_mrg_rxbuf *hdr = buf;
++	struct virtio_net_hdr_mrg_rxbuf *hdr = buf + VNET_SKB_OFF;
+ 	u16 num_buf = virtio16_to_cpu(vi->vdev, hdr->num_buffers);
+ 	struct page *page = virt_to_head_page(buf);
+-	int offset = buf - page_address(page);
+ 	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
++	int offset;
+ 
+-	struct sk_buff *head_skb = page_to_skb(vi, rq, page, offset, len,
+-					       truesize);
++	struct sk_buff *head_skb = vnet_build_skb(vi, buf, len, truesize);
+ 	struct sk_buff *curr_skb = head_skb;
+ 
+ 	if (unlikely(!curr_skb))
+@@ -606,11 +625,14 @@ static int add_recvbuf_big(struct virtnet_info *vi, struct receive_queue *rq,
+ 
+ static unsigned int get_mergeable_buf_len(struct ewma_pkt_len *avg_pkt_len)
+ {
+-	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
++	unsigned int hdr;
+ 	unsigned int len;
+ 
+-	len = hdr_len + clamp_t(unsigned int, ewma_pkt_len_read(avg_pkt_len),
+-			GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
++	hdr = ALIGN(VNET_SKB_PAD + sizeof(struct skb_shared_info),
++		    MERGEABLE_BUFFER_ALIGN);
++
++	len = hdr + clamp_t(unsigned int, ewma_pkt_len_read(avg_pkt_len),
++			       500 /* TODO */, PAGE_SIZE - hdr);
+ 	return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
+ }
+ 
+@@ -626,7 +648,10 @@ static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
+ 	if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
+ 		return -ENOMEM;
+ 
+-	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
++	BUILD_BUG_ON(VNET_SKB_BUG);
++
++	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset +
++		VNET_SKB_OFF;
+ 	ctx = mergeable_buf_to_ctx(buf, len);
+ 	get_page(alloc_frag->page);
+ 	alloc_frag->offset += len;
+@@ -641,7 +666,8 @@ static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
+ 		alloc_frag->offset += hole;
+ 	}
+ 
+-	sg_init_one(rq->sg, buf, len);
++	sg_init_one(rq->sg, buf,
++		    len - VNET_SKB_OFF - sizeof(struct skb_shared_info));
+ 	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, (void *)ctx, gfp);
+ 	if (err < 0)
+ 		put_page(virt_to_head_page(buf));
+-- 
+MST
