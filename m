@@ -1,44 +1,49 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] net_sched: add network namespace support for tc actions
-Date: Sat, 20 Feb 2016 16:46:04 -0800
-Message-ID: <CAM_iQpWzVoy7eYdf2Yxz2qfoAO5-pDZioACyu7Hws6u7vvP1Yw@mail.gmail.com>
-References: <1455928994-9726-1-git-send-email-xiyou.wangcong@gmail.com>
-	<56C8B21E.7070307@iogearbox.net>
+From: Konstantin Khlebnikov <khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org>
+Subject: [PATCH] ipv4: in new netns initialize sysctls in net.ipv4.conf.*
+	with defaults
+Date: Sun, 21 Feb 2016 10:11:02 +0300
+Message-ID: <20160221071102.9686.63148.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f178.google.com ([209.85.160.178]:36479 "EHLO
-	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751179AbcBUAqG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2016 19:46:06 -0500
-Received: by mail-yk0-f178.google.com with SMTP id z7so48954090yka.3
-        for <netdev@vger.kernel.org>; Sat, 20 Feb 2016 16:46:05 -0800 (PST)
-In-Reply-To: <56C8B21E.7070307@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Vasily Averin <vvs-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 20, 2016 at 10:36 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->
-> Do you see a way to reduce the code duplication needed across all
-> the action modules? I.e. that each of them now needs to register
-> a new per netns subsystem, etc. In other words, is there a way the
-> action API could be reworked to handle most of this in the tc core
-> framework instead?
+Currently initial net.ipv4.conf.all.* and net.ipv4.conf.default.* are
+copied from init network namespace because static structures are used
+for init_net. This makes no sense because new netns might be created
+from any netns. This patch makes private copy also for init netns if
+network namespaces are enabled. Other sysctls in net.ipv4 and net.ipv6
+already initialized with default values at namespace creation.
 
-I definitely agree.
+Signed-off-by: Konstantin Khlebnikov <khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org>
+Fixes: 752d14dc6aa9 ("[IPV4]: Move the devinet pointers on the struct net")
+---
+ net/ipv4/devinet.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Initially I made a wrapper macro for the per netns API for each tc
-action, but it didn't work as I thought, mostly due to the per net ops and
-net_id stuffs.
-
-So it is not as easy as it appears, it needs more work. At least the
-current code is more readable than using any macro. We can always
-refactor the API in the future, and as I mentioned in the changelog that
-is in my plan.
-
-Or do you have any quick and easy way to reduce the code?
-
-Thanks.
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index cebd9d31e65a..9d73d4bbdba3 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -2290,7 +2290,7 @@ static __net_init int devinet_init_net(struct net *net)
+ 	all = &ipv4_devconf;
+ 	dflt = &ipv4_devconf_dflt;
+ 
+-	if (!net_eq(net, &init_net)) {
++	if (IS_ENABLED(CONFIG_NET_NS)) {
+ 		all = kmemdup(all, sizeof(ipv4_devconf), GFP_KERNEL);
+ 		if (!all)
+ 			goto err_alloc_all;
