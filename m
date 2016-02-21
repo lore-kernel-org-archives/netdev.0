@@ -1,139 +1,69 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next v4 3/3] ipvlan: misc changes
-Date: Sat, 20 Feb 2016 19:31:41 -0800
-Message-ID: <1456025501-30420-1-git-send-email-mahesh@bandewar.net>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Alexander Couzens <lynxis@fe80.eu>
+Subject: [PATCH] l2tp_netlink: ignore -ESRCH of genlmsg_multicast_allns()
+Date: Sun, 21 Feb 2016 21:58:45 +0100
+Message-ID: <1456088325-22375-1-git-send-email-lynxis@fe80.eu>
+Cc: Alexander Couzens <lynxis@fe80.eu>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:32861 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750950AbcBUUNJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 15:13:09 -0500
-Received: by mail-pa0-f68.google.com with SMTP id y7so5979267paa.0
-        for <netdev@vger.kernel.org>; Sun, 21 Feb 2016 12:13:09 -0800 (PST)
+Received: from mail.base45.de ([80.241.61.77]:34899 "EHLO mail.base45.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751373AbcBUV3B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Feb 2016 16:29:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+If no one registered to the l2tp netlink group, genlmsg_multicast_allns
+returns -ESRCH. Ignore return code -ESRCH of genlmsg_mulitcast_allns
+within tunnel_create and session_create calls.
 
-1. scope correction for few functions that are used in single file.
-2. Adjust variables that are used in fast-path to fit into single cacheline
-3. Update rcv_frame() to skip shared check for frames coming over wire
-
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Signed-off-by: Alexander Couzens <lynxis@fe80.eu>
 ---
- drivers/net/ipvlan/ipvlan.h      |  9 +++------
- drivers/net/ipvlan/ipvlan_core.c | 27 ++++++++++++++++-----------
- drivers/net/ipvlan/ipvlan_main.c |  2 +-
- 3 files changed, 20 insertions(+), 18 deletions(-)
+ net/l2tp/l2tp_netlink.c | 24 ++++++++++++++++--------
+ 1 file changed, 16 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-index 817cab1a7959..695a5dc9ace3 100644
---- a/drivers/net/ipvlan/ipvlan.h
-+++ b/drivers/net/ipvlan/ipvlan.h
-@@ -84,19 +84,19 @@ struct ipvl_addr {
- #define ip4addr ipu.ip4
- 	struct hlist_node	hlnode;  /* Hash-table linkage */
- 	struct list_head	anode;   /* logical-interface linkage */
--	struct rcu_head		rcu;
- 	ipvl_hdr_type		atype;
-+	struct rcu_head		rcu;
- };
+diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
+index f93c5be..eced13a 100644
+--- a/net/l2tp/l2tp_netlink.c
++++ b/net/l2tp/l2tp_netlink.c
+@@ -123,11 +123,15 @@ static int l2tp_tunnel_notify(struct genl_family *family,
  
- struct ipvl_port {
- 	struct net_device	*dev;
- 	struct hlist_head	hlhead[IPVLAN_HASH_SIZE];
- 	struct list_head	ipvlans;
--	struct rcu_head		rcu;
-+	u16			mode;
- 	struct work_struct	wq;
- 	struct sk_buff_head	backlog;
- 	int			count;
--	u16			mode;
-+	struct rcu_head		rcu;
- };
- 
- static inline struct ipvl_port *ipvlan_port_get_rcu(const struct net_device *d)
-@@ -114,7 +114,6 @@ static inline struct ipvl_port *ipvlan_port_get_rtnl(const struct net_device *d)
- 	return rtnl_dereference(d->rx_handler_data);
- }
- 
--void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev);
- void ipvlan_init_secret(void);
- unsigned int ipvlan_mac_hash(const unsigned char *addr);
- rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb);
-@@ -124,7 +123,5 @@ void ipvlan_ht_addr_add(struct ipvl_dev *ipvlan, struct ipvl_addr *addr);
- struct ipvl_addr *ipvlan_find_addr(const struct ipvl_dev *ipvlan,
- 				   const void *iaddr, bool is_v6);
- bool ipvlan_addr_busy(struct ipvl_port *port, void *iaddr, bool is_v6);
--struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
--					const void *iaddr, bool is_v6);
- void ipvlan_ht_addr_del(struct ipvl_addr *addr);
- #endif /* __IPVLAN_H */
-diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-index 4e60c6bbdb6e..d6d0524ee5fd 100644
---- a/drivers/net/ipvlan/ipvlan_core.c
-+++ b/drivers/net/ipvlan/ipvlan_core.c
-@@ -53,8 +53,8 @@ static u8 ipvlan_get_v4_hash(const void *iaddr)
- 	       IPVLAN_HASH_MASK;
- }
- 
--struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
--					const void *iaddr, bool is_v6)
-+static struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
-+					       const void *iaddr, bool is_v6)
- {
- 	struct ipvl_addr *addr;
- 	u8 hash;
-@@ -265,20 +265,25 @@ static int ipvlan_rcv_frame(struct ipvl_addr *addr, struct sk_buff **pskb,
- 	struct sk_buff *skb = *pskb;
- 
- 	len = skb->len + ETH_HLEN;
--	if (unlikely(!(dev->flags & IFF_UP))) {
--		kfree_skb(skb);
--		goto out;
--	}
-+	/* Only packets exchanged between two local slaves need to have
-+	 * device-up check as well as skb-share check.
-+	 */
-+	if (local) {
-+		if (unlikely(!(dev->flags & IFF_UP))) {
-+			kfree_skb(skb);
-+			goto out;
-+		}
- 
--	skb = skb_share_check(skb, GFP_ATOMIC);
--	if (!skb)
--		goto out;
-+		skb = skb_share_check(skb, GFP_ATOMIC);
-+		if (!skb)
-+			goto out;
- 
--	*pskb = skb;
-+		*pskb = skb;
+ 	ret = l2tp_nl_tunnel_send(msg, info->snd_portid, info->snd_seq,
+ 				  NLM_F_ACK, tunnel, cmd);
++	if (ret < 0) {
++		nlmsg_free(msg);
++		return ret;
 +	}
- 	skb->dev = dev;
--	skb->pkt_type = PACKET_HOST;
  
- 	if (local) {
-+		skb->pkt_type = PACKET_HOST;
- 		if (dev_forward_skb(ipvlan->dev, skb) == NET_RX_SUCCESS)
- 			success = true;
- 	} else {
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 5bcb852c5500..a7ca1c519a0d 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -9,7 +9,7 @@
+-	if (ret >= 0)
+-		return genlmsg_multicast_allns(family, msg, 0,	0, GFP_ATOMIC);
+-
+-	nlmsg_free(msg);
++	ret = genlmsg_multicast_allns(family, msg, 0, 0, GFP_ATOMIC);
++	/* We don't care if no one is listening */
++	if (ret == -ESRCH)
++		ret = 0;
  
- #include "ipvlan.h"
+ 	return ret;
+ }
+@@ -146,11 +150,15 @@ static int l2tp_session_notify(struct genl_family *family,
  
--void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev)
-+static void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev)
- {
- 	ipvlan->dev->mtu = dev->mtu - ipvlan->mtu_adj;
+ 	ret = l2tp_nl_session_send(msg, info->snd_portid, info->snd_seq,
+ 				   NLM_F_ACK, session, cmd);
++	if (ret < 0) {
++		nlmsg_free(msg);
++		return ret;
++	}
+ 
+-	if (ret >= 0)
+-		return genlmsg_multicast_allns(family, msg, 0,	0, GFP_ATOMIC);
+-
+-	nlmsg_free(msg);
++	ret = genlmsg_multicast_allns(family, msg, 0, 0, GFP_ATOMIC);
++	/* We don't care if no one is listening */
++	if (ret == -ESRCH)
++		ret = 0;
+ 
+ 	return ret;
  }
 -- 
-2.7.0.rc3.207.g0ac5344
+2.7.1
