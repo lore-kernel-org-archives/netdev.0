@@ -1,96 +1,88 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v2] net: fec: Add "phy-reset-active-low" property to DT
-Date: Sun, 21 Feb 2016 22:33:31 +0300
-Message-ID: <56CA110B.6020107@cogentembedded.com>
-References: <1455048072-869-1-git-send-email-bernhard@bwalle.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bernhard Walle <bernhard-X9USDgGjgfuzQB+pC5nmwQ@public.gmane.org>, fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1455048072-869-1-git-send-email-bernhard-X9USDgGjgfuzQB+pC5nmwQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCH next v4 2/3] ipvlan: mode is u16
+Date: Sat, 20 Feb 2016 19:31:36 -0800
+Message-ID: <1456025496-30346-1-git-send-email-mahesh@bandewar.net>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:36824 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751883AbcBUTeK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 14:34:10 -0500
+Received: by mail-pa0-f66.google.com with SMTP id gc2so299487pab.3
+        for <netdev@vger.kernel.org>; Sun, 21 Feb 2016 11:34:10 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Mahesh Bandewar <maheshb@google.com>
 
-On 02/09/2016 11:01 PM, Bernhard Walle wrote:
+The mode argument was erronusly defined as u32 but it has always
+been u16. Also use ipvlan_set_mode() helper to set the mode instead
+of assigning directly. This should avoid future erronus assignments /
+updates.
 
-> We need that for a custom hardware that needs the reverse reset
-> sequence.
->
-> Signed-off-by: Bernhard Walle <bernhard-X9USDgGjgfuzQB+pC5nmwQ@public.gmane.org>
-> ---
-> Changes compared to v1:
->   - Add documentation to 'phy-reset-gpios' that flags are ignored
->     as suggested by Andrew Lunn.
->
->   Documentation/devicetree/bindings/net/fsl-fec.txt | 7 ++++++-
->   drivers/net/ethernet/freescale/fec_main.c         | 8 ++++++--
->   2 files changed, 12 insertions(+), 3 deletions(-)
->
-> diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
-> index a9eb611..0caa429 100644
-> --- a/Documentation/devicetree/bindings/net/fsl-fec.txt
-> +++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-> @@ -7,11 +7,16 @@ Required properties:
->   - phy-mode : See ethernet.txt file in the same directory
->
->   Optional properties:
-> -- phy-reset-gpios : Should specify the gpio for phy reset
-> +- phy-reset-gpios : Should specify the gpio for phy reset. Additional
-> +  flags are ignored, see the non-standard 'phy-reset-active-low' property
-> +  instead.
->   - phy-reset-duration : Reset duration in milliseconds.  Should present
->     only if property "phy-reset-gpios" is available.  Missing the property
->     will have the duration be 1 millisecond.  Numbers greater than 1000 are
->     invalid and 1 millisecond will be used instead.
-> +- phy-reset-active-low : If present then the reset sequence using the GPIO
-> +  specified in the "phy-reset-gpios" property is reversed (H=reset state,
-> +  L=operation state).
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ drivers/net/ipvlan/ipvlan.h      | 1 -
+ drivers/net/ipvlan/ipvlan_main.c | 9 ++++++---
+ 2 files changed, 6 insertions(+), 4 deletions(-)
 
-    It would be active high reset, no?
-
->   - phy-supply : regulator that powers the Ethernet PHY.
->   - phy-handle : phandle to the PHY device connected to this device.
->   - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> index 41c81f6..98caf87 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -3229,6 +3229,7 @@ static int fec_enet_init(struct net_device *ndev)
->   static void fec_reset_phy(struct platform_device *pdev)
->   {
->   	int err, phy_reset;
-> +	bool active_low = false;
->   	int msec = 1;
->   	struct device_node *np = pdev->dev.of_node;
->
-> @@ -3244,14 +3245,17 @@ static void fec_reset_phy(struct platform_device *pdev)
->   	if (!gpio_is_valid(phy_reset))
->   		return;
->
-> +	active_low = of_property_read_bool(np, "phy-reset-active-low");
-> +
->   	err = devm_gpio_request_one(&pdev->dev, phy_reset,
-> -				    GPIOF_OUT_INIT_LOW, "phy-reset");
-> +			active_low ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
-> +			"phy-reset");
->   	if (err) {
->   		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
->   		return;
->   	}
->   	msleep(msec);
-> -	gpio_set_value_cansleep(phy_reset, 1);
-> +	gpio_set_value_cansleep(phy_reset, !active_low);
-
-    I believe the above expressions should be inverted.
-
-MBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
+index 9542b7bac61a..817cab1a7959 100644
+--- a/drivers/net/ipvlan/ipvlan.h
++++ b/drivers/net/ipvlan/ipvlan.h
+@@ -115,7 +115,6 @@ static inline struct ipvl_port *ipvlan_port_get_rtnl(const struct net_device *d)
+ }
+ 
+ void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev);
+-void ipvlan_set_port_mode(struct ipvl_port *port, u32 nval);
+ void ipvlan_init_secret(void);
+ unsigned int ipvlan_mac_hash(const unsigned char *addr);
+ rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb);
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index 7a3b41468a55..5bcb852c5500 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -14,7 +14,7 @@ void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev)
+ 	ipvlan->dev->mtu = dev->mtu - ipvlan->mtu_adj;
+ }
+ 
+-void ipvlan_set_port_mode(struct ipvl_port *port, u32 nval)
++static void ipvlan_set_port_mode(struct ipvl_port *port, u16 nval)
+ {
+ 	struct ipvl_dev *ipvlan;
+ 
+@@ -442,6 +442,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+ 	struct ipvl_port *port;
+ 	struct net_device *phy_dev;
+ 	int err;
++	u16 mode = IPVLAN_MODE_L3;
+ 
+ 	if (!tb[IFLA_LINK])
+ 		return -EINVAL;
+@@ -460,10 +461,10 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+ 			return err;
+ 	}
+ 
+-	port = ipvlan_port_get_rtnl(phy_dev);
+ 	if (data && data[IFLA_IPVLAN_MODE])
+-		port->mode = nla_get_u16(data[IFLA_IPVLAN_MODE]);
++		mode = nla_get_u16(data[IFLA_IPVLAN_MODE]);
+ 
++	port = ipvlan_port_get_rtnl(phy_dev);
+ 	ipvlan->phy_dev = phy_dev;
+ 	ipvlan->dev = dev;
+ 	ipvlan->port = port;
+@@ -489,6 +490,8 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+ 		goto ipvlan_destroy_port;
+ 
+ 	list_add_tail_rcu(&ipvlan->pnode, &port->ipvlans);
++	ipvlan_set_port_mode(port, mode);
++
+ 	netif_stacked_transfer_operstate(phy_dev, dev);
+ 	return 0;
+ 
+-- 
+2.7.0.rc3.207.g0ac5344
