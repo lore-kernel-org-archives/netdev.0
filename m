@@ -1,87 +1,67 @@
-From: Loganaden Velvindron <logan@hackers.mu>
-Subject: [PATCH] iproute2: Fix musl compatibility
-Date: Mon, 22 Feb 2016 03:34:48 -0800
-Message-ID: <20160222113447.GA10262@mx.elandsys.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] can: ems_usb: Fix possible tx overflow
+Date: Mon, 22 Feb 2016 15:11:26 +0300
+Message-ID: <56CAFAEE.2020602@cogentembedded.com>
+References: <1456068458-14271-1-git-send-email-mkl@pengutronix.de>
+ <1456068458-14271-2-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.qubic.net ([208.69.177.116]:59413 "EHLO mx.elandsys.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754556AbcBVMBi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Feb 2016 07:01:38 -0500
-Received: from mx.elandsys.com (IDENT:logan@localhost [127.0.0.1])
-	by mx.elandsys.com (8.14.5/8.14.5) with ESMTP id u1MBYm1Z026387
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 03:34:49 -0800 (PST)
-Received: (from logan@localhost)
-	by mx.elandsys.com (8.14.5/8.14.5/Submit) id u1MBYmM3000893
-	for netdev@vger.kernel.org; Mon, 22 Feb 2016 03:34:48 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de,
+	Gerhard Uttenthaler <uttenthaler@ems-wuensche.com>,
+	linux-stable <stable@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1456068458-14271-2-git-send-email-mkl@pengutronix.de>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Don't redefine in6_addr due to including linux/in6.h and also fix
-the case of MAXPATHLEN constant not found.
+Hello.
 
-(Original patch from VoidLinux)
+On 2/21/2016 6:27 PM, Marc Kleine-Budde wrote:
 
-Signed-off-by: Loganaden Velvindron <logan@hackers.mu>
----
- include/linux/if_bridge.h | 1 -
- include/linux/netfilter.h | 2 --
- include/linux/xfrm.h      | 1 -
- include/utils.h           | 1 +
- 4 files changed, 1 insertion(+), 4 deletions(-)
+> From: Gerhard Uttenthaler <uttenthaler@ems-wuensche.com>
+>
+> This patch fixes the problem that more CAN messages could be sent to the
+> interface as could be send on the CAN bus. This was more likely for slow baud
+> rates. The sleeping _start_xmit was woken up in the _write_bulk_callback. Under
+> heavy TX load this produced another bulk transfer without checking the
+> free_slots variable and hence caused the overflow in the interface.
+>
+> Signed-off-by: Gerhard Uttenthaler <uttenthaler@ems-wuensche.com>
+> Cc: linux-stable <stable@vger.kernel.org>
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> ---
+>   drivers/net/can/usb/ems_usb.c | 14 ++++++++++----
+>   1 file changed, 10 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
+> index fc5b75675cd8..eb7192fab593 100644
+> --- a/drivers/net/can/usb/ems_usb.c
+> +++ b/drivers/net/can/usb/ems_usb.c
+> @@ -117,6 +117,9 @@ MODULE_LICENSE("GPL v2");
+>    */
+>   #define EMS_USB_ARM7_CLOCK 8000000
+>
+> +#define CPC_TX_QUEUE_TRIGGER_LOW	25
+> +#define CPC_TX_QUEUE_TRIGGER_HIGH	35
+> +
+>   /*
+>    * CAN-Message representation in a CPC_MSG. Message object type is
+>    * CPC_MSG_TYPE_CAN_FRAME or CPC_MSG_TYPE_RTR_FRAME or
+> @@ -278,6 +281,11 @@ static void ems_usb_read_interrupt_callback(struct urb *urb)
+>   	switch (urb->status) {
+>   	case 0:
+>   		dev->free_slots = dev->intr_in_buffer[1];
+> +		if(dev->free_slots > CPC_TX_QUEUE_TRIGGER_HIGH){
+> +			if (netif_queue_stopped(netdev)){
+> +				netif_wake_queue(netdev);
+> +			}
+> +		}
 
-diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-index ee197a3..f823aa4 100644
---- a/include/linux/if_bridge.h
-+++ b/include/linux/if_bridge.h
-@@ -15,7 +15,6 @@
- 
- #include <linux/types.h>
- #include <linux/if_ether.h>
--#include <linux/in6.h>
- 
- #define SYSFS_BRIDGE_ATTR	"bridge"
- #define SYSFS_BRIDGE_FDB	"brforward"
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index b71b4c9..3e4e6ae 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -4,8 +4,6 @@
- #include <linux/types.h>
- 
- #include <linux/sysctl.h>
--#include <linux/in.h>
--#include <linux/in6.h>
- 
- /* Responses from hook functions. */
- #define NF_DROP 0
-diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index b8f5451..a9761a5 100644
---- a/include/linux/xfrm.h
-+++ b/include/linux/xfrm.h
-@@ -1,7 +1,6 @@
- #ifndef _LINUX_XFRM_H
- #define _LINUX_XFRM_H
- 
--#include <linux/in6.h>
- #include <linux/types.h>
- 
- /* All of the structures in this file may not change size as they are
-diff --git a/include/utils.h b/include/utils.h
-index c43427c..debcdde 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -1,6 +1,7 @@
- #ifndef __UTILS_H__
- #define __UTILS_H__ 1
- 
-+#include <sys/param.h> /* MAXPATHLEN */
- #include <sys/types.h>
- #include <asm/types.h>
- #include <resolv.h>
--- 
-2.7.0
+    Hm, did anyone run scripts/checkpatch.pl on this patch?
+
+[...]
+
+MBR, Sergei
