@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 11/12] net/mlx5e: Add TX stateless offloads for tunneling
-Date: Mon, 22 Feb 2016 18:17:33 +0200
-Message-ID: <1456157854-12750-12-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 08/12] net/mlx5e: Move to checksum complete
+Date: Mon, 22 Feb 2016 18:17:30 +0200
+Message-ID: <1456157854-12750-9-git-send-email-saeedm@mellanox.com>
 References: <1456157854-12750-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -13,69 +13,56 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:42286 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:42322 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750746AbcBVQS5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Feb 2016 11:18:57 -0500
+	id S1752927AbcBVQTB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Feb 2016 11:19:01 -0500
 In-Reply-To: <1456157854-12750-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Matthew Finlay <matt@mellanox.com>
 
-Add support for TSO and TX checksum when using hw assisted,
-tunneled offloads.
+Use checksum complete for all IP packets, unless they are HW LRO,
+in which case, use checksum unnecessary.
 
 Signed-off-by: Matthew Finlay <matt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c |   22 ++++++++++++++++------
- 1 files changed, 16 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 00d855a..6ce2884 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2015-2016, Mellanox Technologies. All rights reserved.
-  *
-  * This software is available to you under a choice of one of two
-  * licenses.  You may choose to be licensed under the terms of the GNU
-@@ -185,9 +185,14 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index dd959d9..519a07f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -167,14 +167,15 @@ static inline bool is_first_ethertype_ip(struct sk_buff *skb)
+ static inline void mlx5e_handle_csum(struct net_device *netdev,
+ 				     struct mlx5_cqe64 *cqe,
+ 				     struct mlx5e_rq *rq,
+-				     struct sk_buff *skb)
++				     struct sk_buff *skb,
++				     bool   lro)
+ {
+ 	if (unlikely(!(netdev->features & NETIF_F_RXCSUM)))
+ 		goto csum_none;
  
- 	memset(wqe, 0, sizeof(*wqe));
+-	if (likely(cqe->hds_ip_ext & CQE_L4_OK)) {
++	if (lro) {
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+-	} else if (is_first_ethertype_ip(skb)) {
++	} else if (likely(is_first_ethertype_ip(skb))) {
+ 		skb->ip_summed = CHECKSUM_COMPLETE;
+ 		skb->csum = csum_unfold((__force __sum16)cqe->check_sum);
+ 		rq->stats.csum_sw++;
+@@ -211,7 +212,7 @@ static inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
+ 	if (unlikely(mlx5e_rx_hw_stamp(tstamp)))
+ 		mlx5e_fill_hwstamp(tstamp, get_cqe_ts(cqe), skb_hwtstamps(skb));
  
--	if (likely(skb->ip_summed == CHECKSUM_PARTIAL))
--		eseg->cs_flags	= MLX5_ETH_WQE_L3_CSUM | MLX5_ETH_WQE_L4_CSUM;
--	else
-+	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
-+		eseg->cs_flags = MLX5_ETH_WQE_L3_CSUM;
-+		if (skb->encapsulation)
-+			eseg->cs_flags |= MLX5_ETH_WQE_L3_INNER_CSUM |
-+					  MLX5_ETH_WQE_L4_INNER_CSUM;
-+		else
-+			eseg->cs_flags |= MLX5_ETH_WQE_L4_CSUM;
-+	} else
- 		sq->stats.csum_offload_none++;
+-	mlx5e_handle_csum(netdev, cqe, rq, skb);
++	mlx5e_handle_csum(netdev, cqe, rq, skb, !!lro_num_seg);
  
- 	if (sq->cc != sq->prev_cc) {
-@@ -200,8 +205,13 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 	skb->protocol = eth_type_trans(skb, netdev);
  
- 		eseg->mss    = cpu_to_be16(skb_shinfo(skb)->gso_size);
- 		opcode       = MLX5_OPCODE_LSO;
--		ihs          = skb_transport_offset(skb) + tcp_hdrlen(skb);
--		payload_len  = skb->len - ihs;
-+
-+		if (skb->encapsulation)
-+			ihs = skb_inner_transport_offset(skb) + inner_tcp_hdrlen(skb);
-+		else
-+			ihs = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+
-+		payload_len   = skb->len - ihs;
- 		wi->num_bytes = skb->len +
- 				(skb_shinfo(skb)->gso_segs - 1) * ihs;
- 		sq->stats.tso_packets++;
 -- 
 1.7.1
