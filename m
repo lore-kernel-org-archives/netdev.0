@@ -1,74 +1,61 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: net: netcp: regarding commit 899077: netcp: try to reduce type
- confusion in descriptors
-Date: Mon, 22 Feb 2016 16:48:14 -0500
-Message-ID: <56CB821E.7040809@ti.com>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH net-next] bgmac: support Ethernet device on BCM47094 SoC
+Date: Mon, 22 Feb 2016 22:51:13 +0100
+Message-ID: <1456177873-29246-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hauke Mehrtens <hauke@hauke-m.de>,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:48267 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754742AbcBVVsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 16:48:16 -0500
+Received: from mail-lf0-f45.google.com ([209.85.215.45]:33694 "EHLO
+	mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755705AbcBVVvW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 16:51:22 -0500
+Received: by mail-lf0-f45.google.com with SMTP id m1so104078882lfg.0
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 13:51:21 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arnd,
+It needs very similar workarounds to the one on BCM4707. It was tested
+on D-Link DIR-885L home router.
 
-As promised, here is what I found wrong with the commit 899077 that introduced a 
-regression. With these changes, I am able to boot kernel without issues on K2 platforms.
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+---
+It's the same patch as last time, just with a proper prefix ("net-next"=
+)
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
->From the commit description, it appears that you are trying to make the driver do the right
-thing if compiled for a 64 bit systems. Is it mandatory for all kernel drivers to be
-64bit compliant? Similar question on supporting mixed endian in all kernel drivers.
-Keystone can have SoC configured to be in big endian mode for peripherals and DSP. so that is
-something we need to support if there is customer interest. Wondering why do one run BE kernel
-binary on these platforms? Any reason? I saw some reference to that in past discussion on this
-regression issue.
-
-Murali
-
-
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index c61d66d..ac35161 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -167,7 +167,7 @@ static void set_pad_info(u32 pad0, u32 pad1, u32 pad2, struct knav_dma_desc *des
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index 230f8e6..99b30a9 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -30,6 +30,7 @@ static inline bool bgmac_is_bcm4707_family(struct bgm=
+ac *bgmac)
  {
-        desc->pad[0] = cpu_to_le32(pad0);
-        desc->pad[1] = cpu_to_le32(pad1);
--       desc->pad[2] = cpu_to_le32(pad1);
-+       desc->pad[2] = cpu_to_le32(pad2);
- }
- 
- static void set_org_pkt_info(dma_addr_t buff, u32 buff_len,
-@@ -870,8 +870,8 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
-                }
-                buf_len = PAGE_SIZE;
-                dma = dma_map_page(netcp->dev, page, 0, buf_len, DMA_TO_DEVICE);
--               pad[0] = lower_32_bits(dma);
--               pad[1] = upper_32_bits(dma);
-+               pad[0] = lower_32_bits((uintptr_t)page);
-+               pad[1] = upper_32_bits((uintptr_t)page);
-                pad[2] = 0;
-        }
- 
-@@ -1194,9 +1194,9 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
-        }
- 
-        set_words(&tmp, 1, &desc->packet_info);
--       tmp = lower_32_bits((uintptr_t)&skb);
-+       tmp = lower_32_bits((uintptr_t)skb);
-        set_words(&tmp, 1, &desc->pad[0]);
--       tmp = upper_32_bits((uintptr_t)&skb);
-+       tmp = upper_32_bits((uintptr_t)skb);
-        set_words(&tmp, 1, &desc->pad[1]);
- 
-        if (tx_pipe->flags & SWITCH_TO_PORT_IN_TAGINFO) {
-
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+ 	switch (bgmac->core->bus->chipinfo.id) {
+ 	case BCMA_CHIP_ID_BCM4707:
++	case BCMA_CHIP_ID_BCM47094:
+ 	case BCMA_CHIP_ID_BCM53018:
+ 		return true;
+ 	default:
+@@ -1052,8 +1053,9 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 	    (ci->id =3D=3D BCMA_CHIP_ID_BCM53572 && ci->pkg =3D=3D BCMA_PKG_I=
+D_BCM47188))
+ 		iost &=3D ~BGMAC_BCMA_IOST_ATTACHED;
+=20
+-	/* 3GMAC: for BCM4707, only do core reset at bgmac_probe() */
+-	if (ci->id !=3D BCMA_CHIP_ID_BCM4707) {
++	/* 3GMAC: for BCM4707 & BCM47094, only do core reset at bgmac_probe()=
+ */
++	if (ci->id !=3D BCMA_CHIP_ID_BCM4707 &&
++	    ci->id !=3D BCMA_CHIP_ID_BCM47094) {
+ 		flags =3D 0;
+ 		if (iost & BGMAC_BCMA_IOST_ATTACHED) {
+ 			flags =3D BGMAC_BCMA_IOCTL_SW_CLKEN;
+--=20
+1.8.4.5
