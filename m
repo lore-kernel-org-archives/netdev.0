@@ -1,42 +1,100 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6 route to gateway on fe80::1%eth0 when I have fe80::1%br0
- locally
-Date: Mon, 22 Feb 2016 17:15:41 +0100
-Message-ID: <56CB342D.9010100@stressinduktion.org>
-References: <20151212195830.GA18286@torres.zugschlus.de>
- <56796902.8080703@stressinduktion.org>
- <20151222212843.GE4424@torres.zugschlus.de>
- <5679C58C.2090308@stressinduktion.org>
- <20160222150443.GV26042@torres.zugschlus.de>
- <56CB2564.9030003@stressinduktion.org>
- <20160222154758.GW26042@torres.zugschlus.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Marc Haber <mh+netdev@zugschlus.de>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V2 02/12] net/mlx5: Introduce physical port PFC access functions
+Date: Mon, 22 Feb 2016 18:17:24 +0200
+Message-ID: <1456157854-12750-3-git-send-email-saeedm@mellanox.com>
+References: <1456157854-12750-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Rana Shahout <ranas@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Matthew Finlay <matt@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:54734 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750746AbcBVQPp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 11:15:45 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id B6D8320E6F
-	for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 11:15:44 -0500 (EST)
-In-Reply-To: <20160222154758.GW26042@torres.zugschlus.de>
+Received: from [193.47.165.129] ([193.47.165.129]:42164 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752112AbcBVQSL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Feb 2016 11:18:11 -0500
+In-Reply-To: <1456157854-12750-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 22.02.2016 16:47, Marc Haber wrote:
-> Can you reproduce the behavior with accept_ra_from_local =0 as well?
-> Unfortunately, the debugging VM I build works fine, it's just the
-> physical host showing this behavior. This is really strange.
+From: Achiad Shochat <achiad@mellanox.com>
 
-Same here. Debugging VM didn't show this error at all and other systems 
-didn't show this symptom either (4.4.2 as well as net-next).
+Add access functions to set and query a physical port PFC
+(Priority Flow Control) parameters.
 
-With which kernel did you see this behavior for the first time and what 
-was the last working version?
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/port.c |   41 ++++++++++++++++++++++++
+ include/linux/mlx5/port.h                      |    4 ++
+ 2 files changed, 45 insertions(+), 0 deletions(-)
 
-Bye,
-Hannes
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index 1e86321..dae7050 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -364,3 +364,44 @@ int mlx5_query_port_pause(struct mlx5_core_dev *dev,
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(mlx5_query_port_pause);
++
++int mlx5_set_port_pfc(struct mlx5_core_dev *dev, u8 pfc_en_tx, u8 pfc_en_rx)
++{
++	u32 in[MLX5_ST_SZ_DW(pfcc_reg)];
++	u32 out[MLX5_ST_SZ_DW(pfcc_reg)];
++
++	memset(in, 0, sizeof(in));
++	MLX5_SET(pfcc_reg, in, local_port, 1);
++	MLX5_SET(pfcc_reg, in, pfctx, pfc_en_tx);
++	MLX5_SET(pfcc_reg, in, pfcrx, pfc_en_rx);
++	MLX5_SET_TO_ONES(pfcc_reg, in, prio_mask_tx);
++	MLX5_SET_TO_ONES(pfcc_reg, in, prio_mask_rx);
++
++	return mlx5_core_access_reg(dev, in, sizeof(in), out,
++				    sizeof(out), MLX5_REG_PFCC, 0, 1);
++}
++EXPORT_SYMBOL_GPL(mlx5_set_port_pfc);
++
++int mlx5_query_port_pfc(struct mlx5_core_dev *dev, u8 *pfc_en_tx, u8 *pfc_en_rx)
++{
++	u32 in[MLX5_ST_SZ_DW(pfcc_reg)];
++	u32 out[MLX5_ST_SZ_DW(pfcc_reg)];
++	int err;
++
++	memset(in, 0, sizeof(in));
++	MLX5_SET(pfcc_reg, in, local_port, 1);
++
++	err = mlx5_core_access_reg(dev, in, sizeof(in), out,
++				   sizeof(out), MLX5_REG_PFCC, 0, 0);
++	if (err)
++		return err;
++
++	if (pfc_en_tx)
++		*pfc_en_tx = MLX5_GET(pfcc_reg, out, pfctx);
++
++	if (pfc_en_rx)
++		*pfc_en_rx = MLX5_GET(pfcc_reg, out, pfcrx);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(mlx5_query_port_pfc);
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index 7accd4a..4b3644c 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -66,4 +66,8 @@ int mlx5_set_port_pause(struct mlx5_core_dev *dev, u32 rx_pause, u32 tx_pause);
+ int mlx5_query_port_pause(struct mlx5_core_dev *dev,
+ 			  u32 *rx_pause, u32 *tx_pause);
+ 
++int mlx5_set_port_pfc(struct mlx5_core_dev *dev, u8 pfc_en_tx, u8 pfc_en_rx);
++int mlx5_query_port_pfc(struct mlx5_core_dev *dev, u8 *pfc_en_tx,
++			u8 *pfc_en_rx);
++
+ #endif /* __MLX5_PORT_H__ */
+-- 
+1.7.1
