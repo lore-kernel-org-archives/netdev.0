@@ -1,196 +1,77 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 12/12] net/mlx5e: Add TX inner packet counters
-Date: Mon, 22 Feb 2016 18:17:34 +0200
-Message-ID: <1456157854-12750-13-git-send-email-saeedm@mellanox.com>
-References: <1456157854-12750-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Rana Shahout <ranas@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Matthew Finlay <matt@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next 13/15] i40e/i40evf: use logical operators, not bitwise
+Date: Mon, 22 Feb 2016 08:33:24 -0800
+Message-ID: <CAKgT0Ud+SN85Pq0NokoWjA+Twr=SQDnaHvExrho1RbMUX55ttg@mail.gmail.com>
+References: <1455766737-11911-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1455766737-11911-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Neil Horman <nhorman@redhat.com>, sassmann@redhat.com,
+	John Greene <jogreene@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:42302 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752895AbcBVQS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Feb 2016 11:18:59 -0500
-In-Reply-To: <1456157854-12750-1-git-send-email-saeedm@mellanox.com>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:33908 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750758AbcBVQdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 11:33:24 -0500
+Received: by mail-io0-f177.google.com with SMTP id 9so184346167iom.1
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 08:33:24 -0800 (PST)
+In-Reply-To: <1455766737-11911-14-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Finlay <matt@mellanox.com>
+On Wed, Feb 17, 2016 at 7:38 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Mitch Williams <mitch.a.williams@intel.com>
+>
+> Mr. Spock would certainly raise an eyebrow to see us using bitwise
+> operators, when we should clearly be relying on logic. Fascinating.
+>
+> Change-ID: Ie338010c016f93e9faa2002c07c90b15134b7477
+> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Add TSO and TX checksum counters for tunneled, inner packets
+NAK
 
-Signed-off-by: Matthew Finlay <matt@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |   16 ++++++++++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    8 +++++++-
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |   20 +++++++++++---------
- 3 files changed, 32 insertions(+), 12 deletions(-)
+The bitwise operator lets us at least make a pass through all rings.
+With this new code you stop as soon as one ring has not completed
+cleaning.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index a700c57..1dca3dc 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -103,12 +103,15 @@ static const char vport_strings[][ETH_GSTRING_LEN] = {
- 	/* SW counters */
- 	"tso_packets",
- 	"tso_bytes",
-+	"tso_inner_packets",
-+	"tso_inner_bytes",
- 	"lro_packets",
- 	"lro_bytes",
- 	"rx_csum_good",
- 	"rx_csum_none",
- 	"rx_csum_sw",
- 	"tx_csum_offload",
-+	"tx_csum_inner",
- 	"tx_queue_stopped",
- 	"tx_queue_wake",
- 	"tx_queue_dropped",
-@@ -141,18 +144,21 @@ struct mlx5e_vport_stats {
- 	/* SW counters */
- 	u64 tso_packets;
- 	u64 tso_bytes;
-+	u64 tso_inner_packets;
-+	u64 tso_inner_bytes;
- 	u64 lro_packets;
- 	u64 lro_bytes;
- 	u64 rx_csum_good;
- 	u64 rx_csum_none;
- 	u64 rx_csum_sw;
- 	u64 tx_csum_offload;
-+	u64 tx_csum_inner;
- 	u64 tx_queue_stopped;
- 	u64 tx_queue_wake;
- 	u64 tx_queue_dropped;
- 	u64 rx_wqe_err;
- 
--#define NUM_VPORT_COUNTERS     32
-+#define NUM_VPORT_COUNTERS     35
- };
- 
- static const char pport_strings[][ETH_GSTRING_LEN] = {
-@@ -252,7 +258,10 @@ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
- 	"packets",
- 	"tso_packets",
- 	"tso_bytes",
-+	"tso_inner_packets",
-+	"tso_inner_bytes",
- 	"csum_offload_none",
-+	"csum_offload_inner",
- 	"stopped",
- 	"wake",
- 	"dropped",
-@@ -263,12 +272,15 @@ struct mlx5e_sq_stats {
- 	u64 packets;
- 	u64 tso_packets;
- 	u64 tso_bytes;
-+	u64 tso_inner_packets;
-+	u64 tso_inner_bytes;
- 	u64 csum_offload_none;
-+	u64 csum_offload_inner;
- 	u64 stopped;
- 	u64 wake;
- 	u64 dropped;
- 	u64 nop;
--#define NUM_SQ_STATS 8
-+#define NUM_SQ_STATS 11
- };
- 
- struct mlx5e_stats {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 6f7eb3b..0d45f35 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -145,9 +145,12 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
- 	/* Collect firts the SW counters and then HW for consistency */
- 	s->tso_packets		= 0;
- 	s->tso_bytes		= 0;
-+	s->tso_inner_packets	= 0;
-+	s->tso_inner_bytes	= 0;
- 	s->tx_queue_stopped	= 0;
- 	s->tx_queue_wake	= 0;
- 	s->tx_queue_dropped	= 0;
-+	s->tx_csum_inner	= 0;
- 	tx_offload_none		= 0;
- 	s->lro_packets		= 0;
- 	s->lro_bytes		= 0;
-@@ -168,9 +171,12 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
- 
- 			s->tso_packets		+= sq_stats->tso_packets;
- 			s->tso_bytes		+= sq_stats->tso_bytes;
-+			s->tso_inner_packets	+= sq_stats->tso_inner_packets;
-+			s->tso_inner_bytes	+= sq_stats->tso_inner_bytes;
- 			s->tx_queue_stopped	+= sq_stats->stopped;
- 			s->tx_queue_wake	+= sq_stats->wake;
- 			s->tx_queue_dropped	+= sq_stats->dropped;
-+			s->tx_csum_inner	+= sq_stats->csum_offload_inner;
- 			tx_offload_none		+= sq_stats->csum_offload_none;
- 		}
- 	}
-@@ -245,7 +251,7 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
- 		s->tx_broadcast_bytes;
- 
- 	/* Update calculated offload counters */
--	s->tx_csum_offload = s->tx_packets - tx_offload_none;
-+	s->tx_csum_offload = s->tx_packets - tx_offload_none - s->tx_csum_inner;
- 	s->rx_csum_good    = s->rx_packets - s->rx_csum_none -
- 			       s->rx_csum_sw;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 6ce2884..a05c070 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -187,11 +187,13 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 
- 	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
- 		eseg->cs_flags = MLX5_ETH_WQE_L3_CSUM;
--		if (skb->encapsulation)
-+		if (skb->encapsulation) {
- 			eseg->cs_flags |= MLX5_ETH_WQE_L3_INNER_CSUM |
- 					  MLX5_ETH_WQE_L4_INNER_CSUM;
--		else
-+			sq->stats.csum_offload_inner++;
-+		} else {
- 			eseg->cs_flags |= MLX5_ETH_WQE_L4_CSUM;
-+		}
- 	} else
- 		sq->stats.csum_offload_none++;
- 
-@@ -201,21 +203,21 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 	}
- 
- 	if (skb_is_gso(skb)) {
--		u32 payload_len;
--
- 		eseg->mss    = cpu_to_be16(skb_shinfo(skb)->gso_size);
- 		opcode       = MLX5_OPCODE_LSO;
- 
--		if (skb->encapsulation)
-+		if (skb->encapsulation) {
- 			ihs = skb_inner_transport_offset(skb) + inner_tcp_hdrlen(skb);
--		else
-+			sq->stats.tso_inner_packets++;
-+			sq->stats.tso_inner_bytes += skb->len - ihs;
-+		} else {
- 			ihs = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+			sq->stats.tso_packets++;
-+			sq->stats.tso_bytes += skb->len - ihs;
-+		}
- 
--		payload_len   = skb->len - ihs;
- 		wi->num_bytes = skb->len +
- 				(skb_shinfo(skb)->gso_segs - 1) * ihs;
--		sq->stats.tso_packets++;
--		sq->stats.tso_bytes += payload_len;
- 	} else {
- 		bf = sq->bf_budget &&
- 		     !skb->xmit_more &&
--- 
-1.7.1
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 5 +++--
+>  drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 5 +++--
+>  2 files changed, 6 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> index 1abef01..0ffa9a8 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> @@ -1996,7 +1996,8 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
+>          * budget and be more aggressive about cleaning up the Tx descriptors.
+>          */
+>         i40e_for_each_ring(ring, q_vector->tx) {
+> -               clean_complete &= i40e_clean_tx_irq(ring, vsi->work_limit);
+> +               clean_complete = clean_complete &&
+> +                                i40e_clean_tx_irq(ring, vsi->work_limit);
+>                 arm_wb = arm_wb || ring->arm_wb;
+>                 ring->arm_wb = false;
+>         }
+
+For example here.  You now will not call i40e_clean_tx_irq if
+clean_complete is false.
+
+> @@ -2020,7 +2021,7 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
+>
+>                 work_done += cleaned;
+>                 /* if we didn't clean as many as budgeted, we must be done */
+> -               clean_complete &= (budget_per_ring != cleaned);
+> +               clean_complete = clean_complete && (budget_per_ring > cleaned);
+>         }
+>
+>         /* If work not completed, return budget and polling will return */
+
+This code is now slower after this change.
