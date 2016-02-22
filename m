@@ -1,62 +1,94 @@
-From: Trond Myklebust <trond.myklebust@primarydata.com>
-Subject: Re: [PATCH 8/8] net: sunrpc: Replace CURRENT_TIME by current_fs_time()
-Date: Mon, 22 Feb 2016 10:34:31 -0500
-Message-ID: <CAHQdGtR26gqy7GzWui-bnb+W5W1PnUL_=okBZwz+XFmj_Q4A3A@mail.gmail.com>
-References: <1456154274-30487-1-git-send-email-deepa.kernel@gmail.com>
-	<1456154274-30487-9-git-send-email-deepa.kernel@gmail.com>
+From: Marc Haber <mh+netdev@zugschlus.de>
+Subject: Re: IPv6 route to gateway on fe80::1%eth0 when I have fe80::1%br0
+ locally
+Date: Mon, 22 Feb 2016 16:04:43 +0100
+Message-ID: <20160222150443.GV26042@torres.zugschlus.de>
+References: <20151212195830.GA18286@torres.zugschlus.de>
+ <56796902.8080703@stressinduktion.org>
+ <20151222212843.GE4424@torres.zugschlus.de>
+ <5679C58C.2090308@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux FS-devel Mailing List <linux-fsdevel@vger.kernel.org>,
-	y2038@lists.linaro.org, Arnd Bergmann <arnd@arndb.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Jeff Layton <jlayton@poochiereds.net>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux NFS Mailing List <linux-nfs@vger.kernel.org>,
-	Linux Network Devel Mailing List <netdev@vger.kernel.org>
-To: Deepa Dinamani <deepa.kernel@gmail.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1456154274-30487-9-git-send-email-deepa.kernel@gmail.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from torres.zugschlus.de ([85.214.131.164]:48108 "EHLO
+	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752474AbcBVPgu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 10:36:50 -0500
+Content-Disposition: inline
+In-Reply-To: <5679C58C.2090308@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 22, 2016 at 10:17 AM, Deepa Dinamani <deepa.kernel@gmail.com> wrote:
->
-> CURRENT_TIME macro is not appropriate for filesystems as it
-> doesn't use the right granularity for filesystem timestamps.
-> Use current_fs_time() instead.
->
-> Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
-> Cc: "J. Bruce Fields" <bfields@fieldses.org>
-> Cc: Jeff Layton <jlayton@poochiereds.net>
-> Cc: Trond Myklebust <trond.myklebust@primarydata.com>
-> Cc: Anna Schumaker <anna.schumaker@netapp.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: linux-nfs@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> ---
->  net/sunrpc/rpc_pipe.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
->
-> diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-> index 31789ef..bab3187 100644
-> --- a/net/sunrpc/rpc_pipe.c
-> +++ b/net/sunrpc/rpc_pipe.c
-> @@ -477,7 +477,9 @@ rpc_get_inode(struct super_block *sb, umode_t mode)
->                 return NULL;
->         inode->i_ino = get_next_ino();
->         inode->i_mode = mode;
-> -       inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
-> +       inode->i_atime = current_fs_time(sb);
-> +       inode->i_mtime = inode->i_atime;
-> +       inode->i_ctime = inode->i_atime;
->         switch (mode & S_IFMT) {
->         case S_IFDIR:
->                 inode->i_fop = &simple_dir_operations;
+Hi Hannes,
 
-Why would we care? This is a pseudo-fs. There is no expectation w.r.t.
-timestamp accuracy or resolution.
+On Tue, Dec 22, 2015 at 10:50:04PM +0100, Hannes Frederic Sowa wrote:
+> Thanks but no need to do that, I already cooked a patch and will submit
+> tomorrow after some testing. We don't need to enhance the sysctl,
+> default should be to simply check the interface too if a route with
+> link-local address is received.
 
-Cheers,
-  Trond
+Kernel bugzilla #112751 is related to this.
+
+The following is snipped to the relevant parts and was obtained on a
+Debian system running kernel 4.4.2
+
+[1/501]mh@fan:~$ for f in /proc/sys/net/ipv6/conf/*/{accept_ra,accept_ra_from_local,forwarding}; do echo $f; cat $f; done
+/proc/sys/net/ipv6/conf/all/accept_ra
+1
+/proc/sys/net/ipv6/conf/br0/accept_ra
+0
+/proc/sys/net/ipv6/conf/default/accept_ra
+1
+/proc/sys/net/ipv6/conf/eth0/accept_ra
+2
+/proc/sys/net/ipv6/conf/all/accept_ra_from_local
+0
+/proc/sys/net/ipv6/conf/br0/accept_ra_from_local
+0
+/proc/sys/net/ipv6/conf/default/accept_ra_from_local
+0
+/proc/sys/net/ipv6/conf/eth0/accept_ra_from_local
+1
+[2/502]mh@fan:~$ ip a
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet6 2a01:238:4071:328d:5604:a6ff:fe82:2100/64 scope global mngtmpaddr noprefixroute dynamic
+       valid_lft 86038sec preferred_lft 14038sec
+    inet6 2a01:238:4071:3282:5604:a6ff:fe82:2100/64 scope global mngtmpaddr noprefixroute dynamic
+       valid_lft 86372sec preferred_lft 14372sec
+3: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    inet6 2a01:238:4071:328d::1d:153/64 scope global
+       valid_lft forever preferred_lft forever
+    inet6 2a01:238:4071:328d::1d:100/64 scope global
+       valid_lft forever preferred_lft forever
+[3/503]mh@fan:~$ ip -6 r
+default via fe80::1 dev eth0  proto ra  metric 1024  pref medium
+default via fe80::c4f4:98ff:fedc:5e21 dev eth0  proto ra  metric 1024  pref medium
+[4/504]mh@fan:~$
+
+In prose:
+
+The host is a host for KVM VMs. It receives IPv6 connectivity via RA
+on eth0, where the default gateway announces its address as fe80::1.
+It also provides IPv6 connectivity to the VMs via the br0 interface.
+It is running radvd on br0, and for statically configured VMs it has
+also fe80::1 on br0.
+
+If accept_ra_from_local on eth0 were 0, the system would not accept
+the RA from the default gateway and and up with no IPv6 since fe80::1
+is locally configured with br0.
+
+If accept_ra_from_local on eth0 is 1, the system accepts both the RA
+from the default gateway on eth0 _AND_ its own RA sent out and
+received on br0, and, making things worse, is setting the IP address
+and default route not on br0, but on eth0.
+
+Greetings
+Marc
+
+-- 
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Leimen, Germany    |  lose things."    Winona Ryder | Fon: *49 6224 1600402
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 6224 1600421
