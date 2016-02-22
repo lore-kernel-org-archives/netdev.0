@@ -1,40 +1,57 @@
-From: John Stultz <john.stultz@linaro.org>
-Subject: Re: [PATCH v7 0/8] Patchset enabling hardware based cross-timestamps
- for next gen Intel platforms
-Date: Mon, 22 Feb 2016 10:49:46 -0800
-Message-ID: <CALAqxLUD+-_AxXX7hbCsbe2jpytFeDJQQSAr0EHy3dX1V+GoxA@mail.gmail.com>
-References: <1455308729-6280-1-git-send-email-christopher.s.hall@intel.com>
-	<CALAqxLXFVSrGD75gw7FbDtJV_cua9oowit8y=nKGS-YG5cYXAw@mail.gmail.com>
-	<op.yc8y6lni1774gr@chall-mobl2.amr.corp.intel.com>
+From: Diego Viola <diego.viola@gmail.com>
+Subject: Re: Computer fails to resume from suspend unless I rmmod jme before
+ initiating the suspend
+Date: Mon, 22 Feb 2016 15:59:48 -0300
+Message-ID: <CA+ToGPE3=OBsNDP_O7EoT76FqMdxdjdt=+tHNGBbm-oUkQHA4Q@mail.gmail.com>
+References: <CA+ToGPGC8APhN-_F5fzyR4CWqWgZ9Hs0PNqykhEgEV7g3PJjTg@mail.gmail.com>
+	<CA+ToGPF9cpdVLEHc7Vz79=-P7Jp76Y=M=p=bORhUNrXtb6+LNA@mail.gmail.com>
+	<CA+ToGPHfV5NbSAFWJPzDVfUT9fdp86MqoFbF8Uhmf9T+3e9n7Q@mail.gmail.com>
+	<CA+ToGPF0OT7NKCjaBMomqZg-+eO7Eq9hqSmLt0-UOHnyGPHd8Q@mail.gmail.com>
+	<CA+ToGPFP5a76TS2C_A7WJUWM9Eo60Ym5OtwHcKtY+OreoRVoFA@mail.gmail.com>
+	<20160222100907.GA32071@amd>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"x86@kernel.org" <x86@kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	"Stanton, Kevin B" <kevin.b.stanton@intel.com>,
-	kevin.j.clarke@intel.com
-To: Christopher Hall <christopher.s.hall@intel.com>
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>, cooldavid@cooldavid.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <op.yc8y6lni1774gr@chall-mobl2.amr.corp.intel.com>
+In-Reply-To: <20160222100907.GA32071@amd>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 22, 2016 at 10:33 AM, Christopher Hall
-<christopher.s.hall@intel.com> wrote:
-> I just sent another patchset (v8). I corrected the comment problems pointed
-> out by Richard Cochran. I also changed the arch/x86 code to use "non-stop"
-> TSC rather than "invariant" TSC. They are *exactly* the same thing (i.e.
-> read from the same bit of the CPUID leaf). The former exists already and
-> should be used instead.  Patch 6/8 is the only patch that is changed apart
-> from comments.
+On Mon, Feb 22, 2016 at 7:09 AM, Pavel Machek <pavel@ucw.cz> wrote:
+> Hi!
+>
+>> >>>> Every time I initiate a suspend (systemctl suspend) the machine hangs
+>> >>>> at resume unless I unload the jme driver.
+>
+> It seems to have some kind of suspend/resume support. ... and it is
+> rather complex.
+>
+> Maybe jme_start_irq(jme) should be moved to the end of jme_resume
+> function?
+>
+>> > So I found that disabling async as in:
+>> >
+>> > $ echo 0 > /sys/power/pm_async
+>> >
+>> > Helps with my issue, I can't reproduce the hang anymore, tried
+>> > suspend/resume almost ~15 times.
+>> >
+>> > Diego
+>>
+>> Can someone please help?
+>
+>                                                                         Pavel
+> --
+> (english) http://www.livejournal.com/~pavelmachek
+> (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
 
-Ok. So I see you addressed some of Andy's feedback, but did you answer
-the bit about the k offset?
+Hi Pavel,
 
-thanks
--john
+This did the trick, suspend/resume is now working perfectly for me
+(tried more than 10 times). :)
+
+Thank you so much, should I send a patch?
+
+Diego
