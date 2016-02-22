@@ -1,65 +1,68 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] xen-netfront: set real_num_tx_queues to zreo
- avoid to trigger BUG_ON
-Date: Mon, 22 Feb 2016 13:33:48 +0000
-Message-ID: <56CB0E3C.8080401@citrix.com>
-References: <1455931646-5672-1-git-send-email-arei.gonglei@huawei.com>
- <20160219.233643.95383657086552033.davem@davemloft.net>
- <33183CC9F5247A488A2544077AF19020B02E492F@SZXEMA503-MBS.china.huawei.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net-next] net_sched: add network namespace support for tc
+ actions
+Date: Mon, 22 Feb 2016 08:42:43 -0500
+Message-ID: <56CB1053.8020102@mojatatu.com>
+References: <1455928994-9726-1-git-send-email-xiyou.wangcong@gmail.com>
+ <56C8B21E.7070307@iogearbox.net>
+ <CAM_iQpWzVoy7eYdf2Yxz2qfoAO5-pDZioACyu7Hws6u7vvP1Yw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Huangpeng (Peter)" <peter.huangpeng@huawei.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
-To: "Gonglei (Arei)" <arei.gonglei@huawei.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <33183CC9F5247A488A2544077AF19020B02E492F@SZXEMA503-MBS.china.huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:37772 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754695AbcBVNmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 08:42:45 -0500
+Received: by mail-ig0-f176.google.com with SMTP id 5so81726166igt.0
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 05:42:45 -0800 (PST)
+In-Reply-To: <CAM_iQpWzVoy7eYdf2Yxz2qfoAO5-pDZioACyu7Hws6u7vvP1Yw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20/02/16 06:00, Gonglei (Arei) wrote:
-> Hi,
-> 
-> Thanks for rapid feedback :)
-> 
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: Saturday, February 20, 2016 12:37 PM
+On 16-02-20 07:46 PM, Cong Wang wrote:
+> On Sat, Feb 20, 2016 at 10:36 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
 >>
->> From: Gonglei <arei.gonglei@huawei.com>
->> Date: Sat, 20 Feb 2016 09:27:26 +0800
->>
->>> It's possible for a race condition to exist between xennet_open() and
->>> talk_to_netback(). After invoking netfront_probe() then other
->>> threads or processes invoke xennet_open (such as NetworkManager)
->>> immediately may trigger BUG_ON(). Besides, we also should reset
->>> real_num_tx_queues in xennet_destroy_queues().
->>
->> One should really never invoke register_netdev() until the device is
->> %100 fully initialized.
->>
->> This means you cannot call register_netdev() until it is completely
->> legal to invoke your ->open() method.
->>
->> And I think that is what the real problem is here.
->>
->> If you follow the correct rules for ordering wrt. register_netdev()
->> there are no "races".  Because ->open() must be legally invokable
->> from the exact moment you call register_netdev().
->>
-> 
-> Yes, I agree. Though that's the historic legacy problem. ;)
-> 
->> I'm not applying this, as it really sounds like the fundamental issue
->> is the order in which the xen-netfront private data is initialized
->> or setup before being registered.
-> 
-> That means register_netdev() should be invoked after xennet_connect(), right?
+>> Do you see a way to reduce the code duplication needed across all
+>> the action modules? I.e. that each of them now needs to register
+>> a new per netns subsystem, etc. In other words, is there a way the
+>> action API could be reworked to handle most of this in the tc core
+>> framework instead?
+>
+> I definitely agree.
+>
 
-No.  This would mean that the network device is removed and re-added
-when a guest is migrated which at best would result in considerably more
-downtime (e.g., the IP address has to be renegotiated with DHCP).
+Same here.
 
-David
+
+> Initially I made a wrapper macro for the per netns API for each tc
+> action, but it didn't work as I thought, mostly due to the per net ops and
+> net_id stuffs.
+>
+> So it is not as easy as it appears, it needs more work. At least the
+> current code is more readable than using any macro. We can always
+> refactor the API in the future, and as I mentioned in the changelog that
+> is in my plan.
+>
+> Or do you have any quick and easy way to reduce the code?
+>
+
+I did a quick look and i am struggling with it. The patch seems largish
+The issue is that we need to do this per kernel module so the code
+churn maybe unavoidable; hinfo stored in act_ops complicates things.
+Having said that:  All the pernet operations in your
+code seem to be generic, other than to accomodate for module specific
+act_ops. Is it possible to make generic pernet operations? This way
+you could do things at tcf_register_action() for all actions.
+The challenge seems to be in the xxx_net_id which appears(sorry didnt
+look closely at the namespace code) to need to be unique id per module
+and per namespace instance - otherwise i would suggest for xxx_net_id
+to be part of act_ops. Could we not have an #ifdef in the namespace
+core like the netfilter code does and have one level of indirection
+for everything but the namespace 0?
+
+cheers,
+jamal
