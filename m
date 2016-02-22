@@ -1,85 +1,83 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCHv2 00/10] RFKill airplane-mode indicator
-Date: Mon, 22 Feb 2016 11:00:20 -0600
-Message-ID: <1456160420.16083.3.camel@redhat.com>
-References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next PATCH 3/5] Support to encoding decoding skb prio on
+ IFE action
+Date: Mon, 22 Feb 2016 18:01:11 +0100
+Message-ID: <56CB3ED7.90202@iogearbox.net>
+References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com> <1456147304-13355-4-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Darren Hart <dvhart@infradead.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux@endlessm.com,
-	=?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita@endlessm.com>
-To: =?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>,
-	Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	alexei.starovoitov@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:39055 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751049AbcBVRBT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 12:01:19 -0500
+In-Reply-To: <1456147304-13355-4-git-send-email-jhs@emojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-02-22 at 11:36 -0500, Jo=C3=A3o Paulo Rechi Vita wrote:
-> This series implements an airplane-mode indicator LED trigger, which
-> can be
-> used by platform drivers. The default policy have have airplane-mode
-> set when
-> all the radios known by RFKill are OFF, and unset otherwise. This
-> policy can be
-> overwritten by one single userspace application at a time using the
-> operations
-> _AIRPLANE_MODE_INDICATOR_ACQUIRE and _AIRPLANE_MODE_INDICATOR_CHANGE.
->=20
-Double-check your commit messages on some of these patches; they didn't
-get updated to add INDICATOR.
+On 02/22/2016 02:21 PM, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+[...]
+> +static int skbprio_check(struct sk_buff *skb, struct tcf_meta_info *e)
+> +{
+> +	return check_meta_u32(skb->priority, e);
+> +}
+> +
+> +static int skbprio_encode(struct sk_buff *skb, void *skbdata,
+> +			  struct tcf_meta_info *e)
+> +{
+> +	u32 ifeprio = skb->priority; /* avoid having to cast skb->priority*/
+> +
+> +	pr_emerg("encode skbprio %d\n", ifeprio);
 
-Dan
+Ditto ... and this for every packet on encap and decap ...
 
-> When the
-> airplane-mode indicator state changes, userspace gets notifications
-> through the
-> RFKill control misc device (/dev/rfkill).
->=20
-> The series also contains a few general fixes and improvements to the
-> subsystem.
->=20
-> Additionally, I have a couple of patches to have this feature
-> supported by the
-> userspace tool 'rfkill' [1]. Should I use a different subject prefix
-> to help
-> separate those from kernel patches in linux-wireless?
->=20
-> [1] https://wireless.wiki.kernel.org/en/users/documentation/rfkill
->=20
-> Jo=C3=A3o Paulo Rechi Vita (10):
-> =C2=A0 rfkill: Improve documentation language
-> =C2=A0 rfkill: Remove extra blank line
-> =C2=A0 rfkill: Point to the correct deprecated doc location
-> =C2=A0 rfkill: Move "state" sysfs file back to stable
-> =C2=A0 rfkill: Factor rfkill_global_states[].cur assignments
-> =C2=A0 rfkill: Add documentation about LED triggers
-> =C2=A0 rfkill: Create "rfkill-airplane-mode" LED trigger
-> =C2=A0 rfkill: Use switch to demux userspace operations
-> =C2=A0 rfkill: Userspace control for airplane mode
-> =C2=A0 rfkill: Notify userspace of airplane-mode state changes
->=20
-> =C2=A0Documentation/ABI/obsolete/sysfs-class-rfkill |=C2=A0=C2=A020 -=
----
-> =C2=A0Documentation/ABI/stable/sysfs-class-rfkill=C2=A0=C2=A0=C2=A0|=C2=
-=A0=C2=A027 ++++-
-> =C2=A0Documentation/rfkill.txt=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0|=C2=A0=C2=A017 +++
-> =C2=A0include/uapi/linux/rfkill.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0|=C2=A0=C2=A0=C2=A06 +
-> =C2=A0net/rfkill/core.c=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0| 162
-> ++++++++++++++++++++------
-> =C2=A05 files changed, 173 insertions(+), 59 deletions(-)
-> =C2=A0delete mode 100644 Documentation/ABI/obsolete/sysfs-class-rfkil=
-l
->=20
+> +	return encode_meta_u32(ifeprio, skbdata, e);
+> +}
+> +
+> +static int skbprio_decode(struct sk_buff *skb, void *data, u16 len)
+> +{
+> +	u32 ifeprio = *(u32 *) data;
+> +
+> +	skb->priority = ntohl(ifeprio);
+> +	pr_emerg("decode skbprio %d\n", skb->priority);
+> +	return 0;
+> +}
+> +
+> +static struct tcf_meta_ops ife_prio_ops = {
+> +	.metaid = IFE_META_PRIO,
+> +	.metatype = NLA_U32,
+> +	.name = "skbprio",
+> +	.synopsis = "skb prio metadata",
+> +	.check_presence = skbprio_check,
+> +	.encode = skbprio_encode,
+> +	.decode = skbprio_decode,
+> +	.get = get_meta_u32,
+> +	.alloc = alloc_meta_u32,
+> +	.owner = THIS_MODULE,
+> +};
+> +
+> +static int __init ifeprio_init_module(void)
+> +{
+> +	pr_info("Loaded IFE skb prio\n");
+> +	return register_ife_op(&ife_prio_ops);
+> +}
+> +
+> +static void __exit ifeprio_cleanup_module(void)
+> +{
+> +	unregister_ife_op(&ife_prio_ops);
+> +	pr_info("Unloaded IFE skb prio\n");
+> +}
+> +
+> +module_init(ifeprio_init_module);
+> +module_exit(ifeprio_cleanup_module);
+> +
+> +MODULE_AUTHOR("Jamal Hadi Salim(2015)");
+> +MODULE_DESCRIPTION("Inter-FE skb prio metadata action");
+> +MODULE_LICENSE("GPL");
+> +MODULE_ALIAS_IFE_META(IFE_META_PRIO);
+>
