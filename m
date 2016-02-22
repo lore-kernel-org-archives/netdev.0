@@ -1,53 +1,54 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH V2 net-next 2/3] lan78xx: add ethtool set & get pause
- functions
-Date: Mon, 22 Feb 2016 20:28:20 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D404B570E@CHN-SV-EXMX02.mchp-main.com>
-References: <9235D6609DB808459E95D78E17F2E43D404B37B5@CHN-SV-EXMX02.mchp-main.com>
-	 <1455839111.2794.51.camel@decadent.org.uk>
-	 <9235D6609DB808459E95D78E17F2E43D404B55D1@CHN-SV-EXMX02.mchp-main.com>
-	 <20160222.141014.1517836822587262524.davem@davemloft.net>
- <1456171519.15241.65.camel@decadent.org.uk>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [patch net-next 6/9] mlxsw: spectrum: Unmap local port from module
+ during teardown
+Date: Mon, 22 Feb 2016 12:32:47 -0800
+Message-ID: <56CB706F.3000301@gmail.com>
+References: <1456165924-14399-1-git-send-email-jiri@resnulli.us> <1456165924-14399-7-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <ben@decadent.org.uk>, <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com, yishaih@mellanox.com,
+	dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, eugenia@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	hadarh@mellanox.com, jhs@mojatatu.com, jeffrey.t.kirsher@intel.com,
+	brouer@redhat.com, ivecera@redhat.com, rami.rosen@intel.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp03.microchip.com ([198.175.253.49]:6187 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751946AbcBVU2W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 15:28:22 -0500
-In-Reply-To: <1456171519.15241.65.camel@decadent.org.uk>
-Content-Language: en-US
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35530 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753135AbcBVUdJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 15:33:09 -0500
+Received: by mail-pa0-f43.google.com with SMTP id ho8so99227712pac.2
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 12:33:08 -0800 (PST)
+In-Reply-To: <1456165924-14399-7-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86YmVuQGRlY2FkZW50Lm9yZy51a10NCj4gU2VudDogTW9uZGF5LCBGZWJydWFyeSAyMiwgMjAx
-NiAzOjA1IFBNDQo+IFRvOiBEYXZpZCBNaWxsZXI7IFdvb2p1bmcgSHVoIC0gQzIxNjk5DQo+IENj
-OiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggVjIgbmV0LW5l
-eHQgMi8zXSBsYW43OHh4OiBhZGQgZXRodG9vbCBzZXQgJiBnZXQgcGF1c2UNCj4gZnVuY3Rpb25z
-DQo+IA0KPiBPbiBNb24sIDIwMTYtMDItMjIgYXQgMTQ6MTAgLTA1MDAsIERhdmlkIE1pbGxlciB3
-cm90ZToNCj4gPiBGcm9tOiA8V29vanVuZy5IdWhAbWljcm9jaGlwLmNvbT4NCj4gPiBEYXRlOiBN
-b24sIDIyIEZlYiAyMDE2IDE4OjI4OjE4ICswMDAwDQo+ID4NCj4gPiA+PiBUaGlzIGlzIGluY29y
-cmVjdDsgeW91IHNob3VsZCBhbHdheXMgcmV0dXJuIHRoZSBtYW51YWwgc2V0dGluZ3MNCj4gPiA+
-PiAoZmNfcmVxdWVzdF9jb250cm9sIGZsYWdzKSBoZXJlLiDCoElmIGF1dG9uZWdvdGlhdGlvbiBp
-cyBlbmFibGVkIHRoZW4NCj4gPiA+PiB5b3VyIGdldF9zZXR0aW5ncyBmdW5jdGlvbiB3aWxsIHJl
-dHVybiB0aGUgYWN0dWFsIHBhdXNlIGZsYWdzLg0KPiA+ID4+DQo+ID4gPiBXaGF0IGRvIHlvdSBt
-ZWFuICJyZXR1cm4gYWN0dWFsIHBhdXNlIGZsYWdzIiB3aGVuIGF1dG9uZWcgaXMgZW5hYmxlZD8N
-Cj4gPiA+IFBhdXNlIGZsYWdzIHNldCBieSAob3IgZGVmYXVsdCkgYWR2ZXJ0aXNlIGZsYWc/DQo+
-ID4NCj4gPiBJdCBtZWFucyB3aGF0IHdhcyBuZWdvdGlhdGVkIGJ5IGF1dG9uZWdvdGlhdGlvbiwg
-YW5kIGlzIGFjdHVhbGx5IGluIHVzZS4NCj4gPg0KPiA+IE90aGVyd2lzZSwgaG93IGNhbiB0aGUg
-dXNlciBmaW5kIG91dCB3aGF0IHdhcyBuZWdvdGlhdGVkPw0KPiANCj4gV2VsbCwgYWN0dWFsbHkg
-d2UgZG9uJ3QgKmRpcmVjdGx5KiByZXBvcnQgdGhlIGF1dG9uZWdvdGlhdGlvbiBmbG93DQo+IGNv
-bnRyb2wgbW9kZSBhdCBwcmVzZW50LiDCoFdlIHJlcG9ydCB3aGljaCBwYXVzZSBmbGFncyB3ZXJl
-IGFkdmVydGlzZWQNCj4gYW5kIHdoYXQgdGhlIGxpbmsgcGFydG5lciBhZHZlcnRpc2VkLCBmcm9t
-IHdoaWNoIHlvdSBjYW4gd29yayBpdCBvdXQuDQoNCk5JQyBhZHZlcnRpc2VzIHBhdXNlIGZsYWdz
-IHZpYSBhZHZlcnRpc2UgcmVnaXN0ZXIgKHBoeSByZWcgMHg0KSBiYXNlZCBvbiBSeCAmIFR4IGZs
-YWdzLA0KYW5kIGdldF9wYXVzZXBhcmFtKCkgcmV0dXJucyBSeCAmIFR4IGZsYWdzIHNldCBieSBz
-ZXRfcGF1c2VwYXJtKCkgaWYgYXV0b25lZ290aWF0aW9uIGlzIGVuYWJsZWQ/DQoNCj4gUGVyaGFw
-cyBldGh0b29sICh0aGUgdXRpbGl0eSkgc2hvdWxkIGV4cGxpY2l0bHkgc2hvdyB3aGF0IHRoZSBy
-ZXN1bHQNCj4gaXMuDQpFdGh0b29sIC1hIHJlcG9ydHMgUngvVHggZmxhZ3MgYW5kIFJ4L1R4IG5l
-Z290aWF0ZWQgZmxhZyBiYXNlZCBvbiBhZHZlcnRpc2luZyBhbmQgbHBfYWR2ZXJ0aXNpbmcgdmFs
-dWUuDQo=
+On 16-02-22 10:32 AM, Jiri Pirko wrote:
+> From: Ido Schimmel <idosch@mellanox.com>
+> 
+> When splitting a port we replace it with 2 or 4 other ports. To be able
+> to do that we need to remove the original port netdev and unmap it from
+> its module. However, we first mark it as disabled, as active ports
+> cannot be unmapped.
+> 
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+
+Hi Jiri, Ido,
+
+You've sort of lost me on this port splitting/unsplitting thread. What
+does this actually do? Are you just creating two netdevs and LAGing them
+in the hardware, I'm guessing not or you wouldn't have some device API
+for it and would do it using normal methods.
+
+If its something to do with physical layout of the board itself why
+don't you trigger this based on some init time introspection or an
+interrupt if someone plugs in a port splitting cable/module (does that
+exist?).
+
+Thanks,
+John
