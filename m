@@ -1,65 +1,88 @@
-From: Alexander Couzens <lynxis@fe80.eu>
-Subject: Re: [PATCH] l2tp_netlink: ignore -ESRCH of
- genlmsg_multicast_allns()
-Date: Mon, 22 Feb 2016 14:41:55 +0100
-Message-ID: <20160222144155.7bb5712e@lazus.yip>
-References: <1456088325-22375-1-git-send-email-lynxis@fe80.eu>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH can-next 2/2] CAN: rcar: add device tree support for r8a779[234]
+Date: Mon, 22 Feb 2016 14:48:39 +0100
+Message-ID: <CAMuHMdU5zMG=Sha5MfotbKmdBDgzJucve483oZbmseLvLR-2sA@mail.gmail.com>
+References: <1456107350-12100-1-git-send-email-horms+renesas@verge.net.au>
+	<1456107350-12100-3-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/MpDR6PE9RdJPmes6O/OxN/."; protocol="application/pgp-signature"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-can@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-renesas-soc@vger.kernel.org,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Simon Horman <horms+renesas@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.base45.de ([80.241.61.77]:53923 "EHLO mail.base45.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755053AbcBVNmG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Feb 2016 08:42:06 -0500
-Received: from [2001:1a80:2259:d21a:24cd:5bb4:1a6:743b] (helo=lazus.yip)
-	by mail.base45.de with esmtpsa (TLS1.2:RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.82)
-	(envelope-from <lynxis@fe80.eu>)
-	id 1aXqkV-0004X7-H5
-	for netdev@vger.kernel.org; Mon, 22 Feb 2016 14:42:03 +0100
-In-Reply-To: <1456088325-22375-1-git-send-email-lynxis@fe80.eu>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:36315 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755255AbcBVNsl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 08:48:41 -0500
+In-Reply-To: <1456107350-12100-3-git-send-email-horms+renesas@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Sig_/MpDR6PE9RdJPmes6O/OxN/.
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Mon, Feb 22, 2016 at 3:15 AM, Simon Horman
+<horms+renesas@verge.net.au> wrote:
+> Simply document new compatibility string.
+> As a previous patch adds a generic R-Car Gen2 compatibility string
+> there appears to be no need for a driver updates.
+> By documenting this compat sting it may be used in DTSs shipped, for
 
-Sorry for the noise. I only looked into the git tree net-next for
-changes of the l2tp module and not lately on the mailinglist.
+string
 
-Best,
-lynxis
---=20
-Alexander Couzens
+> example as part of ROMs. It must be used in conjunction with the Gen2
+> fallback compat string. At this time there are no known differences between
+> the r8a779[234] IP blocks and that implemented by the driver for the Gen2
+> fallback compat string. Thus there is no need to update the driver as the
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> use of the Gen2 fallback compat string will activate the correct code in
+  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-mail: lynxis@fe80.eu
-jabber: lynxis@fe80.eu
-mobile: +4915123277221
-gpg: 390D CF78 8BF9 AA50 4F8F  F1E2 C29E 9DA6 A0DF 8604
+> the current driver while leaving the option for r8a779[234]-specific driver
+> code to be activated in an updated driver should the need arise.
+>
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> ---
+>  Documentation/devicetree/bindings/net/can/rcar_can.txt | 3 +++
+>  drivers/net/can/rcar_can.c                             | 3 +++
+>  2 files changed, 6 insertions(+)
+>
+> diff --git a/Documentation/devicetree/bindings/net/can/rcar_can.txt b/Documentation/devicetree/bindings/net/can/rcar_can.txt
+> index 036786e1f70d..c6fb74d7c809 100644
+> --- a/Documentation/devicetree/bindings/net/can/rcar_can.txt
+> +++ b/Documentation/devicetree/bindings/net/can/rcar_can.txt
+> @@ -6,6 +6,9 @@ Required properties:
+>               "renesas,can-r8a7779" if CAN controller is a part of R8A7779 SoC.
+>               "renesas,can-r8a7790" if CAN controller is a part of R8A7790 SoC.
+>               "renesas,can-r8a7791" if CAN controller is a part of R8A7791 SoC.
+> +             "renesas,can-r8a7792" if CAN controller is a part of R8A7792 SoC.
+> +             "renesas,can-r8a7793" if CAN controller is a part of R8A7793 SoC.
+> +             "renesas,can-r8a7794" if CAN controller is a part of R8A7794 SoC.
+>               "renesas,can-gen1" for a generic R-Car Gen1 compatible device.
+>               "renesas,can-gen2" for a generic R-Car Gen2 compatible device.
+>  - reg: physical base address and size of the R-Car CAN register map.
+> diff --git a/drivers/net/can/rcar_can.c b/drivers/net/can/rcar_can.c
+> index c70a1f795933..73761a4dd1bf 100644
+> --- a/drivers/net/can/rcar_can.c
+> +++ b/drivers/net/can/rcar_can.c
+> @@ -904,6 +904,9 @@ static const struct of_device_id rcar_can_of_table[] __maybe_unused = {
+>         { .compatible = "renesas,can-r8a7779" },
+>         { .compatible = "renesas,can-r8a7790" },
+>         { .compatible = "renesas,can-r8a7791" },
+> +       { .compatible = "renesas,can-r8a7792" },
+> +       { .compatible = "renesas,can-r8a7793" },
+> +       { .compatible = "renesas,can-r8a7794" },
 
---Sig_/MpDR6PE9RdJPmes6O/OxN/.
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
+So why do you update the driver?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+There's no upstream DTS using "renesas,can-r8a779[234]", so
+"renesas,can-gen2" should be fine.
 
-iQIcBAEBCAAGBQJWyxAkAAoJEMKenaag34YEKY0QAKj9PRX97yeAqvEEry8rfmcG
-9CCRsoLX4lZ5UTHtgv//cd/LEBtw0ruISgLtnM7LyvEtNHLjGt11ND7BjAWK+5lg
-AcrNcRR0MKRgO40KUGxN9LSIffT4oj0g9L4WRhj5v6yZS3PROMvcNnS0xs2BDKf3
-RlNiEW1ySE0mgEToyb2E4U1hU6dqSm+Gygacp7cYvs4BmI2DXCJAawY64MQQtwIB
-PPV9I+c3uy/IySJ70gQlfq0bGAe0LylWprhJsTHfbcrr4oI1A97/rpUxt1iclhQI
-d2Jl6MIQIDD1HbtGSJfbV3EWzbRa3hCn8SRLxVGSl97CtdeDTM+/d+dNdYR1OyiF
-AWsyDvLTpOAt7Feywo3JURtwChn8wzf8E0GkXBeo0PC4JmJKZvqcXEEqStrBXVhI
-Z2F8/zBhnIGDFo2kGBi2Twl2t9yPgZLSxVmDxHxSLxnkT4Lf7ZQrum2w7CGtvmFP
-OLyZTkwyq4RkOZbDsDf3tpOT2vPCc5SdJ/V8lh5oLeSTxMjLXpkNZHRVpf8ua3TL
-wR3HZNirGeD3jLX/42yxMXytKMa4MsHGDO3RNnMs5YucT7cOUq5gsscB7iqtarDm
-H4ZpLAHoLmdV70JzT+4hWbkFVshK+eR59u8acAW1FNevtRAPtmdb3G8e7Ch+HQhg
-pVvmwkA5oir3sPEwF4O1
-=5V4X
------END PGP SIGNATURE-----
+>         { .compatible = "renesas,can-gen1" },
+>         { .compatible = "renesas,can-gen2" },
+>         { }
 
---Sig_/MpDR6PE9RdJPmes6O/OxN/.--
+Gr{oetje,eeting}s,
+
+                        Geert
