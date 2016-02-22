@@ -1,29 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fmvj18x_cs: fix incorrect indexing of dev->dev_addr[]
- when copying the MAC address
-Date: Sun, 21 Feb 2016 22:09:18 -0500 (EST)
-Message-ID: <20160221.220918.1954869190057677226.davem@davemloft.net>
-References: <20160220191436.346fd0e6c63db659ea6582b9@nifty.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH can-next 2/2] CAN: rcar: add device tree support for
+ r8a779[234]
+Date: Sun, 21 Feb 2016 21:36:44 -0600
+Message-ID: <20160222033644.GB24277@rob-hp-laptop>
+References: <1456107350-12100-1-git-send-email-horms+renesas@verge.net.au>
+ <1456107350-12100-3-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ken_kawasaki@nifty.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Simon Horman <horms+renesas@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43034 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752558AbcBVDJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 22:09:20 -0500
-In-Reply-To: <20160220191436.346fd0e6c63db659ea6582b9@nifty.com>
+Received: from mail.kernel.org ([198.145.29.136]:46215 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752526AbcBVDgu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Feb 2016 22:36:50 -0500
+Content-Disposition: inline
+In-Reply-To: <1456107350-12100-3-git-send-email-horms+renesas@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ken Kawasaki <ken_kawasaki@nifty.com>
-Date: Sat, 20 Feb 2016 19:14:36 +0900
-
-> fix incorrect indexing of dev->dev_addr[] when copying the MAC address 
-> of FMV-J182 at buf[5].
+On Mon, Feb 22, 2016 at 11:15:50AM +0900, Simon Horman wrote:
+> Simply document new compatibility string.
+> As a previous patch adds a generic R-Car Gen2 compatibility string
+> there appears to be no need for a driver updates.
 > 
-> Signed-off-by: Ken Kawasaki <ken_kawasaki@nifty.com>
+> By documenting this compat sting it may be used in DTSs shipped, for
+> example as part of ROMs. It must be used in conjunction with the Gen2
+> fallback compat string. At this time there are no known differences between
+> the r8a779[234] IP blocks and that implemented by the driver for the Gen2
+> fallback compat string. Thus there is no need to update the driver as the
+> use of the Gen2 fallback compat string will activate the correct code in
+> the current driver while leaving the option for r8a779[234]-specific driver
+> code to be activated in an updated driver should the need arise.
+> 
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> ---
+>  Documentation/devicetree/bindings/net/can/rcar_can.txt | 3 +++
+>  drivers/net/can/rcar_can.c                             | 3 +++
+>  2 files changed, 6 insertions(+)
 
-Applied, thanks.
+Acked-by: Rob Herring <robh@kernel.org>
