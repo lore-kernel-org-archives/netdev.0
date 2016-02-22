@@ -1,7 +1,7 @@
 From: "=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=" <jprvita@gmail.com>
-Subject: [PATCHv2 04/10] rfkill: Move "state" sysfs file back to stable
-Date: Mon, 22 Feb 2016 11:36:35 -0500
-Message-ID: <1456159001-20307-5-git-send-email-jprvita@endlessm.com>
+Subject: [PATCHv2 05/10] rfkill: Factor rfkill_global_states[].cur assignments
+Date: Mon, 22 Feb 2016 11:36:36 -0500
+Message-ID: <1456159001-20307-6-git-send-email-jprvita@endlessm.com>
 References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -19,94 +19,88 @@ In-Reply-To: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
 Sender: platform-driver-x86-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is still quite a bit of code using this interface, so we can't
-just remove it. Hopefully it will be possible in the future, but since
-its scheduled removal date is past 2 years already, we are better havin=
-g
-the documentation reflecting the current state of things.
+=46actor all assignments to rfkill_global_states[].cur into a single
+function rfkill_update_global_state().
 
 Signed-off-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@endlessm.com>
 ---
- Documentation/ABI/obsolete/sysfs-class-rfkill | 20 -------------------=
--
- Documentation/ABI/stable/sysfs-class-rfkill   | 25 +++++++++++++++++++=
-+++---
- 2 files changed, 22 insertions(+), 23 deletions(-)
- delete mode 100644 Documentation/ABI/obsolete/sysfs-class-rfkill
+ net/rfkill/core.c | 38 +++++++++++++++++---------------------
+ 1 file changed, 17 insertions(+), 21 deletions(-)
 
-diff --git a/Documentation/ABI/obsolete/sysfs-class-rfkill b/Documentat=
-ion/ABI/obsolete/sysfs-class-rfkill
-deleted file mode 100644
-index e736d14..0000000
---- a/Documentation/ABI/obsolete/sysfs-class-rfkill
-+++ /dev/null
-@@ -1,20 +0,0 @@
--rfkill - radio frequency (RF) connector kill switch support
--
--For details to this subsystem look at Documentation/rfkill.txt.
--
--What:		/sys/class/rfkill/rfkill[0-9]+/state
--Date:		09-Jul-2007
--KernelVersion	v2.6.22
--Contact:	linux-wireless@vger.kernel.org
--Description: 	Current state of the transmitter.
--		This file is deprecated and scheduled to be removed in 2014,
--		because its not possible to express the 'soft and hard block'
--		state of the rfkill driver.
--Values: 	A numeric value.
--		0: RFKILL_STATE_SOFT_BLOCKED
--			transmitter is turned off by software
--		1: RFKILL_STATE_UNBLOCKED
--			transmitter is (potentially) active
--		2: RFKILL_STATE_HARD_BLOCKED
--			transmitter is forced off by something outside of
--			the driver's control.
-diff --git a/Documentation/ABI/stable/sysfs-class-rfkill b/Documentatio=
-n/ABI/stable/sysfs-class-rfkill
-index e51571e..e1ba4a1 100644
---- a/Documentation/ABI/stable/sysfs-class-rfkill
-+++ b/Documentation/ABI/stable/sysfs-class-rfkill
-@@ -5,9 +5,6 @@ For details to this subsystem look at Documentation/rfk=
-ill.txt.
- For the deprecated /sys/class/rfkill/*/claim knobs of this interface l=
-ook in
- Documentation/ABI/removed/sysfs-class-rfkill.
+diff --git a/net/rfkill/core.c b/net/rfkill/core.c
+index 56d79cb..8b96869 100644
+--- a/net/rfkill/core.c
++++ b/net/rfkill/core.c
+@@ -302,6 +302,19 @@ static void rfkill_set_block(struct rfkill *rfkill=
+, bool blocked)
+ 		rfkill_event(rfkill);
+ }
 =20
--For the deprecated /sys/class/rfkill/*/state knobs of this interface l=
-ook in
--Documentation/ABI/obsolete/sysfs-class-rfkill.
--
- What: 		/sys/class/rfkill
- Date:		09-Jul-2007
- KernelVersion:	v2.6.22
-@@ -44,6 +41,28 @@ Values: 	A numeric value.
- 		1: true
-=20
-=20
-+What:		/sys/class/rfkill/rfkill[0-9]+/state
-+Date:		09-Jul-2007
-+KernelVersion	v2.6.22
-+Contact:	linux-wireless@vger.kernel.org
-+Description: 	Current state of the transmitter.
-+		This file was scheduled to be removed in 2014, but due to its
-+		large number of users it will be sticking around for a bit
-+		longer. Despite it being marked as stabe, the newer "hard" and
-+		"soft" interfaces should be preffered, since it is not possible
-+		to express the 'soft and hard block' state of the rfkill driver
-+		through this interface. There will likely be another attempt to
-+		remove it in the future.
-+Values: 	A numeric value.
-+		0: RFKILL_STATE_SOFT_BLOCKED
-+			transmitter is turned off by software
-+		1: RFKILL_STATE_UNBLOCKED
-+			transmitter is (potentially) active
-+		2: RFKILL_STATE_HARD_BLOCKED
-+			transmitter is forced off by something outside of
-+			the driver's control.
++static void rfkill_update_global_state(enum rfkill_type type, bool blo=
+cked)
++{
++	int i;
 +
++	if (type !=3D RFKILL_TYPE_ALL) {
++		rfkill_global_states[type].cur =3D blocked;
++		return;
++	}
 +
- What:		/sys/class/rfkill/rfkill[0-9]+/hard
- Date:		12-March-2010
- KernelVersion	v2.6.34
++	for (i =3D 0; i < NUM_RFKILL_TYPES; i++)
++		rfkill_global_states[i].cur =3D blocked;
++}
++
+ #ifdef CONFIG_RFKILL_INPUT
+ static atomic_t rfkill_input_disabled =3D ATOMIC_INIT(0);
+=20
+@@ -319,15 +332,7 @@ static void __rfkill_switch_all(const enum rfkill_=
+type type, bool blocked)
+ {
+ 	struct rfkill *rfkill;
+=20
+-	if (type =3D=3D RFKILL_TYPE_ALL) {
+-		int i;
+-
+-		for (i =3D 0; i < NUM_RFKILL_TYPES; i++)
+-			rfkill_global_states[i].cur =3D blocked;
+-	} else {
+-		rfkill_global_states[type].cur =3D blocked;
+-	}
+-
++	rfkill_update_global_state(type, blocked);
+ 	list_for_each_entry(rfkill, &rfkill_list, node) {
+ 		if (rfkill->type !=3D type && type !=3D RFKILL_TYPE_ALL)
+ 			continue;
+@@ -1164,15 +1169,8 @@ static ssize_t rfkill_fop_write(struct file *fil=
+e, const char __user *buf,
+=20
+ 	mutex_lock(&rfkill_global_mutex);
+=20
+-	if (ev.op =3D=3D RFKILL_OP_CHANGE_ALL) {
+-		if (ev.type =3D=3D RFKILL_TYPE_ALL) {
+-			enum rfkill_type i;
+-			for (i =3D 0; i < NUM_RFKILL_TYPES; i++)
+-				rfkill_global_states[i].cur =3D ev.soft;
+-		} else {
+-			rfkill_global_states[ev.type].cur =3D ev.soft;
+-		}
+-	}
++	if (ev.op =3D=3D RFKILL_OP_CHANGE_ALL)
++		rfkill_update_global_state(ev.type, ev.soft);
+=20
+ 	list_for_each_entry(rfkill, &rfkill_list, node) {
+ 		if (rfkill->idx !=3D ev.idx && ev.op !=3D RFKILL_OP_CHANGE_ALL)
+@@ -1261,10 +1259,8 @@ static struct miscdevice rfkill_miscdev =3D {
+ static int __init rfkill_init(void)
+ {
+ 	int error;
+-	int i;
+=20
+-	for (i =3D 0; i < NUM_RFKILL_TYPES; i++)
+-		rfkill_global_states[i].cur =3D !rfkill_default_state;
++	rfkill_update_global_state(RFKILL_TYPE_ALL, !rfkill_default_state);
+=20
+ 	error =3D class_register(&rfkill_class);
+ 	if (error)
 --=20
 2.5.0
