@@ -1,61 +1,67 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH net-next] bgmac: support Ethernet device on BCM47094 SoC
-Date: Mon, 22 Feb 2016 22:51:13 +0100
-Message-ID: <1456177873-29246-1-git-send-email-zajec5@gmail.com>
+From: Joachim Eastwood <manabian@gmail.com>
+Subject: Re: [PATCH 1/4] net: ethernet: dwmac: add Ethernet glue logic for
+ stm32 chip
+Date: Mon, 22 Feb 2016 22:52:17 +0100
+Message-ID: <CAGhQ9VzPTgRqqLi4zjHkP-++v5smZ7s52drev1z-AvgXaLuC7Q@mail.gmail.com>
+References: <1454511275-9791-1-git-send-email-alexandre.torgue@gmail.com>
+	<1454511275-9791-2-git-send-email-alexandre.torgue@gmail.com>
+	<CAGhQ9VypZ5J0pQmrf1Mk-mNsv=XTXu7fhoLt_r2LHJ_Lsyj0yA@mail.gmail.com>
+	<CAJgp7zwOVEq=hnxfUt7eHZWSFUAwuK6MCVHdH591=xReRUsW8Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hauke Mehrtens <hauke@hauke-m.de>,
-	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:33694 "EHLO
-	mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755705AbcBVVvW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 16:51:22 -0500
-Received: by mail-lf0-f45.google.com with SMTP id m1so104078882lfg.0
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 13:51:21 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alexandre Torgue <alexandre.torgue@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJgp7zwOVEq=hnxfUt7eHZWSFUAwuK6MCVHdH591=xReRUsW8Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It needs very similar workarounds to the one on BCM4707. It was tested
-on D-Link DIR-885L home router.
+On 22 February 2016 at 15:50, Alexandre Torgue
+<alexandre.torgue@gmail.com> wrote:
+> 2016-02-13 14:48 GMT+01:00 Joachim  Eastwood <manabian@gmail.com>:
+>> On 3 February 2016 at 15:54, Alexandre TORGUE
+>> <alexandre.torgue@gmail.com> wrote:
+>>> +       plat_dat->bsp_priv = dwmac;
+>>> +       plat_dat->init = stm32_dwmac_init;
+>>> +       plat_dat->exit = stm32_dwmac_exit;
+>>
+>> Instead of using these callbacks could you rather implement the PM
+>> callbacks directly in this driver?
+>> I don't think it should add much code and it will make it look more
+>> like standard driver. This will also give you some more control and
+>> flexibility in your code.
+>
+> I prefer to keep the code as it is. Glue layer is directly linked to
+> stmmac driver and I don't want to brake the link between the glue and
+> the stmmac driver.
 
-Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
----
-It's the same patch as last time, just with a proper prefix ("net-next"=
-)
----
- drivers/net/ethernet/broadcom/bgmac.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+What do you mean by break the link?
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
-et/broadcom/bgmac.c
-index 230f8e6..99b30a9 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -30,6 +30,7 @@ static inline bool bgmac_is_bcm4707_family(struct bgm=
-ac *bgmac)
- {
- 	switch (bgmac->core->bus->chipinfo.id) {
- 	case BCMA_CHIP_ID_BCM4707:
-+	case BCMA_CHIP_ID_BCM47094:
- 	case BCMA_CHIP_ID_BCM53018:
- 		return true;
- 	default:
-@@ -1052,8 +1053,9 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
- 	    (ci->id =3D=3D BCMA_CHIP_ID_BCM53572 && ci->pkg =3D=3D BCMA_PKG_I=
-D_BCM47188))
- 		iost &=3D ~BGMAC_BCMA_IOST_ATTACHED;
-=20
--	/* 3GMAC: for BCM4707, only do core reset at bgmac_probe() */
--	if (ci->id !=3D BCMA_CHIP_ID_BCM4707) {
-+	/* 3GMAC: for BCM4707 & BCM47094, only do core reset at bgmac_probe()=
- */
-+	if (ci->id !=3D BCMA_CHIP_ID_BCM4707 &&
-+	    ci->id !=3D BCMA_CHIP_ID_BCM47094) {
- 		flags =3D 0;
- 		if (iost & BGMAC_BCMA_IOST_ATTACHED) {
- 			flags =3D BGMAC_BCMA_IOCTL_SW_CLKEN;
---=20
-1.8.4.5
+There has been numerous of patch sets to make the stmmac "glue"
+drivers into more standard platform drivers.
+http://marc.info/?l=linux-netdev&m=143159850631093&w=2
+http://marc.info/?l=linux-netdev&m=143708560009851&w=2
+http://marc.info/?l=linux-netdev&m=143812136600541&w=2
+
+Do you see any advantage by using the init and exit hooks in your
+driver instead of using the standard driver PM callbacks and remove
+function?
+The only "cost" I see is slightly more boilerplate code. But since you
+already have init/exit functions you could easily make them into PM
+resume/suspend so I doubt there would be much increase in code size.
+
+One other thing;
+Do you need to have the PHY mode setup code in the init function which
+is called each time on resume?
+If you could move it to probe you could drop the interface priv data
+member and use plat_dat->interface as stmmac_probe_config_dt() has
+already done of_get_phy_mode().
+
+
+regards,
+Joachim Eastwood
