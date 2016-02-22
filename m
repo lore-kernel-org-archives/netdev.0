@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 03/12] net/mlx5: Introduce physical port TC/prio access functions
-Date: Mon, 22 Feb 2016 18:17:25 +0200
-Message-ID: <1456157854-12750-4-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 01/12] net/mlx5: Introduce a new header file for physical port functions
+Date: Mon, 22 Feb 2016 18:17:23 +0200
+Message-ID: <1456157854-12750-2-git-send-email-saeedm@mellanox.com>
 References: <1456157854-12750-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,204 +10,188 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Rana Shahout <ranas@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Matthew Finlay <matt@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:42185 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:42209 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752370AbcBVQS0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Feb 2016 11:18:26 -0500
+	id S1752513AbcBVQSg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Feb 2016 11:18:36 -0500
 In-Reply-To: <1456157854-12750-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add access functions to set and query a physical port TC groups
-and prio parameters.
+From: Achiad Shochat <achiad@mellanox.com>
 
+All the device physical port access functions are implemented in the
+port.c file.
+We just extract the exposure of these functions from driver.h into a
+dedicated header file called port.h.
+
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/port.c |   76 ++++++++++++++++++++++++
- include/linux/mlx5/driver.h                    |    2 +
- include/linux/mlx5/mlx5_ifc.h                  |   49 +++++++++++++++-
- include/linux/mlx5/port.h                      |    6 ++
- 4 files changed, 132 insertions(+), 1 deletions(-)
+ drivers/infiniband/hw/mlx5/main.c              |    1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en.h   |    1 +
+ drivers/net/ethernet/mellanox/mlx5/core/port.c |    1 +
+ include/linux/mlx5/driver.h                    |   31 -----------
+ include/linux/mlx5/port.h                      |   69 ++++++++++++++++++++++++
+ 5 files changed, 72 insertions(+), 31 deletions(-)
+ create mode 100644 include/linux/mlx5/port.h
 
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index ec737e2..fd3f8ae 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -42,6 +42,7 @@
+ #include <rdma/ib_user_verbs.h>
+ #include <rdma/ib_addr.h>
+ #include <rdma/ib_cache.h>
++#include <linux/mlx5/port.h>
+ #include <linux/mlx5/vport.h>
+ #include <rdma/ib_smi.h>
+ #include <rdma/ib_umem.h>
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index aac071a..15f6cdb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -38,6 +38,7 @@
+ #include <linux/mlx5/driver.h>
+ #include <linux/mlx5/qp.h>
+ #include <linux/mlx5/cq.h>
++#include <linux/mlx5/port.h>
+ #include <linux/mlx5/vport.h>
+ #include <linux/mlx5/transobj.h>
+ #include "wq.h"
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index dae7050..569100d 100644
+index a87e773..1e86321 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -405,3 +405,79 @@ int mlx5_query_port_pfc(struct mlx5_core_dev *dev, u8 *pfc_en_tx, u8 *pfc_en_rx)
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx5_query_port_pfc);
-+
-+int mlx5_max_tc(struct mlx5_core_dev *mdev)
-+{
-+	u8 num_tc = MLX5_CAP_GEN(mdev, max_tc) ? : 8;
-+
-+	return num_tc - 1;
-+}
-+
-+int mlx5_set_port_prio_tc(struct mlx5_core_dev *mdev, u8 *prio_tc)
-+{
-+	u32 in[MLX5_ST_SZ_DW(qtct_reg)];
-+	u32 out[MLX5_ST_SZ_DW(qtct_reg)];
-+	int err;
-+	int i;
-+
-+	memset(in, 0, sizeof(in));
-+	for (i = 0; i < 8; i++) {
-+		if (prio_tc[i] > mlx5_max_tc(mdev))
-+			return -EINVAL;
-+
-+		MLX5_SET(qtct_reg, in, prio, i);
-+		MLX5_SET(qtct_reg, in, tclass, prio_tc[i]);
-+
-+		err = mlx5_core_access_reg(mdev, in, sizeof(in), out,
-+					   sizeof(out), MLX5_REG_QTCT, 0, 1);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_set_port_prio_tc);
-+
-+static int mlx5_set_port_qetcr_reg(struct mlx5_core_dev *mdev, u32 *in,
-+				   int inlen)
-+{
-+	u32 out[MLX5_ST_SZ_DW(qtct_reg)];
-+
-+	if (!MLX5_CAP_GEN(mdev, ets))
-+		return -ENOTSUPP;
-+
-+	return mlx5_core_access_reg(mdev, in, inlen, out, sizeof(out),
-+				    MLX5_REG_QETCR, 0, 1);
-+}
-+
-+int mlx5_set_port_tc_group(struct mlx5_core_dev *mdev, u8 *tc_group)
-+{
-+	u32 in[MLX5_ST_SZ_DW(qetc_reg)];
-+	int i;
-+
-+	memset(in, 0, sizeof(in));
-+
-+	for (i = 0; i <= mlx5_max_tc(mdev); i++) {
-+		MLX5_SET(qetc_reg, in, tc_configuration[i].g, 1);
-+		MLX5_SET(qetc_reg, in, tc_configuration[i].group, tc_group[i]);
-+	}
-+
-+	return mlx5_set_port_qetcr_reg(mdev, in, sizeof(in));
-+}
-+EXPORT_SYMBOL_GPL(mlx5_set_port_tc_group);
-+
-+int mlx5_set_port_tc_bw_alloc(struct mlx5_core_dev *mdev, u8 *tc_bw)
-+{
-+	u32 in[MLX5_ST_SZ_DW(qetc_reg)];
-+	int i;
-+
-+	memset(in, 0, sizeof(in));
-+
-+	for (i = 0; i <= mlx5_max_tc(mdev); i++) {
-+		MLX5_SET(qetc_reg, in, tc_configuration[i].b, 1);
-+		MLX5_SET(qetc_reg, in, tc_configuration[i].bw_allocation, tc_bw[i]);
-+	}
-+
-+	return mlx5_set_port_qetcr_reg(mdev, in, sizeof(in));
-+}
-+EXPORT_SYMBOL_GPL(mlx5_set_port_tc_bw_alloc);
+@@ -32,6 +32,7 @@
+ 
+ #include <linux/module.h>
+ #include <linux/mlx5/driver.h>
++#include <linux/mlx5/port.h>
+ #include <linux/mlx5/cmd.h>
+ #include "mlx5_core.h"
+ 
 diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 02adc67..a815da9 100644
+index 1e3006d..02adc67 100644
 --- a/include/linux/mlx5/driver.h
 +++ b/include/linux/mlx5/driver.h
-@@ -99,6 +99,8 @@ enum {
- };
+@@ -794,37 +794,6 @@ int mlx5_core_access_reg(struct mlx5_core_dev *dev, void *data_in,
+ 			 int size_in, void *data_out, int size_out,
+ 			 u16 reg_num, int arg, int write);
  
- enum {
-+	MLX5_REG_QETCR		 = 0x4005,
-+	MLX5_REG_QTCT		 = 0x400a,
- 	MLX5_REG_PCAP		 = 0x5001,
- 	MLX5_REG_PMTU		 = 0x5003,
- 	MLX5_REG_PTYS		 = 0x5004,
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index fcc4373..ecbdbbf 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -729,7 +729,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
- 
- 	u8         reserved_at_1bf[0x3];
- 	u8         log_max_msg[0x5];
--	u8         reserved_at_1c7[0x18];
-+	u8         reserved_at_1c7[0x4];
-+	u8         max_tc[0x4];
-+	u8         reserved_at_1cf[0x10];
- 
- 	u8         stat_rate_support[0x10];
- 	u8         reserved_at_1ef[0xc];
-@@ -7061,4 +7063,49 @@ struct mlx5_ifc_modify_flow_table_in_bits {
- 	u8         reserved_at_100[0x100];
- };
- 
-+struct mlx5_ifc_ets_tcn_config_reg_bits {
-+	u8         g[0x1];
-+	u8         b[0x1];
-+	u8         r[0x1];
-+	u8         reserved_at_3[0x9];
-+	u8         group[0x4];
-+	u8         reserved_at_10[0x9];
-+	u8         bw_allocation[0x7];
-+
-+	u8         reserved_at_20[0xc];
-+	u8         max_bw_units[0x4];
-+	u8         reserved_at_30[0x8];
-+	u8         max_bw_value[0x8];
-+};
-+
-+struct mlx5_ifc_ets_global_config_reg_bits {
-+	u8         reserved_at_0[0x2];
-+	u8         r[0x1];
-+	u8         reserved_at_3[0x1d];
-+
-+	u8         reserved_at_20[0xc];
-+	u8         max_bw_units[0x4];
-+	u8         reserved_at_30[0x8];
-+	u8         max_bw_value[0x8];
-+};
-+
-+struct mlx5_ifc_qetc_reg_bits {
-+	u8                                         reserved_at_0[0x8];
-+	u8                                         port_number[0x8];
-+	u8                                         reserved_at_10[0x30];
-+
-+	struct mlx5_ifc_ets_tcn_config_reg_bits    tc_configuration[0x8];
-+	struct mlx5_ifc_ets_global_config_reg_bits global_configuration;
-+};
-+
-+struct mlx5_ifc_qtct_reg_bits {
-+	u8         reserved_at_0[0x8];
-+	u8         port_number[0x8];
-+	u8         reserved_at_10[0xd];
-+	u8         prio[0x3];
-+
-+	u8         reserved_at_20[0x1d];
-+	u8         tclass[0x3];
-+};
-+
- #endif /* MLX5_IFC_H */
+-int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps);
+-int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
+-			 int ptys_size, int proto_mask, u8 local_port);
+-int mlx5_query_port_proto_cap(struct mlx5_core_dev *dev,
+-			      u32 *proto_cap, int proto_mask);
+-int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
+-				u32 *proto_admin, int proto_mask);
+-int mlx5_query_port_link_width_oper(struct mlx5_core_dev *dev,
+-				    u8 *link_width_oper, u8 local_port);
+-int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
+-			       u8 *proto_oper, int proto_mask,
+-			       u8 local_port);
+-int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
+-			int proto_mask);
+-int mlx5_set_port_admin_status(struct mlx5_core_dev *dev,
+-			       enum mlx5_port_status status);
+-int mlx5_query_port_admin_status(struct mlx5_core_dev *dev,
+-				 enum mlx5_port_status *status);
+-
+-int mlx5_set_port_mtu(struct mlx5_core_dev *dev, int mtu, u8 port);
+-void mlx5_query_port_max_mtu(struct mlx5_core_dev *dev, int *max_mtu, u8 port);
+-void mlx5_query_port_oper_mtu(struct mlx5_core_dev *dev, int *oper_mtu,
+-			      u8 port);
+-
+-int mlx5_query_port_vl_hw_cap(struct mlx5_core_dev *dev,
+-			      u8 *vl_hw_cap, u8 local_port);
+-
+-int mlx5_set_port_pause(struct mlx5_core_dev *dev, u32 rx_pause, u32 tx_pause);
+-int mlx5_query_port_pause(struct mlx5_core_dev *dev,
+-			  u32 *rx_pause, u32 *tx_pause);
+-
+ int mlx5_debug_eq_add(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
+ void mlx5_debug_eq_remove(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
+ int mlx5_core_eq_query(struct mlx5_core_dev *dev, struct mlx5_eq *eq,
 diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
-index 4b3644c..0c67e69 100644
---- a/include/linux/mlx5/port.h
+new file mode 100644
+index 0000000..7accd4a
+--- /dev/null
 +++ b/include/linux/mlx5/port.h
-@@ -70,4 +70,10 @@ int mlx5_set_port_pfc(struct mlx5_core_dev *dev, u8 pfc_en_tx, u8 pfc_en_rx);
- int mlx5_query_port_pfc(struct mlx5_core_dev *dev, u8 *pfc_en_tx,
- 			u8 *pfc_en_rx);
- 
-+int mlx5_max_tc(struct mlx5_core_dev *mdev);
+@@ -0,0 +1,69 @@
++/*
++ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
 +
-+int mlx5_set_port_prio_tc(struct mlx5_core_dev *mdev, u8 *prio_tc);
-+int mlx5_set_port_tc_group(struct mlx5_core_dev *mdev, u8 *tc_group);
-+int mlx5_set_port_tc_bw_alloc(struct mlx5_core_dev *mdev, u8 *tc_bw);
++#ifndef __MLX5_PORT_H__
++#define __MLX5_PORT_H__
 +
- #endif /* __MLX5_PORT_H__ */
++#include <linux/mlx5/driver.h>
++
++int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps);
++int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
++			 int ptys_size, int proto_mask, u8 local_port);
++int mlx5_query_port_proto_cap(struct mlx5_core_dev *dev,
++			      u32 *proto_cap, int proto_mask);
++int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
++				u32 *proto_admin, int proto_mask);
++int mlx5_query_port_link_width_oper(struct mlx5_core_dev *dev,
++				    u8 *link_width_oper, u8 local_port);
++int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
++			       u8 *proto_oper, int proto_mask,
++			       u8 local_port);
++int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
++			int proto_mask);
++int mlx5_set_port_admin_status(struct mlx5_core_dev *dev,
++			       enum mlx5_port_status status);
++int mlx5_query_port_admin_status(struct mlx5_core_dev *dev,
++				 enum mlx5_port_status *status);
++
++int mlx5_set_port_mtu(struct mlx5_core_dev *dev, int mtu, u8 port);
++void mlx5_query_port_max_mtu(struct mlx5_core_dev *dev, int *max_mtu, u8 port);
++void mlx5_query_port_oper_mtu(struct mlx5_core_dev *dev, int *oper_mtu,
++			      u8 port);
++
++int mlx5_query_port_vl_hw_cap(struct mlx5_core_dev *dev,
++			      u8 *vl_hw_cap, u8 local_port);
++
++int mlx5_set_port_pause(struct mlx5_core_dev *dev, u32 rx_pause, u32 tx_pause);
++int mlx5_query_port_pause(struct mlx5_core_dev *dev,
++			  u32 *rx_pause, u32 *tx_pause);
++
++#endif /* __MLX5_PORT_H__ */
 -- 
 1.7.1
