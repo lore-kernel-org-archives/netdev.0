@@ -1,81 +1,74 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [patch net-next 6/9] mlxsw: spectrum: Unmap local port from
- module during teardown
-Date: Mon, 22 Feb 2016 23:00:54 +0200
-Message-ID: <20160222210054.GA7745@colbert.idosch.org>
-References: <1456165924-14399-1-git-send-email-jiri@resnulli.us>
- <1456165924-14399-7-git-send-email-jiri@resnulli.us>
- <56CB706F.3000301@gmail.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: net: netcp: regarding commit 899077: netcp: try to reduce type
+ confusion in descriptors
+Date: Mon, 22 Feb 2016 16:48:14 -0500
+Message-ID: <56CB821E.7040809@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Jiri Pirko <jiri@resnulli.us>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <eladr@mellanox.com>, <yotamg@mellanox.com>,
-	<ogerlitz@mellanox.com>, <yishaih@mellanox.com>,
-	<dledford@redhat.com>, <sean.hefty@intel.com>,
-	<hal.rosenstock@gmail.com>, <eugenia@mellanox.com>,
-	<roopa@cumulusnetworks.com>, <nikolay@cumulusnetworks.com>,
-	<hadarh@mellanox.com>, <jhs@mojatatu.com>,
-	<jeffrey.t.kirsher@intel.com>, <brouer@redhat.com>,
-	<ivecera@redhat.com>, <rami.rosen@intel.com>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0083.outbound.protection.outlook.com ([157.55.234.83]:27712
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751937AbcBVVQM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Feb 2016 16:16:12 -0500
-Content-Disposition: inline
-In-Reply-To: <56CB706F.3000301@gmail.com>
+Received: from devils.ext.ti.com ([198.47.26.153]:48267 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754742AbcBVVsQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 16:48:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi John,
+Arnd,
 
-Mon, Feb 22, 2016 at 10:32:47PM IST, john.fastabend@gmail.com wrote:
->On 16-02-22 10:32 AM, Jiri Pirko wrote:
->> From: Ido Schimmel <idosch@mellanox.com>
->> 
->> When splitting a port we replace it with 2 or 4 other ports. To be able
->> to do that we need to remove the original port netdev and unmap it from
->> its module. However, we first mark it as disabled, as active ports
->> cannot be unmapped.
->> 
->> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->
->Hi Jiri, Ido,
->
->You've sort of lost me on this port splitting/unsplitting thread. What
->does this actually do? Are you just creating two netdevs and LAGing them
->in the hardware, I'm guessing not or you wouldn't have some device API
->for it and would do it using normal methods.
+As promised, here is what I found wrong with the commit 899077 that introduced a 
+regression. With these changes, I am able to boot kernel without issues on K2 platforms.
 
-Yep, it's not LAG. You basically have a mapping between a physical
-module and a local port, which is represented by a port netdev.
+>From the commit description, it appears that you are trying to make the driver do the right
+thing if compiled for a 64 bit systems. Is it mandatory for all kernel drivers to be
+64bit compliant? Similar question on supporting mixed endian in all kernel drivers.
+Keystone can have SoC configured to be in big endian mode for peripherals and DSP. so that is
+something we need to support if there is customer interest. Wondering why do one run BE kernel
+binary on these platforms? Any reason? I saw some reference to that in past discussion on this
+regression issue.
 
-Each module has 4 lanes, so if you connect a splitter (say a 2x) you can
-map each 2 lanes to a different port and assign each a new local port.
-These are completely independent from each other, but they can only give
-you 50Gb/s max, as opposed to the original 100Gb/s (as it had 4 lanes
-all to itself).
+Murali
 
->
->If its something to do with physical layout of the board itself why
->don't you trigger this based on some init time introspection or an
->interrupt if someone plugs in a port splitting cable/module (does that
->exist?).
 
-We currently don't have an event that tells us that a splitter is
-connected. Also, had we created / destroyed these based on events, then
-an accidental removal of the splitter would cause all the configuration
-setup on these ports to disappear (say VLANs on a bridged port, unicast
-flooding etc.).
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index c61d66d..ac35161 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -167,7 +167,7 @@ static void set_pad_info(u32 pad0, u32 pad1, u32 pad2, struct knav_dma_desc *des
+ {
+        desc->pad[0] = cpu_to_le32(pad0);
+        desc->pad[1] = cpu_to_le32(pad1);
+-       desc->pad[2] = cpu_to_le32(pad1);
++       desc->pad[2] = cpu_to_le32(pad2);
+ }
+ 
+ static void set_org_pkt_info(dma_addr_t buff, u32 buff_len,
+@@ -870,8 +870,8 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+                }
+                buf_len = PAGE_SIZE;
+                dma = dma_map_page(netcp->dev, page, 0, buf_len, DMA_TO_DEVICE);
+-               pad[0] = lower_32_bits(dma);
+-               pad[1] = upper_32_bits(dma);
++               pad[0] = lower_32_bits((uintptr_t)page);
++               pad[1] = upper_32_bits((uintptr_t)page);
+                pad[2] = 0;
+        }
+ 
+@@ -1194,9 +1194,9 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
+        }
+ 
+        set_words(&tmp, 1, &desc->packet_info);
+-       tmp = lower_32_bits((uintptr_t)&skb);
++       tmp = lower_32_bits((uintptr_t)skb);
+        set_words(&tmp, 1, &desc->pad[0]);
+-       tmp = upper_32_bits((uintptr_t)&skb);
++       tmp = upper_32_bits((uintptr_t)skb);
+        set_words(&tmp, 1, &desc->pad[1]);
+ 
+        if (tx_pipe->flags & SWITCH_TO_PORT_IN_TAGINFO) {
 
-Thanks.
-
->
->Thanks,
->John
->
->
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
