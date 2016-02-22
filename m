@@ -1,68 +1,66 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [net-next PATCH 3/5] Support to encoding decoding skb prio on IFE action
-Date: Mon, 22 Feb 2016 08:21:42 -0500
-Message-ID: <1456147304-13355-4-git-send-email-jhs@emojatatu.com>
+Subject: [net-next PATCH 2/5] Support to encoding decoding skb mark on IFE action
+Date: Mon, 22 Feb 2016 08:21:41 -0500
+Message-ID: <1456147304-13355-3-git-send-email-jhs@emojatatu.com>
 References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com>
 Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
 	xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
 	Jamal Hadi Salim <jhs@mojatatu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:33879 "EHLO
-	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754217AbcBVNWC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 08:22:02 -0500
-Received: by mail-io0-f177.google.com with SMTP id 9so177815534iom.1
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 05:22:02 -0800 (PST)
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:38062 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754217AbcBVNWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 08:22:00 -0500
+Received: by mail-ig0-f174.google.com with SMTP id y8so79698199igp.1
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 05:22:00 -0800 (PST)
 In-Reply-To: <1456147304-13355-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-    Example usage:
-    Set the skb priority using skbedit then allow it to be encoded
+Example usage:
+Set the skb using skbedit then allow it to be encoded
 
-    sudo tc qdisc add dev $ETH root handle 1: prio
-    sudo tc filter add dev $ETH parent 1: protocol ip prio 10 \
-    u32 match ip protocol 1 0xff flowid 1:2 \
-    action skbedit prio 17 \
-    action ife encode \
-    allow prio \
-    dst 02:15:15:15:15:15
+sudo tc qdisc add dev $ETH root handle 1: prio
+sudo tc filter add dev $ETH parent 1: protocol ip prio 10 \
+u32 match ip protocol 1 0xff flowid 1:2 \
+action skbedit mark 17 \
+action ife encode \
+allow mark \
+dst 02:15:15:15:15:15
 
-    Note: You dont need the skbedit action if you are already encoding the
-    skb priority earlier. A zero skb priority will not be sent
+Note: You dont need the skbedit action if you are already encoding the
+skb mark earlier. A zero skb mark will not be allowed
 
-    Alternative hard code static priority of decimal 33 (unlike skbedit)
-    then mark of 0x12 every time the filter matches
+Alternative hard code static mark of 0x12 every time the filter matches
 
-    sudo $TC filter add dev $ETH parent 1: protocol ip prio 10 \
-    u32 match ip protocol 1 0xff flowid 1:2 \
-    action ife encode \
-    type 0xDEAD \
-    use prio 33 \
-    use mark 0x12 \
-    dst 02:15:15:15:15:15
+sudo $TC filter add dev $ETH parent 1: protocol ip prio 10 \
+u32 match ip protocol 1 0xff flowid 1:2 \
+action ife encode \
+type 0xDEAD \
+use mark 0x12 \
+dst 02:15:15:15:15:15
 
-    Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- net/sched/Kconfig            |  5 +++
- net/sched/Makefile           |  1 +
- net/sched/act_meta_skbprio.c | 80 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 86 insertions(+)
- create mode 100644 net/sched/act_meta_skbprio.c
+ net/sched/Kconfig         |  5 +++
+ net/sched/Makefile        |  1 +
+ net/sched/act_meta_mark.c | 81 +++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 87 insertions(+)
+ create mode 100644 net/sched/act_meta_mark.c
 
 diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 85854c0..b148302 100644
+index 4d48ef5..85854c0 100644
 --- a/net/sched/Kconfig
 +++ b/net/sched/Kconfig
-@@ -756,6 +756,11 @@ config NET_IFE_SKBMARK
-         depends on NET_ACT_IFE
-         ---help---
+@@ -751,6 +751,11 @@ config NET_ACT_IFE
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called act_ife.
  
-+config NET_IFE_SKBPRIO
-+        tristate "Support to encoding decoding skb prio on IFE action"
++config NET_IFE_SKBMARK
++        tristate "Support to encoding decoding skb mark on IFE action"
 +        depends on NET_ACT_IFE
 +        ---help---
 +
@@ -70,25 +68,25 @@ index 85854c0..b148302 100644
  	bool "Incoming device classification"
  	depends on NET_CLS_U32 || NET_CLS_FW
 diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 3f7a182..84bddb3 100644
+index 3d17667..3f7a182 100644
 --- a/net/sched/Makefile
 +++ b/net/sched/Makefile
-@@ -21,6 +21,7 @@ obj-$(CONFIG_NET_ACT_BPF)	+= act_bpf.o
+@@ -20,6 +20,7 @@ obj-$(CONFIG_NET_ACT_VLAN)	+= act_vlan.o
+ obj-$(CONFIG_NET_ACT_BPF)	+= act_bpf.o
  obj-$(CONFIG_NET_ACT_CONNMARK)	+= act_connmark.o
  obj-$(CONFIG_NET_ACT_IFE)	+= act_ife.o
- obj-$(CONFIG_NET_IFE_SKBMARK)	+= act_meta_mark.o
-+obj-$(CONFIG_NET_IFE_SKBPRIO)	+= act_meta_skbprio.o
++obj-$(CONFIG_NET_IFE_SKBMARK)	+= act_meta_mark.o
  obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
  obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
  obj-$(CONFIG_NET_SCH_HTB)	+= sch_htb.o
-diff --git a/net/sched/act_meta_skbprio.c b/net/sched/act_meta_skbprio.c
+diff --git a/net/sched/act_meta_mark.c b/net/sched/act_meta_mark.c
 new file mode 100644
-index 0000000..ceaab8c
+index 0000000..f3e1a44
 --- /dev/null
-+++ b/net/sched/act_meta_skbprio.c
-@@ -0,0 +1,80 @@
++++ b/net/sched/act_meta_mark.c
+@@ -0,0 +1,81 @@
 +/*
-+ * net/sched/act_meta_prio.c IFE skb->priority metadata module
++ * net/sched/act_meta_mark.c IFE skb->mark metadata module
 + *
 + *		This program is free software; you can redistribute it and/or
 + *		modify it under the terms of the GNU General Public License
@@ -111,61 +109,62 @@ index 0000000..ceaab8c
 +#include <net/pkt_sched.h>
 +#include <uapi/linux/tc_act/tc_ife.h>
 +#include <net/tc_act/tc_ife.h>
++#include <linux/rtnetlink.h>
 +
-+static int skbprio_check(struct sk_buff *skb, struct tcf_meta_info *e)
-+{
-+	return check_meta_u32(skb->priority, e);
-+}
-+
-+static int skbprio_encode(struct sk_buff *skb, void *skbdata,
++static int skbmark_encode(struct sk_buff *skb, void *skbdata,
 +			  struct tcf_meta_info *e)
 +{
-+	u32 ifeprio = skb->priority; /* avoid having to cast skb->priority*/
++	u32 ifemark = skb->mark;
 +
-+	pr_emerg("encode skbprio %d\n", ifeprio);
-+	return encode_meta_u32(ifeprio, skbdata, e);
++	return encode_meta_u32(ifemark, skbdata, e);
 +}
 +
-+static int skbprio_decode(struct sk_buff *skb, void *data, u16 len)
++static int skbmark_decode(struct sk_buff *skb, void *data, u16 len)
 +{
-+	u32 ifeprio = *(u32 *) data;
++	u32 ifemark = *(u32 *) data;
 +
-+	skb->priority = ntohl(ifeprio);
-+	pr_emerg("decode skbprio %d\n", skb->priority);
++	skb->mark = ntohl(ifemark);
 +	return 0;
 +}
 +
-+static struct tcf_meta_ops ife_prio_ops = {
-+	.metaid = IFE_META_PRIO,
++static int skbmark_check(struct sk_buff *skb, struct tcf_meta_info *e)
++{
++	return check_meta_u32(skb->mark, e);
++}
++
++static struct tcf_meta_ops ife_skbmark_ops = {
++	.metaid = IFE_META_SKBMARK,
 +	.metatype = NLA_U32,
-+	.name = "skbprio",
-+	.synopsis = "skb prio metadata",
-+	.check_presence = skbprio_check,
-+	.encode = skbprio_encode,
-+	.decode = skbprio_decode,
++	.name = "skbmark",
++	.synopsis = "skb mark 32 bit metadata",
++	.check_presence = skbmark_check,
++	.encode = skbmark_encode,
++	.decode = skbmark_decode,
 +	.get = get_meta_u32,
 +	.alloc = alloc_meta_u32,
++	.release = release_meta_gen,
++	.validate = validate_meta_u32,
 +	.owner = THIS_MODULE,
 +};
 +
-+static int __init ifeprio_init_module(void)
++static int __init ifemark_init_module(void)
 +{
-+	pr_info("Loaded IFE skb prio\n");
-+	return register_ife_op(&ife_prio_ops);
++	pr_info("Loaded IFE skb MARK\n");
++	return register_ife_op(&ife_skbmark_ops);
 +}
 +
-+static void __exit ifeprio_cleanup_module(void)
++static void __exit ifemark_cleanup_module(void)
 +{
-+	unregister_ife_op(&ife_prio_ops);
-+	pr_info("Unloaded IFE skb prio\n");
++	pr_info("Unloaded IFE MARK\n");
++	unregister_ife_op(&ife_skbmark_ops);
 +}
 +
-+module_init(ifeprio_init_module);
-+module_exit(ifeprio_cleanup_module);
++module_init(ifemark_init_module);
++module_exit(ifemark_cleanup_module);
 +
 +MODULE_AUTHOR("Jamal Hadi Salim(2015)");
-+MODULE_DESCRIPTION("Inter-FE skb prio metadata action");
++MODULE_DESCRIPTION("Inter-FE skb mark metadata module");
 +MODULE_LICENSE("GPL");
-+MODULE_ALIAS_IFE_META(IFE_META_PRIO);
++MODULE_ALIAS_IFE_META(IFE_META_SKBMARK);
 -- 
 1.9.1
