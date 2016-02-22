@@ -1,75 +1,45 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net v2] r8169:fix "rtl_counters_cond == 1 (loop: 1000,
- delay: 10)" log spam.
-Date: Tue, 23 Feb 2016 00:13:01 +0100
-Message-ID: <20160222231301.GA17876@electric-eye.fr.zoreil.com>
-References: <1456153794-2028-1-git-send-email-hau@realtek.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next] net_sched: add network namespace support for tc actions
+Date: Mon, 22 Feb 2016 15:51:51 -0800
+Message-ID: <CAM_iQpVBBE6aah=5YNuBt0G+5Zb7eB-O97FVaYLWLSOjAMrCMQ@mail.gmail.com>
+References: <1455928994-9726-1-git-send-email-xiyou.wangcong@gmail.com>
+	<56C8B21E.7070307@iogearbox.net>
+	<CAM_iQpWzVoy7eYdf2Yxz2qfoAO5-pDZioACyu7Hws6u7vvP1Yw@mail.gmail.com>
+	<56CB1053.8020102@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org
-To: Chunhao Lin <hau@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1456153794-2028-1-git-send-email-hau@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:33285 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756432AbcBVXvw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 18:51:52 -0500
+Received: by mail-yk0-f169.google.com with SMTP id z13so68953631ykd.0
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 15:51:51 -0800 (PST)
+In-Reply-To: <56CB1053.8020102@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Chunhao Lin <hau@realtek.com> :
-[...]
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 537974c..a645f8d 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -7730,10 +7730,13 @@ rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
->  {
->  	struct rtl8169_private *tp = netdev_priv(dev);
->  	void __iomem *ioaddr = tp->mmio_addr;
-> +	struct pci_dev *pdev = tp->pci_dev;
+On Mon, Feb 22, 2016 at 5:42 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> I did a quick look and i am struggling with it. The patch seems largish
+> The issue is that we need to do this per kernel module so the code
+> churn maybe unavoidable; hinfo stored in act_ops complicates things.
+> Having said that:  All the pernet operations in your
+> code seem to be generic, other than to accomodate for module specific
+> act_ops. Is it possible to make generic pernet operations? This way
+> you could do things at tcf_register_action() for all actions.
+> The challenge seems to be in the xxx_net_id which appears(sorry didnt
+> look closely at the namespace code) to need to be unique id per module
+> and per namespace instance - otherwise i would suggest for xxx_net_id
 
-+ 	struct device *d = &tp->pci_dev->dev;
+I got some idea to reduce the duplicated code, not all but most.
 
-(the patch does not use pdev alone)
+> to be part of act_ops. Could we not have an #ifdef in the namespace
+> core like the netfilter code does and have one level of indirection
+> for everything but the namespace 0?
 
-[...]
-> @@ -7761,7 +7764,8 @@ rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
->  	 * Fetch additonal counter values missing in stats collected by driver
->  	 * from tally counters.
->  	 */
-> -	rtl8169_update_counters(dev);
-> +	if (pm_runtime_active(&pdev->dev))
-> +		rtl8169_update_counters(dev);
+I believe this should be done in a separated patch if really needed.
 
-pm_runtime_active() won't change after pm_runtime_get_noresume(). You may
-set a boolean active = pm_runtime_active(d) before testing netif_running().
-
-[...]
-> @@ -7842,6 +7848,12 @@ static int rtl8169_runtime_suspend(struct device *device)
->  	struct pci_dev *pdev = to_pci_dev(device);
->  	struct net_device *dev = pci_get_drvdata(pdev);
->  	struct rtl8169_private *tp = netdev_priv(dev);
-> +	void __iomem *ioaddr = tp->mmio_addr;
-> +
-> +	/* Update counters before going runtime suspend */
-> +	if (netif_running(dev))
-> +		rtl8169_rx_missed(dev, ioaddr);
-> +	rtl8169_update_counters(dev);
->  
->  	if (!tp->TxDescArray)
->  		return 0;
-
-Nits:
-
-- the tp->TxDescArray test provides the required synchronization: see
-  rtl8169_{open/close} and their pm_runtime_{get / put}.
-
-- ioaddr is not really needed : tp->mmio_addr appears only once and it does
-  not mess the 72..80 cols limit.
-
-- even if the device can only be automatically runtime suspended some time
-  after a link down event, you may address davem's point regarding stats
-  reliability and move rtl8169_rx_missed + rtl8169_update_counters after
-  rtl8169_net_suspend.
-
--- 
-Ueimor
+Thanks.
