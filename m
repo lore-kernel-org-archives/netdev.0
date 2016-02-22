@@ -1,69 +1,94 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] netcp: use pointer to fix build fail
-Date: Mon, 22 Feb 2016 22:55:43 +0530
-Message-ID: <1456161943-9206-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Wingman Kwok <w-kwok2@ti.com>,
-	Murali Karicheri <m-karicheri2@ti.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [PATCH][net-next] bridge: increase mtu to 9000
+Date: Mon, 22 Feb 2016 09:28:39 -0800
+Message-ID: <56CB4547.2070607@hpe.com>
+References: <1456133351-10292-1-git-send-email-roy.qing.li@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: roy.qing.li@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g9t5008.houston.hp.com ([15.240.92.66]:50728 "EHLO
+	g9t5008.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751096AbcBVR2k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 12:28:40 -0500
+In-Reply-To: <1456133351-10292-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-While building keystone_defconfig of arm we are getting build failure
-with the error:
+On 02/22/2016 01:29 AM, roy.qing.li@gmail.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
+>
+> A linux bridge always adopts the smallest MTU of the enslaved devices.
+> When no device are enslaved, it defaults to a MTU of 1500 and refuses to
+> use a larger one. This is problematic when using bridges enslaving only
+> virtual NICs (vnetX) like it's common with KVM guests.
+>
+> Steps to reproduce the problem
+>
+> 1) sudo ip link add br-test0 type bridge # create an empty bridge
+> 2) sudo ip link set br-test0 mtu 9000 # attempt to set MTU > 1500
+> 3) ip link show dev br-test0 # confirm MTU
+>
+> Here, 2) returns "RTNETLINK answers: Invalid argument". One (cumbersome)
+> way around this is:
+>
+> 4) sudo modprobe dummy
+> 5) sudo ip link set dummy0 mtu 9000 master br-test0
+>
+> Then the bridge's MTU can be changed from anywhere to 9000.
+>
+> This is especially annoying for the virtualization case because the
+> KVM's tap driver will by default adopt the bridge's MTU on startup
+> making it impossible (without the workaround) to use a large MTU on the
+> guest VMs.
+>
+> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1399064
+>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> ---
+>   net/bridge/br_if.c      | 4 ++--
+>   net/bridge/br_private.h | 2 ++
+>   2 files changed, 4 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> index c367b3e..38ced44 100644
+> --- a/net/bridge/br_if.c
+> +++ b/net/bridge/br_if.c
+> @@ -390,7 +390,7 @@ int br_del_bridge(struct net *net, const char *name)
+>   	return ret;
+>   }
+>
+> -/* MTU of the bridge pseudo-device: ETH_DATA_LEN or the minimum of the ports */
+> +/* MTU of the bridge pseudo-device: BR_JUMBO_MTU or the minimum of the ports */
+>   int br_min_mtu(const struct net_bridge *br)
+>   {
+>   	const struct net_bridge_port *p;
+> @@ -399,7 +399,7 @@ int br_min_mtu(const struct net_bridge *br)
+>   	ASSERT_RTNL();
+>
+>   	if (list_empty(&br->port_list))
+> -		mtu = ETH_DATA_LEN;
+> +		mtu = BR_JUMBO_MTU;
+>   	else {
+>   		list_for_each_entry(p, &br->port_list, list) {
+>   			if (!mtu  || p->dev->mtu < mtu)
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index 302ab0a..d3c29f6 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -32,6 +32,8 @@
+>
+>   #define BR_VERSION	"2.3"
+>
+> +#define BR_JUMBO_MTU		9000
+> +
+>   /* Control of forwarding link local multicast */
+>   #define BR_GROUPFWD_DEFAULT	0
+>   /* Don't allow forwarding of control protocols like STP, MAC PAUSE and LACP */
+>
 
-drivers/net/ethernet/ti/netcp_core.c:1846:31: error: invalid type argument of '->' (have 'struct tc_to_netdev')
-  if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
-                               ^
-drivers/net/ethernet/ti/netcp_core.c:1851:35: error: invalid type argument of '->' (have 'struct tc_to_netdev')
-      (dev->real_num_tx_queues < tc->tc))
-                                   ^
-drivers/net/ethernet/ti/netcp_core.c:1855:8: error: invalid type argument of '->' (have 'struct tc_to_netdev')
-  if (tc->tc) {
-        ^
-drivers/net/ethernet/ti/netcp_core.c:1856:28: error: invalid type argument of '->' (have 'struct tc_to_netdev')
-   netdev_set_num_tc(dev, tc->tc);
-                            ^
-drivers/net/ethernet/ti/netcp_core.c:1857:21: error: invalid type argument of '->' (have 'struct tc_to_netdev')
-   for (i = 0; i < tc->tc; i++)
-                     ^
-drivers/net/ethernet/ti/netcp_core.c: At top level:
-drivers/net/ethernet/ti/netcp_core.c:1879:2: warning: initialization from incompatible pointer type
-  .ndo_setup_tc  = netcp_setup_tc,
-  ^
+If you are going to 9000. why not just go ahead and use the maximum size 
+of an IP datagram?
 
-The callback of ndo_setup_tc should be:
-int (*ndo_setup_tc)(struct net_device *dev, u32 handle, __be16 protocol,
-                    struct tc_to_netdev *tc);
-
-But we missed marking the last argument as a pointer.
-
-Fixes: 16e5cc647173 ("net: rework setup_tc ndo op to consume general tc operand")
-CC: John Fastabend <john.r.fastabend@intel.com>
-Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
----
-
-build log at:
-https://travis-ci.org/sudipm-mukherjee/parport/jobs/110890068
-
- drivers/net/ethernet/ti/netcp_core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index 8586a20..06a0a73 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -1836,7 +1836,7 @@ static u16 netcp_select_queue(struct net_device *dev, struct sk_buff *skb,
- }
- 
- static int netcp_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
--			  struct tc_to_netdev tc)
-+			  struct tc_to_netdev *tc)
- {
- 	int i;
- 
--- 
-1.9.1
+rick jones
