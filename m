@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 10/12] net/mlx5e: Add netdev support for VXLAN tunneling
-Date: Mon, 22 Feb 2016 18:17:32 +0200
-Message-ID: <1456157854-12750-11-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 07/12] net/mlx5e: Wake On LAN support
+Date: Mon, 22 Feb 2016 18:17:29 +0200
+Message-ID: <1456157854-12750-8-git-send-email-saeedm@mellanox.com>
 References: <1456157854-12750-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -13,485 +13,355 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:42334 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:42314 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752927AbcBVQTD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Feb 2016 11:19:03 -0500
+	id S1752914AbcBVQS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Feb 2016 11:18:59 -0500
 In-Reply-To: <1456157854-12750-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Finlay <matt@mellanox.com>
+From: Tariq Toukan <tariqt@mellanox.com>
 
-If a VXLAN udp dport is added to device it will:
+Implement set/get WOL by ethtool and added the needed
+device commands and structures to mlx5_ifc.
 
-   - Configure the hardware to offload the port (up to the max
-     supported).
-   - Advertise NETIF_F_GSO_UDP_TUNNEL and supported hw_enc_features.
-
-Signed-off-by: Matthew Finlay <matt@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Rana Shahout <ranas@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/Makefile  |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c     |    8 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |    6 +
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   95 ++++++++++++-
- drivers/net/ethernet/mellanox/mlx5/core/vxlan.c   |  170 +++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/vxlan.h   |   54 +++++++
- 6 files changed, 332 insertions(+), 3 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vxlan.h
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |    6 +
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  125 ++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     |   38 ++++++
+ include/linux/mlx5/device.h                        |   11 ++
+ include/linux/mlx5/mlx5_ifc.h                      |   62 ++++++++++-
+ include/linux/mlx5/port.h                          |    2 +
+ 6 files changed, 243 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index 1a82e23..11b592d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -6,6 +6,6 @@ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
- 
- mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o \
- 		en_main.o en_fs.o en_ethtool.o en_tx.o en_rx.o \
--		en_txrx.o en_clock.o
-+		en_txrx.o en_clock.o vxlan.o
- 
- mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index 9ce87c6..97f5114 100644
+index 037fc4c..9ce87c6 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2013-2015, Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2013-2016, Mellanox Technologies. All rights reserved.
-  *
-  * This software is available to you under a choice of one of two
-  * licenses.  You may choose to be licensed under the terms of the GNU
-@@ -566,6 +566,12 @@ const char *mlx5_command_str(int command)
- 	case MLX5_CMD_OP_QUERY_WOL_ROL:
- 		return "QUERY_WOL_ROL";
+@@ -560,6 +560,12 @@ const char *mlx5_command_str(int command)
+ 	case MLX5_CMD_OP_ACCESS_REG:
+ 		return "MLX5_CMD_OP_ACCESS_REG";
  
-+	case MLX5_CMD_OP_ADD_VXLAN_UDP_DPORT:
-+		return "ADD_VXLAN_UDP_DPORT";
++	case MLX5_CMD_OP_SET_WOL_ROL:
++		return "SET_WOL_ROL";
 +
-+	case MLX5_CMD_OP_DELETE_VXLAN_UDP_DPORT:
-+		return "DELETE_VXLAN_UDP_DPORT";
++	case MLX5_CMD_OP_QUERY_WOL_ROL:
++		return "QUERY_WOL_ROL";
 +
  	default: return "unknown command opcode";
  	}
  }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 786a247..a700c57 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -501,6 +501,11 @@ struct mlx5e_vlan_db {
- 	bool          filter_disabled;
- };
- 
-+struct mlx5e_vxlan_db {
-+	spinlock_t			lock; /* protect vxlan table */
-+	struct radix_tree_root		tree;
-+};
-+
- struct mlx5e_flow_table {
- 	int num_groups;
- 	struct mlx5_flow_table		*t;
-@@ -535,6 +540,7 @@ struct mlx5e_priv {
- 	struct mlx5e_flow_tables   fts;
- 	struct mlx5e_eth_addr_db   eth_addr;
- 	struct mlx5e_vlan_db       vlan;
-+	struct mlx5e_vxlan_db      vxlan;
- 
- 	struct mlx5e_params        params;
- 	spinlock_t                 async_events_spinlock; /* sync hw events */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 704d75c..6f7eb3b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2015-2016, Mellanox Technologies. All rights reserved.
-  *
-  * This software is available to you under a choice of one of two
-  * licenses.  You may choose to be licensed under the terms of the GNU
-@@ -31,8 +31,10 @@
-  */
- 
- #include <linux/mlx5/fs.h>
-+#include <net/vxlan.h>
- #include "en.h"
- #include "eswitch.h"
-+#include "vxlan.h"
- 
- struct mlx5e_rq_param {
- 	u32                        rqc[MLX5_ST_SZ_DW(rqc)];
-@@ -2078,6 +2080,78 @@ static int mlx5e_get_vf_stats(struct net_device *dev,
- 					    vf_stats);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 65624ac..e9760f8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -884,6 +884,129 @@ static int mlx5e_get_ts_info(struct net_device *dev,
+ 	return 0;
  }
  
-+static void mlx5e_add_vxlan_port(struct net_device *netdev,
-+				 sa_family_t sa_family, __be16 port)
++static __u32 mlx5e_get_wol_supported(struct mlx5_core_dev *mdev)
++{
++	__u32 ret = 0;
++
++	if (MLX5_CAP_GEN(mdev, wol_g))
++		ret |= WAKE_MAGIC;
++
++	if (MLX5_CAP_GEN(mdev, wol_s))
++		ret |= WAKE_MAGICSECURE;
++
++	if (MLX5_CAP_GEN(mdev, wol_a))
++		ret |= WAKE_ARP;
++
++	if (MLX5_CAP_GEN(mdev, wol_b))
++		ret |= WAKE_BCAST;
++
++	if (MLX5_CAP_GEN(mdev, wol_m))
++		ret |= WAKE_MCAST;
++
++	if (MLX5_CAP_GEN(mdev, wol_u))
++		ret |= WAKE_UCAST;
++
++	if (MLX5_CAP_GEN(mdev, wol_p))
++		ret |= WAKE_PHY;
++
++	return ret;
++}
++
++static __u32 mlx5e_refomrat_wol_mode_mlx5_to_linux(u8 mode)
++{
++	__u32 ret = 0;
++
++	if (mode & MLX5_WOL_MAGIC)
++		ret |= WAKE_MAGIC;
++
++	if (mode & MLX5_WOL_SECURED_MAGIC)
++		ret |= WAKE_MAGICSECURE;
++
++	if (mode & MLX5_WOL_ARP)
++		ret |= WAKE_ARP;
++
++	if (mode & MLX5_WOL_BROADCAST)
++		ret |= WAKE_BCAST;
++
++	if (mode & MLX5_WOL_MULTICAST)
++		ret |= WAKE_MCAST;
++
++	if (mode & MLX5_WOL_UNICAST)
++		ret |= WAKE_UCAST;
++
++	if (mode & MLX5_WOL_PHY_ACTIVITY)
++		ret |= WAKE_PHY;
++
++	return ret;
++}
++
++static u8 mlx5e_refomrat_wol_mode_linux_to_mlx5(__u32 mode)
++{
++	u8 ret = 0;
++
++	if (mode & WAKE_MAGIC)
++		ret |= MLX5_WOL_MAGIC;
++
++	if (mode & WAKE_MAGICSECURE)
++		ret |= MLX5_WOL_SECURED_MAGIC;
++
++	if (mode & WAKE_ARP)
++		ret |= MLX5_WOL_ARP;
++
++	if (mode & WAKE_BCAST)
++		ret |= MLX5_WOL_BROADCAST;
++
++	if (mode & WAKE_MCAST)
++		ret |= MLX5_WOL_MULTICAST;
++
++	if (mode & WAKE_UCAST)
++		ret |= MLX5_WOL_UNICAST;
++
++	if (mode & WAKE_PHY)
++		ret |= MLX5_WOL_PHY_ACTIVITY;
++
++	return ret;
++}
++
++static void mlx5e_get_wol(struct net_device *netdev,
++			  struct ethtool_wolinfo *wol)
 +{
 +	struct mlx5e_priv *priv = netdev_priv(netdev);
-+
-+	if (!mlx5e_vxlan_allowed(priv->mdev))
-+		return;
-+
-+	mlx5e_vxlan_add_port(priv, be16_to_cpu(port));
-+}
-+
-+static void mlx5e_del_vxlan_port(struct net_device *netdev,
-+				 sa_family_t sa_family, __be16 port)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(netdev);
-+
-+	if (!mlx5e_vxlan_allowed(priv->mdev))
-+		return;
-+
-+	mlx5e_vxlan_del_port(priv, be16_to_cpu(port));
-+}
-+
-+static netdev_features_t mlx5e_vxlan_features_check(struct mlx5e_priv *priv,
-+						    struct sk_buff *skb,
-+						    netdev_features_t features)
-+{
-+	struct udphdr *udph;
-+	u16 proto;
-+	u16 port = 0;
-+
-+	switch (vlan_get_protocol(skb)) {
-+	case htons(ETH_P_IP):
-+		proto = ip_hdr(skb)->protocol;
-+		break;
-+	case htons(ETH_P_IPV6):
-+		proto = ipv6_hdr(skb)->nexthdr;
-+		break;
-+	default:
-+		goto out;
-+	}
-+
-+	if (proto == IPPROTO_UDP) {
-+		udph = udp_hdr(skb);
-+		port = be16_to_cpu(udph->dest);
-+	}
-+
-+	/* Verify if UDP port is being offloaded by HW */
-+	if (port && mlx5e_vxlan_lookup_port(priv, port))
-+		return features;
-+
-+out:
-+	/* Disable CSUM and GSO if the udp dport is not offloaded by HW */
-+	return features & ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
-+}
-+
-+static netdev_features_t mlx5e_features_check(struct sk_buff *skb,
-+					      struct net_device *netdev,
-+					      netdev_features_t features)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(netdev);
-+
-+	features = vlan_features_check(skb, features);
-+	features = vxlan_features_check(skb, features);
-+
-+	/* Validate if the tunneled packet is being offloaded by HW */
-+	if (skb->encapsulation &&
-+	    (features & NETIF_F_CSUM_MASK || features & NETIF_F_GSO_MASK))
-+		return mlx5e_vxlan_features_check(priv, skb, features);
-+
-+	return features;
-+}
-+
- static const struct net_device_ops mlx5e_netdev_ops_basic = {
- 	.ndo_open                = mlx5e_open,
- 	.ndo_stop                = mlx5e_close,
-@@ -2108,6 +2182,9 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
- 	.ndo_set_features        = mlx5e_set_features,
- 	.ndo_change_mtu          = mlx5e_change_mtu,
- 	.ndo_do_ioctl            = mlx5e_ioctl,
-+	.ndo_add_vxlan_port      = mlx5e_add_vxlan_port,
-+	.ndo_del_vxlan_port      = mlx5e_del_vxlan_port,
-+	.ndo_features_check      = mlx5e_features_check,
- 	.ndo_set_vf_mac          = mlx5e_set_vf_mac,
- 	.ndo_set_vf_vlan         = mlx5e_set_vf_vlan,
- 	.ndo_get_vf_config       = mlx5e_get_vf_config,
-@@ -2264,6 +2341,16 @@ static void mlx5e_build_netdev(struct net_device *netdev)
- 	netdev->hw_features      |= NETIF_F_HW_VLAN_CTAG_RX;
- 	netdev->hw_features      |= NETIF_F_HW_VLAN_CTAG_FILTER;
- 
-+	if (mlx5e_vxlan_allowed(mdev)) {
-+		netdev->hw_features     |= NETIF_F_GSO_UDP_TUNNEL;
-+		netdev->hw_enc_features |= NETIF_F_IP_CSUM;
-+		netdev->hw_enc_features |= NETIF_F_RXCSUM;
-+		netdev->hw_enc_features |= NETIF_F_TSO;
-+		netdev->hw_enc_features |= NETIF_F_TSO6;
-+		netdev->hw_enc_features |= NETIF_F_RXHASH;
-+		netdev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL;
-+	}
-+
- 	netdev->features          = netdev->hw_features;
- 	if (!priv->params.lro_en)
- 		netdev->features  &= ~NETIF_F_LRO;
-@@ -2387,6 +2474,8 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
- 
- 	mlx5e_init_eth_addr(priv);
- 
-+	mlx5e_vxlan_init(priv);
-+
- #ifdef CONFIG_MLX5_CORE_EN_DCB
- 	mlx5e_dcbnl_ieee_setets_core(priv, &priv->params.ets);
- #endif
-@@ -2397,6 +2486,9 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
- 		goto err_destroy_flow_tables;
- 	}
- 
-+	if (mlx5e_vxlan_allowed(mdev))
-+		vxlan_get_rx_port(netdev);
-+
- 	mlx5e_enable_async_events(priv);
- 	schedule_work(&priv->set_rx_mode_work);
- 
-@@ -2449,6 +2541,7 @@ static void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, void *vpriv)
- 	mlx5e_disable_async_events(priv);
- 	flush_scheduled_work();
- 	unregister_netdev(netdev);
-+	mlx5e_vxlan_cleanup(priv);
- 	mlx5e_destroy_flow_tables(priv);
- 	mlx5e_destroy_tirs(priv);
- 	mlx5e_destroy_rqt(priv, MLX5E_SINGLE_RQ_RQT);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
-new file mode 100644
-index 0000000..9f10df2
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
-@@ -0,0 +1,170 @@
-+/*
-+ * Copyright (c) 2016, Mellanox Technologies, Ltd.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/mlx5/driver.h>
-+#include "mlx5_core.h"
-+#include "vxlan.h"
-+
-+void mlx5e_vxlan_init(struct mlx5e_priv *priv)
-+{
-+	struct mlx5e_vxlan_db *vxlan_db = &priv->vxlan;
-+
-+	spin_lock_init(&vxlan_db->lock);
-+	INIT_RADIX_TREE(&vxlan_db->tree, GFP_ATOMIC);
-+}
-+
-+static int mlx5e_vxlan_core_add_port_cmd(struct mlx5_core_dev *mdev, u16 port)
-+{
-+	struct mlx5_outbox_hdr *hdr;
++	struct mlx5_core_dev *mdev = priv->mdev;
++	u8 mlx5_wol_mode;
 +	int err;
 +
-+	u32 in[MLX5_ST_SZ_DW(add_vxlan_udp_dport_in)];
-+	u32 out[MLX5_ST_SZ_DW(add_vxlan_udp_dport_out)];
++	memset(wol, 0, sizeof(*wol));
++
++	wol->supported = mlx5e_get_wol_supported(mdev);
++	if (!wol->supported)
++		return;
++
++	err = mlx5_query_port_wol(mdev, &mlx5_wol_mode);
++	if (err)
++		return;
++
++	wol->wolopts = mlx5e_refomrat_wol_mode_mlx5_to_linux(mlx5_wol_mode);
++}
++
++static int mlx5e_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++	struct mlx5_core_dev *mdev = priv->mdev;
++	__u32 wol_supported = mlx5e_get_wol_supported(mdev);
++	u32 mlx5_wol_mode;
++
++	if (!wol_supported)
++		return -ENOTSUPP;
++
++	if (wol->wolopts & ~wol_supported)
++		return -EINVAL;
++
++	mlx5_wol_mode = mlx5e_refomrat_wol_mode_linux_to_mlx5(wol->wolopts);
++
++	return mlx5_set_port_wol(mdev, mlx5_wol_mode);
++}
++
+ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.get_drvinfo       = mlx5e_get_drvinfo,
+ 	.get_link          = ethtool_op_get_link,
+@@ -908,4 +1031,6 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.get_pauseparam    = mlx5e_get_pauseparam,
+ 	.set_pauseparam    = mlx5e_set_pauseparam,
+ 	.get_ts_info       = mlx5e_get_ts_info,
++	.get_wol	   = mlx5e_get_wol,
++	.set_wol	   = mlx5e_set_wol,
+ };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index d97605e..e1f2e10 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -546,3 +546,41 @@ int mlx5_query_port_ets_rate_limit(struct mlx5_core_dev *mdev,
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(mlx5_query_port_ets_rate_limit);
++
++int mlx5_set_port_wol(struct mlx5_core_dev *mdev, u8 wol_mode)
++{
++	u32 in[MLX5_ST_SZ_DW(set_wol_rol_in)];
++	u32 out[MLX5_ST_SZ_DW(set_wol_rol_out)];
 +
 +	memset(in, 0, sizeof(in));
 +	memset(out, 0, sizeof(out));
 +
-+	MLX5_SET(add_vxlan_udp_dport_in, in, opcode,
-+		 MLX5_CMD_OP_ADD_VXLAN_UDP_DPORT);
-+	MLX5_SET(add_vxlan_udp_dport_in, in, vxlan_udp_port, port);
++	MLX5_SET(set_wol_rol_in, in, opcode, MLX5_CMD_OP_SET_WOL_ROL);
++	MLX5_SET(set_wol_rol_in, in, wol_mode_valid, 1);
++	MLX5_SET(set_wol_rol_in, in, wol_mode, wol_mode);
 +
-+	err = mlx5_cmd_exec(mdev, in, sizeof(in), out, sizeof(out));
-+	if (err)
-+		return err;
-+
-+	hdr = (struct mlx5_outbox_hdr *)out;
-+	return hdr->status ? -ENOMEM : 0;
++	return mlx5_cmd_exec_check_status(mdev, in, sizeof(in),
++					  out, sizeof(out));
 +}
++EXPORT_SYMBOL_GPL(mlx5_set_port_wol);
 +
-+static int mlx5e_vxlan_core_del_port_cmd(struct mlx5_core_dev *mdev, u16 port)
++int mlx5_query_port_wol(struct mlx5_core_dev *mdev, u8 *wol_mode)
 +{
-+	u32 in[MLX5_ST_SZ_DW(delete_vxlan_udp_dport_in)];
-+	u32 out[MLX5_ST_SZ_DW(delete_vxlan_udp_dport_out)];
-+
-+	memset(&in, 0, sizeof(in));
-+	memset(&out, 0, sizeof(out));
-+
-+	MLX5_SET(delete_vxlan_udp_dport_in, in, opcode,
-+		 MLX5_CMD_OP_DELETE_VXLAN_UDP_DPORT);
-+	MLX5_SET(delete_vxlan_udp_dport_in, in, vxlan_udp_port, port);
-+
-+	return mlx5_cmd_exec_check_status(mdev, in, sizeof(in), out,
-+					  sizeof(out));
-+}
-+
-+struct mlx5e_vxlan *mlx5e_vxlan_lookup_port(struct mlx5e_priv *priv, u16 port)
-+{
-+	struct mlx5e_vxlan_db *vxlan_db = &priv->vxlan;
-+	struct mlx5e_vxlan *vxlan;
-+
-+	spin_lock(&vxlan_db->lock);
-+	vxlan = radix_tree_lookup(&vxlan_db->tree, port);
-+	spin_unlock(&vxlan_db->lock);
-+
-+	return vxlan;
-+}
-+
-+int mlx5e_vxlan_add_port(struct mlx5e_priv *priv, u16 port)
-+{
-+	struct mlx5e_vxlan_db *vxlan_db = &priv->vxlan;
-+	struct mlx5e_vxlan *vxlan;
++	u32 in[MLX5_ST_SZ_DW(query_wol_rol_in)];
++	u32 out[MLX5_ST_SZ_DW(query_wol_rol_out)];
 +	int err;
 +
-+	err = mlx5e_vxlan_core_add_port_cmd(priv->mdev, port);
-+	if (err)
-+		return err;
++	memset(in, 0, sizeof(in));
++	memset(out, 0, sizeof(out));
 +
-+	vxlan = kzalloc(sizeof(*vxlan), GFP_KERNEL);
-+	if (!vxlan) {
-+		err = -ENOMEM;
-+		goto err_delete_port;
-+	}
++	MLX5_SET(query_wol_rol_in, in, opcode, MLX5_CMD_OP_QUERY_WOL_ROL);
 +
-+	vxlan->udp_port = port;
++	err = mlx5_cmd_exec_check_status(mdev, in, sizeof(in),
++					 out, sizeof(out));
 +
-+	spin_lock_irq(&vxlan_db->lock);
-+	err = radix_tree_insert(&vxlan_db->tree, vxlan->udp_port, vxlan);
-+	spin_unlock_irq(&vxlan_db->lock);
-+	if (err)
-+		goto err_free;
++	if (!err)
++		*wol_mode = MLX5_GET(query_wol_rol_out, out, wol_mode);
 +
-+	return 0;
-+
-+err_free:
-+	kfree(vxlan);
-+err_delete_port:
-+	mlx5e_vxlan_core_del_port_cmd(priv->mdev, port);
 +	return err;
 +}
-+
-+static void __mlx5e_vxlan_core_del_port(struct mlx5e_priv *priv, u16 port)
-+{
-+	struct mlx5e_vxlan_db *vxlan_db = &priv->vxlan;
-+	struct mlx5e_vxlan *vxlan;
-+
-+	spin_lock_irq(&vxlan_db->lock);
-+	vxlan = radix_tree_delete(&vxlan_db->tree, port);
-+	spin_unlock_irq(&vxlan_db->lock);
-+
-+	if (!vxlan)
-+		return;
-+
-+	mlx5e_vxlan_core_del_port_cmd(priv->mdev, vxlan->udp_port);
-+
-+	kfree(vxlan);
-+}
-+
-+void mlx5e_vxlan_del_port(struct mlx5e_priv *priv, u16 port)
-+{
-+	if (!mlx5e_vxlan_lookup_port(priv, port))
-+		return;
-+
-+	__mlx5e_vxlan_core_del_port(priv, port);
-+}
-+
-+void mlx5e_vxlan_cleanup(struct mlx5e_priv *priv)
-+{
-+	struct mlx5e_vxlan_db *vxlan_db = &priv->vxlan;
-+	struct mlx5e_vxlan *vxlan;
-+	unsigned int port = 0;
-+
-+	spin_lock_irq(&vxlan_db->lock);
-+	while (radix_tree_gang_lookup(&vxlan_db->tree, (void **)&vxlan, port, 1)) {
-+		port = vxlan->udp_port;
-+		spin_unlock_irq(&vxlan_db->lock);
-+		__mlx5e_vxlan_core_del_port(priv, (u16)port);
-+		spin_lock_irq(&vxlan_db->lock);
-+	}
-+	spin_unlock_irq(&vxlan_db->lock);
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vxlan.h b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.h
-new file mode 100644
-index 0000000..a016850
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.h
-@@ -0,0 +1,54 @@
-+/*
-+ * Copyright (c) 2016, Mellanox Technologies, Ltd.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#ifndef __MLX5_VXLAN_H__
-+#define __MLX5_VXLAN_H__
-+
-+#include <linux/mlx5/driver.h>
-+#include "en.h"
-+
-+struct mlx5e_vxlan {
-+	u16 udp_port;
++EXPORT_SYMBOL_GPL(mlx5_query_port_wol);
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index bfc1ab0..68a56bc 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -1183,6 +1183,17 @@ enum {
+ 	MLX5_RQC_RQ_TYPE_MEMORY_RQ_RPM    = 0x1,
+ };
+ 
++enum mlx5_wol_mode {
++	MLX5_WOL_DISABLE        = 0,
++	MLX5_WOL_SECURED_MAGIC  = 1 << 1,
++	MLX5_WOL_MAGIC          = 1 << 2,
++	MLX5_WOL_ARP            = 1 << 3,
++	MLX5_WOL_BROADCAST      = 1 << 4,
++	MLX5_WOL_MULTICAST      = 1 << 5,
++	MLX5_WOL_UNICAST        = 1 << 6,
++	MLX5_WOL_PHY_ACTIVITY   = 1 << 7,
 +};
 +
-+static inline bool mlx5e_vxlan_allowed(struct mlx5_core_dev *mdev)
-+{
-+	return (MLX5_CAP_ETH(mdev, tunnel_stateless_vxlan) &&
-+		mlx5_core_is_pf(mdev));
-+}
+ /* MLX5 DEV CAPs */
+ 
+ /* TODO: EAT.ME */
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index ecbdbbf..26f2964 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -166,6 +166,8 @@ enum {
+ 	MLX5_CMD_OP_SET_L2_TABLE_ENTRY            = 0x829,
+ 	MLX5_CMD_OP_QUERY_L2_TABLE_ENTRY          = 0x82a,
+ 	MLX5_CMD_OP_DELETE_L2_TABLE_ENTRY         = 0x82b,
++	MLX5_CMD_OP_SET_WOL_ROL                   = 0x830,
++	MLX5_CMD_OP_QUERY_WOL_ROL                 = 0x831,
+ 	MLX5_CMD_OP_CREATE_TIR                    = 0x900,
+ 	MLX5_CMD_OP_MODIFY_TIR                    = 0x901,
+ 	MLX5_CMD_OP_DESTROY_TIR                   = 0x902,
+@@ -731,7 +733,17 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         log_max_msg[0x5];
+ 	u8         reserved_at_1c7[0x4];
+ 	u8         max_tc[0x4];
+-	u8         reserved_at_1cf[0x10];
++	u8         reserved_at_1cf[0x6];
++	u8         rol_s[0x1];
++	u8         rol_g[0x1];
++	u8         reserved_at_1d7[0x1];
++	u8         wol_s[0x1];
++	u8         wol_g[0x1];
++	u8         wol_a[0x1];
++	u8         wol_b[0x1];
++	u8         wol_m[0x1];
++	u8         wol_u[0x1];
++	u8         wol_p[0x1];
+ 
+ 	u8         stat_rate_support[0x10];
+ 	u8         reserved_at_1ef[0xc];
+@@ -6873,6 +6885,54 @@ struct mlx5_ifc_mtt_bits {
+ 	u8         rd_en[0x1];
+ };
+ 
++struct mlx5_ifc_query_wol_rol_out_bits {
++	u8         status[0x8];
++	u8         reserved_at_8[0x18];
 +
-+void mlx5e_vxlan_init(struct mlx5e_priv *priv);
-+int  mlx5e_vxlan_add_port(struct mlx5e_priv *priv, u16 port);
-+void mlx5e_vxlan_del_port(struct mlx5e_priv *priv, u16 port);
-+struct mlx5e_vxlan *mlx5e_vxlan_lookup_port(struct mlx5e_priv *priv, u16 port);
-+void mlx5e_vxlan_cleanup(struct mlx5e_priv *priv);
++	u8         syndrome[0x20];
 +
-+#endif /* __MLX5_VXLAN_H__ */
++	u8         reserved_at_40[0x10];
++	u8         rol_mode[0x8];
++	u8         wol_mode[0x8];
++
++	u8         reserved_at_60[0x20];
++};
++
++struct mlx5_ifc_query_wol_rol_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_at_10[0x10];
++
++	u8         reserved_at_20[0x10];
++	u8         op_mod[0x10];
++
++	u8         reserved_at_40[0x40];
++};
++
++struct mlx5_ifc_set_wol_rol_out_bits {
++	u8         status[0x8];
++	u8         reserved_at_8[0x18];
++
++	u8         syndrome[0x20];
++
++	u8         reserved_at_40[0x40];
++};
++
++struct mlx5_ifc_set_wol_rol_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_at_10[0x10];
++
++	u8         reserved_at_20[0x10];
++	u8         op_mod[0x10];
++
++	u8         rol_mode_valid[0x1];
++	u8         wol_mode_valid[0x1];
++	u8         reserved_at_42[0xe];
++	u8         rol_mode[0x8];
++	u8         wol_mode[0x8];
++
++	u8         reserved_at_60[0x20];
++};
++
+ enum {
+ 	MLX5_INITIAL_SEG_NIC_INTERFACE_FULL_DRIVER  = 0x0,
+ 	MLX5_INITIAL_SEG_NIC_INTERFACE_DISABLED     = 0x1,
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index 595c7b2..a1d145a 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -81,5 +81,7 @@ int mlx5_modify_port_ets_rate_limit(struct mlx5_core_dev *mdev,
+ int mlx5_query_port_ets_rate_limit(struct mlx5_core_dev *mdev,
+ 				   u8 *max_bw_value,
+ 				   u8 *max_bw_unit);
++int mlx5_set_port_wol(struct mlx5_core_dev *mdev, u8 wol_mode);
++int mlx5_query_port_wol(struct mlx5_core_dev *mdev, u8 *wol_mode);
+ 
+ #endif /* __MLX5_PORT_H__ */
 -- 
 1.7.1
