@@ -1,68 +1,65 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net-next] net_sched: add network namespace support for tc
- actions
-Date: Mon, 22 Feb 2016 08:42:43 -0500
-Message-ID: <56CB1053.8020102@mojatatu.com>
-References: <1455928994-9726-1-git-send-email-xiyou.wangcong@gmail.com>
- <56C8B21E.7070307@iogearbox.net>
- <CAM_iQpWzVoy7eYdf2Yxz2qfoAO5-pDZioACyu7Hws6u7vvP1Yw@mail.gmail.com>
+From: Alexander Couzens <lynxis@fe80.eu>
+Subject: Re: [PATCH] l2tp_netlink: ignore -ESRCH of
+ genlmsg_multicast_allns()
+Date: Mon, 22 Feb 2016 14:41:55 +0100
+Message-ID: <20160222144155.7bb5712e@lazus.yip>
+References: <1456088325-22375-1-git-send-email-lynxis@fe80.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/MpDR6PE9RdJPmes6O/OxN/."; protocol="application/pgp-signature"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:37772 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754695AbcBVNmp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 08:42:45 -0500
-Received: by mail-ig0-f176.google.com with SMTP id 5so81726166igt.0
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 05:42:45 -0800 (PST)
-In-Reply-To: <CAM_iQpWzVoy7eYdf2Yxz2qfoAO5-pDZioACyu7Hws6u7vvP1Yw@mail.gmail.com>
+Received: from mail.base45.de ([80.241.61.77]:53923 "EHLO mail.base45.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755053AbcBVNmG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Feb 2016 08:42:06 -0500
+Received: from [2001:1a80:2259:d21a:24cd:5bb4:1a6:743b] (helo=lazus.yip)
+	by mail.base45.de with esmtpsa (TLS1.2:RSA_AES_128_CBC_SHA1:128)
+	(Exim 4.82)
+	(envelope-from <lynxis@fe80.eu>)
+	id 1aXqkV-0004X7-H5
+	for netdev@vger.kernel.org; Mon, 22 Feb 2016 14:42:03 +0100
+In-Reply-To: <1456088325-22375-1-git-send-email-lynxis@fe80.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-20 07:46 PM, Cong Wang wrote:
-> On Sat, Feb 20, 2016 at 10:36 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->>
->> Do you see a way to reduce the code duplication needed across all
->> the action modules? I.e. that each of them now needs to register
->> a new per netns subsystem, etc. In other words, is there a way the
->> action API could be reworked to handle most of this in the tc core
->> framework instead?
->
-> I definitely agree.
->
+--Sig_/MpDR6PE9RdJPmes6O/OxN/.
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Same here.
+Sorry for the noise. I only looked into the git tree net-next for
+changes of the l2tp module and not lately on the mailinglist.
 
+Best,
+lynxis
+--=20
+Alexander Couzens
 
-> Initially I made a wrapper macro for the per netns API for each tc
-> action, but it didn't work as I thought, mostly due to the per net ops and
-> net_id stuffs.
->
-> So it is not as easy as it appears, it needs more work. At least the
-> current code is more readable than using any macro. We can always
-> refactor the API in the future, and as I mentioned in the changelog that
-> is in my plan.
->
-> Or do you have any quick and easy way to reduce the code?
->
+mail: lynxis@fe80.eu
+jabber: lynxis@fe80.eu
+mobile: +4915123277221
+gpg: 390D CF78 8BF9 AA50 4F8F  F1E2 C29E 9DA6 A0DF 8604
 
-I did a quick look and i am struggling with it. The patch seems largish
-The issue is that we need to do this per kernel module so the code
-churn maybe unavoidable; hinfo stored in act_ops complicates things.
-Having said that:  All the pernet operations in your
-code seem to be generic, other than to accomodate for module specific
-act_ops. Is it possible to make generic pernet operations? This way
-you could do things at tcf_register_action() for all actions.
-The challenge seems to be in the xxx_net_id which appears(sorry didnt
-look closely at the namespace code) to need to be unique id per module
-and per namespace instance - otherwise i would suggest for xxx_net_id
-to be part of act_ops. Could we not have an #ifdef in the namespace
-core like the netfilter code does and have one level of indirection
-for everything but the namespace 0?
+--Sig_/MpDR6PE9RdJPmes6O/OxN/.
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
 
-cheers,
-jamal
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJWyxAkAAoJEMKenaag34YEKY0QAKj9PRX97yeAqvEEry8rfmcG
+9CCRsoLX4lZ5UTHtgv//cd/LEBtw0ruISgLtnM7LyvEtNHLjGt11ND7BjAWK+5lg
+AcrNcRR0MKRgO40KUGxN9LSIffT4oj0g9L4WRhj5v6yZS3PROMvcNnS0xs2BDKf3
+RlNiEW1ySE0mgEToyb2E4U1hU6dqSm+Gygacp7cYvs4BmI2DXCJAawY64MQQtwIB
+PPV9I+c3uy/IySJ70gQlfq0bGAe0LylWprhJsTHfbcrr4oI1A97/rpUxt1iclhQI
+d2Jl6MIQIDD1HbtGSJfbV3EWzbRa3hCn8SRLxVGSl97CtdeDTM+/d+dNdYR1OyiF
+AWsyDvLTpOAt7Feywo3JURtwChn8wzf8E0GkXBeo0PC4JmJKZvqcXEEqStrBXVhI
+Z2F8/zBhnIGDFo2kGBi2Twl2t9yPgZLSxVmDxHxSLxnkT4Lf7ZQrum2w7CGtvmFP
+OLyZTkwyq4RkOZbDsDf3tpOT2vPCc5SdJ/V8lh5oLeSTxMjLXpkNZHRVpf8ua3TL
+wR3HZNirGeD3jLX/42yxMXytKMa4MsHGDO3RNnMs5YucT7cOUq5gsscB7iqtarDm
+H4ZpLAHoLmdV70JzT+4hWbkFVshK+eR59u8acAW1FNevtRAPtmdb3G8e7Ch+HQhg
+pVvmwkA5oir3sPEwF4O1
+=5V4X
+-----END PGP SIGNATURE-----
+
+--Sig_/MpDR6PE9RdJPmes6O/OxN/.--
