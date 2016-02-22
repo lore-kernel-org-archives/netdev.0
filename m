@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 7/9] mlxsw: spectrum: Store local port to module mapping during init
-Date: Mon, 22 Feb 2016 19:32:02 +0100
-Message-ID: <1456165924-14399-8-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 1/9] Introduce devlink infrastructure
+Date: Mon, 22 Feb 2016 19:31:56 +0100
+Message-ID: <1456165924-14399-2-git-send-email-jiri@resnulli.us>
 References: <1456165924-14399-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, yishaih@mellanox.com,
@@ -13,153 +13,1220 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	rami.rosen@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:35791 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751437AbcBVScQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 13:32:16 -0500
-Received: by mail-wm0-f45.google.com with SMTP id c200so185680377wme.0
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 10:32:15 -0800 (PST)
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:36222 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751393AbcBVScJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 13:32:09 -0500
+Received: by mail-wm0-f54.google.com with SMTP id g62so187118663wme.1
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 10:32:08 -0800 (PST)
 In-Reply-To: <1456165924-14399-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-The port netdevs are each associated with a different local port number
-in the device. These local ports are grouped into groups of 4 (e.g.
-(1-4), (5-8)) called clusters. The cluster constitutes the one of two
-possible modules they can be mapped to. This mapping is board-specific
-and done by the device's firmware during init.
+Introduce devlink infrastructure for drivers to register and expose to
+userspace via generic Netlink interface.
 
-When splitting a port by 4, the device requires us to first unmap all
-the ports in the cluster and then map each to a single lane in the module
-associated with the port netdev used as the handle for the operation.
-This means that two port netdevs will disappear, as only 100Gb/s (4
-lanes) ports can be split and we are guaranteed to have two of these
-((1, 3), (5, 7) etc.) in a cluster.
+There are two basic objects defined:
+devlink - one instance for every "parent device", for example switch ASIC
+devlink port - one instance for every physical port of the device.
 
-When unsplit occurs we need to reinstantiate the two original 100Gb/s
-ports and map each to its origianl module. Therefore, during driver init
-store the initial local port to module mapping, so it can be used later
-during unsplitting.
+This initial portion implements basic get/dump of objects to userspace.
+Also, port splitter and port type setting is implemented.
 
-Note that a by 2 split doesn't require us to store the mapping, as we
-only need to reinstantiate one port whose module is known.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 36 +++++++++++---------------
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  1 +
- 2 files changed, 16 insertions(+), 21 deletions(-)
+ MAINTAINERS                  |   8 +
+ include/net/devlink.h        | 156 ++++++++
+ include/uapi/linux/devlink.h |  73 ++++
+ net/Kconfig                  |   7 +
+ net/core/Makefile            |   1 +
+ net/core/devlink.c           | 887 +++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 1132 insertions(+)
+ create mode 100644 include/net/devlink.h
+ create mode 100644 include/uapi/linux/devlink.h
+ create mode 100644 net/core/devlink.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 1d6f1ef..b9d963a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -305,18 +305,19 @@ mlxsw_sp_port_system_port_mapping_set(struct mlxsw_sp_port *mlxsw_sp_port)
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sspr), sspr_pl);
- }
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 355e1c8..caad3e6 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -3502,6 +3502,14 @@ F:	include/linux/device-mapper.h
+ F:	include/linux/dm-*.h
+ F:	include/uapi/linux/dm-*.h
  
--static int mlxsw_sp_port_module_check(struct mlxsw_sp_port *mlxsw_sp_port,
--				      bool *p_usable)
-+static int mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
-+					 u8 local_port, u8 *p_module,
-+					 u8 *p_width)
- {
--	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
- 	char pmlp_pl[MLXSW_REG_PMLP_LEN];
- 	int err;
++DEVLINK
++M:	Jiri Pirko <jiri@mellanox.com>
++L:	netdev@vger.kernel.org
++S:	Supported
++F:	net/core/devlink.c
++F:	include/net/devlink.h
++F:	include/uapi/linux/devlink.h
++
+ DIALOG SEMICONDUCTOR DRIVERS
+ M:	Support Opensource <support.opensource@diasemi.com>
+ W:	http://www.dialog-semiconductor.com/products
+diff --git a/include/net/devlink.h b/include/net/devlink.h
+new file mode 100644
+index 0000000..ad34754
+--- /dev/null
++++ b/include/net/devlink.h
+@@ -0,0 +1,156 @@
++/*
++ * include/net/devlink.h - Network physical device Netlink interface
++ * Copyright (c) 2016 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2016 Jiri Pirko <jiri@mellanox.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++#ifndef _NET_DEVLINK_H_
++#define _NET_DEVLINK_H_
++
++#include <linux/device.h>
++#include <linux/slab.h>
++#include <linux/gfp.h>
++#include <linux/list.h>
++#include <linux/netdevice.h>
++#include <net/net_namespace.h>
++#include <uapi/linux/devlink.h>
++
++struct devlink_ops;
++
++struct devlink {
++	struct list_head list;
++	struct list_head port_list;
++	int index;
++	const struct devlink_ops *ops;
++	struct device dev;
++	possible_net_t _net;
++	char priv[0] __aligned(NETDEV_ALIGN);
++};
++
++struct devlink_port {
++	struct list_head list;
++	struct devlink *devlink;
++	unsigned index;
++	bool registered;
++	enum devlink_port_type type;
++	enum devlink_port_type desired_type;
++	void *type_dev;
++	bool split;
++	u32 split_group;
++};
++
++struct devlink_ops {
++	size_t priv_size;
++	int (*port_type_set)(struct devlink_port *devlink_port,
++			     enum devlink_port_type port_type);
++	int (*port_split)(struct devlink *devlink, unsigned int port_index,
++			  unsigned int count);
++	int (*port_unsplit)(struct devlink *devlink, unsigned int port_index);
++};
++
++static inline void *devlink_priv(struct devlink *devlink)
++{
++	BUG_ON(!devlink);
++	return &devlink->priv;
++}
++
++static inline struct devlink *priv_to_devlink(void *priv)
++{
++	BUG_ON(!priv);
++	return container_of(priv, struct devlink, priv);
++}
++
++static inline struct device *devlink_dev(struct devlink *devlink)
++{
++	return &devlink->dev;
++}
++
++static inline void set_devlink_dev(struct devlink *devlink, struct device *dev)
++{
++	devlink->dev.parent = dev;
++}
++
++static inline const char *devlink_name(const struct devlink *devlink)
++{
++	return dev_name(&devlink->dev);
++}
++
++struct ib_device;
++
++#if IS_ENABLED(CONFIG_NET_DEVLINK)
++
++struct devlink *devlink_alloc(const struct devlink_ops *ops, size_t priv_size);
++int devlink_register(struct devlink *devlink);
++void devlink_unregister(struct devlink *devlink);
++void devlink_free(struct devlink *devlink);
++int devlink_port_register(struct devlink *devlink,
++			  struct devlink_port *devlink_port,
++			  unsigned int port_index);
++void devlink_port_unregister(struct devlink_port *devlink_port);
++void devlink_port_type_eth_set(struct devlink_port *devlink_port,
++			       struct net_device *netdev);
++void devlink_port_type_ib_set(struct devlink_port *devlink_port,
++			      struct ib_device *ibdev);
++void devlink_port_type_clear(struct devlink_port *devlink_port);
++void devlink_port_split_set(struct devlink_port *devlink_port,
++			    u32 split_group);
++
++#else
++
++static inline struct devlink *devlink_alloc(const struct devlink_ops *ops,
++					    size_t priv_size)
++{
++	return kzalloc(sizeof(struct devlink) + priv_size, GFP_KERNEL);
++}
++
++static inline int devlink_register(struct devlink *devlink)
++{
++	return 0;
++}
++
++static inline void devlink_unregister(struct devlink *devlink)
++{
++}
++
++static inline void devlink_free(struct devlink *devlink)
++{
++	kfree(devlink);
++}
++
++static inline int devlink_port_register(struct devlink *devlink,
++					struct devlink_port *devlink_port,
++					unsigned int port_index)
++{
++	return 0;
++}
++
++static inline void devlink_port_unregister(struct devlink_port *devlink_port)
++{
++}
++
++static inline void devlink_port_type_eth_set(struct devlink_port *devlink_port,
++					     struct net_device *netdev)
++{
++}
++
++static inline void devlink_port_type_ib_set(struct devlink_port *devlink_port,
++					    struct ib_device *ibdev)
++{
++}
++
++static inline void devlink_port_type_clear(struct devlink_port *devlink_port)
++{
++}
++
++static inline void devlink_port_split_set(struct devlink_port *devlink_port,
++					  u32 split_group)
++{
++}
++
++#endif
++
++#endif /* _NET_DEVLINK_H_ */
+diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+new file mode 100644
+index 0000000..04e0376
+--- /dev/null
++++ b/include/uapi/linux/devlink.h
+@@ -0,0 +1,73 @@
++/*
++ * include/uapi/linux/devlink.h - Network physical device Netlink interface
++ * Copyright (c) 2016 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2016 Jiri Pirko <jiri@mellanox.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef _UAPI_LINUX_DEVLINK_H_
++#define _UAPI_LINUX_DEVLINK_H_
++
++#define DEVLINK_GENL_NAME "devlink"
++#define DEVLINK_GENL_VERSION 0x1
++#define DEVLINK_GENL_MCGRP_CONFIG_NAME "config"
++
++enum devlink_command {
++	/* don't change the order or add anything between, this is ABI! */
++	DEVLINK_CMD_UNSPEC,
++
++	DEVLINK_CMD_GET,		/* can dump */
++	DEVLINK_CMD_SET,
++	DEVLINK_CMD_NEW,
++	DEVLINK_CMD_DEL,
++
++	DEVLINK_CMD_PORT_GET,		/* can dump */
++	DEVLINK_CMD_PORT_SET,
++	DEVLINK_CMD_PORT_NEW,
++	DEVLINK_CMD_PORT_DEL,
++
++	DEVLINK_CMD_PORT_SPLIT,
++	DEVLINK_CMD_PORT_UNSPLIT,
++
++	/* add new commands above here */
++
++	__DEVLINK_CMD_MAX,
++	DEVLINK_CMD_MAX = __DEVLINK_CMD_MAX - 1
++};
++
++enum devlink_port_type {
++	DEVLINK_PORT_TYPE_NOTSET,
++	DEVLINK_PORT_TYPE_AUTO,
++	DEVLINK_PORT_TYPE_ETH,
++	DEVLINK_PORT_TYPE_IB,
++};
++
++enum devlink_attr {
++	/* don't change the order or add anything between, this is ABI! */
++	DEVLINK_ATTR_UNSPEC,
++
++	DEVLINK_ATTR_INDEX,			/* u32 */
++#define DEVLINK_ATTR_NAME_MAX_LEN 32
++	DEVLINK_ATTR_NAME,			/* string */
++	DEVLINK_ATTR_BUS_NAME,			/* string */
++	DEVLINK_ATTR_DEV_NAME,			/* string */
++	DEVLINK_ATTR_PORT_INDEX,		/* u32 */
++	DEVLINK_ATTR_PORT_TYPE,			/* u16 */
++	DEVLINK_ATTR_PORT_DESIRED_TYPE,		/* u16 */
++	DEVLINK_ATTR_PORT_NETDEV_IFINDEX,	/* u32 */
++	DEVLINK_ATTR_PORT_NETDEV_NAME,		/* string */
++	DEVLINK_ATTR_PORT_IBDEV_NAME,		/* string */
++	DEVLINK_ATTR_PORT_SPLIT_COUNT,		/* u32 */
++	DEVLINK_ATTR_PORT_SPLIT_GROUP,		/* u32 */
++
++	/* add new attributes above here, update the policy in devlink.c */
++
++	__DEVLINK_ATTR_MAX,
++	DEVLINK_ATTR_MAX = __DEVLINK_ATTR_MAX - 1
++};
++
++#endif /* _UAPI_LINUX_DEVLINK_H_ */
+diff --git a/net/Kconfig b/net/Kconfig
+index b80efec..6c9cfb0 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -396,6 +396,13 @@ config DST_CACHE
+ 	bool "dst cache"
+ 	default n
  
--	mlxsw_reg_pmlp_pack(pmlp_pl, mlxsw_sp_port->local_port);
-+	mlxsw_reg_pmlp_pack(pmlp_pl, local_port);
- 	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(pmlp), pmlp_pl);
- 	if (err)
- 		return err;
--	*p_usable = mlxsw_reg_pmlp_width_get(pmlp_pl) ? true : false;
-+	*p_module = mlxsw_reg_pmlp_module_get(pmlp_pl, 0);
-+	*p_width = mlxsw_reg_pmlp_width_get(pmlp_pl);
- 	return 0;
- }
++config NET_DEVLINK
++	tristate "Network physical/parent device Netlink interface"
++	help
++	  Network physical/parent device Netlink interface provides
++	  infrastructure to support access to physical chip-wide config and
++	  monitoring.
++
+ endif   # if NET
  
-@@ -1365,7 +1366,6 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 	struct mlxsw_sp_port *mlxsw_sp_port;
- 	struct devlink_port *devlink_port;
- 	struct net_device *dev;
--	bool usable;
- 	size_t bytes;
- 	int err;
- 
-@@ -1417,19 +1417,6 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 	 */
- 	dev->hard_header_len += MLXSW_TXHDR_LEN;
- 
--	err = mlxsw_sp_port_module_check(mlxsw_sp_port, &usable);
--	if (err) {
--		dev_err(mlxsw_sp->bus_info->dev, "Port %d: Failed to check module\n",
--			mlxsw_sp_port->local_port);
--		goto err_port_module_check;
--	}
--
--	if (!usable) {
--		dev_dbg(mlxsw_sp->bus_info->dev, "Port %d: Not usable, skipping initialization\n",
--			mlxsw_sp_port->local_port);
--		goto port_not_usable;
--	}
--
- 	devlink_port = &mlxsw_sp_port->devlink_port;
- 	err = devlink_port_register(devlink, devlink_port, local_port);
- 	if (err) {
-@@ -1497,8 +1484,6 @@ err_port_swid_set:
- err_port_system_port_mapping_set:
- 	devlink_port_unregister(&mlxsw_sp_port->devlink_port);
- err_devlink_port_register:
--port_not_usable:
--err_port_module_check:
- err_dev_addr_init:
- 	free_percpu(mlxsw_sp_port->pcpu_stats);
- err_alloc_stats:
-@@ -1560,6 +1545,7 @@ static void mlxsw_sp_ports_remove(struct mlxsw_sp *mlxsw_sp)
- static int mlxsw_sp_ports_create(struct mlxsw_sp *mlxsw_sp)
- {
- 	size_t alloc_size;
-+	u8 module, width;
- 	int i;
- 	int err;
- 
-@@ -1569,6 +1555,13 @@ static int mlxsw_sp_ports_create(struct mlxsw_sp *mlxsw_sp)
- 		return -ENOMEM;
- 
- 	for (i = 1; i < MLXSW_PORT_MAX_PORTS; i++) {
-+		err = mlxsw_sp_port_module_info_get(mlxsw_sp, i, &module,
-+						    &width);
-+		if (err)
-+			goto err_port_module_info_get;
-+		if (!width)
+ # Used by archs to tell that they support BPF_JIT
+diff --git a/net/core/Makefile b/net/core/Makefile
+index 7a8fb8a..014422e 100644
+--- a/net/core/Makefile
++++ b/net/core/Makefile
+@@ -25,3 +25,4 @@ obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
+ obj-$(CONFIG_CGROUP_NET_CLASSID) += netclassid_cgroup.o
+ obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
+ obj-$(CONFIG_DST_CACHE) += dst_cache.o
++obj-$(CONFIG_NET_DEVLINK) += devlink.o
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+new file mode 100644
+index 0000000..d32c5fc
+--- /dev/null
++++ b/net/core/devlink.c
+@@ -0,0 +1,887 @@
++/*
++ * net/core/devlink.c - Network physical/parent device Netlink interface
++ *
++ * Heavily inspired by net/wireless/
++ * Copyright (c) 2016 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2016 Jiri Pirko <jiri@mellanox.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/slab.h>
++#include <linux/gfp.h>
++#include <linux/device.h>
++#include <linux/list.h>
++#include <linux/netdevice.h>
++#include <linux/sysfs.h>
++#include <linux/bitops.h>
++#include <rdma/ib_verbs.h>
++#include <net/netlink.h>
++#include <net/genetlink.h>
++#include <net/rtnetlink.h>
++#include <net/net_namespace.h>
++#include <net/sock.h>
++#include <net/devlink.h>
++
++static LIST_HEAD(devlink_list);
++
++/* devlink_mutex
++ *
++ * An overall lock guarding every operation comming from userspace.
++ * If also guards devlink devices list and it is taken when
++ * driver registers/unregisters it.
++ */
++static DEFINE_MUTEX(devlink_mutex);
++
++/* devlink_port_mutex
++ *
++ * Shared lock to guard lists of ports in all devlink devices.
++ */
++static DEFINE_MUTEX(devlink_port_mutex);
++
++static struct net *devlink_net(const struct devlink *devlink)
++{
++	return read_pnet(&devlink->_net);
++}
++
++static void devlink_net_set(struct devlink *devlink, struct net *net)
++{
++	write_pnet(&devlink->_net, net);
++}
++
++static bool devlink_name_exists(struct net *net, const char *name)
++{
++	struct devlink *devlink;
++
++	list_for_each_entry(devlink, &devlink_list, list) {
++		if (strcmp(devlink_name(devlink), name) == 0 &&
++		    net_eq(devlink_net(devlink), net))
++			return true;
++	}
++	return false;
++}
++
++static struct devlink *devlink_get_by_index(struct net *net, int index)
++{
++	struct devlink *devlink;
++
++	list_for_each_entry(devlink, &devlink_list, list) {
++		if (devlink->index == index &&
++		    net_eq(devlink_net(devlink), net))
++			return devlink;
++	}
++	return NULL;
++}
++
++static struct devlink *devlink_get_from_attrs(struct net *net,
++					      struct nlattr **attrs)
++{
++	if (attrs[DEVLINK_ATTR_INDEX]) {
++		u32 index = nla_get_u32(attrs[DEVLINK_ATTR_INDEX]);
++		struct devlink *devlink;
++
++		devlink = devlink_get_by_index(net, index);
++		if (!devlink)
++			return ERR_PTR(-ENODEV);
++		return devlink;
++	}
++	return ERR_PTR(-EINVAL);
++}
++
++static struct devlink *devlink_get_from_info(struct genl_info *info)
++{
++	return devlink_get_from_attrs(genl_info_net(info), info->attrs);
++}
++
++static struct devlink_port *devlink_port_get_by_index(struct devlink *devlink,
++						      int port_index)
++{
++	struct devlink_port *devlink_port;
++
++	list_for_each_entry(devlink_port, &devlink->port_list, list) {
++		if (devlink_port->index == port_index)
++			return devlink_port;
++	}
++	return NULL;
++}
++
++static bool devlink_port_index_exists(struct devlink *devlink, int port_index)
++{
++	return devlink_port_get_by_index(devlink, port_index);
++}
++
++static struct devlink_port *devlink_port_get_from_attrs(struct devlink *devlink,
++							struct nlattr **attrs)
++{
++	if (attrs[DEVLINK_ATTR_PORT_INDEX]) {
++		u32 port_index = nla_get_u32(attrs[DEVLINK_ATTR_PORT_INDEX]);
++		struct devlink_port *devlink_port;
++
++		devlink_port = devlink_port_get_by_index(devlink, port_index);
++		if (!devlink_port)
++			return ERR_PTR(-ENODEV);
++		return devlink_port;
++	}
++	return ERR_PTR(-EINVAL);
++}
++
++static struct devlink_port *devlink_port_get_from_info(struct devlink *devlink,
++						       struct genl_info *info)
++{
++	return devlink_port_get_from_attrs(devlink, info->attrs);
++}
++
++#define DEVLINK_NL_FLAG_NEED_PORT	BIT(0)
++
++static int devlink_nl_pre_doit(const struct genl_ops *ops,
++			       struct sk_buff *skb, struct genl_info *info)
++{
++	struct devlink *devlink;
++
++	mutex_lock(&devlink_mutex);
++	devlink = devlink_get_from_info(info);
++	if (IS_ERR(devlink)) {
++		mutex_unlock(&devlink_mutex);
++		return PTR_ERR(devlink);
++	}
++	info->user_ptr[0] = devlink;
++	if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_PORT) {
++		struct devlink_port *devlink_port;
++
++		mutex_lock(&devlink_port_mutex);
++		devlink_port = devlink_port_get_from_info(devlink, info);
++		if (IS_ERR(devlink_port)) {
++			mutex_unlock(&devlink_port_mutex);
++			mutex_unlock(&devlink_mutex);
++			return PTR_ERR(devlink_port);
++		}
++		info->user_ptr[1] = devlink_port;
++	}
++	return 0;
++}
++
++static void devlink_nl_post_doit(const struct genl_ops *ops,
++				 struct sk_buff *skb, struct genl_info *info)
++{
++	if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_PORT)
++		mutex_unlock(&devlink_port_mutex);
++	mutex_unlock(&devlink_mutex);
++}
++
++static struct genl_family devlink_nl_family = {
++	.id		= GENL_ID_GENERATE,
++	.name		= DEVLINK_GENL_NAME,
++	.version	= DEVLINK_GENL_VERSION,
++	.maxattr	= DEVLINK_ATTR_MAX,
++	.netnsok	= true,
++	.pre_doit	= devlink_nl_pre_doit,
++	.post_doit	= devlink_nl_post_doit,
++};
++
++enum devlink_multicast_groups {
++	DEVLINK_MCGRP_CONFIG,
++};
++
++static const struct genl_multicast_group devlink_nl_mcgrps[] = {
++	[DEVLINK_MCGRP_CONFIG] = { .name = DEVLINK_GENL_MCGRP_CONFIG_NAME },
++};
++
++static int devlink_nl_fill(struct sk_buff *msg, struct devlink *devlink,
++			   enum devlink_command cmd, u32 portid,
++			   u32 seq, int flags)
++{
++	void *hdr;
++
++	hdr = genlmsg_put(msg, portid, seq, &devlink_nl_family, flags, cmd);
++	if (!hdr)
++		return -EMSGSIZE;
++
++	if (nla_put_u32(msg, DEVLINK_ATTR_INDEX, devlink->index))
++		goto nla_put_failure;
++	if (nla_put_string(msg, DEVLINK_ATTR_NAME, devlink_name(devlink)))
++		goto nla_put_failure;
++
++	if (devlink->dev.parent) {
++		struct device *dev = devlink->dev.parent;
++
++		if (nla_put_string(msg, DEVLINK_ATTR_BUS_NAME, dev->bus->name))
++			goto nla_put_failure;
++		if (nla_put_string(msg, DEVLINK_ATTR_DEV_NAME, dev_name(dev)))
++			goto nla_put_failure;
++	}
++
++	genlmsg_end(msg, hdr);
++	return 0;
++
++nla_put_failure:
++	genlmsg_cancel(msg, hdr);
++	return -EMSGSIZE;
++}
++
++static void devlink_notify(struct devlink *devlink, enum devlink_command cmd)
++{
++	struct sk_buff *msg;
++	int err;
++
++	WARN_ON(cmd != DEVLINK_CMD_NEW && cmd != DEVLINK_CMD_DEL);
++
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
++	if (!msg)
++		return;
++
++	err = devlink_nl_fill(msg, devlink, cmd, 0, 0, 0);
++	if (err) {
++		nlmsg_free(msg);
++		return;
++	}
++
++	genlmsg_multicast_netns(&devlink_nl_family, devlink_net(devlink),
++				msg, 0, DEVLINK_MCGRP_CONFIG, GFP_KERNEL);
++}
++
++static int devlink_nl_port_fill(struct sk_buff *msg, struct devlink *devlink,
++				struct devlink_port *devlink_port,
++				enum devlink_command cmd, u32 portid,
++				u32 seq, int flags)
++{
++	void *hdr;
++
++	hdr = genlmsg_put(msg, portid, seq, &devlink_nl_family, flags, cmd);
++	if (!hdr)
++		return -EMSGSIZE;
++
++	if (nla_put_u32(msg, DEVLINK_ATTR_INDEX, devlink->index))
++		goto nla_put_failure;
++	if (nla_put_u32(msg, DEVLINK_ATTR_PORT_INDEX, devlink_port->index))
++		goto nla_put_failure;
++	if (nla_put_u16(msg, DEVLINK_ATTR_PORT_TYPE, devlink_port->type))
++		goto nla_put_failure;
++	if (devlink_port->desired_type != DEVLINK_PORT_TYPE_NOTSET &&
++	    nla_put_u16(msg, DEVLINK_ATTR_PORT_DESIRED_TYPE,
++			devlink_port->desired_type))
++		goto nla_put_failure;
++	if (devlink_port->type == DEVLINK_PORT_TYPE_ETH) {
++		struct net_device *netdev = devlink_port->type_dev;
++
++		if (netdev &&
++		    (nla_put_u32(msg, DEVLINK_ATTR_PORT_NETDEV_IFINDEX,
++				 netdev->ifindex) ||
++		     nla_put_string(msg, DEVLINK_ATTR_PORT_NETDEV_NAME,
++				    netdev->name)))
++			goto nla_put_failure;
++	}
++	if (devlink_port->type == DEVLINK_PORT_TYPE_IB) {
++		struct ib_device *ibdev = devlink_port->type_dev;
++
++		if (ibdev &&
++		    nla_put_string(msg, DEVLINK_ATTR_PORT_IBDEV_NAME,
++				   ibdev->name))
++			goto nla_put_failure;
++	}
++	if (devlink_port->split &&
++	    nla_put_u32(msg, DEVLINK_ATTR_PORT_SPLIT_GROUP,
++			devlink_port->split_group))
++		goto nla_put_failure;
++
++	genlmsg_end(msg, hdr);
++	return 0;
++
++nla_put_failure:
++	genlmsg_cancel(msg, hdr);
++	return -EMSGSIZE;
++}
++
++static void devlink_port_notify(struct devlink_port *devlink_port,
++				enum devlink_command cmd)
++{
++	struct devlink *devlink = devlink_port->devlink;
++	struct sk_buff *msg;
++	int err;
++
++	if (!devlink_port->registered)
++		return;
++
++	WARN_ON(cmd != DEVLINK_CMD_PORT_NEW && cmd != DEVLINK_CMD_PORT_DEL);
++
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
++	if (!msg)
++		return;
++
++	err = devlink_nl_port_fill(msg, devlink, devlink_port, cmd, 0, 0, 0);
++	if (err) {
++		nlmsg_free(msg);
++		return;
++	}
++
++	genlmsg_multicast_netns(&devlink_nl_family, devlink_net(devlink),
++				msg, 0, DEVLINK_MCGRP_CONFIG, GFP_KERNEL);
++}
++
++static int devlink_nl_cmd_get_doit(struct sk_buff *skb, struct genl_info *info)
++{
++	struct devlink *devlink = info->user_ptr[0];
++	struct sk_buff *msg;
++	int err;
++
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
++	if (!msg)
++		return -ENOMEM;
++
++	err = devlink_nl_fill(msg, devlink, DEVLINK_CMD_NEW,
++			      info->snd_portid, info->snd_seq, 0);
++	if (err) {
++		nlmsg_free(msg);
++		return err;
++	}
++
++	return genlmsg_reply(msg, info);
++}
++
++static int devlink_nl_cmd_get_dumpit(struct sk_buff *msg,
++				     struct netlink_callback *cb)
++{
++	struct devlink *devlink;
++	int start = cb->args[0];
++	int idx = 0;
++	int err;
++
++	mutex_lock(&devlink_mutex);
++	list_for_each_entry(devlink, &devlink_list, list) {
++		if (!net_eq(devlink_net(devlink), sock_net(msg->sk)))
 +			continue;
-+		mlxsw_sp->port_to_module[i] = module;
- 		err = mlxsw_sp_port_create(mlxsw_sp, i);
- 		if (err)
- 			goto err_port_create;
-@@ -1576,6 +1569,7 @@ static int mlxsw_sp_ports_create(struct mlxsw_sp *mlxsw_sp)
- 	return 0;
- 
- err_port_create:
-+err_port_module_info_get:
- 	for (i--; i >= 1; i--)
- 		mlxsw_sp_port_remove(mlxsw_sp, i);
- 	kfree(mlxsw_sp->ports);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 0df9a19..c75dd08 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -123,6 +123,7 @@ struct mlxsw_sp {
- 	u32 ageing_time;
- 	struct mlxsw_sp_upper master_bridge;
- 	struct mlxsw_sp_upper lags[MLXSW_SP_LAG_MAX];
-+	u8 port_to_module[MLXSW_PORT_MAX_PORTS];
- };
- 
- static inline struct mlxsw_sp_upper *
++		if (idx < start) {
++			idx++;
++			continue;
++		}
++		err = devlink_nl_fill(msg, devlink, DEVLINK_CMD_NEW,
++				      NETLINK_CB(cb->skb).portid,
++				      cb->nlh->nlmsg_seq, NLM_F_MULTI);
++		if (err)
++			goto out;
++		idx++;
++	}
++out:
++	mutex_unlock(&devlink_mutex);
++
++	cb->args[0] = idx;
++	return msg->len;
++}
++
++static int devlink_rename(struct devlink *devlink, const char *newname)
++{
++	int err;
++
++	if (strcmp(newname, devlink_name(devlink)) == 0)
++		return 0;
++	if (devlink_name_exists(devlink_net(devlink), newname))
++		return -EINVAL;
++	if (!dev_valid_name(newname))
++		return -EINVAL;
++	err = device_rename(&devlink->dev, newname);
++	if (err)
++		return err;
++	devlink_notify(devlink, DEVLINK_CMD_NEW);
++	return 0;
++}
++
++static int devlink_nl_cmd_set_doit(struct sk_buff *skb, struct genl_info *info)
++{
++	struct devlink *devlink = info->user_ptr[0];
++	int err;
++
++	if (info->attrs[DEVLINK_ATTR_NAME]) {
++		err = devlink_rename(devlink,
++				     nla_data(info->attrs[DEVLINK_ATTR_NAME]));
++		if (err)
++			return err;
++	}
++	return 0;
++}
++
++static int devlink_nl_cmd_port_get_doit(struct sk_buff *skb,
++					struct genl_info *info)
++{
++	struct devlink *devlink = info->user_ptr[0];
++	struct devlink_port *devlink_port = info->user_ptr[1];
++	struct sk_buff *msg;
++	int err;
++
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
++	if (!msg)
++		return -ENOMEM;
++
++	err = devlink_nl_port_fill(msg, devlink, devlink_port,
++				   DEVLINK_CMD_PORT_NEW,
++				   info->snd_portid, info->snd_seq, 0);
++	if (err) {
++		nlmsg_free(msg);
++		return err;
++	}
++
++	return genlmsg_reply(msg, info);
++}
++
++static int devlink_nl_cmd_port_get_dumpit(struct sk_buff *msg,
++					  struct netlink_callback *cb)
++{
++	struct devlink *devlink;
++	struct devlink_port *devlink_port;
++	int start = cb->args[0];
++	int idx = 0;
++	int err;
++
++	mutex_lock(&devlink_mutex);
++	mutex_lock(&devlink_port_mutex);
++	list_for_each_entry(devlink, &devlink_list, list) {
++		if (!net_eq(devlink_net(devlink), sock_net(msg->sk)))
++			continue;
++		list_for_each_entry(devlink_port, &devlink->port_list, list) {
++			if (idx < start) {
++				idx++;
++				continue;
++			}
++			err = devlink_nl_port_fill(msg, devlink, devlink_port,
++						   DEVLINK_CMD_NEW,
++						   NETLINK_CB(cb->skb).portid,
++						   cb->nlh->nlmsg_seq,
++						   NLM_F_MULTI);
++			if (err)
++				goto out;
++			idx++;
++		}
++	}
++out:
++	mutex_unlock(&devlink_port_mutex);
++	mutex_unlock(&devlink_mutex);
++
++	cb->args[0] = idx;
++	return msg->len;
++}
++
++static int devlink_port_type_set(struct devlink *devlink,
++				 struct devlink_port *devlink_port,
++				 enum devlink_port_type port_type)
++
++{
++	int err;
++
++	if (devlink->ops && devlink->ops->port_type_set) {
++		if (port_type == DEVLINK_PORT_TYPE_NOTSET)
++			return -EINVAL;
++		err = devlink->ops->port_type_set(devlink_port, port_type);
++		if (err)
++			return err;
++		devlink_port->desired_type = port_type;
++		devlink_port_notify(devlink_port, DEVLINK_CMD_PORT_NEW);
++		return 0;
++	}
++	return -EOPNOTSUPP;
++}
++
++static int devlink_nl_cmd_port_set_doit(struct sk_buff *skb,
++					struct genl_info *info)
++{
++	struct devlink *devlink = info->user_ptr[0];
++	struct devlink_port *devlink_port = info->user_ptr[1];
++	int err;
++
++	if (info->attrs[DEVLINK_ATTR_PORT_TYPE]) {
++		enum devlink_port_type port_type;
++
++		port_type = nla_get_u16(info->attrs[DEVLINK_ATTR_PORT_TYPE]);
++		err = devlink_port_type_set(devlink, devlink_port, port_type);
++		if (err)
++			return err;
++	}
++	return 0;
++}
++
++static int devlink_port_split(struct devlink *devlink,
++			      u32 port_index, u32 count)
++
++{
++	if (devlink->ops && devlink->ops->port_split)
++		return devlink->ops->port_split(devlink, port_index, count);
++	return -EOPNOTSUPP;
++}
++
++static int devlink_nl_cmd_port_split_doit(struct sk_buff *skb,
++					  struct genl_info *info)
++{
++	struct devlink *devlink = info->user_ptr[0];
++	u32 port_index;
++	u32 count;
++
++	if (!info->attrs[DEVLINK_ATTR_PORT_INDEX] ||
++	    !info->attrs[DEVLINK_ATTR_PORT_SPLIT_COUNT])
++		return -EINVAL;
++
++	port_index = nla_get_u32(info->attrs[DEVLINK_ATTR_PORT_INDEX]);
++	count = nla_get_u32(info->attrs[DEVLINK_ATTR_PORT_SPLIT_COUNT]);
++	return devlink_port_split(devlink, port_index, count);
++}
++
++static int devlink_port_unsplit(struct devlink *devlink, u32 port_index)
++
++{
++	if (devlink->ops && devlink->ops->port_unsplit)
++		return devlink->ops->port_unsplit(devlink, port_index);
++	return -EOPNOTSUPP;
++}
++
++static int devlink_nl_cmd_port_unsplit_doit(struct sk_buff *skb,
++					    struct genl_info *info)
++{
++	struct devlink *devlink = info->user_ptr[0];
++	u32 port_index;
++
++	if (!info->attrs[DEVLINK_ATTR_PORT_INDEX])
++		return -EINVAL;
++
++	port_index = nla_get_u32(info->attrs[DEVLINK_ATTR_PORT_INDEX]);
++	return devlink_port_unsplit(devlink, port_index);
++}
++
++static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
++	[DEVLINK_ATTR_INDEX] = { .type = NLA_U32 },
++	[DEVLINK_ATTR_NAME] = { .type = NLA_NUL_STRING,
++				.len = DEVLINK_ATTR_NAME_MAX_LEN },
++	[DEVLINK_ATTR_PORT_INDEX] = { .type = NLA_U32 },
++	[DEVLINK_ATTR_PORT_TYPE] = { .type = NLA_U16 },
++	[DEVLINK_ATTR_PORT_SPLIT_COUNT] = { .type = NLA_U32 },
++};
++
++static const struct genl_ops devlink_nl_ops[] = {
++	{
++		.cmd = DEVLINK_CMD_GET,
++		.doit = devlink_nl_cmd_get_doit,
++		.dumpit = devlink_nl_cmd_get_dumpit,
++		.policy = devlink_nl_policy,
++		/* can be retrieved by unprivileged users */
++	},
++	{
++		.cmd = DEVLINK_CMD_SET,
++		.doit = devlink_nl_cmd_set_doit,
++		.policy = devlink_nl_policy,
++		.flags = GENL_ADMIN_PERM,
++	},
++	{
++		.cmd = DEVLINK_CMD_PORT_GET,
++		.doit = devlink_nl_cmd_port_get_doit,
++		.dumpit = devlink_nl_cmd_port_get_dumpit,
++		.policy = devlink_nl_policy,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_PORT,
++		/* can be retrieved by unprivileged users */
++	},
++	{
++		.cmd = DEVLINK_CMD_PORT_SET,
++		.doit = devlink_nl_cmd_port_set_doit,
++		.policy = devlink_nl_policy,
++		.flags = GENL_ADMIN_PERM,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_PORT,
++	},
++	{
++		.cmd = DEVLINK_CMD_PORT_SPLIT,
++		.doit = devlink_nl_cmd_port_split_doit,
++		.policy = devlink_nl_policy,
++		.flags = GENL_ADMIN_PERM,
++	},
++	{
++		.cmd = DEVLINK_CMD_PORT_UNSPLIT,
++		.doit = devlink_nl_cmd_port_unsplit_doit,
++		.policy = devlink_nl_policy,
++		.flags = GENL_ADMIN_PERM,
++	},
++};
++
++static struct class devlink_class;
++
++/**
++ *	devlink_alloc - Allocate new devlink instance resources
++ *
++ *	@ops: ops
++ *	@priv_size: size of user private data
++ *
++ *	Allocate new devlink instance resources, including devlink index
++ *	and name.
++ */
++struct devlink *devlink_alloc(const struct devlink_ops *ops, size_t priv_size)
++{
++	static atomic_t dev_counter = ATOMIC_INIT(0);
++	struct devlink *devlink;
++
++	devlink = kzalloc(sizeof(*devlink) + priv_size, GFP_KERNEL);
++	if (!devlink)
++		return NULL;
++	devlink->ops = ops;
++	devlink_net_set(devlink, &init_net);
++
++different_name:
++	devlink->index = atomic_inc_return(&dev_counter);
++	if (devlink->index < 0) {
++		/* wrapped */
++		atomic_dec(&dev_counter);
++		kfree(devlink);
++		return NULL;
++	}
++	/* atomic_inc_return makes it start at 1, make it start at 0 */
++	devlink->index--;
++
++	dev_set_name(&devlink->dev, DEVLINK_GENL_NAME "%d", devlink->index);
++	if (devlink_name_exists(devlink_net(devlink), devlink_name(devlink)))
++		goto different_name;
++
++	INIT_LIST_HEAD(&devlink->port_list);
++	device_initialize(&devlink->dev);
++	devlink->dev.class = &devlink_class;
++	devlink->dev.platform_data = devlink;
++	return devlink;
++}
++EXPORT_SYMBOL_GPL(devlink_alloc);
++
++/**
++ *	devlink_register - Register devlink instance
++ *
++ *	@devlink: devlink
++ */
++int devlink_register(struct devlink *devlink)
++{
++	int err;
++
++	mutex_lock(&devlink_mutex);
++	err = device_add(&devlink->dev);
++	if (err)
++		goto unlock;
++	list_add_tail(&devlink->list, &devlink_list);
++	devlink_notify(devlink, DEVLINK_CMD_NEW);
++unlock:
++	mutex_unlock(&devlink_mutex);
++	return err;
++}
++EXPORT_SYMBOL_GPL(devlink_register);
++
++/**
++ *	devlink_unregister - Unregister devlink instance
++ *
++ *	@devlink: devlink
++ */
++void devlink_unregister(struct devlink *devlink)
++{
++	mutex_lock(&devlink_mutex);
++	devlink_notify(devlink, DEVLINK_CMD_DEL);
++	list_del(&devlink->list);
++	device_del(&devlink->dev);
++	mutex_unlock(&devlink_mutex);
++}
++EXPORT_SYMBOL_GPL(devlink_unregister);
++
++/**
++ *	devlink_free - Free devlink instance resources
++ *
++ *	@devlink: devlink
++ */
++void devlink_free(struct devlink *devlink)
++{
++	put_device(&devlink->dev);
++}
++EXPORT_SYMBOL_GPL(devlink_free);
++
++/**
++ *	devlink_port_register - Register devlink port
++ *
++ *	@devlink: devlink
++ *	@devlink_port: devlink port
++ *	@port_index
++ *
++ *	Register devlink port with provided port index. User can use
++ *	any indexing, even hw-related one. devlink_port structure
++ *	is convenient to be embedded inside user driver private structure.
++ *	Note that the caller should take care of zeroing the devlink_port
++ *	structure.
++ */
++int devlink_port_register(struct devlink *devlink,
++			  struct devlink_port *devlink_port,
++			  unsigned int port_index)
++{
++	mutex_lock(&devlink_port_mutex);
++	if (devlink_port_index_exists(devlink, port_index)) {
++		mutex_unlock(&devlink_port_mutex);
++		return -EEXIST;
++	}
++	devlink_port->devlink = devlink;
++	devlink_port->index = port_index;
++	devlink_port->type = DEVLINK_PORT_TYPE_NOTSET;
++	devlink_port->registered = true;
++	list_add_tail(&devlink_port->list, &devlink->port_list);
++	mutex_unlock(&devlink_port_mutex);
++	devlink_port_notify(devlink_port, DEVLINK_CMD_PORT_NEW);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(devlink_port_register);
++
++/**
++ *	devlink_port_unregister - Unregister devlink port
++ *
++ *	@devlink_port: devlink port
++ */
++void devlink_port_unregister(struct devlink_port *devlink_port)
++{
++	devlink_port_notify(devlink_port, DEVLINK_CMD_PORT_DEL);
++	mutex_lock(&devlink_port_mutex);
++	list_del(&devlink_port->list);
++	mutex_unlock(&devlink_port_mutex);
++}
++EXPORT_SYMBOL_GPL(devlink_port_unregister);
++
++static void __devlink_port_type_set(struct devlink_port *devlink_port,
++				    enum devlink_port_type type,
++				    void *type_dev)
++{
++	devlink_port->type = type;
++	devlink_port->type_dev = type_dev;
++	devlink_port_notify(devlink_port, DEVLINK_CMD_PORT_NEW);
++}
++
++/**
++ *	devlink_port_type_eth_set - Set port type to Ethernet
++ *
++ *	@devlink_port: devlink port
++ *	@netdev: related netdevice
++ */
++void devlink_port_type_eth_set(struct devlink_port *devlink_port,
++			       struct net_device *netdev)
++{
++	return __devlink_port_type_set(devlink_port,
++				       DEVLINK_PORT_TYPE_ETH, netdev);
++}
++EXPORT_SYMBOL_GPL(devlink_port_type_eth_set);
++
++/**
++ *	devlink_port_type_ib_set - Set port type to InfiniBand
++ *
++ *	@devlink_port: devlink port
++ *	@ibdev: related IB device
++ */
++void devlink_port_type_ib_set(struct devlink_port *devlink_port,
++			      struct ib_device *ibdev)
++{
++	return __devlink_port_type_set(devlink_port,
++				       DEVLINK_PORT_TYPE_IB, ibdev);
++}
++EXPORT_SYMBOL_GPL(devlink_port_type_ib_set);
++
++/**
++ *	devlink_port_type_clear - Clear port type
++ *
++ *	@devlink_port: devlink port
++ */
++void devlink_port_type_clear(struct devlink_port *devlink_port)
++{
++	return __devlink_port_type_set(devlink_port,
++				       DEVLINK_PORT_TYPE_NOTSET, NULL);
++}
++EXPORT_SYMBOL_GPL(devlink_port_type_clear);
++
++/**
++ *	devlink_port_split_set - Set port is splitted
++ *
++ *	@devlink_port: devlink port
++ *	@split_group: split group - identifies group splitted port is part of
++ */
++void devlink_port_split_set(struct devlink_port *devlink_port,
++			    u32 split_group)
++{
++	devlink_port->split = true;;
++	devlink_port->split_group = split_group;
++	devlink_port_notify(devlink_port, DEVLINK_CMD_PORT_NEW);
++}
++EXPORT_SYMBOL_GPL(devlink_port_split_set);
++
++static void __devlink_free(struct devlink *devlink)
++{
++	kfree(devlink);
++}
++
++static struct devlink *dev_to_devlink(struct device *dev)
++{
++	return container_of(dev, struct devlink, dev);
++}
++
++static ssize_t index_show(struct device *dev,
++			  struct device_attribute *attr, char *buf)
++{
++	return sprintf(buf, "%d\n", dev_to_devlink(dev)->index);
++}
++static DEVICE_ATTR_RO(index);
++
++static ssize_t name_show(struct device *dev,
++			 struct device_attribute *attr, char *buf)
++{
++	return sprintf(buf, "%s\n", dev_name(dev));
++}
++static DEVICE_ATTR_RO(name);
++
++static struct attribute *devlink_attrs[] = {
++	&dev_attr_index.attr,
++	&dev_attr_name.attr,
++	NULL,
++};
++ATTRIBUTE_GROUPS(devlink);
++
++static void devlink_dev_release(struct device *dev)
++{
++	__devlink_free(dev_to_devlink(dev));
++}
++
++static const void *devlink_namespace(struct device *dev)
++{
++	return devlink_net(dev_to_devlink(dev));
++}
++
++static struct class devlink_class = {
++	.name = DEVLINK_GENL_NAME,
++	.owner = THIS_MODULE,
++	.dev_release = devlink_dev_release,
++	.dev_groups = devlink_groups,
++	.ns_type = &net_ns_type_operations,
++	.namespace = devlink_namespace,
++};
++
++static int __init devlink_module_init(void)
++{
++	int err;
++
++	err = class_register(&devlink_class);
++	if (err)
++		return err;
++	err = genl_register_family_with_ops_groups(&devlink_nl_family,
++						   devlink_nl_ops,
++						   devlink_nl_mcgrps);
++	if (err)
++		goto err_genl_register;
++	return 0;
++
++err_genl_register:
++	class_unregister(&devlink_class);
++	return err;
++}
++
++static void __exit devlink_module_exit(void)
++{
++	genl_unregister_family(&devlink_nl_family);
++	class_unregister(&devlink_class);
++}
++
++module_init(devlink_module_init);
++module_exit(devlink_module_exit);
++
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Jiri Pirko <jiri@mellanox.com>");
++MODULE_DESCRIPTION("Network physical device Netlink interface");
++MODULE_ALIAS_GENL_FAMILY(DEVLINK_GENL_NAME);
 -- 
 2.5.0
