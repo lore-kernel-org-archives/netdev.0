@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] vlan: turn on unicast filtering on vlan device
-Date: Sun, 21 Feb 2016 21:54:33 -0500 (EST)
-Message-ID: <20160221.215433.1741977191142448096.davem@davemloft.net>
-References: <1455789611-31803-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Subject: Re: [PATCH] MAINTAINERS: Drop myself as xen netback maintainer
+Date: Sun, 21 Feb 2016 21:55:33 -0500 (EST)
+Message-ID: <20160221.215533.1317524576474029368.davem@davemloft.net>
+References: <1455882291-1867-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: zhangshengju@cmss.chinamobile.com
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	wei.liu2@citrix.com
+To: ian.campbell@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42909 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42916 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752939AbcBVCyf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 21:54:35 -0500
-In-Reply-To: <1455789611-31803-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+	with ESMTP id S1752862AbcBVCzf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 21:55:35 -0500
+In-Reply-To: <1455882291-1867-1-git-send-email-ian.campbell@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Date: Thu, 18 Feb 2016 10:00:11 +0000
+From: Ian Campbell <ian.campbell@citrix.com>
+Date: Fri, 19 Feb 2016 11:44:51 +0000
 
-> Currently vlan device inherits unicast filtering flag from underlying
-> device. If underlying device doesn't support unicast filter, this will
-> put vlan device into promiscuous mode when it's stacked.
+> Wei has been picking this up for quite a while now.
 > 
-> Tun on IFF_UNICAST_FLT on the vlan device in any case so that it does
-> not go into promiscuous mode needlessly. If underlying device does not
-> support unicast filtering, that device will enter promiscuous mode.
-> 
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
 
-Applied, thanks.
+Applied, thanks Ian.
