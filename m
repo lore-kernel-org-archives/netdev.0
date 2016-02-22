@@ -1,33 +1,40 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH can-next 1/2] CAN: rcar: add gen[12] fallback
- compatibility strings
-Date: Sun, 21 Feb 2016 21:37:20 -0600
-Message-ID: <20160222033720.GA27711@rob-hp-laptop>
-References: <1456107350-12100-1-git-send-email-horms+renesas@verge.net.au>
- <1456107350-12100-2-git-send-email-horms+renesas@verge.net.au>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [net-next][PATCH 11/13] RDS: IB: add Fastreg MR (FRMR)
+ detection support
+Date: Sun, 21 Feb 2016 22:36:56 -0500 (EST)
+Message-ID: <20160221.223656.2213596964617869651.davem@davemloft.net>
+References: <1455967804-27644-1-git-send-email-santosh.shilimkar@oracle.com>
+	<1455967804-27644-12-git-send-email-santosh.shilimkar@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: Simon Horman <horms+renesas@verge.net.au>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1456107350-12100-2-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1455967804-27644-12-git-send-email-santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 22, 2016 at 11:15:49AM +0900, Simon Horman wrote:
-> Add fallback compatibility string for R-Car Gen 1 and Gen2 families.
-> This is in keeping with the fallback scheme being adopted wherever
-> appropriate for drivers for Renesas SoCs.
-> 
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> ---
->  Documentation/devicetree/bindings/net/can/rcar_can.txt | 4 +++-
->  drivers/net/can/rcar_can.c                             | 2 ++
->  2 files changed, 5 insertions(+), 1 deletion(-)
+From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Date: Sat, 20 Feb 2016 03:30:02 -0800
 
-Acked-by: Rob Herring <robh@kernel.org>
+> @@ -54,6 +55,8 @@ module_param(rds_ib_mr_8k_pool_size, int, 0444);
+>  MODULE_PARM_DESC(rds_ib_mr_8k_pool_size, " Max number of 8K mr per HCA");
+>  module_param(rds_ib_retry_count, int, 0444);
+>  MODULE_PARM_DESC(rds_ib_retry_count, " Number of hw retries before reporting an error");
+> +module_param(prefer_frmr, bool, 0444);
+> +MODULE_PARM_DESC(prefer_frmr, "Preferred MR method if both FMR and FRMR supported");
+
+Sorry, you're going to have to create a real run time method to configure
+this parameter.
+
+I'm strongly against module parameters.
+
+Please don't go into details about why this might be difficult to do,
+I'm totally not interested.  Doing things properly is sometimes not
+easy, that's life.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
