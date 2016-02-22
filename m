@@ -1,161 +1,82 @@
 From: Ajit Khaparde <ajit.khaparde@broadcom.com>
-Subject: [PATCH net-next 1/2] be2net: Declare some u16 fields as u32 to improve performance
-Date: Tue, 23 Feb 2016 00:33:48 +0530
-Message-ID: <1456167828-31441-1-git-send-email-ajit.khaparde@broadcom.com>
+Subject: [PATCH net-next 2/2] be2net: Fix a UE caused by passing large frames to the ASIC
+Date: Tue, 23 Feb 2016 00:35:01 +0530
+Message-ID: <1456167901-31495-1-git-send-email-ajit.khaparde@broadcom.com>
 To: ajit.khaparde@broadcom.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmrelayp1.emulex.com ([138.239.112.140]:53663 "EHLO
+Received: from cmrelayp1.emulex.com ([138.239.112.140]:53689 "EHLO
 	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751977AbcBVTFt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 14:05:49 -0500
+	by vger.kernel.org with ESMTP id S1751952AbcBVTG7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 14:06:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When 16-bit integers are loaded on CPUs with high order native
-register sizes, the CPU could use some extra ops before using them.
-And currently some of the frequently used fields in the driver like
-the producer and consumer indices of the queues are declared as u16.
+In QnQ configurations like Flex-10 where the VLANs are inserted by the
+ASIC, on rare occasions the HW is encountering a scenario where the
+final frame length ends to be greater than what the ASIC can support.
 
-This patch declares such fields as u32.  With this change we see the
-64-byte packets per second numbers improve by about 4%.
+This is because when the TXULP pulls the TX WRB to check the length
+of the frame to be transmitted it also adds the size of VLANs to be
+inserted by the HW to the length of the frame indicated in the WRB,
+which in some cases fails the range check.  This causes a UE.
+
+Avoid this by trimming the skb length to accommodate the VLAN insertion.
 
 Signed-off-by: Ajit Khaparde <ajit.khaparde@broadcom.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      | 18 +++++++++---------
- drivers/net/ethernet/emulex/benet/be_cmds.c |  2 +-
- drivers/net/ethernet/emulex/benet/be_main.c | 16 +++++++++-------
- 3 files changed, 19 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |  3 +++
+ drivers/net/ethernet/emulex/benet/be_main.c | 11 ++++++++++-
+ 2 files changed, 13 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index ab24f84..756f25b 100644
+index 756f25b..ee584c5 100644
 --- a/drivers/net/ethernet/emulex/benet/be.h
 +++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -124,27 +124,27 @@ struct be_dma_mem {
- };
+@@ -72,6 +72,9 @@
+ #define BE_MAX_MTU              (BE_MAX_JUMBO_FRAME_SIZE -	\
+ 				 (ETH_HLEN + ETH_FCS_LEN))
  
- struct be_queue_info {
-+	u32 len;
-+	u32 entry_size;	/* Size of an element in the queue */
-+	u32 tail, head;
-+	atomic_t used;	/* Number of valid elements in the queue */
-+	u32 id;
- 	struct be_dma_mem dma_mem;
--	u16 len;
--	u16 entry_size;	/* Size of an element in the queue */
--	u16 id;
--	u16 tail, head;
- 	bool created;
--	atomic_t used;	/* Number of valid elements in the queue */
- };
- 
--static inline u32 MODULO(u16 val, u16 limit)
-+static inline u32 MODULO(u32 val, u32 limit)
- {
- 	BUG_ON(limit & (limit - 1));
- 	return val & (limit - 1);
- }
- 
--static inline void index_adv(u16 *index, u16 val, u16 limit)
-+static inline void index_adv(u32 *index, u32 val, u32 limit)
- {
- 	*index = MODULO((*index + val), limit);
- }
- 
--static inline void index_inc(u16 *index, u16 limit)
-+static inline void index_inc(u32 *index, u32 limit)
- {
- 	*index = MODULO((*index + 1), limit);
- }
-@@ -169,7 +169,7 @@ static inline void queue_head_inc(struct be_queue_info *q)
- 	index_inc(&q->head, q->len);
- }
- 
--static inline void index_dec(u16 *index, u16 limit)
-+static inline void index_dec(u32 *index, u32 limit)
- {
- 	*index = MODULO((*index - 1), limit);
- }
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 66fa214..22402db 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -596,7 +596,7 @@ static int be_mcc_notify_wait(struct be_adapter *adapter)
- 	int status;
- 	struct be_mcc_wrb *wrb;
- 	struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
--	u16 index = mcc_obj->q.head;
-+	u32 index = mcc_obj->q.head;
- 	struct be_cmd_resp_hdr *resp;
- 
- 	index_dec(&index, mcc_obj->q.len);
++/* Accommodate for QnQ configurations where VLAN insertion is enabled in HW */
++#define BE_MAX_GSO_SIZE		(65535 - 2 * VLAN_HLEN)
++
+ #define BE_NUM_VLANS_SUPPORTED	64
+ #define BE_MAX_EQD		128u
+ #define	BE_MAX_TX_FRAG_COUNT	30
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 4624846..0bd64f1 100644
+index 0bd64f1..17422b2 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -849,9 +849,9 @@ static void unmap_tx_frag(struct device *dev, struct be_eth_wrb *wrb,
+@@ -1123,6 +1123,8 @@ static struct sk_buff *be_xmit_workarounds(struct be_adapter *adapter,
+ 					   struct sk_buff *skb,
+ 					   struct be_wrb_params *wrb_params)
+ {
++	int err;
++
+ 	/* Lancer, SH and BE3 in SRIOV mode have a bug wherein
+ 	 * packets that are 32b or less may cause a transmit stall
+ 	 * on that port. The workaround is to pad such packets
+@@ -1139,6 +1141,13 @@ static struct sk_buff *be_xmit_workarounds(struct be_adapter *adapter,
+ 			return NULL;
+ 	}
+ 
++	/* The stack can send us skbs with length greater than
++	 * what the HW can handle. Trim the extra bytes.
++	 */
++	WARN_ON_ONCE(skb->len > BE_MAX_GSO_SIZE);
++	err = pskb_trim(skb, BE_MAX_GSO_SIZE);
++	WARN_ON(err);
++
+ 	return skb;
  }
  
- /* Grab a WRB header for xmit */
--static u16 be_tx_get_wrb_hdr(struct be_tx_obj *txo)
-+static u32 be_tx_get_wrb_hdr(struct be_tx_obj *txo)
- {
--	u16 head = txo->q.head;
-+	u32 head = txo->q.head;
+@@ -4850,7 +4859,7 @@ static void be_netdev_init(struct net_device *netdev)
  
- 	queue_head_inc(&txo->q);
- 	return head;
-@@ -895,7 +895,7 @@ static void be_tx_setup_wrb_frag(struct be_tx_obj *txo, dma_addr_t busaddr,
-  * WRBs of the current packet are unmapped. Invoked to handle tx setup errors.
-  */
- static void be_xmit_restore(struct be_adapter *adapter,
--			    struct be_tx_obj *txo, u16 head, bool map_single,
-+			    struct be_tx_obj *txo, u32 head, bool map_single,
- 			    u32 copied)
- {
- 	struct device *dev;
-@@ -930,7 +930,7 @@ static u32 be_xmit_enqueue(struct be_adapter *adapter, struct be_tx_obj *txo,
- 	struct device *dev = &adapter->pdev->dev;
- 	struct be_queue_info *txq = &txo->q;
- 	bool map_single = false;
--	u16 head = txq->head;
-+	u32 head = txq->head;
- 	dma_addr_t busaddr;
- 	int len;
+ 	netdev->flags |= IFF_MULTICAST;
  
-@@ -1990,7 +1990,7 @@ static struct be_rx_page_info *get_rx_page_info(struct be_rx_obj *rxo)
- 	struct be_adapter *adapter = rxo->adapter;
- 	struct be_rx_page_info *rx_page_info;
- 	struct be_queue_info *rxq = &rxo->q;
--	u16 frag_idx = rxq->tail;
-+	u32 frag_idx = rxq->tail;
+-	netif_set_gso_max_size(netdev, 65535 - ETH_HLEN);
++	netif_set_gso_max_size(netdev, BE_MAX_GSO_SIZE - ETH_HLEN);
  
- 	rx_page_info = &rxo->page_info_tbl[frag_idx];
- 	BUG_ON(!rx_page_info->page);
-@@ -2401,10 +2401,11 @@ static u16 be_tx_compl_process(struct be_adapter *adapter,
- {
- 	struct sk_buff **sent_skbs = txo->sent_skb_list;
- 	struct be_queue_info *txq = &txo->q;
--	u16 frag_index, num_wrbs = 0;
- 	struct sk_buff *skb = NULL;
- 	bool unmap_skb_hdr = false;
- 	struct be_eth_wrb *wrb;
-+	u16 num_wrbs = 0;
-+	u32 frag_index;
- 
- 	do {
- 		if (sent_skbs[txq->tail]) {
-@@ -2516,10 +2517,11 @@ static void be_rx_cq_clean(struct be_rx_obj *rxo)
- 
- static void be_tx_compl_clean(struct be_adapter *adapter)
- {
--	u16 end_idx, notified_idx, cmpl = 0, timeo = 0, num_wrbs = 0;
- 	struct device *dev = &adapter->pdev->dev;
-+	u16 cmpl = 0, timeo = 0, num_wrbs = 0;
- 	struct be_tx_compl_info *txcp;
- 	struct be_queue_info *txq;
-+	u32 end_idx, notified_idx;
- 	struct be_tx_obj *txo;
- 	int i, pending_txqs;
+ 	netdev->netdev_ops = &be_netdev_ops;
  
 -- 
 2.4.3
