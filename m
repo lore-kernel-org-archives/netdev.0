@@ -1,51 +1,125 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 net-next] bridge: mdb: add user-space support for
- extended attributes
-Date: Mon, 22 Feb 2016 15:09:06 +0100
-Message-ID: <56CB1682.2010006@cumulusnetworks.com>
-References: <1456149621-27335-1-git-send-email-razor@blackwall.org>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH] xen-netfront: set real_num_tx_queues to zreo
+ avoid to trigger BUG_ON
+Date: Mon, 22 Feb 2016 14:10:02 +0000
+Message-ID: <56CB16BA.3020102@citrix.com>
+References: <1455931646-5672-1-git-send-email-arei.gonglei@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org
-To: Nikolay Aleksandrov <razor@blackwall.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:37882 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754973AbcBVOJK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 09:09:10 -0500
-Received: by mail-wm0-f53.google.com with SMTP id g62so165367750wme.0
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 06:09:10 -0800 (PST)
-In-Reply-To: <1456149621-27335-1-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <peter.huangpeng@huawei.com>,
+	"David S . Miller" <davem@davemloft.net>
+To: Gonglei <arei.gonglei@huawei.com>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xenproject.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455931646-5672-1-git-send-email-arei.gonglei@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/22/2016 03:00 PM, Nikolay Aleksandrov wrote:
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> Recently support was added to the kernel to be able to add more per-mdb
-> entry attributes via standard netlink attributes of type MDBA_MDB_EATTR_.
-> This patch adds support to iproute2 to parse and output these
-> attributes. The first exported attribute is the mdb "timer" value which
-> is shown only when the "-d" iproute2 arg is used.
-> 
-> Example:
-> $ bridge -d mdb show
-> dev br0 port eth1 grp 239.0.0.11 permanent   0.00
-> dev br0 port eth2 grp 239.0.0.11 permanent   0.00
-> dev br0 port eth1 grp 239.0.0.10 temp 244.38
-> dev br0 port eth1 grp 239.0.0.1 temp 245.41
-> dev br0 port eth1 grp 239.0.0.5 temp 246.43
-> dev br0 port eth2 grp 239.0.0.5 temp 248.48
-> dev br0 port eth1 grp 239.0.0.2 temp 245.41
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
-> note: this patch needs updated linux/if_bridge.h header to compile
-> 
+On 20/02/16 01:27, Gonglei wrote:
+> It's possible for a race condition to exist between xennet_open() and
+> talk_to_netback(). After invoking netfront_probe() then other
+> threads or processes invoke xennet_open (such as NetworkManager)
+> immediately may trigger BUG_ON(). Besides, we also should reset
+> real_num_tx_queues in xennet_destroy_queues().
 
-Self-NAK. I'll use the "-s"/stats as that seems to be used for some time
-values instead and will update the man page. v2 coming up.
+I think you want something like the following.  We serialize the backend
+changing and the netdev open with the device mutex.
 
-Sorry about the noise,
- Nik
+(I've not even tried to compile this so it might not even build.)
+
+David
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index d6abf19..7e2791a 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -340,22 +340,28 @@ static int xennet_open(struct net_device *dev)
+ 	unsigned int i = 0;
+ 	struct netfront_queue *queue = NULL;
+
++	device_lock(&np->xbdev->dev);
++
++	if (!netif_carrier_ok(dev))
++		goto unlock;
++
+ 	for (i = 0; i < num_queues; ++i) {
+ 		queue = &np->queues[i];
+ 		napi_enable(&queue->napi);
+
+ 		spin_lock_bh(&queue->rx_lock);
+-		if (netif_carrier_ok(dev)) {
+-			xennet_alloc_rx_buffers(queue);
+-			queue->rx.sring->rsp_event = queue->rx.rsp_cons + 1;
+-			if (RING_HAS_UNCONSUMED_RESPONSES(&queue->rx))
+-				napi_schedule(&queue->napi);
+-		}
++		xennet_alloc_rx_buffers(queue);
++		queue->rx.sring->rsp_event = queue->rx.rsp_cons + 1;
++		if (RING_HAS_UNCONSUMED_RESPONSES(&queue->rx))
++			napi_schedule(&queue->napi);
+ 		spin_unlock_bh(&queue->rx_lock);
+ 	}
+
+ 	netif_tx_start_all_queues(dev);
+
++  unlock:
++	device_unlock(&np->xbdev->dev);
++
+ 	return 0;
+ }
+
+@@ -1983,8 +1989,8 @@ static int xennet_connect(struct net_device *dev)
+ 	num_queues = dev->real_num_tx_queues;
+
+ 	rtnl_lock();
++
+ 	netdev_update_features(dev);
+-	rtnl_unlock();
+
+ 	/*
+ 	 * All public and private state should now be sane.  Get
+@@ -1992,7 +1998,6 @@ static int xennet_connect(struct net_device *dev)
+ 	 * domain a kick because we've probably just requeued some
+ 	 * packets.
+ 	 */
+-	netif_carrier_on(np->netdev);
+ 	for (j = 0; j < num_queues; ++j) {
+ 		queue = &np->queues[j];
+
+@@ -2006,9 +2011,17 @@ static int xennet_connect(struct net_device *dev)
+
+ 		spin_lock_bh(&queue->rx_lock);
+ 		xennet_alloc_rx_buffers(queue);
++		if (netif_running(dev)) {
++			if (RING_HAS_UNCONSUMED_RESPONSES(&queue->rx))
++				napi_schedule(&queue->napi);
++		}
+ 		spin_unlock_bh(&queue->rx_lock);
+ 	}
+
++	netif_carrier_on(np->netdev);
++
++	rtnl_unlock();
++
+ 	return 0;
+ }
+
+diff --git a/drivers/xen/xenbus/xenbus_probe.c
+b/drivers/xen/xenbus/xenbus_probe.c
+index 33a31cf..57cd20d 100644
+--- a/drivers/xen/xenbus/xenbus_probe.c
++++ b/drivers/xen/xenbus/xenbus_probe.c
+@@ -204,8 +204,11 @@ void xenbus_otherend_changed(struct xenbus_watch
+*watch,
+ 		return;
+ 	}
+
+-	if (drv->otherend_changed)
++	if (drv->otherend_changed) {
++		device_lock(&dev->dev);
+ 		drv->otherend_changed(dev, state);
++		device_unlock(&dev->dev);
++	}
+ }
+ EXPORT_SYMBOL_GPL(xenbus_otherend_changed);
