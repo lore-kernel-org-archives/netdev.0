@@ -1,8 +1,11 @@
 From: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Subject: [PATCH v8 5/8] time: Add history to cross timestamp interface supporting slower devices
-Date: Mon, 22 Feb 2016 03:15:23 -0800
-Message-ID: <1456139726-3327-6-git-send-email-christopher.s.hall@intel.com>
+Subject: [PATCH v8 6/8] x86: tsc: Always Running Timer (ART) correlated clocksource
+Date: Mon, 22 Feb 2016 03:15:24 -0800
+Message-ID: <1456139726-3327-7-git-send-email-christopher.s.hall@intel.com>
 References: <1456139726-3327-1-git-send-email-christopher.s.hall@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
 	x86@kernel.org, linux-kernel@vger.kernel.org,
 	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
@@ -14,336 +17,156 @@ In-Reply-To: <1456139726-3327-1-git-send-email-christopher.s.hall@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Another representative use case of time sync and the correlated
-clocksource (in addition to PTP noted above) is PTP synchronized
-audio.
+On modern Intel systems TSC is derived from the new Always Running Time=
+r
+(ART). ART can be captured simultaneous to the capture of
+audio and network device clocks, allowing a correlation between timebas=
+es
+to be constructed. Upon capture, the driver converts the captured ART
+value to the appropriate system clock using the correlated clocksource
+mechanism.
 
-In a streaming application, as an example, samples will be sent and/or
-received by multiple devices with a presentation time that is in terms
-of the PTP master clock. Synchronizing the audio output on these
-devices requires correlating the audio clock with the PTP master
-clock. The more precise this correlation is, the better the audio
-quality (i.e. out of sync audio sounds bad).
+On systems that support ART a new CPUID leaf (0x15) returns parameters
+=E2=80=9Cm=E2=80=9D and =E2=80=9Cn=E2=80=9D such that:
 
->From an application standpoint, to correlate the PTP master clock with
-the audio device clock, the system clock is used as a intermediate
-timebase. The transforms such an application would perform are:
+TSC_value =3D (ART_value * m) / n + k [n >=3D 2]
 
-    System Clock <-> Audio clock
-    System Clock <-> Network Device Clock [<-> PTP Master Clock]
-
-Modern Intel platforms can perform a more accurate cross timestamp in
-hardware (ART,audio device clock).  The audio driver requires
-ART->system time transforms -- the same as required for the network
-driver. These platforms offload audio processing (including
-cross-timestamps) to a DSP which to ensure uninterrupted audio
-processing, communicates and response to the host only once every
-millsecond. As a result is takes up to a millisecond for the DSP to
-receive a request, the request is processed by the DSP, the audio
-output hardware is polled for completion, the result is copied into
-shared memory, and the host is notified. All of these operation occur
-on a millisecond cadence.  This transaction requires about 2 ms, but
-under heavier workloads it may take up to 4 ms.
-
-Adding a history allows these slow devices the option of providing an
-ART value outside of the current interval. In this case, the callback
-provided is an accessor function for the previously obtained counter
-value. If get_system_device_crosststamp() receives a counter value
-previous to cycle_last, it consults the history provided as an
-argument in history_ref and interpolates the realtime and monotonic
-raw system time using the provided counter value. If there are any
-clock discontinuities, e.g. from calling settimeofday(), the monotonic
-raw time is interpolated in the usual way, but the realtime clock time
-is adjusted by scaling the monotonic raw adjustment.
-
-When an accessor function is used a history argument *must* be
-provided. The history is initialized using ktime_get_snapshot() and
-must be called before the counter values are read.
+[k is an offset that can adjusted by a privileged agent. The
+IA32_TSC_ADJUST MSR is an example of an interface to adjust k.
+See 17.14.4 of the Intel SDM for more details]
 
 Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
+[jstultz: Tweaked to fix build issue, also reworked math for
+64bit division on 32bit systems]
 Signed-off-by: John Stultz <john.stultz@linaro.org>
 ---
- include/linux/timekeeper_internal.h |   2 +
- include/linux/timekeeping.h         |   5 ++
- kernel/time/timekeeping.c           | 173 +++++++++++++++++++++++++++++++++++-
- 3 files changed, 179 insertions(+), 1 deletion(-)
+ arch/x86/include/asm/cpufeature.h |  2 +-
+ arch/x86/include/asm/tsc.h        |  2 ++
+ arch/x86/kernel/tsc.c             | 49 +++++++++++++++++++++++++++++++=
+++++++++
+ 3 files changed, 52 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/timekeeper_internal.h b/include/linux/timekeeper_internal.h
-index 2524722..e880054 100644
---- a/include/linux/timekeeper_internal.h
-+++ b/include/linux/timekeeper_internal.h
-@@ -50,6 +50,7 @@ struct tk_read_base {
-  * @offs_tai:		Offset clock monotonic -> clock tai
-  * @tai_offset:		The current UTC to TAI offset in seconds
-  * @clock_was_set_seq:	The sequence number of clock was set events
-+ * @cs_was_changed_seq:	The sequence number of clocksource change events
-  * @next_leap_ktime:	CLOCK_MONOTONIC time value of a pending leap-second
-  * @raw_time:		Monotonic raw base time in timespec64 format
-  * @cycle_interval:	Number of clock cycles in one NTP interval
-@@ -91,6 +92,7 @@ struct timekeeper {
- 	ktime_t			offs_tai;
- 	s32			tai_offset;
- 	unsigned int		clock_was_set_seq;
-+	u8			cs_was_changed_seq;
- 	ktime_t			next_leap_ktime;
- 	struct timespec64	raw_time;
- 
-diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
-index 75bb836..8b90d06 100644
---- a/include/linux/timekeeping.h
-+++ b/include/linux/timekeeping.h
-@@ -272,11 +272,15 @@ extern void ktime_get_raw_and_real_ts64(struct timespec64 *ts_raw,
-  * @cycles:	Clocksource counter value to produce the system times
-  * @real:	Realtime system time
-  * @raw:	Monotonic raw system time
-+ * @clock_was_set_seq:	The sequence number of clock was set events
-+ * @cs_was_changed_seq:	The sequence number of clocksource change events
-  */
- struct system_time_snapshot {
- 	cycles_t	cycles;
- 	ktime_t		real;
- 	ktime_t		raw;
-+	unsigned int	clock_was_set_seq;
-+	u8		cs_was_changed_seq;
- };
- 
- /*
-@@ -312,6 +316,7 @@ extern int get_device_system_crosststamp(
- 				struct system_counterval_t *system_counterval,
- 				void *ctx),
- 			void *ctx,
-+			struct system_time_snapshot *history,
- 			struct system_device_crosststamp *xtstamp);
- 
- /*
-diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
-index 8c53398..e8c7f03 100644
---- a/kernel/time/timekeeping.c
-+++ b/kernel/time/timekeeping.c
-@@ -233,6 +233,7 @@ static void tk_setup_internals(struct timekeeper *tk, struct clocksource *clock)
- 	u64 tmp, ntpinterval;
- 	struct clocksource *old_clock;
- 
-+	++tk->cs_was_changed_seq;
- 	old_clock = tk->tkr_mono.clock;
- 	tk->tkr_mono.clock = clock;
- 	tk->tkr_mono.read = clock->read;
-@@ -894,6 +895,8 @@ void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
- 		seq = read_seqcount_begin(&tk_core.seq);
- 
- 		now = tk->tkr_mono.read(tk->tkr_mono.clock);
-+		systime_snapshot->cs_was_changed_seq = tk->cs_was_changed_seq;
-+		systime_snapshot->clock_was_set_seq = tk->clock_was_set_seq;
- 		base_real = ktime_add(tk->tkr_mono.base,
- 				      tk_core.timekeeper.offs_real);
- 		base_raw = tk->tkr_raw.base;
-@@ -907,10 +910,123 @@ void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
+diff --git a/arch/x86/include/asm/cpufeature.h b/arch/x86/include/asm/c=
+pufeature.h
+index 7ad8c94..ff557b4 100644
+--- a/arch/x86/include/asm/cpufeature.h
++++ b/arch/x86/include/asm/cpufeature.h
+@@ -85,7 +85,7 @@
+ #define X86_FEATURE_P4		( 3*32+ 7) /* "" P4 */
+ #define X86_FEATURE_CONSTANT_TSC ( 3*32+ 8) /* TSC ticks at a constant=
+ rate */
+ #define X86_FEATURE_UP		( 3*32+ 9) /* smp kernel running on up */
+-/* free, was #define X86_FEATURE_FXSAVE_LEAK ( 3*32+10) * "" FXSAVE le=
+aks FOP/FIP/FOP */
++#define X86_FEATURE_ART		(3*32+10) /* Platform has always running time=
+r (ART) */
+ #define X86_FEATURE_ARCH_PERFMON ( 3*32+11) /* Intel Architectural Per=
+fMon */
+ #define X86_FEATURE_PEBS	( 3*32+12) /* Precise-Event Based Sampling */
+ #define X86_FEATURE_BTS		( 3*32+13) /* Branch Trace Store */
+diff --git a/arch/x86/include/asm/tsc.h b/arch/x86/include/asm/tsc.h
+index 6d7c547..174c421 100644
+--- a/arch/x86/include/asm/tsc.h
++++ b/arch/x86/include/asm/tsc.h
+@@ -29,6 +29,8 @@ static inline cycles_t get_cycles(void)
+ 	return rdtsc();
  }
- EXPORT_SYMBOL_GPL(ktime_get_snapshot);
- 
-+/* Scale base by mult/div checking for overflow */
-+static int scale64_check_overflow(u64 mult, u64 div, u64 *base)
-+{
-+	u64 tmp, rem;
+=20
++extern struct system_counterval_t convert_art_to_tsc(cycle_t art);
 +
-+	tmp = div64_u64_rem(*base, div, &rem);
+ extern void tsc_init(void);
+ extern void mark_tsc_unstable(char *reason);
+ extern int unsynchronized_tsc(void);
+diff --git a/arch/x86/kernel/tsc.c b/arch/x86/kernel/tsc.c
+index 3d743da..3fa0f41 100644
+--- a/arch/x86/kernel/tsc.c
++++ b/arch/x86/kernel/tsc.c
+@@ -43,6 +43,10 @@ static DEFINE_STATIC_KEY_FALSE(__use_tsc);
+=20
+ int tsc_clocksource_reliable;
+=20
++static u32 art_to_tsc_numerator;
++static u32 art_to_tsc_denominator;
++struct clocksource *art_related_clocksource;
 +
-+	if (((int)sizeof(u64)*8 - fls64(mult) < fls64(tmp)) ||
-+	    ((int)sizeof(u64)*8 - fls64(mult) < fls64(rem)))
-+		return -EOVERFLOW;
-+	tmp *= mult;
-+	rem *= mult;
+ /*
+  * Use a ring-buffer like data structure, where a writer advances the =
+head by
+  * writing a new data entry and a reader advances the tail when it obs=
+erves a
+@@ -949,10 +953,34 @@ static struct notifier_block time_cpufreq_notifie=
+r_block =3D {
+ 	.notifier_call  =3D time_cpufreq_notifier
+ };
+=20
++#define ART_CPUID_LEAF (0x15)
++#define ART_MIN_DENOMINATOR (1)
 +
-+	do_div(rem, div);
-+	*base = tmp + rem;
-+	return 0;
-+}
-+
-+/**
-+ * adjust_historical_crosststamp - adjust crosstimestamp previous to current interval
-+ * @history:			Snapshot representing start of history
-+ * @partial_history_cycles:	Cycle offset into history (fractional part)
-+ * @total_history_cycles:	Total history length in cycles
-+ * @discontinuity:		True indicates clock was set on history period
-+ * @ts:				Cross timestamp that should be adjusted using
-+ *	partial/total ratio
-+ *
-+ * Helper function used by get_device_system_crosststamp() to correct the
-+ * crosstimestamp corresponding to the start of the current interval to the
-+ * system counter value (timestamp point) provided by the driver. The
-+ * total_history_* quantities are the total history starting at the provided
-+ * reference point and ending at the start of the current interval. The cycle
-+ * count between the driver timestamp point and the start of the current
-+ * interval is partial_history_cycles.
-+ */
-+static int adjust_historical_crosststamp(struct system_time_snapshot *history,
-+					 cycle_t partial_history_cycles,
-+					 cycle_t total_history_cycles,
-+					 bool discontinuity,
-+					 struct system_device_crosststamp *ts)
-+{
-+	struct timekeeper *tk = &tk_core.timekeeper;
-+	bool interp_forward;
-+	u64 corr_raw, corr_real;
-+	int ret;
-+
-+	if (total_history_cycles == 0 || partial_history_cycles == 0)
-+		return 0;
-+
-+	/* Interpolate shortest distance from beginning or end of history */
-+	interp_forward = partial_history_cycles > total_history_cycles/2 ?
-+		true : false;
-+	partial_history_cycles = interp_forward ?
-+		total_history_cycles - partial_history_cycles :
-+		partial_history_cycles;
-+
-+	/*
-+	 * Scale the monotonic raw time delta by:
-+	 *	partial_history_cycles / total_history_cycles
-+	 */
-+	corr_raw = (u64)ktime_to_ns(
-+		ktime_sub(ts->sys_monoraw, history->raw));
-+	ret = scale64_check_overflow(partial_history_cycles,
-+				     total_history_cycles, &corr_raw);
-+	if (ret)
-+		return ret;
-+
-+	/*
-+	 * If there is a discontinuity in the history, scale monotonic raw
-+	 *	correction by:
-+	 *	mult(real)/mult(raw) yielding the realtime correction
-+	 * Otherwise, calculate the realtime correction similar to monotonic
-+	 *	raw calculation
-+	 */
-+	if (discontinuity) {
-+		corr_real = mul_u64_u32_div
-+			(corr_raw, tk->tkr_mono.mult, tk->tkr_raw.mult);
-+	} else {
-+		corr_real = (u64)ktime_to_ns(
-+			ktime_sub(ts->sys_realtime, history->real));
-+		ret = scale64_check_overflow(partial_history_cycles,
-+					     total_history_cycles, &corr_real);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	/* Fixup monotonic raw and real time time values */
-+	if (interp_forward) {
-+		ts->sys_monoraw = ktime_add_ns(history->raw, corr_raw);
-+		ts->sys_realtime = ktime_add_ns(history->real, corr_real);
-+	} else {
-+		ts->sys_monoraw = ktime_sub_ns(ts->sys_monoraw, corr_raw);
-+		ts->sys_realtime = ktime_sub_ns(ts->sys_realtime, corr_real);
-+	}
-+
-+	return 0;
-+}
 +
 +/*
-+ * cycle_between - true if test occurs chronologically between before and after
++ * If ART is present detect the numerator:denominator to convert to TS=
+C
 + */
-+static bool cycle_between(cycles_t before, cycles_t test, cycles_t after)
++static void detect_art(void)
 +{
-+	if (test > before && test < after)
-+		return true;
-+	if (test < before && before > after)
-+		return true;
-+	return false;
++	unsigned int unused[2];
++
++	if (boot_cpu_data.cpuid_level >=3D ART_CPUID_LEAF) {
++		cpuid(ART_CPUID_LEAF, &art_to_tsc_denominator,
++		      &art_to_tsc_numerator, unused, unused+1);
++
++		if (boot_cpu_has(X86_FEATURE_NONSTOP_TSC) &&
++		    art_to_tsc_denominator >=3D ART_MIN_DENOMINATOR)
++			set_cpu_cap(&boot_cpu_data, X86_FEATURE_ART);
++	}
 +}
 +
- /**
-  * get_device_system_crosststamp - Synchronously capture system/device timestamp
-- * @sync_devicetime:	Callback to get simultaneous device time and
-+ * @get_time_fn:	Callback to get simultaneous device time and
-  *	system counter from the device driver
-+ * @ctx:		Context passed to get_time_fn()
-+ * @history_begin:	Historical reference point used to interpolate system
-+ *	time when counter provided by the driver is before the current interval
-  * @xtstamp:		Receives simultaneously captured system and device time
-  *
-  * Reads a timestamp from a device and correlates it to system time
-@@ -920,6 +1036,7 @@ int get_device_system_crosststamp(int (*get_time_fn)
- 				   struct system_counterval_t *sys_counterval,
- 				   void *ctx),
- 				  void *ctx,
-+				  struct system_time_snapshot *history_begin,
- 				  struct system_device_crosststamp *xtstamp)
+ static int __init cpufreq_tsc(void)
  {
- 	struct timekeeper *tk = &tk_core.timekeeper;
-@@ -929,6 +1046,12 @@ int get_device_system_crosststamp(int (*get_time_fn)
- 	ktime_t base_real;
- 	s64 nsec_raw;
- 	s64 nsec_real;
-+	cycles_t cycles;
-+	cycle_t now;
-+	cycle_t interval_start;
-+	unsigned int clock_was_set_seq;
-+	u8 cs_was_changed_seq;
-+	bool do_interp;
- 	int ret;
- 
- 	do {
-@@ -948,6 +1071,22 @@ int get_device_system_crosststamp(int (*get_time_fn)
- 		 */
- 		if (tk->tkr_mono.clock != system_counterval.cs)
- 			return -ENODEV;
-+		cycles = system_counterval.cycles;
+ 	if (!cpu_has_tsc)
+ 		return 0;
 +
-+		/*
-+		 * Check whether the system counter value provided by the
-+		 * device driver is on the current timekeeping interval.
-+		 */
-+		now = tk->tkr_mono.read(tk->tkr_mono.clock);
-+		interval_start = tk->tkr_mono.cycle_last;
-+		if (!cycle_between(interval_start, cycles, now)) {
-+			clock_was_set_seq = tk->clock_was_set_seq;
-+			cs_was_changed_seq = tk->cs_was_changed_seq;
-+			cycles = interval_start;
-+			do_interp = true;
-+		} else {
-+			do_interp = false;
-+		}
- 
- 		base_real = ktime_add(tk->tkr_mono.base,
- 				      tk_core.timekeeper.offs_real);
-@@ -961,6 +1100,38 @@ int get_device_system_crosststamp(int (*get_time_fn)
- 
- 	xtstamp->sys_realtime = ktime_add_ns(base_real, nsec_real);
- 	xtstamp->sys_monoraw = ktime_add_ns(base_raw, nsec_raw);
++	detect_art();
 +
-+	/*
-+	 * Interpolate if necessary, adjusting back from the start of the
-+	 * current interval
-+	 */
-+	if (do_interp) {
-+		cycle_t partial_history_cycles, total_history_cycles;
-+		bool discontinuity;
-+
-+		/*
-+		 * Check that the counter value occurs after the provided
-+		 * history reference and that the history doesn't cross a
-+		 * clocksource change
-+		 */
-+		if (!history_begin ||
-+		    !cycle_between(history_begin->cycles,
-+				   system_counterval.cycles, cycles) ||
-+		    history_begin->cs_was_changed_seq != cs_was_changed_seq)
-+			return -EINVAL;
-+		partial_history_cycles = cycles - system_counterval.cycles;
-+		total_history_cycles = cycles - history_begin->cycles;
-+		discontinuity =
-+			history_begin->clock_was_set_seq != clock_was_set_seq;
-+
-+		ret = adjust_historical_crosststamp(history_begin,
-+						    partial_history_cycles,
-+						    total_history_cycles,
-+						    discontinuity, xtstamp);
-+		if (ret)
-+			return ret;
-+	}
-+
+ 	if (boot_cpu_has(X86_FEATURE_CONSTANT_TSC))
+ 		return 0;
+ 	cpufreq_register_notifier(&time_cpufreq_notifier_block,
+@@ -1071,6 +1099,25 @@ int unsynchronized_tsc(void)
  	return 0;
  }
- EXPORT_SYMBOL_GPL(get_device_system_crosststamp);
--- 
+=20
++/*
++ * Convert ART to TSC given numerator/denominator found in detect_art(=
+)
++ */
++struct system_counterval_t convert_art_to_tsc(cycle_t art)
++{
++	u64 tmp, res, rem;
++
++	rem =3D do_div(art, art_to_tsc_denominator);
++
++	res =3D art * art_to_tsc_numerator;
++	tmp =3D rem * art_to_tsc_numerator;
++
++	do_div(tmp, art_to_tsc_denominator);
++	res +=3D tmp;
++
++	return (struct system_counterval_t) {.cs =3D art_related_clocksource,
++			.cycles =3D res};
++}
++EXPORT_SYMBOL(convert_art_to_tsc);
+=20
+ static void tsc_refine_calibration_work(struct work_struct *work);
+ static DECLARE_DELAYED_WORK(tsc_irqwork, tsc_refine_calibration_work);
+@@ -1142,6 +1189,8 @@ static void tsc_refine_calibration_work(struct wo=
+rk_struct *work)
+ 		(unsigned long)tsc_khz % 1000);
+=20
+ out:
++	if (boot_cpu_has(X86_FEATURE_ART))
++		art_related_clocksource =3D &clocksource_tsc;
+ 	clocksource_register_khz(&clocksource_tsc, tsc_khz);
+ }
+=20
+--=20
 2.1.4
