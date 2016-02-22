@@ -1,105 +1,54 @@
-From: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
-Subject: [PATCH v3] tunnel: Clear IPCB(skb)->opt before dst_link_failure called
-Date: Mon, 22 Feb 2016 12:58:05 +1300
-Message-ID: <1456099085-24097-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
-References: <1455585016-7253-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, stable@vger.kernel.org,
-	bernie.harris@alliedtelesis.co.nz
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:60817 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751460AbcBUX6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 18:58:30 -0500
-In-Reply-To: <1455585016-7253-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Ianovich <ynvich@gmail.com>
+Subject: Re: [PATCH v3] net: ethernet: davicom: fix devicetree irq resource
+Date: Mon, 22 Feb 2016 03:54:21 +0300
+Message-ID: <1456102461.2386.6.camel@gmail.com>
+References: <1456001126-13129-1-git-send-email-robert.jarzmik@free.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Robert Jarzmik <robert.jarzmik@free.fr>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1456001126-13129-1-git-send-email-robert.jarzmik@free.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-IPCB may contain data from previous layers (in the observed case the
-qdisc layer). In the observed scenario, the data was misinterpreted as
-ip header options, which later caused the ihl to be set to an invalid
-value (<5). This resulted in an infinite loop in the mips implementation
-of ip_fast_csum.
+On Sat, 2016-02-20 at 21:45 +0100, Robert Jarzmik wrote:
+> The dm9000 driver doesn't work in at least one device-tree
+> configuration, spitting an error message on irq resource :
+> [=C2=A0=C2=A0=C2=A0=C2=A01.062495] dm9000 8000000.ethernet: insuffici=
+ent resources
+> [=C2=A0=C2=A0=C2=A0=C2=A01.068439] dm9000 8000000.ethernet: not found=
+ (-2).
+> [=C2=A0=C2=A0=C2=A0=C2=A01.073451] dm9000: probe of 8000000.ethernet =
+failed with error -2
+>=20
+> The reason behind is that the interrupt might be provided by a gpio
+> controller, not probed when dm9000 is probed, and needing the probe
+> deferral mechanism to apply.
+>=20
+> Currently, the interrupt is directly taken from resources. This patch
+> changes this to use the more generic platform_get_irq(), which
+> handles
+> the deferral.
+>=20
+> Moreover, since commit Fixes: 7085a7401ba5 ("drivers: platform: parse
+> IRQ flags from resources"), the interrupt trigger flags are honored
+> in
+> platform_get_irq(), so remove the needless code in dm9000.
+>=20
+> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+> Acked-by: Marcel Ziswiler <marcel@ziswiler.com>
+> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>=20
 
-This patch clears IPCB(skb)->opt before dst_link_failure can be called for
-various types of tunnels. This change only applies to encapsulated ipv4
-packets.
+Tested-by: Sergei Ianovich <ynvich@gmail.com>
 
-The code introduced in 11c21a30 which clears all of IPCB has been removed
-to be consistent with these changes, and instead the opt field is cleared
-unconditionally in ip_tunnel_xmit. The change in ip_tunnel_xmit applies to
-SIT, GRE, and IPIP tunnels.
+I've hit the original bug too. This patch fixes the *regression*. It
+may be worth adding a note about this.
 
-The relevant vti, l2tp, and pptp functions already contain similar code for
-clearing the IPCB.
-
-Signed-off-by: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
----
- net/ipv4/ip_tunnel.c  | 3 ++-
- net/ipv4/udp_tunnel.c | 2 ++
- net/ipv6/ip6_gre.c    | 2 ++
- net/ipv6/ip6_tunnel.c | 2 ++
- 4 files changed, 8 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 89e8861..336e689 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -661,6 +661,8 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 	inner_iph = (const struct iphdr *)skb_inner_network_header(skb);
- 	connected = (tunnel->parms.iph.daddr != 0);
- 
-+	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-+
- 	dst = tnl_params->daddr;
- 	if (dst == 0) {
- 		/* NBMA tunnel */
-@@ -758,7 +760,6 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 				tunnel->err_time + IPTUNNEL_ERR_TIMEO)) {
- 			tunnel->err_count--;
- 
--			memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 			dst_link_failure(skb);
- 		} else
- 			tunnel->err_count = 0;
-diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
-index 0ec0881..96599d1 100644
---- a/net/ipv4/udp_tunnel.c
-+++ b/net/ipv4/udp_tunnel.c
-@@ -89,6 +89,8 @@ void udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb
- 	uh->source = src_port;
- 	uh->len = htons(skb->len);
- 
-+	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-+
- 	udp_set_csum(nocheck, skb, src, dst, skb->len);
- 
- 	iptunnel_xmit(sk, rt, skb, src, dst, IPPROTO_UDP, tos, ttl, df, xnet);
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index f37f18b..c4123aa 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -777,6 +777,8 @@ static inline int ip6gre_xmit_ipv4(struct sk_buff *skb, struct net_device *dev)
- 	__u32 mtu;
- 	int err;
- 
-+	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-+
- 	if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
- 		encap_limit = t->parms.encap_limit;
- 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 137fca4..6c5dfec 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1180,6 +1180,8 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 	u8 tproto;
- 	int err;
- 
-+	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-+
- 	tproto = ACCESS_ONCE(t->parms.proto);
- 	if (tproto != IPPROTO_IPIP && tproto != 0)
- 		return -1;
--- 
-2.7.1
+--=20
+Sergei Ianovich <ynvich@gmail.com>
