@@ -1,39 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/3] gianfar: Map head TxBD first to skip a
- wmb()
-Date: Mon, 22 Feb 2016 11:04:19 -0500 (EST)
-Message-ID: <20160222.110419.641505826145828651.davem@davemloft.net>
-References: <1455878854-28290-2-git-send-email-claudiu.manoil@freescale.com>
-	<20160221.215843.877041303205905380.davem@davemloft.net>
-	<DB4PR04MB3799AF95B8C7FB8C949476496A30@DB4PR04MB379.eurprd04.prod.outlook.com>
+From: =?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@gmail.com>
+Subject: Re: [PATCH 7/9] rfkill: Create "rfkill-airplane_mode" LED trigger
+Date: Mon, 22 Feb 2016 11:10:50 -0500
+Message-ID: <CA+A7VXUJNUftsQjEAGtOmQbCMF1WzRJVAMqF2NDPYoitmXTrrQ@mail.gmail.com>
+References: <1454946096-9752-1-git-send-email-jprvita@endlessm.com>
+ <1454946096-9752-8-git-send-email-jprvita@endlessm.com> <1455826121.2084.17.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: claudiu.manoil@freescale.com, netdev@vger.kernel.org
-To: claudiu.manoil@nxp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49833 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754136AbcBVQEX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 11:04:23 -0500
-In-Reply-To: <DB4PR04MB3799AF95B8C7FB8C949476496A30@DB4PR04MB379.eurprd04.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Darren Hart <dvhart@infradead.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	linux@endlessm.com,
+	=?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@endlessm.com>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
+In-Reply-To: <1455826121.2084.17.camel@sipsolutions.net>
+Sender: platform-driver-x86-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Claudiu Manoil <claudiu.manoil@nxp.com>
-Date: Mon, 22 Feb 2016 10:14:37 +0000
+On 18 February 2016 at 15:08, Johannes Berg <johannes@sipsolutions.net>=
+ wrote:
+> On Mon, 2016-02-08 at 10:41 -0500, Jo=C3=A3o Paulo Rechi Vita wrote:
+>> This creates a new LED trigger to be used by platform drivers as a
+>> default trigger for airplane-mode indicator LEDs.
+>>
+>> By default this trigger will fire when RFKILL_OP_CHANGE_ALL is calle=
+d
+>> for all types (RFKILL_TYPE_ALL), setting the LED brightness to
+>> LED_FULL
+>> when the changing the state to blocked, and to LED_OFF when the
+>> changing
+>> the state to unblocked. In the future there will be a mechanism for
+>> userspace to override the default policy, so it can implement its
+>> own.
+>>
+>> This trigger will be used by the asus-wireless x86 platform driver.
+>
+> Just one comment - I think you should be consistent with the _ vs - a=
+nd
+> just use "rfkill-airplane-mode" as the name.
+>
 
-> Let's take a random driver - igb, there is no wmb() between:
-> tx_desc->read.buffer_addr = cpu_to_le64(dma);
-> and
-> /* write last descriptor with RS and EOP bits */
-> cmd_type |= size | IGB_TXD_DCMD;
-> tx_desc->read.cmd_type_len = cpu_to_le32(cmd_type);
+Ok, no problem. I'll change for the next version.
 
-It may in fact be necessary and you should contact the driver
-maintainers about that.
-
-It is absolutely inappropriate to look for exceptions to a rule
-to prove that you don't have to deal with something.  Yes, bugs
-or wrong handling of situations exist, but that doesn't give you
-an open door to do so as well.
+--
+Jo=C3=A3o Paulo Rechi Vita
+http://about.me/jprvita
