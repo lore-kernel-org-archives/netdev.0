@@ -1,7 +1,7 @@
 From: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Subject: [PATCH v8 1/8] time: Add cycles to nanoseconds translation
-Date: Mon, 22 Feb 2016 03:15:19 -0800
-Message-ID: <1456139726-3327-2-git-send-email-christopher.s.hall@intel.com>
+Subject: [PATCH v8 7/8] ptp: Add PTP_SYS_OFFSET_PRECISE for driver crosstimestamping
+Date: Mon, 22 Feb 2016 03:15:25 -0800
+Message-ID: <1456139726-3327-8-git-send-email-christopher.s.hall@intel.com>
 References: <1456139726-3327-1-git-send-email-christopher.s.hall@intel.com>
 Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
 	x86@kernel.org, linux-kernel@vger.kernel.org,
@@ -14,63 +14,191 @@ In-Reply-To: <1456139726-3327-1-git-send-email-christopher.s.hall@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The timekeeping code does not currently provide a way to translate
-externally provided clocksource cycles to system time. The cycle count
-is always provided by the result clocksource read() method internal to
-the timekeeping code. The added function timekeeping_cycles_to_ns()
-calculated a nanosecond value from a cycle count that can be added to
-tk_read_base.base value yielding the current system time. This allows
-clocksource cycle values external to the timekeeping code to provide a
-cycle count that can be transformed to system time.
+Currently, network /system cross-timestamping is performed in the
+PTP_SYS_OFFSET ioctl. The PTP clock driver reads gettimeofday() and
+the gettime64() callback provided by the driver. The cross-timestamp
+is best effort where the latency between the capture of system time
+(getnstimeofday()) and the device time (driver callback) may be
+significant.
 
+The getcrosststamp() callback and corresponding PTP_SYS_OFFSET_PRECISE
+ioctl allows the driver to perform this device/system correlation when
+for example cross timestamp hardware is available. Modern Intel
+systems can do this for onboard Ethernet controllers using the ART
+counter. There is virtually zero latency between captures of the ART
+and network device clock.
+
+The capabilities ioctl (PTP_CLOCK_GETCAPS), is augmented allowing
+applications to query whether or not drivers implement the
+getcrosststamp callback, providing more precise cross timestamping.
+
+Acked-by: Richard Cochran <richardcochran@gmail.com>
 Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
+[jstultz: Commit subject tweaks]
 Signed-off-by: John Stultz <john.stultz@linaro.org>
 ---
- kernel/time/timekeeping.c | 25 +++++++++++++++++++++----
- 1 file changed, 21 insertions(+), 4 deletions(-)
+ Documentation/ptp/testptp.c      |  6 ++++--
+ drivers/ptp/ptp_chardev.c        | 27 +++++++++++++++++++++++++++
+ include/linux/ptp_clock_kernel.h |  8 ++++++++
+ include/uapi/linux/ptp_clock.h   | 13 ++++++++++++-
+ 4 files changed, 51 insertions(+), 3 deletions(-)
 
-diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
-index 34b4ced..4243d28 100644
---- a/kernel/time/timekeeping.c
-+++ b/kernel/time/timekeeping.c
-@@ -298,17 +298,34 @@ u32 (*arch_gettimeoffset)(void) = default_arch_gettimeoffset;
- static inline u32 arch_gettimeoffset(void) { return 0; }
- #endif
+diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
+index 6c6247a..d99012f 100644
+--- a/Documentation/ptp/testptp.c
++++ b/Documentation/ptp/testptp.c
+@@ -277,13 +277,15 @@ int main(int argc, char *argv[])
+ 			       "  %d external time stamp channels\n"
+ 			       "  %d programmable periodic signals\n"
+ 			       "  %d pulse per second\n"
+-			       "  %d programmable pins\n",
++			       "  %d programmable pins\n"
++			       "  %d cross timestamping\n",
+ 			       caps.max_adj,
+ 			       caps.n_alarm,
+ 			       caps.n_ext_ts,
+ 			       caps.n_per_out,
+ 			       caps.pps,
+-			       caps.n_pins);
++			       caps.n_pins,
++			       caps.cross_timestamping);
+ 		}
+ 	}
  
-+static inline s64 timekeeping_delta_to_ns(struct tk_read_base *tkr,
-+					  cycle_t delta)
-+{
-+	s64 nsec;
+diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
+index da7bae9..579fd65 100644
+--- a/drivers/ptp/ptp_chardev.c
++++ b/drivers/ptp/ptp_chardev.c
+@@ -22,6 +22,7 @@
+ #include <linux/poll.h>
+ #include <linux/sched.h>
+ #include <linux/slab.h>
++#include <linux/timekeeping.h>
+ 
+ #include "ptp_private.h"
+ 
+@@ -120,11 +121,13 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+ 	struct ptp_clock_caps caps;
+ 	struct ptp_clock_request req;
+ 	struct ptp_sys_offset *sysoff = NULL;
++	struct ptp_sys_offset_precise precise_offset;
+ 	struct ptp_pin_desc pd;
+ 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
+ 	struct ptp_clock_info *ops = ptp->info;
+ 	struct ptp_clock_time *pct;
+ 	struct timespec64 ts;
++	struct system_device_crosststamp xtstamp;
+ 	int enable, err = 0;
+ 	unsigned int i, pin_index;
+ 
+@@ -138,6 +141,7 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+ 		caps.n_per_out = ptp->info->n_per_out;
+ 		caps.pps = ptp->info->pps;
+ 		caps.n_pins = ptp->info->n_pins;
++		caps.cross_timestamping = ptp->info->getcrosststamp != NULL;
+ 		if (copy_to_user((void __user *)arg, &caps, sizeof(caps)))
+ 			err = -EFAULT;
+ 		break;
+@@ -180,6 +184,29 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+ 		err = ops->enable(ops, &req, enable);
+ 		break;
+ 
++	case PTP_SYS_OFFSET_PRECISE:
++		if (!ptp->info->getcrosststamp) {
++			err = -EOPNOTSUPP;
++			break;
++		}
++		err = ptp->info->getcrosststamp(ptp->info, &xtstamp);
++		if (err)
++			break;
 +
-+	nsec = delta * tkr->mult + tkr->xtime_nsec;
-+	nsec >>= tkr->shift;
++		ts = ktime_to_timespec64(xtstamp.device);
++		precise_offset.device.sec = ts.tv_sec;
++		precise_offset.device.nsec = ts.tv_nsec;
++		ts = ktime_to_timespec64(xtstamp.sys_realtime);
++		precise_offset.sys_realtime.sec = ts.tv_sec;
++		precise_offset.sys_realtime.nsec = ts.tv_nsec;
++		ts = ktime_to_timespec64(xtstamp.sys_monoraw);
++		precise_offset.sys_monoraw.sec = ts.tv_sec;
++		precise_offset.sys_monoraw.nsec = ts.tv_nsec;
++		if (copy_to_user((void __user *)arg, &precise_offset,
++				 sizeof(precise_offset)))
++			err = -EFAULT;
++		break;
 +
-+	/* If arch requires, add in get_arch_timeoffset() */
-+	return nsec + arch_gettimeoffset();
-+}
-+
- static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
- {
- 	cycle_t delta;
--	s64 nsec;
+ 	case PTP_SYS_OFFSET:
+ 		sysoff = kmalloc(sizeof(*sysoff), GFP_KERNEL);
+ 		if (!sysoff) {
+diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
+index b8b7306..6b15e16 100644
+--- a/include/linux/ptp_clock_kernel.h
++++ b/include/linux/ptp_clock_kernel.h
+@@ -38,6 +38,7 @@ struct ptp_clock_request {
+ 	};
+ };
  
- 	delta = timekeeping_get_delta(tkr);
-+	return timekeeping_delta_to_ns(tkr, delta);
-+}
- 
--	nsec = (delta * tkr->mult + tkr->xtime_nsec) >> tkr->shift;
-+static inline s64 timekeeping_cycles_to_ns(struct tk_read_base *tkr,
-+					    cycle_t cycles)
-+{
-+	cycle_t delta;
- 
--	/* If arch requires, add in get_arch_timeoffset() */
--	return nsec + arch_gettimeoffset();
-+	/* calculate the delta since the last update_wall_time */
-+	delta = clocksource_delta(cycles, tkr->cycle_last, tkr->mask);
-+	return timekeeping_delta_to_ns(tkr, delta);
- }
- 
++struct system_device_crosststamp;
  /**
+  * struct ptp_clock_info - decribes a PTP hardware clock
+  *
+@@ -67,6 +68,11 @@ struct ptp_clock_request {
+  * @gettime64:  Reads the current time from the hardware clock.
+  *              parameter ts: Holds the result.
+  *
++ * @getcrosststamp:  Reads the current time from the hardware clock and
++ *                   system clock simultaneously.
++ *                   parameter cts: Contains timestamp (device,system) pair,
++ *                   where system time is realtime and monotonic.
++ *
+  * @settime64:  Set the current time on the hardware clock.
+  *              parameter ts: Time value to set.
+  *
+@@ -105,6 +111,8 @@ struct ptp_clock_info {
+ 	int (*adjfreq)(struct ptp_clock_info *ptp, s32 delta);
+ 	int (*adjtime)(struct ptp_clock_info *ptp, s64 delta);
+ 	int (*gettime64)(struct ptp_clock_info *ptp, struct timespec64 *ts);
++	int (*getcrosststamp)(struct ptp_clock_info *ptp,
++			      struct system_device_crosststamp *cts);
+ 	int (*settime64)(struct ptp_clock_info *p, const struct timespec64 *ts);
+ 	int (*enable)(struct ptp_clock_info *ptp,
+ 		      struct ptp_clock_request *request, int on);
+diff --git a/include/uapi/linux/ptp_clock.h b/include/uapi/linux/ptp_clock.h
+index f0b7bfe..ac6dded 100644
+--- a/include/uapi/linux/ptp_clock.h
++++ b/include/uapi/linux/ptp_clock.h
+@@ -51,7 +51,9 @@ struct ptp_clock_caps {
+ 	int n_per_out; /* Number of programmable periodic signals. */
+ 	int pps;       /* Whether the clock supports a PPS callback. */
+ 	int n_pins;    /* Number of input/output pins. */
+-	int rsv[14];   /* Reserved for future use. */
++	/* Whether the clock supports precise system-device cross timestamps */
++	int cross_timestamping;
++	int rsv[13];   /* Reserved for future use. */
+ };
+ 
+ struct ptp_extts_request {
+@@ -81,6 +83,13 @@ struct ptp_sys_offset {
+ 	struct ptp_clock_time ts[2 * PTP_MAX_SAMPLES + 1];
+ };
+ 
++struct ptp_sys_offset_precise {
++	struct ptp_clock_time device;
++	struct ptp_clock_time sys_realtime;
++	struct ptp_clock_time sys_monoraw;
++	unsigned int rsv[4];    /* Reserved for future use. */
++};
++
+ enum ptp_pin_function {
+ 	PTP_PF_NONE,
+ 	PTP_PF_EXTTS,
+@@ -124,6 +133,8 @@ struct ptp_pin_desc {
+ #define PTP_SYS_OFFSET     _IOW(PTP_CLK_MAGIC, 5, struct ptp_sys_offset)
+ #define PTP_PIN_GETFUNC    _IOWR(PTP_CLK_MAGIC, 6, struct ptp_pin_desc)
+ #define PTP_PIN_SETFUNC    _IOW(PTP_CLK_MAGIC, 7, struct ptp_pin_desc)
++#define PTP_SYS_OFFSET_PRECISE \
++	_IOWR(PTP_CLK_MAGIC, 8, struct ptp_sys_offset_precise)
+ 
+ struct ptp_extts_event {
+ 	struct ptp_clock_time t; /* Time event occured. */
 -- 
 2.1.4
