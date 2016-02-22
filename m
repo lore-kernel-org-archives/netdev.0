@@ -1,94 +1,52 @@
-From: Marc Haber <mh+netdev@zugschlus.de>
-Subject: Re: IPv6 route to gateway on fe80::1%eth0 when I have fe80::1%br0
- locally
-Date: Mon, 22 Feb 2016 16:04:43 +0100
-Message-ID: <20160222150443.GV26042@torres.zugschlus.de>
-References: <20151212195830.GA18286@torres.zugschlus.de>
- <56796902.8080703@stressinduktion.org>
- <20151222212843.GE4424@torres.zugschlus.de>
- <5679C58C.2090308@stressinduktion.org>
+From: Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [net-next][PATCH 11/13] RDS: IB: add Fastreg MR (FRMR) detection
+ support
+Date: Mon, 22 Feb 2016 07:38:38 -0800
+Message-ID: <56CB2B7E.5000402@sandisk.com>
+References: <1455967804-27644-1-git-send-email-santosh.shilimkar@oracle.com>
+ <1455967804-27644-12-git-send-email-santosh.shilimkar@oracle.com>
+ <20160221.223656.2213596964617869651.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from torres.zugschlus.de ([85.214.131.164]:48108 "EHLO
-	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752474AbcBVPgu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 10:36:50 -0500
-Content-Disposition: inline
-In-Reply-To: <5679C58C.2090308@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160221.223656.2213596964617869651.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Hannes,
+On 02/21/16 19:36, David Miller wrote:
+> From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Date: Sat, 20 Feb 2016 03:30:02 -0800
+>
+>> @@ -54,6 +55,8 @@ module_param(rds_ib_mr_8k_pool_size, int, 0444);
+>>   MODULE_PARM_DESC(rds_ib_mr_8k_pool_size, " Max number of 8K mr per HCA");
+>>   module_param(rds_ib_retry_count, int, 0444);
+>>   MODULE_PARM_DESC(rds_ib_retry_count, " Number of hw retries before reporting an error");
+>> +module_param(prefer_frmr, bool, 0444);
+>> +MODULE_PARM_DESC(prefer_frmr, "Preferred MR method if both FMR and FRMR supported");
+>
+> Sorry, you're going to have to create a real run time method to configure
+> this parameter.
+>
+> I'm strongly against module parameters.
+>
+> Please don't go into details about why this might be difficult to do,
+> I'm totally not interested.  Doing things properly is sometimes not
+> easy, that's life.
 
-On Tue, Dec 22, 2015 at 10:50:04PM +0100, Hannes Frederic Sowa wrote:
-> Thanks but no need to do that, I already cooked a patch and will submit
-> tomorrow after some testing. We don't need to enhance the sysctl,
-> default should be to simply check the interface too if a route with
-> link-local address is received.
+Hello Santosh,
 
-Kernel bugzilla #112751 is related to this.
+What is the purpose of the prefer_frmr kernel module parameter ? Is this 
+a parameter that is useful to RDS users or is its only purpose to allow 
+developers of the RDS module to test both the FMR and FRMR code paths on 
+hardware that supports both MR methods ?
 
-The following is snipped to the relevant parts and was obtained on a
-Debian system running kernel 4.4.2
+Bart.
 
-[1/501]mh@fan:~$ for f in /proc/sys/net/ipv6/conf/*/{accept_ra,accept_ra_from_local,forwarding}; do echo $f; cat $f; done
-/proc/sys/net/ipv6/conf/all/accept_ra
-1
-/proc/sys/net/ipv6/conf/br0/accept_ra
-0
-/proc/sys/net/ipv6/conf/default/accept_ra
-1
-/proc/sys/net/ipv6/conf/eth0/accept_ra
-2
-/proc/sys/net/ipv6/conf/all/accept_ra_from_local
-0
-/proc/sys/net/ipv6/conf/br0/accept_ra_from_local
-0
-/proc/sys/net/ipv6/conf/default/accept_ra_from_local
-0
-/proc/sys/net/ipv6/conf/eth0/accept_ra_from_local
-1
-[2/502]mh@fan:~$ ip a
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
-    inet6 2a01:238:4071:328d:5604:a6ff:fe82:2100/64 scope global mngtmpaddr noprefixroute dynamic
-       valid_lft 86038sec preferred_lft 14038sec
-    inet6 2a01:238:4071:3282:5604:a6ff:fe82:2100/64 scope global mngtmpaddr noprefixroute dynamic
-       valid_lft 86372sec preferred_lft 14372sec
-3: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
-    inet6 2a01:238:4071:328d::1d:153/64 scope global
-       valid_lft forever preferred_lft forever
-    inet6 2a01:238:4071:328d::1d:100/64 scope global
-       valid_lft forever preferred_lft forever
-[3/503]mh@fan:~$ ip -6 r
-default via fe80::1 dev eth0  proto ra  metric 1024  pref medium
-default via fe80::c4f4:98ff:fedc:5e21 dev eth0  proto ra  metric 1024  pref medium
-[4/504]mh@fan:~$
-
-In prose:
-
-The host is a host for KVM VMs. It receives IPv6 connectivity via RA
-on eth0, where the default gateway announces its address as fe80::1.
-It also provides IPv6 connectivity to the VMs via the br0 interface.
-It is running radvd on br0, and for statically configured VMs it has
-also fe80::1 on br0.
-
-If accept_ra_from_local on eth0 were 0, the system would not accept
-the RA from the default gateway and and up with no IPv6 since fe80::1
-is locally configured with br0.
-
-If accept_ra_from_local on eth0 is 1, the system accepts both the RA
-from the default gateway on eth0 _AND_ its own RA sent out and
-received on br0, and, making things worse, is setting the IP address
-and default route not on br0, but on eth0.
-
-Greetings
-Marc
-
--- 
------------------------------------------------------------------------------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-Leimen, Germany    |  lose things."    Winona Ryder | Fon: *49 6224 1600402
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 6224 1600421
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
