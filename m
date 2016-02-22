@@ -1,204 +1,160 @@
-From: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Subject: [PATCH v8 7/8] ptp: Add PTP_SYS_OFFSET_PRECISE for driver crosstimestamping
-Date: Mon, 22 Feb 2016 03:15:25 -0800
-Message-ID: <1456139726-3327-8-git-send-email-christopher.s.hall@intel.com>
-References: <1456139726-3327-1-git-send-email-christopher.s.hall@intel.com>
-Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
-	x86@kernel.org, linux-kernel@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	kevin.b.stanton@intel.com, kevin.j.clarke@intel.com
-To: tglx@linutronix.de, richardcochran@gmail.com, mingo@redhat.com,
-	john.stultz@linaro.org, hpa@zytor.com, jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456139726-3327-1-git-send-email-christopher.s.hall@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 1/2] net: l3mdev: address selection should only consider devices in L3 domain
+Date: Mon, 22 Feb 2016 10:23:50 -0800
+Message-ID: <1456165431-867-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: david@opensourcerouting.org, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33857 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755217AbcBVSX6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 13:23:58 -0500
+Received: by mail-pa0-f49.google.com with SMTP id fy10so94877165pac.1
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 10:23:58 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, network /system cross-timestamping is performed in the
-PTP_SYS_OFFSET ioctl. The PTP clock driver reads gettimeofday() and
-the gettime64() callback provided by the driver. The cross-timestamp
-is best effort where the latency between the capture of system time
-(getnstimeofday()) and the device time (driver callback) may be
-significant.
+David Lamparter noted a use case where the source address selection fails
+to pick an address from a VRF interface - unnumbered interfaces.
 
-The getcrosststamp() callback and corresponding PTP_SYS_OFFSET_PRECISE
-ioctl allows the driver to perform this device/system correlation when
-for example cross timestamp hardware is available. Modern Intel
-systems can do this for onboard Ethernet controllers using the ART
-counter. There is virtually zero latency between captures of the ART
-and network device clock.
+Relevant commands from his script:
+    ip addr add 9.9.9.9/32 dev lo
+    ip link set lo up
 
-The capabilities ioctl (PTP_CLOCK_GETCAPS), is augmented allowing
-applications to query whether or not drivers implement the
-getcrosststamp callback, providing more precise cross timestamping.
+    ip link add name vrf0 type vrf table 101
+    ip rule add oif vrf0 table 101
+    ip rule add iif vrf0 table 101
+    ip link set vrf0 up
+    ip addr add 10.0.0.3/32 dev vrf0
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
-Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
-[jstultz: Commit subject tweaks]
-Signed-off-by: John Stultz <john.stultz@linaro.org>
+    ip link add name dummy2 type dummy
+    ip link set dummy2 master vrf0 up
+
+    --> note dummy2 has no address - unnumbered device
+
+    ip route add 10.2.2.2/32 dev dummy2 table 101
+    ip neigh add 10.2.2.2 dev dummy2 lladdr 02:00:00:00:00:02
+
+    tcpdump -ni dummy2 &
+
+And using ping instead of his socat example:
+    $ ping -I vrf0 -c1 10.2.2.2
+    ping: Warning: source address might be selected on device other than vrf0.
+    PING 10.2.2.2 (10.2.2.2) from 9.9.9.9 vrf0: 56(84) bytes of data.
+
+>From tcpdump:
+    12:57:29.449128 IP 9.9.9.9 > 10.2.2.2: ICMP echo request, id 2491, seq 1, length 64
+
+Note the source address is from lo and is not a VRF local address. With
+this patch:
+
+    $ ping -I vrf0 -c1 10.2.2.2
+    PING 10.2.2.2 (10.2.2.2) from 10.0.0.3 vrf0: 56(84) bytes of data.
+
+>From tcpdump:
+    12:59:25.096426 IP 10.0.0.3 > 10.2.2.2: ICMP echo request, id 2113, seq 1, length 64
+
+Now the source address comes from vrf0.
+
+The ipv4 function for selecting source address takes a const argument.
+Removing the const requires touching a lot of places, so instead
+l3mdev_master_ifindex_rcu is changed to take a const argument and then
+do the typecast to non-const as required by netdev_master_upper_dev_get_rcu.
+This is similar to what l3mdev_fib_table_rcu does.
+
+IPv6 for unnumbered interfaces appears to be selecting the addresses
+properly.
+
+Cc: David Lamparter <david@opensourcerouting.org>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- Documentation/ptp/testptp.c      |  6 ++++--
- drivers/ptp/ptp_chardev.c        | 27 +++++++++++++++++++++++++++
- include/linux/ptp_clock_kernel.h |  8 ++++++++
- include/uapi/linux/ptp_clock.h   | 13 ++++++++++++-
- 4 files changed, 51 insertions(+), 3 deletions(-)
+No changes from last version.
 
-diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
-index 6c6247a..d99012f 100644
---- a/Documentation/ptp/testptp.c
-+++ b/Documentation/ptp/testptp.c
-@@ -277,13 +277,15 @@ int main(int argc, char *argv[])
- 			       "  %d external time stamp channels\n"
- 			       "  %d programmable periodic signals\n"
- 			       "  %d pulse per second\n"
--			       "  %d programmable pins\n",
-+			       "  %d programmable pins\n"
-+			       "  %d cross timestamping\n",
- 			       caps.max_adj,
- 			       caps.n_alarm,
- 			       caps.n_ext_ts,
- 			       caps.n_per_out,
- 			       caps.pps,
--			       caps.n_pins);
-+			       caps.n_pins,
-+			       caps.cross_timestamping);
- 		}
+ include/net/l3mdev.h |  4 ++--
+ net/ipv4/devinet.c   |  5 +++++
+ net/l3mdev/l3mdev.c  | 11 +++++++++--
+ 3 files changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/l3mdev.h b/include/net/l3mdev.h
+index 5567d46b3cff..c43a9c73de5e 100644
+--- a/include/net/l3mdev.h
++++ b/include/net/l3mdev.h
+@@ -39,7 +39,7 @@ struct l3mdev_ops {
+ 
+ #ifdef CONFIG_NET_L3_MASTER_DEV
+ 
+-int l3mdev_master_ifindex_rcu(struct net_device *dev);
++int l3mdev_master_ifindex_rcu(const struct net_device *dev);
+ static inline int l3mdev_master_ifindex(struct net_device *dev)
+ {
+ 	int ifindex;
+@@ -179,7 +179,7 @@ struct dst_entry *l3mdev_rt6_dst_by_oif(struct net *net,
+ 
+ #else
+ 
+-static inline int l3mdev_master_ifindex_rcu(struct net_device *dev)
++static inline int l3mdev_master_ifindex_rcu(const struct net_device *dev)
+ {
+ 	return 0;
+ }
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 3d835313575e..614904c29cbd 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1194,6 +1194,7 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 	__be32 addr = 0;
+ 	struct in_device *in_dev;
+ 	struct net *net = dev_net(dev);
++	int master_idx;
+ 
+ 	rcu_read_lock();
+ 	in_dev = __in_dev_get_rcu(dev);
+@@ -1214,12 +1215,16 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 	if (addr)
+ 		goto out_unlock;
+ no_in_dev:
++	master_idx = l3mdev_master_ifindex_rcu(dev);
+ 
+ 	/* Not loopback addresses on loopback should be preferred
+ 	   in this case. It is important that lo is the first interface
+ 	   in dev_base list.
+ 	 */
+ 	for_each_netdev_rcu(net, dev) {
++		if (l3mdev_master_ifindex_rcu(dev) != master_idx)
++			continue;
++
+ 		in_dev = __in_dev_get_rcu(dev);
+ 		if (!in_dev)
+ 			continue;
+diff --git a/net/l3mdev/l3mdev.c b/net/l3mdev/l3mdev.c
+index 8e5ead366e7f..e925037fa0df 100644
+--- a/net/l3mdev/l3mdev.c
++++ b/net/l3mdev/l3mdev.c
+@@ -17,7 +17,7 @@
+  *	@dev: targeted interface
+  */
+ 
+-int l3mdev_master_ifindex_rcu(struct net_device *dev)
++int l3mdev_master_ifindex_rcu(const struct net_device *dev)
+ {
+ 	int ifindex = 0;
+ 
+@@ -28,8 +28,15 @@ int l3mdev_master_ifindex_rcu(struct net_device *dev)
+ 		ifindex = dev->ifindex;
+ 	} else if (netif_is_l3_slave(dev)) {
+ 		struct net_device *master;
++		struct net_device *_dev = (struct net_device *)dev;
+ 
+-		master = netdev_master_upper_dev_get_rcu(dev);
++		/* netdev_master_upper_dev_get_rcu calls
++		 * list_first_or_null_rcu to walk the upper dev list.
++		 * list_first_or_null_rcu does not handle a const arg. We aren't
++		 * making changes, just want the master device from that list so
++		 * typecast to remove the const
++		 */
++		master = netdev_master_upper_dev_get_rcu(_dev);
+ 		if (master)
+ 			ifindex = master->ifindex;
  	}
- 
-diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
-index da7bae9..579fd65 100644
---- a/drivers/ptp/ptp_chardev.c
-+++ b/drivers/ptp/ptp_chardev.c
-@@ -22,6 +22,7 @@
- #include <linux/poll.h>
- #include <linux/sched.h>
- #include <linux/slab.h>
-+#include <linux/timekeeping.h>
- 
- #include "ptp_private.h"
- 
-@@ -120,11 +121,13 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
- 	struct ptp_clock_caps caps;
- 	struct ptp_clock_request req;
- 	struct ptp_sys_offset *sysoff = NULL;
-+	struct ptp_sys_offset_precise precise_offset;
- 	struct ptp_pin_desc pd;
- 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
- 	struct ptp_clock_info *ops = ptp->info;
- 	struct ptp_clock_time *pct;
- 	struct timespec64 ts;
-+	struct system_device_crosststamp xtstamp;
- 	int enable, err = 0;
- 	unsigned int i, pin_index;
- 
-@@ -138,6 +141,7 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
- 		caps.n_per_out = ptp->info->n_per_out;
- 		caps.pps = ptp->info->pps;
- 		caps.n_pins = ptp->info->n_pins;
-+		caps.cross_timestamping = ptp->info->getcrosststamp != NULL;
- 		if (copy_to_user((void __user *)arg, &caps, sizeof(caps)))
- 			err = -EFAULT;
- 		break;
-@@ -180,6 +184,29 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
- 		err = ops->enable(ops, &req, enable);
- 		break;
- 
-+	case PTP_SYS_OFFSET_PRECISE:
-+		if (!ptp->info->getcrosststamp) {
-+			err = -EOPNOTSUPP;
-+			break;
-+		}
-+		err = ptp->info->getcrosststamp(ptp->info, &xtstamp);
-+		if (err)
-+			break;
-+
-+		ts = ktime_to_timespec64(xtstamp.device);
-+		precise_offset.device.sec = ts.tv_sec;
-+		precise_offset.device.nsec = ts.tv_nsec;
-+		ts = ktime_to_timespec64(xtstamp.sys_realtime);
-+		precise_offset.sys_realtime.sec = ts.tv_sec;
-+		precise_offset.sys_realtime.nsec = ts.tv_nsec;
-+		ts = ktime_to_timespec64(xtstamp.sys_monoraw);
-+		precise_offset.sys_monoraw.sec = ts.tv_sec;
-+		precise_offset.sys_monoraw.nsec = ts.tv_nsec;
-+		if (copy_to_user((void __user *)arg, &precise_offset,
-+				 sizeof(precise_offset)))
-+			err = -EFAULT;
-+		break;
-+
- 	case PTP_SYS_OFFSET:
- 		sysoff = kmalloc(sizeof(*sysoff), GFP_KERNEL);
- 		if (!sysoff) {
-diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
-index b8b7306..6b15e16 100644
---- a/include/linux/ptp_clock_kernel.h
-+++ b/include/linux/ptp_clock_kernel.h
-@@ -38,6 +38,7 @@ struct ptp_clock_request {
- 	};
- };
- 
-+struct system_device_crosststamp;
- /**
-  * struct ptp_clock_info - decribes a PTP hardware clock
-  *
-@@ -67,6 +68,11 @@ struct ptp_clock_request {
-  * @gettime64:  Reads the current time from the hardware clock.
-  *              parameter ts: Holds the result.
-  *
-+ * @getcrosststamp:  Reads the current time from the hardware clock and
-+ *                   system clock simultaneously.
-+ *                   parameter cts: Contains timestamp (device,system) pair,
-+ *                   where system time is realtime and monotonic.
-+ *
-  * @settime64:  Set the current time on the hardware clock.
-  *              parameter ts: Time value to set.
-  *
-@@ -105,6 +111,8 @@ struct ptp_clock_info {
- 	int (*adjfreq)(struct ptp_clock_info *ptp, s32 delta);
- 	int (*adjtime)(struct ptp_clock_info *ptp, s64 delta);
- 	int (*gettime64)(struct ptp_clock_info *ptp, struct timespec64 *ts);
-+	int (*getcrosststamp)(struct ptp_clock_info *ptp,
-+			      struct system_device_crosststamp *cts);
- 	int (*settime64)(struct ptp_clock_info *p, const struct timespec64 *ts);
- 	int (*enable)(struct ptp_clock_info *ptp,
- 		      struct ptp_clock_request *request, int on);
-diff --git a/include/uapi/linux/ptp_clock.h b/include/uapi/linux/ptp_clock.h
-index f0b7bfe..ac6dded 100644
---- a/include/uapi/linux/ptp_clock.h
-+++ b/include/uapi/linux/ptp_clock.h
-@@ -51,7 +51,9 @@ struct ptp_clock_caps {
- 	int n_per_out; /* Number of programmable periodic signals. */
- 	int pps;       /* Whether the clock supports a PPS callback. */
- 	int n_pins;    /* Number of input/output pins. */
--	int rsv[14];   /* Reserved for future use. */
-+	/* Whether the clock supports precise system-device cross timestamps */
-+	int cross_timestamping;
-+	int rsv[13];   /* Reserved for future use. */
- };
- 
- struct ptp_extts_request {
-@@ -81,6 +83,13 @@ struct ptp_sys_offset {
- 	struct ptp_clock_time ts[2 * PTP_MAX_SAMPLES + 1];
- };
- 
-+struct ptp_sys_offset_precise {
-+	struct ptp_clock_time device;
-+	struct ptp_clock_time sys_realtime;
-+	struct ptp_clock_time sys_monoraw;
-+	unsigned int rsv[4];    /* Reserved for future use. */
-+};
-+
- enum ptp_pin_function {
- 	PTP_PF_NONE,
- 	PTP_PF_EXTTS,
-@@ -124,6 +133,8 @@ struct ptp_pin_desc {
- #define PTP_SYS_OFFSET     _IOW(PTP_CLK_MAGIC, 5, struct ptp_sys_offset)
- #define PTP_PIN_GETFUNC    _IOWR(PTP_CLK_MAGIC, 6, struct ptp_pin_desc)
- #define PTP_PIN_SETFUNC    _IOW(PTP_CLK_MAGIC, 7, struct ptp_pin_desc)
-+#define PTP_SYS_OFFSET_PRECISE \
-+	_IOWR(PTP_CLK_MAGIC, 8, struct ptp_sys_offset_precise)
- 
- struct ptp_extts_event {
- 	struct ptp_clock_time t; /* Time event occured. */
 -- 
 2.1.4
