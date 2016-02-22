@@ -1,67 +1,54 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH 5/5] Support to encoding decoding skb queue map
- on IFE action
-Date: Mon, 22 Feb 2016 13:03:37 -0800
-Message-ID: <56CB77A9.4060907@gmail.com>
-References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com> <1456147304-13355-6-git-send-email-jhs@emojatatu.com>
+From: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] codel: cast the output of MS2TIME to codel_time_t
+Date: Mon, 22 Feb 2016 23:04:26 +0200
+Message-ID: <CANUX_P2iKJ+B7xCEnfd-Yko96e+z36ZSqF6eLWHxcZRkPrth1g@mail.gmail.com>
+References: <1456141787-18143-1-git-send-email-emmanuel.grumbach@intel.com>
+	<20160222.145344.1364935477504825011.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-	xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33384 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753138AbcBVVEH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 16:04:07 -0500
-Received: by mail-pa0-f48.google.com with SMTP id fl4so97105456pad.0
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 13:04:07 -0800 (PST)
-In-Reply-To: <1456147304-13355-6-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160222.145344.1364935477504825011.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 16-02-22 05:21 AM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> 
-> hard code static value of 10 for qmap
-> mark of 12
-> prio of 13
-> and hashid of 11
-> 
-> sudo tc filter add dev $ETH parent 1: protocol ip prio 10 \
-> u32 match ip protocol 1 0xff flowid 1:2 \
-> action ife encode \
-> type 0xDEAD \
-> use mark 12 \
-> use prio 13 \
-> use hashid 11 \
-> use qmap 10 \
-> dst 02:15:15:15:15:15
-> 
-> Note: as of the time of submission skbedit of queue map doesnt work
-> (just in case you try to use it)
-> 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> ---
+On Mon, Feb 22, 2016 at 9:53 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Date: Mon, 22 Feb 2016 13:49:47 +0200
+>
+>> This will allow to pass the typecheck in the comparators:
+>> codel_time_{after,before}
+>>
+>> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+>
+> I do not see any existing code where this would matter.  Maybe it was
+> not meant to be fed directly?  And if you need to you should add the
+> explicit casts yourself.
 
-Well the skbedit queue_mapping action does work I'm just guessing it
-is not working as you expect? We probably haven't done a good job
-explaining how to set it up.
+Well.. This header file is kinda special. As Eric pointed out, I
+shouldn't include it since it contains huge inline functions. I only
+really need small parts of it for iwlwifi and I copied those into the
+driver. In iwlwifi I do need to feed MS2TIME output into the
+comparators so I guess I'll do that there. I just thought it'd be nice
+to feed this change back in the original implementation of the code.
+If another user of the small helpers in this file comes up, it may
+make sense to split this file into two header files: one that can be
+included, and another one which can't. If that were to happen, I'd be
+glad to have this patch in. We're not there yet.
 
-If you set it on the clsact egress filter chain for example it will
-map traffic to a queue if you disable XPS and get sk_tx_queue() to
-return -1. This is because XPS and socket mappings have a higher
-precedence in queue selection.
+Bottom line, I am perfectly fine if you don't apply this.
 
-Anyways just tested on net-next and it works, the following
-puts ip traffic with src 15.0.0.1 on hardware queue 6,
-
-./tc/tc qdisc add dev eth4 clsact
-./tc/tc filter add dev eth4 egress protocol ip \
-         u32 ht 800: order 1 \
-         match ip src 15.0.0.1/32 \
-        action skbedit queue_mapping 6
-
-Thanks,
-.John
+>
+> I'm not applying this, sorry.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
