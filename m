@@ -1,77 +1,67 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next 13/15] i40e/i40evf: use logical operators, not bitwise
-Date: Mon, 22 Feb 2016 08:33:24 -0800
-Message-ID: <CAKgT0Ud+SN85Pq0NokoWjA+Twr=SQDnaHvExrho1RbMUX55ttg@mail.gmail.com>
-References: <1455766737-11911-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1455766737-11911-14-git-send-email-jeffrey.t.kirsher@intel.com>
+From: "=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=" <jprvita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCHv2 00/10] RFKill airplane-mode indicator
+Date: Mon, 22 Feb 2016 11:36:31 -0500
+Message-ID: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Neil Horman <nhorman@redhat.com>, sassmann@redhat.com,
-	John Greene <jogreene@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:33908 "EHLO
-	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750758AbcBVQdY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 11:33:24 -0500
-Received: by mail-io0-f177.google.com with SMTP id 9so184346167iom.1
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 08:33:24 -0800 (PST)
-In-Reply-To: <1455766737-11911-14-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Darren Hart <dvhart-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	platform-driver-x86-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-6IF/jdPJHihWk0Htik3J/w@public.gmane.org,
+	=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?= <jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 17, 2016 at 7:38 PM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Mitch Williams <mitch.a.williams@intel.com>
->
-> Mr. Spock would certainly raise an eyebrow to see us using bitwise
-> operators, when we should clearly be relying on logic. Fascinating.
->
-> Change-ID: Ie338010c016f93e9faa2002c07c90b15134b7477
-> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+This series implements an airplane-mode indicator LED trigger, which ca=
+n be
+used by platform drivers. The default policy have have airplane-mode se=
+t when
+all the radios known by RFKill are OFF, and unset otherwise. This polic=
+y can be
+overwritten by one single userspace application at a time using the ope=
+rations
+_AIRPLANE_MODE_INDICATOR_ACQUIRE and _AIRPLANE_MODE_INDICATOR_CHANGE. W=
+hen the
+airplane-mode indicator state changes, userspace gets notifications thr=
+ough the
+RFKill control misc device (/dev/rfkill).
 
-NAK
+The series also contains a few general fixes and improvements to the su=
+bsystem.
 
-The bitwise operator lets us at least make a pass through all rings.
-With this new code you stop as soon as one ring has not completed
-cleaning.
+Additionally, I have a couple of patches to have this feature supported=
+ by the
+userspace tool 'rfkill' [1]. Should I use a different subject prefix to=
+ help
+separate those from kernel patches in linux-wireless?
 
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 5 +++--
->  drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 5 +++--
->  2 files changed, 6 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-> index 1abef01..0ffa9a8 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-> @@ -1996,7 +1996,8 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
->          * budget and be more aggressive about cleaning up the Tx descriptors.
->          */
->         i40e_for_each_ring(ring, q_vector->tx) {
-> -               clean_complete &= i40e_clean_tx_irq(ring, vsi->work_limit);
-> +               clean_complete = clean_complete &&
-> +                                i40e_clean_tx_irq(ring, vsi->work_limit);
->                 arm_wb = arm_wb || ring->arm_wb;
->                 ring->arm_wb = false;
->         }
+[1] https://wireless.wiki.kernel.org/en/users/documentation/rfkill
 
-For example here.  You now will not call i40e_clean_tx_irq if
-clean_complete is false.
+Jo=C3=A3o Paulo Rechi Vita (10):
+  rfkill: Improve documentation language
+  rfkill: Remove extra blank line
+  rfkill: Point to the correct deprecated doc location
+  rfkill: Move "state" sysfs file back to stable
+  rfkill: Factor rfkill_global_states[].cur assignments
+  rfkill: Add documentation about LED triggers
+  rfkill: Create "rfkill-airplane-mode" LED trigger
+  rfkill: Use switch to demux userspace operations
+  rfkill: Userspace control for airplane mode
+  rfkill: Notify userspace of airplane-mode state changes
 
-> @@ -2020,7 +2021,7 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
->
->                 work_done += cleaned;
->                 /* if we didn't clean as many as budgeted, we must be done */
-> -               clean_complete &= (budget_per_ring != cleaned);
-> +               clean_complete = clean_complete && (budget_per_ring > cleaned);
->         }
->
->         /* If work not completed, return budget and polling will return */
+ Documentation/ABI/obsolete/sysfs-class-rfkill |  20 ----
+ Documentation/ABI/stable/sysfs-class-rfkill   |  27 ++++-
+ Documentation/rfkill.txt                      |  17 +++
+ include/uapi/linux/rfkill.h                   |   6 +
+ net/rfkill/core.c                             | 162 ++++++++++++++++++=
+++------
+ 5 files changed, 173 insertions(+), 59 deletions(-)
+ delete mode 100644 Documentation/ABI/obsolete/sysfs-class-rfkill
 
-This code is now slower after this change.
+--=20
+2.5.0
