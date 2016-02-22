@@ -1,108 +1,332 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: dead loop for rtnl_trylock
-Date: Mon, 22 Feb 2016 03:39:53 -0600
-Message-ID: <87y4adnkwm.fsf@x220.int.ebiederm.org>
-References: <CY1PR11MB0491C022AD738CCC818BE74AAAAD0@CY1PR11MB0491.namprd11.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Xianpeng Zhao <xpzhao@aerohive.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CY1PR11MB0491C022AD738CCC818BE74AAAAD0@CY1PR11MB0491.namprd11.prod.outlook.com>
-	(Xianpeng Zhao's message of "Tue, 16 Feb 2016 10:31:53 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] tools, bpf_asm: simplify parser rule for BPF extensions
+Date: Mon, 22 Feb 2016 11:02:40 +0100
+Message-ID: <cda74e5d93e6e0724f94697244997e1e75ff0bdd.1456133622.git.daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+	Ray Bellis <ray@isc.org>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:53635 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751505AbcBVKCq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 05:02:46 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Ray Bellis <ray@isc.org>
 
-Copied netdev as that is the more appropriate mailling list for
-questions like this.
+We can already use yylval in the lexer for encoding the BPF extension
+number, so that the parser rules can be further reduced to a single one
+for each B/H/W case.
 
-Xianpeng Zhao <xpzhao@aerohive.com> writes:
+Signed-off-by: Ray Bellis <ray@isc.org>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ tools/net/bpf_exp.l |  84 ++++++++++++++++++++++++------
+ tools/net/bpf_exp.y | 146 ++++------------------------------------------------
+ 2 files changed, 79 insertions(+), 151 deletions(-)
 
-> Hi Group,
->
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 I have find a proble=
-m in my system, I found there have a chance that cause the system enter=
- dead loop when try to get the rtnl lock in the sysctl function in net/=
-ipv6/addrconf.c
->
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 The situation should=
- like this, there are 2 processes may need get the rtnl lock, we call t=
-hem process A and process B, A have high priority than B.
-> B need get the rtnl lock to do something, when B schedule out without=
- release the lock; At this time, the A start to run "echo 1 > /proc/sys=
-/net/ipv6/conf/<ifname>/disable_ipv6", the echo process will run to thi=
-s code:
->
-> =C2=A0=C2=A0=C2=A0 if (!rtnl_trylock())
->
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 return restart_syscall();
->
-> Because the rtnl lock was hold by process B, so here the try will be =
-failure, and run the restart_syscall to let the sys_write do again, eve=
-n try many times, because the B have very lower priority, the lock was =
-hard to be released, so the echo process created by A will enter a loop=
- of restart system call.
->
-> In my case it is the wireless_nlevent_process in process kworker take=
-n the rtnl lock, and another higher priority process need use echo to d=
-isable IPv6 met this problem.
->
-> I am not very sure, but I think it is better to let the process A sle=
-ep a while instead of try it again and again without any delay.
->
-> Expects, what's your opinions?
-
-That the entire situation is a mess.  From what little I have seen it i=
-s
-a very rare condition.  Does this reproduce easily in your environment?
-
-If we are going the delay route we probably want to put the delay in
-restart_syscall or in a wrapper around restart_syscall that we use
-for the rtnl_trylock failure case.
-
-On first blush I would suggest the logic for sleeping should be:
-	if (need_reschedule())
-		schedule();
-
-That will limit the spinning to a single time slice which is definitely
-preferrable.
-
-Ugh.  But we already cross the kernel/userspace boundary that already
-does that.
-
-If you are encountering a deadlock it is very much because you have bee=
-n
-playing very ugly priority games.  At which point my sympathies but thi=
-s
-feels like a case of "Docter it hurts when I do this.  Then don't do th=
-at."
-
-> @@ -5304,8 +5308,10 @@ static int addrconf_disable_ipv6(struct ctl_ta=
-ble *table, int *p, int newf)
->
->         struct net *net;
->
->         int old;
->
-> =20
->
-> -       if (!rtnl_trylock())
->
-> +       if (!rtnl_trylock()){
->
-> +        schedule_timeout_uninterruptible(HZ/4);
->
->                 return restart_syscall();
->
-> +    }
->
-> =20
->
->         net =3D (struct net *)table->extra2;
->
->         old =3D *p;
-
-Eric
+diff --git a/tools/net/bpf_exp.l b/tools/net/bpf_exp.l
+index 7cc72a3..bd83149 100644
+--- a/tools/net/bpf_exp.l
++++ b/tools/net/bpf_exp.l
+@@ -23,6 +23,9 @@
+ #include <stdio.h>
+ #include <stdint.h>
+ #include <stdlib.h>
++#include <string.h>
++
++#include <linux/filter.h>
+ 
+ #include "bpf_exp.yacc.h"
+ 
+@@ -79,22 +82,71 @@ extern void yyerror(const char *str);
+ "txa"		{ return OP_TXA; }
+ 
+ "#"?("len")	{ return K_PKT_LEN; }
+-"#"?("proto")	{ return K_PROTO; }
+-"#"?("type")	{ return K_TYPE; }
+-"#"?("poff")	{ return K_POFF; }
+-"#"?("ifidx")	{ return K_IFIDX; }
+-"#"?("nla")	{ return K_NLATTR; }
+-"#"?("nlan")	{ return K_NLATTR_NEST; }
+-"#"?("mark")	{ return K_MARK; }
+-"#"?("queue")	{ return K_QUEUE; }
+-"#"?("hatype")	{ return K_HATYPE; }
+-"#"?("rxhash")	{ return K_RXHASH; }
+-"#"?("cpu")	{ return K_CPU; }
+-"#"?("vlan_tci")	{ return K_VLAN_TCI; }
+-"#"?("vlan_pr")		{ return K_VLAN_AVAIL; }
+-"#"?("vlan_avail")	{ return K_VLAN_AVAIL; }
+-"#"?("vlan_tpid")	{ return K_VLAN_TPID; }
+-"#"?("rand")	{ return K_RAND; }
++
++"#"?("proto")	{
++		yylval.number = SKF_AD_PROTOCOL;
++		return extension;
++	}
++"#"?("type")	{
++		yylval.number = SKF_AD_PKTTYPE;
++		return extension;
++	}
++"#"?("poff")	{
++		yylval.number = SKF_AD_PAY_OFFSET;
++		return extension;
++	}
++"#"?("ifidx")	{
++		yylval.number = SKF_AD_IFINDEX;
++		return extension;
++	}
++"#"?("nla")	{
++		yylval.number = SKF_AD_NLATTR;
++		return extension;
++	}
++"#"?("nlan")	{
++		yylval.number = SKF_AD_NLATTR_NEST;
++		return extension;
++	}
++"#"?("mark")	{
++		yylval.number = SKF_AD_MARK;
++		return extension;
++	}
++"#"?("queue")	{
++		yylval.number = SKF_AD_QUEUE;
++		return extension;
++	}
++"#"?("hatype")	{
++		yylval.number = SKF_AD_HATYPE;
++		return extension;
++	}
++"#"?("rxhash")	{
++		yylval.number = SKF_AD_RXHASH;
++		return extension;
++	}
++"#"?("cpu")	{
++		yylval.number = SKF_AD_CPU;
++		return extension;
++	}
++"#"?("vlan_tci") {
++		yylval.number = SKF_AD_VLAN_TAG;
++		return extension;
++	}
++"#"?("vlan_pr")	{
++		yylval.number = SKF_AD_VLAN_TAG_PRESENT;
++		return extension;
++	}
++"#"?("vlan_avail") {
++		yylval.number = SKF_AD_VLAN_TAG_PRESENT;
++		return extension;
++	}
++"#"?("vlan_tpid") {
++		yylval.number = SKF_AD_VLAN_TPID;
++		return extension;
++	}
++"#"?("rand")	{
++		yylval.number = SKF_AD_RANDOM;
++		return extension;
++	}
+ 
+ ":"		{ return ':'; }
+ ","		{ return ','; }
+diff --git a/tools/net/bpf_exp.y b/tools/net/bpf_exp.y
+index e24eea1..56ba1de 100644
+--- a/tools/net/bpf_exp.y
++++ b/tools/net/bpf_exp.y
+@@ -35,6 +35,7 @@
+ enum jmp_type { JTL, JFL, JKL };
+ 
+ extern FILE *yyin;
++extern int yylineno;
+ extern int yylex(void);
+ extern void yyerror(const char *str);
+ 
+@@ -55,14 +56,14 @@ static void bpf_set_jmp_label(char *label, enum jmp_type type);
+ %token OP_RET OP_TAX OP_TXA OP_LDXB OP_MOD OP_NEG OP_JNEQ OP_JLT OP_JLE OP_LDI
+ %token OP_LDXI
+ 
+-%token K_PKT_LEN K_PROTO K_TYPE K_NLATTR K_NLATTR_NEST K_MARK K_QUEUE K_HATYPE
+-%token K_RXHASH K_CPU K_IFIDX K_VLAN_TCI K_VLAN_AVAIL K_VLAN_TPID K_POFF K_RAND
++%token K_PKT_LEN
+ 
+ %token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%'
+ 
+-%token number label
++%token extension number label
+ 
+ %type <label> label
++%type <number> extension
+ %type <number> number
+ 
+ %%
+@@ -125,51 +126,9 @@ ldb
+ 		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_IND, 0, 0, $6); }
+ 	| OP_LDB '[' number ']' {
+ 		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0, $3); }
+-	| OP_LDB K_PROTO {
++	| OP_LDB extension {
+ 		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_PROTOCOL); }
+-	| OP_LDB K_TYPE {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_PKTTYPE); }
+-	| OP_LDB K_IFIDX {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_IFINDEX); }
+-	| OP_LDB K_NLATTR {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_NLATTR); }
+-	| OP_LDB K_NLATTR_NEST {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_NLATTR_NEST); }
+-	| OP_LDB K_MARK {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_MARK); }
+-	| OP_LDB K_QUEUE {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_QUEUE); }
+-	| OP_LDB K_HATYPE {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_HATYPE); }
+-	| OP_LDB K_RXHASH {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_RXHASH); }
+-	| OP_LDB K_CPU {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_CPU); }
+-	| OP_LDB K_VLAN_TCI {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_VLAN_TAG); }
+-	| OP_LDB K_VLAN_AVAIL {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_VLAN_TAG_PRESENT); }
+-	| OP_LDB K_POFF {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
+-	| OP_LDB K_RAND {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_RANDOM); }
+-	| OP_LDB K_VLAN_TPID {
+-		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_VLAN_TPID); }
++				   SKF_AD_OFF + $2); }
+ 	;
+ 
+ ldh
+@@ -179,51 +138,9 @@ ldh
+ 		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_IND, 0, 0, $6); }
+ 	| OP_LDH '[' number ']' {
+ 		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0, $3); }
+-	| OP_LDH K_PROTO {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_PROTOCOL); }
+-	| OP_LDH K_TYPE {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_PKTTYPE); }
+-	| OP_LDH K_IFIDX {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_IFINDEX); }
+-	| OP_LDH K_NLATTR {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_NLATTR); }
+-	| OP_LDH K_NLATTR_NEST {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_NLATTR_NEST); }
+-	| OP_LDH K_MARK {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_MARK); }
+-	| OP_LDH K_QUEUE {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_QUEUE); }
+-	| OP_LDH K_HATYPE {
++	| OP_LDH extension {
+ 		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_HATYPE); }
+-	| OP_LDH K_RXHASH {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_RXHASH); }
+-	| OP_LDH K_CPU {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_CPU); }
+-	| OP_LDH K_VLAN_TCI {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_VLAN_TAG); }
+-	| OP_LDH K_VLAN_AVAIL {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_VLAN_TAG_PRESENT); }
+-	| OP_LDH K_POFF {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
+-	| OP_LDH K_RAND {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_RANDOM); }
+-	| OP_LDH K_VLAN_TPID {
+-		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_VLAN_TPID); }
++				   SKF_AD_OFF + $2); }
+ 	;
+ 
+ ldi
+@@ -238,51 +155,9 @@ ld
+ 		bpf_set_curr_instr(BPF_LD | BPF_IMM, 0, 0, $3); }
+ 	| OP_LD K_PKT_LEN {
+ 		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_LEN, 0, 0, 0); }
+-	| OP_LD K_PROTO {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_PROTOCOL); }
+-	| OP_LD K_TYPE {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_PKTTYPE); }
+-	| OP_LD K_IFIDX {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_IFINDEX); }
+-	| OP_LD K_NLATTR {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_NLATTR); }
+-	| OP_LD K_NLATTR_NEST {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_NLATTR_NEST); }
+-	| OP_LD K_MARK {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_MARK); }
+-	| OP_LD K_QUEUE {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_QUEUE); }
+-	| OP_LD K_HATYPE {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_HATYPE); }
+-	| OP_LD K_RXHASH {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_RXHASH); }
+-	| OP_LD K_CPU {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_CPU); }
+-	| OP_LD K_VLAN_TCI {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_VLAN_TAG); }
+-	| OP_LD K_VLAN_AVAIL {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_VLAN_TAG_PRESENT); }
+-	| OP_LD K_POFF {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
+-	| OP_LD K_RAND {
+-		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_RANDOM); }
+-	| OP_LD K_VLAN_TPID {
++	| OP_LD extension {
+ 		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+-				   SKF_AD_OFF + SKF_AD_VLAN_TPID); }
++				   SKF_AD_OFF + $2); }
+ 	| OP_LD 'M' '[' number ']' {
+ 		bpf_set_curr_instr(BPF_LD | BPF_MEM, 0, 0, $4); }
+ 	| OP_LD '[' 'x' '+' number ']' {
+@@ -776,5 +651,6 @@ void bpf_asm_compile(FILE *fp, bool cstyle)
+ 
+ void yyerror(const char *str)
+ {
++	fprintf(stderr, "error: %s at line %d\n", str, yylineno);
+ 	exit(1);
+ }
+-- 
+1.9.3
