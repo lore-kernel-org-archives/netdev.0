@@ -1,37 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next 2/3] lan78xx: add ethtool set & get pause
- functions
-Date: Mon, 22 Feb 2016 14:10:14 -0500 (EST)
-Message-ID: <20160222.141014.1517836822587262524.davem@davemloft.net>
-References: <9235D6609DB808459E95D78E17F2E43D404B37B5@CHN-SV-EXMX02.mchp-main.com>
-	<1455839111.2794.51.camel@decadent.org.uk>
-	<9235D6609DB808459E95D78E17F2E43D404B55D1@CHN-SV-EXMX02.mchp-main.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: Computer fails to resume from suspend unless I rmmod jme before
+ initiating the suspend
+Date: Mon, 22 Feb 2016 20:20:15 +0100
+Message-ID: <20160222192015.GA4011@amd>
+References: <CA+ToGPGC8APhN-_F5fzyR4CWqWgZ9Hs0PNqykhEgEV7g3PJjTg@mail.gmail.com>
+ <CA+ToGPF9cpdVLEHc7Vz79=-P7Jp76Y=M=p=bORhUNrXtb6+LNA@mail.gmail.com>
+ <CA+ToGPHfV5NbSAFWJPzDVfUT9fdp86MqoFbF8Uhmf9T+3e9n7Q@mail.gmail.com>
+ <CA+ToGPF0OT7NKCjaBMomqZg-+eO7Eq9hqSmLt0-UOHnyGPHd8Q@mail.gmail.com>
+ <CA+ToGPFP5a76TS2C_A7WJUWM9Eo60Ym5OtwHcKtY+OreoRVoFA@mail.gmail.com>
+ <20160222100907.GA32071@amd>
+ <CA+ToGPE3=OBsNDP_O7EoT76FqMdxdjdt=+tHNGBbm-oUkQHA4Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ben@decadent.org.uk, netdev@vger.kernel.org
-To: Woojung.Huh@microchip.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52224 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752228AbcBVTKS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 14:10:18 -0500
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404B55D1@CHN-SV-EXMX02.mchp-main.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>, cooldavid@cooldavid.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Diego Viola <diego.viola@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+ToGPE3=OBsNDP_O7EoT76FqMdxdjdt=+tHNGBbm-oUkQHA4Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: <Woojung.Huh@microchip.com>
-Date: Mon, 22 Feb 2016 18:28:18 +0000
+On Mon 2016-02-22 15:59:48, Diego Viola wrote:
+> On Mon, Feb 22, 2016 at 7:09 AM, Pavel Machek <pavel@ucw.cz> wrote:
+> > Hi!
+> >
+> >> >>>> Every time I initiate a suspend (systemctl suspend) the machine hangs
+> >> >>>> at resume unless I unload the jme driver.
+> >
+> > It seems to have some kind of suspend/resume support. ... and it is
+> > rather complex.
+> >
+> > Maybe jme_start_irq(jme) should be moved to the end of jme_resume
+> > function?
+> >
+> >> > So I found that disabling async as in:
+> >> >
+> >> > $ echo 0 > /sys/power/pm_async
+> >> >
+> >> > Helps with my issue, I can't reproduce the hang anymore, tried
+> >> > suspend/resume almost ~15 times.
+> >> >
+> >> > Diego
+> >>
+> >> Can someone please help?
+> 
+> Hi Pavel,
+> 
+> This did the trick, suspend/resume is now working perfectly for me
+> (tried more than 10 times). :)
+> 
+> Thank you so much, should I send a patch?
 
->> This is incorrect; you should always return the manual settings
->> (fc_request_control flags) here. =A0If autonegotiation is enabled th=
-en
->> your get_settings function will return the actual pause flags.
->>=20
-> What do you mean "return actual pause flags" when autoneg is enabled?
-> Pause flags set by (or default) advertise flag?
+Yes please.
 
-It means what was negotiated by autonegotiation, and is actually in use=
-=2E
+									Pavel
 
-Otherwise, how can the user find out what was negotiated?
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
