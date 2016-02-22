@@ -1,81 +1,39 @@
-From: Marc Haber <mh+netdev@zugschlus.de>
-Subject: Re: IPv6 route to gateway on fe80::1%eth0 when I have fe80::1%br0
- locally
-Date: Mon, 22 Feb 2016 16:47:58 +0100
-Message-ID: <20160222154758.GW26042@torres.zugschlus.de>
-References: <20151212195830.GA18286@torres.zugschlus.de>
- <56796902.8080703@stressinduktion.org>
- <20151222212843.GE4424@torres.zugschlus.de>
- <5679C58C.2090308@stressinduktion.org>
- <20160222150443.GV26042@torres.zugschlus.de>
- <56CB2564.9030003@stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/3] gianfar: Map head TxBD first to skip a
+ wmb()
+Date: Mon, 22 Feb 2016 11:04:19 -0500 (EST)
+Message-ID: <20160222.110419.641505826145828651.davem@davemloft.net>
+References: <1455878854-28290-2-git-send-email-claudiu.manoil@freescale.com>
+	<20160221.215843.877041303205905380.davem@davemloft.net>
+	<DB4PR04MB3799AF95B8C7FB8C949476496A30@DB4PR04MB379.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: claudiu.manoil@freescale.com, netdev@vger.kernel.org
+To: claudiu.manoil@nxp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from torres.zugschlus.de ([85.214.131.164]:48164 "EHLO
-	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753666AbcBVPsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 10:48:00 -0500
-Content-Disposition: inline
-In-Reply-To: <56CB2564.9030003@stressinduktion.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49833 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754136AbcBVQEX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 11:04:23 -0500
+In-Reply-To: <DB4PR04MB3799AF95B8C7FB8C949476496A30@DB4PR04MB379.eurprd04.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 22, 2016 at 04:12:36PM +0100, Hannes Frederic Sowa wrote:
-> On 22.02.2016 16:04, Marc Haber wrote:
-> >In prose:
-> >
-> >The host is a host for KVM VMs. It receives IPv6 connectivity via RA
-> >on eth0, where the default gateway announces its address as fe80::1.
-> >It also provides IPv6 connectivity to the VMs via the br0 interface.
-> >It is running radvd on br0, and for statically configured VMs it has
-> >also fe80::1 on br0.
-> >
-> >If accept_ra_from_local on eth0 were 0, the system would not accept
-> >the RA from the default gateway and and up with no IPv6 since fe80::1
-> >is locally configured with br0.
-> 
-> Isn't this behavior fixed with
-> 
-> commit c1a9a291cee0890eb0f435243f3fb84fefb04348
-> Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date:   Wed Dec 23 22:44:37 2015 +0100
-> 
->     ipv6: honor ifindex in case we receive ll addresses in router
-> advertisements
-> 
-> $ git describe --contains c1a9a291cee0890eb0f435243f3fb84fefb04348
-> v4.4-rc8~5^2~10
-> 
-> ?
-> 
-> If you don't have fe80::1%br0 bound on exactly that interface, it should
-> work, no? So, no need for accept_ra_from_local, which has dubious semantics
-> anyway.
+From: Claudiu Manoil <claudiu.manoil@nxp.com>
+Date: Mon, 22 Feb 2016 10:14:37 +0000
 
-I have accept_ra_from_local set to 0 on all interfaces now, and I
-still get the dubious default route on eth0.
+> Let's take a random driver - igb, there is no wmb() between:
+> tx_desc->read.buffer_addr = cpu_to_le64(dma);
+> and
+> /* write last descriptor with RS and EOP bits */
+> cmd_type |= size | IGB_TXD_DCMD;
+> tx_desc->read.cmd_type_len = cpu_to_le32(cmd_type);
 
-> >If accept_ra_from_local on eth0 is 1, the system accepts both the RA
-> >from the default gateway on eth0 _AND_ its own RA sent out and
-> >received on br0, and, making things worse, is setting the IP address
-> >and default route not on br0, but on eth0.
-> 
-> Understood. Thanks, I was just able to easily reproduce it. Was already
-> wondering why someone would enable accept_ra_from_local besides only
-> testing. I check it out, thanks!
+It may in fact be necessary and you should contact the driver
+maintainers about that.
 
-Can you reproduce the behavior with accept_ra_from_local =0 as well?
-Unfortunately, the debugging VM I build works fine, it's just the
-physical host showing this behavior. This is really strange.
-
-Greetings
-Marc
-
--- 
------------------------------------------------------------------------------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-Leimen, Germany    |  lose things."    Winona Ryder | Fon: *49 6224 1600402
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 6224 1600421
+It is absolutely inappropriate to look for exceptions to a rule
+to prove that you don't have to deal with something.  Yes, bugs
+or wrong handling of situations exist, but that doesn't give you
+an open door to do so as well.
