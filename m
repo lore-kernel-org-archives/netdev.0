@@ -1,81 +1,81 @@
-From: Deepa Dinamani <deepa.kernel@gmail.com>
-Subject: Re: [PATCH 8/8] net: sunrpc: Replace CURRENT_TIME by current_fs_time()
-Date: Mon, 22 Feb 2016 21:17:29 +0530
-Message-ID: <CABeXuvq6Fxcj15Zo9F7tPUN+-Jw7nOPcH8AHKP29Q+6R4mqmRQ@mail.gmail.com>
-References: <1456154274-30487-1-git-send-email-deepa.kernel@gmail.com>
-	<1456154274-30487-9-git-send-email-deepa.kernel@gmail.com>
-	<CAHQdGtR26gqy7GzWui-bnb+W5W1PnUL_=okBZwz+XFmj_Q4A3A@mail.gmail.com>
+From: Marc Haber <mh+netdev@zugschlus.de>
+Subject: Re: IPv6 route to gateway on fe80::1%eth0 when I have fe80::1%br0
+ locally
+Date: Mon, 22 Feb 2016 16:47:58 +0100
+Message-ID: <20160222154758.GW26042@torres.zugschlus.de>
+References: <20151212195830.GA18286@torres.zugschlus.de>
+ <56796902.8080703@stressinduktion.org>
+ <20151222212843.GE4424@torres.zugschlus.de>
+ <5679C58C.2090308@stressinduktion.org>
+ <20160222150443.GV26042@torres.zugschlus.de>
+ <56CB2564.9030003@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux FS-devel Mailing List <linux-fsdevel@vger.kernel.org>,
-	y2038@lists.linaro.org, Arnd Bergmann <arnd@arndb.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Jeff Layton <jlayton@poochiereds.net>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux NFS Mailing List <linux-nfs@vger.kernel.org>,
-	Linux Network Devel Mailing List <netdev@vger.kernel.org>
-To: Trond Myklebust <trond.myklebust@primarydata.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHQdGtR26gqy7GzWui-bnb+W5W1PnUL_=okBZwz+XFmj_Q4A3A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from torres.zugschlus.de ([85.214.131.164]:48164 "EHLO
+	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753666AbcBVPsA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 10:48:00 -0500
+Content-Disposition: inline
+In-Reply-To: <56CB2564.9030003@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 22, 2016 at 9:04 PM, Trond Myklebust
-<trond.myklebust@primarydata.com> wrote:
-> On Mon, Feb 22, 2016 at 10:17 AM, Deepa Dinamani <deepa.kernel@gmail.com> wrote:
->>
->> CURRENT_TIME macro is not appropriate for filesystems as it
->> doesn't use the right granularity for filesystem timestamps.
->> Use current_fs_time() instead.
->>
->> Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
->> Cc: "J. Bruce Fields" <bfields@fieldses.org>
->> Cc: Jeff Layton <jlayton@poochiereds.net>
->> Cc: Trond Myklebust <trond.myklebust@primarydata.com>
->> Cc: Anna Schumaker <anna.schumaker@netapp.com>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Cc: linux-nfs@vger.kernel.org
->> Cc: netdev@vger.kernel.org
->> ---
->>  net/sunrpc/rpc_pipe.c | 4 +++-
->>  1 file changed, 3 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
->> index 31789ef..bab3187 100644
->> --- a/net/sunrpc/rpc_pipe.c
->> +++ b/net/sunrpc/rpc_pipe.c
->> @@ -477,7 +477,9 @@ rpc_get_inode(struct super_block *sb, umode_t mode)
->>                 return NULL;
->>         inode->i_ino = get_next_ino();
->>         inode->i_mode = mode;
->> -       inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
->> +       inode->i_atime = current_fs_time(sb);
->> +       inode->i_mtime = inode->i_atime;
->> +       inode->i_ctime = inode->i_atime;
->>         switch (mode & S_IFMT) {
->>         case S_IFDIR:
->>                 inode->i_fop = &simple_dir_operations;
->
-> Why would we care? This is a pseudo-fs. There is no expectation w.r.t.
-> timestamp accuracy or resolution.
+On Mon, Feb 22, 2016 at 04:12:36PM +0100, Hannes Frederic Sowa wrote:
+> On 22.02.2016 16:04, Marc Haber wrote:
+> >In prose:
+> >
+> >The host is a host for KVM VMs. It receives IPv6 connectivity via RA
+> >on eth0, where the default gateway announces its address as fe80::1.
+> >It also provides IPv6 connectivity to the VMs via the br0 interface.
+> >It is running radvd on br0, and for statically configured VMs it has
+> >also fe80::1 on br0.
+> >
+> >If accept_ra_from_local on eth0 were 0, the system would not accept
+> >the RA from the default gateway and and up with no IPv6 since fe80::1
+> >is locally configured with br0.
+> 
+> Isn't this behavior fixed with
+> 
+> commit c1a9a291cee0890eb0f435243f3fb84fefb04348
+> Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date:   Wed Dec 23 22:44:37 2015 +0100
+> 
+>     ipv6: honor ifindex in case we receive ll addresses in router
+> advertisements
+> 
+> $ git describe --contains c1a9a291cee0890eb0f435243f3fb84fefb04348
+> v4.4-rc8~5^2~10
+> 
+> ?
+> 
+> If you don't have fe80::1%br0 bound on exactly that interface, it should
+> work, no? So, no need for accept_ra_from_local, which has dubious semantics
+> anyway.
 
-CURRENT_TIME is not y2038 safe.
-We are switching all vfs timestamps to use 64 bit time.
-And, deleting all references to CURRENT_TIME.
-So CURRENT_TIME users will be replaced by either ktime_get_* apis
-or current_fs_time_* apis.
+I have accept_ra_from_local set to 0 on all interfaces now, and I
+still get the dubious default route on eth0.
 
-There is going to be another series (based on
-https://lkml.org/lkml/2016/2/12/76)
-which switches vfs time to 64 bit.
+> >If accept_ra_from_local on eth0 is 1, the system accepts both the RA
+> >from the default gateway on eth0 _AND_ its own RA sent out and
+> >received on br0, and, making things worse, is setting the IP address
+> >and default route not on br0, but on eth0.
+> 
+> Understood. Thanks, I was just able to easily reproduce it. Was already
+> wondering why someone would enable accept_ra_from_local besides only
+> testing. I check it out, thanks!
 
-This means [a,c,m] times in struct inode, struct attr and struct kstat
-will be changed to use timespec64.
+Can you reproduce the behavior with accept_ra_from_local =0 as well?
+Unfortunately, the debugging VM I build works fine, it's just the
+physical host showing this behavior. This is really strange.
 
-Even though this is a psuedo-fs, we choose to use filesystem apis
-rather than ktime_get_* apis as current_fs_time_* apis will switch time
-data types together with vfs.
+Greetings
+Marc
 
--Deepa
+-- 
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Leimen, Germany    |  lose things."    Winona Ryder | Fon: *49 6224 1600402
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 6224 1600421
