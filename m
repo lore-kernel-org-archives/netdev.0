@@ -1,87 +1,108 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH][net-next] bridge: increase mtu to 9000
-Date: Mon, 22 Feb 2016 17:29:11 +0800
-Message-ID: <1456133351-10292-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:46719 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753149AbcBVJ3N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 04:29:13 -0500
-Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.139])
-	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id u1M9TCwO028845
-	for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 01:29:13 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: dead loop for rtnl_trylock
+Date: Mon, 22 Feb 2016 03:39:53 -0600
+Message-ID: <87y4adnkwm.fsf@x220.int.ebiederm.org>
+References: <CY1PR11MB0491C022AD738CCC818BE74AAAAD0@CY1PR11MB0491.namprd11.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Xianpeng Zhao <xpzhao@aerohive.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CY1PR11MB0491C022AD738CCC818BE74AAAAD0@CY1PR11MB0491.namprd11.prod.outlook.com>
+	(Xianpeng Zhao's message of "Tue, 16 Feb 2016 10:31:53 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li@gmail.com>
 
-A linux bridge always adopts the smallest MTU of the enslaved devices.
-When no device are enslaved, it defaults to a MTU of 1500 and refuses to
-use a larger one. This is problematic when using bridges enslaving only
-virtual NICs (vnetX) like it's common with KVM guests.
+Copied netdev as that is the more appropriate mailling list for
+questions like this.
 
-Steps to reproduce the problem
+Xianpeng Zhao <xpzhao@aerohive.com> writes:
 
-1) sudo ip link add br-test0 type bridge # create an empty bridge
-2) sudo ip link set br-test0 mtu 9000 # attempt to set MTU > 1500
-3) ip link show dev br-test0 # confirm MTU
+> Hi Group,
+>
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 I have find a proble=
+m in my system, I found there have a chance that cause the system enter=
+ dead loop when try to get the rtnl lock in the sysctl function in net/=
+ipv6/addrconf.c
+>
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 The situation should=
+ like this, there are 2 processes may need get the rtnl lock, we call t=
+hem process A and process B, A have high priority than B.
+> B need get the rtnl lock to do something, when B schedule out without=
+ release the lock; At this time, the A start to run "echo 1 > /proc/sys=
+/net/ipv6/conf/<ifname>/disable_ipv6", the echo process will run to thi=
+s code:
+>
+> =C2=A0=C2=A0=C2=A0 if (!rtnl_trylock())
+>
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 return restart_syscall();
+>
+> Because the rtnl lock was hold by process B, so here the try will be =
+failure, and run the restart_syscall to let the sys_write do again, eve=
+n try many times, because the B have very lower priority, the lock was =
+hard to be released, so the echo process created by A will enter a loop=
+ of restart system call.
+>
+> In my case it is the wireless_nlevent_process in process kworker take=
+n the rtnl lock, and another higher priority process need use echo to d=
+isable IPv6 met this problem.
+>
+> I am not very sure, but I think it is better to let the process A sle=
+ep a while instead of try it again and again without any delay.
+>
+> Expects, what's your opinions?
 
-Here, 2) returns "RTNETLINK answers: Invalid argument". One (cumbersome)
-way around this is:
+That the entire situation is a mess.  From what little I have seen it i=
+s
+a very rare condition.  Does this reproduce easily in your environment?
 
-4) sudo modprobe dummy
-5) sudo ip link set dummy0 mtu 9000 master br-test0
+If we are going the delay route we probably want to put the delay in
+restart_syscall or in a wrapper around restart_syscall that we use
+for the rtnl_trylock failure case.
 
-Then the bridge's MTU can be changed from anywhere to 9000.
+On first blush I would suggest the logic for sleeping should be:
+	if (need_reschedule())
+		schedule();
 
-This is especially annoying for the virtualization case because the
-KVM's tap driver will by default adopt the bridge's MTU on startup
-making it impossible (without the workaround) to use a large MTU on the
-guest VMs.
+That will limit the spinning to a single time slice which is definitely
+preferrable.
 
-https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1399064
+Ugh.  But we already cross the kernel/userspace boundary that already
+does that.
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/bridge/br_if.c      | 4 ++--
- net/bridge/br_private.h | 2 ++
- 2 files changed, 4 insertions(+), 2 deletions(-)
+If you are encountering a deadlock it is very much because you have bee=
+n
+playing very ugly priority games.  At which point my sympathies but thi=
+s
+feels like a case of "Docter it hurts when I do this.  Then don't do th=
+at."
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index c367b3e..38ced44 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -390,7 +390,7 @@ int br_del_bridge(struct net *net, const char *name)
- 	return ret;
- }
- 
--/* MTU of the bridge pseudo-device: ETH_DATA_LEN or the minimum of the ports */
-+/* MTU of the bridge pseudo-device: BR_JUMBO_MTU or the minimum of the ports */
- int br_min_mtu(const struct net_bridge *br)
- {
- 	const struct net_bridge_port *p;
-@@ -399,7 +399,7 @@ int br_min_mtu(const struct net_bridge *br)
- 	ASSERT_RTNL();
- 
- 	if (list_empty(&br->port_list))
--		mtu = ETH_DATA_LEN;
-+		mtu = BR_JUMBO_MTU;
- 	else {
- 		list_for_each_entry(p, &br->port_list, list) {
- 			if (!mtu  || p->dev->mtu < mtu)
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 302ab0a..d3c29f6 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -32,6 +32,8 @@
- 
- #define BR_VERSION	"2.3"
- 
-+#define BR_JUMBO_MTU		9000
-+
- /* Control of forwarding link local multicast */
- #define BR_GROUPFWD_DEFAULT	0
- /* Don't allow forwarding of control protocols like STP, MAC PAUSE and LACP */
--- 
-2.1.4
+> @@ -5304,8 +5308,10 @@ static int addrconf_disable_ipv6(struct ctl_ta=
+ble *table, int *p, int newf)
+>
+>         struct net *net;
+>
+>         int old;
+>
+> =20
+>
+> -       if (!rtnl_trylock())
+>
+> +       if (!rtnl_trylock()){
+>
+> +        schedule_timeout_uninterruptible(HZ/4);
+>
+>                 return restart_syscall();
+>
+> +    }
+>
+> =20
+>
+>         net =3D (struct net *)table->extra2;
+>
+>         old =3D *p;
+
+Eric
