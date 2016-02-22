@@ -1,57 +1,161 @@
-From: Diego Viola <diego.viola@gmail.com>
-Subject: Re: Computer fails to resume from suspend unless I rmmod jme before
- initiating the suspend
-Date: Mon, 22 Feb 2016 15:59:48 -0300
-Message-ID: <CA+ToGPE3=OBsNDP_O7EoT76FqMdxdjdt=+tHNGBbm-oUkQHA4Q@mail.gmail.com>
-References: <CA+ToGPGC8APhN-_F5fzyR4CWqWgZ9Hs0PNqykhEgEV7g3PJjTg@mail.gmail.com>
-	<CA+ToGPF9cpdVLEHc7Vz79=-P7Jp76Y=M=p=bORhUNrXtb6+LNA@mail.gmail.com>
-	<CA+ToGPHfV5NbSAFWJPzDVfUT9fdp86MqoFbF8Uhmf9T+3e9n7Q@mail.gmail.com>
-	<CA+ToGPF0OT7NKCjaBMomqZg-+eO7Eq9hqSmLt0-UOHnyGPHd8Q@mail.gmail.com>
-	<CA+ToGPFP5a76TS2C_A7WJUWM9Eo60Ym5OtwHcKtY+OreoRVoFA@mail.gmail.com>
-	<20160222100907.GA32071@amd>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>, cooldavid@cooldavid.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160222100907.GA32071@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ajit Khaparde <ajit.khaparde@broadcom.com>
+Subject: [PATCH net-next 1/2] be2net: Declare some u16 fields as u32 to improve performance
+Date: Tue, 23 Feb 2016 00:33:48 +0530
+Message-ID: <1456167828-31441-1-git-send-email-ajit.khaparde@broadcom.com>
+To: ajit.khaparde@broadcom.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmrelayp1.emulex.com ([138.239.112.140]:53663 "EHLO
+	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751977AbcBVTFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 14:05:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 22, 2016 at 7:09 AM, Pavel Machek <pavel@ucw.cz> wrote:
-> Hi!
->
->> >>>> Every time I initiate a suspend (systemctl suspend) the machine hangs
->> >>>> at resume unless I unload the jme driver.
->
-> It seems to have some kind of suspend/resume support. ... and it is
-> rather complex.
->
-> Maybe jme_start_irq(jme) should be moved to the end of jme_resume
-> function?
->
->> > So I found that disabling async as in:
->> >
->> > $ echo 0 > /sys/power/pm_async
->> >
->> > Helps with my issue, I can't reproduce the hang anymore, tried
->> > suspend/resume almost ~15 times.
->> >
->> > Diego
->>
->> Can someone please help?
->
->                                                                         Pavel
-> --
-> (english) http://www.livejournal.com/~pavelmachek
-> (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+When 16-bit integers are loaded on CPUs with high order native
+register sizes, the CPU could use some extra ops before using them.
+And currently some of the frequently used fields in the driver like
+the producer and consumer indices of the queues are declared as u16.
 
-Hi Pavel,
+This patch declares such fields as u32.  With this change we see the
+64-byte packets per second numbers improve by about 4%.
 
-This did the trick, suspend/resume is now working perfectly for me
-(tried more than 10 times). :)
+Signed-off-by: Ajit Khaparde <ajit.khaparde@broadcom.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h      | 18 +++++++++---------
+ drivers/net/ethernet/emulex/benet/be_cmds.c |  2 +-
+ drivers/net/ethernet/emulex/benet/be_main.c | 16 +++++++++-------
+ 3 files changed, 19 insertions(+), 17 deletions(-)
 
-Thank you so much, should I send a patch?
-
-Diego
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index ab24f84..756f25b 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -124,27 +124,27 @@ struct be_dma_mem {
+ };
+ 
+ struct be_queue_info {
++	u32 len;
++	u32 entry_size;	/* Size of an element in the queue */
++	u32 tail, head;
++	atomic_t used;	/* Number of valid elements in the queue */
++	u32 id;
+ 	struct be_dma_mem dma_mem;
+-	u16 len;
+-	u16 entry_size;	/* Size of an element in the queue */
+-	u16 id;
+-	u16 tail, head;
+ 	bool created;
+-	atomic_t used;	/* Number of valid elements in the queue */
+ };
+ 
+-static inline u32 MODULO(u16 val, u16 limit)
++static inline u32 MODULO(u32 val, u32 limit)
+ {
+ 	BUG_ON(limit & (limit - 1));
+ 	return val & (limit - 1);
+ }
+ 
+-static inline void index_adv(u16 *index, u16 val, u16 limit)
++static inline void index_adv(u32 *index, u32 val, u32 limit)
+ {
+ 	*index = MODULO((*index + val), limit);
+ }
+ 
+-static inline void index_inc(u16 *index, u16 limit)
++static inline void index_inc(u32 *index, u32 limit)
+ {
+ 	*index = MODULO((*index + 1), limit);
+ }
+@@ -169,7 +169,7 @@ static inline void queue_head_inc(struct be_queue_info *q)
+ 	index_inc(&q->head, q->len);
+ }
+ 
+-static inline void index_dec(u16 *index, u16 limit)
++static inline void index_dec(u32 *index, u32 limit)
+ {
+ 	*index = MODULO((*index - 1), limit);
+ }
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 66fa214..22402db 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -596,7 +596,7 @@ static int be_mcc_notify_wait(struct be_adapter *adapter)
+ 	int status;
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
+-	u16 index = mcc_obj->q.head;
++	u32 index = mcc_obj->q.head;
+ 	struct be_cmd_resp_hdr *resp;
+ 
+ 	index_dec(&index, mcc_obj->q.len);
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 4624846..0bd64f1 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -849,9 +849,9 @@ static void unmap_tx_frag(struct device *dev, struct be_eth_wrb *wrb,
+ }
+ 
+ /* Grab a WRB header for xmit */
+-static u16 be_tx_get_wrb_hdr(struct be_tx_obj *txo)
++static u32 be_tx_get_wrb_hdr(struct be_tx_obj *txo)
+ {
+-	u16 head = txo->q.head;
++	u32 head = txo->q.head;
+ 
+ 	queue_head_inc(&txo->q);
+ 	return head;
+@@ -895,7 +895,7 @@ static void be_tx_setup_wrb_frag(struct be_tx_obj *txo, dma_addr_t busaddr,
+  * WRBs of the current packet are unmapped. Invoked to handle tx setup errors.
+  */
+ static void be_xmit_restore(struct be_adapter *adapter,
+-			    struct be_tx_obj *txo, u16 head, bool map_single,
++			    struct be_tx_obj *txo, u32 head, bool map_single,
+ 			    u32 copied)
+ {
+ 	struct device *dev;
+@@ -930,7 +930,7 @@ static u32 be_xmit_enqueue(struct be_adapter *adapter, struct be_tx_obj *txo,
+ 	struct device *dev = &adapter->pdev->dev;
+ 	struct be_queue_info *txq = &txo->q;
+ 	bool map_single = false;
+-	u16 head = txq->head;
++	u32 head = txq->head;
+ 	dma_addr_t busaddr;
+ 	int len;
+ 
+@@ -1990,7 +1990,7 @@ static struct be_rx_page_info *get_rx_page_info(struct be_rx_obj *rxo)
+ 	struct be_adapter *adapter = rxo->adapter;
+ 	struct be_rx_page_info *rx_page_info;
+ 	struct be_queue_info *rxq = &rxo->q;
+-	u16 frag_idx = rxq->tail;
++	u32 frag_idx = rxq->tail;
+ 
+ 	rx_page_info = &rxo->page_info_tbl[frag_idx];
+ 	BUG_ON(!rx_page_info->page);
+@@ -2401,10 +2401,11 @@ static u16 be_tx_compl_process(struct be_adapter *adapter,
+ {
+ 	struct sk_buff **sent_skbs = txo->sent_skb_list;
+ 	struct be_queue_info *txq = &txo->q;
+-	u16 frag_index, num_wrbs = 0;
+ 	struct sk_buff *skb = NULL;
+ 	bool unmap_skb_hdr = false;
+ 	struct be_eth_wrb *wrb;
++	u16 num_wrbs = 0;
++	u32 frag_index;
+ 
+ 	do {
+ 		if (sent_skbs[txq->tail]) {
+@@ -2516,10 +2517,11 @@ static void be_rx_cq_clean(struct be_rx_obj *rxo)
+ 
+ static void be_tx_compl_clean(struct be_adapter *adapter)
+ {
+-	u16 end_idx, notified_idx, cmpl = 0, timeo = 0, num_wrbs = 0;
+ 	struct device *dev = &adapter->pdev->dev;
++	u16 cmpl = 0, timeo = 0, num_wrbs = 0;
+ 	struct be_tx_compl_info *txcp;
+ 	struct be_queue_info *txq;
++	u32 end_idx, notified_idx;
+ 	struct be_tx_obj *txo;
+ 	int i, pending_txqs;
+ 
+-- 
+2.4.3
