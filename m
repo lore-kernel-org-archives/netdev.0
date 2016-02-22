@@ -1,43 +1,47 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net] bnxt_en: Fix zero padding of tx push data.
-Date: Mon, 22 Feb 2016 02:10:26 -0500
-Message-ID: <1456125026-16093-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Yangbo Lu <yangbo.lu@nxp.com>
+Subject: [PATCH 3/3] gianfar: fix endianness for hardware timestamp
+Date: Mon, 22 Feb 2016 14:49:33 +0800
+Message-ID: <1456123773-1016-4-git-send-email-yangbo.lu@nxp.com>
+References: <1456123773-1016-1-git-send-email-yangbo.lu@nxp.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Yangbo Lu <yangbo.lu@nxp.com>
+To: <netdev@vger.kernel.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5520-maca-inet1-outside.broadcom.com ([216.31.211.11]:56717
-	"EHLO mail-irv-18.broadcom.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751855AbcBVHK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 02:10:27 -0500
+Received: from mail-by2on0059.outbound.protection.outlook.com ([207.46.100.59]:13426
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751855AbcBVHM7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Feb 2016 02:12:59 -0500
+In-Reply-To: <1456123773-1016-1-git-send-email-yangbo.lu@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The arithmetic to zero pad the last 64-bit word in the push buffer is not
-correct.
-
-1. It should be pdata + length to get to the end.
-2. 'pdata' is void pointer and passing it to PTR_ALIGN() will cast the
-aligned pointer to void.  Pass 'end' which is u64 pointer to PTR_ALIGN()
-instead so that the aligned pointer - 1 is the last 64-bit pointer to data.
-
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/gianfar.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 8ab000d..82f1913 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -248,7 +248,8 @@ static netdev_tx_t bnxt_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		tx_push1->tx_bd_cfa_meta = cpu_to_le32(vlan_tag_flags);
- 		tx_push1->tx_bd_cfa_action = cpu_to_le32(cfa_action);
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 2aa7b40..20e8648 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -2708,6 +2708,7 @@ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 			struct skb_shared_hwtstamps shhwtstamps;
+ 			u64 *ns = (u64 *)(((uintptr_t)skb->data + 0x10) &
+ 					  ~0x7UL);
++			*ns = be64_to_cpu(*ns);
  
--		end = PTR_ALIGN(pdata + length + 1, 8) - 1;
-+		end = pdata + length;
-+		end = PTR_ALIGN(end, 8) - 1;
- 		*end = 0;
+ 			memset(&shhwtstamps, 0, sizeof(shhwtstamps));
+ 			shhwtstamps.hwtstamp = ns_to_ktime(*ns);
+@@ -3037,6 +3038,7 @@ static void gfar_process_frame(struct net_device *ndev, struct sk_buff *skb)
+ 	if (priv->hwts_rx_en) {
+ 		struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
+ 		u64 *ns = (u64 *) skb->data;
++		*ns = be64_to_cpu(*ns);
  
- 		skb_copy_from_linear_data(skb, pdata, len);
+ 		memset(shhwtstamps, 0, sizeof(*shhwtstamps));
+ 		shhwtstamps->hwtstamp = ns_to_ktime(*ns);
 -- 
-1.8.3.1
+2.1.0.27.g96db324
