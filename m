@@ -1,27 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2016-02-20
-Date: Sun, 21 Feb 2016 22:39:57 -0500 (EST)
-Message-ID: <20160221.223957.886985323429178340.davem@davemloft.net>
-References: <56C873A6.2000102@pengutronix.de>
+Subject: Re: [PATCH v3] net: ethernet: davicom: fix devicetree irq resource
+Date: Sun, 21 Feb 2016 22:41:28 -0500 (EST)
+Message-ID: <20160221.224128.1565862438680728799.davem@davemloft.net>
+References: <1456001126-13129-1-git-send-email-robert.jarzmik@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
-	linux-can@vger.kernel.org
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <56C873A6.2000102@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: romieu@fr.zoreil.com, sergei.shtylyov@cogentembedded.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: robert.jarzmik@free.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1456001126-13129-1-git-send-email-robert.jarzmik@free.fr>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Sat, 20 Feb 2016 15:09:42 +0100
+=46rom: Robert Jarzmik <robert.jarzmik@free.fr>
+Date: Sat, 20 Feb 2016 21:45:26 +0100
 
-> this is a pull request of 9 patch for net-next/master.
-> 
-> The first 3 patches are from Damien Riegel, they add support for
-> Technologic Systems IP core to tje sja100 driver. The next patches 6 by
-> Marek Vasut (including one my me) first clean sort the CAN driver's
-> Kconfig and Makefiles and then add support for the IFI CANFD IP core.
+> The dm9000 driver doesn't work in at least one device-tree
+> configuration, spitting an error message on irq resource :
+> [=A0=A0=A0=A01.062495] dm9000 8000000.ethernet: insufficient resource=
+s
+> [=A0=A0=A0=A01.068439] dm9000 8000000.ethernet: not found (-2).
+> [=A0=A0=A0=A01.073451] dm9000: probe of 8000000.ethernet failed with =
+error -2
+>=20
+> The reason behind is that the interrupt might be provided by a gpio
+> controller, not probed when dm9000 is probed, and needing the probe
+> deferral mechanism to apply.
+>=20
+> Currently, the interrupt is directly taken from resources. This patch
+> changes this to use the more generic platform_get_irq(), which handle=
+s
+> the deferral.
+>=20
+> Moreover, since commit Fixes: 7085a7401ba5 ("drivers: platform: parse
+> IRQ flags from resources"), the interrupt trigger flags are honored i=
+n
+> platform_get_irq(), so remove the needless code in dm9000.
+>=20
+> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+> Acked-by: Marcel Ziswiler <marcel@ziswiler.com>
 
-Pulled, thanks.
+Applied.
