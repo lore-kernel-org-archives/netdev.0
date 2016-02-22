@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 07/12] net/mlx5e: Wake On LAN support
-Date: Mon, 22 Feb 2016 18:17:29 +0200
-Message-ID: <1456157854-12750-8-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 12/12] net/mlx5e: Add TX inner packet counters
+Date: Mon, 22 Feb 2016 18:17:34 +0200
+Message-ID: <1456157854-12750-13-git-send-email-saeedm@mellanox.com>
 References: <1456157854-12750-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -13,355 +13,184 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:42314 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:42302 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752914AbcBVQS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752895AbcBVQS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 22 Feb 2016 11:18:59 -0500
 In-Reply-To: <1456157854-12750-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
+From: Matthew Finlay <matt@mellanox.com>
 
-Implement set/get WOL by ethtool and added the needed
-device commands and structures to mlx5_ifc.
+Add TSO and TX checksum counters for tunneled, inner packets
 
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Signed-off-by: Rana Shahout <ranas@mellanox.com>
+Signed-off-by: Matthew Finlay <matt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |    6 +
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  125 ++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/port.c     |   38 ++++++
- include/linux/mlx5/device.h                        |   11 ++
- include/linux/mlx5/mlx5_ifc.h                      |   62 ++++++++++-
- include/linux/mlx5/port.h                          |    2 +
- 6 files changed, 243 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |   16 ++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    8 +++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |   20 +++++++++++---------
+ 3 files changed, 32 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index 037fc4c..9ce87c6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -560,6 +560,12 @@ const char *mlx5_command_str(int command)
- 	case MLX5_CMD_OP_ACCESS_REG:
- 		return "MLX5_CMD_OP_ACCESS_REG";
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index a700c57..1dca3dc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -103,12 +103,15 @@ static const char vport_strings[][ETH_GSTRING_LEN] = {
+ 	/* SW counters */
+ 	"tso_packets",
+ 	"tso_bytes",
++	"tso_inner_packets",
++	"tso_inner_bytes",
+ 	"lro_packets",
+ 	"lro_bytes",
+ 	"rx_csum_good",
+ 	"rx_csum_none",
+ 	"rx_csum_sw",
+ 	"tx_csum_offload",
++	"tx_csum_inner",
+ 	"tx_queue_stopped",
+ 	"tx_queue_wake",
+ 	"tx_queue_dropped",
+@@ -141,18 +144,21 @@ struct mlx5e_vport_stats {
+ 	/* SW counters */
+ 	u64 tso_packets;
+ 	u64 tso_bytes;
++	u64 tso_inner_packets;
++	u64 tso_inner_bytes;
+ 	u64 lro_packets;
+ 	u64 lro_bytes;
+ 	u64 rx_csum_good;
+ 	u64 rx_csum_none;
+ 	u64 rx_csum_sw;
+ 	u64 tx_csum_offload;
++	u64 tx_csum_inner;
+ 	u64 tx_queue_stopped;
+ 	u64 tx_queue_wake;
+ 	u64 tx_queue_dropped;
+ 	u64 rx_wqe_err;
  
-+	case MLX5_CMD_OP_SET_WOL_ROL:
-+		return "SET_WOL_ROL";
-+
-+	case MLX5_CMD_OP_QUERY_WOL_ROL:
-+		return "QUERY_WOL_ROL";
-+
- 	default: return "unknown command opcode";
+-#define NUM_VPORT_COUNTERS     32
++#define NUM_VPORT_COUNTERS     35
+ };
+ 
+ static const char pport_strings[][ETH_GSTRING_LEN] = {
+@@ -252,7 +258,10 @@ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"packets",
+ 	"tso_packets",
+ 	"tso_bytes",
++	"tso_inner_packets",
++	"tso_inner_bytes",
+ 	"csum_offload_none",
++	"csum_offload_inner",
+ 	"stopped",
+ 	"wake",
+ 	"dropped",
+@@ -263,12 +272,15 @@ struct mlx5e_sq_stats {
+ 	u64 packets;
+ 	u64 tso_packets;
+ 	u64 tso_bytes;
++	u64 tso_inner_packets;
++	u64 tso_inner_bytes;
+ 	u64 csum_offload_none;
++	u64 csum_offload_inner;
+ 	u64 stopped;
+ 	u64 wake;
+ 	u64 dropped;
+ 	u64 nop;
+-#define NUM_SQ_STATS 8
++#define NUM_SQ_STATS 11
+ };
+ 
+ struct mlx5e_stats {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 6f7eb3b..0d45f35 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -145,9 +145,12 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 	/* Collect firts the SW counters and then HW for consistency */
+ 	s->tso_packets		= 0;
+ 	s->tso_bytes		= 0;
++	s->tso_inner_packets	= 0;
++	s->tso_inner_bytes	= 0;
+ 	s->tx_queue_stopped	= 0;
+ 	s->tx_queue_wake	= 0;
+ 	s->tx_queue_dropped	= 0;
++	s->tx_csum_inner	= 0;
+ 	tx_offload_none		= 0;
+ 	s->lro_packets		= 0;
+ 	s->lro_bytes		= 0;
+@@ -168,9 +171,12 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 
+ 			s->tso_packets		+= sq_stats->tso_packets;
+ 			s->tso_bytes		+= sq_stats->tso_bytes;
++			s->tso_inner_packets	+= sq_stats->tso_inner_packets;
++			s->tso_inner_bytes	+= sq_stats->tso_inner_bytes;
+ 			s->tx_queue_stopped	+= sq_stats->stopped;
+ 			s->tx_queue_wake	+= sq_stats->wake;
+ 			s->tx_queue_dropped	+= sq_stats->dropped;
++			s->tx_csum_inner	+= sq_stats->csum_offload_inner;
+ 			tx_offload_none		+= sq_stats->csum_offload_none;
+ 		}
  	}
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 65624ac..e9760f8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -884,6 +884,129 @@ static int mlx5e_get_ts_info(struct net_device *dev,
- 	return 0;
- }
+@@ -245,7 +251,7 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 		s->tx_broadcast_bytes;
  
-+static __u32 mlx5e_get_wol_supported(struct mlx5_core_dev *mdev)
-+{
-+	__u32 ret = 0;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_g))
-+		ret |= WAKE_MAGIC;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_s))
-+		ret |= WAKE_MAGICSECURE;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_a))
-+		ret |= WAKE_ARP;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_b))
-+		ret |= WAKE_BCAST;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_m))
-+		ret |= WAKE_MCAST;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_u))
-+		ret |= WAKE_UCAST;
-+
-+	if (MLX5_CAP_GEN(mdev, wol_p))
-+		ret |= WAKE_PHY;
-+
-+	return ret;
-+}
-+
-+static __u32 mlx5e_refomrat_wol_mode_mlx5_to_linux(u8 mode)
-+{
-+	__u32 ret = 0;
-+
-+	if (mode & MLX5_WOL_MAGIC)
-+		ret |= WAKE_MAGIC;
-+
-+	if (mode & MLX5_WOL_SECURED_MAGIC)
-+		ret |= WAKE_MAGICSECURE;
-+
-+	if (mode & MLX5_WOL_ARP)
-+		ret |= WAKE_ARP;
-+
-+	if (mode & MLX5_WOL_BROADCAST)
-+		ret |= WAKE_BCAST;
-+
-+	if (mode & MLX5_WOL_MULTICAST)
-+		ret |= WAKE_MCAST;
-+
-+	if (mode & MLX5_WOL_UNICAST)
-+		ret |= WAKE_UCAST;
-+
-+	if (mode & MLX5_WOL_PHY_ACTIVITY)
-+		ret |= WAKE_PHY;
-+
-+	return ret;
-+}
-+
-+static u8 mlx5e_refomrat_wol_mode_linux_to_mlx5(__u32 mode)
-+{
-+	u8 ret = 0;
-+
-+	if (mode & WAKE_MAGIC)
-+		ret |= MLX5_WOL_MAGIC;
-+
-+	if (mode & WAKE_MAGICSECURE)
-+		ret |= MLX5_WOL_SECURED_MAGIC;
-+
-+	if (mode & WAKE_ARP)
-+		ret |= MLX5_WOL_ARP;
-+
-+	if (mode & WAKE_BCAST)
-+		ret |= MLX5_WOL_BROADCAST;
-+
-+	if (mode & WAKE_MCAST)
-+		ret |= MLX5_WOL_MULTICAST;
-+
-+	if (mode & WAKE_UCAST)
-+		ret |= MLX5_WOL_UNICAST;
-+
-+	if (mode & WAKE_PHY)
-+		ret |= MLX5_WOL_PHY_ACTIVITY;
-+
-+	return ret;
-+}
-+
-+static void mlx5e_get_wol(struct net_device *netdev,
-+			  struct ethtool_wolinfo *wol)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	u8 mlx5_wol_mode;
-+	int err;
-+
-+	memset(wol, 0, sizeof(*wol));
-+
-+	wol->supported = mlx5e_get_wol_supported(mdev);
-+	if (!wol->supported)
-+		return;
-+
-+	err = mlx5_query_port_wol(mdev, &mlx5_wol_mode);
-+	if (err)
-+		return;
-+
-+	wol->wolopts = mlx5e_refomrat_wol_mode_mlx5_to_linux(mlx5_wol_mode);
-+}
-+
-+static int mlx5e_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	__u32 wol_supported = mlx5e_get_wol_supported(mdev);
-+	u32 mlx5_wol_mode;
-+
-+	if (!wol_supported)
-+		return -ENOTSUPP;
-+
-+	if (wol->wolopts & ~wol_supported)
-+		return -EINVAL;
-+
-+	mlx5_wol_mode = mlx5e_refomrat_wol_mode_linux_to_mlx5(wol->wolopts);
-+
-+	return mlx5_set_port_wol(mdev, mlx5_wol_mode);
-+}
-+
- const struct ethtool_ops mlx5e_ethtool_ops = {
- 	.get_drvinfo       = mlx5e_get_drvinfo,
- 	.get_link          = ethtool_op_get_link,
-@@ -908,4 +1031,6 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
- 	.get_pauseparam    = mlx5e_get_pauseparam,
- 	.set_pauseparam    = mlx5e_set_pauseparam,
- 	.get_ts_info       = mlx5e_get_ts_info,
-+	.get_wol	   = mlx5e_get_wol,
-+	.set_wol	   = mlx5e_set_wol,
- };
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index d97605e..e1f2e10 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -546,3 +546,41 @@ int mlx5_query_port_ets_rate_limit(struct mlx5_core_dev *mdev,
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx5_query_port_ets_rate_limit);
-+
-+int mlx5_set_port_wol(struct mlx5_core_dev *mdev, u8 wol_mode)
-+{
-+	u32 in[MLX5_ST_SZ_DW(set_wol_rol_in)];
-+	u32 out[MLX5_ST_SZ_DW(set_wol_rol_out)];
-+
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+	MLX5_SET(set_wol_rol_in, in, opcode, MLX5_CMD_OP_SET_WOL_ROL);
-+	MLX5_SET(set_wol_rol_in, in, wol_mode_valid, 1);
-+	MLX5_SET(set_wol_rol_in, in, wol_mode, wol_mode);
-+
-+	return mlx5_cmd_exec_check_status(mdev, in, sizeof(in),
-+					  out, sizeof(out));
-+}
-+EXPORT_SYMBOL_GPL(mlx5_set_port_wol);
-+
-+int mlx5_query_port_wol(struct mlx5_core_dev *mdev, u8 *wol_mode)
-+{
-+	u32 in[MLX5_ST_SZ_DW(query_wol_rol_in)];
-+	u32 out[MLX5_ST_SZ_DW(query_wol_rol_out)];
-+	int err;
-+
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+	MLX5_SET(query_wol_rol_in, in, opcode, MLX5_CMD_OP_QUERY_WOL_ROL);
-+
-+	err = mlx5_cmd_exec_check_status(mdev, in, sizeof(in),
-+					 out, sizeof(out));
-+
-+	if (!err)
-+		*wol_mode = MLX5_GET(query_wol_rol_out, out, wol_mode);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_query_port_wol);
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index bfc1ab0..68a56bc 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -1183,6 +1183,17 @@ enum {
- 	MLX5_RQC_RQ_TYPE_MEMORY_RQ_RPM    = 0x1,
- };
+ 	/* Update calculated offload counters */
+-	s->tx_csum_offload = s->tx_packets - tx_offload_none;
++	s->tx_csum_offload = s->tx_packets - tx_offload_none - s->tx_csum_inner;
+ 	s->rx_csum_good    = s->rx_packets - s->rx_csum_none -
+ 			       s->rx_csum_sw;
  
-+enum mlx5_wol_mode {
-+	MLX5_WOL_DISABLE        = 0,
-+	MLX5_WOL_SECURED_MAGIC  = 1 << 1,
-+	MLX5_WOL_MAGIC          = 1 << 2,
-+	MLX5_WOL_ARP            = 1 << 3,
-+	MLX5_WOL_BROADCAST      = 1 << 4,
-+	MLX5_WOL_MULTICAST      = 1 << 5,
-+	MLX5_WOL_UNICAST        = 1 << 6,
-+	MLX5_WOL_PHY_ACTIVITY   = 1 << 7,
-+};
-+
- /* MLX5 DEV CAPs */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 6ce2884..a05c070 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -187,11 +187,13 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
  
- /* TODO: EAT.ME */
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index ecbdbbf..26f2964 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -166,6 +166,8 @@ enum {
- 	MLX5_CMD_OP_SET_L2_TABLE_ENTRY            = 0x829,
- 	MLX5_CMD_OP_QUERY_L2_TABLE_ENTRY          = 0x82a,
- 	MLX5_CMD_OP_DELETE_L2_TABLE_ENTRY         = 0x82b,
-+	MLX5_CMD_OP_SET_WOL_ROL                   = 0x830,
-+	MLX5_CMD_OP_QUERY_WOL_ROL                 = 0x831,
- 	MLX5_CMD_OP_CREATE_TIR                    = 0x900,
- 	MLX5_CMD_OP_MODIFY_TIR                    = 0x901,
- 	MLX5_CMD_OP_DESTROY_TIR                   = 0x902,
-@@ -731,7 +733,17 @@ struct mlx5_ifc_cmd_hca_cap_bits {
- 	u8         log_max_msg[0x5];
- 	u8         reserved_at_1c7[0x4];
- 	u8         max_tc[0x4];
--	u8         reserved_at_1cf[0x10];
-+	u8         reserved_at_1cf[0x6];
-+	u8         rol_s[0x1];
-+	u8         rol_g[0x1];
-+	u8         reserved_at_1d7[0x1];
-+	u8         wol_s[0x1];
-+	u8         wol_g[0x1];
-+	u8         wol_a[0x1];
-+	u8         wol_b[0x1];
-+	u8         wol_m[0x1];
-+	u8         wol_u[0x1];
-+	u8         wol_p[0x1];
+ 	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
+ 		eseg->cs_flags = MLX5_ETH_WQE_L3_CSUM;
+-		if (skb->encapsulation)
++		if (skb->encapsulation) {
+ 			eseg->cs_flags |= MLX5_ETH_WQE_L3_INNER_CSUM |
+ 					  MLX5_ETH_WQE_L4_INNER_CSUM;
+-		else
++			sq->stats.csum_offload_inner++;
++		} else {
+ 			eseg->cs_flags |= MLX5_ETH_WQE_L4_CSUM;
++		}
+ 	} else
+ 		sq->stats.csum_offload_none++;
  
- 	u8         stat_rate_support[0x10];
- 	u8         reserved_at_1ef[0xc];
-@@ -6873,6 +6885,54 @@ struct mlx5_ifc_mtt_bits {
- 	u8         rd_en[0x1];
- };
+@@ -201,21 +203,21 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 	}
  
-+struct mlx5_ifc_query_wol_rol_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x10];
-+	u8         rol_mode[0x8];
-+	u8         wol_mode[0x8];
-+
-+	u8         reserved_at_60[0x20];
-+};
-+
-+struct mlx5_ifc_query_wol_rol_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         reserved_at_40[0x40];
-+};
-+
-+struct mlx5_ifc_set_wol_rol_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x40];
-+};
-+
-+struct mlx5_ifc_set_wol_rol_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         rol_mode_valid[0x1];
-+	u8         wol_mode_valid[0x1];
-+	u8         reserved_at_42[0xe];
-+	u8         rol_mode[0x8];
-+	u8         wol_mode[0x8];
-+
-+	u8         reserved_at_60[0x20];
-+};
-+
- enum {
- 	MLX5_INITIAL_SEG_NIC_INTERFACE_FULL_DRIVER  = 0x0,
- 	MLX5_INITIAL_SEG_NIC_INTERFACE_DISABLED     = 0x1,
-diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
-index 595c7b2..a1d145a 100644
---- a/include/linux/mlx5/port.h
-+++ b/include/linux/mlx5/port.h
-@@ -81,5 +81,7 @@ int mlx5_modify_port_ets_rate_limit(struct mlx5_core_dev *mdev,
- int mlx5_query_port_ets_rate_limit(struct mlx5_core_dev *mdev,
- 				   u8 *max_bw_value,
- 				   u8 *max_bw_unit);
-+int mlx5_set_port_wol(struct mlx5_core_dev *mdev, u8 wol_mode);
-+int mlx5_query_port_wol(struct mlx5_core_dev *mdev, u8 *wol_mode);
+ 	if (skb_is_gso(skb)) {
+-		u32 payload_len;
+-
+ 		eseg->mss    = cpu_to_be16(skb_shinfo(skb)->gso_size);
+ 		opcode       = MLX5_OPCODE_LSO;
  
- #endif /* __MLX5_PORT_H__ */
+-		if (skb->encapsulation)
++		if (skb->encapsulation) {
+ 			ihs = skb_inner_transport_offset(skb) + inner_tcp_hdrlen(skb);
+-		else
++			sq->stats.tso_inner_packets++;
++			sq->stats.tso_inner_bytes += skb->len - ihs;
++		} else {
+ 			ihs = skb_transport_offset(skb) + tcp_hdrlen(skb);
++			sq->stats.tso_packets++;
++			sq->stats.tso_bytes += skb->len - ihs;
++		}
+ 
+-		payload_len   = skb->len - ihs;
+ 		wi->num_bytes = skb->len +
+ 				(skb_shinfo(skb)->gso_segs - 1) * ihs;
+-		sq->stats.tso_packets++;
+-		sq->stats.tso_bytes += payload_len;
+ 	} else {
+ 		bf = sq->bf_budget &&
+ 		     !skb->xmit_more &&
 -- 
 1.7.1
