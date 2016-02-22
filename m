@@ -1,54 +1,62 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [patch net-next 6/9] mlxsw: spectrum: Unmap local port from module
- during teardown
-Date: Mon, 22 Feb 2016 12:32:47 -0800
-Message-ID: <56CB706F.3000301@gmail.com>
-References: <1456165924-14399-1-git-send-email-jiri@resnulli.us> <1456165924-14399-7-git-send-email-jiri@resnulli.us>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net 3/5] ppp: protect ppp->debug in ppp_ioctl()
+Date: Mon, 22 Feb 2016 20:47:17 +0100
+Message-ID: <4d46a495be31d67fa3616c54aa03f18073e5f8bb.1456167043.git.g.nault@alphalink.fr>
+References: <cover.1456167043.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com, yishaih@mellanox.com,
-	dledford@redhat.com, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, eugenia@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	hadarh@mellanox.com, jhs@mojatatu.com, jeffrey.t.kirsher@intel.com,
-	brouer@redhat.com, ivecera@redhat.com, rami.rosen@intel.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Mackerras <paulus@samba.org>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35530 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753135AbcBVUdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 15:33:09 -0500
-Received: by mail-pa0-f43.google.com with SMTP id ho8so99227712pac.2
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 12:33:08 -0800 (PST)
-In-Reply-To: <1456165924-14399-7-git-send-email-jiri@resnulli.us>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:53770 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754742AbcBVUtW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 15:49:22 -0500
+Content-Disposition: inline
+In-Reply-To: <cover.1456167043.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-22 10:32 AM, Jiri Pirko wrote:
-> From: Ido Schimmel <idosch@mellanox.com>
-> 
-> When splitting a port we replace it with 2 or 4 other ports. To be able
-> to do that we need to remove the original port netdev and unmap it from
-> its module. However, we first mark it as disabled, as active ports
-> cannot be unmapped.
-> 
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
+ppp->debug is read in the Tx and Rx paths while under protection of
+ppp_xmit_lock() and ppp_recv_lock() respectively.
+So ppp_ioctl() must hold both locks before concurrently updating it.
 
-Hi Jiri, Ido,
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+Locking is not strictly necessary for PPPIOCGDEBUG, because ppp->debug
+can only be modified by ioctl(PPPIOCSDEBUG) which is guaranteed not to
+run concurrently thanks to ppp_mutex. I've added the locking in
+PPPIOCGDEBUG in order to respect the general locking semantic of
+ppp->debug and to avoid relying on ppp_mutex.
 
-You've sort of lost me on this port splitting/unsplitting thread. What
-does this actually do? Are you just creating two netdevs and LAGing them
-in the hardware, I'm guessing not or you wouldn't have some device API
-for it and would do it using normal methods.
+ drivers/net/ppp/ppp_generic.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-If its something to do with physical layout of the board itself why
-don't you trigger this based on some init time introspection or an
-interrupt if someone plugs in a port splitting cable/module (does that
-exist?).
-
-Thanks,
-John
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index 4af548b..183d89c 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -708,12 +708,19 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ 	case PPPIOCSDEBUG:
+ 		if (get_user(val, p))
+ 			break;
++		ppp_lock(ppp);
+ 		ppp->debug = val;
++		ppp_unlock(ppp);
++
+ 		err = 0;
+ 		break;
+ 
+ 	case PPPIOCGDEBUG:
+-		if (put_user(ppp->debug, p))
++		ppp_lock(ppp);
++		val = ppp->debug;
++		ppp_unlock(ppp);
++
++		if (put_user(val, p))
+ 			break;
+ 		err = 0;
+ 		break;
+-- 
+2.7.0
