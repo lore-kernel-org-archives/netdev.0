@@ -1,43 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next v4 0/3] IPvlan misc patches
-Date: Sun, 21 Feb 2016 22:45:16 -0500 (EST)
-Message-ID: <20160221.224516.345929630999490010.davem@davemloft.net>
-References: <1456025482-30203-1-git-send-email-mahesh@bandewar.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: bluetooth 2016-02-20
+Date: Sun, 21 Feb 2016 22:46:53 -0500 (EST)
+Message-ID: <20160221.224653.851255979653531674.davem@davemloft.net>
+References: <20160220181625.GA1231@t440s.P-661HNU-F1>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: maheshb@google.com, edumazet@google.com, netdev@vger.kernel.org
-To: mahesh@bandewar.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43303 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752558AbcBVDpS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 22:45:18 -0500
-In-Reply-To: <1456025482-30203-1-git-send-email-mahesh@bandewar.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160220181625.GA1231-ae+CCJ+dGXjCW7GOcxkI+ioyn5ZhHHrn@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Sat, 20 Feb 2016 19:31:22 -0800
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Sat, 20 Feb 2016 20:16:25 +0200
 
-> From: Mahesh Bandewar <maheshb@google.com>
+> Here's an important patch for 4.5 which fixes potential invalid pointer
+> access when processing completed Bluetooth HCI commands.
 > 
-> This is a collection of unrelated patches for IPvlan driver.
-> a. crub_skb() changes are added to ensure that the packets hit the
-> NF_HOOKS in masters' ns in L3 mode.
-> b. u16 change is bug fix while
-> c. the third patch is to group tx/rx variables in single cacheline
+> Please let me know if there are any issues pulling. Thanks.
 
-I applied this series, but this is an extremely poor quality
-submission.
-
-You don't capitalize sentences, particularly in the Subject lines
-of your patches.
-
-Your descriptions are quite poor.  You say here that patch 'c' is
-about grouping things for cache locality but that patch does a lot
-of completely unrelated things too.
-
-I really think you put very little effort into the formatting,
-descriptions, grouping, and general layout of this patch series.  And
-it shows.
+Pulled, thanks.
