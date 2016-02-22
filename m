@@ -1,52 +1,62 @@
-From: "=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=" <jprvita@gmail.com>
-Subject: [PATCHv2 03/10] rfkill: Point to the correct deprecated doc location
-Date: Mon, 22 Feb 2016 11:36:34 -0500
-Message-ID: <1456159001-20307-4-git-send-email-jprvita@endlessm.com>
-References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
+From: santosh shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [net-next][PATCH 11/13] RDS: IB: add Fastreg MR (FRMR) detection
+ support
+Date: Mon, 22 Feb 2016 08:38:21 -0800
+Message-ID: <56CB397D.1030603@oracle.com>
+References: <1455967804-27644-1-git-send-email-santosh.shilimkar@oracle.com>
+ <1455967804-27644-12-git-send-email-santosh.shilimkar@oracle.com>
+ <20160221.223656.2213596964617869651.davem@davemloft.net>
+ <56CB2B7E.5000402@sandisk.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Darren Hart <dvhart@infradead.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux@endlessm.com,
-	=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?= <jprvita@endlessm.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bart Van Assche <bart.vanassche@sandisk.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
+In-Reply-To: <56CB2B7E.5000402@sandisk.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The "claim" sysfs interface has been removed, so its documentation now
-lives in the "removed" folder.
+On 2/22/2016 7:38 AM, Bart Van Assche wrote:
+> On 02/21/16 19:36, David Miller wrote:
+>> From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+>> Date: Sat, 20 Feb 2016 03:30:02 -0800
+>>
+>>> @@ -54,6 +55,8 @@ module_param(rds_ib_mr_8k_pool_size, int, 0444);
+>>>   MODULE_PARM_DESC(rds_ib_mr_8k_pool_size, " Max number of 8K mr per
+>>> HCA");
+>>>   module_param(rds_ib_retry_count, int, 0444);
+>>>   MODULE_PARM_DESC(rds_ib_retry_count, " Number of hw retries before
+>>> reporting an error");
+>>> +module_param(prefer_frmr, bool, 0444);
+>>> +MODULE_PARM_DESC(prefer_frmr, "Preferred MR method if both FMR and
+>>> FRMR supported");
+>>
+>> Sorry, you're going to have to create a real run time method to configure
+>> this parameter.
+>>
+>> I'm strongly against module parameters.
+>>
+>> Please don't go into details about why this might be difficult to do,
+>> I'm totally not interested.  Doing things properly is sometimes not
+>> easy, that's life.
+>
+Sure Dave. Will drop the parameter. The runtime detection is already
+in place. When an HCA hardware supports both FMR and FRMR features,
+parameter can be used as over-ride over a default selection.
 
-Signed-off-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@endlessm.com>
----
- Documentation/ABI/stable/sysfs-class-rfkill | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+> Hello Santosh,
+>
+> What is the purpose of the prefer_frmr kernel module parameter ? Is this
+> a parameter that is useful to RDS users or is its only purpose to allow
+> developers of the RDS module to test both the FMR and FRMR code paths on
+> hardware that supports both MR methods ?
+>
+Right. Since FRMR in early phase still for RDS, it was useful on HCA's
+which supports both registration methods. Its not a deal breaker so
+am going to drop the parameter as mentioned above.
 
-diff --git a/Documentation/ABI/stable/sysfs-class-rfkill b/Documentatio=
-n/ABI/stable/sysfs-class-rfkill
-index 097f522..e51571e 100644
---- a/Documentation/ABI/stable/sysfs-class-rfkill
-+++ b/Documentation/ABI/stable/sysfs-class-rfkill
-@@ -2,8 +2,10 @@ rfkill - radio frequency (RF) connector kill switch su=
-pport
-=20
- For details to this subsystem look at Documentation/rfkill.txt.
-=20
--For the deprecated /sys/class/rfkill/*/state and
--/sys/class/rfkill/*/claim knobs of this interface look in
-+For the deprecated /sys/class/rfkill/*/claim knobs of this interface l=
-ook in
-+Documentation/ABI/removed/sysfs-class-rfkill.
-+
-+For the deprecated /sys/class/rfkill/*/state knobs of this interface l=
-ook in
- Documentation/ABI/obsolete/sysfs-class-rfkill.
-=20
- What: 		/sys/class/rfkill
---=20
-2.5.0
+Regards,
+Santosh
