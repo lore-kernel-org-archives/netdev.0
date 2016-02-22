@@ -1,42 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3] lwtunnel: autoload of lwt modules
-Date: Sun, 21 Feb 2016 22:00:47 -0500 (EST)
-Message-ID: <20160221.220047.582354891121433128.davem@davemloft.net>
-References: <1455550923-23673-1-git-send-email-rshearma@brocade.com>
-	<1455874998-26795-1-git-send-email-rshearma@brocade.com>
+Subject: Re: [PATCH v2 0/3] net: ti: netcp: restore get/set_pad_info()
+ functionality
+Date: Sun, 21 Feb 2016 22:02:50 -0500 (EST)
+Message-ID: <20160221.220250.1363843818216677470.davem@davemloft.net>
+References: <1455904724-17952-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	tom@herbertland.com, tgraf@suug.ch, ebiederm@xmission.com,
-	jbenc@redhat.com
-To: rshearma@brocade.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42957 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752811AbcBVDAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 22:00:49 -0500
-In-Reply-To: <1455874998-26795-1-git-send-email-rshearma@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org, arnd@arndb.de
+To: m-karicheri2@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1455904724-17952-1-git-send-email-m-karicheri2@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Robert Shearman <rshearma@brocade.com>
-Date: Fri, 19 Feb 2016 09:43:15 +0000
+From: Murali Karicheri <m-karicheri2@ti.com>
+Date: Fri, 19 Feb 2016 12:58:41 -0500
 
-> Changes since v1:
->  - remove "LWTUNNEL_ENCAP_" prefix for the string form of the encaps
->    used when requesting the module to reduce duplication, and don't
->    bother returning strings for lwt modules using netdevices, both
->    suggested by Jiri.
->  - update commit message of first patch to clarify security
->    implications, in response to Eric's comments.
+> This series fixes a regression and add some improvements for the ease
+> of maintainance. Incorporated comments against v1.
 > 
-> The lwt implementations using net devices can autoload using the
-> existing mechanism using IFLA_INFO_KIND. However, there's no mechanism
-> that lwt modules not using net devices can use.
-> 
-> Therefore, these patches add the ability to autoload modules
-> registering lwt operations for lwt implementations not using a net
-> device so that users don't have to manually load the modules.
+> Changelogs:
+>  
+>  v2 : combined 2-3 into one patch as this involves a header change
+>       fixed a parse warning in 3/4 per comment from Arnd.
+>       Removed Sign-off from Arnd against 1/4
+>       added comments in 3/3 to alert on the usage of sw data per review
+>       comments
+>  v1 : added 2-4 to accomodate feedback received from review
+>  v0 : initial version to fix the regression (From Grygorii) 
 
 Series applied, thanks.
