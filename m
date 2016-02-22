@@ -1,40 +1,33 @@
-From: Yangbo Lu <yangbo.lu@nxp.com>
-Subject: [PATCH 2/3] gianfar_ptp: fix endianness in get_of_u32()
-Date: Mon, 22 Feb 2016 14:49:32 +0800
-Message-ID: <1456123773-1016-3-git-send-email-yangbo.lu@nxp.com>
-References: <1456123773-1016-1-git-send-email-yangbo.lu@nxp.com>
+From: Administrador <smaase@getmail.no>
+Subject: verifisere
+Date: Mon, 22 Feb 2016 09:12:31 +0100 (CET)
+Message-ID: <1870964448.5003872.1456128751825.JavaMail.zimbra@getmail.no>
+Reply-To: Administrador@lamora.getmail.no
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yangbo Lu <yangbo.lu@nxp.com>
-To: <netdev@vger.kernel.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0059.outbound.protection.outlook.com ([65.55.169.59]:56015
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753656AbcBVHcS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Feb 2016 02:32:18 -0500
-In-Reply-To: <1456123773-1016-1-git-send-email-yangbo.lu@nxp.com>
+Received: from lamora.getmail.no ([84.210.184.7]:57141 "EHLO lamora.getmail.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750897AbcBVIT4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 03:19:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
----
- drivers/net/ethernet/freescale/gianfar_ptp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Kj=C3=A6re E-bruker
 
-diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
-index b40fba9..a86145c 100644
---- a/drivers/net/ethernet/freescale/gianfar_ptp.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
-@@ -431,7 +431,7 @@ static int get_of_u32(struct device_node *node, char *str, u32 *val)
- 
- 	if (!prop || plen != sizeof(*prop))
- 		return -1;
--	*val = *prop;
-+	*val = be32_to_cpu(*prop);
- 	return 0;
- }
- 
--- 
-2.1.0.27.g96db324
+     Dette er for =C3=A5 informere alle v=C3=A5re web-postbrukere at vi=
+ har et system oppgradering p=C3=A5 grunn av den enorme trafikken Erfar=
+ne i v=C3=A5r web-mail. du er herved anbefalt =C3=A5 oppdatere din post=
+ slik at vi kan vite hvor mange aktive brukere i v=C3=A5re data base.an=
+d =C3=A5 vite om du fortsatt gj=C3=B8r bruk av postkassen din konto, Vi=
+dere informeres om at vi skal slette all postkasse konto som er ikke fu=
+ngerer som =C3=A5 skape mer plass for nye brukeren Unnlatelse av =C3=A5=
+ gj=C3=B8re det kan gi kontoen din ugyldig. kan du klikke p=C3=A5 linke=
+n nedenfor for =C3=A5 validere din postkasse konto
+
+http://goo.gl/hbEQBB
+
+Takk for =C3=A5 bruke v=C3=A5r web-mail
+Copyright =C2=A9 2016 E-post Webmail administrator
