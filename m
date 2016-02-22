@@ -1,109 +1,64 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: ems_usb: Fix possible tx overflow
-Date: Mon, 22 Feb 2016 13:18:38 +0100
-Message-ID: <56CAFC9E.7050306@pengutronix.de>
-References: <1456068458-14271-1-git-send-email-mkl@pengutronix.de>
- <1456068458-14271-2-git-send-email-mkl@pengutronix.de>
- <56CAFAEE.2020602@cogentembedded.com>
+From: Mason <slash.tmp@free.fr>
+Subject: [PATCH v6] net: ethernet: nb8800: support fixed-link DT node
+Date: Mon, 22 Feb 2016 13:33:14 +0100
+Message-ID: <56CB000A.1070809@free.fr>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="7qx7wNMqf6IboxkQHeQ2irPeGMBAb4WHr"
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de,
-	Gerhard Uttenthaler <uttenthaler@ems-wuensche.com>,
-	linux-stable <stable@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <56CAFAEE.2020602@cogentembedded.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Sebastian Frias <sf84@laposte.net>, Mans Rullgard <mans@mansr.com>,
+	netdev <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:31049 "EHLO smtp2-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753268AbcBVMdV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Feb 2016 07:33:21 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---7qx7wNMqf6IboxkQHeQ2irPeGMBAb4WHr
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+From: Sebastian Frias <sf84@laposte.net>
 
-On 02/22/2016 01:11 PM, Sergei Shtylyov wrote:
-> Hello.
->=20
-> On 2/21/2016 6:27 PM, Marc Kleine-Budde wrote:
->=20
->> From: Gerhard Uttenthaler <uttenthaler@ems-wuensche.com>
->>
->> This patch fixes the problem that more CAN messages could be sent to t=
-he
->> interface as could be send on the CAN bus. This was more likely for sl=
-ow baud
->> rates. The sleeping _start_xmit was woken up in the _write_bulk_callba=
-ck. Under
->> heavy TX load this produced another bulk transfer without checking the=
+Under some circumstances, e.g. when connecting to a switch, the ethernet
+port will not be connected to a PHY. In that case a "fixed-link" DT node
+can be used to replace it.
 
->> free_slots variable and hence caused the overflow in the interface.
->>
->> Signed-off-by: Gerhard Uttenthaler <uttenthaler@ems-wuensche.com>
->> Cc: linux-stable <stable@vger.kernel.org>
->> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
->> ---
->>   drivers/net/can/usb/ems_usb.c | 14 ++++++++++----
->>   1 file changed, 10 insertions(+), 4 deletions(-)
->>
->> diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_u=
-sb.c
->> index fc5b75675cd8..eb7192fab593 100644
->> --- a/drivers/net/can/usb/ems_usb.c
->> +++ b/drivers/net/can/usb/ems_usb.c
->> @@ -117,6 +117,9 @@ MODULE_LICENSE("GPL v2");
->>    */
->>   #define EMS_USB_ARM7_CLOCK 8000000
->>
->> +#define CPC_TX_QUEUE_TRIGGER_LOW	25
->> +#define CPC_TX_QUEUE_TRIGGER_HIGH	35
->> +
->>   /*
->>    * CAN-Message representation in a CPC_MSG. Message object type is
->>    * CPC_MSG_TYPE_CAN_FRAME or CPC_MSG_TYPE_RTR_FRAME or
->> @@ -278,6 +281,11 @@ static void ems_usb_read_interrupt_callback(struc=
-t urb *urb)
->>   	switch (urb->status) {
->>   	case 0:
->>   		dev->free_slots =3D dev->intr_in_buffer[1];
->> +		if(dev->free_slots > CPC_TX_QUEUE_TRIGGER_HIGH){
->> +			if (netif_queue_stopped(netdev)){
->> +				netif_wake_queue(netdev);
->> +			}
->> +		}
->=20
->     Hm, did anyone run scripts/checkpatch.pl on this patch?
+https://stackoverflow.com/questions/31046172/device-tree-for-phy-less-connection-to-a-dsa-switch
 
-Obviously not. :(
+This patch adds support for the "fixed-link" node to the nb8800 driver.
 
-David, I can send a patch to clean up the coding style. Do you want it
-for net or via net-next?
+Signed-off-by: Sebastian Frias <sf84@laposte.net>
+Acked-by: Mans Rullgard <mans@mansr.com>
+Cc: Mason <slash.tmp@free.fr>
+---
+There were spurious spaces in the previous patch.
+---
+ drivers/net/ethernet/aurora/nb8800.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---7qx7wNMqf6IboxkQHeQ2irPeGMBAb4WHr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWyvyeAAoJED07qiWsqSVq2ZkH/i56zQP0NKTQ0Ixjx0JT9gMW
-1cMsnK8P0A3G+C7A5Q19OHtyDmdqSFW983MKZUxz7oqM3dKb6CwAyDlugkew/U3v
-m2pZ55Y/kInS451RyR7RuBgH6dT3J/wi1iYxKsg9x+B1XxdMFKkTpyiINDI3sreb
-pzunciLPTHPrS/TnTb+AqVp6fZ7Qdq0YVVS4yNDdZoSRKyaQx+Q37Bv21nbmPlDy
-NJYGiXYksCVhaT9bSqVe4nJuhvW+M+HHG+FPCc1okslGL02MLFBHVrwO7MHeu2BM
-ips7if8MJv+HuMcy8X0ZrqlVN63QXdHWzQEv3CwvtncgNm09TFcq7Ygvp4aJkzY=
-=Wpix
------END PGP SIGNATURE-----
-
---7qx7wNMqf6IboxkQHeQ2irPeGMBAb4WHr--
+diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+index f71ab2647a3b..08a23e6b60e9 100644
+--- a/drivers/net/ethernet/aurora/nb8800.c
++++ b/drivers/net/ethernet/aurora/nb8800.c
+@@ -1460,7 +1460,19 @@ static int nb8800_probe(struct platform_device *pdev)
+ 		goto err_disable_clk;
+ 	}
+ 
+-	priv->phy_node = of_parse_phandle(pdev->dev.of_node, "phy-handle", 0);
++	if (of_phy_is_fixed_link(pdev->dev.of_node)) {
++		ret = of_phy_register_fixed_link(pdev->dev.of_node);
++		if (ret < 0) {
++			dev_err(&pdev->dev, "bad fixed-link spec\n");
++			goto err_free_bus;
++		}
++		priv->phy_node = of_node_get(pdev->dev.of_node);
++	}
++
++	if (!priv->phy_node)
++		priv->phy_node = of_parse_phandle(pdev->dev.of_node,
++						  "phy-handle", 0);
++
+ 	if (!priv->phy_node) {
+ 		dev_err(&pdev->dev, "no PHY specified\n");
+ 		ret = -ENODEV;
+-- 
+2.7.0
