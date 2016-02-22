@@ -1,48 +1,45 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2-net-next] bridge: mdb: add support for offloaded mdb entries
-Date: Mon, 22 Feb 2016 15:26:13 +0100
-Message-ID: <1456151173-12370-1-git-send-email-jiri@resnulli.us>
-Cc: stephen@networkplumber.org, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com
-To: netdev@vger.kernel.org
+From: Mr Bakhari Abaass Issaa <bakhariissa11@gmail.com>
+Subject: Good Day,,,
+Date: Mon, 22 Feb 2016 06:48:53 -0800
+Message-ID: <CAAt3PZEQCcRjtRiTkaXe1RbeEO9Hm2uHBiVTeYgRcH7oMpbCpg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:33194 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932502AbcBVO0R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 09:26:17 -0500
-Received: by mail-wm0-f48.google.com with SMTP id g62so159287295wme.0
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 06:26:16 -0800 (PST)
+Received: from mail-io0-f193.google.com ([209.85.223.193]:36084 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750927AbcBVOsy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 09:48:54 -0500
+Received: by mail-io0-f193.google.com with SMTP id b188so9556471iof.3
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 06:48:53 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Elad Raz <eladr@mellanox.com>
+Good Day,
 
-Mark MDB entries which are offloaded to HW with "offload" flag
 
-Signed-off-by: Elad Raz <eladr@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- bridge/mdb.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Please accept my apologies for writing you a surprise letter.I am Mr
+Bakhari Abaas Issa, account Manager with an investment bank here in
+Burkina Faso.
 
-diff --git a/bridge/mdb.c b/bridge/mdb.c
-index 24c4903..ae20f38 100644
---- a/bridge/mdb.c
-+++ b/bridge/mdb.c
-@@ -60,10 +60,11 @@ static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e,
- 			      (const void *)&e->addr.u.ip6;
- 	if (n->nlmsg_type == RTM_DELMDB)
- 		fprintf(f, "Deleted ");
--	fprintf(f, "dev %s port %s grp %s %s", ll_index_to_name(ifindex),
-+	fprintf(f, "dev %s port %s grp %s %s %s", ll_index_to_name(ifindex),
- 		ll_index_to_name(e->ifindex),
- 		inet_ntop(af, src, abuf, sizeof(abuf)),
--		(e->state & MDB_PERMANENT) ? "permanent" : "temp");
-+		(e->state & MDB_PERMANENT) ? "permanent" : "temp",
-+		(e->flags & MDB_FLAGS_OFFLOAD) ? "offload" : "");
- 	if (e->vid)
- 		fprintf(f, " vid %hu", e->vid);
- 	fprintf(f, "\n");
--- 
-2.5.0
+I have a very important business I want to discuss with you.There is a
+draft account opened in my firm by a long-time client of our bank.I
+have the opportunity of transferring the left over fund (7.2Million
+UsDollars)Seven Million Two Hundred Thousand United States of American
+Dollars of one of my Bank clients who died at the collapsing of the
+world trade center at the United States on September 11th 2001.
+
+I want to invest this funds and introduce you to our bank for this
+deal.All I require is your honest co-operation and I guarantee you
+that this will be executed under a legitimate arrangement that will
+protect us from any breach of the law.I agree that 40% of this money
+will be for you as my foreign partner,50% for me while 10% is for
+establishing of foundation for the less privilleges in your country.If
+you are really interested in my proposal further details of the
+transfer will be forwarded unto you as soon as I receive your
+willingness mail for a successful transfer.
+
+Kindly Contact Me Back Through This My Private Email Box:bakhariissa11@gmail.com
+
+Yours Sincerely,
+Mr Bakhari Abaas Issa.
