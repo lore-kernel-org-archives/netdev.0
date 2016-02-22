@@ -1,56 +1,124 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH][net-next] bridge: increase mtu to 9000
-Date: Mon, 22 Feb 2016 09:58:08 -0800
-Message-ID: <20160222095808.72edd4f9@xeon-e3>
-References: <1456133351-10292-1-git-send-email-roy.qing.li@gmail.com>
+From: "Christopher S. Hall" <christopher.s.hall@intel.com>
+Subject: [PATCH v8 0/8] Patchset enabling hardware based cross-timestamps for next gen Intel platforms
+Date: Mon, 22 Feb 2016 03:15:18 -0800
+Message-ID: <1456139726-3327-1-git-send-email-christopher.s.hall@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:33733 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754081AbcBVR56 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 12:57:58 -0500
-Received: by mail-pf0-f174.google.com with SMTP id q63so96231930pfb.0
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 09:57:58 -0800 (PST)
-In-Reply-To: <1456133351-10292-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
+	x86@kernel.org, linux-kernel@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	kevin.b.stanton@intel.com, kevin.j.clarke@intel.com
+To: tglx@linutronix.de, richardcochran@gmail.com, mingo@redhat.com,
+	john.stultz@linaro.org, hpa@zytor.com, jeffrey.t.kirsher@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 22 Feb 2016 17:29:11 +0800
-roy.qing.li@gmail.com wrote:
+Modern Intel hardware adds an Always Running Timer (ART) that allows the
+network and audio device clocks to precisely cross timestamp the device
+clock with the system clock. This allows a precise correlation of the
+device time and system time.
 
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> A linux bridge always adopts the smallest MTU of the enslaved devices.
-> When no device are enslaved, it defaults to a MTU of 1500 and refuses to
-> use a larger one. This is problematic when using bridges enslaving only
-> virtual NICs (vnetX) like it's common with KVM guests.
-> 
-> Steps to reproduce the problem
-> 
-> 1) sudo ip link add br-test0 type bridge # create an empty bridge
-> 2) sudo ip link set br-test0 mtu 9000 # attempt to set MTU > 1500
-> 3) ip link show dev br-test0 # confirm MTU
-> 
-> Here, 2) returns "RTNETLINK answers: Invalid argument". One (cumbersome)
-> way around this is:
-> 
-> 4) sudo modprobe dummy
-> 5) sudo ip link set dummy0 mtu 9000 master br-test0
-> 
-> Then the bridge's MTU can be changed from anywhere to 9000.
-> 
-> This is especially annoying for the virtualization case because the
-> KVM's tap driver will by default adopt the bridge's MTU on startup
-> making it impossible (without the workaround) to use a large MTU on the
-> guest VMs.
-> 
-> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1399064
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+This patchset adds interfaces to the timekeeping code allowing drivers
+to translate ART time to system time.
 
-Your change works, but I agree with Hannes. Just allow up to 64 * 1024 like
-loopback does.  And no need for a #define for that it is only in one place.
+Changelog:
+
+Changes from v7 to v8:
+
+*	Fix comments in timekeeping.c
+*	Re-use older TSC feature, removing "invariant" TSC in ART
+	detection code
+
+Changes from v6 to v7:
+
+*	Reorder several patches
+*	Removed correlated clocksource
+*	Fixed 32-bit compile issues
+*	Added multiplication overflow detection to history computation
+*	Added invariant tsc CPU feature - this is related to ART, but
+	is a separate feature
+
+
+Changes from v5 to v6:
+
+*	Pulled supporting code for snapshotting, correlated
+	clocksource, and cycles to nanoseconds translation to separate
+	patches. Added patches are marked as NEW below. There is,
+	however, very little *actually* new code, just reorganized
+	code
+*	Renamed and moved clocksource change sequence to timekeeper
+	struct (out of tk_read_base)
+*	Renamed structs for system counter and synced device time
+	callback to system_counterval_t and sync_device_time_cb,
+	respectively
+*	Changed PTP cross-timestamp callback name to getcrosststamp
+	for consistency with the timekeeping code - corresponding
+	function name changes in e1000e driver
+*	Simplified PTP time calculations making use of ktime_to_* code
+
+Changes from v4 to v5:
+
+*	Changes the history mechanism to interpolate system time using
+	a single historic system time pair (monotonic raw, realtime)
+	rather than implementing a precise history using shadow
+	timekeeper (see v4 changes). The advantage of this approach is
+	that the history can be arbitrarily long. This approach may
+	also be simpler in terms of coding. The major disadvantage is
+	that the realtime clock can be adjusted.  When adjusted, the
+	realtime clock time (when interpolating from history) is
+	always approximate. In general, the longer the interpolation
+	period the larger the potential error. There isn't any error
+	interpolating the monotonic raw clock time.
+*	This patchset also addresses objections to the previous
+	patchsets overly complex correlated timestamp structure. This
+	patchset splits that structure into several smaller
+	structures.  The correlated timestamp interface is renamed
+	cross timestamp to avoid any confusion with the correlated
+	clocksource.
+*	The correlated clocksource is separated from the cross
+	timestamp mechanism.
+*	Add monotonic raw to the PTP user interface
+*	Add e1000e driver configuration option that wraps Intel PCH
+	specific code
+
+Changes v3 to v4: 
+
+*	Adds a history mechanism to accomodate slower devices. In this
+	case the response time for timestamp reads to the Intel DSP
+	are too slow to be accomodated by the original correlated time
+	mechanism. The history mechanism turns shadow timekeeper into
+	an array where the history is stored.
+
+Christopher S. Hall (8):
+  time: Add cycles to nanoseconds translation
+  time: Add timekeeping snapshot code capturing system time and counter
+  time: Remove duplicated code in ktime_get_raw_and_real()
+  time: Add driver cross timestamp interface for higher precision time
+    synchronization
+  time: Add history to cross timestamp interface supporting slower
+    devices
+  x86: tsc: Always Running Timer (ART) correlated clocksource
+  ptp: Add PTP_SYS_OFFSET_PRECISE for driver crosstimestamping
+  net: e1000e: Adds hardware supported cross timestamp on e1000e nic
+
+ Documentation/ptp/testptp.c                 |   6 +-
+ arch/x86/include/asm/cpufeature.h           |   2 +-
+ arch/x86/include/asm/tsc.h                  |   2 +
+ arch/x86/kernel/tsc.c                       |  49 +++++
+ drivers/net/ethernet/intel/Kconfig          |   9 +
+ drivers/net/ethernet/intel/e1000e/defines.h |   5 +
+ drivers/net/ethernet/intel/e1000e/ptp.c     |  85 ++++++++
+ drivers/net/ethernet/intel/e1000e/regs.h    |   4 +
+ drivers/ptp/ptp_chardev.c                   |  27 +++
+ include/linux/pps_kernel.h                  |  17 +-
+ include/linux/ptp_clock_kernel.h            |   8 +
+ include/linux/timekeeper_internal.h         |   2 +
+ include/linux/timekeeping.h                 |  58 ++++++
+ include/uapi/linux/ptp_clock.h              |  13 +-
+ kernel/time/timekeeping.c                   | 290 +++++++++++++++++++++++++---
+ 15 files changed, 537 insertions(+), 40 deletions(-)
+
+-- 
+2.1.4
