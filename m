@@ -1,24 +1,26 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: bluetooth 2016-02-20
-Date: Sun, 21 Feb 2016 22:46:53 -0500 (EST)
-Message-ID: <20160221.224653.851255979653531674.davem@davemloft.net>
-References: <20160220181625.GA1231@t440s.P-661HNU-F1>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] qed*: Driver updates
+Date: Sun, 21 Feb 2016 22:49:29 -0500 (EST)
+Message-ID: <20160221.224929.529341436016388666.davem@davemloft.net>
+References: <1456047611-11222-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160220181625.GA1231-ae+CCJ+dGXjCW7GOcxkI+ioyn5ZhHHrn@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Yuval.Mintz@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43330 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752582AbcBVDtb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Feb 2016 22:49:31 -0500
+In-Reply-To: <1456047611-11222-1-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Sat, 20 Feb 2016 20:16:25 +0200
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Sun, 21 Feb 2016 11:40:06 +0200
 
-> Here's an important patch for 4.5 which fixes potential invalid pointer
-> access when processing completed Bluetooth HCI commands.
-> 
-> Please let me know if there are any issues pulling. Thanks.
+> This contains various minor changes to driver - changing memory allocation,
+> fixing a small theoretical bug, as well as some mostly-semantic changes.
 
-Pulled, thanks.
+Series applied.
