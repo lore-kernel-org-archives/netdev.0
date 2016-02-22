@@ -1,55 +1,28 @@
 From: <Woojung.Huh@microchip.com>
 Subject: RE: [PATCH V2 net-next 2/3] lan78xx: add ethtool set & get pause
  functions
-Date: Mon, 22 Feb 2016 18:26:21 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D404B55B8@CHN-SV-EXMX02.mchp-main.com>
+Date: Mon, 22 Feb 2016 18:28:18 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D404B55D1@CHN-SV-EXMX02.mchp-main.com>
 References: <9235D6609DB808459E95D78E17F2E43D404B37B5@CHN-SV-EXMX02.mchp-main.com>
-	 <1455839111.2794.51.camel@decadent.org.uk>
-	 <9235D6609DB808459E95D78E17F2E43D404B3871@CHN-SV-EXMX02.mchp-main.com>
-	 <1455840387.2794.59.camel@decadent.org.uk>
-	 <9235D6609DB808459E95D78E17F2E43D404B389F@CHN-SV-EXMX02.mchp-main.com>
- <1455844848.2794.61.camel@decadent.org.uk>
+ <1455839111.2794.51.camel@decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
 Cc: <netdev@vger.kernel.org>
 To: <ben@decadent.org.uk>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp03.microchip.com ([198.175.253.49]:39194 "EHLO
+Received: from exsmtp03.microchip.com ([198.175.253.49]:48601 "EHLO
 	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754866AbcBVS0Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 13:26:24 -0500
-In-Reply-To: <1455844848.2794.61.camel@decadent.org.uk>
+	with ESMTP id S1752530AbcBVS2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 13:28:20 -0500
+In-Reply-To: <1455839111.2794.51.camel@decadent.org.uk>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IFRodXJzZGF5LCBGZWJydWFyeSAx
-OCwgMjAxNiA4OjIxIFBNDQo+IFRvOiBXb29qdW5nIEh1aCAtIEMyMTY5OTsgZGF2ZW1AZGF2ZW1s
-b2Z0Lm5ldA0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BB
-VENIIFYyIG5ldC1uZXh0IDIvM10gbGFuNzh4eDogYWRkIGV0aHRvb2wgc2V0ICYgZ2V0IHBhdXNl
-DQo+IGZ1bmN0aW9ucw0KPiANCj4gT24gRnJpLCAyMDE2LTAyLTE5IGF0IDAwOjE2ICswMDAwLCBX
-b29qdW5nLkh1aEBtaWNyb2NoaXAuY29tIHdyb3RlOg0KPiA+ID4gPiBCZW4sIHRoYW5rcyBmb3Ig
-Y29tbWVudHMuDQo+ID4gPiA+IEhvdyBhYm91dCBjb21tZW50IGluIGluY2x1ZGUvdWFwaS9saW51
-eC9ldGh0b29sLmg/DQo+ID4gPiA+IEl0IHNheXMNCj4gPiA+ID4gKiogc3RydWN0IGV0aHRvb2xf
-cGF1c2VwYXJhbSAtIEV0aGVybmV0IHBhdXNlIChmbG93IGNvbnRyb2wpDQo+IHBhcmFtZXRlcnMN
-Cj4gPiA+ID4gLi4uDQo+ID4gPiA+ICogSWYgQGF1dG9uZWcgaXMgbm9uLXplcm8sIHRoZSBNQUMg
-aXMgY29uZmlndXJlZCB0byBzZW5kIGFuZC9vcg0KPiA+ID4gPiAqIHJlY2VpdmUgcGF1c2UgZnJh
-bWVzIGFjY29yZGluZyB0byB0aGUgcmVzdWx0IG9mIGF1dG9uZWdvdGlhdGlvbi4NCj4gPiA+ID4N
-Cj4gPiA+ID4gRG9lc24ndCB0aGlzIG1lYW4gZ2V0X3BhdXNlcGFyYW0oKSByZXR1cm5zIHBhdXNl
-IHNldHRpbmdzIGJhc2VkIG9uDQo+ID4gPiA+IFJlc3VsdCBvZiBhdXRvbmVnb3RhdGlvbj8gTm90
-IG1hbnVhbCBzZXR0aW5ncyBvZiByeF9wYXJhbSAmIHR4X3BhcmFtPw0KPiA+ID4NCj4gPiA+IE5v
-LCBnZXRfcGF1c2VwYXJhbSBzaG91bGQgcmV0dXJuIHRoZSBzYW1lIHNldHRpbmdzIHRoYXQgd2Vy
-ZSBwYXNzZWQNCj4gdG8NCj4gPiA+IHRoZSBsYXN0IHNldF9wYXVzZXBhcmFtLg0KPiA+ID4NCj4g
-PiA+IEJlbi4NCj4gPg0KPiA+IEkgdXNlZCBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9lMTAw
-MGUgZHJpdmVyIGFzIHJlZmVyZW5jZS4NCj4gPiBJdCdzIGltcGxlbWVudGF0aW9uIGFsc28gcmV0
-dXJucyBzdGF0dXMgdXBkYXRlZCBhZnRlciBhdXRvbmVnb3RpYXRpb24uDQo+ID4gTG9vayBpbnRv
-IHdyb25nIG9uZT8NCj4gDQo+IFVuZm9ydHVuYXRlbHkgdGhlIEFQSSBoYXMgbm90IGFsd2F5cyBi
-ZWVuIGNsZWFybHkgZGVmaW5lZCBhbmQgdGhlcmUgYXJlDQo+IGxvdHMgb2YgYnVncyAob3IgYXQg
-bGVhc3QgaW5jb25zaXN0ZW5jaWVzKSBpbiBkcml2ZXJzLiAgVGhlIGNvbW1lbnRzIGluDQo+IGlu
-Y2x1ZGUvdWFwaS9saW51eC9ldGh0b29sLmggYXJlIHN1cHBvc2VkIHRvIGJlIGRlZmluaXRpdmU7
-IGlmIHRoZXkgYXJlDQo+IG5vdCBjbGVhciB0aGVuIHBsZWFzZSBzdWdnZXN0IGFkZGl0aW9uYWwg
-b3IgYWx0ZXJuYXRpdmUgd29yZGluZy4NCg0KSSB3aWxsIHVwZGF0ZSBhbmQgcmVwb3N0IGl0Lg0K
-QlRXLCBkbyB5b3Uga25vdyB3aGljaCBkcml2ZXIgaXMgaW1wbGVtZW50ZWQgc2V0L2dldF9wYXVz
-ZXBhcmFtKCkgY29ycmVjdGx5Pw0KDQpUaGFua3MuDQo=
+PiBUaGlzIGlzIGluY29ycmVjdDsgeW91IHNob3VsZCBhbHdheXMgcmV0dXJuIHRoZSBtYW51YWwg
+c2V0dGluZ3MNCj4gKGZjX3JlcXVlc3RfY29udHJvbCBmbGFncykgaGVyZS4gwqBJZiBhdXRvbmVn
+b3RpYXRpb24gaXMgZW5hYmxlZCB0aGVuDQo+IHlvdXIgZ2V0X3NldHRpbmdzIGZ1bmN0aW9uIHdp
+bGwgcmV0dXJuIHRoZSBhY3R1YWwgcGF1c2UgZmxhZ3MuDQo+IA0KV2hhdCBkbyB5b3UgbWVhbiAi
+cmV0dXJuIGFjdHVhbCBwYXVzZSBmbGFncyIgd2hlbiBhdXRvbmVnIGlzIGVuYWJsZWQ/DQpQYXVz
+ZSBmbGFncyBzZXQgYnkgKG9yIGRlZmF1bHQpIGFkdmVydGlzZSBmbGFnPw0KDQpUaGFua3MuDQo=
