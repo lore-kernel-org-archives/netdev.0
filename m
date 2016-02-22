@@ -1,68 +1,61 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [net-next PATCH 4/5] Support to encoding decoding skb hashid on IFE action
-Date: Mon, 22 Feb 2016 08:21:43 -0500
-Message-ID: <1456147304-13355-5-git-send-email-jhs@emojatatu.com>
+Subject: [net-next PATCH 5/5] Support to encoding decoding skb queue map on IFE action
+Date: Mon, 22 Feb 2016 08:21:44 -0500
+Message-ID: <1456147304-13355-6-git-send-email-jhs@emojatatu.com>
 References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com>
 Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
 	xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
 	Jamal Hadi Salim <jhs@mojatatu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:33892 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754934AbcBVNWD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 08:22:03 -0500
-Received: by mail-io0-f175.google.com with SMTP id 9so177816007iom.1
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 05:22:03 -0800 (PST)
+Received: from mail-io0-f170.google.com ([209.85.223.170]:33109 "EHLO
+	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754937AbcBVNWG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 08:22:06 -0500
+Received: by mail-io0-f170.google.com with SMTP id z135so176665213iof.0
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 05:22:04 -0800 (PST)
 In-Reply-To: <1456147304-13355-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-        Example usage:
-        allow skb hash to be encoded as metadata
+hard code static value of 10 for qmap
+mark of 12
+prio of 13
+and hashid of 11
 
-        sudo tc qdisc add dev $ETH root handle 1: prio
-        sudo tc filter add dev $ETH parent 1: protocol ip prio 10 \
-        u32 match ip protocol 1 0xff flowid 1:2 \
-        action ife encode \
-        allow hashid \
-        dst 02:15:15:15:15:15
+sudo tc filter add dev $ETH parent 1: protocol ip prio 10 \
+u32 match ip protocol 1 0xff flowid 1:2 \
+action ife encode \
+type 0xDEAD \
+use mark 12 \
+use prio 13 \
+use hashid 11 \
+use qmap 10 \
+dst 02:15:15:15:15:15
 
-        Note: A zero skb hash will not be sent
+Note: as of the time of submission skbedit of queue map doesnt work
+(just in case you try to use it)
 
-        Alternative hard code static hashid of 11
-        priority 16
-        mark 33
-
-        sudo $TC filter add dev $ETH parent 1: protocol ip prio 10 \
-        u32 match ip protocol 1 0xff flowid 1:2 \
-        action ife encode \
-        type 0xDEAD \
-	use hashid 11 \
-        use prio 16 \
-        use mark 33 \
-        dst 02:15:15:15:15:15
-
-        Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- net/sched/Kconfig            |  5 +++
- net/sched/Makefile           |  1 +
- net/sched/act_meta_skbhash.c | 87 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 93 insertions(+)
- create mode 100644 net/sched/act_meta_skbhash.c
+ net/sched/Kconfig         |   5 +++
+ net/sched/Makefile        |   1 +
+ net/sched/act_meta_qmap.c | 100 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 106 insertions(+)
+ create mode 100644 net/sched/act_meta_qmap.c
 
 diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index b148302..4c0c694 100644
+index 4c0c694..c25b192 100644
 --- a/net/sched/Kconfig
 +++ b/net/sched/Kconfig
-@@ -761,6 +761,11 @@ config NET_IFE_SKBPRIO
+@@ -766,6 +766,11 @@ config NET_IFE_SKBHASH
          depends on NET_ACT_IFE
          ---help---
  
-+config NET_IFE_SKBHASH
-+        tristate "Support to encoding decoding skb hashid on IFE action"
++config NET_IFE_SKBQMAP
++        tristate "Support to encoding decoding skb queue_map on IFE action"
 +        depends on NET_ACT_IFE
 +        ---help---
 +
@@ -70,25 +63,26 @@ index b148302..4c0c694 100644
  	bool "Incoming device classification"
  	depends on NET_CLS_U32 || NET_CLS_FW
 diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 84bddb3..321a9bc 100644
+index 321a9bc..fa97501 100644
 --- a/net/sched/Makefile
 +++ b/net/sched/Makefile
-@@ -22,6 +22,7 @@ obj-$(CONFIG_NET_ACT_CONNMARK)	+= act_connmark.o
- obj-$(CONFIG_NET_ACT_IFE)	+= act_ife.o
+@@ -23,6 +23,7 @@ obj-$(CONFIG_NET_ACT_IFE)	+= act_ife.o
  obj-$(CONFIG_NET_IFE_SKBMARK)	+= act_meta_mark.o
  obj-$(CONFIG_NET_IFE_SKBPRIO)	+= act_meta_skbprio.o
-+obj-$(CONFIG_NET_IFE_SKBHASH)	+= act_meta_skbhash.o
+ obj-$(CONFIG_NET_IFE_SKBHASH)	+= act_meta_skbhash.o
++obj-$(CONFIG_NET_IFE_SKBQMAP)	+= act_meta_qmap.o
  obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
  obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
  obj-$(CONFIG_NET_SCH_HTB)	+= sch_htb.o
-diff --git a/net/sched/act_meta_skbhash.c b/net/sched/act_meta_skbhash.c
+diff --git a/net/sched/act_meta_qmap.c b/net/sched/act_meta_qmap.c
 new file mode 100644
-index 0000000..c3140ea
+index 0000000..e5e8dbe
 --- /dev/null
-+++ b/net/sched/act_meta_skbhash.c
-@@ -0,0 +1,87 @@
++++ b/net/sched/act_meta_qmap.c
+@@ -0,0 +1,100 @@
 +/*
-+ * net/sched/act_meta_skbhash.c IFE skb->hash metadata module
++ * net/sched/act_meta_qmap.c skb queue map encoder/decoder
++ *
 + *
 + *		This program is free software; you can redistribute it and/or
 + *		modify it under the terms of the GNU General Public License
@@ -111,68 +105,80 @@ index 0000000..c3140ea
 +#include <net/pkt_sched.h>
 +#include <uapi/linux/tc_act/tc_ife.h>
 +#include <net/tc_act/tc_ife.h>
++#include <linux/ip.h> /*XXX*/
 +
-+static int skbhash_check(struct sk_buff *skb, struct tcf_meta_info *e)
++int skbqmap_check(struct sk_buff *skb, struct tcf_meta_info *e)
 +{
-+	u32 skbhash = skb->hash;
++	//XXX: skb_get_queue_mapping()?
++	u32 ifeqmap = skb->queue_mapping;
 +
 +	if (e->metaval) {
-+		skbhash = *(u32 *)e->metaval;
++		ifeqmap = *(u32 *)e->metaval;
 +	}
-+	if (!skbhash)
-+		return 0;
 +
++	if (!ifeqmap)
++		return 0;
++	/* data + pad + LV = 2+2+4 */
 +	return 8;
 +}
 +
-+static int skbhash_encode(struct sk_buff *skb, void *skbdata,
-+			  struct tcf_meta_info *e)
++int skbqmap_encode(struct sk_buff *skb, void *skbdata, struct tcf_meta_info *e)
 +{
-+	u32 skbhash = skb->hash;
++	/*(XXX: skb_get_queue_mapping()? */
++	u16 ifeqmap = skb->queue_mapping;
 +
-+	return encode_meta_u32(skbhash, skbdata, e);
++	if (e->metaval) {
++		ifeqmap = *(u16 *)e->metaval;
++	}
++
++	if (!ifeqmap)
++		return 0;
++
++	ifeqmap = htons(ifeqmap);
++
++	return tlv_meta_encode(skbdata, e->metaid, 2, &ifeqmap);
 +}
 +
-+static int skbhash_decode(struct sk_buff *skb, void *data, u16 len)
++int qmap_decode(struct sk_buff *skb, void *data, u16 len)
 +{
-+	u32 skbhash = *(u32 *) data;
++	u16 qm = *(u16 *) data;
 +
-+	skb->hash = ntohl(skbhash);
++	skb->queue_mapping = ntohs(qm);
 +	return 0;
 +}
 +
-+static struct tcf_meta_ops ife_skbhash_ops = {
-+	.metaid = IFE_META_HASHID,
-+	.metatype = NLA_U32,
-+	.name = "skbhash",
-+	.synopsis = "skb hash metadata",
-+	.check_presence = skbhash_check,
-+	.encode = skbhash_encode,
-+	.decode = skbhash_decode,
-+	.get = get_meta_u32,
-+	.alloc = alloc_meta_u32,
++static struct tcf_meta_ops ife_qmap_ops = {
++	.metaid = IFE_META_QMAP,
++	.metatype = NLA_U16,
++	.name = "skbqmap",
++	.synopsis = "skb queue map 16 bit metadata",
++	.check_presence = skbqmap_check,
++	.encode = skbqmap_encode,
++	.decode = qmap_decode,
++	.get = get_meta_u16,
++	.alloc = alloc_meta_u16,
 +	.owner = THIS_MODULE,
 +};
 +
-+static int __init ifeskbhash_init_module(void)
++static int __init ifeqmap_init_module(void)
 +{
-+	pr_info("Loaded IFE skbhash\n");
++	pr_emerg("Loaded IFE qmap\n");
 +
-+	return register_ife_op(&ife_skbhash_ops);
++	return register_ife_op(&ife_qmap_ops);
 +}
 +
-+static void __exit ifeskbhash_cleanup_module(void)
++static void __exit ifeqmap_cleanup_module(void)
 +{
-+	pr_info("Unloaded IFE skb hash\n");
-+	unregister_ife_op(&ife_skbhash_ops);
++	pr_emerg("Unloaded IFE qmap\n");
++	unregister_ife_op(&ife_qmap_ops);
 +}
 +
-+module_init(ifeskbhash_init_module);
-+module_exit(ifeskbhash_cleanup_module);
++module_init(ifeqmap_init_module);
++module_exit(ifeqmap_cleanup_module);
 +
 +MODULE_AUTHOR("Jamal Hadi Salim(2015)");
-+MODULE_DESCRIPTION("Inter-FE skb hash meta action");
++MODULE_DESCRIPTION("Inter-FE skb qmap metadata action");
 +MODULE_LICENSE("GPL");
-+MODULE_ALIAS_IFE_META(IFE_META_HASHID);
++MODULE_ALIAS_IFE_META(IFE_META_QMAP);
 -- 
 1.9.1
