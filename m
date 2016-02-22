@@ -1,33 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] net: ti: netcp: restore get/set_pad_info()
- functionality
-Date: Sun, 21 Feb 2016 22:02:50 -0500 (EST)
-Message-ID: <20160221.220250.1363843818216677470.davem@davemloft.net>
-References: <1455904724-17952-1-git-send-email-m-karicheri2@ti.com>
+Subject: Re: [PATCH net] Driver: Vmxnet3: Update Rx ring 2 max size
+Date: Sun, 21 Feb 2016 22:04:31 -0500 (EST)
+Message-ID: <20160221.220431.761072244672475275.davem@davemloft.net>
+References: <1455909592-7651-1-git-send-email-skhare@vmware.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org, arnd@arndb.de
-To: m-karicheri2@ti.com
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bhavesh@vmware.com
+To: skhare@vmware.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455904724-17952-1-git-send-email-m-karicheri2@ti.com>
+In-Reply-To: <1455909592-7651-1-git-send-email-skhare@vmware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Murali Karicheri <m-karicheri2@ti.com>
-Date: Fri, 19 Feb 2016 12:58:41 -0500
+From: Shrikrishna Khare <skhare@vmware.com>
+Date: Fri, 19 Feb 2016 11:19:52 -0800
 
-> This series fixes a regression and add some improvements for the ease
-> of maintainance. Incorporated comments against v1.
+> Device emulation supports max size of 4096.
 > 
-> Changelogs:
->  
->  v2 : combined 2-3 into one patch as this involves a header change
->       fixed a parse warning in 3/4 per comment from Arnd.
->       Removed Sign-off from Arnd against 1/4
->       added comments in 3/3 to alert on the usage of sw data per review
->       comments
->  v1 : added 2-4 to accomodate feedback received from review
->  v0 : initial version to fix the regression (From Grygorii) 
+> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+> Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
 
-Series applied, thanks.
+Applied, thanks.
