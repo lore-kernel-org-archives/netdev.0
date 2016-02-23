@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 5/9] mlxsw: core: Add devlink port splitter callbacks
-Date: Tue, 23 Feb 2016 16:51:30 +0100
-Message-ID: <1456242694-29463-6-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 7/9] mlxsw: spectrum: Store local port to module mapping during init
+Date: Tue, 23 Feb 2016 16:51:32 +0100
+Message-ID: <1456242694-29463-8-git-send-email-jiri@resnulli.us>
 References: <1456242694-29463-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, yishaih@mellanox.com,
@@ -14,92 +14,153 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	gospo@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:38210 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753421AbcBWPvp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 10:51:45 -0500
-Received: by mail-wm0-f43.google.com with SMTP id a4so215380474wme.1
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 07:51:44 -0800 (PST)
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:38276 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753421AbcBWPvr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 10:51:47 -0500
+Received: by mail-wm0-f46.google.com with SMTP id a4so215382398wme.1
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 07:51:47 -0800 (PST)
 In-Reply-To: <1456242694-29463-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-Add middle layer in mlxsw core code to forward port split/unsplit calls
-into specific ASIC drivers.
+The port netdevs are each associated with a different local port number
+in the device. These local ports are grouped into groups of 4 (e.g.
+(1-4), (5-8)) called clusters. The cluster constitutes the one of two
+possible modules they can be mapped to. This mapping is board-specific
+and done by the device's firmware during init.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+When splitting a port by 4, the device requires us to first unmap all
+the ports in the cluster and then map each to a single lane in the module
+associated with the port netdev used as the handle for the operation.
+This means that two port netdevs will disappear, as only 100Gb/s (4
+lanes) ports can be split and we are guaranteed to have two of these
+((1, 3), (5, 7) etc.) in a cluster.
+
+When unsplit occurs we need to reinstantiate the two original 100Gb/s
+ports and map each to its origianl module. Therefore, during driver init
+store the initial local port to module mapping, so it can be used later
+during unsplitting.
+
+Note that a by 2 split doesn't require us to store the mapping, as we
+only need to reinstantiate one port whose module is known.
+
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/core.c | 34 +++++++++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/core.h |  2 ++
- 2 files changed, 35 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 36 +++++++++++---------------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  1 +
+ 2 files changed, 16 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index 57d9655..e9d3040 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -785,6 +785,38 @@ static void mlxsw_core_debugfs_fini(struct mlxsw_core *mlxsw_core)
- 	debugfs_remove_recursive(mlxsw_core->dbg_dir);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 0dd72f8..240881c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -305,18 +305,19 @@ mlxsw_sp_port_system_port_mapping_set(struct mlxsw_sp_port *mlxsw_sp_port)
+ 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sspr), sspr_pl);
  }
  
-+static int mlxsw_devlink_port_split(struct devlink *devlink,
-+				    unsigned int port_index,
-+				    unsigned int count)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink);
-+
-+	if (port_index >= MLXSW_PORT_MAX_PORTS)
-+		return -EINVAL;
-+	if (!mlxsw_core->driver->port_split)
-+		return -EOPNOTSUPP;
-+	return mlxsw_core->driver->port_split(mlxsw_core->driver_priv,
-+					      port_index, count);
-+}
-+
-+static int mlxsw_devlink_port_unsplit(struct devlink *devlink,
-+				      unsigned int port_index)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink);
-+
-+	if (port_index >= MLXSW_PORT_MAX_PORTS)
-+		return -EINVAL;
-+	if (!mlxsw_core->driver->port_unsplit)
-+		return -EOPNOTSUPP;
-+	return mlxsw_core->driver->port_unsplit(mlxsw_core->driver_priv,
-+						port_index);
-+}
-+
-+static const struct devlink_ops mlxsw_devlink_ops = {
-+	.port_split	= mlxsw_devlink_port_split,
-+	.port_unsplit	= mlxsw_devlink_port_unsplit,
-+};
-+
- int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 				   const struct mlxsw_bus *mlxsw_bus,
- 				   void *bus_priv)
-@@ -800,7 +832,7 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	if (!mlxsw_driver)
- 		return -EINVAL;
- 	alloc_size = sizeof(*mlxsw_core) + mlxsw_driver->priv_size;
--	devlink = devlink_alloc(NULL, alloc_size);
-+	devlink = devlink_alloc(&mlxsw_devlink_ops, alloc_size);
- 	if (!devlink) {
- 		err = -ENOMEM;
- 		goto err_devlink_alloc;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index a017236..c73d1c0 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -186,6 +186,8 @@ struct mlxsw_driver {
- 	int (*init)(void *driver_priv, struct mlxsw_core *mlxsw_core,
- 		    const struct mlxsw_bus_info *mlxsw_bus_info);
- 	void (*fini)(void *driver_priv);
-+	int (*port_split)(void *driver_priv, u8 local_port, unsigned int count);
-+	int (*port_unsplit)(void *driver_priv, u8 local_port);
- 	void (*txhdr_construct)(struct sk_buff *skb,
- 				const struct mlxsw_tx_info *tx_info);
- 	u8 txhdr_len;
+-static int mlxsw_sp_port_module_check(struct mlxsw_sp_port *mlxsw_sp_port,
+-				      bool *p_usable)
++static int mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
++					 u8 local_port, u8 *p_module,
++					 u8 *p_width)
+ {
+-	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	char pmlp_pl[MLXSW_REG_PMLP_LEN];
+ 	int err;
+ 
+-	mlxsw_reg_pmlp_pack(pmlp_pl, mlxsw_sp_port->local_port);
++	mlxsw_reg_pmlp_pack(pmlp_pl, local_port);
+ 	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(pmlp), pmlp_pl);
+ 	if (err)
+ 		return err;
+-	*p_usable = mlxsw_reg_pmlp_width_get(pmlp_pl) ? true : false;
++	*p_module = mlxsw_reg_pmlp_module_get(pmlp_pl, 0);
++	*p_width = mlxsw_reg_pmlp_width_get(pmlp_pl);
+ 	return 0;
+ }
+ 
+@@ -1365,7 +1366,6 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ 	struct mlxsw_sp_port *mlxsw_sp_port;
+ 	struct devlink_port *devlink_port;
+ 	struct net_device *dev;
+-	bool usable;
+ 	size_t bytes;
+ 	int err;
+ 
+@@ -1416,19 +1416,6 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ 	 */
+ 	dev->hard_header_len += MLXSW_TXHDR_LEN;
+ 
+-	err = mlxsw_sp_port_module_check(mlxsw_sp_port, &usable);
+-	if (err) {
+-		dev_err(mlxsw_sp->bus_info->dev, "Port %d: Failed to check module\n",
+-			mlxsw_sp_port->local_port);
+-		goto err_port_module_check;
+-	}
+-
+-	if (!usable) {
+-		dev_dbg(mlxsw_sp->bus_info->dev, "Port %d: Not usable, skipping initialization\n",
+-			mlxsw_sp_port->local_port);
+-		goto port_not_usable;
+-	}
+-
+ 	devlink_port = &mlxsw_sp_port->devlink_port;
+ 	err = devlink_port_register(devlink, devlink_port, local_port);
+ 	if (err) {
+@@ -1496,8 +1483,6 @@ err_port_swid_set:
+ err_port_system_port_mapping_set:
+ 	devlink_port_unregister(&mlxsw_sp_port->devlink_port);
+ err_devlink_port_register:
+-port_not_usable:
+-err_port_module_check:
+ err_dev_addr_init:
+ 	free_percpu(mlxsw_sp_port->pcpu_stats);
+ err_alloc_stats:
+@@ -1559,6 +1544,7 @@ static void mlxsw_sp_ports_remove(struct mlxsw_sp *mlxsw_sp)
+ static int mlxsw_sp_ports_create(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	size_t alloc_size;
++	u8 module, width;
+ 	int i;
+ 	int err;
+ 
+@@ -1568,6 +1554,13 @@ static int mlxsw_sp_ports_create(struct mlxsw_sp *mlxsw_sp)
+ 		return -ENOMEM;
+ 
+ 	for (i = 1; i < MLXSW_PORT_MAX_PORTS; i++) {
++		err = mlxsw_sp_port_module_info_get(mlxsw_sp, i, &module,
++						    &width);
++		if (err)
++			goto err_port_module_info_get;
++		if (!width)
++			continue;
++		mlxsw_sp->port_to_module[i] = module;
+ 		err = mlxsw_sp_port_create(mlxsw_sp, i);
+ 		if (err)
+ 			goto err_port_create;
+@@ -1575,6 +1568,7 @@ static int mlxsw_sp_ports_create(struct mlxsw_sp *mlxsw_sp)
+ 	return 0;
+ 
+ err_port_create:
++err_port_module_info_get:
+ 	for (i--; i >= 1; i--)
+ 		mlxsw_sp_port_remove(mlxsw_sp, i);
+ 	kfree(mlxsw_sp->ports);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 6bf6dac..a7d86ac 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -123,6 +123,7 @@ struct mlxsw_sp {
+ 	u32 ageing_time;
+ 	struct mlxsw_sp_upper master_bridge;
+ 	struct mlxsw_sp_upper lags[MLXSW_SP_LAG_MAX];
++	u8 port_to_module[MLXSW_PORT_MAX_PORTS];
+ };
+ 
+ static inline struct mlxsw_sp_upper *
 -- 
 2.5.0
