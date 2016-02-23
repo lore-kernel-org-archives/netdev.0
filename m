@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 12/20] batman-adv: Rename batadv_tvlv_handler *_free_ref function to *_put
-Date: Tue, 23 Feb 2016 14:08:15 +0800
-Message-ID: <1456207703-903-13-git-send-email-a@unstable.cc>
+Subject: [PATCH 11/20] batman-adv: Rename batadv_gw_node *_free_ref function to *_put
+Date: Tue, 23 Feb 2016 14:08:14 +0800
+Message-ID: <1456207703-903-12-git-send-email-a@unstable.cc>
 References: <1456207703-903-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:38897 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:10063 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757049AbcBWGV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2016 01:21:56 -0500
+	id S932176AbcBWGWA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Feb 2016 01:22:00 -0500
 In-Reply-To: <1456207703-903-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -28,59 +28,146 @@ Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/main.c | 13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
+ net/batman-adv/gateway_client.c | 35 +++++++++++++++++------------------
+ 1 file changed, 17 insertions(+), 18 deletions(-)
 
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index 476554b3adce..95aaff371966 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -638,12 +638,11 @@ static void batadv_tvlv_handler_release(struct kref *ref)
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index 37972dfda400..c59aff5ccac8 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -76,11 +76,10 @@ static void batadv_gw_node_release(struct kref *ref)
  }
  
  /**
-- * batadv_tvlv_handler_free_ref - decrement the tvlv container refcounter and
-+ * batadv_tvlv_handler_put - decrement the tvlv container refcounter and
-  *  possibly release it
-  * @tvlv_handler: the tvlv handler to free
+- * batadv_gw_node_free_ref - decrement the gw_node refcounter and possibly
+- *  release it
++ * batadv_gw_node_put - decrement the gw_node refcounter and possibly release it
+  * @gw_node: gateway node to free
   */
--static void
--batadv_tvlv_handler_free_ref(struct batadv_tvlv_handler *tvlv_handler)
-+static void batadv_tvlv_handler_put(struct batadv_tvlv_handler *tvlv_handler)
+-static void batadv_gw_node_free_ref(struct batadv_gw_node *gw_node)
++static void batadv_gw_node_put(struct batadv_gw_node *gw_node)
  {
- 	kref_put(&tvlv_handler->refcount, batadv_tvlv_handler_release);
+ 	kref_put(&gw_node->refcount, batadv_gw_node_release);
  }
-@@ -1031,7 +1030,7 @@ int batadv_tvlv_containers_process(struct batadv_priv *bat_priv,
- 						src, dst, tvlv_value,
- 						tvlv_value_cont_len);
- 		if (tvlv_handler)
--			batadv_tvlv_handler_free_ref(tvlv_handler);
-+			batadv_tvlv_handler_put(tvlv_handler);
- 		tvlv_value = (u8 *)tvlv_value + tvlv_value_cont_len;
- 		tvlv_value_len -= tvlv_value_cont_len;
- 	}
-@@ -1111,7 +1110,7 @@ void batadv_tvlv_handler_register(struct batadv_priv *bat_priv,
- 
- 	tvlv_handler = batadv_tvlv_handler_get(bat_priv, type, version);
- 	if (tvlv_handler) {
--		batadv_tvlv_handler_free_ref(tvlv_handler);
-+		batadv_tvlv_handler_put(tvlv_handler);
- 		return;
- 	}
- 
-@@ -1148,11 +1147,11 @@ void batadv_tvlv_handler_unregister(struct batadv_priv *bat_priv,
- 	if (!tvlv_handler)
- 		return;
- 
--	batadv_tvlv_handler_free_ref(tvlv_handler);
-+	batadv_tvlv_handler_put(tvlv_handler);
- 	spin_lock_bh(&bat_priv->tvlv.handler_list_lock);
- 	hlist_del_rcu(&tvlv_handler->list);
- 	spin_unlock_bh(&bat_priv->tvlv.handler_list_lock);
--	batadv_tvlv_handler_free_ref(tvlv_handler);
-+	batadv_tvlv_handler_put(tvlv_handler);
+@@ -125,7 +124,7 @@ unlock:
+ 	rcu_read_unlock();
+ out:
+ 	if (gw_node)
+-		batadv_gw_node_free_ref(gw_node);
++		batadv_gw_node_put(gw_node);
+ 	return orig_node;
  }
  
- /**
+@@ -143,7 +142,7 @@ static void batadv_gw_select(struct batadv_priv *bat_priv,
+ 	rcu_assign_pointer(bat_priv->gw.curr_gw, new_gw_node);
+ 
+ 	if (curr_gw_node)
+-		batadv_gw_node_free_ref(curr_gw_node);
++		batadv_gw_node_put(curr_gw_node);
+ 
+ 	spin_unlock_bh(&bat_priv->gw.list_lock);
+ }
+@@ -204,7 +203,7 @@ batadv_gw_get_best_gw_node(struct batadv_priv *bat_priv)
+ 			    ((tmp_gw_factor == max_gw_factor) &&
+ 			     (tq_avg > max_tq))) {
+ 				if (curr_gw)
+-					batadv_gw_node_free_ref(curr_gw);
++					batadv_gw_node_put(curr_gw);
+ 				curr_gw = gw_node;
+ 				kref_get(&curr_gw->refcount);
+ 			}
+@@ -219,7 +218,7 @@ batadv_gw_get_best_gw_node(struct batadv_priv *bat_priv)
+ 			  */
+ 			if (tq_avg > max_tq) {
+ 				if (curr_gw)
+-					batadv_gw_node_free_ref(curr_gw);
++					batadv_gw_node_put(curr_gw);
+ 				curr_gw = gw_node;
+ 				kref_get(&curr_gw->refcount);
+ 			}
+@@ -232,7 +231,7 @@ batadv_gw_get_best_gw_node(struct batadv_priv *bat_priv)
+ 		if (tmp_gw_factor > max_gw_factor)
+ 			max_gw_factor = tmp_gw_factor;
+ 
+-		batadv_gw_node_free_ref(gw_node);
++		batadv_gw_node_put(gw_node);
+ 
+ next:
+ 		batadv_neigh_node_put(router);
+@@ -273,7 +272,7 @@ void batadv_gw_check_client_stop(struct batadv_priv *bat_priv)
+ 	 */
+ 	batadv_throw_uevent(bat_priv, BATADV_UEV_GW, BATADV_UEV_DEL, NULL);
+ 
+-	batadv_gw_node_free_ref(curr_gw);
++	batadv_gw_node_put(curr_gw);
+ }
+ 
+ void batadv_gw_election(struct batadv_priv *bat_priv)
+@@ -348,9 +347,9 @@ void batadv_gw_election(struct batadv_priv *bat_priv)
+ 
+ out:
+ 	if (curr_gw)
+-		batadv_gw_node_free_ref(curr_gw);
++		batadv_gw_node_put(curr_gw);
+ 	if (next_gw)
+-		batadv_gw_node_free_ref(next_gw);
++		batadv_gw_node_put(next_gw);
+ 	if (router)
+ 		batadv_neigh_node_put(router);
+ 	if (router_ifinfo)
+@@ -547,7 +546,7 @@ void batadv_gw_node_update(struct batadv_priv *bat_priv,
+ 		spin_lock_bh(&bat_priv->gw.list_lock);
+ 		if (!hlist_unhashed(&gw_node->list)) {
+ 			hlist_del_init_rcu(&gw_node->list);
+-			batadv_gw_node_free_ref(gw_node);
++			batadv_gw_node_put(gw_node);
+ 		}
+ 		spin_unlock_bh(&bat_priv->gw.list_lock);
+ 
+@@ -556,12 +555,12 @@ void batadv_gw_node_update(struct batadv_priv *bat_priv,
+ 			batadv_gw_reselect(bat_priv);
+ 
+ 		if (curr_gw)
+-			batadv_gw_node_free_ref(curr_gw);
++			batadv_gw_node_put(curr_gw);
+ 	}
+ 
+ out:
+ 	if (gw_node)
+-		batadv_gw_node_free_ref(gw_node);
++		batadv_gw_node_put(gw_node);
+ }
+ 
+ void batadv_gw_node_delete(struct batadv_priv *bat_priv,
+@@ -584,7 +583,7 @@ void batadv_gw_node_free(struct batadv_priv *bat_priv)
+ 	hlist_for_each_entry_safe(gw_node, node_tmp,
+ 				  &bat_priv->gw.list, list) {
+ 		hlist_del_init_rcu(&gw_node->list);
+-		batadv_gw_node_free_ref(gw_node);
++		batadv_gw_node_put(gw_node);
+ 	}
+ 	spin_unlock_bh(&bat_priv->gw.list_lock);
+ }
+@@ -621,7 +620,7 @@ static int batadv_write_buffer_text(struct batadv_priv *bat_priv,
+ 	ret = seq_has_overflowed(seq) ? -1 : 0;
+ 
+ 	if (curr_gw)
+-		batadv_gw_node_free_ref(curr_gw);
++		batadv_gw_node_put(curr_gw);
+ out:
+ 	if (router_ifinfo)
+ 		batadv_neigh_ifinfo_put(router_ifinfo);
+@@ -881,9 +880,9 @@ out:
+ 	if (orig_dst_node)
+ 		batadv_orig_node_put(orig_dst_node);
+ 	if (curr_gw)
+-		batadv_gw_node_free_ref(curr_gw);
++		batadv_gw_node_put(curr_gw);
+ 	if (gw_node)
+-		batadv_gw_node_free_ref(gw_node);
++		batadv_gw_node_put(gw_node);
+ 	if (neigh_old)
+ 		batadv_neigh_node_put(neigh_old);
+ 	if (neigh_curr)
 -- 
 2.7.1
