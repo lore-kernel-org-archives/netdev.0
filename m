@@ -1,142 +1,259 @@
-From: Andrew Collins <acollins@cradlepoint.com>
-Subject: RESEND: Easily reproducible kernel panic due to netdev all_adj_list
- refcnt handling
-Date: Tue, 23 Feb 2016 15:29:33 -0700
-Message-ID: <56CCDD4D.4080303@cradlepoint.com>
+From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+Subject: Re: [net-next PATCH 3/4] net: sched: cls_u32 add bit to specify software
+ only rules
+Date: Tue, 23 Feb 2016 14:29:48 -0800
+Message-ID: <56CCDD5C.2040000@intel.com>
+References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810> <20160223190321.5970.58924.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <vfalico@redhat.com>
-To: <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+	davem@davemloft.net, jhs@mojatatu.com
+To: John Fastabend <john.fastabend@gmail.com>, jiri@resnulli.us,
+	daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from phaseu-1.complex1.sms.eurus.ops.us.digitar.com ([107.6.68.62]:45910
-	"EHLO phaseu-1.complex1.sms.eurus.ops.us.digitar.com"
+Received: from mga09.intel.com ([134.134.136.24]:15234 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752099AbcBWW3l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2016 17:29:41 -0500
-Received: from apps-2.eurus.ops.us.digitar.com (phaseu-2.complex1.sms.eurus.ops.us.digitar.com [107.6.68.63])
-	by phaseu-1.complex1.sms.eurus.ops.us.digitar.com (Postfix) with SMTP id A9983275A49C
-	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 22:29:40 +0000 (UTC)
+	id S1751110AbcBWW3t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Feb 2016 17:29:49 -0500
+In-Reply-To: <20160223190321.5970.58924.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm running into a relatively easily reproducible kernel panic related to the all_adj_list handling for netdevs
-in recent kernels.
 
-The following sequence of commands will reproduce the issue:
 
-ip link add link eth0 name eth0.100 type vlan id 100
-ip link add link eth0 name eth0.200 type vlan id 200
-ip link add name testbr type bridge
-ip link set eth0.100 master testbr
-ip link set eth0.200 master testbr
-ip link add link testbr mac0 type macvlan
-ip link delete dev testbr
+On 2/23/2016 11:03 AM, John Fastabend wrote:
+> In the initial implementation the only way to stop a rule from being
+> inserted into the hardware table was via the device feature flag.
+> However this doesn't work well when working on an end host system
+> where packets are expect to hit both the hardware and software
+> datapaths.
+>
+> For example we can imagine a rule that will match an IP address and
+> increment a field. If we install this rule in both hardware and
+> software we may increment the field twice. To date we have only
+> added support for the drop action so we have been able to ignore
+> these cases. But as we extend the action support we will hit this
+> example plus more such cases. Arguably these are not even corner
+> cases in many working systems these cases will be common.
+Is there a usecase to support running the same rule in both hardware as well
+as software? If a rule is offloaded to hardware,  isn't the assumption that
+we don't need to do that in software.
+>
+> To avoid forcing the driver to always abort (i.e. the above example)
+> this patch adds a flag to add a rule in software only. A careful
+> user can use this flag to build software and hardware datapaths
+> that work together. One example we have found particularly useful
+> is to use hardware resources to set the skb->mark on the skb when
+> the match may be expensive to run in software but a mark lookup
+> in a hash table is cheap. The idea here is hardware can do in one
+> lookup what the u32 classifier may need to traverse multiple lists
+> and hash tables to compute. The flag is only passed down on inserts
+> on deletion to avoid stale references in hardware we always try
+> to remove a rule if it exists.
+>
+> Notice we do not add a hardware only case here. If you were to
+> add a hardware only case then you are stuck with the problem
+> of where to stick the software representation of that filter
+> rule. If its stuck on the same filter list as the software only and
+> software/hardware rules it then has to be walked over and ignored
+> in the classify path. The overhead is not huge but is measurable.
+> And with so much work being invested in speeding up rx/tx of
+> pkt processing this is unacceptable IMO. The other option is to
+> have a special hook just for hardware only resources. This is
+> implemented in the next patch.
+>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>   include/uapi/linux/pkt_cls.h |    3 +++
+>   net/sched/cls_u32.c          |   43 ++++++++++++++++++++++++++++++------------
+>   2 files changed, 34 insertions(+), 12 deletions(-)
+>
+> diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+> index 4398737..143ea21 100644
+> --- a/include/uapi/linux/pkt_cls.h
+> +++ b/include/uapi/linux/pkt_cls.h
+> @@ -160,6 +160,8 @@ enum {
+>   #define TC_U32_UNSPEC	0
+>   #define TC_U32_ROOT	(0xFFF00000)
+>   
+> +#define TCA_U32_FLAGS_SOFTWARE 1
+Does this flag indicate software-only rule?
+Instead should we add a flag to indicate HW only.
 
-This creates an upper/lower tree of (excuse the poor ASCII art):
-
-             /---eth0.100-eth0
-mac0-testbr-
-             \---eth0.200-eth0
-
-When testbr is deleted, the all_adj_lists are walked, and eth0 is deleted twice from the mac0 list.
-Unfortunately, during setup in __netdev_upper_dev_link, only one reference to eth0 is added,
-so this results in the following panic trace:
-
-[68235.234564] tried to remove device eth0 from mac0
-[68235.234585] ------------[ cut here ]------------
-[68235.234599] kernel BUG at net/core/dev.c:5237!
-[68235.234608] invalid opcode: 0000 [#1] SMP
-[68235.234619] Modules linked in: macvlan bridge 8021q garp mrp stp llc nfsv3 nfs_acl rpcsec_gss_krb5 auth_rpcgss nfsv4 dns_resolver nfs lockd grace sunrpc fscache ebtable_filter ebtables ip6table_filter ip6_tables ccm fuse vmw_vsock_vmci_transport vsock vmw_vmci ftdi_sio snd_hda_codec_realtek snd_hda_codec_hdmi snd_hda_codec_generic intel_rapl arc4 iosf_mbi x86_pkg_temp_thermal snd_hda_intel coretemp iwldvm snd_hda_codec kvm_intel mac80211 kvm snd_hda_core snd_hwdep iTCO_wdt snd_seq iTCO_vendor_support ppdev iwlwifi snd_seq_device crct10dif_pclmul snd_pcm joydev cfg80211 crc32_pclmul crc32c_intel snd_timer snd mei_me i2c_i801 rfkill soundcore lpc_ich mei parport_pc shpchp parport soc_button_array binfmt_misc i915 i2c_algo_bit drm_kms_helper drm e1000e r8169 mii ptp pps_core video fjes
-[68235.234841] CPU: 2 PID: 14808 Comm: ip Not tainted 4.3.3-301.fc23.x86_64 #1
-[68235.234856] Hardware name: Shuttle Inc. SZ87R/FZ87, BIOS 1.02 07/29/2013
-[68235.234870] task: ffff8803cce50000 ti: ffff8801c7db8000 task.ti: ffff8801c7db8000
-[68235.234885] RIP: 0010:[<ffffffff816678b1>]  [<ffffffff816678b1>] __netdev_adjacent_dev_remove+0x51/0x170
-[68235.234908] RSP: 0018:ffff8801c7dbb8b8  EFLAGS: 00010286
-[68235.234919] RAX: 0000000000000027 RBX: ffff8800369400b8 RCX: 0000000000000006
-[68235.234934] RDX: 0000000000000000 RSI: 0000000000000246 RDI: ffff88043fa8dff0
-[68235.234948] RBP: ffff8801c7dbb8d8 R08: 000000000000000a R09: 0000000000000434
-[68235.234963] R10: ffff88032fe49528 R11: 0000000000000434 R12: ffff88009621e000
-[68235.234977] R13: ffff880036940000 R14: ffff8803bcf7f0e0 R15: ffff8802b9b8fc40
-[68235.234991] FS:  00007f3057634700(0000) GS:ffff88043fa80000(0000) knlGS:0000000000000000
-[68235.235007] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[68235.235020] CR2: 000055efaad421f8 CR3: 000000009d8d9000 CR4: 00000000001406e0
-[68235.235034] Stack:
-[68235.235039]  ffff8803bcf7f0b0 ffff88009621e000 ffff880036940000 ffff8803ad48c000
-[68235.235056]  ffff8801c7dbb8f8 ffffffff816679ee ffff8803ad48c0d0 ffff880399b93100
-[68235.235073]  ffff8801c7dbb958 ffffffff81667af9 ffff8803bcf7f000 ffffffffa0731af6
-[68235.235090] Call Trace:
-[68235.235098]  [<ffffffff816679ee>] __netdev_adjacent_dev_unlink+0x1e/0x40
-[68235.235112]  [<ffffffff81667af9>] netdev_upper_dev_unlink+0x99/0x170
-[68235.235128]  [<ffffffffa0731af6>] ? br_fdb_delete_by_port+0xa6/0xd0 [bridge]
-[68235.235144]  [<ffffffffa0733950>] del_nbp+0xc0/0x130 [bridge]
-[68235.235157]  [<ffffffffa0733a02>] br_dev_delete+0x42/0xb0 [bridge]
-[68235.235172]  [<ffffffff8167aeb3>] rtnl_delete_link+0x43/0x70
-[68235.235184]  [<ffffffff8167befb>] rtnl_dellink+0xcb/0x1d0
-[68235.235196]  [<ffffffff8167c146>] rtnetlink_rcv_msg+0xe6/0x230
-[68235.235210]  [<ffffffff8132d762>] ? sock_has_perm+0x72/0x90
-[68235.235222]  [<ffffffff8167c060>] ? rtnetlink_rcv+0x30/0x30
-[68235.235235]  [<ffffffff816a18c4>] netlink_rcv_skb+0xa4/0xc0
-[68235.235247]  [<ffffffff8167c058>] rtnetlink_rcv+0x28/0x30
-[68235.235260]  [<ffffffff816a1087>] netlink_unicast+0x127/0x1a0
-[68235.235272]  [<ffffffff816a15a2>] netlink_sendmsg+0x4a2/0x5f0
-[68235.235285]  [<ffffffff8164f8f8>] sock_sendmsg+0x38/0x50
-[68235.235297]  [<ffffffff81650289>] ___sys_sendmsg+0x289/0x2a0
-[68235.235310]  [<ffffffff811b694c>] ? lru_cache_add+0x1c/0x50
-[68235.235323]  [<ffffffff811d9323>] ? handle_mm_fault+0xc83/0x1840
-[68235.235336]  [<ffffffff8123a6cd>] ? __dentry_kill+0x13d/0x1b0
-[68235.235349]  [<ffffffff8123a8ff>] ? dput+0x1bf/0x1f0
-[68235.235359]  [<ffffffff81650d21>] __sys_sendmsg+0x51/0x90
-[68235.235371]  [<ffffffff81650d72>] SyS_sendmsg+0x12/0x20
-[68235.235382]  [<ffffffff817815ee>] entry_SYSCALL_64_fastpath+0x12/0x71
-
-I have a rather naive patch which simply calls __netdev_adjacent_dev_link ref_nr times
-to keep the refcnts synced, but it seems hacky and is likely incomplete.
-
-The basic idea is as below (excluding cleanup handling):
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index cc9e365..37d0574 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5633,7 +5633,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
-  {
-         struct netdev_notifier_changeupper_info changeupper_info;
-         struct netdev_adjacent *i, *j, *to_i, *to_j;
--       int ret = 0;
-+       int ret = 0, refs;
-
-         ASSERT_RTNL();
-
-@@ -5685,18 +5685,22 @@ static int __netdev_upper_dev_link(struct net_device *dev,
-         list_for_each_entry(i, &upper_dev->all_adj_list.upper, list) {
-                 pr_debug("linking %s's upper device %s with %s\n",
-                          upper_dev->name, i->dev->name, dev->name);
--               ret = __netdev_adjacent_dev_link(dev, i->dev);
--               if (ret)
--                       goto rollback_upper_mesh;
-+               for (refs = 0; refs < i->ref_nr; refs++) {
-+                       ret = __netdev_adjacent_dev_link(dev, i->dev);
-+                       if (ret)
-+                               goto rollback_upper_mesh;
-+               }
-         }
-
-         /* add upper_dev to every dev's lower device */
-         list_for_each_entry(i, &dev->all_adj_list.lower, list) {
-                 pr_debug("linking %s's lower device %s with %s\n", dev->name,
-                          i->dev->name, upper_dev->name);
--               ret = __netdev_adjacent_dev_link(i->dev, upper_dev);
--               if (ret)
--                       goto rollback_lower_mesh;
-+               for (refs = 0; refs < i->ref_nr; refs++) {
-+                       ret = __netdev_adjacent_dev_link(i->dev, upper_dev);
-+                       if (ret)
-+                               goto rollback_lower_mesh;
-+               }
-         }
-
-Has anyone else encountered this before?  Any ideas on a cleaner solution?
-
-Thanks,
-Andrew Collins
+> +
+>   enum {
+>   	TCA_U32_UNSPEC,
+>   	TCA_U32_CLASSID,
+> @@ -172,6 +174,7 @@ enum {
+>   	TCA_U32_INDEV,
+>   	TCA_U32_PCNT,
+>   	TCA_U32_MARK,
+> +	TCA_U32_FLAGS,
+>   	__TCA_U32_MAX
+>   };
+>   
+> diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+> index f766bcb..c509fc8 100644
+> --- a/net/sched/cls_u32.c
+> +++ b/net/sched/cls_u32.c
+> @@ -59,6 +59,7 @@ struct tc_u_knode {
+>   #ifdef CONFIG_CLS_U32_PERF
+>   	struct tc_u32_pcnt __percpu *pf;
+>   #endif
+> +	u32			flags;
+>   #ifdef CONFIG_CLS_U32_MARK
+>   	u32			val;
+>   	u32			mask;
+> @@ -425,12 +426,18 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
+>   	return 0;
+>   }
+>   
+> -static bool u32_should_offload(struct net_device *dev)
+> +static bool u32_should_offload(struct net_device *dev, u32 flags)
+>   {
+>   	if (!(dev->features & NETIF_F_HW_TC))
+>   		return false;
+>   
+> -	return dev->netdev_ops->ndo_setup_tc;
+> +	if (flags & TCA_U32_FLAGS_SOFTWARE)
+> +		return false;
+> +
+> +	if (!dev->netdev_ops->ndo_setup_tc)
+> +		return false;
+> +
+> +	return true;
+>   }
+>   
+>   static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
+> @@ -442,7 +449,7 @@ static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
+>   	offload.type = TC_SETUP_CLSU32;
+>   	offload.cls_u32 = &u32_offload;
+>   
+> -	if (u32_should_offload(dev)) {
+> +	if (u32_should_offload(dev, 0)) {
+>   		offload.cls_u32->command = TC_CLSU32_DELETE_KNODE;
+>   		offload.cls_u32->knode.handle = handle;
+>   		dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
+> @@ -450,7 +457,9 @@ static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
+>   	}
+>   }
+>   
+> -static void u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+> +static void u32_replace_hw_hnode(struct tcf_proto *tp,
+> +				 struct tc_u_hnode *h,
+> +				 u32 flags)
+>   {
+>   	struct net_device *dev = tp->q->dev_queue->dev;
+>   	struct tc_cls_u32_offload u32_offload = {0};
+> @@ -459,7 +468,7 @@ static void u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+>   	offload.type = TC_SETUP_CLSU32;
+>   	offload.cls_u32 = &u32_offload;
+>   
+> -	if (u32_should_offload(dev)) {
+> +	if (u32_should_offload(dev, flags)) {
+>   		offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
+>   		offload.cls_u32->hnode.divisor = h->divisor;
+>   		offload.cls_u32->hnode.handle = h->handle;
+> @@ -479,7 +488,7 @@ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+>   	offload.type = TC_SETUP_CLSU32;
+>   	offload.cls_u32 = &u32_offload;
+>   
+> -	if (u32_should_offload(dev)) {
+> +	if (u32_should_offload(dev, 0)) {
+>   		offload.cls_u32->command = TC_CLSU32_DELETE_HNODE;
+>   		offload.cls_u32->hnode.divisor = h->divisor;
+>   		offload.cls_u32->hnode.handle = h->handle;
+> @@ -490,7 +499,9 @@ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+>   	}
+>   }
+>   
+> -static void u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n)
+> +static void u32_replace_hw_knode(struct tcf_proto *tp,
+> +				 struct tc_u_knode *n,
+> +				 u32 flags)
+>   {
+>   	struct net_device *dev = tp->q->dev_queue->dev;
+>   	struct tc_cls_u32_offload u32_offload = {0};
+> @@ -499,7 +510,7 @@ static void u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n)
+>   	offload.type = TC_SETUP_CLSU32;
+>   	offload.cls_u32 = &u32_offload;
+>   
+> -	if (u32_should_offload(dev)) {
+> +	if (u32_should_offload(dev, flags)) {
+>   		offload.cls_u32->command = TC_CLSU32_REPLACE_KNODE;
+>   		offload.cls_u32->knode.handle = n->handle;
+>   		offload.cls_u32->knode.fshift = n->fshift;
+> @@ -687,6 +698,7 @@ static const struct nla_policy u32_policy[TCA_U32_MAX + 1] = {
+>   	[TCA_U32_SEL]		= { .len = sizeof(struct tc_u32_sel) },
+>   	[TCA_U32_INDEV]		= { .type = NLA_STRING, .len = IFNAMSIZ },
+>   	[TCA_U32_MARK]		= { .len = sizeof(struct tc_u32_mark) },
+> +	[TCA_U32_FLAGS]		= { .type = NLA_U32 },
+>   };
+>   
+>   static int u32_set_parms(struct net *net, struct tcf_proto *tp,
+> @@ -833,7 +845,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+>   	struct tc_u32_sel *s;
+>   	struct nlattr *opt = tca[TCA_OPTIONS];
+>   	struct nlattr *tb[TCA_U32_MAX + 1];
+> -	u32 htid;
+> +	u32 htid, flags = 0;
+>   	int err;
+>   #ifdef CONFIG_CLS_U32_PERF
+>   	size_t size;
+> @@ -846,6 +858,9 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+>   	if (err < 0)
+>   		return err;
+>   
+> +	if (tb[TCA_U32_FLAGS])
+> +		flags = nla_get_u32(tb[TCA_U32_FLAGS]);
+> +
+>   	n = (struct tc_u_knode *)*arg;
+>   	if (n) {
+>   		struct tc_u_knode *new;
+> @@ -869,7 +884,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+>   		u32_replace_knode(tp, tp_c, new);
+>   		tcf_unbind_filter(tp, &n->res);
+>   		call_rcu(&n->rcu, u32_delete_key_rcu);
+> -		u32_replace_hw_knode(tp, new);
+> +		u32_replace_hw_knode(tp, new, flags);
+>   		return 0;
+>   	}
+>   
+> @@ -897,7 +912,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+>   		rcu_assign_pointer(tp_c->hlist, ht);
+>   		*arg = (unsigned long)ht;
+>   
+> -		u32_replace_hw_hnode(tp, ht);
+> +		u32_replace_hw_hnode(tp, ht, flags);
+>   		return 0;
+>   	}
+>   
+> @@ -948,6 +963,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+>   	RCU_INIT_POINTER(n->ht_up, ht);
+>   	n->handle = handle;
+>   	n->fshift = s->hmask ? ffs(ntohl(s->hmask)) - 1 : 0;
+> +	n->flags = flags;
+>   	tcf_exts_init(&n->exts, TCA_U32_ACT, TCA_U32_POLICE);
+>   	n->tp = tp;
+>   
+> @@ -980,7 +996,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+>   
+>   		RCU_INIT_POINTER(n->next, pins);
+>   		rcu_assign_pointer(*ins, n);
+> -		u32_replace_hw_knode(tp, n);
+> +		u32_replace_hw_knode(tp, n, flags);
+>   		*arg = (unsigned long)n;
+>   		return 0;
+>   	}
+> @@ -1085,6 +1101,9 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+>   		    nla_put_u32(skb, TCA_U32_LINK, ht_down->handle))
+>   			goto nla_put_failure;
+>   
+> +		if (n->flags && nla_put_u32(skb, TCA_U32_FLAGS, n->flags))
+> +			goto nla_put_failure;
+> +
+>   #ifdef CONFIG_CLS_U32_MARK
+>   		if ((n->val || n->mask)) {
+>   			struct tc_u32_mark mark = {.val = n->val,
+>
