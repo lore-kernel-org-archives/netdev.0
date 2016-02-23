@@ -1,37 +1,51 @@
-From: Hau <hau@realtek.com>
-Subject: RE: [PATCH net v2] r8169:fix "rtl_counters_cond == 1 (loop: 1000, delay: 10)" log spam.
-Date: Tue, 23 Feb 2016 07:57:16 +0000
-Message-ID: <80377ECBC5453840BA8C7155328B53770135FF33@RTITMBSV03.realtek.com.tw>
-References: <1456153794-2028-1-git-send-email-hau@realtek.com>
- <20160222231301.GA17876@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: [PATCH] netfilter: xt_osf: remove unused variable
+Date: Tue, 23 Feb 2016 13:40:10 +0530
+Message-ID: <1456215010-14878-1-git-send-email-sudipm.mukherjee@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160222231301.GA17876@electric-eye.fr.zoreil.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Nits:
-> 
-> - the tp->TxDescArray test provides the required synchronization: see
->   rtl8169_{open/close} and their pm_runtime_{get / put}.
-> 
-> - ioaddr is not really needed : tp->mmio_addr appears only once and it does
->   not mess the 72..80 cols limit.
-> 
-> - even if the device can only be automatically runtime suspended some time
->   after a link down event, you may address davem's point regarding stats
->   reliability and move rtl8169_rx_missed + rtl8169_update_counters after
->   rtl8169_net_suspend.
+While building with W=1 we got the warning:
+net/netfilter/xt_osf.c:265:9: warning: variable 'loop_cont' set but not used
 
-I will submit the new patch according to your advice.
+The local variable loop_cont was only initialized and then assigned a
+value but was never used or checked after that.
+While removing the variable, the case of OSFOPT_TS was not removed so
+that it will serve as a reminder to us that we can do something in that
+particular case.
 
-Thanks.
+Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
+---
+ net/netfilter/xt_osf.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-Please consider the environment before printing this e-mail.
+diff --git a/net/netfilter/xt_osf.c b/net/netfilter/xt_osf.c
+index 4e3c3af..2455b69 100644
+--- a/net/netfilter/xt_osf.c
++++ b/net/netfilter/xt_osf.c
+@@ -262,7 +262,6 @@ xt_osf_match_packet(const struct sk_buff *skb, struct xt_action_param *p)
+ 			if (f->opt[optnum].kind == (*optp)) {
+ 				__u32 len = f->opt[optnum].length;
+ 				const __u8 *optend = optp + len;
+-				int loop_cont = 0;
+ 
+ 				fmatch = FMATCH_OK;
+ 
+@@ -275,7 +274,6 @@ xt_osf_match_packet(const struct sk_buff *skb, struct xt_action_param *p)
+ 					mss = ntohs((__force __be16)mss);
+ 					break;
+ 				case OSFOPT_TS:
+-					loop_cont = 1;
+ 					break;
+ 				}
+ 
+-- 
+1.9.1
