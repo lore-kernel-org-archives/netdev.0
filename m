@@ -1,37 +1,49 @@
-From: Anthony Wong <anthony.wong@ubuntu.com>
-Subject: [PATCH] rt2x00: add new rt2800usb device Buffalo WLI-UC-G450
-Date: Tue, 23 Feb 2016 23:09:22 +0800
-Message-ID: <1456240162-24118-1-git-send-email-anthony.wong@ubuntu.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>,
-	Helmut Schaa <helmut.schaa@googlemail.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org
+From: Alexandre TORGUE <alexandre.torgue@gmail.com>
+Subject: [PATCH v2 0/4] Add Ethernet support on STM32F429
+Date: Tue, 23 Feb 2016 16:10:40 +0100
+Message-ID: <1456240244-10275-1-git-send-email-alexandre.torgue@gmail.com>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add USB ID 0411:01fd for Buffalo WLI-UC-G450 wireless adapter,
-RT chipset 3593
+STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
+This series:
+ -enhance current stmmac driver to control it (code already
+available) and adds basic glue for STM32F429 chip.
+ -Enable basic Net config in kernel.
 
-Signed-off-by: Anthony Wong <anthony.wong@ubuntu.com>
-Cc: stable@vger.kernel.org
----
- drivers/net/wireless/ralink/rt2x00/rt2800usb.c | 1 +
- 1 file changed, 1 insertion(+)
+Note that DT patches are not present because STM32 pinctrl code is not
+yet avalaible.
 
-diff --git a/drivers/net/wireless/ralink/rt2x00/rt2800usb.c b/drivers/net/wireless/ralink/rt2x00/rt2800usb.c
-index bf9afbf..4b0bb6b 100644
---- a/drivers/net/wireless/ralink/rt2x00/rt2800usb.c
-+++ b/drivers/net/wireless/ralink/rt2x00/rt2800usb.c
-@@ -1026,6 +1026,7 @@ static struct usb_device_id rt2800usb_device_table[] = {
- 	{ USB_DEVICE(0x0411, 0x01a2) },
- 	{ USB_DEVICE(0x0411, 0x01ee) },
- 	{ USB_DEVICE(0x0411, 0x01a8) },
-+	{ USB_DEVICE(0x0411, 0x01fd) },
- 	/* Corega */
- 	{ USB_DEVICE(0x07aa, 0x002f) },
- 	{ USB_DEVICE(0x07aa, 0x003c) },
+Changes since v1:
+ -Fix Kbuild issue in Kconfig.
+ -Remove init/exit callbacks. Suspend/Resume and remove driver is no more
+driven in stmmac_pltfr but directly in dwmac-stm32 glue driver.
+ -Take into account Joachim review.
+
+Regards.
+
+Alexandre.
+
+Alexandre TORGUE (4):
+  net: ethernet: dwmac: add Ethernet glue logic for stm32 chip
+  Documentation: Bindings: Add STM32 DWMAC glue
+  net: ethernet: stmmac: add support of Synopsys 3.50a MAC IP
+  ARM: STM32: Enable Ethernet in stm32_defconfig
+
+ .../devicetree/bindings/net/stm32-dwmac.txt        |  41 ++++
+ arch/arm/configs/stm32_defconfig                   |   9 +
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |  12 ++
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c  | 208 +++++++++++++++++++++
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   1 +
+ 6 files changed, 272 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/stm32-dwmac.txt
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
+
 -- 
-2.5.0
+1.9.1
