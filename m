@@ -1,72 +1,57 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next v2 2/3] gianfar: Use skb_frag_t pointers inside xmit()
-Date: Tue, 23 Feb 2016 11:48:38 +0200
-Message-ID: <1456220919-31440-3-git-send-email-claudiu.manoil@freescale.com>
-References: <1456220919-31440-1-git-send-email-claudiu.manoil@freescale.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCHv2 3/4] ARM: tegra: use build-in device properties with rfkill_gpio
+Date: Tue, 23 Feb 2016 11:15:31 +0100
+Message-ID: <5438459.Mb6Ga2Xhyq@wuerfel>
+References: <1453712629-143317-1-git-send-email-heikki.krogerus@linux.intel.com> <1453797724.2759.4.camel@sipsolutions.net> <1455825889.2084.16.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0104.outbound.protection.outlook.com ([65.55.169.104]:26912
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751490AbcBWKKi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2016 05:10:38 -0500
-In-Reply-To: <1456220919-31440-1-git-send-email-claudiu.manoil@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
+	Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1455825889.2084.16.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+On Thursday 18 February 2016 21:04:49 Johannes Berg wrote:
+> On Tue, 2016-01-26 at 09:42 +0100, Johannes Berg wrote:
+> > On Mon, 2016-01-25 at 13:18 +0100, Thierry Reding wrote:
+> > >  
+> > > Johannes, I assume that you'll want to take this through your tree
+> > > because of the dependency? In that case:
+> > > 
+> > > Acked-by: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+> > 
+> > I can, but I don't really care - perhaps you'd rather take the entire
+> > series through your tree to get it into one place for Marc?
+> > 
+> > In which case, you have my
+> > 
+> > Acked-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+> > 
+> > for the other 3 patches.
+> > 
+> > Let me know which you prefer.
+> > 
+> Did these patches get applied anywhere? Otherwise I'm willing to pick
+> them up.
+> 
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index cb80dba8..7b16ce6 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -2322,6 +2322,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct txfcb *fcb = NULL;
- 	struct txbd8 *txbdp, *txbdp_start, *base, *txbdp_tstamp = NULL;
- 	u32 lstatus;
-+	skb_frag_t *frag;
- 	int i, rq = 0;
- 	int do_tstamp, do_csum, do_vlan;
- 	u32 bufaddr;
-@@ -2448,25 +2449,24 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		u32 lstatus_start = lstatus;
- 
- 		/* Place the fragment addresses and lengths into the TxBDs */
--		for (i = 0; i < nr_frags; i++) {
--			unsigned int frag_len;
-+		frag = &skb_shinfo(skb)->frags[0];
-+		for (i = 0; i < nr_frags; i++, frag++) {
-+			unsigned int size;
-+
- 			/* Point at the next BD, wrapping as needed */
- 			txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
- 
--			frag_len = skb_shinfo(skb)->frags[i].size;
-+			size = skb_frag_size(frag);
- 
--			lstatus = be32_to_cpu(txbdp->lstatus) | frag_len |
-+			lstatus = be32_to_cpu(txbdp->lstatus) | size |
- 				  BD_LFLAG(TXBD_READY);
- 
- 			/* Handle the last BD specially */
- 			if (i == nr_frags - 1)
- 				lstatus |= BD_LFLAG(TXBD_LAST | TXBD_INTERRUPT);
- 
--			bufaddr = skb_frag_dma_map(priv->dev,
--						   &skb_shinfo(skb)->frags[i],
--						   0,
--						   frag_len,
--						   DMA_TO_DEVICE);
-+			bufaddr = skb_frag_dma_map(priv->dev, frag, 0,
-+						   size, DMA_TO_DEVICE);
- 			if (unlikely(dma_mapping_error(priv->dev, bufaddr)))
- 				goto dma_map_err;
- 
--- 
-1.7.11.7
+Fine with me too:
+
+Acked-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+
+Just for my curiosity: what is the difference between a rfkill-gpio
+device and a gpio-keys device with a KEY_RFKILL code?
+
+arch/arm/boot/dts/bcm4708-netgear-r6250.dts and others seem to
+do the second approach in DT so they don't need to create the
+platform device.
+
+	Arnd
