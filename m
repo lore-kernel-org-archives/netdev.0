@@ -1,78 +1,103 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: Variable download speed
-Date: Tue, 23 Feb 2016 08:53:26 -0800
-Message-ID: <56CC8E86.7000102@hpe.com>
-References: <alpine.LNX.2.20.1602231223530.29937@localhost.localdomain>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 3/9] mlx4: Implement port type setting via
+ devlink interface
+Date: Tue, 23 Feb 2016 17:55:23 +0100
+Message-ID: <20160223165523.GO2140@nanopsycho.orion>
+References: <1456165924-14399-4-git-send-email-jiri@resnulli.us>
+ <56CC41C8.10802@stressinduktion.org>
+ <20160223122109.GD2140@nanopsycho.orion>
+ <56CC5E65.40809@stressinduktion.org>
+ <20160223142626.GF2140@nanopsycho.orion>
+ <56CC77BB.60601@stressinduktion.org>
+ <20160223153023.GJ2140@nanopsycho.orion>
+ <56CC815D.9070009@stressinduktion.org>
+ <20160223160458.GM2140@nanopsycho.orion>
+ <56CC8C93.1090207@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: sdrb@onet.eu, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, eugenia@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
+	jeffrey.t.kirsher@intel.com, brouer@redhat.com, ivecera@redhat.com,
+	rami.rosen@intel.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t1613g.houston.hp.com ([15.240.0.71]:53801 "EHLO
-	g9t1613g.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754440AbcBWQxe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 11:53:34 -0500
-Received: from g4t3428.houston.hp.com (g4t3428.houston.hp.com [15.201.208.56])
-	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by g9t1613g.houston.hp.com (Postfix) with ESMTPS id EBE4D62620
-	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 16:53:28 +0000 (UTC)
-In-Reply-To: <alpine.LNX.2.20.1602231223530.29937@localhost.localdomain>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:35803 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751469AbcBWQz1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 11:55:27 -0500
+Received: by mail-wm0-f50.google.com with SMTP id c200so230465071wme.0
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 08:55:26 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <56CC8C93.1090207@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/23/2016 03:24 AM, sdrb@onet.eu wrote:
-> Hi,
+Tue, Feb 23, 2016 at 05:45:07PM CET, hannes@stressinduktion.org wrote:
+>On 23.02.2016 17:04, Jiri Pirko wrote:
+>>Tue, Feb 23, 2016 at 04:57:17PM CET, hannes@stressinduktion.org wrote:
+>>>On 23.02.2016 16:30, Jiri Pirko wrote:
+>>>>Tue, Feb 23, 2016 at 04:16:11PM CET, hannes@stressinduktion.org wrote:
+>>>>
+>>>><snip>
+>>>>
+>>>>>>>1) is easily solvable, just drop the ifindex style attributes and always
+>>>>>>>force the user to enter the bus and bus-topology id.
+>>>>>>
+>>>>>>But why? Use can easily get that info and map it to devlink index. It
+>>>>>>aligns with nl80211 iface.
+>>>>>>
+>>>>>>Do you really want to do commands like:
+>>>>>>myhost:~$ dl dev show pci_0000:01:00.0
+>>>>>>?
+>>>>>
+>>>>>Yes, exactly I would. I would put them into a boot-up script based on my
+>>>>>system configuration and can be sure it will work the next boot, too, and
+>>>>>adapt them when I replace the hardware or do some configuration changes.
+>>>>>
+>>>>>I think sysadmins or scripts are the primary users of this interface not
+>>>>>kernel developers which switch their settings around all the time, no?
+>>>>
+>>>>I can easily add this to the userspace tool to accept "pci_0000:01:00.0"
+>>>>format and to map it internally to devlink index. No problem.
+>>>
+>>>I argue for this stable topology identifier to be the default. Especially if
+>>>you add device info before the actual module is loaded (this is during
+>>>initramfs, when udev cannot rename devlink names to stable ones), a user has
+>>>to deal with pre-devlink-ids before rename and after. Do you have plans how
+>>>to address that?
+>>
+>>You can still access devlink using pci_addr using dl. I don't see a
+>>problem.
 >
-> I've got a problem with network on one of my embedded boards.
-> I'm testing download speed of 256MB file from my PC to embedded board
-> through 1Gbit ethernet link using ftp.
+>I don't really see a reason why the devlink indexes/names exist inside the
+>kernel instead of a stable topology identifier. They confuse users and add
+>more unnecessary code to the kernel. Shells have environment variables for
+>that. ;) This is a low-level kernel setting tool IMHO.
 >
-> The problem is that sometimes I achieve 25MB/s and sometimes it is only
-> 14MB/s. There are also situations where the transfer speed starts at
-> 14MB/s and after a few seconds achieves 25MB/s.
-> I've caught the second case with tcpdump and I noticed that when the speed
-> is 14MB/s - the tcp window size is 534368 bytes and when the speed
-> achieved 25MB/s the tcp window size is 933888.
+>I just see the problem that users use the devlink* names and we get reports
+>because stuff breaks because they don't use the stable identifiers. That is
+>all.
 >
-> My question is: what causes such dynamic change in the window size (while
-> transferring data)?  Is it some kernel parameter wrong set or something
-> like this?
-> Do I have any influence on such dynamic change in tcp window size?
+
+you can have stable devlink name using udev. For pre-udev usage, you can
+use pci address directly. I don't like to use pci address for every
+dl command. I would like to have some more convenient name handle -
+devlink name.
 
 
-If an application using TCP does not make an explicit setsockopt() call 
-to set the SO_SNDBUF and/or SO_RCVBUF size, then the socket buffer and 
-TCP window size will "autotune" based on what the stack believes to be 
-the correct thing to do.  It will be bounded by the values in the 
-tcp_rmem and tcp_wmem sysctl settings:
+>>>Current initramfs for stable interface names uses EUI48 based mac addresses
+>>>most of the time and udev runs then after the pivot_root.
+>>>
+>>>The devlink names can easily be aliases in user space.
+>>
+>>I don't want to store them anywhere. I just use "dl" tool and pass the
+>>name there.
+>
+>Sorry?
 
-
-net.ipv4.tcp_rmem = 4096	87380	6291456
-net.ipv4.tcp_wmem = 4096	16384	4194304
-
-Those are min, initial, max, units of octets (bytes).
-
-If on the other hand an application makes an explicit setsockopt() call, 
-  that will be the size of the socket buffer, though it will be 
-"clipped" by the values of:
-
-net.core.rmem_max = 4194304
-net.core.wmem_max = 4194304
-
-Those sysctls will default to different values based on how much memory 
-is in the system.  And I think in the case of those last two, I have 
-tweaked them myself away from their default values.
-
-You might also look at the CPU utilization of all the CPUs of your 
-embedded board, as well as the link-level statistics for your interface, 
-and the netstat statistics.  You would be looking for saturation, and 
-"excessive" drop rates.  I would also suggest testing network 
-performance with something other than FTP.  While one can try to craft 
-things so there is no storage I/O of note, it would still be better to 
-use a network-specific tool such as netperf or iperf.  Minimize the 
-number of variables.
-
-happy benchmarking,
-
-rick jones
+you said - "The devlink names can easily be aliases in user space." -
+where do you want to store them?
