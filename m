@@ -1,85 +1,37 @@
-From: Josh Poimboeuf <jpoimboe@redhat.com>
-Subject: Re: [PATCH 00/33] Compile-time stack metadata validation
-Date: Tue, 23 Feb 2016 09:07:55 -0600
-Message-ID: <20160223150755.GC15858@treble.redhat.com>
-References: <cover.1453405861.git.jpoimboe@redhat.com>
- <20160223081406.GA606@gmail.com>
- <20160223142717.GA3607@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
-	Michal Marek <mmarek@suse.cz>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Andy Lutomirski <luto@kernel.org>,
-	Borislav Petkov <bp@alien8.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	Pedro Alves <palves@redhat.com>,
-	Namhyung Kim <namhyung@gmail.com>,
-	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
-	Chris J Arges <chris.j.arges@canonical.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jiri Slaby <jslaby@suse.cz>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Borislav Petkov <bp@suse.de>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Chris W
-To: Arnaldo Carvalho de Melo <acme@kernel.org>
+From: Anthony Wong <anthony.wong@ubuntu.com>
+Subject: [PATCH] rt2x00: add new rt2800usb device Buffalo WLI-UC-G450
+Date: Tue, 23 Feb 2016 23:09:22 +0800
+Message-ID: <1456240162-24118-1-git-send-email-anthony.wong@ubuntu.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org
+To: Stanislaw Gruszka <sgruszka@redhat.com>,
+	Helmut Schaa <helmut.schaa@googlemail.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160223142717.GA3607@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 23, 2016 at 11:27:17AM -0300, Arnaldo Carvalho de Melo wrote:
-> Em Tue, Feb 23, 2016 at 09:14:06AM +0100, Ingo Molnar escreveu:
-> > The fact that 'stacktool' already checks about assembly details like __ex_table[] 
-> > shows that my review feedback early iterations of this series, that the 
-> > 'stacktool' name is too specific, was correct.
-> > 
-> > We really need to rename it before it gets upstream and the situation gets worse. 
-> > __ex_table[] has obviously nothing to do with the 'stack layout' of binaries.
-> > 
-> > Another suitable name would be 'asmtool' or 'objtool'. For example the following 
-> > would naturally express what it does:
-> > 
-> >   objtool check kernel/built-in.o
-> > 
-> > the name expresses that the tool checks object files, independently of the 
-> > existing toolchain. Its primary purpose right now is the checking of stack layout 
-> > details, but the tool is not limited to that at all.
-> 
-> Removing 'tool' from the tool name would be nice too :-) Making it
-> easily googlable would be good too, lotsa people complain about 'perf'
-> being too vague, see for a quick laugher:
-> 
-> http://www.brendangregg.com/perf.html
-> 
-> ``Searching for just "perf" finds sites on the police, petroleum, weed
-> control, and a T-shirt. This is not an official perf page, for either
-> perf_events or the T-shirt.''
-> 
-> The T-shirt: http://www.brendangregg.com/perf_events/omg-so-perf.jpg
+Add USB ID 0411:01fd for Buffalo WLI-UC-G450 wireless adapter,
+RT chipset 3593
 
-Yeah, 'tool' in the name is kind of silly, but the above type of
-situation is why I prefer 'objtool' over 'obj'.
+Signed-off-by: Anthony Wong <anthony.wong@ubuntu.com>
+Cc: stable@vger.kernel.org
+---
+ drivers/net/wireless/ralink/rt2x00/rt2800usb.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Though I have to admit I like the idea of making a t-shirt for it ;-)
-
-> Maybe we should ask Linus to come with some other nice, short,
-> searchable, funny name like 'git'?
-> 
-> 'chob' as in 'check object'?
-
-I think 'objtool' is searchable enough.  And I also like the fact that
-its name at least gives you an idea of what it does (and eventually it
-will do more than just "checking").
-
+diff --git a/drivers/net/wireless/ralink/rt2x00/rt2800usb.c b/drivers/net/wireless/ralink/rt2x00/rt2800usb.c
+index bf9afbf..4b0bb6b 100644
+--- a/drivers/net/wireless/ralink/rt2x00/rt2800usb.c
++++ b/drivers/net/wireless/ralink/rt2x00/rt2800usb.c
+@@ -1026,6 +1026,7 @@ static struct usb_device_id rt2800usb_device_table[] = {
+ 	{ USB_DEVICE(0x0411, 0x01a2) },
+ 	{ USB_DEVICE(0x0411, 0x01ee) },
+ 	{ USB_DEVICE(0x0411, 0x01a8) },
++	{ USB_DEVICE(0x0411, 0x01fd) },
+ 	/* Corega */
+ 	{ USB_DEVICE(0x07aa, 0x002f) },
+ 	{ USB_DEVICE(0x07aa, 0x003c) },
 -- 
-Josh
+2.5.0
