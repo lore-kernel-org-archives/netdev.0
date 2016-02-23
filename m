@@ -1,40 +1,57 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 0/3] net: dsa: add port VLAN dump operation
-Date: Tue, 23 Feb 2016 12:13:53 -0500
-Message-ID: <1456247636-4706-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable outer Tx checksum by
+ default
+Date: Tue, 23 Feb 2016 09:20:25 -0800
+Message-ID: <56CC94D9.4030308@hpe.com>
+References: <20160219191806.15687.37621.stgit@localhost.localdomain>
+ <CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
+ <CAMt9YRrOxCmJbrftixdJTXZcySZ_mARqCT6C=4-Nqv_ZJKnTwA@mail.gmail.com>
+ <CAEh+42hStEh=5z8KBic0hmEZNti4tjahySjjv7kU3YUes_R4Zg@mail.gmail.com>
+ <CALx6S351KYGFFLi08cX=DFCucZtGJLoMJGvFAW1_H-cRXZ0rQg@mail.gmail.com>
+ <CAEh+42hEVQOFaFk7BW=wZ-gb9HCfYqbr7Q600gbm1q1Oz+yZcA@mail.gmail.com>
+ <CALx6S36EyzjWKi_iK_uAVcCceFnZe3QmLcw7BBejKuB79Uo7PA@mail.gmail.com>
+ <CAEh+42hzkW6i+M52iDAyFtCBfxcJJmsZOiNdqd-DqYrN5isMBw@mail.gmail.com>
+ <56CC7848.2000704@solarflare.com>
+ <CALx6S34Pt++Kg=cp+v+gGFQGEDy=eNHtFvtBwd1z-1d2ixOn7Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Gross <jesse@kernel.org>, Alex Duyck <aduyck@mirantis.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Tom Herbert <tom@herbertland.com>,
+	Edward Cree <ecree@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t3426.houston.hp.com ([15.201.208.54]:35760 "EHLO
+	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753339AbcBWRU2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 12:20:28 -0500
+In-Reply-To: <CALx6S34Pt++Kg=cp+v+gGFQGEDy=eNHtFvtBwd1z-1d2ixOn7Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The VLAN GetNext approach is specific to some switches and thus hard to
-implement for others. This patchset replaces it with a simpler port VLAN dump
-operation, similar to the corresponding FDB operation.
+On 02/23/2016 08:47 AM, Tom Herbert wrote:
+> Right, GRO should probably not coalesce packets with non-zero IP
+> identifiers due to the loss of information. Besides that, RFC6848 says
+> the IP identifier should only be set for fragmentation anyway so there
+> shouldn't be any issue and really no need for HW TSO (or LRO) to
+> support that.
 
-The mv88e6xxx driver is the only one currently affected by the change.
-The documentation is updated accordingly.
+You sure that is RFC 6848 "Specifying Civic Address Extensions in the 
+Presence Information Data Format Location Object (PIDF-LO)" ?
 
-Note: this patchset uses http://www.spinics.net/lists/kernel/msg2186705.html
+In whichever RFC that may be, is it a SHOULD or a MUST, and just how 
+many "other" stacks might be setting a non-zero IP ID on fragments with 
+DF set?
 
-Vivien Didelot (3):
-  net: dsa: add port_vlan_dump routine
-  net: dsa: mv88e6xxx: implement port_vlan_dump
-  net: dsa: drop vlan_getnext
+rick jones
 
- Documentation/networking/dsa/dsa.txt |  11 +---
- drivers/net/dsa/mv88e6171.c          |   3 +-
- drivers/net/dsa/mv88e6352.c          |   3 +-
- drivers/net/dsa/mv88e6xxx.c          | 110 ++++++++++++++++-------------------
- drivers/net/dsa/mv88e6xxx.h          |   6 +-
- include/net/dsa.h                    |   6 +-
- net/dsa/slave.c                      |  36 +-----------
- 7 files changed, 65 insertions(+), 110 deletions(-)
-
--- 
-2.7.1
+> We need to do increment IP identifier in UFO, but I only see one
+> device (neterion) that advertises NETIF_F_UFO-- honestly, removing
+> that feature might be another good simplification!
+>
+> Tom
+>
+>> --
+>> -Ed
