@@ -1,126 +1,69 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] bnx2x: add a separate GENEVE Kconfig symbol
-Date: Tue, 23 Feb 2016 11:36:02 +0100
-Message-ID: <1456223774-1383513-1-git-send-email-arnd@arndb.de>
-Cc: linux-arm-kernel@lists.infradead.org,
-	Arnd Bergmann <arnd@arndb.de>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ariel Elior <ariel.elior@qlogic.com>
+From: Marc Dietrich <marvin24@gmx.de>
+Subject: Re: [PATCHv2 3/4] ARM: tegra: use build-in device properties with rfkill_gpio
+Date: Tue, 23 Feb 2016 11:38:52 +0100
+Message-ID: <4048115.S0MS1KQXCA@fb07-iapwap2>
+References: <1453712629-143317-1-git-send-email-heikki.krogerus@linux.intel.com> <5438459.Mb6Ga2Xhyq@wuerfel> <3086257.esvHq8Yk9N@wuerfel>
+Mime-Version: 1.0
+Content-Type: multipart/signed; boundary="nextPart28007355.n5LOP7PcBk"; micalg="pgp-sha256"; protocol="application/pgp-signature"
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Thierry Reding <thierry.reding@gmail.com>,
+	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-tegra@vger.kernel.org,
+	Alexandre Courbot <gnurou@gmail.com>,
+	Stephen Warren <swarren@wwwdotorg.org>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3086257.esvHq8Yk9N@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When CONFIG_GENEVE is built as a loadable module, and bnx2x is built-in,
-we get this link error:
+--nextPart28007355.n5LOP7PcBk
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
 
-drivers/net/built-in.o: In function `bnx2x_open':
-:(.text+0x33322): undefined reference to `geneve_get_rx_port'
-drivers/net/built-in.o: In function `bnx2x_sp_rtnl_task':
-:(.text+0x3e632): undefined reference to `geneve_get_rx_port'
+Am Dienstag, 23. Februar 2016, 11:31:40 CET schrieb Arnd Bergmann:
+> On Tuesday 23 February 2016 11:15:31 Arnd Bergmann wrote:
+> > On Thursday 18 February 2016 21:04:49 Johannes Berg wrote:
+> > > On Tue, 2016-01-26 at 09:42 +0100, Johannes Berg wrote:
+> > Just for my curiosity: what is the difference between a rfkill-gpio
+> > device and a gpio-keys device with a KEY_RFKILL code?
+> > 
+> > arch/arm/boot/dts/bcm4708-netgear-r6250.dts and others seem to
+> > do the second approach in DT so they don't need to create the
+> > platform device.
+> 
+> I found the answer now (after discussing on IRC): just
+> for reference: KEY_RFKILL is for sending the event to the kernel
+> when a user presses the gpio butting, this rfkill-gpio turns
+> the devices on or off when after an RFKILL event is received.
 
-This avoids the problem by adding a separate Kconfig symbol named
-CONFIG_BNX2X_GENEVE that is only enabled when the code is
-reachable from the driver.
+yes, paz00 has no hw key. rfkill is triggered via software (rfkill) only. The 
+problem in the past was how to describe such a device in the device tree. 
 
-This is the same trick that BNX2X does for VXLAN support, and
-is similar to how I40E handles both.
+Strictly speaking, there is no rfkill device hardware (just an interface). The 
+only hardware that exists is in our case is connected to a hard wired usb bus 
+(wifi dongle), which makes it complicated to attach a DT property or subdevice 
+to it. And a standalone device-tree entry for a non hardware device was 
+rejected in the past.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 883ce97d25b0 ("bnx2x: Add Geneve inner-RSS support")
----
- drivers/net/ethernet/broadcom/Kconfig            | 10 ++++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 14 +++++++-------
- 2 files changed, 17 insertions(+), 7 deletions(-)
+Marc
 
-diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
-index 19f7cd02e085..18042c2460bd 100644
---- a/drivers/net/ethernet/broadcom/Kconfig
-+++ b/drivers/net/ethernet/broadcom/Kconfig
-@@ -149,6 +149,16 @@ config BNX2X_VXLAN
- 	  Say Y here if you want to enable hardware offload support for
- 	  Virtual eXtensible Local Area Network (VXLAN) in the driver.
- 
-+config BNX2X_GENEVE
-+	bool "Generic Network Virtualization Encapsulation (GENEVE) support"
-+	depends on BNX2X && GENEVE && !(BNX2X=y && GENEVE=m)
-+	---help---
-+          This allows one to create GENEVE virtual interfaces that provide
-+          Layer 2 Networks over Layer 3 Networks. GENEVE is often used
-+          to tunnel virtual network infrastructure in virtualized environments.
-+	  Say Y here if you want to enable hardware offload support for
-+	  Generic Network Virtualization Encapsulation (GENEVE) in the driver.
-+
- config BGMAC
- 	tristate "BCMA bus GBit core support"
- 	depends on BCMA && BCMA_HOST_SOC
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 81fc51c4ec2b..5c95d0c3b076 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -59,7 +59,7 @@
- #include <linux/semaphore.h>
- #include <linux/stringify.h>
- #include <linux/vmalloc.h>
--#if IS_ENABLED(CONFIG_GENEVE)
-+#if IS_ENABLED(CONFIG_BNX2X_GENEVE)
- #include <net/geneve.h>
- #endif
- #include "bnx2x.h"
-@@ -10078,7 +10078,7 @@ static void bnx2x_parity_recover(struct bnx2x *bp)
- 	}
- }
- 
--#if defined(CONFIG_BNX2X_VXLAN) || IS_ENABLED(CONFIG_GENEVE)
-+#if defined(CONFIG_BNX2X_VXLAN) || IS_ENABLED(CONFIG_BNX2X_GENEVE)
- static int bnx2x_udp_port_update(struct bnx2x *bp)
- {
- 	struct bnx2x_func_switch_update_params *switch_update_params;
-@@ -10201,7 +10201,7 @@ static void bnx2x_del_vxlan_port(struct net_device *netdev,
- }
- #endif
- 
--#if IS_ENABLED(CONFIG_GENEVE)
-+#if IS_ENABLED(CONFIG_BNX2X_GENEVE)
- static void bnx2x_add_geneve_port(struct net_device *netdev,
- 				  sa_family_t sa_family, __be16 port)
- {
-@@ -10327,7 +10327,7 @@ sp_rtnl_not_reset:
- 			       &bp->sp_rtnl_state))
- 		bnx2x_update_mng_version(bp);
- 
--#if defined(CONFIG_BNX2X_VXLAN) || IS_ENABLED(CONFIG_GENEVE)
-+#if defined(CONFIG_BNX2X_VXLAN) || IS_ENABLED(CONFIG_BNX2X_GENEVE)
- 	if (test_and_clear_bit(BNX2X_SP_RTNL_CHANGE_UDP_PORT,
- 			       &bp->sp_rtnl_state)) {
- 		if (bnx2x_udp_port_update(bp)) {
-@@ -10344,7 +10344,7 @@ sp_rtnl_not_reset:
- 			if (!bp->udp_tunnel_ports[BNX2X_UDP_PORT_VXLAN].count)
- 				vxlan_get_rx_port(bp->dev);
- #endif
--#if IS_ENABLED(CONFIG_GENEVE)
-+#if IS_ENABLED(CONFIG_BNX2X_GENEVE)
- 			if (!bp->udp_tunnel_ports[BNX2X_UDP_PORT_GENEVE].count)
- 				geneve_get_rx_port(bp->dev);
- #endif
-@@ -12557,7 +12557,7 @@ static int bnx2x_open(struct net_device *dev)
- 	if (IS_PF(bp))
- 		vxlan_get_rx_port(dev);
- #endif
--#if IS_ENABLED(CONFIG_GENEVE)
-+#if IS_ENABLED(CONFIG_BNX2X_GENEVE)
- 	if (IS_PF(bp))
- 		geneve_get_rx_port(dev);
- #endif
-@@ -13078,7 +13078,7 @@ static const struct net_device_ops bnx2x_netdev_ops = {
- 	.ndo_add_vxlan_port	= bnx2x_add_vxlan_port,
- 	.ndo_del_vxlan_port	= bnx2x_del_vxlan_port,
- #endif
--#if IS_ENABLED(CONFIG_GENEVE)
-+#if IS_ENABLED(CONFIG_BNX2X_GENEVE)
- 	.ndo_add_geneve_port	= bnx2x_add_geneve_port,
- 	.ndo_del_geneve_port	= bnx2x_del_geneve_port,
- #endif
--- 
-2.7.0
+--nextPart28007355.n5LOP7PcBk
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAABCAAGBQJWzDa8AAoJEKyeR39HFBtoNyUIAJbJvrPvhNYucVvuX7+lVt2J
+3yn/jFVWk1++pJDqn2pbcVxrnRZ1X9/Y8rwTnFdHBeTppQ71fwpPFs8aJxemKxPG
+NRTVslnJzdT8sEKgdAa4Xlw4f3sVOOYhQOeJVT1yqXyn3N3HRKEd39PwnsePeZFE
+h4/EyrAinnN8wOcd5eUkDyGh6q8PRceYfiD5ApH6InGooi0gqY7IsQqnOZV6VZWu
+TmZEFW8QSbrwxBTJHMrwnelagvAvLXztfuoO44IEbdo3XbH9gC2vau7PBbMF2WhB
+E1ZsZ9FIO3amiyrV6hTcb8R0RnjNeqebXauLEhmqeS1RFtPOedMUpJLgh6VKIlQ=
+=cqhn
+-----END PGP SIGNATURE-----
+
+--nextPart28007355.n5LOP7PcBk--
