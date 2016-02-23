@@ -1,92 +1,69 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [patch net-next v2 1/9] Introduce devlink infrastructure
-Date: Tue, 23 Feb 2016 16:19:48 -0500
-Message-ID: <20160223211948.GT38500@redhat.com>
-References: <1456242694-29463-1-git-send-email-jiri@resnulli.us>
- <1456242694-29463-2-git-send-email-jiri@resnulli.us>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [net-next PATCH v2 1/5] introduce IFE action
+Date: Tue, 23 Feb 2016 13:31:28 -0800
+Message-ID: <CAM_iQpUbWeb3-w4g8t1CgpYXqmtEBb5Tuqvz_iyATv-7g28Fog@mail.gmail.com>
+References: <1456231760-2513-1-git-send-email-jhs@emojatatu.com>
+	<1456231760-2513-2-git-send-email-jhs@emojatatu.com>
+	<56CC5F73.9080201@iogearbox.net>
+	<56CC6F3E.6000106@mojatatu.com>
+	<56CC84F2.8030909@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, eugenia@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
-	jeffrey.t.kirsher@intel.com, brouer@redhat.com, ivecera@redhat.com,
-	rami.rosen@intel.com, hannes@stressinduktion.org,
-	gospo@cumulusnetworks.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>, dj@verizon.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49152 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754895AbcBWVTv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2016 16:19:51 -0500
-Content-Disposition: inline
-In-Reply-To: <1456242694-29463-2-git-send-email-jiri@resnulli.us>
+Received: from mail-yw0-f176.google.com ([209.85.161.176]:35815 "EHLO
+	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754895AbcBWVb3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 16:31:29 -0500
+Received: by mail-yw0-f176.google.com with SMTP id g127so158562716ywf.2
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 13:31:29 -0800 (PST)
+In-Reply-To: <56CC84F2.8030909@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 23, 2016 at 04:51:26PM +0100, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Introduce devlink infrastructure for drivers to register and expose to
-> userspace via generic Netlink interface.
-> 
-> There are two basic objects defined:
-> devlink - one instance for every "parent device", for example switch ASIC
-> devlink port - one instance for every physical port of the device.
-> 
-> This initial portion implements basic get/dump of objects to userspace.
-> Also, port splitter and port type setting is implemented.
-...
-> +/**
-> + *	devlink_alloc - Allocate new devlink instance resources
-> + *
-> + *	@ops: ops
-> + *	@priv_size: size of user private data
-> + *
-> + *	Allocate new devlink instance resources, including devlink index
-> + *	and name.
-> + */
-> +struct devlink *devlink_alloc(const struct devlink_ops *ops, size_t priv_size)
-> +{
-> +	static atomic_t dev_counter = ATOMIC_INIT(0);
-> +	struct devlink *devlink;
-> +
-> +	devlink = kzalloc(sizeof(*devlink) + priv_size, GFP_KERNEL);
-> +	if (!devlink)
-> +		return NULL;
-> +	devlink->ops = ops;
-> +	devlink_net_set(devlink, &init_net);
-> +
-> +different_name:
-> +	devlink->index = atomic_inc_return(&dev_counter);
-> +	if (devlink->index < 0) {
-> +		/* wrapped */
-> +		atomic_dec(&dev_counter);
-> +		kfree(devlink);
-> +		return NULL;
-> +	}
-> +	/* atomic_inc_return makes it start at 1, make it start at 0 */
-> +	devlink->index--;
-> +
-> +	dev_set_name(&devlink->dev, DEVLINK_GENL_NAME "%d", devlink->index);
-> +	if (devlink_name_exists(devlink_net(devlink), devlink_name(devlink)))
-> +		goto different_name;
-> +
-> +	INIT_LIST_HEAD(&devlink->port_list);
-> +	device_initialize(&devlink->dev);
-> +	devlink->dev.class = &devlink_class;
-> +	devlink->dev.platform_data = devlink;
-> +	return devlink;
-> +}
-> +EXPORT_SYMBOL_GPL(devlink_alloc);
+On Tue, Feb 23, 2016 at 8:12 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 02/23/2016 03:39 PM, Jamal Hadi Salim wrote:
+>>
+>> On 16-02-23 08:32 AM, Daniel Borkmann wrote:
+>>>
+>>> On 02/23/2016 01:49 PM, Jamal Hadi Salim wrote:
+>>>>
+>>>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>>>>
+>>>> This action allows for a sending side to encapsulate arbitrary metadata
+>>>> which is decapsulated by the receiving end.
+>>>> The sender runs in encoding mode and the receiver in decode mode.
+>>>> Both sender and receiver must specify the same ethertype.
+>>>> At some point we hope to have a registered ethertype and we'll
+>>>> then provide a default so the user doesnt have to specify it.
+>>>> For now we enforce the user specify it.
+>>>>
+>>>> Lets show example usage where we encode icmp from a sender towards
+>>>> a receiver with an skbmark of 17; both sender and receiver use
+>>>> ethertype of 0xdead to interop.
+>>>
+>>>
+>>> On a conceptual level, as this is an L2 encap with TLVs, why not having
+>>> a normal device driver for this like we have in other cases that would
+>>> encode/decode the meta data itself?
+>>
+>>
+>> netdevs dont scale for large number of policies. See why ipsec which
+>> at one point was implemented using a netdev and why xfrm eventually
+>> was chosen as the way forward. Or look at the recent lwt
+>> effort.
+>
+>
+> Sure, I'm just saying that it could conceptionally be similar to the
+> collect metadata idea just on L2 in your case. The encoding/decoding
+> and transport of the information is actually not overly tc specific
+> at least from the code that's shown so far, just a thought.
+>
 
-The increment then decrement bit feels... Clunky and a little confusing.
-Why not just atomic_read(&dev_counter) before different_name:, then an
-atomic_inc_return(&dev_counter) under the if clause before the goto, and
-eliminate the devlink->index-- bit?
-
--- 
-Jarod Wilson
-jarod@redhat.com
+TC offers more flexibility than netdev, but on the other hand, TC
+actions sit too deep in TC, you know, netdev -> qdisc -> filter -> action...
