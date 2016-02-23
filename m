@@ -1,169 +1,53 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [net-next PATCH v2 2/5] Support to encoding decoding skb mark on IFE action
-Date: Tue, 23 Feb 2016 07:49:17 -0500
-Message-ID: <1456231760-2513-3-git-send-email-jhs@emojatatu.com>
-References: <1456231760-2513-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-	xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
-	john.fastabend@gmail.com, dj@verizon.com,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next 0/5] bridge/ovs: avoid skb head copy on frame forwarding
+Date: Tue, 23 Feb 2016 13:53:45 +0100
+Message-ID: <cover.1456163137.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Flavio Leitner <fbl@sysclose.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:33957 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751785AbcBWMtg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 07:49:36 -0500
-Received: by mail-ig0-f173.google.com with SMTP id g6so110365331igt.1
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 04:49:36 -0800 (PST)
-In-Reply-To: <1456231760-2513-1-git-send-email-jhs@emojatatu.com>
+Received: from mx1.redhat.com ([209.132.183.28]:50841 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751495AbcBWMyM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Feb 2016 07:54:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+Currently, while when an OVS or Linux bridge is used to forward frames towards
+some tunnel device, a skb_head_copy() may occur if the ingress device do not
+provide enough headroom for the tx encapsulation.
 
-Example usage:
-Set the skb using skbedit then allow it to be encoded
+This patch series tries to address the issue implementing a new ndo operation to
+allow the master device to control the headroom used when allocating the skb on
+frame reception.
 
-sudo tc qdisc add dev $ETH root handle 1: prio
-sudo tc filter add dev $ETH parent 1: protocol ip prio 10 \
-u32 match ip protocol 1 0xff flowid 1:2 \
-action skbedit mark 17 \
-action ife encode \
-allow mark \
-dst 02:15:15:15:15:15
+Said operation is used by the Linux bridge to notify the bridged ports of
+needed_headroom changes, and similar bookkeeping and behaviour is also added to
+openvswitch, on a per datapath basis.
 
-Note: You dont need the skbedit action if you are already encoding the
-skb mark earlier. A zero skb mark will not be allowed
+Finally, the operation is implemented for veth and tun device, which give
+performance improvement in the 6-12% range when forwarding frames from said
+devices towards a vxlan tunnel.
 
-Alternative hard code static mark of 0x12 every time the filter matches
+Paolo Abeni (5):
+  netdev: introduce ndo_set_rx_headroom
+  bridge: notify ensabled devices of headroom changes
+  ovs: propagate per dp max headroom to all vports
+  net/tun: implement ndo_set_rx_headroom
+  veth: implement ndo_set_rx_headroom
 
-sudo $TC filter add dev $ETH parent 1: protocol ip prio 10 \
-u32 match ip protocol 1 0xff flowid 1:2 \
-action ife encode \
-type 0xDEAD \
-use mark 0x12 \
-dst 02:15:15:15:15:15
+ drivers/net/tun.c                    | 16 +++++++++++-
+ drivers/net/veth.c                   | 26 +++++++++++++++++++
+ include/linux/netdevice.h            | 20 +++++++++++++++
+ net/bridge/br_if.c                   | 36 +++++++++++++++++++++++++--
+ net/openvswitch/datapath.c           | 48 ++++++++++++++++++++++++++++++++++++
+ net/openvswitch/datapath.h           |  4 +++
+ net/openvswitch/vport-internal_dev.c | 10 +++++++-
+ 7 files changed, 156 insertions(+), 4 deletions(-)
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- net/sched/Kconfig         |  5 +++
- net/sched/Makefile        |  1 +
- net/sched/act_meta_mark.c | 79 +++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 85 insertions(+)
- create mode 100644 net/sched/act_meta_mark.c
-
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 4d48ef5..85854c0 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -751,6 +751,11 @@ config NET_ACT_IFE
- 	  To compile this code as a module, choose M here: the
- 	  module will be called act_ife.
- 
-+config NET_IFE_SKBMARK
-+        tristate "Support to encoding decoding skb mark on IFE action"
-+        depends on NET_ACT_IFE
-+        ---help---
-+
- config NET_CLS_IND
- 	bool "Incoming device classification"
- 	depends on NET_CLS_U32 || NET_CLS_FW
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 3d17667..3f7a182 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -20,6 +20,7 @@ obj-$(CONFIG_NET_ACT_VLAN)	+= act_vlan.o
- obj-$(CONFIG_NET_ACT_BPF)	+= act_bpf.o
- obj-$(CONFIG_NET_ACT_CONNMARK)	+= act_connmark.o
- obj-$(CONFIG_NET_ACT_IFE)	+= act_ife.o
-+obj-$(CONFIG_NET_IFE_SKBMARK)	+= act_meta_mark.o
- obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
- obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
- obj-$(CONFIG_NET_SCH_HTB)	+= sch_htb.o
-diff --git a/net/sched/act_meta_mark.c b/net/sched/act_meta_mark.c
-new file mode 100644
-index 0000000..20e7ace
---- /dev/null
-+++ b/net/sched/act_meta_mark.c
-@@ -0,0 +1,79 @@
-+/*
-+ * net/sched/act_meta_mark.c IFE skb->mark metadata module
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * copyright 	Jamal Hadi Salim (2015)
-+ *
-+*/
-+
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <net/netlink.h>
-+#include <net/pkt_sched.h>
-+#include <uapi/linux/tc_act/tc_ife.h>
-+#include <net/tc_act/tc_ife.h>
-+#include <linux/rtnetlink.h>
-+
-+static int skbmark_encode(struct sk_buff *skb, void *skbdata,
-+			  struct tcf_meta_info *e)
-+{
-+	u32 ifemark = skb->mark;
-+
-+	return encode_meta_u32(ifemark, skbdata, e);
-+}
-+
-+static int skbmark_decode(struct sk_buff *skb, void *data, u16 len)
-+{
-+	u32 ifemark = *(u32 *) data;
-+
-+	skb->mark = ntohl(ifemark);
-+	return 0;
-+}
-+
-+static int skbmark_check(struct sk_buff *skb, struct tcf_meta_info *e)
-+{
-+	return check_meta_u32(skb->mark, e);
-+}
-+
-+static struct tcf_meta_ops ife_skbmark_ops = {
-+	.metaid = IFE_META_SKBMARK,
-+	.metatype = NLA_U32,
-+	.name = "skbmark",
-+	.synopsis = "skb mark 32 bit metadata",
-+	.check_presence = skbmark_check,
-+	.encode = skbmark_encode,
-+	.decode = skbmark_decode,
-+	.get = get_meta_u32,
-+	.alloc = alloc_meta_u32,
-+	.release = release_meta_gen,
-+	.validate = validate_meta_u32,
-+	.owner = THIS_MODULE,
-+};
-+
-+static int __init ifemark_init_module(void)
-+{
-+	return register_ife_op(&ife_skbmark_ops);
-+}
-+
-+static void __exit ifemark_cleanup_module(void)
-+{
-+	unregister_ife_op(&ife_skbmark_ops);
-+}
-+
-+module_init(ifemark_init_module);
-+module_exit(ifemark_cleanup_module);
-+
-+MODULE_AUTHOR("Jamal Hadi Salim(2015)");
-+MODULE_DESCRIPTION("Inter-FE skb mark metadata module");
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_IFE_META(IFE_META_SKBMARK);
 -- 
-1.9.1
+1.8.3.1
