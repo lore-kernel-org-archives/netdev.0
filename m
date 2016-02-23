@@ -1,88 +1,82 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 3/9] mlx4: Implement port type setting via
- devlink interface
-Date: Tue, 23 Feb 2016 17:04:58 +0100
-Message-ID: <20160223160458.GM2140@nanopsycho.orion>
-References: <1456165924-14399-1-git-send-email-jiri@resnulli.us>
- <1456165924-14399-4-git-send-email-jiri@resnulli.us>
- <56CC41C8.10802@stressinduktion.org>
- <20160223122109.GD2140@nanopsycho.orion>
- <56CC5E65.40809@stressinduktion.org>
- <20160223142626.GF2140@nanopsycho.orion>
- <56CC77BB.60601@stressinduktion.org>
- <20160223153023.GJ2140@nanopsycho.orion>
- <56CC815D.9070009@stressinduktion.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next PATCH v2 1/5] introduce IFE action
+Date: Tue, 23 Feb 2016 17:12:34 +0100
+Message-ID: <56CC84F2.8030909@iogearbox.net>
+References: <1456231760-2513-1-git-send-email-jhs@emojatatu.com> <1456231760-2513-2-git-send-email-jhs@emojatatu.com> <56CC5F73.9080201@iogearbox.net> <56CC6F3E.6000106@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, eugenia@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
-	jeffrey.t.kirsher@intel.com, brouer@redhat.com, ivecera@redhat.com,
-	rami.rosen@intel.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
+	dj@verizon.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:32814 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752374AbcBWQFB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 11:05:01 -0500
-Received: by mail-wm0-f46.google.com with SMTP id g62so207611489wme.0
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 08:05:01 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <56CC815D.9070009@stressinduktion.org>
+Received: from www62.your-server.de ([213.133.104.62]:38459 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753348AbcBWQMj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 11:12:39 -0500
+In-Reply-To: <56CC6F3E.6000106@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Feb 23, 2016 at 04:57:17PM CET, hannes@stressinduktion.org wrote:
->On 23.02.2016 16:30, Jiri Pirko wrote:
->>Tue, Feb 23, 2016 at 04:16:11PM CET, hannes@stressinduktion.org wrote:
->>
->><snip>
->>
->>>>>1) is easily solvable, just drop the ifindex style attributes and always
->>>>>force the user to enter the bus and bus-topology id.
->>>>
->>>>But why? Use can easily get that info and map it to devlink index. It
->>>>aligns with nl80211 iface.
->>>>
->>>>Do you really want to do commands like:
->>>>myhost:~$ dl dev show pci_0000:01:00.0
->>>>?
+On 02/23/2016 03:39 PM, Jamal Hadi Salim wrote:
+> On 16-02-23 08:32 AM, Daniel Borkmann wrote:
+>> On 02/23/2016 01:49 PM, Jamal Hadi Salim wrote:
+>>> From: Jamal Hadi Salim <jhs@mojatatu.com>
 >>>
->>>Yes, exactly I would. I would put them into a boot-up script based on my
->>>system configuration and can be sure it will work the next boot, too, and
->>>adapt them when I replace the hardware or do some configuration changes.
+>>> This action allows for a sending side to encapsulate arbitrary metadata
+>>> which is decapsulated by the receiving end.
+>>> The sender runs in encoding mode and the receiver in decode mode.
+>>> Both sender and receiver must specify the same ethertype.
+>>> At some point we hope to have a registered ethertype and we'll
+>>> then provide a default so the user doesnt have to specify it.
+>>> For now we enforce the user specify it.
 >>>
->>>I think sysadmins or scripts are the primary users of this interface not
->>>kernel developers which switch their settings around all the time, no?
+>>> Lets show example usage where we encode icmp from a sender towards
+>>> a receiver with an skbmark of 17; both sender and receiver use
+>>> ethertype of 0xdead to interop.
 >>
->>I can easily add this to the userspace tool to accept "pci_0000:01:00.0"
->>format and to map it internally to devlink index. No problem.
+>> On a conceptual level, as this is an L2 encap with TLVs, why not having
+>> a normal device driver for this like we have in other cases that would
+>> encode/decode the meta data itself?
 >
->I argue for this stable topology identifier to be the default. Especially if
->you add device info before the actual module is loaded (this is during
->initramfs, when udev cannot rename devlink names to stable ones), a user has
->to deal with pre-devlink-ids before rename and after. Do you have plans how
->to address that?
+> netdevs dont scale for large number of policies. See why ipsec which
+> at one point was implemented using a netdev and why xfrm eventually
+> was chosen as the way forward. Or look at the recent lwt
+> effort.
 
-You can still access devlink using pci_addr using dl. I don't see a
-problem.
+Sure, I'm just saying that it could conceptionally be similar to the
+collect metadata idea just on L2 in your case. The encoding/decoding
+and transport of the information is actually not overly tc specific
+at least from the code that's shown so far, just a thought.
 
-
+> If i was to implement this as a netdev - I would have to either
+> have actions to redirect to it or plumb it on top of parent
+> or child devices. The main point is i am extending the tc
+> graph; it doesnt make sense for me to create a device just
+> for that when i could implement it as yet another action.
+> And the most important reason of all: I like to implement it
+> as an action;->
 >
->Current initramfs for stable interface names uses EUI48 based mac addresses
->most of the time and udev runs then after the pivot_root.
+>> Why does IFE_META_MAX need to be configurable as a module parameter?
+>>
+>> Shouldn't the core kernel be in charge of the IFE_META_*?
 >
->The devlink names can easily be aliases in user space.
+> I struggled with that earlier.
+> I cant think of a good way to limit the number of metadata
+> the kernel allows for decoding without putting an upper bound.
+> In order to allow people to write kernel modules without worrying
+> about what is currently is hardcoded in the header file the
+> only approach i could think of was to allow this number to be
+> reset.
 
-I don't want to store them anywhere. I just use "dl" tool and pass the
-name there.
+My question was rather: should the kernel enforce the IDs and only
+allow what the kernel dictates (and not in/out of tree modules)? If
+yes, then there would be no need for a module parameter (and the
+module param should be avoided in any case).
 
+> I have some discovery code i took out - will submit later
+> which looks at these sorts of parameters.
 
->
->Bye,
->Hannes
->
->
+Thanks again,
+Daniel
