@@ -1,76 +1,84 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [patch net-next 6/9] mlxsw: spectrum: Unmap local port from
- module during teardown
-Date: Mon, 22 Feb 2016 23:50:34 -0500
-Message-ID: <20160223045033.GO33942@gospo.home.greyhouse.net>
-References: <1456165924-14399-1-git-send-email-jiri@resnulli.us>
- <1456165924-14399-7-git-send-email-jiri@resnulli.us>
- <56CB706F.3000301@gmail.com>
+From: Antonio Quartulli <a@unstable.cc>
+Subject: Re: [B.A.T.M.A.N.] pull request [net]: batman-adv 20160216
+Date: Tue, 23 Feb 2016 13:07:50 +0800
+Message-ID: <20160223050750.GP5584__15068.6164190576$1456204224$gmane$org@prodigo.lan>
+References: <1455634888-29400-1-git-send-email-a@unstable.cc>
+ <20160219.153718.442738962662787470.davem@davemloft.net>
+ <20160220052840.GF5584@prodigo.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com, yishaih@mellanox.com,
-	dledford@redhat.com, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, eugenia@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	hadarh@mellanox.com, jhs@mojatatu.com, jeffrey.t.kirsher@intel.com,
-	brouer@redhat.com, ivecera@redhat.com, rami.rosen@intel.com
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="X78YbkCBd9ye7Cvs"
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f179.google.com ([209.85.160.179]:36155 "EHLO
-	mail-yk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757178AbcBWEui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 23:50:38 -0500
-Received: by mail-yk0-f179.google.com with SMTP id z7so71230239yka.3
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 20:50:38 -0800 (PST)
+Received: from s2.neomailbox.net ([5.148.176.60]:47160 "EHLO s2.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750763AbcBWFKL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Feb 2016 00:10:11 -0500
 Content-Disposition: inline
-In-Reply-To: <56CB706F.3000301@gmail.com>
+In-Reply-To: <20160220052840.GF5584@prodigo.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 22, 2016 at 12:32:47PM -0800, John Fastabend wrote:
-> On 16-02-22 10:32 AM, Jiri Pirko wrote:
-> > From: Ido Schimmel <idosch@mellanox.com>
-> > 
-> > When splitting a port we replace it with 2 or 4 other ports. To be able
-> > to do that we need to remove the original port netdev and unmap it from
-> > its module. However, we first mark it as disabled, as active ports
-> > cannot be unmapped.
-> > 
-> > Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> > ---
-> 
-> Hi Jiri, Ido,
-> 
-> You've sort of lost me on this port splitting/unsplitting thread. What
-> does this actually do? Are you just creating two netdevs and LAGing them
-> in the hardware, I'm guessing not or you wouldn't have some device API
-> for it and would do it using normal methods.
-> 
-> If its something to do with physical layout of the board itself why
-> don't you trigger this based on some init time introspection or an
-> interrupt if someone plugs in a port splitting cable/module (does that
-> exist?).
 
-In some implementations there are interrupts that fire when modules are
-connected or removed.  Even if an interrupt doesn't fire, it would be
-possible to have a timer event/workqueue in a driver that could read
-QFSP VPD information periodically to note that something has changed in
-the hardware and reconfigure as needed.  I actually would perfer keying
-on something like that to perform a configuration change like rather
-than requiring the user configure it.
+--X78YbkCBd9ye7Cvs
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Today you have to swap a 4x10GbE for a 1x40GbE module and then
-performing significant software config (possibly flashing EEPROMs in the
-case of some NICs) each time.  That seems too error prone as a user
-could swap out a QSFP on what they think is one port on a switch and
-then perform a software change on another port without realizing it.
+On Sat, Feb 20, 2016 at 01:28:40PM +0800, Antonio Quartulli wrote:
+> On Fri, Feb 19, 2016 at 03:37:18PM -0500, David Miller wrote:
+> > And thanks for the heads up about the potential merge issues, I'll watch
+> > for that.
+> >=20
+>=20
+> Hi David,
+>=20
+> actually I just realized that the patches that will create the conflict
+> are not yet in net-next, but they are still pending in my queue.
+>=20
+> At this point I will wait for you to merge net into net-next first
+> (there should be no conflict at that point) and then I will rebase
+> my pending patches on top of that.
+>=20
+>=20
+> This should prevent you from dealing with any conflict.
 
-That accidental disruption seems less tolerable than the one where there
-wrong physical port was added and removed and config needs to be
-applied.  Network management apps can properly solve the problem where
-devices come and go accidently due to connecting the wrong QSFP, so that
-seems like a less critical use-case to handle than what I described
-above.
+Hi David,
+
+I know this kind of mails steal you some time, but do you have any plan
+about merging net into net-next in the next days ?
+
+I have some more new changes coming, but I'd like to send them only after
+the merge operation is done to avoid you to deal with some conflicts (as per
+above).
+
+Thanks !
+
+
+--=20
+Antonio Quartulli
+
+--X78YbkCBd9ye7Cvs
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJWy+kmAAoJENpFlCjNi1MRS3gP/1V8gZwSqZu3gtwzZlRejELP
+RTuDFGkqRCzZRgEFXrYHFwv27RI8Ez9WV8KywAwIsuge+FlfXqVQ6oyE0h9LltQq
+7j3URhdFUgwscjuVk/ahjDrRuKtbJW/bn4X/hKkA8RM3OZ3Y9QsJKJ1bcePjYMVG
+NNnrFTLM7ztC14GxlCaLfS/Mk/+UaLisLVtOQypNwhzH6Jpbbw0HY8A09orMmP0Q
+acmRc+3gG3iZgMRYd998rVtuZLKjC21ZVohU3Y+/Hma1/j8bJX66kniintgBZaNs
+I5amajPBQmtqd62b/q4jtjkIiwXlQ8Z0aRKo4KrPakt5hFmV9zM4cLSTu9NsTQrp
+h/MtlJnbwvy6elkYKB7jYYXTdmbqHlUXYBmRTsf+LLkhJFyEGvphSaHzPoVypMOL
+0HS8A32auIOQvi/hfecuVJ54F33vYjiBMu6ut3ofMDpBtR44gc0n3Uy8katOUi0A
+9CIV2yUutRJPpaSGNNcus0SBU+LDvUU/9UIyfBacA9cd/JfloCHe/BqP5OhLYmg6
+89l8NsleyxiINgNxLco+sWOktSAC2GNxLa94yfThEejPYRJjWh9wtPjnL6RqI9BQ
+ctjHnzYeeAV0zlhcJfZSUTvxHNjxW2TUN86nsQ4ncmBdctgSYxT6Sz7G/n+KHg4e
+NRr3lcFxoN7bTtC3O3EA
+=LZP8
+-----END PGP SIGNATURE-----
+
+--X78YbkCBd9ye7Cvs--
