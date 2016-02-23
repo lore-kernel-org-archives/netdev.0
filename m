@@ -1,121 +1,89 @@
-From: Clemens Gruber <clemens.gruber@pqgruber.com>
-Subject: [PATCH 1/1] phy: marvell: Fix 88E1510 initialization
-Date: Tue, 23 Feb 2016 20:16:58 +0100
-Message-ID: <1456255018-9632-2-git-send-email-clemens.gruber@pqgruber.com>
-References: <1456255018-9632-1-git-send-email-clemens.gruber@pqgruber.com>
-Cc: netdev@vger.kernel.org,
-	Clemens Gruber <clemens.gruber@pqgruber.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next 1/5] netdev: introduce ndo_set_rx_headroom
+Date: Tue, 23 Feb 2016 11:20:31 -0800
+Message-ID: <CAOrHB_DgzNed9bD6F1zytxq=0m+6oXECRokRvMuP0qa7Vu7NYw@mail.gmail.com>
+References: <cover.1456163137.git.pabeni@redhat.com>
+	<ce1a9b0a33927547d0fbc659ac59dcf9fb7c3a33.1456163137.git.pabeni@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Flavio Leitner <fbl@sysclose.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pqgruber.com ([178.189.19.235]:21928 "EHLO
-	mail.pqgruber.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754353AbcBWTRV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 14:17:21 -0500
-In-Reply-To: <1456255018-9632-1-git-send-email-clemens.gruber@pqgruber.com>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:32856 "EHLO
+	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751103AbcBWTUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 14:20:35 -0500
+Received: from mfilter10-d.gandi.net (mfilter10-d.gandi.net [217.70.178.139])
+	by relay3-d.mail.gandi.net (Postfix) with ESMTP id 1B27DA80AA
+	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 20:20:34 +0100 (CET)
+Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
+	by mfilter10-d.gandi.net (mfilter10-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id A875bpJMvxJS for <netdev@vger.kernel.org>;
+	Tue, 23 Feb 2016 20:20:32 +0100 (CET)
+Received: from mail-ig0-f169.google.com (mail-ig0-f169.google.com [209.85.213.169])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 730A9A80C2
+	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 20:20:32 +0100 (CET)
+Received: by mail-ig0-f169.google.com with SMTP id z8so15443003ige.0
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 11:20:32 -0800 (PST)
+In-Reply-To: <ce1a9b0a33927547d0fbc659ac59dcf9fb7c3a33.1456163137.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A bug was introduced in the merge commit b633353115e3 ("Merge
-git://git.kernel.org/pub/scm/linux/kernel/git/davem/net")
-The generic marvell_config_init (and therefore marvell_of_reg_init) is
-not called anymore for the Marvell 88E1510 (in net-next).
+On Tue, Feb 23, 2016 at 4:53 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> This method allows the controlling device (i.e. the bridge) to specify
+> additional headroom to be allocated for skb head on frame reception.
+>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> ---
+>  include/linux/netdevice.h | 20 ++++++++++++++++++++
+>  1 file changed, 20 insertions(+)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 47671ce0..fb74277 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1093,6 +1093,12 @@ struct tc_to_netdev {
+>   *     This function is used to get egress tunnel information for given skb.
+>   *     This is useful for retrieving outer tunnel header parameters while
+>   *     sampling packet.
+...
 
-This patch calls marvell_config_init and moves the specific init
-function for the 88E1510 below the marvell_config_init function to avoid
-adding a function predeclaration.
-
-Signed-off-by: Clemens Gruber <clemens.gruber@pqgruber.com>
----
- drivers/net/phy/marvell.c | 70 +++++++++++++++++++++++------------------------
- 1 file changed, 35 insertions(+), 35 deletions(-)
-
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 9fb9d80..280e879 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -443,41 +443,6 @@ static int m88e1318_config_aneg(struct phy_device *phydev)
- 	return m88e1121_config_aneg(phydev);
- }
- 
--static int m88e1510_config_init(struct phy_device *phydev)
--{
--	int err;
--	int temp;
--
--	/* SGMII-to-Copper mode initialization */
--	if (phydev->interface == PHY_INTERFACE_MODE_SGMII) {
--		/* Select page 18 */
--		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 18);
--		if (err < 0)
--			return err;
--
--		/* In reg 20, write MODE[2:0] = 0x1 (SGMII to Copper) */
--		temp = phy_read(phydev, MII_88E1510_GEN_CTRL_REG_1);
--		temp &= ~MII_88E1510_GEN_CTRL_REG_1_MODE_MASK;
--		temp |= MII_88E1510_GEN_CTRL_REG_1_MODE_SGMII;
--		err = phy_write(phydev, MII_88E1510_GEN_CTRL_REG_1, temp);
--		if (err < 0)
--			return err;
--
--		/* PHY reset is necessary after changing MODE[2:0] */
--		temp |= MII_88E1510_GEN_CTRL_REG_1_RESET;
--		err = phy_write(phydev, MII_88E1510_GEN_CTRL_REG_1, temp);
--		if (err < 0)
--			return err;
--
--		/* Reset page selection */
--		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 0);
--		if (err < 0)
--			return err;
--	}
--
--	return 0;
--}
--
- static int m88e1510_config_aneg(struct phy_device *phydev)
- {
- 	int err;
-@@ -671,6 +636,41 @@ static int m88e1111_config_init(struct phy_device *phydev)
- 	return phy_write(phydev, MII_BMCR, BMCR_RESET);
- }
- 
-+static int m88e1510_config_init(struct phy_device *phydev)
-+{
-+	int err;
-+	int temp;
-+
-+	/* SGMII-to-Copper mode initialization */
-+	if (phydev->interface == PHY_INTERFACE_MODE_SGMII) {
-+		/* Select page 18 */
-+		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 18);
-+		if (err < 0)
-+			return err;
-+
-+		/* In reg 20, write MODE[2:0] = 0x1 (SGMII to Copper) */
-+		temp = phy_read(phydev, MII_88E1510_GEN_CTRL_REG_1);
-+		temp &= ~MII_88E1510_GEN_CTRL_REG_1_MODE_MASK;
-+		temp |= MII_88E1510_GEN_CTRL_REG_1_MODE_SGMII;
-+		err = phy_write(phydev, MII_88E1510_GEN_CTRL_REG_1, temp);
-+		if (err < 0)
-+			return err;
-+
-+		/* PHY reset is necessary after changing MODE[2:0] */
-+		temp |= MII_88E1510_GEN_CTRL_REG_1_RESET;
-+		err = phy_write(phydev, MII_88E1510_GEN_CTRL_REG_1, temp);
-+		if (err < 0)
-+			return err;
-+
-+		/* Reset page selection */
-+		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 0);
-+		if (err < 0)
-+			return err;
-+	}
-+
-+	return marvell_config_init(phydev);
-+}
-+
- static int m88e1118_config_aneg(struct phy_device *phydev)
- {
- 	int err;
--- 
-2.7.1
+>  /**
+> @@ -1315,6 +1323,8 @@ struct net_device_ops {
+>   * @IFF_L3MDEV_SLAVE: device is enslaved to an L3 master device
+>   * @IFF_TEAM: device is a team device
+>   * @IFF_RXFH_CONFIGURED: device has had Rx Flow indirection table configured
+> + * @IFF_PHONY_HEADROOM: the headroom value is controlled by an external
+> + *     entity (i.e. the master device for bridged veth)
+>   */
+>  enum netdev_priv_flags {
+>         IFF_802_1Q_VLAN                 = 1<<0,
+> @@ -1343,6 +1353,7 @@ enum netdev_priv_flags {
+>         IFF_L3MDEV_SLAVE                = 1<<23,
+>         IFF_TEAM                        = 1<<24,
+>         IFF_RXFH_CONFIGURED             = 1<<25,
+> +       IFF_PHONY_HEADROOM              = 1<<26,
+>  };
+>
+>  #define IFF_802_1Q_VLAN                        IFF_802_1Q_VLAN
+> @@ -1937,6 +1948,15 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
+>                                     struct sk_buff *skb,
+>                                     void *accel_priv);
+>
+> +/* returns the headroom that the master device needs to take in account
+> + * when forwarding to this dev
+> + */
+> +static inline unsigned netdev_get_fwd_headroom(struct net_device *dev)
+> +{
+> +       return (dev->priv_flags && IFF_PHONY_HEADROOM) ? dev->needed_headroom :
+> +               0;
+> +}
+> +
+This looks like typo. It should '&' to check for the bitfield.
