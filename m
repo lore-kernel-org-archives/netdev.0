@@ -1,36 +1,67 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 3/3] net: dsa: drop vlan_getnext
-Date: Tue, 23 Feb 2016 12:55:55 -0500
-Message-ID: <87mvqrpaz8.fsf@ketchup.mtl.sfl>
-References: <201602240150.eGivp1lr%fengguang.wu@intel.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable outer Tx checksum by
+ default
+Date: Tue, 23 Feb 2016 17:38:28 +0000
+Message-ID: <56CC9914.5010506@solarflare.com>
+References: <20160219191806.15687.37621.stgit@localhost.localdomain>
+ <CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
+ <CAMt9YRrOxCmJbrftixdJTXZcySZ_mARqCT6C=4-Nqv_ZJKnTwA@mail.gmail.com>
+ <CAEh+42hStEh=5z8KBic0hmEZNti4tjahySjjv7kU3YUes_R4Zg@mail.gmail.com>
+ <CALx6S351KYGFFLi08cX=DFCucZtGJLoMJGvFAW1_H-cRXZ0rQg@mail.gmail.com>
+ <CAEh+42hEVQOFaFk7BW=wZ-gb9HCfYqbr7Q600gbm1q1Oz+yZcA@mail.gmail.com>
+ <CALx6S36EyzjWKi_iK_uAVcCceFnZe3QmLcw7BBejKuB79Uo7PA@mail.gmail.com>
+ <CAEh+42hzkW6i+M52iDAyFtCBfxcJJmsZOiNdqd-DqYrN5isMBw@mail.gmail.com>
+ <56CC7848.2000704@solarflare.com>
+ <CALx6S34Pt++Kg=cp+v+gGFQGEDy=eNHtFvtBwd1z-1d2ixOn7Q@mail.gmail.com>
+ <56CC94D9.4030308@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: kbuild-all@01.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: kbuild test robot <lkp@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201602240150.eGivp1lr%fengguang.wu@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesse Gross <jesse@kernel.org>, Alex Duyck <aduyck@mirantis.com>,
+	"Linux Kernel Network Developers" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Rick Jones <rick.jones2@hpe.com>, Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:23409 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752114AbcBWR4w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 12:56:52 -0500
+In-Reply-To: <56CC94D9.4030308@hpe.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-kbuild test robot <lkp@intel.com> writes:
-
-> All errors (new ones prefixed by >>):
+On 23/02/16 17:20, Rick Jones wrote:
+> On 02/23/2016 08:47 AM, Tom Herbert wrote:
+>> Right, GRO should probably not coalesce packets with non-zero IP
+>> identifiers due to the loss of information. Besides that, RFC6848 sa=
+ys
+>> the IP identifier should only be set for fragmentation anyway so the=
+re
+>> shouldn't be any issue and really no need for HW TSO (or LRO) to
+>> support that.
 >
->    net/dsa/slave.c: In function 'dsa_bridge_check_vlan_range':
->>> net/dsa/slave.c:215:14: error: 'struct dsa_switch_driver' has no member named 'vlan_getnext'
+> You sure that is RFC 6848 "Specifying Civic Address Extensions in the=
+ Presence Information Data Format Location Object (PIDF-LO)" ?
+PossiblyRFC 6864 "Updated Specification of the IPv4 ID Field".
+> In whichever RFC that may be, is it a SHOULD or a MUST, and just how =
+many "other" stacks might be setting a non-zero IP ID on fragments with=
+ DF set?
+"The IPv4 ID field MUST NOT be used for purposes other than fragmentati=
+on
+ and reassembly."(=C2=A74.1)
+"Originating sources MAY set the IPv4 ID field of atomic datagrams to a=
+ny
+ value."(=C2=A74.1)
+"All devices that examine IPv4 headers MUST ignore the IPv4 ID field of
+ atomic datagrams."(=C2=A74.1)
+Atomic datagrams are defined by "(DF=3D=3D1)&&(MF=3D=3D0)&&(frag_offset=
+=3D=3D0)" (=C2=A74).
 
-Indeed this applies on an under-review patchset mentioned in the cover
-letter, which removes the dsa_bridge_check_vlan_range function above:
-
-https://patchwork.ozlabs.org/patch/582234/
-
-Even though the 2 patchsets cover different semantics, I can resend them
-in a single one if necessary.
-
-Thanks,
--v
+So it's OK to coalesce packets with different identifiers, as long as t=
+hey
+have DFset (and aren't fragmented already).  Also, the RFC takes pains =
+to
+point out that it "does not reserve any IPv4 ID values, including 0, as
+distinguished" (=C2=A74.1), so one cannot rely on the ID always being z=
+ero.
