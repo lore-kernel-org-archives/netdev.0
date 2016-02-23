@@ -1,125 +1,125 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net-next v2 2/2] net_sched: add network namespace support
- for tc actions
-Date: Tue, 23 Feb 2016 08:14:29 -0500
-Message-ID: <56CC5B35.4060408@mojatatu.com>
-References: <1456185473-25403-1-git-send-email-xiyou.wangcong@gmail.com>
- <1456185473-25403-3-git-send-email-xiyou.wangcong@gmail.com>
+From: Alexandre Torgue <alexandre.torgue@gmail.com>
+Subject: Re: [PATCH 1/4] net: ethernet: dwmac: add Ethernet glue logic for
+ stm32 chip
+Date: Tue, 23 Feb 2016 14:17:21 +0100
+Message-ID: <CAJgp7zxToxdKH_UU4UpF_jW2hTGvCxOPmxoDMLfphWEcKmsYHA@mail.gmail.com>
+References: <1454511275-9791-1-git-send-email-alexandre.torgue@gmail.com>
+	<1454511275-9791-2-git-send-email-alexandre.torgue@gmail.com>
+	<CAGhQ9VypZ5J0pQmrf1Mk-mNsv=XTXu7fhoLt_r2LHJ_Lsyj0yA@mail.gmail.com>
+	<CAJgp7zwOVEq=hnxfUt7eHZWSFUAwuK6MCVHdH591=xReRUsW8Q@mail.gmail.com>
+	<CAGhQ9VzPTgRqqLi4zjHkP-++v5smZ7s52drev1z-AvgXaLuC7Q@mail.gmail.com>
+	<CAJgp7zxYhbQ4yQHBB3cu50TU9N9xvk3HxCp0NP5fxFbxrMsD_g@mail.gmail.com>
+	<CAGhQ9VxQ3nW+dr9pdj=H8UcsNHEATxVeAf8N_PsQA7-73uksTA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:37918 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984AbcBWNOc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 08:14:32 -0500
-Received: by mail-ig0-f170.google.com with SMTP id y8so103059814igp.1
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 05:14:31 -0800 (PST)
-In-Reply-To: <1456185473-25403-3-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joachim Eastwood <manabian@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGhQ9VxQ3nW+dr9pdj=H8UcsNHEATxVeAf8N_PsQA7-73uksTA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-02-22 06:57 PM, Cong Wang wrote:
-
-[..]
-
+2016-02-23 12:21 GMT+01:00 Joachim  Eastwood <manabian@gmail.com>:
+> On 23 February 2016 at 10:59, Alexandre Torgue
+> <alexandre.torgue@gmail.com> wrote:
+>> 2016-02-22 22:52 GMT+01:00 Joachim  Eastwood <manabian@gmail.com>:
+>>> On 22 February 2016 at 15:50, Alexandre Torgue
+>>> <alexandre.torgue@gmail.com> wrote:
+>>>> 2016-02-13 14:48 GMT+01:00 Joachim  Eastwood <manabian@gmail.com>:
+>>>>> On 3 February 2016 at 15:54, Alexandre TORGUE
+>>>>> <alexandre.torgue@gmail.com> wrote:
+>>>>>> +       plat_dat->bsp_priv = dwmac;
+>>>>>> +       plat_dat->init = stm32_dwmac_init;
+>>>>>> +       plat_dat->exit = stm32_dwmac_exit;
+>>>>>
+>>>>> Instead of using these callbacks could you rather implement the PM
+>>>>> callbacks directly in this driver?
+>>>>> I don't think it should add much code and it will make it look more
+>>>>> like standard driver. This will also give you some more control and
+>>>>> flexibility in your code.
+>>>>
+>>>> I prefer to keep the code as it is. Glue layer is directly linked to
+>>>> stmmac driver and I don't want to brake the link between the glue and
+>>>> the stmmac driver.
+>>>
+>>> What do you mean by break the link?
+>>>
+>>
+>> I thought that you wanted to split stmmac_pltfr_supend (glue part and
+>> stmamc part), but I well understood it is not the case (sorry for
+>> mistake).
+>>
+>>> There has been numerous of patch sets to make the stmmac "glue"
+>>> drivers into more standard platform drivers.
+>>> http://marc.info/?l=linux-netdev&m=143159850631093&w=2
+>>> http://marc.info/?l=linux-netdev&m=143708560009851&w=2
+>>> http://marc.info/?l=linux-netdev&m=143812136600541&w=2
+>>>
+>>> Do you see any advantage by using the init and exit hooks in your
+>>> driver instead of using the standard driver PM callbacks and remove
+>>> function?
+>>> The only "cost" I see is slightly more boilerplate code. But since you
+>>> already have init/exit functions you could easily make them into PM
+>>> resume/suspend so I doubt there would be much increase in code size.
+>>>
+>>
+>> If I well understood you want to continue the stmmac glue driver
+>> rework by moving stmmac_pltfr_suspend/resume/remove in each glue
+>> driver (stm32, sun, sti ....).
 >
-> diff --git a/include/net/act_api.h b/include/net/act_api.h
-> index 8c4e3ff..342be6c 100644
-> --- a/include/net/act_api.h
-> +++ b/include/net/act_api.h
-> @@ -7,6 +7,8 @@
+> At least I want to avoid the init/exit callbacks for new drivers like
+> stm32-dwmac.
 >
->   #include <net/sch_generic.h>
->   #include <net/pkt_sched.h>
-> +#include <net/net_namespace.h>
-> +#include <net/netns/generic.h>
 >
->   struct tcf_common {
->   	struct hlist_node		tcfc_head;
-> @@ -87,31 +89,65 @@ struct tc_action {
->   	__u32			type; /* for backward compat(TCA_OLD_COMPAT) */
->   	__u32			order;
->   	struct list_head	list;
-> +	struct tcf_hashinfo	*hinfo;
->   };
+>> Each glue driver will call directly stmmac_suspend/resume/remove and
+>> their own init/exit function.
+>> If it is what you meant, I can do it.
 >
-
-It doesnt seem neccessary to have hinfo in tc_action. Quick scan:
-__tcf_hash_release() seems to be the only other place that uses it.
-And the callers to that appear capable of passing the struct
-net or tn  which eventually propagates up...
-
->   struct tc_action_ops {
->   	struct list_head head;
-> -	struct tcf_hashinfo *hinfo;
->   	char    kind[IFNAMSIZ];
->   	__u32   type; /* TBD to match kind */
->   	struct module		*owner;
->   	int     (*act)(struct sk_buff *, const struct tc_action *, struct tcf_result *);
->   	int     (*dump)(struct sk_buff *, struct tc_action *, int, int);
->   	void	(*cleanup)(struct tc_action *, int bind);
-> -	int     (*lookup)(struct tc_action *, u32);
-> +	int     (*lookup)(struct net *, struct tc_action *, u32);
->   	int     (*init)(struct net *net, struct nlattr *nla,
->   			struct nlattr *est, struct tc_action *act, int ovr,
->   			int bind);
-> -	int     (*walk)(struct sk_buff *, struct netlink_callback *, int, struct tc_action *);
-> +	int     (*walk)(struct net *, struct sk_buff *,
-> +			struct netlink_callback *, int, struct tc_action *);
-> +};
-> +
-
-Do you really need to pass struct net to walk(); is deriving from skb
-not sufficient?
-
-
-> +	int err = 0;
-
-
-> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-> index acafaf7..9606666 100644
-> --- a/net/sched/act_api.c
-> +++ b/net/sched/act_api.c
-> @@ -36,10 +36,9 @@ static void free_tcf(struct rcu_head *head)
->   	kfree(p);
->   }
+> Yes, in your stm32 driver's suspend/resume/remove functions call
+> stmmac_suspend/stmmac_resume/stmmac_dvr_remove directly. Then you
+> shouldn't need to use the init/exit callbacks. Just put the need code
+> in the driver's suspend/resume/remove functions instead of init/exit
+> functions.
 >
-> -static void tcf_hash_destroy(struct tc_action *a)
-> +static void tcf_hash_destroy(struct tcf_hashinfo *hinfo, struct tc_action *a)
->   {
->   	struct tcf_common *p = a->priv;
-> -	struct tcf_hashinfo *hinfo = a->ops->hinfo;
+> For example:
+> static int stm32_dwmac_resume(struct device *dev)
+> {
+>     struct net_device *ndev = dev_get_drvdata(dev);
+>     struct plat_stmmacenet_data *plat_dat = get_stmmac_plat_data(ndev)
+>     struct stm32_dwmac *dwmac =plat_dat->bsp_priv;
 >
->   	spin_lock_bh(&hinfo->lock);
->   	hlist_del(&p->tcfc_head);
-> @@ -68,7 +67,7 @@ int __tcf_hash_release(struct tc_action *a, bool bind, bool strict)
->   		if (p->tcfc_bindcnt <= 0 && p->tcfc_refcnt <= 0) {
->   			if (a->ops->cleanup)
->   				a->ops->cleanup(a, bind);
-> -			tcf_hash_destroy(a);
-> +			tcf_hash_destroy(a->hinfo, a);
-
-
-So this seems to be the only place where a->hinfo is read from. The
-rest seems to just set a->hinfo.
-I took a quick look at __tcf_hash_release() and all calling sites
-are net/tn aware already.
-
-> -u32 tcf_hash_new_index(struct tcf_hashinfo *hinfo)
-> +u32 tcf_hash_new_index(struct tc_action_net *tn)
->   {
-> +	struct tcf_hashinfo *hinfo = tn->hinfo;
->   	u32 val = hinfo->index;
+>     /* enable clocks */
+>     /* set phy mode */
 >
+>     return stmmac_resume(ndev);
+> }
+>
+> If it makes sense to have the enable clk/phy mode stuff in it's own
+> function that is fine too.
 
+Ok. I will send v2 with this approach. After this series I could
+provide a new series to change all glues with this approach ? (but I
+will not able to test on each platform).
 
-That also seemed unneeded. You could have derived hinfo
-from tn.
+Best regards
 
-Otherwise looks reasonable. I was hoping we could get rid of the per
-action pernet ops but that could come later.
-
-cheers,
-jamal
+Alexandre
+>
+>
+>>> One other thing;
+>>> Do you need to have the PHY mode setup code in the init function which
+>>> is called each time on resume?
+>>
+>> I can't guarantee that after a suspend the sysconfig register will
+>> contain same data than before suspend.
+>
+> I see.
+>
+>
+> regards,
+> Joachim Eastwood
