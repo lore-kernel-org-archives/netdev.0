@@ -1,96 +1,109 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH can-next 1/2] CAN: rcar: add gen[12] fallback
- compatibility strings
-Date: Tue, 23 Feb 2016 09:03:47 +0900
-Message-ID: <20160223000346.GE1853@verge.net.au>
-References: <1456107350-12100-1-git-send-email-horms+renesas@verge.net.au>
- <1456107350-12100-2-git-send-email-horms+renesas@verge.net.au>
- <CAMuHMdX3VjAZzhNxuucBn3hSS3YMmhJPVxpA2VKM+X-Qs3gxLg@mail.gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH V2 net-next 2/3] lan78xx: add ethtool set & get pause
+ functions
+Date: Tue, 23 Feb 2016 00:03:47 +0000
+Message-ID: <1456185827.15241.77.camel@decadent.org.uk>
+References: <9235D6609DB808459E95D78E17F2E43D404B37B5@CHN-SV-EXMX02.mchp-main.com>
+	 <1455839111.2794.51.camel@decadent.org.uk>
+	 <9235D6609DB808459E95D78E17F2E43D404B55D1@CHN-SV-EXMX02.mchp-main.com>
+	 <20160222.141014.1517836822587262524.davem@davemloft.net>
+	 <1456171519.15241.65.camel@decadent.org.uk>
+	 <9235D6609DB808459E95D78E17F2E43D404B570E@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-can@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-renesas-soc@vger.kernel.org,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAMuHMdX3VjAZzhNxuucBn3hSS3YMmhJPVxpA2VKM+X-Qs3gxLg@mail.gmail.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-a9KeIhVUt14bYp8MrnQh"
+Cc: netdev@vger.kernel.org
+To: Woojung.Huh@microchip.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39134 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756366AbcBWAEJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 19:04:09 -0500
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404B570E@CHN-SV-EXMX02.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 22, 2016 at 04:40:39PM +0100, Geert Uytterhoeven wrote:
-> On Mon, Feb 22, 2016 at 3:15 AM, Simon Horman
-> <horms+renesas@verge.net.au> wrote:
-> > Add fallback compatibility string for R-Car Gen 1 and Gen2 families.
-> > This is in keeping with the fallback scheme being adopted wherever
-> > appropriate for drivers for Renesas SoCs.
-> >
-> > Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> > ---
-> >  Documentation/devicetree/bindings/net/can/rcar_can.txt | 4 +++-
-> >  drivers/net/can/rcar_can.c                             | 2 ++
-> >  2 files changed, 5 insertions(+), 1 deletion(-)
-> >
-> > diff --git a/Documentation/devicetree/bindings/net/can/rcar_can.txt b/Documentation/devicetree/bindings/net/can/rcar_can.txt
-> > index 002d8440bf66..036786e1f70d 100644
-> > --- a/Documentation/devicetree/bindings/net/can/rcar_can.txt
-> > +++ b/Documentation/devicetree/bindings/net/can/rcar_can.txt
-> > @@ -6,6 +6,8 @@ Required properties:
-> >               "renesas,can-r8a7779" if CAN controller is a part of R8A7779 SoC.
-> >               "renesas,can-r8a7790" if CAN controller is a part of R8A7790 SoC.
-> >               "renesas,can-r8a7791" if CAN controller is a part of R8A7791 SoC.
-> > +             "renesas,can-gen1" for a generic R-Car Gen1 compatible device.
-> > +             "renesas,can-gen2" for a generic R-Car Gen2 compatible device.
-> 
-> "renesas,rcar-gen1-can", "renesas,rcar-gen2-can"?
-> 
-> (Yeah, "can" looks a lot like "rcar" ;-)
 
-Sure, I'll update that as you suggest.
+--=-a9KeIhVUt14bYp8MrnQh
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> Nothing further to say about SoC-specific vs. generic compatible values?
+On Mon, 2016-02-22 at 20:28 +0000, Woojung.Huh@microchip.com wrote:
+> > -----Original Message-----
+> > From: Ben Hutchings [mailto:ben@decadent.org.uk]
+> > Sent: Monday, February 22, 2016 3:05 PM
+> > To: David Miller; Woojung Huh - C21699
+> > Cc: netdev@vger.kernel.org
+> > Subject: Re: [PATCH V2 net-next 2/3] lan78xx: add ethtool set & get pau=
+se
+> > functions
+> >=20
+> > On Mon, 2016-02-22 at 14:10 -0500, David Miller wrote:
+> > > From: <Woojung.Huh@microchip.com>
+> > > Date: Mon, 22 Feb 2016 18:28:18 +0000
+> > >=20
+> > > > > This is incorrect; you should always return the manual settings
+> > > > > (fc_request_control flags) here. =C2=A0If autonegotiation is enab=
+led then
+> > > > > your get_settings function will return the actual pause flags.
+> > > > >=20
+> > > > What do you mean "return actual pause flags" when autoneg is enable=
+d?
+> > > > Pause flags set by (or default) advertise flag?
+> > >=20
+> > > It means what was negotiated by autonegotiation, and is actually in u=
+se.
+> > >=20
+> > > Otherwise, how can the user find out what was negotiated?
+> >=20
+> > Well, actually we don't *directly* report the autonegotiation flow
+> > control mode at present. =C2=A0We report which pause flags were adverti=
+sed
+> > and what the link partner advertised, from which you can work it out.
+>=20
+> NIC advertises pause flags via advertise register (phy reg 0x4) based on =
+Rx & Tx flags,
+> and get_pauseparam() returns Rx & Tx flags set by set_pauseparm() if auto=
+negotiation is enabled?
 
-Sure, I'll add some text about that.
+Yes.
 
-> >  - reg: physical base address and size of the R-Car CAN register map.
-> >  - interrupts: interrupt specifier for the sole interrupt.
-> >  - clocks: phandles and clock specifiers for 3 CAN clock inputs.
-> > @@ -25,7 +27,7 @@ Example
-> >  SoC common .dtsi file:
-> >
-> >         can0: can@e6e80000 {
-> > -               compatible = "renesas,can-r8a7791";
-> > +               compatible = "renesas,can-r8a7791", "renesas,can-gen2";
-> 
-> "renesas,rcar-gen2-can".
-> 
-> >                 reg = <0 0xe6e80000 0 0x1000>;
-> >                 interrupts = <0 186 IRQ_TYPE_LEVEL_HIGH>;
-> >                 clocks = <&mstp9_clks R8A7791_CLK_RCAN0>,
-> > diff --git a/drivers/net/can/rcar_can.c b/drivers/net/can/rcar_can.c
-> > index bc46be39549d..c70a1f795933 100644
-> > --- a/drivers/net/can/rcar_can.c
-> > +++ b/drivers/net/can/rcar_can.c
-> > @@ -904,6 +904,8 @@ static const struct of_device_id rcar_can_of_table[] __maybe_unused = {
-> >         { .compatible = "renesas,can-r8a7779" },
-> >         { .compatible = "renesas,can-r8a7790" },
-> >         { .compatible = "renesas,can-r8a7791" },
-> > +       { .compatible = "renesas,can-gen1" },
-> > +       { .compatible = "renesas,can-gen2" },
-> 
-> "renesas,rcar-gen1-can"
-> "renesas,rcar-gen2-can".
-> 
-> Gr{oetje,eeting}s,
-> 
->                         Geert
-> 
-> --
-> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-> 
-> In personal conversations with technical people, I call myself a hacker. But
-> when I'm talking to journalists I just say "programmer" or something like that.
->                                 -- Linus Torvalds
+> > Perhaps ethtool (the utility) should explicitly show what the result
+> > is.
+> Ethtool -a reports Rx/Tx flags and Rx/Tx negotiated flag based on adverti=
+sing and lp_advertising value.
+
+It would probably make sense to include the result of pause frame
+autonegotiation in both the 'ethtool -a' and 'ethtool' (no option)
+output.
+
+Ben.
+
+--=20
+Ben Hutchings
+The generation of random numbers is too important to be left to chance.
+                                                            - Robert Coveyo=
+u
+--=-a9KeIhVUt14bYp8MrnQh
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVsuh4+e/yOyVhhEJAQrLJxAAy7AfxxowwHVAyNayEawv2eXXArX6WAls
+9a19AnFkVOJ06156hmdAgXfu5vcb+C10AfTUXIMTJo7oiFE9rEqWWnj/9X/iPnqZ
+KMXiCnMbwSyB9gY8sGMEAE+vxXdL6pO4tQHEefjIcjd+Re9m7UmG6bE0UKJ/jFeR
+lzgLlb86Id990IFMOW/fYwXnFBYoGrx3CM1GfWAFAGxXiN0jJKvJSEHabrl3XU0u
+1W1Vza28xbm2e9SKc9TdDdNC+/U5g7de8VqRJ8jBIe11C6FfEEEh1k86nsWUb5Q8
+b+UaGa3iE+4FlRE3llowLLgg3dy4/GI6cxwXvQbFUDiJXp31PNUhBVkG0jNMoDMl
+8CXDMU9a0/cgg1s4aZhVrm5Hln0wAe+et+hJESHcrbIXSyT9VTyQaFl0Vbc0cGEo
+0JazSEk/l06jZJoE1ZpY1Zt4ILSUsIi0Lf5Q9NYPqXqSc/9KRmMxgnYj62QGAjqi
+VJtBL2vnE8ZhcMHudd7sMCJMVpJw9s2jjcpg79Mhh5MraciCUEj9ggdCsCLujLE+
+hiWOzgkCF6IK8cCuf9h1vJ6Hg6shx6/fIjajLy2TYMaQ7RD8AY/jvKqkD1xukqnN
+epsiUf3/4N5d6M38Txz8CBZN9F9hIzNJbuYwDtx1vpolbHQu05MiFA3uYqmzO8g9
+CRauhD/drWc=
+=nXxl
+-----END PGP SIGNATURE-----
+
+--=-a9KeIhVUt14bYp8MrnQh--
