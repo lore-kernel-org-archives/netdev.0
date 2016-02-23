@@ -1,31 +1,36 @@
-From: Alexander Aring <aar@pengutronix.de>
-Subject: Re: [PATCH] mrf24j40: fix security-enabled processing on inbound
- frames
-Date: Tue, 23 Feb 2016 10:29:00 +0100
-Message-ID: <56CC265C.2040906@pengutronix.de>
-References: <56C60EBA.2070707@zopieux.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] rocker: fix rocker_world_port_obj_vlan_add()
+Date: Tue, 23 Feb 2016 12:37:52 +0300
+Message-ID: <20160223093752.GA4030@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-	Alexander Aring <alex.aring@gmail.com>,
-	zopieux <web@zopieux.com>
-To: Alan Ott <alan@signal11.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <sfeldma@gmail.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:50424 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750897AbcBWJ3F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 04:29:05 -0500
-In-Reply-To: <56C60EBA.2070707@zopieux.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:30483 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750922AbcBWJiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 04:38:08 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+We were changing return values and accidentally made
+rocker_world_port_obj_vlan_add() into a no-op.
 
-Alan, do you have some comments about that?
+Fixes: fccd84d44912 ('rocker: return -EOPNOTSUPP for undefined world ops')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Currently the mrf24j40 goes into a deadlock if a frame with security
-enable bit is set. As you see, I helped myself to create this patch and solve
-this stupid default behaviour of mrf24j40. :-)
-
-- Alex
+diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+index acafbf8..28b775e 100644
+--- a/drivers/net/ethernet/rocker/rocker_main.c
++++ b/drivers/net/ethernet/rocker/rocker_main.c
+@@ -1598,7 +1598,6 @@ rocker_world_port_obj_vlan_add(struct rocker_port *rocker_port,
+ 
+ 	if (!wops->port_obj_vlan_add)
+ 		return -EOPNOTSUPP;
+-		return 0;
+ 	return wops->port_obj_vlan_add(rocker_port, vlan, trans);
+ }
+ 
