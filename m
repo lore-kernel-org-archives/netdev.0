@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 3/3] net: dsa: drop vlan_getnext
-Date: Tue, 23 Feb 2016 12:13:56 -0500
-Message-ID: <1456247636-4706-4-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1456247636-4706-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 0/3] net: dsa: add port VLAN dump operation
+Date: Tue, 23 Feb 2016 12:13:53 -0500
+Message-ID: <1456247636-4706-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -11,113 +10,31 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456247636-4706-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The VLAN GetNext operation is specific to some switches, and thus can be
-complicated to implement for some drivers.
+The VLAN GetNext approach is specific to some switches and thus hard to
+implement for others. This patchset replaces it with a simpler port VLAN dump
+operation, similar to the corresponding FDB operation.
 
-Remove the support for the vlan_getnext/port_pvid_get approach in favor
-of the generic and simpler port_vlan_dump function.
+The mv88e6xxx driver is the only one currently affected by the change.
+The documentation is updated accordingly.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- Documentation/networking/dsa/dsa.txt |  9 ---------
- include/net/dsa.h                    |  3 ---
- net/dsa/slave.c                      | 35 +----------------------------------
- 3 files changed, 1 insertion(+), 46 deletions(-)
+Note: this patchset uses http://www.spinics.net/lists/kernel/msg2186705.html
 
-diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
-index 350a502..974e9c3 100644
---- a/Documentation/networking/dsa/dsa.txt
-+++ b/Documentation/networking/dsa/dsa.txt
-@@ -542,12 +542,6 @@ Bridge layer
- Bridge VLAN filtering
- ---------------------
- 
--- port_pvid_get: bridge layer function invoked when a Port-based VLAN ID is
--  queried for the given switch port
--
--- port_pvid_set: bridge layer function invoked when a Port-based VLAN ID needs
--  to be configured on the given switch port
--
- - port_vlan_add: bridge layer function invoked when a VLAN is configured
-   (tagged or untagged) for the given switch port
- 
-@@ -558,9 +552,6 @@ Bridge VLAN filtering
-   function that the driver has to call for each VLAN the given port is a member
-   of. A switchdev object is used to carry the VID and bridge flags.
- 
--- vlan_getnext: bridge layer function invoked to query the next configured VLAN
--  in the switch, i.e. returns the bitmaps of members and untagged ports
--
- - port_fdb_add: bridge layer function invoked when the bridge wants to install a
-   Forwarding Database entry, the switch hardware should be programmed with the
-   specified address in the specified VLAN Id in the forwarding database
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index ebc0d9e..3dd5486 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -316,9 +316,6 @@ struct dsa_switch_driver {
- 	int	(*port_vlan_dump)(struct dsa_switch *ds, int port,
- 				  struct switchdev_obj_port_vlan *vlan,
- 				  int (*cb)(struct switchdev_obj *obj));
--	int	(*port_pvid_get)(struct dsa_switch *ds, int port, u16 *pvid);
--	int	(*vlan_getnext)(struct dsa_switch *ds, u16 *vid,
--				unsigned long *ports, unsigned long *untagged);
- 
- 	/*
- 	 * Forwarding database
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index a9cbb72..cde2923 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -243,44 +243,11 @@ static int dsa_slave_port_vlan_dump(struct net_device *dev,
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_switch *ds = p->parent;
--	DECLARE_BITMAP(members, DSA_MAX_PORTS);
--	DECLARE_BITMAP(untagged, DSA_MAX_PORTS);
--	u16 pvid, vid = 0;
--	int err;
- 
- 	if (ds->drv->port_vlan_dump)
- 		return ds->drv->port_vlan_dump(ds, p->port, vlan, cb);
- 
--	if (!ds->drv->vlan_getnext || !ds->drv->port_pvid_get)
--		return -EOPNOTSUPP;
--
--	err = ds->drv->port_pvid_get(ds, p->port, &pvid);
--	if (err)
--		return err;
--
--	for (;;) {
--		err = ds->drv->vlan_getnext(ds, &vid, members, untagged);
--		if (err)
--			break;
--
--		if (!test_bit(p->port, members))
--			continue;
--
--		memset(vlan, 0, sizeof(*vlan));
--		vlan->vid_begin = vlan->vid_end = vid;
--
--		if (vid == pvid)
--			vlan->flags |= BRIDGE_VLAN_INFO_PVID;
--
--		if (test_bit(p->port, untagged))
--			vlan->flags |= BRIDGE_VLAN_INFO_UNTAGGED;
--
--		err = cb(&vlan->obj);
--		if (err)
--			break;
--	}
--
--	return err == -ENOENT ? 0 : err;
-+	return -EOPNOTSUPP;
- }
- 
- static int dsa_slave_port_fdb_add(struct net_device *dev,
+Vivien Didelot (3):
+  net: dsa: add port_vlan_dump routine
+  net: dsa: mv88e6xxx: implement port_vlan_dump
+  net: dsa: drop vlan_getnext
+
+ Documentation/networking/dsa/dsa.txt |  11 +---
+ drivers/net/dsa/mv88e6171.c          |   3 +-
+ drivers/net/dsa/mv88e6352.c          |   3 +-
+ drivers/net/dsa/mv88e6xxx.c          | 110 ++++++++++++++++-------------------
+ drivers/net/dsa/mv88e6xxx.h          |   6 +-
+ include/net/dsa.h                    |   6 +-
+ net/dsa/slave.c                      |  36 +-----------
+ 7 files changed, 65 insertions(+), 110 deletions(-)
+
 -- 
 2.7.1
