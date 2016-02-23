@@ -1,31 +1,30 @@
-From: mroos@linux.ee
-Subject: Re: Invalid sk_policy[] access
-Date: Tue, 23 Feb 2016 22:37:13 +0200 (EET)
-Message-ID: <alpine.LRH.2.20.1602232236080.30129@math.ut.ee>
-References: <20160222010201.GB23053@oracle.com> <20160223121244.GI28756@oracle.com> <alpine.LRH.2.20.1602232132190.30129@math.ut.ee> <20160223.152045.440181358695767083.davem@davemloft.net> <20160223202901.GC4941@oracle.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCHv2 3/4] ARM: tegra: use build-in device properties with
+ rfkill_gpio
+Date: Tue, 23 Feb 2016 21:39:05 +0100
+Message-ID: <1456259945.9910.25.camel@sipsolutions.net>
+References: <1453712629-143317-1-git-send-email-heikki.krogerus@linux.intel.com>
+	 <2463567.tt0f0ingYr@wuerfel> <2927215.6IlWnjRTgT@fb07-iapwap2>
+	 <3466361.DVRahbqhfF@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, sparclinux@vger.kernel.org,
-	edumazet@google.com, netdev@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <20160223202901.GC4941@oracle.com>
-Sender: sparclinux-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thierry Reding <thierry.reding@gmail.com>,
+	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-tegra@vger.kernel.org,
+	Alexandre Courbot <gnurou@gmail.com>,
+	Stephen Warren <swarren@wwwdotorg.org>
+To: Arnd Bergmann <arnd@arndb.de>, Marc Dietrich <marvin24@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3466361.DVRahbqhfF@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > Indeed, the kernel is 64-bit in both cases.
-> > And the userland bit-arity has no relevance whatsoever for this bug.
-> 
-> hang on; The sizeof (and offsetof) values I listed were obtained either
-> from /usr/bin/crash (on the T5) or from simple printk's of the structures
-> in the case of the v440. And they *are* different, and the numbers
-> match the values dumped on the console on pnaic. So isnt there actually
-> a problem here?
+On Tue, 2016-02-23 at 16:06 +0100, Arnd Bergmann wrote:
+>=C2=A0
+> Does rfkill always have a separate device in the Linux driver model?
 
-There certianly seems to be a problem - that's how you ended up looking 
-under that rock.
+Yes, the rfkill core code registers and adds one in the rfkill class.
 
-Maybe the offsets are different because of different kernel config?
-
--- 
-Meelis Roos (mroos@linux.ee)
+> johannes
