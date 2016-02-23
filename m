@@ -1,95 +1,53 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next PATCH 0/5] net_sched: Add support for IFE action
-Date: Tue, 23 Feb 2016 14:20:54 +0100
-Message-ID: <56CC5CB6.1030807@iogearbox.net>
-References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com> <56CB3B90.8030206@iogearbox.net> <56CC4BEA.70108@mojatatu.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: Variable download speed
+Date: Tue, 23 Feb 2016 08:28:16 -0500
+Message-ID: <CADVnQyngzgLhbo6of1vTq5MH4mk4rSR6_KLWCCXkndK6QYynAw@mail.gmail.com>
+References: <alpine.LNX.2.20.1602231216240.29937@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	alexei.starovoitov@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>
+To: sdrb@onet.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45320 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751781AbcBWNU6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 08:20:58 -0500
-In-Reply-To: <56CC4BEA.70108@mojatatu.com>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:36057 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751880AbcBWN2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 08:28:17 -0500
+Received: by mail-ob0-f173.google.com with SMTP id gc3so193698755obb.3
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 05:28:16 -0800 (PST)
+In-Reply-To: <alpine.LNX.2.20.1602231216240.29937@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/23/2016 01:09 PM, Jamal Hadi Salim wrote:
-> On 16-02-22 11:47 AM, Daniel Borkmann wrote:
-[...]
->> So, basically this is a L2 encap with TLVs, right?
->>
->> And as TLVs you have skb->mark, skb->priority, skb->hash,
->> skb->queue_mapping
->> that you transfer from one machine to another, where on the destination,
->> you
->> are applying the above meta data to the skb itself. And, configuration
->> is via
->> tc.
->>
->> I couldn't parse from the commit log what the real world use case is, resp.
->> who is going to use this infrastructure?
->>
->> Do you have some typical setup, where the above needs to be transferred
->> in the
->> encap and restored?
->
-> I am assuming you are asking this for the sake of people who dont
-> have context (and not for yourself)?
-> I added a pointer to the paper. It is 6 pages and simple to read.
-> Isnt that sufficient? I dont want to write a novel here. Some could
-> argue that in fact i am already writing a novel in commit 1/5.
+On Tue, Feb 23, 2016 at 6:19 AM, <sdrb@onet.eu> wrote:
+> My question is: what causes such dynamic change in
+> the window size (while transferring data)?
+> Is it some kernel parameter wrong set or something like this?
 
-Ok, the paper talks about, quote:
+That sounds like TCP receive buffer auto-tuning (also called "Dynamic
+right-sizing (DRS)" (Fisk and Feng, 2001):
 
-  - Pipeline-stage Indexing.
-  - OAM information - example turn on some packet debug information on a need basis.
-  - Exception handling information - example VXLAN service handling.
-  - Authentication and authorization information.
-  - Versioning information.
-  - Compliance information.
-  - Service Identifiers.
+  http://permalink.lanl.gov/object/tr?what=info:lanl-repo/lareport/LA-UR-01-5460
 
-As your primary examples, you provide skb->mark, skb->priority, skb->hash,
-skb->queue_mapping for encapsulating, f.e. how do you use skb>hash in this
-scenario? What's the use-case?
+The Linux TCP receiver will, by default, dynamically adjust the
+receive window to a value that supports the rate at which the
+application successfully reads data out of the socket.
 
->>> Jamal Hadi Salim (5):
->>>    introduce IFE action
->>>    Support to encoding decoding skb mark on IFE action
->>>    Support to encoding decoding skb prio on IFE action
->>>    Support to encoding decoding skb hashid on IFE action
->>>    Support to encoding decoding skb queue map on IFE action
->>>
->>>   include/net/tc_act/tc_ife.h        |  60 +++
->>>   include/uapi/linux/tc_act/tc_ife.h |  38 ++
->>>   net/sched/Kconfig                  |  32 ++
->>>   net/sched/Makefile                 |   5 +
->>>   net/sched/act_ife.c                | 865
->>> +++++++++++++++++++++++++++++++++++++
->>>   net/sched/act_meta_mark.c          |  81 ++++
->>>   net/sched/act_meta_qmap.c          | 100 +++++
->>>   net/sched/act_meta_skbhash.c       |  87 ++++
->>>   net/sched/act_meta_skbprio.c       |  80 ++++
->>
->> Splitting these set/get functions into individual modules where you only
->> set/get a single skb member seems overkill to me. Could be done with a
->> simple switch statement inside ife?
->
-> They need to be separated to make them unique. These are basic
-> metadatum; I have a few others lined up - but i just wanted to start
-> with these because they are obvious to see. What i mulled over is
-> to send one big patch or several. In the end it seemed cleaner to
-> send separate patches.
+> Do I have any influence on such dynamic change in tcp window size?
 
-But just to make them unique, you don't need to add extra modules for
-this ... just having a module for encoding one skb member seems like
-total overdesign to me. If you really want them to be separate ops,
-you can still include them into act_ife.c itself.
+You might check on the receiver host with top/mpstat/strace/etc to see
+whether the receiving application is limiting performance in some way.
+This kind of behavior can show up if the receiver is sometimes
+CPU-saturated, or limited by the throughput of the medium on to which
+it is writing the data.
 
-Thanks,
-Daniel
+If you control the receiver software, you can use
+setsockopt(SO_RCVBUF) to explicitly set the receive buffer size, and
+see if that helps. If it doesn't, that would suggest that it is indeed
+the receiving application that is limiting performance.
+
+If you could provide a tcpdump trace (headers only, e.g.,  -s 96)
+taken on the sender, we could check to see if we can see any problems
+in the TCP sender or receiver behavior.
+
+cheers,
+neal
