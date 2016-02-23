@@ -1,97 +1,128 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH 0/5] net_sched: Add support for IFE action
-Date: Tue, 23 Feb 2016 09:28:05 -0500
-Message-ID: <56CC6C75.1000903@mojatatu.com>
-References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com>
- <56CB3B90.8030206@iogearbox.net> <56CC4BEA.70108@mojatatu.com>
- <56CC5CB6.1030807@iogearbox.net>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [patch net-next 0/9] Introduce devlink interface and first
+ drivers to use it
+Date: Tue, 23 Feb 2016 09:34:19 -0500
+Message-ID: <20160223143418.GQ33942@gospo.home.greyhouse.net>
+References: <1456165924-14399-1-git-send-email-jiri@resnulli.us>
+ <20160223051214.GP33942@gospo.home.greyhouse.net>
+ <20160223073203.GA2140@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	alexei.starovoitov@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, eugenia@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
+	jeffrey.t.kirsher@intel.com, brouer@redhat.com, ivecera@redhat.com,
+	rami.rosen@intel.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:36559 "EHLO
-	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752928AbcBWO2M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 09:28:12 -0500
-Received: by mail-io0-f178.google.com with SMTP id l127so213702950iof.3
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 06:28:11 -0800 (PST)
-In-Reply-To: <56CC5CB6.1030807@iogearbox.net>
+Received: from mail-yw0-f175.google.com ([209.85.161.175]:35308 "EHLO
+	mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752839AbcBWOeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 09:34:23 -0500
+Received: by mail-yw0-f175.google.com with SMTP id g127so147785394ywf.2
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 06:34:23 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20160223073203.GA2140@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-23 08:20 AM, Daniel Borkmann wrote:
-> On 02/23/2016 01:09 PM, Jamal Hadi Salim wrote:
->> On 16-02-22 11:47 AM, Daniel Borkmann wrote:
-> [...]
->>> So, basically this is a L2 encap with TLVs, right?
->>>
->>> And as TLVs you have skb->mark, skb->priority, skb->hash,
->>> skb->queue_mapping
->>> that you transfer from one machine to another, where on the destination,
->>> you
->>> are applying the above meta data to the skb itself. And, configuration
->>> is via
->>> tc.
->>>
->>> I couldn't parse from the commit log what the real world use case is,
->>> resp.
->>> who is going to use this infrastructure?
->>>
->>> Do you have some typical setup, where the above needs to be transferred
->>> in the
->>> encap and restored?
->>
->> I am assuming you are asking this for the sake of people who dont
->> have context (and not for yourself)?
->> I added a pointer to the paper. It is 6 pages and simple to read.
->> Isnt that sufficient? I dont want to write a novel here. Some could
->> argue that in fact i am already writing a novel in commit 1/5.
->
-> Ok, the paper talks about, quote:
->
->   - Pipeline-stage Indexing.
->   - OAM information - example turn on some packet debug information on a
-> need basis.
->   - Exception handling information - example VXLAN service handling.
->   - Authentication and authorization information.
->   - Versioning information.
->   - Compliance information.
->   - Service Identifiers.
->
+On Tue, Feb 23, 2016 at 08:32:03AM +0100, Jiri Pirko wrote:
+> Tue, Feb 23, 2016 at 06:12:15AM CET, gospo@cumulusnetworks.com wrote:
+> >On Mon, Feb 22, 2016 at 07:31:55PM +0100, Jiri Pirko wrote:
+> >> From: Jiri Pirko <jiri@mellanox.com>
+> >> 
+> >> There a is need for some userspace API that would allow to expose things
+> >> that are not directly related to any device class like net_device of
+> >> ib_device, but rather chip-wide/switch-ASIC-wide stuff.
+> >> 
+> >> Use cases:
+> >> 1) get/set of port type (Ethernet/InfiniBand)
+> >> 2) setting up port splitters - split port into multiple ones and squash again,
+> >>    enables usage of splitter cable
+> >> 3) setting up shared buffers - shared among multiple ports within
+> >>    one chip (work in progress)
+> >> 4) configuration of switch wide properties - resources division etc - This will
+> >>    allow to pass configuration that is unacceptable to be passed as
+> >>    a module option.
+> >
+> >I'm generally a fan of use cases #3 and #4 (as we have previously
+> >discussed), but I'm not sure I agree that the implementation for #2
+> >right now.
+> >
+> >I'm not sure I would like userspace to have control over whether or not
+> >a port should be split or not when the hardware can be queried to
+> >determine this.
+> 
+> I was thinking about this myself for a long time and initially it made
+> more sense to me the approach you are suggesting. But after lot of
+> thining, I saw a lot of issues, I changed my mind and now I believe that
+> splitter should be set by user.
 
-Which is now added to the cover letter.
+It seems like now we have convinced each other to change our initial
+positions.
 
-> As your primary examples, you provide skb->mark, skb->priority, skb->hash,
-> skb->queue_mapping for encapsulating, f.e. how do you use skb>hash in this
-> scenario? What's the use-case?
+As you recall I was previously in favor of handling mapping of
+switch-ports to physical ports in netlink and performing breakout
+configuration that way as well.  Having Mellanox hardware perform in the
+way you describe would certainly not prevent a solution to come later
+that did automatic detection and reconfiguration, so if the concensus is
+that handling breakouts in this way is OK, you are not going to see
+significant argument from me.  (I checked back with a few others on what
+is done in the closed-source world and some manual intervention is often
+needed there as well, so let's stick with what you have).
+ 
+> when you set the splitter port, you have 2 or 4 ports created in
+> hardware. They looks exactly the same as unsplitted ports, they are only
+> wired up differently. There is a netdev created for every splitter port,
+> user would add it to bridge, bond, vlan, set routes, define static fdb
+> entry and hw would learn fdbs itself. Now when someone disconnects the
+> splitter cable, 2 things may happen:
+> 1) yourway. Netdevs disappear, all configs and state info will disappear
+>    with it.
+> 2) myway. Netdevs stay, only link is down. This is the same behaviour is
+>    if someone uplugs cable for unplitted port.
+> 
+> There are also similar issues before you plug the splitter cable. So it
+> makes sense to let user co configure this. He knows what he wants. 1)
+> does not look like correct behaviour to me, 2) does.
 
-These are basic metadata. The question to ask is what could one use
-skb->hash for. Today it is used to select a cpu to balance to.
-I dont understand what your concern is: I could pass a string
-as metadata if i wanted to. I chose to pass skb metadata;
-some of which i actually use. Only one i dont use is queue
-map - but because it is still an skb metadata so i wrote code
-to pass it.
+The bottom line here is that for the switch offload case most chips need
+to be reconfigured significantly to function in a way that makes moving
+from 1x100GbE > 2x50GbE, so whether one use case is better or worse
+doesn't really matter that much.
+> 
+> 
+> 
+> <snip>
+> 
+> >> 	myhost:~$ dl port show
+> >> 	devlink0/1: type eth netdev ens4
+> >                             ^^^^^^^^^^^
+> >> 	devlink0/2: type ib ibdev mlx4_0
+> >                            ^^^^^^^^^^^^
+> >I think my only other question about this implementation is whether or
+> >not one would really want to have the true netdev/ibdev names mapped
+> >here.
+> >
+> >Would be as reasonable to simply specify the type (and there may be more
+> >types within ethernet that could be useful in multi-chip configurations)
+> >and then let normal infrastructure that exists today figure out how to
+> >map the names for the netdevs to the devices?
+> 
+> What normal infrastructure you have in mind? There is no info about
+> devlink port mapping to netdev/ibdev anywhere. Only here. I might be
+> missing something but I fail to see what's wrong with it.
 
->> They need to be separated to make them unique. These are basic
->> metadatum; I have a few others lined up - but i just wanted to start
->> with these because they are obvious to see. What i mulled over is
->> to send one big patch or several. In the end it seemed cleaner to
->> send separate patches.
->
-> But just to make them unique, you don't need to add extra modules for
-> this ... just having a module for encoding one skb member seems like
-> total overdesign to me. If you really want them to be separate ops,
-> you can still include them into act_ife.c itself.
->
+I was simply wondering out loud if we _really_ wanted to name netdevs
+this way.  I was suggesting that output could be like this:
 
-These things will evolve. I would rather leave them the way they
-are for that reason and they serve as good examples of how one
-would new metadatum.
-Example: skb->mark may end up evolving to include masks.
+myhost:~$ dl port show
+devlink0/1: type eth
+devlink0/2: type ib 
 
-cheers,
-jamal
+mnd that udev/systemd/biosdevname/etc would take care of naming the
+device whataever it wanted.  This appears to be essentially the same
+concern Hannes has.
