@@ -1,109 +1,57 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH V2 net-next 2/3] lan78xx: add ethtool set & get pause
- functions
-Date: Tue, 23 Feb 2016 00:03:47 +0000
-Message-ID: <1456185827.15241.77.camel@decadent.org.uk>
-References: <9235D6609DB808459E95D78E17F2E43D404B37B5@CHN-SV-EXMX02.mchp-main.com>
-	 <1455839111.2794.51.camel@decadent.org.uk>
-	 <9235D6609DB808459E95D78E17F2E43D404B55D1@CHN-SV-EXMX02.mchp-main.com>
-	 <20160222.141014.1517836822587262524.davem@davemloft.net>
-	 <1456171519.15241.65.camel@decadent.org.uk>
-	 <9235D6609DB808459E95D78E17F2E43D404B570E@CHN-SV-EXMX02.mchp-main.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH can-next 1/2] CAN: rcar: add gen[12] fallback
+ compatibility strings
+Date: Tue, 23 Feb 2016 09:08:22 +0900
+Message-ID: <20160223000822.GF1853@verge.net.au>
+References: <1456107350-12100-1-git-send-email-horms+renesas@verge.net.au>
+ <1456107350-12100-2-git-send-email-horms+renesas@verge.net.au>
+ <20160222033720.GA27711@rob-hp-laptop>
+ <56CAD795.1090509@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-a9KeIhVUt14bYp8MrnQh"
-Cc: netdev@vger.kernel.org
-To: Woojung.Huh@microchip.com, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <robh@kernel.org>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39134 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756366AbcBWAEJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 19:04:09 -0500
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404B570E@CHN-SV-EXMX02.mchp-main.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:55244 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755831AbcBWAI3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 19:08:29 -0500
+Content-Disposition: inline
+In-Reply-To: <56CAD795.1090509@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Feb 22, 2016 at 10:40:37AM +0100, Marc Kleine-Budde wrote:
+> On 02/22/2016 04:37 AM, Rob Herring wrote:
+> > On Mon, Feb 22, 2016 at 11:15:49AM +0900, Simon Horman wrote:
+> >> Add fallback compatibility string for R-Car Gen 1 and Gen2 families.
+> >> This is in keeping with the fallback scheme being adopted wherever
+> >> appropriate for drivers for Renesas SoCs.
+> >>
+> >> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> >> ---
+> >>  Documentation/devicetree/bindings/net/can/rcar_can.txt | 4 +++-
+> >>  drivers/net/can/rcar_can.c                             | 2 ++
+> >>  2 files changed, 5 insertions(+), 1 deletion(-)
+> > 
+> > Acked-by: Rob Herring <robh@kernel.org>
+> 
+> I'm not following the latest DT discussions, is there a (new) decision
+> to add such "generic" compatibles? AFAIK you add the oldest device
+> that's compatible with your driver to your SoC dtsi at rightmost
+> compatible. You can add one that identifies your SoC's IP core in front
+> of it. So there's no need to modify the driver until an IP core needs
+> different handling.
+> 
+> In your case you'd identify the oldest SoC that implements the Gen1 IP
+> core and use this instead of "renesas,can-gen1. Same for Gen2 IP core.
 
---=-a9KeIhVUt14bYp8MrnQh
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2016-02-22 at 20:28 +0000, Woojung.Huh@microchip.com wrote:
-> > -----Original Message-----
-> > From: Ben Hutchings [mailto:ben@decadent.org.uk]
-> > Sent: Monday, February 22, 2016 3:05 PM
-> > To: David Miller; Woojung Huh - C21699
-> > Cc: netdev@vger.kernel.org
-> > Subject: Re: [PATCH V2 net-next 2/3] lan78xx: add ethtool set & get pau=
-se
-> > functions
-> >=20
-> > On Mon, 2016-02-22 at 14:10 -0500, David Miller wrote:
-> > > From: <Woojung.Huh@microchip.com>
-> > > Date: Mon, 22 Feb 2016 18:28:18 +0000
-> > >=20
-> > > > > This is incorrect; you should always return the manual settings
-> > > > > (fc_request_control flags) here. =C2=A0If autonegotiation is enab=
-led then
-> > > > > your get_settings function will return the actual pause flags.
-> > > > >=20
-> > > > What do you mean "return actual pause flags" when autoneg is enable=
-d?
-> > > > Pause flags set by (or default) advertise flag?
-> > >=20
-> > > It means what was negotiated by autonegotiation, and is actually in u=
-se.
-> > >=20
-> > > Otherwise, how can the user find out what was negotiated?
-> >=20
-> > Well, actually we don't *directly* report the autonegotiation flow
-> > control mode at present. =C2=A0We report which pause flags were adverti=
-sed
-> > and what the link partner advertised, from which you can work it out.
->=20
-> NIC advertises pause flags via advertise register (phy reg 0x4) based on =
-Rx & Tx flags,
-> and get_pauseparam() returns Rx & Tx flags set by set_pauseparm() if auto=
-negotiation is enabled?
-
-Yes.
-
-> > Perhaps ethtool (the utility) should explicitly show what the result
-> > is.
-> Ethtool -a reports Rx/Tx flags and Rx/Tx negotiated flag based on adverti=
-sing and lp_advertising value.
-
-It would probably make sense to include the result of pause frame
-autonegotiation in both the 'ethtool -a' and 'ethtool' (no option)
-output.
-
-Ben.
-
---=20
-Ben Hutchings
-The generation of random numbers is too important to be left to chance.
-                                                            - Robert Coveyo=
-u
---=-a9KeIhVUt14bYp8MrnQh
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVsuh4+e/yOyVhhEJAQrLJxAAy7AfxxowwHVAyNayEawv2eXXArX6WAls
-9a19AnFkVOJ06156hmdAgXfu5vcb+C10AfTUXIMTJo7oiFE9rEqWWnj/9X/iPnqZ
-KMXiCnMbwSyB9gY8sGMEAE+vxXdL6pO4tQHEefjIcjd+Re9m7UmG6bE0UKJ/jFeR
-lzgLlb86Id990IFMOW/fYwXnFBYoGrx3CM1GfWAFAGxXiN0jJKvJSEHabrl3XU0u
-1W1Vza28xbm2e9SKc9TdDdNC+/U5g7de8VqRJ8jBIe11C6FfEEEh1k86nsWUb5Q8
-b+UaGa3iE+4FlRE3llowLLgg3dy4/GI6cxwXvQbFUDiJXp31PNUhBVkG0jNMoDMl
-8CXDMU9a0/cgg1s4aZhVrm5Hln0wAe+et+hJESHcrbIXSyT9VTyQaFl0Vbc0cGEo
-0JazSEk/l06jZJoE1ZpY1Zt4ILSUsIi0Lf5Q9NYPqXqSc/9KRmMxgnYj62QGAjqi
-VJtBL2vnE8ZhcMHudd7sMCJMVpJw9s2jjcpg79Mhh5MraciCUEj9ggdCsCLujLE+
-hiWOzgkCF6IK8cCuf9h1vJ6Hg6shx6/fIjajLy2TYMaQ7RD8AY/jvKqkD1xukqnN
-epsiUf3/4N5d6M38Txz8CBZN9F9hIzNJbuYwDtx1vpolbHQu05MiFA3uYqmzO8g9
-CRauhD/drWc=
-=nXxl
------END PGP SIGNATURE-----
-
---=-a9KeIhVUt14bYp8MrnQh--
+In the case of Renesas R-Car hardware we know that there are generations of
+SoCs, e.g. Gen 1 and Gen 2, but beyond that its not clear what the
+relationship between IP blocks might be. For example, I believe that
+r8a7779 is older than r8a7778 but that doesn't imply that the
+latter is a descendant of the former or vice versa.
