@@ -1,71 +1,24 @@
-From: Diego Viola <diego.viola@gmail.com>
-Subject: Re: [PATCH] jme: remove the jme driver as it is no longer maintained
-Date: Mon, 22 Feb 2016 22:38:30 -0300
-Message-ID: <CA+ToGPG9bD5O6xbxq=hu3Ta7PwPLha9dk7dRCShhnDa=NUP-YQ@mail.gmail.com>
-References: <1456003203-10863-1-git-send-email-diego.viola@gmail.com>
-	<20160220.191659.1399118945067159430.davem@davemloft.net>
-	<CA+ToGPEZoe3tnJQHNYED1bxSGrcdZP+AyQHjv==pMovwqYniig@mail.gmail.com>
-	<20160221124506.00237916@lxorguk.ukuu.org.uk>
-	<CA+ToGPEQwdOvgN3OHEjHLrnAyQsCR7zHzvtHmYeKZzoq26ehjQ@mail.gmail.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH] net: jme: fix suspend/resume on JMC260
+Date: Mon, 22 Feb 2016 22:46:44 -0300
+Message-ID: <CAOMZO5Br8mBWOFcdw6i7=VBKtwQsVFMzEYK=CoowG90ExUCCGg@mail.gmail.com>
+References: <1456187572-2964-1-git-send-email-diego.viola@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, cooldavid@cooldavid.org
+Cc: cooldavid@cooldavid.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Richard Weinberger <richard.weinberger@gmail.com>,
+	Pavel Machek <pavel@ucw.cz>,
+	"rjw@rjwysocki.net" <rjw@rjwysocki.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Diego Viola <diego.viola@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+ToGPEQwdOvgN3OHEjHLrnAyQsCR7zHzvtHmYeKZzoq26ehjQ@mail.gmail.com>
+In-Reply-To: <1456187572-2964-1-git-send-email-diego.viola@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 21, 2016 at 2:17 PM, Diego Viola <diego.viola@gmail.com> wrote:
-> On Sun, Feb 21, 2016 at 9:45 AM, One Thousand Gnomes
-> <gnomes@lxorguk.ukuu.org.uk> wrote:
->>> I would appreciate some hint from someone who is more experienced with drivers.
->>
->> Start by testing
->>
->> - loading the driver as a module
->> - using the networking
->> - unloading the module (and checking it stays unloaded!)
->>
->> then suspend/resume
->>
->> If that works then you have a good starting point because you know a
->> sequence of actions that suspends properly. If it fails then it's going
->> to be rather more fun because it implies something in the hardware has
->> not been properly shut down.
->>
->> Alan
->
-> Hi Alan,
->
-> Thanks for your email, did you see my bug report? Because I tried all
-> this already.
->
-> The only workarounds I've found to work is one of these:
->
-> $ rmmod jme # before suspend
->
-> or
->
-> $ ip link set ens34 down
->
-> or
->
-> $ echo 0 > /sys/power/pm_async # disable async power management
->
-> Then resume works fine (I can't reproduce the hang).
->
-> I'm not a C developer nor a kernel developer, I tried looking at the
-> jme.c driver code but it's not clear what is broken and what needs
-> fixing, so I would appreciate someone more experienced looking at the
-> issue and giving me an idea or two.
->
-> Thanks,
-> Diego
+On Mon, Feb 22, 2016 at 9:32 PM, Diego Viola <diego.viola@gmail.com> wrote:
+> Signed-off-by: Diego Viola <diego.viola@gmail.com>
 
-Please disregard this patch, I feel like an idiot for sending it.
-
-I've found a fix already and sent a patch.
-
-Diego
+You should write a commit log.
