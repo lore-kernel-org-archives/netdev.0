@@ -1,96 +1,97 @@
-From: Adam Seering <adam@seering.org>
-Subject: [PATCH] appletalk: Pass IP-over-DDP packets through when 'ipddp0'
- interface is not present
-Date: Tue, 23 Feb 2016 09:19:13 -0500
-Message-ID: <1456237153.4577.35.camel@seering.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH 0/5] net_sched: Add support for IFE action
+Date: Tue, 23 Feb 2016 09:28:05 -0500
+Message-ID: <56CC6C75.1000903@mojatatu.com>
+References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com>
+ <56CB3B90.8030206@iogearbox.net> <56CC4BEA.70108@mojatatu.com>
+ <56CC5CB6.1030807@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	alexei.starovoitov@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comomta-po-01v.sys.comcast.net ([96.114.154.250]:45725 "EHLO
-	comomta-po-01v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752928AbcBWO1r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 09:27:47 -0500
+Received: from mail-io0-f178.google.com ([209.85.223.178]:36559 "EHLO
+	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752928AbcBWO2M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 09:28:12 -0500
+Received: by mail-io0-f178.google.com with SMTP id l127so213702950iof.3
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 06:28:11 -0800 (PST)
+In-Reply-To: <56CC5CB6.1030807@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Let userspace programs transmit and receive raw IP-over-DDP packets
-with a kernel where "ipddp" was compiled as a module but is not loaded
-(so no "ipddp0" network interface is exposed).  This makes the "module
-is not loaded" behavior match the "module was never compiled" behavior.
+On 16-02-23 08:20 AM, Daniel Borkmann wrote:
+> On 02/23/2016 01:09 PM, Jamal Hadi Salim wrote:
+>> On 16-02-22 11:47 AM, Daniel Borkmann wrote:
+> [...]
+>>> So, basically this is a L2 encap with TLVs, right?
+>>>
+>>> And as TLVs you have skb->mark, skb->priority, skb->hash,
+>>> skb->queue_mapping
+>>> that you transfer from one machine to another, where on the destination,
+>>> you
+>>> are applying the above meta data to the skb itself. And, configuration
+>>> is via
+>>> tc.
+>>>
+>>> I couldn't parse from the commit log what the real world use case is,
+>>> resp.
+>>> who is going to use this infrastructure?
+>>>
+>>> Do you have some typical setup, where the above needs to be transferred
+>>> in the
+>>> encap and restored?
+>>
+>> I am assuming you are asking this for the sake of people who dont
+>> have context (and not for yourself)?
+>> I added a pointer to the paper. It is 6 pages and simple to read.
+>> Isnt that sufficient? I dont want to write a novel here. Some could
+>> argue that in fact i am already writing a novel in commit 1/5.
+>
+> Ok, the paper talks about, quote:
+>
+>   - Pipeline-stage Indexing.
+>   - OAM information - example turn on some packet debug information on a
+> need basis.
+>   - Exception handling information - example VXLAN service handling.
+>   - Authentication and authorization information.
+>   - Versioning information.
+>   - Compliance information.
+>   - Service Identifiers.
+>
 
-Signed-off-by: Adam Seering <adam@seering.org>
+Which is now added to the cover letter.
 
----
+> As your primary examples, you provide skb->mark, skb->priority, skb->hash,
+> skb->queue_mapping for encapsulating, f.e. how do you use skb>hash in this
+> scenario? What's the use-case?
 
-[edit] Re-sending at hopefully a more-appropriate time.
+These are basic metadata. The question to ask is what could one use
+skb->hash for. Today it is used to select a cpu to balance to.
+I dont understand what your concern is: I could pass a string
+as metadata if i wanted to. I chose to pass skb metadata;
+some of which i actually use. Only one i dont use is queue
+map - but because it is still an skb metadata so i wrote code
+to pass it.
 
-This is a small proposed change to the ddp code.  It's also my first
-attempt at a kernel patch; I'd appreciate any feedback or discussion. 
-I'm working on the Linux "macipgw" port; it duplicates some
-functionality of the "ipddp" module, but the latter depends on
-userspace utilities which I can no longer find up-to-date working
-copies of?
+>> They need to be separated to make them unique. These are basic
+>> metadatum; I have a few others lined up - but i just wanted to start
+>> with these because they are obvious to see. What i mulled over is
+>> to send one big patch or several. In the end it seemed cleaner to
+>> send separate patches.
+>
+> But just to make them unique, you don't need to add extra modules for
+> this ... just having a module for encoding one skb member seems like
+> total overdesign to me. If you really want them to be separate ops,
+> you can still include them into act_ife.c itself.
+>
 
+These things will evolve. I would rather leave them the way they
+are for that reason and they serve as good examples of how one
+would new metadatum.
+Example: skb->mark may end up evolving to include masks.
 
-diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
-index d5871ac..d30e55f 100644
---- a/net/appletalk/ddp.c
-+++ b/net/appletalk/ddp.c
-@@ -1284,17 +1284,10 @@ static __inline__ int is_ip_over_ddp(struct sk_buff *skb)
-        return skb->data[12] == 22;
- }
- 
--static int handle_ip_over_ddp(struct sk_buff *skb)
-+static int handle_ip_over_ddp(struct sk_buff *skb, struct net_device *dev)
- {
--       struct net_device *dev = __dev_get_by_name(&init_net, "ipddp0");
-        struct net_device_stats *stats;
- 
--       /* This needs to be able to handle ipddp"N" devices */
--       if (!dev) {
--               kfree_skb(skb);
--               return NET_RX_DROP;
--       }
--
-        skb->protocol = htons(ETH_P_IP);
-        skb_pull(skb, 13);
-        skb->dev   = dev;
-@@ -1308,7 +1301,7 @@ static int handle_ip_over_ddp(struct sk_buff *skb)
- #else
- /* make it easy for gcc to optimize this test out, i.e. kill the code */
- #define is_ip_over_ddp(skb) 0
--#define handle_ip_over_ddp(skb) 0
-+#define handle_ip_over_ddp(skb, dev) 0
- #endif
- 
- static int atalk_route_packet(struct sk_buff *skb, struct net_device *dev,
-@@ -1418,6 +1411,8 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
-        struct sock *sock;
-        struct atalk_iface *atif;
-        struct sockaddr_at tosat;
-+       struct net_device *ipddp_dev;
-+
-        int origlen;
-        __u16 len_hops;
- 
-@@ -1473,9 +1468,14 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
-                return atalk_route_packet(skb, dev, ddp, len_hops, origlen);
-        }
- 
--       /* if IP over DDP is not selected this code will be optimized out */
--       if (is_ip_over_ddp(skb))
--               return handle_ip_over_ddp(skb);
-+       /* if IP over DDP is not selected this code should be optimized out */
-+       if (is_ip_over_ddp(skb)) {
-+               ipddp_dev = __dev_get_by_name(&init_net, "ipddp0");
-+
-+               /* This needs to be able to handle ipddp"N" devices */
-+               if (ipddp_dev)
-+                       return handle_ip_over_ddp(skb, ipddp_dev);
-+       }
-        /*
-         * Which socket - atalk_search_socket() looks for a *full match*
-         * of the <net, node, port> tuple.
+cheers,
+jamal
