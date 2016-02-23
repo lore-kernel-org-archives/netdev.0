@@ -1,66 +1,78 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable outer Tx checksum by default
-Date: Tue, 23 Feb 2016 08:47:30 -0800
-Message-ID: <CALx6S34Pt++Kg=cp+v+gGFQGEDy=eNHtFvtBwd1z-1d2ixOn7Q@mail.gmail.com>
-References: <20160219191806.15687.37621.stgit@localhost.localdomain>
-	<CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
-	<CAMt9YRrOxCmJbrftixdJTXZcySZ_mARqCT6C=4-Nqv_ZJKnTwA@mail.gmail.com>
-	<CAEh+42hStEh=5z8KBic0hmEZNti4tjahySjjv7kU3YUes_R4Zg@mail.gmail.com>
-	<CALx6S351KYGFFLi08cX=DFCucZtGJLoMJGvFAW1_H-cRXZ0rQg@mail.gmail.com>
-	<CAEh+42hEVQOFaFk7BW=wZ-gb9HCfYqbr7Q600gbm1q1Oz+yZcA@mail.gmail.com>
-	<CALx6S36EyzjWKi_iK_uAVcCceFnZe3QmLcw7BBejKuB79Uo7PA@mail.gmail.com>
-	<CAEh+42hzkW6i+M52iDAyFtCBfxcJJmsZOiNdqd-DqYrN5isMBw@mail.gmail.com>
-	<56CC7848.2000704@solarflare.com>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: Variable download speed
+Date: Tue, 23 Feb 2016 08:53:26 -0800
+Message-ID: <56CC8E86.7000102@hpe.com>
+References: <alpine.LNX.2.20.1602231223530.29937@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesse Gross <jesse@kernel.org>, Alex Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: Edward Cree <ecree@solarflare.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: sdrb@onet.eu, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:38261 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750897AbcBWQrb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 11:47:31 -0500
-Received: by mail-ig0-f178.google.com with SMTP id y8so107839909igp.1
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 08:47:31 -0800 (PST)
-In-Reply-To: <56CC7848.2000704@solarflare.com>
+Received: from g9t1613g.houston.hp.com ([15.240.0.71]:53801 "EHLO
+	g9t1613g.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754440AbcBWQxe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 11:53:34 -0500
+Received: from g4t3428.houston.hp.com (g4t3428.houston.hp.com [15.201.208.56])
+	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by g9t1613g.houston.hp.com (Postfix) with ESMTPS id EBE4D62620
+	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 16:53:28 +0000 (UTC)
+In-Reply-To: <alpine.LNX.2.20.1602231223530.29937@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 23, 2016 at 7:18 AM, Edward Cree <ecree@solarflare.com> wrote:
-> On 23/02/16 03:31, Jesse Gross wrote:
->> The only issue that I see is that making TSO completely unaware of
->> outer headers will likely cause performance regressions in some cases.
->> Imagine if we have an incoming TCP stream with incrementing IP IDs
->> that we aggregate through GRO and forward. Today's TSO would be able
->> to recreate the stream by incrementing the ID as new segments are
->> created. However, if the outgoing NIC is truly only dealing with the
->> L4 header then it wouldn't be able to do this.
-> Perhaps TSO should force setting the DF bit, so that the IP ID can be
-> ignored.  After all, if your network is going to cause fragmentation and
-> reassembly, your performance will probably be bad enough that TSO won't
-> help you much.  (And TCP usually wants DF anyway so it can do PMTUD.)
-> Arguably, as soon as we perform GRO on traffic to be forwarded, we've
-> already violated the end-to-end principle (there are always imaginable
-> situations in which a different packet stream comes out than went in),
-> so it doesn't really matter if we go on to change the network layer
-> parameters in this way - it's not really the same IP datagram any more
-> so it's OK for its identification to change.
-> And of course this problem doesn't present itself for IPv6 :)
+On 02/23/2016 03:24 AM, sdrb@onet.eu wrote:
+> Hi,
+>
+> I've got a problem with network on one of my embedded boards.
+> I'm testing download speed of 256MB file from my PC to embedded board
+> through 1Gbit ethernet link using ftp.
+>
+> The problem is that sometimes I achieve 25MB/s and sometimes it is only
+> 14MB/s. There are also situations where the transfer speed starts at
+> 14MB/s and after a few seconds achieves 25MB/s.
+> I've caught the second case with tcpdump and I noticed that when the speed
+> is 14MB/s - the tcp window size is 534368 bytes and when the speed
+> achieved 25MB/s the tcp window size is 933888.
+>
+> My question is: what causes such dynamic change in the window size (while
+> transferring data)?  Is it some kernel parameter wrong set or something
+> like this?
+> Do I have any influence on such dynamic change in tcp window size?
 
-Right, GRO should probably not coalesce packets with non-zero IP
-identifiers due to the loss of information. Besides that, RFC6848 says
-the IP identifier should only be set for fragmentation anyway so there
-shouldn't be any issue and really no need for HW TSO (or LRO) to
-support that.
 
-We need to do increment IP identifier in UFO, but I only see one
-device (neterion) that advertises NETIF_F_UFO-- honestly, removing
-that feature might be another good simplification!
+If an application using TCP does not make an explicit setsockopt() call 
+to set the SO_SNDBUF and/or SO_RCVBUF size, then the socket buffer and 
+TCP window size will "autotune" based on what the stack believes to be 
+the correct thing to do.  It will be bounded by the values in the 
+tcp_rmem and tcp_wmem sysctl settings:
 
-Tom
 
-> --
-> -Ed
+net.ipv4.tcp_rmem = 4096	87380	6291456
+net.ipv4.tcp_wmem = 4096	16384	4194304
+
+Those are min, initial, max, units of octets (bytes).
+
+If on the other hand an application makes an explicit setsockopt() call, 
+  that will be the size of the socket buffer, though it will be 
+"clipped" by the values of:
+
+net.core.rmem_max = 4194304
+net.core.wmem_max = 4194304
+
+Those sysctls will default to different values based on how much memory 
+is in the system.  And I think in the case of those last two, I have 
+tweaked them myself away from their default values.
+
+You might also look at the CPU utilization of all the CPUs of your 
+embedded board, as well as the link-level statistics for your interface, 
+and the netstat statistics.  You would be looking for saturation, and 
+"excessive" drop rates.  I would also suggest testing network 
+performance with something other than FTP.  While one can try to craft 
+things so there is no storage I/O of note, it would still be better to 
+use a network-specific tool such as netperf or iperf.  Minimize the 
+number of variables.
+
+happy benchmarking,
+
+rick jones
