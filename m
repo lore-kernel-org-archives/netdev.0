@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 1/3] net: dsa: add port_vlan_dump routine
-Date: Tue, 23 Feb 2016 12:13:54 -0500
-Message-ID: <1456247636-4706-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 2/3] net: dsa: mv88e6xxx: implement port_vlan_dump
+Date: Tue, 23 Feb 2016 12:13:55 -0500
+Message-ID: <1456247636-4706-3-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1456247636-4706-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -15,61 +15,202 @@ In-Reply-To: <1456247636-4706-1-git-send-email-vivien.didelot@savoirfairelinux.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Similar to port_fdb_dump, add a port_vlan_dump function to DSA drivers
-which gets passed the switchdev VLAN object and callback.
-
-This function, if implemented, takes precedence over the soon legacy
-vlan_getnext/port_pvid_get approach.
+Remove the port_pvid_get and vlan_getnext functions in favor of a
+simpler mv88e6xxx_port_vlan_dump function.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- Documentation/networking/dsa/dsa.txt | 4 ++++
- include/net/dsa.h                    | 3 +++
- net/dsa/slave.c                      | 3 +++
- 3 files changed, 10 insertions(+)
+ drivers/net/dsa/mv88e6171.c |   3 +-
+ drivers/net/dsa/mv88e6352.c |   3 +-
+ drivers/net/dsa/mv88e6xxx.c | 110 ++++++++++++++++++++------------------------
+ drivers/net/dsa/mv88e6xxx.h |   6 +--
+ 4 files changed, 56 insertions(+), 66 deletions(-)
 
-diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
-index ebf2153..350a502 100644
---- a/Documentation/networking/dsa/dsa.txt
-+++ b/Documentation/networking/dsa/dsa.txt
-@@ -554,6 +554,10 @@ Bridge VLAN filtering
- - port_vlan_del: bridge layer function invoked when a VLAN is removed from the
-   given switch port
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 6e18213..dd1ebaf 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -106,11 +106,10 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.port_join_bridge	= mv88e6xxx_port_bridge_join,
+ 	.port_leave_bridge	= mv88e6xxx_port_bridge_leave,
+ 	.port_stp_update        = mv88e6xxx_port_stp_update,
+-	.port_pvid_get		= mv88e6xxx_port_pvid_get,
+ 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
+ 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
+ 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
+-	.vlan_getnext		= mv88e6xxx_vlan_getnext,
++	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
+ 	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
+ 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
+ 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index a47f52f..bbca36a 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -327,11 +327,10 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.port_join_bridge	= mv88e6xxx_port_bridge_join,
+ 	.port_leave_bridge	= mv88e6xxx_port_bridge_leave,
+ 	.port_stp_update	= mv88e6xxx_port_stp_update,
+-	.port_pvid_get		= mv88e6xxx_port_pvid_get,
+ 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
+ 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
+ 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
+-	.vlan_getnext		= mv88e6xxx_vlan_getnext,
++	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
+ 	.port_fdb_prepare	= mv88e6xxx_port_fdb_prepare,
+ 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
+ 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 123f29e..63e98b4 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1151,19 +1151,6 @@ static int _mv88e6xxx_port_pvid_get(struct dsa_switch *ds, int port, u16 *pvid)
+ 	return 0;
+ }
  
-+- port_vlan_dump: bridge layer function invoked with a switchdev callback
-+  function that the driver has to call for each VLAN the given port is a member
-+  of. A switchdev object is used to carry the VID and bridge flags.
+-int mv88e6xxx_port_pvid_get(struct dsa_switch *ds, int port, u16 *pvid)
+-{
+-	int ret;
+-
+-	ret = mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_DEFAULT_VLAN);
+-	if (ret < 0)
+-		return ret;
+-
+-	*pvid = ret & PORT_DEFAULT_VLAN_MASK;
+-
+-	return 0;
+-}
+-
+ static int _mv88e6xxx_port_pvid_set(struct dsa_switch *ds, int port, u16 pvid)
+ {
+ 	return _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_DEFAULT_VLAN,
+@@ -1306,6 +1293,57 @@ static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds,
+ 	return 0;
+ }
+ 
++int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
++			     struct switchdev_obj_port_vlan *vlan,
++			     int (*cb)(struct switchdev_obj *obj))
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct mv88e6xxx_vtu_stu_entry next;
++	u16 pvid;
++	int err;
 +
- - vlan_getnext: bridge layer function invoked to query the next configured VLAN
-   in the switch, i.e. returns the bitmaps of members and untagged ports
- 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 1c845d7..ebc0d9e 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -313,6 +313,9 @@ struct dsa_switch_driver {
- 				 struct switchdev_trans *trans);
- 	int	(*port_vlan_del)(struct dsa_switch *ds, int port,
- 				 const struct switchdev_obj_port_vlan *vlan);
-+	int	(*port_vlan_dump)(struct dsa_switch *ds, int port,
-+				  struct switchdev_obj_port_vlan *vlan,
-+				  int (*cb)(struct switchdev_obj *obj));
- 	int	(*port_pvid_get)(struct dsa_switch *ds, int port, u16 *pvid);
- 	int	(*vlan_getnext)(struct dsa_switch *ds, u16 *vid,
- 				unsigned long *ports, unsigned long *untagged);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 14ca978..a9cbb72 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -248,6 +248,9 @@ static int dsa_slave_port_vlan_dump(struct net_device *dev,
- 	u16 pvid, vid = 0;
- 	int err;
- 
-+	if (ds->drv->port_vlan_dump)
-+		return ds->drv->port_vlan_dump(ds, p->port, vlan, cb);
++	mutex_lock(&ps->smi_mutex);
 +
- 	if (!ds->drv->vlan_getnext || !ds->drv->port_pvid_get)
- 		return -EOPNOTSUPP;
++	err = _mv88e6xxx_port_pvid_get(ds, port, &pvid);
++	if (err)
++		goto unlock;
++
++	err = _mv88e6xxx_vtu_vid_write(ds, GLOBAL_VTU_VID_MASK);
++	if (err)
++		goto unlock;
++
++	do {
++		err = _mv88e6xxx_vtu_getnext(ds, &next);
++		if (err)
++			break;
++
++		if (!next.valid)
++			break;
++
++		if (next.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
++			continue;
++
++		/* reinit and dump this VLAN obj */
++		vlan->vid_begin = vlan->vid_end = next.vid;
++		vlan->flags = 0;
++
++		if (next.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED)
++			vlan->flags |= BRIDGE_VLAN_INFO_UNTAGGED;
++
++		if (next.vid == pvid)
++			vlan->flags |= BRIDGE_VLAN_INFO_PVID;
++
++		err = cb(&vlan->obj);
++		if (err)
++			break;
++	} while (next.vid < GLOBAL_VTU_VID_MASK);
++
++unlock:
++	mutex_unlock(&ps->smi_mutex);
++
++	return err;
++}
++
+ static int _mv88e6xxx_vtu_loadpurge(struct dsa_switch *ds,
+ 				    struct mv88e6xxx_vtu_stu_entry *entry)
+ {
+@@ -1675,52 +1713,6 @@ unlock:
+ 	return err;
+ }
  
+-int mv88e6xxx_vlan_getnext(struct dsa_switch *ds, u16 *vid,
+-			   unsigned long *ports, unsigned long *untagged)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	struct mv88e6xxx_vtu_stu_entry next;
+-	int port;
+-	int err;
+-
+-	if (*vid == 4095)
+-		return -ENOENT;
+-
+-	mutex_lock(&ps->smi_mutex);
+-	err = _mv88e6xxx_vtu_vid_write(ds, *vid);
+-	if (err)
+-		goto unlock;
+-
+-	err = _mv88e6xxx_vtu_getnext(ds, &next);
+-unlock:
+-	mutex_unlock(&ps->smi_mutex);
+-
+-	if (err)
+-		return err;
+-
+-	if (!next.valid)
+-		return -ENOENT;
+-
+-	*vid = next.vid;
+-
+-	for (port = 0; port < ps->num_ports; ++port) {
+-		clear_bit(port, ports);
+-		clear_bit(port, untagged);
+-
+-		if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
+-			continue;
+-
+-		if (next.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED ||
+-		    next.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED)
+-			set_bit(port, ports);
+-
+-		if (next.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED)
+-			set_bit(port, untagged);
+-	}
+-
+-	return 0;
+-}
+-
+ static int _mv88e6xxx_atu_mac_write(struct dsa_switch *ds,
+ 				    const unsigned char *addr)
+ {
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index b059362..19654ec 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -500,9 +500,9 @@ int mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
+ 			    struct switchdev_trans *trans);
+ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
+ 			    const struct switchdev_obj_port_vlan *vlan);
+-int mv88e6xxx_port_pvid_get(struct dsa_switch *ds, int port, u16 *vid);
+-int mv88e6xxx_vlan_getnext(struct dsa_switch *ds, u16 *vid,
+-			   unsigned long *ports, unsigned long *untagged);
++int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
++			     struct switchdev_obj_port_vlan *vlan,
++			     int (*cb)(struct switchdev_obj *obj));
+ int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
+ 			       const struct switchdev_obj_port_fdb *fdb,
+ 			       struct switchdev_trans *trans);
 -- 
 2.7.1
