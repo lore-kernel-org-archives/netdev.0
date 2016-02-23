@@ -1,26 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] rocker: fix rocker_world_port_obj_vlan_add()
-Date: Tue, 23 Feb 2016 13:12:53 -0500 (EST)
-Message-ID: <20160223.131253.1345433336482609987.davem@davemloft.net>
-References: <20160223093752.GA4030@mwanda>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH] net: smc911x: convert pxa dma to dmaengine
+Date: Tue, 23 Feb 2016 15:15:50 -0300
+Message-ID: <CAOMZO5DfQZrP-qNdPC5hJ_J+e-mX547SMq1wUC3NXWzyx84PMw@mail.gmail.com>
+References: <20151202.235217.2201517065767030121.davem@davemloft.net>
+	<87fuzjl69l.fsf@belgarion.home>
+	<87k2mi4ysn.fsf@belgarion.home>
+	<20160205.173021.1388372628450225378.davem@davemloft.net>
+	<87fux6439s.fsf@belgarion.home>
+	<CAE1WaKK2DqYYOTLmprbLuZVN-8--sZVyZVHgkcT4Jg7797S7HQ@mail.gmail.com>
+	<8760xjzbc5.fsf@belgarion.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, sfeldma@gmail.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20160223093752.GA4030@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Guennadi Liakhovetski <g.liakhovetski@gmx.de>,
+	Hitoshi Mitake <mitake@dcl.info.waseda.ac.jp>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Hitoshi Mitake <mitake.hitoshi@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Robert Jarzmik <robert.jarzmik@free.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8760xjzbc5.fsf@belgarion.home>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Tue, 23 Feb 2016 12:37:52 +0300
+On Sat, Feb 20, 2016 at 12:48 PM, Robert Jarzmik <robert.jarzmik@free.fr> wrote:
 
-> We were changing return values and accidentally made
-> rocker_world_port_obj_vlan_add() into a no-op.
-> 
-> Fixes: fccd84d44912 ('rocker: return -EOPNOTSUPP for undefined world ops')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Hello,
+>
+> I'll reping once more, to see if any of you could give this patch a try.
+> So far Hitoshi doesn't have the hardware anymore, so it leaves only Guennadi and
+> Fabio.
+>
+> If you could give it a try it would be great.
+>
+> For reference, the patch is here : https://lkml.org/lkml/2015/11/30/768
 
-Applied, thanks.
+I finally got access to a mx53ard board, applied your patch and
+managed to NFS boot without issues:
+
+[    1.739281] smsc911x f4000000.lan9220 eth0: SMSC911x/921x
+identified at 0xe0a80000, IRQ: 207
+
+Tested-by: Fabio Estevam <fabio.estevam@nxp.com>
