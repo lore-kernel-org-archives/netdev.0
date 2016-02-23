@@ -1,66 +1,37 @@
-From: Diego Viola <diego.viola@gmail.com>
-Subject: Re: Computer fails to resume from suspend unless I rmmod jme before
- initiating the suspend
-Date: Mon, 22 Feb 2016 21:38:06 -0300
-Message-ID: <CA+ToGPFxL8gH0nAqtAJYos72DVp9Yy0Pjp9SGO0r53bHDZPu5g@mail.gmail.com>
-References: <CA+ToGPGC8APhN-_F5fzyR4CWqWgZ9Hs0PNqykhEgEV7g3PJjTg@mail.gmail.com>
-	<CA+ToGPF9cpdVLEHc7Vz79=-P7Jp76Y=M=p=bORhUNrXtb6+LNA@mail.gmail.com>
-	<CA+ToGPHfV5NbSAFWJPzDVfUT9fdp86MqoFbF8Uhmf9T+3e9n7Q@mail.gmail.com>
-	<CA+ToGPF0OT7NKCjaBMomqZg-+eO7Eq9hqSmLt0-UOHnyGPHd8Q@mail.gmail.com>
-	<CA+ToGPFP5a76TS2C_A7WJUWM9Eo60Ym5OtwHcKtY+OreoRVoFA@mail.gmail.com>
-	<20160222100907.GA32071@amd>
-	<CA+ToGPE3=OBsNDP_O7EoT76FqMdxdjdt=+tHNGBbm-oUkQHA4Q@mail.gmail.com>
-	<20160222192015.GA4011@amd>
+From: Li RongQing <roy.qing.li@gmail.com>
+Subject: Re: [PATCH][net-next] bridge: increase mtu to 9000
+Date: Tue, 23 Feb 2016 08:51:31 +0800
+Message-ID: <CAJFZqHztOjkRMcmJUw8r=aKD6sop5xVt33XFctPMGAbJJN5LEA@mail.gmail.com>
+References: <1456133351-10292-1-git-send-email-roy.qing.li@gmail.com>
+	<20160222095808.72edd4f9@xeon-e3>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>, cooldavid@cooldavid.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160222192015.GA4011@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:34620 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755866AbcBWAvc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 19:51:32 -0500
+Received: by mail-oi0-f51.google.com with SMTP id m82so67739716oif.1
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 16:51:31 -0800 (PST)
+In-Reply-To: <20160222095808.72edd4f9@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 22, 2016 at 4:20 PM, Pavel Machek <pavel@ucw.cz> wrote:
-> On Mon 2016-02-22 15:59:48, Diego Viola wrote:
->> On Mon, Feb 22, 2016 at 7:09 AM, Pavel Machek <pavel@ucw.cz> wrote:
->> > Hi!
->> >
->> >> >>>> Every time I initiate a suspend (systemctl suspend) the machine hangs
->> >> >>>> at resume unless I unload the jme driver.
->> >
->> > It seems to have some kind of suspend/resume support. ... and it is
->> > rather complex.
->> >
->> > Maybe jme_start_irq(jme) should be moved to the end of jme_resume
->> > function?
->> >
->> >> > So I found that disabling async as in:
->> >> >
->> >> > $ echo 0 > /sys/power/pm_async
->> >> >
->> >> > Helps with my issue, I can't reproduce the hang anymore, tried
->> >> > suspend/resume almost ~15 times.
->> >> >
->> >> > Diego
->> >>
->> >> Can someone please help?
+On Tue, Feb 23, 2016 at 1:58 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+>> guest VMs.
 >>
->> Hi Pavel,
+>> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1399064
 >>
->> This did the trick, suspend/resume is now working perfectly for me
->> (tried more than 10 times). :)
->>
->> Thank you so much, should I send a patch?
+>> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 >
-> Yes please.
->
->                                                                         Pavel
->
-> --
-> (english) http://www.livejournal.com/~pavelmachek
-> (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+> Your change works, but I agree with Hannes. Just allow up to 64 * 1024 like
+> loopback does.  And no need for a #define for that it is only in one place.
 
-Sent, thank you.
 
-Diego
+
+thanks, I will change it as you suggest
+
+-Roy
