@@ -1,49 +1,89 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable outer Tx checksum by
- default
-Date: Tue, 23 Feb 2016 15:18:32 +0000
-Message-ID: <56CC7848.2000704@solarflare.com>
-References: <20160219191806.15687.37621.stgit@localhost.localdomain>
- <CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
- <CAMt9YRrOxCmJbrftixdJTXZcySZ_mARqCT6C=4-Nqv_ZJKnTwA@mail.gmail.com>
- <CAEh+42hStEh=5z8KBic0hmEZNti4tjahySjjv7kU3YUes_R4Zg@mail.gmail.com>
- <CALx6S351KYGFFLi08cX=DFCucZtGJLoMJGvFAW1_H-cRXZ0rQg@mail.gmail.com>
- <CAEh+42hEVQOFaFk7BW=wZ-gb9HCfYqbr7Q600gbm1q1Oz+yZcA@mail.gmail.com>
- <CALx6S36EyzjWKi_iK_uAVcCceFnZe3QmLcw7BBejKuB79Uo7PA@mail.gmail.com>
- <CAEh+42hzkW6i+M52iDAyFtCBfxcJJmsZOiNdqd-DqYrN5isMBw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alex Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: Jesse Gross <jesse@kernel.org>, Tom Herbert <tom@herbertland.com>
+From: Gilberto Bertin <gilberto.bertin@gmail.com>
+Subject: [net-next RFC 0/4] SO_BINDTOSUBNET
+Date: Tue, 23 Feb 2016 15:27:41 +0000
+Message-ID: <1456241265-5766-1-git-send-email-gilberto.bertin@gmail.com>
+Cc: Gilberto Bertin <gilberto.bertin@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:63821 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753498AbcBWPUo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 10:20:44 -0500
-In-Reply-To: <CAEh+42hzkW6i+M52iDAyFtCBfxcJJmsZOiNdqd-DqYrN5isMBw@mail.gmail.com>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:38487 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752496AbcBWP1r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 10:27:47 -0500
+Received: by mail-wm0-f42.google.com with SMTP id a4so214314501wme.1
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 07:27:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/02/16 03:31, Jesse Gross wrote:
-> The only issue that I see is that making TSO completely unaware of
-> outer headers will likely cause performance regressions in some cases.
-> Imagine if we have an incoming TCP stream with incrementing IP IDs
-> that we aggregate through GRO and forward. Today's TSO would be able
-> to recreate the stream by incrementing the ID as new segments are
-> created. However, if the outgoing NIC is truly only dealing with the
-> L4 header then it wouldn't be able to do this.
-Perhaps TSO should force setting the DF bit, so that the IP ID can be
-ignored.  After all, if your network is going to cause fragmentation and
-reassembly, your performance will probably be bad enough that TSO won't
-help you much.  (And TCP usually wants DF anyway so it can do PMTUD.)
-Arguably, as soon as we perform GRO on traffic to be forwarded, we've
-already violated the end-to-end principle (there are always imaginable
-situations in which a different packet stream comes out than went in),
-so it doesn't really matter if we go on to change the network layer
-parameters in this way - it's not really the same IP datagram any more
-so it's OK for its identification to change.
-And of course this problem doesn't present itself for IPv6 :)
+This series introduces support for the SO_BINDTOSUBNET socket option, which
+allows a listener socket to bind to a subnet instead of * or a single address.
+
+Motivation:
+consider a set of servers, each one with thousands and thousands of IP
+addresses. Since assigning /32 or /128 IP individual addresses would be
+inefficient, one solution can be assigning subnets using local routes
+(with 'ip route add local').
+
+This allows a listener to listen and terminate connections going to any
+of the IP addresses of these subnets without explicitly configuring all
+of them. This is very efficient.
+
+Unfortunately there may be the need to use different subnets for
+different purposes.
+One can imagine port 80 being served by one HTTP server for some IP
+subnet, while another server used for another subnet.
+Right now Linux does not allow this.
+It is either possible to bind to *, indicating ALL traffic going to
+given port, or to individual IP addresses.
+The first only allows to accept connections from all the subnets.
+The latter does not scale well with lots of IP addresses.
+
+Using bindtosubnet would solve this problem: just by adding a local
+route rule and setting the SO_BINDTOSUBNET option for a socket it would
+be possible to easily partition traffic by subnets.
+
+API:
+the subnet is specified (as argument of the setsockopt syscall) by the
+address of the network, and the prefix length of the netmask.
+
+IPv4:
+	struct ipv4_subnet {
+		__be32 net;
+		u_char plen;
+	};
+
+and IPv6:
+	struct ipv6_subnet {
+		struct in6_addr net;
+		u_char plen;
+	};
+
+Bind conflicts:
+two sockets with the bindtosubnet option enabled generate a bind
+conflict if their network addresses masked with the shortest of their
+prefix are equal.
+The bindtosubnet option can be combined with soreuseport so that two
+listener can bind on the same subnet.
+
+Any questions/feedback appreciated.
+
+Thanks,
+  Gilberto
+
+Gilberto Bertin (4):
+  bindtosubnet: infrastructure
+  bindtosubnet: TCP/IPv4 implementation
+  bindtosubnet: TCP/IPv6 implementation
+  bindtosubnet: UPD implementation
+
+ include/net/sock.h                |  20 +++++++
+ include/uapi/asm-generic/socket.h |   1 +
+ net/core/sock.c                   | 111 ++++++++++++++++++++++++++++++++++++++
+ net/ipv4/inet_connection_sock.c   |  20 ++++++-
+ net/ipv4/inet_hashtables.c        |   9 ++++
+ net/ipv4/udp.c                    |  35 ++++++++++++
+ net/ipv6/inet6_connection_sock.c  |  17 +++++-
+ net/ipv6/inet6_hashtables.c       |   6 +++
+ 8 files changed, 217 insertions(+), 2 deletions(-)
+
+-- 
+2.7.1
