@@ -1,77 +1,96 @@
-From: Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 00/33] Compile-time stack metadata validation
-Date: Tue, 23 Feb 2016 11:27:17 -0300
-Message-ID: <20160223142717.GA3607@kernel.org>
-References: <cover.1453405861.git.jpoimboe@redhat.com>
- <20160223081406.GA606@gmail.com>
+From: Adam Seering <adam@seering.org>
+Subject: [PATCH] appletalk: Pass IP-over-DDP packets through when 'ipddp0'
+ interface is not present
+Date: Tue, 23 Feb 2016 09:19:13 -0500
+Message-ID: <1456237153.4577.35.camel@seering.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Josh Poimboeuf <jpoimboe-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, live-patching-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Michal Marek <mmarek-AlSwsSmVLrQ@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Borislav Petkov <bp-Gina5bIWoIWzQB+pC5nmwQ@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>,
-	Pedro Alves <palves-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Namhyung Kim <namhyung-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Bernd Petrovitsch <bernd-JY8rjfDgnXcb9sJ47jD7nuTv7YV0F9Eg@public.gmane.org>,
-	Chris J Arges <chris.j.arges-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>,
-	David Vrabel <david.vrabel-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>,
-	Borislav Petkov <bp-l3A5Bk7waGM@public.gmane.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	Boris Ostrovsky <boris.ostrovsky-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	Jeremy Fitzhardinge <jeremy-TSDbQ3PG+2Y@public.gmane.org>,
-	C
-To: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-watchdog-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160223081406.GA606-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-watchdog-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comomta-po-01v.sys.comcast.net ([96.114.154.250]:45725 "EHLO
+	comomta-po-01v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752928AbcBWO1r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 09:27:47 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Feb 23, 2016 at 09:14:06AM +0100, Ingo Molnar escreveu:
-> The fact that 'stacktool' already checks about assembly details like __ex_table[] 
-> shows that my review feedback early iterations of this series, that the 
-> 'stacktool' name is too specific, was correct.
-> 
-> We really need to rename it before it gets upstream and the situation gets worse. 
-> __ex_table[] has obviously nothing to do with the 'stack layout' of binaries.
-> 
-> Another suitable name would be 'asmtool' or 'objtool'. For example the following 
-> would naturally express what it does:
-> 
->   objtool check kernel/built-in.o
-> 
-> the name expresses that the tool checks object files, independently of the 
-> existing toolchain. Its primary purpose right now is the checking of stack layout 
-> details, but the tool is not limited to that at all.
+Let userspace programs transmit and receive raw IP-over-DDP packets
+with a kernel where "ipddp" was compiled as a module but is not loaded
+(so no "ipddp0" network interface is exposed).  This makes the "module
+is not loaded" behavior match the "module was never compiled" behavior.
 
-Removing 'tool' from the tool name would be nice too :-) Making it
-easily googlable would be good too, lotsa people complain about 'perf'
-being too vague, see for a quick laugher:
+Signed-off-by: Adam Seering <adam@seering.org>
 
-http://www.brendangregg.com/perf.html
+---
 
-``Searching for just "perf" finds sites on the police, petroleum, weed
-control, and a T-shirt. This is not an official perf page, for either
-perf_events or the T-shirt.''
+[edit] Re-sending at hopefully a more-appropriate time.
 
-The T-shirt: http://www.brendangregg.com/perf_events/omg-so-perf.jpg
+This is a small proposed change to the ddp code.  It's also my first
+attempt at a kernel patch; I'd appreciate any feedback or discussion. 
+I'm working on the Linux "macipgw" port; it duplicates some
+functionality of the "ipddp" module, but the latter depends on
+userspace utilities which I can no longer find up-to-date working
+copies of?
 
-Maybe we should ask Linus to come with some other nice, short,
-searchable, funny name like 'git'?
 
-'chob' as in 'check object'?
-
-- Arnaldo
---
-To unsubscribe from this list: send the line "unsubscribe linux-watchdog" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index d5871ac..d30e55f 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -1284,17 +1284,10 @@ static __inline__ int is_ip_over_ddp(struct sk_buff *skb)
+        return skb->data[12] == 22;
+ }
+ 
+-static int handle_ip_over_ddp(struct sk_buff *skb)
++static int handle_ip_over_ddp(struct sk_buff *skb, struct net_device *dev)
+ {
+-       struct net_device *dev = __dev_get_by_name(&init_net, "ipddp0");
+        struct net_device_stats *stats;
+ 
+-       /* This needs to be able to handle ipddp"N" devices */
+-       if (!dev) {
+-               kfree_skb(skb);
+-               return NET_RX_DROP;
+-       }
+-
+        skb->protocol = htons(ETH_P_IP);
+        skb_pull(skb, 13);
+        skb->dev   = dev;
+@@ -1308,7 +1301,7 @@ static int handle_ip_over_ddp(struct sk_buff *skb)
+ #else
+ /* make it easy for gcc to optimize this test out, i.e. kill the code */
+ #define is_ip_over_ddp(skb) 0
+-#define handle_ip_over_ddp(skb) 0
++#define handle_ip_over_ddp(skb, dev) 0
+ #endif
+ 
+ static int atalk_route_packet(struct sk_buff *skb, struct net_device *dev,
+@@ -1418,6 +1411,8 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
+        struct sock *sock;
+        struct atalk_iface *atif;
+        struct sockaddr_at tosat;
++       struct net_device *ipddp_dev;
++
+        int origlen;
+        __u16 len_hops;
+ 
+@@ -1473,9 +1468,14 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
+                return atalk_route_packet(skb, dev, ddp, len_hops, origlen);
+        }
+ 
+-       /* if IP over DDP is not selected this code will be optimized out */
+-       if (is_ip_over_ddp(skb))
+-               return handle_ip_over_ddp(skb);
++       /* if IP over DDP is not selected this code should be optimized out */
++       if (is_ip_over_ddp(skb)) {
++               ipddp_dev = __dev_get_by_name(&init_net, "ipddp0");
++
++               /* This needs to be able to handle ipddp"N" devices */
++               if (ipddp_dev)
++                       return handle_ip_over_ddp(skb, ipddp_dev);
++       }
+        /*
+         * Which socket - atalk_search_socket() looks for a *full match*
+         * of the <net, node, port> tuple.
