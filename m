@@ -1,37 +1,55 @@
-From: Li RongQing <roy.qing.li@gmail.com>
-Subject: Re: [PATCH][net-next] bridge: increase mtu to 9000
-Date: Tue, 23 Feb 2016 08:51:31 +0800
-Message-ID: <CAJFZqHztOjkRMcmJUw8r=aKD6sop5xVt33XFctPMGAbJJN5LEA@mail.gmail.com>
-References: <1456133351-10292-1-git-send-email-roy.qing.li@gmail.com>
-	<20160222095808.72edd4f9@xeon-e3>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: netfilter: warning at net/ipv4/netfilter/nf_nat_l3proto_ipv4.c:275
+ nf_nat_ipv4_fn
+Date: Mon, 22 Feb 2016 19:55:58 -0500
+Message-ID: <56CBAE1E.8030402@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:34620 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755866AbcBWAvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 19:51:32 -0500
-Received: by mail-oi0-f51.google.com with SMTP id m82so67739716oif.1
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 16:51:31 -0800 (PST)
-In-Reply-To: <20160222095808.72edd4f9@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Pablo Neira Ayuso <pablo@netfilter.org>, kaber@trash.net,
+	kadlec@blackhole.kfki.hu, netfilter-devel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, coreteam@netfilter.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 23, 2016 at 1:58 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
->> guest VMs.
->>
->> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1399064
->>
->> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
->
-> Your change works, but I agree with Hannes. Just allow up to 64 * 1024 like
-> loopback does.  And no need for a #define for that it is only in one place.
+Hi all,
+
+I've hit the following warning while fuzzing with trinity inside a kvmtool guest
+running the latest -next kernel:
+
+[ 3196.268106] WARNING: CPU: 3 PID: 660 at net/ipv4/netfilter/nf_nat_l3proto_ipv4.c:275 nf_nat_ipv4_fn+0x65d/0xab0()
+
+[ 3196.268120] Modules linked in:
+
+[ 3196.268142] CPU: 3 PID: 660 Comm: trinity-c95 Not tainted 4.5.0-rc4-next-20160219-sasha-00026-g7978205-dirty #2978
+
+[ 3196.268173]  1ffff10017065e9b ffff8800b832f560 ffffffffa23d9a9d ffffffff00000003
+
+[ 3196.268196]  fffffbfff5c2a630 0000000041b58ab3 ffffffffadb3a8f2 ffffffffa23d9905
+
+[ 3196.268216]  ffffffffa059a760 ffff880371b25494 ffff8800b832f958 ffff8800b832f960
+
+[ 3196.268222] Call Trace:
+
+[ 3196.268273] dump_stack (lib/dump_stack.c:53)
+[ 3196.268375] warn_slowpath_common (kernel/panic.c:483)
+[ 3196.268417] warn_slowpath_null (kernel/panic.c:517)
+[ 3196.268435] nf_nat_ipv4_fn (net/ipv4/netfilter/nf_nat_l3proto_ipv4.c:275 (discriminator 1))
+[ 3196.268543] nf_nat_ipv4_local_fn (net/ipv4/netfilter/nf_nat_l3proto_ipv4.c:429)
+[ 3196.268573] iptable_nat_ipv4_local_fn (net/ipv4/netfilter/iptable_nat.c:65)
+[ 3196.268596] nf_iterate (net/netfilter/core.c:275)
+[ 3196.268622] nf_hook_slow (net/netfilter/core.c:306)
+[ 3196.268701] raw_send_hdrinc (include/linux/netfilter.h:225 include/linux/netfilter.h:249 net/ipv4/raw.c:418)
+[ 3196.268773] raw_sendmsg (net/ipv4/raw.c:640)
+[ 3196.268869] inet_sendmsg (net/ipv4/af_inet.c:740)
+[ 3196.268913] sock_sendmsg (net/socket.c:612 net/socket.c:621)
+[ 3196.268927] SYSC_sendto (net/socket.c:1651)
+[ 3196.269049] SyS_sendto (net/socket.c:1619)
+[ 3196.269074] entry_SYSCALL_64_fastpath (arch/x86/entry/entry_64.S:200)
 
 
-
-thanks, I will change it as you suggest
-
--Roy
+Thanks,
+Sasha
