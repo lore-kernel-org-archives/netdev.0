@@ -1,60 +1,65 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH net-next 0/3] Extend macvtap with multiple qdiscs
-Date: Tue, 23 Feb 2016 10:38:02 +0800
-Message-ID: <56CBC60A.1000404@redhat.com>
-References: <1454901296-9915-1-git-send-email-vyasevic@redhat.com>
+From: "Christopher Hall" <christopher.s.hall@intel.com>
+Subject: Re: [PATCH v7 6/8] x86: tsc: Always Running Timer (ART) correlated
+ clocksource
+Date: Mon, 22 Feb 2016 18:38:11 -0800
+Message-ID: <op.yc9llxxf1774gr@chall-mobl2.amr.corp.intel.com>
+References: <1455308729-6280-1-git-send-email-christopher.s.hall@intel.com>
+ <1455308729-6280-7-git-send-email-christopher.s.hall@intel.com>
+ <56C63385.9050703@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, Vladislav Yasevich <vyasevic@redhat.com>
-To: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+Cc: x86@kernel.org, linux-kernel@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	kevin.b.stanton@intel.com, kevin.j.clarke@intel.com
+To: tglx@linutronix.de, richardcochran@gmail.com, mingo@redhat.com,
+	john.stultz@linaro.org, hpa@zytor.com, jeffrey.t.kirsher@intel.com,
+	"Andy Lutomirski" <luto@kernel.org>,
+	"Peter Zijlstra" <peterz@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42164 "EHLO mx1.redhat.com"
+Received: from mga03.intel.com ([134.134.136.65]:47286 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756769AbcBWCiL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Feb 2016 21:38:11 -0500
-In-Reply-To: <1454901296-9915-1-git-send-email-vyasevic@redhat.com>
+	id S1756769AbcBWCiO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Feb 2016 21:38:14 -0500
+In-Reply-To: <56C63385.9050703@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 18 Feb 2016 13:11:33 -0800, Andy Lutomirski <luto@kernel.org>  
+wrote:
+>> +#define X86_FEATURE_INVARIANT_TSC (7*32+4) /* Intel Invariant TSC */
 
-
-On 02/08/2016 11:14 AM, Vladislav Yasevich wrote:
-> This is an RFC series to extend macvtap with multiple qdisc.  Right now
-> multiqueue macvtap setups suffer from lock contention.  Macvtap sets
-> the queue index and thus gets a default qdisc allocated to it.  Since
-> it later users dev_queue_xmit() call to the macvlan type device (so that
-> we can packet captures and other filtering on macvtap itself) we end up
-> with qdisc lock contention since what we have is multiple file descriptors
-> writing to the same qdisc.
->
-> With this series, the macvtap device now becomes a true multi-queue device
-> that defaults to 1 queue.  Every time the user opens the device (this is
-> how multiqueue macvtap is used), we update the number of real queues for
-> the device.  When the user writes to the device, we record the queue index
-> associted with the file descriptor to the skb, and that ends up translating
-> to the device queue index.  This is one transmit only.  Receive side
-> is left alone and will prefer skb hash if available. 
->
-> Macvlan through this all is left with lockless transmit path.
->
-> Thanks
-> -vlad
-
-A question is do we really want a qdisc for macvtap (and other pseudo
-device)? If yes, the "problem" may not be specific to macvtap. Consider
-you may get contention after place a qdisc on vlan device. If not,
-probably a one line patch with IFF_NO_QUEUE is sufficient?
-
-Thanks
+This is removed. It was basically an alias for NONSTOP_TSC and not needed.
 
 >
-> Vladislav Yasevich (3):
->   macvtap: mutiple qdiscs support
->   macvlan: add queue selection functionality
->   macvtap: Record the rx queue based on the user tap queue
+>> +/*
+>> + * Convert ART to TSC given numerator/denominator found in detect_art()
+>> + */
+>> +struct system_counterval_t convert_art_to_tsc(cycle_t art)
+>> +{
+>> +	u64 tmp, res, rem;
+>> +
+>> +	rem = do_div(art, art_to_tsc_denominator);
+>> +
+>> +	res = art * art_to_tsc_numerator;
+>> +	tmp = rem * art_to_tsc_numerator;
+>> +
+>> +	do_div(tmp, art_to_tsc_denominator);
+>> +	res += tmp;
+>> +
+>> +	return (struct system_counterval_t) {.cs = art_related_clocksource,
+>> +			.cycles = res};
 >
->  drivers/net/macvlan.c | 20 ++++++++++++++++++++
->  drivers/net/macvtap.c | 19 +++++++++++++++++++
->  2 files changed, 39 insertions(+)
->
+> The SDM and the patch description both mention an offset "k".  Shouldn't  
+> this code at least have a comment about how it deals with the k != 0  
+> case?
+
+I don't deal with the k != 0 case. I assume that IA32 TSC adjust MSR is 0  
+because it's almost always a *bad idea* to change it. I've discussed this  
+with a few other developers and there is some consensus agreeing. From an  
+earlier related thread Peter Zijlstra asserts that TSC adjust "had
+better" be 0.(http://lkml.iu.edu/hypermail/linux/kernel/1507.3/03734.html).
+
+Do we really need to accommodate BIOS's that do this?
+
+Chris
