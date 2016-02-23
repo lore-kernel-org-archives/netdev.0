@@ -1,259 +1,92 @@
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Subject: Re: [net-next PATCH 3/4] net: sched: cls_u32 add bit to specify software
- only rules
-Date: Tue, 23 Feb 2016 14:29:48 -0800
-Message-ID: <56CCDD5C.2040000@intel.com>
-References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810> <20160223190321.5970.58924.stgit@john-Precision-Tower-5810>
+From: Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 2/4] Documentation: Bindings: Add STM32 DWMAC glue
+Date: Tue, 23 Feb 2016 23:37:55 +0100
+Message-ID: <CAGhQ9VwsSb-Nb4nQ4Q9=b-Dj_8EhSi=LOK-r4JbKcE=nfODufw@mail.gmail.com>
+References: <1456240244-10275-1-git-send-email-alexandre.torgue@gmail.com>
+	<1456240244-10275-3-git-send-email-alexandre.torgue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-	davem@davemloft.net, jhs@mojatatu.com
-To: John Fastabend <john.fastabend@gmail.com>, jiri@resnulli.us,
-	daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:15234 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751110AbcBWW3t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2016 17:29:49 -0500
-In-Reply-To: <20160223190321.5970.58924.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1456240244-10275-3-git-send-email-alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+Hi Alexandre,
+
+You should copy 'devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org' on bindings doc. Adding cc here.
+
+On 23 February 2016 at 16:10, Alexandre TORGUE
+<alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> Signed-off-by: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>
+> diff --git a/Documentation/devicetree/bindings/net/stm32-dwmac.txt b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
+> new file mode 100644
+> index 0000000..18734b3
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
+> @@ -0,0 +1,41 @@
+> +STMicroelectronics STM32 / MCU DWMAC glue layer controller
+> +
+> +This file documents platform glue layer for stmmac.
+> +Please see stmmac.txt for the other unchanged properties.
+> +
+> +The device node has following properties.
+> +
+> +Required properties:
+> +- compatible:  Should be "st,stm32-dwmac" to select glue, and
+> +              "snps,dwmac-3.50a" to select IP vesrion.
+> +- clocks: Should contain the GMAC main clock, and tx clock
+> +- compatible:  Should be "st,stm32-dwmac" to select glue and
+> +              "snps,dwmac-3.50a" to select IP version.
+> +- clocks: Should contain the MAC main clock
+> +- clock-names: Should contain the clock names "stmmaceth".
+> +- st,syscon : Should be phandle/offset pair. The phandle to the syscon node which
+> +             encompases the glue register, and the offset of the control register.
+> +
+> +Optional properties:
+> +- clocks: Could contain:
+> +       - the tx clock,
+> +       - the rx clock
+> +- clock-names: Could contain the clock names "tx-clk", "rx-clk"
+> +
+> +Example:
+> +
+> +               ethernet0: dwmac@40028000 {
+> +                       device_type = "network";
+
+What is this 'device_type = "network"' for?
+It seems to used in a lot of powerpc DTs, but only a couple of arm DTs.
+
+Maybe Rob could enlighten us?
+
+> +                       compatible = "st,stm32-dwmac", "snps,dwmac-3.50a";
+> +                       status = "disabled";
+> +                       reg = <0x40028000 0x8000>;
+> +                       reg-names = "stmmaceth";
+> +                       interrupts = <0 61 0>, <0 62 0>;
+> +                       interrupt-names = "macirq", "eth_wake_irq";
+> +                       clock-names = "stmmaceth", "tx-clk", "rx-clk";
+> +                       clocks = <&rcc 0 25>, <&rcc 0 26>, <&rcc 0 27>;
+> +                       st,syscon = <&syscfg 0x4>;
+> +                       snps,pbl = <32>;
+
+Regarding snps,pbl; using 32 here might not give you what you would except.
+See comment in dwmac1000_dma_init().
+
+The driver is hard coded to use PBL4X/PBL8X mode. Just a heads up.
 
 
-
-On 2/23/2016 11:03 AM, John Fastabend wrote:
-> In the initial implementation the only way to stop a rule from being
-> inserted into the hardware table was via the device feature flag.
-> However this doesn't work well when working on an end host system
-> where packets are expect to hit both the hardware and software
-> datapaths.
->
-> For example we can imagine a rule that will match an IP address and
-> increment a field. If we install this rule in both hardware and
-> software we may increment the field twice. To date we have only
-> added support for the drop action so we have been able to ignore
-> these cases. But as we extend the action support we will hit this
-> example plus more such cases. Arguably these are not even corner
-> cases in many working systems these cases will be common.
-Is there a usecase to support running the same rule in both hardware as well
-as software? If a rule is offloaded to hardware,  isn't the assumption that
-we don't need to do that in software.
->
-> To avoid forcing the driver to always abort (i.e. the above example)
-> this patch adds a flag to add a rule in software only. A careful
-> user can use this flag to build software and hardware datapaths
-> that work together. One example we have found particularly useful
-> is to use hardware resources to set the skb->mark on the skb when
-> the match may be expensive to run in software but a mark lookup
-> in a hash table is cheap. The idea here is hardware can do in one
-> lookup what the u32 classifier may need to traverse multiple lists
-> and hash tables to compute. The flag is only passed down on inserts
-> on deletion to avoid stale references in hardware we always try
-> to remove a rule if it exists.
->
-> Notice we do not add a hardware only case here. If you were to
-> add a hardware only case then you are stuck with the problem
-> of where to stick the software representation of that filter
-> rule. If its stuck on the same filter list as the software only and
-> software/hardware rules it then has to be walked over and ignored
-> in the classify path. The overhead is not huge but is measurable.
-> And with so much work being invested in speeding up rx/tx of
-> pkt processing this is unacceptable IMO. The other option is to
-> have a special hook just for hardware only resources. This is
-> implemented in the next patch.
->
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->   include/uapi/linux/pkt_cls.h |    3 +++
->   net/sched/cls_u32.c          |   43 ++++++++++++++++++++++++++++++------------
->   2 files changed, 34 insertions(+), 12 deletions(-)
->
-> diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-> index 4398737..143ea21 100644
-> --- a/include/uapi/linux/pkt_cls.h
-> +++ b/include/uapi/linux/pkt_cls.h
-> @@ -160,6 +160,8 @@ enum {
->   #define TC_U32_UNSPEC	0
->   #define TC_U32_ROOT	(0xFFF00000)
->   
-> +#define TCA_U32_FLAGS_SOFTWARE 1
-Does this flag indicate software-only rule?
-Instead should we add a flag to indicate HW only.
-
-> +
->   enum {
->   	TCA_U32_UNSPEC,
->   	TCA_U32_CLASSID,
-> @@ -172,6 +174,7 @@ enum {
->   	TCA_U32_INDEV,
->   	TCA_U32_PCNT,
->   	TCA_U32_MARK,
-> +	TCA_U32_FLAGS,
->   	__TCA_U32_MAX
->   };
->   
-> diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-> index f766bcb..c509fc8 100644
-> --- a/net/sched/cls_u32.c
-> +++ b/net/sched/cls_u32.c
-> @@ -59,6 +59,7 @@ struct tc_u_knode {
->   #ifdef CONFIG_CLS_U32_PERF
->   	struct tc_u32_pcnt __percpu *pf;
->   #endif
-> +	u32			flags;
->   #ifdef CONFIG_CLS_U32_MARK
->   	u32			val;
->   	u32			mask;
-> @@ -425,12 +426,18 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
->   	return 0;
->   }
->   
-> -static bool u32_should_offload(struct net_device *dev)
-> +static bool u32_should_offload(struct net_device *dev, u32 flags)
->   {
->   	if (!(dev->features & NETIF_F_HW_TC))
->   		return false;
->   
-> -	return dev->netdev_ops->ndo_setup_tc;
-> +	if (flags & TCA_U32_FLAGS_SOFTWARE)
-> +		return false;
-> +
-> +	if (!dev->netdev_ops->ndo_setup_tc)
-> +		return false;
-> +
-> +	return true;
->   }
->   
->   static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
-> @@ -442,7 +449,7 @@ static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
->   	offload.type = TC_SETUP_CLSU32;
->   	offload.cls_u32 = &u32_offload;
->   
-> -	if (u32_should_offload(dev)) {
-> +	if (u32_should_offload(dev, 0)) {
->   		offload.cls_u32->command = TC_CLSU32_DELETE_KNODE;
->   		offload.cls_u32->knode.handle = handle;
->   		dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
-> @@ -450,7 +457,9 @@ static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
->   	}
->   }
->   
-> -static void u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
-> +static void u32_replace_hw_hnode(struct tcf_proto *tp,
-> +				 struct tc_u_hnode *h,
-> +				 u32 flags)
->   {
->   	struct net_device *dev = tp->q->dev_queue->dev;
->   	struct tc_cls_u32_offload u32_offload = {0};
-> @@ -459,7 +468,7 @@ static void u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
->   	offload.type = TC_SETUP_CLSU32;
->   	offload.cls_u32 = &u32_offload;
->   
-> -	if (u32_should_offload(dev)) {
-> +	if (u32_should_offload(dev, flags)) {
->   		offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
->   		offload.cls_u32->hnode.divisor = h->divisor;
->   		offload.cls_u32->hnode.handle = h->handle;
-> @@ -479,7 +488,7 @@ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
->   	offload.type = TC_SETUP_CLSU32;
->   	offload.cls_u32 = &u32_offload;
->   
-> -	if (u32_should_offload(dev)) {
-> +	if (u32_should_offload(dev, 0)) {
->   		offload.cls_u32->command = TC_CLSU32_DELETE_HNODE;
->   		offload.cls_u32->hnode.divisor = h->divisor;
->   		offload.cls_u32->hnode.handle = h->handle;
-> @@ -490,7 +499,9 @@ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
->   	}
->   }
->   
-> -static void u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n)
-> +static void u32_replace_hw_knode(struct tcf_proto *tp,
-> +				 struct tc_u_knode *n,
-> +				 u32 flags)
->   {
->   	struct net_device *dev = tp->q->dev_queue->dev;
->   	struct tc_cls_u32_offload u32_offload = {0};
-> @@ -499,7 +510,7 @@ static void u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n)
->   	offload.type = TC_SETUP_CLSU32;
->   	offload.cls_u32 = &u32_offload;
->   
-> -	if (u32_should_offload(dev)) {
-> +	if (u32_should_offload(dev, flags)) {
->   		offload.cls_u32->command = TC_CLSU32_REPLACE_KNODE;
->   		offload.cls_u32->knode.handle = n->handle;
->   		offload.cls_u32->knode.fshift = n->fshift;
-> @@ -687,6 +698,7 @@ static const struct nla_policy u32_policy[TCA_U32_MAX + 1] = {
->   	[TCA_U32_SEL]		= { .len = sizeof(struct tc_u32_sel) },
->   	[TCA_U32_INDEV]		= { .type = NLA_STRING, .len = IFNAMSIZ },
->   	[TCA_U32_MARK]		= { .len = sizeof(struct tc_u32_mark) },
-> +	[TCA_U32_FLAGS]		= { .type = NLA_U32 },
->   };
->   
->   static int u32_set_parms(struct net *net, struct tcf_proto *tp,
-> @@ -833,7 +845,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
->   	struct tc_u32_sel *s;
->   	struct nlattr *opt = tca[TCA_OPTIONS];
->   	struct nlattr *tb[TCA_U32_MAX + 1];
-> -	u32 htid;
-> +	u32 htid, flags = 0;
->   	int err;
->   #ifdef CONFIG_CLS_U32_PERF
->   	size_t size;
-> @@ -846,6 +858,9 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
->   	if (err < 0)
->   		return err;
->   
-> +	if (tb[TCA_U32_FLAGS])
-> +		flags = nla_get_u32(tb[TCA_U32_FLAGS]);
-> +
->   	n = (struct tc_u_knode *)*arg;
->   	if (n) {
->   		struct tc_u_knode *new;
-> @@ -869,7 +884,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
->   		u32_replace_knode(tp, tp_c, new);
->   		tcf_unbind_filter(tp, &n->res);
->   		call_rcu(&n->rcu, u32_delete_key_rcu);
-> -		u32_replace_hw_knode(tp, new);
-> +		u32_replace_hw_knode(tp, new, flags);
->   		return 0;
->   	}
->   
-> @@ -897,7 +912,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
->   		rcu_assign_pointer(tp_c->hlist, ht);
->   		*arg = (unsigned long)ht;
->   
-> -		u32_replace_hw_hnode(tp, ht);
-> +		u32_replace_hw_hnode(tp, ht, flags);
->   		return 0;
->   	}
->   
-> @@ -948,6 +963,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
->   	RCU_INIT_POINTER(n->ht_up, ht);
->   	n->handle = handle;
->   	n->fshift = s->hmask ? ffs(ntohl(s->hmask)) - 1 : 0;
-> +	n->flags = flags;
->   	tcf_exts_init(&n->exts, TCA_U32_ACT, TCA_U32_POLICE);
->   	n->tp = tp;
->   
-> @@ -980,7 +996,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
->   
->   		RCU_INIT_POINTER(n->next, pins);
->   		rcu_assign_pointer(*ins, n);
-> -		u32_replace_hw_knode(tp, n);
-> +		u32_replace_hw_knode(tp, n, flags);
->   		*arg = (unsigned long)n;
->   		return 0;
->   	}
-> @@ -1085,6 +1101,9 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
->   		    nla_put_u32(skb, TCA_U32_LINK, ht_down->handle))
->   			goto nla_put_failure;
->   
-> +		if (n->flags && nla_put_u32(skb, TCA_U32_FLAGS, n->flags))
-> +			goto nla_put_failure;
-> +
->   #ifdef CONFIG_CLS_U32_MARK
->   		if ((n->val || n->mask)) {
->   			struct tc_u32_mark mark = {.val = n->val,
->
+regards,
+Joachim Eastwood
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
