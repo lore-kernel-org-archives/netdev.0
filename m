@@ -1,55 +1,75 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: netfilter: warning at net/ipv4/netfilter/nf_nat_l3proto_ipv4.c:275
- nf_nat_ipv4_fn
-Date: Mon, 22 Feb 2016 19:55:58 -0500
-Message-ID: <56CBAE1E.8030402@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Pablo Neira Ayuso <pablo@netfilter.org>, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, netfilter-devel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, coreteam@netfilter.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH][net-next][v2] bridge: allow the maximum mtu to 64k
+Date: Tue, 23 Feb 2016 09:00:56 +0800
+Message-ID: <1456189256-7811-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:62965 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756093AbcBWBA6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2016 20:00:58 -0500
+Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.139])
+	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id u1N10vBA009987
+	for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 17:00:57 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Li RongQing <roy.qing.li@gmail.com>
 
-I've hit the following warning while fuzzing with trinity inside a kvmtool guest
-running the latest -next kernel:
+A linux bridge always adopts the smallest MTU of the enslaved devices.
+When no device are enslaved, it defaults to a MTU of 1500 and refuses to
+use a larger one. This is problematic when using bridges enslaving only
+virtual NICs (vnetX) like it's common with KVM guests.
 
-[ 3196.268106] WARNING: CPU: 3 PID: 660 at net/ipv4/netfilter/nf_nat_l3proto_ipv4.c:275 nf_nat_ipv4_fn+0x65d/0xab0()
+Steps to reproduce the problem
 
-[ 3196.268120] Modules linked in:
+1) sudo ip link add br-test0 type bridge # create an empty bridge
+2) sudo ip link set br-test0 mtu 9000 # attempt to set MTU > 1500
+3) ip link show dev br-test0 # confirm MTU
 
-[ 3196.268142] CPU: 3 PID: 660 Comm: trinity-c95 Not tainted 4.5.0-rc4-next-20160219-sasha-00026-g7978205-dirty #2978
+Here, 2) returns "RTNETLINK answers: Invalid argument". One (cumbersome)
+way around this is:
 
-[ 3196.268173]  1ffff10017065e9b ffff8800b832f560 ffffffffa23d9a9d ffffffff00000003
+4) sudo modprobe dummy
+5) sudo ip link set dummy0 mtu 9000 master br-test0
 
-[ 3196.268196]  fffffbfff5c2a630 0000000041b58ab3 ffffffffadb3a8f2 ffffffffa23d9905
+Then the bridge's MTU can be changed from anywhere to 9000.
 
-[ 3196.268216]  ffffffffa059a760 ffff880371b25494 ffff8800b832f958 ffff8800b832f960
+This is especially annoying for the virtualization case because the
+KVM's tap driver will by default adopt the bridge's MTU on startup
+making it impossible (without the workaround) to use a large MTU on the
+guest VMs.
 
-[ 3196.268222] Call Trace:
+https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1399064
 
-[ 3196.268273] dump_stack (lib/dump_stack.c:53)
-[ 3196.268375] warn_slowpath_common (kernel/panic.c:483)
-[ 3196.268417] warn_slowpath_null (kernel/panic.c:517)
-[ 3196.268435] nf_nat_ipv4_fn (net/ipv4/netfilter/nf_nat_l3proto_ipv4.c:275 (discriminator 1))
-[ 3196.268543] nf_nat_ipv4_local_fn (net/ipv4/netfilter/nf_nat_l3proto_ipv4.c:429)
-[ 3196.268573] iptable_nat_ipv4_local_fn (net/ipv4/netfilter/iptable_nat.c:65)
-[ 3196.268596] nf_iterate (net/netfilter/core.c:275)
-[ 3196.268622] nf_hook_slow (net/netfilter/core.c:306)
-[ 3196.268701] raw_send_hdrinc (include/linux/netfilter.h:225 include/linux/netfilter.h:249 net/ipv4/raw.c:418)
-[ 3196.268773] raw_sendmsg (net/ipv4/raw.c:640)
-[ 3196.268869] inet_sendmsg (net/ipv4/af_inet.c:740)
-[ 3196.268913] sock_sendmsg (net/socket.c:612 net/socket.c:621)
-[ 3196.268927] SYSC_sendto (net/socket.c:1651)
-[ 3196.269049] SyS_sendto (net/socket.c:1619)
-[ 3196.269074] entry_SYSCALL_64_fastpath (arch/x86/entry/entry_64.S:200)
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/bridge/br_if.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-
-Thanks,
-Sasha
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index c367b3e..a2ed99d 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -390,7 +390,9 @@ int br_del_bridge(struct net *net, const char *name)
+ 	return ret;
+ }
+ 
+-/* MTU of the bridge pseudo-device: ETH_DATA_LEN or the minimum of the ports */
++/* MTU of the bridge pseudo-device: the maximum IP packet size
++ * or the minimum of the ports
++ */
+ int br_min_mtu(const struct net_bridge *br)
+ {
+ 	const struct net_bridge_port *p;
+@@ -399,7 +401,7 @@ int br_min_mtu(const struct net_bridge *br)
+ 	ASSERT_RTNL();
+ 
+ 	if (list_empty(&br->port_list))
+-		mtu = ETH_DATA_LEN;
++		mtu = 64 * 1024;
+ 	else {
+ 		list_for_each_entry(p, &br->port_list, list) {
+ 			if (!mtu  || p->dev->mtu < mtu)
+-- 
+2.1.4
