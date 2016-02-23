@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 4/9] mlxsw: Implement devlink interface
-Date: Tue, 23 Feb 2016 16:51:29 +0100
-Message-ID: <1456242694-29463-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 3/9] mlx4: Implement port type setting via devlink interface
+Date: Tue, 23 Feb 2016 16:51:28 +0100
+Message-ID: <1456242694-29463-4-git-send-email-jiri@resnulli.us>
 References: <1456242694-29463-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, yishaih@mellanox.com,
@@ -14,288 +14,157 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	gospo@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:33866 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753348AbcBWPvn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 10:51:43 -0500
-Received: by mail-wm0-f51.google.com with SMTP id b205so205610224wmb.1
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 07:51:42 -0800 (PST)
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37539 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752527AbcBWPvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 10:51:42 -0500
+Received: by mail-wm0-f41.google.com with SMTP id g62so294249wme.0
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 07:51:41 -0800 (PST)
 In-Reply-To: <1456242694-29463-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Implement newly introduced devlink interface. Add devlink port instances
-for every port and set the port types accordingly.
+So far, there has been an mlx4-specific sysfs file allowing user to
+change port type to either Ethernet of InfiniBand. This is very
+inconvenient.
+
+Allow to expose the same ability to set port type in a generic way
+using devlink interface.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 ---
-v1->v2:
--removed SET_NETDEV_DEV set to devlink dev
----
- drivers/net/ethernet/mellanox/mlxsw/core.c     | 24 ++++++++++++++++++------
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 19 +++++++++++++++++++
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  2 ++
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 20 ++++++++++++++++++++
- 4 files changed, 59 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/main.c | 86 +++++++++++++++++++++++--------
+ 1 file changed, 65 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index 22379eb..57d9655 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -56,6 +56,7 @@
- #include <linux/rcupdate.h>
- #include <linux/slab.h>
- #include <asm/byteorder.h>
-+#include <net/devlink.h>
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index ca88f38..522d49e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1082,36 +1082,20 @@ static ssize_t show_port_type(struct device *dev,
+ 	return strlen(buf);
+ }
  
- #include "core.h"
- #include "item.h"
-@@ -791,6 +792,7 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	const char *device_kind = mlxsw_bus_info->device_kind;
- 	struct mlxsw_core *mlxsw_core;
- 	struct mlxsw_driver *mlxsw_driver;
-+	struct devlink *devlink;
- 	size_t alloc_size;
- 	int err;
+-static ssize_t set_port_type(struct device *dev,
+-			     struct device_attribute *attr,
+-			     const char *buf, size_t count)
++static int __set_port_type(struct mlx4_port_info *info,
++			   enum mlx4_port_type port_type)
+ {
+-	struct mlx4_port_info *info = container_of(attr, struct mlx4_port_info,
+-						   port_attr);
+ 	struct mlx4_dev *mdev = info->dev;
+ 	struct mlx4_priv *priv = mlx4_priv(mdev);
+ 	enum mlx4_port_type types[MLX4_MAX_PORTS];
+ 	enum mlx4_port_type new_types[MLX4_MAX_PORTS];
+-	static DEFINE_MUTEX(set_port_type_mutex);
+ 	int i;
+ 	int err = 0;
  
-@@ -798,12 +800,13 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	if (!mlxsw_driver)
- 		return -EINVAL;
- 	alloc_size = sizeof(*mlxsw_core) + mlxsw_driver->priv_size;
--	mlxsw_core = kzalloc(alloc_size, GFP_KERNEL);
--	if (!mlxsw_core) {
-+	devlink = devlink_alloc(NULL, alloc_size);
-+	if (!devlink) {
- 		err = -ENOMEM;
--		goto err_core_alloc;
-+		goto err_devlink_alloc;
- 	}
- 
-+	mlxsw_core = devlink_priv(devlink);
- 	INIT_LIST_HEAD(&mlxsw_core->rx_listener_list);
- 	INIT_LIST_HEAD(&mlxsw_core->event_listener_list);
- 	mlxsw_core->driver = mlxsw_driver;
-@@ -841,6 +844,11 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	if (err)
- 		goto err_hwmon_init;
- 
-+	set_devlink_dev(devlink, mlxsw_bus_info->dev);
-+	err = devlink_register(devlink);
-+	if (err)
-+		goto err_devlink_register;
+-	mutex_lock(&set_port_type_mutex);
+-
+-	if (!strcmp(buf, "ib\n"))
+-		info->tmp_type = MLX4_PORT_TYPE_IB;
+-	else if (!strcmp(buf, "eth\n"))
+-		info->tmp_type = MLX4_PORT_TYPE_ETH;
+-	else if (!strcmp(buf, "auto\n"))
+-		info->tmp_type = MLX4_PORT_TYPE_AUTO;
+-	else {
+-		mlx4_err(mdev, "%s is not supported port type\n", buf);
+-		err = -EINVAL;
+-		goto err_out;
+-	}
+-
+ 	mlx4_stop_sense(mdev);
+ 	mutex_lock(&priv->port_mutex);
++	info->tmp_type = port_type;
 +
- 	err = mlxsw_driver->init(mlxsw_core->driver_priv, mlxsw_core,
- 				 mlxsw_bus_info);
- 	if (err)
-@@ -855,6 +863,8 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- err_debugfs_init:
- 	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
- err_driver_init:
-+	devlink_unregister(devlink);
-+err_devlink_register:
- err_hwmon_init:
- 	mlxsw_emad_fini(mlxsw_core);
- err_emad_init:
-@@ -864,8 +874,8 @@ err_bus_init:
- err_alloc_lag_mapping:
- 	free_percpu(mlxsw_core->pcpu_stats);
- err_alloc_stats:
--	kfree(mlxsw_core);
--err_core_alloc:
-+	devlink_free(devlink);
-+err_devlink_alloc:
- 	mlxsw_core_driver_put(device_kind);
+ 	/* Possible type is always the one that was delivered */
+ 	mdev->caps.possible_type[info->port] = info->tmp_type;
+ 
+@@ -1153,6 +1137,37 @@ static ssize_t set_port_type(struct device *dev,
+ out:
+ 	mlx4_start_sense(mdev);
+ 	mutex_unlock(&priv->port_mutex);
++
++	return err;
++}
++
++static ssize_t set_port_type(struct device *dev,
++			     struct device_attribute *attr,
++			     const char *buf, size_t count)
++{
++	struct mlx4_port_info *info = container_of(attr, struct mlx4_port_info,
++						   port_attr);
++	struct mlx4_dev *mdev = info->dev;
++	enum mlx4_port_type port_type;
++	static DEFINE_MUTEX(set_port_type_mutex);
++	int err;
++
++	mutex_lock(&set_port_type_mutex);
++
++	if (!strcmp(buf, "ib\n")) {
++		port_type = MLX4_PORT_TYPE_IB;
++	} else if (!strcmp(buf, "eth\n")) {
++		port_type = MLX4_PORT_TYPE_ETH;
++	} else if (!strcmp(buf, "auto\n")) {
++		port_type = MLX4_PORT_TYPE_AUTO;
++	} else {
++		mlx4_err(mdev, "%s is not supported port type\n", buf);
++		err = -EINVAL;
++		goto err_out;
++	}
++
++	err = __set_port_type(info, port_type);
++
+ err_out:
+ 	mutex_unlock(&set_port_type_mutex);
+ 
+@@ -3685,6 +3700,35 @@ err_disable_pdev:
  	return err;
  }
-@@ -874,14 +884,16 @@ EXPORT_SYMBOL(mlxsw_core_bus_device_register);
- void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
- {
- 	const char *device_kind = mlxsw_core->bus_info->device_kind;
-+	struct devlink *devlink = priv_to_devlink(mlxsw_core);
  
- 	mlxsw_core_debugfs_fini(mlxsw_core);
- 	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
-+	devlink_unregister(devlink);
- 	mlxsw_emad_fini(mlxsw_core);
- 	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
- 	kfree(mlxsw_core->lag.mapping);
- 	free_percpu(mlxsw_core->pcpu_stats);
--	kfree(mlxsw_core);
-+	devlink_free(devlink);
- 	mlxsw_core_driver_put(device_kind);
- }
- EXPORT_SYMBOL(mlxsw_core_bus_device_unregister);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 09ce451..20e6783 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -49,6 +49,7 @@
- #include <linux/jiffies.h>
- #include <linux/bitops.h>
- #include <linux/list.h>
-+#include <net/devlink.h>
- #include <net/switchdev.h>
- #include <generated/utsrelease.h>
- 
-@@ -1351,7 +1352,9 @@ static const struct ethtool_ops mlxsw_sp_port_ethtool_ops = {
- 
- static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- {
-+	struct devlink *devlink = priv_to_devlink(mlxsw_sp->core);
- 	struct mlxsw_sp_port *mlxsw_sp_port;
-+	struct devlink_port *devlink_port;
- 	struct net_device *dev;
- 	bool usable;
- 	size_t bytes;
-@@ -1417,6 +1420,14 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 		goto port_not_usable;
- 	}
- 
-+	devlink_port = &mlxsw_sp_port->devlink_port;
-+	err = devlink_port_register(devlink, devlink_port, local_port);
-+	if (err) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Port %d: Failed to register devlink port\n",
-+			mlxsw_sp_port->local_port);
-+		goto err_devlink_port_register;
++static int mlx4_devlink_port_type_set(struct devlink_port *devlink_port,
++				      enum devlink_port_type port_type)
++{
++	struct mlx4_port_info *info = container_of(devlink_port,
++						   struct mlx4_port_info,
++						   devlink_port);
++	enum mlx4_port_type mlx4_port_type;
++
++	switch (port_type) {
++	case DEVLINK_PORT_TYPE_AUTO:
++		mlx4_port_type = MLX4_PORT_TYPE_AUTO;
++		break;
++	case DEVLINK_PORT_TYPE_ETH:
++		mlx4_port_type = MLX4_PORT_TYPE_ETH;
++		break;
++	case DEVLINK_PORT_TYPE_IB:
++		mlx4_port_type = MLX4_PORT_TYPE_IB;
++		break;
++	default:
++		return -EOPNOTSUPP;
 +	}
 +
- 	err = mlxsw_sp_port_system_port_mapping_set(mlxsw_sp_port);
- 	if (err) {
- 		dev_err(mlxsw_sp->bus_info->dev, "Port %d: Failed to set system port mapping\n",
-@@ -1457,6 +1468,8 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 		goto err_register_netdev;
- 	}
- 
-+	devlink_port_type_eth_set(devlink_port, dev);
++	return __set_port_type(info, mlx4_port_type);
++}
 +
- 	err = mlxsw_sp_port_vlan_init(mlxsw_sp_port);
- 	if (err)
- 		goto err_port_vlan_init;
-@@ -1472,6 +1485,8 @@ err_port_admin_status_set:
- err_port_mtu_set:
- err_port_swid_set:
- err_port_system_port_mapping_set:
-+	devlink_port_unregister(&mlxsw_sp_port->devlink_port);
-+err_devlink_port_register:
- port_not_usable:
- err_port_module_check:
- err_dev_addr_init:
-@@ -1505,10 +1520,14 @@ static void mlxsw_sp_port_vports_fini(struct mlxsw_sp_port *mlxsw_sp_port)
- static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- {
- 	struct mlxsw_sp_port *mlxsw_sp_port = mlxsw_sp->ports[local_port];
-+	struct devlink_port *devlink_port;
- 
- 	if (!mlxsw_sp_port)
- 		return;
-+	devlink_port = &mlxsw_sp_port->devlink_port;
-+	devlink_port_type_clear(devlink_port);
- 	unregister_netdev(mlxsw_sp_port->dev); /* This calls ndo_stop */
-+	devlink_port_unregister(devlink_port);
- 	mlxsw_sp_port_vports_fini(mlxsw_sp_port);
- 	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
- 	free_percpu(mlxsw_sp_port->pcpu_stats);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 3b89ed2..6bf6dac 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -43,6 +43,7 @@
- #include <linux/if_vlan.h>
- #include <linux/list.h>
- #include <net/switchdev.h>
-+#include <net/devlink.h>
- 
- #include "port.h"
- #include "core.h"
-@@ -162,6 +163,7 @@ struct mlxsw_sp_port {
- 	unsigned long *untagged_vlans;
- 	/* VLAN interfaces */
- 	struct list_head vports_list;
-+	struct devlink_port devlink_port;
- };
- 
- static inline struct mlxsw_sp_port *
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-index d85960c..7a60a26 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-@@ -43,6 +43,7 @@
- #include <linux/device.h>
- #include <linux/skbuff.h>
- #include <linux/if_vlan.h>
-+#include <net/devlink.h>
- #include <net/switchdev.h>
- #include <generated/utsrelease.h>
- 
-@@ -78,6 +79,7 @@ struct mlxsw_sx_port {
- 	struct mlxsw_sx_port_pcpu_stats __percpu *pcpu_stats;
- 	struct mlxsw_sx *mlxsw_sx;
- 	u8 local_port;
-+	struct devlink_port devlink_port;
- };
- 
- /* tx_hdr_version
-@@ -953,7 +955,9 @@ mlxsw_sx_port_mac_learning_mode_set(struct mlxsw_sx_port *mlxsw_sx_port,
- 
- static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port)
- {
-+	struct devlink *devlink = priv_to_devlink(mlxsw_sx->core);
- 	struct mlxsw_sx_port *mlxsw_sx_port;
-+	struct devlink_port *devlink_port;
- 	struct net_device *dev;
- 	bool usable;
- 	int err;
-@@ -1007,6 +1011,14 @@ static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port)
- 		goto port_not_usable;
- 	}
- 
-+	devlink_port = &mlxsw_sx_port->devlink_port;
-+	err = devlink_port_register(devlink, devlink_port, local_port);
-+	if (err) {
-+		dev_err(mlxsw_sx->bus_info->dev, "Port %d: Failed to register devlink port\n",
-+			mlxsw_sx_port->local_port);
-+		goto err_devlink_port_register;
-+	}
++static const struct devlink_ops mlx4_devlink_ops = {
++	.port_type_set	= mlx4_devlink_port_type_set,
++};
 +
- 	err = mlxsw_sx_port_system_port_mapping_set(mlxsw_sx_port);
- 	if (err) {
- 		dev_err(mlxsw_sx->bus_info->dev, "Port %d: Failed to set system port mapping\n",
-@@ -1064,6 +1076,8 @@ static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port)
- 		goto err_register_netdev;
- 	}
- 
-+	devlink_port_type_eth_set(devlink_port, dev);
-+
- 	mlxsw_sx->ports[local_port] = mlxsw_sx_port;
- 	return 0;
- 
-@@ -1075,6 +1089,8 @@ err_port_mtu_set:
- err_port_speed_set:
- err_port_swid_set:
- err_port_system_port_mapping_set:
-+	devlink_port_unregister(&mlxsw_sx_port->devlink_port);
-+err_devlink_port_register:
- port_not_usable:
- err_port_module_check:
- err_dev_addr_get:
-@@ -1087,11 +1103,15 @@ err_alloc_stats:
- static void mlxsw_sx_port_remove(struct mlxsw_sx *mlxsw_sx, u8 local_port)
+ static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
  {
- 	struct mlxsw_sx_port *mlxsw_sx_port = mlxsw_sx->ports[local_port];
-+	struct devlink_port *devlink_port;
+ 	struct devlink *devlink;
+@@ -3694,7 +3738,7 @@ static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
  
- 	if (!mlxsw_sx_port)
- 		return;
-+	devlink_port = &mlxsw_sx_port->devlink_port;
-+	devlink_port_type_clear(devlink_port);
- 	unregister_netdev(mlxsw_sx_port->dev); /* This calls ndo_stop */
- 	mlxsw_sx_port_swid_set(mlxsw_sx_port, MLXSW_PORT_SWID_DISABLED_PORT);
-+	devlink_port_unregister(devlink_port);
- 	free_percpu(mlxsw_sx_port->pcpu_stats);
- 	free_netdev(mlxsw_sx_port->dev);
- }
+ 	printk_once(KERN_INFO "%s", mlx4_version);
+ 
+-	devlink = devlink_alloc(NULL, sizeof(*priv));
++	devlink = devlink_alloc(&mlx4_devlink_ops, sizeof(*priv));
+ 	if (!devlink)
+ 		return -ENOMEM;
+ 	priv = devlink_priv(devlink);
 -- 
 2.5.0
