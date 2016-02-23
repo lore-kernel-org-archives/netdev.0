@@ -1,11 +1,11 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH can-next 2/2] CAN: rcar: add device tree support for
- r8a779[234]
-Date: Tue, 23 Feb 2016 09:02:00 +0900
-Message-ID: <20160223000200.GD1853@verge.net.au>
+Subject: Re: [PATCH can-next 1/2] CAN: rcar: add gen[12] fallback
+ compatibility strings
+Date: Tue, 23 Feb 2016 09:03:47 +0900
+Message-ID: <20160223000346.GE1853@verge.net.au>
 References: <1456107350-12100-1-git-send-email-horms+renesas@verge.net.au>
- <1456107350-12100-3-git-send-email-horms+renesas@verge.net.au>
- <CAMuHMdU5zMG=Sha5MfotbKmdBDgzJucve483oZbmseLvLR-2sA@mail.gmail.com>
+ <1456107350-12100-2-git-send-email-horms+renesas@verge.net.au>
+ <CAMuHMdX3VjAZzhNxuucBn3hSS3YMmhJPVxpA2VKM+X-Qs3gxLg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Wolfgang Grandegger <wg@grandegger.com>,
@@ -17,73 +17,72 @@ Cc: Wolfgang Grandegger <wg@grandegger.com>,
 To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <linux-renesas-soc-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAMuHMdU5zMG=Sha5MfotbKmdBDgzJucve483oZbmseLvLR-2sA@mail.gmail.com>
+In-Reply-To: <CAMuHMdX3VjAZzhNxuucBn3hSS3YMmhJPVxpA2VKM+X-Qs3gxLg@mail.gmail.com>
 Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 22, 2016 at 02:48:39PM +0100, Geert Uytterhoeven wrote:
+On Mon, Feb 22, 2016 at 04:40:39PM +0100, Geert Uytterhoeven wrote:
 > On Mon, Feb 22, 2016 at 3:15 AM, Simon Horman
 > <horms+renesas@verge.net.au> wrote:
-> > Simply document new compatibility string.
-> > As a previous patch adds a generic R-Car Gen2 compatibility string
-> > there appears to be no need for a driver updates.
-> > By documenting this compat sting it may be used in DTSs shipped, for
-> 
-> string
-> 
-> > example as part of ROMs. It must be used in conjunction with the Gen2
-> > fallback compat string. At this time there are no known differences between
-> > the r8a779[234] IP blocks and that implemented by the driver for the Gen2
-> > fallback compat string. Thus there is no need to update the driver as the
->                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> > use of the Gen2 fallback compat string will activate the correct code in
->   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> 
-> > the current driver while leaving the option for r8a779[234]-specific driver
-> > code to be activated in an updated driver should the need arise.
+> > Add fallback compatibility string for R-Car Gen 1 and Gen2 families.
+> > This is in keeping with the fallback scheme being adopted wherever
+> > appropriate for drivers for Renesas SoCs.
 > >
 > > Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 > > ---
-> >  Documentation/devicetree/bindings/net/can/rcar_can.txt | 3 +++
-> >  drivers/net/can/rcar_can.c                             | 3 +++
-> >  2 files changed, 6 insertions(+)
+> >  Documentation/devicetree/bindings/net/can/rcar_can.txt | 4 +++-
+> >  drivers/net/can/rcar_can.c                             | 2 ++
+> >  2 files changed, 5 insertions(+), 1 deletion(-)
 > >
 > > diff --git a/Documentation/devicetree/bindings/net/can/rcar_can.txt b/Documentation/devicetree/bindings/net/can/rcar_can.txt
-> > index 036786e1f70d..c6fb74d7c809 100644
+> > index 002d8440bf66..036786e1f70d 100644
 > > --- a/Documentation/devicetree/bindings/net/can/rcar_can.txt
 > > +++ b/Documentation/devicetree/bindings/net/can/rcar_can.txt
-> > @@ -6,6 +6,9 @@ Required properties:
+> > @@ -6,6 +6,8 @@ Required properties:
 > >               "renesas,can-r8a7779" if CAN controller is a part of R8A7779 SoC.
 > >               "renesas,can-r8a7790" if CAN controller is a part of R8A7790 SoC.
 > >               "renesas,can-r8a7791" if CAN controller is a part of R8A7791 SoC.
-> > +             "renesas,can-r8a7792" if CAN controller is a part of R8A7792 SoC.
-> > +             "renesas,can-r8a7793" if CAN controller is a part of R8A7793 SoC.
-> > +             "renesas,can-r8a7794" if CAN controller is a part of R8A7794 SoC.
-> >               "renesas,can-gen1" for a generic R-Car Gen1 compatible device.
-> >               "renesas,can-gen2" for a generic R-Car Gen2 compatible device.
+> > +             "renesas,can-gen1" for a generic R-Car Gen1 compatible device.
+> > +             "renesas,can-gen2" for a generic R-Car Gen2 compatible device.
+> 
+> "renesas,rcar-gen1-can", "renesas,rcar-gen2-can"?
+> 
+> (Yeah, "can" looks a lot like "rcar" ;-)
+
+Sure, I'll update that as you suggest.
+
+> Nothing further to say about SoC-specific vs. generic compatible values?
+
+Sure, I'll add some text about that.
+
 > >  - reg: physical base address and size of the R-Car CAN register map.
+> >  - interrupts: interrupt specifier for the sole interrupt.
+> >  - clocks: phandles and clock specifiers for 3 CAN clock inputs.
+> > @@ -25,7 +27,7 @@ Example
+> >  SoC common .dtsi file:
+> >
+> >         can0: can@e6e80000 {
+> > -               compatible = "renesas,can-r8a7791";
+> > +               compatible = "renesas,can-r8a7791", "renesas,can-gen2";
+> 
+> "renesas,rcar-gen2-can".
+> 
+> >                 reg = <0 0xe6e80000 0 0x1000>;
+> >                 interrupts = <0 186 IRQ_TYPE_LEVEL_HIGH>;
+> >                 clocks = <&mstp9_clks R8A7791_CLK_RCAN0>,
 > > diff --git a/drivers/net/can/rcar_can.c b/drivers/net/can/rcar_can.c
-> > index c70a1f795933..73761a4dd1bf 100644
+> > index bc46be39549d..c70a1f795933 100644
 > > --- a/drivers/net/can/rcar_can.c
 > > +++ b/drivers/net/can/rcar_can.c
-> > @@ -904,6 +904,9 @@ static const struct of_device_id rcar_can_of_table[] __maybe_unused = {
+> > @@ -904,6 +904,8 @@ static const struct of_device_id rcar_can_of_table[] __maybe_unused = {
 > >         { .compatible = "renesas,can-r8a7779" },
 > >         { .compatible = "renesas,can-r8a7790" },
 > >         { .compatible = "renesas,can-r8a7791" },
-> > +       { .compatible = "renesas,can-r8a7792" },
-> > +       { .compatible = "renesas,can-r8a7793" },
-> > +       { .compatible = "renesas,can-r8a7794" },
+> > +       { .compatible = "renesas,can-gen1" },
+> > +       { .compatible = "renesas,can-gen2" },
 > 
-> So why do you update the driver?
-> 
-> There's no upstream DTS using "renesas,can-r8a779[234]", so
-> "renesas,can-gen2" should be fine.
-
-True. I'm not sure how that slipped in.
-
-> >         { .compatible = "renesas,can-gen1" },
-> >         { .compatible = "renesas,can-gen2" },
-> >         { }
+> "renesas,rcar-gen1-can"
+> "renesas,rcar-gen2-can".
 > 
 > Gr{oetje,eeting}s,
 > 
