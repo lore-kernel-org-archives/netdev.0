@@ -1,7 +1,8 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next 0/5] bridge/ovs: avoid skb head copy on frame forwarding
-Date: Tue, 23 Feb 2016 13:53:45 +0100
-Message-ID: <cover.1456163137.git.pabeni@redhat.com>
+Subject: [PATCH net-next 2/5] bridge: notify ensabled devices of headroom changes
+Date: Tue, 23 Feb 2016 13:53:47 +0100
+Message-ID: <060a30aa8e6d2c3eda16dd893b348851cd4bd195.1456163137.git.pabeni@redhat.com>
+References: <cover.1456163137.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Pravin Shelar <pshelar@nicira.com>,
@@ -10,44 +11,89 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50841 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49093 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751495AbcBWMyM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2016 07:54:12 -0500
+	id S1751660AbcBWMyR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Feb 2016 07:54:17 -0500
+In-Reply-To: <cover.1456163137.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, while when an OVS or Linux bridge is used to forward frames towards
-some tunnel device, a skb_head_copy() may occur if the ingress device do not
-provide enough headroom for the tx encapsulation.
+On bridge needed_headroom changes, the enslaved devices are
+notified via the ndo_set_rx_headroom method
 
-This patch series tries to address the issue implementing a new ndo operation to
-allow the master device to control the headroom used when allocating the skb on
-frame reception.
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/bridge/br_if.c | 36 ++++++++++++++++++++++++++++++++++--
+ 1 file changed, 34 insertions(+), 2 deletions(-)
 
-Said operation is used by the Linux bridge to notify the bridged ports of
-needed_headroom changes, and similar bookkeeping and behaviour is also added to
-openvswitch, on a per datapath basis.
-
-Finally, the operation is implemented for veth and tun device, which give
-performance improvement in the 6-12% range when forwarding frames from said
-devices towards a vxlan tunnel.
-
-Paolo Abeni (5):
-  netdev: introduce ndo_set_rx_headroom
-  bridge: notify ensabled devices of headroom changes
-  ovs: propagate per dp max headroom to all vports
-  net/tun: implement ndo_set_rx_headroom
-  veth: implement ndo_set_rx_headroom
-
- drivers/net/tun.c                    | 16 +++++++++++-
- drivers/net/veth.c                   | 26 +++++++++++++++++++
- include/linux/netdevice.h            | 20 +++++++++++++++
- net/bridge/br_if.c                   | 36 +++++++++++++++++++++++++--
- net/openvswitch/datapath.c           | 48 ++++++++++++++++++++++++++++++++++++
- net/openvswitch/datapath.h           |  4 +++
- net/openvswitch/vport-internal_dev.c | 10 +++++++-
- 7 files changed, 156 insertions(+), 4 deletions(-)
-
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index c367b3e..f42f1da 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -223,6 +223,31 @@ static void destroy_nbp_rcu(struct rcu_head *head)
+ 	destroy_nbp(p);
+ }
+ 
++static unsigned get_max_headroom(struct net_bridge *br)
++{
++	unsigned max_headroom = 0;
++	struct net_bridge_port *p;
++
++	list_for_each_entry(p, &br->port_list, list) {
++		unsigned dev_headroom = netdev_get_fwd_headroom(p->dev);
++
++		if (dev_headroom > max_headroom)
++			max_headroom = dev_headroom;
++	}
++
++	return max_headroom;
++}
++
++static void update_headroom(struct net_bridge *br, int new_hr)
++{
++	struct net_bridge_port *p;
++
++	list_for_each_entry(p, &br->port_list, list)
++		if (p->dev->netdev_ops->ndo_set_rx_headroom)
++			p->dev->netdev_ops->ndo_set_rx_headroom(p->dev, new_hr);
++	br->dev->needed_headroom = new_hr;
++}
++
+ /* Delete port(interface) from bridge is done in two steps.
+  * via RCU. First step, marks device as down. That deletes
+  * all the timers and stops new packets from flowing through.
+@@ -248,6 +273,8 @@ static void del_nbp(struct net_bridge_port *p)
+ 	br_ifinfo_notify(RTM_DELLINK, p);
+ 
+ 	list_del_rcu(&p->list);
++	if (netdev_get_fwd_headroom(dev) == br->dev->needed_headroom)
++		update_headroom(br, get_max_headroom(br));
+ 
+ 	nbp_vlan_flush(p);
+ 	br_fdb_delete_by_port(br, p, 0, 1);
+@@ -438,6 +465,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ {
+ 	struct net_bridge_port *p;
+ 	int err = 0;
++	unsigned br_hr, dev_hr;
+ 	bool changed_addr;
+ 
+ 	/* Don't allow bridging non-ethernet like devices, or DSA-enabled
+@@ -505,8 +533,12 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 
+ 	netdev_update_features(br->dev);
+ 
+-	if (br->dev->needed_headroom < dev->needed_headroom)
+-		br->dev->needed_headroom = dev->needed_headroom;
++	br_hr = br->dev->needed_headroom;
++	dev_hr = netdev_get_fwd_headroom(dev);
++	if (br_hr < dev_hr)
++		update_headroom(br, dev_hr);
++	else if (dev->netdev_ops->ndo_set_rx_headroom)
++		dev->netdev_ops->ndo_set_rx_headroom(dev, br_hr);
+ 
+ 	if (br_fdb_insert(br, p, dev->dev_addr, 0))
+ 		netdev_err(dev, "failed insert local address bridge forwarding table\n");
 -- 
 1.8.3.1
