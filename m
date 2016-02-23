@@ -1,40 +1,49 @@
-From: sdrb@onet.eu
-Subject: Variable download speed
-Date: Tue, 23 Feb 2016 12:24:38 +0100 (CET)
-Message-ID: <alpine.LNX.2.20.1602231223530.29937@localhost.localdomain>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next 3/9] mlx4: Implement port type setting via
+ devlink interface
+Date: Tue, 23 Feb 2016 12:26:00 +0100
+Message-ID: <56CC41C8.10802@stressinduktion.org>
+References: <1456165924-14399-1-git-send-email-jiri@resnulli.us>
+ <1456165924-14399-4-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com, yishaih@mellanox.com,
+	dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, eugenia@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
+	jeffrey.t.kirsher@intel.com, brouer@redhat.com, ivecera@redhat.com,
+	rami.rosen@intel.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpo67.poczta.onet.pl ([141.105.16.17]:33539 "EHLO
-	smtpo67.poczta.onet.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752415AbcBWLZo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 06:25:44 -0500
-Received: from nowy9.kat.adbgroup.pl (unknown [91.230.58.65])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	(Authenticated sender: sdrb@onet.eu)
-	by smtp.poczta.onet.pl (Onet) with ESMTPSA id 3q8dMC23Mjz1XNDdf
-	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 12:24:38 +0100 (CET)
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:52890 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750868AbcBWL0I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 06:26:08 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 19BFB20A8C
+	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 06:26:08 -0500 (EST)
+In-Reply-To: <1456165924-14399-4-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Jiri,
 
-I've got a problem with network on one of my embedded boards.
-I'm testing download speed of 256MB file from my PC to embedded board
-through 1Gbit ethernet link using ftp.
+On 22.02.2016 19:31, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+>
+> So far, there has been an mlx4-specific sysfs file allowing user to
+> change port type to either Ethernet of InfiniBand. This is very
+> inconvenient.
 
-The problem is that sometimes I achieve 25MB/s and sometimes it is only
-14MB/s. There are also situations where the transfer speed starts at
-14MB/s and after a few seconds achieves 25MB/s.
-I've caught the second case with tcpdump and I noticed that when the speed
-is 14MB/s - the tcp window size is 534368 bytes and when the speed
-achieved 25MB/s the tcp window size is 933888.
+Again, I want to express my concerns regarding all of this until this 
+will be integrated into udev/systemd for stable device names. While one 
+can build wrapper code around devlink to have stable devlink ports, I 
+don't see a reason to include kernel code which actually has more 
+problems than the sysfs approach. This harms admins to use those devices 
+and will additionally require user space to write boiler plate code.
 
-My question is: what causes such dynamic change in the window size (while
-transferring data)?  Is it some kernel parameter wrong set or something
-like this?
-Do I have any influence on such dynamic change in tcp window size?
-
-sdrb
+Thanks,
+Hannes
