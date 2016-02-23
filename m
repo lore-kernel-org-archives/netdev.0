@@ -1,46 +1,37 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: Invalid sk_policy[] access (was Re: Recent spontaneous reboots
- on multiple machines)
-Date: Tue, 23 Feb 2016 14:39:13 -0500
-Message-ID: <20160223193913.GB4941@oracle.com>
-References: <20160107174105.GD23579@oracle.com>
- <alpine.LRH.2.20.1601072133480.29795@math.ut.ee>
- <20160107201445.GF23579@oracle.com>
- <20160108172022.GA3398@oracle.com>
- <alpine.LRH.2.20.1602051103140.5582@math.ut.ee>
- <20160214105131.GD20715@oracle.com>
- <alpine.LRH.2.20.1602150751180.29662@math.ut.ee>
- <20160222010201.GB23053@oracle.com>
- <20160223121244.GI28756@oracle.com>
- <alpine.LRH.2.20.1602232132190.30129@math.ut.ee>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request [net-next]: batman-adv 20160223
+Date: Tue, 23 Feb 2016 14:49:52 -0500 (EST)
+Message-ID: <20160223.144952.2136758155816779066.davem@davemloft.net>
+References: <1456207703-903-1-git-send-email-a@unstable.cc>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sparclinux@vger.kernel.org, edumazet@google.com,
-	netdev@vger.kernel.org
-To: Meelis Roos <mroos@linux.ee>
-Return-path: <sparclinux-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LRH.2.20.1602232132190.30129@math.ut.ee>
-Sender: sparclinux-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: a@unstable.cc
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1456207703-903-1-git-send-email-a-2CpIooy/SPIKlTDg6p0iyA@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On (02/23/16 21:36), Meelis Roos wrote:
-> Sorry, I do not understand - what is 32-bit on V440? The kernel should 
-> be 64-bit since it's sun4u.
+From: Antonio Quartulli <a@unstable.cc>
+Date: Tue, 23 Feb 2016 14:08:03 +0800
 
-v440#  getconf LONG_BIT
-32
+> This is another pull request intended for net-next and it is
+> basically all cleanup work, mostly by Sven Eckelmann.
+> 
+> First the BATADV_BONDING_TQ_THRESHOLD
+> constant gets removed as it was defined but not used anywhere,
+> then all our *_free_ref functions are renamed to *_put in order
+> to follow the kernel naming convention.
 
-v440# uname -a
-Linux v440 4.4.0-rc3-roos-00790-g264a4ac-dirty #200 SMP Mon Feb 22 19:06:21 PST 2016 sparc64 GNU/Linux
-
-> However, I have not succeeded in reproducing the problem at will - git 
-> checkout of another release + subsequent compile still does not trigger 
-> it. But if it is the same problem, it seems to go int triple fault or 
-> something similar for me to cause it reboot with no trace in the 
-> console.
-
-Maybe you're seeing something else then.
-
---Sowmini
-
+Pulled, thanks.
