@@ -1,74 +1,44 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: [PATCH net] Propagate MAC address changes to VLANs
-Date: Tue, 23 Feb 2016 20:56:31 +0000
-Message-ID: <56CCC77F.5050401@brocade.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: PCIe 1Gbps NIC card with Linux driver support
+Date: Tue, 23 Feb 2016 16:07:11 -0500
+Message-ID: <56CCC9FF.4080003@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+To: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
+	<shuchen@realtek.com.tw>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:38292 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755162AbcBWU5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 15:57:19 -0500
-Received: from pps.filterd (m0000542.ppops.net [127.0.0.1])
-	by mx0a-000f0801.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u1NKhgrO030586
-	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 12:57:18 -0800
-Received: from brmwp-exmb12.corp.brocade.com ([208.47.132.227])
-	by mx0a-000f0801.pphosted.com with ESMTP id 216re60x6f-8
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 12:57:18 -0800
+Received: from comal.ext.ti.com ([198.47.26.152]:52825 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755279AbcBWVHL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Feb 2016 16:07:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The MAC address of the physical interface is only copied to the VLAN
-when it is first created, resulting in an inconsistency after MAC
-address changes of only newly created VLANs having an up-to-date MAC.
+All,
 
-Continuing to inherit the MAC address unless explicitly changed for
-the VLAN allows IPv6 EUI64 addresses for the VLAN to reflect the change
-and thus for DAD to behave as expected for the given MAC.
+I have to integrate and test a PCIe RC on one of our SoC using a 1Gpbs PCIe NIC card that has driver support available 
+in v4.4.x kernel. Can someone recommend one? I see few listed below which seems to have driver. I have indicated the
+driver I could find in the kernel source tree. If the driver is listed incorrectly, please let me know
+as well.
 
-Signed-off-by: Mike Manning <mmanning@brocade.com>
----
-  net/8021q/vlan.c |   17 ++++++-----------
-  1 file changed, 6 insertions(+), 11 deletions(-)
+Thanks.
 
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -293,15 +293,15 @@ static void vlan_sync_address(struct net
+RealTek http://www.amazon.com/RTL8169-Gigabit-Desktop-Network-1000Mbps/dp/B00NQ2J9EW/ref=sr_1_12?ie=UTF8&qid=1456260434&sr=8-12&keywords=realtek+pci+express+ethernet+card
+driver: drivers/net/ethernet/realtek/r8169.c
 
-      /* vlan address was different from the old address and is equal to
-       * the new address */
--    if (!ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
-+    if ((vlandev->flags & IFF_UP) &&
-+        !ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
-          ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
-          dev_uc_del(dev, vlandev->dev_addr);
+RealTek: http://www.amazon.com/Realtek-RTL8111C-Ethernet-Interface-SOFTWARE/dp/B007MWYCG2/ref=sr_1_8?ie=UTF8&qid=1456258852&sr=8-8&keywords=pci+express+ethernet+card
+driver: drivers/net/ethernet/realtek/r8169.c
 
--    /* vlan address was equal to the old address and is different from
-+    /* vlan address was equal to the old address so now also inherit
-       * the new address */
--    if (ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
--        !ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
--        dev_uc_add(dev, vlandev->dev_addr);
-+    if (ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr))
-+        ether_addr_copy(vlandev->dev_addr, dev->dev_addr);
+realTek:http://www.amazon.com/Gigabit-Ethernet-Express-Network-Controller/dp/B00O1TXSZU/ref=sr_1_14?ie=UTF8&qid=1456258852&sr=8-14&keywords=pci+express+ethernet+card
+driver: drivers/net/ethernet/realtek/r8169.c
 
-      ether_addr_copy(vlan->real_dev_addr, dev->dev_addr);
-  }
-@@ -389,13 +389,8 @@ static int vlan_device_event(struct noti
+Broadcom: http://www.amazon.com/SEDNA-Server-Broadcom-BCM5721-Support/dp/B00V0S7QGM/ref=sr_1_2?ie=UTF8&qid=1456260907&sr=8-2&keywords=1g+PCIe+nic
+driver: drivers/net/ethernet/broadcom/tg3.c
 
-      case NETDEV_CHANGEADDR:
-          /* Adjust unicast filters on underlying device */
--        vlan_group_for_each_dev(grp, i, vlandev) {
--            flgs = vlandev->flags;
--            if (!(flgs & IFF_UP))
--                continue;
--
-+        vlan_group_for_each_dev(grp, i, vlandev)
-              vlan_sync_address(dev, vlandev);
--        }
-          break;
+Broadcom: http://www.amazon.com/Broadcom-BCM5751-Netxtreme-Ethernet-SOFTWARE/dp/B005NX1DAK/ref=sr_1_15?ie=UTF8&qid=1456258852&sr=8-15&keywords=pci+express+ethernet+card
+driver: drivers/net/ethernet/broadcom/tg3.c
 
-      case NETDEV_CHANGEMTU:
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
