@@ -1,53 +1,89 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: Variable download speed
-Date: Tue, 23 Feb 2016 08:28:16 -0500
-Message-ID: <CADVnQyngzgLhbo6of1vTq5MH4mk4rSR6_KLWCCXkndK6QYynAw@mail.gmail.com>
-References: <alpine.LNX.2.20.1602231216240.29937@localhost.localdomain>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next 3/9] mlx4: Implement port type setting via
+ devlink interface
+Date: Tue, 23 Feb 2016 14:28:05 +0100
+Message-ID: <56CC5E65.40809@stressinduktion.org>
+References: <1456165924-14399-1-git-send-email-jiri@resnulli.us>
+ <1456165924-14399-4-git-send-email-jiri@resnulli.us>
+ <56CC41C8.10802@stressinduktion.org> <20160223122109.GD2140@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>
-To: sdrb@onet.eu
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, eugenia@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
+	jeffrey.t.kirsher@intel.com, brouer@redhat.com, ivecera@redhat.com,
+	rami.rosen@intel.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:36057 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751880AbcBWN2R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 08:28:17 -0500
-Received: by mail-ob0-f173.google.com with SMTP id gc3so193698755obb.3
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 05:28:16 -0800 (PST)
-In-Reply-To: <alpine.LNX.2.20.1602231216240.29937@localhost.localdomain>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:33841 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751880AbcBWN2M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 08:28:12 -0500
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id C69E320A7D
+	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 08:28:11 -0500 (EST)
+In-Reply-To: <20160223122109.GD2140@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 23, 2016 at 6:19 AM, <sdrb@onet.eu> wrote:
-> My question is: what causes such dynamic change in
-> the window size (while transferring data)?
-> Is it some kernel parameter wrong set or something like this?
+On 23.02.2016 13:21, Jiri Pirko wrote:
+> Tue, Feb 23, 2016 at 12:26:00PM CET, hannes@stressinduktion.org wrote:
+>> Hi Jiri,
+>>
+>> On 22.02.2016 19:31, Jiri Pirko wrote:
+>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>
+>>> So far, there has been an mlx4-specific sysfs file allowing user to
+>>> change port type to either Ethernet of InfiniBand. This is very
+>>> inconvenient.
+>>
+>> Again, I want to express my concerns regarding all of this until this will be
+>> integrated into udev/systemd for stable device names. While one can build
+>> wrapper code around devlink to have stable devlink ports, I don't see a
+>> reason to include kernel code which actually has more problems than the sysfs
+>> approach. This harms admins to use those devices and will additionally
+>> require user space to write boiler plate code.
+>
+> Sysfs is not the place to do this things. It was already discussed here
+> multiple times. There was and attempt to use configfs, which was also
+> refused. Netlink is the only place to go. For multiple reasons,
+> including well defined api and behaviour, notifications, etc.
 
-That sounds like TCP receive buffer auto-tuning (also called "Dynamic
-right-sizing (DRS)" (Fisk and Feng, 2001):
+I am not against netlink at all. My fear with this interface is simply:
 
-  http://permalink.lanl.gov/object/tr?what=info:lanl-repo/lareport/LA-UR-01-5460
+1) we introduce another ifindex/name like identifiers. It took a long 
+time until this stuff finally worked fine with linux. It needs 
+persistent storage in userspace being applied at boot time. Why this 
+complications for this probably lesser often used interface?
 
-The Linux TCP receiver will, by default, dynamically adjust the
-receive window to a value that supports the rate at which the
-application successfully reads data out of the socket.
+2) The actual devlink attributes get managed from inside devlink and not 
+the driver. So driver need to modify devlink.c/devlink.h in core to add 
+new attributes.
 
-> Do I have any influence on such dynamic change in tcp window size?
+1) is easily solvable, just drop the ifindex style attributes and always 
+force the user to enter the bus and bus-topology id.
 
-You might check on the receiver host with top/mpstat/strace/etc to see
-whether the receiving application is limiting performance in some way.
-This kind of behavior can show up if the receiver is sometimes
-CPU-saturated, or limited by the throughput of the medium on to which
-it is writing the data.
+For 2) I don't really know what drivers want, not sure if it is easier 
+to add some small helper functions to add sysfs attributes to kobjects 
+without necessarily holding a net_device. Thus mellanox drivers can use 
+it and I am not sure how many other networking cards allow switching 
+ports between ib and eth type. Port splitting only happens for 
+interfaces which already have a net_device, no?
 
-If you control the receiver software, you can use
-setsockopt(SO_RCVBUF) to explicitly set the receive buffer size, and
-see if that helps. If it doesn't, that would suggest that it is indeed
-the receiving application that is limiting performance.
+> I think it is quite trivial to teach udev to name devlinkX devices
+> according to pci address (or any other address). That's all what is
+> needed here. I don't understand your concerns.
 
-If you could provide a tcpdump trace (headers only, e.g.,  -s 96)
-taken on the sender, we could check to see if we can see any problems
-in the TCP sender or receiver behavior.
+I don't think that this interface needs the same complexity as network 
+interfaces.
 
-cheers,
-neal
+I am not sure, but one of the initial problems was that this information 
+should already be there before the driver actually gets loaded, no? 
+These changes don't solve this problem either?
+
+Thanks,
+Hannes
