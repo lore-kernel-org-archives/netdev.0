@@ -1,43 +1,57 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable outer Tx checksum by default
-Date: Tue, 23 Feb 2016 10:32:32 -0800
-Message-ID: <CALx6S34_HnMqftJ7hUTzQChsA=Hi9RzkNTr=GJ4bNnyNUsaA6g@mail.gmail.com>
-References: <CALx6S34Pt++Kg=cp+v+gGFQGEDy=eNHtFvtBwd1z-1d2ixOn7Q@mail.gmail.com>
-	<CAEh+42iCxKb+OsMqR51nvzeCr_7n3WLncCaWNuctW7FbYijmCQ@mail.gmail.com>
-	<CALx6S37p8eV-gURM0C8hP=G7XLt+=FFwV9HNF3z_FdciKxLf0A@mail.gmail.com>
-	<20160223.132617.860625990168941692.davem@davemloft.net>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: Re: [PATCH] bnx2x: add a separate GENEVE Kconfig symbol
+Date: Tue, 23 Feb 2016 18:33:10 +0000
+Message-ID: <CO2PR11MB0088CC09F328C0CFE10187BF97A40@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1456223774-1383513-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesse Gross <jesse@kernel.org>, Edward Cree <ecree@solarflare.com>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:35776 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754878AbcBWScd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 13:32:33 -0500
-Received: by mail-ig0-f174.google.com with SMTP id hb3so105030625igb.0
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 10:32:33 -0800 (PST)
-In-Reply-To: <20160223.132617.860625990168941692.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org"
+ <linux-arm-kernel@lists.infradead.org>,
+ linux-kernel <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>, Ariel Elior <Ariel.Elior@qlogic.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1456223774-1383513-1-git-send-email-arnd@arndb.de>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 23, 2016 at 10:26 AM, David Miller <davem@davemloft.net> wrote:
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Tue, 23 Feb 2016 09:42:00 -0800
->
->> Why not just fix the stack to conform to RFC6864? As Edward pointed
->> out we lose the actual IP ID's in GRO anyway, so attempts to set them
->> in GSO may be wildly incorrect from the source point of view-- even in
->> that case were probably better off changing the IP identifier to zero
->> (okay since we're already breaking the E2E model anyway :-) ).
->
-> Tom, you can't, you'll break TCP header compression schemes which
-> expect a monotonically increasing IP ID value.
->
-> We tried setting the IP ID to zero for frames with DF set, it broke
-> things.
+> When CONFIG_GENEVE is built as a loadable module, and bnx2x is built-in,
+> we get this link error:
 
-All the more reason to move to IPv6 ;-)
+> drivers/net/built-in.o: In function `bnx2x_open':
+> :(.text+0x33322): undefined reference to `geneve_get_rx_port'
+> drivers/net/built-in.o: In function `bnx2x_sp_rtnl_task':
+> :(.text+0x3e632): undefined reference to `geneve_get_rx_port'
+
+> This avoids the problem by adding a separate Kconfig symbol named
+> CONFIG_BNX2X_GENEVE that is only enabled when the code is
+> reachable from the driver.
+
+> This is the same trick that BNX2X does for VXLAN support, and
+> is similar to how I40E handles both.
+
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 883ce97d25b0 ("bnx2x: Add Geneve inner-RSS support")
+
+Ouch. Thanks for fixing this one; I tried avoiding this solution
+since I don't think there's any reason to encumber the config
+file with needless options [I.e., what's the gain in the ability to
+disable a single offloaded protocol on a single network driver?],
+but obviously, I botched the job.
+
+BTW, if you want to handle this exactly like vxlan, you might
+consider using `defined(CONFIG_BNX2X_GENEVE)' instead of
+`IS_ENABLED(CONFIG_BNX2X_GENEVE)'  [It not a tristate].
+But that's truly insignificant.
+
+Acked-By: Yuval Mintz <Yuval.Mintz@qlogic.com>
