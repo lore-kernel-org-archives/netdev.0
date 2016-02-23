@@ -1,57 +1,84 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: Re: [PATCH] bnx2x: add a separate GENEVE Kconfig symbol
-Date: Tue, 23 Feb 2016 18:33:10 +0000
-Message-ID: <CO2PR11MB0088CC09F328C0CFE10187BF97A40@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1456223774-1383513-1-git-send-email-arnd@arndb.de>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH 1/4] net: sched: consolidate offload decision in
+ cls_u32
+Date: Tue, 23 Feb 2016 11:02:33 -0800
+Message-ID: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org"
- <linux-arm-kernel@lists.infradead.org>,
- linux-kernel <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>, Ariel Elior <Ariel.Elior@qlogic.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1456223774-1383513-1-git-send-email-arnd@arndb.de>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+	davem@davemloft.net, jhs@mojatatu.com
+To: jiri@resnulli.us, john.fastabend@gmail.com, daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35244 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753250AbcBWTCv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 14:02:51 -0500
+Received: by mail-pa0-f45.google.com with SMTP id ho8so117980378pac.2
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 11:02:51 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> When CONFIG_GENEVE is built as a loadable module, and bnx2x is built-in,
-> we get this link error:
+The offload decision was originally very basic and tied to if the dev
+implemented the appropriate ndo op hook. The next step is to allow
+the user to more flexibly define if any paticular rule should be
+offloaded or not. In order to have this logic in one function lift
+the current check into a helper routine tc_should_offload().
 
-> drivers/net/built-in.o: In function `bnx2x_open':
-> :(.text+0x33322): undefined reference to `geneve_get_rx_port'
-> drivers/net/built-in.o: In function `bnx2x_sp_rtnl_task':
-> :(.text+0x3e632): undefined reference to `geneve_get_rx_port'
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ net/sched/cls_u32.c |   13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
-> This avoids the problem by adding a separate Kconfig symbol named
-> CONFIG_BNX2X_GENEVE that is only enabled when the code is
-> reachable from the driver.
-
-> This is the same trick that BNX2X does for VXLAN support, and
-> is similar to how I40E handles both.
-
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 883ce97d25b0 ("bnx2x: Add Geneve inner-RSS support")
-
-Ouch. Thanks for fixing this one; I tried avoiding this solution
-since I don't think there's any reason to encumber the config
-file with needless options [I.e., what's the gain in the ability to
-disable a single offloaded protocol on a single network driver?],
-but obviously, I botched the job.
-
-BTW, if you want to handle this exactly like vxlan, you might
-consider using `defined(CONFIG_BNX2X_GENEVE)' instead of
-`IS_ENABLED(CONFIG_BNX2X_GENEVE)'  [It not a tristate].
-But that's truly insignificant.
-
-Acked-By: Yuval Mintz <Yuval.Mintz@qlogic.com>
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index d54bc94..1f31929 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -425,6 +425,11 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
+ 	return 0;
+ }
+ 
++static bool u32_should_offload(struct net_device *dev)
++{
++	return dev->netdev_ops->ndo_setup_tc;
++}
++
+ static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+@@ -434,7 +439,7 @@ static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
+ 	offload.type = TC_SETUP_CLSU32;
+ 	offload.cls_u32 = &u32_offload;
+ 
+-	if (dev->netdev_ops->ndo_setup_tc) {
++	if (u32_should_offload(dev)) {
+ 		offload.cls_u32->command = TC_CLSU32_DELETE_KNODE;
+ 		offload.cls_u32->knode.handle = handle;
+ 		dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
+@@ -451,7 +456,7 @@ static void u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+ 	offload.type = TC_SETUP_CLSU32;
+ 	offload.cls_u32 = &u32_offload;
+ 
+-	if (dev->netdev_ops->ndo_setup_tc) {
++	if (u32_should_offload(dev)) {
+ 		offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
+ 		offload.cls_u32->hnode.divisor = h->divisor;
+ 		offload.cls_u32->hnode.handle = h->handle;
+@@ -471,7 +476,7 @@ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+ 	offload.type = TC_SETUP_CLSU32;
+ 	offload.cls_u32 = &u32_offload;
+ 
+-	if (dev->netdev_ops->ndo_setup_tc) {
++	if (u32_should_offload(dev)) {
+ 		offload.cls_u32->command = TC_CLSU32_DELETE_HNODE;
+ 		offload.cls_u32->hnode.divisor = h->divisor;
+ 		offload.cls_u32->hnode.handle = h->handle;
+@@ -491,7 +496,7 @@ static void u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n)
+ 	offload.type = TC_SETUP_CLSU32;
+ 	offload.cls_u32 = &u32_offload;
+ 
+-	if (dev->netdev_ops->ndo_setup_tc) {
++	if (u32_should_offload(dev)) {
+ 		offload.cls_u32->command = TC_CLSU32_REPLACE_KNODE;
+ 		offload.cls_u32->knode.handle = n->handle;
+ 		offload.cls_u32->knode.fshift = n->fshift;
