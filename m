@@ -1,16 +1,16 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next 3/9] mlx4: Implement port type setting via
- devlink interface
-Date: Tue, 23 Feb 2016 16:57:17 +0100
-Message-ID: <56CC815D.9070009@stressinduktion.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 0/9] Introduce devlink interface and first
+ drivers to use it
+Date: Tue, 23 Feb 2016 17:01:31 +0100
+Message-ID: <20160223160131.GL2140@nanopsycho.orion>
 References: <1456165924-14399-1-git-send-email-jiri@resnulli.us>
- <1456165924-14399-4-git-send-email-jiri@resnulli.us>
- <56CC41C8.10802@stressinduktion.org> <20160223122109.GD2140@nanopsycho.orion>
- <56CC5E65.40809@stressinduktion.org> <20160223142626.GF2140@nanopsycho.orion>
- <56CC77BB.60601@stressinduktion.org> <20160223153023.GJ2140@nanopsycho.orion>
+ <20160223051214.GP33942@gospo.home.greyhouse.net>
+ <20160223073203.GA2140@nanopsycho.orion>
+ <20160223143418.GQ33942@gospo.home.greyhouse.net>
+ <20160223144550.GG2140@nanopsycho.orion>
+ <20160223155527.GS33942@gospo.home.greyhouse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
 	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
 	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
@@ -19,54 +19,69 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
 	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
 	jeffrey.t.kirsher@intel.com, brouer@redhat.com, ivecera@redhat.com,
 	rami.rosen@intel.com
-To: Jiri Pirko <jiri@resnulli.us>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:46124 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751893AbcBWP5Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 10:57:24 -0500
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id E9F3B20B20
-	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 10:57:23 -0500 (EST)
-In-Reply-To: <20160223153023.GJ2140@nanopsycho.orion>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:36991 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752668AbcBWQBe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 11:01:34 -0500
+Received: by mail-wm0-f53.google.com with SMTP id g62so734820wme.0
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 08:01:33 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20160223155527.GS33942@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23.02.2016 16:30, Jiri Pirko wrote:
-> Tue, Feb 23, 2016 at 04:16:11PM CET, hannes@stressinduktion.org wrote:
+Tue, Feb 23, 2016 at 04:55:28PM CET, gospo@cumulusnetworks.com wrote:
+>On Tue, Feb 23, 2016 at 03:45:51PM +0100, Jiri Pirko wrote:
+>> Tue, Feb 23, 2016 at 03:34:19PM CET, gospo@cumulusnetworks.com wrote:
+>> 
+>> <snip>
+>> >> 
+>> >> >> 	myhost:~$ dl port show
+>> >> >> 	devlink0/1: type eth netdev ens4
+>> >> >                             ^^^^^^^^^^^
+>> >> >> 	devlink0/2: type ib ibdev mlx4_0
+>> >> >                            ^^^^^^^^^^^^
+>> >> >I think my only other question about this implementation is whether or
+>> >> >not one would really want to have the true netdev/ibdev names mapped
+>> >> >here.
+>> >> >
+>> >> >Would be as reasonable to simply specify the type (and there may be more
+>> >> >types within ethernet that could be useful in multi-chip configurations)
+>> >> >and then let normal infrastructure that exists today figure out how to
+>> >> >map the names for the netdevs to the devices?
+>> >> 
+>> >> What normal infrastructure you have in mind? There is no info about
+>> >> devlink port mapping to netdev/ibdev anywhere. Only here. I might be
+>> >> missing something but I fail to see what's wrong with it.
+>> >
+>> >I was simply wondering out loud if we _really_ wanted to name netdevs
+>> >this way.  I was suggesting that output could be like this:
+>> >
+>> >myhost:~$ dl port show
+>> >devlink0/1: type eth
+>> >devlink0/2: type ib 
+>> >
+>> >mnd that udev/systemd/biosdevname/etc would take care of naming the
+>> >device whataever it wanted.  This appears to be essentially the same
+>> >concern Hannes has.
+>> 
+>> Wait. The only thing which will be renamed by udev is "devlink0". The
+>> suffixes "/1" and "/2" are direct indexes as used inside the driver.
+>> 
+>> And you need some link to netdev in case netdev exists - therefore
+>> "netdev ens4" attribute is there. There's no other way to get the
+>> mapping of "devlink0/1" to "ens4" anywhere else.
 >
-> <snip>
+>So I think I had invisioned a slightly different workflow than what you
+>just described.
 >
->>>> 1) is easily solvable, just drop the ifindex style attributes and always
->>>> force the user to enter the bus and bus-topology id.
->>>
->>> But why? Use can easily get that info and map it to devlink index. It
->>> aligns with nl80211 iface.
->>>
->>> Do you really want to do commands like:
->>> myhost:~$ dl dev show pci_0000:01:00.0
->>> ?
->>
->> Yes, exactly I would. I would put them into a boot-up script based on my
->> system configuration and can be sure it will work the next boot, too, and
->> adapt them when I replace the hardware or do some configuration changes.
->>
->> I think sysadmins or scripts are the primary users of this interface not
->> kernel developers which switch their settings around all the time, no?
+>- Load PCI driver
+>- Setup devlink attributes for your hardware
+>- Create netdevs in network driver based on those attributes
 >
-> I can easily add this to the userspace tool to accept "pci_0000:01:00.0"
-> format and to map it internally to devlink index. No problem.
+>You don't need a netdev to reference any of the devlink specific
+>parameters do you?
 
-I argue for this stable topology identifier to be the default. 
-Especially if you add device info before the actual module is loaded 
-(this is during initramfs, when udev cannot rename devlink names to 
-stable ones), a user has to deal with pre-devlink-ids before rename and 
-after. Do you have plans how to address that?
-
-Current initramfs for stable interface names uses EUI48 based mac 
-addresses most of the time and udev runs then after the pivot_root.
-
-The devlink names can easily be aliases in user space.
-
-Bye,
-Hannes
+No, I have a devlink handle and a devlink port index. That is enough.
