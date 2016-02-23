@@ -1,7 +1,7 @@
 From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 18/20] batman-adv: Rename batadv_tt_local_entry *_free_ref function to *_put
-Date: Tue, 23 Feb 2016 14:08:21 +0800
-Message-ID: <1456207703-903-19-git-send-email-a__33813.7610503056$1456208432$gmane$org@unstable.cc>
+Subject: [PATCH 17/20] batman-adv: Rename batadv_orig_node_vlan *_free_ref function to *_put
+Date: Tue, 23 Feb 2016 14:08:20 +0800
+Message-ID: <1456207703-903-18-git-send-email-a@unstable.cc>
 References: <1456207703-903-1-git-send-email-a@unstable.cc>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <a@unstable.cc>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:11625 "EHLO s2.neomailbox.net"
+Received: from s2.neomailbox.net ([5.148.176.60]:9383 "EHLO s2.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750736AbcBWGUQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2016 01:20:16 -0500
+	id S1756677AbcBWGUU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Feb 2016 01:20:20 -0500
 In-Reply-To: <1456207703-903-1-git-send-email-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -28,135 +28,97 @@ Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 ---
- net/batman-adv/translation-table.c | 28 ++++++++++++++--------------
- 1 file changed, 14 insertions(+), 14 deletions(-)
+ net/batman-adv/originator.c        |  8 ++++----
+ net/batman-adv/originator.h        |  2 +-
+ net/batman-adv/translation-table.c | 10 +++++-----
+ 3 files changed, 10 insertions(+), 10 deletions(-)
 
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 0b1a77da2e1e..e4cbb0753e37 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -151,11 +151,11 @@ static void batadv_orig_node_vlan_release(struct kref *ref)
+ }
+ 
+ /**
+- * batadv_orig_node_vlan_free_ref - decrement the refcounter and possibly
+- *  release the originator-vlan object
++ * batadv_orig_node_vlan_put - decrement the refcounter and possibly release
++ *  the originator-vlan object
+  * @orig_vlan: the originator-vlan object to release
+  */
+-void batadv_orig_node_vlan_free_ref(struct batadv_orig_node_vlan *orig_vlan)
++void batadv_orig_node_vlan_put(struct batadv_orig_node_vlan *orig_vlan)
+ {
+ 	kref_put(&orig_vlan->refcount, batadv_orig_node_vlan_release);
+ }
+@@ -917,7 +917,7 @@ struct batadv_orig_node *batadv_orig_node_new(struct batadv_priv *bat_priv,
+ 	 * Immediately release vlan since it is not needed anymore in this
+ 	 * context
+ 	 */
+-	batadv_orig_node_vlan_free_ref(vlan);
++	batadv_orig_node_vlan_put(vlan);
+ 
+ 	for (i = 0; i < BATADV_FRAG_BUFFER_COUNT; i++) {
+ 		INIT_HLIST_HEAD(&orig_node->fragments[i].head);
+diff --git a/net/batman-adv/originator.h b/net/batman-adv/originator.h
+index 97748e84b66b..4e8b67f11051 100644
+--- a/net/batman-adv/originator.h
++++ b/net/batman-adv/originator.h
+@@ -83,7 +83,7 @@ batadv_orig_node_vlan_new(struct batadv_orig_node *orig_node,
+ struct batadv_orig_node_vlan *
+ batadv_orig_node_vlan_get(struct batadv_orig_node *orig_node,
+ 			  unsigned short vid);
+-void batadv_orig_node_vlan_free_ref(struct batadv_orig_node_vlan *orig_vlan);
++void batadv_orig_node_vlan_put(struct batadv_orig_node_vlan *orig_vlan);
+ 
+ /* hashfunction to choose an entry in a hash table of given size
+  * hash algorithm from http://en.wikipedia.org/wiki/Hash_table
 diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 396b095c8a1d..de3e731542e3 100644
+index b81f8ea3395d..396b095c8a1d 100644
 --- a/net/batman-adv/translation-table.c
 +++ b/net/batman-adv/translation-table.c
-@@ -219,12 +219,12 @@ static void batadv_tt_local_entry_release(struct kref *ref)
+@@ -348,12 +348,12 @@ static void batadv_tt_global_size_mod(struct batadv_orig_node *orig_node,
+ 		spin_lock_bh(&orig_node->vlan_list_lock);
+ 		if (!hlist_unhashed(&vlan->list)) {
+ 			hlist_del_init_rcu(&vlan->list);
+-			batadv_orig_node_vlan_free_ref(vlan);
++			batadv_orig_node_vlan_put(vlan);
+ 		}
+ 		spin_unlock_bh(&orig_node->vlan_list_lock);
+ 	}
+ 
+-	batadv_orig_node_vlan_free_ref(vlan);
++	batadv_orig_node_vlan_put(vlan);
  }
  
  /**
-- * batadv_tt_local_entry_free_ref - decrement the tt_local_entry refcounter and
-+ * batadv_tt_local_entry_put - decrement the tt_local_entry refcounter and
-  *  possibly release it
-  * @tt_local_entry: tt_local_entry to be free'd
-  */
- static void
--batadv_tt_local_entry_free_ref(struct batadv_tt_local_entry *tt_local_entry)
-+batadv_tt_local_entry_put(struct batadv_tt_local_entry *tt_local_entry)
- {
- 	kref_put(&tt_local_entry->common.refcount,
- 		 batadv_tt_local_entry_release);
-@@ -687,7 +687,7 @@ bool batadv_tt_local_add(struct net_device *soft_iface, const u8 *addr,
+@@ -1652,7 +1652,7 @@ batadv_tt_global_print_entry(struct batadv_priv *bat_priv,
+ 			   ((flags & BATADV_TT_CLIENT_ISOLA) ? 'I' : '.'),
+ 			   ((flags & BATADV_TT_CLIENT_TEMP) ? 'T' : '.'));
  
- 	if (unlikely(hash_added != 0)) {
- 		/* remove the reference for the hash */
--		batadv_tt_local_entry_free_ref(tt_local);
-+		batadv_tt_local_entry_put(tt_local);
- 		batadv_softif_vlan_put(vlan);
- 		goto out;
+-		batadv_orig_node_vlan_free_ref(vlan);
++		batadv_orig_node_vlan_put(vlan);
  	}
-@@ -754,7 +754,7 @@ out:
- 	if (in_dev)
- 		dev_put(in_dev);
- 	if (tt_local)
--		batadv_tt_local_entry_free_ref(tt_local);
-+		batadv_tt_local_entry_put(tt_local);
- 	if (tt_global)
- 		batadv_tt_global_entry_free_ref(tt_global);
- 	return ret;
-@@ -1137,7 +1137,7 @@ u16 batadv_tt_local_remove(struct batadv_priv *bat_priv, const u8 *addr,
- 		goto out;
  
- 	/* extra call to free the local tt entry */
--	batadv_tt_local_entry_free_ref(tt_local_entry);
-+	batadv_tt_local_entry_put(tt_local_entry);
+ print_list:
+@@ -1684,7 +1684,7 @@ print_list:
+ 			   ((flags & BATADV_TT_CLIENT_ISOLA) ? 'I' : '.'),
+ 			   ((flags & BATADV_TT_CLIENT_TEMP) ? 'T' : '.'));
  
- 	/* decrease the reference held for this vlan */
- 	vlan = batadv_softif_vlan_get(bat_priv, vid);
-@@ -1149,7 +1149,7 @@ u16 batadv_tt_local_remove(struct batadv_priv *bat_priv, const u8 *addr,
- 
- out:
- 	if (tt_local_entry)
--		batadv_tt_local_entry_free_ref(tt_local_entry);
-+		batadv_tt_local_entry_put(tt_local_entry);
- 
- 	return curr_flags;
- }
-@@ -1249,7 +1249,7 @@ static void batadv_tt_local_table_free(struct batadv_priv *bat_priv)
- 				batadv_softif_vlan_put(vlan);
- 			}
- 
--			batadv_tt_local_entry_free_ref(tt_local);
-+			batadv_tt_local_entry_put(tt_local);
- 		}
- 		spin_unlock_bh(list_lock);
+-		batadv_orig_node_vlan_free_ref(vlan);
++		batadv_orig_node_vlan_put(vlan);
  	}
-@@ -1555,7 +1555,7 @@ out:
- 	if (tt_global_entry)
- 		batadv_tt_global_entry_free_ref(tt_global_entry);
- 	if (tt_local_entry)
--		batadv_tt_local_entry_free_ref(tt_local_entry);
-+		batadv_tt_local_entry_put(tt_local_entry);
- 	return ret;
  }
  
-@@ -1911,7 +1911,7 @@ out:
- 	if (tt_global_entry)
- 		batadv_tt_global_entry_free_ref(tt_global_entry);
- 	if (local_entry)
--		batadv_tt_local_entry_free_ref(local_entry);
-+		batadv_tt_local_entry_put(local_entry);
- }
+@@ -2503,7 +2503,7 @@ static bool batadv_tt_global_check_crc(struct batadv_orig_node *orig_node,
+ 			return false;
  
- /**
-@@ -2143,7 +2143,7 @@ out:
- 	if (tt_global_entry)
- 		batadv_tt_global_entry_free_ref(tt_global_entry);
- 	if (tt_local_entry)
--		batadv_tt_local_entry_free_ref(tt_local_entry);
-+		batadv_tt_local_entry_put(tt_local_entry);
+ 		crc = vlan->tt.crc;
+-		batadv_orig_node_vlan_free_ref(vlan);
++		batadv_orig_node_vlan_put(vlan);
  
- 	return orig_node;
- }
-@@ -3023,7 +3023,7 @@ bool batadv_is_my_client(struct batadv_priv *bat_priv, const u8 *addr,
- 	ret = true;
- out:
- 	if (tt_local_entry)
--		batadv_tt_local_entry_free_ref(tt_local_entry);
-+		batadv_tt_local_entry_put(tt_local_entry);
- 	return ret;
- }
- 
-@@ -3346,7 +3346,7 @@ static void batadv_tt_local_purge_pending_clients(struct batadv_priv *bat_priv)
- 				batadv_softif_vlan_put(vlan);
- 			}
- 
--			batadv_tt_local_entry_free_ref(tt_local);
-+			batadv_tt_local_entry_put(tt_local);
- 		}
- 		spin_unlock_bh(list_lock);
- 	}
-@@ -3433,7 +3433,7 @@ out:
- 	if (tt_global_entry)
- 		batadv_tt_global_entry_free_ref(tt_global_entry);
- 	if (tt_local_entry)
--		batadv_tt_local_entry_free_ref(tt_local_entry);
-+		batadv_tt_local_entry_put(tt_local_entry);
- 	return ret;
- }
- 
-@@ -3569,7 +3569,7 @@ bool batadv_tt_local_client_is_roaming(struct batadv_priv *bat_priv,
- 		goto out;
- 
- 	ret = tt_local_entry->common.flags & BATADV_TT_CLIENT_ROAM;
--	batadv_tt_local_entry_free_ref(tt_local_entry);
-+	batadv_tt_local_entry_put(tt_local_entry);
- out:
- 	return ret;
- }
+ 		if (crc != ntohl(tt_vlan_tmp->crc))
+ 			return false;
 -- 
 2.7.1
