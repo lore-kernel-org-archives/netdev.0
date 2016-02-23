@@ -1,83 +1,68 @@
-From: Chunhao Lin <hau@realtek.com>
-Subject: [PATCH net v3] r8169:fix "rtl_counters_cond == 1 (loop: 1000, delay: 10)" log spam.
-Date: Tue, 23 Feb 2016 16:28:23 +0800
-Message-ID: <1456216103-8113-1-git-send-email-hau@realtek.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IPv6 route to gateway on fe80::1%eth0 when I have fe80::1%br0
+ locally
+Date: Tue, 23 Feb 2016 10:03:28 +0100
+Message-ID: <56CC2060.1050904@stressinduktion.org>
+References: <20151212195830.GA18286@torres.zugschlus.de>
+ <56796902.8080703@stressinduktion.org>
+ <20151222212843.GE4424@torres.zugschlus.de>
+ <5679C58C.2090308@stressinduktion.org>
+ <20160222150443.GV26042@torres.zugschlus.de>
+ <56CB2564.9030003@stressinduktion.org>
+ <20160222154758.GW26042@torres.zugschlus.de>
+ <56CB342D.9010100@stressinduktion.org>
+ <20160222192039.GC26042@torres.zugschlus.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	Chunhao Lin <hau@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Marc Haber <mh+netdev@zugschlus.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:33055 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751644AbcBWJDb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 04:03:31 -0500
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id 306DD20968
+	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 04:03:31 -0500 (EST)
+In-Reply-To: <20160222192039.GC26042@torres.zugschlus.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There will be a log spam when there is no cable plugged.
-Please refer to following links.
-https://bugzilla.kernel.org/show_bug.cgi?id=104351
-https://bugzilla.kernel.org/show_bug.cgi?id=107421
+On 22.02.2016 20:20, Marc Haber wrote:
+> On Mon, Feb 22, 2016 at 05:15:41PM +0100, Hannes Frederic Sowa wrote:
+>> On 22.02.2016 16:47, Marc Haber wrote:
+>>> Can you reproduce the behavior with accept_ra_from_local =0 as well?
+>>> Unfortunately, the debugging VM I build works fine, it's just the
+>>> physical host showing this behavior. This is really strange.
+>>
+>> Same here. Debugging VM didn't show this error at all and other systems
+>> didn't show this symptom either (4.4.2 as well as net-next).
+>>
+>> With which kernel did you see this behavior for the first time and what was
+>> the last working version?
+>
+> Thanks for motivating me to investigate this further.
+>
+> I have to apologize. It is not a kernel issue.
+>
+> It has turned out that systemd, starting with version 229, has placed
+> a "Not invented here" stamp on route advertisement processing in the
+> kernel and has implemented its own userspace code to handle router
+> advertisements.
+>
+> And, of course, they did it wrong.
+>
+> Setting IPv6AcceptRouterAdvertisements=0 in eth0.network seems to
+> disable enough code that this issue does not show any more.
+>
+> Sorry for the rumble, I debugged the wrong piece of software. Bugs in
+> Debian are filed, #815582, #815586. I don't file bugs with systemd
+> upstream any more since I got silenced on systemd-devel for losing my
+> temper.
 
-This issue is caused by runtime power management. When there is no cable plugged, the driver will be suspend (runtime suspend) by OS and NIC will be put into the D3 state. During this time, if OS call rtl8169_get_stats64() to dump tally counter, because NIC is in D3 state, the register value read by driver will return all 0xff. This will let driver think tally counter flag is not toggled and then sends the warning  message "rtl_counters_cond == 1 (loop: 1000,
-delay: 10)" to kernel log.
+Thanks for letting me know. Hopefully this also fixes 
+https://bugzilla.kernel.org/show_bug.cgi?id=110721.
 
-For fixing this issue,
-1.add checking driver's pm runtime status in rtl8169_get_stats64().
-2.dump tally counter before going runtime suspend for counter accuracy in
-  runtime suspend.
-
-Signed-off-by: Chunhao Lin <hau@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c | 15 +++++++++++++--
- 1 file changed, 13 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 537974c..404be51 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -7730,10 +7730,13 @@ rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
-+	struct pci_dev *pdev = tp->pci_dev;
- 	struct rtl8169_counters *counters = tp->counters;
- 	unsigned int start;
- 
--	if (netif_running(dev))
-+	pm_runtime_get_noresume(&pdev->dev);
-+
-+	if (netif_running(dev) && pm_runtime_active(&pdev->dev))
- 		rtl8169_rx_missed(dev, ioaddr);
- 
- 	do {
-@@ -7761,7 +7764,8 @@ rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 	 * Fetch additonal counter values missing in stats collected by driver
- 	 * from tally counters.
- 	 */
--	rtl8169_update_counters(dev);
-+	if (pm_runtime_active(&pdev->dev))
-+		rtl8169_update_counters(dev);
- 
- 	/*
- 	 * Subtract values fetched during initalization.
-@@ -7774,6 +7778,8 @@ rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 	stats->tx_aborted_errors = le16_to_cpu(counters->tx_aborted) -
- 		le16_to_cpu(tp->tc_offset.tx_aborted);
- 
-+	pm_runtime_put_noidle(&pdev->dev);
-+
- 	return stats;
- }
- 
-@@ -7853,6 +7859,11 @@ static int rtl8169_runtime_suspend(struct device *device)
- 
- 	rtl8169_net_suspend(dev);
- 
-+	/* Update counters before going runtime suspend */
-+	if (netif_running(dev))
-+		rtl8169_rx_missed(dev, tp->mmio_addr);
-+	rtl8169_update_counters(dev);
-+
- 	return 0;
- }
- 
--- 
-1.9.1
+Thanks,
+Hannes
