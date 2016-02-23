@@ -1,100 +1,70 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH 0/5] net_sched: Add support for IFE action
-Date: Tue, 23 Feb 2016 07:09:14 -0500
-Message-ID: <56CC4BEA.70108@mojatatu.com>
-References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com>
- <56CB3B90.8030206@iogearbox.net>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Invalid sk_policy[] access (was Re: Recent spontaneous reboots on
+ multiple machines)
+Date: Tue, 23 Feb 2016 07:12:44 -0500
+Message-ID: <20160223121244.GI28756@oracle.com>
+References: <alpine.LRH.2.20.1601061716510.27880@math.ut.ee>
+ <alpine.LRH.2.20.1601061722190.27880@math.ut.ee>
+ <20160107174105.GD23579@oracle.com>
+ <alpine.LRH.2.20.1601072133480.29795@math.ut.ee>
+ <20160107201445.GF23579@oracle.com>
+ <20160108172022.GA3398@oracle.com>
+ <alpine.LRH.2.20.1602051103140.5582@math.ut.ee>
+ <20160214105131.GD20715@oracle.com>
+ <alpine.LRH.2.20.1602150751180.29662@math.ut.ee>
+ <20160222010201.GB23053@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	alexei.starovoitov@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: sparclinux@vger.kernel.org, edumazet@google.com,
+	netdev@vger.kernel.org
+To: Meelis Roos <mroos@linux.ee>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:38702 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750740AbcBWMJX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 07:09:23 -0500
-Received: by mail-ig0-f169.google.com with SMTP id y8so101920191igp.1
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 04:09:23 -0800 (PST)
-In-Reply-To: <56CB3B90.8030206@iogearbox.net>
+Received: from aserp1040.oracle.com ([141.146.126.69]:19992 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751781AbcBWMMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 07:12:55 -0500
+Content-Disposition: inline
+In-Reply-To: <20160222010201.GB23053@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
 
-On 16-02-22 11:47 AM, Daniel Borkmann wrote:
-> Hi Jamal,
->
-> On 02/22/2016 02:21 PM, Jamal Hadi Salim wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>
->>
->> As agreed at netconf in Seville, here's the patch finally (1 year
->> was just too long to wait).
->> Described in netdev01 paper:
->>              "Distributing Linux Traffic Control Classifier-Action
->> Subsystem"
->>               Authors: Jamal Hadi Salim and Damascene M. Joachimpillai
->>
->> Allows for incremental updates for new metadatum support.
->> This patch set includes support for basic skb metadatum
->> Followup patches will have more examples of metadata
->
-> So, basically this is a L2 encap with TLVs, right?
->
-> And as TLVs you have skb->mark, skb->priority, skb->hash,
-> skb->queue_mapping
-> that you transfer from one machine to another, where on the destination,
-> you
-> are applying the above meta data to the skb itself. And, configuration
-> is via
-> tc.
->
-> I couldn't parse from the commit log what the real world use case is, resp.
-> who is going to use this infrastructure?
->
-> Do you have some typical setup, where the above needs to be transferred
-> in the
-> encap and restored?
->
+I figured out what's the root-cause of my panics.
 
-I am assuming you are asking this for the sake of people who dont
-have context (and not for yourself)?
-I added a pointer to the paper. It is 6 pages and simple to read.
-Isnt that sufficient? I dont want to write a novel here. Some could
-argue that in fact i am already writing a novel in commit 1/5.
+In my case, for the stack shown in 
+ http://marc.info/?l=linux-sparc&m=145610295109214&w=2
+(which also has all the details about the issue),
 
->> Jamal Hadi Salim (5):
->>    introduce IFE action
->>    Support to encoding decoding skb mark on IFE action
->>    Support to encoding decoding skb prio on IFE action
->>    Support to encoding decoding skb hashid on IFE action
->>    Support to encoding decoding skb queue map on IFE action
->>
->>   include/net/tc_act/tc_ife.h        |  60 +++
->>   include/uapi/linux/tc_act/tc_ife.h |  38 ++
->>   net/sched/Kconfig                  |  32 ++
->>   net/sched/Makefile                 |   5 +
->>   net/sched/act_ife.c                | 865
->> +++++++++++++++++++++++++++++++++++++
->>   net/sched/act_meta_mark.c          |  81 ++++
->>   net/sched/act_meta_qmap.c          | 100 +++++
->>   net/sched/act_meta_skbhash.c       |  87 ++++
->>   net/sched/act_meta_skbprio.c       |  80 ++++
->
-> Splitting these set/get functions into individual modules where you only
-> set/get a single skb member seems overkill to me. Could be done with a
-> simple switch statement inside ife?
->
+tcp_make_synack has been called with attach_req set to true
+so it sets up the skb->sk via:
 
-They need to be separated to make them unique. These are basic
-metadatum; I have a few others lined up - but i just wanted to start
-with these because they are obvious to see. What i mulled over is
-to send one big patch or several. In the end it seemed cleaner to
-send separate patches.
+        if (attach_req) {
+                skb_set_owner_w(skb, req_to_sk(req));
+        } else { /* .. */
 
-Thanks for your other input - I will redo, test and submit v2.
+Now, req is a struct inet_request_sock, and we are casting this
+as a struct sock, to later get the ->sk_policy[1] in the xfrm
+code. Consider the sizes of these structures between 32 and 64 bits:
 
-cheers,
-jamal
+  sizeof             32-bit        64-bit
+-------------------------------------------
+request_sock          256           312
+inet_request_sock     272           328
+sock                  688          1216
+
+And offsetof sk_policy[1] is 256 on the 32-bit v440, whereas
+it is 520 on my 64-bit T5. 
+
+Thus on the v440, the sk_policy[1] is pointing at somewhere
+in the middle of stuff set up by tcp_openreq_init() (the ireq
+flags initialization).
+
+Even on the 64-bit arch, trying to do req_to_sk(req) and accessing
+fields beyond the sock_common, e.g., between offset 312 and 328 
+may not give you the fields you are looking for? 
+
+so how is this supposed to work? (Evidently it worked for Meelis
+before, but I dont know if that was before or after  commit
+9e17f8a475).
+
+--Sowmini
