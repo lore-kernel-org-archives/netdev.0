@@ -1,89 +1,67 @@
-From: Marc Dietrich <marvin24@gmx.de>
-Subject: Re: [PATCHv2 3/4] ARM: tegra: use build-in device properties with rfkill_gpio
-Date: Tue, 23 Feb 2016 14:42:55 +0100
-Message-ID: <2927215.6IlWnjRTgT@fb07-iapwap2>
-References: <1453712629-143317-1-git-send-email-heikki.krogerus@linux.intel.com> <4048115.S0MS1KQXCA@fb07-iapwap2> <2463567.tt0f0ingYr@wuerfel>
+From: sdrb@onet.eu
+Subject: Re: Variable download speed
+Date: Tue, 23 Feb 2016 14:57:41 +0100 (CET)
+Message-ID: <alpine.LNX.2.20.1602231455260.29937@localhost.localdomain>
+References: <alpine.LNX.2.20.1602231216240.29937@localhost.localdomain> <CADVnQyngzgLhbo6of1vTq5MH4mk4rSR6_KLWCCXkndK6QYynAw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart80904992.30kfgfXpzZ"; micalg="pgp-sha256"; protocol="application/pgp-signature"
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Thierry Reding <thierry.reding@gmail.com>,
-	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-tegra@vger.kernel.org,
-	Alexandre Courbot <gnurou@gmail.com>,
-	Stephen Warren <swarren@wwwdotorg.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2463567.tt0f0ingYr@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpo67.poczta.onet.pl ([141.105.16.17]:40957 "EHLO
+	smtpo67.poczta.onet.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752356AbcBWN5r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 08:57:47 -0500
+Received: from nowy9.kat.adbgroup.pl (unknown [91.230.58.65])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: sdrb@onet.eu)
+	by smtp.poczta.onet.pl (Onet) with ESMTPSA id 3q8hlq07Jxz1XNBJd
+	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 14:57:41 +0100 (CET)
+In-Reply-To: <CADVnQyngzgLhbo6of1vTq5MH4mk4rSR6_KLWCCXkndK6QYynAw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart80904992.30kfgfXpzZ
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
 
-Am Dienstag, 23. Februar 2016, 14:17:17 CET schrieb Arnd Bergmann:
-> On Tuesday 23 February 2016 11:38:52 Marc Dietrich wrote:
-> > Am Dienstag, 23. Februar 2016, 11:31:40 CET schrieb Arnd Bergmann:
-> > > On Tuesday 23 February 2016 11:15:31 Arnd Bergmann wrote:
-> > > > On Thursday 18 February 2016 21:04:49 Johannes Berg wrote:
-> > > > > On Tue, 2016-01-26 at 09:42 +0100, Johannes Berg wrote:
-> > > > Just for my curiosity: what is the difference between a rfkill-gpio
-> > > > device and a gpio-keys device with a KEY_RFKILL code?
-> > > > 
-> > > > arch/arm/boot/dts/bcm4708-netgear-r6250.dts and others seem to
-> > > > do the second approach in DT so they don't need to create the
-> > > > platform device.
-> > > 
-> > > I found the answer now (after discussing on IRC): just
-> > > for reference: KEY_RFKILL is for sending the event to the kernel
-> > > when a user presses the gpio butting, this rfkill-gpio turns
-> > > the devices on or off when after an RFKILL event is received.
-> > 
-> > yes, paz00 has no hw key. rfkill is triggered via software (rfkill) only.
-> > The problem in the past was how to describe such a device in the device
-> > tree.
-> > 
-> > Strictly speaking, there is no rfkill device hardware (just an interface).
-> > The only hardware that exists is in our case is connected to a hard wired
-> > usb bus (wifi dongle), which makes it complicated to attach a DT property
-> > or subdevice to it. And a standalone device-tree entry for a non hardware
-> > device was rejected in the past.
-> 
-> Ah, so the problem of attaching DT properties to a USB device has recently
-> been solved, see subject "USB: core: let USB device know device node".
-> 
-> Would that work for you? With this, the USB driver can simply look at
-> the optional DT properties of the USB function to implement its rfkill
-> callbacks.
+On Tue, 23 Feb 2016, Neal Cardwell wrote:
 
-oh, that looks indeed interesting. The question is now if rfkill is a property 
-of a device or a subdevice itself. The latter one would only require addition 
-of device-tree instantiation of rfkill, while with the former one, the (or 
-all) usb driver(s) need to be modified to accept device tree properties, 
-especially gpios. The driver would then be responsible to add an rfkill 
-"device".
+> On Tue, Feb 23, 2016 at 6:19 AM, <sdrb@onet.eu> wrote:
+>> My question is: what causes such dynamic change in
+>> the window size (while transferring data)?
+>> Is it some kernel parameter wrong set or something like this?
+>
+> That sounds like TCP receive buffer auto-tuning (also called "Dynamic
+> right-sizing (DRS)" (Fisk and Feng, 2001):
+>
+>  http://permalink.lanl.gov/object/tr?what=info:lanl-repo/lareport/LA-UR-01-5460
+>
+> The Linux TCP receiver will, by default, dynamically adjust the
+> receive window to a value that supports the rate at which the
+> application successfully reads data out of the socket.
+>
+>> Do I have any influence on such dynamic change in tcp window size?
+>
+> You might check on the receiver host with top/mpstat/strace/etc to see
+> whether the receiving application is limiting performance in some way.
+> This kind of behavior can show up if the receiver is sometimes
+> CPU-saturated, or limited by the throughput of the medium on to which
+> it is writing the data.
+>
+> If you control the receiver software, you can use
+> setsockopt(SO_RCVBUF) to explicitly set the receive buffer size, and
+> see if that helps. If it doesn't, that would suggest that it is indeed
+> the receiving application that is limiting performance.
+>
+> If you could provide a tcpdump trace (headers only, e.g.,  -s 96)
+> taken on the sender, we could check to see if we can see any problems
+> in the TCP sender or receiver behavior.
+>
 
-IMHO (and unfortunately), it's just a property (a way to specify the relevant 
-gpios), making the solution again hard to archive.
+Hi,
 
-Marc
+I published example pcap file under following link:
 
---nextPart80904992.30kfgfXpzZ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
+https://www.dropbox.com/s/v8375ub16seyt1a/test7.pcap?dl=0
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+I hope it is possible to download it without creating dropbox account.
 
-iQEcBAABCAAGBQJWzGHfAAoJEKyeR39HFBtoe1UH/2Fdlh0TLhqjzlJZPxxCRR7l
-wKRa0DnSmn5XD8m2pker+HDU20xIE5mEP8cli1EAewo+GL34jwXvfjxqhxAcoOFT
-oWUFpMsF5WbpmeWmdbr2wG+unPigZu3nPV14QHd4sqzLdmj6WSj0IL3l3ih6GYKy
-Nus0LxYxLjy/RAW0MIu0yeD7s6Bczb6V6n/GwZD6niRbjlvsCzVCUXxpL2H58l7o
-up1Oe/Ve/+DmqUyEHoAN3vcu82f/5dTsfO8eogAEsiw+ufS4np89Jjq9m5GhDwIo
-QudHyg6NlSLN4ZO8FOJKdESHINDP1MzJ+zSNRNrhDyeNp1jDtY9DDbZZztlwNzE=
-=tBpW
------END PGP SIGNATURE-----
-
---nextPart80904992.30kfgfXpzZ--
+sdrb
