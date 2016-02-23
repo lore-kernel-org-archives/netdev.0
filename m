@@ -1,79 +1,89 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next PATCH v2 1/5] introduce IFE action
-Date: Tue, 23 Feb 2016 14:32:35 +0100
-Message-ID: <56CC5F73.9080201@iogearbox.net>
-References: <1456231760-2513-1-git-send-email-jhs@emojatatu.com> <1456231760-2513-2-git-send-email-jhs@emojatatu.com>
+From: Marc Dietrich <marvin24@gmx.de>
+Subject: Re: [PATCHv2 3/4] ARM: tegra: use build-in device properties with rfkill_gpio
+Date: Tue, 23 Feb 2016 14:42:55 +0100
+Message-ID: <2927215.6IlWnjRTgT@fb07-iapwap2>
+References: <1453712629-143317-1-git-send-email-heikki.krogerus@linux.intel.com> <4048115.S0MS1KQXCA@fb07-iapwap2> <2463567.tt0f0ingYr@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
-	dj@verizon.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46565 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751962AbcBWNci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 08:32:38 -0500
-In-Reply-To: <1456231760-2513-2-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; boundary="nextPart80904992.30kfgfXpzZ"; micalg="pgp-sha256"; protocol="application/pgp-signature"
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Thierry Reding <thierry.reding@gmail.com>,
+	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-tegra@vger.kernel.org,
+	Alexandre Courbot <gnurou@gmail.com>,
+	Stephen Warren <swarren@wwwdotorg.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2463567.tt0f0ingYr@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/23/2016 01:49 PM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> This action allows for a sending side to encapsulate arbitrary metadata
-> which is decapsulated by the receiving end.
-> The sender runs in encoding mode and the receiver in decode mode.
-> Both sender and receiver must specify the same ethertype.
-> At some point we hope to have a registered ethertype and we'll
-> then provide a default so the user doesnt have to specify it.
-> For now we enforce the user specify it.
->
-> Lets show example usage where we encode icmp from a sender towards
-> a receiver with an skbmark of 17; both sender and receiver use
-> ethertype of 0xdead to interop.
+--nextPart80904992.30kfgfXpzZ
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
 
-On a conceptual level, as this is an L2 encap with TLVs, why not having
-a normal device driver for this like we have in other cases that would
-encode/decode the meta data itself?
+Am Dienstag, 23. Februar 2016, 14:17:17 CET schrieb Arnd Bergmann:
+> On Tuesday 23 February 2016 11:38:52 Marc Dietrich wrote:
+> > Am Dienstag, 23. Februar 2016, 11:31:40 CET schrieb Arnd Bergmann:
+> > > On Tuesday 23 February 2016 11:15:31 Arnd Bergmann wrote:
+> > > > On Thursday 18 February 2016 21:04:49 Johannes Berg wrote:
+> > > > > On Tue, 2016-01-26 at 09:42 +0100, Johannes Berg wrote:
+> > > > Just for my curiosity: what is the difference between a rfkill-gpio
+> > > > device and a gpio-keys device with a KEY_RFKILL code?
+> > > > 
+> > > > arch/arm/boot/dts/bcm4708-netgear-r6250.dts and others seem to
+> > > > do the second approach in DT so they don't need to create the
+> > > > platform device.
+> > > 
+> > > I found the answer now (after discussing on IRC): just
+> > > for reference: KEY_RFKILL is for sending the event to the kernel
+> > > when a user presses the gpio butting, this rfkill-gpio turns
+> > > the devices on or off when after an RFKILL event is received.
+> > 
+> > yes, paz00 has no hw key. rfkill is triggered via software (rfkill) only.
+> > The problem in the past was how to describe such a device in the device
+> > tree.
+> > 
+> > Strictly speaking, there is no rfkill device hardware (just an interface).
+> > The only hardware that exists is in our case is connected to a hard wired
+> > usb bus (wifi dongle), which makes it complicated to attach a DT property
+> > or subdevice to it. And a standalone device-tree entry for a non hardware
+> > device was rejected in the past.
+> 
+> Ah, so the problem of attaching DT properties to a USB device has recently
+> been solved, see subject "USB: core: let USB device know device node".
+> 
+> Would that work for you? With this, the USB driver can simply look at
+> the optional DT properties of the USB function to implement its rfkill
+> callbacks.
 
-[...]
-> +/*XXX: We need to encode the total number of bytes consumed */
-> +enum {
-> +	TCA_IFE_UNSPEC,
-> +	TCA_IFE_PARMS,
-> +	TCA_IFE_TM,
-> +	TCA_IFE_DMAC,
-> +	TCA_IFE_SMAC,
-> +	TCA_IFE_TYPE,
-> +	TCA_IFE_METALST,
-> +	__TCA_IFE_MAX
-> +};
-> +#define TCA_IFE_MAX (__TCA_IFE_MAX - 1)
-> +
-> +#define IFE_META_SKBMARK 1
-> +#define IFE_META_HASHID 2
-> +#define	IFE_META_PRIO 3
-> +#define	IFE_META_QMAP 4
-> +/*Can be overriden at runtime by module option*/
-> +#define	__IFE_META_MAX 5
-> +#define IFE_META_MAX (__IFE_META_MAX - 1)
-> +
-> +#endif
-[...]
-> +module_init(ife_init_module);
-> +module_exit(ife_cleanup_module);
-> +
-> +module_param(max_metacnt, int, 0);
-> +MODULE_AUTHOR("Jamal Hadi Salim(2015)");
-> +MODULE_DESCRIPTION("Inter-FE LFB action");
-> +MODULE_LICENSE("GPL");
-> +MODULE_PARM_DESC(max_metacnt, "Upper bound of metadata id");
+oh, that looks indeed interesting. The question is now if rfkill is a property 
+of a device or a subdevice itself. The latter one would only require addition 
+of device-tree instantiation of rfkill, while with the former one, the (or 
+all) usb driver(s) need to be modified to accept device tree properties, 
+especially gpios. The driver would then be responsible to add an rfkill 
+"device".
 
-Why does IFE_META_MAX need to be configurable as a module parameter?
+IMHO (and unfortunately), it's just a property (a way to specify the relevant 
+gpios), making the solution again hard to archive.
 
-Shouldn't the core kernel be in charge of the IFE_META_*?
+Marc
 
-Thanks,
-Daniel
+--nextPart80904992.30kfgfXpzZ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAABCAAGBQJWzGHfAAoJEKyeR39HFBtoe1UH/2Fdlh0TLhqjzlJZPxxCRR7l
+wKRa0DnSmn5XD8m2pker+HDU20xIE5mEP8cli1EAewo+GL34jwXvfjxqhxAcoOFT
+oWUFpMsF5WbpmeWmdbr2wG+unPigZu3nPV14QHd4sqzLdmj6WSj0IL3l3ih6GYKy
+Nus0LxYxLjy/RAW0MIu0yeD7s6Bczb6V6n/GwZD6niRbjlvsCzVCUXxpL2H58l7o
+up1Oe/Ve/+DmqUyEHoAN3vcu82f/5dTsfO8eogAEsiw+ufS4np89Jjq9m5GhDwIo
+QudHyg6NlSLN4ZO8FOJKdESHINDP1MzJ+zSNRNrhDyeNp1jDtY9DDbZZztlwNzE=
+=tBpW
+-----END PGP SIGNATURE-----
+
+--nextPart80904992.30kfgfXpzZ--
