@@ -1,93 +1,66 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next 3/9] mlx4: Implement port type setting via
- devlink interface
-Date: Tue, 23 Feb 2016 17:45:07 +0100
-Message-ID: <56CC8C93.1090207@stressinduktion.org>
-References: <1456165924-14399-1-git-send-email-jiri@resnulli.us>
- <1456165924-14399-4-git-send-email-jiri@resnulli.us>
- <56CC41C8.10802@stressinduktion.org> <20160223122109.GD2140@nanopsycho.orion>
- <56CC5E65.40809@stressinduktion.org> <20160223142626.GF2140@nanopsycho.orion>
- <56CC77BB.60601@stressinduktion.org> <20160223153023.GJ2140@nanopsycho.orion>
- <56CC815D.9070009@stressinduktion.org>
- <20160223160458.GM2140@nanopsycho.orion>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable outer Tx checksum by default
+Date: Tue, 23 Feb 2016 08:47:30 -0800
+Message-ID: <CALx6S34Pt++Kg=cp+v+gGFQGEDy=eNHtFvtBwd1z-1d2ixOn7Q@mail.gmail.com>
+References: <20160219191806.15687.37621.stgit@localhost.localdomain>
+	<CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
+	<CAMt9YRrOxCmJbrftixdJTXZcySZ_mARqCT6C=4-Nqv_ZJKnTwA@mail.gmail.com>
+	<CAEh+42hStEh=5z8KBic0hmEZNti4tjahySjjv7kU3YUes_R4Zg@mail.gmail.com>
+	<CALx6S351KYGFFLi08cX=DFCucZtGJLoMJGvFAW1_H-cRXZ0rQg@mail.gmail.com>
+	<CAEh+42hEVQOFaFk7BW=wZ-gb9HCfYqbr7Q600gbm1q1Oz+yZcA@mail.gmail.com>
+	<CALx6S36EyzjWKi_iK_uAVcCceFnZe3QmLcw7BBejKuB79Uo7PA@mail.gmail.com>
+	<CAEh+42hzkW6i+M52iDAyFtCBfxcJJmsZOiNdqd-DqYrN5isMBw@mail.gmail.com>
+	<56CC7848.2000704@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, eugenia@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
-	jeffrey.t.kirsher@intel.com, brouer@redhat.com, ivecera@redhat.com,
-	rami.rosen@intel.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesse Gross <jesse@kernel.org>, Alex Duyck <aduyck@mirantis.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:46271 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750897AbcBWQpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 11:45:16 -0500
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id 8517E20A72
-	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 11:45:15 -0500 (EST)
-In-Reply-To: <20160223160458.GM2140@nanopsycho.orion>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:38261 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750897AbcBWQrb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 11:47:31 -0500
+Received: by mail-ig0-f178.google.com with SMTP id y8so107839909igp.1
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 08:47:31 -0800 (PST)
+In-Reply-To: <56CC7848.2000704@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23.02.2016 17:04, Jiri Pirko wrote:
-> Tue, Feb 23, 2016 at 04:57:17PM CET, hannes@stressinduktion.org wrote:
->> On 23.02.2016 16:30, Jiri Pirko wrote:
->>> Tue, Feb 23, 2016 at 04:16:11PM CET, hannes@stressinduktion.org wrote:
->>>
->>> <snip>
->>>
->>>>>> 1) is easily solvable, just drop the ifindex style attributes and always
->>>>>> force the user to enter the bus and bus-topology id.
->>>>>
->>>>> But why? Use can easily get that info and map it to devlink index. It
->>>>> aligns with nl80211 iface.
->>>>>
->>>>> Do you really want to do commands like:
->>>>> myhost:~$ dl dev show pci_0000:01:00.0
->>>>> ?
->>>>
->>>> Yes, exactly I would. I would put them into a boot-up script based on my
->>>> system configuration and can be sure it will work the next boot, too, and
->>>> adapt them when I replace the hardware or do some configuration changes.
->>>>
->>>> I think sysadmins or scripts are the primary users of this interface not
->>>> kernel developers which switch their settings around all the time, no?
->>>
->>> I can easily add this to the userspace tool to accept "pci_0000:01:00.0"
->>> format and to map it internally to devlink index. No problem.
->>
->> I argue for this stable topology identifier to be the default. Especially if
->> you add device info before the actual module is loaded (this is during
->> initramfs, when udev cannot rename devlink names to stable ones), a user has
->> to deal with pre-devlink-ids before rename and after. Do you have plans how
->> to address that?
->
-> You can still access devlink using pci_addr using dl. I don't see a
-> problem.
+On Tue, Feb 23, 2016 at 7:18 AM, Edward Cree <ecree@solarflare.com> wrote:
+> On 23/02/16 03:31, Jesse Gross wrote:
+>> The only issue that I see is that making TSO completely unaware of
+>> outer headers will likely cause performance regressions in some cases.
+>> Imagine if we have an incoming TCP stream with incrementing IP IDs
+>> that we aggregate through GRO and forward. Today's TSO would be able
+>> to recreate the stream by incrementing the ID as new segments are
+>> created. However, if the outgoing NIC is truly only dealing with the
+>> L4 header then it wouldn't be able to do this.
+> Perhaps TSO should force setting the DF bit, so that the IP ID can be
+> ignored.  After all, if your network is going to cause fragmentation and
+> reassembly, your performance will probably be bad enough that TSO won't
+> help you much.  (And TCP usually wants DF anyway so it can do PMTUD.)
+> Arguably, as soon as we perform GRO on traffic to be forwarded, we've
+> already violated the end-to-end principle (there are always imaginable
+> situations in which a different packet stream comes out than went in),
+> so it doesn't really matter if we go on to change the network layer
+> parameters in this way - it's not really the same IP datagram any more
+> so it's OK for its identification to change.
+> And of course this problem doesn't present itself for IPv6 :)
 
-I don't really see a reason why the devlink indexes/names exist inside 
-the kernel instead of a stable topology identifier. They confuse users 
-and add more unnecessary code to the kernel. Shells have environment 
-variables for that. ;) This is a low-level kernel setting tool IMHO.
+Right, GRO should probably not coalesce packets with non-zero IP
+identifiers due to the loss of information. Besides that, RFC6848 says
+the IP identifier should only be set for fragmentation anyway so there
+shouldn't be any issue and really no need for HW TSO (or LRO) to
+support that.
 
-I just see the problem that users use the devlink* names and we get 
-reports because stuff breaks because they don't use the stable 
-identifiers. That is all.
+We need to do increment IP identifier in UFO, but I only see one
+device (neterion) that advertises NETIF_F_UFO-- honestly, removing
+that feature might be another good simplification!
 
->> Current initramfs for stable interface names uses EUI48 based mac addresses
->> most of the time and udev runs then after the pivot_root.
->>
->> The devlink names can easily be aliases in user space.
->
-> I don't want to store them anywhere. I just use "dl" tool and pass the
-> name there.
+Tom
 
-Sorry?
-
-Bye,
-Hannes
+> --
+> -Ed
