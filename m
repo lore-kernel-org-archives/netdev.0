@@ -1,36 +1,56 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: Invalid sk_policy[] access
-Date: Tue, 23 Feb 2016 15:53:29 -0500
-Message-ID: <20160223205329.GD4941@oracle.com>
-References: <20160222010201.GB23053@oracle.com>
- <20160223121244.GI28756@oracle.com>
- <alpine.LRH.2.20.1602232132190.30129@math.ut.ee>
- <20160223.152045.440181358695767083.davem@davemloft.net>
- <20160223202901.GC4941@oracle.com>
- <alpine.LRH.2.20.1602232250000.30129@math.ut.ee>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCHv2 09/10] rfkill: Userspace control for airplane mode
+Date: Tue, 23 Feb 2016 21:55:14 +0100
+Message-ID: <1456260914.9910.34.camel@sipsolutions.net>
+References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
+	 <1456159001-20307-10-git-send-email-jprvita@endlessm.com>
+	 <20160223204525.GC16961@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, sparclinux@vger.kernel.org,
-	edumazet@google.com, netdev@vger.kernel.org
-To: mroos@linux.ee
-Return-path: <sparclinux-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LRH.2.20.1602232250000.30129@math.ut.ee>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Darren Hart <dvhart@infradead.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux@endlessm.com,
+	=?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
+	<jprvita@endlessm.com>
+To: Pavel Machek <pavel@ucw.cz>,
+	=?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:34983 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755162AbcBWUzW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Feb 2016 15:55:22 -0500
+In-Reply-To: <20160223204525.GC16961@amd>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (02/23/16 22:51), mroos@linux.ee wrote:
-> Since there are no config-dependent difference in the struct, maybe it's 
-> a compiler version difference for padding/optimization instead?
+On Tue, 2016-02-23 at 21:45 +0100, Pavel Machek wrote:
 
-possibly. The v440 is using  a Debian 4.6.3-14 gcc, while the
-T5 is using "4.4.7 20120313 (Red Hat 4.4.7-4)"
+> So... you add LED trigger to display the state of the airplane
+> mode. Ok, why not.
 
-But my question from the email remains. Unless I am missing
-something subtle in the code, a  struct request_sock and a 
-struct sock only have the sock_common part in common. So casting
-a request_sock as a struct sock may have issues?
+Yes. However, consider that "the airplane mode" isn't a well-defined
+concept; some systems may want to light up that LED even when wifi is
+still enabled, since you're nowadays quite likely to be allowed to use
+wifi (but not enable e.g. LTE) while in-flight.
 
---Sowmini
+> But now you add an way to override it? Why? If someone wants to
+> change
+> the led state, he can just change trigger to none, and then control
+> the LED manually...
 
+Yes, but now you've forced every application that wants to deal with
+this to know about every single LED that might be used with this
+trigger... that won't work for some generic userland tool that might
+want to implement an "airplane-mode policy".
 
+> BTW what happens when the device contains both radios controlled by
+> kernel (wifi, bluetooth) and radios controlled by userspace (GSM
+> modem)?
+
+You'd better have the userspace to control the LED :)
+
+johannes
