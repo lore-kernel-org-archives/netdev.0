@@ -1,60 +1,95 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCHv2 3/4] ARM: tegra: use build-in device properties with rfkill_gpio
-Date: Tue, 23 Feb 2016 14:17:17 +0100
-Message-ID: <2463567.tt0f0ingYr@wuerfel>
-References: <1453712629-143317-1-git-send-email-heikki.krogerus@linux.intel.com> <3086257.esvHq8Yk9N@wuerfel> <4048115.S0MS1KQXCA@fb07-iapwap2>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next PATCH 0/5] net_sched: Add support for IFE action
+Date: Tue, 23 Feb 2016 14:20:54 +0100
+Message-ID: <56CC5CB6.1030807@iogearbox.net>
+References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com> <56CB3B90.8030206@iogearbox.net> <56CC4BEA.70108@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Thierry Reding <thierry.reding@gmail.com>,
-	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-tegra@vger.kernel.org,
-	Alexandre Courbot <gnurou@gmail.com>,
-	Stephen Warren <swarren@wwwdotorg.org>
-To: Marc Dietrich <marvin24@gmx.de>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	alexei.starovoitov@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.135]:55284 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752098AbcBWNRe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 08:17:34 -0500
-In-Reply-To: <4048115.S0MS1KQXCA@fb07-iapwap2>
+Received: from www62.your-server.de ([213.133.104.62]:45320 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751781AbcBWNU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 08:20:58 -0500
+In-Reply-To: <56CC4BEA.70108@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 23 February 2016 11:38:52 Marc Dietrich wrote:
-> Am Dienstag, 23. Februar 2016, 11:31:40 CET schrieb Arnd Bergmann:
-> > On Tuesday 23 February 2016 11:15:31 Arnd Bergmann wrote:
-> > > On Thursday 18 February 2016 21:04:49 Johannes Berg wrote:
-> > > > On Tue, 2016-01-26 at 09:42 +0100, Johannes Berg wrote:
-> > > Just for my curiosity: what is the difference between a rfkill-gpio
-> > > device and a gpio-keys device with a KEY_RFKILL code?
-> > > 
-> > > arch/arm/boot/dts/bcm4708-netgear-r6250.dts and others seem to
-> > > do the second approach in DT so they don't need to create the
-> > > platform device.
-> > 
-> > I found the answer now (after discussing on IRC): just
-> > for reference: KEY_RFKILL is for sending the event to the kernel
-> > when a user presses the gpio butting, this rfkill-gpio turns
-> > the devices on or off when after an RFKILL event is received.
-> 
-> yes, paz00 has no hw key. rfkill is triggered via software (rfkill) only. The 
-> problem in the past was how to describe such a device in the device tree. 
-> 
-> Strictly speaking, there is no rfkill device hardware (just an interface). The 
-> only hardware that exists is in our case is connected to a hard wired usb bus 
-> (wifi dongle), which makes it complicated to attach a DT property or subdevice 
-> to it. And a standalone device-tree entry for a non hardware device was 
-> rejected in the past.
-> 
+On 02/23/2016 01:09 PM, Jamal Hadi Salim wrote:
+> On 16-02-22 11:47 AM, Daniel Borkmann wrote:
+[...]
+>> So, basically this is a L2 encap with TLVs, right?
+>>
+>> And as TLVs you have skb->mark, skb->priority, skb->hash,
+>> skb->queue_mapping
+>> that you transfer from one machine to another, where on the destination,
+>> you
+>> are applying the above meta data to the skb itself. And, configuration
+>> is via
+>> tc.
+>>
+>> I couldn't parse from the commit log what the real world use case is, resp.
+>> who is going to use this infrastructure?
+>>
+>> Do you have some typical setup, where the above needs to be transferred
+>> in the
+>> encap and restored?
+>
+> I am assuming you are asking this for the sake of people who dont
+> have context (and not for yourself)?
+> I added a pointer to the paper. It is 6 pages and simple to read.
+> Isnt that sufficient? I dont want to write a novel here. Some could
+> argue that in fact i am already writing a novel in commit 1/5.
 
-Ah, so the problem of attaching DT properties to a USB device has recently
-been solved, see subject "USB: core: let USB device know device node".
+Ok, the paper talks about, quote:
 
-Would that work for you? With this, the USB driver can simply look at
-the optional DT properties of the USB function to implement its rfkill
-callbacks.
+  - Pipeline-stage Indexing.
+  - OAM information - example turn on some packet debug information on a need basis.
+  - Exception handling information - example VXLAN service handling.
+  - Authentication and authorization information.
+  - Versioning information.
+  - Compliance information.
+  - Service Identifiers.
 
-	Arnd
+As your primary examples, you provide skb->mark, skb->priority, skb->hash,
+skb->queue_mapping for encapsulating, f.e. how do you use skb>hash in this
+scenario? What's the use-case?
+
+>>> Jamal Hadi Salim (5):
+>>>    introduce IFE action
+>>>    Support to encoding decoding skb mark on IFE action
+>>>    Support to encoding decoding skb prio on IFE action
+>>>    Support to encoding decoding skb hashid on IFE action
+>>>    Support to encoding decoding skb queue map on IFE action
+>>>
+>>>   include/net/tc_act/tc_ife.h        |  60 +++
+>>>   include/uapi/linux/tc_act/tc_ife.h |  38 ++
+>>>   net/sched/Kconfig                  |  32 ++
+>>>   net/sched/Makefile                 |   5 +
+>>>   net/sched/act_ife.c                | 865
+>>> +++++++++++++++++++++++++++++++++++++
+>>>   net/sched/act_meta_mark.c          |  81 ++++
+>>>   net/sched/act_meta_qmap.c          | 100 +++++
+>>>   net/sched/act_meta_skbhash.c       |  87 ++++
+>>>   net/sched/act_meta_skbprio.c       |  80 ++++
+>>
+>> Splitting these set/get functions into individual modules where you only
+>> set/get a single skb member seems overkill to me. Could be done with a
+>> simple switch statement inside ife?
+>
+> They need to be separated to make them unique. These are basic
+> metadatum; I have a few others lined up - but i just wanted to start
+> with these because they are obvious to see. What i mulled over is
+> to send one big patch or several. In the end it seemed cleaner to
+> send separate patches.
+
+But just to make them unique, you don't need to add extra modules for
+this ... just having a module for encoding one skb member seems like
+total overdesign to me. If you really want them to be separate ops,
+you can still include them into act_ife.c itself.
+
+Thanks,
+Daniel
