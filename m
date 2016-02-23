@@ -1,39 +1,34 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net] net: vrf: Remove direct access to skb->data
-Date: Tue, 23 Feb 2016 19:20:43 +0100
-Message-ID: <56CCA2FB.1090309@cumulusnetworks.com>
-References: <1456251026-21898-1-git-send-email-dsa@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable outer Tx checksum by
+ default
+Date: Tue, 23 Feb 2016 13:24:58 -0500 (EST)
+Message-ID: <20160223.132458.488971277682238141.davem@davemloft.net>
+References: <56CC7848.2000704@solarflare.com>
+	<CALx6S34Pt++Kg=cp+v+gGFQGEDy=eNHtFvtBwd1z-1d2ixOn7Q@mail.gmail.com>
+	<CAEh+42iCxKb+OsMqR51nvzeCr_7n3WLncCaWNuctW7FbYijmCQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
+Cc: tom@herbertland.com, ecree@solarflare.com, aduyck@mirantis.com,
+	netdev@vger.kernel.org, alexander.duyck@gmail.com
+To: jesse@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:34305 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753808AbcBWSUq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 13:20:46 -0500
-Received: by mail-wm0-f54.google.com with SMTP id b205so4060737wmb.1
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 10:20:46 -0800 (PST)
-In-Reply-To: <1456251026-21898-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39898 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753940AbcBWSZA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 13:25:00 -0500
+In-Reply-To: <CAEh+42iCxKb+OsMqR51nvzeCr_7n3WLncCaWNuctW7FbYijmCQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/23/2016 07:10 PM, David Ahern wrote:
-> Nik pointed that the VRF driver should be using skb_header_pointer
-> instead of accessing skb->data and bits beyond directly which can
-> be garbage.
-> 
-> Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
-> Dave: This should go into v4.4 stable as well.
-> 
->  drivers/net/vrf.c | 13 ++++++++-----
->  1 file changed, 8 insertions(+), 5 deletions(-)
-> 
+From: Jesse Gross <jesse@kernel.org>
+Date: Tue, 23 Feb 2016 09:31:09 -0800
 
-Thanks for the quick fix,
+> Most OSs (including Linux with connected TCP sockets) use non-zero IP
+> IDs so requiring this would effectively disable GRO.
 
-Fixes: 35402e313663 ("net: Add IPv6 support to VRF device")
++1
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Any OS that wants to work with SLHC, as I mentioned, has to emit
+monotonically increasing IP ID values in all packets, even those with
+DF set.
