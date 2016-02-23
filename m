@@ -1,70 +1,87 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Invalid sk_policy[] access (was Re: Recent spontaneous reboots on
- multiple machines)
-Date: Tue, 23 Feb 2016 07:12:44 -0500
-Message-ID: <20160223121244.GI28756@oracle.com>
-References: <alpine.LRH.2.20.1601061716510.27880@math.ut.ee>
- <alpine.LRH.2.20.1601061722190.27880@math.ut.ee>
- <20160107174105.GD23579@oracle.com>
- <alpine.LRH.2.20.1601072133480.29795@math.ut.ee>
- <20160107201445.GF23579@oracle.com>
- <20160108172022.GA3398@oracle.com>
- <alpine.LRH.2.20.1602051103140.5582@math.ut.ee>
- <20160214105131.GD20715@oracle.com>
- <alpine.LRH.2.20.1602150751180.29662@math.ut.ee>
- <20160222010201.GB23053@oracle.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH 5/5] Support to encoding decoding skb queue map
+ on IFE action
+Date: Tue, 23 Feb 2016 07:17:12 -0500
+Message-ID: <56CC4DC8.7000906@mojatatu.com>
+References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com>
+ <1456147304-13355-6-git-send-email-jhs@emojatatu.com>
+ <56CB77A9.4060907@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sparclinux@vger.kernel.org, edumazet@google.com,
-	netdev@vger.kernel.org
-To: Meelis Roos <mroos@linux.ee>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+	xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com
+To: John Fastabend <john.fastabend@gmail.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:19992 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751781AbcBWMMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 07:12:55 -0500
-Content-Disposition: inline
-In-Reply-To: <20160222010201.GB23053@oracle.com>
+Received: from mail-io0-f181.google.com ([209.85.223.181]:35745 "EHLO
+	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750850AbcBWMRO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 07:17:14 -0500
+Received: by mail-io0-f181.google.com with SMTP id g203so210336454iof.2
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 04:17:14 -0800 (PST)
+In-Reply-To: <56CB77A9.4060907@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 16-02-22 04:03 PM, John Fastabend wrote:
+> On 16-02-22 05:21 AM, Jamal Hadi Salim wrote:
+>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>>
+>> hard code static value of 10 for qmap
+>> mark of 12
+>> prio of 13
+>> and hashid of 11
+>>
+>> sudo tc filter add dev $ETH parent 1: protocol ip prio 10 \
+>> u32 match ip protocol 1 0xff flowid 1:2 \
+>> action ife encode \
+>> type 0xDEAD \
+>> use mark 12 \
+>> use prio 13 \
+>> use hashid 11 \
+>> use qmap 10 \
+>> dst 02:15:15:15:15:15
+>>
+>> Note: as of the time of submission skbedit of queue map doesnt work
+>> (just in case you try to use it)
+>>
+>> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>> ---
+>
+> Well the skbedit queue_mapping action does work I'm just guessing it
+> is not working as you expect? We probably haven't done a good job
+> explaining how to set it up.
+>
+> If you set it on the clsact egress filter chain for example it will
+> map traffic to a queue if you disable XPS and get sk_tx_queue() to
+> return -1. This is because XPS and socket mappings have a higher
+> precedence in queue selection.
+>
 
-I figured out what's the root-cause of my panics.
+Ok, I am going to use your comment in the commit log.
+When i have time i will test it.
 
-In my case, for the stack shown in 
- http://marc.info/?l=linux-sparc&m=145610295109214&w=2
-(which also has all the details about the issue),
+> Anyways just tested on net-next and it works, the following
+> puts ip traffic with src 15.0.0.1 on hardware queue 6,
+>
+> ./tc/tc qdisc add dev eth4 clsact
+> ./tc/tc filter add dev eth4 egress protocol ip \
+>           u32 ht 800: order 1 \
+>           match ip src 15.0.0.1/32 \
+>          action skbedit queue_mapping 6
+>
 
-tcp_make_synack has been called with attach_req set to true
-so it sets up the skb->sk via:
 
-        if (attach_req) {
-                skb_set_owner_w(skb, req_to_sk(req));
-        } else { /* .. */
 
-Now, req is a struct inet_request_sock, and we are casting this
-as a struct sock, to later get the ->sk_policy[1] in the xfrm
-code. Consider the sizes of these structures between 32 and 64 bits:
+I used a asimilar example:
 
-  sizeof             32-bit        64-bit
--------------------------------------------
-request_sock          256           312
-inet_request_sock     272           328
-sock                  688          1216
+sudo tc filter add dev $ETH parent 1: protocol ip prio 10 \
+u32 match ip protocol 1 0xff flowid 1:2 \
+action skbedit queue_mapping 49
 
-And offsetof sk_policy[1] is 256 on the 32-bit v440, whereas
-it is 520 on my 64-bit T5. 
+BTW: You didnt have flow/classid in your example rule;
+weird things could happen when you dont have one (unfortunately
+we dont check at user space).
 
-Thus on the v440, the sk_policy[1] is pointing at somewhere
-in the middle of stuff set up by tcp_openreq_init() (the ireq
-flags initialization).
-
-Even on the 64-bit arch, trying to do req_to_sk(req) and accessing
-fields beyond the sock_common, e.g., between offset 312 and 328 
-may not give you the fields you are looking for? 
-
-so how is this supposed to work? (Evidently it worked for Meelis
-before, but I dont know if that was before or after  commit
-9e17f8a475).
-
---Sowmini
+cheers,
+jamal
