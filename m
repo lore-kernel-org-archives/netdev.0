@@ -1,55 +1,27 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCHv2 09/10] rfkill: Userspace control for airplane mode
-Date: Tue, 23 Feb 2016 21:45:26 +0100
-Message-ID: <20160223204525.GC16961@amd>
-References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
- <1456159001-20307-10-git-send-email-jprvita@endlessm.com>
+From: mroos@linux.ee
+Subject: Re: Invalid sk_policy[] access
+Date: Tue, 23 Feb 2016 22:51:01 +0200 (EET)
+Message-ID: <alpine.LRH.2.20.1602232250000.30129@math.ut.ee>
+References: <20160222010201.GB23053@oracle.com> <20160223121244.GI28756@oracle.com> <alpine.LRH.2.20.1602232132190.30129@math.ut.ee> <20160223.152045.440181358695767083.davem@davemloft.net> <20160223202901.GC4941@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Darren Hart <dvhart@infradead.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux@endlessm.com,
-	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita@endlessm.com>
-To: =?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1456159001-20307-10-git-send-email-jprvita@endlessm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, sparclinux@vger.kernel.org,
+	edumazet@google.com, netdev@vger.kernel.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <20160223202901.GC4941@oracle.com>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
-
-[BTW you should probably Cc people responsible for LED subsystem...]
-
-> Provide an interface for the airplane-mode indicator be controlled from
-> userspace. User has to first acquire the control through
-> RFKILL_OP_AIRPLANE_MODE_ACQUIRE and keep the fd open for the whole time
-> it wants to be in control of the indicator. Closing the fd or using
-> RFKILL_OP_AIRPLANE_MODE_RELEASE restores the default policy.
+> > Indeed, the kernel is 64-bit in both cases.
+> > And the userland bit-arity has no relevance whatsoever for this bug.
 > 
-> To change state of the indicator, the RFKILL_OP_AIRPLANE_MODE_CHANGE
-> operation is used, passing the value on "struct rfkill_event.soft". If
-> the caller has not acquired the airplane-mode control beforehand, the
-> operation fails.
+> hang on; The sizeof (and offsetof) values I listed were obtained either
+> from /usr/bin/crash (on the T5) or from simple printk's of the structures
+> in the case of the v440. And they *are* different, and the numbers
 
-So... you add LED trigger to display the state of the airplane
-mode. Ok, why not.
+Since there are no config-dependent difference in the struct, maybe it's 
+a compiler version difference for padding/optimization instead?
 
-But now you add an way to override it? Why? If someone wants to change
-the led state, he can just change trigger to none, and then control
-the LED manually...
-
-BTW what happens when the device contains both radios controlled by
-kernel (wifi, bluetooth) and radios controlled by userspace (GSM
-modem)?
-
-Best regards,
-									Pavel
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+Meelis Roos (mroos@linux.ee)
