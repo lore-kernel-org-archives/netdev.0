@@ -1,50 +1,85 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCHv2 3/4] ARM: tegra: use build-in device properties with rfkill_gpio
-Date: Tue, 23 Feb 2016 16:06:55 +0100
-Message-ID: <3466361.DVRahbqhfF@wuerfel>
-References: <1453712629-143317-1-git-send-email-heikki.krogerus@linux.intel.com> <2463567.tt0f0ingYr@wuerfel> <2927215.6IlWnjRTgT@fb07-iapwap2>
+From: Josh Poimboeuf <jpoimboe@redhat.com>
+Subject: Re: [PATCH 00/33] Compile-time stack metadata validation
+Date: Tue, 23 Feb 2016 09:07:55 -0600
+Message-ID: <20160223150755.GC15858@treble.redhat.com>
+References: <cover.1453405861.git.jpoimboe@redhat.com>
+ <20160223081406.GA606@gmail.com>
+ <20160223142717.GA3607@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Thierry Reding <thierry.reding@gmail.com>,
-	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-tegra@vger.kernel.org,
-	Alexandre Courbot <gnurou@gmail.com>,
-	Stephen Warren <swarren@wwwdotorg.org>
-To: Marc Dietrich <marvin24@gmx.de>
+Content-Type: text/plain; charset=utf-8
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
+	Michal Marek <mmarek@suse.cz>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Andy Lutomirski <luto@kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Pedro Alves <palves@redhat.com>,
+	Namhyung Kim <namhyung@gmail.com>,
+	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
+	Chris J Arges <chris.j.arges@canonical.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jiri Slaby <jslaby@suse.cz>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Borislav Petkov <bp@suse.de>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	Chris W
+To: Arnaldo Carvalho de Melo <acme@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2927215.6IlWnjRTgT@fb07-iapwap2>
+Content-Disposition: inline
+In-Reply-To: <20160223142717.GA3607@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 23 February 2016 14:42:55 Marc Dietrich wrote:
-> Am Dienstag, 23. Februar 2016, 14:17:17 CET schrieb Arnd Bergmann:
-> > On Tuesday 23 February 2016 11:38:52 Marc Dietrich wrote:
-> > > Am Dienstag, 23. Februar 2016, 11:31:40 CET schrieb Arnd Bergmann:
-> > Ah, so the problem of attaching DT properties to a USB device has recently
-> > been solved, see subject "USB: core: let USB device know device node".
+On Tue, Feb 23, 2016 at 11:27:17AM -0300, Arnaldo Carvalho de Melo wrote:
+> Em Tue, Feb 23, 2016 at 09:14:06AM +0100, Ingo Molnar escreveu:
+> > The fact that 'stacktool' already checks about assembly details like __ex_table[] 
+> > shows that my review feedback early iterations of this series, that the 
+> > 'stacktool' name is too specific, was correct.
 > > 
-> > Would that work for you? With this, the USB driver can simply look at
-> > the optional DT properties of the USB function to implement its rfkill
-> > callbacks.
+> > We really need to rename it before it gets upstream and the situation gets worse. 
+> > __ex_table[] has obviously nothing to do with the 'stack layout' of binaries.
+> > 
+> > Another suitable name would be 'asmtool' or 'objtool'. For example the following 
+> > would naturally express what it does:
+> > 
+> >   objtool check kernel/built-in.o
+> > 
+> > the name expresses that the tool checks object files, independently of the 
+> > existing toolchain. Its primary purpose right now is the checking of stack layout 
+> > details, but the tool is not limited to that at all.
 > 
-> oh, that looks indeed interesting. The question is now if rfkill is a property 
-> of a device or a subdevice itself. The latter one would only require addition 
-> of device-tree instantiation of rfkill, while with the former one, the (or 
-> all) usb driver(s) need to be modified to accept device tree properties, 
-> especially gpios. The driver would then be responsible to add an rfkill 
-> "device".
+> Removing 'tool' from the tool name would be nice too :-) Making it
+> easily googlable would be good too, lotsa people complain about 'perf'
+> being too vague, see for a quick laugher:
 > 
-> IMHO (and unfortunately), it's just a property (a way to specify the relevant 
-> gpios), making the solution again hard to archive.
+> http://www.brendangregg.com/perf.html
+> 
+> ``Searching for just "perf" finds sites on the police, petroleum, weed
+> control, and a T-shirt. This is not an official perf page, for either
+> perf_events or the T-shirt.''
+> 
+> The T-shirt: http://www.brendangregg.com/perf_events/omg-so-perf.jpg
 
-Does rfkill always have a separate device in the Linux driver model?
+Yeah, 'tool' in the name is kind of silly, but the above type of
+situation is why I prefer 'objtool' over 'obj'.
 
-I would say that if we standardize on the property names, we can
-have some generic helper code that does everything with one or
-two function calls, similar to how we can read a mac address from
-a DT node from ROM-less USB ethernet devices.
+Though I have to admit I like the idea of making a t-shirt for it ;-)
 
-	Arnd
+> Maybe we should ask Linus to come with some other nice, short,
+> searchable, funny name like 'git'?
+> 
+> 'chob' as in 'check object'?
+
+I think 'objtool' is searchable enough.  And I also like the fact that
+its name at least gives you an idea of what it does (and eventually it
+will do more than just "checking").
+
+-- 
+Josh
