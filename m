@@ -1,9 +1,9 @@
 From: pravin shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next 1/5] netdev: introduce ndo_set_rx_headroom
-Date: Tue, 23 Feb 2016 11:20:31 -0800
-Message-ID: <CAOrHB_DgzNed9bD6F1zytxq=0m+6oXECRokRvMuP0qa7Vu7NYw@mail.gmail.com>
+Subject: Re: [PATCH net-next 2/5] bridge: notify ensabled devices of headroom changes
+Date: Tue, 23 Feb 2016 11:20:42 -0800
+Message-ID: <CAOrHB_Cf6Cnp-r4eMChq=9UeUq_Rg7QG41MiP=HmZFAFaCrUAA@mail.gmail.com>
 References: <cover.1456163137.git.pabeni@redhat.com>
-	<ce1a9b0a33927547d0fbc659ac59dcf9fb7c3a33.1456163137.git.pabeni@redhat.com>
+	<060a30aa8e6d2c3eda16dd893b348851cd4bd195.1456163137.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
@@ -15,75 +15,53 @@ Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:32856 "EHLO
-	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751103AbcBWTUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 14:20:35 -0500
-Received: from mfilter10-d.gandi.net (mfilter10-d.gandi.net [217.70.178.139])
-	by relay3-d.mail.gandi.net (Postfix) with ESMTP id 1B27DA80AA
-	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 20:20:34 +0100 (CET)
-Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
-	by mfilter10-d.gandi.net (mfilter10-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id A875bpJMvxJS for <netdev@vger.kernel.org>;
-	Tue, 23 Feb 2016 20:20:32 +0100 (CET)
-Received: from mail-ig0-f169.google.com (mail-ig0-f169.google.com [209.85.213.169])
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:36590 "EHLO
+	relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754453AbcBWTUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 14:20:46 -0500
+Received: from mfilter26-d.gandi.net (mfilter26-d.gandi.net [217.70.178.154])
+	by relay6-d.mail.gandi.net (Postfix) with ESMTP id 096C1FB882
+	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 20:20:45 +0100 (CET)
+Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
+	by mfilter26-d.gandi.net (mfilter26-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id A5ePN4NK5gzT for <netdev@vger.kernel.org>;
+	Tue, 23 Feb 2016 20:20:43 +0100 (CET)
+Received: from mail-ig0-f181.google.com (mail-ig0-f181.google.com [209.85.213.181])
 	(Authenticated sender: pshelar@ovn.org)
-	by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 730A9A80C2
-	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 20:20:32 +0100 (CET)
-Received: by mail-ig0-f169.google.com with SMTP id z8so15443003ige.0
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 11:20:32 -0800 (PST)
-In-Reply-To: <ce1a9b0a33927547d0fbc659ac59dcf9fb7c3a33.1456163137.git.pabeni@redhat.com>
+	by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id 748F6FB88B
+	for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 20:20:43 +0100 (CET)
+Received: by mail-ig0-f181.google.com with SMTP id hb3so105970503igb.0
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 11:20:43 -0800 (PST)
+In-Reply-To: <060a30aa8e6d2c3eda16dd893b348851cd4bd195.1456163137.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Tue, Feb 23, 2016 at 4:53 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> This method allows the controlling device (i.e. the bridge) to specify
-> additional headroom to be allocated for skb head on frame reception.
+> On bridge needed_headroom changes, the enslaved devices are
+> notified via the ndo_set_rx_headroom method
 >
 > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 > ---
->  include/linux/netdevice.h | 20 ++++++++++++++++++++
->  1 file changed, 20 insertions(+)
+>  net/bridge/br_if.c | 36 ++++++++++++++++++++++++++++++++++--
+>  1 file changed, 34 insertions(+), 2 deletions(-)
 >
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 47671ce0..fb74277 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1093,6 +1093,12 @@ struct tc_to_netdev {
->   *     This function is used to get egress tunnel information for given skb.
->   *     This is useful for retrieving outer tunnel header parameters while
->   *     sampling packet.
-...
-
->  /**
-> @@ -1315,6 +1323,8 @@ struct net_device_ops {
->   * @IFF_L3MDEV_SLAVE: device is enslaved to an L3 master device
->   * @IFF_TEAM: device is a team device
->   * @IFF_RXFH_CONFIGURED: device has had Rx Flow indirection table configured
-> + * @IFF_PHONY_HEADROOM: the headroom value is controlled by an external
-> + *     entity (i.e. the master device for bridged veth)
->   */
->  enum netdev_priv_flags {
->         IFF_802_1Q_VLAN                 = 1<<0,
-> @@ -1343,6 +1353,7 @@ enum netdev_priv_flags {
->         IFF_L3MDEV_SLAVE                = 1<<23,
->         IFF_TEAM                        = 1<<24,
->         IFF_RXFH_CONFIGURED             = 1<<25,
-> +       IFF_PHONY_HEADROOM              = 1<<26,
->  };
+> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> index c367b3e..f42f1da 100644
+> --- a/net/bridge/br_if.c
+> +++ b/net/bridge/br_if.c
+> @@ -223,6 +223,31 @@ static void destroy_nbp_rcu(struct rcu_head *head)
+>         destroy_nbp(p);
+>  }
 >
->  #define IFF_802_1Q_VLAN                        IFF_802_1Q_VLAN
-> @@ -1937,6 +1948,15 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
->                                     struct sk_buff *skb,
->                                     void *accel_priv);
->
-> +/* returns the headroom that the master device needs to take in account
-> + * when forwarding to this dev
-> + */
-> +static inline unsigned netdev_get_fwd_headroom(struct net_device *dev)
+> +static unsigned get_max_headroom(struct net_bridge *br)
 > +{
-> +       return (dev->priv_flags && IFF_PHONY_HEADROOM) ? dev->needed_headroom :
-> +               0;
-> +}
+> +       unsigned max_headroom = 0;
+> +       struct net_bridge_port *p;
 > +
-This looks like typo. It should '&' to check for the bitfield.
+> +       list_for_each_entry(p, &br->port_list, list) {
+> +               unsigned dev_headroom = netdev_get_fwd_headroom(p->dev);
+> +
+
+IFF_PHONY_HEADROOM is only set for veth and ovs-internal-device, so we
+can not get headroom for tunnel devices. I guess it worked in your
+tests due to the bug in netdev_get_fwd_headroom().
