@@ -1,97 +1,84 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 0/9] Introduce devlink interface and first
- drivers to use it
-Date: Tue, 23 Feb 2016 08:32:03 +0100
-Message-ID: <20160223073203.GA2140@nanopsycho.orion>
+Subject: Re: [patch net-next 1/9] Introduce devlink infrastructure
+Date: Tue, 23 Feb 2016 08:47:01 +0100
+Message-ID: <20160223074701.GB2140@nanopsycho.orion>
 References: <1456165924-14399-1-git-send-email-jiri@resnulli.us>
- <20160223051214.GP33942@gospo.home.greyhouse.net>
+ <1456165924-14399-2-git-send-email-jiri@resnulli.us>
+ <56CB8BB2.3070202@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
 	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
 	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
 	hal.rosenstock@gmail.com, eugenia@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
-	jeffrey.t.kirsher@intel.com, brouer@redhat.com, ivecera@redhat.com,
-	rami.rosen@intel.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+	nikolay@cumulusnetworks.com, hadarh@mellanox.com, jhs@mojatatu.com,
+	john.fastabend@gmail.com, jeffrey.t.kirsher@intel.com,
+	brouer@redhat.com, ivecera@redhat.com, rami.rosen@intel.com
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:34577 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932438AbcBWHcG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 02:32:06 -0500
-Received: by mail-wm0-f47.google.com with SMTP id b205so186924271wmb.1
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 23:32:05 -0800 (PST)
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:33348 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751926AbcBWHrF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 02:47:05 -0500
+Received: by mail-wm0-f45.google.com with SMTP id g62so188757224wme.0
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2016 23:47:03 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20160223051214.GP33942@gospo.home.greyhouse.net>
+In-Reply-To: <56CB8BB2.3070202@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Feb 23, 2016 at 06:12:15AM CET, gospo@cumulusnetworks.com wrote:
->On Mon, Feb 22, 2016 at 07:31:55PM +0100, Jiri Pirko wrote:
+Mon, Feb 22, 2016 at 11:29:06PM CET, roopa@cumulusnetworks.com wrote:
+>On 2/22/16, 10:31 AM, Jiri Pirko wrote:
 >> From: Jiri Pirko <jiri@mellanox.com>
->> 
->> There a is need for some userspace API that would allow to expose things
->> that are not directly related to any device class like net_device of
->> ib_device, but rather chip-wide/switch-ASIC-wide stuff.
->> 
->> Use cases:
->> 1) get/set of port type (Ethernet/InfiniBand)
->> 2) setting up port splitters - split port into multiple ones and squash again,
->>    enables usage of splitter cable
->> 3) setting up shared buffers - shared among multiple ports within
->>    one chip (work in progress)
->> 4) configuration of switch wide properties - resources division etc - This will
->>    allow to pass configuration that is unacceptable to be passed as
->>    a module option.
+>>
+>> Introduce devlink infrastructure for drivers to register and expose to
+>> userspace via generic Netlink interface.
+>>
+>> There are two basic objects defined:
+>> devlink - one instance for every "parent device", for example switch ASIC
+>> devlink port - one instance for every physical port of the device.
 >
->I'm generally a fan of use cases #3 and #4 (as we have previously
->discussed), but I'm not sure I agree that the implementation for #2
->right now.
+>Like i have expressed earlier, the only thing that bothers me here is that we are creating a new devlink object for switch port when there
+>is an existing netdev object.
+
+Sometimes it is, sometimes it is not (IB). I bevelieve that there is a
+need for a "handle" for a physical port, regardless what type it is.
+The same instance exists all the time, even if you change the type or if
+the netdev is not created yet (init phase)
+
+
 >
->I'm not sure I would like userspace to have control over whether or not
->a port should be split or not when the hardware can be queried to
->determine this.
+>Is there a chance that the drivers you are targeting can still create netdevs for physical ports ?
+>It would make things so much more consistent and simpler to manage without a cost of adding yet another interface.
 
-I was thinking about this myself for a long time and initially it made
-more sense to me the approach you are suggesting. But after lot of
-thining, I saw a lot of issues, I changed my mind and now I believe that
-splitter should be set by user.
+So you see a problem in having devlink_port handle here? It is just an
+index, very simple. But you would rather see something like:
+myhost:~$ dl dev show
+0: devlink0: bus pci dev 0000:01:00.0
+myhost:~$ dl port show
+ens4: type eth parent devlink0
+ens5: type eth parent devlink0
+?
 
-when you set the splitter port, you have 2 or 4 ports created in
-hardware. They looks exactly the same as unsplitted ports, they are only
-wired up differently. There is a netdev created for every splitter port,
-user would add it to bridge, bond, vlan, set routes, define static fdb
-entry and hw would learn fdbs itself. Now when someone disconnects the
-splitter cable, 2 things may happen:
-1) yourway. Netdevs disappear, all configs and state info will disappear
-   with it.
-2) myway. Netdevs stay, only link is down. This is the same behaviour is
-   if someone uplugs cable for unplitted port.
+There are 2 problems with that approach:
+1) It's hard to use this for IB devices, they don't necessary have
+   netdev associated.
+2) You have to have the netdevs created (know ifindex) in order to work
+   with that from userspace. But there are usecases, for example during
+   initialization that netdevs are not yet present and user needs to
+   specify port for configuration (that is usecase #4 I listed in the cover
+   letter)
 
-There are also similar issues before you plug the splitter cable. So it
-makes sense to let user co configure this. He knows what he wants. 1)
-does not look like correct behaviour to me, 2) does.
-
+But it is very easy to change dl userspace tool to be able to use netdev
+names to specify ports when possible. Then you could do something like
+for example:
+myswitch:~$ sudo dl port split eth0 2
 
 
-<snip>
-
->> 	myhost:~$ dl port show
->> 	devlink0/1: type eth netdev ens4
->                             ^^^^^^^^^^^
->> 	devlink0/2: type ib ibdev mlx4_0
->                            ^^^^^^^^^^^^
->I think my only other question about this implementation is whether or
->not one would really want to have the true netdev/ibdev names mapped
->here.
 >
->Would be as reasonable to simply specify the type (and there may be more
->types within ethernet that could be useful in multi-chip configurations)
->and then let normal infrastructure that exists today figure out how to
->map the names for the netdevs to the devices?
+>The port splitter support is needed at the netdev api too (ie rtnetlink). Most switchdev drivers that expose netdevs
+>would benefit from a native 'ip link' way to configure port splitting. This will be useful for nic drivers too.
 
-What normal infrastructure you have in mind? There is no info about
-devlink port mapping to netdev/ibdev anywhere. Only here. I might be
-missing something but I fail to see what's wrong with it.
+Why would it be needed in rtnetlink too if it would be exported using
+devlink? I don't get it. Sounds similar like if you would expose
+wireless-specific stuff via rtnetlink in parallel to nl80211.
