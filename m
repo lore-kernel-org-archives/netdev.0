@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] net: dsa: pass bridge device to drivers
-Date: Tue, 23 Feb 2016 14:53:12 -0500 (EST)
-Message-ID: <20160223.145312.1892586806997582131.davem@davemloft.net>
-References: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: Invalid sk_policy[] access
+Date: Tue, 23 Feb 2016 15:20:45 -0500 (EST)
+Message-ID: <20160223.152045.440181358695767083.davem@davemloft.net>
+References: <20160222010201.GB23053@oracle.com>
+	<20160223121244.GI28756@oracle.com>
+	<alpine.LRH.2.20.1602232132190.30129@math.ut.ee>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1455296981-27998-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sowmini.varadhan@oracle.com, sparclinux@vger.kernel.org,
+	edumazet@google.com, netdev@vger.kernel.org
+To: mroos@linux.ee
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40761 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755195AbcBWUXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 15:23:55 -0500
+In-Reply-To: <alpine.LRH.2.20.1602232132190.30129@math.ut.ee>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Fri, 12 Feb 2016 12:09:37 -0500
+From: Meelis Roos <mroos@linux.ee>
+Date: Tue, 23 Feb 2016 21:36:24 +0200 (EET)
 
-> This patchset simplifies the DSA layer.
-> 
-> A switch may support multiple bridges with the same hardware VLAN. Thus a check
-> such as dsa_bridge_check_vlan_range must be moved from the DSA layer to the
-> concerned driver.
-> 
-> The first purpose of this patchset is to help moving this check to the
-> mv88e6xxx driver, which is the only one affected at the moment.
-> 
-> To do that, pass directly the bridge net_device structure down to the DSA
-> drivers, instead of calculating a bitmask of bridge members.
-> 
-> The second purpose is to prepare the replacement of the complex
-> port_vlan_getnext approach. A second patchset is ready to follow, implementing
-> port_vlan_dump and thus simplifying the DSA slave code one more time.
-> 
-> Note that this patchset applies on top of https://lkml.org/lkml/2016/2/5/532.
+> Sorry, I do not understand - what is 32-bit on V440? The kernel should 
+> be 64-bit since it's sun4u.
 
-Series applied, thanks Vivien.
+Indeed, the kernel is 64-bit in both cases.
+
+And the userland bit-arity has no relevance whatsoever for this bug.
