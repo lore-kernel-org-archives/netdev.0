@@ -1,85 +1,54 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: custom ioctl-based interface to control LED in networking (was
- Re: [PATCHv2 09/10] rfkill: Userspace control for airplane mode)
-Date: Wed, 24 Feb 2016 13:14:21 +0100
-Message-ID: <20160224121420.GA5627@amd>
-References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
- <1456159001-20307-10-git-send-email-jprvita@endlessm.com>
- <20160223204525.GC16961@amd>
- <1456260914.9910.34.camel@sipsolutions.net>
- <20160223214501.GA22501@amd>
- <1456304509.2050.15.camel@sipsolutions.net>
- <20160224104611.GB31302@amd>
- <1456311697.2050.23.camel@sipsolutions.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH v2 1/5] introduce IFE action
+Date: Wed, 24 Feb 2016 07:39:25 -0500
+Message-ID: <56CDA47D.30907@mojatatu.com>
+References: <1456231760-2513-1-git-send-email-jhs@emojatatu.com>
+ <1456231760-2513-2-git-send-email-jhs@emojatatu.com>
+ <56CC5F73.9080201@iogearbox.net> <56CC6F3E.6000106@mojatatu.com>
+ <56CC84F2.8030909@iogearbox.net> <20160224054557.GA12134@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rpurdie@rpsys.net, j.anaszewski@samsung.com,
-	linux-leds@vger.kernel.org,
-	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Darren Hart <dvhart@infradead.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux@endlessm.com,
-	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita@endlessm.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1456311697.2050.23.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
+	john.fastabend@gmail.com, dj@verizon.com
+To: Simon Horman <simon.horman@netronome.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:35046 "EHLO
+	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752370AbcBXMjs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 07:39:48 -0500
+Received: by mail-io0-f180.google.com with SMTP id g203so35757600iof.2
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 04:39:46 -0800 (PST)
+In-Reply-To: <20160224054557.GA12134@vergenet.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed 2016-02-24 12:01:37, Johannes Berg wrote:
-> On Wed, 2016-02-24 at 11:46 +0100, Pavel Machek wrote:
-> 
-> > If you want different trigger, implement different trigger. If you
-> > want to indicate all but wifi, implement all but wifi, and then
-> > userspace can select it by writing trigger name. 
-> 
-> This is still mostly a strawman, since userspace cannot have a database
-> of LEDs that indicate airplane mode.
+On 16-02-24 12:46 AM, Simon Horman wrote:
+> On Tue, Feb 23, 2016 at 05:12:34PM +0100, Daniel Borkmann wrote:
 
-Why would it need to? It could look at default triggers for the led if
-it really wanted to.
 
-> I'm sure you'd also not like to see 2**7 triggers implemented in rfkill
-> to cover all the possibilities.
+>  From my point of view the test should be weather the encapsulation might
+> reasonably be expected to be used outside of the context of tc. If so then
+> it makes sense to use a netdev to allow sharing of infrastructure between
+> different kernel components.
+>
+> I suspect the answer to that question is no and thus IMHO a netdev would be
+> nice to have rather than compelling.
+>
+> With regards to overhead of netdevs: I think that could be mitigated to
+> some extent by using LWT or some other metadata-based approach to allow a
+> single netdev to be use by multiple tc action instances.
 
-Are all the possibilities useful? I assumed about 2 are. If you need
-2**7 of them, LED triggers can have parameters.
+We actually have a use case where we offload this thing into
+an embedded NIC.
 
-> > If you want complete
-> > userspace control, fine, but we have standard interface and it is not
-> > ioctl.
-> 
-> The "standard interface" is usable if you really just want to driver a
-> single LED and you know which one.
-> 
-> I think you're looking at this the wrong way, focusing too much on the
-> LED aspect.
-> 
-> Really what you have here is a concept of "airplane mode", and that
-> concept is specific to the rfkill subsystem. This happens to affect
-> mostly an LED trigger, today, but as a concept it's something that
-> *should* be managed within the rfkill subsystem.
+In any case it doesnt make much sense to use a netdev for reasons i
+specified. Just like it doesnt make sense when i want a policy which
+pushes or pops vlans or vxlans to use netdevs either.
+Yes it quacks like a duck(i.e has receive) and walks like a duck(has
+stats) but it looks like an ostrich;->
 
-How is that concept used outside the LEDs? What semantics does
-"airplane mode" have? You tried to explain "airplane mode" is not well
-defined up in this thread...
-
-> > Besides, the series really should have been Cc-ed to LED
-> > people, too.
-> 
-> That's simply unreasonable, you're essentially saying that any user of
-> any kernel infrastructure should be Cc'ed to the implementer of that
-> infrastructure... 9/10 patches in this series aren't even LED
-> > specific,
-
-I'm not saying that. I'm saying that LED maintainers should be Cced,
-to keep the interfaces consistent.
-									Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+cheers,
+jamal
