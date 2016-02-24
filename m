@@ -1,56 +1,68 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 07/20] igb: add a character device to support AVB
-Date: Wed, 24 Feb 2016 16:45:20 -0500 (EST)
-Message-ID: <20160224.164520.2124246431953318783.davem@davemloft.net>
-References: <1456287984-10459-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1456287984-10459-8-git-send-email-jeffrey.t.kirsher@intel.com>
-	<CAJ3xEMiHz+5n1iHO9s2Vuz_ssgJWTNBU-1gCgf_Bf0Rrc-kA-A@mail.gmail.com>
+Subject: Re: [PATCH net] net/8021q: Check the correct vlan filter capability
+Date: Wed, 24 Feb 2016 16:48:14 -0500 (EST)
+Message-ID: <20160224.164814.157691299176786528.davem@davemloft.net>
+References: <1456331959-3573-1-git-send-email-saeedm@mellanox.com>
+	<20160224.114839.300751853393269073.davem@davemloft.net>
+	<CALzJLG-CR1Ac5biwP5CuFbygqCOWh4-VGQc-XZ=BuZQLRnnRDg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, gangfeng.huang@ni.com,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: gerlitz.or@gmail.com
+Cc: saeedm@mellanox.com, netdev@vger.kernel.org, galp@mellanox.com,
+	ogerlitz@mellanox.com, kaber@trash.net
+To: saeedm@dev.mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57293 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57339 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752694AbcBXVpW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 16:45:22 -0500
-In-Reply-To: <CAJ3xEMiHz+5n1iHO9s2Vuz_ssgJWTNBU-1gCgf_Bf0Rrc-kA-A@mail.gmail.com>
+	with ESMTP id S1750779AbcBXVsQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 16:48:16 -0500
+In-Reply-To: <CALzJLG-CR1Ac5biwP5CuFbygqCOWh4-VGQc-XZ=BuZQLRnnRDg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Date: Wed, 24 Feb 2016 22:06:25 +0200
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Date: Wed, 24 Feb 2016 22:27:16 +0200
 
-> On Wed, Feb 24, 2016 at 6:26 AM, Jeff Kirsher
-> <jeffrey.t.kirsher@intel.com> wrote:
->> From: Gangfeng Huang <gangfeng.huang@ni.com>
+>>> Netdev features can be changed dynamically to off after vlan_vid_add
+>>> was called, thus vlan_vid_del will skip ndo_vlan_rx_kill_vid and will
+>>> leave the device driver with un-freed resources.
+>>
+>> Are you sure the fix isn't to make vlan_vid_add() check ->features instead
+>> of ->hw_features.
 > 
->> This patch create a character device for Intel I210 Ethernet controller,
+> This is exactly what this fix suggests, "->features" is not consistent
+> and can be turned ON/OFF between vlan_add/del which can leave the NIC
+> driver in inconsistent state !
+
+But the user changes the setting _exactly_ to control whether these
+VLAN offloads occur or not.
+
+>> Should we really be trying to add VLAN filters when the user has
+>> turned it off?
 > 
-> wait, do we want L2 network driver to create char devices
+> Well, I think it is debatable, but the current implementation is not
+> consistent, especially for adding vlan 0 by default and then the user
+> disables the vlan filter, this will cause the stack to never call the
+> nic ndo_vlan_rx_kill_vid for the pre added vlan 0 and vise versa call
+> kill_vid without add_vid, BUG ?
 > 
->> it can be used for developing Audio/Video Bridging applications,Industrial
->> Ethernet applications which require precise timing control over frame
->> transmission, or test harnesses for measuring system latencies and sampling
->> events.
-> 
-> for various reasons such as the above?
+> So i think we have two options, use this patch, and always trust to
+> delegate vlan_vid_add/del to the NIC when it's HW supports it, and the
+> nic will be smart enough to know what to do with it (in case vlan
+> filter is enabled/disabled). Or, for each vlan we can remember if it
+> was added to the NIC or not so the stack will know whether to clean it
+> up or not.
 
-This is definitely not the direction to go for such a facility.
-Character devices make no sense at all, and are an invitation for
-ad-hoc user interfaces for what should be a generic and clean
-facility.
+If automatically added VLANs are the issue, then we should specially
+mark it such that it will get forcefully removed regardless of feature
+settings.
 
-There is no reason we cannot provide this facility with extensions
-of traditional networking APIs such as netlink or recvmsg/sendmsg
-over a raw or AF_PACKET socket.
+The whole point of the separation of ->hw_features and ->features is
+to separate what the card can do from what the user wants enabled or
+not.
 
-If there has been a lot of work, time and effort put into this
-character device solution then that's too bad.  Because anything that
-ends up being user facing should have been proposed here on netdev
-from the start.
+Therefore offload operations should be triggered by ->features not
+->hw_features.
 
-I'm not applying this, no way.
+Any test on ->hw_features that is not a validation of a ->features
+change request is a BIG RED FLAG and almost always a bug.
