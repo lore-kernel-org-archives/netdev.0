@@ -1,36 +1,40 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] ipv4: in new netns initialize sysctls in
-	net.ipv4.conf.* with defaults
-Date: Wed, 24 Feb 2016 10:20:05 -0500 (EST)
-Message-ID: <20160224.102005.550327338098145783.davem@davemloft.net>
-References: <20160221071102.9686.63148.stgit@buzz>
-	<20160223.182121.2101846699151527296.davem@davemloft.net>
-	<CALYGNiNfuDzPr3+qE82CLVBvSTFQvyAyhWv9kzXbBrUO2jYMTQ@mail.gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: Tools for sampling ethtool --statistics
+Date: Wed, 24 Feb 2016 17:21:42 +0200
+Message-ID: <CAJ3xEMi-OpWwvBVZVK7v4j7DuY+ksGQ0MwM6pNnF8fT_ZhSLkw@mail.gmail.com>
+References: <20160120101311.5266cac6@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, vvs-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org
-To: koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <CALYGNiNfuDzPr3+qE82CLVBvSTFQvyAyhWv9kzXbBrUO2jYMTQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f176.google.com ([209.85.223.176]:36758 "EHLO
+	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753737AbcBXPVn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 10:21:43 -0500
+Received: by mail-io0-f176.google.com with SMTP id l127so45403739iof.3
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 07:21:43 -0800 (PST)
+In-Reply-To: <20160120101311.5266cac6@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed, 24 Feb 2016 08:16:59 +0300
+On Wed, Jan 20, 2016 at 11:13 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
 
-> Major kernel upgrades always break something in weird setups.
-> This shouldn't block bug fixing.
+> I wrote a small tool[1] to extract ethtool --statistics|-S, sample and
+> present it in a more human readable manor.  You might also find this useful...
+[..]
 
-A bug for you is a feature for another person.  I'm standing by my
-position, and will not apply this and break existing setups, sorry.
+> The reason I wrote this script is that the mlx5 driver (Mellanox 100 Gbit/s)
+> does not report correct ifconfig stats.  It reports the HW counters,
+> not what the network stack is able to handle.  I/we obviously need the
+> stack number when working on improving the stack.
+
+Hi Jesper,
+
+So... we finally fixed that, see
+
+https://patchwork.ozlabs.org/patch/587298/
+https://patchwork.ozlabs.org/patch/587296/
+
+Or.
