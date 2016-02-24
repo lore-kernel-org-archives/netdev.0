@@ -1,56 +1,66 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: net: netcp: regarding commit 899077: netcp: try to reduce type confusion in descriptors
-Date: Wed, 24 Feb 2016 13:47:02 +0100
-Message-ID: <9482605.o2kvoZbYXY@wuerfel>
-References: <56CB821E.7040809@ti.com> <2817046.Cys9vdONqu@wuerfel> <56CB9539.9020108@ti.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH 0/5] net_sched: Add support for IFE action
+Date: Wed, 24 Feb 2016 07:49:44 -0500
+Message-ID: <56CDA6E8.7010604@mojatatu.com>
+References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com>
+ <56CB3B90.8030206@iogearbox.net> <56CC4BEA.70108@mojatatu.com>
+ <56CC5CB6.1030807@iogearbox.net> <56CC6C75.1000903@mojatatu.com>
+ <56CC7C20.3090302@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
-To: Murali Karicheri <m-karicheri2@ti.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	alexei.starovoitov@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:64215 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751305AbcBXMrH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 07:47:07 -0500
-In-Reply-To: <56CB9539.9020108@ti.com>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:36574 "EHLO
+	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751507AbcBXMtq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 07:49:46 -0500
+Received: by mail-io0-f179.google.com with SMTP id l127so36142334iof.3
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 04:49:46 -0800 (PST)
+In-Reply-To: <56CC7C20.3090302@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 22 February 2016 18:09:45 Murali Karicheri wrote:
-> On 02/22/2016 05:13 PM, Arnd Bergmann wrote:
-> > On Monday 22 February 2016 16:48:14 Murali Karicheri wrote:
-> >> Keystone can have SoC configured to be in big endian mode for peripherals and DSP.
-> > 
-> > I'm not entirely sure what this means
-> 
-> This means, ARM core can be using LE/BE and rest of the system can be configured through a pin
-> (to SOC) to operate in BE/LE. So need to take care of all mixed endian configuration 
-> properly. Refer to http://www.ti.com/lit/ds/symlink/tci6636k2h.pdf for more details if interested.
+On 16-02-23 10:34 AM, Daniel Borkmann wrote:
+> On 02/23/2016 03:28 PM, Jamal Hadi Salim wrote:
+[..]
 
-Ah, that is unfortunate. For the moment, let's hope that nobody ever uses that pin,
-so we can support both big-endian and little-endian kernels without having
-to do any runtime detection of the board settings.
+>> These are basic metadata. The question to ask is what could one use
+>> skb->hash for. Today it is used to select a cpu to balance to.
+>
+> Right, but that happens before you decode that information from your TLV
+> on ingress qdisc. And any subsequent skb_get_hash() to read out skb->hash
+> will effectively overwrite what you set there and call into flow dissector.
+>
 
-If anyone is misguided enough to flip that configuration pin to the opposite
-setting, then we will require extra DT properties to list for each device
-what endianess the hardware uses, and check that flag at runtime, which causes
-a little extra overhead.
+Drivers do set the hash. My use case is slightly different.
+I have a NIC which has an embedded cavium processor. This thing
+strips off the TLV and uses the hash to select the host MSI.
+Only thing we dont use at the moment is queue_mapping.
 
-If you are able to provide any feedback to the hardware designers, please
-ask them to never do configurable endianess again: it solves no actual
-problems but creates endless nightmares if anyone ever uses that.
 
-> > And this is another one of the same sort.
-> > 
-> > Not my best patch ever obviously, but at least I understand where I went
-> > wrong now, and see that it was only me being sloppy in the conversion rather
-> > than a more fundamental misdesign.
-> > 
-> 
-> So do you plan to re-spin the patch again with the above change?
+> My concern is we add 20 new modules like this that only do trivial things,
+> where instead they could have been consolidated and reduce maintenance. Or
+> is this hard module requirement related to the IFE_META_* module parameter?
+>
 
-I probably won't bother at this point, but if you could send a patch to get back
-to my version with your fixes, I'll send an Ack.
+Yes, a bit of that ++.
+I am between two worlds: There are people who do user space packet
+processing that claim they do so because they can quickly prototype
+without compiling the kernel. My goal is to make it easy for people
+adding new metadata without having to deal with kernel recompile.
+I do expect for there to be many variations of what that metadata
+will be. For that reason I have them as standalone modules and they
+serve the purpose to illustrate how someone would write such a module.
+The IFE_META_XXX is part of saying i dont need to have people
+changing the header file either. But i want them to use static
+META_IDS. So the IFE module parameter is supposed to allow them to
+change the upper bound of modules when insmoding ife_act so that
+proper validation can happen. I cant make it as large as 32-bit
+or not check if it is correct. If i take it out - then i would have to
+do that or introduce some complex mechanism for registration.
 
-	Arnd
+cheers,
+jamal
