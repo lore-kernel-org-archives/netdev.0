@@ -1,64 +1,63 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 6/6] qed, qede: rebrand module description
-Date: Wed, 24 Feb 2016 16:52:50 +0200
-Message-ID: <1456325570-1514-7-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 5/6] qed: Prevent probe on previous error
+Date: Wed, 24 Feb 2016 16:52:49 +0200
+Message-ID: <1456325570-1514-6-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1456325570-1514-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:6907 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754441AbcBXOxO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 09:53:14 -0500
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:35922 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753906AbcBXOxN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 09:53:13 -0500
 In-Reply-To: <1456325570-1514-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Drop the `QL4xxx 40G/100G' and use `FastLinQ 4xxxx' instead.
+Don't allow driver to probe on an adapter at a failed state;
+Gracefully block the probe instead.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_main.c   | 6 +++---
- drivers/net/ethernet/qlogic/qede/qede_main.c | 6 +++---
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_main.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index e4e6ca5..25d6e91 100644
+index 08cd92d..e4e6ca5 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_main.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -29,10 +29,10 @@
- #include "qed_mcp.h"
- #include "qed_hw.h"
+@@ -99,12 +99,15 @@ static void qed_free_pci(struct qed_dev *cdev)
+ 	pci_disable_device(pdev);
+ }
  
--static const char version[] =
--	"QLogic QL4xxx 40G/100G Ethernet Driver qed " DRV_MODULE_VERSION "\n";
-+static char version[] =
-+	"QLogic FastLinQ 4xxxx Core Module qed " DRV_MODULE_VERSION "\n";
++#define PCI_REVISION_ID_ERROR_VAL	0xff
++
+ /* Performs PCI initializations as well as initializing PCI-related parameters
+  * in the device structrue. Returns 0 in case of success.
+  */
+ static int qed_init_pci(struct qed_dev *cdev,
+ 			struct pci_dev *pdev)
+ {
++	u8 rev_id;
+ 	int rc;
  
--MODULE_DESCRIPTION("QLogic 25G/40G/50G/100G Core Module");
-+MODULE_DESCRIPTION("QLogic FastLinQ 4xxxx Core Module");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_MODULE_VERSION);
+ 	cdev->pdev = pdev;
+@@ -138,6 +141,14 @@ static int qed_init_pci(struct qed_dev *cdev,
+ 		pci_save_state(pdev);
+ 	}
  
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index c0dd236..ddd9e4a 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -39,10 +39,10 @@
- 
- #include "qede.h"
- 
--static const char version[] = "QLogic QL4xxx 40G/100G Ethernet Driver qede "
--			      DRV_MODULE_VERSION "\n";
-+static char version[] =
-+	"QLogic FastLinQ 4xxxx Ethernet Driver qede " DRV_MODULE_VERSION "\n";
- 
--MODULE_DESCRIPTION("QLogic 40G/100G Ethernet Driver");
-+MODULE_DESCRIPTION("QLogic FastLinQ 4xxxx Ethernet Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_MODULE_VERSION);
- 
++	pci_read_config_byte(pdev, PCI_REVISION_ID, &rev_id);
++	if (rev_id == PCI_REVISION_ID_ERROR_VAL) {
++		DP_NOTICE(cdev,
++			  "Detected PCI device error [rev_id 0x%x]. Probably due to prior indication. Aborting.\n",
++			  rev_id);
++		rc = -ENODEV;
++		goto err2;
++	}
+ 	if (!pci_is_pcie(pdev)) {
+ 		DP_NOTICE(cdev, "The bus is not PCI Express\n");
+ 		rc = -EIO;
 -- 
 1.9.3
