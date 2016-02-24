@@ -1,51 +1,57 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net] net/8021q: Check the correct vlan filter capability
-Date: Wed, 24 Feb 2016 22:27:16 +0200
-Message-ID: <CALzJLG-CR1Ac5biwP5CuFbygqCOWh4-VGQc-XZ=BuZQLRnnRDg@mail.gmail.com>
-References: <1456331959-3573-1-git-send-email-saeedm@mellanox.com>
-	<20160224.114839.300751853393269073.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/5] ppp: lock ppp structure before modifying mru
+ in ppp_ioctl()
+Date: Wed, 24 Feb 2016 15:32:02 -0500 (EST)
+Message-ID: <20160224.153202.880408949435562278.davem@davemloft.net>
+References: <cover.1456167043.git.g.nault@alphalink.fr>
+	<be5fc2cf38f44951ea15f366bc52fb4d780009d2.1456167043.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Gal Pressman <galp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paulus@samba.org
+To: g.nault@alphalink.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f193.google.com ([209.85.161.193]:35448 "EHLO
-	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752208AbcBXU1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 15:27:17 -0500
-Received: by mail-yw0-f193.google.com with SMTP id u200so1294903ywf.2
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 12:27:17 -0800 (PST)
-In-Reply-To: <20160224.114839.300751853393269073.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56589 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753232AbcBXUcF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 15:32:05 -0500
+In-Reply-To: <be5fc2cf38f44951ea15f366bc52fb4d780009d2.1456167043.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> Netdev features can be changed dynamically to off after vlan_vid_add
->> was called, thus vlan_vid_del will skip ndo_vlan_rx_kill_vid and will
->> leave the device driver with un-freed resources.
->
-> Are you sure the fix isn't to make vlan_vid_add() check ->features instead
-> of ->hw_features.
+From: Guillaume Nault <g.nault@alphalink.fr>
+Date: Mon, 22 Feb 2016 20:47:13 +0100
 
-This is exactly what this fix suggests, "->features" is not consistent
-and can be turned ON/OFF between vlan_add/del which can leave the NIC
-driver in inconsistent state !
+> PPP's Tx and Rx paths read ppp->mru under protection of ppp_xmit_lock()
+> and ppp_recv_lock() respectively.
+> Therefore ppp_ioctl() must hold the xmit and recv locks before
+> concurrently updating ppp->mru.
+> 
+> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+ ...
+> diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+> index fc8ad00..4d342ae 100644
+> --- a/drivers/net/ppp/ppp_generic.c
+> +++ b/drivers/net/ppp/ppp_generic.c
+> @@ -654,7 +654,10 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+>  	case PPPIOCSMRU:
+>  		if (get_user(val, p))
+>  			break;
+> +		ppp_lock(ppp);
+>  		ppp->mru = val;
+> +		ppp_unlock(ppp);
+> +
 
->
-> Should we really be trying to add VLAN filters when the user has
-> turned it off?
+I see no bug here at all.
 
-Well, I think it is debatable, but the current implementation is not
-consistent, especially for adding vlan 0 by default and then the user
-disables the vlan filter, this will cause the stack to never call the
-nic ndo_vlan_rx_kill_vid for the pre added vlan 0 and vise versa call
-kill_vid without add_vid, BUG ?
+The store here is atomic, and all of those mentioned code paths only
+read the MRU once and then use that value for the duration of the
+rest of the processing of that PPP frame.
 
-So i think we have two options, use this patch, and always trust to
-delegate vlan_vid_add/del to the NIC when it's HW supports it, and the
-nic will be smart enough to know what to do with it (in case vlan
-filter is enabled/disabled). Or, for each vlan we can remember if it
-was added to the NIC or not so the stack will know whether to clean it
-up or not.
+No possible corruptions or misbehavior can occur and I therefore think
+the lack of locking here is completely legitimate.
+
+You absolutely must demonstrate a case of corruption or misbehavior
+when you want to add supposedly "missing locking".  Otherwise I'll have
+a hard time accepting your changes.  This is especially for a subsystem
+that as been around as long as PPP.
