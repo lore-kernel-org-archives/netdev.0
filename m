@@ -1,42 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] tunnel: Clear IPCB(skb)->opt before
- dst_link_failure called
-Date: Tue, 23 Feb 2016 19:12:21 -0500 (EST)
-Message-ID: <20160223.191221.211549664974307758.davem@davemloft.net>
-References: <1455585016-7253-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
-	<1456099085-24097-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
+Subject: Re: [PATCH net] bnxt_en: Fix zero padding of tx push data.
+Date: Tue, 23 Feb 2016 19:13:20 -0500 (EST)
+Message-ID: <20160223.191320.257252668425313975.davem@davemloft.net>
+References: <1456125026-16093-1-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	stable@vger.kernel.org
-To: bernie.harris@alliedtelesis.co.nz
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1456099085-24097-1-git-send-email-bernie.harris@alliedtelesis.co.nz>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: michael.chan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42516 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750899AbcBXANg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 19:13:36 -0500
+In-Reply-To: <1456125026-16093-1-git-send-email-michael.chan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
-Date: Mon, 22 Feb 2016 12:58:05 +1300
+From: Michael Chan <michael.chan@broadcom.com>
+Date: Mon, 22 Feb 2016 02:10:26 -0500
 
-> IPCB may contain data from previous layers (in the observed case the
-> qdisc layer). In the observed scenario, the data was misinterpreted as
-> ip header options, which later caused the ihl to be set to an invalid
-> value (<5). This resulted in an infinite loop in the mips implementation
-> of ip_fast_csum.
+> The arithmetic to zero pad the last 64-bit word in the push buffer is not
+> correct.
 > 
-> This patch clears IPCB(skb)->opt before dst_link_failure can be called for
-> various types of tunnels. This change only applies to encapsulated ipv4
-> packets.
+> 1. It should be pdata + length to get to the end.
+> 2. 'pdata' is void pointer and passing it to PTR_ALIGN() will cast the
+> aligned pointer to void.  Pass 'end' which is u64 pointer to PTR_ALIGN()
+> instead so that the aligned pointer - 1 is the last 64-bit pointer to data.
 > 
-> The code introduced in 11c21a30 which clears all of IPCB has been removed
-> to be consistent with these changes, and instead the opt field is cleared
-> unconditionally in ip_tunnel_xmit. The change in ip_tunnel_xmit applies to
-> SIT, GRE, and IPIP tunnels.
-> 
-> The relevant vti, l2tp, and pptp functions already contain similar code for
-> clearing the IPCB.
-> 
-> Signed-off-by: Bernie Harris <bernie.harris@alliedtelesis.co.nz>
+> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 
-Applied and queued up for -stable, thanks!
+Applied, thanks Michael.
