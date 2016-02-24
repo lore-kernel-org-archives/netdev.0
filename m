@@ -1,40 +1,36 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next] tipc: fix null deref crash in compat config path
-Date: Wed, 24 Feb 2016 17:20:17 +0100
-Message-ID: <1456330817-21347-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v6] net: ethernet: nb8800: support fixed-link DT node
+Date: Wed, 24 Feb 2016 11:32:42 -0500 (EST)
+Message-ID: <20160224.113242.2275582457531914447.davem@davemloft.net>
+References: <56CB000A.1070809@free.fr>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sf84@laposte.net, mans@mansr.com, netdev@vger.kernel.org
+To: slash.tmp@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:35783 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751830AbcBXQYu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 11:24:50 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:54282 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751285AbcBXQcq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 11:32:46 -0500
+In-Reply-To: <56CB000A.1070809@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-msg.dst_sk needs to be set up with a valid socket because some callbacks
-later derive the netns from it.
+From: Mason <slash.tmp@free.fr>
+Date: Mon, 22 Feb 2016 13:33:14 +0100
 
-Fixes: 263ea09084d172d ("Revert "genl: Add genlmsg_new_unicast() for unicast message allocation")
-Reported-by: Jon Maloy <maloy@donjonn.com>
-Bisected-by: Jon Maloy <maloy@donjonn.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Acked-by Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/netlink_compat.c | 1 +
- 1 file changed, 1 insertion(+)
+> From: Sebastian Frias <sf84@laposte.net>
+> 
+> Under some circumstances, e.g. when connecting to a switch, the ethernet
+> port will not be connected to a PHY. In that case a "fixed-link" DT node
+> can be used to replace it.
+> 
+> https://stackoverflow.com/questions/31046172/device-tree-for-phy-less-connection-to-a-dsa-switch
+> 
+> This patch adds support for the "fixed-link" node to the nb8800 driver.
+> 
+> Signed-off-by: Sebastian Frias <sf84@laposte.net>
+> Acked-by: Mans Rullgard <mans@mansr.com>
 
-diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
-index de66d8f..d7d050f 100644
---- a/net/tipc/netlink_compat.c
-+++ b/net/tipc/netlink_compat.c
-@@ -1105,6 +1105,7 @@ static int tipc_nl_compat_recv(struct sk_buff *skb, struct genl_info *info)
- 	msg.req = nlmsg_data(req_nlh) + GENL_HDRLEN + TIPC_GENL_HDRLEN;
- 	msg.cmd = req_userhdr->cmd;
- 	msg.net = genl_info_net(info);
-+	msg.dst_sk = skb->sk;
- 
- 	if ((msg.cmd & 0xC000) && (!netlink_net_capable(skb, CAP_NET_ADMIN))) {
- 		msg.rep = tipc_get_err_tlv(TIPC_CFG_NOT_NET_ADMIN);
--- 
-2.4.10
+Applied, thanks.
