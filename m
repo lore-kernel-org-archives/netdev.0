@@ -1,63 +1,39 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH 1/5] flow_dissector: Check for IP fragmentation
- even if not using IPv4 address
-Date: Wed, 24 Feb 2016 09:29:38 -0800
-Message-ID: <20160224172937.12339.81437.stgit@localhost.localdomain>
-References: <20160224172644.12339.92679.stgit@localhost.localdomain>
+Subject: [net-next PATCH 0/5] Flow dissector fixes and improvements
+Date: Wed, 24 Feb 2016 09:29:31 -0800
+Message-ID: <20160224172644.12339.92679.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org, davem@davemloft.net,
 	alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34631 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755564AbcBXR3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 12:29:40 -0500
-Received: by mail-pa0-f44.google.com with SMTP id fy10so15962764pac.1
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 09:29:39 -0800 (PST)
-In-Reply-To: <20160224172644.12339.92679.stgit@localhost.localdomain>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35705 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755385AbcBXR3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 12:29:33 -0500
+Received: by mail-pa0-f41.google.com with SMTP id ho8so16461723pac.2
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 09:29:33 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch corrects the logic for the IPv4 parsing so that it is consistent
-with how we handle IPv6.  Specifically if we do not have the flow key
-indicating we want the addresses we still may need to take a look at the IP
-fragmentation bits and to see if we should stop after we have recognized
-the L3 header.
+This patch series is meant to fix and/or improve a number of items within
+the flow dissector code.  The main change out of all of this is that IPv4
+and IPv6 fragmentation should now be handled better than it was.  As a
+result we should see an improvement when handling things like IP fragment
+reassembly as the skbs should now only have header data in the linear
+portion of the buffer while the fragments will only hold payload data.
 
-Fixes: 807e165dc44f ("flow_dissector: Add control/reporting of fragmentation")
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- net/core/flow_dissector.c |   17 +++++++++--------
- 1 file changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 12e700332010..1f88f8280280 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -178,15 +178,16 @@ ip:
- 
- 		ip_proto = iph->protocol;
- 
--		if (!dissector_uses_key(flow_dissector,
--					FLOW_DISSECTOR_KEY_IPV4_ADDRS))
--			break;
-+		if (dissector_uses_key(flow_dissector,
-+				       FLOW_DISSECTOR_KEY_IPV4_ADDRS)) {
-+			key_addrs = skb_flow_dissector_target(flow_dissector,
-+							      FLOW_DISSECTOR_KEY_IPV4_ADDRS,
-+							      target_container);
- 
--		key_addrs = skb_flow_dissector_target(flow_dissector,
--			      FLOW_DISSECTOR_KEY_IPV4_ADDRS, target_container);
--		memcpy(&key_addrs->v4addrs, &iph->saddr,
--		       sizeof(key_addrs->v4addrs));
--		key_control->addr_type = FLOW_DISSECTOR_KEY_IPV4_ADDRS;
-+			memcpy(&key_addrs->v4addrs, &iph->saddr,
-+			       sizeof(key_addrs->v4addrs));
-+			key_control->addr_type = FLOW_DISSECTOR_KEY_IPV4_ADDRS;
-+		}
- 
- 		if (ip_is_fragment(iph)) {
- 			key_control->flags |= FLOW_DIS_IS_FRAGMENT;
+Alexander Duyck (5):
+      flow_dissector: Check for IP fragmentation even if not using IPv4 address
+      flow_dissector: Fix fragment handling for header length computation
+      flow_dissector: Correctly handle parsing FCoE
+      flow_dissector: Use same pointer for IPv4 and IPv6 addresses
+      eth: Pull header from first fragment via eth_get_headlen
+
+
+ net/core/flow_dissector.c |   45 ++++++++++++++++++++++++++-------------------
+ net/ethernet/eth.c        |    3 ++-
+ 2 files changed, 28 insertions(+), 20 deletions(-)
