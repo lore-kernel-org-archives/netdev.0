@@ -1,76 +1,80 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH] ipv4: in new netns initialize sysctls in net.ipv4.conf.*
-	with defaults
-Date: Wed, 24 Feb 2016 16:05:10 -0600
-Message-ID: <87y4a9ix2h.fsf@x220.int.ebiederm.org>
-References: <20160221071102.9686.63148.stgit@buzz>
-	<20160223.182121.2101846699151527296.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: 4.4.1 skb_warn_bad_offload+0xc5/0x110
+Date: Wed, 24 Feb 2016 23:20:29 +0100
+Message-ID: <56CE2CAD.1020008@stressinduktion.org>
+References: <20160216000838.GA12968@animx.eu.org>
+ <56CB0CF5.1060906@stressinduktion.org> <20160224010137.GA27602@animx.eu.org>
+ <20160224014652.GA15207@animx.eu.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, vvs-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20160223.182121.2101846699151527296.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
-	Miller's message of "Tue, 23 Feb 2016 18:21:21 -0500 (EST)")
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Wakko Warner <wakko@animx.eu.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160224014652.GA15207@animx.eu.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
-
-> From: Konstantin Khlebnikov <khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org>
-> Date: Sun, 21 Feb 2016 10:11:02 +0300
+On 24.02.2016 02:46, Wakko Warner wrote:
+> Please keep me in CC.
 >
->> Currently initial net.ipv4.conf.all.* and net.ipv4.conf.default.* are
->> copied from init network namespace because static structures are used
->> for init_net. This makes no sense because new netns might be created
->> from any netns. This patch makes private copy also for init netns if
->> network namespaces are enabled. Other sysctls in net.ipv4 and net.ipv6
->> already initialized with default values at namespace creation.
->> 
->> Signed-off-by: Konstantin Khlebnikov <khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org>
->> Fixes: 752d14dc6aa9 ("[IPV4]: Move the devinet pointers on the struct net")
+> Wakko Warner wrote:
+>>
+>> Hannes Frederic Sowa wrote:
+>>> [full-quote for netdev]
+>>>
+>>> Hello,
+>>>
+>>> On 16.02.2016 01:08, Wakko Warner wrote:
+>>>> I've been seeing the following on some of my VMs ran under qemu.  The VMs do
+>>>> not have internet connectivity.  This happened when some files were accessed
+>>>> via NFS to another VM (NOTE: Both VMs throw these warnings.  Both VMs are
+>>>> running the exact same kernel).  The host is also throwing these warnings
+>>>> and is also 4.4.1, but not the same kernel build.
+>>>>
+>>>> The issue appears to have gone away if I issue the following on the guests
+>>>> and on the host (except br0 instead of eth0 on host)
+>>>> ethtool -K eth0 gso off gro off ufo off tso off
+>>>>
+>>>> On the host, br0 does not have any interfaces enslaved except for the
+>>>> interface for the VMs and also does not have an IPv4 address assigned.
+>>>>
+>>
+>>> Can you try the following patch?
+>>>
+>>> --- a/net/ipv4/ip_output.c
+>>> +++ b/net/ipv4/ip_output.c
+>>> @@ -1233,6 +1233,9 @@ ssize_t   ip_append_page(struct sock *sk,
+>>> struct flowi4 *fl4, struct page *page,
+>>>          if (!skb)
+>>>                  return -EINVAL;
+>>>
+>>> +       if (skb->ip_summed != CHECKSUM_PARTIAL)
+>>> +               return -EINVAL;
+>>> +
+>>>          cork->length += size;
+>>>          if ((size + skb->len > mtu) &&
+>>>              (sk->sk_protocol == IPPROTO_UDP) &&
+>>
+>> Still received the warning.  I saw it on the host and on one of the VMs.
+>> The VM in this case was an nfs server.  The client did not receive the
+>> warning.  I should mention that I'm using v3 and udp on the client for the
+>> mount options.
+>>
+>> I'm not sure if this change effected nfsd on one of the VMs, it isn't working
+>> at all on it.
 >
-> The horse has long left the stable on this.  We cannot change this now
-> without breaking things.
+> I reverted back to the previous kernel for the VM only and the nfsd on the
+> one VM started working.
 >
-> Imagine someone who intentionally sets up init_net with a certain set
-> of settings and expects them to propagate into every created namespace.
->
-> We'll break things for them and given the behavior existed for so long
-> what the administrator is doing is very reasonable.
->
-> I'm not applying this sorry, we are stuck with the current behavior
-> whether we like it or not.
+> I should note that when I added this change, I only compiled the kernel and
+> copied the bzImage file.  I did not recompile any modules nor copy the
+> system.map over.
 
-Dave I won't argue that the patch reaches the proper trade-off with
-existing software.  Certainly the lack of testing and other exploration
-in this regard with the submitted patch is concerning.
+Actually, I could reproduce it locally thus I pushed a slightly 
+different patch already. You have to patch all VMs in terms to not get 
+the warning in the hypervisor anymore.
 
-In the general case the current behavior is random and not something
-applications can count on, and we would do well to fix it so it is less
-random.  In particular consider the case of an application in a
-non-initial network namespace creating a new network namespace.  It is
-not even possible to predict what values they will get for sysctls
-today.
-
->From a backwards compatibility standpoint we are probably better off
-with copying from the current network namespace rather than the initial
-network namespace.  As that more closely resembles the common case
-today.
-
-Having a statement of something that is a problem today with the
-existing setup would probably be useful so it is clear this is not a
-change for the sake of change.
-
-Eric
+Bye,
+Hannes
