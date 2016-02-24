@@ -1,65 +1,93 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH can-next v2 0/2] CAN: rcar: add fallback and r8a779[234]
- bindings
-Date: Wed, 24 Feb 2016 09:25:20 +0100
-Message-ID: <56CD68F0.8090208@pengutronix.de>
-References: <1456278993-9899-1-git-send-email-horms+renesas@verge.net.au>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next 1/5] netdev: introduce ndo_set_rx_headroom
+Date: Wed, 24 Feb 2016 09:37:56 +0100
+Message-ID: <1456303076.5436.4.camel@redhat.com>
+References: <cover.1456163137.git.pabeni@redhat.com>
+	 <ce1a9b0a33927547d0fbc659ac59dcf9fb7c3a33.1456163137.git.pabeni@redhat.com>
+	 <CAOrHB_DgzNed9bD6F1zytxq=0m+6oXECRokRvMuP0qa7Vu7NYw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="cHH7uxQ2p7IJchfsXxoPfi3pGVvGs02ke"
-Cc: Magnus Damm <magnus.damm@gmail.com>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: Simon Horman <horms+renesas@verge.net.au>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1456278993-9899-1-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Flavio Leitner <fbl@sysclose.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: pravin shelar <pshelar@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45880 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751866AbcBXIiC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2016 03:38:02 -0500
+In-Reply-To: <CAOrHB_DgzNed9bD6F1zytxq=0m+6oXECRokRvMuP0qa7Vu7NYw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---cHH7uxQ2p7IJchfsXxoPfi3pGVvGs02ke
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Tue, 2016-02-23 at 11:20 -0800, pravin shelar wrote:
+> On Tue, Feb 23, 2016 at 4:53 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> > This method allows the controlling device (i.e. the bridge) to specify
+> > additional headroom to be allocated for skb head on frame reception.
+> >
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> > ---
+> >  include/linux/netdevice.h | 20 ++++++++++++++++++++
+> >  1 file changed, 20 insertions(+)
+> >
+> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> > index 47671ce0..fb74277 100644
+> > --- a/include/linux/netdevice.h
+> > +++ b/include/linux/netdevice.h
+> > @@ -1093,6 +1093,12 @@ struct tc_to_netdev {
+> >   *     This function is used to get egress tunnel information for given skb.
+> >   *     This is useful for retrieving outer tunnel header parameters while
+> >   *     sampling packet.
+> ...
+> 
+> >  /**
+> > @@ -1315,6 +1323,8 @@ struct net_device_ops {
+> >   * @IFF_L3MDEV_SLAVE: device is enslaved to an L3 master device
+> >   * @IFF_TEAM: device is a team device
+> >   * @IFF_RXFH_CONFIGURED: device has had Rx Flow indirection table configured
+> > + * @IFF_PHONY_HEADROOM: the headroom value is controlled by an external
+> > + *     entity (i.e. the master device for bridged veth)
+> >   */
+> >  enum netdev_priv_flags {
+> >         IFF_802_1Q_VLAN                 = 1<<0,
+> > @@ -1343,6 +1353,7 @@ enum netdev_priv_flags {
+> >         IFF_L3MDEV_SLAVE                = 1<<23,
+> >         IFF_TEAM                        = 1<<24,
+> >         IFF_RXFH_CONFIGURED             = 1<<25,
+> > +       IFF_PHONY_HEADROOM              = 1<<26,
+> >  };
+> >
+> >  #define IFF_802_1Q_VLAN                        IFF_802_1Q_VLAN
+> > @@ -1937,6 +1948,15 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
+> >                                     struct sk_buff *skb,
+> >                                     void *accel_priv);
+> >
+> > +/* returns the headroom that the master device needs to take in account
+> > + * when forwarding to this dev
+> > + */
+> > +static inline unsigned netdev_get_fwd_headroom(struct net_device *dev)
+> > +{
+> > +       return (dev->priv_flags && IFF_PHONY_HEADROOM) ? dev->needed_headroom :
+> > +               0;
+> > +}
+> > +
+> This looks like typo. It should '&' to check for the bitfield.
 
-On 02/24/2016 02:56 AM, Simon Horman wrote:
-> this series adds fallback bindings for R-Car Gen 1 and Gen 2 SoCs and
-> SoC-specific bindings for the r8a779[234] SoCs which are R-Car Gen 2 So=
-Cs.
->=20
-> The aim is to provide consistent bindings for R-Car Gen 1 and Gen 2
-> SoCs in a maner consistent with that progressively being used
-> for drivers for other IP blocks used by Renesas SoCs.
->=20
-> For changes since v1 see individial patch changelogs.
->=20
-> Based on linux-can-next/master
+You are right! Thank you for spotting it.
 
-Applied to can-next.
+There is also another error here; the code should be:
 
-Thanks,
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+return (dev->priv_flags & IFF_PHONY_HEADROOM) ? 0 : dev->needed_headroom;
 
+i.e. when computing the rx/forwarding headroom, we want to ignore
+devices with phony headroom, since they actually will not requires
+additional skb headroom on xmit.
 
---cHH7uxQ2p7IJchfsXxoPfi3pGVvGs02ke
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+I'll fix this in v2.
 
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJWzWjwAAoJED07qiWsqSVqR5EH/Axot9+x7v0qUUpwf6nXmeTY
-XmhF8yRKWzTauH7F3Ck6vxNmsChnnLwLn6GUuPzw1q3vE9zfWhtr2rEm5idxgOyA
-FgJkU7nGwNJU7LX4cDKuGom/3OByC7KIl3r8N/yKOW5cxjyZR4NsxZrcQJkGz1no
-9156598ieWNg76aVcj82yK09tscEM3BvJZEamfzU/0QzZ/vXlIcGpPuBT6NIBjm8
-YYMUxxgw5Y4oibm0nRt2Uhh0BhPoXprcMPJtX/b/yI9KSV9c+Y1MlaVB0D8KcbA/
-HlkGjzjgEFaUxfuVsBy1Zi8wNAsB53+npSYYMTh8Zo7mUtjT9O29OHINeQ17sB8=
-=9bbx
------END PGP SIGNATURE-----
-
---cHH7uxQ2p7IJchfsXxoPfi3pGVvGs02ke--
+Paolo
