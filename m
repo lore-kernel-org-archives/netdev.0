@@ -1,39 +1,78 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH v8 4/8] time: Add driver cross timestamp interface for
- higher precision time synchronization
-Date: Wed, 24 Feb 2016 11:54:32 +0100 (CET)
-Message-ID: <alpine.DEB.2.11.1602241153260.3670@nanos>
-References: <1456139726-3327-1-git-send-email-christopher.s.hall@intel.com> <1456139726-3327-5-git-send-email-christopher.s.hall@intel.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/9] Introduce devlink infrastructure
+Date: Wed, 24 Feb 2016 11:56:14 +0100
+Message-ID: <20160224105614.GF2151@nanopsycho.orion>
+References: <1456165924-14399-1-git-send-email-jiri@resnulli.us>
+ <1456165924-14399-2-git-send-email-jiri@resnulli.us>
+ <CO2PR11MB00885BBB4561C21A524A78E797A50@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: richardcochran@gmail.com, mingo@redhat.com, john.stultz@linaro.org,
-	hpa@zytor.com, jeffrey.t.kirsher@intel.com, x86@kernel.org,
-	linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, kevin.b.stanton@intel.com,
-	kevin.j.clarke@intel.com
-To: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456139726-3327-5-git-send-email-christopher.s.hall@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"idosch@mellanox.com" <idosch@mellanox.com>,
+	"eladr@mellanox.com" <eladr@mellanox.com>,
+	"yotamg@mellanox.com" <yotamg@mellanox.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"yishaih@mellanox.com" <yishaih@mellanox.com>,
+	"dledford@redhat.com" <dledford@redhat.com>,
+	"sean.hefty@intel.com" <sean.hefty@intel.com>,
+	"hal.rosenstock@gmail.com" <hal.rosenstock@gmail.com>,
+	"eugenia@mellanox.com" <eugenia@mellanox.com>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>,
+	"hadarh@mellanox.com" <hadarh@mellanox.com>,
+	"jhs@mojatatu.com" <jhs@mojatatu.com>,
+	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"brouer@redhat.com" <brouer@redhat.com>,
+	"ivecera@redhat.com" <ivece
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:36480 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756502AbcBXK4R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 05:56:17 -0500
+Received: by mail-wm0-f47.google.com with SMTP id g62so265266264wme.1
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 02:56:17 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CO2PR11MB00885BBB4561C21A524A78E797A50@CO2PR11MB0088.namprd11.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 22 Feb 2016, Christopher S. Hall wrote:
-> +int get_device_system_crosststamp(int (*get_time_fn)
-> +				  (ktime_t *device_time,
-> +				   struct system_counterval_t *sys_counterval,
-> +				   void *ctx),
-> +				  void *ctx,
-> +				  struct system_device_crosststamp *xtstamp)
-> +{
-> +	struct timekeeper *tk = &tk_core.timekeeper;
-> +	unsigned long seq;
-> +	struct system_counterval_t system_counterval;
-> +	ktime_t base_raw;
-> +	ktime_t base_real;
-> +	s64 nsec_raw;
-> +	s64 nsec_real;
+Wed, Feb 24, 2016 at 08:02:32AM CET, Yuval.Mintz@qlogic.com wrote:
+>> + * An overall lock guarding every operation comming from userspace.
+>> + * If also guards devlink devices list and it is taken when
+>> + * driver registers/unregisters it.
+>Several typos in comment.
 
-Single lines for same and desceding length ordered, which makes it simpler to
-parse, please.
+Already fixed in v2.
 
-Other than that: Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
+>
+>> +static void devlink_notify(struct devlink *devlink, enum
+>> +devlink_command cmd) {
+>...
+>> +	WARN_ON(cmd != DEVLINK_CMD_NEW && cmd !=
+>> DEVLINK_CMD_DEL);
+>Given this should never happen, shouldn't this be ONCE?
+
+Given this should never happen and only warns the developer fiddling
+with this, I don't think it matters.
+
+
+>
+>> +static void devlink_port_notify(struct devlink_port *devlink_port,
+>...
+>> +	WARN_ON(cmd != DEVLINK_CMD_PORT_NEW && cmd !=
+>> DEVLINK_CMD_PORT_DEL);
+>Likewise
+>
+>> +static void __devlink_port_type_set(struct devlink_port *devlink_port,
+>...
+>> +	devlink_port_notify(devlink_port, DEVLINK_CMD_PORT_NEW); }
+>Why is this PORT_NEW? Shouldn't it be PORT_SET?
+>Also, curly bracers are repeatedly on last line of function [if this file].
+>Is this by design?
+
+SET is only for userspace->kernel messages. NEW is for reporting events
+back. This is consistend with rest of the netlink messages out there,
+including rtnl and nl80211
