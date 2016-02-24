@@ -1,97 +1,117 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/1] tipc: eliminate risk of
-	finding to-be-deleted node instance
-Date: Wed, 24 Feb 2016 11:00:19 -0500
-Message-ID: <1456329619-9209-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+Subject: [PATCH net-next 1/1] tipc: fix crash during node removal
+Date: Wed, 24 Feb 2016 11:10:48 -0500
+Message-ID: <1456330248-12510-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
+	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
+	ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp107.biz.mail.bf1.yahoo.com ([98.139.244.55]:38882 "EHLO
+	smtp107.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752585AbcBXQKz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 11:10:55 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Although we have never seen it happen, we have identified the
-following problematic scenario when nodes are stopped and deleted:
+When the TIPC module is unloaded, we have identified a race condition
+that allows a node reference counter to go to zero and the node instance
+being freed before the node timer is finished with accessing it. This
+leads to occasional crashes, especially in multi-namespace environments.
 
-CPU0:                            CPU1:
+The scenario goes as follows:
 
-tipc_node_xxx()                                   //ref == 1
-   tipc_node_put()                                //ref -> 0
-                                 tipc_node_find() // node still in table
-       tipc_node_delete()
-         list_del_rcu(n. list)
-                                 tipc_node_get()  //ref -> 1, bad
-         kfree_rcu()
+CPU0:(node_stop)                       CPU1:(node_timeout)  // ref == 2
 
-                                 tipc_node_put() //ref to 0 again.
-                                 kfree_rcu()     // BOOM!
+1:                                          if(!mod_timer())
+2: if (del_timer())
+3:   tipc_node_put()                                        // ref -> 1
+4: tipc_node_put()                                          // ref -> 0
+5:   kfree_rcu(node);
+6:                                               tipc_node_get(node)
+7:                                               // BOOM!
 
-We fix this by introducing use of the conditional kref_get_if_not_zero()
-instead of kref_get() in the function tipc_node_find(). This eliminates
-any risk of post-mortem access.
+We now clean up this functionality as follows:
+
+1) We remove the node pointer from the node lookup table before we
+   attempt deactivating the timer. This way, we reduce the risk that
+   tipc_node_find() may obtain a valid pointer to an instance marked
+   for deletion; a harmless but undesirable situation.
+
+2) We use del_timer_sync() instead of del_timer() to safely deactivate
+   the node timer without any risk that it might be reactivated by the
+   timeout handler. There is no risk of deadlock here, since the two
+   functions never touch the same spinlocks.
+
+3: We remove a pointless tipc_node_get() + tipc_node_put() from the
+   timeout handler.
 
 Reported-by: Zhijiang Hu <huzhijiang@gmail.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/node.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ net/tipc/node.c | 24 +++++++++++-------------
+ 1 file changed, 11 insertions(+), 13 deletions(-)
 
 diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 9fcc2fb..792bbcb 100644
+index 792bbcb..cdb7950 100644
 --- a/net/tipc/node.c
 +++ b/net/tipc/node.c
-@@ -245,23 +245,23 @@ static void tipc_node_get(struct tipc_node *node)
-  */
- static struct tipc_node *tipc_node_find(struct net *net, u32 addr)
+@@ -225,9 +225,10 @@ static unsigned int tipc_hashfn(u32 addr)
+ 
+ static void tipc_node_kref_release(struct kref *kref)
+ {
+-	struct tipc_node *node = container_of(kref, struct tipc_node, kref);
++	struct tipc_node *n = container_of(kref, struct tipc_node, kref);
+ 
+-	tipc_node_delete(node);
++	kfree(n->bc_entry.link);
++	kfree_rcu(n, rcu);
+ }
+ 
+ static void tipc_node_put(struct tipc_node *node)
+@@ -395,21 +396,20 @@ static void tipc_node_delete(struct tipc_node *node)
+ {
+ 	list_del_rcu(&node->list);
+ 	hlist_del_rcu(&node->hash);
+-	kfree(node->bc_entry.link);
+-	kfree_rcu(node, rcu);
++	tipc_node_put(node);
++
++	del_timer_sync(&node->timer);
++	tipc_node_put(node);
+ }
+ 
+ void tipc_node_stop(struct net *net)
  {
 -	struct tipc_net *tn = net_generic(net, tipc_net_id);
 +	struct tipc_net *tn = tipc_net(net);
- 	struct tipc_node *node;
-+	unsigned int thash = tipc_hashfn(addr);
+ 	struct tipc_node *node, *t_node;
  
- 	if (unlikely(!in_own_cluster_exact(net, addr)))
- 		return NULL;
- 
- 	rcu_read_lock();
--	hlist_for_each_entry_rcu(node, &tn->node_htable[tipc_hashfn(addr)],
--				 hash) {
--		if (node->addr == addr) {
--			tipc_node_get(node);
--			rcu_read_unlock();
--			return node;
--		}
-+	hlist_for_each_entry_rcu(node, &tn->node_htable[thash], hash) {
-+		if (node->addr != addr)
-+			continue;
-+		if (!kref_get_unless_zero(&node->kref))
-+			node = NULL;
-+		break;
- 	}
- 	rcu_read_unlock();
--	return NULL;
-+	return node;
+ 	spin_lock_bh(&tn->node_list_lock);
+-	list_for_each_entry_safe(node, t_node, &tn->node_list, list) {
+-		if (del_timer(&node->timer))
+-			tipc_node_put(node);
+-		tipc_node_put(node);
+-	}
++	list_for_each_entry_safe(node, t_node, &tn->node_list, list)
++		tipc_node_delete(node);
+ 	spin_unlock_bh(&tn->node_list_lock);
  }
  
- static void tipc_node_read_lock(struct tipc_node *n)
+@@ -530,9 +530,7 @@ static void tipc_node_timeout(unsigned long data)
+ 		if (rc & TIPC_LINK_DOWN_EVT)
+ 			tipc_node_link_down(n, bearer_id, false);
+ 	}
+-	if (!mod_timer(&n->timer, jiffies + n->keepalive_intv))
+-		tipc_node_get(n);
+-	tipc_node_put(n);
++	mod_timer(&n->timer, jiffies + n->keepalive_intv);
+ }
+ 
+ /**
 -- 
 1.9.1
-
-
-------------------------------------------------------------------------------
-Site24x7 APM Insight: Get Deep Visibility into Application Performance
-APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
-Monitor end-to-end web transactions and take corrective actions now
-Troubleshoot faster and improve end-user experience. Signup Now!
-http://pubads.g.doubleclick.net/gampad/clk?id=272487151&iu=/4140
