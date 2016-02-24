@@ -1,324 +1,100 @@
-From: Alexandre Torgue <alexandre.torgue@gmail.com>
-Subject: Re: [PATCH v2 1/4] net: ethernet: dwmac: add Ethernet glue logic for
- stm32 chip
-Date: Wed, 24 Feb 2016 10:03:08 +0100
-Message-ID: <CAJgp7zwEcsk3gAQ+xJZoKYTYjp-R2_K5kZ47kCrXv3Y1mL4s8A@mail.gmail.com>
-References: <1456240244-10275-1-git-send-email-alexandre.torgue@gmail.com>
- <1456240244-10275-2-git-send-email-alexandre.torgue@gmail.com>
- <CAGhQ9Vz8uUeyhEutTPh3Zb3C=T3F2xC7kgHorZyWcz6HW+ySmw@mail.gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next 5/5] veth: implement ndo_set_rx_headroom
+Date: Wed, 24 Feb 2016 10:17:34 +0100
+Message-ID: <1456305454.5436.28.camel@redhat.com>
+References: <cover.1456163137.git.pabeni@redhat.com>
+	 <193cf433bb4b8dac52ca1a76477b651c47e01ed3.1456163137.git.pabeni@redhat.com>
+	 <CAOrHB_BzDhT_MTXPoEm-AaaVA++u_p_AdapMygMuw0gzgDUcyw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- Maxime Coquelin <mcoquelin.stm32@gmail.com>, netdev <netdev@vger.kernel.org>
-To: Joachim Eastwood <manabian@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAGhQ9Vz8uUeyhEutTPh3Zb3C=T3F2xC7kgHorZyWcz6HW+ySmw@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Flavio Leitner <fbl@sysclose.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: pravin shelar <pshelar@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53438 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751480AbcBXJRj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2016 04:17:39 -0500
+In-Reply-To: <CAOrHB_BzDhT_MTXPoEm-AaaVA++u_p_AdapMygMuw0gzgDUcyw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2016-02-23 23:16 GMT+01:00 Joachim  Eastwood <manabian@gmail.com>:
-> Hi Alexandre,
->
-> On 23 February 2016 at 16:10, Alexandre TORGUE
-> <alexandre.torgue@gmail.com> wrote:
->> stm324xx family chips support Synopsys MAC 3.510 IP.
->> This patch adds settings for logical glue logic:
->> -clocks
->> -mode selection MII or RMII.
->>
->> Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
->>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
->> index cec147d..f63bdcf 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
->> +++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
->> @@ -114,6 +114,18 @@ config DWMAC_SUNXI
->>           This selects Allwinner SoC glue layer support for the
->>           stmmac device driver. This driver is used for A20/A31
->>           GMAC ethernet controller.
->> +
->> +config DWMAC_STM32
->> +       tristate "STM32 DWMAC support"
->> +       default ARCH_STM32
->> +       depends on OF && HAS_IOMEM
->> +       select MFD_SYSCON
->> +       ---help---
->> +         Support for ethernet controller on STM32 SOCs.
->> +
->> +         This selects STM32 SoC glue layer support for the stmmac
->> +         device driver. This driver is used on for the STM32 series
->> +         SOCs GMAC ethernet controller.
->>  endif
->>
->>  config STMMAC_PCI
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
->> index b390161..559086d 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/Makefile
->> +++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
->> @@ -13,6 +13,7 @@ obj-$(CONFIG_DWMAC_ROCKCHIP)  += dwmac-rk.o
->>  obj-$(CONFIG_DWMAC_SOCFPGA)    += dwmac-socfpga.o
->>  obj-$(CONFIG_DWMAC_STI)                += dwmac-sti.o
->>  obj-$(CONFIG_DWMAC_SUNXI)      += dwmac-sunxi.o
->> +obj-$(CONFIG_DWMAC_STM32)      += dwmac-stm32.o
->
+On Tue, 2016-02-23 at 11:21 -0800, pravin shelar wrote:
+> On Tue, Feb 23, 2016 at 4:53 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> > The rx headroom for veth dev is the peer device needed_headroom.
+> > Avoid ping-pong updates setting the private flag IFF_PHONY_HEADROOM.
+> >
+> > This avoids skb head reallocation when forwarding from a veth dev
+> > towards a device adding some kind of encapsulation.
+> >
+> > When forwarding frames below the MTU size towards a vxlan device,
+> > this gives about 10% performance speed-up when OVS is used to connect
+> > the veth and the vxlan device and a little more when using a
+> > plain Linux bridge.
+> >
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> > ---
+> >  drivers/net/veth.c | 26 ++++++++++++++++++++++++++
+> >  1 file changed, 26 insertions(+)
+> >
+> > diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+> > index ba21d07..4f30a6a 100644
+> > --- a/drivers/net/veth.c
+> > +++ b/drivers/net/veth.c
+> > @@ -35,6 +35,7 @@ struct pcpu_vstats {
+> >  struct veth_priv {
+> >         struct net_device __rcu *peer;
+> >         atomic64_t              dropped;
+> > +       unsigned                requested_headroom;
+> >  };
+> >
+> >  /*
+> > @@ -271,6 +272,29 @@ static int veth_get_iflink(const struct net_device *dev)
+> >         return iflink;
+> >  }
+> >
+> > +static void veth_set_rx_headroom(struct net_device *dev, int new_hr)
+> > +{
+> > +       struct veth_priv *peer_priv, *priv = netdev_priv(dev);
+> > +       struct net_device *peer;
+> > +
+> > +       if (new_hr < 0)
+> > +               new_hr = 0;
+> > +
+> > +       rcu_read_lock();
+> > +       peer = rcu_dereference(priv->peer);
+> > +       if (unlikely(!peer))
+> > +               goto out;
+> > +
+> > +       peer_priv = netdev_priv(peer);
+> > +       priv->requested_headroom = new_hr;
+> > +       new_hr = max(priv->requested_headroom, peer_priv->requested_headroom);
+> > +       dev->needed_headroom = new_hr;
+> > +       peer->needed_headroom = new_hr;
+> > +
+> > +out:
+> > +       rcu_read_unlock();
+> > +}
+> > +
+> I am not sure why new priv->requested_headroom is introduced. I think
+> you can just compare new_hr with dev->needed_headroom and set the max
+> value to both devices.
 
-Hi Joachim,
+The requested_headroom headroom was intended to cope with with this
+scenario:
 
-> Put them in alphabetic order. Same goes for the KConfig entry.
+brctl addif br0 veth0
+brctl delif br0 veth0
+brctl addif br1 veth0
 
-Ok
+If I set needed_headroom to the max value to both veth peers, after the
+last call veth will use max(br0 headroom, br1 headroom), instead of br1
+headroom.
 
->
->
->>  obj-$(CONFIG_DWMAC_GENERIC)    += dwmac-generic.o
->>  stmmac-platform-objs:= stmmac_platform.o
-> ...
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
->> +struct stm32_dwmac {
->> +       int interface;          /* MII interface */
->> +       struct clk *clk_tx;
->> +       struct clk *clk_rx;
->> +       u32 mode_reg;           /* MAC glue-logic mode register */
->> +       struct regmap *regmap;
->> +       u32 speed;
->> +};
->> +
->> +static int stm32_dwmac_init(void *priv)
->
-> If you used 'struct stm32_dwmac *' instead of 'void *' you could skip
-> the local variable assignment.
->
-> Even better; you could pass 'struct plat_stmmacenet_data *' and use
-> it's 'interface' member to set the phy mode. Then you could drop the
-> interface member in your priv data struct and remove of_get_phy_mode()
-> in stm32_dwmac_parse_data().
-
-Yes, interesting.
->
->
->> +{
->> +       struct stm32_dwmac *dwmac = priv;
->> +       struct regmap *regmap = dwmac->regmap;
->> +       int ret, iface = dwmac->interface;
->> +       u32 reg = dwmac->mode_reg;
->> +       u32 val;
->> +
->> +       ret = clk_prepare_enable(dwmac->clk_tx);
->> +       if (ret)
->> +               goto out;
->> +
->> +       ret = clk_prepare_enable(dwmac->clk_rx);
->> +       if (ret)
->> +               goto out_disable_clk_tx;
->> +
->> +       val = (iface == PHY_INTERFACE_MODE_MII) ? 0 : 1;
->> +       ret = regmap_update_bits(regmap, reg, MII_PHY_SEL_MASK, val);
->> +       if (ret)
->> +               goto out_disable_clk_tx_rx;
->> +
->> +       return 0;
->> +
->> +out_disable_clk_tx_rx:
->> +       clk_disable_unprepare(dwmac->clk_rx);
->> +out_disable_clk_tx:
->> +       clk_disable_unprepare(dwmac->clk_tx);
->> +out:
->> +       return ret;
->> +}
->> +
->> +static void stm32_dwmac_exit(void *priv)
->> +{
->> +       struct stm32_dwmac *dwmac = priv;
->
-> Again; instead of 'void *' use 'struct stm32_dwmac *' to avoid the
-> local assignment.
->
->
->> +
->> +       clk_disable_unprepare(dwmac->clk_tx);
->> +       clk_disable_unprepare(dwmac->clk_rx);
->> +}
->
-> To be honest I really don't see the point in having a function with
-> just two other function calls in it. Consider dropping the function
-> altogether and place the clk_disable_unprepare() calls where it's
-> called from. If you still want to keep it, please put a more
-> descriptive name on it.
-
-It was just to avoid redundant code, but yes there is not a big
-interest to do it.
-
->
->
->> +static int stm32_dwmac_parse_data(struct stm32_dwmac *dwmac,
->> +                                 struct platform_device *pdev)
->
-> Since you are only interested in *dev and not *pdev you could pass a
-> 'struct dev *' instead.
-
-ok
-
->
->> +{
->> +       struct device *dev = &pdev->dev;
->> +       struct device_node *np = dev->of_node;
->> +       struct regmap *regmap;
->> +       int err;
->> +
->> +       /*  Get TX/RX clocks */
->> +       dwmac->clk_tx = devm_clk_get(dev, "tx-clk");
->> +       if (IS_ERR(dwmac->clk_tx)) {
->> +               dev_warn(dev, "No tx clock provided...\n");
->> +               dwmac->clk_tx = NULL;
->> +       }
->> +       dwmac->clk_rx = devm_clk_get(dev, "rx-clk");
->> +       if (IS_ERR(dwmac->clk_rx)) {
->> +               dev_warn(dev, "No rx clock provided...\n");
->> +               dwmac->clk_rx = NULL;
->> +       }
->> +
->> +       /* Get mode register */
->> +       regmap = syscon_regmap_lookup_by_phandle(np, "st,syscon");
->> +       if (IS_ERR(regmap))
->> +               return PTR_ERR(regmap);
->> +
->> +       err = of_property_read_u32_index(np, "st,syscon", 1, &dwmac->mode_reg);
->> +       if (err) {
->> +               dev_err(dev, "Can't get sysconfig mode offset (%d)\n", err);
->> +               return err;
->> +       }
->> +
->> +       dwmac->interface = of_get_phy_mode(np);
->> +       dwmac->regmap = regmap;
->
-> Why the temporary local regmap variable?
->
-> Assigning dwmac->regmap with syscon_regmap_lookup_by_phandle() should
-> not exceed 80 chars if that is what you are worried about.
-
-yes you are right.
-
->
->
->> +       return 0;
->> +}
->> +
->> +static int stm32_dwmac_probe(struct platform_device *pdev)
->> +{
->> +       struct plat_stmmacenet_data *plat_dat;
->> +       struct stmmac_resources stmmac_res;
->> +       struct stm32_dwmac *dwmac;
->> +       int ret;
->> +
->> +       ret = stmmac_get_platform_resources(pdev, &stmmac_res);
->> +       if (ret)
->> +               return ret;
->> +
->> +       plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
->> +       if (IS_ERR(plat_dat))
->> +               return PTR_ERR(plat_dat);
->> +
->> +       dwmac = devm_kzalloc(&pdev->dev, sizeof(*dwmac), GFP_KERNEL);
->> +       if (!dwmac)
->> +               return -ENOMEM;
->> +
->> +       ret = stm32_dwmac_parse_data(dwmac, pdev);
->> +       if (ret) {
->> +               dev_err(&pdev->dev, "Unable to parse OF data\n");
->> +               return ret;
->> +       }
->> +
->> +       plat_dat->bsp_priv = dwmac;
->> +
->> +       ret = stm32_dwmac_init(plat_dat->bsp_priv);
->> +       if (ret)
->> +               return ret;
->> +
->> +       return stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
->
-> Note that stmmac_dvr_probe() can fail and if so you should disable
-> your tx/rx clks before you return.
->
-> Consider putting the clk_prepare_enable() directly here and use goto
-> labels for the clean up like most other drivers do in probe.
-
-Ok catch.
-
->
-> Also if you put regmap_update_bits() for phy mode above the
-> clk_prepare_enable() calls you remove one of the gotos.
-> I assume you don't need to enable tx/rx clock before you write to syscon.
-
-I will check.
->
->
->> +static int stm32_dwmac_remove(struct platform_device *pdev)
->> +{
->> +       struct net_device *ndev = platform_get_drvdata(pdev);
->> +       struct stmmac_priv *priv = netdev_priv(ndev);
->> +       int ret = stmmac_dvr_remove(ndev);
->> +
->> +       stm32_dwmac_exit(priv->plat->bsp_priv);
->> +
->> +       return ret;
->> +}
->> +
->> +#ifdef CONFIG_PM_SLEEP
->> +static int stm32_dwmac_suspend(struct device *dev)
->> +{
->> +       struct net_device *ndev = dev_get_drvdata(dev);
->> +       struct stmmac_priv *priv = netdev_priv(ndev);
->> +       int ret;
->> +
->> +       ret = stmmac_suspend(ndev);
->> +       stm32_dwmac_exit(priv->plat->bsp_priv);
->> +
->> +       return ret;
->> +}
->> +
->> +static int stm32_dwmac_resume(struct device *dev)
->> +{
->> +       struct net_device *ndev = dev_get_drvdata(dev);
->> +       struct stmmac_priv *priv = netdev_priv(ndev);
->> +       int ret;
->> +
->> +       ret = stm32_dwmac_init(priv->plat->bsp_priv);
->> +       if (ret)
->> +               goto out_regmap;
->> +
->> +       ret = stmmac_resume(ndev);
->> +
->> +out_regmap:
->> +       return ret;
->
-> Why the goto?
-
-Sorry no sens. I thought that it was better to avoid multiple return
-but it this case it is stupid.
-
-Best regards.
-
-Alexandre
-
->
-> This could be written:
->     ret = stm32_dwmac_init(priv->plat->bsp_priv);
->     if (ret)
->        return ret;
->
->     return stmmac_resume(ndev);
->
->
-> regards,
-> Joachim Eastwood
+Paolo
