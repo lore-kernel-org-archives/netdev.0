@@ -1,53 +1,91 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH can-next v2 1/2] CAN: rcar: add gen[12] fallback
- compatibility strings
-Date: Wed, 24 Feb 2016 08:36:38 +0100
-Message-ID: <CAMuHMdXy0Y2NtPzL9RuhPnu2qPd1-Ft75xfNOmj1EN0Rbq3Jsg@mail.gmail.com>
-References: <1456278993-9899-1-git-send-email-horms+renesas@verge.net.au>
-	<1456278993-9899-2-git-send-email-horms+renesas@verge.net.au>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH 00/33] Compile-time stack metadata validation
+Date: Wed, 24 Feb 2016 08:40:54 +0100
+Message-ID: <20160224074054.GA13199@gmail.com>
+References: <cover.1453405861.git.jpoimboe@redhat.com>
+ <20160223081406.GA606@gmail.com>
+ <20160223150155.GB15858@treble.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-can@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-renesas-soc@vger.kernel.org
-To: Simon Horman <horms+renesas@verge.net.au>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1456278993-9899-2-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
+	Michal Marek <mmarek@suse.cz>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Andy Lutomirski <luto@kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Pedro Alves <palves@redhat.com>,
+	Namhyung Kim <namhyung@gmail.com>,
+	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
+	Chris J Arges <chris.j.arges@canonical.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jiri Slaby <jslaby@suse.cz>,
+	Arnaldo Carvalho de Melo <acme@kernel.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Borislav Petkov <bp@suse.de>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Jeremy Fitzhardinge <jeremy@goop.or
+To: Josh Poimboeuf <jpoimboe@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160223150155.GB15858@treble.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 24, 2016 at 2:56 AM, Simon Horman
-<horms+renesas@verge.net.au> wrote:
-> Add fallback compatibility string for R-Car Gen 1 and Gen2.
->
-> In the case of Renesas R-Car hardware we know that there are generations of
-> SoCs, e.g. Gen 1 and Gen 2. But beyond that its not clear what the
-> relationship between IP blocks might be. For example, I believe that
-> r8a7779 is older than r8a7778 but that doesn't imply that the latter is a
-> descendant of the former or vice versa.
->
-> We can, however, by examining the documentation and behaviour of the
-> hardware at run-time observe that the current driver implementation appears
-> to be compatible with the IP blocks on SoCs within a given generation.
->
-> For the above reasons and convenience when enabling new SoCs a
-> per-generation fallback compatibility string scheme being adopted for
-> drivers for Renesas SoCs.
->
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> Acked-by: Rob Herring <robh@kernel.org>
 
-Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
+* Josh Poimboeuf <jpoimboe@redhat.com> wrote:
 
-Gr{oetje,eeting}s,
+> Hi Ingo,
+> 
+> On Tue, Feb 23, 2016 at 09:14:06AM +0100, Ingo Molnar wrote:
+> > So I tried out this latest stacktool series and it looks mostly good for an 
+> > upstream merge.
+> > 
+> > To help this effort move forward I've applied the preparatory/fix patches that are 
+> > part of this series to tip:x86/debug - that's 26 out of 31 patches. (I've 
+> > propagated all the acks that the latest submission got into the changelogs.)
+> 
+> Thanks very much for your review and for applying the fixes!
+> 
+> A few issues relating to the merge:
+> 
+> - The tip:x86/debug branch fails to build because it depends on
+>   ec5186557abb ("x86/asm: Add C versions of frame pointer macros") which
+>   is in tip:x86/asm.
 
-                        Geert
+Indeed...
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+> - As Pavel mentioned, the tip-bot seems to be spitting out garbage
+>   emails from:
+>   =?UTF-8?B?dGlwLWJvdCBmb3IgSm9zaCBQb2ltYm9ldWYgPHRpcGJvdEB6eXRvci5jb20+?=@zytor.com.
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Yeah, hpa fixed that meanwhile.
+
+Due to the above bad base I rebased the tree (to a x86/asm base), so there will be 
+a new round of (hopefully readable) tip-bot notifications. I'll push it out after 
+a bit of testing.
+
+> > 5)
+> > 
+> > Likewise, I think the CONFIG_STACK_VALIDATION=y Kconfig flag does not express that 
+> > we do exception table checks as well - and it does not express all the other 
+> > things we may check in object files in the future.
+> > 
+> > Something like CONFIG_CHECK_OBJECT_FILES=y would express it, and the help text 
+> > would list all the things the tool is able to checks for at the moment.
+> 
+> Hm, I'm not really sure about this.  Yes, the tool could potentially do
+> other types of checks, but is it necessary to lump them all together
+> into a single config option?  It does have subcommands after all ;-)
+
+lol ;-)
+
+Ok, I'm fine with CONFIG_STACK_VALIDATION=y as well.
+
+Thanks,
+
+	Ingo
