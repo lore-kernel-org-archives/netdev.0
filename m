@@ -1,9 +1,10 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH can-next v2 2/2] CAN: rcar: add device tree support for r8a779[234]
-Date: Wed, 24 Feb 2016 08:35:41 +0100
-Message-ID: <CAMuHMdXHcOMg8jAEV5o4kkrW8amF5cgE529k8cTb-V3CJasV-A@mail.gmail.com>
+Subject: Re: [PATCH can-next v2 1/2] CAN: rcar: add gen[12] fallback
+ compatibility strings
+Date: Wed, 24 Feb 2016 08:36:38 +0100
+Message-ID: <CAMuHMdXy0Y2NtPzL9RuhPnu2qPd1-Ft75xfNOmj1EN0Rbq3Jsg@mail.gmail.com>
 References: <1456278993-9899-1-git-send-email-horms+renesas@verge.net.au>
-	<1456278993-9899-3-git-send-email-horms+renesas@verge.net.au>
+	<1456278993-9899-2-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Wolfgang Grandegger <wg@grandegger.com>,
@@ -13,26 +14,30 @@ Cc: Wolfgang Grandegger <wg@grandegger.com>,
 	linux-renesas-soc@vger.kernel.org
 To: Simon Horman <horms+renesas@verge.net.au>
 Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1456278993-9899-3-git-send-email-horms+renesas@verge.net.au>
+In-Reply-To: <1456278993-9899-2-git-send-email-horms+renesas@verge.net.au>
 Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Wed, Feb 24, 2016 at 2:56 AM, Simon Horman
 <horms+renesas@verge.net.au> wrote:
-> Simply document new compatibility string.
-> As a previous patch adds a generic R-Car Gen2 compatibility string
-> there appears to be no need for a driver updates.
+> Add fallback compatibility string for R-Car Gen 1 and Gen2.
 >
-> By documenting these compat stings they may be used in DTSs shipped, for
-> example as part of ROMs. They must be used in conjunction with the Gen2
-> fallback compat string. At this time there are no known differences between
-> the r8a779[234] IP blocks and that implemented by the driver for the Gen2
-> fallback compat string. Thus there is no need to update the driver as the
-> use of the Gen2 fallback compat string will activate the correct code in
-> the current driver while leaving the option for r8a779[234]-specific driver
-> code to be activated in an updated driver should the need arise.
+> In the case of Renesas R-Car hardware we know that there are generations of
+> SoCs, e.g. Gen 1 and Gen 2. But beyond that its not clear what the
+> relationship between IP blocks might be. For example, I believe that
+> r8a7779 is older than r8a7778 but that doesn't imply that the latter is a
+> descendant of the former or vice versa.
+>
+> We can, however, by examining the documentation and behaviour of the
+> hardware at run-time observe that the current driver implementation appears
+> to be compatible with the IP blocks on SoCs within a given generation.
+>
+> For the above reasons and convenience when enabling new SoCs a
+> per-generation fallback compatibility string scheme being adopted for
+> drivers for Renesas SoCs.
 >
 > Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> Acked-by: Rob Herring <robh@kernel.org>
 
 Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
