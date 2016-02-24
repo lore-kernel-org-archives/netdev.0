@@ -1,38 +1,40 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 09/20] man: ip-link.8: minor font fix
-Date: Wed, 24 Feb 2016 09:21:22 +0100
-Message-ID: <1456302093-697-10-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 01/20] ip: align help text with manpage
+Date: Wed, 24 Feb 2016 09:21:14 +0100
+Message-ID: <1456302093-697-2-git-send-email-phil@nwl.cc>
 References: <1456302093-697-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:49147 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:45603 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758073AbcBXIXd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2016 03:23:33 -0500
+	id S1758073AbcBXIXk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2016 03:23:40 -0500
 In-Reply-To: <1456302093-697-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We commonly use bold font for terminals and italic for non-terminals.
+Although the ip command accepts both "neighbor" and "neighbour" as
+subcommand, I assume it's sufficient to list it in help text as just
+"neigh" like ip.8 does.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/ip-link.8.in | 2 +-
+ ip/ip.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 4d3234352004e..27c9a321c2af8 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -49,7 +49,7 @@ ip-link \- network device configuration
- .RB "[ " numrxqueues
- .IR QUEUE_COUNT " ]"
- .br
--.BR type " TYPE"
-+.BI type " TYPE"
- .RI "[ " ARGS " ]"
- 
- .ti -8
+diff --git a/ip/ip.c b/ip/ip.c
+index eea00b822088e..123f18133a2e5 100644
+--- a/ip/ip.c
++++ b/ip/ip.c
+@@ -49,7 +49,7 @@ static void usage(void)
+ 	fprintf(stderr,
+ "Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }\n"
+ "       ip [ -force ] -batch filename\n"
+-"where  OBJECT := { link | address | addrlabel | route | rule | neighbor | ntable |\n"
++"where  OBJECT := { link | address | addrlabel | route | rule | neigh | ntable |\n"
+ "                   tunnel | tuntap | maddress | mroute | mrule | monitor | xfrm |\n"
+ "                   netns | l2tp | fou | tcp_metrics | token | netconf }\n"
+ "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
 -- 
 2.6.4
