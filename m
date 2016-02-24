@@ -1,180 +1,107 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 19/20] igb: Fix VLAN tag stripping on Intel i350
-Date: Tue, 23 Feb 2016 20:26:23 -0800
-Message-ID: <1456287984-10459-20-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 20/20] igb: call ndo_stop() instead of dev_close() when running offline selftest
+Date: Tue, 23 Feb 2016 20:26:24 -0800
+Message-ID: <1456287984-10459-21-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1456287984-10459-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Corinna Vinschen <vinschen@redhat.com>, netdev@vger.kernel.org,
+Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:24372 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932462AbcBXE0p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2016 23:26:45 -0500
+	id S932471AbcBXE0r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Feb 2016 23:26:47 -0500
 In-Reply-To: <1456287984-10459-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Corinna Vinschen <vinschen@redhat.com>
+From: Stefan Assmann <sassmann@kpanic.de>
 
-Problem: When switching off VLAN offloading on an i350, the VLAN
-interface gets unusable.  For testing, set up a VLAN on an i350
-and some remote machine, e.g.:
+Calling dev_close() causes IFF_UP to be cleared which will remove the
+interfaces routes and some addresses. That's probably not what the user
+intended when running the offline selftest. Besides this does not happen
+if the interface is brought down before the test, so the current
+behaviour is inconsistent.
+Instead call the net_device_ops ndo_stop function directly and avoid
+touching IFF_UP at all.
 
-  $ ip link add link eth0 name eth0.42 type vlan id 42
-  $ ip addr add 192.168.42.1/24 dev eth0.42
-  $ ip link set dev eth0.42 up
-
-Offloading is switched on by default:
-
-  $ ethtool -k eth0 | grep vlan-offload
-  rx-vlan-offload: on
-  tx-vlan-offload: on
-
-  $ ping -c 3 -I eth0.42 192.168.42.2
-  [...works as usual...]
-
-Now switch off VLAN offloading and try again:
-
-  $ ethtool -K eth0 rxvlan off
-  Actual changes:
-  rx-vlan-offload: off
-  tx-vlan-offload: off [requested on]
-  $ ping -c 3 -I eth0.42 192.168.42.2
-  PING 192.168.42.2 (192.168.42.2) from 192.168.42.1 eth0.42: 56(84) bytes of da
-ta.
-
-  --- 192.168.42.2 ping statistics ---
-  3 packets transmitted, 0 received, 100% packet loss, time 1999ms
-
-I can only reproduce it on an i350, the above works fine on a 82580.
-
-While inspecting the igb source, I came across the code in igb_set_vmolr
-which sets the E1000_VMOLR_STRVLAN/E1000_DVMOLR_STRVLAN flags once and
-for all, and in all of the igb code there's no other place where the
-STRVLAN is set or cleared.  Thus, VLAN stripping is enabled in igb
-unconditionally, independently of the offloading setting.
-
-I compared that to the latest Intel igb-5.3.3.5 driver from
-http://sourceforge.net/projects/e1000/ which in fact sets and clears the
-STRVLAN flag independently from igb_set_vmolr in its own function
-igb_set_vf_vlan_strip, depending on the vlan settings.
-
-So I included the STRVLAN handling from the igb-5.3.3.5 driver into our
-current igb driver and tested the above scenario again.  This time ping
-still works after switching off VLAN offloading.
-
-Tested on i350, with and without addtional VFs, as well as on 82580
-successfully.
-
-Signed-off-by: Corinna Vinschen <vinschen@redhat.com>
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 41 ++++++++++++++++++++++++-------
- 1 file changed, 32 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h         | 2 ++
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 4 ++--
+ drivers/net/ethernet/intel/igb/igb_main.c    | 8 ++++----
+ 3 files changed, 8 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 3fa3a85..3ada885 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -525,6 +525,8 @@ enum igb_boards {
+ extern char igb_driver_name[];
+ extern char igb_driver_version[];
+ 
++int igb_open(struct net_device *netdev);
++int igb_close(struct net_device *netdev);
+ int igb_up(struct igb_adapter *);
+ void igb_down(struct igb_adapter *);
+ void igb_reinit_locked(struct igb_adapter *);
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 1d329f1..7982243 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -2017,7 +2017,7 @@ static void igb_diag_test(struct net_device *netdev,
+ 
+ 		if (if_running)
+ 			/* indicate we're in test mode */
+-			dev_close(netdev);
++			igb_close(netdev);
+ 		else
+ 			igb_reset(adapter);
+ 
+@@ -2050,7 +2050,7 @@ static void igb_diag_test(struct net_device *netdev,
+ 
+ 		clear_bit(__IGB_TESTING, &adapter->state);
+ 		if (if_running)
+-			dev_open(netdev);
++			igb_open(netdev);
+ 	} else {
+ 		dev_info(&adapter->pdev->dev, "online testing starting\n");
+ 
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 96a53bf..efbcf77 100644
+index efbcf77..79354f6 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3677,6 +3677,28 @@ static inline int igb_set_vf_rlpml(struct igb_adapter *adapter, int size,
+@@ -123,8 +123,8 @@ static void igb_setup_mrqc(struct igb_adapter *);
+ static int igb_probe(struct pci_dev *, const struct pci_device_id *);
+ static void igb_remove(struct pci_dev *pdev);
+ static int igb_sw_init(struct igb_adapter *);
+-static int igb_open(struct net_device *);
+-static int igb_close(struct net_device *);
++int igb_open(struct net_device *);
++int igb_close(struct net_device *);
+ static void igb_configure(struct igb_adapter *);
+ static void igb_configure_tx(struct igb_adapter *);
+ static void igb_configure_rx(struct igb_adapter *);
+@@ -3247,7 +3247,7 @@ err_setup_tx:
+ 	return err;
+ }
+ 
+-static int igb_open(struct net_device *netdev)
++int igb_open(struct net_device *netdev)
+ {
+ 	return __igb_open(netdev, false);
+ }
+@@ -3284,7 +3284,7 @@ static int __igb_close(struct net_device *netdev, bool suspending)
  	return 0;
  }
  
-+static inline void igb_set_vf_vlan_strip(struct igb_adapter *adapter,
-+					 int vfn, bool enable)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 val, reg;
-+
-+	if (hw->mac.type < e1000_82576)
-+		return;
-+
-+	if (hw->mac.type == e1000_i350)
-+		reg = E1000_DVMOLR(vfn);
-+	else
-+		reg = E1000_VMOLR(vfn);
-+
-+	val = rd32(reg);
-+	if (enable)
-+		val |= E1000_VMOLR_STRVLAN;
-+	else
-+		val &= ~(E1000_VMOLR_STRVLAN);
-+	wr32(reg, val);
-+}
-+
- static inline void igb_set_vmolr(struct igb_adapter *adapter,
- 				 int vfn, bool aupe)
+-static int igb_close(struct net_device *netdev)
++int igb_close(struct net_device *netdev)
  {
-@@ -3690,14 +3712,6 @@ static inline void igb_set_vmolr(struct igb_adapter *adapter,
- 		return;
- 
- 	vmolr = rd32(E1000_VMOLR(vfn));
--	vmolr |= E1000_VMOLR_STRVLAN; /* Strip vlan tags */
--	if (hw->mac.type == e1000_i350) {
--		u32 dvmolr;
--
--		dvmolr = rd32(E1000_DVMOLR(vfn));
--		dvmolr |= E1000_DVMOLR_STRVLAN;
--		wr32(E1000_DVMOLR(vfn), dvmolr);
--	}
- 	if (aupe)
- 		vmolr |= E1000_VMOLR_AUPE; /* Accept untagged packets */
- 	else
-@@ -6195,6 +6209,7 @@ static int igb_enable_port_vlan(struct igb_adapter *adapter, int vf,
- 
- 	adapter->vf_data[vf].pf_vlan = vlan;
- 	adapter->vf_data[vf].pf_qos = qos;
-+	igb_set_vf_vlan_strip(adapter, vf, true);
- 	dev_info(&adapter->pdev->dev,
- 		 "Setting VLAN %d, QOS 0x%x on VF %d\n", vlan, qos, vf);
- 	if (test_bit(__IGB_DOWN, &adapter->state)) {
-@@ -6222,6 +6237,7 @@ static int igb_disable_port_vlan(struct igb_adapter *adapter, int vf)
- 
- 	adapter->vf_data[vf].pf_vlan = 0;
- 	adapter->vf_data[vf].pf_qos = 0;
-+	igb_set_vf_vlan_strip(adapter, vf, false);
- 
- 	return 0;
+ 	return __igb_close(netdev, false);
  }
-@@ -6242,6 +6258,7 @@ static int igb_set_vf_vlan_msg(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
- {
- 	int add = (msgbuf[0] & E1000_VT_MSGINFO_MASK) >> E1000_VT_MSGINFO_SHIFT;
- 	int vid = (msgbuf[1] & E1000_VLVF_VLANID_MASK);
-+	int ret;
- 
- 	if (adapter->vf_data[vf].pf_vlan)
- 		return -1;
-@@ -6250,7 +6267,10 @@ static int igb_set_vf_vlan_msg(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
- 	if (!vid && !add)
- 		return 0;
- 
--	return igb_set_vf_vlan(adapter, vid, !!add, vf);
-+	ret = igb_set_vf_vlan(adapter, vid, !!add, vf);
-+	if (!ret)
-+		igb_set_vf_vlan_strip(adapter, vf, !!vid);
-+	return ret;
- }
- 
- static inline void igb_vf_reset(struct igb_adapter *adapter, u32 vf)
-@@ -6267,6 +6287,7 @@ static inline void igb_vf_reset(struct igb_adapter *adapter, u32 vf)
- 	igb_set_vmvir(adapter, vf_data->pf_vlan |
- 			       (vf_data->pf_qos << VLAN_PRIO_SHIFT), vf);
- 	igb_set_vmolr(adapter, vf, !vf_data->pf_vlan);
-+	igb_set_vf_vlan_strip(adapter, vf, !!(vf_data->pf_vlan));
- 
- 	/* reset multicast table array for vf */
- 	adapter->vf_data[vf].num_vf_mc_hashes = 0;
-@@ -7427,6 +7448,8 @@ static void igb_vlan_mode(struct net_device *netdev, netdev_features_t features)
- 		ctrl &= ~E1000_CTRL_VME;
- 		wr32(E1000_CTRL, ctrl);
- 	}
-+
-+	igb_set_vf_vlan_strip(adapter, adapter->vfs_allocated_count, enable);
- }
- 
- static int igb_vlan_rx_add_vid(struct net_device *netdev,
 -- 
 2.5.0
