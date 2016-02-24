@@ -1,212 +1,61 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 16/20] igb: Add support for generic Tx checksums
-Date: Tue, 23 Feb 2016 20:26:20 -0800
-Message-ID: <1456287984-10459-17-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 18/20] igbvf: remove "link is Up" message when registering mcast address
+Date: Tue, 23 Feb 2016 20:26:22 -0800
+Message-ID: <1456287984-10459-19-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1456287984-10459-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+Cc: Jon Maxwell <jmaxwell37@gmail.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:57891 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:12818 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757504AbcBXE0f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757509AbcBXE0f (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 23 Feb 2016 23:26:35 -0500
 In-Reply-To: <1456287984-10459-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+From: Jon Maxwell <jmaxwell37@gmail.com>
 
-This patch adds support for generic Tx checksums to the igb driver.  It
-turns out this is actually pretty easy after going over the datasheet as we
-were doing a number of steps we didn't need to.
+A similar issue was addressed a few years ago in the following thread:
 
-In order to perform a Tx checksum for an L4 header we need to fill in the
-following fields in the Tx descriptor:
-  MACLEN (maximum of 127), retrieved from:
-		skb_network_offset()
-  IPLEN  (maximum of 511), retrieved from:
-		skb_checksum_start_offset() - skb_network_offset()
-  TUCMD.L4T indicates offset and if checksum or crc32c, based on:
-		skb->csum_offset
+http://www.spinics.net/lists/netdev/msg245877.html
 
-The added advantage to doing this is that we can support inner checksum
-offloads for tunnels and MPLS while still being able to transparently
-insert VLAN tags.
+At that time there were concerns that removing this statement may cause other
+side effects. However the submitter addressed those concerns. But the dialogue
+went cold. We have a new case where a customers application is registering and
+un-registering multicast addresses every few seconds. This is leading to many
+"Link is Up" messages in the logs as a result of the
+"netif_carrier_off(netdev)" statement called by igbvf_msix_other(). Also on
+some kernels it is interfering with the bonding driver causing it to failover
+and subsequently affecting connectivity.
 
-I also took the opportunity to clean-up many of the feature flag
-configuration bits to make them a bit more consistent between drivers.
+The Sourgeforge driver does not make this call and is therefore not affected.
+If there were any side effects I would expect that driver to also be affected.
+I have tested re-loading the igbvf driver and downing the adapter with the PF
+entity on the host where the VM has this patch. When I bring it back up again
+connectivity is restored as expected. Therefore I request that this patch gets
+submitted.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 106 ++++++++++++++----------------
- 1 file changed, 48 insertions(+), 58 deletions(-)
+ drivers/net/ethernet/intel/igbvf/netdev.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 855eebf..96a53bf 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2418,27 +2418,35 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	 * assignment.
- 	 */
- 	netdev->features |= NETIF_F_SG |
--			    NETIF_F_IP_CSUM |
--			    NETIF_F_IPV6_CSUM |
- 			    NETIF_F_TSO |
- 			    NETIF_F_TSO6 |
- 			    NETIF_F_RXHASH |
- 			    NETIF_F_RXCSUM |
-+			    NETIF_F_HW_CSUM |
- 			    NETIF_F_HW_VLAN_CTAG_RX |
- 			    NETIF_F_HW_VLAN_CTAG_TX;
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index aa34865..c124422 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -877,7 +877,6 @@ static irqreturn_t igbvf_msix_other(int irq, void *data)
  
-+	if (hw->mac.type >= e1000_82576)
-+		netdev->features |= NETIF_F_SCTP_CRC;
-+
- 	/* copy netdev features into list of user selectable features */
- 	netdev->hw_features |= netdev->features;
- 	netdev->hw_features |= NETIF_F_RXALL;
+ 	adapter->int_counter1++;
  
-+	if (hw->mac.type >= e1000_i350)
-+		netdev->hw_features |= NETIF_F_NTUPLE;
-+
- 	/* set this bit last since it cannot be part of hw_features */
- 	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
- 
--	netdev->vlan_features |= NETIF_F_TSO |
-+	netdev->vlan_features |= NETIF_F_SG |
-+				 NETIF_F_TSO |
- 				 NETIF_F_TSO6 |
--				 NETIF_F_IP_CSUM |
--				 NETIF_F_IPV6_CSUM |
--				 NETIF_F_SG;
-+				 NETIF_F_HW_CSUM |
-+				 NETIF_F_SCTP_CRC;
-+
-+	netdev->mpls_features |= NETIF_F_HW_CSUM;
-+	netdev->hw_enc_features |= NETIF_F_HW_CSUM;
- 
- 	netdev->priv_flags |= IFF_SUPP_NOFCS;
- 
-@@ -2447,11 +2455,6 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		netdev->vlan_features |= NETIF_F_HIGHDMA;
- 	}
- 
--	if (hw->mac.type >= e1000_82576) {
--		netdev->hw_features |= NETIF_F_SCTP_CRC;
--		netdev->features |= NETIF_F_SCTP_CRC;
--	}
--
- 	netdev->priv_flags |= IFF_UNICAST_FLT;
- 
- 	adapter->en_mng_pt = igb_enable_mng_pass_thru(hw);
-@@ -4975,70 +4978,57 @@ static int igb_tso(struct igb_ring *tx_ring,
- 	return 1;
- }
- 
-+static inline bool igb_ipv6_csum_is_sctp(struct sk_buff *skb)
-+{
-+	unsigned int offset = 0;
-+
-+	ipv6_find_hdr(skb, &offset, IPPROTO_SCTP, NULL, NULL);
-+
-+	return offset == skb_checksum_start_offset(skb);
-+}
-+
- static void igb_tx_csum(struct igb_ring *tx_ring, struct igb_tx_buffer *first)
- {
- 	struct sk_buff *skb = first->skb;
- 	u32 vlan_macip_lens = 0;
--	u32 mss_l4len_idx = 0;
- 	u32 type_tucmd = 0;
- 
- 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
-+csum_failed:
- 		if (!(first->tx_flags & IGB_TX_FLAGS_VLAN))
- 			return;
--	} else {
--		u8 l4_hdr = 0;
--
--		switch (first->protocol) {
--		case htons(ETH_P_IP):
--			vlan_macip_lens |= skb_network_header_len(skb);
--			type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
--			l4_hdr = ip_hdr(skb)->protocol;
--			break;
--		case htons(ETH_P_IPV6):
--			vlan_macip_lens |= skb_network_header_len(skb);
--			l4_hdr = ipv6_hdr(skb)->nexthdr;
--			break;
--		default:
--			if (unlikely(net_ratelimit())) {
--				dev_warn(tx_ring->dev,
--					 "partial checksum but proto=%x!\n",
--					 first->protocol);
--			}
--			break;
--		}
-+		goto no_csum;
-+	}
- 
--		switch (l4_hdr) {
--		case IPPROTO_TCP:
--			type_tucmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
--			mss_l4len_idx = tcp_hdrlen(skb) <<
--					E1000_ADVTXD_L4LEN_SHIFT;
--			break;
--		case IPPROTO_SCTP:
--			type_tucmd |= E1000_ADVTXD_TUCMD_L4T_SCTP;
--			mss_l4len_idx = sizeof(struct sctphdr) <<
--					E1000_ADVTXD_L4LEN_SHIFT;
--			break;
--		case IPPROTO_UDP:
--			mss_l4len_idx = sizeof(struct udphdr) <<
--					E1000_ADVTXD_L4LEN_SHIFT;
--			break;
--		default:
--			if (unlikely(net_ratelimit())) {
--				dev_warn(tx_ring->dev,
--					 "partial checksum but l4 proto=%x!\n",
--					 l4_hdr);
--			}
-+	switch (skb->csum_offset) {
-+	case offsetof(struct tcphdr, check):
-+		type_tucmd = E1000_ADVTXD_TUCMD_L4T_TCP;
-+		/* fall through */
-+	case offsetof(struct udphdr, check):
-+		break;
-+	case offsetof(struct sctphdr, checksum):
-+		/* validate that this is actually an SCTP request */
-+		if (((first->protocol == htons(ETH_P_IP)) &&
-+		     (ip_hdr(skb)->protocol == IPPROTO_SCTP)) ||
-+		    ((first->protocol == htons(ETH_P_IPV6)) &&
-+		     igb_ipv6_csum_is_sctp(skb))) {
-+			type_tucmd = E1000_ADVTXD_TUCMD_L4T_SCTP;
- 			break;
- 		}
--
--		/* update TX checksum flag */
--		first->tx_flags |= IGB_TX_FLAGS_CSUM;
-+	default:
-+		skb_checksum_help(skb);
-+		goto csum_failed;
- 	}
- 
-+	/* update TX checksum flag */
-+	first->tx_flags |= IGB_TX_FLAGS_CSUM;
-+	vlan_macip_lens = skb_checksum_start_offset(skb) -
-+			  skb_network_offset(skb);
-+no_csum:
- 	vlan_macip_lens |= skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT;
- 	vlan_macip_lens |= first->tx_flags & IGB_TX_FLAGS_VLAN_MASK;
- 
--	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, mss_l4len_idx);
-+	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, 0);
- }
- 
- #define IGB_SET_FLAG(_input, _flag, _result) \
+-	netif_carrier_off(netdev);
+ 	hw->mac.get_link_status = 1;
+ 	if (!test_bit(__IGBVF_DOWN, &adapter->state))
+ 		mod_timer(&adapter->watchdog_timer, jiffies + 1);
 -- 
 2.5.0
