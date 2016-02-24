@@ -1,89 +1,31 @@
-From: "Amir Vadai\"" <amir@vadai.me>
-Subject: Re: [net-next PATCH 3/4] net: sched: cls_u32 add bit to specify
- software only rules
-Date: Wed, 24 Feb 2016 10:04:40 +0200
-Message-ID: <20160224080440.GA26500@office.Home>
-References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810>
- <20160223190321.5970.58924.stgit@john-Precision-Tower-5810>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: pull-request: mac80211-next 2016-02-23
+Date: Wed, 24 Feb 2016 09:04:08 +0100
+Message-ID: <1456301048.2050.0.camel@sipsolutions.net>
+References: <1456238756-9818-1-git-send-email-johannes@sipsolutions.net>
+	 (sfid-20160223_154614_784292_F20AE242)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jiri@resnulli.us, daniel@iogearbox.net, netdev@vger.kernel.org,
-	alexei.starovoitov@gmail.com, davem@davemloft.net, jhs@mojatatu.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:34969 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750846AbcBXIAu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 03:00:50 -0500
-Received: by mail-wm0-f49.google.com with SMTP id c200so256375018wme.0
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 00:00:50 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20160223190321.5970.58924.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1456238756-9818-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> (sfid-20160223_154614_784292_F20AE242)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 23, 2016 at 11:03:21AM -0800, John Fastabend wrote:
-> In the initial implementation the only way to stop a rule from being
-> inserted into the hardware table was via the device feature flag.
-> However this doesn't work well when working on an end host system
-> where packets are expect to hit both the hardware and software
-> datapaths.
+On Tue, 2016-02-23 at 15:45 +0100, Johannes Berg wrote:
+> Hi Dave,
 > 
-> For example we can imagine a rule that will match an IP address and
-> increment a field. If we install this rule in both hardware and
-> software we may increment the field twice. To date we have only
-> added support for the drop action so we have been able to ignore
-> these cases. But as we extend the action support we will hit this
-> example plus more such cases. Arguably these are not even corner
-> cases in many working systems these cases will be common.
+> Here's a (first, even? I didn't have much until before the
+> conference...) pull request for net-next.
 > 
-> To avoid forcing the driver to always abort (i.e. the above example)
-> this patch adds a flag to add a rule in software only. A careful
-> user can use this flag to build software and hardware datapaths
-> that work together. One example we have found particularly useful
-> is to use hardware resources to set the skb->mark on the skb when
-> the match may be expensive to run in software but a mark lookup
-> in a hash table is cheap. The idea here is hardware can do in one
-> lookup what the u32 classifier may need to traverse multiple lists
-> and hash tables to compute. The flag is only passed down on inserts
-> on deletion to avoid stale references in hardware we always try
-> to remove a rule if it exists.
-> 
-> Notice we do not add a hardware only case here. If you were to
-> add a hardware only case then you are stuck with the problem
-> of where to stick the software representation of that filter
-> rule. If its stuck on the same filter list as the software only and
-> software/hardware rules it then has to be walked over and ignored
-> in the classify path. The overhead is not huge but is measurable.
-> And with so much work being invested in speeding up rx/tx of
-> pkt processing this is unacceptable IMO. The other option is to
-> have a special hook just for hardware only resources. This is
-> implemented in the next patch.
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-[...]
+Hm, need to withdraw this, sorry about that. There appears to be some
+compilation issue that I'm not seeing and need to sort out.
 
->  
-> -static bool u32_should_offload(struct net_device *dev)
-> +static bool u32_should_offload(struct net_device *dev, u32 flags)
->  {
->  	if (!(dev->features & NETIF_F_HW_TC))
->  		return false;
->  
-> -	return dev->netdev_ops->ndo_setup_tc;
-> +	if (flags & TCA_U32_FLAGS_SOFTWARE)
-> +		return false;
-> +
-> +	if (!dev->netdev_ops->ndo_setup_tc)
-> +		return false;
-> +
-> +	return true;
->  }
-This function and flag should be a generic filter attribute - not just
-u32.
-
-Thanks,
-Amir
-
-[...]
+johannes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
