@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnxt_en: Fix zero padding of tx push data.
-Date: Tue, 23 Feb 2016 19:13:20 -0500 (EST)
-Message-ID: <20160223.191320.257252668425313975.davem@davemloft.net>
-References: <1456125026-16093-1-git-send-email-michael.chan@broadcom.com>
+Subject: Re: Invalid sk_policy[] access
+Date: Tue, 23 Feb 2016 19:23:33 -0500 (EST)
+Message-ID: <20160223.192333.2231140701919705299.davem@davemloft.net>
+References: <alpine.LRH.2.20.1602232250000.30129@math.ut.ee>
+	<20160223.175901.15624631458340642.davem@davemloft.net>
+	<20160223235946.GE4941@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42516 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750899AbcBXANg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 19:13:36 -0500
-In-Reply-To: <1456125026-16093-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mroos@linux.ee, sparclinux@vger.kernel.org, edumazet@google.com,
+	netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <20160223235946.GE4941@oracle.com>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Mon, 22 Feb 2016 02:10:26 -0500
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Tue, 23 Feb 2016 18:59:46 -0500
 
-> The arithmetic to zero pad the last 64-bit word in the push buffer is not
-> correct.
-> 
-> 1. It should be pdata + length to get to the end.
-> 2. 'pdata' is void pointer and passing it to PTR_ALIGN() will cast the
-> aligned pointer to void.  Pass 'end' which is u64 pointer to PTR_ALIGN()
-> instead so that the aligned pointer - 1 is the last 64-bit pointer to data.
-> 
-> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+> But then it's odd that the struct sizes (esp of things like 
+> request_sock, which are not config dependant) are not the same.
 
-Applied, thanks Michael.
+Every structure that has a lock, or something that contains a lock
+(such as a timer or whatever), has a layout which is config dependant.
+And I'm pretty sure request_sock falls into this category.
+
+Any number of debug and lock verification config options can control
+the layout of spinlock and other core datastructures.
+
