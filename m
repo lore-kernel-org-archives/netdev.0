@@ -1,62 +1,60 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/20] igb: constify e1000_phy_operations structure
-Date: Tue, 23 Feb 2016 20:26:16 -0800
-Message-ID: <1456287984-10459-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/20] igb: add conditions for I210 to generate periodic clock output
+Date: Tue, 23 Feb 2016 20:26:18 -0800
+Message-ID: <1456287984-10459-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1456287984-10459-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Julia Lawall <julia.lawall@lip6.fr>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Julia Lawall <Julia.Lawall@lip6.fr>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Roland Hii <roland.king.guan.hii@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:57891 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:51525 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757410AbcBXE0e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757428AbcBXE0e (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 23 Feb 2016 23:26:34 -0500
 In-Reply-To: <1456287984-10459-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia.lawall@lip6.fr>
+From: Roland Hii <roland.king.guan.hii@intel.com>
 
-This e1000_phy_operations structure is never modified, so declare it as
-const.  Other structures of this type are already const.
+In general case the maximum supported half cycle time of the synchronized
+output clock is 70msec. Slower half cycle time than 70msec can be
+programmed also as long as the output clock is synchronized to whole
+seconds, useful specifically for generating a 1Hz clock.
 
-Done with the help of Coccinelle.
+Permitted values for the clock half cycle time are: 125,000,000 decimal,
+250,000,000 decimal and 500,000,000 decimal (equals to 125msec, 250msec
+and 500msec respectively).
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+Before this patch, only the half cycle time of less than or equal to 70msec
+uses the I210 clock output function. This patch adds additional conditions
+when half cycle time is equal to 125msec or 250msec or 500msec to use
+clock output function.
+
+Under other conditions, interrupt driven target time output events method
+is still used to generate the desired clock output.
+
+Signed-off-by: Roland Hii <roland.king.guan.hii@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c | 2 +-
- drivers/net/ethernet/intel/igb/e1000_hw.h    | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_ptp.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index 9a1a9c7..a23aa67 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -2920,7 +2920,7 @@ static struct e1000_mac_operations e1000_mac_ops_82575 = {
- #endif
- };
- 
--static struct e1000_phy_operations e1000_phy_ops_82575 = {
-+static const struct e1000_phy_operations e1000_phy_ops_82575 = {
- 	.acquire              = igb_acquire_phy_82575,
- 	.get_cfg_done         = igb_get_cfg_done_82575,
- 	.release              = igb_release_phy_82575,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
-index f0c416e..2fb2213 100644
---- a/drivers/net/ethernet/intel/igb/e1000_hw.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
-@@ -372,7 +372,7 @@ struct e1000_thermal_sensor_data {
- struct e1000_info {
- 	s32 (*get_invariants)(struct e1000_hw *);
- 	struct e1000_mac_operations *mac_ops;
--	struct e1000_phy_operations *phy_ops;
-+	const struct e1000_phy_operations *phy_ops;
- 	struct e1000_nvm_operations *nvm_ops;
- };
- 
+diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
+index c44df87..22a8a29 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
++++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+@@ -525,7 +525,8 @@ static int igb_ptp_feature_enable_i210(struct ptp_clock_info *ptp,
+ 		ts.tv_nsec = rq->perout.period.nsec;
+ 		ns = timespec64_to_ns(&ts);
+ 		ns = ns >> 1;
+-		if (on && ns <= 70000000LL) {
++		if (on && ((ns <= 70000000LL) || (ns == 125000000LL) ||
++			   (ns == 250000000LL) || (ns == 500000000LL))) {
+ 			if (ns < 8LL)
+ 				return -EINVAL;
+ 			use_freq = 1;
 -- 
 2.5.0
