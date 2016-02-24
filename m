@@ -1,77 +1,36 @@
-From: Wakko Warner <wakko@animx.eu.org>
-Subject: Re: 4.4.1 skb_warn_bad_offload+0xc5/0x110
-Date: Tue, 23 Feb 2016 20:46:52 -0500
-Message-ID: <20160224014652.GA15207@animx.eu.org>
-References: <20160216000838.GA12968@animx.eu.org>
- <56CB0CF5.1060906@stressinduktion.org>
- <20160224010137.GA27602@animx.eu.org>
-Reply-To: Wakko Warner <wakko@animx.eu.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160224010137.GA27602@animx.eu.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH can-next v2 0/2] CAN: rcar: add fallback and r8a779[234] bindings
+Date: Wed, 24 Feb 2016 10:56:31 +0900
+Message-ID: <1456278993-9899-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+	Simon Horman <horms+renesas@verge.net.au>
+To: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please keep me in CC.
+Hi,
 
-Wakko Warner wrote:
-> 
-> Hannes Frederic Sowa wrote:
-> > [full-quote for netdev]
-> > 
-> > Hello,
-> > 
-> > On 16.02.2016 01:08, Wakko Warner wrote:
-> > >I've been seeing the following on some of my VMs ran under qemu.  The VMs do
-> > >not have internet connectivity.  This happened when some files were accessed
-> > >via NFS to another VM (NOTE: Both VMs throw these warnings.  Both VMs are
-> > >running the exact same kernel).  The host is also throwing these warnings
-> > >and is also 4.4.1, but not the same kernel build.
-> > >
-> > >The issue appears to have gone away if I issue the following on the guests
-> > >and on the host (except br0 instead of eth0 on host)
-> > >ethtool -K eth0 gso off gro off ufo off tso off
-> > >
-> > >On the host, br0 does not have any interfaces enslaved except for the
-> > >interface for the VMs and also does not have an IPv4 address assigned.
-> > >
-> 
-> > Can you try the following patch?
-> > 
-> > --- a/net/ipv4/ip_output.c
-> > +++ b/net/ipv4/ip_output.c
-> > @@ -1233,6 +1233,9 @@ ssize_t   ip_append_page(struct sock *sk,
-> > struct flowi4 *fl4, struct page *page,
-> >         if (!skb)
-> >                 return -EINVAL;
-> > 
-> > +       if (skb->ip_summed != CHECKSUM_PARTIAL)
-> > +               return -EINVAL;
-> > +
-> >         cork->length += size;
-> >         if ((size + skb->len > mtu) &&
-> >             (sk->sk_protocol == IPPROTO_UDP) &&
-> 
-> Still received the warning.  I saw it on the host and on one of the VMs.
-> The VM in this case was an nfs server.  The client did not receive the
-> warning.  I should mention that I'm using v3 and udp on the client for the
-> mount options.
-> 
-> I'm not sure if this change effected nfsd on one of the VMs, it isn't working
-> at all on it.
+this series adds fallback bindings for R-Car Gen 1 and Gen 2 SoCs and
+SoC-specific bindings for the r8a779[234] SoCs which are R-Car Gen 2 SoCs.
 
-I reverted back to the previous kernel for the VM only and the nfsd on the
-one VM started working.
+The aim is to provide consistent bindings for R-Car Gen 1 and Gen 2
+SoCs in a maner consistent with that progressively being used
+for drivers for other IP blocks used by Renesas SoCs.
 
-I should note that when I added this change, I only compiled the kernel and
-copied the bzImage file.  I did not recompile any modules nor copy the
-system.map over.
+For changes since v1 see individial patch changelogs.
+
+Based on linux-can-next/master
+
+Simon Horman (2):
+  CAN: rcar: add gen[12] fallback compatibility strings
+  CAN: rcar: add device tree support for r8a779[234]
+
+ Documentation/devicetree/bindings/net/can/rcar_can.txt | 11 ++++++++++-
+ drivers/net/can/rcar_can.c                             |  2 ++
+ 2 files changed, 12 insertions(+), 1 deletion(-)
 
 -- 
- Microsoft has beaten Volkswagen's world record.  Volkswagen only created 22
- million bugs.
+2.1.4
