@@ -1,54 +1,56 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH v2 1/5] introduce IFE action
-Date: Wed, 24 Feb 2016 07:39:25 -0500
-Message-ID: <56CDA47D.30907@mojatatu.com>
-References: <1456231760-2513-1-git-send-email-jhs@emojatatu.com>
- <1456231760-2513-2-git-send-email-jhs@emojatatu.com>
- <56CC5F73.9080201@iogearbox.net> <56CC6F3E.6000106@mojatatu.com>
- <56CC84F2.8030909@iogearbox.net> <20160224054557.GA12134@vergenet.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: net: netcp: regarding commit 899077: netcp: try to reduce type confusion in descriptors
+Date: Wed, 24 Feb 2016 13:47:02 +0100
+Message-ID: <9482605.o2kvoZbYXY@wuerfel>
+References: <56CB821E.7040809@ti.com> <2817046.Cys9vdONqu@wuerfel> <56CB9539.9020108@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
-	john.fastabend@gmail.com, dj@verizon.com
-To: Simon Horman <simon.horman@netronome.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
+To: Murali Karicheri <m-karicheri2@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:35046 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752370AbcBXMjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 07:39:48 -0500
-Received: by mail-io0-f180.google.com with SMTP id g203so35757600iof.2
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 04:39:46 -0800 (PST)
-In-Reply-To: <20160224054557.GA12134@vergenet.net>
+Received: from mout.kundenserver.de ([212.227.126.187]:64215 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751305AbcBXMrH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 07:47:07 -0500
+In-Reply-To: <56CB9539.9020108@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-24 12:46 AM, Simon Horman wrote:
-> On Tue, Feb 23, 2016 at 05:12:34PM +0100, Daniel Borkmann wrote:
+On Monday 22 February 2016 18:09:45 Murali Karicheri wrote:
+> On 02/22/2016 05:13 PM, Arnd Bergmann wrote:
+> > On Monday 22 February 2016 16:48:14 Murali Karicheri wrote:
+> >> Keystone can have SoC configured to be in big endian mode for peripherals and DSP.
+> > 
+> > I'm not entirely sure what this means
+> 
+> This means, ARM core can be using LE/BE and rest of the system can be configured through a pin
+> (to SOC) to operate in BE/LE. So need to take care of all mixed endian configuration 
+> properly. Refer to http://www.ti.com/lit/ds/symlink/tci6636k2h.pdf for more details if interested.
 
+Ah, that is unfortunate. For the moment, let's hope that nobody ever uses that pin,
+so we can support both big-endian and little-endian kernels without having
+to do any runtime detection of the board settings.
 
->  From my point of view the test should be weather the encapsulation might
-> reasonably be expected to be used outside of the context of tc. If so then
-> it makes sense to use a netdev to allow sharing of infrastructure between
-> different kernel components.
->
-> I suspect the answer to that question is no and thus IMHO a netdev would be
-> nice to have rather than compelling.
->
-> With regards to overhead of netdevs: I think that could be mitigated to
-> some extent by using LWT or some other metadata-based approach to allow a
-> single netdev to be use by multiple tc action instances.
+If anyone is misguided enough to flip that configuration pin to the opposite
+setting, then we will require extra DT properties to list for each device
+what endianess the hardware uses, and check that flag at runtime, which causes
+a little extra overhead.
 
-We actually have a use case where we offload this thing into
-an embedded NIC.
+If you are able to provide any feedback to the hardware designers, please
+ask them to never do configurable endianess again: it solves no actual
+problems but creates endless nightmares if anyone ever uses that.
 
-In any case it doesnt make much sense to use a netdev for reasons i
-specified. Just like it doesnt make sense when i want a policy which
-pushes or pops vlans or vxlans to use netdevs either.
-Yes it quacks like a duck(i.e has receive) and walks like a duck(has
-stats) but it looks like an ostrich;->
+> > And this is another one of the same sort.
+> > 
+> > Not my best patch ever obviously, but at least I understand where I went
+> > wrong now, and see that it was only me being sloppy in the conversion rather
+> > than a more fundamental misdesign.
+> > 
+> 
+> So do you plan to re-spin the patch again with the above change?
 
-cheers,
-jamal
+I probably won't bother at this point, but if you could send a patch to get back
+to my version with your fixes, I'll send an Ack.
+
+	Arnd
