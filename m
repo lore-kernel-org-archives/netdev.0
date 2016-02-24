@@ -1,67 +1,147 @@
-From: Wakko Warner <wakko@animx.eu.org>
-Subject: Re: 4.4.1 skb_warn_bad_offload+0xc5/0x110
-Date: Tue, 23 Feb 2016 20:01:38 -0500
-Message-ID: <20160224010137.GA27602@animx.eu.org>
-References: <20160216000838.GA12968@animx.eu.org>
- <56CB0CF5.1060906@stressinduktion.org>
-Reply-To: Wakko Warner <wakko@animx.eu.org>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: [PATCHv2] net: fix bridge multicast packet checksum
+	validation
+Date: Wed, 24 Feb 2016 02:13:01 +0100
+Message-ID: <1456276381-30370-1-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56CB0CF5.1060906@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Tom Herbert <tom@herbertland.com>, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	"Steinar H . Gunderson" <sgunderson@bigfoot.com>,
+	"David S . Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Please keep me in CC.
+We need to update the skb->csum after pulling the skb, otherwise
+an unnecessary checksum (re)computation can ocure for IGMP/MLD packets
+in the bridge code. Additionally this fixes the following splats for
+network devices / bridge ports with support for and enabled RX checksum
+offloading:
 
-Hannes Frederic Sowa wrote:
-> [full-quote for netdev]
-> 
-> Hello,
-> 
-> On 16.02.2016 01:08, Wakko Warner wrote:
-> >I've been seeing the following on some of my VMs ran under qemu.  The VMs do
-> >not have internet connectivity.  This happened when some files were accessed
-> >via NFS to another VM (NOTE: Both VMs throw these warnings.  Both VMs are
-> >running the exact same kernel).  The host is also throwing these warnings
-> >and is also 4.4.1, but not the same kernel build.
-> >
-> >The issue appears to have gone away if I issue the following on the guests
-> >and on the host (except br0 instead of eth0 on host)
-> >ethtool -K eth0 gso off gro off ufo off tso off
-> >
-> >On the host, br0 does not have any interfaces enslaved except for the
-> >interface for the VMs and also does not have an IPv4 address assigned.
-> >
+[...]
+[   43.986968] eth0: hw csum failure
+[   43.990344] CPU: 3 PID: 0 Comm: swapper/3 Not tainted 4.4.0 #2
+[   43.996193] Hardware name: BCM2709
+[   43.999647] [<800204e0>] (unwind_backtrace) from [<8001cf14>] (show_st=
+ack+0x10/0x14)
+[   44.007432] [<8001cf14>] (show_stack) from [<801ab614>] (dump_stack+0x=
+80/0x90)
+[   44.014695] [<801ab614>] (dump_stack) from [<802e4548>] (__skb_checksu=
+m_complete+0x6c/0xac)
+[   44.023090] [<802e4548>] (__skb_checksum_complete) from [<803a055c>] (=
+ipv6_mc_validate_checksum+0x104/0x178)
+[   44.032959] [<803a055c>] (ipv6_mc_validate_checksum) from [<802e111c>]=
+ (skb_checksum_trimmed+0x130/0x188)
+[   44.042565] [<802e111c>] (skb_checksum_trimmed) from [<803a06e8>] (ipv=
+6_mc_check_mld+0x118/0x338)
+[   44.051501] [<803a06e8>] (ipv6_mc_check_mld) from [<803b2c98>] (br_mul=
+ticast_rcv+0x5dc/0xd00)
+[   44.060077] [<803b2c98>] (br_multicast_rcv) from [<803aa510>] (br_hand=
+le_frame_finish+0xac/0x51c)
+[...]
 
-> Can you try the following patch?
-> 
-> --- a/net/ipv4/ip_output.c
-> +++ b/net/ipv4/ip_output.c
-> @@ -1233,6 +1233,9 @@ ssize_t   ip_append_page(struct sock *sk,
-> struct flowi4 *fl4, struct page *page,
->         if (!skb)
->                 return -EINVAL;
-> 
-> +       if (skb->ip_summed != CHECKSUM_PARTIAL)
-> +               return -EINVAL;
-> +
->         cork->length += size;
->         if ((size + skb->len > mtu) &&
->             (sk->sk_protocol == IPPROTO_UDP) &&
+Fixes: 9afd85c9e455 ("net: Export IGMP/MLD message validation code")
+Reported-by: =C3=81lvaro Fern=C3=A1ndez Rojas <noltari@gmail.com>
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+---
 
-Still received the warning.  I saw it on the host and on one of the VMs.
-The VM in this case was an nfs server.  The client did not receive the
-warning.  I should mention that I'm using v3 and udp on the client for the
-mount options.
+v2:
+* substituted the storing of the csum with an skb_push_rcsum() approach
+ (did some more reading about CHECKSUM_PARTIAL, and it seems to me that t=
+he
+  skb_push direction is actually the easier/"safer" one, so there should =
+be
+  no resetting to CHECKSUM_NONE necessary)
+* Rewording of commit message, this bug should not cause any packet loss
+  due to "automatic" checksum recomputations in software if skb->csum
+  is bogus (in the CHECKSUM_COMPLETE case)
 
-I'm not sure if this change effected nfsd on one of the VMs, it isn't working
-at all on it.
+ include/linux/skbuff.h |   17 +++++++++++++++++
+ net/core/skbuff.c      |   22 ++++++++++++++++++++--
+ 2 files changed, 37 insertions(+), 2 deletions(-)
 
--- 
- Microsoft has beaten Volkswagen's world record.  Volkswagen only created 22
- million bugs.
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 4ce9ff7..d66e007 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2784,6 +2784,23 @@ static inline int skb_linearize_cow(struct sk_buff=
+ *skb)
+ }
+=20
+ /**
++ *	skb_postpush_rcsum - update checksum for received skb after push
++ *	@skb: buffer to update
++ *	@start: start of data before push
++ *	@len: length of data pushed
++ *
++ *	After doing a push on a received packet, you need to call this to
++ *	update the CHECKSUM_COMPLETE checksum.
++ */
++
++static inline void skb_postpush_rcsum(struct sk_buff *skb,
++				      const void *start, unsigned int len)
++{
++	if (skb->ip_summed =3D=3D CHECKSUM_COMPLETE)
++		skb->csum =3D csum_add(skb->csum, csum_partial(start, len, 0));
++}
++
++/**
+  *	skb_postpull_rcsum - update checksum for received skb after pull
+  *	@skb: buffer to update
+  *	@start: start of data before pull
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 5bf88f5..8616d11 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2948,6 +2948,24 @@ int skb_append_pagefrags(struct sk_buff *skb, stru=
+ct page *page,
+ EXPORT_SYMBOL_GPL(skb_append_pagefrags);
+=20
+ /**
++ *	skb_push_rcsum - push skb and update receive checksum
++ *	@skb: buffer to update
++ *	@len: length of data pulled
++ *
++ *	This function performs an skb_push on the packet and updates
++ *	the CHECKSUM_COMPLETE checksum.  It should be used on
++ *	receive path processing instead of skb_push unless you know
++ *	that the checksum difference is zero (e.g., a valid IP header)
++ *	or you are setting ip_summed to CHECKSUM_NONE.
++ */
++static unsigned char *skb_push_rcsum(struct sk_buff *skb, unsigned len)
++{
++	skb_push(skb, len);
++	skb_postpush_rcsum(skb, skb->data, len);
++	return skb->data;
++}
++
++/**
+  *	skb_pull_rcsum - pull skb and update receive checksum
+  *	@skb: buffer to update
+  *	@len: length of data pulled
+@@ -4084,9 +4102,9 @@ struct sk_buff *skb_checksum_trimmed(struct sk_buff=
+ *skb,
+ 	if (!pskb_may_pull(skb_chk, offset))
+ 		goto err;
+=20
+-	__skb_pull(skb_chk, offset);
++	skb_pull_rcsum(skb_chk, offset);
+ 	ret =3D skb_chkf(skb_chk);
+-	__skb_push(skb_chk, offset);
++	skb_push_rcsum(skb_chk, offset);
+=20
+ 	if (ret)
+ 		goto err;
+--=20
+1.7.10.4
