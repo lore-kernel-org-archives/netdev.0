@@ -1,117 +1,104 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/1] tipc: fix crash during node removal
-Date: Wed, 24 Feb 2016 11:10:48 -0500
-Message-ID: <1456330248-12510-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
-	ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [patch net-next v2 1/9] Introduce devlink infrastructure
+Date: Wed, 24 Feb 2016 11:12:07 -0500
+Message-ID: <20160224161206.GA38500@redhat.com>
+References: <1456242694-29463-1-git-send-email-jiri@resnulli.us>
+ <1456242694-29463-2-git-send-email-jiri@resnulli.us>
+ <20160223211948.GT38500@redhat.com>
+ <20160224071958.GB2151@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	yishaih@mellanox.com, dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, eugenia@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
+	jeffrey.t.kirsher@intel.com, brouer@redhat.com, ivecera@redhat.com,
+	rami.rosen@intel.com, hannes@stressinduktion.org,
+	gospo@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp107.biz.mail.bf1.yahoo.com ([98.139.244.55]:38882 "EHLO
-	smtp107.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752585AbcBXQKz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 11:10:55 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:53682 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751750AbcBXQMI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2016 11:12:08 -0500
+Content-Disposition: inline
+In-Reply-To: <20160224071958.GB2151@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the TIPC module is unloaded, we have identified a race condition
-that allows a node reference counter to go to zero and the node instance
-being freed before the node timer is finished with accessing it. This
-leads to occasional crashes, especially in multi-namespace environments.
+On Wed, Feb 24, 2016 at 08:19:58AM +0100, Jiri Pirko wrote:
+> Tue, Feb 23, 2016 at 10:19:48PM CET, jarod@redhat.com wrote:
+> >On Tue, Feb 23, 2016 at 04:51:26PM +0100, Jiri Pirko wrote:
+> >> From: Jiri Pirko <jiri@mellanox.com>
+> >> 
+> >> Introduce devlink infrastructure for drivers to register and expose to
+> >> userspace via generic Netlink interface.
+> >> 
+> >> There are two basic objects defined:
+> >> devlink - one instance for every "parent device", for example switch ASIC
+> >> devlink port - one instance for every physical port of the device.
+> >> 
+> >> This initial portion implements basic get/dump of objects to userspace.
+> >> Also, port splitter and port type setting is implemented.
+> >...
+> >> +/**
+> >> + *	devlink_alloc - Allocate new devlink instance resources
+> >> + *
+> >> + *	@ops: ops
+> >> + *	@priv_size: size of user private data
+> >> + *
+> >> + *	Allocate new devlink instance resources, including devlink index
+> >> + *	and name.
+> >> + */
+> >> +struct devlink *devlink_alloc(const struct devlink_ops *ops, size_t priv_size)
+> >> +{
+> >> +	static atomic_t dev_counter = ATOMIC_INIT(0);
+> >> +	struct devlink *devlink;
+> >> +
+> >> +	devlink = kzalloc(sizeof(*devlink) + priv_size, GFP_KERNEL);
+> >> +	if (!devlink)
+> >> +		return NULL;
+> >> +	devlink->ops = ops;
+> >> +	devlink_net_set(devlink, &init_net);
+> >> +
+> >> +different_name:
+> >> +	devlink->index = atomic_inc_return(&dev_counter);
+> >> +	if (devlink->index < 0) {
+> >> +		/* wrapped */
+> >> +		atomic_dec(&dev_counter);
+> >> +		kfree(devlink);
+> >> +		return NULL;
+> >> +	}
+> >> +	/* atomic_inc_return makes it start at 1, make it start at 0 */
+> >> +	devlink->index--;
+> >> +
+> >> +	dev_set_name(&devlink->dev, DEVLINK_GENL_NAME "%d", devlink->index);
+> >> +	if (devlink_name_exists(devlink_net(devlink), devlink_name(devlink)))
+> >> +		goto different_name;
+> >> +
+> >> +	INIT_LIST_HEAD(&devlink->port_list);
+> >> +	device_initialize(&devlink->dev);
+> >> +	devlink->dev.class = &devlink_class;
+> >> +	devlink->dev.platform_data = devlink;
+> >> +	return devlink;
+> >> +}
+> >> +EXPORT_SYMBOL_GPL(devlink_alloc);
+> >
+> >The increment then decrement bit feels... Clunky and a little confusing.
+> >Why not just atomic_read(&dev_counter) before different_name:, then an
+> >atomic_inc_return(&dev_counter) under the if clause before the goto, and
+> >eliminate the devlink->index-- bit?
+> 
+> If I split it it would not be atomic op anymore. But the
+> devlink->index-- is just to adjust the start, nothing else.
+> This is copied from nl80211 code.
 
-The scenario goes as follows:
+Argh, I'm a moron. You need to increment dev_counter, can't just read it's
+current value. Still fugly, but okay, does actually serve a purpose this
+way.
 
-CPU0:(node_stop)                       CPU1:(node_timeout)  // ref == 2
-
-1:                                          if(!mod_timer())
-2: if (del_timer())
-3:   tipc_node_put()                                        // ref -> 1
-4: tipc_node_put()                                          // ref -> 0
-5:   kfree_rcu(node);
-6:                                               tipc_node_get(node)
-7:                                               // BOOM!
-
-We now clean up this functionality as follows:
-
-1) We remove the node pointer from the node lookup table before we
-   attempt deactivating the timer. This way, we reduce the risk that
-   tipc_node_find() may obtain a valid pointer to an instance marked
-   for deletion; a harmless but undesirable situation.
-
-2) We use del_timer_sync() instead of del_timer() to safely deactivate
-   the node timer without any risk that it might be reactivated by the
-   timeout handler. There is no risk of deadlock here, since the two
-   functions never touch the same spinlocks.
-
-3: We remove a pointless tipc_node_get() + tipc_node_put() from the
-   timeout handler.
-
-Reported-by: Zhijiang Hu <huzhijiang@gmail.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/node.c | 24 +++++++++++-------------
- 1 file changed, 11 insertions(+), 13 deletions(-)
-
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 792bbcb..cdb7950 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -225,9 +225,10 @@ static unsigned int tipc_hashfn(u32 addr)
- 
- static void tipc_node_kref_release(struct kref *kref)
- {
--	struct tipc_node *node = container_of(kref, struct tipc_node, kref);
-+	struct tipc_node *n = container_of(kref, struct tipc_node, kref);
- 
--	tipc_node_delete(node);
-+	kfree(n->bc_entry.link);
-+	kfree_rcu(n, rcu);
- }
- 
- static void tipc_node_put(struct tipc_node *node)
-@@ -395,21 +396,20 @@ static void tipc_node_delete(struct tipc_node *node)
- {
- 	list_del_rcu(&node->list);
- 	hlist_del_rcu(&node->hash);
--	kfree(node->bc_entry.link);
--	kfree_rcu(node, rcu);
-+	tipc_node_put(node);
-+
-+	del_timer_sync(&node->timer);
-+	tipc_node_put(node);
- }
- 
- void tipc_node_stop(struct net *net)
- {
--	struct tipc_net *tn = net_generic(net, tipc_net_id);
-+	struct tipc_net *tn = tipc_net(net);
- 	struct tipc_node *node, *t_node;
- 
- 	spin_lock_bh(&tn->node_list_lock);
--	list_for_each_entry_safe(node, t_node, &tn->node_list, list) {
--		if (del_timer(&node->timer))
--			tipc_node_put(node);
--		tipc_node_put(node);
--	}
-+	list_for_each_entry_safe(node, t_node, &tn->node_list, list)
-+		tipc_node_delete(node);
- 	spin_unlock_bh(&tn->node_list_lock);
- }
- 
-@@ -530,9 +530,7 @@ static void tipc_node_timeout(unsigned long data)
- 		if (rc & TIPC_LINK_DOWN_EVT)
- 			tipc_node_link_down(n, bearer_id, false);
- 	}
--	if (!mod_timer(&n->timer, jiffies + n->keepalive_intv))
--		tipc_node_get(n);
--	tipc_node_put(n);
-+	mod_timer(&n->timer, jiffies + n->keepalive_intv);
- }
- 
- /**
 -- 
-1.9.1
+Jarod Wilson
+jarod@redhat.com
