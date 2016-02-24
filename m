@@ -1,91 +1,86 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH 3/3] gianfar: fix endianness for hardware timestamp
-Date: Wed, 24 Feb 2016 19:14:27 +0900
-Message-ID: <56CD8283.3090605@miraclelinux.com>
-References: <1456123773-1016-1-git-send-email-yangbo.lu@nxp.com>
- <1456123773-1016-4-git-send-email-yangbo.lu@nxp.com>
- <20160222084801.GC2138@netboy>
- <HE1PR04MB0889C90C284F8C3B0F04DDA1F8A50@HE1PR04MB0889.eurprd04.prod.outlook.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: custom ioctl-based interface to control LED in networking (was Re:
+ [PATCHv2 09/10] rfkill: Userspace control for airplane mode)
+Date: Wed, 24 Feb 2016 11:46:11 +0100
+Message-ID: <20160224104611.GB31302@amd>
+References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
+ <1456159001-20307-10-git-send-email-jprvita@endlessm.com>
+ <20160223204525.GC16961@amd>
+ <1456260914.9910.34.camel@sipsolutions.net>
+ <20160223214501.GA22501@amd>
+ <1456304509.2050.15.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>
-To: Yangbo Lu <yangbo.lu@nxp.com>,
-	Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:34523 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756044AbcBXKOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 05:14:30 -0500
-Received: by mail-pf0-f175.google.com with SMTP id x65so10625603pfb.1
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 02:14:30 -0800 (PST)
-In-Reply-To: <HE1PR04MB0889C90C284F8C3B0F04DDA1F8A50@HE1PR04MB0889.eurprd04.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: =?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Darren Hart <dvhart@infradead.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux@endlessm.com,
+	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
+	<jprvita@endlessm.com>
+To: Johannes Berg <johannes@sipsolutions.net>, rpurdie@rpsys.net,
+	j.anaszewski@samsung.com, linux-leds@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1456304509.2050.15.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-
-Yangbo Lu wrote:
->> -----Original Message-----
->> From: Richard Cochran [mailto:richardcochran@gmail.com]
->> Sent: Monday, February 22, 2016 4:48 PM
->> To: Yangbo Lu
->> Cc: netdev@vger.kernel.org; Claudiu Manoil
->> Subject: Re: [PATCH 3/3] gianfar: fix endianness for hardware timestamp
->>
->> On Mon, Feb 22, 2016 at 02:49:33PM +0800, Yangbo Lu wrote:
->>> @@ -2708,6 +2708,7 @@ static void gfar_clean_tx_ring(struct
->> gfar_priv_tx_q *tx_queue)
->>>  			struct skb_shared_hwtstamps shhwtstamps;
->>>  			u64 *ns = (u64 *)(((uintptr_t)skb->data + 0x10) &
->>>  					  ~0x7UL);
->>> +			*ns = be64_to_cpu(*ns);
->>>
->>>  			memset(&shhwtstamps, 0, sizeof(shhwtstamps));
->>>  			shhwtstamps.hwtstamp = ns_to_ktime(*ns);
->>
->> There is no point in modifying the buffer data in place.
->>
->> Instead, do this:
->>
->> 			memset(&shhwtstamps, 0, sizeof(shhwtstamps));
->> 			shhwtstamps.hwtstamp = ns_to_ktime(be64_to_cpu(*ns));
->>
->> or this:
->>
->> 			u64 ns, *ptr = (u64 *)(((uintptr_t)skb->data + 0x10) &
->> 					       ~0x7UL);
->> 			ns = be64_to_cpu(*ptr);
->>
->> 			memset(&shhwtstamps, 0, sizeof(shhwtstamps));
->> 			shhwtstamps.hwtstamp = ns_to_ktime(ns);
->>
+On Wed 2016-02-24 10:01:49, Johannes Berg wrote:
+> On Tue, 2016-02-23 at 22:45 +0100, Pavel Machek wrote:
 > 
-> [Lu Yangbo-B47093] I will modify codes according your suggestion.
-> Thank you so much!
+> > Well "the airplane mode" is well defined. It means no intentional
+> > transmitting at radio frequencies.
+> > 
+> > The fact that you are allowed to use WIFI on certain flights does not
+> > change anything.
+> 
+> Nope, not that simple. Pick up any (contemporary) smartphone and watch
+> what happens with the airplane mode indicator (the little airplane
+> icon) when you enable wifi after enabling airplane mode. It stays
+> there.
+> 
+> Clearly the same logic could then apply to an actual LED (on a system
+> that's less size-constrained, e.g. a laptop or tablet.)
+> 
+> Thus, the display of "in airplane mode" *does* have policy, and clearly
+> there's precedent for not disabling the icon or LED when wifi is
+> enabled, but the kernel shouldn't really impose that. Now, the kernel
+> has a "safe" default which does what you thought was the "well defined"
+> airplane mode, but at the same time it's obviously not good enough.
 
-You may want to use PTR_ALIGN() and be64_to_cpup() here.
+If you want different trigger, implement different trigger. If you
+want to indicate all but wifi, implement all but wifi, and then
+userspace can select it by writing trigger name. If you want complete
+userspace control, fine, but we have standard interface and it is not
+ioctl.
 
---yoshfuji
+> > (Besides, finding all LEDs with given trigger is trivial
+> > operation. Besides... there should never be more than one).
+> 
+> That *might* actually work. But once a tool has detached the trigger
+> the information is gone; and tools would have to do that to control the
+> LED, making recovery from any kind of error difficult.
 
->  
->>> @@ -3037,6 +3038,7 @@ static void gfar_process_frame(struct net_device
->> *ndev, struct sk_buff *skb)
->>>  	if (priv->hwts_rx_en) {
->>>  		struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
->>>  		u64 *ns = (u64 *) skb->data;
->>> +		*ns = be64_to_cpu(*ns);
->>>
->>>  		memset(shhwtstamps, 0, sizeof(*shhwtstamps));
->>>  		shhwtstamps->hwtstamp = ns_to_ktime(*ns);
->>
->> Same here.
->>
->> Thanks,
->> Richard
+If you allow userspace to control the LED, well, then the LED may no
+longer display the "airplane mode" status. Debugging "wrong trigger is
+set" will certainly be less tricky than figuring out that "airplane
+mode trigger" is actually "no trigger" based on some obscure ioctls.
 
+> In any case, I've applied those patches already.
+
+Well, you can still revert them before it becomes ABI. David does
+not have to pull from you and Linus does not have to pull from
+Linus. Besides, the series really should have been Cc-ed to LED
+people, too.
+
+Having custom, ioctl-based interface to control the LED is just too
+ugly. (And I did not see it documented, which should be another reason
+not to merge it.)  
+
+									Pavel
 -- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
