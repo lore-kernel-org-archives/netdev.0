@@ -1,135 +1,122 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC 0/6] NCSI Support
-Date: Wed, 24 Feb 2016 13:59:50 +1100
-Message-ID: <20160224025950.GA27525@gwshan>
-References: <1447027806-4744-1-git-send-email-gwshan@linux.vnet.ibm.com>
-Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: [PATCHv3] net: fix bridge multicast packet checksum
+	validation
+Date: Wed, 24 Feb 2016 04:21:42 +0100
+Message-ID: <1456284102-32557-1-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, benh@kernel.crashing.org,
-	davem@davemloft.net, sergei.shtylyov@cogentembedded.com
-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp07.au.ibm.com ([202.81.31.140]:41171 "EHLO
-	e23smtp07.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751370AbcBXDB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2016 22:01:26 -0500
-Received: from localhost
-	by e23smtp07.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-	Wed, 24 Feb 2016 13:01:23 +1000
-Received: from d23relay10.au.ibm.com (d23relay10.au.ibm.com [9.190.26.77])
-	by d23dlp03.au.ibm.com (Postfix) with ESMTP id E24FF3578052
-	for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 14:01:20 +1100 (EST)
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
-	by d23relay10.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u1O31BVl459132
-	for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 14:01:20 +1100
-Received: from d23av04.au.ibm.com (localhost [127.0.0.1])
-	by d23av04.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u1O30lkf017929
-	for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 14:00:47 +1100
-Content-Disposition: inline
-In-Reply-To: <1447027806-4744-1-git-send-email-gwshan@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Tom Herbert <tom@herbertland.com>, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	"Steinar H . Gunderson" <sgunderson@bigfoot.com>,
+	"David S . Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 09, 2015 at 11:10:00AM +1100, Gavin Shan wrote:
+We need to update the skb->csum after pulling the skb, otherwise
+an unnecessary checksum (re)computation can ocure for IGMP/MLD packets
+in the bridge code. Additionally this fixes the following splats for
+network devices / bridge ports with support for and enabled RX checksum
+offloading:
 
-Hello David, did you get time to go through this series? It has been there
-for a while. Looking forward to your comments and feedback :-)
+[...]
+[   43.986968] eth0: hw csum failure
+[   43.990344] CPU: 3 PID: 0 Comm: swapper/3 Not tainted 4.4.0 #2
+[   43.996193] Hardware name: BCM2709
+[   43.999647] [<800204e0>] (unwind_backtrace) from [<8001cf14>] (show_st=
+ack+0x10/0x14)
+[   44.007432] [<8001cf14>] (show_stack) from [<801ab614>] (dump_stack+0x=
+80/0x90)
+[   44.014695] [<801ab614>] (dump_stack) from [<802e4548>] (__skb_checksu=
+m_complete+0x6c/0xac)
+[   44.023090] [<802e4548>] (__skb_checksum_complete) from [<803a055c>] (=
+ipv6_mc_validate_checksum+0x104/0x178)
+[   44.032959] [<803a055c>] (ipv6_mc_validate_checksum) from [<802e111c>]=
+ (skb_checksum_trimmed+0x130/0x188)
+[   44.042565] [<802e111c>] (skb_checksum_trimmed) from [<803a06e8>] (ipv=
+6_mc_check_mld+0x118/0x338)
+[   44.051501] [<803a06e8>] (ipv6_mc_check_mld) from [<803b2c98>] (br_mul=
+ticast_rcv+0x5dc/0xd00)
+[   44.060077] [<803b2c98>] (br_multicast_rcv) from [<803aa510>] (br_hand=
+le_frame_finish+0xac/0x51c)
+[...]
 
-Thanks,
-Gavin
+Fixes: 9afd85c9e455 ("net: Export IGMP/MLD message validation code")
+Reported-by: =C3=81lvaro Fern=C3=A1ndez Rojas <noltari@gmail.com>
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+---
 
->This series of patches are prototype requesting for comments. Please focus on
->the big picture at current stage, but any comments to improve the implementaion
->are welcomed.
->
->The following figure gives an example about how NCSI is deployed: The NCSI is
->specified by DSP0222, which can be downloaded from the following link here
->(http://www.dmtf.org/sites/default/files/standards/documents/DSP0222_1.0.0.pdf).
->
->   * The NC-SI (aka NCSI) is defined as the interface between a (Base) Management
->     Controller (BMC) and one or multiple Network Controlers (NC) on host side.
->     The interface is responsible for providing external network connectivity
->     for BMC.
->   * Each BMC can connect to multiple packages, up to 8. Each package can have
->     multiple channels, up to 32. Every package and channel are identified by
->     3-bits and 5-bits in NCSI packet. At one moment, one channel is active to
->     provide service.
->   * NCSI packet, encapsulated in ethernet frame, has 0x88F8 in the protocol
->     field. The destination MAC address should be 0xFF's while the source MAC
->     address can be arbitrary one.
->   * NCSI packets are classified to command, response, AEN (Asynchronous Event
->     Notification). Commands are sent from BMC to host for configuration and
->     information retrival. Responses, corresponding to commands, are sent from
->     host to BMC for confirmation and requested information. One command should
->     have one and only one response. AEN is sent from host to BMC for notification
->     (e.g. link down on active channel) so that BMC can take appropriate action.
->
->   +------------------+        +----------------------------------------------+
->   |                  |        |                     Host                     |
->   |        BMC       |        |                                              |
->   |                  |        | +-------------------+  +-------------------+ |
->   |    +---------+   |        | |     Package-A     |  |     Package-B     | |
->   |    |         |   |        | +---------+---------+  +-------------------+ |
->   |    |   NIC   |   |        | | Channel | Channel |  | Channel | Channel | |
->   +----+----+----+---+        +-+---------+---------+--+---------+---------+-+
->             |                             |                      |
->             |                             |                      |
->             +-----------------------------+----------------------+           
->
->The design for the patchset is highlighted as below:
->
->   * All the code included in this patchset runs on BMC side. The major target
->     of this patchset is to hide the NCSI details to BMC's NIC driver. The patchset
->     abstracts a NCSI device (struct ncsi_dev), which is created when the driver
->     is loaded and the BMC NIC (struct net_device) instance is created. When the
->     NIC is opened (ndo_open()), all available packages and channels are probed
->     through NCSI packets. At the same time, one active channel is selected to
->     provide service. It means the NIC driver can receive/transmit packets before
->     ndo_open().
->   * When NCSI device (struct ncsi_dev) is created when NIC driver is loaded,
->     NCSI protocl handler is added by dev_add_pack() so that the ingress NCSI
->     packets can be routed to the stack for further processing. On the other
->     hand, dev_queue_xmit_sk() is called to transmit skb that has been bound
->     with the BMC's NIC.
->   * The NCSI device is closed when the BMC's NIC is closed.
->   * NCSI stack should be configurable through netlink, but it's not implemented
->     in this patchset. It's something TBD.
->   * The first NIC driver that is aware of NCSI: drivers/net/ethernet/faraday/ftgmac100.c
->
->Gavin Shan (6):
->  net/ncsi: Resource management
->  net/ncsi: Packet handler
->  net/ncsi: Manage NCSI device
->  net/faraday: Replace use_nc_si with use_ncsi
->  net/faraday: Enable NCSI interface
->  net/faraday: Enable offload checksum according to device-tree
->
-> drivers/net/ethernet/faraday/ftgmac100.c |  108 ++-
-> include/net/ncsi.h                       |   57 ++
-> include/uapi/linux/if_ether.h            |    1 +
-> net/Kconfig                              |    1 +
-> net/Makefile                             |    1 +
-> net/ncsi/Kconfig                         |   10 +
-> net/ncsi/Makefile                        |    5 +
-> net/ncsi/internal.h                      |  313 ++++++++
-> net/ncsi/ncsi-aen.c                      |  197 +++++
-> net/ncsi/ncsi-cmd.c                      |  372 ++++++++++
-> net/ncsi/ncsi-manage.c                   |  899 +++++++++++++++++++++++
-> net/ncsi/ncsi-pkt.h                      |  391 ++++++++++
-> net/ncsi/ncsi-rsp.c                      | 1166 ++++++++++++++++++++++++++++++
-> 13 files changed, 3490 insertions(+), 31 deletions(-)
-> create mode 100644 include/net/ncsi.h
-> create mode 100644 net/ncsi/Kconfig
-> create mode 100644 net/ncsi/Makefile
-> create mode 100644 net/ncsi/internal.h
-> create mode 100644 net/ncsi/ncsi-aen.c
-> create mode 100644 net/ncsi/ncsi-cmd.c
-> create mode 100644 net/ncsi/ncsi-manage.c
-> create mode 100644 net/ncsi/ncsi-pkt.h
-> create mode 100644 net/ncsi/ncsi-rsp.c
->
->-- 
->2.1.0
->
+v3:
+* Missed that an skb_postpush_rcsum() was just added for v4.5, using that
+  one instead
+
+v2:
+* substituted the storing of the csum with an skb_push_rcsum() approach
+ (did some more reading about CHECKSUM_PARTIAL, and it seems to me that t=
+he
+  skb_push direction is actually the easier/"safer" one, so there should =
+be
+  no resetting to CHECKSUM_NONE necessary)
+* Rewording of commit message, this bug should not cause any packet loss
+  due to "automatic" checksum recomputations in software if skb->csum
+  is bogus (in the CHECKSUM_COMPLETE case)
+
+
+ net/core/skbuff.c |   22 ++++++++++++++++++++--
+ 1 file changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 5bf88f5..8616d11 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2948,6 +2948,24 @@ int skb_append_pagefrags(struct sk_buff *skb, stru=
+ct page *page,
+ EXPORT_SYMBOL_GPL(skb_append_pagefrags);
+=20
+ /**
++ *	skb_push_rcsum - push skb and update receive checksum
++ *	@skb: buffer to update
++ *	@len: length of data pulled
++ *
++ *	This function performs an skb_push on the packet and updates
++ *	the CHECKSUM_COMPLETE checksum.  It should be used on
++ *	receive path processing instead of skb_push unless you know
++ *	that the checksum difference is zero (e.g., a valid IP header)
++ *	or you are setting ip_summed to CHECKSUM_NONE.
++ */
++static unsigned char *skb_push_rcsum(struct sk_buff *skb, unsigned len)
++{
++	skb_push(skb, len);
++	skb_postpush_rcsum(skb, skb->data, len);
++	return skb->data;
++}
++
++/**
+  *	skb_pull_rcsum - pull skb and update receive checksum
+  *	@skb: buffer to update
+  *	@len: length of data pulled
+@@ -4084,9 +4102,9 @@ struct sk_buff *skb_checksum_trimmed(struct sk_buff=
+ *skb,
+ 	if (!pskb_may_pull(skb_chk, offset))
+ 		goto err;
+=20
+-	__skb_pull(skb_chk, offset);
++	skb_pull_rcsum(skb_chk, offset);
+ 	ret =3D skb_chkf(skb_chk);
+-	__skb_push(skb_chk, offset);
++	skb_push_rcsum(skb_chk, offset);
+=20
+ 	if (ret)
+ 		goto err;
+--=20
+1.7.10.4
