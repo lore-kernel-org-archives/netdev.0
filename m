@@ -1,106 +1,67 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [net-next PATCH 3/4] net: sched: cls_u32 add bit to specify
- software only rules
-Date: Wed, 24 Feb 2016 09:40:57 +0100
-Message-ID: <20160224084057.GC2151@nanopsycho.orion>
-References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810>
- <20160223190321.5970.58924.stgit@john-Precision-Tower-5810>
- <20160224080440.GA26500@office.Home>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next 2/5] bridge: notify ensabled devices of
+ headroom changes
+Date: Wed, 24 Feb 2016 09:43:54 +0100
+Message-ID: <1456303434.5436.10.camel@redhat.com>
+References: <cover.1456163137.git.pabeni@redhat.com>
+	 <060a30aa8e6d2c3eda16dd893b348851cd4bd195.1456163137.git.pabeni@redhat.com>
+	 <CAOrHB_Cf6Cnp-r4eMChq=9UeUq_Rg7QG41MiP=HmZFAFaCrUAA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>, daniel@iogearbox.net,
-	netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-	davem@davemloft.net, jhs@mojatatu.com
-To: "Amir Vadai\"" <amir@vadai.me>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Flavio Leitner <fbl@sysclose.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: pravin shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:33829 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758195AbcBXIk7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 03:40:59 -0500
-Received: by mail-wm0-f44.google.com with SMTP id b205so24689041wmb.1
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 00:40:59 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20160224080440.GA26500@office.Home>
+Received: from mx1.redhat.com ([209.132.183.28]:44569 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754505AbcBXIn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2016 03:43:59 -0500
+In-Reply-To: <CAOrHB_Cf6Cnp-r4eMChq=9UeUq_Rg7QG41MiP=HmZFAFaCrUAA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Feb 24, 2016 at 09:04:40AM CET, amir@vadai.me wrote:
->On Tue, Feb 23, 2016 at 11:03:21AM -0800, John Fastabend wrote:
->> In the initial implementation the only way to stop a rule from being
->> inserted into the hardware table was via the device feature flag.
->> However this doesn't work well when working on an end host system
->> where packets are expect to hit both the hardware and software
->> datapaths.
->> 
->> For example we can imagine a rule that will match an IP address and
->> increment a field. If we install this rule in both hardware and
->> software we may increment the field twice. To date we have only
->> added support for the drop action so we have been able to ignore
->> these cases. But as we extend the action support we will hit this
->> example plus more such cases. Arguably these are not even corner
->> cases in many working systems these cases will be common.
->> 
->> To avoid forcing the driver to always abort (i.e. the above example)
->> this patch adds a flag to add a rule in software only. A careful
->> user can use this flag to build software and hardware datapaths
->> that work together. One example we have found particularly useful
->> is to use hardware resources to set the skb->mark on the skb when
->> the match may be expensive to run in software but a mark lookup
->> in a hash table is cheap. The idea here is hardware can do in one
->> lookup what the u32 classifier may need to traverse multiple lists
->> and hash tables to compute. The flag is only passed down on inserts
->> on deletion to avoid stale references in hardware we always try
->> to remove a rule if it exists.
->> 
->> Notice we do not add a hardware only case here. If you were to
->> add a hardware only case then you are stuck with the problem
->> of where to stick the software representation of that filter
->> rule. If its stuck on the same filter list as the software only and
->> software/hardware rules it then has to be walked over and ignored
->> in the classify path. The overhead is not huge but is measurable.
->> And with so much work being invested in speeding up rx/tx of
->> pkt processing this is unacceptable IMO. The other option is to
->> have a special hook just for hardware only resources. This is
->> implemented in the next patch.
->> 
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->
->[...]
->
->>  
->> -static bool u32_should_offload(struct net_device *dev)
->> +static bool u32_should_offload(struct net_device *dev, u32 flags)
->>  {
->>  	if (!(dev->features & NETIF_F_HW_TC))
->>  		return false;
->>  
->> -	return dev->netdev_ops->ndo_setup_tc;
->> +	if (flags & TCA_U32_FLAGS_SOFTWARE)
->> +		return false;
->> +
->> +	if (!dev->netdev_ops->ndo_setup_tc)
->> +		return false;
->> +
->> +	return true;
->>  }
->This function and flag should be a generic filter attribute - not just
->u32.
+On Tue, 2016-02-23 at 11:20 -0800, pravin shelar wrote:
+> On Tue, Feb 23, 2016 at 4:53 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> > On bridge needed_headroom changes, the enslaved devices are
+> > notified via the ndo_set_rx_headroom method
+> >
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> > ---
+> >  net/bridge/br_if.c | 36 ++++++++++++++++++++++++++++++++++--
+> >  1 file changed, 34 insertions(+), 2 deletions(-)
+> >
+> > diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> > index c367b3e..f42f1da 100644
+> > --- a/net/bridge/br_if.c
+> > +++ b/net/bridge/br_if.c
+> > @@ -223,6 +223,31 @@ static void destroy_nbp_rcu(struct rcu_head *head)
+> >         destroy_nbp(p);
+> >  }
+> >
+> > +static unsigned get_max_headroom(struct net_bridge *br)
+> > +{
+> > +       unsigned max_headroom = 0;
+> > +       struct net_bridge_port *p;
+> > +
+> > +       list_for_each_entry(p, &br->port_list, list) {
+> > +               unsigned dev_headroom = netdev_get_fwd_headroom(p->dev);
+> > +
+> 
+> IFF_PHONY_HEADROOM is only set for veth and ovs-internal-device, so we
+> can not get headroom for tunnel devices. I guess it worked in your
+> tests due to the bug in netdev_get_fwd_headroom().
 
-I agree, this should be generic.
+This code should be actually correct; the idea is to ignore the devices
+with phony headroom when computing the maximum headroom; all other
+devices should be taken in account.
 
-Regarding flags attr, we have the same situation as with other common
-attrs:
-TCA_U32_POLICE
-TCA_FLOW_POLICE
-TCA_CGROUP_POLICE
-TCA_BPF_POLICE
+The current, bugged, netdev_get_fwd_headroom() implementation is
+actually the culprit for the confusion.
 
-TCA_U32_ACT
-TCA_FLOW_ACT
-TCA_CGROUP_ACT
-TCA_BPF_ACT
-TCA_FLOWER_ACT
-
-I guess we have no other choice then to have
-TCA_U32_FLAGS
-TCA_FLOWER_FLAGS etc :(
+Paolo
