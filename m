@@ -1,78 +1,108 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 13/15] i40e/i40evf: use logical operators, not bitwise
-Date: Tue, 23 Feb 2016 20:55:02 -0800
-Message-ID: <1456289702.3060.37.camel@intel.com>
-References: <1455766737-11911-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1455766737-11911-14-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <CAKgT0Ud+SN85Pq0NokoWjA+Twr=SQDnaHvExrho1RbMUX55ttg@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [net-next RFC 0/4] SO_BINDTOSUBNET
+Date: Tue, 23 Feb 2016 21:06:13 -0800
+Message-ID: <CALx6S36_ii9hOj_Jn+xKxjoZQfbb-TfdQysH-N+Zic-bMHnHPg@mail.gmail.com>
+References: <1456241265-5766-1-git-send-email-gilberto.bertin@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-CCxA4PGohhJcTGrjncW3"
-Cc: David Miller <davem@davemloft.net>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Neil Horman <nhorman@redhat.com>, sassmann@redhat.com,
-	John Greene <jogreene@redhat.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-	David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Gilberto Bertin <gilberto.bertin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:50498 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757436AbcBXEzD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2016 23:55:03 -0500
-In-Reply-To: <CAKgT0Ud+SN85Pq0NokoWjA+Twr=SQDnaHvExrho1RbMUX55ttg@mail.gmail.com>
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:35853 "EHLO
+	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751986AbcBXFGO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 00:06:14 -0500
+Received: by mail-oi0-f44.google.com with SMTP id w5so6568781oie.3
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 21:06:14 -0800 (PST)
+In-Reply-To: <1456241265-5766-1-git-send-email-gilberto.bertin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Feb 23, 2016 at 7:27 AM, Gilberto Bertin
+<gilberto.bertin@gmail.com> wrote:
+> This series introduces support for the SO_BINDTOSUBNET socket option, which
+> allows a listener socket to bind to a subnet instead of * or a single address.
+>
+> Motivation:
+> consider a set of servers, each one with thousands and thousands of IP
+> addresses. Since assigning /32 or /128 IP individual addresses would be
+> inefficient, one solution can be assigning subnets using local routes
+> (with 'ip route add local').
+>
+Hi Gilberto,
 
---=-CCxA4PGohhJcTGrjncW3
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The concept is certainly relevant, but allowing binds by subnet seems
+arbitrary. I can imagine that someone might want to bind to a list of
+addresses, list of interfaces, list of subnets, or complex
+combinations like a subnet on one interface, and list of addresses on
+another. So I wonder if this is another use case for a BPF program on
+a listener socket, like a program for a scoring function. Maybe this
+could even combined with  BPF SO_REUSERPORT somehow?
 
-On Mon, 2016-02-22 at 08:33 -0800, Alexander Duyck wrote:
-> On Wed, Feb 17, 2016 at 7:38 PM, Jeff Kirsher
-> <jeffrey.t.kirsher@intel.com> wrote:
-> > From: Mitch Williams <mitch.a.williams@intel.com>
-> >
-> > Mr. Spock would certainly raise an eyebrow to see us using bitwise
-> > operators, when we should clearly be relying on logic. Fascinating.
-> >
-> > Change-ID: Ie338010c016f93e9faa2002c07c90b15134b7477
-> > Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-> > Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->=20
-> NAK
->=20
-> The bitwise operator lets us at least make a pass through all rings.
-> With this new code you stop as soon as one ring has not completed
-> cleaning.
+Tom
 
-I was hoping to hear from Mitch, but since I have not. =C2=A0I will send ou=
-t
-a revert of this patch in my next i40e/i40evf update in the next day or
-so.
---=-CCxA4PGohhJcTGrjncW3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABCgAGBQJWzTemAAoJEOVv75VaS+3OTmkP/iidHDyFt5H9eV9MaxnPis40
-vArI8qmtw/+pFYjte0104HfzR41mHu336oCIk9BX1Yu10Wmz51JPmLzisTyyYS3H
-vkDSxwyEMRWjF7nlIHr7J2WmKcohfTbsXil059Wk7Gwn2CxTH/qZPTzbNBdcm7Q1
-fCkAokD44vZ+dGLa/xLXWIdA08ROz+YhnbRGJg0nKqUMx3DCnsicW0zKT4+MBpaP
-CgJYh8MHxTQnzMB7NSXi5YeH2GfcuR3eHdvnJ+Iut1gckQ/ueWhyFiRt4Za7iVMw
-LzIuZ4dmbHi2VIrVDWpLRQl+LBycOce9UhTtEtb61VGw2EDadX0+QoORZwTFfEdk
-mrdJpvVG0qjYbENKkkTCN0A3bd9HRGi4v3e2gSmQcIXt5br8Gcep+pxiY7Gb/RvI
-X8r4lS+66L8SsD9i/cuvFC8YggOvo6xe9SQ23Zv0iwuof4cKEy1SEPxr/qBQPqDA
-gL15q8UlNarGjYv4/eoqtoOtwfGEEWznTgUkUUCCNvF/2FgqpjdudyGjM2ZFQpy1
-yeoZkJ3e4OGZwO3LI3LD40UwpmqYrrnzNGsFF4iYdOD/eSTBCeIHI/ddEg9GxoI1
-75YrhU+28/ap+tFABqoWEURFglQJowc8MJBMzJrRZQsYt/OYG145P0NXTFQbDm++
-dHJIWaJTTHjM3r9pgw5u
-=FMG6
------END PGP SIGNATURE-----
-
---=-CCxA4PGohhJcTGrjncW3--
+> This allows a listener to listen and terminate connections going to any
+> of the IP addresses of these subnets without explicitly configuring all
+> of them. This is very efficient.
+>
+> Unfortunately there may be the need to use different subnets for
+> different purposes.
+> One can imagine port 80 being served by one HTTP server for some IP
+> subnet, while another server used for another subnet.
+> Right now Linux does not allow this.
+> It is either possible to bind to *, indicating ALL traffic going to
+> given port, or to individual IP addresses.
+> The first only allows to accept connections from all the subnets.
+> The latter does not scale well with lots of IP addresses.
+>
+> Using bindtosubnet would solve this problem: just by adding a local
+> route rule and setting the SO_BINDTOSUBNET option for a socket it would
+> be possible to easily partition traffic by subnets.
+>
+> API:
+> the subnet is specified (as argument of the setsockopt syscall) by the
+> address of the network, and the prefix length of the netmask.
+>
+> IPv4:
+>         struct ipv4_subnet {
+>                 __be32 net;
+>                 u_char plen;
+>         };
+>
+> and IPv6:
+>         struct ipv6_subnet {
+>                 struct in6_addr net;
+>                 u_char plen;
+>         };
+>
+> Bind conflicts:
+> two sockets with the bindtosubnet option enabled generate a bind
+> conflict if their network addresses masked with the shortest of their
+> prefix are equal.
+> The bindtosubnet option can be combined with soreuseport so that two
+> listener can bind on the same subnet.
+>
+> Any questions/feedback appreciated.
+>
+> Thanks,
+>   Gilberto
+>
+> Gilberto Bertin (4):
+>   bindtosubnet: infrastructure
+>   bindtosubnet: TCP/IPv4 implementation
+>   bindtosubnet: TCP/IPv6 implementation
+>   bindtosubnet: UPD implementation
+>
+>  include/net/sock.h                |  20 +++++++
+>  include/uapi/asm-generic/socket.h |   1 +
+>  net/core/sock.c                   | 111 ++++++++++++++++++++++++++++++++++++++
+>  net/ipv4/inet_connection_sock.c   |  20 ++++++-
+>  net/ipv4/inet_hashtables.c        |   9 ++++
+>  net/ipv4/udp.c                    |  35 ++++++++++++
+>  net/ipv6/inet6_connection_sock.c  |  17 +++++-
+>  net/ipv6/inet6_hashtables.c       |   6 +++
+>  8 files changed, 217 insertions(+), 2 deletions(-)
+>
+> --
+> 2.7.1
+>
