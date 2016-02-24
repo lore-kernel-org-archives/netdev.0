@@ -1,24 +1,26 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v3 0/2] net: l3mdev: Fix source address for unnumbered deployments
-Date: Wed, 24 Feb 2016 11:47:01 -0800
-Message-ID: <1456343223-17622-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 1/2] net: l3mdev: address selection should only consider devices in L3 domain
+Date: Wed, 24 Feb 2016 11:47:02 -0800
+Message-ID: <1456343223-17622-2-git-send-email-dsa@cumulusnetworks.com>
+References: <1456343223-17622-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+	David Lamparter <david@opensourcerouting.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:36728 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751305AbcBXTrM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 14:47:12 -0500
-Received: by mail-pf0-f181.google.com with SMTP id e127so18351695pfe.3
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 11:47:12 -0800 (PST)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34326 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751305AbcBXTrO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 14:47:14 -0500
+Received: by mail-pa0-f51.google.com with SMTP id fy10so17959618pac.1
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 11:47:13 -0800 (PST)
+In-Reply-To: <1456343223-17622-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 David Lamparter noted a use case where the source address selection fails
-to pick an address from a VRF interface - unnumbered interfaces. The use
-case has the VRF device as the VRF local loopback with addresses and
-interfaces enslaved without an address themselves. e.g,
+to pick an address from a VRF interface - unnumbered interfaces.
 
+Relevant commands from his script:
     ip addr add 9.9.9.9/32 dev lo
     ip link set lo up
 
@@ -36,17 +38,18 @@ interfaces enslaved without an address themselves. e.g,
     ip route add 10.2.2.2/32 dev dummy2 table 101
     ip neigh add 10.2.2.2 dev dummy2 lladdr 02:00:00:00:00:02
 
-ping to the 10.2.2.2 through the L3 domain:
+    tcpdump -ni dummy2 &
 
+And using ping instead of his socat example:
     $ ping -I vrf0 -c1 10.2.2.2
     ping: Warning: source address might be selected on device other than vrf0.
     PING 10.2.2.2 (10.2.2.2) from 9.9.9.9 vrf0: 56(84) bytes of data.
 
-picks up the wrong address -- the one from 'lo' not vrf0. And from tcpdump:
+>From tcpdump:
     12:57:29.449128 IP 9.9.9.9 > 10.2.2.2: ICMP echo request, id 2491, seq 1, length 64
 
-This patch series changes address selection to only consider devices in
-the same L3 domain and to use the VRF device as the L3 domains loopback.
+Note the source address is from lo and is not a VRF local address. With
+this patch:
 
     $ ping -I vrf0 -c1 10.2.2.2
     PING 10.2.2.2 (10.2.2.2) from 10.0.0.3 vrf0: 56(84) bytes of data.
@@ -56,17 +59,103 @@ the same L3 domain and to use the VRF device as the L3 domains loopback.
 
 Now the source address comes from vrf0.
 
-David Ahern (1):
-  net: l3mdev: address selection should only consider devices in L3
-    domain
+The ipv4 function for selecting source address takes a const argument.
+Removing the const requires touching a lot of places, so instead
+l3mdev_master_ifindex_rcu is changed to take a const argument and then
+do the typecast to non-const as required by netdev_master_upper_dev_get_rcu.
+This is similar to what l3mdev_fib_table_rcu does.
 
-David Lamparter (1):
-  net: l3mdev: prefer VRF master for source address selection
+IPv6 for unnumbered interfaces appears to be selecting the addresses
+properly.
 
+Cc: David Lamparter <david@opensourcerouting.org>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
  include/net/l3mdev.h |  4 ++--
- net/ipv4/devinet.c   | 22 ++++++++++++++++++++++
+ net/ipv4/devinet.c   |  5 +++++
  net/l3mdev/l3mdev.c  | 11 +++++++++--
- 3 files changed, 33 insertions(+), 4 deletions(-)
+ 3 files changed, 16 insertions(+), 4 deletions(-)
 
+diff --git a/include/net/l3mdev.h b/include/net/l3mdev.h
+index 5567d46b3cff..c43a9c73de5e 100644
+--- a/include/net/l3mdev.h
++++ b/include/net/l3mdev.h
+@@ -39,7 +39,7 @@ struct l3mdev_ops {
+ 
+ #ifdef CONFIG_NET_L3_MASTER_DEV
+ 
+-int l3mdev_master_ifindex_rcu(struct net_device *dev);
++int l3mdev_master_ifindex_rcu(const struct net_device *dev);
+ static inline int l3mdev_master_ifindex(struct net_device *dev)
+ {
+ 	int ifindex;
+@@ -179,7 +179,7 @@ struct dst_entry *l3mdev_rt6_dst_by_oif(struct net *net,
+ 
+ #else
+ 
+-static inline int l3mdev_master_ifindex_rcu(struct net_device *dev)
++static inline int l3mdev_master_ifindex_rcu(const struct net_device *dev)
+ {
+ 	return 0;
+ }
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 29b8d3a7b19b..18d510fa7ee2 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1194,6 +1194,7 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 	__be32 addr = 0;
+ 	struct in_device *in_dev;
+ 	struct net *net = dev_net(dev);
++	int master_idx;
+ 
+ 	rcu_read_lock();
+ 	in_dev = __in_dev_get_rcu(dev);
+@@ -1214,12 +1215,16 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 	if (addr)
+ 		goto out_unlock;
+ no_in_dev:
++	master_idx = l3mdev_master_ifindex_rcu(dev);
+ 
+ 	/* Not loopback addresses on loopback should be preferred
+ 	   in this case. It is important that lo is the first interface
+ 	   in dev_base list.
+ 	 */
+ 	for_each_netdev_rcu(net, dev) {
++		if (l3mdev_master_ifindex_rcu(dev) != master_idx)
++			continue;
++
+ 		in_dev = __in_dev_get_rcu(dev);
+ 		if (!in_dev)
+ 			continue;
+diff --git a/net/l3mdev/l3mdev.c b/net/l3mdev/l3mdev.c
+index 8e5ead366e7f..e925037fa0df 100644
+--- a/net/l3mdev/l3mdev.c
++++ b/net/l3mdev/l3mdev.c
+@@ -17,7 +17,7 @@
+  *	@dev: targeted interface
+  */
+ 
+-int l3mdev_master_ifindex_rcu(struct net_device *dev)
++int l3mdev_master_ifindex_rcu(const struct net_device *dev)
+ {
+ 	int ifindex = 0;
+ 
+@@ -28,8 +28,15 @@ int l3mdev_master_ifindex_rcu(struct net_device *dev)
+ 		ifindex = dev->ifindex;
+ 	} else if (netif_is_l3_slave(dev)) {
+ 		struct net_device *master;
++		struct net_device *_dev = (struct net_device *)dev;
+ 
+-		master = netdev_master_upper_dev_get_rcu(dev);
++		/* netdev_master_upper_dev_get_rcu calls
++		 * list_first_or_null_rcu to walk the upper dev list.
++		 * list_first_or_null_rcu does not handle a const arg. We aren't
++		 * making changes, just want the master device from that list so
++		 * typecast to remove the const
++		 */
++		master = netdev_master_upper_dev_get_rcu(_dev);
+ 		if (master)
+ 			ifindex = master->ifindex;
+ 	}
 -- 
 2.1.4
