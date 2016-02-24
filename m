@@ -1,140 +1,74 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 6/7] net/mlx5e: Add rx/tx bytes software counters
-Date: Wed, 24 Feb 2016 13:18:52 +0200
-Message-ID: <1456312733-22091-7-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net 0/7] Hi Dave,
+Date: Wed, 24 Feb 2016 13:28:55 +0200
+Message-ID: <CALzJLG9+-GOPfLGoTBzCVO0ZUqRwJr7rbvL_bvQ3xJ47FOGdOg@mail.gmail.com>
 References: <1456312733-22091-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
 	Tariq Toukan <tariqt@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+	Gal Pressman <galp@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:44439 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754348AbcBXLUN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2016 06:20:13 -0500
+Received: from mail-yw0-f196.google.com ([209.85.161.196]:35265 "EHLO
+	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752085AbcBXL24 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 06:28:56 -0500
+Received: by mail-yw0-f196.google.com with SMTP id u200so566095ywf.2
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 03:28:56 -0800 (PST)
 In-Reply-To: <1456312733-22091-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gal Pressman <galp@mellanox.com>
+Dave,
 
-Sum up rx/tx bytes in software as we do for rx/tx packets, to be reported
-in upcoming statistics fix.
+I messed up the cover-letter title :)
 
-Signed-off-by: Gal Pressman <galp@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en.h    |    8 ++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c |    1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c |    9 ++++++---
- 3 files changed, 13 insertions(+), 5 deletions(-)
+it should be "Mellanox 100G mlx5 driver fixes", do you need V1 with
+the title fix ?
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index d0a57d5..5b17532 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -223,6 +223,7 @@ struct mlx5e_pport_stats {
- 
- static const char rq_stats_strings[][ETH_GSTRING_LEN] = {
- 	"packets",
-+	"bytes",
- 	"csum_none",
- 	"csum_sw",
- 	"lro_packets",
-@@ -232,16 +233,18 @@ static const char rq_stats_strings[][ETH_GSTRING_LEN] = {
- 
- struct mlx5e_rq_stats {
- 	u64 packets;
-+	u64 bytes;
- 	u64 csum_none;
- 	u64 csum_sw;
- 	u64 lro_packets;
- 	u64 lro_bytes;
- 	u64 wqe_err;
--#define NUM_RQ_STATS 6
-+#define NUM_RQ_STATS 7
- };
- 
- static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
- 	"packets",
-+	"bytes",
- 	"tso_packets",
- 	"tso_bytes",
- 	"csum_offload_none",
-@@ -253,6 +256,7 @@ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
- 
- struct mlx5e_sq_stats {
- 	u64 packets;
-+	u64 bytes;
- 	u64 tso_packets;
- 	u64 tso_bytes;
- 	u64 csum_offload_none;
-@@ -260,7 +264,7 @@ struct mlx5e_sq_stats {
- 	u64 wake;
- 	u64 dropped;
- 	u64 nop;
--#define NUM_SQ_STATS 8
-+#define NUM_SQ_STATS 9
- };
- 
- struct mlx5e_stats {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 3fd6a58..59658b9 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -263,6 +263,7 @@ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
- 
- 		mlx5e_build_rx_skb(cqe, rq, skb);
- 		rq->stats.packets++;
-+		rq->stats.bytes += be32_to_cpu(cqe->byte_cnt);
- 		napi_gro_receive(cq->napi, skb);
- 
- wq_ll_pop:
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 2beea8c..bb4eeeb 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -179,6 +179,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 	unsigned int skb_len = skb->len;
- 	u8  opcode = MLX5_OPCODE_SEND;
- 	dma_addr_t dma_addr = 0;
-+	unsigned int num_bytes;
- 	bool bf = false;
- 	u16 headlen;
- 	u16 ds_cnt;
-@@ -204,8 +205,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 		opcode       = MLX5_OPCODE_LSO;
- 		ihs          = skb_transport_offset(skb) + tcp_hdrlen(skb);
- 		payload_len  = skb->len - ihs;
--		wi->num_bytes = skb->len +
--				(skb_shinfo(skb)->gso_segs - 1) * ihs;
-+		num_bytes = skb->len + (skb_shinfo(skb)->gso_segs - 1) * ihs;
- 		sq->stats.tso_packets++;
- 		sq->stats.tso_bytes += payload_len;
- 	} else {
-@@ -213,9 +213,11 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 		     !skb->xmit_more &&
- 		     !skb_shinfo(skb)->nr_frags;
- 		ihs = mlx5e_get_inline_hdr_size(sq, skb, bf);
--		wi->num_bytes = max_t(unsigned int, skb->len, ETH_ZLEN);
-+		num_bytes = max_t(unsigned int, skb->len, ETH_ZLEN);
- 	}
- 
-+	wi->num_bytes = num_bytes;
-+
- 	if (skb_vlan_tag_present(skb)) {
- 		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs, &skb_data,
- 				  &skb_len);
-@@ -307,6 +309,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 	sq->bf_budget = bf ? sq->bf_budget - 1 : 0;
- 
- 	sq->stats.packets++;
-+	sq->stats.bytes += num_bytes;
- 	return NETDEV_TX_OK;
- 
- dma_unmap_wqe_err:
--- 
-1.7.1
+On Wed, Feb 24, 2016 at 1:18 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+> This series has few bug fixes for the mlx5 Ethernet driver.
+>
+> Eran fixed a locking issue with time-stamping that could cause a soft-lockup when time-stamping is enabled.
+>
+> Gal fixed the rx/tx packets/bytes counters returned by the driver to actually went through the network stack.
+>
+> Tariq removed a poll CQ optimization which could lead the driver to stop getting interrupts for some of the rings, and a did also fix to HW LRO which is currently broken.
+>
+> He also provided RSS and RX hash fixes for the case of changing the number of rx rings the RX hash/RSS configuration will be out of sync.
+>
+> The time stamping fix from Eran is not for -stable as the feature was only introduced in 4.5 but all of the others are.
+>
+> This series is generated against net commit 9bdfb3b79e61 'tcp: convert cached rtt from usec to jiffies when feeding initial rto'
+>
+> Saeed.
+>
+> Eran Ben Elisha (1):
+>   net/mlx5e: Fix soft lockup when HW Timestamping is enabled
+>
+> Gal Pressman (2):
+>   net/mlx5e: Add rx/tx bytes software counters
+>   net/mlx5e: Provide correct packet/bytes statistics
+>
+> Tariq Toukan (4):
+>   net/mlx5e: Remove wrong poll CQ optimization
+>   net/mlx5e: Fix LRO modify
+>   net/mlx5e: Fix ethtool RX hash func configuration change
+>   net/mlx5e: Correctly handle RSS indirection table when changing
+>     number of channels
+>
+>  drivers/net/ethernet/mellanox/mlx5/core/en.h       |   18 +++--
+>  drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |   30 ++++---
+>  .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   36 ++++++---
+>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   82 +++++++++++---------
+>  drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |    8 +--
+>  drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |   19 ++---
+>  drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |    1 -
+>  include/linux/mlx5/mlx5_ifc.h                      |    4 +-
+>  8 files changed, 112 insertions(+), 86 deletions(-)
+>
