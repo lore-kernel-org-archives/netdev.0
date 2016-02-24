@@ -1,90 +1,143 @@
-From: sunil.kovvuri@gmail.com
-Subject: [PATCH] net: thunderx: Fix for Qset error due to CQ full
-Date: Wed, 24 Feb 2016 16:40:50 +0530
-Message-ID: <1456312250-25694-1-git-send-email-sunil.kovvuri@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	sgoutham@cavium.com, robert.richter@caviumnetworks.com,
-	jerin.jacob@caviumnetworks.com
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net 3/7] net/mlx5e: Fix soft lockup when HW Timestamping is enabled
+Date: Wed, 24 Feb 2016 13:18:49 +0200
+Message-ID: <1456312733-22091-4-git-send-email-saeedm@mellanox.com>
+References: <1456312733-22091-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Gal Pressman <galp@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:44361 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755750AbcBXLTZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2016 06:19:25 -0500
+In-Reply-To: <1456312733-22091-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sunil Goutham <sgoutham@cavium.com>
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-On Thunderx pass 1.x and pass2 due to a HW errata default CQ
-DROP_LEVEL of 0x80 is not sufficient to avoid CQ_WR_FULL Qset
-error when packets are being received at >20Mpps resulting in
-complete stall of packet reception.
+Readers/Writers lock for SW timecounter was acquired without disabling
+interrupts on local CPU.
 
-This patch will configure it to 0x100 which is what is expected
-by HW on Thunderx. On future passes of thunderx and other chips
-HW default/reset value will be 0x100 or higher hence not overwritten.
+The problematic scenario:
+* HW timestamping is enabled
+* Timestamp overflow periodic service task is running on local CPU and
+  holding write_lock for SW timecounter
+* Completion arrives, triggers interrupt for local CPU.
+  Interrupt routine calls napi_schedule(), which triggers rx/tx
+  skb process.
+  An attempt to read SW timecounter using read_lock is done, which is
+  already locked by a writer on the same CPU and cause soft lockup.
 
-Signed-off-by: Jerin Jacob <jerin.jacob@caviumnetworks.com>
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+Add irqsave/irqrestore for when using the readers/writers lock.
+
+Fixes: ef9814deafd0 ('net/mlx5e: Add HW timestamping (TS) support')
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h      |    9 +++++++++
- drivers/net/ethernet/cavium/thunder/nic_main.c |    6 ++++++
- drivers/net/ethernet/cavium/thunder/nic_reg.h  |    2 +-
- 3 files changed, 16 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |   30 ++++++++++++--------
+ 1 files changed, 18 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index 6888288..34e9ace 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -116,6 +116,15 @@
- #define NIC_PF_INTR_ID_MBOX0		8
- #define NIC_PF_INTR_ID_MBOX1		9
- 
-+/* Minimum FIFO level before all packets for the CQ are dropped
-+ *
-+ * This value ensures that once a packet has been "accepted"
-+ * for reception it will not get dropped due to non-availability
-+ * of CQ descriptor. An errata in HW mandates this value to be
-+ * atleast 0x100.
-+ */
-+#define NICPF_CQM_MIN_DROP_LEVEL       0x100
-+
- /* Global timer for CQ timer thresh interrupts
-  * Calculated for SCLK of 700Mhz
-  * value written should be a 1/16th of what is expected
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 4dded90..95f17f8 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -304,6 +304,7 @@ static void nic_set_lmac_vf_mapping(struct nicpf *nic)
- static void nic_init_hw(struct nicpf *nic)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
+index be65435..86f9f29 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
+@@ -41,10 +41,11 @@ void mlx5e_fill_hwstamp(struct mlx5e_tstamp *tstamp, u64 timestamp,
+ 			struct skb_shared_hwtstamps *hwts)
  {
- 	int i;
-+	u64 cqm_cfg;
+ 	u64 nsec;
++	unsigned long flags;
  
- 	/* Enable NIC HW block */
- 	nic_reg_write(nic, NIC_PF_CFG, 0x3);
-@@ -340,6 +341,11 @@ static void nic_init_hw(struct nicpf *nic)
- 	/* Enable VLAN ethertype matching and stripping */
- 	nic_reg_write(nic, NIC_PF_RX_ETYPE_0_7,
- 		      (2 << 19) | (ETYPE_ALG_VLAN_STRIP << 16) | ETH_P_8021Q);
-+
-+	/* Check if HW expected value is higher (could be in future chips) */
-+	cqm_cfg = nic_reg_read(nic, NIC_PF_CQM_CFG);
-+	if (cqm_cfg < NICPF_CQM_MIN_DROP_LEVEL)
-+		nic_reg_write(nic, NIC_PF_CQM_CFG, NICPF_CQM_MIN_DROP_LEVEL);
+-	read_lock(&tstamp->lock);
++	read_lock_irqsave(&tstamp->lock, flags);
+ 	nsec = timecounter_cyc2time(&tstamp->clock, timestamp);
+-	read_unlock(&tstamp->lock);
++	read_unlock_irqrestore(&tstamp->lock, flags);
+ 
+ 	hwts->hwtstamp = ns_to_ktime(nsec);
+ }
+@@ -62,10 +63,11 @@ static void mlx5e_timestamp_overflow(struct work_struct *work)
+ 	struct delayed_work *dwork = to_delayed_work(work);
+ 	struct mlx5e_tstamp *tstamp = container_of(dwork, struct mlx5e_tstamp,
+ 						   overflow_work);
++	unsigned long flags;
+ 
+-	write_lock(&tstamp->lock);
++	write_lock_irqsave(&tstamp->lock, flags);
+ 	timecounter_read(&tstamp->clock);
+-	write_unlock(&tstamp->lock);
++	write_unlock_irqrestore(&tstamp->lock, flags);
+ 	schedule_delayed_work(&tstamp->overflow_work, tstamp->overflow_period);
  }
  
- /* Channel parse index configuration */
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_reg.h b/drivers/net/ethernet/cavium/thunder/nic_reg.h
-index dd536be..afb10e3 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_reg.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic_reg.h
-@@ -21,7 +21,7 @@
- #define   NIC_PF_TCP_TIMER			(0x0060)
- #define   NIC_PF_BP_CFG				(0x0080)
- #define   NIC_PF_RRM_CFG			(0x0088)
--#define   NIC_PF_CQM_CF				(0x00A0)
-+#define   NIC_PF_CQM_CFG			(0x00A0)
- #define   NIC_PF_CNM_CF				(0x00A8)
- #define   NIC_PF_CNM_STATUS			(0x00B0)
- #define   NIC_PF_CQ_AVG_CFG			(0x00C0)
+@@ -136,10 +138,11 @@ static int mlx5e_ptp_settime(struct ptp_clock_info *ptp,
+ 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
+ 						   ptp_info);
+ 	u64 ns = timespec64_to_ns(ts);
++	unsigned long flags;
+ 
+-	write_lock(&tstamp->lock);
++	write_lock_irqsave(&tstamp->lock, flags);
+ 	timecounter_init(&tstamp->clock, &tstamp->cycles, ns);
+-	write_unlock(&tstamp->lock);
++	write_unlock_irqrestore(&tstamp->lock, flags);
+ 
+ 	return 0;
+ }
+@@ -150,10 +153,11 @@ static int mlx5e_ptp_gettime(struct ptp_clock_info *ptp,
+ 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
+ 						   ptp_info);
+ 	u64 ns;
++	unsigned long flags;
+ 
+-	write_lock(&tstamp->lock);
++	write_lock_irqsave(&tstamp->lock, flags);
+ 	ns = timecounter_read(&tstamp->clock);
+-	write_unlock(&tstamp->lock);
++	write_unlock_irqrestore(&tstamp->lock, flags);
+ 
+ 	*ts = ns_to_timespec64(ns);
+ 
+@@ -164,10 +168,11 @@ static int mlx5e_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ {
+ 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
+ 						   ptp_info);
++	unsigned long flags;
+ 
+-	write_lock(&tstamp->lock);
++	write_lock_irqsave(&tstamp->lock, flags);
+ 	timecounter_adjtime(&tstamp->clock, delta);
+-	write_unlock(&tstamp->lock);
++	write_unlock_irqrestore(&tstamp->lock, flags);
+ 
+ 	return 0;
+ }
+@@ -176,6 +181,7 @@ static int mlx5e_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
+ {
+ 	u64 adj;
+ 	u32 diff;
++	unsigned long flags;
+ 	int neg_adj = 0;
+ 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
+ 						  ptp_info);
+@@ -189,11 +195,11 @@ static int mlx5e_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
+ 	adj *= delta;
+ 	diff = div_u64(adj, 1000000000ULL);
+ 
+-	write_lock(&tstamp->lock);
++	write_lock_irqsave(&tstamp->lock, flags);
+ 	timecounter_read(&tstamp->clock);
+ 	tstamp->cycles.mult = neg_adj ? tstamp->nominal_c_mult - diff :
+ 					tstamp->nominal_c_mult + diff;
+-	write_unlock(&tstamp->lock);
++	write_unlock_irqrestore(&tstamp->lock, flags);
+ 
+ 	return 0;
+ }
 -- 
 1.7.1
