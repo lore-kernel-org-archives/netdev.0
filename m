@@ -1,29 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bgmac: support Ethernet device on BCM47094 SoC
-Date: Wed, 24 Feb 2016 15:34:37 -0500 (EST)
-Message-ID: <20160224.153437.245729518112422977.davem@davemloft.net>
-References: <1456177873-29246-1-git-send-email-zajec5@gmail.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net] net/8021q: Check the correct vlan filter capability
+Date: Wed, 24 Feb 2016 22:35:16 +0200
+Message-ID: <CALzJLG8CiRRBqUziAFOXE2RAmEDUMgJK2GM6SF3mz_HueRfdvQ@mail.gmail.com>
+References: <1456331959-3573-1-git-send-email-saeedm@mellanox.com>
+	<20160224.114839.300751853393269073.davem@davemloft.net>
+	<CALzJLG-CR1Ac5biwP5CuFbygqCOWh4-VGQc-XZ=BuZQLRnnRDg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de
-To: zajec5@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Gal Pressman <galp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56617 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758426AbcBXUej (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 15:34:39 -0500
-In-Reply-To: <1456177873-29246-1-git-send-email-zajec5@gmail.com>
+Received: from mail-yw0-f196.google.com ([209.85.161.196]:33498 "EHLO
+	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756634AbcBXUfR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 15:35:17 -0500
+Received: by mail-yw0-f196.google.com with SMTP id c124so1312164ywe.0
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 12:35:17 -0800 (PST)
+In-Reply-To: <CALzJLG-CR1Ac5biwP5CuFbygqCOWh4-VGQc-XZ=BuZQLRnnRDg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Mon, 22 Feb 2016 22:51:13 +0100
+On Wed, Feb 24, 2016 at 10:27 PM, Saeed Mahameed
+<saeedm@dev.mellanox.co.il> wrote:
+>>> Netdev features can be changed dynamically to off after vlan_vid_add
+>>> was called, thus vlan_vid_del will skip ndo_vlan_rx_kill_vid and will
+>>> leave the device driver with un-freed resources.
+>>
+>> Are you sure the fix isn't to make vlan_vid_add() check ->features instead
+>> of ->hw_features.
+>
+> This is exactly what this fix suggests, "->features" is not consistent
+> and can be turned ON/OFF between vlan_add/del which can leave the NIC
+> driver in inconsistent state !
+>
+>>
+>> Should we really be trying to add VLAN filters when the user has
+>> turned it off?
+>
+> Well, I think it is debatable, but the current implementation is not
+> consistent, especially for adding vlan 0 by default and then the user
+> disables the vlan filter, this will cause the stack to never call the
+> nic ndo_vlan_rx_kill_vid for the pre added vlan 0 and vise versa call
+> kill_vid without add_vid, BUG ?
+>
+> So i think we have two options, use this patch, and always trust to
+> delegate vlan_vid_add/del to the NIC when it's HW supports it, and the
+> nic will be smart enough to know what to do with it (in case vlan
+> filter is enabled/disabled). Or, for each vlan we can remember if it
+> was added to the NIC or not so the stack will know whether to clean it
+> up or not.
 
-> It needs very similar workarounds to the one on BCM4707. It was teste=
-d
-> on D-Link DIR-885L home router.
->=20
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-
-Applied, thanks.
+BTW we choose the first option since the "buggy" function is called
+"vlan_hw_filter_capable" which lead us to decide that the function
+should be looking for ->hw_features and not ->features.
+and i think this way it makes more sense.
