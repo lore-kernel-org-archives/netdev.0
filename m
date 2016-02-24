@@ -1,44 +1,34 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next v2 2/2] net_sched: add network namespace support
- for tc actions
-Date: Wed, 24 Feb 2016 10:37:09 -0800
-Message-ID: <CAM_iQpUkM6KUm=H6CV-wd0+zcOESMHREai1=Q9nrv0GQeFqdhQ@mail.gmail.com>
-References: <1456185473-25403-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1456185473-25403-3-git-send-email-xiyou.wangcong@gmail.com>
-	<56CC5B35.4060408@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] soreuseport: fix merge conflict in tcp bind
+Date: Wed, 24 Feb 2016 13:38:55 -0500 (EST)
+Message-ID: <20160224.133855.130250091133766630.davem@davemloft.net>
+References: <1456155929-2708-1-git-send-email-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: kraigatgoog@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f177.google.com ([209.85.160.177]:33170 "EHLO
-	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758399AbcBXShK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 13:37:10 -0500
-Received: by mail-yk0-f177.google.com with SMTP id z13so11773698ykd.0
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 10:37:09 -0800 (PST)
-In-Reply-To: <56CC5B35.4060408@mojatatu.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55720 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755385AbcBXSjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 13:39:08 -0500
+In-Reply-To: <1456155929-2708-1-git-send-email-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 23, 2016 at 5:14 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->> -       int     (*walk)(struct sk_buff *, struct netlink_callback *, int,
->> struct tc_action *);
->> +       int     (*walk)(struct net *, struct sk_buff *,
->> +                       struct netlink_callback *, int, struct tc_action
->> *);
->> +};
->> +
->
->
-> Do you really need to pass struct net to walk(); is deriving from skb
-> not sufficient?
+From: Craig Gallek <kraigatgoog@gmail.com>
+Date: Mon, 22 Feb 2016 10:45:29 -0500
 
-Unfortunately, we have to pass it to walk(), because tca_action_flush()
-allocates the skb without setting sk, so we can't get net from skb.
-rtnetlink_send() accepts both net and skb too.
+> From: Craig Gallek <kraig@google.com>
+> 
+> One of the validation checks for the new array-based TCP SO_REUSEPORT
+> validation was unintentionally dropped in ea8add2b1903.  This adds it back.
+> 
+> Lack of this check allows the user to allocate multiple sock_reuseport
+> structures (leaking all but the first).
+> 
+> Fixes: ea8add2b1903 ("tcp/dccp: better use of ephemeral ports in bind()")
+> Signed-off-by: Craig Gallek <kraig@google.com>
 
-So, overall, all of your concerns with regarding to v2 are answered,
-can I have your Acked-by now? ;)
-
-Thanks.
+Applied, thanks Craig.
