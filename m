@@ -1,74 +1,85 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net 0/7] Hi Dave,
-Date: Wed, 24 Feb 2016 13:28:55 +0200
-Message-ID: <CALzJLG9+-GOPfLGoTBzCVO0ZUqRwJr7rbvL_bvQ3xJ47FOGdOg@mail.gmail.com>
-References: <1456312733-22091-1-git-send-email-saeedm@mellanox.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: custom ioctl-based interface to control LED in networking (was
+ Re: [PATCHv2 09/10] rfkill: Userspace control for airplane mode)
+Date: Wed, 24 Feb 2016 13:14:21 +0100
+Message-ID: <20160224121420.GA5627@amd>
+References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
+ <1456159001-20307-10-git-send-email-jprvita@endlessm.com>
+ <20160223204525.GC16961@amd>
+ <1456260914.9910.34.camel@sipsolutions.net>
+ <20160223214501.GA22501@amd>
+ <1456304509.2050.15.camel@sipsolutions.net>
+ <20160224104611.GB31302@amd>
+ <1456311697.2050.23.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f196.google.com ([209.85.161.196]:35265 "EHLO
-	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752085AbcBXL24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 06:28:56 -0500
-Received: by mail-yw0-f196.google.com with SMTP id u200so566095ywf.2
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 03:28:56 -0800 (PST)
-In-Reply-To: <1456312733-22091-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rpurdie@rpsys.net, j.anaszewski@samsung.com,
+	linux-leds@vger.kernel.org,
+	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Darren Hart <dvhart@infradead.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux@endlessm.com,
+	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
+	<jprvita@endlessm.com>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1456311697.2050.23.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dave,
+On Wed 2016-02-24 12:01:37, Johannes Berg wrote:
+> On Wed, 2016-02-24 at 11:46 +0100, Pavel Machek wrote:
+> 
+> > If you want different trigger, implement different trigger. If you
+> > want to indicate all but wifi, implement all but wifi, and then
+> > userspace can select it by writing trigger name. 
+> 
+> This is still mostly a strawman, since userspace cannot have a database
+> of LEDs that indicate airplane mode.
 
-I messed up the cover-letter title :)
+Why would it need to? It could look at default triggers for the led if
+it really wanted to.
 
-it should be "Mellanox 100G mlx5 driver fixes", do you need V1 with
-the title fix ?
+> I'm sure you'd also not like to see 2**7 triggers implemented in rfkill
+> to cover all the possibilities.
 
-On Wed, Feb 24, 2016 at 1:18 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
-> This series has few bug fixes for the mlx5 Ethernet driver.
->
-> Eran fixed a locking issue with time-stamping that could cause a soft-lockup when time-stamping is enabled.
->
-> Gal fixed the rx/tx packets/bytes counters returned by the driver to actually went through the network stack.
->
-> Tariq removed a poll CQ optimization which could lead the driver to stop getting interrupts for some of the rings, and a did also fix to HW LRO which is currently broken.
->
-> He also provided RSS and RX hash fixes for the case of changing the number of rx rings the RX hash/RSS configuration will be out of sync.
->
-> The time stamping fix from Eran is not for -stable as the feature was only introduced in 4.5 but all of the others are.
->
-> This series is generated against net commit 9bdfb3b79e61 'tcp: convert cached rtt from usec to jiffies when feeding initial rto'
->
-> Saeed.
->
-> Eran Ben Elisha (1):
->   net/mlx5e: Fix soft lockup when HW Timestamping is enabled
->
-> Gal Pressman (2):
->   net/mlx5e: Add rx/tx bytes software counters
->   net/mlx5e: Provide correct packet/bytes statistics
->
-> Tariq Toukan (4):
->   net/mlx5e: Remove wrong poll CQ optimization
->   net/mlx5e: Fix LRO modify
->   net/mlx5e: Fix ethtool RX hash func configuration change
->   net/mlx5e: Correctly handle RSS indirection table when changing
->     number of channels
->
->  drivers/net/ethernet/mellanox/mlx5/core/en.h       |   18 +++--
->  drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |   30 ++++---
->  .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   36 ++++++---
->  drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   82 +++++++++++---------
->  drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |    8 +--
->  drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |   19 ++---
->  drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |    1 -
->  include/linux/mlx5/mlx5_ifc.h                      |    4 +-
->  8 files changed, 112 insertions(+), 86 deletions(-)
->
+Are all the possibilities useful? I assumed about 2 are. If you need
+2**7 of them, LED triggers can have parameters.
+
+> > If you want complete
+> > userspace control, fine, but we have standard interface and it is not
+> > ioctl.
+> 
+> The "standard interface" is usable if you really just want to driver a
+> single LED and you know which one.
+> 
+> I think you're looking at this the wrong way, focusing too much on the
+> LED aspect.
+> 
+> Really what you have here is a concept of "airplane mode", and that
+> concept is specific to the rfkill subsystem. This happens to affect
+> mostly an LED trigger, today, but as a concept it's something that
+> *should* be managed within the rfkill subsystem.
+
+How is that concept used outside the LEDs? What semantics does
+"airplane mode" have? You tried to explain "airplane mode" is not well
+defined up in this thread...
+
+> > Besides, the series really should have been Cc-ed to LED
+> > people, too.
+> 
+> That's simply unreasonable, you're essentially saying that any user of
+> any kernel infrastructure should be Cc'ed to the implementer of that
+> infrastructure... 9/10 patches in this series aren't even LED
+> > specific,
+
+I'm not saying that. I'm saying that LED maintainers should be Cced,
+to keep the interfaces consistent.
+									Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
