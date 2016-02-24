@@ -1,85 +1,29 @@
-From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Subject: [PATCH] netxen: Use kobj_to_dev()
-Date: Wed, 24 Feb 2016 20:09:38 +0530
-Message-ID: <20160224143938.GA17198@amitoj-Inspiron-3542>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC 0/6] NCSI Support
+Date: Wed, 24 Feb 2016 09:49:45 -0500 (EST)
+Message-ID: <20160224.094945.2157297058919963793.davem@davemloft.net>
+References: <1447027806-4744-1-git-send-email-gwshan@linux.vnet.ibm.com>
+	<20160224025950.GA27525@gwshan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: julia.lawall@lip6.fr
-To: manish.chopra@qlogic.com, sony.chacko@qlogic.com,
-	rajesh.borundia@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, benh@kernel.crashing.org,
+	sergei.shtylyov@cogentembedded.com
+To: gwshan@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53191 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751166AbcBXOtv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 09:49:51 -0500
+In-Reply-To: <20160224025950.GA27525@gwshan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Introduce the use of kobj_to_dev() helper function instead of open
-coding it with container_of()
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Date: Wed, 24 Feb 2016 13:59:50 +1100
 
-The Coccinelle semantic patch used to make this change is as follows:
+> Hello David, did you get time to go through this series? It has been there
+> for a while. Looking forward to your comments and feedback :-)
 
-//<smpl>
-@@
-expression a;
-symbol kobj;
-@@
-- container_of(a, struct device, kobj)
-+ kobj_to_dev(a)
-//</smpl>
-
-Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
----
- drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-index 6409a06..fd362b6 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-@@ -2891,7 +2891,7 @@ netxen_sysfs_read_crb(struct file *filp, struct kobject *kobj,
- 		struct bin_attribute *attr,
- 		char *buf, loff_t offset, size_t size)
- {
--	struct device *dev = container_of(kobj, struct device, kobj);
-+	struct device *dev = kobj_to_dev(kobj);
- 	struct netxen_adapter *adapter = dev_get_drvdata(dev);
- 	u32 data;
- 	u64 qmdata;
-@@ -2919,7 +2919,7 @@ netxen_sysfs_write_crb(struct file *filp, struct kobject *kobj,
- 		struct bin_attribute *attr,
- 		char *buf, loff_t offset, size_t size)
- {
--	struct device *dev = container_of(kobj, struct device, kobj);
-+	struct device *dev = kobj_to_dev(kobj);
- 	struct netxen_adapter *adapter = dev_get_drvdata(dev);
- 	u32 data;
- 	u64 qmdata;
-@@ -2960,7 +2960,7 @@ netxen_sysfs_read_mem(struct file *filp, struct kobject *kobj,
- 		struct bin_attribute *attr,
- 		char *buf, loff_t offset, size_t size)
- {
--	struct device *dev = container_of(kobj, struct device, kobj);
-+	struct device *dev = kobj_to_dev(kobj);
- 	struct netxen_adapter *adapter = dev_get_drvdata(dev);
- 	u64 data;
- 	int ret;
-@@ -2981,7 +2981,7 @@ static ssize_t netxen_sysfs_write_mem(struct file *filp, struct kobject *kobj,
- 		struct bin_attribute *attr, char *buf,
- 		loff_t offset, size_t size)
- {
--	struct device *dev = container_of(kobj, struct device, kobj);
-+	struct device *dev = kobj_to_dev(kobj);
- 	struct netxen_adapter *adapter = dev_get_drvdata(dev);
- 	u64 data;
- 	int ret;
-@@ -3018,7 +3018,7 @@ netxen_sysfs_read_dimm(struct file *filp, struct kobject *kobj,
- 		struct bin_attribute *attr,
- 		char *buf, loff_t offset, size_t size)
- {
--	struct device *dev = container_of(kobj, struct device, kobj);
-+	struct device *dev = kobj_to_dev(kobj);
- 	struct netxen_adapter *adapter = dev_get_drvdata(dev);
- 	struct net_device *netdev = adapter->netdev;
- 	struct netxen_dimm_cfg dimm;
--- 
-1.9.1
+Sorry, I personally don't have the time to review it, hopefully one of the
+other hundreds of networking developers will be able to do so.
