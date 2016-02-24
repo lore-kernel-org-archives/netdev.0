@@ -1,64 +1,89 @@
-From: sdrb@onet.eu
-Subject: Re: Variable download speed
-Date: Wed, 24 Feb 2016 08:48:26 +0100 (CET)
-Message-ID: <alpine.LNX.2.20.1602240816180.29937@localhost.localdomain>
-References: <alpine.LNX.2.20.1602231216240.29937@localhost.localdomain> <CADVnQyngzgLhbo6of1vTq5MH4mk4rSR6_KLWCCXkndK6QYynAw@mail.gmail.com> <alpine.LNX.2.20.1602231455260.29937@localhost.localdomain>
- <CADVnQy=-oh7Ue=Y0vP4ioGrRs7SeJBNq5bkkDVkpogyLpr+9zA@mail.gmail.com>
+From: "Amir Vadai\"" <amir@vadai.me>
+Subject: Re: [net-next PATCH 3/4] net: sched: cls_u32 add bit to specify
+ software only rules
+Date: Wed, 24 Feb 2016 10:04:40 +0200
+Message-ID: <20160224080440.GA26500@office.Home>
+References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810>
+ <20160223190321.5970.58924.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Cc: Netdev <netdev@vger.kernel.org>
-To: Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jiri@resnulli.us, daniel@iogearbox.net, netdev@vger.kernel.org,
+	alexei.starovoitov@gmail.com, davem@davemloft.net, jhs@mojatatu.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpo75.poczta.onet.pl ([141.105.16.25]:49988 "EHLO
-	smtpo75.poczta.onet.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755752AbcBXHse (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 02:48:34 -0500
-In-Reply-To: <CADVnQy=-oh7Ue=Y0vP4ioGrRs7SeJBNq5bkkDVkpogyLpr+9zA@mail.gmail.com>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:34969 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750846AbcBXIAu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 03:00:50 -0500
+Received: by mail-wm0-f49.google.com with SMTP id c200so256375018wme.0
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 00:00:50 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20160223190321.5970.58924.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Feb 23, 2016 at 11:03:21AM -0800, John Fastabend wrote:
+> In the initial implementation the only way to stop a rule from being
+> inserted into the hardware table was via the device feature flag.
+> However this doesn't work well when working on an end host system
+> where packets are expect to hit both the hardware and software
+> datapaths.
+> 
+> For example we can imagine a rule that will match an IP address and
+> increment a field. If we install this rule in both hardware and
+> software we may increment the field twice. To date we have only
+> added support for the drop action so we have been able to ignore
+> these cases. But as we extend the action support we will hit this
+> example plus more such cases. Arguably these are not even corner
+> cases in many working systems these cases will be common.
+> 
+> To avoid forcing the driver to always abort (i.e. the above example)
+> this patch adds a flag to add a rule in software only. A careful
+> user can use this flag to build software and hardware datapaths
+> that work together. One example we have found particularly useful
+> is to use hardware resources to set the skb->mark on the skb when
+> the match may be expensive to run in software but a mark lookup
+> in a hash table is cheap. The idea here is hardware can do in one
+> lookup what the u32 classifier may need to traverse multiple lists
+> and hash tables to compute. The flag is only passed down on inserts
+> on deletion to avoid stale references in hardware we always try
+> to remove a rule if it exists.
+> 
+> Notice we do not add a hardware only case here. If you were to
+> add a hardware only case then you are stuck with the problem
+> of where to stick the software representation of that filter
+> rule. If its stuck on the same filter list as the software only and
+> software/hardware rules it then has to be walked over and ignored
+> in the classify path. The overhead is not huge but is measurable.
+> And with so much work being invested in speeding up rx/tx of
+> pkt processing this is unacceptable IMO. The other option is to
+> have a special hook just for hardware only resources. This is
+> implemented in the next patch.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
+[...]
 
-On Tue, 23 Feb 2016, Neal Cardwell wrote:
+>  
+> -static bool u32_should_offload(struct net_device *dev)
+> +static bool u32_should_offload(struct net_device *dev, u32 flags)
+>  {
+>  	if (!(dev->features & NETIF_F_HW_TC))
+>  		return false;
+>  
+> -	return dev->netdev_ops->ndo_setup_tc;
+> +	if (flags & TCA_U32_FLAGS_SOFTWARE)
+> +		return false;
+> +
+> +	if (!dev->netdev_ops->ndo_setup_tc)
+> +		return false;
+> +
+> +	return true;
+>  }
+This function and flag should be a generic filter attribute - not just
+u32.
 
-> On Tue, Feb 23, 2016 at 8:57 AM,  <sdrb@onet.eu> wrote:
->> I published example pcap file under following link:
->>
->> https://www.dropbox.com/s/v8375ub16seyt1a/test7.pcap?dl=0
->>
->> I hope it is possible to download it without creating dropbox account.
->
-> Thanks for the trace. It looks like for the first 0.8 seconds of the
-> trace some non-TCP component on the receiving machine (app, CPU, CPU
-> power-saving mechanisms, NIC, or NIC driver) is limiting throughput to
-> 78Mbit/sec (e.g. the very first window of 10 packets is ACKed at that
-> rate). Then the throughput increases to over 200 Mbit/sec. AFAICT it
-> doesn't look like the TCP layer is doing anything wrong. I'd look for
-> issues with those other components. It might help to report the
-> receiver application, receiver CPU type, kernel version, NIC, and NIC
-> driver.
+Thanks,
+Amir
 
-Hi,
-
-The receiver application was "wget" using ftp protocol.
-Linux kernel is in version 3.4.11-rt19.
-
-Concerning hardware I have not much information about it.
-Everything I've got is:
-
-- CPU: ARMv7 Processor rev 1 (v7l)
-- NIC: Broadcom PCI: 14e4:aa52
-- RAM: 256MB
-
-Unfortunately I've no much info about kernel. Seems like it is some kind 
-of realtime version. Can this realtime extension cause such effect of 
-increasing throughput?
-
-
-I've made a graph with window size and throughput from published 
-test7.pcap file:
-
-https://www.dropbox.com/s/cwars3oaoax73fh/wget_test_test7pcap_20160224_1.png?dl=0
-
-
-sdrb
+[...]
