@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 5/7] net/mlx5e: Correctly handle RSS indirection table when changing number of channels
-Date: Wed, 24 Feb 2016 13:18:51 +0200
-Message-ID: <1456312733-22091-6-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 6/7] net/mlx5e: Add rx/tx bytes software counters
+Date: Wed, 24 Feb 2016 13:18:52 +0200
+Message-ID: <1456312733-22091-7-git-send-email-saeedm@mellanox.com>
 References: <1456312733-22091-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -11,98 +11,130 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:44454 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:44439 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752795AbcBXLUN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754348AbcBXLUN (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 24 Feb 2016 06:20:13 -0500
 In-Reply-To: <1456312733-22091-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
+From: Gal Pressman <galp@mellanox.com>
 
-Upon changing num_channels, reset the RSS indirection table to
-match the new value.
+Sum up rx/tx bytes in software as we do for rx/tx packets, to be reported
+in upcoming statistics fix.
 
-Fixes: 2d75b2bc8a8c ('net/mlx5e: Add ethtool RSS configuration options')
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |    2 ++
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |    2 ++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   15 +++++++++++----
- 3 files changed, 15 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h    |    8 ++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c |    1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c |    9 ++++++---
+ 3 files changed, 13 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 976bddb..d0a57d5 100644
+index d0a57d5..5b17532 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -619,6 +619,8 @@ void mlx5e_build_tir_ctx_hash(void *tirc, struct mlx5e_priv *priv);
+@@ -223,6 +223,7 @@ struct mlx5e_pport_stats {
  
- int mlx5e_open_locked(struct net_device *netdev);
- int mlx5e_close_locked(struct net_device *netdev);
-+void mlx5e_build_default_indir_rqt(u32 *indirection_rqt, int len,
-+				   int num_channels);
+ static const char rq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"packets",
++	"bytes",
+ 	"csum_none",
+ 	"csum_sw",
+ 	"lro_packets",
+@@ -232,16 +233,18 @@ static const char rq_stats_strings[][ETH_GSTRING_LEN] = {
  
- static inline void mlx5e_tx_notify_hw(struct mlx5e_sq *sq,
- 				      struct mlx5e_tx_wqe *wqe, int bf_sz)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 64af1b0..5abeb00 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -385,6 +385,8 @@ static int mlx5e_set_channels(struct net_device *dev,
- 		mlx5e_close_locked(dev);
+ struct mlx5e_rq_stats {
+ 	u64 packets;
++	u64 bytes;
+ 	u64 csum_none;
+ 	u64 csum_sw;
+ 	u64 lro_packets;
+ 	u64 lro_bytes;
+ 	u64 wqe_err;
+-#define NUM_RQ_STATS 6
++#define NUM_RQ_STATS 7
+ };
  
- 	priv->params.num_channels = count;
-+	mlx5e_build_default_indir_rqt(priv->params.indirection_rqt,
-+				      MLX5E_INDIR_RQT_SIZE, count);
+ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"packets",
++	"bytes",
+ 	"tso_packets",
+ 	"tso_bytes",
+ 	"csum_offload_none",
+@@ -253,6 +256,7 @@ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
  
- 	if (was_opened)
- 		err = mlx5e_open_locked(dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 34b1049..02689ca 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1199,7 +1199,6 @@ static void mlx5e_fill_indir_rqt_rqns(struct mlx5e_priv *priv, void *rqtc)
- 			ix = mlx5e_bits_invert(i, MLX5E_LOG_INDIR_RQT_SIZE);
+ struct mlx5e_sq_stats {
+ 	u64 packets;
++	u64 bytes;
+ 	u64 tso_packets;
+ 	u64 tso_bytes;
+ 	u64 csum_offload_none;
+@@ -260,7 +264,7 @@ struct mlx5e_sq_stats {
+ 	u64 wake;
+ 	u64 dropped;
+ 	u64 nop;
+-#define NUM_SQ_STATS 8
++#define NUM_SQ_STATS 9
+ };
  
- 		ix = priv->params.indirection_rqt[ix];
--		ix = ix % priv->params.num_channels;
- 		MLX5_SET(rqtc, rqtc, rq_num[i],
- 			 test_bit(MLX5E_STATE_OPENED, &priv->state) ?
- 			 priv->channel[ix]->rq.rqn :
-@@ -2101,12 +2100,20 @@ u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev)
- 	       2 /*sizeof(mlx5e_tx_wqe.inline_hdr_start)*/;
- }
+ struct mlx5e_stats {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 3fd6a58..59658b9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -263,6 +263,7 @@ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
  
-+void mlx5e_build_default_indir_rqt(u32 *indirection_rqt, int len,
-+				   int num_channels)
-+{
-+	int i;
+ 		mlx5e_build_rx_skb(cqe, rq, skb);
+ 		rq->stats.packets++;
++		rq->stats.bytes += be32_to_cpu(cqe->byte_cnt);
+ 		napi_gro_receive(cq->napi, skb);
+ 
+ wq_ll_pop:
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 2beea8c..bb4eeeb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -179,6 +179,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 	unsigned int skb_len = skb->len;
+ 	u8  opcode = MLX5_OPCODE_SEND;
+ 	dma_addr_t dma_addr = 0;
++	unsigned int num_bytes;
+ 	bool bf = false;
+ 	u16 headlen;
+ 	u16 ds_cnt;
+@@ -204,8 +205,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		opcode       = MLX5_OPCODE_LSO;
+ 		ihs          = skb_transport_offset(skb) + tcp_hdrlen(skb);
+ 		payload_len  = skb->len - ihs;
+-		wi->num_bytes = skb->len +
+-				(skb_shinfo(skb)->gso_segs - 1) * ihs;
++		num_bytes = skb->len + (skb_shinfo(skb)->gso_segs - 1) * ihs;
+ 		sq->stats.tso_packets++;
+ 		sq->stats.tso_bytes += payload_len;
+ 	} else {
+@@ -213,9 +213,11 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		     !skb->xmit_more &&
+ 		     !skb_shinfo(skb)->nr_frags;
+ 		ihs = mlx5e_get_inline_hdr_size(sq, skb, bf);
+-		wi->num_bytes = max_t(unsigned int, skb->len, ETH_ZLEN);
++		num_bytes = max_t(unsigned int, skb->len, ETH_ZLEN);
+ 	}
+ 
++	wi->num_bytes = num_bytes;
 +
-+	for (i = 0; i < len; i++)
-+		indirection_rqt[i] = i % num_channels;
-+}
-+
- static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
- 				    struct net_device *netdev,
- 				    int num_channels)
- {
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
--	int i;
+ 	if (skb_vlan_tag_present(skb)) {
+ 		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs, &skb_data,
+ 				  &skb_len);
+@@ -307,6 +309,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 	sq->bf_budget = bf ? sq->bf_budget - 1 : 0;
  
- 	priv->params.log_sq_size           =
- 		MLX5E_PARAMS_DEFAULT_LOG_SQ_SIZE;
-@@ -2130,8 +2137,8 @@ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
- 	netdev_rss_key_fill(priv->params.toeplitz_hash_key,
- 			    sizeof(priv->params.toeplitz_hash_key));
+ 	sq->stats.packets++;
++	sq->stats.bytes += num_bytes;
+ 	return NETDEV_TX_OK;
  
--	for (i = 0; i < MLX5E_INDIR_RQT_SIZE; i++)
--		priv->params.indirection_rqt[i] = i % num_channels;
-+	mlx5e_build_default_indir_rqt(priv->params.indirection_rqt,
-+				      MLX5E_INDIR_RQT_SIZE, num_channels);
- 
- 	priv->params.lro_wqe_sz            =
- 		MLX5E_PARAMS_DEFAULT_LRO_WQE_SZ;
+ dma_unmap_wqe_err:
 -- 
 1.7.1
