@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 3/7] net/mlx5e: Fix soft lockup when HW Timestamping is enabled
-Date: Wed, 24 Feb 2016 13:18:49 +0200
-Message-ID: <1456312733-22091-4-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 2/7] net/mlx5e: Fix LRO modify
+Date: Wed, 24 Feb 2016 13:18:48 +0200
+Message-ID: <1456312733-22091-3-git-send-email-saeedm@mellanox.com>
 References: <1456312733-22091-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -11,133 +11,76 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:44361 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:44360 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755750AbcBXLTZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756430AbcBXLTZ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 24 Feb 2016 06:19:25 -0500
 In-Reply-To: <1456312733-22091-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+From: Tariq Toukan <tariqt@mellanox.com>
 
-Readers/Writers lock for SW timecounter was acquired without disabling
-interrupts on local CPU.
+Ethtool LRO enable/disable is broken, as of today we only modify TCP
+TIRs in order to apply the requested configuration.
 
-The problematic scenario:
-* HW timestamping is enabled
-* Timestamp overflow periodic service task is running on local CPU and
-  holding write_lock for SW timecounter
-* Completion arrives, triggers interrupt for local CPU.
-  Interrupt routine calls napi_schedule(), which triggers rx/tx
-  skb process.
-  An attempt to read SW timecounter using read_lock is done, which is
-  already locked by a writer on the same CPU and cause soft lockup.
+Hardware requires that all TIRs pointing to the same RQ should share the
+same LRO configuration. For that all other TIRs' LRO fields must be
+modified as well.
 
-Add irqsave/irqrestore for when using the readers/writers lock.
-
-Fixes: ef9814deafd0 ('net/mlx5e: Add HW timestamping (TS) support')
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Fixes: 5c50368f3831 ('net/mlx5e: Light-weight netdev open/stop')
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |   30 ++++++++++++--------
- 1 files changed, 18 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   15 +++++++++++----
+ 1 files changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-index be65435..86f9f29 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-@@ -41,10 +41,11 @@ void mlx5e_fill_hwstamp(struct mlx5e_tstamp *tstamp, u64 timestamp,
- 			struct skb_shared_hwtstamps *hwts)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index d4e1c30..137b05e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1317,7 +1317,7 @@ static void mlx5e_build_tir_ctx_lro(void *tirc, struct mlx5e_priv *priv)
+ 			      lro_timer_supported_periods[2]));
+ }
+ 
+-static int mlx5e_modify_tir_lro(struct mlx5e_priv *priv, int tt)
++static int mlx5e_modify_tirs_lro(struct mlx5e_priv *priv)
  {
- 	u64 nsec;
-+	unsigned long flags;
+ 	struct mlx5_core_dev *mdev = priv->mdev;
  
--	read_lock(&tstamp->lock);
-+	read_lock_irqsave(&tstamp->lock, flags);
- 	nsec = timecounter_cyc2time(&tstamp->clock, timestamp);
--	read_unlock(&tstamp->lock);
-+	read_unlock_irqrestore(&tstamp->lock, flags);
+@@ -1325,6 +1325,7 @@ static int mlx5e_modify_tir_lro(struct mlx5e_priv *priv, int tt)
+ 	void *tirc;
+ 	int inlen;
+ 	int err;
++	int tt;
  
- 	hwts->hwtstamp = ns_to_ktime(nsec);
- }
-@@ -62,10 +63,11 @@ static void mlx5e_timestamp_overflow(struct work_struct *work)
- 	struct delayed_work *dwork = to_delayed_work(work);
- 	struct mlx5e_tstamp *tstamp = container_of(dwork, struct mlx5e_tstamp,
- 						   overflow_work);
-+	unsigned long flags;
+ 	inlen = MLX5_ST_SZ_BYTES(modify_tir_in);
+ 	in = mlx5_vzalloc(inlen);
+@@ -1336,7 +1337,11 @@ static int mlx5e_modify_tir_lro(struct mlx5e_priv *priv, int tt)
  
--	write_lock(&tstamp->lock);
-+	write_lock_irqsave(&tstamp->lock, flags);
- 	timecounter_read(&tstamp->clock);
--	write_unlock(&tstamp->lock);
-+	write_unlock_irqrestore(&tstamp->lock, flags);
- 	schedule_delayed_work(&tstamp->overflow_work, tstamp->overflow_period);
- }
+ 	mlx5e_build_tir_ctx_lro(tirc, priv);
  
-@@ -136,10 +138,11 @@ static int mlx5e_ptp_settime(struct ptp_clock_info *ptp,
- 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
- 						   ptp_info);
- 	u64 ns = timespec64_to_ns(ts);
-+	unsigned long flags;
+-	err = mlx5_core_modify_tir(mdev, priv->tirn[tt], in, inlen);
++	for (tt = 0; tt < MLX5E_NUM_TT; tt++) {
++		err = mlx5_core_modify_tir(mdev, priv->tirn[tt], in, inlen);
++		if (err)
++			break;
++	}
  
--	write_lock(&tstamp->lock);
-+	write_lock_irqsave(&tstamp->lock, flags);
- 	timecounter_init(&tstamp->clock, &tstamp->cycles, ns);
--	write_unlock(&tstamp->lock);
-+	write_unlock_irqrestore(&tstamp->lock, flags);
+ 	kvfree(in);
  
- 	return 0;
- }
-@@ -150,10 +153,11 @@ static int mlx5e_ptp_gettime(struct ptp_clock_info *ptp,
- 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
- 						   ptp_info);
- 	u64 ns;
-+	unsigned long flags;
+@@ -1885,8 +1890,10 @@ static int mlx5e_set_features(struct net_device *netdev,
+ 			mlx5e_close_locked(priv->netdev);
  
--	write_lock(&tstamp->lock);
-+	write_lock_irqsave(&tstamp->lock, flags);
- 	ns = timecounter_read(&tstamp->clock);
--	write_unlock(&tstamp->lock);
-+	write_unlock_irqrestore(&tstamp->lock, flags);
+ 		priv->params.lro_en = !!(features & NETIF_F_LRO);
+-		mlx5e_modify_tir_lro(priv, MLX5E_TT_IPV4_TCP);
+-		mlx5e_modify_tir_lro(priv, MLX5E_TT_IPV6_TCP);
++		err = mlx5e_modify_tirs_lro(priv);
++		if (err)
++			mlx5_core_warn(priv->mdev, "lro modify failed, %d\n",
++				       err);
  
- 	*ts = ns_to_timespec64(ns);
- 
-@@ -164,10 +168,11 @@ static int mlx5e_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
- {
- 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
- 						   ptp_info);
-+	unsigned long flags;
- 
--	write_lock(&tstamp->lock);
-+	write_lock_irqsave(&tstamp->lock, flags);
- 	timecounter_adjtime(&tstamp->clock, delta);
--	write_unlock(&tstamp->lock);
-+	write_unlock_irqrestore(&tstamp->lock, flags);
- 
- 	return 0;
- }
-@@ -176,6 +181,7 @@ static int mlx5e_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
- {
- 	u64 adj;
- 	u32 diff;
-+	unsigned long flags;
- 	int neg_adj = 0;
- 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
- 						  ptp_info);
-@@ -189,11 +195,11 @@ static int mlx5e_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
- 	adj *= delta;
- 	diff = div_u64(adj, 1000000000ULL);
- 
--	write_lock(&tstamp->lock);
-+	write_lock_irqsave(&tstamp->lock, flags);
- 	timecounter_read(&tstamp->clock);
- 	tstamp->cycles.mult = neg_adj ? tstamp->nominal_c_mult - diff :
- 					tstamp->nominal_c_mult + diff;
--	write_unlock(&tstamp->lock);
-+	write_unlock_irqrestore(&tstamp->lock, flags);
- 
- 	return 0;
- }
+ 		if (was_opened)
+ 			err = mlx5e_open_locked(priv->netdev);
 -- 
 1.7.1
