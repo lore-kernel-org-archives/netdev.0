@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 2/7] net/mlx5e: Fix LRO modify
-Date: Wed, 24 Feb 2016 13:18:48 +0200
-Message-ID: <1456312733-22091-3-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 1/7] net/mlx5e: Remove wrong poll CQ optimization
+Date: Wed, 24 Feb 2016 13:18:47 +0200
+Message-ID: <1456312733-22091-2-git-send-email-saeedm@mellanox.com>
 References: <1456312733-22091-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -11,76 +11,116 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:44360 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:44388 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756430AbcBXLTZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2016 06:19:25 -0500
+	id S1756979AbcBXLTt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2016 06:19:49 -0500
 In-Reply-To: <1456312733-22091-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tariq Toukan <tariqt@mellanox.com>
 
-Ethtool LRO enable/disable is broken, as of today we only modify TCP
-TIRs in order to apply the requested configuration.
+With the MLX5E_CQ_HAS_CQES optimization flag, the following buggy
+flow might occur:
+- Suppose RX is always busy, TX has a single packet every second.
+- We poll a single TX cqe and clear its flag.
+- We never arm it again as RX is always busy.
+- TX CQ flag is never changed, and new TX cqes are not polled.
 
-Hardware requires that all TIRs pointing to the same RQ should share the
-same LRO configuration. For that all other TIRs' LRO fields must be
-modified as well.
+We revert this optimization.
 
-Fixes: 5c50368f3831 ('net/mlx5e: Light-weight netdev open/stop')
+Fixes: e586b3b0baee ('net/mlx5: Ethernet Datapath files')
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   15 +++++++++++----
- 1 files changed, 11 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |    5 -----
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |    7 -------
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |   10 +---------
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c |    1 -
+ 4 files changed, 1 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index d4e1c30..137b05e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1317,7 +1317,7 @@ static void mlx5e_build_tir_ctx_lro(void *tirc, struct mlx5e_priv *priv)
- 			      lro_timer_supported_periods[2]));
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index aac071a..614a602 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -304,14 +304,9 @@ enum {
+ 	MLX5E_RQ_STATE_POST_WQES_ENABLE,
+ };
+ 
+-enum cq_flags {
+-	MLX5E_CQ_HAS_CQES = 1,
+-};
+-
+ struct mlx5e_cq {
+ 	/* data path - accessed per cqe */
+ 	struct mlx5_cqwq           wq;
+-	unsigned long              flags;
+ 
+ 	/* data path - accessed per napi poll */
+ 	struct napi_struct        *napi;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index dd959d9..3fd6a58 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -230,10 +230,6 @@ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
+ 	struct mlx5e_rq *rq = container_of(cq, struct mlx5e_rq, cq);
+ 	int work_done;
+ 
+-	/* avoid accessing cq (dma coherent memory) if not needed */
+-	if (!test_and_clear_bit(MLX5E_CQ_HAS_CQES, &cq->flags))
+-		return 0;
+-
+ 	for (work_done = 0; work_done < budget; work_done++) {
+ 		struct mlx5e_rx_wqe *wqe;
+ 		struct mlx5_cqe64 *cqe;
+@@ -279,8 +275,5 @@ wq_ll_pop:
+ 	/* ensure cq space is freed before enabling more cqes */
+ 	wmb();
+ 
+-	if (work_done == budget)
+-		set_bit(MLX5E_CQ_HAS_CQES, &cq->flags);
+-
+ 	return work_done;
  }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 2c3fba0..2beea8c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -335,10 +335,6 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 	u16 sqcc;
+ 	int i;
  
--static int mlx5e_modify_tir_lro(struct mlx5e_priv *priv, int tt)
-+static int mlx5e_modify_tirs_lro(struct mlx5e_priv *priv)
+-	/* avoid accessing cq (dma coherent memory) if not needed */
+-	if (!test_and_clear_bit(MLX5E_CQ_HAS_CQES, &cq->flags))
+-		return false;
+-
+ 	sq = container_of(cq, struct mlx5e_sq, cq);
+ 
+ 	npkts = 0;
+@@ -422,10 +418,6 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 				netif_tx_wake_queue(sq->txq);
+ 				sq->stats.wake++;
+ 	}
+-	if (i == MLX5E_TX_CQ_POLL_BUDGET) {
+-		set_bit(MLX5E_CQ_HAS_CQES, &cq->flags);
+-		return true;
+-	}
+ 
+-	return false;
++	return (i == MLX5E_TX_CQ_POLL_BUDGET);
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+index 4ac8d71..66d51a7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -88,7 +88,6 @@ void mlx5e_completion_event(struct mlx5_core_cq *mcq)
  {
- 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	struct mlx5e_cq *cq = container_of(mcq, struct mlx5e_cq, mcq);
  
-@@ -1325,6 +1325,7 @@ static int mlx5e_modify_tir_lro(struct mlx5e_priv *priv, int tt)
- 	void *tirc;
- 	int inlen;
- 	int err;
-+	int tt;
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_tir_in);
- 	in = mlx5_vzalloc(inlen);
-@@ -1336,7 +1337,11 @@ static int mlx5e_modify_tir_lro(struct mlx5e_priv *priv, int tt)
- 
- 	mlx5e_build_tir_ctx_lro(tirc, priv);
- 
--	err = mlx5_core_modify_tir(mdev, priv->tirn[tt], in, inlen);
-+	for (tt = 0; tt < MLX5E_NUM_TT; tt++) {
-+		err = mlx5_core_modify_tir(mdev, priv->tirn[tt], in, inlen);
-+		if (err)
-+			break;
-+	}
- 
- 	kvfree(in);
- 
-@@ -1885,8 +1890,10 @@ static int mlx5e_set_features(struct net_device *netdev,
- 			mlx5e_close_locked(priv->netdev);
- 
- 		priv->params.lro_en = !!(features & NETIF_F_LRO);
--		mlx5e_modify_tir_lro(priv, MLX5E_TT_IPV4_TCP);
--		mlx5e_modify_tir_lro(priv, MLX5E_TT_IPV6_TCP);
-+		err = mlx5e_modify_tirs_lro(priv);
-+		if (err)
-+			mlx5_core_warn(priv->mdev, "lro modify failed, %d\n",
-+				       err);
- 
- 		if (was_opened)
- 			err = mlx5e_open_locked(priv->netdev);
+-	set_bit(MLX5E_CQ_HAS_CQES, &cq->flags);
+ 	set_bit(MLX5E_CHANNEL_NAPI_SCHED, &cq->channel->flags);
+ 	barrier();
+ 	napi_schedule(cq->napi);
 -- 
 1.7.1
