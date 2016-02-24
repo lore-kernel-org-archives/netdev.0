@@ -1,54 +1,52 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] ipl2tp: Print help even on systems without l2tp support
-Date: Wed, 24 Feb 2016 09:12:47 +0100
-Message-ID: <1456301567-32474-1-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 03/20] iplink: fix help text syntax
+Date: Wed, 24 Feb 2016 09:21:16 +0100
+Message-ID: <1456302093-697-4-git-send-email-phil@nwl.cc>
+References: <1456302093-697-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:50601 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:46663 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755752AbcBXINA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2016 03:13:00 -0500
+	id S1757932AbcBXIVp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2016 03:21:45 -0500
+In-Reply-To: <1456302093-697-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Get rid of extraneous closing brackets and while here, merge the double
+netns parameter.
+
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- ip/ipl2tp.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ ip/iplink.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/ip/ipl2tp.c b/ip/ipl2tp.c
-index f050880eef02a..3e3b21ddfb7fe 100644
---- a/ip/ipl2tp.c
-+++ b/ip/ipl2tp.c
-@@ -720,6 +720,9 @@ static int do_show(int argc, char **argv)
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 5ab9d613c4f99..5a220276f1f96 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -70,17 +70,16 @@ void iplink_usage(void)
+ 	fprintf(stderr, "	                  [ address LLADDR ]\n");
+ 	fprintf(stderr, "	                  [ broadcast LLADDR ]\n");
+ 	fprintf(stderr, "	                  [ mtu MTU ]\n");
+-	fprintf(stderr, "	                  [ netns PID ]\n");
+-	fprintf(stderr, "	                  [ netns NAME ]\n");
++	fprintf(stderr, "	                  [ netns { PID | NAME } ]\n");
+ 	fprintf(stderr, "	                  [ link-netnsid ID ]\n");
+ 	fprintf(stderr, "			  [ alias NAME ]\n");
+ 	fprintf(stderr, "	                  [ vf NUM [ mac LLADDR ]\n");
+ 	fprintf(stderr, "				   [ vlan VLANID [ qos VLAN-QOS ] ]\n");
  
- int do_ipl2tp(int argc, char **argv)
- {
-+	if (argc < 1 || !matches(*argv, "help"))
-+		usage();
-+
- 	if (genl_family < 0) {
- 		if (rtnl_open_byproto(&genl_rth, 0, NETLINK_GENERIC) < 0) {
- 			fprintf(stderr, "Cannot open generic netlink socket\n");
-@@ -731,9 +734,6 @@ int do_ipl2tp(int argc, char **argv)
- 			exit(1);
- 	}
+-	fprintf(stderr, "				   [ rate TXRATE ] ]\n");
++	fprintf(stderr, "				   [ rate TXRATE ]\n");
  
--	if (argc < 1)
--		usage();
--
- 	if (matches(*argv, "add") == 0)
- 		return do_add(argc-1, argv+1);
- 	if (matches(*argv, "delete") == 0)
-@@ -742,8 +742,6 @@ int do_ipl2tp(int argc, char **argv)
- 	    matches(*argv, "lst") == 0 ||
- 	    matches(*argv, "list") == 0)
- 		return do_show(argc-1, argv+1);
--	if (matches(*argv, "help") == 0)
--		usage();
- 
- 	fprintf(stderr, "Command \"%s\" is unknown, try \"ip l2tp help\".\n", *argv);
- 	exit(-1);
+-	fprintf(stderr, "				   [ spoofchk { on | off} ] ]\n");
+-	fprintf(stderr, "				   [ query_rss { on | off} ] ]\n");
++	fprintf(stderr, "				   [ spoofchk { on | off} ]\n");
++	fprintf(stderr, "				   [ query_rss { on | off} ]\n");
+ 	fprintf(stderr, "				   [ state { auto | enable | disable} ] ]\n");
+ 	fprintf(stderr, "			  [ master DEVICE ]\n");
+ 	fprintf(stderr, "			  [ nomaster ]\n");
 -- 
 2.6.4
