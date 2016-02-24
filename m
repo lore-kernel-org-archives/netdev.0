@@ -1,77 +1,111 @@
-From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v9 11/16] net: rdma: use __ethtool_get_ksettings
-Date: Wed, 24 Feb 2016 10:58:07 -0800
-Message-ID: <1456340292-26003-12-git-send-email-ddecotig@gmail.com>
+From: David Decotigny <ddecotig@gmail.com>
+Subject: [PATCH net-next v9 10/16] net: fcoe: use __ethtool_get_ksettings
+Date: Wed, 24 Feb 2016 10:58:06 -0800
+Message-ID: <1456340292-26003-11-git-send-email-ddecotig@gmail.com>
 References: <1456340292-26003-1-git-send-email-ddecotig@gmail.com>
-Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Ido Shamay <idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>,
-	Venkata Duvvuru <VenkatKumar.Duvvuru-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>,
-	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
-	Ed Swierk <eswierk-FilZDy9cOaHkQYj/0HfcvtBPR1lH4CV8@public.gmane.org>,
-	Robert Love <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"James E.J. Bottomley" <JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-	Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>,
-	kan.liang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, vidya-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
-	David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1456340292-26003-1-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Eric Dumazet <edumazet@google.com>,
+        Eugenia Emantayev <eugenia@mellanox.co.il>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Govindarajulu Varadarajan <_govind@gmx.com>,
+        Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Pravin B Shelar <pshelar@nicira.com>,
+        Ed Swierk <eswierk@skyportsystems.com>,
+        Robert Love <robert.w.love@intel.com>,
+        "James E.J. Bottomley" <JBottomley@parallels.com>,
+        Yuval Mintz <Yuval.Mintz@qlogic.com>,
+        Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+        kan.liang@intel.com, vidya@cumulusnetworks.com,
+        David Decotigny <decot@googlers.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Ben Hutchings <ben@decadent.org.uk>,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-api@vger.kernel.org, linux-mips@linux-mips.org,
+        fcoe-devel@open-fcoe.org,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Tejun Heo <tj@kernel.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <1456340292-26003-1-git-send-email-ddecotig@gmail.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
+From: David Decotigny <decot@googlers.com>
 
-Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
+Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- include/rdma/ib_addr.h | 14 ++++++--------
- 1 file changed, 6 insertions(+), 8 deletions(-)
+ drivers/scsi/fcoe/fcoe_transport.c | 36 ++++++++++++++++++++----------------
+ 1 file changed, 20 insertions(+), 16 deletions(-)
 
-diff --git a/include/rdma/ib_addr.h b/include/rdma/ib_addr.h
-index c34c900..931a47b 100644
---- a/include/rdma/ib_addr.h
-+++ b/include/rdma/ib_addr.h
-@@ -262,24 +262,22 @@ static inline enum ib_mtu iboe_get_mtu(int mtu)
- 
- static inline int iboe_get_rate(struct net_device *dev)
+diff --git a/drivers/scsi/fcoe/fcoe_transport.c b/drivers/scsi/fcoe/fcoe_transport.c
+index d7597c0..641c60e 100644
+--- a/drivers/scsi/fcoe/fcoe_transport.c
++++ b/drivers/scsi/fcoe/fcoe_transport.c
+@@ -93,36 +93,40 @@ static struct notifier_block libfcoe_notifier = {
+ int fcoe_link_speed_update(struct fc_lport *lport)
  {
--	struct ethtool_cmd cmd;
--	u32 speed;
-+	struct ethtool_link_ksettings cmd;
- 	int err;
+ 	struct net_device *netdev = fcoe_get_netdev(lport);
+-	struct ethtool_cmd ecmd;
++	struct ethtool_link_ksettings ecmd;
  
- 	rtnl_lock();
--	err = __ethtool_get_settings(dev, &cmd);
-+	err = __ethtool_get_link_ksettings(dev, &cmd);
- 	rtnl_unlock();
- 	if (err)
- 		return IB_RATE_PORT_CURRENT;
+-	if (!__ethtool_get_settings(netdev, &ecmd)) {
++	if (!__ethtool_get_link_ksettings(netdev, &ecmd)) {
+ 		lport->link_supported_speeds &= ~(FC_PORTSPEED_1GBIT  |
+ 		                                  FC_PORTSPEED_10GBIT |
+ 		                                  FC_PORTSPEED_20GBIT |
+ 		                                  FC_PORTSPEED_40GBIT);
  
--	speed = ethtool_cmd_speed(&cmd);
--	if (speed >= 40000)
-+	if (cmd.base.speed >= 40000)
- 		return IB_RATE_40_GBPS;
--	else if (speed >= 30000)
-+	else if (cmd.base.speed >= 30000)
- 		return IB_RATE_30_GBPS;
--	else if (speed >= 20000)
-+	else if (cmd.base.speed >= 20000)
- 		return IB_RATE_20_GBPS;
--	else if (speed >= 10000)
-+	else if (cmd.base.speed >= 10000)
- 		return IB_RATE_10_GBPS;
- 	else
- 		return IB_RATE_PORT_CURRENT;
+-		if (ecmd.supported & (SUPPORTED_1000baseT_Half |
+-		                      SUPPORTED_1000baseT_Full |
+-		                      SUPPORTED_1000baseKX_Full))
++		if (ecmd.link_modes.supported[0] & (
++			    SUPPORTED_1000baseT_Half |
++			    SUPPORTED_1000baseT_Full |
++			    SUPPORTED_1000baseKX_Full))
+ 			lport->link_supported_speeds |= FC_PORTSPEED_1GBIT;
+ 
+-		if (ecmd.supported & (SUPPORTED_10000baseT_Full   |
+-		                      SUPPORTED_10000baseKX4_Full |
+-		                      SUPPORTED_10000baseKR_Full  |
+-		                      SUPPORTED_10000baseR_FEC))
++		if (ecmd.link_modes.supported[0] & (
++			    SUPPORTED_10000baseT_Full   |
++			    SUPPORTED_10000baseKX4_Full |
++			    SUPPORTED_10000baseKR_Full  |
++			    SUPPORTED_10000baseR_FEC))
+ 			lport->link_supported_speeds |= FC_PORTSPEED_10GBIT;
+ 
+-		if (ecmd.supported & (SUPPORTED_20000baseMLD2_Full |
+-		                      SUPPORTED_20000baseKR2_Full))
++		if (ecmd.link_modes.supported[0] & (
++			    SUPPORTED_20000baseMLD2_Full |
++			    SUPPORTED_20000baseKR2_Full))
+ 			lport->link_supported_speeds |= FC_PORTSPEED_20GBIT;
+ 
+-		if (ecmd.supported & (SUPPORTED_40000baseKR4_Full |
+-		                      SUPPORTED_40000baseCR4_Full |
+-		                      SUPPORTED_40000baseSR4_Full |
+-		                      SUPPORTED_40000baseLR4_Full))
++		if (ecmd.link_modes.supported[0] & (
++			    SUPPORTED_40000baseKR4_Full |
++			    SUPPORTED_40000baseCR4_Full |
++			    SUPPORTED_40000baseSR4_Full |
++			    SUPPORTED_40000baseLR4_Full))
+ 			lport->link_supported_speeds |= FC_PORTSPEED_40GBIT;
+ 
+-		switch (ethtool_cmd_speed(&ecmd)) {
++		switch (ecmd.base.speed) {
+ 		case SPEED_1000:
+ 			lport->link_speed = FC_PORTSPEED_1GBIT;
+ 			break;
 -- 
 2.7.0.rc3.207.g0ac5344
