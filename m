@@ -1,71 +1,134 @@
-From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v9 12/16] net: 8021q: use __ethtool_get_ksettings
-Date: Wed, 24 Feb 2016 10:58:08 -0800
-Message-ID: <1456340292-26003-13-git-send-email-ddecotig@gmail.com>
+From: David Decotigny <ddecotig@gmail.com>
+Subject: [PATCH net-next v9 15/16] net: ethtool: remove unused __ethtool_get_settings
+Date: Wed, 24 Feb 2016 10:58:11 -0800
+Message-ID: <1456340292-26003-16-git-send-email-ddecotig@gmail.com>
 References: <1456340292-26003-1-git-send-email-ddecotig@gmail.com>
-Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Ido Shamay <idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>,
-	Venkata Duvvuru <VenkatKumar.Duvvuru-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>,
-	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
-	Ed Swierk <eswierk-FilZDy9cOaHkQYj/0HfcvtBPR1lH4CV8@public.gmane.org>,
-	Robert Love <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"James E.J. Bottomley" <JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-	Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>,
-	kan.liang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, vidya-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
-	David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1456340292-26003-1-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Eric Dumazet <edumazet@google.com>,
+	Eugenia Emantayev <eugenia@mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ed Swierk <eswierk@skyportsystems.com>,
+	Robert Love <robert.w.love@intel.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	kan.liang@intel.com, vidya@cumulusnetworks.com,
+	David Decotigny <decot@googlers.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-api@vger.kernel.org, linux-mips@linux-mips.org,
+	fcoe-devel@open-fcoe.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1456340292-26003-1-git-send-email-ddecotig@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
+From: David Decotigny <decot@googlers.com>
 
-Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
+replaced by __ethtool_get_link_ksettings.
+
+Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- net/8021q/vlan_dev.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ include/linux/ethtool.h |  4 ----
+ net/core/ethtool.c      | 45 ++++++++++++++-------------------------------
+ 2 files changed, 14 insertions(+), 35 deletions(-)
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 055f0e9..e416a40 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -621,12 +621,12 @@ static netdev_features_t vlan_dev_fix_features(struct net_device *dev,
- 	return features;
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 8a400a5..e2b7bf2 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -150,10 +150,6 @@ extern int
+ __ethtool_get_link_ksettings(struct net_device *dev,
+ 			     struct ethtool_link_ksettings *link_ksettings);
+ 
+-/* DEPRECATED, use __ethtool_get_link_ksettings */
+-extern int __ethtool_get_settings(struct net_device *dev,
+-				  struct ethtool_cmd *cmd);
+-
+ /**
+  * struct ethtool_ops - optional netdev operations
+  * @get_settings: DEPRECATED, use %get_link_ksettings/%set_link_ksettings
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index edcec56..2966cd0 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -551,7 +551,12 @@ int __ethtool_get_link_ksettings(struct net_device *dev,
+ 	 * legacy %ethtool_cmd API, unless it's not supported either.
+ 	 * TODO: remove when ethtool_ops::get_settings disappears internally
+ 	 */
+-	err = __ethtool_get_settings(dev, &cmd);
++	if (!dev->ethtool_ops->get_settings)
++		return -EOPNOTSUPP;
++
++	memset(&cmd, 0, sizeof(cmd));
++	cmd.cmd = ETHTOOL_GSET;
++	err = dev->ethtool_ops->get_settings(dev, &cmd);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -729,30 +734,6 @@ static int ethtool_set_link_ksettings(struct net_device *dev,
+ 	return dev->ethtool_ops->set_link_ksettings(dev, &link_ksettings);
  }
  
--static int vlan_ethtool_get_settings(struct net_device *dev,
--				     struct ethtool_cmd *cmd)
-+static int vlan_ethtool_get_link_ksettings(struct net_device *dev,
-+					   struct ethtool_link_ksettings *cmd)
+-/* Internal kernel helper to query a device ethtool_cmd settings.
+- *
+- * Note about transition to ethtool_link_settings API: We do not need
+- * (or want) this function to support "dev" instances that implement
+- * the ethtool_link_settings API as we will update the drivers calling
+- * this function to call __ethtool_get_link_ksettings instead, before
+- * the first drivers implement ethtool_ops::get_link_ksettings.
+- *
+- * TODO 1: at least make this function static when no driver is using it
+- * TODO 2: remove when ethtool_ops::get_settings disappears internally
+- */
+-int __ethtool_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	ASSERT_RTNL();
+-
+-	if (!dev->ethtool_ops->get_settings)
+-		return -EOPNOTSUPP;
+-
+-	memset(cmd, 0, sizeof(struct ethtool_cmd));
+-	cmd->cmd = ETHTOOL_GSET;
+-	return dev->ethtool_ops->get_settings(dev, cmd);
+-}
+-EXPORT_SYMBOL(__ethtool_get_settings);
+-
+ static void
+ warn_incomplete_ethtool_legacy_settings_conversion(const char *details)
  {
- 	const struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
- 
--	return __ethtool_get_settings(vlan->real_dev, cmd);
-+	return __ethtool_get_link_ksettings(vlan->real_dev, cmd);
- }
- 
- static void vlan_ethtool_get_drvinfo(struct net_device *dev,
-@@ -741,7 +741,7 @@ static int vlan_dev_get_iflink(const struct net_device *dev)
- }
- 
- static const struct ethtool_ops vlan_ethtool_ops = {
--	.get_settings	        = vlan_ethtool_get_settings,
-+	.get_link_ksettings	= vlan_ethtool_get_link_ksettings,
- 	.get_drvinfo	        = vlan_ethtool_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
- 	.get_ts_info		= vlan_ethtool_get_ts_info,
+@@ -796,16 +777,18 @@ static int ethtool_get_settings(struct net_device *dev, void __user *useraddr)
+ 		/* send a sensible cmd tag back to user */
+ 		cmd.cmd = ETHTOOL_GSET;
+ 	} else {
+-		int err;
+-		/* TODO: return -EOPNOTSUPP when
+-		 * ethtool_ops::get_settings disappears internally
+-		 */
+-
+ 		/* driver doesn't support %ethtool_link_ksettings
+ 		 * API. revert to legacy %ethtool_cmd API, unless it's
+ 		 * not supported either.
+ 		 */
+-		err = __ethtool_get_settings(dev, &cmd);
++		int err;
++
++		if (!dev->ethtool_ops->get_settings)
++			return -EOPNOTSUPP;
++
++		memset(&cmd, 0, sizeof(cmd));
++		cmd.cmd = ETHTOOL_GSET;
++		err = dev->ethtool_ops->get_settings(dev, &cmd);
+ 		if (err < 0)
+ 			return err;
+ 	}
 -- 
 2.7.0.rc3.207.g0ac5344
