@@ -1,223 +1,70 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next] net: Facility to report route quality of connected sockets
-Date: Wed, 24 Feb 2016 10:02:52 -0800
-Message-ID: <1456336972-3024417-1-git-send-email-tom@herbertland.com>
+Subject: Re: [net-next PATCH 1/5] flow_dissector: Check for IP fragmentation
+ even if not using IPv4 address
+Date: Wed, 24 Feb 2016 10:14:05 -0800
+Message-ID: <CALx6S3499MvvS2SsDQF-c+ymtekcp6TMbmBnp=n4kb5trtJU5Q@mail.gmail.com>
+References: <20160224172644.12339.92679.stgit@localhost.localdomain>
+	<20160224172937.12339.81437.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58473 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758526AbcBXSDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 13:03:04 -0500
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u1OHv5mK010119
-	for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 10:03:04 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 21950wamx2-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 10:03:03 -0800
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.212.236.87) with ESMTP	id
- d85158eadb2011e59a6e0002c9521c9e-a64f0270 for <netdev@vger.kernel.org>;	Wed,
- 24 Feb 2016 10:03:02 -0800
+Received: from mail-io0-f179.google.com ([209.85.223.179]:34131 "EHLO
+	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753101AbcBXSO0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 13:14:26 -0500
+Received: by mail-io0-f179.google.com with SMTP id 9so52515134iom.1
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 10:14:25 -0800 (PST)
+In-Reply-To: <20160224172937.12339.81437.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch add the SO_CNX_ADVICE socket option (setsockopt only). The
-purpose is to allow an application to give feedback to the kernel about
-the quality of the network path for a connected socket. The value
-argument indicates the type of quality report. For this initial patch
-the only supported advice is a value of 1 which indicates "bad path,
-please reroute"-- the action taken by the kernel is to call
-dst_negative_advice which will attempt to choose a different ECMP route,
-reset the TX hash for flow label and UDP source port in encapsulation,
-etc.
+On Wed, Feb 24, 2016 at 9:29 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> This patch corrects the logic for the IPv4 parsing so that it is consistent
+> with how we handle IPv6.  Specifically if we do not have the flow key
+> indicating we want the addresses we still may need to take a look at the IP
+> fragmentation bits and to see if we should stop after we have recognized
+> the L3 header.
+>
+> Fixes: 807e165dc44f ("flow_dissector: Add control/reporting of fragmentation")
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 
-This facility should be useful for connected UDP sockets where only the
-application can provide any feedback about path quality. It could also
-be useful for TCP applications that have additional knowledge about the
-path outside of the normal TCP control loop.
+Acked-by: Tom Herbert <tom@herbertland.com>
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- arch/alpha/include/uapi/asm/socket.h   | 2 ++
- arch/avr32/include/uapi/asm/socket.h   | 2 ++
- arch/frv/include/uapi/asm/socket.h     | 2 ++
- arch/ia64/include/uapi/asm/socket.h    | 2 ++
- arch/m32r/include/uapi/asm/socket.h    | 2 ++
- arch/mips/include/uapi/asm/socket.h    | 2 ++
- arch/mn10300/include/uapi/asm/socket.h | 2 ++
- arch/parisc/include/uapi/asm/socket.h  | 2 ++
- arch/powerpc/include/uapi/asm/socket.h | 2 ++
- arch/s390/include/uapi/asm/socket.h    | 2 ++
- arch/sparc/include/uapi/asm/socket.h   | 2 ++
- arch/xtensa/include/uapi/asm/socket.h  | 2 ++
- include/uapi/asm-generic/socket.h      | 2 ++
- net/core/sock.c                        | 4 ++++
- 14 files changed, 30 insertions(+)
-
-diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
-index c5fb9e6..9e46d6e 100644
---- a/arch/alpha/include/uapi/asm/socket.h
-+++ b/arch/alpha/include/uapi/asm/socket.h
-@@ -95,4 +95,6 @@
- #define SO_ATTACH_REUSEPORT_CBPF	51
- #define SO_ATTACH_REUSEPORT_EBPF	52
- 
-+#define SO_CNX_ADVICE		53
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
-index 9de0796..1fd147f 100644
---- a/arch/avr32/include/uapi/asm/socket.h
-+++ b/arch/avr32/include/uapi/asm/socket.h
-@@ -88,4 +88,6 @@
- #define SO_ATTACH_REUSEPORT_CBPF	51
- #define SO_ATTACH_REUSEPORT_EBPF	52
- 
-+#define SO_CNX_ADVICE		53
-+
- #endif /* _UAPI__ASM_AVR32_SOCKET_H */
-diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
-index f02e484..afbc98f0 100644
---- a/arch/frv/include/uapi/asm/socket.h
-+++ b/arch/frv/include/uapi/asm/socket.h
-@@ -88,5 +88,7 @@
- #define SO_ATTACH_REUSEPORT_CBPF	51
- #define SO_ATTACH_REUSEPORT_EBPF	52
- 
-+#define SO_CNX_ADVICE		53
-+
- #endif /* _ASM_SOCKET_H */
- 
-diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
-index bce2916..0018fad 100644
---- a/arch/ia64/include/uapi/asm/socket.h
-+++ b/arch/ia64/include/uapi/asm/socket.h
-@@ -97,4 +97,6 @@
- #define SO_ATTACH_REUSEPORT_CBPF	51
- #define SO_ATTACH_REUSEPORT_EBPF	52
- 
-+#define SO_CNX_ADVICE		53
-+
- #endif /* _ASM_IA64_SOCKET_H */
-diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
-index 14aa4a6..5fe42fc 100644
---- a/arch/m32r/include/uapi/asm/socket.h
-+++ b/arch/m32r/include/uapi/asm/socket.h
-@@ -88,4 +88,6 @@
- #define SO_ATTACH_REUSEPORT_CBPF	51
- #define SO_ATTACH_REUSEPORT_EBPF	52
- 
-+#define SO_CNX_ADVICE		53
-+
- #endif /* _ASM_M32R_SOCKET_H */
-diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
-index 5910fe2..2027240a 100644
---- a/arch/mips/include/uapi/asm/socket.h
-+++ b/arch/mips/include/uapi/asm/socket.h
-@@ -106,4 +106,6 @@
- #define SO_ATTACH_REUSEPORT_CBPF	51
- #define SO_ATTACH_REUSEPORT_EBPF	52
- 
-+#define SO_CNX_ADVICE		53
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
-index 58b1aa0..5129f23 100644
---- a/arch/mn10300/include/uapi/asm/socket.h
-+++ b/arch/mn10300/include/uapi/asm/socket.h
-@@ -88,4 +88,6 @@
- #define SO_ATTACH_REUSEPORT_CBPF	51
- #define SO_ATTACH_REUSEPORT_EBPF	52
- 
-+#define SO_CNX_ADVICE		53
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
-index f9cf122..9c935d7 100644
---- a/arch/parisc/include/uapi/asm/socket.h
-+++ b/arch/parisc/include/uapi/asm/socket.h
-@@ -87,4 +87,6 @@
- #define SO_ATTACH_REUSEPORT_CBPF	0x402C
- #define SO_ATTACH_REUSEPORT_EBPF	0x402D
- 
-+#define SO_CNX_ADVICE		0x402E
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
-index dd54f28..1672e33 100644
---- a/arch/powerpc/include/uapi/asm/socket.h
-+++ b/arch/powerpc/include/uapi/asm/socket.h
-@@ -95,4 +95,6 @@
- #define SO_ATTACH_REUSEPORT_CBPF	51
- #define SO_ATTACH_REUSEPORT_EBPF	52
- 
-+#define SO_CNX_ADVICE		53
-+
- #endif	/* _ASM_POWERPC_SOCKET_H */
-diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
-index d02e89d..41b51c2 100644
---- a/arch/s390/include/uapi/asm/socket.h
-+++ b/arch/s390/include/uapi/asm/socket.h
-@@ -94,4 +94,6 @@
- #define SO_ATTACH_REUSEPORT_CBPF	51
- #define SO_ATTACH_REUSEPORT_EBPF	52
- 
-+#define SO_CNX_ADVICE		53
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
-index d270ee9..31aede3 100644
---- a/arch/sparc/include/uapi/asm/socket.h
-+++ b/arch/sparc/include/uapi/asm/socket.h
-@@ -84,6 +84,8 @@
- #define SO_ATTACH_REUSEPORT_CBPF	0x0035
- #define SO_ATTACH_REUSEPORT_EBPF	0x0036
- 
-+#define SO_CNX_ADVICE		0x0037
-+
- /* Security levels - as per NRL IPv6 - don't actually do anything */
- #define SO_SECURITY_AUTHENTICATION		0x5001
- #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
-diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
-index fd3b96d..81435d9 100644
---- a/arch/xtensa/include/uapi/asm/socket.h
-+++ b/arch/xtensa/include/uapi/asm/socket.h
-@@ -99,4 +99,6 @@
- #define SO_ATTACH_REUSEPORT_CBPF	51
- #define SO_ATTACH_REUSEPORT_EBPF	52
- 
-+#define SO_CNX_ADVICE		53
-+
- #endif	/* _XTENSA_SOCKET_H */
-diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-index fb8a416..67d632f 100644
---- a/include/uapi/asm-generic/socket.h
-+++ b/include/uapi/asm-generic/socket.h
-@@ -90,4 +90,6 @@
- #define SO_ATTACH_REUSEPORT_CBPF	51
- #define SO_ATTACH_REUSEPORT_EBPF	52
- 
-+#define SO_CNX_ADVICE		53
-+
- #endif /* __ASM_GENERIC_SOCKET_H */
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 46dc8ad..4493ff8 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -987,6 +987,10 @@ set_rcvbuf:
- 		sk->sk_incoming_cpu = val;
- 		break;
- 
-+	case SO_CNX_ADVICE:
-+		if (val == 1)
-+			dst_negative_advice(sk);
-+		break;
- 	default:
- 		ret = -ENOPROTOOPT;
- 		break;
--- 
-2.6.5
+> ---
+>  net/core/flow_dissector.c |   17 +++++++++--------
+>  1 file changed, 9 insertions(+), 8 deletions(-)
+>
+> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+> index 12e700332010..1f88f8280280 100644
+> --- a/net/core/flow_dissector.c
+> +++ b/net/core/flow_dissector.c
+> @@ -178,15 +178,16 @@ ip:
+>
+>                 ip_proto = iph->protocol;
+>
+> -               if (!dissector_uses_key(flow_dissector,
+> -                                       FLOW_DISSECTOR_KEY_IPV4_ADDRS))
+> -                       break;
+> +               if (dissector_uses_key(flow_dissector,
+> +                                      FLOW_DISSECTOR_KEY_IPV4_ADDRS)) {
+> +                       key_addrs = skb_flow_dissector_target(flow_dissector,
+> +                                                             FLOW_DISSECTOR_KEY_IPV4_ADDRS,
+> +                                                             target_container);
+>
+> -               key_addrs = skb_flow_dissector_target(flow_dissector,
+> -                             FLOW_DISSECTOR_KEY_IPV4_ADDRS, target_container);
+> -               memcpy(&key_addrs->v4addrs, &iph->saddr,
+> -                      sizeof(key_addrs->v4addrs));
+> -               key_control->addr_type = FLOW_DISSECTOR_KEY_IPV4_ADDRS;
+> +                       memcpy(&key_addrs->v4addrs, &iph->saddr,
+> +                              sizeof(key_addrs->v4addrs));
+> +                       key_control->addr_type = FLOW_DISSECTOR_KEY_IPV4_ADDRS;
+> +               }
+>
+>                 if (ip_is_fragment(iph)) {
+>                         key_control->flags |= FLOW_DIS_IS_FRAGMENT;
+>
