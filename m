@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/20] e1000e: Set HW FIFO minimum pointer gap for non-gig speeds
-Date: Tue, 23 Feb 2016 20:26:07 -0800
-Message-ID: <1456287984-10459-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/20] e1000e: Clear ULP configuration register on ULP exit
+Date: Tue, 23 Feb 2016 20:26:08 -0800
+Message-ID: <1456287984-10459-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1456287984-10459-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Raanan Avargil <raanan.avargil@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:57891 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:12818 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757337AbcBXE03 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757338AbcBXE03 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 23 Feb 2016 23:26:29 -0500
 In-Reply-To: <1456287984-10459-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,39 +18,47 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Raanan Avargil <raanan.avargil@intel.com>
 
-Based on feedback from HW team, the configured value of the internal PHY
-HW FIFO pointer gap was incorrect for non-gig speeds.
-This patch provides the correct configuration.
+There have been bugs caused by HW ULP configuration settings not being
+properly cleared after cable connect in V-Pro capable systems.
+This caused HW to get out of sync occasionally.
+The fix ensures that ULP settings are cleared in HW after
+LAN cable re-connect.
 
 Signed-off-by: Raanan Avargil <raanan.avargil@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 2 ++
+ drivers/net/ethernet/intel/e1000e/ich8lan.h | 4 ++++
+ 2 files changed, 6 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 786d214..e7ccf5f 100644
+index e7ccf5f..c0f4887 100644
 --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
 +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -1479,6 +1479,18 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
- 				hw->phy.ops.release(hw);
- 				if (ret_val)
- 					return ret_val;
-+			} else {
-+				ret_val = hw->phy.ops.acquire(hw);
-+				if (ret_val)
-+					return ret_val;
-+
-+				ret_val = e1e_wphy_locked(hw,
-+							  PHY_REG(776, 20),
-+							  0xC023);
-+				hw->phy.ops.release(hw);
-+				if (ret_val)
-+					return ret_val;
-+
- 			}
- 		}
- 	}
+@@ -1328,6 +1328,8 @@ static s32 e1000_disable_ulp_lpt_lp(struct e1000_hw *hw, bool force)
+ 		     I218_ULP_CONFIG1_RESET_TO_SMBUS |
+ 		     I218_ULP_CONFIG1_WOL_HOST |
+ 		     I218_ULP_CONFIG1_INBAND_EXIT |
++		     I218_ULP_CONFIG1_EN_ULP_LANPHYPC |
++		     I218_ULP_CONFIG1_DIS_CLR_STICKY_ON_PERST |
+ 		     I218_ULP_CONFIG1_DISABLE_SMB_PERST);
+ 	e1000_write_phy_reg_hv_locked(hw, I218_ULP_CONFIG1, phy_reg);
+ 
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.h b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+index 7d85f00..2311f60 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.h
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+@@ -188,6 +188,10 @@
+ #define I218_ULP_CONFIG1_INBAND_EXIT	0x0020	/* Inband on ULP exit */
+ #define I218_ULP_CONFIG1_WOL_HOST	0x0040	/* WoL Host on ULP exit */
+ #define I218_ULP_CONFIG1_RESET_TO_SMBUS	0x0100	/* Reset to SMBus mode */
++/* enable ULP even if when phy powered down via lanphypc */
++#define I218_ULP_CONFIG1_EN_ULP_LANPHYPC	0x0400
++/* disable clear of sticky ULP on PERST */
++#define I218_ULP_CONFIG1_DIS_CLR_STICKY_ON_PERST	0x0800
+ #define I218_ULP_CONFIG1_DISABLE_SMB_PERST	0x1000	/* Disable on PERST# */
+ 
+ /* SMBus Address Phy Register */
 -- 
 2.5.0
