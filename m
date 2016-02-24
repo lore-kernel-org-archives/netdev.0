@@ -1,33 +1,85 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [net-next PATCH 1/4] net: sched: consolidate offload decision in
- cls_u32
-Date: Wed, 24 Feb 2016 15:12:44 +0900
-Message-ID: <20160224061242.GD12134@vergenet.net>
-References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810>
+From: Chunhao Lin <hau@realtek.com>
+Subject: [PATCH net v4] r8169:fix "rtl_counters_cond == 1 (loop: 1000, delay: 10)" log spam.
+Date: Wed, 24 Feb 2016 14:18:42 +0800
+Message-ID: <1456294722-3596-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jiri@resnulli.us, daniel@iogearbox.net, netdev@vger.kernel.org,
-	alexei.starovoitov@gmail.com, davem@davemloft.net, jhs@mojatatu.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:36054 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750883AbcBXGMx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 01:12:53 -0500
-Received: by mail-pf0-f173.google.com with SMTP id e127so6899940pfe.3
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 22:12:53 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	Chunhao Lin <hau@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 23, 2016 at 11:02:33AM -0800, John Fastabend wrote:
-> The offload decision was originally very basic and tied to if the dev
-> implemented the appropriate ndo op hook. The next step is to allow
-> the user to more flexibly define if any paticular rule should be
-> offloaded or not. In order to have this logic in one function lift
-> the current check into a helper routine tc_should_offload().
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+There will be a log spam when there is no cable plugged. Please refer to
+following links. https://bugzilla.kernel.org/show_bug.cgi?id=104351
+https://bugzilla.kernel.org/show_bug.cgi?id=107421
 
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
+This issue is caused by runtime power management. When there is no cable
+plugged, the driver will be suspend (runtime suspend) by OS and NIC will be
+put into the D3 state. During this time, if OS call rtl8169_get_stats64()
+to dump tally counter, because NIC is in D3 state, the register value read
+by driver will return all 0xff. This will let driver think tally counter
+flag is not toggled and then sends the warning message "rtl_counters_cond
+== 1 (loop: 1000, delay: 10)" to kernel log.
+
+For fixing this issue, 1.add checking driver's pm runtime status in
+rtl8169_get_stats64(). 2.dump tally counter before going runtime suspend
+for counter accuracy in runtime suspend.
+
+Signed-off-by: Chunhao Lin <hau@realtek.com>
+---
+ drivers/net/ethernet/realtek/r8169.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 537974c..4caeacb 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -7730,10 +7730,13 @@ rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	void __iomem *ioaddr = tp->mmio_addr;
++	struct pci_dev *pdev = tp->pci_dev;
+ 	struct rtl8169_counters *counters = tp->counters;
+ 	unsigned int start;
+ 
+-	if (netif_running(dev))
++	pm_runtime_get_noresume(&pdev->dev);
++
++	if (netif_running(dev) && pm_runtime_active(&pdev->dev))
+ 		rtl8169_rx_missed(dev, ioaddr);
+ 
+ 	do {
+@@ -7761,7 +7764,8 @@ rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ 	 * Fetch additonal counter values missing in stats collected by driver
+ 	 * from tally counters.
+ 	 */
+-	rtl8169_update_counters(dev);
++	if (pm_runtime_active(&pdev->dev))
++		rtl8169_update_counters(dev);
+ 
+ 	/*
+ 	 * Subtract values fetched during initalization.
+@@ -7774,6 +7778,8 @@ rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ 	stats->tx_aborted_errors = le16_to_cpu(counters->tx_aborted) -
+ 		le16_to_cpu(tp->tc_offset.tx_aborted);
+ 
++	pm_runtime_put_noidle(&pdev->dev);
++
+ 	return stats;
+ }
+ 
+@@ -7853,6 +7859,10 @@ static int rtl8169_runtime_suspend(struct device *device)
+ 
+ 	rtl8169_net_suspend(dev);
+ 
++	/* Update counters before going runtime suspend */
++	rtl8169_rx_missed(dev, tp->mmio_addr);
++	rtl8169_update_counters(dev);
++
+ 	return 0;
+ }
+ 
+-- 
+1.9.1
