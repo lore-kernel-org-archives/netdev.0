@@ -1,93 +1,102 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next 1/5] netdev: introduce ndo_set_rx_headroom
-Date: Wed, 24 Feb 2016 09:37:56 +0100
-Message-ID: <1456303076.5436.4.camel@redhat.com>
-References: <cover.1456163137.git.pabeni@redhat.com>
-	 <ce1a9b0a33927547d0fbc659ac59dcf9fb7c3a33.1456163137.git.pabeni@redhat.com>
-	 <CAOrHB_DgzNed9bD6F1zytxq=0m+6oXECRokRvMuP0qa7Vu7NYw@mail.gmail.com>
+From: Alexandre Torgue <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 2/4] Documentation: Bindings: Add STM32 DWMAC glue
+Date: Wed, 24 Feb 2016 09:40:55 +0100
+Message-ID: <CAJgp7zzrJWuJBQyjRdyU5qg=emCjqWfSPVRhT-D6G6Ho=hJzVA@mail.gmail.com>
+References: <1456240244-10275-1-git-send-email-alexandre.torgue@gmail.com>
+	<1456240244-10275-3-git-send-email-alexandre.torgue@gmail.com>
+	<CAGhQ9VwsSb-Nb4nQ4Q9=b-Dj_8EhSi=LOK-r4JbKcE=nfODufw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Flavio Leitner <fbl@sysclose.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: pravin shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45880 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751866AbcBXIiC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2016 03:38:02 -0500
-In-Reply-To: <CAOrHB_DgzNed9bD6F1zytxq=0m+6oXECRokRvMuP0qa7Vu7NYw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAGhQ9VwsSb-Nb4nQ4Q9=b-Dj_8EhSi=LOK-r4JbKcE=nfODufw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-02-23 at 11:20 -0800, pravin shelar wrote:
-> On Tue, Feb 23, 2016 at 4:53 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> > This method allows the controlling device (i.e. the bridge) to specify
-> > additional headroom to be allocated for skb head on frame reception.
-> >
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> > ---
-> >  include/linux/netdevice.h | 20 ++++++++++++++++++++
-> >  1 file changed, 20 insertions(+)
-> >
-> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> > index 47671ce0..fb74277 100644
-> > --- a/include/linux/netdevice.h
-> > +++ b/include/linux/netdevice.h
-> > @@ -1093,6 +1093,12 @@ struct tc_to_netdev {
-> >   *     This function is used to get egress tunnel information for given skb.
-> >   *     This is useful for retrieving outer tunnel header parameters while
-> >   *     sampling packet.
-> ...
-> 
-> >  /**
-> > @@ -1315,6 +1323,8 @@ struct net_device_ops {
-> >   * @IFF_L3MDEV_SLAVE: device is enslaved to an L3 master device
-> >   * @IFF_TEAM: device is a team device
-> >   * @IFF_RXFH_CONFIGURED: device has had Rx Flow indirection table configured
-> > + * @IFF_PHONY_HEADROOM: the headroom value is controlled by an external
-> > + *     entity (i.e. the master device for bridged veth)
-> >   */
-> >  enum netdev_priv_flags {
-> >         IFF_802_1Q_VLAN                 = 1<<0,
-> > @@ -1343,6 +1353,7 @@ enum netdev_priv_flags {
-> >         IFF_L3MDEV_SLAVE                = 1<<23,
-> >         IFF_TEAM                        = 1<<24,
-> >         IFF_RXFH_CONFIGURED             = 1<<25,
-> > +       IFF_PHONY_HEADROOM              = 1<<26,
-> >  };
-> >
-> >  #define IFF_802_1Q_VLAN                        IFF_802_1Q_VLAN
-> > @@ -1937,6 +1948,15 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
-> >                                     struct sk_buff *skb,
-> >                                     void *accel_priv);
-> >
-> > +/* returns the headroom that the master device needs to take in account
-> > + * when forwarding to this dev
-> > + */
-> > +static inline unsigned netdev_get_fwd_headroom(struct net_device *dev)
-> > +{
-> > +       return (dev->priv_flags && IFF_PHONY_HEADROOM) ? dev->needed_headroom :
-> > +               0;
-> > +}
-> > +
-> This looks like typo. It should '&' to check for the bitfield.
+2016-02-23 23:37 GMT+01:00 Joachim  Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+> Hi Alexandre,
+>
+> You should copy 'devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org' on bindings doc. Adding cc here.
+>
+> On 23 February 2016 at 16:10, Alexandre TORGUE
+> <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> Signed-off-by: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/stm32-dwmac.txt b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
+>> new file mode 100644
+>> index 0000000..18734b3
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
+>> @@ -0,0 +1,41 @@
+>> +STMicroelectronics STM32 / MCU DWMAC glue layer controller
+>> +
+>> +This file documents platform glue layer for stmmac.
+>> +Please see stmmac.txt for the other unchanged properties.
+>> +
+>> +The device node has following properties.
+>> +
+>> +Required properties:
+>> +- compatible:  Should be "st,stm32-dwmac" to select glue, and
+>> +              "snps,dwmac-3.50a" to select IP vesrion.
+>> +- clocks: Should contain the GMAC main clock, and tx clock
+>> +- compatible:  Should be "st,stm32-dwmac" to select glue and
+>> +              "snps,dwmac-3.50a" to select IP version.
+>> +- clocks: Should contain the MAC main clock
+>> +- clock-names: Should contain the clock names "stmmaceth".
+>> +- st,syscon : Should be phandle/offset pair. The phandle to the syscon node which
+>> +             encompases the glue register, and the offset of the control register.
+>> +
+>> +Optional properties:
+>> +- clocks: Could contain:
+>> +       - the tx clock,
+>> +       - the rx clock
+>> +- clock-names: Could contain the clock names "tx-clk", "rx-clk"
+>> +
+>> +Example:
+>> +
+>> +               ethernet0: dwmac@40028000 {
+>> +                       device_type = "network";
+>
+> What is this 'device_type = "network"' for?
+> It seems to used in a lot of powerpc DTs, but only a couple of arm DTs.
+>
+> Maybe Rob could enlighten us?
+>
+>> +                       compatible = "st,stm32-dwmac", "snps,dwmac-3.50a";
+>> +                       status = "disabled";
+>> +                       reg = <0x40028000 0x8000>;
+>> +                       reg-names = "stmmaceth";
+>> +                       interrupts = <0 61 0>, <0 62 0>;
+>> +                       interrupt-names = "macirq", "eth_wake_irq";
+>> +                       clock-names = "stmmaceth", "tx-clk", "rx-clk";
+>> +                       clocks = <&rcc 0 25>, <&rcc 0 26>, <&rcc 0 27>;
+>> +                       st,syscon = <&syscfg 0x4>;
+>> +                       snps,pbl = <32>;
+>
+> Regarding snps,pbl; using 32 here might not give you what you would except.
+> See comment in dwmac1000_dma_init().
+>
+> The driver is hard coded to use PBL4X/PBL8X mode. Just a heads up.
+>
+Hi Joachim,
 
-You are right! Thank you for spotting it.
+My fault, It is not working with 32. I will modify it (should be 8 for example)
 
-There is also another error here; the code should be:
+Regards
 
-return (dev->priv_flags & IFF_PHONY_HEADROOM) ? 0 : dev->needed_headroom;
+Alexandre
 
-i.e. when computing the rx/forwarding headroom, we want to ignore
-devices with phony headroom, since they actually will not requires
-additional skb headroom on xmit.
-
-I'll fix this in v2.
-
-Paolo
+>
+> regards,
+> Joachim Eastwood
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
