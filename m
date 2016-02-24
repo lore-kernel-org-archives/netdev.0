@@ -1,72 +1,324 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCHv2 09/10] rfkill: Userspace control for airplane mode
-Date: Wed, 24 Feb 2016 10:01:49 +0100
-Message-ID: <1456304509.2050.15.camel@sipsolutions.net>
-References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
-	 <1456159001-20307-10-git-send-email-jprvita@endlessm.com>
-	 <20160223204525.GC16961@amd> <1456260914.9910.34.camel@sipsolutions.net>
-	 <20160223214501.GA22501@amd>
+From: Alexandre Torgue <alexandre.torgue@gmail.com>
+Subject: Re: [PATCH v2 1/4] net: ethernet: dwmac: add Ethernet glue logic for
+ stm32 chip
+Date: Wed, 24 Feb 2016 10:03:08 +0100
+Message-ID: <CAJgp7zwEcsk3gAQ+xJZoKYTYjp-R2_K5kZ47kCrXv3Y1mL4s8A@mail.gmail.com>
+References: <1456240244-10275-1-git-send-email-alexandre.torgue@gmail.com>
+ <1456240244-10275-2-git-send-email-alexandre.torgue@gmail.com>
+ <CAGhQ9Vz8uUeyhEutTPh3Zb3C=T3F2xC7kgHorZyWcz6HW+ySmw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Darren Hart <dvhart-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	platform-driver-x86-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-6IF/jdPJHihWk0Htik3J/w@public.gmane.org,
-	=?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
-To: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160223214501.GA22501@amd>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Maxime Coquelin <mcoquelin.stm32@gmail.com>, netdev <netdev@vger.kernel.org>
+To: Joachim Eastwood <manabian@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAGhQ9Vz8uUeyhEutTPh3Zb3C=T3F2xC7kgHorZyWcz6HW+ySmw@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-02-23 at 22:45 +0100, Pavel Machek wrote:
+2016-02-23 23:16 GMT+01:00 Joachim  Eastwood <manabian@gmail.com>:
+> Hi Alexandre,
+>
+> On 23 February 2016 at 16:10, Alexandre TORGUE
+> <alexandre.torgue@gmail.com> wrote:
+>> stm324xx family chips support Synopsys MAC 3.510 IP.
+>> This patch adds settings for logical glue logic:
+>> -clocks
+>> -mode selection MII or RMII.
+>>
+>> Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
+>>
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+>> index cec147d..f63bdcf 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+>> @@ -114,6 +114,18 @@ config DWMAC_SUNXI
+>>           This selects Allwinner SoC glue layer support for the
+>>           stmmac device driver. This driver is used for A20/A31
+>>           GMAC ethernet controller.
+>> +
+>> +config DWMAC_STM32
+>> +       tristate "STM32 DWMAC support"
+>> +       default ARCH_STM32
+>> +       depends on OF && HAS_IOMEM
+>> +       select MFD_SYSCON
+>> +       ---help---
+>> +         Support for ethernet controller on STM32 SOCs.
+>> +
+>> +         This selects STM32 SoC glue layer support for the stmmac
+>> +         device driver. This driver is used on for the STM32 series
+>> +         SOCs GMAC ethernet controller.
+>>  endif
+>>
+>>  config STMMAC_PCI
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
+>> index b390161..559086d 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/Makefile
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+>> @@ -13,6 +13,7 @@ obj-$(CONFIG_DWMAC_ROCKCHIP)  += dwmac-rk.o
+>>  obj-$(CONFIG_DWMAC_SOCFPGA)    += dwmac-socfpga.o
+>>  obj-$(CONFIG_DWMAC_STI)                += dwmac-sti.o
+>>  obj-$(CONFIG_DWMAC_SUNXI)      += dwmac-sunxi.o
+>> +obj-$(CONFIG_DWMAC_STM32)      += dwmac-stm32.o
+>
 
-> Well "the airplane mode" is well defined. It means no intentional
-> transmitting at radio frequencies.
-> 
-> The fact that you are allowed to use WIFI on certain flights does not
-> change anything.
+Hi Joachim,
 
-Nope, not that simple. Pick up any (contemporary) smartphone and watch
-what happens with the airplane mode indicator (the little airplane
-icon) when you enable wifi after enabling airplane mode. It stays
-there.
+> Put them in alphabetic order. Same goes for the KConfig entry.
 
-Clearly the same logic could then apply to an actual LED (on a system
-that's less size-constrained, e.g. a laptop or tablet.)
+Ok
 
-Thus, the display of "in airplane mode" *does* have policy, and clearly
-there's precedent for not disabling the icon or LED when wifi is
-enabled, but the kernel shouldn't really impose that. Now, the kernel
-has a "safe" default which does what you thought was the "well defined"
-airplane mode, but at the same time it's obviously not good enough.
+>
+>
+>>  obj-$(CONFIG_DWMAC_GENERIC)    += dwmac-generic.o
+>>  stmmac-platform-objs:= stmmac_platform.o
+> ...
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
+>> +struct stm32_dwmac {
+>> +       int interface;          /* MII interface */
+>> +       struct clk *clk_tx;
+>> +       struct clk *clk_rx;
+>> +       u32 mode_reg;           /* MAC glue-logic mode register */
+>> +       struct regmap *regmap;
+>> +       u32 speed;
+>> +};
+>> +
+>> +static int stm32_dwmac_init(void *priv)
+>
+> If you used 'struct stm32_dwmac *' instead of 'void *' you could skip
+> the local variable assignment.
+>
+> Even better; you could pass 'struct plat_stmmacenet_data *' and use
+> it's 'interface' member to set the phy mode. Then you could drop the
+> interface member in your priv data struct and remove of_get_phy_mode()
+> in stm32_dwmac_parse_data().
 
-And evidently, the Asus system that this was originally proposed for
-has such an LED.
+Yes, interesting.
+>
+>
+>> +{
+>> +       struct stm32_dwmac *dwmac = priv;
+>> +       struct regmap *regmap = dwmac->regmap;
+>> +       int ret, iface = dwmac->interface;
+>> +       u32 reg = dwmac->mode_reg;
+>> +       u32 val;
+>> +
+>> +       ret = clk_prepare_enable(dwmac->clk_tx);
+>> +       if (ret)
+>> +               goto out;
+>> +
+>> +       ret = clk_prepare_enable(dwmac->clk_rx);
+>> +       if (ret)
+>> +               goto out_disable_clk_tx;
+>> +
+>> +       val = (iface == PHY_INTERFACE_MODE_MII) ? 0 : 1;
+>> +       ret = regmap_update_bits(regmap, reg, MII_PHY_SEL_MASK, val);
+>> +       if (ret)
+>> +               goto out_disable_clk_tx_rx;
+>> +
+>> +       return 0;
+>> +
+>> +out_disable_clk_tx_rx:
+>> +       clk_disable_unprepare(dwmac->clk_rx);
+>> +out_disable_clk_tx:
+>> +       clk_disable_unprepare(dwmac->clk_tx);
+>> +out:
+>> +       return ret;
+>> +}
+>> +
+>> +static void stm32_dwmac_exit(void *priv)
+>> +{
+>> +       struct stm32_dwmac *dwmac = priv;
+>
+> Again; instead of 'void *' use 'struct stm32_dwmac *' to avoid the
+> local assignment.
+>
+>
+>> +
+>> +       clk_disable_unprepare(dwmac->clk_tx);
+>> +       clk_disable_unprepare(dwmac->clk_rx);
+>> +}
+>
+> To be honest I really don't see the point in having a function with
+> just two other function calls in it. Consider dropping the function
+> altogether and place the clk_disable_unprepare() calls where it's
+> called from. If you still want to keep it, please put a more
+> descriptive name on it.
 
-> I see that "airplane mode" trigger might be a tiny bit
-> useful... dunno, for a LED near the airplane mode switch, when vendor
-> replaced hardware toggle with a key. But policy should have nothing
-> to do with that. If you argue additional "policy daemon" is needed
-> for that... forget it, that's overdesigned.
+It was just to avoid redundant code, but yes there is not a big
+interest to do it.
 
-See above.
+>
+>
+>> +static int stm32_dwmac_parse_data(struct stm32_dwmac *dwmac,
+>> +                                 struct platform_device *pdev)
+>
+> Since you are only interested in *dev and not *pdev you could pass a
+> 'struct dev *' instead.
 
-> (Besides, finding all LEDs with given trigger is trivial
-> operation. Besides... there should never be more than one).
+ok
 
-That *might* actually work. But once a tool has detached the trigger
-the information is gone; and tools would have to do that to control the
-LED, making recovery from any kind of error difficult.
+>
+>> +{
+>> +       struct device *dev = &pdev->dev;
+>> +       struct device_node *np = dev->of_node;
+>> +       struct regmap *regmap;
+>> +       int err;
+>> +
+>> +       /*  Get TX/RX clocks */
+>> +       dwmac->clk_tx = devm_clk_get(dev, "tx-clk");
+>> +       if (IS_ERR(dwmac->clk_tx)) {
+>> +               dev_warn(dev, "No tx clock provided...\n");
+>> +               dwmac->clk_tx = NULL;
+>> +       }
+>> +       dwmac->clk_rx = devm_clk_get(dev, "rx-clk");
+>> +       if (IS_ERR(dwmac->clk_rx)) {
+>> +               dev_warn(dev, "No rx clock provided...\n");
+>> +               dwmac->clk_rx = NULL;
+>> +       }
+>> +
+>> +       /* Get mode register */
+>> +       regmap = syscon_regmap_lookup_by_phandle(np, "st,syscon");
+>> +       if (IS_ERR(regmap))
+>> +               return PTR_ERR(regmap);
+>> +
+>> +       err = of_property_read_u32_index(np, "st,syscon", 1, &dwmac->mode_reg);
+>> +       if (err) {
+>> +               dev_err(dev, "Can't get sysconfig mode offset (%d)\n", err);
+>> +               return err;
+>> +       }
+>> +
+>> +       dwmac->interface = of_get_phy_mode(np);
+>> +       dwmac->regmap = regmap;
+>
+> Why the temporary local regmap variable?
+>
+> Assigning dwmac->regmap with syscon_regmap_lookup_by_phandle() should
+> not exceed 80 chars if that is what you are worried about.
 
-In any case, I've applied those patches already.
+yes you are right.
 
-As far as the LED subsystem is concerned, all of this is just another
-trigger anyway.
+>
+>
+>> +       return 0;
+>> +}
+>> +
+>> +static int stm32_dwmac_probe(struct platform_device *pdev)
+>> +{
+>> +       struct plat_stmmacenet_data *plat_dat;
+>> +       struct stmmac_resources stmmac_res;
+>> +       struct stm32_dwmac *dwmac;
+>> +       int ret;
+>> +
+>> +       ret = stmmac_get_platform_resources(pdev, &stmmac_res);
+>> +       if (ret)
+>> +               return ret;
+>> +
+>> +       plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
+>> +       if (IS_ERR(plat_dat))
+>> +               return PTR_ERR(plat_dat);
+>> +
+>> +       dwmac = devm_kzalloc(&pdev->dev, sizeof(*dwmac), GFP_KERNEL);
+>> +       if (!dwmac)
+>> +               return -ENOMEM;
+>> +
+>> +       ret = stm32_dwmac_parse_data(dwmac, pdev);
+>> +       if (ret) {
+>> +               dev_err(&pdev->dev, "Unable to parse OF data\n");
+>> +               return ret;
+>> +       }
+>> +
+>> +       plat_dat->bsp_priv = dwmac;
+>> +
+>> +       ret = stm32_dwmac_init(plat_dat->bsp_priv);
+>> +       if (ret)
+>> +               return ret;
+>> +
+>> +       return stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+>
+> Note that stmmac_dvr_probe() can fail and if so you should disable
+> your tx/rx clks before you return.
+>
+> Consider putting the clk_prepare_enable() directly here and use goto
+> labels for the clean up like most other drivers do in probe.
 
-johannes
+Ok catch.
+
+>
+> Also if you put regmap_update_bits() for phy mode above the
+> clk_prepare_enable() calls you remove one of the gotos.
+> I assume you don't need to enable tx/rx clock before you write to syscon.
+
+I will check.
+>
+>
+>> +static int stm32_dwmac_remove(struct platform_device *pdev)
+>> +{
+>> +       struct net_device *ndev = platform_get_drvdata(pdev);
+>> +       struct stmmac_priv *priv = netdev_priv(ndev);
+>> +       int ret = stmmac_dvr_remove(ndev);
+>> +
+>> +       stm32_dwmac_exit(priv->plat->bsp_priv);
+>> +
+>> +       return ret;
+>> +}
+>> +
+>> +#ifdef CONFIG_PM_SLEEP
+>> +static int stm32_dwmac_suspend(struct device *dev)
+>> +{
+>> +       struct net_device *ndev = dev_get_drvdata(dev);
+>> +       struct stmmac_priv *priv = netdev_priv(ndev);
+>> +       int ret;
+>> +
+>> +       ret = stmmac_suspend(ndev);
+>> +       stm32_dwmac_exit(priv->plat->bsp_priv);
+>> +
+>> +       return ret;
+>> +}
+>> +
+>> +static int stm32_dwmac_resume(struct device *dev)
+>> +{
+>> +       struct net_device *ndev = dev_get_drvdata(dev);
+>> +       struct stmmac_priv *priv = netdev_priv(ndev);
+>> +       int ret;
+>> +
+>> +       ret = stm32_dwmac_init(priv->plat->bsp_priv);
+>> +       if (ret)
+>> +               goto out_regmap;
+>> +
+>> +       ret = stmmac_resume(ndev);
+>> +
+>> +out_regmap:
+>> +       return ret;
+>
+> Why the goto?
+
+Sorry no sens. I thought that it was better to avoid multiple return
+but it this case it is stupid.
+
+Best regards.
+
+Alexandre
+
+>
+> This could be written:
+>     ret = stm32_dwmac_init(priv->plat->bsp_priv);
+>     if (ret)
+>        return ret;
+>
+>     return stmmac_resume(ndev);
+>
+>
+> regards,
+> Joachim Eastwood
