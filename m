@@ -1,108 +1,63 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [net-next RFC 0/4] SO_BINDTOSUBNET
-Date: Tue, 23 Feb 2016 21:06:13 -0800
-Message-ID: <CALx6S36_ii9hOj_Jn+xKxjoZQfbb-TfdQysH-N+Zic-bMHnHPg@mail.gmail.com>
-References: <1456241265-5766-1-git-send-email-gilberto.bertin@gmail.com>
+From: Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] ipv4: in new netns initialize sysctls in net.ipv4.conf.*
+	with defaults
+Date: Wed, 24 Feb 2016 08:16:59 +0300
+Message-ID: <CALYGNiNfuDzPr3+qE82CLVBvSTFQvyAyhWv9kzXbBrUO2jYMTQ@mail.gmail.com>
+References: <20160221071102.9686.63148.stgit@buzz>
+	<20160223.182121.2101846699151527296.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Gilberto Bertin <gilberto.bertin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:35853 "EHLO
-	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751986AbcBXFGO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 00:06:14 -0500
-Received: by mail-oi0-f44.google.com with SMTP id w5so6568781oie.3
-        for <netdev@vger.kernel.org>; Tue, 23 Feb 2016 21:06:14 -0800 (PST)
-In-Reply-To: <1456241265-5766-1-git-send-email-gilberto.bertin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?B?0JrQvtC90YHRgtCw0L3RgtC40L0g0KXQu9C10LHQvdC40LrQvtCy?=
+	<khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org>,
+	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	Vasily Averin <vvs-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20160223.182121.2101846699151527296.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 23, 2016 at 7:27 AM, Gilberto Bertin
-<gilberto.bertin@gmail.com> wrote:
-> This series introduces support for the SO_BINDTOSUBNET socket option, which
-> allows a listener socket to bind to a subnet instead of * or a single address.
+On Wed, Feb 24, 2016 at 2:21 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Konstantin Khlebnikov <khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org>
+> Date: Sun, 21 Feb 2016 10:11:02 +0300
 >
-> Motivation:
-> consider a set of servers, each one with thousands and thousands of IP
-> addresses. Since assigning /32 or /128 IP individual addresses would be
-> inefficient, one solution can be assigning subnets using local routes
-> (with 'ip route add local').
+>> Currently initial net.ipv4.conf.all.* and net.ipv4.conf.default.* are
+>> copied from init network namespace because static structures are used
+>> for init_net. This makes no sense because new netns might be created
+>> from any netns. This patch makes private copy also for init netns if
+>> network namespaces are enabled. Other sysctls in net.ipv4 and net.ipv6
+>> already initialized with default values at namespace creation.
+>>
+>> Signed-off-by: Konstantin Khlebnikov <khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org>
+>> Fixes: 752d14dc6aa9 ("[IPV4]: Move the devinet pointers on the struct net")
 >
-Hi Gilberto,
+> The horse has long left the stable on this.  We cannot change this now
+> without breaking things.
+>
+> Imagine someone who intentionally sets up init_net with a certain set
+> of settings and expects them to propagate into every created namespace.
+>
+> We'll break things for them and given the behavior existed for so long
+> what the administrator is doing is very reasonable.
+>
+> I'm not applying this sorry, we are stuck with the current behavior
+> whether we like it or not.
 
-The concept is certainly relevant, but allowing binds by subnet seems
-arbitrary. I can imagine that someone might want to bind to a list of
-addresses, list of interfaces, list of subnets, or complex
-combinations like a subnet on one interface, and list of addresses on
-another. So I wonder if this is another use case for a BPF program on
-a listener socket, like a program for a scoring function. Maybe this
-could even combined with  BPF SO_REUSERPORT somehow?
+Major kernel upgrades always break something in weird setups.
+This shouldn't block bug fixing.
 
-Tom
-
-> This allows a listener to listen and terminate connections going to any
-> of the IP addresses of these subnets without explicitly configuring all
-> of them. This is very efficient.
->
-> Unfortunately there may be the need to use different subnets for
-> different purposes.
-> One can imagine port 80 being served by one HTTP server for some IP
-> subnet, while another server used for another subnet.
-> Right now Linux does not allow this.
-> It is either possible to bind to *, indicating ALL traffic going to
-> given port, or to individual IP addresses.
-> The first only allows to accept connections from all the subnets.
-> The latter does not scale well with lots of IP addresses.
->
-> Using bindtosubnet would solve this problem: just by adding a local
-> route rule and setting the SO_BINDTOSUBNET option for a socket it would
-> be possible to easily partition traffic by subnets.
->
-> API:
-> the subnet is specified (as argument of the setsockopt syscall) by the
-> address of the network, and the prefix length of the netmask.
->
-> IPv4:
->         struct ipv4_subnet {
->                 __be32 net;
->                 u_char plen;
->         };
->
-> and IPv6:
->         struct ipv6_subnet {
->                 struct in6_addr net;
->                 u_char plen;
->         };
->
-> Bind conflicts:
-> two sockets with the bindtosubnet option enabled generate a bind
-> conflict if their network addresses masked with the shortest of their
-> prefix are equal.
-> The bindtosubnet option can be combined with soreuseport so that two
-> listener can bind on the same subnet.
->
-> Any questions/feedback appreciated.
->
-> Thanks,
->   Gilberto
->
-> Gilberto Bertin (4):
->   bindtosubnet: infrastructure
->   bindtosubnet: TCP/IPv4 implementation
->   bindtosubnet: TCP/IPv6 implementation
->   bindtosubnet: UPD implementation
->
->  include/net/sock.h                |  20 +++++++
->  include/uapi/asm-generic/socket.h |   1 +
->  net/core/sock.c                   | 111 ++++++++++++++++++++++++++++++++++++++
->  net/ipv4/inet_connection_sock.c   |  20 ++++++-
->  net/ipv4/inet_hashtables.c        |   9 ++++
->  net/ipv4/udp.c                    |  35 ++++++++++++
->  net/ipv6/inet6_connection_sock.c  |  17 +++++-
->  net/ipv6/inet6_hashtables.c       |   6 +++
->  8 files changed, 217 insertions(+), 2 deletions(-)
->
-> --
-> 2.7.1
->
+This kludge works only for several ipv4 sysctls. If software or man ever
+have tried to setup ipv6 or tune tcp and want some non-default setup then
+it/he already knows that sysctls must be configured inside.
