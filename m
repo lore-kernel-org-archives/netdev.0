@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] vxlan: consolidate rx handling
-Date: Thu, 25 Feb 2016 15:19:41 -0500 (EST)
-Message-ID: <20160225.151941.1711130624257189771.davem@davemloft.net>
-References: <cover.1456246786.git.jbenc@redhat.com>
+Subject: Re: [PATCH net 1/5] ppp: lock ppp structure before modifying mru
+ in ppp_ioctl()
+Date: Thu, 25 Feb 2016 15:24:57 -0500 (EST)
+Message-ID: <20160225.152457.207063136252739704.davem@davemloft.net>
+References: <be5fc2cf38f44951ea15f366bc52fb4d780009d2.1456167043.git.g.nault@alphalink.fr>
+	<20160224.153202.880408949435562278.davem@davemloft.net>
+	<20160225191655.GA1462@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org, paulus@samba.org
+To: g.nault@alphalink.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45383 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45441 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933744AbcBYUTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 15:19:43 -0500
-In-Reply-To: <cover.1456246786.git.jbenc@redhat.com>
+	with ESMTP id S1750699AbcBYUY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 15:24:59 -0500
+In-Reply-To: <20160225191655.GA1462@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Tue, 23 Feb 2016 18:02:54 +0100
+From: Guillaume Nault <g.nault@alphalink.fr>
+Date: Thu, 25 Feb 2016 20:16:55 +0100
 
-> Currently, vxlan_rcv is just called at the end of vxlan_udp_encap_recv,
-> continuing the rx processing where vxlan_udp_encap_recv left it. There's no
-> clear border between those two functions. This patchset moves
-> vxlan_udp_encap_recv and vxlan_rcv into a single function.
-> 
-> This also allows to do some simplification in error path.
-> 
-> The VXLAN-GPE implementation that will follow up this set can be seen at:
-> https://github.com/jbenc/linux-vxlan/commits/master
+> Understood. Just to be sure, does patch #2 falls under lack of
+> demonstration? Or should I repost it separately?
 
-Series applied, thank you.
+Please repost it if you feel this way, with the race and corruption
+possibility explained in detail in the commit log message.
+
+Thanks.
