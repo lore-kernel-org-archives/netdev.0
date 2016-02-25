@@ -1,63 +1,66 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 05/10] net/mlx5e: Set drop RQ's necessary parameters only
-Date: Thu, 25 Feb 2016 18:33:15 +0200
-Message-ID: <1456418000-18898-6-git-send-email-saeedm@mellanox.com>
-References: <1456418000-18898-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 00/10] mlx5 driver updates
+Date: Thu, 25 Feb 2016 18:33:10 +0200
+Message-ID: <1456418000-18898-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:57239 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:57234 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759993AbcBYQeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2016 11:34:16 -0500
-In-Reply-To: <1456418000-18898-1-git-send-email-saeedm@mellanox.com>
+	id S1760641AbcBYQeS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 11:34:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
+Hi Dave, 
 
-By its role, there is no need to set all the other parameters
-for the drop RQ.
+This series includes some bug fixes and updates for the mlx5 core
+and ethernet driver.
 
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+>From Gal, two fixes that protects the update CQ moderation flows
+when it is not allowed.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 013be09..30fd971 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1064,6 +1064,15 @@ static void mlx5e_build_rq_param(struct mlx5e_priv *priv,
- 	param->wq.linear = 1;
- }
- 
-+static void mlx5e_build_drop_rq_param(struct mlx5e_rq_param *param)
-+{
-+	void *rqc = param->rqc;
-+	void *wq = MLX5_ADDR_OF(rqc, rqc, wq);
-+
-+	MLX5_SET(wq, wq, wq_type, MLX5_WQ_TYPE_LINKED_LIST);
-+	MLX5_SET(wq, wq, log_wq_stride,    ilog2(sizeof(struct mlx5e_rx_wqe)));
-+}
-+
- static void mlx5e_build_sq_param(struct mlx5e_priv *priv,
- 				 struct mlx5e_sq_param *param)
- {
-@@ -1574,8 +1583,7 @@ static int mlx5e_open_drop_rq(struct mlx5e_priv *priv)
- 
- 	memset(&cq_param, 0, sizeof(cq_param));
- 	memset(&rq_param, 0, sizeof(rq_param));
--	mlx5e_build_rx_cq_param(priv, &cq_param);
--	mlx5e_build_rq_param(priv, &rq_param);
-+	mlx5e_build_drop_rq_param(&rq_param);
- 
- 	err = mlx5e_create_drop_cq(priv, cq, &cq_param);
- 	if (err)
--- 
-1.7.1
+>From Moshe, two fixes for the core and ethernet driver in 
+non-cached(NC) and write combining(WC) buffers mappings, 
+which prevents the driver from double memory mappings.
+
+>From Or, reduce the firmware command completion timeout.
+
+>From Tariq, several small trivial fixes.
+
+This series is generated against net-next commit 555d5b70f159 'ppp: clarify parsing of user supplied data in ppp_set_compress()'
+
+Thanks,
+Saeed
+
+Gal Pressman (2):
+  net/mlx5e: Don't try to modify CQ moderation if it is not supported
+  net/mlx5e: Don't modify CQ before it was created
+
+Moshe Lazer (2):
+  net/mlx5: Fix global UAR mapping
+  net/mlx5: Avoid double mapping of io mapped memory
+
+Or Gerlitz (1):
+  net/mlx5: Make command timeout way shorter
+
+Tariq Toukan (5):
+  net/mlx5e: Replace async events spinlock with synchronize_irq()
+  net/mlx5e: Placement changed for carrier state updates
+  net/mlx5e: Changed naming convention of tx queues in ethtool stats
+  net/mlx5e: Move common case counters within sq_stats struct
+  net/mlx5e: Set drop RQ's necessary parameters only
+
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   27 ++++-----
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   27 ++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   64 ++++++++++---------
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |    2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |    5 ++
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |   28 +--------
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |    1 +
+ drivers/net/ethernet/mellanox/mlx5/core/uar.c      |   31 ++++++----
+ include/linux/mlx5/driver.h                        |    7 +-
+ 9 files changed, 97 insertions(+), 95 deletions(-)
