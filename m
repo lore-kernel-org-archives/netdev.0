@@ -1,31 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: mac80211 2016-02-23
-Date: Wed, 24 Feb 2016 22:41:14 -0500 (EST)
-Message-ID: <20160224.224114.23404179034979347.davem@davemloft.net>
-References: <1456221127-13079-1-git-send-email-johannes@sipsolutions.net>
+Subject: Re: [PATCH] bnx2x: add a separate GENEVE Kconfig symbol
+Date: Wed, 24 Feb 2016 22:49:20 -0500 (EST)
+Message-ID: <20160224.224920.1224016653458748974.davem@davemloft.net>
+References: <1456223774-1383513-1-git-send-email-arnd@arndb.de>
+	<CO2PR11MB0088CC09F328C0CFE10187BF97A40@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33588 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751837AbcBYDlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 22:41:20 -0500
-In-Reply-To: <1456221127-13079-1-git-send-email-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: arnd@arndb.de, Ariel.Elior@qlogic.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Yuval.Mintz@qlogic.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CO2PR11MB0088CC09F328C0CFE10187BF97A40@CO2PR11MB0088.namprd11.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Tue, 23 Feb 2016 10:52:06 +0100
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Tue, 23 Feb 2016 18:33:10 +0000
 
-> Unfortunately I neglected to send you a pull request last week,
-> so it's here now. We gave a number of fairly important fixes
-> (two found by KASAN, the wext thing that for some reason people
-> have started seeing issues with) so it'd be good if these can
-> still go into 4.5.
+>> When CONFIG_GENEVE is built as a loadable module, and bnx2x is built-in,
+>> we get this link error:
 > 
-> Let me know if there's any problem.
+>> drivers/net/built-in.o: In function `bnx2x_open':
+>> :(.text+0x33322): undefined reference to `geneve_get_rx_port'
+>> drivers/net/built-in.o: In function `bnx2x_sp_rtnl_task':
+>> :(.text+0x3e632): undefined reference to `geneve_get_rx_port'
+> 
+>> This avoids the problem by adding a separate Kconfig symbol named
+>> CONFIG_BNX2X_GENEVE that is only enabled when the code is
+>> reachable from the driver.
+> 
+>> This is the same trick that BNX2X does for VXLAN support, and
+>> is similar to how I40E handles both.
+> 
+>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>> Fixes: 883ce97d25b0 ("bnx2x: Add Geneve inner-RSS support")
+> 
+> Ouch. Thanks for fixing this one; I tried avoiding this solution
+> since I don't think there's any reason to encumber the config
+> file with needless options [I.e., what's the gain in the ability to
+> disable a single offloaded protocol on a single network driver?],
+> but obviously, I botched the job.
+> 
+> BTW, if you want to handle this exactly like vxlan, you might
+> consider using `defined(CONFIG_BNX2X_GENEVE)' instead of
+> `IS_ENABLED(CONFIG_BNX2X_GENEVE)'  [It not a tristate].
+> But that's truly insignificant.
+> 
+> Acked-By: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
-Pulled, thanks Johannes.
+Applied, thanks everyone.
