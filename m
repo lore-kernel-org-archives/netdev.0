@@ -1,47 +1,63 @@
-From: Tomas Hlavacek <tmshlvck@gmail.com>
-Subject: RFC: blueprint for proxy PHY module
-Date: Thu, 25 Feb 2016 14:26:00 +0100
-Message-ID: <1456406760.28260.6@smtp.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Cc: Pavol =?iso-8859-2?q?Kor=E8ek?= <ikorcek@fit.vutbr.cz>,
-	Martin =?iso-8859-2?q?Strba=E8ka?= <martin.strbacka@nic.cz>
-To: netdev@vger.kernel.org
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH v2 net] bonding: don't use stale speed and duplex information
+Date: Thu, 25 Feb 2016 05:33:55 -0800
+Message-ID: <11163.1456407235@nyx>
+References: <25869.1454962202@famine> <56CEBCC6.3040008@gmail.com>
+Cc: netdev@vger.kernel.org,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	dingtianhong <dingtianhong@huawei.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: zhuyj <zyjzyj2000@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:37382 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760194AbcBYN0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 08:26:03 -0500
-Received: by mail-wm0-f52.google.com with SMTP id g62so27565900wme.0
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 05:26:02 -0800 (PST)
+Received: from youngberry.canonical.com ([91.189.89.112]:37462 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759644AbcBYNeZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 08:34:25 -0500
+In-reply-to: <56CEBCC6.3040008@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+zhuyj <zyjzyj2000@gmail.com> wrote:
+[...]
+>I delved into the source code and Emil's tests. I think that the problem
+>that this patch expects to fix occurs very unusually.
+>
+>Do you agree with me?
+>
+>If so, maybe the following patch can reduce the performance loss.
+>Please comment on it. Thanks a lot.
+>
+>
+>diff --git a/drivers/net/bonding/bond_main.c
+>b/drivers/net/bonding/bond_main.c
+>index b7f1a99..c4c511a 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -2129,7 +2129,9 @@ static void bond_miimon_commit(struct bonding *bond)
+>                        continue;
+>
+>                case BOND_LINK_UP:
+>-                       bond_update_speed_duplex(slave);
+>+                       if (slave->speed == SPEED_UNKNOWN)
+>+                               bond_update_speed_duplex(slave);
+>+
+>                        bond_set_slave_link_state(slave, BOND_LINK_UP,
+>BOND_SLAVE_NOTIFY_NOW);
+>                        slave->last_link_up = jiffies;
 
-We have a board with a MAC in SoC that has SGMII connected through a 
-signal switch to either 10/100/1000 wired PHY or to a SFP cage. The 
-signal switch is set to pass signal to the wired PHY by default. When 
-the MOD-DEF0 pin from SFP cage is low (which acts as a 
-transceiver-present signal) the wired PHY is being disconnected and the 
-SGMII is passed to the SFP cage. We also have the signal connected to a 
-GPIO input, so we can detect the SFP presence from software. And there 
-is always-connected MDIO to the wired PHY.
+	I don't believe the speed is necessarily SPEED_UNKNOWN coming in
+here.  If the race occurs at a time later than the initial enslavement,
+speed may already be set (and the race manifests if the new speed
+changes, i.e., the link changes from 1 Gb/sec to 10 Gb/sec), so I don't
+think this is functionally correct.
 
-Now I use two different DTBs for testing purposes, one has a 
-configuration for the wired PHY and another one uses fixed-link for 
-SFP. And I have to reboot in order to switch from one to another.
+	Also, the call to bond_miimon_commit itself is already gated by
+bond_miimon_inspect finding a link state change.  The performance impact
+here should be minimal.
 
-My idea is to create a "proxy PHY" module that would take state from 
-one of two (or more) underlying PHYs and pass it to the NIC driver. The 
-selection of the active PHY would come from userspace. (There will be a 
-board-specific
-daemon that would react to the GPIO change and set the proper PHY 
-accordingly.) Question is how to connect the userspace? I think that 
-corresponding file in /sys would do the job, but I am not sure whether 
-it is the proper way of doing that. (?)
+	-J
 
-What do you think about it?
-
-Thanks,
-Tomas
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
