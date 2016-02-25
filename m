@@ -1,261 +1,107 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 12/15] igbvf: Add support for generic Tx checksums
-Date: Wed, 24 Feb 2016 18:14:59 -0800
-Message-ID: <1456366502-132841-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 15/15] igb: call ndo_stop() instead of dev_close() when running offline selftest
+Date: Wed, 24 Feb 2016 18:15:02 -0800
+Message-ID: <1456366502-132841-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1456366502-132841-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:17807 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:36780 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759590AbcBYC0E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1759310AbcBYC0E (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 24 Feb 2016 21:26:04 -0500
 In-Reply-To: <1456366502-132841-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+From: Stefan Assmann <sassmann@kpanic.de>
 
-This patch adds support for generic Tx checksums to the igbvf driver.  It
-turns out this is actually pretty easy after going over the datasheet as we
-were doing a number of steps we didn't need to.
+Calling dev_close() causes IFF_UP to be cleared which will remove the
+interfaces routes and some addresses. That's probably not what the user
+intended when running the offline selftest. Besides this does not happen
+if the interface is brought down before the test, so the current
+behaviour is inconsistent.
+Instead call the net_device_ops ndo_stop function directly and avoid
+touching IFF_UP at all.
 
-In order to perform a Tx checksum for an L4 header we need to fill in the
-following fields in the Tx descriptor:
-  MACLEN (maximum of 127), retrieved from:
-		skb_network_offset()
-  IPLEN  (maximum of 511), retrieved from:
-		skb_checksum_start_offset() - skb_network_offset()
-  TUCMD.L4T indicates offset and if checksum or crc32c, based on:
-		skb->csum_offset
-
-The added advantage to doing this is that we can support inner checksum
-offloads for tunnels and MPLS while still being able to transparently
-insert VLAN tags.
-
-I also took the opportunity to clean-up many of the feature flag
-configuration bits to make them a bit more consistent between drivers.  In
-the case of the VF drivers this meant adding support for SCTP CRCs, and
-inner checksum offloads for MPLS and various tunnel types.
-
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igbvf/netdev.c | 142 +++++++++++++++++-------------
- drivers/net/ethernet/intel/igbvf/vf.h     |   1 +
- 2 files changed, 82 insertions(+), 61 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h         | 2 ++
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 4 ++--
+ drivers/net/ethernet/intel/igb/igb_main.c    | 8 ++++----
+ 3 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index 297af80..aa34865 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -43,6 +43,7 @@
- #include <linux/ethtool.h>
- #include <linux/if_vlan.h>
- #include <linux/prefetch.h>
-+#include <linux/sctp.h>
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 707ae5c..9413fa6 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -510,6 +510,8 @@ enum igb_boards {
+ extern char igb_driver_name[];
+ extern char igb_driver_version[];
  
- #include "igbvf.h"
++int igb_open(struct net_device *netdev);
++int igb_close(struct net_device *netdev);
+ int igb_up(struct igb_adapter *);
+ void igb_down(struct igb_adapter *);
+ void igb_reinit_locked(struct igb_adapter *);
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 1d329f1..7982243 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -2017,7 +2017,7 @@ static void igb_diag_test(struct net_device *netdev,
  
-@@ -1908,6 +1909,31 @@ static void igbvf_watchdog_task(struct work_struct *work)
- #define IGBVF_TX_FLAGS_VLAN_MASK	0xffff0000
- #define IGBVF_TX_FLAGS_VLAN_SHIFT	16
+ 		if (if_running)
+ 			/* indicate we're in test mode */
+-			dev_close(netdev);
++			igb_close(netdev);
+ 		else
+ 			igb_reset(adapter);
  
-+static void igbvf_tx_ctxtdesc(struct igbvf_ring *tx_ring, u32 vlan_macip_lens,
-+			      u32 type_tucmd, u32 mss_l4len_idx)
-+{
-+	struct e1000_adv_tx_context_desc *context_desc;
-+	struct igbvf_buffer *buffer_info;
-+	u16 i = tx_ring->next_to_use;
-+
-+	context_desc = IGBVF_TX_CTXTDESC_ADV(*tx_ring, i);
-+	buffer_info = &tx_ring->buffer_info[i];
-+
-+	i++;
-+	tx_ring->next_to_use = (i < tx_ring->count) ? i : 0;
-+
-+	/* set bits to identify this as an advanced context descriptor */
-+	type_tucmd |= E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT;
-+
-+	context_desc->vlan_macip_lens	= cpu_to_le32(vlan_macip_lens);
-+	context_desc->seqnum_seed	= 0;
-+	context_desc->type_tucmd_mlhl	= cpu_to_le32(type_tucmd);
-+	context_desc->mss_l4len_idx	= cpu_to_le32(mss_l4len_idx);
-+
-+	buffer_info->time_stamp = jiffies;
-+	buffer_info->dma = 0;
-+}
-+
- static int igbvf_tso(struct igbvf_adapter *adapter,
- 		     struct igbvf_ring *tx_ring,
- 		     struct sk_buff *skb, u32 tx_flags, u8 *hdr_len,
-@@ -1987,65 +2013,56 @@ static int igbvf_tso(struct igbvf_adapter *adapter,
- 	return true;
+@@ -2050,7 +2050,7 @@ static void igb_diag_test(struct net_device *netdev,
+ 
+ 		clear_bit(__IGB_TESTING, &adapter->state);
+ 		if (if_running)
+-			dev_open(netdev);
++			igb_open(netdev);
+ 	} else {
+ 		dev_info(&adapter->pdev->dev, "online testing starting\n");
+ 
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 3b56f80..834b1b6 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -122,8 +122,8 @@ static void igb_setup_mrqc(struct igb_adapter *);
+ static int igb_probe(struct pci_dev *, const struct pci_device_id *);
+ static void igb_remove(struct pci_dev *pdev);
+ static int igb_sw_init(struct igb_adapter *);
+-static int igb_open(struct net_device *);
+-static int igb_close(struct net_device *);
++int igb_open(struct net_device *);
++int igb_close(struct net_device *);
+ static void igb_configure(struct igb_adapter *);
+ static void igb_configure_tx(struct igb_adapter *);
+ static void igb_configure_rx(struct igb_adapter *);
+@@ -3172,7 +3172,7 @@ err_setup_tx:
+ 	return err;
  }
  
--static inline bool igbvf_tx_csum(struct igbvf_adapter *adapter,
--				 struct igbvf_ring *tx_ring,
--				 struct sk_buff *skb, u32 tx_flags,
--				 __be16 protocol)
-+static inline bool igbvf_ipv6_csum_is_sctp(struct sk_buff *skb)
+-static int igb_open(struct net_device *netdev)
++int igb_open(struct net_device *netdev)
  {
--	struct e1000_adv_tx_context_desc *context_desc;
--	unsigned int i;
--	struct igbvf_buffer *buffer_info;
--	u32 info = 0, tu_cmd = 0;
--
--	if ((skb->ip_summed == CHECKSUM_PARTIAL) ||
--	    (tx_flags & IGBVF_TX_FLAGS_VLAN)) {
--		i = tx_ring->next_to_use;
--		buffer_info = &tx_ring->buffer_info[i];
--		context_desc = IGBVF_TX_CTXTDESC_ADV(*tx_ring, i);
-+	unsigned int offset = 0;
- 
--		if (tx_flags & IGBVF_TX_FLAGS_VLAN)
--			info |= (tx_flags & IGBVF_TX_FLAGS_VLAN_MASK);
-+	ipv6_find_hdr(skb, &offset, IPPROTO_SCTP, NULL, NULL);
- 
--		info |= (skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT);
--		if (skb->ip_summed == CHECKSUM_PARTIAL)
--			info |= (skb_transport_header(skb) -
--				 skb_network_header(skb));
-+	return offset == skb_checksum_start_offset(skb);
-+}
- 
--		context_desc->vlan_macip_lens = cpu_to_le32(info);
-+static bool igbvf_tx_csum(struct igbvf_ring *tx_ring, struct sk_buff *skb,
-+			  u32 tx_flags, __be16 protocol)
-+{
-+	u32 vlan_macip_lens = 0;
-+	u32 type_tucmd = 0;
- 
--		tu_cmd |= (E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT);
-+	if (skb->ip_summed != CHECKSUM_PARTIAL) {
-+csum_failed:
-+		if (!(tx_flags & IGBVF_TX_FLAGS_VLAN))
-+			return false;
-+		goto no_csum;
-+	}
- 
--		if (skb->ip_summed == CHECKSUM_PARTIAL) {
--			switch (protocol) {
--			case htons(ETH_P_IP):
--				tu_cmd |= E1000_ADVTXD_TUCMD_IPV4;
--				if (ip_hdr(skb)->protocol == IPPROTO_TCP)
--					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
--				break;
--			case htons(ETH_P_IPV6):
--				if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
--					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
--				break;
--			default:
--				break;
--			}
-+	switch (skb->csum_offset) {
-+	case offsetof(struct tcphdr, check):
-+		type_tucmd = E1000_ADVTXD_TUCMD_L4T_TCP;
-+		/* fall through */
-+	case offsetof(struct udphdr, check):
-+		break;
-+	case offsetof(struct sctphdr, checksum):
-+		/* validate that this is actually an SCTP request */
-+		if (((protocol == htons(ETH_P_IP)) &&
-+		     (ip_hdr(skb)->protocol == IPPROTO_SCTP)) ||
-+		    ((protocol == htons(ETH_P_IPV6)) &&
-+		     igbvf_ipv6_csum_is_sctp(skb))) {
-+			type_tucmd = E1000_ADVTXD_TUCMD_L4T_SCTP;
-+			break;
- 		}
--
--		context_desc->type_tucmd_mlhl = cpu_to_le32(tu_cmd);
--		context_desc->seqnum_seed = 0;
--		context_desc->mss_l4len_idx = 0;
--
--		buffer_info->time_stamp = jiffies;
--		buffer_info->dma = 0;
--		i++;
--		if (i == tx_ring->count)
--			i = 0;
--		tx_ring->next_to_use = i;
--
--		return true;
-+	default:
-+		skb_checksum_help(skb);
-+		goto csum_failed;
- 	}
- 
--	return false;
-+	vlan_macip_lens = skb_checksum_start_offset(skb) -
-+			  skb_network_offset(skb);
-+no_csum:
-+	vlan_macip_lens |= skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT;
-+	vlan_macip_lens |= tx_flags & IGBVF_TX_FLAGS_VLAN_MASK;
-+
-+	igbvf_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, 0);
-+	return true;
+ 	return __igb_open(netdev, false);
+ }
+@@ -3209,7 +3209,7 @@ static int __igb_close(struct net_device *netdev, bool suspending)
+ 	return 0;
  }
  
- static int igbvf_maybe_stop_tx(struct net_device *netdev, int size)
-@@ -2264,7 +2281,7 @@ static netdev_tx_t igbvf_xmit_frame_ring_adv(struct sk_buff *skb,
- 
- 	if (tso)
- 		tx_flags |= IGBVF_TX_FLAGS_TSO;
--	else if (igbvf_tx_csum(adapter, tx_ring, skb, tx_flags, protocol) &&
-+	else if (igbvf_tx_csum(tx_ring, skb, tx_flags, protocol) &&
- 		 (skb->ip_summed == CHECKSUM_PARTIAL))
- 		tx_flags |= IGBVF_TX_FLAGS_CSUM;
- 
-@@ -2717,11 +2734,11 @@ static int igbvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	adapter->bd_number = cards_found++;
- 
- 	netdev->hw_features = NETIF_F_SG |
--			   NETIF_F_IP_CSUM |
--			   NETIF_F_IPV6_CSUM |
--			   NETIF_F_TSO |
--			   NETIF_F_TSO6 |
--			   NETIF_F_RXCSUM;
-+			      NETIF_F_TSO |
-+			      NETIF_F_TSO6 |
-+			      NETIF_F_RXCSUM |
-+			      NETIF_F_HW_CSUM |
-+			      NETIF_F_SCTP_CRC;
- 
- 	netdev->features = netdev->hw_features |
- 			   NETIF_F_HW_VLAN_CTAG_TX |
-@@ -2731,11 +2748,14 @@ static int igbvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (pci_using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
- 
--	netdev->vlan_features |= NETIF_F_TSO;
--	netdev->vlan_features |= NETIF_F_TSO6;
--	netdev->vlan_features |= NETIF_F_IP_CSUM;
--	netdev->vlan_features |= NETIF_F_IPV6_CSUM;
--	netdev->vlan_features |= NETIF_F_SG;
-+	netdev->vlan_features |= NETIF_F_SG |
-+				 NETIF_F_TSO |
-+				 NETIF_F_TSO6 |
-+				 NETIF_F_HW_CSUM |
-+				 NETIF_F_SCTP_CRC;
-+
-+	netdev->mpls_features |= NETIF_F_HW_CSUM;
-+	netdev->hw_enc_features |= NETIF_F_HW_CSUM;
- 
- 	/*reset the controller to put the device in a known good state */
- 	err = hw->mac.ops.reset_hw(hw);
-diff --git a/drivers/net/ethernet/intel/igbvf/vf.h b/drivers/net/ethernet/intel/igbvf/vf.h
-index 0f1eca6..f00a41d 100644
---- a/drivers/net/ethernet/intel/igbvf/vf.h
-+++ b/drivers/net/ethernet/intel/igbvf/vf.h
-@@ -126,6 +126,7 @@ struct e1000_adv_tx_context_desc {
- #define E1000_ADVTXD_MACLEN_SHIFT	9  /* Adv ctxt desc mac len shift */
- #define E1000_ADVTXD_TUCMD_IPV4		0x00000400 /* IP Packet Type: 1=IPv4 */
- #define E1000_ADVTXD_TUCMD_L4T_TCP	0x00000800 /* L4 Packet TYPE of TCP */
-+#define E1000_ADVTXD_TUCMD_L4T_SCTP	0x00001000 /* L4 packet TYPE of SCTP */
- #define E1000_ADVTXD_L4LEN_SHIFT	8  /* Adv ctxt L4LEN shift */
- #define E1000_ADVTXD_MSS_SHIFT		16 /* Adv ctxt MSS shift */
- 
+-static int igb_close(struct net_device *netdev)
++int igb_close(struct net_device *netdev)
+ {
+ 	return __igb_close(netdev, false);
+ }
 -- 
 2.5.0
