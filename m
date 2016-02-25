@@ -1,136 +1,53 @@
-From: Simon Xiao <sixiao@microsoft.com>
-Subject: [PATCH net-next] hv_netvsc: add ethtool support for set and get of settings
-Date: Thu, 25 Feb 2016 15:24:08 -0800
-Message-ID: <1456442648-13941-1-git-send-email-sixiao@microsoft.com>
-Cc: Simon Xiao <sixiao@microsoft.com>
-To: kys@microsoft.com, haiyangz@microsoft.com,
-	devel@linuxdriverproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next PATCH v2 1/5] introduce IFE action
+Date: Thu, 25 Feb 2016 22:46:40 +0100
+Message-ID: <56CF7640.2060202@iogearbox.net>
+References: <1456231760-2513-1-git-send-email-jhs@emojatatu.com> <1456231760-2513-2-git-send-email-jhs@emojatatu.com> <56CDEA6D.1000908@iogearbox.net> <56CEF1A8.3020505@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
+	dj@verizon.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:58831 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751007AbcBYVqo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 16:46:44 -0500
+In-Reply-To: <56CEF1A8.3020505@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch allows the user to set and retrieve speed and duplex of the
-hv_netvsc device via ethtool.
+On 02/25/2016 01:20 PM, Jamal Hadi Salim wrote:
+> On 16-02-24 12:37 PM, Daniel Borkmann wrote:
+>> On 02/23/2016 01:49 PM, Jamal Hadi Salim wrote:
+>>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>> [...]
+>>> +static const struct nla_policy ife_policy[TCA_IFE_MAX + 1] = {
+>>> +    [TCA_IFE_PARMS] = {.len = sizeof(struct tc_ife)},
+>>> +    [TCA_IFE_DMAC] = {.type = NLA_BINARY,.len = ETH_ALEN},
+>>> +    [TCA_IFE_SMAC] = {.type = NLA_BINARY,.len = ETH_ALEN},
+>>
+>> This is buggy btw ...
+>
+> I am sure i cutnpasted that from somewhere. Thanks for catching
+> it; I will remove NLA_BINARY ref.
 
-Example:
-$ ethtool eth0
-Settings for eth0:
-...
-    Speed: Unknown!
-    Duplex: Unknown! (255)
-...
-$ ethtool -s eth0 speed 1000 duplex full
-$ ethtool eth0
-Settings for eth0:
-...
-    Speed: 1000Mb/s
-    Duplex: Full
-...
+Yeah, NLA_BINARY seems to be a bit of a misleading name. We should
+probably audit, if there are more such users already in the tree.
 
-This is based on patches by Roopa Prabhu and Nikolay Aleksandrov.
+[...]
+>> Maybe try to make this lockless in the fast path? Otherwise placing
+>> this on ingress / egress (f.e. clsact) doesn't really scale.
+>
+> Let me think about it. Likely it will be subsequent patches - I just
+> want to get this set out first.
 
-Signed-off-by: Simon Xiao <sixiao@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h |  4 +++
- drivers/net/hyperv/netvsc_drv.c | 56 +++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 60 insertions(+)
+Yes, I mean one of the key motivation was "[...] to horizontally scale
+packet processing at scope of a chasis or rack [...]". So for people
+who don't have that NIC with embedded Cavium processor, they might
+already hit scalability issues for encode/decode right there.
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index fcb92c0..b4c6878 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -658,6 +658,10 @@ struct net_device_context {
- 
- 	struct netvsc_stats __percpu *tx_stats;
- 	struct netvsc_stats __percpu *rx_stats;
-+
-+	/* Ethtool settings */
-+	u8 duplex;
-+	u32 speed;
- };
- 
- /* Per netvsc device */
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 202e2b1..e703b9a 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -799,6 +799,58 @@ static int netvsc_set_channels(struct net_device *net,
- 	goto do_set;
- }
- 
-+static bool netvsc_validate_ethtool_ss_cmd(const struct ethtool_cmd *cmd)
-+{
-+	struct ethtool_cmd diff1 = *cmd;
-+	struct ethtool_cmd diff2 = {};
-+
-+	ethtool_cmd_speed_set(&diff1, 0);
-+	diff1.duplex = 0;
-+	/* advertising and cmd are usually set */
-+	diff1.advertising = 0;
-+	diff1.cmd = 0;
-+	/* We set port to PORT_OTHER */
-+	diff2.port = PORT_OTHER;
-+
-+	return !memcmp(&diff1, &diff2, sizeof(diff1));
-+}
-+
-+static void netvsc_init_settings(struct net_device *dev)
-+{
-+	struct net_device_context *ndc = netdev_priv(dev);
-+
-+	ndc->speed = SPEED_UNKNOWN;
-+	ndc->duplex = DUPLEX_UNKNOWN;
-+}
-+
-+static int netvsc_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	struct net_device_context *ndc = netdev_priv(dev);
-+
-+	ethtool_cmd_speed_set(cmd, ndc->speed);
-+	cmd->duplex = ndc->duplex;
-+	cmd->port = PORT_OTHER;
-+
-+	return 0;
-+}
-+
-+static int netvsc_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	struct net_device_context *ndc = netdev_priv(dev);
-+	u32 speed;
-+
-+	speed = ethtool_cmd_speed(cmd);
-+	if (!ethtool_validate_speed(speed) ||
-+	    !ethtool_validate_duplex(cmd->duplex) ||
-+	    !netvsc_validate_ethtool_ss_cmd(cmd))
-+		return -EINVAL;
-+
-+	ndc->speed = speed;
-+	ndc->duplex = cmd->duplex;
-+
-+	return 0;
-+}
-+
- static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- {
- 	struct net_device_context *ndevctx = netdev_priv(ndev);
-@@ -923,6 +975,8 @@ static const struct ethtool_ops ethtool_ops = {
- 	.get_channels   = netvsc_get_channels,
- 	.set_channels   = netvsc_set_channels,
- 	.get_ts_info	= ethtool_op_get_ts_info,
-+	.get_settings	= netvsc_get_settings,
-+	.set_settings	= netvsc_set_settings,
- };
- 
- static const struct net_device_ops device_ops = {
-@@ -1112,6 +1166,8 @@ static int netvsc_probe(struct hv_device *dev,
- 	netif_set_real_num_tx_queues(net, nvdev->num_chn);
- 	netif_set_real_num_rx_queues(net, nvdev->num_chn);
- 
-+	netvsc_init_settings(net);
-+
- 	ret = register_netdev(net);
- 	if (ret != 0) {
- 		pr_err("Unable to register netdev.\n");
--- 
-2.5.0
+Thanks again,
+Daniel
