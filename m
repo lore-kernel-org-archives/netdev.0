@@ -1,73 +1,63 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: Sending short raw packets using sendmsg() broke
-Date: Thu, 25 Feb 2016 15:49:37 -0500
-Message-ID: <CAF=yD-+QPEOqsQcumy91xeLuLAww+6C5pfHys=u6zb0Xokhcfw@mail.gmail.com>
-References: <alpine.DEB.2.10.1602252105250.32432@jazz.he.fi>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: header conflict introduced by change to netfilter_ipv4/ip_tables.h
+Date: Thu, 25 Feb 2016 21:53:32 +0100
+Message-ID: <56CF69CC.70008@iogearbox.net>
+References: <20160106092007.1c5a0c75@xeon-e3>	<88a455d4b6dc4d4398553e6529d7b94a@HQ1WP-EXMB11.corp.brocade.com>	<20160107103040.649ab878@xeon-e3>	<20160107191517.GC6104@lakka.kapsi.fi> <CA+5PVA4P2avVr+m=ittQUyBou9kT2nbK0-Jeo+3coAFyQXTT_A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>,
-	Alan Cox <alan@linux.intel.com>
-To: Heikki Hannikainen <hessu@hes.iki.fi>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemming@brocade.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+To: Josh Boyer <jwboyer@fedoraproject.org>,
+	Mikko Rapeli <mikko.rapeli@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:34682 "EHLO
-	mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750835AbcBYUuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 15:50:19 -0500
-Received: by mail-lf0-f52.google.com with SMTP id j78so41072388lfb.1
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 12:50:18 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.10.1602252105250.32432@jazz.he.fi>
+Received: from www62.your-server.de ([213.133.104.62]:53279 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751160AbcBYUxm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 15:53:42 -0500
+In-Reply-To: <CA+5PVA4P2avVr+m=ittQUyBou9kT2nbK0-Jeo+3coAFyQXTT_A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Commit 9c7077622dd9174 added a check, ll_header_truncated(), which requires
-> that a packet transmitted using sendmsg() with PF_PACKET, SOCK_RAW must be
-> longer than dev->hard_header_len.
+On 02/04/2016 08:13 AM, Josh Boyer wrote:
+> On Thu, Jan 7, 2016 at 2:15 PM, Mikko Rapeli <mikko.rapeli@iki.fi> wrote:
+>> On Thu, Jan 07, 2016 at 10:30:40AM -0800, Stephen Hemminger wrote:
+>>> On Thu, 7 Jan 2016 07:29:50 +0000
+>>> Mikko Rapeli <mikko.rapeli@iki.fi> wrote:
+>>>> On Wed, Jan 06, 2016 at 09:20:07AM -0800, Stephen Hemminger wrote:
+>>>>> This commit breaks compilation of iproute2 with net-next.
+>>>>
+>>>> Ok, linux/if.h and libc net/if.h have overlapping defines, and this is not
+>>>> the only one. I saw lots of them in the core dump headers.
+>>>>
+>>>> How should we handle them? Another ifndef for IFNAMSIZ into kernel uapi
+>>>> headers?
+>>>>
+>>>> -Mikko
+>>>
+>>> Probably need to do the same thing that was done previously for these
+>>> kind of conflicts.  This makes make linux/if.h change to adapt to net/if.h
+>>> being included before it.
+>>
+>> Ok, got it. And found include/uapi/linux/libc-compat.h. Did not know about it
+>> and was looking for solutions to these problems.
+>>
+>> But now I feel like writing a test script for mixing of kernel uapi
+>> and libc headers to find out how many other collitions are still there.
+>> Not good for the pile of over 70 patches in my branch
+>> https://github.com/torvalds/linux/compare/master...mcfrisk:headers_test_v05
+>>
+>>> Or revert your patch.
+>>
+>> I'm fine with this too.
 >
-> https://github.com/torvalds/linux/commit/9c7077622dd9174
-> https://github.com/torvalds/linux/blob/master/net/packet/af_packet.c#L2329
+> This is causing a number of build failures in Fedora rawhide now.  Did
+> anyone submit a revert or patch to fix this issue?
 
-As David already pointed out, this has been revised to allow greater
-than or equal. Note that the behavior was already present for
-tpacket_snd and this patch only rationalized the two paths.
+Mikko, was there any follow-up patch to fix this? Seems like the build
+error is not yet resolved.
 
->
-> The bug that popped up is that an application (aprx) can no longer send
-> short AX.25 packets using sendmsg(). Packets shorter than 77 bytes fail this
-> check in ll_header_truncated(). With older kernels, no problem. AX.25 (and
-> some other protocols) have variable-length headers (somewhere between 21 and
-> 77 bytes in this case).
->
-> hard_header_len is set in drivers/net/hamradio/mkiss.c to
-> AX25_KISS_HEADER_LEN + AX25_MAX_HEADER_LEN + 3 which works out to be
-
-If header length is variable and can be shorter than
-AX25_MAX_HEADER_LEN then the check will still trigger.
-
-> (1+17+7*8+3)=77.
->
-> https://github.com/torvalds/linux/blob/master/drivers/net/hamradio/mkiss.c#L845
->
-> I guessed that we could probably set hard_header_len to be the minimum
-> length of the packet header (AX25_KISS_HEADER_LEN + AX25_HEADER_LEN + 3) to
-> make things work again, but I first asked Alan Cox for an opinion, and he
-> says hard_header_len is set correctly to be the worst-case maximum header
-> length, and that the ll_header_truncated commit should be reverted instead,
-> since it doesn't take variable-length headers into account.
-
-hard_header_length is used in cases where we have to reserve room or
-check against packets that exceed frame size, so it indeed should not
-be changed to be the minimum header length in a variable header length
-scenario.
-
-In most protocols the header length is fixed, so there is no separate
-field for minimal header length. If this is the only such check in the
-kernel (and I haven't found another after a cursory inspection), then
-perhaps an exception should be made here for this one protocol family.
-
-> s = socket(AF_AX25, SOCK_DGRAM, 0);
->
-> I didn't yet figure out why that works, maybe the sendto() of an AX25 datagram does not go through that hard_header_len check.
-
-That is a different protocol family. The above check is limited to
-sends over packets of family PF_PACKET.
+Thanks,
+Daniel
