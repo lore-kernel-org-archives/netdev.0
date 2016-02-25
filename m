@@ -1,7 +1,8 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v2 0/5] bridge/ovs: avoid skb head copy on frame forwarding
-Date: Thu, 25 Feb 2016 12:09:23 +0100
-Message-ID: <cover.1456397229.git.pabeni@redhat.com>
+Subject: [PATCH net-next v2 1/5] netdev: introduce ndo_set_rx_headroom
+Date: Thu, 25 Feb 2016 12:09:24 +0100
+Message-ID: <94f5bf927e514df4fecd50a1332a56501fff2945.1456397229.git.pabeni@redhat.com>
+References: <cover.1456397229.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Pravin Shelar <pshelar@nicira.com>,
@@ -10,51 +11,96 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49765 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42733 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760142AbcBYLJi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2016 06:09:38 -0500
+	id S1760194AbcBYLJq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 06:09:46 -0500
+In-Reply-To: <cover.1456397229.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, while when an OVS or Linux bridge is used to forward frames towards
-some tunnel device, a skb_head_copy() may occur if the ingress device do not
-provide enough headroom for the tx encapsulation.
+This method allows the controlling device (i.e. the bridge) to specify
+additional headroom to be allocated for skb head on frame reception.
 
-This patch series tries to address the issue implementing a new ndo operation to
-allow the master device to control the headroom used when allocating the skb on
-frame reception.
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Said operation is used by the Linux bridge to notify the bridged ports of
-needed_headroom changes, and similar bookkeeping and behaviour is also added to
-openvswitch, on a per datapath basis.
+---
+v1 -> v2:
+ - fixed netdev_get_fwd_headroom()
+ - added netdev_set_rx_headroom() and netdev_reset_rx_headroom() helpers
+---
+ include/linux/netdevice.h | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
 
-Finally, the operation is implemented for veth and tun device, which give
-performance improvement in the 6-12% range when forwarding frames from said
-devices towards a vxlan tunnel.
-
-v2:
-- fix netdev_get_fwd_headroom() behaviour
-- remove some code duplication with the netdev_set_rx_headroom() and
-   netdev_reset_rx_headroom() helpers
-- handle headroom reset on [v]port removal/deletion
-- initialize tun align to the old default value
-
-Paolo Abeni (5):
-  netdev: introduce ndo_set_rx_headroom
-  bridge: notify ensabled devices of headroom changes
-  ovs: propagate per dp max headroom to all vports
-  net/tun: implement ndo_set_rx_headroom
-  veth: implement ndo_set_rx_headroom
-
- drivers/net/tun.c                    | 17 ++++++++++++++-
- drivers/net/veth.c                   | 26 +++++++++++++++++++++++
- include/linux/netdevice.h            | 31 ++++++++++++++++++++++++++++
- net/bridge/br_if.c                   | 37 +++++++++++++++++++++++++++++++--
- net/openvswitch/datapath.c           | 40 ++++++++++++++++++++++++++++++++++++
- net/openvswitch/datapath.h           |  4 ++++
- net/openvswitch/vport-internal_dev.c | 10 ++++++++-
- 7 files changed, 161 insertions(+), 4 deletions(-)
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e52077f..8f53674 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1093,6 +1093,12 @@ struct tc_to_netdev {
+  *	This function is used to get egress tunnel information for given skb.
+  *	This is useful for retrieving outer tunnel header parameters while
+  *	sampling packet.
++ * * int (*ndo_set_rx_headroom)(struct net_device *dev, int needed_headroom);
++ *	This function is used to specify the headroom that the skb must
++ *	consider when allocation skb during packet reception. Setting
++ *	appropriate rx headroom value allows avoiding skb head copy on
++ *	forward. Setting a negative value reset the rx headroom to the
++ *	default value.
+  *
+  */
+ struct net_device_ops {
+@@ -1278,6 +1284,8 @@ struct net_device_ops {
+ 							 bool proto_down);
+ 	int			(*ndo_fill_metadata_dst)(struct net_device *dev,
+ 						       struct sk_buff *skb);
++	void			(*ndo_set_rx_headroom)(struct net_device *dev,
++						       int needed_headroom);
+ };
+ 
+ /**
+@@ -1315,6 +1323,8 @@ struct net_device_ops {
+  * @IFF_L3MDEV_SLAVE: device is enslaved to an L3 master device
+  * @IFF_TEAM: device is a team device
+  * @IFF_RXFH_CONFIGURED: device has had Rx Flow indirection table configured
++ * @IFF_PHONY_HEADROOM: the headroom value is controlled by an external
++ *	entity (i.e. the master device for bridged veth)
+  */
+ enum netdev_priv_flags {
+ 	IFF_802_1Q_VLAN			= 1<<0,
+@@ -1343,6 +1353,7 @@ enum netdev_priv_flags {
+ 	IFF_L3MDEV_SLAVE		= 1<<23,
+ 	IFF_TEAM			= 1<<24,
+ 	IFF_RXFH_CONFIGURED		= 1<<25,
++	IFF_PHONY_HEADROOM		= 1<<26,
+ };
+ 
+ #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
+@@ -1937,6 +1948,26 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
+ 				    struct sk_buff *skb,
+ 				    void *accel_priv);
+ 
++/* returns the headroom that the master device needs to take in account
++ * when forwarding to this dev
++ */
++static inline unsigned netdev_get_fwd_headroom(struct net_device *dev)
++{
++	return dev->priv_flags & IFF_PHONY_HEADROOM ? 0 : dev->needed_headroom;
++}
++
++static inline void netdev_set_rx_headroom(struct net_device *dev, int new_hr)
++{
++	if (dev->netdev_ops->ndo_set_rx_headroom)
++		dev->netdev_ops->ndo_set_rx_headroom(dev, new_hr);
++}
++
++/* set the device rx headroom to the dev's default */
++static inline void netdev_reset_rx_headroom(struct net_device *dev)
++{
++	netdev_set_rx_headroom(dev, -1);
++}
++
+ /*
+  * Net namespace inlines
+  */
 -- 
 1.8.3.1
