@@ -1,65 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3] net: fix bridge multicast packet checksum
-	validation
-Date: Thu, 25 Feb 2016 16:19:39 -0500 (EST)
-Message-ID: <20160225.161939.1019283825389790873.davem@davemloft.net>
-References: <1456284102-32557-1-git-send-email-linus.luessing@c0d3.blue>
+Subject: Re: [PATCH net v4] r8169:fix "rtl_counters_cond == 1 (loop: 1000,
+ delay: 10)" log spam.
+Date: Thu, 25 Feb 2016 16:19:47 -0500 (EST)
+Message-ID: <20160225.161947.854773663623773324.davem@davemloft.net>
+References: <1456294722-3596-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, sgunderson@bigfoot.com, tom@herbertland.com
-To: linus.luessing@c0d3.blue
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1456284102-32557-1-git-send-email-linus.luessing@c0d3.blue>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org
+To: hau@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1456294722-3596-1-git-send-email-hau@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus L=FCssing <linus.luessing@c0d3.blue>
-Date: Wed, 24 Feb 2016 04:21:42 +0100
+From: Chunhao Lin <hau@realtek.com>
+Date: Wed, 24 Feb 2016 14:18:42 +0800
 
-> We need to update the skb->csum after pulling the skb, otherwise
-> an unnecessary checksum (re)computation can ocure for IGMP/MLD packet=
-s
-> in the bridge code. Additionally this fixes the following splats for
-> network devices / bridge ports with support for and enabled RX checks=
-um
-> offloading:
-> =
+> There will be a log spam when there is no cable plugged. Please refer to
+> following links. https://bugzilla.kernel.org/show_bug.cgi?id=104351
+> https://bugzilla.kernel.org/show_bug.cgi?id=107421
+> 
+> This issue is caused by runtime power management. When there is no cable
+> plugged, the driver will be suspend (runtime suspend) by OS and NIC will be
+> put into the D3 state. During this time, if OS call rtl8169_get_stats64()
+> to dump tally counter, because NIC is in D3 state, the register value read
+> by driver will return all 0xff. This will let driver think tally counter
+> flag is not toggled and then sends the warning message "rtl_counters_cond
+> == 1 (loop: 1000, delay: 10)" to kernel log.
+> 
+> For fixing this issue, 1.add checking driver's pm runtime status in
+> rtl8169_get_stats64(). 2.dump tally counter before going runtime suspend
+> for counter accuracy in runtime suspend.
+> 
+> Signed-off-by: Chunhao Lin <hau@realtek.com>
 
-> [...]
-> [   43.986968] eth0: hw csum failure
-> [   43.990344] CPU: 3 PID: 0 Comm: swapper/3 Not tainted 4.4.0 #2
-> [   43.996193] Hardware name: BCM2709
-> [   43.999647] [<800204e0>] (unwind_backtrace) from [<8001cf14>] (sho=
-w_stack+0x10/0x14)
-> [   44.007432] [<8001cf14>] (show_stack) from [<801ab614>] (dump_stac=
-k+0x80/0x90)
-> [   44.014695] [<801ab614>] (dump_stack) from [<802e4548>] (__skb_che=
-cksum_complete+0x6c/0xac)
-> [   44.023090] [<802e4548>] (__skb_checksum_complete) from [<803a055c=
->] (ipv6_mc_validate_checksum+0x104/0x178)
-> [   44.032959] [<803a055c>] (ipv6_mc_validate_checksum) from [<802e11=
-1c>] (skb_checksum_trimmed+0x130/0x188)
-> [   44.042565] [<802e111c>] (skb_checksum_trimmed) from [<803a06e8>] =
-(ipv6_mc_check_mld+0x118/0x338)
-> [   44.051501] [<803a06e8>] (ipv6_mc_check_mld) from [<803b2c98>] (br=
-_multicast_rcv+0x5dc/0xd00)
-> [   44.060077] [<803b2c98>] (br_multicast_rcv) from [<803aa510>] (br_=
-handle_frame_finish+0xac/0x51c)
-> [...]
-> =
-
-> Fixes: 9afd85c9e455 ("net: Export IGMP/MLD message validation code")
-> Reported-by: =C1lvaro Fern=E1ndez Rojas <noltari@gmail.com>
-> Signed-off-by: Linus L=FCssing <linus.luessing@c0d3.blue>
-
-Applied and queued up for -stable, thanks!
+Applied, thanks.
