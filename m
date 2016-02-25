@@ -1,63 +1,87 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net-next 01/10] bnxt_en: Improve bnxt_vf_update_mac().
-Date: Thu, 25 Feb 2016 08:57:01 -0800
-Message-ID: <CACKFLi=ycecx03nPAUzVPG8-v8tvPEC5iXUtpwibVkAxhwdzMg@mail.gmail.com>
-References: <1456388374-1440-1-git-send-email-michael.chan@broadcom.com>
-	<1456388374-1440-2-git-send-email-michael.chan@broadcom.com>
-	<20160225.113128.1989544272292631983.davem@davemloft.net>
+From: Josh Poimboeuf <jpoimboe@redhat.com>
+Subject: Re: [PATCH v17 0/9] Compile-time stack metadata validation
+Date: Thu, 25 Feb 2016 11:04:41 -0600
+Message-ID: <20160225170441.GA5763@treble.redhat.com>
+References: <cover.1456331595.git.jpoimboe@redhat.com>
+ <20160225080203.GC2354@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:35934 "EHLO
-	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933122AbcBYQ5D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 11:57:03 -0500
-Received: by mail-oi0-f44.google.com with SMTP id w5so43639990oie.3
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 08:57:02 -0800 (PST)
-In-Reply-To: <20160225.113128.1989544272292631983.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
+	Michal Marek <mmarek@suse.cz>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Andy Lutomirski <luto@kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Pedro Alves <palves@redhat.com>,
+	Namhyung Kim <namhyung@gmail.com>,
+	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
+	Chris J Arges <chris.j.arges@canonical.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jiri Slaby <jslaby@suse.cz>,
+	Arnaldo Carvalho de Melo <acme@kernel.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@k
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160225080203.GC2354@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 25, 2016 at 8:31 AM, David Miller <davem@davemloft.net> wrote:
-> From: Michael Chan <michael.chan@broadcom.com>
-> Date: Thu, 25 Feb 2016 03:19:25 -0500
->
->> From: Jeffrey Huang <huangjw@broadcom.com>
->>
->> Allow the VF to setup its own MAC address if the PF has not administratively
->> set it for the VF.  If the perm_mac_address returned by firmware is all
->> zeros, that means the PF has not set up the MAC address for the VF and
->> we should store it.  This will allow the VF to change the MAC address using
->> ndo_set_mac_address() when it sees that the stored permanent MAC address
->> is all zeros.
->>
->> Signed-off-by: Jeffrey Huang <huangjw@broadcom.com>
->> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
->
-> What triggers that ->ndo_set_mac_address() call in the VF?
+On Thu, Feb 25, 2016 at 09:02:04AM +0100, Ingo Molnar wrote:
+> 
+> * Josh Poimboeuf <jpoimboe@redhat.com> wrote:
+> 
+> > This is v17 of the compile-time stack metadata validation patch set.
+> > 
+> > It's based on tip:x86/debug.  However, note that when run against that
+> > branch it will give a lot of warnings:
+> > 
+> >   objtool: arch/x86/ia32/sys_ia32.o: __ex_table size not a multiple of 12
+> >   objtool: arch/x86/ia32/ia32_signal.o: __ex_table size not a multiple of 12
+> >   objtool: arch/x86/entry/common.o: __ex_table size not a multiple of 12
+> >   ...
+> > 
+> > These warnings means that objtool is expecting the new exception table
+> > format which was introduced with:
+> > 
+> >   548acf19234d ("x86/mm: Expand the exception table logic to allow new handling options")
+> > 
+> > So that commit is needed for those warnings to go away.
+> 
+> Ok. I have created a new topic branch for the objtool commits: tip:core/objtool, 
+> and merged tip:ras/core into it (which hosts 548acf19234d).
+> 
+> So please use tip:core/objtool as a base from now on.
+> 
+> Two more minor observations:
+> 
+> Please re-order the patches slightly so that the annotations are added first, and 
+> objtool is added and Kconfig-enabled in the final patches.
+> 
+> >   x86/objtool: Compile-time stack metadata validation
+> >   x86/objtool: Add CONFIG_STACK_VALIDATION option
+> >   x86/objtool: Enable objtool on x86_64
+> >   x86/objtool: Add STACK_FRAME_NON_STANDARD macro
+> >   x86/objtool: Add directory and file whitelists
+> 
+> btw., please use the more generic 'objtool: ' prefix, the concept is not 
+> fundamentally x86 specific - especially once dwarf debuginfo is interpreted it 
+> will be useful beyond x86 as well I suspect.
+> 
+> >   x86/xen: Add xen_cpuid() to objtool whitelist
+> >   bpf: Add __bpf_prog_run() to objtool whitelist
+> >   sched: Add __schedule() to objtool whitelist
+> >   x86/kprobes: Add kretprobe_trampoline() to objtool whitelist
 
-ip link set eth0 address ...
+Ok.  I'll make all your suggested changes and post v18 today.
 
-done on the VF.
-
->
-> You cannot register an ethernet netdev with an invalid ethernet address,
-> you must use a random one if you don't have a valid one available.
-
-We are not registering an invalid MAC address.  We are just storing it in the
-driver's VF data structure.  There are 2 cases:
-
-1. VF comes up and the MAC address from firmware is 0.  The VF will
-generate random MAC.  The stored MAC address in the VF datastructure is
-0 so that ip set link eth0 address is allowed on the VF.
-
-2. PF sets the MAC address for the VF using ip link set eth0 vf mac ....
-The firmware will now provide the PF administered MAC address to the
-VF and random MAC is no longer generated.  This valid MAC is now
-stored and ip link set eth0 address ... on the VF is no longer allowed.
-
-This patch is to make case 2 work properly.  I will change the commit
-message to make it more clear and I will fix the parameter formatting
-in the other patch.  Thanks.
+-- 
+Josh
