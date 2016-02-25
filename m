@@ -1,60 +1,38 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v2 1/5] introduce IFE action
-Date: Thu, 25 Feb 2016 14:07:53 -0800
-Message-ID: <56CF7B39.8090704@gmail.com>
-References: <1456231760-2513-1-git-send-email-jhs@emojatatu.com> <1456231760-2513-2-git-send-email-jhs@emojatatu.com> <56CDEA6D.1000908@iogearbox.net> <56CEF1A8.3020505@mojatatu.com> <56CF7640.2060202@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch] rose_route_frame() NULL pointer dereference kernel
+ panic
+Date: Thu, 25 Feb 2016 17:09:57 -0500 (EST)
+Message-ID: <20160225.170957.836114237953219422.davem@davemloft.net>
+References: <56CDDFF7.2040609@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	alexei.starovoitov@gmail.com, dj@verizon.com
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
+Cc: netdev@vger.kernel.org, ralf@linux-mips.org
+To: f6bvp@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:35558 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751244AbcBYWIG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 17:08:06 -0500
-Received: by mail-pf0-f181.google.com with SMTP id c10so41125809pfc.2
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 14:08:05 -0800 (PST)
-In-Reply-To: <56CF7640.2060202@iogearbox.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46749 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750789AbcBYWJ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 17:09:59 -0500
+In-Reply-To: <56CDDFF7.2040609@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-25 01:46 PM, Daniel Borkmann wrote:
-> On 02/25/2016 01:20 PM, Jamal Hadi Salim wrote:
->> On 16-02-24 12:37 PM, Daniel Borkmann wrote:
->>> On 02/23/2016 01:49 PM, Jamal Hadi Salim wrote:
->>>> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>> [...]
->>>> +static const struct nla_policy ife_policy[TCA_IFE_MAX + 1] = {
->>>> +    [TCA_IFE_PARMS] = {.len = sizeof(struct tc_ife)},
->>>> +    [TCA_IFE_DMAC] = {.type = NLA_BINARY,.len = ETH_ALEN},
->>>> +    [TCA_IFE_SMAC] = {.type = NLA_BINARY,.len = ETH_ALEN},
->>>
->>> This is buggy btw ...
->>
->> I am sure i cutnpasted that from somewhere. Thanks for catching
->> it; I will remove NLA_BINARY ref.
-> 
-> Yeah, NLA_BINARY seems to be a bit of a misleading name. We should
-> probably audit, if there are more such users already in the tree.
-> 
+From: f6bvp <f6bvp@free.fr>
+Date: Wed, 24 Feb 2016 17:53:11 +0100
 
-At some point in the past (maybe a year ago?) I went through and
-fixed a handful of these but yeah it seems to be a common error.
+> @@ -863,6 +863,11 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb
+> *ax25)
 
-> [...]
->>> Maybe try to make this lockless in the fast path? Otherwise placing
->>> this on ingress / egress (f.e. clsact) doesn't really scale.
->>
->> Let me think about it. Likely it will be subsequent patches - I just
->> want to get this set out first.
+First of all this patch was corrupted by your email client.
+
+>         int res = 0;
+>         char buf[11];
 > 
-> Yes, I mean one of the key motivation was "[...] to horizontally scale
-> packet processing at scope of a chasis or rack [...]". So for people
-> who don't have that NIC with embedded Cavium processor, they might
-> already hit scalability issues for encode/decode right there.
-> 
-> Thanks again,
-> Daniel
+> +       if (ax25 == NULL) {
+> +               printk("Null ax25 destination !\n");
+> +               return res;
+> +       }
+
+Second of all, this log message is not appropriate, especially given that
+rose_xmit() calls rose_rout_frame() with an explicit NULL second argument.
