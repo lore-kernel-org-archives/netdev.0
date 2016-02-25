@@ -1,37 +1,105 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netxen: Use kobj_to_dev()
-Date: Thu, 25 Feb 2016 16:52:23 -0500 (EST)
-Message-ID: <20160225.165223.1699552403031314424.davem@davemloft.net>
-References: <20160224143938.GA17198@amitoj-Inspiron-3542>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next v2 0/9] Introduce devlink interface and first
+ drivers to use it
+Date: Thu, 25 Feb 2016 22:53:30 +0100
+Message-ID: <56CF77DA.7050602@stressinduktion.org>
+References: <1456242694-29463-1-git-send-email-jiri@resnulli.us>
+ <20160225.151247.479900417232368503.davem@davemloft.net>
+ <56CF67BB.70901@stressinduktion.org> <20160225211256.GA2164@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: manish.chopra@qlogic.com, sony.chacko@qlogic.com,
-	rajesh.borundia@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
-To: amitoj1606@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160224143938.GA17198@amitoj-Inspiron-3542>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+	ogerlitz@mellanox.com, yishaih@mellanox.com, dledford@redhat.com,
+	sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	eugenia@mellanox.com, roopa@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com, hadarh@mellanox.com, jhs@mojatatu.com,
+	john.fastabend@gmail.com, jeffrey.t.kirsher@intel.com,
+	brouer@redhat.com, ivecera@redhat.com, rami.rosen@intel.com,
+	gospo@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:36521 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750717AbcBYVxg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 16:53:36 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 034A920E56
+	for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 16:53:34 -0500 (EST)
+In-Reply-To: <20160225211256.GA2164@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Date: Wed, 24 Feb 2016 20:09:38 +0530
+On 25.02.2016 22:12, Jiri Pirko wrote:
+> Thu, Feb 25, 2016 at 09:44:43PM CET, hannes@stressinduktion.org wrote:
+>> On 25.02.2016 21:12, David Miller wrote:
+>>> From: Jiri Pirko <jiri@resnulli.us>
+>>> Date: Tue, 23 Feb 2016 16:51:25 +0100
+>>>
+>>>> There a is need for some userspace API that would allow to expose things
+>>>> that are not directly related to any device class like net_device of
+>>>> ib_device, but rather chip-wide/switch-ASIC-wide stuff.
+>>>>
+>>>> Use cases:
+>>>> 1) get/set of port type (Ethernet/InfiniBand)
+>>>> 2) setting up port splitters - split port into multiple ones and squash again,
+>>>>     enables usage of splitter cable
+>>>> 3) setting up shared buffers - shared among multiple ports within
+>>>>     one chip (work in progress)
+>>>> 4) configuration of switch wide properties - resources division etc - This will
+>>>>     allow to pass configuration that is unacceptable to be passed as
+>>>>     a module option.
+>>>>
+>>>> First patch of this set introduces a new generic Netlink based interface,
+>>>> called "devlink". It is similar to nl80211 model and it is heavily
+>>>> influenced by it, including the API definition. The devlink introduction patch
+>>>> implements use cases 1) and 2). Other 2 are in development atm and will
+>>>> be addressed by follow-ups.
+>>>>
+>>>> It is very convenient for drivers to use devlink, as you can see in other
+>>>> patches in this set.
+>>>>
+>>>> Counterpart for devlink is userspace tool for now called "dl". Command line
+>>>> interface and outputs are derived from "ip" tool so it should be easy
+>>>> for users to get used to it.
+>>>
+>>> I am very close to applying this series as-is.
+>>>
+>>> The clincher for me is that there is precendence in the nl80211 stuff,
+>>> so obviously whatever userland infrastructure sits on top of that has
+>>> found a way to deal whatever perceived shortcomings devlink has.
+>>
+>> Actually nl80211 phy interfaces aren't really managed by wpa_supplicant nor
+>> NetworkManager, but they use net_device names to discover those later on. In
+>> devlink we don't necessarily have netdev names, thus my only objection to
+>> this series is to switch to stable topology identifiers.
+>
+> Hannes, as I mentioned earlier in one of my replies, you can choose to
+> use devlink name or pci (or other) address for your commands. So you
+> have your stable names even before udev takes care of renaming. It's up
+> to you as a user what handle to use.
 
-> Introduce the use of kobj_to_dev() helper function instead of open
-> coding it with container_of()
-> 
-> The Coccinelle semantic patch used to make this change is as follows:
-> 
-> //<smpl>
-> @@
-> expression a;
-> symbol kobj;
-> @@
-> - container_of(a, struct device, kobj)
-> + kobj_to_dev(a)
-> //</smpl>
-> 
-> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+I understood that part from the beginning. In my opinion we should 
+simply keep APIs simple and clean, reduced to the minimum and let user 
+space build upon this.
 
-Applied.
+If an entity in the kernel doesn't need a name and/or a naming database, 
+I would not bother implementing it. Not everyone is a kernel developer 
+who uses Linux and can infer the problems from dl --help. I bet most 
+users will use names at some point in time and they simply can't match 
+even with the udev quirks in place when setting up netbooting or 
+configuration must happen from the currently provided initramfs. This is 
+my point.
+
+If names are fragile to use simply don't provide it if not necessary.
+
+devlink is an interface of its own and the names won't be referenced by 
+other subsystems like iptables -i <name> or iproute. So why bother with 
+names in the kernel?
+
+On the rest with netlink etc. I agree already. I just want to eliminate 
+possible mistakes by users.
+
+Hope that makes my point more clear,
+Hannes
