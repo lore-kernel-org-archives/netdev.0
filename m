@@ -1,30 +1,49 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net-next 0/3] bpf_get_stackid() and stack_trace map
-Date: Thu, 25 Feb 2016 15:24:54 +0100
-Message-ID: <20160225142454.GO6357@twins.programming.kicks-ass.net>
-References: <1455767939-2700534-1-git-send-email-ast@fb.com>
- <20160220.002505.2066795907514539303.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [Y2038] [PATCH 1/4] kernel: time: Add current_nw_timestamp() for network timestamps
+Date: Thu, 25 Feb 2016 15:56:30 +0100
+Message-ID: <6117501.V63TZYo9Wq@wuerfel>
+References: <1456384031-29244-1-git-send-email-deepa.kernel@gmail.com> <1456384031-29244-2-git-send-email-deepa.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ast@fb.com, mingo@kernel.org, rostedt@goodmis.org,
-	wangnan0@huawei.com, daniel@iogearbox.net,
-	brendan.d.gregg@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160220.002505.2066795907514539303.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Deepa Dinamani <deepa.kernel@gmail.com>, netdev@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>,
+	John Stultz <john.stultz@linaro.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"David S. Miller" <davem@davemloft.net>
+To: y2038@lists.linaro.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.131]:55204 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760300AbcBYO5D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 09:57:03 -0500
+In-Reply-To: <1456384031-29244-2-git-send-email-deepa.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 20, 2016 at 12:25:05AM -0500, David Miller wrote:
-> From: Alexei Starovoitov <ast@fb.com>
-> Date: Wed, 17 Feb 2016 19:58:56 -0800
+On Wednesday 24 February 2016 23:07:08 Deepa Dinamani wrote:
+> ICMP timestamp messages and IP source route options require
+> timestamps to be in milliseconds modulo 24 hours from
+> midnight UTC format.
 > 
-> > This patch set introduces new map type to store stack traces and
-> > corresponding bpf_get_stackid() helper.
->  ...
+> Add a time function to support this. The function returns the
+> required timestamp in network byte order.
 > 
-> Series applied, thanks Alexei.
+> The function also uses y2038 safe time functions and data
+> structures.
+> 
+> Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
+> 
 
-David, please do not apply perf patches without an ACK from me or mingo.
+For the implementation:
+
+Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+
+For where to put the code, I have no better idea, but I agree
+with Hideaki Yoshifuji that it's a bit odd to place it in
+kernel/*.c when it's only used by net/ipv4.
+
+	Arnd
