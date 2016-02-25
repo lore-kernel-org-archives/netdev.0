@@ -1,52 +1,35 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: header conflict introduced by change to
- netfilter_ipv4/ip_tables.h
-Date: Thu, 25 Feb 2016 22:08:56 +0100
-Message-ID: <20160225210856.GB10608@pox.localdomain>
-References: <20160106092007.1c5a0c75@xeon-e3>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] phy: marvell: Fix 88E1510 initialization
+Date: Thu, 25 Feb 2016 16:08:56 -0500 (EST)
+Message-ID: <20160225.160856.1184683053443722763.davem@davemloft.net>
+References: <1456255018-9632-1-git-send-email-clemens.gruber@pqgruber.com>
+	<1456255018-9632-2-git-send-email-clemens.gruber@pqgruber.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Mikko Rapeli <mikko.rapeli@iki.fi>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: clemens.gruber@pqgruber.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:37924 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750716AbcBYVI7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 16:08:59 -0500
-Received: by mail-wm0-f42.google.com with SMTP id a4so45135946wme.1
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 13:08:58 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20160106092007.1c5a0c75@xeon-e3>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46120 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750716AbcBYVJB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 16:09:01 -0500
+In-Reply-To: <1456255018-9632-2-git-send-email-clemens.gruber@pqgruber.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/06/16 at 09:20am, Stephen Hemminger wrote:
-> This commit breaks compilation of iproute2 with net-next.
-> 
-> commit 1ffad83dffd675cd742286ae82dca7d746cb0da8
-> Author: Mikko Rapeli <mikko.rapeli@iki.fi>
-> Date:   Thu Oct 15 07:56:30 2015 +0200
-> 
->     netfilter: fix include files for compilation
->     
->     Add missing header dependencies and other small changes so that each file
->     compiles alone in userspace.
->     
->     Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
->     Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> 
-> For iproute2, a copy of kernel headers (from make install_headers) is used.
-> After this change. the build of x_tables.c fails because IFNAMSIZ is already
-> defined in net/if.h
+From: Clemens Gruber <clemens.gruber@pqgruber.com>
+Date: Tue, 23 Feb 2016 20:16:58 +0100
 
-There is another issue with this commit. iptables.h included from m_ipt.c
-includes  xtables.h which includes <xtables-version.h> which is not
-available on a system without xtables.
+> A bug was introduced in the merge commit b633353115e3 ("Merge
+> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net")
+> The generic marvell_config_init (and therefore marvell_of_reg_init) is
+> not called anymore for the Marvell 88E1510 (in net-next).
+> 
+> This patch calls marvell_config_init and moves the specific init
+> function for the 88E1510 below the marvell_config_init function to avoid
+> adding a function predeclaration.
+> 
+> Signed-off-by: Clemens Gruber <clemens.gruber@pqgruber.com>
 
-gcc -Wall -Wstrict-prototypes  -Wmissing-prototypes -Wmissing-declarations -Wold-style-definition -Wformat=2 -O2 -I../include -DRESOLVE_HOSTNAMES -DLIBDIR=\"/usr/lib\" -DCONFDIR=\"/etc/iproute2\" -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE  -DHAVE_SETNS -DHAVE_ELF -DCONFIG_GACT -DCONFIG_GACT_PROB -DIPT_LIB_DIR=\"/lib/xtables\" -DYY_NO_INPUT   -c -o m_ipt.o m_ipt.c
-In file included from ../include/iptables.h:5:0,
-                 from m_ipt.c:17:
-../include/xtables.h:34:29: fatal error: xtables-version.h: No such file or directory
- #include <xtables-version.h>
+Applied, thanks for noticing and fixing this merge error!
