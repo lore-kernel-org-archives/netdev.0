@@ -1,39 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: thunderx: Fix for Qset error due to CQ full
-Date: Thu, 25 Feb 2016 16:25:48 -0500 (EST)
-Message-ID: <20160225.162548.782902392289793973.davem@davemloft.net>
-References: <1456312250-25694-1-git-send-email-sunil.kovvuri@gmail.com>
+Subject: Re: [PATCH net 3/7] net/mlx5e: Fix soft lockup when HW
+ Timestamping is enabled
+Date: Thu, 25 Feb 2016 16:31:06 -0500 (EST)
+Message-ID: <20160225.163106.2304939289705309406.davem@davemloft.net>
+References: <1456312733-22091-1-git-send-email-saeedm@mellanox.com>
+	<1456312733-22091-4-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, sgoutham@cavium.com,
-	robert.richter@caviumnetworks.com, jerin.jacob@caviumnetworks.com
-To: sunil.kovvuri@gmail.com
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, talal@mellanox.com,
+	eranbe@mellanox.com, tariqt@mellanox.com, galp@mellanox.com
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46262 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46292 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750716AbcBYVZv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 16:25:51 -0500
-In-Reply-To: <1456312250-25694-1-git-send-email-sunil.kovvuri@gmail.com>
+	with ESMTP id S1751734AbcBYVbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 16:31:09 -0500
+In-Reply-To: <1456312733-22091-4-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: sunil.kovvuri@gmail.com
-Date: Wed, 24 Feb 2016 16:40:50 +0530
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Wed, 24 Feb 2016 13:18:49 +0200
 
-> From: Sunil Goutham <sgoutham@cavium.com>
+> From: Eran Ben Elisha <eranbe@mellanox.com>
 > 
-> On Thunderx pass 1.x and pass2 due to a HW errata default CQ
-> DROP_LEVEL of 0x80 is not sufficient to avoid CQ_WR_FULL Qset
-> error when packets are being received at >20Mpps resulting in
-> complete stall of packet reception.
+> Readers/Writers lock for SW timecounter was acquired without disabling
+> interrupts on local CPU.
 > 
-> This patch will configure it to 0x100 which is what is expected
-> by HW on Thunderx. On future passes of thunderx and other chips
-> HW default/reset value will be 0x100 or higher hence not overwritten.
+> The problematic scenario:
+> * HW timestamping is enabled
+> * Timestamp overflow periodic service task is running on local CPU and
+>   holding write_lock for SW timecounter
+> * Completion arrives, triggers interrupt for local CPU.
+>   Interrupt routine calls napi_schedule(), which triggers rx/tx
+>   skb process.
+>   An attempt to read SW timecounter using read_lock is done, which is
+>   already locked by a writer on the same CPU and cause soft lockup.
 > 
-> Signed-off-by: Jerin Jacob <jerin.jacob@caviumnetworks.com>
-> Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+> Add irqsave/irqrestore for when using the readers/writers lock.
+> 
+> Fixes: ef9814deafd0 ('net/mlx5e: Add HW timestamping (TS) support')
+> Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 
-Applied, thank you.
+I'd like to suggest a slight modification to this fix.
+
+The canonical way to deal with this issue is to use IRQ disabling
+for the write lock side, but not for the read lock side.
+
+You only need to prevent a read lock via interrupt from nesting on
+the same cpu where you took the write lock.
+
+So you don't need the expensive IRQ disabling for the read lock side,
+which is the more important path performance wise.
+
+Thanks.
