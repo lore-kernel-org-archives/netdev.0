@@ -1,69 +1,49 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH v2 1/5] introduce IFE action
-Date: Thu, 25 Feb 2016 07:20:56 -0500
-Message-ID: <56CEF1A8.3020505@mojatatu.com>
-References: <1456231760-2513-1-git-send-email-jhs@emojatatu.com>
- <1456231760-2513-2-git-send-email-jhs@emojatatu.com>
- <56CDEA6D.1000908@iogearbox.net>
+Subject: Re: [net-next PATCH 0/5] net_sched: Add support for IFE action
+Date: Thu, 25 Feb 2016 07:23:30 -0500
+Message-ID: <56CEF242.5090908@mojatatu.com>
+References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com>
+ <56CB3B90.8030206@iogearbox.net> <56CC4BEA.70108@mojatatu.com>
+ <56CC5CB6.1030807@iogearbox.net> <56CC6C75.1000903@mojatatu.com>
+ <56CC7C20.3090302@iogearbox.net> <56CDA6E8.7010604@mojatatu.com>
+ <56CDECE5.5040604@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
-	dj@verizon.com
+	alexei.starovoitov@gmail.com
 To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:34973 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760606AbcBYMU6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 07:20:58 -0500
-Received: by mail-io0-f194.google.com with SMTP id z135so5469639iof.2
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 04:20:58 -0800 (PST)
-In-Reply-To: <56CDEA6D.1000908@iogearbox.net>
+Received: from mail-ig0-f195.google.com ([209.85.213.195]:35978 "EHLO
+	mail-ig0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760328AbcBYMXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 07:23:32 -0500
+Received: by mail-ig0-f195.google.com with SMTP id xg9so871071igb.3
+        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 04:23:32 -0800 (PST)
+In-Reply-To: <56CDECE5.5040604@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-24 12:37 PM, Daniel Borkmann wrote:
-> On 02/23/2016 01:49 PM, Jamal Hadi Salim wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> [...]
->> +static const struct nla_policy ife_policy[TCA_IFE_MAX + 1] = {
->> +    [TCA_IFE_PARMS] = {.len = sizeof(struct tc_ife)},
->> +    [TCA_IFE_DMAC] = {.type = NLA_BINARY,.len = ETH_ALEN},
->> +    [TCA_IFE_SMAC] = {.type = NLA_BINARY,.len = ETH_ALEN},
+On 16-02-24 12:48 PM, Daniel Borkmann wrote:
+> On 02/24/2016 01:49 PM, Jamal Hadi Salim wrote:
+
+>> Drivers do set the hash. My use case is slightly different.
+>> I have a NIC which has an embedded cavium processor. This thing
+>> strips off the TLV and uses the hash to select the host MSI.
+>> Only thing we dont use at the moment is queue_mapping.
 >
-> This is buggy btw ...
->
+> Ok, but the example says ingress qdisc. ;) I presume the driver for the
+> NIC and the offloading parts are non-public? :/
 
-I am sure i cutnpasted that from somewhere. Thanks for catching
-it; I will remove NLA_BINARY ref.
+Well, it is not exactly mellanox or intel - but I am sure someone would
+be willing to sell that NIC.
 
->> +    [TCA_IFE_TYPE] = {.type = NLA_U16},
->> +};
->
-> [...]
->
->> +    if (parm->flags & IFE_ENCODE) {
->> +        ife_type = *(u16 *) nla_data(tb[TCA_IFE_TYPE]);
->
-> ( We have accessors for such things. Please also check coding style
->    and white space things in your series, there's couple of things all
->    over the place. )
+> So, without them, placing
+> this on ingress qdisc doesn't seem much useful wrt the skb hash example,
+> and most people only have the software part (for ingress I mean) available.
 
-
-Modern git tells you about white spaces - maybe i didnt stare long
-enough ;-> I will use the accessor in next update.
-
-
-> Maybe try to make this lockless in the fast path? Otherwise placing
-> this on ingress / egress (f.e. clsact) doesn't really scale.
->
-
-
-Let me think about it. Likely it will be subsequent patches - I just
-want to get this set out first.
-
-Thanks Daniel.
+Do you want me to take skbbhash out? I just want to get this set in then
+worry about adding and modifying.
 
 cheers,
 jamal
