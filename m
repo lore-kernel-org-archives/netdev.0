@@ -1,55 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] ipv4: in new netns initialize sysctls in
-	net.ipv4.conf.* with defaults
-Date: Thu, 25 Feb 2016 11:43:43 -0500 (EST)
-Message-ID: <20160225.114343.1977846344387184355.davem@davemloft.net>
-References: <20160223.182121.2101846699151527296.davem@davemloft.net>
-	<87y4a9ix2h.fsf@x220.int.ebiederm.org> <56CF0DC0.7030003@6wind.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next 2/3] bpf: introduce BPF_MAP_TYPE_STACK_TRACE
+Date: Thu, 25 Feb 2016 08:42:40 -0800
+Message-ID: <56CF2F00.2020608@fb.com>
+References: <1455767939-2700534-1-git-send-email-ast@fb.com>
+ <1455767939-2700534-3-git-send-email-ast@fb.com>
+ <20160225142328.GN6357@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, vvs-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org
-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <56CF0DC0.7030003-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Wang Nan <wangnan0@huawei.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:30242 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759877AbcBYQnu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 11:43:50 -0500
+In-Reply-To: <20160225142328.GN6357@twins.programming.kicks-ass.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Date: Thu, 25 Feb 2016 15:20:48 +0100
+On 2/25/16 6:23 AM, Peter Zijlstra wrote:
+>> +	id = hash & (smap->n_buckets - 1);
+> Its not at all clear where the corresponding rcu_read_lock() is at.
+>
+>> >+	bucket = rcu_dereference(smap->buckets[id]);
 
-> Le 24/02/2016 23:05, Eric W. Biederman a =E9crit :
-> [snip]
->> In the general case the current behavior is random and not something
->> applications can count on, and we would do well to fix it so it is
->> less
->> random.  In particular consider the case of an application in a
->> non-initial network namespace creating a new network namespace.  It is
->> not even possible to predict what values they will get for sysctls
->> today.
-> +1
-
-But there is a counter argument to this.
-
-The admin set up the initial namespace so that any namespace
-instantiated by a user (even non-initial namespaces) starts with a
-specific set of sysctl values.  So the admin "knows", he set it up
-intentionally this way, and it's a valid model.
-
-This behavior is anything but random.  Rather, it is very predictable
-and controllable.
-
-Do you really want to find out who you're going to break out there with
-so many installations in the world right now?
-
-I do not.
+bpf programs of all types are always executing under rcu_read_lock().
+This is fundamental for maps and majority of the helpers
+that's why there is no WARN_ON(rcu_read_lock_held) in this helper,
+since we already have it in many other places.
+The rcu_read_lock() for kprobe type is in trace_call_bpf().
