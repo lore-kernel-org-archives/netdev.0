@@ -1,80 +1,78 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net-next V2 03/16] net: fec: pass txq to fec_enet_tx_queue instead of queue_id
-Date: Wed, 24 Feb 2016 17:36:46 -0700
-Message-ID: <1456360619-24390-4-git-send-email-troy.kisky@boundarydevices.com>
-References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
-Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
-	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
-	linux-arm-kernel@lists.infradead.org, laci@boundarydevices.com,
-	shawnguo@kernel.org, johannes@sipsolutions.net,
-	stillcompiling@gmail.com, sergei.shtylyov@cogentembedded.com,
-	arnd@arndb.de, Troy Kisky <troy.kisky@boundarydevices.com>
-To: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:36816 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751448AbcBYAkQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 19:40:16 -0500
-Received: by mail-pa0-f47.google.com with SMTP id yy13so21738059pab.3
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 16:40:16 -0800 (PST)
-In-Reply-To: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Diego Viola <diego.viola@gmail.com>
+Subject: Re: [PATCH v3] net: jme: fix suspend/resume on JMC260
+Date: Wed, 24 Feb 2016 21:43:02 -0300
+Message-ID: <CA+ToGPHTzbhQo-rA_osi6mDGwevXhFP-3JWe+SHUSMRf+FwaCw@mail.gmail.com>
+References: <1456239844-4109-1-git-send-email-diego.viola@gmail.com>
+	<CA+ToGPGfXoS7rBr6RKPVxgRemj35LwfY4o9JHiZKkwrxOTsMww@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	richard.weinberger@gmail.com, pavel@ucw.cz, rjw@rjwysocki.net,
+	davem@davemloft.net, valdis.kletnieks@vt.edu,
+	Diego Viola <diego.viola@gmail.com>
+To: cooldavid@cooldavid.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+ToGPGfXoS7rBr6RKPVxgRemj35LwfY4o9JHiZKkwrxOTsMww@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-queue_id is the qid member of struct bufdesc_prop.
+On Tue, Feb 23, 2016 at 1:34 PM, Diego Viola <diego.viola@gmail.com> wrote:
+> On Tue, Feb 23, 2016 at 12:04 PM, Diego Viola <diego.viola@gmail.com> wrote:
+>> The JMC260 network card fails to suspend/resume because the call to
+>> jme_start_irq() was too early, moving the call to jme_start_irq() after
+>> the call to jme_reset_link() makes it work.
+>>
+>> Prior this change suspend/resume would fail unless /sys/power/pm_async=0
+>> was explicitly specified.
+>>
+>> Relevant bug report: https://bugzilla.kernel.org/show_bug.cgi?id=112351
+>>
+>> Signed-off-by: Diego Viola <diego.viola@gmail.com>
+>> ---
+>>  drivers/net/ethernet/jme.c | 3 ++-
+>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
+>> index b1de7af..8adbe8f 100644
+>> --- a/drivers/net/ethernet/jme.c
+>> +++ b/drivers/net/ethernet/jme.c
+>> @@ -3312,13 +3312,14 @@ jme_resume(struct device *dev)
+>>                 jme_reset_phy_processor(jme);
+>>         jme_phy_calibration(jme);
+>>         jme_phy_setEA(jme);
+>> -       jme_start_irq(jme);
+>>         netif_device_attach(netdev);
+>>
+>>         atomic_inc(&jme->link_changing);
+>>
+>>         jme_reset_link(jme);
+>>
+>> +       jme_start_irq(jme);
+>> +
+>>         return 0;
+>>  }
+>>
+>> --
+>> 2.7.1
+>>
+>
+> I've sent this v3 patch and I think it's better than v2 and v1, as it
+> includes the link to my bug report and the description is better.
+>
+> Diego
 
-Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
----
- drivers/net/ethernet/freescale/fec_main.c | 17 ++++++-----------
- 1 file changed, 6 insertions(+), 11 deletions(-)
+Hi guys,
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 9619b9e..c517194 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1156,25 +1156,18 @@ fec_enet_hwtstamp(struct fec_enet_private *fep, unsigned ts,
- 	hwtstamps->hwtstamp = ns_to_ktime(ns);
- }
- 
--static void
--fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
-+static void fec_txq(struct net_device *ndev, struct fec_enet_private *fep,
-+		    struct fec_enet_priv_tx_q *txq)
- {
--	struct	fec_enet_private *fep;
- 	struct bufdesc *bdp;
- 	unsigned short status;
- 	struct	sk_buff	*skb;
--	struct fec_enet_priv_tx_q *txq;
- 	struct netdev_queue *nq;
- 	int	index = 0;
- 	int	entries_free;
- 
--	fep = netdev_priv(ndev);
--
--	queue_id = FEC_ENET_GET_QUQUE(queue_id);
--
--	txq = fep->tx_queue[queue_id];
- 	/* get next bdp of dirty_tx */
--	nq = netdev_get_tx_queue(ndev, queue_id);
-+	nq = netdev_get_tx_queue(ndev, txq->bd.qid);
- 	bdp = txq->dirty_tx;
- 
- 	/* get next bdp of dirty_tx */
-@@ -1268,11 +1261,13 @@ static void
- fec_enet_tx(struct net_device *ndev)
- {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
-+	struct fec_enet_priv_tx_q *txq;
- 	u16 queue_id;
- 	/* First process class A queue, then Class B and Best Effort queue */
- 	for_each_set_bit(queue_id, &fep->work_tx, FEC_ENET_MAX_TX_QS) {
- 		clear_bit(queue_id, &fep->work_tx);
--		fec_enet_tx_queue(ndev, queue_id);
-+		txq = fep->tx_queue[FEC_ENET_GET_QUQUE(queue_id)];
-+		fec_txq(ndev, fep, txq);
- 	}
- 	return;
- }
--- 
-2.5.0
+I just wanted to say that there's another user that have reported
+success with the JMC250 (different card) using the jme driver with the
+fix.
+
+He was also getting hangs apparently.
+
+I got an email from him, see his response here: http://ix.io/oBA
+
+It's the same user that have posted this:
+http://ubuntuforums.org/showthread.php?t=2301294
+
+Thanks,
+Diego
