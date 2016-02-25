@@ -1,141 +1,161 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 02/10] bnxt_en: Send PF driver unload notification to all VFs.
-Date: Thu, 25 Feb 2016 03:19:26 -0500
-Message-ID: <1456388374-1440-3-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 03/10] bnxt_en: Store irq coalescing timer values in micro seconds.
+Date: Thu, 25 Feb 2016 03:19:27 -0500
+Message-ID: <1456388374-1440-4-git-send-email-michael.chan@broadcom.com>
 References: <1456388374-1440-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5520-maca-inet1-outside.broadcom.com ([216.31.211.11]:60498
-	"EHLO mail-irv-18.broadcom.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759238AbcBYITf (ORCPT
+Received: from 5520-maca-inet1-outside.broadcom.com ([216.31.211.11]:5003 "EHLO
+	mail-irv-18.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759404AbcBYITf (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 03:19:35 -0500
 In-Reply-To: <1456388374-1440-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeffrey Huang <huangjw@broadcom.com>
+Don't convert these to internal hardware tick values before storing
+them.  This avoids the confusion of ethtool -c returning slightly
+different values than the ones set using ethtool -C when we convert
+hardware tick values back to micro seconds.  Add better comments for
+the hardware settings.
 
-During remove_one() when SRIOV is enabled, the PF driver
-should broadcast PF driver unload notification to all
-VFs that are attached to VMs. Upon receiving the PF
-driver unload notification, the VF driver should print
-a warning message to message log.  Certain operations on the
-VF may not succeed after the PF has unloaded.
+Also, rename the current set of coalescing fields with rx_ prefix.
+The next patch will add support of tx coalescing values.
 
-Signed-off-by: Jeffrey Huang <huangjw@broadcom.com>
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c       | 10 ++++--
- drivers/net/ethernet/broadcom/bnxt/bnxt.h       |  1 +
- drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c | 43 +++++++++++++++++++++++++
- 3 files changed, 52 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 33 ++++++++++++++---------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         |  9 +++----
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 21 +++++++--------
+ 3 files changed, 34 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index ff1507f..80c4412 100644
+index 80c4412..a7103b5 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -1239,13 +1239,17 @@ static int bnxt_async_event_process(struct bnxt *bp,
- 	switch (event_id) {
- 	case HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE:
- 		set_bit(BNXT_LINK_CHNG_SP_EVENT, &bp->sp_event);
--		schedule_work(&bp->sp_task);
-+		break;
-+	case HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD:
-+		set_bit(BNXT_HWRM_PF_UNLOAD_SP_EVENT, &bp->sp_event);
- 		break;
- 	default:
- 		netdev_err(bp->dev, "unhandled ASYNC event (id 0x%x)\n",
- 			   event_id);
--		break;
-+		goto async_event_process_exit;
- 	}
-+	schedule_work(&bp->sp_task);
-+async_event_process_exit:
- 	return 0;
- }
+@@ -3532,20 +3532,25 @@ int bnxt_hwrm_set_coal(struct bnxt *bp)
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_RING_CMPL_RING_CFG_AGGINT_PARAMS,
+ 			       -1, -1);
  
-@@ -5559,6 +5563,8 @@ static void bnxt_cfg_ntp_filters(struct bnxt *bp)
- 			}
- 		}
- 	}
-+	if (test_and_clear_bit(BNXT_HWRM_PF_UNLOAD_SP_EVENT, &bp->sp_event))
-+		netdev_info(bp->dev, "Receive PF driver unload event!");
- }
+-	/* Each rx completion (2 records) should be DMAed immediately */
+-	max_buf = min_t(u16, bp->coal_bufs / 4, 2);
++	/* Each rx completion (2 records) should be DMAed immediately.
++	 * DMA 1/4 of the completion buffers at a time.
++	 */
++	max_buf = min_t(u16, bp->rx_coal_bufs / 4, 2);
+ 	/* max_buf must not be zero */
+ 	max_buf = clamp_t(u16, max_buf, 1, 63);
+-	max_buf_irq = clamp_t(u16, bp->coal_bufs_irq, 1, 63);
+-	buf_tmr = max_t(u16, bp->coal_ticks / 4, 1);
+-	buf_tmr_irq = max_t(u16, bp->coal_ticks_irq, 1);
++	max_buf_irq = clamp_t(u16, bp->rx_coal_bufs_irq, 1, 63);
++	buf_tmr = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal_ticks);
++	/* buf timer set to 1/4 of interrupt timer */
++	buf_tmr = max_t(u16, buf_tmr / 4, 1);
++	buf_tmr_irq = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal_ticks_irq);
++	buf_tmr_irq = max_t(u16, buf_tmr_irq, 1);
  
- #else
+ 	flags = RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_TIMER_RESET;
+ 
+ 	/* RING_IDLE generates more IRQs for lower latency.  Enable it only
+ 	 * if coal_ticks is less than 25 us.
+ 	 */
+-	if (BNXT_COAL_TIMER_TO_USEC(bp->coal_ticks) < 25)
++	if (bp->rx_coal_ticks < 25)
+ 		flags |= RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_RING_IDLE;
+ 
+ 	req.flags = cpu_to_le16(flags);
+@@ -3553,9 +3558,10 @@ int bnxt_hwrm_set_coal(struct bnxt *bp)
+ 	req.num_cmpl_dma_aggr_during_int = cpu_to_le16(max_buf_irq);
+ 	req.cmpl_aggr_dma_tmr = cpu_to_le16(buf_tmr);
+ 	req.cmpl_aggr_dma_tmr_during_int = cpu_to_le16(buf_tmr_irq);
+-	req.int_lat_tmr_min = cpu_to_le16(buf_tmr);
+-	req.int_lat_tmr_max = cpu_to_le16(bp->coal_ticks);
+-	req.num_cmpl_aggr_int = cpu_to_le16(bp->coal_bufs);
++	/* Minimum time between 2 interrupts set to buf_tmr x 2 */
++	req.int_lat_tmr_min = cpu_to_le16(buf_tmr * 2);
++	req.int_lat_tmr_max = cpu_to_le16(buf_tmr * 4);
++	req.num_cmpl_aggr_int = cpu_to_le16(max_buf * 4);
+ 
+ 	mutex_lock(&bp->hwrm_cmd_lock);
+ 	for (i = 0; i < bp->cp_nr_rings; i++) {
+@@ -5295,10 +5301,11 @@ static int bnxt_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 	bp->rx_ring_size = BNXT_DEFAULT_RX_RING_SIZE;
+ 	bp->tx_ring_size = BNXT_DEFAULT_TX_RING_SIZE;
+ 
+-	bp->coal_ticks = BNXT_USEC_TO_COAL_TIMER(4);
+-	bp->coal_bufs = 20;
+-	bp->coal_ticks_irq = BNXT_USEC_TO_COAL_TIMER(1);
+-	bp->coal_bufs_irq = 2;
++	/* tick values in micro seconds */
++	bp->rx_coal_ticks = 4;
++	bp->rx_coal_bufs = 20;
++	bp->rx_coal_ticks_irq = 1;
++	bp->rx_coal_bufs_irq = 2;
+ 
+ 	init_timer(&bp->timer);
+ 	bp->timer.data = (unsigned long)bp;
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 2be51b3..cc798d5 100644
+index cc798d5..6913307 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -986,6 +986,7 @@ struct bnxt {
- #define BNXT_VXLAN_DEL_PORT_SP_EVENT	5
- #define BNXT_RESET_TASK_SP_EVENT	6
- #define BNXT_RST_RING_SP_EVENT		7
-+#define BNXT_HWRM_PF_UNLOAD_SP_EVENT	8
+@@ -968,13 +968,12 @@ struct bnxt {
+ 	__le16			vxlan_fw_dst_port_id;
+ 	u8			nge_port_cnt;
+ 	__le16			nge_fw_dst_port_id;
+-	u16			coal_ticks;
+-	u16			coal_ticks_irq;
+-	u16			coal_bufs;
+-	u16			coal_bufs_irq;
++	u16			rx_coal_ticks;
++	u16			rx_coal_ticks_irq;
++	u16			rx_coal_bufs;
++	u16			rx_coal_bufs_irq;
  
- 	struct bnxt_pf_info	pf;
- #ifdef CONFIG_BNXT_SRIOV
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
-index bb2b376..a6af5e9 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
-@@ -522,6 +522,46 @@ err_out1:
- 	return rc;
+ #define BNXT_USEC_TO_COAL_TIMER(x)	((x) * 25 / 2)
+-#define BNXT_COAL_TIMER_TO_USEC(x) ((x) * 2 / 25)
+ 
+ 	struct work_struct	sp_task;
+ 	unsigned long		sp_event;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index 3238817..d18a977 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -41,12 +41,11 @@ static int bnxt_get_coalesce(struct net_device *dev,
+ 
+ 	memset(coal, 0, sizeof(*coal));
+ 
+-	coal->rx_coalesce_usecs =
+-		max_t(u16, BNXT_COAL_TIMER_TO_USEC(bp->coal_ticks), 1);
+-	coal->rx_max_coalesced_frames = bp->coal_bufs / 2;
+-	coal->rx_coalesce_usecs_irq =
+-		max_t(u16, BNXT_COAL_TIMER_TO_USEC(bp->coal_ticks_irq), 1);
+-	coal->rx_max_coalesced_frames_irq = bp->coal_bufs_irq / 2;
++	coal->rx_coalesce_usecs = bp->rx_coal_ticks;
++	/* 2 completion records per rx packet */
++	coal->rx_max_coalesced_frames = bp->rx_coal_bufs / 2;
++	coal->rx_coalesce_usecs_irq = bp->rx_coal_ticks_irq;
++	coal->rx_max_coalesced_frames_irq = bp->rx_coal_bufs_irq / 2;
+ 
+ 	return 0;
  }
+@@ -57,11 +56,11 @@ static int bnxt_set_coalesce(struct net_device *dev,
+ 	struct bnxt *bp = netdev_priv(dev);
+ 	int rc = 0;
  
-+static int bnxt_hwrm_fwd_async_event_cmpl(struct bnxt *bp,
-+					  struct bnxt_vf_info *vf,
-+					  u16 event_id)
-+{
-+	int rc = 0;
-+	struct hwrm_fwd_async_event_cmpl_input req = {0};
-+	struct hwrm_fwd_async_event_cmpl_output *resp = bp->hwrm_cmd_resp_addr;
-+	struct hwrm_async_event_cmpl *async_cmpl;
-+
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FWD_ASYNC_EVENT_CMPL, -1, -1);
-+	if (vf)
-+		req.encap_async_event_target_id = cpu_to_le16(vf->fw_fid);
-+	else
-+		/* broadcast this async event to all VFs */
-+		req.encap_async_event_target_id = cpu_to_le16(0xffff);
-+	async_cmpl = (struct hwrm_async_event_cmpl *)req.encap_async_event_cmpl;
-+	async_cmpl->type =
-+		cpu_to_le16(HWRM_ASYNC_EVENT_CMPL_TYPE_HWRM_ASYNC_EVENT);
-+	async_cmpl->event_id = cpu_to_le16(event_id);
-+
-+	mutex_lock(&bp->hwrm_cmd_lock);
-+	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
-+
-+	if (rc) {
-+		netdev_err(bp->dev, "hwrm_fwd_async_event_cmpl failed. rc:%d\n",
-+			   rc);
-+		goto fwd_async_event_cmpl_exit;
-+	}
-+
-+	if (resp->error_code) {
-+		netdev_err(bp->dev, "hwrm_fwd_async_event_cmpl error %d\n",
-+			   resp->error_code);
-+		rc = -1;
-+	}
-+
-+fwd_async_event_cmpl_exit:
-+	mutex_unlock(&bp->hwrm_cmd_lock);
-+	return rc;
-+}
-+
- void bnxt_sriov_disable(struct bnxt *bp)
- {
- 	u16 num_vfs = pci_num_vf(bp->pdev);
-@@ -530,6 +570,9 @@ void bnxt_sriov_disable(struct bnxt *bp)
- 		return;
+-	bp->coal_ticks = BNXT_USEC_TO_COAL_TIMER(coal->rx_coalesce_usecs);
+-	bp->coal_bufs = coal->rx_max_coalesced_frames * 2;
+-	bp->coal_ticks_irq =
+-		BNXT_USEC_TO_COAL_TIMER(coal->rx_coalesce_usecs_irq);
+-	bp->coal_bufs_irq = coal->rx_max_coalesced_frames_irq * 2;
++	bp->rx_coal_ticks = coal->rx_coalesce_usecs;
++	/* 2 completion records per rx packet */
++	bp->rx_coal_bufs = coal->rx_max_coalesced_frames * 2;
++	bp->rx_coal_ticks_irq = coal->rx_coalesce_usecs_irq;
++	bp->rx_coal_bufs_irq = coal->rx_max_coalesced_frames_irq * 2;
  
- 	if (pci_vfs_assigned(bp->pdev)) {
-+		bnxt_hwrm_fwd_async_event_cmpl(
-+			bp, NULL,
-+			HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD);
- 		netdev_warn(bp->dev, "Unable to free %d VFs because some are assigned to VMs.\n",
- 			    num_vfs);
- 	} else {
+ 	if (netif_running(dev))
+ 		rc = bnxt_hwrm_set_coal(bp);
 -- 
 1.8.3.1
