@@ -1,12 +1,7 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next 4/5] net/tun: implement ndo_set_rx_headroom
-Date: Thu, 25 Feb 2016 11:49:42 +0100
-Message-ID: <1456397382.5100.32.camel@redhat.com>
-References: <cover.1456163137.git.pabeni@redhat.com>
-	 <38c29993e36ee3446f29a635c2d218e7777f55fe.1456163137.git.pabeni@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Subject: [PATCH net-next v2 0/5] bridge/ovs: avoid skb head copy on frame forwarding
+Date: Thu, 25 Feb 2016 12:09:23 +0100
+Message-ID: <cover.1456397229.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Pravin Shelar <pshelar@nicira.com>,
@@ -15,46 +10,51 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43861 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49765 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759460AbcBYKtr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2016 05:49:47 -0500
-In-Reply-To: <38c29993e36ee3446f29a635c2d218e7777f55fe.1456163137.git.pabeni@redhat.com>
+	id S1760142AbcBYLJi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 06:09:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-02-23 at 13:53 +0100, Paolo Abeni wrote:
-> ndo_set_rx_headroom controls the align value used by tun devices to
-> allocate skbs on frame reception.
-> When the xmit device adds a large encapsulation, this avoids an skb
-> head reallocation on forwarding.
-> 
-> The measured improvement when forwarding towards a vxlan dev with
-> frame size below the egress device MTU is around 6% when tunneling over
-> ipv6.
-> 
-> In case of ipv4 tunnels there is no improvement, since the tun
-> device default alignment provides enough headroom to avoid the skb
-> head reallocation, at least on hosts with 64 bytes cacheline.
-> 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
->  drivers/net/tun.c | 16 +++++++++++++++-
->  1 file changed, 15 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 88bb8cc..5812693 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -187,6 +187,7 @@ struct tun_struct {
->  #define TUN_USER_FEATURES (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
->  			  NETIF_F_TSO6|NETIF_F_UFO)
->  
-> +	int			align;
+Currently, while when an OVS or Linux bridge is used to forward frames towards
+some tunnel device, a skb_head_copy() may occur if the ingress device do not
+provide enough headroom for the tx encapsulation.
 
-This needs to be initialized to NET_SKB_PAD, to preserved the current
-behavior.
+This patch series tries to address the issue implementing a new ndo operation to
+allow the master device to control the headroom used when allocating the skb on
+frame reception.
 
-I'll fix it in v2.
+Said operation is used by the Linux bridge to notify the bridged ports of
+needed_headroom changes, and similar bookkeeping and behaviour is also added to
+openvswitch, on a per datapath basis.
 
-Paolo
+Finally, the operation is implemented for veth and tun device, which give
+performance improvement in the 6-12% range when forwarding frames from said
+devices towards a vxlan tunnel.
+
+v2:
+- fix netdev_get_fwd_headroom() behaviour
+- remove some code duplication with the netdev_set_rx_headroom() and
+   netdev_reset_rx_headroom() helpers
+- handle headroom reset on [v]port removal/deletion
+- initialize tun align to the old default value
+
+Paolo Abeni (5):
+  netdev: introduce ndo_set_rx_headroom
+  bridge: notify ensabled devices of headroom changes
+  ovs: propagate per dp max headroom to all vports
+  net/tun: implement ndo_set_rx_headroom
+  veth: implement ndo_set_rx_headroom
+
+ drivers/net/tun.c                    | 17 ++++++++++++++-
+ drivers/net/veth.c                   | 26 +++++++++++++++++++++++
+ include/linux/netdevice.h            | 31 ++++++++++++++++++++++++++++
+ net/bridge/br_if.c                   | 37 +++++++++++++++++++++++++++++++--
+ net/openvswitch/datapath.c           | 40 ++++++++++++++++++++++++++++++++++++
+ net/openvswitch/datapath.h           |  4 ++++
+ net/openvswitch/vport-internal_dev.c | 10 ++++++++-
+ 7 files changed, 161 insertions(+), 4 deletions(-)
+
+-- 
+1.8.3.1
