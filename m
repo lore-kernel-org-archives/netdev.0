@@ -1,95 +1,158 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH RFC 0/3] intermediate representation for jit and cls_u32 conversion
-Date: Thu, 25 Feb 2016 18:37:21 +0100
-Message-ID: <1456421844-5901-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH RFC 1/3] net: ixgbe: add struct igxbe_filter
+Date: Thu, 25 Feb 2016 18:37:22 +0100
+Message-ID: <1456421844-5901-2-git-send-email-pablo@netfilter.org>
+References: <1456421844-5901-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, jiri@resnulli.us, horms@verge.net.au,
 	john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:36274 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:36276 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933419AbcBYRhe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S933420AbcBYRhe (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 25 Feb 2016 12:37:34 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 87F047406
+	by mail.us.es (Postfix) with ESMTP id 13EA27410
+	for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 18:37:32 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id EC1BFDA386
 	for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 18:37:31 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 697E7DA388
-	for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 18:37:31 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 3DC39DA383
-	for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 18:37:29 +0100 (CET)
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 2A74EDA38E
+	for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 18:37:30 +0100 (CET)
+In-Reply-To: <1456421844-5901-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Just a container structure, this change is required by follow up patches
+that rework the u32 classifier offload on top of the generic
+intermediate representation.
 
-This patchset contains the core infrastructure for the generic
-intermediate representation that I presented during NetDev 1.1's
-nftables switchdev talk. This includes the basic infrastructure to
-convert the tc cls_u32 based on John's parser.
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 51 +++++++++++++++------------
+ 1 file changed, 28 insertions(+), 23 deletions(-)
 
-The main goals of this patchset are:
-
-* Provide an unified abstract syntax tree (ast) that can be passed to
-  the backend driver for translation to internal representation. Then,
-  based on the backend description, generate the internal
-  representation. This should reduce the amount of code to maintain
-  in the driver since every frontend, via parser, generates the ast
-  that is consumed by the driver through one single ndo indirection.
-
-* Avoid exposing low-level frontend details to the backend, such as
-  structure layouts. If the frontend needs to be updated to support a
-  new software feature, it is desiderable that such changes don't
-  trigger large updates to every driver supporting offloads.
-
-* Having a common parser for every frontend, instead of allowing each
-  backend driver to re-invent the wheel with its own parser, this is
-  just spreading out complexity all over the place.
-
-A summary picture of the infrastructure looks like this:
-
-                parser
-        tc-u32 -------
-                       \            jit
-     tc-flower -------------- ast ------> Backend driver
-                       /
-           nft -------
-
-So the idea is that every frontend implements a parser that builds the
-ast, then this ast is passed via ndo to the driver. The parser is common
-to everyone, is part of the common core infrastructure.
-
-The tc-u32 parser is a bit complicated because of having the matching
-spread out in different rules through links, but John already came up a
-basic parser than should be placed in the frontend so everyone can
-improve it to generate more expressive ast.
-
-Note: I don't have access to ixgbe hardware, so I have validated this
-patchset by splicing main parts of the ixgbe backend jit code in simple
-debugging patches that I have here. Quite rudimentary but it has passed
-some basic tests, may still have gotten anything broken. Anyway, the
-main goal is to generate debate on this.
-
-Comments welcome, thanks.
-
-Pablo Neira Ayuso (3):
-  net: ixgbe: add struct igxbe_filter
-  net: intermediate representation for jit translation
-  net: convert tc_u32 to use the intermediate representation
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h       |   4 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 249 +++++++++---------
- drivers/net/ethernet/intel/ixgbe/ixgbe_model.h | 112 --------
- include/net/ir.h                               | 173 +++++++++++++
- include/net/pkt_cls.h                          |   3 +
- net/core/Makefile                              |   2 +-
- net/core/ir.c                                  | 219 ++++++++++++++++
- net/sched/cls_u32.c                            | 344 +++++++++++++++++++++++++
- 8 files changed, 866 insertions(+), 240 deletions(-)
- delete mode 100644 drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
- create mode 100644 include/net/ir.h
- create mode 100644 net/core/ir.c
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index cf4b729..252e9ff 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8238,6 +8238,12 @@ static int ixgbe_configure_clsu32_del_hnode(struct ixgbe_adapter *adapter,
+ 	return 0;
+ }
+ 
++struct ixgbe_filter {
++	struct ixgbe_fdir_filter *input;
++	union ixgbe_atr_input mask;
++	u8 queue;
++};
++
+ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 				  __be16 protocol,
+ 				  struct tc_cls_u32_offload *cls)
+@@ -8245,16 +8251,14 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 	u32 loc = cls->knode.handle & 0xfffff;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct ixgbe_mat_field *field_ptr;
+-	struct ixgbe_fdir_filter *input;
+-	union ixgbe_atr_input mask;
++	struct ixgbe_filter f;
+ #ifdef CONFIG_NET_CLS_ACT
+ 	const struct tc_action *a;
+ #endif
+ 	int i, err = 0;
+-	u8 queue;
+ 	u32 handle;
+ 
+-	memset(&mask, 0, sizeof(union ixgbe_atr_input));
++	memset(&f.mask, 0, sizeof(union ixgbe_atr_input));
+ 	handle = cls->knode.handle;
+ 
+ 	/* At the moment cls_u32 jumps to transport layer and skips past
+@@ -8320,8 +8324,8 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 	if (!field_ptr)
+ 		return -EINVAL;
+ 
+-	input = kzalloc(sizeof(*input), GFP_KERNEL);
+-	if (!input)
++	f.input = kzalloc(sizeof(struct ixgbe_fdir_filter), GFP_KERNEL);
++	if (!f.input)
+ 		return -ENOMEM;
+ 
+ 	for (i = 0; i < cls->knode.sel->nkeys; i++) {
+@@ -8334,8 +8338,8 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 		for (j = 0; field_ptr[j].val; j++) {
+ 			if (field_ptr[j].off == off &&
+ 			    field_ptr[j].mask == m) {
+-				field_ptr[j].val(input, &mask, val, m);
+-				input->filter.formatted.flow_type |=
++				field_ptr[j].val(f.input, &f.mask, val, m);
++				f.input->filter.formatted.flow_type |=
+ 					field_ptr[j].type;
+ 				found_entry = true;
+ 				break;
+@@ -8346,11 +8350,11 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 			goto err_out;
+ 	}
+ 
+-	mask.formatted.flow_type = IXGBE_ATR_L4TYPE_IPV6_MASK |
+-				   IXGBE_ATR_L4TYPE_MASK;
++	f.mask.formatted.flow_type = IXGBE_ATR_L4TYPE_IPV6_MASK |
++				     IXGBE_ATR_L4TYPE_MASK;
+ 
+-	if (input->filter.formatted.flow_type == IXGBE_ATR_FLOW_TYPE_IPV4)
+-		mask.formatted.flow_type &= IXGBE_ATR_L4TYPE_IPV6_MASK;
++	if (f.input->filter.formatted.flow_type == IXGBE_ATR_FLOW_TYPE_IPV4)
++		f.mask.formatted.flow_type &= IXGBE_ATR_L4TYPE_IPV6_MASK;
+ 
+ #ifdef CONFIG_NET_CLS_ACT
+ 	if (list_empty(&cls->knode.exts->actions))
+@@ -8362,34 +8366,35 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 	}
+ #endif
+ 
+-	input->action = IXGBE_FDIR_DROP_QUEUE;
+-	queue = IXGBE_FDIR_DROP_QUEUE;
+-	input->sw_idx = loc;
++	f.input->action = IXGBE_FDIR_DROP_QUEUE;
++	f.queue = IXGBE_FDIR_DROP_QUEUE;
++	f.input->sw_idx = loc;
+ 
+ 	spin_lock(&adapter->fdir_perfect_lock);
+ 
+ 	if (hlist_empty(&adapter->fdir_filter_list)) {
+-		memcpy(&adapter->fdir_mask, &mask, sizeof(mask));
+-		err = ixgbe_fdir_set_input_mask_82599(hw, &mask);
++		memcpy(&adapter->fdir_mask, &f.mask, sizeof(f.mask));
++		err = ixgbe_fdir_set_input_mask_82599(hw, &f.mask);
+ 		if (err)
+ 			goto err_out_w_lock;
+-	} else if (memcmp(&adapter->fdir_mask, &mask, sizeof(mask))) {
++	} else if (memcmp(&adapter->fdir_mask, &f.mask, sizeof(f.mask))) {
+ 		err = -EINVAL;
+ 		goto err_out_w_lock;
+ 	}
+ 
+-	ixgbe_atr_compute_perfect_hash_82599(&input->filter, &mask);
+-	err = ixgbe_fdir_write_perfect_filter_82599(hw, &input->filter,
+-						    input->sw_idx, queue);
++	ixgbe_atr_compute_perfect_hash_82599(&f.input->filter, &f.mask);
++	err = ixgbe_fdir_write_perfect_filter_82599(hw, &f.input->filter,
++						    f.input->sw_idx, f.queue);
+ 	if (!err)
+-		ixgbe_update_ethtool_fdir_entry(adapter, input, input->sw_idx);
++		ixgbe_update_ethtool_fdir_entry(adapter, f.input,
++						f.input->sw_idx);
+ 	spin_unlock(&adapter->fdir_perfect_lock);
+ 
+ 	return err;
+ err_out_w_lock:
+ 	spin_unlock(&adapter->fdir_perfect_lock);
+ err_out:
+-	kfree(input);
++	kfree(f.input);
+ 	return -EINVAL;
+ }
+ 
 -- 
 2.1.4
