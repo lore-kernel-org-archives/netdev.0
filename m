@@ -1,42 +1,43 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] iprule: Align help text with man page synopsis
-Date: Thu, 25 Feb 2016 13:07:35 +0100
-Message-ID: <1456402055-15112-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net-next v2 2/2] net_sched: add network namespace support
+ for tc actions
+Date: Thu, 25 Feb 2016 07:17:06 -0500
+Message-ID: <56CEF0C2.4000901@mojatatu.com>
+References: <1456185473-25403-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1456185473-25403-3-git-send-email-xiyou.wangcong@gmail.com>
+ <56CC5B35.4060408@mojatatu.com>
+ <CAM_iQpVVe28XUkSfR1OhwMq6mgJVQ_zcPJn+xmLpb_YDy0wsDg@mail.gmail.com>
+ <56CDADDB.5070003@mojatatu.com>
+ <CAM_iQpWXbEtv6q-Uj9O+-HPDdBkMj27qo0TYXjzGoQm9cGgicQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:52099 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752706AbcBYMHt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2016 07:07:49 -0500
+Received: from mail-io0-f172.google.com ([209.85.223.172]:36758 "EHLO
+	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759644AbcBYMRJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 07:17:09 -0500
+Received: by mail-io0-f172.google.com with SMTP id l127so85721835iof.3
+        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 04:17:08 -0800 (PST)
+In-Reply-To: <CAM_iQpWXbEtv6q-Uj9O+-HPDdBkMj27qo0TYXjzGoQm9cGgicQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The help text was misleading: One could think it is possible to list
-rules by selector, which would be nice but isn't. This change also
-clarifies that 'ip rule' defaults to 'list' if no further arguments are
-given.
+On 16-02-24 12:21 PM, Cong Wang wrote:
+> On Wed, Feb 24, 2016 at 5:19 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+[..]
+>> Did you mean something else or am i missing the obvious?
+>> I am looking at the call sites for tcf_action_destroy():
+>> -tc_dump_tfilter() has access to *net
+>> -tcf_exts_change() - one level lower it has access to *net; i think you
+>> added this to your patch too.
+>> -tcf_action_init() has *net.
+>
+> Well, having net is not enough, we still need net_id to retrieve hinfo,
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/iprule.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+I thought you could pass a pointer to the net_id from all those call
+sites? Anyways, we can worry about that later.
 
-diff --git a/ip/iprule.c b/ip/iprule.c
-index a7b53f43d4e17..7e3b38b64c6e1 100644
---- a/ip/iprule.c
-+++ b/ip/iprule.c
-@@ -33,8 +33,9 @@ static void usage(void) __attribute__((noreturn));
- 
- static void usage(void)
- {
--	fprintf(stderr, "Usage: ip rule [ list | add | del | flush | save ] SELECTOR ACTION\n");
--	fprintf(stderr, "       ip rule restore\n");
-+	fprintf(stderr, "Usage: ip rule { add | del } SELECTOR ACTION\n");
-+	fprintf(stderr, "       ip rule { flush | save | restore }\n");
-+	fprintf(stderr, "       ip rule [ list ]\n");
- 	fprintf(stderr, "SELECTOR := [ not ] [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK[/MASK] ]\n");
- 	fprintf(stderr, "            [ iif STRING ] [ oif STRING ] [ pref NUMBER ]\n");
- 	fprintf(stderr, "ACTION := [ table TABLE_ID ]\n");
--- 
-2.6.4
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
