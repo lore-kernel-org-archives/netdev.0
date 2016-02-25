@@ -1,40 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: fix csum setting for bpf_set_tunnel_key
-Date: Thu, 25 Feb 2016 11:36:07 -0500 (EST)
-Message-ID: <20160225.113607.876401940894301137.davem@davemloft.net>
-References: <cb92edae7e6cb23d349d714736362535e56a1c75.1456188678.git.daniel@iogearbox.net>
-	<20160224.162400.1248598061435588351.davem@davemloft.net>
-	<56CEDB5B.7060805@iogearbox.net>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next 1/3] perf: generalize perf_callchain
+Date: Thu, 25 Feb 2016 08:37:34 -0800
+Message-ID: <56CF2DCE.5010501@fb.com>
+References: <1455767939-2700534-1-git-send-email-ast@fb.com>
+ <1455767939-2700534-2-git-send-email-ast@fb.com>
+ <20160225141859.GM6357@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch, jesse@kernel.org,
-	netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42618 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757854AbcBYQgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 11:36:09 -0500
-In-Reply-To: <56CEDB5B.7060805@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Wang Nan <wangnan0@huawei.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160225141859.GM6357@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Thu, 25 Feb 2016 11:45:47 +0100
+On 2/25/16 6:18 AM, Peter Zijlstra wrote:
+> On Wed, Feb 17, 2016 at 07:58:57PM -0800, Alexei Starovoitov wrote:
+>> . avoid walking the stack when there is no room left in the buffer
+>> . generalize get_perf_callchain() to be called from bpf helper
+>
+> If it does two things it should be two patches.
 
-> On 02/24/2016 10:24 PM, David Miller wrote:
-> [...]
->> Applied to 'net', thanks Daniel.
-> 
-> Thanks!
-> 
-> Btw, in case net gets merged into net-next, there will be a minor
-> merge conflict due to stackid flags present in net-next. This can
-> be easily resolved by keeping both chunks.
-> 
-> For example, result after merge in include/uapi/linux/bpf.h then
-> looks like:
- ...
+could have been two patches, but it will only add more churn
+to the same lines. what's the concern?
 
-Thanks for the heads up.
+>> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+>> ---
+>>   arch/x86/include/asm/stacktrace.h |  2 +-
+>>   arch/x86/kernel/cpu/perf_event.c  |  4 ++--
+>>   arch/x86/kernel/dumpstack.c       |  6 ++++--
+>>   arch/x86/kernel/stacktrace.c      | 18 +++++++++++-------
+>>   arch/x86/oprofile/backtrace.c     |  3 ++-
+>>   include/linux/perf_event.h        | 13 +++++++++++--
+>>   kernel/events/callchain.c         | 32 ++++++++++++++++++++------------
+>>   kernel/events/internal.h          |  2 --
+>>   8 files changed, 51 insertions(+), 29 deletions(-)
+>
+> And at the very least this should have had a note that it doesn't break
+> all the other archs that implement perf-callchain stuff.
+
+the cross-arch interface is two weak functions
+perf_callchain_kernel() and perf_callchain_user()
+and back into generic via perf_callchain_store().
+Nothing changes there. The code speaks for itself.
+"non-x86 archs are not broken" would be a silly comment.
