@@ -1,64 +1,68 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH 3/4] net: sched: cls_u32 add bit to specify
- software only rules
-Date: Thu, 25 Feb 2016 08:19:49 -0500
-Message-ID: <56CEFF75.8070106@mojatatu.com>
-References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810>
- <20160223190321.5970.58924.stgit@john-Precision-Tower-5810>
- <20160224080440.GA26500@office.Home> <20160224084057.GC2151@nanopsycho.orion>
- <56CD701B.8070308@gmail.com> <20160224102907.05aa8e42@griffin>
- <56CE7E8A.3040202@gmail.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Regression: netlink fail (triggered by iw) removes extra wlan (phy) interface
+Date: Thu, 25 Feb 2016 14:22:59 +0100
+Message-ID: <CACna6rzz4f-urvD7uvVKuvYMOWhW+JYWkVW8MK9mJTPw0OiWxA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, "Amir Vadai\"" <amir@vadai.me>,
-	daniel@iogearbox.net, netdev@vger.kernel.org,
-	alexei.starovoitov@gmail.com, davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>,
-	Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Cong Wang <cwang@twopensource.com>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>, kafai@fb.com,
+	kernel-team <kernel-team@fb.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>
+To: Network Development <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Tejun Heo <tj@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34017 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760422AbcBYNTv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 08:19:51 -0500
-Received: by mail-io0-f193.google.com with SMTP id l127so5575916iof.1
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 05:19:50 -0800 (PST)
-In-Reply-To: <56CE7E8A.3040202@gmail.com>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:33294 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760202AbcBYNXA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 08:23:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-24 11:09 PM, John Fastabend wrote:
-> On 16-02-24 01:29 AM, Jiri Benc wrote:
->> On Wed, 24 Feb 2016 00:55:55 -0800, John Fastabend wrote:
->>> The flags however likely stays with with TCA_U32_FLAGS until there is
->>> some better way to group common attributes in 'tc' framework.
->>
->> That's pretty bad, as this is uAPI and will need to be supported
->> forever. And having a different attribute in every filter won't ease
->> things for user space tools. I'd say we need the "better way" to be
->> added before this patchset.
->>
->>   Jiri
->>
->
-> The 'tc' semantics seem to support this "pretty bad" API design
-> with many of the fields already duplicated.
+Hi,
 
-Mostly this is a netlink-ism. Netlink has the same problem with
-command name spaces. The problem is mixing verbs and nouns together.
-I like the switchdev approach where you have very few verbs
-(SET, GET etc) and the content of the object or path describes
-the nouns. This is why initially i thought it was better to have
-this offload passing by switchdev. Could we leverage some of that?
+After updating kernel in OpenWrt from 4.1.6 to 4.1.10 I noticed that
+if "iw" command fails (which happens very rarely) my wlan0-1 interface
+disappears. To trigger this problem easily I'm using this trivial
+script:
+while [ 1 ]
+do
+        iw phy phy0 interface add mon0 type monitor
+        ifconfig mon0 up
+        iw dev mon0 del
+done
 
-> I suppose we could
-> put the flags at the same level as the TCA_* attributes but this
-> also doesn't seem right to me as it isn't actually handled until
-> we get into the TCA_#CLASSIFIER#_* set of attributes.
->
+Whenever it goes wrong I see:
+=46ailed to connect to generic netlink.
+kern.info kernel: [ 1933.114338] br-lan: port 3(wlan0-1) entered disabl=
+ed state
+kern.info kernel: [ 1933.335568] device wlan0-1 left promiscuous mode
+kern.info kernel: [ 1933.340385] br-lan: port 3(wlan0-1) entered disabl=
+ed state
+daemon.notice netifd: Network device 'wlan0-1' link is down
+command failed: Too many open files in system (-23)
 
-Could we not steal a couple of bits off netlink flags? Then it applies
-to all subssystems.
+This regression is caused by commit:
+4e27762 netlink: Fix autobind race condition that leads to zero port ID
+https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/co=
+mmit/?id=3D4e27762417669cb459971635be550eb7b5598286
+that is a backport of upstream:
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/=
+?id=3D1f770c0a09da855a2b51af6d19de97fb955eca85
 
-cheers,
-jamal
+This still happens with kernel 4.4.
+
+My hardware is Linksys WRT160NL (Atheros AR9130 SoC) and I'm using two
+__ap interfaces on phy0 (wlan0 and wlan0-1).
+
+Could you take a look at this?
+Is there some additional info I could provide to help fixing this?
+
+--=20
+Rafa=C5=82
