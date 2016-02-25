@@ -1,46 +1,45 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net-next 1/3] perf: generalize perf_callchain
-Date: Thu, 25 Feb 2016 15:18:59 +0100
-Message-ID: <20160225141859.GM6357@twins.programming.kicks-ass.net>
-References: <1455767939-2700534-1-git-send-email-ast@fb.com>
- <1455767939-2700534-2-git-send-email-ast@fb.com>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] ipv4: in new netns initialize sysctls in net.ipv4.conf.*
+	with defaults
+Date: Thu, 25 Feb 2016 15:20:48 +0100
+Message-ID: <56CF0DC0.7030003@6wind.com>
+References: <20160221071102.9686.63148.stgit@buzz>
+	<20160223.182121.2101846699151527296.davem@davemloft.net>
+	<87y4a9ix2h.fsf@x220.int.ebiederm.org>
+Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Wang Nan <wangnan0@huawei.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:33686 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760148AbcBYOTI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 09:19:08 -0500
-Content-Disposition: inline
-In-Reply-To: <1455767939-2700534-2-git-send-email-ast@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, vvs-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <87y4a9ix2h.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 17, 2016 at 07:58:57PM -0800, Alexei Starovoitov wrote:
-> . avoid walking the stack when there is no room left in the buffer
-> . generalize get_perf_callchain() to be called from bpf helper
-
-If it does two things it should be two patches.
-
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-> ---
->  arch/x86/include/asm/stacktrace.h |  2 +-
->  arch/x86/kernel/cpu/perf_event.c  |  4 ++--
->  arch/x86/kernel/dumpstack.c       |  6 ++++--
->  arch/x86/kernel/stacktrace.c      | 18 +++++++++++-------
->  arch/x86/oprofile/backtrace.c     |  3 ++-
->  include/linux/perf_event.h        | 13 +++++++++++--
->  kernel/events/callchain.c         | 32 ++++++++++++++++++++------------
->  kernel/events/internal.h          |  2 --
->  8 files changed, 51 insertions(+), 29 deletions(-)
-
-And at the very least this should have had a note that it doesn't break
-all the other archs that implement perf-callchain stuff.
+TGUgMjQvMDIvMjAxNiAyMzowNSwgRXJpYyBXLiBCaWVkZXJtYW4gYSDDqWNyaXQgOgpbc25pcF0K
+PiBJbiB0aGUgZ2VuZXJhbCBjYXNlIHRoZSBjdXJyZW50IGJlaGF2aW9yIGlzIHJhbmRvbSBhbmQg
+bm90IHNvbWV0aGluZwo+IGFwcGxpY2F0aW9ucyBjYW4gY291bnQgb24sIGFuZCB3ZSB3b3VsZCBk
+byB3ZWxsIHRvIGZpeCBpdCBzbyBpdCBpcyBsZXNzCj4gcmFuZG9tLiAgSW4gcGFydGljdWxhciBj
+b25zaWRlciB0aGUgY2FzZSBvZiBhbiBhcHBsaWNhdGlvbiBpbiBhCj4gbm9uLWluaXRpYWwgbmV0
+d29yayBuYW1lc3BhY2UgY3JlYXRpbmcgYSBuZXcgbmV0d29yayBuYW1lc3BhY2UuICBJdCBpcwo+
+IG5vdCBldmVuIHBvc3NpYmxlIHRvIHByZWRpY3Qgd2hhdCB2YWx1ZXMgdGhleSB3aWxsIGdldCBm
+b3Igc3lzY3Rscwo+IHRvZGF5LgorMQoKPiAgRnJvbSBhIGJhY2t3YXJkcyBjb21wYXRpYmlsaXR5
+IHN0YW5kcG9pbnQgd2UgYXJlIHByb2JhYmx5IGJldHRlciBvZmYKPiB3aXRoIGNvcHlpbmcgZnJv
+bSB0aGUgY3VycmVudCBuZXR3b3JrIG5hbWVzcGFjZSByYXRoZXIgdGhhbiB0aGUgaW5pdGlhbAo+
+IG5ldHdvcmsgbmFtZXNwYWNlLiAgQXMgdGhhdCBtb3JlIGNsb3NlbHkgcmVzZW1ibGVzIHRoZSBj
+b21tb24gY2FzZQo+IHRvZGF5LgorMQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KQ29udGFpbmVycyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5s
+aW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFp
+bG1hbi9saXN0aW5mby9jb250YWluZXJz
