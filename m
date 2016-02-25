@@ -1,85 +1,57 @@
-From: Josh Poimboeuf <jpoimboe@redhat.com>
-Subject: [PATCH v18 4/9] bpf: Mark __bpf_prog_run() stack frame as non-standard
-Date: Thu, 25 Feb 2016 16:57:11 -0600
-Message-ID: <b0af7c390e12e689ed109308888909138f04cc42.1456440439.git.jpoimboe@redhat.com>
-References: <cover.1456440439.git.jpoimboe@redhat.com>
-Cc: linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
-	Michal Marek <mmarek@suse.cz>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Andy Lutomirski <luto@kernel.org>,
-	Borislav Petkov <bp@alien8.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	Pedro Alves <palves@redhat.com>,
-	Namhyung Kim <namhyung@gmail.com>,
-	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
-	Chris J Arges <chris.j.arges@canonical.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jiri Slaby <jslaby@suse.cz>,
-	Arnaldo Carvalho de Melo <acme@kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org
-To: Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH 3/4] net: sched: cls_u32 add bit to specify
+ software only rules
+Date: Thu, 25 Feb 2016 18:05:45 -0500
+Message-ID: <56CF88C9.8050005@mojatatu.com>
+References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810>
+ <20160223190321.5970.58924.stgit@john-Precision-Tower-5810>
+ <56CDB0B0.4080609@mojatatu.com> <56CE7D37.9000701@gmail.com>
+ <56CEFA03.3080802@mojatatu.com> <56CF787B.2070505@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+	davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>, jiri@resnulli.us,
+	daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48964 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752306AbcBYW5n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2016 17:57:43 -0500
-In-Reply-To: <cover.1456440439.git.jpoimboe@redhat.com>
+Received: from mail-ig0-f196.google.com ([209.85.213.196]:32898 "EHLO
+	mail-ig0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751268AbcBYXFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 18:05:50 -0500
+Received: by mail-ig0-f196.google.com with SMTP id hb3so2323676igb.0
+        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 15:05:49 -0800 (PST)
+In-Reply-To: <56CF787B.2070505@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-objtool reports the following false positive warnings:
+On 16-02-25 04:56 PM, John Fastabend wrote:
+> On 16-02-25 04:56 AM, Jamal Hadi Salim wrote:
 
-  objtool: kernel/bpf/core.o: __bpf_prog_run()+0x5c: sibling call from callable instruction with changed frame pointer
-  objtool: kernel/bpf/core.o: __bpf_prog_run()+0x60: function has unreachable instruction
-  objtool: kernel/bpf/core.o: __bpf_prog_run()+0x64: function has unreachable instruction
-  [...]
+>
+> decoding that is not a problem. The ixgbe driver code already applied
+> can decode that without much trouble. The thing I want to avoid is
+> requiring my driver to do the inverse translation because although it
+> is possible its entirely unnecessary.
+>
+> To do the above example without a software cache for example
+> means I read out row 2048 of a hardware table then you get a bunch of
+> bits. From those bits I consult what fields are being loaded into
+> the table in the packet processing pipeline. I learn its the src_ip
+> fields then I have the value/mask and can unwind it. Finally if I
+> collapsed some hash tables onto this hardware table I have to do the
+> inverse of my collapsing scheme. The ixgbe one is sort of simple just
+> because I only have one table in hardware but with multiple tables
+> its a bit more difficult. Finally I've unwound the thing and can
+> print something back out of 'tc' but it seems easier to just cache
+> the hardware rules somewhere. Maybe other driver/hardware will have
+> a different opinion though depending on how much your firmware can
+> store and how ambitious you are. Personally I don't see any need
+> for the above code.
+>
 
-It's confused by the following dynamic jump instruction in
-__bpf_prog_run()::
+I think if you can cache the rules and have a way to easily map to
+the hardware then this would work fine.
 
-  jmp     *(%r12,%rax,8)
-
-which corresponds to the following line in the C code:
-
-  goto *jumptable[insn->code];
-
-There's no way for objtool to deterministically find all possible
-branch targets for a dynamic jump, so it can't verify this code.
-
-In this case the jumps all stay within the function, and there's nothing
-unusual going on related to the stack, so we can whitelist the function.
-
-Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-Cc: netdev@vger.kernel.org
----
- kernel/bpf/core.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 972d9a8..be0abf6 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -27,6 +27,7 @@
- #include <linux/random.h>
- #include <linux/moduleloader.h>
- #include <linux/bpf.h>
-+#include <linux/frame.h>
- 
- #include <asm/unaligned.h>
- 
-@@ -649,6 +650,7 @@ load_byte:
- 		WARN_RATELIMIT(1, "unknown opcode %02x\n", insn->code);
- 		return 0;
- }
-+STACK_FRAME_NON_STANDARD(__bpf_prog_run); /* jump table */
- 
- bool bpf_prog_array_compatible(struct bpf_array *array,
- 			       const struct bpf_prog *fp)
--- 
-2.4.3
+cheers,
+jamal
