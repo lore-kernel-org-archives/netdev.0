@@ -1,56 +1,136 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next PATCH 0/5] net_sched: Add support for IFE action
-Date: Thu, 25 Feb 2016 22:34:40 +0100
-Message-ID: <56CF7370.7020100@iogearbox.net>
-References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com> <56CB3B90.8030206@iogearbox.net> <56CC4BEA.70108@mojatatu.com> <56CC5CB6.1030807@iogearbox.net> <56CC6C75.1000903@mojatatu.com> <56CC7C20.3090302@iogearbox.net> <56CDA6E8.7010604@mojatatu.com> <56CDECE5.5040604@iogearbox.net> <56CEF242.5090908@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	alexei.starovoitov@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57104 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751820AbcBYVeo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 16:34:44 -0500
-In-Reply-To: <56CEF242.5090908@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Xiao <sixiao@microsoft.com>
+Subject: [PATCH net-next] hv_netvsc: add ethtool support for set and get of settings
+Date: Thu, 25 Feb 2016 15:24:08 -0800
+Message-ID: <1456442648-13941-1-git-send-email-sixiao@microsoft.com>
+Cc: Simon Xiao <sixiao@microsoft.com>
+To: kys@microsoft.com, haiyangz@microsoft.com,
+	devel@linuxdriverproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/25/2016 01:23 PM, Jamal Hadi Salim wrote:
-> On 16-02-24 12:48 PM, Daniel Borkmann wrote:
->> On 02/24/2016 01:49 PM, Jamal Hadi Salim wrote:
-[...]
->>> Drivers do set the hash. My use case is slightly different.
->>> I have a NIC which has an embedded cavium processor. This thing
->>> strips off the TLV and uses the hash to select the host MSI.
->>> Only thing we dont use at the moment is queue_mapping.
->>
->> Ok, but the example says ingress qdisc. ;) I presume the driver for the
->> NIC and the offloading parts are non-public? :/
->
-> Well, it is not exactly mellanox or intel - but I am sure someone would
-> be willing to sell that NIC.
->
->> So, without them, placing
->> this on ingress qdisc doesn't seem much useful wrt the skb hash example,
->> and most people only have the software part (for ingress I mean) available.
->
-> Do you want me to take skbbhash out? I just want to get this set in then
-> worry about adding and modifying.
+This patch allows the user to set and retrieve speed and duplex of the
+hv_netvsc device via ethtool.
 
-Well, if the NIC driver and offloading parts for ife are not available
-(or cannot be made available) in the upstream kernel tree, then you have
-to assume that everyone else can _only_ use this with the existing tc
-facilities in the kernel. And as such, the whole set needs to be evaluated,
-I think this is nothing new. ;-)
+Example:
+$ ethtool eth0
+Settings for eth0:
+...
+    Speed: Unknown!
+    Duplex: Unknown! (255)
+...
+$ ethtool -s eth0 speed 1000 duplex full
+$ ethtool eth0
+Settings for eth0:
+...
+    Speed: 1000Mb/s
+    Duplex: Full
+...
 
-That is why I asked for a "typical setup" and use-case earlier. And if
-it doesn't have any obvious ones in upstream context without the missing
-pieces, then the code might linger around unused by anyone. So taking out
-these parts would be highly preferred (unless there's a _good_ reason not
-to).
+This is based on patches by Roopa Prabhu and Nikolay Aleksandrov.
 
-Thanks,
-Daniel
+Signed-off-by: Simon Xiao <sixiao@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |  4 +++
+ drivers/net/hyperv/netvsc_drv.c | 56 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 60 insertions(+)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index fcb92c0..b4c6878 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -658,6 +658,10 @@ struct net_device_context {
+ 
+ 	struct netvsc_stats __percpu *tx_stats;
+ 	struct netvsc_stats __percpu *rx_stats;
++
++	/* Ethtool settings */
++	u8 duplex;
++	u32 speed;
+ };
+ 
+ /* Per netvsc device */
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 202e2b1..e703b9a 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -799,6 +799,58 @@ static int netvsc_set_channels(struct net_device *net,
+ 	goto do_set;
+ }
+ 
++static bool netvsc_validate_ethtool_ss_cmd(const struct ethtool_cmd *cmd)
++{
++	struct ethtool_cmd diff1 = *cmd;
++	struct ethtool_cmd diff2 = {};
++
++	ethtool_cmd_speed_set(&diff1, 0);
++	diff1.duplex = 0;
++	/* advertising and cmd are usually set */
++	diff1.advertising = 0;
++	diff1.cmd = 0;
++	/* We set port to PORT_OTHER */
++	diff2.port = PORT_OTHER;
++
++	return !memcmp(&diff1, &diff2, sizeof(diff1));
++}
++
++static void netvsc_init_settings(struct net_device *dev)
++{
++	struct net_device_context *ndc = netdev_priv(dev);
++
++	ndc->speed = SPEED_UNKNOWN;
++	ndc->duplex = DUPLEX_UNKNOWN;
++}
++
++static int netvsc_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct net_device_context *ndc = netdev_priv(dev);
++
++	ethtool_cmd_speed_set(cmd, ndc->speed);
++	cmd->duplex = ndc->duplex;
++	cmd->port = PORT_OTHER;
++
++	return 0;
++}
++
++static int netvsc_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct net_device_context *ndc = netdev_priv(dev);
++	u32 speed;
++
++	speed = ethtool_cmd_speed(cmd);
++	if (!ethtool_validate_speed(speed) ||
++	    !ethtool_validate_duplex(cmd->duplex) ||
++	    !netvsc_validate_ethtool_ss_cmd(cmd))
++		return -EINVAL;
++
++	ndc->speed = speed;
++	ndc->duplex = cmd->duplex;
++
++	return 0;
++}
++
+ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ {
+ 	struct net_device_context *ndevctx = netdev_priv(ndev);
+@@ -923,6 +975,8 @@ static const struct ethtool_ops ethtool_ops = {
+ 	.get_channels   = netvsc_get_channels,
+ 	.set_channels   = netvsc_set_channels,
+ 	.get_ts_info	= ethtool_op_get_ts_info,
++	.get_settings	= netvsc_get_settings,
++	.set_settings	= netvsc_set_settings,
+ };
+ 
+ static const struct net_device_ops device_ops = {
+@@ -1112,6 +1166,8 @@ static int netvsc_probe(struct hv_device *dev,
+ 	netif_set_real_num_tx_queues(net, nvdev->num_chn);
+ 	netif_set_real_num_rx_queues(net, nvdev->num_chn);
+ 
++	netvsc_init_settings(net);
++
+ 	ret = register_netdev(net);
+ 	if (ret != 0) {
+ 		pr_err("Unable to register netdev.\n");
+-- 
+2.5.0
