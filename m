@@ -1,88 +1,261 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 06/15] igb: When GbE link up, wait for Remote receiver status condition
-Date: Wed, 24 Feb 2016 18:14:53 -0800
-Message-ID: <1456366502-132841-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/15] igbvf: Add support for generic Tx checksums
+Date: Wed, 24 Feb 2016 18:14:59 -0800
+Message-ID: <1456366502-132841-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1456366502-132841-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Takuma Ueba <t.ueba11@gmail.com>, netdev@vger.kernel.org,
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:20522 "EHLO mga11.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:17807 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759194AbcBYC0A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2016 21:26:00 -0500
+	id S1759590AbcBYC0E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2016 21:26:04 -0500
 In-Reply-To: <1456366502-132841-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Takuma Ueba <t.ueba11@gmail.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-I210 device IPv6 autoconf test sometimes fails,
-because DAD NS for link-local is not transmitted.
-This packet is silently dropped.
-This problem is seen only GbE environment.
+This patch adds support for generic Tx checksums to the igbvf driver.  It
+turns out this is actually pretty easy after going over the datasheet as we
+were doing a number of steps we didn't need to.
 
-igb_watchdog_task link up detection continues to the following process.
-The following cases are observed:
-1.PHY 1000BASE-T Status Register Remote receiver status bit is NG.
-(NG status becomes OK after about 200 - 700ms)
-2.In this case, the transfer packet is silently dropped.
+In order to perform a Tx checksum for an L4 header we need to fill in the
+following fields in the Tx descriptor:
+  MACLEN (maximum of 127), retrieved from:
+		skb_network_offset()
+  IPLEN  (maximum of 511), retrieved from:
+		skb_checksum_start_offset() - skb_network_offset()
+  TUCMD.L4T indicates offset and if checksum or crc32c, based on:
+		skb->csum_offset
 
-1000BASE-T Status register
-[Expected]: 0x3800 or 0x7800
-[problem occurred]: 0x2800 or 0x6800
-Frequency of occurrence: approx 1/10 - 1/40 observed
+The added advantage to doing this is that we can support inner checksum
+offloads for tunnels and MPLS while still being able to transparently
+insert VLAN tags.
 
-In order to avoid this problem,
-wait until 1000BASE-T Status register "Remote receiver status OK"
+I also took the opportunity to clean-up many of the feature flag
+configuration bits to make them a bit more consistent between drivers.  In
+the case of the VF drivers this meant adding support for SCTP CRCs, and
+inner checksum offloads for MPLS and various tunnel types.
 
-After applying this patch, at least 400 runs succeed with no problems.
-
-Signed-off-by: Takuma Ueba <t.ueba11@gmail.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 20 ++++++++++++++++++++
- 1 file changed, 20 insertions(+)
+ drivers/net/ethernet/intel/igbvf/netdev.c | 142 +++++++++++++++++-------------
+ drivers/net/ethernet/intel/igbvf/vf.h     |   1 +
+ 2 files changed, 82 insertions(+), 61 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index af46fcf..1aa0180 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -4357,6 +4357,7 @@ static void igb_watchdog_task(struct work_struct *work)
- 	u32 link;
- 	int i;
- 	u32 connsw;
-+	u16 phy_data, retry_count = 20;
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 297af80..aa34865 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -43,6 +43,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/if_vlan.h>
+ #include <linux/prefetch.h>
++#include <linux/sctp.h>
  
- 	link = igb_has_link(adapter);
+ #include "igbvf.h"
  
-@@ -4435,6 +4436,25 @@ static void igb_watchdog_task(struct work_struct *work)
- 				break;
- 			}
+@@ -1908,6 +1909,31 @@ static void igbvf_watchdog_task(struct work_struct *work)
+ #define IGBVF_TX_FLAGS_VLAN_MASK	0xffff0000
+ #define IGBVF_TX_FLAGS_VLAN_SHIFT	16
  
-+			if (adapter->link_speed != SPEED_1000)
-+				goto no_wait;
++static void igbvf_tx_ctxtdesc(struct igbvf_ring *tx_ring, u32 vlan_macip_lens,
++			      u32 type_tucmd, u32 mss_l4len_idx)
++{
++	struct e1000_adv_tx_context_desc *context_desc;
++	struct igbvf_buffer *buffer_info;
++	u16 i = tx_ring->next_to_use;
 +
-+			/* wait for Remote receiver status OK */
-+retry_read_status:
-+			if (!igb_read_phy_reg(hw, PHY_1000T_STATUS,
-+					      &phy_data)) {
-+				if (!(phy_data & SR_1000T_REMOTE_RX_STATUS) &&
-+				    retry_count) {
-+					msleep(100);
-+					retry_count--;
-+					goto retry_read_status;
-+				} else if (!retry_count) {
-+					dev_err(&adapter->pdev->dev, "exceed max 2 second\n");
-+				}
-+			} else {
-+				dev_err(&adapter->pdev->dev, "read 1000Base-T Status Reg\n");
-+			}
-+no_wait:
- 			netif_carrier_on(netdev);
++	context_desc = IGBVF_TX_CTXTDESC_ADV(*tx_ring, i);
++	buffer_info = &tx_ring->buffer_info[i];
++
++	i++;
++	tx_ring->next_to_use = (i < tx_ring->count) ? i : 0;
++
++	/* set bits to identify this as an advanced context descriptor */
++	type_tucmd |= E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT;
++
++	context_desc->vlan_macip_lens	= cpu_to_le32(vlan_macip_lens);
++	context_desc->seqnum_seed	= 0;
++	context_desc->type_tucmd_mlhl	= cpu_to_le32(type_tucmd);
++	context_desc->mss_l4len_idx	= cpu_to_le32(mss_l4len_idx);
++
++	buffer_info->time_stamp = jiffies;
++	buffer_info->dma = 0;
++}
++
+ static int igbvf_tso(struct igbvf_adapter *adapter,
+ 		     struct igbvf_ring *tx_ring,
+ 		     struct sk_buff *skb, u32 tx_flags, u8 *hdr_len,
+@@ -1987,65 +2013,56 @@ static int igbvf_tso(struct igbvf_adapter *adapter,
+ 	return true;
+ }
  
- 			igb_ping_all_vfs(adapter);
+-static inline bool igbvf_tx_csum(struct igbvf_adapter *adapter,
+-				 struct igbvf_ring *tx_ring,
+-				 struct sk_buff *skb, u32 tx_flags,
+-				 __be16 protocol)
++static inline bool igbvf_ipv6_csum_is_sctp(struct sk_buff *skb)
+ {
+-	struct e1000_adv_tx_context_desc *context_desc;
+-	unsigned int i;
+-	struct igbvf_buffer *buffer_info;
+-	u32 info = 0, tu_cmd = 0;
+-
+-	if ((skb->ip_summed == CHECKSUM_PARTIAL) ||
+-	    (tx_flags & IGBVF_TX_FLAGS_VLAN)) {
+-		i = tx_ring->next_to_use;
+-		buffer_info = &tx_ring->buffer_info[i];
+-		context_desc = IGBVF_TX_CTXTDESC_ADV(*tx_ring, i);
++	unsigned int offset = 0;
+ 
+-		if (tx_flags & IGBVF_TX_FLAGS_VLAN)
+-			info |= (tx_flags & IGBVF_TX_FLAGS_VLAN_MASK);
++	ipv6_find_hdr(skb, &offset, IPPROTO_SCTP, NULL, NULL);
+ 
+-		info |= (skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT);
+-		if (skb->ip_summed == CHECKSUM_PARTIAL)
+-			info |= (skb_transport_header(skb) -
+-				 skb_network_header(skb));
++	return offset == skb_checksum_start_offset(skb);
++}
+ 
+-		context_desc->vlan_macip_lens = cpu_to_le32(info);
++static bool igbvf_tx_csum(struct igbvf_ring *tx_ring, struct sk_buff *skb,
++			  u32 tx_flags, __be16 protocol)
++{
++	u32 vlan_macip_lens = 0;
++	u32 type_tucmd = 0;
+ 
+-		tu_cmd |= (E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT);
++	if (skb->ip_summed != CHECKSUM_PARTIAL) {
++csum_failed:
++		if (!(tx_flags & IGBVF_TX_FLAGS_VLAN))
++			return false;
++		goto no_csum;
++	}
+ 
+-		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-			switch (protocol) {
+-			case htons(ETH_P_IP):
+-				tu_cmd |= E1000_ADVTXD_TUCMD_IPV4;
+-				if (ip_hdr(skb)->protocol == IPPROTO_TCP)
+-					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
+-				break;
+-			case htons(ETH_P_IPV6):
+-				if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
+-					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
+-				break;
+-			default:
+-				break;
+-			}
++	switch (skb->csum_offset) {
++	case offsetof(struct tcphdr, check):
++		type_tucmd = E1000_ADVTXD_TUCMD_L4T_TCP;
++		/* fall through */
++	case offsetof(struct udphdr, check):
++		break;
++	case offsetof(struct sctphdr, checksum):
++		/* validate that this is actually an SCTP request */
++		if (((protocol == htons(ETH_P_IP)) &&
++		     (ip_hdr(skb)->protocol == IPPROTO_SCTP)) ||
++		    ((protocol == htons(ETH_P_IPV6)) &&
++		     igbvf_ipv6_csum_is_sctp(skb))) {
++			type_tucmd = E1000_ADVTXD_TUCMD_L4T_SCTP;
++			break;
+ 		}
+-
+-		context_desc->type_tucmd_mlhl = cpu_to_le32(tu_cmd);
+-		context_desc->seqnum_seed = 0;
+-		context_desc->mss_l4len_idx = 0;
+-
+-		buffer_info->time_stamp = jiffies;
+-		buffer_info->dma = 0;
+-		i++;
+-		if (i == tx_ring->count)
+-			i = 0;
+-		tx_ring->next_to_use = i;
+-
+-		return true;
++	default:
++		skb_checksum_help(skb);
++		goto csum_failed;
+ 	}
+ 
+-	return false;
++	vlan_macip_lens = skb_checksum_start_offset(skb) -
++			  skb_network_offset(skb);
++no_csum:
++	vlan_macip_lens |= skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT;
++	vlan_macip_lens |= tx_flags & IGBVF_TX_FLAGS_VLAN_MASK;
++
++	igbvf_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, 0);
++	return true;
+ }
+ 
+ static int igbvf_maybe_stop_tx(struct net_device *netdev, int size)
+@@ -2264,7 +2281,7 @@ static netdev_tx_t igbvf_xmit_frame_ring_adv(struct sk_buff *skb,
+ 
+ 	if (tso)
+ 		tx_flags |= IGBVF_TX_FLAGS_TSO;
+-	else if (igbvf_tx_csum(adapter, tx_ring, skb, tx_flags, protocol) &&
++	else if (igbvf_tx_csum(tx_ring, skb, tx_flags, protocol) &&
+ 		 (skb->ip_summed == CHECKSUM_PARTIAL))
+ 		tx_flags |= IGBVF_TX_FLAGS_CSUM;
+ 
+@@ -2717,11 +2734,11 @@ static int igbvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	adapter->bd_number = cards_found++;
+ 
+ 	netdev->hw_features = NETIF_F_SG |
+-			   NETIF_F_IP_CSUM |
+-			   NETIF_F_IPV6_CSUM |
+-			   NETIF_F_TSO |
+-			   NETIF_F_TSO6 |
+-			   NETIF_F_RXCSUM;
++			      NETIF_F_TSO |
++			      NETIF_F_TSO6 |
++			      NETIF_F_RXCSUM |
++			      NETIF_F_HW_CSUM |
++			      NETIF_F_SCTP_CRC;
+ 
+ 	netdev->features = netdev->hw_features |
+ 			   NETIF_F_HW_VLAN_CTAG_TX |
+@@ -2731,11 +2748,14 @@ static int igbvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (pci_using_dac)
+ 		netdev->features |= NETIF_F_HIGHDMA;
+ 
+-	netdev->vlan_features |= NETIF_F_TSO;
+-	netdev->vlan_features |= NETIF_F_TSO6;
+-	netdev->vlan_features |= NETIF_F_IP_CSUM;
+-	netdev->vlan_features |= NETIF_F_IPV6_CSUM;
+-	netdev->vlan_features |= NETIF_F_SG;
++	netdev->vlan_features |= NETIF_F_SG |
++				 NETIF_F_TSO |
++				 NETIF_F_TSO6 |
++				 NETIF_F_HW_CSUM |
++				 NETIF_F_SCTP_CRC;
++
++	netdev->mpls_features |= NETIF_F_HW_CSUM;
++	netdev->hw_enc_features |= NETIF_F_HW_CSUM;
+ 
+ 	/*reset the controller to put the device in a known good state */
+ 	err = hw->mac.ops.reset_hw(hw);
+diff --git a/drivers/net/ethernet/intel/igbvf/vf.h b/drivers/net/ethernet/intel/igbvf/vf.h
+index 0f1eca6..f00a41d 100644
+--- a/drivers/net/ethernet/intel/igbvf/vf.h
++++ b/drivers/net/ethernet/intel/igbvf/vf.h
+@@ -126,6 +126,7 @@ struct e1000_adv_tx_context_desc {
+ #define E1000_ADVTXD_MACLEN_SHIFT	9  /* Adv ctxt desc mac len shift */
+ #define E1000_ADVTXD_TUCMD_IPV4		0x00000400 /* IP Packet Type: 1=IPv4 */
+ #define E1000_ADVTXD_TUCMD_L4T_TCP	0x00000800 /* L4 Packet TYPE of TCP */
++#define E1000_ADVTXD_TUCMD_L4T_SCTP	0x00001000 /* L4 packet TYPE of SCTP */
+ #define E1000_ADVTXD_L4LEN_SHIFT	8  /* Adv ctxt L4LEN shift */
+ #define E1000_ADVTXD_MSS_SHIFT		16 /* Adv ctxt MSS shift */
+ 
 -- 
 2.5.0
