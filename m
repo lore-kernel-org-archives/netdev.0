@@ -1,83 +1,87 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net] net/8021q: Check the correct vlan filter capability
-Date: Wed, 24 Feb 2016 19:58:59 -0800
-Message-ID: <56CE7C03.2060200@gmail.com>
-References: <1456331959-3573-1-git-send-email-saeedm@mellanox.com>	<20160224.114839.300751853393269073.davem@davemloft.net>	<CALzJLG-CR1Ac5biwP5CuFbygqCOWh4-VGQc-XZ=BuZQLRnnRDg@mail.gmail.com> <20160224.164814.157691299176786528.davem@davemloft.net>
+Subject: Re: [net-next PATCH 3/4] net: sched: cls_u32 add bit to specify software
+ only rules
+Date: Wed, 24 Feb 2016 20:04:07 -0800
+Message-ID: <56CE7D37.9000701@gmail.com>
+References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810> <20160223190321.5970.58924.stgit@john-Precision-Tower-5810> <56CDB0B0.4080609@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: saeedm@mellanox.com, netdev@vger.kernel.org, galp@mellanox.com,
-	ogerlitz@mellanox.com, kaber@trash.net
-To: David Miller <davem@davemloft.net>, saeedm@dev.mellanox.co.il
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+	davem@davemloft.net
+To: Jamal Hadi Salim <jhs@mojatatu.com>, jiri@resnulli.us,
+	daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:34201 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755358AbcBYD7P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 22:59:15 -0500
-Received: by mail-pf0-f175.google.com with SMTP id x65so25069366pfb.1
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 19:59:14 -0800 (PST)
-In-Reply-To: <20160224.164814.157691299176786528.davem@davemloft.net>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:35589 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751337AbcBYEEU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 23:04:20 -0500
+Received: by mail-pf0-f177.google.com with SMTP id c10so25983985pfc.2
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 20:04:20 -0800 (PST)
+In-Reply-To: <56CDB0B0.4080609@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-24 01:48 PM, David Miller wrote:
-> From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-> Date: Wed, 24 Feb 2016 22:27:16 +0200
-> 
->>>> Netdev features can be changed dynamically to off after vlan_vid_add
->>>> was called, thus vlan_vid_del will skip ndo_vlan_rx_kill_vid and will
->>>> leave the device driver with un-freed resources.
->>>
->>> Are you sure the fix isn't to make vlan_vid_add() check ->features instead
->>> of ->hw_features.
+On 16-02-24 05:31 AM, Jamal Hadi Salim wrote:
+> On 16-02-23 02:03 PM, John Fastabend wrote:
+>> In the initial implementation the only way to stop a rule from being
+>> inserted into the hardware table was via the device feature flag.
+>> However this doesn't work well when working on an end host system
+>> where packets are expect to hit both the hardware and software
+>> datapaths.
 >>
->> This is exactly what this fix suggests, "->features" is not consistent
->> and can be turned ON/OFF between vlan_add/del which can leave the NIC
->> driver in inconsistent state !
-> 
-> But the user changes the setting _exactly_ to control whether these
-> VLAN offloads occur or not.
-> 
->>> Should we really be trying to add VLAN filters when the user has
->>> turned it off?
+>> For example we can imagine a rule that will match an IP address and
+>> increment a field. If we install this rule in both hardware and
+>> software we may increment the field twice. To date we have only
+>> added support for the drop action so we have been able to ignore
+>> these cases. But as we extend the action support we will hit this
+>> example plus more such cases. Arguably these are not even corner
+>> cases in many working systems these cases will be common.
 >>
->> Well, I think it is debatable, but the current implementation is not
->> consistent, especially for adding vlan 0 by default and then the user
->> disables the vlan filter, this will cause the stack to never call the
->> nic ndo_vlan_rx_kill_vid for the pre added vlan 0 and vise versa call
->> kill_vid without add_vid, BUG ?
+>> To avoid forcing the driver to always abort (i.e. the above example)
+>> this patch adds a flag to add a rule in software only. A careful
+>> user can use this flag to build software and hardware datapaths
+>> that work together. One example we have found particularly useful
+>> is to use hardware resources to set the skb->mark on the skb when
+>> the match may be expensive to run in software but a mark lookup
+>> in a hash table is cheap. The idea here is hardware can do in one
+>> lookup what the u32 classifier may need to traverse multiple lists
+>> and hash tables to compute. The flag is only passed down on inserts
+>> on deletion to avoid stale references in hardware we always try
+>> to remove a rule if it exists.
 >>
->> So i think we have two options, use this patch, and always trust to
->> delegate vlan_vid_add/del to the NIC when it's HW supports it, and the
->> nic will be smart enough to know what to do with it (in case vlan
->> filter is enabled/disabled). Or, for each vlan we can remember if it
->> was added to the NIC or not so the stack will know whether to clean it
->> up or not.
+>> Notice we do not add a hardware only case here. If you were to
+>> add a hardware only case then you are stuck with the problem
+>> of where to stick the software representation of that filter
+>> rule. If its stuck on the same filter list as the software only and
+>> software/hardware rules it then has to be walked over and ignored
+>> in the classify path. The overhead is not huge but is measurable.
+>> And with so much work being invested in speeding up rx/tx of
+>> pkt processing this is unacceptable IMO. The other option is to
+>> have a special hook just for hardware only resources. This is
+>> implemented in the next patch.
+>>
 > 
-> If automatically added VLANs are the issue, then we should specially
-> mark it such that it will get forcefully removed regardless of feature
-> settings.
-> 
+> Dont have much time to look closely - will do later. Just wanted
+> to quip:
+> Would it make sense to have a user flag which says, "please store
+> this in s/ware - dont use it in s/ware just install it in h/ware."
+> This should be totally optional policy, but would help find the rules
+> faster from a control plane if i look for them in s/ware first.
+> There's some really freaking slow hardware interfaces out there...
+> (a record of 60 seconds to find something is not unheard of).
 
-I suspect the hardware driver should flush the vid list in hardware
-when the feature flag is disabled and when it is enabled I guess we
-would need to do something like vlan_vids_add_by_dev() and do an add
-for all the upper dev vlans.
+I think this is absolutely necessary not only for performance of
+reporting the rules back to software but if we don't do it generically
+the driver will have to do it anyways because doing the inverse
+transformation from hw implementation to u32 is really tricky and in
+fact with hnodes and knodes there are multiple cls_u32 "programs" that
+functionally are the same so we have no way to return what the user
+actually programmed without it. Further eBPF (the next classifier I'm
+working on) is even worse in this regard. You can see my solution to
+this "load in hardware" filter list in patch 4/4. See Jiri's comment
+also on that and see if you agree.
 
-I guess with some helper functions this could be done generally in
-the ethtool set_features code path by tracking down the vid list and
-calling all the del and add routines for each vlan.
-
-A bit more work but seems more correct then creating strange cases
-where hw_fatures and features don't actually work as expected.
-
-> The whole point of the separation of ->hw_features and ->features is
-> to separate what the card can do from what the user wants enabled or
-> not.
 > 
-> Therefore offload operations should be triggered by ->features not
-> ->hw_features.
-> 
-> Any test on ->hw_features that is not a validation of a ->features
-> change request is a BIG RED FLAG and almost always a bug.
-> 
+> cheers,
+> jamal
