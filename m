@@ -1,76 +1,99 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v2 1/5] netdev: introduce ndo_set_rx_headroom
-Date: Thu, 25 Feb 2016 17:21:32 +0300
-Message-ID: <56CF0DEC.6030308@cogentembedded.com>
-References: <cover.1456397229.git.pabeni@redhat.com>
- <94f5bf927e514df4fecd50a1332a56501fff2945.1456397229.git.pabeni@redhat.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next 2/3] bpf: introduce BPF_MAP_TYPE_STACK_TRACE
+Date: Thu, 25 Feb 2016 15:23:28 +0100
+Message-ID: <20160225142328.GN6357@twins.programming.kicks-ass.net>
+References: <1455767939-2700534-1-git-send-email-ast@fb.com>
+ <1455767939-2700534-3-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Flavio Leitner <fbl@sysclose.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
+	Ingo Molnar <mingo@kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Wang Nan <wangnan0@huawei.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:33117 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932337AbcBYOVe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 09:21:34 -0500
-Received: by mail-lb0-f179.google.com with SMTP id x4so29895921lbm.0
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 06:21:33 -0800 (PST)
-In-Reply-To: <94f5bf927e514df4fecd50a1332a56501fff2945.1456397229.git.pabeni@redhat.com>
+Received: from bombadil.infradead.org ([198.137.202.9]:39731 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760375AbcBYOXi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 09:23:38 -0500
+Content-Disposition: inline
+In-Reply-To: <1455767939-2700534-3-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Wed, Feb 17, 2016 at 07:58:58PM -0800, Alexei Starovoitov wrote:
+> +static u64 bpf_get_stackid(u64 r1, u64 r2, u64 flags, u64 r4, u64 r5)
+> +{
+> +	struct pt_regs *regs = (struct pt_regs *) (long) r1;
+> +	struct bpf_map *map = (struct bpf_map *) (long) r2;
+> +	struct bpf_stack_map *smap = container_of(map, struct bpf_stack_map, map);
+> +	struct perf_callchain_entry *trace;
+> +	struct stack_map_bucket *bucket, *new_bucket, *old_bucket;
+> +	u32 max_depth = map->value_size / 8;
+> +	/* stack_map_alloc() checks that max_depth <= PERF_MAX_STACK_DEPTH */
+> +	u32 init_nr = PERF_MAX_STACK_DEPTH - max_depth;
+> +	u32 skip = flags & BPF_F_SKIP_FIELD_MASK;
+> +	u32 hash, id, trace_nr, trace_len;
+> +	bool user = flags & BPF_F_USER_STACK;
+> +	bool kernel = !user;
+> +	u64 *ips;
+> +
+> +	if (unlikely(flags & ~(BPF_F_SKIP_FIELD_MASK | BPF_F_USER_STACK |
+> +			       BPF_F_FAST_STACK_CMP | BPF_F_REUSE_STACKID)))
+> +		return -EINVAL;
+> +
+> +	trace = get_perf_callchain(regs, init_nr, kernel, user, false, false);
+> +
+> +	if (unlikely(!trace))
+> +		/* couldn't fetch the stack trace */
+> +		return -EFAULT;
+> +
+> +	/* get_perf_callchain() guarantees that trace->nr >= init_nr
+> +	 * and trace-nr <= PERF_MAX_STACK_DEPTH, so trace_nr <= max_depth
+> +	 */
+> +	trace_nr = trace->nr - init_nr;
+> +
+> +	if (trace_nr <= skip)
+> +		/* skipping more than usable stack trace */
+> +		return -EFAULT;
+> +
+> +	trace_nr -= skip;
+> +	trace_len = trace_nr * sizeof(u64);
+> +	ips = trace->ip + skip + init_nr;
+> +	hash = jhash2((u32 *)ips, trace_len / sizeof(u32), 0);
+> +	id = hash & (smap->n_buckets - 1);
 
-On 2/25/2016 2:09 PM, Paolo Abeni wrote:
+Its not at all clear where the corresponding rcu_read_lock() is at.
 
-> This method allows the controlling device (i.e. the bridge) to specify
-> additional headroom to be allocated for skb head on frame reception.
->
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
->
-> ---
-> v1 -> v2:
->   - fixed netdev_get_fwd_headroom()
->   - added netdev_set_rx_headroom() and netdev_reset_rx_headroom() helpers
-> ---
->   include/linux/netdevice.h | 31 +++++++++++++++++++++++++++++++
->   1 file changed, 31 insertions(+)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index e52077f..8f53674 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1093,6 +1093,12 @@ struct tc_to_netdev {
->    *	This function is used to get egress tunnel information for given skb.
->    *	This is useful for retrieving outer tunnel header parameters while
->    *	sampling packet.
-> + * * int (*ndo_set_rx_headroom)(struct net_device *dev, int needed_headroom);
-
-    It's *void* in the declaration.
-
-> + *	This function is used to specify the headroom that the skb must
-> + *	consider when allocation skb during packet reception. Setting
-> + *	appropriate rx headroom value allows avoiding skb head copy on
-> + *	forward. Setting a negative value reset the rx headroom to the
-> + *	default value.
->    *
->    */
->   struct net_device_ops {
-> @@ -1278,6 +1284,8 @@ struct net_device_ops {
->   							 bool proto_down);
->   	int			(*ndo_fill_metadata_dst)(struct net_device *dev,
->   						       struct sk_buff *skb);
-> +	void			(*ndo_set_rx_headroom)(struct net_device *dev,
-> +						       int needed_headroom);
->   };
->
->   /**
-[...]
-
-MBR, Sergei
+> +	bucket = rcu_dereference(smap->buckets[id]);
+> +
+> +	if (bucket && bucket->hash == hash) {
+> +		if (flags & BPF_F_FAST_STACK_CMP)
+> +			return id;
+> +		if (bucket->nr == trace_nr &&
+> +		    memcmp(bucket->ip, ips, trace_len) == 0)
+> +			return id;
+> +	}
+> +
+> +	/* this call stack is not in the map, try to add it */
+> +	if (bucket && !(flags & BPF_F_REUSE_STACKID))
+> +		return -EEXIST;
+> +
+> +	new_bucket = kmalloc(sizeof(struct stack_map_bucket) + map->value_size,
+> +			     GFP_ATOMIC | __GFP_NOWARN);
+> +	if (unlikely(!new_bucket))
+> +		return -ENOMEM;
+> +
+> +	memcpy(new_bucket->ip, ips, trace_len);
+> +	memset(new_bucket->ip + trace_len / 8, 0, map->value_size - trace_len);
+> +	new_bucket->hash = hash;
+> +	new_bucket->nr = trace_nr;
+> +
+> +	old_bucket = xchg(&smap->buckets[id], new_bucket);
+> +	if (old_bucket)
+> +		kfree_rcu(old_bucket, rcu);
+> +	return id;
+> +}
