@@ -1,68 +1,75 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v2 0/3] tc software only flag
-Date: Thu, 25 Feb 2016 15:24:33 -0800
-Message-ID: <56CF8D31.3070307@gmail.com>
-References: <20160225231540.9820.7688.stgit@john-Precision-Tower-5810>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH][V3] mt7601u: do not free dma_buf when ivp allocation fails
+Date: Fri, 26 Feb 2016 10:31:06 +1100
+Message-ID: <CAGRGNgUq_YTi1h_FBxGSFGLUhHoz3xQguDU_5ZFhSyUKAruW1w@mail.gmail.com>
+References: <1456442667-19751-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-	davem@davemloft.net, jhs@mojatatu.com
-To: jiri@resnulli.us, daniel@iogearbox.net, simon.horman@netronome.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Jakub Kicinski <kubakici@wp.pl>, Kalle Valo <kvalo@codeaurora.org>,
+	Matthias Brugger <matthias.bgg@gmail.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Mailing List, Arm" <linux-arm-kernel@lists.infradead.org>,
+	linux-mediatek@lists.infradead.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:35389 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752219AbcBYXYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 18:24:46 -0500
-Received: by mail-pf0-f172.google.com with SMTP id c10so42137399pfc.2
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 15:24:45 -0800 (PST)
-In-Reply-To: <20160225231540.9820.7688.stgit@john-Precision-Tower-5810>
+Received: from mail-io0-f172.google.com ([209.85.223.172]:36349 "EHLO
+	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752606AbcBYXb0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 18:31:26 -0500
+In-Reply-To: <1456442667-19751-1-git-send-email-colin.king@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-25 03:19 PM, John Fastabend wrote:
-> This adds a software only flag to tc but incorporates a bunch of comments
-> from the original attempt at this.
+Hi,
 
-In case its not entirely obvious I dropped the hardware only case for
-now because I'm investigating Jiri's comment. But just having the
-software only case lets me handle many use cases. Now in the u32
-classifier I can build graphs where part of the graph is software only
-and other parts are sw/hw. This lets me use part of the mark bit or
-queue information to learn if the hardware has already acted on the
-skb and then parse it differently in the classifier.
+On Fri, Feb 26, 2016 at 10:24 AM, Colin King <colin.king@canonical.com> wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+>
+> If the allocation of ivp fails the error handling attempts to
+> free an uninitialized dma_buf; this data structure just contains
+> garbage on the stack, so the freeing will cause issues when the
+> urb, buf and dma fields are free'd. Fix this by not free'ing the
+> dma_buf if the ivp allocation fails.
+>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-> 
-> First instead of having the offload decision logic be embedded in cls_u32
-> I lifted into cls_pkt.h so it can be used anywhere.
-> 
-> In order to do this I put the flag defines in pkt_cls.h as well. However
-> it was suggested that perhaps these flags could be lifted into the
-> upper layer of TCA_ as well but I'm afraid this can not be done with
-> existing tc design as far as I can tell. The problem is the filters are
-> packed and unpacked in the classifier specific code and pushing the flags
-> through the high level doesn't seem easily doable. And we already have
-> this design where classifiers handle generic options such as actions and
-> policers. So I think adding one more thing here is OK as 'tc', et. al.
-> already know how to handle this type of thing.
-> 
-> Thanks,
-> .John
-> 
+Looks right to me.
+
+Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+
 > ---
-> 
-> John Fastabend (3):
->       net: sched: consolidate offload decision in cls_u32
->       net: cls_u32: move TC offload feature bit into cls_u32 offload logic
->       net: sched: cls_u32 add bit to specify software only rules
-> 
-> 
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    3 --
->  include/net/pkt_cls.h                         |   17 +++++++++++
->  include/uapi/linux/pkt_cls.h                  |    1 +
->  net/sched/cls_u32.c                           |   37 ++++++++++++++++++-------
->  4 files changed, 45 insertions(+), 13 deletions(-)
-> 
+>  drivers/net/wireless/mediatek/mt7601u/mcu.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/mediatek/mt7601u/mcu.c b/drivers/net/wireless/mediatek/mt7601u/mcu.c
+> index fbb1986..91c4b34 100644
+> --- a/drivers/net/wireless/mediatek/mt7601u/mcu.c
+> +++ b/drivers/net/wireless/mediatek/mt7601u/mcu.c
+> @@ -362,7 +362,9 @@ mt7601u_upload_firmware(struct mt7601u_dev *dev, const struct mt76_fw *fw)
+>         int i, ret;
+>
+>         ivb = kmemdup(fw->ivb, sizeof(fw->ivb), GFP_KERNEL);
+> -       if (!ivb || mt7601u_usb_alloc_buf(dev, MCU_FW_URB_SIZE, &dma_buf)) {
+> +       if (!ivb)
+> +               return -ENOMEM;
+> +       if (mt7601u_usb_alloc_buf(dev, MCU_FW_URB_SIZE, &dma_buf)) {
+>                 ret = -ENOMEM;
+>                 goto error;
+>         }
 > --
-> Signature
-> 
+> 2.7.0
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Thanks,
+
+-- 
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
