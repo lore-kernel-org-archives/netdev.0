@@ -1,104 +1,83 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: custom ioctl-based interface to control LED in networking (was
- Re: [PATCHv2 09/10] rfkill: Userspace control for airplane mode)
-Date: Thu, 25 Feb 2016 10:06:36 +0100
-Message-ID: <20160225090636.GA32652@amd>
-References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
- <1456159001-20307-10-git-send-email-jprvita@endlessm.com>
- <20160223204525.GC16961@amd>
- <1456260914.9910.34.camel@sipsolutions.net>
- <20160223214501.GA22501@amd>
- <1456304509.2050.15.camel@sipsolutions.net>
- <20160224104611.GB31302@amd>
- <1456311697.2050.23.camel@sipsolutions.net>
- <20160224121420.GA5627@amd>
- <1456320693.2050.30.camel@sipsolutions.net>
+From: Deepa Dinamani <deepa.kernel@gmail.com>
+Subject: Re: [PATCH 1/4] kernel: time: Add current_nw_timestamp()
+	for network timestamps
+Date: Thu, 25 Feb 2016 15:15:07 +0530
+Message-ID: <CABeXuvpzFzj094YKhweoCO+BUaxGAP+dYjPZozA01z94=gVaMA@mail.gmail.com>
+References: <1456384031-29244-1-git-send-email-deepa.kernel@gmail.com>
+ <1456384031-29244-2-git-send-email-deepa.kernel@gmail.com>
+ <56CEC010.1080506@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: rpurdie@rpsys.net, j.anaszewski@samsung.com,
-	linux-leds@vger.kernel.org,
-	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Darren Hart <dvhart@infradead.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux@endlessm.com,
-	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita@endlessm.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1456320693.2050.30.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Arnd Bergmann <arnd@arndb.de>, y2038@lists.linaro.org,
+ Linux Network Devel Mailing List <netdev@vger.kernel.org>,
+ James Morris <jmorris@namei.org>, Patrick McHardy <kaber@trash.net>,
+ Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+ John Stultz <john.stultz@linaro.org>, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+ Thomas Gleixner <tglx@linutronix.de>, "David S. Miller" <davem@davemloft.net>
+To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Return-path: <y2038-bounces@lists.linaro.org>
+In-Reply-To: <56CEC010.1080506@miraclelinux.com>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed 2016-02-24 14:31:33, Johannes Berg wrote:
-> On Wed, 2016-02-24 at 13:14 +0100, Pavel Machek wrote:
-> >=A0
-> > Why would it need to? It could look at default triggers for the led
-> > if it really wanted to.
->=20
-> And then it needs to change them; if anything goes wrong error recove=
-ry
-> is practically impossible since the trigger information is lost
-> forever.
-
-Well, conventional way to solve this is to simply name the led
-"acer::airplane"... that way it is persistent. We already do that for
-display/keyboard backlights.
-
-> It's not my position to decide which combinations some system
-> integrator or userspace developer might find useful.
->=20
-> Even when we add parameters to a trigger (I don't see a generic way t=
-o
-> do that, but please do enlighten me), you're now ignoring the issue o=
-f
-> the userspace controlled GSM modem...
-
-Take a look at the blinking triggers.
-
-> > > Really what you have here is a concept of "airplane mode", and th=
-at
-> > > concept is specific to the rfkill subsystem. This happens to affe=
-ct
-> > > mostly an LED trigger, today, but as a concept it's something tha=
-t
-> > > *should* be managed within the rfkill subsystem.
-> >=20
-> > How is that concept used outside the LEDs? What semantics does
-> > "airplane mode" have? You tried to explain "airplane mode" is not
-> > well defined up in this thread...
->=20
-> I'd say it's well-defined for any given set of system software, so if
-> e.g. NetworkManager decides to define it one way, and connman another
-> way, there's a definition but the kernel need not interfere with it.
-
-So... the LED changes meaning during boot? That's surely not a nice
-solution.
-
-So... you rather store bit in a kernel with unclear semantics,
-explaining "oh I need to leave the flexibility to userland"? Sorry,
-that's just ugly.
-
-> > I'm not saying that. I'm saying that LED maintainers should be Cced=
-,
-> > to keep the interfaces consistent.
->=20
-> I pretty much have to read it that way, since the LED API is in no wa=
-y
-> impacted by these changes. Here's a new trigger, with some magic inne=
-r
-> working. No impact on the LED API.
-
-New LED trigger and new ioctl for LED control... not matching how LEDs
-are normally controlled.
-
-Best regards,
-									Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses=
-/blog.html
+Pj4gIGluY2x1ZGUvbGludXgvaXAuaCAgICAgfCAgMiArKwo+PiAgaW5jbHVkZS9saW51eC90aW1l
+NjQuaCB8ICAzICsrKwo+PiAga2VybmVsL3RpbWUvdGltZS5jICAgICB8IDI2ICsrKysrKysrKysr
+KysrKysrKysrKysrKysrCj4+ICAzIGZpbGVzIGNoYW5nZWQsIDMxIGluc2VydGlvbnMoKykKPj4K
+Pj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvaXAuaCBiL2luY2x1ZGUvbGludXgvaXAuaAo+
+PiBpbmRleCA0OTJiYzY1Li5lZGY5MjNlIDEwMDY0NAo+PiAtLS0gYS9pbmNsdWRlL2xpbnV4L2lw
+LmgKPj4gKysrIGIvaW5jbHVkZS9saW51eC9pcC5oCj4+IEBAIC0zNCw0ICszNCw2IEBAIHN0YXRp
+YyBpbmxpbmUgc3RydWN0IGlwaGRyICppcGlwX2hkcihjb25zdCBzdHJ1Y3Qgc2tfYnVmZiAqc2ti
+KQo+PiAgewo+PiAgICAgICByZXR1cm4gKHN0cnVjdCBpcGhkciAqKXNrYl90cmFuc3BvcnRfaGVh
+ZGVyKHNrYik7Cj4+ICB9Cj4+ICsKPj4gK2V4dGVybiBfX2JlMzIgY3VycmVudF9ud190aW1lc3Rh
+bXAodm9pZCk7Cj4+ICAjZW5kaWYgICAgICAgLyogX0xJTlVYX0lQX0ggKi8KPj4gZGlmZiAtLWdp
+dCBhL2luY2x1ZGUvbGludXgvdGltZTY0LmggYi9pbmNsdWRlL2xpbnV4L3RpbWU2NC5oCj4+IGlu
+ZGV4IDM2N2Q1YWYuLjViNWRiM2IgMTAwNjQ0Cj4+IC0tLSBhL2luY2x1ZGUvbGludXgvdGltZTY0
+LmgKPj4gKysrIGIvaW5jbHVkZS9saW51eC90aW1lNjQuaAo+PiBAQCAtMzUsNiArMzUsOSBAQCBz
+dHJ1Y3QgaXRpbWVyc3BlYzY0IHsKPj4gICNkZWZpbmUgTlNFQ19QRVJfU0VDIDEwMDAwMDAwMDBM
+Cj4+ICAjZGVmaW5lIEZTRUNfUEVSX1NFQyAxMDAwMDAwMDAwMDAwMDAwTEwKPj4KPj4gKyNkZWZp
+bmUgU0VDT05EU19QRVJfREFZICAgICAgODY0MDAKPj4gKyNkZWZpbmUgTVNFQ19QRVJfREFZIChT
+RUNPTkRTX1BFUl9EQVkgKiBNU0VDX1BFUl9TRUMpCj4+ICsKPj4gIC8qIExvY2F0ZWQgaGVyZSBm
+b3IgdGltZXNwZWNbNjRdX3ZhbGlkX3N0cmljdCAqLwo+PiAgI2RlZmluZSBUSU1FNjRfTUFYICAg
+ICAgICAgICAgICAgICAgICgoczY0KX4oKHU2NCkxIDw8IDYzKSkKPj4gICNkZWZpbmUgS1RJTUVf
+TUFYICAgICAgICAgICAgICAgICAgICAoKHM2NCl+KCh1NjQpMSA8PCA2MykpCj4+IGRpZmYgLS1n
+aXQgYS9rZXJuZWwvdGltZS90aW1lLmMgYi9rZXJuZWwvdGltZS90aW1lLmMKPj4gaW5kZXggODY3
+NTFjNi4uNmRmMTVkZiAxMDA2NDQKPj4gLS0tIGEva2VybmVsL3RpbWUvdGltZS5jCj4+ICsrKyBi
+L2tlcm5lbC90aW1lL3RpbWUuYwo+PiBAQCAtMjQ1LDYgKzI0NSwzMiBAQCBzdHJ1Y3QgdGltZXNw
+ZWMgY3VycmVudF9mc190aW1lKHN0cnVjdCBzdXBlcl9ibG9jayAqc2IpCj4+ICBFWFBPUlRfU1lN
+Qk9MKGN1cnJlbnRfZnNfdGltZSk7Cj4+Cj4+ICAvKgo+PiArICogY3VycmVudF9ud190aW1lc3Rh
+bXAgLSBSZXR1cm4gbmV0d29yayB0aW1lCj4+ICsgKgo+PiArICogUmV0dXJuIG1pbGxpc2Vjb25k
+cyBzaW5jZSBtaWRuaWdodCBpbiBuZXR3b3JrIGJ5dGUgb3JkZXIuCj4+ICsgKi8KPj4gK19fYmUz
+MiBjdXJyZW50X253X3RpbWVzdGFtcCh2b2lkKQo+PiArewo+PiArICAgICB1NjQgbm93Owo+PiAr
+ICAgICB1MzIgc2VjczsKPj4gKyAgICAgdTMyIG1zZWNzOwo+PiArICAgICBzdHJ1Y3QgdGltZXNw
+ZWM2NCB0czsKPj4gKwo+PiArICAgICBrdGltZV9nZXRfdHM2NCgmdHMpOwo+PiArCj4+ICsgICAg
+IC8qIEdldCBzZWNzIHNpbmNlIG1pZG5pZ2h0LiAqLwo+PiArICAgICBub3cgPSBkaXZfdTY0X3Jl
+bSh0cy50dl9zZWMsIFNFQ09ORFNfUEVSX0RBWSwgJnNlY3MpOwo+PiArICAgICAvKiBDb252ZXJ0
+IHRvIG1zZWNzLiAqLwo+PiArICAgICBtc2VjcyA9IHNlY3MgKiBNU0VDX1BFUl9TRUM7Cj4+ICsg
+ICAgIC8qIENvbnZlcnQgbnNlYyB0byBtc2VjLiAqLwo+PiArICAgICBtc2VjcyArPSAodTMyKXRz
+LnR2X25zZWMvTlNFQ19QRVJfTVNFQzsKPj4gKwo+PiArICAgICAvKiBDb252ZXJ0IHRvIG5ldHdv
+cmsgYnl0ZSBvcmRlci4gKi8KPj4gKyAgICAgcmV0dXJuIGh0b25zKG1zZWNzKTsKPj4gK30KPj4g
+K0VYUE9SVF9TWU1CT0woY3VycmVudF9ud190aW1lc3RhbXApOwo+PiArCj4+ICsvKgo+PiAgICog
+Q29udmVydCBqaWZmaWVzIHRvIG1pbGxpc2Vjb25kcyBhbmQgYmFjay4KPj4gICAqCj4+ICAgKiBB
+dm9pZCB1bm5lY2Vzc2FyeSBtdWx0aXBsaWNhdGlvbnMvZGl2aXNpb25zIGluIHRoZQo+Pgo+Cj4g
+U2luY2UgbmV0L2lwdjQvKiBhcmUgdGhlIG9ubHkgdXNlcnMsIGl0IGlzIGVub3VnaCB0byBwdXQK
+PiBpdCBpbiB1bmRlciBuZXQvaXB2NC8uCgp0aW1lLmMgaG9zdHMgZnVuY3Rpb25zIHRoYXQgYXJl
+IHVzZWQgYnkgaW5kaXZpZHVhbCBzdWJzeXN0ZW1zIGxpa2UKY3VycmVudF9mc190aW1lKCkgdXNl
+ZCBieSBmaWxlc3lzdGVtcwooc29tZXRpbWVzIHVzZWQgYnkgb3RoZXIgc3Vic3lzdGVtcyBhbHNv
+KS4KClRoZSBuZXR3b3JrIHRpbWVzdGFtcCBmdW5jdGlvbiBpcyB1c2VkIGZvciBib3RoIHNvdXJj
+ZSByb3V0ZSBpcCBvcHRpb24KYW5kIHRpbWVzdGFtcCBpY21wIG1lc3NhZ2VzLgpTbyBpdCBtYWtl
+cyBpdCBkaWZmaWN1bHQgZm9yIGl0IHRvIGJlIG93bmVkIGJ5IGEgc2luZ2xlIGxheWVyLgpUaGlz
+IGlzIHRoZSByZWFzb24gaXQgd2FzIGNob3NlbiB0byBpbmNsdWRlIGhlcmUuCgpBbm90aGVyIG9w
+dGlvbiBpcyB0byBpbmNsdWRlIGl0IGluIHRoZSBsb3dlc3QgbGF5ZXIgaXRzIHVzZWQ6CmFmX2lu
+ZXQuYy4gSXMgdGhpcyB3aGF0IHlvdSB3ZXJlIHN1Z2dlc3Rpbmc/CgotRGVlcGEKX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWTIwMzggbWFpbGluZyBsaXN0
+ClkyMDM4QGxpc3RzLmxpbmFyby5vcmcKaHR0cHM6Ly9saXN0cy5saW5hcm8ub3JnL21haWxtYW4v
+bGlzdGluZm8veTIwMzgK
