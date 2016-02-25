@@ -1,150 +1,103 @@
-From: =?iso-2022-jp?B?TUlOT1VSQSBNYWtvdG8gLyAbJEJMJzE6GyhCIBskQj8/GyhC?=
-	<minoura@valinux.co.jp>
-Subject: [PATCH] net: ndo_fdb_dump should report -EMSGSIZE to rtnl_fdb_dump.
-Date: Thu, 25 Feb 2016 14:20:48 +0900
-Message-ID: <kk537sh1i33.fsf@brer.local.valinux.co.jp>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next RFC] rtnetlink: add new RTM_GETSTATS to dump
+ link stats
+Date: Wed, 24 Feb 2016 21:25:50 -0800
+Message-ID: <56CE905E.4030601@cumulusnetworks.com>
+References: <1456207293-36903-1-git-send-email-roopa@cumulusnetworks.com> <20160224.164003.357595978348193472.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.valinux.co.jp ([210.128.90.3]:47466 "EHLO
-	mail.valinux.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751267AbcBYFUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 00:20:53 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by mail.valinux.co.jp (Postfix) with ESMTP id F00E1ADFCC
-	for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 14:20:51 +0900 (JST)
-Received: from mail.valinux.co.jp ([127.0.0.1])
-	by localhost (mail.valinux.co.jp [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id sLob43QaSBJL for <netdev@vger.kernel.org>;
-	Thu, 25 Feb 2016 14:20:51 +0900 (JST)
-Received: from brer (vagw.valinux.co.jp [210.128.90.14])
-	(using TLSv1.2 with cipher DHE-RSA-AES128-SHA (128/128 bits))
-	(No client certificate requested)
-	by mail.valinux.co.jp (Postfix) with ESMTPSA id DB940ADC3B
-	for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 14:20:51 +0900 (JST)
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:35546 "EHLO
+	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750739AbcBYFZx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 00:25:53 -0500
+Received: by mail-pf0-f175.google.com with SMTP id c10so27219658pfc.2
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 21:25:52 -0800 (PST)
+In-Reply-To: <20160224.164003.357595978348193472.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 2/24/16, 1:40 PM, David Miller wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Date: Mon, 22 Feb 2016 22:01:33 -0800
+>
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> This patch adds a new RTM_GETSTATS message to query link stats via netlink
+>> from the kernel. RTM_NEWLINK also dumps stats today, but RTM_NEWLINK returns a
+>> lot more than just stats and is expensive in some cases when frequent
+>> polling for stats from userspace is a common operation.
+> Even worse, we push two copies of the same exact stats.  Once to give
+> the (deprecated) 32-bit rtnl stats, and once to give the 64-bit ones.
+>
+> This is rather rediculous, but was probably done for compatability.
+i would think so.
+>
+>> To begin with, this patch adds the following types of stats (which are
+>> also available via RTM_NEWLINK today):
+>>
+>> struct nla_policy ifla_stats_policy[IFLA_LINK_STATS_MAX + 1] = {
+>>         [IFLA_LINK_STATS]       = { .len = sizeof(struct rtnl_link_stats) },
+>>         [IFLA_LINK_STATS64]     = { .len = sizeof(struct rtnl_link_stats64) },
+>>         [IFLA_LINK_INET6_STATS] = {. type = NLA_NESTED },
+>> };
+> I think we should skip the old 32-bit stats and only provide the full
+> native 64-bit rtnl_link_stats64.  Apps have to have changes to use
+> this new facility, therefore they can be adjusted for the (extremely
+> minimal) amount of work necessary to understand 64-bit stats if
+> necessary.
+>
+> By using rtnl_fill_stats() we would unnecessarily continue to send
+> duplicate and extra information unnecessarily.
+>
+> We have the chance to fix this here, so let's take advantage of the
+> opportunity to promote the data structure which can then be a first
+> class citizen not only in the kernel but in userspace too.
+agree, very much
+>
+>> Filtering stats (if the user wanted to query just ipv6 stats ?):
+>> a) I have a version of the patch that uses 'struct ifinfomsg->ifi_family'
+>> as a filter from userspace. But, given that in the future we may want to
+>> not just filter by family, I have dropped it in favor of
+>> attribute filtering (not included in this patch but point b) below).
+>>
+>> b) RTM_GETSTATS message to contain attributes in the request message
+>>
+>> 	nlmsg_parse(nlh, ....IFLA_LINK_STATS_MAX, ifla_stats_policy...)
+>>
+>> 	if tb[IFLA_LINK_INET6_STATS]
+>> 		include ipv6 stats in the dump
+>>
+>> 	if tb[IFLA_LINK_MPLS_STATS]
+>> 		include mpls stats in the dump
+> I wonder if an additive method is better.  Provide IFLA_LINK_STATS64
+> by default, and the user has to ask for more.
+>
+> Or the user gets nothing, and a simply u32 bitmap in the request acts
+> as a selector, with enable bits for each stat type.
+>
+> It really has to be easy to carve out exactly the information the user
+> wants, and be very minimal by default in order to be as efficient as
+> possible.
+ok, agreed here too. I like the default minimal approach. keeps it simple and efficient.
 
-When the send skbuff reaches the end, nlmsg_put and friends returns
--EMSGSIZE but it is silently thrown away in ndo_fdb_dump. It is called
-within a for_each_netdev loop and the first fdb entry of a following
-netdev could fit in the remaining skbuff.  This breaks the mechanism
-of cb->args[0] and idx to keep track of the entries that are already
-dumped, which results missing entries in bridge fdb show command.
+I did go back and forth on the attribute vs mask.
+cosmetic but, i guess i did not feel good about having to redefine every attribute again
+for the bitmap filter ...and i anticipate the list of stat attributes to grow overtime (maybe there is a better way).
+enum {
+       IFLA_LINK_STATS64,
+       IFLA_LINK_INET6_STATS,
+       IFLA_LINK_MPLS_STATS,
+       __IFLA_LINK_STATS_MAX,
+};
 
-Signed-off-by: Minoura Makoto <minoura@valinux.co.jp>
----
- drivers/net/vxlan.c       |  4 +++-
- net/bridge/br_fdb.c       | 15 ++++++++++-----
- net/core/rtnetlink.c      |  6 ++++++
- net/switchdev/switchdev.c |  5 ++++-
- 4 files changed, 23 insertions(+), 7 deletions(-)
+#define IFLA_LINK_STATS64_FILTER  0    
+#define IFLA_LINK_INET6_STATS_FILTER (1 << 0)
+#define IFLA_LINK_MPLS_STATS_FILTER (2 << 0)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index a31cd95..3b11518 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -931,8 +931,10 @@ static int vxlan_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
- 						     cb->nlh->nlmsg_seq,
- 						     RTM_NEWNEIGH,
- 						     NLM_F_MULTI, rd);
--				if (err < 0)
-+				if (err < 0) {
-+					cb->args[1] = err;
- 					goto out;
-+				}
- skip:
- 				++idx;
- 			}
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 82e3e97..dcea4f4 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -723,6 +723,8 @@ int br_fdb_dump(struct sk_buff *skb,
- 		struct net_bridge_fdb_entry *f;
- 
- 		hlist_for_each_entry_rcu(f, &br->hash[i], hlist) {
-+			int err;
-+
- 			if (idx < cb->args[0])
- 				goto skip;
- 
-@@ -741,12 +743,15 @@ int br_fdb_dump(struct sk_buff *skb,
- 			if (!filter_dev && f->dst)
- 				goto skip;
- 
--			if (fdb_fill_info(skb, br, f,
--					  NETLINK_CB(cb->skb).portid,
--					  cb->nlh->nlmsg_seq,
--					  RTM_NEWNEIGH,
--					  NLM_F_MULTI) < 0)
-+			err = fdb_fill_info(skb, br, f,
-+					    NETLINK_CB(cb->skb).portid,
-+					    cb->nlh->nlmsg_seq,
-+					    RTM_NEWNEIGH,
-+					    NLM_F_MULTI);
-+			if (err < 0) {
-+				cb->args[1] = err;
- 				break;
-+			}
- skip:
- 			++idx;
- 		}
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d735e85..8261d95 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2911,6 +2911,7 @@ int ndo_dflt_fdb_dump(struct sk_buff *skb,
- 	nlmsg_populate_fdb(skb, cb, dev, &idx, &dev->mc);
- out:
- 	netif_addr_unlock_bh(dev);
-+	cb->args[1] = err;
- 	return idx;
- }
- EXPORT_SYMBOL(ndo_dflt_fdb_dump);
-@@ -2944,6 +2945,7 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 		ops = br_dev->netdev_ops;
- 	}
- 
-+	cb->args[1] = 0;
- 	for_each_netdev(net, dev) {
- 		if (brport_idx && (dev->ifindex != brport_idx))
- 			continue;
-@@ -2971,12 +2973,16 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 				idx = cops->ndo_fdb_dump(skb, cb, br_dev, dev,
- 							 idx);
- 		}
-+		if (cb->args[1] == -EMSGSIZE)
-+			break;
- 
- 		if (dev->netdev_ops->ndo_fdb_dump)
- 			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, NULL,
- 							    idx);
- 		else
- 			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
-+		if (cb->args[1] == -EMSGSIZE)
-+			break;
- 
- 		cops = NULL;
- 	}
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 47f7da5..8b5833c 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -1093,8 +1093,11 @@ int switchdev_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
- 		.cb = cb,
- 		.idx = idx,
- 	};
-+	int err;
- 
--	switchdev_port_obj_dump(dev, &dump.fdb.obj, switchdev_port_fdb_dump_cb);
-+	err = switchdev_port_obj_dump(dev, &dump.fdb.obj,
-+				      switchdev_port_fdb_dump_cb);
-+	cb->args[1] = err;
- 	return dump.idx;
- }
- EXPORT_SYMBOL_GPL(switchdev_port_fdb_dump);
--- 
-2.5.0
+Will post non-RFC with the changes later this week.
+
+Thanks for the feedback!.
