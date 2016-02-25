@@ -1,65 +1,71 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 07/10] net/mlx5e: Don't modify CQ before it was created
-Date: Thu, 25 Feb 2016 18:33:17 +0200
-Message-ID: <1456418000-18898-8-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 04/10] net/mlx5e: Move common case counters within sq_stats struct
+Date: Thu, 25 Feb 2016 18:33:14 +0200
+Message-ID: <1456418000-18898-5-git-send-email-saeedm@mellanox.com>
 References: <1456418000-18898-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:57279 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:57244 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933216AbcBYQe3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2016 11:34:29 -0500
+	id S1760923AbcBYQeV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 11:34:21 -0500
 In-Reply-To: <1456418000-18898-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gal Pressman <galp@mellanox.com>
+From: Tariq Toukan <tariqt@mellanox.com>
 
-Calling mlx5e_set_coalesce while the interface is down will result in
-modifying CQs that don't exist.
+For data cache locality considerations, we moved the nop and
+csum_offload_inner within sq_stats struct as they are more
+commonly accessed in xmit path.
 
-Fixes: f62b8bb8f2d3 ('net/mlx5: Extend mlx5_core to support ConnectX-4
-Ethernet functionality')
-Signed-off-by: Gal Pressman <galp@mellanox.com>
-
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index a1b3bb4..0959656 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -423,11 +423,15 @@ static int mlx5e_set_coalesce(struct net_device *netdev,
- 	if (!MLX5_CAP_GEN(mdev, cq_moderation))
- 		return -ENOTSUPP;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 4511984..b289660 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -260,26 +260,28 @@ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"tso_bytes",
+ 	"tso_inner_packets",
+ 	"tso_inner_bytes",
+-	"csum_offload_none",
+ 	"csum_offload_inner",
++	"nop",
++	"csum_offload_none",
+ 	"stopped",
+ 	"wake",
+ 	"dropped",
+-	"nop"
+ };
  
-+	mutex_lock(&priv->state_lock);
- 	priv->params.tx_cq_moderation_usec = coal->tx_coalesce_usecs;
- 	priv->params.tx_cq_moderation_pkts = coal->tx_max_coalesced_frames;
- 	priv->params.rx_cq_moderation_usec = coal->rx_coalesce_usecs;
- 	priv->params.rx_cq_moderation_pkts = coal->rx_max_coalesced_frames;
- 
-+	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
-+		goto out;
-+
- 	for (i = 0; i < priv->params.num_channels; ++i) {
- 		c = priv->channel[i];
- 
-@@ -443,6 +447,8 @@ static int mlx5e_set_coalesce(struct net_device *netdev,
- 					       coal->rx_max_coalesced_frames);
- 	}
- 
-+out:
-+	mutex_unlock(&priv->state_lock);
- 	return 0;
- }
+ struct mlx5e_sq_stats {
++	/* commonly accessed in data path */
+ 	u64 packets;
+ 	u64 tso_packets;
+ 	u64 tso_bytes;
+ 	u64 tso_inner_packets;
+ 	u64 tso_inner_bytes;
+-	u64 csum_offload_none;
+ 	u64 csum_offload_inner;
++	u64 nop;
++	/* less likely accessed in data path */
++	u64 csum_offload_none;
+ 	u64 stopped;
+ 	u64 wake;
+ 	u64 dropped;
+-	u64 nop;
+ #define NUM_SQ_STATS 11
+ };
  
 -- 
 1.7.1
