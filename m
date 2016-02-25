@@ -1,7 +1,7 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v2 4/5] net/tun: implement ndo_set_rx_headroom
-Date: Thu, 25 Feb 2016 12:09:27 +0100
-Message-ID: <05747d5a30df9687c458979c4bc40920463895b0.1456397229.git.pabeni@redhat.com>
+Subject: [PATCH net-next v2 3/5] ovs: propagate per dp max headroom to all vports
+Date: Thu, 25 Feb 2016 12:09:26 +0100
+Message-ID: <8f1ae047e8a8c3cd9576d6ef2d4fe39a34ced0a1.1456397229.git.pabeni@redhat.com>
 References: <cover.1456397229.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>,
@@ -11,98 +11,171 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38949 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:34054 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932326AbcBYLKP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2016 06:10:15 -0500
+	id S1760528AbcBYLKL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 06:10:11 -0500
 In-Reply-To: <cover.1456397229.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ndo_set_rx_headroom controls the align value used by tun devices to
-allocate skbs on frame reception.
-When the xmit device adds a large encapsulation, this avoids an skb
-head reallocation on forwarding.
+This patch implements bookkeeping support to compute the maximum
+headroom for all the devices in each datapath. When said value
+changes, the underlying devs are notified via the
+ndo_set_rx_headroom method.
 
-The measured improvement when forwarding towards a vxlan dev with
-frame size below the egress device MTU is as follow:
-
-vxlan over ipv6, bridged: +6%
-vxlan over ipv6, ovs: +7%
-
-In case of ipv4 tunnels there is no improvement, since the tun
-device default alignment provides enough headroom to avoid the skb
-head reallocation.
+This also increases the internal vports xmit performance.
 
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
-v2: initialize the align value to NET_SKB_PAD
----
- drivers/net/tun.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 88bb8cc..afdf950 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -187,6 +187,7 @@ struct tun_struct {
- #define TUN_USER_FEATURES (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
- 			  NETIF_F_TSO6|NETIF_F_UFO)
- 
-+	int			align;
- 	int			vnet_hdr_sz;
- 	int			sndbuf;
- 	struct tap_filter	txflt;
-@@ -934,6 +935,17 @@ static void tun_poll_controller(struct net_device *dev)
- 	return;
+---
+v1 -> v2:
+  - use netdev_set_rx_headroom() to update dp vport rx headroom
+  - reset the vport's dev headroom on vport deletion
+---
+ net/openvswitch/datapath.c           | 40 ++++++++++++++++++++++++++++++++++++
+ net/openvswitch/datapath.h           |  4 ++++
+ net/openvswitch/vport-internal_dev.c | 10 ++++++++-
+ 3 files changed, 53 insertions(+), 1 deletion(-)
+
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index c4e8455..e6a7d49 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -1908,6 +1908,29 @@ static struct vport *lookup_vport(struct net *net,
+ 		return ERR_PTR(-EINVAL);
  }
- #endif
-+
-+static void tun_set_headroom(struct net_device *dev, int new_hr)
+ 
++/* Called with ovs_mutex */
++static void update_headroom(struct datapath *dp)
 +{
-+	struct tun_struct *tun = netdev_priv(dev);
++	unsigned dev_headroom, max_headroom = 0;
++	struct net_device *dev;
++	struct vport *vport;
++	int i;
 +
-+	if (new_hr < NET_SKB_PAD)
-+		new_hr = NET_SKB_PAD;
++	for (i = 0; i < DP_VPORT_HASH_BUCKETS; i++) {
++		hlist_for_each_entry_rcu(vport, &dp->ports[i], dp_hash_node) {
++			dev = vport->dev;
++			dev_headroom = netdev_get_fwd_headroom(dev);
++			if (dev_headroom > max_headroom)
++				max_headroom = dev_headroom;
++		}
++	}
 +
-+	tun->align = new_hr;
++	dp->max_headroom = max_headroom;
++	for (i = 0; i < DP_VPORT_HASH_BUCKETS; i++)
++		hlist_for_each_entry_rcu(vport, &dp->ports[i], dp_hash_node)
++			netdev_set_rx_headroom(vport->dev, max_headroom);
 +}
 +
- static const struct net_device_ops tun_netdev_ops = {
- 	.ndo_uninit		= tun_net_uninit,
- 	.ndo_open		= tun_net_open,
-@@ -945,6 +957,7 @@ static const struct net_device_ops tun_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= tun_poll_controller,
- #endif
-+	.ndo_set_rx_headroom	= tun_set_headroom,
+ static int ovs_vport_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	struct nlattr **a = info->attrs;
+@@ -1973,6 +1996,12 @@ restart:
+ 
+ 	err = ovs_vport_cmd_fill_info(vport, reply, info->snd_portid,
+ 				      info->snd_seq, 0, OVS_VPORT_CMD_NEW);
++
++	if (netdev_get_fwd_headroom(vport->dev) > dp->max_headroom)
++		update_headroom(dp);
++	else
++		netdev_set_rx_headroom(vport->dev, dp->max_headroom);
++
+ 	BUG_ON(err < 0);
+ 	ovs_unlock();
+ 
+@@ -2039,8 +2068,10 @@ exit_unlock_free:
+ 
+ static int ovs_vport_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ {
++	bool must_update_headroom = false;
+ 	struct nlattr **a = info->attrs;
+ 	struct sk_buff *reply;
++	struct datapath *dp;
+ 	struct vport *vport;
+ 	int err;
+ 
+@@ -2062,7 +2093,16 @@ static int ovs_vport_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 	err = ovs_vport_cmd_fill_info(vport, reply, info->snd_portid,
+ 				      info->snd_seq, 0, OVS_VPORT_CMD_DEL);
+ 	BUG_ON(err < 0);
++
++	/* the vport deletion may trigger dp headroom update */
++	dp = vport->dp;
++	if (netdev_get_fwd_headroom(vport->dev) == dp->max_headroom)
++		must_update_headroom = true;
++	netdev_reset_rx_headroom(vport->dev);
+ 	ovs_dp_detach_port(vport);
++
++	if (must_update_headroom)
++		update_headroom(dp);
+ 	ovs_unlock();
+ 
+ 	ovs_notify(&dp_vport_genl_family, reply, info);
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 67bdecd..427e39a 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -68,6 +68,8 @@ struct dp_stats_percpu {
+  * ovs_mutex and RCU.
+  * @stats_percpu: Per-CPU datapath statistics.
+  * @net: Reference to net namespace.
++ * @max_headroom: the maximum headroom of all vports in this datapath; it will
++ * be used by all the internal vports in this dp.
+  *
+  * Context: See the comment on locking at the top of datapath.c for additional
+  * locking information.
+@@ -89,6 +91,8 @@ struct datapath {
+ 	possible_net_t net;
+ 
+ 	u32 user_features;
++
++	u32 max_headroom;
  };
  
- static const struct net_device_ops tap_netdev_ops = {
-@@ -962,6 +975,7 @@ static const struct net_device_ops tap_netdev_ops = {
- 	.ndo_poll_controller	= tun_poll_controller,
- #endif
- 	.ndo_features_check	= passthru_features_check,
-+	.ndo_set_rx_headroom	= tun_set_headroom,
+ /**
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index ec76398..83a5534 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -138,6 +138,11 @@ internal_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ 	return stats;
+ }
+ 
++void internal_set_rx_headroom(struct net_device *dev, int new_hr)
++{
++	dev->needed_headroom = new_hr;
++}
++
+ static const struct net_device_ops internal_dev_netdev_ops = {
+ 	.ndo_open = internal_dev_open,
+ 	.ndo_stop = internal_dev_stop,
+@@ -145,6 +150,7 @@ static const struct net_device_ops internal_dev_netdev_ops = {
+ 	.ndo_set_mac_address = eth_mac_addr,
+ 	.ndo_change_mtu = internal_dev_change_mtu,
+ 	.ndo_get_stats64 = internal_get_stats,
++	.ndo_set_rx_headroom = internal_set_rx_headroom,
  };
  
- static void tun_flow_init(struct tun_struct *tun)
-@@ -1086,7 +1100,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	struct tun_pi pi = { 0, cpu_to_be16(ETH_P_IP) };
- 	struct sk_buff *skb;
- 	size_t total_len = iov_iter_count(from);
--	size_t len = total_len, align = NET_SKB_PAD, linear;
-+	size_t len = total_len, align = tun->align, linear;
- 	struct virtio_net_hdr gso = { 0 };
- 	int good_linear;
- 	int copylen;
-@@ -1694,6 +1708,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		tun->txflt.count = 0;
- 		tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
+ static struct rtnl_link_ops internal_dev_link_ops __read_mostly = {
+@@ -158,7 +164,8 @@ static void do_setup(struct net_device *netdev)
+ 	netdev->netdev_ops = &internal_dev_netdev_ops;
  
-+		tun->align = NET_SKB_PAD;
- 		tun->filter_attached = false;
- 		tun->sndbuf = tfile->socket.sk->sk_sndbuf;
+ 	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
+-	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE | IFF_OPENVSWITCH;
++	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE | IFF_OPENVSWITCH |
++			      IFF_PHONY_HEADROOM;
+ 	netdev->destructor = internal_dev_destructor;
+ 	netdev->ethtool_ops = &internal_dev_ethtool_ops;
+ 	netdev->rtnl_link_ops = &internal_dev_link_ops;
+@@ -199,6 +206,7 @@ static struct vport *internal_dev_create(const struct vport_parms *parms)
+ 		err = -ENOMEM;
+ 		goto error_free_netdev;
+ 	}
++	vport->dev->needed_headroom = vport->dp->max_headroom;
  
+ 	dev_net_set(vport->dev, ovs_dp_get_net(vport->dp));
+ 	internal_dev = internal_dev_priv(vport->dev);
 -- 
 1.8.3.1
