@@ -1,45 +1,54 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/4] net: ipv4: tcp_probe: Replace timespec with timespec64
-Date: Thu, 25 Feb 2016 16:01:13 +0100
-Message-ID: <10756653.OfUfst5I70@wuerfel>
-References: <1456384031-29244-1-git-send-email-deepa.kernel@gmail.com> <1456384031-29244-4-git-send-email-deepa.kernel@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: RFC: blueprint for proxy PHY module
+Date: Thu, 25 Feb 2016 16:24:33 +0100
+Message-ID: <20160225152433.GA7681@lunn.ch>
+References: <1456406760.28260.6@smtp.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, y2038@lists.linaro.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Deepa Dinamani <deepa.kernel@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Pavol Kor?ek <ikorcek@fit.vutbr.cz>,
+	Martin Strba?ka <martin.strbacka@nic.cz>
+To: Tomas Hlavacek <tmshlvck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([217.72.192.74]:51912 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760269AbcBYPB2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 10:01:28 -0500
-In-Reply-To: <1456384031-29244-4-git-send-email-deepa.kernel@gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:42788 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760651AbcBYPYh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 10:24:37 -0500
+Content-Disposition: inline
+In-Reply-To: <1456406760.28260.6@smtp.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 24 February 2016 23:07:10 Deepa Dinamani wrote:
-> TCP probe log timestamps use struct timespec which is
-> not y2038 safe. Even though timespec might be good enough here
-> as it is used to represent delta time, the plan is to get rid
-> of all uses of timespec in the kernel.
-> Replace with struct timespec64 which is y2038 safe.
+On Thu, Feb 25, 2016 at 02:26:00PM +0100, Tomas Hlavacek wrote:
+> Hello!
 > 
-> Prints still use unsigned long format and type.
-> This is because long is 64 bit on 64 bit systems and 32 bit on
-> 32 bit systems. Hence, time64_t(64 bit signed number) does not
-> have a specifier that matches on both architectures.
+> We have a board with a MAC in SoC that has SGMII connected through a
+> signal switch to either 10/100/1000 wired PHY or to a SFP cage. The
+> signal switch is set to pass signal to the wired PHY by default.
+> When the MOD-DEF0 pin from SFP cage is low (which acts as a
+> transceiver-present signal) the wired PHY is being disconnected and
+> the SGMII is passed to the SFP cage. We also have the signal
+> connected to a GPIO input, so we can detect the SFP presence from
+> software. And there is always-connected MDIO to the wired PHY.
+> 
+> Now I use two different DTBs for testing purposes, one has a
+> configuration for the wired PHY and another one uses fixed-link for
+> SFP. And I have to reboot in order to switch from one to another.
+> 
+> My idea is to create a "proxy PHY" module that would take state from
+> one of two (or more) underlying PHYs and pass it to the NIC driver.
+> The selection of the active PHY would come from userspace. (There
+> will be a board-specific
+> daemon that would react to the GPIO change and set the proper PHY
+> accordingly.) Question is how to connect the userspace? I think that
+> corresponding file in /sys would do the job, but I am not sure
+> whether it is the proper way of doing that. (?)
+> 
+> What do you think about it?
 
-Actually time64_t is always 'long long', but tv_sec is time_t 
-(long) instead of time64_t on 64-bit architectures.
+Hi Tomas
 
-Using a %ll format string and a cast to s64 would work as well,
-but as you say above, it's not important here.
+Have you looked at Russell Kings phylink patchset?
 
-> Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
+https://lwn.net/Articles/667055/
 
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+	Andrew
