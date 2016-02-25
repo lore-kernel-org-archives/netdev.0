@@ -1,46 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 04/10] bnxt_en: Refactor bnxt_hwrm_set_coal().
-Date: Thu, 25 Feb 2016 11:32:37 -0500 (EST)
-Message-ID: <20160225.113237.332720242469554990.davem@davemloft.net>
-References: <1456388374-1440-1-git-send-email-michael.chan@broadcom.com>
-	<1456388374-1440-5-git-send-email-michael.chan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next 05/10] net/mlx5e: Set drop RQ's necessary parameters only
+Date: Thu, 25 Feb 2016 18:33:15 +0200
+Message-ID: <1456418000-18898-6-git-send-email-saeedm@mellanox.com>
+References: <1456418000-18898-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42574 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933134AbcBYQci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 11:32:38 -0500
-In-Reply-To: <1456388374-1440-5-git-send-email-michael.chan@broadcom.com>
+Received: from [193.47.165.129] ([193.47.165.129]:57239 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759993AbcBYQeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 11:34:16 -0500
+In-Reply-To: <1456418000-18898-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Thu, 25 Feb 2016 03:19:28 -0500
+From: Tariq Toukan <tariqt@mellanox.com>
 
-> Add a function to set all the coalescing parameters.  The function can
-> be used later to set both rx and tx coalescing parameters.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> ---
->  drivers/net/ethernet/broadcom/bnxt/bnxt.c | 26 +++++++++++++++++---------
->  1 file changed, 17 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-> index a7103b5..b87b367 100644
-> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-> @@ -3521,6 +3521,21 @@ static void bnxt_hwrm_ring_free(struct bnxt *bp, bool close_path)
->  	}
->  }
->  
-> +static void bnxt_hwrm_set_coal_params(
-> +	struct bnxt *bp, u32 max_bufs, u32 buf_tmrs, u16 flags,
-> +	struct hwrm_ring_cmpl_ring_cfg_aggint_params_input *req)
+By its role, there is no need to set all the other parameters
+for the drop RQ.
 
-Don't format arguments like this, it's insanely ugly.  You can and
-should fit the first few arguments on the line that opens the argument
-list.
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   12 ++++++++++--
+ 1 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 013be09..30fd971 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1064,6 +1064,15 @@ static void mlx5e_build_rq_param(struct mlx5e_priv *priv,
+ 	param->wq.linear = 1;
+ }
+ 
++static void mlx5e_build_drop_rq_param(struct mlx5e_rq_param *param)
++{
++	void *rqc = param->rqc;
++	void *wq = MLX5_ADDR_OF(rqc, rqc, wq);
++
++	MLX5_SET(wq, wq, wq_type, MLX5_WQ_TYPE_LINKED_LIST);
++	MLX5_SET(wq, wq, log_wq_stride,    ilog2(sizeof(struct mlx5e_rx_wqe)));
++}
++
+ static void mlx5e_build_sq_param(struct mlx5e_priv *priv,
+ 				 struct mlx5e_sq_param *param)
+ {
+@@ -1574,8 +1583,7 @@ static int mlx5e_open_drop_rq(struct mlx5e_priv *priv)
+ 
+ 	memset(&cq_param, 0, sizeof(cq_param));
+ 	memset(&rq_param, 0, sizeof(rq_param));
+-	mlx5e_build_rx_cq_param(priv, &cq_param);
+-	mlx5e_build_rq_param(priv, &rq_param);
++	mlx5e_build_drop_rq_param(&rq_param);
+ 
+ 	err = mlx5e_create_drop_cq(priv, cq, &cq_param);
+ 	if (err)
+-- 
+1.7.1
