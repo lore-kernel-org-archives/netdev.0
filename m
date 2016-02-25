@@ -1,47 +1,46 @@
 From: <Woojung.Huh@microchip.com>
-Subject: [PATCH net-next 4/4] MAINTAINERS: Add LAN78XX entry
-Date: Thu, 25 Feb 2016 23:33:16 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D404B83EA@CHN-SV-EXMX02.mchp-main.com>
+Subject: [PATCH net-next 2/4] lan78xx: remove unnecessary code
+Date: Thu, 25 Feb 2016 23:33:09 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D404B83DA@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 Cc: <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp01.microchip.com ([198.175.253.37]:17016 "EHLO
+Received: from exsmtp01.microchip.com ([198.175.253.37]:16988 "EHLO
 	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752665AbcBYXdR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 18:33:17 -0500
+	with ESMTP id S1752568AbcBYXdL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 18:33:11 -0500
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add maintainers for Microchip LAN78XX.
-UNGLinuxDriver@microchip.com is alias email which goes to current
-developers work for Microchip Network related products.
+It is not required after commit cd772de358d6
+("phy: keep pause flags in phy driver features")
 
 Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
 ---
- MAINTAINERS | 7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/usb/lan78xx.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 27393cf..12b764f 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -11332,6 +11332,13 @@ S:	Maintained
- F:	drivers/usb/host/isp116x*
- F:	include/linux/usb/isp116x.h
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index 4ec25e8..d100421 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -1623,12 +1623,7 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
  
-+USB LAN78XX ETHERNET DRIVER
-+M:	Woojung Huh <woojung.huh@microchip.com>
-+M:	Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
-+L:	netdev@vger.kernel.org
-+S:	Maintained
-+F:	drivers/net/usb/lan78xx.*
+ 	/* MAC doesn't support 1000T Half */
+ 	phydev->supported &= ~SUPPORTED_1000baseT_Half;
+-	phydev->supported |= (SUPPORTED_10baseT_Half |
+-			      SUPPORTED_10baseT_Full |
+-			      SUPPORTED_100baseT_Half |
+-			      SUPPORTED_100baseT_Full |
+-			      SUPPORTED_1000baseT_Full |
+-			      SUPPORTED_Pause | SUPPORTED_Asym_Pause);
 +
- USB MASS STORAGE DRIVER
- M:	Matthew Dharm <mdharm-usb@one-eyed-alien.net>
- L:	linux-usb@vger.kernel.org
+ 	genphy_config_aneg(phydev);
+ 
+ 	phy_start(phydev);
 -- 
 2.7.0
