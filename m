@@ -1,47 +1,60 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] bpf: fix csum setting for bpf_set_tunnel_key
-Date: Thu, 25 Feb 2016 11:45:47 +0100
-Message-ID: <56CEDB5B.7060805@iogearbox.net>
-References: <cb92edae7e6cb23d349d714736362535e56a1c75.1456188678.git.daniel@iogearbox.net> <20160224.162400.1248598061435588351.davem@davemloft.net>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next 4/5] net/tun: implement ndo_set_rx_headroom
+Date: Thu, 25 Feb 2016 11:49:42 +0100
+Message-ID: <1456397382.5100.32.camel@redhat.com>
+References: <cover.1456163137.git.pabeni@redhat.com>
+	 <38c29993e36ee3446f29a635c2d218e7777f55fe.1456163137.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch, jesse@kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Flavio Leitner <fbl@sysclose.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:42343 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759853AbcBYKpw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 05:45:52 -0500
-In-Reply-To: <20160224.162400.1248598061435588351.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:43861 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759460AbcBYKtr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 05:49:47 -0500
+In-Reply-To: <38c29993e36ee3446f29a635c2d218e7777f55fe.1456163137.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/24/2016 10:24 PM, David Miller wrote:
-[...]
-> Applied to 'net', thanks Daniel.
+On Tue, 2016-02-23 at 13:53 +0100, Paolo Abeni wrote:
+> ndo_set_rx_headroom controls the align value used by tun devices to
+> allocate skbs on frame reception.
+> When the xmit device adds a large encapsulation, this avoids an skb
+> head reallocation on forwarding.
+> 
+> The measured improvement when forwarding towards a vxlan dev with
+> frame size below the egress device MTU is around 6% when tunneling over
+> ipv6.
+> 
+> In case of ipv4 tunnels there is no improvement, since the tun
+> device default alignment provides enough headroom to avoid the skb
+> head reallocation, at least on hosts with 64 bytes cacheline.
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> ---
+>  drivers/net/tun.c | 16 +++++++++++++++-
+>  1 file changed, 15 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 88bb8cc..5812693 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -187,6 +187,7 @@ struct tun_struct {
+>  #define TUN_USER_FEATURES (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
+>  			  NETIF_F_TSO6|NETIF_F_UFO)
+>  
+> +	int			align;
 
-Thanks!
+This needs to be initialized to NET_SKB_PAD, to preserved the current
+behavior.
 
-Btw, in case net gets merged into net-next, there will be a minor
-merge conflict due to stackid flags present in net-next. This can
-be easily resolved by keeping both chunks.
+I'll fix it in v2.
 
-For example, result after merge in include/uapi/linux/bpf.h then
-looks like:
-
-/* BPF_FUNC_skb_set_tunnel_key and BPF_FUNC_skb_get_tunnel_key flags. */
-#define BPF_F_TUNINFO_IPV6              (1ULL << 0)
-
-/* BPF_FUNC_skb_set_tunnel_key flags. */
-#define BPF_F_ZERO_CSUM_TX              (1ULL << 1)
-
-/* BPF_FUNC_get_stackid flags. */
-#define BPF_F_SKIP_FIELD_MASK           0xffULL
-#define BPF_F_USER_STACK                (1ULL << 8)
-#define BPF_F_FAST_STACK_CMP            (1ULL << 9)
-#define BPF_F_REUSE_STACKID             (1ULL << 10)
-
-Thanks,
-Daniel
+Paolo
