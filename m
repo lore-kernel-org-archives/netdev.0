@@ -1,70 +1,112 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 04/10] bnxt_en: Refactor bnxt_hwrm_set_coal().
-Date: Thu, 25 Feb 2016 03:19:28 -0500
-Message-ID: <1456388374-1440-5-git-send-email-michael.chan@broadcom.com>
-References: <1456388374-1440-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: [PATCH v2 net] bonding: don't use stale speed and duplex
+ information
+Date: Thu, 25 Feb 2016 16:35:18 +0800
+Message-ID: <56CEBCC6.3040008@gmail.com>
+References: <25869.1454962202@famine>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Veaceslav Falico <vfalico@gmail.com>,
+	dingtianhong <dingtianhong@huawei.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>, netdev@vger.kernel.org,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5520-maca-inet1-outside.broadcom.com ([216.31.211.11]:29625
-	"EHLO mail-irv-18.broadcom.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759411AbcBYITf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 03:19:35 -0500
-In-Reply-To: <1456388374-1440-1-git-send-email-michael.chan@broadcom.com>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:35898 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758731AbcBYIeu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 03:34:50 -0500
+Received: by mail-pa0-f67.google.com with SMTP id a7so1021231pax.3
+        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 00:34:50 -0800 (PST)
+In-Reply-To: <25869.1454962202@famine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a function to set all the coalescing parameters.  The function can
-be used later to set both rx and tx coalescing parameters.
+On 02/09/2016 04:10 AM, Jay Vosburgh wrote:
+> 	There is presently a race condition between the bonding periodic
+> link monitor and the updating of a slave's speed and duplex.  The former
+> occurs on a periodic basis, and the latter in response to a driver's
+> calling of netif_carrier_on.
+>
+> 	It is possible for the periodic monitor to run between the
+> driver call of netif_carrier_on and the receipt of the NETDEV_CHANGE
+> event that causes bonding to update the slave's speed and duplex.  This
+> manifests most notably as a report that a slave is up and "0 Mbps full
+> duplex" after enslavement, but in principle could report an incorrect
+> speed and duplex after any link up event if the device comes up with a
+> different speed or duplex.  This affects the 802.3ad aggregator
+> selection, as the speed and duplex are selection criteria.
+>
+> 	This is fixed by updating the speed and duplex in the periodic
+> monitor, prior to using that information.
+>
+> 	This was done historically in bonding, but the call to
+> bond_update_speed_duplex was removed in commit 876254ae2758 ("bonding:
+> don't call update_speed_duplex() under spinlocks"), as it might sleep
+> under lock.  Later, the locking was changed to only hold RTNL, and so
+> after commit 876254ae2758 ("bonding: don't call update_speed_duplex()
+> under spinlocks") this call is again safe.
+>
+> Tested-by: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+> Cc: Veaceslav Falico <vfalico@gmail.com>
+> Cc: dingtianhong <dingtianhong@huawei.com>
+> Fixes: 876254ae2758 ("bonding: don't call update_speed_duplex() under spinlocks")
+> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+>
+> ---
+>
+> v2: Correct Veaceslav's email address
+>
+> Note: The "Fixes" commit is the commit that makes this operation safe
+> again, not the commit that originally introduced the race.  I don't see
+> any simple way to resolve this bug between these two commits.
+>
+>   drivers/net/bonding/bond_main.c | 1 +
+>   1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 56b560558884..cabaeb61333d 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -2127,6 +2127,7 @@ static void bond_miimon_commit(struct bonding *bond)
+>   			continue;
+>   
+>   		case BOND_LINK_UP:
+> +			bond_update_speed_duplex(slave);
+>   			bond_set_slave_link_state(slave, BOND_LINK_UP,
+>   						  BOND_SLAVE_NOTIFY_NOW);
+>   			slave->last_link_up = jiffies;
+Hi, Jay
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 26 +++++++++++++++++---------
- 1 file changed, 17 insertions(+), 9 deletions(-)
+Thanks for your patch.
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index a7103b5..b87b367 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -3521,6 +3521,21 @@ static void bnxt_hwrm_ring_free(struct bnxt *bp, bool close_path)
- 	}
- }
- 
-+static void bnxt_hwrm_set_coal_params(
-+	struct bnxt *bp, u32 max_bufs, u32 buf_tmrs, u16 flags,
-+	struct hwrm_ring_cmpl_ring_cfg_aggint_params_input *req)
-+{
-+	req->flags = cpu_to_le16(flags);
-+	req->num_cmpl_dma_aggr = cpu_to_le16((u16)max_bufs);
-+	req->num_cmpl_dma_aggr_during_int = cpu_to_le16(max_bufs >> 16);
-+	req->cmpl_aggr_dma_tmr = cpu_to_le16((u16)buf_tmrs);
-+	req->cmpl_aggr_dma_tmr_during_int = cpu_to_le16(buf_tmrs >> 16);
-+	/* Minimum time between 2 interrupts set to buf_tmr x 2 */
-+	req->int_lat_tmr_min = cpu_to_le16((u16)buf_tmrs * 2);
-+	req->int_lat_tmr_max = cpu_to_le16((u16)buf_tmrs * 4);
-+	req->num_cmpl_aggr_int = cpu_to_le16((u16)max_bufs * 4);
-+}
+I delved into the source code and Emil's tests. I think that the problem
+that this patch expects to fix occurs very unusually.
+
+Do you agree with me?
+
+If so, maybe the following patch can reduce the performance loss.
+Please comment on it. Thanks a lot.
+
+
+diff --git a/drivers/net/bonding/bond_main.c 
+b/drivers/net/bonding/bond_main.c
+index b7f1a99..c4c511a 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2129,7 +2129,9 @@ static void bond_miimon_commit(struct bonding *bond)
+                         continue;
+
+                 case BOND_LINK_UP:
+-                       bond_update_speed_duplex(slave);
++                       if (slave->speed == SPEED_UNKNOWN)
++                               bond_update_speed_duplex(slave);
 +
- int bnxt_hwrm_set_coal(struct bnxt *bp)
- {
- 	int i, rc = 0;
-@@ -3553,15 +3568,8 @@ int bnxt_hwrm_set_coal(struct bnxt *bp)
- 	if (bp->rx_coal_ticks < 25)
- 		flags |= RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_RING_IDLE;
- 
--	req.flags = cpu_to_le16(flags);
--	req.num_cmpl_dma_aggr = cpu_to_le16(max_buf);
--	req.num_cmpl_dma_aggr_during_int = cpu_to_le16(max_buf_irq);
--	req.cmpl_aggr_dma_tmr = cpu_to_le16(buf_tmr);
--	req.cmpl_aggr_dma_tmr_during_int = cpu_to_le16(buf_tmr_irq);
--	/* Minimum time between 2 interrupts set to buf_tmr x 2 */
--	req.int_lat_tmr_min = cpu_to_le16(buf_tmr * 2);
--	req.int_lat_tmr_max = cpu_to_le16(buf_tmr * 4);
--	req.num_cmpl_aggr_int = cpu_to_le16(max_buf * 4);
-+	bnxt_hwrm_set_coal_params(bp, max_buf_irq << 16 | max_buf,
-+				  buf_tmr_irq << 16 | buf_tmr, flags, &req);
- 
- 	mutex_lock(&bp->hwrm_cmd_lock);
- 	for (i = 0; i < bp->cp_nr_rings; i++) {
--- 
-1.8.3.1
+                         bond_set_slave_link_state(slave, BOND_LINK_UP,
+BOND_SLAVE_NOTIFY_NOW);
+                         slave->last_link_up = jiffies;
+
+Best Regards!
+Zhu Yanjun
