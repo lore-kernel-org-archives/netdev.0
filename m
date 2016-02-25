@@ -1,32 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: jme: fix suspend/resume on JMC260
-Date: Wed, 24 Feb 2016 23:58:56 -0500 (EST)
-Message-ID: <20160224.235856.242530723940439026.davem@davemloft.net>
-References: <1456239844-4109-1-git-send-email-diego.viola@gmail.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next RFC] rtnetlink: add new RTM_GETSTATS to dump
+ link stats
+Date: Wed, 24 Feb 2016 20:59:33 -0800
+Message-ID: <56CE8A35.4090503@cumulusnetworks.com>
+References: <1456207293-36903-1-git-send-email-roopa@cumulusnetworks.com> <9B0331B6EBBD0E4684FBFAEDA55776F92CB7E894@HASMSX110.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: cooldavid@cooldavid.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, richard.weinberger@gmail.com,
-	pavel@ucw.cz, rjw@rjwysocki.net, valdis.kletnieks@vt.edu
-To: diego.viola@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456239844-4109-1-git-send-email-diego.viola@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jhs@mojatatu.com" <jhs@mojatatu.com>
+To: "Rosen, Rami" <rami.rosen@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:32866 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758564AbcBYE7f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 23:59:35 -0500
+Received: by mail-pf0-f178.google.com with SMTP id q63so25930405pfb.0
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 20:59:35 -0800 (PST)
+In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F92CB7E894@HASMSX110.ger.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Diego Viola <diego.viola@gmail.com>
-Date: Tue, 23 Feb 2016 12:04:04 -0300
-
-> The JMC260 network card fails to suspend/resume because the call to
-> jme_start_irq() was too early, moving the call to jme_start_irq() after
-> the call to jme_reset_link() makes it work.
-> 
-> Prior this change suspend/resume would fail unless /sys/power/pm_async=0
-> was explicitly specified.
-> 
-> Relevant bug report: https://bugzilla.kernel.org/show_bug.cgi?id=112351
-> 
-> Signed-off-by: Diego Viola <diego.viola@gmail.com>
-
-Applied and queued up for -stable, thanks.
+On 2/23/16, 1:26 AM, Rosen, Rami wrote:
+> Hi,
+>
+> +	if (!dev)
+> +		return -ENODEV;
+> +
+> +	nskb = nlmsg_new(if_nlmsg_stats_size(dev), GFP_KERNEL);
+> +	if (!nskb)
+> +		return -ENOBUFS;
+> +
+> +	err = rtnl_fill_statsinfo(nskb, dev, RTM_NEWSTATS,
+> +				  NETLINK_CB(skb).portid, nlh->nlmsg_seq, 0, 0);
+> +	if (err < 0) {
+>
+> It should be here:  -EMSGSIZE implies BUG in if_nlmsg_stats_size  (instead of if_nlmsg_size)
+>
+> +		/* -EMSGSIZE implies BUG in if_nlmsg_size */
+> +		WARN_ON(err == -EMSGSIZE);
+> +		kfree_skb(nskb);
+> +	} else {
+> +		err = rtnl_unicast(nskb, net, NETLINK_CB(skb).portid);
+> +	}
+>
+>
+> Other than that, it seems ok, thanks for this patch!
+>
+>
+will fix it, thanks for the review.
