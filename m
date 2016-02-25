@@ -1,7 +1,7 @@
 From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net-next V2 10/16] net: fec: clear cbd_sc after transmission to help with debugging
-Date: Wed, 24 Feb 2016 17:36:53 -0700
-Message-ID: <1456360619-24390-11-git-send-email-troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next V2 05/16] net: fec: split off napi routine with 3 queues
+Date: Wed, 24 Feb 2016 17:36:48 -0700
+Message-ID: <1456360619-24390-6-git-send-email-troy.kisky@boundarydevices.com>
 References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
 Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
@@ -11,36 +11,87 @@ Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	arnd@arndb.de, Troy Kisky <troy.kisky@boundarydevices.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:33407 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758855AbcBYAkf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 19:40:35 -0500
-Received: by mail-pf0-f173.google.com with SMTP id q63so22265655pfb.0
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 16:40:34 -0800 (PST)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:35315 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758264AbcBYAkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 19:40:20 -0500
+Received: by mail-pf0-f181.google.com with SMTP id c10so23032478pfc.2
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 16:40:20 -0800 (PST)
 In-Reply-To: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the tx queue is dumped, it is easier to see that this
-entry is idle.
+If we only have 1 tx/rx queue, we need not check
+the other queues.
 
 Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/freescale/fec_main.c | 39 +++++++++++++++++++++++++++++--
+ 1 file changed, 37 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 1902897..96a0394 100644
+index 4a218b9..610cf6c 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1164,6 +1164,8 @@ static void fec_txq(struct net_device *ndev, struct fec_enet_private *fep,
- 			}
- 			break;
- 		}
-+		bdp->cbd_sc = cpu_to_fec16((bdp == txq->bd.last) ?
-+					   BD_SC_WRAP : 0);
+@@ -1521,7 +1521,7 @@ fec_enet_interrupt(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
  
- 		index = fec_enet_get_bd_index(bdp, &txq->bd);
+-static int fec_enet_rx_napi(struct napi_struct *napi, int budget)
++static int fec_enet_napi_q3(struct napi_struct *napi, int budget)
+ {
+ 	struct net_device *ndev = napi->dev;
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+@@ -1564,6 +1564,39 @@ static int fec_enet_rx_napi(struct napi_struct *napi, int budget)
+ 	return pkts;
+ }
  
++static int fec_enet_napi_q1(struct napi_struct *napi, int budget)
++{
++	struct net_device *ndev = napi->dev;
++	struct fec_enet_private *fep = netdev_priv(ndev);
++	int pkts = 0;
++	uint events;
++
++	do {
++		events = readl(fep->hwp + FEC_IEVENT);
++		if (fep->events) {
++			events |= fep->events;
++			fep->events = 0;
++		}
++		events &= FEC_ENET_RXF_0 | FEC_ENET_TXF_0;
++		if (!events) {
++			if (budget) {
++				napi_complete(napi);
++				writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
++			}
++			return pkts;
++		}
++
++		writel(events, fep->hwp + FEC_IEVENT);
++		if (events & FEC_ENET_RXF_0)
++			pkts += fec_rxq(ndev, fep, fep->rx_queue[0],
++					budget - pkts);
++		if (events & FEC_ENET_TXF_0)
++			fec_txq(ndev, fep, fep->tx_queue[0]);
++	} while (pkts < budget);
++	fep->events |= FEC_ENET_RXF_0;	/* save for next callback */
++	return pkts;
++}
++
+ /* ------------------------------------------------------------------------- */
+ static void fec_get_mac(struct net_device *ndev)
+ {
+@@ -3123,7 +3156,9 @@ static int fec_enet_init(struct net_device *ndev)
+ 	ndev->ethtool_ops = &fec_enet_ethtool_ops;
+ 
+ 	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
+-	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, NAPI_POLL_WEIGHT);
++	netif_napi_add(ndev, &fep->napi, (fep->num_rx_queues |
++		       fep->num_tx_queues) == 1 ? fec_enet_napi_q1 :
++		       fec_enet_napi_q3, NAPI_POLL_WEIGHT);
+ 
+ 	if (fep->quirks & FEC_QUIRK_HAS_VLAN)
+ 		/* enable hw VLAN support */
 -- 
 2.5.0
