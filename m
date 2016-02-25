@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ppp: clarify parsing of user supplied data in
- ppp_set_compress()
-Date: Wed, 24 Feb 2016 23:53:15 -0500 (EST)
-Message-ID: <20160224.235315.1205744186191236308.davem@davemloft.net>
-References: <4765fab0f32c4a2391828b8c418592f4a5bcede6.1456232225.git.g.nault@alphalink.fr>
+Subject: Re: [PATCH v3] net: jme: fix suspend/resume on JMC260
+Date: Wed, 24 Feb 2016 23:58:56 -0500 (EST)
+Message-ID: <20160224.235856.242530723940439026.davem@davemloft.net>
+References: <1456239844-4109-1-git-send-email-diego.viola@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulus@samba.org
-To: g.nault@alphalink.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34466 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758167AbcBYE6F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 23:58:05 -0500
-In-Reply-To: <4765fab0f32c4a2391828b8c418592f4a5bcede6.1456232225.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: cooldavid@cooldavid.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, richard.weinberger@gmail.com,
+	pavel@ucw.cz, rjw@rjwysocki.net, valdis.kletnieks@vt.edu
+To: diego.viola@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1456239844-4109-1-git-send-email-diego.viola@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Tue, 23 Feb 2016 13:59:43 +0100
+From: Diego Viola <diego.viola@gmail.com>
+Date: Tue, 23 Feb 2016 12:04:04 -0300
 
->   * Split big conditional statement.
->   * Check (data.length <= CCP_MAX_OPTION_LENGTH) only once.
->   * Don't read ccp_option[1] if not initialised.
+> The JMC260 network card fails to suspend/resume because the call to
+> jme_start_irq() was too early, moving the call to jme_start_irq() after
+> the call to jme_reset_link() makes it work.
 > 
-> Reading uninitialised ccp_option[1] was harmless, because this could
-> only happen when data.length was 0 or 1. So even then, we couldn't pass
-> the (ccp_option[1] < 2 || ccp_option[1] > data.length) test anyway.
+> Prior this change suspend/resume would fail unless /sys/power/pm_async=0
+> was explicitly specified.
 > 
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+> Relevant bug report: https://bugzilla.kernel.org/show_bug.cgi?id=112351
+> 
+> Signed-off-by: Diego Viola <diego.viola@gmail.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
