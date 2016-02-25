@@ -1,9 +1,11 @@
 From: Peter Zijlstra <peterz@infradead.org>
 Subject: Re: [PATCH net-next 1/3] perf: generalize perf_callchain
-Date: Thu, 25 Feb 2016 17:47:29 +0100
-Message-ID: <20160225164729.GS6356@twins.programming.kicks-ass.net>
+Date: Thu, 25 Feb 2016 17:48:47 +0100
+Message-ID: <20160225164847.GT6356@twins.programming.kicks-ass.net>
 References: <1455767939-2700534-1-git-send-email-ast@fb.com>
  <1455767939-2700534-2-git-send-email-ast@fb.com>
+ <20160225141859.GM6357@twins.programming.kicks-ass.net>
+ <56CF2DCE.5010501@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -16,30 +18,33 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 To: Alexei Starovoitov <ast@fb.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1455767939-2700534-2-git-send-email-ast@fb.com>
+In-Reply-To: <56CF2DCE.5010501@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 17, 2016 at 07:58:57PM -0800, Alexei Starovoitov wrote:
-> +static inline int perf_callchain_store(struct perf_callchain_entry *entry, u64 ip)
->  {
-> +	if (entry->nr < PERF_MAX_STACK_DEPTH) {
->  		entry->ip[entry->nr++] = ip;
-> +		return 0;
-> +	} else {
-> +		return -1; /* no more room, stop walking the stack */
-> +	}
->  }
+On Thu, Feb 25, 2016 at 08:37:34AM -0800, Alexei Starovoitov wrote:
+> On 2/25/16 6:18 AM, Peter Zijlstra wrote:
 
-Why 0 and -1 ?
+> >>  arch/x86/include/asm/stacktrace.h |  2 +-
+> >>  arch/x86/kernel/cpu/perf_event.c  |  4 ++--
+> >>  arch/x86/kernel/dumpstack.c       |  6 ++++--
+> >>  arch/x86/kernel/stacktrace.c      | 18 +++++++++++-------
+> >>  arch/x86/oprofile/backtrace.c     |  3 ++-
+> >>  include/linux/perf_event.h        | 13 +++++++++++--
+> >>  kernel/events/callchain.c         | 32 ++++++++++++++++++++------------
+> >>  kernel/events/internal.h          |  2 --
+> >>  8 files changed, 51 insertions(+), 29 deletions(-)
+> >
+> >And at the very least this should have had a note that it doesn't break
+> >all the other archs that implement perf-callchain stuff.
+> 
+> the cross-arch interface is two weak functions
+> perf_callchain_kernel() and perf_callchain_user()
+> and back into generic via perf_callchain_store().
+> Nothing changes there. The code speaks for itself.
+> "non-x86 archs are not broken" would be a silly comment.
 
-What's wrong with something like:
+No, a diffstat like that immediately makes me wonder if you've even
+bothered looking at !x86.
 
-static inline bool perf_callchain_store(struct perf_callchain_entry *entry, u64 ip)
-{
-	if (entry->nr < PERF_MAX_STACK_DEPTH) {
-		entry->ip[entry->nr++] = ip;
-		return true;
-	}
-	return false;
-}
+A statement to this effect would've shown you did indeed consider it.
