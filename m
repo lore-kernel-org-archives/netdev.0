@@ -1,110 +1,85 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 0/9] Introduce devlink interface and first
- drivers to use it
-Date: Thu, 25 Feb 2016 23:58:03 +0100
-Message-ID: <20160225225803.GA2191@nanopsycho.orion>
-References: <1456242694-29463-1-git-send-email-jiri@resnulli.us>
- <20160225.151247.479900417232368503.davem@davemloft.net>
- <56CF67BB.70901@stressinduktion.org>
- <20160225211256.GA2164@nanopsycho.orion>
- <56CF77DA.7050602@stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
-	ogerlitz@mellanox.com, yishaih@mellanox.com, dledford@redhat.com,
-	sean.hefty@intel.com, hal.rosenstock@gmail.com,
-	eugenia@mellanox.com, roopa@cumulusnetworks.com,
-	nikolay@cumulusnetworks.com, hadarh@mellanox.com, jhs@mojatatu.com,
-	john.fastabend@gmail.com, jeffrey.t.kirsher@intel.com,
-	brouer@redhat.com, ivecera@redhat.com, rami.rosen@intel.com,
-	gospo@cumulusnetworks.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Josh Poimboeuf <jpoimboe@redhat.com>
+Subject: [PATCH v18 4/9] bpf: Mark __bpf_prog_run() stack frame as non-standard
+Date: Thu, 25 Feb 2016 16:57:11 -0600
+Message-ID: <b0af7c390e12e689ed109308888909138f04cc42.1456440439.git.jpoimboe@redhat.com>
+References: <cover.1456440439.git.jpoimboe@redhat.com>
+Cc: linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
+	Michal Marek <mmarek@suse.cz>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Andy Lutomirski <luto@kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Pedro Alves <palves@redhat.com>,
+	Namhyung Kim <namhyung@gmail.com>,
+	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
+	Chris J Arges <chris.j.arges@canonical.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jiri Slaby <jslaby@suse.cz>,
+	Arnaldo Carvalho de Melo <acme@kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:35916 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752409AbcBYW6G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 17:58:06 -0500
-Received: by mail-wm0-f41.google.com with SMTP id g62so50185218wme.1
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 14:58:06 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <56CF77DA.7050602@stressinduktion.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48964 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752306AbcBYW5n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 17:57:43 -0500
+In-Reply-To: <cover.1456440439.git.jpoimboe@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Feb 25, 2016 at 10:53:30PM CET, hannes@stressinduktion.org wrote:
->On 25.02.2016 22:12, Jiri Pirko wrote:
->>Thu, Feb 25, 2016 at 09:44:43PM CET, hannes@stressinduktion.org wrote:
->>>On 25.02.2016 21:12, David Miller wrote:
->>>>From: Jiri Pirko <jiri@resnulli.us>
->>>>Date: Tue, 23 Feb 2016 16:51:25 +0100
->>>>
->>>>>There a is need for some userspace API that would allow to expose things
->>>>>that are not directly related to any device class like net_device of
->>>>>ib_device, but rather chip-wide/switch-ASIC-wide stuff.
->>>>>
->>>>>Use cases:
->>>>>1) get/set of port type (Ethernet/InfiniBand)
->>>>>2) setting up port splitters - split port into multiple ones and squash again,
->>>>>    enables usage of splitter cable
->>>>>3) setting up shared buffers - shared among multiple ports within
->>>>>    one chip (work in progress)
->>>>>4) configuration of switch wide properties - resources division etc - This will
->>>>>    allow to pass configuration that is unacceptable to be passed as
->>>>>    a module option.
->>>>>
->>>>>First patch of this set introduces a new generic Netlink based interface,
->>>>>called "devlink". It is similar to nl80211 model and it is heavily
->>>>>influenced by it, including the API definition. The devlink introduction patch
->>>>>implements use cases 1) and 2). Other 2 are in development atm and will
->>>>>be addressed by follow-ups.
->>>>>
->>>>>It is very convenient for drivers to use devlink, as you can see in other
->>>>>patches in this set.
->>>>>
->>>>>Counterpart for devlink is userspace tool for now called "dl". Command line
->>>>>interface and outputs are derived from "ip" tool so it should be easy
->>>>>for users to get used to it.
->>>>
->>>>I am very close to applying this series as-is.
->>>>
->>>>The clincher for me is that there is precendence in the nl80211 stuff,
->>>>so obviously whatever userland infrastructure sits on top of that has
->>>>found a way to deal whatever perceived shortcomings devlink has.
->>>
->>>Actually nl80211 phy interfaces aren't really managed by wpa_supplicant nor
->>>NetworkManager, but they use net_device names to discover those later on. In
->>>devlink we don't necessarily have netdev names, thus my only objection to
->>>this series is to switch to stable topology identifiers.
->>
->>Hannes, as I mentioned earlier in one of my replies, you can choose to
->>use devlink name or pci (or other) address for your commands. So you
->>have your stable names even before udev takes care of renaming. It's up
->>to you as a user what handle to use.
->
->I understood that part from the beginning. In my opinion we should simply
->keep APIs simple and clean, reduced to the minimum and let user space build
->upon this.
->
->If an entity in the kernel doesn't need a name and/or a naming database, I
->would not bother implementing it. Not everyone is a kernel developer who uses
->Linux and can infer the problems from dl --help. I bet most users will use
->names at some point in time and they simply can't match even with the udev
->quirks in place when setting up netbooting or configuration must happen from
->the currently provided initramfs. This is my point.
->
->If names are fragile to use simply don't provide it if not necessary.
->
->devlink is an interface of its own and the names won't be referenced by other
->subsystems like iptables -i <name> or iproute. So why bother with names in
->the kernel?
->
->On the rest with netlink etc. I agree already. I just want to eliminate
->possible mistakes by users.
->
->Hope that makes my point more clear,
+objtool reports the following false positive warnings:
 
-Okay. You convinced me. Will send v3 removing in-kernel naming and
-indexing of devlinks and will only use bus type and bus name as a handle.
+  objtool: kernel/bpf/core.o: __bpf_prog_run()+0x5c: sibling call from callable instruction with changed frame pointer
+  objtool: kernel/bpf/core.o: __bpf_prog_run()+0x60: function has unreachable instruction
+  objtool: kernel/bpf/core.o: __bpf_prog_run()+0x64: function has unreachable instruction
+  [...]
 
-Thanks.
+It's confused by the following dynamic jump instruction in
+__bpf_prog_run()::
+
+  jmp     *(%r12,%rax,8)
+
+which corresponds to the following line in the C code:
+
+  goto *jumptable[insn->code];
+
+There's no way for objtool to deterministically find all possible
+branch targets for a dynamic jump, so it can't verify this code.
+
+In this case the jumps all stay within the function, and there's nothing
+unusual going on related to the stack, so we can whitelist the function.
+
+Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Cc: netdev@vger.kernel.org
+---
+ kernel/bpf/core.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 972d9a8..be0abf6 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -27,6 +27,7 @@
+ #include <linux/random.h>
+ #include <linux/moduleloader.h>
+ #include <linux/bpf.h>
++#include <linux/frame.h>
+ 
+ #include <asm/unaligned.h>
+ 
+@@ -649,6 +650,7 @@ load_byte:
+ 		WARN_RATELIMIT(1, "unknown opcode %02x\n", insn->code);
+ 		return 0;
+ }
++STACK_FRAME_NON_STANDARD(__bpf_prog_run); /* jump table */
+ 
+ bool bpf_prog_array_compatible(struct bpf_array *array,
+ 			       const struct bpf_prog *fp)
+-- 
+2.4.3
