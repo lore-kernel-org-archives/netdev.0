@@ -1,94 +1,79 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH 3/4] net: sched: cls_u32 add bit to specify software
- only rules
-Date: Thu, 25 Feb 2016 13:56:11 -0800
-Message-ID: <56CF787B.2070505@gmail.com>
-References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810> <20160223190321.5970.58924.stgit@john-Precision-Tower-5810> <56CDB0B0.4080609@mojatatu.com> <56CE7D37.9000701@gmail.com> <56CEFA03.3080802@mojatatu.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next v2 00/15][pull request] 1GbE Intel Wired LAN Driver
+ Updates 2016-02-24
+Date: Thu, 25 Feb 2016 13:59:11 -0800
+Message-ID: <1456437551.2969.6.camel@intel.com>
+References: <1456366502-132841-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <CAJ3xEMivnEF=xxvp32_UaE2j5v5x8qeO=5of0y4GZOmAe96Hcw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-	davem@davemloft.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>, jiri@resnulli.us,
-	daniel@iogearbox.net
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-U1Wk2+3CXl0dIhAjacto"
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>, john.ronciak@intel.com
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35324 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750765AbcBYV4Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 16:56:24 -0500
-Received: by mail-pa0-f46.google.com with SMTP id ho8so39935976pac.2
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 13:56:24 -0800 (PST)
-In-Reply-To: <56CEFA03.3080802@mojatatu.com>
+Received: from mga02.intel.com ([134.134.136.20]:57700 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750765AbcBYV7M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 16:59:12 -0500
+In-Reply-To: <CAJ3xEMivnEF=xxvp32_UaE2j5v5x8qeO=5of0y4GZOmAe96Hcw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-25 04:56 AM, Jamal Hadi Salim wrote:
-> On 16-02-24 11:04 PM, John Fastabend wrote:
->> On 16-02-24 05:31 AM, Jamal Hadi Salim wrote:
-> 
->> I think this is absolutely necessary not only for performance of
->> reporting the rules back to software but if we don't do it generically
->> the driver will have to do it anyways because doing the inverse
->> transformation from hw implementation to u32 is really tricky and in
->> fact with hnodes and knodes there are multiple cls_u32 "programs" that
->> functionally are the same so we have no way to return what the user
->> actually programmed without it. Further eBPF (the next classifier I'm
->> working on) is even worse in this regard.
-> 
-> Ok, I guess there are multiple use cases for it ;->
-> Yes, with ebpf it will be worse because data and instructions are
-> inter- mingled (and our interest is in data only). Note:
-> Over the years this has been a big struggle for human
-> friendliness. I thought we didnt care about humans (as in automation)
-> but you are saying this will affect machines too ;-> We cant allow
-> that ;->
-> 
-> Note: You could decode u32 descriptions but it is an involved effort.
-> Example, see this feature in tc:
-> ---
-> jhs@jhs1 tc -pretty filter ls dev $ETH parent ffff: protocol ip
-> filter pref 11 u32
-> filter pref 11 u32 fh 800: ht divisor 1
-> filter pref 11 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:1
->   match IP src 10.0.0.130/32
->     action order 1: gact action drop
->      random type none pass val 0
->      index 1 ref 1 bind 1
-> ----
 
-decoding that is not a problem. The ixgbe driver code already applied
-can decode that without much trouble. The thing I want to avoid is
-requiring my driver to do the inverse translation because although it
-is possible its entirely unnecessary.
+--=-U1Wk2+3CXl0dIhAjacto
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-To do the above example without a software cache for example
-means I read out row 2048 of a hardware table then you get a bunch of
-bits. From those bits I consult what fields are being loaded into
-the table in the packet processing pipeline. I learn its the src_ip
-fields then I have the value/mask and can unwind it. Finally if I
-collapsed some hash tables onto this hardware table I have to do the
-inverse of my collapsing scheme. The ixgbe one is sort of simple just
-because I only have one table in hardware but with multiple tables
-its a bit more difficult. Finally I've unwound the thing and can
-print something back out of 'tc' but it seems easier to just cache
-the hardware rules somewhere. Maybe other driver/hardware will have
-a different opinion though depending on how much your firmware can
-store and how ambitious you are. Personally I don't see any need
-for the above code.
+On Thu, 2016-02-25 at 09:45 +0200, Or Gerlitz wrote:
+> On Thu, Feb 25, 2016 at 4:14 AM, Jeff Kirsher
+> <jeffrey.t.kirsher@intel.com> wrote:
+> > v2: Dropped patches 6-10 in the original series.=C2=A0 Patch 6-7 added
+> support
+> >=C2=A0=C2=A0=C2=A0=C2=A0 for character device for AVB and based on commu=
+nity feedback,
+> we do not
+> >=C2=A0=C2=A0=C2=A0=C2=A0 want to do this.=C2=A0 Patches 8-10 provided fi=
+xes to the
+> problematic code
+> >=C2=A0=C2=A0=C2=A0=C2=A0 added in patches 6 & 7.=C2=A0 So all of them mu=
+st go!
+>=20
+> Jeff,
+>=20
+> Did you had special reason not to squash patches 8-10 into 6-7 in the
+> 1st place?
 
-> See that "match" field reading in anglais? It requires more and more
-> additions of pretty printers that translate back.
-> 
-> What about adding some tag to allow for easy "babel translation"?
-> 
+Well is all water under the bridge now, but I had thought of just
+merging Julia's patches into Gangfeng's original series, the only
+reason I did not was that the fixes were not by the original author, so
+Julia would have lost the recognition for fixes. =C2=A0Had the the original
+series not compiled or was functionally broken, I would have required
+Gangfeng to re-spin the original series.
+--=-U1Wk2+3CXl0dIhAjacto
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-not sure what this would be...
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
->> You can see my solution to
->> this "load in hardware" filter list in patch 4/4. See Jiri's comment
->> also on that and see if you agree.
-> 
-> Ok, will do.
-> 
-> cheers,
-> jamal
+iQIcBAABCgAGBQJWz3kvAAoJEOVv75VaS+3O6dwP/28rq16esbWe1TYxt2uhgJRa
+425vNTVlTtoJUm6w8aG3fFHUt2C0EPi+1y7tRw3YQnj+9wPdh93jRSaRWZ7mWQCV
+GpZWOl9d9/PhukstjNFzpFsVHH0P/Bu7wYZ8eiSv1tWhkDc55W8ISVXDrPRQlhAf
+2phFtptUTGfl0PJuQVbWdOivAsC3EOF0bACTJbkIw9YLdal8e8Jl+FG6gE7snOwi
+8/95GhJXqIQXj5B2qy8IJI7FTK4Fh3uGtoj4iMwUkI0T1ODIK/lhR8RncjbbV4nJ
+vmtyKGMPVYj6sFISdWSWgZM+jgXgQh70VGyy24dl/VoqtBelJQk9Xrsr1Dy7PXn+
+sY9xGKgkfRbGZeIKtA2OZ6zjA/soFLrY0emnyuFrbJOiyEflMCYsPllvgAG98Wyc
+c4RVlM55Ppv69iteC0o3kTNSDX03Ba/gK4H5tAjxd4k6JBGqeoULrXzuvCMg2L2N
+nkOc3ZGMalkJRIBMjubHNkWl+PO0TjcF89sLvf/L3MEwpAjMUNbIIjuQdYMJK+LX
+1t0qCBP+u9ls5E2HCVVaVeF0w8V1Cwjbd4NC9fWVkS2VGpRBxu253BS55/J5Ictd
+mMOyKV8fllcRN+WEoI0WnBkuNdbidX4AD2dPDseFFeM5s1cX0+BTWczlv9rmLLpt
+ymsg0ChUCF4XZx0Nf4Rw
+=fCJD
+-----END PGP SIGNATURE-----
+
+--=-U1Wk2+3CXl0dIhAjacto--
