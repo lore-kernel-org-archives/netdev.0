@@ -1,293 +1,110 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next v3 1/4] net_sched: introduce qdisc_replace() helper
-Date: Thu, 25 Feb 2016 14:55:00 -0800
-Message-ID: <1456440903-32335-2-git-send-email-xiyou.wangcong@gmail.com>
-References: <1456440903-32335-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 0/9] Introduce devlink interface and first
+ drivers to use it
+Date: Thu, 25 Feb 2016 23:58:03 +0100
+Message-ID: <20160225225803.GA2191@nanopsycho.orion>
+References: <1456242694-29463-1-git-send-email-jiri@resnulli.us>
+ <20160225.151247.479900417232368503.davem@davemloft.net>
+ <56CF67BB.70901@stressinduktion.org>
+ <20160225211256.GA2164@nanopsycho.orion>
+ <56CF77DA.7050602@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+	ogerlitz@mellanox.com, yishaih@mellanox.com, dledford@redhat.com,
+	sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	eugenia@mellanox.com, roopa@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com, hadarh@mellanox.com, jhs@mojatatu.com,
+	john.fastabend@gmail.com, jeffrey.t.kirsher@intel.com,
+	brouer@redhat.com, ivecera@redhat.com, rami.rosen@intel.com,
+	gospo@cumulusnetworks.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34337 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751741AbcBYWzM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 17:55:12 -0500
-Received: by mail-pa0-f46.google.com with SMTP id fy10so39516542pac.1
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 14:55:12 -0800 (PST)
-In-Reply-To: <1456440903-32335-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:35916 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752409AbcBYW6G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 17:58:06 -0500
+Received: by mail-wm0-f41.google.com with SMTP id g62so50185218wme.1
+        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 14:58:06 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <56CF77DA.7050602@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove nearly duplicated code and prepare for the following patch.
+Thu, Feb 25, 2016 at 10:53:30PM CET, hannes@stressinduktion.org wrote:
+>On 25.02.2016 22:12, Jiri Pirko wrote:
+>>Thu, Feb 25, 2016 at 09:44:43PM CET, hannes@stressinduktion.org wrote:
+>>>On 25.02.2016 21:12, David Miller wrote:
+>>>>From: Jiri Pirko <jiri@resnulli.us>
+>>>>Date: Tue, 23 Feb 2016 16:51:25 +0100
+>>>>
+>>>>>There a is need for some userspace API that would allow to expose things
+>>>>>that are not directly related to any device class like net_device of
+>>>>>ib_device, but rather chip-wide/switch-ASIC-wide stuff.
+>>>>>
+>>>>>Use cases:
+>>>>>1) get/set of port type (Ethernet/InfiniBand)
+>>>>>2) setting up port splitters - split port into multiple ones and squash again,
+>>>>>    enables usage of splitter cable
+>>>>>3) setting up shared buffers - shared among multiple ports within
+>>>>>    one chip (work in progress)
+>>>>>4) configuration of switch wide properties - resources division etc - This will
+>>>>>    allow to pass configuration that is unacceptable to be passed as
+>>>>>    a module option.
+>>>>>
+>>>>>First patch of this set introduces a new generic Netlink based interface,
+>>>>>called "devlink". It is similar to nl80211 model and it is heavily
+>>>>>influenced by it, including the API definition. The devlink introduction patch
+>>>>>implements use cases 1) and 2). Other 2 are in development atm and will
+>>>>>be addressed by follow-ups.
+>>>>>
+>>>>>It is very convenient for drivers to use devlink, as you can see in other
+>>>>>patches in this set.
+>>>>>
+>>>>>Counterpart for devlink is userspace tool for now called "dl". Command line
+>>>>>interface and outputs are derived from "ip" tool so it should be easy
+>>>>>for users to get used to it.
+>>>>
+>>>>I am very close to applying this series as-is.
+>>>>
+>>>>The clincher for me is that there is precendence in the nl80211 stuff,
+>>>>so obviously whatever userland infrastructure sits on top of that has
+>>>>found a way to deal whatever perceived shortcomings devlink has.
+>>>
+>>>Actually nl80211 phy interfaces aren't really managed by wpa_supplicant nor
+>>>NetworkManager, but they use net_device names to discover those later on. In
+>>>devlink we don't necessarily have netdev names, thus my only objection to
+>>>this series is to switch to stable topology identifiers.
+>>
+>>Hannes, as I mentioned earlier in one of my replies, you can choose to
+>>use devlink name or pci (or other) address for your commands. So you
+>>have your stable names even before udev takes care of renaming. It's up
+>>to you as a user what handle to use.
+>
+>I understood that part from the beginning. In my opinion we should simply
+>keep APIs simple and clean, reduced to the minimum and let user space build
+>upon this.
+>
+>If an entity in the kernel doesn't need a name and/or a naming database, I
+>would not bother implementing it. Not everyone is a kernel developer who uses
+>Linux and can infer the problems from dl --help. I bet most users will use
+>names at some point in time and they simply can't match even with the udev
+>quirks in place when setting up netbooting or configuration must happen from
+>the currently provided initramfs. This is my point.
+>
+>If names are fragile to use simply don't provide it if not necessary.
+>
+>devlink is an interface of its own and the names won't be referenced by other
+>subsystems like iptables -i <name> or iproute. So why bother with names in
+>the kernel?
+>
+>On the rest with netlink etc. I agree already. I just want to eliminate
+>possible mistakes by users.
+>
+>Hope that makes my point more clear,
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- include/net/sch_generic.h | 17 +++++++++++++++++
- net/sched/sch_cbq.c       |  7 +------
- net/sched/sch_drr.c       |  6 +-----
- net/sched/sch_dsmark.c    |  8 +-------
- net/sched/sch_hfsc.c      |  6 +-----
- net/sched/sch_htb.c       |  9 +--------
- net/sched/sch_multiq.c    |  8 +-------
- net/sched/sch_netem.c     | 10 +---------
- net/sched/sch_prio.c      |  8 +-------
- net/sched/sch_qfq.c       |  6 +-----
- net/sched/sch_red.c       |  7 +------
- net/sched/sch_sfb.c       |  7 +------
- net/sched/sch_tbf.c       |  8 +-------
- 13 files changed, 29 insertions(+), 78 deletions(-)
+Okay. You convinced me. Will send v3 removing in-kernel naming and
+indexing of devlinks and will only use bus type and bus name as a handle.
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 636a362..8fdad9f 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -707,6 +707,23 @@ static inline void qdisc_reset_queue(struct Qdisc *sch)
- 	sch->qstats.backlog = 0;
- }
- 
-+static inline struct Qdisc *qdisc_replace(struct Qdisc *sch, struct Qdisc *new,
-+					  struct Qdisc **pold)
-+{
-+	struct Qdisc *old;
-+
-+	sch_tree_lock(sch);
-+	old = *pold;
-+	*pold = new;
-+	if (old != NULL) {
-+		qdisc_tree_decrease_qlen(old, old->q.qlen);
-+		qdisc_reset(old);
-+	}
-+	sch_tree_unlock(sch);
-+
-+	return old;
-+}
-+
- static inline unsigned int __qdisc_queue_drop(struct Qdisc *sch,
- 					      struct sk_buff_head *list)
- {
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index c538d9e..7f8474c 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -1624,13 +1624,8 @@ static int cbq_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 			new->reshape_fail = cbq_reshape_fail;
- #endif
- 	}
--	sch_tree_lock(sch);
--	*old = cl->q;
--	cl->q = new;
--	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
--	qdisc_reset(*old);
--	sch_tree_unlock(sch);
- 
-+	*old = qdisc_replace(sch, new, &cl->q);
- 	return 0;
- }
- 
-diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-index a1cd778..b96c9a8 100644
---- a/net/sched/sch_drr.c
-+++ b/net/sched/sch_drr.c
-@@ -226,11 +226,7 @@ static int drr_graft_class(struct Qdisc *sch, unsigned long arg,
- 			new = &noop_qdisc;
- 	}
- 
--	sch_tree_lock(sch);
--	drr_purge_queue(cl);
--	*old = cl->qdisc;
--	cl->qdisc = new;
--	sch_tree_unlock(sch);
-+	*old = qdisc_replace(sch, new, &cl->qdisc);
- 	return 0;
- }
- 
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index f357f34..cfddb1c 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -73,13 +73,7 @@ static int dsmark_graft(struct Qdisc *sch, unsigned long arg,
- 			new = &noop_qdisc;
- 	}
- 
--	sch_tree_lock(sch);
--	*old = p->q;
--	p->q = new;
--	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
--	qdisc_reset(*old);
--	sch_tree_unlock(sch);
--
-+	*old = qdisc_replace(sch, new, &p->q);
- 	return 0;
- }
- 
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index b7ebe2c..089f3b6 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1215,11 +1215,7 @@ hfsc_graft_class(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 			new = &noop_qdisc;
- 	}
- 
--	sch_tree_lock(sch);
--	hfsc_purge_queue(sch, cl);
--	*old = cl->qdisc;
--	cl->qdisc = new;
--	sch_tree_unlock(sch);
-+	*old = qdisc_replace(sch, new, &cl->qdisc);
- 	return 0;
- }
- 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 15ccd7f..0efbcf3 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1163,14 +1163,7 @@ static int htb_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 				     cl->common.classid)) == NULL)
- 		return -ENOBUFS;
- 
--	sch_tree_lock(sch);
--	*old = cl->un.leaf.q;
--	cl->un.leaf.q = new;
--	if (*old != NULL) {
--		qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
--		qdisc_reset(*old);
--	}
--	sch_tree_unlock(sch);
-+	*old = qdisc_replace(sch, new, &cl->un.leaf.q);
- 	return 0;
- }
- 
-diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
-index 4e904ca..a0103a1 100644
---- a/net/sched/sch_multiq.c
-+++ b/net/sched/sch_multiq.c
-@@ -303,13 +303,7 @@ static int multiq_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 	if (new == NULL)
- 		new = &noop_qdisc;
- 
--	sch_tree_lock(sch);
--	*old = q->queues[band];
--	q->queues[band] = new;
--	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
--	qdisc_reset(*old);
--	sch_tree_unlock(sch);
--
-+	*old = qdisc_replace(sch, new, &q->queues[band]);
- 	return 0;
- }
- 
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 5abd1d9..0a6ddaf 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -1037,15 +1037,7 @@ static int netem_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- {
- 	struct netem_sched_data *q = qdisc_priv(sch);
- 
--	sch_tree_lock(sch);
--	*old = q->qdisc;
--	q->qdisc = new;
--	if (*old) {
--		qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
--		qdisc_reset(*old);
--	}
--	sch_tree_unlock(sch);
--
-+	*old = qdisc_replace(sch, new, &q->qdisc);
- 	return 0;
- }
- 
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index ba6487f..1b4aaec 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -268,13 +268,7 @@ static int prio_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 	if (new == NULL)
- 		new = &noop_qdisc;
- 
--	sch_tree_lock(sch);
--	*old = q->queues[band];
--	q->queues[band] = new;
--	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
--	qdisc_reset(*old);
--	sch_tree_unlock(sch);
--
-+	*old = qdisc_replace(sch, new, &q->queues[band]);
- 	return 0;
- }
- 
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index 3dc3a6e..b5c52ca 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -617,11 +617,7 @@ static int qfq_graft_class(struct Qdisc *sch, unsigned long arg,
- 			new = &noop_qdisc;
- 	}
- 
--	sch_tree_lock(sch);
--	qfq_purge_queue(cl);
--	*old = cl->qdisc;
--	cl->qdisc = new;
--	sch_tree_unlock(sch);
-+	*old = qdisc_replace(sch, new, &cl->qdisc);
- 	return 0;
- }
- 
-diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
-index 6c0534c..d5abcee 100644
---- a/net/sched/sch_red.c
-+++ b/net/sched/sch_red.c
-@@ -313,12 +313,7 @@ static int red_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 	if (new == NULL)
- 		new = &noop_qdisc;
- 
--	sch_tree_lock(sch);
--	*old = q->qdisc;
--	q->qdisc = new;
--	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
--	qdisc_reset(*old);
--	sch_tree_unlock(sch);
-+	*old = qdisc_replace(sch, new, &q->qdisc);
- 	return 0;
- }
- 
-diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
-index 5bbb633..0e74e55 100644
---- a/net/sched/sch_sfb.c
-+++ b/net/sched/sch_sfb.c
-@@ -606,12 +606,7 @@ static int sfb_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 	if (new == NULL)
- 		new = &noop_qdisc;
- 
--	sch_tree_lock(sch);
--	*old = q->qdisc;
--	q->qdisc = new;
--	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
--	qdisc_reset(*old);
--	sch_tree_unlock(sch);
-+	*old = qdisc_replace(sch, new, &q->qdisc);
- 	return 0;
- }
- 
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index a4afde1..56a1aef 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -502,13 +502,7 @@ static int tbf_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
- 	if (new == NULL)
- 		new = &noop_qdisc;
- 
--	sch_tree_lock(sch);
--	*old = q->qdisc;
--	q->qdisc = new;
--	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
--	qdisc_reset(*old);
--	sch_tree_unlock(sch);
--
-+	*old = qdisc_replace(sch, new, &q->qdisc);
- 	return 0;
- }
- 
--- 
-2.1.0
+Thanks.
