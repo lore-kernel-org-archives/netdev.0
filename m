@@ -1,38 +1,40 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 2/3] bpf: introduce BPF_MAP_TYPE_STACK_TRACE
-Date: Thu, 25 Feb 2016 08:42:40 -0800
-Message-ID: <56CF2F00.2020608@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] bpf_get_stackid() and stack_trace map
+Date: Thu, 25 Feb 2016 11:44:10 -0500 (EST)
+Message-ID: <20160225.114410.2121629360103795168.davem@davemloft.net>
 References: <1455767939-2700534-1-git-send-email-ast@fb.com>
- <1455767939-2700534-3-git-send-email-ast@fb.com>
- <20160225142328.GN6357@twins.programming.kicks-ass.net>
+	<20160220.002505.2066795907514539303.davem@davemloft.net>
+	<20160225142454.GO6357@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Wang Nan <wangnan0@huawei.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Peter Zijlstra <peterz@infradead.org>
+Cc: ast@fb.com, mingo@kernel.org, rostedt@goodmis.org,
+	wangnan0@huawei.com, daniel@iogearbox.net,
+	brendan.d.gregg@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: peterz@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:30242 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759877AbcBYQnu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 11:43:50 -0500
-In-Reply-To: <20160225142328.GN6357@twins.programming.kicks-ass.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42731 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932381AbcBYQoM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 11:44:12 -0500
+In-Reply-To: <20160225142454.GO6357@twins.programming.kicks-ass.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/25/16 6:23 AM, Peter Zijlstra wrote:
->> +	id = hash & (smap->n_buckets - 1);
-> Its not at all clear where the corresponding rcu_read_lock() is at.
->
->> >+	bucket = rcu_dereference(smap->buckets[id]);
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Thu, 25 Feb 2016 15:24:54 +0100
 
-bpf programs of all types are always executing under rcu_read_lock().
-This is fundamental for maps and majority of the helpers
-that's why there is no WARN_ON(rcu_read_lock_held) in this helper,
-since we already have it in many other places.
-The rcu_read_lock() for kprobe type is in trace_call_bpf().
+> On Sat, Feb 20, 2016 at 12:25:05AM -0500, David Miller wrote:
+>> From: Alexei Starovoitov <ast@fb.com>
+>> Date: Wed, 17 Feb 2016 19:58:56 -0800
+>> 
+>> > This patch set introduces new map type to store stack traces and
+>> > corresponding bpf_get_stackid() helper.
+>>  ...
+>> 
+>> Series applied, thanks Alexei.
+> 
+> David, please do not apply perf patches without an ACK from me or mingo.
+
+Sure thing.
