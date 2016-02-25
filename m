@@ -1,7 +1,7 @@
 From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net-next V2 01/16] net: fec: only check queue 0 if RXF_0/TXF_0 interrupt is set
-Date: Wed, 24 Feb 2016 17:36:44 -0700
-Message-ID: <1456360619-24390-2-git-send-email-troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next V2 03/16] net: fec: pass txq to fec_enet_tx_queue instead of queue_id
+Date: Wed, 24 Feb 2016 17:36:46 -0700
+Message-ID: <1456360619-24390-4-git-send-email-troy.kisky@boundarydevices.com>
 References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
 Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
@@ -11,44 +11,70 @@ Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	arnd@arndb.de, Troy Kisky <troy.kisky@boundarydevices.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33171 "EHLO
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:36816 "EHLO
 	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751448AbcBYAkM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 19:40:12 -0500
-Received: by mail-pa0-f47.google.com with SMTP id fl4so21824076pad.0
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 16:40:12 -0800 (PST)
+	with ESMTP id S1751448AbcBYAkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 19:40:16 -0500
+Received: by mail-pa0-f47.google.com with SMTP id yy13so21738059pab.3
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 16:40:16 -0800 (PST)
 In-Reply-To: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before queue 0 was always checked if any queue caused an interrupt.
-It is better to just mark queue 0 if queue 0 has caused an interrupt.
+queue_id is the qid member of struct bufdesc_prop.
 
 Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index bad0ba2..dbac975 100644
+index 9619b9e..c517194 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1534,14 +1534,14 @@ fec_enet_collect_events(struct fec_enet_private *fep, uint int_events)
- 	if (int_events == 0)
- 		return false;
+@@ -1156,25 +1156,18 @@ fec_enet_hwtstamp(struct fec_enet_private *fep, unsigned ts,
+ 	hwtstamps->hwtstamp = ns_to_ktime(ns);
+ }
  
--	if (int_events & FEC_ENET_RXF)
-+	if (int_events & FEC_ENET_RXF_0)
- 		fep->work_rx |= (1 << 2);
- 	if (int_events & FEC_ENET_RXF_1)
- 		fep->work_rx |= (1 << 0);
- 	if (int_events & FEC_ENET_RXF_2)
- 		fep->work_rx |= (1 << 1);
+-static void
+-fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
++static void fec_txq(struct net_device *ndev, struct fec_enet_private *fep,
++		    struct fec_enet_priv_tx_q *txq)
+ {
+-	struct	fec_enet_private *fep;
+ 	struct bufdesc *bdp;
+ 	unsigned short status;
+ 	struct	sk_buff	*skb;
+-	struct fec_enet_priv_tx_q *txq;
+ 	struct netdev_queue *nq;
+ 	int	index = 0;
+ 	int	entries_free;
  
--	if (int_events & FEC_ENET_TXF)
-+	if (int_events & FEC_ENET_TXF_0)
- 		fep->work_tx |= (1 << 2);
- 	if (int_events & FEC_ENET_TXF_1)
- 		fep->work_tx |= (1 << 0);
+-	fep = netdev_priv(ndev);
+-
+-	queue_id = FEC_ENET_GET_QUQUE(queue_id);
+-
+-	txq = fep->tx_queue[queue_id];
+ 	/* get next bdp of dirty_tx */
+-	nq = netdev_get_tx_queue(ndev, queue_id);
++	nq = netdev_get_tx_queue(ndev, txq->bd.qid);
+ 	bdp = txq->dirty_tx;
+ 
+ 	/* get next bdp of dirty_tx */
+@@ -1268,11 +1261,13 @@ static void
+ fec_enet_tx(struct net_device *ndev)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
++	struct fec_enet_priv_tx_q *txq;
+ 	u16 queue_id;
+ 	/* First process class A queue, then Class B and Best Effort queue */
+ 	for_each_set_bit(queue_id, &fep->work_tx, FEC_ENET_MAX_TX_QS) {
+ 		clear_bit(queue_id, &fep->work_tx);
+-		fec_enet_tx_queue(ndev, queue_id);
++		txq = fep->tx_queue[FEC_ENET_GET_QUQUE(queue_id)];
++		fec_txq(ndev, fep, txq);
+ 	}
+ 	return;
+ }
 -- 
 2.5.0
