@@ -1,7 +1,7 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v2 2/5] bridge: notify ensabled devices of headroom changes
-Date: Thu, 25 Feb 2016 12:09:25 +0100
-Message-ID: <a91d24aedd7fb4b5e3e54e997d7289fb3ec3ebb4.1456397229.git.pabeni@redhat.com>
+Subject: [PATCH net-next v2 4/5] net/tun: implement ndo_set_rx_headroom
+Date: Thu, 25 Feb 2016 12:09:27 +0100
+Message-ID: <05747d5a30df9687c458979c4bc40920463895b0.1456397229.git.pabeni@redhat.com>
 References: <cover.1456397229.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>,
@@ -11,95 +11,98 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48825 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38949 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760194AbcBYLJu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2016 06:09:50 -0500
+	id S932326AbcBYLKP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 06:10:15 -0500
 In-Reply-To: <cover.1456397229.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On bridge needed_headroom changes, the enslaved devices are
-notified via the ndo_set_rx_headroom method
+ndo_set_rx_headroom controls the align value used by tun devices to
+allocate skbs on frame reception.
+When the xmit device adds a large encapsulation, this avoids an skb
+head reallocation on forwarding.
+
+The measured improvement when forwarding towards a vxlan dev with
+frame size below the egress device MTU is as follow:
+
+vxlan over ipv6, bridged: +6%
+vxlan over ipv6, ovs: +7%
+
+In case of ipv4 tunnels there is no improvement, since the tun
+device default alignment provides enough headroom to avoid the skb
+head reallocation.
 
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-
 ---
-v1 -> v2:
- - use netdev_set_rx_headroom() to update the br ports headroom
- - reset the dev rx headroom upon dev removal from bridge
+v2: initialize the align value to NET_SKB_PAD
 ---
- net/bridge/br_if.c | 37 +++++++++++++++++++++++++++++++++++--
- 1 file changed, 35 insertions(+), 2 deletions(-)
+ drivers/net/tun.c | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index c367b3e..e0aedc4 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -223,6 +223,31 @@ static void destroy_nbp_rcu(struct rcu_head *head)
- 	destroy_nbp(p);
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 88bb8cc..afdf950 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -187,6 +187,7 @@ struct tun_struct {
+ #define TUN_USER_FEATURES (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
+ 			  NETIF_F_TSO6|NETIF_F_UFO)
+ 
++	int			align;
+ 	int			vnet_hdr_sz;
+ 	int			sndbuf;
+ 	struct tap_filter	txflt;
+@@ -934,6 +935,17 @@ static void tun_poll_controller(struct net_device *dev)
+ 	return;
  }
- 
-+static unsigned get_max_headroom(struct net_bridge *br)
+ #endif
++
++static void tun_set_headroom(struct net_device *dev, int new_hr)
 +{
-+	unsigned max_headroom = 0;
-+	struct net_bridge_port *p;
++	struct tun_struct *tun = netdev_priv(dev);
 +
-+	list_for_each_entry(p, &br->port_list, list) {
-+		unsigned dev_headroom = netdev_get_fwd_headroom(p->dev);
++	if (new_hr < NET_SKB_PAD)
++		new_hr = NET_SKB_PAD;
 +
-+		if (dev_headroom > max_headroom)
-+			max_headroom = dev_headroom;
-+	}
-+
-+	return max_headroom;
++	tun->align = new_hr;
 +}
 +
-+static void update_headroom(struct net_bridge *br, int new_hr)
-+{
-+	struct net_bridge_port *p;
-+
-+	list_for_each_entry(p, &br->port_list, list)
-+		netdev_set_rx_headroom(p->dev, new_hr);
-+
-+	br->dev->needed_headroom = new_hr;
-+}
-+
- /* Delete port(interface) from bridge is done in two steps.
-  * via RCU. First step, marks device as down. That deletes
-  * all the timers and stops new packets from flowing through.
-@@ -248,6 +273,9 @@ static void del_nbp(struct net_bridge_port *p)
- 	br_ifinfo_notify(RTM_DELLINK, p);
+ static const struct net_device_ops tun_netdev_ops = {
+ 	.ndo_uninit		= tun_net_uninit,
+ 	.ndo_open		= tun_net_open,
+@@ -945,6 +957,7 @@ static const struct net_device_ops tun_netdev_ops = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= tun_poll_controller,
+ #endif
++	.ndo_set_rx_headroom	= tun_set_headroom,
+ };
  
- 	list_del_rcu(&p->list);
-+	if (netdev_get_fwd_headroom(dev) == br->dev->needed_headroom)
-+		update_headroom(br, get_max_headroom(br));
-+	netdev_reset_rx_headroom(dev);
+ static const struct net_device_ops tap_netdev_ops = {
+@@ -962,6 +975,7 @@ static const struct net_device_ops tap_netdev_ops = {
+ 	.ndo_poll_controller	= tun_poll_controller,
+ #endif
+ 	.ndo_features_check	= passthru_features_check,
++	.ndo_set_rx_headroom	= tun_set_headroom,
+ };
  
- 	nbp_vlan_flush(p);
- 	br_fdb_delete_by_port(br, p, 0, 1);
-@@ -438,6 +466,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- {
- 	struct net_bridge_port *p;
- 	int err = 0;
-+	unsigned br_hr, dev_hr;
- 	bool changed_addr;
+ static void tun_flow_init(struct tun_struct *tun)
+@@ -1086,7 +1100,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	struct tun_pi pi = { 0, cpu_to_be16(ETH_P_IP) };
+ 	struct sk_buff *skb;
+ 	size_t total_len = iov_iter_count(from);
+-	size_t len = total_len, align = NET_SKB_PAD, linear;
++	size_t len = total_len, align = tun->align, linear;
+ 	struct virtio_net_hdr gso = { 0 };
+ 	int good_linear;
+ 	int copylen;
+@@ -1694,6 +1708,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		tun->txflt.count = 0;
+ 		tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
  
- 	/* Don't allow bridging non-ethernet like devices, or DSA-enabled
-@@ -505,8 +534,12 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
++		tun->align = NET_SKB_PAD;
+ 		tun->filter_attached = false;
+ 		tun->sndbuf = tfile->socket.sk->sk_sndbuf;
  
- 	netdev_update_features(br->dev);
- 
--	if (br->dev->needed_headroom < dev->needed_headroom)
--		br->dev->needed_headroom = dev->needed_headroom;
-+	br_hr = br->dev->needed_headroom;
-+	dev_hr = netdev_get_fwd_headroom(dev);
-+	if (br_hr < dev_hr)
-+		update_headroom(br, dev_hr);
-+	else
-+		netdev_set_rx_headroom(dev, br_hr);
- 
- 	if (br_fdb_insert(br, p, dev->dev_addr, 0))
- 		netdev_err(dev, "failed insert local address bridge forwarding table\n");
 -- 
 1.8.3.1
