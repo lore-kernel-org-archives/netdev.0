@@ -1,52 +1,80 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH v2 1/5] introduce IFE action
-Date: Thu, 25 Feb 2016 17:46:51 -0500
-Message-ID: <56CF845B.7040607@mojatatu.com>
-References: <1456231760-2513-1-git-send-email-jhs@emojatatu.com>
- <1456231760-2513-2-git-send-email-jhs@emojatatu.com>
- <56CDEA6D.1000908@iogearbox.net> <56CEF1A8.3020505@mojatatu.com>
- <56CF7640.2060202@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
-	dj@verizon.com
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next v3 3/4] sch_htb: update backlog as well
+Date: Thu, 25 Feb 2016 14:55:02 -0800
+Message-ID: <1456440903-32335-4-git-send-email-xiyou.wangcong@gmail.com>
+References: <1456440903-32335-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f195.google.com ([209.85.213.195]:33300 "EHLO
-	mail-ig0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750850AbcBYWqx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 17:46:53 -0500
-Received: by mail-ig0-f195.google.com with SMTP id hb3so2293531igb.0
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 14:46:53 -0800 (PST)
-In-Reply-To: <56CF7640.2060202@iogearbox.net>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:32986 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752186AbcBYWzO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 17:55:14 -0500
+Received: by mail-pa0-f43.google.com with SMTP id fl4so39570629pad.0
+        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 14:55:14 -0800 (PST)
+In-Reply-To: <1456440903-32335-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-25 04:46 PM, Daniel Borkmann wrote:
-> On 02/25/2016 01:20 PM, Jamal Hadi Salim wrote:
+We saw qlen!=0 but backlog==0 on our production machine:
 
->> Let me think about it. Likely it will be subsequent patches - I just
->> want to get this set out first.
->
-> Yes, I mean one of the key motivation was "[...] to horizontally scale
-> packet processing at scope of a chasis or rack [...]".
+qdisc htb 1: dev eth0 root refcnt 2 r2q 10 default 1 direct_packets_stat 0 ver 3.17
+ Sent 172680457356 bytes 222469449 pkt (dropped 0, overlimits 123575834 requeues 0)
+ backlog 0b 72p requeues 0
 
+The problem is we only count qlen for HTB qdisc but not backlog.
+We need to update backlog too when we update qlen, so that we
+can at least know the average packet length.
 
-By adding more processing points horizontally. Please read the paper;
-I think we are getting to a point where this discussion is no longer
-productive.
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/sched/sch_htb.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-> So for people
-> who don't have that NIC with embedded Cavium processor, they might
-> already hit scalability issues for encode/decode right there.
->
-
-A lock on a policy that already matches is not a serious
-scaling problem that you need to offload to an embedded NIC.
-Do note the point here is to scale by adding more machines.
-And this shit is deployed and has proven it does scale.
-
-cheers,
-jamal
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 846a7f9..87b02ed3 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -600,6 +600,7 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		htb_activate(q, cl);
+ 	}
+ 
++	qdisc_qstats_backlog_inc(sch, skb);
+ 	sch->q.qlen++;
+ 	return NET_XMIT_SUCCESS;
+ }
+@@ -889,6 +890,7 @@ static struct sk_buff *htb_dequeue(struct Qdisc *sch)
+ ok:
+ 		qdisc_bstats_update(sch, skb);
+ 		qdisc_unthrottled(sch);
++		qdisc_qstats_backlog_dec(sch, skb);
+ 		sch->q.qlen--;
+ 		return skb;
+ 	}
+@@ -955,6 +957,7 @@ static unsigned int htb_drop(struct Qdisc *sch)
+ 			unsigned int len;
+ 			if (cl->un.leaf.q->ops->drop &&
+ 			    (len = cl->un.leaf.q->ops->drop(cl->un.leaf.q))) {
++				sch->qstats.backlog -= len;
+ 				sch->q.qlen--;
+ 				if (!cl->un.leaf.q->q.qlen)
+ 					htb_deactivate(q, cl);
+@@ -984,12 +987,12 @@ static void htb_reset(struct Qdisc *sch)
+ 			}
+ 			cl->prio_activity = 0;
+ 			cl->cmode = HTB_CAN_SEND;
+-
+ 		}
+ 	}
+ 	qdisc_watchdog_cancel(&q->watchdog);
+ 	__skb_queue_purge(&q->direct_queue);
+ 	sch->q.qlen = 0;
++	sch->qstats.backlog = 0;
+ 	memset(q->hlevel, 0, sizeof(q->hlevel));
+ 	memset(q->row_mask, 0, sizeof(q->row_mask));
+ 	for (i = 0; i < TC_HTB_NUMPRIO; i++)
+-- 
+2.1.0
