@@ -1,78 +1,42 @@
-From: Deepa Dinamani <deepa.kernel@gmail.com>
-Subject: [PATCH 4/4] net: sctp: Convert log timestamps to be y2038 safe
-Date: Wed, 24 Feb 2016 23:07:11 -0800
-Message-ID: <1456384031-29244-5-git-send-email-deepa.kernel@gmail.com>
-References: <1456384031-29244-1-git-send-email-deepa.kernel@gmail.com>
-Cc: arnd@arndb.de, Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-sctp@vger.kernel.org
-To: netdev@vger.kernel.org, y2038@lists.linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35812 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758050AbcBYHJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 02:09:53 -0500
-In-Reply-To: <1456384031-29244-1-git-send-email-deepa.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [PATCH v2 net] nfc: use GFP_USER for user-controlled kmalloc
+Date: Thu, 25 Feb 2016 08:43:17 +0100
+Message-ID: <20160225074317.GA9068@zurbaran.home>
+References: <1454095465-16685-1-git-send-email-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
+To: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1454095465-16685-1-git-send-email-xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-SCTP probe log timestamps use struct timespec which is
-not y2038 safe.
-Use struct timespec64 which is 2038 safe instead.
+Hi Cong,
 
-Use monotonic time instead of real time as only time
-differences are logged.
+On Fri, Jan 29, 2016 at 11:24:24AM -0800, Cong Wang wrote:
+> These two functions are called in sendmsg path, and the
+> 'len' is passed from user-space, so we should not allow
+> malicious users to OOM kernel on purpose.
+> 
+> Reported-by: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> Cc: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
+> Cc: Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>
+> Cc: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+> Signed-off-by: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  net/nfc/llcp_commands.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+Applied to nfc-next, thanks.
 
-Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
-Cc: Vlad Yasevich <vyasevich@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: linux-sctp@vger.kernel.org
----
- net/sctp/probe.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/net/sctp/probe.c b/net/sctp/probe.c
-index 5e68b94..6cc2152 100644
---- a/net/sctp/probe.c
-+++ b/net/sctp/probe.c
-@@ -65,7 +65,7 @@ static struct {
- 	struct kfifo	  fifo;
- 	spinlock_t	  lock;
- 	wait_queue_head_t wait;
--	struct timespec	  tstart;
-+	struct timespec64 tstart;
- } sctpw;
- 
- static __printf(1, 2) void printl(const char *fmt, ...)
-@@ -85,7 +85,7 @@ static __printf(1, 2) void printl(const char *fmt, ...)
- static int sctpprobe_open(struct inode *inode, struct file *file)
- {
- 	kfifo_reset(&sctpw.fifo);
--	getnstimeofday(&sctpw.tstart);
-+	ktime_get_ts64(&sctpw.tstart);
- 
- 	return 0;
- }
-@@ -138,7 +138,7 @@ static sctp_disposition_t jsctp_sf_eat_sack(struct net *net,
- 	struct sk_buff *skb = chunk->skb;
- 	struct sctp_transport *sp;
- 	static __u32 lcwnd = 0;
--	struct timespec now;
-+	struct timespec64 now;
- 
- 	sp = asoc->peer.primary_path;
- 
-@@ -149,8 +149,8 @@ static sctp_disposition_t jsctp_sf_eat_sack(struct net *net,
- 	    (full || sp->cwnd != lcwnd)) {
- 		lcwnd = sp->cwnd;
- 
--		getnstimeofday(&now);
--		now = timespec_sub(now, sctpw.tstart);
-+		ktime_get_ts64(&now);
-+		now = timespec64_sub(now, sctpw.tstart);
- 
- 		printl("%lu.%06lu ", (unsigned long) now.tv_sec,
- 		       (unsigned long) now.tv_nsec / NSEC_PER_USEC);
--- 
-1.9.1
+Cheers,
+Samuel.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
