@@ -1,7 +1,7 @@
 From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net-next V2 11/16] net: fec: dump all tx queues in fec_dump
-Date: Wed, 24 Feb 2016 17:36:54 -0700
-Message-ID: <1456360619-24390-12-git-send-email-troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next V2 14/16] net: fec: create subroutine reset_tx_queue
+Date: Wed, 24 Feb 2016 17:36:57 -0700
+Message-ID: <1456360619-24390-15-git-send-email-troy.kisky@boundarydevices.com>
 References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
 Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
@@ -11,79 +11,106 @@ Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	arnd@arndb.de, Troy Kisky <troy.kisky@boundarydevices.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35527 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758638AbcBYAkc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 19:40:32 -0500
-Received: by mail-pa0-f48.google.com with SMTP id ho8so22418160pac.2
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 16:40:31 -0800 (PST)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35977 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759044AbcBYAkm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 19:40:42 -0500
+Received: by mail-pa0-f43.google.com with SMTP id yy13so21742713pab.3
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 16:40:37 -0800 (PST)
 In-Reply-To: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dump all tx queues, not just queue 0.
-Also, disable fec interrupts first.
-The interrupts will be reenabled in fec_restart.
+This creates one place to release any queued
+tx skbs.
 
 Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 40 +++++++++++++++++--------------
- 1 file changed, 22 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 50 +++++++++++++++----------------
+ 1 file changed, 25 insertions(+), 25 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 96a0394..9b24669 100644
+index 9a3136b..8711196 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -271,28 +271,32 @@ static void swap_buffer2(void *dst_buf, void *src_buf, int len)
- static void fec_dump(struct net_device *ndev)
- {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
--	struct bufdesc *bdp;
--	struct fec_enet_priv_tx_q *txq;
--	int index = 0;
-+	int i;
- 
-+	/* Disable all FEC interrupts */
-+	writel(0, fep->hwp + FEC_IMASK);
- 	netdev_info(ndev, "TX ring dump\n");
- 	pr_info("Nr     SC     addr       len  SKB\n");
- 
--	txq = fep->tx_queue[0];
--	bdp = txq->bd.base;
--
--	do {
--		pr_info("%3u %c%c 0x%04x 0x%08x %4u %p\n",
--			index,
--			bdp == txq->bd.cur ? 'S' : ' ',
--			bdp == txq->dirty_tx ? 'H' : ' ',
--			fec16_to_cpu(bdp->cbd_sc),
--			fec32_to_cpu(bdp->cbd_bufaddr),
--			fec16_to_cpu(bdp->cbd_datlen),
--			txq->tx_skbuff[index]);
--		bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
--		index++;
--	} while (bdp != txq->bd.base);
-+	for (i = 0; i < fep->num_tx_queues; i++) {
-+		struct fec_enet_priv_tx_q *txq = fep->tx_queue[i];
-+		struct bufdesc *bdp = txq->bd.base;
-+		int index = 0;
-+
-+		pr_info("tx queue %d\n", i);
-+		do {
-+			pr_info("%3u %c%c 0x%04x 0x%08x %4u %p\n",
-+				index,
-+				bdp == txq->bd.cur ? 'S' : ' ',
-+				bdp == txq->dirty_tx ? 'H' : ' ',
-+				fec16_to_cpu(bdp->cbd_sc),
-+				fec32_to_cpu(bdp->cbd_bufaddr),
-+				fec16_to_cpu(bdp->cbd_datlen),
-+				txq->tx_skbuff[index]);
-+			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
-+			index++;
-+		} while (bdp != txq->bd.base);
-+	}
+@@ -752,12 +752,33 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	return NETDEV_TX_OK;
  }
  
- static inline bool is_ipv4_pkt(struct sk_buff *skb)
++static void reset_tx_queue(struct fec_enet_private *fep,
++			   struct fec_enet_priv_tx_q *txq)
++{
++	struct bufdesc *bdp = txq->bd.base;
++	unsigned int i;
++
++	txq->bd.cur = bdp;
++	for (i = 0; i < txq->bd.ring_size; i++) {
++		/* Initialize the BD for every fragment in the page. */
++		if (txq->tx_skbuff[i]) {
++			dev_kfree_skb_any(txq->tx_skbuff[i]);
++			txq->tx_skbuff[i] = NULL;
++		}
++		bdp->cbd_bufaddr = cpu_to_fec32(0);
++		bdp->cbd_sc = cpu_to_fec16((bdp == txq->bd.last) ?
++					   BD_SC_WRAP : 0);
++		bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
++	}
++	bdp = fec_enet_get_prevdesc(bdp, &txq->bd);
++	txq->dirty_tx = bdp;
++}
++
+ /* Init RX & TX buffer descriptors
+  */
+ static void fec_enet_bd_init(struct net_device *dev)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(dev);
+-	struct fec_enet_priv_tx_q *txq;
+ 	struct fec_enet_priv_rx_q *rxq;
+ 	struct bufdesc *bdp;
+ 	unsigned int i;
+@@ -780,26 +801,8 @@ static void fec_enet_bd_init(struct net_device *dev)
+ 		rxq->bd.cur = rxq->bd.base;
+ 	}
+ 
+-	for (q = 0; q < fep->num_tx_queues; q++) {
+-		/* ...and the same for transmit */
+-		txq = fep->tx_queue[q];
+-		bdp = txq->bd.base;
+-		txq->bd.cur = bdp;
+-
+-		for (i = 0; i < txq->bd.ring_size; i++) {
+-			/* Initialize the BD for every fragment in the page. */
+-			if (txq->tx_skbuff[i]) {
+-				dev_kfree_skb_any(txq->tx_skbuff[i]);
+-				txq->tx_skbuff[i] = NULL;
+-			}
+-			bdp->cbd_bufaddr = cpu_to_fec32(0);
+-			bdp->cbd_sc = cpu_to_fec16((bdp == txq->bd.last) ?
+-					BD_SC_WRAP : 0);
+-			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
+-		}
+-		bdp = fec_enet_get_prevdesc(bdp, &txq->bd);
+-		txq->dirty_tx = bdp;
+-	}
++	for (q = 0; q < fep->num_tx_queues; q++)
++		reset_tx_queue(fep, fep->tx_queue[q]);
+ }
+ 
+ static void fec_enet_active_rxring(struct net_device *ndev)
+@@ -2652,13 +2655,10 @@ static void fec_enet_free_buffers(struct net_device *ndev)
+ 
+ 	for (q = 0; q < fep->num_tx_queues; q++) {
+ 		txq = fep->tx_queue[q];
+-		bdp = txq->bd.base;
++		reset_tx_queue(fep, txq);
+ 		for (i = 0; i < txq->bd.ring_size; i++) {
+ 			kfree(txq->tx_bounce[i]);
+ 			txq->tx_bounce[i] = NULL;
+-			skb = txq->tx_skbuff[i];
+-			txq->tx_skbuff[i] = NULL;
+-			dev_kfree_skb(skb);
+ 		}
+ 	}
+ }
 -- 
 2.5.0
