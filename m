@@ -1,128 +1,104 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH 1/4] kernel: time: Add current_nw_timestamp() for network
- timestamps
-Date: Thu, 25 Feb 2016 17:49:20 +0900
-Message-ID: <56CEC010.1080506@miraclelinux.com>
-References: <1456384031-29244-1-git-send-email-deepa.kernel@gmail.com>
- <1456384031-29244-2-git-send-email-deepa.kernel@gmail.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: custom ioctl-based interface to control LED in networking (was
+ Re: [PATCHv2 09/10] rfkill: Userspace control for airplane mode)
+Date: Thu, 25 Feb 2016 10:06:36 +0100
+Message-ID: <20160225090636.GA32652@amd>
+References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
+ <1456159001-20307-10-git-send-email-jprvita@endlessm.com>
+ <20160223204525.GC16961@amd>
+ <1456260914.9910.34.camel@sipsolutions.net>
+ <20160223214501.GA22501@amd>
+ <1456304509.2050.15.camel@sipsolutions.net>
+ <20160224104611.GB31302@amd>
+ <1456311697.2050.23.camel@sipsolutions.net>
+ <20160224121420.GA5627@amd>
+ <1456320693.2050.30.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com, arnd@arndb.de,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: rpurdie@rpsys.net, j.anaszewski@samsung.com,
+	linux-leds@vger.kernel.org,
+	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Deepa Dinamani <deepa.kernel@gmail.com>, netdev@vger.kernel.org,
-	y2038@lists.linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36763 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759389AbcBYIta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 03:49:30 -0500
-Received: by mail-pa0-f51.google.com with SMTP id yy13so28683080pab.3
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 00:49:30 -0800 (PST)
-In-Reply-To: <1456384031-29244-2-git-send-email-deepa.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Darren Hart <dvhart@infradead.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux@endlessm.com,
+	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
+	<jprvita@endlessm.com>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1456320693.2050.30.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed 2016-02-24 14:31:33, Johannes Berg wrote:
+> On Wed, 2016-02-24 at 13:14 +0100, Pavel Machek wrote:
+> >=A0
+> > Why would it need to? It could look at default triggers for the led
+> > if it really wanted to.
+>=20
+> And then it needs to change them; if anything goes wrong error recove=
+ry
+> is practically impossible since the trigger information is lost
+> forever.
 
-Deepa Dinamani wrote:
-> ICMP timestamp messages and IP source route options require
-> timestamps to be in milliseconds modulo 24 hours from
-> midnight UTC format.
-> 
-> Add a time function to support this. The function returns the
-> required timestamp in network byte order.
-> 
-> The function also uses y2038 safe time functions and data
-> structures.
-> 
-> Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
-> Cc: John Stultz <john.stultz@linaro.org>
-> Cc: Thomas Gleixner <tglx@linutronix.de>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Cc: James Morris <jmorris@namei.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> ---
->  include/linux/ip.h     |  2 ++
->  include/linux/time64.h |  3 +++
->  kernel/time/time.c     | 26 ++++++++++++++++++++++++++
->  3 files changed, 31 insertions(+)
-> 
-> diff --git a/include/linux/ip.h b/include/linux/ip.h
-> index 492bc65..edf923e 100644
-> --- a/include/linux/ip.h
-> +++ b/include/linux/ip.h
-> @@ -34,4 +34,6 @@ static inline struct iphdr *ipip_hdr(const struct sk_buff *skb)
->  {
->  	return (struct iphdr *)skb_transport_header(skb);
->  }
-> +
-> +extern __be32 current_nw_timestamp(void);
->  #endif	/* _LINUX_IP_H */
-> diff --git a/include/linux/time64.h b/include/linux/time64.h
-> index 367d5af..5b5db3b 100644
-> --- a/include/linux/time64.h
-> +++ b/include/linux/time64.h
-> @@ -35,6 +35,9 @@ struct itimerspec64 {
->  #define NSEC_PER_SEC	1000000000L
->  #define FSEC_PER_SEC	1000000000000000LL
->  
-> +#define SECONDS_PER_DAY	86400
-> +#define MSEC_PER_DAY	(SECONDS_PER_DAY * MSEC_PER_SEC)
-> +
->  /* Located here for timespec[64]_valid_strict */
->  #define TIME64_MAX			((s64)~((u64)1 << 63))
->  #define KTIME_MAX			((s64)~((u64)1 << 63))
-> diff --git a/kernel/time/time.c b/kernel/time/time.c
-> index 86751c6..6df15df 100644
-> --- a/kernel/time/time.c
-> +++ b/kernel/time/time.c
-> @@ -245,6 +245,32 @@ struct timespec current_fs_time(struct super_block *sb)
->  EXPORT_SYMBOL(current_fs_time);
->  
->  /*
-> + * current_nw_timestamp - Return network time
-> + *
-> + * Return milliseconds since midnight in network byte order.
-> + */
-> +__be32 current_nw_timestamp(void)
-> +{
-> +	u64 now;
-> +	u32 secs;
-> +	u32 msecs;
-> +	struct timespec64 ts;
-> +
-> +	ktime_get_ts64(&ts);
-> +
-> +	/* Get secs since midnight. */
-> +	now = div_u64_rem(ts.tv_sec, SECONDS_PER_DAY, &secs);
-> +	/* Convert to msecs. */
-> +	msecs = secs * MSEC_PER_SEC;
-> +	/* Convert nsec to msec. */
-> +	msecs += (u32)ts.tv_nsec/NSEC_PER_MSEC;
-> +
-> +	/* Convert to network byte order. */
-> +	return htons(msecs);
-> +}
-> +EXPORT_SYMBOL(current_nw_timestamp);
-> +
-> +/*
->   * Convert jiffies to milliseconds and back.
->   *
->   * Avoid unnecessary multiplications/divisions in the
-> 
+Well, conventional way to solve this is to simply name the led
+"acer::airplane"... that way it is persistent. We already do that for
+display/keyboard backlights.
 
-Since net/ipv4/* are the only users, it is enough to put
-it in under net/ipv4/.
+> It's not my position to decide which combinations some system
+> integrator or userspace developer might find useful.
+>=20
+> Even when we add parameters to a trigger (I don't see a generic way t=
+o
+> do that, but please do enlighten me), you're now ignoring the issue o=
+f
+> the userspace controlled GSM modem...
 
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+Take a look at the blinking triggers.
+
+> > > Really what you have here is a concept of "airplane mode", and th=
+at
+> > > concept is specific to the rfkill subsystem. This happens to affe=
+ct
+> > > mostly an LED trigger, today, but as a concept it's something tha=
+t
+> > > *should* be managed within the rfkill subsystem.
+> >=20
+> > How is that concept used outside the LEDs? What semantics does
+> > "airplane mode" have? You tried to explain "airplane mode" is not
+> > well defined up in this thread...
+>=20
+> I'd say it's well-defined for any given set of system software, so if
+> e.g. NetworkManager decides to define it one way, and connman another
+> way, there's a definition but the kernel need not interfere with it.
+
+So... the LED changes meaning during boot? That's surely not a nice
+solution.
+
+So... you rather store bit in a kernel with unclear semantics,
+explaining "oh I need to leave the flexibility to userland"? Sorry,
+that's just ugly.
+
+> > I'm not saying that. I'm saying that LED maintainers should be Cced=
+,
+> > to keep the interfaces consistent.
+>=20
+> I pretty much have to read it that way, since the LED API is in no wa=
+y
+> impacted by these changes. Here's a new trigger, with some magic inne=
+r
+> working. No impact on the LED API.
+
+New LED trigger and new ioctl for LED control... not matching how LEDs
+are normally controlled.
+
+Best regards,
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses=
+/blog.html
