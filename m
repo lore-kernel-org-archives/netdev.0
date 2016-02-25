@@ -1,75 +1,34 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH][V3] mt7601u: do not free dma_buf when ivp allocation fails
-Date: Fri, 26 Feb 2016 10:31:06 +1100
-Message-ID: <CAGRGNgUq_YTi1h_FBxGSFGLUhHoz3xQguDU_5ZFhSyUKAruW1w@mail.gmail.com>
-References: <1456442667-19751-1-git-send-email-colin.king@canonical.com>
+From: <Woojung.Huh@microchip.com>
+Subject: [PATCH net-next 0/4] lan78xx: driver update
+Date: Thu, 25 Feb 2016 23:33:05 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D404B83CB@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jakub Kicinski <kubakici@wp.pl>, Kalle Valo <kvalo@codeaurora.org>,
-	Matthias Brugger <matthias.bgg@gmail.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"Mailing List, Arm" <linux-arm-kernel@lists.infradead.org>,
-	linux-mediatek@lists.infradead.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Colin King <colin.king@canonical.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:36349 "EHLO
-	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752606AbcBYXb0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 18:31:26 -0500
-In-Reply-To: <1456442667-19751-1-git-send-email-colin.king@canonical.com>
+Received: from exsmtp01.microchip.com ([198.175.253.37]:16974 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750984AbcBYXdH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 18:33:07 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This patch series add new ethtool functions of set_pauseparam  & get_pauseparam
+and MAINTAINERS entry.
 
-On Fri, Feb 26, 2016 at 10:24 AM, Colin King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
->
-> If the allocation of ivp fails the error handling attempts to
-> free an uninitialized dma_buf; this data structure just contains
-> garbage on the stack, so the freeing will cause issues when the
-> urb, buf and dma fields are free'd. Fix this by not free'ing the
-> dma_buf if the ivp allocation fails.
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Woojung Huh (4):
+  lan78xx: replace devid to chipid & chiprev
+  lan78xx: remove unnecessary code
+  lan78xx: add ethtool set & get pause functions
+  MAINTAINERS: Add LAN78XX entry
 
-Looks right to me.
-
-Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
-
-> ---
->  drivers/net/wireless/mediatek/mt7601u/mcu.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/mediatek/mt7601u/mcu.c b/drivers/net/wireless/mediatek/mt7601u/mcu.c
-> index fbb1986..91c4b34 100644
-> --- a/drivers/net/wireless/mediatek/mt7601u/mcu.c
-> +++ b/drivers/net/wireless/mediatek/mt7601u/mcu.c
-> @@ -362,7 +362,9 @@ mt7601u_upload_firmware(struct mt7601u_dev *dev, const struct mt76_fw *fw)
->         int i, ret;
->
->         ivb = kmemdup(fw->ivb, sizeof(fw->ivb), GFP_KERNEL);
-> -       if (!ivb || mt7601u_usb_alloc_buf(dev, MCU_FW_URB_SIZE, &dma_buf)) {
-> +       if (!ivb)
-> +               return -ENOMEM;
-> +       if (mt7601u_usb_alloc_buf(dev, MCU_FW_URB_SIZE, &dma_buf)) {
->                 ret = -ENOMEM;
->                 goto error;
->         }
-> --
-> 2.7.0
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-Thanks,
+ MAINTAINERS               |   7 +++
+ drivers/net/usb/lan78xx.c | 107 ++++++++++++++++++++++++++++++++++++++--------
+ drivers/net/usb/lan78xx.h |   1 +
+ 3 files changed, 97 insertions(+), 18 deletions(-)
 
 -- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+2.7.0
