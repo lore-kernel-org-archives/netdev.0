@@ -1,63 +1,86 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH v2 net] bonding: don't use stale speed and duplex information
-Date: Thu, 25 Feb 2016 05:33:55 -0800
-Message-ID: <11163.1456407235@nyx>
-References: <25869.1454962202@famine> <56CEBCC6.3040008@gmail.com>
-Cc: netdev@vger.kernel.org,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	dingtianhong <dingtianhong@huawei.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: zhuyj <zyjzyj2000@gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 4/4] net: sctp: Convert log timestamps to be y2038 safe
+Date: Thu, 25 Feb 2016 09:09:19 -0500
+Message-ID: <20160225140919.GA20042@hmsreliant.think-freely.org>
+References: <1456384031-29244-1-git-send-email-deepa.kernel@gmail.com>
+ <1456384031-29244-5-git-send-email-deepa.kernel@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, y2038@lists.linaro.org, arnd@arndb.de,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-sctp@vger.kernel.org
+To: Deepa Dinamani <deepa.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:37462 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759644AbcBYNeZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 08:34:25 -0500
-In-reply-to: <56CEBCC6.3040008@gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:33023 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760641AbcBYOJi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 09:09:38 -0500
+Content-Disposition: inline
+In-Reply-To: <1456384031-29244-5-git-send-email-deepa.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-zhuyj <zyjzyj2000@gmail.com> wrote:
-[...]
->I delved into the source code and Emil's tests. I think that the problem
->that this patch expects to fix occurs very unusually.
->
->Do you agree with me?
->
->If so, maybe the following patch can reduce the performance loss.
->Please comment on it. Thanks a lot.
->
->
->diff --git a/drivers/net/bonding/bond_main.c
->b/drivers/net/bonding/bond_main.c
->index b7f1a99..c4c511a 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2129,7 +2129,9 @@ static void bond_miimon_commit(struct bonding *bond)
->                        continue;
->
->                case BOND_LINK_UP:
->-                       bond_update_speed_duplex(slave);
->+                       if (slave->speed == SPEED_UNKNOWN)
->+                               bond_update_speed_duplex(slave);
->+
->                        bond_set_slave_link_state(slave, BOND_LINK_UP,
->BOND_SLAVE_NOTIFY_NOW);
->                        slave->last_link_up = jiffies;
-
-	I don't believe the speed is necessarily SPEED_UNKNOWN coming in
-here.  If the race occurs at a time later than the initial enslavement,
-speed may already be set (and the race manifests if the new speed
-changes, i.e., the link changes from 1 Gb/sec to 10 Gb/sec), so I don't
-think this is functionally correct.
-
-	Also, the call to bond_miimon_commit itself is already gated by
-bond_miimon_inspect finding a link state change.  The performance impact
-here should be minimal.
-
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+On Wed, Feb 24, 2016 at 11:07:11PM -0800, Deepa Dinamani wrote:
+> SCTP probe log timestamps use struct timespec which is
+> not y2038 safe.
+> Use struct timespec64 which is 2038 safe instead.
+> 
+> Use monotonic time instead of real time as only time
+> differences are logged.
+> 
+> Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
+> Cc: Vlad Yasevich <vyasevich@gmail.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: linux-sctp@vger.kernel.org
+> ---
+>  net/sctp/probe.c | 10 +++++-----
+>  1 file changed, 5 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
+> index 5e68b94..6cc2152 100644
+> --- a/net/sctp/probe.c
+> +++ b/net/sctp/probe.c
+> @@ -65,7 +65,7 @@ static struct {
+>  	struct kfifo	  fifo;
+>  	spinlock_t	  lock;
+>  	wait_queue_head_t wait;
+> -	struct timespec	  tstart;
+> +	struct timespec64 tstart;
+>  } sctpw;
+>  
+>  static __printf(1, 2) void printl(const char *fmt, ...)
+> @@ -85,7 +85,7 @@ static __printf(1, 2) void printl(const char *fmt, ...)
+>  static int sctpprobe_open(struct inode *inode, struct file *file)
+>  {
+>  	kfifo_reset(&sctpw.fifo);
+> -	getnstimeofday(&sctpw.tstart);
+> +	ktime_get_ts64(&sctpw.tstart);
+>  
+>  	return 0;
+>  }
+> @@ -138,7 +138,7 @@ static sctp_disposition_t jsctp_sf_eat_sack(struct net *net,
+>  	struct sk_buff *skb = chunk->skb;
+>  	struct sctp_transport *sp;
+>  	static __u32 lcwnd = 0;
+> -	struct timespec now;
+> +	struct timespec64 now;
+>  
+>  	sp = asoc->peer.primary_path;
+>  
+> @@ -149,8 +149,8 @@ static sctp_disposition_t jsctp_sf_eat_sack(struct net *net,
+>  	    (full || sp->cwnd != lcwnd)) {
+>  		lcwnd = sp->cwnd;
+>  
+> -		getnstimeofday(&now);
+> -		now = timespec_sub(now, sctpw.tstart);
+> +		ktime_get_ts64(&now);
+> +		now = timespec64_sub(now, sctpw.tstart);
+>  
+>  		printl("%lu.%06lu ", (unsigned long) now.tv_sec,
+>  		       (unsigned long) now.tv_nsec / NSEC_PER_USEC);
+> -- 
+> 1.9.1
+> 
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
