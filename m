@@ -1,43 +1,69 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net-next v2 2/2] net_sched: add network namespace support
- for tc actions
-Date: Thu, 25 Feb 2016 07:17:06 -0500
-Message-ID: <56CEF0C2.4000901@mojatatu.com>
-References: <1456185473-25403-1-git-send-email-xiyou.wangcong@gmail.com>
- <1456185473-25403-3-git-send-email-xiyou.wangcong@gmail.com>
- <56CC5B35.4060408@mojatatu.com>
- <CAM_iQpVVe28XUkSfR1OhwMq6mgJVQ_zcPJn+xmLpb_YDy0wsDg@mail.gmail.com>
- <56CDADDB.5070003@mojatatu.com>
- <CAM_iQpWXbEtv6q-Uj9O+-HPDdBkMj27qo0TYXjzGoQm9cGgicQ@mail.gmail.com>
+Subject: Re: [net-next PATCH v2 1/5] introduce IFE action
+Date: Thu, 25 Feb 2016 07:20:56 -0500
+Message-ID: <56CEF1A8.3020505@mojatatu.com>
+References: <1456231760-2513-1-git-send-email-jhs@emojatatu.com>
+ <1456231760-2513-2-git-send-email-jhs@emojatatu.com>
+ <56CDEA6D.1000908@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
+	dj@verizon.com
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:36758 "EHLO
-	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759644AbcBYMRJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 07:17:09 -0500
-Received: by mail-io0-f172.google.com with SMTP id l127so85721835iof.3
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 04:17:08 -0800 (PST)
-In-Reply-To: <CAM_iQpWXbEtv6q-Uj9O+-HPDdBkMj27qo0TYXjzGoQm9cGgicQ@mail.gmail.com>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:34973 "EHLO
+	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760606AbcBYMU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 07:20:58 -0500
+Received: by mail-io0-f194.google.com with SMTP id z135so5469639iof.2
+        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 04:20:58 -0800 (PST)
+In-Reply-To: <56CDEA6D.1000908@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-24 12:21 PM, Cong Wang wrote:
-> On Wed, Feb 24, 2016 at 5:19 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-[..]
->> Did you mean something else or am i missing the obvious?
->> I am looking at the call sites for tcf_action_destroy():
->> -tc_dump_tfilter() has access to *net
->> -tcf_exts_change() - one level lower it has access to *net; i think you
->> added this to your patch too.
->> -tcf_action_init() has *net.
+On 16-02-24 12:37 PM, Daniel Borkmann wrote:
+> On 02/23/2016 01:49 PM, Jamal Hadi Salim wrote:
+>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> [...]
+>> +static const struct nla_policy ife_policy[TCA_IFE_MAX + 1] = {
+>> +    [TCA_IFE_PARMS] = {.len = sizeof(struct tc_ife)},
+>> +    [TCA_IFE_DMAC] = {.type = NLA_BINARY,.len = ETH_ALEN},
+>> +    [TCA_IFE_SMAC] = {.type = NLA_BINARY,.len = ETH_ALEN},
 >
-> Well, having net is not enough, we still need net_id to retrieve hinfo,
+> This is buggy btw ...
+>
 
-I thought you could pass a pointer to the net_id from all those call
-sites? Anyways, we can worry about that later.
+I am sure i cutnpasted that from somewhere. Thanks for catching
+it; I will remove NLA_BINARY ref.
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>> +    [TCA_IFE_TYPE] = {.type = NLA_U16},
+>> +};
+>
+> [...]
+>
+>> +    if (parm->flags & IFE_ENCODE) {
+>> +        ife_type = *(u16 *) nla_data(tb[TCA_IFE_TYPE]);
+>
+> ( We have accessors for such things. Please also check coding style
+>    and white space things in your series, there's couple of things all
+>    over the place. )
+
+
+Modern git tells you about white spaces - maybe i didnt stare long
+enough ;-> I will use the accessor in next update.
+
+
+> Maybe try to make this lockless in the fast path? Otherwise placing
+> this on ingress / egress (f.e. clsact) doesn't really scale.
+>
+
+
+Let me think about it. Likely it will be subsequent patches - I just
+want to get this set out first.
+
+Thanks Daniel.
+
+cheers,
+jamal
