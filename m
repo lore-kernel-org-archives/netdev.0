@@ -1,65 +1,47 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH 3/4] net: sched: cls_u32 add bit to specify software
- only rules
-Date: Thu, 25 Feb 2016 15:08:19 -0800
-Message-ID: <56CF8963.1020102@gmail.com>
-References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810> <20160223190321.5970.58924.stgit@john-Precision-Tower-5810> <56CDB0B0.4080609@mojatatu.com> <56CE7D37.9000701@gmail.com> <56CEFA03.3080802@mojatatu.com> <56CF787B.2070505@gmail.com> <56CF88C9.8050005@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-	davem@davemloft.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>, jiri@resnulli.us,
-	daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36588 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751761AbcBYXIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 18:08:32 -0500
-Received: by mail-pa0-f54.google.com with SMTP id yy13so39699417pab.3
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 15:08:32 -0800 (PST)
-In-Reply-To: <56CF88C9.8050005@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][V2] mt7601u: do not free dma_buf when ivp allocation fails
+Date: Thu, 25 Feb 2016 23:09:59 +0000
+Message-ID: <1456441799-19266-1-git-send-email-colin.king@canonical.com>
+Cc: linux-kernel@vger.kernel.org
+To: Jakub Kicinski <kubakici@wp.pl>, Kalle Valo <kvalo@codeaurora.org>,
+	Matthias Brugger <matthias.bgg@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linux-mediatek@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-02-25 03:05 PM, Jamal Hadi Salim wrote:
-> On 16-02-25 04:56 PM, John Fastabend wrote:
->> On 16-02-25 04:56 AM, Jamal Hadi Salim wrote:
-> 
->>
->> decoding that is not a problem. The ixgbe driver code already applied
->> can decode that without much trouble. The thing I want to avoid is
->> requiring my driver to do the inverse translation because although it
->> is possible its entirely unnecessary.
->>
->> To do the above example without a software cache for example
->> means I read out row 2048 of a hardware table then you get a bunch of
->> bits. From those bits I consult what fields are being loaded into
->> the table in the packet processing pipeline. I learn its the src_ip
->> fields then I have the value/mask and can unwind it. Finally if I
->> collapsed some hash tables onto this hardware table I have to do the
->> inverse of my collapsing scheme. The ixgbe one is sort of simple just
->> because I only have one table in hardware but with multiple tables
->> its a bit more difficult. Finally I've unwound the thing and can
->> print something back out of 'tc' but it seems easier to just cache
->> the hardware rules somewhere. Maybe other driver/hardware will have
->> a different opinion though depending on how much your firmware can
->> store and how ambitious you are. Personally I don't see any need
->> for the above code.
->>
-> 
-> I think if you can cache the rules and have a way to easily map to
-> the hardware then this would work fine.
+From: Colin Ian King <colin.king@canonical.com>
 
-Yep that is the goal. I think the debate is if its acceptable to do
-it with an entirely new filter list ingress_hw Jiri's opinion is that
-it would be best to do it inline inside the classifier. At the moment
-I'm looking at the code to see if there is a clean way to do it. IMO
-using a ingress_hw classifier is a nice solution.
+If the allocation of ivp fails the error handling attempts to
+free an uninitialized dma_buf; this data structure just contains
+garbage on the stack, so the freeing will cause issues when the
+urb, buf and dma fields are free'd. Fix this by not free'ing the
+dma_buf if the ivp allocation fails.
 
-In the meantime I just respun patches 1-3 with the feedback and will
-submit those while I work out patch 4.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/mediatek/mt7601u/mcu.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-> 
-> cheers,
-> jamal
+diff --git a/drivers/net/wireless/mediatek/mt7601u/mcu.c b/drivers/net/wireless/mediatek/mt7601u/mcu.c
+index fbb1986..70e4b5e 100644
+--- a/drivers/net/wireless/mediatek/mt7601u/mcu.c
++++ b/drivers/net/wireless/mediatek/mt7601u/mcu.c
+@@ -362,10 +362,10 @@ mt7601u_upload_firmware(struct mt7601u_dev *dev, const struct mt76_fw *fw)
+ 	int i, ret;
+ 
+ 	ivb = kmemdup(fw->ivb, sizeof(fw->ivb), GFP_KERNEL);
+-	if (!ivb || mt7601u_usb_alloc_buf(dev, MCU_FW_URB_SIZE, &dma_buf)) {
+-		ret = -ENOMEM;
++	if (!ivb)
++		return -ENOMEM;
++	if (mt7601u_usb_alloc_buf(dev, MCU_FW_URB_SIZE, &dma_buf))
+ 		goto error;
+-	}
+ 
+ 	ilm_len = le32_to_cpu(fw->hdr.ilm_len) - sizeof(fw->ivb);
+ 	dev_dbg(dev->dev, "loading FW - ILM %u + IVB %zu\n",
+-- 
+2.7.0
