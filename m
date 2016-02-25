@@ -1,82 +1,95 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH 4/4] net: sched: create hardware only classifier
- filter
-Date: Thu, 25 Feb 2016 09:36:44 -0800
-Message-ID: <56CF3BAC.90104@gmail.com>
-References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810> <20160223190356.5970.94298.stgit@john-Precision-Tower-5810> <20160224084728.GD2151@nanopsycho.orion> <56CEFE2F.4060203@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
-	alexei.starovoitov@gmail.com, davem@davemloft.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH RFC 0/3] intermediate representation for jit and cls_u32 conversion
+Date: Thu, 25 Feb 2016 18:37:21 +0100
+Message-ID: <1456421844-5901-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, jiri@resnulli.us, horms@verge.net.au,
+	john.fastabend@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:32780 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932381AbcBYRg6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 12:36:58 -0500
-Received: by mail-pa0-f44.google.com with SMTP id fl4so35560443pad.0
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 09:36:58 -0800 (PST)
-In-Reply-To: <56CEFE2F.4060203@mojatatu.com>
+Received: from mail.us.es ([193.147.175.20]:36274 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933419AbcBYRhe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 12:37:34 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 87F047406
+	for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 18:37:31 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 697E7DA388
+	for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 18:37:31 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 3DC39DA383
+	for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 18:37:29 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-25 05:14 AM, Jamal Hadi Salim wrote:
-> On 16-02-24 03:47 AM, Jiri Pirko wrote:
->> Tue, Feb 23, 2016 at 08:03:56PM CET, john.fastabend@gmail.com wrote:
->>> If users want to run filters specifically in hardware without software
->>> running the classifiers we need to use a special handler for this.
->>> By using a new classifier list we are able to add filters in hardware
->>> and keep all the same semantics in the core module. So the core code
->>> will continue to block duplicate entries, incorrect usage of flags
->>> such as exclusive, and all the other cases software already handles.
->>>
->>> Additionally by having a filter list that is not run by software in
->>> the datapath we avoid any overhead related to adding these rules in
->>> the hot path.
->>>
->>> The new filter list TC_H_MIN_INGRESS_HW is logically run in front
->>> of the TC_H_MIN_INGRESS filter list. Driver writers can avoid aborting
->>> on many cases that would potentially conflict with software rules in
->>> the TC_H_MIN_INGRESS filter list this way.
->>
->> Oh, although it looks straightforward to implement this, I don't like it.
->> User should be able to do the same thing he did before, only extension
->> would be to allow to pass 2 flags for adding rules:
->> SKIP_HW
->> SKIP_SW
->>
->> Default would be to add rule to both.
->> u32 and other classifiers should take care of processing this flags
->> internaly and act accordingly. The implementation can be just to skip
->> rule in sw processing or it can maintain hw-only structures.
-> 
-> I think there is another axis: To add it to sofware but execute it in
-> hardware (and not in s/ware).
-> This way you can do faster lookups from user space (control
-> purposes) and from the hardware you can periodically update things to
-> synchronize things like stats for example.
-> IOW, this compensates for h/ware interfaces being slow and not needing
-> to keep talking to them when you dont have to.
-> BTW: At netdev01 - the mellanox people and qualcom both complained about
-> this (low speed) issue. I believe someone was recommending a
-> "EINPROGRESS" netlink msg or even lying for the set case to say
-> "success" when in fact it wasnt. EINPROGRESS may still be a useful idea
-> but a different discussion.
-> 
-> 
+Hi,
 
-Agreed which is why I used its own unique filter list to indicate the
-SKIP SW flag. This seems fairly elegant to me and keeps the hardware
-operations from interfering with the software operations.
+This patchset contains the core infrastructure for the generic
+intermediate representation that I presented during NetDev 1.1's
+nftables switchdev talk. This includes the basic infrastructure to
+convert the tc cls_u32 based on John's parser.
 
-This seems like the most elegant solution to me and it also ensures
-users understand the ordering of rules e.g. HW filter list runs in
-front of the SW filter list. The alternative is to in u32_change()
-somehow spin out another HW root ht and build off of that when a
-flag is set.
+The main goals of this patchset are:
 
+* Provide an unified abstract syntax tree (ast) that can be passed to
+  the backend driver for translation to internal representation. Then,
+  based on the backend description, generate the internal
+  representation. This should reduce the amount of code to maintain
+  in the driver since every frontend, via parser, generates the ast
+  that is consumed by the driver through one single ndo indirection.
 
-> cheers,
-> jamal
-> 
+* Avoid exposing low-level frontend details to the backend, such as
+  structure layouts. If the frontend needs to be updated to support a
+  new software feature, it is desiderable that such changes don't
+  trigger large updates to every driver supporting offloads.
+
+* Having a common parser for every frontend, instead of allowing each
+  backend driver to re-invent the wheel with its own parser, this is
+  just spreading out complexity all over the place.
+
+A summary picture of the infrastructure looks like this:
+
+                parser
+        tc-u32 -------
+                       \            jit
+     tc-flower -------------- ast ------> Backend driver
+                       /
+           nft -------
+
+So the idea is that every frontend implements a parser that builds the
+ast, then this ast is passed via ndo to the driver. The parser is common
+to everyone, is part of the common core infrastructure.
+
+The tc-u32 parser is a bit complicated because of having the matching
+spread out in different rules through links, but John already came up a
+basic parser than should be placed in the frontend so everyone can
+improve it to generate more expressive ast.
+
+Note: I don't have access to ixgbe hardware, so I have validated this
+patchset by splicing main parts of the ixgbe backend jit code in simple
+debugging patches that I have here. Quite rudimentary but it has passed
+some basic tests, may still have gotten anything broken. Anyway, the
+main goal is to generate debate on this.
+
+Comments welcome, thanks.
+
+Pablo Neira Ayuso (3):
+  net: ixgbe: add struct igxbe_filter
+  net: intermediate representation for jit translation
+  net: convert tc_u32 to use the intermediate representation
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |   4 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 249 +++++++++---------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_model.h | 112 --------
+ include/net/ir.h                               | 173 +++++++++++++
+ include/net/pkt_cls.h                          |   3 +
+ net/core/Makefile                              |   2 +-
+ net/core/ir.c                                  | 219 ++++++++++++++++
+ net/sched/cls_u32.c                            | 344 +++++++++++++++++++++++++
+ 8 files changed, 866 insertions(+), 240 deletions(-)
+ delete mode 100644 drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
+ create mode 100644 include/net/ir.h
+ create mode 100644 net/core/ir.c
+
+-- 
+2.1.4
