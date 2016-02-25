@@ -1,7 +1,7 @@
 From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net-next V2 08/16] net: fec: eliminate calls to fec_enet_get_prevdesc
-Date: Wed, 24 Feb 2016 17:36:51 -0700
-Message-ID: <1456360619-24390-9-git-send-email-troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next V2 11/16] net: fec: dump all tx queues in fec_dump
+Date: Wed, 24 Feb 2016 17:36:54 -0700
+Message-ID: <1456360619-24390-12-git-send-email-troy.kisky@boundarydevices.com>
 References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
 Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	andrew@lunn.ch, tremyfr@gmail.com, linux@arm.linux.org.uk,
@@ -11,125 +11,79 @@ Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
 	arnd@arndb.de, Troy Kisky <troy.kisky@boundarydevices.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, B38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:34618 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758638AbcBYAk0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 19:40:26 -0500
-Received: by mail-pf0-f176.google.com with SMTP id x65so22281955pfb.1
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 16:40:26 -0800 (PST)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35527 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758638AbcBYAkc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 19:40:32 -0500
+Received: by mail-pa0-f48.google.com with SMTP id ho8so22418160pac.2
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 16:40:31 -0800 (PST)
 In-Reply-To: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This shrinks the code a little.
+Dump all tx queues, not just queue 0.
+Also, disable fec interrupts first.
+The interrupts will be reenabled in fec_restart.
 
 Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 37 +++++++++----------------------
- 1 file changed, 11 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 40 +++++++++++++++++--------------
+ 1 file changed, 22 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 6ceb5f9..b5ed287 100644
+index 96a0394..9b24669 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -758,6 +758,7 @@ static void fec_enet_bd_init(struct net_device *dev)
- 	struct bufdesc *bdp;
- 	unsigned int i;
- 	unsigned int q;
-+	unsigned status;
+@@ -271,28 +271,32 @@ static void swap_buffer2(void *dst_buf, void *src_buf, int len)
+ static void fec_dump(struct net_device *ndev)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+-	struct bufdesc *bdp;
+-	struct fec_enet_priv_tx_q *txq;
+-	int index = 0;
++	int i;
  
- 	for (q = 0; q < fep->num_rx_queues; q++) {
- 		/* Initialize the receive buffer descriptors. */
-@@ -765,19 +766,13 @@ static void fec_enet_bd_init(struct net_device *dev)
- 		bdp = rxq->bd.base;
++	/* Disable all FEC interrupts */
++	writel(0, fep->hwp + FEC_IMASK);
+ 	netdev_info(ndev, "TX ring dump\n");
+ 	pr_info("Nr     SC     addr       len  SKB\n");
  
- 		for (i = 0; i < rxq->bd.ring_size; i++) {
+-	txq = fep->tx_queue[0];
+-	bdp = txq->bd.base;
 -
- 			/* Initialize the BD for every fragment in the page. */
--			if (bdp->cbd_bufaddr)
--				bdp->cbd_sc = cpu_to_fec16(BD_ENET_RX_EMPTY);
--			else
--				bdp->cbd_sc = cpu_to_fec16(0);
-+			status = bdp->cbd_bufaddr ? BD_ENET_RX_EMPTY : 0;
-+			if (bdp == rxq->bd.last)
-+				status |= BD_SC_WRAP;
-+			bdp->cbd_sc = cpu_to_fec16(status);
- 			bdp = fec_enet_get_nextdesc(bdp, &rxq->bd);
- 		}
--
--		/* Set the last buffer to wrap */
--		bdp = fec_enet_get_prevdesc(bdp, &rxq->bd);
--		bdp->cbd_sc |= cpu_to_fec16(BD_SC_WRAP);
--
- 		rxq->bd.cur = rxq->bd.base;
- 	}
- 
-@@ -789,18 +784,16 @@ static void fec_enet_bd_init(struct net_device *dev)
- 
- 		for (i = 0; i < txq->bd.ring_size; i++) {
- 			/* Initialize the BD for every fragment in the page. */
--			bdp->cbd_sc = cpu_to_fec16(0);
- 			if (txq->tx_skbuff[i]) {
- 				dev_kfree_skb_any(txq->tx_skbuff[i]);
- 				txq->tx_skbuff[i] = NULL;
- 			}
- 			bdp->cbd_bufaddr = cpu_to_fec32(0);
-+			bdp->cbd_sc = cpu_to_fec16((bdp == txq->bd.last) ?
-+					BD_SC_WRAP : 0);
- 			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
- 		}
--
--		/* Set the last buffer to wrap */
- 		bdp = fec_enet_get_prevdesc(bdp, &txq->bd);
--		bdp->cbd_sc |= cpu_to_fec16(BD_SC_WRAP);
- 		txq->dirty_tx = bdp;
- 	}
+-	do {
+-		pr_info("%3u %c%c 0x%04x 0x%08x %4u %p\n",
+-			index,
+-			bdp == txq->bd.cur ? 'S' : ' ',
+-			bdp == txq->dirty_tx ? 'H' : ' ',
+-			fec16_to_cpu(bdp->cbd_sc),
+-			fec32_to_cpu(bdp->cbd_bufaddr),
+-			fec16_to_cpu(bdp->cbd_datlen),
+-			txq->tx_skbuff[index]);
+-		bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
+-		index++;
+-	} while (bdp != txq->bd.base);
++	for (i = 0; i < fep->num_tx_queues; i++) {
++		struct fec_enet_priv_tx_q *txq = fep->tx_queue[i];
++		struct bufdesc *bdp = txq->bd.base;
++		int index = 0;
++
++		pr_info("tx queue %d\n", i);
++		do {
++			pr_info("%3u %c%c 0x%04x 0x%08x %4u %p\n",
++				index,
++				bdp == txq->bd.cur ? 'S' : ' ',
++				bdp == txq->dirty_tx ? 'H' : ' ',
++				fec16_to_cpu(bdp->cbd_sc),
++				fec32_to_cpu(bdp->cbd_bufaddr),
++				fec16_to_cpu(bdp->cbd_datlen),
++				txq->tx_skbuff[index]);
++			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
++			index++;
++		} while (bdp != txq->bd.base);
++	}
  }
-@@ -2717,19 +2710,16 @@ fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
- 		}
  
- 		rxq->rx_skbuff[i] = skb;
--		bdp->cbd_sc = cpu_to_fec16(BD_ENET_RX_EMPTY);
- 
- 		if (fep->bufdesc_ex) {
- 			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
- 			ebdp->cbd_esc = cpu_to_fec32(BD_ENET_RX_INT);
- 		}
-+		bdp->cbd_sc = cpu_to_fec16(BD_ENET_RX_EMPTY |
-+				((bdp == rxq->bd.last) ? BD_SC_WRAP : 0));
- 
- 		bdp = fec_enet_get_nextdesc(bdp, &rxq->bd);
- 	}
--
--	/* Set the last buffer to wrap. */
--	bdp = fec_enet_get_prevdesc(bdp, &rxq->bd);
--	bdp->cbd_sc |= cpu_to_fec16(BD_SC_WRAP);
- 	return 0;
- 
-  err_alloc:
-@@ -2752,21 +2742,16 @@ fec_enet_alloc_txq_buffers(struct net_device *ndev, unsigned int queue)
- 		if (!txq->tx_bounce[i])
- 			goto err_alloc;
- 
--		bdp->cbd_sc = cpu_to_fec16(0);
- 		bdp->cbd_bufaddr = cpu_to_fec32(0);
- 
- 		if (fep->bufdesc_ex) {
- 			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
- 			ebdp->cbd_esc = cpu_to_fec32(BD_ENET_TX_INT);
- 		}
--
-+		bdp->cbd_sc = cpu_to_fec16((bdp == txq->bd.last) ?
-+				BD_SC_WRAP : 0);
- 		bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
- 	}
--
--	/* Set the last buffer to wrap. */
--	bdp = fec_enet_get_prevdesc(bdp, &txq->bd);
--	bdp->cbd_sc |= cpu_to_fec16(BD_SC_WRAP);
--
- 	return 0;
- 
-  err_alloc:
+ static inline bool is_ipv4_pkt(struct sk_buff *skb)
 -- 
 2.5.0
