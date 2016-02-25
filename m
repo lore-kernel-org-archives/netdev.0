@@ -1,8 +1,8 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v2 2/3] net: cls_u32: move TC offload feature bit
- into cls_u32 offload logic
-Date: Thu, 25 Feb 2016 15:20:16 -0800
-Message-ID: <20160225232016.9820.74794.stgit@john-Precision-Tower-5810>
+Subject: [net-next PATCH v2 3/3] net: sched: cls_u32 add bit to specify
+ software only rules
+Date: Thu, 25 Feb 2016 15:20:45 -0800
+Message-ID: <20160225232045.9820.6694.stgit@john-Precision-Tower-5810>
 References: <20160225231540.9820.7688.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,55 +12,261 @@ Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
 To: jiri@resnulli.us, john.fastabend@gmail.com, daniel@iogearbox.net,
 	simon.horman@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:35256 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750984AbcBYXUj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 18:20:39 -0500
-Received: by mail-pf0-f177.google.com with SMTP id c10so42082169pfc.2
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 15:20:39 -0800 (PST)
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34910 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750984AbcBYXVL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 18:21:11 -0500
+Received: by mail-pa0-f47.google.com with SMTP id ho8so41043252pac.2
+        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 15:21:11 -0800 (PST)
 In-Reply-To: <20160225231540.9820.7688.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the original series drivers would get offload requests for cls_u32
-rules even if the feature bit is disabled. This meant the driver had
-to do a boiler plate check on the feature bit before adding/deleting
-the rule.
+In the initial implementation the only way to stop a rule from being
+inserted into the hardware table was via the device feature flag.
+However this doesn't work well when working on an end host system
+where packets are expect to hit both the hardware and software
+datapaths.
 
-This patch lifts the check into the core code and removes it from the
-driver specific case.
+For example we can imagine a rule that will match an IP address and
+increment a field. If we install this rule in both hardware and
+software we may increment the field twice. To date we have only
+added support for the drop action so we have been able to ignore
+these cases. But as we extend the action support we will hit this
+example plus more such cases. Arguably these are not even corner
+cases in many working systems these cases will be common.
+
+To avoid forcing the driver to always abort (i.e. the above example)
+this patch adds a flag to add a rule in software only. A careful
+user can use this flag to build software and hardware datapaths
+that work together. One example we have found particularly useful
+is to use hardware resources to set the skb->mark on the skb when
+the match may be expensive to run in software but a mark lookup
+in a hash table is cheap. The idea here is hardware can do in one
+lookup what the u32 classifier may need to traverse multiple lists
+and hash tables to compute. The flag is only passed down on inserts
+on deletion to avoid stale references in hardware we always try
+to remove a rule if it exists.
+
+The flags field is part of the classifier specific options. Although
+it is tempting to lift this into the generic structure doing this
+proves difficult do to how the tc netlink attributes are implemented
+along with how the dump/change routines are called. There is also
+precedence for putting seemingly generic pieces in the specific
+classifier options such as TCA_U32_POLICE, TCA_U32_ACT, etc. So
+although not ideal I've left FLAGS in the u32 options as well as it
+simplifies the code greatly and user space has already learned how
+to manage these bits ala 'tc' tool.
+
+Another thing if trying to update a rule we require the flags to
+be unchanged. This is to force user space, software u32 and
+the hardware u32 to keep in sync. Thanks to Simon Horman for
+catching this case.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    3 ---
- include/net/pkt_cls.h                         |    3 +++
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ include/net/pkt_cls.h        |   13 +++++++++++--
+ include/uapi/linux/pkt_cls.h |    1 +
+ net/sched/cls_u32.c          |   37 +++++++++++++++++++++++++++----------
+ 3 files changed, 39 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index cf4b729..b893ff8 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8400,9 +8400,6 @@ int __ixgbe_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
- 
- 	if (TC_H_MAJ(handle) == TC_H_MAJ(TC_H_INGRESS) &&
- 	    tc->type == TC_SETUP_CLSU32) {
--		if (!(dev->features & NETIF_F_HW_TC))
--			return -EINVAL;
--
- 		switch (tc->cls_u32->command) {
- 		case TC_CLSU32_NEW_KNODE:
- 		case TC_CLSU32_REPLACE_KNODE:
 diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index e64d20b..6096e96 100644
+index 6096e96..42dc412 100644
 --- a/include/net/pkt_cls.h
 +++ b/include/net/pkt_cls.h
-@@ -394,6 +394,9 @@ struct tc_cls_u32_offload {
+@@ -392,12 +392,21 @@ struct tc_cls_u32_offload {
+ 	};
+ };
  
- static inline bool tc_should_offload(struct net_device *dev)
+-static inline bool tc_should_offload(struct net_device *dev)
++/* tca flags definitions */
++#define TCA_CLS_FLAGS_SOFTWARE 1
++
++static inline bool tc_should_offload(struct net_device *dev, u32 flags)
  {
-+	if (!(dev->features & NETIF_F_HW_TC))
+ 	if (!(dev->features & NETIF_F_HW_TC))
+ 		return false;
+ 
+-	return dev->netdev_ops->ndo_setup_tc;
++	if (flags & TCA_CLS_FLAGS_SOFTWARE)
 +		return false;
 +
- 	return dev->netdev_ops->ndo_setup_tc;
++	if (!dev->netdev_ops->ndo_setup_tc)
++		return false;
++
++	return true;
  }
  
+ #endif
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 4398737..9874f568 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -172,6 +172,7 @@ enum {
+ 	TCA_U32_INDEV,
+ 	TCA_U32_PCNT,
+ 	TCA_U32_MARK,
++	TCA_U32_FLAGS,
+ 	__TCA_U32_MAX
+ };
+ 
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 24e888b..6d4450d 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -59,6 +59,7 @@ struct tc_u_knode {
+ #ifdef CONFIG_CLS_U32_PERF
+ 	struct tc_u32_pcnt __percpu *pf;
+ #endif
++	u32			flags;
+ #ifdef CONFIG_CLS_U32_MARK
+ 	u32			val;
+ 	u32			mask;
+@@ -434,7 +435,7 @@ static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
+ 	offload.type = TC_SETUP_CLSU32;
+ 	offload.cls_u32 = &u32_offload;
+ 
+-	if (tc_should_offload(dev)) {
++	if (tc_should_offload(dev, 0)) {
+ 		offload.cls_u32->command = TC_CLSU32_DELETE_KNODE;
+ 		offload.cls_u32->knode.handle = handle;
+ 		dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
+@@ -442,7 +443,9 @@ static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
+ 	}
+ }
+ 
+-static void u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
++static void u32_replace_hw_hnode(struct tcf_proto *tp,
++				 struct tc_u_hnode *h,
++				 u32 flags)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct tc_cls_u32_offload u32_offload = {0};
+@@ -451,7 +454,7 @@ static void u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+ 	offload.type = TC_SETUP_CLSU32;
+ 	offload.cls_u32 = &u32_offload;
+ 
+-	if (tc_should_offload(dev)) {
++	if (tc_should_offload(dev, flags)) {
+ 		offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
+ 		offload.cls_u32->hnode.divisor = h->divisor;
+ 		offload.cls_u32->hnode.handle = h->handle;
+@@ -471,7 +474,7 @@ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+ 	offload.type = TC_SETUP_CLSU32;
+ 	offload.cls_u32 = &u32_offload;
+ 
+-	if (tc_should_offload(dev)) {
++	if (tc_should_offload(dev, 0)) {
+ 		offload.cls_u32->command = TC_CLSU32_DELETE_HNODE;
+ 		offload.cls_u32->hnode.divisor = h->divisor;
+ 		offload.cls_u32->hnode.handle = h->handle;
+@@ -482,7 +485,9 @@ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+ 	}
+ }
+ 
+-static void u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n)
++static void u32_replace_hw_knode(struct tcf_proto *tp,
++				 struct tc_u_knode *n,
++				 u32 flags)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct tc_cls_u32_offload u32_offload = {0};
+@@ -491,7 +496,7 @@ static void u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n)
+ 	offload.type = TC_SETUP_CLSU32;
+ 	offload.cls_u32 = &u32_offload;
+ 
+-	if (tc_should_offload(dev)) {
++	if (tc_should_offload(dev, flags)) {
+ 		offload.cls_u32->command = TC_CLSU32_REPLACE_KNODE;
+ 		offload.cls_u32->knode.handle = n->handle;
+ 		offload.cls_u32->knode.fshift = n->fshift;
+@@ -679,6 +684,7 @@ static const struct nla_policy u32_policy[TCA_U32_MAX + 1] = {
+ 	[TCA_U32_SEL]		= { .len = sizeof(struct tc_u32_sel) },
+ 	[TCA_U32_INDEV]		= { .type = NLA_STRING, .len = IFNAMSIZ },
+ 	[TCA_U32_MARK]		= { .len = sizeof(struct tc_u32_mark) },
++	[TCA_U32_FLAGS]		= { .len = NLA_U32 },
+ };
+ 
+ static int u32_set_parms(struct net *net, struct tcf_proto *tp,
+@@ -786,6 +792,7 @@ static struct tc_u_knode *u32_init_knode(struct tcf_proto *tp,
+ #endif
+ 	new->fshift = n->fshift;
+ 	new->res = n->res;
++	new->flags = n->flags;
+ 	RCU_INIT_POINTER(new->ht_down, n->ht_down);
+ 
+ 	/* bump reference count as long as we hold pointer to structure */
+@@ -825,7 +832,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 	struct tc_u32_sel *s;
+ 	struct nlattr *opt = tca[TCA_OPTIONS];
+ 	struct nlattr *tb[TCA_U32_MAX + 1];
+-	u32 htid;
++	u32 htid, flags = 0;
+ 	int err;
+ #ifdef CONFIG_CLS_U32_PERF
+ 	size_t size;
+@@ -838,6 +845,9 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 	if (err < 0)
+ 		return err;
+ 
++	if (tb[TCA_U32_FLAGS])
++		flags = nla_get_u32(tb[TCA_U32_FLAGS]);
++
+ 	n = (struct tc_u_knode *)*arg;
+ 	if (n) {
+ 		struct tc_u_knode *new;
+@@ -845,6 +855,9 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 		if (TC_U32_KEY(n->handle) == 0)
+ 			return -EINVAL;
+ 
++		if (n->flags != flags)
++			return -EINVAL;
++
+ 		new = u32_init_knode(tp, n);
+ 		if (!new)
+ 			return -ENOMEM;
+@@ -861,7 +874,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 		u32_replace_knode(tp, tp_c, new);
+ 		tcf_unbind_filter(tp, &n->res);
+ 		call_rcu(&n->rcu, u32_delete_key_rcu);
+-		u32_replace_hw_knode(tp, new);
++		u32_replace_hw_knode(tp, new, flags);
+ 		return 0;
+ 	}
+ 
+@@ -889,7 +902,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 		rcu_assign_pointer(tp_c->hlist, ht);
+ 		*arg = (unsigned long)ht;
+ 
+-		u32_replace_hw_hnode(tp, ht);
++		u32_replace_hw_hnode(tp, ht, flags);
+ 		return 0;
+ 	}
+ 
+@@ -940,6 +953,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 	RCU_INIT_POINTER(n->ht_up, ht);
+ 	n->handle = handle;
+ 	n->fshift = s->hmask ? ffs(ntohl(s->hmask)) - 1 : 0;
++	n->flags = flags;
+ 	tcf_exts_init(&n->exts, TCA_U32_ACT, TCA_U32_POLICE);
+ 	n->tp = tp;
+ 
+@@ -972,7 +986,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 
+ 		RCU_INIT_POINTER(n->next, pins);
+ 		rcu_assign_pointer(*ins, n);
+-		u32_replace_hw_knode(tp, n);
++		u32_replace_hw_knode(tp, n, flags);
+ 		*arg = (unsigned long)n;
+ 		return 0;
+ 	}
+@@ -1077,6 +1091,9 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 		    nla_put_u32(skb, TCA_U32_LINK, ht_down->handle))
+ 			goto nla_put_failure;
+ 
++		if (n->flags && nla_put_u32(skb, TCA_U32_FLAGS, n->flags))
++			goto nla_put_failure;
++
+ #ifdef CONFIG_CLS_U32_MARK
+ 		if ((n->val || n->mask)) {
+ 			struct tc_u32_mark mark = {.val = n->val,
