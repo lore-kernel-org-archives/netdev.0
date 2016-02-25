@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/5] ppp: lock ppp structure before modifying mru
- in ppp_ioctl()
-Date: Thu, 25 Feb 2016 15:24:57 -0500 (EST)
-Message-ID: <20160225.152457.207063136252739704.davem@davemloft.net>
-References: <be5fc2cf38f44951ea15f366bc52fb4d780009d2.1456167043.git.g.nault@alphalink.fr>
-	<20160224.153202.880408949435562278.davem@davemloft.net>
-	<20160225191655.GA1462@alphalink.fr>
+Subject: Re: Sending short raw packets using sendmsg() broke
+Date: Thu, 25 Feb 2016 15:26:28 -0500 (EST)
+Message-ID: <20160225.152628.1230785666614750970.davem@davemloft.net>
+References: <alpine.DEB.2.10.1602252105250.32432@jazz.he.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulus@samba.org
-To: g.nault@alphalink.fr
+Cc: netdev@vger.kernel.org, willemb@google.com, alan@linux.intel.com
+To: hessu@hes.iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45441 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45452 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750699AbcBYUY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 15:24:59 -0500
-In-Reply-To: <20160225191655.GA1462@alphalink.fr>
+	with ESMTP id S1750880AbcBYU0a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 15:26:30 -0500
+In-Reply-To: <alpine.DEB.2.10.1602252105250.32432@jazz.he.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Thu, 25 Feb 2016 20:16:55 +0100
+From: Heikki Hannikainen <hessu@hes.iki.fi>
+Date: Thu, 25 Feb 2016 21:36:07 +0200 (EET)
 
-> Understood. Just to be sure, does patch #2 falls under lack of
-> demonstration? Or should I repost it separately?
+> Commit 9c7077622dd9174 added a check, ll_header_truncated(), which
+> requires that a packet transmitted using sendmsg() with PF_PACKET,
+> SOCK_RAW must be longer than dev->hard_header_len.
 
-Please repost it if you feel this way, with the race and corruption
-possibility explained in detail in the commit log message.
+Fixed by:
 
-Thanks.
+commit 880621c2605b82eb5af91a2c94223df6f5a3fb64
+Author: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Date:   Sun Nov 22 17:46:09 2015 +0100
+
+    packet: Allow packets with only a header (but no payload)
