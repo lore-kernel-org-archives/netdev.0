@@ -1,180 +1,88 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 14/15] igb: Fix VLAN tag stripping on Intel i350
-Date: Wed, 24 Feb 2016 18:15:01 -0800
-Message-ID: <1456366502-132841-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 06/15] igb: When GbE link up, wait for Remote receiver status condition
+Date: Wed, 24 Feb 2016 18:14:53 -0800
+Message-ID: <1456366502-132841-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1456366502-132841-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Corinna Vinschen <vinschen@redhat.com>, netdev@vger.kernel.org,
+Cc: Takuma Ueba <t.ueba11@gmail.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:65100 "EHLO mga01.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:20522 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759297AbcBYC0F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2016 21:26:05 -0500
+	id S1759194AbcBYC0A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2016 21:26:00 -0500
 In-Reply-To: <1456366502-132841-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Corinna Vinschen <vinschen@redhat.com>
+From: Takuma Ueba <t.ueba11@gmail.com>
 
-Problem: When switching off VLAN offloading on an i350, the VLAN
-interface gets unusable.  For testing, set up a VLAN on an i350
-and some remote machine, e.g.:
+I210 device IPv6 autoconf test sometimes fails,
+because DAD NS for link-local is not transmitted.
+This packet is silently dropped.
+This problem is seen only GbE environment.
 
-  $ ip link add link eth0 name eth0.42 type vlan id 42
-  $ ip addr add 192.168.42.1/24 dev eth0.42
-  $ ip link set dev eth0.42 up
+igb_watchdog_task link up detection continues to the following process.
+The following cases are observed:
+1.PHY 1000BASE-T Status Register Remote receiver status bit is NG.
+(NG status becomes OK after about 200 - 700ms)
+2.In this case, the transfer packet is silently dropped.
 
-Offloading is switched on by default:
+1000BASE-T Status register
+[Expected]: 0x3800 or 0x7800
+[problem occurred]: 0x2800 or 0x6800
+Frequency of occurrence: approx 1/10 - 1/40 observed
 
-  $ ethtool -k eth0 | grep vlan-offload
-  rx-vlan-offload: on
-  tx-vlan-offload: on
+In order to avoid this problem,
+wait until 1000BASE-T Status register "Remote receiver status OK"
 
-  $ ping -c 3 -I eth0.42 192.168.42.2
-  [...works as usual...]
+After applying this patch, at least 400 runs succeed with no problems.
 
-Now switch off VLAN offloading and try again:
-
-  $ ethtool -K eth0 rxvlan off
-  Actual changes:
-  rx-vlan-offload: off
-  tx-vlan-offload: off [requested on]
-  $ ping -c 3 -I eth0.42 192.168.42.2
-  PING 192.168.42.2 (192.168.42.2) from 192.168.42.1 eth0.42: 56(84) bytes of da
-ta.
-
-  --- 192.168.42.2 ping statistics ---
-  3 packets transmitted, 0 received, 100% packet loss, time 1999ms
-
-I can only reproduce it on an i350, the above works fine on a 82580.
-
-While inspecting the igb source, I came across the code in igb_set_vmolr
-which sets the E1000_VMOLR_STRVLAN/E1000_DVMOLR_STRVLAN flags once and
-for all, and in all of the igb code there's no other place where the
-STRVLAN is set or cleared.  Thus, VLAN stripping is enabled in igb
-unconditionally, independently of the offloading setting.
-
-I compared that to the latest Intel igb-5.3.3.5 driver from
-http://sourceforge.net/projects/e1000/ which in fact sets and clears the
-STRVLAN flag independently from igb_set_vmolr in its own function
-igb_set_vf_vlan_strip, depending on the vlan settings.
-
-So I included the STRVLAN handling from the igb-5.3.3.5 driver into our
-current igb driver and tested the above scenario again.  This time ping
-still works after switching off VLAN offloading.
-
-Tested on i350, with and without addtional VFs, as well as on 82580
-successfully.
-
-Signed-off-by: Corinna Vinschen <vinschen@redhat.com>
+Signed-off-by: Takuma Ueba <t.ueba11@gmail.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 41 ++++++++++++++++++++++++-------
- 1 file changed, 32 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index d90dcd1..3b56f80 100644
+index af46fcf..1aa0180 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3589,6 +3589,28 @@ static inline int igb_set_vf_rlpml(struct igb_adapter *adapter, int size,
- 	return 0;
- }
+@@ -4357,6 +4357,7 @@ static void igb_watchdog_task(struct work_struct *work)
+ 	u32 link;
+ 	int i;
+ 	u32 connsw;
++	u16 phy_data, retry_count = 20;
  
-+static inline void igb_set_vf_vlan_strip(struct igb_adapter *adapter,
-+					 int vfn, bool enable)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 val, reg;
+ 	link = igb_has_link(adapter);
+ 
+@@ -4435,6 +4436,25 @@ static void igb_watchdog_task(struct work_struct *work)
+ 				break;
+ 			}
+ 
++			if (adapter->link_speed != SPEED_1000)
++				goto no_wait;
 +
-+	if (hw->mac.type < e1000_82576)
-+		return;
-+
-+	if (hw->mac.type == e1000_i350)
-+		reg = E1000_DVMOLR(vfn);
-+	else
-+		reg = E1000_VMOLR(vfn);
-+
-+	val = rd32(reg);
-+	if (enable)
-+		val |= E1000_VMOLR_STRVLAN;
-+	else
-+		val &= ~(E1000_VMOLR_STRVLAN);
-+	wr32(reg, val);
-+}
-+
- static inline void igb_set_vmolr(struct igb_adapter *adapter,
- 				 int vfn, bool aupe)
- {
-@@ -3602,14 +3624,6 @@ static inline void igb_set_vmolr(struct igb_adapter *adapter,
- 		return;
++			/* wait for Remote receiver status OK */
++retry_read_status:
++			if (!igb_read_phy_reg(hw, PHY_1000T_STATUS,
++					      &phy_data)) {
++				if (!(phy_data & SR_1000T_REMOTE_RX_STATUS) &&
++				    retry_count) {
++					msleep(100);
++					retry_count--;
++					goto retry_read_status;
++				} else if (!retry_count) {
++					dev_err(&adapter->pdev->dev, "exceed max 2 second\n");
++				}
++			} else {
++				dev_err(&adapter->pdev->dev, "read 1000Base-T Status Reg\n");
++			}
++no_wait:
+ 			netif_carrier_on(netdev);
  
- 	vmolr = rd32(E1000_VMOLR(vfn));
--	vmolr |= E1000_VMOLR_STRVLAN; /* Strip vlan tags */
--	if (hw->mac.type == e1000_i350) {
--		u32 dvmolr;
--
--		dvmolr = rd32(E1000_DVMOLR(vfn));
--		dvmolr |= E1000_DVMOLR_STRVLAN;
--		wr32(E1000_DVMOLR(vfn), dvmolr);
--	}
- 	if (aupe)
- 		vmolr |= E1000_VMOLR_AUPE; /* Accept untagged packets */
- 	else
-@@ -6099,6 +6113,7 @@ static int igb_enable_port_vlan(struct igb_adapter *adapter, int vf,
- 
- 	adapter->vf_data[vf].pf_vlan = vlan;
- 	adapter->vf_data[vf].pf_qos = qos;
-+	igb_set_vf_vlan_strip(adapter, vf, true);
- 	dev_info(&adapter->pdev->dev,
- 		 "Setting VLAN %d, QOS 0x%x on VF %d\n", vlan, qos, vf);
- 	if (test_bit(__IGB_DOWN, &adapter->state)) {
-@@ -6126,6 +6141,7 @@ static int igb_disable_port_vlan(struct igb_adapter *adapter, int vf)
- 
- 	adapter->vf_data[vf].pf_vlan = 0;
- 	adapter->vf_data[vf].pf_qos = 0;
-+	igb_set_vf_vlan_strip(adapter, vf, false);
- 
- 	return 0;
- }
-@@ -6146,6 +6162,7 @@ static int igb_set_vf_vlan_msg(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
- {
- 	int add = (msgbuf[0] & E1000_VT_MSGINFO_MASK) >> E1000_VT_MSGINFO_SHIFT;
- 	int vid = (msgbuf[1] & E1000_VLVF_VLANID_MASK);
-+	int ret;
- 
- 	if (adapter->vf_data[vf].pf_vlan)
- 		return -1;
-@@ -6154,7 +6171,10 @@ static int igb_set_vf_vlan_msg(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
- 	if (!vid && !add)
- 		return 0;
- 
--	return igb_set_vf_vlan(adapter, vid, !!add, vf);
-+	ret = igb_set_vf_vlan(adapter, vid, !!add, vf);
-+	if (!ret)
-+		igb_set_vf_vlan_strip(adapter, vf, !!vid);
-+	return ret;
- }
- 
- static inline void igb_vf_reset(struct igb_adapter *adapter, u32 vf)
-@@ -6171,6 +6191,7 @@ static inline void igb_vf_reset(struct igb_adapter *adapter, u32 vf)
- 	igb_set_vmvir(adapter, vf_data->pf_vlan |
- 			       (vf_data->pf_qos << VLAN_PRIO_SHIFT), vf);
- 	igb_set_vmolr(adapter, vf, !vf_data->pf_vlan);
-+	igb_set_vf_vlan_strip(adapter, vf, !!(vf_data->pf_vlan));
- 
- 	/* reset multicast table array for vf */
- 	adapter->vf_data[vf].num_vf_mc_hashes = 0;
-@@ -7323,6 +7344,8 @@ static void igb_vlan_mode(struct net_device *netdev, netdev_features_t features)
- 		ctrl &= ~E1000_CTRL_VME;
- 		wr32(E1000_CTRL, ctrl);
- 	}
-+
-+	igb_set_vf_vlan_strip(adapter, adapter->vfs_allocated_count, enable);
- }
- 
- static int igb_vlan_rx_add_vid(struct net_device *netdev,
+ 			igb_ping_all_vfs(adapter);
 -- 
 2.5.0
