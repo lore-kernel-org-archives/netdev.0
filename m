@@ -1,7 +1,7 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v2 1/5] netdev: introduce ndo_set_rx_headroom
-Date: Thu, 25 Feb 2016 12:09:24 +0100
-Message-ID: <94f5bf927e514df4fecd50a1332a56501fff2945.1456397229.git.pabeni@redhat.com>
+Subject: [PATCH net-next v2 2/5] bridge: notify ensabled devices of headroom changes
+Date: Thu, 25 Feb 2016 12:09:25 +0100
+Message-ID: <a91d24aedd7fb4b5e3e54e997d7289fb3ec3ebb4.1456397229.git.pabeni@redhat.com>
 References: <cover.1456397229.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>,
@@ -11,96 +11,95 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42733 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:48825 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760194AbcBYLJq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2016 06:09:46 -0500
+	id S1760194AbcBYLJu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 06:09:50 -0500
 In-Reply-To: <cover.1456397229.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This method allows the controlling device (i.e. the bridge) to specify
-additional headroom to be allocated for skb head on frame reception.
+On bridge needed_headroom changes, the enslaved devices are
+notified via the ndo_set_rx_headroom method
 
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
 ---
 v1 -> v2:
- - fixed netdev_get_fwd_headroom()
- - added netdev_set_rx_headroom() and netdev_reset_rx_headroom() helpers
+ - use netdev_set_rx_headroom() to update the br ports headroom
+ - reset the dev rx headroom upon dev removal from bridge
 ---
- include/linux/netdevice.h | 31 +++++++++++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
+ net/bridge/br_if.c | 37 +++++++++++++++++++++++++++++++++++--
+ 1 file changed, 35 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e52077f..8f53674 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1093,6 +1093,12 @@ struct tc_to_netdev {
-  *	This function is used to get egress tunnel information for given skb.
-  *	This is useful for retrieving outer tunnel header parameters while
-  *	sampling packet.
-+ * * int (*ndo_set_rx_headroom)(struct net_device *dev, int needed_headroom);
-+ *	This function is used to specify the headroom that the skb must
-+ *	consider when allocation skb during packet reception. Setting
-+ *	appropriate rx headroom value allows avoiding skb head copy on
-+ *	forward. Setting a negative value reset the rx headroom to the
-+ *	default value.
-  *
-  */
- struct net_device_ops {
-@@ -1278,6 +1284,8 @@ struct net_device_ops {
- 							 bool proto_down);
- 	int			(*ndo_fill_metadata_dst)(struct net_device *dev,
- 						       struct sk_buff *skb);
-+	void			(*ndo_set_rx_headroom)(struct net_device *dev,
-+						       int needed_headroom);
- };
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index c367b3e..e0aedc4 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -223,6 +223,31 @@ static void destroy_nbp_rcu(struct rcu_head *head)
+ 	destroy_nbp(p);
+ }
  
- /**
-@@ -1315,6 +1323,8 @@ struct net_device_ops {
-  * @IFF_L3MDEV_SLAVE: device is enslaved to an L3 master device
-  * @IFF_TEAM: device is a team device
-  * @IFF_RXFH_CONFIGURED: device has had Rx Flow indirection table configured
-+ * @IFF_PHONY_HEADROOM: the headroom value is controlled by an external
-+ *	entity (i.e. the master device for bridged veth)
-  */
- enum netdev_priv_flags {
- 	IFF_802_1Q_VLAN			= 1<<0,
-@@ -1343,6 +1353,7 @@ enum netdev_priv_flags {
- 	IFF_L3MDEV_SLAVE		= 1<<23,
- 	IFF_TEAM			= 1<<24,
- 	IFF_RXFH_CONFIGURED		= 1<<25,
-+	IFF_PHONY_HEADROOM		= 1<<26,
- };
- 
- #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
-@@ -1937,6 +1948,26 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
- 				    struct sk_buff *skb,
- 				    void *accel_priv);
- 
-+/* returns the headroom that the master device needs to take in account
-+ * when forwarding to this dev
-+ */
-+static inline unsigned netdev_get_fwd_headroom(struct net_device *dev)
++static unsigned get_max_headroom(struct net_bridge *br)
 +{
-+	return dev->priv_flags & IFF_PHONY_HEADROOM ? 0 : dev->needed_headroom;
++	unsigned max_headroom = 0;
++	struct net_bridge_port *p;
++
++	list_for_each_entry(p, &br->port_list, list) {
++		unsigned dev_headroom = netdev_get_fwd_headroom(p->dev);
++
++		if (dev_headroom > max_headroom)
++			max_headroom = dev_headroom;
++	}
++
++	return max_headroom;
 +}
 +
-+static inline void netdev_set_rx_headroom(struct net_device *dev, int new_hr)
++static void update_headroom(struct net_bridge *br, int new_hr)
 +{
-+	if (dev->netdev_ops->ndo_set_rx_headroom)
-+		dev->netdev_ops->ndo_set_rx_headroom(dev, new_hr);
++	struct net_bridge_port *p;
++
++	list_for_each_entry(p, &br->port_list, list)
++		netdev_set_rx_headroom(p->dev, new_hr);
++
++	br->dev->needed_headroom = new_hr;
 +}
 +
-+/* set the device rx headroom to the dev's default */
-+static inline void netdev_reset_rx_headroom(struct net_device *dev)
-+{
-+	netdev_set_rx_headroom(dev, -1);
-+}
-+
- /*
-  * Net namespace inlines
-  */
+ /* Delete port(interface) from bridge is done in two steps.
+  * via RCU. First step, marks device as down. That deletes
+  * all the timers and stops new packets from flowing through.
+@@ -248,6 +273,9 @@ static void del_nbp(struct net_bridge_port *p)
+ 	br_ifinfo_notify(RTM_DELLINK, p);
+ 
+ 	list_del_rcu(&p->list);
++	if (netdev_get_fwd_headroom(dev) == br->dev->needed_headroom)
++		update_headroom(br, get_max_headroom(br));
++	netdev_reset_rx_headroom(dev);
+ 
+ 	nbp_vlan_flush(p);
+ 	br_fdb_delete_by_port(br, p, 0, 1);
+@@ -438,6 +466,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ {
+ 	struct net_bridge_port *p;
+ 	int err = 0;
++	unsigned br_hr, dev_hr;
+ 	bool changed_addr;
+ 
+ 	/* Don't allow bridging non-ethernet like devices, or DSA-enabled
+@@ -505,8 +534,12 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 
+ 	netdev_update_features(br->dev);
+ 
+-	if (br->dev->needed_headroom < dev->needed_headroom)
+-		br->dev->needed_headroom = dev->needed_headroom;
++	br_hr = br->dev->needed_headroom;
++	dev_hr = netdev_get_fwd_headroom(dev);
++	if (br_hr < dev_hr)
++		update_headroom(br, dev_hr);
++	else
++		netdev_set_rx_headroom(dev, br_hr);
+ 
+ 	if (br_fdb_insert(br, p, dev->dev_addr, 0))
+ 		netdev_err(dev, "failed insert local address bridge forwarding table\n");
 -- 
 1.8.3.1
