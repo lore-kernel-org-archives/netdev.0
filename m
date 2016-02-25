@@ -1,87 +1,44 @@
 From: John Fastabend <john.fastabend@gmail.com>
 Subject: Re: [net-next PATCH 3/4] net: sched: cls_u32 add bit to specify software
  only rules
-Date: Wed, 24 Feb 2016 20:04:07 -0800
-Message-ID: <56CE7D37.9000701@gmail.com>
-References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810> <20160223190321.5970.58924.stgit@john-Precision-Tower-5810> <56CDB0B0.4080609@mojatatu.com>
+Date: Wed, 24 Feb 2016 20:09:46 -0800
+Message-ID: <56CE7E8A.3040202@gmail.com>
+References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810>	<20160223190321.5970.58924.stgit@john-Precision-Tower-5810>	<20160224080440.GA26500@office.Home>	<20160224084057.GC2151@nanopsycho.orion>	<56CD701B.8070308@gmail.com> <20160224102907.05aa8e42@griffin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-	davem@davemloft.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>, jiri@resnulli.us,
-	daniel@iogearbox.net
+Cc: Jiri Pirko <jiri@resnulli.us>, "Amir Vadai\"" <amir@vadai.me>,
+	daniel@iogearbox.net, netdev@vger.kernel.org,
+	alexei.starovoitov@gmail.com, davem@davemloft.net, jhs@mojatatu.com
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:35589 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751337AbcBYEEU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 23:04:20 -0500
-Received: by mail-pf0-f177.google.com with SMTP id c10so25983985pfc.2
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 20:04:20 -0800 (PST)
-In-Reply-To: <56CDB0B0.4080609@mojatatu.com>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:35999 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753007AbcBYEKA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2016 23:10:00 -0500
+Received: by mail-pf0-f178.google.com with SMTP id e127so25216820pfe.3
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2016 20:09:59 -0800 (PST)
+In-Reply-To: <20160224102907.05aa8e42@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-24 05:31 AM, Jamal Hadi Salim wrote:
-> On 16-02-23 02:03 PM, John Fastabend wrote:
->> In the initial implementation the only way to stop a rule from being
->> inserted into the hardware table was via the device feature flag.
->> However this doesn't work well when working on an end host system
->> where packets are expect to hit both the hardware and software
->> datapaths.
->>
->> For example we can imagine a rule that will match an IP address and
->> increment a field. If we install this rule in both hardware and
->> software we may increment the field twice. To date we have only
->> added support for the drop action so we have been able to ignore
->> these cases. But as we extend the action support we will hit this
->> example plus more such cases. Arguably these are not even corner
->> cases in many working systems these cases will be common.
->>
->> To avoid forcing the driver to always abort (i.e. the above example)
->> this patch adds a flag to add a rule in software only. A careful
->> user can use this flag to build software and hardware datapaths
->> that work together. One example we have found particularly useful
->> is to use hardware resources to set the skb->mark on the skb when
->> the match may be expensive to run in software but a mark lookup
->> in a hash table is cheap. The idea here is hardware can do in one
->> lookup what the u32 classifier may need to traverse multiple lists
->> and hash tables to compute. The flag is only passed down on inserts
->> on deletion to avoid stale references in hardware we always try
->> to remove a rule if it exists.
->>
->> Notice we do not add a hardware only case here. If you were to
->> add a hardware only case then you are stuck with the problem
->> of where to stick the software representation of that filter
->> rule. If its stuck on the same filter list as the software only and
->> software/hardware rules it then has to be walked over and ignored
->> in the classify path. The overhead is not huge but is measurable.
->> And with so much work being invested in speeding up rx/tx of
->> pkt processing this is unacceptable IMO. The other option is to
->> have a special hook just for hardware only resources. This is
->> implemented in the next patch.
->>
+On 16-02-24 01:29 AM, Jiri Benc wrote:
+> On Wed, 24 Feb 2016 00:55:55 -0800, John Fastabend wrote:
+>> The flags however likely stays with with TCA_U32_FLAGS until there is
+>> some better way to group common attributes in 'tc' framework.
 > 
-> Dont have much time to look closely - will do later. Just wanted
-> to quip:
-> Would it make sense to have a user flag which says, "please store
-> this in s/ware - dont use it in s/ware just install it in h/ware."
-> This should be totally optional policy, but would help find the rules
-> faster from a control plane if i look for them in s/ware first.
-> There's some really freaking slow hardware interfaces out there...
-> (a record of 60 seconds to find something is not unheard of).
-
-I think this is absolutely necessary not only for performance of
-reporting the rules back to software but if we don't do it generically
-the driver will have to do it anyways because doing the inverse
-transformation from hw implementation to u32 is really tricky and in
-fact with hnodes and knodes there are multiple cls_u32 "programs" that
-functionally are the same so we have no way to return what the user
-actually programmed without it. Further eBPF (the next classifier I'm
-working on) is even worse in this regard. You can see my solution to
-this "load in hardware" filter list in patch 4/4. See Jiri's comment
-also on that and see if you agree.
-
+> That's pretty bad, as this is uAPI and will need to be supported
+> forever. And having a different attribute in every filter won't ease
+> things for user space tools. I'd say we need the "better way" to be
+> added before this patchset.
 > 
-> cheers,
-> jamal
+>  Jiri
+> 
+
+The 'tc' semantics seem to support this "pretty bad" API design
+with many of the fields already duplicated. I suppose we could
+put the flags at the same level as the TCA_* attributes but this
+also doesn't seem right to me as it isn't actually handled until
+we get into the TCA_#CLASSIFIER#_* set of attributes.
+
+.John
