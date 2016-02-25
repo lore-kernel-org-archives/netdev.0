@@ -1,70 +1,47 @@
-From: Gilberto Bertin <gilberto.bertin@gmail.com>
-Subject: Re: [net-next RFC 0/4] SO_BINDTOSUBNET
-Date: Thu, 25 Feb 2016 10:09:18 +0000
-Message-ID: <14B20F89-508D-4E6A-B02E-66422DC31783@gmail.com>
-References: <1456241265-5766-1-git-send-email-gilberto.bertin@gmail.com> <CALx6S36_ii9hOj_Jn+xKxjoZQfbb-TfdQysH-N+Zic-bMHnHPg@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] bpf: fix csum setting for bpf_set_tunnel_key
+Date: Thu, 25 Feb 2016 11:45:47 +0100
+Message-ID: <56CEDB5B.7060805@iogearbox.net>
+References: <cb92edae7e6cb23d349d714736362535e56a1c75.1456188678.git.daniel@iogearbox.net> <20160224.162400.1248598061435588351.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch, jesse@kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:37034 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759750AbcBYKJU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 05:09:20 -0500
-Received: by mail-wm0-f50.google.com with SMTP id g62so20308358wme.0
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 02:09:20 -0800 (PST)
-In-Reply-To: <CALx6S36_ii9hOj_Jn+xKxjoZQfbb-TfdQysH-N+Zic-bMHnHPg@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:42343 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759853AbcBYKpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 05:45:52 -0500
+In-Reply-To: <20160224.162400.1248598061435588351.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 02/24/2016 10:24 PM, David Miller wrote:
+[...]
+> Applied to 'net', thanks Daniel.
 
-> On 24 Feb 2016, at 05:06, Tom Herbert <tom@herbertland.com> wrote:
->=20
-> On Tue, Feb 23, 2016 at 7:27 AM, Gilberto Bertin
-> <gilberto.bertin@gmail.com> wrote:
->> This series introduces support for the SO_BINDTOSUBNET socket option=
-, which
->> allows a listener socket to bind to a subnet instead of * or a singl=
-e address.
->>=20
->> Motivation:
->> consider a set of servers, each one with thousands and thousands of =
-IP
->> addresses. Since assigning /32 or /128 IP individual addresses would=
- be
->> inefficient, one solution can be assigning subnets using local route=
-s
->> (with 'ip route add local').
->>=20
-> Hi Gilberto,
->=20
-> The concept is certainly relevant, but allowing binds by subnet seems
-> arbitrary. I can imagine that someone might want to bind to a list of
-> addresses, list of interfaces, list of subnets, or complex
-> combinations like a subnet on one interface, and list of addresses on
-> another. So I wonder if this is another use case for a BPF program on
-> a listener socket, like a program for a scoring function. Maybe this
-> could even combined with  BPF SO_REUSERPORT somehow?
->=20
-> Tom
+Thanks!
 
-Hi Tom,
+Btw, in case net gets merged into net-next, there will be a minor
+merge conflict due to stackid flags present in net-next. This can
+be easily resolved by keeping both chunks.
 
-thanks for commenting on my patch.
-Your proposal is certainly more generic, but at the same time it would =
-require
-a bit more work to be used (at least for my specific case).
-Indeed in my case it would be only a matter of calling setsockopt() wit=
-h a
-struct that decsribes the subnet, while with BPF it would be necessary =
-to write
-and load a scoring function (but at least the subnet descriptor can be =
-stored
-in a map, so there's no need to rewrite the filter for each different s=
-ubnet).
-Anyway, I=E2=80=99m curious to explore your idea.
+For example, result after merge in include/uapi/linux/bpf.h then
+looks like:
+
+/* BPF_FUNC_skb_set_tunnel_key and BPF_FUNC_skb_get_tunnel_key flags. */
+#define BPF_F_TUNINFO_IPV6              (1ULL << 0)
+
+/* BPF_FUNC_skb_set_tunnel_key flags. */
+#define BPF_F_ZERO_CSUM_TX              (1ULL << 1)
+
+/* BPF_FUNC_get_stackid flags. */
+#define BPF_F_SKIP_FIELD_MASK           0xffULL
+#define BPF_F_USER_STACK                (1ULL << 8)
+#define BPF_F_FAST_STACK_CMP            (1ULL << 9)
+#define BPF_F_REUSE_STACKID             (1ULL << 10)
 
 Thanks,
-  gilberto
+Daniel
