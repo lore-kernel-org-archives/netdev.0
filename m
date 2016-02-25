@@ -1,71 +1,71 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH 3/4] net: sched: cls_u32 add bit to specify
- software only rules
-Date: Thu, 25 Feb 2016 07:56:35 -0500
-Message-ID: <56CEFA03.3080802@mojatatu.com>
+Subject: Re: [net-next PATCH 4/4] net: sched: create hardware only classifier
+ filter
+Date: Thu, 25 Feb 2016 08:14:23 -0500
+Message-ID: <56CEFE2F.4060203@mojatatu.com>
 References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810>
- <20160223190321.5970.58924.stgit@john-Precision-Tower-5810>
- <56CDB0B0.4080609@mojatatu.com> <56CE7D37.9000701@gmail.com>
+ <20160223190356.5970.94298.stgit@john-Precision-Tower-5810>
+ <20160224084728.GD2151@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-	davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>, jiri@resnulli.us,
-	daniel@iogearbox.net
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
+	alexei.starovoitov@gmail.com, davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>,
+	John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33255 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759756AbcBYM4i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 07:56:38 -0500
-Received: by mail-io0-f194.google.com with SMTP id g203so5530421iof.0
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 04:56:38 -0800 (PST)
-In-Reply-To: <56CE7D37.9000701@gmail.com>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:34570 "EHLO
+	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759101AbcBYNO0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 08:14:26 -0500
+Received: by mail-io0-f196.google.com with SMTP id l127so5563899iof.1
+        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 05:14:25 -0800 (PST)
+In-Reply-To: <20160224084728.GD2151@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-24 11:04 PM, John Fastabend wrote:
-> On 16-02-24 05:31 AM, Jamal Hadi Salim wrote:
+On 16-02-24 03:47 AM, Jiri Pirko wrote:
+> Tue, Feb 23, 2016 at 08:03:56PM CET, john.fastabend@gmail.com wrote:
+>> If users want to run filters specifically in hardware without software
+>> running the classifiers we need to use a special handler for this.
+>> By using a new classifier list we are able to add filters in hardware
+>> and keep all the same semantics in the core module. So the core code
+>> will continue to block duplicate entries, incorrect usage of flags
+>> such as exclusive, and all the other cases software already handles.
+>>
+>> Additionally by having a filter list that is not run by software in
+>> the datapath we avoid any overhead related to adding these rules in
+>> the hot path.
+>>
+>> The new filter list TC_H_MIN_INGRESS_HW is logically run in front
+>> of the TC_H_MIN_INGRESS filter list. Driver writers can avoid aborting
+>> on many cases that would potentially conflict with software rules in
+>> the TC_H_MIN_INGRESS filter list this way.
+>
+> Oh, although it looks straightforward to implement this, I don't like it.
+> User should be able to do the same thing he did before, only extension
+> would be to allow to pass 2 flags for adding rules:
+> SKIP_HW
+> SKIP_SW
+>
+> Default would be to add rule to both.
+> u32 and other classifiers should take care of processing this flags
+> internaly and act accordingly. The implementation can be just to skip
+> rule in sw processing or it can maintain hw-only structures.
 
-> I think this is absolutely necessary not only for performance of
-> reporting the rules back to software but if we don't do it generically
-> the driver will have to do it anyways because doing the inverse
-> transformation from hw implementation to u32 is really tricky and in
-> fact with hnodes and knodes there are multiple cls_u32 "programs" that
-> functionally are the same so we have no way to return what the user
-> actually programmed without it. Further eBPF (the next classifier I'm
-> working on) is even worse in this regard.
+I think there is another axis: To add it to sofware but execute it in
+hardware (and not in s/ware).
+This way you can do faster lookups from user space (control
+purposes) and from the hardware you can periodically update things to
+synchronize things like stats for example.
+IOW, this compensates for h/ware interfaces being slow and not needing
+to keep talking to them when you dont have to.
+BTW: At netdev01 - the mellanox people and qualcom both complained about
+this (low speed) issue. I believe someone was recommending a
+"EINPROGRESS" netlink msg or even lying for the set case to say
+"success" when in fact it wasnt. EINPROGRESS may still be a useful idea
+but a different discussion.
 
-Ok, I guess there are multiple use cases for it ;->
-Yes, with ebpf it will be worse because data and instructions are
-inter- mingled (and our interest is in data only). Note:
-Over the years this has been a big struggle for human
-friendliness. I thought we didnt care about humans (as in automation)
-but you are saying this will affect machines too ;-> We cant allow
-that ;->
-
-Note: You could decode u32 descriptions but it is an involved effort.
-Example, see this feature in tc:
----
-jhs@jhs1 tc -pretty filter ls dev $ETH parent ffff: protocol ip
-filter pref 11 u32
-filter pref 11 u32 fh 800: ht divisor 1
-filter pref 11 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:1
-   match IP src 10.0.0.130/32
-	action order 1: gact action drop
-	 random type none pass val 0
-	 index 1 ref 1 bind 1
-----
-See that "match" field reading in anglais? It requires more and more
-additions of pretty printers that translate back.
-
-What about adding some tag to allow for easy "babel translation"?
-
-> You can see my solution to
-> this "load in hardware" filter list in patch 4/4. See Jiri's comment
-> also on that and see if you agree.
-
-Ok, will do.
 
 cheers,
 jamal
