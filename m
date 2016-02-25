@@ -1,34 +1,54 @@
-From: Dan Streetman <dan.streetman@canonical.com>
-Subject: for stable: xfrm: Let the flowcache handle its size by default.
-Date: Thu, 25 Feb 2016 14:25:04 -0500
-Message-ID: <CAOZ2QJOO714Zpo7mJsXYp6Ln3MAmPi0TbhDXdd8DLL6EA=oNYQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][net-next][v2] bridge: allow the maximum mtu to 64k
+Date: Thu, 25 Feb 2016 14:28:43 -0500 (EST)
+Message-ID: <20160225.142843.1047807549399216518.davem@davemloft.net>
+References: <1456189256-7811-1-git-send-email-roy.qing.li@gmail.com>
+	<20160224134456.3ea94f0a@xeon-e3>
+	<CAJFZqHwiJiMnEvq9mWZJqPbsm_VkDLPxMkgLt-UtwUTynA1RKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f176.google.com ([209.85.161.176]:36473 "EHLO
-	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933357AbcBYTZo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 14:25:44 -0500
-Received: by mail-yw0-f176.google.com with SMTP id e63so50912447ywc.3
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 11:25:44 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:44840 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933401AbcBYT2p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 14:28:45 -0500
+In-Reply-To: <CAJFZqHwiJiMnEvq9mWZJqPbsm_VkDLPxMkgLt-UtwUTynA1RKQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Li RongQing <roy.qing.li@gmail.com>
+Date: Thu, 25 Feb 2016 09:50:41 +0800
 
-can you queue commit c386578f1cdb4dac230395a951f88027f64346e3 for stable?
+> On Thu, Feb 25, 2016 at 5:44 AM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+>>> This is especially annoying for the virtualization case because the
+>>> KVM's tap driver will by default adopt the bridge's MTU on startup
+>>> making it impossible (without the workaround) to use a large MTU on the
+>>> guest VMs.
+>>>
+>>> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1399064
+>>
+>> This use case looks like KVM misusing bridge MTU. I.e it should set TAP
+>> MTU to what it wants then enslave it, not vice versa.
+> 
+> 1. a use should be able to configure an empty bridge MTU to a higher
+> mtu than 1500
+> 
+> 2. if first configure the tap MTU a higher value, other port is lower
+> value, the pmtu
+> will be used, it maybe lower performance.
+> the configuration process is written into libvirt, located in
+> virnetdevtap.c, of cause it can
+> be improved to fix this issue.
+> https://www.redhat.com/archives/libvir-list/2008-December/msg00083.html
 
-Without it, any system with > 16 cpus and a lot of ipsec use, that
-leaves xfrmN_gc_thresh set to its default, will (eventually) see
-failures to create new ipsec connections.
+You are saying that it is possible to achieve the behavior the user wants
+with the mechanisms provided, which means this patch isn't necessary.
 
-It fixes commit 703fb94ec58e0e8769380c2877a8a34aeb5b6c97.
+And if I added the patch it would be of limited value, since proper software
+would have to cope with the behavior of older kernels anyways.
 
-commit eeb1b73378b560e00ff1da2ef09fed9254f4e128 also tried to fix it,
-but didn't increase the value enough and so only fixed the problem for
-< 16 cpu systems.
-
-thanks!
+I'm not applying this, sorry.
