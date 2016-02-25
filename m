@@ -1,66 +1,49 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 00/10] mlx5 driver updates
-Date: Thu, 25 Feb 2016 18:33:10 +0200
-Message-ID: <1456418000-18898-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 08/10] net/mlx5: Make command timeout way shorter
+Date: Thu, 25 Feb 2016 18:33:18 +0200
+Message-ID: <1456418000-18898-9-git-send-email-saeedm@mellanox.com>
+References: <1456418000-18898-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
+	Leon Romanovsky <leonro@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:57234 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:57262 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1760641AbcBYQeS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2016 11:34:18 -0500
+	id S933216AbcBYQeX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 11:34:23 -0500
+In-Reply-To: <1456418000-18898-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave, 
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-This series includes some bug fixes and updates for the mlx5 core
-and ethernet driver.
+The command timeout is terribly long, whole two hours. Make it 60s so if
+things do go wrong, the user gets feedback in relatively short time, so
+they can take corrective actions and/or investigate using tools and such.
 
->From Gal, two fixes that protects the update CQ moderation flows
-when it is not allowed.
+Fixes: e126ba97dba9 ('mlx5: Add driver for Mellanox Connect-IB adapters')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ include/linux/mlx5/driver.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
->From Moshe, two fixes for the core and ethernet driver in 
-non-cached(NC) and write combining(WC) buffers mappings, 
-which prevents the driver from double memory mappings.
-
->From Or, reduce the firmware command completion timeout.
-
->From Tariq, several small trivial fixes.
-
-This series is generated against net-next commit 555d5b70f159 'ppp: clarify parsing of user supplied data in ppp_set_compress()'
-
-Thanks,
-Saeed
-
-Gal Pressman (2):
-  net/mlx5e: Don't try to modify CQ moderation if it is not supported
-  net/mlx5e: Don't modify CQ before it was created
-
-Moshe Lazer (2):
-  net/mlx5: Fix global UAR mapping
-  net/mlx5: Avoid double mapping of io mapped memory
-
-Or Gerlitz (1):
-  net/mlx5: Make command timeout way shorter
-
-Tariq Toukan (5):
-  net/mlx5e: Replace async events spinlock with synchronize_irq()
-  net/mlx5e: Placement changed for carrier state updates
-  net/mlx5e: Changed naming convention of tx queues in ethtool stats
-  net/mlx5e: Move common case counters within sq_stats struct
-  net/mlx5e: Set drop RQ's necessary parameters only
-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   27 ++++-----
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   27 ++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   64 ++++++++++---------
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |    5 ++
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |   28 +--------
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |    1 +
- drivers/net/ethernet/mellanox/mlx5/core/uar.c      |   31 ++++++----
- include/linux/mlx5/driver.h                        |    7 +-
- 9 files changed, 97 insertions(+), 95 deletions(-)
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index a815da9..3388a43 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -54,7 +54,7 @@ enum {
+ 	/* one minute for the sake of bringup. Generally, commands must always
+ 	 * complete and we may need to increase this timeout value
+ 	 */
+-	MLX5_CMD_TIMEOUT_MSEC	= 7200 * 1000,
++	MLX5_CMD_TIMEOUT_MSEC	= 60 * 1000,
+ 	MLX5_CMD_WQ_MAX_NAME	= 32,
+ };
+ 
+-- 
+1.7.1
