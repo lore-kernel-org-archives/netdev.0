@@ -1,78 +1,55 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH 3/4] net: sched: cls_u32 add bit to specify software
- only rules
-Date: Thu, 25 Feb 2016 08:39:48 -0800
-Message-ID: <56CF2E54.40404@gmail.com>
-References: <20160223190233.5970.61226.stgit@john-Precision-Tower-5810> <20160223190321.5970.58924.stgit@john-Precision-Tower-5810> <20160224080440.GA26500@office.Home> <20160224084057.GC2151@nanopsycho.orion> <56CD701B.8070308@gmail.com> <20160224102907.05aa8e42@griffin> <56CE7E8A.3040202@gmail.com> <56CEFF75.8070106@mojatatu.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] ipv4: in new netns initialize sysctls in
+	net.ipv4.conf.* with defaults
+Date: Thu, 25 Feb 2016 11:43:43 -0500 (EST)
+Message-ID: <20160225.114343.1977846344387184355.davem@davemloft.net>
+References: <20160223.182121.2101846699151527296.davem@davemloft.net>
+	<87y4a9ix2h.fsf@x220.int.ebiederm.org> <56CF0DC0.7030003@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, "Amir Vadai\"" <amir@vadai.me>,
-	daniel@iogearbox.net, netdev@vger.kernel.org,
-	alexei.starovoitov@gmail.com, davem@davemloft.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34910 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757854AbcBYQkC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 11:40:02 -0500
-Received: by mail-pa0-f47.google.com with SMTP id ho8so35755812pac.2
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 08:40:02 -0800 (PST)
-In-Reply-To: <56CEFF75.8070106@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, vvs-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org
+To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <56CF0DC0.7030003-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 16-02-25 05:19 AM, Jamal Hadi Salim wrote:
-> On 16-02-24 11:09 PM, John Fastabend wrote:
->> On 16-02-24 01:29 AM, Jiri Benc wrote:
->>> On Wed, 24 Feb 2016 00:55:55 -0800, John Fastabend wrote:
->>>> The flags however likely stays with with TCA_U32_FLAGS until there is
->>>> some better way to group common attributes in 'tc' framework.
->>>
->>> That's pretty bad, as this is uAPI and will need to be supported
->>> forever. And having a different attribute in every filter won't ease
->>> things for user space tools. I'd say we need the "better way" to be
->>> added before this patchset.
->>>
->>>   Jiri
->>>
->>
->> The 'tc' semantics seem to support this "pretty bad" API design
->> with many of the fields already duplicated.
-> 
-> Mostly this is a netlink-ism. Netlink has the same problem with
-> command name spaces. The problem is mixing verbs and nouns together.
-> I like the switchdev approach where you have very few verbs
-> (SET, GET etc) and the content of the object or path describes
-> the nouns. This is why initially i thought it was better to have
-> this offload passing by switchdev. Could we leverage some of that?
-> 
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Date: Thu, 25 Feb 2016 15:20:48 +0100
 
-No I don't think so. Either way you need some flag at the 'tc' layer
-to push this down to hardware offload ops.
+> Le 24/02/2016 23:05, Eric W. Biederman a =E9crit :
+> [snip]
+>> In the general case the current behavior is random and not something
+>> applications can count on, and we would do well to fix it so it is
+>> less
+>> random.  In particular consider the case of an application in a
+>> non-initial network namespace creating a new network namespace.  It is
+>> not even possible to predict what values they will get for sysctls
+>> today.
+> +1
 
->> I suppose we could
->> put the flags at the same level as the TCA_* attributes but this
->> also doesn't seem right to me as it isn't actually handled until
->> we get into the TCA_#CLASSIFIER#_* set of attributes.
->>
-> 
-> Could we not steal a couple of bits off netlink flags? Then it applies
-> to all subssystems.
+But there is a counter argument to this.
 
-I did that in some original patch I never sent but I didn't like it.
-Netlink is used for all sorts of things and those flags already have
-a meaning. We've already started this trend of using flags inside the
-specific messages for other things like the bridge code. And there are
-only a few bits left in the rtnetlink flags field I would prefer to
-save them for something necessary.
+The admin set up the initial namespace so that any namespace
+instantiated by a user (even non-initial namespaces) starts with a
+specific set of sysctl values.  So the admin "knows", he set it up
+intentionally this way, and it's a valid model.
 
-In the end I think the solution here is really not that bad the
-userspace code to add it is trivial (~5 lines of code). Its not
-how I would do it if I was writing the entire OS from scratch
-but we have to maintain UAPI so not sure I have any better solutions.
+This behavior is anything but random.  Rather, it is very predictable
+and controllable.
 
-> 
-> cheers,
-> jamal
-> 
+Do you really want to find out who you're going to break out there with
+so many installations in the world right now?
+
+I do not.
