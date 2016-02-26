@@ -1,52 +1,48 @@
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next v2 0/4] bridge: mcast: add support for
-	temp router port
-Date: Fri, 26 Feb 2016 21:20:00 +0100
-Message-ID: <1456518004-25578-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
-	davem@davemloft.net
+Subject: [PATCH net-next v2 2/4] bridge: mcast: do nothing if port's multicast_router is set to the same val
+Date: Fri, 26 Feb 2016 21:20:02 +0100
+Message-ID: <1456518004-25578-3-git-send-email-nikolay@cumulusnetworks.com>
+References: <1456518004-25578-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: davem@davemloft.net, roopa@cumulusnetworks.com,
+	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:35228 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755160AbcBZUUQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 15:20:16 -0500
+Received: by mail-wm0-f45.google.com with SMTP id a4so1669396wme.0
+        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 12:20:15 -0800 (PST)
+In-Reply-To: <1456518004-25578-1-git-send-email-nikolay@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-This set adds support for temporary router port which doesn't depend only
-on the incoming queries. It can be refreshed by setting multicast_router to
-the same value (3). The first two patches are minor changes that prepare
-the code for the third which adds this new type of router port.
-In order to be able to dump its information the mdb router port format
-is changed in patch 04 and extended similar to how mdb entries format was
-done recently.
-The related iproute2 changes will be posted if this is accepted.
+This is needed for the upcoming temporary port router. There's no point
+to go through the logic if the value is the same.
 
-v2: set val first and adjust router type later in patch 01, patch 03 was
-split in 2
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+v2: no change
 
-Thanks,
- Nik
+ net/bridge/br_multicast.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-
-Nikolay Aleksandrov (4):
-  bridge: mcast: use names for the different multicast_router types
-  bridge: mcast: do nothing if port's multicast_router is set to the
-    same val
-  bridge: mcast: add support for temporary port router
-  bridge: mcast: add support for more router port information dumping
-
- include/uapi/linux/if_bridge.h | 22 ++++++++++-
- net/bridge/br_mdb.c            | 16 +++++++-
- net/bridge/br_multicast.c      | 83 +++++++++++++++++++++++++++---------------
- 3 files changed, 89 insertions(+), 32 deletions(-)
-
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 71c109b0943f..f1140cf5168d 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1853,7 +1853,10 @@ int br_multicast_set_port_router(struct net_bridge_port *p, unsigned long val)
+ 	int err = -EINVAL;
+ 
+ 	spin_lock(&br->multicast_lock);
+-
++	if (p->multicast_router == val) {
++		err = 0;
++		goto unlock;
++	}
+ 	switch (val) {
+ 	case MDB_RTR_TYPE_DISABLED:
+ 		p->multicast_router = MDB_RTR_TYPE_DISABLED;
 -- 
 2.4.3
