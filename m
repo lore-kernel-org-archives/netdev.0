@@ -1,100 +1,54 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [PATCH iproute2 v2] iplink: Support VF Trust
-Date: Fri, 26 Feb 2016 15:47:12 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0789F3905B@ORSMSX116.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05FB353F@BPXM14GP.gisp.nec.co.jp>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH v3 0/3] tc software only
+Date: Fri, 26 Feb 2016 07:53:26 -0800
+Message-ID: <20160226154858.5338.90569.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"Linux Netdev List" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+	davem@davemloft.net, jhs@mojatatu.com
+To: jiri@resnulli.us, john.fastabend@gmail.com, daniel@iogearbox.net,
+	simon.horman@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:11367 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932768AbcBZPrQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Feb 2016 10:47:16 -0500
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05FB353F@BPXM14GP.gisp.nec.co.jp>
-Content-Language: en-US
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34863 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753896AbcBZPxo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 10:53:44 -0500
+Received: by mail-pa0-f51.google.com with SMTP id ho8so54429597pac.2
+        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 07:53:43 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IEhpcm9zaGkgU2hpbWFtb3RvIFttYWls
-dG86aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbV0gDQpTZW50OiBUaHVyc2RheSwgRmVicnVhcnkg
-MjUsIDIwMTYgNjo0MCBQTQ0KVG86IEtpcnNoZXIsIEplZmZyZXkgVCA8amVmZnJleS50LmtpcnNo
-ZXJAaW50ZWwuY29tPjsgU3RlcGhlbiBIZW1taW5nZXIgPHN0ZXBoZW5AbmV0d29ya3BsdW1iZXIu
-b3JnPg0KQ2M6IFJvc2UsIEdyZWdvcnkgViA8Z3JlZ29yeS52LnJvc2VAaW50ZWwuY29tPjsgT3Ig
-R2VybGl0eiA8Z2VybGl0ei5vckBnbWFpbC5jb20+OyBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRl
-ci5kdXlja0BnbWFpbC5jb20+OyBTa2lkbW9yZSwgRG9uYWxkIEMgPGRvbmFsZC5jLnNraWRtb3Jl
-QGludGVsLmNvbT47IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3JnOyBuaG9ybWFuQHJl
-ZGhhdC5jb207IGpvZ3JlZW5lQHJlZGhhdC5jb207IExpbnV4IE5ldGRldiBMaXN0IDxuZXRkZXZA
-dmdlci5rZXJuZWwub3JnPjsgQ2hvaSwgU3kgSm9uZyA8c3kuam9uZy5jaG9pQGludGVsLmNvbT47
-IFJvbnkgRWZyYWltIDxyb255ZUBtZWxsYW5veC5jb20+OyBFZHdhcmQgQ3JlZSA8ZWNyZWVAc29s
-YXJmbGFyZS5jb20+OyBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+OyBzYXNzbWFu
-bkByZWRoYXQuY29tDQpTdWJqZWN0OiBbUEFUQ0ggaXByb3V0ZTIgdjJdIGlwbGluazogU3VwcG9y
-dCBWRiBUcnVzdA0KDQpGcm9tOiBIaXJvc2hpIFNoaW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAu
-bmVjLmNvbT4NCg0KQWRkIElGTEFfVkZfVFJVU1QgbWVzc2FnZSB0byB0cnVzdCB0aGUgVkYuDQpQ
-RiBjYW4gYWNjZXB0IHNvbWUgcHJpdmlsZWdlZCBvcGVyYXRpb24gZnJvbSB0aGUgdHJ1c3RlZCBW
-Ri4NCkZvciBleGFtcGxlLCBpeGdiZSBQRiBkb2Vzbid0IGFsbG93IHRvIGVuYWJsZSBWRiBwcm9t
-aXNjdW91cyBtb2RlIHVudGlsIHRoZSBWRiBpcyB0cnVzdGVkIGJlY2F1c2UgaXQgbWF5IGh1cnQg
-cGVyZm9ybWFuY2UuDQoNClRvIHRydXN0IFZGLg0KICMgaXAgbGluayBzZXQgZGV2IGV0aDAgdmYg
-MSB0cnVzdCBvbg0KDQpUbyB1bnRydXN0IFZGLg0KICMgaXAgbGluayBzZXQgZGV2IGV0aDAgdmYg
-MSB0cnVzdCBvZmYNCg0KU2lnbmVkLW9mZi1ieTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFt
-b3RvQGN0LmpwLm5lYy5jb20+DQotLS0NCg0KdjEgLT4gdjI6IHJlYmFzZSB0byB0aGUgbGF0ZXN0
-IGNvZGUgb2YgaXByb3V0ZTIuDQoNClRoZSBWRiB0cnVzdCBwYXRjaCBoYXMgYmVlbiBpbiBrZXJu
-ZWwgYW5kIHRoZSBJRkxBX1ZGX1RSVVNUIG5ldGxpbmsgYXR0cmlidXRlIGhhcyBiZWVuIGluY2x1
-ZGVkIGlwcm91dGUyLCBidXQgbm8gYWN0dWFsIGhhbmRsZXIgZm9yIHRoaXMuDQpUaGlzIHBhdGNo
-IGFkZCB0aGUgZnVuY3Rpb25hbGl0eSB0byB0cnVzdCB2ZiBmcm9tIGlwIGNvbW1hbmQuDQoNCiBp
-cC9pcGxpbmsuYyAgICAgICAgICAgfCAxMyArKysrKysrKysrKysrDQogbWFuL21hbjgvaXAtbGlu
-ay44LmluIHwgIDcgKysrKysrLQ0KIDIgZmlsZXMgY2hhbmdlZCwgMTkgaW5zZXJ0aW9ucygrKSwg
-MSBkZWxldGlvbigtKQ0KDQpkaWZmIC0tZ2l0IGEvaXAvaXBsaW5rLmMgYi9pcC9pcGxpbmsuYw0K
-aW5kZXggNWFiOWQ2MS4uNjlmNTA1NyAxMDA2NDQNCi0tLSBhL2lwL2lwbGluay5jDQorKysgYi9p
-cC9pcGxpbmsuYw0KQEAgLTgyLDYgKzgyLDcgQEAgdm9pZCBpcGxpbmtfdXNhZ2Uodm9pZCkNCiAJ
-ZnByaW50ZihzdGRlcnIsICIJCQkJICAgWyBzcG9vZmNoayB7IG9uIHwgb2ZmfSBdIF1cbiIpOw0K
-IAlmcHJpbnRmKHN0ZGVyciwgIgkJCQkgICBbIHF1ZXJ5X3JzcyB7IG9uIHwgb2ZmfSBdIF1cbiIp
-Ow0KIAlmcHJpbnRmKHN0ZGVyciwgIgkJCQkgICBbIHN0YXRlIHsgYXV0byB8IGVuYWJsZSB8IGRp
-c2FibGV9IF0gXVxuIik7DQorCWZwcmludGYoc3RkZXJyLCAiCQkJCSAgIFsgdHJ1c3QgeyBvbiB8
-IG9mZn0gXSBdXG4iKTsNCiAJZnByaW50ZihzdGRlcnIsICIJCQkgIFsgbWFzdGVyIERFVklDRSBd
-XG4iKTsNCiAJZnByaW50ZihzdGRlcnIsICIJCQkgIFsgbm9tYXN0ZXIgXVxuIik7DQogCWZwcmlu
-dGYoc3RkZXJyLCAiCQkJICBbIGFkZHJnZW5tb2RlIHsgZXVpNjQgfCBub25lIHwgc3RhYmxlX3Nl
-Y3JldCB8IHJhbmRvbSB9IF1cbiIpOw0KQEAgLTM1Niw2ICszNTcsMTggQEAgc3RhdGljIGludCBp
-cGxpbmtfcGFyc2VfdmYoaW50IHZmLCBpbnQgKmFyZ2NwLCBjaGFyICoqKmFyZ3ZwLA0KIAkJCWl2
-cy52ZiA9IHZmOw0KIAkJCWFkZGF0dHJfbCgmcmVxLT5uLCBzaXplb2YoKnJlcSksIElGTEFfVkZf
-UlNTX1FVRVJZX0VOLCAmaXZzLCBzaXplb2YoaXZzKSk7DQogDQorCQl9IGVsc2UgaWYgKG1hdGNo
-ZXMoKmFyZ3YsICJ0cnVzdCIpID09IDApIHsNCisJCQlzdHJ1Y3QgaWZsYV92Zl90cnVzdCBpdnQ7
-DQorCQkJTkVYVF9BUkcoKTsNCisJCQlpZiAobWF0Y2hlcygqYXJndiwgIm9uIikgPT0gMCkNCisJ
-CQkJaXZ0LnNldHRpbmcgPSAxOw0KKwkJCWVsc2UgaWYgKG1hdGNoZXMoKmFyZ3YsICJvZmYiKSA9
-PSAwKQ0KKwkJCQlpdnQuc2V0dGluZyA9IDA7DQorCQkJZWxzZQ0KKwkJCQlpbnZhcmcoIkludmFs
-aWQgXCJ0cnVzdFwiIHZhbHVlXG4iLCAqYXJndik7DQorCQkJaXZ0LnZmID0gdmY7DQorCQkJYWRk
-YXR0cl9sKCZyZXEtPm4sIHNpemVvZigqcmVxKSwgSUZMQV9WRl9UUlVTVCwgJml2dCwgc2l6ZW9m
-KGl2dCkpOw0KKw0KIAkJfSBlbHNlIGlmIChtYXRjaGVzKCphcmd2LCAic3RhdGUiKSA9PSAwKSB7
-DQogCQkJc3RydWN0IGlmbGFfdmZfbGlua19zdGF0ZSBpdmw7DQogDQpkaWZmIC0tZ2l0IGEvbWFu
-L21hbjgvaXAtbGluay44LmluIGIvbWFuL21hbjgvaXAtbGluay44LmluIGluZGV4IDRkMzIzNDMu
-LjdkZDdhOTAgMTAwNjQ0DQotLS0gYS9tYW4vbWFuOC9pcC1saW5rLjguaW4NCisrKyBiL21hbi9t
-YW44L2lwLWxpbmsuOC5pbg0KQEAgLTE0Miw3ICsxNDIsOCBAQCBpcC1saW5rIFwtIG5ldHdvcmsg
-ZGV2aWNlIGNvbmZpZ3VyYXRpb24gIC5CIG1pbl90eF9yYXRlICAuSVIgVFhSQVRFICIgXSBbIg0K
-IC5CIHNwb29mY2hrIHsgb24gfCBvZmYgfSBdIFsNCi0uQiBzdGF0ZSB7IGF1dG8gfCBlbmFibGUg
-fCBkaXNhYmxlfQ0KKy5CIHN0YXRlIHsgYXV0byB8IGVuYWJsZSB8IGRpc2FibGV9IF0gWyAuQiB0
-cnVzdCB7IG9uIHwgb2ZmIH0NCiBdIHwNCiAuYnINCiAuQiBtYXN0ZXINCkBAIC0xMDE5LDYgKzEw
-MjAsMTAgQEAgcGFyYW1ldGVyIG11c3QgYmUgc3BlY2lmaWVkLg0KIHJlZmxlY3Rpb24gb2YgdGhl
-IFBGIGxpbmsgc3RhdGUsIGVuYWJsZSBsZXRzIHRoZSBWRiB0byBjb21tdW5pY2F0ZSB3aXRoIG90
-aGVyIFZGcyBvbiAgdGhpcyBob3N0IGV2ZW4gaWYgdGhlIFBGIGxpbmsgc3RhdGUgaXMgZG93biwg
-ZGlzYWJsZSBjYXVzZXMgdGhlIEhXIHRvIGRyb3AgYW55IHBhY2tldHMgIHNlbnQgYnkgdGhlIFZG
-Lg0KKy5zcA0KKy5CSSB0cnVzdCAiIG9ufG9mZiINCistIHRydXN0IHRoZSBzcGVjaWZpZWQgVkYg
-dXNlci4gVGhpcyBlbmFibGVzIHRoYXQgVkYgdXNlciBjYW4gc2V0IGEgDQorc3BlY2lmaWMgZmVh
-dHVyZSB3aGljaCBtYXkgaW1wYWN0IHNlY3VyaXR5IGFuZC9vciBwZXJmb3JtYW5jZS4gKGUuZy4g
-VkYgDQorbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUpDQogLmluIC04DQogDQogLlRQDQotLQ0K
-MS44LjMuMQ0KDQpBY2tlZC1ieTogR3JlZyBSb3NlIDxHcmVnb3J5LnYucm9zZUBpbnRlbC5jb20+
-DQoNCg==
+This adds a software only flag to tc but incorporates a bunch of comments
+from the original attempt at this.
+
+First instead of having the offload decision logic be embedded in cls_u32
+I lifted into cls_pkt.h so it can be used anywhere and named the flag
+TCA_CLS_FLAGS_SKIP_HW (Thanks Jiri ;)
+
+In order to do this I put the flag defines in pkt_cls.h as well. However
+it was suggested that perhaps these flags could be lifted into the
+upper layer of TCA_ as well but I'm afraid this can not be done with
+existing tc design as far as I can tell. The problem is the filters are
+packed and unpacked in the classifier specific code and pushing the flags
+through the high level doesn't seem easily doable. And we already have
+this design where classifiers handle generic options such as actions and
+policers. So I think adding one more thing here is OK as 'tc', et. al.
+already know how to handle this type of thing.
+
+Thanks,
+.John
+
+---
+
+John Fastabend (3):
+      net: sched: consolidate offload decision in cls_u32
+      net: cls_u32: move TC offload feature bit into cls_u32 offload logic
+      net: sched: cls_u32 add bit to specify software only rules
+
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    3 --
+ include/net/pkt_cls.h                         |   17 +++++++++++
+ include/uapi/linux/pkt_cls.h                  |    1 +
+ net/sched/cls_u32.c                           |   37 ++++++++++++++++++-------
+ 4 files changed, 45 insertions(+), 13 deletions(-)
