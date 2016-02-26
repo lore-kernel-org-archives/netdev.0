@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 1/9] net: dsa: support VLAN filtering switchdev attr
-Date: Fri, 26 Feb 2016 13:16:00 -0500
-Message-ID: <1456510568-13679-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 9/9] net: dsa: mv88e6xxx: support VLAN filtering
+Date: Fri, 26 Feb 2016 13:16:08 -0500
+Message-ID: <1456510568-13679-10-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -20,73 +20,103 @@ In-Reply-To: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When a user explicitly requests VLAN filtering with something like:
-
-    # echo 1 > /sys/class/net/<bridge>/bridge/vlan_filtering
-
-Switchdev propagates a SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING port
-attribute.
-
-Add support for it in the DSA layer with a new port_vlan_filtering
-function to let drivers toggle 802.1Q filtering on user demand.
+Implement port_vlan_filtering in the driver to toggle the related port
+802.1Q mode between DISABLED and SECURE, on user request.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/dsa.h |  2 ++
- net/dsa/slave.c   | 21 +++++++++++++++++++++
- 2 files changed, 23 insertions(+)
+ drivers/net/dsa/mv88e6171.c |  1 +
+ drivers/net/dsa/mv88e6352.c |  1 +
+ drivers/net/dsa/mv88e6xxx.c | 39 +++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.h |  2 ++
+ 4 files changed, 43 insertions(+)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 3dd5486..26c0a3f 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -305,6 +305,8 @@ struct dsa_switch_driver {
- 	/*
- 	 * VLAN support
- 	 */
-+	int	(*port_vlan_filtering)(struct dsa_switch *ds, int port,
-+				       bool vlan_filtering);
- 	int	(*port_vlan_prepare)(struct dsa_switch *ds, int port,
- 				     const struct switchdev_obj_port_vlan *vlan,
- 				     struct switchdev_trans *trans);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index cde2923..27bf03d 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -317,6 +317,24 @@ static int dsa_slave_stp_update(struct net_device *dev, u8 state)
- 	return ret;
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index dd1ebaf..d72ccbd 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -106,6 +106,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.port_join_bridge	= mv88e6xxx_port_bridge_join,
+ 	.port_leave_bridge	= mv88e6xxx_port_bridge_leave,
+ 	.port_stp_update        = mv88e6xxx_port_stp_update,
++	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
+ 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
+ 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
+ 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index bbca36a..a41fa50 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -327,6 +327,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.port_join_bridge	= mv88e6xxx_port_bridge_join,
+ 	.port_leave_bridge	= mv88e6xxx_port_bridge_leave,
+ 	.port_stp_update	= mv88e6xxx_port_stp_update,
++	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
+ 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
+ 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
+ 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 27a19dc..d11c9d5 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1712,6 +1712,45 @@ unlock:
+ 	return err;
  }
  
-+static int dsa_slave_vlan_filtering(struct net_device *dev,
-+				    const struct switchdev_attr *attr,
-+				    struct switchdev_trans *trans)
++static const char * const mv88e6xxx_port_8021q_mode_names[] = {
++	[PORT_CONTROL_2_8021Q_DISABLED] = "Disabled",
++	[PORT_CONTROL_2_8021Q_FALLBACK] = "Fallback",
++	[PORT_CONTROL_2_8021Q_CHECK] = "Check",
++	[PORT_CONTROL_2_8021Q_SECURE] = "Secure",
++};
++
++int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
++				  bool vlan_filtering)
 +{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	u16 old, new = vlan_filtering ? PORT_CONTROL_2_8021Q_SECURE :
++		PORT_CONTROL_2_8021Q_DISABLED;
++	int ret;
 +
-+	/* bridge skips -EOPNOTSUPP, so skip the prepare phase */
-+	if (switchdev_trans_ph_prepare(trans))
-+		return 0;
++	mutex_lock(&ps->smi_mutex);
 +
-+	if (ds->drv->port_vlan_filtering)
-+		return ds->drv->port_vlan_filtering(ds, p->port,
-+						    attr->u.vlan_filtering);
++	ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_CONTROL_2);
++	if (ret < 0)
++		goto unlock;
 +
-+	return 0;
++	old = ret & PORT_CONTROL_2_8021Q_MASK;
++
++	ret &= ~PORT_CONTROL_2_8021Q_MASK;
++	ret |= new & PORT_CONTROL_2_8021Q_MASK;
++
++	ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_CONTROL_2, ret);
++	if (ret < 0)
++		goto unlock;
++
++	netdev_dbg(ds->ports[port], "802.1Q Mode: %s (was %s)\n",
++		   mv88e6xxx_port_8021q_mode_names[new],
++		   mv88e6xxx_port_8021q_mode_names[old]);
++unlock:
++	mutex_unlock(&ps->smi_mutex);
++
++	return ret;
 +}
 +
- static int dsa_slave_port_attr_set(struct net_device *dev,
- 				   const struct switchdev_attr *attr,
- 				   struct switchdev_trans *trans)
-@@ -333,6 +351,9 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
- 			ret = ds->drv->port_stp_update(ds, p->port,
- 						       attr->u.stp_state);
- 		break;
-+	case SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING:
-+		ret = dsa_slave_vlan_filtering(dev, attr, trans);
-+		break;
- 	default:
- 		ret = -EOPNOTSUPP;
- 		break;
+ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
+ 				const struct switchdev_obj_port_vlan *vlan,
+ 				struct switchdev_trans *trans)
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 85a4166..d7b088d 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -490,6 +490,8 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
+ 			       struct net_device *bridge);
+ int mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port);
+ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state);
++int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
++				  bool vlan_filtering);
+ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
+ 				const struct switchdev_obj_port_vlan *vlan,
+ 				struct switchdev_trans *trans);
 -- 
 2.7.1
