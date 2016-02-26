@@ -1,951 +1,299 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [net-next-2.6 v3 1/3] introduce IFE action
-Date: Fri, 26 Feb 2016 15:49:05 -0800
-Message-ID: <CAM_iQpXA4zLbDJzB9FBz5TFAMTLPGvA3=H6bUDRiV=2zSQg9ig@mail.gmail.com>
-References: <1456526605-15774-1-git-send-email-jhs@emojatatu.com>
-	<1456526605-15774-2-git-send-email-jhs@emojatatu.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 1/5] vxlan: implement GPE in L2 mode
+Date: Fri, 26 Feb 2016 15:51:29 -0800
+Message-ID: <CALx6S34vm6nqce481mcH_S3sfc4B5ift7YwJmTba4Vvdvnmj3w@mail.gmail.com>
+References: <cover.1456472746.git.jbenc@redhat.com>
+	<6fe53252314d644e994950522d4320bc54ced928.1456472746.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f171.google.com ([209.85.161.171]:34083 "EHLO
-	mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754279AbcBZXtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 18:49:07 -0500
-Received: by mail-yw0-f171.google.com with SMTP id h129so81708568ywb.1
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 15:49:06 -0800 (PST)
-In-Reply-To: <1456526605-15774-2-git-send-email-jhs@emojatatu.com>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:32984 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755261AbcBZXva (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 18:51:30 -0500
+Received: by mail-io0-f177.google.com with SMTP id z135so138700543iof.0
+        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 15:51:30 -0800 (PST)
+In-Reply-To: <6fe53252314d644e994950522d4320bc54ced928.1456472746.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 26, 2016 at 2:43 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+On Thu, Feb 25, 2016 at 11:48 PM, Jiri Benc <jbenc@redhat.com> wrote:
+> Implement VXLAN-GPE. Only L2 mode (i.e. encapsulated Ethernet frame) is
+> supported by this patch.
+>
+> L3 mode will be added by subsequent patches.
+>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> ---
+>  drivers/net/vxlan.c          | 68 ++++++++++++++++++++++++++++++++++++++++++--
+>  include/net/vxlan.h          | 62 +++++++++++++++++++++++++++++++++++++++-
+>  include/uapi/linux/if_link.h |  8 ++++++
+>  3 files changed, 135 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 775ddb48388d..c7844bae339d 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -1192,6 +1192,33 @@ out:
+>         unparsed->vx_flags &= ~VXLAN_GBP_USED_BITS;
+>  }
+>
+> +static bool vxlan_parse_gpe_hdr(struct vxlanhdr *unparsed,
+> +                               struct sk_buff *skb, u32 vxflags)
+> +{
+> +       struct vxlanhdr_gpe *gpe = (struct vxlanhdr_gpe *)unparsed;
+> +
+> +       /* Need to have Next Protocol set for interfaces in GPE mode. */
+> +       if (!gpe->np_applied)
+> +               return false;
+> +       /* "The initial version is 0. If a receiver does not support the
+> +        * version indicated it MUST drop the packet.
+> +        */
+> +       if (gpe->version != 0)
+> +               return false;
+> +       /* "When the O bit is set to 1, the packet is an OAM packet and OAM
+> +        * processing MUST occur." However, we don't implement OAM
+> +        * processing, thus drop the packet.
+> +        */
+> +       if (gpe->oam_flag)
+> +               return false;
+> +
+> +       if (gpe->next_protocol != VXLAN_GPE_NP_ETHERNET)
+> +               return false;
+> +
+> +       unparsed->vx_flags &= ~VXLAN_GPE_USED_BITS;
+> +       return true;
+> +}
+> +
+>  static bool vxlan_set_mac(struct vxlan_dev *vxlan,
+>                           struct vxlan_sock *vs,
+>                           struct sk_buff *skb)
+> @@ -1307,6 +1334,9 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
+>         /* For backwards compatibility, only allow reserved fields to be
+>          * used by VXLAN extensions if explicitly requested.
+>          */
+> +       if (vs->flags & VXLAN_F_GPE)
+> +               if (!vxlan_parse_gpe_hdr(&unparsed, skb, vs->flags))
+> +                       goto drop;
 
-[...]
+I don't think this is right. VXLAN-GPE is a separate protocol than
+VXLAN, they are not compatible on the wire and don't share flags or
+fields (for instance GPB uses bits in VXLAN that hold the next
+protocol in VXLAN-GPE). Neither is there a VXLAN_F_GPE flag defined in
+VXLAN to differentiate the two. So VXLAN-GPE would be used on a
+different port and probably needs its own rcv functions.
 
+Tom
 
-Just some quick reviews... ;)
-
-
-> +#define IFE_TAB_MASK 15
-> +
-> +static int ife_net_id;
-> +static int max_metacnt = IFE_META_MAX + 1;
-> +
-> +static const struct nla_policy ife_policy[TCA_IFE_MAX + 1] = {
-> +       [TCA_IFE_PARMS] = { .len = sizeof(struct tc_ife)},
-> +       [TCA_IFE_DMAC] = { .len = ETH_ALEN},
-> +       [TCA_IFE_SMAC] = { .len = ETH_ALEN},
-> +       [TCA_IFE_TYPE] = { .type = NLA_U16},
-> +};
-> +
-> +/* Caller takes care of presenting data in network order
-> +*/
-> +int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const void *dval)
+>         if (vs->flags & VXLAN_F_REMCSUM_RX)
+>                 if (!vxlan_remcsum(&unparsed, skb, vs->flags))
+>                         goto drop;
+> @@ -1685,6 +1715,14 @@ static void vxlan_build_gbp_hdr(struct vxlanhdr *vxh, u32 vxflags,
+>         gbp->policy_id = htons(md->gbp & VXLAN_GBP_ID_MASK);
+>  }
+>
+> +static void vxlan_build_gpe_hdr(struct vxlanhdr *vxh, u32 vxflags)
 > +{
-> +       u32 *tlv = (u32 *)(skbdata);
-> +       u16 totlen = nla_total_size(dlen);      /*alignment + hdr */
-> +       char *dptr = (char *)tlv + NLA_HDRLEN;
-> +       u32 htlv = attrtype << 16 | totlen;
+> +       struct vxlanhdr_gpe *gpe = (struct vxlanhdr_gpe *)vxh;
 > +
-> +       *tlv = htonl(htlv);
-> +       memset(dptr, 0, totlen - NLA_HDRLEN);
-> +       memcpy(dptr, dval, dlen);
-> +
-> +       return totlen;
-> +}
-> +EXPORT_SYMBOL_GPL(ife_tlv_meta_encode);
-> +
-> +int ife_get_meta_u32(struct sk_buff *skb, struct tcf_meta_info *mi)
-> +{
-> +       if (mi->metaval)
-> +               return nla_put_u32(skb, mi->metaid, *(u32 *)mi->metaval);
-> +       else
-> +               return nla_put(skb, mi->metaid, 0, NULL);
-> +}
-> +EXPORT_SYMBOL_GPL(ife_get_meta_u32);
-> +
-> +int ife_check_meta_u32(u32 metaval, struct tcf_meta_info *mi)
-> +{
-> +       if (metaval || mi->metaval)
-> +               return 8; /* T+L+V == 2+2+4 */
-> +
-> +       return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(ife_check_meta_u32);
-> +
-> +int ife_encode_meta_u32(u32 metaval, void *skbdata, struct tcf_meta_info *mi)
-> +{
-> +       u32 edata = metaval;
-> +
-> +       if (mi->metaval)
-> +               edata = *(u32 *)mi->metaval;
-> +       else if (metaval)
-> +               edata = metaval;
-> +
-> +       if (!edata) /* will not encode */
-> +               return 0;
-> +
-> +       edata = htonl(edata);
-> +       return ife_tlv_meta_encode(skbdata, mi->metaid, 4, &edata);
-> +}
-> +EXPORT_SYMBOL_GPL(ife_encode_meta_u32);
-> +
-> +int ife_get_meta_u16(struct sk_buff *skb, struct tcf_meta_info *mi)
-> +{
-> +       if (mi->metaval)
-> +               return nla_put_u16(skb, mi->metaid, *(u16 *)mi->metaval);
-> +       else
-> +               return nla_put(skb, mi->metaid, 0, NULL);
-> +}
-> +EXPORT_SYMBOL_GPL(ife_get_meta_u16);
-> +
-> +int ife_alloc_meta_u32(struct tcf_meta_info *mi, void *metaval)
-> +{
-> +       mi->metaval = kmemdup(&metaval, sizeof(u32), GFP_KERNEL);
-> +       if (!mi->metaval)
-> +               return -ENOMEM;
-> +
-> +       return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(ife_alloc_meta_u32);
-> +
-> +int ife_alloc_meta_u16(struct tcf_meta_info *mi, void *metaval)
-> +{
-> +       mi->metaval = kmemdup(&metaval, sizeof(u16), GFP_KERNEL);
-> +       if (!mi->metaval)
-> +               return -ENOMEM;
-> +
-> +       return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(ife_alloc_meta_u16);
-> +
-> +void ife_release_meta_gen(struct tcf_meta_info *mi)
-> +{
-> +       kfree(mi->metaval);
-> +}
-> +EXPORT_SYMBOL_GPL(ife_release_meta_gen);
-> +
-> +int ife_validate_meta_u32(void *val, int len)
-> +{
-> +       if (len == 4)
-> +               return 0;
-> +
-> +       return -EINVAL;
-> +}
-> +EXPORT_SYMBOL_GPL(ife_validate_meta_u32);
-> +
-> +int ife_validate_meta_u16(void *val, int len)
-> +{
-> +       /* length will include padding */
-> +       if (len == NLA_ALIGN(2))
-> +               return 0;
-> +
-> +       return -EINVAL;
-> +}
-> +EXPORT_SYMBOL_GPL(ife_validate_meta_u16);
-> +
-> +static LIST_HEAD(ifeoplist);
-> +static DEFINE_RWLOCK(ife_mod_lock);
-> +
-> +struct tcf_meta_ops *find_ife_oplist(u16 metaid)
-
-
-static?
-
-
-> +{
-> +       struct tcf_meta_ops *o;
-> +
-> +       read_lock(&ife_mod_lock);
-> +       list_for_each_entry(o, &ifeoplist, list) {
-> +               if (o->metaid == metaid) {
-> +                       if (!try_module_get(o->owner))
-> +                               o = NULL;
-> +                       read_unlock(&ife_mod_lock);
-> +                       return o;
-> +               }
-> +       }
-> +       read_unlock(&ife_mod_lock);
-> +
-> +       return NULL;
+> +       gpe->np_applied = 1;
+> +       gpe->next_protocol = VXLAN_GPE_NP_ETHERNET;
 > +}
 > +
-> +int register_ife_op(struct tcf_meta_ops *mops)
-> +{
-> +       struct tcf_meta_ops *m;
-> +
-> +       if (!mops->metaid || !mops->metatype || !mops->name ||
-> +           !mops->check_presence || !mops->encode || !mops->decode ||
-> +           !mops->get || !mops->alloc)
+>  static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
+>                            int iphdr_len, __be32 vni,
+>                            struct vxlan_metadata *md, u32 vxflags,
+> @@ -1744,6 +1782,8 @@ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
+>
+>         if (vxflags & VXLAN_F_GBP)
+>                 vxlan_build_gbp_hdr(vxh, vxflags, md);
+> +       if (vxflags & VXLAN_F_GPE)
+> +               vxlan_build_gpe_hdr(vxh, vxflags);
+>
+>         skb_set_inner_protocol(skb, htons(ETH_P_TEB));
+>         return 0;
+> @@ -2515,6 +2555,7 @@ static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
+>         [IFLA_VXLAN_REMCSUM_RX] = { .type = NLA_U8 },
+>         [IFLA_VXLAN_GBP]        = { .type = NLA_FLAG, },
+>         [IFLA_VXLAN_REMCSUM_NOPARTIAL]  = { .type = NLA_FLAG },
+> +       [IFLA_VXLAN_GPE_MODE]   = { .type = NLA_U8, },
+>  };
+>
+>  static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
+> @@ -2714,6 +2755,10 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
+>         __be16 default_port = vxlan->cfg.dst_port;
+>         struct net_device *lowerdev = NULL;
+>
+> +       if (((conf->flags & VXLAN_F_LEARN) && (conf->flags & VXLAN_F_GPE)) ||
+> +           ((conf->flags & VXLAN_F_GBP) && (conf->flags & VXLAN_F_GPE)))
 > +               return -EINVAL;
 > +
-> +       write_lock(&ife_mod_lock);
+>         vxlan->net = src_net;
+>
+>         dst->remote_vni = conf->vni;
+> @@ -2770,8 +2815,12 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
+>         dev->needed_headroom = needed_headroom;
+>
+>         memcpy(&vxlan->cfg, conf, sizeof(*conf));
+> -       if (!vxlan->cfg.dst_port)
+> -               vxlan->cfg.dst_port = default_port;
+> +       if (!vxlan->cfg.dst_port) {
+> +               if (conf->flags & VXLAN_F_GPE)
+> +                       vxlan->cfg.dst_port = 4790; /* IANA assigned VXLAN-GPE port */
+> +               else
+> +                       vxlan->cfg.dst_port = default_port;
+> +       }
+>         vxlan->flags |= conf->flags;
+>
+>         if (!vxlan->cfg.age_interval)
+> @@ -2941,6 +2990,13 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
+>         if (data[IFLA_VXLAN_REMCSUM_NOPARTIAL])
+>                 conf.flags |= VXLAN_F_REMCSUM_NOPARTIAL;
+>
+> +       if (data[IFLA_VXLAN_GPE_MODE]) {
+> +               u8 mode = nla_get_u8(data[IFLA_VXLAN_GPE_MODE]);
 > +
-> +       list_for_each_entry(m, &ifeoplist, list) {
-> +               if (m->metaid == mops->metaid ||
-> +                   (strcmp(mops->name, m->name) == 0)) {
-> +                       write_unlock(&ife_mod_lock);
-> +                       return -EEXIST;
-> +               }
+> +               if (mode > 0 && mode <= VXLAN_GPE_MODE_MAX)
+> +                       conf.flags |= VXLAN_F_GPE;
 > +       }
 > +
-> +       if (!mops->release)
-> +               mops->release = ife_release_meta_gen;
+>         err = vxlan_dev_configure(src_net, dev, &conf);
+>         switch (err) {
+>         case -ENODEV:
+> @@ -2954,6 +3010,10 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
+>         case -EEXIST:
+>                 pr_info("duplicate VNI %u\n", be32_to_cpu(conf.vni));
+>                 break;
 > +
-> +       list_add_tail(&mops->list, &ifeoplist);
-> +       write_unlock(&ife_mod_lock);
-> +       return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(unregister_ife_op);
+> +       case -EINVAL:
+> +               pr_info("unsupported combination of extensions\n");
+> +               break;
+>         }
+>
+>         return err;
+> @@ -3083,6 +3143,10 @@ static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
+>             nla_put_flag(skb, IFLA_VXLAN_REMCSUM_NOPARTIAL))
+>                 goto nla_put_failure;
+>
+> +       if (vxlan->flags & VXLAN_F_GPE &&
+> +           nla_put_u8(skb, IFLA_VXLAN_GPE_MODE, VXLAN_GPE_MODE_L2))
+> +               goto nla_put_failure;
 > +
-> +int unregister_ife_op(struct tcf_meta_ops *mops)
-> +{
-> +       struct tcf_meta_ops *m;
-> +       int err = -ENOENT;
+>         return 0;
+>
+>  nla_put_failure:
+> diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+> index 6eda4ed4d78b..7c5f1385bdfd 100644
+> --- a/include/net/vxlan.h
+> +++ b/include/net/vxlan.h
+> @@ -119,6 +119,64 @@ struct vxlanhdr_gbp {
+>  #define VXLAN_GBP_POLICY_APPLIED       (BIT(3) << 16)
+>  #define VXLAN_GBP_ID_MASK              (0xFFFF)
+>
+> +/*
+> + * VXLAN Generic Protocol Extension (VXLAN_F_GPE):
+> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> + * |R|R|Ver|I|P|R|O|       Reserved                |Next Protocol  |
+> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> + * |                VXLAN Network Identifier (VNI) |   Reserved    |
+> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> + *
+> + * Ver = Version. Indicates VXLAN GPE protocol version.
+> + *
+> + * P = Next Protocol Bit. The P bit is set to indicate that the
+> + *     Next Protocol field is present.
+> + *
+> + * O = OAM Flag Bit. The O bit is set to indicate that the packet
+> + *     is an OAM packet.
+> + *
+> + * Next Protocol = This 8 bit field indicates the protocol header
+> + * immediately following the VXLAN GPE header.
+> + *
+> + * https://tools.ietf.org/html/draft-ietf-nvo3-vxlan-gpe-01
+> + */
 > +
-> +       write_lock(&ife_mod_lock);
-> +       list_for_each_entry(m, &ifeoplist, list) {
-> +               if (m->metaid == mops->metaid) {
-> +                       list_del(&mops->list);
-> +                       err = 0;
-> +                       break;
-> +               }
-> +       }
-> +       write_unlock(&ife_mod_lock);
-> +
-> +       return err;
-> +}
-> +EXPORT_SYMBOL_GPL(register_ife_op);
-> +
-> +void print_ife_oplist(void)
-
-static?
-
-> +{
-> +       struct tcf_meta_ops *o;
-> +       int i = 0;
-> +
-> +       read_lock(&ife_mod_lock);
-> +       list_for_each_entry(o, &ifeoplist, list) {
-> +               pr_debug("%d: %s metaid %d\n", ++i, o->name, o->metaid);
-> +       }
-
-
-Is this really useful? Modules can be found by lsmod.
-
-
-> +       read_unlock(&ife_mod_lock);
-> +}
-> +
-> +static int ife_validate_metatype(struct tcf_meta_ops *ops, void *val, int len)
-> +{
-> +       int ret = 0;
-> +       /* XXX: unfortunately cant use nla_policy at this point
-> +       * because a length of 0 is valid in the case of
-> +       * "allow". "use" semantics do enforce for proper
-> +       * length and i couldve use nla_policy but it makes it hard
-> +       * to use it just for that..
-> +       */
-> +       if (ops->validate)
-> +               return ops->validate(val, len);
-> +
-> +       if (ops->metatype == NLA_U32)
-> +               ret = ife_validate_meta_u32(val, len);
-> +       else if (ops->metatype == NLA_U16)
-> +               ret = ife_validate_meta_u16(val, len);
-> +
-> +       return ret;
-> +}
-> +
-> +/* called when adding new meta information
-> + * under ife->tcf_lock
-> +*/
-> +int load_metaops_and_vet(struct tcf_ife_info *ife, u32 metaid,
-> +                        void *val, int len)
-
-
-Can become static?
-
-
-> +{
-> +       struct tcf_meta_ops *ops = find_ife_oplist(metaid);
-> +       int ret = 0;
-> +
-> +       if (!ops) {
-> +               ret = -ENOENT;
-> +#ifdef CONFIG_MODULES
-> +               spin_unlock_bh(&ife->tcf_lock);
-> +               rtnl_unlock();
-> +               request_module("ifemeta%u", metaid);
-> +               rtnl_lock();
-> +               spin_lock_bh(&ife->tcf_lock);
-> +               ops = find_ife_oplist(metaid);
+> +struct vxlanhdr_gpe {
+> +#if defined(__LITTLE_ENDIAN_BITFIELD)
+> +       u8      oam_flag:1,
+> +               reserved_flags1:1,
+> +               np_applied:1,
+> +               instance_applied:1,
+> +               version:2,
+> +reserved_flags2:2;
+> +#elif defined(__BIG_ENDIAN_BITFIELD)
+> +       u8      reserved_flags2:2,
+> +               version:2,
+> +               instance_applied:1,
+> +               np_applied:1,
+> +               reserved_flags1:1,
+> +               oam_flag:1;
 > +#endif
-> +       }
-> +
-> +       if (ops) {
-> +               ret = 0;
-> +               if (len)
-> +                       ret = ife_validate_metatype(ops, val, len);
-> +
-> +               module_put(ops->owner);
-> +       }
-> +
-> +       return ret;
-> +}
-> +
-> +/* called when adding new meta information
-> + * under ife->tcf_lock
-> +*/
-> +int add_metainfo(struct tcf_ife_info *ife, u32 metaid, void *metaval, int len)
-> +{
-
-
-static?
-
-
-> +       struct tcf_meta_info *mi = NULL;
-> +       struct tcf_meta_ops *ops = find_ife_oplist(metaid);
-> +       int ret = 0;
-> +
-> +       if (!ops)
-> +               return -ENOENT;
-> +
-> +       mi = kzalloc(sizeof(*mi), GFP_KERNEL);
-> +       if (!mi) {
-> +               /*put back what find_ife_oplist took */
-> +               module_put(ops->owner);
-> +               return -ENOMEM;
-> +       }
-> +
-> +       mi->metaid = metaid;
-> +       mi->ops = ops;
-> +       if (len > 0) {
-> +               ret = ops->alloc(mi, metaval);
-> +               if (ret != 0) {
-> +                       kfree(mi);
-> +                       module_put(ops->owner);
-> +                       return ret;
-> +               }
-> +       }
-> +
-> +       list_add_tail(&mi->metalist, &ife->metalist);
-> +
-> +       return ret;
-> +}
-> +
-> +int use_all_metadata(struct tcf_ife_info *ife)
-
-
-static?
-
-> +{
-> +       struct tcf_meta_ops *o;
-> +       int rc = 0;
-> +       int installed = 0;
-> +
-> +       list_for_each_entry(o, &ifeoplist, list) {
-> +               rc = add_metainfo(ife, o->metaid, NULL, 0);
-> +               if (rc == 0)
-> +                       installed += 1;
-> +       }
-> +
-> +       if (installed)
-> +               return 0;
-> +       else
-> +               return -EINVAL;
-> +}
-> +
-> +int dump_metalist(struct sk_buff *skb, struct tcf_ife_info *ife)
-
-
-static?
-
-
-> +{
-> +       struct tcf_meta_info *e;
-> +       struct nlattr *nest;
-> +       unsigned char *b = skb_tail_pointer(skb);
-> +       int total_encoded = 0;
-> +
-> +       /*can only happen on decode */
-> +       if (list_empty(&ife->metalist))
-> +               return 0;
-> +
-> +       nest = nla_nest_start(skb, TCA_IFE_METALST);
-> +       if (!nest)
-> +               goto out_nlmsg_trim;
-> +
-> +       list_for_each_entry(e, &ife->metalist, metalist) {
-> +               if (!e->ops->get(skb, e))
-> +                       total_encoded += 1;
-> +       }
-> +
-> +       if (!total_encoded)
-> +               goto out_nlmsg_trim;
-> +
-> +       nla_nest_end(skb, nest);
-> +
-> +       return 0;
-> +
-> +out_nlmsg_trim:
-> +       nlmsg_trim(skb, b);
-> +       return -1;
-> +}
-> +
-> +/* under ife->tcf_lock */
-> +static void _tcf_ife_cleanup(struct tc_action *a, int bind)
-> +{
-> +       struct tcf_ife_info *ife = a->priv;
-> +       struct tcf_meta_info *e, *n;
-> +
-> +       list_for_each_entry_safe(e, n, &ife->metalist, metalist) {
-> +               module_put(e->ops->owner);
-> +               list_del(&e->metalist);
-> +               if (e->metaval) {
-> +                       if (e->ops->release)
-> +                               e->ops->release(e);
-> +                       else
-> +                               kfree(e->metaval);
-> +               }
-> +               kfree(e);
-> +       }
-> +}
-> +
-> +static void tcf_ife_cleanup(struct tc_action *a, int bind)
-> +{
-> +       struct tcf_ife_info *ife = a->priv;
-> +
-> +       spin_lock_bh(&ife->tcf_lock);
-> +       _tcf_ife_cleanup(a, bind);
-> +       spin_unlock_bh(&ife->tcf_lock);
-> +}
-> +
-> +/* under ife->tcf_lock */
-> +int populate_metalist(struct tcf_ife_info *ife, struct nlattr **tb)
-
-
-static?
-
-
-> +{
-> +       int len = 0;
-> +       int rc = 0;
-> +       int i = 0;
-> +       void *val;
-> +
-> +       for (i = 1; i < max_metacnt; i++) {
-> +               if (tb[i]) {
-> +                       val = nla_data(tb[i]);
-> +                       len = nla_len(tb[i]);
-> +
-> +                       rc = load_metaops_and_vet(ife, i, val, len);
-> +                       if (rc != 0)
-> +                               return rc;
-> +
-> +                       rc = add_metainfo(ife, i, val, len);
-> +                       if (rc)
-> +                               return rc;
-> +               }
-> +       }
-> +
-> +       return rc;
-> +}
-> +
-> +static int tcf_ife_init(struct net *net, struct nlattr *nla,
-> +                       struct nlattr *est, struct tc_action *a,
-> +                       int ovr, int bind)
-> +{
-> +       struct tc_action_net *tn = net_generic(net, ife_net_id);
-> +       struct nlattr *tb[TCA_IFE_MAX + 1];
-> +       struct nlattr *tb2[IFE_META_MAX + 1];
-> +       struct tcf_ife_info *ife;
-> +       struct tc_ife *parm;
-> +       u16 ife_type = 0;
-> +       u8 *daddr = NULL;
-> +       u8 *saddr = NULL;
-> +       int ret = 0;
-> +       int err;
-> +
-> +       err = nla_parse_nested(tb, TCA_IFE_MAX, nla, ife_policy);
-> +       if (err < 0)
-> +               return err;
-> +
-> +       if (!tb[TCA_IFE_PARMS])
-> +               return -EINVAL;
-> +
-> +       parm = nla_data(tb[TCA_IFE_PARMS]);
-> +
-> +       if (parm->flags & IFE_ENCODE) {
-> +               /* Until we get issued the ethertype, we cant have
-> +                * a default..
-> +               **/
-> +               if (!tb[TCA_IFE_TYPE]) {
-> +                       pr_info("You MUST pass etherype for encoding\n");
-> +                       return -EINVAL;
-> +               }
-> +       }
-> +
-> +       if (!tcf_hash_check(tn, parm->index, a, bind)) {
-> +               ret = tcf_hash_create(tn, parm->index, est, a, sizeof(*ife),
-> +                                     bind, false);
-> +               if (ret)
-> +                       return ret;
-> +               ret = ACT_P_CREATED;
-> +       } else {
-> +               if (bind)       /* dont override defaults */
-> +                       return 0;
-> +               tcf_hash_release(a, bind);
-> +               if (!ovr)
-> +                       return -EEXIST;
-> +       }
-> +
-> +       ife = to_ife(a);
-> +       ife->flags = parm->flags;
-> +
-> +       if (parm->flags & IFE_ENCODE) {
-> +               ife_type = nla_get_u16(tb[TCA_IFE_TYPE]);
-> +               if (tb[TCA_IFE_DMAC])
-> +                       daddr = nla_data(tb[TCA_IFE_DMAC]);
-> +               if (tb[TCA_IFE_SMAC])
-> +                       saddr = nla_data(tb[TCA_IFE_SMAC]);
-> +       }
-> +
-> +       spin_lock_bh(&ife->tcf_lock);
-> +       ife->tcf_action = parm->action;
-> +
-> +       if (parm->flags & IFE_ENCODE) {
-> +               if (daddr)
-> +                       ether_addr_copy(ife->eth_dst, daddr);
-> +               else
-> +                       eth_zero_addr(ife->eth_dst);
-> +
-> +               if (saddr)
-> +                       ether_addr_copy(ife->eth_src, saddr);
-> +               else
-> +                       eth_zero_addr(ife->eth_src);
-> +
-> +               ife->eth_type = ife_type;
-> +       }
-> +
-> +       if (ret == ACT_P_CREATED)
-> +               INIT_LIST_HEAD(&ife->metalist);
-> +
-> +       if (tb[TCA_IFE_METALST]) {
-> +               err = nla_parse_nested(tb2, IFE_META_MAX, tb[TCA_IFE_METALST],
-> +                                      NULL);
-> +               if (err) {
-> +metadata_parse_err:
-> +                       if (ret == ACT_P_CREATED)
-> +                               _tcf_ife_cleanup(a, bind);
-> +
-> +                       spin_unlock_bh(&ife->tcf_lock);
-> +                       return err;
-> +               }
-> +
-> +               err = populate_metalist(ife, tb2);
-> +               if (err)
-> +                       goto metadata_parse_err;
-> +
-> +       } else {
-> +               /* if no passed metadata allow list or passed allow-all
-> +                * then here we process by adding as many supported metadatum
-> +                * as we can. You better have at least one else we are
-> +                * going to bail out
-> +                */
-> +               err = use_all_metadata(ife);
-> +               if (err) {
-> +                       if (ret == ACT_P_CREATED)
-> +                               _tcf_ife_cleanup(a, bind);
-> +
-> +                       spin_unlock_bh(&ife->tcf_lock);
-> +                       return err;
-> +               }
-> +       }
-> +
-> +       spin_unlock_bh(&ife->tcf_lock);
-> +
-> +       if (ret == ACT_P_CREATED)
-> +               tcf_hash_insert(tn, a);
-> +
-> +       print_ife_oplist();
-> +       return ret;
-> +}
-> +
-> +static int tcf_ife_dump(struct sk_buff *skb, struct tc_action *a, int bind,
-> +                       int ref)
-> +{
-> +       unsigned char *b = skb_tail_pointer(skb);
-> +       struct tcf_ife_info *ife = a->priv;
-> +       struct tc_ife opt = {
-> +               .index = ife->tcf_index,
-> +               .refcnt = ife->tcf_refcnt - ref,
-> +               .bindcnt = ife->tcf_bindcnt - bind,
-> +               .action = ife->tcf_action,
-> +               .flags = ife->flags,
-> +       };
-> +       struct tcf_t t;
-> +
-> +       if (nla_put(skb, TCA_IFE_PARMS, sizeof(opt), &opt))
-> +               goto nla_put_failure;
-> +
-> +       t.install = jiffies_to_clock_t(jiffies - ife->tcf_tm.install);
-> +       t.lastuse = jiffies_to_clock_t(jiffies - ife->tcf_tm.lastuse);
-> +       t.expires = jiffies_to_clock_t(ife->tcf_tm.expires);
-> +       if (nla_put(skb, TCA_IFE_TM, sizeof(t), &t))
-> +               goto nla_put_failure;
-> +
-> +       if (!is_zero_ether_addr(ife->eth_dst)) {
-> +               if (nla_put(skb, TCA_IFE_DMAC, ETH_ALEN, ife->eth_dst))
-> +                       goto nla_put_failure;
-> +       }
-> +
-> +       if (!is_zero_ether_addr(ife->eth_src)) {
-> +               if (nla_put(skb, TCA_IFE_SMAC, ETH_ALEN, ife->eth_src))
-> +                       goto nla_put_failure;
-> +       }
-> +
-> +       if (nla_put(skb, TCA_IFE_TYPE, 2, &ife->eth_type))
-> +               goto nla_put_failure;
-> +
-> +       if (dump_metalist(skb, ife)) {
-> +               /*ignore failure to dump metalist */
-> +               pr_info("Failed to dump metalist\n");
-> +       }
-
-
-Make it void?
-
-
-> +
-> +       return skb->len;
-> +
-> +nla_put_failure:
-> +       nlmsg_trim(skb, b);
-> +       return -1;
-> +}
-> +
-> +int find_decode_metaid(struct sk_buff *skb, struct tcf_ife_info *ife,
-> +                      u16 metaid, u16 mlen, void *mdata)
-> +{
-> +       struct tcf_meta_info *e;
-> +
-> +       /* XXX: use hash to speed up */
-> +       list_for_each_entry(e, &ife->metalist, metalist) {
-> +               if (metaid == e->metaid) {
-> +                       if (e->ops) {
-> +                               /* We check for decode presence already */
-> +                               return e->ops->decode(skb, mdata, mlen);
-> +                       }
-> +               }
-> +       }
-> +
-> +       return 0;
-> +}
-> +
-> +struct ifeheadr {
-> +       __be16 metalen;
-> +       u8 tlv_data[];
+> +       u8      reserved_flags3;
+> +       u8      reserved_flags4;
+> +       u8      next_protocol;
+> +       __be32  vx_vni;
 > +};
 > +
-> +struct meta_tlvhdr {
-> +       __be16 type;
-> +       __be16 len;
+> +/* VXLAN-GPE header flags. */
+> +#define VXLAN_HF_VER   cpu_to_be32(BIT(29) | BIT(28))
+> +#define VXLAN_HF_NP    cpu_to_be32(BIT(26))
+> +#define VXLAN_HF_OAM   cpu_to_be32(BIT(24))
+> +
+> +#define VXLAN_GPE_USED_BITS (VXLAN_HF_VER | VXLAN_HF_NP | VXLAN_HF_OAM | \
+> +                            cpu_to_be32(0xff))
+> +
+> +/* VXLAN-GPE header Next Protocol. */
+> +#define VXLAN_GPE_NP_IPV4      0x01
+> +#define VXLAN_GPE_NP_IPV6      0x02
+> +#define VXLAN_GPE_NP_ETHERNET  0x03
+> +#define VXLAN_GPE_NP_NSH       0x04
+> +
+>  struct vxlan_metadata {
+>         u32             gbp;
+>  };
+> @@ -205,6 +263,7 @@ struct vxlan_dev {
+>  #define VXLAN_F_GBP                    0x800
+>  #define VXLAN_F_REMCSUM_NOPARTIAL      0x1000
+>  #define VXLAN_F_COLLECT_METADATA       0x2000
+> +#define VXLAN_F_GPE                    0x4000
+>
+>  /* Flags that are used in the receive path. These flags must match in
+>   * order for a socket to be shareable
+> @@ -213,7 +272,8 @@ struct vxlan_dev {
+>                                          VXLAN_F_UDP_ZERO_CSUM6_RX |    \
+>                                          VXLAN_F_REMCSUM_RX |           \
+>                                          VXLAN_F_REMCSUM_NOPARTIAL |    \
+> -                                        VXLAN_F_COLLECT_METADATA)
+> +                                        VXLAN_F_COLLECT_METADATA |     \
+> +                                        VXLAN_F_GPE)
+>
+>  struct net_device *vxlan_dev_create(struct net *net, const char *name,
+>                                     u8 name_assign_type, struct vxlan_config *conf);
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index d452cea59020..c2b2b7462731 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -456,10 +456,18 @@ enum {
+>         IFLA_VXLAN_GBP,
+>         IFLA_VXLAN_REMCSUM_NOPARTIAL,
+>         IFLA_VXLAN_COLLECT_METADATA,
+> +       IFLA_VXLAN_GPE_MODE,
+>         __IFLA_VXLAN_MAX
+>  };
+>  #define IFLA_VXLAN_MAX (__IFLA_VXLAN_MAX - 1)
+>
+> +enum vxlan_gpe_mode {
+> +       VXLAN_GPE_MODE_DISABLED = 0,
+> +       VXLAN_GPE_MODE_L2,
+> +       __VXLAN_GPE_MODE_MAX
 > +};
+> +#define VXLAN_GPE_MODE_MAX (__VXLAN_GPE_MODE_MAX - 1)
 > +
-> +static int tcf_ife_decode(struct sk_buff *skb, const struct tc_action *a,
-> +                         struct tcf_result *res)
-> +{
-> +       struct tcf_ife_info *ife = a->priv;
-> +       int action = ife->tcf_action;
-> +       struct ifeheadr *ifehdr = (struct ifeheadr *)skb->data;
-> +       u16 ifehdrln = ifehdr->metalen;
-> +       struct meta_tlvhdr *tlv = (struct meta_tlvhdr *)(ifehdr->tlv_data);
-> +
-> +       spin_lock(&ife->tcf_lock);
-> +       bstats_update(&ife->tcf_bstats, skb);
-> +       ife->tcf_tm.lastuse = jiffies;
-> +       spin_unlock(&ife->tcf_lock);
-> +
-> +       ifehdrln = ntohs(ifehdrln);
-> +       if (unlikely(!pskb_may_pull(skb, ifehdrln))) {
-> +               spin_lock(&ife->tcf_lock);
-> +               ife->tcf_qstats.drops++;
-> +               spin_unlock(&ife->tcf_lock);
-> +               return TC_ACT_SHOT;
-> +       }
-> +
-> +       skb_set_mac_header(skb, ifehdrln);
-> +       __skb_pull(skb, ifehdrln);
-> +       skb->protocol = eth_type_trans(skb, skb->dev);
-> +       ifehdrln -= IFE_METAHDRLEN;
-> +
-> +       while (ifehdrln > 0) {
-> +               u8 *tlvdata = (u8 *)tlv;
-> +               u16 mtype = tlv->type;
-> +               u16 mlen = tlv->len;
-> +
-> +               mtype = ntohs(mtype);
-> +               mlen = ntohs(mlen);
-> +
-> +               if (find_decode_metaid(skb, ife, mtype, (mlen - 4),
-> +                                      (void *)(tlvdata + 4))) {
-> +                       /* abuse overlimits to count when we receive metadata
-> +                        * but dont have an ops for it
-> +                        */
-> +                       pr_info_ratelimited("Unknown metaid %d alnlen %d\n",
-> +                                           mtype, mlen);
-> +                       ife->tcf_qstats.overlimits++;
-> +               }
-> +
-> +               tlvdata += mlen;
-> +               ifehdrln -= mlen;
-> +               tlv = (struct meta_tlvhdr *)tlvdata;
-> +       }
-> +
-> +       skb_reset_network_header(skb);
-> +       return action;
-> +}
-> +
-> +/*XXX: check if we can do this at install time instead of current
-> + * send data path
-> +**/
-> +static int ife_get_sz(struct sk_buff *skb, struct tcf_ife_info *ife)
-> +{
-> +       struct tcf_meta_info *e, *n;
-> +       int tot_run_sz = 0, run_sz = 0;
-> +
-> +       list_for_each_entry_safe(e, n, &ife->metalist, metalist) {
-> +               if (e->ops->check_presence) {
-> +                       run_sz = e->ops->check_presence(skb, e);
-> +                       tot_run_sz += run_sz;
-> +               }
-> +       }
-> +
-> +       return tot_run_sz;
-> +}
-> +
-> +static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
-> +                         struct tcf_result *res)
-> +{
-> +       struct tcf_ife_info *ife = a->priv;
-> +       int action = ife->tcf_action;
-> +       struct ethhdr *oethh;   /* outer ether header */
-> +       struct ethhdr *iethh;   /* inner eth header */
-> +       struct tcf_meta_info *e;
-> +       /*
-> +          OUTERHDR:TOTMETALEN:{TLVHDR:Metadatum:TLVHDR..}:ORIGDATA
-> +          where ORIGDATA = original ethernet header ...
-> +        */
-> +       u16 metalen = ife_get_sz(skb, ife);
-> +       int hdrm = metalen + skb->dev->hard_header_len + IFE_METAHDRLEN;
-> +       unsigned int skboff = skb->dev->hard_header_len;
-> +       u32 at = G_TC_AT(skb->tc_verd);
-> +       int new_len = skb->len + hdrm;
-> +       int exceed_mtu = 0;
-
-Boolean?
-
-
-> +       int err;
-> +
-> +       if (at & AT_EGRESS) {
-> +               if (new_len > skb->dev->mtu)
-> +                       exceed_mtu = 1;
-> +       }
-> +
-> +       spin_lock(&ife->tcf_lock);
-> +       bstats_update(&ife->tcf_bstats, skb);
-> +       ife->tcf_tm.lastuse = jiffies;
-> +
-> +       if (!metalen) {         /* no metadata to send */
-> +               spin_unlock(&ife->tcf_lock);
-> +               /* abuse overlimits to count when we allow packet
-> +                * with no metadata
-> +                */
-> +               ife->tcf_qstats.overlimits++;
-
-
-Update before unlocking?
-
-> +               return action;
-> +       }
-> +       /* could be stupid policy setup or mtu config
-> +        * so lets be conservative.. */
-> +       if ((action == TC_ACT_SHOT) || exceed_mtu) {
-> +               ife->tcf_qstats.drops++;
-> +               spin_unlock(&ife->tcf_lock);
-> +               return TC_ACT_SHOT;
-> +       }
-> +
-> +       iethh = eth_hdr(skb);
-> +
-> +       err = skb_cow_head(skb, hdrm);
-> +       if (unlikely(err)) {
-> +               ife->tcf_qstats.drops++;
-> +               spin_unlock(&ife->tcf_lock);
-> +               return TC_ACT_SHOT;
-> +       }
-> +
-> +       if (!(at & AT_EGRESS)) {
-> +               skb_push(skb, skb->dev->hard_header_len);
-> +       }
-
-
-braces {} are not necessary for single statement blocks
-
-
-> +
-> +       __skb_push(skb, hdrm);
-> +       memcpy(skb->data, iethh, skb->mac_len);
-> +       skb_reset_mac_header(skb);
-> +       oethh = eth_hdr(skb);
-> +
-> +       /*total metadata length */
-> +       metalen += IFE_METAHDRLEN;
-> +       metalen = htons(metalen);
-> +       memcpy((void *)(skb->data + skboff), &metalen, IFE_METAHDRLEN);
-
-Unnecessary cast to void* ?
-
-
-> +       skboff += IFE_METAHDRLEN;
-> +
-> +       /* XXX: we dont have a clever way of telling encode to
-> +        * not repeat some of the computations that are done by
-> +        * ops->presence_check...
-> +        */
-> +       list_for_each_entry(e, &ife->metalist, metalist) {
-> +               if (e->ops->encode) {
-> +                       err = e->ops->encode(skb, (void *)(skb->data + skboff),
-> +                                            e);
-> +               }
-> +               if (err < 0) {
-> +                       /* too corrupt to keep around if overwritten */
-> +                       ife->tcf_qstats.drops++;
-> +                       spin_unlock(&ife->tcf_lock);
-> +                       return TC_ACT_SHOT;
-> +               }
-> +               skboff += err;
-> +       }
-> +
-> +       if (!is_zero_ether_addr(ife->eth_src))
-> +               ether_addr_copy(oethh->h_source, ife->eth_src);
-> +       else
-> +               ether_addr_copy(oethh->h_source, iethh->h_source);
-> +       if (!is_zero_ether_addr(ife->eth_dst))
-> +               ether_addr_copy(oethh->h_dest, ife->eth_dst);
-> +       else
-> +               ether_addr_copy(oethh->h_dest, iethh->h_dest);
-> +       oethh->h_proto = htons(ife->eth_type);
-> +
-> +       if (!(at & AT_EGRESS))
-> +               skb_pull(skb, skb->dev->hard_header_len);
-> +
-> +       spin_unlock(&ife->tcf_lock);
-> +
-> +       return action;
-> +}
-> +
-> +static int tcf_ife_act(struct sk_buff *skb, const struct tc_action *a,
-> +                      struct tcf_result *res)
-> +{
-> +       struct tcf_ife_info *ife = a->priv;
-> +
-> +       if (ife->flags & IFE_ENCODE)
-> +               return tcf_ife_encode(skb, a, res);
-> +
-> +       if (!(ife->flags & IFE_ENCODE))
-> +               return tcf_ife_decode(skb, a, res);
-> +
-> +       pr_info("unknown failure(policy neither de/encode\n");
-
-
-ratelimit?
-
-
-> +       spin_lock(&ife->tcf_lock);
-> +       bstats_update(&ife->tcf_bstats, skb);
-> +       ife->tcf_tm.lastuse = jiffies;
-> +       ife->tcf_qstats.drops++;
-> +       spin_unlock(&ife->tcf_lock);
-> +
-> +       return TC_ACT_SHOT;
-> +}
-> +
-> +static int tcf_ife_walker(struct net *net, struct sk_buff *skb,
-> +                         struct netlink_callback *cb, int type,
-> +                         struct tc_action *a)
-> +{
-> +       struct tc_action_net *tn = net_generic(net, ife_net_id);
-> +
-> +       return tcf_generic_walker(tn, skb, cb, type, a);
-> +}
-> +
-> +static int tcf_ife_search(struct net *net, struct tc_action *a, u32 index)
-> +{
-> +       struct tc_action_net *tn = net_generic(net, ife_net_id);
-> +
-> +       return tcf_hash_search(tn, a, index);
-> +}
-> +
-> +static struct tc_action_ops act_ife_ops = {
-> +       .kind = "ife",
-> +       .type = TCA_ACT_IFE,
-> +       .owner = THIS_MODULE,
-> +       .act = tcf_ife_act,
-> +       .dump = tcf_ife_dump,
-> +       .cleanup = tcf_ife_cleanup,
-> +       .init = tcf_ife_init,
-> +       .walk = tcf_ife_walker,
-> +       .lookup = tcf_ife_search,
-> +};
-> +
-> +static __net_init int ife_init_net(struct net *net)
-> +{
-> +       struct tc_action_net *tn = net_generic(net, ife_net_id);
-> +
-> +       return tc_action_net_init(tn, &act_ife_ops, IFE_TAB_MASK);
-> +}
-> +
-> +static void __net_exit ife_exit_net(struct net *net)
-> +{
-> +       struct tc_action_net *tn = net_generic(net, ife_net_id);
-> +
-> +       tc_action_net_exit(tn);
-> +}
-> +
-> +static struct pernet_operations ife_net_ops = {
-> +       .init = ife_init_net,
-> +       .exit = ife_exit_net,
-> +       .id   = &ife_net_id,
-> +       .size = sizeof(struct tc_action_net),
-> +};
-> +
-> +MODULE_AUTHOR("Jamal Hadi Salim(2015)");
-> +MODULE_DESCRIPTION("Inter-FE LFB action");
-> +MODULE_LICENSE("GPL");
-
-
-Move these to the bottom?
-
-
-> +
-> +static int __init ife_init_module(void)
-> +{
-> +       return tcf_register_action(&act_ife_ops, &ife_net_ops);
-> +}
-> +
-> +static void __exit ife_cleanup_module(void)
-> +{
-> +       tcf_unregister_action(&act_ife_ops, &ife_net_ops);
-> +}
-> +
-> +module_init(ife_init_module);
-> +module_exit(ife_cleanup_module);
-
-
-Thanks!
+>  struct ifla_vxlan_port_range {
+>         __be16  low;
+>         __be16  high;
+> --
+> 1.8.3.1
+>
