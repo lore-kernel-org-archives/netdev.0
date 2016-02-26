@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 9/9] mlxsw: spectrum: Introduce port splitting
-Date: Fri, 26 Feb 2016 17:32:31 +0100
-Message-ID: <1456504351-18871-10-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 3/9] mlx4: Implement port type setting via devlink interface
+Date: Fri, 26 Feb 2016 17:32:25 +0100
+Message-ID: <1456504351-18871-4-git-send-email-jiri@resnulli.us>
 References: <1456504351-18871-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, yishaih@mellanox.com,
@@ -14,368 +14,157 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	gospo@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33621 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933003AbcBZQct (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 11:32:49 -0500
-Received: by mail-wm0-f66.google.com with SMTP id c200so9943705wme.0
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 08:32:48 -0800 (PST)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35078 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030282AbcBZQck (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 11:32:40 -0500
+Received: by mail-wm0-f68.google.com with SMTP id g62so9941904wme.2
+        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 08:32:39 -0800 (PST)
 In-Reply-To: <1456504351-18871-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-Allow a user to split or unsplit a port using the newly introduced
-devlink ops.
+So far, there has been an mlx4-specific sysfs file allowing user to
+change port type to either Ethernet of InfiniBand. This is very
+inconvenient.
 
-Once split, the original netdev is destroyed and 2 or 4 others are
-created, according to user configuration. The new ports are like any
-other port, with the sole difference of supporting a lower maximum
-speed. When unsplit, the reverse process takes place.
+Allow to expose the same ability to set port type in a generic way
+using devlink interface.
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-v2->v3:
--set port's speed according to width fix by Ido
----
- drivers/net/ethernet/mellanox/mlxsw/port.h     |   2 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 213 ++++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h |   7 +-
- 3 files changed, 219 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/main.c | 86 +++++++++++++++++++++++--------
+ 1 file changed, 65 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/port.h b/drivers/net/ethernet/mellanox/mlxsw/port.h
-index ae65b99..f33b997 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/port.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/port.h
-@@ -59,6 +59,8 @@
- 
- #define MLXSW_PORT_DONT_CARE		(MLXSW_PORT_MAX_PORTS)
- 
-+#define MLXSW_PORT_MODULE_MAX_WIDTH	4
-+
- enum mlxsw_port_admin_status {
- 	MLXSW_PORT_ADMIN_STATUS_UP = 1,
- 	MLXSW_PORT_ADMIN_STATUS_DOWN = 2,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 926019e..53487d3 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -321,6 +321,22 @@ static int mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
- 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 4f5cfe4..b8a5151 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1082,36 +1082,20 @@ static ssize_t show_port_type(struct device *dev,
+ 	return strlen(buf);
  }
  
-+static int mlxsw_sp_port_module_map(struct mlxsw_sp *mlxsw_sp, u8 local_port,
-+				    u8 module, u8 width, u8 lane)
-+{
-+	char pmlp_pl[MLXSW_REG_PMLP_LEN];
-+	int i;
-+
-+	mlxsw_reg_pmlp_pack(pmlp_pl, local_port);
-+	mlxsw_reg_pmlp_width_set(pmlp_pl, width);
-+	for (i = 0; i < width; i++) {
-+		mlxsw_reg_pmlp_module_set(pmlp_pl, i, module);
-+		mlxsw_reg_pmlp_tx_lane_set(pmlp_pl, i, lane + i);  /* Rx & Tx */
-+	}
-+
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(pmlp), pmlp_pl);
-+}
-+
- static int mlxsw_sp_port_module_unmap(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+-static ssize_t set_port_type(struct device *dev,
+-			     struct device_attribute *attr,
+-			     const char *buf, size_t count)
++static int __set_port_type(struct mlx4_port_info *info,
++			   enum mlx4_port_type port_type)
  {
- 	char pmlp_pl[MLXSW_REG_PMLP_LEN];
-@@ -1284,6 +1300,18 @@ static u32 mlxsw_sp_to_ptys_speed(u32 speed)
- 	return ptys_proto;
- }
+-	struct mlx4_port_info *info = container_of(attr, struct mlx4_port_info,
+-						   port_attr);
+ 	struct mlx4_dev *mdev = info->dev;
+ 	struct mlx4_priv *priv = mlx4_priv(mdev);
+ 	enum mlx4_port_type types[MLX4_MAX_PORTS];
+ 	enum mlx4_port_type new_types[MLX4_MAX_PORTS];
+-	static DEFINE_MUTEX(set_port_type_mutex);
+ 	int i;
+ 	int err = 0;
  
-+static u32 mlxsw_sp_to_ptys_upper_speed(u32 upper_speed)
-+{
-+	u32 ptys_proto = 0;
-+	int i;
+-	mutex_lock(&set_port_type_mutex);
+-
+-	if (!strcmp(buf, "ib\n"))
+-		info->tmp_type = MLX4_PORT_TYPE_IB;
+-	else if (!strcmp(buf, "eth\n"))
+-		info->tmp_type = MLX4_PORT_TYPE_ETH;
+-	else if (!strcmp(buf, "auto\n"))
+-		info->tmp_type = MLX4_PORT_TYPE_AUTO;
+-	else {
+-		mlx4_err(mdev, "%s is not supported port type\n", buf);
+-		err = -EINVAL;
+-		goto err_out;
+-	}
+-
+ 	mlx4_stop_sense(mdev);
+ 	mutex_lock(&priv->port_mutex);
++	info->tmp_type = port_type;
 +
-+	for (i = 0; i < MLXSW_SP_PORT_LINK_MODE_LEN; i++) {
-+		if (mlxsw_sp_port_link_mode[i].speed <= upper_speed)
-+			ptys_proto |= mlxsw_sp_port_link_mode[i].mask;
-+	}
-+	return ptys_proto;
-+}
-+
- static int mlxsw_sp_port_set_settings(struct net_device *dev,
- 				      struct ethtool_cmd *cmd)
- {
-@@ -1360,7 +1388,22 @@ static const struct ethtool_ops mlxsw_sp_port_ethtool_ops = {
- 	.set_settings		= mlxsw_sp_port_set_settings,
- };
+ 	/* Possible type is always the one that was delivered */
+ 	mdev->caps.possible_type[info->port] = info->tmp_type;
  
--static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
-+static int
-+mlxsw_sp_port_speed_by_width_set(struct mlxsw_sp_port *mlxsw_sp_port, u8 width)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	u32 upper_speed = MLXSW_SP_PORT_BASE_SPEED * width;
-+	char ptys_pl[MLXSW_REG_PTYS_LEN];
-+	u32 eth_proto_admin;
+@@ -1153,6 +1137,37 @@ static ssize_t set_port_type(struct device *dev,
+ out:
+ 	mlx4_start_sense(mdev);
+ 	mutex_unlock(&priv->port_mutex);
 +
-+	eth_proto_admin = mlxsw_sp_to_ptys_upper_speed(upper_speed);
-+	mlxsw_reg_ptys_pack(ptys_pl, mlxsw_sp_port->local_port,
-+			    eth_proto_admin);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ptys), ptys_pl);
-+}
-+
-+static int __mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
-+				  bool split, u8 module, u8 width)
- {
- 	struct devlink *devlink = priv_to_devlink(mlxsw_sp->core);
- 	struct mlxsw_sp_port *mlxsw_sp_port;
-@@ -1376,6 +1419,7 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 	mlxsw_sp_port->dev = dev;
- 	mlxsw_sp_port->mlxsw_sp = mlxsw_sp;
- 	mlxsw_sp_port->local_port = local_port;
-+	mlxsw_sp_port->split = split;
- 	bytes = DIV_ROUND_UP(VLAN_N_VID, BITS_PER_BYTE);
- 	mlxsw_sp_port->active_vlans = kzalloc(bytes, GFP_KERNEL);
- 	if (!mlxsw_sp_port->active_vlans) {
-@@ -1417,6 +1461,8 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 	dev->hard_header_len += MLXSW_TXHDR_LEN;
- 
- 	devlink_port = &mlxsw_sp_port->devlink_port;
-+	if (mlxsw_sp_port->split)
-+		devlink_port_split_set(devlink_port, module);
- 	err = devlink_port_register(devlink, devlink_port, local_port);
- 	if (err) {
- 		dev_err(mlxsw_sp->bus_info->dev, "Port %d: Failed to register devlink port\n",
-@@ -1438,6 +1484,13 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 		goto err_port_swid_set;
- 	}
- 
-+	err = mlxsw_sp_port_speed_by_width_set(mlxsw_sp_port, width);
-+	if (err) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Port %d: Failed to enable speeds\n",
-+			mlxsw_sp_port->local_port);
-+		goto err_port_speed_by_width_set;
-+	}
-+
- 	err = mlxsw_sp_port_mtu_set(mlxsw_sp_port, ETH_DATA_LEN);
- 	if (err) {
- 		dev_err(mlxsw_sp->bus_info->dev, "Port %d: Failed to set MTU\n",
-@@ -1479,6 +1532,7 @@ err_register_netdev:
- err_port_buffers_init:
- err_port_admin_status_set:
- err_port_mtu_set:
-+err_port_speed_by_width_set:
- err_port_swid_set:
- err_port_system_port_mapping_set:
- 	devlink_port_unregister(&mlxsw_sp_port->devlink_port);
-@@ -1494,6 +1548,28 @@ err_port_active_vlans_alloc:
- 	return err;
- }
- 
-+static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
-+				bool split, u8 module, u8 width, u8 lane)
-+{
-+	int err;
-+
-+	err = mlxsw_sp_port_module_map(mlxsw_sp, local_port, module, width,
-+				       lane);
-+	if (err)
-+		return err;
-+
-+	err = __mlxsw_sp_port_create(mlxsw_sp, local_port, split, module,
-+				     width);
-+	if (err)
-+		goto err_port_create;
-+
-+	return 0;
-+
-+err_port_create:
-+	mlxsw_sp_port_module_unmap(mlxsw_sp, local_port);
 +	return err;
 +}
 +
- static void mlxsw_sp_port_vports_fini(struct mlxsw_sp_port *mlxsw_sp_port)
- {
- 	struct net_device *dev = mlxsw_sp_port->dev;
-@@ -1562,7 +1638,7 @@ static int mlxsw_sp_ports_create(struct mlxsw_sp *mlxsw_sp)
- 		if (!width)
- 			continue;
- 		mlxsw_sp->port_to_module[i] = module;
--		err = mlxsw_sp_port_create(mlxsw_sp, i);
-+		err = __mlxsw_sp_port_create(mlxsw_sp, i, false, module, width);
- 		if (err)
- 			goto err_port_create;
- 	}
-@@ -1576,6 +1652,137 @@ err_port_module_info_get:
- 	return err;
- }
- 
-+static u8 mlxsw_sp_cluster_base_port_get(u8 local_port)
++static ssize_t set_port_type(struct device *dev,
++			     struct device_attribute *attr,
++			     const char *buf, size_t count)
 +{
-+	u8 offset = (local_port - 1) % MLXSW_SP_PORTS_PER_CLUSTER_MAX;
-+
-+	return local_port - offset;
-+}
-+
-+static int mlxsw_sp_port_split(void *priv, u8 local_port, unsigned int count)
-+{
-+	struct mlxsw_sp *mlxsw_sp = priv;
-+	struct mlxsw_sp_port *mlxsw_sp_port;
-+	u8 width = MLXSW_PORT_MODULE_MAX_WIDTH / count;
-+	u8 module, cur_width, base_port;
-+	int i;
++	struct mlx4_port_info *info = container_of(attr, struct mlx4_port_info,
++						   port_attr);
++	struct mlx4_dev *mdev = info->dev;
++	enum mlx4_port_type port_type;
++	static DEFINE_MUTEX(set_port_type_mutex);
 +	int err;
 +
-+	mlxsw_sp_port = mlxsw_sp->ports[local_port];
-+	if (!mlxsw_sp_port) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Port number \"%d\" does not exist\n",
-+			local_port);
-+		return -EINVAL;
-+	}
++	mutex_lock(&set_port_type_mutex);
 +
-+	if (count != 2 && count != 4) {
-+		netdev_err(mlxsw_sp_port->dev, "Port can only be split into 2 or 4 ports\n");
-+		return -EINVAL;
-+	}
-+
-+	err = mlxsw_sp_port_module_info_get(mlxsw_sp, local_port, &module,
-+					    &cur_width);
-+	if (err) {
-+		netdev_err(mlxsw_sp_port->dev, "Failed to get port's width\n");
-+		return err;
-+	}
-+
-+	if (cur_width != MLXSW_PORT_MODULE_MAX_WIDTH) {
-+		netdev_err(mlxsw_sp_port->dev, "Port cannot be split further\n");
-+		return -EINVAL;
-+	}
-+
-+	/* Make sure we have enough slave (even) ports for the split. */
-+	if (count == 2) {
-+		base_port = local_port;
-+		if (mlxsw_sp->ports[base_port + 1]) {
-+			netdev_err(mlxsw_sp_port->dev, "Invalid split configuration\n");
-+			return -EINVAL;
-+		}
++	if (!strcmp(buf, "ib\n")) {
++		port_type = MLX4_PORT_TYPE_IB;
++	} else if (!strcmp(buf, "eth\n")) {
++		port_type = MLX4_PORT_TYPE_ETH;
++	} else if (!strcmp(buf, "auto\n")) {
++		port_type = MLX4_PORT_TYPE_AUTO;
 +	} else {
-+		base_port = mlxsw_sp_cluster_base_port_get(local_port);
-+		if (mlxsw_sp->ports[base_port + 1] ||
-+		    mlxsw_sp->ports[base_port + 3]) {
-+			netdev_err(mlxsw_sp_port->dev, "Invalid split configuration\n");
-+			return -EINVAL;
-+		}
++		mlx4_err(mdev, "%s is not supported port type\n", buf);
++		err = -EINVAL;
++		goto err_out;
 +	}
 +
-+	for (i = 0; i < count; i++)
-+		mlxsw_sp_port_remove(mlxsw_sp, base_port + i);
++	err = __set_port_type(info, port_type);
 +
-+	for (i = 0; i < count; i++) {
-+		err = mlxsw_sp_port_create(mlxsw_sp, base_port + i, true,
-+					   module, width, i * width);
-+		if (err) {
-+			dev_err(mlxsw_sp->bus_info->dev, "Failed to create split port\n");
-+			goto err_port_create;
-+		}
-+	}
-+
-+	return 0;
-+
-+err_port_create:
-+	for (i--; i >= 0; i--)
-+		mlxsw_sp_port_remove(mlxsw_sp, base_port + i);
-+	for (i = 0; i < count / 2; i++) {
-+		module = mlxsw_sp->port_to_module[base_port + i * 2];
-+		mlxsw_sp_port_create(mlxsw_sp, base_port + i * 2, false,
-+				     module, MLXSW_PORT_MODULE_MAX_WIDTH, 0);
-+	}
-+	return err;
-+}
-+
-+static int mlxsw_sp_port_unsplit(void *priv, u8 local_port)
+ err_out:
+ 	mutex_unlock(&set_port_type_mutex);
+ 
+@@ -3685,6 +3700,35 @@ err_disable_pdev:
+ 	return err;
+ }
+ 
++static int mlx4_devlink_port_type_set(struct devlink_port *devlink_port,
++				      enum devlink_port_type port_type)
 +{
-+	struct mlxsw_sp *mlxsw_sp = priv;
-+	struct mlxsw_sp_port *mlxsw_sp_port;
-+	u8 module, cur_width, base_port;
-+	unsigned int count;
-+	int i;
-+	int err;
++	struct mlx4_port_info *info = container_of(devlink_port,
++						   struct mlx4_port_info,
++						   devlink_port);
++	enum mlx4_port_type mlx4_port_type;
 +
-+	mlxsw_sp_port = mlxsw_sp->ports[local_port];
-+	if (!mlxsw_sp_port) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Port number \"%d\" does not exist\n",
-+			local_port);
-+		return -EINVAL;
++	switch (port_type) {
++	case DEVLINK_PORT_TYPE_AUTO:
++		mlx4_port_type = MLX4_PORT_TYPE_AUTO;
++		break;
++	case DEVLINK_PORT_TYPE_ETH:
++		mlx4_port_type = MLX4_PORT_TYPE_ETH;
++		break;
++	case DEVLINK_PORT_TYPE_IB:
++		mlx4_port_type = MLX4_PORT_TYPE_IB;
++		break;
++	default:
++		return -EOPNOTSUPP;
 +	}
 +
-+	if (!mlxsw_sp_port->split) {
-+		netdev_err(mlxsw_sp_port->dev, "Port wasn't split\n");
-+		return -EINVAL;
-+	}
-+
-+	err = mlxsw_sp_port_module_info_get(mlxsw_sp, local_port, &module,
-+					    &cur_width);
-+	if (err) {
-+		netdev_err(mlxsw_sp_port->dev, "Failed to get port's width\n");
-+		return err;
-+	}
-+	count = cur_width == 1 ? 4 : 2;
-+
-+	base_port = mlxsw_sp_cluster_base_port_get(local_port);
-+
-+	/* Determine which ports to remove. */
-+	if (count == 2 && local_port >= base_port + 2)
-+		base_port = base_port + 2;
-+
-+	for (i = 0; i < count; i++)
-+		mlxsw_sp_port_remove(mlxsw_sp, base_port + i);
-+
-+	for (i = 0; i < count / 2; i++) {
-+		module = mlxsw_sp->port_to_module[base_port + i * 2];
-+		err = mlxsw_sp_port_create(mlxsw_sp, base_port + i * 2, false,
-+					   module, MLXSW_PORT_MODULE_MAX_WIDTH,
-+					   0);
-+		if (err)
-+			dev_err(mlxsw_sp->bus_info->dev, "Failed to reinstantiate port\n");
-+	}
-+
-+	return 0;
++	return __set_port_type(info, mlx4_port_type);
 +}
 +
- static void mlxsw_sp_pude_event_func(const struct mlxsw_reg_info *reg,
- 				     char *pude_pl, void *priv)
++static const struct devlink_ops mlx4_devlink_ops = {
++	.port_type_set	= mlx4_devlink_port_type_set,
++};
++
+ static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
  {
-@@ -1999,6 +2206,8 @@ static struct mlxsw_driver mlxsw_sp_driver = {
- 	.priv_size		= sizeof(struct mlxsw_sp),
- 	.init			= mlxsw_sp_init,
- 	.fini			= mlxsw_sp_fini,
-+	.port_split		= mlxsw_sp_port_split,
-+	.port_unsplit		= mlxsw_sp_port_unsplit,
- 	.txhdr_construct	= mlxsw_sp_txhdr_construct,
- 	.txhdr_len		= MLXSW_TXHDR_LEN,
- 	.profile		= &mlxsw_sp_config_profile,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index a7d86ac..1b691d7 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -58,6 +58,10 @@
+ 	struct devlink *devlink;
+@@ -3694,7 +3738,7 @@ static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
  
- #define MLXSW_SP_MID_MAX 7000
+ 	printk_once(KERN_INFO "%s", mlx4_version);
  
-+#define MLXSW_SP_PORTS_PER_CLUSTER_MAX 4
-+
-+#define MLXSW_SP_PORT_BASE_SPEED 25000	/* Mb/s */
-+
- struct mlxsw_sp_port;
- 
- struct mlxsw_sp_upper {
-@@ -151,7 +155,8 @@ struct mlxsw_sp_port {
- 	   learning_sync:1,
- 	   uc_flood:1,
- 	   bridged:1,
--	   lagged:1;
-+	   lagged:1,
-+	   split:1;
- 	u16 pvid;
- 	u16 lag_id;
- 	struct {
+-	devlink = devlink_alloc(NULL, sizeof(*priv));
++	devlink = devlink_alloc(&mlx4_devlink_ops, sizeof(*priv));
+ 	if (!devlink)
+ 		return -ENOMEM;
+ 	priv = devlink_priv(devlink);
 -- 
 2.5.0
