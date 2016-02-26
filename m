@@ -1,122 +1,62 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 9/9] net: dsa: mv88e6xxx: support VLAN filtering
-Date: Fri, 26 Feb 2016 13:16:08 -0500
-Message-ID: <1456510568-13679-10-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Neil Armstrong <narmstrong@baylibre.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Kevin Smith <kevin.smith@elecsyscorp.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Subject: [PATCH 2/2] phy: micrel: Disable auto negotiation on startup
+Date: Fri, 26 Feb 2016 19:18:23 +0100
+Message-ID: <1456510703-31559-3-git-send-email-alexandre.belloni@free-electrons.com>
+References: <1456510703-31559-1-git-send-email-alexandre.belloni@free-electrons.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <1456510703-31559-1-git-send-email-alexandre.belloni@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement port_vlan_filtering in the driver to toggle the related port
-802.1Q mode between DISABLED and SECURE, on user request.
+Disable auto negotiation on init to properly detect an already plugged
+cable at boot.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+At boot, when the phy is started, it is in the PHY_UP state.
+However, if a cable is plugged at boot, because auto negociation is already
+enabled at the time we get the first interrupt, the phy is already running.
+But the state machine then switches from PHY_UP to PHY_AN and calls
+phy_start_aneg(). phy_start_aneg() will not do anything because aneg is
+already enabled on the phy. It will then wait for a interrupt before going
+further. This interrupt will never happen unless the cable is unplugged and
+then replugged.
+
+It was working properly before 321beec5047a (net: phy: Use interrupts when
+available in NOLINK state) because switching to NOLINK meant starting
+polling the phy, even if IRQ were enabled.
+
+Fixes: 321beec5047a (net: phy: Use interrupts when available in NOLINK state)
+Signed-off-by: Alexandre Belloni <alexandre.belloni@free-electrons.com>
 ---
- drivers/net/dsa/mv88e6171.c |  1 +
- drivers/net/dsa/mv88e6352.c |  1 +
- drivers/net/dsa/mv88e6xxx.c | 39 +++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx.h |  2 ++
- 4 files changed, 43 insertions(+)
+ drivers/net/phy/micrel.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index dd1ebaf..d72ccbd 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -106,6 +106,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.port_join_bridge	= mv88e6xxx_port_bridge_join,
- 	.port_leave_bridge	= mv88e6xxx_port_bridge_leave,
- 	.port_stp_update        = mv88e6xxx_port_stp_update,
-+	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
- 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
- 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
- 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index bbca36a..a41fa50 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -327,6 +327,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.port_join_bridge	= mv88e6xxx_port_bridge_join,
- 	.port_leave_bridge	= mv88e6xxx_port_bridge_leave,
- 	.port_stp_update	= mv88e6xxx_port_stp_update,
-+	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
- 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
- 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
- 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 27a19dc..d11c9d5 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1712,6 +1712,45 @@ unlock:
- 	return err;
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index a5e265b2bbfb..dc85f7095e51 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -297,6 +297,17 @@ static int kszphy_config_init(struct phy_device *phydev)
+ 	if (priv->led_mode >= 0)
+ 		kszphy_setup_led(phydev, type->led_mode_reg, priv->led_mode);
+ 
++	if (phy_interrupt_is_valid(phydev)) {
++		int ctl = phy_read(phydev, MII_BMCR);
++
++		if (ctl < 0)
++			return ctl;
++
++		ret = phy_write(phydev, MII_BMCR, ctl & ~BMCR_ANENABLE);
++		if (ret < 0)
++			return ret;
++	}
++
+ 	return 0;
  }
  
-+static const char * const mv88e6xxx_port_8021q_mode_names[] = {
-+	[PORT_CONTROL_2_8021Q_DISABLED] = "Disabled",
-+	[PORT_CONTROL_2_8021Q_FALLBACK] = "Fallback",
-+	[PORT_CONTROL_2_8021Q_CHECK] = "Check",
-+	[PORT_CONTROL_2_8021Q_SECURE] = "Secure",
-+};
-+
-+int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
-+				  bool vlan_filtering)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	u16 old, new = vlan_filtering ? PORT_CONTROL_2_8021Q_SECURE :
-+		PORT_CONTROL_2_8021Q_DISABLED;
-+	int ret;
-+
-+	mutex_lock(&ps->smi_mutex);
-+
-+	ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_CONTROL_2);
-+	if (ret < 0)
-+		goto unlock;
-+
-+	old = ret & PORT_CONTROL_2_8021Q_MASK;
-+
-+	ret &= ~PORT_CONTROL_2_8021Q_MASK;
-+	ret |= new & PORT_CONTROL_2_8021Q_MASK;
-+
-+	ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_CONTROL_2, ret);
-+	if (ret < 0)
-+		goto unlock;
-+
-+	netdev_dbg(ds->ports[port], "802.1Q Mode: %s (was %s)\n",
-+		   mv88e6xxx_port_8021q_mode_names[new],
-+		   mv88e6xxx_port_8021q_mode_names[old]);
-+unlock:
-+	mutex_unlock(&ps->smi_mutex);
-+
-+	return ret;
-+}
-+
- int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
- 				const struct switchdev_obj_port_vlan *vlan,
- 				struct switchdev_trans *trans)
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 85a4166..d7b088d 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -490,6 +490,8 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
- 			       struct net_device *bridge);
- int mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port);
- int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state);
-+int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
-+				  bool vlan_filtering);
- int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
- 				const struct switchdev_obj_port_vlan *vlan,
- 				struct switchdev_trans *trans);
 -- 
-2.7.1
+2.7.0
