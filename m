@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 7/9] net: dsa: mv88e6xxx: restore VLANTable map control
-Date: Fri, 26 Feb 2016 13:16:06 -0500
-Message-ID: <1456510568-13679-8-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 3/9] net: dsa: mv88e6xxx: extract single FDB dump
+Date: Fri, 26 Feb 2016 13:16:02 -0500
+Message-ID: <1456510568-13679-4-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -20,126 +20,121 @@ In-Reply-To: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The In Chip Port Based VLAN Table contains bits used to restrict which
-output ports this input port can send frames to.
-
-With the VLAN filtering enabled, these tables work in conjunction with
-the VLAN Table Unit to allow egressing frames.
-
-In order to remove the current dependency to BRIDGE_VLAN_FILTERING for
-basic hardware bridging to work, it is necessary to restore a fine
-control of each port's VLANTable, on setup and when a port joins or
-leaves a bridge.
+Move out the code which dumps a single FDB to its own function.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 54 +++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 47 insertions(+), 7 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 79 ++++++++++++++++++++++++++-------------------
+ 1 file changed, 46 insertions(+), 33 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 0f16911..7f3036b 100644
+index e9e9922..6329516 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1087,12 +1087,32 @@ abort:
- 	return ret;
+@@ -1895,6 +1895,47 @@ static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
+ 	return 0;
  }
  
--static int _mv88e6xxx_port_vlan_map_set(struct dsa_switch *ds, int port,
--					u16 output_ports)
-+static int _mv88e6xxx_port_based_vlan_map(struct dsa_switch *ds, int port)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	struct net_device *bridge = ps->ports[port].bridge_dev;
- 	const u16 mask = (1 << ps->num_ports) - 1;
-+	u16 output_ports = 0;
- 	int reg;
-+	int i;
++static int _mv88e6xxx_port_fdb_dump_one(struct dsa_switch *ds, u16 fid, u16 vid,
++					int port,
++					struct switchdev_obj_port_fdb *fdb,
++					int (*cb)(struct switchdev_obj *obj))
++{
++	struct mv88e6xxx_atu_entry addr = {
++		.mac = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
++	};
++	int err;
 +
-+	/* allow CPU port or DSA link(s) to send frames to every port */
-+	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) {
-+		output_ports = mask;
-+	} else {
-+		for (i = 0; i < ps->num_ports; ++i) {
-+			/* allow sending frames to every group member */
-+			if (bridge && ps->ports[i].bridge_dev == bridge)
-+				output_ports |= BIT(i);
++	err = _mv88e6xxx_atu_mac_write(ds, addr.mac);
++	if (err)
++		return err;
 +
-+			/* allow sending frames to CPU port and DSA link(s) */
-+			if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
-+				output_ports |= BIT(i);
-+		}
-+	}
++	do {
++		err = _mv88e6xxx_atu_getnext(ds, fid, &addr);
++		if (err)
++			break;
 +
-+	/* prevent frames from going back out of the port they came in on */
-+	output_ports &= ~BIT(port);
- 
- 	reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_BASE_VLAN);
- 	if (reg < 0)
-@@ -2114,7 +2134,17 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
- 	if (err)
- 		goto unlock;
- 
-+	/* Assign the bridge and remap each port's VLANTable */
- 	ps->ports[port].bridge_dev = bridge;
++		if (addr.state == GLOBAL_ATU_DATA_STATE_UNUSED)
++			break;
 +
-+	for (i = 0; i < ps->num_ports; ++i) {
-+		if (ps->ports[i].bridge_dev == bridge) {
-+			err = _mv88e6xxx_port_based_vlan_map(ds, i);
++		if (!addr.trunk && addr.portv_trunkid & BIT(port)) {
++			bool is_static = addr.state ==
++				(is_multicast_ether_addr(addr.mac) ?
++				 GLOBAL_ATU_DATA_STATE_MC_STATIC :
++				 GLOBAL_ATU_DATA_STATE_UC_STATIC);
++
++			fdb->vid = vid;
++			ether_addr_copy(fdb->addr, addr.mac);
++			fdb->ndm_state = is_static ? NUD_NOARP : NUD_REACHABLE;
++
++			err = cb(&fdb->obj);
 +			if (err)
 +				break;
 +		}
-+	}
++	} while (!is_broadcast_ether_addr(addr.mac));
 +
- unlock:
- 	mutex_unlock(&ps->smi_mutex);
- 
-@@ -2124,8 +2154,9 @@ unlock:
- int mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	struct net_device *bridge = ps->ports[port].bridge_dev;
- 	u16 fid;
--	int err;
-+	int i, err;
++	return err;
++}
++
+ int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
+ 			    struct switchdev_obj_port_fdb *fdb,
+ 			    int (*cb)(struct switchdev_obj *obj))
+@@ -1907,51 +1948,23 @@ int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
  
  	mutex_lock(&ps->smi_mutex);
  
-@@ -2138,7 +2169,17 @@ int mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
++	/* Dump VLANs' Filtering Information Databases */
+ 	err = _mv88e6xxx_vtu_vid_write(ds, vlan.vid);
  	if (err)
  		goto unlock;
  
-+	/* Unassign the bridge and remap each port's VLANTable */
- 	ps->ports[port].bridge_dev = NULL;
-+
-+	for (i = 0; i < ps->num_ports; ++i) {
-+		if (i == port || ps->ports[i].bridge_dev == bridge) {
-+			err = _mv88e6xxx_port_based_vlan_map(ds, i);
-+			if (err)
-+				break;
-+		}
-+	}
-+
+ 	do {
+-		struct mv88e6xxx_atu_entry addr = {
+-			.mac = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
+-		};
+-
+ 		err = _mv88e6xxx_vtu_getnext(ds, &vlan);
+ 		if (err)
+-			goto unlock;
++			break;
+ 
+ 		if (!vlan.valid)
+ 			break;
+ 
+-		err = _mv88e6xxx_atu_mac_write(ds, addr.mac);
++		err = _mv88e6xxx_port_fdb_dump_one(ds, vlan.fid, vlan.vid, port,
++						   fdb, cb);
+ 		if (err)
+-			goto unlock;
+-
+-		do {
+-			err = _mv88e6xxx_atu_getnext(ds, vlan.fid, &addr);
+-			if (err)
+-				goto unlock;
+-
+-			if (addr.state == GLOBAL_ATU_DATA_STATE_UNUSED)
+-				break;
+-
+-			if (!addr.trunk && addr.portv_trunkid & BIT(port)) {
+-				bool is_static = addr.state ==
+-					(is_multicast_ether_addr(addr.mac) ?
+-					 GLOBAL_ATU_DATA_STATE_MC_STATIC :
+-					 GLOBAL_ATU_DATA_STATE_UC_STATIC);
+-
+-				fdb->vid = vlan.vid;
+-				ether_addr_copy(fdb->addr, addr.mac);
+-				fdb->ndm_state = is_static ? NUD_NOARP :
+-					NUD_REACHABLE;
+-
+-				err = cb(&fdb->obj);
+-				if (err)
+-					goto unlock;
+-			}
+-		} while (!is_broadcast_ether_addr(addr.mac));
+-
++			break;
+ 	} while (vlan.vid < GLOBAL_VTU_VID_MASK);
+ 
  unlock:
- 	mutex_unlock(&ps->smi_mutex);
- 
-@@ -2402,15 +2443,14 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 		goto abort;
- 
- 	/* Port based VLAN map: give each port its own address
--	 * database, and allow every port to egress frames on all other ports.
-+	 * database, and allow bidirectional communication between the
-+	 * CPU and DSA port(s), and the other ports.
- 	 */
- 	ret = _mv88e6xxx_port_fid_set(ds, port, port + 1);
- 	if (ret)
- 		goto abort;
- 
--	reg = BIT(ps->num_ports) - 1; /* all ports */
--	reg &= ~BIT(port); /* except itself */
--	ret = _mv88e6xxx_port_vlan_map_set(ds, port, reg);
-+	ret = _mv88e6xxx_port_based_vlan_map(ds, port);
- 	if (ret)
- 		goto abort;
- 
 -- 
 2.7.1
