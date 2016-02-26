@@ -1,83 +1,73 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next PATCH 0/5] net_sched: Add support for IFE action
-Date: Fri, 26 Feb 2016 01:03:42 +0100
-Message-ID: <56CF965E.8000103@iogearbox.net>
-References: <1456147304-13355-1-git-send-email-jhs@emojatatu.com> <56CB3B90.8030206@iogearbox.net> <56CC4BEA.70108@mojatatu.com> <56CC5CB6.1030807@iogearbox.net> <56CC6C75.1000903@mojatatu.com> <56CC7C20.3090302@iogearbox.net> <56CDA6E8.7010604@mojatatu.com> <56CDECE5.5040604@iogearbox.net> <56CEF242.5090908@mojatatu.com> <56CF7370.7020100@iogearbox.net> <56CF82ED.3080307@mojatatu.com>
+From: Wakko Warner <wakko@animx.eu.org>
+Subject: Re: [PATCH net] ipv4: only create late gso-skb if skb is already set
+ up with CHECKSUM_PARTIAL
+Date: Thu, 25 Feb 2016 19:07:06 -0500
+Message-ID: <20160226000706.GA25882@animx.eu.org>
+References: <1456163005-15809-1-git-send-email-hannes@stressinduktion.org>
+Reply-To: Wakko Warner <wakko@animx.eu.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	alexei.starovoitov@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40663 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751544AbcBZADu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 19:03:50 -0500
-In-Reply-To: <56CF82ED.3080307@mojatatu.com>
+Received: from tn-76-7-162-101.sta.embarqhsd.net ([76.7.162.101]:40848 "EHLO
+	animx.eu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751544AbcBZAHJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2016 19:07:09 -0500
+Content-Disposition: inline
+In-Reply-To: <1456163005-15809-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/25/2016 11:40 PM, Jamal Hadi Salim wrote:
-> On 16-02-25 04:34 PM, Daniel Borkmann wrote:
->> On 02/25/2016 01:23 PM, Jamal Hadi Salim wrote:
->>> On 16-02-24 12:48 PM, Daniel Borkmann wrote:
->>>> On 02/24/2016 01:49 PM, Jamal Hadi Salim wrote:
->> [...]
->>>>> Drivers do set the hash. My use case is slightly different.
->>>>> I have a NIC which has an embedded cavium processor. This thing
->>>>> strips off the TLV and uses the hash to select the host MSI.
->>>>> Only thing we dont use at the moment is queue_mapping.
->>>>
->>>> Ok, but the example says ingress qdisc. ;) I presume the driver for the
->>>> NIC and the offloading parts are non-public? :/
->>>
->>> Well, it is not exactly mellanox or intel - but I am sure someone would
->>> be willing to sell that NIC.
->>>
->>>> So, without them, placing
->>>> this on ingress qdisc doesn't seem much useful wrt the skb hash example,
->>>> and most people only have the software part (for ingress I mean)
->>>> available.
->>>
->>> Do you want me to take skbbhash out? I just want to get this set in then
->>> worry about adding and modifying.
->>
->> Well, if the NIC driver and offloading parts for ife are not available
->> (or cannot be made available)
->
-> If you are willing to pay for one i can have one sold to you.
-> Note: There is no dependency on such a NIC. You asked for an example
-> of how one would use skbhash and i pointed it out to you.
-> Infact nothing in the commit notes pointed to any NIC.
+Hannes Frederic Sowa wrote:
+> Otherwise we break the contract with GSO to only pass CHECKSUM_PARTIAL
+> skbs down. This can easily happen with UDP+IPv4 sockets with the first
+> MSG_MORE write smaller than the MTU, second write is a sendfile.
+> 
+> Returning -EOPNOTSUPP lets the callers fall back into normal sendmsg path,
+> were we calculate the checksum manually during copying.
+> 
+> Commit d749c9cbffd6 ("ipv4: no CHECKSUM_PARTIAL on MSG_MORE corked
+> sockets") started to exposes this bug.
+> 
+> Fixes: d749c9cbffd6 ("ipv4: no CHECKSUM_PARTIAL on MSG_MORE corked sockets")
+> Reported-by: Jiri Benc <jbenc@redhat.com>
+> Cc: Jiri Benc <jbenc@redhat.com>
+> Reported-by: Wakko Warner <wakko@animx.eu.org>
+> Cc: Wakko Warner <wakko@animx.eu.org>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Yes, but that was not the point, I think we're talking past each other. ;)
-The example (or better, use-case) you provided with your NIC seems useful.
-But when you want to decode this with your kernel module, f.e. attached on
-ingress qdisc, it's an entirely different situation. Anyway, point is subsequent
-calls to skb_get_hash() will overwrite what you decoded there, that's why I
-asked and tried to point this out earlier. You may want to look at sth
-like __skb_set_sw_hash() ...
+I just tested this with 2 of my VMs.  It appears to have fixed the issue.
 
->> in the upstream kernel tree, then you have
->> to assume that everyone else can _only_ use this with the existing tc
->> facilities in the kernel. And as such, the whole set needs to be evaluated,
->> I think this is nothing new. ;-)
->
-> Seriously this is getting to a ridiculous level now.
-> I gave a talk - which you attended. I wrote a paper which you may have
-> at minimal glanced at.
-> I have had discussions with you on this very subject.
-
-I think I only suggested that in case you still don't have an ethertype
-assigned to this to require the user to specify one instead of some default.
-
-> And as soon as i posted the patches your statements led from you
-> needing a good use case to why not use a netdev and why i have
-> all these things that are not very useful. None of which came up before.
-
-Fair enough, didn't see that code before and just tried to review it, probably
-shouldn't have, so I'm not looking further into this anymore. ;)
-
-Thanks anyway,
-Daniel
+> ---
+>  net/ipv4/ip_output.c | 5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> index 64878efa045c13..565bf64b2b7d60 100644
+> --- a/net/ipv4/ip_output.c
+> +++ b/net/ipv4/ip_output.c
+> @@ -1236,13 +1236,16 @@ ssize_t	ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
+>  	if (!skb)
+>  		return -EINVAL;
+>  
+> -	cork->length += size;
+>  	if ((size + skb->len > mtu) &&
+>  	    (sk->sk_protocol == IPPROTO_UDP) &&
+>  	    (rt->dst.dev->features & NETIF_F_UFO)) {
+> +		if (skb->ip_summed != CHECKSUM_PARTIAL)
+> +			return -EOPNOTSUPP;
+> +
+>  		skb_shinfo(skb)->gso_size = mtu - fragheaderlen;
+>  		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+>  	}
+> +	cork->length += size;
+>  
+>  	while (size > 0) {
+>  		if (skb_is_gso(skb)) {
+> -- 
+> 2.5.0
+> 
+-- 
+ Microsoft has beaten Volkswagen's world record.  Volkswagen only created 22
+ million bugs.
