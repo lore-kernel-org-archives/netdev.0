@@ -1,48 +1,53 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 5/5] vxlan: implement GPE in L3 mode
-Date: Fri, 26 Feb 2016 15:42:29 -0800
-Message-ID: <CALx6S357WXaHBs0Tnf=PCcBZGr2Ryv8jr6rms_TWtYDytmRSKw@mail.gmail.com>
-References: <cover.1456472746.git.jbenc@redhat.com>
-	<20f9916704dc3b34526bc0959e7212de7ec878a4.1456472746.git.jbenc@redhat.com>
-	<CAEh+42hC=Bx3FFGH=Eij-HGNN5jgZh_PmBbzp_3YPnWKpyTn1w@mail.gmail.com>
+From: Rasesh Mody <rasesh.mody@qlogic.com>
+Subject: RE: [PATCH net] bna: fix list corruption
+Date: Fri, 26 Feb 2016 23:48:29 +0000
+Message-ID: <2552F74A0BCCBE4DBE2AD218C81B2811086A6AB9@avmb3.qlogic.org>
+References: <1456474550-16747-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Benc <jbenc@redhat.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Ivan Vecera <ivecera@redhat.com>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:33946 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755249AbcBZXma (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 18:42:30 -0500
-Received: by mail-ig0-f180.google.com with SMTP id g6so49460157igt.1
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 15:42:30 -0800 (PST)
-In-Reply-To: <CAEh+42hC=Bx3FFGH=Eij-HGNN5jgZh_PmBbzp_3YPnWKpyTn1w@mail.gmail.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:1256 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754279AbcBZXsf convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Feb 2016 18:48:35 -0500
+In-Reply-To: <1456474550-16747-1-git-send-email-ivecera@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 26, 2016 at 2:22 PM, Jesse Gross <jesse@kernel.org> wrote:
-> On Thu, Feb 25, 2016 at 11:48 PM, Jiri Benc <jbenc@redhat.com> wrote:
->> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
->> index c2b2b7462731..ee4f7198aa21 100644
->> --- a/include/uapi/linux/if_link.h
->> +++ b/include/uapi/linux/if_link.h
->> @@ -464,6 +464,7 @@ enum {
->>  enum vxlan_gpe_mode {
->>         VXLAN_GPE_MODE_DISABLED = 0,
->>         VXLAN_GPE_MODE_L2,
->> +       VXLAN_GPE_MODE_L3,
->
-> Given that VXLAN_GPE_MODE_L3 will eventually come to be used by NSH,
-> MPLS, etc. in addition to IPv4/v6, most of which are not really L3, it
-> seems like something along the lines of NO_ARP might be better since
-> that's what it really indicates. Once that is in, I don't really see
-> the need to explicitly block Ethernet packets from being handled in
-> this mode. If they are received, then they can just be handed off to
-> the stack - at that point it would look like an extra header, the same
-> as if an NSH packet is received.
+> From: Ivan Vecera [mailto:ivecera@redhat.com]
+> Sent: Friday, February 26, 2016 12:16 AM
+> 
+> Use list_move_tail() to move MAC address entry from list of pending to list
+> of active entries. Simple list_add_tail() leaves the entry also in the first list,
+> this leads to list corruption.
+> 
+> Cc: Rasesh Mody <rasesh.mody@qlogic.com>
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-Agreed, and I don't see why there even needs to be modes. VXLAN-GPE
-can carry arbitrary protocols with a next-header field. For Ethernet,
-MPLS, IPv4, and IPv6 it should just be a simple mapping of the next
-header to Ethertype for purposes of processing the payload.
+Acked-by: Rasesh Mody <rasesh.mody@qlogic.com>
+
+> ---
+>  drivers/net/ethernet/brocade/bna/bna_tx_rx.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+> b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+> index 04b0d16..95bc470 100644
+> --- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+> +++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+> @@ -987,7 +987,7 @@ bna_rxf_ucast_cfg_apply(struct bna_rxf *rxf)
+>  	if (!list_empty(&rxf->ucast_pending_add_q)) {
+>  		mac = list_first_entry(&rxf->ucast_pending_add_q,
+>  				       struct bna_mac, qe);
+> -		list_add_tail(&mac->qe, &rxf->ucast_active_q);
+> +		list_move_tail(&mac->qe, &rxf->ucast_active_q);
+>  		bna_bfi_ucast_req(rxf, mac,
+> BFI_ENET_H2I_MAC_UCAST_ADD_REQ);
+>  		return 1;
+>  	}
+> --
+> 2.4.10
