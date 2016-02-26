@@ -1,93 +1,88 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: [PATCH v2 net] bonding: don't use stale speed and duplex
- information
-Date: Fri, 26 Feb 2016 10:21:51 +0800
-Message-ID: <56CFB6BF.3070705@gmail.com>
-References: <25869.1454962202@famine> <56CEBCC6.3040008@gmail.com>
- <11163.1456407235@nyx>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: [PATCH iproute2 v2] iplink: Support VF Trust
+Date: Fri, 26 Feb 2016 02:40:18 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05FB353F@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	dingtianhong <dingtianhong@huawei.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	Edward Cree <ecree@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36729 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752390AbcBZCVW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 21:21:22 -0500
-Received: by mail-pf0-f194.google.com with SMTP id e127so3873356pfe.3
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2016 18:21:22 -0800 (PST)
-In-Reply-To: <11163.1456407235@nyx>
+Received: from TYO200.gate.nec.co.jp ([210.143.35.50]:37067 "EHLO
+	tyo200.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751219AbcBZCmj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 21:42:39 -0500
+Received: from tyo202.gate.nec.co.jp ([10.7.69.202])
+	by tyo200.gate.nec.co.jp (8.13.8/8.13.4) with ESMTP id u1Q2ga7J000525
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 11:42:36 +0900 (JST)
+Content-Language: ja-JP
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/25/2016 09:33 PM, Jay Vosburgh wrote:
-> zhuyj <zyjzyj2000@gmail.com> wrote:
-> [...]
->> I delved into the source code and Emil's tests. I think that the problem
->> that this patch expects to fix occurs very unusually.
->>
->> Do you agree with me?
->>
->> If so, maybe the following patch can reduce the performance loss.
->> Please comment on it. Thanks a lot.
->>
->>
->> diff --git a/drivers/net/bonding/bond_main.c
->> b/drivers/net/bonding/bond_main.c
->> index b7f1a99..c4c511a 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -2129,7 +2129,9 @@ static void bond_miimon_commit(struct bonding *bond)
->>                         continue;
->>
->>                 case BOND_LINK_UP:
->> -                       bond_update_speed_duplex(slave);
->> +                       if (slave->speed == SPEED_UNKNOWN)
->> +                               bond_update_speed_duplex(slave);
->> +
->>                         bond_set_slave_link_state(slave, BOND_LINK_UP,
->> BOND_SLAVE_NOTIFY_NOW);
->>                         slave->last_link_up = jiffies;
-> 	I don't believe the speed is necessarily SPEED_UNKNOWN coming in
-> here.  If the race occurs at a time later than the initial enslavement,
-> speed may already be set (and the race manifests if the new speed
-> changes, i.e., the link changes from 1 Gb/sec to 10 Gb/sec), so I don't
-> think this is functionally correct.
-Hi, Jay
-
-Thanks for your reply.
-
-IMHO, "If the race occurs at a time later than the initial enslavement,
-speed may already be set (and the race manifests if the new speed
-changes, i.e., the link changes from 1 Gb/sec to 10 Gb/sec)", from my test,
-this will not happen because the previous source code make the speed 
-correct.
-
-This "bond_update_speed_duplex" repeats to get the correct speed.
-
-That is, this patch is to fix the error in initial enslavement. The 
-mentioned scenario
-will not occur.
-
-Even though the performance impact is minimal, if we can avoid this 
-performance
-impact, why not ?
-
-Best Regards!
-Zhu Yanjun
-
->
-> 	Also, the call to bond_miimon_commit itself is already gated by
-> bond_miimon_inspect finding a link state change.  The performance impact
-> here should be minimal.
->
-> 	-J
->
-> ---
-> 	-Jay Vosburgh, jay.vosburgh@canonical.com
+RnJvbTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+DQoNCkFk
+ZCBJRkxBX1ZGX1RSVVNUIG1lc3NhZ2UgdG8gdHJ1c3QgdGhlIFZGLg0KUEYgY2FuIGFjY2VwdCBz
+b21lIHByaXZpbGVnZWQgb3BlcmF0aW9uIGZyb20gdGhlIHRydXN0ZWQgVkYuDQpGb3IgZXhhbXBs
+ZSwgaXhnYmUgUEYgZG9lc24ndCBhbGxvdyB0byBlbmFibGUgVkYgcHJvbWlzY3VvdXMgbW9kZSB1
+bnRpbA0KdGhlIFZGIGlzIHRydXN0ZWQgYmVjYXVzZSBpdCBtYXkgaHVydCBwZXJmb3JtYW5jZS4N
+Cg0KVG8gdHJ1c3QgVkYuDQogIyBpcCBsaW5rIHNldCBkZXYgZXRoMCB2ZiAxIHRydXN0IG9uDQoN
+ClRvIHVudHJ1c3QgVkYuDQogIyBpcCBsaW5rIHNldCBkZXYgZXRoMCB2ZiAxIHRydXN0IG9mZg0K
+DQpTaWduZWQtb2ZmLWJ5OiBIaXJvc2hpIFNoaW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAubmVj
+LmNvbT4NCi0tLQ0KDQp2MSAtPiB2MjogcmViYXNlIHRvIHRoZSBsYXRlc3QgY29kZSBvZiBpcHJv
+dXRlMi4NCg0KVGhlIFZGIHRydXN0IHBhdGNoIGhhcyBiZWVuIGluIGtlcm5lbCBhbmQgdGhlIElG
+TEFfVkZfVFJVU1QgbmV0bGluayBhdHRyaWJ1dGUNCmhhcyBiZWVuIGluY2x1ZGVkIGlwcm91dGUy
+LCBidXQgbm8gYWN0dWFsIGhhbmRsZXIgZm9yIHRoaXMuDQpUaGlzIHBhdGNoIGFkZCB0aGUgZnVu
+Y3Rpb25hbGl0eSB0byB0cnVzdCB2ZiBmcm9tIGlwIGNvbW1hbmQuDQoNCiBpcC9pcGxpbmsuYyAg
+ICAgICAgICAgfCAxMyArKysrKysrKysrKysrDQogbWFuL21hbjgvaXAtbGluay44LmluIHwgIDcg
+KysrKysrLQ0KIDIgZmlsZXMgY2hhbmdlZCwgMTkgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigt
+KQ0KDQpkaWZmIC0tZ2l0IGEvaXAvaXBsaW5rLmMgYi9pcC9pcGxpbmsuYw0KaW5kZXggNWFiOWQ2
+MS4uNjlmNTA1NyAxMDA2NDQNCi0tLSBhL2lwL2lwbGluay5jDQorKysgYi9pcC9pcGxpbmsuYw0K
+QEAgLTgyLDYgKzgyLDcgQEAgdm9pZCBpcGxpbmtfdXNhZ2Uodm9pZCkNCiAJZnByaW50ZihzdGRl
+cnIsICIJCQkJICAgWyBzcG9vZmNoayB7IG9uIHwgb2ZmfSBdIF1cbiIpOw0KIAlmcHJpbnRmKHN0
+ZGVyciwgIgkJCQkgICBbIHF1ZXJ5X3JzcyB7IG9uIHwgb2ZmfSBdIF1cbiIpOw0KIAlmcHJpbnRm
+KHN0ZGVyciwgIgkJCQkgICBbIHN0YXRlIHsgYXV0byB8IGVuYWJsZSB8IGRpc2FibGV9IF0gXVxu
+Iik7DQorCWZwcmludGYoc3RkZXJyLCAiCQkJCSAgIFsgdHJ1c3QgeyBvbiB8IG9mZn0gXSBdXG4i
+KTsNCiAJZnByaW50ZihzdGRlcnIsICIJCQkgIFsgbWFzdGVyIERFVklDRSBdXG4iKTsNCiAJZnBy
+aW50ZihzdGRlcnIsICIJCQkgIFsgbm9tYXN0ZXIgXVxuIik7DQogCWZwcmludGYoc3RkZXJyLCAi
+CQkJICBbIGFkZHJnZW5tb2RlIHsgZXVpNjQgfCBub25lIHwgc3RhYmxlX3NlY3JldCB8IHJhbmRv
+bSB9IF1cbiIpOw0KQEAgLTM1Niw2ICszNTcsMTggQEAgc3RhdGljIGludCBpcGxpbmtfcGFyc2Vf
+dmYoaW50IHZmLCBpbnQgKmFyZ2NwLCBjaGFyICoqKmFyZ3ZwLA0KIAkJCWl2cy52ZiA9IHZmOw0K
+IAkJCWFkZGF0dHJfbCgmcmVxLT5uLCBzaXplb2YoKnJlcSksIElGTEFfVkZfUlNTX1FVRVJZX0VO
+LCAmaXZzLCBzaXplb2YoaXZzKSk7DQogDQorCQl9IGVsc2UgaWYgKG1hdGNoZXMoKmFyZ3YsICJ0
+cnVzdCIpID09IDApIHsNCisJCQlzdHJ1Y3QgaWZsYV92Zl90cnVzdCBpdnQ7DQorCQkJTkVYVF9B
+UkcoKTsNCisJCQlpZiAobWF0Y2hlcygqYXJndiwgIm9uIikgPT0gMCkNCisJCQkJaXZ0LnNldHRp
+bmcgPSAxOw0KKwkJCWVsc2UgaWYgKG1hdGNoZXMoKmFyZ3YsICJvZmYiKSA9PSAwKQ0KKwkJCQlp
+dnQuc2V0dGluZyA9IDA7DQorCQkJZWxzZQ0KKwkJCQlpbnZhcmcoIkludmFsaWQgXCJ0cnVzdFwi
+IHZhbHVlXG4iLCAqYXJndik7DQorCQkJaXZ0LnZmID0gdmY7DQorCQkJYWRkYXR0cl9sKCZyZXEt
+Pm4sIHNpemVvZigqcmVxKSwgSUZMQV9WRl9UUlVTVCwgJml2dCwgc2l6ZW9mKGl2dCkpOw0KKw0K
+IAkJfSBlbHNlIGlmIChtYXRjaGVzKCphcmd2LCAic3RhdGUiKSA9PSAwKSB7DQogCQkJc3RydWN0
+IGlmbGFfdmZfbGlua19zdGF0ZSBpdmw7DQogDQpkaWZmIC0tZ2l0IGEvbWFuL21hbjgvaXAtbGlu
+ay44LmluIGIvbWFuL21hbjgvaXAtbGluay44LmluDQppbmRleCA0ZDMyMzQzLi43ZGQ3YTkwIDEw
+MDY0NA0KLS0tIGEvbWFuL21hbjgvaXAtbGluay44LmluDQorKysgYi9tYW4vbWFuOC9pcC1saW5r
+LjguaW4NCkBAIC0xNDIsNyArMTQyLDggQEAgaXAtbGluayBcLSBuZXR3b3JrIGRldmljZSBjb25m
+aWd1cmF0aW9uDQogLkIgbWluX3R4X3JhdGUNCiAuSVIgVFhSQVRFICIgXSBbIg0KIC5CIHNwb29m
+Y2hrIHsgb24gfCBvZmYgfSBdIFsNCi0uQiBzdGF0ZSB7IGF1dG8gfCBlbmFibGUgfCBkaXNhYmxl
+fQ0KKy5CIHN0YXRlIHsgYXV0byB8IGVuYWJsZSB8IGRpc2FibGV9IF0gWw0KKy5CIHRydXN0IHsg
+b24gfCBvZmYgfQ0KIF0gfA0KIC5icg0KIC5CIG1hc3Rlcg0KQEAgLTEwMTksNiArMTAyMCwxMCBA
+QCBwYXJhbWV0ZXIgbXVzdCBiZSBzcGVjaWZpZWQuDQogcmVmbGVjdGlvbiBvZiB0aGUgUEYgbGlu
+ayBzdGF0ZSwgZW5hYmxlIGxldHMgdGhlIFZGIHRvIGNvbW11bmljYXRlIHdpdGggb3RoZXIgVkZz
+IG9uDQogdGhpcyBob3N0IGV2ZW4gaWYgdGhlIFBGIGxpbmsgc3RhdGUgaXMgZG93biwgZGlzYWJs
+ZSBjYXVzZXMgdGhlIEhXIHRvIGRyb3AgYW55IHBhY2tldHMNCiBzZW50IGJ5IHRoZSBWRi4NCisu
+c3ANCisuQkkgdHJ1c3QgIiBvbnxvZmYiDQorLSB0cnVzdCB0aGUgc3BlY2lmaWVkIFZGIHVzZXIu
+IFRoaXMgZW5hYmxlcyB0aGF0IFZGIHVzZXIgY2FuIHNldCBhIHNwZWNpZmljIGZlYXR1cmUNCit3
+aGljaCBtYXkgaW1wYWN0IHNlY3VyaXR5IGFuZC9vciBwZXJmb3JtYW5jZS4gKGUuZy4gVkYgbXVs
+dGljYXN0IHByb21pc2N1b3VzIG1vZGUpDQogLmluIC04DQogDQogLlRQDQotLSANCjEuOC4zLjEN
+Cg0K
