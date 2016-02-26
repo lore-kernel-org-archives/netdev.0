@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 8/9] net: dsa: mv88e6xxx: remove reserved VLANs
-Date: Fri, 26 Feb 2016 13:16:07 -0500
-Message-ID: <1456510568-13679-9-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 1/9] net: dsa: support VLAN filtering switchdev attr
+Date: Fri, 26 Feb 2016 13:16:00 -0500
+Message-ID: <1456510568-13679-2-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -15,112 +15,78 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Kevin Smith <kevin.smith@elecsyscorp.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:50866 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030395AbcBZSRU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 13:17:20 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that ports isolation is correctly configured when joining or leaving
-a bridge, there is no need to rely on reserved VLANs to isolate
-unbridged ports anymore. Thus remove them, and disable 802.1Q on setup.
+When a user explicitly requests VLAN filtering with something like:
 
-This restores the expected behavior of hardware bridging for systems
-without 802.1Q or VLAN filtering enabled.
+    # echo 1 > /sys/class/net/<bridge>/bridge/vlan_filtering
+
+Switchdev propagates a SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING port
+attribute.
+
+Add support for it in the DSA layer with a new port_vlan_filtering
+function to let drivers toggle 802.1Q filtering on user demand.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 33 +++------------------------------
- 1 file changed, 3 insertions(+), 30 deletions(-)
+ include/net/dsa.h |  2 ++
+ net/dsa/slave.c   | 21 +++++++++++++++++++++
+ 2 files changed, 23 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 7f3036b..27a19dc 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1718,10 +1718,6 @@ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
- {
- 	int err;
- 
--	/* We reserve a few VLANs to isolate unbridged ports */
--	if (vlan->vid_end >= 4000)
--		return -EOPNOTSUPP;
--
- 	/* If the requested port doesn't belong to the same bridge as the VLAN
- 	 * members, do not support it (yet) and fallback to software VLAN.
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 3dd5486..26c0a3f 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -305,6 +305,8 @@ struct dsa_switch_driver {
+ 	/*
+ 	 * VLAN support
  	 */
-@@ -1819,7 +1815,6 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
- 			    const struct switchdev_obj_port_vlan *vlan)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	const u16 defpvid = 4000 + ds->index * DSA_MAX_PORTS + port;
- 	u16 pvid, vid;
- 	int err = 0;
- 
-@@ -1835,8 +1830,7 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
- 			goto unlock;
- 
- 		if (vid == pvid) {
--			/* restore reserved VLAN ID */
--			err = _mv88e6xxx_port_pvid_set(ds, port, defpvid);
-+			err = _mv88e6xxx_port_pvid_set(ds, port, 0);
- 			if (err)
- 				goto unlock;
- 		}
-@@ -2186,20 +2180,6 @@ unlock:
- 	return err;
++	int	(*port_vlan_filtering)(struct dsa_switch *ds, int port,
++				       bool vlan_filtering);
+ 	int	(*port_vlan_prepare)(struct dsa_switch *ds, int port,
+ 				     const struct switchdev_obj_port_vlan *vlan,
+ 				     struct switchdev_trans *trans);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index cde2923..27bf03d 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -317,6 +317,24 @@ static int dsa_slave_stp_update(struct net_device *dev, u8 state)
+ 	return ret;
  }
  
--static int mv88e6xxx_setup_port_default_vlan(struct dsa_switch *ds, int port)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	const u16 pvid = 4000 + ds->index * DSA_MAX_PORTS + port;
--	int err;
--
--	mutex_lock(&ps->smi_mutex);
--	err = _mv88e6xxx_port_vlan_add(ds, port, pvid, true);
--	if (!err)
--		err = _mv88e6xxx_port_pvid_set(ds, port, pvid);
--	mutex_unlock(&ps->smi_mutex);
--	return err;
--}
--
- static void mv88e6xxx_bridge_work(struct work_struct *work)
- {
- 	struct mv88e6xxx_priv_state *ps;
-@@ -2320,7 +2300,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 	}
- 
- 	/* Port Control 2: don't force a good FCS, set the maximum frame size to
--	 * 10240 bytes, enable secure 802.1q tags, don't discard tagged or
-+	 * 10240 bytes, disable 802.1q tags checking, don't discard tagged or
- 	 * untagged frames on this port, do a destination address lookup on all
- 	 * received packets as usual, disable ARP mirroring and don't send a
- 	 * copy of all transmitted/received frames on this port to the CPU.
-@@ -2345,7 +2325,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 			reg |= PORT_CONTROL_2_FORWARD_UNKNOWN;
- 	}
- 
--	reg |= PORT_CONTROL_2_8021Q_SECURE;
-+	reg |= PORT_CONTROL_2_8021Q_DISABLED;
- 
- 	if (reg) {
- 		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port),
-@@ -2474,13 +2454,6 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
- 		ret = mv88e6xxx_setup_port(ds, i);
- 		if (ret < 0)
- 			return ret;
--
--		if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
--			continue;
--
--		ret = mv88e6xxx_setup_port_default_vlan(ds, i);
--		if (ret < 0)
--			return ret;
- 	}
- 	return 0;
- }
++static int dsa_slave_vlan_filtering(struct net_device *dev,
++				    const struct switchdev_attr *attr,
++				    struct switchdev_trans *trans)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++
++	/* bridge skips -EOPNOTSUPP, so skip the prepare phase */
++	if (switchdev_trans_ph_prepare(trans))
++		return 0;
++
++	if (ds->drv->port_vlan_filtering)
++		return ds->drv->port_vlan_filtering(ds, p->port,
++						    attr->u.vlan_filtering);
++
++	return 0;
++}
++
+ static int dsa_slave_port_attr_set(struct net_device *dev,
+ 				   const struct switchdev_attr *attr,
+ 				   struct switchdev_trans *trans)
+@@ -333,6 +351,9 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
+ 			ret = ds->drv->port_stp_update(ds, p->port,
+ 						       attr->u.stp_state);
+ 		break;
++	case SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING:
++		ret = dsa_slave_vlan_filtering(dev, attr, trans);
++		break;
+ 	default:
+ 		ret = -EOPNOTSUPP;
+ 		break;
 -- 
 2.7.1
