@@ -1,54 +1,47 @@
-From: Kevin Smith <kevin.smith@elecsyscorp.com>
-Subject: Re: [PATCH net-next 7/9] net: dsa: mv88e6xxx: restore VLANTable map
- control
-Date: Fri, 26 Feb 2016 22:12:28 +0000
-Message-ID: <56D0CDCD.2040806@elecsyscorp.com>
-References: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1456510568-13679-8-git-send-email-vivien.didelot@savoirfairelinux.com>
- <56D0B964.4090002@elecsyscorp.com> <20160226210419.GA1560@lunn.ch>
- <87d1rj6tlo.fsf@ketchup.mtl.sfl>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [PATCH net-next 5/5] vxlan: implement GPE in L3 mode
+Date: Fri, 26 Feb 2016 14:22:03 -0800
+Message-ID: <CAEh+42hC=Bx3FFGH=Eij-HGNN5jgZh_PmBbzp_3YPnWKpyTn1w@mail.gmail.com>
+References: <cover.1456472746.git.jbenc@redhat.com> <20f9916704dc3b34526bc0959e7212de7ec878a4.1456472746.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Neil Armstrong <narmstrong@baylibre.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Russell King <rmk+kernel@arm.linux.org.uk>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87d1rj6tlo.fsf@ketchup.mtl.sfl>
-Content-Language: en-US
-Content-ID: <5EBAF73B792B1640B3CB60A9D2B96579@dciincorporated.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:52560 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755497AbcBZWWU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Feb 2016 17:22:20 -0500
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id EA10A203E3
+	for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 22:22:18 +0000 (UTC)
+Received: from mail-qg0-f44.google.com (mail-qg0-f44.google.com [209.85.192.44])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 41EBD20303
+	for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 22:22:18 +0000 (UTC)
+Received: by mail-qg0-f44.google.com with SMTP id b67so76593658qgb.1
+        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 14:22:18 -0800 (PST)
+In-Reply-To: <20f9916704dc3b34526bc0959e7212de7ec878a4.1456472746.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Vivien, Andrew,
+On Thu, Feb 25, 2016 at 11:48 PM, Jiri Benc <jbenc@redhat.com> wrote:
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index c2b2b7462731..ee4f7198aa21 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -464,6 +464,7 @@ enum {
+>  enum vxlan_gpe_mode {
+>         VXLAN_GPE_MODE_DISABLED = 0,
+>         VXLAN_GPE_MODE_L2,
+> +       VXLAN_GPE_MODE_L3,
 
-On 02/26/2016 03:37 PM, Vivien Didelot wrote:
-> Here, 5 is the CPU port and 6 is a DSA port.
->
-> After joining ports 0, 1, 2 in the same bridge, we end up with:
->
-> Port  0  1  2  3  4  5  6
->    0   -  *  *  -  -  *  *
->    1   *  -  *  -  -  *  *
->    2   *  *  -  -  -  *  *
->    3   -  -  -  -  -  *  *
->    4   -  -  -  -  -  *  *
->    5   *  *  *  *  *  -  *
->    6   *  *  *  *  *  *  -
-The case I am concerned about is if the switch connected over DSA in 
-this example has a WAN port on it, which can legitimately route to the 
-CPU on port 5 but should not route to the LAN ports 0, 1, and 2.  Does 
-this VLAN allow direct communication between the WAN and LAN?  Or is 
-this prevented by DSA or some other mechanism?
-
-Thanks,
-Kevin
+Given that VXLAN_GPE_MODE_L3 will eventually come to be used by NSH,
+MPLS, etc. in addition to IPv4/v6, most of which are not really L3, it
+seems like something along the lines of NO_ARP might be better since
+that's what it really indicates. Once that is in, I don't really see
+the need to explicitly block Ethernet packets from being handled in
+this mode. If they are received, then they can just be handed off to
+the stack - at that point it would look like an extra header, the same
+as if an NSH packet is received.
