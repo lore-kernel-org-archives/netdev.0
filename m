@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 6/9] net: dsa: mv88e6xxx: assign dynamic FDB to bridges
-Date: Fri, 26 Feb 2016 13:16:05 -0500
-Message-ID: <1456510568-13679-7-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 0/9] net: dsa: mv88e6xxx: implement VLAN filtering
+Date: Fri, 26 Feb 2016 13:15:59 -0500
+Message-ID: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -16,80 +15,55 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Give a new bridge a fresh FDB, assign it to its members, and restore a
-fresh FDB to a port leaving a bridge.
+This patchset fixes hardware bridging for non 802.1Q aware systems.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 41 +++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 39 insertions(+), 2 deletions(-)
+The mv88e6xxx DSA driver currently depends on CONFIG_VLAN_8021Q and
+CONFIG_BRIDGE_VLAN_FILTERING enabled for correct bridging between switch ports.
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 0f06488..0f16911 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2093,19 +2093,56 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
- 			       struct net_device *bridge)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	u16 fid;
-+	int i, err;
-+
-+	mutex_lock(&ps->smi_mutex);
-+
-+	/* Get or create the bridge FID and assign it to the port */
-+	for (i = 0; i < ps->num_ports; ++i)
-+		if (ps->ports[i].bridge_dev == bridge)
-+			break;
-+
-+	if (i < ps->num_ports)
-+		err = _mv88e6xxx_port_fid_get(ds, i, &fid);
-+	else
-+		err = _mv88e6xxx_fid_new(ds, &fid);
-+	if (err)
-+		goto unlock;
-+
-+	err = _mv88e6xxx_port_fid_set(ds, port, fid);
-+	if (err)
-+		goto unlock;
- 
- 	ps->ports[port].bridge_dev = bridge;
-+unlock:
-+	mutex_unlock(&ps->smi_mutex);
- 
--	return 0;
-+	return err;
- }
- 
- int mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	u16 fid;
-+	int err;
-+
-+	mutex_lock(&ps->smi_mutex);
-+
-+	/* Give the port a fresh Filtering Information Database */
-+	err = _mv88e6xxx_fid_new(ds, &fid);
-+	if (err)
-+		goto unlock;
-+
-+	err = _mv88e6xxx_port_fid_set(ds, port, fid);
-+	if (err)
-+		goto unlock;
- 
- 	ps->ports[port].bridge_dev = NULL;
-+unlock:
-+	mutex_unlock(&ps->smi_mutex);
- 
--	return 0;
-+	return err;
- }
- 
- static int mv88e6xxx_setup_port_default_vlan(struct dsa_switch *ds, int port)
+Patch 1/9 adds support for the VLAN filtering switchdev attribute in DSA.
+
+Patchs 2/9 and 3/9 add helper functions for the following patches.
+
+Patchs 4/9 to 6/9 assign dynamic address databases to VLANs, ports, and
+bridge groups (the lowest available FID is cleared and assigned), and thus
+restore support for per-port FDB operations.
+
+Patchs 7/9 to 9/9 refine ports isolation and setup 802.1Q on user demand.
+
+With this patchset, ports get correctly bridged and the driver behaves as
+expected, with or without 802.1Q support.
+
+With CONFIG_VLAN_8021Q enabled, setting a default PVID to the bridge correctly
+propagates the corresponding VLAN, in addition to the hardware bridging:
+
+    # echo 42 > /sys/class/net/<bridge>/bridge/default_pvid
+
+But considering CONFIG_BRIDGE_VLAN_FILTERING enabled, the hardware VLAN
+filtering is enabled on all bridge members only when the user requests it:
+
+    # echo 1 > /sys/class/net/<bridge>/bridge/vlan_filtering
+
+Vivien Didelot (9):
+  net: dsa: support VLAN filtering switchdev attr
+  net: dsa: mv88e6xxx: extract single VLAN retrieval
+  net: dsa: mv88e6xxx: extract single FDB dump
+  net: dsa: mv88e6xxx: assign dynamic FDB to VLANs
+  net: dsa: mv88e6xxx: assign default FDB to ports
+  net: dsa: mv88e6xxx: assign dynamic FDB to bridges
+  net: dsa: mv88e6xxx: restore VLANTable map control
+  net: dsa: mv88e6xxx: remove reserved VLANs
+  net: dsa: mv88e6xxx: support VLAN filtering
+
+ drivers/net/dsa/mv88e6171.c |   1 +
+ drivers/net/dsa/mv88e6352.c |   1 +
+ drivers/net/dsa/mv88e6xxx.c | 441 ++++++++++++++++++++++++++++++++++----------
+ drivers/net/dsa/mv88e6xxx.h |   6 +
+ include/net/dsa.h           |   2 +
+ net/dsa/slave.c             |  21 +++
+ 6 files changed, 370 insertions(+), 102 deletions(-)
+
 -- 
 2.7.1
