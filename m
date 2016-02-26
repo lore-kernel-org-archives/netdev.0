@@ -1,65 +1,176 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] uapi glibc compat: fix cases where glibc net/if.h is
- included before linux/if.h
-Date: Fri, 26 Feb 2016 11:28:17 -0500 (EST)
-Message-ID: <20160226.112817.1495300719463061587.davem@davemloft.net>
-References: <1454853801-18064-1-git-send-email-mikko.rapeli@iki.fi>
-	<20160217.104620.239734387234680136.davem@davemloft.net>
-	<20160226072513.GH6104@lakka.kapsi.fi>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemming@brocade.com, linux-api@vger.kernel.org,
- linux-kernel@vger.kernel.org, jwboyer@fedoraproject.org,
- pablo@netfilter.org, netdev@vger.kernel.org,
- netfilter-devel@vger.kernel.org, libc-alpha@sourceware.org
-To: mikko.rapeli@iki.fi
-Return-path: <libc-alpha-return-67666-glibc-alpha=m.gmane.org@sourceware.org>
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
-In-Reply-To: <20160226072513.GH6104@lakka.kapsi.fi>
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v3 0/9] Introduce devlink interface and first drivers to use it
+Date: Fri, 26 Feb 2016 17:32:22 +0100
+Message-ID: <1456504351-18871-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com, yishaih@mellanox.com,
+	dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, eugenia@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
+	jeffrey.t.kirsher@intel.com, brouer@redhat.com, ivecera@redhat.com,
+	rami.rosen@intel.com, hannes@stressinduktion.org,
+	gospo@cumulusnetworks.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:36890 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030220AbcBZQcf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 11:32:35 -0500
+Received: by mail-wm0-f43.google.com with SMTP id g62so77350295wme.0
+        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 08:32:34 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mikko Rapeli <mikko.rapeli@iki.fi>
-Date: Fri, 26 Feb 2016 09:25:13 +0200
+From: Jiri Pirko <jiri@mellanox.com>
 
-> (Adding libc-alpha list, review of https://lkml.org/lkml/2016/2/7/89 )
-> 
-> On Wed, Feb 17, 2016 at 10:46:20AM -0500, David Miller wrote:
->> From: Mikko Rapeli <mikko.rapeli@iki.fi>
->> Date: Sun,  7 Feb 2016 16:03:21 +0200
->> 
->> > @@ -68,6 +72,8 @@
->> >   * @IFF_ECHO: echo sent packets. Volatile.
->> >   */
->> >  enum net_device_flags {
->> > +/* for compatibility with glibc net/if.h */
->> > +#if __UAPI_DEF_IF_NET_DEVICE_FLAGS
->> >  	IFF_UP				= 1<<0,  /* sysfs */
->> >  	IFF_BROADCAST			= 1<<1,  /* volatile */
->> >  	IFF_DEBUG			= 1<<2,  /* sysfs */
->> > @@ -84,11 +90,14 @@ enum net_device_flags {
->> >  	IFF_PORTSEL			= 1<<13, /* sysfs */
->> >  	IFF_AUTOMEDIA			= 1<<14, /* sysfs */
->> >  	IFF_DYNAMIC			= 1<<15, /* sysfs */
->> > +#endif /* __UAPI_DEF_IF_NET_DEVICE_FLAGS */
->> >  	IFF_LOWER_UP			= 1<<16, /* volatile */
->> >  	IFF_DORMANT			= 1<<17, /* volatile */
->> >  	IFF_ECHO			= 1<<18, /* volatile */
->> >  };
->> 
->> This is going to get messy is IFF_LOWER_UP, IFF_DORMANT, and IFF_ECHO
->> get added the the glibc header.  Why not just handle it now with
->> another __UAPI_DEF_FOO guard so that the additions to net/if.h can
->> deal with this case too.
-> 
-> Do you mean that the enum should be protected with a single guard or
-> should I have one guard for current conflicts and one for the future
-> if glibc headers include IFF_LOWER_UP and others?
+There a is need for some userspace API that would allow to expose things
+that are not directly related to any device class like net_device of
+ib_device, but rather chip-wide/switch-ASIC-wide stuff.
 
-I'm ambivalent about the mechanism, and I'm more concerned about covering
-those three values in your change rather than eliding them.
+Use cases:
+1) get/set of port type (Ethernet/InfiniBand)
+2) setting up port splitters - split port into multiple ones and squash again,
+   enables usage of splitter cable
+3) setting up shared buffers - shared among multiple ports within
+   one chip (work in progress)
+4) configuration of switch wide properties - resources division etc - This will
+   allow to pass configuration that is unacceptable to be passed as
+   a module option.
+
+First patch of this set introduces a new generic Netlink based interface,
+called "devlink". It is similar to nl80211 model and it is heavily
+influenced by it, including the API definition. The devlink introduction patch
+implements use cases 1) and 2). Other 2 are in development atm and will
+be addressed by follow-ups.
+
+It is very convenient for drivers to use devlink, as you can see in other
+patches in this set.
+
+Counterpart for devlink is userspace tool for now called "dl". Command line
+interface and outputs are derived from "ip" tool so it should be easy
+for users to get used to it.
+
+It is available here as a standalone tool for now:
+https://github.com/jpirko/devlink
+After this is merge in kernel, I will include the "dl" or "devlink" tool
+into iproute2 toolset.
+
+Port type setting example:
+	myhost:~$ dl help
+	Usage: dl [ OPTIONS ] OBJECT { COMMAND | help }
+	where  OBJECT := { dev | port | monitor }
+	       OPTIONS := { -v/--verbose }
+	
+	myhost:~$ dl dev help
+	Usage: dl dev show [DEV]
+	
+	myhost:~$ dl dev show
+	pci/0000:01:00.0
+	
+	myhost:~$ dl port help
+	Usage: dl port show [DEV/PORT_INDEX]
+	Usage: dl port set DEV/PORT_INDEX [ type { eth | ib | auto} ]
+	Usage: dl port split DEV/PORT_INDEX count
+	Usage: dl port unsplit DEV/PORT_INDEX
+	
+	myhost:~$ dl port show
+	pci/0000:01:00.0/1: type ib ibdev mlx4_0
+	pci/0000:01:00.0/2: type ib ibdev mlx4_0
+	
+	myhost:~$ sudo dl port set pci/0000:01:00.0/1 type eth
+	
+	myhost:~$ dl port show
+	pci/0000:01:00.0/1: type eth netdev ens4
+	pci/0000:01:00.0/2: type ib ibdev mlx4_0
+	
+	myhost:~$ sudo dl port set ens4 type auto
+	
+	myhost:~$ dl port show
+	pci/0000:01:00.0/1: type eth(auto) netdev ens4
+	pci/0000:01:00.0/2: type ib ibdev mlx4_0
+
+Port splitting example:
+	myswitch:~$ sudo modprobe mlxsw_pci
+	myswitch:~$ dl port
+	pci/0000:03:00.0/1: type eth netdev eth0
+	pci/0000:03:00.0/3: type eth netdev eth1
+	pci/0000:03:00.0/5: type eth netdev eth2
+	...
+	pci/0000:03:00.0/63: type eth netdev eth31
+	
+	myswitch:~$ sudo dl port split pci/0000:03:00.0/1 2   (or "sudo dl port split eth0 2")
+	
+	myswitch:~$ dl port
+	pci/0000:03:00.0/3: type eth netdev eth1
+	pci/0000:03:00.0/5: type eth netdev eth2
+	...
+	pci/0000:03:00.0/63: type eth netdev eth31
+	pci/0000:03:00.0/1: type eth netdev eth0 split_group 16
+	pci/0000:03:00.0/2: type eth netdev eth32 split_group 16
+	
+	myswitch:~$ sudo dl port unsplit pci/0000:03:00.0/1
+	
+	myswitch:~$ dl port
+	pci/0000:03:00.0/3: type eth netdev eth1
+	pci/0000:03:00.0/5: type eth netdev eth2
+	pci/0000:03:00.0/63: type eth netdev eth31
+	pci/0000:03:00.0/1: type eth netdev eth0
+
+---
+v2->v3:
+patch 1/9
+ -removed generated devlink index and name, use bus name and dev name as
+  a handle for all userspace originated commands. Along with that,
+  remove sysfs stub. Requested by Hannes Sowa.
+patch 2/9
+ -add dev param to devlink_register (api change)
+patch 4/9
+ -add dev param to devlink_register (api change)
+patch 9/9
+ -set port's speed according to width fix by Ido
+v1->v2:
+patch 1/9
+ -removed no longer used "devlink_dev" helper
+ -fix couple of typos and misspells
+patch 4/9:
+ -removed SET_NETDEV_DEV set to devlink dev
+
+Ido Schimmel (4):
+  mlxsw: spectrum: Unmap local port from module during teardown
+  mlxsw: spectrum: Store local port to module mapping during init
+  mlxsw: spectrum: Mark unused ports using NULL
+  mlxsw: spectrum: Introduce port splitting
+
+Jiri Pirko (5):
+  Introduce devlink infrastructure
+  mlx4: Implement devlink interface
+  mlx4: Implement port type setting via devlink interface
+  mlxsw: Implement devlink interface
+  mlxsw: core: Add devlink port splitter callbacks
+
+ MAINTAINERS                                    |   8 +
+ drivers/infiniband/hw/mlx4/main.c              |   7 +
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   8 +-
+ drivers/net/ethernet/mellanox/mlx4/intf.c      |   9 +
+ drivers/net/ethernet/mellanox/mlx4/main.c      | 128 +++--
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h      |   2 +
+ drivers/net/ethernet/mellanox/mlxsw/core.c     |  55 +-
+ drivers/net/ethernet/mellanox/mlxsw/core.h     |   2 +
+ drivers/net/ethernet/mellanox/mlxsw/port.h     |   2 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 272 ++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  10 +-
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c |  20 +
+ include/linux/mlx4/driver.h                    |   3 +
+ include/net/devlink.h                          | 140 +++++
+ include/uapi/linux/devlink.h                   |  72 +++
+ net/Kconfig                                    |   7 +
+ net/core/Makefile                              |   1 +
+ net/core/devlink.c                             | 738 +++++++++++++++++++++++++
+ 18 files changed, 1425 insertions(+), 59 deletions(-)
+ create mode 100644 include/net/devlink.h
+ create mode 100644 include/uapi/linux/devlink.h
+ create mode 100644 net/core/devlink.c
+
+-- 
+2.5.0
