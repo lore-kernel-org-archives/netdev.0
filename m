@@ -1,32 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC 3/3] net: convert tc_u32 to use the intermediate
- representation
-Date: Fri, 26 Feb 2016 12:34:52 -0500 (EST)
-Message-ID: <20160226.123452.1302145219271715730.davem@davemloft.net>
-References: <56CF6612.6040900@gmail.com>
-	<20160226142402.GB2523@salvia>
-	<56D066D7.2090708@gmail.com>
+Subject: Re: [PATCH V2 03/12] net-next: mediatek: add embedded switch
+ driver (ESW)
+Date: Fri, 26 Feb 2016 12:35:10 -0500 (EST)
+Message-ID: <20160226.123510.2183497788787486032.davem@davemloft.net>
+References: <1456496504-50429-1-git-send-email-blogic@openwrt.org>
+	<1456496504-50429-4-git-send-email-blogic@openwrt.org>
+	<20160226151813.GD12022@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netdev@vger.kernel.org, jiri@resnulli.us,
-	horms@verge.net.au
-To: john.fastabend@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59167 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753981AbcBZRey (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 12:34:54 -0500
-In-Reply-To: <56D066D7.2090708@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: blogic@openwrt.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
+	matthias.bgg@gmail.com, steven.liu@mediatek.com,
+	Carlos.Huang@mediatek.com, Fred.Chang@mediatek.com
+To: andrew@lunn.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160226151813.GD12022@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Fri, 26 Feb 2016 06:53:11 -0800
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Fri, 26 Feb 2016 16:18:13 +0100
 
-> sure but its easier for me to just consume u32 at the moment. And I
-> am concerned about performance overhead with this IR. I'm going to need
-> to have a performant solution eventually and I don't like converting
-> into one IR only to go into another.
+> On Fri, Feb 26, 2016 at 03:21:35PM +0100, John Crispin wrote:
+>> The ESW is found in many of the old 100mbit MIPS based SoCs. it has 5
+>> external ports, 1 cpu port and 1 further port that the internal HW
+>> offloading engine connects to.
+>> 
+>> This driver is very basic and only provides basic init and irq support.
+>> The SoC and switch core both have support for a special tag making DSA
+>> support possible.
+> 
+> Hi Crispin
+> 
+> There was recently a discussion about adding switches without using
+> DSA or switchdev. It was pretty much decided we would not accept such
+> drivers.
+> 
+> Sorry
 
 +1
