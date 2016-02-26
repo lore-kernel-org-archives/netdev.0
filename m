@@ -1,66 +1,126 @@
-From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Subject: [PATCH 1/2] phy: micrel: Ensure interrupts are reenabled on resume
-Date: Fri, 26 Feb 2016 19:18:22 +0100
-Message-ID: <1456510703-31559-2-git-send-email-alexandre.belloni@free-electrons.com>
-References: <1456510703-31559-1-git-send-email-alexandre.belloni@free-electrons.com>
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 2/9] net: dsa: mv88e6xxx: extract single VLAN retrieval
+Date: Fri, 26 Feb 2016 13:16:01 -0500
+Message-ID: <1456510568-13679-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Neil Armstrong <narmstrong@baylibre.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Kevin Smith <kevin.smith@elecsyscorp.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456510703-31559-1-git-send-email-alexandre.belloni@free-electrons.com>
+In-Reply-To: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-At least on ksz8081, when getting back from power down, interrupts are
-disabled. ensure they are reenabled if they were previously enabled.
+Rename _mv88e6xxx_vlan_init in _mv88e6xxx_vtu_new, eventually called
+from a new _mv88e6xxx_vtu_get function, which abstracts the VTU GetNext
+VID-1 trick to retrieve a single entry.
 
-This fixes resuming which is failing on the xplained boards from atmel
-since 321beec5047a (net: phy: Use interrupts when available in NOLINK
-state)
-
-Fixes: 321beec5047a (net: phy: Use interrupts when available in NOLINK state)
-Signed-off-by: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/phy/micrel.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+ drivers/net/dsa/mv88e6xxx.c | 55 ++++++++++++++++++++++++++++-----------------
+ 1 file changed, 35 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 03833dbfca67..a5e265b2bbfb 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -635,6 +635,21 @@ static void kszphy_get_stats(struct phy_device *phydev,
- 		data[i] = kszphy_get_stat(phydev, i);
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index d98dc63..e9e9922 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1458,8 +1458,8 @@ loadpurge:
+ 	return _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_STU_LOAD_PURGE);
  }
  
-+static int kszphy_resume(struct phy_device *phydev)
+-static int _mv88e6xxx_vlan_init(struct dsa_switch *ds, u16 vid,
+-				struct mv88e6xxx_vtu_stu_entry *entry)
++static int _mv88e6xxx_vtu_new(struct dsa_switch *ds, u16 vid,
++			      struct mv88e6xxx_vtu_stu_entry *entry)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	struct mv88e6xxx_vtu_stu_entry vlan = {
+@@ -1509,6 +1509,35 @@ static int _mv88e6xxx_vlan_init(struct dsa_switch *ds, u16 vid,
+ 	return 0;
+ }
+ 
++static int _mv88e6xxx_vtu_get(struct dsa_switch *ds, u16 vid,
++			      struct mv88e6xxx_vtu_stu_entry *entry, bool creat)
 +{
-+	int value;
++	int err;
 +
-+	mutex_lock(&phydev->lock);
++	if (!vid)
++		return -EINVAL;
 +
-+	value = phy_read(phydev, MII_BMCR);
-+	phy_write(phydev, MII_BMCR, value & ~BMCR_PDOWN);
++	err = _mv88e6xxx_vtu_vid_write(ds, vid - 1);
++	if (err)
++		return err;
 +
-+	kszphy_config_intr(phydev);
-+	mutex_unlock(&phydev->lock);
++	err = _mv88e6xxx_vtu_getnext(ds, entry);
++	if (err)
++		return err;
 +
-+	return 0;
++	if (entry->vid != vid || !entry->valid) {
++		if (!creat)
++			return -EOPNOTSUPP;
++		/* -ENOENT would've been more appropriate, but switchdev expects
++		 * -EOPNOTSUPP to inform bridge about an eventual software VLAN.
++		 */
++
++		err = _mv88e6xxx_vtu_new(ds, vid, entry);
++	}
++
++	return err;
 +}
 +
- static int kszphy_probe(struct phy_device *phydev)
+ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
+ 					u16 vid_begin, u16 vid_end)
  {
- 	const struct kszphy_type *type = phydev->drv->driver_data;
-@@ -844,7 +859,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.get_strings	= kszphy_get_strings,
- 	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
--	.resume		= genphy_resume,
-+	.resume		= kszphy_resume,
- }, {
- 	.phy_id		= PHY_ID_KSZ8061,
- 	.name		= "Micrel KSZ8061",
+@@ -1593,20 +1622,10 @@ static int _mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port, u16 vid,
+ 	struct mv88e6xxx_vtu_stu_entry vlan;
+ 	int err;
+ 
+-	err = _mv88e6xxx_vtu_vid_write(ds, vid - 1);
+-	if (err)
+-		return err;
+-
+-	err = _mv88e6xxx_vtu_getnext(ds, &vlan);
++	err = _mv88e6xxx_vtu_get(ds, vid, &vlan, true);
+ 	if (err)
+ 		return err;
+ 
+-	if (vlan.vid != vid || !vlan.valid) {
+-		err = _mv88e6xxx_vlan_init(ds, vid, &vlan);
+-		if (err)
+-			return err;
+-	}
+-
+ 	vlan.data[port] = untagged ?
+ 		GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED :
+ 		GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED;
+@@ -1647,16 +1666,12 @@ static int _mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid)
+ 	struct mv88e6xxx_vtu_stu_entry vlan;
+ 	int i, err;
+ 
+-	err = _mv88e6xxx_vtu_vid_write(ds, vid - 1);
+-	if (err)
+-		return err;
+-
+-	err = _mv88e6xxx_vtu_getnext(ds, &vlan);
++	err = _mv88e6xxx_vtu_get(ds, vid, &vlan, false);
+ 	if (err)
+ 		return err;
+ 
+-	if (vlan.vid != vid || !vlan.valid ||
+-	    vlan.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
++	/* Tell switchdev if this VLAN is handled in software */
++	if (vlan.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
+ 		return -EOPNOTSUPP;
+ 
+ 	vlan.data[port] = GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
 -- 
-2.7.0
+2.7.1
