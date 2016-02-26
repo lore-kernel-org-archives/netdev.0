@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V3 1/3] vhost: introduce vhost_has_work()
-Date: Fri, 26 Feb 2016 16:42:42 +0800
-Message-ID: <1456476164-17242-2-git-send-email-jasowang@redhat.com>
+Subject: [PATCH V3 2/3] vhost: introduce vhost_vq_avail_empty()
+Date: Fri, 26 Feb 2016 16:42:43 +0800
+Message-ID: <1456476164-17242-3-git-send-email-jasowang@redhat.com>
 References: <1456476164-17242-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,45 +23,53 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This path introduces a helper which can give a hint for whether or not
-there's a work queued in the work list. This could be used for busy
-polling code to exit the busy loop.
+This patch introduces a helper which will return true if we're sure
+that the available ring is empty for a specific vq. When we're not
+sure, e.g vq access failure, return false instead. This could be used
+for busy polling code to exit the busy loop.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/vhost/vhost.c | 7 +++++++
- drivers/vhost/vhost.h | 1 +
- 2 files changed, 8 insertions(+)
+ drivers/vhost/vhost.c | 14 ++++++++++++++
+ drivers/vhost/vhost.h |  1 +
+ 2 files changed, 15 insertions(+)
 
 diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index ad2146a..90ac092 100644
+index 90ac092..c4ff9f2 100644
 --- a/drivers/vhost/vhost.c
 +++ b/drivers/vhost/vhost.c
-@@ -245,6 +245,13 @@ void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work)
+@@ -1633,6 +1633,20 @@ void vhost_add_used_and_signal_n(struct vhost_dev *dev,
  }
- EXPORT_SYMBOL_GPL(vhost_work_queue);
+ EXPORT_SYMBOL_GPL(vhost_add_used_and_signal_n);
  
-+/* A lockless hint for busy polling code to exit the loop */
-+bool vhost_has_work(struct vhost_dev *dev)
++/* return true if we're sure that available ring is empty */
++bool vhost_vq_avail_empty(struct vhost_dev *dev, struct vhost_virtqueue *vq)
 +{
-+	return !list_empty(&dev->work_list);
-+}
-+EXPORT_SYMBOL_GPL(vhost_has_work);
++	__virtio16 avail_idx;
++	int r;
 +
- void vhost_poll_queue(struct vhost_poll *poll)
++	r = __get_user(avail_idx, &vq->avail->idx);
++	if (r)
++		return false;
++
++	return vhost16_to_cpu(vq, avail_idx) == vq->avail_idx;
++}
++EXPORT_SYMBOL_GPL(vhost_vq_avail_empty);
++
+ /* OK, now we need to know about added descriptors. */
+ bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
  {
- 	vhost_work_queue(poll->dev, &poll->work);
 diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index d3f7674..43284ad 100644
+index 43284ad..a7a43f0 100644
 --- a/drivers/vhost/vhost.h
 +++ b/drivers/vhost/vhost.h
-@@ -37,6 +37,7 @@ struct vhost_poll {
+@@ -159,6 +159,7 @@ void vhost_add_used_and_signal_n(struct vhost_dev *, struct vhost_virtqueue *,
+ 			       struct vring_used_elem *heads, unsigned count);
+ void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
+ void vhost_disable_notify(struct vhost_dev *, struct vhost_virtqueue *);
++bool vhost_vq_avail_empty(struct vhost_dev *, struct vhost_virtqueue *);
+ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
  
- void vhost_work_init(struct vhost_work *work, vhost_work_fn_t fn);
- void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work);
-+bool vhost_has_work(struct vhost_dev *dev);
- 
- void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
- 		     unsigned long mask, struct vhost_dev *dev);
+ int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
 -- 
 2.5.0
