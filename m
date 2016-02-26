@@ -1,69 +1,63 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH V2 03/12] net-next: mediatek: add embedded switch driver
- (ESW)
-Date: Fri, 26 Feb 2016 18:29:49 +0100
-Message-ID: <20160226172949.GF12022@lunn.ch>
-References: <1456496504-50429-1-git-send-email-blogic@openwrt.org>
- <1456496504-50429-4-git-send-email-blogic@openwrt.org>
- <20160226151813.GD12022@lunn.ch>
- <56D07C82.2040204@openwrt.org>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: Sending short raw packets using sendmsg() broke
+Date: Fri, 26 Feb 2016 12:33:13 -0500
+Message-ID: <CAF=yD-JOQZZnU6XE9FhEVbxstKmsB-ds58e5v678SiO24VV0+g@mail.gmail.com>
+References: <alpine.DEB.2.10.1602252105250.32432@jazz.he.fi>
+ <20160225.152628.1230785666614750970.davem@davemloft.net> <1456497874.7064.7.camel@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Crispin <blogic@openwrt.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
-	Matthias Brugger <matthias.bgg@gmail.com>,
-	"Steven Liu (?????????)" <steven.liu@mediatek.com>,
-	"Carlos Huang (?????????)" <Carlos.Huang@mediatek.com>,
-	"Fred Chang (?????????)" <Fred.Chang@mediatek.com>
-To: Felix Fietkau <nbd@openwrt.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56D07C82.2040204@openwrt.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Heikki Hannikainen <hessu@hes.iki.fi>,
+	Network Development <netdev@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>
+To: Alan Cox <alan@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:35766 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754456AbcBZRdy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 12:33:54 -0500
+Received: by mail-lb0-f178.google.com with SMTP id bc4so50478501lbc.2
+        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 09:33:53 -0800 (PST)
+In-Reply-To: <1456497874.7064.7.camel@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 26, 2016 at 05:25:38PM +0100, Felix Fietkau wrote:
-> On 2016-02-26 16:18, Andrew Lunn wrote:
-> > On Fri, Feb 26, 2016 at 03:21:35PM +0100, John Crispin wrote:
-> >> The ESW is found in many of the old 100mbit MIPS based SoCs. it has 5
-> >> external ports, 1 cpu port and 1 further port that the internal HW
-> >> offloading engine connects to.
-> >> 
-> >> This driver is very basic and only provides basic init and irq support.
-> >> The SoC and switch core both have support for a special tag making DSA
-> >> support possible.
-> > 
-> > Hi Crispin
-> > 
-> > There was recently a discussion about adding switches without using
-> > DSA or switchdev. It was pretty much decided we would not accept such
-> > drivers.
-> For exactly this reason, the code does not provide any non-standard API
-> for allowing the user to configure the switch. The hardware needs to be
-> programmed with some defaults for the driver to be functional (since the
-> switch logic is built into the SoC).
+On Fri, Feb 26, 2016 at 9:44 AM, Alan Cox <alan@linux.intel.com> wrote:
+> On Thu, 2016-02-25 at 15:26 -0500, David Miller wrote:
+>> From: Heikki Hannikainen <hessu@hes.iki.fi>
+>> Date: Thu, 25 Feb 2016 21:36:07 +0200 (EET)
+>>
+>> > Commit 9c7077622dd9174 added a check, ll_header_truncated(), which
+>> > requires that a packet transmitted using sendmsg() with PF_PACKET,
+>> > SOCK_RAW must be longer than dev->hard_header_len.
+>>
+>> Fixed by:
+>>
+>> commit 880621c2605b82eb5af91a2c94223df6f5a3fb64
+>> Author: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+>> Date:   Sun Nov 22 17:46:09 2015 +0100
+>>
+>>     packet: Allow packets with only a header (but no payload)
 >
-> 
-> In my opinion, leaving this part out does not make much sense and
-> neither does deferring the entire patch series until we have a
-> switchdev/DSA capable driver. This is just a starting point, which will
-> be turned into a proper driver with the right APIs later.
+> The AX.25 case the header is variable length so this still doesn't fix
+> the regression as far as I can see.
 
-You are however introducing APIs which become things you need to
-support. Your device tree binding for example. The device tree
-maintainers consider this a stable API you need to maintain forever.
-Can you guarantee that you can maintain this binding, and also support
-the DSA binding? How messy is it going to make your code supporting
-two bindings?
+Right. The simplest, if hacky, fix is to add something along the lines of
 
-You currently have one netdev interface for five switch ports. When
-you have a DSA driver, you have 5 additional netdev interfaces, one
-per port, and your original interface is now unusable. Isn't that an
-API change.
+  static unsigned short netdev_min_hard_header_len(struct net_device *dev)
+  {
+      if (unlikely(dev->type ==ARPHDR_AX25))
+        return AX25_KISS_HEADER_LEN;
+      else
+        return dev->hard_header_len;
+  }
 
-You need to find incremental steps towards a switchdev/DSA driver
-which are not going to hinder you in the long run.
+Depending on how the variable encoding scheme works, a basic min
+length check may still produce buggy headers that confuse the stack or
+driver. I need to read up on AX25. If so, then extending header_ops
+with an optional validate() function is a more generic approach of
+checking header sanity.
 
-    Andrew
+Assuming that validate() is not needed, I can code up the above and
+send it for review if no one objects. A third option is to add an explicit
+min_hard_header_len to net_device and use that in ll_header_truncated.
