@@ -1,41 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v7] net: ipv6: Make address flushing on ifdown
- optional
-Date: Thu, 25 Feb 2016 21:45:37 -0500 (EST)
-Message-ID: <20160225.214537.1334107695744344694.davem@davemloft.net>
-References: <1456334737-16708-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: Facility to report route quality of
+ connected sockets
+Date: Thu, 25 Feb 2016 22:01:40 -0500 (EST)
+Message-ID: <20160225.220140.1022665279243146846.davem@davemloft.net>
+References: <1456336972-3024417-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hideaki.yoshifuji@miraclelinux.com,
-	hannes@stressinduktion.org
-To: dsa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49101 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49171 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750754AbcBZCpn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 21:45:43 -0500
-In-Reply-To: <1456334737-16708-1-git-send-email-dsa@cumulusnetworks.com>
+	with ESMTP id S1750767AbcBZDBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 22:01:42 -0500
+In-Reply-To: <1456336972-3024417-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Wed, 24 Feb 2016 09:25:37 -0800
+From: Tom Herbert <tom@herbertland.com>
+Date: Wed, 24 Feb 2016 10:02:52 -0800
 
-> Currently, all ipv6 addresses are flushed when the interface is configured
-> down, including global, static addresses:
- ...
-> Add a new sysctl to make this behavior optional. The new setting defaults to
-> flush all addresses to maintain backwards compatibility. When the set global
-> addresses with no expire times are not flushed on an admin down. The sysctl
-> is per-interface or system-wide for all interfaces
+> This patch add the SO_CNX_ADVICE socket option (setsockopt only). The
+> purpose is to allow an application to give feedback to the kernel about
+> the quality of the network path for a connected socket. The value
+> argument indicates the type of quality report. For this initial patch
+> the only supported advice is a value of 1 which indicates "bad path,
+> please reroute"-- the action taken by the kernel is to call
+> dst_negative_advice which will attempt to choose a different ECMP route,
+> reset the TX hash for flow label and UDP source port in encapsulation,
+> etc.
 > 
->     $ sysctl -w net.ipv6.conf.eth1.keep_addr_on_down=1
-> or
->     $ sysctl -w net.ipv6.conf.all.keep_addr_on_down=1
+> This facility should be useful for connected UDP sockets where only the
+> application can provide any feedback about path quality. It could also
+> be useful for TCP applications that have additional knowledge about the
+> path outside of the normal TCP control loop.
 > 
-> Will keep addresses on eth1 on an admin down.
- ...
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 
-Applied, thanks for your persistence David :)
+This looks fine, applied, thanks Tom.
