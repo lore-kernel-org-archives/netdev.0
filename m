@@ -1,7 +1,7 @@
 From: Chunhao Lin <hau@realtek.com>
-Subject: [PATCH net 3/3] r8169: Enable RX_MULTI_EN for RTL_GIGA_MAC_VER_41~48
-Date: Fri, 26 Feb 2016 16:40:46 +0800
-Message-ID: <1456476046-5436-4-git-send-email-hau@realtek.com>
+Subject: [PATCH net 1/3] r8169:fix nic sometimes doesn't work after changing the mac address.
+Date: Fri, 26 Feb 2016 16:40:44 +0800
+Message-ID: <1456476046-5436-2-git-send-email-hau@realtek.com>
 References: <1456476046-5436-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,36 +13,60 @@ In-Reply-To: <1456476046-5436-1-git-send-email-hau@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-For RTL8168G/RTL8168H/RTL8411B/RTL8107E, enable this flag to eliminate message
-"AMD-Vi: Event logged [IO_PAGE_FAULT device=01:00.0 domain=0x0002
-address=0x0000000000003000 flags=0x0050] in dmesg.
+When there is no AC power, NIC doesn't work after changing mac address.
+Please refer to following link.
+http://www.spinics.net/lists/netdev/msg356572.html
+
+This issue is caused by runtime power management. When there is no AC power, if we
+put NIC down (ifconfig down), the driver will be put in runtime suspend state and
+device will in D3 state. In this time, driver cannot access hardware regisers. So
+if you set new mac address during this time, it will not work. And then, after
+resume, the NIC will keep using the old mac address and so the network will not
+work normally.
+
+In this patch I add detecting runtime pm state when setting mac address. If
+driver is in runtime suspend, I will skip setting mac address and  set the new
+mac address during runtime resume.
 
 Signed-off-by: Chunhao Lin <hau@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 4 ----
- 1 file changed, 4 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 3e9eb64..c8f0077 100644
+index 4caeacb..432b278 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4945,8 +4945,6 @@ static void rtl_init_rxcfg(struct rtl8169_private *tp)
- 		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
- 		break;
- 	case RTL_GIGA_MAC_VER_40:
--		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST | RX_EARLY_OFF);
--		break;
- 	case RTL_GIGA_MAC_VER_41:
- 	case RTL_GIGA_MAC_VER_42:
- 	case RTL_GIGA_MAC_VER_43:
-@@ -4955,8 +4953,6 @@ static void rtl_init_rxcfg(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_46:
- 	case RTL_GIGA_MAC_VER_47:
- 	case RTL_GIGA_MAC_VER_48:
--		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST | RX_EARLY_OFF);
--		break;
- 	case RTL_GIGA_MAC_VER_49:
- 	case RTL_GIGA_MAC_VER_50:
- 	case RTL_GIGA_MAC_VER_51:
+@@ -4457,6 +4457,7 @@ static void rtl_rar_set(struct rtl8169_private *tp, u8 *addr)
+ static int rtl_set_mac_address(struct net_device *dev, void *p)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
++	struct pci_dev *pdev = tp->pci_dev;
+ 	struct sockaddr *addr = p;
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+@@ -4464,7 +4465,12 @@ static int rtl_set_mac_address(struct net_device *dev, void *p)
+ 
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+ 
+-	rtl_rar_set(tp, dev->dev_addr);
++	pm_runtime_get_noresume(&pdev->dev);
++
++	if (pm_runtime_active(&pdev->dev))
++		rtl_rar_set(tp, dev->dev_addr);
++
++	pm_runtime_put_noidle(&pdev->dev);
+ 
+ 	return 0;
+ }
+@@ -7872,6 +7878,8 @@ static int rtl8169_runtime_resume(struct device *device)
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 
++	rtl_rar_set(tp, dev->dev_addr);
++
+ 	if (!tp->TxDescArray)
+ 		return 0;
+ 
 -- 
 1.9.1
