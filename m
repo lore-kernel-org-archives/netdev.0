@@ -1,37 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] GSO: Provide software checksum of tunneled
- UDP fragmentation offload
-Date: Fri, 26 Feb 2016 14:24:52 -0500 (EST)
-Message-ID: <20160226.142452.543171201728476637.davem@davemloft.net>
-References: <20160225004621.22152.21938.stgit@localhost.localdomain>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/3] bridge: mcast: add support for
+ temp router port
+Date: Fri, 26 Feb 2016 20:51:16 +0100
+Message-ID: <56D0ACB4.5020000@cumulusnetworks.com>
+References: <1456513166-20159-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com
-To: aduyck@mirantis.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60751 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422808AbcBZTYy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 14:24:54 -0500
-In-Reply-To: <20160225004621.22152.21938.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1456513166-20159-1-git-send-email-nikolay@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <aduyck@mirantis.com>
-Date: Wed, 24 Feb 2016 16:46:21 -0800
-
-> On reviewing the code I realized that GRE and UDP tunnels could cause a
-> kernel panic if we used GSO to segment a large UDP frame that was sent
-> through the tunnel with an outer checksum and hardware offloads were not
-> available.
+On 02/26/2016 07:59 PM, Nikolay Aleksandrov wrote:
+> Hi,
+> This set adds support for temporary router port which doesn't depend on
+> the incoming queries. It can be refreshed by setting multicast_router to
+> the same value (3). The first two patches are minor changes that prepare
+> the code for the third which adds this new type of router port.
+> In order to be able to dump its information the mdb router port format
+> is changed and extended similar to how mdb entries format was done
+> recently.
+> The related iproute2 changes will be posted if this is accepted.
 > 
-> In order to correct this we need to update the feature flags that are
-> passed to the skb_segment function so that in the event of UDP
-> fragmentation being requested for the inner header the segmentation
-> function will correctly generate the checksum for the payload if we cannot
-> segment the outer header.
+> Thanks,
+>  Nik
 > 
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 
-Applied, thanks Alex.
+Self-NAK, spotted an minor issue with the val setting I've missed.
+Will post v2 after some more testing.
+
+Thanks,
+ Nik
