@@ -1,180 +1,185 @@
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next 1/3] bridge: mcast: use names for the different multicast_router types
-Date: Fri, 26 Feb 2016 19:59:24 +0100
-Message-ID: <1456513166-20159-2-git-send-email-nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next 3/3] bridge: mcast: add support for temporary port router
+Date: Fri, 26 Feb 2016 19:59:26 +0100
+Message-ID: <1456513166-20159-4-git-send-email-nikolay@cumulusnetworks.com>
 References: <1456513166-20159-1-git-send-email-nikolay@cumulusnetworks.com>
 Cc: davem@davemloft.net, roopa@cumulusnetworks.com,
 	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:36607 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932737AbcBZS7h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 13:59:37 -0500
-Received: by mail-wm0-f50.google.com with SMTP id g62so85518737wme.1
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 10:59:36 -0800 (PST)
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:37859 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422850AbcBZS7j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 13:59:39 -0500
+Received: by mail-wm0-f46.google.com with SMTP id g62so82327783wme.0
+        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 10:59:39 -0800 (PST)
 In-Reply-To: <1456513166-20159-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using raw values makes it difficult to extend and also understand the
-code, give them names and do explicit per-option manipulation in
-br_multicast_set_port_router.
+Add support for a temporary router port which doesn't depend on the
+incoming query and allow for more port information to be dumped. For
+that purpose we need to extend the MDBA_ROUTER_PORT attribute similar to
+how it was done for the mdb entries recently. The new format is thus:
+[MDBA_ROUTER_PORT] = { <- nested attribute
+    u32 ifindex <- router port ifindex for user-space compatibility
+    [MDBA_ROUTER_PATTR attributes]
+}
+This way it remains compatible with older users (they'll simply retrieve
+the u32 in the beginning) and new users can parse the remaining
+attributes.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- include/uapi/linux/if_bridge.h |  7 +++++
- net/bridge/br_multicast.c      | 59 ++++++++++++++++++++++--------------------
- 2 files changed, 38 insertions(+), 28 deletions(-)
+ include/uapi/linux/if_bridge.h | 15 ++++++++++++++-
+ net/bridge/br_mdb.c            | 16 ++++++++++++++--
+ net/bridge/br_multicast.c      | 20 ++++++++++++++++++--
+ 3 files changed, 46 insertions(+), 5 deletions(-)
 
 diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-index 610932b477c4..f2764b739f38 100644
+index f2764b739f38..af98f6855b7e 100644
 --- a/include/uapi/linux/if_bridge.h
 +++ b/include/uapi/linux/if_bridge.h
-@@ -194,6 +194,13 @@ enum {
- };
- #define MDBA_MDB_EATTR_MAX (__MDBA_MDB_EATTR_MAX - 1)
- 
-+/* multicast router types */
-+enum {
-+	MDB_RTR_TYPE_DISABLED,
-+	MDB_RTR_TYPE_TEMP_QUERY,
-+	MDB_RTR_TYPE_PERM,
-+};
-+
+@@ -161,7 +161,10 @@ enum {
+  *     }
+  * }
+  * [MDBA_ROUTER] = {
+- *    [MDBA_ROUTER_PORT]
++ *    [MDBA_ROUTER_PORT] = {
++ *        u32 ifindex
++ *        [MDBA_ROUTER_PATTR attributes]
++ *    }
+  * }
+  */
  enum {
- 	MDBA_ROUTER_UNSPEC,
- 	MDBA_ROUTER_PORT,
+@@ -199,6 +202,7 @@ enum {
+ 	MDB_RTR_TYPE_DISABLED,
+ 	MDB_RTR_TYPE_TEMP_QUERY,
+ 	MDB_RTR_TYPE_PERM,
++	MDB_RTR_TYPE_TEMP
+ };
+ 
+ enum {
+@@ -208,6 +212,15 @@ enum {
+ };
+ #define MDBA_ROUTER_MAX (__MDBA_ROUTER_MAX - 1)
+ 
++/* router port attributes */
++enum {
++	MDBA_ROUTER_PATTR_UNSPEC,
++	MDBA_ROUTER_PATTR_TIMER,
++	MDBA_ROUTER_PATTR_TYPE,
++	__MDBA_ROUTER_PATTR_MAX
++};
++#define MDBA_ROUTER_PATTR_MAX (__MDBA_ROUTER_PATTR_MAX - 1)
++
+ struct br_port_msg {
+ 	__u8  family;
+ 	__u32 ifindex;
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index 73786e2fe065..253bc77eda3b 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -20,7 +20,7 @@ static int br_rports_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
+ 	struct net_bridge_port *p;
+-	struct nlattr *nest;
++	struct nlattr *nest, *port_nest;
+ 
+ 	if (!br->multicast_router || hlist_empty(&br->router_list))
+ 		return 0;
+@@ -30,8 +30,20 @@ static int br_rports_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
+ 		return -EMSGSIZE;
+ 
+ 	hlist_for_each_entry_rcu(p, &br->router_list, rlist) {
+-		if (p && nla_put_u32(skb, MDBA_ROUTER_PORT, p->dev->ifindex))
++		if (!p)
++			continue;
++		port_nest = nla_nest_start(skb, MDBA_ROUTER_PORT);
++		if (!port_nest)
+ 			goto fail;
++		if (nla_put_nohdr(skb, sizeof(u32), &p->dev->ifindex) ||
++		    nla_put_u32(skb, MDBA_ROUTER_PATTR_TIMER,
++				br_timer_value(&p->multicast_router_timer)) ||
++		    nla_put_u8(skb, MDBA_ROUTER_PATTR_TYPE,
++			       p->multicast_router)) {
++			nla_nest_cancel(skb, port_nest);
++			goto fail;
++		}
++		nla_nest_end(skb, port_nest);
+ 	}
+ 
+ 	nla_nest_end(skb, nest);
 diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 8b6e4249be1b..015c47dd1364 100644
+index 496f808f9aa1..0fb5061c2ad4 100644
 --- a/net/bridge/br_multicast.c
 +++ b/net/bridge/br_multicast.c
-@@ -759,7 +759,7 @@ static void br_multicast_router_expired(unsigned long data)
+@@ -759,13 +759,17 @@ static void br_multicast_router_expired(unsigned long data)
  	struct net_bridge *br = port->br;
  
  	spin_lock(&br->multicast_lock);
--	if (port->multicast_router != 1 ||
-+	if (port->multicast_router != MDB_RTR_TYPE_TEMP_QUERY ||
+-	if (port->multicast_router != MDB_RTR_TYPE_TEMP_QUERY ||
++	if (port->multicast_router == MDB_RTR_TYPE_DISABLED ||
++	    port->multicast_router == MDB_RTR_TYPE_PERM ||
  	    timer_pending(&port->multicast_router_timer) ||
  	    hlist_unhashed(&port->rlist))
  		goto out;
-@@ -912,7 +912,7 @@ static void br_ip6_multicast_port_query_expired(unsigned long data)
  
- void br_multicast_add_port(struct net_bridge_port *port)
- {
--	port->multicast_router = 1;
-+	port->multicast_router = MDB_RTR_TYPE_TEMP_QUERY;
- 
- 	setup_timer(&port->multicast_router_timer, br_multicast_router_expired,
- 		    (unsigned long)port);
-@@ -959,7 +959,8 @@ void br_multicast_enable_port(struct net_bridge_port *port)
- #if IS_ENABLED(CONFIG_IPV6)
- 	br_multicast_enable(&port->ip6_own_query);
- #endif
--	if (port->multicast_router == 2 && hlist_unhashed(&port->rlist))
-+	if (port->multicast_router == MDB_RTR_TYPE_PERM &&
-+	    hlist_unhashed(&port->rlist))
- 		br_multicast_add_router(br, port);
+ 	hlist_del_init_rcu(&port->rlist);
+ 	br_rtr_notify(br->dev, port, RTM_DELMDB);
++	/* Don't allow timer refresh if the router expired */
++	if (port->multicast_router == MDB_RTR_TYPE_TEMP)
++		port->multicast_router = MDB_RTR_TYPE_TEMP_QUERY;
  
  out:
-@@ -1227,13 +1228,13 @@ static void br_multicast_mark_router(struct net_bridge *br,
- 	unsigned long now = jiffies;
- 
- 	if (!port) {
--		if (br->multicast_router == 1)
-+		if (br->multicast_router == MDB_RTR_TYPE_TEMP_QUERY)
- 			mod_timer(&br->multicast_router_timer,
- 				  now + br->multicast_querier_interval);
+ 	spin_unlock(&br->multicast_lock);
+@@ -981,6 +985,9 @@ void br_multicast_disable_port(struct net_bridge_port *port)
+ 	if (!hlist_unhashed(&port->rlist)) {
+ 		hlist_del_init_rcu(&port->rlist);
+ 		br_rtr_notify(br->dev, port, RTM_DELMDB);
++		/* Don't allow timer refresh if disabling */
++		if (port->multicast_router == MDB_RTR_TYPE_TEMP)
++			port->multicast_router = MDB_RTR_TYPE_TEMP_QUERY;
+ 	}
+ 	del_timer(&port->multicast_router_timer);
+ 	del_timer(&port->ip4_own_query.timer);
+@@ -1234,7 +1241,8 @@ static void br_multicast_mark_router(struct net_bridge *br,
  		return;
  	}
  
--	if (port->multicast_router != 1)
-+	if (port->multicast_router != MDB_RTR_TYPE_TEMP_QUERY)
+-	if (port->multicast_router != MDB_RTR_TYPE_TEMP_QUERY)
++	if (port->multicast_router == MDB_RTR_TYPE_DISABLED ||
++	    port->multicast_router == MDB_RTR_TYPE_PERM)
  		return;
  
  	br_multicast_add_router(br, port);
-@@ -1713,7 +1714,7 @@ void br_multicast_init(struct net_bridge *br)
- 	br->hash_elasticity = 4;
- 	br->hash_max = 512;
- 
--	br->multicast_router = 1;
-+	br->multicast_router = MDB_RTR_TYPE_TEMP_QUERY;
- 	br->multicast_querier = 0;
- 	br->multicast_query_use_ifaddr = 0;
- 	br->multicast_last_member_count = 2;
-@@ -1823,11 +1824,11 @@ int br_multicast_set_router(struct net_bridge *br, unsigned long val)
- 	spin_lock_bh(&br->multicast_lock);
- 
- 	switch (val) {
--	case 0:
--	case 2:
-+	case MDB_RTR_TYPE_DISABLED:
-+	case MDB_RTR_TYPE_PERM:
- 		del_timer(&br->multicast_router_timer);
- 		/* fall through */
--	case 1:
-+	case MDB_RTR_TYPE_TEMP_QUERY:
- 		br->multicast_router = val;
- 		err = 0;
- 		break;
-@@ -1838,6 +1839,14 @@ int br_multicast_set_router(struct net_bridge *br, unsigned long val)
- 	return err;
- }
- 
-+static void __del_port_router(struct net_bridge_port *p)
-+{
-+	if (hlist_unhashed(&p->rlist))
-+		return;
-+	hlist_del_init_rcu(&p->rlist);
-+	br_rtr_notify(p->br->dev, p, RTM_DELMDB);
-+}
-+
+@@ -1850,10 +1858,15 @@ static void __del_port_router(struct net_bridge_port *p)
  int br_multicast_set_port_router(struct net_bridge_port *p, unsigned long val)
  {
  	struct net_bridge *br = p->br;
-@@ -1846,29 +1855,23 @@ int br_multicast_set_port_router(struct net_bridge_port *p, unsigned long val)
- 	spin_lock(&br->multicast_lock);
++	unsigned long now = jiffies;
+ 	int err = -EINVAL;
  
- 	switch (val) {
--	case 0:
--	case 1:
--	case 2:
--		p->multicast_router = val;
--		err = 0;
--
--		if (val < 2 && !hlist_unhashed(&p->rlist)) {
--			hlist_del_init_rcu(&p->rlist);
--			br_rtr_notify(br->dev, p, RTM_DELMDB);
--		}
--
--		if (val == 1)
--			break;
--
-+	case MDB_RTR_TYPE_DISABLED:
-+		__del_port_router(p);
-+		del_timer(&p->multicast_router_timer);
-+		break;
-+	case MDB_RTR_TYPE_TEMP_QUERY:
-+		__del_port_router(p);
-+		break;
-+	case MDB_RTR_TYPE_PERM:
+ 	spin_lock(&br->multicast_lock);
+ 	if (p->multicast_router == val) {
++		/* Refresh the temp router port timer */
++		if (p->multicast_router == MDB_RTR_TYPE_TEMP)
++			mod_timer(&p->multicast_router_timer,
++				  now + br->multicast_querier_interval);
+ 		err = 0;
+ 		goto unlock;
+ 	}
+@@ -1869,6 +1882,9 @@ int br_multicast_set_port_router(struct net_bridge_port *p, unsigned long val)
  		del_timer(&p->multicast_router_timer);
--
--		if (val == 0)
--			break;
--
  		br_multicast_add_router(br, p);
  		break;
-+	default:
-+		goto unlock;
++	case MDB_RTR_TYPE_TEMP:
++		br_multicast_mark_router(br, p);
++		break;
+ 	default:
+ 		goto unlock;
  	}
--
-+	p->multicast_router = val;
-+	err = 0;
-+unlock:
- 	spin_unlock(&br->multicast_lock);
- 
- 	return err;
 -- 
 2.4.3
