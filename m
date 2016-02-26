@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 5/9] net: dsa: mv88e6xxx: assign default FDB to ports
-Date: Fri, 26 Feb 2016 13:16:04 -0500
-Message-ID: <1456510568-13679-6-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 8/9] net: dsa: mv88e6xxx: remove reserved VLANs
+Date: Fri, 26 Feb 2016 13:16:07 -0500
+Message-ID: <1456510568-13679-9-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -15,181 +15,112 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Kevin Smith <kevin.smith@elecsyscorp.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:50866 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030395AbcBZSRU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 13:17:20 -0500
 In-Reply-To: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Restore per-port FDB. Assign them on setup, allow adding and deleting
-addresses into them, and dump them.
+Now that ports isolation is correctly configured when joining or leaving
+a bridge, there is no need to rely on reserved VLANs to isolate
+unbridged ports anymore. Thus remove them, and disable 802.1Q on setup.
+
+This restores the expected behavior of hardware bridging for systems
+without 802.1Q or VLAN filtering enabled.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 96 +++++++++++++++++++++++++++++++++++++++++----
- drivers/net/dsa/mv88e6xxx.h |  2 +
- 2 files changed, 91 insertions(+), 7 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 33 +++------------------------------
+ 1 file changed, 3 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index b4b2f05..0f06488 100644
+index 7f3036b..27a19dc 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1458,14 +1458,82 @@ loadpurge:
- 	return _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_STU_LOAD_PURGE);
- }
- 
-+static int _mv88e6xxx_port_fid(struct dsa_switch *ds, int port, u16 *new,
-+			       u16 *old)
-+{
-+	u16 fid;
-+	int ret;
-+
-+	/* Port's default FID bits 3:0 are located in reg 0x06, offset 12 */
-+	ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_BASE_VLAN);
-+	if (ret < 0)
-+		return ret;
-+
-+	fid = (ret & PORT_BASE_VLAN_FID_3_0_MASK) >> 12;
-+
-+	if (new) {
-+		ret &= ~PORT_BASE_VLAN_FID_3_0_MASK;
-+		ret |= (*new << 12) & PORT_BASE_VLAN_FID_3_0_MASK;
-+
-+		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_BASE_VLAN,
-+					   ret);
-+		if (ret < 0)
-+			return ret;
-+	}
-+
-+	/* Port's default FID bits 11:4 are located in reg 0x05, offset 0 */
-+	ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_CONTROL_1);
-+	if (ret < 0)
-+		return ret;
-+
-+	fid |= (ret & PORT_CONTROL_1_FID_11_4_MASK) << 4;
-+
-+	if (new) {
-+		ret &= ~PORT_CONTROL_1_FID_11_4_MASK;
-+		ret |= (*new >> 4) & PORT_CONTROL_1_FID_11_4_MASK;
-+
-+		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_CONTROL_1,
-+					   ret);
-+		if (ret < 0)
-+			return ret;
-+
-+		netdev_dbg(ds->ports[port], "FID %d (was %d)\n", *new, fid);
-+	}
-+
-+	if (old)
-+		*old = fid;
-+
-+	return 0;
-+}
-+
-+static int _mv88e6xxx_port_fid_get(struct dsa_switch *ds, int port, u16 *fid)
-+{
-+	return _mv88e6xxx_port_fid(ds, port, NULL, fid);
-+}
-+
-+static int _mv88e6xxx_port_fid_set(struct dsa_switch *ds, int port, u16 fid)
-+{
-+	return _mv88e6xxx_port_fid(ds, port, &fid, NULL);
-+}
-+
- static int _mv88e6xxx_fid_new(struct dsa_switch *ds, u16 *fid)
+@@ -1718,10 +1718,6 @@ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
  {
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	DECLARE_BITMAP(fid_bitmap, MV88E6XXX_N_FID);
- 	struct mv88e6xxx_vtu_stu_entry vlan;
--	int err;
-+	int i, err;
- 
- 	bitmap_zero(fid_bitmap, MV88E6XXX_N_FID);
- 
-+	/* Set every FID bit used by the (un)bridged ports */
-+	for (i = 0; i < ps->num_ports; ++i) {
-+		err = _mv88e6xxx_port_fid_get(ds, i, fid);
-+		if (err)
-+			return err;
-+
-+		set_bit(*fid, fid_bitmap);
-+	}
-+
- 	/* Set every FID bit used by the VLAN entries */
- 	err = _mv88e6xxx_vtu_vid_write(ds, GLOBAL_VTU_VID_MASK);
- 	if (err)
-@@ -1824,7 +1892,11 @@ static int _mv88e6xxx_port_fdb_load(struct dsa_switch *ds, int port,
- 	struct mv88e6xxx_vtu_stu_entry vlan;
  	int err;
  
--	err = _mv88e6xxx_vtu_get(ds, vid, &vlan, false);
-+	/* Null VLAN ID corresponds to the port private database */
-+	if (vid == 0)
-+		err = _mv88e6xxx_port_fid_get(ds, port, &vlan.fid);
-+	else
-+		err = _mv88e6xxx_vtu_get(ds, vid, &vlan, false);
- 	if (err)
- 		return err;
- 
-@@ -1843,10 +1915,6 @@ int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
- 			       const struct switchdev_obj_port_fdb *fdb,
- 			       struct switchdev_trans *trans)
- {
--	/* We don't use per-port FDB */
--	if (fdb->vid == 0)
+-	/* We reserve a few VLANs to isolate unbridged ports */
+-	if (vlan->vid_end >= 4000)
 -		return -EOPNOTSUPP;
 -
- 	/* We don't need any dynamic resource from the kernel (yet),
- 	 * so skip the prepare phase.
+ 	/* If the requested port doesn't belong to the same bridge as the VLAN
+ 	 * members, do not support it (yet) and fallback to software VLAN.
  	 */
-@@ -1982,10 +2050,20 @@ int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
- 	struct mv88e6xxx_vtu_stu_entry vlan = {
- 		.vid = GLOBAL_VTU_VID_MASK, /* all ones */
- 	};
-+	u16 fid;
- 	int err;
+@@ -1819,7 +1815,6 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
+ 			    const struct switchdev_obj_port_vlan *vlan)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	const u16 defpvid = 4000 + ds->index * DSA_MAX_PORTS + port;
+ 	u16 pvid, vid;
+ 	int err = 0;
  
- 	mutex_lock(&ps->smi_mutex);
+@@ -1835,8 +1830,7 @@ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
+ 			goto unlock;
  
-+	/* Dump port's default Filtering Information Database (VLAN ID 0) */
-+	err = _mv88e6xxx_port_fid_get(ds, port, &fid);
-+	if (err)
-+		goto unlock;
-+
-+	err = _mv88e6xxx_port_fdb_dump_one(ds, fid, 0, port, fdb, cb);
-+	if (err)
-+		goto unlock;
-+
- 	/* Dump VLANs' Filtering Information Databases */
- 	err = _mv88e6xxx_vtu_vid_write(ds, vlan.vid);
- 	if (err)
-@@ -2286,9 +2364,13 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 	if (ret)
- 		goto abort;
+ 		if (vid == pvid) {
+-			/* restore reserved VLAN ID */
+-			err = _mv88e6xxx_port_pvid_set(ds, port, defpvid);
++			err = _mv88e6xxx_port_pvid_set(ds, port, 0);
+ 			if (err)
+ 				goto unlock;
+ 		}
+@@ -2186,20 +2180,6 @@ unlock:
+ 	return err;
+ }
  
--	/* Port based VLAN map: do not give each port its own address
-+	/* Port based VLAN map: give each port its own address
- 	 * database, and allow every port to egress frames on all other ports.
- 	 */
-+	ret = _mv88e6xxx_port_fid_set(ds, port, port + 1);
-+	if (ret)
-+		goto abort;
-+
- 	reg = BIT(ps->num_ports) - 1; /* all ports */
- 	reg &= ~BIT(port); /* except itself */
- 	ret = _mv88e6xxx_port_vlan_map_set(ds, port, reg);
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 9df331e..85a4166 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -133,7 +133,9 @@
- #define PORT_CONTROL_STATE_LEARNING	0x02
- #define PORT_CONTROL_STATE_FORWARDING	0x03
- #define PORT_CONTROL_1		0x05
-+#define PORT_CONTROL_1_FID_11_4_MASK	(0xff << 0)
- #define PORT_BASE_VLAN		0x06
-+#define PORT_BASE_VLAN_FID_3_0_MASK	(0xf << 12)
- #define PORT_DEFAULT_VLAN	0x07
- #define PORT_DEFAULT_VLAN_MASK	0xfff
- #define PORT_CONTROL_2		0x08
+-static int mv88e6xxx_setup_port_default_vlan(struct dsa_switch *ds, int port)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	const u16 pvid = 4000 + ds->index * DSA_MAX_PORTS + port;
+-	int err;
+-
+-	mutex_lock(&ps->smi_mutex);
+-	err = _mv88e6xxx_port_vlan_add(ds, port, pvid, true);
+-	if (!err)
+-		err = _mv88e6xxx_port_pvid_set(ds, port, pvid);
+-	mutex_unlock(&ps->smi_mutex);
+-	return err;
+-}
+-
+ static void mv88e6xxx_bridge_work(struct work_struct *work)
+ {
+ 	struct mv88e6xxx_priv_state *ps;
+@@ -2320,7 +2300,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 	}
+ 
+ 	/* Port Control 2: don't force a good FCS, set the maximum frame size to
+-	 * 10240 bytes, enable secure 802.1q tags, don't discard tagged or
++	 * 10240 bytes, disable 802.1q tags checking, don't discard tagged or
+ 	 * untagged frames on this port, do a destination address lookup on all
+ 	 * received packets as usual, disable ARP mirroring and don't send a
+ 	 * copy of all transmitted/received frames on this port to the CPU.
+@@ -2345,7 +2325,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 			reg |= PORT_CONTROL_2_FORWARD_UNKNOWN;
+ 	}
+ 
+-	reg |= PORT_CONTROL_2_8021Q_SECURE;
++	reg |= PORT_CONTROL_2_8021Q_DISABLED;
+ 
+ 	if (reg) {
+ 		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port),
+@@ -2474,13 +2454,6 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
+ 		ret = mv88e6xxx_setup_port(ds, i);
+ 		if (ret < 0)
+ 			return ret;
+-
+-		if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
+-			continue;
+-
+-		ret = mv88e6xxx_setup_port_default_vlan(ds, i);
+-		if (ret < 0)
+-			return ret;
+ 	}
+ 	return 0;
+ }
 -- 
 2.7.1
