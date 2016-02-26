@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
 Subject: Re: [PATCH] net: ezchip: adapt driver to little endian architecture
-Date: Fri, 26 Feb 2016 21:10:31 +0100
-Message-ID: <24793363.yg41IbJKTo@wuerfel>
+Date: Fri, 26 Feb 2016 21:12:58 +0100
+Message-ID: <2727618.vosfDbrtXA@wuerfel>
 References: <1456513509-30844-1-git-send-email-ltrimas@synopsys.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -10,23 +10,43 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
 	Noam Camus <noamc@ezchip.com>, Tal Zilcer <talz@ezchip.com>
 To: Lada Trimasova <Lada.Trimasova@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.133]:56615 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754165AbcBZUKi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 15:10:38 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1456513509-30844-1-git-send-email-ltrimas@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On Friday 26 February 2016 22:05:09 Lada Trimasova wrote:
->                 for (i = 0; i < len; i++, reg++) {
->                         u32 buf = nps_enet_reg_get(priv, NPS_ENET_REG_RX_BUF);
-> +                       buf = be32_to_cpu(buf);
->                         put_unaligned(buf, reg);
->                 }
+> 
+> @@ -75,6 +86,7 @@ struct nps_enet_rx_ctl {
+>                  * nr:  Length in bytes of Rx frame loaded by MAC to Rx buffer
+>                  */
+>                 struct {
+> +#ifdef CONFIG_CPU_BIG_ENDIAN
+>                         u32
+>                         __reserved_1:16,
+>                         cr:1,
+> @@ -82,6 +94,15 @@ struct nps_enet_rx_ctl {
+>                         crc:1,
+>                         __reserved_2:2,
+>                         nr:11;
+> +#else
+> +                       u32
+> +                       nr:11,
+> +                       __reserved_2:2,
+> +                       crc:1,
+> +                       er:1,
+> +                       cr:1,
+> +                       __reserved_1:16;
+> +#endif
+>                 };
 
-I think most of the changes can make use of the put_unaligned_be32()
-etc helpers that might also be more efficient.
+A nicer way to do this would be to remove all the bitfields
+and use named constants for accessing the fields insode of
+a u32 or u64 variable.
+
+The order of the bits in a bit field is implementation specific
+and your method might not work on all architectures. Even if the
+driver is only meant to run on a single CPU architecture, it's
+always better to write portable code.
 
 	Arnd
