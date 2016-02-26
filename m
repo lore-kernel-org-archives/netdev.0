@@ -1,73 +1,261 @@
-From: Sathya Perla <sathya.perla@broadcom.com>
-Subject: Re: [PATCH net] be2net: don't {en,dis}able filters on BE3 when
- transparent tagging is enabled
-Date: Fri, 26 Feb 2016 17:06:07 +0530
-Message-ID: <CAKvpyk3i6U46-9_63CsbpmaJqOYSWcrHjFSo-BZELLriWqkRMQ@mail.gmail.com>
-References: <1456476401-23398-1-git-send-email-ivecera@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH RFC 0/3] intermediate representation for jit and cls_u32
+ conversion
+Date: Fri, 26 Feb 2016 12:47:14 +0100
+Message-ID: <20160226114036.GA2523@salvia>
+References: <1456421844-5901-1-git-send-email-pablo@netfilter.org>
+ <56CF43D8.1010106@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org,
-	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-To: Ivan Vecera <ivecera@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us,
+	horms@verge.net.au
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f179.google.com ([209.85.160.179]:32800 "EHLO
-	mail-yk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751729AbcBZLgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 06:36:08 -0500
-Received: by mail-yk0-f179.google.com with SMTP id z13so34418577ykd.0
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 03:36:08 -0800 (PST)
-In-Reply-To: <1456476401-23398-1-git-send-email-ivecera@redhat.com>
+Received: from mail.us.es ([193.147.175.20]:43951 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750883AbcBZLrU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Feb 2016 06:47:20 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id BBED21BFA89
+	for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 12:47:18 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 9BE99DA388
+	for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 12:47:18 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 134ABDA388
+	for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 12:47:16 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <56CF43D8.1010106@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 26, 2016 at 2:16 PM, Ivan Vecera <ivecera@redhat.com> wrote:
-> The FILTMGMT privilege is necessary on BE3 chip to manipulare filters
-> like MC, UC list management, VLAN filter, promisc mode... This privilege
-> is dropped for VFs when transparrent tagging is enabled on them. This
-> prevents to make interface up for such VF because be_enable_if_filters()
-> called from be_open() fails thus be_open() also fails.
+On Thu, Feb 25, 2016 at 10:11:36AM -0800, John Fastabend wrote:
+> On 16-02-25 09:37 AM, Pablo Neira Ayuso wrote:
+> > Hi,
+> > 
+> > This patchset contains the core infrastructure for the generic
+> > intermediate representation that I presented during NetDev 1.1's
+> > nftables switchdev talk. This includes the basic infrastructure to
+> > convert the tc cls_u32 based on John's parser.
+> > 
+> > The main goals of this patchset are:
+> > 
+> > * Provide an unified abstract syntax tree (ast) that can be passed to
+> >   the backend driver for translation to internal representation. Then,
+> >   based on the backend description, generate the internal
+> >   representation. This should reduce the amount of code to maintain
+> >   in the driver since every frontend, via parser, generates the ast
+> >   that is consumed by the driver through one single ndo indirection.
+> > 
+> 
+> The trouble here is we lose a lot of the goodness of any particular
+> classifier this way. For example flower can be implemented with a
+> single jump table and this should translate into updates per second
+> being very high.
 >
-> Cc: Sathya Perla <sathya.perla@broadcom.com>
-> Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-> ---
->  drivers/net/ethernet/emulex/benet/be_main.c | 11 +++++++----
->  1 file changed, 7 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-> index f99de36..2e176f6 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-> @@ -3430,7 +3430,8 @@ static int be_close(struct net_device *netdev)
->         if (!(adapter->flags & BE_FLAGS_SETUP_DONE))
->                 return 0;
->
-> -       be_disable_if_filters(adapter);
-> +       if (!(BEx_chip(adapter) && be_pvid_tagging_enabled(adapter)))
-> +               be_disable_if_filters(adapter);
->
->         if (adapter->flags & BE_FLAGS_NAPI_ENABLED) {
->                 for_all_evt_queues(adapter, eqo, i) {
-> @@ -3571,9 +3572,11 @@ static int be_open(struct net_device *netdev)
->         if (status)
->                 goto err;
->
-> -       status = be_enable_if_filters(adapter);
-> -       if (status)
-> -               goto err;
-> +       if (!(BEx_chip(adapter) && be_pvid_tagging_enabled(adapter))) {
-> +               status = be_enable_if_filters(adapter);
-> +               if (status)
-> +                       goto err;
+> cls_u32 on the other hand is going to require more state and I believe
+> will be slightly slower in the updates per second benchmark because
+> it requires a set of jump tables.
 
-Ivan, in the be_enable_if_filters() routine the VF tries to enable the
-basic filtering flags (not promisc mode etc) via the RX_FILTER cmd,
-for which the VFs shouldn't need any FILTMGMT privileges. I also don't
-expect be_cmd_pmac_add() to fail as the PF would have already
-provisioned the mac-addr for the VF.
-We should be able to reproduce this first thing Monday morning and see
-what's wrong. Also, as the privilege rules are same across all chips,
-any fix must be applicable for all chips that be2net supports.
+The parser on the backend is not the way to go.  I would expect it
+will not take long time until we see other people copying/pasting it
+and adapting it to their need just because they don't find the way/put
+the care to make it fit in the infrastructure / abstract it the right
+way.
 
-thanks,
--Sathya
+... And then we will get complexity spread out all over the place, in
+every single driver. This will be unmaintainable.
+
+The frontend parser should be generic to everyone, it should be placed
+in the core, so everyone will take care of improving it.
+
+Let's make a summary picture to clarify this:
+
+
+            core                               drivers
+          -------                             ---------
+        1 per frontend                       1 per driver
+
+  [ people from all vendors ]           [     code consuming    ]
+  [  working to improve     ]           [   IR representation   ]
+  [   the common parser     ]
+  [     and improve IR      ]
+
+     Complexity goes here
+       in the form of
+       infrastructure
+
+> My general argument here is _if_ we can build one universal ast why
+> don't we do this higher up the stack. I'm a bit confused on why we
+> think (a) all classifiers/nftables/etc can be pushed on to a single
+> IR and (b) all hw can consume a single IR if we actually believe this
+> lets whack the upper layers and make one tc classifer and unify it
+> with nftables so we don't have multiple things in the stack to offload.
+
+Everyone I talked to during Netconf agreed that we want to offload all
+frontends. These battles on imposing frontends to people take us
+nowhere.
+
+So this "let's whack upper layers and make one" is basically out of
+question.
+
+> > * Avoid exposing low-level frontend details to the backend, such as
+> >   structure layouts. If the frontend needs to be updated to support a
+> >   new software feature, it is desiderable that such changes don't
+> >   trigger large updates to every driver supporting offloads.
+> > 
+> > * Having a common parser for every frontend, instead of allowing each
+> >   backend driver to re-invent the wheel with its own parser, this is
+> >   just spreading out complexity all over the place.
+> 
+> 
+> I think we should make helper routines and build a library for driver
+> writers instead. This way each driver writer can call stub functions
+> to do things like validate u32 against a model.h header or something
+> along these lines. This keeps flexibility IMO and lets us optimize
+> the backends for the specific hardware. Remember we eventually need
+> to get to 100k's of updates a second to compete with user space APIs
+> if you want this to work on high-end devices. If you don't get here
+> it wont be usable for a class of systems and we will just lift the
+> functions into user space for performance reasons. I'm sceptical that
+> converting from shiny classifier to software IR and then hw IR is
+> going to be efficient when I can go direct from classifier to hw IR.
+
+To me this sounds like trying to microptimize the control plane code
+by reducing the amount of code to translate it into hardware.
+However, this comes at the cost of increasing the overall complexity
+in the backend.
+
+I think we have to make an effort to provide generic solutions, Linux
+is a generic purpose stack.
+
+Look at the problem from another perspective based on this statement:
+
+"ioctl()/setsockopt()/system call of choice plus fixed layout
+structures are faster control planes than Netlink."
+
+Answer: Yes, that's probably right, they require way less code to
+build and to parse a message. However, *we are telling everyone that
+people should use Netlink".
+
+Why?
+
+Because it helps us avoid exposing the low level details of our
+implementation and that makes it more more extensible in the kind of
+evolutionary development that we have.
+
+Should we microoptimize the control plane path through avoiding
+abstractions? I don't think so.
+
+Another example, look at this structure (what we currently have in
+net-next):
+
+ struct tc_cls_u32_knode {
+        struct tcf_exts *exts;
+        struct tc_u32_sel *sel;
+        u32 handle;
+        u32 val;
+        u32 mask;
+        u32 link_handle;
+        u8 fshift;
+ };
+
+Downside is we expose frontend details to the backend.
+
+* You're exposing structure layouts to the backend, (see
+  tcf_exts struct). Another clear symptom to me that this is not the
+  way to go are those #ifdefs in the backend driver code to check if the
+  tc action API is set. If someone needs to extend the tc action API and
+  we get lots of driver using this in the future, that poor guy
+  extending tc action will have to mangle quite a lot of driver code.
+
+* Why the driver should care if tc-u32 uses link_handles to connect rules
+  and such?
+
+So better pass the driver something generic that it can translate.
+With common IR (after one more patches I have here) this will look
+like:
+
+ struct tc_cls_u32_knode {
+        u32                     handle;
+        struct net_ir_ast       ast;
+ };
+
+> Also the IR here only maps easily to a specific set of hardware. For
+> example it doesn't really map well to some of my more programmable
+> devices that want to consume "programs" more like BPF. So I don't see
+> any universal IR being possible. At best you get a set of IRs
+> dependent on the underlying architecture.
+
+Universal sounds too ambicious, I called this generic. Generic in the
+sense of trying to unify and provide as much common infrastructure as
+possible. We probably cannot escape having some specificities for some
+of the frontends we have, so we'll have to pass this specific info as
+decoration to the driver, but that's should not be an excuse to skip
+having something common for everyone IMO.
+
+Anyway I'd suggest you go have a look at the IR and see what you send
+incremental patches to improve what you cannot represent in a generic
+way.
+
+> > A summary picture of the infrastructure looks like this:
+> > 
+> >                 parser
+> >         tc-u32 -------
+> >                        \            jit
+> >      tc-flower -------------- ast ------> Backend driver
+> >                        /
+> >            nft -------
+> > 
+> > So the idea is that every frontend implements a parser that builds the
+> > ast, then this ast is passed via ndo to the driver. The parser is common
+> > to everyone, is part of the common core infrastructure.
+> 
+> Same argument as above with some helper libs going from u32 to driver
+> is really minimal code. And what are the performance impact of taking
+> a simple classifier like flower to ast to backend.
+> 
+> Looking at the similarities between u32 and nft should we unify them in
+> the stack so that,
+> 
+>    nft ---- jit(u32)
+> 
+> and just run nft inside u32? Or
+> 
+>    nft ---- jit(ebpf)
+> 
+> and just offload u32 or ebpf? or
+> 
+>     u32 --- jit(nft)
+> 
+> any one of those combinations :)
+
+As a said above, let's keep this discussion away from the "let's
+provide a unified frontend" because takes us nowhere.
+
+> > The tc-u32 parser is a bit complicated because of having the matching
+> > spread out in different rules through links, but John already came up a
+> > basic parser than should be placed in the frontend so everyone can
+> > improve it to generate more expressive ast.
+> > 
+> > Note: I don't have access to ixgbe hardware, so I have validated this
+> > patchset by splicing main parts of the ixgbe backend jit code in simple
+> > debugging patches that I have here. Quite rudimentary but it has passed
+> > some basic tests, may still have gotten anything broken. Anyway, the
+> > main goal is to generate debate on this.
+> > 
+> 
+> Yep lets debate the general approach. I can deal with ixgbe details.
+> My reaction is this seems overkill I only see offloads popping up for
+> flower, u32, nft, and bpf at the moment. Flower doesn't need heavy
+> overhead due to its simplicity. u32 can be done with some basic helpers
+> for devices like ixgbe. I think nft can be done the same. bpf is its own
+> beast that doesn't map well to another IR its more or less its own IR
+> anyways.
+> 
+> If we need/want a IR I would go for something instruction based
+> like ebpf over this.
+
+bpf is a final representation from a compiler perspective, it is
+bytecode, I don't think it is meant to be designed as an intermediate
+representation.
