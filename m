@@ -1,56 +1,47 @@
-From: Michal Kazior <michal.kazior@tieto.com>
-Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
-Date: Fri, 26 Feb 2016 19:54:57 +0100
-Message-ID: <CA+BoTQnYiSdzn99_xZPs9X2JO3SijXj10C2ezVr_8OEZvNCStg@mail.gmail.com>
-References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
-	<56D081F1.3030801@openwrt.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Tim Shepard <shep@alum.mit.edu>
-To: Felix Fietkau <nbd@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:37980 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422711AbcBZSy6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 13:54:58 -0500
-Received: by mail-wm0-f49.google.com with SMTP id a4so81736219wme.1
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 10:54:57 -0800 (PST)
-In-Reply-To: <56D081F1.3030801@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next 0/3] bridge: mcast: add support for temp
+	router port
+Date: Fri, 26 Feb 2016 19:59:23 +0100
+Message-ID: <1456513166-20159-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 26 February 2016 at 17:48, Felix Fietkau <nbd@openwrt.org> wrote:
-[...]
->> diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
->> index af584f7cdd63..f42f898cb8b5 100644
->> --- a/net/mac80211/tx.c
->> +++ b/net/mac80211/tx.c
->> + [...]
->> +static void ieee80211_txq_enqueue(struct ieee80211_local *local,
->> +                               struct txq_info *txqi,
->> +                               struct sk_buff *skb)
->> +{
->> +     struct ieee80211_fq *fq =3D &local->fq;
->> +     struct ieee80211_hw *hw =3D &local->hw;
->> +     struct txq_flow *flow;
->> +     struct txq_flow *i;
->> +     size_t idx =3D fq_hash(fq, skb);
->> +
->> +     flow =3D &fq->flows[idx];
->> +
->> +     if (flow->txqi)
->> +             flow =3D &txqi->flow;
-> I'm not sure I understand this part correctly, but shouldn't that be:
->         if (flow->txqi && flow->txqi !=3D txqi)
+Hi,
+This set adds support for temporary router port which doesn't depend on
+the incoming queries. It can be refreshed by setting multicast_router to
+the same value (3). The first two patches are minor changes that prepare
+the code for the third which adds this new type of router port.
+In order to be able to dump its information the mdb router port format
+is changed and extended similar to how mdb entries format was done
+recently.
+The related iproute2 changes will be posted if this is accepted.
 
-You're correct. Good catch, thanks!
+Thanks,
+ Nik
 
+Nikolay Aleksandrov (3):
+  bridge: mcast: use names for the different multicast_router types
+  bridge: mcast: do nothing if port's multicast_router is set to the
+    same val
+  bridge: mcast: add support for temporary port router
 
-Micha=C5=82
+ include/uapi/linux/if_bridge.h | 22 +++++++++++-
+ net/bridge/br_mdb.c            | 16 +++++++--
+ net/bridge/br_multicast.c      | 80 +++++++++++++++++++++++++++---------------
+ 3 files changed, 86 insertions(+), 32 deletions(-)
+
+-- 
+2.4.3
