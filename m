@@ -1,38 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/2] net: l3mdev: Fix source address for
- unnumbered deployments
-Date: Fri, 26 Feb 2016 14:24:15 -0500 (EST)
-Message-ID: <20160226.142415.547838324109543423.davem@davemloft.net>
-References: <1456343223-17622-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [net-next PATCH] GSO: Provide software checksum of tunneled
+ UDP fragmentation offload
+Date: Fri, 26 Feb 2016 14:24:52 -0500 (EST)
+Message-ID: <20160226.142452.543171201728476637.davem@davemloft.net>
+References: <20160225004621.22152.21938.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com
+To: aduyck@mirantis.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60740 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60751 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751364AbcBZTYT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 14:24:19 -0500
-In-Reply-To: <1456343223-17622-1-git-send-email-dsa@cumulusnetworks.com>
+	with ESMTP id S1422808AbcBZTYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 14:24:54 -0500
+In-Reply-To: <20160225004621.22152.21938.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Wed, 24 Feb 2016 11:47:01 -0800
+From: Alexander Duyck <aduyck@mirantis.com>
+Date: Wed, 24 Feb 2016 16:46:21 -0800
 
-> David Lamparter noted a use case where the source address selection fails
-> to pick an address from a VRF interface - unnumbered interfaces. The use
-> case has the VRF device as the VRF local loopback with addresses and
-> interfaces enslaved without an address themselves. e.g,
- ...
-> ping to the 10.2.2.2 through the L3 domain:
- ...
-> picks up the wrong address -- the one from 'lo' not vrf0. And from tcpdump:
->     12:57:29.449128 IP 9.9.9.9 > 10.2.2.2: ICMP echo request, id 2491, seq 1, length 64
+> On reviewing the code I realized that GRE and UDP tunnels could cause a
+> kernel panic if we used GSO to segment a large UDP frame that was sent
+> through the tunnel with an outer checksum and hardware offloads were not
+> available.
 > 
-> This patch series changes address selection to only consider devices in
-> the same L3 domain and to use the VRF device as the L3 domains loopback.
- ...
+> In order to correct this we need to update the feature flags that are
+> passed to the skb_segment function so that in the event of UDP
+> fragmentation being requested for the inner header the segmentation
+> function will correctly generate the checksum for the payload if we cannot
+> segment the outer header.
+> 
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 
-Series applied, thanks David.
+Applied, thanks Alex.
