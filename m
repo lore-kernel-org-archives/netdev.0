@@ -1,50 +1,65 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: Re: [PATCH V2 03/12] net-next: mediatek: add embedded switch driver
- (ESW)
-Date: Fri, 26 Feb 2016 17:25:38 +0100
-Message-ID: <56D07C82.2040204@openwrt.org>
-References: <1456496504-50429-1-git-send-email-blogic@openwrt.org>
- <1456496504-50429-4-git-send-email-blogic@openwrt.org>
- <20160226151813.GD12022@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] uapi glibc compat: fix cases where glibc net/if.h is
+ included before linux/if.h
+Date: Fri, 26 Feb 2016 11:28:17 -0500 (EST)
+Message-ID: <20160226.112817.1495300719463061587.davem@davemloft.net>
+References: <1454853801-18064-1-git-send-email-mikko.rapeli@iki.fi>
+	<20160217.104620.239734387234680136.davem@davemloft.net>
+	<20160226072513.GH6104@lakka.kapsi.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
-	Matthias Brugger <matthias.bgg@gmail.com>,
-	"Steven Liu (?????????)" <steven.liu@mediatek.com>,
-	"Carlos Huang (?????????)" <Carlos.Huang@mediatek.com>,
-	"Fred Chang (?????????)" <Fred.Chang@mediatek.com>
-To: Andrew Lunn <andrew@lunn.ch>, John Crispin <blogic@openwrt.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160226151813.GD12022@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: shemming@brocade.com, linux-api@vger.kernel.org,
+ linux-kernel@vger.kernel.org, jwboyer@fedoraproject.org,
+ pablo@netfilter.org, netdev@vger.kernel.org,
+ netfilter-devel@vger.kernel.org, libc-alpha@sourceware.org
+To: mikko.rapeli@iki.fi
+Return-path: <libc-alpha-return-67666-glibc-alpha=m.gmane.org@sourceware.org>
+List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
+List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
+List-Archive: <http://sourceware.org/ml/libc-alpha/>
+List-Post: <mailto:libc-alpha@sourceware.org>
+List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
+Sender: libc-alpha-owner@sourceware.org
+In-Reply-To: <20160226072513.GH6104@lakka.kapsi.fi>
 List-Id: netdev.vger.kernel.org
 
-On 2016-02-26 16:18, Andrew Lunn wrote:
-> On Fri, Feb 26, 2016 at 03:21:35PM +0100, John Crispin wrote:
->> The ESW is found in many of the old 100mbit MIPS based SoCs. it has 5
->> external ports, 1 cpu port and 1 further port that the internal HW
->> offloading engine connects to.
+From: Mikko Rapeli <mikko.rapeli@iki.fi>
+Date: Fri, 26 Feb 2016 09:25:13 +0200
+
+> (Adding libc-alpha list, review of https://lkml.org/lkml/2016/2/7/89 )
+> 
+> On Wed, Feb 17, 2016 at 10:46:20AM -0500, David Miller wrote:
+>> From: Mikko Rapeli <mikko.rapeli@iki.fi>
+>> Date: Sun,  7 Feb 2016 16:03:21 +0200
 >> 
->> This driver is very basic and only provides basic init and irq support.
->> The SoC and switch core both have support for a special tag making DSA
->> support possible.
+>> > @@ -68,6 +72,8 @@
+>> >   * @IFF_ECHO: echo sent packets. Volatile.
+>> >   */
+>> >  enum net_device_flags {
+>> > +/* for compatibility with glibc net/if.h */
+>> > +#if __UAPI_DEF_IF_NET_DEVICE_FLAGS
+>> >  	IFF_UP				= 1<<0,  /* sysfs */
+>> >  	IFF_BROADCAST			= 1<<1,  /* volatile */
+>> >  	IFF_DEBUG			= 1<<2,  /* sysfs */
+>> > @@ -84,11 +90,14 @@ enum net_device_flags {
+>> >  	IFF_PORTSEL			= 1<<13, /* sysfs */
+>> >  	IFF_AUTOMEDIA			= 1<<14, /* sysfs */
+>> >  	IFF_DYNAMIC			= 1<<15, /* sysfs */
+>> > +#endif /* __UAPI_DEF_IF_NET_DEVICE_FLAGS */
+>> >  	IFF_LOWER_UP			= 1<<16, /* volatile */
+>> >  	IFF_DORMANT			= 1<<17, /* volatile */
+>> >  	IFF_ECHO			= 1<<18, /* volatile */
+>> >  };
+>> 
+>> This is going to get messy is IFF_LOWER_UP, IFF_DORMANT, and IFF_ECHO
+>> get added the the glibc header.  Why not just handle it now with
+>> another __UAPI_DEF_FOO guard so that the additions to net/if.h can
+>> deal with this case too.
 > 
-> Hi Crispin
-> 
-> There was recently a discussion about adding switches without using
-> DSA or switchdev. It was pretty much decided we would not accept such
-> drivers.
-For exactly this reason, the code does not provide any non-standard API
-for allowing the user to configure the switch. The hardware needs to be
-programmed with some defaults for the driver to be functional (since the
-switch logic is built into the SoC).
+> Do you mean that the enum should be protected with a single guard or
+> should I have one guard for current conflicts and one for the future
+> if glibc headers include IFF_LOWER_UP and others?
 
-In my opinion, leaving this part out does not make much sense and
-neither does deferring the entire patch series until we have a
-switchdev/DSA capable driver. This is just a starting point, which will
-be turned into a proper driver with the right APIs later.
-
-- Felix
+I'm ambivalent about the mechanism, and I'm more concerned about covering
+those three values in your change rather than eliding them.
