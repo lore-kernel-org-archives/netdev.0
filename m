@@ -1,46 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Convert network timestamps to be y2038 safe
-Date: Fri, 26 Feb 2016 15:19:51 -0500 (EST)
-Message-ID: <20160226.151951.1085088134048947212.davem@davemloft.net>
-References: <1456384031-29244-1-git-send-email-deepa.kernel@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, y2038@lists.linaro.org, arnd@arndb.de,
-	vyasevich@gmail.com, nhorman@tuxdriver.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	john.stultz@linaro.org, tglx@linutronix.de,
-	linux-sctp@vger.kernel.org
-To: deepa.kernel@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33158 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755110AbcBZUTy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 15:19:54 -0500
-In-Reply-To: <1456384031-29244-1-git-send-email-deepa.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next v2 0/4] bridge: mcast: add support for
+	temp router port
+Date: Fri, 26 Feb 2016 21:20:00 +0100
+Message-ID: <1456518004-25578-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Deepa Dinamani <deepa.kernel@gmail.com>
-Date: Wed, 24 Feb 2016 23:07:07 -0800
+Hi,
+This set adds support for temporary router port which doesn't depend only
+on the incoming queries. It can be refreshed by setting multicast_router to
+the same value (3). The first two patches are minor changes that prepare
+the code for the third which adds this new type of router port.
+In order to be able to dump its information the mdb router port format
+is changed in patch 04 and extended similar to how mdb entries format was
+done recently.
+The related iproute2 changes will be posted if this is accepted.
 
-> Introduction:
-> 
-> The series is aimed at transitioning network timestamps to being
-> y2038 safe.
-> All patches can be reviewed and merged independently, except for
-> the [PATCH 2/4], which is dependent on the [PATCH 1/4].
-> 
-> Socket timestamps and ioctl calls will be handled separately.
-> 
-> Thanks to Arnd Bergmann for discussing solution options with me.
-> 
-> Solution:
-> 
-> Data type struct timespec is not y2038 safe.
-> Replace timespec with struct timespec64 which is y2038 safe.
+v2: set val first and adjust router type later in patch 01, patch 03 was
+split in 2
 
-Please respin this, moving the helper into net/ipv4/af_inet.c as per
-the feedback given.
+Thanks,
+ Nik
 
-Thanks.
+
+Nikolay Aleksandrov (4):
+  bridge: mcast: use names for the different multicast_router types
+  bridge: mcast: do nothing if port's multicast_router is set to the
+    same val
+  bridge: mcast: add support for temporary port router
+  bridge: mcast: add support for more router port information dumping
+
+ include/uapi/linux/if_bridge.h | 22 ++++++++++-
+ net/bridge/br_mdb.c            | 16 +++++++-
+ net/bridge/br_multicast.c      | 83 +++++++++++++++++++++++++++---------------
+ 3 files changed, 89 insertions(+), 32 deletions(-)
+
+-- 
+2.4.3
