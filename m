@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH V2 03/12] net-next: mediatek: add embedded switch
  driver (ESW)
-Date: Fri, 26 Feb 2016 12:43:13 -0500 (EST)
-Message-ID: <20160226.124313.718457444189293093.davem@davemloft.net>
-References: <1456496504-50429-4-git-send-email-blogic@openwrt.org>
-	<20160226151813.GD12022@lunn.ch>
-	<56D07C82.2040204@openwrt.org>
+Date: Fri, 26 Feb 2016 12:44:59 -0500 (EST)
+Message-ID: <20160226.124459.2214228338245540067.davem@davemloft.net>
+References: <20160226151813.GD12022@lunn.ch>
+	<56D06E3F.1020100@openwrt.org>
+	<20160226170545.GE12022@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, blogic@openwrt.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
-	matthias.bgg@gmail.com, steven.liu@mediatek.com,
-	Carlos.Huang@mediatek.com, Fred.Chang@mediatek.com
-To: nbd@openwrt.org
+Cc: blogic@openwrt.org, Fred.Chang@mediatek.com,
+	steven.liu@mediatek.com, netdev@vger.kernel.org,
+	Carlos.Huang@mediatek.com, linux-kernel@vger.kernel.org,
+	linux-mediatek@lists.infradead.org, matthias.bgg@gmail.com,
+	linux-arm-kernel@lists.infradead.org
+To: andrew@lunn.ch
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56D07C82.2040204@openwrt.org>
+In-Reply-To: <20160226170545.GE12022@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Felix Fietkau <nbd@openwrt.org>
-Date: Fri, 26 Feb 2016 17:25:38 +0100
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Fri, 26 Feb 2016 18:05:45 +0100
 
-> In my opinion, leaving this part out does not make much sense and
-> neither does deferring the entire patch series until we have a
-> switchdev/DSA capable driver. This is just a starting point, which will
-> be turned into a proper driver with the right APIs later.
+> I think it is great a vendor is providing funding to get code
+> upstream. However, that code needs to conform with current kernel
+> architecture and design philosophy.
+> 
+> We as a community also need to be consistent. We have recently push
+> back on Microchip with there LAN9352 who want to do something very
+> similar, introduce the MAC and a very dumb switch driver. They are now
+> looking at what it means to do a DSA driver. There is also talk of
+> writing a DSA driver for the ks8995 family.
+> 
+> As David said recently, a year ago this probably would of been
+> accepted. But now, switches need to be DSA or switchdev.
 
-I disagree, and we want people to concentrate on writing proper
-switchdev/DSA drivers.
-
-People like Andrew have offered to help in any way possible to make
-this as easy as possible, so please take this seriously.
-
-I would have accepted your arguments a year ago when we didn't have
-the right infrastructure, but now we do and there is no real excuse
-to submit partial or bastardized drivers for these kinds of hardware
-anymore
-
-Thanks in advance for your understanding, and I'm plan to stand
-very firm on this.
++1
