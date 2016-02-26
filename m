@@ -1,88 +1,41 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: [PATCH iproute2 v2] iplink: Support VF Trust
-Date: Fri, 26 Feb 2016 02:40:18 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05FB353F@BPXM14GP.gisp.nec.co.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v7] net: ipv6: Make address flushing on ifdown
+ optional
+Date: Thu, 25 Feb 2016 21:45:37 -0500 (EST)
+Message-ID: <20160225.214537.1334107695744344694.davem@davemloft.net>
+References: <1456334737-16708-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hideaki.yoshifuji@miraclelinux.com,
+	hannes@stressinduktion.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO200.gate.nec.co.jp ([210.143.35.50]:37067 "EHLO
-	tyo200.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751219AbcBZCmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 21:42:39 -0500
-Received: from tyo202.gate.nec.co.jp ([10.7.69.202])
-	by tyo200.gate.nec.co.jp (8.13.8/8.13.4) with ESMTP id u1Q2ga7J000525
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 11:42:36 +0900 (JST)
-Content-Language: ja-JP
+Received: from shards.monkeyblade.net ([149.20.54.216]:49101 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750754AbcBZCpn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2016 21:45:43 -0500
+In-Reply-To: <1456334737-16708-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+DQoNCkFk
-ZCBJRkxBX1ZGX1RSVVNUIG1lc3NhZ2UgdG8gdHJ1c3QgdGhlIFZGLg0KUEYgY2FuIGFjY2VwdCBz
-b21lIHByaXZpbGVnZWQgb3BlcmF0aW9uIGZyb20gdGhlIHRydXN0ZWQgVkYuDQpGb3IgZXhhbXBs
-ZSwgaXhnYmUgUEYgZG9lc24ndCBhbGxvdyB0byBlbmFibGUgVkYgcHJvbWlzY3VvdXMgbW9kZSB1
-bnRpbA0KdGhlIFZGIGlzIHRydXN0ZWQgYmVjYXVzZSBpdCBtYXkgaHVydCBwZXJmb3JtYW5jZS4N
-Cg0KVG8gdHJ1c3QgVkYuDQogIyBpcCBsaW5rIHNldCBkZXYgZXRoMCB2ZiAxIHRydXN0IG9uDQoN
-ClRvIHVudHJ1c3QgVkYuDQogIyBpcCBsaW5rIHNldCBkZXYgZXRoMCB2ZiAxIHRydXN0IG9mZg0K
-DQpTaWduZWQtb2ZmLWJ5OiBIaXJvc2hpIFNoaW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAubmVj
-LmNvbT4NCi0tLQ0KDQp2MSAtPiB2MjogcmViYXNlIHRvIHRoZSBsYXRlc3QgY29kZSBvZiBpcHJv
-dXRlMi4NCg0KVGhlIFZGIHRydXN0IHBhdGNoIGhhcyBiZWVuIGluIGtlcm5lbCBhbmQgdGhlIElG
-TEFfVkZfVFJVU1QgbmV0bGluayBhdHRyaWJ1dGUNCmhhcyBiZWVuIGluY2x1ZGVkIGlwcm91dGUy
-LCBidXQgbm8gYWN0dWFsIGhhbmRsZXIgZm9yIHRoaXMuDQpUaGlzIHBhdGNoIGFkZCB0aGUgZnVu
-Y3Rpb25hbGl0eSB0byB0cnVzdCB2ZiBmcm9tIGlwIGNvbW1hbmQuDQoNCiBpcC9pcGxpbmsuYyAg
-ICAgICAgICAgfCAxMyArKysrKysrKysrKysrDQogbWFuL21hbjgvaXAtbGluay44LmluIHwgIDcg
-KysrKysrLQ0KIDIgZmlsZXMgY2hhbmdlZCwgMTkgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigt
-KQ0KDQpkaWZmIC0tZ2l0IGEvaXAvaXBsaW5rLmMgYi9pcC9pcGxpbmsuYw0KaW5kZXggNWFiOWQ2
-MS4uNjlmNTA1NyAxMDA2NDQNCi0tLSBhL2lwL2lwbGluay5jDQorKysgYi9pcC9pcGxpbmsuYw0K
-QEAgLTgyLDYgKzgyLDcgQEAgdm9pZCBpcGxpbmtfdXNhZ2Uodm9pZCkNCiAJZnByaW50ZihzdGRl
-cnIsICIJCQkJICAgWyBzcG9vZmNoayB7IG9uIHwgb2ZmfSBdIF1cbiIpOw0KIAlmcHJpbnRmKHN0
-ZGVyciwgIgkJCQkgICBbIHF1ZXJ5X3JzcyB7IG9uIHwgb2ZmfSBdIF1cbiIpOw0KIAlmcHJpbnRm
-KHN0ZGVyciwgIgkJCQkgICBbIHN0YXRlIHsgYXV0byB8IGVuYWJsZSB8IGRpc2FibGV9IF0gXVxu
-Iik7DQorCWZwcmludGYoc3RkZXJyLCAiCQkJCSAgIFsgdHJ1c3QgeyBvbiB8IG9mZn0gXSBdXG4i
-KTsNCiAJZnByaW50ZihzdGRlcnIsICIJCQkgIFsgbWFzdGVyIERFVklDRSBdXG4iKTsNCiAJZnBy
-aW50ZihzdGRlcnIsICIJCQkgIFsgbm9tYXN0ZXIgXVxuIik7DQogCWZwcmludGYoc3RkZXJyLCAi
-CQkJICBbIGFkZHJnZW5tb2RlIHsgZXVpNjQgfCBub25lIHwgc3RhYmxlX3NlY3JldCB8IHJhbmRv
-bSB9IF1cbiIpOw0KQEAgLTM1Niw2ICszNTcsMTggQEAgc3RhdGljIGludCBpcGxpbmtfcGFyc2Vf
-dmYoaW50IHZmLCBpbnQgKmFyZ2NwLCBjaGFyICoqKmFyZ3ZwLA0KIAkJCWl2cy52ZiA9IHZmOw0K
-IAkJCWFkZGF0dHJfbCgmcmVxLT5uLCBzaXplb2YoKnJlcSksIElGTEFfVkZfUlNTX1FVRVJZX0VO
-LCAmaXZzLCBzaXplb2YoaXZzKSk7DQogDQorCQl9IGVsc2UgaWYgKG1hdGNoZXMoKmFyZ3YsICJ0
-cnVzdCIpID09IDApIHsNCisJCQlzdHJ1Y3QgaWZsYV92Zl90cnVzdCBpdnQ7DQorCQkJTkVYVF9B
-UkcoKTsNCisJCQlpZiAobWF0Y2hlcygqYXJndiwgIm9uIikgPT0gMCkNCisJCQkJaXZ0LnNldHRp
-bmcgPSAxOw0KKwkJCWVsc2UgaWYgKG1hdGNoZXMoKmFyZ3YsICJvZmYiKSA9PSAwKQ0KKwkJCQlp
-dnQuc2V0dGluZyA9IDA7DQorCQkJZWxzZQ0KKwkJCQlpbnZhcmcoIkludmFsaWQgXCJ0cnVzdFwi
-IHZhbHVlXG4iLCAqYXJndik7DQorCQkJaXZ0LnZmID0gdmY7DQorCQkJYWRkYXR0cl9sKCZyZXEt
-Pm4sIHNpemVvZigqcmVxKSwgSUZMQV9WRl9UUlVTVCwgJml2dCwgc2l6ZW9mKGl2dCkpOw0KKw0K
-IAkJfSBlbHNlIGlmIChtYXRjaGVzKCphcmd2LCAic3RhdGUiKSA9PSAwKSB7DQogCQkJc3RydWN0
-IGlmbGFfdmZfbGlua19zdGF0ZSBpdmw7DQogDQpkaWZmIC0tZ2l0IGEvbWFuL21hbjgvaXAtbGlu
-ay44LmluIGIvbWFuL21hbjgvaXAtbGluay44LmluDQppbmRleCA0ZDMyMzQzLi43ZGQ3YTkwIDEw
-MDY0NA0KLS0tIGEvbWFuL21hbjgvaXAtbGluay44LmluDQorKysgYi9tYW4vbWFuOC9pcC1saW5r
-LjguaW4NCkBAIC0xNDIsNyArMTQyLDggQEAgaXAtbGluayBcLSBuZXR3b3JrIGRldmljZSBjb25m
-aWd1cmF0aW9uDQogLkIgbWluX3R4X3JhdGUNCiAuSVIgVFhSQVRFICIgXSBbIg0KIC5CIHNwb29m
-Y2hrIHsgb24gfCBvZmYgfSBdIFsNCi0uQiBzdGF0ZSB7IGF1dG8gfCBlbmFibGUgfCBkaXNhYmxl
-fQ0KKy5CIHN0YXRlIHsgYXV0byB8IGVuYWJsZSB8IGRpc2FibGV9IF0gWw0KKy5CIHRydXN0IHsg
-b24gfCBvZmYgfQ0KIF0gfA0KIC5icg0KIC5CIG1hc3Rlcg0KQEAgLTEwMTksNiArMTAyMCwxMCBA
-QCBwYXJhbWV0ZXIgbXVzdCBiZSBzcGVjaWZpZWQuDQogcmVmbGVjdGlvbiBvZiB0aGUgUEYgbGlu
-ayBzdGF0ZSwgZW5hYmxlIGxldHMgdGhlIFZGIHRvIGNvbW11bmljYXRlIHdpdGggb3RoZXIgVkZz
-IG9uDQogdGhpcyBob3N0IGV2ZW4gaWYgdGhlIFBGIGxpbmsgc3RhdGUgaXMgZG93biwgZGlzYWJs
-ZSBjYXVzZXMgdGhlIEhXIHRvIGRyb3AgYW55IHBhY2tldHMNCiBzZW50IGJ5IHRoZSBWRi4NCisu
-c3ANCisuQkkgdHJ1c3QgIiBvbnxvZmYiDQorLSB0cnVzdCB0aGUgc3BlY2lmaWVkIFZGIHVzZXIu
-IFRoaXMgZW5hYmxlcyB0aGF0IFZGIHVzZXIgY2FuIHNldCBhIHNwZWNpZmljIGZlYXR1cmUNCit3
-aGljaCBtYXkgaW1wYWN0IHNlY3VyaXR5IGFuZC9vciBwZXJmb3JtYW5jZS4gKGUuZy4gVkYgbXVs
-dGljYXN0IHByb21pc2N1b3VzIG1vZGUpDQogLmluIC04DQogDQogLlRQDQotLSANCjEuOC4zLjEN
-Cg0K
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Wed, 24 Feb 2016 09:25:37 -0800
+
+> Currently, all ipv6 addresses are flushed when the interface is configured
+> down, including global, static addresses:
+ ...
+> Add a new sysctl to make this behavior optional. The new setting defaults to
+> flush all addresses to maintain backwards compatibility. When the set global
+> addresses with no expire times are not flushed on an admin down. The sysctl
+> is per-interface or system-wide for all interfaces
+> 
+>     $ sysctl -w net.ipv6.conf.eth1.keep_addr_on_down=1
+> or
+>     $ sysctl -w net.ipv6.conf.all.keep_addr_on_down=1
+> 
+> Will keep addresses on eth1 on an admin down.
+ ...
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+
+Applied, thanks for your persistence David :)
