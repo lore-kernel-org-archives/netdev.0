@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 0/9] net: dsa: mv88e6xxx: implement VLAN filtering
-Date: Fri, 26 Feb 2016 13:15:59 -0500
-Message-ID: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 4/9] net: dsa: mv88e6xxx: assign dynamic FDB to VLANs
+Date: Fri, 26 Feb 2016 13:16:03 -0500
+Message-ID: <1456510568-13679-5-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -15,55 +16,128 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset fixes hardware bridging for non 802.1Q aware systems.
+Add a _mv88e6xxx_fid_new function which gives and flushes the lowest FID
+available. Call it when preparing a new VTU entry.
 
-The mv88e6xxx DSA driver currently depends on CONFIG_VLAN_8021Q and
-CONFIG_BRIDGE_VLAN_FILTERING enabled for correct bridging between switch ports.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 56 +++++++++++++++++++++++++++++++++++++--------
+ drivers/net/dsa/mv88e6xxx.h |  2 ++
+ 2 files changed, 49 insertions(+), 9 deletions(-)
 
-Patch 1/9 adds support for the VLAN filtering switchdev attribute in DSA.
-
-Patchs 2/9 and 3/9 add helper functions for the following patches.
-
-Patchs 4/9 to 6/9 assign dynamic address databases to VLANs, ports, and
-bridge groups (the lowest available FID is cleared and assigned), and thus
-restore support for per-port FDB operations.
-
-Patchs 7/9 to 9/9 refine ports isolation and setup 802.1Q on user demand.
-
-With this patchset, ports get correctly bridged and the driver behaves as
-expected, with or without 802.1Q support.
-
-With CONFIG_VLAN_8021Q enabled, setting a default PVID to the bridge correctly
-propagates the corresponding VLAN, in addition to the hardware bridging:
-
-    # echo 42 > /sys/class/net/<bridge>/bridge/default_pvid
-
-But considering CONFIG_BRIDGE_VLAN_FILTERING enabled, the hardware VLAN
-filtering is enabled on all bridge members only when the user requests it:
-
-    # echo 1 > /sys/class/net/<bridge>/bridge/vlan_filtering
-
-Vivien Didelot (9):
-  net: dsa: support VLAN filtering switchdev attr
-  net: dsa: mv88e6xxx: extract single VLAN retrieval
-  net: dsa: mv88e6xxx: extract single FDB dump
-  net: dsa: mv88e6xxx: assign dynamic FDB to VLANs
-  net: dsa: mv88e6xxx: assign default FDB to ports
-  net: dsa: mv88e6xxx: assign dynamic FDB to bridges
-  net: dsa: mv88e6xxx: restore VLANTable map control
-  net: dsa: mv88e6xxx: remove reserved VLANs
-  net: dsa: mv88e6xxx: support VLAN filtering
-
- drivers/net/dsa/mv88e6171.c |   1 +
- drivers/net/dsa/mv88e6352.c |   1 +
- drivers/net/dsa/mv88e6xxx.c | 441 ++++++++++++++++++++++++++++++++++----------
- drivers/net/dsa/mv88e6xxx.h |   6 +
- include/net/dsa.h           |   2 +
- net/dsa/slave.c             |  21 +++
- 6 files changed, 370 insertions(+), 102 deletions(-)
-
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 6329516..b4b2f05 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1458,6 +1458,41 @@ loadpurge:
+ 	return _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_STU_LOAD_PURGE);
+ }
+ 
++static int _mv88e6xxx_fid_new(struct dsa_switch *ds, u16 *fid)
++{
++	DECLARE_BITMAP(fid_bitmap, MV88E6XXX_N_FID);
++	struct mv88e6xxx_vtu_stu_entry vlan;
++	int err;
++
++	bitmap_zero(fid_bitmap, MV88E6XXX_N_FID);
++
++	/* Set every FID bit used by the VLAN entries */
++	err = _mv88e6xxx_vtu_vid_write(ds, GLOBAL_VTU_VID_MASK);
++	if (err)
++		return err;
++
++	do {
++		err = _mv88e6xxx_vtu_getnext(ds, &vlan);
++		if (err)
++			return err;
++
++		if (!vlan.valid)
++			break;
++
++		set_bit(vlan.fid, fid_bitmap);
++	} while (vlan.vid < GLOBAL_VTU_VID_MASK);
++
++	/* The reset value 0x000 is used to indicate that multiple address
++	 * databases are not needed. Return the next positive available.
++	 */
++	*fid = find_next_zero_bit(fid_bitmap, MV88E6XXX_N_FID, 1);
++	if (unlikely(*fid == MV88E6XXX_N_FID))
++		return -ENOSPC;
++
++	/* Clear the database */
++	return _mv88e6xxx_atu_flush(ds, *fid, true);
++}
++
+ static int _mv88e6xxx_vtu_new(struct dsa_switch *ds, u16 vid,
+ 			      struct mv88e6xxx_vtu_stu_entry *entry)
+ {
+@@ -1465,9 +1500,12 @@ static int _mv88e6xxx_vtu_new(struct dsa_switch *ds, u16 vid,
+ 	struct mv88e6xxx_vtu_stu_entry vlan = {
+ 		.valid = true,
+ 		.vid = vid,
+-		.fid = vid, /* We use one FID per VLAN */
+ 	};
+-	int i;
++	int i, err;
++
++	err = _mv88e6xxx_fid_new(ds, &vlan.fid);
++	if (err)
++		return err;
+ 
+ 	/* exclude all ports except the CPU and DSA ports */
+ 	for (i = 0; i < ps->num_ports; ++i)
+@@ -1478,7 +1516,6 @@ static int _mv88e6xxx_vtu_new(struct dsa_switch *ds, u16 vid,
+ 	if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
+ 	    mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds)) {
+ 		struct mv88e6xxx_vtu_stu_entry vstp;
+-		int err;
+ 
+ 		/* Adding a VTU entry requires a valid STU entry. As VSTP is not
+ 		 * implemented, only one STU entry is needed to cover all VTU
+@@ -1498,11 +1535,6 @@ static int _mv88e6xxx_vtu_new(struct dsa_switch *ds, u16 vid,
+ 			if (err)
+ 				return err;
+ 		}
+-
+-		/* Clear all MAC addresses from the new database */
+-		err = _mv88e6xxx_atu_flush(ds, vlan.fid, true);
+-		if (err)
+-			return err;
+ 	}
+ 
+ 	*entry = vlan;
+@@ -1789,8 +1821,14 @@ static int _mv88e6xxx_port_fdb_load(struct dsa_switch *ds, int port,
+ 				    u8 state)
+ {
+ 	struct mv88e6xxx_atu_entry entry = { 0 };
++	struct mv88e6xxx_vtu_stu_entry vlan;
++	int err;
++
++	err = _mv88e6xxx_vtu_get(ds, vid, &vlan, false);
++	if (err)
++		return err;
+ 
+-	entry.fid = vid; /* We use one FID per VLAN */
++	entry.fid = vlan.fid;
+ 	entry.state = state;
+ 	ether_addr_copy(entry.mac, addr);
+ 	if (state != GLOBAL_ATU_DATA_STATE_UNUSED) {
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 6a30bda..9df331e 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -355,6 +355,8 @@
+ #define GLOBAL2_QOS_WEIGHT	0x1c
+ #define GLOBAL2_MISC		0x1d
+ 
++#define MV88E6XXX_N_FID		4096
++
+ struct mv88e6xxx_switch_id {
+ 	u16 id;
+ 	char *name;
 -- 
 2.7.1
