@@ -1,7 +1,7 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v3 5/5] veth: implement ndo_set_rx_headroom
-Date: Fri, 26 Feb 2016 10:45:41 +0100
-Message-ID: <cd429db8d0dc5c981bdce7d282b0f351417a6e60.1456412101.git.pabeni@redhat.com>
+Subject: [PATCH net-next v3 2/5] bridge: notify enslaved devices of headroom changes
+Date: Fri, 26 Feb 2016 10:45:38 +0100
+Message-ID: <32c7155c413ad98df6fee605ca59f835dfdefaa3.1456412101.git.pabeni@redhat.com>
 References: <cover.1456412101.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>,
@@ -12,87 +12,95 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33165 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49890 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752935AbcBZJqO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Feb 2016 04:46:14 -0500
+	id S1752922AbcBZJqM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Feb 2016 04:46:12 -0500
 In-Reply-To: <cover.1456412101.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The rx headroom for veth dev is the peer device needed_headroom.
-Avoid ping-pong updates setting the private flag IFF_PHONY_HEADROOM.
-
-This avoids skb head reallocation when forwarding from a veth dev
-towards a device adding some kind of encapsulation.
-
-When transmitting frames below the MTU size towards a vxlan device,
-this gives about 10% performance speed-up when OVS is used to connect
-the veth and the vxlan device and a little more when using a
-plain Linux bridge.
+On bridge needed_headroom changes, the enslaved devices are
+notified via the ndo_set_rx_headroom method
 
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- drivers/net/veth.c | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index ba21d07..4f30a6a 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -35,6 +35,7 @@ struct pcpu_vstats {
- struct veth_priv {
- 	struct net_device __rcu	*peer;
- 	atomic64_t		dropped;
-+	unsigned		requested_headroom;
- };
- 
- /*
-@@ -271,6 +272,29 @@ static int veth_get_iflink(const struct net_device *dev)
- 	return iflink;
+---
+v1 -> v2:
+ - use netdev_set_rx_headroom() to update the br ports headroom
+ - reset the dev rx headroom upon dev removal from bridge
+---
+ net/bridge/br_if.c | 37 +++++++++++++++++++++++++++++++++++--
+ 1 file changed, 35 insertions(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index c367b3e..e0aedc4 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -223,6 +223,31 @@ static void destroy_nbp_rcu(struct rcu_head *head)
+ 	destroy_nbp(p);
  }
  
-+static void veth_set_rx_headroom(struct net_device *dev, int new_hr)
++static unsigned get_max_headroom(struct net_bridge *br)
 +{
-+	struct veth_priv *peer_priv, *priv = netdev_priv(dev);
-+	struct net_device *peer;
++	unsigned max_headroom = 0;
++	struct net_bridge_port *p;
 +
-+	if (new_hr < 0)
-+		new_hr = 0;
++	list_for_each_entry(p, &br->port_list, list) {
++		unsigned dev_headroom = netdev_get_fwd_headroom(p->dev);
 +
-+	rcu_read_lock();
-+	peer = rcu_dereference(priv->peer);
-+	if (unlikely(!peer))
-+		goto out;
++		if (dev_headroom > max_headroom)
++			max_headroom = dev_headroom;
++	}
 +
-+	peer_priv = netdev_priv(peer);
-+	priv->requested_headroom = new_hr;
-+	new_hr = max(priv->requested_headroom, peer_priv->requested_headroom);
-+	dev->needed_headroom = new_hr;
-+	peer->needed_headroom = new_hr;
-+
-+out:
-+	rcu_read_unlock();
++	return max_headroom;
 +}
 +
- static const struct net_device_ops veth_netdev_ops = {
- 	.ndo_init            = veth_dev_init,
- 	.ndo_open            = veth_open,
-@@ -285,6 +309,7 @@ static const struct net_device_ops veth_netdev_ops = {
- #endif
- 	.ndo_get_iflink		= veth_get_iflink,
- 	.ndo_features_check	= passthru_features_check,
-+	.ndo_set_rx_headroom	= veth_set_rx_headroom,
- };
++static void update_headroom(struct net_bridge *br, int new_hr)
++{
++	struct net_bridge_port *p;
++
++	list_for_each_entry(p, &br->port_list, list)
++		netdev_set_rx_headroom(p->dev, new_hr);
++
++	br->dev->needed_headroom = new_hr;
++}
++
+ /* Delete port(interface) from bridge is done in two steps.
+  * via RCU. First step, marks device as down. That deletes
+  * all the timers and stops new packets from flowing through.
+@@ -248,6 +273,9 @@ static void del_nbp(struct net_bridge_port *p)
+ 	br_ifinfo_notify(RTM_DELLINK, p);
  
- #define VETH_FEATURES (NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_ALL_TSO |    \
-@@ -301,6 +326,7 @@ static void veth_setup(struct net_device *dev)
- 	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
- 	dev->priv_flags |= IFF_NO_QUEUE;
-+	dev->priv_flags |= IFF_PHONY_HEADROOM;
+ 	list_del_rcu(&p->list);
++	if (netdev_get_fwd_headroom(dev) == br->dev->needed_headroom)
++		update_headroom(br, get_max_headroom(br));
++	netdev_reset_rx_headroom(dev);
  
- 	dev->netdev_ops = &veth_netdev_ops;
- 	dev->ethtool_ops = &veth_ethtool_ops;
+ 	nbp_vlan_flush(p);
+ 	br_fdb_delete_by_port(br, p, 0, 1);
+@@ -438,6 +466,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ {
+ 	struct net_bridge_port *p;
+ 	int err = 0;
++	unsigned br_hr, dev_hr;
+ 	bool changed_addr;
+ 
+ 	/* Don't allow bridging non-ethernet like devices, or DSA-enabled
+@@ -505,8 +534,12 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 
+ 	netdev_update_features(br->dev);
+ 
+-	if (br->dev->needed_headroom < dev->needed_headroom)
+-		br->dev->needed_headroom = dev->needed_headroom;
++	br_hr = br->dev->needed_headroom;
++	dev_hr = netdev_get_fwd_headroom(dev);
++	if (br_hr < dev_hr)
++		update_headroom(br, dev_hr);
++	else
++		netdev_set_rx_headroom(dev, br_hr);
+ 
+ 	if (br_fdb_insert(br, p, dev->dev_addr, 0))
+ 		netdev_err(dev, "failed insert local address bridge forwarding table\n");
 -- 
 1.8.3.1
