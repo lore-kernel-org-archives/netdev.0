@@ -1,59 +1,46 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net] be2net: don't {en,dis}able filters on BE3 when transparent tagging is enabled
-Date: Fri, 26 Feb 2016 09:46:41 +0100
-Message-ID: <1456476401-23398-1-git-send-email-ivecera@redhat.com>
-Cc: Sathya Perla <sathya.perla@broadcom.com>,
-	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-To: netdev@vger.kernel.org
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next v2 00/10] bnxt_en: updates for net-next.
+Date: Fri, 26 Feb 2016 03:59:58 -0500
+Message-ID: <1456477208-30692-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40077 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750867AbcBZIqt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Feb 2016 03:46:49 -0500
+Received: from 5520-maca-inet1-outside.broadcom.com ([216.31.211.11]:31858
+	"EHLO mail-irv-18.broadcom.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750699AbcBZJAS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 04:00:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The FILTMGMT privilege is necessary on BE3 chip to manipulare filters
-like MC, UC list management, VLAN filter, promisc mode... This privilege
-is dropped for VFs when transparrent tagging is enabled on them. This
-prevents to make interface up for such VF because be_enable_if_filters()
-called from be_open() fails thus be_open() also fails.
+Miscellaneous updates covering SRIOV, IRQ coalescing, firmware logging and
+package version for net-next.  Thanks. 
 
-Cc: Sathya Perla <sathya.perla@broadcom.com>
-Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+v2: Updated description and added more comments for patch 1.  Fixed
+function parameters formatting for patch 4.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index f99de36..2e176f6 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3430,7 +3430,8 @@ static int be_close(struct net_device *netdev)
- 	if (!(adapter->flags & BE_FLAGS_SETUP_DONE))
- 		return 0;
- 
--	be_disable_if_filters(adapter);
-+	if (!(BEx_chip(adapter) && be_pvid_tagging_enabled(adapter)))
-+		be_disable_if_filters(adapter);
- 
- 	if (adapter->flags & BE_FLAGS_NAPI_ENABLED) {
- 		for_all_evt_queues(adapter, eqo, i) {
-@@ -3571,9 +3572,11 @@ static int be_open(struct net_device *netdev)
- 	if (status)
- 		goto err;
- 
--	status = be_enable_if_filters(adapter);
--	if (status)
--		goto err;
-+	if (!(BEx_chip(adapter) && be_pvid_tagging_enabled(adapter))) {
-+		status = be_enable_if_filters(adapter);
-+		if (status)
-+			goto err;
-+	}
- 
- 	status = be_irq_register(adapter);
- 	if (status)
+Jeffrey Huang (1):
+  bnxt_en: Send PF driver unload notification to all VFs.
+
+Michael Chan (8):
+  bnxt_en: Improve bnxt_vf_update_mac().
+  bnxt_en: Store irq coalescing timer values in micro seconds.
+  bnxt_en: Refactor bnxt_hwrm_set_coal().
+  bnxt_en: Add coalescing support for tx rings.
+  bnxt_en: Use firmware provided message timeout value.
+  bnxt_en: Fix dmesg log firmware error messages.
+  bnxt_en: Refactor _hwrm_send_message().
+  bnxt_en: Add hwrm_send_message_silent().
+
+Rob Swindell (1):
+  bnxt_en: Add installed-package firmware version reporting via Ethtool
+    GDRVINFO
+
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c          | 166 ++++++++++++++-------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h          |  35 ++---
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c  | 126 ++++++++++++++--
+ drivers/net/ethernet/broadcom/bnxt/bnxt_nvm_defs.h |  14 ++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c    |  63 +++++++-
+ 5 files changed, 313 insertions(+), 91 deletions(-)
+
 -- 
-2.4.10
+1.8.3.1
