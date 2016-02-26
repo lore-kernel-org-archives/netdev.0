@@ -1,64 +1,99 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v3 0/5]  bridge/ovs: avoid skb head copy on frame forwarding
-Date: Fri, 26 Feb 2016 10:45:36 +0100
-Message-ID: <cover.1456412101.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Flavio Leitner <fbl@sysclose.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [net-next PATCH v2 3/3] net: sched: cls_u32 add bit to specify
+ software only rules
+Date: Fri, 26 Feb 2016 11:29:52 +0100
+Message-ID: <20160226102952.GB2158@nanopsycho.orion>
+References: <20160225231540.9820.7688.stgit@john-Precision-Tower-5810>
+ <20160225232045.9820.6694.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: daniel@iogearbox.net, simon.horman@netronome.com,
+	netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+	davem@davemloft.net, jhs@mojatatu.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52547 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751832AbcBZJqD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Feb 2016 04:46:03 -0500
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34455 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753846AbcBZK3z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 05:29:55 -0500
+Received: by mail-wm0-f68.google.com with SMTP id b205so8311055wmb.1
+        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 02:29:54 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20160225232045.9820.6694.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, while when an OVS or Linux bridge is used to forward frames towards
-some tunnel device, a skb_head_copy() may occur if the ingress device do not
-provide enough headroom for the tx encapsulation.
+Fri, Feb 26, 2016 at 12:20:45AM CET, john.fastabend@gmail.com wrote:
+>In the initial implementation the only way to stop a rule from being
+>inserted into the hardware table was via the device feature flag.
+>However this doesn't work well when working on an end host system
+>where packets are expect to hit both the hardware and software
+>datapaths.
+>
+>For example we can imagine a rule that will match an IP address and
+>increment a field. If we install this rule in both hardware and
+>software we may increment the field twice. To date we have only
+>added support for the drop action so we have been able to ignore
+>these cases. But as we extend the action support we will hit this
+>example plus more such cases. Arguably these are not even corner
+>cases in many working systems these cases will be common.
+>
+>To avoid forcing the driver to always abort (i.e. the above example)
+>this patch adds a flag to add a rule in software only. A careful
+>user can use this flag to build software and hardware datapaths
+>that work together. One example we have found particularly useful
+>is to use hardware resources to set the skb->mark on the skb when
+>the match may be expensive to run in software but a mark lookup
+>in a hash table is cheap. The idea here is hardware can do in one
+>lookup what the u32 classifier may need to traverse multiple lists
+>and hash tables to compute. The flag is only passed down on inserts
+>on deletion to avoid stale references in hardware we always try
+>to remove a rule if it exists.
+>
+>The flags field is part of the classifier specific options. Although
+>it is tempting to lift this into the generic structure doing this
+>proves difficult do to how the tc netlink attributes are implemented
+>along with how the dump/change routines are called. There is also
+>precedence for putting seemingly generic pieces in the specific
+>classifier options such as TCA_U32_POLICE, TCA_U32_ACT, etc. So
+>although not ideal I've left FLAGS in the u32 options as well as it
+>simplifies the code greatly and user space has already learned how
+>to manage these bits ala 'tc' tool.
+>
+>Another thing if trying to update a rule we require the flags to
+>be unchanged. This is to force user space, software u32 and
+>the hardware u32 to keep in sync. Thanks to Simon Horman for
+>catching this case.
+>
+>Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>---
+> include/net/pkt_cls.h        |   13 +++++++++++--
+> include/uapi/linux/pkt_cls.h |    1 +
+> net/sched/cls_u32.c          |   37 +++++++++++++++++++++++++++----------
+> 3 files changed, 39 insertions(+), 12 deletions(-)
+>
+>diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+>index 6096e96..42dc412 100644
+>--- a/include/net/pkt_cls.h
+>+++ b/include/net/pkt_cls.h
+>@@ -392,12 +392,21 @@ struct tc_cls_u32_offload {
+> 	};
+> };
+> 
+>-static inline bool tc_should_offload(struct net_device *dev)
+>+/* tca flags definitions */
+>+#define TCA_CLS_FLAGS_SOFTWARE 1
 
-This patch series tries to address the issue implementing a new ndo operation to
-allow the master device to control the headroom used when allocating the skb on
-frame reception.
+I'm sorry, the flag name is misleading to me.
+We have by default, both SW and HW.
 
-Said operation is used by the Linux bridge to notify the bridged ports of
-needed_headroom changes, and similar bookkeeping and behaviour is also added to
-openvswitch, on a per datapath basis.
+Now this flag should say: "do not push to HW".
 
-Finally, the operation is implemented for veth and tun device, which give
-performance improvement in the 6-12% range when forwarding frames from said
-devices towards a vxlan tunnel.
+In future, there will be another flag saying: "do not push to SW".
 
-v2:
-- fix netdev_get_fwd_headroom() behaviour
-- remove some code duplication with the netdev_set_rx_headroom() and
-   netdev_reset_rx_headroom() helpers
-- handle headroom reset on [v]port removal/deletion
-- initialize tun align to the old default value
+So I suggest what I already suggested before:
 
-v3:
-- fix a comment typo
+TCA_CLS_FLAGS_SKIP_HW for this one and
+TCA_CLS_FLAGS_SKIP_KERNEL for the future one.
 
-Paolo Abeni (5):
-  netdev: introduce ndo_set_rx_headroom
-  bridge: notify enslaved devices of headroom changes
-  ovs: propagate per dp max headroom to all vports
-  net/tun: implement ndo_set_rx_headroom
-  veth: implement ndo_set_rx_headroom
-
- drivers/net/tun.c                    | 17 ++++++++++++++-
- drivers/net/veth.c                   | 26 +++++++++++++++++++++++
- include/linux/netdevice.h            | 31 ++++++++++++++++++++++++++++
- net/bridge/br_if.c                   | 37 +++++++++++++++++++++++++++++++--
- net/openvswitch/datapath.c           | 40 ++++++++++++++++++++++++++++++++++++
- net/openvswitch/datapath.h           |  4 ++++
- net/openvswitch/vport-internal_dev.c | 10 ++++++++-
- 7 files changed, 161 insertions(+), 4 deletions(-)
-
--- 
-1.8.3.1
+Sounds sane?
