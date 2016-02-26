@@ -1,7 +1,7 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v3 3/5] ovs: propagate per dp max headroom to all vports
-Date: Fri, 26 Feb 2016 10:45:39 +0100
-Message-ID: <a3f47221b2d70af41198fc254b1575a79d64aac8.1456412101.git.pabeni@redhat.com>
+Subject: [PATCH net-next v3 1/5] netdev: introduce ndo_set_rx_headroom
+Date: Fri, 26 Feb 2016 10:45:37 +0100
+Message-ID: <ec2515e951a931c9c89710a5cd8444bd9b34ca7c.1456412101.git.pabeni@redhat.com>
 References: <cover.1456412101.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>,
@@ -12,171 +12,98 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48404 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52562 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751761AbcBZJqJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Feb 2016 04:46:09 -0500
+	id S1751761AbcBZJqF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Feb 2016 04:46:05 -0500
 In-Reply-To: <cover.1456412101.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch implements bookkeeping support to compute the maximum
-headroom for all the devices in each datapath. When said value
-changes, the underlying devs are notified via the
-ndo_set_rx_headroom method.
-
-This also increases the internal vports xmit performance.
+This method allows the controlling device (i.e. the bridge) to specify
+additional headroom to be allocated for skb head on frame reception.
 
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
 ---
 v1 -> v2:
-  - use netdev_set_rx_headroom() to update dp vport rx headroom
-  - reset the vport's dev headroom on vport deletion
+ - fixed netdev_get_fwd_headroom()
+ - added netdev_set_rx_headroom() and netdev_reset_rx_headroom() helpers
+v2 -> v3:
+ - fix typo in ndo_set_rx_headroom documentation
 ---
- net/openvswitch/datapath.c           | 40 ++++++++++++++++++++++++++++++++++++
- net/openvswitch/datapath.h           |  4 ++++
- net/openvswitch/vport-internal_dev.c | 10 ++++++++-
- 3 files changed, 53 insertions(+), 1 deletion(-)
+ include/linux/netdevice.h | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index c4e8455..e6a7d49 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -1908,6 +1908,29 @@ static struct vport *lookup_vport(struct net *net,
- 		return ERR_PTR(-EINVAL);
- }
- 
-+/* Called with ovs_mutex */
-+static void update_headroom(struct datapath *dp)
-+{
-+	unsigned dev_headroom, max_headroom = 0;
-+	struct net_device *dev;
-+	struct vport *vport;
-+	int i;
-+
-+	for (i = 0; i < DP_VPORT_HASH_BUCKETS; i++) {
-+		hlist_for_each_entry_rcu(vport, &dp->ports[i], dp_hash_node) {
-+			dev = vport->dev;
-+			dev_headroom = netdev_get_fwd_headroom(dev);
-+			if (dev_headroom > max_headroom)
-+				max_headroom = dev_headroom;
-+		}
-+	}
-+
-+	dp->max_headroom = max_headroom;
-+	for (i = 0; i < DP_VPORT_HASH_BUCKETS; i++)
-+		hlist_for_each_entry_rcu(vport, &dp->ports[i], dp_hash_node)
-+			netdev_set_rx_headroom(vport->dev, max_headroom);
-+}
-+
- static int ovs_vport_cmd_new(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct nlattr **a = info->attrs;
-@@ -1973,6 +1996,12 @@ restart:
- 
- 	err = ovs_vport_cmd_fill_info(vport, reply, info->snd_portid,
- 				      info->snd_seq, 0, OVS_VPORT_CMD_NEW);
-+
-+	if (netdev_get_fwd_headroom(vport->dev) > dp->max_headroom)
-+		update_headroom(dp);
-+	else
-+		netdev_set_rx_headroom(vport->dev, dp->max_headroom);
-+
- 	BUG_ON(err < 0);
- 	ovs_unlock();
- 
-@@ -2039,8 +2068,10 @@ exit_unlock_free:
- 
- static int ovs_vport_cmd_del(struct sk_buff *skb, struct genl_info *info)
- {
-+	bool must_update_headroom = false;
- 	struct nlattr **a = info->attrs;
- 	struct sk_buff *reply;
-+	struct datapath *dp;
- 	struct vport *vport;
- 	int err;
- 
-@@ -2062,7 +2093,16 @@ static int ovs_vport_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	err = ovs_vport_cmd_fill_info(vport, reply, info->snd_portid,
- 				      info->snd_seq, 0, OVS_VPORT_CMD_DEL);
- 	BUG_ON(err < 0);
-+
-+	/* the vport deletion may trigger dp headroom update */
-+	dp = vport->dp;
-+	if (netdev_get_fwd_headroom(vport->dev) == dp->max_headroom)
-+		must_update_headroom = true;
-+	netdev_reset_rx_headroom(vport->dev);
- 	ovs_dp_detach_port(vport);
-+
-+	if (must_update_headroom)
-+		update_headroom(dp);
- 	ovs_unlock();
- 
- 	ovs_notify(&dp_vport_genl_family, reply, info);
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index 67bdecd..427e39a 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -68,6 +68,8 @@ struct dp_stats_percpu {
-  * ovs_mutex and RCU.
-  * @stats_percpu: Per-CPU datapath statistics.
-  * @net: Reference to net namespace.
-+ * @max_headroom: the maximum headroom of all vports in this datapath; it will
-+ * be used by all the internal vports in this dp.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e52077f..efe7cec 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1093,6 +1093,12 @@ struct tc_to_netdev {
+  *	This function is used to get egress tunnel information for given skb.
+  *	This is useful for retrieving outer tunnel header parameters while
+  *	sampling packet.
++ * void (*ndo_set_rx_headroom)(struct net_device *dev, int needed_headroom);
++ *	This function is used to specify the headroom that the skb must
++ *	consider when allocation skb during packet reception. Setting
++ *	appropriate rx headroom value allows avoiding skb head copy on
++ *	forward. Setting a negative value reset the rx headroom to the
++ *	default value.
   *
-  * Context: See the comment on locking at the top of datapath.c for additional
-  * locking information.
-@@ -89,6 +91,8 @@ struct datapath {
- 	possible_net_t net;
- 
- 	u32 user_features;
-+
-+	u32 max_headroom;
+  */
+ struct net_device_ops {
+@@ -1278,6 +1284,8 @@ struct net_device_ops {
+ 							 bool proto_down);
+ 	int			(*ndo_fill_metadata_dst)(struct net_device *dev,
+ 						       struct sk_buff *skb);
++	void			(*ndo_set_rx_headroom)(struct net_device *dev,
++						       int needed_headroom);
  };
  
  /**
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index ec76398..83a5534 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -138,6 +138,11 @@ internal_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 	return stats;
- }
- 
-+void internal_set_rx_headroom(struct net_device *dev, int new_hr)
-+{
-+	dev->needed_headroom = new_hr;
-+}
-+
- static const struct net_device_ops internal_dev_netdev_ops = {
- 	.ndo_open = internal_dev_open,
- 	.ndo_stop = internal_dev_stop,
-@@ -145,6 +150,7 @@ static const struct net_device_ops internal_dev_netdev_ops = {
- 	.ndo_set_mac_address = eth_mac_addr,
- 	.ndo_change_mtu = internal_dev_change_mtu,
- 	.ndo_get_stats64 = internal_get_stats,
-+	.ndo_set_rx_headroom = internal_set_rx_headroom,
+@@ -1315,6 +1323,8 @@ struct net_device_ops {
+  * @IFF_L3MDEV_SLAVE: device is enslaved to an L3 master device
+  * @IFF_TEAM: device is a team device
+  * @IFF_RXFH_CONFIGURED: device has had Rx Flow indirection table configured
++ * @IFF_PHONY_HEADROOM: the headroom value is controlled by an external
++ *	entity (i.e. the master device for bridged veth)
+  */
+ enum netdev_priv_flags {
+ 	IFF_802_1Q_VLAN			= 1<<0,
+@@ -1343,6 +1353,7 @@ enum netdev_priv_flags {
+ 	IFF_L3MDEV_SLAVE		= 1<<23,
+ 	IFF_TEAM			= 1<<24,
+ 	IFF_RXFH_CONFIGURED		= 1<<25,
++	IFF_PHONY_HEADROOM		= 1<<26,
  };
  
- static struct rtnl_link_ops internal_dev_link_ops __read_mostly = {
-@@ -158,7 +164,8 @@ static void do_setup(struct net_device *netdev)
- 	netdev->netdev_ops = &internal_dev_netdev_ops;
+ #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
+@@ -1937,6 +1948,26 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
+ 				    struct sk_buff *skb,
+ 				    void *accel_priv);
  
- 	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
--	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE | IFF_OPENVSWITCH;
-+	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE | IFF_OPENVSWITCH |
-+			      IFF_PHONY_HEADROOM;
- 	netdev->destructor = internal_dev_destructor;
- 	netdev->ethtool_ops = &internal_dev_ethtool_ops;
- 	netdev->rtnl_link_ops = &internal_dev_link_ops;
-@@ -199,6 +206,7 @@ static struct vport *internal_dev_create(const struct vport_parms *parms)
- 		err = -ENOMEM;
- 		goto error_free_netdev;
- 	}
-+	vport->dev->needed_headroom = vport->dp->max_headroom;
- 
- 	dev_net_set(vport->dev, ovs_dp_get_net(vport->dp));
- 	internal_dev = internal_dev_priv(vport->dev);
++/* returns the headroom that the master device needs to take in account
++ * when forwarding to this dev
++ */
++static inline unsigned netdev_get_fwd_headroom(struct net_device *dev)
++{
++	return dev->priv_flags & IFF_PHONY_HEADROOM ? 0 : dev->needed_headroom;
++}
++
++static inline void netdev_set_rx_headroom(struct net_device *dev, int new_hr)
++{
++	if (dev->netdev_ops->ndo_set_rx_headroom)
++		dev->netdev_ops->ndo_set_rx_headroom(dev, new_hr);
++}
++
++/* set the device rx headroom to the dev's default */
++static inline void netdev_reset_rx_headroom(struct net_device *dev)
++{
++	netdev_set_rx_headroom(dev, -1);
++}
++
+ /*
+  * Net namespace inlines
+  */
 -- 
 1.8.3.1
