@@ -1,102 +1,94 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v2 3/3] net: sched: cls_u32 add bit to specify
- software only rules
-Date: Fri, 26 Feb 2016 06:29:33 -0800
-Message-ID: <56D0614D.4030607@gmail.com>
-References: <20160225231540.9820.7688.stgit@john-Precision-Tower-5810> <20160225232045.9820.6694.stgit@john-Precision-Tower-5810> <20160226102952.GB2158@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, simon.horman@netronome.com,
-	netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-	davem@davemloft.net, jhs@mojatatu.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:34178 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754102AbcBZO3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 09:29:48 -0500
-Received: by mail-pf0-f178.google.com with SMTP id x65so53037821pfb.1
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 06:29:47 -0800 (PST)
-In-Reply-To: <20160226102952.GB2158@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] asm-generic: remove old nonatomic-io wrapper files
+Date: Fri, 26 Feb 2016 15:29:05 +0100
+Message-ID: <1456496980-1852604-1-git-send-email-arnd@arndb.de>
+Cc: linux-arm-kernel@lists.infradead.org,
+	Dan Williams <dan.j.williams@intel.com>,
+	Vinod Koul <vinod.koul@intel.com>,
+	Jakub Kicinski <jakub.kicinski@netronome.com>,
+	Rolf Neugebauer <rolf.neugebauer@netronome.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Yisen Zhuang <yisen.zhuang@huawei.com>,
+	yankejian <yankejian@huawei.com>,
+	kenneth Lee <liguozhu@hisilicon.com>,
+	huangdaode <huangdaode@hisilicon.com>,
+	lipeng <lipeng321@huawei.com>, linux-kernel@vger.kernel.org,
+	dmaengine@vger.kernel.org, netdev@vger.kernel.org,
+	oss-drivers@netronome.com, linux-arch@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>, Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-02-26 02:29 AM, Jiri Pirko wrote:
-> Fri, Feb 26, 2016 at 12:20:45AM CET, john.fastabend@gmail.com wrote:
->> In the initial implementation the only way to stop a rule from being
->> inserted into the hardware table was via the device feature flag.
->> However this doesn't work well when working on an end host system
->> where packets are expect to hit both the hardware and software
->> datapaths.
->>
->> For example we can imagine a rule that will match an IP address and
->> increment a field. If we install this rule in both hardware and
->> software we may increment the field twice. To date we have only
->> added support for the drop action so we have been able to ignore
->> these cases. But as we extend the action support we will hit this
->> example plus more such cases. Arguably these are not even corner
->> cases in many working systems these cases will be common.
->>
->> To avoid forcing the driver to always abort (i.e. the above example)
->> this patch adds a flag to add a rule in software only. A careful
->> user can use this flag to build software and hardware datapaths
->> that work together. One example we have found particularly useful
->> is to use hardware resources to set the skb->mark on the skb when
->> the match may be expensive to run in software but a mark lookup
->> in a hash table is cheap. The idea here is hardware can do in one
->> lookup what the u32 classifier may need to traverse multiple lists
->> and hash tables to compute. The flag is only passed down on inserts
->> on deletion to avoid stale references in hardware we always try
->> to remove a rule if it exists.
->>
->> The flags field is part of the classifier specific options. Although
->> it is tempting to lift this into the generic structure doing this
->> proves difficult do to how the tc netlink attributes are implemented
->> along with how the dump/change routines are called. There is also
->> precedence for putting seemingly generic pieces in the specific
->> classifier options such as TCA_U32_POLICE, TCA_U32_ACT, etc. So
->> although not ideal I've left FLAGS in the u32 options as well as it
->> simplifies the code greatly and user space has already learned how
->> to manage these bits ala 'tc' tool.
->>
->> Another thing if trying to update a rule we require the flags to
->> be unchanged. This is to force user space, software u32 and
->> the hardware u32 to keep in sync. Thanks to Simon Horman for
->> catching this case.
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->> include/net/pkt_cls.h        |   13 +++++++++++--
->> include/uapi/linux/pkt_cls.h |    1 +
->> net/sched/cls_u32.c          |   37 +++++++++++++++++++++++++++----------
->> 3 files changed, 39 insertions(+), 12 deletions(-)
->>
->> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
->> index 6096e96..42dc412 100644
->> --- a/include/net/pkt_cls.h
->> +++ b/include/net/pkt_cls.h
->> @@ -392,12 +392,21 @@ struct tc_cls_u32_offload {
->> 	};
->> };
->>
->> -static inline bool tc_should_offload(struct net_device *dev)
->> +/* tca flags definitions */
->> +#define TCA_CLS_FLAGS_SOFTWARE 1
-> 
-> I'm sorry, the flag name is misleading to me.
-> We have by default, both SW and HW.
-> 
-> Now this flag should say: "do not push to HW".
-> 
-> In future, there will be another flag saying: "do not push to SW".
-> 
-> So I suggest what I already suggested before:
-> 
-> TCA_CLS_FLAGS_SKIP_HW for this one and
-> TCA_CLS_FLAGS_SKIP_KERNEL for the future one.
-> 
-> Sounds sane?
-> 
+The two header files got moved to include/linux, and most
+users were already converted, this changes the remaining drivers
+and removes the files.
 
-Sounds reasonable I'll change it in the next revision.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/dma/idma64.h                                | 2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c | 2 +-
+ drivers/net/ethernet/netronome/nfp/nfp_net.h        | 2 +-
+ include/asm-generic/io-64-nonatomic-hi-lo.h         | 2 --
+ include/asm-generic/io-64-nonatomic-lo-hi.h         | 2 --
+ 5 files changed, 3 insertions(+), 7 deletions(-)
+ delete mode 100644 include/asm-generic/io-64-nonatomic-hi-lo.h
+ delete mode 100644 include/asm-generic/io-64-nonatomic-lo-hi.h
+
+diff --git a/drivers/dma/idma64.h b/drivers/dma/idma64.h
+index 8423f13ed0da..a52ad6bcf86a 100644
+--- a/drivers/dma/idma64.h
++++ b/drivers/dma/idma64.h
+@@ -16,7 +16,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/types.h>
+ 
+-#include <asm-generic/io-64-nonatomic-lo-hi.h>
++#include <linux/io-64-nonatomic-lo-hi.h>
+ 
+ #include "virt-dma.h"
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
+index 802d55457f19..fd90f3737963 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
+@@ -7,7 +7,7 @@
+  * (at your option) any later version.
+  */
+ 
+-#include <asm-generic/io-64-nonatomic-hi-lo.h>
++#include <linux/io-64-nonatomic-hi-lo.h>
+ #include <linux/of_mdio.h>
+ #include "hns_dsaf_main.h"
+ #include "hns_dsaf_mac.h"
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index ab264e1bccd0..75683fb26734 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -45,7 +45,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/netdevice.h>
+ #include <linux/pci.h>
+-#include <asm-generic/io-64-nonatomic-hi-lo.h>
++#include <linux/io-64-nonatomic-hi-lo.h>
+ 
+ #include "nfp_net_ctrl.h"
+ 
+diff --git a/include/asm-generic/io-64-nonatomic-hi-lo.h b/include/asm-generic/io-64-nonatomic-hi-lo.h
+deleted file mode 100644
+index 32b73abce1b0..000000000000
+--- a/include/asm-generic/io-64-nonatomic-hi-lo.h
++++ /dev/null
+@@ -1,2 +0,0 @@
+-/* XXX: delete asm-generic/io-64-nonatomic-hi-lo.h after converting new users */
+-#include <linux/io-64-nonatomic-hi-lo.h>
+diff --git a/include/asm-generic/io-64-nonatomic-lo-hi.h b/include/asm-generic/io-64-nonatomic-lo-hi.h
+deleted file mode 100644
+index 55a627c37721..000000000000
+--- a/include/asm-generic/io-64-nonatomic-lo-hi.h
++++ /dev/null
+@@ -1,2 +0,0 @@
+-/* XXX: delete asm-generic/io-64-nonatomic-lo-hi.h after converting new users */
+-#include <linux/io-64-nonatomic-lo-hi.h>
+-- 
+2.7.0
