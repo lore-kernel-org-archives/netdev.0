@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 0/9] Introduce devlink interface and first drivers to use it
-Date: Fri, 26 Feb 2016 17:32:22 +0100
-Message-ID: <1456504351-18871-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 4/9] mlxsw: Implement devlink interface
+Date: Fri, 26 Feb 2016 17:32:26 +0100
+Message-ID: <1456504351-18871-5-git-send-email-jiri@resnulli.us>
+References: <1456504351-18871-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com, yishaih@mellanox.com,
 	dledford@redhat.com, sean.hefty@intel.com,
@@ -13,164 +14,289 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	gospo@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:36890 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030220AbcBZQcf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 11:32:35 -0500
-Received: by mail-wm0-f43.google.com with SMTP id g62so77350295wme.0
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 08:32:34 -0800 (PST)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33545 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030217AbcBZQcm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 11:32:42 -0500
+Received: by mail-wm0-f66.google.com with SMTP id c200so9943111wme.0
+        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 08:32:41 -0800 (PST)
+In-Reply-To: <1456504351-18871-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-There a is need for some userspace API that would allow to expose things
-that are not directly related to any device class like net_device of
-ib_device, but rather chip-wide/switch-ASIC-wide stuff.
+Implement newly introduced devlink interface. Add devlink port instances
+for every port and set the port types accordingly.
 
-Use cases:
-1) get/set of port type (Ethernet/InfiniBand)
-2) setting up port splitters - split port into multiple ones and squash again,
-   enables usage of splitter cable
-3) setting up shared buffers - shared among multiple ports within
-   one chip (work in progress)
-4) configuration of switch wide properties - resources division etc - This will
-   allow to pass configuration that is unacceptable to be passed as
-   a module option.
-
-First patch of this set introduces a new generic Netlink based interface,
-called "devlink". It is similar to nl80211 model and it is heavily
-influenced by it, including the API definition. The devlink introduction patch
-implements use cases 1) and 2). Other 2 are in development atm and will
-be addressed by follow-ups.
-
-It is very convenient for drivers to use devlink, as you can see in other
-patches in this set.
-
-Counterpart for devlink is userspace tool for now called "dl". Command line
-interface and outputs are derived from "ip" tool so it should be easy
-for users to get used to it.
-
-It is available here as a standalone tool for now:
-https://github.com/jpirko/devlink
-After this is merge in kernel, I will include the "dl" or "devlink" tool
-into iproute2 toolset.
-
-Port type setting example:
-	myhost:~$ dl help
-	Usage: dl [ OPTIONS ] OBJECT { COMMAND | help }
-	where  OBJECT := { dev | port | monitor }
-	       OPTIONS := { -v/--verbose }
-	
-	myhost:~$ dl dev help
-	Usage: dl dev show [DEV]
-	
-	myhost:~$ dl dev show
-	pci/0000:01:00.0
-	
-	myhost:~$ dl port help
-	Usage: dl port show [DEV/PORT_INDEX]
-	Usage: dl port set DEV/PORT_INDEX [ type { eth | ib | auto} ]
-	Usage: dl port split DEV/PORT_INDEX count
-	Usage: dl port unsplit DEV/PORT_INDEX
-	
-	myhost:~$ dl port show
-	pci/0000:01:00.0/1: type ib ibdev mlx4_0
-	pci/0000:01:00.0/2: type ib ibdev mlx4_0
-	
-	myhost:~$ sudo dl port set pci/0000:01:00.0/1 type eth
-	
-	myhost:~$ dl port show
-	pci/0000:01:00.0/1: type eth netdev ens4
-	pci/0000:01:00.0/2: type ib ibdev mlx4_0
-	
-	myhost:~$ sudo dl port set ens4 type auto
-	
-	myhost:~$ dl port show
-	pci/0000:01:00.0/1: type eth(auto) netdev ens4
-	pci/0000:01:00.0/2: type ib ibdev mlx4_0
-
-Port splitting example:
-	myswitch:~$ sudo modprobe mlxsw_pci
-	myswitch:~$ dl port
-	pci/0000:03:00.0/1: type eth netdev eth0
-	pci/0000:03:00.0/3: type eth netdev eth1
-	pci/0000:03:00.0/5: type eth netdev eth2
-	...
-	pci/0000:03:00.0/63: type eth netdev eth31
-	
-	myswitch:~$ sudo dl port split pci/0000:03:00.0/1 2   (or "sudo dl port split eth0 2")
-	
-	myswitch:~$ dl port
-	pci/0000:03:00.0/3: type eth netdev eth1
-	pci/0000:03:00.0/5: type eth netdev eth2
-	...
-	pci/0000:03:00.0/63: type eth netdev eth31
-	pci/0000:03:00.0/1: type eth netdev eth0 split_group 16
-	pci/0000:03:00.0/2: type eth netdev eth32 split_group 16
-	
-	myswitch:~$ sudo dl port unsplit pci/0000:03:00.0/1
-	
-	myswitch:~$ dl port
-	pci/0000:03:00.0/3: type eth netdev eth1
-	pci/0000:03:00.0/5: type eth netdev eth2
-	pci/0000:03:00.0/63: type eth netdev eth31
-	pci/0000:03:00.0/1: type eth netdev eth0
-
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 ---
 v2->v3:
-patch 1/9
- -removed generated devlink index and name, use bus name and dev name as
-  a handle for all userspace originated commands. Along with that,
-  remove sysfs stub. Requested by Hannes Sowa.
-patch 2/9
- -add dev param to devlink_register (api change)
-patch 4/9
- -add dev param to devlink_register (api change)
-patch 9/9
- -set port's speed according to width fix by Ido
+-add dev param to devlink_register (api change)
 v1->v2:
-patch 1/9
- -removed no longer used "devlink_dev" helper
- -fix couple of typos and misspells
-patch 4/9:
- -removed SET_NETDEV_DEV set to devlink dev
+-removed SET_NETDEV_DEV set to devlink dev
+---
+ drivers/net/ethernet/mellanox/mlxsw/core.c     | 23 +++++++++++++++++------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 19 +++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  2 ++
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 20 ++++++++++++++++++++
+ 4 files changed, 58 insertions(+), 6 deletions(-)
 
-Ido Schimmel (4):
-  mlxsw: spectrum: Unmap local port from module during teardown
-  mlxsw: spectrum: Store local port to module mapping during init
-  mlxsw: spectrum: Mark unused ports using NULL
-  mlxsw: spectrum: Introduce port splitting
-
-Jiri Pirko (5):
-  Introduce devlink infrastructure
-  mlx4: Implement devlink interface
-  mlx4: Implement port type setting via devlink interface
-  mlxsw: Implement devlink interface
-  mlxsw: core: Add devlink port splitter callbacks
-
- MAINTAINERS                                    |   8 +
- drivers/infiniband/hw/mlx4/main.c              |   7 +
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   8 +-
- drivers/net/ethernet/mellanox/mlx4/intf.c      |   9 +
- drivers/net/ethernet/mellanox/mlx4/main.c      | 128 +++--
- drivers/net/ethernet/mellanox/mlx4/mlx4.h      |   2 +
- drivers/net/ethernet/mellanox/mlxsw/core.c     |  55 +-
- drivers/net/ethernet/mellanox/mlxsw/core.h     |   2 +
- drivers/net/ethernet/mellanox/mlxsw/port.h     |   2 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 272 ++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  10 +-
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c |  20 +
- include/linux/mlx4/driver.h                    |   3 +
- include/net/devlink.h                          | 140 +++++
- include/uapi/linux/devlink.h                   |  72 +++
- net/Kconfig                                    |   7 +
- net/core/Makefile                              |   1 +
- net/core/devlink.c                             | 738 +++++++++++++++++++++++++
- 18 files changed, 1425 insertions(+), 59 deletions(-)
- create mode 100644 include/net/devlink.h
- create mode 100644 include/uapi/linux/devlink.h
- create mode 100644 net/core/devlink.c
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
+index 22379eb..a4026a4 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
+@@ -56,6 +56,7 @@
+ #include <linux/rcupdate.h>
+ #include <linux/slab.h>
+ #include <asm/byteorder.h>
++#include <net/devlink.h>
+ 
+ #include "core.h"
+ #include "item.h"
+@@ -791,6 +792,7 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
+ 	const char *device_kind = mlxsw_bus_info->device_kind;
+ 	struct mlxsw_core *mlxsw_core;
+ 	struct mlxsw_driver *mlxsw_driver;
++	struct devlink *devlink;
+ 	size_t alloc_size;
+ 	int err;
+ 
+@@ -798,12 +800,13 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
+ 	if (!mlxsw_driver)
+ 		return -EINVAL;
+ 	alloc_size = sizeof(*mlxsw_core) + mlxsw_driver->priv_size;
+-	mlxsw_core = kzalloc(alloc_size, GFP_KERNEL);
+-	if (!mlxsw_core) {
++	devlink = devlink_alloc(NULL, alloc_size);
++	if (!devlink) {
+ 		err = -ENOMEM;
+-		goto err_core_alloc;
++		goto err_devlink_alloc;
+ 	}
+ 
++	mlxsw_core = devlink_priv(devlink);
+ 	INIT_LIST_HEAD(&mlxsw_core->rx_listener_list);
+ 	INIT_LIST_HEAD(&mlxsw_core->event_listener_list);
+ 	mlxsw_core->driver = mlxsw_driver;
+@@ -841,6 +844,10 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
+ 	if (err)
+ 		goto err_hwmon_init;
+ 
++	err = devlink_register(devlink, mlxsw_bus_info->dev);
++	if (err)
++		goto err_devlink_register;
++
+ 	err = mlxsw_driver->init(mlxsw_core->driver_priv, mlxsw_core,
+ 				 mlxsw_bus_info);
+ 	if (err)
+@@ -855,6 +862,8 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
+ err_debugfs_init:
+ 	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
+ err_driver_init:
++	devlink_unregister(devlink);
++err_devlink_register:
+ err_hwmon_init:
+ 	mlxsw_emad_fini(mlxsw_core);
+ err_emad_init:
+@@ -864,8 +873,8 @@ err_bus_init:
+ err_alloc_lag_mapping:
+ 	free_percpu(mlxsw_core->pcpu_stats);
+ err_alloc_stats:
+-	kfree(mlxsw_core);
+-err_core_alloc:
++	devlink_free(devlink);
++err_devlink_alloc:
+ 	mlxsw_core_driver_put(device_kind);
+ 	return err;
+ }
+@@ -874,14 +883,16 @@ EXPORT_SYMBOL(mlxsw_core_bus_device_register);
+ void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
+ {
+ 	const char *device_kind = mlxsw_core->bus_info->device_kind;
++	struct devlink *devlink = priv_to_devlink(mlxsw_core);
+ 
+ 	mlxsw_core_debugfs_fini(mlxsw_core);
+ 	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
++	devlink_unregister(devlink);
+ 	mlxsw_emad_fini(mlxsw_core);
+ 	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
+ 	kfree(mlxsw_core->lag.mapping);
+ 	free_percpu(mlxsw_core->pcpu_stats);
+-	kfree(mlxsw_core);
++	devlink_free(devlink);
+ 	mlxsw_core_driver_put(device_kind);
+ }
+ EXPORT_SYMBOL(mlxsw_core_bus_device_unregister);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 09ce451..20e6783 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -49,6 +49,7 @@
+ #include <linux/jiffies.h>
+ #include <linux/bitops.h>
+ #include <linux/list.h>
++#include <net/devlink.h>
+ #include <net/switchdev.h>
+ #include <generated/utsrelease.h>
+ 
+@@ -1351,7 +1352,9 @@ static const struct ethtool_ops mlxsw_sp_port_ethtool_ops = {
+ 
+ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ {
++	struct devlink *devlink = priv_to_devlink(mlxsw_sp->core);
+ 	struct mlxsw_sp_port *mlxsw_sp_port;
++	struct devlink_port *devlink_port;
+ 	struct net_device *dev;
+ 	bool usable;
+ 	size_t bytes;
+@@ -1417,6 +1420,14 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ 		goto port_not_usable;
+ 	}
+ 
++	devlink_port = &mlxsw_sp_port->devlink_port;
++	err = devlink_port_register(devlink, devlink_port, local_port);
++	if (err) {
++		dev_err(mlxsw_sp->bus_info->dev, "Port %d: Failed to register devlink port\n",
++			mlxsw_sp_port->local_port);
++		goto err_devlink_port_register;
++	}
++
+ 	err = mlxsw_sp_port_system_port_mapping_set(mlxsw_sp_port);
+ 	if (err) {
+ 		dev_err(mlxsw_sp->bus_info->dev, "Port %d: Failed to set system port mapping\n",
+@@ -1457,6 +1468,8 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ 		goto err_register_netdev;
+ 	}
+ 
++	devlink_port_type_eth_set(devlink_port, dev);
++
+ 	err = mlxsw_sp_port_vlan_init(mlxsw_sp_port);
+ 	if (err)
+ 		goto err_port_vlan_init;
+@@ -1472,6 +1485,8 @@ err_port_admin_status_set:
+ err_port_mtu_set:
+ err_port_swid_set:
+ err_port_system_port_mapping_set:
++	devlink_port_unregister(&mlxsw_sp_port->devlink_port);
++err_devlink_port_register:
+ port_not_usable:
+ err_port_module_check:
+ err_dev_addr_init:
+@@ -1505,10 +1520,14 @@ static void mlxsw_sp_port_vports_fini(struct mlxsw_sp_port *mlxsw_sp_port)
+ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port = mlxsw_sp->ports[local_port];
++	struct devlink_port *devlink_port;
+ 
+ 	if (!mlxsw_sp_port)
+ 		return;
++	devlink_port = &mlxsw_sp_port->devlink_port;
++	devlink_port_type_clear(devlink_port);
+ 	unregister_netdev(mlxsw_sp_port->dev); /* This calls ndo_stop */
++	devlink_port_unregister(devlink_port);
+ 	mlxsw_sp_port_vports_fini(mlxsw_sp_port);
+ 	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
+ 	free_percpu(mlxsw_sp_port->pcpu_stats);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 3b89ed2..6bf6dac 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -43,6 +43,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/list.h>
+ #include <net/switchdev.h>
++#include <net/devlink.h>
+ 
+ #include "port.h"
+ #include "core.h"
+@@ -162,6 +163,7 @@ struct mlxsw_sp_port {
+ 	unsigned long *untagged_vlans;
+ 	/* VLAN interfaces */
+ 	struct list_head vports_list;
++	struct devlink_port devlink_port;
+ };
+ 
+ static inline struct mlxsw_sp_port *
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+index d85960c..7a60a26 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+@@ -43,6 +43,7 @@
+ #include <linux/device.h>
+ #include <linux/skbuff.h>
+ #include <linux/if_vlan.h>
++#include <net/devlink.h>
+ #include <net/switchdev.h>
+ #include <generated/utsrelease.h>
+ 
+@@ -78,6 +79,7 @@ struct mlxsw_sx_port {
+ 	struct mlxsw_sx_port_pcpu_stats __percpu *pcpu_stats;
+ 	struct mlxsw_sx *mlxsw_sx;
+ 	u8 local_port;
++	struct devlink_port devlink_port;
+ };
+ 
+ /* tx_hdr_version
+@@ -953,7 +955,9 @@ mlxsw_sx_port_mac_learning_mode_set(struct mlxsw_sx_port *mlxsw_sx_port,
+ 
+ static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port)
+ {
++	struct devlink *devlink = priv_to_devlink(mlxsw_sx->core);
+ 	struct mlxsw_sx_port *mlxsw_sx_port;
++	struct devlink_port *devlink_port;
+ 	struct net_device *dev;
+ 	bool usable;
+ 	int err;
+@@ -1007,6 +1011,14 @@ static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port)
+ 		goto port_not_usable;
+ 	}
+ 
++	devlink_port = &mlxsw_sx_port->devlink_port;
++	err = devlink_port_register(devlink, devlink_port, local_port);
++	if (err) {
++		dev_err(mlxsw_sx->bus_info->dev, "Port %d: Failed to register devlink port\n",
++			mlxsw_sx_port->local_port);
++		goto err_devlink_port_register;
++	}
++
+ 	err = mlxsw_sx_port_system_port_mapping_set(mlxsw_sx_port);
+ 	if (err) {
+ 		dev_err(mlxsw_sx->bus_info->dev, "Port %d: Failed to set system port mapping\n",
+@@ -1064,6 +1076,8 @@ static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port)
+ 		goto err_register_netdev;
+ 	}
+ 
++	devlink_port_type_eth_set(devlink_port, dev);
++
+ 	mlxsw_sx->ports[local_port] = mlxsw_sx_port;
+ 	return 0;
+ 
+@@ -1075,6 +1089,8 @@ err_port_mtu_set:
+ err_port_speed_set:
+ err_port_swid_set:
+ err_port_system_port_mapping_set:
++	devlink_port_unregister(&mlxsw_sx_port->devlink_port);
++err_devlink_port_register:
+ port_not_usable:
+ err_port_module_check:
+ err_dev_addr_get:
+@@ -1087,11 +1103,15 @@ err_alloc_stats:
+ static void mlxsw_sx_port_remove(struct mlxsw_sx *mlxsw_sx, u8 local_port)
+ {
+ 	struct mlxsw_sx_port *mlxsw_sx_port = mlxsw_sx->ports[local_port];
++	struct devlink_port *devlink_port;
+ 
+ 	if (!mlxsw_sx_port)
+ 		return;
++	devlink_port = &mlxsw_sx_port->devlink_port;
++	devlink_port_type_clear(devlink_port);
+ 	unregister_netdev(mlxsw_sx_port->dev); /* This calls ndo_stop */
+ 	mlxsw_sx_port_swid_set(mlxsw_sx_port, MLXSW_PORT_SWID_DISABLED_PORT);
++	devlink_port_unregister(devlink_port);
+ 	free_percpu(mlxsw_sx_port->pcpu_stats);
+ 	free_netdev(mlxsw_sx_port->dev);
+ }
 -- 
 2.5.0
