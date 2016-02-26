@@ -1,143 +1,61 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 4/9] net: dsa: mv88e6xxx: assign dynamic FDB to VLANs
-Date: Fri, 26 Feb 2016 13:16:03 -0500
-Message-ID: <1456510568-13679-5-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH V2 03/12] net-next: mediatek: add embedded switch driver
+ (ESW)
+Date: Fri, 26 Feb 2016 10:34:31 -0800
+Message-ID: <56D09AB7.3000203@gmail.com>
+References: <1456496504-50429-1-git-send-email-blogic@openwrt.org>
+ <1456496504-50429-4-git-send-email-blogic@openwrt.org>
+ <20160226151813.GD12022@lunn.ch> <56D06E3F.1020100@openwrt.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Fred Chang (?????????)" <Fred.Chang@mediatek.com>,
+	"Steven Liu (?????????)" <steven.liu@mediatek.com>,
+	netdev@vger.kernel.org,
+	"Carlos Huang (?????????)" <Carlos.Huang@mediatek.com>,
+	linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
+	Matthias Brugger <matthias.bgg@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Neil Armstrong <narmstrong@baylibre.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Kevin Smith <kevin.smith@elecsyscorp.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+	linux-arm-kernel@lists.infradead.org
+To: John Crispin <blogic@openwrt.org>, Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <56D06E3F.1020100@openwrt.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a _mv88e6xxx_fid_new function which gives and flushes the lowest FID
-available. Call it when preparing a new VTU entry.
+On 26/02/16 07:24, John Crispin wrote:
+> 
+> Hi,
+> 
+> would the series be ok if we just dropped those parts and then have a
+> driver in the kernel that wont do much with the out of tree patches ?
+> 
+> the problem here is that on one side people complain about vendors not
+> sending code upstream. once they start being a good citizen and provide
+> funding to send stuff upstream the feedback tends to be very bad as seen
+> here.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 56 +++++++++++++++++++++++++++++++++++++--------
- drivers/net/dsa/mv88e6xxx.h |  2 ++
- 2 files changed, 49 insertions(+), 9 deletions(-)
+I agree with David here, the feedback from Andrew is very constructive,
+you just don't like the feedback you are being given, which is a
+different thing. You can't always get a 12 series patches adding a new
+driver accepted after second try, look at all the recent submissions
+that occured, it took 5-6-7 maybe more submissions until things were in
+a shape where they could be merged. If for your next submission you get
+the feedback that switchdev/DSA is deprecated, and something new needs
+to be used, then I would agree that feedback is not acceptable, I doubt
+this will be the case unless we wait another 10 years to get these
+patches out.
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 6329516..b4b2f05 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1458,6 +1458,41 @@ loadpurge:
- 	return _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_STU_LOAD_PURGE);
- }
- 
-+static int _mv88e6xxx_fid_new(struct dsa_switch *ds, u16 *fid)
-+{
-+	DECLARE_BITMAP(fid_bitmap, MV88E6XXX_N_FID);
-+	struct mv88e6xxx_vtu_stu_entry vlan;
-+	int err;
-+
-+	bitmap_zero(fid_bitmap, MV88E6XXX_N_FID);
-+
-+	/* Set every FID bit used by the VLAN entries */
-+	err = _mv88e6xxx_vtu_vid_write(ds, GLOBAL_VTU_VID_MASK);
-+	if (err)
-+		return err;
-+
-+	do {
-+		err = _mv88e6xxx_vtu_getnext(ds, &vlan);
-+		if (err)
-+			return err;
-+
-+		if (!vlan.valid)
-+			break;
-+
-+		set_bit(vlan.fid, fid_bitmap);
-+	} while (vlan.vid < GLOBAL_VTU_VID_MASK);
-+
-+	/* The reset value 0x000 is used to indicate that multiple address
-+	 * databases are not needed. Return the next positive available.
-+	 */
-+	*fid = find_next_zero_bit(fid_bitmap, MV88E6XXX_N_FID, 1);
-+	if (unlikely(*fid == MV88E6XXX_N_FID))
-+		return -ENOSPC;
-+
-+	/* Clear the database */
-+	return _mv88e6xxx_atu_flush(ds, *fid, true);
-+}
-+
- static int _mv88e6xxx_vtu_new(struct dsa_switch *ds, u16 vid,
- 			      struct mv88e6xxx_vtu_stu_entry *entry)
- {
-@@ -1465,9 +1500,12 @@ static int _mv88e6xxx_vtu_new(struct dsa_switch *ds, u16 vid,
- 	struct mv88e6xxx_vtu_stu_entry vlan = {
- 		.valid = true,
- 		.vid = vid,
--		.fid = vid, /* We use one FID per VLAN */
- 	};
--	int i;
-+	int i, err;
-+
-+	err = _mv88e6xxx_fid_new(ds, &vlan.fid);
-+	if (err)
-+		return err;
- 
- 	/* exclude all ports except the CPU and DSA ports */
- 	for (i = 0; i < ps->num_ports; ++i)
-@@ -1478,7 +1516,6 @@ static int _mv88e6xxx_vtu_new(struct dsa_switch *ds, u16 vid,
- 	if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
- 	    mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds)) {
- 		struct mv88e6xxx_vtu_stu_entry vstp;
--		int err;
- 
- 		/* Adding a VTU entry requires a valid STU entry. As VSTP is not
- 		 * implemented, only one STU entry is needed to cover all VTU
-@@ -1498,11 +1535,6 @@ static int _mv88e6xxx_vtu_new(struct dsa_switch *ds, u16 vid,
- 			if (err)
- 				return err;
- 		}
--
--		/* Clear all MAC addresses from the new database */
--		err = _mv88e6xxx_atu_flush(ds, vlan.fid, true);
--		if (err)
--			return err;
- 	}
- 
- 	*entry = vlan;
-@@ -1789,8 +1821,14 @@ static int _mv88e6xxx_port_fdb_load(struct dsa_switch *ds, int port,
- 				    u8 state)
- {
- 	struct mv88e6xxx_atu_entry entry = { 0 };
-+	struct mv88e6xxx_vtu_stu_entry vlan;
-+	int err;
-+
-+	err = _mv88e6xxx_vtu_get(ds, vid, &vlan, false);
-+	if (err)
-+		return err;
- 
--	entry.fid = vid; /* We use one FID per VLAN */
-+	entry.fid = vlan.fid;
- 	entry.state = state;
- 	ether_addr_copy(entry.mac, addr);
- 	if (state != GLOBAL_ATU_DATA_STATE_UNUSED) {
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 6a30bda..9df331e 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -355,6 +355,8 @@
- #define GLOBAL2_QOS_WEIGHT	0x1c
- #define GLOBAL2_MISC		0x1d
- 
-+#define MV88E6XXX_N_FID		4096
-+
- struct mv88e6xxx_switch_id {
- 	u16 id;
- 	char *name;
+> we are planning on doing a DSA driver but one step at a time. this
+> kind of feedback will inevitably lead to vendors doing second thoughts
+> of upstream contributions.
+
+If you are planning on a DSA driver, which sounds like a good plan, then
+maybe drop the integrated switch parts for now, keep it as a local set
+of patches for your testing, and just get the basic CPU Ethernet MAC
+driver to work for data movement, so that part gets in, and later on,
+when your DSA driver is ready, that's one less thing to take care of.
+They ultimately are logically spearated drivers if you use DSA, a little
+less if you use switchdev.
 -- 
-2.7.1
+Florian
