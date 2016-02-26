@@ -1,46 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC 0/3] intermediate representation for jit and
- cls_u32 conversion
-Date: Fri, 26 Feb 2016 12:40:44 -0500 (EST)
-Message-ID: <20160226.124044.1659531163671654774.davem@davemloft.net>
-References: <20160226114036.GA2523@salvia>
-	<56D07261.1060302@gmail.com>
-	<20160226161948.GA4667@salvia>
+Subject: Re: [PATCH V2 03/12] net-next: mediatek: add embedded switch
+ driver (ESW)
+Date: Fri, 26 Feb 2016 12:43:13 -0500 (EST)
+Message-ID: <20160226.124313.718457444189293093.davem@davemloft.net>
+References: <1456496504-50429-4-git-send-email-blogic@openwrt.org>
+	<20160226151813.GD12022@lunn.ch>
+	<56D07C82.2040204@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.fastabend@gmail.com, netdev@vger.kernel.org, jiri@resnulli.us,
-	horms@verge.net.au
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59275 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030302AbcBZRkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 12:40:47 -0500
-In-Reply-To: <20160226161948.GA4667@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew@lunn.ch, blogic@openwrt.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
+	matthias.bgg@gmail.com, steven.liu@mediatek.com,
+	Carlos.Huang@mediatek.com, Fred.Chang@mediatek.com
+To: nbd@openwrt.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56D07C82.2040204@openwrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Fri, 26 Feb 2016 17:19:48 +0100
+From: Felix Fietkau <nbd@openwrt.org>
+Date: Fri, 26 Feb 2016 17:25:38 +0100
 
-> I see no reason to have as many hooks as frontends to start with. If
-> you find limitations with the IR that are unfixable for any of the
-> existing frontends in the future, then we can add direct hook as final
-> solution.
+> In my opinion, leaving this part out does not make much sense and
+> neither does deferring the entire patch series until we have a
+> switchdev/DSA capable driver. This is just a starting point, which will
+> be turned into a proper driver with the right APIs later.
 
-I see no problem with adding many hooks, one for each class of things
-we'd like to offload.  Stuff neading IR vs. stuff that does not.
+I disagree, and we want people to concentrate on writing proper
+switchdev/DSA drivers.
 
-And IR is "unfixable" for the latter case in that it will always be by
-definition pure overhead if the cards can do this stuff directly, and
-they can.
+People like Andrew have offered to help in any way possible to make
+this as easy as possible, so please take this seriously.
 
-I do not encourage anything, in any way whatsoever, to try and genericize
-all of this stuff into a generic framework.  That is wasted work in my
-opinion.
+I would have accepted your arguments a year ago when we didn't have
+the right infrastructure, but now we do and there is no real excuse
+to submit partial or bastardized drivers for these kinds of hardware
+anymore
 
-You find an IR useful for nftables offloads, great!  But I do not see it
-being useful nor desirable for u32, flower, et al.
-
-Thanks.
+Thanks in advance for your understanding, and I'm plan to stand
+very firm on this.
