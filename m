@@ -1,45 +1,93 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2016-02-26
-Date: Fri, 26 Feb 2016 08:42:57 +0100
-Message-ID: <1456472578-16272-1-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH] can: gs_usb: fixed disconnect bug by removing erroneous use of kfree()
+Date: Fri, 26 Feb 2016 08:42:58 +0100
+Message-ID: <1456472578-16272-2-git-send-email-mkl@pengutronix.de>
+References: <1456472578-16272-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
+	kernel@pengutronix.de,
+	Maximilain Schneider <max@schneidersoft.net>,
+	linux-stable <stable@vger.kernel.org>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1456472578-16272-1-git-send-email-mkl@pengutronix.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello David,
+From: Maximilain Schneider <max@schneidersoft.net>
 
-this is a pull request of one patch for net.
+gs_destroy_candev() erroneously calls kfree() on a struct gs_can *, which is
+allocated through alloc_candev() and should instead be freed using
+free_candev() alone.
 
-The patch by Maximilain Schneider fixes a kfree() problem during disconnect in
-the gs_usb driver.
+The inappropriate use of kfree() causes the kernel to hang when
+gs_destroy_candev() is called.
 
-regrds,
-Marc
+Only the struct gs_usb * which is allocated through kzalloc() should be freed
+using kfree() when the device is disconnected.
+
+Signed-off-by: Maximilian Schneider <max@schneidersoft.net>
+Cc: linux-stable <stable@vger.kernel.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
-
-The following changes since commit 4c0b6eaf373a5323f03a3a20c42fc435715b073d:
-
-  net: thunderx: Fix for Qset error due to CQ full (2016-02-25 16:25:34 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.5-20160226
-
-for you to fetch changes up to e9a2d81b1761093386a0bb8a4f51642ac785ef63:
-
-  can: gs_usb: fixed disconnect bug by removing erroneous use of kfree() (2016-02-26 08:36:33 +0100)
-
-----------------------------------------------------------------
-linux-can-fixes-for-4.5-20160226
-
-----------------------------------------------------------------
-Maximilain Schneider (1):
-      can: gs_usb: fixed disconnect bug by removing erroneous use of kfree()
-
  drivers/net/can/usb/gs_usb.c | 24 +++++++++++-------------
  1 file changed, 11 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/net/can/usb/gs_usb.c b/drivers/net/can/usb/gs_usb.c
+index 5eee62badf45..cbc99d5649af 100644
+--- a/drivers/net/can/usb/gs_usb.c
++++ b/drivers/net/can/usb/gs_usb.c
+@@ -826,9 +826,8 @@ static struct gs_can *gs_make_candev(unsigned int channel, struct usb_interface
+ static void gs_destroy_candev(struct gs_can *dev)
+ {
+ 	unregister_candev(dev->netdev);
+-	free_candev(dev->netdev);
+ 	usb_kill_anchored_urbs(&dev->tx_submitted);
+-	kfree(dev);
++	free_candev(dev->netdev);
+ }
+ 
+ static int gs_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
+@@ -913,12 +912,15 @@ static int gs_usb_probe(struct usb_interface *intf, const struct usb_device_id *
+ 	for (i = 0; i < icount; i++) {
+ 		dev->canch[i] = gs_make_candev(i, intf);
+ 		if (IS_ERR_OR_NULL(dev->canch[i])) {
++			/* save error code to return later */
++			rc = PTR_ERR(dev->canch[i]);
++
+ 			/* on failure destroy previously created candevs */
+ 			icount = i;
+-			for (i = 0; i < icount; i++) {
++			for (i = 0; i < icount; i++)
+ 				gs_destroy_candev(dev->canch[i]);
+-				dev->canch[i] = NULL;
+-			}
++
++			usb_kill_anchored_urbs(&dev->rx_submitted);
+ 			kfree(dev);
+ 			return rc;
+ 		}
+@@ -939,16 +941,12 @@ static void gs_usb_disconnect(struct usb_interface *intf)
+ 		return;
+ 	}
+ 
+-	for (i = 0; i < GS_MAX_INTF; i++) {
+-		struct gs_can *can = dev->canch[i];
+-
+-		if (!can)
+-			continue;
+-
+-		gs_destroy_candev(can);
+-	}
++	for (i = 0; i < GS_MAX_INTF; i++)
++		if (dev->canch[i])
++			gs_destroy_candev(dev->canch[i]);
+ 
+ 	usb_kill_anchored_urbs(&dev->rx_submitted);
++	kfree(dev);
+ }
+ 
+ static const struct usb_device_id gs_usb_table[] = {
+-- 
+2.7.0
 
