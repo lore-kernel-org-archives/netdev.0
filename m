@@ -1,17 +1,16 @@
-From: Andrew Lunn <andrew@lunn.ch>
+From: Kevin Smith <kevin.smith@elecsyscorp.com>
 Subject: Re: [PATCH net-next 7/9] net: dsa: mv88e6xxx: restore VLANTable map
  control
-Date: Fri, 26 Feb 2016 23:09:42 +0100
-Message-ID: <20160226220942.GB1560@lunn.ch>
+Date: Fri, 26 Feb 2016 22:12:28 +0000
+Message-ID: <56D0CDCD.2040806@elecsyscorp.com>
 References: <1456510568-13679-1-git-send-email-vivien.didelot@savoirfairelinux.com>
  <1456510568-13679-8-git-send-email-vivien.didelot@savoirfairelinux.com>
- <56D0B964.4090002@elecsyscorp.com>
- <20160226210419.GA1560@lunn.ch>
+ <56D0B964.4090002@elecsyscorp.com> <20160226210419.GA1560@lunn.ch>
  <87d1rj6tlo.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kevin Smith <kevin.smith@elecsyscorp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -21,57 +20,35 @@ Cc: Kevin Smith <kevin.smith@elecsyscorp.com>,
 	Neil Armstrong <narmstrong@baylibre.com>,
 	Sascha Hauer <s.hauer@pengutronix.de>,
 	Russell King <rmk+kernel@arm.linux.org.uk>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44265 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752825AbcBZWJq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Feb 2016 17:09:46 -0500
-Content-Disposition: inline
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <87d1rj6tlo.fsf@ketchup.mtl.sfl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Language: en-US
+Content-ID: <5EBAF73B792B1640B3CB60A9D2B96579@dciincorporated.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 26, 2016 at 04:37:39PM -0500, Vivien Didelot wrote:
-> Hi Kevin, Andrew,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> > On Fri, Feb 26, 2016 at 08:45:28PM +0000, Kevin Smith wrote:
-> >> Hi Vivien,
-> >> 
-> >> On 02/26/2016 12:16 PM, Vivien Didelot wrote:
-> >> > +	/* allow CPU port or DSA link(s) to send frames to every port */
-> >> > +	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) {
-> >> > +		output_ports = mask;
-> >> > +	} else {
-> >
-> >> Is this always correct?  Are there situations where a CPU or neighboring 
-> >> switch should not be allowed to access another port? (e.g. Figure 6 or 7 
-> >> in the 88E6352 functional specification).
-> 
-> Given Linux expectations (described below by Andrew) I'd say yes, this
-> is always correct. But I'd be curious to know if someone has counter
-> examples for this.
-> 
-> > What do these figures show?
-> 
-> The figure shows the following VLANTable config:
-> 
+Hi Vivien, Andrew,
+
+On 02/26/2016 03:37 PM, Vivien Didelot wrote:
+> Here, 5 is the CPU port and 6 is a DSA port.
+>
+> After joining ports 0, 1, 2 in the same bridge, we end up with:
+>
 > Port  0  1  2  3  4  5  6
->   0   -  *  *  *  -  -  *
->   1   *  -  *  *  -  -  *
->   2   *  *  -  *  -  -  *
->   3   *  *  *  -  -  -  *
->   4   -  -  -  -  -  *  -
->   5   -  -  -  -  *  -  -
->   6   *  *  *  *  -  -  -
-> 
-> There is two independant groups: 0, 1, 2, 3, 6 (LAN, 6 is CPU/Router),
-> and 4, 5 (4 is WAN and 5 is CPU/Router):
+>    0   -  *  *  -  -  *  *
+>    1   *  -  *  -  -  *  *
+>    2   *  *  -  -  -  *  *
+>    3   -  -  -  -  -  *  *
+>    4   -  -  -  -  -  *  *
+>    5   *  *  *  *  *  -  *
+>    6   *  *  *  *  *  *  -
+The case I am concerned about is if the switch connected over DSA in 
+this example has a WAN port on it, which can legitimately route to the 
+CPU on port 5 but should not route to the LAN ports 0, 1, and 2.  Does 
+this VLAN allow direct communication between the WAN and LAN?  Or is 
+this prevented by DSA or some other mechanism?
 
-Ah, two CPU interfaces. We don't support that yet.  I do have patches,
-but i took a different approach. They just load balance, by some
-definition of 'load balance' between the two CPU ports.
-
-	   Andrew
+Thanks,
+Kevin
