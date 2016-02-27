@@ -1,24 +1,44 @@
-From: David and Carol Martin <adela@imr.gov.my>
-Subject: (unknown)
-Date: Sun, 28 Feb 2016 08:12:38 +0800 (MYT)
-Message-ID: <739967101.325078.1456618358704.JavaMail.root@imr.gov.my>
+From: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Subject: =?utf-8?Q?=D0=9A=D0=9B=D0=98=D0=95=D0=9D=D0=A2=D0=A1=D0?=
+	=?utf-8?Q?=9A=D0=98=D0=95_=D0=91=D0=90=D0=97=D0=AB!_=D0?=
+	=?utf-8?Q?=A2=D0=B5=D0=BB=5CViber=5CWhatsapp=3A_+79133913?=
+	=?utf-8?Q?837_Email=3A_mloginova19=40gmail=2Ecom_Skype=3A?=
+	=?utf-8?Q?_prodawez389?=
+Date: Sun, 28 Feb 2016 03:39:19 +0600
+Message-ID: <13E85C83588CA360BCB9F04FBB62FD61@vger.kernel.org>
+Reply-To: "netdev@vger.kernel.org" <mloginova19@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.imr.gov.my ([175.28.13.117]:40315 "EHLO mx2.imr.gov.my"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992623AbcB1Abw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 19:31:52 -0500
-Subject: 
+Received: from instagram.kuncoro.id ([103.43.44.13]:54846 "EHLO
+	instagram.kuncoro.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756791AbcB1BQh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 20:16:37 -0500
+Received: from 103.43.44.13 (localhost [127.0.0.1])
+	by instagram.kuncoro.id (Postfix) with SMTP id 2084F3E53A9
+	for <netdev@vger.kernel.org>; Sun, 28 Feb 2016 04:39:20 +0700 (WIB)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=D0=9A=D0=9B=D0=98=D0=95=D0=9D=D0=A2=D0=A1=D0=9A=D0=98=D0=95 =D0=91=D0=90=
+=D0=97=D0=AB!
 
-
---=20
-We are donating to you 1,500,000 GBP, from David and Carol Martin =C2=A3=
-33million lottery, contact : davidcarolm@yahoo.com.hk=20
-view link: http://www.ibtimes.co.uk/lotto-winners-david-carol-martin-wa=
-nt-blast-into-space-after-buying-new-shoes-1537851
+=D0=A1=D0=BE=D0=B1=D0=B5=D1=80=D0=B5=D0=BC =D0=B4=D0=BB=D1=8F =D0=92=D0=
+=B0=D1=81 =D0=BF=D0=BE =D0=B8=D0=BD=D1=82=D0=B5=D1=80=D0=BD=D0=B5=D1=82=
+ =D0=B1=D0=B0=D0=B7=D1=83 =D0=B4=D0=B0=D0=BD=D0=BD=D1=8B=D1=85 =D0=BF=D0=
+=BE=D1=82=D0=B5=D0=BD=D1=86=D0=B8=D0=B0=D0=BB=D1=8C=D0=BD=D1=8B=D1=85 =D0=
+=BA=D0=BB=D0=B8=D0=B5=D0=BD=D1=82=D0=BE=D0=B2=20
+=D0=B4=D0=BB=D1=8F =D0=92=D0=B0=D1=88=D0=B5=D0=B3=D0=BE =D0=91=D0=B8=D0=
+=B7=D0=BD=D0=B5=D1=81=D0=B0!
+=D0=9C=D0=BD=D0=BE=D0=B3=D0=BE! =D0=91=D1=8B=D1=81=D1=82=D1=80=D0=BE! =D0=
+=9D=D0=B5=D0=B4=D0=BE=D1=80=D0=BE=D0=B3=D0=BE!=20
+=D0=A3=D0=B7=D0=BD=D0=B0=D0=B9=D1=82=D0=B5 =D0=BE=D0=B1 =D1=8D=D1=82=D0=
+=BE=D0=BC =D0=BF=D0=BE=D0=B4=D1=80=D0=BE=D0=B1=D0=BD=D0=B5=D0=B5 =D0=BF=
+=D0=BE=20
+=D0=A2=D0=B5=D0=BB: +79133913837
+Viber: +79133913837
+Whatsapp: +79133913837
+Skype: prodawez389
+Email: mloginova19@gmail.com
