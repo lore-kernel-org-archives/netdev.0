@@ -1,114 +1,75 @@
-From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Subject: [PATCH] wan: lmc: Switch to using managed resources
-Date: Sat, 27 Feb 2016 22:34:16 +0530
-Message-ID: <20160227170416.GA1339@amitoj-Inspiron-3542>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: julia.lawall@lip6.fr
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: ipv6/l3mdev: Move host route on saved address if necessary
+Date: Sat, 27 Feb 2016 09:59:17 -0800
+Message-ID: <1456595957-29477-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:36485 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756600AbcB0REV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 12:04:21 -0500
-Content-Disposition: inline
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:36028 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756590AbcB0R73 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 12:59:29 -0500
+Received: by mail-pf0-f176.google.com with SMTP id t66so1892307pfb.3
+        for <netdev@vger.kernel.org>; Sat, 27 Feb 2016 09:59:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use managed resource functions devm_kzalloc and pcim_enable_device
-to simplify error handling. Subsequently, remove unnecessary
-kfree, pci_disable_device and pci_release_regions.
+Commit f1705ec197e70 allows IPv6 addresses to be retained on a link down.
+The address can have a cached host route which can point to the wrong
+FIB table if the L3 enslavement is changed (e.g., route can point to local
+table instead of VRF table if device is added to an L3 domain).
 
-To be compatible with the change, various gotos are replaced with
-direct returns and unneeded labels are dropped.
+On link up check the table of the cached host route against the FIB
+table associated with the device and correct if needed.
 
-Also, `sc` was only being freed in the probe function and not the
-remove function before the change. By using devm_kzalloc this patch
-also fixes this memory leak.
-
-Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
-I was not able to find anywhere that `sc` might be freed. However, 
-if a free has been overlooked, there will be a double free, due to 
-the free implicitly performed by devm_kzalloc.
+Normally the 'if CONFIG_NET_L3_MASTER_DEV is enabled' checks are all
+done in l3mdev.h. In this case putting the functions in the l3mdev
+header requires adding ipv6 header files which blows up compiles.
 
- drivers/net/wan/lmc/lmc_main.c | 27 +++++++--------------------
- 1 file changed, 7 insertions(+), 20 deletions(-)
+ net/ipv6/addrconf.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
 
-diff --git a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
-index 317bc79..bb33b24 100644
---- a/drivers/net/wan/lmc/lmc_main.c
-+++ b/drivers/net/wan/lmc/lmc_main.c
-@@ -826,7 +826,7 @@ static int lmc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	/* lmc_trace(dev, "lmc_init_one in"); */
- 
--	err = pci_enable_device(pdev);
-+	err = pcim_enable_device(pdev);
- 	if (err) {
- 		printk(KERN_ERR "lmc: pci enable failed: %d\n", err);
- 		return err;
-@@ -835,23 +835,20 @@ static int lmc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	err = pci_request_regions(pdev, "lmc");
- 	if (err) {
- 		printk(KERN_ERR "lmc: pci_request_region failed\n");
--		goto err_req_io;
-+		return err;
- 	}
- 
- 	/*
- 	 * Allocate our own device structure
- 	 */
--	sc = kzalloc(sizeof(lmc_softc_t), GFP_KERNEL);
--	if (!sc) {
--		err = -ENOMEM;
--		goto err_kzalloc;
--	}
-+	sc = devm_kzalloc(&pdev->dev, sizeof(lmc_softc_t), GFP_KERNEL);
-+	if (!sc)
-+		return -ENOMEM;
- 
- 	dev = alloc_hdlcdev(sc);
- 	if (!dev) {
- 		printk(KERN_ERR "lmc:alloc_netdev for device failed\n");
--		err = -ENOMEM;
--		goto err_hdlcdev;
-+		return -ENOMEM;
- 	}
- 
- 
-@@ -888,7 +885,7 @@ static int lmc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err) {
- 		printk(KERN_ERR "%s: register_netdev failed.\n", dev->name);
- 		free_netdev(dev);
--		goto err_hdlcdev;
-+		return err;
- 	}
- 
-     sc->lmc_cardtype = LMC_CARDTYPE_UNKNOWN;
-@@ -971,14 +968,6 @@ static int lmc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
-     lmc_trace(dev, "lmc_init_one out");
-     return 0;
--
--err_hdlcdev:
--	kfree(sc);
--err_kzalloc:
--	pci_release_regions(pdev);
--err_req_io:
--	pci_disable_device(pdev);
--	return err;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index a2d6f6c242af..afab4c359b5b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3170,9 +3170,35 @@ static void addrconf_gre_config(struct net_device *dev)
  }
+ #endif
  
- /*
-@@ -992,8 +981,6 @@ static void lmc_remove_one(struct pci_dev *pdev)
- 		printk(KERN_DEBUG "%s: removing...\n", dev->name);
- 		unregister_hdlc_device(dev);
- 		free_netdev(dev);
--		pci_release_regions(pdev);
--		pci_disable_device(pdev);
- 	}
- }
++#if IS_ENABLED(CONFIG_NET_L3_MASTER_DEV)
++/* If the host route is cached on the addr struct make sure it is associated
++ * with the proper table. e.g., enslavement can change and if so the cached
++ * host route needs to move to the new table.
++ */
++static void l3mdev_check_host_rt(struct inet6_dev *idev,
++				  struct inet6_ifaddr *ifp)
++{
++	if (ifp->rt) {
++		u32 tb_id = l3mdev_fib_table(idev->dev) ? : RT6_TABLE_LOCAL;
++
++		if (tb_id != ifp->rt->rt6i_table->tb6_id) {
++			ip6_del_rt(ifp->rt);
++			ifp->rt = NULL;
++		}
++	}
++}
++#else
++static void l3mdev_check_host_rt(struct inet6_dev *idev,
++				  struct inet6_ifaddr *ifp)
++{
++}
++#endif
++
+ static int fixup_permanent_addr(struct inet6_dev *idev,
+ 				struct inet6_ifaddr *ifp)
+ {
++	l3mdev_check_host_rt(idev, ifp);
++
+ 	if (!ifp->rt) {
+ 		struct rt6_info *rt;
  
 -- 
-1.9.1
+2.1.4
