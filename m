@@ -1,109 +1,74 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH 11/13] RDS: IB: add Fastreg MR (FRMR) detection support
-Date: Fri, 26 Feb 2016 21:43:56 -0800
-Message-ID: <1456551838-9080-12-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH 10/13] RDS: IB: add mr reused stats
+Date: Fri, 26 Feb 2016 21:43:55 -0800
+Message-ID: <1456551838-9080-11-git-send-email-santosh.shilimkar@oracle.com>
 References: <1456551838-9080-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:22888 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753263AbcB0Foe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 00:44:34 -0500
 In-Reply-To: <1456551838-9080-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Discovere Fast Memmory Registration support using IB device
-IB_DEVICE_MEM_MGT_EXTENSIONS. Certain HCA might support just FRMR
-or FMR or both FMR and FRWR. In case both mr type are supported,
-default FMR is used. Using module parameter 'prefer_frmr',
-user can choose its preferred MR method for RDS. Ofcourse the
-module parameter has no effect if the HCA support only FRMR
-or only FRMR.
-
-Default MR is still kept as FMR against what everyone else
-is following. Default will be changed to FRMR once the
-RDS performance with FRMR is comparable with FMR. The
-work is in progress for the same.
+Add MR reuse statistics to RDS IB transport.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.c    | 14 ++++++++++++++
- net/rds/ib.h    |  4 ++++
- net/rds/ib_mr.h |  1 +
- 3 files changed, 19 insertions(+)
+ net/rds/ib.h       | 2 ++
+ net/rds/ib_rdma.c  | 7 ++++++-
+ net/rds/ib_stats.c | 2 ++
+ 3 files changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/net/rds/ib.c b/net/rds/ib.c
-index bb32cb9..68c94b0 100644
---- a/net/rds/ib.c
-+++ b/net/rds/ib.c
-@@ -47,6 +47,7 @@
- unsigned int rds_ib_mr_1m_pool_size = RDS_MR_1M_POOL_SIZE;
- unsigned int rds_ib_mr_8k_pool_size = RDS_MR_8K_POOL_SIZE;
- unsigned int rds_ib_retry_count = RDS_IB_DEFAULT_RETRY_COUNT;
-+bool prefer_frmr;
- 
- module_param(rds_ib_mr_1m_pool_size, int, 0444);
- MODULE_PARM_DESC(rds_ib_mr_1m_pool_size, " Max number of 1M mr per HCA");
-@@ -54,6 +55,8 @@ module_param(rds_ib_mr_8k_pool_size, int, 0444);
- MODULE_PARM_DESC(rds_ib_mr_8k_pool_size, " Max number of 8K mr per HCA");
- module_param(rds_ib_retry_count, int, 0444);
- MODULE_PARM_DESC(rds_ib_retry_count, " Number of hw retries before reporting an error");
-+module_param(prefer_frmr, bool, 0444);
-+MODULE_PARM_DESC(prefer_frmr, "Preferred MR method if both FMR and FRMR supported");
- 
- /*
-  * we have a clumsy combination of RCU and a rwsem protecting this list
-@@ -140,6 +143,13 @@ static void rds_ib_add_one(struct ib_device *device)
- 	rds_ibdev->max_wrs = device->attrs.max_qp_wr;
- 	rds_ibdev->max_sge = min(device->attrs.max_sge, RDS_IB_MAX_SGE);
- 
-+	rds_ibdev->has_fr = (device->attrs.device_cap_flags &
-+				  IB_DEVICE_MEM_MGT_EXTENSIONS);
-+	rds_ibdev->has_fmr = (device->alloc_fmr && device->dealloc_fmr &&
-+			    device->map_phys_fmr && device->unmap_fmr);
-+	rds_ibdev->use_fastreg = (rds_ibdev->has_fr &&
-+				 (!rds_ibdev->has_fmr || prefer_frmr));
-+
- 	rds_ibdev->fmr_max_remaps = device->attrs.max_map_per_fmr?: 32;
- 	rds_ibdev->max_1m_mrs = device->attrs.max_mr ?
- 		min_t(unsigned int, (device->attrs.max_mr / 2),
-@@ -178,6 +188,10 @@ static void rds_ib_add_one(struct ib_device *device)
- 		 rds_ibdev->fmr_max_remaps, rds_ibdev->max_1m_mrs,
- 		 rds_ibdev->max_8k_mrs);
- 
-+	pr_info("RDS/IB: %s: %s supported and preferred\n",
-+		device->name,
-+		rds_ibdev->use_fastreg ? "FRMR" : "FMR");
-+
- 	INIT_LIST_HEAD(&rds_ibdev->ipaddr_list);
- 	INIT_LIST_HEAD(&rds_ibdev->conn_list);
- 
 diff --git a/net/rds/ib.h b/net/rds/ib.h
-index 62fe7d5..c5eddc2 100644
+index c88cb22..62fe7d5 100644
 --- a/net/rds/ib.h
 +++ b/net/rds/ib.h
-@@ -200,6 +200,10 @@ struct rds_ib_device {
- 	struct list_head	conn_list;
- 	struct ib_device	*dev;
- 	struct ib_pd		*pd;
-+	bool                    has_fmr;
-+	bool                    has_fr;
-+	bool                    use_fastreg;
-+
- 	unsigned int		max_mrs;
- 	struct rds_ib_mr_pool	*mr_1m_pool;
- 	struct rds_ib_mr_pool   *mr_8k_pool;
-diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
-index add7725..2f9b9c3 100644
---- a/net/rds/ib_mr.h
-+++ b/net/rds/ib_mr.h
-@@ -93,6 +93,7 @@ struct rds_ib_mr_pool {
- extern struct workqueue_struct *rds_ib_mr_wq;
- extern unsigned int rds_ib_mr_1m_pool_size;
- extern unsigned int rds_ib_mr_8k_pool_size;
-+extern bool prefer_frmr;
+@@ -259,6 +259,8 @@ struct rds_ib_statistics {
+ 	uint64_t	s_ib_rdma_mr_1m_pool_flush;
+ 	uint64_t	s_ib_rdma_mr_1m_pool_wait;
+ 	uint64_t	s_ib_rdma_mr_1m_pool_depleted;
++	uint64_t	s_ib_rdma_mr_8k_reused;
++	uint64_t	s_ib_rdma_mr_1m_reused;
+ 	uint64_t	s_ib_atomic_cswp;
+ 	uint64_t	s_ib_atomic_fadd;
+ };
+diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
+index 20ff191..00e9064 100644
+--- a/net/rds/ib_rdma.c
++++ b/net/rds/ib_rdma.c
+@@ -188,8 +188,13 @@ struct rds_ib_mr *rds_ib_reuse_mr(struct rds_ib_mr_pool *pool)
+ 	flag = this_cpu_ptr(&clean_list_grace);
+ 	set_bit(CLEAN_LIST_BUSY_BIT, flag);
+ 	ret = llist_del_first(&pool->clean_list);
+-	if (ret)
++	if (ret) {
+ 		ibmr = llist_entry(ret, struct rds_ib_mr, llnode);
++		if (pool->pool_type == RDS_IB_MR_8K_POOL)
++			rds_ib_stats_inc(s_ib_rdma_mr_8k_reused);
++		else
++			rds_ib_stats_inc(s_ib_rdma_mr_1m_reused);
++	}
  
- struct rds_ib_mr_pool *rds_ib_create_mr_pool(struct rds_ib_device *rds_dev,
- 					     int npages);
+ 	clear_bit(CLEAN_LIST_BUSY_BIT, flag);
+ 	preempt_enable();
+diff --git a/net/rds/ib_stats.c b/net/rds/ib_stats.c
+index d77e044..7e78dca 100644
+--- a/net/rds/ib_stats.c
++++ b/net/rds/ib_stats.c
+@@ -73,6 +73,8 @@ static const char *const rds_ib_stat_names[] = {
+ 	"ib_rdma_mr_1m_pool_flush",
+ 	"ib_rdma_mr_1m_pool_wait",
+ 	"ib_rdma_mr_1m_pool_depleted",
++	"ib_rdma_mr_8k_reused",
++	"ib_rdma_mr_1m_reused",
+ 	"ib_atomic_cswp",
+ 	"ib_atomic_fadd",
+ };
 -- 
 1.9.1
