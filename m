@@ -1,217 +1,35 @@
-From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Subject: [PATCH] net/9p: convert to new CQ API
-Date: Sat, 27 Feb 2016 10:25:51 +0100
-Message-ID: <1456565151-27115-2-git-send-email-hch@lst.de>
-References: <1456565151-27115-1-git-send-email-hch@lst.de>
-To: v9fs-developer-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1456565151-27115-1-git-send-email-hch-jcswGhMUV9g@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] rocker: fix an error code
+Date: Sat, 27 Feb 2016 14:31:43 +0300
+Message-ID: <20160227113143.GA19177@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <sfeldma@gmail.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>, Ying Xue <ying.xue@windriver.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Trivial conversion to the new RDMA CQ API.
+We intended to return PTR_ERR() here instead of 1.
 
-Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Fixes: 1f9993f6825f ('rocker: fix a neigh entry leak issue')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
- net/9p/trans_rdma.c | 87 +++++++++++++++++++----------------------------------
- 1 file changed, 31 insertions(+), 56 deletions(-)
+We recently moved rocker files around so this only applies to -next.
+Probably returning the wrong error code is harmless.
 
-diff --git a/net/9p/trans_rdma.c b/net/9p/trans_rdma.c
-index 52b4a2f..668c3be 100644
---- a/net/9p/trans_rdma.c
-+++ b/net/9p/trans_rdma.c
-@@ -109,14 +109,13 @@ struct p9_trans_rdma {
- /**
-  * p9_rdma_context - Keeps track of in-process WR
-  *
-- * @wc_op: The original WR op for when the CQE completes in error.
-  * @busa: Bus address to unmap when the WR completes
-  * @req: Keeps track of requests (send)
-  * @rc: Keepts track of replies (receive)
-  */
- struct p9_rdma_req;
--struct p9_rdma_context {
--	enum ib_wc_opcode wc_op;
-+struct p9_rdma_context {	
-+	struct ib_cqe cqe;
- 	dma_addr_t busa;
- 	union {
- 		struct p9_req_t *req;
-@@ -284,9 +283,12 @@ p9_cm_event_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
- }
- 
- static void
--handle_recv(struct p9_client *client, struct p9_trans_rdma *rdma,
--	    struct p9_rdma_context *c, enum ib_wc_status status, u32 byte_len)
-+recv_done(struct ib_cq *cq, struct ib_wc *wc)
- {
-+	struct p9_client *client = cq->cq_context;
-+	struct p9_trans_rdma *rdma = client->trans;
-+	struct p9_rdma_context *c =
-+		container_of(wc->wr_cqe, struct p9_rdma_context, cqe);
- 	struct p9_req_t *req;
- 	int err = 0;
- 	int16_t tag;
-@@ -295,7 +297,7 @@ handle_recv(struct p9_client *client, struct p9_trans_rdma *rdma,
- 	ib_dma_unmap_single(rdma->cm_id->device, c->busa, client->msize,
- 							 DMA_FROM_DEVICE);
- 
--	if (status != IB_WC_SUCCESS)
-+	if (wc->status != IB_WC_SUCCESS)
- 		goto err_out;
- 
- 	err = p9_parse_header(c->rc, NULL, NULL, &tag, 1);
-@@ -316,21 +318,31 @@ handle_recv(struct p9_client *client, struct p9_trans_rdma *rdma,
- 	req->rc = c->rc;
- 	p9_client_cb(client, req, REQ_STATUS_RCVD);
- 
-+ out:
-+	up(&rdma->rq_sem);
-+	kfree(c);
- 	return;
- 
-  err_out:
--	p9_debug(P9_DEBUG_ERROR, "req %p err %d status %d\n", req, err, status);
-+	p9_debug(P9_DEBUG_ERROR, "req %p err %d status %d\n", req, err, wc->status);
- 	rdma->state = P9_RDMA_FLUSHING;
- 	client->status = Disconnected;
-+	goto out;
- }
- 
- static void
--handle_send(struct p9_client *client, struct p9_trans_rdma *rdma,
--	    struct p9_rdma_context *c, enum ib_wc_status status, u32 byte_len)
-+send_done(struct ib_cq *cq, struct ib_wc *wc)
- {
-+	struct p9_client *client = cq->cq_context;
-+	struct p9_trans_rdma *rdma = client->trans;
-+	struct p9_rdma_context *c =
-+		container_of(wc->wr_cqe, struct p9_rdma_context, cqe);
-+
- 	ib_dma_unmap_single(rdma->cm_id->device,
- 			    c->busa, c->req->tc->size,
- 			    DMA_TO_DEVICE);
-+	up(&rdma->sq_sem);
-+	kfree(c);
- }
- 
- static void qp_event_handler(struct ib_event *event, void *context)
-@@ -339,42 +351,6 @@ static void qp_event_handler(struct ib_event *event, void *context)
- 		 event->event, context);
- }
- 
--static void cq_comp_handler(struct ib_cq *cq, void *cq_context)
--{
--	struct p9_client *client = cq_context;
--	struct p9_trans_rdma *rdma = client->trans;
--	int ret;
--	struct ib_wc wc;
--
--	ib_req_notify_cq(rdma->cq, IB_CQ_NEXT_COMP);
--	while ((ret = ib_poll_cq(cq, 1, &wc)) > 0) {
--		struct p9_rdma_context *c = (void *) (unsigned long) wc.wr_id;
--
--		switch (c->wc_op) {
--		case IB_WC_RECV:
--			handle_recv(client, rdma, c, wc.status, wc.byte_len);
--			up(&rdma->rq_sem);
--			break;
--
--		case IB_WC_SEND:
--			handle_send(client, rdma, c, wc.status, wc.byte_len);
--			up(&rdma->sq_sem);
--			break;
--
--		default:
--			pr_err("unexpected completion type, c->wc_op=%d, wc.opcode=%d, status=%d\n",
--			       c->wc_op, wc.opcode, wc.status);
--			break;
--		}
--		kfree(c);
--	}
--}
--
--static void cq_event_handler(struct ib_event *e, void *v)
--{
--	p9_debug(P9_DEBUG_ERROR, "CQ event %d context %p\n", e->event, v);
--}
--
- static void rdma_destroy_trans(struct p9_trans_rdma *rdma)
- {
- 	if (!rdma)
-@@ -387,7 +363,7 @@ static void rdma_destroy_trans(struct p9_trans_rdma *rdma)
- 		ib_dealloc_pd(rdma->pd);
- 
- 	if (rdma->cq && !IS_ERR(rdma->cq))
--		ib_destroy_cq(rdma->cq);
-+		ib_free_cq(rdma->cq);
- 
- 	if (rdma->cm_id && !IS_ERR(rdma->cm_id))
- 		rdma_destroy_id(rdma->cm_id);
-@@ -408,13 +384,14 @@ post_recv(struct p9_client *client, struct p9_rdma_context *c)
- 	if (ib_dma_mapping_error(rdma->cm_id->device, c->busa))
- 		goto error;
- 
-+	c->cqe.done = recv_done;
-+
- 	sge.addr = c->busa;
- 	sge.length = client->msize;
- 	sge.lkey = rdma->pd->local_dma_lkey;
- 
- 	wr.next = NULL;
--	c->wc_op = IB_WC_RECV;
--	wr.wr_id = (unsigned long) c;
-+	wr.wr_cqe = &c->cqe;
- 	wr.sg_list = &sge;
- 	wr.num_sge = 1;
- 	return ib_post_recv(rdma->qp, &wr, &bad_wr);
-@@ -499,13 +476,14 @@ dont_need_post_recv:
- 		goto send_error;
+diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
+index 099008a..07218c3 100644
+--- a/drivers/net/ethernet/rocker/rocker_ofdpa.c
++++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
+@@ -1449,7 +1449,7 @@ static int ofdpa_port_ipv4_resolve(struct ofdpa_port *ofdpa_port,
+ 	if (!n) {
+ 		n = neigh_create(&arp_tbl, &ip_addr, dev);
+ 		if (IS_ERR(n))
+-			return IS_ERR(n);
++			return PTR_ERR(n);
  	}
  
-+	c->cqe.done = send_done;
-+
- 	sge.addr = c->busa;
- 	sge.length = c->req->tc->size;
- 	sge.lkey = rdma->pd->local_dma_lkey;
- 
- 	wr.next = NULL;
--	c->wc_op = IB_WC_SEND;
--	wr.wr_id = (unsigned long) c;
-+	wr.wr_cqe = &c->cqe;
- 	wr.opcode = IB_WR_SEND;
- 	wr.send_flags = IB_SEND_SIGNALED;
- 	wr.sg_list = &sge;
-@@ -642,7 +620,6 @@ rdma_create_trans(struct p9_client *client, const char *addr, char *args)
- 	struct p9_trans_rdma *rdma;
- 	struct rdma_conn_param conn_param;
- 	struct ib_qp_init_attr qp_attr;
--	struct ib_cq_init_attr cq_attr = {};
- 
- 	/* Parse the transport specific mount options */
- 	err = parse_opts(args, &opts);
-@@ -695,13 +672,11 @@ rdma_create_trans(struct p9_client *client, const char *addr, char *args)
- 		goto error;
- 
- 	/* Create the Completion Queue */
--	cq_attr.cqe = opts.sq_depth + opts.rq_depth + 1;
--	rdma->cq = ib_create_cq(rdma->cm_id->device, cq_comp_handler,
--				cq_event_handler, client,
--				&cq_attr);
-+	rdma->cq = ib_alloc_cq(rdma->cm_id->device, client,
-+			opts.sq_depth + opts.rq_depth + 1,
-+			0, IB_POLL_SOFTIRQ);
- 	if (IS_ERR(rdma->cq))
- 		goto error;
--	ib_req_notify_cq(rdma->cq, IB_CQ_NEXT_COMP);
- 
- 	/* Create the Protection Domain */
- 	rdma->pd = ib_alloc_pd(rdma->cm_id->device);
--- 
-2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 	/* If the neigh is already resolved, then go ahead and
