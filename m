@@ -1,52 +1,65 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v4 net-next] net: Implement fast csum_partial for x86_64
-Date: Sat, 27 Feb 2016 00:30:07 -0800
-Message-ID: <CAKgT0UdxdY5VF5OzC+W0Y31CcK0T3ffkcRMQrZqJ==L9SdtNuQ@mail.gmail.com>
-References: <1456516995-3471163-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>, Peter Anvin <hpa@zytor.com>,
-	"the arch/x86 maintainers" <x86@kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+From: Deepa Dinamani <deepa.kernel@gmail.com>
+Subject: [PATCH v2 0/3] Convert network timestamps to be y2038 safe
+Date: Sat, 27 Feb 2016 00:32:14 -0800
+Message-ID: <1456561938-7653-1-git-send-email-deepa.kernel@gmail.com>
+Cc: arnd@arndb.de, Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org, y2038@lists.linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:33226 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751841AbcB0IaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 03:30:08 -0500
-Received: by mail-ig0-f174.google.com with SMTP id y8so52947693igp.0
-        for <netdev@vger.kernel.org>; Sat, 27 Feb 2016 00:30:08 -0800 (PST)
-In-Reply-To: <1456516995-3471163-1-git-send-email-tom@herbertland.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36861 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751841AbcB0Icn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 03:32:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +{
-> +       asm("lea 40f(, %[slen], 4), %%r11\n\t"
-> +           "clc\n\t"
-> +           "jmpq *%%r11\n\t"
-> +           "adcq 7*8(%[src]),%[res]\n\t"
-> +           "adcq 6*8(%[src]),%[res]\n\t"
-> +           "adcq 5*8(%[src]),%[res]\n\t"
-> +           "adcq 4*8(%[src]),%[res]\n\t"
-> +           "adcq 3*8(%[src]),%[res]\n\t"
-> +           "adcq 2*8(%[src]),%[res]\n\t"
-> +           "adcq 1*8(%[src]),%[res]\n\t"
-> +           "adcq 0*8(%[src]),%[res]\n\t"
-> +           "nop\n\t"
-> +           "40: adcq $0,%[res]"
-> +                   : [res] "=r" (sum)
-> +                   : [src] "r" (buff),
-> +                     [slen] "r" (-((unsigned long)(len >> 3))), "[res]" (sum)
-> +                   : "r11");
-> +
+Introduction:
 
-With this patch I cannot mix/match different length checksums without
-things failing.  In perf the jmpq in the loop above seems to be set to
-a fixed value so perhaps it is something in how the compiler is
-interpreting the inline assembler.
+The series is aimed at transitioning network timestamps to being
+y2038 safe.
+All patches can be reviewed and merged independently.
 
-- Alex
+Socket timestamps and ioctl calls will be handled separately.
+
+Thanks to Arnd Bergmann for discussing solution options with me.
+
+Solution:
+
+Data type struct timespec is not y2038 safe.
+Replace timespec with struct timespec64 which is y2038 safe.
+
+Changes v1 -> v2: 
+  Move and rename inet_current_time() as discussed
+  Squash patches 1 and 2
+  Reword commit text for patch 2/3
+  Carry over review tags
+
+Deepa Dinamani (3):
+  net: ipv4: Convert IP network timestamps to be y2038 safe
+  net: ipv4: tcp_probe: Replace timespec with timespec64
+  net: sctp: Convert log timestamps to be y2038 safe
+
+ include/net/ip.h      |  2 ++
+ net/ipv4/af_inet.c    | 26 ++++++++++++++++++++++++++
+ net/ipv4/icmp.c       |  5 +----
+ net/ipv4/ip_options.c | 14 ++++++--------
+ net/ipv4/tcp_probe.c  |  8 ++++----
+ net/sctp/probe.c      | 10 +++++-----
+ 6 files changed, 44 insertions(+), 21 deletions(-)
+
+-- 
+1.9.1
+
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: linux-sctp@vger.kernel.org
