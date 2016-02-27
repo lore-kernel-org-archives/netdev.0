@@ -1,74 +1,114 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH 10/13] RDS: IB: add mr reused stats
-Date: Fri, 26 Feb 2016 21:43:55 -0800
-Message-ID: <1456551838-9080-11-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH 12/13] RDS: IB: allocate extra space on queues for FRMR support
+Date: Fri, 26 Feb 2016 21:43:57 -0800
+Message-ID: <1456551838-9080-13-git-send-email-santosh.shilimkar@oracle.com>
 References: <1456551838-9080-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:22888 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753263AbcB0Foe (ORCPT
+Received: from aserp1040.oracle.com ([141.146.126.69]:20537 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753982AbcB0Foe (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 00:44:34 -0500
 In-Reply-To: <1456551838-9080-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add MR reuse statistics to RDS IB transport.
+Fastreg MR(FRMR) memory registration and invalidation makes use
+of work request and completion queues for its operation. Patch
+allocates extra queue space towards these operation(s).
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.h       | 2 ++
- net/rds/ib_rdma.c  | 7 ++++++-
- net/rds/ib_stats.c | 2 ++
- 3 files changed, 10 insertions(+), 1 deletion(-)
+ net/rds/ib.h    |  4 ++++
+ net/rds/ib_cm.c | 16 ++++++++++++----
+ 2 files changed, 16 insertions(+), 4 deletions(-)
 
 diff --git a/net/rds/ib.h b/net/rds/ib.h
-index c88cb22..62fe7d5 100644
+index c5eddc2..eeb0d6c 100644
 --- a/net/rds/ib.h
 +++ b/net/rds/ib.h
-@@ -259,6 +259,8 @@ struct rds_ib_statistics {
- 	uint64_t	s_ib_rdma_mr_1m_pool_flush;
- 	uint64_t	s_ib_rdma_mr_1m_pool_wait;
- 	uint64_t	s_ib_rdma_mr_1m_pool_depleted;
-+	uint64_t	s_ib_rdma_mr_8k_reused;
-+	uint64_t	s_ib_rdma_mr_1m_reused;
- 	uint64_t	s_ib_atomic_cswp;
- 	uint64_t	s_ib_atomic_fadd;
- };
-diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
-index 20ff191..00e9064 100644
---- a/net/rds/ib_rdma.c
-+++ b/net/rds/ib_rdma.c
-@@ -188,8 +188,13 @@ struct rds_ib_mr *rds_ib_reuse_mr(struct rds_ib_mr_pool *pool)
- 	flag = this_cpu_ptr(&clean_list_grace);
- 	set_bit(CLEAN_LIST_BUSY_BIT, flag);
- 	ret = llist_del_first(&pool->clean_list);
--	if (ret)
-+	if (ret) {
- 		ibmr = llist_entry(ret, struct rds_ib_mr, llnode);
-+		if (pool->pool_type == RDS_IB_MR_8K_POOL)
-+			rds_ib_stats_inc(s_ib_rdma_mr_8k_reused);
-+		else
-+			rds_ib_stats_inc(s_ib_rdma_mr_1m_reused);
-+	}
+@@ -14,6 +14,7 @@
  
- 	clear_bit(CLEAN_LIST_BUSY_BIT, flag);
- 	preempt_enable();
-diff --git a/net/rds/ib_stats.c b/net/rds/ib_stats.c
-index d77e044..7e78dca 100644
---- a/net/rds/ib_stats.c
-+++ b/net/rds/ib_stats.c
-@@ -73,6 +73,8 @@ static const char *const rds_ib_stat_names[] = {
- 	"ib_rdma_mr_1m_pool_flush",
- 	"ib_rdma_mr_1m_pool_wait",
- 	"ib_rdma_mr_1m_pool_depleted",
-+	"ib_rdma_mr_8k_reused",
-+	"ib_rdma_mr_1m_reused",
- 	"ib_atomic_cswp",
- 	"ib_atomic_fadd",
- };
+ #define RDS_IB_DEFAULT_RECV_WR		1024
+ #define RDS_IB_DEFAULT_SEND_WR		256
++#define RDS_IB_DEFAULT_FR_WR		512
+ 
+ #define RDS_IB_DEFAULT_RETRY_COUNT	2
+ 
+@@ -122,6 +123,9 @@ struct rds_ib_connection {
+ 	struct ib_wc		i_send_wc[RDS_IB_WC_MAX];
+ 	struct ib_wc		i_recv_wc[RDS_IB_WC_MAX];
+ 
++	/* To control the number of wrs from fastreg */
++	atomic_t		i_fastreg_wrs;
++
+ 	/* interrupt handling */
+ 	struct tasklet_struct	i_send_tasklet;
+ 	struct tasklet_struct	i_recv_tasklet;
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 7f68abc..83f4673 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -363,7 +363,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	struct ib_qp_init_attr attr;
+ 	struct ib_cq_init_attr cq_attr = {};
+ 	struct rds_ib_device *rds_ibdev;
+-	int ret;
++	int ret, fr_queue_space;
+ 
+ 	/*
+ 	 * It's normal to see a null device if an incoming connection races
+@@ -373,6 +373,12 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	if (!rds_ibdev)
+ 		return -EOPNOTSUPP;
+ 
++	/* The fr_queue_space is currently set to 512, to add extra space on
++	 * completion queue and send queue. This extra space is used for FRMR
++	 * registration and invalidation work requests
++	 */
++	fr_queue_space = (rds_ibdev->use_fastreg ? RDS_IB_DEFAULT_FR_WR : 0);
++
+ 	/* add the conn now so that connection establishment has the dev */
+ 	rds_ib_add_conn(rds_ibdev, conn);
+ 
+@@ -384,7 +390,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	/* Protection domain and memory range */
+ 	ic->i_pd = rds_ibdev->pd;
+ 
+-	cq_attr.cqe = ic->i_send_ring.w_nr + 1;
++	cq_attr.cqe = ic->i_send_ring.w_nr + fr_queue_space + 1;
+ 
+ 	ic->i_send_cq = ib_create_cq(dev, rds_ib_cq_comp_handler_send,
+ 				     rds_ib_cq_event_handler, conn,
+@@ -424,7 +430,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	attr.event_handler = rds_ib_qp_event_handler;
+ 	attr.qp_context = conn;
+ 	/* + 1 to allow for the single ack message */
+-	attr.cap.max_send_wr = ic->i_send_ring.w_nr + 1;
++	attr.cap.max_send_wr = ic->i_send_ring.w_nr + fr_queue_space + 1;
+ 	attr.cap.max_recv_wr = ic->i_recv_ring.w_nr + 1;
+ 	attr.cap.max_send_sge = rds_ibdev->max_sge;
+ 	attr.cap.max_recv_sge = RDS_IB_RECV_SGE;
+@@ -432,6 +438,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	attr.qp_type = IB_QPT_RC;
+ 	attr.send_cq = ic->i_send_cq;
+ 	attr.recv_cq = ic->i_recv_cq;
++	atomic_set(&ic->i_fastreg_wrs, RDS_IB_DEFAULT_FR_WR);
+ 
+ 	/*
+ 	 * XXX this can fail if max_*_wr is too large?  Are we supposed
+@@ -751,7 +758,8 @@ void rds_ib_conn_shutdown(struct rds_connection *conn)
+ 		 */
+ 		wait_event(rds_ib_ring_empty_wait,
+ 			   rds_ib_ring_empty(&ic->i_recv_ring) &&
+-			   (atomic_read(&ic->i_signaled_sends) == 0));
++			   (atomic_read(&ic->i_signaled_sends) == 0) &&
++			   (atomic_read(&ic->i_fastreg_wrs) == RDS_IB_DEFAULT_FR_WR));
+ 		tasklet_kill(&ic->i_send_tasklet);
+ 		tasklet_kill(&ic->i_recv_tasklet);
+ 
 -- 
 1.9.1
