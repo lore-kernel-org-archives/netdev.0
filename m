@@ -1,114 +1,42 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH 12/13] RDS: IB: allocate extra space on queues for FRMR support
-Date: Fri, 26 Feb 2016 21:43:57 -0800
-Message-ID: <1456551838-9080-13-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH 03/13] MAINTAINERS: update RDS entry
+Date: Fri, 26 Feb 2016 21:43:48 -0800
+Message-ID: <1456551838-9080-4-git-send-email-santosh.shilimkar@oracle.com>
 References: <1456551838-9080-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:20537 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753982AbcB0Foe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 00:44:34 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1456551838-9080-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fastreg MR(FRMR) memory registration and invalidation makes use
-of work request and completion queues for its operation. Patch
-allocates extra queue space towards these operation(s).
-
+Acked-by: Chien Yen <chien.yen@oracle.com>
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.h    |  4 ++++
- net/rds/ib_cm.c | 16 ++++++++++++----
- 2 files changed, 16 insertions(+), 4 deletions(-)
+ MAINTAINERS | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index c5eddc2..eeb0d6c 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -14,6 +14,7 @@
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 355e1c8..9d79bea 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -9081,10 +9081,14 @@ S:	Maintained
+ F:	drivers/net/ethernet/rdc/r6040.c
  
- #define RDS_IB_DEFAULT_RECV_WR		1024
- #define RDS_IB_DEFAULT_SEND_WR		256
-+#define RDS_IB_DEFAULT_FR_WR		512
+ RDS - RELIABLE DATAGRAM SOCKETS
+-M:	Chien Yen <chien.yen@oracle.com>
++M:	Santosh Shilimkar <santosh.shilimkar@oracle.com>
++L:	netdev@vger.kernel.org
++L:	linux-rdma@vger.kernel.org
+ L:	rds-devel@oss.oracle.com (moderated for non-subscribers)
++W:	https://oss.oracle.com/projects/rds/
+ S:	Supported
+ F:	net/rds/
++F:	Documentation/networking/rds.txt
  
- #define RDS_IB_DEFAULT_RETRY_COUNT	2
- 
-@@ -122,6 +123,9 @@ struct rds_ib_connection {
- 	struct ib_wc		i_send_wc[RDS_IB_WC_MAX];
- 	struct ib_wc		i_recv_wc[RDS_IB_WC_MAX];
- 
-+	/* To control the number of wrs from fastreg */
-+	atomic_t		i_fastreg_wrs;
-+
- 	/* interrupt handling */
- 	struct tasklet_struct	i_send_tasklet;
- 	struct tasklet_struct	i_recv_tasklet;
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index 7f68abc..83f4673 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -363,7 +363,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	struct ib_qp_init_attr attr;
- 	struct ib_cq_init_attr cq_attr = {};
- 	struct rds_ib_device *rds_ibdev;
--	int ret;
-+	int ret, fr_queue_space;
- 
- 	/*
- 	 * It's normal to see a null device if an incoming connection races
-@@ -373,6 +373,12 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	if (!rds_ibdev)
- 		return -EOPNOTSUPP;
- 
-+	/* The fr_queue_space is currently set to 512, to add extra space on
-+	 * completion queue and send queue. This extra space is used for FRMR
-+	 * registration and invalidation work requests
-+	 */
-+	fr_queue_space = (rds_ibdev->use_fastreg ? RDS_IB_DEFAULT_FR_WR : 0);
-+
- 	/* add the conn now so that connection establishment has the dev */
- 	rds_ib_add_conn(rds_ibdev, conn);
- 
-@@ -384,7 +390,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	/* Protection domain and memory range */
- 	ic->i_pd = rds_ibdev->pd;
- 
--	cq_attr.cqe = ic->i_send_ring.w_nr + 1;
-+	cq_attr.cqe = ic->i_send_ring.w_nr + fr_queue_space + 1;
- 
- 	ic->i_send_cq = ib_create_cq(dev, rds_ib_cq_comp_handler_send,
- 				     rds_ib_cq_event_handler, conn,
-@@ -424,7 +430,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	attr.event_handler = rds_ib_qp_event_handler;
- 	attr.qp_context = conn;
- 	/* + 1 to allow for the single ack message */
--	attr.cap.max_send_wr = ic->i_send_ring.w_nr + 1;
-+	attr.cap.max_send_wr = ic->i_send_ring.w_nr + fr_queue_space + 1;
- 	attr.cap.max_recv_wr = ic->i_recv_ring.w_nr + 1;
- 	attr.cap.max_send_sge = rds_ibdev->max_sge;
- 	attr.cap.max_recv_sge = RDS_IB_RECV_SGE;
-@@ -432,6 +438,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	attr.qp_type = IB_QPT_RC;
- 	attr.send_cq = ic->i_send_cq;
- 	attr.recv_cq = ic->i_recv_cq;
-+	atomic_set(&ic->i_fastreg_wrs, RDS_IB_DEFAULT_FR_WR);
- 
- 	/*
- 	 * XXX this can fail if max_*_wr is too large?  Are we supposed
-@@ -751,7 +758,8 @@ void rds_ib_conn_shutdown(struct rds_connection *conn)
- 		 */
- 		wait_event(rds_ib_ring_empty_wait,
- 			   rds_ib_ring_empty(&ic->i_recv_ring) &&
--			   (atomic_read(&ic->i_signaled_sends) == 0));
-+			   (atomic_read(&ic->i_signaled_sends) == 0) &&
-+			   (atomic_read(&ic->i_fastreg_wrs) == RDS_IB_DEFAULT_FR_WR));
- 		tasklet_kill(&ic->i_send_tasklet);
- 		tasklet_kill(&ic->i_recv_tasklet);
- 
+ READ-COPY UPDATE (RCU)
+ M:	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 -- 
 1.9.1
