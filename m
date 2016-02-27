@@ -1,191 +1,155 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH 01/13] RDS: Drop stale iWARP RDMA transport
-Date: Fri, 26 Feb 2016 21:43:46 -0800
-Message-ID: <1456551838-9080-2-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH 02/13] RDS: Add support for SO_TIMESTAMP for incoming messages
+Date: Fri, 26 Feb 2016 21:43:47 -0800
+Message-ID: <1456551838-9080-3-git-send-email-santosh.shilimkar@oracle.com>
 References: <1456551838-9080-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:20521 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751349AbcB0Fod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 00:44:33 -0500
 In-Reply-To: <1456551838-9080-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RDS iWarp support code has become stale and non testable. As
-indicated earlier, am dropping the support for it.
+The SO_TIMESTAMP generates time stamp for each incoming RDS messages
+User app can enable it by using SO_TIMESTAMP setsocketopt() at
+SOL_SOCKET level. CMSG data of cmsg type SO_TIMESTAMP contains the
+time stamp in struct timeval format.
 
-If new iWarp user(s) shows up in future, we can adapat the RDS IB
-transprt for the special RDMA READ sink case. iWarp needs an MR
-for the RDMA READ sink.
-
+Reviewed-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- Documentation/networking/rds.txt |   4 +-
- net/rds/Kconfig                  |   7 +-
- net/rds/Makefile                 |   4 +-
- net/rds/iw.c                     | 312 -------------
- net/rds/iw.h                     | 398 ----------------
- net/rds/iw_cm.c                  | 769 ------------------------------
- net/rds/iw_rdma.c                | 837 ---------------------------------
- net/rds/iw_recv.c                | 904 ------------------------------------
- net/rds/iw_ring.c                | 169 -------
- net/rds/iw_send.c                | 981 ---------------------------------------
- net/rds/iw_stats.c               |  95 ----
- net/rds/iw_sysctl.c              | 123 -----
- net/rds/rdma_transport.c         |  13 +-
- net/rds/rdma_transport.h         |   5 -
- 14 files changed, 7 insertions(+), 4614 deletions(-)
- delete mode 100644 net/rds/iw.c
- delete mode 100644 net/rds/iw.h
- delete mode 100644 net/rds/iw_cm.c
- delete mode 100644 net/rds/iw_rdma.c
- delete mode 100644 net/rds/iw_recv.c
- delete mode 100644 net/rds/iw_ring.c
- delete mode 100644 net/rds/iw_send.c
- delete mode 100644 net/rds/iw_stats.c
- delete mode 100644 net/rds/iw_sysctl.c
+ net/rds/af_rds.c | 26 ++++++++++++++++++++++++++
+ net/rds/rds.h    |  1 +
+ net/rds/recv.c   | 20 ++++++++++++++++++--
+ 3 files changed, 45 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/networking/rds.txt b/Documentation/networking/rds.txt
-index e1a3d59..9d219d8 100644
---- a/Documentation/networking/rds.txt
-+++ b/Documentation/networking/rds.txt
-@@ -19,9 +19,7 @@ to N*N if you use a connection-oriented socket transport like TCP.
- 
- RDS is not Infiniband-specific; it was designed to support different
- transports.  The current implementation used to support RDS over TCP as well
--as IB. Work is in progress to support RDS over iWARP, and using DCE to
--guarantee no dropped packets on Ethernet, it may be possible to use RDS over
--UDP in the future.
-+as IB.
- 
- The high-level semantics of RDS from the application's point of view are
- 
-diff --git a/net/rds/Kconfig b/net/rds/Kconfig
-index f2c670b..bffde4b 100644
---- a/net/rds/Kconfig
-+++ b/net/rds/Kconfig
-@@ -4,14 +4,13 @@ config RDS
- 	depends on INET
- 	---help---
- 	  The RDS (Reliable Datagram Sockets) protocol provides reliable,
--	  sequenced delivery of datagrams over Infiniband, iWARP,
--	  or TCP.
-+	  sequenced delivery of datagrams over Infiniband or TCP.
- 
- config RDS_RDMA
--	tristate "RDS over Infiniband and iWARP"
-+	tristate "RDS over Infiniband"
- 	depends on RDS && INFINIBAND && INFINIBAND_ADDR_TRANS
- 	---help---
--	  Allow RDS to use Infiniband and iWARP as a transport.
-+	  Allow RDS to use Infiniband as a transport.
- 	  This transport supports RDMA operations.
- 
- config RDS_TCP
-diff --git a/net/rds/Makefile b/net/rds/Makefile
-index 56d3f60..19e5485 100644
---- a/net/rds/Makefile
-+++ b/net/rds/Makefile
-@@ -6,9 +6,7 @@ rds-y :=	af_rds.o bind.o cong.o connection.o info.o message.o   \
- obj-$(CONFIG_RDS_RDMA) += rds_rdma.o
- rds_rdma-y :=	rdma_transport.o \
- 			ib.o ib_cm.o ib_recv.o ib_ring.o ib_send.o ib_stats.o \
--			ib_sysctl.o ib_rdma.o \
--			iw.o iw_cm.o iw_recv.o iw_ring.o iw_send.o iw_stats.o \
--			iw_sysctl.o iw_rdma.o
-+			ib_sysctl.o ib_rdma.o
- 
- 
- obj-$(CONFIG_RDS_TCP) += rds_tcp.o
-diff --git a/net/rds/iw.c b/net/rds/iw.c
-deleted file mode 100644
-index f4a9fff..0000000
-diff --git a/net/rds/iw.h b/net/rds/iw.h
-deleted file mode 100644
-index 5af01d1..0000000
-diff --git a/net/rds/iw_cm.c b/net/rds/iw_cm.c
-deleted file mode 100644
-index aea4c91..0000000
-diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
-deleted file mode 100644
-index b09a40c..0000000
-diff --git a/net/rds/iw_recv.c b/net/rds/iw_recv.c
-deleted file mode 100644
-index a66d179..0000000
-diff --git a/net/rds/iw_ring.c b/net/rds/iw_ring.c
-deleted file mode 100644
-index da8e3b6..0000000
-diff --git a/net/rds/iw_send.c b/net/rds/iw_send.c
-deleted file mode 100644
-index e20bd50..0000000
-diff --git a/net/rds/iw_stats.c b/net/rds/iw_stats.c
-deleted file mode 100644
-index 5fe67f6..0000000
-diff --git a/net/rds/iw_sysctl.c b/net/rds/iw_sysctl.c
-deleted file mode 100644
-index 139239d..0000000
-diff --git a/net/rds/rdma_transport.c b/net/rds/rdma_transport.c
-index 9c1fed8..4f4b3d8 100644
---- a/net/rds/rdma_transport.c
-+++ b/net/rds/rdma_transport.c
-@@ -49,9 +49,7 @@ int rds_rdma_cm_event_handler(struct rdma_cm_id *cm_id,
- 	rdsdebug("conn %p id %p handling event %u (%s)\n", conn, cm_id,
- 		 event->event, rdma_event_msg(event->event));
- 
--	if (cm_id->device->node_type == RDMA_NODE_RNIC)
--		trans = &rds_iw_transport;
--	else
-+	if (cm_id->device->node_type == RDMA_NODE_IB_CA)
- 		trans = &rds_ib_transport;
- 
- 	/* Prevent shutdown from tearing down the connection
-@@ -200,10 +198,6 @@ static int rds_rdma_init(void)
- 	if (ret)
- 		goto out;
- 
--	ret = rds_iw_init();
--	if (ret)
--		goto err_iw_init;
--
- 	ret = rds_ib_init();
- 	if (ret)
- 		goto err_ib_init;
-@@ -211,8 +205,6 @@ static int rds_rdma_init(void)
- 	goto out;
- 
- err_ib_init:
--	rds_iw_exit();
--err_iw_init:
- 	rds_rdma_listen_stop();
- out:
- 	return ret;
-@@ -224,11 +216,10 @@ static void rds_rdma_exit(void)
- 	/* stop listening first to ensure no new connections are attempted */
- 	rds_rdma_listen_stop();
- 	rds_ib_exit();
--	rds_iw_exit();
+diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
+index b5476aeb..6beaeb1 100644
+--- a/net/rds/af_rds.c
++++ b/net/rds/af_rds.c
+@@ -277,6 +277,27 @@ static int rds_set_transport(struct rds_sock *rs, char __user *optval,
+ 	return rs->rs_transport ? 0 : -ENOPROTOOPT;
  }
- module_exit(rds_rdma_exit);
  
- MODULE_AUTHOR("Oracle Corporation <rds-devel@oss.oracle.com>");
--MODULE_DESCRIPTION("RDS: IB/iWARP transport");
-+MODULE_DESCRIPTION("RDS: IB transport");
- MODULE_LICENSE("Dual BSD/GPL");
++static int rds_enable_recvtstamp(struct sock *sk, char __user *optval,
++				 int optlen)
++{
++	int val, valbool;
++
++	if (optlen != sizeof(int))
++		return -EFAULT;
++
++	if (get_user(val, (int __user *)optval))
++		return -EFAULT;
++
++	valbool = val ? 1 : 0;
++
++	if (valbool)
++		sock_set_flag(sk, SOCK_RCVTSTAMP);
++	else
++		sock_reset_flag(sk, SOCK_RCVTSTAMP);
++
++	return 0;
++}
++
+ static int rds_setsockopt(struct socket *sock, int level, int optname,
+ 			  char __user *optval, unsigned int optlen)
+ {
+@@ -312,6 +333,11 @@ static int rds_setsockopt(struct socket *sock, int level, int optname,
+ 		ret = rds_set_transport(rs, optval, optlen);
+ 		release_sock(sock->sk);
+ 		break;
++	case SO_TIMESTAMP:
++		lock_sock(sock->sk);
++		ret = rds_enable_recvtstamp(sock->sk, optval, optlen);
++		release_sock(sock->sk);
++		break;
+ 	default:
+ 		ret = -ENOPROTOOPT;
+ 	}
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index 0e2797b..80256b0 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -222,6 +222,7 @@ struct rds_incoming {
+ 	__be32			i_saddr;
  
-diff --git a/net/rds/rdma_transport.h b/net/rds/rdma_transport.h
-index faba4e3..ff2010e 100644
---- a/net/rds/rdma_transport.h
-+++ b/net/rds/rdma_transport.h
-@@ -16,9 +16,4 @@ extern struct rds_transport rds_ib_transport;
- int rds_ib_init(void);
- void rds_ib_exit(void);
+ 	rds_rdma_cookie_t	i_rdma_cookie;
++	struct timeval		i_rx_tstamp;
+ };
  
--/* from iw.c */
--extern struct rds_transport rds_iw_transport;
--int rds_iw_init(void);
--void rds_iw_exit(void);
--
- #endif
+ struct rds_mr {
+diff --git a/net/rds/recv.c b/net/rds/recv.c
+index a00462b..c0be1ec 100644
+--- a/net/rds/recv.c
++++ b/net/rds/recv.c
+@@ -35,6 +35,8 @@
+ #include <net/sock.h>
+ #include <linux/in.h>
+ #include <linux/export.h>
++#include <linux/time.h>
++#include <linux/rds.h>
+ 
+ #include "rds.h"
+ 
+@@ -46,6 +48,8 @@ void rds_inc_init(struct rds_incoming *inc, struct rds_connection *conn,
+ 	inc->i_conn = conn;
+ 	inc->i_saddr = saddr;
+ 	inc->i_rdma_cookie = 0;
++	inc->i_rx_tstamp.tv_sec = 0;
++	inc->i_rx_tstamp.tv_usec = 0;
+ }
+ EXPORT_SYMBOL_GPL(rds_inc_init);
+ 
+@@ -228,6 +232,8 @@ void rds_recv_incoming(struct rds_connection *conn, __be32 saddr, __be32 daddr,
+ 		rds_recv_rcvbuf_delta(rs, sk, inc->i_conn->c_lcong,
+ 				      be32_to_cpu(inc->i_hdr.h_len),
+ 				      inc->i_hdr.h_dport);
++		if (sock_flag(sk, SOCK_RCVTSTAMP))
++			do_gettimeofday(&inc->i_rx_tstamp);
+ 		rds_inc_addref(inc);
+ 		list_add_tail(&inc->i_item, &rs->rs_recv_queue);
+ 		__rds_wake_sk_sleep(sk);
+@@ -381,7 +387,8 @@ static int rds_notify_cong(struct rds_sock *rs, struct msghdr *msghdr)
+ /*
+  * Receive any control messages.
+  */
+-static int rds_cmsg_recv(struct rds_incoming *inc, struct msghdr *msg)
++static int rds_cmsg_recv(struct rds_incoming *inc, struct msghdr *msg,
++			 struct rds_sock *rs)
+ {
+ 	int ret = 0;
+ 
+@@ -392,6 +399,15 @@ static int rds_cmsg_recv(struct rds_incoming *inc, struct msghdr *msg)
+ 			return ret;
+ 	}
+ 
++	if ((inc->i_rx_tstamp.tv_sec != 0) &&
++	    sock_flag(rds_rs_to_sk(rs), SOCK_RCVTSTAMP)) {
++		ret = put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMP,
++			       sizeof(struct timeval),
++			       &inc->i_rx_tstamp);
++		if (ret)
++			return ret;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -474,7 +490,7 @@ int rds_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
+ 			msg->msg_flags |= MSG_TRUNC;
+ 		}
+ 
+-		if (rds_cmsg_recv(inc, msg)) {
++		if (rds_cmsg_recv(inc, msg, rs)) {
+ 			ret = -EFAULT;
+ 			goto out;
+ 		}
 -- 
 1.9.1
