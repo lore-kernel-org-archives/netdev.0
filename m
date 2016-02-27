@@ -1,24 +1,39 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch] rocker: fix an error code
-Date: Sat, 27 Feb 2016 12:38:35 +0100
-Message-ID: <20160227113835.GD2119@nanopsycho.orion>
-References: <20160227113143.GA19177@mwanda>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next-2.6 v3 1/3] introduce IFE action
+Date: Sat, 27 Feb 2016 07:27:36 -0500
+Message-ID: <56D19638.8040104@mojatatu.com>
+References: <1456526605-15774-1-git-send-email-jhs@emojatatu.com>
+ <1456526605-15774-2-git-send-email-jhs@emojatatu.com>
+ <CAM_iQpXA4zLbDJzB9FBz5TFAMTLPGvA3=H6bUDRiV=2zSQg9ig@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ying Xue <ying.xue@windriver.com>,
-	Scott Feldman <sfeldma@gmail.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160227113143.GA19177@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:36174 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756340AbcB0M1w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 07:27:52 -0500
+Received: by mail-ig0-f181.google.com with SMTP id xg9so50120723igb.1
+        for <netdev@vger.kernel.org>; Sat, 27 Feb 2016 04:27:52 -0800 (PST)
+In-Reply-To: <CAM_iQpXA4zLbDJzB9FBz5TFAMTLPGvA3=H6bUDRiV=2zSQg9ig@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sat, Feb 27, 2016 at 12:31:43PM CET, dan.carpenter@oracle.com wrote:
->We intended to return PTR_ERR() here instead of 1.
+On 16-02-26 06:49 PM, Cong Wang wrote:
+> On Fri, Feb 26, 2016 at 2:43 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 >
->Fixes: 1f9993f6825f ('rocker: fix a neigh entry leak issue')
->Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> [...]
+>
+>
+> Just some quick reviews... ;)
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+;->
+
+Ok, update in a little while after some basic testing...
+
+cheers,
+jamal
