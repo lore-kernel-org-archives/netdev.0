@@ -1,499 +1,71 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v4 net-next] net: Implement fast csum_partial for x86_64
-Date: Fri, 26 Feb 2016 19:40:50 -0800
-Message-ID: <CAKgT0Uf9t9V65giwiwGAYbrd8SA9h8ULQj-4u4Ju=s5UaETFPQ@mail.gmail.com>
-References: <1456516995-3471163-1-git-send-email-tom@herbertland.com>
-	<CAKgT0UfjM6jpGwJpXb=w6VX5P0SqzKe41HGCzp=Rz6stpO6Ucg@mail.gmail.com>
-	<CALx6S37eFv+iPtteiee4AVgKxDcVgMsOck-b2280Vy-MHHMFkw@mail.gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v3 1/3] net: sched: consolidate offload decision
+ in cls_u32
+Date: Fri, 26 Feb 2016 20:24:17 -0800
+Message-ID: <56D124F1.3070300@gmail.com>
+References: <20160226154858.5338.90569.stgit@john-Precision-Tower-5810>	<20160226155349.5338.74615.stgit@john-Precision-Tower-5810> <CAM_iQpVPa7Twx35K-VjR6X0DJ9wQuSeTrfFSZe8HWU_yJVj2UA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>, Peter Anvin <hpa@zytor.com>,
-	"the arch/x86 maintainers" <x86@kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	simon.horman@netronome.com,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:36021 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755905AbcB0Dkw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 22:40:52 -0500
-Received: by mail-ig0-f169.google.com with SMTP id xg9so46493958igb.1
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 19:40:51 -0800 (PST)
-In-Reply-To: <CALx6S37eFv+iPtteiee4AVgKxDcVgMsOck-b2280Vy-MHHMFkw@mail.gmail.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33856 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755533AbcB0EYl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2016 23:24:41 -0500
+Received: by mail-pa0-f41.google.com with SMTP id fy10so61098207pac.1
+        for <netdev@vger.kernel.org>; Fri, 26 Feb 2016 20:24:41 -0800 (PST)
+In-Reply-To: <CAM_iQpVPa7Twx35K-VjR6X0DJ9wQuSeTrfFSZe8HWU_yJVj2UA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 26, 2016 at 7:11 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Fri, Feb 26, 2016 at 2:52 PM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
->> On Fri, Feb 26, 2016 at 12:03 PM, Tom Herbert <tom@herbertland.com> wrote:
->>> This patch implements performant csum_partial for x86_64. The intent is
->>> to speed up checksum calculation, particularly for smaller lengths such
->>> as those that are present when doing skb_postpull_rcsum when getting
->>> CHECKSUM_COMPLETE from device or after CHECKSUM_UNNECESSARY conversion.
->>>
->>> - v4
->>>    - went back to C code with inline assembly for critical routines
->>>    - implemented suggestion from Linus to deal with lengths < 8
->>>
->>> Testing:
->>>
->>> Correctness:
->>>
->>> Verified correctness by testing arbitrary length buffer filled with
->>> random data. For each buffer I compared the computed checksum
->>> using the original algorithm for each possible alignment (0-7 bytes).
->>>
->>> Performance:
->>>
->>> Isolating old and new implementation for some common cases:
->>>
->>>              Old      New     %
->>>     Len/Aln  nsecs    nsecs   Improv
->>>     --------+-------+--------+-------
->>>     1400/0    195.6    181.7   7%     (Big packet)
->>>     40/0      11.4     6.2     45%    (Ipv6 hdr cmn case)
->>>     8/4       7.9      3.2     59%    (UDP, VXLAN in IPv4)
->>>     14/0      8.9      5.9     33%    (Eth hdr)
->>>     14/4      9.2      5.9     35%    (Eth hdr in IPv4)
->>>     14/3      9.6      5.9     38%    (Eth with odd align)
->>>     20/0      9.0      6.2     31%    (IP hdr without options)
->>>     7/1       8.9      4.2     52%    (buffer in one quad)
->>>     100/0    17.4     13.9     20%    (medium-sized pkt)
->>>     100/2    17.8     14.2     20%    (medium-sized pkt w/ alignment)
->>>
->>> Results from: Intel(R) Xeon(R) CPU X5650 @ 2.67GHz
->>>
->>> Also tested on these with similar results:
->>>
->>> Intel(R) Xeon(R) CPU E5-2660 v2 @ 2.20GHz
->>> Intel(R) Xeon(R) CPU E5-2680 v2 @ 2.80GHz
->>>
->>> Branch  prediction:
->>>
->>> To test the effects of poor branch prediction in the jump tables I
->>> tested checksum performance with runs for two combinations of length
->>> and alignment. As the baseline I performed the test by doing half of
->>> calls with the first combination, followed by using the second
->>> combination for the second half. In the test case, I interleave the
->>> two combinations so that in every call the length and alignment are
->>> different to defeat the effects of branch prediction. Running several
->>> cases, I did not see any material performance difference between the
->>> two scenarios (perf stat output is below), neither does either case
->>> show a significant number of branch misses.
->>>
->>> Interleave lengths case:
->>>
->>> perf stat --repeat 10 -e '{instructions, branches, branch-misses}' \
->>>     ./csum -M new-thrash -I -l 100 -S 24 -a 1 -c 100000000
->>>
->>>  Performance counter stats for './csum -M new-thrash -I -l 100 -S 24 -a 1 -c 100000000' (10 runs):
->>>
->>>      9,556,693,202      instructions               ( +-  0.00% )
->>>      1,176,208,640       branches                                                     ( +-  0.00% )
->>>             19,487       branch-misses            #    0.00% of all branches          ( +-  6.07% )
->>>
->>>        2.049732539 seconds time elapsed
->>>
->>>     Non-interleave case:
->>>
->>> perf stat --repeat 10 -e '{instructions, branches, branch-misses}' \
->>>      ./csum -M new-thrash -l 100 -S 24 -a 1 -c 100000000
->>>
->>> Performance counter stats for './csum -M new-thrash -l 100 -S 24 -a 1 -c 100000000' (10 runs):
->>>
->>>      9,782,188,310      instructions               ( +-  0.00% )
->>>      1,251,286,958       branches                                                     ( +-  0.01% )
->>>             18,950       branch-misses            #    0.00% of all branches          ( +- 12.74% )
->>>
->>>        2.271789046 seconds time elapsed
->>>
->>> Signed-off-by: Tom Herbert <tom@herbertland.com>
->>> ---
->>>  arch/x86/include/asm/checksum_64.h |  21 ++++
->>>  arch/x86/lib/csum-partial_64.c     | 225 ++++++++++++++++++++-----------------
->>>  2 files changed, 143 insertions(+), 103 deletions(-)
->>>
->>> diff --git a/arch/x86/include/asm/checksum_64.h b/arch/x86/include/asm/checksum_64.h
->>> index cd00e17..e20c35b 100644
->>> --- a/arch/x86/include/asm/checksum_64.h
->>> +++ b/arch/x86/include/asm/checksum_64.h
->>> @@ -188,6 +188,27 @@ static inline unsigned add32_with_carry(unsigned a, unsigned b)
->>>         return a;
->>>  }
->>>
->>> +static inline unsigned long add64_with_carry(unsigned long a, unsigned long b)
->>> +{
->>> +       asm("addq %2,%0\n\t"
->>> +           "adcq $0,%0"
->>> +           : "=r" (a)
->>> +           : "0" (a), "rm" (b));
->>> +       return a;
->>> +}
->>> +
->>> +static inline unsigned int add32_with_carry3(unsigned int a, unsigned int b,
->>> +                                            unsigned int c)
->>> +{
->>> +       asm("addl %2,%0\n\t"
->>> +           "adcl %3,%0\n\t"
->>> +           "adcl $0,%0"
->>> +           : "=r" (a)
->>> +           : "" (a), "rm" (b), "rm" (c));
->>> +
->>> +       return a;
->>> +}
->>> +
->>>  #define HAVE_ARCH_CSUM_ADD
->>>  static inline __wsum csum_add(__wsum csum, __wsum addend)
->>>  {
->>> diff --git a/arch/x86/lib/csum-partial_64.c b/arch/x86/lib/csum-partial_64.c
->>> index 9845371..df82c9b 100644
->>> --- a/arch/x86/lib/csum-partial_64.c
->>> +++ b/arch/x86/lib/csum-partial_64.c
->>> @@ -8,114 +8,66 @@
->>>  #include <linux/compiler.h>
->>>  #include <linux/module.h>
->>>  #include <asm/checksum.h>
->>> +#include <asm/word-at-a-time.h>
->>>
->>> -static inline unsigned short from32to16(unsigned a)
->>> +static inline unsigned long rotate_by8_if_odd(unsigned long sum, bool aligned)
->>>  {
->>> -       unsigned short b = a >> 16;
->>> -       asm("addw %w2,%w0\n\t"
->>> -           "adcw $0,%w0\n"
->>> -           : "=r" (b)
->>> -           : "0" (b), "r" (a));
->>> -       return b;
->>> +       if (unlikely(aligned))
->>> +               asm("rorq $0x8,%0"
->>> +                       : "=r" (sum)
->>> +                       : "0" (sum));
->>> +       return sum;
->>>  }
+On 16-02-26 09:39 AM, Cong Wang wrote:
+> On Fri, Feb 26, 2016 at 7:53 AM, John Fastabend
+> <john.fastabend@gmail.com> wrote:
+>> The offload decision was originally very basic and tied to if the dev
+>> implemented the appropriate ndo op hook. The next step is to allow
+>> the user to more flexibly define if any paticular rule should be
+>> offloaded or not. In order to have this logic in one function lift
+>> the current check into a helper routine tc_should_offload().
 >>
->> Instead of making this conditional you might just want to perform the
->> rotate always and just bump the aligned value up bits.  That way you
->> reduce the length of the dependency chain by 1, and rotates tend to
->> only take a cycle on most x86_64 capable systems anyways.
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+>>  include/net/pkt_cls.h |    5 +++++
+>>  net/sched/cls_u32.c   |    8 ++++----
+>>  2 files changed, 9 insertions(+), 4 deletions(-)
 >>
-> I don't understand what you want. Can you provide more detail?
-
-So right now you have aligned as a boolean value.  The code path ends
-up being something like cmp, jmp, rorq.  If you converted it to an
-integer value you could simply shift aligned by 3 and then perform the
-rotate in all cases as a rotate by 0 has no effect.  It basically just
-drops one uop from the path.
-
->>>
->>> -/*
->>> - * Do a 64-bit checksum on an arbitrary memory area.
->>> - * Returns a 32bit checksum.
->>> - *
->>> - * This isn't as time critical as it used to be because many NICs
->>> - * do hardware checksumming these days.
->>> - *
->>> - * Things tried and found to not make it faster:
->>> - * Manual Prefetching
->>> - * Unrolling to an 128 bytes inner loop.
->>> - * Using interleaving with more registers to break the carry chains.
->>> - */
->>> -static unsigned do_csum(const unsigned char *buff, unsigned len)
->>> +/* Extract eight high order (nbo) bytes of quad "val". */
->>> +static inline unsigned long csum_partial_lt8_head(unsigned long val, int len)
->>>  {
->>> -       unsigned odd, count;
->>> -       unsigned long result = 0;
->>> +       return val & ((1ul << len * 8) - 1);
->>> +}
->>>
->>> -       if (unlikely(len == 0))
->>> -               return result;
->>> -       odd = 1 & (unsigned long) buff;
->>> -       if (unlikely(odd)) {
->>> -               result = *buff << 8;
->>> -               len--;
->>> -               buff++;
->>> -       }
->>> -       count = len >> 1;               /* nr of 16-bit words.. */
->>> -       if (count) {
->>> -               if (2 & (unsigned long) buff) {
->>> -                       result += *(unsigned short *)buff;
->>> -                       count--;
->>> -                       len -= 2;
->>> -                       buff += 2;
->>> -               }
->>> -               count >>= 1;            /* nr of 32-bit words.. */
->>> -               if (count) {
->>> -                       unsigned long zero;
->>> -                       unsigned count64;
->>> -                       if (4 & (unsigned long) buff) {
->>> -                               result += *(unsigned int *) buff;
->>> -                               count--;
->>> -                               len -= 4;
->>> -                               buff += 4;
->>> -                       }
->>> -                       count >>= 1;    /* nr of 64-bit words.. */
->>> -
->>> -                       /* main loop using 64byte blocks */
->>> -                       zero = 0;
->>> -                       count64 = count >> 3;
->>> -                       while (count64) {
->>> -                               asm("addq 0*8(%[src]),%[res]\n\t"
->>> -                                   "adcq 1*8(%[src]),%[res]\n\t"
->>> -                                   "adcq 2*8(%[src]),%[res]\n\t"
->>> -                                   "adcq 3*8(%[src]),%[res]\n\t"
->>> -                                   "adcq 4*8(%[src]),%[res]\n\t"
->>> -                                   "adcq 5*8(%[src]),%[res]\n\t"
->>> -                                   "adcq 6*8(%[src]),%[res]\n\t"
->>> -                                   "adcq 7*8(%[src]),%[res]\n\t"
->>> -                                   "adcq %[zero],%[res]"
->>> -                                   : [res] "=r" (result)
->>> -                                   : [src] "r" (buff), [zero] "r" (zero),
->>> -                                   "[res]" (result));
->>> -                               buff += 64;
->>> -                               count64--;
->>> -                       }
->>> -
->>> -                       /* last up to 7 8byte blocks */
->>> -                       count %= 8;
->>> -                       while (count) {
->>> -                               asm("addq %1,%0\n\t"
->>> -                                   "adcq %2,%0\n"
->>> -                                           : "=r" (result)
->>> -                                   : "m" (*(unsigned long *)buff),
->>> -                                   "r" (zero),  "0" (result));
->>> -                               --count;
->>> -                                       buff += 8;
->>> -                       }
->>> -                       result = add32_with_carry(result>>32,
->>> -                                                 result&0xffffffff);
->>> -
->>> -                       if (len & 4) {
->>> -                               result += *(unsigned int *) buff;
->>> -                               buff += 4;
->>> -                       }
->>> -               }
->>> -               if (len & 2) {
->>> -                       result += *(unsigned short *) buff;
->>> -                       buff += 2;
->>> -               }
->>> -       }
->>> -       if (len & 1)
->>> -               result += *buff;
->>> -       result = add32_with_carry(result>>32, result & 0xffffffff);
->>> -       if (unlikely(odd)) {
->>> -               result = from32to16(result);
->>> -               result = ((result >> 8) & 0xff) | ((result & 0xff) << 8);
->>> +/* Extract eight low order (nbo) bytes of quad in "val". */
->>> +static inline unsigned long csum_partial_lt8_tail(unsigned long val, int len)
->>> +{
->>> +       return val >> (8 * (8 - len));
->>> +}
+>> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+>> index 2121df5..e64d20b 100644
+>> --- a/include/net/pkt_cls.h
+>> +++ b/include/net/pkt_cls.h
+>> @@ -392,4 +392,9 @@ struct tc_cls_u32_offload {
+>>         };
+>>  };
 >>
->> From what I can tell these functions only get used in one or two
->> spots.  It may be worth it to just place the code directly in the
->> function rather than obscuring it by placing it in a function.
->>
->>> +/* Sum over buffer up to 64 bytes. */
->>> +static unsigned long csum_partial_le64(const void *buff, unsigned int len,
->>> +                                      unsigned long sum)
->>> +{
->>> +       asm("lea 40f(, %[slen], 4), %%r11\n\t"
->>> +           "clc\n\t"
->>> +           "jmpq *%%r11\n\t"
->>> +           "adcq 7*8(%[src]),%[res]\n\t"
->>
->> Technically this first adcq could just be an addq.  You don't have
->> anything to carry anyway.
->>
-> To what end?
+>> +static inline bool tc_should_offload(struct net_device *dev)
+>> +{
+>> +       return dev->netdev_ops->ndo_setup_tc;
+>> +}
+>> +
+> 
+> These should be protected by CONFIG_NET_CLS_U32, no?
+> 
 
-It basically allows us to get back to what I was proposing when we
-were at netconf where we look at merging the main loop and your jump
-table path so that you can put together a Duff's device and save
-yourself some code overhead.
+Its not necessary it is a completely general function and I only
+lifted it out of cls_u32 so that the cls_flower classifier could
+also use it.
 
->>> +           "adcq 6*8(%[src]),%[res]\n\t"
->>> +           "adcq 5*8(%[src]),%[res]\n\t"
->>> +           "adcq 4*8(%[src]),%[res]\n\t"
->>> +           "adcq 3*8(%[src]),%[res]\n\t"
->>> +           "adcq 2*8(%[src]),%[res]\n\t"
->>> +           "adcq 1*8(%[src]),%[res]\n\t"
->>> +           "adcq 0*8(%[src]),%[res]\n\t"
->>> +           "nop\n\t"
->>> +           "40: adcq $0,%[res]"
->>> +                   : [res] "=r" (sum)
->>> +                   : [src] "r" (buff),
->>> +                     [slen] "r" (-((unsigned long)(len >> 3))), "[res]" (sum)
->>> +                   : "r11");
->>> +
->>
->> It would probably useful to add a comment explaining that this block.
->> I had to compile it to verify my understanding of this is correct in
->> that you are using the label 40 as a jump target and simply
->> subtracting the length in longs from that jump target.  If nothing
->> else you might want to rename the label from 40 to something else just
->> to improve the readability.  It is possible that the code could get
->> shifted around or inlined and at that point the 40 becomes completely
->> meaningless.
->>
->> Also it wouldn't hurt to explain that the nop, and the reason for the
->> 4 in the lea instruction is because adcq is 4 bytes per instruction
->> with a memory offset, and the last one has an offset of 0 so we need
->> to add the nop to keep everything 4 byte aligned from the end.
->>
->>> +       if (len & 0x7) {
->>> +               unsigned long val;
->>> +               /*
->>> +                * Since "len" is > 8 here we backtrack in the buffer to load
->>> +                * the outstaning bytes into the low order bytes of a quad and
->>> +                * sum those in csum_partial_lt8_tail. By doing this we avoid
->>> +                * additional calls to load_unaligned_zeropad.
->>> +                */
->>> +
->>> +               val = csum_partial_lt8_tail(*(unsigned long *)(buff + len - 8),
->>> +                                           len & 0x7);
->>> +               sum = add64_with_carry(val, sum);
->>>         }
->>> -       return result;
->>> +
->>> +       return sum;
->>>  }
->>>
->>>  /*
->>> @@ -130,10 +82,77 @@ static unsigned do_csum(const unsigned char *buff, unsigned len)
->>>   *
->>>   * it's best to have buff aligned on a 64-bit boundary
->>>   */
->>> +static unsigned int do_csum(const void *buff, int len, unsigned int sum)
->>> +{
->>> +       bool aligned = false;
->>> +       unsigned long result = 0;
->>> +
->>> +       /*
->>> +        * For "small" lengths don't bother with alignment, x86 handles
->>> +        * this pretty well.
->>> +        */
->>> +       if (len <= 8) {
->>> +               unsigned long val;
->>> +
->>> +               /* Optimize trivial cases */
->>> +               if (len == 8)
->>> +                       return add32_with_carry3(sum,
->>> +                                      *(unsigned int *)buff,
->>> +                                      *(unsigned int *)(buff + 4));
->>
->> Doesn't this still run the risk of triggering a fault if the buffer
->> crosses pages on a non-4 byte aligned boundary?
->>
-> It's safe because we know the length of the buffer is eight bytes.
-> There is only one instance where we need load_unaligned_zeropad to
-> deal with potentially crossing over to a bad page.
+I don't see the need off-hand to have it wrapped in an ORd ifdef
+statement where its (CONFIG_NET_CLS_U32 | CONFIG_NET_CLS_X ...).
+Any particular reason you were thnking it should be wrapped in ifdefs?
 
-I think I see what you are getting at, but to me it just seems like
-there is some unnecessary optimizations going on.  For example I don't
-really see the point in optimizing for the 0 case below.  If someone
-requested a sum over 0 bytes I believe the lt8_head function will
-return 0 anyway.
+Thanks for taking a look at the patches.
 
-You might also be better off just converting this to a (len < 7) as
-well and let the code fall through into the section for less than 64
-as well.
-
->>> +               else if (len == 0)
->>> +                       return sum;
->>> +
->>> +               val = load_unaligned_zeropad(buff);
->>> +               result = csum_partial_lt8_head(val, len);
->>> +
->>> +               return add32_with_carry3(sum, result >> 32,
->>> +                                        result & 0xffffffff);
->>> +       } else if (len <= 64) {
->>> +               result = csum_partial_le64(buff, len, result);
->>> +
->>> +               return add32_with_carry3(sum, result >> 32,
->>> +                                        result & 0xffffffff);
->>> +       }
->>> +
->>
->> One side effect I see from the fact that you are calling
->> csum_partial_le64 in two spots is that you are ending up having to
->> make a call to it instead of having it be inlined directly into your
->> do_csum function.  What you may want to do is look at altering your
->> code flow so that if (len > 64) you do the bits below that occur
->> before you call into csum_partial_le64, and that way you will reduce
->> the number of callers to csum_partial_le64 to one which should get the
->> compiler to inline it into your function.
->>
-> I see that gcc is inlining both calls to csum_partial_le64.
-
-Maybe your compiler is smarter than mine, or I have some other build
-option enabled that isn't triggering that.
-
->>> +       /*
->>> +        * Length is greater than 64. Sum to eight byte alignment before
->>> +        * proceeding with main loop.
->>> +        */
->>> +       aligned = !!((unsigned long)buff & 0x1);
->>> +       if (aligned) {
->>> +               unsigned int align = 7 & -(unsigned long)buff;
->>> +
->>> +               result = csum_partial_lt8_head(*(unsigned long *)buff, align);
->>> +               buff += align;
->>> +               len -= align;
->>> +               result = rotate_by8_if_odd(result, align);
->>> +       }
->>
->> I'm still not a fan of the unaligned reads.  They may be okay but it
->> just seems like we are going run into corner cases all over the place
->> where this ends up biting us.
->>
-> They are already all over the place in stack. For instance, any time
-> we process an IP header within VXLAN we're likely doing several
-> unaligned reads to load IP addresses etc. These are a big problem for
-> architectures like Sparc, but does not appear to be an issue for x86.
-
-Yes, but in our case we can align ourselves with minimal overhead,
-that is why I figure it might be worth the effort to do so.
-
->>> +       /* main loop using 64byte blocks */
->>> +       for (; len >= 64; len -= 64, buff += 64) {
->>> +               asm("addq 0*8(%[src]),%[res]\n\t"
->>> +                   "adcq 1*8(%[src]),%[res]\n\t"
->>> +                   "adcq 2*8(%[src]),%[res]\n\t"
->>> +                   "adcq 3*8(%[src]),%[res]\n\t"
->>> +                   "adcq 4*8(%[src]),%[res]\n\t"
->>> +                   "adcq 5*8(%[src]),%[res]\n\t"
->>> +                   "adcq 6*8(%[src]),%[res]\n\t"
->>> +                   "adcq 7*8(%[src]),%[res]\n\t"
->>> +                   "adcq $0,%[res]"
->>> +                   : [res] "=r" (result)
->>> +                   : [src] "r" (buff),
->>> +                   "[res]" (result));
->>> +       }
->>> +
->>> +       result = csum_partial_le64(buff, len, result);
->>> +       result = rotate_by8_if_odd(result, aligned);
->>> +
->>> +       return add32_with_carry3(sum, result >> 32, result & 0xffffffff);
->>> +}
->>> +
-
-I'll play around with this code a bit over the weekend.  I have a few
-ideas I want to play with.
-
-I figure we should be able to get to the point of having this code
-running pretty lean.  For example I was looking at the Duff's device
-idea and I think we can probably get this code quite a bit smaller and
-faster.
-
-As far as the patch itself I have no objections.  It is better then
-what we have now.  I think I am just starting to realize we might be
-able to squeeze some more speed out of it and might even be able to
-reduce the code size in the process.
-
-- Alex
+.John
