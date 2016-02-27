@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH 06/13] RDS: IB: create struct rds_ib_fmr
-Date: Fri, 26 Feb 2016 21:43:51 -0800
-Message-ID: <1456551838-9080-7-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH 04/13] RDS: IB: Remove the RDS_IB_SEND_OP dependency
+Date: Fri, 26 Feb 2016 21:43:49 -0800
+Message-ID: <1456551838-9080-5-git-send-email-santosh.shilimkar@oracle.com>
 References: <1456551838-9080-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
@@ -11,173 +11,141 @@ In-Reply-To: <1456551838-9080-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Keep fmr related filed in its own struct. Fastreg MR structure
-will be added to the union.
+This helps to combine asynchronous fastreg MR completion handler
+with send completion handler.
+
+No functional change.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib_fmr.c  | 17 ++++++++++-------
- net/rds/ib_mr.h   | 11 +++++++++--
- net/rds/ib_rdma.c | 14 ++++++++++----
- 3 files changed, 29 insertions(+), 13 deletions(-)
+ net/rds/ib.h      |  1 -
+ net/rds/ib_cm.c   | 42 +++++++++++++++++++++++++++---------------
+ net/rds/ib_send.c |  6 ++----
+ 3 files changed, 29 insertions(+), 20 deletions(-)
 
-diff --git a/net/rds/ib_fmr.c b/net/rds/ib_fmr.c
-index d4f200d..74f2c21 100644
---- a/net/rds/ib_fmr.c
-+++ b/net/rds/ib_fmr.c
-@@ -36,6 +36,7 @@ struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev, int npages)
+diff --git a/net/rds/ib.h b/net/rds/ib.h
+index b3fdebb..09cd8e3 100644
+--- a/net/rds/ib.h
++++ b/net/rds/ib.h
+@@ -28,7 +28,6 @@
+ #define RDS_IB_RECYCLE_BATCH_COUNT	32
+ 
+ #define RDS_IB_WC_MAX			32
+-#define RDS_IB_SEND_OP			BIT_ULL(63)
+ 
+ extern struct rw_semaphore rds_ib_devices_lock;
+ extern struct list_head rds_ib_devices;
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index da5a7fb..7f68abc 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -236,12 +236,10 @@ static void rds_ib_cq_comp_handler_recv(struct ib_cq *cq, void *context)
+ 	tasklet_schedule(&ic->i_recv_tasklet);
+ }
+ 
+-static void poll_cq(struct rds_ib_connection *ic, struct ib_cq *cq,
+-		    struct ib_wc *wcs,
+-		    struct rds_ib_ack_state *ack_state)
++static void poll_scq(struct rds_ib_connection *ic, struct ib_cq *cq,
++		     struct ib_wc *wcs)
  {
- 	struct rds_ib_mr_pool *pool;
- 	struct rds_ib_mr *ibmr = NULL;
-+	struct rds_ib_fmr *fmr;
- 	int err = 0, iter = 0;
+-	int nr;
+-	int i;
++	int nr, i;
+ 	struct ib_wc *wc;
  
- 	if (npages <= RDS_MR_8K_MSG_SIZE)
-@@ -99,15 +100,16 @@ struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev, int npages)
- 		goto out_no_cigar;
- 	}
+ 	while ((nr = ib_poll_cq(cq, RDS_IB_WC_MAX, wcs)) > 0) {
+@@ -251,10 +249,7 @@ static void poll_cq(struct rds_ib_connection *ic, struct ib_cq *cq,
+ 				 (unsigned long long)wc->wr_id, wc->status,
+ 				 wc->byte_len, be32_to_cpu(wc->ex.imm_data));
  
--	ibmr->fmr = ib_alloc_fmr(rds_ibdev->pd,
-+	fmr = &ibmr->u.fmr;
-+	fmr->fmr = ib_alloc_fmr(rds_ibdev->pd,
- 			(IB_ACCESS_LOCAL_WRITE |
- 			 IB_ACCESS_REMOTE_READ |
- 			 IB_ACCESS_REMOTE_WRITE |
- 			 IB_ACCESS_REMOTE_ATOMIC),
- 			&pool->fmr_attr);
--	if (IS_ERR(ibmr->fmr)) {
--		err = PTR_ERR(ibmr->fmr);
--		ibmr->fmr = NULL;
-+	if (IS_ERR(fmr->fmr)) {
-+		err = PTR_ERR(fmr->fmr);
-+		fmr->fmr = NULL;
- 		pr_warn("RDS/IB: %s failed (err=%d)\n", __func__, err);
- 		goto out_no_cigar;
- 	}
-@@ -122,8 +124,8 @@ struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev, int npages)
- 
- out_no_cigar:
- 	if (ibmr) {
--		if (ibmr->fmr)
--			ib_dealloc_fmr(ibmr->fmr);
-+		if (fmr->fmr)
-+			ib_dealloc_fmr(fmr->fmr);
- 		kfree(ibmr);
- 	}
- 	atomic_dec(&pool->item_count);
-@@ -134,6 +136,7 @@ int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev, struct rds_ib_mr *ibmr,
- 		   struct scatterlist *sg, unsigned int nents)
- {
- 	struct ib_device *dev = rds_ibdev->dev;
-+	struct rds_ib_fmr *fmr = &ibmr->u.fmr;
- 	struct scatterlist *scat = sg;
- 	u64 io_addr = 0;
- 	u64 *dma_pages;
-@@ -190,7 +193,7 @@ int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev, struct rds_ib_mr *ibmr,
- 				(dma_addr & PAGE_MASK) + j;
- 	}
- 
--	ret = ib_map_phys_fmr(ibmr->fmr, dma_pages, page_cnt, io_addr);
-+	ret = ib_map_phys_fmr(fmr->fmr, dma_pages, page_cnt, io_addr);
- 	if (ret)
- 		goto out;
- 
-diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
-index d88724f..309ad59 100644
---- a/net/rds/ib_mr.h
-+++ b/net/rds/ib_mr.h
-@@ -43,11 +43,15 @@
- #define RDS_MR_8K_SCALE			(256 / (RDS_MR_8K_MSG_SIZE + 1))
- #define RDS_MR_8K_POOL_SIZE		(RDS_MR_8K_SCALE * (8192 / 2))
- 
-+struct rds_ib_fmr {
-+	struct ib_fmr		*fmr;
-+	u64			*dma;
-+};
-+
- /* This is stored as mr->r_trans_private. */
- struct rds_ib_mr {
- 	struct rds_ib_device	*device;
- 	struct rds_ib_mr_pool	*pool;
--	struct ib_fmr		*fmr;
- 
- 	struct llist_node	llnode;
- 
-@@ -57,8 +61,11 @@ struct rds_ib_mr {
- 
- 	struct scatterlist	*sg;
- 	unsigned int		sg_len;
--	u64			*dma;
- 	int			sg_dma_len;
-+
-+	union {
-+		struct rds_ib_fmr	fmr;
-+	} u;
- };
- 
- /* Our own little MR pool */
-diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
-index c594519..9e608d9 100644
---- a/net/rds/ib_rdma.c
-+++ b/net/rds/ib_rdma.c
-@@ -334,6 +334,7 @@ int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
- 			 int free_all, struct rds_ib_mr **ibmr_ret)
- {
- 	struct rds_ib_mr *ibmr, *next;
-+	struct rds_ib_fmr *fmr;
- 	struct llist_node *clean_nodes;
- 	struct llist_node *clean_tail;
- 	LIST_HEAD(unmap_list);
-@@ -395,8 +396,10 @@ int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
- 		goto out;
- 
- 	/* String all ib_mr's onto one list and hand them to ib_unmap_fmr */
--	list_for_each_entry(ibmr, &unmap_list, unmap_list)
--		list_add(&ibmr->fmr->list, &fmr_list);
-+	list_for_each_entry(ibmr, &unmap_list, unmap_list) {
-+		fmr = &ibmr->u.fmr;
-+		list_add(&fmr->fmr->list, &fmr_list);
-+	}
- 
- 	ret = ib_unmap_fmr(&fmr_list);
- 	if (ret)
-@@ -405,6 +408,7 @@ int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
- 	/* Now we can destroy the DMA mapping and unpin any pages */
- 	list_for_each_entry_safe(ibmr, next, &unmap_list, unmap_list) {
- 		unpinned += ibmr->sg_len;
-+		fmr = &ibmr->u.fmr;
- 		__rds_ib_teardown_mr(ibmr);
- 		if (nfreed < free_goal ||
- 		    ibmr->remap_count >= pool->fmr_attr.max_maps) {
-@@ -413,7 +417,7 @@ int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
- 			else
- 				rds_ib_stats_inc(s_ib_rdma_mr_1m_free);
- 			list_del(&ibmr->unmap_list);
--			ib_dealloc_fmr(ibmr->fmr);
-+			ib_dealloc_fmr(fmr->fmr);
- 			kfree(ibmr);
- 			nfreed++;
+-			if (wc->wr_id & RDS_IB_SEND_OP)
+-				rds_ib_send_cqe_handler(ic, wc);
+-			else
+-				rds_ib_recv_cqe_handler(ic, wc, ack_state);
++			rds_ib_send_cqe_handler(ic, wc);
  		}
-@@ -517,6 +521,7 @@ void *rds_ib_get_mr(struct scatterlist *sg, unsigned long nents,
- {
- 	struct rds_ib_device *rds_ibdev;
- 	struct rds_ib_mr *ibmr = NULL;
-+	struct rds_ib_fmr *fmr;
- 	int ret;
- 
- 	rds_ibdev = rds_ib_get_device(rs->rs_bound_addr);
-@@ -536,9 +541,10 @@ void *rds_ib_get_mr(struct scatterlist *sg, unsigned long nents,
- 		return ibmr;
  	}
+ }
+@@ -263,14 +258,12 @@ static void rds_ib_tasklet_fn_send(unsigned long data)
+ {
+ 	struct rds_ib_connection *ic = (struct rds_ib_connection *)data;
+ 	struct rds_connection *conn = ic->conn;
+-	struct rds_ib_ack_state state;
  
-+	fmr = &ibmr->u.fmr;
- 	ret = rds_ib_map_fmr(rds_ibdev, ibmr, sg, nents);
- 	if (ret == 0)
--		*key_ret = ibmr->fmr->rkey;
-+		*key_ret = fmr->fmr->rkey;
- 	else
- 		printk(KERN_WARNING "RDS/IB: map_fmr failed (errno=%d)\n", ret);
+ 	rds_ib_stats_inc(s_ib_tasklet_call);
  
+-	memset(&state, 0, sizeof(state));
+-	poll_cq(ic, ic->i_send_cq, ic->i_send_wc, &state);
++	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
+ 	ib_req_notify_cq(ic->i_send_cq, IB_CQ_NEXT_COMP);
+-	poll_cq(ic, ic->i_send_cq, ic->i_send_wc, &state);
++	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
+ 
+ 	if (rds_conn_up(conn) &&
+ 	    (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags) ||
+@@ -278,6 +271,25 @@ static void rds_ib_tasklet_fn_send(unsigned long data)
+ 		rds_send_xmit(ic->conn);
+ }
+ 
++static void poll_rcq(struct rds_ib_connection *ic, struct ib_cq *cq,
++		     struct ib_wc *wcs,
++		     struct rds_ib_ack_state *ack_state)
++{
++	int nr, i;
++	struct ib_wc *wc;
++
++	while ((nr = ib_poll_cq(cq, RDS_IB_WC_MAX, wcs)) > 0) {
++		for (i = 0; i < nr; i++) {
++			wc = wcs + i;
++			rdsdebug("wc wr_id 0x%llx status %u byte_len %u imm_data %u\n",
++				 (unsigned long long)wc->wr_id, wc->status,
++				 wc->byte_len, be32_to_cpu(wc->ex.imm_data));
++
++			rds_ib_recv_cqe_handler(ic, wc, ack_state);
++		}
++	}
++}
++
+ static void rds_ib_tasklet_fn_recv(unsigned long data)
+ {
+ 	struct rds_ib_connection *ic = (struct rds_ib_connection *)data;
+@@ -291,9 +303,9 @@ static void rds_ib_tasklet_fn_recv(unsigned long data)
+ 	rds_ib_stats_inc(s_ib_tasklet_call);
+ 
+ 	memset(&state, 0, sizeof(state));
+-	poll_cq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
++	poll_rcq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
+ 	ib_req_notify_cq(ic->i_recv_cq, IB_CQ_SOLICITED);
+-	poll_cq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
++	poll_rcq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
+ 
+ 	if (state.ack_next_valid)
+ 		rds_ib_set_ack(ic, state.ack_next, state.ack_required);
+diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
+index eac30bf..f27d2c8 100644
+--- a/net/rds/ib_send.c
++++ b/net/rds/ib_send.c
+@@ -195,7 +195,7 @@ void rds_ib_send_init_ring(struct rds_ib_connection *ic)
+ 
+ 		send->s_op = NULL;
+ 
+-		send->s_wr.wr_id = i | RDS_IB_SEND_OP;
++		send->s_wr.wr_id = i;
+ 		send->s_wr.sg_list = send->s_sge;
+ 		send->s_wr.ex.imm_data = 0;
+ 
+@@ -263,9 +263,7 @@ void rds_ib_send_cqe_handler(struct rds_ib_connection *ic, struct ib_wc *wc)
+ 
+ 	oldest = rds_ib_ring_oldest(&ic->i_send_ring);
+ 
+-	completed = rds_ib_ring_completed(&ic->i_send_ring,
+-					  (wc->wr_id & ~RDS_IB_SEND_OP),
+-					  oldest);
++	completed = rds_ib_ring_completed(&ic->i_send_ring, wc->wr_id, oldest);
+ 
+ 	for (i = 0; i < completed; i++) {
+ 		send = &ic->i_sends[oldest];
 -- 
 1.9.1
