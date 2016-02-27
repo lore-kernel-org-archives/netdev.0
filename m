@@ -1,40 +1,90 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 5/5] vxlan: implement GPE in L3 mode
-Date: Sat, 27 Feb 2016 20:44:28 +0100
-Message-ID: <20160227204428.5f8f25a3@griffin>
-References: <cover.1456472746.git.jbenc@redhat.com>
-	<20f9916704dc3b34526bc0959e7212de7ec878a4.1456472746.git.jbenc@redhat.com>
-	<CAEh+42hC=Bx3FFGH=Eij-HGNN5jgZh_PmBbzp_3YPnWKpyTn1w@mail.gmail.com>
-	<20160227202159.6507b8b9@griffin>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@kernel.org>
+From: Benjamin Poirier <bpoirier@suse.com>
+Subject: [PATCH] mld, igmp: Fix reserved tailroom calculation
+Date: Sat, 27 Feb 2016 11:57:08 -0800
+Message-ID: <1456603028-12589-2-git-send-email-bpoirier@suse.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56766 "EHLO mx1.redhat.com"
+Received: from mx2.suse.de ([195.135.220.15]:48692 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751389AbcB0Tob (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Feb 2016 14:44:31 -0500
-In-Reply-To: <20160227202159.6507b8b9@griffin>
+	id S1756710AbcB0T6n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Feb 2016 14:58:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 27 Feb 2016 20:21:59 +0100, Jiri Benc wrote:
-> You mean returning ETH_P_TEB in skb->protocol? That's not much useful,
-> unfortunately. You won't get such packet processed by the kernel IP
-> stack, rendering the VXLAN-GPE device unusable outside of ovs. It would
-> effectively became a packet sink when used standalone, as it cannot be
-> added to bridge and received packets are not processed by anything -
-> there's no protocol handler for ETH_P_TEB.
+The current reserved_tailroom calculation fails to take hlen and tlen into
+account.
 
-Actually, I can do that in the L3 mode (or whatever we'll call it). It
-won't hurt anything and may be useful for openvswitch. Ovs will have to
-special case VXLAN-GPE vport (or perhaps any ARPHRD_NONE port) and set
-skb->protocol to ETH_P_TEB on xmit and dissect correctly the ETH_P_TEB
-packet on rcv.
+skb:
+[__hlen__|__data____________|__tlen___|__extra__]
+^                                               ^
+head                                            skb_end_offset
 
-The L2 mode (or whatever we'll call it) will need to stay, though, for
-non-ovs use cases.
+In this representation, hlen + data + tlen is the size passed to alloc_skb.
+"extra" is the extra space made available in __alloc_skb because of
+rounding up by kmalloc. We can reorder the representation like so:
 
- Jiri
+[__hlen__|__data____________|__extra__|__tlen___]
+^                                               ^
+head                                            skb_end_offset
+
+The maximum space available for ip headers and payload without
+fragmentation is min(mtu, data + extra). Therefore,
+reserved_tailroom
+= data + extra + tlen - min(mtu, data + extra)
+= skb_end_offset - hlen - min(mtu, skb_end_offset - hlen - tlen)
+= skb_tailroom - min(mtu, skb_tailroom - tlen) ; after skb_reserve(hlen)
+
+Compare the second line to the current expression:
+reserved_tailroom = skb_end_offset - min(mtu, skb_end_offset)
+and we can see that hlen and tlen are not taken into account.
+
+Depending on hlen, tlen, mtu and the number of multicast address records,
+the current code may output skbs that have less tailroom than
+dev->needed_tailroom or it may output more skbs than needed because not all
+space available is used.
+
+Fixes: 4c672e4b ("ipv6: mld: fix add_grhead skb_over_panic for devs with large MTUs")
+Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+---
+ net/ipv4/igmp.c  | 4 ++--
+ net/ipv6/mcast.c | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 05e4cba..b5d28a4 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -356,9 +356,9 @@ static struct sk_buff *igmpv3_newpack(struct net_device *dev, unsigned int mtu)
+ 	skb_dst_set(skb, &rt->dst);
+ 	skb->dev = dev;
+ 
+-	skb->reserved_tailroom = skb_end_offset(skb) -
+-				 min(mtu, skb_end_offset(skb));
+ 	skb_reserve(skb, hlen);
++	skb->reserved_tailroom = skb_tailroom(skb) -
++		min_t(int, mtu, skb_tailroom(skb) - tlen);
+ 
+ 	skb_reset_network_header(skb);
+ 	pip = ip_hdr(skb);
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 5ee56d0..c157edc 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -1574,9 +1574,9 @@ static struct sk_buff *mld_newpack(struct inet6_dev *idev, unsigned int mtu)
+ 		return NULL;
+ 
+ 	skb->priority = TC_PRIO_CONTROL;
+-	skb->reserved_tailroom = skb_end_offset(skb) -
+-				 min(mtu, skb_end_offset(skb));
+ 	skb_reserve(skb, hlen);
++	skb->reserved_tailroom = skb_tailroom(skb) -
++		min_t(int, mtu, skb_tailroom(skb) - tlen);
+ 
+ 	if (__ipv6_get_lladdr(idev, &addr_buf, IFA_F_TENTATIVE)) {
+ 		/* <draft-ietf-magma-mld-source-05.txt>:
+-- 
+2.7.0
