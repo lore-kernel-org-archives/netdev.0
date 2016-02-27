@@ -1,90 +1,91 @@
-From: Benjamin Poirier <bpoirier@suse.com>
-Subject: [PATCH] mld, igmp: Fix reserved tailroom calculation
-Date: Sat, 27 Feb 2016 11:57:08 -0800
-Message-ID: <1456603028-12589-2-git-send-email-bpoirier@suse.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:48692 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756710AbcB0T6n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Feb 2016 14:58:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Adam Baker <linux@baker-net.org.uk>
+Subject: Re: net: mv643xx: interface does not transmit after some time
+Date: Sat, 27 Feb 2016 20:06:58 +0000
+Message-ID: <56D201E2.4060504@baker-net.org.uk>
+References: <E4F9E0D0-9DA8-4E33-9F89-B49E47F11CE0@schloeter.net>
+ <20160206183414.GD17218@lunn.ch> <20160206231935.GA30734@jirafa.cyrius.com>
+ <2ACB3A0B-DD51-43C1-A56E-E7C175645554@schloeter.net>
+ <20160207203545.GB29107@lunn.ch>
+ <A21B89D4-5826-4F97-A1C9-E62E5B724082@schloeter.net>
+ <312E318A-CAE1-45B1-AB13-EA147B48E315@schloeter.net>
+ <A6128DBC-59DB-4231-A08D-B84C1D8C26CC@schloeter.net>
+ <20160210225717.GD14610@lunn.ch>
+ <CAAEAJfBFNEPRd+AaKpRAh6sKFJ=trO+mAD_DAAj3dzhAbbreqg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Karl Beldan <karl.beldan@rivierawaves.com>, netdev@vger.kernel.org,
+ philipp@familie-kirchhofer.de, Martin Michlmayr <tbm@cyrius.com>,
+ Linux ARM Kernel <linux-arm-kernel@lists.infradead.org>
+To: Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>,
+ Andrew Lunn <andrew@lunn.ch>, =?UTF-8?Q?Thomas_Schl=c3=b6ter?=
+ <thomas@schloeter.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAAEAJfBFNEPRd+AaKpRAh6sKFJ=trO+mAD_DAAj3dzhAbbreqg@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-The current reserved_tailroom calculation fails to take hlen and tlen into
-account.
-
-skb:
-[__hlen__|__data____________|__tlen___|__extra__]
-^                                               ^
-head                                            skb_end_offset
-
-In this representation, hlen + data + tlen is the size passed to alloc_skb.
-"extra" is the extra space made available in __alloc_skb because of
-rounding up by kmalloc. We can reorder the representation like so:
-
-[__hlen__|__data____________|__extra__|__tlen___]
-^                                               ^
-head                                            skb_end_offset
-
-The maximum space available for ip headers and payload without
-fragmentation is min(mtu, data + extra). Therefore,
-reserved_tailroom
-= data + extra + tlen - min(mtu, data + extra)
-= skb_end_offset - hlen - min(mtu, skb_end_offset - hlen - tlen)
-= skb_tailroom - min(mtu, skb_tailroom - tlen) ; after skb_reserve(hlen)
-
-Compare the second line to the current expression:
-reserved_tailroom = skb_end_offset - min(mtu, skb_end_offset)
-and we can see that hlen and tlen are not taken into account.
-
-Depending on hlen, tlen, mtu and the number of multicast address records,
-the current code may output skbs that have less tailroom than
-dev->needed_tailroom or it may output more skbs than needed because not all
-space available is used.
-
-Fixes: 4c672e4b ("ipv6: mld: fix add_grhead skb_over_panic for devs with large MTUs")
-Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
----
- net/ipv4/igmp.c  | 4 ++--
- net/ipv6/mcast.c | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 05e4cba..b5d28a4 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -356,9 +356,9 @@ static struct sk_buff *igmpv3_newpack(struct net_device *dev, unsigned int mtu)
- 	skb_dst_set(skb, &rt->dst);
- 	skb->dev = dev;
- 
--	skb->reserved_tailroom = skb_end_offset(skb) -
--				 min(mtu, skb_end_offset(skb));
- 	skb_reserve(skb, hlen);
-+	skb->reserved_tailroom = skb_tailroom(skb) -
-+		min_t(int, mtu, skb_tailroom(skb) - tlen);
- 
- 	skb_reset_network_header(skb);
- 	pip = ip_hdr(skb);
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 5ee56d0..c157edc 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -1574,9 +1574,9 @@ static struct sk_buff *mld_newpack(struct inet6_dev *idev, unsigned int mtu)
- 		return NULL;
- 
- 	skb->priority = TC_PRIO_CONTROL;
--	skb->reserved_tailroom = skb_end_offset(skb) -
--				 min(mtu, skb_end_offset(skb));
- 	skb_reserve(skb, hlen);
-+	skb->reserved_tailroom = skb_tailroom(skb) -
-+		min_t(int, mtu, skb_tailroom(skb) - tlen);
- 
- 	if (__ipv6_get_lladdr(idev, &addr_buf, IFA_F_TENTATIVE)) {
- 		/* <draft-ietf-magma-mld-source-05.txt>:
--- 
-2.7.0
+T24gMTEvMDIvMTYgMTQ6MzgsIEV6ZXF1aWVsIEdhcmNpYSB3cm90ZToKPiAobGV0J3MgZXhwYW5k
+IHRoZSBDYyBhIGJpdCkKPgo+IE9uIDEwIEZlYnJ1YXJ5IDIwMTYgYXQgMTk6NTcsIEFuZHJldyBM
+dW5uIDxhbmRyZXdAbHVubi5jaD4gd3JvdGU6Cj4+IE9uIFdlZCwgRmViIDEwLCAyMDE2IGF0IDA3
+OjQwOjU0UE0gKzAxMDAsIFRob21hcyBTY2hsw7Z0ZXIgd3JvdGU6Cj4+Pgo+Pj4+IEFtIDA4LjAy
+LjIwMTYgdW0gMTk6NDkgc2NocmllYiBUaG9tYXMgU2NobMO2dGVyIDx0aG9tYXNAc2NobG9ldGVy
+Lm5ldD46Cj4+Pj4KPj4+Pgo+Pj4+PiBBbSAwNy4wMi4yMDE2IHVtIDIyOjA3IHNjaHJpZWIgVGhv
+bWFzIFNjaGzDtnRlciA8dGhvbWFzQHNjaGxvZXRlci5uZXQ+Ogo+Pj4+Pgo+Pj4+PiBBbSAwNy4w
+Mi4yMDE2IHVtIDIxOjM1IHNjaHJpZWIgQW5kcmV3IEx1bm4gPGFuZHJld0BsdW5uLmNoPjoKPj4+
+Pj4+Cj4+Pj4+Pj4+IEZXSVcsIHdlIGhhZCBhIHNpbWlsYXIgYnVnIHJlcG9ydCBpbiBEZWJpYW4g
+cmVjZW50bHk6Cj4+Pj4+Pj4+IGh0dHBzOi8vbGlzdHMuZGViaWFuLm9yZy9kZWJpYW4tYXJtLzIw
+MTYvMDEvbXNnMDAwOTguaHRtbAo+Pj4+Pj4KPj4+Pj4+IEhpIFRob21hcwo+Pj4+Pj4KPj4+Pj4+
+IEkgdGhpcyB0aHJlYWQsIElhbiBDYW1wYmVsbCBtZW50aW9ucyBhIHBhdGNoLiBQbGVhc2UgY291
+bGQgeW91IHRyeQo+Pj4+Pj4gdGhhdCBwYXRjaCBhbmQgc2VlIGlmIGl0IGZpeGVzIHlvdXIgcHJv
+YmxlbS4KPj4+Pj4+Cj4+Pj4+PiBUaGFua3MKPj4+Pj4+ICAgIEFuZHJldwo+Pj4+Pgo+Pj4+PiBI
+aSBBbmRyZXcsCj4+Pj4+Cj4+Pj4+IEkganVzdCBhcHBsaWVkIHRoZSBwYXRjaCBhbmQgdGhlIE5B
+UyBpcyBub3cgcnVubmluZyBpdC4gST8/P2xsIHRyeSB0byBjcmFzaCBpdCB0b25pZ2h0IGFuZCBr
+ZWVwIHlvdSBpbmZvcm1lZCB3aGV0aGVyIGl0IHdvcmtlZC4KPj4+Pj4KPj4+Pj4gVGhhbmtzCj4+
+Pj4+ICAgICBUaG9tYXMKPj4+Pgo+Pj4+IEhpIEFuZHJldywKPj4+Pgo+Pj4+IHRoZSBwYXRjaCBk
+aWQgbm90IGZpeCB0aGUgcHJvYmxlbS4gQWZ0ZXIgMS4yIEdpQiBSWCBhbmQgOTUwIE1pQiBUWCwg
+dGhlIGludGVyZmFjZSBjcmFzaGVkIGFnYWluLgo+Pj4+Cj4+Pj4gTm93IEkgc3dpdGNoZWQgb2Zm
+IFJYL1RYIG9mZmxvYWQganVzdCB0byBtYWtlIHN1cmUgd2UgYXJlIHRhbGtpbmcgYWJvdXQgdGhl
+IHNhbWUgcHJvYmxlbS4gSWYgd2UgYXJlLCB0aGUgaW50ZXJmYWNlIHNob3VsZCBiZSBzdGFibGUg
+d2l0aG91dCBvZmZsb2FkLCByaWdodD8KPj4+Pgo+Pj4+ICAgICAgVGhvbWFzCj4+Pgo+Pj4gT2th
+eSwgc28gSSBoYXZlIGluc3RhbGxlZCBldGh0b29sIGFuZCBzd2l0Y2hlZCBvZmYgYWxsIG9mZmxv
+YWQgZmVhdHVyZXMgYXZhaWxhYmxlLiBOb3cgdGhlIE5BUyBpcyBydW5uaW5nIHJvY2sgc29saWQg
+Zm9yIHR3byBkYXlzLiBJIGJhY2tlZCB1cCBteSBNYWMgdXNpbmcgVGltZSBNYWNoaW5lIC8gbmV0
+YXRhbGsgKDQ1MCBHaUIgdHJhbnNmZXJyZWQpIGFuZCBzb21lIExpbnV4IG1hY2hpbmVzIHZpYSBO
+RlMgKDEwMCBHaUIgdG90YWwpIHdpdGhvdXQgYSBwcm9ibGVtLgo+Pj4KPj4+IEhvdyBtdWNoIGNv
+ZGUgaXMgdXNlZCBmb3IgbXY2NDN4eCBvZmZsb2FkIGZ1bmN0aW9uYWxpdHk/Cj4+PiBJcyBpdCBw
+b3NzaWJsZSB0byBkZWJ1ZyB0aGluZ3MgaW4gdGhlIGRyaXZlciBhbmQgZmlndXJlIG91dCB3aGF0
+IGhhcHBlbnMgZHVyaW5nIHRoZSBjcmFzaD8KPj4+IElzIHRoZSBoYXJkd2FyZSBvZmZsb2FkIGlu
+dGVyZmFjZSBwcm9wcmlldGFyeSBvciByZXZlcnNlIGVuZ2luZWVyZWQgb3IgaXMgaXQgYSB3ZWxs
+IGtub3duIEFQSSB0aGF0IGNhbiBiZSBhbmFseXplZD8KPj4KPj4gSGkgVGhvbWFzCj4+Cj4+IEV6
+ZXF1aWVsIEdhcmNpYSBwcm9iYWJseSBrbm93cyB0aGlzIHBhcnQgb2YgdGhlIGRyaXZlciBhbmQg
+aGFyZHdhcmUKPj4gdGhlIGJlc3QuLi4KPj4KPgo+IFRoZSBUQ1Agc2VnbWVudGF0aW9uIG9mZmxv
+YWQgKFRTTykgaW1wbGVtZW50ZWQgaW4gdGhpcyBkcml2ZXIgaXMKPiBtb3N0bHkgYSBzb2Z0d2Fy
+ZSB0aGluZy4KPgo+IEknbSBDQ2luZyBLYXJsIGFuZCBQaGlsaXBwLCB3aG8gaGF2ZSBmaXhlZCBz
+dWJ0bGUgaXNzdWVzIGluIHRoZSBUU08KPiBwYXRoLCBhbmQgbWF5IGJlIGFibGUgdG8gaGVscCBm
+aWd1cmUgdGhpcyBvbmUgb3V0Lgo+CgpIaSwKCkhhZCB0aGlzIGlzc3VlIG9jY3VyIGFnYWluIHRv
+ZGF5LiBJbiBteSBjYXNlIGl0IHNlZW1zIHRvIGJlIHRyaWdnZXJlZCBieSAKbGFyZ2UgTkZTdjQg
+dHJhbnNmZXJzLgoKSSdtIHJ1bm5pbmcgNC40IHBsdXMgTmljb2xhcyBTY2hpY2hhbidzIHBhdGNo
+IGF0Cmh0dHBzOi8vcGF0Y2h3b3JrLm96bGFicy5vcmcvcGF0Y2gvNTczMzM0LwoKVGhlcmUgaXMg
+YSB0aHJlYWQgYSBodHRwOi8vZm9ydW0uZG9vemFuLmNvbS9yZWFkLnBocD8yLDE3NDA0IHN1Z2dl
+c3RpbmcgCnRoYXQgdGhpcyBoYXMgYmVlbiBicm9rZW4gc2luY2UgYXQgbGVhc3QgMy4xNi4KCkkg
+Zmlyc3Qgc3BvdHRlZCB0aGUgaXNzdWUgd2hlbiB1cGdyYWRpbmcgZnJvbSAzLjExIHRvIDQuNC4K
+Ckxvb2tpbmcgYXQgCmh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJuZWwvZ2l0
+L3RvcnZhbGRzL2xpbnV4LmdpdC9sb2cvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9tdjY0
+M3h4X2V0aC5jIApJIHNlZSAyMDE0LTA1LTIyIGFzIHRoZSBkYXRlIFRTTyBzdXBwb3J0IHdhcyBm
+aXJzdCBhZGRlZCB3aGljaCBpcyAKc2hvcnRseSBiZWZvcmUgdGhlIG1lcmdlIHdpbmRvdyBvcGVu
+ZWQgZm9yIDMuMTYuIEknbSB0aGVyZWZvcmUgZ3Vlc3NpbmcgCnRoYXQgVFNPIGhhcyBiZWVuIHBy
+b2JsZW1hdGljIHNpbmNlIGl0J3MgaW50cm9kdWN0aW9uLgoKUmVnYXJkcwoKQWRhbQoKCgpfX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0ta2Vy
+bmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0
+cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2VybmVs
+Cg==
