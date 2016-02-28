@@ -1,58 +1,69 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 02/10] net/mlx5e: Placement changed for carrier state updates
-Date: Sun, 28 Feb 2016 17:09:03 +0200
-Message-ID: <1456672151-11749-3-git-send-email-saeedm@mellanox.com>
-References: <1456672151-11749-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 00/10] mlx5 driver updates
+Date: Sun, 28 Feb 2016 17:09:01 +0200
+Message-ID: <1456672151-11749-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Majd Dibbiny <majd@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59748 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59743 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757791AbcB1PJt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2016 10:09:49 -0500
-In-Reply-To: <1456672151-11749-1-git-send-email-saeedm@mellanox.com>
+	id S1757714AbcB1PJs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2016 10:09:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
+Hi Dave, 
 
-More proper to declare carrier state UP only after the channels
-are ready for traffic.
+This series includes some bug fixes and updates for the mlx5 core
+and ethernet driver.
 
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+>From Gal, two fixes that protects the update CQ moderation flows
+when it is not allowed.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 38944b8..013be09 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1451,8 +1451,8 @@ int mlx5e_open_locked(struct net_device *netdev)
- 		goto err_close_channels;
- 	}
- 
--	mlx5e_update_carrier(priv);
- 	mlx5e_redirect_rqts(priv);
-+	mlx5e_update_carrier(priv);
- 	mlx5e_timestamp_init(priv);
- 
- 	schedule_delayed_work(&priv->update_stats_work, 0);
-@@ -1491,8 +1491,8 @@ int mlx5e_close_locked(struct net_device *netdev)
- 	clear_bit(MLX5E_STATE_OPENED, &priv->state);
- 
- 	mlx5e_timestamp_cleanup(priv);
--	mlx5e_redirect_rqts(priv);
- 	netif_carrier_off(priv->netdev);
-+	mlx5e_redirect_rqts(priv);
- 	mlx5e_close_channels(priv);
- 
- 	return 0;
--- 
-1.7.1
+>From Moshe, two fixes for the core and ethernet driver in 
+non-cached(NC) and write combining(WC) buffers mappings, 
+which prevents the driver from double memory mappings.
+
+>From Or, reduce the firmware command completion timeout.
+
+>From Tariq, several small trivial fixes.
+
+Changes from v0:
+	- "Fix global UAR mapping" commit messages updated to explain ARCH_HAS_IOREMAP_WC usage.
+	- rebased to commit 8d3f2806f8fb 'Merge branch ethtool-ksettings'
+
+Thanks,
+Saeed
+
+Gal Pressman (2):
+  net/mlx5e: Don't try to modify CQ moderation if it is not supported
+  net/mlx5e: Don't modify CQ before it was created
+
+Moshe Lazer (2):
+  net/mlx5: Fix global UAR mapping
+  net/mlx5: Avoid double mapping of io mapped memory
+
+Or Gerlitz (1):
+  net/mlx5: Make command timeout way shorter
+
+Tariq Toukan (5):
+  net/mlx5e: Replace async events spinlock with synchronize_irq()
+  net/mlx5e: Placement changed for carrier state updates
+  net/mlx5e: Changed naming convention of tx queues in ethtool stats
+  net/mlx5e: Move common case counters within sq_stats struct
+  net/mlx5e: Set drop RQ's necessary parameters only
+
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   27 ++++-----
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   27 ++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   64 ++++++++++---------
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |    2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |    5 ++
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |   28 +--------
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |    1 +
+ drivers/net/ethernet/mellanox/mlx5/core/uar.c      |   31 ++++++----
+ include/linux/mlx5/driver.h                        |    7 +-
+ 9 files changed, 97 insertions(+), 95 deletions(-)
