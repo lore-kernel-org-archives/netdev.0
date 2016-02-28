@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v2 11/13] RDS: IB: add Fastreg MR (FRMR) detection support
-Date: Sat, 27 Feb 2016 18:19:48 -0800
-Message-ID: <1456625990-4739-12-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v2 12/13] RDS: IB: allocate extra space on queues for FRMR support
+Date: Sat, 27 Feb 2016 18:19:49 -0800
+Message-ID: <1456625990-4739-13-git-send-email-santosh.shilimkar@oracle.com>
 References: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
@@ -11,80 +11,100 @@ In-Reply-To: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Discovere Fast Memmory Registration support using IB device
-IB_DEVICE_MEM_MGT_EXTENSIONS. Certain HCA might support just FRMR
-or FMR or both FMR and FRWR. In case both mr type are supported,
-default FMR is used.
-
-Default MR is still kept as FMR against what everyone else
-is following. Default will be changed to FRMR once the
-RDS performance with FRMR is comparable with FMR. The
-work is in progress for the same.
+Fastreg MR(FRMR) memory registration and invalidation makes use
+of work request and completion queues for its operation. Patch
+allocates extra queue space towards these operation(s).
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
-v2: Dropped the module parameter as suggested by David Miller
-
- net/rds/ib.c    | 10 ++++++++++
  net/rds/ib.h    |  4 ++++
- net/rds/ib_mr.h |  1 +
- 3 files changed, 15 insertions(+)
+ net/rds/ib_cm.c | 16 ++++++++++++----
+ 2 files changed, 16 insertions(+), 4 deletions(-)
 
-diff --git a/net/rds/ib.c b/net/rds/ib.c
-index bb32cb9..b5342fd 100644
---- a/net/rds/ib.c
-+++ b/net/rds/ib.c
-@@ -140,6 +140,12 @@ static void rds_ib_add_one(struct ib_device *device)
- 	rds_ibdev->max_wrs = device->attrs.max_qp_wr;
- 	rds_ibdev->max_sge = min(device->attrs.max_sge, RDS_IB_MAX_SGE);
- 
-+	rds_ibdev->has_fr = (device->attrs.device_cap_flags &
-+				  IB_DEVICE_MEM_MGT_EXTENSIONS);
-+	rds_ibdev->has_fmr = (device->alloc_fmr && device->dealloc_fmr &&
-+			    device->map_phys_fmr && device->unmap_fmr);
-+	rds_ibdev->use_fastreg = (rds_ibdev->has_fr && !rds_ibdev->has_fmr);
-+
- 	rds_ibdev->fmr_max_remaps = device->attrs.max_map_per_fmr?: 32;
- 	rds_ibdev->max_1m_mrs = device->attrs.max_mr ?
- 		min_t(unsigned int, (device->attrs.max_mr / 2),
-@@ -178,6 +184,10 @@ static void rds_ib_add_one(struct ib_device *device)
- 		 rds_ibdev->fmr_max_remaps, rds_ibdev->max_1m_mrs,
- 		 rds_ibdev->max_8k_mrs);
- 
-+	pr_info("RDS/IB: %s: %s supported and preferred\n",
-+		device->name,
-+		rds_ibdev->use_fastreg ? "FRMR" : "FMR");
-+
- 	INIT_LIST_HEAD(&rds_ibdev->ipaddr_list);
- 	INIT_LIST_HEAD(&rds_ibdev->conn_list);
- 
 diff --git a/net/rds/ib.h b/net/rds/ib.h
-index 62fe7d5..c5eddc2 100644
+index c5eddc2..eeb0d6c 100644
 --- a/net/rds/ib.h
 +++ b/net/rds/ib.h
-@@ -200,6 +200,10 @@ struct rds_ib_device {
- 	struct list_head	conn_list;
- 	struct ib_device	*dev;
- 	struct ib_pd		*pd;
-+	bool                    has_fmr;
-+	bool                    has_fr;
-+	bool                    use_fastreg;
-+
- 	unsigned int		max_mrs;
- 	struct rds_ib_mr_pool	*mr_1m_pool;
- 	struct rds_ib_mr_pool   *mr_8k_pool;
-diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
-index add7725..2f9b9c3 100644
---- a/net/rds/ib_mr.h
-+++ b/net/rds/ib_mr.h
-@@ -93,6 +93,7 @@ struct rds_ib_mr_pool {
- extern struct workqueue_struct *rds_ib_mr_wq;
- extern unsigned int rds_ib_mr_1m_pool_size;
- extern unsigned int rds_ib_mr_8k_pool_size;
-+extern bool prefer_frmr;
+@@ -14,6 +14,7 @@
  
- struct rds_ib_mr_pool *rds_ib_create_mr_pool(struct rds_ib_device *rds_dev,
- 					     int npages);
+ #define RDS_IB_DEFAULT_RECV_WR		1024
+ #define RDS_IB_DEFAULT_SEND_WR		256
++#define RDS_IB_DEFAULT_FR_WR		512
+ 
+ #define RDS_IB_DEFAULT_RETRY_COUNT	2
+ 
+@@ -122,6 +123,9 @@ struct rds_ib_connection {
+ 	struct ib_wc		i_send_wc[RDS_IB_WC_MAX];
+ 	struct ib_wc		i_recv_wc[RDS_IB_WC_MAX];
+ 
++	/* To control the number of wrs from fastreg */
++	atomic_t		i_fastreg_wrs;
++
+ 	/* interrupt handling */
+ 	struct tasklet_struct	i_send_tasklet;
+ 	struct tasklet_struct	i_recv_tasklet;
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 7f68abc..83f4673 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -363,7 +363,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	struct ib_qp_init_attr attr;
+ 	struct ib_cq_init_attr cq_attr = {};
+ 	struct rds_ib_device *rds_ibdev;
+-	int ret;
++	int ret, fr_queue_space;
+ 
+ 	/*
+ 	 * It's normal to see a null device if an incoming connection races
+@@ -373,6 +373,12 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	if (!rds_ibdev)
+ 		return -EOPNOTSUPP;
+ 
++	/* The fr_queue_space is currently set to 512, to add extra space on
++	 * completion queue and send queue. This extra space is used for FRMR
++	 * registration and invalidation work requests
++	 */
++	fr_queue_space = (rds_ibdev->use_fastreg ? RDS_IB_DEFAULT_FR_WR : 0);
++
+ 	/* add the conn now so that connection establishment has the dev */
+ 	rds_ib_add_conn(rds_ibdev, conn);
+ 
+@@ -384,7 +390,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	/* Protection domain and memory range */
+ 	ic->i_pd = rds_ibdev->pd;
+ 
+-	cq_attr.cqe = ic->i_send_ring.w_nr + 1;
++	cq_attr.cqe = ic->i_send_ring.w_nr + fr_queue_space + 1;
+ 
+ 	ic->i_send_cq = ib_create_cq(dev, rds_ib_cq_comp_handler_send,
+ 				     rds_ib_cq_event_handler, conn,
+@@ -424,7 +430,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	attr.event_handler = rds_ib_qp_event_handler;
+ 	attr.qp_context = conn;
+ 	/* + 1 to allow for the single ack message */
+-	attr.cap.max_send_wr = ic->i_send_ring.w_nr + 1;
++	attr.cap.max_send_wr = ic->i_send_ring.w_nr + fr_queue_space + 1;
+ 	attr.cap.max_recv_wr = ic->i_recv_ring.w_nr + 1;
+ 	attr.cap.max_send_sge = rds_ibdev->max_sge;
+ 	attr.cap.max_recv_sge = RDS_IB_RECV_SGE;
+@@ -432,6 +438,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	attr.qp_type = IB_QPT_RC;
+ 	attr.send_cq = ic->i_send_cq;
+ 	attr.recv_cq = ic->i_recv_cq;
++	atomic_set(&ic->i_fastreg_wrs, RDS_IB_DEFAULT_FR_WR);
+ 
+ 	/*
+ 	 * XXX this can fail if max_*_wr is too large?  Are we supposed
+@@ -751,7 +758,8 @@ void rds_ib_conn_shutdown(struct rds_connection *conn)
+ 		 */
+ 		wait_event(rds_ib_ring_empty_wait,
+ 			   rds_ib_ring_empty(&ic->i_recv_ring) &&
+-			   (atomic_read(&ic->i_signaled_sends) == 0));
++			   (atomic_read(&ic->i_signaled_sends) == 0) &&
++			   (atomic_read(&ic->i_fastreg_wrs) == RDS_IB_DEFAULT_FR_WR));
+ 		tasklet_kill(&ic->i_send_tasklet);
+ 		tasklet_kill(&ic->i_recv_tasklet);
+ 
 -- 
 1.9.1
