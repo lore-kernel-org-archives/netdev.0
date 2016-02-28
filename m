@@ -1,191 +1,66 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v2 01/13] RDS: Drop stale iWARP RDMA transport
-Date: Sat, 27 Feb 2016 18:19:38 -0800
-Message-ID: <1456625990-4739-2-git-send-email-santosh.shilimkar@oracle.com>
-References: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
-Cc: linux-kernel@vger.kernel.org,
-	Santosh Shilimkar <santosh.shilimkar@oracle.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: sctp_remaddr_seq_show use the wrong variable to dump transport info
+Date: Sun, 28 Feb 2016 10:33:11 +0800
+Message-ID: <08f9ec3d48c3fffd7224e6eb0c129ed113d23fbd.1456626791.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36099 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992655AbcB1CdP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 21:33:15 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RDS iWarp support code has become stale and non testable. As
-indicated earlier, am dropping the support for it.
+Now in sctp_remaddr_seq_show(), we use variable *tsp to get the param *v.
+but *tsp is also used to traversal transport_addr_list, which will cover
+the previous value, and make sctp_transport_put work on the wrong transport.
 
-If new iWarp user(s) shows up in future, we can adapat the RDS IB
-transprt for the special RDMA READ sink case. iWarp needs an MR
-for the RDMA READ sink.
+So fix it by adding a new variable to get the param *v.
 
-Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
-Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Fixes: fba4c330c5b9 ("sctp: hold transport before we access t->asoc in sctp proc")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- Documentation/networking/rds.txt |   4 +-
- net/rds/Kconfig                  |   7 +-
- net/rds/Makefile                 |   4 +-
- net/rds/iw.c                     | 312 -------------
- net/rds/iw.h                     | 398 ----------------
- net/rds/iw_cm.c                  | 769 ------------------------------
- net/rds/iw_rdma.c                | 837 ---------------------------------
- net/rds/iw_recv.c                | 904 ------------------------------------
- net/rds/iw_ring.c                | 169 -------
- net/rds/iw_send.c                | 981 ---------------------------------------
- net/rds/iw_stats.c               |  95 ----
- net/rds/iw_sysctl.c              | 123 -----
- net/rds/rdma_transport.c         |  13 +-
- net/rds/rdma_transport.h         |   5 -
- 14 files changed, 7 insertions(+), 4614 deletions(-)
- delete mode 100644 net/rds/iw.c
- delete mode 100644 net/rds/iw.h
- delete mode 100644 net/rds/iw_cm.c
- delete mode 100644 net/rds/iw_rdma.c
- delete mode 100644 net/rds/iw_recv.c
- delete mode 100644 net/rds/iw_ring.c
- delete mode 100644 net/rds/iw_send.c
- delete mode 100644 net/rds/iw_stats.c
- delete mode 100644 net/rds/iw_sysctl.c
+ net/sctp/proc.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/Documentation/networking/rds.txt b/Documentation/networking/rds.txt
-index e1a3d59..9d219d8 100644
---- a/Documentation/networking/rds.txt
-+++ b/Documentation/networking/rds.txt
-@@ -19,9 +19,7 @@ to N*N if you use a connection-oriented socket transport like TCP.
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index ded7d93..963dffc 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -482,7 +482,7 @@ static void sctp_remaddr_seq_stop(struct seq_file *seq, void *v)
+ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
+ {
+ 	struct sctp_association *assoc;
+-	struct sctp_transport *tsp;
++	struct sctp_transport *transport, *tsp;
  
- RDS is not Infiniband-specific; it was designed to support different
- transports.  The current implementation used to support RDS over TCP as well
--as IB. Work is in progress to support RDS over iWARP, and using DCE to
--guarantee no dropped packets on Ethernet, it may be possible to use RDS over
--UDP in the future.
-+as IB.
+ 	if (v == SEQ_START_TOKEN) {
+ 		seq_printf(seq, "ADDR ASSOC_ID HB_ACT RTO MAX_PATH_RTX "
+@@ -490,10 +490,10 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
+ 		return 0;
+ 	}
  
- The high-level semantics of RDS from the application's point of view are
+-	tsp = (struct sctp_transport *)v;
+-	if (!sctp_transport_hold(tsp))
++	transport = (struct sctp_transport *)v;
++	if (!sctp_transport_hold(transport))
+ 		return 0;
+-	assoc = tsp->asoc;
++	assoc = transport->asoc;
  
-diff --git a/net/rds/Kconfig b/net/rds/Kconfig
-index f2c670b..bffde4b 100644
---- a/net/rds/Kconfig
-+++ b/net/rds/Kconfig
-@@ -4,14 +4,13 @@ config RDS
- 	depends on INET
- 	---help---
- 	  The RDS (Reliable Datagram Sockets) protocol provides reliable,
--	  sequenced delivery of datagrams over Infiniband, iWARP,
--	  or TCP.
-+	  sequenced delivery of datagrams over Infiniband or TCP.
+ 	list_for_each_entry_rcu(tsp, &assoc->peer.transport_addr_list,
+ 				transports) {
+@@ -546,7 +546,7 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
+ 		seq_printf(seq, "\n");
+ 	}
  
- config RDS_RDMA
--	tristate "RDS over Infiniband and iWARP"
-+	tristate "RDS over Infiniband"
- 	depends on RDS && INFINIBAND && INFINIBAND_ADDR_TRANS
- 	---help---
--	  Allow RDS to use Infiniband and iWARP as a transport.
-+	  Allow RDS to use Infiniband as a transport.
- 	  This transport supports RDMA operations.
+-	sctp_transport_put(tsp);
++	sctp_transport_put(transport);
  
- config RDS_TCP
-diff --git a/net/rds/Makefile b/net/rds/Makefile
-index 56d3f60..19e5485 100644
---- a/net/rds/Makefile
-+++ b/net/rds/Makefile
-@@ -6,9 +6,7 @@ rds-y :=	af_rds.o bind.o cong.o connection.o info.o message.o   \
- obj-$(CONFIG_RDS_RDMA) += rds_rdma.o
- rds_rdma-y :=	rdma_transport.o \
- 			ib.o ib_cm.o ib_recv.o ib_ring.o ib_send.o ib_stats.o \
--			ib_sysctl.o ib_rdma.o \
--			iw.o iw_cm.o iw_recv.o iw_ring.o iw_send.o iw_stats.o \
--			iw_sysctl.o iw_rdma.o
-+			ib_sysctl.o ib_rdma.o
- 
- 
- obj-$(CONFIG_RDS_TCP) += rds_tcp.o
-diff --git a/net/rds/iw.c b/net/rds/iw.c
-deleted file mode 100644
-index f4a9fff..0000000
-diff --git a/net/rds/iw.h b/net/rds/iw.h
-deleted file mode 100644
-index 5af01d1..0000000
-diff --git a/net/rds/iw_cm.c b/net/rds/iw_cm.c
-deleted file mode 100644
-index aea4c91..0000000
-diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
-deleted file mode 100644
-index b09a40c..0000000
-diff --git a/net/rds/iw_recv.c b/net/rds/iw_recv.c
-deleted file mode 100644
-index a66d179..0000000
-diff --git a/net/rds/iw_ring.c b/net/rds/iw_ring.c
-deleted file mode 100644
-index da8e3b6..0000000
-diff --git a/net/rds/iw_send.c b/net/rds/iw_send.c
-deleted file mode 100644
-index e20bd50..0000000
-diff --git a/net/rds/iw_stats.c b/net/rds/iw_stats.c
-deleted file mode 100644
-index 5fe67f6..0000000
-diff --git a/net/rds/iw_sysctl.c b/net/rds/iw_sysctl.c
-deleted file mode 100644
-index 139239d..0000000
-diff --git a/net/rds/rdma_transport.c b/net/rds/rdma_transport.c
-index 9c1fed8..4f4b3d8 100644
---- a/net/rds/rdma_transport.c
-+++ b/net/rds/rdma_transport.c
-@@ -49,9 +49,7 @@ int rds_rdma_cm_event_handler(struct rdma_cm_id *cm_id,
- 	rdsdebug("conn %p id %p handling event %u (%s)\n", conn, cm_id,
- 		 event->event, rdma_event_msg(event->event));
- 
--	if (cm_id->device->node_type == RDMA_NODE_RNIC)
--		trans = &rds_iw_transport;
--	else
-+	if (cm_id->device->node_type == RDMA_NODE_IB_CA)
- 		trans = &rds_ib_transport;
- 
- 	/* Prevent shutdown from tearing down the connection
-@@ -200,10 +198,6 @@ static int rds_rdma_init(void)
- 	if (ret)
- 		goto out;
- 
--	ret = rds_iw_init();
--	if (ret)
--		goto err_iw_init;
--
- 	ret = rds_ib_init();
- 	if (ret)
- 		goto err_ib_init;
-@@ -211,8 +205,6 @@ static int rds_rdma_init(void)
- 	goto out;
- 
- err_ib_init:
--	rds_iw_exit();
--err_iw_init:
- 	rds_rdma_listen_stop();
- out:
- 	return ret;
-@@ -224,11 +216,10 @@ static void rds_rdma_exit(void)
- 	/* stop listening first to ensure no new connections are attempted */
- 	rds_rdma_listen_stop();
- 	rds_ib_exit();
--	rds_iw_exit();
+ 	return 0;
  }
- module_exit(rds_rdma_exit);
- 
- MODULE_AUTHOR("Oracle Corporation <rds-devel@oss.oracle.com>");
--MODULE_DESCRIPTION("RDS: IB/iWARP transport");
-+MODULE_DESCRIPTION("RDS: IB transport");
- MODULE_LICENSE("Dual BSD/GPL");
- 
-diff --git a/net/rds/rdma_transport.h b/net/rds/rdma_transport.h
-index faba4e3..ff2010e 100644
---- a/net/rds/rdma_transport.h
-+++ b/net/rds/rdma_transport.h
-@@ -16,9 +16,4 @@ extern struct rds_transport rds_ib_transport;
- int rds_ib_init(void);
- void rds_ib_exit(void);
- 
--/* from iw.c */
--extern struct rds_transport rds_iw_transport;
--int rds_iw_init(void);
--void rds_iw_exit(void);
--
- #endif
 -- 
-1.9.1
+2.1.0
