@@ -1,43 +1,37 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] of_mdio: fix kernel-doc for of_phy_connect()
-Date: Sun, 28 Feb 2016 22:50:59 +0300
-Message-ID: <5235224.0MKSCt7puR@wasted.cogentembedded.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next][PATCH v2 01/13] RDS: Drop stale iWARP RDMA transport
+Date: Sun, 28 Feb 2016 21:51:14 +0200
+Message-ID: <CAJ3xEMioB61bN9RAcAx9BecYGdWPs9QZNYUrm+r8=rt0WFMzKQ@mail.gmail.com>
+References: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
+	<1456625990-4739-2-git-send-email-santosh.shilimkar@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: grant.likely@linaro.org, robh+dt@kernel.org,
-	devicetree@vger.kernel.org, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, frowand.list@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f51.google.com ([209.85.215.51]:34689 "EHLO
-	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754612AbcB1TvE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 14:51:04 -0500
-Received: by mail-lf0-f51.google.com with SMTP id j78so79588484lfb.1
-        for <netdev@vger.kernel.org>; Sun, 28 Feb 2016 11:51:03 -0800 (PST)
+Received: from mail-io0-f193.google.com ([209.85.223.193]:35182 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754612AbcB1TvQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 14:51:16 -0500
+Received: by mail-io0-f193.google.com with SMTP id z135so12372051iof.2
+        for <netdev@vger.kernel.org>; Sun, 28 Feb 2016 11:51:15 -0800 (PST)
+In-Reply-To: <1456625990-4739-2-git-send-email-santosh.shilimkar@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 'flags' parameter of the of_phy_connect() function wasn't described
-in  the kernel-doc comment...
+On Sun, Feb 28, 2016 at 4:19 AM, Santosh Shilimkar
+<santosh.shilimkar@oracle.com> wrote:
+> RDS iWarp support code has become stale and non testable. As
+> indicated earlier, am dropping the support for it.
+>
+> If new iWarp user(s) shows up in future, we can adapat the RDS IB
+> transprt for the special RDMA READ sink case. iWarp needs an MR
+> for the RDMA READ sink.
+>
+> Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
----
-The patch is against DaveM's 'net.git' repo.
-
- drivers/of/of_mdio.c |    1 +
- 1 file changed, 1 insertion(+)
-
-Index: net/drivers/of/of_mdio.c
-===================================================================
---- net.orig/drivers/of/of_mdio.c
-+++ net/drivers/of/of_mdio.c
-@@ -305,6 +305,7 @@ EXPORT_SYMBOL(of_phy_find_device);
-  * @dev: pointer to net_device claiming the phy
-  * @phy_np: Pointer to device tree node for the PHY
-  * @hndlr: Link state callback for the network device
-+ * @flags: flags to pass to the PHY
-  * @iface: PHY data interface type
-  *
-  * If successful, returns a pointer to the phy_device with the embedded
+Hi, just wondered if there's any special reason that all this series
+carries double S.O.B signature line with your name appearing twice on
+two different email addresses?
