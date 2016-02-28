@@ -1,74 +1,60 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v2 10/13] RDS: IB: add mr reused stats
-Date: Sat, 27 Feb 2016 18:19:47 -0800
-Message-ID: <1456625990-4739-11-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v2 08/13] RDS: IB: add connection info to ibmr
+Date: Sat, 27 Feb 2016 18:19:45 -0800
+Message-ID: <1456625990-4739-9-git-send-email-santosh.shilimkar@oracle.com>
 References: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:42320 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992803AbcB1CU0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 21:20:26 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add MR reuse statistics to RDS IB transport.
+Preperatory patch for FRMR support. From connection info,
+we can retrieve cm_id which contains qp handled needed for
+work request posting.
+
+We also need to drop the RDS connection on QP error states
+where connection handle becomes useful.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.h       | 2 ++
- net/rds/ib_rdma.c  | 7 ++++++-
- net/rds/ib_stats.c | 2 ++
- 3 files changed, 10 insertions(+), 1 deletion(-)
+ net/rds/ib_mr.h | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index c88cb22..62fe7d5 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -259,6 +259,8 @@ struct rds_ib_statistics {
- 	uint64_t	s_ib_rdma_mr_1m_pool_flush;
- 	uint64_t	s_ib_rdma_mr_1m_pool_wait;
- 	uint64_t	s_ib_rdma_mr_1m_pool_depleted;
-+	uint64_t	s_ib_rdma_mr_8k_reused;
-+	uint64_t	s_ib_rdma_mr_1m_reused;
- 	uint64_t	s_ib_atomic_cswp;
- 	uint64_t	s_ib_atomic_fadd;
- };
-diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
-index 0e84843..ec7ea32 100644
---- a/net/rds/ib_rdma.c
-+++ b/net/rds/ib_rdma.c
-@@ -188,8 +188,13 @@ struct rds_ib_mr *rds_ib_reuse_mr(struct rds_ib_mr_pool *pool)
- 	flag = this_cpu_ptr(&clean_list_grace);
- 	set_bit(CLEAN_LIST_BUSY_BIT, flag);
- 	ret = llist_del_first(&pool->clean_list);
--	if (ret)
-+	if (ret) {
- 		ibmr = llist_entry(ret, struct rds_ib_mr, llnode);
-+		if (pool->pool_type == RDS_IB_MR_8K_POOL)
-+			rds_ib_stats_inc(s_ib_rdma_mr_8k_reused);
-+		else
-+			rds_ib_stats_inc(s_ib_rdma_mr_1m_reused);
-+	}
+diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
+index f5c1fcb..add7725 100644
+--- a/net/rds/ib_mr.h
++++ b/net/rds/ib_mr.h
+@@ -50,18 +50,19 @@ struct rds_ib_fmr {
  
- 	clear_bit(CLEAN_LIST_BUSY_BIT, flag);
- 	preempt_enable();
-diff --git a/net/rds/ib_stats.c b/net/rds/ib_stats.c
-index d77e044..7e78dca 100644
---- a/net/rds/ib_stats.c
-+++ b/net/rds/ib_stats.c
-@@ -73,6 +73,8 @@ static const char *const rds_ib_stat_names[] = {
- 	"ib_rdma_mr_1m_pool_flush",
- 	"ib_rdma_mr_1m_pool_wait",
- 	"ib_rdma_mr_1m_pool_depleted",
-+	"ib_rdma_mr_8k_reused",
-+	"ib_rdma_mr_1m_reused",
- 	"ib_atomic_cswp",
- 	"ib_atomic_fadd",
- };
+ /* This is stored as mr->r_trans_private. */
+ struct rds_ib_mr {
+-	struct rds_ib_device	*device;
+-	struct rds_ib_mr_pool	*pool;
++	struct rds_ib_device		*device;
++	struct rds_ib_mr_pool		*pool;
++	struct rds_ib_connection	*ic;
+ 
+-	struct llist_node	llnode;
++	struct llist_node		llnode;
+ 
+ 	/* unmap_list is for freeing */
+-	struct list_head	unmap_list;
+-	unsigned int		remap_count;
++	struct list_head		unmap_list;
++	unsigned int			remap_count;
+ 
+-	struct scatterlist	*sg;
+-	unsigned int		sg_len;
+-	int			sg_dma_len;
++	struct scatterlist		*sg;
++	unsigned int			sg_len;
++	int				sg_dma_len;
+ 
+ 	union {
+ 		struct rds_ib_fmr	fmr;
 -- 
 1.9.1
