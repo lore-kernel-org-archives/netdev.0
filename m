@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 05/10] net/mlx5e: Set drop RQ's necessary parameters only
-Date: Sun, 28 Feb 2016 17:09:06 +0200
-Message-ID: <1456672151-11749-6-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 02/10] net/mlx5e: Placement changed for carrier state updates
+Date: Sun, 28 Feb 2016 17:09:03 +0200
+Message-ID: <1456672151-11749-3-git-send-email-saeedm@mellanox.com>
 References: <1456672151-11749-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
@@ -11,54 +11,48 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59757 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59748 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758014AbcB1PJw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2016 10:09:52 -0500
+	id S1757791AbcB1PJt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2016 10:09:49 -0500
 In-Reply-To: <1456672151-11749-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tariq Toukan <tariqt@mellanox.com>
 
-By its role, there is no need to set all the other parameters
-for the drop RQ.
+More proper to declare carrier state UP only after the channels
+are ready for traffic.
 
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 013be09..30fd971 100644
+index 38944b8..013be09 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1064,6 +1064,15 @@ static void mlx5e_build_rq_param(struct mlx5e_priv *priv,
- 	param->wq.linear = 1;
- }
+@@ -1451,8 +1451,8 @@ int mlx5e_open_locked(struct net_device *netdev)
+ 		goto err_close_channels;
+ 	}
  
-+static void mlx5e_build_drop_rq_param(struct mlx5e_rq_param *param)
-+{
-+	void *rqc = param->rqc;
-+	void *wq = MLX5_ADDR_OF(rqc, rqc, wq);
-+
-+	MLX5_SET(wq, wq, wq_type, MLX5_WQ_TYPE_LINKED_LIST);
-+	MLX5_SET(wq, wq, log_wq_stride,    ilog2(sizeof(struct mlx5e_rx_wqe)));
-+}
-+
- static void mlx5e_build_sq_param(struct mlx5e_priv *priv,
- 				 struct mlx5e_sq_param *param)
- {
-@@ -1574,8 +1583,7 @@ static int mlx5e_open_drop_rq(struct mlx5e_priv *priv)
+-	mlx5e_update_carrier(priv);
+ 	mlx5e_redirect_rqts(priv);
++	mlx5e_update_carrier(priv);
+ 	mlx5e_timestamp_init(priv);
  
- 	memset(&cq_param, 0, sizeof(cq_param));
- 	memset(&rq_param, 0, sizeof(rq_param));
--	mlx5e_build_rx_cq_param(priv, &cq_param);
--	mlx5e_build_rq_param(priv, &rq_param);
-+	mlx5e_build_drop_rq_param(&rq_param);
+ 	schedule_delayed_work(&priv->update_stats_work, 0);
+@@ -1491,8 +1491,8 @@ int mlx5e_close_locked(struct net_device *netdev)
+ 	clear_bit(MLX5E_STATE_OPENED, &priv->state);
  
- 	err = mlx5e_create_drop_cq(priv, cq, &cq_param);
- 	if (err)
+ 	mlx5e_timestamp_cleanup(priv);
+-	mlx5e_redirect_rqts(priv);
+ 	netif_carrier_off(priv->netdev);
++	mlx5e_redirect_rqts(priv);
+ 	mlx5e_close_channels(priv);
+ 
+ 	return 0;
 -- 
 1.7.1
