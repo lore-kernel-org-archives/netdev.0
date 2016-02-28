@@ -1,37 +1,50 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next][PATCH v2 01/13] RDS: Drop stale iWARP RDMA transport
-Date: Sun, 28 Feb 2016 21:51:14 +0200
-Message-ID: <CAJ3xEMioB61bN9RAcAx9BecYGdWPs9QZNYUrm+r8=rt0WFMzKQ@mail.gmail.com>
-References: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
-	<1456625990-4739-2-git-send-email-santosh.shilimkar@oracle.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 net-next] net: Implement fast csum_partial for x86_64
+Date: Sun, 28 Feb 2016 12:35:30 -0800
+Message-ID: <1456691730.648.51.camel@edumazet-ThinkPad-T530>
+References: <1456516995-3471163-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	torvalds@linux-foundation.org, tglx@linutronix.de,
+	mingo@redhat.com, hpa@zytor.com, x86@kernel.org, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:35182 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754612AbcB1TvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 14:51:16 -0500
-Received: by mail-io0-f193.google.com with SMTP id z135so12372051iof.2
-        for <netdev@vger.kernel.org>; Sun, 28 Feb 2016 11:51:15 -0800 (PST)
-In-Reply-To: <1456625990-4739-2-git-send-email-santosh.shilimkar@oracle.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34981 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754831AbcB1Ugd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 15:36:33 -0500
+Received: by mail-pa0-f48.google.com with SMTP id bj10so10121576pad.2
+        for <netdev@vger.kernel.org>; Sun, 28 Feb 2016 12:36:33 -0800 (PST)
+In-Reply-To: <1456516995-3471163-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 28, 2016 at 4:19 AM, Santosh Shilimkar
-<santosh.shilimkar@oracle.com> wrote:
-> RDS iWarp support code has become stale and non testable. As
-> indicated earlier, am dropping the support for it.
->
-> If new iWarp user(s) shows up in future, we can adapat the RDS IB
-> transprt for the special RDMA READ sink case. iWarp needs an MR
-> for the RDMA READ sink.
->
-> Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
-> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+On ven., 2016-02-26 at 12:03 -0800, Tom Herbert wrote:
+> +
+> +	/*
+> +	 * Length is greater than 64. Sum to eight byte alignment before
+> +	 * proceeding with main loop.
+> +	 */
+> +	aligned = !!((unsigned long)buff & 0x1);
+> +	if (aligned) {
+> +		unsigned int align = 7 & -(unsigned long)buff;
+> +
+> +		result = csum_partial_lt8_head(*(unsigned long *)buff, align);
+> +		buff += align;
+> +		len -= align;
+> +		result = rotate_by8_if_odd(result, align);
+> +	}
+> +
 
-Hi, just wondered if there's any special reason that all this series
-carries double S.O.B signature line with your name appearing twice on
-two different email addresses?
+This looks like you wanted to test 3 low order bits, not only the 1 low
+order.
+
+aligned = !((unsigned long)buff & 0x7);
+
+if (!aligned) {
+ ...
+}
+
+Or rename the variable to notaligned
