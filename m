@@ -1,115 +1,136 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH RFC v2 32/32] phy: fixed: Fix removal of phys.
-Date: Sun, 28 Feb 2016 17:41:40 +0100
-Message-ID: <1456677700-23027-33-git-send-email-andrew@lunn.ch>
+Subject: [PATCH RFC v2 16/32] dsa: mv88e6xxx: Use bus in mv88e6xxx_lookup_name()
+Date: Sun, 28 Feb 2016 17:41:24 +0100
+Message-ID: <1456677700-23027-17-git-send-email-andrew@lunn.ch>
 References: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
 Cc: Andrew Lunn <andrew@lunn.ch>
 To: Florian Fainelli <f.fainelli@gmail.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44939 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:44944 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759488AbcB1QmY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2016 11:42:24 -0500
+	id S1758779AbcB1Qm2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2016 11:42:28 -0500
 In-Reply-To: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The fixed phys delete function simply removed the fixed phy from the
-internal linked list and freed the memory. It however did not
-unregister the associated phy device. This meant it was still possible
-to find the phy device on the mdio bus.
-
-Make fixed_phy_del() an internal function and add a
-fixed_phy_unregister() to unregisters the phy device and then uses
-fixed_phy_del() to free resources.
-
-Modify DSA to use this new API function. It then becomes possible to
-unload and load driver modules with setups that use fixed phys.
+mv88e6xxx_lookup_name() returns the model name of a switch at a given
+address on an MII bus. Using mii_bus to identify the bus rather than
+the host device is more logical, so change the parameter.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/phy/fixed_phy.c | 10 ++++++++--
- include/linux/phy_fixed.h   |  5 ++---
- net/dsa/dsa.c               |  4 +---
- 3 files changed, 11 insertions(+), 8 deletions(-)
+v2: Check bus is valid before dereferencing it.
+---
+ drivers/net/dsa/mv88e6123.c | 4 +++-
+ drivers/net/dsa/mv88e6131.c | 4 +++-
+ drivers/net/dsa/mv88e6171.c | 4 +++-
+ drivers/net/dsa/mv88e6352.c | 4 +++-
+ drivers/net/dsa/mv88e6xxx.c | 6 +++---
+ drivers/net/dsa/mv88e6xxx.h | 2 +-
+ 6 files changed, 16 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-index ab9c473d75ea..a6caf99a3904 100644
---- a/drivers/net/phy/fixed_phy.c
-+++ b/drivers/net/phy/fixed_phy.c
-@@ -285,7 +285,7 @@ err_regs:
- }
- EXPORT_SYMBOL_GPL(fixed_phy_add);
+diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+index 6d6fca62e8b1..2c23762cbed8 100644
+--- a/drivers/net/dsa/mv88e6123.c
++++ b/drivers/net/dsa/mv88e6123.c
+@@ -31,7 +31,9 @@ static const struct mv88e6xxx_switch_id mv88e6123_table[] = {
  
--void fixed_phy_del(int phy_addr)
-+static void fixed_phy_del(int phy_addr)
+ static char *mv88e6123_drv_probe(struct device *host_dev, int sw_addr)
  {
- 	struct fixed_mdio_bus *fmb = &platform_fmb;
- 	struct fixed_phy *fp, *tmp;
-@@ -300,7 +300,6 @@ void fixed_phy_del(int phy_addr)
- 		}
- 	}
- }
--EXPORT_SYMBOL_GPL(fixed_phy_del);
- 
- static int phy_fixed_addr;
- static DEFINE_SPINLOCK(phy_fixed_addr_lock);
-@@ -371,6 +370,13 @@ struct phy_device *fixed_phy_register(unsigned int irq,
- }
- EXPORT_SYMBOL_GPL(fixed_phy_register);
- 
-+void fixed_phy_unregister(struct phy_device *phy)
-+{
-+	phy_device_remove(phy);
+-	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6123_table,
++	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
 +
-+	fixed_phy_del(phy->mdio.addr);
-+}
++	return mv88e6xxx_lookup_name(bus, sw_addr, mv88e6123_table,
+ 				     ARRAY_SIZE(mv88e6123_table));
+ }
+ 
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index e0aa3be7f5a9..02d2bca095af 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -27,7 +27,9 @@ static const struct mv88e6xxx_switch_id mv88e6131_table[] = {
+ 
+ static char *mv88e6131_drv_probe(struct device *host_dev, int sw_addr)
+ {
+-	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6131_table,
++	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
 +
- static int __init fixed_mdio_bus_init(void)
- {
- 	struct fixed_mdio_bus *fmb = &platform_fmb;
-diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
-index 2400d2ea4f34..1d41ec44e39d 100644
---- a/include/linux/phy_fixed.h
-+++ b/include/linux/phy_fixed.h
-@@ -19,7 +19,7 @@ extern struct phy_device *fixed_phy_register(unsigned int irq,
- 					     struct fixed_phy_status *status,
- 					     int link_gpio,
- 					     struct device_node *np);
--extern void fixed_phy_del(int phy_addr);
-+extern void fixed_phy_unregister(struct phy_device *phydev);
- extern int fixed_phy_set_link_update(struct phy_device *phydev,
- 			int (*link_update)(struct net_device *,
- 					   struct fixed_phy_status *));
-@@ -40,9 +40,8 @@ static inline struct phy_device *fixed_phy_register(unsigned int irq,
- {
- 	return ERR_PTR(-ENODEV);
++	return mv88e6xxx_lookup_name(bus, sw_addr, mv88e6131_table,
+ 				     ARRAY_SIZE(mv88e6131_table));
  }
--static inline int fixed_phy_del(int phy_addr)
-+static inline void fixed_phy_unregister(struct phy_device *phydev)
+ 
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 8fc4db23744e..d557be12feb7 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -26,7 +26,9 @@ static const struct mv88e6xxx_switch_id mv88e6171_table[] = {
+ 
+ static char *mv88e6171_drv_probe(struct device *host_dev, int sw_addr)
  {
--	return -ENODEV;
+-	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6171_table,
++	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
++
++	return mv88e6xxx_lookup_name(bus, sw_addr, mv88e6171_table,
+ 				     ARRAY_SIZE(mv88e6171_table));
  }
- static inline int fixed_phy_set_link_update(struct phy_device *phydev,
- 			int (*link_update)(struct net_device *,
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index e969a43f7a21..445097927131 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -404,11 +404,9 @@ static void dsa_switch_finish_one(struct dsa_switch *ds)
- 		if (of_phy_is_fixed_link(port_dn)) {
- 			phydev = of_phy_find_device(port_dn);
- 			if (phydev) {
--				int addr = phydev->mdio.addr;
--
- 				phy_device_free(phydev);
- 				of_node_put(port_dn);
--				fixed_phy_del(addr);
-+				fixed_phy_unregister(phydev);
- 			}
- 		}
- 	}
+ 
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 2877ad8acefa..959835d69af6 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -38,7 +38,9 @@ static const struct mv88e6xxx_switch_id mv88e6352_table[] = {
+ 
+ static char *mv88e6352_drv_probe(struct device *host_dev, int sw_addr)
+ {
+-	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6352_table,
++	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
++
++	return mv88e6xxx_lookup_name(bus, sw_addr, mv88e6352_table,
+ 				     ARRAY_SIZE(mv88e6352_table));
+ }
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 2e945f325db1..7f67bf47cdb6 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2622,11 +2622,10 @@ int mv88e6xxx_get_temp_alarm(struct dsa_switch *ds, bool *alarm)
+ }
+ #endif /* CONFIG_NET_DSA_HWMON */
+ 
+-char *mv88e6xxx_lookup_name(struct device *host_dev, int sw_addr,
++char *mv88e6xxx_lookup_name(struct mii_bus *bus, int sw_addr,
+ 			    const struct mv88e6xxx_switch_id *table,
+ 			    unsigned int num)
+ {
+-	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+ 	int i, ret;
+ 
+ 	if (!bus)
+@@ -2644,7 +2643,8 @@ char *mv88e6xxx_lookup_name(struct device *host_dev, int sw_addr,
+ 	/* Look up only the product number */
+ 	for (i = 0; i < num; ++i) {
+ 		if (table[i].id == (ret & PORT_SWITCH_ID_PROD_NUM_MASK)) {
+-			dev_warn(host_dev, "unknown revision %d, using base switch 0x%x\n",
++			dev_warn(&bus->dev,
++				 "unknown revision %d, using base switch 0x%x\n",
+ 				 ret & PORT_SWITCH_ID_REV_MASK,
+ 				 ret & PORT_SWITCH_ID_PROD_NUM_MASK);
+ 			return table[i].name;
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 53f2fc82069b..dce72d1007c2 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -444,7 +444,7 @@ struct mv88e6xxx_hw_stat {
+ };
+ 
+ int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active);
+-char *mv88e6xxx_lookup_name(struct device *host_dev, int sw_addr,
++char *mv88e6xxx_lookup_name(struct mii_bus *bus, int sw_addr,
+ 			    const struct mv88e6xxx_switch_id *table,
+ 			    unsigned int num);
+ int mv88e6xxx_setup_ports(struct dsa_switch *ds);
 -- 
 2.7.0
