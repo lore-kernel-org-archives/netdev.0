@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v2 04/13] RDS: IB: Remove the RDS_IB_SEND_OP dependency
-Date: Sat, 27 Feb 2016 18:19:41 -0800
-Message-ID: <1456625990-4739-5-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v2 01/13] RDS: Drop stale iWARP RDMA transport
+Date: Sat, 27 Feb 2016 18:19:38 -0800
+Message-ID: <1456625990-4739-2-git-send-email-santosh.shilimkar@oracle.com>
 References: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
@@ -11,141 +11,181 @@ In-Reply-To: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This helps to combine asynchronous fastreg MR completion handler
-with send completion handler.
+RDS iWarp support code has become stale and non testable. As
+indicated earlier, am dropping the support for it.
 
-No functional change.
+If new iWarp user(s) shows up in future, we can adapat the RDS IB
+transprt for the special RDMA READ sink case. iWarp needs an MR
+for the RDMA READ sink.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.h      |  1 -
- net/rds/ib_cm.c   | 42 +++++++++++++++++++++++++++---------------
- net/rds/ib_send.c |  6 ++----
- 3 files changed, 29 insertions(+), 20 deletions(-)
+ Documentation/networking/rds.txt |   4 +-
+ net/rds/Kconfig                  |   7 +-
+ net/rds/Makefile                 |   4 +-
+ net/rds/iw.c                     | 312 -------------
+ net/rds/iw.h                     | 398 ----------------
+ net/rds/iw_cm.c                  | 769 ------------------------------
+ net/rds/iw_rdma.c                | 837 ---------------------------------
+ net/rds/iw_recv.c                | 904 ------------------------------------
+ net/rds/iw_ring.c                | 169 -------
+ net/rds/iw_send.c                | 981 ---------------------------------------
+ net/rds/iw_stats.c               |  95 ----
+ net/rds/iw_sysctl.c              | 123 -----
+ net/rds/rdma_transport.c         |  13 +-
+ net/rds/rdma_transport.h         |   5 -
+ 14 files changed, 7 insertions(+), 4614 deletions(-)
+ delete mode 100644 net/rds/iw.c
+ delete mode 100644 net/rds/iw.h
+ delete mode 100644 net/rds/iw_cm.c
+ delete mode 100644 net/rds/iw_rdma.c
+ delete mode 100644 net/rds/iw_recv.c
+ delete mode 100644 net/rds/iw_ring.c
+ delete mode 100644 net/rds/iw_send.c
+ delete mode 100644 net/rds/iw_stats.c
+ delete mode 100644 net/rds/iw_sysctl.c
 
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index b3fdebb..09cd8e3 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -28,7 +28,6 @@
- #define RDS_IB_RECYCLE_BATCH_COUNT	32
+diff --git a/Documentation/networking/rds.txt b/Documentation/networking/rds.txt
+index e1a3d59..9d219d8 100644
+--- a/Documentation/networking/rds.txt
++++ b/Documentation/networking/rds.txt
+@@ -19,9 +19,7 @@ to N*N if you use a connection-oriented socket transport like TCP.
  
- #define RDS_IB_WC_MAX			32
--#define RDS_IB_SEND_OP			BIT_ULL(63)
+ RDS is not Infiniband-specific; it was designed to support different
+ transports.  The current implementation used to support RDS over TCP as well
+-as IB. Work is in progress to support RDS over iWARP, and using DCE to
+-guarantee no dropped packets on Ethernet, it may be possible to use RDS over
+-UDP in the future.
++as IB.
  
- extern struct rw_semaphore rds_ib_devices_lock;
- extern struct list_head rds_ib_devices;
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index da5a7fb..7f68abc 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -236,12 +236,10 @@ static void rds_ib_cq_comp_handler_recv(struct ib_cq *cq, void *context)
- 	tasklet_schedule(&ic->i_recv_tasklet);
+ The high-level semantics of RDS from the application's point of view are
+ 
+diff --git a/net/rds/Kconfig b/net/rds/Kconfig
+index f2c670b..bffde4b 100644
+--- a/net/rds/Kconfig
++++ b/net/rds/Kconfig
+@@ -4,14 +4,13 @@ config RDS
+ 	depends on INET
+ 	---help---
+ 	  The RDS (Reliable Datagram Sockets) protocol provides reliable,
+-	  sequenced delivery of datagrams over Infiniband, iWARP,
+-	  or TCP.
++	  sequenced delivery of datagrams over Infiniband or TCP.
+ 
+ config RDS_RDMA
+-	tristate "RDS over Infiniband and iWARP"
++	tristate "RDS over Infiniband"
+ 	depends on RDS && INFINIBAND && INFINIBAND_ADDR_TRANS
+ 	---help---
+-	  Allow RDS to use Infiniband and iWARP as a transport.
++	  Allow RDS to use Infiniband as a transport.
+ 	  This transport supports RDMA operations.
+ 
+ config RDS_TCP
+diff --git a/net/rds/Makefile b/net/rds/Makefile
+index 56d3f60..19e5485 100644
+--- a/net/rds/Makefile
++++ b/net/rds/Makefile
+@@ -6,9 +6,7 @@ rds-y :=	af_rds.o bind.o cong.o connection.o info.o message.o   \
+ obj-$(CONFIG_RDS_RDMA) += rds_rdma.o
+ rds_rdma-y :=	rdma_transport.o \
+ 			ib.o ib_cm.o ib_recv.o ib_ring.o ib_send.o ib_stats.o \
+-			ib_sysctl.o ib_rdma.o \
+-			iw.o iw_cm.o iw_recv.o iw_ring.o iw_send.o iw_stats.o \
+-			iw_sysctl.o iw_rdma.o
++			ib_sysctl.o ib_rdma.o
+ 
+ 
+ obj-$(CONFIG_RDS_TCP) += rds_tcp.o
+diff --git a/net/rds/iw.c b/net/rds/iw.c
+deleted file mode 100644
+index f4a9fff..0000000
+diff --git a/net/rds/iw.h b/net/rds/iw.h
+deleted file mode 100644
+index 5af01d1..0000000
+diff --git a/net/rds/iw_cm.c b/net/rds/iw_cm.c
+deleted file mode 100644
+index aea4c91..0000000
+diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
+deleted file mode 100644
+index b09a40c..0000000
+diff --git a/net/rds/iw_recv.c b/net/rds/iw_recv.c
+deleted file mode 100644
+index a66d179..0000000
+diff --git a/net/rds/iw_ring.c b/net/rds/iw_ring.c
+deleted file mode 100644
+index da8e3b6..0000000
+diff --git a/net/rds/iw_send.c b/net/rds/iw_send.c
+deleted file mode 100644
+index e20bd50..0000000
+diff --git a/net/rds/iw_stats.c b/net/rds/iw_stats.c
+deleted file mode 100644
+index 5fe67f6..0000000
+diff --git a/net/rds/iw_sysctl.c b/net/rds/iw_sysctl.c
+deleted file mode 100644
+index 139239d..0000000
+diff --git a/net/rds/rdma_transport.c b/net/rds/rdma_transport.c
+index 9c1fed8..4f4b3d8 100644
+--- a/net/rds/rdma_transport.c
++++ b/net/rds/rdma_transport.c
+@@ -49,9 +49,7 @@ int rds_rdma_cm_event_handler(struct rdma_cm_id *cm_id,
+ 	rdsdebug("conn %p id %p handling event %u (%s)\n", conn, cm_id,
+ 		 event->event, rdma_event_msg(event->event));
+ 
+-	if (cm_id->device->node_type == RDMA_NODE_RNIC)
+-		trans = &rds_iw_transport;
+-	else
++	if (cm_id->device->node_type == RDMA_NODE_IB_CA)
+ 		trans = &rds_ib_transport;
+ 
+ 	/* Prevent shutdown from tearing down the connection
+@@ -200,10 +198,6 @@ static int rds_rdma_init(void)
+ 	if (ret)
+ 		goto out;
+ 
+-	ret = rds_iw_init();
+-	if (ret)
+-		goto err_iw_init;
+-
+ 	ret = rds_ib_init();
+ 	if (ret)
+ 		goto err_ib_init;
+@@ -211,8 +205,6 @@ static int rds_rdma_init(void)
+ 	goto out;
+ 
+ err_ib_init:
+-	rds_iw_exit();
+-err_iw_init:
+ 	rds_rdma_listen_stop();
+ out:
+ 	return ret;
+@@ -224,11 +216,10 @@ static void rds_rdma_exit(void)
+ 	/* stop listening first to ensure no new connections are attempted */
+ 	rds_rdma_listen_stop();
+ 	rds_ib_exit();
+-	rds_iw_exit();
  }
+ module_exit(rds_rdma_exit);
  
--static void poll_cq(struct rds_ib_connection *ic, struct ib_cq *cq,
--		    struct ib_wc *wcs,
--		    struct rds_ib_ack_state *ack_state)
-+static void poll_scq(struct rds_ib_connection *ic, struct ib_cq *cq,
-+		     struct ib_wc *wcs)
- {
--	int nr;
--	int i;
-+	int nr, i;
- 	struct ib_wc *wc;
+ MODULE_AUTHOR("Oracle Corporation <rds-devel@oss.oracle.com>");
+-MODULE_DESCRIPTION("RDS: IB/iWARP transport");
++MODULE_DESCRIPTION("RDS: IB transport");
+ MODULE_LICENSE("Dual BSD/GPL");
  
- 	while ((nr = ib_poll_cq(cq, RDS_IB_WC_MAX, wcs)) > 0) {
-@@ -251,10 +249,7 @@ static void poll_cq(struct rds_ib_connection *ic, struct ib_cq *cq,
- 				 (unsigned long long)wc->wr_id, wc->status,
- 				 wc->byte_len, be32_to_cpu(wc->ex.imm_data));
+diff --git a/net/rds/rdma_transport.h b/net/rds/rdma_transport.h
+index faba4e3..ff2010e 100644
+--- a/net/rds/rdma_transport.h
++++ b/net/rds/rdma_transport.h
+@@ -16,9 +16,4 @@ extern struct rds_transport rds_ib_transport;
+ int rds_ib_init(void);
+ void rds_ib_exit(void);
  
--			if (wc->wr_id & RDS_IB_SEND_OP)
--				rds_ib_send_cqe_handler(ic, wc);
--			else
--				rds_ib_recv_cqe_handler(ic, wc, ack_state);
-+			rds_ib_send_cqe_handler(ic, wc);
- 		}
- 	}
- }
-@@ -263,14 +258,12 @@ static void rds_ib_tasklet_fn_send(unsigned long data)
- {
- 	struct rds_ib_connection *ic = (struct rds_ib_connection *)data;
- 	struct rds_connection *conn = ic->conn;
--	struct rds_ib_ack_state state;
- 
- 	rds_ib_stats_inc(s_ib_tasklet_call);
- 
--	memset(&state, 0, sizeof(state));
--	poll_cq(ic, ic->i_send_cq, ic->i_send_wc, &state);
-+	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
- 	ib_req_notify_cq(ic->i_send_cq, IB_CQ_NEXT_COMP);
--	poll_cq(ic, ic->i_send_cq, ic->i_send_wc, &state);
-+	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
- 
- 	if (rds_conn_up(conn) &&
- 	    (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags) ||
-@@ -278,6 +271,25 @@ static void rds_ib_tasklet_fn_send(unsigned long data)
- 		rds_send_xmit(ic->conn);
- }
- 
-+static void poll_rcq(struct rds_ib_connection *ic, struct ib_cq *cq,
-+		     struct ib_wc *wcs,
-+		     struct rds_ib_ack_state *ack_state)
-+{
-+	int nr, i;
-+	struct ib_wc *wc;
-+
-+	while ((nr = ib_poll_cq(cq, RDS_IB_WC_MAX, wcs)) > 0) {
-+		for (i = 0; i < nr; i++) {
-+			wc = wcs + i;
-+			rdsdebug("wc wr_id 0x%llx status %u byte_len %u imm_data %u\n",
-+				 (unsigned long long)wc->wr_id, wc->status,
-+				 wc->byte_len, be32_to_cpu(wc->ex.imm_data));
-+
-+			rds_ib_recv_cqe_handler(ic, wc, ack_state);
-+		}
-+	}
-+}
-+
- static void rds_ib_tasklet_fn_recv(unsigned long data)
- {
- 	struct rds_ib_connection *ic = (struct rds_ib_connection *)data;
-@@ -291,9 +303,9 @@ static void rds_ib_tasklet_fn_recv(unsigned long data)
- 	rds_ib_stats_inc(s_ib_tasklet_call);
- 
- 	memset(&state, 0, sizeof(state));
--	poll_cq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
-+	poll_rcq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
- 	ib_req_notify_cq(ic->i_recv_cq, IB_CQ_SOLICITED);
--	poll_cq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
-+	poll_rcq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
- 
- 	if (state.ack_next_valid)
- 		rds_ib_set_ack(ic, state.ack_next, state.ack_required);
-diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
-index eac30bf..f27d2c8 100644
---- a/net/rds/ib_send.c
-+++ b/net/rds/ib_send.c
-@@ -195,7 +195,7 @@ void rds_ib_send_init_ring(struct rds_ib_connection *ic)
- 
- 		send->s_op = NULL;
- 
--		send->s_wr.wr_id = i | RDS_IB_SEND_OP;
-+		send->s_wr.wr_id = i;
- 		send->s_wr.sg_list = send->s_sge;
- 		send->s_wr.ex.imm_data = 0;
- 
-@@ -263,9 +263,7 @@ void rds_ib_send_cqe_handler(struct rds_ib_connection *ic, struct ib_wc *wc)
- 
- 	oldest = rds_ib_ring_oldest(&ic->i_send_ring);
- 
--	completed = rds_ib_ring_completed(&ic->i_send_ring,
--					  (wc->wr_id & ~RDS_IB_SEND_OP),
--					  oldest);
-+	completed = rds_ib_ring_completed(&ic->i_send_ring, wc->wr_id, oldest);
- 
- 	for (i = 0; i < completed; i++) {
- 		send = &ic->i_sends[oldest];
+-/* from iw.c */
+-extern struct rds_transport rds_iw_transport;
+-int rds_iw_init(void);
+-void rds_iw_exit(void);
+-
+ #endif
 -- 
 1.9.1
