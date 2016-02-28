@@ -1,76 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
-Date: Sat, 27 Feb 2016 17:59:26 -0800
-Message-ID: <1456624766.648.43.camel@edumazet-ThinkPad-T530>
-References: <56D1E8B6.6090003@hurleysoftware.com>
-	 <1456604037.648.29.camel@edumazet-ThinkPad-T530>
-	 <56D20733.1000409@hurleysoftware.com>
-	 <20160227.180403.2101360385050644823.davem@davemloft.net>
-	 <56D23266.2080306@hurleysoftware.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	gregkh@linuxfoundation.org, dmaengine@vger.kernel.org,
-	john.ogness@linutronix.de, bigeasy@linutronix.de,
-	akpm@linux-foundation.org
-To: Peter Hurley <peter@hurleysoftware.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: lack the check for ports in sctp_v6_cmp_addr
+Date: Sun, 28 Feb 2016 10:03:51 +0800
+Message-ID: <415cb449b7811635a13245e5ec99a5679516524a.1456625031.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:36271 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992640AbcB1CA3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 21:00:29 -0500
-In-Reply-To: <56D23266.2080306@hurleysoftware.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36695 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992640AbcB1CD4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 21:03:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On sam., 2016-02-27 at 15:33 -0800, Peter Hurley wrote:
-> On 02/27/2016 03:04 PM, David Miller wrote:
-> > From: Peter Hurley <peter@hurleysoftware.com>
-> > Date: Sat, 27 Feb 2016 12:29:39 -0800
-> > 
-> >> Not really. softirq raised from interrupt context will always execute
-> >> on this cpu and not in ksoftirqd, unless load forces softirq loop abort.
-> > 
-> > That guarantee never was specified.
-> 
-> ??
-> 
-> Neither is running network socket servers at normal priority as if they're
-> higher priority than softirq.
-> 
-> 
-> > Or are you saying that by design, on a system under load, your UART
-> > will not function properly?
-> > 
-> > Surely you don't mean that.
-> 
-> No, that's not what I mean.
-> 
-> What I mean is that bypassing the entire SOFTIRQ priority so that
-> sshd can process one network packet makes a mockery of the point of softirq.
-> 
-> This hack to workaround NET_RX looping over-and-over-and-over affects every
-> subsystem, not just one uart.
-> 
-> HI, TIMER, BLOCK; all of these are skipped: that's straight-up, a bug.
+As the member .cmp_addr of sctp_af_inet6, sctp_v6_cmp_addr should also check
+the port of addresses, just like sctp_v4_cmp_addr, cause it's invoked by
+sctp_cmp_addr_exact().
 
-No idea what you talk about.
+Now sctp_v6_cmp_addr just check the port when two addresses have different
+family, and lack the port check for two ipv6 addresses. that will make
+sctp_hash_cmp() cannot work well.
 
-All pending softirq interrupts are processed. _Nothing_ is skipped.
+so fix it by adding ports comparison in sctp_v6_cmp_addr().
 
-Really, your system stability seems to depend on a completely
-undocumented behavior of linux kernels before linux-3.8
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/ipv6.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-If I understood, you expect that a tasklet activated from a softirq
-handler is run from the same  __do_softirq() loop. This never has been
-the case.
-
-My change simply triggers the bug in your driver earlier. As David
-pointed out, your bug should trigger the same on a loaded machine, even
-if you revert my patch.
-
-I honestly do not know why you arm a tasklet from NET_RX, why don't you
-simply process this directly, so that you do not rely on some scheduler
-decision ?
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index ec52912..ce46f1c 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -526,6 +526,8 @@ static int sctp_v6_cmp_addr(const union sctp_addr *addr1,
+ 		}
+ 		return 0;
+ 	}
++	if (addr1->v6.sin6_port != addr2->v6.sin6_port)
++		return 0;
+ 	if (!ipv6_addr_equal(&addr1->v6.sin6_addr, &addr2->v6.sin6_addr))
+ 		return 0;
+ 	/* If this is a linklocal address, compare the scope_id. */
+-- 
+2.1.0
