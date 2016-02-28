@@ -1,36 +1,91 @@
-From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
-Subject: Re: [net-next][PATCH 00/13] RDS: Major clean-up with couple of new
- features for 4.6
-Date: Sat, 27 Feb 2016 18:13:31 -0800
-Message-ID: <56D257CB.7070309@oracle.com>
-References: <1456551838-9080-1-git-send-email-santosh.shilimkar@oracle.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
+Date: Sat, 27 Feb 2016 18:17:29 -0800
+Message-ID: <1456625849.648.45.camel@edumazet-ThinkPad-T530>
+References: <56D1E8B6.6090003@hurleysoftware.com>
+	 <1456604037.648.29.camel@edumazet-ThinkPad-T530>
+	 <56D20733.1000409@hurleysoftware.com>
+	 <20160227.180403.2101360385050644823.davem@davemloft.net>
+	 <56D23266.2080306@hurleysoftware.com>
+	 <1456624766.648.43.camel@edumazet-ThinkPad-T530>
+	 <56D25713.8050307@hurleysoftware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456551838-9080-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gregkh@linuxfoundation.org, dmaengine@vger.kernel.org,
+	john.ogness@linutronix.de, bigeasy@linutronix.de,
+	akpm@linux-foundation.org
+To: Peter Hurley <peter@hurleysoftware.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:32937 "EHLO
+	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992711AbcB1CSb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 21:18:31 -0500
+In-Reply-To: <56D25713.8050307@hurleysoftware.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On sam., 2016-02-27 at 18:10 -0800, Peter Hurley wrote:
+> On 02/27/2016 05:59 PM, Eric Dumazet wrote:
+> > On sam., 2016-02-27 at 15:33 -0800, Peter Hurley wrote:
+> >> On 02/27/2016 03:04 PM, David Miller wrote:
+> >>> From: Peter Hurley <peter@hurleysoftware.com>
+> >>> Date: Sat, 27 Feb 2016 12:29:39 -0800
+> >>>
+> >>>> Not really. softirq raised from interrupt context will always execute
+> >>>> on this cpu and not in ksoftirqd, unless load forces softirq loop abort.
+> >>>
+> >>> That guarantee never was specified.
+> >>
+> >> ??
+> >>
+> >> Neither is running network socket servers at normal priority as if they're
+> >> higher priority than softirq.
+> >>
+> >>
+> >>> Or are you saying that by design, on a system under load, your UART
+> >>> will not function properly?
+> >>>
+> >>> Surely you don't mean that.
+> >>
+> >> No, that's not what I mean.
+> >>
+> >> What I mean is that bypassing the entire SOFTIRQ priority so that
+> >> sshd can process one network packet makes a mockery of the point of softirq.
+> >>
+> >> This hack to workaround NET_RX looping over-and-over-and-over affects every
+> >> subsystem, not just one uart.
+> >>
+> >> HI, TIMER, BLOCK; all of these are skipped: that's straight-up, a bug.
+> > 
+> > No idea what you talk about.
+> > 
+> > All pending softirq interrupts are processed. _Nothing_ is skipped.
+> 
+> An interrupt that schedules HI softirq while in NET_RX softirq should
+> still run the HI softirq. But with your patch that won't happen.
 
-On 2/26/16 9:43 PM, Santosh Shilimkar wrote:
-> Series is generated against net-next but also applies against Linus's tip
-> cleanly. The diff-stat looks bit scary since almost ~4K lines of code is
-> getting removed.
->
+Stop saying this. This never had been the case. I am glad my patch
+finally show you are wrong.
 
-[...]
+> 
+> 
+> > Really, your system stability seems to depend on a completely
+> > undocumented behavior of linux kernels before linux-3.8
+> > 
+> > If I understood, you expect that a tasklet activated from a softirq
+> > handler is run from the same  __do_softirq() loop. This never has been
+> > the case.
+> 
+> No.
+> 
+> The *interrupt handler* for DMA goes off while NET_RX softirq is running.
+> That's what schedules the *DMA tasklet*.
+> 
+> That tasklet should run before any process.
+> 
+> But it doesn't because your patch bails out early from softirq.
 
->
-> Entire patchset is available below git tree:
-> 	git://git.kernel.org/pub/scm/linux/kernel/git/ssantosh/linux.git for_4.6/net-next/rds
->
-Just noticed that, I accidentally posted the patches from older(v1)
-folder, instead of updated v2. Sorry about it. Please discard
-this entire series. Will post intended v2 right after this email.
-
-Regards,
-Santosh
+Fine. Fix your driver.
