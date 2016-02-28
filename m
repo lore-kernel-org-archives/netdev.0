@@ -1,106 +1,95 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH RFC v2 00/32] Make DSA switches linux devices.
-Date: Sun, 28 Feb 2016 17:41:08 +0100
-Message-ID: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
+Subject: [PATCH RFC v2 09/32] driver: component: Add support for empty match table
+Date: Sun, 28 Feb 2016 17:41:17 +0100
+Message-ID: <1456677700-23027-10-git-send-email-andrew@lunn.ch>
+References: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
 Cc: Andrew Lunn <andrew@lunn.ch>
 To: Florian Fainelli <f.fainelli@gmail.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45004 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:44997 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759643AbcB1Qnc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2016 11:43:32 -0500
+	id S1758908AbcB1QnY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2016 11:43:24 -0500
+In-Reply-To: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the second RFC for rearchitecturing how DSA devices are
-probed. This patchset allows switches to be linux devices, probed by
-the ususal mechanism for whatever bus they hang off. They then
-register with the DSA core.
+Before calling component_master_add_with_match(), matches should be
+added using component_match_add() to the opaque match. How many
+matches are added typically depends on the contents of the device
+tree. It is not inconceivable that the number is zero, for example the
+components are optional.
 
-DSA has been limited to devices which hang off an MDIO bus, or with a
-bit of work, memory mapped devices. This refactoring generalizes DSA
-so that switches on other sorts of busses, eg. SPI can be supported.
+This results in calling component_master_add_with_match() passing a
+NULL pointer for the match structure. The component infrastructure
+does not like this. So handle the case by allocating a match with zero
+entries.
 
-The code should remain backwards compatible. The old device tree
-binding are still supported. It is extended with phandles to switch
-devices.
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/base/component.c | 33 ++++++++++++++++++++++++++-------
+ 1 file changed, 26 insertions(+), 7 deletions(-)
 
-The changes also make it eaiser for the drivers to be kernel modules,
-and the patches contain cleanups and fixes so that the modules can be
-unloaded and loaded.
-
-Patches can be found in
-
-https://github.com/lunn/linux.git v4.5-rc2-net-next-dsa-proposal-4
-
-
-Andrew Lunn (30):
-  dsa: Rename mv88e6123_61_65 to mv88e6123 to be consistent
-  dsa: Make setup and finish more symmetrical
-  net: dsa: Pass the dsa device to the switch drivers
-  net: dsa: Have the switch driver allocate there own private memory
-  net: dsa: Remove allocation of driver private memory
-  net: dsa: Keep the mii bus and address in the private structure
-  net: dsa: dsa.c: Refactor to increase symmetry
-  driver: component: Add support for empty match table
-  net: dsa: Add basic support for component master support
-  net: dsa: Keep a reference to the switch device for component matching
-  net: dsa: Add slave component matches based on a phandle to the slave.
-  net: dsa: Make dsa,mii-bus optional
-  net: dsa: Add register/unregister functions for switch drivers
-  net: dsa: Rename DSA probe function.
-  dsa: mv88e6xxx: Use bus in mv88e6xxx_lookup_name()
-  dsa: mv88e6xxx: Add shared code for binding/unbinding a switch driver.
-  dsa: mv88e6xxx: Prepare for turning this into a library module
-  dsa: mv88e6xxx: Add macro for registering the drivers
-  dsa: Add mdio device support to Marvell switches
-  net: mdio: Add mdiodev_{read|write} helpers
-  net: dsa: Better integrate the drivers with mdio device
-  net: dsa: Add some debug prints for error cases
-  net: dsa: Setup the switches after all have been probed
-  net: dsa: Only setup platform switches, not device switches
-  net: dsa: If a switch fails to probe, defer probing
-  Documentation: DSA: Describe how probe of DSA and switches work.
-  dsa: slave: Don't reference NULL pointer during phy_disconnect
-  dsa: Destroy fixed link phys after the phy has been disconnected
-  dsa: dsa: Fix freeing of fixed-phys from user ports.
-  phy: fixed: Fix removal of phys.
-
-Florian Fainelli (2):
-  net: dsa: Move platform data allocation for OF
-  net: dsa: bcm_sf2: make it a real platform driver
-
- .../devicetree/bindings/net/dsa/broadcom.txt       |  54 +++
- Documentation/devicetree/bindings/net/dsa/dsa.txt  |   5 +-
- .../devicetree/bindings/net/dsa/marvell.txt        |  29 ++
- Documentation/networking/dsa/dsa.txt               |  48 +++
- drivers/base/component.c                           |  33 +-
- drivers/net/dsa/Kconfig                            |   2 +-
- drivers/net/dsa/Makefile                           |  19 +-
- drivers/net/dsa/bcm_sf2.c                          | 292 +++++++++-------
- drivers/net/dsa/mv88e6060.c                        | 138 +++++++-
- drivers/net/dsa/mv88e6060.h                        |  10 +
- drivers/net/dsa/mv88e6123.c                        | 173 ++++++++++
- drivers/net/dsa/mv88e6123_61_65.c                  | 124 -------
- drivers/net/dsa/mv88e6131.c                        |  70 +++-
- drivers/net/dsa/mv88e6171.c                        |  70 +++-
- drivers/net/dsa/mv88e6352.c                        |  72 +++-
- drivers/net/dsa/mv88e6xxx.c                        | 200 +++++++----
- drivers/net/dsa/mv88e6xxx.h                        |  40 ++-
- drivers/net/phy/fixed_phy.c                        |  10 +-
- drivers/net/phy/mdio_device.c                      |  68 ++++
- include/linux/mdio.h                               |   5 +
- include/linux/phy_fixed.h                          |   2 +-
- include/net/dsa.h                                  |  17 +-
- net/dsa/dsa.c                                      | 372 ++++++++++++++-------
- net/dsa/slave.c                                    |  12 +-
- 24 files changed, 1339 insertions(+), 526 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/dsa/broadcom.txt
- create mode 100644 Documentation/devicetree/bindings/net/dsa/marvell.txt
- create mode 100644 drivers/net/dsa/mv88e6123.c
- delete mode 100644 drivers/net/dsa/mv88e6123_61_65.c
-
+diff --git a/drivers/base/component.c b/drivers/base/component.c
+index 89f5cf68d80a..36c4cf626fa8 100644
+--- a/drivers/base/component.c
++++ b/drivers/base/component.c
+@@ -237,6 +237,24 @@ static int component_match_realloc(struct device *dev,
+ }
+ 
+ /*
++ * Allocate a match array.
++ *
++ */
++static struct component_match *component_match_alloc(struct device *master)
++{
++	struct component_match *match;
++
++	match = devres_alloc(devm_component_match_release,
++				     sizeof(*match), GFP_KERNEL);
++	if (!match)
++		return ERR_PTR(-ENOMEM);
++
++	devres_add(master, match);
++
++	return match;
++}
++
++/*
+  * Add a component to be matched, with a release function.
+  *
+  * The match array is first created or extended if necessary.
+@@ -252,14 +270,9 @@ void component_match_add_release(struct device *master,
+ 		return;
+ 
+ 	if (!match) {
+-		match = devres_alloc(devm_component_match_release,
+-				     sizeof(*match), GFP_KERNEL);
+-		if (!match) {
+-			*matchptr = ERR_PTR(-ENOMEM);
++		match = component_match_alloc(master);
++		if (IS_ERR(match))
+ 			return;
+-		}
+-
+-		devres_add(master, match);
+ 
+ 		*matchptr = match;
+ 	}
+@@ -290,6 +303,12 @@ int component_master_add_with_match(struct device *dev,
+ 	struct master *master;
+ 	int ret;
+ 
++	if (!match) {
++		match = component_match_alloc(dev);
++		if (IS_ERR(match))
++			return PTR_ERR(match);
++	}
++
+ 	/* Reallocate the match array for its true size */
+ 	ret = component_match_realloc(dev, match, match->num);
+ 	if (ret)
 -- 
 2.7.0
