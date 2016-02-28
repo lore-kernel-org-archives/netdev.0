@@ -1,55 +1,66 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v4 3/3] Support to encoding decoding skb prio
- on IFE action
-Date: Sat, 27 Feb 2016 20:26:20 -0800
-Message-ID: <CAM_iQpUk_ee9gudqwOsCEKm3s31TFuXPOKjriUcW2E6jw5i4YA@mail.gmail.com>
-References: <1456578536-17732-1-git-send-email-jhs@emojatatu.com>
-	<1456578536-17732-4-git-send-email-jhs@emojatatu.com>
+Subject: Re: [net-next PATCH v3 1/3] net: sched: consolidate offload decision
+ in cls_u32
+Date: Sat, 27 Feb 2016 20:28:46 -0800
+Message-ID: <CAM_iQpWMKWWqtrmPEQZGfDwMZoRq4dvCmirc850tmhbRGT1LNQ@mail.gmail.com>
+References: <20160226154858.5338.90569.stgit@john-Precision-Tower-5810>
+	<20160226155349.5338.74615.stgit@john-Precision-Tower-5810>
+	<CAM_iQpVPa7Twx35K-VjR6X0DJ9wQuSeTrfFSZe8HWU_yJVj2UA@mail.gmail.com>
+	<56D124F1.3070300@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
+Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	simon.horman@netronome.com,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f170.google.com ([209.85.160.170]:35363 "EHLO
-	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992685AbcB1E0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 23:26:21 -0500
-Received: by mail-yk0-f170.google.com with SMTP id r207so51238194ykd.2
-        for <netdev@vger.kernel.org>; Sat, 27 Feb 2016 20:26:21 -0800 (PST)
-In-Reply-To: <1456578536-17732-4-git-send-email-jhs@emojatatu.com>
+Received: from mail-yw0-f174.google.com ([209.85.161.174]:35498 "EHLO
+	mail-yw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992738AbcB1E2r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2016 23:28:47 -0500
+Received: by mail-yw0-f174.google.com with SMTP id g127so98375072ywf.2
+        for <netdev@vger.kernel.org>; Sat, 27 Feb 2016 20:28:47 -0800 (PST)
+In-Reply-To: <56D124F1.3070300@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 27, 2016 at 5:08 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Fri, Feb 26, 2016 at 8:24 PM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+> On 16-02-26 09:39 AM, Cong Wang wrote:
+>> On Fri, Feb 26, 2016 at 7:53 AM, John Fastabend
+>> <john.fastabend@gmail.com> wrote:
+>>> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+>>> index 2121df5..e64d20b 100644
+>>> --- a/include/net/pkt_cls.h
+>>> +++ b/include/net/pkt_cls.h
+>>> @@ -392,4 +392,9 @@ struct tc_cls_u32_offload {
+>>>         };
+>>>  };
+>>>
+>>> +static inline bool tc_should_offload(struct net_device *dev)
+>>> +{
+>>> +       return dev->netdev_ops->ndo_setup_tc;
+>>> +}
+>>> +
+>>
+>> These should be protected by CONFIG_NET_CLS_U32, no?
+>>
 >
->     Example usage:
->     Set the skb priority using skbedit then allow it to be encoded
+> Its not necessary it is a completely general function and I only
+> lifted it out of cls_u32 so that the cls_flower classifier could
+> also use it.
 >
->     sudo tc qdisc add dev $ETH root handle 1: prio
->     sudo tc filter add dev $ETH parent 1: protocol ip prio 10 \
->     u32 match ip protocol 1 0xff flowid 1:2 \
->     action skbedit prio 17 \
->     action ife encode \
->     allow prio \
->     dst 02:15:15:15:15:15
+> I don't see the need off-hand to have it wrapped in an ORd ifdef
+> statement where its (CONFIG_NET_CLS_U32 | CONFIG_NET_CLS_X ...).
+> Any particular reason you were thnking it should be wrapped in ifdefs?
 >
->     Note: You dont need the skbedit action if you are already encoding the
->     skb priority earlier. A zero skb priority will not be sent
->
->     Alternative hard code static priority of decimal 33 (unlike skbedit)
->     then mark of 0x12 every time the filter matches
->
->     sudo $TC filter add dev $ETH parent 1: protocol ip prio 10 \
->     u32 match ip protocol 1 0xff flowid 1:2 \
->     action ife encode \
->     type 0xDEAD \
->     use prio 33 \
->     use mark 0x12 \
->     dst 02:15:15:15:15:15
->
->     Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+Not a big deal.
+
+I just feel these don't need to compile when I have CONFIG_NET_CLS_U32=n.
+
+Thanks.
