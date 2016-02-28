@@ -1,113 +1,169 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH RFC v2 25/32] net: dsa: Setup the switches after all have been probed
-Date: Sun, 28 Feb 2016 17:41:33 +0100
-Message-ID: <1456677700-23027-26-git-send-email-andrew@lunn.ch>
+Subject: [PATCH RFC v2 01/32] net: dsa: Move platform data allocation for OF
+Date: Sun, 28 Feb 2016 17:41:09 +0100
+Message-ID: <1456677700-23027-2-git-send-email-andrew@lunn.ch>
 References: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
-Cc: Andrew Lunn <andrew@lunn.ch>
 To: Florian Fainelli <f.fainelli@gmail.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44900 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:44889 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759183AbcB1QmB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2016 11:42:01 -0500
+	id S1758249AbcB1Ql5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2016 11:41:57 -0500
 In-Reply-To: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some switches register themselves with DSA, which others are probed by
-DSA itself. Move the setup call to after all switches have been
-successfully probed. Similarly, finish each before releasing them.
+From: Florian Fainelli <f.fainelli@gmail.com>
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Do not have dsa_of_probe() allocate and assign struct dsa_platform_data,
+but instead do this outside of this function such that we can control
+exactly the storage of that data structure.
+
+This is a preliminary change to allow multiple callers of dsa_of_probe()
+not to clobber an existing dsa_platform_data and later, control where
+this data structure is coming from.
+
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- net/dsa/dsa.c | 27 ++++++++++++++++-----------
- 1 file changed, 16 insertions(+), 11 deletions(-)
+ net/dsa/dsa.c | 48 +++++++++++++++++++-----------------------------
+ 1 file changed, 19 insertions(+), 29 deletions(-)
 
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 9acfbe7c34f7..b9b10e050927 100644
+index fa4daba8db55..be68c00b8cfd 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -426,7 +426,6 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 	struct dsa_chip_data *pd = dst->pd->chip + index;
- 	struct dsa_switch_driver *drv;
- 	struct dsa_switch *ds;
+@@ -651,13 +651,12 @@ static void dsa_of_free_platform_data(struct dsa_platform_data *pd)
+ 	kfree(pd->chip);
+ }
+ 
+-static int dsa_of_probe(struct device *dev)
++static int dsa_of_probe(struct device *dev, struct dsa_platform_data *pd)
+ {
+ 	struct device_node *np = dev->of_node;
+ 	struct device_node *child, *mdio, *ethernet, *port;
+ 	struct mii_bus *mdio_bus, *mdio_bus_switch;
+ 	struct net_device *ethernet_dev;
+-	struct dsa_platform_data *pd;
+ 	struct dsa_chip_data *cd;
+ 	const char *port_name;
+ 	int chip_index, port_index;
+@@ -666,7 +665,7 @@ static int dsa_of_probe(struct device *dev)
+ 	enum of_gpio_flags of_flags;
+ 	unsigned long flags;
+ 	u32 eeprom_len;
 -	int ret;
- 	char *name;
++	int ret = 0;
  
- 	/*
-@@ -456,17 +455,11 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 	ds->tag_protocol = drv->tag_protocol;
- 	ds->master_dev = host_dev;
+ 	mdio = of_parse_phandle(np, "dsa,mii-bus", 0);
+ 	if (!mdio)
+@@ -688,13 +687,6 @@ static int dsa_of_probe(struct device *dev)
+ 		goto out_put_mdio;
+ 	}
  
--	ret = dsa_switch_setup_one(ds, parent);
--	if (ret)
--		return ERR_PTR(ret);
+-	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
+-	if (!pd) {
+-		ret = -ENOMEM;
+-		goto out_put_ethernet;
+-	}
 -
- 	return ds;
+-	dev->platform_data = pd;
+ 	pd->of_netdev = ethernet_dev;
+ 	pd->nr_chips = of_get_available_child_count(np);
+ 	if (pd->nr_chips > DSA_MAX_SWITCHES)
+@@ -702,10 +694,8 @@ static int dsa_of_probe(struct device *dev)
+ 
+ 	pd->chip = kcalloc(pd->nr_chips, sizeof(struct dsa_chip_data),
+ 			   GFP_KERNEL);
+-	if (!pd->chip) {
+-		ret = -ENOMEM;
+-		goto out_free;
+-	}
++	if (!pd->chip)
++		goto out_put_mdio;
+ 
+ 	chip_index = -1;
+ 	for_each_available_child_of_node(np, child) {
+@@ -795,34 +785,29 @@ static int dsa_of_probe(struct device *dev)
+ 
+ out_free_chip:
+ 	dsa_of_free_platform_data(pd);
+-out_free:
+-	kfree(pd);
+-	dev->platform_data = NULL;
+-out_put_ethernet:
+-	put_device(&ethernet_dev->dev);
++
+ out_put_mdio:
+ 	put_device(&mdio_bus->dev);
+ 	return ret;
  }
  
- static void dsa_switch_finish(struct dsa_switch *ds, struct device *parent)
+-static void dsa_of_remove(struct device *dev)
++static void dsa_of_remove(struct device *dev, struct dsa_platform_data *pd)
  {
--	dsa_switch_finish_one(ds);
+-	struct dsa_platform_data *pd = dev->platform_data;
 -
- 	devm_kfree(parent, ds);
+ 	if (!dev->of_node)
+ 		return;
+ 
+ 	dsa_of_free_platform_data(pd);
+ 	put_device(&pd->of_netdev->dev);
+-	kfree(pd);
+ }
+ #else
+-static inline int dsa_of_probe(struct device *dev)
++static inline int dsa_of_probe(struct device *dev,
++			       struct dsa_platform_data *pd)
+ {
+ 	return 0;
  }
  
-@@ -836,22 +829,28 @@ static inline void dsa_of_remove(struct device *dev,
- static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 			 struct device *parent)
+-static inline void dsa_of_remove(struct device *dev)
++static inline void dsa_of_remove(struct device *dev,
++				 struct dsa_platform_data *pd)
  {
--	int i;
-+	int i, ret;
- 	unsigned configured = 0;
-+	struct dsa_switch *ds;
- 	struct dsa_platform_data *pd = dst->pd;
+ }
+ #endif
+@@ -881,11 +866,15 @@ static int dsa_probe(struct platform_device *pdev)
+ 		       dsa_driver_version);
  
- 	dst->cpu_switch = -1;
- 	dst->cpu_port = -1;
- 
- 	for (i = 0; i < pd->nr_chips; i++) {
--		struct dsa_switch *ds;
--
- 		ds = dsa_switch_setup(dst, i, parent, pd->chip[i].host_dev);
- 		if (IS_ERR(ds)) {
- 			netdev_err(dev, "[%d]: couldn't create dsa switch instance (error %ld)\n",
- 				   i, PTR_ERR(ds));
- 			continue;
- 		}
-+	}
+ 	if (pdev->dev.of_node) {
+-		ret = dsa_of_probe(&pdev->dev);
++		pd = devm_kzalloc(&pdev->dev, sizeof(*pd), GFP_KERNEL);
++		if (!pd)
++			return -ENOMEM;
 +
-+	for (i = 0; i < pd->nr_chips; i++) {
-+		ds = dst->ds[i];
-+		ret = dsa_switch_setup_one(ds, parent);
-+		if (ret)
-+			return ret;
++		ret = dsa_of_probe(&pdev->dev, pd);
+ 		if (ret)
+ 			return ret;
  
- 		dst->ds[i] = ds;
+-		pd = pdev->dev.platform_data;
++		pdev->dev.platform_data = pd;
+ 	}
  
-@@ -879,6 +878,7 @@ static void dsa_finish_dst(struct dsa_switch_tree *dst, struct device *parent,
- 			   struct dsa_platform_data *pd)
+ 	if (pd == NULL || (pd->netdev == NULL && pd->of_netdev == NULL))
+@@ -926,7 +915,7 @@ static int dsa_probe(struct platform_device *pdev)
+ 	return 0;
+ 
+ out:
+-	dsa_of_remove(&pdev->dev);
++	dsa_of_remove(&pdev->dev, pd);
+ 
+ 	return ret;
+ }
+@@ -948,9 +937,10 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
+ static int dsa_remove(struct platform_device *pdev)
  {
- 	struct net_device *dev = dst->master_netdev;
-+	struct dsa_switch *ds;
- 	int i;
+ 	struct dsa_switch_tree *dst = platform_get_drvdata(pdev);
++	struct dsa_platform_data *pd = pdev->dev.platform_data;
  
- 	dev->dsa_ptr = NULL;
-@@ -888,7 +888,12 @@ static void dsa_finish_dst(struct dsa_switch_tree *dst, struct device *parent,
- 	wmb();
+ 	dsa_remove_dst(dst);
+-	dsa_of_remove(&pdev->dev);
++	dsa_of_remove(&pdev->dev, pd);
  
- 	for (i = 0; i < pd->nr_chips; i++) {
--		struct dsa_switch *ds = dst->ds[i];
-+		ds = dst->ds[i];
-+		dsa_switch_finish_one(ds);
-+	}
-+
-+	for (i = 0; i < pd->nr_chips; i++) {
-+		ds = dst->ds[i];
- 
- 		dsa_switch_finish(ds, parent);
- 		dst->ds[i] = NULL;
+ 	return 0;
+ }
 -- 
 2.7.0
