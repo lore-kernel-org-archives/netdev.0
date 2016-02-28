@@ -1,525 +1,364 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 2/4] qed: Add support for HW attentions
-Date: Sun, 28 Feb 2016 12:26:53 +0200
-Message-ID: <1456655215-16345-3-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 1/4] qed: Semantic refactoring of interrupt code
+Date: Sun, 28 Feb 2016 12:26:52 +0200
+Message-ID: <1456655215-16345-2-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1456655215-16345-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:7378 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:37119 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757351AbcB1K1G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 05:27:06 -0500
+	by vger.kernel.org with ESMTP id S1757041AbcB1K1E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 05:27:04 -0500
 In-Reply-To: <1456655215-16345-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-HW is capable of generating attentnions for a multitude of reasons,
-but current driver is enabling attention generation only for management
-firmware [required for link notifications].
-
-This patch enables almost all of the possible reasons for HW attentions,
-logging the HW block generating the attention and preventing further
-attentions from that source [to prevent possible attention flood].
-It also lays the infrastructure for additional exploration of the various
-attentions.
-
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_int.c      | 395 ++++++++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |   2 +
- 2 files changed, 357 insertions(+), 40 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_dev.c  |   6 +-
+ drivers/net/ethernet/qlogic/qed/qed_int.c  | 155 ++++++++++++++++-------------
+ drivers/net/ethernet/qlogic/qed/qed_int.h  |   6 +-
+ drivers/net/ethernet/qlogic/qed/qed_main.c |  15 +--
+ include/linux/qed/qed_if.h                 |   6 ++
+ 5 files changed, 111 insertions(+), 77 deletions(-)
 
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index acfe7be..d9a5175 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -1011,13 +1011,17 @@ static void qed_hw_get_resc(struct qed_hwfn *p_hwfn)
+ {
+ 	u32 *resc_start = p_hwfn->hw_info.resc_start;
+ 	u32 *resc_num = p_hwfn->hw_info.resc_num;
++	struct qed_sb_cnt_info sb_cnt_info;
+ 	int num_funcs, i;
+ 
+ 	num_funcs = MAX_NUM_PFS_BB;
+ 
++	memset(&sb_cnt_info, 0, sizeof(sb_cnt_info));
++	qed_int_get_num_sbs(p_hwfn, &sb_cnt_info);
++
+ 	resc_num[QED_SB] = min_t(u32,
+ 				 (MAX_SB_PER_PATH_BB / num_funcs),
+-				 qed_int_get_num_sbs(p_hwfn, NULL));
++				 sb_cnt_info.sb_cnt);
+ 	resc_num[QED_L2_QUEUE] = MAX_NUM_L2_QUEUES_BB / num_funcs;
+ 	resc_num[QED_VPORT] = MAX_NUM_VPORTS_BB / num_funcs;
+ 	resc_num[QED_RSS_ENG] = ETH_RSS_ENGINE_NUM_BB / num_funcs;
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
-index 7fd1be6..c914ac5 100644
+index fa73daa..7fd1be6 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_int.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
-@@ -42,21 +42,210 @@ struct qed_sb_sp_info {
- #define SB_ATTN_ALIGNED_SIZE(p_hwfn) \
- 	ALIGNED_TYPE_SIZE(struct atten_status_block, p_hwfn)
+@@ -343,17 +343,17 @@ void qed_int_sp_dpc(unsigned long hwfn_cookie)
  
--#define ATTN_STATE_BITS (0xfff)
-+struct aeu_invert_reg_bit {
-+	char bit_name[30];
+ static void qed_int_sb_attn_free(struct qed_hwfn *p_hwfn)
+ {
+-	struct qed_dev *cdev   = p_hwfn->cdev;
+-	struct qed_sb_attn_info *p_sb   = p_hwfn->p_sb_attn;
+-
+-	if (p_sb) {
+-		if (p_sb->sb_attn)
+-			dma_free_coherent(&cdev->pdev->dev,
+-					  SB_ATTN_ALIGNED_SIZE(p_hwfn),
+-					  p_sb->sb_attn,
+-					  p_sb->sb_phys);
+-		kfree(p_sb);
+-	}
++	struct qed_sb_attn_info *p_sb = p_hwfn->p_sb_attn;
 +
-+#define ATTENTION_PARITY                (1 << 0)
++	if (!p_sb)
++		return;
 +
-+#define ATTENTION_LENGTH_MASK           (0x00000ff0)
-+#define ATTENTION_LENGTH_SHIFT          (4)
-+#define ATTENTION_LENGTH(flags)         (((flags) & ATTENTION_LENGTH_MASK) >> \
-+					 ATTENTION_LENGTH_SHIFT)
-+#define ATTENTION_SINGLE                (1 << ATTENTION_LENGTH_SHIFT)
-+#define ATTENTION_PAR                   (ATTENTION_SINGLE | ATTENTION_PARITY)
-+#define ATTENTION_PAR_INT               ((2 << ATTENTION_LENGTH_SHIFT) | \
-+					 ATTENTION_PARITY)
-+
-+/* Multiple bits start with this offset */
-+#define ATTENTION_OFFSET_MASK           (0x000ff000)
-+#define ATTENTION_OFFSET_SHIFT          (12)
-+	unsigned int flags;
-+};
-+
-+struct aeu_invert_reg {
-+	struct aeu_invert_reg_bit bits[32];
-+};
-+
-+#define MAX_ATTN_GRPS           (8)
-+#define NUM_ATTN_REGS           (9)
-+
-+/* Notice aeu_invert_reg must be defined in the same order of bits as HW;  */
-+static struct aeu_invert_reg aeu_descs[NUM_ATTN_REGS] = {
-+	{
-+		{       /* After Invert 1 */
-+			{"GPIO0 function%d",
-+			 (32 << ATTENTION_LENGTH_SHIFT)},
-+		}
-+	},
-+
-+	{
-+		{       /* After Invert 2 */
-+			{"PGLUE config_space", ATTENTION_SINGLE},
-+			{"PGLUE misc_flr", ATTENTION_SINGLE},
-+			{"PGLUE B RBC", ATTENTION_PAR_INT},
-+			{"PGLUE misc_mctp", ATTENTION_SINGLE},
-+			{"Flash event", ATTENTION_SINGLE},
-+			{"SMB event", ATTENTION_SINGLE},
-+			{"Main Power", ATTENTION_SINGLE},
-+			{"SW timers #%d", (8 << ATTENTION_LENGTH_SHIFT) |
-+					  (1 << ATTENTION_OFFSET_SHIFT)},
-+			{"PCIE glue/PXP VPD %d",
-+			 (16 << ATTENTION_LENGTH_SHIFT)},
-+		}
-+	},
-+
-+	{
-+		{       /* After Invert 3 */
-+			{"General Attention %d",
-+			 (32 << ATTENTION_LENGTH_SHIFT)},
-+		}
-+	},
-+
-+	{
-+		{       /* After Invert 4 */
-+			{"General Attention 32", ATTENTION_SINGLE},
-+			{"General Attention %d",
-+			 (2 << ATTENTION_LENGTH_SHIFT) |
-+			 (33 << ATTENTION_OFFSET_SHIFT)},
-+			{"General Attention 35", ATTENTION_SINGLE},
-+			{"CNIG port %d", (4 << ATTENTION_LENGTH_SHIFT)},
-+			{"MCP CPU", ATTENTION_SINGLE},
-+			{"MCP Watchdog timer", ATTENTION_SINGLE},
-+			{"MCP M2P", ATTENTION_SINGLE},
-+			{"AVS stop status ready", ATTENTION_SINGLE},
-+			{"MSTAT", ATTENTION_PAR_INT},
-+			{"MSTAT per-path", ATTENTION_PAR_INT},
-+			{"Reserved %d", (6 << ATTENTION_LENGTH_SHIFT)},
-+			{"NIG", ATTENTION_PAR_INT},
-+			{"BMB/OPTE/MCP", ATTENTION_PAR_INT},
-+			{"BTB",	ATTENTION_PAR_INT},
-+			{"BRB",	ATTENTION_PAR_INT},
-+			{"PRS",	ATTENTION_PAR_INT},
-+		}
-+	},
-+
-+	{
-+		{       /* After Invert 5 */
-+			{"SRC", ATTENTION_PAR_INT},
-+			{"PB Client1", ATTENTION_PAR_INT},
-+			{"PB Client2", ATTENTION_PAR_INT},
-+			{"RPB", ATTENTION_PAR_INT},
-+			{"PBF", ATTENTION_PAR_INT},
-+			{"QM", ATTENTION_PAR_INT},
-+			{"TM", ATTENTION_PAR_INT},
-+			{"MCM",  ATTENTION_PAR_INT},
-+			{"MSDM", ATTENTION_PAR_INT},
-+			{"MSEM", ATTENTION_PAR_INT},
-+			{"PCM", ATTENTION_PAR_INT},
-+			{"PSDM", ATTENTION_PAR_INT},
-+			{"PSEM", ATTENTION_PAR_INT},
-+			{"TCM", ATTENTION_PAR_INT},
-+			{"TSDM", ATTENTION_PAR_INT},
-+			{"TSEM", ATTENTION_PAR_INT},
-+		}
-+	},
-+
-+	{
-+		{       /* After Invert 6 */
-+			{"UCM", ATTENTION_PAR_INT},
-+			{"USDM", ATTENTION_PAR_INT},
-+			{"USEM", ATTENTION_PAR_INT},
-+			{"XCM",	ATTENTION_PAR_INT},
-+			{"XSDM", ATTENTION_PAR_INT},
-+			{"XSEM", ATTENTION_PAR_INT},
-+			{"YCM",	ATTENTION_PAR_INT},
-+			{"YSDM", ATTENTION_PAR_INT},
-+			{"YSEM", ATTENTION_PAR_INT},
-+			{"XYLD", ATTENTION_PAR_INT},
-+			{"TMLD", ATTENTION_PAR_INT},
-+			{"MYLD", ATTENTION_PAR_INT},
-+			{"YULD", ATTENTION_PAR_INT},
-+			{"DORQ", ATTENTION_PAR_INT},
-+			{"DBG", ATTENTION_PAR_INT},
-+			{"IPC",	ATTENTION_PAR_INT},
-+		}
-+	},
-+
-+	{
-+		{       /* After Invert 7 */
-+			{"CCFC", ATTENTION_PAR_INT},
-+			{"CDU", ATTENTION_PAR_INT},
-+			{"DMAE", ATTENTION_PAR_INT},
-+			{"IGU", ATTENTION_PAR_INT},
-+			{"ATC", ATTENTION_PAR_INT},
-+			{"CAU", ATTENTION_PAR_INT},
-+			{"PTU", ATTENTION_PAR_INT},
-+			{"PRM", ATTENTION_PAR_INT},
-+			{"TCFC", ATTENTION_PAR_INT},
-+			{"RDIF", ATTENTION_PAR_INT},
-+			{"TDIF", ATTENTION_PAR_INT},
-+			{"RSS", ATTENTION_PAR_INT},
-+			{"MISC", ATTENTION_PAR_INT},
-+			{"MISCS", ATTENTION_PAR_INT},
-+			{"PCIE", ATTENTION_PAR},
-+			{"Vaux PCI core", ATTENTION_SINGLE},
-+			{"PSWRQ", ATTENTION_PAR_INT},
-+		}
-+	},
-+
-+	{
-+		{       /* After Invert 8 */
-+			{"PSWRQ (pci_clk)", ATTENTION_PAR_INT},
-+			{"PSWWR", ATTENTION_PAR_INT},
-+			{"PSWWR (pci_clk)", ATTENTION_PAR_INT},
-+			{"PSWRD", ATTENTION_PAR_INT},
-+			{"PSWRD (pci_clk)", ATTENTION_PAR_INT},
-+			{"PSWHST", ATTENTION_PAR_INT},
-+			{"PSWHST (pci_clk)", ATTENTION_PAR_INT},
-+			{"GRC",	ATTENTION_PAR_INT},
-+			{"CPMU", ATTENTION_PAR_INT},
-+			{"NCSI", ATTENTION_PAR_INT},
-+			{"MSEM PRAM", ATTENTION_PAR},
-+			{"PSEM PRAM", ATTENTION_PAR},
-+			{"TSEM PRAM", ATTENTION_PAR},
-+			{"USEM PRAM", ATTENTION_PAR},
-+			{"XSEM PRAM", ATTENTION_PAR},
-+			{"YSEM PRAM", ATTENTION_PAR},
-+			{"pxp_misc_mps", ATTENTION_PAR},
-+			{"PCIE glue/PXP Exp. ROM", ATTENTION_SINGLE},
-+			{"PERST_B assertion", ATTENTION_SINGLE},
-+			{"PERST_B deassertion", ATTENTION_SINGLE},
-+			{"Reserved %d", (2 << ATTENTION_LENGTH_SHIFT)},
-+		}
-+	},
-+
-+	{
-+		{       /* After Invert 9 */
-+			{"MCP Latched memory", ATTENTION_PAR},
-+			{"MCP Latched scratchpad cache", ATTENTION_SINGLE},
-+			{"MCP Latched ump_tx", ATTENTION_PAR},
-+			{"MCP Latched scratchpad", ATTENTION_PAR},
-+			{"Reserved %d", (28 << ATTENTION_LENGTH_SHIFT)},
-+		}
-+	},
-+};
-+
-+#define ATTN_STATE_BITS         (0xfff)
- #define ATTN_BITS_MASKABLE      (0x3ff)
- struct qed_sb_attn_info {
- 	/* Virtual & Physical address of the SB */
- 	struct atten_status_block       *sb_attn;
--	dma_addr_t		      sb_phys;
-+	dma_addr_t			sb_phys;
- 
- 	/* Last seen running index */
--	u16			     index;
-+	u16				index;
-+
-+	/* A mask of the AEU bits resulting in a parity error */
-+	u32				parity_mask[NUM_ATTN_REGS];
-+
-+	/* A pointer to the attention description structure */
-+	struct aeu_invert_reg		*p_aeu_desc;
- 
- 	/* Previously asserted attentions, which are still unasserted */
--	u16			     known_attn;
-+	u16				known_attn;
- 
- 	/* Cleanup address for the link's general hw attention */
--	u32			     mfw_attn_addr;
-+	u32				mfw_attn_addr;
- };
- 
- static inline u16 qed_attn_update_idx(struct qed_hwfn *p_hwfn,
-@@ -128,6 +317,39 @@ static int qed_int_assertion(struct qed_hwfn *p_hwfn,
++	if (p_sb->sb_attn)
++		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
++				  SB_ATTN_ALIGNED_SIZE(p_hwfn),
++				  p_sb->sb_attn,
++				  p_sb->sb_phys);
++	kfree(p_sb);
  }
  
- /**
-+ * @brief qed_int_deassertion_aeu_bit - handles the effects of a single
-+ * cause of the attention
-+ *
-+ * @param p_hwfn
-+ * @param p_aeu - descriptor of an AEU bit which caused the attention
-+ * @param aeu_en_reg - register offset of the AEU enable reg. which configured
-+ *  this bit to this group.
-+ * @param bit_index - index of this bit in the aeu_en_reg
-+ *
-+ * @return int
-+ */
-+static int
-+qed_int_deassertion_aeu_bit(struct qed_hwfn *p_hwfn,
-+			    struct aeu_invert_reg_bit *p_aeu,
-+			    u32 aeu_en_reg,
-+			    u32 bitmask)
-+{
-+	int rc = -EINVAL;
-+	u32 val, mask = ~bitmask;
-+
-+	DP_INFO(p_hwfn, "Deasserted attention `%s'[%08x]\n",
-+		p_aeu->bit_name, bitmask);
-+
-+	/* Prevent this Attention from being asserted in the future */
-+	val = qed_rd(p_hwfn, p_hwfn->p_dpc_ptt, aeu_en_reg);
-+	qed_wr(p_hwfn, p_hwfn->p_dpc_ptt, aeu_en_reg, (val & mask));
-+	DP_INFO(p_hwfn, "`%s' - Disabled future attentions\n",
-+		p_aeu->bit_name);
-+
-+	return rc;
-+}
-+
-+/**
-  * @brief - handles deassertion of previously asserted attentions.
-  *
-  * @param p_hwfn
-@@ -139,17 +361,110 @@ static int qed_int_deassertion(struct qed_hwfn  *p_hwfn,
- 			       u16 deasserted_bits)
+ static void qed_int_sb_attn_setup(struct qed_hwfn *p_hwfn,
+@@ -433,6 +433,7 @@ void qed_init_cau_sb_entry(struct qed_hwfn *p_hwfn,
+ 			   u16 vf_number,
+ 			   u8 vf_valid)
  {
- 	struct qed_sb_attn_info *sb_attn_sw = p_hwfn->p_sb_attn;
--	u32 aeu_mask;
-+	u32 aeu_inv_arr[NUM_ATTN_REGS], aeu_mask;
-+	u8 i, j, k, bit_idx;
-+	int rc = 0;
-+
-+	/* Read the attention registers in the AEU */
-+	for (i = 0; i < NUM_ATTN_REGS; i++) {
-+		aeu_inv_arr[i] = qed_rd(p_hwfn, p_hwfn->p_dpc_ptt,
-+					MISC_REG_AEU_AFTER_INVERT_1_IGU +
-+					i * 0x4);
-+		DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
-+			   "Deasserted bits [%d]: %08x\n",
-+			   i, aeu_inv_arr[i]);
-+	}
-+
-+	/* Find parity attentions first */
-+	for (i = 0; i < NUM_ATTN_REGS; i++) {
-+		struct aeu_invert_reg *p_aeu = &sb_attn_sw->p_aeu_desc[i];
-+		u32 en = qed_rd(p_hwfn, p_hwfn->p_dpc_ptt,
-+				MISC_REG_AEU_ENABLE1_IGU_OUT_0 +
-+				i * sizeof(u32));
-+		u32 parities;
-+
-+		/* Skip register in which no parity bit is currently set */
-+		parities = sb_attn_sw->parity_mask[i] & aeu_inv_arr[i] & en;
-+		if (!parities)
-+			continue;
++	struct qed_dev *cdev = p_hwfn->cdev;
+ 	u32 cau_state;
  
--	if (deasserted_bits != 0x100)
--		DP_ERR(p_hwfn, "Unexpected - non-link deassertion\n");
-+		for (j = 0, bit_idx = 0; bit_idx < 32; j++) {
-+			struct aeu_invert_reg_bit *p_bit = &p_aeu->bits[j];
-+
-+			if ((p_bit->flags & ATTENTION_PARITY) &&
-+			    !!(parities & (1 << bit_idx))) {
-+				DP_INFO(p_hwfn,
-+					"%s[%d] parity attention is set\n",
-+					p_bit->bit_name, bit_idx);
-+			}
-+
-+			bit_idx += ATTENTION_LENGTH(p_bit->flags);
-+		}
-+	}
-+
-+	/* Find non-parity cause for attention and act */
-+	for (k = 0; k < MAX_ATTN_GRPS; k++) {
-+		struct aeu_invert_reg_bit *p_aeu;
-+
-+		/* Handle only groups whose attention is currently deasserted */
-+		if (!(deasserted_bits & (1 << k)))
-+			continue;
-+
-+		for (i = 0; i < NUM_ATTN_REGS; i++) {
-+			u32 aeu_en = MISC_REG_AEU_ENABLE1_IGU_OUT_0 +
-+				     i * sizeof(u32) +
-+				     k * sizeof(u32) * NUM_ATTN_REGS;
-+			u32 en, bits;
-+
-+			en = qed_rd(p_hwfn, p_hwfn->p_dpc_ptt, aeu_en);
-+			bits = aeu_inv_arr[i] & en;
-+
-+			/* Skip if no bit from this group is currently set */
-+			if (!bits)
-+				continue;
-+
-+			/* Find all set bits from current register which belong
-+			 * to current group, making them responsible for the
-+			 * previous assertion.
-+			 */
-+			for (j = 0, bit_idx = 0; bit_idx < 32; j++) {
-+				u8 bit, bit_len;
-+				u32 bitmask;
-+
-+				p_aeu = &sb_attn_sw->p_aeu_desc[i].bits[j];
-+
-+				/* No need to handle parity-only bits */
-+				if (p_aeu->flags == ATTENTION_PAR)
-+					continue;
-+
-+				bit = bit_idx;
-+				bit_len = ATTENTION_LENGTH(p_aeu->flags);
-+				if (p_aeu->flags & ATTENTION_PAR_INT) {
-+					/* Skip Parity */
-+					bit++;
-+					bit_len--;
-+				}
-+
-+				bitmask = bits & (((1 << bit_len) - 1) << bit);
-+				if (bitmask) {
-+					/* Handle source of the attention */
-+					qed_int_deassertion_aeu_bit(p_hwfn,
-+								    p_aeu,
-+								    aeu_en,
-+								    bitmask);
-+				}
-+
-+				bit_idx += ATTENTION_LENGTH(p_aeu->flags);
-+			}
-+		}
+ 	memset(p_sb_entry, 0, sizeof(*p_sb_entry));
+@@ -451,14 +452,12 @@ void qed_init_cau_sb_entry(struct qed_hwfn *p_hwfn,
+ 
+ 	cau_state = CAU_HC_DISABLE_STATE;
+ 
+-	if (p_hwfn->cdev->int_coalescing_mode == QED_COAL_MODE_ENABLE) {
++	if (cdev->int_coalescing_mode == QED_COAL_MODE_ENABLE) {
+ 		cau_state = CAU_HC_ENABLE_STATE;
+-		if (!p_hwfn->cdev->rx_coalesce_usecs)
+-			p_hwfn->cdev->rx_coalesce_usecs =
+-				QED_CAU_DEF_RX_USECS;
+-		if (!p_hwfn->cdev->tx_coalesce_usecs)
+-			p_hwfn->cdev->tx_coalesce_usecs =
+-				QED_CAU_DEF_TX_USECS;
++		if (!cdev->rx_coalesce_usecs)
++			cdev->rx_coalesce_usecs = QED_CAU_DEF_RX_USECS;
++		if (!cdev->tx_coalesce_usecs)
++			cdev->tx_coalesce_usecs = QED_CAU_DEF_TX_USECS;
+ 	}
+ 
+ 	SET_FIELD(p_sb_entry->data, CAU_SB_ENTRY_STATE0, cau_state);
+@@ -638,8 +637,10 @@ int qed_int_sb_release(struct qed_hwfn *p_hwfn,
+ 	sb_info->sb_ack = 0;
+ 	memset(sb_info->sb_virt, 0, sizeof(*sb_info->sb_virt));
+ 
+-	p_hwfn->sbs_info[sb_id] = NULL;
+-	p_hwfn->num_sbs--;
++	if (p_hwfn->sbs_info[sb_id] != NULL) {
++		p_hwfn->sbs_info[sb_id] = NULL;
++		p_hwfn->num_sbs--;
 +	}
  
- 	/* Clear IGU indication for the deasserted bits */
- 	DIRECT_REG_WR((u8 __iomem *)p_hwfn->regview +
--		      GTT_BAR0_MAP_REG_IGU_CMD +
--		      ((IGU_CMD_ATTN_BIT_CLR_UPPER -
--			IGU_CMD_INT_ACK_BASE) << 3),
--		      ~((u32)deasserted_bits));
-+				    GTT_BAR0_MAP_REG_IGU_CMD +
-+				    ((IGU_CMD_ATTN_BIT_CLR_UPPER -
-+				      IGU_CMD_INT_ACK_BASE) << 3),
-+				    ~((u32)deasserted_bits));
- 
- 	/* Unmask deasserted attentions in IGU */
- 	aeu_mask = qed_rd(p_hwfn, p_hwfn->p_dpc_ptt,
-@@ -160,7 +475,7 @@ static int qed_int_deassertion(struct qed_hwfn  *p_hwfn,
- 	/* Clear deassertion from inner state */
- 	sb_attn_sw->known_attn &= ~deasserted_bits;
- 
--	return 0;
-+	return rc;
- }
- 
- static int qed_int_attentions(struct qed_hwfn *p_hwfn)
-@@ -379,10 +694,31 @@ static void qed_int_sb_attn_init(struct qed_hwfn *p_hwfn,
- 				 dma_addr_t sb_phy_addr)
- {
- 	struct qed_sb_attn_info *sb_info = p_hwfn->p_sb_attn;
-+	int i, j, k;
- 
- 	sb_info->sb_attn = sb_virt_addr;
- 	sb_info->sb_phys = sb_phy_addr;
- 
-+	/* Set the pointer to the AEU descriptors */
-+	sb_info->p_aeu_desc = aeu_descs;
-+
-+	/* Calculate Parity Masks */
-+	memset(sb_info->parity_mask, 0, sizeof(u32) * NUM_ATTN_REGS);
-+	for (i = 0; i < NUM_ATTN_REGS; i++) {
-+		/* j is array index, k is bit index */
-+		for (j = 0, k = 0; k < 32; j++) {
-+			unsigned int flags = aeu_descs[i].bits[j].flags;
-+
-+			if (flags & ATTENTION_PARITY)
-+				sb_info->parity_mask[i] |= 1 << k;
-+
-+			k += ATTENTION_LENGTH(flags);
-+		}
-+		DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
-+			   "Attn Mask [Reg %d]: 0x%08x\n",
-+			   i, sb_info->parity_mask[i]);
-+	}
-+
- 	/* Set the address of cleanup for the mcp attention */
- 	sb_info->mfw_attn_addr = (p_hwfn->rel_pf_id << 3) +
- 				 MISC_REG_AEU_GENERAL_ATTN_0;
-@@ -694,25 +1030,6 @@ static int qed_int_sp_sb_alloc(struct qed_hwfn *p_hwfn,
  	return 0;
  }
- 
--static void qed_int_sp_sb_setup(struct qed_hwfn *p_hwfn,
--				struct qed_ptt *p_ptt)
--{
--	if (!p_hwfn)
--		return;
--
--	if (p_hwfn->p_sp_sb)
--		qed_int_sb_setup(p_hwfn, p_ptt, &p_hwfn->p_sp_sb->sb_info);
--	else
--		DP_NOTICE(p_hwfn->cdev,
--			  "Failed to setup Slow path status block - NULL pointer\n");
--
--	if (p_hwfn->p_sb_attn)
--		qed_int_sb_attn_setup(p_hwfn, p_ptt);
--	else
--		DP_NOTICE(p_hwfn->cdev,
--			  "Failed to setup attentions status block - NULL pointer\n");
--}
--
- int qed_int_register_cb(struct qed_hwfn *p_hwfn,
- 			qed_int_comp_cb_t comp_cb,
- 			void *cookie,
-@@ -788,16 +1105,13 @@ void qed_int_igu_enable_int(struct qed_hwfn *p_hwfn,
- int qed_int_igu_enable(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
- 		       enum qed_int_mode int_mode)
+@@ -648,14 +649,15 @@ static void qed_int_sp_sb_free(struct qed_hwfn *p_hwfn)
  {
--	int rc, i;
--
--	/* Mask non-link attentions */
--	for (i = 0; i < 9; i++)
--		qed_wr(p_hwfn, p_ptt,
--		       MISC_REG_AEU_ENABLE1_IGU_OUT_0 + (i << 2), 0);
-+	int rc;
+ 	struct qed_sb_sp_info *p_sb = p_hwfn->p_sp_sb;
  
--	/* Configure AEU signal change to produce attentions for link */
-+	/* Configure AEU signal change to produce attentions */
-+	qed_wr(p_hwfn, p_ptt, IGU_REG_ATTENTION_ENABLE, 0);
- 	qed_wr(p_hwfn, p_ptt, IGU_REG_LEADING_EDGE_LATCH, 0xfff);
- 	qed_wr(p_hwfn, p_ptt, IGU_REG_TRAILING_EDGE_LATCH, 0xfff);
-+	qed_wr(p_hwfn, p_ptt, IGU_REG_ATTENTION_ENABLE, 0xfff);
+-	if (p_sb) {
+-		if (p_sb->sb_info.sb_virt)
+-			dma_free_coherent(&p_hwfn->cdev->pdev->dev,
+-					  SB_ALIGNED_SIZE(p_hwfn),
+-					  p_sb->sb_info.sb_virt,
+-					  p_sb->sb_info.sb_phys);
+-		kfree(p_sb);
+-	}
++	if (!p_sb)
++		return;
++
++	if (p_sb->sb_info.sb_virt)
++		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
++				  SB_ALIGNED_SIZE(p_hwfn),
++				  p_sb->sb_info.sb_virt,
++				  p_sb->sb_info.sb_phys);
++	kfree(p_sb);
+ }
  
- 	/* Flush the writes to IGU */
- 	mmiowb();
-@@ -1139,7 +1453,8 @@ void qed_int_free(struct qed_hwfn *p_hwfn)
- void qed_int_setup(struct qed_hwfn *p_hwfn,
- 		   struct qed_ptt *p_ptt)
+ static int qed_int_sp_sb_alloc(struct qed_hwfn *p_hwfn,
+@@ -718,36 +720,36 @@ int qed_int_register_cb(struct qed_hwfn *p_hwfn,
+ 			__le16 **p_fw_cons)
  {
--	qed_int_sp_sb_setup(p_hwfn, p_ptt);
-+	qed_int_sb_setup(p_hwfn, p_ptt, &p_hwfn->p_sp_sb->sb_info);
-+	qed_int_sb_attn_setup(p_hwfn, p_ptt);
+ 	struct qed_sb_sp_info *p_sp_sb = p_hwfn->p_sp_sb;
+-	int qed_status = -ENOMEM;
++	int rc = -ENOMEM;
+ 	u8 pi;
+ 
+ 	/* Look for a free index */
+ 	for (pi = 0; pi < ARRAY_SIZE(p_sp_sb->pi_info_arr); pi++) {
+-		if (!p_sp_sb->pi_info_arr[pi].comp_cb) {
+-			p_sp_sb->pi_info_arr[pi].comp_cb = comp_cb;
+-			p_sp_sb->pi_info_arr[pi].cookie = cookie;
+-			*sb_idx = pi;
+-			*p_fw_cons = &p_sp_sb->sb_info.sb_virt->pi_array[pi];
+-			qed_status = 0;
+-			break;
+-		}
++		if (p_sp_sb->pi_info_arr[pi].comp_cb)
++			continue;
++
++		p_sp_sb->pi_info_arr[pi].comp_cb = comp_cb;
++		p_sp_sb->pi_info_arr[pi].cookie = cookie;
++		*sb_idx = pi;
++		*p_fw_cons = &p_sp_sb->sb_info.sb_virt->pi_array[pi];
++		rc = 0;
++		break;
+ 	}
+ 
+-	return qed_status;
++	return rc;
+ }
+ 
+ int qed_int_unregister_cb(struct qed_hwfn *p_hwfn, u8 pi)
+ {
+ 	struct qed_sb_sp_info *p_sp_sb = p_hwfn->p_sp_sb;
+-	int qed_status = -ENOMEM;
+ 
+-	if (p_sp_sb->pi_info_arr[pi].comp_cb) {
+-		p_sp_sb->pi_info_arr[pi].comp_cb = NULL;
+-		p_sp_sb->pi_info_arr[pi].cookie = NULL;
+-		qed_status = 0;
+-	}
++	if (p_sp_sb->pi_info_arr[pi].comp_cb == NULL)
++		return -ENOMEM;
+ 
+-	return qed_status;
++	p_sp_sb->pi_info_arr[pi].comp_cb = NULL;
++	p_sp_sb->pi_info_arr[pi].cookie = NULL;
++
++	return 0;
+ }
+ 
+ u16 qed_int_get_sp_sb_id(struct qed_hwfn *p_hwfn)
+@@ -937,6 +939,39 @@ void qed_int_igu_init_pure_rt(struct qed_hwfn *p_hwfn,
+ 	}
+ }
+ 
++static u32 qed_int_igu_read_cam_block(struct qed_hwfn	*p_hwfn,
++				      struct qed_ptt	*p_ptt,
++				      u16		sb_id)
++{
++	u32 val = qed_rd(p_hwfn, p_ptt,
++			 IGU_REG_MAPPING_MEMORY +
++			 sizeof(u32) * sb_id);
++	struct qed_igu_block *p_block;
++
++	p_block = &p_hwfn->hw_info.p_igu_info->igu_map.igu_blocks[sb_id];
++
++	/* stop scanning when hit first invalid PF entry */
++	if (!GET_FIELD(val, IGU_MAPPING_LINE_VALID) &&
++	    GET_FIELD(val, IGU_MAPPING_LINE_PF_VALID))
++		goto out;
++
++	/* Fill the block information */
++	p_block->status		= QED_IGU_STATUS_VALID;
++	p_block->function_id	= GET_FIELD(val,
++					    IGU_MAPPING_LINE_FUNCTION_NUMBER);
++	p_block->is_pf		= GET_FIELD(val, IGU_MAPPING_LINE_PF_VALID);
++	p_block->vector_number	= GET_FIELD(val,
++					    IGU_MAPPING_LINE_VECTOR_NUMBER);
++
++	DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
++		   "IGU_BLOCK: [SB 0x%04x, Value in CAM 0x%08x] func_id = %d is_pf = %d vector_num = 0x%x\n",
++		   sb_id, val, p_block->function_id,
++		   p_block->is_pf, p_block->vector_number);
++
++out:
++	return val;
++}
++
+ int qed_int_igu_read_cam(struct qed_hwfn *p_hwfn,
+ 			 struct qed_ptt *p_ptt)
+ {
+@@ -963,26 +998,13 @@ int qed_int_igu_read_cam(struct qed_hwfn *p_hwfn,
+ 	     sb_id++) {
+ 		blk = &p_igu_info->igu_map.igu_blocks[sb_id];
+ 
+-		val = qed_rd(p_hwfn, p_ptt,
+-			     IGU_REG_MAPPING_MEMORY + sizeof(u32) * sb_id);
++		val	= qed_int_igu_read_cam_block(p_hwfn, p_ptt, sb_id);
+ 
+ 		/* stop scanning when hit first invalid PF entry */
+ 		if (!GET_FIELD(val, IGU_MAPPING_LINE_VALID) &&
+ 		    GET_FIELD(val, IGU_MAPPING_LINE_PF_VALID))
+ 			break;
+ 
+-		blk->status = QED_IGU_STATUS_VALID;
+-		blk->function_id = GET_FIELD(val,
+-					     IGU_MAPPING_LINE_FUNCTION_NUMBER);
+-		blk->is_pf = GET_FIELD(val, IGU_MAPPING_LINE_PF_VALID);
+-		blk->vector_number = GET_FIELD(val,
+-					       IGU_MAPPING_LINE_VECTOR_NUMBER);
+-
+-		DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
+-			   "IGU_BLOCK[sb_id]:%x:func_id = %d is_pf = %d vector_num = 0x%x\n",
+-			   val, blk->function_id, blk->is_pf,
+-			   blk->vector_number);
+-
+ 		if (blk->is_pf) {
+ 			if (blk->function_id == p_hwfn->rel_pf_id) {
+ 				blk->status |= QED_IGU_STATUS_PF;
+@@ -1121,18 +1143,17 @@ void qed_int_setup(struct qed_hwfn *p_hwfn,
  	qed_int_sp_dpc_setup(p_hwfn);
  }
  
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-index e8df123..2286e75 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-@@ -333,6 +333,8 @@
- 	0x180800UL
- #define  MISC_REG_AEU_ENABLE1_IGU_OUT_0 \
- 	0x00849cUL
-+#define MISC_REG_AEU_AFTER_INVERT_1_IGU	\
-+	0x0087b4UL
- #define  MISC_REG_AEU_MASK_ATTN_IGU \
- 	0x008494UL
- #define  IGU_REG_CLEANUP_STATUS_0 \
+-int qed_int_get_num_sbs(struct qed_hwfn *p_hwfn,
+-			int *p_iov_blks)
++void qed_int_get_num_sbs(struct qed_hwfn	*p_hwfn,
++			 struct qed_sb_cnt_info *p_sb_cnt_info)
+ {
+ 	struct qed_igu_info *info = p_hwfn->hw_info.p_igu_info;
+ 
+-	if (!info)
+-		return 0;
+-
+-	if (p_iov_blks)
+-		*p_iov_blks = info->free_blks;
++	if (!info || !p_sb_cnt_info)
++		return;
+ 
+-	return info->igu_sb_cnt;
++	p_sb_cnt_info->sb_cnt		= info->igu_sb_cnt;
++	p_sb_cnt_info->sb_iov_cnt	= info->igu_sb_cnt_iov;
++	p_sb_cnt_info->sb_free_blk	= info->free_blks;
+ }
+ 
+ void qed_int_disable_post_isr_release(struct qed_dev *cdev)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.h b/drivers/net/ethernet/qlogic/qed/qed_int.h
+index 51e0b09..c57f2e6 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_int.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_int.h
+@@ -161,12 +161,12 @@ void qed_int_sp_dpc(unsigned long hwfn_cookie);
+  *        blocks configured for this funciton in the igu.
+  *
+  * @param p_hwfn
+- * @param p_iov_blks - configured free blks for vfs
++ * @param p_sb_cnt_info
+  *
+  * @return int - number of status blocks configured
+  */
+-int qed_int_get_num_sbs(struct qed_hwfn *p_hwfn,
+-			int *p_iov_blks);
++void qed_int_get_num_sbs(struct qed_hwfn	*p_hwfn,
++			 struct qed_sb_cnt_info *p_sb_cnt_info);
+ 
+ /**
+  * @brief qed_int_disable_post_isr_release - performs the cleanup post ISR
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 25d6e91..caa689e 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -634,15 +634,18 @@ static int qed_get_int_fp(struct qed_dev *cdev, struct qed_int_info *info)
+ static int qed_slowpath_setup_int(struct qed_dev *cdev,
+ 				  enum qed_int_mode int_mode)
+ {
+-	int rc, i;
+-	u8 num_vectors = 0;
+-
++	struct qed_sb_cnt_info sb_cnt_info;
++	int rc;
++	int i;
+ 	memset(&cdev->int_params, 0, sizeof(struct qed_int_params));
+ 
+ 	cdev->int_params.in.int_mode = int_mode;
+-	for_each_hwfn(cdev, i)
+-		num_vectors +=  qed_int_get_num_sbs(&cdev->hwfns[i], NULL) + 1;
+-	cdev->int_params.in.num_vectors = num_vectors;
++	for_each_hwfn(cdev, i) {
++		memset(&sb_cnt_info, 0, sizeof(sb_cnt_info));
++		qed_int_get_num_sbs(&cdev->hwfns[i], &sb_cnt_info);
++		cdev->int_params.in.num_vectors += sb_cnt_info.sb_cnt;
++		cdev->int_params.in.num_vectors++; /* slowpath */
++	}
+ 
+ 	/* We want a minimum of one slowpath and one fastpath vector per hwfn */
+ 	cdev->int_params.in.min_msix_cnt = cdev->num_hwfns * 2;
+diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
+index 3d43c1d..1f7599c7 100644
+--- a/include/linux/qed/qed_if.h
++++ b/include/linux/qed/qed_if.h
+@@ -446,6 +446,12 @@ struct qed_eth_stats {
+ #define RX_PI           0
+ #define TX_PI(tc)       (RX_PI + 1 + tc)
+ 
++struct qed_sb_cnt_info {
++	int	sb_cnt;
++	int	sb_iov_cnt;
++	int	sb_free_blk;
++};
++
+ static inline u16 qed_sb_update_sb_idx(struct qed_sb_info *sb_info)
+ {
+ 	u32 prod = 0;
 -- 
 1.9.3
