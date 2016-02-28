@@ -1,55 +1,53 @@
-From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
-Subject: Re: [net-next][PATCH v2 11/13] RDS: IB: add Fastreg MR (FRMR)
- detection support
-Date: Sun, 28 Feb 2016 02:26:14 -0800
-Message-ID: <56D2CB46.8010904@oracle.com>
-References: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
- <1456625990-4739-12-git-send-email-santosh.shilimkar@oracle.com>
- <20160228090858.GB6671@infradead.org>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 0/4] qed: Attention support patch series
+Date: Sun, 28 Feb 2016 12:26:51 +0200
+Message-ID: <1456655215-16345-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160228090858.GB6671@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:65473 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757210AbcB1K1A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 05:27:00 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Until now we've only enabled attention generation for the sake of
+management firmware indications [required for link notifications].
 
-On 2/28/16 1:08 AM, Christoph Hellwig wrote:
-> On Sat, Feb 27, 2016 at 06:19:48PM -0800, Santosh Shilimkar wrote:
->> Discovere Fast Memmory Registration support using IB device
->> IB_DEVICE_MEM_MGT_EXTENSIONS. Certain HCA might support just FRMR
->> or FMR or both FMR and FRWR. In case both mr type are supported,
->> default FMR is used.
->>
->> Default MR is still kept as FMR against what everyone else
->> is following. Default will be changed to FRMR once the
->> RDS performance with FRMR is comparable with FMR. The
->> work is in progress for the same.
->>
->> Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
->> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
->> ---
->> v2: Dropped the module parameter as suggested by David Miller
->
-> This means we only use the safer method if the HCA doesn't support
-> the other one.  All other RDMA ULP that support both methods have
-> a module_param so the veto from Dave is a bit unfortunate.  Anyway,
-> let's get the code in for now and figure out what to use later.
->
-Indeed. It wasn't really deal breaker for RDS so I agreed to drop it.
+This series enables [almost] all the attention sources of the HW,
+currently for the sake of logging information relating to issues
+experienced by HW. In future, infrastructure laid here would also be used
+for the sake of the recovery process.
 
-> Just curious:  where / how do you see worse peformance using FRs?
->
-I wouldn't call it worse but its not comparable. Use case
-is multi-threaded RDS RDMA perf test(s). Hopefully the follow
-up series which am working on should minimise the gap. I am
-leaving the details for later, but one of the main issue I
-saw was contention on driver post_send() lock from send, MR reg
-and MR invalidation.
+The first patch in the series is a semantic alignemnt of the code.
+The later 3 patches incremently create said infrastructure and enrich
+the logged information.
+Notice #3 contains quite a bit of structures [consisting of ~1K lines]
+that will eventually be removed and incorporated in the binary fw file.
 
-Regards,
-Santosh
+Dave,
+
+Please consider applying this series to `net-next'.
+
+Thanks,
+Yuval
+
+Yuval Mintz (4):
+  qed: Semantic refactoring of interrupt code
+  qed: Add support for HW attentions
+  qed: Print HW attention reasons
+  qed: Print additional HW attention info
+
+ drivers/net/ethernet/qlogic/qed/qed_dev.c      |    6 +-
+ drivers/net/ethernet/qlogic/qed/qed_int.c      | 2195 ++++++++++++++++++++++--
+ drivers/net/ethernet/qlogic/qed/qed_int.h      |    6 +-
+ drivers/net/ethernet/qlogic/qed/qed_main.c     |   15 +-
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |   60 +
+ include/linux/qed/qed_if.h                     |    6 +
+ 6 files changed, 2171 insertions(+), 117 deletions(-)
+
+-- 
+1.9.3
