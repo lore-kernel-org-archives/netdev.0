@@ -1,41 +1,43 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net v2] net: fix double free issue of skbuff
-Date: Mon, 29 Feb 2016 14:31:31 +0000
-Message-ID: <1456756291-23950-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: "Mr. DOUGLAS" <douglascontact6048@live.com>
+Subject: =?utf-8?q?INFORMA=C3=87=C3=83O_IMPORTANTE__RE=3A_Consultoria_de_Investime?=
+ =?utf-8?q?nto_em_sua_Localidade=2E?=
+Date: Sun, 28 Feb 2016 04:36:25 -0800
+Message-ID: <20160228133523.93C198FD557__49364.8623968058$1456757056$gmane$org@webmail.cefet-rj.br>
+Reply-To: johnsondouglas8738@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <douglascontact6048@live.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta1.chinamobile.com ([221.176.66.79]:5356 "EHLO
-	cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751261AbcB2Oak (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 09:30:40 -0500
+Received: from webmail.cefet-rj.br ([200.9.149.52]:50747 "EHLO
+	webmail.cefet-rj.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751457AbcB2On4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 09:43:56 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If skb_reorder_vlan_header() failed, skb is freed and NULL is returned.
-Then at skb_vlan_untag(), it will free skbuff again which cause double free.
+Oi,
 
-This patch removes kfree_skb() call in function skb_reorder_vlan_header().
+Temos planejado investir alguns fundos no seu pa=EDs.
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- net/core/skbuff.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+Responder se voc=EA estiver interessado.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 488566b..a5f2401 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4349,10 +4349,8 @@ EXPORT_SYMBOL_GPL(skb_gso_transport_seglen);
- 
- static struct sk_buff *skb_reorder_vlan_header(struct sk_buff *skb)
- {
--	if (skb_cow(skb, skb_headroom(skb)) < 0) {
--		kfree_skb(skb);
-+	if (skb_cow(skb, skb_headroom(skb)) < 0)
- 		return NULL;
--	}
- 
- 	memmove(skb->data - ETH_HLEN, skb->data - skb->mac_len - VLAN_HLEN,
- 		2 * ETH_ALEN);
--- 
-1.8.3.1
+Sauda=E7=F5es,
+Sir Henry Neville Lindley Keswick
+Presidente da Jardine Matheson Holdings Ltd
+https://en.wikipedia.org/wiki/Keswick_family
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D
+
+Hi friend,
+
+Our family is interested in investing funds in your locality.
+
+More information for you interest .
+
+Greetings,
+Sir Henry Neville Lindley Keswick
+Chairman of Jardine Matheson Holdings Ltd
+https://en.wikipedia.org/wiki/Keswick_family
