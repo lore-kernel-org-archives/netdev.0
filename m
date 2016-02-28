@@ -1,85 +1,74 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH RFC v2 11/32] net: dsa: Keep a reference to the switch device for component matching
-Date: Sun, 28 Feb 2016 17:41:19 +0100
-Message-ID: <1456677700-23027-12-git-send-email-andrew@lunn.ch>
+Subject: [PATCH RFC v2 12/32] net: dsa: Add slave component matches based on a phandle to the slave.
+Date: Sun, 28 Feb 2016 17:41:20 +0100
+Message-ID: <1456677700-23027-13-git-send-email-andrew@lunn.ch>
 References: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
 Cc: Andrew Lunn <andrew@lunn.ch>
 To: Florian Fainelli <f.fainelli@gmail.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44910 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:44922 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759177AbcB1QmI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2016 11:42:08 -0500
+	id S1758779AbcB1QmV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2016 11:42:21 -0500
 In-Reply-To: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The switch devices are component slaves. Such devices have a "switch"
+Switch devices are component slaves. Such devices have a "switch"
 property in the DSA device tree which is a phandle to the switch
-device. When the slaves bind they register to DSA. So the DSA can
-match the switch to the correct switch instance in the device tree,
-keep a reference to the device tree node during parsing of the device
-tree.
+device. Add a component match on the device node.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- Documentation/devicetree/bindings/net/dsa/dsa.txt | 2 ++
- include/net/dsa.h                                 | 3 +++
- net/dsa/dsa.c                                     | 6 +++++-
- 3 files changed, 10 insertions(+), 1 deletion(-)
+ net/dsa/dsa.c | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/dsa/dsa.txt b/Documentation/devicetree/bindings/net/dsa/dsa.txt
-index 5fdbbcdf8c4b..f99e5694a61f 100644
---- a/Documentation/devicetree/bindings/net/dsa/dsa.txt
-+++ b/Documentation/devicetree/bindings/net/dsa/dsa.txt
-@@ -27,6 +27,8 @@ Each of these switch child nodes should have the following required properties:
- 
- A switch child node has the following optional property:
- 
-+- switch		: A phandle to a switch device.
-+
- - eeprom-length		: Set to the length of an EEPROM connected to the
- 			  switch. Must be set if the switch can not detect
- 			  the presence and/or size of a connected EEPROM,
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index f6b8001a500f..ea4cfdf1b549 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -48,6 +48,9 @@ struct dsa_chip_data {
- 	 */
- 	struct device_node *of_node;
- 
-+	/* Device tree node pointer for the switch chip device. */
-+	struct device_node *of_chip;
-+
- 	/*
- 	 * The names of the switch's ports.  Use "cpu" to
- 	 * designate the switch port that the cpu is connected to,
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index a139c35061a1..f2af801554ec 100644
+index f2af801554ec..73a3fd561ef3 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -662,7 +662,7 @@ static void dsa_of_free_platform_data(struct dsa_platform_data *pd)
- static int dsa_of_probe(struct device *dev, struct dsa_platform_data *pd)
- {
- 	struct device_node *np = dev->of_node;
--	struct device_node *child, *mdio, *ethernet, *port;
-+	struct device_node *child, *chip, *mdio, *ethernet, *port;
- 	struct mii_bus *mdio_bus, *mdio_bus_switch;
- 	struct net_device *ethernet_dev;
- 	struct dsa_chip_data *cd;
-@@ -712,6 +712,10 @@ static int dsa_of_probe(struct device *dev, struct dsa_platform_data *pd)
+@@ -886,18 +886,25 @@ static void dsa_finish_dst(struct dsa_switch_tree *dst, struct device *parent,
+ 	}
+ }
  
- 		cd->of_node = child;
- 
-+		chip = of_parse_phandle(child, "switch", 0);
-+		if (chip)
-+			cd->of_chip = chip;
++static int compare_of(struct device *dev, void *data)
++{
++	return dev->of_node == data;
++}
 +
- 		/* When assigning the host device, increment its refcount */
- 		cd->host_dev = get_device(&mdio_bus->dev);
+ static int dsa_probe(struct platform_device *pdev)
+ {
+ 	struct dsa_platform_data *pd = pdev->dev.platform_data;
++	struct device_node *np = pdev->dev.of_node;
+ 	struct component_match *match = NULL;
++	struct device_node *chip;
+ 	struct net_device *dev;
+ 	struct dsa_switch_tree *dst;
+-	int ret;
++	int i, ret;
+ 
+ 	pr_notice_once("Distributed Switch Architecture driver version %s\n",
+ 		       dsa_driver_version);
+ 
+-	if (pdev->dev.of_node) {
++	if (np) {
+ 		pd = devm_kzalloc(&pdev->dev, sizeof(*pd), GFP_KERNEL);
+ 		if (!pd)
+ 			return -ENOMEM;
+@@ -941,6 +948,12 @@ static int dsa_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, dst);
+ 
++	for (i = 0; i < pd->nr_chips; i++) {
++		chip = pd->chip[i].of_chip;
++		if (chip)
++			component_match_add(&pdev->dev, &match, compare_of,
++					    chip);
++	}
+ 
+ 	return component_master_add_with_match(&pdev->dev, &dsa_ops, match);
  
 -- 
 2.7.0
