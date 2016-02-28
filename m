@@ -1,49 +1,71 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 08/10] net/mlx5: Make command timeout way shorter
-Date: Sun, 28 Feb 2016 17:09:09 +0200
-Message-ID: <1456672151-11749-9-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 04/10] net/mlx5e: Move common case counters within sq_stats struct
+Date: Sun, 28 Feb 2016 17:09:05 +0200
+Message-ID: <1456672151-11749-5-git-send-email-saeedm@mellanox.com>
 References: <1456672151-11749-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Majd Dibbiny <majd@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59827 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59839 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757979AbcB1PKr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2016 10:10:47 -0500
+	id S1757979AbcB1PKw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2016 10:10:52 -0500
 In-Reply-To: <1456672151-11749-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+From: Tariq Toukan <tariqt@mellanox.com>
 
-The command timeout is terribly long, whole two hours. Make it 60s so if
-things do go wrong, the user gets feedback in relatively short time, so
-they can take corrective actions and/or investigate using tools and such.
+For data cache locality considerations, we moved the nop and
+csum_offload_inner within sq_stats struct as they are more
+commonly accessed in xmit path.
 
-Fixes: e126ba97dba9 ('mlx5: Add driver for Mellanox Connect-IB adapters')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- include/linux/mlx5/driver.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index a815da9..3388a43 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -54,7 +54,7 @@ enum {
- 	/* one minute for the sake of bringup. Generally, commands must always
- 	 * complete and we may need to increase this timeout value
- 	 */
--	MLX5_CMD_TIMEOUT_MSEC	= 7200 * 1000,
-+	MLX5_CMD_TIMEOUT_MSEC	= 60 * 1000,
- 	MLX5_CMD_WQ_MAX_NAME	= 32,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 4511984..b289660 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -260,26 +260,28 @@ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"tso_bytes",
+ 	"tso_inner_packets",
+ 	"tso_inner_bytes",
+-	"csum_offload_none",
+ 	"csum_offload_inner",
++	"nop",
++	"csum_offload_none",
+ 	"stopped",
+ 	"wake",
+ 	"dropped",
+-	"nop"
+ };
+ 
+ struct mlx5e_sq_stats {
++	/* commonly accessed in data path */
+ 	u64 packets;
+ 	u64 tso_packets;
+ 	u64 tso_bytes;
+ 	u64 tso_inner_packets;
+ 	u64 tso_inner_bytes;
+-	u64 csum_offload_none;
+ 	u64 csum_offload_inner;
++	u64 nop;
++	/* less likely accessed in data path */
++	u64 csum_offload_none;
+ 	u64 stopped;
+ 	u64 wake;
+ 	u64 dropped;
+-	u64 nop;
+ #define NUM_SQ_STATS 11
  };
  
 -- 
