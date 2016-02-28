@@ -1,31 +1,39 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH] asm-generic: remove old nonatomic-io wrapper files
-Date: Sun, 28 Feb 2016 10:10:28 +0100
-Message-ID: <20160228091028.GA18953@lst.de>
-References: <1456496980-1852604-1-git-send-email-arnd@arndb.de>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V3 0/3] basic busy polling support for vhost_net
+Date: Sun, 28 Feb 2016 11:12:55 +0200
+Message-ID: <20160228111248-mutt-send-email-mst@redhat.com>
+References: <1456476164-17242-1-git-send-email-jasowang@redhat.com>
+	<20160226.114502.171815325392990783.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@lst.de>,
-	linux-arm-kernel@lists.infradead.org,
-	Dan Williams <dan.j.williams@intel.com>,
-	Vinod Koul <vinod.koul@intel.com>,
-	Jakub Kicinski <jakub.kicinski@netronome.com>,
-	Rolf Neugebauer <rolf.neugebauer@netronome.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Yisen Zhuang <yisen.zhuang@huawei.com>,
-	yankejian <yankejian@huawei.com>,
-	kenneth Lee <liguozhu@hisilicon.com>,
-	huangdaode <huangdaode@hisilicon.com>,
-	lipeng <lipeng321@huawei.com>, linux-kernel@vger.kernel.org,
-	dmaengine@vger.kernel.org, netdev@vger.kernel.org,
-	oss-drivers@netronome.com, linux-arch@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: yang.zhang.wz@gmail.com, RAPOPORT@il.ibm.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1456496980-1852604-1-git-send-email-arnd@arndb.de>
-Sender: linux-arch-owner@vger.kernel.org
+In-Reply-To: <20160226.114502.171815325392990783.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Thanks Arnd, this looks good to me:
+On Fri, Feb 26, 2016 at 11:45:02AM -0500, David Miller wrote:
+> From: Jason Wang <jasowang@redhat.com>
+> Date: Fri, 26 Feb 2016 16:42:41 +0800
+> 
+> > This series tries to add basic busy polling for vhost net. The idea is
+> > simple: at the end of tx/rx processing, busy polling for new tx added
+> > descriptor and rx receive socket for a while. The maximum number of
+> > time (in us) could be spent on busy polling was specified ioctl.
+> 
+> I'm assuming this will go through Michael's tree.
 
-Reviewed-by: Christoph Hellwig <hch@lst.de>
+Definitely.
