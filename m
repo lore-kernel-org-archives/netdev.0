@@ -1,50 +1,108 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: "George Spelvin" <linux@horizon.com>
 Subject: Re: [PATCH v4 net-next] net: Implement fast csum_partial for x86_64
-Date: Sun, 28 Feb 2016 12:35:30 -0800
-Message-ID: <1456691730.648.51.camel@edumazet-ThinkPad-T530>
-References: <1456516995-3471163-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	torvalds@linux-foundation.org, tglx@linutronix.de,
-	mingo@redhat.com, hpa@zytor.com, x86@kernel.org, kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>
+Date: 28 Feb 2016 16:43:51 -0500
+Message-ID: <20160228214351.28141.qmail@ns.horizon.com>
+Cc: linux@horizon.com, netdev@vger.kernel.org
+To: alexander.duyck@gmail.com, tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34981 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754831AbcB1Ugd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 15:36:33 -0500
-Received: by mail-pa0-f48.google.com with SMTP id bj10so10121576pad.2
-        for <netdev@vger.kernel.org>; Sun, 28 Feb 2016 12:36:33 -0800 (PST)
-In-Reply-To: <1456516995-3471163-1-git-send-email-tom@herbertland.com>
+Received: from ns.horizon.com ([71.41.210.147]:62141 "HELO ns.horizon.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755254AbcB1Vnx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2016 16:43:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On ven., 2016-02-26 at 12:03 -0800, Tom Herbert wrote:
+I was just noticing that these two:
+
+> +static inline unsigned long add64_with_carry(unsigned long a, unsigned long b)
+> +{
+> +       asm("addq %2,%0\n\t"
+> +           "adcq $0,%0"
+> +           : "=r" (a)
+> +           : "0" (a), "rm" (b));
+> +       return a;
+> +}
 > +
-> +	/*
-> +	 * Length is greater than 64. Sum to eight byte alignment before
-> +	 * proceeding with main loop.
-> +	 */
-> +	aligned = !!((unsigned long)buff & 0x1);
-> +	if (aligned) {
-> +		unsigned int align = 7 & -(unsigned long)buff;
+> +static inline unsigned int add32_with_carry3(unsigned int a, unsigned int b,
+> +                                            unsigned int c)
+> +{
+> +       asm("addl %2,%0\n\t"
+> +           "adcl %3,%0\n\t"
+> +           "adcl $0,%0"
+> +           : "=r" (a)
+> +           : "" (a), "rm" (b), "rm" (c));
 > +
-> +		result = csum_partial_lt8_head(*(unsigned long *)buff, align);
-> +		buff += align;
-> +		len -= align;
-> +		result = rotate_by8_if_odd(result, align);
-> +	}
-> +
+> +       return a;
+> +}
 
-This looks like you wanted to test 3 low order bits, not only the 1 low
-order.
+Could use some additional GCC asm wizardry.
 
-aligned = !((unsigned long)buff & 0x7);
+There are a couple of lesser-known inline asm features which
+could be brought to bear here:
 
-if (!aligned) {
- ...
-}
+1) The "%" modifier, meaning "operation is commutative", and
+2) Multiple alternatives, and the "?" modifier.
+3) The earlyclobber modifier "&".
 
-Or rename the variable to notaligned
+
+For the first, I'd make it
+
+> +       asm("addq %2,%0\n\t"
+> +           "adcq $0,%0"
+> +           : "=%a,r?" (a)
+> +           : "%0,0" (a), "g,g" (b));
+
+I also switched "rm" to "g" (general operand), since it's more compact,
+and an immediate operand is technically allowed.
+
+By including the "%", this tells GCC that swapping the a and b inputs is
+fine if that helps register allocation.
+
+The comma separates two alternative sets of constraints.  "a,r?" says
+there are two options: using register %eax, and a second using any
+register which is slightly worse (larger code).  The later "g,g" shows
+the corresponding constraints for b.
+
+Technically, there's a third option and you could do something like
+
+> +           : "=a,r?,rm!" (a)
+> +           : "%0,0,0" (a), "g,g,r" (b));
+
+Where if b is a register, then a could be a memory location (and the !
+means "avoid unless it saves a spill"), but that's probably not even worth
+telling gcc about.
+
+
+The three-input form can do the same.  There's a third feature we should add:
+an "earlyclobber" notation on the output, since otherwise GCC will
+turn
+	add32_with_carry3(a, b, a)
+into
+	addl %ebx,%eax
+	addl %eax,%eax
+	addl $0,%eax
+... as unlikely as gcc is to find an opportunity for such an optimization.
+
+What I'd *like* to write is
+
+> +       asm("addl %2,%0\n\t"
+> +           "adcl %3,%0\n\t"
+> +           "adcl $0,%0"
+> +           : "=&a,&r?" (a)
+> +           : "%0,0" (a), "%g,g" (b), "g,g" (c));
+
+... but TFM explains "GCC can only handle one commutative pair in an asm;
+if you use more, the compiler may fail."  So I have to pick one.
+
+Also, if the idiom is "add32_with_carry3(sum, result >> 32, result);", then
+it would be better to add c then b to match the length of the
+dependency chains.  I.e.
+
+> +       asm("addl %2,%0\n\t"
+> +           "adcl %3,%0\n\t"
+> +           "adcl $0,%0"
+> +           : "=&a,&r?" (a)
+> +           : "%0,0" (a), "g,g" (c), "g,g" (b));
+
+(I would have also switched to "+a,r?" constraints, but I'm not positive
+how + interacts with %.)
