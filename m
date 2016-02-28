@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 03/10] net/mlx5e: Changed naming convention of tx queues in ethtool stats
-Date: Sun, 28 Feb 2016 17:09:04 +0200
-Message-ID: <1456672151-11749-4-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 01/10] net/mlx5e: Replace async events spinlock with synchronize_irq()
+Date: Sun, 28 Feb 2016 17:09:02 +0200
+Message-ID: <1456672151-11749-2-git-send-email-saeedm@mellanox.com>
 References: <1456672151-11749-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
@@ -11,59 +11,126 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59744 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59768 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757720AbcB1PJs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2016 10:09:48 -0500
+	id S1758023AbcB1PJz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2016 10:09:55 -0500
 In-Reply-To: <1456672151-11749-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tariq Toukan <tariqt@mellanox.com>
 
-Instead of the pair (channel, tc), we now use a single number that
-goes over all tx queues of a TC, for all TCs.
+We only need to flush the irq handler to make sure it does not
+queue a work into the global work queue after we start to flush it.
+So using synchronize_irq() is more appropriate than a spin lock.
 
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |    1 -
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   24 ++++++-------------
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |    5 ++++
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |    1 +
+ 4 files changed, 14 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index e9760f8..577b4b1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -211,13 +211,14 @@ static void mlx5e_get_strings(struct net_device *dev,
- 				sprintf(data + (idx++) * ETH_GSTRING_LEN,
- 					"rx%d_%s", i, rq_stats_strings[j]);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 1dca3dc..4511984 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -555,7 +555,6 @@ struct mlx5e_priv {
+ 	struct mlx5e_vxlan_db      vxlan;
  
--		for (i = 0; i < priv->params.num_channels; i++)
--			for (tc = 0; tc < priv->params.num_tc; tc++)
-+		for (tc = 0; tc < priv->params.num_tc; tc++)
-+			for (i = 0; i < priv->params.num_channels; i++)
- 				for (j = 0; j < NUM_SQ_STATS; j++)
- 					sprintf(data +
--						(idx++) * ETH_GSTRING_LEN,
--						"tx%d_%d_%s", i, tc,
--						sq_stats_strings[j]);
-+					      (idx++) * ETH_GSTRING_LEN,
-+					      "tx%d_%s",
-+					      priv->channeltc_to_txq_map[i][tc],
-+					      sq_stats_strings[j]);
- 		break;
+ 	struct mlx5e_params        params;
+-	spinlock_t                 async_events_spinlock; /* sync hw events */
+ 	struct work_struct         update_carrier_work;
+ 	struct work_struct         set_rx_mode_work;
+ 	struct delayed_work        update_stats_work;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 0d45f35..38944b8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -275,9 +275,14 @@ static void mlx5e_update_stats_work(struct work_struct *work)
+ 	mutex_unlock(&priv->state_lock);
+ }
+ 
+-static void __mlx5e_async_event(struct mlx5e_priv *priv,
+-				enum mlx5_dev_event event)
++static void mlx5e_async_event(struct mlx5_core_dev *mdev, void *vpriv,
++			      enum mlx5_dev_event event, unsigned long param)
+ {
++	struct mlx5e_priv *priv = vpriv;
++
++	if (!test_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state))
++		return;
++
+ 	switch (event) {
+ 	case MLX5_DEV_EVENT_PORT_UP:
+ 	case MLX5_DEV_EVENT_PORT_DOWN:
+@@ -289,17 +294,6 @@ static void __mlx5e_async_event(struct mlx5e_priv *priv,
  	}
  }
-@@ -249,8 +250,8 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
- 						&priv->state) ? 0 :
- 				       ((u64 *)&priv->channel[i]->rq.stats)[j];
  
--	for (i = 0; i < priv->params.num_channels; i++)
--		for (tc = 0; tc < priv->params.num_tc; tc++)
-+	for (tc = 0; tc < priv->params.num_tc; tc++)
-+		for (i = 0; i < priv->params.num_channels; i++)
- 			for (j = 0; j < NUM_SQ_STATS; j++)
- 				data[idx++] = !test_bit(MLX5E_STATE_OPENED,
- 							&priv->state) ? 0 :
+-static void mlx5e_async_event(struct mlx5_core_dev *mdev, void *vpriv,
+-			      enum mlx5_dev_event event, unsigned long param)
+-{
+-	struct mlx5e_priv *priv = vpriv;
+-
+-	spin_lock(&priv->async_events_spinlock);
+-	if (test_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state))
+-		__mlx5e_async_event(priv, event);
+-	spin_unlock(&priv->async_events_spinlock);
+-}
+-
+ static void mlx5e_enable_async_events(struct mlx5e_priv *priv)
+ {
+ 	set_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state);
+@@ -307,9 +301,8 @@ static void mlx5e_enable_async_events(struct mlx5e_priv *priv)
+ 
+ static void mlx5e_disable_async_events(struct mlx5e_priv *priv)
+ {
+-	spin_lock_irq(&priv->async_events_spinlock);
+ 	clear_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state);
+-	spin_unlock_irq(&priv->async_events_spinlock);
++	synchronize_irq(mlx5_get_msix_vec(priv->mdev, MLX5_EQ_VEC_ASYNC));
+ }
+ 
+ #define MLX5E_HW2SW_MTU(hwmtu) (hwmtu - (ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN))
+@@ -2290,7 +2283,6 @@ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
+ 	mlx5e_ets_init(priv);
+ #endif
+ 
+-	spin_lock_init(&priv->async_events_spinlock);
+ 	mutex_init(&priv->state_lock);
+ 
+ 	INIT_WORK(&priv->update_carrier_work, mlx5e_update_carrier_work);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+index 647a3ca..18fccec 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+@@ -442,6 +442,11 @@ int mlx5_destroy_unmap_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
+ }
+ EXPORT_SYMBOL_GPL(mlx5_destroy_unmap_eq);
+ 
++u32 mlx5_get_msix_vec(struct mlx5_core_dev *dev, int vecidx)
++{
++	return dev->priv.msix_arr[MLX5_EQ_VEC_ASYNC].vector;
++}
++
+ int mlx5_eq_init(struct mlx5_core_dev *dev)
+ {
+ 	int err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index 0336847..0b0b226 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -99,6 +99,7 @@ int mlx5_core_enable_hca(struct mlx5_core_dev *dev, u16 func_id);
+ int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id);
+ int mlx5_wait_for_vf_pages(struct mlx5_core_dev *dev);
+ cycle_t mlx5_read_internal_timer(struct mlx5_core_dev *dev);
++u32 mlx5_get_msix_vec(struct mlx5_core_dev *dev, int vecidx);
+ 
+ void mlx5e_init(void);
+ void mlx5e_cleanup(void);
 -- 
 1.7.1
