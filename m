@@ -1,103 +1,88 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH RFC v2 08/32] net: dsa: dsa.c: Refactor to increase symmetry
-Date: Sun, 28 Feb 2016 17:41:16 +0100
-Message-ID: <1456677700-23027-9-git-send-email-andrew@lunn.ch>
+Subject: [PATCH RFC v2 28/32] Documentation: DSA: Describe how probe of DSA and switches work.
+Date: Sun, 28 Feb 2016 17:41:36 +0100
+Message-ID: <1456677700-23027-29-git-send-email-andrew@lunn.ch>
 References: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
 Cc: Andrew Lunn <andrew@lunn.ch>
 To: Florian Fainelli <f.fainelli@gmail.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45041 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:45046 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757958AbcB1QoU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2016 11:44:20 -0500
+	id S1759528AbcB1Qo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2016 11:44:28 -0500
 In-Reply-To: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create a dsa_switch_finish() which does the opposite of dsa_switch_setup().
-Create a dsa_finish_dst() which does the opposite of dsa_setup_dst().
+With the introduction of switches as linux devices and the use of the
+component framework, probing has become more complex. Add some
+documentation.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- net/dsa/dsa.c | 44 +++++++++++++++++++++++++++++---------------
- 1 file changed, 29 insertions(+), 15 deletions(-)
+ Documentation/networking/dsa/dsa.txt | 48 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 48 insertions(+)
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 6c9d1d812873..5062ca91852d 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -462,6 +462,13 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 	return ds;
- }
+diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
+index aa9c1f9313cd..376afa135a81 100644
+--- a/Documentation/networking/dsa/dsa.txt
++++ b/Documentation/networking/dsa/dsa.txt
+@@ -398,6 +398,54 @@ Switch configuration
+   on the management interface and "hardcode"/"force" this MAC address for the
+   CPU/management interface as an optimization
  
-+static void dsa_switch_finish(struct dsa_switch *ds, struct device *parent)
-+{
-+	dsa_switch_finish_one(ds);
++Call flow
++---------
 +
-+	devm_kfree(parent, ds);
-+}
++With the ability for switch devices to be true linux devices, the call
++flow is somewhat complex. The component framework is used to link the
++dsa framework as the master, with switch devices, as slaves.
 +
- #ifdef CONFIG_PM_SLEEP
- static int dsa_switch_suspend(struct dsa_switch *ds)
- {
-@@ -855,6 +862,26 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 	return 0;
- }
++A switch device should add itself as a component in its probe
++function.
++
++The DSA framework can either be configured using a platform_data
++structure or from the device tree. If device tree is being used, the
++dsa framework probe function will allocate a platform_data structure,
++and populate it using the device tree, via the dsa_of_probe()
++function.  Within the DSA device tree, switch devices are represented
++by a phandle to the switch device. These phandles are saved into the
++platform data so that when switch slaves register themselves, they can
++be correctly positioned in the DSA cluster.
++
++The DSA probe function then creates a dsa_switch_tree structure which
++is the overarching structure representing a switch cluster. The probe
++function then looks in the platform data for the phandles to slave
++devices, and adds a component match based on the phandle. The
++component master is then created. This causes the component framework
++to link slaves to the master.
++
++If all the slave switch can be found, the masters bind function is
++called, dsa_bind(). This in tern causes the switch slaves bind
++function to be called.
++
++The switches bind function allocated memory for its own private use,
++and for a dsa_switch structure, which represents one switch in a DSA
++cluster. The switch then registers with the DSA framework using
++dsa_switch_register().
++
++dsa_switch_register() looks in the platform data and finds the
++position within the cluster for the switch which is registering. The
++switches dsa_switch structure is then attached to the dsa_switch_tree
++structure in the correct place.
++
++Once all slave switches have registered, dsa_setup_dst() is used to
++complete the construction of the dsa_switch_tree structure. This
++starts by setting up switches which are not slave devices. The MDIO
++address of the switch is passed to each switch driver to see if it can
++drive the switch. If it can, a dsa_switch structure is allocated to
++represent the switch and linked into the dsa_switch_tree at the
++correct location.
++
+ PHY devices and link management
+ -------------------------------
  
-+static void dsa_finish_dst(struct dsa_switch_tree *dst, struct device *parent,
-+			   struct dsa_platform_data *pd)
-+{
-+	struct net_device *dev = dst->master_netdev;
-+	int i;
-+
-+	dev->dsa_ptr = NULL;
-+	/* Ensure no more packets get sent to the tag receive
-+	 * function.
-+	 */
-+	wmb();
-+
-+	for (i = 0; i < pd->nr_chips; i++) {
-+		struct dsa_switch *ds = dst->ds[i];
-+
-+		dsa_switch_finish(ds, parent);
-+		dst->ds[i] = NULL;
-+	}
-+}
-+
- static int dsa_probe(struct platform_device *pdev)
- {
- 	struct dsa_platform_data *pd = pdev->dev.platform_data;
-@@ -920,27 +947,14 @@ out:
- 	return ret;
- }
- 
--static void dsa_remove_dst(struct dsa_switch_tree *dst)
--{
--	int i;
--
--	for (i = 0; i < dst->pd->nr_chips; i++) {
--		struct dsa_switch *ds = dst->ds[i];
--
--		if (ds)
--			dsa_switch_finish_one(ds);
--	}
--
--	dev_put(dst->master_netdev);
--}
--
- static int dsa_remove(struct platform_device *pdev)
- {
- 	struct dsa_switch_tree *dst = platform_get_drvdata(pdev);
- 	struct dsa_platform_data *pd = pdev->dev.platform_data;
- 
--	dsa_remove_dst(dst);
-+	dsa_finish_dst(dst, &pdev->dev, pd);
- 	dsa_of_remove(&pdev->dev, pd);
-+	dev_put(dst->master_netdev);
- 
- 	return 0;
- }
 -- 
 2.7.0
