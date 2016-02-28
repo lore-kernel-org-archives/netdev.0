@@ -1,39 +1,40 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V3 0/3] basic busy polling support for vhost_net
-Date: Sun, 28 Feb 2016 11:12:55 +0200
-Message-ID: <20160228111248-mutt-send-email-mst@redhat.com>
-References: <1456476164-17242-1-git-send-email-jasowang@redhat.com>
-	<20160226.114502.171815325392990783.davem@davemloft.net>
+From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
+Subject: Re: [net-next][PATCH v2 01/13] RDS: Drop stale iWARP RDMA transport
+Date: Sun, 28 Feb 2016 02:11:25 -0800
+Message-ID: <56D2C7CD.3020009@oracle.com>
+References: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
+ <1456625990-4739-2-git-send-email-santosh.shilimkar@oracle.com>
+ <20160228090547.GA6671@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yang.zhang.wz@gmail.com, RAPOPORT@il.ibm.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20160226.114502.171815325392990783.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160228090547.GA6671@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 26, 2016 at 11:45:02AM -0500, David Miller wrote:
-> From: Jason Wang <jasowang@redhat.com>
-> Date: Fri, 26 Feb 2016 16:42:41 +0800
-> 
-> > This series tries to add basic busy polling for vhost net. The idea is
-> > simple: at the end of tx/rx processing, busy polling for new tx added
-> > descriptor and rx receive socket for a while. The maximum number of
-> > time (in us) could be spent on busy polling was specified ioctl.
-> 
-> I'm assuming this will go through Michael's tree.
 
-Definitely.
+
+On 2/28/16 1:05 AM, Christoph Hellwig wrote:
+> On Sat, Feb 27, 2016 at 06:19:38PM -0800, Santosh Shilimkar wrote:
+>> RDS iWarp support code has become stale and non testable. As
+>> indicated earlier, am dropping the support for it.
+>>
+>> If new iWarp user(s) shows up in future, we can adapat the RDS IB
+>> transprt for the special RDMA READ sink case. iWarp needs an MR
+>> for the RDMA READ sink.
+>
+> Please take a look at the RDMA RW API series I posted yesterday - if
+> you can adopt RDS to that you should get iWarp support for free.
+>
+Will have a look. Thanks for the pointer.
+
+> But having two different codebases for IB/RoCE vs iWarp was always a bad
+> idea, so great to see the second one retired!
+>
+> Acked-by: Christoph Hellwig <hch@lst.de>
+>
+Thanks !!
