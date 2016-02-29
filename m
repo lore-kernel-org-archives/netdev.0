@@ -1,57 +1,83 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 1/2] can: rcar_can: Add r8a7795 support
-Date: Mon, 29 Feb 2016 10:54:19 +0100
-Message-ID: <CAMuHMdV3EsvN=sqiB2npB=cH8Bz4D6UVcQj-BKqfdHerKSDowQ@mail.gmail.com>
+From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+Subject: RE: [PATCH 1/2] can: rcar_can: Add r8a7795 support
+Date: Mon, 29 Feb 2016 09:56:27 +0000
+Message-ID: <SG2PR06MB10380FC567E038EA92D5401EC3BA0@SG2PR06MB1038.apcprd06.prod.outlook.com>
 References: <1456737661-20538-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-	<1456737661-20538-2-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+ <1456737661-20538-2-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+ <56D411A5.9070706@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	linux-renesas-soc@vger.kernel.org,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-renesas-soc@vger.kernel.org"
+	<linux-renesas-soc@vger.kernel.org>,
 	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	linux-can@vger.kernel.org,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
 	"linux-arm-kernel@lists.infradead.org"
 	<linux-arm-kernel@lists.infradead.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Chris Paterson <chris.paterson2@renesas.com>
-To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1456737661-20538-2-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Chris Paterson <Chris.Paterson2@renesas.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"horms@verge.net.au" <horms@verge.net.au>,
+	"magnus.damm@gmail.com" <magnus.damm@gmail.com>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"pawel.moll@arm.com" <pawel.moll@arm.com>,
+	"mark.rutland@arm.com" <mark.rutland@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	"galak@codeaurora.org" <galak@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relmlor4.renesas.com ([210.160.252.174]:61819 "EHLO
+	relmlie3.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751179AbcB2J4d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 04:56:33 -0500
+In-Reply-To: <56D411A5.9070706@pengutronix.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Ramesh,
-
-On Mon, Feb 29, 2016 at 10:21 AM, Ramesh Shanmugasundaram
-<ramesh.shanmugasundaram@bp.renesas.com> wrote:
-> --- a/drivers/net/can/rcar_can.c
-> +++ b/drivers/net/can/rcar_can.c
-> @@ -808,6 +808,10 @@ static int rcar_can_probe(struct platform_device *pdev)
->         priv->regs = addr;
->         priv->clock_select = clock_select;
->         priv->can.clock.freq = clk_get_rate(priv->can_clk);
-> +
-> +       /* Use the rounded clock value (nearest kHz) */
-> +       priv->can.clock.freq = 1000 * DIV_ROUND_UP(priv->can.clock.freq, 1000);
-
-The comment and the implementation don't match.
-To get the nearest kHz, you have to useDIV_ROUND_CLOSEST().
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+SGkgTWFyYywNCg0KPiBPbiAwMi8yOS8yMDE2IDEwOjIxIEFNLCBSYW1lc2ggU2hhbm11Z2FzdW5k
+YXJhbSB3cm90ZToNCj4gPiBBZGRlZCByOGE3Nzk1IFNvQyBzdXBwb3J0Lg0KPiA+DQo+ID4gRm9y
+IHNtb290aGVyIGJpdCB0aW1pbmcgY2FsY3VsYXRpb24sIHRoZSByb3VuZGVkIGNsb2NrIGZyZXF1
+ZW5jeSBpcw0KPiB1c2VkLg0KPiANCj4gV2h5IHRoaXM/IEZyb20gbXkgcG9pbnQgb2YgdmlldyB0
+aGlzIGludHJvZHVjZXMgYSBjbG9jayBlcnJvci4NCg0KVGhhbmtzIGZvciB0aGUgY29tbWVudHMu
+IA0KDQpXaXRob3V0IHRoZSByb3VuZGVkIGNsb2NrLCBjYW5fY2FsY19iaXR0aW1pbmcgcmV0dXJu
+cyBkaWZmZXJlbnQgQlJQIHZhbHVlcyBhbmQgcmVwb3J0cyBoaWdoIHNhbXBsaW5nIGVycm9yIHBl
+cmNlbnRhZ2UuIEhvd2V2ZXIsIHRoZSByb3VuZGVkIGNsb2NrIHNob3dzIG5vIHN1Y2ggaXNzdWVz
+IGFuZCBpdCB3b3JrcyBmaW5lIGZvciBhbGwgYml0cmF0ZXMuDQoNCkJlbG93IGlzIGFuIGUuZy4g
+ZnJvbSBteSBib2FyZCBmb3IgYW4gaW5wdXQgY2xvY2sgZGlmZmVycyBieSAySHouDQoNCnJvb3RA
+c2FsdmF0b3IteDp+IyBjYW4tY2FsYy1iaXQtdGltaW5nIC1jIDM5OTk5OTk4IHJjYXJfY2FuICAN
+CkJpdCB0aW1pbmcgcGFyYW1ldGVycyBmb3IgcmNhcl9jYW4gd2l0aCAzOS45OTk5OTggTUh6IHJl
+ZiBjbG9jaw0Kbm9taW5hbCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHJlYWwgQml0
+cnQgICBub20gIHJlYWwgU2FtcFANCkJpdHJhdGUgVFFbbnNdIFByUyBQaFMxIFBoUzIgU0pXIEJS
+UCBCaXRyYXRlIEVycm9yIFNhbXBQIFNhbXBQIEVycm9yICAgICAgQ2lCQ1INCjEwMDAwMDAgICAg
+MTI1ICAgMiAgICAzICAgIDIgICAxICAgNSAgOTk5OTk5ICAwLjAlIDc1LjAlIDc1LjAlICAwLjAl
+IDB4NDAwNDAxMDANCiA4MDAwMDAgICAgMTI1ICAgMyAgICA0ICAgIDIgICAxICAgNSAgNzk5OTk5
+ICAwLjAlIDgwLjAlIDgwLjAlICAwLjAlIDB4NjAwNDAxMDANCiA1MDAwMDAgICAgMjUwICAgMiAg
+ICAzICAgIDIgICAxICAxMCAgNDk5OTk5ICAwLjAlIDg3LjUlIDc1LjAlIDE0LjMlIDB4NDAwOTAx
+MDANCiAyNTAwMDAgICAgNTAwICAgMiAgICAzICAgIDIgICAxICAyMCAgMjQ5OTk5ICAwLjAlIDg3
+LjUlIDc1LjAlIDE0LjMlIDB4NDAxMzAxMDANCiAxMjUwMDAgICAxMDAwICAgMiAgICAzICAgIDIg
+ICAxICA0MCAgMTI0OTk5ICAwLjAlIDg3LjUlIDc1LjAlIDE0LjMlIDB4NDAyNzAxMDANCiAxMDAw
+MDAgICAxMjUwICAgMiAgICAzICAgIDIgICAxICA1MCAgIDk5OTk5ICAwLjAlIDg3LjUlIDc1LjAl
+IDE0LjMlIDB4NDAzMTAxMDANCiAgNTAwMDAgICAyNTAwICAgMiAgICAzICAgIDIgICAxIDEwMCAg
+IDQ5OTk5ICAwLjAlIDg3LjUlIDc1LjAlIDE0LjMlIDB4NDA2MzAxMDANCiAgMjAwMDAgICA2MjUw
+ICAgMiAgICAzICAgIDIgICAxIDI1MCAgIDE5OTk5ICAwLjAlIDg3LjUlIDc1LjAlIDE0LjMlIDB4
+NDBmOTAxMDANCiAgMTAwMDAgIDEyNTAwICAgMiAgICAzICAgIDIgICAxIDUwMCAgICA5OTk5ICAw
+LjAlIDg3LjUlIDc1LjAlIDE0LjMlIDB4NDFmMzAxMDANCg0Kcm9vdEBzYWx2YXRvci14On4jIGNh
+bi1jYWxjLWJpdC10aW1pbmcgLWMgNDAwMDAwMDAgcmNhcl9jYW4NCkJpdCB0aW1pbmcgcGFyYW1l
+dGVycyBmb3IgcmNhcl9jYW4gd2l0aCA0MC4wMDAwMDAgTUh6IHJlZiBjbG9jaw0Kbm9taW5hbCAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHJlYWwgQml0cnQgICBub20gIHJlYWwgU2Ft
+cFANCkJpdHJhdGUgVFFbbnNdIFByUyBQaFMxIFBoUzIgU0pXIEJSUCBCaXRyYXRlIEVycm9yIFNh
+bXBQIFNhbXBQIEVycm9yICAgICAgQ2lCQ1INCjEwMDAwMDAgICAgIDUwICAgNyAgICA3ICAgIDUg
+ICAxICAgMiAxMDAwMDAwICAwLjAlIDc1LjAlIDc1LjAlICAwLjAlIDB4ZDAwMTA0MDANCiA4MDAw
+MDAgICAgMTI1ICAgMyAgICA0ICAgIDIgICAxICAgNSAgODAwMDAwICAwLjAlIDgwLjAlIDgwLjAl
+ICAwLjAlIDB4NjAwNDAxMDANCiA1MDAwMDAgICAgMTI1ICAgNiAgICA3ICAgIDIgICAxICAgNSAg
+NTAwMDAwICAwLjAlIDg3LjUlIDg3LjUlICAwLjAlIDB4YzAwNDAxMDANCiAyNTAwMDAgICAgMjUw
+ICAgNiAgICA3ICAgIDIgICAxICAxMCAgMjUwMDAwICAwLjAlIDg3LjUlIDg3LjUlICAwLjAlIDB4
+YzAwOTAxMDANCiAxMjUwMDAgICAgNTAwICAgNiAgICA3ICAgIDIgICAxICAyMCAgMTI1MDAwICAw
+LjAlIDg3LjUlIDg3LjUlICAwLjAlIDB4YzAxMzAxMDANCiAxMDAwMDAgICAgNjI1ICAgNiAgICA3
+ICAgIDIgICAxICAyNSAgMTAwMDAwICAwLjAlIDg3LjUlIDg3LjUlICAwLjAlIDB4YzAxODAxMDAN
+CiAgNTAwMDAgICAxMjUwICAgNiAgICA3ICAgIDIgICAxICA1MCAgIDUwMDAwICAwLjAlIDg3LjUl
+IDg3LjUlICAwLjAlIDB4YzAzMTAxMDANCiAgMjAwMDAgICAzMTI1ICAgNiAgICA3ICAgIDIgICAx
+IDEyNSAgIDIwMDAwICAwLjAlIDg3LjUlIDg3LjUlICAwLjAlIDB4YzA3YzAxMDANCiAgMTAwMDAg
+ICA2MjUwICAgNiAgICA3ICAgIDIgICAxIDI1MCAgIDEwMDAwICAwLjAlIDg3LjUlIDg3LjUlICAw
+LjAlIDB4YzBmOTAxMDANCg0KVGhhbmtzLA0KUmFtZXNoDQoNCg==
