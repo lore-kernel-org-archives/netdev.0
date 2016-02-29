@@ -1,103 +1,68 @@
-From: Gabriel Fernandez <gabriel.fernandez@linaro.org>
-Subject: [PATCH] stmmac: Fix 'eth0: No PHY found' regression
-Date: Mon, 29 Feb 2016 17:18:22 +0100
-Message-ID: <1456762702-23713-1-git-send-email-gabriel.fernandez@linaro.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	alexandre.torgue@st.com, maxime.coquelin@st.com
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Phil Reid <preid@electromag.com.au>, davem@davemloft.net,
-	Joachim Eastwood <manabian@gmail.com>,
-	Vince Bridgers <vbridger@opensource.altera.com>,
-	Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-	Mathieu Olivari <mathieu@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
+Date: Mon, 29 Feb 2016 08:21:54 -0800
+Message-ID: <1456762914.648.76.camel@edumazet-ThinkPad-T530>
+References: <56D1E8B6.6090003@hurleysoftware.com>
+	 <1456638957.3676.12.camel@gmail.com>
+	 <20160228170109.GA16322@electric-eye.fr.zoreil.com>
+	 <1456721889.3488.67.camel@gmail.com> <56D45DAF.5070709@hurleysoftware.com>
+	 <1456759153.648.61.camel@edumazet-ThinkPad-T530>
+	 <56D469B2.2070707@hurleysoftware.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Mike Galbraith <umgwanakikbuti@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
+	dmaengine@vger.kernel.org, John Ogness <john.ogness@linutronix.de>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Peter Hurley <peter@hurleysoftware.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35080 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753289AbcB2QW6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 11:22:58 -0500
+In-Reply-To: <56D469B2.2070707@hurleysoftware.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch manages the case when you have an Ethernet MAC with
-a "fixed link", and not connected to a normal MDIO-managed PHY device.
+On lun., 2016-02-29 at 07:54 -0800, Peter Hurley wrote:
 
-The test of phy_bus_name was not helpful because it was never affected
-and replaced by the mdio test node.
+>  The current kernel is HZ=250 but this would occur on HZ=1000 as well.
 
-Signed-off-by: Gabriel Fernandez <gabriel.fernandez@linaro.org>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c     | 11 +----------
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |  9 ++++++++-
- include/linux/stmmac.h                                |  1 +
- 3 files changed, 10 insertions(+), 11 deletions(-)
+Right. But the problem with HZ=100 and HZ=250 is that the detection can
+happens because jiffy granularity is too coarse, since 
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index 0faf163..efb54f3 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -199,21 +199,12 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
- 	int addr, found;
--	struct device_node *mdio_node = NULL;
--	struct device_node *child_node = NULL;
-+	struct device_node *mdio_node = priv->plat->mdio_node;
+msecs_to_jiffies(2) -> 1
+
+Following patch might reduce the probability, but wont really fix your
+problem.
+
+Fact that ksoftirqd prio is not what you want is completely orthogonal.
+
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index 479e443..f7cc594 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -180,7 +180,7 @@ EXPORT_SYMBOL(__local_bh_enable_ip);
  
- 	if (!mdio_bus_data)
- 		return 0;
+ /*
+  * We restart softirq processing for at most MAX_SOFTIRQ_RESTART times,
+- * but break the loop if need_resched() is set or after 2 ms.
++ * but break the loop if need_resched() is set or after 2 ms/ticks.
+  * The MAX_SOFTIRQ_TIME provides a nice upper bound in most cases, but in
+  * certain cases, such as stop_machine(), jiffies may cease to
+  * increment and so we need the MAX_SOFTIRQ_RESTART limit as
+@@ -191,7 +191,7 @@ EXPORT_SYMBOL(__local_bh_enable_ip);
+  * we want to handle softirqs as soon as possible, but they
+  * should not be able to lock up the box.
+  */
+-#define MAX_SOFTIRQ_TIME  msecs_to_jiffies(2)
++#define MAX_SOFTIRQ_TIME  (1 + msecs_to_jiffies(2))
+ #define MAX_SOFTIRQ_RESTART 10
  
- 	if (IS_ENABLED(CONFIG_OF)) {
--		for_each_child_of_node(priv->device->of_node, child_node) {
--			if (of_device_is_compatible(child_node,
--						    "snps,dwmac-mdio")) {
--				mdio_node = child_node;
--				break;
--			}
--		}
--
- 		if (mdio_node) {
- 			netdev_dbg(ndev, "FOUND MDIO subnode\n");
- 		} else {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 6a52fa1..4514ba7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -110,6 +110,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
- 	struct device_node *np = pdev->dev.of_node;
- 	struct plat_stmmacenet_data *plat;
- 	struct stmmac_dma_cfg *dma_cfg;
-+	struct device_node *child_node = NULL;
- 
- 	plat = devm_kzalloc(&pdev->dev, sizeof(*plat), GFP_KERNEL);
- 	if (!plat)
-@@ -140,13 +141,19 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
- 		plat->phy_node = of_node_get(np);
- 	}
- 
-+	for_each_child_of_node(np, child_node)
-+		if (of_device_is_compatible(child_node,	"snps,dwmac-mdio")) {
-+			plat->mdio_node = child_node;
-+			break;
-+		}
-+
- 	/* "snps,phy-addr" is not a standard property. Mark it as deprecated
- 	 * and warn of its use. Remove this when phy node support is added.
- 	 */
- 	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) == 0)
- 		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
- 
--	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || plat->phy_bus_name)
-+	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || !plat->mdio_node)
- 		plat->mdio_bus_data = NULL;
- 	else
- 		plat->mdio_bus_data =
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index eead8ab..881a79d 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -100,6 +100,7 @@ struct plat_stmmacenet_data {
- 	int interface;
- 	struct stmmac_mdio_bus_data *mdio_bus_data;
- 	struct device_node *phy_node;
-+	struct device_node *mdio_node;
- 	struct stmmac_dma_cfg *dma_cfg;
- 	int clk_csr;
- 	int has_gmac;
--- 
-1.9.1
+ #ifdef CONFIG_TRACE_IRQFLAGS
