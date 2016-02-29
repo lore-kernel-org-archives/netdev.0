@@ -1,38 +1,43 @@
 From: Lars Persson <lars.persson@axis.com>
-Subject: [PATCH net 0/5] dwc_eth_qos: stability fixes and support for CMA
-Date: Mon, 29 Feb 2016 16:22:29 +0100
-Message-ID: <cover.1456756740.git.larper@axis.com>
-Cc: linux-kernel@vger.kernel.org, Lars Persson <larper@axis.com>
+Subject: [PATCH net 4/5] dwc_eth_qos: use DWCEQOS_MSG_DEFAULT
+Date: Mon, 29 Feb 2016 16:22:33 +0100
+Message-ID: <4f7ef5d73ce6c4718527c60ce2ac32f17bc2f55d.1456756740.git.larper@axis.com>
+References: <cover.1456756740.git.larper@axis.com>
+Cc: linux-kernel@vger.kernel.org, Rabin Vincent <rabinv@axis.com>,
+	Lars Persson <larper@axis.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bes.se.axis.com ([195.60.68.10]:53847 "EHLO bes.se.axis.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752059AbcB2PXe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Feb 2016 10:23:34 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1456756740.git.larper@axis.com>
+In-Reply-To: <cover.1456756740.git.larper@axis.com>
+References: <cover.1456756740.git.larper@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This series has bug fixes for the dwc_eth_qos ethernet driver.
+From: Rabin Vincent <rabinv@axis.com>
 
-Mainly two stability fixes for problems found by Rabin Vincent:
-- Successive starts and stops of the interface would trigger a DMA reset timeout.
-- A race condition in the TX DMA handling could trigger a netdev watchdog
- timeout.
+Since debug is hardcoded to 3, the defaults in the DWCEQOS_MSG_DEFAULT
+macro are never used, which does not seem to be the intended behaviour
+here.  Set debug to -1 like other drivers so that DWCEQOS_MSG_DEFAULT is
+actually used by default.
 
-The memory allocation was improved to support use of the CMA as DMA allocator
-backend.
+Signed-off-by: Rabin Vincent <rabinv@axis.com>
+Signed-off-by: Lars Persson <larper@axis.com>
+---
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Lars Persson (2):
-  dwc_eth_qos: release descriptors outside netif_tx_lock
-  dwc_eth_qos: do phy_start before resetting hardware
-
-Rabin Vincent (3):
-  dwc_eth_qos: fix race condition in dwceqos_start_xmit
-  dwc_eth_qos: use GFP_KERNEL in dma_alloc_coherent()
-  dwc_eth_qos: use DWCEQOS_MSG_DEFAULT
-
- drivers/net/ethernet/synopsys/dwc_eth_qos.c | 45 ++++++++++++++++++++---------
- 1 file changed, 31 insertions(+), 14 deletions(-)
-
+diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+index 3ca2d5c..6897c1d 100644
+--- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
++++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+@@ -426,7 +426,7 @@
+ #define DWC_MMC_RXOCTETCOUNT_GB          0x0784
+ #define DWC_MMC_RXPACKETCOUNT_GB         0x0780
+ 
+-static int debug = 3;
++static int debug = -1;
+ module_param(debug, int, 0);
+ MODULE_PARM_DESC(debug, "DWC_eth_qos debug level (0=none,...,16=all)");
+ 
 -- 
 2.1.4
