@@ -1,39 +1,133 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
-Date: Mon, 29 Feb 2016 15:24:27 -0500 (EST)
-Message-ID: <20160229.152427.1590219093309278129.davem@davemloft.net>
-References: <1456770279.648.85.camel@edumazet-ThinkPad-T530>
-	<56D493A5.403@hurleysoftware.com>
-	<alpine.DEB.2.11.1602292009430.3638@nanos>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH/RFC v6 net-next] ravb: Add dma queue interrupt support
+Date: Mon, 29 Feb 2016 23:30:27 +0300
+Message-ID: <56D4AA63.6030203@cogentembedded.com>
+References: <1456674078-1316-1-git-send-email-ykaneko0929@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: peter@hurleysoftware.com, eric.dumazet@gmail.com,
-	umgwanakikbuti@gmail.com, romieu@fr.zoreil.com,
-	edumazet@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org,
-	dmaengine@vger.kernel.org, john.ogness@linutronix.de,
-	bigeasy@linutronix.de, akpm@linux-foundation.org
-To: tglx@linutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50625 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750973AbcB2UYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 15:24:32 -0500
-In-Reply-To: <alpine.DEB.2.11.1602292009430.3638@nanos>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	linux-renesas-soc@vger.kernel.org, linux-sh@vger.kernel.org
+To: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1456674078-1316-1-git-send-email-ykaneko0929@gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Mon, 29 Feb 2016 20:14:36 +0100 (CET)
+Hello.
 
-> On Mon, 29 Feb 2016, Peter Hurley wrote:
->> Or flipping your argument on its head, why not just _always_ execute
->> softirq in ksoftirqd?
-> 
-> Which is what that change effectivley does. And that makes a lot of sense,
-> because you get the softirq load under scheduler control and do not let the
-> softirq run as a context stealing entity which is completely uncontrollable by
-> the scheduler.
+On 02/28/2016 06:41 PM, Yoshihiro Kaneko wrote:
 
-+1
+> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>
+> This patch supports the following interrupts.
+>
+> - One interrupt for multiple (timestamp, error, gPTP)
+> - One interrupt for emac
+> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
+>
+> This patch improve efficiency of the interrupt handler by adding the
+> interrupt handler corresponding to each interrupt source described
+> above. Additionally, it reduces the number of times of the access to
+> EthernetAVB IF.
+> Also this patch prevent this driver depends on the whim of a boot loader.
+>
+> [ykaneko0929@gmail.com: define bit names of registers]
+> [ykaneko0929@gmail.com: add comment for gen3 only registers]
+> [ykaneko0929@gmail.com: fix coding style]
+> [ykaneko0929@gmail.com: update changelog]
+> [ykaneko0929@gmail.com: gen3: fix initialization of interrupts]
+> [ykaneko0929@gmail.com: gen3: fix clearing interrupts]
+> [ykaneko0929@gmail.com: gen3: add helper function for request_irq()]
+> [ykaneko0929@gmail.com: gen3: remove IRQF_SHARED flag for request_irq()]
+> [ykaneko0929@gmail.com: revert ravb_close() and ravb_ptp_stop()]
+> [ykaneko0929@gmail.com: avoid calling free_irq() to non-hooked interrupts]
+> [ykaneko0929@gmail.com: make NC/BE interrupt handler a function]
+> [ykaneko0929@gmail.com: make timestamp interrupt handler a function]
+> [ykaneko0929@gmail.com: timestamp interrupt is handled in multiple
+>   interrupt handler instead of dma queue interrupt handler]
+> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+
+    OK, you are very close now! Just a few comments...
+
+[...]
+> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+> index c936682..22ef65d 100644
+> --- a/drivers/net/ethernet/renesas/ravb_main.c
+> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+[...]
+> @@ -697,6 +726,47 @@ static void ravb_error_interrupt(struct net_device *ndev)
+>   	}
+>   }
+>
+> +static bool ravb_queue_interrupt(struct net_device *ndev, int q,
+> +				 u32 ris0, u32 *ric0, u32 tis, u32 *tic)
+> +{
+> +	struct ravb_private *priv = netdev_priv(ndev);
+> +
+
+    Perhaps it makes sense to read the RI[CS]0/TI[CS] here instead of passing 
+them (by reference)?
+
+[...]
+> @@ -714,42 +784,21 @@ static irqreturn_t ravb_interrupt(int irq, void *dev_id)
+>   		u32 ric0 = ravb_read(ndev, RIC0);
+>   		u32 tis  = ravb_read(ndev, TIS);
+>   		u32 tic  = ravb_read(ndev, TIC);
+> -		int q;
+>
+>   		/* Timestamp updated */
+> -		if (tis & TIS_TFUF) {
+> -			ravb_write(ndev, ~TIS_TFUF, TIS);
+> -			ravb_get_tx_tstamp(ndev);
+> +		if (ravb_timestamp_interrupt(ndev, tis))
+>   			result = IRQ_HANDLED;
+> -		}
+>
+>   		/* Network control and best effort queue RX/TX */
+> -		for (q = RAVB_NC; q >= RAVB_BE; q--) {
+> -			if (((ris0 & ric0) & BIT(q)) ||
+> -			    ((tis  & tic)  & BIT(q))) {
+> -				if (napi_schedule_prep(&priv->napi[q])) {
+> -					/* Mask RX and TX interrupts */
+> -					ric0 &= ~BIT(q);
+> -					tic &= ~BIT(q);
+> -					ravb_write(ndev, ric0, RIC0);
+> -					ravb_write(ndev, tic, TIC);
+> -					__napi_schedule(&priv->napi[q]);
+> -				} else {
+> -					netdev_warn(ndev,
+> -						    "ignoring interrupt, rx status 0x%08x, rx mask 0x%08x,\n",
+> -						    ris0, ric0);
+> -					netdev_warn(ndev,
+> -						    "                    tx status 0x%08x, tx mask 0x%08x.\n",
+> -						    tis, tic);
+> -				}
+> -				result = IRQ_HANDLED;
+> -			}
+> -		}
+> +		if (ravb_queue_interrupt(ndev, RAVB_NC, ris0, &ric0, tis, &tic))
+> +			result = IRQ_HANDLED;
+> +		if (ravb_queue_interrupt(ndev, RAVB_BE, ris0, &ric0, tis, &tic))
+> +			result = IRQ_HANDLED;
+
+    Hmm, perhaps unrolling wasn't such a great idea... we can't use || here as 
+it would be short-circuited. :-(
+
+[...]
+> +static irqreturn_t ravb_rx_tx_interrupt(int irq, void *dev_id, int ravb_queue)
+
+    Please, please shorten this 'ravb_queue'...
+    Also, would make sense to rename it to ravb_dma_interrupt()...
+
+[...]
+
+    Unfortunately, I still can't do a full gen2 regression testing as both Alt 
+and Porter boards don't work with the recent kernel due to AVB_MDIO stuck at 
+1... But perhaps such testing isn't even necessary.
+
+MBR, Sergei
+
