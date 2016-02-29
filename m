@@ -1,60 +1,79 @@
-From: Alexandre TORGUE <alexandre.torgue@st.com>
-Subject: [PATCH v3 14/17] stmmac: fix phy init when attached to a phy
-Date: Mon, 29 Feb 2016 14:27:40 +0100
-Message-ID: <1456752463-27128-15-git-send-email-alexandre.torgue@st.com>
-References: <1456752463-27128-1-git-send-email-alexandre.torgue@st.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [PATCH net] ppp: lock ppp->flags in ppp_read() and ppp_poll()
+Date: Mon, 29 Feb 2016 14:59:59 +0100
+Message-ID: <20160229135959.GM1186@alphalink.fr>
+References: <c7c10511f505342837d57e9bb628fb145504f3e6.1456507305.git.g.nault@alphalink.fr>
+ <063D6719AE5E284EB5DD2968C1650D6D41110082@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <peppe.cavallaro@st.com>, <fabrice.gasnier@st.com>,
-	<maxime.coquelin@st.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Paul Mackerras <paulus@samba.org>,
+	David Miller <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:45934 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755389AbcB2N27 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 08:28:59 -0500
-Received: from pps.filterd (m0046661.ppops.net [127.0.0.1])
-	by mx08-00178001.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u1TDS8pd019736
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 14:28:57 +0100
-Received: from beta.dmz-ap.st.com (beta.dmz-ap.st.com [138.198.100.35])
-	by mx08-00178001.pphosted.com with ESMTP id 21b3jgaqg0-1
-	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 14:28:57 +0100
-Received: from zeta.dmz-ap.st.com (ns6.st.com [138.198.234.13])
-	by beta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 6F63C22
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 13:28:54 +0000 (GMT)
-Received: from Webmail-ap.st.com (eapex1hubcas1.st.com [10.80.176.8])
-	by zeta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 17D72F7
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 13:28:53 +0000 (GMT)
-In-Reply-To: <1456752463-27128-1-git-send-email-alexandre.torgue@st.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:38554 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751353AbcB2OAD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 09:00:03 -0500
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D41110082@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabrice Gasnier <fabrice.gasnier@st.com>
+On Mon, Feb 29, 2016 at 10:18:38AM +0000, David Laight wrote:
+> From: Guillaume Nault
+> > Sent: 26 February 2016 17:46
+> > 
+> > ppp_read() and ppp_poll() can be called concurrently with ppp_ioctl().
+> > In this case, ppp_ioctl() might call ppp_ccp_closed(), which may update
+> > ppp->flags while ppp_read() or ppp_poll() is reading it.
+> > The update done by ppp_ccp_closed() isn't atomic due to the bit mask
+> > operation ('ppp->flags &= ~(SC_CCP_OPEN | SC_CCP_UP)'), so concurrent
+> > readers might get transient values.
+> > Reading incorrect ppp->flags may disturb the 'ppp->flags & SC_LOOP_TRAFFIC'
+> > test in ppp_read() and ppp_poll(), which in turn can lead to improper
+> > decision on whether the PPP unit file is ready for reading or not.
+> > 
+> > Since ppp_ccp_closed() is protected by the Rx and Tx locks (with
+> > ppp_lock()), taking the Rx lock is enough for ppp_read() and ppp_poll()
+> > to guarantee that ppp_ccp_closed() won't update ppp->flags
+> > concurrently.
+> 
+> This is all splurious.
+> The 'concurrent' calls cannot be distinguished from calls just prior to,
+> or just after the ppp_ccp_closed() call.
+> 
+If the ppp->flags update is guaranteed to be atomic from a reader's
+point of view, then yes, concurrent runs of ppp_{read,poll}() and
+ppp_ccp_closed() aren't an issue.
 
-phy_bus_name can be NULL when "fixed-link" property isn't used.
-Then, since "stmmac: do not poll phy handler when attach a switch",
-phy_bus_name ptr needs to be checked before strcmp is called.
+Here I assume that 'ppp->flags &= ~(SC_CCP_OPEN | SC_CCP_UP)' isn't
+atomic, and that a concurrent reader may get a value different from
+the original or final value of ppp->flags. If ppp_read() or ppp_poll()
+reads such a transient value that affects the SC_LOOP_TRAFFIC bit, the
+code may take the wrong decision as to whether or not the file
+descriptor is available for reading.
 
-Signed-off-by: Fabrice Gasnier <fabrice.gasnier@st.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Signed-off-by: Alexandre TORGUE <alexandre.torgue@st.com>
+ppp_ioctl()
+   |
+   \_ ppp_ccp_closed()
+            |
+	    \_ (1) Start Read-Modify-Write operation on ppp->flags
+	       |
+	       |
+	       | <-- (2) ppp_read() or ppp_poll() reads transient value
+	       |         of ppp->flags here
+	       |
+	       (3) End Read-Modify-Write operation on ppp->flags
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index eab7ac0..3cc1355 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -868,8 +868,9 @@ static int stmmac_init_phy(struct net_device *dev)
- 	}
- 
- 	/* If attached to a switch, there is no reason to poll phy handler */
--	if (!strcmp(priv->plat->phy_bus_name, "fixed"))
--		phydev->irq = PHY_IGNORE_INTERRUPT;
-+	if (priv->plat->phy_bus_name)
-+		if (!strcmp(priv->plat->phy_bus_name, "fixed"))
-+			phydev->irq = PHY_IGNORE_INTERRUPT;
- 
- 	pr_debug("stmmac_init_phy:  %s: attached to PHY (UID 0x%x)"
- 		 " Link = %d\n", dev->name, phydev->phy_id, phydev->link);
--- 
-1.9.1
+If we assume that the RMW operation can't generate transient values, or
+that transient values can't affect the SC_LOOP_TRAFFIC bit, then this
+patch is not needed. However I'm not aware of such guarantees (unless
+the atomic stores of ints described by DaveM in my original series
+also applies here). At least I haven't seen other parts of the stack
+implicitely relying in atomic properties of RMW operations performed on
+plain integers.
+
+If my analysis is too far fetched, I'll happily drop the patch.
+I'm just trying to fix the possible issues I saw while working on the
+PPP code, before resubmitting the PPP rtnetlink handler support.
