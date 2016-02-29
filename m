@@ -1,94 +1,90 @@
-From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers 2016-02-18
-Date: Mon, 29 Feb 2016 09:35:21 +0100
-Message-ID: <CAMuHMdWVJ+rC1w_-mHdWhDJ_q++W_hp-Fg4JTjSSSseS1aDd5Q@mail.gmail.com>
-References: <87mvqyqbqp.fsf@kamboji.qca.qualcomm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V3 3/3] vhost_net: basic polling support
+Date: Mon, 29 Feb 2016 11:03:54 +0200
+Message-ID: <20160229105517-mutt-send-email-mst@redhat.com>
+References: <1456476164-17242-1-git-send-email-jasowang@redhat.com>
+	<1456476164-17242-4-git-send-email-jasowang@redhat.com>
+	<20160228140937.GA8855@redhat.com> <56D3D404.6080600@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87mvqyqbqp.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: yang.zhang.wz@gmail.com, RAPOPORT@il.ibm.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <56D3D404.6080600@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 18, 2016 at 4:28 PM, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrot=
-e:
-> Hi Dave,
->
-> I have some important fixes I would like to get 4.5 still, more info =
-in
-> the signed tag. Please let me know if you have problems.
->
-> Kalle
->
-> The following changes since commit f9ead9beef3f44be0db4b542a8c2ce698f=
-b1530e:
->
->   Merge tag 'iwlwifi-for-kalle-2016-01-26_2' of https://git.kernel.or=
-g/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2016-01-27 14:19:18 +=
-0200)
->
-> are available in the git repository at:
->
->
->   git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-driver=
-s.git tags/wireless-drivers-for-davem-2016-02-18
->
-> for you to fetch changes up to c699404db182836498bd9d9a36ef044de2cab4=
-fd:
->
->   Merge tag 'iwlwifi-for-kalle-2016-02-15' of https://git.kernel.org/=
-pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2016-02-16 17:58:30 +02=
-00)
->
-> ----------------------------------------------------------------
->
-> rtlwifi
->
-> * fix broken VHT (802.11ac) support, reported by Linus
+On Mon, Feb 29, 2016 at 01:15:48PM +0800, Jason Wang wrote:
+> 
+> 
+> On 02/28/2016 10:09 PM, Michael S. Tsirkin wrote:
+> > On Fri, Feb 26, 2016 at 04:42:44PM +0800, Jason Wang wrote:
+> >> > This patch tries to poll for new added tx buffer or socket receive
+> >> > queue for a while at the end of tx/rx processing. The maximum time
+> >> > spent on polling were specified through a new kind of vring ioctl.
+> >> > 
+> >> > Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > Looks good overall, but I still see one problem.
+> >
+> >> > ---
+> >> >  drivers/vhost/net.c        | 79 +++++++++++++++++++++++++++++++++++++++++++---
+> >> >  drivers/vhost/vhost.c      | 14 ++++++++
+> >> >  drivers/vhost/vhost.h      |  1 +
+> >> >  include/uapi/linux/vhost.h |  6 ++++
+> >> >  4 files changed, 95 insertions(+), 5 deletions(-)
+> >> > 
+> >> > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> >> > index 9eda69e..c91af93 100644
+> >> > --- a/drivers/vhost/net.c
+> >> > +++ b/drivers/vhost/net.c
+> >> > @@ -287,6 +287,44 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
+> >> >  	rcu_read_unlock_bh();
+> >> >  }
+> >> >  
+> >> > +static inline unsigned long busy_clock(void)
+> >> > +{
+> >> > +	return local_clock() >> 10;
+> >> > +}
+> >> > +
+> >> > +static bool vhost_can_busy_poll(struct vhost_dev *dev,
+> >> > +				unsigned long endtime)
+> >> > +{
+> >> > +	return likely(!need_resched()) &&
+> >> > +	       likely(!time_after(busy_clock(), endtime)) &&
+> >> > +	       likely(!signal_pending(current)) &&
+> >> > +	       !vhost_has_work(dev) &&
+> >> > +	       single_task_running();
+> > So I find it quite unfortunate that this still uses single_task_running.
+> > This means that for example a SCHED_IDLE task will prevent polling from
+> > becoming active, and that seems like a bug, or at least
+> > an undocumented feature :).
+> 
+> Yes, it may need more thoughts.
+> 
+> >
+> > Unfortunately this logic affects the behaviour as observed
+> > by userspace, so we can't merge it like this and tune
+> > afterwards, since otherwise mangement tools will start
+> > depending on this logic.
+> >
+> >
+> 
+> How about remove single_task_running() first here and optimize on top?
+> We probably need something like this to handle overcommitment.
 
-That's commit d76d65fd26951498144029c24852c4d54ee512d9
+Sounds good.
 
-drivers/net/wireless/realtek/rtlwifi/rc.c: In function
-=E2=80=98_rtl_rc_rate_set_series=E2=80=99:
-drivers/net/wireless/realtek/rtlwifi/rc.c:144: warning: comparison is
-always false due to limited range of data type
-
-                if (sta && sta->vht_cap.vht_supported &&
-                    (wireless_mode =3D=3D WIRELESS_MODE_AC_5G ||
-                     wireless_mode =3D=3D WIRELESS_MODE_AC_24G ||
-                     wireless_mode =3D=3D WIRELESS_MODE_AC_ONLY))
-                        rate->flags |=3D IEEE80211_TX_RC_VHT_MCS;
-
-u8 wireless_mode =3D 0;
-
-enum wireless_mode {
-        ...
-        WIRELESS_MODE_AC_ONLY =3D 0x100,
-
-How is that supposed to work?
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-                                -- Linus Torvalds
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+MST
