@@ -1,83 +1,74 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V1 09/10] net/mlx5: Fix global UAR mapping
-Date: Mon, 29 Feb 2016 21:41:27 +0200
-Message-ID: <CALzJLG-bMd-0CiLHrACCV++ESnKMm8Hke4-C1rS88yPf4oB0hQ@mail.gmail.com>
-References: <1456672151-11749-1-git-send-email-saeedm@mellanox.com>
-	<1456672151-11749-10-git-send-email-saeedm@mellanox.com>
-	<20160228.232804.1263072658789063316.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
+Date: Mon, 29 Feb 2016 11:43:46 -0800
+Message-ID: <1456775026.648.98.camel@edumazet-ThinkPad-T530>
+References: <56D1E8B6.6090003@hurleysoftware.com>
+	 <1456638957.3676.12.camel@gmail.com>
+	 <20160228170109.GA16322@electric-eye.fr.zoreil.com>
+	 <1456721889.3488.67.camel@gmail.com> <56D45DAF.5070709@hurleysoftware.com>
+	 <1456759643.648.65.camel@edumazet-ThinkPad-T530>
+	 <56D49860.7040303@hurleysoftware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>, moshel@mellanox.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Mike Galbraith <umgwanakikbuti@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
+	dmaengine@vger.kernel.org, John Ogness <john.ogness@linutronix.de>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Peter Hurley <peter@hurleysoftware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f196.google.com ([209.85.161.196]:35364 "EHLO
-	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752142AbcB2Tlw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 14:41:52 -0500
-Received: by mail-yw0-f196.google.com with SMTP id u200so8205676ywf.2
-        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 11:41:27 -0800 (PST)
-In-Reply-To: <20160228.232804.1263072658789063316.davem@davemloft.net>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:34666 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753796AbcB2Tot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 14:44:49 -0500
+In-Reply-To: <56D49860.7040303@hurleysoftware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
-> Well anyone can see that from the code.
->
-> You have to explain why.
+On lun., 2016-02-29 at 11:13 -0800, Peter Hurley wrote:
+> On 02/29/2016 07:27 AM, Eric Dumazet wrote:
+> > On lun., 2016-02-29 at 07:03 -0800, Peter Hurley wrote:
+> > 
+> >> The reason why Eric's change is so effective for Eric's workload is
+> >> that it fixes the problem where NET_RX keeps getting new network packets
+> >> so it keeps looping, servicing more NET_RX softirq.
+> > 
+> > You have very little idea of what is happening in networking land.
+> 
+> While that is true, I can read a trace:
+> 
+>   ** already in NET_RX softirq **
+> 
+>   <idle>-0       0..s2   15us : kmem_cache_alloc: call_site=c08378e4 ptr=de55d7c0 bytes_req=192 bytes_alloc=192 gfp_flags=GFP_ATOMIC
+>   <idle>-0       0..s2   23us : netif_receive_skb_entry: dev=eth0 napi_id=0x0 queue_mapping=0 skbaddr=dca04400 vlan_tagged=0 vlan_proto=0x0000 vlan_tci=0x000
+> 0 protocol=0x0800 ip_summed=0 hash=0x00000000 l4_hash=0 len=88 data_len=0 truesize=1984 mac_header_valid=1 mac_header=-14 nr_frags=0 gso_size=0 gso_type=0x0
+>   <idle>-0       0..s2   30us+: netif_receive_skb: dev=eth0 skbaddr=dca04400 len=88
+>   <idle>-0       0d.s5   98us : sched_waking: comm=sshd pid=750 prio=120 target_cpu=000
+>   <idle>-0       0d.s6  105us : sched_stat_sleep: comm=sshd pid=750 delay=3125230447 [ns]
+>   <idle>-0       0dns6  110us+: sched_wakeup: comm=sshd pid=750 prio=120 target_cpu=000
+>   <idle>-0       0dns4  123us+: timer_start: timer=dc940e9c function=tcp_delack_timer expires=9746 [timeout=10] flags=0x00000000
+>   <idle>-0       0dnH3  150us : irq_handler_entry: irq=176 name=4a100000.ethernet
+>   <idle>-0       0dnH3  153us : softirq_raise: vec=3 [action=NET_RX]
+>   <idle>-0       0dnH3  155us : irq_handler_exit: irq=176 ret=handled
+>   <idle>-0       0dnH3  160us : irq_handler_entry: irq=20 name=49000000.edma_ccint
+>   <idle>-0       0dnH3  163us : irq_handler_exit: irq=20 ret=handled
+>   <idle>-0       0.ns2  169us : napi_poll: napi poll on napi struct de465c30 for device eth0
+>   <idle>-0       0.ns2  171us : softirq_exit: vec=3 [action=NET_RX]
+> 
+> 
+> As you can see, NET_RX softirq is re-raised while in NET_RX softirq,
+> as a result of receiving new packets. So NET_RX will keep looping,
+> which is what I wrote.
 
-In a simple words as partially explained in the commit message we want
-to have both mappings (NC and WC) available so upper layer can decide
-which to choose e.g. for SQs/QPs in some cases (Small Packets) and
-only when WC is supported we would like to write TX descriptors (WQEs)
-using ConnectX BlueFlame feature via WC mapping and if WC is not
-supported the TX descriptors would be posted in the usual way
-(doorbell) via NC mapping.
-this would give a latency boost for small packets.
+Well, NET_RX can not be re-raised, it is a single bit flip.
 
-The problem is when posting BlueFlame buffers when the mapping is not
-WC i.e via NC mapping the latency will get worst than writing using
-the usual way (doorbell).
+It is 'raised' on this trace because the driver already rearmed the IRQ
+so that hard irq handler could fire.
 
-so this is why we use ARCH_HAS_IOREMAP_WC to give a hint to upper
-layer whether to use BlueFlame writes (WC) or doorbell writes (NC).
-
->
-> And BTW, ARCH_HAS_IOREMAP_WC doesn't even tell you if the platform
-> will actually give you a write-combining mapping.
-
-We did some research after your comment and we are considering
-removing ARCH_HAS_IOREMAP_WC from the code, we will update the patches
-soon.
-
->
-> So if it's the driver operates properly if a non-WC mapping is used
-> for uar->bf_map, then get rid of this CPP test altogether PLEASE!
->
-> Otherwise your driver is buggy, because ARCH_HAS_IOREMAP_WC only says
-> whether the default implementation of ioremap_wc() needs to be
-> provided by include/asm-generic/iomap.h It does not guarantee that a
-> write-combining mapping will be provided.
->
-> I really can't think of any reason why you absolutely require a
-> WC mapping, and the CPP test just makes your driver look more
-> ugly than it needs to me.
-
-WC mapping is required in order to know if BlueFlame writes would give
-a better latency or not.
-
->
-> So can you please explain what the hell is happening here and why you
-> are doing things this way rather than just reading the code to me?
-
-I hope the above explains what we are trying to do here, I know it is
-not perfect, but as you know the kernel IO mapping API doesn't tell if
-the WC mapping was successful or not, so we used the CPP test.
-but after your comment we understood it is not perfect, and we are
-looking into it.
-
-Thanks
+Anyway, it seems you know much better than me, so I will stop answering
+your mails on this topic.
