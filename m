@@ -1,42 +1,39 @@
-From: Vinod Koul <vinod.koul@intel.com>
-Subject: Re: [PATCH] asm-generic: remove old nonatomic-io wrapper files
-Date: Mon, 29 Feb 2016 11:35:56 +0530
-Message-ID: <20160229060556.GF11154@localhost>
-References: <1456496980-1852604-1-git-send-email-arnd@arndb.de>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the target-merge tree with the net-next
+ tree
+Date: Mon, 29 Feb 2016 17:39:11 +1100
+Message-ID: <20160229173911.4fabe3f8@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@lst.de>,
-	linux-arm-kernel@lists.infradead.org,
-	Dan Williams <dan.j.williams@intel.com>,
-	Jakub Kicinski <jakub.kicinski@netronome.com>,
-	Rolf Neugebauer <rolf.neugebauer@netronome.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Yisen Zhuang <yisen.zhuang@huawei.com>,
-	yankejian <yankejian@huawei.com>,
-	kenneth Lee <liguozhu@hisilicon.com>,
-	huangdaode <huangdaode@hisilicon.com>,
-	lipeng <lipeng321@huawei.com>, linux-kernel@vger.kernel.org,
-	dmaengine@vger.kernel.org, netdev@vger.kernel.org,
-	oss-drivers@netronome.com, linux-arch@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1456496980-1852604-1-git-send-email-arnd@arndb.de>
-Sender: linux-arch-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hariprasad Shenai <hariprasad@chelsio.com>,
+	Varun Prakash <varun@chelsio.com>
+To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 26, 2016 at 03:29:05PM +0100, Arnd Bergmann wrote:
-> The two header files got moved to include/linux, and most
-> users were already converted, this changes the remaining drivers
-> and removes the files.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  drivers/dma/idma64.h                                | 2 +-
-For this:
+Hi Nicholas,
 
-Acked-by: Vinod Koul <vinod.koul@intel.com>
+Today's linux-next merge of the target-merge tree got a conflict in:
 
-Thanks
+  drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+
+between commit:
+
+  ba9cee6aa67d ("cxgb4/iw_cxgb4: TOS support")
+
+from the net-next tree and commit:
+
+  c973e2a3ff1b ("cxgb4: add definitions for iSCSI target ULD")
+
+from the target-merge tree.
+
+I fixed it up (the latter was a superset of the former) and can carry
+the fix as necessary (no action is required).
+
 -- 
-~Vinod
+Cheers,
+Stephen Rothwell
