@@ -1,85 +1,120 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Question on switchdev
-Date: Mon, 29 Feb 2016 23:29:34 +0100
-Message-ID: <20160229222934.GA4904@lunn.ch>
-References: <56D4BB74.2010109@ti.com>
+From: =?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@gmail.com>
+Subject: Re: [PATCHv2 08/10] rfkill: Use switch to demux userspace operations
+Date: Mon, 29 Feb 2016 17:30:20 -0500
+Message-ID: <CA+A7VXUY=qVDQ-OqT+QJK8haN6AFX4Br=OPXi-6RCxpvH3=QRg@mail.gmail.com>
+References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
+ <1456159001-20307-9-git-send-email-jprvita@endlessm.com> <20160226175925.GA9331@w1.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jiri@resnulli.us, sfeldma@gmail.com, netdev@vger.kernel.org
-To: Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45851 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751212AbcB2W3i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Feb 2016 17:29:38 -0500
-Content-Disposition: inline
-In-Reply-To: <56D4BB74.2010109@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Darren Hart <dvhart@infradead.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	linux@endlessm.com,
+	=?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@endlessm.com>
+To: Jouni Malinen <j@w1.fi>
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
+In-Reply-To: <20160226175925.GA9331@w1.fi>
+Sender: platform-driver-x86-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 29, 2016 at 04:43:16PM -0500, Murali Karicheri wrote:
+Hello Jouni,
 
-Hi Murali
+On 26 February 2016 at 12:59, Jouni Malinen <j@w1.fi> wrote:
+> On Mon, Feb 22, 2016 at 11:36:39AM -0500, Jo=C3=A3o Paulo Rechi Vita =
+wrote:
+>> Using a switch to handle different ev.op values in rfkill_fop_write(=
+)
+>> makes the code easier to extend, as out-of-range values can always b=
+e
+>> handled by the default case.
+>
+> This breaks rfkill.. There are automated test scripts for testing thi=
+s
+> area (and most of Wi-Fi for that matter. It would be nice if these we=
+re
+> used for changes before they get contributed upstream..
+>
+> http://buildbot.w1.fi/hwsim/
+>
 
-Please can you get your email client to wrap lines at ~ 75 characters.
+Thanks for pointing that out, I haven't heard of this tool before.
+I'll give it a try before my next submission.
 
-> TI Keystone netcp h/w has a switch. It has n slave ports and 1 host
-> port. Currently the netcp driver disables the switch functionality
-> which makes them appear as n nic ports. However we have requirement
-> to add switch support in the driver. I have reviewed the
-> experimental driver documentation
-> Documentation/networking/switchdev.txt and would like to understand
-> it better so that I can add this support to keystone netcp driver.
- 
-> NetCP h/w has a 1 (host port) x n (slave port) switch. It can do
-> layer 2 forwarding between ports. In the switch mode, host driver
-> provides the frame to the switch and switch uses the filter data
-> base (AKA ALE table, Address Learning Engine table) to forward the
-> packet. There is a piece of information available per frame (meta
-> data) to decide if frame to be forwarded to a particular port or use
-> the fdb for forward decisions.
+> This specific commit broke all the rfkill_* test cases because of
+> following:
+>
+>> diff --git a/net/rfkill/core.c b/net/rfkill/core.c
+>> @@ -1199,29 +1200,32 @@ static ssize_t rfkill_fop_write(struct file =
+*file, const char __user *buf,
+>> -     list_for_each_entry(rfkill, &rfkill_list, node) {
+>> -             if (rfkill->idx !=3D ev.idx && ev.op !=3D RFKILL_OP_CH=
+ANGE_ALL)
+>> -                     continue;
+>> -
+>> -             if (rfkill->type !=3D ev.type && ev.type !=3D RFKILL_T=
+YPE_ALL)
+>> -                     continue;
+>
+> Note that RFKILL_TYPE_ALL here..
+>
+>> +             list_for_each_entry(rfkill, &rfkill_list, node)
+>> +                     if (rfkill->type =3D=3D ev.type ||
+>> +                         ev.type =3D=3D RFKILL_TYPE_ALL)
+>> +                             rfkill_set_block(rfkill, ev.soft);
+>
+> It was included for RFKILL_OP_CHANGE_ALL.
+>
+>> +     case RFKILL_OP_CHANGE:
+>> +             list_for_each_entry(rfkill, &rfkill_list, node)
+>> +                     if (rfkill->idx =3D=3D ev.idx && rfkill->type =
+=3D=3D ev.type)
+>> +                             rfkill_set_block(rfkill, ev.soft);
+>
+> but not for RFKILL_OP_CHANGE..
+>
+> This needs following to work:
+>
+>
+> diff --git a/net/rfkill/core.c b/net/rfkill/core.c
+> index 59ff92d..c4bbd19 100644
+> --- a/net/rfkill/core.c
+> +++ b/net/rfkill/core.c
+> @@ -1239,7 +1239,9 @@ static ssize_t rfkill_fop_write(struct file *fi=
+le, const char __user *buf,
+>                 break;
+>         case RFKILL_OP_CHANGE:
+>                 list_for_each_entry(rfkill, &rfkill_list, node)
+> -                       if (rfkill->idx =3D=3D ev.idx && rfkill->type=
+ =3D=3D ev.type)
+> +                       if (rfkill->idx =3D=3D ev.idx &&
+> +                           (rfkill->type =3D=3D ev.type ||
+> +                            ev.type =3D=3D RFKILL_TYPE_ALL))
+>                                 rfkill_set_block(rfkill, ev.soft);
+>                 ret =3D 0;
+>                 break;
+>
 
-This makes is sound like a good fit for DSA.
+I agree there is a difference in the logic here, thanks for taking the
+time to point it out so clearly, and sorry for missing this. But AFAIU
+userspace should not call RFKILL_OP_CHANGE with ev.type =3D=3D
+RFKILL_TYPE_ALL, as RFKILL_OP_CHANGE is intended to be used to
+block/unblock one RFKill switch, and it is not possible to create a
+RFKill switch with type =3D=3D RFKILL_TYPE_ALL (rfkill_alloc() would
+return NULL).
 
-Documentation/networking/dsa/dsa.txt.
+I tried to look into the source code of the test suite you pointed,
+but couldn't easily figure out how it ends up with that combination.
+Could you please explain (or point me in the code) how is that a valid
+operation? If I'm not missing anything, we should probably return
+EINVAL in this case.
 
-You probably need to implement a new tagging protocol in
-net/dsa/tag_*.c and a driver in drivers/net/dsa/
+Regards,
 
-> 1. How does port netdev differ from regular netdev that carries data
->    when registering netdev? Any example you can point to?
-
-They don't differ at all. You consider each port of the switch to be a
-normal Linux interface.
-
-> 2. I assume port netdev will appear as an interface in ifconfig -a
->    command and it is not assigned an IP address. Correct?
-
-The user can assign an address, if they want. It is a normal Linux
-interface. They can also create a bridge, and add the interface to the
-bridge. An advanced DSA driver will keep track of which interfaces are
-in which bridge, and if possible, offload the bridge to the hardware.
-
-> 3. with 1xn switch, so we have n + 1 netdev registered with net
->    core? I assume, only 1 netdev is for data plane and the rest are
->    control plane. Is this correct?
-
-No. You only have netdev devices for the external ports of the
-switch. The other port is known as the cpu port, and does not have a
-netdev.
-
-> 4. We have bunch of port specific configuration that we would like
-> to control or configure from use space using standard tools. For
-> example, switch port state, flow control etc. Is that possible to
-> add using this framework? ethtool update needed for this?
-
-The whole idea here is that the switch ports are normal Linux
-interface. You use normal linux APIs to configure them. You probably
-don't need to add any new features.
-
-One key things to get your head around. The switch is a hardware
-accelerator for the Linux stack. You have to think how you can make
-your switch accelerate the Linux stack. It takes people a while to get
-this.
-
-      Andrew
+--
+Jo=C3=A3o Paulo Rechi Vita
+http://about.me/jprvita
