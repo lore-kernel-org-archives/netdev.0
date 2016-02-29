@@ -1,95 +1,104 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] mld, igmp: Fix reserved tailroom calculation
-Date: Mon, 29 Feb 2016 15:57:46 +0100
-Message-ID: <56D45C6A.5040606@iogearbox.net>
-References: <1456603028-12589-2-git-send-email-bpoirier@suse.com>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
+Date: Mon, 29 Feb 2016 07:03:11 -0800
+Message-ID: <56D45DAF.5070709@hurleysoftware.com>
+References: <56D1E8B6.6090003@hurleysoftware.com>
+ <1456638957.3676.12.camel@gmail.com>
+ <20160228170109.GA16322@electric-eye.fr.zoreil.com>
+ <1456721889.3488.67.camel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Benjamin Poirier <bpoirier@suse.com>, netdev@vger.kernel.org
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
+	dmaengine@vger.kernel.org, John Ogness <john.ogness@linutronix.de>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Mike Galbraith <umgwanakikbuti@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:53388 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754675AbcB2O5t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 09:57:49 -0500
-In-Reply-To: <1456603028-12589-2-git-send-email-bpoirier@suse.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35124 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752001AbcB2PDP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 10:03:15 -0500
+Received: by mail-pa0-f48.google.com with SMTP id bj10so24089087pad.2
+        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 07:03:15 -0800 (PST)
+In-Reply-To: <1456721889.3488.67.camel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Benjamin,
+On 02/28/2016 08:58 PM, Mike Galbraith wrote:
+> On Sun, 2016-02-28 at 18:01 +0100, Francois Romieu wrote:
+>> Mike Galbraith <umgwanakikbuti@gmail.com> :
+>> [...]
+>>> Hrm, relatively new + tasklet woes rings a bell.  Ah, that..
+>>>
+>>>
+>>> What's worse is that at the point where this code was written it was
+>>> already well known that tasklets are a steaming pile of crap and
+>>> should die.
+>>>
+>>>
+>>> Source thereof https://lwn.net/Articles/588457/
 
-[ -Cc my old RH address ]
+Thanks but not applicable. tglx's POV has everything to do with the
+tasklet interface and not the general concept of bottom-half interrupt
+processing in a timely manner. In any event, the problem created by
+Eric's change is not restricted to tasklets, but rather applies to
+all softirq.
 
-On 02/27/2016 08:57 PM, Benjamin Poirier wrote:
-> The current reserved_tailroom calculation fails to take hlen and tlen into
-> account.
->
-> skb:
-> [__hlen__|__data____________|__tlen___|__extra__]
-> ^                                               ^
-> head                                            skb_end_offset
->
-> In this representation, hlen + data + tlen is the size passed to alloc_skb.
-> "extra" is the extra space made available in __alloc_skb because of
-> rounding up by kmalloc. We can reorder the representation like so:
->
-> [__hlen__|__data____________|__extra__|__tlen___]
-> ^                                               ^
-> head                                            skb_end_offset
->
-> The maximum space available for ip headers and payload without
-> fragmentation is min(mtu, data + extra). Therefore,
-> reserved_tailroom
-> = data + extra + tlen - min(mtu, data + extra)
-> = skb_end_offset - hlen - min(mtu, skb_end_offset - hlen - tlen)
-> = skb_tailroom - min(mtu, skb_tailroom - tlen) ; after skb_reserve(hlen)
->
-> Compare the second line to the current expression:
-> reserved_tailroom = skb_end_offset - min(mtu, skb_end_offset)
-> and we can see that hlen and tlen are not taken into account.
->
-> Depending on hlen, tlen, mtu and the number of multicast address records,
-> the current code may output skbs that have less tailroom than
-> dev->needed_tailroom or it may output more skbs than needed because not all
-> space available is used.
->
-> Fixes: 4c672e4b ("ipv6: mld: fix add_grhead skb_over_panic for devs with large MTUs")
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
-> ---
->   net/ipv4/igmp.c  | 4 ++--
->   net/ipv6/mcast.c | 4 ++--
->   2 files changed, 4 insertions(+), 4 deletions(-)
->
-> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-> index 05e4cba..b5d28a4 100644
-> --- a/net/ipv4/igmp.c
-> +++ b/net/ipv4/igmp.c
-[...]
 
-[ cutting the IPv4 part off as diff is the same ]
+>> tasklets are ingrained in the dmaengine API (see Documentation/dmaengine/client.txt
+>> and drivers/dma/virt-dma.h::vchan_cookie_complete).
+>>
+>> Moving everything to irq context or handling his own sub-{jiffy/ms} timer
+>> while losing async dma doesn't exactly smell like roses either. :o(
+> 
+> https://lwn.net/Articles/239633/
+> 
+> If I'm listening properly, the root cause is that there is a timing
+> constraint involved, which is being exposed because one softirq raises
+> another (ew).
 
-> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-> index 5ee56d0..c157edc 100644
-> --- a/net/ipv6/mcast.c
-> +++ b/net/ipv6/mcast.c
-> @@ -1574,9 +1574,9 @@ static struct sk_buff *mld_newpack(struct inet6_dev *idev, unsigned int mtu)
->   		return NULL;
->
->   	skb->priority = TC_PRIO_CONTROL;
-> -	skb->reserved_tailroom = skb_end_offset(skb) -
-> -				 min(mtu, skb_end_offset(skb));
->   	skb_reserve(skb, hlen);
-> +	skb->reserved_tailroom = skb_tailroom(skb) -
-> +		min_t(int, mtu, skb_tailroom(skb) - tlen);
+Not the case. The softirq is raised from interrupt.
 
-Are you sure this is correct? Wouldn't that mean (assuming we allocated
-enough space), that I could now fill a larger than MTU frame?
+Before Eric's change, when an interrupt raises a new softirq
+while processing another softirq, the new softirq is immediately
+processed *after the existing softirq completes*.
 
->   	if (__ipv6_get_lladdr(idev, &addr_buf, IFA_F_TENTATIVE)) {
->   		/* <draft-ietf-magma-mld-source-05.txt>:
+After Eric's change, when an interrupt raises a new softirq
+while processing another softirq and _that softirq wakes a process_,
+the new softirq is *deferred to normal process priority*.
+This happens even if the new softirq is higher priority than the
+one currently running, which is flat-out wrong.
 
-Thanks,
-Daniel
+The reason this happens repeatedly and regularly is because
+1. The time window while NET_RX softirq is running is big.
+2. NET_RX softirq will almost always wake a process for a received packet.
+
+The reason why Eric's change is so effective for Eric's workload is
+that it fixes the problem where NET_RX keeps getting new network packets
+so it keeps looping, servicing more NET_RX softirq.
+
+However, I'm pointing out that Eric's sledgehammer approach to fixing
+the NET_RX softirq bug is having significant side-effects in other
+subsystems.
+
+
+> Processing timeout happens, freshly raised tasklet
+> wanders off to SCHED_NORMAL kthread context where its constraint dies.
+> 
+> Given the dma stuff apparently works fine in -rt (or did, see below),
+> timing constraints can't be super tight, so perhaps we could grow
+> realtime workqueue support for the truly deserving.  The tricky bit
+> would be being keeping everybody and his brother from abusing it.
+> 
+> WRT -rt: if dma tasklets really do have hard (ish) constraints, -rt
+> recently "broke" in the same way.. of all softirqs which are deferred
+> to kthread context, due to a recent change, only timer/hrtimer are
+> executed at realtime priority by default.
+> 
+> 	-Mike
+> 
