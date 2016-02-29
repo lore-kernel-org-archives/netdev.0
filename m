@@ -1,39 +1,113 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the target-merge tree with the net-next
- tree
-Date: Mon, 29 Feb 2016 17:39:11 +1100
-Message-ID: <20160229173911.4fabe3f8@canb.auug.org.au>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: [PATCH v2 net] bonding: don't use stale speed and duplex
+ information
+Date: Mon, 29 Feb 2016 14:41:43 +0800
+Message-ID: <56D3E827.1080005@gmail.com>
+References: <25869.1454962202@famine> <56CEBCC6.3040008@gmail.com>
+ <11163.1456407235@nyx> <56CFB6BF.3070705@gmail.com> <7949.1456724392@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hariprasad Shenai <hariprasad@chelsio.com>,
-	Varun Prakash <varun@chelsio.com>
-To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	dingtianhong <dingtianhong@huawei.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35369 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750878AbcB2GlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 01:41:14 -0500
+Received: by mail-pf0-f195.google.com with SMTP id w128so8469142pfb.2
+        for <netdev@vger.kernel.org>; Sun, 28 Feb 2016 22:41:14 -0800 (PST)
+In-Reply-To: <7949.1456724392@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Nicholas,
+On 02/29/2016 01:39 PM, Jay Vosburgh wrote:
+> zhuyj <zyjzyj2000@gmail.com> wrote:
+>
+>> On 02/25/2016 09:33 PM, Jay Vosburgh wrote:
+>>> zhuyj <zyjzyj2000@gmail.com> wrote:
+>>> [...]
+>>>> I delved into the source code and Emil's tests. I think that the problem
+>>>> that this patch expects to fix occurs very unusually.
+>>>>
+>>>> Do you agree with me?
+>>>>
+>>>> If so, maybe the following patch can reduce the performance loss.
+>>>> Please comment on it. Thanks a lot.
+>>>>
+>>>>
+>>>> diff --git a/drivers/net/bonding/bond_main.c
+>>>> b/drivers/net/bonding/bond_main.c
+>>>> index b7f1a99..c4c511a 100644
+>>>> --- a/drivers/net/bonding/bond_main.c
+>>>> +++ b/drivers/net/bonding/bond_main.c
+>>>> @@ -2129,7 +2129,9 @@ static void bond_miimon_commit(struct bonding *bond)
+>>>>                          continue;
+>>>>
+>>>>                  case BOND_LINK_UP:
+>>>> -                       bond_update_speed_duplex(slave);
+>>>> +                       if (slave->speed == SPEED_UNKNOWN)
+>>>> +                               bond_update_speed_duplex(slave);
+>>>> +
+>>>>                          bond_set_slave_link_state(slave, BOND_LINK_UP,
+>>>> BOND_SLAVE_NOTIFY_NOW);
+>>>>                          slave->last_link_up = jiffies;
+>>> 	I don't believe the speed is necessarily SPEED_UNKNOWN coming in
+>>> here.  If the race occurs at a time later than the initial enslavement,
+>>> speed may already be set (and the race manifests if the new speed
+>>> changes, i.e., the link changes from 1 Gb/sec to 10 Gb/sec), so I don't
+>>> think this is functionally correct.
+>> Hi, Jay
+>>
+>> Thanks for your reply.
+>>
+>> IMHO, "If the race occurs at a time later than the initial enslavement,
+>> speed may already be set (and the race manifests if the new speed
+>> changes, i.e., the link changes from 1 Gb/sec to 10 Gb/sec)", from my test,
+>> this will not happen because the previous source code make the speed
+>> correct.
+> 	How, exactly, will "the previous source code make the speed
+> correct"?
+>
+>> This "bond_update_speed_duplex" repeats to get the correct speed.
+>>
+>> That is, this patch is to fix the error in initial enslavement. The
+>> mentioned scenario will not occur.
+> 	I see nothing in the code that limits the race to happening only
+> at enslavement time.
+>
+> 	If the bond_mii_monitor call executes between the device going
+> link up and the arrival of the NETDEV_CHANGE or NETDEV_UP callback, the
+> stored speed and duplex are stale.  The stale speed value is not
+> guaranteed to be SPEED_UNKNOWN, so your patch is not functionally
+> correct.
 
-Today's linux-next merge of the target-merge tree got a conflict in:
+Hi, Jay
 
-  drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+In this function bond_slave_netdev_event, the speed is updated.
 
-between commit:
+Best Regards!
+Zhu Yanjun
 
-  ba9cee6aa67d ("cxgb4/iw_cxgb4: TOS support")
-
-from the net-next tree and commit:
-
-  c973e2a3ff1b ("cxgb4: add definitions for iSCSI target ULD")
-
-from the target-merge tree.
-
-I fixed it up (the latter was a superset of the former) and can carry
-the fix as necessary (no action is required).
-
--- 
-Cheers,
-Stephen Rothwell
+>
+> 	-J
+>
+>> Even though the performance impact is minimal, if we can avoid this
+>> performance
+>> impact, why not ?
+>>
+>> Best Regards!
+>> Zhu Yanjun
+>>
+>>> 	Also, the call to bond_miimon_commit itself is already gated by
+>>> bond_miimon_inspect finding a link state change.  The performance impact
+>>> here should be minimal.
+>>>
+>>> 	-J
+> ---
+> 	-Jay Vosburgh, jay.vosburgh@canonical.com
