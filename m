@@ -1,54 +1,64 @@
-From: <igal.liberman@freescale.com>
-Subject: [PATCH] fsl/fman: Initialize fman->dev earlier
-Date: Sun, 28 Feb 2016 23:59:53 +0200
-Message-ID: <1456696793-32417-1-git-send-email-igal.liberman@freescale.com>
-Reply-To: <igal.liberman@freescale.com>
+From: Benjamin Poirier <bpoirier@suse.com>
+Subject: Re: [PATCH] mld, igmp: Fix reserved tailroom calculation
+Date: Mon, 29 Feb 2016 07:19:20 -0800
+Message-ID: <20160229151920.GA5474@f1.synalogic.ca>
+References: <1456603028-12589-2-git-send-email-bpoirier@suse.com>
+ <56D45C6A.5040606@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <scottwood@freescale.com>, <madalin.bucur@freescale.com>,
-	Igal Liberman <igal.liberman@freescale.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0130.outbound.protection.outlook.com ([157.56.111.130]:17591
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751457AbcB2PRZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Feb 2016 10:17:25 -0500
+Received: from mx2.suse.de ([195.135.220.15]:34878 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750796AbcB2PTb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Feb 2016 10:19:31 -0500
+Content-Disposition: inline
+In-Reply-To: <56D45C6A.5040606@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Igal Liberman <igal.liberman@freescale.com>
+On 2016/02/29 15:57, Daniel Borkmann wrote:
+[...]
+> 
+> [ cutting the IPv4 part off as diff is the same ]
+> 
+> >diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+> >index 5ee56d0..c157edc 100644
+> >--- a/net/ipv6/mcast.c
+> >+++ b/net/ipv6/mcast.c
+> >@@ -1574,9 +1574,9 @@ static struct sk_buff *mld_newpack(struct inet6_dev *idev, unsigned int mtu)
+> >  		return NULL;
+> >
+> >  	skb->priority = TC_PRIO_CONTROL;
+> >-	skb->reserved_tailroom = skb_end_offset(skb) -
+> >-				 min(mtu, skb_end_offset(skb));
+> >  	skb_reserve(skb, hlen);
+> >+	skb->reserved_tailroom = skb_tailroom(skb) -
+> >+		min_t(int, mtu, skb_tailroom(skb) - tlen);
+> 
+> Are you sure this is correct? Wouldn't that mean (assuming we allocated
+> enough space), that I could now fill a larger than MTU frame?
 
-Currently, in a case of error, dev_err is using fman->dev
-before its initialization and "(NULL device *)" is printed.
-This patch fixes this issue.
+Quoting back a part of the log:
 
-Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
----
- drivers/net/ethernet/freescale/fman/fman.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> >The maximum space available for ip headers and payload without
+> >fragmentation is min(mtu, data + extra). Therefore,
+> >reserved_tailroom
+> >= data + extra + tlen - min(mtu, data + extra)
+> >= skb_end_offset - hlen - min(mtu, skb_end_offset - hlen - tlen)
+> >= skb_tailroom - min(mtu, skb_tailroom - tlen) ; after skb_reserve(hlen)
 
-diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
-index 623aa1c..79a210a 100644
---- a/drivers/net/ethernet/freescale/fman/fman.c
-+++ b/drivers/net/ethernet/freescale/fman/fman.c
-@@ -2791,6 +2791,8 @@ static struct fman *read_dts_node(struct platform_device *of_dev)
- 		goto fman_free;
- 	}
- 
-+	fman->dev = &of_dev->dev;
-+
- 	return fman;
- 
- fman_node_put:
-@@ -2845,8 +2847,6 @@ static int fman_probe(struct platform_device *of_dev)
- 
- 	dev_set_drvdata(dev, fman);
- 
--	fman->dev = dev;
--
- 	dev_dbg(dev, "FMan%d probed\n", fman->dts_params.id);
- 
- 	return 0;
--- 
-1.7.9.5
+The min() takes care of the situation you describe, ie. if the allocated
+space is large, reserved_tailroom will be large enough that we do not
+use more space than the mtu.
+
+I tested the mld and igmp code with different driver parameters, mtu
+values, number of multicast address records and even allocation
+failures. If you think the formula is wrong, please provide a
+counter-example with hlen, tlen, mtu and size values.
+
+Regards,
+-Benjamin
