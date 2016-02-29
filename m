@@ -1,61 +1,125 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
-Date: Mon, 29 Feb 2016 20:14:36 +0100 (CET)
-Message-ID: <alpine.DEB.2.11.1602292009430.3638@nanos>
-References: <56D1E8B6.6090003@hurleysoftware.com> <1456638957.3676.12.camel@gmail.com> <20160228170109.GA16322@electric-eye.fr.zoreil.com> <1456721889.3488.67.camel@gmail.com> <56D45DAF.5070709@hurleysoftware.com> <1456759153.648.61.camel@edumazet-ThinkPad-T530>
- <56D469B2.2070707@hurleysoftware.com> <1456762914.648.76.camel@edumazet-ThinkPad-T530> <56D48869.1000106@hurleysoftware.com> <1456770279.648.85.camel@edumazet-ThinkPad-T530> <56D493A5.403@hurleysoftware.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
-	dmaengine@vger.kernel.org, John Ogness <john.ogness@linutronix.de>,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Peter Hurley <peter@hurleysoftware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56D493A5.403@hurleysoftware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net V1 1/7] net/mlx5e: Remove wrong poll CQ optimization
+Date: Mon, 29 Feb 2016 21:17:09 +0200
+Message-ID: <1456773435-16607-2-git-send-email-saeedm@mellanox.com>
+References: <1456773435-16607-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:53115 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752009AbcB2TSE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Feb 2016 14:18:04 -0500
+In-Reply-To: <1456773435-16607-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 29 Feb 2016, Peter Hurley wrote:
-> On 02/29/2016 10:24 AM, Eric Dumazet wrote:
-> >> Just to be clear
-> >>
-> >> 		if (time_before(jiffies, end) && !need_resched() &&
-> >> 		    --max_restart)
-> >> 			goto restart;
-> >>
-> >> aborts softirq *even if 0ns have elapsed*, if NET_RX has woken a process.
-> > 
-> > Sure, now remove the 1st and 2nd condition.
-> 
-> Well just removing the 2nd condition has everything working fine,
-> because that fixes the priority inversion.
+From: Tariq Toukan <tariqt@mellanox.com>
 
-No. It does not fix anything. It hides the shortcomings of the driver.
+With the MLX5E_CQ_HAS_CQES optimization flag, the following buggy
+flow might occur:
+- Suppose RX is always busy, TX has a single packet every second.
+- We poll a single TX cqe and clear its flag.
+- We never arm it again as RX is always busy.
+- TX CQ flag is never changed, and new TX cqes are not polled.
+
+We revert this optimization.
+
+Fixes: e586b3b0baee ('net/mlx5: Ethernet Datapath files')
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |    5 -----
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |    7 -------
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |   10 +---------
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c |    1 -
+ 4 files changed, 1 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index aac071a..614a602 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -304,14 +304,9 @@ enum {
+ 	MLX5E_RQ_STATE_POST_WQES_ENABLE,
+ };
  
-> However, when system resources are _not_ contended, it makes no
-> sense to be forced to revert to ksoftirqd resolution, which is strictly
-> intended as fallback.
-
-No. You claim it is simply because your driver does not handle that situation
-properly.
+-enum cq_flags {
+-	MLX5E_CQ_HAS_CQES = 1,
+-};
+-
+ struct mlx5e_cq {
+ 	/* data path - accessed per cqe */
+ 	struct mlx5_cqwq           wq;
+-	unsigned long              flags;
  
-> Or flipping your argument on its head, why not just _always_ execute
-> softirq in ksoftirqd?
-
-Which is what that change effectivley does. And that makes a lot of sense,
-because you get the softirq load under scheduler control and do not let the
-softirq run as a context stealing entity which is completely uncontrollable by
-the scheduler.
-
-Running the softirq on return from interrupt can cause real priority
-inversions.
-
-Thanks,
-
-	tglx
+ 	/* data path - accessed per napi poll */
+ 	struct napi_struct        *napi;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index dd959d9..3fd6a58 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -230,10 +230,6 @@ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
+ 	struct mlx5e_rq *rq = container_of(cq, struct mlx5e_rq, cq);
+ 	int work_done;
+ 
+-	/* avoid accessing cq (dma coherent memory) if not needed */
+-	if (!test_and_clear_bit(MLX5E_CQ_HAS_CQES, &cq->flags))
+-		return 0;
+-
+ 	for (work_done = 0; work_done < budget; work_done++) {
+ 		struct mlx5e_rx_wqe *wqe;
+ 		struct mlx5_cqe64 *cqe;
+@@ -279,8 +275,5 @@ wq_ll_pop:
+ 	/* ensure cq space is freed before enabling more cqes */
+ 	wmb();
+ 
+-	if (work_done == budget)
+-		set_bit(MLX5E_CQ_HAS_CQES, &cq->flags);
+-
+ 	return work_done;
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 2c3fba0..2beea8c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -335,10 +335,6 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 	u16 sqcc;
+ 	int i;
+ 
+-	/* avoid accessing cq (dma coherent memory) if not needed */
+-	if (!test_and_clear_bit(MLX5E_CQ_HAS_CQES, &cq->flags))
+-		return false;
+-
+ 	sq = container_of(cq, struct mlx5e_sq, cq);
+ 
+ 	npkts = 0;
+@@ -422,10 +418,6 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 				netif_tx_wake_queue(sq->txq);
+ 				sq->stats.wake++;
+ 	}
+-	if (i == MLX5E_TX_CQ_POLL_BUDGET) {
+-		set_bit(MLX5E_CQ_HAS_CQES, &cq->flags);
+-		return true;
+-	}
+ 
+-	return false;
++	return (i == MLX5E_TX_CQ_POLL_BUDGET);
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+index 4ac8d71..66d51a7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -88,7 +88,6 @@ void mlx5e_completion_event(struct mlx5_core_cq *mcq)
+ {
+ 	struct mlx5e_cq *cq = container_of(mcq, struct mlx5e_cq, mcq);
+ 
+-	set_bit(MLX5E_CQ_HAS_CQES, &cq->flags);
+ 	set_bit(MLX5E_CHANNEL_NAPI_SCHED, &cq->channel->flags);
+ 	barrier();
+ 	napi_schedule(cq->napi);
+-- 
+1.7.1
