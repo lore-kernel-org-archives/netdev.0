@@ -1,13 +1,12 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
-Date: Mon, 29 Feb 2016 08:21:54 -0800
-Message-ID: <1456762914.648.76.camel@edumazet-ThinkPad-T530>
+Date: Mon, 29 Feb 2016 08:24:23 -0800
+Message-ID: <1456763063.648.78.camel@edumazet-ThinkPad-T530>
 References: <56D1E8B6.6090003@hurleysoftware.com>
 	 <1456638957.3676.12.camel@gmail.com>
 	 <20160228170109.GA16322@electric-eye.fr.zoreil.com>
 	 <1456721889.3488.67.camel@gmail.com> <56D45DAF.5070709@hurleysoftware.com>
-	 <1456759153.648.61.camel@edumazet-ThinkPad-T530>
-	 <56D469B2.2070707@hurleysoftware.com>
+	 <1456760443.3488.151.camel@gmail.com> <56D46AB4.6060805@hurleysoftware.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -21,48 +20,20 @@ Cc: Mike Galbraith <umgwanakikbuti@gmail.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	Thomas Gleixner <tglx@linutronix.de>
 To: Peter Hurley <peter@hurleysoftware.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:35080 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753289AbcB2QW6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 11:22:58 -0500
-In-Reply-To: <56D469B2.2070707@hurleysoftware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56D46AB4.6060805@hurleysoftware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On lun., 2016-02-29 at 07:54 -0800, Peter Hurley wrote:
+On lun., 2016-02-29 at 07:58 -0800, Peter Hurley wrote:
 
->  The current kernel is HZ=250 but this would occur on HZ=1000 as well.
+> All that's happened is the first loop of NET_RX softirq has woken a
+> process; that is sufficient to abort softirq and defer it for ksoftirqd.
+> 
+> That's why I'm saying this is a priority inversion, and one that
+> will happen a lot.
 
-Right. But the problem with HZ=100 and HZ=250 is that the detection can
-happens because jiffy granularity is too coarse, since 
+Sure. This will happen every time ksoftirqd is launched.
 
-msecs_to_jiffies(2) -> 1
-
-Following patch might reduce the probability, but wont really fix your
-problem.
-
-Fact that ksoftirqd prio is not what you want is completely orthogonal.
-
-diff --git a/kernel/softirq.c b/kernel/softirq.c
-index 479e443..f7cc594 100644
---- a/kernel/softirq.c
-+++ b/kernel/softirq.c
-@@ -180,7 +180,7 @@ EXPORT_SYMBOL(__local_bh_enable_ip);
- 
- /*
-  * We restart softirq processing for at most MAX_SOFTIRQ_RESTART times,
-- * but break the loop if need_resched() is set or after 2 ms.
-+ * but break the loop if need_resched() is set or after 2 ms/ticks.
-  * The MAX_SOFTIRQ_TIME provides a nice upper bound in most cases, but in
-  * certain cases, such as stop_machine(), jiffies may cease to
-  * increment and so we need the MAX_SOFTIRQ_RESTART limit as
-@@ -191,7 +191,7 @@ EXPORT_SYMBOL(__local_bh_enable_ip);
-  * we want to handle softirqs as soon as possible, but they
-  * should not be able to lock up the box.
-  */
--#define MAX_SOFTIRQ_TIME  msecs_to_jiffies(2)
-+#define MAX_SOFTIRQ_TIME  (1 + msecs_to_jiffies(2))
- #define MAX_SOFTIRQ_RESTART 10
- 
- #ifdef CONFIG_TRACE_IRQFLAGS
+Get rid of ksoftirqd or renice it so that you can easily be killed by
+softirq storm.
