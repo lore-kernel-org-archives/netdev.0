@@ -1,7 +1,7 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
 Subject: Re: [PATCH 1/2] can: rcar_can: Add r8a7795 support
-Date: Mon, 29 Feb 2016 11:00:09 +0100
-Message-ID: <56D416A9.6080608@pengutronix.de>
+Date: Mon, 29 Feb 2016 11:02:22 +0100
+Message-ID: <56D4172E.4050407@pengutronix.de>
 References: <1456737661-20538-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
  <1456737661-20538-2-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
  <56D411A5.9070706@pengutronix.de>
@@ -9,7 +9,7 @@ References: <1456737661-20538-1-git-send-email-ramesh.shanmugasundaram@bp.renesa
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha512;
  protocol="application/pgp-signature";
- boundary="2XsOGtBhgUTBHMXDGWjOlmjSLgMgT41d6"
+ boundary="91c4EuRkOnW0mIoP9axSHeADILd2MUGcP"
 Cc: "linux-renesas-soc@vger.kernel.org"
 	<linux-renesas-soc@vger.kernel.org>,
 	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
@@ -27,36 +27,23 @@ To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>,
 	"mark.rutland@arm.com" <mark.rutland@arm.com>,
 	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
 	"galak@codeaurora.org" <galak@codeaurora.org>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <SG2PR06MB10380FC567E038EA92D5401EC3BA0@SG2PR06MB1038.apcprd06.prod.outlook.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---2XsOGtBhgUTBHMXDGWjOlmjSLgMgT41d6
+--91c4EuRkOnW0mIoP9axSHeADILd2MUGcP
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
 
 On 02/29/2016 10:56 AM, Ramesh Shanmugasundaram wrote:
->> On 02/29/2016 10:21 AM, Ramesh Shanmugasundaram wrote:
->>> Added r8a7795 SoC support.
->>>
->>> For smoother bit timing calculation, the rounded clock frequency is
->> used.
->>
->> Why this? From my point of view this introduces a clock error.
->=20
-> Thanks for the comments.=20
->=20
-> Without the rounded clock, can_calc_bittiming returns different BRP
-> values and reports high sampling error percentage. However, the
-> rounded clock shows no such issues and it works fine for all
-> bitrates.
->=20
-> Below is an e.g. from my board for an input clock differs by 2Hz.
+> root@salvator-x:~# can-calc-bit-timing -c 39999998 rcar_can =20
 
-I think it's better to fix the algorithm. I'll look into it.
+Can you send me the patches to support the rcar_can. On the linux-can ML
+or github pull request.
 
+Thanks,
 Marc
 
 --=20
@@ -66,20 +53,20 @@ Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
 Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
---2XsOGtBhgUTBHMXDGWjOlmjSLgMgT41d6
+--91c4EuRkOnW0mIoP9axSHeADILd2MUGcP
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQEcBAEBCgAGBQJW1BapAAoJED07qiWsqSVqx0gH+wdaVApbZr7dQF0+4VnzwZMd
-+MLQ+n44pTm/XfDrhnPuMA3Y/oAZJ57620LPQIOfG9PZEtlSOu69q9p2udjbFfFz
-Oo8rrKthpfT4c9AhxBAXaGSIYoIPPSKooEuslk8lV6cttHxPX2aOkBoxOCZS0CVf
-GLREMcTjcQtT6rDmocV+djeAdRg4zMS/Nev73+Cu2GtlG72xgzQAxCbRCom5c3Ef
-lPMbm9qMR2pPIFtgYjUwUNnyiz/TctPW/nlw2ycQkU5aBaDD/ZqXVP9QkbIoN2CI
-DAcRrvRgMCSBDQxVwLcN7oRArKR1TLLAIWZB1AuALEovr0hD9JLhFvGzAzZeuiI=
-=Ue8T
+iQEcBAEBCgAGBQJW1BcuAAoJED07qiWsqSVqZLoH/0b812uFBjQenKKxA6LeTN20
+z7pev5rXBYS8uBd1/RJ5aAZRqnEmEIoVKxSOa1PPRYLTqoUog5Ev9QlS+UQdVdBr
+tw5jPlI7btvT7NraWA7ZaOFIVCp6lvpPC7dfY4JX5oXvcLmRLEOUP0KAP9rSgupw
+RjKxTSuAPk5uRuv8nI9ua85cCMhLu+ojjx4SGY2hWVP/6VkGiMc/agBfhfzHDX6G
+S822ZTTKwRSpCHx8jimyhHAz6aLDYVdbKWwaV+M/V9K6Cpo4y1bp2c6GSmgZr52R
+mycX8naTomBCsMG7pvTyQp3uGuAzdy4h1VTErXH/yKxwzAwAsgg25Mb9K9jXM7o=
+=ahJr
 -----END PGP SIGNATURE-----
 
---2XsOGtBhgUTBHMXDGWjOlmjSLgMgT41d6--
+--91c4EuRkOnW0mIoP9axSHeADILd2MUGcP--
