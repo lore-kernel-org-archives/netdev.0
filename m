@@ -1,10 +1,9 @@
 From: Lars Persson <lars.persson@axis.com>
-Subject: [PATCH net 1/5] dwc_eth_qos: fix race condition in dwceqos_start_xmit
-Date: Mon, 29 Feb 2016 16:22:30 +0100
-Message-ID: <1ac5ce059532da7c90fc9dc93fab96d01a9765bf.1456756740.git.larper@axis.com>
+Subject: [PATCH net 5/5] dwc_eth_qos: do phy_start before resetting hardware
+Date: Mon, 29 Feb 2016 16:22:34 +0100
+Message-ID: <13e93030fac6f6323664fc7023d0a2090b5127bf.1456756740.git.larper@axis.com>
 References: <cover.1456756740.git.larper@axis.com>
-Cc: linux-kernel@vger.kernel.org, Rabin Vincent <rabinv@axis.com>,
-	Lars Persson <larper@axis.com>
+Cc: linux-kernel@vger.kernel.org, Lars Persson <larper@axis.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1456756740.git.larper@axis.com>
@@ -13,36 +12,92 @@ References: <cover.1456756740.git.larper@axis.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rabin Vincent <rabinv@axis.com>
+This reverts the changed init order from commit 3647bc35bd42
+("dwc_eth_qos: Reset hardware before PHY start") and makes another fix
+for the race.
 
-The xmit handler and the tx_reclaim tasklet had a race on the tx_free
-variable which could lead to a tx timeout if tx_free was updated after
-the tx complete interrupt.
+It turned out that the reset state machine of the dwceqos hardware
+requires PHY clocks to be present in order to complete the reset
+cycle.
 
-Signed-off-by: Rabin Vincent <rabinv@axis.com>
+To plug the race with the phy state machine we defer link speed
+setting until the hardware init has finished.
+
 Signed-off-by: Lars Persson <larper@axis.com>
 ---
- drivers/net/ethernet/synopsys/dwc_eth_qos.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c | 23 ++++++++++++++++++++---
+ 1 file changed, 20 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-index fc8bbff..926db2d 100644
+index 6897c1d..af11ed1 100644
 --- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
 +++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-@@ -2178,12 +2178,10 @@ static int dwceqos_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		((trans.initial_descriptor + trans.nr_descriptors) %
- 		 DWCEQOS_TX_DCNT));
+@@ -650,6 +650,11 @@ struct net_local {
+ 	u32 mmc_tx_counters_mask;
  
--	dwceqos_tx_finalize(skb, lp, &trans);
--
--	netdev_sent_queue(ndev, skb->len);
--
- 	spin_lock_bh(&lp->tx_lock);
- 	lp->tx_free -= trans.nr_descriptors;
-+	dwceqos_tx_finalize(skb, lp, &trans);
-+	netdev_sent_queue(ndev, skb->len);
- 	spin_unlock_bh(&lp->tx_lock);
+ 	struct dwceqos_flowcontrol flowcontrol;
++
++	/* Tracks the intermediate state of phy started but hardware
++	 * init not finished yet.
++	 */
++	bool phy_defer;
+ };
  
- 	ndev->trans_start = jiffies;
+ static void dwceqos_read_mmc_counters(struct net_local *lp, u32 rx_mask,
+@@ -901,6 +906,9 @@ static void dwceqos_adjust_link(struct net_device *ndev)
+ 	struct phy_device *phydev = lp->phy_dev;
+ 	int status_change = 0;
+ 
++	if (lp->phy_defer)
++		return;
++
+ 	if (phydev->link) {
+ 		if ((lp->speed != phydev->speed) ||
+ 		    (lp->duplex != phydev->duplex)) {
+@@ -1635,6 +1643,12 @@ static void dwceqos_init_hw(struct net_local *lp)
+ 	regval = dwceqos_read(lp, REG_DWCEQOS_MAC_CFG);
+ 	dwceqos_write(lp, REG_DWCEQOS_MAC_CFG,
+ 		      regval | DWCEQOS_MAC_CFG_TE | DWCEQOS_MAC_CFG_RE);
++
++	lp->phy_defer = false;
++	mutex_lock(&lp->phy_dev->lock);
++	phy_read_status(lp->phy_dev);
++	dwceqos_adjust_link(lp->ndev);
++	mutex_unlock(&lp->phy_dev->lock);
+ }
+ 
+ static void dwceqos_tx_reclaim(unsigned long data)
+@@ -1880,9 +1894,13 @@ static int dwceqos_open(struct net_device *ndev)
+ 	}
+ 	netdev_reset_queue(ndev);
+ 
++	/* The dwceqos reset state machine requires all phy clocks to complete,
++	 * hence the unusual init order with phy_start first.
++	 */
++	lp->phy_defer = true;
++	phy_start(lp->phy_dev);
+ 	dwceqos_init_hw(lp);
+ 	napi_enable(&lp->napi);
+-	phy_start(lp->phy_dev);
+ 
+ 	netif_start_queue(ndev);
+ 	tasklet_enable(&lp->tx_bdreclaim_tasklet);
+@@ -1915,8 +1933,6 @@ static int dwceqos_stop(struct net_device *ndev)
+ {
+ 	struct net_local *lp = netdev_priv(ndev);
+ 
+-	phy_stop(lp->phy_dev);
+-
+ 	tasklet_disable(&lp->tx_bdreclaim_tasklet);
+ 	napi_disable(&lp->napi);
+ 
+@@ -1927,6 +1943,7 @@ static int dwceqos_stop(struct net_device *ndev)
+ 
+ 	dwceqos_drain_dma(lp);
+ 	dwceqos_reset_hw(lp);
++	phy_stop(lp->phy_dev);
+ 
+ 	dwceqos_descriptor_free(lp);
+ 
 -- 
 2.1.4
