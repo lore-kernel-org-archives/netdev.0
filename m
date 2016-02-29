@@ -1,50 +1,122 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH] net/mlx5e: make VXLAN support conditional
-Date: Mon, 29 Feb 2016 13:51:51 +0100
-Message-ID: <2455934.lWxXaHB90g@wuerfel>
-References: <1456521217-2174580-1-git-send-email-arnd@arndb.de> <CALzJLG8MG9y8yr7zi4UTED0FwgBTJ+_5vSSWHB5SHFs-e8WTbg@mail.gmail.com>
+From: Christophe Leroy <christophe.leroy@c-s.fr>
+Subject: Re: [PATCH 6/9] powerpc32: optimise a few instructions in
+ csum_partial()
+Date: Mon, 29 Feb 2016 13:53:07 +0100
+Message-ID: <56D43F33.4030702@c-s.fr>
+References: <cover.1442876807.git.christophe.leroy@c-s.fr>
+ <0a4e1624642137dc2b16bbb68ea87b1a479dfa34.1442876807.git.christophe.leroy@c-s.fr>
+ <1445571040.701.149.camel@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALzJLG8MG9y8yr7zi4UTED0FwgBTJ+_5vSSWHB5SHFs-e8WTbg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org
+To: Scott Wood <scottwood@freescale.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1445571040.701.149.camel@freescale.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 28 February 2016 15:26:53 Saeed Mahameed wrote:
-> > diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> > index 0d45f35aee72..44fc4bc35ffd 100644
-> > --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> > +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> > @@ -2116,6 +2116,9 @@ static netdev_features_t mlx5e_vxlan_features_check(struct mlx5e_priv *priv,
-> >         u16 proto;
-> >         u16 port = 0;
-> >
-> > +       if (!IS_ENABLED(CONFIG_MLX5_CORE_EN_VXLAN))
-> > +               goto out;
-> > +
-> 
-> I would rather wrap the whole mlx5e_features_check with the suggested
-> config flag and disable it in case CONFIG_MLX5_CORE_EN_VXLAN is OFF,
-> since this function is only needed for when vxlan is supported.
 
-Sounds good.
 
-I think moving the IS_ENABLED() check into the caller(s) will still
-result in the same object code, but it makes sense to structure
-the code for best readability.
+Le 23/10/2015 05:30, Scott Wood a =C3=A9crit :
+> On Tue, 2015-09-22 at 16:34 +0200, Christophe Leroy wrote:
+>> r5 does contain the value to be updated, so lets use r5 all way long
+>> for that. It makes the code more readable.
+>>
+>> To avoid confusion, it is better to use adde instead of addc
+>>
+>> The first addition is useless. Its only purpose is to clear carry.
+>> As r4 is a signed int that is always positive, this can be done by
+>> using srawi instead of srwi
+>>
+>> Let's also remove the comment about bdnz having no overhead as it
+>> is not correct on all powerpc, at least on MPC8xx
+>>
+>> In the last part, in our situation, the remaining quantity of bytes
+>> to be proceeded is between 0 and 3. Therefore, we can base that part
+>> on the value of bit 31 and bit 30 of r4 instead of anding r4 with 3
+>> then proceding on comparisons and substractions.
+>>
+>> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+>> ---
+>>   arch/powerpc/lib/checksum_32.S | 37 +++++++++++++++++-------------=
+-------
+>>   1 file changed, 17 insertions(+), 20 deletions(-)
+> Do you have benchmarks for these optimizations?
+>
+> -Scott
+Using mftbl() to get timebase just before and after call to=20
+csum_partial(), I get the following on an MPC885:
+* 78 bytes packets: 9% faster (11,5 to 10,4 tb ticks)
+* 328 bytes packets: 3% faster (47,9 to 46,5 tb ticks)
 
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Christophe
+>
+>> diff --git a/arch/powerpc/lib/checksum_32.S b/arch/powerpc/lib/check=
+sum_32.S
+>> index 3472372..9c12602 100644
+>> --- a/arch/powerpc/lib/checksum_32.S
+>> +++ b/arch/powerpc/lib/checksum_32.S
+>> @@ -27,35 +27,32 @@
+>>    * csum_partial(buff, len, sum)
+>>    */
+>>   _GLOBAL(csum_partial)
+>> -     addic   r0,r5,0
+>>        subi    r3,r3,4
+>> -     srwi.   r6,r4,2
+>> +     srawi.  r6,r4,2         /* Divide len by 4 and also clear carr=
+y */
+>>        beq     3f              /* if we're doing < 4 bytes */
+>> -     andi.   r5,r3,2         /* Align buffer to longword boundary *=
+/
+>> +     andi.   r0,r3,2         /* Align buffer to longword boundary *=
+/
+>>        beq+    1f
+>> -     lhz     r5,4(r3)        /* do 2 bytes to get aligned */
+>> -     addi    r3,r3,2
+>> +     lhz     r0,4(r3)        /* do 2 bytes to get aligned */
+>>        subi    r4,r4,2
+>> -     addc    r0,r0,r5
+>> +     addi    r3,r3,2
+>>        srwi.   r6,r4,2         /* # words to do */
+>> +     adde    r5,r5,r0
+>>        beq     3f
+>>   1:   mtctr   r6
+>> -2:   lwzu    r5,4(r3)        /* the bdnz has zero overhead, so it s=
+hould */
+>> -     adde    r0,r0,r5        /* be unnecessary to unroll this loop =
+*/
+>> +2:   lwzu    r0,4(r3)
+>> +     adde    r5,r5,r0
+>>        bdnz    2b
+>> -     andi.   r4,r4,3
+>> -3:   cmpwi   0,r4,2
+>> -     blt+    4f
+>> -     lhz     r5,4(r3)
+>> +3:   andi.   r0,r4,2
+>> +     beq+    4f
+>> +     lhz     r0,4(r3)
+>>        addi    r3,r3,2
+>> -     subi    r4,r4,2
+>> -     adde    r0,r0,r5
+>> -4:   cmpwi   0,r4,1
+>> -     bne+    5f
+>> -     lbz     r5,4(r3)
+>> -     slwi    r5,r5,8         /* Upper byte of word */
+>> -     adde    r0,r0,r5
+>> -5:   addze   r3,r0           /* add in final carry */
+>> +     adde    r5,r5,r0
+>> +4:   andi.   r0,r4,1
+>> +     beq+    5f
+>> +     lbz     r0,4(r3)
+>> +     slwi    r0,r0,8         /* Upper byte of word */
+>> +     adde    r5,r5,r0
+>> +5:   addze   r3,r5           /* add in final carry */
+>>        blr
+>>  =20
+>>   /*
