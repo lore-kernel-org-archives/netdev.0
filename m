@@ -1,61 +1,163 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net V1 0/7] Mellanox 100G mlx5 driver fixes
-Date: Mon, 29 Feb 2016 21:17:08 +0200
-Message-ID: <1456773435-16607-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH] net: relax setup_tc ndo op handle restriction
+Date: Mon, 29 Feb 2016 11:26:13 -0800
+Message-ID: <20160229192613.24163.31830.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: intel-wired-lan@lists.osuosl.org, john.fastabend@gmail.com,
+	jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53223 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751841AbcB2TTR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Feb 2016 14:19:17 -0500
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:35593 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753848AbcB2T01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 14:26:27 -0500
+Received: by mail-pf0-f180.google.com with SMTP id w128so52346462pfb.2
+        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 11:26:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+I added this check in setup_tc to multiple drivers,
 
-This series has few bug fixes for the mlx5 Ethernet driver.
+ if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
 
-Eran fixed a locking issue with time-stamping that could cause a soft-lockup when time-stamping is enabled.
+Unfortunately restricting to TC_H_ROOT like this breaks the old
+instantiation of mqprio to setup a hardware qdisc. This patch
+relaxes the test to only check the type to make it equivalent
+to the check before I broke it. With this the old instantiation
+continues to work.
 
-Gal fixed the rx/tx packets/bytes counters returned by the driver to actually went through the network stack.
+A good smoke test is to setup mqprio with,
 
-Tariq removed a poll CQ optimization which could lead the driver to stop getting interrupts for some of the rings, and a did also fix to HW LRO which is currently broken.
+# tc qdisc add dev eth4 root mqprio num_tc 8 \
+  map 0 1 2 3 4 5 6 7 \
+  queues 0@0 1@1 2@2 3@3 4@4 5@5 6@6 7@7
 
-He also provided RSS and RX hash fixes for the case of changing the number of rx rings the RX hash/RSS configuration will be out of sync.
+Fixes: e4c6734eaab9 ("net: rework ndo tc op to consume additional qdisc handle paramete")
+Reported-by: Singh Krishneil <krishneil.k.singh@intel.com>
+Reported-by: Jake Keller <jacob.e.keller@intel.com>
+CC: Murali Karicheri <m-karicheri2@ti.com>
+CC: Shradha Shah <sshah@solarflare.com>
+CC: Or Gerlitz <ogerlitz@mellanox.com>
+CC: Ariel Elior <ariel.elior@qlogic.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: Bruce Allan <bruce.w.allan@intel.com>
+CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c        |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c       |    2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    2 +-
+ drivers/net/ethernet/sfc/tx.c                   |    2 +-
+ drivers/net/ethernet/ti/netcp_core.c            |    2 +-
+ 8 files changed, 8 insertions(+), 8 deletions(-)
 
-The time stamping fix from Eran is not for -stable as the feature was only introduced in 4.5 but all of the others are.
-
-Changes fro V0:
-	- Eran addressed the irqsave/restore comments from "Dave" and fixed them.
-
-This series is generated against net commit 4c0b6eaf373a 'net: thunderx: Fix for Qset error due to CQ full'
-
-Saeed.
-
-Eran Ben Elisha (1):
-  net/mlx5e: Fix soft lockup when HW Timestamping is enabled
-
-Gal Pressman (2):
-  net/mlx5e: Add rx/tx bytes software counters
-  net/mlx5e: Provide correct packet/bytes statistics
-
-Tariq Toukan (4):
-  net/mlx5e: Remove wrong poll CQ optimization
-  net/mlx5e: Fix LRO modify
-  net/mlx5e: Fix ethtool RX hash func configuration change
-  net/mlx5e: Correctly handle RSS indirection table when changing
-    number of channels
-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   18 +++--
- drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |   25 ++++---
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   36 ++++++---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   82 +++++++++++---------
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |    8 +--
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |   19 ++---
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |    1 -
- include/linux/mlx5/mlx5_ifc.h                      |    4 +-
- 8 files changed, 109 insertions(+), 84 deletions(-)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 3360684..ebf9224 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -1632,7 +1632,7 @@ static int xgbe_setup_tc(struct net_device *netdev, u32 handle, __be16 proto,
+ 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
+ 	u8 tc;
+ 
+-	if (handle != TC_H_ROOT || tc_to_netdev->type != TC_SETUP_MQPRIO)
++	if (tc_to_netdev->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
+ 	tc = tc_to_netdev->tc;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 45843d1..a949783 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -4275,7 +4275,7 @@ int bnx2x_setup_tc(struct net_device *dev, u8 num_tc)
+ int __bnx2x_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
+ 		     struct tc_to_netdev *tc)
+ {
+-	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
++	if (tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 	return bnx2x_setup_tc(dev, tc->tc);
+ }
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index ff1507f..f1a0a73 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -5383,7 +5383,7 @@ static int bnxt_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
+ 	struct bnxt *bp = netdev_priv(dev);
+ 	u8 tc;
+ 
+-	if (handle != TC_H_ROOT || ntc->type != TC_SETUP_MQPRIO)
++	if (ntc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
+ 	tc = ntc->tc;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index dc1a821..d09a8dd 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -1207,7 +1207,7 @@ err_queueing_scheme:
+ static int __fm10k_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
+ 			    struct tc_to_netdev *tc)
+ {
+-	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
++	if (tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
+ 	return fm10k_setup_tc(dev, tc->tc);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index cf4b729..02139f3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8422,7 +8422,7 @@ int __ixgbe_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
+ 		}
+ 	}
+ 
+-	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
++	if (tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
+ 	return ixgbe_setup_tc(dev, tc->tc);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 96d95cb..a2d560a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -72,7 +72,7 @@ int mlx4_en_setup_tc(struct net_device *dev, u8 up)
+ static int __mlx4_en_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
+ 			      struct tc_to_netdev *tc)
+ {
+-	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
++	if (tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
+ 	return mlx4_en_setup_tc(dev, tc->tc);
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index 2cdb571..2337789 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -571,7 +571,7 @@ int efx_setup_tc(struct net_device *net_dev, u32 handle, __be16 proto,
+ 	unsigned tc, num_tc;
+ 	int rc;
+ 
+-	if (handle != TC_H_ROOT || ntc->type != TC_SETUP_MQPRIO)
++	if (ntc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
+ 	num_tc = ntc->tc;
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index ed0c30f..1d0942c 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -1860,7 +1860,7 @@ static int netcp_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
+ 	/* setup tc must be called under rtnl lock */
+ 	ASSERT_RTNL();
+ 
+-	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
++	if (tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
+ 
+ 	/* Sanity-check the number of traffic classes requested */
