@@ -1,97 +1,109 @@
-From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 11/15] batman-adv: B.A.T.M.A.N. V - implement neighbor comparison API calls
-Date: Mon, 29 Feb 2016 19:06:04 +0800
-Message-ID: <1456743968-17562-12-git-send-email-a__14881.3393935145$1456746056$gmane$org@unstable.cc>
-References: <1456743968-17562-1-git-send-email-a@unstable.cc>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <antonio@open-mesh.com>,
-	Marek Lindner <mareklindner@neomailbox.ch>
-To: davem@davemloft.net
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH RFC v2 28/32] Documentation: DSA: Describe how probe of
+ DSA and switches work.
+Date: Mon, 29 Feb 2016 14:42:40 +0300
+Message-ID: <56D42EB0.3080304@cogentembedded.com>
+References: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
+ <1456677700-23027-29-git-send-email-andrew@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:7369 "EHLO s2.neomailbox.net"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753848AbcB2Lku (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Feb 2016 06:40:50 -0500
-In-Reply-To: <1456743968-17562-1-git-send-email-a@unstable.cc>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:35752 "EHLO
+	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752149AbcB2Lmn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 06:42:43 -0500
+Received: by mail-lf0-f47.google.com with SMTP id j186so15008409lfg.2
+        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 03:42:42 -0800 (PST)
+In-Reply-To: <1456677700-23027-29-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@open-mesh.com>
+Hello.
 
-Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
----
- net/batman-adv/bat_v.c | 38 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 38 insertions(+)
+On 2/28/2016 7:41 PM, Andrew Lunn wrote:
 
-diff --git a/net/batman-adv/bat_v.c b/net/batman-adv/bat_v.c
-index ff31f2af9cfe..953c0d150231 100644
---- a/net/batman-adv/bat_v.c
-+++ b/net/batman-adv/bat_v.c
-@@ -19,12 +19,15 @@
- #include "main.h"
- 
- #include <linux/atomic.h>
-+#include <linux/bug.h>
- #include <linux/cache.h>
- #include <linux/init.h>
-+#include <linux/types.h>
- #include <linux/workqueue.h>
- 
- #include "bat_v_elp.h"
- #include "bat_v_ogm.h"
-+#include "originator.h"
- #include "packet.h"
- 
- static int batadv_v_iface_enable(struct batadv_hard_iface *hard_iface)
-@@ -78,6 +81,39 @@ static void batadv_v_ogm_emit(struct batadv_forw_packet *forw_packet)
- {
- }
- 
-+static int batadv_v_neigh_cmp(struct batadv_neigh_node *neigh1,
-+			      struct batadv_hard_iface *if_outgoing1,
-+			      struct batadv_neigh_node *neigh2,
-+			      struct batadv_hard_iface *if_outgoing2)
-+{
-+	struct batadv_neigh_ifinfo *ifinfo1, *ifinfo2;
-+
-+	ifinfo1 = batadv_neigh_ifinfo_get(neigh1, if_outgoing1);
-+	ifinfo2 = batadv_neigh_ifinfo_get(neigh2, if_outgoing2);
-+
-+	if (WARN_ON(!ifinfo1 || !ifinfo2))
-+		return 0;
-+
-+	return ifinfo1->bat_v.throughput - ifinfo2->bat_v.throughput;
-+}
-+
-+static bool batadv_v_neigh_is_sob(struct batadv_neigh_node *neigh1,
-+				  struct batadv_hard_iface *if_outgoing1,
-+				  struct batadv_neigh_node *neigh2,
-+				  struct batadv_hard_iface *if_outgoing2)
-+{
-+	struct batadv_neigh_ifinfo *ifinfo1, *ifinfo2;
-+	u32 threshold;
-+
-+	ifinfo1 = batadv_neigh_ifinfo_get(neigh1, if_outgoing1);
-+	ifinfo2 = batadv_neigh_ifinfo_get(neigh2, if_outgoing2);
-+
-+	threshold = ifinfo1->bat_v.throughput / 4;
-+	threshold = ifinfo1->bat_v.throughput - threshold;
-+
-+	return ifinfo2->bat_v.throughput > threshold;
-+}
-+
- static struct batadv_algo_ops batadv_batman_v __read_mostly = {
- 	.name = "BATMAN_V",
- 	.bat_iface_enable = batadv_v_iface_enable,
-@@ -87,6 +123,8 @@ static struct batadv_algo_ops batadv_batman_v __read_mostly = {
- 	.bat_hardif_neigh_init = batadv_v_hardif_neigh_init,
- 	.bat_ogm_emit = batadv_v_ogm_emit,
- 	.bat_ogm_schedule = batadv_v_ogm_schedule,
-+	.bat_neigh_cmp = batadv_v_neigh_cmp,
-+	.bat_neigh_is_similar_or_better = batadv_v_neigh_is_sob,
- };
- 
- /**
--- 
-2.7.2
+> With the introduction of switches as linux devices and the use of the
+> component framework, probing has become more complex. Add some
+> documentation.
+>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+>   Documentation/networking/dsa/dsa.txt | 48 ++++++++++++++++++++++++++++++++++++
+>   1 file changed, 48 insertions(+)
+>
+> diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
+> index aa9c1f9313cd..376afa135a81 100644
+> --- a/Documentation/networking/dsa/dsa.txt
+> +++ b/Documentation/networking/dsa/dsa.txt
+> @@ -398,6 +398,54 @@ Switch configuration
+>     on the management interface and "hardcode"/"force" this MAC address for the
+>     CPU/management interface as an optimization
+>
+> +Call flow
+> +---------
+> +
+> +With the ability for switch devices to be true linux devices, the call
+
+    Linux.
+
+> +flow is somewhat complex. The component framework is used to link the
+> +dsa framework as the master, with switch devices, as slaves.
+
+    Commas not needed before "as".
+
+> +
+> +A switch device should add itself as a component in its probe
+> +function.
+> +
+> +The DSA framework can either be configured using a platform_data
+> +structure or from the device tree. If device tree is being used, the
+> +dsa framework probe function will allocate a platform_data structure,
+> +and populate it using the device tree, via the dsa_of_probe()
+> +function.  Within the DSA device tree, switch devices are represented
+> +by a phandle to the switch device. These phandles are saved into the
+> +platform data so that when switch slaves register themselves, they can
+> +be correctly positioned in the DSA cluster.
+> +
+> +The DSA probe function then creates a dsa_switch_tree structure which
+> +is the overarching structure representing a switch cluster. The probe
+> +function then looks in the platform data for the phandles to slave
+
+    Platform data and phandles?
+
+> +devices, and adds a component match based on the phandle. The
+> +component master is then created. This causes the component framework
+> +to link slaves to the master.
+> +
+> +If all the slave switch can be found, the masters bind function is
+
+    Switches? Master's?
+
+> +called, dsa_bind(). This in tern causes the switch slaves bind
+
+    In term?
+
+> +function to be called.
+> +
+> +The switches bind function allocated memory for its own private use,
+
+    Switch's?
+
+> +and for a dsa_switch structure, which represents one switch in a DSA
+> +cluster. The switch then registers with the DSA framework using
+> +dsa_switch_register().
+> +
+> +dsa_switch_register() looks in the platform data and finds the
+> +position within the cluster for the switch which is registering. The
+> +switches dsa_switch structure is then attached to the dsa_switch_tree
+
+    Switch's?
+
+> +structure in the correct place.
+[...]
+
+MBR, Sergei
