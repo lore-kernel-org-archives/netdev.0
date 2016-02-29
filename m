@@ -1,43 +1,50 @@
-From: "Mr. DOUGLAS" <douglascontact6048@live.com>
-Subject: =?utf-8?q?INFORMA=C3=87=C3=83O_IMPORTANTE__RE=3A_Consultoria_de_Investime?=
- =?utf-8?q?nto_em_sua_Localidade=2E?=
-Date: Sun, 28 Feb 2016 04:36:25 -0800
-Message-ID: <20160228133523.93C198FD557__49364.8623968058$1456757056$gmane$org@webmail.cefet-rj.br>
-Reply-To: johnsondouglas8738@gmail.com
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC v2 18/32] dsa: mv88e6xxx: Prepare for turning this
+ into a library module
+Date: Mon, 29 Feb 2016 15:53:11 +0100
+Message-ID: <20160229145311.GE1560@lunn.ch>
+References: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
+ <1456677700-23027-19-git-send-email-andrew@lunn.ch>
+ <87io185jd3.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <douglascontact6048@live.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.cefet-rj.br ([200.9.149.52]:50747 "EHLO
-	webmail.cefet-rj.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751457AbcB2On4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 09:43:56 -0500
-Content-Description: Mail message body
+Received: from vps0.lunn.ch ([178.209.37.122]:45510 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751744AbcB2OxO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Feb 2016 09:53:14 -0500
+Content-Disposition: inline
+In-Reply-To: <87io185jd3.fsf@ketchup.mtl.sfl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oi,
+On Sun, Feb 28, 2016 at 09:40:56PM -0500, Vivien Didelot wrote:
+> Hi Andrew,
+> 
+> Andrew Lunn <andrew@lunn.ch> writes:
+> 
+> > Export all the functions so that we can later turn the module into a
+> > library module.
+> 
+> As I mentioned in the first RFC [1], wouldn't that be preferable to
+> avoid adding modules and factorize everything into a single one?
+> 
+> The common code would have a single probe function which calls
+> mv88e6xxx_lookup_name for every model tables until it finds the good
+> one.
 
-Temos planejado investir alguns fundos no seu pa=EDs.
+Hi Vivien
 
-Responder se voc=EA estiver interessado.
+This is all possible, but is not the point of what i'm trying to do
+with this patchset. I want switch drivers to be linux devices, which
+probe in the usual way. The changes i made here is the minimum needed
+to allow that. What you are suggesting are further steps that could be
+made. But since i already have 30 patches, i would prefer to get them
+accepted and then think about this refactoring into one module. Such
+refactoring should not change the device tree binding, so it can be
+deferred.
 
-Sauda=E7=F5es,
-Sir Henry Neville Lindley Keswick
-Presidente da Jardine Matheson Holdings Ltd
-https://en.wikipedia.org/wiki/Keswick_family
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D
-
-Hi friend,
-
-Our family is interested in investing funds in your locality.
-
-More information for you interest .
-
-Greetings,
-Sir Henry Neville Lindley Keswick
-Chairman of Jardine Matheson Holdings Ltd
-https://en.wikipedia.org/wiki/Keswick_family
+	Andrew
