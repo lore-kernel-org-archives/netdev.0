@@ -1,39 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
-Date: Mon, 29 Feb 2016 08:24:23 -0800
-Message-ID: <1456763063.648.78.camel@edumazet-ThinkPad-T530>
-References: <56D1E8B6.6090003@hurleysoftware.com>
-	 <1456638957.3676.12.camel@gmail.com>
-	 <20160228170109.GA16322@electric-eye.fr.zoreil.com>
-	 <1456721889.3488.67.camel@gmail.com> <56D45DAF.5070709@hurleysoftware.com>
-	 <1456760443.3488.151.camel@gmail.com> <56D46AB4.6060805@hurleysoftware.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Mike Galbraith <umgwanakikbuti@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
-	dmaengine@vger.kernel.org, John Ogness <john.ogness@linutronix.de>,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Peter Hurley <peter@hurleysoftware.com>
+From: Alexandre TORGUE <alexandre.torgue@gmail.com>
+Subject: [PATCH 0/3] Enable Ethernet on STM32F429 EVAL board
+Date: Mon, 29 Feb 2016 17:29:33 +0100
+Message-ID: <1456763376-21457-1-git-send-email-alexandre.torgue@gmail.com>
+Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Thompson <daniel.thompson@linaro.org>,
+	Kamil Lulko <rev13@wp.pl>, afaerber@suse.de,
+	netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, olof@lixom.net, khilman@kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56D46AB4.6060805@hurleysoftware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On lun., 2016-02-29 at 07:58 -0800, Peter Hurley wrote:
+This series adds Ethernet support on STM32F429 SOC and enable it on Eval
+board:
+ -Add Ethernet node in SOC file:
+  -Define MII mode pinctrl
+  -use Mixed burst and PBL 8
+ -Add system config node for glue.
+ -Enable Ethernet for Eval board:
+  -mii mode
+  -connected to a PHY through MDIO.
 
-> All that's happened is the first loop of NET_RX softirq has woken a
-> process; that is sufficient to abort softirq and defer it for ksoftirqd.
-> 
-> That's why I'm saying this is a priority inversion, and one that
-> will happen a lot.
+Note, this series follow the series which adds glue and update stmmac driver:
 
-Sure. This will happen every time ksoftirqd is launched.
+https://lkml.org/lkml/2016/2/26/329
 
-Get rid of ksoftirqd or renice it so that you can easily be killed by
-softirq storm.
+Best regards.
+
+Alex
+
+Alexandre TORGUE (3):
+  ARM: dts: stm32f429: Add system config bank node
+  ARM: dts: stm32f429: Add Ethernet support
+  ARM: dts: stm32f429: Enable Ethernet on Eval board
+
+ arch/arm/boot/dts/stm32429i-eval.dts | 15 ++++++++++++++
+ arch/arm/boot/dts/stm32f429.dtsi     | 40 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 55 insertions(+)
+
+-- 
+1.9.1
