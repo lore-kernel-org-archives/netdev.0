@@ -1,58 +1,43 @@
-From: Lars Persson <lars.persson@axis.com>
-Subject: [PATCH net 2/5] dwc_eth_qos: release descriptors outside netif_tx_lock
-Date: Mon, 29 Feb 2016 16:22:31 +0100
-Message-ID: <405b7bbe8cceacc7edea2f415b7fbb21aa16ea6f.1456756740.git.larper@axis.com>
-References: <cover.1456756740.git.larper@axis.com>
-Cc: linux-kernel@vger.kernel.org, Lars Persson <larper@axis.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bes.se.axis.com ([195.60.68.10]:53867 "EHLO bes.se.axis.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755633AbcB2PXs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Feb 2016 10:23:48 -0500
-In-Reply-To: <cover.1456756740.git.larper@axis.com>
-In-Reply-To: <cover.1456756740.git.larper@axis.com>
-References: <cover.1456756740.git.larper@axis.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
+Date: Mon, 29 Feb 2016 07:27:23 -0800
+Message-ID: <1456759643.648.65.camel@edumazet-ThinkPad-T530>
+References: <56D1E8B6.6090003@hurleysoftware.com>
+	 <1456638957.3676.12.camel@gmail.com>
+	 <20160228170109.GA16322@electric-eye.fr.zoreil.com>
+	 <1456721889.3488.67.camel@gmail.com> <56D45DAF.5070709@hurleysoftware.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Mike Galbraith <umgwanakikbuti@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
+	dmaengine@vger.kernel.org, John Ogness <john.ogness@linutronix.de>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Peter Hurley <peter@hurleysoftware.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56D45DAF.5070709@hurleysoftware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-To prepare for using the CMA, we can not be in atomic context when
-de-allocating DMA buffers.
+On lun., 2016-02-29 at 07:03 -0800, Peter Hurley wrote:
 
-The tx lock was needed only to protect the hw reset against the xmit
-handler. Now we briefly grab the tx lock while stopping the queue to
-make sure no thread is inside or will enter the xmit handler.
+> The reason why Eric's change is so effective for Eric's workload is
+> that it fixes the problem where NET_RX keeps getting new network packets
+> so it keeps looping, servicing more NET_RX softirq.
 
-Signed-off-by: Lars Persson <larper@axis.com>
----
- drivers/net/ethernet/synopsys/dwc_eth_qos.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+You have very little idea of what is happening in networking land.
 
-diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-index 926db2d..53d48c0 100644
---- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-+++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-@@ -1918,15 +1918,17 @@ static int dwceqos_stop(struct net_device *ndev)
- 	phy_stop(lp->phy_dev);
- 
- 	tasklet_disable(&lp->tx_bdreclaim_tasklet);
--	netif_stop_queue(ndev);
- 	napi_disable(&lp->napi);
- 
--	dwceqos_drain_dma(lp);
-+	/* Stop all tx before we drain the tx dma. */
-+	netif_tx_lock_bh(lp->ndev);
-+	netif_stop_queue(ndev);
-+	netif_tx_unlock_bh(lp->ndev);
- 
--	netif_tx_lock(lp->ndev);
-+	dwceqos_drain_dma(lp);
- 	dwceqos_reset_hw(lp);
-+
- 	dwceqos_descriptor_free(lp);
--	netif_tx_unlock(lp->ndev);
- 
- 	return 0;
- }
--- 
-2.1.4
+Once hard irq for RX has triggered, we arm a NAPI (NET_RX softirq), and
+no more irq will come unless the napi handler ran. Then when NAPI is
+complete, we re-allow interrupt to be delivered when a new packet is
+coming.
+
+Yes, ksoftirqd runs under load, and this is _wanted_.
+
+Sure, it might add a latency if some high prio task is wanting the same
+cpu, but this is exactly the purpose of having multi tasking.
