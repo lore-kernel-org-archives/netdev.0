@@ -1,41 +1,55 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] NetDev 1.1 slides now available
-Date: Mon, 29 Feb 2016 20:49:55 +0100
-Message-ID: <20160229194954.GA2185@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lwn@lwn.net, info@netdevconf.org
-To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58407 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752328AbcB2TuI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Feb 2016 14:50:08 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 7AF044B9FD
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 20:50:05 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 6B639DA8F7
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 20:50:05 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 2C2C2DA8F8
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 20:50:03 +0100 (CET)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marek Vasut <marex@denx.de>
+Subject: [PATCH 2/4] net: can: ifi: Fix TX DLC configuration
+Date: Mon, 29 Feb 2016 20:59:29 +0100
+Message-ID: <1456775971-4946-3-git-send-email-marex@denx.de>
+References: <1456775971-4946-1-git-send-email-marex@denx.de>
+Cc: netdev@vger.kernel.org, Marek Vasut <marex@denx.de>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1456775971-4946-1-git-send-email-marex@denx.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+The TX DLC, the transmission length information, was not written
+into the transmit configuration register. When using the CAN core
+with different CAN controller, the receiving CAN controller will
+receive only the ID part of the CAN frame, but no data at all.
 
-Today we're releasing the NetDev 1.1 slides, you can find them at:
+This patch adds the TX DLC into the register to fix this issue.
 
-        http://www.netdevconf.org/1.1/proceedings/
+Signed-off-by: Marek Vasut <marex@denx.de>
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>
+Cc: Wolfgang Grandegger <wg@grandegger.com>
+---
+ drivers/net/can/ifi_canfd/ifi_canfd.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Regarding videos, we're still uploading (~40 hours), so it may take a
-little while until we make them public. Will send a short noticed once
-they are available.
+diff --git a/drivers/net/can/ifi_canfd/ifi_canfd.c b/drivers/net/can/ifi_canfd/ifi_canfd.c
+index 72f5205..82a33bd 100644
+--- a/drivers/net/can/ifi_canfd/ifi_canfd.c
++++ b/drivers/net/can/ifi_canfd/ifi_canfd.c
+@@ -774,10 +774,15 @@ static netdev_tx_t ifi_canfd_start_xmit(struct sk_buff *skb,
+ 
+ 	if (priv->can.ctrlmode & (CAN_CTRLMODE_FD | CAN_CTRLMODE_FD_NON_ISO)) {
+ 		if (can_is_canfd_skb(skb)) {
++			txdlc |= can_len2dlc(cf->len);
+ 			txdlc |= IFI_CANFD_TXFIFO_DLC_EDL;
+ 			if (cf->flags & CANFD_BRS)
+ 				txdlc |= IFI_CANFD_TXFIFO_DLC_BRS;
++		} else {
++			txdlc |= cf->len;
+ 		}
++	} else {
++		txdlc |= cf->len;
+ 	}
+ 
+ 	if (cf->can_id & CAN_RTR_FLAG)
+-- 
+2.7.0
 
-And short reminder to talk presenters: Don't forget that your paper
-submission deadline is set on *10th March 2016*.
-
-Thanks.
