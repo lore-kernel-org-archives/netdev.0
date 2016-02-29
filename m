@@ -1,83 +1,68 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [net-next PATCH v3 1/3] net: sched: consolidate offload decision
- in cls_u32
-Date: Mon, 29 Feb 2016 19:58:12 +0100
-Message-ID: <20160229185812.GA2121@nanopsycho.orion>
-References: <20160226154858.5338.90569.stgit@john-Precision-Tower-5810>
- <20160226155349.5338.74615.stgit@john-Precision-Tower-5810>
- <CAM_iQpVPa7Twx35K-VjR6X0DJ9wQuSeTrfFSZe8HWU_yJVj2UA@mail.gmail.com>
- <56D124F1.3070300@gmail.com>
- <CAM_iQpWMKWWqtrmPEQZGfDwMZoRq4dvCmirc850tmhbRGT1LNQ@mail.gmail.com>
- <56D490B5.5060302@gmail.com>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next v3 0/5] bridge/ovs: avoid skb head copy on frame forwarding
+Date: Mon, 29 Feb 2016 11:05:18 -0800
+Message-ID: <CAOrHB_BGC2JnW=z0XYri-VioXsqY1tEuPpT1Ft1AStgU=Omfyg@mail.gmail.com>
+References: <cover.1456412101.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	simon.horman@netronome.com,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Flavio Leitner <fbl@sysclose.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:36615 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751772AbcB2S6P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 13:58:15 -0500
-Received: by mail-wm0-f54.google.com with SMTP id n186so2972984wmn.1
-        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 10:58:15 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <56D490B5.5060302@gmail.com>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:55838 "EHLO
+	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751063AbcB2TFX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 14:05:23 -0500
+Received: from mfilter21-d.gandi.net (mfilter21-d.gandi.net [217.70.178.149])
+	by relay4-d.mail.gandi.net (Postfix) with ESMTP id 288701720AF
+	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 20:05:21 +0100 (CET)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+	by mfilter21-d.gandi.net (mfilter21-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id QoXHBs-1On9f for <netdev@vger.kernel.org>;
+	Mon, 29 Feb 2016 20:05:19 +0100 (CET)
+Received: from mail-ig0-f169.google.com (mail-ig0-f169.google.com [209.85.213.169])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id A20B51720A3
+	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 20:05:19 +0100 (CET)
+Received: by mail-ig0-f169.google.com with SMTP id g6so2691296igt.1
+        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 11:05:19 -0800 (PST)
+In-Reply-To: <cover.1456412101.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Feb 29, 2016 at 07:40:53PM CET, john.fastabend@gmail.com wrote:
->On 16-02-27 08:28 PM, Cong Wang wrote:
->> On Fri, Feb 26, 2016 at 8:24 PM, John Fastabend
->> <john.fastabend@gmail.com> wrote:
->>> On 16-02-26 09:39 AM, Cong Wang wrote:
->>>> On Fri, Feb 26, 2016 at 7:53 AM, John Fastabend
->>>> <john.fastabend@gmail.com> wrote:
->>>>> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
->>>>> index 2121df5..e64d20b 100644
->>>>> --- a/include/net/pkt_cls.h
->>>>> +++ b/include/net/pkt_cls.h
->>>>> @@ -392,4 +392,9 @@ struct tc_cls_u32_offload {
->>>>>         };
->>>>>  };
->>>>>
->>>>> +static inline bool tc_should_offload(struct net_device *dev)
->>>>> +{
->>>>> +       return dev->netdev_ops->ndo_setup_tc;
->>>>> +}
->>>>> +
->>>>
->>>> These should be protected by CONFIG_NET_CLS_U32, no?
->>>>
->>>
->>> Its not necessary it is a completely general function and I only
->>> lifted it out of cls_u32 so that the cls_flower classifier could
->>> also use it.
->>>
->>> I don't see the need off-hand to have it wrapped in an ORd ifdef
->>> statement where its (CONFIG_NET_CLS_U32 | CONFIG_NET_CLS_X ...).
->>> Any particular reason you were thnking it should be wrapped in ifdefs?
->>>
->> 
->> Not a big deal.
->> 
->> I just feel these don't need to compile when I have CONFIG_NET_CLS_U32=n.
->> 
->> Thanks.
->> 
+On Fri, Feb 26, 2016 at 1:45 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> Currently, while when an OVS or Linux bridge is used to forward frames towards
+> some tunnel device, a skb_head_copy() may occur if the ingress device do not
+> provide enough headroom for the tx encapsulation.
 >
->Well because this is 'static inline' gcc should just remove it
->if it is not used. Assuming non-ancient gcc and normal compile
->flags, e.g. you are not including -fkeep-inline-functions or
->something.
+> This patch series tries to address the issue implementing a new ndo operation to
+> allow the master device to control the headroom used when allocating the skb on
+> frame reception.
 >
->So just to keep it readable I would prefer to just leave it
->as is.
+> Said operation is used by the Linux bridge to notify the bridged ports of
+> needed_headroom changes, and similar bookkeeping and behaviour is also added to
+> openvswitch, on a per datapath basis.
+>
+> Finally, the operation is implemented for veth and tun device, which give
+> performance improvement in the 6-12% range when forwarding frames from said
+> devices towards a vxlan tunnel.
+>
+> v2:
+> - fix netdev_get_fwd_headroom() behaviour
+> - remove some code duplication with the netdev_set_rx_headroom() and
+>    netdev_reset_rx_headroom() helpers
+> - handle headroom reset on [v]port removal/deletion
+> - initialize tun align to the old default value
+>
+> v3:
+> - fix a comment typo
+>
+Patch series looks good to me.
 
-Definitelly. cls_flower will use it in very near future. Making it
-dependent on CONFIG_NET_CLS_U32 makes 0 sense to me.
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
