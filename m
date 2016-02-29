@@ -1,48 +1,80 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 1/3] net: ipv4: Convert IP network timestamps
-	to be y2038 safe
-Date: Mon, 29 Feb 2016 17:31:11 +0100
-Message-ID: <7222364.EzaDaAUEpl@wuerfel>
-References: <1456561938-7653-1-git-send-email-deepa.kernel@gmail.com>
- <1456561938-7653-2-git-send-email-deepa.kernel@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: y2038@lists.linaro.org, netdev@vger.kernel.org,
- James Morris <jmorris@namei.org>, Patrick McHardy <kaber@trash.net>,
- Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
- Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
- "David S. Miller" <davem@davemloft.net>
-To: Deepa Dinamani <deepa.kernel@gmail.com>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <1456561938-7653-2-git-send-email-deepa.kernel@gmail.com>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+From: Alexandre TORGUE <alexandre.torgue@gmail.com>
+Subject: [PATCH 2/3] ARM: dts: stm32f429: Add Ethernet support
+Date: Mon, 29 Feb 2016 17:29:35 +0100
+Message-ID: <1456763376-21457-3-git-send-email-alexandre.torgue@gmail.com>
+References: <1456763376-21457-1-git-send-email-alexandre.torgue@gmail.com>
+Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Thompson <daniel.thompson@linaro.org>,
+	Kamil Lulko <rev13@wp.pl>, afaerber@suse.de,
+	netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, olof@lixom.net, khilman@kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35436 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751691AbcB2Q3q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 11:29:46 -0500
+In-Reply-To: <1456763376-21457-1-git-send-email-alexandre.torgue@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gU2F0dXJkYXkgMjcgRmVicnVhcnkgMjAxNiAwMDozMjoxNSBEZWVwYSBEaW5hbWFuaSB3cm90
-ZToKPiBJQ01QIHRpbWVzdGFtcCBtZXNzYWdlcyBhbmQgSVAgc291cmNlIHJvdXRlIG9wdGlvbnMg
-cmVxdWlyZQo+IHRpbWVzdGFtcHMgdG8gYmUgaW4gbWlsbGlzZWNvbmRzIG1vZHVsbyAyNCBob3Vy
-cyBmcm9tCj4gbWlkbmlnaHQgVVQgZm9ybWF0Lgo+IAo+IEFkZCBpbmV0X2N1cnJlbnRfdGltZXN0
-YW1wKCkgZnVuY3Rpb24gdG8gc3VwcG9ydCB0aGlzLiBUaGUgZnVuY3Rpb24KPiByZXR1cm5zIHRo
-ZSByZXF1aXJlZCB0aW1lc3RhbXAgaW4gbmV0d29yayBieXRlIG9yZGVyLgo+IAo+IFRpbWVzdGFt
-cCBjYWxjdWxhdGlvbiBpcyBhbHNvIGNoYW5nZWQgdG8gY2FsbCBrdGltZV9nZXRfcmVhbF90czY0
-KCkKPiB3aGljaCB1c2VzIHN0cnVjdCB0aW1lc3BlYzY0LiBzdHJ1Y3QgdGltZXNwZWM2NCBpcyB5
-MjAzOCBzYWZlLgo+IFByZXZpb3VzbHkgaXQgY2FsbGVkIGdldG5zdGltZW9mZGF5KCkgd2hpY2gg
-dXNlcyBzdHJ1Y3QgdGltZXNwZWMuCj4gc3RydWN0IHRpbWVzcGVjIGlzIG5vdCB5MjAzOCBzYWZl
-Lgo+IAo+IFNpZ25lZC1vZmYtYnk6IERlZXBhIERpbmFtYW5pIDxkZWVwYS5rZXJuZWxAZ21haWwu
-Y29tPgo+IENjOiAiRGF2aWQgUy4gTWlsbGVyIiA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KPiBDYzog
-QWxleGV5IEt1em5ldHNvdiA8a3V6bmV0QG1zMi5pbnIuYWMucnU+Cj4gQ2M6IEhpZGVha2kgWU9T
-SElGVUpJIDx5b3NoZnVqaUBsaW51eC1pcHY2Lm9yZz4KPiBDYzogSmFtZXMgTW9ycmlzIDxqbW9y
-cmlzQG5hbWVpLm9yZz4KPiBDYzogUGF0cmljayBNY0hhcmR5IDxrYWJlckB0cmFzaC5uZXQ+Cj4g
-CgpBY2tlZC1ieTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4KX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWTIwMzggbWFpbGluZyBsaXN0ClkyMDM4
-QGxpc3RzLmxpbmFyby5vcmcKaHR0cHM6Ly9saXN0cy5saW5hcm8ub3JnL21haWxtYW4vbGlzdGlu
-Zm8veTIwMzgK
+Add Ethernet support (Synopsys MAC IP 3.50a) on stm32f429 SOC.
+
+Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
+
+diff --git a/arch/arm/boot/dts/stm32f429.dtsi b/arch/arm/boot/dts/stm32f429.dtsi
+index bb7a736..af0367c 100644
+--- a/arch/arm/boot/dts/stm32f429.dtsi
++++ b/arch/arm/boot/dts/stm32f429.dtsi
+@@ -283,6 +283,26 @@
+ 					bias-disable;
+ 				};
+ 			};
++
++			ethernet0_mii: mii@0 {
++				mii {
++					slew-rate = <2>;
++					pinmux = <STM32F429_PG13_FUNC_ETH_MII_TXD0_ETH_RMII_TXD0>,
++						 <STM32F429_PG14_FUNC_ETH_MII_TXD1_ETH_RMII_TXD1>,
++						 <STM32F429_PC2_FUNC_ETH_MII_TXD2>,
++						 <STM32F429_PB8_FUNC_ETH_MII_TXD3>,
++						 <STM32F429_PC3_FUNC_ETH_MII_TX_CLK>,
++						 <STM32F429_PG11_FUNC_ETH_MII_TX_EN_ETH_RMII_TX_EN>,
++						 <STM32F429_PA2_FUNC_ETH_MDIO>,
++						 <STM32F429_PC1_FUNC_ETH_MDC>,
++						 <STM32F429_PA1_FUNC_ETH_MII_RX_CLK_ETH_RMII_REF_CLK>,
++						 <STM32F429_PA7_FUNC_ETH_MII_RX_DV_ETH_RMII_CRS_DV>,
++						 <STM32F429_PC4_FUNC_ETH_MII_RXD0_ETH_RMII_RXD0>,
++						 <STM32F429_PC5_FUNC_ETH_MII_RXD1_ETH_RMII_RXD1>,
++						 <STM32F429_PH6_FUNC_ETH_MII_RXD2>,
++						 <STM32F429_PH7_FUNC_ETH_MII_RXD3>;
++				};
++			};
+ 		};
+ 
+ 		rcc: rcc@40023810 {
+@@ -323,6 +343,21 @@
+ 			st,mem2mem;
+ 		};
+ 
++		ethernet0: dwmac@40028000 {
++			compatible = "st,stm32-dwmac", "snps,dwmac-3.50a";
++			status = "disabled";
++			reg = <0x40028000 0x8000>;
++			reg-names = "stmmaceth";
++			interrupts = <0 61 0>, <0 62 0>;
++			interrupt-names = "macirq", "eth_wake_irq";
++			clock-names = "stmmaceth", "tx-clk", "rx-clk";
++			clocks = <&rcc 0 25>, <&rcc 0 26>, <&rcc 0 27>;
++			st,syscon = <&syscfg 0x4>;
++			snps,pbl = <8>;
++			snps,mixed-burst;
++			dma-ranges;
++		};
++
+ 		rng: rng@50060800 {
+ 			compatible = "st,stm32-rng";
+ 			reg = <0x50060800 0x400>;
+-- 
+1.9.1
