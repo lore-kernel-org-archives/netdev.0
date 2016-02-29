@@ -1,51 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: add ethtool support for set and
- get of settings
-Date: Mon, 29 Feb 2016 17:09:10 -0500 (EST)
-Message-ID: <20160229.170910.1568620456454101151.davem@davemloft.net>
-References: <1456442648-13941-1-git-send-email-sixiao@microsoft.com>
+Subject: Re: [PATCH net-next 0/4] lan78xx: driver update
+Date: Mon, 29 Feb 2016 17:13:05 -0500 (EST)
+Message-ID: <20160229.171305.983675900652088039.davem@davemloft.net>
+References: <9235D6609DB808459E95D78E17F2E43D404B83CB@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, haiyangz@microsoft.com,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: sixiao@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1456442648-13941-1-git-send-email-sixiao@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Woojung.Huh@microchip.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52244 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751503AbcB2WNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 17:13:07 -0500
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404B83CB@CHN-SV-EXMX02.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Xiao <sixiao@microsoft.com>
-Date: Thu, 25 Feb 2016 15:24:08 -0800
+From: <Woojung.Huh@microchip.com>
+Date: Thu, 25 Feb 2016 23:33:05 +0000
 
-> This patch allows the user to set and retrieve speed and duplex of the
-> hv_netvsc device via ethtool.
-> 
-> Example:
-> $ ethtool eth0
-> Settings for eth0:
-> ...
->     Speed: Unknown!
->     Duplex: Unknown! (255)
-> ...
-> $ ethtool -s eth0 speed 1000 duplex full
-> $ ethtool eth0
-> Settings for eth0:
-> ...
->     Speed: 1000Mb/s
->     Duplex: Full
-> ...
-> 
-> This is based on patches by Roopa Prabhu and Nikolay Aleksandrov.
-> 
-> Signed-off-by: Simon Xiao <sixiao@microsoft.com>
+> This patch series add new ethtool functions of set_pauseparam  & get_pauseparam
+> and MAINTAINERS entry.
 
-Applied, thanks.
+Series applied, thanks.
+
+Please fix your configuration such that your proper name appears in the
+"From: " field of your outgoing emails.  That is what ends up in the
+Author field of every GIT commit.  And right now only your email address
+appears there.
+
+Thanks.
