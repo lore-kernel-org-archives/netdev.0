@@ -1,89 +1,39 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [net-next PATCH v3 1/3] net: sched: consolidate offload decision
- in cls_u32
-Date: Mon, 29 Feb 2016 13:25:14 -0800
-Message-ID: <CAM_iQpVP-HbhN=p0xq=wBvjYFG8rF9RCJr=r1-gznMh0ZfGCqA@mail.gmail.com>
-References: <20160226154858.5338.90569.stgit@john-Precision-Tower-5810>
-	<20160226155349.5338.74615.stgit@john-Precision-Tower-5810>
-	<CAM_iQpVPa7Twx35K-VjR6X0DJ9wQuSeTrfFSZe8HWU_yJVj2UA@mail.gmail.com>
-	<56D124F1.3070300@gmail.com>
-	<CAM_iQpWMKWWqtrmPEQZGfDwMZoRq4dvCmirc850tmhbRGT1LNQ@mail.gmail.com>
-	<56D490B5.5060302@gmail.com>
-	<20160229185812.GA2121@nanopsycho.orion>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Question on switchdev
+Date: Mon, 29 Feb 2016 16:43:16 -0500
+Message-ID: <56D4BB74.2010109@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	simon.horman@netronome.com,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: <jiri@resnulli.us>, <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f170.google.com ([209.85.160.170]:33181 "EHLO
-	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993AbcB2VZV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 16:25:21 -0500
-Received: by mail-yk0-f170.google.com with SMTP id z13so68664845ykd.0
-        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 13:25:15 -0800 (PST)
-In-Reply-To: <20160229185812.GA2121@nanopsycho.orion>
+Received: from comal.ext.ti.com ([198.47.26.152]:33647 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750956AbcB2VnN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Feb 2016 16:43:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 29, 2016 at 10:58 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Mon, Feb 29, 2016 at 07:40:53PM CET, john.fastabend@gmail.com wrote:
->>On 16-02-27 08:28 PM, Cong Wang wrote:
->>> On Fri, Feb 26, 2016 at 8:24 PM, John Fastabend
->>> <john.fastabend@gmail.com> wrote:
->>>> On 16-02-26 09:39 AM, Cong Wang wrote:
->>>>> On Fri, Feb 26, 2016 at 7:53 AM, John Fastabend
->>>>> <john.fastabend@gmail.com> wrote:
->>>>>> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
->>>>>> index 2121df5..e64d20b 100644
->>>>>> --- a/include/net/pkt_cls.h
->>>>>> +++ b/include/net/pkt_cls.h
->>>>>> @@ -392,4 +392,9 @@ struct tc_cls_u32_offload {
->>>>>>         };
->>>>>>  };
->>>>>>
->>>>>> +static inline bool tc_should_offload(struct net_device *dev)
->>>>>> +{
->>>>>> +       return dev->netdev_ops->ndo_setup_tc;
->>>>>> +}
->>>>>> +
->>>>>
->>>>> These should be protected by CONFIG_NET_CLS_U32, no?
->>>>>
->>>>
->>>> Its not necessary it is a completely general function and I only
->>>> lifted it out of cls_u32 so that the cls_flower classifier could
->>>> also use it.
->>>>
->>>> I don't see the need off-hand to have it wrapped in an ORd ifdef
->>>> statement where its (CONFIG_NET_CLS_U32 | CONFIG_NET_CLS_X ...).
->>>> Any particular reason you were thnking it should be wrapped in ifdefs?
->>>>
->>>
->>> Not a big deal.
->>>
->>> I just feel these don't need to compile when I have CONFIG_NET_CLS_U32=n.
->>>
->>> Thanks.
->>>
->>
->>Well because this is 'static inline' gcc should just remove it
->>if it is not used. Assuming non-ancient gcc and normal compile
->>flags, e.g. you are not including -fkeep-inline-functions or
->>something.
->>
->>So just to keep it readable I would prefer to just leave it
->>as is.
->
-> Definitelly. cls_flower will use it in very near future. Making it
-> dependent on CONFIG_NET_CLS_U32 makes 0 sense to me.
+Hi Jiri, Scott, or other switchdev experts,
 
-Oh, why then do you have u32 in the struct name tc_cls_u32_offload?
+TI Keystone netcp h/w has a switch. It has n slave ports and 1 host port. Currently the netcp driver disables the switch functionality which makes them appear as n nic ports. However we have requirement to add switch support in the driver. I have reviewed the experimental driver documentation Documentation/networking/switchdev.txt and would like to understand it better so that I can add this support to keystone netcp driver.
 
-(Note that in the above I said "these" not "this", so I never only refer
-to tc_should_offload)
+NetCP h/w has a 1 (host port) x n (slave port) switch. It can do layer 2 forwarding between ports. In the switch mode, host driver provides the frame to the switch and switch uses the filter data base (AKA ALE table, Address Learning Engine table) to forward the packet. There is a piece of information available per frame (meta data) to decide if frame to be forwarded to a particular port or use the fdb for forward decisions. I see following description in the above documentation.
+
+===From Documentation/networking/switchdev.txt==================
+On switchdev driver initialization, the driver will allocate and register a struct net_device (using register_netdev()) for each enumerated physical switch port, called the port netdev.  A port netdev is the software representation of the physical port and provides a conduit for control traffic to/from the controller (the kernel) and the network, as well as an anchor point for higher level constructs such as bridges, bonds, VLANs, tunnels, and L3 routers.  Using standard netdev tools (iproute2, ethtool, etc), the port netdev can also provide to the user access to the physical properties of the switch port such as PHY link state and I/O statistics.
+=================================================================
+
+1. How does port netdev differ from regular netdev that carries data when registering netdev? Any example you can point to? 
+2. I assume port netdev will appear as an interface in ifconfig -a command and it is not assigned an IP address. Correct?
+3. with 1xn switch, so we have n + 1 netdev registered with net core? I assume, only 1 netdev is for data plane and the rest are control plane. Is this correct?
+4. We have bunch of port specific configuration that we would like to control or configure from use space using standard tools. For example, switch port state, flow control etc. Is that possible to add using this framework? ethtool update needed for this?
+5. This feature is marked as experimental. Hope having more drivers added to this switch dev framework can eventually get this out of experimental to regular status. Right?
+
+I have more questions that I will defer for now. It would be great if I can work with you to implement this in netcp driver. Hope you can respond with your comment.
+
+Thanks.
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
