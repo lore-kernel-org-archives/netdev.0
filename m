@@ -1,90 +1,102 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: unused code in net/netfilter/ipset/ip_set_bitmap_ipmac.c
-Date: Mon, 29 Feb 2016 13:27:51 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1602291326090.2600@hadrien>
-References: <alpine.DEB.2.10.1602291202590.2600@hadrien> <alpine.DEB.2.10.1602291218360.21350@blackhole.kfki.hu>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Julia Lawall <julia.lawall@lip6.fr>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1602291218360.21350@blackhole.kfki.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+Subject: [PATCH] can: rcar_can: Add r8a7795 support
+Date: Mon, 29 Feb 2016 12:37:25 +0000
+Message-ID: <1456749445-50766-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+Cc: linux-renesas-soc@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	geert+renesas@glider.be, horms+renesas@verge.net.au,
+	chris.paterson2@renesas.com,
+	Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+To: mkl@pengutronix.de, wg@grandegger.com, robh+dt@kernel.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relmlor4.renesas.com ([210.160.252.174]:25372 "EHLO
+	relmlie3.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752150AbcB2MmA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 07:42:00 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Added r8a7795 SoC support.
 
+Signed-off-by: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+---
+Hi All,
 
-On Mon, 29 Feb 2016, Jozsef Kadlecsik wrote:
+   This patch is based on linux-can-next (tag:linux-can-next-for-4.6-20160226)
 
-> Hi,
->
-> On Mon, 29 Feb 2016, Julia Lawall wrote:
->
-> > The file net/netfilter/ipset/ip_set_bitmap_ipmac.c seems to contain a lot
-> > of static functions that are not used in the file:
-> >
-> > bitmap_ipmac_add_timeout
-> > bitmap_ipmac_do_add
-> > bitmap_ipmac_do_del
-> > bitmap_ipmac_do_head
-> > bitmap_ipmac_do_list
-> > bitmap_ipmac_do_test
-> > bitmap_ipmac_gc_test
-> > bitmap_ipmac_is_filled
-> > bitmap_ipmac_kadt
-> > bitmap_ipmac_same_set
-> > bitmap_ipmac_uadt
-> >
-> > Have I overooked something?
->
-> Yes: the file includes ip_set_bitmap_gen.h in which all those functions
-> are used.
+   Pinctrl & Clock related to the controller are already submitted as below:
 
-OK, thanks.  I saw the incude, but I didn't sufficiently appreciate the
-#defines at the beginning.  Thanks.
+   https://lkml.org/lkml/2016/2/25/546
+   https://lkml.org/lkml/2016/2/26/452
+   http://www.spinics.net/lists/arm-kernel/msg487238.html
 
-> > I was looking at this code, with Daniel Borkmann, because there seems to
-> > be a bug in the function bitmap_ipmac_uadt:
-> >
-> > 	if (tb[IPSET_ATTR_ETHER]) {
-> >                 memcpy(e.ether, nla_data(tb[IPSET_ATTR_ETHER]), ETH_ALEN);
-> >                 e.add_mac = 1;
-> >         }
-> >
-> > Later in the same file, there is:
-> >
-> > static struct ip_set_type bitmap_ipmac_type = {
-> > 	...
-> >         .adt_policy     = {
-> > 		...
-> > 		[IPSET_ATTR_ETHER]      = { .type = NLA_BINARY,
-> >                                             .len  = ETH_ALEN },
-> > 		...},
-> > 	...
-> > };
-> >
-> > The type NLA_BINARY indicates that the length is a maximum possible
-> > length, and thus a check of the actual length is needed before the memcpy.
->
-> You are right here (and the similar spotting in ip_set_hash_mac.c) - I'll
-> prepare a patch and submit it.
+   Changes since v1:
+   * Rebased from linux-next to linux-can-next
+   * Removed clock rounding hack (http://www.spinics.net/lists/netdev/msg366611.html)
+   * CAN dtsi changes will be submitted separately based on linux-next (http://marc.info/?l=linux-can&m=145674764815430&w=2)
 
-Great.  Thanks.
+ Documentation/devicetree/bindings/net/can/rcar_can.txt | 11 +++++++++++
+ drivers/net/can/Kconfig                                |  2 +-
+ drivers/net/can/rcar_can.c                             |  1 +
+ 3 files changed, 13 insertions(+), 1 deletion(-)
 
-julia
-
->
-> Best regards,
-> Jozsef
-> -
-> E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-> PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-> Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
->           H-1525 Budapest 114, POB. 49, Hungary
->
+diff --git a/Documentation/devicetree/bindings/net/can/rcar_can.txt b/Documentation/devicetree/bindings/net/can/rcar_can.txt
+index 65edc05..8d40ab2 100644
+--- a/Documentation/devicetree/bindings/net/can/rcar_can.txt
++++ b/Documentation/devicetree/bindings/net/can/rcar_can.txt
+@@ -9,8 +9,10 @@ Required properties:
+ 	      "renesas,can-r8a7792" if CAN controller is a part of R8A7792 SoC.
+ 	      "renesas,can-r8a7793" if CAN controller is a part of R8A7793 SoC.
+ 	      "renesas,can-r8a7794" if CAN controller is a part of R8A7794 SoC.
++	      "renesas,can-r8a7795" if CAN controller is a part of R8A7795 SoC.
+ 	      "renesas,rcar-gen1-can" for a generic R-Car Gen1 compatible device.
+ 	      "renesas,rcar-gen2-can" for a generic R-Car Gen2 compatible device.
++	      "renesas,rcar-gen3-can" for a generic R-Car Gen3 compatible device.
+ 	      When compatible with the generic version, nodes must list the
+ 	      SoC-specific version corresponding to the platform first
+ 	      followed by the generic version.
+@@ -22,6 +24,15 @@ Required properties:
+ - pinctrl-0: pin control group to be used for this controller.
+ - pinctrl-names: must be "default".
+ 
++Required properties for "renesas,can-r8a7795" compatible:
++In R8A7795 SoC, "clkp2" can be CANFD clock. This is a div6 clock and can be
++used by both CAN and CAN FD controller at the same time. It needs to be scaled
++to maximum frequency if any of these controllers use it. This is done using
++the below properties.
++
++- assigned-clocks: phandle of clkp2(CANFD) clock.
++- assigned-clock-rates: maximum frequency of this clock.
++
+ Optional properties:
+ - renesas,can-clock-select: R-Car CAN Clock Source Select. Valid values are:
+ 			    <0x0> (default) : Peripheral clock (clkp1)
+diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+index 164ccde..0d40aef 100644
+--- a/drivers/net/can/Kconfig
++++ b/drivers/net/can/Kconfig
+@@ -106,7 +106,7 @@ config CAN_JANZ_ICAN3
+ 
+ config CAN_RCAR
+ 	tristate "Renesas R-Car CAN controller"
+-	depends on ARM
++	depends on ARCH_RENESAS || ARM
+ 	---help---
+ 	  Say Y here if you want to use CAN controller found on Renesas R-Car
+ 	  SoCs.
+diff --git a/drivers/net/can/rcar_can.c b/drivers/net/can/rcar_can.c
+index ad3d2e0..788459f 100644
+--- a/drivers/net/can/rcar_can.c
++++ b/drivers/net/can/rcar_can.c
+@@ -906,6 +906,7 @@ static const struct of_device_id rcar_can_of_table[] __maybe_unused = {
+ 	{ .compatible = "renesas,can-r8a7791" },
+ 	{ .compatible = "renesas,rcar-gen1-can" },
+ 	{ .compatible = "renesas,rcar-gen2-can" },
++	{ .compatible = "renesas,rcar-gen3-can" },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, rcar_can_of_table);
+-- 
+1.9.1
