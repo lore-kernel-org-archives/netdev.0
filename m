@@ -1,76 +1,78 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: unused code in net/netfilter/ipset/ip_set_bitmap_ipmac.c
-Date: Mon, 29 Feb 2016 12:23:27 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1602291218360.21350@blackhole.kfki.hu>
-References: <alpine.DEB.2.10.1602291202590.2600@hadrien>
+From: Mike Manning <mmanning@brocade.com>
+Subject: [PATCH net] Propagate MAC address changes to VLANs
+Date: Mon, 29 Feb 2016 11:32:51 +0000
+Message-ID: <56D42C63.1070602@brocade.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1602291202590.2600@hadrien>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:9855 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753490AbcB2Lce (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 06:32:34 -0500
+Received: from pps.filterd (m0048193.ppops.net [127.0.0.1])
+	by mx0a-000f0801.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u1TB4hri010284
+	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 03:32:33 -0800
+Received: from brmwp-exmb11.corp.brocade.com ([208.47.132.227])
+	by mx0a-000f0801.pphosted.com with ESMTP id 21bbd9m4hj-3
+	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 03:32:33 -0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The MAC address of the physical interface is only copied to the VLAN
+when it is first created, resulting in an inconsistency after MAC
+address changes of only newly created VLANs having an up-to-date MAC.
 
-On Mon, 29 Feb 2016, Julia Lawall wrote:
+Continuing to inherit the MAC address unless explicitly changed for
+the VLAN allows IPv6 EUI64 addresses for the VLAN to reflect the change
+and thus for DAD to behave as expected for the given MAC.
 
-> The file net/netfilter/ipset/ip_set_bitmap_ipmac.c seems to contain a lot
-> of static functions that are not used in the file:
-> 
-> bitmap_ipmac_add_timeout
-> bitmap_ipmac_do_add
-> bitmap_ipmac_do_del
-> bitmap_ipmac_do_head
-> bitmap_ipmac_do_list
-> bitmap_ipmac_do_test
-> bitmap_ipmac_gc_test
-> bitmap_ipmac_is_filled
-> bitmap_ipmac_kadt
-> bitmap_ipmac_same_set
-> bitmap_ipmac_uadt
-> 
-> Have I overooked something?
+Signed-off-by: Mike Manning <mmanning@brocade.com>
+---
+ net/8021q/vlan.c |   17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
 
-Yes: the file includes ip_set_bitmap_gen.h in which all those functions 
-are used.
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index d2cd9de..2f57cf2 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -293,15 +293,15 @@ static void vlan_sync_address(struct net_device *dev,
  
-> I was looking at this code, with Daniel Borkmann, because there seems to
-> be a bug in the function bitmap_ipmac_uadt:
-> 
-> 	if (tb[IPSET_ATTR_ETHER]) {
->                 memcpy(e.ether, nla_data(tb[IPSET_ATTR_ETHER]), ETH_ALEN);
->                 e.add_mac = 1;
->         }
-> 
-> Later in the same file, there is:
-> 
-> static struct ip_set_type bitmap_ipmac_type = {
-> 	...
->         .adt_policy     = {
-> 		...
-> 		[IPSET_ATTR_ETHER]      = { .type = NLA_BINARY,
->                                             .len  = ETH_ALEN },
-> 		...},
-> 	...
-> };
-> 
-> The type NLA_BINARY indicates that the length is a maximum possible
-> length, and thus a check of the actual length is needed before the memcpy.
-
-You are right here (and the similar spotting in ip_set_hash_mac.c) - I'll 
-prepare a patch and submit it.
-
-Best regards,
-Jozsef
+ 	/* vlan address was different from the old address and is equal to
+ 	 * the new address */
+-	if (!ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
++	if ((vlandev->flags & IFF_UP) &&
++	    !ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
+ 	    ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
+ 		dev_uc_del(dev, vlandev->dev_addr);
+ 
+-	/* vlan address was equal to the old address and is different from
++	/* vlan address was equal to the old address so now also inherit
+ 	 * the new address */
+-	if (ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
+-	    !ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
+-		dev_uc_add(dev, vlandev->dev_addr);
++	if (ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr))
++		ether_addr_copy(vlandev->dev_addr, dev->dev_addr);
+ 
+ 	ether_addr_copy(vlan->real_dev_addr, dev->dev_addr);
+ }
+@@ -389,13 +389,8 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 
+ 	case NETDEV_CHANGEADDR:
+ 		/* Adjust unicast filters on underlying device */
+-		vlan_group_for_each_dev(grp, i, vlandev) {
+-			flgs = vlandev->flags;
+-			if (!(flgs & IFF_UP))
+-				continue;
 -
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
++		vlan_group_for_each_dev(grp, i, vlandev)
+ 			vlan_sync_address(dev, vlandev);
+-		}
+ 		break;
+ 
+ 	case NETDEV_CHANGEMTU:
+-- 
+1.7.10.4
