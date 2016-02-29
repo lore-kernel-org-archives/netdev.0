@@ -1,109 +1,76 @@
-From: Antonio Quartulli <a@unstable.cc>
-Subject: [PATCH 13/15] batman-adv: B.A.T.M.A.N. V - implement bat_neigh_print API
-Date: Mon, 29 Feb 2016 19:06:06 +0800
-Message-ID: <1456743968-17562-14-git-send-email-a__10036.7865096361$1456744830$gmane$org@unstable.cc>
-References: <1456743968-17562-1-git-send-email-a@unstable.cc>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Linus Luessing <linus.luessing@web.de>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <antonio@open-mesh.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.neomailbox.net ([5.148.176.60]:11706 "EHLO s2.neomailbox.net"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754351AbcB2LUQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Feb 2016 06:20:16 -0500
-In-Reply-To: <1456743968-17562-1-git-send-email-a@unstable.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: unused code in net/netfilter/ipset/ip_set_bitmap_ipmac.c
+Date: Mon, 29 Feb 2016 12:23:27 +0100 (CET)
+Message-ID: <alpine.DEB.2.10.1602291218360.21350@blackhole.kfki.hu>
+References: <alpine.DEB.2.10.1602291202590.2600@hadrien>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1602291202590.2600@hadrien>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Linus Luessing <linus.luessing@web.de>
+Hi,
 
-Lists all neighbours detected by the Echo Locating Protocol
-(ELP) and their throughput metric.
+On Mon, 29 Feb 2016, Julia Lawall wrote:
 
-Initially Developed by Linus during a 6 months trainee study
-period in Ascom (Switzerland) AG.
+> The file net/netfilter/ipset/ip_set_bitmap_ipmac.c seems to contain a lot
+> of static functions that are not used in the file:
+> 
+> bitmap_ipmac_add_timeout
+> bitmap_ipmac_do_add
+> bitmap_ipmac_do_del
+> bitmap_ipmac_do_head
+> bitmap_ipmac_do_list
+> bitmap_ipmac_do_test
+> bitmap_ipmac_gc_test
+> bitmap_ipmac_is_filled
+> bitmap_ipmac_kadt
+> bitmap_ipmac_same_set
+> bitmap_ipmac_uadt
+> 
+> Have I overooked something?
 
-Signed-off-by: Linus Luessing <linus.luessing@web.de>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
----
- net/batman-adv/bat_v.c | 55 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 55 insertions(+)
-
-diff --git a/net/batman-adv/bat_v.c b/net/batman-adv/bat_v.c
-index a90117c9a861..3315b9a598af 100644
---- a/net/batman-adv/bat_v.c
-+++ b/net/batman-adv/bat_v.c
-@@ -118,6 +118,60 @@ batadv_v_orig_print_neigh(struct batadv_orig_node *orig_node,
- }
+Yes: the file includes ip_set_bitmap_gen.h in which all those functions 
+are used.
  
- /**
-+ * batadv_v_hardif_neigh_print - print a single ELP neighbour node
-+ * @seq: neighbour table seq_file struct
-+ * @hardif_neigh: hardif neighbour information
-+ */
-+static void
-+batadv_v_hardif_neigh_print(struct seq_file *seq,
-+			    struct batadv_hardif_neigh_node *hardif_neigh)
-+{
-+	int last_secs, last_msecs;
-+	u32 throughput;
-+
-+	last_secs = jiffies_to_msecs(jiffies - hardif_neigh->last_seen) / 1000;
-+	last_msecs = jiffies_to_msecs(jiffies - hardif_neigh->last_seen) % 1000;
-+	throughput = ewma_throughput_read(&hardif_neigh->bat_v.throughput);
-+
-+	seq_printf(seq, "%pM %4i.%03is (%9u.%1u) [%10s]\n",
-+		   hardif_neigh->addr, last_secs, last_msecs, throughput / 10,
-+		   throughput % 10, hardif_neigh->if_incoming->net_dev->name);
-+}
-+
-+/**
-+ * batadv_v_neigh_print - print the single hop neighbour list
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @seq: neighbour table seq_file struct
-+ */
-+static void batadv_v_neigh_print(struct batadv_priv *bat_priv,
-+				 struct seq_file *seq)
-+{
-+	struct net_device *net_dev = (struct net_device *)seq->private;
-+	struct batadv_hardif_neigh_node *hardif_neigh;
-+	struct batadv_hard_iface *hard_iface;
-+	int batman_count = 0;
-+
-+	seq_printf(seq, "  %-15s %s (%11s) [%10s]\n", "Neighbor",
-+		   "last-seen", "throughput", "IF");
-+
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(hard_iface, &batadv_hardif_list, list) {
-+		if (hard_iface->soft_iface != net_dev)
-+			continue;
-+
-+		hlist_for_each_entry_rcu(hardif_neigh,
-+					 &hard_iface->neigh_list, list) {
-+			batadv_v_hardif_neigh_print(seq, hardif_neigh);
-+			batman_count++;
-+		}
-+	}
-+	rcu_read_unlock();
-+
-+	if (batman_count == 0)
-+		seq_puts(seq, "No batman nodes in range ...\n");
-+}
-+
-+/**
-  * batadv_v_orig_print - print the originator table
-  * @bat_priv: the bat priv with all the soft interface information
-  * @seq: debugfs table seq_file struct
-@@ -230,6 +284,7 @@ static struct batadv_algo_ops batadv_batman_v __read_mostly = {
- 	.bat_orig_print = batadv_v_orig_print,
- 	.bat_neigh_cmp = batadv_v_neigh_cmp,
- 	.bat_neigh_is_similar_or_better = batadv_v_neigh_is_sob,
-+	.bat_neigh_print = batadv_v_neigh_print,
- };
- 
- /**
--- 
-2.7.2
+> I was looking at this code, with Daniel Borkmann, because there seems to
+> be a bug in the function bitmap_ipmac_uadt:
+> 
+> 	if (tb[IPSET_ATTR_ETHER]) {
+>                 memcpy(e.ether, nla_data(tb[IPSET_ATTR_ETHER]), ETH_ALEN);
+>                 e.add_mac = 1;
+>         }
+> 
+> Later in the same file, there is:
+> 
+> static struct ip_set_type bitmap_ipmac_type = {
+> 	...
+>         .adt_policy     = {
+> 		...
+> 		[IPSET_ATTR_ETHER]      = { .type = NLA_BINARY,
+>                                             .len  = ETH_ALEN },
+> 		...},
+> 	...
+> };
+> 
+> The type NLA_BINARY indicates that the length is a maximum possible
+> length, and thus a check of the actual length is needed before the memcpy.
+
+You are right here (and the similar spotting in ip_set_hash_mac.c) - I'll 
+prepare a patch and submit it.
+
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
