@@ -1,57 +1,72 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH v4 net-next] net: Implement fast csum_partial for
- x86_64
-Date: Mon, 29 Feb 2016 01:39:51 +0000 (GMT)
-Message-ID: <alpine.LFD.2.20.1602290135170.28664@eddie.linux-mips.org>
-References: <1456516995-3471163-1-git-send-email-tom@herbertland.com>        <CAKgT0UdxdY5VF5OzC+W0Y31CcK0T3ffkcRMQrZqJ==L9SdtNuQ@mail.gmail.com> <CAKgT0UfDWXbXSX45XRZjTc6SXz+XqaYa1bHGzOUV_RXSPh=U=A@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the
+ wireless-drivers tree
+Date: Mon, 29 Feb 2016 12:56:38 +1100
+Message-ID: <20160229125638.5e6f43b3@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: Tom Herbert <tom@herbertland.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>, Peter Anvin <hpa@zytor.com>,
-	the arch/x86 maintainers <x86@kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([148.251.95.138]:40918 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752135AbcB2Bjx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 20:39:53 -0500
-Received: (from localhost user: 'macro', uid#1010) by eddie.linux-mips.org
-        with ESMTP id S27013303AbcB2BjvDXO6d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 02:39:51 +0100
-In-Reply-To: <CAKgT0UfDWXbXSX45XRZjTc6SXz+XqaYa1bHGzOUV_RXSPh=U=A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Matti Gottlieb <matti.gottlieb@intel.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Sara Sharon <sara.sharon@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 28 Feb 2016, Alexander Duyck wrote:
+Hi all,
 
-> I actually found the root cause.  The problem is in add32_with_carry3.
-> 
-> > +static inline unsigned int add32_with_carry3(unsigned int a, unsigned int b,
-> > +                                            unsigned int c)
-> > +{
-> > +       asm("addl %2,%0\n\t"
-> > +           "adcl %3,%0\n\t"
-> > +           "adcl $0,%0"
-> > +           : "=r" (a)
-> > +           : "" (a), "rm" (b), "rm" (c));
-> > +
-> > +       return a;
-> > +}
-> > +
-> 
-> You need to set the 'a' input variable attribute to "0" instead of ""
-> and then things work for me correctly.
+Today's linux-next merge of the net-next tree got a conflict in:
 
- Or alternatively you can reduce the number of operands by one, by using 
-`"+r" (a)' as output, and then removing `a' as a separate input and 
-renumbering references to `b' and `c' accordingly.  It would IMHO actually 
-better match the in-place operation as well.
+  drivers/net/wireless/intel/iwlwifi/mvm/fw.c
 
- FWIW,
+between commit:
 
-  Maciej
+  905e36ae172c ("iwlwifi: mvm: Fix paging memory leak")
+
+from the wireless-drivers tree and commit:
+
+  43413a975d06 ("iwlwifi: mvm: support rss queues configuration command")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/wireless/intel/iwlwifi/mvm/fw.c
+index 0ccc697fef76,070e2af05ca2..000000000000
+--- a/drivers/net/wireless/intel/iwlwifi/mvm/fw.c
++++ b/drivers/net/wireless/intel/iwlwifi/mvm/fw.c
+@@@ -107,7 -108,25 +108,25 @@@ static int iwl_send_tx_ant_cfg(struct i
+  				    sizeof(tx_ant_cmd), &tx_ant_cmd);
+  }
+  
++ static int iwl_send_rss_cfg_cmd(struct iwl_mvm *mvm)
++ {
++ 	int i;
++ 	struct iwl_rss_config_cmd cmd = {
++ 		.flags = cpu_to_le32(IWL_RSS_ENABLE),
++ 		.hash_mask = IWL_RSS_HASH_TYPE_IPV4_TCP |
++ 			     IWL_RSS_HASH_TYPE_IPV4_PAYLOAD |
++ 			     IWL_RSS_HASH_TYPE_IPV6_TCP |
++ 			     IWL_RSS_HASH_TYPE_IPV6_PAYLOAD,
++ 	};
++ 
++ 	for (i = 0; i < ARRAY_SIZE(cmd.indirection_table); i++)
++ 		cmd.indirection_table[i] = i % mvm->trans->num_rx_queues;
++ 	memcpy(cmd.secret_key, mvm->secret_key, ARRAY_SIZE(cmd.secret_key));
++ 
++ 	return iwl_mvm_send_cmd_pdu(mvm, RSS_CONFIG_CMD, 0, sizeof(cmd), &cmd);
++ }
++ 
+ -static void iwl_free_fw_paging(struct iwl_mvm *mvm)
+ +void iwl_free_fw_paging(struct iwl_mvm *mvm)
+  {
+  	int i;
+  
