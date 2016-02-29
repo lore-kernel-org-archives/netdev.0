@@ -1,47 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
-Date: Mon, 29 Feb 2016 07:19:13 -0800
-Message-ID: <1456759153.648.61.camel@edumazet-ThinkPad-T530>
-References: <56D1E8B6.6090003@hurleysoftware.com>
-	 <1456638957.3676.12.camel@gmail.com>
-	 <20160228170109.GA16322@electric-eye.fr.zoreil.com>
-	 <1456721889.3488.67.camel@gmail.com> <56D45DAF.5070709@hurleysoftware.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Mike Galbraith <umgwanakikbuti@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
-	dmaengine@vger.kernel.org, John Ogness <john.ogness@linutronix.de>,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Peter Hurley <peter@hurleysoftware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56D45DAF.5070709@hurleysoftware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lars Persson <lars.persson@axis.com>
+Subject: [PATCH net 0/5] dwc_eth_qos: stability fixes and support for CMA
+Date: Mon, 29 Feb 2016 16:22:29 +0100
+Message-ID: <cover.1456756740.git.larper@axis.com>
+Cc: linux-kernel@vger.kernel.org, Lars Persson <larper@axis.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bes.se.axis.com ([195.60.68.10]:53847 "EHLO bes.se.axis.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752059AbcB2PXe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Feb 2016 10:23:34 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On lun., 2016-02-29 at 07:03 -0800, Peter Hurley wrote:
+This series has bug fixes for the dwc_eth_qos ethernet driver.
 
-> Not the case. The softirq is raised from interrupt.
-> 
-> Before Eric's change, when an interrupt raises a new softirq
-> while processing another softirq, the new softirq is immediately
-> processed *after the existing softirq completes*.
-> 
-> After Eric's change, when an interrupt raises a new softirq
-> while processing another softirq and _that softirq wakes a process_,
-> the new softirq is *deferred to normal process priority*.
+Mainly two stability fixes for problems found by Rabin Vincent:
+- Successive starts and stops of the interface would trigger a DMA reset timeout.
+- A race condition in the TX DMA handling could trigger a netdev watchdog
+ timeout.
 
-For the last time, this is not true.
+The memory allocation was improved to support use of the CMA as DMA allocator
+backend.
 
-My patch changed the probability for this to happen.
+Lars Persson (2):
+  dwc_eth_qos: release descriptors outside netif_tx_lock
+  dwc_eth_qos: do phy_start before resetting hardware
 
-It will happen even if you revert it.
+Rabin Vincent (3):
+  dwc_eth_qos: fix race condition in dwceqos_start_xmit
+  dwc_eth_qos: use GFP_KERNEL in dma_alloc_coherent()
+  dwc_eth_qos: use DWCEQOS_MSG_DEFAULT
 
-linux never claimed that softirq could steal all cpu time.
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c | 45 ++++++++++++++++++++---------
+ 1 file changed, 31 insertions(+), 14 deletions(-)
 
-Are by any chance still running a HZ=100 kernel ?
+-- 
+2.1.4
