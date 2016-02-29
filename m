@@ -1,77 +1,36 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v3 1/3] net: sched: consolidate offload decision
- in cls_u32
-Date: Mon, 29 Feb 2016 10:40:53 -0800
-Message-ID: <56D490B5.5060302@gmail.com>
-References: <20160226154858.5338.90569.stgit@john-Precision-Tower-5810>	<20160226155349.5338.74615.stgit@john-Precision-Tower-5810>	<CAM_iQpVPa7Twx35K-VjR6X0DJ9wQuSeTrfFSZe8HWU_yJVj2UA@mail.gmail.com>	<56D124F1.3070300@gmail.com> <CAM_iQpWMKWWqtrmPEQZGfDwMZoRq4dvCmirc850tmhbRGT1LNQ@mail.gmail.com>
+From: Alan Ott <alan@signal11.us>
+Subject: Re: [PATCH] mrf24j40: fix security-enabled processing on inbound
+ frames
+Date: Mon, 29 Feb 2016 13:46:37 -0500
+Message-ID: <56D4920D.7050306@signal11.us>
+References: <56C60EBA.2070707@zopieux.com> <56CC265C.2040906@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	simon.horman@netronome.com,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+	Alexander Aring <alex.aring@gmail.com>,
+	zopieux <web@zopieux.com>
+To: Alexander Aring <aar@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:36766 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860AbcB2SlK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 13:41:10 -0500
-Received: by mail-pf0-f175.google.com with SMTP id t66so30700653pfb.3
-        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 10:41:10 -0800 (PST)
-In-Reply-To: <CAM_iQpWMKWWqtrmPEQZGfDwMZoRq4dvCmirc850tmhbRGT1LNQ@mail.gmail.com>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:44853 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751056AbcB2Sqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 13:46:38 -0500
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id CD02E20A06
+	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 13:46:37 -0500 (EST)
+In-Reply-To: <56CC265C.2040906@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-02-27 08:28 PM, Cong Wang wrote:
-> On Fri, Feb 26, 2016 at 8:24 PM, John Fastabend
-> <john.fastabend@gmail.com> wrote:
->> On 16-02-26 09:39 AM, Cong Wang wrote:
->>> On Fri, Feb 26, 2016 at 7:53 AM, John Fastabend
->>> <john.fastabend@gmail.com> wrote:
->>>> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
->>>> index 2121df5..e64d20b 100644
->>>> --- a/include/net/pkt_cls.h
->>>> +++ b/include/net/pkt_cls.h
->>>> @@ -392,4 +392,9 @@ struct tc_cls_u32_offload {
->>>>         };
->>>>  };
->>>>
->>>> +static inline bool tc_should_offload(struct net_device *dev)
->>>> +{
->>>> +       return dev->netdev_ops->ndo_setup_tc;
->>>> +}
->>>> +
->>>
->>> These should be protected by CONFIG_NET_CLS_U32, no?
->>>
->>
->> Its not necessary it is a completely general function and I only
->> lifted it out of cls_u32 so that the cls_flower classifier could
->> also use it.
->>
->> I don't see the need off-hand to have it wrapped in an ORd ifdef
->> statement where its (CONFIG_NET_CLS_U32 | CONFIG_NET_CLS_X ...).
->> Any particular reason you were thnking it should be wrapped in ifdefs?
->>
-> 
-> Not a big deal.
-> 
-> I just feel these don't need to compile when I have CONFIG_NET_CLS_U32=n.
-> 
-> Thanks.
-> 
+On 02/23/2016 04:29 AM, Alexander Aring wrote:
+> Alan, do you have some comments about that?
+>
+> Currently the mrf24j40 goes into a deadlock if a frame with security
+> enable bit is set. As you see, I helped myself to create this patch and solve
+> this stupid default behaviour of mrf24j40. :-)
+>
 
-Well because this is 'static inline' gcc should just remove it
-if it is not used. Assuming non-ancient gcc and normal compile
-flags, e.g. you are not including -fkeep-inline-functions or
-something.
+Hi Alex, I'll look at this today.
 
-So just to keep it readable I would prefer to just leave it
-as is.
-
-Thanks,
-John
+Alan.
