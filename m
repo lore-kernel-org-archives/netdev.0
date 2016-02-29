@@ -1,65 +1,57 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
 Subject: Re: [PATCH 1/2] can: rcar_can: Add r8a7795 support
-Date: Mon, 29 Feb 2016 10:38:45 +0100
-Message-ID: <56D411A5.9070706@pengutronix.de>
+Date: Mon, 29 Feb 2016 10:54:19 +0100
+Message-ID: <CAMuHMdV3EsvN=sqiB2npB=cH8Bz4D6UVcQj-BKqfdHerKSDowQ@mail.gmail.com>
 References: <1456737661-20538-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <1456737661-20538-2-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+	<1456737661-20538-2-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="Qsc6qjR6hkmMe0dFLmbkfq7NGW9UKqASk"
-Cc: linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, chris.paterson2-zM6kxYcvzFBBDgjK7y7TUQ@public.gmane.org
-To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram-kTT6dE0pTRh9uiUsa/gSgQ@public.gmane.org>,
-	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org, magnus.damm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1456737661-20538-2-git-send-email-ramesh.shanmugasundaram-kTT6dE0pTRh9uiUsa/gSgQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	linux-renesas-soc@vger.kernel.org,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	linux-can@vger.kernel.org,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Chris Paterson <chris.paterson2@renesas.com>
+To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1456737661-20538-2-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---Qsc6qjR6hkmMe0dFLmbkfq7NGW9UKqASk
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Hi Ramesh,
 
-On 02/29/2016 10:21 AM, Ramesh Shanmugasundaram wrote:
-> Added r8a7795 SoC support.
->=20
-> For smoother bit timing calculation, the rounded clock frequency is use=
-d.
+On Mon, Feb 29, 2016 at 10:21 AM, Ramesh Shanmugasundaram
+<ramesh.shanmugasundaram@bp.renesas.com> wrote:
+> --- a/drivers/net/can/rcar_can.c
+> +++ b/drivers/net/can/rcar_can.c
+> @@ -808,6 +808,10 @@ static int rcar_can_probe(struct platform_device *pdev)
+>         priv->regs = addr;
+>         priv->clock_select = clock_select;
+>         priv->can.clock.freq = clk_get_rate(priv->can_clk);
+> +
+> +       /* Use the rounded clock value (nearest kHz) */
+> +       priv->can.clock.freq = 1000 * DIV_ROUND_UP(priv->can.clock.freq, 1000);
 
-Why this? From my point of view this introduces a clock error.
+The comment and the implementation don't match.
+To get the nearest kHz, you have to useDIV_ROUND_CLOSEST().
 
-Marc
+Gr{oetje,eeting}s,
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+                        Geert
 
-
---Qsc6qjR6hkmMe0dFLmbkfq7NGW9UKqASk
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJW1BGlAAoJED07qiWsqSVqj9wIALV0Be3Dw2xV2MBDLliLjsEV
-5d5vkR56on1+IqlyQsfIGgaffCoKOncnaZK0tlnR3r9RF9DmQUOlXEOkB9+VN9ss
-SmmtpBsn2e6tRrmeYgWyllY+pv6qOiHWLuXWpfVXBnpNt+Pq7hrh7LbUO3U1Ypka
-xZQ44xcq9HQgW8lcXIloOt+wSMl18ufL3h7ljnML8vEWKYJHKgEGgM+I3wrU3kMZ
-G55PBXRafmHBv++8QjLEXF1cBTio2E7odkvoT9NdtkY86mi+8VNDu2I0cR7ompiJ
-75/kfbcYF9RSu/irw29b5HHro7OleTdwfOcJ4uvL46FcDHi0xgg64JZALVFhVog=
-=ookP
------END PGP SIGNATURE-----
-
---Qsc6qjR6hkmMe0dFLmbkfq7NGW9UKqASk--
 --
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
