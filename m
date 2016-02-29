@@ -1,7 +1,7 @@
 From: Alexandre TORGUE <alexandre.torgue@st.com>
-Subject: [PATCH v3 04/17] stmmac: review RX/TX ring management
-Date: Mon, 29 Feb 2016 14:27:30 +0100
-Message-ID: <1456752463-27128-5-git-send-email-alexandre.torgue@st.com>
+Subject: [PATCH v3 02/17] stmmac: rework DMA bus setting and introduce new platform AXI structure
+Date: Mon, 29 Feb 2016 14:27:28 +0100
+Message-ID: <1456752463-27128-3-git-send-email-alexandre.torgue@st.com>
 References: <1456752463-27128-1-git-send-email-alexandre.torgue@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,693 +9,528 @@ Cc: <peppe.cavallaro@st.com>, <fabrice.gasnier@st.com>,
 	<maxime.coquelin@st.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:19066 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755279AbcB2N22 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 08:28:28 -0500
-Received: from pps.filterd (m0046668.ppops.net [127.0.0.1])
-	by mx07-00178001.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u1TDQNG7032766
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 14:28:26 +0100
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:59678 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754677AbcB2N2O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 08:28:14 -0500
+Received: from pps.filterd (m0046660.ppops.net [127.0.0.1])
+	by mx08-00178001.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u1TDOqBA027994
+	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 14:28:13 +0100
 Received: from beta.dmz-ap.st.com (beta.dmz-ap.st.com [138.198.100.35])
-	by mx07-00178001.pphosted.com with ESMTP id 21b254tvcg-1
+	by mx08-00178001.pphosted.com with ESMTP id 21b1t8k30w-1
 	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 14:28:21 +0100
+	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 14:28:12 +0100
 Received: from zeta.dmz-ap.st.com (ns6.st.com [138.198.234.13])
-	by beta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 3F7FB22
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 13:28:17 +0000 (GMT)
+	by beta.dmz-ap.st.com (STMicroelectronics) with ESMTP id DA60522
+	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 13:28:08 +0000 (GMT)
 Received: from Webmail-ap.st.com (eapex1hubcas1.st.com [10.80.176.8])
-	by zeta.dmz-ap.st.com (STMicroelectronics) with ESMTP id C6D96F7
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 13:28:15 +0000 (GMT)
+	by zeta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 7E6E5F7
+	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 13:28:07 +0000 (GMT)
 In-Reply-To: <1456752463-27128-1-git-send-email-alexandre.torgue@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-This patch is to rework the ring management now optimized.
-The indexes into the ring buffer are always incremented, and
-the entry is accessed via doing a modulo to find the "real"
-position in the ring.
-It is inefficient, modulo is an expensive operation.
+This patch restructures the DMA bus settings and this is done
+by introducing a new platform structure used for programming
+the AXI Bus Mode Register inside the DMA module.
+This structure can be populated from device-tree as documented in the
+binding txt file.
 
-The formula [(entry + 1) & (size - 1)] is now adopted on
-a ring that is power-of-2 in size.
-Then, the number of elements cannot be set by command line but
-it is fixed.
+After initializing the DMA, the AXI register can be optionally tuned
+for platform drivers based.
+This patch also reworks some parameters to make coherent the DMA
+configuration now that AXI register is introduced.
+For example, the burst_len is managed by using the mentioned axi
+support above; so the snps,burst-len parameter has been removed.
+It makes sense to provide the AAL parameter from DT to Address-Aligned
+Beats inside the Register0 and review the PBL settings when initialize
+the engine.
+
+For PCI glue, rebuilding the story of this setting, it
+was added to align a configuration so not for fixing some
+known problem. No issue raised after this patch.
+It is safe to use the default burst length instead of
+tuning it to the maximum value
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Signed-off-by: Alexandre TORGUE <alexandre.torgue@st.com>
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
-index cf28dab..2763772 100644
---- a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
-@@ -31,8 +31,7 @@
- static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- {
- 	struct stmmac_priv *priv = (struct stmmac_priv *)p;
--	unsigned int txsize = priv->dma_tx_size;
--	unsigned int entry = priv->cur_tx % txsize;
-+	unsigned int entry = priv->cur_tx;
- 	struct dma_desc *desc = priv->dma_tx + entry;
- 	unsigned int nopaged_len = skb_headlen(skb);
- 	unsigned int bmax;
-@@ -54,7 +53,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 
- 	while (len != 0) {
- 		priv->tx_skbuff[entry] = NULL;
--		entry = (++priv->cur_tx) % txsize;
-+		entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
- 		desc = priv->dma_tx + entry;
- 
- 		if (len > bmax) {
-@@ -82,6 +81,9 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 			len = 0;
- 		}
- 	}
+diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+index e862a92..6605d19 100644
+--- a/Documentation/devicetree/bindings/net/stmmac.txt
++++ b/Documentation/devicetree/bindings/net/stmmac.txt
+@@ -17,7 +17,25 @@ Required properties:
+ 	The 1st cell is reset pre-delay in micro seconds.
+ 	The 2nd cell is reset pulse in micro seconds.
+ 	The 3rd cell is reset post-delay in micro seconds.
 +
-+	priv->cur_tx = entry;
++Optional properties:
++- resets: Should contain a phandle to the STMMAC reset signal, if any
++- reset-names: Should contain the reset signal name "stmmaceth", if a
++	reset phandle is given
++- max-frame-size: See ethernet.txt file in the same directory
++- clocks: If present, the first clock should be the GMAC main clock and
++  the second clock should be peripheral's register interface clock. Further
++  clocks may be specified in derived bindings.
++- clock-names: One name for each entry in the clocks property, the
++  first one should be "stmmaceth" and the second one should be "pclk".
++- clk_ptp_ref: this is the PTP reference clock; in case of the PTP is
++  available this clock is used for programming the Timestamp Addend Register.
++  If not passed then the system clock will be used and this is fine on some
++  platforms.
++- tx-fifo-depth: See ethernet.txt file in the same directory
++- rx-fifo-depth: See ethernet.txt file in the same directory
+ - snps,pbl		Programmable Burst Length
++- snps,aal		Address-Aligned Beats
+ - snps,fixed-burst	Program the DMA to use the fixed burst mode
+ - snps,mixed-burst	Program the DMA to use the mixed burst mode
+ - snps,force_thresh_dma_mode	Force DMA to use the threshold mode for
+@@ -29,27 +47,28 @@ Required properties:
+ 				supported by this device instance
+ - snps,perfect-filter-entries:	Number of perfect filter entries supported
+ 				by this device instance
+-
+-Optional properties:
+-- resets: Should contain a phandle to the STMMAC reset signal, if any
+-- reset-names: Should contain the reset signal name "stmmaceth", if a
+-	reset phandle is given
+-- max-frame-size: See ethernet.txt file in the same directory
+-- clocks: If present, the first clock should be the GMAC main clock
+-  The optional second clock should be peripheral's register interface clock.
+-  The third optional clock should be the ptp reference clock.
+-  Further clocks may be specified in derived bindings.
+-- clock-names: One name for each entry in the clocks property.
+-  The first one should be "stmmaceth".
+-  The optional second one should be "pclk".
+-  The optional third one should be "clk_ptp_ref".
+-- snps,burst_len: The AXI burst lenth value of the AXI BUS MODE register.
+-- tx-fifo-depth: See ethernet.txt file in the same directory
+-- rx-fifo-depth: See ethernet.txt file in the same directory
++- AXI BUS Mode parameters: below the list of all the parameters to program the
++			   AXI register inside the DMA module:
++	- snps,lpi_en: enable Low Power Interface
++	- snps,xit_frm: unlock on WoL
++	- snps,wr_osr_lmt: max write oustanding req. limit
++	- snps,rd_osr_lmt: max read oustanding req. limit
++	- snps,kbbe: do not cross 1KiB boundary.
++	- snps,axi_all: align address
++	- snps,blen: this is a vector of supported burst length.
++	- snps,fb: fixed-burst
++	- snps,mb: mixed-burst
++	- snps,rb: rebuild INCRx Burst
+ - mdio: with compatible = "snps,dwmac-mdio", create and register mdio bus.
+ 
+ Examples:
+ 
++	stmmac_axi_setup: stmmac-axi-config {
++		snps,wr_osr_lmt = <0xf>;
++		snps,rd_osr_lmt = <0xf>;
++		snps,blen = <256 128 64 32 0 0 0>;
++	};
 +
- 	return entry;
- }
- 
-@@ -138,7 +140,7 @@ static void stmmac_refill_desc3(void *priv_ptr, struct dma_desc *p)
- 		 */
- 		p->des3 = (unsigned int)(priv->dma_rx_phy +
- 					 (((priv->dirty_rx) + 1) %
--					  priv->dma_rx_size) *
-+					  DMA_RX_SIZE) *
- 					 sizeof(struct dma_desc));
- }
- 
-@@ -151,10 +153,9 @@ static void stmmac_clean_desc3(void *priv_ptr, struct dma_desc *p)
- 		 * 1588-2002 time stamping is enabled, hence reinitialize it
- 		 * to keep explicit chaining in the descriptor.
- 		 */
--		p->des3 = (unsigned int)(priv->dma_tx_phy +
--					 (((priv->dirty_tx + 1) %
--					   priv->dma_tx_size) *
--					  sizeof(struct dma_desc)));
-+		p->des3 = (unsigned int)((priv->dma_tx_phy +
-+					  ((priv->dirty_tx + 1) % DMA_TX_SIZE))
-+					  * sizeof(struct dma_desc));
- }
- 
- const struct stmmac_mode_ops chain_mode_ops = {
+ 	gmac0: ethernet@e0800000 {
+ 		compatible = "st,spear600-gmac";
+ 		reg = <0xe0800000 0x8000>;
+@@ -65,6 +84,7 @@ Examples:
+ 		tx-fifo-depth = <16384>;
+ 		clocks = <&clock>;
+ 		clock-names = "stmmaceth";
++		snps,axi-config = <&stmmac_axi_setup>;
+ 		mdio0 {
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 586a336..09291af 100644
+index bac0e44..586a336 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -42,6 +42,10 @@
- #define	DWMAC_CORE_3_40	0x34
- #define	DWMAC_CORE_3_50	0x35
+@@ -27,6 +27,7 @@
  
-+#define DMA_TX_SIZE 512
-+#define DMA_RX_SIZE 512
-+#define STMMAC_GET_ENTRY(x, size)	((x + 1) & (size - 1))
+ #include <linux/etherdevice.h>
+ #include <linux/netdevice.h>
++#include <linux/stmmac.h>
+ #include <linux/phy.h>
+ #include <linux/module.h>
+ #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+@@ -378,7 +379,9 @@ struct stmmac_dma_ops {
+ 	/* DMA core initialization */
+ 	int (*reset)(void __iomem *ioaddr);
+ 	void (*init)(void __iomem *ioaddr, int pbl, int fb, int mb,
+-		     int burst_len, u32 dma_tx, u32 dma_rx, int atds);
++		     int aal, u32 dma_tx, u32 dma_rx, int atds);
++	/* Configure the AXI Bus Mode Register */
++	void (*axi)(void __iomem *ioaddr, struct stmmac_axi *axi);
+ 	/* Dump DMA registers */
+ 	void (*dump_regs) (void __iomem *ioaddr);
+ 	/* Set tx/rx threshold in the csr6 register
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+index 9d36ae7..b0593a4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+@@ -240,7 +240,7 @@ enum rx_tx_priority_ratio {
+ #define DMA_BUS_MODE_RPBL_MASK	0x003e0000	/* Rx-Programmable Burst Len */
+ #define DMA_BUS_MODE_RPBL_SHIFT	17
+ #define DMA_BUS_MODE_USP	0x00800000
+-#define DMA_BUS_MODE_PBL	0x01000000
++#define DMA_BUS_MODE_MAXPBL	0x01000000
+ #define DMA_BUS_MODE_AAL	0x02000000
+ 
+ /* DMA CRS Control and Status Register Mapping */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+index 5f0aea5..da32d60 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+@@ -30,24 +30,76 @@
+ #include "dwmac1000.h"
+ #include "dwmac_dma.h"
+ 
++static void dwmac1000_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
++{
++	u32 value = readl(ioaddr + DMA_AXI_BUS_MODE);
++	int i;
 +
- #undef FRAME_FILTER_DEBUG
- /* #define FRAME_FILTER_DEBUG */
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-index 5dd50c6..4358a87 100644
---- a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-@@ -31,8 +31,7 @@
- static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- {
- 	struct stmmac_priv *priv = (struct stmmac_priv *)p;
--	unsigned int txsize = priv->dma_tx_size;
--	unsigned int entry = priv->cur_tx % txsize;
-+	unsigned int entry = priv->cur_tx;
- 	struct dma_desc *desc;
- 	unsigned int nopaged_len = skb_headlen(skb);
- 	unsigned int bmax, len;
-@@ -62,7 +61,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 						STMMAC_RING_MODE);
- 		wmb();
- 		priv->tx_skbuff[entry] = NULL;
--		entry = (++priv->cur_tx) % txsize;
-+		entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
- 
- 		if (priv->extend_desc)
- 			desc = (struct dma_desc *)(priv->dma_etx + entry);
-@@ -90,6 +89,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 						STMMAC_RING_MODE);
- 	}
- 
-+	priv->cur_tx = entry;
++	pr_info("dwmac1000: Master AXI performs %s burst length\n",
++		!(value & DMA_AXI_UNDEF) ? "fixed" : "any");
 +
- 	return entry;
- }
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 1f3b33a..7ae7c64 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -54,7 +54,6 @@ struct stmmac_priv {
- 	struct sk_buff **tx_skbuff;
- 	unsigned int cur_tx;
- 	unsigned int dirty_tx;
--	unsigned int dma_tx_size;
- 	u32 tx_count_frames;
- 	u32 tx_coal_frames;
- 	u32 tx_coal_timer;
-@@ -71,7 +70,6 @@ struct stmmac_priv {
- 	struct sk_buff **rx_skbuff;
- 	unsigned int cur_rx;
- 	unsigned int dirty_rx;
--	unsigned int dma_rx_size;
- 	unsigned int dma_buf_sz;
- 	u32 rx_riwt;
- 	int hwts_rx_en;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 89c2626..eb555f0 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -71,15 +71,7 @@ static int phyaddr = -1;
- module_param(phyaddr, int, S_IRUGO);
- MODULE_PARM_DESC(phyaddr, "Physical device address");
- 
--#define DMA_TX_SIZE 256
--static int dma_txsize = DMA_TX_SIZE;
--module_param(dma_txsize, int, S_IRUGO | S_IWUSR);
--MODULE_PARM_DESC(dma_txsize, "Number of descriptors in the TX list");
--
--#define DMA_RX_SIZE 256
--static int dma_rxsize = DMA_RX_SIZE;
--module_param(dma_rxsize, int, S_IRUGO | S_IWUSR);
--MODULE_PARM_DESC(dma_rxsize, "Number of descriptors in the RX list");
-+#define STMMAC_TX_THRESH	(DMA_TX_SIZE / 4)
- 
- static int flow_ctrl = FLOW_OFF;
- module_param(flow_ctrl, int, S_IRUGO | S_IWUSR);
-@@ -134,10 +126,6 @@ static void stmmac_verify_args(void)
- {
- 	if (unlikely(watchdog < 0))
- 		watchdog = TX_TIMEO;
--	if (unlikely(dma_rxsize < 0))
--		dma_rxsize = DMA_RX_SIZE;
--	if (unlikely(dma_txsize < 0))
--		dma_txsize = DMA_TX_SIZE;
- 	if (unlikely((buf_sz < DEFAULT_BUFSIZE) || (buf_sz > BUF_SIZE_16KiB)))
- 		buf_sz = DEFAULT_BUFSIZE;
- 	if (unlikely(flow_ctrl > 1))
-@@ -197,12 +185,28 @@ static void print_pkt(unsigned char *buf, int len)
- 	print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, buf, len);
- }
- 
--/* minimum number of free TX descriptors required to wake up TX process */
--#define STMMAC_TX_THRESH(x)	(x->dma_tx_size/4)
--
- static inline u32 stmmac_tx_avail(struct stmmac_priv *priv)
- {
--	return priv->dirty_tx + priv->dma_tx_size - priv->cur_tx - 1;
-+	unsigned avail;
++	if (axi->axi_lpi_en)
++		value |= DMA_AXI_EN_LPI;
++	if (axi->axi_xit_frm)
++		value |= DMA_AXI_LPI_XIT_FRM;
 +
-+	if (priv->dirty_tx > priv->cur_tx)
-+		avail = priv->dirty_tx - priv->cur_tx - 1;
-+	else
-+		avail = DMA_TX_SIZE - priv->cur_tx + priv->dirty_tx - 1;
++	value |= (axi->axi_wr_osr_lmt & DMA_AXI_WR_OSR_LMT_MASK) <<
++		 DMA_AXI_WR_OSR_LMT_SHIFT;
 +
-+	return avail;
++	value |= (axi->axi_rd_osr_lmt & DMA_AXI_RD_OSR_LMT_MASK) <<
++		 DMA_AXI_RD_OSR_LMT_SHIFT;
++
++	/* Depending on the UNDEF bit the Master AXI will perform any burst
++	 * length according to the BLEN programmed (by default all BLEN are
++	 * set).
++	 */
++	for (i = 0; i < AXI_BLEN; i++) {
++		switch (axi->axi_blen[i]) {
++		case 256:
++			value |= DMA_AXI_BLEN256;
++			break;
++		case 128:
++			value |= DMA_AXI_BLEN128;
++			break;
++		case 64:
++			value |= DMA_AXI_BLEN64;
++			break;
++		case 32:
++			value |= DMA_AXI_BLEN32;
++			break;
++		case 16:
++			value |= DMA_AXI_BLEN16;
++			break;
++		case 8:
++			value |= DMA_AXI_BLEN8;
++			break;
++		case 4:
++			value |= DMA_AXI_BLEN4;
++			break;
++		}
++	}
++
++	writel(value, ioaddr + DMA_AXI_BUS_MODE);
 +}
 +
-+static inline u32 stmmac_rx_dirty(struct stmmac_priv *priv)
+ static void dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
+-			       int burst_len, u32 dma_tx, u32 dma_rx, int atds)
++			       int aal, u32 dma_tx, u32 dma_rx, int atds)
+ {
+-	u32 value;
++	u32 value = readl(ioaddr + DMA_BUS_MODE);
+ 
+ 	/*
+-	 * Set the DMA PBL (Programmable Burst Length) mode
+-	 * Before stmmac core 3.50 this mode bit was 4xPBL, and
++	 * Set the DMA PBL (Programmable Burst Length) mode.
++	 *
++	 * Note: before stmmac core 3.50 this mode bit was 4xPBL, and
+ 	 * post 3.5 mode bit acts as 8*PBL.
+-	 * For core rev < 3.5, when the core is set for 4xPBL mode, the
+-	 * DMA transfers the data in 4, 8, 16, 32, 64 & 128 beats
+-	 * depending on pbl value.
+-	 * For core rev > 3.5, when the core is set for 8xPBL mode, the
+-	 * DMA transfers the data in 8, 16, 32, 64, 128 & 256 beats
+-	 * depending on pbl value.
++	 *
++	 * This configuration doesn't take care about the Separate PBL
++	 * so only the bits: 13-8 are programmed with the PBL passed from the
++	 * platform.
+ 	 */
+-	value = DMA_BUS_MODE_PBL | ((pbl << DMA_BUS_MODE_PBL_SHIFT) |
+-				    (pbl << DMA_BUS_MODE_RPBL_SHIFT));
++	value |= DMA_BUS_MODE_MAXPBL;
++	value &= ~DMA_BUS_MODE_PBL_MASK;
++	value |= (pbl << DMA_BUS_MODE_PBL_SHIFT);
+ 
+ 	/* Set the Fixed burst mode */
+ 	if (fb)
+@@ -60,26 +112,10 @@ static void dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
+ 	if (atds)
+ 		value |= DMA_BUS_MODE_ATDS;
+ 
+-	writel(value, ioaddr + DMA_BUS_MODE);
++	if (aal)
++		value |= DMA_BUS_MODE_AAL;
+ 
+-	/* In case of GMAC AXI configuration, program the DMA_AXI_BUS_MODE
+-	 * for supported bursts.
+-	 *
+-	 * Note: This is applicable only for revision GMACv3.61a. For
+-	 * older version this register is reserved and shall have no
+-	 * effect.
+-	 *
+-	 * Note:
+-	 *  For Fixed Burst Mode: if we directly write 0xFF to this
+-	 *  register using the configurations pass from platform code,
+-	 *  this would ensure that all bursts supported by core are set
+-	 *  and those which are not supported would remain ineffective.
+-	 *
+-	 *  For Non Fixed Burst Mode: provide the maximum value of the
+-	 *  burst length. Any burst equal or below the provided burst
+-	 *  length would be allowed to perform.
+-	 */
+-	writel(burst_len, ioaddr + DMA_AXI_BUS_MODE);
++	writel(value, ioaddr + DMA_BUS_MODE);
+ 
+ 	/* Mask interrupts by writing to CSR7 */
+ 	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
+@@ -192,6 +228,7 @@ static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt)
+ const struct stmmac_dma_ops dwmac1000_dma_ops = {
+ 	.reset = dwmac_dma_reset,
+ 	.init = dwmac1000_dma_init,
++	.axi = dwmac1000_dma_axi,
+ 	.dump_regs = dwmac1000_dump_dma_regs,
+ 	.dma_mode = dwmac1000_dma_operation_mode,
+ 	.enable_dma_transmission = dwmac_enable_dma_transmission,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
+index c40582a..61f54c9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
+@@ -33,7 +33,7 @@
+ #include "dwmac_dma.h"
+ 
+ static void dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
+-			      int burst_len, u32 dma_tx, u32 dma_rx, int atds)
++			      int aal, u32 dma_tx, u32 dma_rx, int atds)
+ {
+ 	/* Enable Application Access by writing to DMA CSR0 */
+ 	writel(DMA_BUS_MODE_DEFAULT | (pbl << DMA_BUS_MODE_PBL_SHIFT),
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
+index 13ca90e..726d9d9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
+@@ -41,8 +41,40 @@
+ 
+ /* Rx watchdog register */
+ #define DMA_RX_WATCHDOG		0x00001024
+-/* AXI Bus Mode */
++
++/* AXI Master Bus Mode */
+ #define DMA_AXI_BUS_MODE	0x00001028
++
++#define DMA_AXI_EN_LPI		BIT(31)
++#define DMA_AXI_LPI_XIT_FRM	BIT(30)
++#define DMA_AXI_WR_OSR_LMT	GENMASK(23, 20)
++#define DMA_AXI_WR_OSR_LMT_SHIFT	20
++#define DMA_AXI_WR_OSR_LMT_MASK	0xf
++#define DMA_AXI_RD_OSR_LMT	GENMASK(19, 16)
++#define DMA_AXI_RD_OSR_LMT_SHIFT	16
++#define DMA_AXI_RD_OSR_LMT_MASK	0xf
++
++#define DMA_AXI_OSR_MAX		0xf
++#define DMA_AXI_MAX_OSR_LIMIT ((DMA_AXI_OSR_MAX << DMA_AXI_WR_OSR_LMT_SHIFT) | \
++			       (DMA_AXI_OSR_MAX << DMA_AXI_RD_OSR_LMT_SHIFT))
++#define	DMA_AXI_1KBBE		BIT(13)
++#define DMA_AXI_AAL		BIT(12)
++#define DMA_AXI_BLEN256		BIT(7)
++#define DMA_AXI_BLEN128		BIT(6)
++#define DMA_AXI_BLEN64		BIT(5)
++#define DMA_AXI_BLEN32		BIT(4)
++#define DMA_AXI_BLEN16		BIT(3)
++#define DMA_AXI_BLEN8		BIT(2)
++#define DMA_AXI_BLEN4		BIT(1)
++#define DMA_BURST_LEN_DEFAULT	(DMA_AXI_BLEN256 | DMA_AXI_BLEN128 | \
++				 DMA_AXI_BLEN64 | DMA_AXI_BLEN32 | \
++				 DMA_AXI_BLEN16 | DMA_AXI_BLEN8 | \
++				 DMA_AXI_BLEN4)
++
++#define DMA_AXI_UNDEF		BIT(0)
++
++#define DMA_AXI_BURST_LEN_MASK	0x000000FE
++
+ #define DMA_CUR_TX_BUF_ADDR	0x00001050	/* Current Host Tx Buffer */
+ #define DMA_CUR_RX_BUF_ADDR	0x00001054	/* Current Host Rx Buffer */
+ #define DMA_HW_FEATURE		0x00001058	/* HW Feature Register */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 13752e9..89c2626 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1635,7 +1635,7 @@ static void stmmac_check_ether_addr(struct stmmac_priv *priv)
+  */
+ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
+ {
+-	int pbl = DEFAULT_DMA_PBL, fixed_burst = 0, burst_len = 0;
++	int pbl = DEFAULT_DMA_PBL, fixed_burst = 0, aal = 0;
+ 	int mixed_burst = 0;
+ 	int atds = 0;
+ 	int ret = 0;
+@@ -1644,7 +1644,7 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
+ 		pbl = priv->plat->dma_cfg->pbl;
+ 		fixed_burst = priv->plat->dma_cfg->fixed_burst;
+ 		mixed_burst = priv->plat->dma_cfg->mixed_burst;
+-		burst_len = priv->plat->dma_cfg->burst_len;
++		aal = priv->plat->dma_cfg->aal;
+ 	}
+ 
+ 	if (priv->extend_desc && (priv->mode == STMMAC_RING_MODE))
+@@ -1657,8 +1657,12 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
+ 	}
+ 
+ 	priv->hw->dma->init(priv->ioaddr, pbl, fixed_burst, mixed_burst,
+-			    burst_len, priv->dma_tx_phy,
+-			    priv->dma_rx_phy, atds);
++			    aal, priv->dma_tx_phy, priv->dma_rx_phy, atds);
++
++	if ((priv->synopsys_id >= DWMAC_CORE_3_50) &&
++	    (priv->plat->axi && priv->hw->dma->axi))
++		priv->hw->dma->axi(priv->ioaddr, priv->plat->axi);
++
+ 	return ret;
+ }
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index d71a721..ae43887 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -81,7 +81,7 @@ static void stmmac_default_data(struct plat_stmmacenet_data *plat)
+ 	plat->mdio_bus_data->phy_mask = 0;
+ 
+ 	plat->dma_cfg->pbl = 32;
+-	plat->dma_cfg->burst_len = DMA_AXI_BLEN_256;
++	/* TODO: AXI */
+ 
+ 	/* Set default value for multicast hash bins */
+ 	plat->multicast_filter_bins = HASH_TABLE_SIZE;
+@@ -115,8 +115,8 @@ static int quark_default_data(struct plat_stmmacenet_data *plat,
+ 	plat->mdio_bus_data->phy_mask = 0;
+ 
+ 	plat->dma_cfg->pbl = 16;
+-	plat->dma_cfg->burst_len = DMA_AXI_BLEN_256;
+ 	plat->dma_cfg->fixed_burst = 1;
++	/* AXI (TODO) */
+ 
+ 	/* Set default value for multicast hash bins */
+ 	plat->multicast_filter_bins = HASH_TABLE_SIZE;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 6a52fa1..69ccf48 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -96,6 +96,42 @@ static int dwmac1000_validate_ucast_entries(int ucast_entries)
+ }
+ 
+ /**
++ * stmmac_axi_setup - parse DT parameters for programming the AXI register
++ * @pdev: platform device
++ * @priv: driver private struct.
++ * Description:
++ * if required, from device-tree the AXI internal register can be tuned
++ * by using platform parameters.
++ */
++static struct stmmac_axi *stmmac_axi_setup(struct platform_device *pdev)
 +{
-+	unsigned dirty;
++	struct device_node *np;
++	struct stmmac_axi *axi;
 +
-+	if (priv->dirty_rx <= priv->cur_rx)
-+		dirty = priv->cur_rx - priv->dirty_rx;
-+	else
-+		dirty = DMA_RX_SIZE - priv->dirty_rx + priv->cur_rx;
++	np = of_parse_phandle(pdev->dev.of_node, "snps,axi-config", 0);
++	if (!np)
++		return NULL;
 +
-+	return dirty;
- }
- 
- /**
-@@ -906,19 +910,16 @@ static void stmmac_display_ring(void *head, int size, int extend_desc)
- 
- static void stmmac_display_rings(struct stmmac_priv *priv)
- {
--	unsigned int txsize = priv->dma_tx_size;
--	unsigned int rxsize = priv->dma_rx_size;
--
- 	if (priv->extend_desc) {
- 		pr_info("Extended RX descriptor ring:\n");
--		stmmac_display_ring((void *)priv->dma_erx, rxsize, 1);
-+		stmmac_display_ring((void *)priv->dma_erx, DMA_RX_SIZE, 1);
- 		pr_info("Extended TX descriptor ring:\n");
--		stmmac_display_ring((void *)priv->dma_etx, txsize, 1);
-+		stmmac_display_ring((void *)priv->dma_etx, DMA_TX_SIZE, 1);
- 	} else {
- 		pr_info("RX descriptor ring:\n");
--		stmmac_display_ring((void *)priv->dma_rx, rxsize, 0);
-+		stmmac_display_ring((void *)priv->dma_rx, DMA_RX_SIZE, 0);
- 		pr_info("TX descriptor ring:\n");
--		stmmac_display_ring((void *)priv->dma_tx, txsize, 0);
-+		stmmac_display_ring((void *)priv->dma_tx, DMA_TX_SIZE, 0);
- 	}
- }
- 
-@@ -947,28 +948,26 @@ static int stmmac_set_bfsize(int mtu, int bufsize)
- static void stmmac_clear_descriptors(struct stmmac_priv *priv)
- {
- 	int i;
--	unsigned int txsize = priv->dma_tx_size;
--	unsigned int rxsize = priv->dma_rx_size;
- 
- 	/* Clear the Rx/Tx descriptors */
--	for (i = 0; i < rxsize; i++)
-+	for (i = 0; i < DMA_RX_SIZE; i++)
- 		if (priv->extend_desc)
- 			priv->hw->desc->init_rx_desc(&priv->dma_erx[i].basic,
- 						     priv->use_riwt, priv->mode,
--						     (i == rxsize - 1));
-+						     (i == DMA_RX_SIZE - 1));
- 		else
- 			priv->hw->desc->init_rx_desc(&priv->dma_rx[i],
- 						     priv->use_riwt, priv->mode,
--						     (i == rxsize - 1));
--	for (i = 0; i < txsize; i++)
-+						     (i == DMA_RX_SIZE - 1));
-+	for (i = 0; i < DMA_TX_SIZE; i++)
- 		if (priv->extend_desc)
- 			priv->hw->desc->init_tx_desc(&priv->dma_etx[i].basic,
- 						     priv->mode,
--						     (i == txsize - 1));
-+						     (i == DMA_TX_SIZE - 1));
- 		else
- 			priv->hw->desc->init_tx_desc(&priv->dma_tx[i],
- 						     priv->mode,
--						     (i == txsize - 1));
-+						     (i == DMA_TX_SIZE - 1));
- }
- 
- /**
-@@ -1031,8 +1030,6 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
- {
- 	int i;
- 	struct stmmac_priv *priv = netdev_priv(dev);
--	unsigned int txsize = priv->dma_tx_size;
--	unsigned int rxsize = priv->dma_rx_size;
- 	unsigned int bfsize = 0;
- 	int ret = -ENOMEM;
- 
-@@ -1044,10 +1041,6 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
- 
- 	priv->dma_buf_sz = bfsize;
- 
--	if (netif_msg_probe(priv))
--		pr_debug("%s: txsize %d, rxsize %d, bfsize %d\n", __func__,
--			 txsize, rxsize, bfsize);
--
- 	if (netif_msg_probe(priv)) {
- 		pr_debug("(%s) dma_rx_phy=0x%08x dma_tx_phy=0x%08x\n", __func__,
- 			 (u32) priv->dma_rx_phy, (u32) priv->dma_tx_phy);
-@@ -1055,7 +1048,7 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
- 		/* RX INITIALIZATION */
- 		pr_debug("\tSKB addresses:\nskb\t\tskb data\tdma data\n");
- 	}
--	for (i = 0; i < rxsize; i++) {
-+	for (i = 0; i < DMA_RX_SIZE; i++) {
- 		struct dma_desc *p;
- 		if (priv->extend_desc)
- 			p = &((priv->dma_erx + i)->basic);
-@@ -1072,26 +1065,26 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
- 				 (unsigned int)priv->rx_skbuff_dma[i]);
- 	}
- 	priv->cur_rx = 0;
--	priv->dirty_rx = (unsigned int)(i - rxsize);
-+	priv->dirty_rx = (unsigned int)(i - DMA_RX_SIZE);
- 	buf_sz = bfsize;
- 
- 	/* Setup the chained descriptor addresses */
- 	if (priv->mode == STMMAC_CHAIN_MODE) {
- 		if (priv->extend_desc) {
- 			priv->hw->mode->init(priv->dma_erx, priv->dma_rx_phy,
--					     rxsize, 1);
-+					     DMA_RX_SIZE, 1);
- 			priv->hw->mode->init(priv->dma_etx, priv->dma_tx_phy,
--					     txsize, 1);
-+					     DMA_TX_SIZE, 1);
- 		} else {
- 			priv->hw->mode->init(priv->dma_rx, priv->dma_rx_phy,
--					     rxsize, 0);
-+					     DMA_RX_SIZE, 0);
- 			priv->hw->mode->init(priv->dma_tx, priv->dma_tx_phy,
--					     txsize, 0);
-+					     DMA_TX_SIZE, 0);
++	axi = kzalloc(sizeof(axi), GFP_KERNEL);
++	if (!axi)
++		return ERR_PTR(-ENOMEM);
++
++	axi->axi_lpi_en = of_property_read_bool(np, "snps,lpi_en");
++	axi->axi_xit_frm = of_property_read_bool(np, "snps,xit_frm");
++	axi->axi_kbbe = of_property_read_bool(np, "snps,axi_kbbe");
++	axi->axi_axi_all = of_property_read_bool(np, "snps,axi_all");
++	axi->axi_fb = of_property_read_bool(np, "snps,axi_fb");
++	axi->axi_mb = of_property_read_bool(np, "snps,axi_mb");
++	axi->axi_rb =  of_property_read_bool(np, "snps,axi_rb");
++
++	of_property_read_u32(np, "snps,wr_osr_lmt", &axi->axi_wr_osr_lmt);
++	of_property_read_u32(np, "snps,rd_osr_lmt", &axi->axi_rd_osr_lmt);
++	of_property_read_u32_array(np, "snps,blen", axi->axi_blen, AXI_BLEN);
++
++	return axi;
++}
++
++/**
+  * stmmac_probe_config_dt - parse device-tree driver parameters
+  * @pdev: platform_device structure
+  * @plat: driver data platform structure
+@@ -216,13 +252,11 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
  		}
+ 		plat->dma_cfg = dma_cfg;
+ 		of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
++		dma_cfg->aal = of_property_read_bool(np, "snps,aal");
+ 		dma_cfg->fixed_burst =
+ 			of_property_read_bool(np, "snps,fixed-burst");
+ 		dma_cfg->mixed_burst =
+ 			of_property_read_bool(np, "snps,mixed-burst");
+-		of_property_read_u32(np, "snps,burst_len", &dma_cfg->burst_len);
+-		if (dma_cfg->burst_len < 0 || dma_cfg->burst_len > 256)
+-			dma_cfg->burst_len = 0;
+ 	}
+ 	plat->force_thresh_dma_mode = of_property_read_bool(np, "snps,force_thresh_dma_mode");
+ 	if (plat->force_thresh_dma_mode) {
+@@ -230,6 +264,8 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+ 		pr_warn("force_sf_dma_mode is ignored if force_thresh_dma_mode is set.");
  	}
  
- 	/* TX INITIALIZATION */
--	for (i = 0; i < txsize; i++) {
-+	for (i = 0; i < DMA_TX_SIZE; i++) {
- 		struct dma_desc *p;
- 		if (priv->extend_desc)
- 			p = &((priv->dma_etx + i)->basic);
-@@ -1123,7 +1116,7 @@ static void dma_free_rx_skbufs(struct stmmac_priv *priv)
- {
- 	int i;
- 
--	for (i = 0; i < priv->dma_rx_size; i++)
-+	for (i = 0; i < DMA_RX_SIZE; i++)
- 		stmmac_free_rx_buffers(priv, i);
++	plat->axi = stmmac_axi_setup(pdev);
++
+ 	return plat;
  }
- 
-@@ -1131,7 +1124,7 @@ static void dma_free_tx_skbufs(struct stmmac_priv *priv)
- {
- 	int i;
- 
--	for (i = 0; i < priv->dma_tx_size; i++) {
-+	for (i = 0; i < DMA_TX_SIZE; i++) {
- 		struct dma_desc *p;
- 
- 		if (priv->extend_desc)
-@@ -1171,33 +1164,31 @@ static void dma_free_tx_skbufs(struct stmmac_priv *priv)
-  */
- static int alloc_dma_desc_resources(struct stmmac_priv *priv)
- {
--	unsigned int txsize = priv->dma_tx_size;
--	unsigned int rxsize = priv->dma_rx_size;
- 	int ret = -ENOMEM;
- 
--	priv->rx_skbuff_dma = kmalloc_array(rxsize, sizeof(dma_addr_t),
-+	priv->rx_skbuff_dma = kmalloc_array(DMA_RX_SIZE, sizeof(dma_addr_t),
- 					    GFP_KERNEL);
- 	if (!priv->rx_skbuff_dma)
- 		return -ENOMEM;
- 
--	priv->rx_skbuff = kmalloc_array(rxsize, sizeof(struct sk_buff *),
-+	priv->rx_skbuff = kmalloc_array(DMA_RX_SIZE, sizeof(struct sk_buff *),
- 					GFP_KERNEL);
- 	if (!priv->rx_skbuff)
- 		goto err_rx_skbuff;
- 
--	priv->tx_skbuff_dma = kmalloc_array(txsize,
-+	priv->tx_skbuff_dma = kmalloc_array(DMA_TX_SIZE,
- 					    sizeof(*priv->tx_skbuff_dma),
- 					    GFP_KERNEL);
- 	if (!priv->tx_skbuff_dma)
- 		goto err_tx_skbuff_dma;
- 
--	priv->tx_skbuff = kmalloc_array(txsize, sizeof(struct sk_buff *),
-+	priv->tx_skbuff = kmalloc_array(DMA_TX_SIZE, sizeof(struct sk_buff *),
- 					GFP_KERNEL);
- 	if (!priv->tx_skbuff)
- 		goto err_tx_skbuff;
- 
- 	if (priv->extend_desc) {
--		priv->dma_erx = dma_zalloc_coherent(priv->device, rxsize *
-+		priv->dma_erx = dma_zalloc_coherent(priv->device, DMA_RX_SIZE *
- 						    sizeof(struct
- 							   dma_extended_desc),
- 						    &priv->dma_rx_phy,
-@@ -1205,31 +1196,31 @@ static int alloc_dma_desc_resources(struct stmmac_priv *priv)
- 		if (!priv->dma_erx)
- 			goto err_dma;
- 
--		priv->dma_etx = dma_zalloc_coherent(priv->device, txsize *
-+		priv->dma_etx = dma_zalloc_coherent(priv->device, DMA_TX_SIZE *
- 						    sizeof(struct
- 							   dma_extended_desc),
- 						    &priv->dma_tx_phy,
- 						    GFP_KERNEL);
- 		if (!priv->dma_etx) {
--			dma_free_coherent(priv->device, priv->dma_rx_size *
-+			dma_free_coherent(priv->device, DMA_RX_SIZE *
- 					  sizeof(struct dma_extended_desc),
- 					  priv->dma_erx, priv->dma_rx_phy);
- 			goto err_dma;
- 		}
- 	} else {
--		priv->dma_rx = dma_zalloc_coherent(priv->device, rxsize *
-+		priv->dma_rx = dma_zalloc_coherent(priv->device, DMA_RX_SIZE *
- 						   sizeof(struct dma_desc),
- 						   &priv->dma_rx_phy,
- 						   GFP_KERNEL);
- 		if (!priv->dma_rx)
- 			goto err_dma;
- 
--		priv->dma_tx = dma_zalloc_coherent(priv->device, txsize *
-+		priv->dma_tx = dma_zalloc_coherent(priv->device, DMA_TX_SIZE *
- 						   sizeof(struct dma_desc),
- 						   &priv->dma_tx_phy,
- 						   GFP_KERNEL);
- 		if (!priv->dma_tx) {
--			dma_free_coherent(priv->device, priv->dma_rx_size *
-+			dma_free_coherent(priv->device, DMA_RX_SIZE *
- 					  sizeof(struct dma_desc),
- 					  priv->dma_rx, priv->dma_rx_phy);
- 			goto err_dma;
-@@ -1258,16 +1249,16 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
- 	/* Free DMA regions of consistent memory previously allocated */
- 	if (!priv->extend_desc) {
- 		dma_free_coherent(priv->device,
--				  priv->dma_tx_size * sizeof(struct dma_desc),
-+				  DMA_TX_SIZE * sizeof(struct dma_desc),
- 				  priv->dma_tx, priv->dma_tx_phy);
- 		dma_free_coherent(priv->device,
--				  priv->dma_rx_size * sizeof(struct dma_desc),
-+				  DMA_RX_SIZE * sizeof(struct dma_desc),
- 				  priv->dma_rx, priv->dma_rx_phy);
- 	} else {
--		dma_free_coherent(priv->device, priv->dma_tx_size *
-+		dma_free_coherent(priv->device, DMA_TX_SIZE *
- 				  sizeof(struct dma_extended_desc),
- 				  priv->dma_etx, priv->dma_tx_phy);
--		dma_free_coherent(priv->device, priv->dma_rx_size *
-+		dma_free_coherent(priv->device, DMA_RX_SIZE *
- 				  sizeof(struct dma_extended_desc),
- 				  priv->dma_erx, priv->dma_rx_phy);
- 	}
-@@ -1312,16 +1303,15 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
-  */
- static void stmmac_tx_clean(struct stmmac_priv *priv)
- {
--	unsigned int txsize = priv->dma_tx_size;
- 	unsigned int bytes_compl = 0, pkts_compl = 0;
-+	unsigned int entry = priv->dirty_tx;
- 
- 	spin_lock(&priv->tx_lock);
- 
- 	priv->xstats.tx_clean++;
- 
--	while (priv->dirty_tx != priv->cur_tx) {
-+	while (entry != priv->cur_tx) {
- 		int last;
--		unsigned int entry = priv->dirty_tx % txsize;
- 		struct sk_buff *skb = priv->tx_skbuff[entry];
- 		struct dma_desc *p;
- 
-@@ -1378,16 +1368,17 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 
- 		priv->hw->desc->release_tx_desc(p, priv->mode);
- 
--		priv->dirty_tx++;
-+		entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
-+		priv->dirty_tx = entry;
- 	}
- 
- 	netdev_completed_queue(priv->dev, pkts_compl, bytes_compl);
- 
- 	if (unlikely(netif_queue_stopped(priv->dev) &&
--		     stmmac_tx_avail(priv) > STMMAC_TX_THRESH(priv))) {
-+		     stmmac_tx_avail(priv) > STMMAC_TX_THRESH)) {
- 		netif_tx_lock(priv->dev);
- 		if (netif_queue_stopped(priv->dev) &&
--		    stmmac_tx_avail(priv) > STMMAC_TX_THRESH(priv)) {
-+		    stmmac_tx_avail(priv) > STMMAC_TX_THRESH) {
- 			if (netif_msg_tx_done(priv))
- 				pr_debug("%s: restart transmit\n", __func__);
- 			netif_wake_queue(priv->dev);
-@@ -1421,20 +1412,19 @@ static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv)
- static void stmmac_tx_err(struct stmmac_priv *priv)
- {
- 	int i;
--	int txsize = priv->dma_tx_size;
- 	netif_stop_queue(priv->dev);
- 
- 	priv->hw->dma->stop_tx(priv->ioaddr);
- 	dma_free_tx_skbufs(priv);
--	for (i = 0; i < txsize; i++)
-+	for (i = 0; i < DMA_TX_SIZE; i++)
- 		if (priv->extend_desc)
- 			priv->hw->desc->init_tx_desc(&priv->dma_etx[i].basic,
- 						     priv->mode,
--						     (i == txsize - 1));
-+						     (i == DMA_TX_SIZE - 1));
- 		else
- 			priv->hw->desc->init_tx_desc(&priv->dma_tx[i],
- 						     priv->mode,
--						     (i == txsize - 1));
-+						     (i == DMA_TX_SIZE - 1));
- 	priv->dirty_tx = 0;
- 	priv->cur_tx = 0;
- 	netdev_reset_queue(priv->dev);
-@@ -1811,9 +1801,6 @@ static int stmmac_open(struct net_device *dev)
- 	memset(&priv->xstats, 0, sizeof(struct stmmac_extra_stats));
- 	priv->xstats.threshold = tc;
- 
--	/* Create and initialize the TX/RX descriptors chains. */
--	priv->dma_tx_size = STMMAC_ALIGN(dma_txsize);
--	priv->dma_rx_size = STMMAC_ALIGN(dma_rxsize);
- 	priv->dma_buf_sz = STMMAC_ALIGN(buf_sz);
- 
- 	ret = alloc_dma_desc_resources(priv);
-@@ -1955,7 +1942,6 @@ static int stmmac_release(struct net_device *dev)
- static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
--	unsigned int txsize = priv->dma_tx_size;
- 	int entry;
- 	int i, csum_insertion = 0, is_jumbo = 0;
- 	int nfrags = skb_shinfo(skb)->nr_frags;
-@@ -1978,7 +1964,8 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (priv->tx_path_in_lpi_mode)
- 		stmmac_disable_eee_mode(priv);
- 
--	entry = priv->cur_tx % txsize;
-+	entry = priv->cur_tx;
+ #else
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index eead8ab..6e53fa8 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -90,7 +90,21 @@ struct stmmac_dma_cfg {
+ 	int pbl;
+ 	int fixed_burst;
+ 	int mixed_burst;
+-	int burst_len;
++	bool aal;
++};
 +
++#define AXI_BLEN	7
++struct stmmac_axi {
++	bool axi_lpi_en;
++	bool axi_xit_frm;
++	u32 axi_wr_osr_lmt;
++	u32 axi_rd_osr_lmt;
++	bool axi_kbbe;
++	bool axi_axi_all;
++	u32 axi_blen[AXI_BLEN];
++	bool axi_fb;
++	bool axi_mb;
++	bool axi_rb;
+ };
  
- 	csum_insertion = (skb->ip_summed == CHECKSUM_PARTIAL);
- 
-@@ -2013,7 +2000,8 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		int len = skb_frag_size(frag);
- 
- 		priv->tx_skbuff[entry] = NULL;
--		entry = (++priv->cur_tx) % txsize;
-+		entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
-+
- 		if (priv->extend_desc)
- 			desc = (struct dma_desc *)(priv->dma_etx + entry);
- 		else
-@@ -2056,17 +2044,21 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	priv->hw->desc->set_tx_owner(first);
- 	wmb();
- 
--	priv->cur_tx++;
-+	entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
-+
-+	priv->cur_tx = entry;
- 
- 	if (netif_msg_pktdata(priv)) {
- 		pr_debug("%s: curr %d dirty=%d entry=%d, first=%p, nfrags=%d",
--			__func__, (priv->cur_tx % txsize),
--			(priv->dirty_tx % txsize), entry, first, nfrags);
-+			__func__, (priv->cur_tx % DMA_TX_SIZE),
-+			(priv->dirty_tx % DMA_TX_SIZE), entry, first, nfrags);
- 
- 		if (priv->extend_desc)
--			stmmac_display_ring((void *)priv->dma_etx, txsize, 1);
-+			stmmac_display_ring((void *)priv->dma_etx,
-+					    DMA_TX_SIZE, 1);
- 		else
--			stmmac_display_ring((void *)priv->dma_tx, txsize, 0);
-+			stmmac_display_ring((void *)priv->dma_tx,
-+					    DMA_TX_SIZE, 0);
- 
- 		pr_debug(">>> frame to be transmitted: ");
- 		print_pkt(skb->data, skb->len);
-@@ -2128,11 +2120,11 @@ static void stmmac_rx_vlan(struct net_device *dev, struct sk_buff *skb)
-  */
- static inline void stmmac_rx_refill(struct stmmac_priv *priv)
- {
--	unsigned int rxsize = priv->dma_rx_size;
- 	int bfsize = priv->dma_buf_sz;
-+	unsigned int entry = priv->dirty_rx;
-+	int dirty = stmmac_rx_dirty(priv);
- 
--	for (; priv->cur_rx - priv->dirty_rx > 0; priv->dirty_rx++) {
--		unsigned int entry = priv->dirty_rx % rxsize;
-+	while (dirty-- > 0) {
- 		struct dma_desc *p;
- 
- 		if (priv->extend_desc)
-@@ -2168,7 +2160,10 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
- 		wmb();
- 		priv->hw->desc->set_rx_owner(p);
- 		wmb();
-+
-+		entry = STMMAC_GET_ENTRY(entry, DMA_RX_SIZE);
- 	}
-+	priv->dirty_rx = entry;
- }
- 
- /**
-@@ -2180,8 +2175,7 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
-  */
- static int stmmac_rx(struct stmmac_priv *priv, int limit)
- {
--	unsigned int rxsize = priv->dma_rx_size;
--	unsigned int entry = priv->cur_rx % rxsize;
-+	unsigned int entry = priv->cur_rx;
- 	unsigned int next_entry;
- 	unsigned int count = 0;
- 	int coe = priv->hw->rx_csum;
-@@ -2189,9 +2183,11 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 	if (netif_msg_rx_status(priv)) {
- 		pr_debug("%s: descriptor ring:\n", __func__);
- 		if (priv->extend_desc)
--			stmmac_display_ring((void *)priv->dma_erx, rxsize, 1);
-+			stmmac_display_ring((void *)priv->dma_erx,
-+					    DMA_RX_SIZE, 1);
- 		else
--			stmmac_display_ring((void *)priv->dma_rx, rxsize, 0);
-+			stmmac_display_ring((void *)priv->dma_rx,
-+					    DMA_RX_SIZE, 0);
- 	}
- 	while (count < limit) {
- 		int status;
-@@ -2207,7 +2203,9 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 
- 		count++;
- 
--		next_entry = (++priv->cur_rx) % rxsize;
-+		priv->cur_rx = STMMAC_GET_ENTRY(priv->cur_rx, DMA_RX_SIZE);
-+		next_entry = priv->cur_rx;
-+
- 		if (priv->extend_desc)
- 			prefetch(priv->dma_erx + next_entry);
- 		else
-@@ -2567,19 +2565,17 @@ static int stmmac_sysfs_ring_read(struct seq_file *seq, void *v)
- {
- 	struct net_device *dev = seq->private;
- 	struct stmmac_priv *priv = netdev_priv(dev);
--	unsigned int txsize = priv->dma_tx_size;
--	unsigned int rxsize = priv->dma_rx_size;
- 
- 	if (priv->extend_desc) {
- 		seq_printf(seq, "Extended RX descriptor ring:\n");
--		sysfs_display_ring((void *)priv->dma_erx, rxsize, 1, seq);
-+		sysfs_display_ring((void *)priv->dma_erx, DMA_RX_SIZE, 1, seq);
- 		seq_printf(seq, "Extended TX descriptor ring:\n");
--		sysfs_display_ring((void *)priv->dma_etx, txsize, 1, seq);
-+		sysfs_display_ring((void *)priv->dma_etx, DMA_TX_SIZE, 1, seq);
- 	} else {
- 		seq_printf(seq, "RX descriptor ring:\n");
--		sysfs_display_ring((void *)priv->dma_rx, rxsize, 0, seq);
-+		sysfs_display_ring((void *)priv->dma_rx, DMA_RX_SIZE, 0, seq);
- 		seq_printf(seq, "TX descriptor ring:\n");
--		sysfs_display_ring((void *)priv->dma_tx, txsize, 0, seq);
-+		sysfs_display_ring((void *)priv->dma_tx, DMA_TX_SIZE, 0, seq);
- 	}
- 
- 	return 0;
-@@ -3149,12 +3145,6 @@ static int __init stmmac_cmdline_opt(char *str)
- 		} else if (!strncmp(opt, "phyaddr:", 8)) {
- 			if (kstrtoint(opt + 8, 0, &phyaddr))
- 				goto err;
--		} else if (!strncmp(opt, "dma_txsize:", 11)) {
--			if (kstrtoint(opt + 11, 0, &dma_txsize))
--				goto err;
--		} else if (!strncmp(opt, "dma_rxsize:", 11)) {
--			if (kstrtoint(opt + 11, 0, &dma_rxsize))
--				goto err;
- 		} else if (!strncmp(opt, "buf_sz:", 7)) {
- 			if (kstrtoint(opt + 7, 0, &buf_sz))
- 				goto err;
+ struct plat_stmmacenet_data {
+@@ -122,5 +136,6 @@ struct plat_stmmacenet_data {
+ 	int (*init)(struct platform_device *pdev, void *priv);
+ 	void (*exit)(struct platform_device *pdev, void *priv);
+ 	void *bsp_priv;
++	struct stmmac_axi *axi;
+ };
+ #endif
 -- 
 1.9.1
