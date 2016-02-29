@@ -1,112 +1,66 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next] hv_netvsc: add ethtool support for set and get
- of settings
-Date: Mon, 29 Feb 2016 22:34:38 +0000
-Message-ID: <1456785278.3098.146.camel@decadent.org.uk>
-References: <1456442648-13941-1-git-send-email-sixiao@microsoft.com>
- <20160229.170910.1568620456454101151.davem@davemloft.net>
+From: Jouni Malinen <j@w1.fi>
+Subject: Re: [PATCHv2 08/10] rfkill: Use switch to demux userspace operations
+Date: Tue, 1 Mar 2016 00:39:18 +0200
+Message-ID: <20160229223918.GA32464@w1.fi>
+References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
+ <1456159001-20307-9-git-send-email-jprvita@endlessm.com>
+ <20160226175925.GA9331@w1.fi>
+ <CA+A7VXUY=qVDQ-OqT+QJK8haN6AFX4Br=OPXi-6RCxpvH3=QRg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============8833426238648205991=="
-Cc: devel@linuxdriverproject.org, haiyangz@microsoft.com,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, sixiao@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20160229.170910.1568620456454101151.davem@davemloft.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Darren Hart <dvhart@infradead.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	linux@endlessm.com,
+	=?utf-8?B?Sm/Do28=?= Paulo Rechi Vita <jprvita@endlessm.com>
+To: =?utf-8?B?Sm/Do28=?= Paulo Rechi Vita <jprvita@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+A7VXUY=qVDQ-OqT+QJK8haN6AFX4Br=OPXi-6RCxpvH3=QRg@mail.gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Feb 29, 2016 at 05:30:20PM -0500, Jo=C3=A3o Paulo Rechi Vita wr=
+ote:
 
---===============8833426238648205991==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-+YjuCSLI6Vm0OIaCpXn7"
+> I agree there is a difference in the logic here, thanks for taking th=
+e
+> time to point it out so clearly, and sorry for missing this. But AFAI=
+U
+> userspace should not call RFKILL_OP_CHANGE with ev.type =3D=3D
+> RFKILL_TYPE_ALL, as RFKILL_OP_CHANGE is intended to be used to
+> block/unblock one RFKill switch, and it is not possible to create a
+> RFKill switch with type =3D=3D RFKILL_TYPE_ALL (rfkill_alloc() would
+> return NULL).
 
+Interesting. Maybe Johannes can comment on that part since I think he
+wrote the code that interacts with kernel for the rfkill test cases.
 
---=-+YjuCSLI6Vm0OIaCpXn7
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> I tried to look into the source code of the test suite you pointed,
+> but couldn't easily figure out how it ends up with that combination.
+> Could you please explain (or point me in the code) how is that a vali=
+d
+> operation? If I'm not missing anything, we should probably return
+> EINVAL in this case.
 
-On Mon, 2016-02-29 at 17:09 -0500, David Miller wrote:
-> From: Simon Xiao <sixiao@microsoft.com>
-> Date: Thu, 25 Feb 2016 15:24:08 -0800
->=20
-> > This patch allows the user to set and retrieve speed and duplex of the
-> > hv_netvsc device via ethtool.
-> >=C2=A0
-> > Example:
-> > $ ethtool eth0
-> > Settings for eth0:
-> > ...
-> >=C2=A0=C2=A0=C2=A0=C2=A0 Speed: Unknown!
-> >=C2=A0=C2=A0=C2=A0=C2=A0 Duplex: Unknown! (255)
-> > ...
-> > $ ethtool -s eth0 speed 1000 duplex full
-> > $ ethtool eth0
-> > Settings for eth0:
-> > ...
-> >=C2=A0=C2=A0=C2=A0=C2=A0 Speed: 1000Mb/s
-> >=C2=A0=C2=A0=C2=A0=C2=A0 Duplex: Full
-> > ...
-> >=C2=A0
-> > This is based on patches by Roopa Prabhu and Nikolay Aleksandrov.
-> >=C2=A0
-> > Signed-off-by: Simon Xiao <sixiao@microsoft.com>
->=20
-> Applied, thanks.
+These specific failures were shown for the test cases in this file:
+http://w1.fi/cgit/hostap/tree/tests/hwsim/test_rfkill.py
 
-I missed this due to flu, but now I look at it - I don't see the point.
-Link speed isn't meaingful for a memory-based transport, so "unknown"
-is correct. =C2=A0The link is effectively full duplex though.
+The interaction with kernel is done using this code:
+http://w1.fi/cgit/hostap/tree/tests/hwsim/rfkill.py
 
-If the issue is that ethtool is a bit shouty about unknowns, let's
-consider changing that in ethtool, not teaching drivers to lie.
-
-Ben.
-
+It does indeed look like TYPE_ALL is used here (the block() and
+unblock() implementations). If this is incorrect, we can certainly
+change the script since I'd assume this is not used for anything else
+than the hwsim test cases (or well who knows, it is available out there=
+,
+so if someone needs python code to do rfkill operations..).
+=20
 --=20
-Ben Hutchings
-If God had intended Man to program,
-we'd have been born with serial I/O ports.
---=-+YjuCSLI6Vm0OIaCpXn7
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVtTHfue/yOyVhhEJAQpkSg/9Fbdl1EGaJ0a8TRc++oD/VpnD8q9P+wwJ
-wuZYpVbNF3roiHdSU+KUXCl1FeTl0UEL3yqkWMYWVAh4bvPWFPx7V2nAw9Qb5aXZ
-YWlUjXY55NBhHt8aR8xmvT3EYHNV9dgOTa0ba4gYTXIQzB9xJt2NVo8hGWaPAH9K
-+MU7dMUR06MYrTFcslaBtQ4NNiRljVxYU9w+2BLDL8c7cWWz6f7rz5Eq1cM2jbsp
-LcA4ay65UXG+JaaLhIFVOsrnlyB5Lwlmgp0f2xGhFpebTp0YKD7YtyK6C5Q7RFwZ
-B6nMCHB9olpr4fhNkAPBXXBa5oq8JFaJVsOp11u6cekF2BONqR3GCCvfJQq/PEks
-WRrS8cfKf58h5ej9429nDVNi27wqCgqRx3o5V7mPfrSp0KlVnb5vbVePH2csdZFk
-MsazzFyHO7DSZpChtjMu+VxCzj0Xg8GSYGVLRi5hMG+z3kT9Qk2cWl7veGaoEajv
-rIz4wZ5p18oxfe6D84ft0PuIWRvOKjPrMxJjaJAy+4eWiWTDPojgll/GQZiVgA/N
-mpeoutULo9JsGODZq/lbhBXCA7AgPFKFFsyCffgsx/vGQrJWUW2HYnbcMH6CE2v/
-EQqNgBSUHeEqpyF/HHJPLKj13y6M2IXBUcigT5Ld2yaLllZMIEhr8pexFZMb+oSL
-NaYeRNSSA0c=
-=v2Pq
------END PGP SIGNATURE-----
-
---=-+YjuCSLI6Vm0OIaCpXn7--
-
---===============8833426238648205991==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-devel mailing list
-devel@linuxdriverproject.org
-http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
-
---===============8833426238648205991==--
+Jouni Malinen                                            PGP id EFC895F=
+A
