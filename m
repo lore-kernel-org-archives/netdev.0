@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net V1 6/7] net/mlx5e: Add rx/tx bytes software counters
-Date: Mon, 29 Feb 2016 21:17:14 +0200
-Message-ID: <1456773435-16607-7-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net V1 7/7] net/mlx5e: Provide correct packet/bytes statistics
+Date: Mon, 29 Feb 2016 21:17:15 +0200
+Message-ID: <1456773435-16607-8-git-send-email-saeedm@mellanox.com>
 References: <1456773435-16607-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
@@ -10,130 +10,85 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53127 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:53165 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752009AbcB2TSP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Feb 2016 14:18:15 -0500
+	id S1753932AbcB2TSi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Feb 2016 14:18:38 -0500
 In-Reply-To: <1456773435-16607-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gal Pressman <galp@mellanox.com>
 
-Sum up rx/tx bytes in software as we do for rx/tx packets, to be reported
-in upcoming statistics fix.
+Using the HW VPort counters for traffic (rx/tx packets/bytes)
+statistics is wrong. This is because frames dropped due to steering or
+out of buffer will be counted as received. To fix that, we move to use
+the packet/bytes accounting done by the driver for what the netdev
+reports out.
 
+Fixes: f62b8bb8f2d3 ('net/mlx5: Extend mlx5_core to support [...]')
 Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h    |    8 ++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c |    1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c |    9 ++++++---
- 3 files changed, 13 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   25 ++++++--------------
+ 1 files changed, 8 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index d0a57d5..5b17532 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -223,6 +223,7 @@ struct mlx5e_pport_stats {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 02689ca..402994b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -141,6 +141,10 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 		return;
  
- static const char rq_stats_strings[][ETH_GSTRING_LEN] = {
- 	"packets",
-+	"bytes",
- 	"csum_none",
- 	"csum_sw",
- 	"lro_packets",
-@@ -232,16 +233,18 @@ static const char rq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	/* Collect firts the SW counters and then HW for consistency */
++	s->rx_packets		= 0;
++	s->rx_bytes		= 0;
++	s->tx_packets		= 0;
++	s->tx_bytes		= 0;
+ 	s->tso_packets		= 0;
+ 	s->tso_bytes		= 0;
+ 	s->tx_queue_stopped	= 0;
+@@ -155,6 +159,8 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 	for (i = 0; i < priv->params.num_channels; i++) {
+ 		rq_stats = &priv->channel[i]->rq.stats;
  
- struct mlx5e_rq_stats {
- 	u64 packets;
-+	u64 bytes;
- 	u64 csum_none;
- 	u64 csum_sw;
- 	u64 lro_packets;
- 	u64 lro_bytes;
- 	u64 wqe_err;
--#define NUM_RQ_STATS 6
-+#define NUM_RQ_STATS 7
- };
++		s->rx_packets	+= rq_stats->packets;
++		s->rx_bytes	+= rq_stats->bytes;
+ 		s->lro_packets	+= rq_stats->lro_packets;
+ 		s->lro_bytes	+= rq_stats->lro_bytes;
+ 		s->rx_csum_none	+= rq_stats->csum_none;
+@@ -164,6 +170,8 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 		for (j = 0; j < priv->params.num_tc; j++) {
+ 			sq_stats = &priv->channel[i]->sq[j].stats;
  
- static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
- 	"packets",
-+	"bytes",
- 	"tso_packets",
- 	"tso_bytes",
- 	"csum_offload_none",
-@@ -253,6 +256,7 @@ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
++			s->tx_packets		+= sq_stats->packets;
++			s->tx_bytes		+= sq_stats->bytes;
+ 			s->tso_packets		+= sq_stats->tso_packets;
+ 			s->tso_bytes		+= sq_stats->tso_bytes;
+ 			s->tx_queue_stopped	+= sq_stats->stopped;
+@@ -225,23 +233,6 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 	s->tx_broadcast_bytes   =
+ 		MLX5_GET_CTR(out, transmitted_eth_broadcast.octets);
  
- struct mlx5e_sq_stats {
- 	u64 packets;
-+	u64 bytes;
- 	u64 tso_packets;
- 	u64 tso_bytes;
- 	u64 csum_offload_none;
-@@ -260,7 +264,7 @@ struct mlx5e_sq_stats {
- 	u64 wake;
- 	u64 dropped;
- 	u64 nop;
--#define NUM_SQ_STATS 8
-+#define NUM_SQ_STATS 9
- };
- 
- struct mlx5e_stats {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 3fd6a58..59658b9 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -263,6 +263,7 @@ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
- 
- 		mlx5e_build_rx_skb(cqe, rq, skb);
- 		rq->stats.packets++;
-+		rq->stats.bytes += be32_to_cpu(cqe->byte_cnt);
- 		napi_gro_receive(cq->napi, skb);
- 
- wq_ll_pop:
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 2beea8c..bb4eeeb 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -179,6 +179,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 	unsigned int skb_len = skb->len;
- 	u8  opcode = MLX5_OPCODE_SEND;
- 	dma_addr_t dma_addr = 0;
-+	unsigned int num_bytes;
- 	bool bf = false;
- 	u16 headlen;
- 	u16 ds_cnt;
-@@ -204,8 +205,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 		opcode       = MLX5_OPCODE_LSO;
- 		ihs          = skb_transport_offset(skb) + tcp_hdrlen(skb);
- 		payload_len  = skb->len - ihs;
--		wi->num_bytes = skb->len +
--				(skb_shinfo(skb)->gso_segs - 1) * ihs;
-+		num_bytes = skb->len + (skb_shinfo(skb)->gso_segs - 1) * ihs;
- 		sq->stats.tso_packets++;
- 		sq->stats.tso_bytes += payload_len;
- 	} else {
-@@ -213,9 +213,11 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 		     !skb->xmit_more &&
- 		     !skb_shinfo(skb)->nr_frags;
- 		ihs = mlx5e_get_inline_hdr_size(sq, skb, bf);
--		wi->num_bytes = max_t(unsigned int, skb->len, ETH_ZLEN);
-+		num_bytes = max_t(unsigned int, skb->len, ETH_ZLEN);
- 	}
- 
-+	wi->num_bytes = num_bytes;
-+
- 	if (skb_vlan_tag_present(skb)) {
- 		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs, &skb_data,
- 				  &skb_len);
-@@ -307,6 +309,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 	sq->bf_budget = bf ? sq->bf_budget - 1 : 0;
- 
- 	sq->stats.packets++;
-+	sq->stats.bytes += num_bytes;
- 	return NETDEV_TX_OK;
- 
- dma_unmap_wqe_err:
+-	s->rx_packets =
+-		s->rx_unicast_packets +
+-		s->rx_multicast_packets +
+-		s->rx_broadcast_packets;
+-	s->rx_bytes =
+-		s->rx_unicast_bytes +
+-		s->rx_multicast_bytes +
+-		s->rx_broadcast_bytes;
+-	s->tx_packets =
+-		s->tx_unicast_packets +
+-		s->tx_multicast_packets +
+-		s->tx_broadcast_packets;
+-	s->tx_bytes =
+-		s->tx_unicast_bytes +
+-		s->tx_multicast_bytes +
+-		s->tx_broadcast_bytes;
+-
+ 	/* Update calculated offload counters */
+ 	s->tx_csum_offload = s->tx_packets - tx_offload_none;
+ 	s->rx_csum_good    = s->rx_packets - s->rx_csum_none -
 -- 
 1.7.1
