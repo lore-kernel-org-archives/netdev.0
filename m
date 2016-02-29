@@ -1,7 +1,7 @@
 From: Alexandre TORGUE <alexandre.torgue@st.com>
-Subject: [PATCH v3 02/17] stmmac: rework DMA bus setting and introduce new platform AXI structure
-Date: Mon, 29 Feb 2016 14:27:28 +0100
-Message-ID: <1456752463-27128-3-git-send-email-alexandre.torgue@st.com>
+Subject: [PATCH v3 09/17] stmmac: optimize tx desc management
+Date: Mon, 29 Feb 2016 14:27:35 +0100
+Message-ID: <1456752463-27128-10-git-send-email-alexandre.torgue@st.com>
 References: <1456752463-27128-1-git-send-email-alexandre.torgue@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,528 +9,275 @@ Cc: <peppe.cavallaro@st.com>, <fabrice.gasnier@st.com>,
 	<maxime.coquelin@st.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:59678 "EHLO
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:45914 "EHLO
 	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754677AbcB2N2O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 08:28:14 -0500
-Received: from pps.filterd (m0046660.ppops.net [127.0.0.1])
-	by mx08-00178001.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u1TDOqBA027994
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 14:28:13 +0100
+	by vger.kernel.org with ESMTP id S1753005AbcB2N2m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 08:28:42 -0500
+Received: from pps.filterd (m0046661.ppops.net [127.0.0.1])
+	by mx08-00178001.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u1TDS8pb019736
+	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 14:28:41 +0100
 Received: from beta.dmz-ap.st.com (beta.dmz-ap.st.com [138.198.100.35])
-	by mx08-00178001.pphosted.com with ESMTP id 21b1t8k30w-1
+	by mx08-00178001.pphosted.com with ESMTP id 21b3jgaqet-1
 	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 14:28:12 +0100
+	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 14:28:40 +0100
 Received: from zeta.dmz-ap.st.com (ns6.st.com [138.198.234.13])
-	by beta.dmz-ap.st.com (STMicroelectronics) with ESMTP id DA60522
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 13:28:08 +0000 (GMT)
+	by beta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 972AF23
+	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 13:28:37 +0000 (GMT)
 Received: from Webmail-ap.st.com (eapex1hubcas1.st.com [10.80.176.8])
-	by zeta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 7E6E5F7
-	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 13:28:07 +0000 (GMT)
+	by zeta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 3F089F7
+	for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 13:28:36 +0000 (GMT)
 In-Reply-To: <1456752463-27128-1-git-send-email-alexandre.torgue@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-This patch restructures the DMA bus settings and this is done
-by introducing a new platform structure used for programming
-the AXI Bus Mode Register inside the DMA module.
-This structure can be populated from device-tree as documented in the
-binding txt file.
+This patch is to optimize the way to manage the TDES inside the
+xmit function. When prepare the frame, some settings (e.g. OWN
+bit) can be merged. This has been reworked to improve the tx
+performances.
 
-After initializing the DMA, the AXI register can be optionally tuned
-for platform drivers based.
-This patch also reworks some parameters to make coherent the DMA
-configuration now that AXI register is introduced.
-For example, the burst_len is managed by using the mentioned axi
-support above; so the snps,burst-len parameter has been removed.
-It makes sense to provide the AAL parameter from DT to Address-Aligned
-Beats inside the Register0 and review the PBL settings when initialize
-the engine.
-
-For PCI glue, rebuilding the story of this setting, it
-was added to align a configuration so not for fixing some
-known problem. No issue raised after this patch.
-It is safe to use the default burst length instead of
-tuning it to the maximum value
-
+Signed-off-by: Fabrice Gasnier <fabrice.gasnier@st.com>
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Signed-off-by: Alexandre TORGUE <alexandre.torgue@st.com>
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index e862a92..6605d19 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -17,7 +17,25 @@ Required properties:
- 	The 1st cell is reset pre-delay in micro seconds.
- 	The 2nd cell is reset pulse in micro seconds.
- 	The 3rd cell is reset post-delay in micro seconds.
-+
-+Optional properties:
-+- resets: Should contain a phandle to the STMMAC reset signal, if any
-+- reset-names: Should contain the reset signal name "stmmaceth", if a
-+	reset phandle is given
-+- max-frame-size: See ethernet.txt file in the same directory
-+- clocks: If present, the first clock should be the GMAC main clock and
-+  the second clock should be peripheral's register interface clock. Further
-+  clocks may be specified in derived bindings.
-+- clock-names: One name for each entry in the clocks property, the
-+  first one should be "stmmaceth" and the second one should be "pclk".
-+- clk_ptp_ref: this is the PTP reference clock; in case of the PTP is
-+  available this clock is used for programming the Timestamp Addend Register.
-+  If not passed then the system clock will be used and this is fine on some
-+  platforms.
-+- tx-fifo-depth: See ethernet.txt file in the same directory
-+- rx-fifo-depth: See ethernet.txt file in the same directory
- - snps,pbl		Programmable Burst Length
-+- snps,aal		Address-Aligned Beats
- - snps,fixed-burst	Program the DMA to use the fixed burst mode
- - snps,mixed-burst	Program the DMA to use the mixed burst mode
- - snps,force_thresh_dma_mode	Force DMA to use the threshold mode for
-@@ -29,27 +47,28 @@ Required properties:
- 				supported by this device instance
- - snps,perfect-filter-entries:	Number of perfect filter entries supported
- 				by this device instance
--
--Optional properties:
--- resets: Should contain a phandle to the STMMAC reset signal, if any
--- reset-names: Should contain the reset signal name "stmmaceth", if a
--	reset phandle is given
--- max-frame-size: See ethernet.txt file in the same directory
--- clocks: If present, the first clock should be the GMAC main clock
--  The optional second clock should be peripheral's register interface clock.
--  The third optional clock should be the ptp reference clock.
--  Further clocks may be specified in derived bindings.
--- clock-names: One name for each entry in the clocks property.
--  The first one should be "stmmaceth".
--  The optional second one should be "pclk".
--  The optional third one should be "clk_ptp_ref".
--- snps,burst_len: The AXI burst lenth value of the AXI BUS MODE register.
--- tx-fifo-depth: See ethernet.txt file in the same directory
--- rx-fifo-depth: See ethernet.txt file in the same directory
-+- AXI BUS Mode parameters: below the list of all the parameters to program the
-+			   AXI register inside the DMA module:
-+	- snps,lpi_en: enable Low Power Interface
-+	- snps,xit_frm: unlock on WoL
-+	- snps,wr_osr_lmt: max write oustanding req. limit
-+	- snps,rd_osr_lmt: max read oustanding req. limit
-+	- snps,kbbe: do not cross 1KiB boundary.
-+	- snps,axi_all: align address
-+	- snps,blen: this is a vector of supported burst length.
-+	- snps,fb: fixed-burst
-+	- snps,mb: mixed-burst
-+	- snps,rb: rebuild INCRx Burst
- - mdio: with compatible = "snps,dwmac-mdio", create and register mdio bus.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
+index dacb654..b3e669a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
++++ b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
+@@ -50,7 +50,9 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 		return -1;
+ 	priv->tx_skbuff_dma[entry].buf = desc->des2;
+ 	priv->tx_skbuff_dma[entry].len = bmax;
+-	priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum, STMMAC_CHAIN_MODE);
++	/* do not close the descriptor and do not set own bit */
++	priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum, STMMAC_CHAIN_MODE,
++					0, false);
  
- Examples:
- 
-+	stmmac_axi_setup: stmmac-axi-config {
-+		snps,wr_osr_lmt = <0xf>;
-+		snps,rd_osr_lmt = <0xf>;
-+		snps,blen = <256 128 64 32 0 0 0>;
-+	};
-+
- 	gmac0: ethernet@e0800000 {
- 		compatible = "st,spear600-gmac";
- 		reg = <0xe0800000 0x8000>;
-@@ -65,6 +84,7 @@ Examples:
- 		tx-fifo-depth = <16384>;
- 		clocks = <&clock>;
- 		clock-names = "stmmaceth";
-+		snps,axi-config = <&stmmac_axi_setup>;
- 		mdio0 {
- 			#address-cells = <1>;
- 			#size-cells = <0>;
+ 	while (len != 0) {
+ 		priv->tx_skbuff[entry] = NULL;
+@@ -66,8 +68,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 			priv->tx_skbuff_dma[entry].buf = desc->des2;
+ 			priv->tx_skbuff_dma[entry].len = bmax;
+ 			priv->hw->desc->prepare_tx_desc(desc, 0, bmax, csum,
+-							STMMAC_CHAIN_MODE);
+-			priv->hw->desc->set_tx_owner(desc);
++							STMMAC_CHAIN_MODE, 1,
++							false);
+ 			len -= bmax;
+ 			i++;
+ 		} else {
+@@ -78,9 +80,10 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 				return -1;
+ 			priv->tx_skbuff_dma[entry].buf = desc->des2;
+ 			priv->tx_skbuff_dma[entry].len = len;
++			/* last descriptor can be set now */
+ 			priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
+-							STMMAC_CHAIN_MODE);
+-			priv->hw->desc->set_tx_owner(desc);
++							STMMAC_CHAIN_MODE, 1,
++							true);
+ 			len = 0;
+ 		}
+ 	}
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index bac0e44..586a336 100644
+index 3ba268e..885c0f9 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -27,6 +27,7 @@
+@@ -338,12 +338,11 @@ struct stmmac_desc_ops {
  
- #include <linux/etherdevice.h>
- #include <linux/netdevice.h>
-+#include <linux/stmmac.h>
- #include <linux/phy.h>
- #include <linux/module.h>
- #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
-@@ -378,7 +379,9 @@ struct stmmac_dma_ops {
- 	/* DMA core initialization */
- 	int (*reset)(void __iomem *ioaddr);
- 	void (*init)(void __iomem *ioaddr, int pbl, int fb, int mb,
--		     int burst_len, u32 dma_tx, u32 dma_rx, int atds);
-+		     int aal, u32 dma_tx, u32 dma_rx, int atds);
-+	/* Configure the AXI Bus Mode Register */
-+	void (*axi)(void __iomem *ioaddr, struct stmmac_axi *axi);
- 	/* Dump DMA registers */
- 	void (*dump_regs) (void __iomem *ioaddr);
- 	/* Set tx/rx threshold in the csr6 register
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-index 9d36ae7..b0593a4 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-@@ -240,7 +240,7 @@ enum rx_tx_priority_ratio {
- #define DMA_BUS_MODE_RPBL_MASK	0x003e0000	/* Rx-Programmable Burst Len */
- #define DMA_BUS_MODE_RPBL_SHIFT	17
- #define DMA_BUS_MODE_USP	0x00800000
--#define DMA_BUS_MODE_PBL	0x01000000
-+#define DMA_BUS_MODE_MAXPBL	0x01000000
- #define DMA_BUS_MODE_AAL	0x02000000
+ 	/* Invoked by the xmit function to prepare the tx descriptor */
+ 	void (*prepare_tx_desc) (struct dma_desc *p, int is_fs, int len,
+-				 int csum_flag, int mode);
++				 bool csum_flag, int mode, bool tx_own,
++				 bool ls_ic);
+ 	/* Set/get the owner of the descriptor */
+ 	void (*set_tx_owner) (struct dma_desc *p);
+ 	int (*get_tx_owner) (struct dma_desc *p);
+-	/* Invoked by the xmit function to close the tx descriptor */
+-	void (*close_tx_desc) (struct dma_desc *p);
+ 	/* Clean the tx descriptor as soon as the tx irq is received */
+ 	void (*release_tx_desc) (struct dma_desc *p, int mode);
+ 	/* Clear interrupt on tx frame completion. When this bit is
+diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+index 1a2fce9..1abd80e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+@@ -302,7 +302,8 @@ static void enh_desc_release_tx_desc(struct dma_desc *p, int mode)
+ }
  
- /* DMA CRS Control and Status Register Mapping */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-index 5f0aea5..da32d60 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-@@ -30,24 +30,76 @@
- #include "dwmac1000.h"
- #include "dwmac_dma.h"
- 
-+static void dwmac1000_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
-+{
-+	u32 value = readl(ioaddr + DMA_AXI_BUS_MODE);
-+	int i;
-+
-+	pr_info("dwmac1000: Master AXI performs %s burst length\n",
-+		!(value & DMA_AXI_UNDEF) ? "fixed" : "any");
-+
-+	if (axi->axi_lpi_en)
-+		value |= DMA_AXI_EN_LPI;
-+	if (axi->axi_xit_frm)
-+		value |= DMA_AXI_LPI_XIT_FRM;
-+
-+	value |= (axi->axi_wr_osr_lmt & DMA_AXI_WR_OSR_LMT_MASK) <<
-+		 DMA_AXI_WR_OSR_LMT_SHIFT;
-+
-+	value |= (axi->axi_rd_osr_lmt & DMA_AXI_RD_OSR_LMT_MASK) <<
-+		 DMA_AXI_RD_OSR_LMT_SHIFT;
-+
-+	/* Depending on the UNDEF bit the Master AXI will perform any burst
-+	 * length according to the BLEN programmed (by default all BLEN are
-+	 * set).
-+	 */
-+	for (i = 0; i < AXI_BLEN; i++) {
-+		switch (axi->axi_blen[i]) {
-+		case 256:
-+			value |= DMA_AXI_BLEN256;
-+			break;
-+		case 128:
-+			value |= DMA_AXI_BLEN128;
-+			break;
-+		case 64:
-+			value |= DMA_AXI_BLEN64;
-+			break;
-+		case 32:
-+			value |= DMA_AXI_BLEN32;
-+			break;
-+		case 16:
-+			value |= DMA_AXI_BLEN16;
-+			break;
-+		case 8:
-+			value |= DMA_AXI_BLEN8;
-+			break;
-+		case 4:
-+			value |= DMA_AXI_BLEN4;
-+			break;
-+		}
-+	}
-+
-+	writel(value, ioaddr + DMA_AXI_BUS_MODE);
-+}
-+
- static void dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
--			       int burst_len, u32 dma_tx, u32 dma_rx, int atds)
-+			       int aal, u32 dma_tx, u32 dma_rx, int atds)
+ static void enh_desc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+-				     int csum_flag, int mode)
++				     bool csum_flag, int mode, bool tx_own,
++				     bool ls_ic)
  {
--	u32 value;
-+	u32 value = readl(ioaddr + DMA_BUS_MODE);
+ 	unsigned int tdes0 = p->des0;
  
- 	/*
--	 * Set the DMA PBL (Programmable Burst Length) mode
--	 * Before stmmac core 3.50 this mode bit was 4xPBL, and
-+	 * Set the DMA PBL (Programmable Burst Length) mode.
-+	 *
-+	 * Note: before stmmac core 3.50 this mode bit was 4xPBL, and
- 	 * post 3.5 mode bit acts as 8*PBL.
--	 * For core rev < 3.5, when the core is set for 4xPBL mode, the
--	 * DMA transfers the data in 4, 8, 16, 32, 64 & 128 beats
--	 * depending on pbl value.
--	 * For core rev > 3.5, when the core is set for 8xPBL mode, the
--	 * DMA transfers the data in 8, 16, 32, 64, 128 & 256 beats
--	 * depending on pbl value.
-+	 *
-+	 * This configuration doesn't take care about the Separate PBL
-+	 * so only the bits: 13-8 are programmed with the PBL passed from the
-+	 * platform.
- 	 */
--	value = DMA_BUS_MODE_PBL | ((pbl << DMA_BUS_MODE_PBL_SHIFT) |
--				    (pbl << DMA_BUS_MODE_RPBL_SHIFT));
-+	value |= DMA_BUS_MODE_MAXPBL;
-+	value &= ~DMA_BUS_MODE_PBL_MASK;
-+	value |= (pbl << DMA_BUS_MODE_PBL_SHIFT);
+@@ -316,6 +317,19 @@ static void enh_desc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+ 	else
+ 		tdes0 &= ~(TX_CIC_FULL << ETDES0_CHECKSUM_INSERTION_SHIFT);
  
- 	/* Set the Fixed burst mode */
- 	if (fb)
-@@ -60,26 +112,10 @@ static void dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
- 	if (atds)
- 		value |= DMA_BUS_MODE_ATDS;
++	if (tx_own)
++		tdes0 |= ETDES0_OWN;
++
++	if (is_fs & tx_own)
++		/* When the own bit, for the first frame, has to be set, all
++		 * descriptors for the same frame has to be set before, to
++		 * avoid race condition.
++		 */
++		wmb();
++
++	if (ls_ic)
++		tdes0 |= ETDES0_LAST_SEGMENT | ETDES0_INTERRUPT;
++
+ 	p->des0 = tdes0;
  
--	writel(value, ioaddr + DMA_BUS_MODE);
-+	if (aal)
-+		value |= DMA_BUS_MODE_AAL;
+ 	if (mode == STMMAC_CHAIN_MODE)
+@@ -329,11 +343,6 @@ static void enh_desc_clear_tx_ic(struct dma_desc *p)
+ 	p->des0 &= ~ETDES0_INTERRUPT;
+ }
  
--	/* In case of GMAC AXI configuration, program the DMA_AXI_BUS_MODE
--	 * for supported bursts.
--	 *
--	 * Note: This is applicable only for revision GMACv3.61a. For
--	 * older version this register is reserved and shall have no
--	 * effect.
--	 *
--	 * Note:
--	 *  For Fixed Burst Mode: if we directly write 0xFF to this
--	 *  register using the configurations pass from platform code,
--	 *  this would ensure that all bursts supported by core are set
--	 *  and those which are not supported would remain ineffective.
--	 *
--	 *  For Non Fixed Burst Mode: provide the maximum value of the
--	 *  burst length. Any burst equal or below the provided burst
--	 *  length would be allowed to perform.
--	 */
--	writel(burst_len, ioaddr + DMA_AXI_BUS_MODE);
-+	writel(value, ioaddr + DMA_BUS_MODE);
- 
- 	/* Mask interrupts by writing to CSR7 */
- 	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
-@@ -192,6 +228,7 @@ static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt)
- const struct stmmac_dma_ops dwmac1000_dma_ops = {
- 	.reset = dwmac_dma_reset,
- 	.init = dwmac1000_dma_init,
-+	.axi = dwmac1000_dma_axi,
- 	.dump_regs = dwmac1000_dump_dma_regs,
- 	.dma_mode = dwmac1000_dma_operation_mode,
- 	.enable_dma_transmission = dwmac_enable_dma_transmission,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-index c40582a..61f54c9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-@@ -33,7 +33,7 @@
- #include "dwmac_dma.h"
- 
- static void dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
--			      int burst_len, u32 dma_tx, u32 dma_rx, int atds)
-+			      int aal, u32 dma_tx, u32 dma_rx, int atds)
+-static void enh_desc_close_tx_desc(struct dma_desc *p)
+-{
+-	p->des0 |= ETDES0_LAST_SEGMENT | ETDES0_INTERRUPT;
+-}
+-
+ static int enh_desc_get_rx_frame_len(struct dma_desc *p, int rx_coe_type)
  {
- 	/* Enable Application Access by writing to DMA CSR0 */
- 	writel(DMA_BUS_MODE_DEFAULT | (pbl << DMA_BUS_MODE_PBL_SHIFT),
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-index 13ca90e..726d9d9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-@@ -41,8 +41,40 @@
+ 	unsigned int csum = 0;
+@@ -403,7 +412,6 @@ const struct stmmac_desc_ops enh_desc_ops = {
+ 	.release_tx_desc = enh_desc_release_tx_desc,
+ 	.prepare_tx_desc = enh_desc_prepare_tx_desc,
+ 	.clear_tx_ic = enh_desc_clear_tx_ic,
+-	.close_tx_desc = enh_desc_close_tx_desc,
+ 	.get_tx_ls = enh_desc_get_tx_ls,
+ 	.set_tx_owner = enh_desc_set_tx_owner,
+ 	.set_rx_owner = enh_desc_set_rx_owner,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+index 5a91932..19cc12d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+@@ -185,7 +185,8 @@ static void ndesc_release_tx_desc(struct dma_desc *p, int mode)
+ }
  
- /* Rx watchdog register */
- #define DMA_RX_WATCHDOG		0x00001024
--/* AXI Bus Mode */
+ static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+-				  int csum_flag, int mode)
++				  bool csum_flag, int mode, bool tx_own,
++				  bool ls_ic)
+ {
+ 	unsigned int tdes1 = p->des1;
+ 
+@@ -199,6 +200,12 @@ static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+ 	else
+ 		tdes1 &= ~(TX_CIC_FULL << TDES1_CHECKSUM_INSERTION_SHIFT);
+ 
++	if (tx_own)
++		tdes1 |= TDES0_OWN;
 +
-+/* AXI Master Bus Mode */
- #define DMA_AXI_BUS_MODE	0x00001028
++	if (ls_ic)
++		tdes1 |= TDES1_LAST_SEGMENT | TDES1_INTERRUPT;
 +
-+#define DMA_AXI_EN_LPI		BIT(31)
-+#define DMA_AXI_LPI_XIT_FRM	BIT(30)
-+#define DMA_AXI_WR_OSR_LMT	GENMASK(23, 20)
-+#define DMA_AXI_WR_OSR_LMT_SHIFT	20
-+#define DMA_AXI_WR_OSR_LMT_MASK	0xf
-+#define DMA_AXI_RD_OSR_LMT	GENMASK(19, 16)
-+#define DMA_AXI_RD_OSR_LMT_SHIFT	16
-+#define DMA_AXI_RD_OSR_LMT_MASK	0xf
-+
-+#define DMA_AXI_OSR_MAX		0xf
-+#define DMA_AXI_MAX_OSR_LIMIT ((DMA_AXI_OSR_MAX << DMA_AXI_WR_OSR_LMT_SHIFT) | \
-+			       (DMA_AXI_OSR_MAX << DMA_AXI_RD_OSR_LMT_SHIFT))
-+#define	DMA_AXI_1KBBE		BIT(13)
-+#define DMA_AXI_AAL		BIT(12)
-+#define DMA_AXI_BLEN256		BIT(7)
-+#define DMA_AXI_BLEN128		BIT(6)
-+#define DMA_AXI_BLEN64		BIT(5)
-+#define DMA_AXI_BLEN32		BIT(4)
-+#define DMA_AXI_BLEN16		BIT(3)
-+#define DMA_AXI_BLEN8		BIT(2)
-+#define DMA_AXI_BLEN4		BIT(1)
-+#define DMA_BURST_LEN_DEFAULT	(DMA_AXI_BLEN256 | DMA_AXI_BLEN128 | \
-+				 DMA_AXI_BLEN64 | DMA_AXI_BLEN32 | \
-+				 DMA_AXI_BLEN16 | DMA_AXI_BLEN8 | \
-+				 DMA_AXI_BLEN4)
-+
-+#define DMA_AXI_UNDEF		BIT(0)
-+
-+#define DMA_AXI_BURST_LEN_MASK	0x000000FE
-+
- #define DMA_CUR_TX_BUF_ADDR	0x00001050	/* Current Host Tx Buffer */
- #define DMA_CUR_RX_BUF_ADDR	0x00001054	/* Current Host Rx Buffer */
- #define DMA_HW_FEATURE		0x00001058	/* HW Feature Register */
+ 	p->des1 = tdes1;
+ 
+ 	if (mode == STMMAC_CHAIN_MODE)
+@@ -212,11 +219,6 @@ static void ndesc_clear_tx_ic(struct dma_desc *p)
+ 	p->des1 &= ~TDES1_INTERRUPT;
+ }
+ 
+-static void ndesc_close_tx_desc(struct dma_desc *p)
+-{
+-	p->des1 |= TDES1_LAST_SEGMENT | TDES1_INTERRUPT;
+-}
+-
+ static int ndesc_get_rx_frame_len(struct dma_desc *p, int rx_coe_type)
+ {
+ 	unsigned int csum = 0;
+@@ -278,7 +280,6 @@ const struct stmmac_desc_ops ndesc_ops = {
+ 	.release_tx_desc = ndesc_release_tx_desc,
+ 	.prepare_tx_desc = ndesc_prepare_tx_desc,
+ 	.clear_tx_ic = ndesc_clear_tx_ic,
+-	.close_tx_desc = ndesc_close_tx_desc,
+ 	.get_tx_ls = ndesc_get_tx_ls,
+ 	.set_tx_owner = ndesc_set_tx_owner,
+ 	.set_rx_owner = ndesc_set_rx_owner,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+index c648774..11c7164 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
++++ b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+@@ -61,7 +61,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 
+ 		desc->des3 = desc->des2 + BUF_SIZE_4KiB;
+ 		priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum,
+-						STMMAC_RING_MODE);
++						STMMAC_RING_MODE, 0, false);
+ 		wmb();
+ 		priv->tx_skbuff[entry] = NULL;
+ 		entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
+@@ -81,9 +81,8 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 
+ 		desc->des3 = desc->des2 + BUF_SIZE_4KiB;
+ 		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
+-						STMMAC_RING_MODE);
++						STMMAC_RING_MODE, 1, true);
+ 		wmb();
+-		priv->hw->desc->set_tx_owner(desc);
+ 	} else {
+ 		desc->des2 = dma_map_single(priv->device, skb->data,
+ 					    nopaged_len, DMA_TO_DEVICE);
+@@ -94,7 +93,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 		priv->tx_skbuff_dma[entry].is_jumbo = true;
+ 		desc->des3 = desc->des2 + BUF_SIZE_4KiB;
+ 		priv->hw->desc->prepare_tx_desc(desc, 1, nopaged_len, csum,
+-						STMMAC_RING_MODE);
++						STMMAC_RING_MODE, 0, true);
+ 	}
+ 
+ 	priv->cur_tx = entry;
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 13752e9..89c2626 100644
+index 796d7c6..24c3608 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1635,7 +1635,7 @@ static void stmmac_check_ether_addr(struct stmmac_priv *priv)
-  */
- static int stmmac_init_dma_engine(struct stmmac_priv *priv)
- {
--	int pbl = DEFAULT_DMA_PBL, fixed_burst = 0, burst_len = 0;
-+	int pbl = DEFAULT_DMA_PBL, fixed_burst = 0, aal = 0;
- 	int mixed_burst = 0;
- 	int atds = 0;
- 	int ret = 0;
-@@ -1644,7 +1644,7 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
- 		pbl = priv->plat->dma_cfg->pbl;
- 		fixed_burst = priv->plat->dma_cfg->fixed_burst;
- 		mixed_burst = priv->plat->dma_cfg->mixed_burst;
--		burst_len = priv->plat->dma_cfg->burst_len;
-+		aal = priv->plat->dma_cfg->aal;
+@@ -1991,8 +1991,10 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			goto dma_map_err;
+ 		priv->tx_skbuff_dma[entry].buf = desc->des2;
+ 		priv->tx_skbuff_dma[entry].len = nopaged_len;
++		/* do not set the own at this stage */
+ 		priv->hw->desc->prepare_tx_desc(desc, 1, nopaged_len,
+-						csum_insertion, priv->mode);
++						csum_insertion, priv->mode, 0,
++						nfrags == 0);
+ 	} else {
+ 		desc = first;
+ 		entry = priv->hw->mode->jumbo_frm(priv, skb, csum_insertion);
+@@ -2003,6 +2005,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	for (i = 0; i < nfrags; i++) {
+ 		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+ 		int len = skb_frag_size(frag);
++		bool last_segment = (i == (nfrags - 1));
+ 
+ 		priv->tx_skbuff[entry] = NULL;
+ 		entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
+@@ -2021,19 +2024,12 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		priv->tx_skbuff_dma[entry].map_as_page = true;
+ 		priv->tx_skbuff_dma[entry].len = len;
+ 		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum_insertion,
+-						priv->mode);
+-		wmb();
+-		priv->hw->desc->set_tx_owner(desc);
+-		wmb();
++						priv->mode, 1, last_segment);
++		priv->tx_skbuff_dma[entry].last_segment = last_segment;
  	}
  
- 	if (priv->extend_desc && (priv->mode == STMMAC_RING_MODE))
-@@ -1657,8 +1657,12 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
- 	}
+ 	priv->tx_skbuff[entry] = skb;
  
- 	priv->hw->dma->init(priv->ioaddr, pbl, fixed_burst, mixed_burst,
--			    burst_len, priv->dma_tx_phy,
--			    priv->dma_rx_phy, atds);
-+			    aal, priv->dma_tx_phy, priv->dma_rx_phy, atds);
-+
-+	if ((priv->synopsys_id >= DWMAC_CORE_3_50) &&
-+	    (priv->plat->axi && priv->hw->dma->axi))
-+		priv->hw->dma->axi(priv->ioaddr, priv->plat->axi);
-+
- 	return ret;
- }
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index d71a721..ae43887 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -81,7 +81,7 @@ static void stmmac_default_data(struct plat_stmmacenet_data *plat)
- 	plat->mdio_bus_data->phy_mask = 0;
- 
- 	plat->dma_cfg->pbl = 32;
--	plat->dma_cfg->burst_len = DMA_AXI_BLEN_256;
-+	/* TODO: AXI */
- 
- 	/* Set default value for multicast hash bins */
- 	plat->multicast_filter_bins = HASH_TABLE_SIZE;
-@@ -115,8 +115,8 @@ static int quark_default_data(struct plat_stmmacenet_data *plat,
- 	plat->mdio_bus_data->phy_mask = 0;
- 
- 	plat->dma_cfg->pbl = 16;
--	plat->dma_cfg->burst_len = DMA_AXI_BLEN_256;
- 	plat->dma_cfg->fixed_burst = 1;
-+	/* AXI (TODO) */
- 
- 	/* Set default value for multicast hash bins */
- 	plat->multicast_filter_bins = HASH_TABLE_SIZE;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 6a52fa1..69ccf48 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -96,6 +96,42 @@ static int dwmac1000_validate_ucast_entries(int ucast_entries)
- }
- 
- /**
-+ * stmmac_axi_setup - parse DT parameters for programming the AXI register
-+ * @pdev: platform device
-+ * @priv: driver private struct.
-+ * Description:
-+ * if required, from device-tree the AXI internal register can be tuned
-+ * by using platform parameters.
-+ */
-+static struct stmmac_axi *stmmac_axi_setup(struct platform_device *pdev)
-+{
-+	struct device_node *np;
-+	struct stmmac_axi *axi;
-+
-+	np = of_parse_phandle(pdev->dev.of_node, "snps,axi-config", 0);
-+	if (!np)
-+		return NULL;
-+
-+	axi = kzalloc(sizeof(axi), GFP_KERNEL);
-+	if (!axi)
-+		return ERR_PTR(-ENOMEM);
-+
-+	axi->axi_lpi_en = of_property_read_bool(np, "snps,lpi_en");
-+	axi->axi_xit_frm = of_property_read_bool(np, "snps,xit_frm");
-+	axi->axi_kbbe = of_property_read_bool(np, "snps,axi_kbbe");
-+	axi->axi_axi_all = of_property_read_bool(np, "snps,axi_all");
-+	axi->axi_fb = of_property_read_bool(np, "snps,axi_fb");
-+	axi->axi_mb = of_property_read_bool(np, "snps,axi_mb");
-+	axi->axi_rb =  of_property_read_bool(np, "snps,axi_rb");
-+
-+	of_property_read_u32(np, "snps,wr_osr_lmt", &axi->axi_wr_osr_lmt);
-+	of_property_read_u32(np, "snps,rd_osr_lmt", &axi->axi_rd_osr_lmt);
-+	of_property_read_u32_array(np, "snps,blen", axi->axi_blen, AXI_BLEN);
-+
-+	return axi;
-+}
-+
-+/**
-  * stmmac_probe_config_dt - parse device-tree driver parameters
-  * @pdev: platform_device structure
-  * @plat: driver data platform structure
-@@ -216,13 +252,11 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
- 		}
- 		plat->dma_cfg = dma_cfg;
- 		of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
-+		dma_cfg->aal = of_property_read_bool(np, "snps,aal");
- 		dma_cfg->fixed_burst =
- 			of_property_read_bool(np, "snps,fixed-burst");
- 		dma_cfg->mixed_burst =
- 			of_property_read_bool(np, "snps,mixed-burst");
--		of_property_read_u32(np, "snps,burst_len", &dma_cfg->burst_len);
--		if (dma_cfg->burst_len < 0 || dma_cfg->burst_len > 256)
--			dma_cfg->burst_len = 0;
- 	}
- 	plat->force_thresh_dma_mode = of_property_read_bool(np, "snps,force_thresh_dma_mode");
- 	if (plat->force_thresh_dma_mode) {
-@@ -230,6 +264,8 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
- 		pr_warn("force_sf_dma_mode is ignored if force_thresh_dma_mode is set.");
- 	}
- 
-+	plat->axi = stmmac_axi_setup(pdev);
-+
- 	return plat;
- }
- #else
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index eead8ab..6e53fa8 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -90,7 +90,21 @@ struct stmmac_dma_cfg {
- 	int pbl;
- 	int fixed_burst;
- 	int mixed_burst;
--	int burst_len;
-+	bool aal;
-+};
-+
-+#define AXI_BLEN	7
-+struct stmmac_axi {
-+	bool axi_lpi_en;
-+	bool axi_xit_frm;
-+	u32 axi_wr_osr_lmt;
-+	u32 axi_rd_osr_lmt;
-+	bool axi_kbbe;
-+	bool axi_axi_all;
-+	u32 axi_blen[AXI_BLEN];
-+	bool axi_fb;
-+	bool axi_mb;
-+	bool axi_rb;
- };
- 
- struct plat_stmmacenet_data {
-@@ -122,5 +136,6 @@ struct plat_stmmacenet_data {
- 	int (*init)(struct platform_device *pdev, void *priv);
- 	void (*exit)(struct platform_device *pdev, void *priv);
- 	void *bsp_priv;
-+	struct stmmac_axi *axi;
- };
- #endif
+-	/* Finalize the latest segment. */
+-	priv->hw->desc->close_tx_desc(desc);
+-	priv->tx_skbuff_dma[entry].last_segment = true;
+-
+-	wmb();
+ 	/* According to the coalesce parameter the IC bit for the latest
+ 	 * segment could be reset and the timer re-started to invoke the
+ 	 * stmmac_tx function. This approach takes care about the fragments.
 -- 
 1.9.1
