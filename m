@@ -1,109 +1,38 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH RFC v2 28/32] Documentation: DSA: Describe how probe of
- DSA and switches work.
-Date: Mon, 29 Feb 2016 14:42:40 +0300
-Message-ID: <56D42EB0.3080304@cogentembedded.com>
-References: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
- <1456677700-23027-29-git-send-email-andrew@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev <netdev@vger.kernel.org>
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [net] net: fix double free issue of skbuff
+Date: Mon, 29 Feb 2016 12:22:53 +0000
+Message-ID: <1456748573-21586-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:35752 "EHLO
-	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752149AbcB2Lmn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 06:42:43 -0500
-Received: by mail-lf0-f47.google.com with SMTP id j186so15008409lfg.2
-        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 03:42:42 -0800 (PST)
-In-Reply-To: <1456677700-23027-29-git-send-email-andrew@lunn.ch>
+Received: from cmccmta2.chinamobile.com ([221.176.66.80]:3942 "EHLO
+	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754014AbcB2MVz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 07:21:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+If skb_reorder_vlan_header() failed, skb is freed and NULL is returned.
+Then at skb_vlan_untag(), it will free skbuff again which cause double
+free.
 
-On 2/28/2016 7:41 PM, Andrew Lunn wrote:
+This patch removes kfree_skb() call in function skb_reorder_vlan_header().
 
-> With the introduction of switches as linux devices and the use of the
-> component framework, probing has become more complex. Add some
-> documentation.
->
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> ---
->   Documentation/networking/dsa/dsa.txt | 48 ++++++++++++++++++++++++++++++++++++
->   1 file changed, 48 insertions(+)
->
-> diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
-> index aa9c1f9313cd..376afa135a81 100644
-> --- a/Documentation/networking/dsa/dsa.txt
-> +++ b/Documentation/networking/dsa/dsa.txt
-> @@ -398,6 +398,54 @@ Switch configuration
->     on the management interface and "hardcode"/"force" this MAC address for the
->     CPU/management interface as an optimization
->
-> +Call flow
-> +---------
-> +
-> +With the ability for switch devices to be true linux devices, the call
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ net/core/skbuff.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-    Linux.
-
-> +flow is somewhat complex. The component framework is used to link the
-> +dsa framework as the master, with switch devices, as slaves.
-
-    Commas not needed before "as".
-
-> +
-> +A switch device should add itself as a component in its probe
-> +function.
-> +
-> +The DSA framework can either be configured using a platform_data
-> +structure or from the device tree. If device tree is being used, the
-> +dsa framework probe function will allocate a platform_data structure,
-> +and populate it using the device tree, via the dsa_of_probe()
-> +function.  Within the DSA device tree, switch devices are represented
-> +by a phandle to the switch device. These phandles are saved into the
-> +platform data so that when switch slaves register themselves, they can
-> +be correctly positioned in the DSA cluster.
-> +
-> +The DSA probe function then creates a dsa_switch_tree structure which
-> +is the overarching structure representing a switch cluster. The probe
-> +function then looks in the platform data for the phandles to slave
-
-    Platform data and phandles?
-
-> +devices, and adds a component match based on the phandle. The
-> +component master is then created. This causes the component framework
-> +to link slaves to the master.
-> +
-> +If all the slave switch can be found, the masters bind function is
-
-    Switches? Master's?
-
-> +called, dsa_bind(). This in tern causes the switch slaves bind
-
-    In term?
-
-> +function to be called.
-> +
-> +The switches bind function allocated memory for its own private use,
-
-    Switch's?
-
-> +and for a dsa_switch structure, which represents one switch in a DSA
-> +cluster. The switch then registers with the DSA framework using
-> +dsa_switch_register().
-> +
-> +dsa_switch_register() looks in the platform data and finds the
-> +position within the cluster for the switch which is registering. The
-> +switches dsa_switch structure is then attached to the dsa_switch_tree
-
-    Switch's?
-
-> +structure in the correct place.
-[...]
-
-MBR, Sergei
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 488566b..1312d4b 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -4350,7 +4350,6 @@ EXPORT_SYMBOL_GPL(skb_gso_transport_seglen);
+ static struct sk_buff *skb_reorder_vlan_header(struct sk_buff *skb)
+ {
+ 	if (skb_cow(skb, skb_headroom(skb)) < 0) {
+-		kfree_skb(skb);
+ 		return NULL;
+ 	}
+ 
+-- 
+1.8.3.1
