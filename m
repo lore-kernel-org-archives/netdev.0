@@ -1,64 +1,33 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [Intel-wired-lan] [next] igb: allow setting MAC address on i211
- using a device tree blob V5
-Date: Tue, 1 Mar 2016 02:52:17 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81EA731A@ORSMSX101.amr.corp.intel.com>
-References: <56C5A6BC.6030708@gmail.com>
+From: Scott Wood <scott.wood@nxp.com>
+Subject: Re: [PATCH] fsl/fman: remove dTSEC-A003 Errata workaround
+Date: Mon, 29 Feb 2016 23:30:59 +0000
+Message-ID: <DB5PR0401MB19282E4987BDCEBBBF7EBCC591BA0@DB5PR0401MB1928.eurprd04.prod.outlook.com>
+References: <1456696781-32384-1-git-send-email-igal.liberman@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: John Holland <jotihojr@gmail.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "scottwood@freescale.com" <scottwood@freescale.com>,
+	"madalin.bucur@freescale.com" <madalin.bucur@freescale.com>
+To: "igal.liberman@freescale.com" <igal.liberman@freescale.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:59249 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750813AbcCACwV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Feb 2016 21:52:21 -0500
-In-Reply-To: <56C5A6BC.6030708@gmail.com>
+Received: from mail-db3on0066.outbound.protection.outlook.com ([157.55.234.66]:51040
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750736AbcCADGG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 22:06:06 -0500
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBv
-d25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFsZiBPZiBKb2huIEhvbGxhbmQNCj4gU2VudDog
-VGh1cnNkYXksIEZlYnJ1YXJ5IDE4LCAyMDE2IDM6MTEgQU0NCj4gVG86IGludGVsLXdpcmVkLWxh
-bkBsaXN0cy5vc3Vvc2wub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFtJ
-bnRlbC13aXJlZC1sYW5dIFtuZXh0XSBpZ2I6IGFsbG93IHNldHRpbmcgTUFDIGFkZHJlc3Mgb24g
-aTIxMSB1c2luZw0KPiBhIGRldmljZSB0cmVlIGJsb2IgVjUNCj4gDQo+IEhlbGxvLA0KPiANCj4g
-VGhlIEludGVsIGkyMTEgTE9NIFBDSWUgRXRoZXJuZXQgY29udHJvbGxlcnMnIGlOVk0gb3BlcmF0
-ZXMgYXMgYW4gT1RQIGFuZA0KPiBoYXMgbm8gZXh0ZXJuYWwgRUVQUk9NIGludGVyZmFjZSBbMV0u
-IFRoZSBmb2xsb3dpbmcgYWxsb3dzIHRoZSBkcml2ZXIgdG8NCj4gcGlja3VwIHRoZSBNQUMgYWRk
-cmVzcyBmcm9tIGEgZGV2aWNlIHRyZWUgYmxvYiB3aGVuIENPTkZJR19PRiBoYXMgYmVlbg0KPiBl
-bmFibGVkLg0KPiANCj4gWzFdDQo+IGh0dHA6Ly93d3cuaW50ZWwuY29tL2NvbnRlbnQvd3d3L3Vz
-L2VuL2VtYmVkZGVkL3Byb2R1Y3RzL25ldHdvcmtpbg0KPiBnL2kyMTEtZXRoZXJuZXQtY29udHJv
-bGxlci1kYXRhc2hlZXQuaHRtbA0KPiANCj4gQ2hhbmdlcyBWMg0KPiAtIFJlc3RyaWN0IHNlYXJj
-aGluZyBmb3IgY29tcGF0aWJsZSBkZXZpY2VzIHRvIGN1cnJlbnQgcGNpIGRldmljZS4NCj4gDQo+
-IENoYW5nZXMgVjMNCj4gLSBBZGQgZGV2aWNlIHRyZWUgYmluZGluZyBkb2N1bWVudGF0aW9uLg0K
-PiANCj4gQ2hhbmdlcyBWNA0KPiAtIFJlYmFzZSBwYXRjaC4NCj4gDQo+IENoYW5nZXMgVjUNCj4g
-LSBVc2UgZXRoX3BsYXRmb3JtX2dldF9tYWNfYWRkcmVzcygpIHRvIHJlc29sdmUgTUFDIHNwZWNp
-ZmllZCBpbiBhIGR0Yi4NCj4gLSBSZW1vdmUgbm93IGludmFsaWQgZGV2aWNlIHRyZWUgYmluZGlu
-ZyBkb2N1bWVudGF0aW9uIHNwZWNpZmllZCBpbiBWMw0KPiAgICB1bmQgVjQuDQo+IA0KPiBTaWdu
-ZWQtb2ZmLWJ5OiBKb2huIEhvbGxhbmQ8am90aWhvanJAZ21haWwuY29tPg0KPiAtLS0NCj4gICBk
-cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYyB8IDkgKysrKysrLS0tDQo+
-ICAgMSBmaWxlIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkNCg0KVGhp
-cyB0aHJvd3MgYSBmZXcgY2hlY2twYXRjaCB3YXJuaW5ncywgYnV0IEkgd29uJ3Qgd2l0aGhvbGQg
-bXkgdGVzdGVkIGJ5IGZvciB0aGVzZToNCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tDQp1MTQ2MzpbMF0vdXNyL3NyYy9rZXJuZWxzL25leHQtcXVl
-dWU+IGdpdCBmb3JtYXQtcGF0Y2ggJGl0ZW0gLTEgLS1zdGRvdXR8Li9zY3JpcHRzL2NoZWNrcGF0
-Y2gucGwgLQ0KV0FSTklORzogUG9zc2libGUgdW53cmFwcGVkIGNvbW1pdCBkZXNjcmlwdGlvbiAo
-cHJlZmVyIGEgbWF4aW11bSA3NSBjaGFycyBwZXIgbGluZSkNCiMxNDoNCmh0dHA6Ly93d3cuaW50
-ZWwuY29tL2NvbnRlbnQvd3d3L3VzL2VuL2VtYmVkZGVkL3Byb2R1Y3RzL25ldHdvcmtpbmcvaTIx
-MS1ldGhlcm5ldC1jb250cm9sbGVyLWRhdGFzaGVldC5odG1sDQoNCldBUk5JTkc6IGVtYWlsIGFk
-ZHJlc3MgJ0pvaG4gSG9sbGFuZDxqb3RpaG9qckBnbWFpbC5jb20+JyBtaWdodCBiZSBiZXR0ZXIg
-YXMgJ0pvaG4gSG9sbGFuZCA8am90aWhvanJAZ21haWwuY29tPicNCiMzMDoNClNpZ25lZC1vZmYt
-Ynk6IEpvaG4gSG9sbGFuZDxqb3RpaG9qckBnbWFpbC5jb20+DQoNCnRvdGFsOiAwIGVycm9ycywg
-MiB3YXJuaW5ncywgMCBjaGVja3MsIDIxIGxpbmVzIGNoZWNrZWQNCg0KWW91ciBwYXRjaCBoYXMg
-c3R5bGUgcHJvYmxlbXMsIHBsZWFzZSByZXZpZXcuDQoNCk5PVEU6IElmIGFueSBvZiB0aGUgZXJy
-b3JzIGFyZSBmYWxzZSBwb3NpdGl2ZXMsIHBsZWFzZSByZXBvcnQNCiAgICAgIHRoZW0gdG8gdGhl
-IG1haW50YWluZXIsIHNlZSBDSEVDS1BBVENIIGluIE1BSU5UQUlORVJTLg0KdTE0NjM6WzBdL3Vz
-ci9zcmMva2VybmVscy9uZXh0LXF1ZXVlPg0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCg0KSSBkbyBub3Qgc2VlbSB0byBoYXZlIGhhcmR3YXJl
-IHRoYXQgdXNlcyBkZXZpY2UgdHJlZSwgc28gbXkgdGVzdGluZyBpcyByZWxlZ2F0ZWQgdG8gcmVn
-cmVzc2lvbiB0ZXN0cyB3aXRoIG15IGV4aXN0aW5nIHNldCBvZiBjaGlwc2V0cy4NCg0KVGVzdGVk
-LWJ5OiBBYXJvbiBCcm93biA8YWFyb24uZi5icm93bkBpbnRlbC5jb20+DQo=
+On 02/29/2016 09:17 AM, igal.liberman@freescale.com wrote:
+> From: Igal Liberman <igal.liberman@freescale.com>
+> 
+> Errata dTSEC-A003 was fixed in P4080 rev 3.0.
+> Prior revisions are not supported, so the workaround can be removed.
+> 
+> Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
+
+Since when do we not support p4080 rev 2?
+
+-Scott
