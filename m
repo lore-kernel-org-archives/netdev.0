@@ -1,35 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net] net: fix double free issue of skbuff
-Date: Mon, 29 Feb 2016 12:11:53 -0500 (EST)
-Message-ID: <20160229.121153.1765066549122216101.davem@davemloft.net>
-References: <001c01d172fb$cddc7530$69955f90$@cmss.chinamobile.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 1/5] vxlan: implement GPE in L2 mode
+Date: Mon, 29 Feb 2016 09:13:50 -0800
+Message-ID: <CALx6S37aU8q1QResU+HKMeCbMgkGDqWbnuckqs1V_9bC-jp8Ow@mail.gmail.com>
+References: <cover.1456472746.git.jbenc@redhat.com>
+	<6fe53252314d644e994950522d4320bc54ced928.1456472746.git.jbenc@redhat.com>
+	<CALx6S34vm6nqce481mcH_S3sfc4B5ift7YwJmTba4Vvdvnmj3w@mail.gmail.com>
+	<20160227203142.5b7309f3@griffin>
+	<CALx6S358JT6HRR70SgJrNOsTg4LbnTXERpW6n0DDiXKqxg--Yg@mail.gmail.com>
+	<20160229112322.4da0f0c0@griffin>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: pabeni@redhat.com, netdev@vger.kernel.org
-To: zhangshengju@cmss.chinamobile.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47368 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871AbcB2RLz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 12:11:55 -0500
-In-Reply-To: <001c01d172fb$cddc7530$69955f90$@cmss.chinamobile.com>
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:34736 "EHLO
+	mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751056AbcB2RNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 12:13:52 -0500
+Received: by mail-lf0-f49.google.com with SMTP id j78so95910474lfb.1
+        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 09:13:51 -0800 (PST)
+In-Reply-To: <20160229112322.4da0f0c0@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTog5byg6IOc5Li+IDx6aGFuZ3NoZW5nanVAY21zcy5jaGluYW1vYmlsZS5jb20+DQpEYXRl
-OiBNb24sIDI5IEZlYiAyMDE2IDIyOjE2OjM3ICswODAwDQoNCj4+IE9uIE1vbiwgMjAxNi0wMi0y
-OSBhdCAxMjoyMiArMDAwMCwgWmhhbmcgU2hlbmdqdSB3cm90ZToNCj4+ID4gSWYgc2tiX3Jlb3Jk
-ZXJfdmxhbl9oZWFkZXIoKSBmYWlsZWQsIHNrYiBpcyBmcmVlZCBhbmQgTlVMTCBpcyByZXR1cm5l
-ZC4NCj4+ID4gVGhlbiBhdCBza2Jfdmxhbl91bnRhZygpLCBpdCB3aWxsIGZyZWUgc2tidWZmIGFn
-YWluIHdoaWNoIGNhdXNlIGRvdWJsZQ0KPj4gPiBmcmVlLg0KPj4gDQo+PiBPbiBza2JfcmVvcmRl
-cl92bGFuX2hlYWRlcigpIGZhaWx1cmUsIHNrYl92bGFuX3VudGFnKCkgd2lsbCBjYWxsDQo+PiBr
-ZnJlZV9za2IoKSB1c2luZyB0aGUgcmV0dXJuIHZhbHVlIG9mIHNrYl9yZW9yZGVyX3ZsYW5faGVh
-ZGVyKCksIHRoYXQgaXMNCj4+IE5VTEwuIGtmcmVlX3NrYigpIGlzIGEgbm9vcCB3aGVuIHRoZSBh
-cmd1bWVudCBpcyBOVUxMLg0KPj4gDQo+PiBUaGUgY3VycmVudCBjb2RlIHNlYW1zIHNhZmUuDQo+
-PiANCj4+IFBhb2xvDQo+IEhpIFBhb2xvLCBldmVuIGN1cnJlbnQgY29kZSBpcyBzYWZlLCB0aGlz
-J3Mgc3RpbGwgYSBwb3RlbnRpYWwgcHJvYmxlbS4gV2Ugc2hvdWxkIG1ha2UgYW4NCj4gYXNzdW1w
-dGlvbiB0aGF0IGlubmVyIGZ1bmN0aW9uIGRvZXNuJ3QgZnJlZSBza2IsIGFuZCBsZXQgb3V0c2lk
-ZSBmdW5jdGlvbiB0YWtlIGNhcmUgb2YgdGhpcy4NCg0KTm8sIHRoZSBjdXJyZW50IGNvZGUgaXMg
-aW50ZW50aW9uYWwgYW5kIHBlcmZlY3RseSBmaW5lLg0KDQpGaXggcmVhbCBidWdzLCBub3QgaW1h
-Z2luYXJ5IG9uZXMuDQoNClRoYW5rcy4NCg==
+On Mon, Feb 29, 2016 at 2:23 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Sat, 27 Feb 2016 12:54:52 -0800, Tom Herbert wrote:
+>> Yes, but RCO has not been specified for VXLAN-GPE either
+>
+> As far as I can see, RCO will just work with VXLAN-GPE. But I have no
+> problem disallowing them to be set together, if you prefer that.
+>
+>> so the patch
+>> does not correctly refuse setting those two together. Inevitably
+>> though, those and other extensions will defined for VXLAN-GPE and new
+>> ones for VXLAN. Again, the protocols are fundamentally incompatible,
+>> so instead of trying to enforce each valid combination at
+>> configuration
+>
+> We need to do the checking in either case. If we accepted unsupported
+> combinations and then just silently ignored them, we'd be in troubles
+> later when such combination becomes defined/supported. There would be
+> no way for the userspace tools to detect whether a particular kernel
+> supports the combination or not.
+>
+> So, we need to check for supported combination of options during
+> configuration anyway.
+>
+> And when we have that, I don't really see the reason for doing that
+> kind of code duplication that you suggest.
+>
+>> or performing multiple checks for flavor each time we
+>> look at a packet, it seems easier to split the parsing with at most
+>> one check for the protocol variant. For instance in
+>> vxlan_udp_encap_recv just do:
+>>
+>> if (vs->flags & VXLAN_F_GPE)
+>>                if (!vxlan_parse_gpe_hdr(&unparsed, skb, vs->flags))
+>>                        goto drop;
+>> else
+>>                if (!vxlan_parse_gpe(&unparsed, skb, vs->flags))
+>>                        goto drop;
+>
+> Most of the code of these two functions will be identical. To
+> consolidate that as much as possible, you'll end up with what I have or
+> something very similar.
+>
+>> And then move REMCSUM and GPB and other protocol specific checks to
+>> the right function.
+>
+> And when RCO is defined for GPE, we copy the code? Doesn't make sense,
+> sorry.
+>
+> If you look at the code in the current net-next (and the code after
+> this patchset), the extension handling has been made generic and each
+> extension gets its own handler function, leading to clean separation in
+> the code. There's no reason to split the vxlan_rcv into two functions
+> doing the same things but with slightly different calls to extensions.
+>
+They may or may not be "slightly different"; if they are the same
+(like RCO for VXLAN-GPE uses the low order bits in VNI) then a common
+backend function can be called.
+
+As defined now, GPB can't be used with VXLAN-GPE at all, but when I
+read your patch it looks very much like GPB is being checked and
+allowed in the VXLAN-GPE path. The fact that "if (vs->flags &
+VXLAN_F_GBP)" always fails for VXLAN-GPE packets because of
+configuration constraints is not at all obvious, and really this just
+results in an unnecessary conditional that gives the same answer for
+every single VXLAN-GPE packet which we've already checked for just a
+few lines above. At least the check for GPB could be moved to an else
+block of " if (vs->flags & VXLAN_F_GPE)", this alone improves clarity
+and eliminates an unnecessary conditional in the VXLAN-GPE path.
+
+>  Jiri
