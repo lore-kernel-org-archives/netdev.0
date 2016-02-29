@@ -1,36 +1,81 @@
-From: Sathya Perla <sathya.perla@broadcom.com>
-Subject: Re: [PATCH net] be2net: don't {en,dis}able filters on BE3 when
- transparent tagging is enabled
-Date: Mon, 29 Feb 2016 09:41:08 +0530
-Message-ID: <CAKvpyk1BeNUXk5t1tb7OHMwxFWobFv6rrdoXdXrxTAwxOWMi5g@mail.gmail.com>
-References: <1456476401-23398-1-git-send-email-ivecera@redhat.com>
-	<CAKvpyk3i6U46-9_63CsbpmaJqOYSWcrHjFSo-BZELLriWqkRMQ@mail.gmail.com>
-	<56D04408.8070306@redhat.com>
-	<CAKvpyk2jT90-hQbgHbm5L-_7FG9bo3uCHkAuG2pQPWBKUJSujw@mail.gmail.com>
-	<56D04F94.4060509@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org,
-	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-To: Ivan Vecera <ivecera@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f179.google.com ([209.85.161.179]:35938 "EHLO
-	mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755850AbcB2ELJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 23:11:09 -0500
-Received: by mail-yw0-f179.google.com with SMTP id e63so111907489ywc.3
-        for <netdev@vger.kernel.org>; Sun, 28 Feb 2016 20:11:09 -0800 (PST)
-In-Reply-To: <56D04F94.4060509@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Josh Poimboeuf <jpoimboe@redhat.com>
+Subject: [PATCH v19 04/10] bpf: Mark __bpf_prog_run() stack frame as non-standard
+Date: Sun, 28 Feb 2016 22:22:37 -0600
+Message-ID: <b90e6bf3fdbfb5c4cc1b164b965502e53cf48935.1456719558.git.jpoimboe@redhat.com>
+References: <cover.1456719558.git.jpoimboe@redhat.com>
+Cc: linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
+	Michal Marek <mmarek@suse.cz>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Andy Lutomirski <luto@kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Pedro Alves <palves@redhat.com>,
+	Namhyung Kim <namhyung@gmail.com>,
+	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
+	Chris J Arges <chris.j.arges@canonical.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jiri Slaby <jslaby@suse.cz>,
+	Arnaldo Carvalho de Melo <acme@kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1456719558.git.jpoimboe@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 26, 2016 at 6:43 PM, Ivan Vecera <ivecera@redhat.com> wrote:
-> Should the MULTICAST bit be masked in any be_cmd_rx_filter() call on BE3's
-> VFs if the trans. tagging is enabled?
+objtool reports the following false positive warnings:
 
-Not on any be_cmd_rx_filter() call, but on the first call in
-be_open()->be_if_enable_filters() where the basic filtering flags are
-being enabled and the driver is explicitly checking for the return
-status. We have a fix for this already in our internal builds that
-hasn't been upstreamed yet. Will send out a patch for this asap.
-Thanks for the help on this Ivan!
+  kernel/bpf/core.o: warning: objtool: __bpf_prog_run()+0x5c: sibling call from callable instruction with changed frame pointer
+  kernel/bpf/core.o: warning: objtool: __bpf_prog_run()+0x60: function has unreachable instruction
+  kernel/bpf/core.o: warning: objtool: __bpf_prog_run()+0x64: function has unreachable instruction
+  [...]
+
+It's confused by the following dynamic jump instruction in
+__bpf_prog_run()::
+
+  jmp     *(%r12,%rax,8)
+
+which corresponds to the following line in the C code:
+
+  goto *jumptable[insn->code];
+
+There's no way for objtool to deterministically find all possible
+branch targets for a dynamic jump, so it can't verify this code.
+
+In this case the jumps all stay within the function, and there's nothing
+unusual going on related to the stack, so we can whitelist the function.
+
+Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Cc: netdev@vger.kernel.org
+---
+ kernel/bpf/core.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 972d9a8..be0abf6 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -27,6 +27,7 @@
+ #include <linux/random.h>
+ #include <linux/moduleloader.h>
+ #include <linux/bpf.h>
++#include <linux/frame.h>
+ 
+ #include <asm/unaligned.h>
+ 
+@@ -649,6 +650,7 @@ load_byte:
+ 		WARN_RATELIMIT(1, "unknown opcode %02x\n", insn->code);
+ 		return 0;
+ }
++STACK_FRAME_NON_STANDARD(__bpf_prog_run); /* jump table */
+ 
+ bool bpf_prog_array_compatible(struct bpf_array *array,
+ 			       const struct bpf_prog *fp)
+-- 
+2.4.3
