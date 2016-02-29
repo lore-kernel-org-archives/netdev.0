@@ -1,54 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 3c59x: mask LAST_FRAG bit from length field in ring
-Date: Mon, 29 Feb 2016 17:04:00 -0500 (EST)
-Message-ID: <20160229.170400.1569899372406597708.davem@davemloft.net>
-References: <1456423370-22797-1-git-send-email-nhorman@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
-To: nhorman@tuxdriver.com
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCH next 0/3] IPvlan L3 symetric mode
+Date: Mon, 29 Feb 2016 14:08:04 -0800
+Message-ID: <1456783684-18374-1-git-send-email-mahesh@bandewar.net>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52167 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750832AbcB2WEB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 17:04:01 -0500
-In-Reply-To: <1456423370-22797-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33204 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753109AbcB2WIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 17:08:16 -0500
+Received: by mail-pa0-f68.google.com with SMTP id y7so9295616paa.0
+        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 14:08:15 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Thu, 25 Feb 2016 13:02:50 -0500
+From: Mahesh Bandewar <maheshb@google.com>
 
-> Recently, I fixed a bug in 3c59x:
-> 
-> commit 6e144419e4da11a9a4977c8d899d7247d94ca338
-> Author: Neil Horman <nhorman@tuxdriver.com>
-> Date:   Wed Jan 13 12:43:54 2016 -0500
-> 
->     3c59x: fix another page map/single unmap imbalance
-> 
-> Which correctly rebalanced dma mapping and unmapping types.  Unfortunately it
-> introduced a new bug which causes oopses on older systems.
-> 
-> When mapping dma regions, the last entry for a packet in the 3c59x tx ring
-> encodes a LAST_FRAG bit, which is encoded as the high order bit of the buffers
-> length field.  When it is unmapped the LAST_FRAG bit is cleared prior to being
-> passed to the unmap function.  Unfortunately the commit above fails to do that
-> masking.  It was missed in testing because the system on which I tested it had
-> an intel iommu, the driver for which ignores the size field, using only the DMA
-> address as the token to identify the mapping to be released.  However, on older
-> systems that rely on swiotlb (or other dma drivers that key off that length
-> field), not masking off that LAST_FRAG high order bit results in parsing a huge
-> size to be release, leading to all sorts of odd corruptions and the like.
-> 
-> Fix is easy, just mask the length with 0xFFF.  It should really be
-> &(LAST_FRAG-1), but 0xFFF is the style of the file, and I'd like to make this
-> fix minimal and correct before making it prettier.
-> 
-> Appies to the net tree cleanly.  All testing on both iommu and swiommu based
-> systems produce good results
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+One of the major request (for enhancement) that I have received
+from various users of IPvlan in L3 mode is its inability to handle
+IPtables.
 
-Applied and queued up for -stable, thanks.
+In a typical IPvlan L3 setup where master is in default-ns and 
+each slave is into different (slave) ns. In this setup egress
+packet processing for traffic originating from slave-ns will
+hit all NF_HOOKs in slave-ns as well as default-ns. However same
+is not true for ingress processing. All these NF_HOOKs are
+hit only in the slave-ns skipping them in the default-ns.
+IPvlan in L3 mode is restrictive and it's preferred to hit these
+hooks in master's ns than in slave's ns (L2 mode is where these
+hooks will be hit only in slave's ns).
+
+This can be achieved by adding a device pointer in net_device
+struct. Stack will use this device reference and associated ns
+for all egress L3 processing. By default this is initialized to
+self so skb->dev would be same as skb->dev->l3_dev and hence the
+normal path will stay unchanged. Also since l3_dev is in the
+same RX cache line, there should not be any additional cost.
+
+IPvlan slaves OTOH can assign (nominate) its master to its l3_dev
+so that L3 processing happens in master's ns
+
+Please check individual patches for the details.
+
+Mahesh Bandewar (3):
+  dev: Add netif_get_l3_dev() helper
+  ipvlan: Use netif_get_l3_dev() to implement L3-symmetric mode.
+  net: update L3 path with device selection logic
+
+ drivers/net/ipvlan/ipvlan_main.c | 16 +++++++++-------
+ include/linux/netdevice.h        |  6 ++++++
+ net/core/dev.c                   | 10 +++++++---
+ net/ipv4/ip_input.c              |  5 +++--
+ net/ipv6/ip6_input.c             |  5 +++--
+ 5 files changed, 28 insertions(+), 14 deletions(-)
+
+-- 
+2.7.0.rc3.207.g0ac5344
