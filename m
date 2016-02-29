@@ -1,147 +1,72 @@
-From: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
-Subject: [PATCH RFC 1/2] rhashtable: accept GFP flags in rhashtable_walk_init
-Date: Sun, 28 Feb 2016 20:06:52 -0500
-Message-ID: <1456708013-19590-1-git-send-email-me@bobcopeland.com>
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v4 net-next] net: Implement fast csum_partial for x86_64
+Date: Sun, 28 Feb 2016 17:33:52 -0800
+Message-ID: <CAKgT0UeY+1cNjHvyWnftUB9SWbNAcNKt8oY9sF071zyZVT1jSA@mail.gmail.com>
+References: <1456516995-3471163-1-git-send-email-tom@herbertland.com>
+	<CAKgT0UdxdY5VF5OzC+W0Y31CcK0T3ffkcRMQrZqJ==L9SdtNuQ@mail.gmail.com>
+	<CAKgT0UfDWXbXSX45XRZjTc6SXz+XqaYa1bHGzOUV_RXSPh=U=A@mail.gmail.com>
+	<CALx6S35x+UzggmiqY10QvvaW+VL_cT6BYnzO=hTHvK9EEOtQhg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>, Peter Anvin <hpa@zytor.com>,
+	"the arch/x86 maintainers" <x86@kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:35509 "EHLO
+	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752578AbcB2Bdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 20:33:53 -0500
+Received: by mail-io0-f179.google.com with SMTP id g203so172107188iof.2
+        for <netdev@vger.kernel.org>; Sun, 28 Feb 2016 17:33:53 -0800 (PST)
+In-Reply-To: <CALx6S35x+UzggmiqY10QvvaW+VL_cT6BYnzO=hTHvK9EEOtQhg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In certain cases, the 802.11 mesh pathtable code wants to
-iterate over all of the entries in the forwarding table from
-the receive path, which is inside an RCU read-side critical
-section.  Enable walks inside atomic sections by allowing
-GFP_ATOMIC allocations for the walker state.
+On Sun, Feb 28, 2016 at 11:15 AM, Tom Herbert <tom@herbertland.com> wrote:
+> On Sun, Feb 28, 2016 at 10:56 AM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> On Sat, Feb 27, 2016 at 12:30 AM, Alexander Duyck
+>> <alexander.duyck@gmail.com> wrote:
+>>>> +{
+>>>> +       asm("lea 40f(, %[slen], 4), %%r11\n\t"
+>>>> +           "clc\n\t"
+>>>> +           "jmpq *%%r11\n\t"
+>>>> +           "adcq 7*8(%[src]),%[res]\n\t"
+>>>> +           "adcq 6*8(%[src]),%[res]\n\t"
+>>>> +           "adcq 5*8(%[src]),%[res]\n\t"
+>>>> +           "adcq 4*8(%[src]),%[res]\n\t"
+>>>> +           "adcq 3*8(%[src]),%[res]\n\t"
+>>>> +           "adcq 2*8(%[src]),%[res]\n\t"
+>>>> +           "adcq 1*8(%[src]),%[res]\n\t"
+>>>> +           "adcq 0*8(%[src]),%[res]\n\t"
+>>>> +           "nop\n\t"
+>>>> +           "40: adcq $0,%[res]"
+>>>> +                   : [res] "=r" (sum)
+>>>> +                   : [src] "r" (buff),
+>>>> +                     [slen] "r" (-((unsigned long)(len >> 3))), "[res]" (sum)
+>>>> +                   : "r11");
+>>>> +
+>>>
+>>> With this patch I cannot mix/match different length checksums without
+>>> things failing.  In perf the jmpq in the loop above seems to be set to
+>>> a fixed value so perhaps it is something in how the compiler is
+>>> interpreting the inline assembler.
+>>
+>> The perf thing was a red herring.  Turns out the code is working
+>> correctly there.
+>>
+>> I actually found the root cause.  The problem is in add32_with_carry3.
+>>
+> Thanks for the follow-up. btw are you trying to build csum_partial in
+> userspace for testing, or was this all in kernel?
 
-Change all existing callsites to pass in GFP_KERNEL.
+It was in the kernel.  I have been some user space work but all of the
+problems I was having were in the kernel.  My guess is that the
+original sum value wasn't being used
 
-Cc: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Signed-off-by: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
----
- include/linux/rhashtable.h | 3 ++-
- lib/rhashtable.c           | 6 ++++--
- net/ipv6/ila/ila_xlat.c    | 3 ++-
- net/netfilter/nft_hash.c   | 4 ++--
- net/netlink/af_netlink.c   | 3 ++-
- net/sctp/proc.c            | 3 ++-
- 6 files changed, 14 insertions(+), 8 deletions(-)
-
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 63bd7601b6de..3eef0802a0cd 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -346,7 +346,8 @@ struct bucket_table *rhashtable_insert_slow(struct rhashtable *ht,
- 					    struct bucket_table *old_tbl);
- int rhashtable_insert_rehash(struct rhashtable *ht, struct bucket_table *tbl);
- 
--int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter);
-+int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter,
-+			 gfp_t gfp);
- void rhashtable_walk_exit(struct rhashtable_iter *iter);
- int rhashtable_walk_start(struct rhashtable_iter *iter) __acquires(RCU);
- void *rhashtable_walk_next(struct rhashtable_iter *iter);
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index cc808707d1cf..5d845ffd7982 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -487,6 +487,7 @@ EXPORT_SYMBOL_GPL(rhashtable_insert_slow);
-  * rhashtable_walk_init - Initialise an iterator
-  * @ht:		Table to walk over
-  * @iter:	Hash table Iterator
-+ * @gfp:	GFP flags for allocations
-  *
-  * This function prepares a hash table walk.
-  *
-@@ -504,14 +505,15 @@ EXPORT_SYMBOL_GPL(rhashtable_insert_slow);
-  * You must call rhashtable_walk_exit if this function returns
-  * successfully.
-  */
--int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter)
-+int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter,
-+			 gfp_t gfp)
- {
- 	iter->ht = ht;
- 	iter->p = NULL;
- 	iter->slot = 0;
- 	iter->skip = 0;
- 
--	iter->walker = kmalloc(sizeof(*iter->walker), GFP_KERNEL);
-+	iter->walker = kmalloc(sizeof(*iter->walker), gfp);
- 	if (!iter->walker)
- 		return -ENOMEM;
- 
-diff --git a/net/ipv6/ila/ila_xlat.c b/net/ipv6/ila/ila_xlat.c
-index 295ca29a23c3..0b03533453e4 100644
---- a/net/ipv6/ila/ila_xlat.c
-+++ b/net/ipv6/ila/ila_xlat.c
-@@ -501,7 +501,8 @@ static int ila_nl_dump_start(struct netlink_callback *cb)
- 	struct ila_net *ilan = net_generic(net, ila_net_id);
- 	struct ila_dump_iter *iter = (struct ila_dump_iter *)cb->args;
- 
--	return rhashtable_walk_init(&ilan->rhash_table, &iter->rhiter);
-+	return rhashtable_walk_init(&ilan->rhash_table, &iter->rhiter,
-+				    GFP_KERNEL);
- }
- 
- static int ila_nl_dump_done(struct netlink_callback *cb)
-diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-index 3f9d45d3d9b7..6fa016564f90 100644
---- a/net/netfilter/nft_hash.c
-+++ b/net/netfilter/nft_hash.c
-@@ -192,7 +192,7 @@ static void nft_hash_walk(const struct nft_ctx *ctx, const struct nft_set *set,
- 	u8 genmask = nft_genmask_cur(read_pnet(&set->pnet));
- 	int err;
- 
--	err = rhashtable_walk_init(&priv->ht, &hti);
-+	err = rhashtable_walk_init(&priv->ht, &hti, GFP_KERNEL);
- 	iter->err = err;
- 	if (err)
- 		return;
-@@ -248,7 +248,7 @@ static void nft_hash_gc(struct work_struct *work)
- 	priv = container_of(work, struct nft_hash, gc_work.work);
- 	set  = nft_set_container_of(priv);
- 
--	err = rhashtable_walk_init(&priv->ht, &hti);
-+	err = rhashtable_walk_init(&priv->ht, &hti, GFP_KERNEL);
- 	if (err)
- 		goto schedule;
- 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index c8416792cce0..6e0cbdeb21d3 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2335,7 +2335,8 @@ static int netlink_walk_start(struct nl_seq_iter *iter)
- {
- 	int err;
- 
--	err = rhashtable_walk_init(&nl_table[iter->link].hash, &iter->hti);
-+	err = rhashtable_walk_init(&nl_table[iter->link].hash, &iter->hti,
-+				   GFP_KERNEL);
- 	if (err) {
- 		iter->link = MAX_LINKS;
- 		return err;
-diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index cfc3c7101a38..c5991e5e5daf 100644
---- a/net/sctp/proc.c
-+++ b/net/sctp/proc.c
-@@ -319,7 +319,8 @@ static int sctp_transport_walk_start(struct seq_file *seq)
- 	struct sctp_ht_iter *iter = seq->private;
- 	int err;
- 
--	err = rhashtable_walk_init(&sctp_transport_hashtable, &iter->hti);
-+	err = rhashtable_walk_init(&sctp_transport_hashtable, &iter->hti,
-+				   GFP_KERNEL);
- 	if (err)
- 		return err;
- 
--- 
-2.6.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- Alex
