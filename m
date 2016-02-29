@@ -1,29 +1,44 @@
-From: James Bayor <bayor@unitedafricainvestbanking.onmicrosoft.com>
-Subject: Letter of Intent
-Date: Sun, 28 Feb 2016 19:57:29 -0300
-Message-ID: <CY1PR13MB06972730A0BFCACD14E531CDE5B90@CY1PR13MB0697.namprd13.prod.outlook.com>
-Reply-To: <james.bayor1@yahoo.com>
+From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
+Subject: Re: [net-next][PATCH v2 01/13] RDS: Drop stale iWARP RDMA transport
+Date: Sun, 28 Feb 2016 16:26:07 -0800
+Message-ID: <56D3901F.3070405@oracle.com>
+References: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
+ <1456625990-4739-2-git-send-email-santosh.shilimkar@oracle.com>
+ <CAJ3xEMioB61bN9RAcAx9BecYGdWPs9QZNYUrm+r8=rt0WFMzKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <bayor@unitedafricainvestbanking.onmicrosoft.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1hn0247.outbound.protection.outlook.com ([157.56.110.247]:58880
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755277AbcB1W5u convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 17:57:50 -0500
-Content-Description: Mail message body
+Received: from userp1040.oracle.com ([156.151.31.81]:39733 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750930AbcB2A00 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 19:26:26 -0500
+In-Reply-To: <CAJ3xEMioB61bN9RAcAx9BecYGdWPs9QZNYUrm+r8=rt0WFMzKQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am James Bayor, I work with The United Bank for Africa. I emailed you earlier without any response.
-I have a sensitive and private offer from the top executive to seek your partnership in re-profiling some offshore investment funds.
-Please contact me on my private email: james.bayorr@gmail.com for more details.
+On 2/28/16 11:51 AM, Or Gerlitz wrote:
+> On Sun, Feb 28, 2016 at 4:19 AM, Santosh Shilimkar
+> <santosh.shilimkar@oracle.com> wrote:
+>> RDS iWarp support code has become stale and non testable. As
+>> indicated earlier, am dropping the support for it.
+>>
+>> If new iWarp user(s) shows up in future, we can adapat the RDS IB
+>> transprt for the special RDMA READ sink case. iWarp needs an MR
+>> for the RDMA READ sink.
+>>
+>> Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+>> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+>
+> Hi, just wondered if there's any special reason that all this series
+> carries double S.O.B signature line with your name appearing twice on
+> two different email addresses?
+>
+Nothing special. I sign of all my patches with k.org id and have to
+keep Oracle id as well being a payed Oracle employee. ;-)
 
-Best regards
-James Bayor. (Msc, MBA, FCA)
-Regional Manager.
-UNITED BANK FOR AFRICA PLC, RC 103022.
-53, Marina Lagos.
-Nigeria.
+Regards,
+Santosh
