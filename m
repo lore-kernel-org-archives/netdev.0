@@ -1,69 +1,65 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH v3 0/4] Add Ethernet support on STM32F429
-Date: Mon, 29 Feb 2016 10:36:59 +0100
-Message-ID: <56D4113B.2000501@st.com>
-References: <1456483912-32090-1-git-send-email-alexandre.torgue@gmail.com>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH 1/2] can: rcar_can: Add r8a7795 support
+Date: Mon, 29 Feb 2016 10:38:45 +0100
+Message-ID: <56D411A5.9070706@pengutronix.de>
+References: <1456737661-20538-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+ <1456737661-20538-2-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>
-To: Alexandre TORGUE <alexandre.torgue@gmail.com>,
-	Maxime Coquelin <mcoquelin.stm32@gmail.com>,
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:57210 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753477AbcB2Jhb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 04:37:31 -0500
-In-Reply-To: <1456483912-32090-1-git-send-email-alexandre.torgue@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="Qsc6qjR6hkmMe0dFLmbkfq7NGW9UKqASk"
+Cc: linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, chris.paterson2-zM6kxYcvzFBBDgjK7y7TUQ@public.gmane.org
+To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram-kTT6dE0pTRh9uiUsa/gSgQ@public.gmane.org>,
+	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org, magnus.damm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1456737661-20538-2-git-send-email-ramesh.shanmugasundaram-kTT6dE0pTRh9uiUsa/gSgQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2/26/2016 11:51 AM, Alexandre TORGUE wrote:
-> STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
-> This series:
->   -enhance current stmmac driver to control it (code already
-> available) and adds basic glue for STM32F429 chip.
->   -Enable basic Net config in kernel.
->
-> Note that DT patches are not present because STM32 pinctrl code is not
-> yet avalaible.
->
-> Changes since v2:
->   -Fix alphabetic order in Kconfig and Makefile.
->   -Improve code according to Joachim review.
->   -Binding: remove useless entry.
->
-> Changes since v1:
->   -Fix Kbuild issue in Kconfig.
->   -Remove init/exit callbacks. Suspend/Resume and remove driver is no more
-> driven in stmmac_pltfr but directly in dwmac-stm32 glue driver.
->   -Take into account Joachim review.
->
-> Regards.
->
-> Alexandre.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--Qsc6qjR6hkmMe0dFLmbkfq7NGW9UKqASk
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-thanks Alex, for the series please consider my:
+On 02/29/2016 10:21 AM, Ramesh Shanmugasundaram wrote:
+> Added r8a7795 SoC support.
+>=20
+> For smoother bit timing calculation, the rounded clock frequency is use=
+d.
 
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Why this? From my point of view this introduces a clock error.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
->
-> Alexandre TORGUE (4):
->    net: ethernet: dwmac: add Ethernet glue logic for stm32 chip
->    Documentation: Bindings: Add STM32 DWMAC glue
->    net: ethernet: stmmac: add support of Synopsys 3.50a MAC IP
->    ARM: STM32: Enable Ethernet in stm32_defconfig
->
->   .../devicetree/bindings/net/stm32-dwmac.txt        |  40 +++++
->   arch/arm/configs/stm32_defconfig                   |   9 +
->   drivers/net/ethernet/stmicro/stmmac/Kconfig        |  12 ++
->   drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
->   drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c  | 193 +++++++++++++++++++++
->   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   1 +
->   6 files changed, 256 insertions(+)
->   create mode 100644 Documentation/devicetree/bindings/net/stm32-dwmac.txt
->   create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
->
+--Qsc6qjR6hkmMe0dFLmbkfq7NGW9UKqASk
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJW1BGlAAoJED07qiWsqSVqj9wIALV0Be3Dw2xV2MBDLliLjsEV
+5d5vkR56on1+IqlyQsfIGgaffCoKOncnaZK0tlnR3r9RF9DmQUOlXEOkB9+VN9ss
+SmmtpBsn2e6tRrmeYgWyllY+pv6qOiHWLuXWpfVXBnpNt+Pq7hrh7LbUO3U1Ypka
+xZQ44xcq9HQgW8lcXIloOt+wSMl18ufL3h7ljnML8vEWKYJHKgEGgM+I3wrU3kMZ
+G55PBXRafmHBv++8QjLEXF1cBTio2E7odkvoT9NdtkY86mi+8VNDu2I0cR7ompiJ
+75/kfbcYF9RSu/irw29b5HHro7OleTdwfOcJ4uvL46FcDHi0xgg64JZALVFhVog=
+=ookP
+-----END PGP SIGNATURE-----
+
+--Qsc6qjR6hkmMe0dFLmbkfq7NGW9UKqASk--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
