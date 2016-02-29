@@ -1,38 +1,90 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net] net: fix double free issue of skbuff
-Date: Mon, 29 Feb 2016 12:22:53 +0000
-Message-ID: <1456748573-21586-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:3942 "EHLO
-	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754014AbcB2MVz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 07:21:55 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: unused code in net/netfilter/ipset/ip_set_bitmap_ipmac.c
+Date: Mon, 29 Feb 2016 13:27:51 +0100 (CET)
+Message-ID: <alpine.DEB.2.10.1602291326090.2600@hadrien>
+References: <alpine.DEB.2.10.1602291202590.2600@hadrien> <alpine.DEB.2.10.1602291218360.21350@blackhole.kfki.hu>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Julia Lawall <julia.lawall@lip6.fr>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1602291218360.21350@blackhole.kfki.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If skb_reorder_vlan_header() failed, skb is freed and NULL is returned.
-Then at skb_vlan_untag(), it will free skbuff again which cause double
-free.
 
-This patch removes kfree_skb() call in function skb_reorder_vlan_header().
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- net/core/skbuff.c | 1 -
- 1 file changed, 1 deletion(-)
+On Mon, 29 Feb 2016, Jozsef Kadlecsik wrote:
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 488566b..1312d4b 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4350,7 +4350,6 @@ EXPORT_SYMBOL_GPL(skb_gso_transport_seglen);
- static struct sk_buff *skb_reorder_vlan_header(struct sk_buff *skb)
- {
- 	if (skb_cow(skb, skb_headroom(skb)) < 0) {
--		kfree_skb(skb);
- 		return NULL;
- 	}
- 
--- 
-1.8.3.1
+> Hi,
+>
+> On Mon, 29 Feb 2016, Julia Lawall wrote:
+>
+> > The file net/netfilter/ipset/ip_set_bitmap_ipmac.c seems to contain a lot
+> > of static functions that are not used in the file:
+> >
+> > bitmap_ipmac_add_timeout
+> > bitmap_ipmac_do_add
+> > bitmap_ipmac_do_del
+> > bitmap_ipmac_do_head
+> > bitmap_ipmac_do_list
+> > bitmap_ipmac_do_test
+> > bitmap_ipmac_gc_test
+> > bitmap_ipmac_is_filled
+> > bitmap_ipmac_kadt
+> > bitmap_ipmac_same_set
+> > bitmap_ipmac_uadt
+> >
+> > Have I overooked something?
+>
+> Yes: the file includes ip_set_bitmap_gen.h in which all those functions
+> are used.
+
+OK, thanks.  I saw the incude, but I didn't sufficiently appreciate the
+#defines at the beginning.  Thanks.
+
+> > I was looking at this code, with Daniel Borkmann, because there seems to
+> > be a bug in the function bitmap_ipmac_uadt:
+> >
+> > 	if (tb[IPSET_ATTR_ETHER]) {
+> >                 memcpy(e.ether, nla_data(tb[IPSET_ATTR_ETHER]), ETH_ALEN);
+> >                 e.add_mac = 1;
+> >         }
+> >
+> > Later in the same file, there is:
+> >
+> > static struct ip_set_type bitmap_ipmac_type = {
+> > 	...
+> >         .adt_policy     = {
+> > 		...
+> > 		[IPSET_ATTR_ETHER]      = { .type = NLA_BINARY,
+> >                                             .len  = ETH_ALEN },
+> > 		...},
+> > 	...
+> > };
+> >
+> > The type NLA_BINARY indicates that the length is a maximum possible
+> > length, and thus a check of the actual length is needed before the memcpy.
+>
+> You are right here (and the similar spotting in ip_set_hash_mac.c) - I'll
+> prepare a patch and submit it.
+
+Great.  Thanks.
+
+julia
+
+>
+> Best regards,
+> Jozsef
+> -
+> E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+> PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+> Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+>           H-1525 Budapest 114, POB. 49, Hungary
+>
