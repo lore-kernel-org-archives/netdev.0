@@ -1,155 +1,89 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH/RFC v5 net-next] ravb: Add dma queue interrupt support
-Date: Mon, 29 Feb 2016 23:55:11 +0300
-Message-ID: <56D4B02F.7030803@cogentembedded.com>
-References: <1455478769-16084-1-git-send-email-ykaneko0929@gmail.com>
- <56CA0A68.2020709@cogentembedded.com>
- <CAH1o70+=4s6wueSWpCcMfx+D-CMpU2p5fYVM_CoO2h2_G7bCHA@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [net-next PATCH v3 1/3] net: sched: consolidate offload decision
+ in cls_u32
+Date: Mon, 29 Feb 2016 13:25:14 -0800
+Message-ID: <CAM_iQpVP-HbhN=p0xq=wBvjYFG8rF9RCJr=r1-gznMh0ZfGCqA@mail.gmail.com>
+References: <20160226154858.5338.90569.stgit@john-Precision-Tower-5810>
+	<20160226155349.5338.74615.stgit@john-Precision-Tower-5810>
+	<CAM_iQpVPa7Twx35K-VjR6X0DJ9wQuSeTrfFSZe8HWU_yJVj2UA@mail.gmail.com>
+	<56D124F1.3070300@gmail.com>
+	<CAM_iQpWMKWWqtrmPEQZGfDwMZoRq4dvCmirc850tmhbRGT1LNQ@mail.gmail.com>
+	<56D490B5.5060302@gmail.com>
+	<20160229185812.GA2121@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	linux-renesas-soc@vger.kernel.org,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	simon.horman@netronome.com,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:36184 "EHLO
-	mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750716AbcB2UzP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 15:55:15 -0500
-Received: by mail-lf0-f49.google.com with SMTP id l83so52784135lfd.3
-        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 12:55:14 -0800 (PST)
-In-Reply-To: <CAH1o70+=4s6wueSWpCcMfx+D-CMpU2p5fYVM_CoO2h2_G7bCHA@mail.gmail.com>
+Received: from mail-yk0-f170.google.com ([209.85.160.170]:33181 "EHLO
+	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750993AbcB2VZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 16:25:21 -0500
+Received: by mail-yk0-f170.google.com with SMTP id z13so68664845ykd.0
+        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 13:25:15 -0800 (PST)
+In-Reply-To: <20160229185812.GA2121@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/28/2016 05:13 PM, Yoshihiro Kaneko wrote:
-
->>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+On Mon, Feb 29, 2016 at 10:58 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Mon, Feb 29, 2016 at 07:40:53PM CET, john.fastabend@gmail.com wrote:
+>>On 16-02-27 08:28 PM, Cong Wang wrote:
+>>> On Fri, Feb 26, 2016 at 8:24 PM, John Fastabend
+>>> <john.fastabend@gmail.com> wrote:
+>>>> On 16-02-26 09:39 AM, Cong Wang wrote:
+>>>>> On Fri, Feb 26, 2016 at 7:53 AM, John Fastabend
+>>>>> <john.fastabend@gmail.com> wrote:
+>>>>>> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+>>>>>> index 2121df5..e64d20b 100644
+>>>>>> --- a/include/net/pkt_cls.h
+>>>>>> +++ b/include/net/pkt_cls.h
+>>>>>> @@ -392,4 +392,9 @@ struct tc_cls_u32_offload {
+>>>>>>         };
+>>>>>>  };
+>>>>>>
+>>>>>> +static inline bool tc_should_offload(struct net_device *dev)
+>>>>>> +{
+>>>>>> +       return dev->netdev_ops->ndo_setup_tc;
+>>>>>> +}
+>>>>>> +
+>>>>>
+>>>>> These should be protected by CONFIG_NET_CLS_U32, no?
+>>>>>
+>>>>
+>>>> Its not necessary it is a completely general function and I only
+>>>> lifted it out of cls_u32 so that the cls_flower classifier could
+>>>> also use it.
+>>>>
+>>>> I don't see the need off-hand to have it wrapped in an ORd ifdef
+>>>> statement where its (CONFIG_NET_CLS_U32 | CONFIG_NET_CLS_X ...).
+>>>> Any particular reason you were thnking it should be wrapped in ifdefs?
+>>>>
 >>>
->>> This patch supports the following interrupts.
+>>> Not a big deal.
 >>>
->>> - One interrupt for multiple (error, gPTP)
->>> - One interrupt for emac
->>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
+>>> I just feel these don't need to compile when I have CONFIG_NET_CLS_U32=n.
 >>>
->>> This patch improve efficiency of the interrupt handler by adding the
->>> interrupt handler corresponding to each interrupt source described
->>> above. Additionally, it reduces the number of times of the access to
->>> EthernetAVB IF.
->>> Also this patch prevent this driver depends on the whim of a boot loader.
+>>> Thanks.
 >>>
->>> [ykaneko0929@gmail.com: define bit names of registers]
->>> [ykaneko0929@gmail.com: add comment for gen3 only registers]
->>> [ykaneko0929@gmail.com: fix coding style]
->>> [ykaneko0929@gmail.com: update changelog]
->>> [ykaneko0929@gmail.com: gen3: fix initialization of interrupts]
->>> [ykaneko0929@gmail.com: gen3: fix clearing interrupts]
->>> [ykaneko0929@gmail.com: gen3: add helper function for request_irq()]
->>> [ykaneko0929@gmail.com: revert ravb_close() and ravb_ptp_stop()]
->>> [ykaneko0929@gmail.com: avoid calling free_irq() to non-hooked interrupts]
->>> [ykaneko0929@gmail.com: make NC/BE interrupt handler a function]
->>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
 >>
+>>Well because this is 'static inline' gcc should just remove it
+>>if it is not used. Assuming non-ancient gcc and normal compile
+>>flags, e.g. you are not including -fkeep-inline-functions or
+>>something.
 >>
->> [...]
->>
->>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
->>> b/drivers/net/ethernet/renesas/ravb_main.c
->>> index c936682..1bec71e 100644
->>> --- a/drivers/net/ethernet/renesas/ravb_main.c
->>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
->>
->> [...]
->>>
->>> @@ -697,6 +726,39 @@ static void ravb_error_interrupt(struct net_device
->>> *ndev)
->>>          }
->>>    }
->>>
->>> +static int ravb_nc_be_interrupt(struct net_device *ndev, int ravb_queue,
->>
->>
->>     I'd call this function e.g. ravb_queue_interrupt(). And make it return
->> 'bool' or even 'irqreturn_t' directly. And I'd suggest a shorter name for
->> the 'ravb_queue' parameter, like 'queue' or even 'q'...
+>>So just to keep it readable I would prefer to just leave it
+>>as is.
 >
-> Agreed.
->
->>
->>> +                               u32 ris0, u32 *ric0, u32 tis, u32 *tic)
->>
->>
->>     You don't seem to need 'ric0' and 'tic' past the call sites, so no real
->> need to pass them by reference.
->
-> When Rx/Tx interrupt for NC and BE is issued at the same time,
-> this function is called twice (for NC, BE) from ravb_interrupt.
-> The interrupt mask of NC set in the first call will be reset in the next
-> call for BE. So it is necessary to keep the modified value of "ric0" and
-> "tic".
+> Definitelly. cls_flower will use it in very near future. Making it
+> dependent on CONFIG_NET_CLS_U32 makes 0 sense to me.
 
-    OK, but we still can simplify this by reading these registers right in 
-ravb_queue_interrupt()...
+Oh, why then do you have u32 in the struct name tc_cls_u32_offload?
 
-[...]
->>> @@ -725,31 +787,15 @@ static irqreturn_t ravb_interrupt(int irq, void
->>> *dev_id)
->>>
->>>                  /* Network control and best effort queue RX/TX */
->>>                  for (q = RAVB_NC; q >= RAVB_BE; q--) {
->>> -                       if (((ris0 & ric0) & BIT(q)) ||
->>> -                           ((tis  & tic)  & BIT(q))) {
->>> -                               if (napi_schedule_prep(&priv->napi[q])) {
->>> -                                       /* Mask RX and TX interrupts */
->>> -                                       ric0 &= ~BIT(q);
->>> -                                       tic &= ~BIT(q);
->>> -                                       ravb_write(ndev, ric0, RIC0);
->>> -                                       ravb_write(ndev, tic, TIC);
->>> -                                       __napi_schedule(&priv->napi[q]);
->>> -                               } else {
->>> -                                       netdev_warn(ndev,
->>> -                                                   "ignoring interrupt,
->>> rx status 0x%08x, rx mask 0x%08x,\n",
->>> -                                                   ris0, ric0);
->>> -                                       netdev_warn(ndev,
->>> -                                                   "
->>> tx status 0x%08x, tx mask 0x%08x.\n",
->>> -                                                   tis, tic);
->>> -                               }
->>> +                       if (ravb_nc_be_interrupt(ndev, q, ris0, &ric0,
->>> tis,
->>> +                                                &tic))
->>>                                  result = IRQ_HANDLED;
->>> -                       }
->>>                  }
->>
->>
->>     Unroll this *for* loop please...
-
-> OK.
-
-    It was a bad idea actually, sorry...
-
-[...]
->>> @@ -767,6 +813,73 @@ static irqreturn_t ravb_interrupt(int irq, void
-[...]
->>> +static irqreturn_t ravb_dmaq_interrupt(int irq, void *dev_id, int
->>> ravb_queue)
->>
->>
->>     Perhaps, ravb_rx_tx_interrupt()?
->
-> Agreed.
-
-    And we still have ravb_dma_interrupt() unused, right?
-
-[...]
-
-> Thanks,
-> kaneko
-
-MBR, Sergei
+(Note that in the above I said "these" not "this", so I never only refer
+to tc_should_offload)
