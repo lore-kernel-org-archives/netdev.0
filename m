@@ -1,83 +1,69 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 0/2] Add CAN support to r8a7795 SoC
-Date: Mon, 29 Feb 2016 10:34:59 +0100
-Message-ID: <56D410C3.7020106@pengutronix.de>
-References: <1456737661-20538-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH v3 0/4] Add Ethernet support on STM32F429
+Date: Mon, 29 Feb 2016 10:36:59 +0100
+Message-ID: <56D4113B.2000501@st.com>
+References: <1456483912-32090-1-git-send-email-alexandre.torgue@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="msI5Cm51HadH9LhC9meAmI3NifBS8fj7i"
-Cc: linux-renesas-soc@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-can@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, chris.paterson2@renesas.com
-To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>,
-	wg@grandegger.com, horms@verge.net.au, magnus.damm@gmail.com,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1456737661-20538-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>
+To: Alexandre TORGUE <alexandre.torgue@gmail.com>,
+	Maxime Coquelin <mcoquelin.stm32@gmail.com>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:57210 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753477AbcB2Jhb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 04:37:31 -0500
+In-Reply-To: <1456483912-32090-1-git-send-email-alexandre.torgue@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---msI5Cm51HadH9LhC9meAmI3NifBS8fj7i
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On 2/26/2016 11:51 AM, Alexandre TORGUE wrote:
+> STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
+> This series:
+>   -enhance current stmmac driver to control it (code already
+> available) and adds basic glue for STM32F429 chip.
+>   -Enable basic Net config in kernel.
+>
+> Note that DT patches are not present because STM32 pinctrl code is not
+> yet avalaible.
+>
+> Changes since v2:
+>   -Fix alphabetic order in Kconfig and Makefile.
+>   -Improve code according to Joachim review.
+>   -Binding: remove useless entry.
+>
+> Changes since v1:
+>   -Fix Kbuild issue in Kconfig.
+>   -Remove init/exit callbacks. Suspend/Resume and remove driver is no more
+> driven in stmmac_pltfr but directly in dwmac-stm32 glue driver.
+>   -Take into account Joachim review.
+>
+> Regards.
+>
+> Alexandre.
 
-On 02/29/2016 10:20 AM, Ramesh Shanmugasundaram wrote:
-> This patch set adds CAN support to r8a7795 SoC.
->=20
-> This is based on linux-next (tag: next-20160225).
+thanks Alex, for the series please consider my:
 
-Please rebase to tags/linux-can-next-for-4.6-20160226 of
-git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git
-
-> Pinctrl & Clock related to the controller are already submitted as belo=
-w:
->=20
-> https://lkml.org/lkml/2016/2/25/546
-> https://lkml.org/lkml/2016/2/26/452
-> http://www.spinics.net/lists/arm-kernel/msg487238.html
->=20
-> The compatibility string used follows the same format as in this patch:=
-
-> http://www.spinics.net/lists/netdev/msg365756.html
->=20
-> Ramesh Shanmugasundaram (2):
->   can: rcar_can: Add r8a7795 support
->   arm64: dts: r8a7795: Add CAN support
->=20
->  .../devicetree/bindings/net/can/rcar_can.txt       | 12 +++++++++
->  arch/arm64/boot/dts/renesas/r8a7795.dtsi           | 30 ++++++++++++++=
-++++++++
->  drivers/net/can/Kconfig                            |  2 +-
->  drivers/net/can/rcar_can.c                         |  7 ++++-
->  4 files changed, 49 insertions(+), 2 deletions(-)
->=20
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
 
---msI5Cm51HadH9LhC9meAmI3NifBS8fj7i
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJW1BDDAAoJED07qiWsqSVq028H/imPQ5sbo1KPNCizsCSmlbwS
-3IQBwHcKUTUnYzyUnuHIohWDyChdvB5QybKAtXa7dKByNfINgRBjaI7rX4qSoLS2
-x5/rxbvCd/4g3RftJxa+9y73MD6JmSIXjGrLIii/Zjt8qd4MEO0jI0Md1aH1WiCm
-II0EGnTh3x+tkwTaPm0ztC5C88gWmqlfg+oRbZ2/C37TfEW1VXabzsDME22DoMYk
-K4CW2ACzNuJkuR3YgD/6F/BpniOyDts0vaR4P5Q/WY/md14svKKtCkdBaApZOa/d
-ylV55w4QXQ+IxB+zmLnZeK7fp1mLACjcfPTGGhjpcm7v59DtJEyq3DJUxADokbs=
-=ektL
------END PGP SIGNATURE-----
-
---msI5Cm51HadH9LhC9meAmI3NifBS8fj7i--
+>
+> Alexandre TORGUE (4):
+>    net: ethernet: dwmac: add Ethernet glue logic for stm32 chip
+>    Documentation: Bindings: Add STM32 DWMAC glue
+>    net: ethernet: stmmac: add support of Synopsys 3.50a MAC IP
+>    ARM: STM32: Enable Ethernet in stm32_defconfig
+>
+>   .../devicetree/bindings/net/stm32-dwmac.txt        |  40 +++++
+>   arch/arm/configs/stm32_defconfig                   |   9 +
+>   drivers/net/ethernet/stmicro/stmmac/Kconfig        |  12 ++
+>   drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+>   drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c  | 193 +++++++++++++++++++++
+>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   1 +
+>   6 files changed, 256 insertions(+)
+>   create mode 100644 Documentation/devicetree/bindings/net/stm32-dwmac.txt
+>   create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
+>
