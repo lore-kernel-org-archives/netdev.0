@@ -1,128 +1,61 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net V1 3/7] net/mlx5e: Fix soft lockup when HW Timestamping is enabled
-Date: Mon, 29 Feb 2016 21:17:11 +0200
-Message-ID: <1456773435-16607-4-git-send-email-saeedm@mellanox.com>
-References: <1456773435-16607-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net V1 0/7] Mellanox 100G mlx5 driver fixes
+Date: Mon, 29 Feb 2016 21:17:08 +0200
+Message-ID: <1456773435-16607-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53198 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:53223 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751411AbcB2TSt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Feb 2016 14:18:49 -0500
-In-Reply-To: <1456773435-16607-1-git-send-email-saeedm@mellanox.com>
+	id S1751841AbcB2TTR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Feb 2016 14:19:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+Hi Dave,
 
-Readers/Writers lock for SW timecounter was acquired without disabling
-interrupts on local CPU.
+This series has few bug fixes for the mlx5 Ethernet driver.
 
-The problematic scenario:
-* HW timestamping is enabled
-* Timestamp overflow periodic service task is running on local CPU and
-  holding write_lock for SW timecounter
-* Completion arrives, triggers interrupt for local CPU.
-  Interrupt routine calls napi_schedule(), which triggers rx/tx
-  skb process.
-  An attempt to read SW timecounter using read_lock is done, which is
-  already locked by a writer on the same CPU and cause soft lockup.
+Eran fixed a locking issue with time-stamping that could cause a soft-lockup when time-stamping is enabled.
 
-Add irqsave/irqrestore for when using the readers/writers lock for
-writing.
+Gal fixed the rx/tx packets/bytes counters returned by the driver to actually went through the network stack.
 
-Fixes: ef9814deafd0 ('net/mlx5e: Add HW timestamping (TS) support')
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |   25 ++++++++++++--------
- 1 files changed, 15 insertions(+), 10 deletions(-)
+Tariq removed a poll CQ optimization which could lead the driver to stop getting interrupts for some of the rings, and a did also fix to HW LRO which is currently broken.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-index be65435..2018eeb 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-@@ -62,10 +62,11 @@ static void mlx5e_timestamp_overflow(struct work_struct *work)
- 	struct delayed_work *dwork = to_delayed_work(work);
- 	struct mlx5e_tstamp *tstamp = container_of(dwork, struct mlx5e_tstamp,
- 						   overflow_work);
-+	unsigned long flags;
- 
--	write_lock(&tstamp->lock);
-+	write_lock_irqsave(&tstamp->lock, flags);
- 	timecounter_read(&tstamp->clock);
--	write_unlock(&tstamp->lock);
-+	write_unlock_irqrestore(&tstamp->lock, flags);
- 	schedule_delayed_work(&tstamp->overflow_work, tstamp->overflow_period);
- }
- 
-@@ -136,10 +137,11 @@ static int mlx5e_ptp_settime(struct ptp_clock_info *ptp,
- 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
- 						   ptp_info);
- 	u64 ns = timespec64_to_ns(ts);
-+	unsigned long flags;
- 
--	write_lock(&tstamp->lock);
-+	write_lock_irqsave(&tstamp->lock, flags);
- 	timecounter_init(&tstamp->clock, &tstamp->cycles, ns);
--	write_unlock(&tstamp->lock);
-+	write_unlock_irqrestore(&tstamp->lock, flags);
- 
- 	return 0;
- }
-@@ -150,10 +152,11 @@ static int mlx5e_ptp_gettime(struct ptp_clock_info *ptp,
- 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
- 						   ptp_info);
- 	u64 ns;
-+	unsigned long flags;
- 
--	write_lock(&tstamp->lock);
-+	write_lock_irqsave(&tstamp->lock, flags);
- 	ns = timecounter_read(&tstamp->clock);
--	write_unlock(&tstamp->lock);
-+	write_unlock_irqrestore(&tstamp->lock, flags);
- 
- 	*ts = ns_to_timespec64(ns);
- 
-@@ -164,10 +167,11 @@ static int mlx5e_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
- {
- 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
- 						   ptp_info);
-+	unsigned long flags;
- 
--	write_lock(&tstamp->lock);
-+	write_lock_irqsave(&tstamp->lock, flags);
- 	timecounter_adjtime(&tstamp->clock, delta);
--	write_unlock(&tstamp->lock);
-+	write_unlock_irqrestore(&tstamp->lock, flags);
- 
- 	return 0;
- }
-@@ -176,6 +180,7 @@ static int mlx5e_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
- {
- 	u64 adj;
- 	u32 diff;
-+	unsigned long flags;
- 	int neg_adj = 0;
- 	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
- 						  ptp_info);
-@@ -189,11 +194,11 @@ static int mlx5e_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
- 	adj *= delta;
- 	diff = div_u64(adj, 1000000000ULL);
- 
--	write_lock(&tstamp->lock);
-+	write_lock_irqsave(&tstamp->lock, flags);
- 	timecounter_read(&tstamp->clock);
- 	tstamp->cycles.mult = neg_adj ? tstamp->nominal_c_mult - diff :
- 					tstamp->nominal_c_mult + diff;
--	write_unlock(&tstamp->lock);
-+	write_unlock_irqrestore(&tstamp->lock, flags);
- 
- 	return 0;
- }
--- 
-1.7.1
+He also provided RSS and RX hash fixes for the case of changing the number of rx rings the RX hash/RSS configuration will be out of sync.
+
+The time stamping fix from Eran is not for -stable as the feature was only introduced in 4.5 but all of the others are.
+
+Changes fro V0:
+	- Eran addressed the irqsave/restore comments from "Dave" and fixed them.
+
+This series is generated against net commit 4c0b6eaf373a 'net: thunderx: Fix for Qset error due to CQ full'
+
+Saeed.
+
+Eran Ben Elisha (1):
+  net/mlx5e: Fix soft lockup when HW Timestamping is enabled
+
+Gal Pressman (2):
+  net/mlx5e: Add rx/tx bytes software counters
+  net/mlx5e: Provide correct packet/bytes statistics
+
+Tariq Toukan (4):
+  net/mlx5e: Remove wrong poll CQ optimization
+  net/mlx5e: Fix LRO modify
+  net/mlx5e: Fix ethtool RX hash func configuration change
+  net/mlx5e: Correctly handle RSS indirection table when changing
+    number of channels
+
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   18 +++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |   25 ++++---
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   36 ++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   82 +++++++++++---------
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |    8 +--
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |   19 ++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |    1 -
+ include/linux/mlx5/mlx5_ifc.h                      |    4 +-
+ 8 files changed, 109 insertions(+), 84 deletions(-)
