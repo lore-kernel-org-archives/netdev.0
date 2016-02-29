@@ -1,81 +1,173 @@
-From: Josh Poimboeuf <jpoimboe@redhat.com>
-Subject: [PATCH v19 04/10] bpf: Mark __bpf_prog_run() stack frame as non-standard
-Date: Sun, 28 Feb 2016 22:22:37 -0600
-Message-ID: <b90e6bf3fdbfb5c4cc1b164b965502e53cf48935.1456719558.git.jpoimboe@redhat.com>
-References: <cover.1456719558.git.jpoimboe@redhat.com>
-Cc: linux-kernel@vger.kernel.org, live-patching@vger.kernel.org,
-	Michal Marek <mmarek@suse.cz>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Andy Lutomirski <luto@kernel.org>,
-	Borislav Petkov <bp@alien8.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	Pedro Alves <palves@redhat.com>,
-	Namhyung Kim <namhyung@gmail.com>,
-	Bernd Petrovitsch <bernd@petrovitsch.priv.at>,
-	Chris J Arges <chris.j.arges@canonical.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jiri Slaby <jslaby@suse.cz>,
-	Arnaldo Carvalho de Melo <acme@kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org
-To: Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1456719558.git.jpoimboe@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH v2 1/3] net: ipv4: Convert IP network timestamps to be
+ y2038 safe
+Date: Mon, 29 Feb 2016 13:26:57 +0900
+Message-ID: <56D3C891.7060209@miraclelinux.com>
+References: <1456561938-7653-1-git-send-email-deepa.kernel@gmail.com>
+ <1456561938-7653-2-git-send-email-deepa.kernel@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com, arnd@arndb.de,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Deepa Dinamani <deepa.kernel@gmail.com>, netdev@vger.kernel.org,
+	y2038@lists.linaro.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34295 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756276AbcB2E1C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2016 23:27:02 -0500
+Received: by mail-pa0-f44.google.com with SMTP id fy10so84715196pac.1
+        for <netdev@vger.kernel.org>; Sun, 28 Feb 2016 20:27:01 -0800 (PST)
+In-Reply-To: <1456561938-7653-2-git-send-email-deepa.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-objtool reports the following false positive warnings:
 
-  kernel/bpf/core.o: warning: objtool: __bpf_prog_run()+0x5c: sibling call from callable instruction with changed frame pointer
-  kernel/bpf/core.o: warning: objtool: __bpf_prog_run()+0x60: function has unreachable instruction
-  kernel/bpf/core.o: warning: objtool: __bpf_prog_run()+0x64: function has unreachable instruction
-  [...]
 
-It's confused by the following dynamic jump instruction in
-__bpf_prog_run()::
+Deepa Dinamani wrote:
+> ICMP timestamp messages and IP source route options require
+> timestamps to be in milliseconds modulo 24 hours from
+> midnight UT format.
+> 
+> Add inet_current_timestamp() function to support this. The function
+> returns the required timestamp in network byte order.
+> 
+> Timestamp calculation is also changed to call ktime_get_real_ts64()
+> which uses struct timespec64. struct timespec64 is y2038 safe.
+> Previously it called getnstimeofday() which uses struct timespec.
+> struct timespec is not y2038 safe.
+> 
+> Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
 
-  jmp     *(%r12,%rax,8)
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-which corresponds to the following line in the C code:
+--yoshfuji
 
-  goto *jumptable[insn->code];
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: James Morris <jmorris@namei.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> ---
+>  include/net/ip.h      |  2 ++
+>  net/ipv4/af_inet.c    | 26 ++++++++++++++++++++++++++
+>  net/ipv4/icmp.c       |  5 +----
+>  net/ipv4/ip_options.c | 14 ++++++--------
+>  4 files changed, 35 insertions(+), 12 deletions(-)
+> 
+> diff --git a/include/net/ip.h b/include/net/ip.h
+> index 1a98f1c..5d3a9eb 100644
+> --- a/include/net/ip.h
+> +++ b/include/net/ip.h
+> @@ -240,6 +240,8 @@ static inline int inet_is_local_reserved_port(struct net *net, int port)
+>  }
+>  #endif
+>  
+> +__be32 inet_current_timestamp(void);
+> +
+>  /* From inetpeer.c */
+>  extern int inet_peer_threshold;
+>  extern int inet_peer_minttl;
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index eade66d..408e2b3 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -1386,6 +1386,32 @@ out:
+>  	return pp;
+>  }
+>  
+> +#define SECONDS_PER_DAY	86400
+> +
+> +/* inet_current_timestamp - Return IP network timestamp
+> + *
+> + * Return milliseconds since midnight in network byte order.
+> + */
+> +__be32 inet_current_timestamp(void)
+> +{
+> +	u32 secs;
+> +	u32 msecs;
+> +	struct timespec64 ts;
+> +
+> +	ktime_get_real_ts64(&ts);
+> +
+> +	/* Get secs since midnight. */
+> +	(void)div_u64_rem(ts.tv_sec, SECONDS_PER_DAY, &secs);
+> +	/* Convert to msecs. */
+> +	msecs = secs * MSEC_PER_SEC;
+> +	/* Convert nsec to msec. */
+> +	msecs += (u32)ts.tv_nsec / NSEC_PER_MSEC;
+> +
+> +	/* Convert to network byte order. */
+> +	return htons(msecs);
+> +}
+> +EXPORT_SYMBOL(inet_current_timestamp);
+> +
+>  int inet_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+>  {
+>  	if (sk->sk_family == AF_INET)
+> diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+> index 36e2697..6333489 100644
+> --- a/net/ipv4/icmp.c
+> +++ b/net/ipv4/icmp.c
+> @@ -931,7 +931,6 @@ static bool icmp_echo(struct sk_buff *skb)
+>   */
+>  static bool icmp_timestamp(struct sk_buff *skb)
+>  {
+> -	struct timespec tv;
+>  	struct icmp_bxm icmp_param;
+>  	/*
+>  	 *	Too short.
+> @@ -942,9 +941,7 @@ static bool icmp_timestamp(struct sk_buff *skb)
+>  	/*
+>  	 *	Fill in the current time as ms since midnight UT:
+>  	 */
+> -	getnstimeofday(&tv);
+> -	icmp_param.data.times[1] = htonl((tv.tv_sec % 86400) * MSEC_PER_SEC +
+> -					 tv.tv_nsec / NSEC_PER_MSEC);
+> +	icmp_param.data.times[1] = inet_current_timestamp();
+>  	icmp_param.data.times[2] = icmp_param.data.times[1];
+>  	if (skb_copy_bits(skb, 0, &icmp_param.data.times[0], 4))
+>  		BUG();
+> diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+> index bd24679..4d158ff 100644
+> --- a/net/ipv4/ip_options.c
+> +++ b/net/ipv4/ip_options.c
+> @@ -58,10 +58,9 @@ void ip_options_build(struct sk_buff *skb, struct ip_options *opt,
+>  		if (opt->ts_needaddr)
+>  			ip_rt_get_source(iph+opt->ts+iph[opt->ts+2]-9, skb, rt);
+>  		if (opt->ts_needtime) {
+> -			struct timespec tv;
+>  			__be32 midtime;
+> -			getnstimeofday(&tv);
+> -			midtime = htonl((tv.tv_sec % 86400) * MSEC_PER_SEC + tv.tv_nsec / NSEC_PER_MSEC);
+> +
+> +			midtime = inet_current_timestamp();
+>  			memcpy(iph+opt->ts+iph[opt->ts+2]-5, &midtime, 4);
+>  		}
+>  		return;
+> @@ -415,11 +414,10 @@ int ip_options_compile(struct net *net,
+>  					break;
+>  				}
+>  				if (timeptr) {
+> -					struct timespec tv;
+> -					u32  midtime;
+> -					getnstimeofday(&tv);
+> -					midtime = (tv.tv_sec % 86400) * MSEC_PER_SEC + tv.tv_nsec / NSEC_PER_MSEC;
+> -					put_unaligned_be32(midtime, timeptr);
+> +					__be32 midtime;
+> +
+> +					midtime = inet_current_timestamp();
+> +					memcpy(timeptr, &midtime, 4);
+>  					opt->is_changed = 1;
+>  				}
+>  			} else if ((optptr[3]&0xF) != IPOPT_TS_PRESPEC) {
+> 
 
-There's no way for objtool to deterministically find all possible
-branch targets for a dynamic jump, so it can't verify this code.
-
-In this case the jumps all stay within the function, and there's nothing
-unusual going on related to the stack, so we can whitelist the function.
-
-Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-Cc: netdev@vger.kernel.org
----
- kernel/bpf/core.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 972d9a8..be0abf6 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -27,6 +27,7 @@
- #include <linux/random.h>
- #include <linux/moduleloader.h>
- #include <linux/bpf.h>
-+#include <linux/frame.h>
- 
- #include <asm/unaligned.h>
- 
-@@ -649,6 +650,7 @@ load_byte:
- 		WARN_RATELIMIT(1, "unknown opcode %02x\n", insn->code);
- 		return 0;
- }
-+STACK_FRAME_NON_STANDARD(__bpf_prog_run); /* jump table */
- 
- bool bpf_prog_array_compatible(struct bpf_array *array,
- 			       const struct bpf_prog *fp)
 -- 
-2.4.3
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
