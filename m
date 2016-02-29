@@ -1,135 +1,62 @@
-From: Benjamin Poirier <bpoirier@suse.com>
-Subject: Re: [PATCH] mld, igmp: Fix reserved tailroom calculation
-Date: Mon, 29 Feb 2016 10:08:35 -0800
-Message-ID: <20160229180835.GA6224@f1.synalogic.ca>
-References: <1456603028-12589-2-git-send-email-bpoirier@suse.com>
- <56D45C6A.5040606@iogearbox.net>
- <20160229151920.GA5474@f1.synalogic.ca>
- <56D4670C.40902@stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
+Date: Mon, 29 Feb 2016 10:24:39 -0800
+Message-ID: <1456770279.648.85.camel@edumazet-ThinkPad-T530>
+References: <56D1E8B6.6090003@hurleysoftware.com>
+	 <1456638957.3676.12.camel@gmail.com>
+	 <20160228170109.GA16322@electric-eye.fr.zoreil.com>
+	 <1456721889.3488.67.camel@gmail.com> <56D45DAF.5070709@hurleysoftware.com>
+	 <1456759153.648.61.camel@edumazet-ThinkPad-T530>
+	 <56D469B2.2070707@hurleysoftware.com>
+	 <1456762914.648.76.camel@edumazet-ThinkPad-T530>
+	 <56D48869.1000106@hurleysoftware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Mike Galbraith <umgwanakikbuti@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
+	dmaengine@vger.kernel.org, John Ogness <john.ogness@linutronix.de>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Peter Hurley <peter@hurleysoftware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:46183 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750871AbcB2SIr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Feb 2016 13:08:47 -0500
-Content-Disposition: inline
-In-Reply-To: <56D4670C.40902@stressinduktion.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:34902 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752149AbcB2SZm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 13:25:42 -0500
+In-Reply-To: <56D48869.1000106@hurleysoftware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016/02/29 16:43, Hannes Frederic Sowa wrote:
-> On 29.02.2016 16:19, Benjamin Poirier wrote:
-> >On 2016/02/29 15:57, Daniel Borkmann wrote:
-> >[...]
-> >>
-> >>[ cutting the IPv4 part off as diff is the same ]
-> >>
-> >>>diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-> >>>index 5ee56d0..c157edc 100644
-> >>>--- a/net/ipv6/mcast.c
-> >>>+++ b/net/ipv6/mcast.c
-> >>>@@ -1574,9 +1574,9 @@ static struct sk_buff *mld_newpack(struct inet6_dev *idev, unsigned int mtu)
-> >>>  		return NULL;
-> >>>
-> >>>  	skb->priority = TC_PRIO_CONTROL;
-> >>>-	skb->reserved_tailroom = skb_end_offset(skb) -
-> >>>-				 min(mtu, skb_end_offset(skb));
-> >>>  	skb_reserve(skb, hlen);
-> >>>+	skb->reserved_tailroom = skb_tailroom(skb) -
-> >>>+		min_t(int, mtu, skb_tailroom(skb) - tlen);
-> >>
-> >>Are you sure this is correct? Wouldn't that mean (assuming we allocated
-> >>enough space), that I could now fill a larger than MTU frame?
-> >
-> >Quoting back a part of the log:
-> >
-> >>>The maximum space available for ip headers and payload without
-> >>>fragmentation is min(mtu, data + extra). Therefore,
-> >>>reserved_tailroom
-> >>>= data + extra + tlen - min(mtu, data + extra)
-> >>>= skb_end_offset - hlen - min(mtu, skb_end_offset - hlen - tlen)
-> >>>= skb_tailroom - min(mtu, skb_tailroom - tlen) ; after skb_reserve(hlen)
-> >
-> >The min() takes care of the situation you describe, ie. if the allocated
-> >space is large, reserved_tailroom will be large enough that we do not
-> >use more space than the mtu.
-> >
-> >I tested the mld and igmp code with different driver parameters, mtu
-> >values, number of multicast address records and even allocation
-> >failures. If you think the formula is wrong, please provide a
-> >counter-example with hlen, tlen, mtu and size values.
+On lun., 2016-02-29 at 10:05 -0800, Peter Hurley wrote:
+
+> While I appreciate the attempt, that's not the problem.
 > 
-> I think the code is fine albeit I think we should remove the min macro and
-> just do something:
+> Just to be clear
 > 
-> if (skb_tailroom(skb) > mtu)
-> 	skb->reserved_tailroom = skb_tailroom(skb) - mtu;
+> 		if (time_before(jiffies, end) && !need_resched() &&
+> 		    --max_restart)
+> 			goto restart;
 > 
-> Does that make sense? I think it is much more readable.
+> aborts softirq *even if 0ns have elapsed*, if NET_RX has woken a process.
 
-That is not equivalent. It fails to take tlen into account.
 
-For igmp, consider this case:
-with hlen = 16, mtu = 9000, tlen = 8,
-additionally, suppose that the first iteration of the allocation loop
-(alloc_skb(9000 + 16 + 8, ...) which requires 4 pages) fails and the
-second iteration (alloc_skb((9000 >> 1) + 16 + 8, ...) which requires 2
-pages) succeeds:
-	size = (9000 >> 1) + 16 + 8 = 4524
-	skb_end_offset = 8192 - 320 = 7872
-	tailroom = 7872 - 16 = 7856
+Sure, now remove the 1st and 2nd condition.
 
-	data = 9000 >> 1 = 4500
-	extra = 7872 - 4524 = 3348
+You would still 'abort' (ie wakeup ksoftirqd really) when --max_restart
+becomes 0
 
-	reserved tailroom (patch version)
-		= 4500 + 3348 + 8 - min(9000, 4500 + 3348)
-		= 8
-	reserved tailroom (your version)
-		= 0
+So, instead of some subtle load dependent bug, you know have a reliable
+trigger.
 
-	Headers are ipv4 + igmpv3 = 24 + 8 = 32, records are 8 bytes
-	With 978 igmpv3 records, with your version, we would output an
-	skb that has less tailroom (0) than dev->needed_tailroom (8).
+The fact it took 3 years for someone to complain about this change
+should tell us something really.
 
-For mld, consider this case:
-with hlen = 16, mtu = 9000, tlen = 8:
-	size = 3776 (SKB_MAX_ORDER case)
-	skb_end_offset = 3776
-	tailroom = 3776 - 16 = 3760
+The only way for your bug to hide would be to remove all the 'break
+infinite loop' logic.
 
-	data = 3776 - 16 - 8 = 3752
-	extra = 0
-
-	reserved tailroom (patch version)
-		= 3752 + 0 + 8 - min(9000, 3752 + 0)
-		= 8
-	reserved tailroom (your version)
-		= 0
-
-	Headers are ipv6 + icmpv6 = 48 + 8 = 56, records are 20 bytes
-	With 185 mld records, with your formula, we would output an skb that
-	has less tailroom (4) than dev->needed_tailroom (8).
-
-If you think we should write the expression with "if" instead of "min",
-instead of the current
-
-+	skb->reserved_tailroom = skb_tailroom(skb) -
-+		min_t(int, mtu, skb_tailroom(skb) - tlen);
-
-it should be:
-
-+	if (mtu < skb_tailroom(skb) - tlen)
-+		skb->reserved_tailroom = skb_tailroom(skb) - mtu;
-+	else
-+		skb->reserved_tailroom = tlen;
-
-The second alternative does not look more readable to me but I have been
-looking at that expression for a while. If you think that it is more
-readable, I will resend the patch expressed that way. Please let me
-know.
+And this is not going to happen.
