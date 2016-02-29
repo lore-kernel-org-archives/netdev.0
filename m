@@ -1,106 +1,77 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net] ppp: lock ppp->flags in ppp_read() and ppp_poll()
-Date: Mon, 29 Feb 2016 10:18:38 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D41110082@AcuExch.aculab.com>
-References: <c7c10511f505342837d57e9bb628fb145504f3e6.1456507305.git.g.nault@alphalink.fr>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 1/5] vxlan: implement GPE in L2 mode
+Date: Mon, 29 Feb 2016 11:23:22 +0100
+Message-ID: <20160229112322.4da0f0c0@griffin>
+References: <cover.1456472746.git.jbenc@redhat.com>
+	<6fe53252314d644e994950522d4320bc54ced928.1456472746.git.jbenc@redhat.com>
+	<CALx6S34vm6nqce481mcH_S3sfc4B5ift7YwJmTba4Vvdvnmj3w@mail.gmail.com>
+	<20160227203142.5b7309f3@griffin>
+	<CALx6S358JT6HRR70SgJrNOsTg4LbnTXERpW6n0DDiXKqxg--Yg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Paul Mackerras <paulus@samba.org>,
-	David Miller <davem@davemloft.net>
-To: 'Guillaume Nault' <g.nault@alphalink.fr>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.191]:58920 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752307AbcB2KVf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 05:21:35 -0500
-In-Reply-To: <c7c10511f505342837d57e9bb628fb145504f3e6.1456507305.git.g.nault@alphalink.fr>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:59117 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752305AbcB2KX2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Feb 2016 05:23:28 -0500
+In-Reply-To: <CALx6S358JT6HRR70SgJrNOsTg4LbnTXERpW6n0DDiXKqxg--Yg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guillaume Nault
-> Sent: 26 February 2016 17:46
-> 
-> ppp_read() and ppp_poll() can be called concurrently with ppp_ioctl().
-> In this case, ppp_ioctl() might call ppp_ccp_closed(), which may update
-> ppp->flags while ppp_read() or ppp_poll() is reading it.
-> The update done by ppp_ccp_closed() isn't atomic due to the bit mask
-> operation ('ppp->flags &= ~(SC_CCP_OPEN | SC_CCP_UP)'), so concurrent
-> readers might get transient values.
-> Reading incorrect ppp->flags may disturb the 'ppp->flags & SC_LOOP_TRAFFIC'
-> test in ppp_read() and ppp_poll(), which in turn can lead to improper
-> decision on whether the PPP unit file is ready for reading or not.
-> 
-> Since ppp_ccp_closed() is protected by the Rx and Tx locks (with
-> ppp_lock()), taking the Rx lock is enough for ppp_read() and ppp_poll()
-> to guarantee that ppp_ccp_closed() won't update ppp->flags
-> concurrently.
+On Sat, 27 Feb 2016 12:54:52 -0800, Tom Herbert wrote:
+> Yes, but RCO has not been specified for VXLAN-GPE either
 
-This is all splurious.
-The 'concurrent' calls cannot be distinguished from calls just prior to,
-or just after the ppp_ccp_closed() call.
+As far as I can see, RCO will just work with VXLAN-GPE. But I have no
+problem disallowing them to be set together, if you prefer that.
 
-So the additional locking (which is covering a single memory read)
-cannot be needed.
-Only code that modifies the flags needs to be locked.
+> so the patch
+> does not correctly refuse setting those two together. Inevitably
+> though, those and other extensions will defined for VXLAN-GPE and new
+> ones for VXLAN. Again, the protocols are fundamentally incompatible,
+> so instead of trying to enforce each valid combination at
+> configuration
 
-	David
+We need to do the checking in either case. If we accepted unsupported
+combinations and then just silently ignored them, we'd be in troubles
+later when such combination becomes defined/supported. There would be
+no way for the userspace tools to detect whether a particular kernel
+supports the combination or not.
 
-> The same reasoning applies to ppp->n_channels. The 'n_channels' field
-> can also be written to concurrently by ppp_ioctl() (through
-> ppp_connect_channel() or ppp_disconnect_channel()). These writes aren't
-> atomic (simple increment/decrement), but are protected by both the Rx
-> and Tx locks (like in the ppp->flags case). So holding the Rx lock
-> before reading ppp->n_channels also prevents concurrent writes.
+So, we need to check for supported combination of options during
+configuration anyway.
+
+And when we have that, I don't really see the reason for doing that
+kind of code duplication that you suggest.
+
+> or performing multiple checks for flavor each time we
+> look at a packet, it seems easier to split the parsing with at most
+> one check for the protocol variant. For instance in
+> vxlan_udp_encap_recv just do:
 > 
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
-> ---
-> 
-> This was patch #2 of the 'ppp: fix locking issues related to ppp_ioctl()'
-> series. I haven't kept the extra locking of ppp->flags in
-> ppp_ioctl(PPPIOCGFLAGS), which was added in the original series,
-> because the ppp_mutex lock ensures we can't enter the PPPIOCSFLAGS case
-> concurrently.
-> This is still quite theoretical issue as I've never observed the error
-> in practice.
-> 
->  drivers/net/ppp/ppp_generic.c | 10 +++++++++-
->  1 file changed, 9 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-> index fc8ad00..e8a5936 100644
-> --- a/drivers/net/ppp/ppp_generic.c
-> +++ b/drivers/net/ppp/ppp_generic.c
-> @@ -443,9 +443,14 @@ static ssize_t ppp_read(struct file *file, char __user *buf,
->  			 * network traffic (demand mode).
->  			 */
->  			struct ppp *ppp = PF_TO_PPP(pf);
-> +
-> +			ppp_recv_lock(ppp);
->  			if (ppp->n_channels == 0 &&
-> -			    (ppp->flags & SC_LOOP_TRAFFIC) == 0)
-> +			    (ppp->flags & SC_LOOP_TRAFFIC) == 0) {
-> +				ppp_recv_unlock(ppp);
->  				break;
-> +			}
-> +			ppp_recv_unlock(ppp);
->  		}
->  		ret = -EAGAIN;
->  		if (file->f_flags & O_NONBLOCK)
-> @@ -532,9 +537,12 @@ static unsigned int ppp_poll(struct file *file, poll_table *wait)
->  	else if (pf->kind == INTERFACE) {
->  		/* see comment in ppp_read */
->  		struct ppp *ppp = PF_TO_PPP(pf);
-> +
-> +		ppp_recv_lock(ppp);
->  		if (ppp->n_channels == 0 &&
->  		    (ppp->flags & SC_LOOP_TRAFFIC) == 0)
->  			mask |= POLLIN | POLLRDNORM;
-> +		ppp_recv_unlock(ppp);
->  	}
-> 
->  	return mask;
-> --
-> 2.7.0
+> if (vs->flags & VXLAN_F_GPE)
+>                if (!vxlan_parse_gpe_hdr(&unparsed, skb, vs->flags))
+>                        goto drop;
+> else
+>                if (!vxlan_parse_gpe(&unparsed, skb, vs->flags))
+>                        goto drop;
+
+Most of the code of these two functions will be identical. To
+consolidate that as much as possible, you'll end up with what I have or
+something very similar.
+
+> And then move REMCSUM and GPB and other protocol specific checks to
+> the right function.
+
+And when RCO is defined for GPE, we copy the code? Doesn't make sense,
+sorry.
+
+If you look at the code in the current net-next (and the code after
+this patchset), the extension handling has been made generic and each
+extension gets its own handler function, leading to clean separation in
+the code. There's no reason to split the vxlan_rcv into two functions
+doing the same things but with slightly different calls to extensions.
+
+ Jiri
