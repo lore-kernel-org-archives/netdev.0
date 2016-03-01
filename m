@@ -1,105 +1,70 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: Re: [PATCH v2] socket.7: Document some BPF-related socket options
-Date: Tue, 1 Mar 2016 10:40:32 -0500
-Message-ID: <CAEfhGiy7aDU8Xoz-nwRHLaF756UASNE08q394DFGBRD807yDaA@mail.gmail.com>
-References: <1456767399-7533-1-git-send-email-kraigatgoog@gmail.com>
-	<56D56901.5070307@gmail.com>
-	<87k2lm7bks.fsf@zoro.exoscale.ch>
-	<56D56F24.3090605@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vincent Bernat <bernat@luffy.cx>, linux-man@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V2 0/9] mlx5 driver updates
+Date: Tue,  1 Mar 2016 17:42:13 +0200
+Message-ID: <1456846942-15082-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:36059 "EHLO
-	mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754018AbcCAPkg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 10:40:36 -0500
-Received: by mail-lf0-f68.google.com with SMTP id h198so8852257lfh.3
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 07:40:35 -0800 (PST)
-Received: from mail-lf0-f47.google.com (mail-lf0-f47.google.com. [209.85.215.47])
-        by smtp.gmail.com with ESMTPSA id un6sm4757397lbb.18.2016.03.01.07.40.33
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 01 Mar 2016 07:40:33 -0800 (PST)
-Received: by mail-lf0-f47.google.com with SMTP id j186so41544819lfg.2
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 07:40:33 -0800 (PST)
-In-Reply-To: <56D56F24.3090605@gmail.com>
+Received: from [193.47.165.129] ([193.47.165.129]:50532 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754531AbcCAPqM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2016 10:46:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 1, 2016 at 5:29 AM, Michael Kerrisk (man-pages)
-<mtk.manpages@gmail.com> wrote:
-> On 03/01/2016 11:10 AM, Vincent Bernat wrote:
->>  =E2=9D=A6  1 mars 2016 11:03 +0100, "Michael Kerrisk (man-pages)" <=
-mtk.manpages@gmail.com> :
->>
->>>           Once   the   SO_LOCK_FILTER  option  has  been  enabled,
->>>           attempts by an unprivileged process to change or  remove
->>>           the  filter  attached  to  a  socket,  or to disable the
->>>           SO_LOCK_FILTER option will fail with the error EPERM.
->>
->> You should remove "unprivileged". I didn't try to check for permissi=
-ons
->> because I was just lazy (and I didn't have a need for it). As root, =
-you
->> can just recreate another socket.
->
-> Bother. That's what I meant to do, and then I omitted to do it! Done =
-now
-> And thanks for catching that, Vincent.
->
-> Revised text below, with another query.
->
->        SO_LOCK_FILTER
->               When set, this option will prevent changing the  filter=
-s
->               associated  with  the socket.  These filters include an=
-y
->               set   using   the   socket   options   SO_ATTACH_FILTER=
-,
->               SO_ATTACH_BPF,        SO_ATTACH_REUSEPORT_CBPF       an=
-d
->               SO_ATTACH_REUSEPORT_EPBF.
->
->               The typical use case is for a privileged process to  se=
-t
->               up  a  socket with restrictive filters, set SO_LOCK_FIL=
-=E2=80=90
->               TER, and then either drop its  privileges  or  pass  th=
-e
->               socket file descriptor to an unprivileged process.
->
->               Once   the   SO_LOCK_FILTER  option  has  been  enabled=
-,
->               attempts to change or remove the filter  attached  to  =
-a
->               socket,  or  to  disable  the SO_LOCK_FILTER option wil=
-l
->               fail with the error EPERM.
->
-> I think the second paragraph should probably drop mention of privileg=
-es,
-> right? In fact, maybe just drop the paragraph altogether?
-Thanks Michael, all of your changes in the git tree look good to me.
-I parsed the one-way nature of LOCK_FILTER completely backwards from
-the commit message.  It's describing BSD's root-modify behavior, not
-the implementation in Linux.  I think I like this last paragraph as
-you have it to explicitly call out this as intended behavior.
+Hi Dave, 
 
-Thanks again,
-Craig
+This series includes some bug fixes and updates for the mlx5 core
+and ethernet driver.
 
-> Cheers,
->
-> Michael
->
->
->
-> --
-> Michael Kerrisk
-> Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-> Linux/UNIX System Programming Training: http://man7.org/training/
+>From Gal, two fixes that protects the update CQ moderation flows
+when it is not allowed.
+
+>From Moshe, two fixes for the core and ethernet driver in 
+non-cached(NC) and write combining(WC) buffers mappings, 
+which prevents the driver from double memory mappings.
+
+>From Or, reduce the firmware command completion timeout.
+
+>From Tariq, several small trivial fixes.
+
+Changes from v0:
+	- "Fix global UAR mapping" commit messages updated to explain ARCH_HAS_IOREMAP_WC usage.
+	- rebased to commit 8d3f2806f8fb 'Merge branch ethtool-ksettings'
+
+Changes from v1:
+	- Removed ARCH_HAS_IOREMAP_WC config flag from "Fix global UAR mapping" commit,	as it was not accurate to use it.
+	- Squashed "Fix global UAR mapping" and "net/mlx5: Avoid double mapping of io mapped memory"
+	- Added more info for "Fix global UAR mapping" in commit message
+
+Gal Pressman (2):
+  net/mlx5e: Don't try to modify CQ moderation if it is not supported
+  net/mlx5e: Don't modify CQ before it was created
+
+Moshe Lazer (1):
+  net/mlx5: Fix global UAR mapping
+
+Or Gerlitz (1):
+  net/mlx5: Make command timeout way shorter
+
+Tariq Toukan (5):
+  net/mlx5e: Replace async events spinlock with synchronize_irq()
+  net/mlx5e: Placement changed for carrier state updates
+  net/mlx5e: Changed naming convention of tx queues in ethtool stats
+  net/mlx5e: Move common case counters within sq_stats struct
+  net/mlx5e: Set drop RQ's necessary parameters only
+
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   27 ++++-----
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   27 ++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   64 ++++++++++---------
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |    2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |    5 ++
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |   28 +--------
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |    1 +
+ drivers/net/ethernet/mellanox/mlx5/core/uar.c      |   29 ++++++----
+ include/linux/mlx5/driver.h                        |    7 +-
+ 9 files changed, 95 insertions(+), 95 deletions(-)
