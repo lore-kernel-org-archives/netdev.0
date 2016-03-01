@@ -1,9 +1,10 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 6/8] net/mlx5e: Introduce tc offload support
-Date: Tue, 1 Mar 2016 15:52:08 +0100
-Message-ID: <20160301145208.GB2098@nanopsycho.orion>
+Subject: Re: [PATCH net-next 1/8] net/flower: Introduce hardware offload
+ support
+Date: Tue, 1 Mar 2016 15:53:44 +0100
+Message-ID: <20160301145344.GC2098@nanopsycho.orion>
 References: <1456842290-7844-1-git-send-email-amir@vadai.me>
- <1456842290-7844-7-git-send-email-amir@vadai.me>
+ <1456842290-7844-2-git-send-email-amir@vadai.me>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
@@ -14,64 +15,42 @@ Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Jiri Pirko <jiri@mellanox.com>
 To: Amir Vadai <amir@vadai.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33123 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753568AbcCAOwL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 09:52:11 -0500
-Received: by mail-wm0-f66.google.com with SMTP id n186so4522958wmn.0
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 06:52:11 -0800 (PST)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33140 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754250AbcCAOxr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 09:53:47 -0500
+Received: by mail-wm0-f68.google.com with SMTP id n186so4531020wmn.0
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 06:53:47 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1456842290-7844-7-git-send-email-amir@vadai.me>
+In-Reply-To: <1456842290-7844-2-git-send-email-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Mar 01, 2016 at 03:24:48PM CET, amir@vadai.me wrote:
->Extend ndo_setup_tc() to support ingress tc offloading. Will be used by
->later patches to offload tc flower filter.
+Tue, Mar 01, 2016 at 03:24:43PM CET, amir@vadai.me wrote:
+>This patch is based on a patch made by John Fastabend.
+>It adds support for offloading cls_flower.
+>A filter that is offloaded successfuly by hardware, will not be added to
+>the hashtable and won't be processed by software.
 >
->Feature is off by default and could be enabled by issuing:
-> # ethtool  -K eth0 hw-tc-offload on
->
->Offloads flow table is dynamically created when first filter is
->added.
->Rules are saved in a hash table that is maintained by the consumer (for
->example - the flower offload in the next patch).
->When last filter is removed and no filters exist in the hash table, the
->offload flow table is destroyed.
 
-<snip>	
-	
->@@ -1880,6 +1883,17 @@ static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
-> static int mlx5e_ndo_setup_tc(struct net_device *dev, u32 handle,
-> 			      __be16 proto, struct tc_to_netdev *tc)
-> {
->+	struct mlx5e_priv *priv = netdev_priv(dev);
+<snip>
+
+>+enum {
+>+	TC_CLSFLOWER_REPLACE,
+>+	TC_CLSFLOWER_DESTROY,
+>+};
+
+Name this enum
+
 >+
->+	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
->+		goto mqprio;
->+
->+	switch (tc->type) {
->+	default:
->+		return -EINVAL;
+>+struct tc_cls_flower_offload {
+>+	int command;
 
--EOPNOTSUPP would be better here perhaps?
+        ^^^ and use it here
 
-
->+	}
->+
->+mqprio:
-> 	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
-> 		return -EINVAL;
-> 
->@@ -1963,6 +1977,13 @@ static int mlx5e_set_features(struct net_device *netdev,
-> 			mlx5e_disable_vlan_filter(priv);
-> 	}
-> 
->+	if ((changes & NETIF_F_HW_TC) && !(features & NETIF_F_HW_TC) &&
->+	    mlx5e_tc_num_filters(priv)) {
->+		netdev_err(netdev,
->+			   "Active offloaded tc filters, can't turn hw_tc_offload off\n");
->+		return -EINVAL;
-
-This should not fail I believe. Just disable it in hw. I would even toss
-away the rules if necessary.
+>+	u64 cookie;
+>+	struct flow_dissector *dissector;
+>+	struct fl_flow_key *mask;
+>+	struct fl_flow_key *key;
+>+	struct tcf_exts *exts;
+>+};
