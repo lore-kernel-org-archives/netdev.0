@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: sctp_remaddr_seq_show use the wrong variable
- to dump transport info
-Date: Tue, 01 Mar 2016 17:36:13 -0500 (EST)
-Message-ID: <20160301.173613.295919796621489412.davem@davemloft.net>
-References: <08f9ec3d48c3fffd7224e6eb0c129ed113d23fbd.1456626791.git.lucien.xin@gmail.com>
+Subject: Re: [Patch net-next] net: remove skb_sender_cpu_clear()
+Date: Tue, 01 Mar 2016 17:36:59 -0500 (EST)
+Message-ID: <20160301.173659.500519039303039828.davem@davemloft.net>
+References: <1456633194-2510-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	marcelo.leitner@gmail.com, vyasevich@gmail.com,
-	daniel@iogearbox.net
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42822 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42835 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751025AbcCAWgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 17:36:15 -0500
-In-Reply-To: <08f9ec3d48c3fffd7224e6eb0c129ed113d23fbd.1456626791.git.lucien.xin@gmail.com>
+	with ESMTP id S1750843AbcCAWhA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 17:37:00 -0500
+In-Reply-To: <1456633194-2510-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Sun, 28 Feb 2016 10:33:11 +0800
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Sat, 27 Feb 2016 20:19:54 -0800
 
-> Now in sctp_remaddr_seq_show(), we use variable *tsp to get the param *v.
-> but *tsp is also used to traversal transport_addr_list, which will cover
-> the previous value, and make sctp_transport_put work on the wrong transport.
+> After commit 52bd2d62ce67 ("net: better skb->sender_cpu and skb->napi_id cohabitation")
+> skb_sender_cpu_clear() becomes empty and can be removed.
 > 
-> So fix it by adding a new variable to get the param *v.
-> 
-> Fixes: fba4c330c5b9 ("sctp: hold transport before we access t->asoc in sctp proc")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
 Applied, thanks.
