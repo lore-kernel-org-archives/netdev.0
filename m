@@ -1,43 +1,44 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [RFC][PATCH] tags: Fix DEFINE_PER_CPU expansions
-Date: Tue, 1 Mar 2016 22:34:44 +0100
-Message-ID: <20160301213444.GZ6357@twins.programming.kicks-ass.net>
-References: <20160301102625.GQ6357@twins.programming.kicks-ass.net>
- <20160301165650.GN3577@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH] IPv6: Use a 16 bit length field when
+ computing a IPv6 UDP checksum
+Date: Tue, 01 Mar 2016 16:35:44 -0500 (EST)
+Message-ID: <20160301.163544.1175023538158578123.davem@davemloft.net>
+References: <20160226025738.16760.41163.stgit@localhost.localdomain>
+	<20160301.150902.257372984527759080.davem@davemloft.net>
+	<CAKgT0Ue-OGtHy4=f7mYRxLntgj1rgGpyD2ZojvULY_7EXykhKA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, rjw@rjwysocki.net,
-	konrad.wilk@oracle.com, Ingo Molnar <mingo@kernel.org>,
-	tj@kernel.org, davem@davemloft.net, linux-acpi@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160301165650.GN3577@linux.vnet.ibm.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: aduyck@mirantis.com, netdev@vger.kernel.org
+To: alexander.duyck@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42044 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751566AbcCAVfr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 16:35:47 -0500
+In-Reply-To: <CAKgT0Ue-OGtHy4=f7mYRxLntgj1rgGpyD2ZojvULY_7EXykhKA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 01, 2016 at 08:56:50AM -0800, Paul E. McKenney wrote:
-> +++ b/kernel/rcu/rcutorture.c
-> @@ -131,9 +131,9 @@ static unsigned long rcu_torture_current_version;
->  static struct rcu_torture rcu_tortures[10 * RCU_TORTURE_PIPE_LEN];
->  static DEFINE_SPINLOCK(rcu_torture_lock);
->  static DEFINE_PER_CPU(long [RCU_TORTURE_PIPE_LEN + 1],
-> -		      rcu_torture_count) = { 0 };
-> +		      rcu_torture_count);
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Tue, 1 Mar 2016 13:19:28 -0800
 
-So the problem I was fixing is that the ctags regex needs the second
-argument for the DEFINE_PER_CPU() macro on the same line.
+> I was wondering what your thoughts would be about widening the size of
+> the length field that we pass into csum_tcpudp_magic from a 16 bit to
+> a 24 or 32 bit value?  The general idea would be to shift tunnels over
+> to uniformly using skb->len instead of a mix of 16 bit or 32 bit
+> lengths.  My thought is it might add a bit of security since it would
+> invalidate the outer header checksum for the case where length has
+> exceeded 65535 resulting in uh->len field being invalid anyway.
 
-So it would still need to be:
+Hmmm, but wait, what is uh->len supposed to be for an ipv6 jumbogram
+anyways?
 
-static DEFINE_PER_CPU(long [RCU_TORTURE_PIPE_LEN + 1], rcu_torture_count);
+It just gets truncated and the the ipv6 header payload length field
+trumps whatever is in the UDP header length field right?
 
->  static DEFINE_PER_CPU(long [RCU_TORTURE_PIPE_LEN + 1],
-> -		      rcu_torture_batch) = { 0 };
-> +		      rcu_torture_batch);
->  static atomic_t rcu_torture_wcount[RCU_TORTURE_PIPE_LEN + 1];
->  static atomic_t n_rcu_torture_alloc;
->  static atomic_t n_rcu_torture_alloc_fail;
-> 
+If that's what happens then we should uniformly use the truncated
+length for the pseudo-header calculations as you originally suggested.
+
+How UDP jumbograms as supposed to be handled wrt. udp_hdr->len should
+guide our implementation.
