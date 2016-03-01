@@ -1,101 +1,125 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net v2] mld, igmp: Fix reserved tailroom calculation
-Date: Tue, 1 Mar 2016 17:00:33 +0100
-Message-ID: <56D5BCA1.4050206@stressinduktion.org>
-References: <56D48DCE.3090705@stressinduktion.org>
- <1456787013-3277-1-git-send-email-bpoirier@suse.com>
- <56D56C64.1030504@iogearbox.net>
+From: =?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCHv2 08/10] rfkill: Use switch to demux userspace operations
+Date: Tue, 1 Mar 2016 11:15:27 -0500
+Message-ID: <CA+A7VXWWQOti7pOre08QcXN9vgssQH3V1f6RjphaK0VwM27C7g@mail.gmail.com>
+References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
+ <1456159001-20307-9-git-send-email-jprvita@endlessm.com> <20160226175925.GA9331@w1.fi>
+ <CA+A7VXUY=qVDQ-OqT+QJK8haN6AFX4Br=OPXi-6RCxpvH3=QRg@mail.gmail.com>
+ <20160229223918.GA32464@w1.fi> <1456839787.3926.20.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Benjamin Poirier <bpoirier@suse.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:46497 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754759AbcCAQAg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 11:00:36 -0500
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id E428820FC3
-	for <netdev@vger.kernel.org>; Tue,  1 Mar 2016 11:00:34 -0500 (EST)
-In-Reply-To: <56D56C64.1030504@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jouni Malinen <j@w1.fi>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Darren Hart <dvhart-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	platform-driver-x86-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-6IF/jdPJHihWk0Htik3J/w@public.gmane.org,
+	=?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1456839787.3926.20.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 01.03.2016 11:18, Daniel Borkmann wrote:
-> On 03/01/2016 12:03 AM, Benjamin Poirier wrote:
+On 1 March 2016 at 08:43, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wro=
+te:
+> On Tue, 2016-03-01 at 00:39 +0200, Jouni Malinen wrote:
+>
+>> > I agree there is a difference in the logic here,
+>
+> Gah. I thought I'd reviewed the logic and made sure there's no
+> difference ... :)
+>
+>> >  thanks for taking the
+>> > time to point it out so clearly, and sorry for missing this. But A=
+=46AIU
+>> > userspace should not call RFKILL_OP_CHANGE with ev.type =3D=3D
+>> > RFKILL_TYPE_ALL, as RFKILL_OP_CHANGE is intended to be used to
+>> > block/unblock one RFKill switch, and it is not possible to create =
+a
+>> > RFKill switch with type =3D=3D RFKILL_TYPE_ALL (rfkill_alloc() wou=
+ld
+>> > return NULL).
+>
+>> Interesting. Maybe Johannes can comment on that part since I think h=
+e
+>> wrote the code that interacts with kernel for the rfkill test cases.
+>
+> So first of all, it seems that this argument is invalid since we can'=
+t break the ABI/API here; although perhaps if it's only a test case ...
+>
+
+Yep, that's an important point (not breaking the API/ABI).
+
+> Oh. It took me a while, but I see now. The original intent (I think)
+> was that with RFKILL_OP_CHANGE, the type would be ignored entirely. I=
+t
+> seems that the (my) original intent wouldn't have been to force
+> userspace to specify *both* the index and the type, but instead do
+>
+> OP_CHANGE_ALL -> use type (possibly TYPE_ALL, ignoring idx)
+> OP_CHANGE     -> use idx (ignoring type)
+>
+>
+> The original code implemented it as follows:
+>
+>                 if (rfkill->idx !=3D ev.idx && ev.op !=3D RFKILL_OP_C=
+HANGE_ALL)
+>                         continue;
+>
+> -> check the idx only for OP_CHANGE
+>
+>                 if (rfkill->type !=3D ev.type && ev.type !=3D RFKILL_=
+TYPE_ALL)
+>                         continue;
+>
+> -> check the type, allowing _ALL
+>
+> Now, all userspace that I found sets the ev.type field to TYPE_ALL al=
+l
+> the time; and it had to given these checks.
+>
+> e.g. from rfkill.py:
+>
+> # idx, type, op, soft, hard
+> _event_struct =3D '@IBBBB'
+>
 > [...]
->> Notes:
->>      Changes v1->v2
->>      As suggested by Hannes, move the code to an inline helper and
->> express it
->>      using "if" rather than "min".
 >
-> The code is correct, thanks!
+>     def block(self):
+>         rfk =3D open('/dev/rfkill', 'w')
+>         s =3D struct.pack(_event_struct, self.idx, TYPE_ALL, _OP_CHAN=
+GE, 1, 0)
+>         rfk.write(s)
+>         rfk.close()
 >
-> Therefore:
 >
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> This check, originally, probably should've been
 >
-> However, I actually think that v1 was much better/easier as a fix
-> though. :/
+>                 if (rfkill->type !=3D ev.type && ev.type !=3D RFKILL_=
+TYPE_ALL &&
+>                     ev.op !=3D RFKILL_OP_CHANGE)
+>                         continue;
 >
-> Meaning 1) it's likely easier to backport, and 2) that we now need a
-> comment
-> above each skb->reserved_tailroom assignment probably says that min() might
-> perhaps have been more self-documenting ...
+> to ignore the type entirely.
 >
-> skb_tailroom_reserve() looks quite generic, but it only makes sense to
-> use in
-> combination with skb_availroom(), which would have been good to put a
-> note to
-> the header comment. Also "the required headroom should already have been
-> reserved before using this function", places one more requirement for
-> usage.
+> I'm fine with Jouni's change, preserving the original behaviour of
+> requiring TYPE_ALL or the correct type, but I'm tempted to simply
+> remove the type check entirely.
 >
-> If we really want to go that path, maybe rather a skb_setroom() that is
-> coupled
-> with skb_availroom() like:
+> Thoughts?
 >
-> static inline int __skb_tailroom(const struct sk_buff *skb)
-> {
->      return skb->end - skb->tail;
-> }
->
-> static inline void skb_setroom(struct sk_buff *skb,
->                                 unsigned int needed_headroom,
->                                 unsigned int size,
->                                 unsigned int needed_tailroom)
-> {
->          SKB_LINEAR_ASSERT(skb);
->
->          skb_reserve(skb, needed_headroom);
->          skb->reserved_tailroom = needed_tailroom;
->
->          if (size < __skb_tailroom(skb) - needed_tailroom)
->                  skb->reserved_tailroom = __skb_tailroom(skb) - size;
-> }
->
-> Then, skb_tailroom() would internally use __skb_tailroom(), too. And we
-> can also
-> spare us the two unneeded skb_is_nonlinear() checks in our helper which
-> will
-> currently always evaluate to false anyway.
->
-> ... just a thought.
 
-I think it is fine. The code will be inlined anyway and probably skb 
-linear assertions will be optimized away.
+I think this patch should keep the original logic, as this is supposed
+to be a refactor only. If we decide to remove the check, we should to
+it in a separate patch, to make it clear for someone looking at the
+history later.
 
-I like the current code in its form:
+I'm fine with removing the type check (in a separate patch), but I
+don't see much gain in doing so.
 
-skb_reserve(skb, header);
-skb_tailroom_reserve(skb, mtu, tailroom);
-
-Combined form has too many arguments, so one has to look up the header 
-file again.
-
-Bye,
-Hannes
+--
+Jo=C3=A3o Paulo Rechi Vita
+http://about.me/jprvita
