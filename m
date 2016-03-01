@@ -1,81 +1,48 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 5/5] cxgb4vf: Remove dead functions collect_netdev_[um]c_list_addrs
-Date: Tue,  1 Mar 2016 17:19:36 +0530
-Message-ID: <1456832976-12840-6-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 4/5] cxgb4vf: Remove redundant adapter ready check during probe
+Date: Tue,  1 Mar 2016 17:19:35 +0530
+Message-ID: <1456832976-12840-5-git-send-email-hariprasad@chelsio.com>
 References: <1456832976-12840-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, nirranjan@chelsio.com, leedom@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:26408 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:54382 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753337AbcCALq6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 06:46:58 -0500
+	by vger.kernel.org with ESMTP id S1753372AbcCALq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 06:46:56 -0500
 In-Reply-To: <1456832976-12840-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Function t4vf_wait_dev_ready() is already called in t4vf_prep_adapter(),
+no need to call it again in adap_init0().
+
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    | 46 ----------------------
- 1 file changed, 46 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c | 10 ----------
+ 1 file changed, 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 5d989e4c42dc..91857b81009e 100644
+index 8337514ababb..5d989e4c42dc 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -862,52 +862,6 @@ static struct net_device_stats *cxgb4vf_get_stats(struct net_device *dev)
- 	return ns;
- }
+@@ -2237,16 +2237,6 @@ static int adap_init0(struct adapter *adapter)
+ 	u32 param, val = 0;
  
--/*
-- * Collect up to maxaddrs worth of a netdevice's unicast addresses, starting
-- * at a specified offset within the list, into an array of addrss pointers and
-- * return the number collected.
-- */
--static inline unsigned int collect_netdev_uc_list_addrs(const struct net_device *dev,
--							const u8 **addr,
--							unsigned int offset,
--							unsigned int maxaddrs)
--{
--	unsigned int index = 0;
--	unsigned int naddr = 0;
--	const struct netdev_hw_addr *ha;
+ 	/*
+-	 * Wait for the device to become ready before proceeding ...
+-	 */
+-	err = t4vf_wait_dev_ready(adapter);
+-	if (err) {
+-		dev_err(adapter->pdev_dev, "device didn't become ready:"
+-			" err=%d\n", err);
+-		return err;
+-	}
 -
--	for_each_dev_addr(dev, ha)
--		if (index++ >= offset) {
--			addr[naddr++] = ha->addr;
--			if (naddr >= maxaddrs)
--				break;
--		}
--	return naddr;
--}
--
--/*
-- * Collect up to maxaddrs worth of a netdevice's multicast addresses, starting
-- * at a specified offset within the list, into an array of addrss pointers and
-- * return the number collected.
-- */
--static inline unsigned int collect_netdev_mc_list_addrs(const struct net_device *dev,
--							const u8 **addr,
--							unsigned int offset,
--							unsigned int maxaddrs)
--{
--	unsigned int index = 0;
--	unsigned int naddr = 0;
--	const struct netdev_hw_addr *ha;
--
--	netdev_for_each_mc_addr(ha, dev)
--		if (index++ >= offset) {
--			addr[naddr++] = ha->addr;
--			if (naddr >= maxaddrs)
--				break;
--		}
--	return naddr;
--}
--
- static inline int cxgb4vf_set_addr_hash(struct port_info *pi)
- {
- 	struct adapter *adapter = pi->adapter;
+-	/*
+ 	 * Some environments do not properly handle PCIE FLRs -- e.g. in Linux
+ 	 * 2.6.31 and later we can't call pci_reset_function() in order to
+ 	 * issue an FLR because of a self- deadlock on the device semaphore.
 -- 
 2.3.4
