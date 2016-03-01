@@ -1,70 +1,75 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
 Subject: Re: [PATCH net v2] mld, igmp: Fix reserved tailroom calculation
-Date: Tue, 1 Mar 2016 11:09:53 +0100
-Message-ID: <56D56A71.8050400@stressinduktion.org>
-References: <56D48DCE.3090705@stressinduktion.org>
- <1456787013-3277-1-git-send-email-bpoirier@suse.com>
+Date: Tue, 01 Mar 2016 11:18:12 +0100
+Message-ID: <56D56C64.1030504@iogearbox.net>
+References: <56D48DCE.3090705@stressinduktion.org> <1456787013-3277-1-git-send-email-bpoirier@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 To: Benjamin Poirier <bpoirier@suse.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:58568 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752711AbcCAKJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 05:09:56 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 8C19720FE2
-	for <netdev@vger.kernel.org>; Tue,  1 Mar 2016 05:09:55 -0500 (EST)
+Received: from www62.your-server.de ([213.133.104.62]:43467 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751881AbcCAKSR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 05:18:17 -0500
 In-Reply-To: <1456787013-3277-1-git-send-email-bpoirier@suse.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01.03.2016 00:03, Benjamin Poirier wrote:
-> The current reserved_tailroom calculation fails to take hlen and tlen into
-> account.
->
-> skb:
-> [__hlen__|__data____________|__tlen___|__extra__]
-> ^                                               ^
-> head                                            skb_end_offset
->
-> In this representation, hlen + data + tlen is the size passed to alloc_skb.
-> "extra" is the extra space made available in __alloc_skb because of
-> rounding up by kmalloc. We can reorder the representation like so:
->
-> [__hlen__|__data____________|__extra__|__tlen___]
-> ^                                               ^
-> head                                            skb_end_offset
->
-> The maximum space available for ip headers and payload without
-> fragmentation is min(mtu, data + extra). Therefore,
-> reserved_tailroom
-> = data + extra + tlen - min(mtu, data + extra)
-> = skb_end_offset - hlen - min(mtu, skb_end_offset - hlen - tlen)
-> = skb_tailroom - min(mtu, skb_tailroom - tlen) ; after skb_reserve(hlen)
->
-> Compare the second line to the current expression:
-> reserved_tailroom = skb_end_offset - min(mtu, skb_end_offset)
-> and we can see that hlen and tlen are not taken into account.
->
-> The min() in the third line can be expanded into:
-> if mtu < skb_tailroom - tlen:
-> 	reserved_tailroom = skb_tailroom - mtu
-> else:
-> 	reserved_tailroom = tlen
->
-> Depending on hlen, tlen, mtu and the number of multicast address records,
-> the current code may output skbs that have less tailroom than
-> dev->needed_tailroom or it may output more skbs than needed because not all
-> space available is used.
->
-> Fixes: 4c672e4b ("ipv6: mld: fix add_grhead skb_over_panic for devs with large MTUs")
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+On 03/01/2016 12:03 AM, Benjamin Poirier wrote:
+[...]
+> Notes:
+>      Changes v1->v2
+>      As suggested by Hannes, move the code to an inline helper and express it
+>      using "if" rather than "min".
 
-I like it, thanks a lot!
+The code is correct, thanks!
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Therefore:
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+
+However, I actually think that v1 was much better/easier as a fix though. :/
+
+Meaning 1) it's likely easier to backport, and 2) that we now need a comment
+above each skb->reserved_tailroom assignment probably says that min() might
+perhaps have been more self-documenting ...
+
+skb_tailroom_reserve() looks quite generic, but it only makes sense to use in
+combination with skb_availroom(), which would have been good to put a note to
+the header comment. Also "the required headroom should already have been
+reserved before using this function", places one more requirement for usage.
+
+If we really want to go that path, maybe rather a skb_setroom() that is coupled
+with skb_availroom() like:
+
+static inline int __skb_tailroom(const struct sk_buff *skb)
+{
+	return skb->end - skb->tail;
+}
+
+static inline void skb_setroom(struct sk_buff *skb,
+                                unsigned int needed_headroom,
+                                unsigned int size,
+                                unsigned int needed_tailroom)
+{
+         SKB_LINEAR_ASSERT(skb);
+
+         skb_reserve(skb, needed_headroom);
+         skb->reserved_tailroom = needed_tailroom;
+
+         if (size < __skb_tailroom(skb) - needed_tailroom)
+                 skb->reserved_tailroom = __skb_tailroom(skb) - size;
+}
+
+Then, skb_tailroom() would internally use __skb_tailroom(), too. And we can also
+spare us the two unneeded skb_is_nonlinear() checks in our helper which will
+currently always evaluate to false anyway.
+
+... just a thought.
+
+Thanks again,
+Daniel
