@@ -1,43 +1,65 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH for-next 01/10] net/core: Add support for configuring VF
- GUIDs
-Date: Tue, 1 Mar 2016 10:37:51 -0700
-Message-ID: <20160301173751.GA25176@obsidianresearch.com>
-References: <1456851143-138332-1-git-send-email-eli@mellanox.com>
- <1456851143-138332-2-git-send-email-eli@mellanox.com>
+From: Maxime Coquelin <mcoquelin.stm32@gmail.com>
+Subject: Re: [PATCH v2 0/4] Add Ethernet support on STM32F429
+Date: Tue, 1 Mar 2016 18:39:21 +0100
+Message-ID: <56D5D3C9.9070104@gmail.com>
+References: <1456240244-10275-1-git-send-email-alexandre.torgue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1456851143-138332-2-git-send-email-eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Alexandre TORGUE <alexandre.torgue@gmail.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36334 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751755AbcCARkM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 12:40:12 -0500
+In-Reply-To: <1456240244-10275-1-git-send-email-alexandre.torgue@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 01, 2016 at 06:52:14PM +0200, Eli Cohen wrote:
-> Add two new NLAs to support configuration of Infiniband node or port
-> GUIDs. New applications can choose to use this interface to configure
-> GUIDs with iproute2 with commands such as:
-> 
-> ip link set dev ib0 vf 0 node_guid 00:02:c9:03:00:21:6e:70
-> ip link set dev ib0 vf 0 port_guid 00:02:c9:03:00:21:6e:78
+Hi Alex,
 
-I like this idea better than the last version..
+On 02/23/2016 04:10 PM, Alexandre TORGUE wrote:
+> STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
+> This series:
+>   -enhance current stmmac driver to control it (code already
+> available) and adds basic glue for STM32F429 chip.
+>   -Enable basic Net config in kernel.
+>
+> Note that DT patches are not present because STM32 pinctrl code is not
+> yet avalaible.
+>
+> Changes since v1:
+>   -Fix Kbuild issue in Kconfig.
+>   -Remove init/exit callbacks. Suspend/Resume and remove driver is no more
+> driven in stmmac_pltfr but directly in dwmac-stm32 glue driver.
+>   -Take into account Joachim review.
+>
+> Regards.
+>
+> Alexandre.
+>
+> Alexandre TORGUE (4):
+>    net: ethernet: dwmac: add Ethernet glue logic for stm32 chip
+>    Documentation: Bindings: Add STM32 DWMAC glue
+>    net: ethernet: stmmac: add support of Synopsys 3.50a MAC IP
+>    ARM: STM32: Enable Ethernet in stm32_defconfig
+>
+>   .../devicetree/bindings/net/stm32-dwmac.txt        |  41 ++++
+>   arch/arm/configs/stm32_defconfig                   |   9 +
+>   drivers/net/ethernet/stmicro/stmmac/Kconfig        |  12 ++
+>   drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+>   drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c  | 208 +++++++++++++++++++++
+>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   1 +
+>   6 files changed, 272 insertions(+)
+>   create mode 100644 Documentation/devicetree/bindings/net/stm32-dwmac.txt
+>   create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
+>
 
-> +static int handle_vf_mac(struct net_device *dev, struct ifla_vf_mac *ivm)
-> +{
-[..]
-> +	return handle_infiniband_guid(dev, &ivt, IFLA_VF_IB_PORT_GUID);
+You can add my:
+Tested-by: Maxime Coquelin <maxime.coquelin@st.com>
 
-But is this emulation really necessary? It seems dangerous and
-continues the bad practice of assuming IFLA_VF_MAC is fixed to 6 bytes
-in size, and is not just LLADDR bytes. I'd rather see mac sets fail on
-IB.
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks!
+Maxime
