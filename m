@@ -1,10 +1,12 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [PATCH net-next 6/8] net/mlx5e: Introduce tc offload support
-Date: Tue, 1 Mar 2016 19:00:37 +0200
-Message-ID: <56d5c9bd.c13fc20a.046a.ffffe0ce@mx.google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 1/8] net/flower: Introduce hardware offload
+ support
+Date: Tue, 1 Mar 2016 18:01:28 +0100
+Message-ID: <20160301170128.GG2098@nanopsycho.orion>
 References: <1456842290-7844-1-git-send-email-amir@vadai.me>
- <1456842290-7844-7-git-send-email-amir@vadai.me>
- <20160301145208.GB2098@nanopsycho.orion>
+ <1456842290-7844-2-git-send-email-amir@vadai.me>
+ <20160301144719.GA2098@nanopsycho.orion>
+ <56d5c71f.a151c20a.cf0a8.ffffd4ad@mx.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
@@ -13,77 +15,36 @@ Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Saeed Mahameed <saeedm@mellanox.com>,
 	Hadar Har-Zion <hadarh@mellanox.com>,
 	Jiri Pirko <jiri@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+To: Amir Vadai <amir@vadai.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:32806 "EHLO
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36449 "EHLO
 	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751652AbcCAQ4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 11:56:31 -0500
-Received: by mail-wm0-f68.google.com with SMTP id n186so5149703wmn.0
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 08:56:31 -0800 (PST)
+	with ESMTP id S1751359AbcCARBb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 12:01:31 -0500
+Received: by mail-wm0-f68.google.com with SMTP id l68so5142580wml.3
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 09:01:31 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20160301145208.GB2098@nanopsycho.orion>
+In-Reply-To: <56d5c71f.a151c20a.cf0a8.ffffd4ad@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 01, 2016 at 03:52:08PM +0100, Jiri Pirko wrote:
-> Tue, Mar 01, 2016 at 03:24:48PM CET, amir@vadai.me wrote:
-> >Extend ndo_setup_tc() to support ingress tc offloading. Will be used by
-> >later patches to offload tc flower filter.
-> >
-> >Feature is off by default and could be enabled by issuing:
-> > # ethtool  -K eth0 hw-tc-offload on
-> >
-> >Offloads flow table is dynamically created when first filter is
-> >added.
-> >Rules are saved in a hash table that is maintained by the consumer (for
-> >example - the flower offload in the next patch).
-> >When last filter is removed and no filters exist in the hash table, the
-> >offload flow table is destroyed.
-> 
-> <snip>	
-> 	
-> >@@ -1880,6 +1883,17 @@ static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
-> > static int mlx5e_ndo_setup_tc(struct net_device *dev, u32 handle,
-> > 			      __be16 proto, struct tc_to_netdev *tc)
-> > {
-> >+	struct mlx5e_priv *priv = netdev_priv(dev);
-> >+
-> >+	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
-> >+		goto mqprio;
-> >+
-> >+	switch (tc->type) {
-> >+	default:
-> >+		return -EINVAL;
-> 
-> -EOPNOTSUPP would be better here perhaps?
-> 
-> 
-> >+	}
-> >+
-> >+mqprio:
-> > 	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
-> > 		return -EINVAL;
-> > 
-> >@@ -1963,6 +1977,13 @@ static int mlx5e_set_features(struct net_device *netdev,
-> > 			mlx5e_disable_vlan_filter(priv);
-> > 	}
-> > 
-> >+	if ((changes & NETIF_F_HW_TC) && !(features & NETIF_F_HW_TC) &&
-> >+	    mlx5e_tc_num_filters(priv)) {
-> >+		netdev_err(netdev,
-> >+			   "Active offloaded tc filters, can't turn hw_tc_offload off\n");
-> >+		return -EINVAL;
-> 
-> This should not fail I believe. Just disable it in hw. I would even toss
-> away the rules if necessary.
-It depends on the answer regarding your comment on the previous patch.
-If we have the rule in both SW and HW, and remove it from the HW it is
-ok (although, currently I don't understand why would anyone want in both
-places).
-If the rule is processed by HW only - turning off this flag, will
-disable the offloaded rules - it might be misleading, so I prefered not
-to allow it and print a message.
+Tue, Mar 01, 2016 at 05:49:27PM CET, amir@vadai.me wrote:
+>On Tue, Mar 01, 2016 at 03:47:19PM +0100, Jiri Pirko wrote:
+>> Tue, Mar 01, 2016 at 03:24:43PM CET, amir@vadai.me wrote:
+>> >This patch is based on a patch made by John Fastabend.
+>> >It adds support for offloading cls_flower.
+>> >A filter that is offloaded successfuly by hardware, will not be added to
+>> >the hashtable and won't be processed by software.
+>> 
+>> That is wrong. User should explitly specify to not include rule into sw
+>> by SKIP_KERNEL flag (does not exist now, with John's recent patch we'll
+>> have only SKIP_HW). Please add that in this patchset.
+>Why? If a rule is offloaded, why would the user want to reprocess it by
+>software?
+>If the user use SKIP_HW, it will be processed by SW. Else, the user
+>would want it to be processed by HW or fallback to SW. I don't
+>understand in which case the user would like to have it done twice.
 
-
-> 
+For example if you turn on the offloading by unsetting NETIF_F_HW_TC.
+Or if someone inserts skbs into rx path directly, for example pktgen.
+We need SKIP_KERNEL to be set by user, not implicit.
