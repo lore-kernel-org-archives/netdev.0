@@ -1,88 +1,62 @@
-From: Alan Cox <alan@linux.intel.com>
-Subject: Re: Sending short raw packets using sendmsg() broke
-Date: Tue, 01 Mar 2016 23:34:25 +0000
-Message-ID: <1456875265.7064.28.camel@linux.intel.com>
-References: <alpine.DEB.2.10.1602252105250.32432@jazz.he.fi>
-	 <20160225.152628.1230785666614750970.davem@davemloft.net>
-	 <1456497874.7064.7.camel@linux.intel.com>
-	 <CAF=yD-JOQZZnU6XE9FhEVbxstKmsB-ds58e5v678SiO24VV0+g@mail.gmail.com>
+From: Laison Computech Inc <7sales@laiisoncomputech.com>
+Subject: CISCO AND AVAYA IP Phones
+Date: Wed, 02 Mar 2016 03:10:42 +0700
+Message-ID: <20160301210950.A766F572DCD@srv-mta.gcmillenium.com.br>
+Reply-To: sales@laiisoncomputech.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Heikki Hannikainen <hessu@hes.iki.fi>,
-	Network Development <netdev@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <7sales@laiisoncomputech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:52793 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750843AbcCAXel (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2016 18:34:41 -0500
-In-Reply-To: <CAF=yD-JOQZZnU6XE9FhEVbxstKmsB-ds58e5v678SiO24VV0+g@mail.gmail.com>
+Received: from srv-mta.gcmillenium.com.br ([177.125.218.132]:46448 "EHLO
+	srv-mta.gcmillenium.com.br" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750843AbcCAXmt convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2016 18:42:49 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-02-26 at 12:33 -0500, Willem de Bruijn wrote:
-> On Fri, Feb 26, 2016 at 9:44 AM, Alan Cox <alan@linux.intel.com>
-> wrote:
-> > On Thu, 2016-02-25 at 15:26 -0500, David Miller wrote:
-> > > From: Heikki Hannikainen <hessu@hes.iki.fi>
-> > > Date: Thu, 25 Feb 2016 21:36:07 +0200 (EET)
-> > > 
-> > > > Commit 9c7077622dd9174 added a check, ll_header_truncated(),
-> > > > which
-> > > > requires that a packet transmitted using sendmsg() with
-> > > > PF_PACKET,
-> > > > SOCK_RAW must be longer than dev->hard_header_len.
-> > > 
-> > > Fixed by:
-> > > 
-> > > commit 880621c2605b82eb5af91a2c94223df6f5a3fb64
-> > > Author: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-> > > Date:   Sun Nov 22 17:46:09 2015 +0100
-> > > 
-> > >     packet: Allow packets with only a header (but no payload)
-> > 
-> > The AX.25 case the header is variable length so this still doesn't
-> > fix
-> > the regression as far as I can see.
-> 
-> Right. The simplest, if hacky, fix is to add something along the
-> lines of
-> 
->   static unsigned short netdev_min_hard_header_len(struct net_device
-> *dev)
->   {
->       if (unlikely(dev->type ==ARPHDR_AX25))
->         return AX25_KISS_HEADER_LEN;
->       else
->         return dev->hard_header_len;
->   }
+Hi,
 
-AX.25 is not unique in this. Also there are protocols where the minimum
-header length for a valid raw frame is not the same as the minimum
-sized header for encapsulation of an IP frame because the IP frame is
-encapsulated with an extra header block.
+Clean tested working pulls CPUs and QTYs in stock.
 
-> Depending on how the variable encoding scheme works, a basic min
-> 
-> length check may still produce buggy headers that confuse the stack
-> or
-> driver. I need to read up on AX25. If so, then extending header_ops
-> with an optional validate() function is a more generic approach of
-> checking header sanity.
+115 X X5650
+65 X E5410
+75 X X5660
+145 X E5530
+100 X E5645
+40 X X5680
+75 X X5690
 
-A validate() method is doable for NetROM, AX.25 and friends. So
-something like
+Brand new sealed IP phones and QTYs in stock.
 
-            if (likely(len >= dev->hard_header_len)) 
-			return good;
-	    if (proto->validate && proto->validate(skb))
-			return good;
-	    return bad;
+55 x CP-7937G
+77 x CP-7942G
+54 x CP-7945G
+75 x CP-7962G
+=2E.....
+45 x Avaya 9630
+65 x Avaya 9641
+55 x Avaya 9640=20
 
-works for amateur radio at least, and I think could be extended ok for
-any other cases like tunnels.
+USED IT HARDWARE FROM:
 
-Alan
+=46UJITSU       IBM         SUN        HP
+QUANTUM   DELL       HDS        STK
+NETAPP      SGI         Oracle      EMC=B2
+
+3Com, ADVA, Alcatel, Brocade, Cisco,
+Cabletron, Enterasys, Extreme Networks,
+Huawei, Marconi, Nortel, Qlogic, Avaya
+
+Let me know if you're interested. We are very open to offers and willin=
+g to work with you to make sure that we have a deal.
+
+Sincerely
+Barbara Johnson
+Laison Computech Inc
+Tel: +1-657-205-7860
+=46ax: +1-347-214-0478
+Email: sales@laiisoncomputech.com
+Web: www.laisoncomputech.com
