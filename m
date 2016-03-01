@@ -1,48 +1,50 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: Re: [PATCH] net: fec: Add "phy-reset-active-low" property to DT
-Date: Tue, 1 Mar 2016 10:16:22 -0700
-Message-ID: <56D5CE66.3010602@boundarydevices.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 0/8] cls_flower hardware offload support
+Date: Tue, 01 Mar 2016 09:18:10 -0800
+Message-ID: <56D5CED2.4080708@gmail.com>
+References: <1456842290-7844-1-git-send-email-amir@vadai.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>
-To: Bernhard Walle <bernhard@bwalle.de>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>
+To: Amir Vadai <amir@vadai.me>, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34718 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751501AbcCARQY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 12:16:24 -0500
-Received: by mail-pa0-f45.google.com with SMTP id fy10so115280308pac.1
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 09:16:23 -0800 (PST)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:36509 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752172AbcCARSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 12:18:25 -0500
+Received: by mail-pa0-f54.google.com with SMTP id yy13so115367369pab.3
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 09:18:24 -0800 (PST)
+In-Reply-To: <1456842290-7844-1-git-send-email-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 16-03-01 06:24 AM, Amir Vadai wrote:
+> Hi,
+> 
+> This patchset introduces cls_flower hardware offload support over ConnectX-4
+> driver, more hardware vendors are welcome to use it too.
+> 
+> This patchset is based on John's infrastructure for tc offloading [2] to add
+> hardware offload support to the flower filter. It also extends the support to
+> an additional tc action - skbedit mark operation.
+> NIC driver that was used is ConnectX-4. Feature is off by default and could be
+> turned on using ethtool.
+> 
+> Some commands to use this code:
+> 
 
-We need that for a custom hardware that needs the reverse reset
-sequence.
+This series depends on these patches still under review,
 
-Signed-off-by: Bernhard Walle <bernhard@bwalle.de>
----
- Documentation/devicetree/bindings/net/fsl-fec.txt | 3 +++
- drivers/net/ethernet/freescale/fec_main.c         | 8 ++++++--
- 2 files changed, 9 insertions(+), 2 deletions(-)
-diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt
-b/Documentation/devicetree/bindings/net/fsl-fec.txt
-index a9eb611..a4799ff 100644
---- a/Documentation/devicetree/bindings/net/fsl-fec.txt
-+++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-@@ -12,6 +12,9 @@ Optional properties:
-   only if property "phy-reset-gpios" is available.  Missing the property
-   will have the duration be 1 millisecond.  Numbers greater than 1000 are
-   invalid and 1 millisecond will be used instead.
-+- phy-reset-active-low : If present then the reset sequence using the GPIO
-+  specified in the "phy-reset-gpios" property is reversed (H=reset state,
-+  L=operation state).
-____________________________
+https://patchwork.ozlabs.org/patch/589150/
+https://patchwork.ozlabs.org/patch/589151/
+https://patchwork.ozlabs.org/patch/589152/
 
+Just a heads up for DaveM there is an ordering requirement here.
 
-Shouldn't this be named phy-reset-active-high, as you are making the reset active high
-H=reset, L= normal operation
-
-Troy
+Thanks,
+John
