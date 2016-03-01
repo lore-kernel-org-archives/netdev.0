@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 5/9] net/mlx5e: Set drop RQ's necessary parameters only
-Date: Tue,  1 Mar 2016 17:42:18 +0200
-Message-ID: <1456846942-15082-6-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 4/9] net/mlx5e: Move common case counters within sq_stats struct
+Date: Tue,  1 Mar 2016 17:42:17 +0200
+Message-ID: <1456846942-15082-5-git-send-email-saeedm@mellanox.com>
 References: <1456846942-15082-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
@@ -11,54 +11,62 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:50578 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:50597 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754157AbcCAPqj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2016 10:46:39 -0500
+	id S1754157AbcCAPqo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2016 10:46:44 -0500
 In-Reply-To: <1456846942-15082-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tariq Toukan <tariqt@mellanox.com>
 
-By its role, there is no need to set all the other parameters
-for the drop RQ.
+For data cache locality considerations, we moved the nop and
+csum_offload_inner within sq_stats struct as they are more
+commonly accessed in xmit path.
 
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 013be09..30fd971 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1064,6 +1064,15 @@ static void mlx5e_build_rq_param(struct mlx5e_priv *priv,
- 	param->wq.linear = 1;
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 4511984..b289660 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -260,26 +260,28 @@ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"tso_bytes",
+ 	"tso_inner_packets",
+ 	"tso_inner_bytes",
+-	"csum_offload_none",
+ 	"csum_offload_inner",
++	"nop",
++	"csum_offload_none",
+ 	"stopped",
+ 	"wake",
+ 	"dropped",
+-	"nop"
+ };
  
-+static void mlx5e_build_drop_rq_param(struct mlx5e_rq_param *param)
-+{
-+	void *rqc = param->rqc;
-+	void *wq = MLX5_ADDR_OF(rqc, rqc, wq);
-+
-+	MLX5_SET(wq, wq, wq_type, MLX5_WQ_TYPE_LINKED_LIST);
-+	MLX5_SET(wq, wq, log_wq_stride,    ilog2(sizeof(struct mlx5e_rx_wqe)));
-+}
-+
- static void mlx5e_build_sq_param(struct mlx5e_priv *priv,
- 				 struct mlx5e_sq_param *param)
- {
-@@ -1574,8 +1583,7 @@ static int mlx5e_open_drop_rq(struct mlx5e_priv *priv)
+ struct mlx5e_sq_stats {
++	/* commonly accessed in data path */
+ 	u64 packets;
+ 	u64 tso_packets;
+ 	u64 tso_bytes;
+ 	u64 tso_inner_packets;
+ 	u64 tso_inner_bytes;
+-	u64 csum_offload_none;
+ 	u64 csum_offload_inner;
++	u64 nop;
++	/* less likely accessed in data path */
++	u64 csum_offload_none;
+ 	u64 stopped;
+ 	u64 wake;
+ 	u64 dropped;
+-	u64 nop;
+ #define NUM_SQ_STATS 11
+ };
  
- 	memset(&cq_param, 0, sizeof(cq_param));
- 	memset(&rq_param, 0, sizeof(rq_param));
--	mlx5e_build_rx_cq_param(priv, &cq_param);
--	mlx5e_build_rq_param(priv, &rq_param);
-+	mlx5e_build_drop_rq_param(&rq_param);
- 
- 	err = mlx5e_create_drop_cq(priv, cq, &cq_param);
- 	if (err)
 -- 
 1.7.1
