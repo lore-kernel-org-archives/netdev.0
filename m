@@ -1,110 +1,62 @@
-From: Yisen Zhuang <Yisen.zhuang@huawei.com>
-Subject: Re: [PATCH] asm-generic: remove old nonatomic-io wrapper files
-Date: Tue, 1 Mar 2016 08:59:22 +0800
-Message-ID: <56D4E96A.20509@huawei.com>
-References: <1456496980-1852604-1-git-send-email-arnd@arndb.de>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] igb: Garbled output for "ethtool -m"
+Date: Tue, 1 Mar 2016 01:32:33 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81EA72A7@ORSMSX101.amr.corp.intel.com>
+References: <1455694465-1226-1-git-send-email-doron.shikmoni@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Hellwig <hch@lst.de>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Vinod Koul <vinod.koul@intel.com>,
-	Jakub Kicinski <jakub.kicinski@netronome.com>,
-	Rolf Neugebauer <rolf.neugebauer@netronome.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	yankejian <yankejian@huawei.com>,
-	kenneth Lee <liguozhu@hisilicon.com>,
-	huangdaode <huangdaode@hisilicon.com>,
-	lipeng <lipeng321@huawei.com>, <linux-kernel@vger.kernel.org>,
-	<dmaengine@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<oss-drivers@netronome.com>, <linux-arch@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1456496980-1852604-1-git-send-email-arnd@arndb.de>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Doron Shikmoni <doron.shikmoni@gmail.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:20128 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750699AbcCABcg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 20:32:36 -0500
+In-Reply-To: <1455694465-1226-1-git-send-email-doron.shikmoni@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E5=9C=A8 2016/2/26 22:29, Arnd Bergmann =E5=86=99=E9=81=93:
-> The two header files got moved to include/linux, and most
-> users were already converted, this changes the remaining drivers
-> and removes the files.
->=20
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> From: Intel-wired-lan [intel-wired-lan-bounces@lists.osuosl.org] on behalf of Doron Shikmoni [doron.shikmoni@gmail.com]
+> Sent: Tuesday, February 16, 2016 11:34 PM
+> To: intel-wired-lan@lists.osuosl.org
+> Cc: netdev@vger.kernel.org
+> Subject: [Intel-wired-lan] [PATCH] igb: Garbled output for "ethtool -m"
+> 
+> Hello,
+> 
+> Garbled output for "ethtool -m ethX", in igb-driven NICs with module /
+> plugin EEPROM (i.e. SFP information). Each output data byte appears
+> duplicated.
+> 
+> In igb_ethtool.c, igb_get_module_eeprom() is reading the EEPROM via i2c;
+> the eeprom offset for each word that's read via igb_read_phy_reg_i2c()
+> was passed in #words, whereas it needs to be a byte offset.
+> This patches fixes the bug.
+>
+> Signed-off-by: Doron Shikmoni <doron.shikmoni@gmail.com>
 > ---
->  drivers/dma/idma64.h                                | 2 +-
->  drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c | 2 +-
+>  drivers/net/ethernet/intel/igb/igb_ethtool.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-The HNS portion:
+Checkpatch complains that you pushed the line over 80 characters:
+------------------------
+u1463:[0]/usr/src/kernels/next-queue> git format-patch $item -1 --stdout|./scripts/checkpatch.pl -
+WARNING: line over 80 characters
+#29: FILE: drivers/net/ethernet/intel/igb/igb_ethtool.c:3010:
++               status = igb_read_phy_reg_i2c(hw, (first_word + i) * 2, &dataword[i]);
 
-Acked-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+total: 0 errors, 1 warnings, 0 checks, 8 lines checked
 
->  drivers/net/ethernet/netronome/nfp/nfp_net.h        | 2 +-
->  include/asm-generic/io-64-nonatomic-hi-lo.h         | 2 --
->  include/asm-generic/io-64-nonatomic-lo-hi.h         | 2 --
->  5 files changed, 3 insertions(+), 7 deletions(-)
->  delete mode 100644 include/asm-generic/io-64-nonatomic-hi-lo.h
->  delete mode 100644 include/asm-generic/io-64-nonatomic-lo-hi.h
->=20
-> diff --git a/drivers/dma/idma64.h b/drivers/dma/idma64.h
-> index 8423f13ed0da..a52ad6bcf86a 100644
-> --- a/drivers/dma/idma64.h
-> +++ b/drivers/dma/idma64.h
-> @@ -16,7 +16,7 @@
->  #include <linux/spinlock.h>
->  #include <linux/types.h>
-> =20
-> -#include <asm-generic/io-64-nonatomic-lo-hi.h>
-> +#include <linux/io-64-nonatomic-lo-hi.h>
-> =20
->  #include "virt-dma.h"
-> =20
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c b/dr=
-ivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
-> index 802d55457f19..fd90f3737963 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
-> @@ -7,7 +7,7 @@
->   * (at your option) any later version.
->   */
-> =20
-> -#include <asm-generic/io-64-nonatomic-hi-lo.h>
-> +#include <linux/io-64-nonatomic-hi-lo.h>
->  #include <linux/of_mdio.h>
->  #include "hns_dsaf_main.h"
->  #include "hns_dsaf_mac.h"
-> diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/n=
-et/ethernet/netronome/nfp/nfp_net.h
-> index ab264e1bccd0..75683fb26734 100644
-> --- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-> +++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-> @@ -45,7 +45,7 @@
->  #include <linux/interrupt.h>
->  #include <linux/netdevice.h>
->  #include <linux/pci.h>
-> -#include <asm-generic/io-64-nonatomic-hi-lo.h>
-> +#include <linux/io-64-nonatomic-hi-lo.h>
-> =20
->  #include "nfp_net_ctrl.h"
-> =20
-> diff --git a/include/asm-generic/io-64-nonatomic-hi-lo.h b/include/as=
-m-generic/io-64-nonatomic-hi-lo.h
-> deleted file mode 100644
-> index 32b73abce1b0..000000000000
-> --- a/include/asm-generic/io-64-nonatomic-hi-lo.h
-> +++ /dev/null
-> @@ -1,2 +0,0 @@
-> -/* XXX: delete asm-generic/io-64-nonatomic-hi-lo.h after converting =
-new users */
-> -#include <linux/io-64-nonatomic-hi-lo.h>
-> diff --git a/include/asm-generic/io-64-nonatomic-lo-hi.h b/include/as=
-m-generic/io-64-nonatomic-lo-hi.h
-> deleted file mode 100644
-> index 55a627c37721..000000000000
-> --- a/include/asm-generic/io-64-nonatomic-lo-hi.h
-> +++ /dev/null
-> @@ -1,2 +0,0 @@
-> -/* XXX: delete asm-generic/io-64-nonatomic-lo-hi.h after converting =
-new users */
-> -#include <linux/io-64-nonatomic-lo-hi.h>
->=20
+Your patch has style problems, please review.
+
+NOTE: If any of the errors are false positives, please report
+      them to the maintainer, see CHECKPATCH in MAINTAINERS.
+u1463:[0]/usr/src/kernels/next-queue> 
+------------------------
+
+But functionally seems good.  I'll let Jeff choose whether to be a stickler for the warning or not, so...
+
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
