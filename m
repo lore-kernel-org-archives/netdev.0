@@ -1,98 +1,47 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [PATCH 2/4] net: can: ifi: Fix TX DLC configuration
-Date: Tue, 01 Mar 2016 22:27:20 +0100
-Message-ID: <56D60938.6060903@denx.de>
-References: <1456775971-4946-1-git-send-email-marex@denx.de> <1456775971-4946-3-git-send-email-marex@denx.de> <56D5DB54.6000600@hartkopp.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/3] Convert network timestamps to be y2038 safe
+Date: Tue, 01 Mar 2016 17:19:03 -0500 (EST)
+Message-ID: <20160301.171903.834892722970175631.davem@davemloft.net>
+References: <1456561938-7653-1-git-send-email-deepa.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>, linux-can@vger.kernel.org
+Cc: netdev@vger.kernel.org, y2038@lists.linaro.org, arnd@arndb.de,
+	vyasevich@gmail.com, nhorman@tuxdriver.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linux-sctp@vger.kernel.org
+To: deepa.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:42321 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751069AbcCAWL6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 17:11:58 -0500
-In-Reply-To: <56D5DB54.6000600@hartkopp.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42600 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751232AbcCAWTG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 17:19:06 -0500
+In-Reply-To: <1456561938-7653-1-git-send-email-deepa.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/01/2016 07:11 PM, Oliver Hartkopp wrote:
+From: Deepa Dinamani <deepa.kernel@gmail.com>
+Date: Sat, 27 Feb 2016 00:32:14 -0800
 
-Hi!
-
-> On 02/29/2016 08:59 PM, Marek Vasut wrote:
->> The TX DLC, the transmission length information, was not written
->> into the transmit configuration register. When using the CAN core
->> with different CAN controller, the receiving CAN controller will
->> receive only the ID part of the CAN frame, but no data at all.
->>
->> This patch adds the TX DLC into the register to fix this issue.
->>
->> Signed-off-by: Marek Vasut <marex@denx.de>
->> Cc: Marc Kleine-Budde <mkl@pengutronix.de>
->> Cc: Mark Rutland <mark.rutland@arm.com>
->> Cc: Oliver Hartkopp <socketcan@hartkopp.net>
->> Cc: Wolfgang Grandegger <wg@grandegger.com>
->> ---
->>  drivers/net/can/ifi_canfd/ifi_canfd.c | 5 +++++
->>  1 file changed, 5 insertions(+)
->>
->> diff --git a/drivers/net/can/ifi_canfd/ifi_canfd.c b/drivers/net/can/ifi_canfd/ifi_canfd.c
->> index 72f5205..82a33bd 100644
->> --- a/drivers/net/can/ifi_canfd/ifi_canfd.c
->> +++ b/drivers/net/can/ifi_canfd/ifi_canfd.c
->> @@ -774,10 +774,15 @@ static netdev_tx_t ifi_canfd_start_xmit(struct sk_buff *skb,
->>  
->>  	if (priv->can.ctrlmode & (CAN_CTRLMODE_FD | CAN_CTRLMODE_FD_NON_ISO)) {
->>  		if (can_is_canfd_skb(skb)) {
->> +			txdlc |= can_len2dlc(cf->len);
->>  			txdlc |= IFI_CANFD_TXFIFO_DLC_EDL;
->>  			if (cf->flags & CANFD_BRS)
->>  				txdlc |= IFI_CANFD_TXFIFO_DLC_BRS;
->> +		} else {
->> +			txdlc |= cf->len;
->>  		}
->> +	} else {
->> +		txdlc |= cf->len;
->>  	}
+> Introduction:
 > 
-> Please use
+> The series is aimed at transitioning network timestamps to being
+> y2038 safe.
+> All patches can be reviewed and merged independently.
 > 
-> 	txdlc |= can_len2dlc(cf->len);
+> Socket timestamps and ioctl calls will be handled separately.
 > 
-> by default (it works for CAN and CAN FD).
+> Thanks to Arnd Bergmann for discussing solution options with me.
 > 
-> So that it looks more like:
+> Solution:
 > 
-> 	txdlc |= can_len2dlc(cf->len);
-
-Roger.
-
-> 	if ((priv->can.ctrlmode & CAN_CTRLMODE_FD) && can_is_canfd_skb(skb)) {
-> 		txdlc |= IFI_CANFD_TXFIFO_DLC_EDL;
-> 		if (cf->flags & CANFD_BRS)
-> 			txdlc |= IFI_CANFD_TXFIFO_DLC_BRS;
-> 	}
+> Data type struct timespec is not y2038 safe.
+> Replace timespec with struct timespec64 which is y2038 safe.
 > 
-> Testing against CAN_CTRLMODE_FD_NON_ISO is wrong!
-> This configuration bit is just for the protocol on the wire and is no
-> distinction for CAN / CAN FD.
+> Changes v1 -> v2: 
+>   Move and rename inet_current_time() as discussed
+>   Squash patches 1 and 2
+>   Reword commit text for patch 2/3
+>   Carry over review tags
 
-So CAN_CTRLMODE_FD is always set if the system operates in CAN/FD mode.
-And in addition to that, if the system operates in CAN/FD BOSCH mode,
-the CAN_CTRLMODE_FD_NON_ISO is set. Do I understand it correctly ?
-
-> Best regards,
-> Oliver
-> 
->>  
->>  	if (cf->can_id & CAN_RTR_FLAG)
->>
-
-
--- 
-Best regards,
-Marek Vasut
+Series applied to net-next, thanks.
