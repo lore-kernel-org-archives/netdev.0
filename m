@@ -1,42 +1,41 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net-next build failure due to 16e5cc64?
-Date: Tue, 1 Mar 2016 10:23:44 -0800
-Message-ID: <CAM_iQpXwd9fQqEh1o56fVqoxUYC5ctY9wqjkAA7UeGru+T8bjw@mail.gmail.com>
-References: <20160301174233.GO16369@oracle.com>
-	<CAM_iQpU8WNCi3GEW0isLsMDWOwzFVkHmDmnqzueLOf7K6P=mAg@mail.gmail.com>
-	<20160301182102.GR16369@oracle.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH for-next 01/10] net/core: Add support for configuring VF
+ GUIDs
+Date: Tue, 1 Mar 2016 11:25:16 -0700
+Message-ID: <20160301182516.GA12495@obsidianresearch.com>
+References: <1456851143-138332-1-git-send-email-eli@mellanox.com>
+ <1456851143-138332-2-git-send-email-eli@mellanox.com>
+ <20160301173751.GA25176@obsidianresearch.com>
+ <20160301174951.GA19366@x-vnc01.mtx.labs.mlnx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	john fastabend <john.fastabend@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f172.google.com ([209.85.161.172]:34027 "EHLO
-	mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750850AbcCASXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 13:23:45 -0500
-Received: by mail-yw0-f172.google.com with SMTP id h129so156038599ywb.1
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 10:23:45 -0800 (PST)
-In-Reply-To: <20160301182102.GR16369@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160301174951.GA19366-lgQlq6cFzJSjLWYaRI30zHI+JuX82XLG@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 1, 2016 at 10:21 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (03/01/16 10:13), Cong Wang wrote:
->> > net/sched/sch_mqprio.c: In function `mqprio_init':
->> > net/sched/sch_mqprio.c:145: error: unknown field `tc' specified in initializer
->     :
->> Why not just initialize these fields explicitly? For example,
->>
->> +       struct tc_to_netdev tc;
->              :
->> +       tc.type = TC_SETUP_MQPRIO;
->
-> The compiler error is for fields within the union which lacks
-> both a tag and a union-name.  So I'm not sure how the above will
-> help.
->
+On Tue, Mar 01, 2016 at 07:49:51PM +0200, Eli Cohen wrote:
+> On Tue, Mar 01, 2016 at 10:37:51AM -0700, Jason Gunthorpe wrote:
+> > > +	return handle_infiniband_guid(dev, &ivt, IFLA_VF_IB_PORT_GUID);
+> > 
+> > But is this emulation really necessary? It seems dangerous and
+> > continues the bad practice of assuming IFLA_VF_MAC is fixed to 6 bytes
+> > in size, and is not just LLADDR bytes. I'd rather see mac sets fail on
+> > IB.
+> > 
+> struct ifla_vf_mac  already defines mac as 32 bytes but the idea here
+> is that applications that configure six byte Ethernet MACs to VFs will
+> continue to work without any change. 
 
-Come on.. we have plenty of such anonymous unions in skbuff.h...
+In my view it is incorrect for an application to try and set a 6 byte
+mac on an *infiniband* interface, the kernel should refuse to do it.
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
