@@ -1,7 +1,7 @@
 From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next 5/8] net/mlx5e: Add a new priority for kernel flow tables
-Date: Tue,  1 Mar 2016 16:24:47 +0200
-Message-ID: <1456842290-7844-6-git-send-email-amir@vadai.me>
+Subject: [PATCH net-next 8/8] net/mlx5e: Support offload cls_flower with sskbedit mark action
+Date: Tue,  1 Mar 2016 16:24:50 +0200
+Message-ID: <1456842290-7844-9-git-send-email-amir@vadai.me>
 References: <1456842290-7844-1-git-send-email-amir@vadai.me>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	John Fastabend <john.r.fastabend@intel.com>,
@@ -10,63 +10,102 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Jiri Pirko <jiri@mellanox.com>, Amir Vadai <amir@vadai.me>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34963 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753745AbcCAOVr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 09:21:47 -0500
-Received: by mail-wm0-f67.google.com with SMTP id 1so4350780wmg.2
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 06:21:46 -0800 (PST)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35045 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754076AbcCAOVz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 09:21:55 -0500
+Received: by mail-wm0-f66.google.com with SMTP id 1so4351327wmg.2
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 06:21:54 -0800 (PST)
 In-Reply-To: <1456842290-7844-1-git-send-email-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the vlan and main flow tables to use priority 1. This will allow
-the upcoming TC offload logic to use a higher priority (0) for the
-offload steering table.
+Introduce offloading of skbedit mark action.
+
+For example, to mark with 0x1234, all TCP (ip_proto 6) packets arriving
+to interface ens9:
+
+ # tc qdisc add dev ens9 ingress
+ # tc filter add dev ens9 protocol ip parent ffff: \
+     flower ip_proto 6 \
+     indev ens9 \
+     action skbedit mark 0x1234
 
 Signed-off-by: Amir Vadai <amir@vadai.me>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_fs.c   | 4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c |  3 +++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 16 ++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.h |  2 ++
+ 3 files changed, 21 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-index 80d81ab..d00a242 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-@@ -1041,7 +1041,7 @@ static int mlx5e_create_main_flow_table(struct mlx5e_priv *priv)
- 	int err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 519a07f..f293afe 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -35,6 +35,7 @@
+ #include <linux/tcp.h>
+ #include <net/busy_poll.h>
+ #include "en.h"
++#include "en_tc.h"
  
- 	ft->num_groups = 0;
--	ft->t = mlx5_create_flow_table(priv->fts.ns, 0, MLX5E_MAIN_TABLE_SIZE);
-+	ft->t = mlx5_create_flow_table(priv->fts.ns, 1, MLX5E_MAIN_TABLE_SIZE);
+ static inline bool mlx5e_rx_hw_stamp(struct mlx5e_tstamp *tstamp)
+ {
+@@ -224,6 +225,8 @@ static inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
+ 	if (cqe_has_vlan(cqe))
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+ 				       be16_to_cpu(cqe->vlan_info));
++
++	skb->mark = be32_to_cpu(cqe->sop_drop_qpn) & MLX5E_TC_FLOW_ID_MASK;
+ }
  
- 	if (IS_ERR(ft->t)) {
- 		err = PTR_ERR(ft->t);
-@@ -1150,7 +1150,7 @@ static int mlx5e_create_vlan_flow_table(struct mlx5e_priv *priv)
- 	int err;
+ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 8fee983..22ab439 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -33,6 +33,7 @@
+ #include <net/flow_dissector.h>
+ #include <net/pkt_cls.h>
+ #include <net/tc_act/tc_gact.h>
++#include <net/tc_act/tc_skbedit.h>
+ #include <linux/mlx5/fs.h>
+ #include <linux/mlx5/device.h>
+ #include <linux/rhashtable.h>
+@@ -287,6 +288,21 @@ static int parse_tc_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
+ 			continue;
+ 		}
  
- 	ft->num_groups = 0;
--	ft->t = mlx5_create_flow_table(priv->fts.ns, 0, MLX5E_VLAN_TABLE_SIZE);
-+	ft->t = mlx5_create_flow_table(priv->fts.ns, 1, MLX5E_VLAN_TABLE_SIZE);
++		if (is_tcf_skbedit_mark(a)) {
++			u32 mark = tcf_skbedit_mark(a);
++
++			if (mark & ~MLX5E_TC_FLOW_ID_MASK) {
++				netdev_warn(priv->netdev,
++					    "Bad flow mark - only 16 bit is supported: 0x%x\n",
++					    mark);
++				return -EINVAL;
++			}
++
++			*flow_tag = mark;
++			*action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
++			continue;
++		}
++
+ 		return -EINVAL;
+ 	}
  
- 	if (IS_ERR(ft->t)) {
- 		err = PTR_ERR(ft->t);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index f0e67d2..e848d70 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -73,8 +73,8 @@
- #define BY_PASS_MIN_LEVEL (KENREL_MIN_LEVEL + MLX5_BY_PASS_NUM_PRIOS +\
- 			   LEFTOVERS_MAX_FT)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
+index f1e7180..155e9bd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
+@@ -33,6 +33,8 @@
+ #ifndef __MLX5_EN_TC_H__
+ #define __MLX5_EN_TC_H__
  
--#define KERNEL_MAX_FT 2
--#define KERNEL_NUM_PRIOS 1
-+#define KERNEL_MAX_FT 3
-+#define KERNEL_NUM_PRIOS 2
- #define KENREL_MIN_LEVEL 2
++#define MLX5E_TC_FLOW_ID_MASK 0x0000ffff
++
+ void mlx5e_tc_init(struct mlx5e_priv *priv);
+ void mlx5e_tc_cleanup(struct mlx5e_priv *priv);
  
- struct node_caps {
 -- 
 2.7.0
