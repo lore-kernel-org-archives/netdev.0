@@ -1,54 +1,95 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 1/5] cxgb4/cxgb4vf: Use fl capacity to check if fl needs to be replenished
-Date: Tue,  1 Mar 2016 17:19:32 +0530
-Message-ID: <1456832976-12840-2-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 2/5] cxgb4/cxgb4vf: For T6 adapter, set FBMIN to 64 bytes
+Date: Tue,  1 Mar 2016 17:19:33 +0530
+Message-ID: <1456832976-12840-3-git-send-email-hariprasad@chelsio.com>
 References: <1456832976-12840-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, nirranjan@chelsio.com, leedom@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:38225 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:41006 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752680AbcCALqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 06:46:49 -0500
+	by vger.kernel.org with ESMTP id S1752680AbcCALqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 06:46:51 -0500
 In-Reply-To: <1456832976-12840-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use freelist capacity instead of freelist size while checking, if
-freelist needs to be refilled
+T4 and T5 hardware will not coalesce Free List PCI-E Fetch Requests if
+the Host Driver provides more Free List Pointers than the Fetch Burst
+Minimum value.  So if we set FBMIN to 64 bytes and the Host Driver
+supplies 128 bytes of Free List Pointer data, the hardware will issue two
+64-byte PCI-E Fetch Requests rather than a single coallesced 128-byte
+Fetch Request. T6 fixes this. So, for T4/T5 we set the FBMIN value to 128
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/sge.c   | 2 +-
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/sge.c       | 12 +++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_values.h |  1 +
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c     | 13 ++++++++++++-
+ 3 files changed, 24 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index b4eb4680a27c..22d972030927 100644
+index 22d972030927..deca4a2956cc 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2226,7 +2226,7 @@ static int process_responses(struct sge_rspq *q, int budget)
- 		budget_left--;
- 	}
+@@ -2611,8 +2611,18 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 				htonl(FW_IQ_CMD_FL0CNGCHMAP_V(cong) |
+ 				      FW_IQ_CMD_FL0CONGCIF_F |
+ 				      FW_IQ_CMD_FL0CONGEN_F);
++		/* In T6, for egress queue type FL there is internal overhead
++		 * of 16B for header going into FLM module.  Hence the maximum
++		 * allowed burst size is 448 bytes.  For T4/T5, the hardware
++		 * doesn't coalesce fetch requests if more than 64 bytes of
++		 * Free List pointers are provided, so we use a 128-byte Fetch
++		 * Burst Minimum there (T6 implements coalescing so we can use
++		 * the smaller 64-byte value there).
++		 */
+ 		c.fl0dcaen_to_fl0cidxfthresh =
+-			htons(FW_IQ_CMD_FL0FBMIN_V(FETCHBURSTMIN_64B_X) |
++			htons(FW_IQ_CMD_FL0FBMIN_V(chip <= CHELSIO_T5 ?
++						   FETCHBURSTMIN_128B_X :
++						   FETCHBURSTMIN_64B_X) |
+ 			      FW_IQ_CMD_FL0FBMAX_V((chip <= CHELSIO_T5) ?
+ 						   FETCHBURSTMAX_512B_X :
+ 						   FETCHBURSTMAX_256B_X));
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
+index a5231fa771db..36cf3073ca37 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
+@@ -65,6 +65,7 @@
+ #define TIMERREG_COUNTER0_X		0
  
--	if (q->offset >= 0 && rxq->fl.size - rxq->fl.avail >= 16)
-+	if (q->offset >= 0 && fl_cap(&rxq->fl) - rxq->fl.avail >= 16)
- 		__refill_fl(q->adap, &rxq->fl);
- 	return budget - budget_left;
- }
+ #define FETCHBURSTMIN_64B_X		2
++#define FETCHBURSTMIN_128B_X		3
+ 
+ #define FETCHBURSTMAX_256B_X		2
+ #define FETCHBURSTMAX_512B_X		3
 diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index 6528231d8a59..9772aad22bca 100644
+index 9772aad22bca..ba6a4e3471f0 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -1864,7 +1864,7 @@ static int process_responses(struct sge_rspq *rspq, int budget)
- 	 * for new buffer pointers, refill the Free List.
- 	 */
- 	if (rspq->offset >= 0 &&
--	    rxq->fl.size - rxq->fl.avail >= 2*FL_PER_EQ_UNIT)
-+	    fl_cap(&rxq->fl) - rxq->fl.avail >= 2*FL_PER_EQ_UNIT)
- 		__refill_fl(rspq->adapter, &rxq->fl);
- 	return budget - budget_left;
- }
+@@ -2300,9 +2300,20 @@ int t4vf_sge_alloc_rxq(struct adapter *adapter, struct sge_rspq *rspq,
+ 				FW_IQ_CMD_FL0HOSTFCMODE_V(SGE_HOSTFCMODE_NONE) |
+ 				FW_IQ_CMD_FL0PACKEN_F |
+ 				FW_IQ_CMD_FL0PADEN_F);
++
++		/* In T6, for egress queue type FL there is internal overhead
++		 * of 16B for header going into FLM module.  Hence the maximum
++		 * allowed burst size is 448 bytes.  For T4/T5, the hardware
++		 * doesn't coalesce fetch requests if more than 64 bytes of
++		 * Free List pointers are provided, so we use a 128-byte Fetch
++		 * Burst Minimum there (T6 implements coalescing so we can use
++		 * the smaller 64-byte value there).
++		 */
+ 		cmd.fl0dcaen_to_fl0cidxfthresh =
+ 			cpu_to_be16(
+-				FW_IQ_CMD_FL0FBMIN_V(SGE_FETCHBURSTMIN_64B) |
++				FW_IQ_CMD_FL0FBMIN_V(chip <= CHELSIO_T5 ?
++						     FETCHBURSTMIN_128B_X :
++						     FETCHBURSTMIN_64B_X) |
+ 				FW_IQ_CMD_FL0FBMAX_V((chip <= CHELSIO_T5) ?
+ 						     FETCHBURSTMAX_512B_X :
+ 						     FETCHBURSTMAX_256B_X));
 -- 
 2.3.4
