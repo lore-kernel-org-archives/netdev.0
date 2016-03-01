@@ -1,53 +1,65 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 1/5] vxlan: implement GPE in L2 mode
-Date: Tue, 1 Mar 2016 19:16:22 +0100
-Message-ID: <20160301191622.53df6f3f@griffin>
-References: <cover.1456472746.git.jbenc@redhat.com>
-	<6fe53252314d644e994950522d4320bc54ced928.1456472746.git.jbenc@redhat.com>
-	<CALx6S34vm6nqce481mcH_S3sfc4B5ift7YwJmTba4Vvdvnmj3w@mail.gmail.com>
-	<20160227203142.5b7309f3@griffin>
-	<CALx6S358JT6HRR70SgJrNOsTg4LbnTXERpW6n0DDiXKqxg--Yg@mail.gmail.com>
-	<20160229112322.4da0f0c0@griffin>
-	<CALx6S37aU8q1QResU+HKMeCbMgkGDqWbnuckqs1V_9bC-jp8Ow@mail.gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [RFC][PATCH] tags: Fix DEFINE_PER_CPU expansions
+Date: Tue, 1 Mar 2016 19:18:42 +0100
+Message-ID: <20160301181842.GX6357@twins.programming.kicks-ass.net>
+References: <20160301102625.GQ6357@twins.programming.kicks-ass.net>
+ <20160301163707.GF3965@htj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, rjw@rjwysocki.net,
+	konrad.wilk@oracle.com, Ingo Molnar <mingo@kernel.org>,
+	paulmck@linux.vnet.ibm.com, davem@davemloft.net,
+	linux-acpi@vger.kernel.org, netdev@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54979 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750846AbcCASQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2016 13:16:28 -0500
-In-Reply-To: <CALx6S37aU8q1QResU+HKMeCbMgkGDqWbnuckqs1V_9bC-jp8Ow@mail.gmail.com>
+Received: from casper.infradead.org ([85.118.1.10]:40308 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750768AbcCASSs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 13:18:48 -0500
+Content-Disposition: inline
+In-Reply-To: <20160301163707.GF3965@htj.duckdns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 29 Feb 2016 09:13:50 -0800, Tom Herbert wrote:
-> As defined now, GPB can't be used with VXLAN-GPE at all, but when I
-> read your patch it looks very much like GPB is being checked and
-> allowed in the VXLAN-GPE path. The fact that "if (vs->flags &
-> VXLAN_F_GBP)" always fails for VXLAN-GPE packets because of
-> configuration constraints is not at all obvious, and really this just
-> results in an unnecessary conditional that gives the same answer for
-> every single VXLAN-GPE packet which we've already checked for just a
-> few lines above. At least the check for GPB could be moved to an else
-> block of " if (vs->flags & VXLAN_F_GPE)", this alone improves clarity
-> and eliminates an unnecessary conditional in the VXLAN-GPE path.
+On Tue, Mar 01, 2016 at 11:37:07AM -0500, Tejun Heo wrote:
+> Hello, Peter.
+> 
+> On Tue, Mar 01, 2016 at 11:26:25AM +0100, Peter Zijlstra wrote:
+> > 
+> > $ make tags
+> >   GEN     tags
+> > ctags: Warning: drivers/acpi/processor_idle.c:64: null expansion of name pattern "\1"
+> > ctags: Warning: drivers/xen/events/events_2l.c:41: null expansion of name pattern "\1"
+> > ctags: Warning: kernel/locking/lockdep.c:151: null expansion of name pattern "\1"
+> > ctags: Warning: kernel/rcu/rcutorture.c:133: null expansion of name pattern "\1"
+> > ctags: Warning: kernel/rcu/rcutorture.c:135: null expansion of name pattern "\1"
+> > ctags: Warning: kernel/workqueue.c:323: null expansion of name pattern "\1"
+> > ctags: Warning: net/ipv4/syncookies.c:53: null expansion of name pattern "\1"
+> > ctags: Warning: net/ipv6/syncookies.c:44: null expansion of name pattern "\1"
+> > ctags: Warning: net/rds/page.c:45: null expansion of name pattern "\1"
+> > 
+> > Which are all the result of the DEFINE_PER_CPU pattern:
+> > 
+> > scripts/tags.sh:200:	'/\<DEFINE_PER_CPU([^,]*, *\([[:alnum:]_]*\)/\1/v/'
+> > scripts/tags.sh:201:	'/\<DEFINE_PER_CPU_SHARED_ALIGNED([^,]*, *\([[:alnum:]_]*\)/\1/v/'
+> > 
+> > The below cures them. All except the workqueue one are within reasonable
+> > distance of the 80 char limit. TJ do you have any preference on how to
+> > fix the wq one, or shall we just not care its too long?
+> 
+> Urgh... I really hate the fact that we're putting on arbitrary
+> formatting constraints to compensate for shortcomings in an
+> out-of-line utility.
 
-The problem here is ordering. GPE needs to be called before
-iptunnel_pull_header, while GBP needs to be called after udp_tun_rx_dst
-(and hence after iptunnel_pull_header).
+Yes it does.
 
-I agree that it's a check that's done for every packet and would be
-nice to get rid of. On the other hand, the amount of processing in the
-rx path of vxlan is so huge that it hardly matters. Yes, we should work
-on overall vxlan performance and it's something I'm actually looking
-into.
+I'm not too bothered if you don't want to fix this, I just figured I'd
+have a stab at fixing all this, since I regularly run 'make tags' and
+got tired of seeing the warns.
 
-As for not being obvious that the GBP processing can't happen, I see
-your point. I'll add a comment that explains this to the code in v2.
+> Can't it do multiline regex?
 
-Thanks,
+Apparently not:
 
- Jiri
+  https://sourceforge.net/p/ctags/feature-requests/38/
