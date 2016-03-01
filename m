@@ -1,73 +1,93 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V3 0/9] mlx5 driver updates
-Date: Wed,  2 Mar 2016 00:13:31 +0200
-Message-ID: <1456870420-23655-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V3 6/9] net/mlx5e: Don't try to modify CQ moderation if it is not supported
+Date: Wed,  2 Mar 2016 00:13:37 +0200
+Message-ID: <1456870420-23655-7-git-send-email-saeedm@mellanox.com>
+References: <1456870420-23655-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Majd Dibbiny <majd@mellanox.com>,
+	Gal Pressman <galp@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59457 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59489 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752094AbcCAWWB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2016 17:22:01 -0500
+	id S1752152AbcCAWWH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2016 17:22:07 -0500
+In-Reply-To: <1456870420-23655-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave, 
+From: Gal Pressman <galp@mellanox.com>
 
-This series includes some bug fixes and updates for the mlx5 core
-and ethernet driver.
+If CQ moderation is not supported by the device, print a warning on
+netdevice load, and return error when trying to modify/query cq
+moderation via ethtool.
 
->From Gal, two fixes that protects the update CQ moderation flows
-when it is not allowed.
+Fixes: f62b8bb8f2d3 ('net/mlx5: Extend mlx5_core to support ConnectX-4
+Ethernet functionality')
+Signed-off-by: Gal Pressman <galp@mellanox.com>
 
->From Moshe, two fixes for the core and ethernet driver in 
-non-cached(NC) and write combining(WC) buffers mappings, 
-which prevents the driver from double memory mappings.
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |    6 ++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   12 ++++++------
+ 2 files changed, 12 insertions(+), 6 deletions(-)
 
->From Or, reduce the firmware command completion timeout.
-
->From Tariq, several small trivial fixes.
-
-Changes from v0:
-	- "Fix global UAR mapping" commit messages updated to explain ARCH_HAS_IOREMAP_WC usage.
-	- rebased to commit 8d3f2806f8fb 'Merge branch ethtool-ksettings'
-
-Changes from v1:
-	- Removed ARCH_HAS_IOREMAP_WC config flag from "Fix global UAR mapping" commit,	as it was not accurate to use it.
-	- Squashed "Fix global UAR mapping" and "net/mlx5: Avoid double mapping of io mapped memory"
-	- Added more info for "Fix global UAR mapping" in commit message
-
-Changes from v2:
-	- None. resubmission per Dave's request due to two parallel submissions to mlx5 driver.
-
-Gal Pressman (2):
-  net/mlx5e: Don't try to modify CQ moderation if it is not supported
-  net/mlx5e: Don't modify CQ before it was created
-
-Moshe Lazer (1):
-  net/mlx5: Fix global UAR mapping
-
-Or Gerlitz (1):
-  net/mlx5: Make command timeout way shorter
-
-Tariq Toukan (5):
-  net/mlx5e: Replace async events spinlock with synchronize_irq()
-  net/mlx5e: Placement changed for carrier state updates
-  net/mlx5e: Changed naming convention of tx queues in ethtool stats
-  net/mlx5e: Move common case counters within sq_stats struct
-  net/mlx5e: Set drop RQ's necessary parameters only
-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   27 ++++-----
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   27 ++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   64 ++++++++++---------
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |    5 ++
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |   28 +--------
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |    1 +
- drivers/net/ethernet/mellanox/mlx5/core/uar.c      |   29 ++++++----
- include/linux/mlx5/driver.h                        |    7 +-
- 9 files changed, 95 insertions(+), 95 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 577b4b1..a1b3bb4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -400,6 +400,9 @@ static int mlx5e_get_coalesce(struct net_device *netdev,
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 
++	if (!MLX5_CAP_GEN(priv->mdev, cq_moderation))
++		return -ENOTSUPP;
++
+ 	coal->rx_coalesce_usecs       = priv->params.rx_cq_moderation_usec;
+ 	coal->rx_max_coalesced_frames = priv->params.rx_cq_moderation_pkts;
+ 	coal->tx_coalesce_usecs       = priv->params.tx_cq_moderation_usec;
+@@ -417,6 +420,9 @@ static int mlx5e_set_coalesce(struct net_device *netdev,
+ 	int tc;
+ 	int i;
+ 
++	if (!MLX5_CAP_GEN(mdev, cq_moderation))
++		return -ENOTSUPP;
++
+ 	priv->params.tx_cq_moderation_usec = coal->tx_coalesce_usecs;
+ 	priv->params.tx_cq_moderation_pkts = coal->tx_max_coalesced_frames;
+ 	priv->params.rx_cq_moderation_usec = coal->rx_coalesce_usecs;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 30fd971..b20a35b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -870,12 +870,10 @@ static int mlx5e_open_cq(struct mlx5e_channel *c,
+ 	if (err)
+ 		goto err_destroy_cq;
+ 
+-	err = mlx5_core_modify_cq_moderation(mdev, &cq->mcq,
+-					     moderation_usecs,
+-					     moderation_frames);
+-	if (err)
+-		goto err_destroy_cq;
+-
++	if (MLX5_CAP_GEN(mdev, cq_moderation))
++		mlx5_core_modify_cq_moderation(mdev, &cq->mcq,
++					       moderation_usecs,
++					       moderation_frames);
+ 	return 0;
+ 
+ err_destroy_cq:
+@@ -2218,6 +2216,8 @@ static int mlx5e_check_required_hca_cap(struct mlx5_core_dev *mdev)
+ 	}
+ 	if (!MLX5_CAP_ETH(mdev, self_lb_en_modifiable))
+ 		mlx5_core_warn(mdev, "Self loop back prevention is not supported\n");
++	if (!MLX5_CAP_GEN(mdev, cq_moderation))
++		mlx5_core_warn(mdev, "CQ modiration is not supported\n");
+ 
+ 	return 0;
+ }
+-- 
+1.7.1
