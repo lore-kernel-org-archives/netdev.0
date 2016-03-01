@@ -1,26 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2016-02-26
-Date: Tue, 01 Mar 2016 15:19:58 -0500 (EST)
-Message-ID: <20160301.151958.961786610287731466.davem@davemloft.net>
-References: <56D003DA.1090005@pengutronix.de>
+Subject: Re: [PATCH net] bna: fix list corruption
+Date: Tue, 01 Mar 2016 15:20:05 -0500 (EST)
+Message-ID: <20160301.152005.1101376339335232556.davem@davemloft.net>
+References: <1456474550-16747-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
-	linux-can@vger.kernel.org
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <56D003DA.1090005@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, rasesh.mody@qlogic.com
+To: ivecera@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40826 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751954AbcCAUUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 15:20:06 -0500
+In-Reply-To: <1456474550-16747-1-git-send-email-ivecera@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Fri, 26 Feb 2016 08:50:50 +0100
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Fri, 26 Feb 2016 09:15:50 +0100
 
-> this is a pull request of 3 patch for net-next/master.
+> Use list_move_tail() to move MAC address entry from list of pending
+> to list of active entries. Simple list_add_tail() leaves the entry
+> also in the first list, this leads to list corruption.
 > 
-> There are two patches by Simon Horman, in which the device tree support
-> for the rcar_can driver is improved. One patch by me fixes the bad
-> coding style of the ems_usb driver which was introduced recently.
+> Cc: Rasesh Mody <rasesh.mody@qlogic.com>
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-Also pulled, thanks.
+Applied.
