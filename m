@@ -1,117 +1,101 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 6/8] net/mlx5e: Introduce tc offload support
-Date: Tue, 1 Mar 2016 17:59:59 +0200
-Message-ID: <CALzJLG8oPTwoowafcPODKwZ4=Uxeqs2jqr6L7UUME_ZVmx66wg@mail.gmail.com>
-References: <1456842290-7844-1-git-send-email-amir@vadai.me>
-	<1456842290-7844-7-git-send-email-amir@vadai.me>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net v2] mld, igmp: Fix reserved tailroom calculation
+Date: Tue, 1 Mar 2016 17:00:33 +0100
+Message-ID: <56D5BCA1.4050206@stressinduktion.org>
+References: <56D48DCE.3090705@stressinduktion.org>
+ <1456787013-3277-1-git-send-email-bpoirier@suse.com>
+ <56D56C64.1030504@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Benjamin Poirier <bpoirier@suse.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f194.google.com ([209.85.160.194]:36486 "EHLO
-	mail-yk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753885AbcCAQAA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 11:00:00 -0500
-Received: by mail-yk0-f194.google.com with SMTP id z13so5048743ykd.3
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 07:59:59 -0800 (PST)
-In-Reply-To: <1456842290-7844-7-git-send-email-amir@vadai.me>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:46497 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754759AbcCAQAg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 11:00:36 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id E428820FC3
+	for <netdev@vger.kernel.org>; Tue,  1 Mar 2016 11:00:34 -0500 (EST)
+In-Reply-To: <56D56C64.1030504@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 1, 2016 at 4:24 PM, Amir Vadai <amir@vadai.me> wrote:
-> +#define FT_CAP(f) MLX5_CAP_FLOWTABLE(mdev, flow_table_properties_nic_receive.f)
-> +       if (FT_CAP(flow_modify_en) &&
-> +           FT_CAP(modify_root) &&
-> +           FT_CAP(identified_miss_table_mode) &&
-> +           FT_CAP(flow_table_modify))
-> +               priv->netdev->hw_features      |= NETIF_F_HW_TC;
-> +
->         netdev->features         |= NETIF_F_HIGHDMA;
+On 01.03.2016 11:18, Daniel Borkmann wrote:
+> On 03/01/2016 12:03 AM, Benjamin Poirier wrote:
+> [...]
+>> Notes:
+>>      Changes v1->v2
+>>      As suggested by Hannes, move the code to an inline helper and
+>> express it
+>>      using "if" rather than "min".
 >
->         netdev->priv_flags       |= IFF_UNICAST_FLT;
+> The code is correct, thanks!
 >
-> +       mlx5e_tc_init(priv);
+> Therefore:
+>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+>
+> However, I actually think that v1 was much better/easier as a fix
+> though. :/
+>
+> Meaning 1) it's likely easier to backport, and 2) that we now need a
+> comment
+> above each skb->reserved_tailroom assignment probably says that min() might
+> perhaps have been more self-documenting ...
+>
+> skb_tailroom_reserve() looks quite generic, but it only makes sense to
+> use in
+> combination with skb_availroom(), which would have been good to put a
+> note to
+> the header comment. Also "the required headroom should already have been
+> reserved before using this function", places one more requirement for
+> usage.
+>
+> If we really want to go that path, maybe rather a skb_setroom() that is
+> coupled
+> with skb_availroom() like:
+>
+> static inline int __skb_tailroom(const struct sk_buff *skb)
+> {
+>      return skb->end - skb->tail;
+> }
+>
+> static inline void skb_setroom(struct sk_buff *skb,
+>                                 unsigned int needed_headroom,
+>                                 unsigned int size,
+>                                 unsigned int needed_tailroom)
+> {
+>          SKB_LINEAR_ASSERT(skb);
+>
+>          skb_reserve(skb, needed_headroom);
+>          skb->reserved_tailroom = needed_tailroom;
+>
+>          if (size < __skb_tailroom(skb) - needed_tailroom)
+>                  skb->reserved_tailroom = __skb_tailroom(skb) - size;
+> }
+>
+> Then, skb_tailroom() would internally use __skb_tailroom(), too. And we
+> can also
+> spare us the two unneeded skb_is_nonlinear() checks in our helper which
+> will
+> currently always evaluate to false anyway.
+>
+> ... just a thought.
 
-This is not the place for this, We usually do internal data structure
-initialization  after we create all HW resources in
-mlx5e_create_netdev
-Please see mlx5e_vxlan_init as example, and you already call
-mlx5e_tc_cleanup inside mlx5e_destroy_netdev, please move the
-mlx5e_tc_init
-to mlx5e_create_netdev after HW resources creation,
+I think it is fine. The code will be inlined anyway and probably skb 
+linear assertions will be optimized away.
 
+I like the current code in its form:
 
-> @@ -2558,6 +2588,7 @@ static void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, void *vpriv)
->         mlx5_core_dealloc_transport_domain(priv->mdev, priv->tdn);
->         mlx5_core_dealloc_pd(priv->mdev, priv->pdn);
->         mlx5_unmap_free_uar(priv->mdev, &priv->cq_uar);
-> +       mlx5e_tc_cleanup(priv);
+skb_reserve(skb, header);
+skb_tailroom_reserve(skb, mtu, tailroom);
 
-I would suggest to move  mlx5e_tc_init to be right after
-mlx5e_vxlan_init and mlx5e_tc_cleanup before mlx5e_vxlan_cleanup.
+Combined form has too many arguments, so one has to look up the header 
+file again.
 
-> +struct mlx5_flow_rule *mlx5e_tc_add_flow(struct mlx5e_priv *priv,
-> +                                        u32 *match_c, u32 *match_v,
-> +                                        u32 action, u32 flow_tag)
-> +{
-> +       struct mlx5_flow_destination dest = {
-> +               .type = MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE,
-> +               {.ft = priv->fts.vlan.t},
-> +       };
-> +       struct mlx5_flow_rule *rule;
-> +       bool table_created = false;
-> +
-> +       if (IS_ERR_OR_NULL(priv->fts.tc.t)) {
-> +               priv->fts.tc.t =
-> +                       mlx5_create_auto_grouped_flow_table(priv->fts.ns, 0,
-> +                                                           MLX5E_TC_FLOW_TABLE_NUM_ENTRIES,
-> +                                                           MLX5E_TC_FLOW_TABLE_NUM_GROUPS);
-> +               if (IS_ERR(priv->fts.tc.t)) {
-> +                       netdev_err(priv->netdev,
-> +                                  "Failed to create tc offload table\n");
-> +                       return ERR_CAST(priv->fts.tc.t);
-
-Here priv->fts.tc.t will be invalid pointer and in your code you treat
-it as NULL in case of failure.
-
-> +               }
-> +
-> +               table_created = true;
-> +       }
-> +
-> +       rule = mlx5_add_flow_rule(priv->fts.tc.t, MLX5_MATCH_OUTER_HEADERS,
-> +                                 match_c, match_v,
-> +                                 action, flow_tag,
-> +                                 action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST ? &dest : NULL);
-> +
-> +       if (IS_ERR(rule) && table_created) {
-> +               mlx5_destroy_flow_table(priv->fts.tc.t);
-> +               priv->fts.tc.t = NULL;
-> +       }
-> +
-> +       return rule;
-> +}
-> +
-
-> +void mlx5e_tc_cleanup(struct mlx5e_priv *priv)
-> +{
-> +       struct mlx5e_tc_flow_table *tc = &priv->fts.tc;
-> +
-> +       rhashtable_free_and_destroy(&tc->ht, _mlx5e_tc_del_flow, priv);
-> +
-> +       if (priv->fts.tc.t) {
-
-priv->fts.tc.t will be invalid pointer and this test will pass in case
- mlx5_create_auto_grouped_flow_table had failed
-
-> +               mlx5_destroy_flow_table(priv->fts.tc.t);
-> +               priv->fts.tc.t = NULL;
-> +       }
-> +}
+Bye,
+Hannes
