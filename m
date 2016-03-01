@@ -1,42 +1,67 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next v3 0/3] NSH and VxLAN-GPE
-Date: Tue, 1 Mar 2016 10:12:34 -0800
-Message-ID: <20160301181231.GA95346@ast-mbp.thefacebook.com>
-References: <1456830709-32052-1-git-send-email-brussell@brocade.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net-next build failure due to 16e5cc64?
+Date: Tue, 1 Mar 2016 10:13:55 -0800
+Message-ID: <CAM_iQpU8WNCi3GEW0isLsMDWOwzFVkHmDmnqzueLOf7K6P=mAg@mail.gmail.com>
+References: <20160301174233.GO16369@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Brian Russell <brussell@brocade.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	john fastabend <john.fastabend@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:33730 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751102AbcCASMk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 13:12:40 -0500
-Received: by mail-pf0-f169.google.com with SMTP id 124so55445638pfg.0
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 10:12:39 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1456830709-32052-1-git-send-email-brussell@brocade.com>
+Received: from mail-yw0-f181.google.com ([209.85.161.181]:36255 "EHLO
+	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750813AbcCASNz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 13:13:55 -0500
+Received: by mail-yw0-f181.google.com with SMTP id e63so155457417ywc.3
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 10:13:55 -0800 (PST)
+In-Reply-To: <20160301174233.GO16369@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 01, 2016 at 11:11:46AM +0000, Brian Russell wrote:
-> These patches add a new module to support encap/decap of Network
-> Service Header (NSH) as defined in:
-> 
-> https://tools.ietf.org/html/draft-ietf-sfc-nsh-01
-> 
-> Both NSH Type 1 and Type 2 metadata are supported with a simple registration
-> hook to allow listeners to register to see packets with Type 1 or a specific
-> class of Type 2 metadata. NSH could be added to packets sent over a variety
-> of link types, eg. VxLAN, GRE, ethernet.
-> 
-> v2 - fix copyright notices and tidy up use of types
-> 
-> v3 - fix various style issues in nsh module
->      remove VxLAN-GPE changes
->      add nsh logging module as example
->      add nsh netfilter encap target as example
+On Tue, Mar 1, 2016 at 9:42 AM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+>
+> John,
+>
+> I'm getting a failure when I try to build the latest net-next. I see
+>
+> net/sched/sch_mqprio.c: In function `mqprio_init':
+> net/sched/sch_mqprio.c:145: error: unknown field `tc' specified in initializer
+> net/sched/sch_mqprio.c:145: warning: missing braces around initializer
+> net/sched/sch_mqprio.c:145: warning: (near initialization for `tc.<anonymous>')
+> make[2]: *** [net/sched/sch_mqprio.o] Error 1
+>
+> I'm not sure why this wasn't noticed before, but in case this is due to my
+> compiler version:
+>    # gcc --version
+>    gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-16)
+>    Copyright (C) 2010 Free Software Foundation, Inc.
+>
+> I'm finding that the minimum fix to avoid this error should be something like
+>
 
-two fake examples are trying to justify EXPORT_SYMBOL(nsh_register_listener) ?!
-what's the real meaning of this patch set?
-As far as I can see in-tree users cannot do anything useful with it.
+Why not just initialize these fields explicitly? For example,
+
+diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+index f9947d1..19323b6 100644
+--- a/net/sched/sch_mqprio.c
++++ b/net/sched/sch_mqprio.c
+@@ -28,7 +28,7 @@ static void mqprio_destroy(struct Qdisc *sch)
+ {
+        struct net_device *dev = qdisc_dev(sch);
+        struct mqprio_sched *priv = qdisc_priv(sch);
+-       struct tc_to_netdev tc = {.type = TC_SETUP_MQPRIO};
++       struct tc_to_netdev tc;
+        unsigned int ntx;
+
+        if (priv->qdiscs) {
+@@ -39,6 +39,7 @@ static void mqprio_destroy(struct Qdisc *sch)
+                kfree(priv->qdiscs);
+        }
+
++       tc.type = TC_SETUP_MQPRIO;
+        if (priv->hw_owned && dev->netdev_ops->ndo_setup_tc)
+                dev->netdev_ops->ndo_setup_tc(dev, sch->handle, 0, &tc);
+        else
