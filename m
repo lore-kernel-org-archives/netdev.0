@@ -1,37 +1,49 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next] netfilter: nf_defrag_ipv4: Drop redundant
- ip_send_check()
-Date: Tue, 1 Mar 2016 20:42:26 +0100
-Message-ID: <20160301194225.GA2815@salvia>
-References: <1454522410-24976-1-git-send-email-joe@ovn.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ethtool.h: define DIV_ROUND_UP for userland
+Date: Tue, 01 Mar 2016 14:48:26 -0500 (EST)
+Message-ID: <20160301.144826.104748964516491333.davem@davemloft.net>
+References: <1456845641-6985-1-git-send-email-nicolas.dichtel@6wind.com>
+	<20160301.114232.138387157898713379.davem@davemloft.net>
+	<1456852446.3098.157.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org, edjee@google.com, edumazet@google.com
-To: Joe Stringer <joe@ovn.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
+	nikolay@cumulusnetworks.com, kan.liang@intel.com
+To: ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:43292 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752236AbcCATmd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2016 14:42:33 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id F072E7419
-	for <netdev@vger.kernel.org>; Tue,  1 Mar 2016 20:42:29 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id D9964DA8F7
-	for <netdev@vger.kernel.org>; Tue,  1 Mar 2016 20:42:29 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 60750DA383
-	for <netdev@vger.kernel.org>; Tue,  1 Mar 2016 20:42:27 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <1454522410-24976-1-git-send-email-joe@ovn.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40301 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752010AbcCATs3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 14:48:29 -0500
+In-Reply-To: <1456852446.3098.157.camel@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 03, 2016 at 10:00:10AM -0800, Joe Stringer wrote:
-> Since commit 0848f6428ba3 ("inet: frags: fix defragmented packet's IP
-> header for af_packet"), ip_send_check() would be called twice for
-> defragmentation that occurs from netfilter ipv4 defrag hooks. Remove the
-> extra call.
+=46rom: Ben Hutchings <ben@decadent.org.uk>
+Date: Tue, 01 Mar 2016 17:14:06 +0000
 
-Applied, thanks Joe.
+> On Tue, 2016-03-01 at 11:42 -0500, David Miller wrote:
+>> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>> Date: Tue,=A0 1 Mar 2016 16:20:41 +0100
+>>=20
+>> > DIV_ROUND_UP and is defined in linux/kernel.h only for the kernel.=
+ INT_MAX
+>> > needs limits.h in userland.
+>>=20
+>> It is wrong to provide a definition of this in the user visible glob=
+al
+>> namespace.
+>=20
+> Which is why he's not doing that...
+
+No, that's exactly what he's doing:
+
++#ifndef __KERNEL__
++#include <limits.h> /* for INT_MAX */
++#define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
++#endif
+
+in a uapi header file.
+
+"If not kernel, define DEV_ROUND_UP"
