@@ -1,105 +1,105 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next] hv_netvsc: add ethtool support for set and get
- of settings
-Date: Tue, 01 Mar 2016 15:31:16 +0000
-Message-ID: <1456846276.3098.156.camel@decadent.org.uk>
-References: <1456442648-13941-1-git-send-email-sixiao@microsoft.com>
-	 <20160229.170910.1568620456454101151.davem@davemloft.net>
-	 <1456785278.3098.146.camel@decadent.org.uk>
-	 <20160229.175040.1966545191136367460.davem@davemloft.net>
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: Re: [PATCH v2] socket.7: Document some BPF-related socket options
+Date: Tue, 1 Mar 2016 10:40:32 -0500
+Message-ID: <CAEfhGiy7aDU8Xoz-nwRHLaF756UASNE08q394DFGBRD807yDaA@mail.gmail.com>
+References: <1456767399-7533-1-git-send-email-kraigatgoog@gmail.com>
+	<56D56901.5070307@gmail.com>
+	<87k2lm7bks.fsf@zoro.exoscale.ch>
+	<56D56F24.3090605@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-oYLWnctYUz8ysdTHovxr"
-Cc: sixiao@microsoft.com, kys@microsoft.com, haiyangz@microsoft.com,
-	devel@linuxdriverproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160229.175040.1966545191136367460.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vincent Bernat <bernat@luffy.cx>, linux-man@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:36059 "EHLO
+	mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754018AbcCAPkg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 10:40:36 -0500
+Received: by mail-lf0-f68.google.com with SMTP id h198so8852257lfh.3
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 07:40:35 -0800 (PST)
+Received: from mail-lf0-f47.google.com (mail-lf0-f47.google.com. [209.85.215.47])
+        by smtp.gmail.com with ESMTPSA id un6sm4757397lbb.18.2016.03.01.07.40.33
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Tue, 01 Mar 2016 07:40:33 -0800 (PST)
+Received: by mail-lf0-f47.google.com with SMTP id j186so41544819lfg.2
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 07:40:33 -0800 (PST)
+In-Reply-To: <56D56F24.3090605@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Mar 1, 2016 at 5:29 AM, Michael Kerrisk (man-pages)
+<mtk.manpages@gmail.com> wrote:
+> On 03/01/2016 11:10 AM, Vincent Bernat wrote:
+>>  =E2=9D=A6  1 mars 2016 11:03 +0100, "Michael Kerrisk (man-pages)" <=
+mtk.manpages@gmail.com> :
+>>
+>>>           Once   the   SO_LOCK_FILTER  option  has  been  enabled,
+>>>           attempts by an unprivileged process to change or  remove
+>>>           the  filter  attached  to  a  socket,  or to disable the
+>>>           SO_LOCK_FILTER option will fail with the error EPERM.
+>>
+>> You should remove "unprivileged". I didn't try to check for permissi=
+ons
+>> because I was just lazy (and I didn't have a need for it). As root, =
+you
+>> can just recreate another socket.
+>
+> Bother. That's what I meant to do, and then I omitted to do it! Done =
+now
+> And thanks for catching that, Vincent.
+>
+> Revised text below, with another query.
+>
+>        SO_LOCK_FILTER
+>               When set, this option will prevent changing the  filter=
+s
+>               associated  with  the socket.  These filters include an=
+y
+>               set   using   the   socket   options   SO_ATTACH_FILTER=
+,
+>               SO_ATTACH_BPF,        SO_ATTACH_REUSEPORT_CBPF       an=
+d
+>               SO_ATTACH_REUSEPORT_EPBF.
+>
+>               The typical use case is for a privileged process to  se=
+t
+>               up  a  socket with restrictive filters, set SO_LOCK_FIL=
+=E2=80=90
+>               TER, and then either drop its  privileges  or  pass  th=
+e
+>               socket file descriptor to an unprivileged process.
+>
+>               Once   the   SO_LOCK_FILTER  option  has  been  enabled=
+,
+>               attempts to change or remove the filter  attached  to  =
+a
+>               socket,  or  to  disable  the SO_LOCK_FILTER option wil=
+l
+>               fail with the error EPERM.
+>
+> I think the second paragraph should probably drop mention of privileg=
+es,
+> right? In fact, maybe just drop the paragraph altogether?
+Thanks Michael, all of your changes in the git tree look good to me.
+I parsed the one-way nature of LOCK_FILTER completely backwards from
+the commit message.  It's describing BSD's root-modify behavior, not
+the implementation in Linux.  I think I like this last paragraph as
+you have it to explicitly call out this as intended behavior.
 
---=-oYLWnctYUz8ysdTHovxr
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Thanks again,
+Craig
 
-On Mon, 2016-02-29 at 17:50 -0500, David Miller wrote:
-> From: Ben Hutchings <ben@decadent.org.uk>
-> Date: Mon, 29 Feb 2016 22:34:38 +0000
->=20
-> > On Mon, 2016-02-29 at 17:09 -0500, David Miller wrote:
-> >> From: Simon Xiao <sixiao@microsoft.com>
-> >> Date: Thu, 25 Feb 2016 15:24:08 -0800
-> >>=C2=A0
-> >> > This patch allows the user to set and retrieve speed and duplex of t=
-he
-> >> > hv_netvsc device via ethtool.
-> >> >=C2=A0
-> >> > Example:
-> >> > $ ethtool eth0
-> >> > Settings for eth0:
-> >> > ...
-> >> >=C2=A0=C2=A0=C2=A0=C2=A0 Speed: Unknown!
-> >> >=C2=A0=C2=A0=C2=A0=C2=A0 Duplex: Unknown! (255)
-> >> > ...
-> >> > $ ethtool -s eth0 speed 1000 duplex full
-> >> > $ ethtool eth0
-> >> > Settings for eth0:
-> >> > ...
-> >> >=C2=A0=C2=A0=C2=A0=C2=A0 Speed: 1000Mb/s
-> >> >=C2=A0=C2=A0=C2=A0=C2=A0 Duplex: Full
-> >> > ...
-> >> >=C2=A0
-> >> > This is based on patches by Roopa Prabhu and Nikolay Aleksandrov.
-> >> >=C2=A0
-> >> > Signed-off-by: Simon Xiao <sixiao@microsoft.com>
-> >>=C2=A0
-> >> Applied, thanks.
-> >=C2=A0
-> > I missed this due to flu, but now I look at it - I don't see the point.
-> > Link speed isn't meaingful for a memory-based transport, so "unknown"
-> > is correct. =C2=A0The link is effectively full duplex though.
-> >=C2=A0
-> > If the issue is that ethtool is a bit shouty about unknowns, let's
-> > consider changing that in ethtool, not teaching drivers to lie.
->=20
-> The issue is that certain bonding modes do not work properly without
-> a speed being reported by a device.
-
-Ah, of course.
-
-> We're doing this for other "virtual" devices already thanks to changes
-> that went in last week, so there is precedence.
-
-I know, just wasn't convinced it was a good precedent.
-
-Ben.
-
---=20
-Ben Hutchings
-If God had intended Man to program,
-we'd have been born with serial I/O ports.
---=-oYLWnctYUz8ysdTHovxr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVtW1xOe/yOyVhhEJAQpmtxAAuPOnSYUvIik5b/uFBw513ZCOKbRBe4tF
-U+KEL6dkZm8GE3ttRdI3wJXxJBLES2Y5mnW5bAq8BkGwYeWQnzya71z3cxkKN2Wp
-ZqLrVmgOdX9iqnspgOYPVDHhTaCHA3LpYvwk/q7E+hMwIj2jxN8hIjMiAthg5F1B
-pJ6Nm4Fc5uch2RBGvwMdA9T1rfuCnJR+lMqGwLr6V5eZiA5cwhnOD25D4Vsora+h
-Soa1zsC7N7KWtJs4w0uoBuBUpd6oaC/BVizQBrLEBrjblRDoFZ4vfJVA2PMb2gv6
-SiHN0QCy97f96cXsi6i6WxU1sLseCPdvkf7ayWBf4LRPE0NX1SwX+84FkpepKOJs
-qoCFiuToQJBPsrTCx6DmNLef/8+kPFI0xZNuSvDclEMx6GX7222ZM3O9yyna3Qst
-7m9hkRcrvY5Xd6xSIBEfpYdEFP7NwcdAaCEW+HNdpqpmgB0wwpg6AnaDqnQKldGC
-hWrofucadi1kE8L2uCfcT/js0rIWYicYZDizx2+8ZEf1OfHtUfNIOAU1izZcn6f1
-O/GwUMAhzBeuybAUyxs6LReVgWaeRjGf4K39WzyBHECIPGMnF/PnriRTL3iuLINH
-3RTbjO+5HlIQyWI/8WQ81PKpZKDDV/KljJsQwLE2j8MNyRGoR+9Mm9wUwd8WG2NQ
-J9m4pOj7I/Q=
-=WTMX
------END PGP SIGNATURE-----
-
---=-oYLWnctYUz8ysdTHovxr--
+> Cheers,
+>
+> Michael
+>
+>
+>
+> --
+> Michael Kerrisk
+> Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+> Linux/UNIX System Programming Training: http://man7.org/training/
