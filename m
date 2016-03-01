@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v3 04/13] RDS: IB: Remove the RDS_IB_SEND_OP dependency
-Date: Tue,  1 Mar 2016 15:20:45 -0800
-Message-ID: <1456874454-10355-5-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v3 07/13] RDS: IB: move FMR code to its own file
+Date: Tue,  1 Mar 2016 15:20:48 -0800
+Message-ID: <1456874454-10355-8-git-send-email-santosh.shilimkar@oracle.com>
 References: <1456874454-10355-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
@@ -11,141 +11,340 @@ In-Reply-To: <1456874454-10355-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This helps to combine asynchronous fastreg MR completion handler
-with send completion handler.
-
 No functional change.
 
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.h      |  1 -
- net/rds/ib_cm.c   | 42 +++++++++++++++++++++++++++---------------
- net/rds/ib_send.c |  6 ++----
- 3 files changed, 29 insertions(+), 20 deletions(-)
+ net/rds/ib_fmr.c  | 126 +++++++++++++++++++++++++++++++++---------------------
+ net/rds/ib_mr.h   |   6 +++
+ net/rds/ib_rdma.c | 108 ++++++++++++++++++++++------------------------
+ 3 files changed, 134 insertions(+), 106 deletions(-)
 
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index b3fdebb..09cd8e3 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -28,7 +28,6 @@
- #define RDS_IB_RECYCLE_BATCH_COUNT	32
+diff --git a/net/rds/ib_fmr.c b/net/rds/ib_fmr.c
+index 74f2c21..4fe8f4f 100644
+--- a/net/rds/ib_fmr.c
++++ b/net/rds/ib_fmr.c
+@@ -37,61 +37,16 @@ struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev, int npages)
+ 	struct rds_ib_mr_pool *pool;
+ 	struct rds_ib_mr *ibmr = NULL;
+ 	struct rds_ib_fmr *fmr;
+-	int err = 0, iter = 0;
++	int err = 0;
  
- #define RDS_IB_WC_MAX			32
--#define RDS_IB_SEND_OP			BIT_ULL(63)
+ 	if (npages <= RDS_MR_8K_MSG_SIZE)
+ 		pool = rds_ibdev->mr_8k_pool;
+ 	else
+ 		pool = rds_ibdev->mr_1m_pool;
  
- extern struct rw_semaphore rds_ib_devices_lock;
- extern struct list_head rds_ib_devices;
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index da5a7fb..7f68abc 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -236,12 +236,10 @@ static void rds_ib_cq_comp_handler_recv(struct ib_cq *cq, void *context)
- 	tasklet_schedule(&ic->i_recv_tasklet);
- }
- 
--static void poll_cq(struct rds_ib_connection *ic, struct ib_cq *cq,
--		    struct ib_wc *wcs,
--		    struct rds_ib_ack_state *ack_state)
-+static void poll_scq(struct rds_ib_connection *ic, struct ib_cq *cq,
-+		     struct ib_wc *wcs)
- {
--	int nr;
--	int i;
-+	int nr, i;
- 	struct ib_wc *wc;
- 
- 	while ((nr = ib_poll_cq(cq, RDS_IB_WC_MAX, wcs)) > 0) {
-@@ -251,10 +249,7 @@ static void poll_cq(struct rds_ib_connection *ic, struct ib_cq *cq,
- 				 (unsigned long long)wc->wr_id, wc->status,
- 				 wc->byte_len, be32_to_cpu(wc->ex.imm_data));
- 
--			if (wc->wr_id & RDS_IB_SEND_OP)
--				rds_ib_send_cqe_handler(ic, wc);
+-	if (atomic_read(&pool->dirty_count) >= pool->max_items / 10)
+-		queue_delayed_work(rds_ib_mr_wq, &pool->flush_worker, 10);
+-
+-	/* Switch pools if one of the pool is reaching upper limit */
+-	if (atomic_read(&pool->dirty_count) >=  pool->max_items * 9 / 10) {
+-		if (pool->pool_type == RDS_IB_MR_8K_POOL)
+-			pool = rds_ibdev->mr_1m_pool;
+-		else
+-			pool = rds_ibdev->mr_8k_pool;
+-	}
+-
+-	while (1) {
+-		ibmr = rds_ib_reuse_mr(pool);
+-		if (ibmr)
+-			return ibmr;
+-
+-		/* No clean MRs - now we have the choice of either
+-		 * allocating a fresh MR up to the limit imposed by the
+-		 * driver, or flush any dirty unused MRs.
+-		 * We try to avoid stalling in the send path if possible,
+-		 * so we allocate as long as we're allowed to.
+-		 *
+-		 * We're fussy with enforcing the FMR limit, though. If the
+-		 * driver tells us we can't use more than N fmrs, we shouldn't
+-		 * start arguing with it
+-		 */
+-		if (atomic_inc_return(&pool->item_count) <= pool->max_items)
+-			break;
+-
+-		atomic_dec(&pool->item_count);
+-
+-		if (++iter > 2) {
+-			if (pool->pool_type == RDS_IB_MR_8K_POOL)
+-				rds_ib_stats_inc(s_ib_rdma_mr_8k_pool_depleted);
 -			else
--				rds_ib_recv_cqe_handler(ic, wc, ack_state);
-+			rds_ib_send_cqe_handler(ic, wc);
- 		}
- 	}
+-				rds_ib_stats_inc(s_ib_rdma_mr_1m_pool_depleted);
+-			return ERR_PTR(-EAGAIN);
+-		}
+-
+-		/* We do have some empty MRs. Flush them out. */
+-		if (pool->pool_type == RDS_IB_MR_8K_POOL)
+-			rds_ib_stats_inc(s_ib_rdma_mr_8k_pool_wait);
+-		else
+-			rds_ib_stats_inc(s_ib_rdma_mr_1m_pool_wait);
+-		rds_ib_flush_mr_pool(pool, 0, &ibmr);
+-		if (ibmr)
+-			return ibmr;
+-	}
++	ibmr = rds_ib_try_reuse_ibmr(pool);
++	if (ibmr)
++		return ibmr;
+ 
+ 	ibmr = kzalloc_node(sizeof(*ibmr), GFP_KERNEL,
+ 			    rdsibdev_to_node(rds_ibdev));
+@@ -218,3 +173,76 @@ out:
+ 
+ 	return ret;
  }
-@@ -263,14 +258,12 @@ static void rds_ib_tasklet_fn_send(unsigned long data)
- {
- 	struct rds_ib_connection *ic = (struct rds_ib_connection *)data;
- 	struct rds_connection *conn = ic->conn;
--	struct rds_ib_ack_state state;
- 
- 	rds_ib_stats_inc(s_ib_tasklet_call);
- 
--	memset(&state, 0, sizeof(state));
--	poll_cq(ic, ic->i_send_cq, ic->i_send_wc, &state);
-+	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
- 	ib_req_notify_cq(ic->i_send_cq, IB_CQ_NEXT_COMP);
--	poll_cq(ic, ic->i_send_cq, ic->i_send_wc, &state);
-+	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
- 
- 	if (rds_conn_up(conn) &&
- 	    (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags) ||
-@@ -278,6 +271,25 @@ static void rds_ib_tasklet_fn_send(unsigned long data)
- 		rds_send_xmit(ic->conn);
- }
- 
-+static void poll_rcq(struct rds_ib_connection *ic, struct ib_cq *cq,
-+		     struct ib_wc *wcs,
-+		     struct rds_ib_ack_state *ack_state)
++
++struct rds_ib_mr *rds_ib_reg_fmr(struct rds_ib_device *rds_ibdev,
++				 struct scatterlist *sg,
++				 unsigned long nents,
++				 u32 *key)
 +{
-+	int nr, i;
-+	struct ib_wc *wc;
++	struct rds_ib_mr *ibmr = NULL;
++	struct rds_ib_fmr *fmr;
++	int ret;
 +
-+	while ((nr = ib_poll_cq(cq, RDS_IB_WC_MAX, wcs)) > 0) {
-+		for (i = 0; i < nr; i++) {
-+			wc = wcs + i;
-+			rdsdebug("wc wr_id 0x%llx status %u byte_len %u imm_data %u\n",
-+				 (unsigned long long)wc->wr_id, wc->status,
-+				 wc->byte_len, be32_to_cpu(wc->ex.imm_data));
++	ibmr = rds_ib_alloc_fmr(rds_ibdev, nents);
++	if (IS_ERR(ibmr))
++		return ibmr;
 +
-+			rds_ib_recv_cqe_handler(ic, wc, ack_state);
-+		}
-+	}
++	ibmr->device = rds_ibdev;
++	fmr = &ibmr->u.fmr;
++	ret = rds_ib_map_fmr(rds_ibdev, ibmr, sg, nents);
++	if (ret == 0)
++		*key = fmr->fmr->rkey;
++	else
++		rds_ib_free_mr(ibmr, 0);
++
++	return ibmr;
 +}
 +
- static void rds_ib_tasklet_fn_recv(unsigned long data)
++void rds_ib_unreg_fmr(struct list_head *list, unsigned int *nfreed,
++		      unsigned long *unpinned, unsigned int goal)
++{
++	struct rds_ib_mr *ibmr, *next;
++	struct rds_ib_fmr *fmr;
++	LIST_HEAD(fmr_list);
++	int ret = 0;
++	unsigned int freed = *nfreed;
++
++	/* String all ib_mr's onto one list and hand them to  ib_unmap_fmr */
++	list_for_each_entry(ibmr, list, unmap_list) {
++		fmr = &ibmr->u.fmr;
++		list_add(&fmr->fmr->list, &fmr_list);
++	}
++
++	ret = ib_unmap_fmr(&fmr_list);
++	if (ret)
++		pr_warn("RDS/IB: FMR invalidation failed (err=%d)\n", ret);
++
++	/* Now we can destroy the DMA mapping and unpin any pages */
++	list_for_each_entry_safe(ibmr, next, list, unmap_list) {
++		fmr = &ibmr->u.fmr;
++		*unpinned += ibmr->sg_len;
++		__rds_ib_teardown_mr(ibmr);
++		if (freed < goal ||
++		    ibmr->remap_count >= ibmr->pool->fmr_attr.max_maps) {
++			if (ibmr->pool->pool_type == RDS_IB_MR_8K_POOL)
++				rds_ib_stats_inc(s_ib_rdma_mr_8k_free);
++			else
++				rds_ib_stats_inc(s_ib_rdma_mr_1m_free);
++			list_del(&ibmr->unmap_list);
++			ib_dealloc_fmr(fmr->fmr);
++			kfree(ibmr);
++			freed++;
++		}
++	}
++	*nfreed = freed;
++}
++
++void rds_ib_free_fmr_list(struct rds_ib_mr *ibmr)
++{
++	struct rds_ib_mr_pool *pool = ibmr->pool;
++
++	if (ibmr->remap_count >= pool->fmr_attr.max_maps)
++		llist_add(&ibmr->llnode, &pool->drop_list);
++	else
++		llist_add(&ibmr->llnode, &pool->free_list);
++}
+diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
+index 309ad59..f5c1fcb 100644
+--- a/net/rds/ib_mr.h
++++ b/net/rds/ib_mr.h
+@@ -113,4 +113,10 @@ int rds_ib_map_fmr(struct rds_ib_device *, struct rds_ib_mr *,
+ 		   struct scatterlist *, unsigned int);
+ struct rds_ib_mr *rds_ib_reuse_mr(struct rds_ib_mr_pool *);
+ int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *, int, struct rds_ib_mr **);
++struct rds_ib_mr *rds_ib_reg_fmr(struct rds_ib_device *, struct scatterlist *,
++				 unsigned long, u32 *);
++struct rds_ib_mr *rds_ib_try_reuse_ibmr(struct rds_ib_mr_pool *);
++void rds_ib_unreg_fmr(struct list_head *, unsigned int *,
++		      unsigned long *, unsigned int);
++void rds_ib_free_fmr_list(struct rds_ib_mr *);
+ #endif
+diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
+index 9e608d9..0e84843 100644
+--- a/net/rds/ib_rdma.c
++++ b/net/rds/ib_rdma.c
+@@ -333,15 +333,12 @@ static void list_to_llist_nodes(struct rds_ib_mr_pool *pool,
+ int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
+ 			 int free_all, struct rds_ib_mr **ibmr_ret)
  {
- 	struct rds_ib_connection *ic = (struct rds_ib_connection *)data;
-@@ -291,9 +303,9 @@ static void rds_ib_tasklet_fn_recv(unsigned long data)
- 	rds_ib_stats_inc(s_ib_tasklet_call);
+-	struct rds_ib_mr *ibmr, *next;
+-	struct rds_ib_fmr *fmr;
++	struct rds_ib_mr *ibmr;
+ 	struct llist_node *clean_nodes;
+ 	struct llist_node *clean_tail;
+ 	LIST_HEAD(unmap_list);
+-	LIST_HEAD(fmr_list);
+ 	unsigned long unpinned = 0;
+ 	unsigned int nfreed = 0, dirty_to_clean = 0, free_goal;
+-	int ret = 0;
  
- 	memset(&state, 0, sizeof(state));
--	poll_cq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
-+	poll_rcq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
- 	ib_req_notify_cq(ic->i_recv_cq, IB_CQ_SOLICITED);
--	poll_cq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
-+	poll_rcq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
+ 	if (pool->pool_type == RDS_IB_MR_8K_POOL)
+ 		rds_ib_stats_inc(s_ib_rdma_mr_8k_pool_flush);
+@@ -395,33 +392,7 @@ int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
+ 	if (list_empty(&unmap_list))
+ 		goto out;
  
- 	if (state.ack_next_valid)
- 		rds_ib_set_ack(ic, state.ack_next, state.ack_required);
-diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
-index eac30bf..f27d2c8 100644
---- a/net/rds/ib_send.c
-+++ b/net/rds/ib_send.c
-@@ -195,7 +195,7 @@ void rds_ib_send_init_ring(struct rds_ib_connection *ic)
+-	/* String all ib_mr's onto one list and hand them to ib_unmap_fmr */
+-	list_for_each_entry(ibmr, &unmap_list, unmap_list) {
+-		fmr = &ibmr->u.fmr;
+-		list_add(&fmr->fmr->list, &fmr_list);
+-	}
+-
+-	ret = ib_unmap_fmr(&fmr_list);
+-	if (ret)
+-		printk(KERN_WARNING "RDS/IB: ib_unmap_fmr failed (err=%d)\n", ret);
+-
+-	/* Now we can destroy the DMA mapping and unpin any pages */
+-	list_for_each_entry_safe(ibmr, next, &unmap_list, unmap_list) {
+-		unpinned += ibmr->sg_len;
+-		fmr = &ibmr->u.fmr;
+-		__rds_ib_teardown_mr(ibmr);
+-		if (nfreed < free_goal ||
+-		    ibmr->remap_count >= pool->fmr_attr.max_maps) {
+-			if (ibmr->pool->pool_type == RDS_IB_MR_8K_POOL)
+-				rds_ib_stats_inc(s_ib_rdma_mr_8k_free);
+-			else
+-				rds_ib_stats_inc(s_ib_rdma_mr_1m_free);
+-			list_del(&ibmr->unmap_list);
+-			ib_dealloc_fmr(fmr->fmr);
+-			kfree(ibmr);
+-			nfreed++;
+-		}
+-	}
++	rds_ib_unreg_fmr(&unmap_list, &nfreed, &unpinned, free_goal);
  
- 		send->s_op = NULL;
+ 	if (!list_empty(&unmap_list)) {
+ 		/* we have to make sure that none of the things we're about
+@@ -454,7 +425,47 @@ out:
+ 	if (waitqueue_active(&pool->flush_wait))
+ 		wake_up(&pool->flush_wait);
+ out_nolock:
+-	return ret;
++	return 0;
++}
++
++struct rds_ib_mr *rds_ib_try_reuse_ibmr(struct rds_ib_mr_pool *pool)
++{
++	struct rds_ib_mr *ibmr = NULL;
++	int iter = 0;
++
++	if (atomic_read(&pool->dirty_count) >= pool->max_items_soft / 10)
++		queue_delayed_work(rds_ib_mr_wq, &pool->flush_worker, 10);
++
++	while (1) {
++		ibmr = rds_ib_reuse_mr(pool);
++		if (ibmr)
++			return ibmr;
++
++		if (atomic_inc_return(&pool->item_count) <= pool->max_items)
++			break;
++
++		atomic_dec(&pool->item_count);
++
++		if (++iter > 2) {
++			if (pool->pool_type == RDS_IB_MR_8K_POOL)
++				rds_ib_stats_inc(s_ib_rdma_mr_8k_pool_depleted);
++			else
++				rds_ib_stats_inc(s_ib_rdma_mr_1m_pool_depleted);
++			return ERR_PTR(-EAGAIN);
++		}
++
++		/* We do have some empty MRs. Flush them out. */
++		if (pool->pool_type == RDS_IB_MR_8K_POOL)
++			rds_ib_stats_inc(s_ib_rdma_mr_8k_pool_wait);
++		else
++			rds_ib_stats_inc(s_ib_rdma_mr_1m_pool_wait);
++
++		rds_ib_flush_mr_pool(pool, 0, &ibmr);
++		if (ibmr)
++			return ibmr;
++	}
++
++	return ibmr;
+ }
  
--		send->s_wr.wr_id = i | RDS_IB_SEND_OP;
-+		send->s_wr.wr_id = i;
- 		send->s_wr.sg_list = send->s_sge;
- 		send->s_wr.ex.imm_data = 0;
+ static void rds_ib_mr_pool_flush_worker(struct work_struct *work)
+@@ -473,10 +484,7 @@ void rds_ib_free_mr(void *trans_private, int invalidate)
+ 	rdsdebug("RDS/IB: free_mr nents %u\n", ibmr->sg_len);
  
-@@ -263,9 +263,7 @@ void rds_ib_send_cqe_handler(struct rds_ib_connection *ic, struct ib_wc *wc)
+ 	/* Return it to the pool's free list */
+-	if (ibmr->remap_count >= pool->fmr_attr.max_maps)
+-		llist_add(&ibmr->llnode, &pool->drop_list);
+-	else
+-		llist_add(&ibmr->llnode, &pool->free_list);
++	rds_ib_free_fmr_list(ibmr);
  
- 	oldest = rds_ib_ring_oldest(&ic->i_send_ring);
+ 	atomic_add(ibmr->sg_len, &pool->free_pinned);
+ 	atomic_inc(&pool->dirty_count);
+@@ -521,7 +529,6 @@ void *rds_ib_get_mr(struct scatterlist *sg, unsigned long nents,
+ {
+ 	struct rds_ib_device *rds_ibdev;
+ 	struct rds_ib_mr *ibmr = NULL;
+-	struct rds_ib_fmr *fmr;
+ 	int ret;
  
--	completed = rds_ib_ring_completed(&ic->i_send_ring,
--					  (wc->wr_id & ~RDS_IB_SEND_OP),
--					  oldest);
-+	completed = rds_ib_ring_completed(&ic->i_send_ring, wc->wr_id, oldest);
+ 	rds_ibdev = rds_ib_get_device(rs->rs_bound_addr);
+@@ -535,30 +542,17 @@ void *rds_ib_get_mr(struct scatterlist *sg, unsigned long nents,
+ 		goto out;
+ 	}
  
- 	for (i = 0; i < completed; i++) {
- 		send = &ic->i_sends[oldest];
+-	ibmr = rds_ib_alloc_fmr(rds_ibdev, nents);
+-	if (IS_ERR(ibmr)) {
+-		rds_ib_dev_put(rds_ibdev);
+-		return ibmr;
+-	}
+-
+-	fmr = &ibmr->u.fmr;
+-	ret = rds_ib_map_fmr(rds_ibdev, ibmr, sg, nents);
+-	if (ret == 0)
+-		*key_ret = fmr->fmr->rkey;
+-	else
+-		printk(KERN_WARNING "RDS/IB: map_fmr failed (errno=%d)\n", ret);
+-
+-	ibmr->device = rds_ibdev;
+-	rds_ibdev = NULL;
++	ibmr = rds_ib_reg_fmr(rds_ibdev, sg, nents, key_ret);
++	if (ibmr)
++		rds_ibdev = NULL;
+ 
+  out:
+-	if (ret) {
+-		if (ibmr)
+-			rds_ib_free_mr(ibmr, 0);
+-		ibmr = ERR_PTR(ret);
+-	}
++	if (!ibmr)
++		pr_warn("RDS/IB: rds_ib_get_mr failed (errno=%d)\n", ret);
++
+ 	if (rds_ibdev)
+ 		rds_ib_dev_put(rds_ibdev);
++
+ 	return ibmr;
+ }
+ 
 -- 
 1.9.1
