@@ -1,53 +1,117 @@
-From: Wolfram Sang <wsa@the-dreams.de>
-Subject: [PATCH 2/2] net: ethernet: renesas: sh_eth: don't open code of_device_get_match_data()
-Date: Tue,  1 Mar 2016 17:37:59 +0100
-Message-ID: <1456850284-8336-2-git-send-email-wsa@the-dreams.de>
-References: <1456850284-8336-1-git-send-email-wsa@the-dreams.de>
-Cc: Wolfram Sang <wsa@the-dreams.de>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
-To: linux-renesas-soc@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1456850284-8336-1-git-send-email-wsa@the-dreams.de>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v2 1/2] uapi: define DIV_ROUND_UP for userland
+Date: Tue,  1 Mar 2016 17:41:03 +0100
+Message-ID: <1456850464-23003-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <1456846141.3098.155.camel@decadent.org.uk>
+Cc: netdev@vger.kernel.org, ben@decadent.org.uk,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Kan Liang <kan.liang@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:42421 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750849AbcCAQlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 11:41:21 -0500
+In-Reply-To: <1456846141.3098.155.camel@decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wolfram Sang <wsa+renesas@sang-engineering.com>
+DIV_ROUND_UP is defined in linux/kernel.h only for the kernel.
+When ethtool.h is included by a userland app, we got the following error:
 
-This change will also make Coverity happy by avoiding a theoretical NULL
-pointer dereference; yet another reason is to use the above helper function
-to tighten the code and make it more readable.
+include/linux/ethtool.h:1218:8: error: variably modified 'queue_mask' at file scope
+  __u32 queue_mask[DIV_ROUND_UP(MAX_NUM_QUEUE, 32)];
+        ^
 
-Signed-off-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+Let's add a common definition in uapi and use it everywhere.
+
+Fixes: ac2c7ad0e5d6 ("net/ethtool: introduce a new ioctl for per queue setting")
+CC: Kan Liang <kan.liang@intel.com>
+Suggested-by: Ben Hutchings <ben@decadent.org.uk>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
 
-Tested on a Lager board.
+v2: split the patch
+    define DIV_ROUND_UP in uapi
 
- drivers/net/ethernet/renesas/sh_eth.c | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
+ include/linux/kernel.h       | 2 +-
+ include/uapi/linux/ethtool.h | 3 ++-
+ include/uapi/linux/kernel.h  | 1 +
+ include/uapi/linux/mroute6.h | 9 ++-------
+ 4 files changed, 6 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 0a150b2289146f..8b6c07fe3d407d 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -3056,15 +3056,11 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 	mdp->ether_link_active_low = pd->ether_link_active_low;
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+index f31638c6e873..ac1923957236 100644
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -64,7 +64,7 @@
+ #define round_down(x, y) ((x) & ~__round_mask(x, y))
  
- 	/* set cpu data */
--	if (id) {
-+	if (id)
- 		mdp->cd = (struct sh_eth_cpu_data *)id->driver_data;
--	} else	{
--		const struct of_device_id *match;
-+	else
-+		mdp->cd = (struct sh_eth_cpu_data *)of_device_get_match_data(&pdev->dev);
+ #define FIELD_SIZEOF(t, f) (sizeof(((t*)0)->f))
+-#define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
++#define DIV_ROUND_UP __KERNEL_DIV_ROUND_UP
+ #define DIV_ROUND_UP_ULL(ll,d) \
+ 	({ unsigned long long _tmp = (ll)+(d)-1; do_div(_tmp, d); _tmp; })
  
--		match = of_match_device(of_match_ptr(sh_eth_match_table),
--					&pdev->dev);
--		mdp->cd = (struct sh_eth_cpu_data *)match->data;
--	}
- 	mdp->reg_offset = sh_eth_get_register_offset(mdp->cd->register_type);
- 	if (!mdp->reg_offset) {
- 		dev_err(&pdev->dev, "Unknown register type (%d)\n",
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 37fd6dc33de4..9c22249ebf35 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -13,6 +13,7 @@
+ #ifndef _UAPI_LINUX_ETHTOOL_H
+ #define _UAPI_LINUX_ETHTOOL_H
+ 
++#include <linux/kernel.h>
+ #include <linux/types.h>
+ #include <linux/if_ether.h>
+ 
+@@ -1215,7 +1216,7 @@ enum ethtool_sfeatures_retval_bits {
+ struct ethtool_per_queue_op {
+ 	__u32	cmd;
+ 	__u32	sub_command;
+-	__u32	queue_mask[DIV_ROUND_UP(MAX_NUM_QUEUE, 32)];
++	__u32	queue_mask[__KERNEL_DIV_ROUND_UP(MAX_NUM_QUEUE, 32)];
+ 	char	data[];
+ };
+ 
+diff --git a/include/uapi/linux/kernel.h b/include/uapi/linux/kernel.h
+index 321e399457f5..466073f0ce46 100644
+--- a/include/uapi/linux/kernel.h
++++ b/include/uapi/linux/kernel.h
+@@ -9,5 +9,6 @@
+ #define __ALIGN_KERNEL(x, a)		__ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
+ #define __ALIGN_KERNEL_MASK(x, mask)	(((x) + (mask)) & ~(mask))
+ 
++#define __KERNEL_DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
+ 
+ #endif /* _UAPI_LINUX_KERNEL_H */
+diff --git a/include/uapi/linux/mroute6.h b/include/uapi/linux/mroute6.h
+index ce91215cf7e6..5062fb5751e1 100644
+--- a/include/uapi/linux/mroute6.h
++++ b/include/uapi/linux/mroute6.h
+@@ -1,6 +1,7 @@
+ #ifndef _UAPI__LINUX_MROUTE6_H
+ #define _UAPI__LINUX_MROUTE6_H
+ 
++#include <linux/kernel.h>
+ #include <linux/types.h>
+ #include <linux/sockios.h>
+ 
+@@ -46,14 +47,8 @@ typedef unsigned short mifi_t;
+ typedef	__u32		if_mask;
+ #define NIFBITS (sizeof(if_mask) * 8)        /* bits per mask */
+ 
+-#if !defined(__KERNEL__)
+-#if !defined(DIV_ROUND_UP)
+-#define	DIV_ROUND_UP(x,y)	(((x) + ((y) - 1)) / (y))
+-#endif
+-#endif
+-
+ typedef struct if_set {
+-	if_mask ifs_bits[DIV_ROUND_UP(IF_SETSIZE, NIFBITS)];
++	if_mask ifs_bits[__KERNEL_DIV_ROUND_UP(IF_SETSIZE, NIFBITS)];
+ } if_set;
+ 
+ #define IF_SET(n, p)    ((p)->ifs_bits[(n)/NIFBITS] |= (1 << ((n) % NIFBITS)))
 -- 
-2.7.0
+2.4.2
