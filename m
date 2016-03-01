@@ -1,42 +1,100 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v3 0/3] tc software only
-Date: Tue, 01 Mar 2016 16:06:04 -0500 (EST)
-Message-ID: <20160301.160604.1392938206098066808.davem@davemloft.net>
-References: <20160226154858.5338.90569.stgit@john-Precision-Tower-5810>
+From: Zhi Li <lznuaa@gmail.com>
+Subject: Re: [PATCH net-next V2 03/16] net: fec: pass txq to fec_enet_tx_queue
+ instead of queue_id
+Date: Tue, 1 Mar 2016 15:06:40 -0600
+Message-ID: <CAHrpEqSyuToC6QFEZygO0YyA=gV2cZEtkpRJMeZFOjhgTLdexQ@mail.gmail.com>
+References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
+	<1456360619-24390-4-git-send-email-troy.kisky@boundarydevices.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, daniel@iogearbox.net, simon.horman@netronome.com,
-	netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-	jhs@mojatatu.com
-To: john.fastabend@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Duan Fugang-B38611 <B38611@freescale.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Andrew Lunn <andrew@lunn.ch>, tremyfr@gmail.com,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, laci@boundarydevices.com,
+	Shawn Guo <shawnguo@kernel.org>, johannes@sipsolutions.net,
+	Joshua Clayton <stillcompiling@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Arnd Bergmann <arnd@arndb.de>
+To: Troy Kisky <troy.kisky@boundarydevices.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41646 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751099AbcCAVGH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 16:06:07 -0500
-In-Reply-To: <20160226154858.5338.90569.stgit@john-Precision-Tower-5810>
+Received: from mail-ob0-f195.google.com ([209.85.214.195]:35657 "EHLO
+	mail-ob0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751099AbcCAVGl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 16:06:41 -0500
+Received: by mail-ob0-f195.google.com with SMTP id qg3so1446159obc.2
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 13:06:40 -0800 (PST)
+In-Reply-To: <1456360619-24390-4-git-send-email-troy.kisky@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Fri, 26 Feb 2016 07:53:26 -0800
+On Wed, Feb 24, 2016 at 6:36 PM, Troy Kisky
+<troy.kisky@boundarydevices.com> wrote:
+> queue_id is the qid member of struct bufdesc_prop.
+>
+> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c | 17 ++++++-----------
+>  1 file changed, 6 insertions(+), 11 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 9619b9e..c517194 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1156,25 +1156,18 @@ fec_enet_hwtstamp(struct fec_enet_private *fep, unsigned ts,
+>         hwtstamps->hwtstamp = ns_to_ktime(ns);
+>  }
+>
+> -static void
+> -fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
+> +static void fec_txq(struct net_device *ndev, struct fec_enet_private *fep,
+> +                   struct fec_enet_priv_tx_q *txq)
 
-> This adds a software only flag to tc but incorporates a bunch of comments
-> from the original attempt at this.
-> 
-> First instead of having the offload decision logic be embedded in cls_u32
-> I lifted into cls_pkt.h so it can be used anywhere and named the flag
-> TCA_CLS_FLAGS_SKIP_HW (Thanks Jiri ;)
-> 
-> In order to do this I put the flag defines in pkt_cls.h as well. However
-> it was suggested that perhaps these flags could be lifted into the
-> upper layer of TCA_ as well but I'm afraid this can not be done with
-> existing tc design as far as I can tell. The problem is the filters are
-> packed and unpacked in the classifier specific code and pushing the flags
-> through the high level doesn't seem easily doable. And we already have
-> this design where classifiers handle generic options such as actions and
-> policers. So I think adding one more thing here is OK as 'tc', et. al.
-> already know how to handle this type of thing.
+you can get fep from ndev.
 
-Series applied, thanks John.
+best regards
+Frank Li
+
+>  {
+> -       struct  fec_enet_private *fep;
+>         struct bufdesc *bdp;
+>         unsigned short status;
+>         struct  sk_buff *skb;
+> -       struct fec_enet_priv_tx_q *txq;
+>         struct netdev_queue *nq;
+>         int     index = 0;
+>         int     entries_free;
+>
+> -       fep = netdev_priv(ndev);
+> -
+> -       queue_id = FEC_ENET_GET_QUQUE(queue_id);
+> -
+> -       txq = fep->tx_queue[queue_id];
+>         /* get next bdp of dirty_tx */
+> -       nq = netdev_get_tx_queue(ndev, queue_id);
+> +       nq = netdev_get_tx_queue(ndev, txq->bd.qid);
+>         bdp = txq->dirty_tx;
+>
+>         /* get next bdp of dirty_tx */
+> @@ -1268,11 +1261,13 @@ static void
+>  fec_enet_tx(struct net_device *ndev)
+>  {
+>         struct fec_enet_private *fep = netdev_priv(ndev);
+> +       struct fec_enet_priv_tx_q *txq;
+>         u16 queue_id;
+>         /* First process class A queue, then Class B and Best Effort queue */
+>         for_each_set_bit(queue_id, &fep->work_tx, FEC_ENET_MAX_TX_QS) {
+>                 clear_bit(queue_id, &fep->work_tx);
+> -               fec_enet_tx_queue(ndev, queue_id);
+> +               txq = fep->tx_queue[FEC_ENET_GET_QUQUE(queue_id)];
+> +               fec_txq(ndev, fep, txq);
+>         }
+>         return;
+>  }
+> --
+> 2.5.0
+>
