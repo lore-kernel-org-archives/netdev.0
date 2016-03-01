@@ -1,93 +1,47 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V3 6/9] net/mlx5e: Don't try to modify CQ moderation if it is not supported
-Date: Wed,  2 Mar 2016 00:13:37 +0200
-Message-ID: <1456870420-23655-7-git-send-email-saeedm@mellanox.com>
-References: <1456870420-23655-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] wan: lmc: Switch to using managed resources
+Date: Tue, 01 Mar 2016 17:21:53 -0500 (EST)
+Message-ID: <20160301.172153.99852560992201587.davem@davemloft.net>
+References: <20160227170416.GA1339@amitoj-Inspiron-3542>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	julia.lawall@lip6.fr
+To: amitoj1606@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59489 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752152AbcCAWWH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2016 17:22:07 -0500
-In-Reply-To: <1456870420-23655-1-git-send-email-saeedm@mellanox.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42647 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752010AbcCAWVz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 17:21:55 -0500
+In-Reply-To: <20160227170416.GA1339@amitoj-Inspiron-3542>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gal Pressman <galp@mellanox.com>
+From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Date: Sat, 27 Feb 2016 22:34:16 +0530
 
-If CQ moderation is not supported by the device, print a warning on
-netdevice load, and return error when trying to modify/query cq
-moderation via ethtool.
+> @@ -835,23 +835,20 @@ static int lmc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	err = pci_request_regions(pdev, "lmc");
+>  	if (err) {
+>  		printk(KERN_ERR "lmc: pci_request_region failed\n");
+> -		goto err_req_io;
+> +		return err;
+>  	}
+>  
+>  	/*
+>  	 * Allocate our own device structure
+>  	 */
+> -	sc = kzalloc(sizeof(lmc_softc_t), GFP_KERNEL);
+> -	if (!sc) {
+> -		err = -ENOMEM;
+> -		goto err_kzalloc;
 
-Fixes: f62b8bb8f2d3 ('net/mlx5: Extend mlx5_core to support ConnectX-4
-Ethernet functionality')
-Signed-off-by: Gal Pressman <galp@mellanox.com>
+You can't get rid of the error paths from here on out, because you still need to
+release the PCI regions obtained from pci_request_regions() above.
 
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |    6 ++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   12 ++++++------
- 2 files changed, 12 insertions(+), 6 deletions(-)
+To be quite honest, unless you are fixing real bugs, managed resource
+converstions are more likely to add bugs than do anything truly
+useful.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 577b4b1..a1b3bb4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -400,6 +400,9 @@ static int mlx5e_get_coalesce(struct net_device *netdev,
- {
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
- 
-+	if (!MLX5_CAP_GEN(priv->mdev, cq_moderation))
-+		return -ENOTSUPP;
-+
- 	coal->rx_coalesce_usecs       = priv->params.rx_cq_moderation_usec;
- 	coal->rx_max_coalesced_frames = priv->params.rx_cq_moderation_pkts;
- 	coal->tx_coalesce_usecs       = priv->params.tx_cq_moderation_usec;
-@@ -417,6 +420,9 @@ static int mlx5e_set_coalesce(struct net_device *netdev,
- 	int tc;
- 	int i;
- 
-+	if (!MLX5_CAP_GEN(mdev, cq_moderation))
-+		return -ENOTSUPP;
-+
- 	priv->params.tx_cq_moderation_usec = coal->tx_coalesce_usecs;
- 	priv->params.tx_cq_moderation_pkts = coal->tx_max_coalesced_frames;
- 	priv->params.rx_cq_moderation_usec = coal->rx_coalesce_usecs;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 30fd971..b20a35b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -870,12 +870,10 @@ static int mlx5e_open_cq(struct mlx5e_channel *c,
- 	if (err)
- 		goto err_destroy_cq;
- 
--	err = mlx5_core_modify_cq_moderation(mdev, &cq->mcq,
--					     moderation_usecs,
--					     moderation_frames);
--	if (err)
--		goto err_destroy_cq;
--
-+	if (MLX5_CAP_GEN(mdev, cq_moderation))
-+		mlx5_core_modify_cq_moderation(mdev, &cq->mcq,
-+					       moderation_usecs,
-+					       moderation_frames);
- 	return 0;
- 
- err_destroy_cq:
-@@ -2218,6 +2216,8 @@ static int mlx5e_check_required_hca_cap(struct mlx5_core_dev *mdev)
- 	}
- 	if (!MLX5_CAP_ETH(mdev, self_lb_en_modifiable))
- 		mlx5_core_warn(mdev, "Self loop back prevention is not supported\n");
-+	if (!MLX5_CAP_GEN(mdev, cq_moderation))
-+		mlx5_core_warn(mdev, "CQ modiration is not supported\n");
- 
- 	return 0;
- }
--- 
-1.7.1
+I strongly consider you just drop this change.
