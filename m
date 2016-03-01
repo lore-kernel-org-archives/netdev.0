@@ -1,39 +1,70 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 2/2] arm64: dts: r8a7795: Add CAN support
-Date: Wed, 2 Mar 2016 09:25:27 +0900
-Message-ID: <20160302002527.GG17986@verge.net.au>
-References: <1456737661-20538-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <1456737661-20538-3-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC] net: Fix race condition when removing qdisc
+Date: Tue, 01 Mar 2016 15:56:52 -0800
+Message-ID: <1456876612.648.108.camel@edumazet-ThinkPad-T530>
+References: <1456874197-3036009-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mkl@pengutronix.de, wg@grandegger.com, magnus.damm@gmail.com,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	linux-renesas-soc@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-can@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, chris.paterson2@renesas.com
-To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, brakmo@fb.com, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:52146 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752314AbcCBAZc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 19:25:32 -0500
-Content-Disposition: inline
-In-Reply-To: <1456737661-20538-3-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:36315 "EHLO
+	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756121AbcCAX4z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 18:56:55 -0500
+Received: by mail-pf0-f179.google.com with SMTP id l6so24468247pfl.3
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 15:56:54 -0800 (PST)
+In-Reply-To: <1456874197-3036009-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 29, 2016 at 09:21:01AM +0000, Ramesh Shanmugasundaram wrote:
-> Adds CAN controller nodes for r8a7795.
+On mar., 2016-03-01 at 15:16 -0800, Tom Herbert wrote:
+> We are seeing a number of softlockups occurring with HTB upon removing
+> the qdisc. We are still attempting to repro the exact circumstances,
+> however looking at the code I'm very suspicious of this block in
+> net_tx_action and its interaction with dev_deactivate (called through
+> tc_modify_qdisc):
 > 
-> Note: CAN channel register base address mentioned in R-Car Gen3 Hardware
-> User Manual v0.5E is incorrect. The corrected base addresses are:
+>        if (!test_bit(__QDISC_STATE_DEACTIVATED,
+> 		     &q->state)) {
+> 	       __netif_reschedule(q);
+>        } else {
+> 	       smp_mb__before_atomic();
+> 	       clear_bit(__QDISC_STATE_SCHED,
+> 			 &q->state);
+>        }
 > 
-> CAN Channel 0 - 0xe6c30000
-> CAN Channel 1 - 0xe6c38000
+> I think the following scenario could lead to badness:
 > 
-> Signed-off-by: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+> 0) net_tx_action spin_trylock fails, taking non-locked block
+> 1) net_tx_action checks for __QDISC_STATE_DEACTIVATED, it's not set
+>    at this point
+> 2) dev_deactive has lock and sets __QDISC_STATE_DEACTIVATED
+> 3) dev_deactivate_many performs some_qdisc_is_busy(dev), neither
+>    __QDISC_STATE_SCHED nor __QDISC_STATE_BUSY are set at this
+>   point, so some_qdisc_busy fails (not seen as busy)
 
-I have deferred this patch pending acceptance of the bindings
-(basically patch 1/2). Please repost this patch or ping me once
-that has happened.
+But __QDISC_STATE_SCHED should be set.
+
+It is cleared only if __QDISC_STATE_DEACTIVATED has been caught in
+net_tx_action()
+
+> 4) net_tx_action sets __QDISC_STATE_SCHED
+
+When qdisc is put again in output_queue, __QDISC_STATE_SCHED is left as
+-is (set)
+
+
+> 
+> At this point dev_deactivate_many finishes so the qdisc may
+> be freed in the tc_modify_qdisc path, however the qdisc is
+> also "successfully" rescheduled to run by net_tx_action.
+> 
+> The propsed fix for this is to eliminate the spin_trylock in
+> net_tx_action and always take the lock.
+
+
+I know why you want to get rid of this trylock(), it is only the
+changelog I find confusing. I do not see how it is going to help your
+softlockups.
