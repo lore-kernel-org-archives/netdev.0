@@ -1,47 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] Convert network timestamps to be y2038 safe
-Date: Tue, 01 Mar 2016 17:19:03 -0500 (EST)
-Message-ID: <20160301.171903.834892722970175631.davem@davemloft.net>
-References: <1456561938-7653-1-git-send-email-deepa.kernel@gmail.com>
+Subject: Re: [net-next-2.6 v4 0/3] net_sched: Add support for IFE action
+Date: Tue, 01 Mar 2016 17:19:19 -0500 (EST)
+Message-ID: <20160301.171919.1388150767825378356.davem@davemloft.net>
+References: <1456578536-17732-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, y2038@lists.linaro.org, arnd@arndb.de,
-	vyasevich@gmail.com, nhorman@tuxdriver.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-sctp@vger.kernel.org
-To: deepa.kernel@gmail.com
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	daniel@iogearbox.net
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42600 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42614 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbcCAWTG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 17:19:06 -0500
-In-Reply-To: <1456561938-7653-1-git-send-email-deepa.kernel@gmail.com>
+	with ESMTP id S1751127AbcCAWTV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 17:19:21 -0500
+In-Reply-To: <1456578536-17732-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Deepa Dinamani <deepa.kernel@gmail.com>
-Date: Sat, 27 Feb 2016 00:32:14 -0800
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Sat, 27 Feb 2016 08:08:53 -0500
 
-> Introduction:
-> 
-> The series is aimed at transitioning network timestamps to being
-> y2038 safe.
-> All patches can be reviewed and merged independently.
-> 
-> Socket timestamps and ioctl calls will be handled separately.
-> 
-> Thanks to Arnd Bergmann for discussing solution options with me.
-> 
-> Solution:
-> 
-> Data type struct timespec is not y2038 safe.
-> Replace timespec with struct timespec64 which is y2038 safe.
-> 
-> Changes v1 -> v2: 
->   Move and rename inet_current_time() as discussed
->   Squash patches 1 and 2
->   Reword commit text for patch 2/3
->   Carry over review tags
+> As agreed at netconf in Seville, here's the patch finally (1 year
+> was just too long to wait for an ethertype. Now we are just going
+> have the user configure one).
+> Described in netdev01 paper:
+>             "Distributing Linux Traffic Control Classifier-Action Subsystem"
+>              Authors: Jamal Hadi Salim and Damascene M. Joachimpillai
 
-Series applied to net-next, thanks.
+Series applied, thanks Jamal.
