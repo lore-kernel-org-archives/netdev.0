@@ -1,33 +1,46 @@
-From: Scott Wood <scott.wood@nxp.com>
-Subject: Re: [PATCH] fsl/fman: remove dTSEC-A003 Errata workaround
-Date: Mon, 29 Feb 2016 23:30:59 +0000
-Message-ID: <DB5PR0401MB19282E4987BDCEBBBF7EBCC591BA0@DB5PR0401MB1928.eurprd04.prod.outlook.com>
-References: <1456696781-32384-1-git-send-email-igal.liberman@freescale.com>
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: linux-next: manual merge of the target-merge tree with the
+ net-next tree
+Date: Mon, 29 Feb 2016 21:39:33 -0800
+Message-ID: <1456810773.19657.197.camel@haakon3.risingtidesystems.com>
+References: <20160229173911.4fabe3f8@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "scottwood@freescale.com" <scottwood@freescale.com>,
-	"madalin.bucur@freescale.com" <madalin.bucur@freescale.com>
-To: "igal.liberman@freescale.com" <igal.liberman@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0066.outbound.protection.outlook.com ([157.55.234.66]:51040
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750736AbcCADGG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Feb 2016 22:06:06 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hariprasad Shenai <hariprasad@chelsio.com>,
+	Varun Prakash <varun@chelsio.com>,
+	target-devel <target-devel@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20160229173911.4fabe3f8@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/29/2016 09:17 AM, igal.liberman@freescale.com wrote:
-> From: Igal Liberman <igal.liberman@freescale.com>
+On Mon, 2016-02-29 at 17:39 +1100, Stephen Rothwell wrote:
+> Hi Nicholas,
 > 
-> Errata dTSEC-A003 was fixed in P4080 rev 3.0.
-> Prior revisions are not supported, so the workaround can be removed.
+> Today's linux-next merge of the target-merge tree got a conflict in:
 > 
-> Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
+>   drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+> 
+> between commit:
+> 
+>   ba9cee6aa67d ("cxgb4/iw_cxgb4: TOS support")
+> 
+> from the net-next tree and commit:
+> 
+>   c973e2a3ff1b ("cxgb4: add definitions for iSCSI target ULD")
+> 
+> from the target-merge tree.
+> 
+> I fixed it up (the latter was a superset of the former) and can carry
+> the fix as necessary (no action is required).
+> 
 
-Since when do we not support p4080 rev 2?
+Thanks Stephen.
 
--Scott
+I'll include a note to Linus in target-pending/for-next-merge PULL
+request, and will plan to wait until after DaveM's net-next is merged
+for v4.6-rc0.
