@@ -1,51 +1,40 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] [BACKPORT] [3.14.56] bnx2x: Don't notify about scratchpad parities
-Date: Tue, 01 Mar 2016 06:25:45 +0000
-Message-ID: <20160301062544.GG3200@kroah.com>
-References: <2866398.tTChUFNQ37@rofl> <20151106173246.GA6771@kroah.com> <1686003.8SMzEu8fpg@rofl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: Patrick Schaaf <netdev@bof.de>
+From: John Holland <jotihojr@gmail.com>
+Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on i211 using a device tree blob V5
+Date: Tue, 1 Mar 2016 07:56:23 +0100
+Message-ID: <DC20A3D2-95E2-420B-911D-C6AC02338227@gmail.com>
+References: <56C5A6BC.6030708@gmail.com> <309B89C4C689E141A5FF6A0C5FB2118B81EA731A@ORSMSX101.amr.corp.intel.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Brown, Aaron F" <aaron.f.brown@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail177-1.suw61.mandrillapp.com ([198.2.177.1]:5025 "EHLO
-	mail177-1.suw61.mandrillapp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750771AbcCAGZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 01:25:46 -0500
-Received: from pmta06.mandrill.prod.suw01.rsglab.com (127.0.0.1) by mail177-1.suw61.mandrillapp.com id hqkquk22rtkt for <netdev@vger.kernel.org>; Tue, 1 Mar 2016 06:25:45 +0000 (envelope-from <bounce-md_30481620.56d535e9.v1-b39ff37ee88949d5b67a6f6a01bb11ef@mandrillapp.com>)
-In-Reply-To: <1686003.8SMzEu8fpg@rofl>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:37883 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752083AbcCAG40 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 01:56:26 -0500
+Received: by mail-wm0-f42.google.com with SMTP id p65so19700470wmp.0
+        for <netdev@vger.kernel.org>; Mon, 29 Feb 2016 22:56:25 -0800 (PST)
+In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B81EA731A@ORSMSX101.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 10, 2015 at 02:37:34PM +0100, Patrick Schaaf wrote:
-> On Friday 06 November 2015 09:32:46 Greg KH wrote:
-> > On Thu, Nov 05, 2015 at 11:18:37AM +0100, Patrick Schaaf wrote:
-> > > bnx2x: Don't notify about scratchpad parities
-> > > 
-> > > This is a (trivial) "backport" of ad6afbe9578d1fa26680faf78c846bd8c00d1d6e
-> > > to stable kernel 3.14.56.
-> > 
-> > This patch isn't in 4.1 either, do you want it there as well?
-> 
-> Hi Greg,
-> 
-> I didn't see the patch in 3.14.57 or 3.14.58 - could you please consider it 
-> again (for all stable kernels that don't have it)?
-> 
-> My three machines with bnx2x interfaces have been running file with patch 
-> 3.14.56, for the last 35 days. The original problematic event (spewing a 
-> million messages which are suppressed by that patch), did not reoccur so far 
-> (neither did any other issue, dmesg is completely empty since boot).
-> 
-> best regards
->   Patrick
-> 
-> Related earlier posts / reports, for reference:
-> 
-> http://marc.info/?l=linux-netdev&m=144663711626469
-> http://lists.openwall.net/netdev/2015/11/05/48
+On Mar 1, 2016, at 03:52, Brown, Aaron F <aaron.f.brown@intel.com> wrote:
 
-Sorry for the long delay, now queued up.
+> This throws a few checkpatch warnings, but I won't withhold my tested by for these:
+> 
+> total: 0 errors, 2 warnings, 0 checks, 21 lines checked
+> 
+> Your patch has style problems, please review.
+> 
+> NOTE: If any of the errors are false positives, please report
+>      them to the maintainer, see CHECKPATCH in MAINTAINERS.
+> u1463:[0]/usr/src/kernels/next-queue>
 
-greg k-h
+Thanks for testing...
+
+Do you require me to reformat the patch text? And won't that break the link?
+
+John
