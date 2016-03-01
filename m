@@ -1,74 +1,47 @@
-From: Brian Russell <brussell@brocade.com>
-Subject: [PATCH net-next v3 0/3] NSH and VxLAN-GPE
-Date: Tue, 1 Mar 2016 11:11:46 +0000
-Message-ID: <1456830709-32052-1-git-send-email-brussell@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 0/5] cxgb4/cxgb4vf: Cleanup and minor fixes
+Date: Tue,  1 Mar 2016 17:19:31 +0530
+Message-ID: <1456832976-12840-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, nirranjan@chelsio.com, leedom@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:58964 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752688AbcCALMI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 06:12:08 -0500
-Received: from pps.filterd (m0000700.ppops.net [127.0.0.1])
-	by mx0b-000f0801.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u21B5w3E029033
-	for <netdev@vger.kernel.org>; Tue, 1 Mar 2016 03:12:06 -0800
-Received: from brmwp-exmb11.corp.brocade.com ([208.47.132.227])
-	by mx0b-000f0801.pphosted.com with ESMTP id 21baa5frhx-2
-	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 03:12:05 -0800
+Received: from stargate.chelsio.com ([12.32.117.8]:29232 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752680AbcCALqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 06:46:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches add a new module to support encap/decap of Network
-Service Header (NSH) as defined in:
+Hi
 
-https://tools.ietf.org/html/draft-ietf-sfc-nsh-01
+This series sets FBMIN to 64 bytes for Chelsio's T6 series of adapters,
+check to replenish fl is revised, some code cleanup in cxgb4vf sge
+initialization code and removes dead code. 
 
-Both NSH Type 1 and Type 2 metadata are supported with a simple registration
-hook to allow listeners to register to see packets with Type 1 or a specific
-class of Type 2 metadata. NSH could be added to packets sent over a variety
-of link types, eg. VxLAN, GRE, ethernet.
+This patch series has been created against net-next tree and includes
+patches on cxgb4 and cxgb4vf driver.
 
-v2 - fix copyright notices and tidy up use of types
+We have included all the maintainers of respective drivers. Kindly review
+the change and let us know in case of any review comments.
 
-v3 - fix various style issues in nsh module
-     remove VxLAN-GPE changes
-     add nsh logging module as example
-     add nsh netfilter encap target as example
+Thanks
 
-The previous version included mods to allow NSH over VxLAN-GPE but I've
-withdrawn this as VxLAN-GPE is currently being added in a much more complete
-patchset. My intention would be to add NSH support on top of that once it's
-applied.
 
-I've added the NSH logging module to illustrate the use of the simple
-mechanism to register for incoming decap'd NSH metadata.
+Hariprasad Shenai (5):
+  cxgb4/cxgb4vf: Use fl capacity to check if fl needs to be replenished
+  cxgb4/cxgb4vf: For T6 adapter, set FBMIN to 64 bytes
+  cxgb4vf: Make sge init code more readable
+  cxgb4vf: Remove redundant adapter ready check during probe
+  cxgb4vf: Remove dead functions collect_netdev_[um]c_list_addrs
 
-I've added the NSH netfilter target to illustrate metadata being NSH
-encap'd.
-
-Brian Russell (3):
-  nsh: encapsulation module
-  nsh: logging module
-  nsh: netfilter target
-
- include/net/nsh.h                     | 147 +++++++++++++++
- include/uapi/linux/if_ether.h         |   1 +
- include/uapi/linux/netfilter/xt_NSH.h |  25 +++
- net/ipv4/Kconfig                      |  18 ++
- net/ipv4/Makefile                     |   2 +
- net/ipv4/nsh.c                        | 335 ++++++++++++++++++++++++++++++++++
- net/ipv4/nsh_log.c                    | 135 ++++++++++++++
- net/netfilter/Kconfig                 |   9 +
- net/netfilter/Makefile                |   1 +
- net/netfilter/xt_NSH.c                |  95 ++++++++++
- 10 files changed, 768 insertions(+)
- create mode 100644 include/net/nsh.h
- create mode 100644 include/uapi/linux/netfilter/xt_NSH.h
- create mode 100644 net/ipv4/nsh.c
- create mode 100644 net/ipv4/nsh_log.c
- create mode 100644 net/netfilter/xt_NSH.c
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           | 14 +++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_values.h     |  1 +
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    | 56 ----------------------
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c         | 55 +++++++--------------
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |  1 +
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     | 55 +++++++++++++++++++++
+ 6 files changed, 85 insertions(+), 97 deletions(-)
 
 -- 
-2.1.4
+2.3.4
