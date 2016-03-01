@@ -1,111 +1,133 @@
 From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next 8/8] net/mlx5e: Support offload cls_flower with sskbedit mark action
-Date: Tue,  1 Mar 2016 16:24:50 +0200
-Message-ID: <1456842290-7844-9-git-send-email-amir@vadai.me>
+Subject: [PATCH net-next 4/8] net/mlx5_core: Set flow steering dest only for forward rules
+Date: Tue,  1 Mar 2016 16:24:46 +0200
+Message-ID: <1456842290-7844-5-git-send-email-amir@vadai.me>
 References: <1456842290-7844-1-git-send-email-amir@vadai.me>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	John Fastabend <john.r.fastabend@intel.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
 	Hadar Har-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>, Amir Vadai <amir@vadai.me>
+	Jiri Pirko <jiri@mellanox.com>, Amir Vadai <amir@vadai.me>,
+	Maor Gottlieb <maorg@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35045 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754076AbcCAOVz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 09:21:55 -0500
-Received: by mail-wm0-f66.google.com with SMTP id 1so4351327wmg.2
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 06:21:54 -0800 (PST)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34943 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753859AbcCAOVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 09:21:45 -0500
+Received: by mail-wm0-f65.google.com with SMTP id 1so4350614wmg.2
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 06:21:44 -0800 (PST)
 In-Reply-To: <1456842290-7844-1-git-send-email-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce offloading of skbedit mark action.
+We need to handle flow table entry destinations only if the action
+associated with the rule is forwarding (MLX5_FLOW_CONTEXT_ACTION_FWD_DEST).
 
-For example, to mark with 0x1234, all TCP (ip_proto 6) packets arriving
-to interface ens9:
-
- # tc qdisc add dev ens9 ingress
- # tc filter add dev ens9 protocol ip parent ffff: \
-     flower ip_proto 6 \
-     indev ens9 \
-     action skbedit mark 0x1234
-
+Fixes: 26a8145390b3 ('net/mlx5_core: Introduce flow steering firmware commands')
 Signed-off-by: Amir Vadai <amir@vadai.me>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c |  3 +++
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 16 ++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.h |  2 ++
- 3 files changed, 21 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c  | 29 +++++++++++++----------
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 18 +++++++++-----
+ 2 files changed, 28 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 519a07f..f293afe 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -35,6 +35,7 @@
- #include <linux/tcp.h>
- #include <net/busy_poll.h>
- #include "en.h"
-+#include "en_tc.h"
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+index a9894d2..f46f1db 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+@@ -218,19 +218,22 @@ static int mlx5_cmd_set_fte(struct mlx5_core_dev *dev,
+ 				      match_value);
+ 	memcpy(in_match_value, &fte->val, MLX5_ST_SZ_BYTES(fte_match_param));
  
- static inline bool mlx5e_rx_hw_stamp(struct mlx5e_tstamp *tstamp)
- {
-@@ -224,6 +225,8 @@ static inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
- 	if (cqe_has_vlan(cqe))
- 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
- 				       be16_to_cpu(cqe->vlan_info));
+-	in_dests = MLX5_ADDR_OF(flow_context, in_flow_context, destination);
+-	list_for_each_entry(dst, &fte->node.children, node.list) {
+-		unsigned int id;
+-
+-		MLX5_SET(dest_format_struct, in_dests, destination_type,
+-			 dst->dest_attr.type);
+-		if (dst->dest_attr.type ==
+-		    MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE)
+-			id = dst->dest_attr.ft->id;
+-		else
+-			id = dst->dest_attr.tir_num;
+-		MLX5_SET(dest_format_struct, in_dests, destination_id, id);
+-		in_dests += MLX5_ST_SZ_BYTES(dest_format_struct);
++	if (fte->action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
++		in_dests = MLX5_ADDR_OF(flow_context, in_flow_context, destination);
++		list_for_each_entry(dst, &fte->node.children, node.list) {
++			unsigned int id;
 +
-+	skb->mark = be32_to_cpu(cqe->sop_drop_qpn) & MLX5E_TC_FLOW_ID_MASK;
++			MLX5_SET(dest_format_struct, in_dests, destination_type,
++				 dst->dest_attr.type);
++			if (dst->dest_attr.type ==
++			    MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE) {
++				id = dst->dest_attr.ft->id;
++			} else {
++				id = dst->dest_attr.tir_num;
++			}
++			MLX5_SET(dest_format_struct, in_dests, destination_id, id);
++			in_dests += MLX5_ST_SZ_BYTES(dest_format_struct);
++		}
+ 	}
+ 	memset(out, 0, sizeof(out));
+ 	err = mlx5_cmd_exec_check_status(dev, in, inlen, out,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 6f68dba..f0e67d2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -360,8 +360,8 @@ static void del_rule(struct fs_node *node)
+ 	memcpy(match_value, fte->val, sizeof(fte->val));
+ 	fs_get_obj(ft, fg->node.parent);
+ 	list_del(&rule->node.list);
+-	fte->dests_size--;
+-	if (fte->dests_size) {
++	if ((fte->action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) &&
++	    --fte->dests_size) {
+ 		err = mlx5_cmd_update_fte(dev, ft,
+ 					  fg->id, fte);
+ 		if (err)
+@@ -763,7 +763,8 @@ static struct mlx5_flow_rule *alloc_rule(struct mlx5_flow_destination *dest)
+ 		return NULL;
+ 
+ 	rule->node.type = FS_TYPE_FLOW_DEST;
+-	memcpy(&rule->dest_attr, dest, sizeof(*dest));
++	if (dest)
++		memcpy(&rule->dest_attr, dest, sizeof(*dest));
+ 
+ 	return rule;
+ }
+@@ -785,8 +786,9 @@ static struct mlx5_flow_rule *add_rule_fte(struct fs_fte *fte,
+ 	/* Add dest to dests list- added as first element after the head */
+ 	tree_init_node(&rule->node, 1, del_rule);
+ 	list_add_tail(&rule->node.list, &fte->node.children);
+-	fte->dests_size++;
+-	if (fte->dests_size == 1)
++	if (dest)
++		fte->dests_size++;
++	if (fte->dests_size == 1 || !dest)
+ 		err = mlx5_cmd_create_fte(get_dev(&ft->node),
+ 					  ft, fg->id, fte);
+ 	else
+@@ -802,7 +804,8 @@ static struct mlx5_flow_rule *add_rule_fte(struct fs_fte *fte,
+ free_rule:
+ 	list_del(&rule->node.list);
+ 	kfree(rule);
+-	fte->dests_size--;
++	if (dest)
++		fte->dests_size--;
+ 	return ERR_PTR(err);
  }
  
- int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 8fee983..22ab439 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -33,6 +33,7 @@
- #include <net/flow_dissector.h>
- #include <net/pkt_cls.h>
- #include <net/tc_act/tc_gact.h>
-+#include <net/tc_act/tc_skbedit.h>
- #include <linux/mlx5/fs.h>
- #include <linux/mlx5/device.h>
- #include <linux/rhashtable.h>
-@@ -287,6 +288,21 @@ static int parse_tc_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
- 			continue;
- 		}
+@@ -996,6 +999,9 @@ mlx5_add_flow_rule(struct mlx5_flow_table *ft,
+ 	struct mlx5_flow_group *g;
+ 	struct mlx5_flow_rule *rule;
  
-+		if (is_tcf_skbedit_mark(a)) {
-+			u32 mark = tcf_skbedit_mark(a);
++	if ((action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) && !dest)
++		return ERR_PTR(-EINVAL);
 +
-+			if (mark & ~MLX5E_TC_FLOW_ID_MASK) {
-+				netdev_warn(priv->netdev,
-+					    "Bad flow mark - only 16 bit is supported: 0x%x\n",
-+					    mark);
-+				return -EINVAL;
-+			}
-+
-+			*flow_tag = mark;
-+			*action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
-+			continue;
-+		}
-+
- 		return -EINVAL;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
-index f1e7180..155e9bd 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
-@@ -33,6 +33,8 @@
- #ifndef __MLX5_EN_TC_H__
- #define __MLX5_EN_TC_H__
- 
-+#define MLX5E_TC_FLOW_ID_MASK 0x0000ffff
-+
- void mlx5e_tc_init(struct mlx5e_priv *priv);
- void mlx5e_tc_cleanup(struct mlx5e_priv *priv);
- 
+ 	nested_lock_ref_node(&ft->node, FS_MUTEX_GRANDPARENT);
+ 	fs_for_each_fg(g, ft)
+ 		if (compare_match_criteria(g->mask.match_criteria_enable,
 -- 
 2.7.0
