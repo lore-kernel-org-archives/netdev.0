@@ -1,100 +1,58 @@
-From: Zhi Li <lznuaa@gmail.com>
-Subject: Re: [PATCH net-next V2 03/16] net: fec: pass txq to fec_enet_tx_queue
- instead of queue_id
-Date: Tue, 1 Mar 2016 15:06:40 -0600
-Message-ID: <CAHrpEqSyuToC6QFEZygO0YyA=gV2cZEtkpRJMeZFOjhgTLdexQ@mail.gmail.com>
-References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
-	<1456360619-24390-4-git-send-email-troy.kisky@boundarydevices.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] can: rcar_canfd: Add Renesas R-Car CAN FD driver
+Date: Tue, 1 Mar 2016 22:07:18 +0100
+Message-ID: <56D60486.1000102@hartkopp.net>
+References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Duan Fugang-B38611 <B38611@freescale.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Andrew Lunn <andrew@lunn.ch>, tremyfr@gmail.com,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>, laci@boundarydevices.com,
-	Shawn Guo <shawnguo@kernel.org>, johannes@sipsolutions.net,
-	Joshua Clayton <stillcompiling@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Arnd Bergmann <arnd@arndb.de>
-To: Troy Kisky <troy.kisky@boundarydevices.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f195.google.com ([209.85.214.195]:35657 "EHLO
-	mail-ob0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751099AbcCAVGl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 16:06:41 -0500
-Received: by mail-ob0-f195.google.com with SMTP id qg3so1446159obc.2
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 13:06:40 -0800 (PST)
-In-Reply-To: <1456360619-24390-4-git-send-email-troy.kisky@boundarydevices.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-renesas-soc@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, geert+renesas@glider.be,
+	chris.paterson2@renesas.com
+To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>,
+	mkl@pengutronix.de, wg@grandegger.com, robh+dt@kernel.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org, corbet@lwn.net
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 24, 2016 at 6:36 PM, Troy Kisky
-<troy.kisky@boundarydevices.com> wrote:
-> queue_id is the qid member of struct bufdesc_prop.
->
-> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 17 ++++++-----------
->  1 file changed, 6 insertions(+), 11 deletions(-)
->
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> index 9619b9e..c517194 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1156,25 +1156,18 @@ fec_enet_hwtstamp(struct fec_enet_private *fep, unsigned ts,
->         hwtstamps->hwtstamp = ns_to_ktime(ns);
->  }
->
-> -static void
-> -fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
-> +static void fec_txq(struct net_device *ndev, struct fec_enet_private *fep,
-> +                   struct fec_enet_priv_tx_q *txq)
 
-you can get fep from ndev.
 
-best regards
-Frank Li
+On 03/01/2016 10:34 AM, Ramesh Shanmugasundaram wrote:
+> This patch adds support for the CAN FD controller found in Renesas R-Car
+> SoCs. The controller operates in CAN FD mode by default. Two test modes
+> are available and can be enabled by the "rcar_canfd.testmode" module
+> parameter. Refer to Documentation/kernel-parameters.txt.
 
->  {
-> -       struct  fec_enet_private *fep;
->         struct bufdesc *bdp;
->         unsigned short status;
->         struct  sk_buff *skb;
-> -       struct fec_enet_priv_tx_q *txq;
->         struct netdev_queue *nq;
->         int     index = 0;
->         int     entries_free;
->
-> -       fep = netdev_priv(ndev);
-> -
-> -       queue_id = FEC_ENET_GET_QUQUE(queue_id);
-> -
-> -       txq = fep->tx_queue[queue_id];
->         /* get next bdp of dirty_tx */
-> -       nq = netdev_get_tx_queue(ndev, queue_id);
-> +       nq = netdev_get_tx_queue(ndev, txq->bd.qid);
->         bdp = txq->dirty_tx;
->
->         /* get next bdp of dirty_tx */
-> @@ -1268,11 +1261,13 @@ static void
->  fec_enet_tx(struct net_device *ndev)
->  {
->         struct fec_enet_private *fep = netdev_priv(ndev);
-> +       struct fec_enet_priv_tx_q *txq;
->         u16 queue_id;
->         /* First process class A queue, then Class B and Best Effort queue */
->         for_each_set_bit(queue_id, &fep->work_tx, FEC_ENET_MAX_TX_QS) {
->                 clear_bit(queue_id, &fep->work_tx);
-> -               fec_enet_tx_queue(ndev, queue_id);
-> +               txq = fep->tx_queue[FEC_ENET_GET_QUQUE(queue_id)];
-> +               fec_txq(ndev, fep, txq);
->         }
->         return;
->  }
-> --
-> 2.5.0
->
+(..)
+
+> +#ifdef CONFIG_DEBUG_FS
+> +#include <linux/debugfs.h>
+> +
+> +static int rcar_canfd_showregs(struct seq_file *s, void *data)
+> +{
+> +	struct rcar_canfd_channel *priv = s->private;
+> +	u32 ch = priv->channel;
+> +	u32 rf = ch + RCANFD_RFFIFO_IDX;
+> +	u32 cf = RCANFD_CFFIFO_IDX;
+> +	u32 val, offset, i;
+> +
+> +	if (testmode)
+> +		seq_printf(s, "RCANFD : testmode = %d\n", testmode);
+> +	seq_printf(s, "RCANFD register dump: channel %u\n", ch);
+> +	seq_printf(s, "%-40s: %x\n", "g: cfg",
+> +		   rcar_canfd_read(priv, RCANFD_GCFG));
+
+Why do you think you would need this kind of register dumps in debugfs?
+
+This could be interesting for development purposes - but in production drivers
+this is pretty unusual and needless.
+
+I would sugest to remove either the testmode (already suggested by Marc) and
+this register dump stuff.
+
+Regards,
+Oliver
