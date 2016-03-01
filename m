@@ -1,31 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 v4 0/3] net_sched: Add support for IFE action
-Date: Tue, 01 Mar 2016 17:19:19 -0500 (EST)
-Message-ID: <20160301.171919.1388150767825378356.davem@davemloft.net>
-References: <1456578536-17732-1-git-send-email-jhs@emojatatu.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	daniel@iogearbox.net
-To: jhs@mojatatu.com
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V3 4/9] net/mlx5e: Move common case counters within sq_stats struct
+Date: Wed,  2 Mar 2016 00:13:35 +0200
+Message-ID: <1456870420-23655-5-git-send-email-saeedm@mellanox.com>
+References: <1456870420-23655-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42614 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751127AbcCAWTV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 17:19:21 -0500
-In-Reply-To: <1456578536-17732-1-git-send-email-jhs@emojatatu.com>
+Received: from [193.47.165.129] ([193.47.165.129]:59440 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751084AbcCAWV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2016 17:21:57 -0500
+In-Reply-To: <1456870420-23655-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Sat, 27 Feb 2016 08:08:53 -0500
+From: Tariq Toukan <tariqt@mellanox.com>
 
-> As agreed at netconf in Seville, here's the patch finally (1 year
-> was just too long to wait for an ethertype. Now we are just going
-> have the user configure one).
-> Described in netdev01 paper:
->             "Distributing Linux Traffic Control Classifier-Action Subsystem"
->              Authors: Jamal Hadi Salim and Damascene M. Joachimpillai
+For data cache locality considerations, we moved the nop and
+csum_offload_inner within sq_stats struct as they are more
+commonly accessed in xmit path.
 
-Series applied, thanks Jamal.
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 4511984..b289660 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -260,26 +260,28 @@ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"tso_bytes",
+ 	"tso_inner_packets",
+ 	"tso_inner_bytes",
+-	"csum_offload_none",
+ 	"csum_offload_inner",
++	"nop",
++	"csum_offload_none",
+ 	"stopped",
+ 	"wake",
+ 	"dropped",
+-	"nop"
+ };
+ 
+ struct mlx5e_sq_stats {
++	/* commonly accessed in data path */
+ 	u64 packets;
+ 	u64 tso_packets;
+ 	u64 tso_bytes;
+ 	u64 tso_inner_packets;
+ 	u64 tso_inner_bytes;
+-	u64 csum_offload_none;
+ 	u64 csum_offload_inner;
++	u64 nop;
++	/* less likely accessed in data path */
++	u64 csum_offload_none;
+ 	u64 stopped;
+ 	u64 wake;
+ 	u64 dropped;
+-	u64 nop;
+ #define NUM_SQ_STATS 11
+ };
+ 
+-- 
+1.7.1
