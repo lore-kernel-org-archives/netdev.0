@@ -1,95 +1,81 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 2/5] cxgb4/cxgb4vf: For T6 adapter, set FBMIN to 64 bytes
-Date: Tue,  1 Mar 2016 17:19:33 +0530
-Message-ID: <1456832976-12840-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 5/5] cxgb4vf: Remove dead functions collect_netdev_[um]c_list_addrs
+Date: Tue,  1 Mar 2016 17:19:36 +0530
+Message-ID: <1456832976-12840-6-git-send-email-hariprasad@chelsio.com>
 References: <1456832976-12840-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, nirranjan@chelsio.com, leedom@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:41006 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:26408 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752680AbcCALqv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 06:46:51 -0500
+	by vger.kernel.org with ESMTP id S1753337AbcCALq6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 06:46:58 -0500
 In-Reply-To: <1456832976-12840-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T4 and T5 hardware will not coalesce Free List PCI-E Fetch Requests if
-the Host Driver provides more Free List Pointers than the Fetch Burst
-Minimum value.  So if we set FBMIN to 64 bytes and the Host Driver
-supplies 128 bytes of Free List Pointer data, the hardware will issue two
-64-byte PCI-E Fetch Requests rather than a single coallesced 128-byte
-Fetch Request. T6 fixes this. So, for T4/T5 we set the FBMIN value to 128
-
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/sge.c       | 12 +++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_values.h |  1 +
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c     | 13 ++++++++++++-
- 3 files changed, 24 insertions(+), 2 deletions(-)
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    | 46 ----------------------
+ 1 file changed, 46 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 22d972030927..deca4a2956cc 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2611,8 +2611,18 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 				htonl(FW_IQ_CMD_FL0CNGCHMAP_V(cong) |
- 				      FW_IQ_CMD_FL0CONGCIF_F |
- 				      FW_IQ_CMD_FL0CONGEN_F);
-+		/* In T6, for egress queue type FL there is internal overhead
-+		 * of 16B for header going into FLM module.  Hence the maximum
-+		 * allowed burst size is 448 bytes.  For T4/T5, the hardware
-+		 * doesn't coalesce fetch requests if more than 64 bytes of
-+		 * Free List pointers are provided, so we use a 128-byte Fetch
-+		 * Burst Minimum there (T6 implements coalescing so we can use
-+		 * the smaller 64-byte value there).
-+		 */
- 		c.fl0dcaen_to_fl0cidxfthresh =
--			htons(FW_IQ_CMD_FL0FBMIN_V(FETCHBURSTMIN_64B_X) |
-+			htons(FW_IQ_CMD_FL0FBMIN_V(chip <= CHELSIO_T5 ?
-+						   FETCHBURSTMIN_128B_X :
-+						   FETCHBURSTMIN_64B_X) |
- 			      FW_IQ_CMD_FL0FBMAX_V((chip <= CHELSIO_T5) ?
- 						   FETCHBURSTMAX_512B_X :
- 						   FETCHBURSTMAX_256B_X));
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-index a5231fa771db..36cf3073ca37 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-@@ -65,6 +65,7 @@
- #define TIMERREG_COUNTER0_X		0
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 5d989e4c42dc..91857b81009e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -862,52 +862,6 @@ static struct net_device_stats *cxgb4vf_get_stats(struct net_device *dev)
+ 	return ns;
+ }
  
- #define FETCHBURSTMIN_64B_X		2
-+#define FETCHBURSTMIN_128B_X		3
- 
- #define FETCHBURSTMAX_256B_X		2
- #define FETCHBURSTMAX_512B_X		3
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index 9772aad22bca..ba6a4e3471f0 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -2300,9 +2300,20 @@ int t4vf_sge_alloc_rxq(struct adapter *adapter, struct sge_rspq *rspq,
- 				FW_IQ_CMD_FL0HOSTFCMODE_V(SGE_HOSTFCMODE_NONE) |
- 				FW_IQ_CMD_FL0PACKEN_F |
- 				FW_IQ_CMD_FL0PADEN_F);
-+
-+		/* In T6, for egress queue type FL there is internal overhead
-+		 * of 16B for header going into FLM module.  Hence the maximum
-+		 * allowed burst size is 448 bytes.  For T4/T5, the hardware
-+		 * doesn't coalesce fetch requests if more than 64 bytes of
-+		 * Free List pointers are provided, so we use a 128-byte Fetch
-+		 * Burst Minimum there (T6 implements coalescing so we can use
-+		 * the smaller 64-byte value there).
-+		 */
- 		cmd.fl0dcaen_to_fl0cidxfthresh =
- 			cpu_to_be16(
--				FW_IQ_CMD_FL0FBMIN_V(SGE_FETCHBURSTMIN_64B) |
-+				FW_IQ_CMD_FL0FBMIN_V(chip <= CHELSIO_T5 ?
-+						     FETCHBURSTMIN_128B_X :
-+						     FETCHBURSTMIN_64B_X) |
- 				FW_IQ_CMD_FL0FBMAX_V((chip <= CHELSIO_T5) ?
- 						     FETCHBURSTMAX_512B_X :
- 						     FETCHBURSTMAX_256B_X));
+-/*
+- * Collect up to maxaddrs worth of a netdevice's unicast addresses, starting
+- * at a specified offset within the list, into an array of addrss pointers and
+- * return the number collected.
+- */
+-static inline unsigned int collect_netdev_uc_list_addrs(const struct net_device *dev,
+-							const u8 **addr,
+-							unsigned int offset,
+-							unsigned int maxaddrs)
+-{
+-	unsigned int index = 0;
+-	unsigned int naddr = 0;
+-	const struct netdev_hw_addr *ha;
+-
+-	for_each_dev_addr(dev, ha)
+-		if (index++ >= offset) {
+-			addr[naddr++] = ha->addr;
+-			if (naddr >= maxaddrs)
+-				break;
+-		}
+-	return naddr;
+-}
+-
+-/*
+- * Collect up to maxaddrs worth of a netdevice's multicast addresses, starting
+- * at a specified offset within the list, into an array of addrss pointers and
+- * return the number collected.
+- */
+-static inline unsigned int collect_netdev_mc_list_addrs(const struct net_device *dev,
+-							const u8 **addr,
+-							unsigned int offset,
+-							unsigned int maxaddrs)
+-{
+-	unsigned int index = 0;
+-	unsigned int naddr = 0;
+-	const struct netdev_hw_addr *ha;
+-
+-	netdev_for_each_mc_addr(ha, dev)
+-		if (index++ >= offset) {
+-			addr[naddr++] = ha->addr;
+-			if (naddr >= maxaddrs)
+-				break;
+-		}
+-	return naddr;
+-}
+-
+ static inline int cxgb4vf_set_addr_hash(struct port_info *pi)
+ {
+ 	struct adapter *adapter = pi->adapter;
 -- 
 2.3.4
