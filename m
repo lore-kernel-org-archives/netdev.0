@@ -1,36 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] r8169:issues fix.
-Date: Tue, 01 Mar 2016 15:24:53 -0500 (EST)
-Message-ID: <20160301.152453.1743613743070525198.davem@davemloft.net>
-References: <1456476046-5436-1-git-send-email-hau@realtek.com>
+From: Jack <kadinsempozyumu@konya.edu.tr>
+Subject: hi beautiful
+Date: Tue, 1 Mar 2016 21:54:04 +0200 (EET)
+Message-ID: <2042237310.101573.1456862044372.JavaMail.zimbra@konya.edu.tr>
+Reply-To: Jack <2936410069@qq.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org
-To: hau@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456476046-5436-1-git-send-email-hau@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eposta.konya.edu.tr ([95.183.198.3]:9756 "EHLO
+	eposta.konya.edu.tr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751017AbcCAUes (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 15:34:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chunhao Lin <hau@realtek.com>
-Date: Fri, 26 Feb 2016 16:40:43 +0800
+hi,
 
-> This series of patches fix 3 issues that are listed below.
-> 
-> Chunhao Lin (3):
->   r8169:fix nic sometimes doesn't work after changing the mac address.
->   r8169:eliminate error message in using ethtool -S when nic is down.
->   r8169: Enable RX_MULTI_EN for RTL_GIGA_MAC_VER_41~48
+I am seriously looking for some love and affection, I'm an adventurous, hardworking, seriously committed and kind person. My current priority is my daughter, my work, my health and fitness. I'm a devoted father on the weekends, but missing someone special to share my life. I would like to find someone who shares my commitment to live, health and fitness, but also has unique interests and wants to try new things with me, for the rest of our lives.
+I know it will be difficult for you to understand, but I will be glad if you to write me and tell me a little about yourself and if you will be interested in knowing more about me and I hope this will be the beginning of a very successful relationship for us.
+Kind regards,
 
-I don't agree with changes #1 and #2.
-
-If you are going to go to a model where every single configuration
-operation is recorded in software and performed at resume time, then
-really do it and fix it in the whole driver.  As currently coded you
-are leaving lots of known bugs in the driver.
-
-#2 is even a worse situation.  If you are going to handle things this
-way you must sync the counters when the suspend happens, so that the
-statistics get call receives up to date values.
+Jack.
