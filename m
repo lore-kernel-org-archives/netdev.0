@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next][PATCH v2 00/13] RDS: Major clean-up with couple of
- new features for 4.6
-Date: Tue, 01 Mar 2016 17:33:08 -0500 (EST)
-Message-ID: <20160301.173308.391621325255066441.davem@davemloft.net>
-References: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH net] sctp: sctp_remaddr_seq_show use the wrong variable
+ to dump transport info
+Date: Tue, 01 Mar 2016 17:36:13 -0500 (EST)
+Message-ID: <20160301.173613.295919796621489412.davem@davemloft.net>
+References: <08f9ec3d48c3fffd7224e6eb0c129ed113d23fbd.1456626791.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: santosh.shilimkar@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	marcelo.leitner@gmail.com, vyasevich@gmail.com,
+	daniel@iogearbox.net
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42822 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751025AbcCAWgP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 17:36:15 -0500
+In-Reply-To: <08f9ec3d48c3fffd7224e6eb0c129ed113d23fbd.1456626791.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Xin Long <lucien.xin@gmail.com>
+Date: Sun, 28 Feb 2016 10:33:11 +0800
 
-When I try to apply this series, it (strangely) fails on the first patch with:
+> Now in sctp_remaddr_seq_show(), we use variable *tsp to get the param *v.
+> but *tsp is also used to traversal transport_addr_list, which will cover
+> the previous value, and make sctp_transport_put work on the wrong transport.
+> 
+> So fix it by adding a new variable to get the param *v.
+> 
+> Fixes: fba4c330c5b9 ("sctp: hold transport before we access t->asoc in sctp proc")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Applying: RDS: Drop stale iWARP RDMA transport
-error: removal patch leaves file contents
-error: net/rds/iw.c: patch does not apply
-error: removal patch leaves file contents
-error: net/rds/iw.h: patch does not apply
-error: removal patch leaves file contents
-error: net/rds/iw_cm.c: patch does not apply
-error: removal patch leaves file contents
-error: net/rds/iw_rdma.c: patch does not apply
-error: removal patch leaves file contents
-error: net/rds/iw_recv.c: patch does not apply
-error: removal patch leaves file contents
-error: net/rds/iw_ring.c: patch does not apply
-error: removal patch leaves file contents
-error: net/rds/iw_send.c: patch does not apply
-error: removal patch leaves file contents
-error: net/rds/iw_stats.c: patch does not apply
-error: removal patch leaves file contents
-error: net/rds/iw_sysctl.c: patch does not apply
-
-Please sort this out and respin, thanks.
+Applied, thanks.
