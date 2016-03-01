@@ -1,65 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v3 0/9] Introduce devlink interface and first
- drivers to use it
-Date: Tue, 01 Mar 2016 16:08:09 -0500 (EST)
-Message-ID: <20160301.160809.1004237629125677684.davem@davemloft.net>
-References: <1456504351-18871-1-git-send-email-jiri@resnulli.us>
+From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH for-next 01/10] net/core: Add support for configuring VF GUIDs
+Date: Tue, 1 Mar 2016 23:08:55 +0200
+Message-ID: <CAJ3xEMgrAUCj7PS6fegmuSUsjMruH3gzSHZmuzAX+ZbHZOpL9w@mail.gmail.com>
+References: <1456851143-138332-1-git-send-email-eli@mellanox.com>
+	<1456851143-138332-2-git-send-email-eli@mellanox.com>
+	<20160301173751.GA25176@obsidianresearch.com>
+	<20160301174951.GA19366@x-vnc01.mtx.labs.mlnx>
+	<20160301182516.GA12495@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com, yishaih@mellanox.com,
-	dledford@redhat.com, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, eugenia@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	hadarh@mellanox.com, jhs@mojatatu.com, john.fastabend@gmail.com,
-	jeffrey.t.kirsher@intel.com, brouer@redhat.com, ivecera@redhat.com,
-	rami.rosen@intel.com, hannes@stressinduktion.org,
-	gospo@cumulusnetworks.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41684 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753007AbcCAVIN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 16:08:13 -0500
-In-Reply-To: <1456504351-18871-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160301182516.GA12495-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri, 26 Feb 2016 17:32:22 +0100
+On Tue, Mar 1, 2016 at 8:25 PM, Jason Gunthorpe
+<jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote:
+> On Tue, Mar 01, 2016 at 07:49:51PM +0200, Eli Cohen wrote:
+>> On Tue, Mar 01, 2016 at 10:37:51AM -0700, Jason Gunthorpe wrote:
+>> > > + return handle_infiniband_guid(dev, &ivt, IFLA_VF_IB_PORT_GUID);
+>> >
+>> > But is this emulation really necessary? It seems dangerous and
+>> > continues the bad practice of assuming IFLA_VF_MAC is fixed to 6 bytes
+>> > in size, and is not just LLADDR bytes. I'd rather see mac sets fail on
+>> > IB.
+>> >
+>> struct ifla_vf_mac  already defines mac as 32 bytes but the idea here
+>> is that applications that configure six byte Ethernet MACs to VFs will
+>> continue to work without any change.
+>
+> In my view it is incorrect for an application to try and set a 6 byte
+> mac on an *infiniband* interface, the kernel should refuse to do it.
 
-> There a is need for some userspace API that would allow to expose things
-> that are not directly related to any device class like net_device of
-> ib_device, but rather chip-wide/switch-ASIC-wide stuff.
-> 
-> Use cases:
-> 1) get/set of port type (Ethernet/InfiniBand)
-> 2) setting up port splitters - split port into multiple ones and squash again,
->    enables usage of splitter cable
-> 3) setting up shared buffers - shared among multiple ports within
->    one chip (work in progress)
-> 4) configuration of switch wide properties - resources division etc - This will
->    allow to pass configuration that is unacceptable to be passed as
->    a module option.
-> 
-> First patch of this set introduces a new generic Netlink based interface,
-> called "devlink". It is similar to nl80211 model and it is heavily
-> influenced by it, including the API definition. The devlink introduction patch
-> implements use cases 1) and 2). Other 2 are in development atm and will
-> be addressed by follow-ups.
-> 
-> It is very convenient for drivers to use devlink, as you can see in other
-> patches in this set.
-> 
-> Counterpart for devlink is userspace tool for now called "dl". Command line
-> interface and outputs are derived from "ip" tool so it should be easy
-> for users to get used to it.
-> 
-> It is available here as a standalone tool for now:
-> https://github.com/jpirko/devlink
-> After this is merge in kernel, I will include the "dl" or "devlink" tool
-> into iproute2 toolset.
- ...
+As Eli wrote, there's a well defined way to extend MAC to GUID. With
+that in hand, the idea here is to allow staged/evolved support for IB
+Virtualization using un-touched provisioning systems which assign VMs
+with 6-byte MACs along with the fully IB aware solution where the
+upper level does provision IB GUIDs.
 
-Series applied, thanks Jiri.
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
