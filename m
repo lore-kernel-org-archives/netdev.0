@@ -1,53 +1,40 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] arp: correct return value of arp_rcv
-Date: Tue,  1 Mar 2016 07:24:42 +0000
-Message-ID: <1456817082-9320-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Corcodel Marian <asd@marian1000.go.ro>
+Subject: [PATCH]   Increase no descriptors on max.
+Date: Tue,  1 Mar 2016 09:25:58 +0200
+Message-ID: <1456817158-1978-1-git-send-email-asd@marian1000.go.ro>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Corcodel Marian <asd@marian1000.go.ro>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta1.chinamobile.com ([221.176.66.79]:5357 "EHLO
-	cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750799AbcCAHXh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 02:23:37 -0500
+Received: from [82.78.245.130] ([82.78.245.130]:55144 "EHLO marian1000.go.ro"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750802AbcCAH04 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2016 02:26:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, arp_rcv() always return zero on a packet delivery upcall.
+  This patch increase rx/tx on maximum allowed 1024 4-duble-words
+  descriptors.
 
-To make its behavior more compliant with the way this API should be
-used, this patch changes this to let it return NET_RX_SUCCESS when the
-packet is proper handled, and NET_RX_DROP otherwise.
-
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
 ---
- net/ipv4/arp.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index c102eb5..ae235a1 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -880,7 +880,7 @@ out:
- 	consume_skb(skb);
- out_free_dst:
- 	dst_release(reply_dst);
--	return 0;
-+	return NET_RX_SUCCESS;
- }
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index e215812..5fd3fca 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -84,8 +84,8 @@ static const int multicast_filter_limit = 32;
  
- static void parp_redo(struct sk_buff *skb)
-@@ -924,11 +924,11 @@ static int arp_rcv(struct sk_buff *skb, struct net_device *dev,
+ #define R8169_REGS_SIZE		256
+ #define R8169_NAPI_WEIGHT	64
+-#define NUM_TX_DESC	64	/* Number of Tx descriptor registers */
+-#define NUM_RX_DESC	256U	/* Number of Rx descriptor registers */
++#define NUM_TX_DESC	1024	/* Number of Tx descriptor registers */
++#define NUM_RX_DESC	1024U	/* Number of Rx descriptor registers */
+ #define R8169_TX_RING_BYTES	(NUM_TX_DESC * sizeof(struct TxDesc))
+ #define R8169_RX_RING_BYTES	(NUM_RX_DESC * sizeof(struct RxDesc))
  
- consumeskb:
- 	consume_skb(skb);
--	return 0;
-+	return NET_RX_SUCCESS;
- freeskb:
- 	kfree_skb(skb);
- out_of_mem:
--	return 0;
-+	return NET_RX_DROP;
- }
- 
- /*
 -- 
-1.8.3.1
+2.1.4
