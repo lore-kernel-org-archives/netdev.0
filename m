@@ -1,102 +1,151 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH RFC] net: Fix race condition when removing qdisc
-Date: Tue, 1 Mar 2016 15:16:37 -0800
-Message-ID: <1456874197-3036009-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <brakmo@fb.com>, <kernel-team@fb.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:15067 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751878AbcCAXQm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 18:16:42 -0500
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.15.0.59/8.15.0.59) with SMTP id u21N93pw029233
-	for <netdev@vger.kernel.org>; Tue, 1 Mar 2016 15:16:41 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 21dfb6hucp-2
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 15:16:41 -0800
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.102.107.99) with ESMTP	id
- a771572ee00311e591450002c99293a0-f0bee270 for <netdev@vger.kernel.org>;	Tue,
- 01 Mar 2016 15:16:40 -0800
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v3 02/13] RDS: Add support for SO_TIMESTAMP for incoming messages
+Date: Tue,  1 Mar 2016 15:20:43 -0800
+Message-ID: <1456874454-10355-3-git-send-email-santosh.shilimkar@oracle.com>
+References: <1456874454-10355-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: linux-kernel@vger.kernel.org,
+	Santosh Shilimkar <santosh.shilimkar@oracle.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1456874454-10355-1-git-send-email-santosh.shilimkar@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We are seeing a number of softlockups occurring with HTB upon removing
-the qdisc. We are still attempting to repro the exact circumstances,
-however looking at the code I'm very suspicious of this block in
-net_tx_action and its interaction with dev_deactivate (called through
-tc_modify_qdisc):
+The SO_TIMESTAMP generates time stamp for each incoming RDS messages
+User app can enable it by using SO_TIMESTAMP setsocketopt() at
+SOL_SOCKET level. CMSG data of cmsg type SO_TIMESTAMP contains the
+time stamp in struct timeval format.
 
-       if (!test_bit(__QDISC_STATE_DEACTIVATED,
-		     &q->state)) {
-	       __netif_reschedule(q);
-       } else {
-	       smp_mb__before_atomic();
-	       clear_bit(__QDISC_STATE_SCHED,
-			 &q->state);
-       }
-
-I think the following scenario could lead to badness:
-
-0) net_tx_action spin_trylock fails, taking non-locked block
-1) net_tx_action checks for __QDISC_STATE_DEACTIVATED, it's not set
-   at this point
-2) dev_deactive has lock and sets __QDISC_STATE_DEACTIVATED
-3) dev_deactivate_many performs some_qdisc_is_busy(dev), neither
-   __QDISC_STATE_SCHED nor __QDISC_STATE_BUSY are set at this
-  point, so some_qdisc_busy fails (not seen as busy)
-4) net_tx_action sets __QDISC_STATE_SCHED
-
-At this point dev_deactivate_many finishes so the qdisc may
-be freed in the tc_modify_qdisc path, however the qdisc is
-also "successfully" rescheduled to run by net_tx_action.
-
-The propsed fix for this is to eliminate the spin_trylock in
-net_tx_action and always take the lock.
-
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+Reviewed-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/core/dev.c | 24 ++++++++----------------
- 1 file changed, 8 insertions(+), 16 deletions(-)
+ net/rds/af_rds.c | 26 ++++++++++++++++++++++++++
+ net/rds/rds.h    |  1 +
+ net/rds/recv.c   | 20 ++++++++++++++++++--
+ 3 files changed, 45 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index edb7179..77ec0c1 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3855,22 +3855,14 @@ static void net_tx_action(struct softirq_action *h)
- 			head = head->next_sched;
- 
- 			root_lock = qdisc_lock(q);
--			if (spin_trylock(root_lock)) {
--				smp_mb__before_atomic();
--				clear_bit(__QDISC_STATE_SCHED,
--					  &q->state);
--				qdisc_run(q);
--				spin_unlock(root_lock);
--			} else {
--				if (!test_bit(__QDISC_STATE_DEACTIVATED,
--					      &q->state)) {
--					__netif_reschedule(q);
--				} else {
--					smp_mb__before_atomic();
--					clear_bit(__QDISC_STATE_SCHED,
--						  &q->state);
--				}
--			}
-+			spin_lock(root_lock);
-+
-+			smp_mb__before_atomic();
-+			clear_bit(__QDISC_STATE_SCHED,
-+				  &q->state);
-+			qdisc_run(q);
-+
-+			spin_unlock(root_lock);
- 		}
- 	}
+diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
+index b5476aeb..6beaeb1 100644
+--- a/net/rds/af_rds.c
++++ b/net/rds/af_rds.c
+@@ -277,6 +277,27 @@ static int rds_set_transport(struct rds_sock *rs, char __user *optval,
+ 	return rs->rs_transport ? 0 : -ENOPROTOOPT;
  }
+ 
++static int rds_enable_recvtstamp(struct sock *sk, char __user *optval,
++				 int optlen)
++{
++	int val, valbool;
++
++	if (optlen != sizeof(int))
++		return -EFAULT;
++
++	if (get_user(val, (int __user *)optval))
++		return -EFAULT;
++
++	valbool = val ? 1 : 0;
++
++	if (valbool)
++		sock_set_flag(sk, SOCK_RCVTSTAMP);
++	else
++		sock_reset_flag(sk, SOCK_RCVTSTAMP);
++
++	return 0;
++}
++
+ static int rds_setsockopt(struct socket *sock, int level, int optname,
+ 			  char __user *optval, unsigned int optlen)
+ {
+@@ -312,6 +333,11 @@ static int rds_setsockopt(struct socket *sock, int level, int optname,
+ 		ret = rds_set_transport(rs, optval, optlen);
+ 		release_sock(sock->sk);
+ 		break;
++	case SO_TIMESTAMP:
++		lock_sock(sock->sk);
++		ret = rds_enable_recvtstamp(sock->sk, optval, optlen);
++		release_sock(sock->sk);
++		break;
+ 	default:
+ 		ret = -ENOPROTOOPT;
+ 	}
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index 0e2797b..80256b0 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -222,6 +222,7 @@ struct rds_incoming {
+ 	__be32			i_saddr;
+ 
+ 	rds_rdma_cookie_t	i_rdma_cookie;
++	struct timeval		i_rx_tstamp;
+ };
+ 
+ struct rds_mr {
+diff --git a/net/rds/recv.c b/net/rds/recv.c
+index a00462b..c0be1ec 100644
+--- a/net/rds/recv.c
++++ b/net/rds/recv.c
+@@ -35,6 +35,8 @@
+ #include <net/sock.h>
+ #include <linux/in.h>
+ #include <linux/export.h>
++#include <linux/time.h>
++#include <linux/rds.h>
+ 
+ #include "rds.h"
+ 
+@@ -46,6 +48,8 @@ void rds_inc_init(struct rds_incoming *inc, struct rds_connection *conn,
+ 	inc->i_conn = conn;
+ 	inc->i_saddr = saddr;
+ 	inc->i_rdma_cookie = 0;
++	inc->i_rx_tstamp.tv_sec = 0;
++	inc->i_rx_tstamp.tv_usec = 0;
+ }
+ EXPORT_SYMBOL_GPL(rds_inc_init);
+ 
+@@ -228,6 +232,8 @@ void rds_recv_incoming(struct rds_connection *conn, __be32 saddr, __be32 daddr,
+ 		rds_recv_rcvbuf_delta(rs, sk, inc->i_conn->c_lcong,
+ 				      be32_to_cpu(inc->i_hdr.h_len),
+ 				      inc->i_hdr.h_dport);
++		if (sock_flag(sk, SOCK_RCVTSTAMP))
++			do_gettimeofday(&inc->i_rx_tstamp);
+ 		rds_inc_addref(inc);
+ 		list_add_tail(&inc->i_item, &rs->rs_recv_queue);
+ 		__rds_wake_sk_sleep(sk);
+@@ -381,7 +387,8 @@ static int rds_notify_cong(struct rds_sock *rs, struct msghdr *msghdr)
+ /*
+  * Receive any control messages.
+  */
+-static int rds_cmsg_recv(struct rds_incoming *inc, struct msghdr *msg)
++static int rds_cmsg_recv(struct rds_incoming *inc, struct msghdr *msg,
++			 struct rds_sock *rs)
+ {
+ 	int ret = 0;
+ 
+@@ -392,6 +399,15 @@ static int rds_cmsg_recv(struct rds_incoming *inc, struct msghdr *msg)
+ 			return ret;
+ 	}
+ 
++	if ((inc->i_rx_tstamp.tv_sec != 0) &&
++	    sock_flag(rds_rs_to_sk(rs), SOCK_RCVTSTAMP)) {
++		ret = put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMP,
++			       sizeof(struct timeval),
++			       &inc->i_rx_tstamp);
++		if (ret)
++			return ret;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -474,7 +490,7 @@ int rds_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
+ 			msg->msg_flags |= MSG_TRUNC;
+ 		}
+ 
+-		if (rds_cmsg_recv(inc, msg)) {
++		if (rds_cmsg_recv(inc, msg, rs)) {
+ 			ret = -EFAULT;
+ 			goto out;
+ 		}
 -- 
-2.6.5
+1.9.1
