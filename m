@@ -1,114 +1,55 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v3 12/13] RDS: IB: allocate extra space on queues for FRMR support
-Date: Tue,  1 Mar 2016 15:20:53 -0800
-Message-ID: <1456874454-10355-13-git-send-email-santosh.shilimkar@oracle.com>
-References: <1456874454-10355-1-git-send-email-santosh.shilimkar@oracle.com>
-Cc: linux-kernel@vger.kernel.org,
-	Santosh Shilimkar <santosh.shilimkar@oracle.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [Intel-wired-lan] [next] igb: allow setting MAC address on i211
+ using a device tree blob V5
+Date: Tue, 1 Mar 2016 23:23:23 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81EA7AB2@ORSMSX101.amr.corp.intel.com>
+References: <56C5A6BC.6030708@gmail.com>
+ <309B89C4C689E141A5FF6A0C5FB2118B81EA731A@ORSMSX101.amr.corp.intel.com>
+ <DC20A3D2-95E2-420B-911D-C6AC02338227@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: John Holland <jotihojr@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:35348 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752237AbcCAXVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 18:21:24 -0500
-In-Reply-To: <1456874454-10355-1-git-send-email-santosh.shilimkar@oracle.com>
+Received: from mga03.intel.com ([134.134.136.65]:40070 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752425AbcCAXXZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 18:23:25 -0500
+In-Reply-To: <DC20A3D2-95E2-420B-911D-C6AC02338227@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fastreg MR(FRMR) memory registration and invalidation makes use
-of work request and completion queues for its operation. Patch
-allocates extra queue space towards these operation(s).
+> From: John Holland [mailto:jotihojr@gmail.com]
+> Sent: Monday, February 29, 2016 10:56 PM
+> To: Brown, Aaron F <aaron.f.brown@intel.com>
+> Cc: intel-wired-lan@lists.osuosl.org; netdev@vger.kernel.org
+> Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on i211
+> using a device tree blob V5
+> 
+> On Mar 1, 2016, at 03:52, Brown, Aaron F <aaron.f.brown@intel.com>
+> wrote:
+> 
+> > This throws a few checkpatch warnings, but I won't withhold my tested by
+> for these:
+> >
+> > total: 0 errors, 2 warnings, 0 checks, 21 lines checked
+> >
+> > Your patch has style problems, please review.
+> >
+> > NOTE: If any of the errors are false positives, please report
+> >      them to the maintainer, see CHECKPATCH in MAINTAINERS.
+> > u1463:[0]/usr/src/kernels/next-queue>
+> 
+> Thanks for testing...
+> 
+> Do you require me to reformat the patch text? And won't that break the link?
 
-Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
-Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
----
- net/rds/ib.h    |  4 ++++
- net/rds/ib_cm.c | 16 ++++++++++++----
- 2 files changed, 16 insertions(+), 4 deletions(-)
+Unless Jeff Kirsher wants you to resubmit it for the space between your name and email address I don't think resubmitting should be necessary.  Yes, breaking the URL up would break the URL and for that reason I think it is appropriate to ignore that (Possible unwrapped commit description) warning.
 
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index c5eddc2..eeb0d6c 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -14,6 +14,7 @@
- 
- #define RDS_IB_DEFAULT_RECV_WR		1024
- #define RDS_IB_DEFAULT_SEND_WR		256
-+#define RDS_IB_DEFAULT_FR_WR		512
- 
- #define RDS_IB_DEFAULT_RETRY_COUNT	2
- 
-@@ -122,6 +123,9 @@ struct rds_ib_connection {
- 	struct ib_wc		i_send_wc[RDS_IB_WC_MAX];
- 	struct ib_wc		i_recv_wc[RDS_IB_WC_MAX];
- 
-+	/* To control the number of wrs from fastreg */
-+	atomic_t		i_fastreg_wrs;
-+
- 	/* interrupt handling */
- 	struct tasklet_struct	i_send_tasklet;
- 	struct tasklet_struct	i_recv_tasklet;
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index 7f68abc..83f4673 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -363,7 +363,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	struct ib_qp_init_attr attr;
- 	struct ib_cq_init_attr cq_attr = {};
- 	struct rds_ib_device *rds_ibdev;
--	int ret;
-+	int ret, fr_queue_space;
- 
- 	/*
- 	 * It's normal to see a null device if an incoming connection races
-@@ -373,6 +373,12 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	if (!rds_ibdev)
- 		return -EOPNOTSUPP;
- 
-+	/* The fr_queue_space is currently set to 512, to add extra space on
-+	 * completion queue and send queue. This extra space is used for FRMR
-+	 * registration and invalidation work requests
-+	 */
-+	fr_queue_space = (rds_ibdev->use_fastreg ? RDS_IB_DEFAULT_FR_WR : 0);
-+
- 	/* add the conn now so that connection establishment has the dev */
- 	rds_ib_add_conn(rds_ibdev, conn);
- 
-@@ -384,7 +390,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	/* Protection domain and memory range */
- 	ic->i_pd = rds_ibdev->pd;
- 
--	cq_attr.cqe = ic->i_send_ring.w_nr + 1;
-+	cq_attr.cqe = ic->i_send_ring.w_nr + fr_queue_space + 1;
- 
- 	ic->i_send_cq = ib_create_cq(dev, rds_ib_cq_comp_handler_send,
- 				     rds_ib_cq_event_handler, conn,
-@@ -424,7 +430,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	attr.event_handler = rds_ib_qp_event_handler;
- 	attr.qp_context = conn;
- 	/* + 1 to allow for the single ack message */
--	attr.cap.max_send_wr = ic->i_send_ring.w_nr + 1;
-+	attr.cap.max_send_wr = ic->i_send_ring.w_nr + fr_queue_space + 1;
- 	attr.cap.max_recv_wr = ic->i_recv_ring.w_nr + 1;
- 	attr.cap.max_send_sge = rds_ibdev->max_sge;
- 	attr.cap.max_recv_sge = RDS_IB_RECV_SGE;
-@@ -432,6 +438,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 	attr.qp_type = IB_QPT_RC;
- 	attr.send_cq = ic->i_send_cq;
- 	attr.recv_cq = ic->i_recv_cq;
-+	atomic_set(&ic->i_fastreg_wrs, RDS_IB_DEFAULT_FR_WR);
- 
- 	/*
- 	 * XXX this can fail if max_*_wr is too large?  Are we supposed
-@@ -751,7 +758,8 @@ void rds_ib_conn_shutdown(struct rds_connection *conn)
- 		 */
- 		wait_event(rds_ib_ring_empty_wait,
- 			   rds_ib_ring_empty(&ic->i_recv_ring) &&
--			   (atomic_read(&ic->i_signaled_sends) == 0));
-+			   (atomic_read(&ic->i_signaled_sends) == 0) &&
-+			   (atomic_read(&ic->i_fastreg_wrs) == RDS_IB_DEFAULT_FR_WR));
- 		tasklet_kill(&ic->i_send_tasklet);
- 		tasklet_kill(&ic->i_recv_tasklet);
- 
--- 
-1.9.1
+Thanks,
+Aaron
+> 
+> John
