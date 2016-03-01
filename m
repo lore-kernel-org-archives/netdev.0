@@ -1,41 +1,52 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: net-next build failure due to 16e5cc64?
-Date: Tue, 1 Mar 2016 13:41:19 -0500
-Message-ID: <20160301184119.GS16369@oracle.com>
-References: <20160301174233.GO16369@oracle.com>
- <CAM_iQpU8WNCi3GEW0isLsMDWOwzFVkHmDmnqzueLOf7K6P=mAg@mail.gmail.com>
- <20160301182102.GR16369@oracle.com>
- <CAM_iQpXwd9fQqEh1o56fVqoxUYC5ctY9wqjkAA7UeGru+T8bjw@mail.gmail.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [RFC][PATCH] tags: Fix DEFINE_PER_CPU expansions
+Date: Tue, 1 Mar 2016 13:49:49 -0500
+Message-ID: <20160301184949.GJ3965@htj.duckdns.org>
+References: <20160301102625.GQ6357@twins.programming.kicks-ass.net>
+ <20160301163707.GF3965@htj.duckdns.org>
+ <20160301181842.GX6357@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	john fastabend <john.fastabend@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:37898 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751501AbcCASl0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 13:41:26 -0500
+Cc: linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, rjw@rjwysocki.net,
+	konrad.wilk@oracle.com, Ingo Molnar <mingo@kernel.org>,
+	paulmck@linux.vnet.ibm.com, davem@davemloft.net,
+	linux-acpi@vger.kernel.org, netdev@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAM_iQpXwd9fQqEh1o56fVqoxUYC5ctY9wqjkAA7UeGru+T8bjw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20160301181842.GX6357@twins.programming.kicks-ass.net>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On (03/01/16 10:23), Cong Wang wrote:
-> > The compiler error is for fields within the union which lacks
-> > both a tag and a union-name.  So I'm not sure how the above will
-> > help.
-> >
+Hello,
+
+On Tue, Mar 01, 2016 at 07:18:42PM +0100, Peter Zijlstra wrote:
+> > Urgh... I really hate the fact that we're putting on arbitrary
+> > formatting constraints to compensate for shortcomings in an
+> > out-of-line utility.
 > 
-> Come on.. we have plenty of such anonymous unions in skbuff.h...
+> Yes it does.
+> 
+> I'm not too bothered if you don't want to fix this, I just figured I'd
+> have a stab at fixing all this, since I regularly run 'make tags' and
+> got tired of seeing the warns.
 
-I realize that, even netdevice.h itself has other instances.
-Thus I dont understand why this one generated a compiler error 
-for me.  Thus I was wondering why others had not run into this
-and not suggesting it should be patched.
+I use cscope so haven't noticed them.
 
-However, changing the way we set up type etc. doesnt seem relevant
-to what the compiler is flagging.
+> > Can't it do multiline regex?
+> 
+> Apparently not:
+> 
+>   https://sourceforge.net/p/ctags/feature-requests/38/
 
---Sowmini
+That's unfortunate.  Ah well, it's only several spots and isn't a big
+deal one way or the other.  Occasional >80 lines are fine by me.
+Please feel free to add
+
+ Acked-by: Tejun Heo <tj@kernel.org>
+
+Thanks.
+
+-- 
+tejun
