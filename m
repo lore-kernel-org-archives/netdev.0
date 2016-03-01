@@ -1,78 +1,85 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: [Intel-wired-lan] [net-next PATCH] net: relax setup_tc ndo op
-	handle restriction
-Date: Wed, 2 Mar 2016 02:09:42 +0000
-Message-ID: <804857E1F29AAC47BF68C404FC60A18490D77AEA@ORSMSX104.amr.corp.intel.com>
-References: <20160229192613.24163.31830.stgit@john-Precision-Tower-5810>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH v2] ethtool: check size of user memory before copying
+ strings and stats
+Date: Tue, 1 Mar 2016 23:47:25 +0000
+Message-ID: <1456876045.9520.23.camel@intel.com>
+References: <1456871112-14103-1-git-send-email-jacob.e.keller@intel.com>
+	 <CAKgT0UdDQ0_HEhOQRew20V-MYKDDWbNZRZDFwNLz47cQX03dYg@mail.gmail.com>
+	 <1456873105.9520.19.camel@intel.com>
+	 <CAKgT0Uf6vFZ++E-8=dW=dO9Ohq4VGwc-DymyX_jA5VShMrS5Vw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: John Fastabend <john.fastabend@gmail.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"Rustad, Mark D" <mark.d.rustad@intel.com>,
+	"mirq-linux@rere.qmqm.pl" <mirq-linux@rere.qmqm.pl>
+To: "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:3914 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:59218 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756805AbcCBCJo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 21:09:44 -0500
-In-Reply-To: <20160229192613.24163.31830.stgit@john-Precision-Tower-5810>
+	id S1753319AbcCAXr1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2016 18:47:27 -0500
+In-Reply-To: <CAKgT0Uf6vFZ++E-8=dW=dO9Ohq4VGwc-DymyX_jA5VShMrS5Vw@mail.gmail.com>
 Content-Language: en-US
+Content-ID: <48D693B3E33E7448BD39329415BEB390@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
-> Behalf Of John Fastabend
-> Sent: Monday, February 29, 2016 11:26 AM
-> To: intel-wired-lan@lists.osuosl.org; john.fastabend@gmail.com; Kirsher,
-> Jeffrey T
-> Cc: netdev@vger.kernel.org
-> Subject: [Intel-wired-lan] [net-next PATCH] net: relax setup_tc ndo op
-> handle restriction
-> 
-> I added this check in setup_tc to multiple drivers,
-> 
->  if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
-> 
-> Unfortunately restricting to TC_H_ROOT like this breaks the old
-> instantiation of mqprio to setup a hardware qdisc. This patch
-> relaxes the test to only check the type to make it equivalent
-> to the check before I broke it. With this the old instantiation
-> continues to work.
-> 
-> A good smoke test is to setup mqprio with,
-> 
-> # tc qdisc add dev eth4 root mqprio num_tc 8 \
->   map 0 1 2 3 4 5 6 7 \
->   queues 0@0 1@1 2@2 3@3 4@4 5@5 6@6 7@7
-> 
-> Fixes: e4c6734eaab9 ("net: rework ndo tc op to consume additional qdisc
-> handle paramete")
-> Reported-by: Singh Krishneil <krishneil.k.singh@intel.com>
-> Reported-by: Jake Keller <jacob.e.keller@intel.com>
-> CC: Murali Karicheri <m-karicheri2@ti.com>
-> CC: Shradha Shah <sshah@solarflare.com>
-> CC: Or Gerlitz <ogerlitz@mellanox.com>
-> CC: Ariel Elior <ariel.elior@qlogic.com>
-> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: Bruce Allan <bruce.w.allan@intel.com>
-> CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> CC: Don Skidmore <donald.c.skidmore@intel.com>
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  drivers/net/ethernet/amd/xgbe/xgbe-drv.c        |    2 +-
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    2 +-
->  drivers/net/ethernet/broadcom/bnxt/bnxt.c       |    2 +-
->  drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |    2 +-
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |    2 +-
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    2 +-
->  drivers/net/ethernet/sfc/tx.c                   |    2 +-
->  drivers/net/ethernet/ti/netcp_core.c            |    2 +-
->  8 files changed, 8 insertions(+), 8 deletions(-)
-
-Jeff, please apply this to your next-queue tree/dev-queue branch ASAP as it is
-blocking the testing of another patch already in that queue.
-
-Thanks,
-Bruce.
+T24gVHVlLCAyMDE2LTAzLTAxIGF0IDE1OjA1IC0wODAwLCBBbGV4YW5kZXIgRHV5Y2sgd3JvdGU6
+DQo+IE9uIFR1ZSwgTWFyIDEsIDIwMTYgYXQgMjo1OCBQTSwgS2VsbGVyLCBKYWNvYiBFDQo+IDxq
+YWNvYi5lLmtlbGxlckBpbnRlbC5jb20+IHdyb3RlOg0KPiA+IA0KPiA+IE9uIFR1ZSwgMjAxNi0w
+My0wMSBhdCAxNDozMSAtMDgwMCwgQWxleGFuZGVyIER1eWNrIHdyb3RlOg0KPiA+ID4gDQo+ID4g
+PiBUaGlzIHN0aWxsIGhhcyB0aGUgcG90ZW50aWFsIHRvIHByb3ZpZGUgZ2FyYmFnZSBkYXRhLsKg
+wqBXaGF0IHlvdQ0KPiA+ID4gc2hvdWxkDQo+ID4gPiBwcm9iYWJseSBkbyBhdCBlYWNoIHN0YWdl
+IGlzIG1ha2Ugc3VyZSB0aGUgbGVuZ3RoIG1hdGNoZXMgd2l0aA0KPiA+ID4gdGhlDQo+ID4gPiBl
+eGFjdCB2YWx1ZSB0aGF0IHlvdSB3b3VsZCBleHBlY3QuDQo+ID4gPiANCj4gPiBTdXJlLCBhbiBl
+eGFjdCBjaGVjayBjb3VsZCBiZSBkb25lIGluc3RlYWQsIGhvd2V2ZXIuLi4NCj4gPiANCj4gPiA+
+IA0KPiA+ID4gSSBhc3N1bWUgeW91IGNhbm5vdCBoYXZlIGFueSBmaWVsZHMgc2h1ZmZsZSBvbiB5
+b3U/wqDCoFdoYXQgSSBtZWFuDQo+ID4gPiBieQ0KPiA+ID4gdGhhdCBpcyB0aGF0IHlvdSBkb24n
+dCB3YW50IHRvIGhhdmUgYSBzZXR1cCB3aXRoIDQgVHggYW5kIDQgUngNCj4gPiA+IHJpbmdzDQo+
+ID4gPiB3aGVyZSB5b3UgdGhlbiByZXBsYWNlIGl0IHdpdGggMSBUeCBhbmQgNyBSeCByaW5ncyBh
+bmQgdHJ5IHRvDQo+ID4gPiBwb3B1bGF0ZQ0KPiA+ID4gdGhlIHNhbWUgZGF0YSBpbnRvIGEgc2V0
+dXAgd2hlcmUgdGhlIHN0cmluZ3MgcmVwb3J0ZWQgYXJlIGZvciA0DQo+ID4gPiBUeA0KPiA+ID4g
+YW5kDQo+ID4gPiA0IFJ4LsKgwqBZb3Ugc2hvdWxkIGRvdWJsZSBjaGVjayB0aGF0IHRoZSBsZW5n
+dGggY2FuIGJlIHVzZWQgYXMgYQ0KPiA+ID4gbWVhbnMNCj4gPiA+IG9mIGlkZW50aWZ5aW5nIGV4
+YWN0bHkgd2hhdCBzdHJpbmdzIHdpbGwgYmUgd2hlcmUuDQo+ID4gPiANCj4gPiA+IC0gQWxleA0K
+PiA+IA0KPiA+IERhcm4uIExvb2tzIGxpa2UgeW91J3JlIHJpZ2h0LiBJdCB3b3VsZCBiZSB0aGVv
+cmV0aWNhbGx5IHBvc3NpYmxlDQo+ID4gZm9yDQo+ID4gdGhlIG51bWJlciBvZiBxdWV1ZXMgKG9y
+IG90aGVyIHZhcmlhYmxlcykgdG8gY2hhbmdlIHN1Y2ggdGhhdCB0aGUNCj4gPiBzaXplDQo+ID4g
+bWF0Y2hlcyBidXQgdGhlIGRhdGEgbm8gbG9uZ2VyIGxpbmVzIHVwIGFnYWluc3QgdGhlIHN0cmlu
+Z3MuDQo+ID4gDQo+ID4gRm9yIHF1ZXVlcywgSSBkb24ndCB0aGluayB3ZSdyZSB2dWxuZXJhYmxl
+IG9uIHRoZSBmbTEwayBkcml2ZXIsDQo+ID4gYmVjYXVzZQ0KPiA+IHdlIG9ubHkgdXNlIGNvbWJp
+bmVkIHF1ZXVlcy4gSG93ZXZlciwgd2UgYWxyZWFkeSBoYXZlIHN1cHBvcnQgZm9yDQo+ID4gImRl
+YnVnLXN0YXRpc3RpY3MiIHdoaWNoIHNob3dzIGV4dHJhIHN0YXRzIHBsdXMgc29tZSBzdGF0cyBw
+ZXINCj4gPiB2aXJ0dWFsDQo+ID4gZnVuY3Rpb24uIEkgYW0gbm90IHN1cmUgaWYgdGhlc2UgY291
+bGQgY2hhbmdlIHdpdGhpbiB0aGUgdGltZQ0KPiA+IHdpbmRvdyB0bw0KPiA+IHJlc3VsdCBpbiBn
+YXJiYWdlIGRhdGEuDQo+ID4gDQo+ID4gSSBkb24ndCBrbm93IGhvdyBtdWNoIG9mIGEgcmVhbCB3
+b3JsZCBwcm9ibGVtIHRoaXMgd291bGQgYmUgdGhvdWdoLg0KPiA+IA0KPiA+IEknbSBndWVzc2lu
+ZyBpdCdzIG1vcmUgcmVhc29uIHRvIHByb21vdGUgdGhlIGlkZWEgb2YgY29udmVydGluZyB0bw0K
+PiA+IHNvbWUNCj4gPiBuZXcgdG9vbCBiYXNlZCBvbiBuZXRsaW5rLg0KPiBZZWFoLCB3ZSBoYWQg
+YmFzaWNhbGx5IHB1c2hlZCB0aGUgaXNzdWUgdW5kZXIgdGhlIHJ1ZyBieSB1c2luZyBhDQo+IHN0
+YXRpYyBsYXlvdXQgZm9yIHN0YXRpc3RpY3MuDQo+IA0KDQpZZXAuDQoNCj4gV2FzIHRoZSBtb3Rp
+dmF0aW9uIGZvciBnZXR0aW5nIHJpZCBvZiB0aGUgc3RhdGljIGxheW91dCBqdXN0IHRvDQo+IGRl
+Y2x1dHRlciB0aGUgZGlzcGxheT/CoMKgSSBrbm93IEkgaGF2ZSBnb3R0ZW4gaW50byB0aGUgaGFi
+aXQgb2YganVzdA0KPiBwaXBpbmcgZXRodG9vbCAtUyB0aHJvdWdoIGEgInwgZ3JlcCAtdiA6XCAw
+IiB0byBkcm9wIGFueSBvZiB0aGUNCj4gdW51c2VkDQo+IHN0YXRzIGZyb20gdGhlIGRpc3BsYXku
+wqDCoEFsc28geW91IG1heSBzZWUgaXNzdWVzIGRlcGVuZGluZyBvbiBob3cgdGhlDQo+IHN0YXRz
+IG1pZ2h0IGJlIHBhcnNlZCBieSB1c2VyLXNwYWNlIHNjcmlwdHMgaWYgeW91IHN0YXJ0IG1vZGlm
+eWluZw0KPiB3aGF0IGlzIGRpc3BsYXllZCBhbmQgd2hhdCBpcyBub3QuDQo+IA0KDQpHZW5lcmFs
+bHksIEknbSBub3QgdG9vIGNvbmNlcm5lZCBhYm91dCBzcGVjaWZpYyB1c2VyLXNjcmlwdHMgcGFy
+c2luZw0Kc2luY2UgdGhlc2UgYWxyZWFkeSBoYXZlIHRvIGJlIGhlYXZpbHkgZGVwZW5kZW50IG9u
+IHRoZSBkcml2ZXIgaW4NCnF1ZXN0aW9uIChzaW5jZSBlYWNoIGRyaXZlciBoYXMgdGhlaXIgb3du
+IG5hbWluZyBzY2hlbWUpLg0KDQpJIGFkZGVkIGEgd2hpbGUgYmFjayB0aGUgcHJpdmF0ZSBmbGFn
+ICJkZWJ1Zy1zdGF0aXN0aWNzIiB0byBlbmFibGUgYQ0KYnVuY2ggb2YgZXh0cmEgc3RhdGlzdGlj
+cyB3aGljaCB3ZXJlbid0IGFsd2F5cyByZWxldmFudC4NCg0KSW4gc29tZSBjYXNlcywgbGlrZSB0
+aGUgcXVldWUgc2l6ZSBjaGFuZ2UgaXQgd2FzIGRvbmUgaW4gb3JkZXIgdG8NCnNpbXBseSByZW1v
+dmUgY2x1dHRlciBvZiAxMjggcXVldWV1cyB3aGVuIG1hbnkgc3lzdGVtcyB3b3VsZCBvbmx5IHVz
+ZSBhDQpmZXcgb2YgdGhvc2UuIEp1c3QgZG9pbmcgZ3JlcCAtdiA6XCAwIHdpbGwgcmVtb3ZlIHRo
+ZXNlIGxpbmVzLCB0cnVlLg0KDQpIb3dldmVyLCB0aGF0IGRvZXNuJ3QgaGVscCB0aGUgZGVidWct
+c3RhdGlzdGljcyBjYXNlLCB3aGVyZSB3ZSBoYXZlIGENCnRvbiBvZiBzdGF0aXN0aWNzIHdoaWNo
+IG1heSBiZSByZWxldmFudCB0byBzb21lIGRlYnVnZ2luZywgYnV0IGFyZW4ndA0KcmVhbGx5IHVz
+ZWZ1bCB0byBzZWUgYWxsIHRoZSB0aW1lLiBJbiBhZGRpdGlvbiwgaXQgYWxzbyBzaG93cyBzdGF0
+cyBmb3INClZGcyBpbiB0aGlzIG1vZGUgYXMgd2VsbC4NCg0KVGhhbmtzLA0KSmFrZQ==
