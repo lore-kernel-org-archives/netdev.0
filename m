@@ -1,72 +1,53 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net-next build failure due to 16e5cc64?
-Date: Tue, 1 Mar 2016 10:16:02 -0800
-Message-ID: <CAM_iQpXZ-ReWS7sXU3EHqKGvkrOjNyMt097ts1AfWK36Q210ZQ@mail.gmail.com>
-References: <20160301174233.GO16369@oracle.com>
-	<CAM_iQpU8WNCi3GEW0isLsMDWOwzFVkHmDmnqzueLOf7K6P=mAg@mail.gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 1/5] vxlan: implement GPE in L2 mode
+Date: Tue, 1 Mar 2016 19:16:22 +0100
+Message-ID: <20160301191622.53df6f3f@griffin>
+References: <cover.1456472746.git.jbenc@redhat.com>
+	<6fe53252314d644e994950522d4320bc54ced928.1456472746.git.jbenc@redhat.com>
+	<CALx6S34vm6nqce481mcH_S3sfc4B5ift7YwJmTba4Vvdvnmj3w@mail.gmail.com>
+	<20160227203142.5b7309f3@griffin>
+	<CALx6S358JT6HRR70SgJrNOsTg4LbnTXERpW6n0DDiXKqxg--Yg@mail.gmail.com>
+	<20160229112322.4da0f0c0@griffin>
+	<CALx6S37aU8q1QResU+HKMeCbMgkGDqWbnuckqs1V_9bC-jp8Ow@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	john fastabend <john.fastabend@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f176.google.com ([209.85.161.176]:35461 "EHLO
-	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750813AbcCASQD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 13:16:03 -0500
-Received: by mail-yw0-f176.google.com with SMTP id g127so156023320ywf.2
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 10:16:02 -0800 (PST)
-In-Reply-To: <CAM_iQpU8WNCi3GEW0isLsMDWOwzFVkHmDmnqzueLOf7K6P=mAg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:54979 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750846AbcCASQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2016 13:16:28 -0500
+In-Reply-To: <CALx6S37aU8q1QResU+HKMeCbMgkGDqWbnuckqs1V_9bC-jp8Ow@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 1, 2016 at 10:13 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Tue, Mar 1, 2016 at 9:42 AM, Sowmini Varadhan
-> <sowmini.varadhan@oracle.com> wrote:
->>
->> John,
->>
->> I'm getting a failure when I try to build the latest net-next. I see
->>
->> net/sched/sch_mqprio.c: In function `mqprio_init':
->> net/sched/sch_mqprio.c:145: error: unknown field `tc' specified in initializer
->> net/sched/sch_mqprio.c:145: warning: missing braces around initializer
->> net/sched/sch_mqprio.c:145: warning: (near initialization for `tc.<anonymous>')
->> make[2]: *** [net/sched/sch_mqprio.o] Error 1
->>
->> I'm not sure why this wasn't noticed before, but in case this is due to my
->> compiler version:
->>    # gcc --version
->>    gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-16)
->>    Copyright (C) 2010 Free Software Foundation, Inc.
->>
->> I'm finding that the minimum fix to avoid this error should be something like
->>
->
-> Why not just initialize these fields explicitly? For example,
->
-> diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-> index f9947d1..19323b6 100644
-> --- a/net/sched/sch_mqprio.c
-> +++ b/net/sched/sch_mqprio.c
-> @@ -28,7 +28,7 @@ static void mqprio_destroy(struct Qdisc *sch)
->  {
->         struct net_device *dev = qdisc_dev(sch);
->         struct mqprio_sched *priv = qdisc_priv(sch);
-> -       struct tc_to_netdev tc = {.type = TC_SETUP_MQPRIO};
-> +       struct tc_to_netdev tc;
->         unsigned int ntx;
->
->         if (priv->qdiscs) {
-> @@ -39,6 +39,7 @@ static void mqprio_destroy(struct Qdisc *sch)
->                 kfree(priv->qdiscs);
->         }
->
-> +       tc.type = TC_SETUP_MQPRIO;
+On Mon, 29 Feb 2016 09:13:50 -0800, Tom Herbert wrote:
+> As defined now, GPB can't be used with VXLAN-GPE at all, but when I
+> read your patch it looks very much like GPB is being checked and
+> allowed in the VXLAN-GPE path. The fact that "if (vs->flags &
+> VXLAN_F_GBP)" always fails for VXLAN-GPE packets because of
+> configuration constraints is not at all obvious, and really this just
+> results in an unnecessary conditional that gives the same answer for
+> every single VXLAN-GPE packet which we've already checked for just a
+> few lines above. At least the check for GPB could be moved to an else
+> block of " if (vs->flags & VXLAN_F_GPE)", this alone improves clarity
+> and eliminates an unnecessary conditional in the VXLAN-GPE path.
 
-And also set the rest to zero...
+The problem here is ordering. GPE needs to be called before
+iptunnel_pull_header, while GBP needs to be called after udp_tun_rx_dst
+(and hence after iptunnel_pull_header).
 
->         if (priv->hw_owned && dev->netdev_ops->ndo_setup_tc)
->                 dev->netdev_ops->ndo_setup_tc(dev, sch->handle, 0, &tc);
->         else
+I agree that it's a check that's done for every packet and would be
+nice to get rid of. On the other hand, the amount of processing in the
+rx path of vxlan is so huge that it hardly matters. Yes, we should work
+on overall vxlan performance and it's something I'm actually looking
+into.
+
+As for not being obvious that the GBP processing can't happen, I see
+your point. I'll add a comment that explains this to the code in v2.
+
+Thanks,
+
+ Jiri
