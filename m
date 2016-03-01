@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V3 3/9] net/mlx5e: Changed naming convention of tx queues in ethtool stats
-Date: Wed,  2 Mar 2016 00:13:34 +0200
-Message-ID: <1456870420-23655-4-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V3 5/9] net/mlx5e: Set drop RQ's necessary parameters only
+Date: Wed,  2 Mar 2016 00:13:36 +0200
+Message-ID: <1456870420-23655-6-git-send-email-saeedm@mellanox.com>
 References: <1456870420-23655-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
@@ -11,59 +11,54 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59451 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59505 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751084AbcCAWWA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2016 17:22:00 -0500
+	id S1752193AbcCAWWJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2016 17:22:09 -0500
 In-Reply-To: <1456870420-23655-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tariq Toukan <tariqt@mellanox.com>
 
-Instead of the pair (channel, tc), we now use a single number that
-goes over all tx queues of a TC, for all TCs.
+By its role, there is no need to set all the other parameters
+for the drop RQ.
 
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   12 ++++++++++--
+ 1 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index e9760f8..577b4b1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -211,13 +211,14 @@ static void mlx5e_get_strings(struct net_device *dev,
- 				sprintf(data + (idx++) * ETH_GSTRING_LEN,
- 					"rx%d_%s", i, rq_stats_strings[j]);
- 
--		for (i = 0; i < priv->params.num_channels; i++)
--			for (tc = 0; tc < priv->params.num_tc; tc++)
-+		for (tc = 0; tc < priv->params.num_tc; tc++)
-+			for (i = 0; i < priv->params.num_channels; i++)
- 				for (j = 0; j < NUM_SQ_STATS; j++)
- 					sprintf(data +
--						(idx++) * ETH_GSTRING_LEN,
--						"tx%d_%d_%s", i, tc,
--						sq_stats_strings[j]);
-+					      (idx++) * ETH_GSTRING_LEN,
-+					      "tx%d_%s",
-+					      priv->channeltc_to_txq_map[i][tc],
-+					      sq_stats_strings[j]);
- 		break;
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 013be09..30fd971 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1064,6 +1064,15 @@ static void mlx5e_build_rq_param(struct mlx5e_priv *priv,
+ 	param->wq.linear = 1;
  }
-@@ -249,8 +250,8 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
- 						&priv->state) ? 0 :
- 				       ((u64 *)&priv->channel[i]->rq.stats)[j];
  
--	for (i = 0; i < priv->params.num_channels; i++)
--		for (tc = 0; tc < priv->params.num_tc; tc++)
-+	for (tc = 0; tc < priv->params.num_tc; tc++)
-+		for (i = 0; i < priv->params.num_channels; i++)
- 			for (j = 0; j < NUM_SQ_STATS; j++)
- 				data[idx++] = !test_bit(MLX5E_STATE_OPENED,
- 							&priv->state) ? 0 :
++static void mlx5e_build_drop_rq_param(struct mlx5e_rq_param *param)
++{
++	void *rqc = param->rqc;
++	void *wq = MLX5_ADDR_OF(rqc, rqc, wq);
++
++	MLX5_SET(wq, wq, wq_type, MLX5_WQ_TYPE_LINKED_LIST);
++	MLX5_SET(wq, wq, log_wq_stride,    ilog2(sizeof(struct mlx5e_rx_wqe)));
++}
++
+ static void mlx5e_build_sq_param(struct mlx5e_priv *priv,
+ 				 struct mlx5e_sq_param *param)
+ {
+@@ -1574,8 +1583,7 @@ static int mlx5e_open_drop_rq(struct mlx5e_priv *priv)
+ 
+ 	memset(&cq_param, 0, sizeof(cq_param));
+ 	memset(&rq_param, 0, sizeof(rq_param));
+-	mlx5e_build_rx_cq_param(priv, &cq_param);
+-	mlx5e_build_rq_param(priv, &rq_param);
++	mlx5e_build_drop_rq_param(&rq_param);
+ 
+ 	err = mlx5e_create_drop_cq(priv, cq, &cq_param);
+ 	if (err)
 -- 
 1.7.1
