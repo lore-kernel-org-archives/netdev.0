@@ -1,54 +1,77 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
 Subject: Re: [PATCH v2] ethtool: check size of user memory before copying
  strings and stats
-Date: Tue, 1 Mar 2016 22:58:26 +0000
-Message-ID: <1456873105.9520.19.camel@intel.com>
+Date: Tue, 1 Mar 2016 15:05:48 -0800
+Message-ID: <CAKgT0Uf6vFZ++E-8=dW=dO9Ohq4VGwc-DymyX_jA5VShMrS5Vw@mail.gmail.com>
 References: <1456871112-14103-1-git-send-email-jacob.e.keller@intel.com>
-	 <CAKgT0UdDQ0_HEhOQRew20V-MYKDDWbNZRZDFwNLz47cQX03dYg@mail.gmail.com>
+	<CAKgT0UdDQ0_HEhOQRew20V-MYKDDWbNZRZDFwNLz47cQX03dYg@mail.gmail.com>
+	<1456873105.9520.19.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
 	"jeff@garzik.org" <jeff@garzik.org>,
 	"Rustad, Mark D" <mark.d.rustad@intel.com>,
 	"mirq-linux@rere.qmqm.pl" <mirq-linux@rere.qmqm.pl>
-To: "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:19930 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750998AbcCAW62 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2016 17:58:28 -0500
-In-Reply-To: <CAKgT0UdDQ0_HEhOQRew20V-MYKDDWbNZRZDFwNLz47cQX03dYg@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <BAE7DFA666B05C4E8F3CC7368307E99D@intel.com>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:36522 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750850AbcCAXFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 18:05:49 -0500
+Received: by mail-io0-f174.google.com with SMTP id l127so240524813iof.3
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 15:05:49 -0800 (PST)
+In-Reply-To: <1456873105.9520.19.camel@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE2LTAzLTAxIGF0IDE0OjMxIC0wODAwLCBBbGV4YW5kZXIgRHV5Y2sgd3JvdGU6
-DQo+IFRoaXMgc3RpbGwgaGFzIHRoZSBwb3RlbnRpYWwgdG8gcHJvdmlkZSBnYXJiYWdlIGRhdGEu
-wqDCoFdoYXQgeW91DQo+IHNob3VsZA0KPiBwcm9iYWJseSBkbyBhdCBlYWNoIHN0YWdlIGlzIG1h
-a2Ugc3VyZSB0aGUgbGVuZ3RoIG1hdGNoZXMgd2l0aCB0aGUNCj4gZXhhY3QgdmFsdWUgdGhhdCB5
-b3Ugd291bGQgZXhwZWN0Lg0KPiANCg0KU3VyZSwgYW4gZXhhY3QgY2hlY2sgY291bGQgYmUgZG9u
-ZSBpbnN0ZWFkLCBob3dldmVyLi4uDQoNCj4gSSBhc3N1bWUgeW91IGNhbm5vdCBoYXZlIGFueSBm
-aWVsZHMgc2h1ZmZsZSBvbiB5b3U/wqDCoFdoYXQgSSBtZWFuIGJ5DQo+IHRoYXQgaXMgdGhhdCB5
-b3UgZG9uJ3Qgd2FudCB0byBoYXZlIGEgc2V0dXAgd2l0aCA0IFR4IGFuZCA0IFJ4IHJpbmdzDQo+
-IHdoZXJlIHlvdSB0aGVuIHJlcGxhY2UgaXQgd2l0aCAxIFR4IGFuZCA3IFJ4IHJpbmdzIGFuZCB0
-cnkgdG8NCj4gcG9wdWxhdGUNCj4gdGhlIHNhbWUgZGF0YSBpbnRvIGEgc2V0dXAgd2hlcmUgdGhl
-IHN0cmluZ3MgcmVwb3J0ZWQgYXJlIGZvciA0IFR4DQo+IGFuZA0KPiA0IFJ4LsKgwqBZb3Ugc2hv
-dWxkIGRvdWJsZSBjaGVjayB0aGF0IHRoZSBsZW5ndGggY2FuIGJlIHVzZWQgYXMgYSBtZWFucw0K
-PiBvZiBpZGVudGlmeWluZyBleGFjdGx5IHdoYXQgc3RyaW5ncyB3aWxsIGJlIHdoZXJlLg0KPiAN
-Cj4gLSBBbGV4DQoNCg0KRGFybi4gTG9va3MgbGlrZSB5b3UncmUgcmlnaHQuIEl0IHdvdWxkIGJl
-IHRoZW9yZXRpY2FsbHkgcG9zc2libGUgZm9yDQp0aGUgbnVtYmVyIG9mIHF1ZXVlcyAob3Igb3Ro
-ZXIgdmFyaWFibGVzKSB0byBjaGFuZ2Ugc3VjaCB0aGF0IHRoZSBzaXplDQptYXRjaGVzIGJ1dCB0
-aGUgZGF0YSBubyBsb25nZXIgbGluZXMgdXAgYWdhaW5zdCB0aGUgc3RyaW5ncy4NCg0KRm9yIHF1
-ZXVlcywgSSBkb24ndCB0aGluayB3ZSdyZSB2dWxuZXJhYmxlIG9uIHRoZSBmbTEwayBkcml2ZXIs
-IGJlY2F1c2UNCndlIG9ubHkgdXNlIGNvbWJpbmVkIHF1ZXVlcy4gSG93ZXZlciwgd2UgYWxyZWFk
-eSBoYXZlIHN1cHBvcnQgZm9yDQoiZGVidWctc3RhdGlzdGljcyIgd2hpY2ggc2hvd3MgZXh0cmEg
-c3RhdHMgcGx1cyBzb21lIHN0YXRzIHBlciB2aXJ0dWFsDQpmdW5jdGlvbi4gSSBhbSBub3Qgc3Vy
-ZSBpZiB0aGVzZSBjb3VsZCBjaGFuZ2Ugd2l0aGluIHRoZSB0aW1lIHdpbmRvdyB0bw0KcmVzdWx0
-IGluIGdhcmJhZ2UgZGF0YS4NCg0KSSBkb24ndCBrbm93IGhvdyBtdWNoIG9mIGEgcmVhbCB3b3Js
-ZCBwcm9ibGVtIHRoaXMgd291bGQgYmUgdGhvdWdoLg0KDQpJJ20gZ3Vlc3NpbmcgaXQncyBtb3Jl
-IHJlYXNvbiB0byBwcm9tb3RlIHRoZSBpZGVhIG9mIGNvbnZlcnRpbmcgdG8gc29tZQ0KbmV3IHRv
-b2wgYmFzZWQgb24gbmV0bGluay4NCg0KVGhhbmtzLA0KSmFrZQ==
+On Tue, Mar 1, 2016 at 2:58 PM, Keller, Jacob E
+<jacob.e.keller@intel.com> wrote:
+> On Tue, 2016-03-01 at 14:31 -0800, Alexander Duyck wrote:
+>> This still has the potential to provide garbage data.  What you
+>> should
+>> probably do at each stage is make sure the length matches with the
+>> exact value that you would expect.
+>>
+>
+> Sure, an exact check could be done instead, however...
+>
+>> I assume you cannot have any fields shuffle on you?  What I mean by
+>> that is that you don't want to have a setup with 4 Tx and 4 Rx rings
+>> where you then replace it with 1 Tx and 7 Rx rings and try to
+>> populate
+>> the same data into a setup where the strings reported are for 4 Tx
+>> and
+>> 4 Rx.  You should double check that the length can be used as a means
+>> of identifying exactly what strings will be where.
+>>
+>> - Alex
+>
+>
+> Darn. Looks like you're right. It would be theoretically possible for
+> the number of queues (or other variables) to change such that the size
+> matches but the data no longer lines up against the strings.
+>
+> For queues, I don't think we're vulnerable on the fm10k driver, because
+> we only use combined queues. However, we already have support for
+> "debug-statistics" which shows extra stats plus some stats per virtual
+> function. I am not sure if these could change within the time window to
+> result in garbage data.
+>
+> I don't know how much of a real world problem this would be though.
+>
+> I'm guessing it's more reason to promote the idea of converting to some
+> new tool based on netlink.
+
+Yeah, we had basically pushed the issue under the rug by using a
+static layout for statistics.
+
+Was the motivation for getting rid of the static layout just to
+declutter the display?  I know I have gotten into the habit of just
+piping ethtool -S through a "| grep -v :\ 0" to drop any of the unused
+stats from the display.  Also you may see issues depending on how the
+stats might be parsed by user-space scripts if you start modifying
+what is displayed and what is not.
+
+- Alex
