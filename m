@@ -1,37 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: lack the check for ports in sctp_v6_cmp_addr
-Date: Tue, 01 Mar 2016 17:25:51 -0500 (EST)
-Message-ID: <20160301.172551.1571133128115239882.davem@davemloft.net>
-References: <415cb449b7811635a13245e5ec99a5679516524a.1456625031.git.lucien.xin@gmail.com>
+From: Zhi Li <lznuaa@gmail.com>
+Subject: Re: [PATCH net-next V2 03/16] net: fec: pass txq to fec_enet_tx_queue
+ instead of queue_id
+Date: Tue, 1 Mar 2016 16:26:15 -0600
+Message-ID: <CAHrpEqQdBqUwfrHL=dHGszEeU-pRo9mmOyuTy6aaw3QMBdkqUg@mail.gmail.com>
+References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
+	<1456360619-24390-4-git-send-email-troy.kisky@boundarydevices.com>
+	<CAHrpEqSyuToC6QFEZygO0YyA=gV2cZEtkpRJMeZFOjhgTLdexQ@mail.gmail.com>
+	<56D60EDE.7090100@boundarydevices.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	marcelo.leitner@gmail.com, vyasevich@gmail.com,
-	daniel@iogearbox.net
-To: lucien.xin@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Duan Fugang-B38611 <B38611@freescale.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Philippe Reynes <tremyfr@gmail.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Laci Tele <laci@boundarydevices.com>,
+	Shawn Guo <shawnguo@kernel.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Joshua Clayton <stillcompiling@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Arnd Bergmann <arnd@arndb.de>
+To: Troy Kisky <troy.kisky@boundarydevices.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42736 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750843AbcCAWZx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 17:25:53 -0500
-In-Reply-To: <415cb449b7811635a13245e5ec99a5679516524a.1456625031.git.lucien.xin@gmail.com>
+Received: from mail-ob0-f196.google.com ([209.85.214.196]:33934 "EHLO
+	mail-ob0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751337AbcCAW0Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 17:26:16 -0500
+Received: by mail-ob0-f196.google.com with SMTP id wz1so13552550obc.1
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 14:26:15 -0800 (PST)
+In-Reply-To: <56D60EDE.7090100@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Sun, 28 Feb 2016 10:03:51 +0800
+On Tue, Mar 1, 2016 at 3:51 PM, Troy Kisky
+<troy.kisky@boundarydevices.com> wrote:
+> True, but fec_txq/fec_rxq is called in a loop.
 
-> As the member .cmp_addr of sctp_af_inet6, sctp_v6_cmp_addr should also check
-> the port of addresses, just like sctp_v4_cmp_addr, cause it's invoked by
-> sctp_cmp_addr_exact().
-> 
-> Now sctp_v6_cmp_addr just check the port when two addresses have different
-> family, and lack the port check for two ipv6 addresses. that will make
-> sctp_hash_cmp() cannot work well.
-> 
-> so fix it by adding ports comparison in sctp_v6_cmp_addr().
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+netdev_priv(ndev) is that pointer move.
+dev + ALIGN(sizeof(struct net_device), NETDEV_ALIGN)
 
-Applied and queued up for -stable, thanks.
+Modem compiler can handle it greatly.
+
+You can't get any valuable performance gain by that.
+
+The main time of CPU is call dma_map_xxx.
+
+best regards
+Frank Li
