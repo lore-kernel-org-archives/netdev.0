@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bna: fix list corruption
-Date: Tue, 01 Mar 2016 15:20:05 -0500 (EST)
-Message-ID: <20160301.152005.1101376339335232556.davem@davemloft.net>
-References: <1456474550-16747-1-git-send-email-ivecera@redhat.com>
+Subject: Re: [PATCH net 0/3] r8169:issues fix.
+Date: Tue, 01 Mar 2016 15:24:53 -0500 (EST)
+Message-ID: <20160301.152453.1743613743070525198.davem@davemloft.net>
+References: <1456476046-5436-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rasesh.mody@qlogic.com
-To: ivecera@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40826 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751954AbcCAUUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 15:20:06 -0500
-In-Reply-To: <1456474550-16747-1-git-send-email-ivecera@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org
+To: hau@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1456476046-5436-1-git-send-email-hau@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ivan Vecera <ivecera@redhat.com>
-Date: Fri, 26 Feb 2016 09:15:50 +0100
+From: Chunhao Lin <hau@realtek.com>
+Date: Fri, 26 Feb 2016 16:40:43 +0800
 
-> Use list_move_tail() to move MAC address entry from list of pending
-> to list of active entries. Simple list_add_tail() leaves the entry
-> also in the first list, this leads to list corruption.
+> This series of patches fix 3 issues that are listed below.
 > 
-> Cc: Rasesh Mody <rasesh.mody@qlogic.com>
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> Chunhao Lin (3):
+>   r8169:fix nic sometimes doesn't work after changing the mac address.
+>   r8169:eliminate error message in using ethtool -S when nic is down.
+>   r8169: Enable RX_MULTI_EN for RTL_GIGA_MAC_VER_41~48
 
-Applied.
+I don't agree with changes #1 and #2.
+
+If you are going to go to a model where every single configuration
+operation is recorded in software and performed at resume time, then
+really do it and fix it in the whole driver.  As currently coded you
+are leaving lots of known bugs in the driver.
+
+#2 is even a worse situation.  If you are going to handle things this
+way you must sync the counters when the suspend happens, so that the
+statistics get call receives up to date values.
