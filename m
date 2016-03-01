@@ -1,81 +1,42 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH 2/4] net: can: ifi: Fix TX DLC configuration
-Date: Tue, 1 Mar 2016 19:11:32 +0100
-Message-ID: <56D5DB54.6000600@hartkopp.net>
-References: <1456775971-4946-1-git-send-email-marex@denx.de>
- <1456775971-4946-3-git-send-email-marex@denx.de>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next v3 0/3] NSH and VxLAN-GPE
+Date: Tue, 1 Mar 2016 10:12:34 -0800
+Message-ID: <20160301181231.GA95346@ast-mbp.thefacebook.com>
+References: <1456830709-32052-1-git-send-email-brussell@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: Marek Vasut <marex@denx.de>, linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1456775971-4946-3-git-send-email-marex@denx.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Brian Russell <brussell@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:33730 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbcCASMk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 13:12:40 -0500
+Received: by mail-pf0-f169.google.com with SMTP id 124so55445638pfg.0
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 10:12:39 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1456830709-32052-1-git-send-email-brussell@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 02/29/2016 08:59 PM, Marek Vasut wrote:
-> The TX DLC, the transmission length information, was not written
-> into the transmit configuration register. When using the CAN core
-> with different CAN controller, the receiving CAN controller will
-> receive only the ID part of the CAN frame, but no data at all.
+On Tue, Mar 01, 2016 at 11:11:46AM +0000, Brian Russell wrote:
+> These patches add a new module to support encap/decap of Network
+> Service Header (NSH) as defined in:
 > 
-> This patch adds the TX DLC into the register to fix this issue.
+> https://tools.ietf.org/html/draft-ietf-sfc-nsh-01
 > 
-> Signed-off-by: Marek Vasut <marex@denx.de>
-> Cc: Marc Kleine-Budde <mkl@pengutronix.de>
-> Cc: Mark Rutland <mark.rutland@arm.com>
-> Cc: Oliver Hartkopp <socketcan@hartkopp.net>
-> Cc: Wolfgang Grandegger <wg@grandegger.com>
-> ---
->  drivers/net/can/ifi_canfd/ifi_canfd.c | 5 +++++
->  1 file changed, 5 insertions(+)
+> Both NSH Type 1 and Type 2 metadata are supported with a simple registration
+> hook to allow listeners to register to see packets with Type 1 or a specific
+> class of Type 2 metadata. NSH could be added to packets sent over a variety
+> of link types, eg. VxLAN, GRE, ethernet.
 > 
-> diff --git a/drivers/net/can/ifi_canfd/ifi_canfd.c b/drivers/net/can/ifi_canfd/ifi_canfd.c
-> index 72f5205..82a33bd 100644
-> --- a/drivers/net/can/ifi_canfd/ifi_canfd.c
-> +++ b/drivers/net/can/ifi_canfd/ifi_canfd.c
-> @@ -774,10 +774,15 @@ static netdev_tx_t ifi_canfd_start_xmit(struct sk_buff *skb,
->  
->  	if (priv->can.ctrlmode & (CAN_CTRLMODE_FD | CAN_CTRLMODE_FD_NON_ISO)) {
->  		if (can_is_canfd_skb(skb)) {
-> +			txdlc |= can_len2dlc(cf->len);
->  			txdlc |= IFI_CANFD_TXFIFO_DLC_EDL;
->  			if (cf->flags & CANFD_BRS)
->  				txdlc |= IFI_CANFD_TXFIFO_DLC_BRS;
-> +		} else {
-> +			txdlc |= cf->len;
->  		}
-> +	} else {
-> +		txdlc |= cf->len;
->  	}
-
-Please use
-
-	txdlc |= can_len2dlc(cf->len);
-
-by default (it works for CAN and CAN FD).
-
-So that it looks more like:
-
-	txdlc |= can_len2dlc(cf->len);
-	if ((priv->can.ctrlmode & CAN_CTRLMODE_FD) && can_is_canfd_skb(skb)) {
-		txdlc |= IFI_CANFD_TXFIFO_DLC_EDL;
-		if (cf->flags & CANFD_BRS)
-			txdlc |= IFI_CANFD_TXFIFO_DLC_BRS;
-	}
-
-Testing against CAN_CTRLMODE_FD_NON_ISO is wrong!
-This configuration bit is just for the protocol on the wire and is no
-distinction for CAN / CAN FD.
-
-Best regards,
-Oliver
-
->  
->  	if (cf->can_id & CAN_RTR_FLAG)
+> v2 - fix copyright notices and tidy up use of types
 > 
+> v3 - fix various style issues in nsh module
+>      remove VxLAN-GPE changes
+>      add nsh logging module as example
+>      add nsh netfilter encap target as example
+
+two fake examples are trying to justify EXPORT_SYMBOL(nsh_register_listener) ?!
+what's the real meaning of this patch set?
+As far as I can see in-tree users cannot do anything useful with it.
