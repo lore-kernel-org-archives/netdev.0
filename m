@@ -1,85 +1,106 @@
-From: f6bvp <f6bvp@free.fr>
-Subject: Re: [Patch] rose_route_frame() NULL pointer dereference kernel panic
-Date: Tue, 1 Mar 2016 21:37:14 +0100
-Message-ID: <56D5FD7A.5080104@free.fr>
-References: <56CDDFF7.2040609@free.fr>
- <20160225.170957.836114237953219422.davem@davemloft.net>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH] can: rcar_canfd: Add Renesas R-Car CAN FD driver
+Date: Tue, 1 Mar 2016 21:41:50 +0100
+Message-ID: <56D5FE8E.1090400@pengutronix.de>
+References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ralf@linux-mips.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shiva144.upmc.fr ([134.157.0.144]:65071 "EHLO shiva.upmc.fr"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751337AbcCAUhZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2016 15:37:25 -0500
-In-Reply-To: <20160225.170957.836114237953219422.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="GIqJh2blIPdeEokw6tb033F13etDSiOQu"
+Cc: linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org,
+	chris.paterson2-zM6kxYcvzFBBDgjK7y7TUQ@public.gmane.org
+To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram-kTT6dE0pTRh9uiUsa/gSgQ@public.gmane.org>,
+	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
+	mark.rutland-5wv7dgnIgG8@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
+	galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, corbet-T1hC0tSOHrs@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram-kTT6dE0pTRh9uiUsa/gSgQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi David, Ralf,
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--GIqJh2blIPdeEokw6tb033F13etDSiOQu
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-David is absolutely right about my unappropriate patch.
-Although I had searched functions calling rose_route_frame(), I did not
-notice rose_xmit() was involved. Shame on me !
+On 03/01/2016 10:34 AM, Ramesh Shanmugasundaram wrote:
+> This patch adds support for the CAN FD controller found in Renesas R-Ca=
+r
+> SoCs. The controller operates in CAN FD mode by default. Two test modes=
 
-Then, David precisely located the source of the issue we are facing.
+> are available and can be enabled by the "rcar_canfd.testmode" module
+> parameter. Refer to Documentation/kernel-parameters.txt.
 
-When rose_xmit() calls rose_route_frame() with NULL as second argument,
-there is always a null pointer dereference when rose_route_frame() calls 
-ax25cmp().
+Is the channel loopback mode configurable per channel? If so, please
+remove the module parameter and make use of CAN_CTRLMODE_LOOPBACK to
+configure it.
 
-Here is the explanation :
+> CAN FD mode supports both Classical CAN & CAN FD frame formats. The
+> controller supports ISO 11898-1:2015 CAN FD format only.
+>=20
+> This controller supports two channels and the driver can enable either
+> or both of the channels.
+>=20
+> Driver uses Rx FIFOs (one per channel) for reception & Common FIFOs (on=
+e
+> per channel) for transmission. Rx filter rules are configured to the
+> minimum (one per channel) and it accepts Standard, Extended, Data &
+> Remote Frame combinations.
 
-When rose_route_frame() is called by rose_xmit() with NULL *ax25 argument
-the following comparison (rose_route.c , line 883)
+I see no locking for the tx-path.
 
-if (ax25cmp(&ax25->dest_addr, &rose_neigh->callsign) == 0 &&
+> Note: There are few documentation errors in R-Car Gen3 Hardware User
+> Manual v0.5E with respect to CAN FD controller. They are listed below:
+>=20
+> 1. CAN FD interrupt numbers 29 & 30 are listed as per channel
+> interrupts. However, they are common to both channels (i.e.) they are
+> global and channel interrupts respectively.
+>=20
+> 2. CANFD clock is derived from PLL1. This is not documented.
+>=20
+> 3. CANFD clock is further divided by (1/2) within the CAN FD controller=
+=2E
+> This is not documented.
+>=20
+> 4. The minimum value of NTSEG1 in RSCFDnCFDCmNCFG register is 2 Tq. It
+> is mentioned 4 Tq in the manual.
+>=20
+> 5. The maximum number of message RAM area the controller can use is 358=
+4
+> bytes. It is mentioned 10752 bytes in the manual.
+>=20
+> Signed-off-by: Ramesh Shanmugasundaram <ramesh.shanmugasundaram-+3GIUL1IS+U@public.gmane.org=
+sas.com>
 
-always has a pointer dereference leading to a kernel panic.
+Marc
 
-I noticed, using a few printk, that during rose normal operations 
-rose_xmit() was never called
-when ax25ipd sends an UDP frame. Otherwise, this bug would have been 
-found earlier.
-It is only because FPAC application asked for a connection to an address 
-without defined route and
-gateway that rose_xmit() was activated.
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-I am not sure I understood well the purpose of the NULL second argument.
-I only guess it was intended to have ax25->dest_addr empty in order to 
-make the comparison
-with all possible rose_neigh->callsign always false.
 
-I built the following patch in order to obtain the same result without 
-NULL pointer.
+--GIqJh2blIPdeEokw6tb033F13etDSiOQu
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
---- a/net/rose/rose_dev.c       2016-02-25 21:01:36.000000000 +0100
-+++ b/net/rose/rose_dev.c  2016-03-01 14:08:29.911389078 +0100
-@@ -101,13 +101,16 @@ static netdev_tx_t rose_xmit(struct sk_b
-  {
-         struct net_device_stats *stats = &dev->stats;
-         unsigned int len = skb->len;
-+       struct ax25_cb ax25;
+-----BEGIN PGP SIGNATURE-----
 
-+       memset(&ax25, 0, sizeof(struct ax25_cb));
-+
-         if (!netif_running(dev)) {
-                 printk(KERN_ERR "ROSE: rose_xmit - called when iface is 
-down\n");
-                 return NETDEV_TX_BUSY;
-         }
+iQEcBAEBCgAGBQJW1f6OAAoJED07qiWsqSVqAjwH/i4mLL4qeMBR+hklz62SmJj7
+rmoMLZu9dWIqaP4/Wo6mWi/Hh8/gosJtVhktdIi7lp704CfEGPp4M2ItsEhSjz6U
+OgrJSd9lYEzuYg3bNvLGga6dv6rtc7ZGCcgml01NQ1g8E3URRHIfYAK+ieF/hE0Y
+CH/AfInQyTNlcDdlAhz7YQ7H8C1wm0AVkSf0LyTFol59E9cyY33pYtQeJJI5rTIT
+jws+F4rkG5BEZ04YGFQ6uAH4Cy/wbDkuUuoDut2dTlmSRHNPSjDMNV0wQ9cxtnPh
+bMMHwGDEXR5AHXMqcSKqANTVjINEBFst6Wa6kQs8jhz5zESLn786J1XJPQlA4uA=
+=ycxc
+-----END PGP SIGNATURE-----
 
--       if (!rose_route_frame(skb, NULL)) {
-+       if (!rose_route_frame(skb, &ax25)) {
-                 dev_kfree_skb(skb);
-                 stats->tx_errors++;
-                 return NETDEV_TX_OK;
-
-Could Ralf or David please check if above code syntax is correct.
-I tested the patch and found rose was working correctly with no more 
-panic nor
-unwanted effects on rose_route_frame() normal operations.
-
-Bernard Pidoux
+--GIqJh2blIPdeEokw6tb033F13etDSiOQu--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
