@@ -1,24 +1,25 @@
-From: David Miller <davem@davemloft.net>
+From: Tejun Heo <tj@kernel.org>
 Subject: Re: [RFC][PATCH] tags: Fix DEFINE_PER_CPU expansions
-Date: Tue, 01 Mar 2016 11:36:42 -0500 (EST)
-Message-ID: <20160301.113642.1119377555960644780.davem@davemloft.net>
+Date: Tue, 1 Mar 2016 11:37:07 -0500
+Message-ID: <20160301163707.GF3965@htj.duckdns.org>
 References: <20160301102625.GQ6357@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	rjw@rjwysocki.net, konrad.wilk@oracle.com, mingo@kernel.org,
-	paulmck@linux.vnet.ibm.com, tj@kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, rjw@rjwysocki.net,
+	konrad.wilk@oracle.com, Ingo Molnar <mingo@kernel.org>,
+	paulmck@linux.vnet.ibm.com, davem@davemloft.net,
 	linux-acpi@vger.kernel.org, netdev@vger.kernel.org
-To: peterz@infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Content-Disposition: inline
 In-Reply-To: <20160301102625.GQ6357@twins.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Tue, 1 Mar 2016 11:26:25 +0100
+Hello, Peter.
 
+On Tue, Mar 01, 2016 at 11:26:25AM +0100, Peter Zijlstra wrote:
 > 
 > $ make tags
 >   GEN     tags
@@ -40,9 +41,12 @@ Date: Tue, 1 Mar 2016 11:26:25 +0100
 > The below cures them. All except the workqueue one are within reasonable
 > distance of the 80 char limit. TJ do you have any preference on how to
 > fix the wq one, or shall we just not care its too long?
-> 
-> Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 
-For the networking bits:
+Urgh... I really hate the fact that we're putting on arbitrary
+formatting constraints to compensate for shortcomings in an
+out-of-line utility.  Can't it do multiline regex?
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Thanks.
+
+-- 
+tejun
