@@ -1,103 +1,46 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: RDS: Major clean-up with couple of new features for 4.6
-Date: Tue,  1 Mar 2016 15:20:41 -0800
-Message-ID: <1456874454-10355-1-git-send-email-santosh.shilimkar@oracle.com>
-Cc: linux-kernel@vger.kernel.org
+Subject: [net-next][PATCH v3 03/13] MAINTAINERS: update RDS entry
+Date: Tue,  1 Mar 2016 15:20:44 -0800
+Message-ID: <1456874454-10355-4-git-send-email-santosh.shilimkar@oracle.com>
+References: <1456874454-10355-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: linux-kernel@vger.kernel.org,
+	Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:29617 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752263AbcCAXVY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 18:21:24 -0500
+In-Reply-To: <1456874454-10355-1-git-send-email-santosh.shilimkar@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-v3:
-Re-generated the same series by omitting "-D" option from git format-patch
-command. Since first patch has file removals, git apply/am can't deal
-with it when formated with '-D' option. 
+Acked-by: Chien Yen <chien.yen@oracle.com>
+Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+---
+ MAINTAINERS | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-v2:
-Dropped module parameter from [PATCH 11/13] as suggested by David Miller
-
-Series is generated against net-next but also applies against Linus's tip
-cleanly. Entire patchset is available at below git tree:
-
- git://git.kernel.org/pub/scm/linux/kernel/git/ssantosh/linux.git for_4.6/net-next/rds_v2
-
-The diff-stat looks bit scary since almost ~4K lines of code is
-getting removed. Brief summary of the series:
-
-- Drop the stale iWARP support:
-	RDS iWarp support code has become stale and non testable for
-	sometime.  As discussed and agreed earlier on list, am dropping
-	its support for good. If new iWarp user(s) shows up in future,
-	the plan is to adapt existing IB RDMA with special sink case.
-- RDS gets SO_TIMESTAMP support
-- Long due RDS maintainer entry gets updated
-- Some RDS IB code refactoring towards new FastReg Memory registration (FRMR)
-- Lastly the initial support for FRMR
-	
-RDS IB RDMA performance with FRMR is not yet as good as FMR and I do have
-some patches in progress to address that. But they are not ready for 4.6
-so I left them out of this series. 
-
-Also am keeping eye on new CQ API adaptations like other ULPs doing and
-will try to adapt RDS for the same most likely in 4.7+ timeframe. 
-
-Santosh Shilimkar (12):
-  RDS: Drop stale iWARP RDMA transport
-  RDS: Add support for SO_TIMESTAMP for incoming messages
-  MAINTAINERS: update RDS entry
-  RDS: IB: Remove the RDS_IB_SEND_OP dependency
-  RDS: IB: Re-organise ibmr code
-  RDS: IB: create struct rds_ib_fmr
-  RDS: IB: move FMR code to its own file
-  RDS: IB: add connection info to ibmr
-  RDS: IB: handle the RDMA CM time wait event
-  RDS: IB: add mr reused stats
-  RDS: IB: add Fastreg MR (FRMR) detection support
-  RDS: IB: allocate extra space on queues for FRMR support
-
-Avinash Repaka (1):
-  RDS: IB: Support Fastreg MR (FRMR) memory registration mode
-
- Documentation/networking/rds.txt |   4 +-
- MAINTAINERS                      |   6 +-
- net/rds/Kconfig                  |   7 +-
- net/rds/Makefile                 |   4 +-
- net/rds/af_rds.c                 |  26 ++
- net/rds/ib.c                     |  47 +-
- net/rds/ib.h                     |  37 +-
- net/rds/ib_cm.c                  |  59 ++-
- net/rds/ib_fmr.c                 | 248 ++++++++++
- net/rds/ib_frmr.c                | 376 +++++++++++++++
- net/rds/ib_mr.h                  | 148 ++++++
- net/rds/ib_rdma.c                | 495 ++++++--------------
- net/rds/ib_send.c                |   6 +-
- net/rds/ib_stats.c               |   2 +
- net/rds/iw.c                     | 312 -------------
- net/rds/iw.h                     | 398 ----------------
- net/rds/iw_cm.c                  | 769 ------------------------------
- net/rds/iw_rdma.c                | 837 ---------------------------------
- net/rds/iw_recv.c                | 904 ------------------------------------
- net/rds/iw_ring.c                | 169 -------
- net/rds/iw_send.c                | 981 ---------------------------------------
- net/rds/iw_stats.c               |  95 ----
- net/rds/iw_sysctl.c              | 123 -----
- net/rds/rdma_transport.c         |  21 +-
- net/rds/rdma_transport.h         |   5 -
- net/rds/rds.h                    |   1 +
- net/rds/recv.c                   |  20 +-
- 27 files changed, 1065 insertions(+), 5035 deletions(-)
- create mode 100644 net/rds/ib_fmr.c
- create mode 100644 net/rds/ib_frmr.c
- create mode 100644 net/rds/ib_mr.h
- delete mode 100644 net/rds/iw.c
- delete mode 100644 net/rds/iw.h
- delete mode 100644 net/rds/iw_cm.c
- delete mode 100644 net/rds/iw_rdma.c
- delete mode 100644 net/rds/iw_recv.c
- delete mode 100644 net/rds/iw_ring.c
- delete mode 100644 net/rds/iw_send.c
- delete mode 100644 net/rds/iw_stats.c
- delete mode 100644 net/rds/iw_sysctl.c
-
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 27393cf..08b084a 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -9067,10 +9067,14 @@ S:	Maintained
+ F:	drivers/net/ethernet/rdc/r6040.c
+ 
+ RDS - RELIABLE DATAGRAM SOCKETS
+-M:	Chien Yen <chien.yen@oracle.com>
++M:	Santosh Shilimkar <santosh.shilimkar@oracle.com>
++L:	netdev@vger.kernel.org
++L:	linux-rdma@vger.kernel.org
+ L:	rds-devel@oss.oracle.com (moderated for non-subscribers)
++W:	https://oss.oracle.com/projects/rds/
+ S:	Supported
+ F:	net/rds/
++F:	Documentation/networking/rds.txt
+ 
+ READ-COPY UPDATE (RCU)
+ M:	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 -- 
 1.9.1
