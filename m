@@ -1,15 +1,15 @@
 From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: [PATCH]   Increase no descriptors on max.
-Date: Tue,  1 Mar 2016 09:25:58 +0200
-Message-ID: <1456817158-1978-1-git-send-email-asd@marian1000.go.ro>
+Subject: [PATCH net v3.16] r8169: Increase no descriptors on max.
+Date: Tue,  1 Mar 2016 09:27:05 +0200
+Message-ID: <1456817225-2026-1-git-send-email-asd@marian1000.go.ro>
 Cc: Francois Romieu <romieu@fr.zoreil.com>,
 	Corcodel Marian <asd@marian1000.go.ro>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [82.78.245.130] ([82.78.245.130]:55144 "EHLO marian1000.go.ro"
+Received: from [82.78.245.130] ([82.78.245.130]:55147 "EHLO marian1000.go.ro"
 	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750802AbcCAH04 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2016 02:26:56 -0500
+	id S1750799AbcCAH17 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2016 02:27:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
