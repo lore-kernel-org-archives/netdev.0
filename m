@@ -1,49 +1,118 @@
-From: Bob Copeland <me@bobcopeland.com>
-Subject: Re: [PATCH RFC 1/2] rhashtable: accept GFP flags in
- rhashtable_walk_init
-Date: Tue, 1 Mar 2016 09:15:11 -0500
-Message-ID: <20160301141511.GC19848@localhost>
-References: <1456708013-19590-1-git-send-email-me@bobcopeland.com>
- <1456840456.3926.22.camel@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-	netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+From: Amir Vadai <amir@vadai.me>
+Subject: [PATCH net-next 0/8] cls_flower hardware offload support
+Date: Tue,  1 Mar 2016 16:24:42 +0200
+Message-ID: <1456842290-7844-1-git-send-email-amir@vadai.me>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:33747 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753858AbcCAOPY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 09:15:24 -0500
-Received: by mail-qg0-f46.google.com with SMTP id d32so86521690qgd.0
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 06:15:24 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1456840456.3926.22.camel@sipsolutions.net>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34109 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752636AbcCAOVd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 09:21:33 -0500
+Received: by mail-wm0-f66.google.com with SMTP id p65so4361859wmp.1
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 06:21:33 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 01, 2016 at 02:54:16PM +0100, Johannes Berg wrote:
-> On Sun, 2016-02-28 at 20:06 -0500, Bob Copeland wrote:
-> > In certain cases, the 802.11 mesh pathtable code wants to
-> > iterate over all of the entries in the forwarding table from
-> > the receive path, which is inside an RCU read-side critical
-> > section.=A0=A0Enable walks inside atomic sections by allowing
-> > GFP_ATOMIC allocations for the walker state.
-> >=20
-> > Change all existing callsites to pass in GFP_KERNEL.
->=20
-> Both look fine to me.
->=20
-> I see you have more patches for mesh, so this probably can't go throu=
-gh
-> net-next tree directly.
+Hi,
 
-Yeah, these two are on top of the other mesh path table changes.
+This patchset introduces cls_flower hardware offload support over ConnectX-4
+driver, more hardware vendors are welcome to use it too.
 
-So either both of these could go via mac80211-next or we could do the
-1/2 in net-next and wait to apply 2/2 in mac80211-next.  Whatever works
-for you guys.
+This patchset is based on John's infrastructure for tc offloading [2] to add
+hardware offload support to the flower filter. It also extends the support to
+an additional tc action - skbedit mark operation.
+NIC driver that was used is ConnectX-4. Feature is off by default and could be
+turned on using ethtool.
 
---=20
-Bob Copeland %% http://bobcopeland.com/
+Some commands to use this code:
+
+export TC=../iproute2/tc/tc
+export ETH=ens9
+
+ethtool  -K ens9 hw-tc-offload on
+
+# add an ingress qdisc
+$TC qdisc add dev $ETH ingress
+
+# Drop ICMP (ip_proto 1) packets
+$TC filter add dev $ETH protocol ip prio 20 parent ffff: \
+	flower ip_proto 1 \
+	dst_mac 7c:fe:90:69:81:62 \
+	src_mac 7c:fe:90:69:81:56 \
+	dst_ip 11.11.11.11 \
+	src_ip 11.11.11.12 \
+	indev $ETH \
+	action drop
+
+# Mark (with 0x1234) TCP (ip_proto 6) packets
+$TC filter add dev $ETH protocol ip prio 30 parent ffff: \
+	flower ip_proto 6 \
+	indev $ETH \
+	action skbedit mark 0x1234
+
+# A NOP software filter used to count marked packets using "tc show -s"
+$TC filter add dev $ETH protocol ip prio 10 parent ffff: \
+	handle 0x1234 fw action pass
+
+The code was tested and applied on top of commit f12d33f
+("3c59x: Ensure to apply the expires time") + John's pending patches [3]
+
+Main changes from the RFC [1]:
+- API
+  - Using ndo_setup_tc() instead of switchdev
+- act_skbedit, act_gact
+  - Actions are not serialized to NIC driver, instead using access functions.
+- cls_flower
+  - prevent double classification by software by not adding
+    successfuly offloaded filters to the hashtable
+  - Fixed some bugs in original RFC with rule delete  
+- mlx5
+  - Adding flow table to kernel namespace instead of a new namespace
+  - s/offload/tc/ in many places
+  - no need for a special kconfig since switchdev is not used
+
+Thanks,
+Amir
+
+[1] - http://permalink.gmane.org/gmane.linux.network/397064
+[2] - http://permalink.gmane.org/gmane.linux.network/397045 
+[3] - http://permalink.gmane.org/gmane.linux.network/401226
+
+Amir Vadai (8):
+  net/flower: Introduce hardware offload support
+  net/flow_dissector: Make dissector_uses_key() and
+    skb_flow_dissector_target() public
+  net/act_skbedit: Utility functions for mark action
+  net/mlx5_core: Set flow steering dest only for forward rules
+  net/mlx5e: Add a new priority for kernel flow tables
+  net/mlx5e: Introduce tc offload support
+  net/mlx5e: Support offload cls_flower with drop action
+  net/mlx5e: Support offload cls_flower with sskbedit mark action
+
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile  |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |   9 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c   |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  40 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |   3 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c   | 434 ++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.h   |  51 +++
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c  |  29 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c |  22 +-
+ include/linux/netdevice.h                         |   2 +
+ include/net/flow_dissector.h                      |  13 +
+ include/net/pkt_cls.h                             |  14 +
+ include/net/tc_act/tc_skbedit.h                   |  15 +
+ include/uapi/linux/pkt_cls.h                      |   2 +
+ net/core/flow_dissector.c                         |  13 -
+ net/sched/cls_flower.c                            |  75 +++-
+ 16 files changed, 686 insertions(+), 42 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
+
+-- 
+2.7.0
