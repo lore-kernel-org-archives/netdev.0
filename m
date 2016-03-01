@@ -1,66 +1,69 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 7/9] net/mlx5e: Don't modify CQ before it was created
-Date: Tue,  1 Mar 2016 17:42:20 +0200
-Message-ID: <1456846942-15082-8-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 3/9] net/mlx5e: Changed naming convention of tx queues in ethtool stats
+Date: Tue,  1 Mar 2016 17:42:16 +0200
+Message-ID: <1456846942-15082-4-git-send-email-saeedm@mellanox.com>
 References: <1456846942-15082-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Majd Dibbiny <majd@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:50636 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:50649 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754157AbcCAPq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2016 10:46:56 -0500
+	id S1754674AbcCAPq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2016 10:46:58 -0500
 In-Reply-To: <1456846942-15082-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gal Pressman <galp@mellanox.com>
+From: Tariq Toukan <tariqt@mellanox.com>
 
-Calling mlx5e_set_coalesce while the interface is down will result in
-modifying CQs that don't exist.
+Instead of the pair (channel, tc), we now use a single number that
+goes over all tx queues of a TC, for all TCs.
 
-Fixes: f62b8bb8f2d3 ('net/mlx5: Extend mlx5_core to support ConnectX-4
-Ethernet functionality')
-Signed-off-by: Gal Pressman <galp@mellanox.com>
-
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   15 ++++++++-------
+ 1 files changed, 8 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index a1b3bb4..0959656 100644
+index e9760f8..577b4b1 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -423,11 +423,15 @@ static int mlx5e_set_coalesce(struct net_device *netdev,
- 	if (!MLX5_CAP_GEN(mdev, cq_moderation))
- 		return -ENOTSUPP;
+@@ -211,13 +211,14 @@ static void mlx5e_get_strings(struct net_device *dev,
+ 				sprintf(data + (idx++) * ETH_GSTRING_LEN,
+ 					"rx%d_%s", i, rq_stats_strings[j]);
  
-+	mutex_lock(&priv->state_lock);
- 	priv->params.tx_cq_moderation_usec = coal->tx_coalesce_usecs;
- 	priv->params.tx_cq_moderation_pkts = coal->tx_max_coalesced_frames;
- 	priv->params.rx_cq_moderation_usec = coal->rx_coalesce_usecs;
- 	priv->params.rx_cq_moderation_pkts = coal->rx_max_coalesced_frames;
- 
-+	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
-+		goto out;
-+
- 	for (i = 0; i < priv->params.num_channels; ++i) {
- 		c = priv->channel[i];
- 
-@@ -443,6 +447,8 @@ static int mlx5e_set_coalesce(struct net_device *netdev,
- 					       coal->rx_max_coalesced_frames);
+-		for (i = 0; i < priv->params.num_channels; i++)
+-			for (tc = 0; tc < priv->params.num_tc; tc++)
++		for (tc = 0; tc < priv->params.num_tc; tc++)
++			for (i = 0; i < priv->params.num_channels; i++)
+ 				for (j = 0; j < NUM_SQ_STATS; j++)
+ 					sprintf(data +
+-						(idx++) * ETH_GSTRING_LEN,
+-						"tx%d_%d_%s", i, tc,
+-						sq_stats_strings[j]);
++					      (idx++) * ETH_GSTRING_LEN,
++					      "tx%d_%s",
++					      priv->channeltc_to_txq_map[i][tc],
++					      sq_stats_strings[j]);
+ 		break;
  	}
- 
-+out:
-+	mutex_unlock(&priv->state_lock);
- 	return 0;
  }
+@@ -249,8 +250,8 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+ 						&priv->state) ? 0 :
+ 				       ((u64 *)&priv->channel[i]->rq.stats)[j];
  
+-	for (i = 0; i < priv->params.num_channels; i++)
+-		for (tc = 0; tc < priv->params.num_tc; tc++)
++	for (tc = 0; tc < priv->params.num_tc; tc++)
++		for (i = 0; i < priv->params.num_channels; i++)
+ 			for (j = 0; j < NUM_SQ_STATS; j++)
+ 				data[idx++] = !test_bit(MLX5E_STATE_OPENED,
+ 							&priv->state) ? 0 :
 -- 
 1.7.1
