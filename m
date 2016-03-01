@@ -1,12 +1,14 @@
 From: Wolfram Sang <wsa@the-dreams.de>
-Subject: [PATCH 1/2] net: ethernet: renesas: ravb_main: don't open code of_device_get_match_data()
-Date: Tue,  1 Mar 2016 17:37:58 +0100
-Message-ID: <1456850284-8336-1-git-send-email-wsa@the-dreams.de>
+Subject: [PATCH 2/2] net: ethernet: renesas: sh_eth: don't open code of_device_get_match_data()
+Date: Tue,  1 Mar 2016 17:37:59 +0100
+Message-ID: <1456850284-8336-2-git-send-email-wsa@the-dreams.de>
+References: <1456850284-8336-1-git-send-email-wsa@the-dreams.de>
 Cc: Wolfram Sang <wsa@the-dreams.de>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	netdev@vger.kernel.org
 To: linux-renesas-soc@vger.kernel.org
 Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1456850284-8336-1-git-send-email-wsa@the-dreams.de>
 Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -19,34 +21,33 @@ to tighten the code and make it more readable.
 Signed-off-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
 ---
 
-Compile tested only. I am on the road and don't have acces to my Gen3 board.
-If someone could test it, that would be much appreciated. Or I'll do it next
-week. The pattern worked for other drivers I could actually test, though.
+Tested on a Lager board.
 
- drivers/net/ethernet/renesas/ravb_main.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index c936682aae68df..b8613a611a6278 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -1706,7 +1706,6 @@ static int ravb_set_gti(struct net_device *ndev)
- static int ravb_probe(struct platform_device *pdev)
- {
- 	struct device_node *np = pdev->dev.of_node;
--	const struct of_device_id *match;
- 	struct ravb_private *priv;
- 	enum ravb_chip_id chip_id;
- 	struct net_device *ndev;
-@@ -1738,8 +1737,7 @@ static int ravb_probe(struct platform_device *pdev)
- 	ndev->base_addr = res->start;
- 	ndev->dma = -1;
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 0a150b2289146f..8b6c07fe3d407d 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -3056,15 +3056,11 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	mdp->ether_link_active_low = pd->ether_link_active_low;
  
--	match = of_match_device(of_match_ptr(ravb_match_table), &pdev->dev);
--	chip_id = (enum ravb_chip_id)match->data;
-+	chip_id = (enum ravb_chip_id)of_device_get_match_data(&pdev->dev);
+ 	/* set cpu data */
+-	if (id) {
++	if (id)
+ 		mdp->cd = (struct sh_eth_cpu_data *)id->driver_data;
+-	} else	{
+-		const struct of_device_id *match;
++	else
++		mdp->cd = (struct sh_eth_cpu_data *)of_device_get_match_data(&pdev->dev);
  
- 	if (chip_id == RCAR_GEN3)
- 		irq = platform_get_irq_byname(pdev, "ch22");
+-		match = of_match_device(of_match_ptr(sh_eth_match_table),
+-					&pdev->dev);
+-		mdp->cd = (struct sh_eth_cpu_data *)match->data;
+-	}
+ 	mdp->reg_offset = sh_eth_get_register_offset(mdp->cd->register_type);
+ 	if (!mdp->reg_offset) {
+ 		dev_err(&pdev->dev, "Unknown register type (%d)\n",
 -- 
 2.7.0
