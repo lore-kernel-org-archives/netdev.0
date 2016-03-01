@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v3 02/13] RDS: Add support for SO_TIMESTAMP for incoming messages
-Date: Tue,  1 Mar 2016 15:20:43 -0800
-Message-ID: <1456874454-10355-3-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v3 11/13] RDS: IB: add Fastreg MR (FRMR) detection support
+Date: Tue,  1 Mar 2016 15:20:52 -0800
+Message-ID: <1456874454-10355-12-git-send-email-santosh.shilimkar@oracle.com>
 References: <1456874454-10355-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
@@ -11,141 +11,78 @@ In-Reply-To: <1456874454-10355-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The SO_TIMESTAMP generates time stamp for each incoming RDS messages
-User app can enable it by using SO_TIMESTAMP setsocketopt() at
-SOL_SOCKET level. CMSG data of cmsg type SO_TIMESTAMP contains the
-time stamp in struct timeval format.
+Discovere Fast Memmory Registration support using IB device
+IB_DEVICE_MEM_MGT_EXTENSIONS. Certain HCA might support just FRMR
+or FMR or both FMR and FRWR. In case both mr type are supported,
+default FMR is used.
 
-Reviewed-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Default MR is still kept as FMR against what everyone else
+is following. Default will be changed to FRMR once the
+RDS performance with FRMR is comparable with FMR. The
+work is in progress for the same.
+
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/af_rds.c | 26 ++++++++++++++++++++++++++
- net/rds/rds.h    |  1 +
- net/rds/recv.c   | 20 ++++++++++++++++++--
- 3 files changed, 45 insertions(+), 2 deletions(-)
+ net/rds/ib.c    | 10 ++++++++++
+ net/rds/ib.h    |  4 ++++
+ net/rds/ib_mr.h |  1 +
+ 3 files changed, 15 insertions(+)
 
-diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
-index b5476aeb..6beaeb1 100644
---- a/net/rds/af_rds.c
-+++ b/net/rds/af_rds.c
-@@ -277,6 +277,27 @@ static int rds_set_transport(struct rds_sock *rs, char __user *optval,
- 	return rs->rs_transport ? 0 : -ENOPROTOOPT;
- }
+diff --git a/net/rds/ib.c b/net/rds/ib.c
+index bb32cb9..b5342fd 100644
+--- a/net/rds/ib.c
++++ b/net/rds/ib.c
+@@ -140,6 +140,12 @@ static void rds_ib_add_one(struct ib_device *device)
+ 	rds_ibdev->max_wrs = device->attrs.max_qp_wr;
+ 	rds_ibdev->max_sge = min(device->attrs.max_sge, RDS_IB_MAX_SGE);
  
-+static int rds_enable_recvtstamp(struct sock *sk, char __user *optval,
-+				 int optlen)
-+{
-+	int val, valbool;
++	rds_ibdev->has_fr = (device->attrs.device_cap_flags &
++				  IB_DEVICE_MEM_MGT_EXTENSIONS);
++	rds_ibdev->has_fmr = (device->alloc_fmr && device->dealloc_fmr &&
++			    device->map_phys_fmr && device->unmap_fmr);
++	rds_ibdev->use_fastreg = (rds_ibdev->has_fr && !rds_ibdev->has_fmr);
 +
-+	if (optlen != sizeof(int))
-+		return -EFAULT;
+ 	rds_ibdev->fmr_max_remaps = device->attrs.max_map_per_fmr?: 32;
+ 	rds_ibdev->max_1m_mrs = device->attrs.max_mr ?
+ 		min_t(unsigned int, (device->attrs.max_mr / 2),
+@@ -178,6 +184,10 @@ static void rds_ib_add_one(struct ib_device *device)
+ 		 rds_ibdev->fmr_max_remaps, rds_ibdev->max_1m_mrs,
+ 		 rds_ibdev->max_8k_mrs);
+ 
++	pr_info("RDS/IB: %s: %s supported and preferred\n",
++		device->name,
++		rds_ibdev->use_fastreg ? "FRMR" : "FMR");
 +
-+	if (get_user(val, (int __user *)optval))
-+		return -EFAULT;
+ 	INIT_LIST_HEAD(&rds_ibdev->ipaddr_list);
+ 	INIT_LIST_HEAD(&rds_ibdev->conn_list);
+ 
+diff --git a/net/rds/ib.h b/net/rds/ib.h
+index 62fe7d5..c5eddc2 100644
+--- a/net/rds/ib.h
++++ b/net/rds/ib.h
+@@ -200,6 +200,10 @@ struct rds_ib_device {
+ 	struct list_head	conn_list;
+ 	struct ib_device	*dev;
+ 	struct ib_pd		*pd;
++	bool                    has_fmr;
++	bool                    has_fr;
++	bool                    use_fastreg;
 +
-+	valbool = val ? 1 : 0;
-+
-+	if (valbool)
-+		sock_set_flag(sk, SOCK_RCVTSTAMP);
-+	else
-+		sock_reset_flag(sk, SOCK_RCVTSTAMP);
-+
-+	return 0;
-+}
-+
- static int rds_setsockopt(struct socket *sock, int level, int optname,
- 			  char __user *optval, unsigned int optlen)
- {
-@@ -312,6 +333,11 @@ static int rds_setsockopt(struct socket *sock, int level, int optname,
- 		ret = rds_set_transport(rs, optval, optlen);
- 		release_sock(sock->sk);
- 		break;
-+	case SO_TIMESTAMP:
-+		lock_sock(sock->sk);
-+		ret = rds_enable_recvtstamp(sock->sk, optval, optlen);
-+		release_sock(sock->sk);
-+		break;
- 	default:
- 		ret = -ENOPROTOOPT;
- 	}
-diff --git a/net/rds/rds.h b/net/rds/rds.h
-index 0e2797b..80256b0 100644
---- a/net/rds/rds.h
-+++ b/net/rds/rds.h
-@@ -222,6 +222,7 @@ struct rds_incoming {
- 	__be32			i_saddr;
+ 	unsigned int		max_mrs;
+ 	struct rds_ib_mr_pool	*mr_1m_pool;
+ 	struct rds_ib_mr_pool   *mr_8k_pool;
+diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
+index add7725..2f9b9c3 100644
+--- a/net/rds/ib_mr.h
++++ b/net/rds/ib_mr.h
+@@ -93,6 +93,7 @@ struct rds_ib_mr_pool {
+ extern struct workqueue_struct *rds_ib_mr_wq;
+ extern unsigned int rds_ib_mr_1m_pool_size;
+ extern unsigned int rds_ib_mr_8k_pool_size;
++extern bool prefer_frmr;
  
- 	rds_rdma_cookie_t	i_rdma_cookie;
-+	struct timeval		i_rx_tstamp;
- };
- 
- struct rds_mr {
-diff --git a/net/rds/recv.c b/net/rds/recv.c
-index a00462b..c0be1ec 100644
---- a/net/rds/recv.c
-+++ b/net/rds/recv.c
-@@ -35,6 +35,8 @@
- #include <net/sock.h>
- #include <linux/in.h>
- #include <linux/export.h>
-+#include <linux/time.h>
-+#include <linux/rds.h>
- 
- #include "rds.h"
- 
-@@ -46,6 +48,8 @@ void rds_inc_init(struct rds_incoming *inc, struct rds_connection *conn,
- 	inc->i_conn = conn;
- 	inc->i_saddr = saddr;
- 	inc->i_rdma_cookie = 0;
-+	inc->i_rx_tstamp.tv_sec = 0;
-+	inc->i_rx_tstamp.tv_usec = 0;
- }
- EXPORT_SYMBOL_GPL(rds_inc_init);
- 
-@@ -228,6 +232,8 @@ void rds_recv_incoming(struct rds_connection *conn, __be32 saddr, __be32 daddr,
- 		rds_recv_rcvbuf_delta(rs, sk, inc->i_conn->c_lcong,
- 				      be32_to_cpu(inc->i_hdr.h_len),
- 				      inc->i_hdr.h_dport);
-+		if (sock_flag(sk, SOCK_RCVTSTAMP))
-+			do_gettimeofday(&inc->i_rx_tstamp);
- 		rds_inc_addref(inc);
- 		list_add_tail(&inc->i_item, &rs->rs_recv_queue);
- 		__rds_wake_sk_sleep(sk);
-@@ -381,7 +387,8 @@ static int rds_notify_cong(struct rds_sock *rs, struct msghdr *msghdr)
- /*
-  * Receive any control messages.
-  */
--static int rds_cmsg_recv(struct rds_incoming *inc, struct msghdr *msg)
-+static int rds_cmsg_recv(struct rds_incoming *inc, struct msghdr *msg,
-+			 struct rds_sock *rs)
- {
- 	int ret = 0;
- 
-@@ -392,6 +399,15 @@ static int rds_cmsg_recv(struct rds_incoming *inc, struct msghdr *msg)
- 			return ret;
- 	}
- 
-+	if ((inc->i_rx_tstamp.tv_sec != 0) &&
-+	    sock_flag(rds_rs_to_sk(rs), SOCK_RCVTSTAMP)) {
-+		ret = put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMP,
-+			       sizeof(struct timeval),
-+			       &inc->i_rx_tstamp);
-+		if (ret)
-+			return ret;
-+	}
-+
- 	return 0;
- }
- 
-@@ -474,7 +490,7 @@ int rds_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
- 			msg->msg_flags |= MSG_TRUNC;
- 		}
- 
--		if (rds_cmsg_recv(inc, msg)) {
-+		if (rds_cmsg_recv(inc, msg, rs)) {
- 			ret = -EFAULT;
- 			goto out;
- 		}
+ struct rds_ib_mr_pool *rds_ib_create_mr_pool(struct rds_ib_device *rds_dev,
+ 					     int npages);
 -- 
 1.9.1
