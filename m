@@ -1,74 +1,72 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net PATCH 2/2] e1000: Double Tx descriptors needed check for 82544
-Date: Wed, 02 Mar 2016 16:16:08 -0500
-Message-ID: <20160302211608.2124.80148.stgit@localhost.localdomain>
-References: <20160302205129.2124.67042.stgit@localhost.localdomain>
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Subject: Re: [PATCH net-next V2 04/16] net: fec: reduce interrupts
+Date: Wed, 2 Mar 2016 15:32:16 -0700
+Message-ID: <56D769F0.9070901@boundarydevices.com>
+References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
+ <1456360619-24390-5-git-send-email-troy.kisky@boundarydevices.com>
+ <VI1PR0401MB18558A7D0A57FA8EDBAD5EABFFBC0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+ <56D710EB.5000201@boundarydevices.com>
+ <CAHrpEqQkuH1JQfKFa=S+ZqbnHpR_SdihM3_dJ++nokV1tczM_Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, jogreene@redhat.com,
-	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-	sassmann@redhat.com
+Cc: Fugang Duan <fugang.duan@nxp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"b38611@freescale.com" <b38611@freescale.com>,
+	"fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
+	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	"tremyfr@gmail.com" <tremyfr@gmail.com>,
+	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"laci@boundarydevices.com" <laci@boundarydevices.com>,
+	"shawnguo@kernel.org" <shawnguo@kernel.org>,
+	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
+	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
+	"sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>,
+	"arnd@arndb.de" <arnd@arndb.de>
+To: Zhi Li <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33383 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755336AbcCBW0w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 17:26:52 -0500
-Received: by mail-pf0-f175.google.com with SMTP id 124so1907940pfg.0
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 14:26:52 -0800 (PST)
-In-Reply-To: <20160302205129.2124.67042.stgit@localhost.localdomain>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34593 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754659AbcCBWcS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 17:32:18 -0500
+Received: by mail-pa0-f52.google.com with SMTP id fy10so1949883pac.1
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 14:32:18 -0800 (PST)
+In-Reply-To: <CAHrpEqQkuH1JQfKFa=S+ZqbnHpR_SdihM3_dJ++nokV1tczM_Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 82544 has code that adds one additional descriptor per data buffer.
-However we weren't taking that into acount when determining the descriptors
-needed for the next transmit at the end of the xmit_frame path.
+On 3/2/2016 9:47 AM, Zhi Li wrote:
+> On Wed, Mar 2, 2016 at 10:12 AM, Troy Kisky
+> <troy.kisky@boundarydevices.com> wrote:
+>> On 3/2/2016 8:13 AM, Fugang Duan wrote:
+>>> From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Thursday, February 25, 2016 8:37 AM
+>>>>
+>>>> -    if (fep->ptp_clock)
+>>>> +    if ((int_events & FEC_ENET_TS_TIMER) && fep->ptp_clock)
+>>>>              fec_ptp_check_pps_event(fep);
+>>>> -
+>>> This is error in here.  FEC compare timer event is not TS timer.
+>>>
+>>>
+>>
+>>
+>> So when should fec_ptp_check_pps_event be called ? On every interrupt ?
+> 
+> Compare event is not showed in EIR register.  Need check TCSR, please
+> see below code.
+> 
+> uint fec_ptp_check_pps_event(struct fec_enet_private *fep)
+> {
+> xx
+>  val = readl(fep->hwp + FEC_TCSR(channel));
+>         if (val & FEC_T_TF_MASK) {
+> }
 
-This change takes that into account by doubling the number of descriptors
-needed for the 82544 so that we can avoid a potential issue where we could
-hang the Tx ring by loading frames with xmit_more enabled and then stopping
-the ring without writing the tail.
 
-In addition it adds a few more descriptors to account for some additional
-workarounds that have been added over time.
-
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
- drivers/net/ethernet/intel/e1000/e1000_main.c |   19 ++++++++++++++++++-
- 1 file changed, 18 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index d213fb4..ae90d4f 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -3256,12 +3256,29 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 			     nr_frags, mss);
- 
- 	if (count) {
-+		/* The descriptors needed is higher than other Intel drivers
-+		 * due to a number of workarounds.  The breakdown is below:
-+		 * Data descriptors: MAX_SKB_FRAGS + 1
-+		 * Context Descriptor: 1
-+		 * Keep head from touching tail: 2
-+		 * Workarounds: 3
-+		 */
-+		int desc_needed = MAX_SKB_FRAGS + 7;
-+
- 		netdev_sent_queue(netdev, skb->len);
- 		skb_tx_timestamp(skb);
- 
- 		e1000_tx_queue(adapter, tx_ring, tx_flags, count);
-+
-+		/* 82544 potentially requires twice as many data descriptors
-+		 * in order to guarantee buffers don't end on evenly-aligned
-+		 * dwords
-+		 */
-+		if (adapter->pcix_82544)
-+			desc_needed += MAX_SKB_FRAGS + 1;
-+
- 		/* Make sure there is space in the ring for the next send. */
--		e1000_maybe_stop_tx(netdev, tx_ring, MAX_SKB_FRAGS + 2);
-+		e1000_maybe_stop_tx(netdev, tx_ring, desc_needed);
- 
- 		if (!skb->xmit_more ||
- 		    netif_xmit_stopped(netdev_get_tx_queue(netdev, 0))) {
+So, should FEC_ENET_TS_TIMER be removed from FEC_DEFAULT_IMASK, since
+the interrupt routine never checks it ?
