@@ -1,111 +1,123 @@
-From: Marek Vasut <marex@denx.de>
-Subject: [PATCH V2 4/4] net: can: ifi: Add obscure bit swap for EFF frame IDs
-Date: Wed,  2 Mar 2016 21:23:21 +0100
-Message-ID: <1456950201-4812-5-git-send-email-marex@denx.de>
-References: <1456950201-4812-1-git-send-email-marex@denx.de>
-Cc: netdev@vger.kernel.org, Marek Vasut <marex@denx.de>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1456950201-4812-1-git-send-email-marex@denx.de>
-Sender: linux-can-owner@vger.kernel.org
+From: Jeremiah Mahler <jmmahler@gmail.com>
+Subject: [REGRESSION, bisect] net: ipv6: unregister_netdevice: waiting for lo
+ to become free. Usage count = 2
+Date: Wed, 2 Mar 2016 12:31:50 -0800
+Message-ID: <20160302203150.GA2045@hudson.localdomain>
+References: <6c735168f53548a39bd21e6e9857f512@HKXPR3004MB0088.064d.mgd.msft.net>
+ <20160301200749.GA1611@hudson.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Dexuan Cui <decui@microsoft.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160301200749.GA1611@hudson.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In case of CAN2.0 EFF frame, the controller handles frame IDs in a
-rather bizzare way. The ID is split into an extended part, IDX[28:11]
-and standard part, ID[10:0]. In the TX path, the core first sends the
-top 11 bits of the IDX, followed by ID and finally the rest of IDX.
-In the RX path, the core stores the ID the LSbit part of IDX field,
-followed by the LSbit parts of real IDX. The MSbit parts of IDX are
-stored in ID field of the register.
+Hi David,
 
-This patch implements the necessary bit shuffling to mitigate this
-obscure behavior. In case two of these controllers are connected
-together, the RX and TX bit swapping nullifies itself and the issue
-does not manifest. The issue only manifests when talking to another
-different CAN controller.
+On Tue, Mar 01, 2016 at 12:07:49PM -0800, Jeremiah Mahler wrote:
+> Hi all,
+> 
+> On Tue, Mar 01, 2016 at 08:11:54AM +0000, Dexuan Cui wrote:
+> > Hi, I got this line every 10 seconds with today's linux-next in a Hyper-V guest, even
+> > when I didn't configure any NIC for the guest:
+> >  
+> > [   72.604249] unregister_netdevice: waiting for lo to become free. Usage count = 2
+> > [   82.708170] unregister_netdevice: waiting for lo to become free. Usage count = 2
+> > [   92.788079] unregister_netdevice: waiting for lo to become free. Usage count = 2
+> > [  102.808132] unregister_netdevice: waiting for lo to become free. Usage count = 2
+> > [  112.928166] unregister_netdevice: waiting for lo to become free. Usage count = 2
+> > [  122.952069] unregister_netdevice: waiting for lo to become free. Usage count = 2
+> > 
+> > I don't think this is related to the underlying host, since it's related to "lo".
+> > 
+> > This should be a recent regression, as I remember the January linux-next didn't have
+> > this issue.
+> > 
+> > Any idea?
+> > 
+> > The gzip-ed kernel config is attached FYI.
+> > 
+> > Thanks,
+> > -- Dexuan
+> > 
+> 
+> Just a "me too", but I have this problem on a Lenovo Carbon X1 when
+> running linux-next 20160301.  It worked with 20160225.
+> 
+> I can test patches and I will try to bisect the problem as time allows.
+> 
+> -- 
+> - Jeremiah Mahler
 
-Signed-off-by: Marek Vasut <marex@denx.de>
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>
-Cc: Mark Rutland <mark.rutland@arm.com>
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>
-Cc: Wolfgang Grandegger <wg@grandegger.com>
----
-V2: Rebase on top of patch 3/4, no change to the patch
----
- drivers/net/can/ifi_canfd/ifi_canfd.c | 31 +++++++++++++++++++++++++++++--
- 1 file changed, 29 insertions(+), 2 deletions(-)
+I performed a bisect and found that the following patch introduced the
+regression.
 
-diff --git a/drivers/net/can/ifi_canfd/ifi_canfd.c b/drivers/net/can/ifi_canfd/ifi_canfd.c
-index 9b8638e..dc40d9c 100644
---- a/drivers/net/can/ifi_canfd/ifi_canfd.c
-+++ b/drivers/net/can/ifi_canfd/ifi_canfd.c
-@@ -136,7 +136,11 @@
- #define IFI_CANFD_RXFIFO_ID			0x6c
- #define IFI_CANFD_RXFIFO_ID_ID_OFFSET		0
- #define IFI_CANFD_RXFIFO_ID_ID_STD_MASK		CAN_SFF_MASK
-+#define IFI_CANFD_RXFIFO_ID_ID_STD_OFFSET	0
-+#define IFI_CANFD_RXFIFO_ID_ID_STD_WIDTH	10
- #define IFI_CANFD_RXFIFO_ID_ID_XTD_MASK		CAN_EFF_MASK
-+#define IFI_CANFD_RXFIFO_ID_ID_XTD_OFFSET	11
-+#define IFI_CANFD_RXFIFO_ID_ID_XTD_WIDTH	18
- #define IFI_CANFD_RXFIFO_ID_IDE			BIT(29)
- 
- #define IFI_CANFD_RXFIFO_DATA			0x70	/* 0x70..0xac */
-@@ -157,7 +161,11 @@
- #define IFI_CANFD_TXFIFO_ID			0xbc
- #define IFI_CANFD_TXFIFO_ID_ID_OFFSET		0
- #define IFI_CANFD_TXFIFO_ID_ID_STD_MASK		CAN_SFF_MASK
-+#define IFI_CANFD_TXFIFO_ID_ID_STD_OFFSET	0
-+#define IFI_CANFD_TXFIFO_ID_ID_STD_WIDTH	10
- #define IFI_CANFD_TXFIFO_ID_ID_XTD_MASK		CAN_EFF_MASK
-+#define IFI_CANFD_TXFIFO_ID_ID_XTD_OFFSET	11
-+#define IFI_CANFD_TXFIFO_ID_ID_XTD_WIDTH	18
- #define IFI_CANFD_TXFIFO_ID_IDE			BIT(29)
- 
- #define IFI_CANFD_TXFIFO_DATA			0xc0	/* 0xb0..0xfc */
-@@ -229,10 +237,20 @@ static void ifi_canfd_read_fifo(struct net_device *ndev)
- 
- 	rxid = readl(priv->base + IFI_CANFD_RXFIFO_ID);
- 	id = (rxid >> IFI_CANFD_RXFIFO_ID_ID_OFFSET);
--	if (id & IFI_CANFD_RXFIFO_ID_IDE)
-+	if (id & IFI_CANFD_RXFIFO_ID_IDE) {
- 		id &= IFI_CANFD_RXFIFO_ID_ID_XTD_MASK;
--	else
-+		/*
-+		 * In case the Extended ID frame is received, the standard
-+		 * and extended part of the ID are swapped in the register,
-+		 * so swap them back to obtain the correct ID.
-+		 */
-+		id = (id >> IFI_CANFD_RXFIFO_ID_ID_XTD_OFFSET) |
-+		     ((id & IFI_CANFD_RXFIFO_ID_ID_STD_MASK) <<
-+		       IFI_CANFD_RXFIFO_ID_ID_XTD_WIDTH);
-+		id |= CAN_EFF_FLAG;
-+	} else {
- 		id &= IFI_CANFD_RXFIFO_ID_ID_STD_MASK;
-+	}
- 	cf->can_id = id;
- 
- 	if (rxdlc & IFI_CANFD_RXFIFO_DLC_ESI) {
-@@ -766,6 +784,15 @@ static netdev_tx_t ifi_canfd_start_xmit(struct sk_buff *skb,
- 
- 	if (cf->can_id & CAN_EFF_FLAG) {
- 		txid = cf->can_id & CAN_EFF_MASK;
-+		/*
-+		 * In case the Extended ID frame is transmitted, the
-+		 * standard and extended part of the ID are swapped
-+		 * in the register, so swap them back to send the
-+		 * correct ID.
-+		 */
-+		txid = (txid >> IFI_CANFD_TXFIFO_ID_ID_XTD_WIDTH) |
-+		       ((txid & IFI_CANFD_TXFIFO_ID_ID_XTD_MASK) <<
-+		         IFI_CANFD_TXFIFO_ID_ID_XTD_OFFSET);
- 		txid |= IFI_CANFD_TXFIFO_ID_IDE;
- 	} else {
- 		txid = cf->can_id & CAN_SFF_MASK;
+  From f1705ec197e705b79ea40fe7a2cc5acfa1d3bfac Mon Sep 17 00:00:00 2001
+  From: David Ahern <dsa@cumulusnetworks.com>
+  Date: Wed, 24 Feb 2016 09:25:37 -0800
+  Subject: [PATCH] net: ipv6: Make address flushing on ifdown optional
+  
+  Currently, all ipv6 addresses are flushed when the interface is configured
+  down, including global, static addresses:
+  
+      $ ip -6 addr show dev eth1
+      3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP qlen 1000
+          inet6 2100:1::2/120 scope global
+             valid_lft forever preferred_lft forever
+          inet6 fe80::e0:f9ff:fe79:34bd/64 scope link
+             valid_lft forever preferred_lft forever
+      $ ip link set dev eth1 down
+      $ ip -6 addr show dev eth1
+      << nothing; all addresses have been flushed>>
+  
+  Add a new sysctl to make this behavior optional. The new setting defaults to
+  flush all addresses to maintain backwards compatibility. When the set global
+  addresses with no expire times are not flushed on an admin down. The sysctl
+  is per-interface or system-wide for all interfaces
+  
+      $ sysctl -w net.ipv6.conf.eth1.keep_addr_on_down=1
+  or
+      $ sysctl -w net.ipv6.conf.all.keep_addr_on_down=1
+  
+  Will keep addresses on eth1 on an admin down.
+  
+      $ ip -6 addr show dev eth1
+      3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP qlen 1000
+          inet6 2100:1::2/120 scope global
+             valid_lft forever preferred_lft forever
+          inet6 fe80::e0:f9ff:fe79:34bd/64 scope link
+             valid_lft forever preferred_lft forever
+      $ ip link set dev eth1 down
+      $ ip -6 addr show dev eth1
+      3: eth1: <BROADCAST,MULTICAST> mtu 1500 state DOWN qlen 1000
+          inet6 2100:1::2/120 scope global tentative
+             valid_lft forever preferred_lft forever
+          inet6 fe80::e0:f9ff:fe79:34bd/64 scope link tentative
+             valid_lft forever preferred_lft forever
+  
+  Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+  Signed-off-by: David S. Miller <davem@davemloft.net>
+  ---
+   Documentation/networking/ip-sysctl.txt |   9 +++
+   include/linux/ipv6.h                   |   1 +
+   include/uapi/linux/ipv6.h              |   1 +
+   net/ipv6/addrconf.c                    | 136 +++++++++++++++++++++++++++++----
+   4 files changed, 132 insertions(+), 15 deletions(-)
+  
+  diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+  index 24ce97f..d5df40c 100644
+  [...]
+
 -- 
 2.7.0
 
+
+-- 
+- Jeremiah Mahler
