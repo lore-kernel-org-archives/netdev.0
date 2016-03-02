@@ -1,103 +1,140 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 1/6] qed: Correct BAR sizes for older MFW
-Date: Wed, 2 Mar 2016 20:26:00 +0200
-Message-ID: <1456943165-15198-2-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 2/6] qed: Support B0 instead of A0
+Date: Wed, 2 Mar 2016 20:26:01 +0200
+Message-ID: <1456943165-15198-3-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1456943165-15198-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Ram Amrani <Ram.Amrani@qlogic.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>
+Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:62833 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756033AbcCBS0U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 13:26:20 -0500
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:38781 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754927AbcCBS0Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 13:26:24 -0500
 In-Reply-To: <1456943165-15198-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ram Amrani <Ram.Amrani@qlogic.com>
+BB_A0 is a development model that is will not reach actual clients.
+In fact, future firmware would simply fail to initialize such chip.
 
-Driver learns the inner bar sized from a register configured by management
-firmware, but older versions are not setting this register.
-But since we know which values were configured back then, use them instead.
+This changes the configuration into B0 instead of A0, and adds a safeguard
+against the slim chance someone would actually try this with an A0 adapter
+in which case probe would gracefully fail.
 
-Signed-off-by: Ram Amrani <Ram.Amrani@qlogic.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dev.c | 42 +++++++++++++++++++++----------
- 1 file changed, 29 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_dev.c | 41 +++++++++++++++++--------------
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h |  2 +-
+ 2 files changed, 24 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index d9a5175..706c614 100644
+index 706c614..2e02e05 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -32,6 +32,33 @@
- #include "qed_sp.h"
- 
- /* API common to all protocols */
-+enum BAR_ID {
-+	BAR_ID_0,       /* used for GRC */
-+	BAR_ID_1        /* Used for doorbells */
-+};
-+
-+static u32 qed_hw_bar_size(struct qed_hwfn	*p_hwfn,
-+			   enum BAR_ID		bar_id)
-+{
-+	u32	bar_reg = (bar_id == BAR_ID_0 ?
-+			   PGLUE_B_REG_PF_BAR0_SIZE : PGLUE_B_REG_PF_BAR1_SIZE);
-+	u32	val = qed_rd(p_hwfn, p_hwfn->p_main_ptt, bar_reg);
-+
-+	if (val)
-+		return 1 << (val + 15);
-+
-+	/* Old MFW initialized above registered only conditionally */
-+	if (p_hwfn->cdev->num_hwfns > 1) {
-+		DP_INFO(p_hwfn,
-+			"BAR size not configured. Assuming BAR size of 256kB for GRC and 512kB for DB\n");
-+			return BAR_ID_0 ? 256 * 1024 : 512 * 1024;
-+	} else {
-+		DP_INFO(p_hwfn,
-+			"BAR size not configured. Assuming BAR size of 512kB for GRC and 512kB for DB\n");
-+			return 512 * 1024;
-+	}
-+}
-+
- void qed_init_dp(struct qed_dev *cdev,
- 		 u32 dp_module, u8 dp_level)
+@@ -420,7 +420,7 @@ static void qed_calc_hw_mode(struct qed_hwfn *p_hwfn)
  {
-@@ -1385,17 +1412,6 @@ err0:
+ 	int hw_mode = 0;
+ 
+-	hw_mode = (1 << MODE_BB_A0);
++	hw_mode = (1 << MODE_BB_B0);
+ 
+ 	switch (p_hwfn->cdev->num_ports_in_engines) {
+ 	case 1:
+@@ -976,18 +976,8 @@ static void qed_hw_hwfn_free(struct qed_hwfn *p_hwfn)
+ }
+ 
+ /* Setup bar access */
+-static int qed_hw_hwfn_prepare(struct qed_hwfn *p_hwfn)
++static void qed_hw_hwfn_prepare(struct qed_hwfn *p_hwfn)
+ {
+-	int rc;
+-
+-	/* Allocate PTT pool */
+-	rc = qed_ptt_pool_alloc(p_hwfn);
+-	if (rc)
+-		return rc;
+-
+-	/* Allocate the main PTT */
+-	p_hwfn->p_main_ptt = qed_get_reserved_ptt(p_hwfn, RESERVED_PTT_MAIN);
+-
+ 	/* clear indirect access */
+ 	qed_wr(p_hwfn, p_hwfn->p_main_ptt, PGLUE_B_REG_PGL_ADDR_88_F0, 0);
+ 	qed_wr(p_hwfn, p_hwfn->p_main_ptt, PGLUE_B_REG_PGL_ADDR_8C_F0, 0);
+@@ -1002,8 +992,6 @@ static int qed_hw_hwfn_prepare(struct qed_hwfn *p_hwfn)
+ 	/* enable internal target-read */
+ 	qed_wr(p_hwfn, p_hwfn->p_main_ptt,
+ 	       PGLUE_B_REG_INTERNAL_PFID_ENABLE_TARGET_READ, 1);
+-
+-	return 0;
+ }
+ 
+ static void get_function_id(struct qed_hwfn *p_hwfn)
+@@ -1311,7 +1299,7 @@ qed_get_hw_info(struct qed_hwfn *p_hwfn,
  	return rc;
  }
  
--static u32 qed_hw_bar_size(struct qed_hwfn	*p_hwfn,
--			   u8			bar_id)
--{
--	u32 bar_reg = (bar_id == 0 ? PGLUE_B_REG_PF_BAR0_SIZE
--		       : PGLUE_B_REG_PF_BAR1_SIZE);
--	u32 val = qed_rd(p_hwfn, p_hwfn->p_main_ptt, bar_reg);
--
--	/* Get the BAR size(in KB) from hardware given val */
--	return 1 << (val + 15);
--}
--
- int qed_hw_prepare(struct qed_dev *cdev,
- 		   int personality)
+-static void qed_get_dev_info(struct qed_dev *cdev)
++static int qed_get_dev_info(struct qed_dev *cdev)
  {
-@@ -1420,11 +1436,11 @@ int qed_hw_prepare(struct qed_dev *cdev,
- 		u8 __iomem *addr;
+ 	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
+ 	u32 tmp;
+@@ -1350,6 +1338,14 @@ static void qed_get_dev_info(struct qed_dev *cdev)
+ 		"Chip details - Num: %04x Rev: %04x Bond id: %04x Metal: %04x\n",
+ 		cdev->chip_num, cdev->chip_rev,
+ 		cdev->chip_bond_id, cdev->chip_metal);
++
++	if (QED_IS_BB(cdev) && CHIP_REV_IS_A0(cdev)) {
++		DP_NOTICE(cdev->hwfns,
++			  "The chip type/rev (BB A0) is not supported!\n");
++		return -EINVAL;
++	}
++
++	return 0;
+ }
  
- 		/* adjust bar offset for second engine */
--		addr = cdev->regview + qed_hw_bar_size(p_hwfn, 0) / 2;
-+		addr = cdev->regview + qed_hw_bar_size(p_hwfn, BAR_ID_0) / 2;
- 		p_regview = addr;
+ static int qed_hw_prepare_single(struct qed_hwfn *p_hwfn,
+@@ -1372,15 +1368,24 @@ static int qed_hw_prepare_single(struct qed_hwfn *p_hwfn,
  
- 		/* adjust doorbell bar offset for second engine */
--		addr = cdev->doorbells + qed_hw_bar_size(p_hwfn, 1) / 2;
-+		addr = cdev->doorbells + qed_hw_bar_size(p_hwfn, BAR_ID_1) / 2;
- 		p_doorbell = addr;
+ 	get_function_id(p_hwfn);
  
- 		/* prepare second hw function */
+-	rc = qed_hw_hwfn_prepare(p_hwfn);
++	/* Allocate PTT pool */
++	rc = qed_ptt_pool_alloc(p_hwfn);
+ 	if (rc) {
+ 		DP_NOTICE(p_hwfn, "Failed to prepare hwfn's hw\n");
+ 		goto err0;
+ 	}
+ 
++	/* Allocate the main PTT */
++	p_hwfn->p_main_ptt = qed_get_reserved_ptt(p_hwfn, RESERVED_PTT_MAIN);
++
+ 	/* First hwfn learns basic information, e.g., number of hwfns */
+-	if (!p_hwfn->my_id)
+-		qed_get_dev_info(p_hwfn->cdev);
++	if (!p_hwfn->my_id) {
++		rc = qed_get_dev_info(p_hwfn->cdev);
++		if (rc != 0)
++			goto err1;
++	}
++
++	qed_hw_hwfn_prepare(p_hwfn);
+ 
+ 	/* Initialize MCP structure */
+ 	rc = qed_mcp_cmd_init(p_hwfn, p_hwfn->p_main_ptt);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+index 49bbf69..592e0e6 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+@@ -968,7 +968,7 @@ struct igu_msix_vector {
+ 
+ enum init_modes {
+ 	MODE_BB_A0,
+-	MODE_RESERVED,
++	MODE_BB_B0,
+ 	MODE_RESERVED2,
+ 	MODE_ASIC,
+ 	MODE_RESERVED3,
 -- 
 1.9.3
