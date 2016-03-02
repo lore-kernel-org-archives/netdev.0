@@ -1,63 +1,75 @@
 From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH net 3/7] bnx2x: fix receive of VF->PF mailbox messages by the PF on big-endian
-Date: Wed,  2 Mar 2016 13:47:07 +0100
-Message-ID: <1456922831-15071-4-git-send-email-mschmidt@redhat.com>
+Subject: [PATCH net 5/7] bnx2x: define fields of struct cfc_del_event_data as little-endian
+Date: Wed,  2 Mar 2016 13:47:09 +0100
+Message-ID: <1456922831-15071-6-git-send-email-mschmidt@redhat.com>
 References: <1456922831-15071-1-git-send-email-mschmidt@redhat.com>
 Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
 	Ariel Elior <Ariel.Elior@qlogic.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34948 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40145 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752882AbcCBMoW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2016 07:44:22 -0500
+	id S1755495AbcCBMo0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2016 07:44:26 -0500
 In-Reply-To: <1456922831-15071-1-git-send-email-mschmidt@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On ppc64 the PF did not receive messages from VFs correctly.
-
-Fields of struct vf_pf_event_data are little-endian.
+There were no missing endianness conversions in this case, but the
+fields of struct cfc_del_event_data should be defined as little-endian
+to get rid of the ugly (__force __le32) casts.
 
 Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h  | 6 +++---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c | 6 ++++--
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h   | 6 +++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  | 3 +--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 3 +--
+ 3 files changed, 5 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-index 47b13ed..1058591 100644
+index 1058591..a24909a 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-@@ -5213,9 +5213,9 @@ struct eth_event_data {
- struct vf_pf_event_data {
- 	u8 vf_id;
- 	u8 reserved0;
--	u16 reserved1;
--	u32 msg_addr_lo;
--	u32 msg_addr_hi;
-+	__le16 reserved1;
-+	__le32 msg_addr_lo;
-+	__le32 msg_addr_hi;
+@@ -4896,9 +4896,9 @@ struct c2s_pri_trans_table_entry {
+  * cfc delete event data
+  */
+ struct cfc_del_event_data {
+-	u32 cid;
+-	u32 reserved0;
+-	u32 reserved1;
++	__le32 cid;
++	__le32 reserved0;
++	__le32 reserved1;
  };
  
- /*
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-index 1374e53..bfae300 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-@@ -2187,8 +2187,10 @@ void bnx2x_vf_mbx_schedule(struct bnx2x *bp,
  
- 	/* Update VFDB with current message and schedule its handling */
- 	mutex_lock(&BP_VFDB(bp)->event_mutex);
--	BP_VF_MBX(bp, vf_idx)->vf_addr_hi = vfpf_event->msg_addr_hi;
--	BP_VF_MBX(bp, vf_idx)->vf_addr_lo = vfpf_event->msg_addr_lo;
-+	BP_VF_MBX(bp, vf_idx)->vf_addr_hi =
-+		le32_to_cpu(vfpf_event->msg_addr_hi);
-+	BP_VF_MBX(bp, vf_idx)->vf_addr_lo =
-+		le32_to_cpu(vfpf_event->msg_addr_lo);
- 	BP_VFDB(bp)->event_occur |= (1ULL << vf_idx);
- 	mutex_unlock(&BP_VFDB(bp)->event_mutex);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 0e0bcbd..9f5716a 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -5501,8 +5501,7 @@ static void bnx2x_eq_int(struct bnx2x *bp)
+ 			 */
  
+ 			/* elem CID originates from FW; actually LE */
+-			cid = SW_CID((__force __le32)
+-				     elem->message.data.cfc_del_event.cid);
++			cid = SW_CID(elem->message.data.cfc_del_event.cid);
+ 
+ 			DP(BNX2X_MSG_SP,
+ 			   "got delete ramrod for MULTI[%d]\n", cid);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 55fcc21..632daff 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -1747,8 +1747,7 @@ int bnx2x_iov_eq_sp_event(struct bnx2x *bp, union event_ring_elem *elem)
+ 
+ 	switch (opcode) {
+ 	case EVENT_RING_OPCODE_CFC_DEL:
+-		cid = SW_CID((__force __le32)
+-			     elem->message.data.cfc_del_event.cid);
++		cid = SW_CID(elem->message.data.cfc_del_event.cid);
+ 		DP(BNX2X_MSG_IOV, "checking cfc-del comp cid=%d\n", cid);
+ 		break;
+ 	case EVENT_RING_OPCODE_CLASSIFICATION_RULES:
 -- 
 2.5.0
