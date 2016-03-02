@@ -1,140 +1,85 @@
-From: Marek Vasut <marex@denx.de>
-Subject: [PATCH 1/4] net: can: ifi: Fix clock generator configuration
-Date: Wed,  2 Mar 2016 11:42:36 +0100
-Message-ID: <1456915359-6775-2-git-send-email-marex@denx.de>
-References: <1456915359-6775-1-git-send-email-marex@denx.de>
-Cc: netdev@vger.kernel.org, Marek Vasut <marex@denx.de>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: linux-can@vger.kernel.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH v2] ethtool: check size of user memory before copying
+ strings and stats
+Date: Wed, 02 Mar 2016 10:48:02 +0000
+Message-ID: <1456915682.3098.164.camel@decadent.org.uk>
+References: <1456871112-14103-1-git-send-email-jacob.e.keller@intel.com>
+	 <1456877540.3098.162.camel@decadent.org.uk>
+	 <1456881113.9520.24.camel@intel.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-0lGRRIe71E+mCUKrIdCj"
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"Rustad, Mark D" <mark.d.rustad@intel.com>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"mirq-linux@rere.qmqm.pl" <mirq-linux@rere.qmqm.pl>,
+	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:49078 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753078AbcCBKmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 05:42:50 -0500
-In-Reply-To: <1456915359-6775-1-git-send-email-marex@denx.de>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49973 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751181AbcCBKsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 05:48:18 -0500
+In-Reply-To: <1456881113.9520.24.camel@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The clock generation does not match reality when using the CAN IP
-core outside of the FPGA design. This patch fixes the computation
-of values which are programmed into the clock generator registers.
 
-First, there are some off-by-one errors which manifest themselves
-only when communicating with different controller, so those are
-fixed.
+--=-0lGRRIe71E+mCUKrIdCj
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Second, the bits in the clock generator registers have different
-meaning depending on whether the core is in ISO CANFD mode or any
-of the other modes (BOSCH CANFD or CAN2.0). Detect the ISO CANFD
-mode and fix handling of this special case of clock configuration.
+On Wed, 2016-03-02 at 01:11 +0000, Keller, Jacob E wrote:
+> On Wed, 2016-03-02 at 00:12 +0000, Ben Hutchings wrote:
+> > NAK, ethtool is not the only consumer of the ethtool API. =C2=A0How man=
+y
+> > times do I have to repeat myself?
+> >=20
+> > Ben.
+> >=20
+>=20
+> Ok, so essentially forcing drivers to require static sets for the
+> various stats/strings/etc?
 
-Finally, the CAN clock speed is in CANCLOCK register, not SYSCLOCK
-register, so fix this as well.
+No, you can define a new and better statistics API. =C2=A0There are many
+limitations of the current API that could be addressed at the same
+time, e.g. lack of units, lack of hierarchy in naming, lack of
+distinction between counters and other statistics.
 
-Signed-off-by: Marek Vasut <marex@denx.de>
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>
-Cc: Mark Rutland <mark.rutland@arm.com>
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>
-Cc: Wolfgang Grandegger <wg@grandegger.com>
----
- drivers/net/can/ifi_canfd/ifi_canfd.c | 43 ++++++++++++++++++-----------------
- 1 file changed, 22 insertions(+), 21 deletions(-)
+Ben.
 
-diff --git a/drivers/net/can/ifi_canfd/ifi_canfd.c b/drivers/net/can/ifi_canfd/ifi_canfd.c
-index 639868b..72f5205 100644
---- a/drivers/net/can/ifi_canfd/ifi_canfd.c
-+++ b/drivers/net/can/ifi_canfd/ifi_canfd.c
-@@ -514,25 +514,25 @@ static irqreturn_t ifi_canfd_isr(int irq, void *dev_id)
- 
- static const struct can_bittiming_const ifi_canfd_bittiming_const = {
- 	.name		= KBUILD_MODNAME,
--	.tseg1_min	= 2,	/* Time segment 1 = prop_seg + phase_seg1 */
-+	.tseg1_min	= 1,	/* Time segment 1 = prop_seg + phase_seg1 */
- 	.tseg1_max	= 64,
--	.tseg2_min	= 1,	/* Time segment 2 = phase_seg2 */
--	.tseg2_max	= 16,
-+	.tseg2_min	= 2,	/* Time segment 2 = phase_seg2 */
-+	.tseg2_max	= 64,
- 	.sjw_max	= 16,
--	.brp_min	= 1,
--	.brp_max	= 1024,
-+	.brp_min	= 2,
-+	.brp_max	= 256,
- 	.brp_inc	= 1,
- };
- 
- static const struct can_bittiming_const ifi_canfd_data_bittiming_const = {
- 	.name		= KBUILD_MODNAME,
--	.tseg1_min	= 2,	/* Time segment 1 = prop_seg + phase_seg1 */
--	.tseg1_max	= 16,
--	.tseg2_min	= 1,	/* Time segment 2 = phase_seg2 */
--	.tseg2_max	= 8,
--	.sjw_max	= 4,
--	.brp_min	= 1,
--	.brp_max	= 32,
-+	.tseg1_min	= 1,	/* Time segment 1 = prop_seg + phase_seg1 */
-+	.tseg1_max	= 64,
-+	.tseg2_min	= 2,	/* Time segment 2 = phase_seg2 */
-+	.tseg2_max	= 64,
-+	.sjw_max	= 16,
-+	.brp_min	= 2,
-+	.brp_max	= 256,
- 	.brp_inc	= 1,
- };
- 
-@@ -545,32 +545,33 @@ static void ifi_canfd_set_bittiming(struct net_device *ndev)
- 	u32 noniso_arg = 0;
- 	u32 time_off;
- 
--	if (priv->can.ctrlmode & CAN_CTRLMODE_FD_NON_ISO) {
-+	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
-+		time_off = IFI_CANFD_TIME_SJW_OFF_ISO;
-+	} else {
- 		noniso_arg = IFI_CANFD_TIME_SET_TIMEB_BOSCH |
- 			     IFI_CANFD_TIME_SET_TIMEA_BOSCH |
- 			     IFI_CANFD_TIME_SET_PRESC_BOSCH |
- 			     IFI_CANFD_TIME_SET_SJW_BOSCH;
- 		time_off = IFI_CANFD_TIME_SJW_OFF_BOSCH;
--	} else {
--		time_off = IFI_CANFD_TIME_SJW_OFF_ISO;
- 	}
- 
- 	/* Configure bit timing */
--	brp = bt->brp - 1;
-+	brp = bt->brp - 2;
- 	sjw = bt->sjw - 1;
- 	tseg1 = bt->prop_seg + bt->phase_seg1 - 1;
--	tseg2 = bt->phase_seg2 - 1;
-+	tseg2 = bt->phase_seg2 - 2;
- 	writel((tseg2 << IFI_CANFD_TIME_TIMEB_OFF) |
- 	       (tseg1 << IFI_CANFD_TIME_TIMEA_OFF) |
- 	       (brp << IFI_CANFD_TIME_PRESCALE_OFF) |
--	       (sjw << time_off),
-+	       (sjw << time_off) |
-+	       noniso_arg,
- 	       priv->base + IFI_CANFD_TIME);
- 
- 	/* Configure data bit timing */
--	brp = dbt->brp - 1;
-+	brp = dbt->brp - 2;
- 	sjw = dbt->sjw - 1;
- 	tseg1 = dbt->prop_seg + dbt->phase_seg1 - 1;
--	tseg2 = dbt->phase_seg2 - 1;
-+	tseg2 = dbt->phase_seg2 - 2;
- 	writel((tseg2 << IFI_CANFD_TIME_TIMEB_OFF) |
- 	       (tseg1 << IFI_CANFD_TIME_TIMEA_OFF) |
- 	       (brp << IFI_CANFD_TIME_PRESCALE_OFF) |
-@@ -847,7 +848,7 @@ static int ifi_canfd_plat_probe(struct platform_device *pdev)
- 
- 	priv->can.state = CAN_STATE_STOPPED;
- 
--	priv->can.clock.freq = readl(addr + IFI_CANFD_SYSCLOCK);
-+	priv->can.clock.freq = readl(addr + IFI_CANFD_CANCLOCK);
- 
- 	priv->can.bittiming_const	= &ifi_canfd_bittiming_const;
- 	priv->can.data_bittiming_const	= &ifi_canfd_data_bittiming_const;
--- 
-2.7.0
+> :(
+>=20
+> Will have patches to cleanup fm10k for this then.
+>=20
+> Regards,
+> Jake
+--=20
+Ben Hutchings
+Tomorrow will be cancelled due to lack of interest.
+
+--=-0lGRRIe71E+mCUKrIdCj
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVtbE4ue/yOyVhhEJAQrFURAAtEmzGRi/Qm1gpH16MLT3M2qwdGkyPTRy
+lPUcnU38/gtGwgmYG5yvRG7QWmmHXAbMY9Dx95dMHg1rndc0mQOTAD0BJHG2tjzN
+EiKusfVG5UOwHEeWt15uSZ1U9+XQEM0OY90oHgbw9XOWdaXv9z/1I5KGpmB7OMCm
+GuDSN5Ypu4oeSQf6LBm05OsnbDRe0JVUeCwe6gqX6uwzaKOBMiuqWzzocuB+szem
+EesXMxZ6D4L9LLrNeF3W0Q6GZtjJwj9Ijkug8pDQf1SjJQIhbNWsBpwdquvireSP
+28az+Y84gez4wJDinjY19mNmxhjK4+QcEphQWAp+yRKzNAwXrQnm1yND+iz/8NdR
+s9ODVl6gtnYqT9riXa1gspITXNLFAmLwGiAr09qAKjfSMSL+PQZ/dEROqmLFEqYC
+mO3fnQKlgetRS+rxadJbVss0X5y8HXGA0UJ+/DNRciB4yOf1ixJeFdhwNZEqSUxJ
+55cGvye0UYI57Xn9WBbanxFFF16THanyDzTUM/T99UhoCEyHkI64kqKnB4D0ufpP
+DUvELpJBQCn0h44DcMbimXPBZpxnGLfID9LnlcVJ6/YaBf5w5rYAeEKOUqRsYNWr
+urrF2aKxg51IcXgMxq86X7aeF7tluoD2FTo5g1xV6ULYuP1ixNYyxYsXNdrvYa6P
+98EI15SLcjI=
+=EzTo
+-----END PGP SIGNATURE-----
+
+--=-0lGRRIe71E+mCUKrIdCj--
