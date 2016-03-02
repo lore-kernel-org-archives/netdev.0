@@ -1,74 +1,149 @@
-From: Zhi Li <lznuaa@gmail.com>
-Subject: Re: [PATCH] MAINTAINERS: add maintainer entry for FREESCALE FEC
- ethernet driver
-Date: Wed, 2 Mar 2016 09:06:07 -0600
-Message-ID: <CAHrpEqQMBk+_FshAqWRgq6Yn5cbRNQiTzk=ykYDP-kEkgnTaMA@mail.gmail.com>
-References: <1456910693-25787-1-git-send-email-b38611@freescale.com>
-	<VI1PR0401MB18552E858B53A8C92A73F733FFBC0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "b38611@freescale.com" <b38611@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Fugang Duan <fugang.duan@nxp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:36144 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750745AbcCBPGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 10:06:08 -0500
-Received: by mail-oi0-f51.google.com with SMTP id r187so32915091oih.3
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 07:06:08 -0800 (PST)
-In-Reply-To: <VI1PR0401MB18552E858B53A8C92A73F733FFBC0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
+Subject: [PATCH 1/2] rhashtable: accept GFP flags in rhashtable_walk_init
+Date: Wed,  2 Mar 2016 10:09:19 -0500
+Message-ID: <1456931360-2846-1-git-send-email-me@bobcopeland.com>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>,
+	Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 2, 2016 at 3:38 AM, Fugang Duan <fugang.duan@nxp.com> wrote:
-> From: Fugang Duan <b38611@freescale.com> Sent: Wednesday, March 02, 2016 5:25 PM
->> To: davem@davemloft.net
->> Cc: netdev@vger.kernel.org; Fugang Duan <fugang.duan@nxp.com>
->> Subject: [PATCH] MAINTAINERS: add maintainer entry for FREESCALE FEC
->> ethernet driver
->>
->> Add a maintainer entry for FREESCALE FEC ethernet driver and add myself as a
->> maintainer.
->>
->> Signed-off-by: Fugang Duan <fugang.duan@nxp.com>
+In certain cases, the 802.11 mesh pathtable code wants to
+iterate over all of the entries in the forwarding table from
+the receive path, which is inside an RCU read-side critical
+section.  Enable walks inside atomic sections by allowing
+GFP_ATOMIC allocations for the walker state.
 
-Acked-by: Frank Li <Frank.Li@nxp.com>
+Change all existing callsites to pass in GFP_KERNEL.
 
->> ---
->
-> Hi David,
->
-> Recently, there have many fec Ethernet driver patches sent out review, to avoid introducing impact on fec driver stable for all i.MX platforms, I request to add myself as the driver maintainer for helping patch review.
-> Current the driver supports FEC and ENET controllers, support HW PTP for i.MX25/i.MX50/i.MX51/i.MX53/i.MX6x/i.MX7x/i.MX8x...    There have some feature extensions in later chips.
-> It is more convenient for us to test reviewing patches.
->
-> Regards,
-> Andy
->
->>  MAINTAINERS | 9 +++++++++
->>  1 file changed, 9 insertions(+)
->>
->> diff --git a/MAINTAINERS b/MAINTAINERS
->> index 0499f9e..4d4b18f 100644
->> --- a/MAINTAINERS
->> +++ b/MAINTAINERS
->> @@ -4552,6 +4552,15 @@ S:     Maintained
->>  F:   drivers/net/ethernet/freescale/fs_enet/
->>  F:   include/linux/fs_enet_pd.h
->>
->> +FREESCALE IMX / MXC FEC DRIVER
->> +M:   Fugang Duan <fugang.duan@nxp.com>
->> +L:   netdev@vger.kernel.org
->> +S:   Maintained
->> +F:   drivers/net/ethernet/freescale/fec_main.c
->> +F:   drivers/net/ethernet/freescale/fec_ptp.c
->> +F:   drivers/net/ethernet/freescale/fec.h
->> +F:   Documentation/devicetree/bindings/net/fsl-fec.txt
->> +
->>  FREESCALE QUICC ENGINE LIBRARY
->>  L:   linuxppc-dev@lists.ozlabs.org
->>  S:   Orphan
->> --
->> 1.9.1
+Cc: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Acked-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Signed-off-by: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
+---
+(-RFC, +Thomas's Ack)
+
+ include/linux/rhashtable.h | 3 ++-
+ lib/rhashtable.c           | 6 ++++--
+ net/ipv6/ila/ila_xlat.c    | 3 ++-
+ net/netfilter/nft_hash.c   | 4 ++--
+ net/netlink/af_netlink.c   | 3 ++-
+ net/sctp/proc.c            | 3 ++-
+ 6 files changed, 14 insertions(+), 8 deletions(-)
+
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index 63bd7601b6de..3eef0802a0cd 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -346,7 +346,8 @@ struct bucket_table *rhashtable_insert_slow(struct rhashtable *ht,
+ 					    struct bucket_table *old_tbl);
+ int rhashtable_insert_rehash(struct rhashtable *ht, struct bucket_table *tbl);
+ 
+-int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter);
++int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter,
++			 gfp_t gfp);
+ void rhashtable_walk_exit(struct rhashtable_iter *iter);
+ int rhashtable_walk_start(struct rhashtable_iter *iter) __acquires(RCU);
+ void *rhashtable_walk_next(struct rhashtable_iter *iter);
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index cc808707d1cf..5d845ffd7982 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -487,6 +487,7 @@ EXPORT_SYMBOL_GPL(rhashtable_insert_slow);
+  * rhashtable_walk_init - Initialise an iterator
+  * @ht:		Table to walk over
+  * @iter:	Hash table Iterator
++ * @gfp:	GFP flags for allocations
+  *
+  * This function prepares a hash table walk.
+  *
+@@ -504,14 +505,15 @@ EXPORT_SYMBOL_GPL(rhashtable_insert_slow);
+  * You must call rhashtable_walk_exit if this function returns
+  * successfully.
+  */
+-int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter)
++int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter,
++			 gfp_t gfp)
+ {
+ 	iter->ht = ht;
+ 	iter->p = NULL;
+ 	iter->slot = 0;
+ 	iter->skip = 0;
+ 
+-	iter->walker = kmalloc(sizeof(*iter->walker), GFP_KERNEL);
++	iter->walker = kmalloc(sizeof(*iter->walker), gfp);
+ 	if (!iter->walker)
+ 		return -ENOMEM;
+ 
+diff --git a/net/ipv6/ila/ila_xlat.c b/net/ipv6/ila/ila_xlat.c
+index 295ca29a23c3..0b03533453e4 100644
+--- a/net/ipv6/ila/ila_xlat.c
++++ b/net/ipv6/ila/ila_xlat.c
+@@ -501,7 +501,8 @@ static int ila_nl_dump_start(struct netlink_callback *cb)
+ 	struct ila_net *ilan = net_generic(net, ila_net_id);
+ 	struct ila_dump_iter *iter = (struct ila_dump_iter *)cb->args;
+ 
+-	return rhashtable_walk_init(&ilan->rhash_table, &iter->rhiter);
++	return rhashtable_walk_init(&ilan->rhash_table, &iter->rhiter,
++				    GFP_KERNEL);
+ }
+ 
+ static int ila_nl_dump_done(struct netlink_callback *cb)
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index 3f9d45d3d9b7..6fa016564f90 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -192,7 +192,7 @@ static void nft_hash_walk(const struct nft_ctx *ctx, const struct nft_set *set,
+ 	u8 genmask = nft_genmask_cur(read_pnet(&set->pnet));
+ 	int err;
+ 
+-	err = rhashtable_walk_init(&priv->ht, &hti);
++	err = rhashtable_walk_init(&priv->ht, &hti, GFP_KERNEL);
+ 	iter->err = err;
+ 	if (err)
+ 		return;
+@@ -248,7 +248,7 @@ static void nft_hash_gc(struct work_struct *work)
+ 	priv = container_of(work, struct nft_hash, gc_work.work);
+ 	set  = nft_set_container_of(priv);
+ 
+-	err = rhashtable_walk_init(&priv->ht, &hti);
++	err = rhashtable_walk_init(&priv->ht, &hti, GFP_KERNEL);
+ 	if (err)
+ 		goto schedule;
+ 
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index c8416792cce0..6e0cbdeb21d3 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2335,7 +2335,8 @@ static int netlink_walk_start(struct nl_seq_iter *iter)
+ {
+ 	int err;
+ 
+-	err = rhashtable_walk_init(&nl_table[iter->link].hash, &iter->hti);
++	err = rhashtable_walk_init(&nl_table[iter->link].hash, &iter->hti,
++				   GFP_KERNEL);
+ 	if (err) {
+ 		iter->link = MAX_LINKS;
+ 		return err;
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index cfc3c7101a38..c5991e5e5daf 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -319,7 +319,8 @@ static int sctp_transport_walk_start(struct seq_file *seq)
+ 	struct sctp_ht_iter *iter = seq->private;
+ 	int err;
+ 
+-	err = rhashtable_walk_init(&sctp_transport_hashtable, &iter->hti);
++	err = rhashtable_walk_init(&sctp_transport_hashtable, &iter->hti,
++				   GFP_KERNEL);
+ 	if (err)
+ 		return err;
+ 
+-- 
+2.6.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
