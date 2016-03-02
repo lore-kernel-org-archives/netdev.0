@@ -1,49 +1,43 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] vxlan: fix missing options_len update on RX with collect metadata
-Date: Wed,  2 Mar 2016 02:32:08 +0100
-Message-ID: <ea834e5ecd014f50f9d979ee869f96e5508f8d9c.1456880721.git.daniel@iogearbox.net>
-Cc: tgraf@suug.ch, pshelar@nicira.com, jesse@kernel.org,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: ipv6/l3mdev: Move host route on saved
+ address if necessary
+Date: Tue, 1 Mar 2016 17:46:46 -0800
+Message-ID: <56D64606.7040202@cumulusnetworks.com>
+References: <1456595957-29477-1-git-send-email-dsa@cumulusnetworks.com>
+ <20160301.172312.1539246311423803200.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:59879 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753433AbcCBBcO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 20:32:14 -0500
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:33920 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754841AbcCBBqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 20:46:49 -0500
+Received: by mail-pf0-f169.google.com with SMTP id 4so45144128pfd.1
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 17:46:48 -0800 (PST)
+In-Reply-To: <20160301.172312.1539246311423803200.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When signalling to metadata consumers that the metadata_dst entry
-carries additional GBP extension data for vxlan (TUNNEL_VXLAN_OPT),
-the dst's vxlan_metadata information is populated, but options_len
-is left to zero. F.e. in ovs, ovs_flow_key_extract() checks for
-options_len before extracting the data through ip_tunnel_info_opts_get().
+On 3/1/16 2:23 PM, David Miller wrote:
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Sat, 27 Feb 2016 09:59:17 -0800
+>
+>> Commit f1705ec197e70 allows IPv6 addresses to be retained on a link down.
+>> The address can have a cached host route which can point to the wrong
+>> FIB table if the L3 enslavement is changed (e.g., route can point to local
+>> table instead of VRF table if device is added to an L3 domain).
+>>
+>> On link up check the table of the cached host route against the FIB
+>> table associated with the device and correct if needed.
+>>
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>
+> Ugly... but applied, thanks.
+>
 
-Geneve uses ip_tunnel_info_opts_set() helper in receive path, which
-sets options_len internally, vxlan however uses ip_tunnel_info_opts(),
-so when filling vxlan_metadata, we do need to update options_len.
-
-Fixes: 4c22279848c5 ("ip-tunnel: Use API to access tunnel metadata options.")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- drivers/net/vxlan.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index b601139..1c32bd1 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1308,8 +1308,10 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 		gbp = (struct vxlanhdr_gbp *)vxh;
- 		md->gbp = ntohs(gbp->policy_id);
- 
--		if (tun_dst)
-+		if (tun_dst) {
- 			tun_dst->u.tun_info.key.tun_flags |= TUNNEL_VXLAN_OPT;
-+			tun_dst->u.tun_info.options_len = sizeof(*md);
-+		}
- 
- 		if (gbp->dont_learn)
- 			md->gbp |= VXLAN_GBP_DONT_LEARN;
--- 
-1.9.3
+This is an example of what I meant by complications with the suggestion 
+of stashing the prefix route. Would you prefer the host route always get 
+freed on a down and re-created on an up?
