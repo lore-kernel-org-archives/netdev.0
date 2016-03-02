@@ -1,47 +1,32 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] act_ife: fix a typo in kmemdup() parameters
-Date: Wed,  2 Mar 2016 11:20:36 -0800
-Message-ID: <1456946436-31494-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH v2 0/4] tc: pedit fixes
+Date: Wed, 2 Mar 2016 20:23:44 +0100
+Message-ID: <20160302192344.GB26393@orbyte.nwl.cc>
+References: <20160302095414.45a928df@xeon-e3>
+ <1456944343-19058-1-git-send-email-phil@nwl.cc>
+ <20160302110533.628ecfd2@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <hadi@mojatatu.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36246 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752100AbcCBTUm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 14:20:42 -0500
-Received: by mail-pa0-f51.google.com with SMTP id a9so16143662pat.3
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 11:20:41 -0800 (PST)
+Received: from orbyte.nwl.cc ([151.80.46.58]:58802 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750917AbcCBTXq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2016 14:23:46 -0500
+Content-Disposition: inline
+In-Reply-To: <20160302110533.628ecfd2@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/act_ife.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+On Wed, Mar 02, 2016 at 11:05:33AM -0800, Stephen Hemminger wrote:
+> On Wed,  2 Mar 2016 19:45:39 +0100
+> Phil Sutter <phil@nwl.cc> wrote:
+> 
+> > While implementing an implementation example for a pedit man page, I
+> > noticed several issues with the current code. The following patch
+> > series addreses them.
+> 
+> Jamal wrote pedit, does he have any comments on this?
 
-diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
-index 6e7ec25..c589a9b 100644
---- a/net/sched/act_ife.c
-+++ b/net/sched/act_ife.c
-@@ -108,7 +108,7 @@ EXPORT_SYMBOL_GPL(ife_get_meta_u16);
- 
- int ife_alloc_meta_u32(struct tcf_meta_info *mi, void *metaval)
- {
--	mi->metaval = kmemdup(&metaval, sizeof(u32), GFP_KERNEL);
-+	mi->metaval = kmemdup(metaval, sizeof(u32), GFP_KERNEL);
- 	if (!mi->metaval)
- 		return -ENOMEM;
- 
-@@ -118,7 +118,7 @@ EXPORT_SYMBOL_GPL(ife_alloc_meta_u32);
- 
- int ife_alloc_meta_u16(struct tcf_meta_info *mi, void *metaval)
- {
--	mi->metaval = kmemdup(&metaval, sizeof(u16), GFP_KERNEL);
-+	mi->metaval = kmemdup(metaval, sizeof(u16), GFP_KERNEL);
- 	if (!mi->metaval)
- 		return -ENOMEM;
- 
--- 
-2.1.0
+I didn't consult him in private, but appreciate his review of course.
