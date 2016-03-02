@@ -1,117 +1,90 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: Re: [PATCH net-next V2 03/16] net: fec: pass txq to fec_enet_tx_queue
- instead of queue_id
-Date: Wed, 2 Mar 2016 09:13:39 -0700
-Message-ID: <56D71133.4000708@boundarydevices.com>
-References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
- <1456360619-24390-4-git-send-email-troy.kisky@boundarydevices.com>
- <VI1PR0401MB18555F637F86F38461B3442BFFBC0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
- "andrew@lunn.ch" <andrew@lunn.ch>,
- "stillcompiling@gmail.com" <stillcompiling@gmail.com>,
- "linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
- "arnd@arndb.de" <arnd@arndb.de>,
- "sergei.shtylyov@cogentembedded.com" <sergei.shtylyov@cogentembedded.com>,
- "laci@boundarydevices.com" <laci@boundarydevices.com>,
- "johannes@sipsolutions.net" <johannes@sipsolutions.net>,
- "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
- "shawnguo@kernel.org" <shawnguo@kernel.org>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- "tremyfr@gmail.com" <tremyfr@gmail.com>
-To: Fugang Duan <fugang.duan@nxp.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>,
- "b38611@freescale.com" <b38611@freescale.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <VI1PR0401MB18555F637F86F38461B3442BFFBC0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next] net: sched: use pfifo_fast for non real queues
+Date: Wed,  2 Mar 2016 08:21:43 -0800
+Message-ID: <1456935703-27585-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:36796 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755496AbcCBQWE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 11:22:04 -0500
+Received: by mail-pa0-f48.google.com with SMTP id a9so13680456pat.3
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 08:22:03 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3/2/2016 8:16 AM, Fugang Duan wrote:
-> From: Troy Kisky <troy.kisky@boundarydevices.com>  Sent: Thursday, February 25, 2016 8:37 AM
->> To: netdev@vger.kernel.org; davem@davemloft.net; b38611@freescale.com
->> Cc: fabio.estevam@freescale.com; l.stach@pengutronix.de; andrew@lunn.ch;
->> tremyfr@gmail.com; linux@arm.linux.org.uk; linux-arm-
->> kernel@lists.infradead.org; laci@boundarydevices.com; shawnguo@kernel.org;
->> johannes@sipsolutions.net; stillcompiling@gmail.com;
->> sergei.shtylyov@cogentembedded.com; arnd@arndb.de; Troy Kisky
->> <troy.kisky@boundarydevices.com>
->> Subject: [PATCH net-next V2 03/16] net: fec: pass txq to fec_enet_tx_queue
->> instead of queue_id
->>
->> queue_id is the qid member of struct bufdesc_prop.
->>
->> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
->> ---
->>  drivers/net/ethernet/freescale/fec_main.c | 17 ++++++-----------
->>  1 file changed, 6 insertions(+), 11 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/freescale/fec_main.c
->> b/drivers/net/ethernet/freescale/fec_main.c
->> index 9619b9e..c517194 100644
->> --- a/drivers/net/ethernet/freescale/fec_main.c
->> +++ b/drivers/net/ethernet/freescale/fec_main.c
->> @@ -1156,25 +1156,18 @@ fec_enet_hwtstamp(struct fec_enet_private *fep,
->> unsigned ts,
->>  	hwtstamps->hwtstamp = ns_to_ktime(ns);  }
->>
->> -static void
->> -fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
->> +static void fec_txq(struct net_device *ndev, struct fec_enet_private *fep,
->> +		    struct fec_enet_priv_tx_q *txq)
->>  {
->> -	struct	fec_enet_private *fep;
->>  	struct bufdesc *bdp;
->>  	unsigned short status;
->>  	struct	sk_buff	*skb;
->> -	struct fec_enet_priv_tx_q *txq;
->>  	struct netdev_queue *nq;
->>  	int	index = 0;
->>  	int	entries_free;
->>
->> -	fep = netdev_priv(ndev);
->> -
->> -	queue_id = FEC_ENET_GET_QUQUE(queue_id);
->> -
->> -	txq = fep->tx_queue[queue_id];
->>  	/* get next bdp of dirty_tx */
->> -	nq = netdev_get_tx_queue(ndev, queue_id);
->> +	nq = netdev_get_tx_queue(ndev, txq->bd.qid);
->>  	bdp = txq->dirty_tx;
->>
->>  	/* get next bdp of dirty_tx */
->> @@ -1268,11 +1261,13 @@ static void
->>  fec_enet_tx(struct net_device *ndev)
->>  {
->>  	struct fec_enet_private *fep = netdev_priv(ndev);
->> +	struct fec_enet_priv_tx_q *txq;
->>  	u16 queue_id;
->>  	/* First process class A queue, then Class B and Best Effort queue */
->>  	for_each_set_bit(queue_id, &fep->work_tx, FEC_ENET_MAX_TX_QS)
->> {
->>  		clear_bit(queue_id, &fep->work_tx);
->> -		fec_enet_tx_queue(ndev, queue_id);
->> +		txq = fep->tx_queue[FEC_ENET_GET_QUQUE(queue_id)];
->> +		fec_txq(ndev, fep, txq);
->>  	}
->>  	return;
->>  }
->> --
->> 2.5.0
-> 
-> The patch should merge with patch#1.
-> 
+Some devices declare a high number of TX queues, then set a much
+lower real_num_tx_queues
 
+This cause setups using fq_codel, sfq or fq as the default qdisc to consume
+more memory than really needed.
 
-Why ?  That would only hide the change in patch #1.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/sch_generic.h | 6 ++++++
+ net/sched/sch_generic.c   | 1 +
+ net/sched/sch_mq.c        | 2 +-
+ net/sched/sch_mqprio.c    | 3 ++-
+ 4 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index e5bba897d206..46e55f0202a6 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -345,6 +345,12 @@ extern struct Qdisc_ops pfifo_fast_ops;
+ extern struct Qdisc_ops mq_qdisc_ops;
+ extern struct Qdisc_ops noqueue_qdisc_ops;
+ extern const struct Qdisc_ops *default_qdisc_ops;
++static inline const struct Qdisc_ops *
++get_default_qdisc_ops(const struct net_device *dev, int ntx)
++{
++	return ntx < dev->real_num_tx_queues ?
++			default_qdisc_ops : &pfifo_fast_ops;
++}
+ 
+ struct Qdisc_class_common {
+ 	u32			classid;
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 16bc83b2842a..f18c35024207 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -567,6 +567,7 @@ struct Qdisc_ops pfifo_fast_ops __read_mostly = {
+ 	.dump		=	pfifo_fast_dump,
+ 	.owner		=	THIS_MODULE,
+ };
++EXPORT_SYMBOL(pfifo_fast_ops);
+ 
+ static struct lock_class_key qdisc_tx_busylock;
+ 
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index 3e82f047caaf..56a77b878eb3 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -57,7 +57,7 @@ static int mq_init(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
+ 		dev_queue = netdev_get_tx_queue(dev, ntx);
+-		qdisc = qdisc_create_dflt(dev_queue, default_qdisc_ops,
++		qdisc = qdisc_create_dflt(dev_queue, get_default_qdisc_ops(dev, ntx),
+ 					  TC_H_MAKE(TC_H_MAJ(sch->handle),
+ 						    TC_H_MIN(ntx + 1)));
+ 		if (qdisc == NULL)
+diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+index 02ffb3fbbc20..b8002ce3d010 100644
+--- a/net/sched/sch_mqprio.c
++++ b/net/sched/sch_mqprio.c
+@@ -125,7 +125,8 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 	for (i = 0; i < dev->num_tx_queues; i++) {
+ 		dev_queue = netdev_get_tx_queue(dev, i);
+-		qdisc = qdisc_create_dflt(dev_queue, default_qdisc_ops,
++		qdisc = qdisc_create_dflt(dev_queue,
++					  get_default_qdisc_ops(dev, i),
+ 					  TC_H_MAKE(TC_H_MAJ(sch->handle),
+ 						    TC_H_MIN(i + 1)));
+ 		if (qdisc == NULL) {
+-- 
+2.7.0.rc3.207.g0ac5344
