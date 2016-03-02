@@ -1,67 +1,48 @@
-From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Subject: Re: [PATCH] wan: lmc: Switch to using managed resources
-Date: Wed, 2 Mar 2016 19:52:42 +0530
-Message-ID: <CA+5yK5F0q=iKD_WAdXD6UWGLOYMt29Vq20Wh0w-Zf4sVFrTK0g@mail.gmail.com>
-References: <20160227170416.GA1339@amitoj-Inspiron-3542>
-	<20160301.172153.99852560992201587.davem@davemloft.net>
+From: Tomas Hlavacek <tmshlvck@gmail.com>
+Subject: Re: RFC: blueprint for proxy PHY module
+Date: Wed, 02 Mar 2016 15:24:01 +0100
+Message-ID: <1456928642.7384.0@smtp.gmail.com>
+References: <1456406760.28260.6@smtp.gmail.com>
+	<20160225153113.GB7681@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160301.172153.99852560992201587.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Cc: netdev@vger.kernel.org, Pavol Kor?ek <ikorcek@fit.vutbr.cz>,
+	Martin Strba?ka <martin.strbacka@nic.cz>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:35560 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751350AbcCBOYG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 09:24:06 -0500
+Received: by mail-wm0-f51.google.com with SMTP id l68so87817024wml.0
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 06:24:04 -0800 (PST)
+In-Reply-To: <20160225153113.GB7681@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 2, 2016 at 3:51 AM, David Miller <davem@davemloft.net> wrote:
-> From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-> Date: Sat, 27 Feb 2016 22:34:16 +0530
->
->> @@ -835,23 +835,20 @@ static int lmc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->>       err = pci_request_regions(pdev, "lmc");
->>       if (err) {
->>               printk(KERN_ERR "lmc: pci_request_region failed\n");
->> -             goto err_req_io;
->> +             return err;
->>       }
->>
->>       /*
->>        * Allocate our own device structure
->>        */
->> -     sc = kzalloc(sizeof(lmc_softc_t), GFP_KERNEL);
->> -     if (!sc) {
->> -             err = -ENOMEM;
->> -             goto err_kzalloc;
->
-> You can't get rid of the error paths from here on out, because you still need to
-> release the PCI regions obtained from pci_request_regions() above.
->
-> To be quite honest, unless you are fixing real bugs, managed resource
-> converstions are more likely to add bugs than do anything truly
-> useful.
->
-> I strongly consider you just drop this change.
+Hi Andrew!
 
-Hi David,
+On Thu, Feb 25, 2016 at 4:31 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>>  Question is how to connect the userspace? I think that corresponding
+>>  file in /sys would do the job, but I am not sure whether it is the
+>>  proper way of doing that. (?)
+> 
+> A historian might be able to help you. Going back to the days of
+> 10MBps Ethernet, cards used to have a few different ports, AUI, BNC
+> and TP. The kernel probably supports configuring which to use,
+> probably via ethtool. Your use case is not that different, so you can
+> probably reuse it.
 
-I checked pcim_enable_device() before sending the patch, it has a call
-to pcim_release() which does disabling of the PCI device and the
-releasing of PCI regions obtained from pci_request_regions so there is
-no need for pci_release_regions or pci_disable_device anymore.
+Extending the ethtool ops in the driver (namely mvneta) seems to be 
+possible and it seems that I could add more phy_dev pointers to the 
+private data of the driver and switch among them quite easily. But it 
+would be driver specific hack and I believe this problem is more 
+general.
 
-Specifically, pcim_release contains the following code:
+Perhaps I can pass some common PHY switch command from the driver to 
+the prospective phy-proxy module. I'll come back to this question when 
+I haveproof-of-concept code.
 
-for (i = 0; i < DEVICE_COUNT_RESOURCE; i++)
-  if (this->region_mask & (1 << i))
-    pci_release_region(dev, i);
+Btw. thanks for the pointer to the phylink patchset.
 
-Also, commit id add243d5bc371eef66f81c9da4fd4b55a18dad23 is a similar
-change that further made me believe that the change is a correct one.
-
-However, if you think I am wrong somewhere and I understood things
-incorrectly, please correct me.
-
-Thanks,
-Amitoj
+Tomas
