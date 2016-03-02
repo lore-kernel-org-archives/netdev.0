@@ -1,51 +1,29 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH for-next 01/10] net/core: Add support for configuring VF GUIDs
-Date: Wed, 2 Mar 2016 20:40:09 +0200
-Message-ID: <CAJ3xEMh5vJAZVO03=rRVCvqqXzXvah3idrMtMQfFP-wBxR7R_Q@mail.gmail.com>
-References: <1456851143-138332-1-git-send-email-eli@mellanox.com>
-	<1456851143-138332-2-git-send-email-eli@mellanox.com>
-	<20160301173751.GA25176@obsidianresearch.com>
-	<20160301174951.GA19366@x-vnc01.mtx.labs.mlnx>
-	<20160301182516.GA12495@obsidianresearch.com>
-	<CAJ3xEMgrAUCj7PS6fegmuSUsjMruH3gzSHZmuzAX+ZbHZOpL9w@mail.gmail.com>
-	<56D719E3.2000206@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: mac80211 2016-03-02
+Date: Wed, 02 Mar 2016 13:40:53 -0500 (EST)
+Message-ID: <20160302.134053.816070092260634055.davem@davemloft.net>
+References: <1456926483-9420-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <56D719E3.2000206-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56973 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755423AbcCBSkz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 13:40:55 -0500
+In-Reply-To: <1456926483-9420-1-git-send-email-johannes@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 2, 2016 at 6:50 PM, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Wed,  2 Mar 2016 14:48:02 +0100
 
-> Exactly *what* provisioning system tries to set the VF_MAC on an IPoIB
-> interface and expects it to set the GUID of an underlying IB device?
+> Here are a few more fixes for the current cycle; the MAINTAINERS patch
+> isn't really a fix for the tree, but helps the kbuild robot and clearly
+> can't be causing any regressions :)
+> 
+> Let me know if there's any problem.
 
-The provisioning system need not be fully aware in all their
-components this is IB here, there's PCI linkage that tells these are
-VFs of this PF and they have to be used for these VMs.
-
->> along with the fully IB aware solution where the
->> upper level does provision IB GUIDs.
-
-> There has never been upstream support for this MAC->GUID stuff you refer
-> to.  I'm not convinced we should add it now versus just doing things
-> right, period.
-
-We **are** doing things right with the new ndo.
-
-Using the small MAC->GUID addition, people could be using non-modified
-(or almost non-modified) provisioning systems that assign SRIOV VMs
-with a MACs --- just use these patches on their hosts and get DHCP
-server supplying IP addresses based on the derived GUIDs (this is
-supported today).
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pulled, thanks Johannes.
