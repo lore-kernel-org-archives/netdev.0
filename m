@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] mac80211: mesh: convert path table to rhashtable
-Date: Wed, 02 Mar 2016 14:43:59 -0500 (EST)
-Message-ID: <20160302.144359.2141637165742439224.davem@davemloft.net>
-References: <1456931360-2846-1-git-send-email-me@bobcopeland.com>
-	<1456931360-2846-2-git-send-email-me@bobcopeland.com>
+Subject: Re: [PATCH net-next 0/5] cxgb4/cxgb4vf: Cleanup and minor fixes
+Date: Wed, 02 Mar 2016 14:46:50 -0500 (EST)
+Message-ID: <20160302.144650.789980250487814158.davem@davemloft.net>
+References: <1456832976-12840-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
-	tgraf@suug.ch, netdev@vger.kernel.org
-To: me@bobcopeland.com
+Cc: netdev@vger.kernel.org, nirranjan@chelsio.com, leedom@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57841 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57889 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751121AbcCBToB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 14:44:01 -0500
-In-Reply-To: <1456931360-2846-2-git-send-email-me@bobcopeland.com>
+	with ESMTP id S1750745AbcCBTqw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 14:46:52 -0500
+In-Reply-To: <1456832976-12840-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bob Copeland <me@bobcopeland.com>
-Date: Wed,  2 Mar 2016 10:09:20 -0500
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Tue,  1 Mar 2016 17:19:31 +0530
 
-> In the time since the mesh path table was implemented as an
-> RCU-traversable, dynamically growing hash table, a generic RCU
-> hashtable implementation was added to the kernel.
+> This series sets FBMIN to 64 bytes for Chelsio's T6 series of adapters,
+> check to replenish fl is revised, some code cleanup in cxgb4vf sge
+> initialization code and removes dead code. 
 > 
-> Switch the mesh path table over to rhashtable to remove some code
-> and also gain some features like automatic shrinking.
+> This patch series has been created against net-next tree and includes
+> patches on cxgb4 and cxgb4vf driver.
 > 
-> Cc: Thomas Graf <tgraf@suug.ch>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Bob Copeland <me@bobcopeland.com>
+> We have included all the maintainers of respective drivers. Kindly review
+> the change and let us know in case of any review comments.
 
-Johannes, feel free to take both patches via your tree, thanks.
+Series applied, thanks.
