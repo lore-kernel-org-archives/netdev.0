@@ -1,84 +1,53 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 14/20] man: ip-rule.8: Review synopsis section
-Date: Wed,  2 Mar 2016 19:20:02 +0100
-Message-ID: <1456942808-15946-15-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v2 03/20] iplink: fix help text syntax
+Date: Wed,  2 Mar 2016 19:19:51 +0100
+Message-ID: <1456942808-15946-4-git-send-email-phil@nwl.cc>
 References: <20160302093800.7e7dbe71@xeon-e3>
  <1456942808-15946-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:46345 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:47699 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754429AbcCBSVX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2016 13:21:23 -0500
+	id S1752674AbcCBSVa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2016 13:21:30 -0500
 In-Reply-To: <1456942808-15946-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Clarify that 'ip rule' defaults to action 'list', that 'flush' and
-'save' actions don't accept additional parameters, add missing 'not' and
-'goto' keywords and finally fix fonts used in 'fwmark' and 'realms'
-parameters.
+Get rid of extraneous closing brackets and while here, merge the double
+netns parameter.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/ip-rule.8 | 19 +++++++++++++------
- 1 file changed, 13 insertions(+), 6 deletions(-)
+ ip/iplink.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
-index b7008c6ab13d7..e9fbb3cf1a62d 100644
---- a/man/man8/ip-rule.8
-+++ b/man/man8/ip-rule.8
-@@ -9,20 +9,26 @@ ip-rule \- routing policy database management
- .B ip
- .RI "[ " OPTIONS " ]"
- .B rule
--.RI " { " COMMAND " | "
-+.RI "{ " COMMAND " | "
- .BR help " }"
- .sp
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 69f50572633b1..33d7c0ad0e827 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -70,17 +70,16 @@ void iplink_usage(void)
+ 	fprintf(stderr, "	                  [ address LLADDR ]\n");
+ 	fprintf(stderr, "	                  [ broadcast LLADDR ]\n");
+ 	fprintf(stderr, "	                  [ mtu MTU ]\n");
+-	fprintf(stderr, "	                  [ netns PID ]\n");
+-	fprintf(stderr, "	                  [ netns NAME ]\n");
++	fprintf(stderr, "	                  [ netns { PID | NAME } ]\n");
+ 	fprintf(stderr, "	                  [ link-netnsid ID ]\n");
+ 	fprintf(stderr, "			  [ alias NAME ]\n");
+ 	fprintf(stderr, "	                  [ vf NUM [ mac LLADDR ]\n");
+ 	fprintf(stderr, "				   [ vlan VLANID [ qos VLAN-QOS ] ]\n");
  
- .ti -8
- .B  ip rule
--.RB " [ " list " | " add " | " del " | " flush " | " save " ]"
-+.RB "[ " list " ]"
-+
-+.ti -8
-+.B  ip rule
-+.RB "{ " add " | " del " }"
- .I  SELECTOR ACTION
+-	fprintf(stderr, "				   [ rate TXRATE ] ]\n");
++	fprintf(stderr, "				   [ rate TXRATE ]\n");
  
- .ti -8
--.B  ip rule  " restore "
-+.B ip rule
-+.RB "{ " flush " | " save " | " restore " }"
- 
- .ti -8
- .IR SELECTOR " := [ "
-+.BR not " ] ["
- .B  from
- .IR PREFIX " ] [ "
- .B  to
-@@ -30,7 +36,7 @@ ip-rule \- routing policy database management
- .B  tos
- .IR TOS " ] [ "
- .B  fwmark
--.IR FWMARK[/MASK] " ] [ "
-+.IR FWMARK\fR[\fB/\fIMASK "] ] [ "
- .B  iif
- .IR STRING " ] [ "
- .B  oif
-@@ -45,8 +51,9 @@ ip-rule \- routing policy database management
- .B  nat
- .IR ADDRESS " ] [ "
- .B realms
--.RI "[" SRCREALM "/]" DSTREALM " ]"
--.I  SUPPRESSOR
-+.RI "[" SRCREALM "\fB/\fR]" DSTREALM " ] ["
-+.B goto
-+.IR NUMBER " ] " SUPPRESSOR
- 
- .ti -8
- .IR SUPPRESSOR " := [ "
+-	fprintf(stderr, "				   [ spoofchk { on | off} ] ]\n");
+-	fprintf(stderr, "				   [ query_rss { on | off} ] ]\n");
++	fprintf(stderr, "				   [ spoofchk { on | off} ]\n");
++	fprintf(stderr, "				   [ query_rss { on | off} ]\n");
+ 	fprintf(stderr, "				   [ state { auto | enable | disable} ] ]\n");
+ 	fprintf(stderr, "				   [ trust { on | off} ] ]\n");
+ 	fprintf(stderr, "			  [ master DEVICE ]\n");
 -- 
 2.7.2
