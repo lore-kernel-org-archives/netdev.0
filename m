@@ -1,85 +1,52 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [PATCH v2] ethtool: check size of user memory before copying
- strings and stats
-Date: Tue, 1 Mar 2016 23:47:25 +0000
-Message-ID: <1456876045.9520.23.camel@intel.com>
-References: <1456871112-14103-1-git-send-email-jacob.e.keller@intel.com>
-	 <CAKgT0UdDQ0_HEhOQRew20V-MYKDDWbNZRZDFwNLz47cQX03dYg@mail.gmail.com>
-	 <1456873105.9520.19.camel@intel.com>
-	 <CAKgT0Uf6vFZ++E-8=dW=dO9Ohq4VGwc-DymyX_jA5VShMrS5Vw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"Rustad, Mark D" <mark.d.rustad@intel.com>,
-	"mirq-linux@rere.qmqm.pl" <mirq-linux@rere.qmqm.pl>
-To: "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
+From: John Holland <jotihojr@gmail.com>
+Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on i211 using a device tree blob V5
+Date: Wed, 2 Mar 2016 04:48:28 +0100
+Message-ID: <63942260-AF46-475D-9963-8A7A10484906@gmail.com>
+References: <56C5A6BC.6030708@gmail.com> <309B89C4C689E141A5FF6A0C5FB2118B81EA731A@ORSMSX101.amr.corp.intel.com> <DC20A3D2-95E2-420B-911D-C6AC02338227@gmail.com> <1456876509.3039.10.camel@intel.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Brown, Aaron F" <aaron.f.brown@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:59218 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753319AbcCAXr1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2016 18:47:27 -0500
-In-Reply-To: <CAKgT0Uf6vFZ++E-8=dW=dO9Ohq4VGwc-DymyX_jA5VShMrS5Vw@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <48D693B3E33E7448BD39329415BEB390@intel.com>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:35736 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751678AbcCBDsb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 22:48:31 -0500
+Received: by mail-wm0-f53.google.com with SMTP id l68so66075866wml.0
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 19:48:30 -0800 (PST)
+In-Reply-To: <1456876509.3039.10.camel@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE2LTAzLTAxIGF0IDE1OjA1IC0wODAwLCBBbGV4YW5kZXIgRHV5Y2sgd3JvdGU6
-DQo+IE9uIFR1ZSwgTWFyIDEsIDIwMTYgYXQgMjo1OCBQTSwgS2VsbGVyLCBKYWNvYiBFDQo+IDxq
-YWNvYi5lLmtlbGxlckBpbnRlbC5jb20+IHdyb3RlOg0KPiA+IA0KPiA+IE9uIFR1ZSwgMjAxNi0w
-My0wMSBhdCAxNDozMSAtMDgwMCwgQWxleGFuZGVyIER1eWNrIHdyb3RlOg0KPiA+ID4gDQo+ID4g
-PiBUaGlzIHN0aWxsIGhhcyB0aGUgcG90ZW50aWFsIHRvIHByb3ZpZGUgZ2FyYmFnZSBkYXRhLsKg
-wqBXaGF0IHlvdQ0KPiA+ID4gc2hvdWxkDQo+ID4gPiBwcm9iYWJseSBkbyBhdCBlYWNoIHN0YWdl
-IGlzIG1ha2Ugc3VyZSB0aGUgbGVuZ3RoIG1hdGNoZXMgd2l0aA0KPiA+ID4gdGhlDQo+ID4gPiBl
-eGFjdCB2YWx1ZSB0aGF0IHlvdSB3b3VsZCBleHBlY3QuDQo+ID4gPiANCj4gPiBTdXJlLCBhbiBl
-eGFjdCBjaGVjayBjb3VsZCBiZSBkb25lIGluc3RlYWQsIGhvd2V2ZXIuLi4NCj4gPiANCj4gPiA+
-IA0KPiA+ID4gSSBhc3N1bWUgeW91IGNhbm5vdCBoYXZlIGFueSBmaWVsZHMgc2h1ZmZsZSBvbiB5
-b3U/wqDCoFdoYXQgSSBtZWFuDQo+ID4gPiBieQ0KPiA+ID4gdGhhdCBpcyB0aGF0IHlvdSBkb24n
-dCB3YW50IHRvIGhhdmUgYSBzZXR1cCB3aXRoIDQgVHggYW5kIDQgUngNCj4gPiA+IHJpbmdzDQo+
-ID4gPiB3aGVyZSB5b3UgdGhlbiByZXBsYWNlIGl0IHdpdGggMSBUeCBhbmQgNyBSeCByaW5ncyBh
-bmQgdHJ5IHRvDQo+ID4gPiBwb3B1bGF0ZQ0KPiA+ID4gdGhlIHNhbWUgZGF0YSBpbnRvIGEgc2V0
-dXAgd2hlcmUgdGhlIHN0cmluZ3MgcmVwb3J0ZWQgYXJlIGZvciA0DQo+ID4gPiBUeA0KPiA+ID4g
-YW5kDQo+ID4gPiA0IFJ4LsKgwqBZb3Ugc2hvdWxkIGRvdWJsZSBjaGVjayB0aGF0IHRoZSBsZW5n
-dGggY2FuIGJlIHVzZWQgYXMgYQ0KPiA+ID4gbWVhbnMNCj4gPiA+IG9mIGlkZW50aWZ5aW5nIGV4
-YWN0bHkgd2hhdCBzdHJpbmdzIHdpbGwgYmUgd2hlcmUuDQo+ID4gPiANCj4gPiA+IC0gQWxleA0K
-PiA+IA0KPiA+IERhcm4uIExvb2tzIGxpa2UgeW91J3JlIHJpZ2h0LiBJdCB3b3VsZCBiZSB0aGVv
-cmV0aWNhbGx5IHBvc3NpYmxlDQo+ID4gZm9yDQo+ID4gdGhlIG51bWJlciBvZiBxdWV1ZXMgKG9y
-IG90aGVyIHZhcmlhYmxlcykgdG8gY2hhbmdlIHN1Y2ggdGhhdCB0aGUNCj4gPiBzaXplDQo+ID4g
-bWF0Y2hlcyBidXQgdGhlIGRhdGEgbm8gbG9uZ2VyIGxpbmVzIHVwIGFnYWluc3QgdGhlIHN0cmlu
-Z3MuDQo+ID4gDQo+ID4gRm9yIHF1ZXVlcywgSSBkb24ndCB0aGluayB3ZSdyZSB2dWxuZXJhYmxl
-IG9uIHRoZSBmbTEwayBkcml2ZXIsDQo+ID4gYmVjYXVzZQ0KPiA+IHdlIG9ubHkgdXNlIGNvbWJp
-bmVkIHF1ZXVlcy4gSG93ZXZlciwgd2UgYWxyZWFkeSBoYXZlIHN1cHBvcnQgZm9yDQo+ID4gImRl
-YnVnLXN0YXRpc3RpY3MiIHdoaWNoIHNob3dzIGV4dHJhIHN0YXRzIHBsdXMgc29tZSBzdGF0cyBw
-ZXINCj4gPiB2aXJ0dWFsDQo+ID4gZnVuY3Rpb24uIEkgYW0gbm90IHN1cmUgaWYgdGhlc2UgY291
-bGQgY2hhbmdlIHdpdGhpbiB0aGUgdGltZQ0KPiA+IHdpbmRvdyB0bw0KPiA+IHJlc3VsdCBpbiBn
-YXJiYWdlIGRhdGEuDQo+ID4gDQo+ID4gSSBkb24ndCBrbm93IGhvdyBtdWNoIG9mIGEgcmVhbCB3
-b3JsZCBwcm9ibGVtIHRoaXMgd291bGQgYmUgdGhvdWdoLg0KPiA+IA0KPiA+IEknbSBndWVzc2lu
-ZyBpdCdzIG1vcmUgcmVhc29uIHRvIHByb21vdGUgdGhlIGlkZWEgb2YgY29udmVydGluZyB0bw0K
-PiA+IHNvbWUNCj4gPiBuZXcgdG9vbCBiYXNlZCBvbiBuZXRsaW5rLg0KPiBZZWFoLCB3ZSBoYWQg
-YmFzaWNhbGx5IHB1c2hlZCB0aGUgaXNzdWUgdW5kZXIgdGhlIHJ1ZyBieSB1c2luZyBhDQo+IHN0
-YXRpYyBsYXlvdXQgZm9yIHN0YXRpc3RpY3MuDQo+IA0KDQpZZXAuDQoNCj4gV2FzIHRoZSBtb3Rp
-dmF0aW9uIGZvciBnZXR0aW5nIHJpZCBvZiB0aGUgc3RhdGljIGxheW91dCBqdXN0IHRvDQo+IGRl
-Y2x1dHRlciB0aGUgZGlzcGxheT/CoMKgSSBrbm93IEkgaGF2ZSBnb3R0ZW4gaW50byB0aGUgaGFi
-aXQgb2YganVzdA0KPiBwaXBpbmcgZXRodG9vbCAtUyB0aHJvdWdoIGEgInwgZ3JlcCAtdiA6XCAw
-IiB0byBkcm9wIGFueSBvZiB0aGUNCj4gdW51c2VkDQo+IHN0YXRzIGZyb20gdGhlIGRpc3BsYXku
-wqDCoEFsc28geW91IG1heSBzZWUgaXNzdWVzIGRlcGVuZGluZyBvbiBob3cgdGhlDQo+IHN0YXRz
-IG1pZ2h0IGJlIHBhcnNlZCBieSB1c2VyLXNwYWNlIHNjcmlwdHMgaWYgeW91IHN0YXJ0IG1vZGlm
-eWluZw0KPiB3aGF0IGlzIGRpc3BsYXllZCBhbmQgd2hhdCBpcyBub3QuDQo+IA0KDQpHZW5lcmFs
-bHksIEknbSBub3QgdG9vIGNvbmNlcm5lZCBhYm91dCBzcGVjaWZpYyB1c2VyLXNjcmlwdHMgcGFy
-c2luZw0Kc2luY2UgdGhlc2UgYWxyZWFkeSBoYXZlIHRvIGJlIGhlYXZpbHkgZGVwZW5kZW50IG9u
-IHRoZSBkcml2ZXIgaW4NCnF1ZXN0aW9uIChzaW5jZSBlYWNoIGRyaXZlciBoYXMgdGhlaXIgb3du
-IG5hbWluZyBzY2hlbWUpLg0KDQpJIGFkZGVkIGEgd2hpbGUgYmFjayB0aGUgcHJpdmF0ZSBmbGFn
-ICJkZWJ1Zy1zdGF0aXN0aWNzIiB0byBlbmFibGUgYQ0KYnVuY2ggb2YgZXh0cmEgc3RhdGlzdGlj
-cyB3aGljaCB3ZXJlbid0IGFsd2F5cyByZWxldmFudC4NCg0KSW4gc29tZSBjYXNlcywgbGlrZSB0
-aGUgcXVldWUgc2l6ZSBjaGFuZ2UgaXQgd2FzIGRvbmUgaW4gb3JkZXIgdG8NCnNpbXBseSByZW1v
-dmUgY2x1dHRlciBvZiAxMjggcXVldWV1cyB3aGVuIG1hbnkgc3lzdGVtcyB3b3VsZCBvbmx5IHVz
-ZSBhDQpmZXcgb2YgdGhvc2UuIEp1c3QgZG9pbmcgZ3JlcCAtdiA6XCAwIHdpbGwgcmVtb3ZlIHRo
-ZXNlIGxpbmVzLCB0cnVlLg0KDQpIb3dldmVyLCB0aGF0IGRvZXNuJ3QgaGVscCB0aGUgZGVidWct
-c3RhdGlzdGljcyBjYXNlLCB3aGVyZSB3ZSBoYXZlIGENCnRvbiBvZiBzdGF0aXN0aWNzIHdoaWNo
-IG1heSBiZSByZWxldmFudCB0byBzb21lIGRlYnVnZ2luZywgYnV0IGFyZW4ndA0KcmVhbGx5IHVz
-ZWZ1bCB0byBzZWUgYWxsIHRoZSB0aW1lLiBJbiBhZGRpdGlvbiwgaXQgYWxzbyBzaG93cyBzdGF0
-cyBmb3INClZGcyBpbiB0aGlzIG1vZGUgYXMgd2VsbC4NCg0KVGhhbmtzLA0KSmFrZQ==
+
+> On 02.03.2016, at 00:55, Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+> 
+>> On Tue, 2016-03-01 at 07:56 +0100, John Holland wrote:
+>> On Mar 1, 2016, at 03:52, Brown, Aaron F <aaron.f.brown@intel.com>
+>> wrote:
+>> 
+>>> This throws a few checkpatch warnings, but I won't withhold my
+>> tested by for these:
+>>>  
+>>> total: 0 errors, 2 warnings, 0 checks, 21 lines checked
+>>>  
+>>> Your patch has style problems, please review.
+>>>  
+>>> NOTE: If any of the errors are false positives, please report
+>>>       them to the maintainer, see CHECKPATCH in MAINTAINERS.
+>>> u1463:[0]/usr/src/kernels/next-queue>
+>> 
+>> Thanks for testing...
+>> 
+>> Do you require me to reformat the patch text? And won't that break
+>> the link?
+> 
+> No, that checkpatch.pl warning on the link you provided is fine,
+> although I will clean up your signed-off-by when I go to push it
+> upstream. :-)
+
+Thank you very much!
