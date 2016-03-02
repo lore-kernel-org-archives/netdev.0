@@ -1,118 +1,62 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 20/20] man: ip-*.8: drop any reference to generic ip options
-Date: Wed,  2 Mar 2016 19:20:08 +0100
-Message-ID: <1456942808-15946-21-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v2 15/20] man: ip-token.8: Review synopsis section
+Date: Wed,  2 Mar 2016 19:20:03 +0100
+Message-ID: <1456942808-15946-16-git-send-email-phil@nwl.cc>
 References: <20160302093800.7e7dbe71@xeon-e3>
  <1456942808-15946-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:36386 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:40255 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755042AbcCBSUw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2016 13:20:52 -0500
+	id S1755042AbcCBSU6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2016 13:20:58 -0500
 In-Reply-To: <1456942808-15946-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Listing generic 'ip' options in subcommand man pages is redundant and
-error-prone, as they won't be kept in sync anyway. Since many other man
-pages don't list them either, drop references to them in the remaining
-ones.
+Drop unnecessary curly braces around single action keywords, point out
+that 'dev' parameter to 'ip token get' is optional and clarify that 'ip
+token' defaults to 'list' action.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/ip-addrlabel.8 | 14 +-------------
- man/man8/ip-link.8.in   | 15 +--------------
- man/man8/ip-monitor.8   |  4 +---
- man/man8/ip-mroute.8    |  2 +-
- 4 files changed, 4 insertions(+), 31 deletions(-)
+ man/man8/ip-token.8 | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/man/man8/ip-addrlabel.8 b/man/man8/ip-addrlabel.8
-index 51ef5727a0db1..233d6067ab407 100644
---- a/man/man8/ip-addrlabel.8
-+++ b/man/man8/ip-addrlabel.8
-@@ -6,21 +6,9 @@ ip-addrlabel \- protocol address label management
- .ad l
+diff --git a/man/man8/ip-token.8 b/man/man8/ip-token.8
+index 35a3d1e3e45bf..260f366af196f 100644
+--- a/man/man8/ip-token.8
++++ b/man/man8/ip-token.8
+@@ -7,23 +7,23 @@ ip-token \- tokenized interface identifier support
  .in +8
  .ti -8
--.B ip
--.RI "[ " OPTIONS " ]"
--.B addrlabel
-+.B ip addrlabel
- .RI " { " COMMAND " | "
- .BR help " }"
--.sp
--
--.ti -8
--.IR OPTIONS " := { "
--\fB\-V\fR[\fIersion\fR] |
--\fB\-s\fR[\fItatistics\fR] |
--\fB\-r\fR[\fIesolve\fR] |
--\fB\-f\fR[\fIamily\fR] {
--.BR inet " | " inet6 " | " ipx " | " dnet " | " link " } | "
--\fB\-o\fR[\fIneline\fR] }
- 
- .ti -8
- .BR "ip addrlabel" " { " add " | " del " } " prefix
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index e402fdd033165..c6a9c862dfda2 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -6,25 +6,12 @@ ip-link \- network device configuration
- .ad l
- .in +8
- .ti -8
--.B ip
--.RI "[ " OPTIONS " ]"
--.B link
-+.B ip link
- .RI  " { " COMMAND " | "
+ .B ip token
+-.RI " { " COMMAND " | "
++.RI "{ " COMMAND " | "
  .BR help " }"
  .sp
  
  .ti -8
--.IR OPTIONS " := { "
--\fB\-V\fR[\fIersion\fR] |
--\fB\-h\fR[\fIuman-readable\fR] |
--\fB\-s\fR[\fItatistics\fR] |
--\fB\-r\fR[\fIesolve\fR] |
--\fB\-f\fR[\fIamily\fR] {
--.BR inet " | " inet6 " | " ipx " | " dnet " | " link " } | "
--\fB\-o\fR[\fIneline\fR] |
--\fB\-br\fR[\fIief\fR] }
--
--.ti -8
- .BI "ip link add"
- .RB "[ " link
- .IR DEVICE " ]"
-diff --git a/man/man8/ip-monitor.8 b/man/man8/ip-monitor.8
-index d2bd381a8c32e..86f8f9885fefe 100644
---- a/man/man8/ip-monitor.8
-+++ b/man/man8/ip-monitor.8
-@@ -6,9 +6,7 @@ ip-monitor, rtmon \- state monitoring
- .ad l
- .in +8
+-.BR "ip token" " { " set " } "
++.B ip token set
+ .IR TOKEN
+ .B dev
+ .IR DEV
+ 
  .ti -8
--.BR "ip " " [ "
--.IR ip-OPTIONS " ]"
--.BR  "monitor" " [ " all " |"
-+.BR "ip monitor" " [ " all " |"
- .IR OBJECT-LIST " ] ["
- .BI file " FILENAME "
- ] [
-diff --git a/man/man8/ip-mroute.8 b/man/man8/ip-mroute.8
-index e89b6b2d2cc56..b64e30d33d412 100644
---- a/man/man8/ip-mroute.8
-+++ b/man/man8/ip-mroute.8
-@@ -6,7 +6,7 @@ ip-mroute \- multicast routing cache management
- .ad l
- .in +8
+-.BR "ip token" " { " get " } "
+-.B dev
+-.IR DEV
++.B ip token get
++.RB "[ " dev
++.IR DEV " ]"
+ 
  .ti -8
--.BR "ip " " [ ip-OPTIONS ] " "mroute show" " [ [ "
-+.BR "ip mroute show" " [ [ "
- .BR " to " " ] "
- .IR PREFIX " ] [ "
- .B  from
+-.BR "ip token" " { " list " }"
++.BR "ip token" " [ " list " ]"
+ 
+ .SH "DESCRIPTION"
+ IPv6 tokenized interface identifier support is used for assigning well-known
 -- 
 2.7.2
