@@ -1,65 +1,62 @@
-From: Kyeong Yoo <Kyeong.Yoo@alliedtelesis.co.nz>
+From: Cong Wang <xiyou.wangcong@gmail.com>
 Subject: Re: net_sched: dsmark: use qdisc_dequeue_peeked()
-Date: Wed, 2 Mar 2016 21:19:51 +0000
-Message-ID: <1456953590.3297.58.camel@kyeongy-dl>
+Date: Wed, 2 Mar 2016 14:01:36 -0800
+Message-ID: <CAM_iQpWb7iriz32qYeEeJhYUtstMbDoKqDFb=s4GNDego7nhCw@mail.gmail.com>
 References: <1456891804.3297.51.camel@kyeongy-dl>
-	 <CAM_iQpWGtRfbbGKD6i+XY0epgNkn=mNGnWG31dLhq7XLykdvFQ@mail.gmail.com>
+	<CAM_iQpWGtRfbbGKD6i+XY0epgNkn=mNGnWG31dLhq7XLykdvFQ@mail.gmail.com>
+	<1456953590.3297.58.camel@kyeongy-dl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8
 Cc: "jhs@mojatatu.com" <jhs@mojatatu.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>
+To: Kyeong Yoo <Kyeong.Yoo@alliedtelesis.co.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:45257 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750785AbcCBVT4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 16:19:56 -0500
-Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(Client did not present a certificate)
-	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id 12C1C8070D
-	for <netdev@vger.kernel.org>; Thu,  3 Mar 2016 10:19:53 +1300 (NZDT)
-In-Reply-To: <CAM_iQpWGtRfbbGKD6i+XY0epgNkn=mNGnWG31dLhq7XLykdvFQ@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <2D0C3823E5603D4AB3765B240A992219@atlnz.lc>
+Received: from mail-yk0-f170.google.com ([209.85.160.170]:35488 "EHLO
+	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932468AbcCBWBi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 17:01:38 -0500
+Received: by mail-yk0-f170.google.com with SMTP id v186so1337540yke.2
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 14:01:37 -0800 (PST)
+In-Reply-To: <1456953590.3297.58.camel@kyeongy-dl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-QXV0aG9yOiBLeWVvbmcgWW9vIDxreWVvbmcueW9vQGFsbGllZHRlbGVzaXMuY28ubno+DQoNCm5l
-dF9zY2hlZDogZHNtYXJrOiB1c2UgcWRpc2NfZGVxdWV1ZV9wZWVrZWQoKQ0KDQpUaGlzIGZpeCBp
-cyBmb3IgZHNtYXJrIHNpbWlsYXIgdG8gY29tbWl0IDM1NTc2MTlmMGY2Zjc0OTZlZDQ1M2Q0ODI1
-ZTI0OQ0KKCJuZXRfc2NoZWQ6IHByaW86IHVzZSBxZGlzY19kZXF1ZXVlX3BlZWtlZCIpDQphbmQg
-bWFrZXMgdXNlIG9mIHFkaXNjX2RlcXVldWVfcGVla2VkKCkgaW5zdGVhZCBvZiBkaXJlY3QgZGVx
-dWV1ZSgpIGNhbGwuDQoNCkZpcnN0IHRpbWUsIHdyciBwZWVrcyBkc21hcmssIHdoaWNoIHdpbGwg
-dGhlbiBwZWVrIGludG8gc2ZxLg0Kc2ZxIGRlcXVldWVzIGFuIHNrYiBhbmQgaXQncyBzdG9yZWQg
-aW4gc2NoLT5nc29fc2tiLg0KTmV4dCB0aW1lLCB3cnIgdHJpZXMgdG8gZGVxdWV1ZSBmcm9tIGRz
-bWFyaywgd2hpY2ggd2lsbCBjYWxsIHNmcSBkZXF1ZXVlDQpkaXJlY3RseS4gVGhpcyByZXN1bHRz
-IHNraXBwaW5nIHRoZSBwcmV2aW91c2x5IHBlZWtlZCBza2IuDQoNClNvIGNoYW5nZWQgZHNtYXJr
-IGRlcXVldWUgdG8gY2FsbCBxZGlzY19kZXF1ZXVlX3BlZWtlZCgpIGluc3RlYWQgdG8gdXNlDQpw
-ZWVrZWQgc2tiIGlmIGV4aXN0cy4NCg0KU2lnbmVkLW9mZi1ieTogS3llb25nIFlvbyA8a3llb25n
-Lnlvb0BhbGxpZWR0ZWxlc2lzLmNvLm56Pg0KDQpkaWZmIC0tZ2l0IGEvbmV0L3NjaGVkL3NjaF9k
-c21hcmsuYyBiL25ldC9zY2hlZC9zY2hfZHNtYXJrLmMNCmluZGV4IGYzNTdmMzQuLmIyMDQ0NzIg
-MTAwNjQ0DQotLS0gYS9uZXQvc2NoZWQvc2NoX2RzbWFyay5jDQorKysgYi9uZXQvc2NoZWQvc2No
-X2RzbWFyay5jDQpAQCAtMjgxLDcgKzI4MSw3IEBAIHN0YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqZHNt
-YXJrX2RlcXVldWUoc3RydWN0IFFkaXNjICpzY2gpDQogDQogCXByX2RlYnVnKCIlcyhzY2ggJXAs
-W3FkaXNjICVwXSlcbiIsIF9fZnVuY19fLCBzY2gsIHApOw0KIA0KLQlza2IgPSBwLT5xLT5vcHMt
-PmRlcXVldWUocC0+cSk7DQorCXNrYiA9IHFkaXNjX2RlcXVldWVfcGVla2VkKHAtPnEpOw0KIAlp
-ZiAoc2tiID09IE5VTEwpDQogCQlyZXR1cm4gTlVMTDsNCg0KT24gV2VkLCAyMDE2LTAzLTAyIGF0
-IDEwOjI2IC0wODAwLCBDb25nIFdhbmcgd3JvdGU6DQo+IE9uIFR1ZSwgTWFyIDEsIDIwMTYgYXQg
-ODoxMCBQTSwgS3llb25nIFlvbw0KPiA8S3llb25nLllvb0BhbGxpZWR0ZWxlc2lzLmNvLm56PiB3
-cm90ZToNCj4gPiBUaGlzIGZpeCBpcyBmb3IgZHNtYXJrIHNpbWlsYXIgdG8gMzU1NzYxOWYwZjZm
-NzQ5NmVkNDUzZDQ4MjVlMjQ5NThhYjE4ODRlMCwNCj4gPiBhbmQgbWFrZXMgdXNlIG9mIHFkaXNj
-X2RlcXVldWVfcGVla2VkKCkgaW5zdGVhZCBvZiBkaXJlY3QgZGVxdWV1ZSgpIGNhbGwuDQo+ID4N
-Cj4gPiBGaXJzdCB0aW1lLCB3cnIgcGVla3MgZHNtYXJrLCB3aGljaCB3aWxsIHRoZW4gcGVlayBp
-bnRvIHNmcS4NCj4gPiBzZnEgZGVxdWV1ZXMgYW4gc2tiIGFuZCBpdCdzIHN0b3JlZCBpbiBzY2gt
-Pmdzb19za2IuDQo+ID4gTmV4dCB0aW1lLCB3cnIgdHJpZXMgdG8gZGVxdWV1ZSBmcm9tIGRzbWFy
-aywgd2hpY2ggd2lsbCBjYWxsIHNmcSBkZXF1ZXVlDQo+ID4gZGlyZWN0bHkuIFRoaXMgcmVzdWx0
-cyBza2lwcGluZyB0aGUgcHJldmlvdXNseSBwZWVrZWQgc2tiLg0KPiA+DQo+ID4gU28gY2hhbmdl
-ZCBkc21hcmsgZGVxdWV1ZSB0byBjYWxsIHFkaXNjX2RlcXVldWVfcGVla2VkKCkgaW5zdGVhZCB0
-byB1c2UNCj4gPiBwZWVrZWQgc2tiIGlmIGV4aXN0cy4NCj4gDQo+IA0KPiBUaGlzIHBhcnQgbG9v
-a3MgcmVhc29uYWJsZSB0byBtZS4NCj4gDQo+ID4NCj4gPiBBbHNvIHJlcGxhY2VkIGRzbWFyayBw
-ZWVrIHRvIHVzZSBxZGlzY19wZWVrX2RlcXVldWVkKCkgd2hpY2ggd29ya3MgY29ycmVjdGx5DQo+
-ID4gaWYgcHJldmlvdXNseSBwZWVrZWQgc2tiIHN0aWxsIGV4aXN0cy4NCj4gDQo+IA0KPiBCdXQg
-bm90IHRoaXMgcGFydCwgc2luY2Ugc2ZxIGFscmVhZHkgY2FsbHMgcWRpc2NfcGVla19kZXF1ZXVl
-ZCgpPw0KDQo=
+On Wed, Mar 2, 2016 at 1:19 PM, Kyeong Yoo
+<Kyeong.Yoo@alliedtelesis.co.nz> wrote:
+> Author: Kyeong Yoo <kyeong.yoo@alliedtelesis.co.nz>
+>
+> net_sched: dsmark: use qdisc_dequeue_peeked()
+>
+> This fix is for dsmark similar to commit 3557619f0f6f7496ed453d4825e249
+> ("net_sched: prio: use qdisc_dequeue_peeked")
+> and makes use of qdisc_dequeue_peeked() instead of direct dequeue() call.
+>
+> First time, wrr peeks dsmark, which will then peek into sfq.
+> sfq dequeues an skb and it's stored in sch->gso_skb.
+> Next time, wrr tries to dequeue from dsmark, which will call sfq dequeue
+> directly. This results skipping the previously peeked skb.
+>
+> So changed dsmark dequeue to call qdisc_dequeue_peeked() instead to use
+> peeked skb if exists.
+>
+> Signed-off-by: Kyeong Yoo <kyeong.yoo@alliedtelesis.co.nz>
+
+
+Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
+
+Thanks!
+
+>
+> diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+> index f357f34..b204472 100644
+> --- a/net/sched/sch_dsmark.c
+> +++ b/net/sched/sch_dsmark.c
+> @@ -281,7 +281,7 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
+>
+>         pr_debug("%s(sch %p,[qdisc %p])\n", __func__, sch, p);
+>
+> -       skb = p->q->ops->dequeue(p->q);
+> +       skb = qdisc_dequeue_peeked(p->q);
+>         if (skb == NULL)
+>                 return NULL;
+>
