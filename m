@@ -1,41 +1,67 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 01/20] ip: align help text with manpage
-Date: Wed,  2 Mar 2016 19:19:49 +0100
-Message-ID: <1456942808-15946-2-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v2 11/20] man: ip-neighbour: Fix for missing NUD_STATE description
+Date: Wed,  2 Mar 2016 19:19:59 +0100
+Message-ID: <1456942808-15946-12-git-send-email-phil@nwl.cc>
 References: <20160302093800.7e7dbe71@xeon-e3>
  <1456942808-15946-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:35212 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:51664 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755209AbcCBSU1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2016 13:20:27 -0500
+	id S1755397AbcCBSUd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2016 13:20:33 -0500
 In-Reply-To: <1456942808-15946-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Although the ip command accepts both "neighbor" and "neighbour" as
-subcommand, I assume it's sufficient to list it in help text as just
-"neigh" like ip.8 does.
-
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- ip/ip.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ man/man8/ip-neighbour.8 | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/ip/ip.c b/ip/ip.c
-index eea00b822088e..123f18133a2e5 100644
---- a/ip/ip.c
-+++ b/ip/ip.c
-@@ -49,7 +49,7 @@ static void usage(void)
- 	fprintf(stderr,
- "Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }\n"
- "       ip [ -force ] -batch filename\n"
--"where  OBJECT := { link | address | addrlabel | route | rule | neighbor | ntable |\n"
-+"where  OBJECT := { link | address | addrlabel | route | rule | neigh | ntable |\n"
- "                   tunnel | tuntap | maddress | mroute | mrule | monitor | xfrm |\n"
- "                   netns | l2tp | fou | tcp_metrics | token | netconf }\n"
- "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
+diff --git a/man/man8/ip-neighbour.8 b/man/man8/ip-neighbour.8
+index c9b0256e12207..19c6d9d8bf605 100644
+--- a/man/man8/ip-neighbour.8
++++ b/man/man8/ip-neighbour.8
+@@ -18,7 +18,9 @@ ip-neighbour \- neighbour/arp tables management.
+ .IR ADDR " [ "
+ .B  lladdr
+ .IR LLADDR " ] [ "
+-.BR nud " { " permanent " | " noarp " | " stale " | " reachable " } ] | " proxy
++.B nud
++.IR STATE " ] |"
++.B proxy
+ .IR ADDR " } [ "
+ .B  dev
+ .IR DEV " ]"
+@@ -31,6 +33,9 @@ ip-neighbour \- neighbour/arp tables management.
+ .B  nud
+ .IR STATE " ]"
+ 
++.ti -8
++.IR STATE " := {"
++.BR permanent " | " noarp " | " stale " | " reachable " }"
+ 
+ .SH DESCRIPTION
+ The
+@@ -75,7 +80,7 @@ can also be
+ .BR "null" .
+ 
+ .TP
+-.BI nud " NUD_STATE"
++.BI nud " STATE"
+ the state of the neighbour entry.
+ .B nud
+ is an abbreviation for 'Neighbour Unreachability Detection'.
+@@ -147,7 +152,7 @@ list neighbour proxies.
+ only list neighbours which are not currently in use.
+ 
+ .TP
+-.BI nud " NUD_STATE"
++.BI nud " STATE"
+ only list neighbour entries in this state.
+ .I NUD_STATE
+ takes values listed below or the special value
 -- 
 2.7.2
