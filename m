@@ -1,39 +1,58 @@
-From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-Subject: Re: [PATCH v3] net: jme: fix suspend/resume on JMC260
-Date: Wed, 2 Mar 2016 13:14:55 +0800
-Message-ID: <20160302051405.M6687@cooldavid.org>
-References: <1456239844-4109-1-git-send-email-diego.viola@gmail.com> <20160224.235856.242530723940439026.davem@davemloft.net>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH 3/4] net: can: ifi: Fix RX and TX ID mask
+Date: Wed, 2 Mar 2016 07:10:10 +0100
+Message-ID: <56D683C2.5080402@hartkopp.net>
+References: <1456775971-4946-1-git-send-email-marex@denx.de>
+ <1456775971-4946-4-git-send-email-marex@denx.de>
+ <56D5D635.1050005@hartkopp.net> <56D60850.8080103@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	richard.weinberger@gmail.com, pavel@ucw.cz, rjw@rjwysocki.net,
-	valdis.kletnieks@vt.edu
-To: David Miller <davem@davemloft.net>, diego.viola@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160224.235856.242530723940439026.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: Marek Vasut <marex@denx.de>, linux-can@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.219]:24510 "EHLO
+	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752053AbcCBGK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 01:10:26 -0500
+In-Reply-To: <56D60850.8080103@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 24 Feb 2016 23:58:56 -0500 (EST), David Miller wrote
-> From: Diego Viola <diego.viola@gmail.com>
-> Date: Tue, 23 Feb 2016 12:04:04 -0300
+Hi Marek,
+
+On 03/01/2016 10:23 PM, Marek Vasut wrote:
+> On 03/01/2016 06:49 PM, Oliver Hartkopp wrote:
+
+
+>>> -#define IFI_CANFD_RXFIFO_ID_ID_STD_MASK		0x3ff
+>>> +#define IFI_CANFD_RXFIFO_ID_ID_STD_MASK		0x7ff
+>>>  #define IFI_CANFD_RXFIFO_ID_ID_XTD_MASK		0x1fffffff
+>>
+>> You should use the CAN_SFF_MASK and CAN_EFF_MASK in your code instead of
+>> defining you private IFI_CANFD_RXFIFO_ID_ID_?TD_MASK definitions.
+>>
+>> You won't have trapped into this problem then :-)
 > 
-> > The JMC260 network card fails to suspend/resume because the call to
-> > jme_start_irq() was too early, moving the call to jme_start_irq() after
-> > the call to jme_reset_link() makes it work.
-> > 
-> > Prior this change suspend/resume would fail unless /sys/power/pm_async=0
-> > was explicitly specified.
-> > 
-> > Relevant bug report: https://bugzilla.kernel.org/show_bug.cgi?id=112351
-> > 
-> > Signed-off-by: Diego Viola <diego.viola@gmail.com>
+> These are register bitfield definitions, so should I really ?
 > 
-> Applied and queued up for -stable, thanks.
+> My OCD kicks in and tells me it'd be odd and inconsistent with the rest
+> of the bitfields, but if you prefer it that way, I'll just send an
+> updated patch.
+> 
 
-Just reviewed it, it should have no side effect.
+Your bit mask is masking the CAN ID out of a given variable.
+That's what CAN_SFF_MASK and CAN_EFF_MASK is made for.
 
-Thanks David, Diego.
+So at least it should be:
 
-Guo-Fu Tseng
+#define IFI_CANFD_RXFIFO_ID_ID_STD_MASK		CAN_SFF_MASK
+#define IFI_CANFD_RXFIFO_ID_ID_XTD_MASK		CAN_EFF_MASK
+
+Btw. These defines are _never_ referenced in ifi_canfd.c so they should be
+removed anyway.
+
+Regards,
+Oliver
