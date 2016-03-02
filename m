@@ -1,31 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ipv4: remove left over dead code
-Date: Wed, 02 Mar 2016 15:02:53 -0500 (EST)
-Message-ID: <20160302.150253.1180530769100101519.davem@davemloft.net>
-References: <1456763886-993-1-git-send-email-eric.engestrom@imgtec.com>
+From: Bernhard Walle <bernhard@bwalle.de>
+Subject: Re: [PATCH] net: fec: Add "phy-reset-active-low" property to DT
+Date: Wed, 2 Mar 2016 21:05:40 +0100
+Message-ID: <20160302200540.GA10722@euler.fritz.box>
+References: <56D5CE66.3010602@boundarydevices.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: eric.engestrom@imgtec.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Arnd Bergmann <arnd@arndb.de>
+To: Troy Kisky <troy.kisky@boundarydevices.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58138 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754220AbcCBUDA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 15:03:00 -0500
-In-Reply-To: <1456763886-993-1-git-send-email-eric.engestrom@imgtec.com>
+Received: from smtprelay05.ispgateway.de ([80.67.31.97]:53731 "EHLO
+	smtprelay05.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751979AbcCBUFq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 15:05:46 -0500
+Content-Disposition: inline
+In-Reply-To: <56D5CE66.3010602@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Engestrom <eric.engestrom@imgtec.com>
-Date: Mon, 29 Feb 2016 16:38:06 +0000
+Hi,
 
-> 8cc785f6f429c2a3fb81745dc142cbd72a462c4a ("net: ipv4: make the ping
-> /proc code AF-independent") removed the code using it, but renamed this
-> variable instead of removing it.
+sorry for my late reply.
+
+* Troy Kisky <troy.kisky@boundarydevices.com> [2016-03-01 18:16]:
+>    invalid and 1 millisecond will be used instead.
+> +- phy-reset-active-low : If present then the reset sequence using the GPIO
+> +  specified in the "phy-reset-gpios" property is reversed (H=reset state,
+> +  L=operation state).
+> ____________________________
 > 
-> Signed-off-by: Eric Engestrom <eric.engestrom@imgtec.com>
+> 
+> Shouldn't this be named phy-reset-active-high, as you are making the reset active high
+> H=reset, L= normal operation
 
-Applied.
+Indeed, you're correct.
+
+Should I send a new patch or a patch that corrects my first patch?
+Because it already is in linux-next.
+
+Regards,
+Bernhard
