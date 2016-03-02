@@ -1,63 +1,71 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 16/20] man: ip-tunnel.8: Document missing 6rd action
-Date: Wed,  2 Mar 2016 19:20:04 +0100
-Message-ID: <1456942808-15946-17-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v2 00/20] Sync man pages and help texts
+Date: Wed,  2 Mar 2016 19:19:48 +0100
+Message-ID: <1456942808-15946-1-git-send-email-phil@nwl.cc>
 References: <20160302093800.7e7dbe71@xeon-e3>
- <1456942808-15946-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:41269 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:55085 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755448AbcCBSUj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2016 13:20:39 -0500
-In-Reply-To: <1456942808-15946-1-git-send-email-phil@nwl.cc>
+	id S1755448AbcCBSUq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2016 13:20:46 -0500
+In-Reply-To: <20160302093800.7e7dbe71@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also drop the non-terminal 'TIME' description as it is not referenced
-anywhere.
+This patch series aims at improving consistency of builtin help texts and
+related man pages (synopsis section at least). It was created by
+comparing the two and fixing up whatever occurred to be broken.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- man/man8/ip-tunnel.8 | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+Changes since v1:
+- rebased onto current master
+- resolved merge conflict in ip-link.8.in due to added 'trust' option
 
-diff --git a/man/man8/ip-tunnel.8 b/man/man8/ip-tunnel.8
-index 8b746cb0f52b8..4938c7405ce85 100644
---- a/man/man8/ip-tunnel.8
-+++ b/man/man8/ip-tunnel.8
-@@ -11,7 +11,7 @@ ip-tunnel - tunnel configuration
- .ti -8
- .BR "ip "
- .RI "[ " OPTIONS " ]"
--.BR "tunnel" " { " add " | " change " | " del " | " show " | " prl " }"
-+.BR "tunnel" " { " add " | " change " | " del " | " show " | " prl " | " 6rd " }"
- .RI "[ " NAME " ]"
- .br
- .RB "[ " mode
-@@ -42,6 +42,12 @@ ip-tunnel - tunnel configuration
- .B prl-delete
- .IR ADDR " ]"
- .br
-+.RB "[ " 6rd-prefix
-+.IR ADDR " ] ["
-+.B 6rd-relay_prefix
-+.IR ADDR " ] [
-+.BR 6rd-reset " ]"
-+.br
- .RB "[ [" no "]" pmtudisc " ]"
- .RB "[ " dev
- .IR PHYS_DEV " ]"
-@@ -75,9 +81,6 @@ ip-tunnel - tunnel configuration
- .ti -8
- .IR KEY " := { " DOTTED_QUAD " | " NUMBER " }"
- 
--.ti -8
--.IR TIME " := " NUMBER "[s|ms]"
--
- .SH DESCRIPTION
- .B tunnel
- objects are tunnels, encapsulating packets in IP packets and then
+Phil Sutter (20):
+  ip: align help text with manpage
+  ipaddrlabel: Improve help text precision
+  iplink: fix help text syntax
+  ipneigh: add missing proxy keyword to help text
+  ipntable: Fix typo in help text
+  iproute: TYPE keyword is not optional, fix help text accordingly
+  iprule: add missing nat keyword to help text
+  man: ip-address.8: Minor syntax fixes
+  man: ip-link.8: minor font fix
+  man: ip-link.8: Fix and improve synopsis
+  man: ip-neighbour: Fix for missing NUD_STATE description
+  man: ip-netns.8: Clarify synopsis a bit
+  man: ip-ntable.8: Review synopsis section
+  man: ip-rule.8: Review synopsis section
+  man: ip-token.8: Review synopsis section
+  man: ip-tunnel.8: Document missing 6rd action
+  man: ip-xfrm.8: Document missing parameters
+  man: ip.8: Add missing flags and token subcommand description
+  man: ip-l2tp.8: Fix BNF syntax
+  man: ip-*.8: drop any reference to generic ip options
+
+ ip/ip.c                  |   2 +-
+ ip/ipaddrlabel.c         |   3 +-
+ ip/iplink.c              |   9 ++--
+ ip/ipneigh.c             |   2 +-
+ ip/ipntable.c            |   2 +-
+ ip/iproute.c             |   6 +--
+ ip/iprule.c              |   1 +
+ man/man8/ip-address.8.in |   8 ++--
+ man/man8/ip-addrlabel.8  |  14 +-----
+ man/man8/ip-l2tp.8       |  24 ++++------
+ man/man8/ip-link.8.in    | 117 +++++++++++++++++++++++------------------------
+ man/man8/ip-monitor.8    |   4 +-
+ man/man8/ip-mroute.8     |   2 +-
+ man/man8/ip-neighbour.8  |  11 +++--
+ man/man8/ip-netns.8      |   4 +-
+ man/man8/ip-ntable.8     |  39 +++++++++-------
+ man/man8/ip-rule.8       |  19 +++++---
+ man/man8/ip-token.8      |  12 ++---
+ man/man8/ip-tunnel.8     |  11 +++--
+ man/man8/ip-xfrm.8       |  11 +++++
+ man/man8/ip.8            |  29 +++++++++++-
+ 21 files changed, 183 insertions(+), 147 deletions(-)
+
 -- 
 2.7.2
