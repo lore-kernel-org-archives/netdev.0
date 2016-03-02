@@ -1,125 +1,100 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 1/3] net/mlx4_core: Fix lockdep warning in handling of mac/vlan tables
-Date: Wed,  2 Mar 2016 17:47:44 +0200
-Message-ID: <1456933666-28949-2-git-send-email-ogerlitz@mellanox.com>
-References: <1456933666-28949-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Majd Dibbiny <majd@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>
-To: "David S. Miller" <davem@davemloft.net>
+From: Amir Vadai <amir@vadai.me>
+Subject: Re: [PATCH net-next 6/8] net/mlx5e: Introduce tc offload support
+Date: Wed, 2 Mar 2016 17:53:37 +0200
+Message-ID: <56d70b87.49f9c20a.c7eb3.ffff9f05@mx.google.com>
+References: <1456842290-7844-1-git-send-email-amir@vadai.me>
+ <1456842290-7844-7-git-send-email-amir@vadai.me>
+ <20160301145208.GB2098@nanopsycho.orion>
+ <56d5c9bd.c13fc20a.046a.ffffe0ce@mx.google.com>
+ <56D5CDB5.4090906@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:48318 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753508AbcCBPsS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2016 10:48:18 -0500
-In-Reply-To: <1456933666-28949-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33295 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932113AbcCBPta (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 10:49:30 -0500
+Received: by mail-wm0-f67.google.com with SMTP id n186so10374908wmn.0
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 07:49:29 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <56D5CDB5.4090906@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+On Tue, Mar 01, 2016 at 09:13:25AM -0800, John Fastabend wrote:
+> On 16-03-01 09:00 AM, Amir Vadai wrote:
+> > On Tue, Mar 01, 2016 at 03:52:08PM +0100, Jiri Pirko wrote:
+> >> Tue, Mar 01, 2016 at 03:24:48PM CET, amir@vadai.me wrote:
+> >>> Extend ndo_setup_tc() to support ingress tc offloading. Will be used by
+> >>> later patches to offload tc flower filter.
+> >>>
+> >>> Feature is off by default and could be enabled by issuing:
+> >>> # ethtool  -K eth0 hw-tc-offload on
+> >>>
+> >>> Offloads flow table is dynamically created when first filter is
+> >>> added.
+> >>> Rules are saved in a hash table that is maintained by the consumer (for
+> >>> example - the flower offload in the next patch).
+> >>> When last filter is removed and no filters exist in the hash table, the
+> >>> offload flow table is destroyed.
+> >>
+> >> <snip>	
+> >> 	
+> >>> @@ -1880,6 +1883,17 @@ static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
+> >>> static int mlx5e_ndo_setup_tc(struct net_device *dev, u32 handle,
+> >>> 			      __be16 proto, struct tc_to_netdev *tc)
+> >>> {
+> >>> +	struct mlx5e_priv *priv = netdev_priv(dev);
+> >>> +
+> >>> +	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
+> >>> +		goto mqprio;
+> >>> +
+> >>> +	switch (tc->type) {
+> >>> +	default:
+> >>> +		return -EINVAL;
+> >>
+> >> -EOPNOTSUPP would be better here perhaps?
+> >>
+> >>
+> >>> +	}
+> >>> +
+> >>> +mqprio:
+> >>> 	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
+> >>> 		return -EINVAL;
+> >>>
+> >>> @@ -1963,6 +1977,13 @@ static int mlx5e_set_features(struct net_device *netdev,
+> >>> 			mlx5e_disable_vlan_filter(priv);
+> >>> 	}
+> >>>
+> >>> +	if ((changes & NETIF_F_HW_TC) && !(features & NETIF_F_HW_TC) &&
+> >>> +	    mlx5e_tc_num_filters(priv)) {
+> >>> +		netdev_err(netdev,
+> >>> +			   "Active offloaded tc filters, can't turn hw_tc_offload off\n");
+> >>> +		return -EINVAL;
+> >>
+> >> This should not fail I believe. Just disable it in hw. I would even toss
+> >> away the rules if necessary.
+> > It depends on the answer regarding your comment on the previous patch.
+> > If we have the rule in both SW and HW, and remove it from the HW it is
+> > ok (although, currently I don't understand why would anyone want in both
+> > places).
+> > If the rule is processed by HW only - turning off this flag, will
+> > disable the offloaded rules - it might be misleading, so I prefered not
+> > to allow it and print a message.
+> 
+> When we get the HW only mode we will need to also flush the hardware
+> representation in software as well as the hardware state.
 
-In the mac and vlan register/unregister/replace functions, the driver locks
-the mac table mutex (or vlan table mutex) on both ports.
+Yep, I do think that just failing the operation is the best appraoch.
+Will make the design simpler, and from the user point of view, less
+surprises.
 
-We move to use mutex_lock_nested() to prevent warnings, such as the one below.
-
-[ 101.828445] =============================================
-[ 101.834820] [ INFO: possible recursive locking detected ]
-[ 101.841199] 4.5.0-rc2+  #49 Not tainted
-[ 101.850251] ---------------------------------------------
-[ 101.856621] modprobe/3054 is trying to acquire lock:
-[ 101.862514] (&table->mutex#2){+.+.+.}, at: [<ffffffffa079c10e>] __mlx4_register_mac+0x87e/0xa90 [mlx4_core]
-[ 101.874598]
-[ 101.874598] but task is already holding lock:
-[ 101.881703] (&table->mutex#2){+.+.+.}, at: [<ffffffffa079c0f0>] __mlx4_register_mac+0x860/0xa90 [mlx4_core]
-[ 101.893776]
-[ 101.893776] other info that might help us debug this:
-[ 101.901658] Possible unsafe locking scenario:
-[ 101.901658]
-[ 101.908859] CPU0
-[ 101.911923] ----
-[ 101.914985] lock(&table->mutex#2);
-[ 101.919595] lock(&table->mutex#2);
-[ 101.924199]
-[ 101.924199] * DEADLOCK *
-[ 101.924199]
-[ 101.931643] May be due to missing lock nesting notation
-
-Fixes: 5f61385d2ebc ('net/mlx4_core: Keep VLAN/MAC tables mirrored in multifunc HA mode')
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Suggested-by: Doron Tsur <doront@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/port.c | 20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
-index 787b7bb..211c650 100644
---- a/drivers/net/ethernet/mellanox/mlx4/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/port.c
-@@ -193,10 +193,10 @@ int __mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac)
- 	if (need_mf_bond) {
- 		if (port == 1) {
- 			mutex_lock(&table->mutex);
--			mutex_lock(&dup_table->mutex);
-+			mutex_lock_nested(&dup_table->mutex, SINGLE_DEPTH_NESTING);
- 		} else {
- 			mutex_lock(&dup_table->mutex);
--			mutex_lock(&table->mutex);
-+			mutex_lock_nested(&table->mutex, SINGLE_DEPTH_NESTING);
- 		}
- 	} else {
- 		mutex_lock(&table->mutex);
-@@ -389,10 +389,10 @@ void __mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, u64 mac)
- 	if (dup) {
- 		if (port == 1) {
- 			mutex_lock(&table->mutex);
--			mutex_lock(&dup_table->mutex);
-+			mutex_lock_nested(&dup_table->mutex, SINGLE_DEPTH_NESTING);
- 		} else {
- 			mutex_lock(&dup_table->mutex);
--			mutex_lock(&table->mutex);
-+			mutex_lock_nested(&table->mutex, SINGLE_DEPTH_NESTING);
- 		}
- 	} else {
- 		mutex_lock(&table->mutex);
-@@ -479,10 +479,10 @@ int __mlx4_replace_mac(struct mlx4_dev *dev, u8 port, int qpn, u64 new_mac)
- 	if (dup) {
- 		if (port == 1) {
- 			mutex_lock(&table->mutex);
--			mutex_lock(&dup_table->mutex);
-+			mutex_lock_nested(&dup_table->mutex, SINGLE_DEPTH_NESTING);
- 		} else {
- 			mutex_lock(&dup_table->mutex);
--			mutex_lock(&table->mutex);
-+			mutex_lock_nested(&table->mutex, SINGLE_DEPTH_NESTING);
- 		}
- 	} else {
- 		mutex_lock(&table->mutex);
-@@ -588,10 +588,10 @@ int __mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan,
- 	if (need_mf_bond) {
- 		if (port == 1) {
- 			mutex_lock(&table->mutex);
--			mutex_lock(&dup_table->mutex);
-+			mutex_lock_nested(&dup_table->mutex, SINGLE_DEPTH_NESTING);
- 		} else {
- 			mutex_lock(&dup_table->mutex);
--			mutex_lock(&table->mutex);
-+			mutex_lock_nested(&table->mutex, SINGLE_DEPTH_NESTING);
- 		}
- 	} else {
- 		mutex_lock(&table->mutex);
-@@ -764,10 +764,10 @@ void __mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, u16 vlan)
- 	if (dup) {
- 		if (port == 1) {
- 			mutex_lock(&table->mutex);
--			mutex_lock(&dup_table->mutex);
-+			mutex_lock_nested(&dup_table->mutex, SINGLE_DEPTH_NESTING);
- 		} else {
- 			mutex_lock(&dup_table->mutex);
--			mutex_lock(&table->mutex);
-+			mutex_lock_nested(&table->mutex, SINGLE_DEPTH_NESTING);
- 		}
- 	} else {
- 		mutex_lock(&table->mutex);
--- 
-2.3.7
+Jiri?
