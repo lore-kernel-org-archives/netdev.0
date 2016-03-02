@@ -1,44 +1,47 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next][PATCH v2 01/13] RDS: Drop stale iWARP RDMA transport
-Date: Wed, 2 Mar 2016 12:54:27 +0200
-Message-ID: <CAJ3xEMitdWWLP0sPdHADLxUA-pZEhjh_NcaYbxvYYBt9d1rYBQ@mail.gmail.com>
-References: <1456625990-4739-1-git-send-email-santosh.shilimkar@oracle.com>
-	<1456625990-4739-2-git-send-email-santosh.shilimkar@oracle.com>
-	<CAJ3xEMioB61bN9RAcAx9BecYGdWPs9QZNYUrm+r8=rt0WFMzKQ@mail.gmail.com>
-	<56D3901F.3070405@oracle.com>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH] MAINTAINERS: add maintainer entry for FREESCALE FEC ethernet driver
+Date: Wed, 2 Mar 2016 17:24:53 +0800
+Message-ID: <1456910693-25787-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <fugang.duan@nxp.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:33701 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754042AbcCBKy2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 05:54:28 -0500
-Received: by mail-io0-f173.google.com with SMTP id n190so51784840iof.0
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 02:54:28 -0800 (PST)
-In-Reply-To: <56D3901F.3070405@oracle.com>
+Received: from mail-bl2on0135.outbound.protection.outlook.com ([65.55.169.135]:63622
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751085AbcCBK7J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2016 05:59:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 29, 2016 at 2:26 AM, santosh.shilimkar@oracle.com
-<santosh.shilimkar@oracle.com> wrote:
-> On 2/28/16 11:51 AM, Or Gerlitz wrote:
->> On Sun, Feb 28, 2016 at 4:19 AM, Santosh Shilimkar <santosh.shilimkar@oracle.com> wrote:
+Add a maintainer entry for FREESCALE FEC ethernet driver and add myself
+as a maintainer.
 
->>> Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
->>> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Signed-off-by: Fugang Duan <fugang.duan@nxp.com>
+---
+ MAINTAINERS | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
->> Hi, just wondered if there's any special reason that all this series
->> carries double S.O.B signature line with your name appearing twice on
->> two different email addresses?
-
-> Nothing special. I sign of all my patches with k.org id and have to
-> keep Oracle id as well being a payed Oracle employee. ;-)
-
-so the kernel logs are carrying forever either 64 or 55 bytes with
-your 2nd signature
-which are sort of not a must...
-
-Or.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 0499f9e..4d4b18f 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4552,6 +4552,15 @@ S:	Maintained
+ F:	drivers/net/ethernet/freescale/fs_enet/
+ F:	include/linux/fs_enet_pd.h
+ 
++FREESCALE IMX / MXC FEC DRIVER
++M:	Fugang Duan <fugang.duan@nxp.com>
++L:	netdev@vger.kernel.org
++S:	Maintained
++F:	drivers/net/ethernet/freescale/fec_main.c
++F:	drivers/net/ethernet/freescale/fec_ptp.c
++F:	drivers/net/ethernet/freescale/fec.h
++F:	Documentation/devicetree/bindings/net/fsl-fec.txt
++
+ FREESCALE QUICC ENGINE LIBRARY
+ L:	linuxppc-dev@lists.ozlabs.org
+ S:	Orphan
+-- 
+1.9.1
