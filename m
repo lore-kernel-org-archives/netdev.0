@@ -1,140 +1,215 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 2/6] qed: Support B0 instead of A0
-Date: Wed, 2 Mar 2016 20:26:01 +0200
-Message-ID: <1456943165-15198-3-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 4/6] qed: Fix error flow on slowpath start
+Date: Wed, 2 Mar 2016 20:26:03 +0200
+Message-ID: <1456943165-15198-5-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1456943165-15198-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:38781 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:54066 "EHLO
 	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754927AbcCBS0Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 13:26:24 -0500
+	by vger.kernel.org with ESMTP id S1756306AbcCBS01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 13:26:27 -0500
 In-Reply-To: <1456943165-15198-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-BB_A0 is a development model that is will not reach actual clients.
-In fact, future firmware would simply fail to initialize such chip.
-
-This changes the configuration into B0 instead of A0, and adds a safeguard
-against the slim chance someone would actually try this with an A0 adapter
-in which case probe would gracefully fail.
+In case of problems when initializing the chip, the error flows aren't
+being properly done. Specifically, it's possible that the chip would be
+left in a configuration allowing it [internally] to access the host
+memory, causing fatal problems in the device that would require power
+cycle to overcome.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dev.c | 41 +++++++++++++++++--------------
- drivers/net/ethernet/qlogic/qed/qed_hsi.h |  2 +-
- 2 files changed, 24 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_dev.c     | 89 +++++++++++++++------------
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h |  9 +++
+ drivers/net/ethernet/qlogic/qed/qed_main.c    | 10 +--
+ 3 files changed, 64 insertions(+), 44 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 706c614..2e02e05 100644
+index d08078f..c3f293d 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -420,7 +420,7 @@ static void qed_calc_hw_mode(struct qed_hwfn *p_hwfn)
- {
- 	int hw_mode = 0;
- 
--	hw_mode = (1 << MODE_BB_A0);
-+	hw_mode = (1 << MODE_BB_B0);
- 
- 	switch (p_hwfn->cdev->num_ports_in_engines) {
- 	case 1:
-@@ -976,18 +976,8 @@ static void qed_hw_hwfn_free(struct qed_hwfn *p_hwfn)
+@@ -756,10 +756,54 @@ int qed_hw_init(struct qed_dev *cdev,
  }
  
- /* Setup bar access */
--static int qed_hw_hwfn_prepare(struct qed_hwfn *p_hwfn)
-+static void qed_hw_hwfn_prepare(struct qed_hwfn *p_hwfn)
- {
--	int rc;
--
--	/* Allocate PTT pool */
--	rc = qed_ptt_pool_alloc(p_hwfn);
--	if (rc)
--		return rc;
--
--	/* Allocate the main PTT */
--	p_hwfn->p_main_ptt = qed_get_reserved_ptt(p_hwfn, RESERVED_PTT_MAIN);
--
- 	/* clear indirect access */
- 	qed_wr(p_hwfn, p_hwfn->p_main_ptt, PGLUE_B_REG_PGL_ADDR_88_F0, 0);
- 	qed_wr(p_hwfn, p_hwfn->p_main_ptt, PGLUE_B_REG_PGL_ADDR_8C_F0, 0);
-@@ -1002,8 +992,6 @@ static int qed_hw_hwfn_prepare(struct qed_hwfn *p_hwfn)
- 	/* enable internal target-read */
- 	qed_wr(p_hwfn, p_hwfn->p_main_ptt,
- 	       PGLUE_B_REG_INTERNAL_PFID_ENABLE_TARGET_READ, 1);
--
--	return 0;
- }
- 
- static void get_function_id(struct qed_hwfn *p_hwfn)
-@@ -1311,7 +1299,7 @@ qed_get_hw_info(struct qed_hwfn *p_hwfn,
- 	return rc;
- }
- 
--static void qed_get_dev_info(struct qed_dev *cdev)
-+static int qed_get_dev_info(struct qed_dev *cdev)
- {
- 	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
- 	u32 tmp;
-@@ -1350,6 +1338,14 @@ static void qed_get_dev_info(struct qed_dev *cdev)
- 		"Chip details - Num: %04x Rev: %04x Bond id: %04x Metal: %04x\n",
- 		cdev->chip_num, cdev->chip_rev,
- 		cdev->chip_bond_id, cdev->chip_metal);
+ #define QED_HW_STOP_RETRY_LIMIT (10)
++static inline void qed_hw_timers_stop(struct qed_dev *cdev,
++				      struct qed_hwfn *p_hwfn,
++				      struct qed_ptt *p_ptt)
++{
++	int i;
 +
-+	if (QED_IS_BB(cdev) && CHIP_REV_IS_A0(cdev)) {
-+		DP_NOTICE(cdev->hwfns,
-+			  "The chip type/rev (BB A0) is not supported!\n");
-+		return -EINVAL;
++	/* close timers */
++	qed_wr(p_hwfn, p_ptt, TM_REG_PF_ENABLE_CONN, 0x0);
++	qed_wr(p_hwfn, p_ptt, TM_REG_PF_ENABLE_TASK, 0x0);
++
++	for (i = 0; i < QED_HW_STOP_RETRY_LIMIT; i++) {
++		if ((!qed_rd(p_hwfn, p_ptt,
++			     TM_REG_PF_SCAN_ACTIVE_CONN)) &&
++		    (!qed_rd(p_hwfn, p_ptt,
++			     TM_REG_PF_SCAN_ACTIVE_TASK)))
++			break;
++
++		/* Dependent on number of connection/tasks, possibly
++		 * 1ms sleep is required between polls
++		 */
++		usleep_range(1000, 2000);
 +	}
 +
-+	return 0;
- }
++	if (i < QED_HW_STOP_RETRY_LIMIT)
++		return;
++
++	DP_NOTICE(p_hwfn,
++		  "Timers linear scans are not over [Connection %02x Tasks %02x]\n",
++		  (u8)qed_rd(p_hwfn, p_ptt, TM_REG_PF_SCAN_ACTIVE_CONN),
++		  (u8)qed_rd(p_hwfn, p_ptt, TM_REG_PF_SCAN_ACTIVE_TASK));
++}
++
++void qed_hw_timers_stop_all(struct qed_dev *cdev)
++{
++	int j;
++
++	for_each_hwfn(cdev, j) {
++		struct qed_hwfn *p_hwfn = &cdev->hwfns[j];
++		struct qed_ptt *p_ptt = p_hwfn->p_main_ptt;
++
++		qed_hw_timers_stop(cdev, p_hwfn, p_ptt);
++	}
++}
++
+ int qed_hw_stop(struct qed_dev *cdev)
+ {
+ 	int rc = 0, t_rc;
+-	int i, j;
++	int j;
  
- static int qed_hw_prepare_single(struct qed_hwfn *p_hwfn,
-@@ -1372,15 +1368,24 @@ static int qed_hw_prepare_single(struct qed_hwfn *p_hwfn,
+ 	for_each_hwfn(cdev, j) {
+ 		struct qed_hwfn *p_hwfn = &cdev->hwfns[j];
+@@ -772,7 +816,8 @@ int qed_hw_stop(struct qed_dev *cdev)
  
- 	get_function_id(p_hwfn);
+ 		rc = qed_sp_pf_stop(p_hwfn);
+ 		if (rc)
+-			return rc;
++			DP_NOTICE(p_hwfn,
++				  "Failed to close PF against FW. Continue to stop HW to prevent illegal host access by the device\n");
  
--	rc = qed_hw_hwfn_prepare(p_hwfn);
-+	/* Allocate PTT pool */
-+	rc = qed_ptt_pool_alloc(p_hwfn);
- 	if (rc) {
- 		DP_NOTICE(p_hwfn, "Failed to prepare hwfn's hw\n");
- 		goto err0;
+ 		qed_wr(p_hwfn, p_ptt,
+ 		       NIG_REG_RX_LLH_BRB_GATE_DNTFWD_PERPF, 0x1);
+@@ -783,24 +828,7 @@ int qed_hw_stop(struct qed_dev *cdev)
+ 		qed_wr(p_hwfn, p_ptt, PRS_REG_SEARCH_ROCE, 0x0);
+ 		qed_wr(p_hwfn, p_ptt, PRS_REG_SEARCH_OPENFLOW, 0x0);
+ 
+-		qed_wr(p_hwfn, p_ptt, TM_REG_PF_ENABLE_CONN, 0x0);
+-		qed_wr(p_hwfn, p_ptt, TM_REG_PF_ENABLE_TASK, 0x0);
+-		for (i = 0; i < QED_HW_STOP_RETRY_LIMIT; i++) {
+-			if ((!qed_rd(p_hwfn, p_ptt,
+-				     TM_REG_PF_SCAN_ACTIVE_CONN)) &&
+-			    (!qed_rd(p_hwfn, p_ptt,
+-				     TM_REG_PF_SCAN_ACTIVE_TASK)))
+-				break;
+-
+-			usleep_range(1000, 2000);
+-		}
+-		if (i == QED_HW_STOP_RETRY_LIMIT)
+-			DP_NOTICE(p_hwfn,
+-				  "Timers linear scans are not over [Connection %02x Tasks %02x]\n",
+-				  (u8)qed_rd(p_hwfn, p_ptt,
+-					     TM_REG_PF_SCAN_ACTIVE_CONN),
+-				  (u8)qed_rd(p_hwfn, p_ptt,
+-					     TM_REG_PF_SCAN_ACTIVE_TASK));
++		qed_hw_timers_stop(cdev, p_hwfn, p_ptt);
+ 
+ 		/* Disable Attention Generation */
+ 		qed_int_igu_disable_int(p_hwfn, p_ptt);
+@@ -829,7 +857,7 @@ int qed_hw_stop(struct qed_dev *cdev)
+ 
+ void qed_hw_stop_fastpath(struct qed_dev *cdev)
+ {
+-	int i, j;
++	int j;
+ 
+ 	for_each_hwfn(cdev, j) {
+ 		struct qed_hwfn *p_hwfn = &cdev->hwfns[j];
+@@ -848,25 +876,6 @@ void qed_hw_stop_fastpath(struct qed_dev *cdev)
+ 		qed_wr(p_hwfn, p_ptt, PRS_REG_SEARCH_ROCE, 0x0);
+ 		qed_wr(p_hwfn, p_ptt, PRS_REG_SEARCH_OPENFLOW, 0x0);
+ 
+-		qed_wr(p_hwfn, p_ptt, TM_REG_PF_ENABLE_CONN, 0x0);
+-		qed_wr(p_hwfn, p_ptt, TM_REG_PF_ENABLE_TASK, 0x0);
+-		for (i = 0; i < QED_HW_STOP_RETRY_LIMIT; i++) {
+-			if ((!qed_rd(p_hwfn, p_ptt,
+-				     TM_REG_PF_SCAN_ACTIVE_CONN)) &&
+-			    (!qed_rd(p_hwfn, p_ptt,
+-				     TM_REG_PF_SCAN_ACTIVE_TASK)))
+-				break;
+-
+-			usleep_range(1000, 2000);
+-		}
+-		if (i == QED_HW_STOP_RETRY_LIMIT)
+-			DP_NOTICE(p_hwfn,
+-				  "Timers linear scans are not over [Connection %02x Tasks %02x]\n",
+-				  (u8)qed_rd(p_hwfn, p_ptt,
+-					     TM_REG_PF_SCAN_ACTIVE_CONN),
+-				  (u8)qed_rd(p_hwfn, p_ptt,
+-					     TM_REG_PF_SCAN_ACTIVE_TASK));
+-
+ 		qed_int_igu_init_pure_rt(p_hwfn, p_ptt, false, false);
+ 
+ 		/* Need to wait 1ms to guarantee SBs are cleared */
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
+index 155f26b..d6c7ddf 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
+@@ -78,6 +78,15 @@ int qed_hw_init(struct qed_dev *cdev,
+ 		const u8 *bin_fw_data);
+ 
+ /**
++ * @brief qed_hw_timers_stop_all - stop the timers HW block
++ *
++ * @param cdev
++ *
++ * @return void
++ */
++void qed_hw_timers_stop_all(struct qed_dev *cdev);
++
++/**
+  * @brief qed_hw_stop -
+  *
+  * @param cdev
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index caa689e..26d40db 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -779,7 +779,7 @@ static int qed_slowpath_start(struct qed_dev *cdev,
+ 	rc = qed_hw_init(cdev, true, cdev->int_params.out.int_mode,
+ 			 true, data);
+ 	if (rc)
+-		goto err3;
++		goto err2;
+ 
+ 	DP_INFO(cdev,
+ 		"HW initialization and function start completed successfully\n");
+@@ -798,12 +798,14 @@ static int qed_slowpath_start(struct qed_dev *cdev,
+ 		return rc;
  	}
  
-+	/* Allocate the main PTT */
-+	p_hwfn->p_main_ptt = qed_get_reserved_ptt(p_hwfn, RESERVED_PTT_MAIN);
++	qed_reset_vport_stats(cdev);
 +
- 	/* First hwfn learns basic information, e.g., number of hwfns */
--	if (!p_hwfn->my_id)
--		qed_get_dev_info(p_hwfn->cdev);
-+	if (!p_hwfn->my_id) {
-+		rc = qed_get_dev_info(p_hwfn->cdev);
-+		if (rc != 0)
-+			goto err1;
-+	}
-+
-+	qed_hw_hwfn_prepare(p_hwfn);
+ 	return 0;
  
- 	/* Initialize MCP structure */
- 	rc = qed_mcp_cmd_init(p_hwfn, p_hwfn->p_main_ptt);
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index 49bbf69..592e0e6 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -968,7 +968,7 @@ struct igu_msix_vector {
- 
- enum init_modes {
- 	MODE_BB_A0,
--	MODE_RESERVED,
-+	MODE_BB_B0,
- 	MODE_RESERVED2,
- 	MODE_ASIC,
- 	MODE_RESERVED3,
+-err3:
+-	qed_free_stream_mem(cdev);
+-	qed_slowpath_irq_free(cdev);
+ err2:
++	qed_hw_timers_stop_all(cdev);
++	qed_slowpath_irq_free(cdev);
++	qed_free_stream_mem(cdev);
+ 	qed_disable_msix(cdev);
+ err1:
+ 	qed_resc_free(cdev);
 -- 
 1.9.3
