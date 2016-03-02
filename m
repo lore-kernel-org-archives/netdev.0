@@ -1,36 +1,34 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [iproute PATCH 03/20] iplink: fix help text syntax
-Date: Wed, 2 Mar 2016 09:38:00 -0800
-Message-ID: <20160302093800.7e7dbe71@xeon-e3>
-References: <1456302093-697-1-git-send-email-phil@nwl.cc>
-	<1456302093-697-4-git-send-email-phil@nwl.cc>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: sh_eth: avoid NULL pointer dereference in ring setup
+Date: Wed, 2 Mar 2016 20:47:34 +0300
+Message-ID: <56D72736.1090502@cogentembedded.com>
+References: <1456932370-4143-1-git-send-email-wsa@the-dreams.de>
+ <56D71909.2020503@cogentembedded.com> <20160302171114.GB5439@katana>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:9594 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755815AbcCBRhy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 12:37:54 -0500
-In-Reply-To: <1456302093-697-4-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+	linux-renesas-soc@vger.kernel.org
+To: Wolfram Sang <wsa@the-dreams.de>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20160302171114.GB5439@katana>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Feb 2016 09:21:16 +0100
-Phil Sutter <phil@nwl.cc> wrote:
+On 03/02/2016 08:11 PM, Wolfram Sang wrote:
 
-> Get rid of extraneous closing brackets and while here, merge the double
-> netns parameter.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+>>> Reported-by: coverity (CID 1056464)
+>>> Signed-off-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+>>
+>>     Will you respin or should I?
+>
+> Please go ahead. You have more knowledge about this driver, so you will
+> be faster.
 
-Patch does not apply to current git.
+    Not necessarily -- I have other bug to chase right now. :-)
 
-Applying: iplink: fix help text syntax
-error: patch failed: ip/iplink.c:70
-error: ip/iplink.c: patch does not apply
+> Reported-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
 
+    Thanks for reporting, anyway.
 
-Please rebase and resend the whole patch series with v2
+MBR, Sergei
