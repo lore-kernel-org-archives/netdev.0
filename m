@@ -1,90 +1,116 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next] net: sched: use pfifo_fast for non real queues
-Date: Wed,  2 Mar 2016 08:21:43 -0800
-Message-ID: <1456935703-27585-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 1/8] net/flower: Introduce hardware offload support
+Date: Wed, 02 Mar 2016 08:22:48 -0800
+Message-ID: <56D71358.6040205@gmail.com>
+References: <1456842290-7844-1-git-send-email-amir@vadai.me> <1456842290-7844-2-git-send-email-amir@vadai.me> <20160301144719.GA2098@nanopsycho.orion> <56d5c71f.a151c20a.cf0a8.ffffd4ad@mx.google.com> <20160301170128.GG2098@nanopsycho.orion> <CAJ3xEMje78ZB4SyBMKQWBDW2304NDK7R4UJiJsOPm4BjH84a7g@mail.gmail.com> <20160302132222.GB2122@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Amir Vadai <amir@vadai.me>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>, Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:36796 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755496AbcCBQWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 11:22:04 -0500
-Received: by mail-pa0-f48.google.com with SMTP id a9so13680456pat.3
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 08:22:03 -0800 (PST)
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:36405 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754666AbcCBQXO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 11:23:14 -0500
+Received: by mail-pf0-f176.google.com with SMTP id 63so7119838pfe.3
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 08:23:14 -0800 (PST)
+In-Reply-To: <20160302132222.GB2122@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some devices declare a high number of TX queues, then set a much
-lower real_num_tx_queues
+On 16-03-02 05:22 AM, Jiri Pirko wrote:
+> Wed, Mar 02, 2016 at 12:14:39PM CET, gerlitz.or@gmail.com wrote:
+>> On Tue, Mar 1, 2016 at 7:01 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Tue, Mar 01, 2016 at 05:49:27PM CET, amir@vadai.me wrote:
+>>>> On Tue, Mar 01, 2016 at 03:47:19PM +0100, Jiri Pirko wrote:
+>>>>> Tue, Mar 01, 2016 at 03:24:43PM CET, amir@vadai.me wrote:
+>>>>>> This patch is based on a patch made by John Fastabend.
+>>
+>>>>>> It adds support for offloading cls_flower.
+>>>>>> A filter that is offloaded successfully by hardware, will not be added to
+>>>>>> the hashtable and won't be processed by software.
+>>
+>>>>> That is wrong. User should explicitly specify to not include rule into sw
+>>>>> by SKIP_KERNEL flag (does not exist now, with John's recent patch we'll
+>>>>> have only SKIP_HW). Please add that in this patchset.
+>>
+>>>> Why? If a rule is offloaded, why would the user want to reprocess it by software?
+>>
+>>>> If the user use SKIP_HW, it will be processed by SW. Else, the user
+>>>> would want it to be processed by HW or fallback to SW. I don't
+>>>> understand in which case the user would like to have it done twice.
+>>
+>>> For example if you turn on the offloading by unsetting NETIF_F_HW_TC.
+>>> Or if someone inserts skbs into rx path directly, for example pktgen.
+>>> We need SKIP_KERNEL to be set by user, not implicit.
+>>
+>> As discussed in netdev, we want to have three modes for TC offloads
+>>
+>> 1. SW only
+>> 2. HW only (and err if can't)
+>> 3. HW and if not supported fallback to SW
+>>
+>> Now, from your reply, I understand we want a fourth mode
+>>
+>> 4. Both (HW and SW)
+> 
+> I would perhaps do it a litte bit differently:
+> NO FLAG (default)- insert into kernel and HW now:
+> 		if NETIF_F_HW_TC is off (default)
+> 			-> push to kernel only (current behaviour)
+> 		if NETIF_F_HW_TC is on AND push to HW fails
+> 			-> return error
+> SKIP_HW - flag to tell kernel not to insert into HW
+> SKIP_SW - flag to tell kernel not to insert into kernel
+> 
+> to achieve hw only, user has to turn on the NETIF_F_HW_TC and
+> pass SKIP_SW flag.
+> 
 
-This cause setups using fq_codel, sfq or fq as the default qdisc to consume
-more memory than really needed.
+The modes Jiri describes here is exactly how I planned to build
+this. And at the moment the only one we are missing is SKIP_HW
+which I'm reworking now and should have in a few days.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/sch_generic.h | 6 ++++++
- net/sched/sch_generic.c   | 1 +
- net/sched/sch_mq.c        | 2 +-
- net/sched/sch_mqprio.c    | 3 ++-
- 4 files changed, 10 insertions(+), 2 deletions(-)
+To resolve the error handling if the rule is SKIP_HW or NO_FLAG
+an error will be thrown if it can not be applied to software.
+Notice if an error happens on the software insert with NO_FLAG then
+the hardware insert is not attempted either. With SKIP_SW I will
+throw an error if the hardware insert fails because there is
+no software fallback in this mode.
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index e5bba897d206..46e55f0202a6 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -345,6 +345,12 @@ extern struct Qdisc_ops pfifo_fast_ops;
- extern struct Qdisc_ops mq_qdisc_ops;
- extern struct Qdisc_ops noqueue_qdisc_ops;
- extern const struct Qdisc_ops *default_qdisc_ops;
-+static inline const struct Qdisc_ops *
-+get_default_qdisc_ops(const struct net_device *dev, int ntx)
-+{
-+	return ntx < dev->real_num_tx_queues ?
-+			default_qdisc_ops : &pfifo_fast_ops;
-+}
- 
- struct Qdisc_class_common {
- 	u32			classid;
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 16bc83b2842a..f18c35024207 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -567,6 +567,7 @@ struct Qdisc_ops pfifo_fast_ops __read_mostly = {
- 	.dump		=	pfifo_fast_dump,
- 	.owner		=	THIS_MODULE,
- };
-+EXPORT_SYMBOL(pfifo_fast_ops);
- 
- static struct lock_class_key qdisc_tx_busylock;
- 
-diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-index 3e82f047caaf..56a77b878eb3 100644
---- a/net/sched/sch_mq.c
-+++ b/net/sched/sch_mq.c
-@@ -57,7 +57,7 @@ static int mq_init(struct Qdisc *sch, struct nlattr *opt)
- 
- 	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
- 		dev_queue = netdev_get_tx_queue(dev, ntx);
--		qdisc = qdisc_create_dflt(dev_queue, default_qdisc_ops,
-+		qdisc = qdisc_create_dflt(dev_queue, get_default_qdisc_ops(dev, ntx),
- 					  TC_H_MAKE(TC_H_MAJ(sch->handle),
- 						    TC_H_MIN(ntx + 1)));
- 		if (qdisc == NULL)
-diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index 02ffb3fbbc20..b8002ce3d010 100644
---- a/net/sched/sch_mqprio.c
-+++ b/net/sched/sch_mqprio.c
-@@ -125,7 +125,8 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
- 
- 	for (i = 0; i < dev->num_tx_queues; i++) {
- 		dev_queue = netdev_get_tx_queue(dev, i);
--		qdisc = qdisc_create_dflt(dev_queue, default_qdisc_ops,
-+		qdisc = qdisc_create_dflt(dev_queue,
-+					  get_default_qdisc_ops(dev, i),
- 					  TC_H_MAKE(TC_H_MAJ(sch->handle),
- 						    TC_H_MIN(i + 1)));
- 		if (qdisc == NULL) {
--- 
-2.7.0.rc3.207.g0ac5344
+The only mode I haven't looked at doing is
+
+	3. HW and if not supported fallback to SW
+
+I'm not sure I have a use case for it at the moment. It is sufficient
+for me to just do a SKIP_SW command followed by a SKIP_HW command
+if needed. I guess someone else could implement it if they really need
+it.
+
+> 
+>>
+>> Do we agree that these four policies/modes make sense?
+>>
+>> So you want #4 to be the default? can you elaborate why? note that for
+>> the HW marking
+>> case a "both" mode will be very inefficient, also for actions like
+>> vlan push/pop, encap/decap, etc
+> 
+> Well when you push/pop vlan of encap/decap tunnel header in hw, you won't
+> match the packet in kernel again. Most likely. But anyway, if you turn
+> on NETIF_F_HW_TC you know what you are doing and you adjust the
+> included rules (flags) accordingly.
+> 
+> 
+>> the result will be just wrong... I don't think this should be the default.
+>>
+>> Or.
