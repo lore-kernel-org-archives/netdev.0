@@ -1,130 +1,62 @@
-From: Alexandre Torgue <alexandre.torgue@gmail.com>
-Subject: Re: [PATCH 2/3] ARM: dts: stm32f429: Add Ethernet support
-Date: Wed, 2 Mar 2016 09:23:31 +0100
-Message-ID: <CAJgp7zz6+7=ZKsvvL5b1sK_EjJ81ZDLrN1YinSYBHUgJiGS-ZQ@mail.gmail.com>
-References: <1456763376-21457-1-git-send-email-alexandre.torgue@gmail.com>
-	<1456763376-21457-3-git-send-email-alexandre.torgue@gmail.com>
-	<56D5D031.9080609@gmail.com>
+From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+Subject: RE: [PATCH] can: rcar_canfd: Add Renesas R-Car CAN FD driver
+Date: Wed, 2 Mar 2016 08:41:40 +0000
+Message-ID: <SG2PR06MB1038AC389CDB35916408A5D6C3BC0@SG2PR06MB1038.apcprd06.prod.outlook.com>
+References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+ <56D5FE8E.1090400@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Arnd Bergmann <arnd@arndb.de>, olof@lixom.net, khilman@kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	devicetree@vger.kernel.org,
-	Daniel Thompson <daniel.thompson@linaro.org>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	Kamil Lulko <rev13@wp.pl>,
-	=?UTF-8?Q?Andreas_F=C3=A4rber?= <afaerber@suse.de>
-To: Maxime Coquelin <mcoquelin.stm32@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56D5D031.9080609@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-renesas-soc@vger.kernel.org"
+	<linux-renesas-soc@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"geert+renesas@glider.be" <geert+renesas@glider.be>,
+	Chris Paterson <Chris.Paterson2@renesas.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"pawel.moll@arm.com" <pawel.moll@arm.com>,
+	"mark.rutland@arm.com" <mark.rutland@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	"galak@codeaurora.org" <galak@codeaurora.org>,
+	"corbet@lwn.net" <corbet@lwn.net>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <56D5FE8E.1090400@pengutronix.de>
+Content-Language: en-US
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Maxime,
-
-2016-03-01 18:24 GMT+01:00 Maxime Coquelin <mcoquelin.stm32@gmail.com>:
-> Hi Alex,
->
->     I have made a handful of changes on your patch, let me know if this is
-> ok for you.
->     If ok, it will be part of the PR I'll send tomorrow.
-
-I agree with modifications.
-
-Regards
-
-alex
-
->
-> On 02/29/2016 05:29 PM, Alexandre TORGUE wrote:
->>
->> Add Ethernet support (Synopsys MAC IP 3.50a) on stm32f429 SOC.
->>
->> Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
->>
->> diff --git a/arch/arm/boot/dts/stm32f429.dtsi
->> b/arch/arm/boot/dts/stm32f429.dtsi
->> index bb7a736..af0367c 100644
->> --- a/arch/arm/boot/dts/stm32f429.dtsi
->> +++ b/arch/arm/boot/dts/stm32f429.dtsi
->> @@ -283,6 +283,26 @@
->>                                         bias-disable;
->>                                 };
->>                         };
->> +
->> +                       ethernet0_mii: mii@0 {
->> +                               mii {
->> +                                       slew-rate = <2>;
->
-> I moved slew-rate property below the pinmux one for consistency with other
-> pin configs in the file.
->>
->> +                                       pinmux =
->> <STM32F429_PG13_FUNC_ETH_MII_TXD0_ETH_RMII_TXD0>,
->> +
->> <STM32F429_PG14_FUNC_ETH_MII_TXD1_ETH_RMII_TXD1>,
->> +
->> <STM32F429_PC2_FUNC_ETH_MII_TXD2>,
->> +
->> <STM32F429_PB8_FUNC_ETH_MII_TXD3>,
->> +
->> <STM32F429_PC3_FUNC_ETH_MII_TX_CLK>,
->> +
->> <STM32F429_PG11_FUNC_ETH_MII_TX_EN_ETH_RMII_TX_EN>,
->> +
->> <STM32F429_PA2_FUNC_ETH_MDIO>,
->> +
->> <STM32F429_PC1_FUNC_ETH_MDC>,
->> +
->> <STM32F429_PA1_FUNC_ETH_MII_RX_CLK_ETH_RMII_REF_CLK>,
->> +
->> <STM32F429_PA7_FUNC_ETH_MII_RX_DV_ETH_RMII_CRS_DV>,
->> +
->> <STM32F429_PC4_FUNC_ETH_MII_RXD0_ETH_RMII_RXD0>,
->> +
->> <STM32F429_PC5_FUNC_ETH_MII_RXD1_ETH_RMII_RXD1>,
->> +
->> <STM32F429_PH6_FUNC_ETH_MII_RXD2>,
->> +
->> <STM32F429_PH7_FUNC_ETH_MII_RXD3>;
->> +                               };
->> +                       };
->>                 };
->>                 rcc: rcc@40023810 {
->> @@ -323,6 +343,21 @@
->>                         st,mem2mem;
->>                 };
->>   +             ethernet0: dwmac@40028000 {
->> +                       compatible = "st,stm32-dwmac", "snps,dwmac-3.50a";
->> +                       status = "disabled";
->
-> I moved status property at the end of the node for consistency
->>
->> +                       reg = <0x40028000 0x8000>;
->> +                       reg-names = "stmmaceth";
->> +                       interrupts = <0 61 0>, <0 62 0>;
->
-> #interrupt-cells is set to 1 in the nvic node, meaning that a single cell is
-> expected here:
->
-> interrupts = <61>, <62>;
->
->> +                       interrupt-names = "macirq", "eth_wake_irq";
->> +                       clock-names = "stmmaceth", "tx-clk", "rx-clk";
->> +                       clocks = <&rcc 0 25>, <&rcc 0 26>, <&rcc 0 27>;
->> +                       st,syscon = <&syscfg 0x4>;
->> +                       snps,pbl = <8>;
->> +                       snps,mixed-burst;
->> +                       dma-ranges;
->> +               };
->> +
->>                 rng: rng@50060800 {
->>                         compatible = "st,stm32-rng";
->>                         reg = <0x50060800 0x400>;
->
->
-> Regards,
-> Maxime
->
->
+SGkgTWFyYywNCg0KVGhhbmtzIGZvciB0aGUgcmV2aWV3Lg0KDQo+IE9uIDAzLzAxLzIwMTYgMTA6
+MzQgQU0sIFJhbWVzaCBTaGFubXVnYXN1bmRhcmFtIHdyb3RlOg0KPiA+IFRoaXMgcGF0Y2ggYWRk
+cyBzdXBwb3J0IGZvciB0aGUgQ0FOIEZEIGNvbnRyb2xsZXIgZm91bmQgaW4gUmVuZXNhcw0KPiA+
+IFItQ2FyIFNvQ3MuIFRoZSBjb250cm9sbGVyIG9wZXJhdGVzIGluIENBTiBGRCBtb2RlIGJ5IGRl
+ZmF1bHQuIFR3bw0KPiA+IHRlc3QgbW9kZXMgYXJlIGF2YWlsYWJsZSBhbmQgY2FuIGJlIGVuYWJs
+ZWQgYnkgdGhlDQo+ID4gInJjYXJfY2FuZmQudGVzdG1vZGUiIG1vZHVsZSBwYXJhbWV0ZXIuIFJl
+ZmVyIHRvIERvY3VtZW50YXRpb24va2VybmVsLQ0KPiBwYXJhbWV0ZXJzLnR4dC4NCj4gDQo+IElz
+IHRoZSBjaGFubmVsIGxvb3BiYWNrIG1vZGUgY29uZmlndXJhYmxlIHBlciBjaGFubmVsPyBJZiBz
+bywgcGxlYXNlDQo+IHJlbW92ZSB0aGUgbW9kdWxlIHBhcmFtZXRlciBhbmQgbWFrZSB1c2Ugb2Yg
+Q0FOX0NUUkxNT0RFX0xPT1BCQUNLIHRvDQo+IGNvbmZpZ3VyZSBpdC4NCg0KVGhlIGxvb3BiYWNr
+IHNldHRpbmcgaXMgbm90IHRydWx5IGEgcGVyIGNoYW5uZWwgYXR0cmlidXRlLiBJdCByZXF1aXJl
+cyB0b3VjaGluZyBSeCBydWxlcyB3aGljaCBjYW4gYmUgZG9uZSBvbmx5IHdoZW4gdGhlIGNvbnRy
+b2xsZXIncyBnbG9iYWwgc3RhdGUgaXMgcmVzZXQgKGR1cmluZyBwcm9iZSkuIENBTl9DVFJMTU9E
+RV9MT09QQkFDSyBjb25maWcgb3B0aW9uIGlzIHBvc3NpYmxlIG9ubHkgdGhyb3VnaCAubmRvX29w
+ZW4gb2YgdGhhdCBjaGFubmVsIGJ1dCB0aGUgZ2xvYmFsIGNvbnRyb2xsZXIgc3RhdGUgbmVlZHMg
+dG8gYmUgb3BlcmF0aW9uYWwgYnkgdGhpcyB0aW1lLiBBcyBpdCBpcyBhIGdsb2JhbCBhdHRyaWJ1
+dGUgJiBmb3IgdGhlIGFib3ZlIHJlYXNvbiwgSSBjaG9vc2UgdGhlIG1vZHVsZSBvcHRpb24uDQoN
+Cj4gDQo+ID4gQ0FOIEZEIG1vZGUgc3VwcG9ydHMgYm90aCBDbGFzc2ljYWwgQ0FOICYgQ0FOIEZE
+IGZyYW1lIGZvcm1hdHMuIFRoZQ0KPiA+IGNvbnRyb2xsZXIgc3VwcG9ydHMgSVNPIDExODk4LTE6
+MjAxNSBDQU4gRkQgZm9ybWF0IG9ubHkuDQo+ID4NCj4gPiBUaGlzIGNvbnRyb2xsZXIgc3VwcG9y
+dHMgdHdvIGNoYW5uZWxzIGFuZCB0aGUgZHJpdmVyIGNhbiBlbmFibGUgZWl0aGVyDQo+ID4gb3Ig
+Ym90aCBvZiB0aGUgY2hhbm5lbHMuDQo+ID4NCj4gPiBEcml2ZXIgdXNlcyBSeCBGSUZPcyAob25l
+IHBlciBjaGFubmVsKSBmb3IgcmVjZXB0aW9uICYgQ29tbW9uIEZJRk9zDQo+ID4gKG9uZSBwZXIg
+Y2hhbm5lbCkgZm9yIHRyYW5zbWlzc2lvbi4gUnggZmlsdGVyIHJ1bGVzIGFyZSBjb25maWd1cmVk
+IHRvDQo+ID4gdGhlIG1pbmltdW0gKG9uZSBwZXIgY2hhbm5lbCkgYW5kIGl0IGFjY2VwdHMgU3Rh
+bmRhcmQsIEV4dGVuZGVkLCBEYXRhDQo+ID4gJiBSZW1vdGUgRnJhbWUgY29tYmluYXRpb25zLg0K
+PiANCj4gSSBzZWUgbm8gbG9ja2luZyBmb3IgdGhlIHR4LXBhdGguDQogDQpJIGFtIG5vdCBzdXJl
+IHdoeSBsb2NraW5nIGlzIG5lZWRlZCBpbiB0eC1wYXRoPyANCkhvd2V2ZXIsIGxvb2tpbmcgYXQg
+aXQgYWdhaW4sIEkgc2hvdWxkIG1vdmUgdGhlIGluY3JlbWVudGluZyBvZiBoZWFkIGFmdGVyIHRo
+ZSAic3RzIiBoYW5kaW5nIHRvIGJlIGFwdC4gV2hhdCBkbyB5b3UgdGhpbms/DQoNClRoYW5rcywN
+ClJhbWVzaA0K
