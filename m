@@ -1,53 +1,47 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v2] iplink: Support VF Trust
-Date: Wed, 2 Mar 2016 09:20:17 -0800
-Message-ID: <20160302092017.44982621@xeon-e3>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05FB353F@BPXM14GP.gisp.nec.co.jp>
+Subject: Re: [PATCH iproute2 net-next] bridge: mdb: add user-space support
+ for extended attributes
+Date: Wed, 2 Mar 2016 09:23:03 -0800
+Message-ID: <20160302092303.338348a7@xeon-e3>
+References: <1456149621-27335-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Nikolay Aleksandrov <razor@blackwall.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:36760 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753373AbcCBRUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 12:20:06 -0500
-Received: by mail-pf0-f181.google.com with SMTP id 63so7931085pfe.3
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 09:20:05 -0800 (PST)
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05FB353F@BPXM14GP.gisp.nec.co.jp>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35473 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752674AbcCBRWv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 12:22:51 -0500
+Received: by mail-pa0-f45.google.com with SMTP id bj10so67299049pad.2
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 09:22:51 -0800 (PST)
+In-Reply-To: <1456149621-27335-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 26 Feb 2016 02:40:18 +0000
-Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com> wrote:
+On Mon, 22 Feb 2016 15:00:21 +0100
+Nikolay Aleksandrov <razor@blackwall.org> wrote:
 
-> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > 
-> Add IFLA_VF_TRUST message to trust the VF.
-> PF can accept some privileged operation from the trusted VF.
-> For example, ixgbe PF doesn't allow to enable VF promiscuous mode until
-> the VF is trusted because it may hurt performance.
+> Recently support was added to the kernel to be able to add more per-mdb
+> entry attributes via standard netlink attributes of type MDBA_MDB_EATTR_.
+> This patch adds support to iproute2 to parse and output these
+> attributes. The first exported attribute is the mdb "timer" value which
+> is shown only when the "-d" iproute2 arg is used.
 > 
-> To trust VF.
->  # ip link set dev eth0 vf 1 trust on
+> Example:
+> $ bridge -d mdb show
+> dev br0 port eth1 grp 239.0.0.11 permanent   0.00
+> dev br0 port eth2 grp 239.0.0.11 permanent   0.00
+> dev br0 port eth1 grp 239.0.0.10 temp 244.38
+> dev br0 port eth1 grp 239.0.0.1 temp 245.41
+> dev br0 port eth1 grp 239.0.0.5 temp 246.43
+> dev br0 port eth2 grp 239.0.0.5 temp 248.48
+> dev br0 port eth1 grp 239.0.0.2 temp 245.41
 > 
-> To untrust VF.
->  # ip link set dev eth0 vf 1 trust off
-> 
-> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
 Applied.
