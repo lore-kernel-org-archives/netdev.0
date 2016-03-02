@@ -1,71 +1,118 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 00/20] Sync man pages and help texts
-Date: Wed,  2 Mar 2016 19:19:48 +0100
-Message-ID: <1456942808-15946-1-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v2 20/20] man: ip-*.8: drop any reference to generic ip options
+Date: Wed,  2 Mar 2016 19:20:08 +0100
+Message-ID: <1456942808-15946-21-git-send-email-phil@nwl.cc>
 References: <20160302093800.7e7dbe71@xeon-e3>
+ <1456942808-15946-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:55085 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:36386 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755448AbcCBSUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2016 13:20:46 -0500
-In-Reply-To: <20160302093800.7e7dbe71@xeon-e3>
+	id S1755042AbcCBSUw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2016 13:20:52 -0500
+In-Reply-To: <1456942808-15946-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series aims at improving consistency of builtin help texts and
-related man pages (synopsis section at least). It was created by
-comparing the two and fixing up whatever occurred to be broken.
+Listing generic 'ip' options in subcommand man pages is redundant and
+error-prone, as they won't be kept in sync anyway. Since many other man
+pages don't list them either, drop references to them in the remaining
+ones.
 
-Changes since v1:
-- rebased onto current master
-- resolved merge conflict in ip-link.8.in due to added 'trust' option
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ man/man8/ip-addrlabel.8 | 14 +-------------
+ man/man8/ip-link.8.in   | 15 +--------------
+ man/man8/ip-monitor.8   |  4 +---
+ man/man8/ip-mroute.8    |  2 +-
+ 4 files changed, 4 insertions(+), 31 deletions(-)
 
-Phil Sutter (20):
-  ip: align help text with manpage
-  ipaddrlabel: Improve help text precision
-  iplink: fix help text syntax
-  ipneigh: add missing proxy keyword to help text
-  ipntable: Fix typo in help text
-  iproute: TYPE keyword is not optional, fix help text accordingly
-  iprule: add missing nat keyword to help text
-  man: ip-address.8: Minor syntax fixes
-  man: ip-link.8: minor font fix
-  man: ip-link.8: Fix and improve synopsis
-  man: ip-neighbour: Fix for missing NUD_STATE description
-  man: ip-netns.8: Clarify synopsis a bit
-  man: ip-ntable.8: Review synopsis section
-  man: ip-rule.8: Review synopsis section
-  man: ip-token.8: Review synopsis section
-  man: ip-tunnel.8: Document missing 6rd action
-  man: ip-xfrm.8: Document missing parameters
-  man: ip.8: Add missing flags and token subcommand description
-  man: ip-l2tp.8: Fix BNF syntax
-  man: ip-*.8: drop any reference to generic ip options
-
- ip/ip.c                  |   2 +-
- ip/ipaddrlabel.c         |   3 +-
- ip/iplink.c              |   9 ++--
- ip/ipneigh.c             |   2 +-
- ip/ipntable.c            |   2 +-
- ip/iproute.c             |   6 +--
- ip/iprule.c              |   1 +
- man/man8/ip-address.8.in |   8 ++--
- man/man8/ip-addrlabel.8  |  14 +-----
- man/man8/ip-l2tp.8       |  24 ++++------
- man/man8/ip-link.8.in    | 117 +++++++++++++++++++++++------------------------
- man/man8/ip-monitor.8    |   4 +-
- man/man8/ip-mroute.8     |   2 +-
- man/man8/ip-neighbour.8  |  11 +++--
- man/man8/ip-netns.8      |   4 +-
- man/man8/ip-ntable.8     |  39 +++++++++-------
- man/man8/ip-rule.8       |  19 +++++---
- man/man8/ip-token.8      |  12 ++---
- man/man8/ip-tunnel.8     |  11 +++--
- man/man8/ip-xfrm.8       |  11 +++++
- man/man8/ip.8            |  29 +++++++++++-
- 21 files changed, 183 insertions(+), 147 deletions(-)
-
+diff --git a/man/man8/ip-addrlabel.8 b/man/man8/ip-addrlabel.8
+index 51ef5727a0db1..233d6067ab407 100644
+--- a/man/man8/ip-addrlabel.8
++++ b/man/man8/ip-addrlabel.8
+@@ -6,21 +6,9 @@ ip-addrlabel \- protocol address label management
+ .ad l
+ .in +8
+ .ti -8
+-.B ip
+-.RI "[ " OPTIONS " ]"
+-.B addrlabel
++.B ip addrlabel
+ .RI " { " COMMAND " | "
+ .BR help " }"
+-.sp
+-
+-.ti -8
+-.IR OPTIONS " := { "
+-\fB\-V\fR[\fIersion\fR] |
+-\fB\-s\fR[\fItatistics\fR] |
+-\fB\-r\fR[\fIesolve\fR] |
+-\fB\-f\fR[\fIamily\fR] {
+-.BR inet " | " inet6 " | " ipx " | " dnet " | " link " } | "
+-\fB\-o\fR[\fIneline\fR] }
+ 
+ .ti -8
+ .BR "ip addrlabel" " { " add " | " del " } " prefix
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index e402fdd033165..c6a9c862dfda2 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -6,25 +6,12 @@ ip-link \- network device configuration
+ .ad l
+ .in +8
+ .ti -8
+-.B ip
+-.RI "[ " OPTIONS " ]"
+-.B link
++.B ip link
+ .RI  " { " COMMAND " | "
+ .BR help " }"
+ .sp
+ 
+ .ti -8
+-.IR OPTIONS " := { "
+-\fB\-V\fR[\fIersion\fR] |
+-\fB\-h\fR[\fIuman-readable\fR] |
+-\fB\-s\fR[\fItatistics\fR] |
+-\fB\-r\fR[\fIesolve\fR] |
+-\fB\-f\fR[\fIamily\fR] {
+-.BR inet " | " inet6 " | " ipx " | " dnet " | " link " } | "
+-\fB\-o\fR[\fIneline\fR] |
+-\fB\-br\fR[\fIief\fR] }
+-
+-.ti -8
+ .BI "ip link add"
+ .RB "[ " link
+ .IR DEVICE " ]"
+diff --git a/man/man8/ip-monitor.8 b/man/man8/ip-monitor.8
+index d2bd381a8c32e..86f8f9885fefe 100644
+--- a/man/man8/ip-monitor.8
++++ b/man/man8/ip-monitor.8
+@@ -6,9 +6,7 @@ ip-monitor, rtmon \- state monitoring
+ .ad l
+ .in +8
+ .ti -8
+-.BR "ip " " [ "
+-.IR ip-OPTIONS " ]"
+-.BR  "monitor" " [ " all " |"
++.BR "ip monitor" " [ " all " |"
+ .IR OBJECT-LIST " ] ["
+ .BI file " FILENAME "
+ ] [
+diff --git a/man/man8/ip-mroute.8 b/man/man8/ip-mroute.8
+index e89b6b2d2cc56..b64e30d33d412 100644
+--- a/man/man8/ip-mroute.8
++++ b/man/man8/ip-mroute.8
+@@ -6,7 +6,7 @@ ip-mroute \- multicast routing cache management
+ .ad l
+ .in +8
+ .ti -8
+-.BR "ip " " [ ip-OPTIONS ] " "mroute show" " [ [ "
++.BR "ip mroute show" " [ [ "
+ .BR " to " " ] "
+ .IR PREFIX " ] [ "
+ .B  from
 -- 
 2.7.2
