@@ -1,71 +1,41 @@
-From: yumkam@gmail.com (Yuriy M. Kaminskiy)
-Subject: [q] userns, netns, and quick physical memory consumption by unprivileged user
-Date: Wed, 02 Mar 2016 23:38:11 +0300
-Message-ID: <m3d1rclioc.fsf@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [REGRESSION, bisect] net: ipv6: unregister_netdevice: waiting for
+ lo to become free. Usage count = 2
+Date: Wed, 2 Mar 2016 13:00:21 -0800
+Message-ID: <56D75465.4060705@cumulusnetworks.com>
+References: <6c735168f53548a39bd21e6e9857f512@HKXPR3004MB0088.064d.mgd.msft.net>
+ <20160301200749.GA1611@hudson.localdomain>
+ <20160302203150.GA2045@hudson.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:50103 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754263AbcCBUi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2016 15:38:27 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1abDXM-0002Fk-RS
-	for netdev@vger.kernel.org; Wed, 02 Mar 2016 21:38:24 +0100
-Received: from ppp37-190-56-21.pppoe.spdop.ru ([37.190.56.21])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 21:38:24 +0100
-Received: from yumkam by ppp37-190-56-21.pppoe.spdop.ru with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 21:38:24 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Jeremiah Mahler <jmmahler@gmail.com>,
+	Dexuan Cui <decui@microsoft.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160302203150.GA2045@hudson.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-While looking at 759c01142a5d0f364a462346168a56de28a80f52, I remembered about
-infamous
-    nf_conntrack: falling back to vmalloc
-message, that was often triggered by network namespace creation (message
-was removed recently, but it changed nothing with underlying problem).
+On 3/2/16 12:31 PM, Jeremiah Mahler wrote:
+>> On Tue, Mar 01, 2016 at 08:11:54AM +0000, Dexuan Cui wrote:
+>>> Hi, I got this line every 10 seconds with today's linux-next in a Hyper-V guest, even
+>>> when I didn't configure any NIC for the guest:
+>>>
+>>> [   72.604249] unregister_netdevice: waiting for lo to become free. Usage count = 2
+>>> [   82.708170] unregister_netdevice: waiting for lo to become free. Usage count = 2
+>>> [   92.788079] unregister_netdevice: waiting for lo to become free. Usage count = 2
+>>> [  102.808132] unregister_netdevice: waiting for lo to become free. Usage count = 2
+>>> [  112.928166] unregister_netdevice: waiting for lo to become free. Usage count = 2
+>>> [  122.952069] unregister_netdevice: waiting for lo to become free. Usage count = 2
+>>>
+>>> I don't think this is related to the underlying host, since it's related to "lo".
 
-So, how about something like this:
+This should fix it:
+     https://patchwork.ozlabs.org/patch/591102/
 
-$ cat << EOF >> eatphysmem
-#!/bin/bash -xe
-fd=6
-d="`mktemp -d /tmp/eatmemXXXXXXXXX`"
-cd "$d"
-rule="iptables -A INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT"
-# rule="$rule;$rule"
-# ... just because we can; same with any number of ip ro/ru/etc
-while :; do
-#for i in {1..1024}; do
-    let fd=fd+1
-    if [ -e /proc/$$/fd/$fd ]; then continue;fi
-    mkfifo f1 f2
-    unshare -rn sh -xec "echo foo >f1;ip li se lo up; $rule;read r <f2" &
-    pid=$!
-    read r <f1
-    eval "exec $fd</proc/$pid/ns/net"
-    echo bar >f2
-    wait
-    rm f2 f1
-    sleep 1s
-done
-sleep inf
-EOF
-$ chmod a+x eatphysmem; unshare -rpf --mount-proc ./eatphysmem
-?
 
-You can easily eat 0.5M physical memory per netns (conntrack hash table
-(hashsize*sizeof(list_head))) and more, and pin them to single process
-with opened netns fds.
-What can stop it?
-ulimit? What is ulimit? Conntrack knows nothing about them.
-Ah-yeah, `ulimit -n`? 64k. 64k*512k = 32G. Per process. Oh-uh.
-OOM killer? But this is not this process memory; if any, it will be
-killed last.
-(I wonder, if memcg can tackle it; probably yes; but how many people
-have it configured?).
+David
