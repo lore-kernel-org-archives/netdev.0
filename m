@@ -1,31 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] r8169: Enable RX_MULTI_EN for
- RTL_GIGA_MAC_VER_41~48
-Date: Wed, 02 Mar 2016 14:00:46 -0500 (EST)
-Message-ID: <20160302.140046.973657930635567118.davem@davemloft.net>
-References: <1456937955-2762-1-git-send-email-hau@realtek.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] iproute2: Fix musl compatibility
+Date: Wed, 2 Mar 2016 11:01:35 -0800
+Message-ID: <20160302110135.1e21c0ce@xeon-e3>
+References: <20160222113447.GA10262@mx.elandsys.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org
-To: hau@realtek.com
+Cc: netdev@vger.kernel.org
+To: Loganaden Velvindron <logan@hackers.mu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57288 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751183AbcCBTAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 14:00:48 -0500
-In-Reply-To: <1456937955-2762-1-git-send-email-hau@realtek.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:36361 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754338AbcCBTBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 14:01:23 -0500
+Received: by mail-pa0-f45.google.com with SMTP id a9so15882495pat.3
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 11:01:23 -0800 (PST)
+In-Reply-To: <20160222113447.GA10262@mx.elandsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chunhao Lin <hau@realtek.com>
-Date: Thu, 3 Mar 2016 00:59:15 +0800
+On Mon, 22 Feb 2016 03:34:48 -0800
+Loganaden Velvindron <logan@hackers.mu> wrote:
 
-> For RTL8168G/RTL8168H/RTL8411B/RTL8107E, enable this flag to eliminate
-> message "AMD-Vi: Event logged [IO_PAGE_FAULT device=01:00.0 domain=0x0002
-> address=0x0000000000003000 flags=0x0050] in dmesg.
+> Don't redefine in6_addr due to including linux/in6.h and also fix
+> the case of MAXPATHLEN constant not found.
 > 
-> Signed-off-by: Chunhao Lin <hau@realtek.com>
+> (Original patch from VoidLinux)
+> 
+> Signed-off-by: Loganaden Velvindron <logan@hackers.mu>
 
-Applied, thanks.
+I was waiting for others who had more to say on this.
+Ok with providing small fixes, but can't really guarantee iproute to
+work with other libraries. 
