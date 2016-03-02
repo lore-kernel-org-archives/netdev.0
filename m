@@ -1,8 +1,9 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net PATCH 0/2] Fix descriptor counting and avoid Tx hangs on e1000
- w/ TSO
-Date: Wed, 02 Mar 2016 16:15:55 -0500
-Message-ID: <20160302205129.2124.67042.stgit@localhost.localdomain>
+Subject: [net PATCH 1/2] e1000: Do not overestimate descriptor counts in Tx
+ pre-check
+Date: Wed, 02 Mar 2016 16:16:01 -0500
+Message-ID: <20160302211601.2124.64160.stgit@localhost.localdomain>
+References: <20160302205129.2124.67042.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,57 +11,43 @@ To: netdev@vger.kernel.org, jogreene@redhat.com,
 	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
 	sassmann@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35166 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004AbcCBW0k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 17:26:40 -0500
-Received: by mail-pa0-f43.google.com with SMTP id bj10so1853833pad.2
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 14:26:39 -0800 (PST)
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:33944 "EHLO
+	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755105AbcCBW0q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 17:26:46 -0500
+Received: by mail-pf0-f175.google.com with SMTP id 4so1881121pfd.1
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 14:26:46 -0800 (PST)
+In-Reply-To: <20160302205129.2124.67042.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series addresses a Tx hang reported in our test lab with
-RHEL/CentOS 7.2 running in a VM with an emulated e1000 driver.  We were
-able to determine that the issue appears to have been introduced with the
-changes that introduced xmit_more.
+The current code path is capable of grossly overestimating the number of
+descriptors needed to transmit a new frame.  This specifically occurs if
+the skb contains a number of 4K pages.  The issue is that the logic for
+determining the descriptors needed is ((S) >> (X)) + 1.  When X is 12 it
+means that we were indicating that we required 2 descriptors for each 4K
+page when we only needed one.
 
-What we have found is that the pre-check for the number of descriptors
-was using a value much larger than the value used for the next transmit at
-the end of the xmit path.  As a result we were often not writing the tail,
-and then setting then stopping xmit with the next packet and returning
-TX_BUSY from the driver.
+This change corrects this by instead adding (1 << (X)) - 1 to the S value
+instead of adding 1 after the fact.  This way we get an accurate descriptor
+needed count as we are essentially doing a DIV_ROUNDUP().
 
-This patch series addresses the two main issues found.  First it prevents
-us from reporting the need for 2 descriptors for every 4K page when we only
-needed one.  This wasn't so much an issue when 32K pages are used for a
-TSO, but if 4K pages are used then this effectively doubles the size of the
-data descriptor count so instead of indicating 1 (head) + 17 (frags) we
-were indicating 1 (head) + 32 (frags) because each full 4K frag was
-requesting 2 descriptors instead of 1.
-
-The fix for the 82544 is speculative as I don't actually have the hardware
-to test with but I suspect it will have a similar issue.  As such I have
-build tested it and verified it didn't break existing hardware to increase
-the post-xmit test by a couple descriptors, but I have not tested the code
-path with an 82544 so I don't know if there are any issues with us
-increasing the value by MAX_SKB_FRAGS + 1.
-
-Testing Hints:
-The reproduction case for this is pretty simple.  You basically just need
-the adapter installed in a multi-CPU system and to perform TSO from a few
-threads so that you can hit the point of tx_restart_queue incrementing.
-After that the Tx hangs should start being reported since the adapter will
-be stopped but the tail never gets updated.  It should be easiest to
-reproduce this issue on an 82544 since it will push the upper limit
-theoretically as high as trying to request 52 descriptors for a single
-frame while the post check is only looking for something like 20.
-
+Reported-by: Ivan Suzdal <isuzdal@mirantis.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
+ drivers/net/ethernet/intel/e1000/e1000_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Alexander Duyck (2):
-      e1000: Do not overestimate descriptor counts in Tx pre-check
-      e1000: Double Tx descriptors needed check for 82544
-
-
- drivers/net/ethernet/intel/e1000/e1000_main.c |   21 +++++++++++++++++++--
- 1 file changed, 19 insertions(+), 2 deletions(-)
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 3fc7bde..d213fb4 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -3106,7 +3106,7 @@ static int e1000_maybe_stop_tx(struct net_device *netdev,
+ 	return __e1000_maybe_stop_tx(netdev, size);
+ }
+ 
+-#define TXD_USE_COUNT(S, X) (((S) >> (X)) + 1)
++#define TXD_USE_COUNT(S, X) (((S) + ((1 << (X)) - 1)) >> (X))
+ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 				    struct net_device *netdev)
+ {
