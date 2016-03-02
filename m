@@ -1,210 +1,44 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 0/3] tc: pedit fixes
-Date: Wed,  2 Mar 2016 12:20:28 +0100
-Message-ID: <1456917631-18447-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch] net: moxa: fix an error code
+Date: Wed, 2 Mar 2016 14:21:29 +0300
+Message-ID: <20160302112129.GQ5273@mwanda>
+References: <20160302101110.GI5533@mwanda>
+ <7083740.CtlZQWRYiM@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jonas Jensen <jonas.jensen@gmail.com>,
+	Luis de Bethencourt <luis@debethencourt.com>,
+	=?iso-8859-1?Q?fran=E7ois?= romieu <romieu@fr.zoreil.com>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:50177 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755053AbcCBLVE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2016 06:21:04 -0500
+Received: from aserp1040.oracle.com ([141.146.126.69]:20404 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753543AbcCBLVr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 06:21:47 -0500
+Content-Disposition: inline
+In-Reply-To: <7083740.CtlZQWRYiM@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While implementing an implementation example for a pedit man page, I
-noticed several issues with the current code. The following patch
-series addreses them.
+On Wed, Mar 02, 2016 at 11:52:29AM +0100, Arnd Bergmann wrote:
+> Did you find more of these?
+> 
+> it doesn't matter much either way, but if you do multiple such patches,
 
-In order to validate my changes, I implemented a simple unit tester.
-It requires the following hack:
+One or two.  I already sent the fixes.  I think it was applied.
 
---------------------------8<-----------------------------------------
---- a/tc/m_pedit.c
-+++ b/tc/m_pedit.c
-@@ -513,6 +513,12 @@ parse_pedit(struct action_util *a, int *argc_p, char ***argv_p, int tca_id, stru
-                }
-        }
- 
-+       fprintf(stderr, "mask=0x%x\n", sel.keys[0].mask);
-+       fprintf(stderr, "val=0x%x\n", sel.keys[0].val);
-+       fprintf(stderr, "off=0x%x\n", sel.keys[0].off);
-+       fprintf(stderr, "at=0x%x\n", sel.keys[0].at);
-+       fprintf(stderr, "offmask=0x%x\n", sel.keys[0].offmask);
-+       fprintf(stderr, "shift=0x%x\n", sel.keys[0].shift);
-        tail = NLMSG_TAIL(n);
-        addattr_l(n, MAX_MSG, tca_id, NULL, 0);
-        addattr_l(n, MAX_MSG, TCA_PEDIT_PARMS,&sel, sizeof(sel.sel)+sel.sel.nkeys*sizeof(struct tc_pedit_key));
---------------------------8<-----------------------------------------
+> I'd suggest using a single PTR_ERR_OR_ZERO() instead of IS_ERR()+PTR_ERR().
+> 
+> I have found a couple of drivers in which that leads to better object
+> code, and avoids a warning about a possibly uninitialized variable
+> when the function gets inlined into another one (which won't happen
+> for this driver).
 
-With this in place, the following simple shell script can be used to
-check generated permutation values:
+Huh?  I sent one where I could have done that but I deliberately didn't
+because I wanted the uninitialized warning if I made a mistake.  It
+sounds like you're working around a GCC bug...
 
---------------------------8<-----------------------------------------
-#!/bin/bash
-
-run_tc() {
-	echo "testing $@"
-	eval "$(./tc/tc filter add dev bla123 parent root u32 \
-		match u32 0 0 action pedit munge $@ 2>&1 | \
-		grep -e '^\(mask\|val\|off\|at\|offmask\|shift\)=')"
-}
-
-prove() { # (oval, check, ooff)
-	local oval=$1
-	local check=$2
-	local ooff=$3
-	[[ $ooff -eq $off ]] || {
-		echo "Wrong offset ($off instead of $ooff)"
-		#exit 1
-	}
-	[[ $(((oval & mask) ^ val)) -eq $check ]] || {
-		echo "failed for $oval, should be $check but is 0x$(echo "obase = 16; $(((oval & mask) ^ val))" | bc)"
-		echo "mask=$mask"
-		echo "val=$val"
-		echo "off=$off"
-		echo "at=$at"
-		echo "offmask=$offmask"
-		echo "shift=$shift"
-		#exit 1
-	}
-}
-
-run_tc ip df set 0
-prove 0xffffffff 0xffbfffff 4
-prove 0x00400000 0x00000000 4
-prove 0xffbfffff 0xffbfffff 4
-prove 0x00000000 0x00000000 4
-
-run_tc ip df set 0x40
-prove 0xffffffff 0xffffffff 4
-prove 0x00400000 0x00400000 4
-prove 0xffbfffff 0xffffffff 4
-prove 0x00000000 0x00400000 4
-
-run_tc ip df preserve
-prove 0xffffffff 0xffffffff 4
-prove 0x00400000 0x00400000 4
-prove 0xffbfffff 0xffbfffff 4
-prove 0x00000000 0x00000000 4
-
-run_tc ip df invert
-prove 0xffffffff 0xffbfffff 4
-prove 0x00400000 0x00000000 4
-prove 0xffbfffff 0xffffffff 4
-prove 0x00000000 0x00400000 4
-
-run_tc ip mf set 0x20
-prove 0xfffff2ff 0xfffff2ff 4
-prove 0x00203000 0x00203000 4
-prove 0xfadfffff 0xfaffffff 4
-prove 0x00000000 0x00200000 4
-
-run_tc ip ihl set 0x04
-prove 0xffffffff 0xfffffff4 0
-prove 0x00000005 0x00000004 0
-prove 0xfffffff0 0xfffffff4 0
-prove 0x00000000 0x00000004 0
-
-run_tc ip tos set 0
-prove 0xffffffff 0xffff00ff 0
-prove 0x00002300 0x00000000 0
-prove 0xffff00ff 0xffff00ff 0
-prove 0x00000000 0x00000000 0
-
-run_tc ip tos set 17
-prove 0xffffffff 0xffff11ff 0
-prove 0x00002300 0x00001100 0
-prove 0xffff00ff 0xffff11ff 0
-prove 0x00000000 0x00001100 0
-
-run_tc ip tos invert
-prove 0xffffffff 0xffff00ff 0
-prove 0x00002300 0x0000DC00 0
-prove 0xffff00ff 0xffffffff 0
-prove 0x00000000 0x0000ff00 0
-
-run_tc ip tos preserve
-prove 0xffffffff 0xffffffff 0
-prove 0x00002300 0x00002300 0
-prove 0xffff00ff 0xffff00ff 0
-prove 0x00000000 0x00000000 0
-
-run_tc ip tos clear
-prove 0xffffffff 0xffff00ff 0
-prove 0x00002300 0x00000000 0
-prove 0xffff00ff 0xffff00ff 0
-prove 0x00000000 0x00000000 0
-
-run_tc ip dport set 0
-prove 0xffffffff 0x0000ffff 20
-prove 0x12340000 0x00000000 20
-prove 0x0000ffff 0x0000ffff 20
-prove 0x00000000 0x00000000 20
-
-run_tc ip dport set 27374
-prove 0xfffff22f 0xee6af22f 20
-prove 0x12340010 0xee6a0010 20
-prove 0xee6aff0f 0xee6aff0f 20
-prove 0xee6a0000 0xee6a0000 20
-
-run_tc ip dport invert
-prove 0xffffffff 0x0000ffff 20
-prove 0x12340000 0xEDCB0000 20
-prove 0x00000000 0xffff0000 20
-
-run_tc ip dport preserve
-prove 0xffffffff 0xffffffff 20
-prove 0x12340000 0x12340000 20
-prove 0xee6affff 0xee6affff 20
-prove 0xee6a0000 0xee6a0000 20
-
-run_tc ip dport clear
-prove 0xffff3fff 0x00003fff 20
-prove 0x12340030 0x00000030 20
-prove 0xee6af1ff 0x0000f1ff 20
-prove 0x00000000 0x00000000 20
-
-
-run_tc ip src set 0.0.0.0
-prove 0xffff3fff 0x00000000 12
-prove 0x12340030 0x00000000 12
-prove 0xee6af1ff 0x00000000 12
-prove 0x00000000 0x00000000 12
-
-run_tc ip src set 1.2.3.4
-prove 0xffff3fff 0x01020304 12
-prove 0x12340030 0x01020304 12
-prove 0xee6af1ff 0x01020304 12
-prove 0x00000000 0x01020304 12
-
-run_tc ip src clear
-prove 0xffff3fff 0x00000000 12
-prove 0x12340030 0x00000000 12
-prove 0xee6af1ff 0x00000000 12
-prove 0x00000000 0x00000000 12
-
-run_tc ip src preserve
-prove 0xffff3fff 0xffff3fff 12
-prove 0x12340030 0x12340030 12
-prove 0xee6af1ff 0xee6af1ff 12
-prove 0x00000000 0x00000000 12
-
-run_tc ip src invert
-prove 0xffff3fff 0x0000c000 12
-prove 0x12340030 0xedcbffcf 12
-prove 0xee6af1ff 0x11950e00 12
-prove 0x00000000 0xffffffff 12
---------------------------8<-----------------------------------------
-
-Phil Sutter (3):
-  tc: pedit: Fix layered op parsing
-  tc: pedit: Fix parse_cmd()
-  tc: pedit: Fix retain value for ihl adjustments
-
- tc/m_pedit.c | 24 ++++++++----------------
- tc/p_ip.c    |  2 +-
- 2 files changed, 9 insertions(+), 17 deletions(-)
-
--- 
-2.7.2
+regards,
+dan carpenter
