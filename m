@@ -1,67 +1,63 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 11/20] man: ip-neighbour: Fix for missing NUD_STATE description
-Date: Wed,  2 Mar 2016 19:19:59 +0100
-Message-ID: <1456942808-15946-12-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v2 16/20] man: ip-tunnel.8: Document missing 6rd action
+Date: Wed,  2 Mar 2016 19:20:04 +0100
+Message-ID: <1456942808-15946-17-git-send-email-phil@nwl.cc>
 References: <20160302093800.7e7dbe71@xeon-e3>
  <1456942808-15946-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:51664 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:41269 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755397AbcCBSUd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2016 13:20:33 -0500
+	id S1755448AbcCBSUj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2016 13:20:39 -0500
 In-Reply-To: <1456942808-15946-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Also drop the non-terminal 'TIME' description as it is not referenced
+anywhere.
+
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/ip-neighbour.8 | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+ man/man8/ip-tunnel.8 | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/man/man8/ip-neighbour.8 b/man/man8/ip-neighbour.8
-index c9b0256e12207..19c6d9d8bf605 100644
---- a/man/man8/ip-neighbour.8
-+++ b/man/man8/ip-neighbour.8
-@@ -18,7 +18,9 @@ ip-neighbour \- neighbour/arp tables management.
- .IR ADDR " [ "
- .B  lladdr
- .IR LLADDR " ] [ "
--.BR nud " { " permanent " | " noarp " | " stale " | " reachable " } ] | " proxy
-+.B nud
-+.IR STATE " ] |"
-+.B proxy
- .IR ADDR " } [ "
- .B  dev
- .IR DEV " ]"
-@@ -31,6 +33,9 @@ ip-neighbour \- neighbour/arp tables management.
- .B  nud
- .IR STATE " ]"
+diff --git a/man/man8/ip-tunnel.8 b/man/man8/ip-tunnel.8
+index 8b746cb0f52b8..4938c7405ce85 100644
+--- a/man/man8/ip-tunnel.8
++++ b/man/man8/ip-tunnel.8
+@@ -11,7 +11,7 @@ ip-tunnel - tunnel configuration
+ .ti -8
+ .BR "ip "
+ .RI "[ " OPTIONS " ]"
+-.BR "tunnel" " { " add " | " change " | " del " | " show " | " prl " }"
++.BR "tunnel" " { " add " | " change " | " del " | " show " | " prl " | " 6rd " }"
+ .RI "[ " NAME " ]"
+ .br
+ .RB "[ " mode
+@@ -42,6 +42,12 @@ ip-tunnel - tunnel configuration
+ .B prl-delete
+ .IR ADDR " ]"
+ .br
++.RB "[ " 6rd-prefix
++.IR ADDR " ] ["
++.B 6rd-relay_prefix
++.IR ADDR " ] [
++.BR 6rd-reset " ]"
++.br
+ .RB "[ [" no "]" pmtudisc " ]"
+ .RB "[ " dev
+ .IR PHYS_DEV " ]"
+@@ -75,9 +81,6 @@ ip-tunnel - tunnel configuration
+ .ti -8
+ .IR KEY " := { " DOTTED_QUAD " | " NUMBER " }"
  
-+.ti -8
-+.IR STATE " := {"
-+.BR permanent " | " noarp " | " stale " | " reachable " }"
- 
+-.ti -8
+-.IR TIME " := " NUMBER "[s|ms]"
+-
  .SH DESCRIPTION
- The
-@@ -75,7 +80,7 @@ can also be
- .BR "null" .
- 
- .TP
--.BI nud " NUD_STATE"
-+.BI nud " STATE"
- the state of the neighbour entry.
- .B nud
- is an abbreviation for 'Neighbour Unreachability Detection'.
-@@ -147,7 +152,7 @@ list neighbour proxies.
- only list neighbours which are not currently in use.
- 
- .TP
--.BI nud " NUD_STATE"
-+.BI nud " STATE"
- only list neighbour entries in this state.
- .I NUD_STATE
- takes values listed below or the special value
+ .B tunnel
+ objects are tunnels, encapsulating packets in IP packets and then
 -- 
 2.7.2
