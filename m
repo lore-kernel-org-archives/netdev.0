@@ -1,41 +1,65 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [REGRESSION, bisect] net: ipv6: unregister_netdevice: waiting for
- lo to become free. Usage count = 2
-Date: Wed, 2 Mar 2016 13:00:21 -0800
-Message-ID: <56D75465.4060705@cumulusnetworks.com>
-References: <6c735168f53548a39bd21e6e9857f512@HKXPR3004MB0088.064d.mgd.msft.net>
- <20160301200749.GA1611@hudson.localdomain>
- <20160302203150.GA2045@hudson.localdomain>
+From: Kyeong Yoo <Kyeong.Yoo@alliedtelesis.co.nz>
+Subject: Re: net_sched: dsmark: use qdisc_dequeue_peeked()
+Date: Wed, 2 Mar 2016 21:19:51 +0000
+Message-ID: <1456953590.3297.58.camel@kyeongy-dl>
+References: <1456891804.3297.51.camel@kyeongy-dl>
+	 <CAM_iQpWGtRfbbGKD6i+XY0epgNkn=mNGnWG31dLhq7XLykdvFQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Jeremiah Mahler <jmmahler@gmail.com>,
-	Dexuan Cui <decui@microsoft.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160302203150.GA2045@hudson.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "jhs@mojatatu.com" <jhs@mojatatu.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:45257 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750785AbcCBVT4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 16:19:56 -0500
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(Client did not present a certificate)
+	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id 12C1C8070D
+	for <netdev@vger.kernel.org>; Thu,  3 Mar 2016 10:19:53 +1300 (NZDT)
+In-Reply-To: <CAM_iQpWGtRfbbGKD6i+XY0epgNkn=mNGnWG31dLhq7XLykdvFQ@mail.gmail.com>
+Content-Language: en-US
+Content-ID: <2D0C3823E5603D4AB3765B240A992219@atlnz.lc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3/2/16 12:31 PM, Jeremiah Mahler wrote:
->> On Tue, Mar 01, 2016 at 08:11:54AM +0000, Dexuan Cui wrote:
->>> Hi, I got this line every 10 seconds with today's linux-next in a Hyper-V guest, even
->>> when I didn't configure any NIC for the guest:
->>>
->>> [   72.604249] unregister_netdevice: waiting for lo to become free. Usage count = 2
->>> [   82.708170] unregister_netdevice: waiting for lo to become free. Usage count = 2
->>> [   92.788079] unregister_netdevice: waiting for lo to become free. Usage count = 2
->>> [  102.808132] unregister_netdevice: waiting for lo to become free. Usage count = 2
->>> [  112.928166] unregister_netdevice: waiting for lo to become free. Usage count = 2
->>> [  122.952069] unregister_netdevice: waiting for lo to become free. Usage count = 2
->>>
->>> I don't think this is related to the underlying host, since it's related to "lo".
-
-This should fix it:
-     https://patchwork.ozlabs.org/patch/591102/
-
-
-David
+QXV0aG9yOiBLeWVvbmcgWW9vIDxreWVvbmcueW9vQGFsbGllZHRlbGVzaXMuY28ubno+DQoNCm5l
+dF9zY2hlZDogZHNtYXJrOiB1c2UgcWRpc2NfZGVxdWV1ZV9wZWVrZWQoKQ0KDQpUaGlzIGZpeCBp
+cyBmb3IgZHNtYXJrIHNpbWlsYXIgdG8gY29tbWl0IDM1NTc2MTlmMGY2Zjc0OTZlZDQ1M2Q0ODI1
+ZTI0OQ0KKCJuZXRfc2NoZWQ6IHByaW86IHVzZSBxZGlzY19kZXF1ZXVlX3BlZWtlZCIpDQphbmQg
+bWFrZXMgdXNlIG9mIHFkaXNjX2RlcXVldWVfcGVla2VkKCkgaW5zdGVhZCBvZiBkaXJlY3QgZGVx
+dWV1ZSgpIGNhbGwuDQoNCkZpcnN0IHRpbWUsIHdyciBwZWVrcyBkc21hcmssIHdoaWNoIHdpbGwg
+dGhlbiBwZWVrIGludG8gc2ZxLg0Kc2ZxIGRlcXVldWVzIGFuIHNrYiBhbmQgaXQncyBzdG9yZWQg
+aW4gc2NoLT5nc29fc2tiLg0KTmV4dCB0aW1lLCB3cnIgdHJpZXMgdG8gZGVxdWV1ZSBmcm9tIGRz
+bWFyaywgd2hpY2ggd2lsbCBjYWxsIHNmcSBkZXF1ZXVlDQpkaXJlY3RseS4gVGhpcyByZXN1bHRz
+IHNraXBwaW5nIHRoZSBwcmV2aW91c2x5IHBlZWtlZCBza2IuDQoNClNvIGNoYW5nZWQgZHNtYXJr
+IGRlcXVldWUgdG8gY2FsbCBxZGlzY19kZXF1ZXVlX3BlZWtlZCgpIGluc3RlYWQgdG8gdXNlDQpw
+ZWVrZWQgc2tiIGlmIGV4aXN0cy4NCg0KU2lnbmVkLW9mZi1ieTogS3llb25nIFlvbyA8a3llb25n
+Lnlvb0BhbGxpZWR0ZWxlc2lzLmNvLm56Pg0KDQpkaWZmIC0tZ2l0IGEvbmV0L3NjaGVkL3NjaF9k
+c21hcmsuYyBiL25ldC9zY2hlZC9zY2hfZHNtYXJrLmMNCmluZGV4IGYzNTdmMzQuLmIyMDQ0NzIg
+MTAwNjQ0DQotLS0gYS9uZXQvc2NoZWQvc2NoX2RzbWFyay5jDQorKysgYi9uZXQvc2NoZWQvc2No
+X2RzbWFyay5jDQpAQCAtMjgxLDcgKzI4MSw3IEBAIHN0YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqZHNt
+YXJrX2RlcXVldWUoc3RydWN0IFFkaXNjICpzY2gpDQogDQogCXByX2RlYnVnKCIlcyhzY2ggJXAs
+W3FkaXNjICVwXSlcbiIsIF9fZnVuY19fLCBzY2gsIHApOw0KIA0KLQlza2IgPSBwLT5xLT5vcHMt
+PmRlcXVldWUocC0+cSk7DQorCXNrYiA9IHFkaXNjX2RlcXVldWVfcGVla2VkKHAtPnEpOw0KIAlp
+ZiAoc2tiID09IE5VTEwpDQogCQlyZXR1cm4gTlVMTDsNCg0KT24gV2VkLCAyMDE2LTAzLTAyIGF0
+IDEwOjI2IC0wODAwLCBDb25nIFdhbmcgd3JvdGU6DQo+IE9uIFR1ZSwgTWFyIDEsIDIwMTYgYXQg
+ODoxMCBQTSwgS3llb25nIFlvbw0KPiA8S3llb25nLllvb0BhbGxpZWR0ZWxlc2lzLmNvLm56PiB3
+cm90ZToNCj4gPiBUaGlzIGZpeCBpcyBmb3IgZHNtYXJrIHNpbWlsYXIgdG8gMzU1NzYxOWYwZjZm
+NzQ5NmVkNDUzZDQ4MjVlMjQ5NThhYjE4ODRlMCwNCj4gPiBhbmQgbWFrZXMgdXNlIG9mIHFkaXNj
+X2RlcXVldWVfcGVla2VkKCkgaW5zdGVhZCBvZiBkaXJlY3QgZGVxdWV1ZSgpIGNhbGwuDQo+ID4N
+Cj4gPiBGaXJzdCB0aW1lLCB3cnIgcGVla3MgZHNtYXJrLCB3aGljaCB3aWxsIHRoZW4gcGVlayBp
+bnRvIHNmcS4NCj4gPiBzZnEgZGVxdWV1ZXMgYW4gc2tiIGFuZCBpdCdzIHN0b3JlZCBpbiBzY2gt
+Pmdzb19za2IuDQo+ID4gTmV4dCB0aW1lLCB3cnIgdHJpZXMgdG8gZGVxdWV1ZSBmcm9tIGRzbWFy
+aywgd2hpY2ggd2lsbCBjYWxsIHNmcSBkZXF1ZXVlDQo+ID4gZGlyZWN0bHkuIFRoaXMgcmVzdWx0
+cyBza2lwcGluZyB0aGUgcHJldmlvdXNseSBwZWVrZWQgc2tiLg0KPiA+DQo+ID4gU28gY2hhbmdl
+ZCBkc21hcmsgZGVxdWV1ZSB0byBjYWxsIHFkaXNjX2RlcXVldWVfcGVla2VkKCkgaW5zdGVhZCB0
+byB1c2UNCj4gPiBwZWVrZWQgc2tiIGlmIGV4aXN0cy4NCj4gDQo+IA0KPiBUaGlzIHBhcnQgbG9v
+a3MgcmVhc29uYWJsZSB0byBtZS4NCj4gDQo+ID4NCj4gPiBBbHNvIHJlcGxhY2VkIGRzbWFyayBw
+ZWVrIHRvIHVzZSBxZGlzY19wZWVrX2RlcXVldWVkKCkgd2hpY2ggd29ya3MgY29ycmVjdGx5DQo+
+ID4gaWYgcHJldmlvdXNseSBwZWVrZWQgc2tiIHN0aWxsIGV4aXN0cy4NCj4gDQo+IA0KPiBCdXQg
+bm90IHRoaXMgcGFydCwgc2luY2Ugc2ZxIGFscmVhZHkgY2FsbHMgcWRpc2NfcGVla19kZXF1ZXVl
+ZCgpPw0KDQo=
