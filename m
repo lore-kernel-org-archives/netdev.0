@@ -1,98 +1,59 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 13/20] man: ip-ntable.8: Review synopsis section
-Date: Wed,  2 Mar 2016 19:20:01 +0100
-Message-ID: <1456942808-15946-14-git-send-email-phil@nwl.cc>
-References: <20160302093800.7e7dbe71@xeon-e3>
- <1456942808-15946-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [net-next,v7] net: ipv6: Make address flushing on ifdown optional
+Date: Wed, 2 Mar 2016 10:23:17 -0800
+Message-ID: <56D72F95.3030101@gmail.com>
+References: <CANaxB-z7JefW0hQ2cODX_JLOqWbpTM371E_SDpGXrmdtvS_UcA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Andrey Wagin <avagin@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:33861 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756415AbcCBSW0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2016 13:22:26 -0500
-In-Reply-To: <1456942808-15946-1-git-send-email-phil@nwl.cc>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:35621 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932155AbcCBSXT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 13:23:19 -0500
+Received: by mail-pf0-f176.google.com with SMTP id w128so93730007pfb.2
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 10:23:19 -0800 (PST)
+In-Reply-To: <CANaxB-z7JefW0hQ2cODX_JLOqWbpTM371E_SDpGXrmdtvS_UcA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The first line contained a c'n'p error, incorrectly listing 'ip address'
-syntax. Since PARAMS is used just once and there are not many other
-parameters to 'ip ntable change', state them inline and in addition to
-that clarify the possibility to pass multiple parameters at once.
+On 3/2/16 10:01 AM, Andrey Wagin wrote:
+> Hi David,
+>
+> We execute CRIU test on linux-next. On the current linux-next kernel
+> they hangs on creating a network namespace.
+>
+> The kernel log contains many massages like this:
+> [ 1036.122108] unregister_netdevice: waiting for lo to become free.
+> Usage count = 2
+> [ 1046.165156] unregister_netdevice: waiting for lo to become free.
+> Usage count = 2
+> [ 1056.210287] unregister_netdevice: waiting for lo to become free.
+> Usage count = 2
+>
+> I tried to revert this patch and the bug disappeared.
+>
+> Here is a set of commands to reproduce this bug:
+>
+> [root@linux-next-test linux-next]# uname -a
+> Linux linux-next-test 4.5.0-rc6-next-20160301+ #3 SMP Wed Mar 2
+> 17:32:18 UTC 2016 x86_64 x86_64 x86_64 GNU/Linux
+>
+> [root@linux-next-test ~]# unshare -n
+> [root@linux-next-test ~]# ip link set up dev lo
+> [root@linux-next-test ~]# ip a
+> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+> group default qlen 1
+>      link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+>      inet 127.0.0.1/8 scope host lo
+>         valid_lft forever preferred_lft forever
+>      inet6 ::1/128 scope host
+>         valid_lft forever preferred_lft forever
+> [root@linux-next-test ~]# logout
+> [root@linux-next-test ~]# unshare -n
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- man/man8/ip-ntable.8 | 39 ++++++++++++++++++++++-----------------
- 1 file changed, 22 insertions(+), 17 deletions(-)
+Thanks for reporting -- with reproduction commands. I will post patch as 
+soon as I have time to look into it.
 
-diff --git a/man/man8/ip-ntable.8 b/man/man8/ip-ntable.8
-index 462e5896b6482..4f0f2e548a21e 100644
---- a/man/man8/ip-ntable.8
-+++ b/man/man8/ip-ntable.8
-@@ -8,7 +8,7 @@ ip-ntable - neighbour table configuration
- .ti -8
- .B ip
- .RI "[ " OPTIONS " ]"
--.B address
-+.B ntable
- .RI " { " COMMAND " | "
- .BR help " }"
- .sp
-@@ -17,34 +17,39 @@ ip-ntable - neighbour table configuration
- .BR "ip ntable change name"
- .IR NAME " [ "
- .B dev
--.IR DEV " ] " PARMS
--
--.ti -8
--.IR PARMS " := { "
-+.IR DEV " ] ["
- .B thresh1
--.IR VAL " | "
-+.IR VAL " ] ["
- .B thresh2
--.IR VAL " | "
-+.IR VAL " ] ["
- .B thresh3
--.IR VAL " | "
-+.IR VAL " ] ["
- .B gc_int
--.IR MSEC " | "
-+.IR MSEC " ] ["
- .B base_reachable
--.IR MSEC " | "
-+.IR MSEC " ] ["
- .B retrans
--.IR MSEC " | " "gc_stale MSEC " " | "
-+.IR MSEC " ] ["
-+.B gc_stale
-+.IR MSEC " ] ["
- .B delay_probe
--.IR MSEC " | " "queue LEN " " | "
-+.IR MSEC " ] ["
-+.B queue
-+.IR LEN " ] ["
- .B app_probs
--.IR VAL " | "
-+.IR VAL " ] ["
- .B ucast_probes
--.IR VAL " | " "mcast_probes VAL " " | "
-+.IR VAL " ] ["
-+.B mcast_probes
-+.IR VAL " ] ["
- .B anycast_delay
--.IR MSEC " | "
-+.IR MSEC " ] ["
- .B proxy_delay
--.IR MSEC " | " "proxy_queue LEN " " | "
-+.IR MSEC " ] ["
-+.B proxy_queue
-+.IR LEN " ] ["
- .B locktime
--.IR MSEC " }"
-+.IR MSEC " ]"
- 
- .ti -8
- .BR "ip ntable show" " [ "
--- 
-2.7.2
+David
