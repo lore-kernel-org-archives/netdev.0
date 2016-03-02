@@ -1,107 +1,112 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: rcar_canfd: Add Renesas R-Car CAN FD driver
-Date: Wed, 2 Mar 2016 10:20:39 +0100
-Message-ID: <56D6B067.306@pengutronix.de>
-References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <56D5FE8E.1090400@pengutronix.de>
- <SG2PR06MB1038AC389CDB35916408A5D6C3BC0@SG2PR06MB1038.apcprd06.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="IfeGfFiTwtSbslWSMoKbt30NNDJaOGWdO"
-Cc: "linux-renesas-soc@vger.kernel.org"
-	<linux-renesas-soc@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"geert+renesas@glider.be" <geert+renesas@glider.be>,
-	Chris Paterson <Chris.Paterson2@renesas.com>
-To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>,
-	"wg@grandegger.com" <wg@grandegger.com>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	"galak@codeaurora.org" <galak@codeaurora.org>,
-	"corbet@lwn.net" <corbet@lwn.net>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <SG2PR06MB1038AC389CDB35916408A5D6C3BC0@SG2PR06MB1038.apcprd06.prod.outlook.com>
-Sender: linux-doc-owner@vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: mellanox: add DEVLINK dependencies
+Date: Wed,  2 Mar 2016 10:40:54 +0100
+Message-ID: <1456911665-1424389-1-git-send-email-arnd@arndb.de>
+Cc: linux-arm-kernel@lists.infradead.org,
+	Arnd Bergmann <arnd@arndb.de>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Doug Ledford <dledford@redhat.com>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Ido Schimmel <idosch@mellanox.com>, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jiri Pirko <jiri@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---IfeGfFiTwtSbslWSMoKbt30NNDJaOGWdO
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+The new NET_DEVLINK infrastructure can be a loadable module, but the drivers
+using it might be built-in, which causes link errors like:
 
-On 03/02/2016 09:41 AM, Ramesh Shanmugasundaram wrote:
->> Is the channel loopback mode configurable per channel? If so, please
->> remove the module parameter and make use of CAN_CTRLMODE_LOOPBACK to
->> configure it.
->=20
-> The loopback setting is not truly a per channel attribute. It
-> requires touching Rx rules which can be done only when the
-> controller's global state is reset (during probe).
-> CAN_CTRLMODE_LOOPBACK config option is possible only through
-> .ndo_open of that channel but the global controller state needs to be
-> operational by this time. As it is a global attribute & for the above
-> reason, I choose the module option.
+drivers/net/built-in.o: In function `mlx4_load_one':
+:(.text+0x2fbfda): undefined reference to `devlink_port_register'
+:(.text+0x2fc084): undefined reference to `devlink_port_unregister'
+drivers/net/built-in.o: In function `mlxsw_sx_port_remove':
+:(.text+0x33a03a): undefined reference to `devlink_port_type_clear'
+:(.text+0x33a04e): undefined reference to `devlink_port_unregister'
 
-I see, ok then.
+There are multiple ways to avoid this:
 
->>> CAN FD mode supports both Classical CAN & CAN FD frame formats. The
->>> controller supports ISO 11898-1:2015 CAN FD format only.
->>>
->>> This controller supports two channels and the driver can enable eithe=
-r
->>> or both of the channels.
->>>
->>> Driver uses Rx FIFOs (one per channel) for reception & Common FIFOs
->>> (one per channel) for transmission. Rx filter rules are configured to=
+a) add 'depends on NET_DEVLINK || !NET_DEVLINK' dependencies
+   for each user
+b) use 'select NET_DEVLINK' from each driver that uses it
+   and hide the symbol in Kconfig.
+c) make NET_DEVLINK a 'bool' option so we don't have to
+   list it as a dependency, and rely on the APIs to be
+   stubbed out when it is disabled
+d) use IS_REACHABLE() rather than IS_ENABLED() to check for
+   NET_DEVLINK in include/net/devlink.h
 
->>> the minimum (one per channel) and it accepts Standard, Extended, Data=
+This implements a variation of approach a) by adding an
+intermediate symbol that drivers can depend on, and changes
+the three drivers using it.
 
->>> & Remote Frame combinations.
->>
->> I see no locking for the tx-path.
-> =20
-> I am not sure why locking is needed in tx-path?=20
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 09d4d087cd48 ("mlx4: Implement devlink interface")
+Fixes: c4745500e988 ("mlxsw: Implement devlink interface")
+---
+ drivers/infiniband/hw/mlx4/Kconfig          | 1 +
+ drivers/net/ethernet/mellanox/mlx4/Kconfig  | 1 +
+ drivers/net/ethernet/mellanox/mlxsw/Kconfig | 1 +
+ net/Kconfig                                 | 9 +++++++++
+ 4 files changed, 12 insertions(+)
 
-If the tx-path is shared between both channels you need locking as the
-networking subsystem may send one frame to each controller at the same ti=
-me.
-
-> However, looking at it again, I should move the incrementing of head
-> after the "sts" handing to be apt. What do you think?
-
-With one producer (one SW instance) and one consumer (the HW) you can
-write lockless code (if the HW allows it), but with two producers it's
-not possible.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---IfeGfFiTwtSbslWSMoKbt30NNDJaOGWdO
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJW1rBnAAoJED07qiWsqSVqGK8H/19xU/on6yG2Y1Z6MYeyV2A6
-DHDu8nqZ7L7vVEFpTkRPN9UgrD8Wx1rUyyJvpWEpu+fNAkBWZGexyqDz8uTaEMOb
-0KS9TPOL3+oBNJ4yWn/H3Jmk0toR3C80ppy8f1wmUJ84whya/Rsz0f0rPoUNsI00
-zgDJLbeursso6LlOllaHyJnyIMMF7jLccFHi++YGoKuXcmovAuQ4MCHZLNSoMHgI
-KWZLRdDtDlGiZmeSmDm7OErqAHQg0Ge1aowql4gmjjTmzwzd3CpkP1AoBCm8JdxM
-lD9emS/ZNVzsR5CJWbgb+PHGqabsjbSe/om3YjkbtViA+t490UnLx0/V9a6W4PQ=
-=1dPQ
------END PGP SIGNATURE-----
-
---IfeGfFiTwtSbslWSMoKbt30NNDJaOGWdO--
+diff --git a/drivers/infiniband/hw/mlx4/Kconfig b/drivers/infiniband/hw/mlx4/Kconfig
+index fc01deac1d3c..db4aa13ebae0 100644
+--- a/drivers/infiniband/hw/mlx4/Kconfig
++++ b/drivers/infiniband/hw/mlx4/Kconfig
+@@ -1,6 +1,7 @@
+ config MLX4_INFINIBAND
+ 	tristate "Mellanox ConnectX HCA support"
+ 	depends on NETDEVICES && ETHERNET && PCI && INET
++	depends on MAY_USE_DEVLINK
+ 	select NET_VENDOR_MELLANOX
+ 	select MLX4_CORE
+ 	---help---
+diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+index 1486ce902a56..9ca3734ebb6b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config MLX4_EN
+ 	tristate "Mellanox Technologies 1/10/40Gbit Ethernet support"
++	depends on MAY_USE_DEVLINK
+ 	depends on PCI
+ 	select MLX4_CORE
+ 	select PTP_1588_CLOCK
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
+index ce26adcb4988..2ad7f67854d5 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config MLXSW_CORE
+ 	tristate "Mellanox Technologies Switch ASICs support"
++	depends on MAY_USE_DEVLINK
+ 	---help---
+ 	  This driver supports Mellanox Technologies Switch ASICs family.
+ 
+diff --git a/net/Kconfig b/net/Kconfig
+index 6c9cfb0d7639..2760825e53fa 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -403,6 +403,15 @@ config NET_DEVLINK
+ 	  infrastructure to support access to physical chip-wide config and
+ 	  monitoring.
+ 
++config MAY_USE_DEVLINK
++	tristate
++	default m if NET_DEVLINK=m
++	default y if NET_DEVLINK=y || NET_DEVLINK=n
++	help
++	  Drivers using the devlink infrastructure should have a dependency
++	  on MAY_USE_DEVLINK to ensure they do not cause link errors when
++	  devlink is a loadable module and the driver using it is built-in.
++
+ endif   # if NET
+ 
+ # Used by archs to tell that they support BPF_JIT
+-- 
+2.7.0
