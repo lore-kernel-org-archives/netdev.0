@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] cxgb4/cxgb4vf: Cleanup and minor fixes
-Date: Wed, 02 Mar 2016 14:46:50 -0500 (EST)
-Message-ID: <20160302.144650.789980250487814158.davem@davemloft.net>
-References: <1456832976-12840-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH v5 net-next 2/2] tcp: Add Redundant Data Bundling (RDB)
+Date: Wed, 02 Mar 2016 14:52:04 -0500 (EST)
+Message-ID: <20160302.145204.1321971452365441235.davem@davemloft.net>
+References: <1456348375-24684-1-git-send-email-bro.devel+kernel@gmail.com>
+	<1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
+	<1456348375-24684-3-git-send-email-bro.devel+kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nirranjan@chelsio.com, leedom@chelsio.com
-To: hariprasad@chelsio.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, ycheng@google.com, eric.dumazet@gmail.com,
+	ncardwell@google.com, apetlund@simula.no, griff@simula.no,
+	paalh@simula.no, jonassm@ifi.uio.no, kristian.evensen@gmail.com,
+	kennetkl@ifi.uio.no
+To: bro.devel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57889 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57937 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750745AbcCBTqw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 14:46:52 -0500
-In-Reply-To: <1456832976-12840-1-git-send-email-hariprasad@chelsio.com>
+	with ESMTP id S1752781AbcCBTwH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 14:52:07 -0500
+In-Reply-To: <1456348375-24684-3-git-send-email-bro.devel+kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Tue,  1 Mar 2016 17:19:31 +0530
+=46rom: "Bendik R=F8nning Opstad" <bro.devel@gmail.com>
+Date: Wed, 24 Feb 2016 22:12:55 +0100
 
-> This series sets FBMIN to 64 bytes for Chelsio's T6 series of adapters,
-> check to replenish fl is revised, some code cleanup in cxgb4vf sge
-> initialization code and removes dead code. 
-> 
-> This patch series has been created against net-next tree and includes
-> patches on cxgb4 and cxgb4vf driver.
-> 
-> We have included all the maintainers of respective drivers. Kindly review
-> the change and let us know in case of any review comments.
+> +/* tcp_rdb.c */
+> +void rdb_ack_event(struct sock *sk, u32 flags);
 
-Series applied, thanks.
+Please name globally visible symbols with a prefix of "tcp_*", thanks.
