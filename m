@@ -1,53 +1,42 @@
-From: Zhi Li <lznuaa@gmail.com>
-Subject: Re: [PATCH net-next V2 04/16] net: fec: reduce interrupts
-Date: Wed, 2 Mar 2016 10:44:53 -0600
-Message-ID: <CAHrpEqR0-POp__KfHUdKVf3kE5H5zHMTYD4j7ADGNZRf9dgfCg@mail.gmail.com>
-References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
-	<1456360619-24390-5-git-send-email-troy.kisky@boundarydevices.com>
-	<VI1PR0401MB18558A7D0A57FA8EDBAD5EABFFBC0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-	<56D710EB.5000201@boundarydevices.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: sh_eth: avoid NULL pointer dereference in ring setup
+Date: Wed, 2 Mar 2016 19:47:05 +0300
+Message-ID: <56D71909.2020503@cogentembedded.com>
+References: <1456932370-4143-1-git-send-email-wsa@the-dreams.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Fugang Duan <fugang.duan@nxp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"b38611@freescale.com" <b38611@freescale.com>,
-	"fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"laci@boundarydevices.com" <laci@boundarydevices.com>,
-	"shawnguo@kernel.org" <shawnguo@kernel.org>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"arnd@arndb.de" <arnd@arndb.de>
-To: Troy Kisky <troy.kisky@boundarydevices.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:35823 "EHLO
-	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbcCBQoy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 11:44:54 -0500
-Received: by mail-oi0-f68.google.com with SMTP id r187so4336769oih.2
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 08:44:53 -0800 (PST)
-In-Reply-To: <56D710EB.5000201@boundarydevices.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms@verge.net.au>,
+	linux-renesas-soc@vger.kernel.org
+To: Wolfram Sang <wsa@the-dreams.de>, netdev@vger.kernel.org
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1456932370-4143-1-git-send-email-wsa@the-dreams.de>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 2, 2016 at 10:12 AM, Troy Kisky
-<troy.kisky@boundarydevices.com> wrote:
-> it is going to be delayed for a very long time.
-> Should it be moved to the napi routine?
+Hello.
 
-No!
+On 03/02/2016 06:26 PM, Wolfram Sang wrote:
 
-irq can generate.  Compared irq enable is not controlled by EIMR, but TCSR.
+> From: Wolfram Sang <wsa+renesas@sang-engineering.com>
+>
+> When allocating an skb fails, rxdesc is still NULL (or the previous ring
+> index on further iterations of the loop). However, this pointer is
+> dereferenced after the loop.
 
-Original code is correct.
+    This is intended. What we seem to actually need is a NULL check before 
+that dereference.
 
-best regards
-Frank Li
+> So, make sure rxdesc is updated immediately
+> at the beginning of the loop.
+
+    No, this seems wrong. We don't want an unfilled descriptor to be marked as 
+last, we still need the previous one marked as last. Actually, 'rxdesc' 
+shouldn't be "advanced" even before the second *break* as it is now.
+
+> Reported-by: coverity (CID 1056464)
+> Signed-off-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+
+    Will you respin or should I?
+
+MBR, Sergei
