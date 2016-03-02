@@ -1,65 +1,46 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211 2016-03-02
-Date: Wed,  2 Mar 2016 14:48:02 +0100
-Message-ID: <1456926483-9420-1-git-send-email-johannes@sipsolutions.net>
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:45116 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750999AbcCBNsQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2016 08:48:16 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] batman-adv: clarify CFG80211 dependency
+Date: Wed,  2 Mar 2016 14:54:35 +0100
+Message-ID: <1456926882-2941809-1-git-send-email-arnd@arndb.de>
+Cc: linux-arm-kernel@lists.infradead.org,
+	Arnd Bergmann <arnd@arndb.de>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Antonio Quartulli <a@unstable.cc>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+The driver calls cfg80211_get_station, which may be part of a
+module, so we must not enable BATMAN_ADV_BATMAN_V if
+BATMAN_ADV=y and CFG80211=m:
 
-Here are a few more fixes for the current cycle; the MAINTAINERS patch
-isn't really a fix for the tree, but helps the kbuild robot and clearly
-can't be causing any regressions :)
+net/built-in.o: In function `batadv_v_elp_get_throughput':
+(text+0x5c62c): undefined reference to `cfg80211_get_station'
 
-Let me know if there's any problem.
+This clarifies the dependency to cover all combinations.
 
-Thanks,
-johannes
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: c833484e5f38 ("batman-adv: ELP - compute the metric based on the estimated throughput")
+---
+ net/batman-adv/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
-
-The following changes since commit b86071528f3261ab592fad5b9b1a02aea3dcabf3:
-
-  cfg80211: stop critical protocol session upon disconnect event (2016-02-23 10:41:24 +0100)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-03-02
-
-for you to fetch changes up to 2af8c4dc2e9c7038aefe9a822aa1df62e2b106b7:
-
-  mac80211_hwsim: treat as part of mac80211 for MAINTAINERS (2016-03-02 14:16:48 +0100)
-
-----------------------------------------------------------------
-Here are a few more fixes for the current cycle:
- * check GCMP encryption vs. fragmentation properly; we'd found
-   this problem quite a while ago but waited for the 802.11 spec
-   to be updated
- * fix RTS/CTS logic in minstrel_ht
- * fix RX of certain public action frames in AP mode
- * add mac80211_hwsim to MAC80211 in MAINTAINERS, this helps
-   the kbuild robot pick up the right tree for it
-
-----------------------------------------------------------------
-Felix Fietkau (1):
-      mac80211: minstrel_ht: fix a logic error in RTS/CTS handling
-
-Johannes Berg (2):
-      mac80211: check PN correctly for GCMP-encrypted fragmented MPDUs
-      mac80211_hwsim: treat as part of mac80211 for MAINTAINERS
-
-Jouni Malinen (1):
-      mac80211: Fix Public Action frame RX in AP mode
-
- MAINTAINERS                        |  1 +
- net/mac80211/ieee80211_i.h         |  2 +-
- net/mac80211/rc80211_minstrel_ht.c |  2 +-
- net/mac80211/rx.c                  | 37 ++++++++++++++++++++++++++++---------
- 4 files changed, 31 insertions(+), 11 deletions(-)
+diff --git a/net/batman-adv/Kconfig b/net/batman-adv/Kconfig
+index e651dc927bfd..f66930ee3c0b 100644
+--- a/net/batman-adv/Kconfig
++++ b/net/batman-adv/Kconfig
+@@ -17,7 +17,7 @@ config BATMAN_ADV
+ 
+ config BATMAN_ADV_BATMAN_V
+ 	bool "B.A.T.M.A.N. V protocol (experimental)"
+-	depends on BATMAN_ADV && CFG80211
++	depends on BATMAN_ADV && CFG80211=y || (CFG80211=m && BATMAN_ADV=m)
+ 	default n
+ 	help
+ 	  This option enables the B.A.T.M.A.N. V protocol, the successor
+-- 
+2.7.0
