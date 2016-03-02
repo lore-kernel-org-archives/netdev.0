@@ -1,52 +1,56 @@
-From: John Holland <jotihojr@gmail.com>
-Subject: Re: [Intel-wired-lan] [next] igb: allow setting MAC address on i211 using a device tree blob V5
-Date: Wed, 2 Mar 2016 04:48:28 +0100
-Message-ID: <63942260-AF46-475D-9963-8A7A10484906@gmail.com>
-References: <56C5A6BC.6030708@gmail.com> <309B89C4C689E141A5FF6A0C5FB2118B81EA731A@ORSMSX101.amr.corp.intel.com> <DC20A3D2-95E2-420B-911D-C6AC02338227@gmail.com> <1456876509.3039.10.camel@intel.com>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain;
-	charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Brown, Aaron F" <aaron.f.brown@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Kyeong Yoo <Kyeong.Yoo@alliedtelesis.co.nz>
+Subject: net_sched: dsmark: use qdisc_dequeue_peeked()
+Date: Wed, 2 Mar 2016 04:10:05 +0000
+Message-ID: <1456891804.3297.51.camel@kyeongy-dl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:35736 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751678AbcCBDsb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 22:48:31 -0500
-Received: by mail-wm0-f53.google.com with SMTP id l68so66075866wml.0
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 19:48:30 -0800 (PST)
-In-Reply-To: <1456876509.3039.10.camel@intel.com>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:43026 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751127AbcCBEKN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2016 23:10:13 -0500
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(Client did not present a certificate)
+	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id B1838806A7
+	for <netdev@vger.kernel.org>; Wed,  2 Mar 2016 17:10:06 +1300 (NZDT)
+Content-Language: en-US
+Content-ID: <380C24876A76FF46B06833CFA74F1EA5@atlnz.lc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-> On 02.03.2016, at 00:55, Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-> 
->> On Tue, 2016-03-01 at 07:56 +0100, John Holland wrote:
->> On Mar 1, 2016, at 03:52, Brown, Aaron F <aaron.f.brown@intel.com>
->> wrote:
->> 
->>> This throws a few checkpatch warnings, but I won't withhold my
->> tested by for these:
->>>  
->>> total: 0 errors, 2 warnings, 0 checks, 21 lines checked
->>>  
->>> Your patch has style problems, please review.
->>>  
->>> NOTE: If any of the errors are false positives, please report
->>>       them to the maintainer, see CHECKPATCH in MAINTAINERS.
->>> u1463:[0]/usr/src/kernels/next-queue>
->> 
->> Thanks for testing...
->> 
->> Do you require me to reformat the patch text? And won't that break
->> the link?
-> 
-> No, that checkpatch.pl warning on the link you provided is fine,
-> although I will clean up your signed-off-by when I go to push it
-> upstream. :-)
-
-Thank you very much!
+VGhpcyBmaXggaXMgZm9yIGRzbWFyayBzaW1pbGFyIHRvIDM1NTc2MTlmMGY2Zjc0OTZlZDQ1M2Q0
+ODI1ZTI0OTU4YWIxODg0ZTAsDQphbmQgbWFrZXMgdXNlIG9mIHFkaXNjX2RlcXVldWVfcGVla2Vk
+KCkgaW5zdGVhZCBvZiBkaXJlY3QgZGVxdWV1ZSgpIGNhbGwuDQoNCkZpcnN0IHRpbWUsIHdyciBw
+ZWVrcyBkc21hcmssIHdoaWNoIHdpbGwgdGhlbiBwZWVrIGludG8gc2ZxLg0Kc2ZxIGRlcXVldWVz
+IGFuIHNrYiBhbmQgaXQncyBzdG9yZWQgaW4gc2NoLT5nc29fc2tiLg0KTmV4dCB0aW1lLCB3cnIg
+dHJpZXMgdG8gZGVxdWV1ZSBmcm9tIGRzbWFyaywgd2hpY2ggd2lsbCBjYWxsIHNmcSBkZXF1ZXVl
+DQpkaXJlY3RseS4gVGhpcyByZXN1bHRzIHNraXBwaW5nIHRoZSBwcmV2aW91c2x5IHBlZWtlZCBz
+a2IuDQoNClNvIGNoYW5nZWQgZHNtYXJrIGRlcXVldWUgdG8gY2FsbCBxZGlzY19kZXF1ZXVlX3Bl
+ZWtlZCgpIGluc3RlYWQgdG8gdXNlDQpwZWVrZWQgc2tiIGlmIGV4aXN0cy4NCg0KQWxzbyByZXBs
+YWNlZCBkc21hcmsgcGVlayB0byB1c2UgcWRpc2NfcGVla19kZXF1ZXVlZCgpIHdoaWNoIHdvcmtz
+IGNvcnJlY3RseQ0KaWYgcHJldmlvdXNseSBwZWVrZWQgc2tiIHN0aWxsIGV4aXN0cy4NCg0KU2ln
+bmVkLW9mZi1ieTogS3llb25nIFlvbyA8a3llb25nLnlvb0BhbGxpZWR0ZWxlc2lzLmNvLm56Pg0K
+DQpkaWZmIC0tZ2l0IGEvbmV0L3NjaGVkL3NjaF9kc21hcmsuYyBiL25ldC9zY2hlZC9zY2hfZHNt
+YXJrLmMNCmluZGV4IGYzNTdmMzQuLjhmYTNhNGYgMTAwNjQ0DQotLS0gYS9uZXQvc2NoZWQvc2No
+X2RzbWFyay5jDQorKysgYi9uZXQvc2NoZWQvc2NoX2RzbWFyay5jDQpAQCAtMjgxLDcgKzI4MSw3
+IEBAIHN0YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqZHNtYXJrX2RlcXVldWUoc3RydWN0IFFkaXNjICpz
+Y2gpDQogDQogCXByX2RlYnVnKCIlcyhzY2ggJXAsW3FkaXNjICVwXSlcbiIsIF9fZnVuY19fLCBz
+Y2gsIHApOw0KIA0KLQlza2IgPSBwLT5xLT5vcHMtPmRlcXVldWUocC0+cSk7DQorCXNrYiA9IHFk
+aXNjX2RlcXVldWVfcGVla2VkKHAtPnEpOw0KIAlpZiAoc2tiID09IE5VTEwpDQogCQlyZXR1cm4g
+TlVMTDsNCiANCkBAIC0zMTUsMTUgKzMxNSw2IEBAIHN0YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqZHNt
+YXJrX2RlcXVldWUoc3RydWN0IFFkaXNjICpzY2gpDQogCXJldHVybiBza2I7DQogfQ0KIA0KLXN0
+YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqZHNtYXJrX3BlZWsoc3RydWN0IFFkaXNjICpzY2gpDQotew0K
+LQlzdHJ1Y3QgZHNtYXJrX3FkaXNjX2RhdGEgKnAgPSBxZGlzY19wcml2KHNjaCk7DQotDQotCXBy
+X2RlYnVnKCIlcyhzY2ggJXAsW3FkaXNjICVwXSlcbiIsIF9fZnVuY19fLCBzY2gsIHApOw0KLQ0K
+LQlyZXR1cm4gcC0+cS0+b3BzLT5wZWVrKHAtPnEpOw0KLX0NCi0NCiBzdGF0aWMgdW5zaWduZWQg
+aW50IGRzbWFya19kcm9wKHN0cnVjdCBRZGlzYyAqc2NoKQ0KIHsNCiAJc3RydWN0IGRzbWFya19x
+ZGlzY19kYXRhICpwID0gcWRpc2NfcHJpdihzY2gpOw0KQEAgLTQ5MSw3ICs0ODIsNyBAQCBzdGF0
+aWMgc3RydWN0IFFkaXNjX29wcyBkc21hcmtfcWRpc2Nfb3BzIF9fcmVhZF9tb3N0bHkgPSB7DQog
+CS5wcml2X3NpemUJPQlzaXplb2Yoc3RydWN0IGRzbWFya19xZGlzY19kYXRhKSwNCiAJLmVucXVl
+dWUJPQlkc21hcmtfZW5xdWV1ZSwNCiAJLmRlcXVldWUJPQlkc21hcmtfZGVxdWV1ZSwNCi0JLnBl
+ZWsJCT0JZHNtYXJrX3BlZWssDQorCS5wZWVrCQk9CXFkaXNjX3BlZWtfZGVxdWV1ZWQsDQogCS5k
+cm9wCQk9CWRzbWFya19kcm9wLA0KIAkuaW5pdAkJPQlkc21hcmtfaW5pdCwNCiAJLnJlc2V0CQk9
+CWRzbWFya19yZXNldCwNCg0K
