@@ -1,91 +1,165 @@
-From: Wolfram Sang <wsa@the-dreams.de>
-Subject: Re: [PATCH 2/2] net: ethernet: renesas: sh_eth: don't open code
- of_device_get_match_data()
-Date: Wed, 2 Mar 2016 07:46:24 +0100
-Message-ID: <20160302064623.GA1403@katana>
-References: <1456850284-8336-1-git-send-email-wsa@the-dreams.de>
- <1456850284-8336-2-git-send-email-wsa@the-dreams.de>
- <20160302012134.GB32543@verge.net.au>
+From: Michal Kazior <michal.kazior@tieto.com>
+Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
+Date: Wed, 2 Mar 2016 08:38:27 +0100
+Message-ID: <CA+BoTQkritHYYWA53zb_AcGT4sc92fytQo3CGP6GQouWRift1w@mail.gmail.com>
+References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
+	<1456840971.3926.29.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="MGYHOYXEY6WxJCY8"
-Cc: linux-renesas-soc@vger.kernel.org,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160302012134.GB32543@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Felix Fietkau <nbd@openwrt.org>,
+	Tim Shepard <shep@alum.mit.edu>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:37632 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751167AbcCBHi3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 02:38:29 -0500
+Received: by mail-wm0-f43.google.com with SMTP id p65so65274152wmp.0
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 23:38:28 -0800 (PST)
+In-Reply-To: <1456840971.3926.29.camel@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On 1 March 2016 at 15:02, Johannes Berg <johannes@sipsolutions.net> wro=
+te:
+> On Fri, 2016-02-26 at 14:09 +0100, Michal Kazior wrote:
+>>
+>> +typedef u64 codel_time_t;
+>
+> Do we really need this? And if yes, does it have to be in the public
+> header file? Why a typedef anyway?
+
+Hmm.. I don't think it's strictly necessary. I just wanted to keep as
+much from the original codel implementation as possible. I'm fine with
+using just u64.
 
 
---MGYHOYXEY6WxJCY8
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+>> - * @txq_ac_max_pending: maximum number of frames per AC pending in
+>> all txq
+>> - *   entries for a vif.
+>> + * @txq_cparams: codel parameters to control tx queueing dropping
+>> behavior
+>> + * @txq_limit: maximum number of frames queuesd
+>
+> typo - queued
+>
+>> @@ -2133,7 +2155,8 @@ struct ieee80211_hw {
+>>       u8 uapsd_max_sp_len;
+>>       u8 n_cipher_schemes;
+>>       const struct ieee80211_cipher_scheme *cipher_schemes;
+>> -     int txq_ac_max_pending;
+>> +     struct codel_params txq_cparams;
+>
+> Should this really be a parameter the driver determines?
 
-On Wed, Mar 02, 2016 at 10:21:34AM +0900, Simon Horman wrote:
-> On Tue, Mar 01, 2016 at 05:37:59PM +0100, Wolfram Sang wrote:
-> > From: Wolfram Sang <wsa+renesas@sang-engineering.com>
-> >=20
-> > This change will also make Coverity happy by avoiding a theoretical NULL
-> > pointer dereference; yet another reason is to use the above helper func=
-tion
-> > to tighten the code and make it more readable.
-> >=20
-> > Signed-off-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
-> > ---
-> >=20
-> > Tested on a Lager board.
-> >=20
-> >  drivers/net/ethernet/renesas/sh_eth.c | 10 +++-------
-> >  1 file changed, 3 insertions(+), 7 deletions(-)
-> >=20
-> > diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethern=
-et/renesas/sh_eth.c
-> > index 0a150b2289146f..8b6c07fe3d407d 100644
-> > --- a/drivers/net/ethernet/renesas/sh_eth.c
-> > +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> > @@ -3056,15 +3056,11 @@ static int sh_eth_drv_probe(struct platform_dev=
-ice *pdev)
-> >  	mdp->ether_link_active_low =3D pd->ether_link_active_low;
-> > =20
-> >  	/* set cpu data */
-> > -	if (id) {
-> > +	if (id)
-> >  		mdp->cd =3D (struct sh_eth_cpu_data *)id->driver_data;
-> > -	} else	{
-> > -		const struct of_device_id *match;
-> > +	else
-> > +		mdp->cd =3D (struct sh_eth_cpu_data *)of_device_get_match_data(&pdev=
-->dev);
->=20
-> Is the cast needed here? of_device_get_match_data returns void *
+I would think so, or at least it should be able to influence it in
+*some* way. You can have varying degree of induced latency depending
+on fw/hw tx queue depth, air conditions and possible tx rates implying
+different/varying RTT. Cake[1] even has a few RTT presets like: lan,
+internet, satellite.
 
-The compiler complains about a const mismatch without the cast. To keep
-things simple, I decided to leave the cast.
+I don't really have a plan how exactly a driver could make use of it
+for benefit though. It might end up not being necessary after all if
+generic tx scheduling materializes in mac80211.
 
 
---MGYHOYXEY6WxJCY8
-Content-Type: application/pgp-signature; name="signature.asc"
+[1]: http://www.bufferbloat.net/projects/codel/wiki/Cake
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
 
-iQIcBAEBAgAGBQJW1ow/AAoJEBQN5MwUoCm2UAIP/jPj5QFZXpFg1l9wp0euRX86
-UjP05L6CPTvm69vh33Dz2THa174kVsq2L1AmfDfIgHs1gLIInUH8iRLCh2M2OS6g
-V6aorFjsAHX6Eed8x4wuORnyzLdbEWtnzPFLhbos4CgwKDfPtjGpVR/kwvDPZWkB
-sCI9f8AVf5Y6TkxjPD0od/vV6FzbiIi/js3yl1sn/qK8mezj6SFxPiAuZcr9gfd8
-w8yurTt0zAycOg8pt+gknf7O9vN+t7aQ2jxeVbM6BtSDadtDEpMtYS+GufHag+Ue
-aVUTo/cqVVzQ0ijsf2DbDARjfzoFioU9Vk3HE/NJg2cAl3FqRKKHeS2RwGWj43MX
-hn6YkqPFEFAuoRcmq3Eoz0BZlKMxJNsADAlWVTzJc3kTbn4W2c52ewpCwx8O9ev8
-Sr/JsWDZD4IrtkjYJiW/PGu/0NihEKhuEgEwWiLhPhdkXDFLjXlv/EVIz8C6YERZ
-CtztZfZyF4DluZ9Lf+TJtQ1C8fTzFd59I6viW/KYASlPtajoZKYkg6xAiqxwSSUn
-21D+Z3xUpP/4J7EPjyv76RsOedR3jW2jaI/KOymACn/WHED7F6u5SV6nt4Y04I2F
-I5i1CFIwR+NHULbsB+h0WQDjpShGW6vaetE147EXEnfMsYphYWONkRgoW694uO2c
-tpckHCmxYq356Uk5xvm8
-=ynAQ
------END PGP SIGNATURE-----
+>> +static void ieee80211_if_setup_no_queue(struct net_device *dev)
+>> +{
+>> +     ieee80211_if_setup(dev);
+>> +     dev->priv_flags |=3D IFF_NO_QUEUE;
+>> +     /* Note for backporters: use dev->tx_queue_len =3D 0 instead
+>> of IFF_ */
+>
+> Heh. Remove that comment; we have an spatch in backports already :)
 
---MGYHOYXEY6WxJCY8--
+I've put it in the RFC specifically in case anyone wants to port this
+bypassing backports, e.g. to openwrt's quilt (so when compilation
+fails, you can quickly fix it up). I'll remove it before proper
+submission obviously :)
+
+
+>> --- a/net/mac80211/sta_info.h
+>> +++ b/net/mac80211/sta_info.h
+>> @@ -19,6 +19,7 @@
+>>  #include <linux/etherdevice.h>
+>>  #include <linux/rhashtable.h>
+>>  #include "key.h"
+>> +#include "codel_i.h"
+>>
+>>  /**
+>>   * enum ieee80211_sta_info_flags - Stations flags
+>> @@ -327,6 +328,32 @@ struct mesh_sta {
+>>
+>>  DECLARE_EWMA(signal, 1024, 8)
+>>
+>> +struct txq_info;
+>> +
+>> +/**
+>> + * struct txq_flow - per traffic flow queue
+>> + *
+>> + * This structure is used to distinguish and queue different traffi=
+c
+>> flows
+>> + * separately for fair queueing/AQM purposes.
+>> + *
+>> + * @txqi: txq_info structure it is associated at given time
+>> + * @flowchain: can be linked to other flows for RR purposes
+>> + * @backlogchain: can be linked to other flows for backlog sorting
+>> purposes
+>> + * @queue: sk_buff queue
+>> + * @cvars: codel state vars
+>> + * @backlog: number of bytes pending in the queue
+>> + * @deficit: used for fair queueing balancing
+>> + */
+>> +struct txq_flow {
+>> +     struct txq_info *txqi;
+>> +     struct list_head flowchain;
+>> +     struct list_head backlogchain;
+>> +     struct sk_buff_head queue;
+>> +     struct codel_vars cvars;
+>> +     u32 backlog;
+>> +     u32 deficit;
+>> +};
+>> +
+>>  /**
+>>   * struct sta_info - STA information
+>>   *
+>> diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+>> index af584f7cdd63..f42f898cb8b5 100644
+>> --- a/net/mac80211/tx.c
+>> +++ b/net/mac80211/tx.c
+>> @@ -34,6 +34,7 @@
+>>  #include "wpa.h"
+>>  #include "wme.h"
+>>  #include "rate.h"
+>> +#include "codel.h"
+>
+>> +static inline codel_time_t
+>> +custom_codel_get_enqueue_time(struct sk_buff *skb)
+>
+> There are a lot of inlines here - first of all, do they all need to b=
+e
+> inline?
+
+I just followed the style of code found in codel implementation. I
+figured there's a reason why is uses `inline` although I didn't do any
+measurements myself.
+
+
+> And secondly, perhaps it would make some sense to move this into
+> another file?
+
+I did consider it briefly but decided it'll be beneficial for the
+compiler to have tx hotpath in a single file.
+
+
+Micha=C5=82
