@@ -1,109 +1,74 @@
-From: Fugang Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH net-next V2 02/16] net: fec: pass rxq to fec_enet_rx_queue
- instead of queue_id
-Date: Wed, 2 Mar 2016 15:01:34 +0000
-Message-ID: <VI1PR0401MB18551D7754A6D2EC350E1D9BFFBC0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
- <1456360619-24390-3-git-send-email-troy.kisky@boundarydevices.com>
+From: Zhi Li <lznuaa@gmail.com>
+Subject: Re: [PATCH] MAINTAINERS: add maintainer entry for FREESCALE FEC
+ ethernet driver
+Date: Wed, 2 Mar 2016 09:06:07 -0600
+Message-ID: <CAHrpEqQMBk+_FshAqWRgq6Yn5cbRNQiTzk=ykYDP-kEkgnTaMA@mail.gmail.com>
+References: <1456910693-25787-1-git-send-email-b38611@freescale.com>
+	<VI1PR0401MB18552E858B53A8C92A73F733FFBC0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"laci@boundarydevices.com" <laci@boundarydevices.com>,
-	"shawnguo@kernel.org" <shawnguo@kernel.org>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"arnd@arndb.de" <arnd@arndb.de>
-To: Troy Kisky <troy.kisky@boundarydevices.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: "b38611@freescale.com" <b38611@freescale.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
-	"b38611@freescale.com" <b38611@freescale.com>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Fugang Duan <fugang.duan@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0060.outbound.protection.outlook.com ([157.55.234.60]:5839
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752567AbcCBPBk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 10:01:40 -0500
-In-Reply-To: <1456360619-24390-3-git-send-email-troy.kisky@boundarydevices.com>
-Content-Language: en-US
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:36144 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750745AbcCBPGI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 10:06:08 -0500
+Received: by mail-oi0-f51.google.com with SMTP id r187so32915091oih.3
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 07:06:08 -0800 (PST)
+In-Reply-To: <VI1PR0401MB18552E858B53A8C92A73F733FFBC0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Thursday, February 25, 2016 8:37 AM
-> To: netdev@vger.kernel.org; davem@davemloft.net; b38611@freescale.com
-> Cc: fabio.estevam@freescale.com; l.stach@pengutronix.de; andrew@lunn.ch;
-> tremyfr@gmail.com; linux@arm.linux.org.uk; linux-arm-
-> kernel@lists.infradead.org; laci@boundarydevices.com; shawnguo@kernel.org;
-> johannes@sipsolutions.net; stillcompiling@gmail.com;
-> sergei.shtylyov@cogentembedded.com; arnd@arndb.de; Troy Kisky
-> <troy.kisky@boundarydevices.com>
-> Subject: [PATCH net-next V2 02/16] net: fec: pass rxq to fec_enet_rx_queue
-> instead of queue_id
-> 
-> The queue_id is the qid member of struct bufdesc_prop.
-> 
-> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 13 +++++--------
->  1 file changed, 5 insertions(+), 8 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index dbac975..9619b9e 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1328,11 +1328,9 @@ static bool fec_enet_copybreak(struct net_device
-> *ndev, struct sk_buff **skb,
->   * not been given to the system, we just set the empty indicator,
->   * effectively tossing the packet.
->   */
-> -static int
-> -fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
-> +static int fec_rxq(struct net_device *ndev, struct fec_enet_private *fep,
-> +		   struct fec_enet_priv_rx_q *rxq, int budget)
->  {
-> -	struct fec_enet_private *fep = netdev_priv(ndev);
-> -	struct fec_enet_priv_rx_q *rxq;
->  	struct bufdesc *bdp;
->  	unsigned short status;
->  	struct  sk_buff *skb_new = NULL;
-> @@ -1350,8 +1348,6 @@ fec_enet_rx_queue(struct net_device *ndev, int
-> budget, u16 queue_id)  #ifdef CONFIG_M532x
->  	flush_cache_all();
->  #endif
-> -	queue_id = FEC_ENET_GET_QUQUE(queue_id);
-> -	rxq = fep->rx_queue[queue_id];
-> 
->  	/* First, grab all of the stats for the incoming packet.
->  	 * These get messed up if we get called due to a busy condition.
-> @@ -1519,11 +1515,12 @@ fec_enet_rx(struct net_device *ndev, int budget)
->  	int     pkt_received = 0;
->  	u16	queue_id;
->  	struct fec_enet_private *fep = netdev_priv(ndev);
-> +	struct fec_enet_priv_rx_q *rxq;
-> 
->  	for_each_set_bit(queue_id, &fep->work_rx, FEC_ENET_MAX_RX_QS)
-> {
->  		clear_bit(queue_id, &fep->work_rx);
-> -		pkt_received += fec_enet_rx_queue(ndev,
-> -					budget - pkt_received, queue_id);
-> +		rxq = fep->rx_queue[FEC_ENET_GET_QUQUE(queue_id)];
-> +		pkt_received += fec_rxq(ndev, fep, rxq, budget -
-> pkt_received);
->  	}
->  	return pkt_received;
->  }
-> --
-> 2.5.0
+On Wed, Mar 2, 2016 at 3:38 AM, Fugang Duan <fugang.duan@nxp.com> wrote:
+> From: Fugang Duan <b38611@freescale.com> Sent: Wednesday, March 02, 2016 5:25 PM
+>> To: davem@davemloft.net
+>> Cc: netdev@vger.kernel.org; Fugang Duan <fugang.duan@nxp.com>
+>> Subject: [PATCH] MAINTAINERS: add maintainer entry for FREESCALE FEC
+>> ethernet driver
+>>
+>> Add a maintainer entry for FREESCALE FEC ethernet driver and add myself as a
+>> maintainer.
+>>
+>> Signed-off-by: Fugang Duan <fugang.duan@nxp.com>
 
-This is one clean up patch that you introduce struct bufdesc_prop.
+Acked-by: Frank Li <Frank.Li@nxp.com>
 
-Acked-by: Fugang Duan <fugang.duan@nxp.com>
+>> ---
+>
+> Hi David,
+>
+> Recently, there have many fec Ethernet driver patches sent out review, to avoid introducing impact on fec driver stable for all i.MX platforms, I request to add myself as the driver maintainer for helping patch review.
+> Current the driver supports FEC and ENET controllers, support HW PTP for i.MX25/i.MX50/i.MX51/i.MX53/i.MX6x/i.MX7x/i.MX8x...    There have some feature extensions in later chips.
+> It is more convenient for us to test reviewing patches.
+>
+> Regards,
+> Andy
+>
+>>  MAINTAINERS | 9 +++++++++
+>>  1 file changed, 9 insertions(+)
+>>
+>> diff --git a/MAINTAINERS b/MAINTAINERS
+>> index 0499f9e..4d4b18f 100644
+>> --- a/MAINTAINERS
+>> +++ b/MAINTAINERS
+>> @@ -4552,6 +4552,15 @@ S:     Maintained
+>>  F:   drivers/net/ethernet/freescale/fs_enet/
+>>  F:   include/linux/fs_enet_pd.h
+>>
+>> +FREESCALE IMX / MXC FEC DRIVER
+>> +M:   Fugang Duan <fugang.duan@nxp.com>
+>> +L:   netdev@vger.kernel.org
+>> +S:   Maintained
+>> +F:   drivers/net/ethernet/freescale/fec_main.c
+>> +F:   drivers/net/ethernet/freescale/fec_ptp.c
+>> +F:   drivers/net/ethernet/freescale/fec.h
+>> +F:   Documentation/devicetree/bindings/net/fsl-fec.txt
+>> +
+>>  FREESCALE QUICC ENGINE LIBRARY
+>>  L:   linuxppc-dev@lists.ozlabs.org
+>>  S:   Orphan
+>> --
+>> 1.9.1
