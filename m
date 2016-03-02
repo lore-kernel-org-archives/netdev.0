@@ -1,96 +1,32 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH 2/4] net: can: ifi: Fix TX DLC configuration
-Date: Wed, 2 Mar 2016 07:12:58 +0100
-Message-ID: <56D6846A.9020808@hartkopp.net>
-References: <1456775971-4946-1-git-send-email-marex@denx.de>
- <1456775971-4946-3-git-send-email-marex@denx.de>
- <56D5DB54.6000600@hartkopp.net> <56D60938.6060903@denx.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH RFC] net: Fix race condition when removing qdisc
+Date: Tue, 1 Mar 2016 22:34:17 -0800
+Message-ID: <CAM_iQpWxkd16A_=htGxjA6OVBj_kzBZKsOF-JmsQQLbJc=r_WA@mail.gmail.com>
+References: <1456874197-3036009-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: Marek Vasut <marex@denx.de>, linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <56D60938.6060903@denx.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	brakmo@fb.com, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f172.google.com ([209.85.160.172]:34434 "EHLO
+	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750851AbcCBGeS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 01:34:18 -0500
+Received: by mail-yk0-f172.google.com with SMTP id u9so87786096ykd.1
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2016 22:34:18 -0800 (PST)
+In-Reply-To: <1456874197-3036009-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Tue, Mar 1, 2016 at 3:16 PM, Tom Herbert <tom@herbertland.com> wrote:
+> We are seeing a number of softlockups occurring with HTB upon removing
+> the qdisc. We are still attempting to repro the exact circumstances,
+> however looking at the code I'm very suspicious of this block in
+> net_tx_action and its interaction with dev_deactivate (called through
+> tc_modify_qdisc):
 
 
+Do you mind to share the stack trace of these soft lockups with us?
 
-On 03/01/2016 10:27 PM, Marek Vasut wrote:
-> On 03/01/2016 07:11 PM, Oliver Hartkopp wrote:
-> 
-> Hi!
-> 
->> On 02/29/2016 08:59 PM, Marek Vasut wrote:
->>> The TX DLC, the transmission length information, was not written
->>> into the transmit configuration register. When using the CAN core
->>> with different CAN controller, the receiving CAN controller will
->>> receive only the ID part of the CAN frame, but no data at all.
->>>
->>> This patch adds the TX DLC into the register to fix this issue.
->>>
->>> Signed-off-by: Marek Vasut <marex@denx.de>
->>> Cc: Marc Kleine-Budde <mkl@pengutronix.de>
->>> Cc: Mark Rutland <mark.rutland@arm.com>
->>> Cc: Oliver Hartkopp <socketcan@hartkopp.net>
->>> Cc: Wolfgang Grandegger <wg@grandegger.com>
->>> ---
->>>  drivers/net/can/ifi_canfd/ifi_canfd.c | 5 +++++
->>>  1 file changed, 5 insertions(+)
->>>
->>> diff --git a/drivers/net/can/ifi_canfd/ifi_canfd.c b/drivers/net/can/ifi_canfd/ifi_canfd.c
->>> index 72f5205..82a33bd 100644
->>> --- a/drivers/net/can/ifi_canfd/ifi_canfd.c
->>> +++ b/drivers/net/can/ifi_canfd/ifi_canfd.c
->>> @@ -774,10 +774,15 @@ static netdev_tx_t ifi_canfd_start_xmit(struct sk_buff *skb,
->>>  
->>>  	if (priv->can.ctrlmode & (CAN_CTRLMODE_FD | CAN_CTRLMODE_FD_NON_ISO)) {
->>>  		if (can_is_canfd_skb(skb)) {
->>> +			txdlc |= can_len2dlc(cf->len);
->>>  			txdlc |= IFI_CANFD_TXFIFO_DLC_EDL;
->>>  			if (cf->flags & CANFD_BRS)
->>>  				txdlc |= IFI_CANFD_TXFIFO_DLC_BRS;
->>> +		} else {
->>> +			txdlc |= cf->len;
->>>  		}
->>> +	} else {
->>> +		txdlc |= cf->len;
->>>  	}
->>
->> Please use
->>
->> 	txdlc |= can_len2dlc(cf->len);
->>
->> by default (it works for CAN and CAN FD).
->>
->> So that it looks more like:
->>
->> 	txdlc |= can_len2dlc(cf->len);
-> 
-> Roger.
-> 
->> 	if ((priv->can.ctrlmode & CAN_CTRLMODE_FD) && can_is_canfd_skb(skb)) {
->> 		txdlc |= IFI_CANFD_TXFIFO_DLC_EDL;
->> 		if (cf->flags & CANFD_BRS)
->> 			txdlc |= IFI_CANFD_TXFIFO_DLC_BRS;
->> 	}
->>
->> Testing against CAN_CTRLMODE_FD_NON_ISO is wrong!
->> This configuration bit is just for the protocol on the wire and is no
->> distinction for CAN / CAN FD.
-> 
-> So CAN_CTRLMODE_FD is always set if the system operates in CAN/FD mode.
-
-Not the 'system' but this specific CAN netdevice.
-
-> And in addition to that, if the system operates in CAN/FD BOSCH mode,
-> the CAN_CTRLMODE_FD_NON_ISO is set. Do I understand it correctly ?
-
-Yep! ('the CAN netdev')
-
-Regards,
-Oliver
-
+Thanks.
