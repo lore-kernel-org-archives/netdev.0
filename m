@@ -1,28 +1,57 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [iproute PATCH v2 0/4] tc: pedit fixes
-Date: Wed, 2 Mar 2016 11:05:33 -0800
-Message-ID: <20160302110533.628ecfd2@xeon-e3>
-References: <20160302095414.45a928df@xeon-e3>
-	<1456944343-19058-1-git-send-email-phil@nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Phil Sutter <phil@nwl.cc>, Jamal Hadi Salim <hadi@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:33332 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752839AbcCBTF2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 14:05:28 -0500
-In-Reply-To: <1456944343-19058-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 1/2] isdn: icn: remove a #warning
+Date: Wed,  2 Mar 2016 20:06:45 +0100
+Message-ID: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
+Cc: linux-arm-kernel@lists.infradead.org,
+	Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed,  2 Mar 2016 19:45:39 +0100
-Phil Sutter <phil@nwl.cc> wrote:
+The icn driver currently produces an unconditional #warning whenever
+we build it, introduced by Karsten Keil back in 2003:
 
-> While implementing an implementation example for a pedit man page, I
-> noticed several issues with the current code. The following patch
-> series addreses them.
+ #warning TODO test headroom or use skb->nb to flag ACK
 
-Jamal wrote pedit, does he have any comments on this?
+Karsten's original commit (from BitKeeper) contains this description:
+
+    - here are lot of bugs left, so ISDN is not stable yet but
+      I think it's really time to fix it, even if it need some cycles
+      to get it right (normally I'm only send patches if it works 100% for
+      me).
+    - I add some additional #warnings to address places which need fixing
+      (I hope that some of the other ISDN developer jump in)
+
+Apparently this has not happened, and it is unlikely that it ever will,
+given that the driver doesn't seem to work. No substantial bug fixes
+other than janitorial cleanups have happened in the driver since then,
+and I see no indication that anyone who patched it had the hardware.
+
+We should probably either remove the driver, or remove all of i4l,
+but for now, this shuts up the distracting #warning by turning it
+into a comment.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Link: http://git.meleeweb.net/linux.git/commit/?id=b0deac0886b0056765afd149e9834373b38e096b
+---
+ drivers/isdn/icn/icn.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/isdn/icn/icn.c b/drivers/isdn/icn/icn.c
+index 358a574d9e8b..46d957c34be1 100644
+--- a/drivers/isdn/icn/icn.c
++++ b/drivers/isdn/icn/icn.c
+@@ -718,7 +718,7 @@ icn_sendbuf(int channel, int ack, struct sk_buff *skb, icn_card *card)
+ 			return 0;
+ 		if (card->sndcount[channel] > ICN_MAX_SQUEUE)
+ 			return 0;
+-#warning TODO test headroom or use skb->nb to flag ACK
++		/* TODO test headroom or use skb->nb to flag ACK */
+ 		nskb = skb_clone(skb, GFP_ATOMIC);
+ 		if (nskb) {
+ 			/* Push ACK flag as one
+-- 
+2.7.0
