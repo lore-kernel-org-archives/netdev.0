@@ -1,50 +1,65 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: net/bluetooth: workqueue destruction WARNING in
- hci_unregister_dev
-Date: Wed, 2 Mar 2016 10:45:07 -0500
-Message-ID: <20160302154507.GC4282@mtj.duckdns.org>
-References: <CACT4Y+ax7zMOxe+kd4tw5Xdbvt=qPdBhXGO0j7qJwdn5tsfNNg@mail.gmail.com>
- <56C5CE85.6090808@suse.cz>
- <CACT4Y+bVXfY=wBZ+08rq16tHFw9s3YDrE_LCS=to-GF70AffRQ@mail.gmail.com>
- <20160218174427.GG13177@mtj.duckdns.org>
- <56C6EC62.8080107@suse.cz>
- <56C70618.3010902@suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Takashi Iwai <tiwai@suse.com>
-To: Jiri Slaby <jslaby@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56C70618.3010902@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 2/3] net/mlx4_core: Check the correct limitation on VFs for HA mode
+Date: Wed,  2 Mar 2016 17:47:45 +0200
+Message-ID: <1456933666-28949-3-git-send-email-ogerlitz@mellanox.com>
+References: <1456933666-28949-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Majd Dibbiny <majd@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Moni Shoua <monis@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:48317 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752178AbcCBPsS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2016 10:48:18 -0500
+In-Reply-To: <1456933666-28949-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Jiri.
+From: Moni Shoua <monis@mellanox.com>
 
-On Fri, Feb 19, 2016 at 01:10:00PM +0100, Jiri Slaby wrote:
-> > 1. didn't help, the problem persists. So I haven't applied the patch from 2.
-> 
-> FWIW I dumped more info about the wq:
-> wq->name='hci0' pwq=ffff8800390d7600 wq->dfl_pwq=ffff8800390d5200
-> pwq->refcnt=2 pwq->nr_active=0 delayed_works: <nothing>
+The limit of 63 is only for virtual functions while the actual enforcement
+was for VFs plus physical functions, fix that.
 
-Can you please print out the same info for all pwq's during shutdown?
-It looks like we're leaking pwq refcnt but I can't spot a place where
-that could happen on an empty pwq.
+Fixes: e57968a10bc1 ('net/mlx4_core: Support the HA mode for SRIOV VFs too')
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
 
-Thanks.
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 2cc3c62..f8674ae 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1256,6 +1256,7 @@ err_set_port:
+ static int mlx4_mf_bond(struct mlx4_dev *dev)
+ {
+ 	int err = 0;
++	int nvfs;
+ 	struct mlx4_slaves_pport slaves_port1;
+ 	struct mlx4_slaves_pport slaves_port2;
+ 	DECLARE_BITMAP(slaves_port_1_2, MLX4_MFUNC_MAX);
+@@ -1272,11 +1273,18 @@ static int mlx4_mf_bond(struct mlx4_dev *dev)
+ 		return -EINVAL;
+ 	}
+ 
++	/* number of virtual functions is number of total functions minus one
++	 * physical function for each port.
++	 */
++	nvfs = bitmap_weight(slaves_port1.slaves, dev->persist->num_vfs + 1) +
++		bitmap_weight(slaves_port2.slaves, dev->persist->num_vfs + 1) - 2;
++
+ 	/* limit on maximum allowed VFs */
+-	if ((bitmap_weight(slaves_port1.slaves, dev->persist->num_vfs + 1) +
+-	    bitmap_weight(slaves_port2.slaves, dev->persist->num_vfs + 1)) >
+-	    MAX_MF_BOND_ALLOWED_SLAVES)
++	if (nvfs > MAX_MF_BOND_ALLOWED_SLAVES) {
++		mlx4_warn(dev, "HA mode is not supported for %d VFs (max %d are allowed)\n",
++			  nvfs, MAX_MF_BOND_ALLOWED_SLAVES);
+ 		return -EINVAL;
++	}
+ 
+ 	if (dev->caps.steering_mode != MLX4_STEERING_MODE_DEVICE_MANAGED) {
+ 		mlx4_warn(dev, "HA mode unsupported for NON DMFS steering\n");
 -- 
-tejun
+2.3.7
