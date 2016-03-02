@@ -1,7 +1,7 @@
 From: Marek Vasut <marex@denx.de>
-Subject: [PATCH V2 2/4] net: can: ifi: Fix TX DLC configuration
-Date: Wed,  2 Mar 2016 11:42:37 +0100
-Message-ID: <1456915359-6775-3-git-send-email-marex@denx.de>
+Subject: [PATCH 3/4] net: can: ifi: Fix RX and TX ID mask
+Date: Wed,  2 Mar 2016 11:42:38 +0100
+Message-ID: <1456915359-6775-4-git-send-email-marex@denx.de>
 References: <1456915359-6775-1-git-send-email-marex@denx.de>
 Cc: netdev@vger.kernel.org, Marek Vasut <marex@denx.de>,
 	Marc Kleine-Budde <mkl@pengutronix.de>,
@@ -14,12 +14,9 @@ In-Reply-To: <1456915359-6775-1-git-send-email-marex@denx.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The TX DLC, the transmission length information, was not written
-into the transmit configuration register. When using the CAN core
-with different CAN controller, the receiving CAN controller will
-receive only the ID part of the CAN frame, but no data at all.
-
-This patch adds the TX DLC into the register to fix this issue.
+The RX and TX ID mask for CAN2.0 is 11 bits wide. This patch fixes
+the incorrect mask, which caused the CAN IDs to miss the MSBit both
+on receive and transmit.
 
 Signed-off-by: Marek Vasut <marex@denx.de>
 Cc: Marc Kleine-Budde <mkl@pengutronix.de>
@@ -27,36 +24,38 @@ Cc: Mark Rutland <mark.rutland@arm.com>
 Cc: Oliver Hartkopp <socketcan@hartkopp.net>
 Cc: Wolfgang Grandegger <wg@grandegger.com>
 ---
-V2: - Use can_len2dlc() unconditionally to sanitize DLC in the TX path
-    - The CAN_CTRLMODE_CANFD_NON_ISO can only ever be set if the
-      CANFD_CTRLMODE_CANFD is set. Use only the later for checking
-      if the core transmits in CANFD mode.
+V2: Use CAN_SFF_MASK instead of plain bitfield
+    Use CAN_EFF_MASK for the extended frame format
 ---
- drivers/net/can/ifi_canfd/ifi_canfd.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ drivers/net/can/ifi_canfd/ifi_canfd.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/can/ifi_canfd/ifi_canfd.c b/drivers/net/can/ifi_canfd/ifi_canfd.c
-index 72f5205..4bbc7d9 100644
+index 4bbc7d9..238dd02 100644
 --- a/drivers/net/can/ifi_canfd/ifi_canfd.c
 +++ b/drivers/net/can/ifi_canfd/ifi_canfd.c
-@@ -772,12 +772,11 @@ static netdev_tx_t ifi_canfd_start_xmit(struct sk_buff *skb,
- 		txid = cf->can_id & CAN_SFF_MASK;
- 	}
+@@ -135,8 +135,8 @@
  
--	if (priv->can.ctrlmode & (CAN_CTRLMODE_FD | CAN_CTRLMODE_FD_NON_ISO)) {
--		if (can_is_canfd_skb(skb)) {
--			txdlc |= IFI_CANFD_TXFIFO_DLC_EDL;
--			if (cf->flags & CANFD_BRS)
--				txdlc |= IFI_CANFD_TXFIFO_DLC_BRS;
--		}
-+	txdlc |= can_len2dlc(cf->len);
-+	if ((priv->can.ctrlmode & CAN_CTRLMODE_FD) && can_is_canfd_skb(skb)) {
-+		txdlc |= IFI_CANFD_TXFIFO_DLC_EDL;
-+		if (cf->flags & CANFD_BRS)
-+			txdlc |= IFI_CANFD_TXFIFO_DLC_BRS;
- 	}
+ #define IFI_CANFD_RXFIFO_ID			0x6c
+ #define IFI_CANFD_RXFIFO_ID_ID_OFFSET		0
+-#define IFI_CANFD_RXFIFO_ID_ID_STD_MASK		0x3ff
+-#define IFI_CANFD_RXFIFO_ID_ID_XTD_MASK		0x1fffffff
++#define IFI_CANFD_RXFIFO_ID_ID_STD_MASK		CAN_SFF_MASK
++#define IFI_CANFD_RXFIFO_ID_ID_XTD_MASK		CAN_EFF_MASK
+ #define IFI_CANFD_RXFIFO_ID_IDE			BIT(29)
  
- 	if (cf->can_id & CAN_RTR_FLAG)
+ #define IFI_CANFD_RXFIFO_DATA			0x70	/* 0x70..0xac */
+@@ -156,8 +156,8 @@
+ 
+ #define IFI_CANFD_TXFIFO_ID			0xbc
+ #define IFI_CANFD_TXFIFO_ID_ID_OFFSET		0
+-#define IFI_CANFD_TXFIFO_ID_ID_STD_MASK		0x3ff
+-#define IFI_CANFD_TXFIFO_ID_ID_XTD_MASK		0x1fffffff
++#define IFI_CANFD_TXFIFO_ID_ID_STD_MASK		CAN_SFF_MASK
++#define IFI_CANFD_TXFIFO_ID_ID_XTD_MASK		CAN_EFF_MASK
+ #define IFI_CANFD_TXFIFO_ID_IDE			BIT(29)
+ 
+ #define IFI_CANFD_TXFIFO_DATA			0xc0	/* 0xb0..0xfc */
 -- 
 2.7.0
 
