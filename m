@@ -1,36 +1,79 @@
-From: "Mr. Albert Silva Neto" <test6@businesspress.cn.tn>
-Subject: (Re: MUTUAL BENEFIT!!!)
-Date: Wed, 2 Mar 2016 12:11:37 +0200
-Message-ID: <AMSPR05MB453E314BFFA1693D7F73676ACBC0__1869.27320105514$1456913325$gmane$org@AMSPR05MB453.eurprd05.prod.outlook.com>
-Reply-To: <albsilne74792749@gmail.com>
+From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+Subject: RE: [PATCH] can: rcar_canfd: Add Renesas R-Car CAN FD driver
+Date: Wed, 2 Mar 2016 10:08:16 +0000
+Message-ID: <SG2PR06MB1038DD32D284801452BA633EC3BC0@SG2PR06MB1038.apcprd06.prod.outlook.com>
+References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+ <56D5FE8E.1090400@pengutronix.de>
+ <SG2PR06MB1038AC389CDB35916408A5D6C3BC0@SG2PR06MB1038.apcprd06.prod.outlook.com>
+ <56D6B067.306@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <test6@businesspress.cn.tn>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3hn0252.outbound.protection.outlook.com ([157.55.234.252]:21970
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750745AbcCBKH5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 05:07:57 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-renesas-soc@vger.kernel.org"
+	<linux-renesas-soc@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"geert+renesas@glider.be" <geert+renesas@glider.be>,
+	Chris Paterson <Chris.Paterson2@renesas.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"pawel.moll@arm.com" <pawel.moll@arm.com>,
+	"mark.rutland@arm.com" <mark.rutland@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	"galak@codeaurora.org" <galak@codeaurora.org>,
+	"corbet@lwn.net" <corbet@lwn.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <56D6B067.306@pengutronix.de>
+Content-Language: en-US
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From:  Integrated Crystal Investment Company
-30th Floor Millbank Tower 21-24 Millbank
-London SW1P 4QP
-
-
-Dear Sir,
-
-I got your contact from my Google research. I trust my instinct and my instinct has never failed me in the past. I am convinced that you are the person who can assist me in this pending transaction.
-
-I am Albert Silva Neto, A Fund Manager with the Integrated Crystal Investment Company. I am contacting you based on my personal interest to develop a mutual business relationship with you in your country. The amount and terms of executing the deal will be made known to you upon receiving a positive response from you. I solicit for your assistance to execute this transaction.
-
-I will give you a complete picture of this transaction as soon as I hear from you.
-
-I look forward to hearing from you soonest.
-
-Regards,
-Albert Silva Neto
+SGkgTWFyYywNCg0KPiBPbiAwMy8wMi8yMDE2IDA5OjQxIEFNLCBSYW1lc2ggU2hhbm11Z2FzdW5k
+YXJhbSB3cm90ZToNCj4gPj4gSXMgdGhlIGNoYW5uZWwgbG9vcGJhY2sgbW9kZSBjb25maWd1cmFi
+bGUgcGVyIGNoYW5uZWw/IElmIHNvLCBwbGVhc2UNCj4gPj4gcmVtb3ZlIHRoZSBtb2R1bGUgcGFy
+YW1ldGVyIGFuZCBtYWtlIHVzZSBvZiBDQU5fQ1RSTE1PREVfTE9PUEJBQ0sgdG8NCj4gPj4gY29u
+ZmlndXJlIGl0Lg0KPiA+DQo+ID4gVGhlIGxvb3BiYWNrIHNldHRpbmcgaXMgbm90IHRydWx5IGEg
+cGVyIGNoYW5uZWwgYXR0cmlidXRlLiBJdCByZXF1aXJlcw0KPiA+IHRvdWNoaW5nIFJ4IHJ1bGVz
+IHdoaWNoIGNhbiBiZSBkb25lIG9ubHkgd2hlbiB0aGUgY29udHJvbGxlcidzIGdsb2JhbA0KPiA+
+IHN0YXRlIGlzIHJlc2V0IChkdXJpbmcgcHJvYmUpLg0KPiA+IENBTl9DVFJMTU9ERV9MT09QQkFD
+SyBjb25maWcgb3B0aW9uIGlzIHBvc3NpYmxlIG9ubHkgdGhyb3VnaCAubmRvX29wZW4NCj4gPiBv
+ZiB0aGF0IGNoYW5uZWwgYnV0IHRoZSBnbG9iYWwgY29udHJvbGxlciBzdGF0ZSBuZWVkcyB0byBi
+ZQ0KPiA+IG9wZXJhdGlvbmFsIGJ5IHRoaXMgdGltZS4gQXMgaXQgaXMgYSBnbG9iYWwgYXR0cmli
+dXRlICYgZm9yIHRoZSBhYm92ZQ0KPiA+IHJlYXNvbiwgSSBjaG9vc2UgdGhlIG1vZHVsZSBvcHRp
+b24uDQo+IA0KPiBJIHNlZSwgb2sgdGhlbi4NCj4gDQo+ID4+PiBDQU4gRkQgbW9kZSBzdXBwb3J0
+cyBib3RoIENsYXNzaWNhbCBDQU4gJiBDQU4gRkQgZnJhbWUgZm9ybWF0cy4gVGhlDQo+ID4+PiBj
+b250cm9sbGVyIHN1cHBvcnRzIElTTyAxMTg5OC0xOjIwMTUgQ0FOIEZEIGZvcm1hdCBvbmx5Lg0K
+PiA+Pj4NCj4gPj4+IFRoaXMgY29udHJvbGxlciBzdXBwb3J0cyB0d28gY2hhbm5lbHMgYW5kIHRo
+ZSBkcml2ZXIgY2FuIGVuYWJsZQ0KPiA+Pj4gZWl0aGVyIG9yIGJvdGggb2YgdGhlIGNoYW5uZWxz
+Lg0KPiA+Pj4NCj4gPj4+IERyaXZlciB1c2VzIFJ4IEZJRk9zIChvbmUgcGVyIGNoYW5uZWwpIGZv
+ciByZWNlcHRpb24gJiBDb21tb24gRklGT3MNCj4gPj4+IChvbmUgcGVyIGNoYW5uZWwpIGZvciB0
+cmFuc21pc3Npb24uIFJ4IGZpbHRlciBydWxlcyBhcmUgY29uZmlndXJlZA0KPiA+Pj4gdG8gdGhl
+IG1pbmltdW0gKG9uZSBwZXIgY2hhbm5lbCkgYW5kIGl0IGFjY2VwdHMgU3RhbmRhcmQsIEV4dGVu
+ZGVkLA0KPiA+Pj4gRGF0YSAmIFJlbW90ZSBGcmFtZSBjb21iaW5hdGlvbnMuDQo+ID4+DQo+ID4+
+IEkgc2VlIG5vIGxvY2tpbmcgZm9yIHRoZSB0eC1wYXRoLg0KPiA+DQo+ID4gSSBhbSBub3Qgc3Vy
+ZSB3aHkgbG9ja2luZyBpcyBuZWVkZWQgaW4gdHgtcGF0aD8NCj4gDQo+IElmIHRoZSB0eC1wYXRo
+IGlzIHNoYXJlZCBiZXR3ZWVuIGJvdGggY2hhbm5lbHMgeW91IG5lZWQgbG9ja2luZyBhcyB0aGUN
+Cj4gbmV0d29ya2luZyBzdWJzeXN0ZW0gbWF5IHNlbmQgb25lIGZyYW1lIHRvIGVhY2ggY29udHJv
+bGxlciBhdCB0aGUgc2FtZQ0KPiB0aW1lLg0KDQpZZXMuIFR4IGNvbXBsZXRpb24gaW50ZXJydXB0
+IGlzIHNoYXJlZCBieSBib3RoIGNoYW5uZWxzIGJ1dCB0aGUgVHggRklGTywgZWNobyBza2JzLCBo
+ZWFkLCB0YWlsIGFyZSBtYWludGFpbmVkIG9uIGEgcGVyIGNoYW5uZWwgYmFzaXMuIA0KWWVzLCBu
+ZXQgc3Vic3lzdGVtIGNhbiBzZW5kIG9uZSBmcmFtZSB0byBlYWNoIGNoYW5uZWwgYXQgdGhlIHNh
+bWUgdGltZSBhbmQgdGhlIHR4IGNvbXBsZXRpb24gaW50ZXJydXB0IGhhbmRsZXIgd2lsbCB0cmF2
+ZXJzZSBlYWNoIGNoYW5uZWwgJiB1cGRhdGUgcGVyIGNoYW5uZWwgY29udGV4dCBhY2NvcmRpbmds
+eS4NCg0KPiA+IEhvd2V2ZXIsIGxvb2tpbmcgYXQgaXQgYWdhaW4sIEkgc2hvdWxkIG1vdmUgdGhl
+IGluY3JlbWVudGluZyBvZiBoZWFkDQo+ID4gYWZ0ZXIgdGhlICJzdHMiIGhhbmRpbmcgdG8gYmUg
+YXB0LiBXaGF0IGRvIHlvdSB0aGluaz8NCj4gDQo+IFdpdGggb25lIHByb2R1Y2VyIChvbmUgU1cg
+aW5zdGFuY2UpIGFuZCBvbmUgY29uc3VtZXIgKHRoZSBIVykgeW91IGNhbg0KPiB3cml0ZSBsb2Nr
+bGVzcyBjb2RlIChpZiB0aGUgSFcgYWxsb3dzIGl0KSwgYnV0IHdpdGggdHdvIHByb2R1Y2VycyBp
+dCdzIG5vdA0KPiBwb3NzaWJsZS4NCg0KRm9yIGEgY2hhbm5lbCByZXByZXNlbnRlZCBhcyBuZXRk
+ZXYsIHRoZXJlIGlzIHN0aWxsIG9uZSBwcm9kdWNlciAob25lIFNXIGluc3RhbmNlKSBpc24ndCBp
+dD8gbmV0IGFjcXVpcmVzIGxvY2sgYmVmb3JlIGNhbGxpbmcgeG1pdC4gVGhlIGNvbnN1bWVyIGlz
+IHR4IGNvbXBsZXRpb24gaW50ZXJydXB0IGhhbmRsZXIgd2hpY2ggdXBkYXRlcyBwZXIgY2hhbm5l
+bCBhdHRyaWJ1dGVzIG9ubHkuDQoNClNvcnJ5IGlmIEkgYW0gYW5ub3lpbmcuIEkgaGF2ZSB0ZXN0
+ZWQgdGhpcyB3aXRoIHR3byBjaGFubmVscyB0cmFuc21pdHRpbmcgJiByZWNlaXZpbmcgYXQgdGhl
+IHNhbWUgdGltZSBhbmQgaXQgd29ya3MgZmluZS4gSWYgSSBhbSBtaXNzaW5nIGxvY2ssIEkgd291
+bGQgbGlrZSB0byB1bmRlcnN0YW5kIGl0IHRob3JvdWdobHkgYmVmb3JlIG1ha2luZyB0aGUgY2hh
+bmdlLg0KDQpUaGFua3MgZm9yIHRoZSBoZWxwLA0KUmFtZXNoLg0K
