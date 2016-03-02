@@ -1,192 +1,56 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: Re: [PATCH/RFC v5 net-next] ravb: Add dma queue interrupt support
-Date: Thu, 3 Mar 2016 03:32:57 +0900
-Message-ID: <CAH1o70+pr_KGg43TpOf80nraZXC+DGuXE-W5Lo-xLE3CasKe_A@mail.gmail.com>
-References: <1455478769-16084-1-git-send-email-ykaneko0929@gmail.com>
-	<56CA0A68.2020709@cogentembedded.com>
-	<CAH1o70+=4s6wueSWpCcMfx+D-CMpU2p5fYVM_CoO2h2_G7bCHA@mail.gmail.com>
-	<56D4B02F.7030803@cogentembedded.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v3 2/4] Documentation: Bindings: Add STM32 DWMAC glue
+Date: Wed, 2 Mar 2016 12:33:09 -0600
+Message-ID: <20160302183309.GA2449@rob-hp-laptop>
+References: <1456483912-32090-1-git-send-email-alexandre.torgue@gmail.com>
+ <1456483912-32090-3-git-send-email-alexandre.torgue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	linux-renesas-soc@vger.kernel.org,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <56D4B02F.7030803@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org
+To: Alexandre TORGUE <alexandre.torgue@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1456483912-32090-3-git-send-email-alexandre.torgue@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2016-03-01 5:55 GMT+09:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
-> On 02/28/2016 05:13 PM, Yoshihiro Kaneko wrote:
->
->>>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>>>
->>>> This patch supports the following interrupts.
->>>>
->>>> - One interrupt for multiple (error, gPTP)
->>>> - One interrupt for emac
->>>> - Four interrupts for dma queue (best effort rx/tx, network control
->>>> rx/tx)
->>>>
->>>> This patch improve efficiency of the interrupt handler by adding the
->>>> interrupt handler corresponding to each interrupt source described
->>>> above. Additionally, it reduces the number of times of the access to
->>>> EthernetAVB IF.
->>>> Also this patch prevent this driver depends on the whim of a boot
->>>> loader.
->>>>
->>>> [ykaneko0929@gmail.com: define bit names of registers]
->>>> [ykaneko0929@gmail.com: add comment for gen3 only registers]
->>>> [ykaneko0929@gmail.com: fix coding style]
->>>> [ykaneko0929@gmail.com: update changelog]
->>>> [ykaneko0929@gmail.com: gen3: fix initialization of interrupts]
->>>> [ykaneko0929@gmail.com: gen3: fix clearing interrupts]
->>>> [ykaneko0929@gmail.com: gen3: add helper function for request_irq()]
->>>> [ykaneko0929@gmail.com: revert ravb_close() and ravb_ptp_stop()]
->>>> [ykaneko0929@gmail.com: avoid calling free_irq() to non-hooked
->>>> interrupts]
->>>> [ykaneko0929@gmail.com: make NC/BE interrupt handler a function]
->>>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
->>>
->>>
->>>
->>> [...]
->>>
->>>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
->>>> b/drivers/net/ethernet/renesas/ravb_main.c
->>>> index c936682..1bec71e 100644
->>>> --- a/drivers/net/ethernet/renesas/ravb_main.c
->>>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
->>>
->>>
->>> [...]
->>>>
->>>>
->>>> @@ -697,6 +726,39 @@ static void ravb_error_interrupt(struct net_device
->>>> *ndev)
->>>>          }
->>>>    }
->>>>
->>>> +static int ravb_nc_be_interrupt(struct net_device *ndev, int
->>>> ravb_queue,
->>>
->>>
->>>
->>>     I'd call this function e.g. ravb_queue_interrupt(). And make it
->>> return
->>> 'bool' or even 'irqreturn_t' directly. And I'd suggest a shorter name for
->>> the 'ravb_queue' parameter, like 'queue' or even 'q'...
->>
->>
->> Agreed.
->>
->>>
->>>> +                               u32 ris0, u32 *ric0, u32 tis, u32 *tic)
->>>
->>>
->>>
->>>     You don't seem to need 'ric0' and 'tic' past the call sites, so no
->>> real
->>> need to pass them by reference.
->>
->>
->> When Rx/Tx interrupt for NC and BE is issued at the same time,
->> this function is called twice (for NC, BE) from ravb_interrupt.
->> The interrupt mask of NC set in the first call will be reset in the next
->> call for BE. So it is necessary to keep the modified value of "ric0" and
->> "tic".
->
->
->    OK, but we still can simplify this by reading these registers right in
-> ravb_queue_interrupt()...
+On Fri, Feb 26, 2016 at 11:51:50AM +0100, Alexandre TORGUE wrote:
+> Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
+> 
+> diff --git a/Documentation/devicetree/bindings/net/stm32-dwmac.txt b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
+> new file mode 100644
+> index 0000000..67fceda
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
+> @@ -0,0 +1,40 @@
+> +STMicroelectronics STM32 / MCU DWMAC glue layer controller
+> +
+> +This file documents platform glue layer for stmmac.
+> +Please see stmmac.txt for the other unchanged properties.
+> +
+> +The device node has following properties.
+> +
+> +Required properties:
+> +- compatible:  Should be "st,stm32-dwmac" to select glue, and
+> +	       "snps,dwmac-3.50a" to select IP vesrion.
+> +- clocks: Should contain the GMAC main clock, and tx clock
+> +- compatible:  Should be "st,stm32-dwmac" to select glue and
+> +	       "snps,dwmac-3.50a" to select IP version.
+> +- clocks: Should contain the MAC main clock
+> +- clock-names: Should contain the clock names "stmmaceth".
+> +- st,syscon : Should be phandle/offset pair. The phandle to the syscon node which
+> +	      encompases the glue register, and the offset of the control register.
+> +
+> +Optional properties:
+> +- clocks: Could contain:
+> +	- the tx clock,
+> +	- the rx clock
+> +- clock-names: Could contain the clock names "tx-clk", "rx-clk"
 
-OK.
+Either the IP block has 3 clocks or it has 1. If you have a case where 1 
+clock feeds all 3 inputs, then list the clock 3 times.
 
->
->
-> [...]
->>>>
->>>> @@ -725,31 +787,15 @@ static irqreturn_t ravb_interrupt(int irq, void
->>>> *dev_id)
->>>>
->>>>                  /* Network control and best effort queue RX/TX */
->>>>                  for (q = RAVB_NC; q >= RAVB_BE; q--) {
->>>> -                       if (((ris0 & ric0) & BIT(q)) ||
->>>> -                           ((tis  & tic)  & BIT(q))) {
->>>> -                               if (napi_schedule_prep(&priv->napi[q]))
->>>> {
->>>> -                                       /* Mask RX and TX interrupts */
->>>> -                                       ric0 &= ~BIT(q);
->>>> -                                       tic &= ~BIT(q);
->>>> -                                       ravb_write(ndev, ric0, RIC0);
->>>> -                                       ravb_write(ndev, tic, TIC);
->>>> -                                       __napi_schedule(&priv->napi[q]);
->>>> -                               } else {
->>>> -                                       netdev_warn(ndev,
->>>> -                                                   "ignoring interrupt,
->>>> rx status 0x%08x, rx mask 0x%08x,\n",
->>>> -                                                   ris0, ric0);
->>>> -                                       netdev_warn(ndev,
->>>> -                                                   "
->>>> tx status 0x%08x, tx mask 0x%08x.\n",
->>>> -                                                   tis, tic);
->>>> -                               }
->>>> +                       if (ravb_nc_be_interrupt(ndev, q, ris0, &ric0,
->>>> tis,
->>>> +                                                &tic))
->>>>                                  result = IRQ_HANDLED;
->>>> -                       }
->>>>                  }
->>>
->>>
->>>
->>>     Unroll this *for* loop please...
->
->
->> OK.
->
->
->    It was a bad idea actually, sorry...
-
-OK, I will revert this part.
-(But I think it is not that bad...)
-
->
-> [...]
->>>>
->>>> @@ -767,6 +813,73 @@ static irqreturn_t ravb_interrupt(int irq, void
->
-> [...]
->>>>
->>>> +static irqreturn_t ravb_dmaq_interrupt(int irq, void *dev_id, int
->>>> ravb_queue)
->>>
->>>
->>>
->>>     Perhaps, ravb_rx_tx_interrupt()?
->>
->>
->> Agreed.
->
->
->    And we still have ravb_dma_interrupt() unused, right?
-
-Do you mean that there is an unused "ravb_dma_interrupt()" in this version?
-I probably be misunderstanding something.
-
->
-> [...]
->
->> Thanks,
->> kaneko
->
->
-> MBR, Sergei
->
-
-Thanks,
-kaneko
+Rob
