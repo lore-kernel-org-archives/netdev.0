@@ -1,37 +1,84 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 05/20] ipntable: Fix typo in help text
-Date: Wed,  2 Mar 2016 19:19:53 +0100
-Message-ID: <1456942808-15946-6-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v2 14/20] man: ip-rule.8: Review synopsis section
+Date: Wed,  2 Mar 2016 19:20:02 +0100
+Message-ID: <1456942808-15946-15-git-send-email-phil@nwl.cc>
 References: <20160302093800.7e7dbe71@xeon-e3>
  <1456942808-15946-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:43329 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:46345 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755845AbcCBSVL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2016 13:21:11 -0500
+	id S1754429AbcCBSVX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2016 13:21:23 -0500
 In-Reply-To: <1456942808-15946-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Clarify that 'ip rule' defaults to action 'list', that 'flush' and
+'save' actions don't accept additional parameters, add missing 'not' and
+'goto' keywords and finally fix fonts used in 'fwmark' and 'realms'
+parameters.
+
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- ip/ipntable.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ man/man8/ip-rule.8 | 19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
 
-diff --git a/ip/ipntable.c b/ip/ipntable.c
-index 6eb84e797b263..2763570ae34d7 100644
---- a/ip/ipntable.c
-+++ b/ip/ipntable.c
-@@ -52,7 +52,7 @@ static void usage(void)
+diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
+index b7008c6ab13d7..e9fbb3cf1a62d 100644
+--- a/man/man8/ip-rule.8
++++ b/man/man8/ip-rule.8
+@@ -9,20 +9,26 @@ ip-rule \- routing policy database management
+ .B ip
+ .RI "[ " OPTIONS " ]"
+ .B rule
+-.RI " { " COMMAND " | "
++.RI "{ " COMMAND " | "
+ .BR help " }"
+ .sp
  
- 		"PARMS := [ base_reachable MSEC ] [ retrans MSEC ] [ gc_stale MSEC ]\n"
- 		"         [ delay_probe MSEC ] [ queue LEN ]\n"
--		"         [ app_probs VAL ] [ ucast_probes VAL ] [ mcast_probes VAL ]\n"
-+		"         [ app_probes VAL ] [ ucast_probes VAL ] [ mcast_probes VAL ]\n"
- 		"         [ anycast_delay MSEC ] [ proxy_delay MSEC ] [ proxy_queue LEN ]\n"
- 		"         [ locktime MSEC ]\n"
- 		);
+ .ti -8
+ .B  ip rule
+-.RB " [ " list " | " add " | " del " | " flush " | " save " ]"
++.RB "[ " list " ]"
++
++.ti -8
++.B  ip rule
++.RB "{ " add " | " del " }"
+ .I  SELECTOR ACTION
+ 
+ .ti -8
+-.B  ip rule  " restore "
++.B ip rule
++.RB "{ " flush " | " save " | " restore " }"
+ 
+ .ti -8
+ .IR SELECTOR " := [ "
++.BR not " ] ["
+ .B  from
+ .IR PREFIX " ] [ "
+ .B  to
+@@ -30,7 +36,7 @@ ip-rule \- routing policy database management
+ .B  tos
+ .IR TOS " ] [ "
+ .B  fwmark
+-.IR FWMARK[/MASK] " ] [ "
++.IR FWMARK\fR[\fB/\fIMASK "] ] [ "
+ .B  iif
+ .IR STRING " ] [ "
+ .B  oif
+@@ -45,8 +51,9 @@ ip-rule \- routing policy database management
+ .B  nat
+ .IR ADDRESS " ] [ "
+ .B realms
+-.RI "[" SRCREALM "/]" DSTREALM " ]"
+-.I  SUPPRESSOR
++.RI "[" SRCREALM "\fB/\fR]" DSTREALM " ] ["
++.B goto
++.IR NUMBER " ] " SUPPRESSOR
+ 
+ .ti -8
+ .IR SUPPRESSOR " := [ "
 -- 
 2.7.2
