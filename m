@@ -1,42 +1,48 @@
-From: =?UTF-8?Q?Bendik_R=c3=b8nning_Opstad?= <bro.devel@gmail.com>
-Subject: Re: [PATCH v5 net-next 2/2] tcp: Add Redundant Data Bundling (RDB)
-Date: Wed, 2 Mar 2016 23:33:49 +0100
-Message-ID: <56D76A4D.6030502@gmail.com>
-References: <1456348375-24684-1-git-send-email-bro.devel+kernel@gmail.com>
- <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
- <1456348375-24684-3-git-send-email-bro.devel+kernel@gmail.com>
- <20160302.145204.1321971452365441235.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v5 net-next] net: Implement fast csum_partial for x86_64
+Date: Wed, 02 Mar 2016 14:35:39 -0800
+Message-ID: <1456958139.648.116.camel@edumazet-ThinkPad-T530>
+References: <1456957112-2702469-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, ycheng@google.com, eric.dumazet@gmail.com,
-	ncardwell@google.com, apetlund@simula.no, griff@simula.no,
-	paalh@simula.no, jonassm@ifi.uio.no, kristian.evensen@gmail.com,
-	kennetkl@ifi.uio.no
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	torvalds@linux-foundation.org, tglx@linutronix.de,
+	mingo@redhat.com, hpa@zytor.com, x86@kernel.org, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34272 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756005AbcCBWdw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 17:33:52 -0500
-Received: by mail-wm0-f65.google.com with SMTP id p65so1113896wmp.1
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 14:33:51 -0800 (PST)
-In-Reply-To: <20160302.145204.1321971452365441235.davem@davemloft.net>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:35396 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755037AbcCBWfm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 17:35:42 -0500
+Received: by mail-pf0-f181.google.com with SMTP id w128so2005418pfb.2
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 14:35:42 -0800 (PST)
+In-Reply-To: <1456957112-2702469-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/02/2016 08:52 PM, David Miller wrote:
-> From: "Bendik R=F8nning Opstad" <bro.devel@gmail.com>
-> Date: Wed, 24 Feb 2016 22:12:55 +0100
->=20
->> +/* tcp_rdb.c */
->> +void rdb_ack_event(struct sock *sk, u32 flags);
->=20
-> Please name globally visible symbols with a prefix of "tcp_*", thanks=
-=2E
+On mer., 2016-03-02 at 14:18 -0800, Tom Herbert wrote:
+\
+> +	asm("lea 0f(, %[slen], 4), %%r11\n\t"
+> +	    "clc\n\t"
+> +	    "jmpq *%%r11\n\t"
+> +	    "adcq 7*8(%[src]),%[res]\n\t"
+> +	    "adcq 6*8(%[src]),%[res]\n\t"
+> +	    "adcq 5*8(%[src]),%[res]\n\t"
+> +	    "adcq 4*8(%[src]),%[res]\n\t"
+> +	    "adcq 3*8(%[src]),%[res]\n\t"
+> +	    "adcq 2*8(%[src]),%[res]\n\t"
+> +	    "adcq 1*8(%[src]),%[res]\n\t"
+> +	    "adcq 0*8(%[src]),%[res]\n\t"
+> +	    "nop\n\t"
+> +	    "0: adcq $0,%[res]"
+> +		    : [res] "=r" (result)
+> +		    : [src] "r" (buff),
+> +		      [slen] "r" (-(unsigned long)(len >> 3)), "[res]" (result)
+> +		    : "r11");
+>  
 
-Yes, of course. I will fix that for the next version.
 
-Thanks.
+hpa mentioned we could use adcq.d8 0*8(%[src]),%[res]
 
-Bendik
+to avoid the mandatory 'nop'
