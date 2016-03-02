@@ -1,56 +1,39 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] net: mellanox: add DEVLINK dependencies
-Date: Wed, 2 Mar 2016 11:10:16 +0100
-Message-ID: <20160302101016.GA2122@nanopsycho.orion>
-References: <1456911665-1424389-1-git-send-email-arnd@arndb.de>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] net: moxa: fix an error code
+Date: Wed, 2 Mar 2016 13:11:10 +0300
+Message-ID: <20160302101110.GI5533@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Ido Schimmel <idosch@mellanox.com>, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Luis de Bethencourt <luis@debethencourt.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	=?iso-8859-1?Q?fran=E7ois?= romieu <romieu@fr.zoreil.com>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Jonas Jensen <jonas.jensen@gmail.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1456911665-1424389-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wed, Mar 02, 2016 at 10:40:54AM CET, arnd@arndb.de wrote:
->The new NET_DEVLINK infrastructure can be a loadable module, but the drivers
->using it might be built-in, which causes link errors like:
->
->drivers/net/built-in.o: In function `mlx4_load_one':
->:(.text+0x2fbfda): undefined reference to `devlink_port_register'
->:(.text+0x2fc084): undefined reference to `devlink_port_unregister'
->drivers/net/built-in.o: In function `mlxsw_sx_port_remove':
->:(.text+0x33a03a): undefined reference to `devlink_port_type_clear'
->:(.text+0x33a04e): undefined reference to `devlink_port_unregister'
->
->There are multiple ways to avoid this:
->
->a) add 'depends on NET_DEVLINK || !NET_DEVLINK' dependencies
->   for each user
->b) use 'select NET_DEVLINK' from each driver that uses it
->   and hide the symbol in Kconfig.
->c) make NET_DEVLINK a 'bool' option so we don't have to
->   list it as a dependency, and rely on the APIs to be
->   stubbed out when it is disabled
->d) use IS_REACHABLE() rather than IS_ENABLED() to check for
->   NET_DEVLINK in include/net/devlink.h
->
->This implements a variation of approach a) by adding an
->intermediate symbol that drivers can depend on, and changes
->the three drivers using it.
+We accidentally return IS_ERR(priv->base) which is 1 instead of
+PTR_ERR(priv->base) which is the error code.
 
-Approach a) looks like the best. Thanks for taking care of this.
+Fixes: 6c821bd9edc9 ('net: Add MOXA ART SoCs ethernet driver')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
->
->Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
+index 00cfd95..3e67f45 100644
+--- a/drivers/net/ethernet/moxa/moxart_ether.c
++++ b/drivers/net/ethernet/moxa/moxart_ether.c
+@@ -474,9 +474,9 @@ static int moxart_mac_probe(struct platform_device *pdev)
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	ndev->base_addr = res->start;
+ 	priv->base = devm_ioremap_resource(p_dev, res);
+-	ret = IS_ERR(priv->base);
+-	if (ret) {
++	if (IS_ERR(priv->base)) {
+ 		dev_err(p_dev, "devm_ioremap_resource failed\n");
++		ret = PTR_ERR(priv->base);
+ 		goto init_fail;
+ 	}
+ 
