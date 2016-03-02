@@ -1,63 +1,81 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [PATCH V2 2/4] net: can: ifi: Fix TX DLC configuration
-Date: Wed, 02 Mar 2016 21:14:13 +0100
-Message-ID: <56D74995.8010907@denx.de>
-References: <1456915359-6775-1-git-send-email-marex@denx.de> <1456915359-6775-3-git-send-email-marex@denx.de> <56D7351B.1060403@hartkopp.net>
+From: Zhi Li <lznuaa@gmail.com>
+Subject: Re: [PATCH] MAINTAINERS: add maintainer entry for FREESCALE FEC
+ ethernet driver
+Date: Wed, 2 Mar 2016 14:22:22 -0600
+Message-ID: <CAHrpEqSF-WMO6r5_Cn_HBo-idDstWw5OfaHc11D5_3yRL=jJNQ@mail.gmail.com>
+References: <1456910693-25787-1-git-send-email-b38611@freescale.com>
+	<VI1PR0401MB18552E858B53A8C92A73F733FFBC0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>, linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <56D7351B.1060403@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "b38611@freescale.com" <b38611@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Fugang Duan <fugang.duan@nxp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:35263 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754590AbcCBUWX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 15:22:23 -0500
+Received: by mail-ob0-f174.google.com with SMTP id xx9so272047obc.2
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 12:22:22 -0800 (PST)
+In-Reply-To: <VI1PR0401MB18552E858B53A8C92A73F733FFBC0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/02/2016 07:46 PM, Oliver Hartkopp wrote:
-> Hi Marek,
+On Wed, Mar 2, 2016 at 3:38 AM, Fugang Duan <fugang.duan@nxp.com> wrote:
+> From: Fugang Duan <b38611@freescale.com> Sent: Wednesday, March 02, 2016 5:25 PM
+>> To: davem@davemloft.net
+>> Cc: netdev@vger.kernel.org; Fugang Duan <fugang.duan@nxp.com>
+>> Subject: [PATCH] MAINTAINERS: add maintainer entry for FREESCALE FEC
+>> ethernet driver
+>>
+>> Add a maintainer entry for FREESCALE FEC ethernet driver and add myself as a
+>> maintainer.
+>>
+>> Signed-off-by: Fugang Duan <fugang.duan@nxp.com>
+>> ---
+>
+> Hi David,
+>
+> Recently, there have many fec Ethernet driver patches sent out review, to avoid introducing impact on fec driver stable for all i.MX platforms, I request to add myself as the driver maintainer for helping patch review.
+> Current the driver supports FEC and ENET controllers, support HW PTP for i.MX25/i.MX50/i.MX51/i.MX53/i.MX6x/i.MX7x/i.MX8x...    There have some feature extensions in later chips.
+> It is more convenient for us to test reviewing patches.
 
-Hi!
+We are glad about that many contributor is interesting this driver and
+contribute many works.
+But we also found some fec driver quality regression.
 
-> sorry for picking this patch up again.
+I hope get Andy's ACK before merge into your tree.
 
-nothing to be sorry about, thanks for the input :)
+best regards
+Frank Li
 
-> After looking around in the original source I have one more comment:
-> 
-> On 03/02/2016 11:42 AM, Marek Vasut wrote:
-> 
->> -	if (priv->can.ctrlmode & (CAN_CTRLMODE_FD | CAN_CTRLMODE_FD_NON_ISO)) {
->> -		if (can_is_canfd_skb(skb)) {
->> -			txdlc |= IFI_CANFD_TXFIFO_DLC_EDL;
->> -			if (cf->flags & CANFD_BRS)
->> -				txdlc |= IFI_CANFD_TXFIFO_DLC_BRS;
->> -		}
->> +	txdlc |= can_len2dlc(cf->len);
-> 
-> At the top of the function you defined
-> 
-> 	u32 txst, txid;
-> 	u32 txdlc = 0;
-> 
-> and here you use 'txdlc |= ...'.
-> 
-> That's weird style IMO.
-> 
-> Please change it to
-> 
-> 	u32 txst, txid, txdlc;
-> 
-> and
-> 
-> 	txdlc = can_len2dlc(cf->len);
-
-I'll send a V3 shortly.
-
-btw. I forgot to add V2 to the 3/4 and 4/4 patches, sigh.
-
-
--- 
-Best regards,
-Marek Vasut
+>
+> Regards,
+> Andy
+>
+>>  MAINTAINERS | 9 +++++++++
+>>  1 file changed, 9 insertions(+)
+>>
+>> diff --git a/MAINTAINERS b/MAINTAINERS
+>> index 0499f9e..4d4b18f 100644
+>> --- a/MAINTAINERS
+>> +++ b/MAINTAINERS
+>> @@ -4552,6 +4552,15 @@ S:     Maintained
+>>  F:   drivers/net/ethernet/freescale/fs_enet/
+>>  F:   include/linux/fs_enet_pd.h
+>>
+>> +FREESCALE IMX / MXC FEC DRIVER
+>> +M:   Fugang Duan <fugang.duan@nxp.com>
+>> +L:   netdev@vger.kernel.org
+>> +S:   Maintained
+>> +F:   drivers/net/ethernet/freescale/fec_main.c
+>> +F:   drivers/net/ethernet/freescale/fec_ptp.c
+>> +F:   drivers/net/ethernet/freescale/fec.h
+>> +F:   Documentation/devicetree/bindings/net/fsl-fec.txt
+>> +
+>>  FREESCALE QUICC ENGINE LIBRARY
+>>  L:   linuxppc-dev@lists.ozlabs.org
+>>  S:   Orphan
+>> --
+>> 1.9.1
