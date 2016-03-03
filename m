@@ -1,39 +1,42 @@
-From: Claudiu Manoil <claudiu.manoil@nxp.com>
-Subject: RE: [PATCH] gianfar: Enable eTSEC-106 erratum w/a for MPC8548E Rev2
-Date: Thu, 3 Mar 2016 09:10:16 +0000
-Message-ID: <DB4PR04MB3797401A1662F2CD2FBA81C96BD0@DB4PR04MB379.eurprd04.prod.outlook.com>
-References: <20160303.090751.336624849.nemoto@toshiba-tops.co.jp>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 2/2] mac80211: mesh: convert path table to rhashtable
+Date: Thu, 03 Mar 2016 10:37:04 +0100
+Message-ID: <1456997824.2044.5.camel@sipsolutions.net>
+References: <1456931360-2846-1-git-send-email-me@bobcopeland.com>
+	 <1456931360-2846-2-git-send-email-me@bobcopeland.com>
+	 <20160302.144359.2141637165742439224.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Atsushi Nemoto <nemoto@toshiba-tops.co.jp>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, tgraf@suug.ch,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, me@bobcopeland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0061.outbound.protection.outlook.com ([157.55.234.61]:53808
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756681AbcCCJZL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 04:25:11 -0500
-In-Reply-To: <20160303.090751.336624849.nemoto@toshiba-tops.co.jp>
-Content-Language: en-US
+Received: from s3.sipsolutions.net ([5.9.151.49]:54001 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751243AbcCCJhP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2016 04:37:15 -0500
+In-Reply-To: <20160302.144359.2141637165742439224.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Atsushi Nemoto [mailto:nemoto@toshiba-tops.co.jp]
->Sent: Thursday, March 03, 2016 2:08 AM
->To: Claudiu Manoil <claudiu.manoil@freescale.com>; netdev@vger.kernel.org
->Subject: [PATCH] gianfar: Enable eTSEC-106 erratum w/a for MPC8548E Rev2
->
->Enable workaround for MPC8548E erratum eTSEC 106,
->"Excess delays when transmitting TOE=1 large frames".
->(see commit 53fad77375ce "gianfar: Enable eTSEC-20 erratum w/a
->for P2020 Rev1")
->
->This erratum was fixed in Rev 3.1.x.
->
+On Wed, 2016-03-02 at 14:43 -0500, David Miller wrote:
+> From: Bob Copeland <me@bobcopeland.com>
+> Date: Wed,=C2=A0 2 Mar 2016 10:09:20 -0500
+>=20
+> > In the time since the mesh path table was implemented as an
+> > RCU-traversable, dynamically growing hash table, a generic RCU
+> > hashtable implementation was added to the kernel.
+> >=C2=A0
+> > Switch the mesh path table over to rhashtable to remove some code
+> > and also gain some features like automatic shrinking.
+> >=C2=A0
+> > Cc: Thomas Graf <tgraf@suug.ch>
+> > Cc: netdev@vger.kernel.org
+> > Signed-off-by: Bob Copeland <me@bobcopeland.com>
+>=20
+> Johannes, feel free to take both patches via your tree, thanks.
 
-(Confirmed with MPC8548E Chip Errata document, rev 9. Thanks.)
+Will do, thanks.
 
-Acked-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+johannes
