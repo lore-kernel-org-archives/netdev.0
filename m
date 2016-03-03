@@ -1,49 +1,46 @@
-From: "Xue, Ying" <Ying.Xue@windriver.com>
-Subject: RE: [PATCH net-next v1 1/4] tipc: add net device to skb before UDP
- xmit
-Date: Thu, 3 Mar 2016 13:27:42 +0000
-Message-ID: <25A14D9CFAB7B34FB9440F90AFD35233DD10E158@ALA-MBA.corp.ad.wrs.com>
-References: <1457011243-23605-1-git-send-email-richard.alpe@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
-Cc: "tipc-discussion@lists.sourceforge.net"
-	<tipc-discussion@lists.sourceforge.net>
-To: Richard Alpe <richard.alpe@ericsson.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:34781 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751383AbcCCN17 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 08:27:59 -0500
-In-Reply-To: <1457011243-23605-1-git-send-email-richard.alpe@ericsson.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH] asix: do not free array priv->mdio->irq
+Date: Thu,  3 Mar 2016 13:27:56 +0000
+Message-ID: <1457011676-19042-1-git-send-email-colin.king@canonical.com>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-QXMgSSBqdXN0IHNhdywgeW91IGhhZCBzdWJtaXR0ZWQgdGhlIHNlcmllcyB0byBuZXQtbmV4dC4g
-QW55d2F5LCB0aGlzIGlzIGEgdmVyeSBnb29kIGpvYiENCg0KVGhhbmtzLA0KWWluZw0KDQotLS0t
-LU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9y
-ZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFsZiBPZiBSaWNo
-YXJkIEFscGUNClNlbnQ6IDIwMTbE6jPUwjPI1SAyMToyMQ0KVG86IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmcNCkNjOiB0aXBjLWRpc2N1c3Npb25AbGlzdHMuc291cmNlZm9yZ2UubmV0OyBSaWNoYXJk
-IEFscGUNClN1YmplY3Q6IFtQQVRDSCBuZXQtbmV4dCB2MSAxLzRdIHRpcGM6IGFkZCBuZXQgZGV2
-aWNlIHRvIHNrYiBiZWZvcmUgVURQIHhtaXQNCg0KUHJpb3IgdG8gdGhpcyBwYXRjaCBlbmFibGlu
-ZyBhIElQdjQgVURQIGJlYXJlciBjYXVzZWQgYSBudWxsIHBvaW50ZXIgZGVyZWZlcmVuY2UgaW4g
-aXB0dW5uZWxfeG1pdF9zdGF0cygpLCB3aGVuIGl0IHRyaWVkIHRvIGRlcmVmZXJlbmNlIHRoZSBu
-ZXQgZGV2aWNlIGZyb20gdGhlIHNrYi4gVG8gcmVzb2x2ZSB0aGlzIHdlIG5vdyBwb2ludCB0aGUg
-c2tiIGRldmljZSB0byB0aGUgbmV0IGRldmljZSByZXNvbHZlZCBmcm9tIHRoZSByb3V0aW5nIHRh
-YmxlLg0KDQpGaXhlczogMDM5ZjUwNjI5YjdmIChpcF90dW5uZWw6IE1vdmUgc3RhdHMgdXBkYXRl
-IHRvIGlwdHVubmVsX3htaXQoKSkNClNpZ25lZC1vZmYtYnk6IFJpY2hhcmQgQWxwZSA8cmljaGFy
-ZC5hbHBlQGVyaWNzc29uLmNvbT4NCkFja2VkLWJ5OiBKb24gTWFsb3kgPGpvbi5tYWxveUBlcmlj
-c3Nvbi5jb20+DQpSZXZpZXdlZC1ieTogRXJpayBIdWduZSA8ZXJpay5odWduZUBnbWFpbC5jb20+
-DQotLS0NCiBuZXQvdGlwYy91ZHBfbWVkaWEuYyB8IDIgKysNCiAxIGZpbGUgY2hhbmdlZCwgMiBp
-bnNlcnRpb25zKCspDQoNCmRpZmYgLS1naXQgYS9uZXQvdGlwYy91ZHBfbWVkaWEuYyBiL25ldC90
-aXBjL3VkcF9tZWRpYS5jIGluZGV4IGQ2M2E5MTEuLmYyMmE1YmIxIDEwMDY0NA0KLS0tIGEvbmV0
-L3RpcGMvdWRwX21lZGlhLmMNCisrKyBiL25ldC90aXBjL3VkcF9tZWRpYS5jDQpAQCAtMTgxLDYg
-KzE4MSw4IEBAIHN0YXRpYyBpbnQgdGlwY191ZHBfc2VuZF9tc2coc3RydWN0IG5ldCAqbmV0LCBz
-dHJ1Y3Qgc2tfYnVmZiAqc2tiLA0KIAkJCWVyciA9IFBUUl9FUlIocnQpOw0KIAkJCWdvdG8gdHhf
-ZXJyb3I7DQogCQl9DQorDQorCQlza2ItPmRldiA9IHJ0LT5kc3QuZGV2Ow0KIAkJdHRsID0gaXA0
-X2RzdF9ob3BsaW1pdCgmcnQtPmRzdCk7DQogCQl1ZHBfdHVubmVsX3htaXRfc2tiKHJ0LCB1Yi0+
-dWJzb2NrLT5zaywgc2tiLCBzcmMtPmlwdjQuc19hZGRyLA0KIAkJCQkgICAgZHN0LT5pcHY0LnNf
-YWRkciwgMCwgdHRsLCAwLCBzcmMtPnVkcF9wb3J0LA0KLS0NCjIuMS40DQoNCg==
+From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+
+Used to be allocated and required freeing, but now
+priv->mdio->irq is now a fixed sized array and should no longer be
+free'd.
+
+Issue detected using static analysis with CoverityScan
+
+Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
+Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+---
+ drivers/net/usb/ax88172a.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/usb/ax88172a.c b/drivers/net/usb/ax88172a.c
+index 224e7d8..cf77f2d 100644
+--- a/drivers/net/usb/ax88172a.c
++++ b/drivers/net/usb/ax88172a.c
+@@ -134,7 +134,6 @@ static void ax88172a_remove_mdio(struct usbnet *dev)
+ 
+ 	netdev_info(dev->net, "deregistering mdio bus %s\n", priv->mdio->id);
+ 	mdiobus_unregister(priv->mdio);
+-	kfree(priv->mdio->irq);
+ 	mdiobus_free(priv->mdio);
+ }
+ 
+-- 
+2.7.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
