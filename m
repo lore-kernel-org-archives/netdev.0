@@ -1,14 +1,10 @@
 From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net/ethoc: do not free array priv->mdio->irq
-Date: Thu,  3 Mar 2016 13:43:34 +0000
-Message-ID: <1457012614-19564-1-git-send-email-colin.king@canonical.com>
+Subject: [PATCH] net: eth: altera: do not free array priv->mdio->irq
+Date: Thu,  3 Mar 2016 13:47:18 +0000
+Message-ID: <1457012838-19743-1-git-send-email-colin.king@canonical.com>
 Cc: linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Tobias Klauser <tklauser@distanz.ch>,
-	Fabian Frederick <fabf@skynet.be>,
-	Max Filippov <jcmvbkbc@gmail.com>, netdev@vger.kernel.org
+To: Vince Bridgers <vbridger@opensource.altera.com>,
+	netdev@vger.kernel.org, nios2-dev@lists.rocketboards.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -23,20 +19,20 @@ Issue detected using static analysis with CoverityScan
 Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
 Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- drivers/net/ethernet/ethoc.c | 1 -
+ drivers/net/ethernet/altera/altera_tse_main.c | 1 -
  1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-index 62fa136..41b0106 100644
---- a/drivers/net/ethernet/ethoc.c
-+++ b/drivers/net/ethernet/ethoc.c
-@@ -1265,7 +1265,6 @@ static int ethoc_remove(struct platform_device *pdev)
+diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
+index 1747285..f749e4d 100644
+--- a/drivers/net/ethernet/altera/altera_tse_main.c
++++ b/drivers/net/ethernet/altera/altera_tse_main.c
+@@ -193,7 +193,6 @@ static void altera_tse_mdio_destroy(struct net_device *dev)
+ 			    priv->mdio->id);
  
- 		if (priv->mdio) {
- 			mdiobus_unregister(priv->mdio);
--			kfree(priv->mdio->irq);
- 			mdiobus_free(priv->mdio);
- 		}
- 		if (priv->clk)
+ 	mdiobus_unregister(priv->mdio);
+-	kfree(priv->mdio->irq);
+ 	mdiobus_free(priv->mdio);
+ 	priv->mdio = NULL;
+ }
 -- 
 2.7.0
