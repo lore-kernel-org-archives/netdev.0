@@ -1,55 +1,56 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] phy: remove documentation of removed member addr of
- phy_device structure
-Date: Thu, 3 Mar 2016 16:14:19 +0100
-Message-ID: <20160303151419.GK15541@lunn.ch>
-References: <1457010748-2584-1-git-send-email-clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH] net: eth: altera: do not free array priv->mdio->irq
+Date: Thu, 3 Mar 2016 16:16:31 +0100
+Message-ID: <20160303151631.GL15541@lunn.ch>
+References: <1457012838-19743-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+Cc: Vince Bridgers <vbridger@opensource.altera.com>,
+	netdev@vger.kernel.org, nios2-dev@lists.rocketboards.org,
 	linux-kernel@vger.kernel.org
-To: LABBE Corentin <clabbe.montjoie@gmail.com>
+To: Colin King <colin.king@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48784 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:48791 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752348AbcCCPOV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2016 10:14:21 -0500
+	id S1756498AbcCCPQf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2016 10:16:35 -0500
 Content-Disposition: inline
-In-Reply-To: <1457010748-2584-1-git-send-email-clabbe.montjoie@gmail.com>
+In-Reply-To: <1457012838-19743-1-git-send-email-colin.king@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 03, 2016 at 02:12:28PM +0100, LABBE Corentin wrote:
-> Commit e5a03bfd873c ("phy: Add an mdio_device structure") removed
-> the addr member of the phy_device structure.
-> This patch remove the documentation about that member.
+On Thu, Mar 03, 2016 at 01:47:18PM +0000, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
+> priv->mdio->irq used to be allocated and required freeing, but it
+> is now a fixed sized array and should no longer be free'd.
+> 
+> Issue detected using static analysis with CoverityScan
+> 
+> Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Hi Corentin
-
-The patch also removed bus and dev which are documented.  Could you
-please expand you patch to remove those as well?
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
 Thanks
 	Andrew
 
 > ---
->  include/linux/phy.h | 1 -
+>  drivers/net/ethernet/altera/altera_tse_main.c | 1 -
 >  1 file changed, 1 deletion(-)
 > 
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index d6f3641..e14569e 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -338,7 +338,6 @@ struct phy_c45_device_ids {
->   * suspended: Set to true if this phy has been suspended successfully.
->   * state: state of the PHY for management purposes
->   * dev_flags: Device-specific flags used by the PHY driver.
-> - * addr: Bus address of PHY
->   * link_timeout: The number of timer firings to wait before the
->   * giving up on the current attempt at acquiring a link
->   * irq: IRQ number of the PHY's interrupt (-1 if none)
+> diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
+> index 1747285..f749e4d 100644
+> --- a/drivers/net/ethernet/altera/altera_tse_main.c
+> +++ b/drivers/net/ethernet/altera/altera_tse_main.c
+> @@ -193,7 +193,6 @@ static void altera_tse_mdio_destroy(struct net_device *dev)
+>  			    priv->mdio->id);
+>  
+>  	mdiobus_unregister(priv->mdio);
+> -	kfree(priv->mdio->irq);
+>  	mdiobus_free(priv->mdio);
+>  	priv->mdio = NULL;
+>  }
 > -- 
-> 2.4.10
+> 2.7.0
 > 
