@@ -1,36 +1,73 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next V1 04/10] net/act_skbedit: Utility functions for
- mark action
-Date: Thu, 3 Mar 2016 10:40:43 +0100
-Message-ID: <20160303094043.GD2105@nanopsycho.orion>
-References: <1456997006-18538-1-git-send-email-amir@vadai.me>
- <1456997006-18538-5-git-send-email-amir@vadai.me>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35283 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754732AbcCCJku (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 04:40:50 -0500
-Received: by mail-wm0-f67.google.com with SMTP id 1so3108754wmg.2
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 01:40:49 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1456997006-18538-5-git-send-email-amir@vadai.me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bernhard Walle <bernhard@bwalle.de>
+Subject: [PATCH] net: fec: Rename "phy-reset-active-low" property
+Date: Thu,  3 Mar 2016 10:15:55 +0100
+Message-ID: <1456996555-7500-1-git-send-email-bernhard@bwalle.de>
+Cc: arnd@arndb.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Bernhard Walle <bernhard@bwalle.de>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Mar 03, 2016 at 10:23:20AM CET, amir@vadai.me wrote:
->Enable device drivers to query the action if is a mark action and what
->value to use for marking.
->
->Signed-off-by: Amir Vadai <amir@vadai.me>
+>From the perspective of RESET, the meaning of the new property
+is actually "active high". Thanks for Troy Kisky for pointing
+that out.
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+Since the patch is in linux-next, this patch is incremental and doesn't
+replace the original patch.
+
+Signed-off-by: Bernhard Walle <bernhard@bwalle.de>
+---
+ Documentation/devicetree/bindings/net/fsl-fec.txt | 2 +-
+ drivers/net/ethernet/freescale/fec_main.c         | 8 ++++----
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
+index a4799ff..b037a9d 100644
+--- a/Documentation/devicetree/bindings/net/fsl-fec.txt
++++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
+@@ -12,7 +12,7 @@ Optional properties:
+   only if property "phy-reset-gpios" is available.  Missing the property
+   will have the duration be 1 millisecond.  Numbers greater than 1000 are
+   invalid and 1 millisecond will be used instead.
+-- phy-reset-active-low : If present then the reset sequence using the GPIO
++- phy-reset-active-high : If present then the reset sequence using the GPIO
+   specified in the "phy-reset-gpios" property is reversed (H=reset state,
+   L=operation state).
+ - phy-supply : regulator that powers the Ethernet PHY.
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index bad0ba2..37c0815 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -3191,7 +3191,7 @@ static int fec_enet_init(struct net_device *ndev)
+ static void fec_reset_phy(struct platform_device *pdev)
+ {
+ 	int err, phy_reset;
+-	bool active_low = false;
++	bool active_high = false;
+ 	int msec = 1;
+ 	struct device_node *np = pdev->dev.of_node;
+ 
+@@ -3207,17 +3207,17 @@ static void fec_reset_phy(struct platform_device *pdev)
+ 	if (!gpio_is_valid(phy_reset))
+ 		return;
+ 
+-	active_low = of_property_read_bool(np, "phy-reset-active-low");
++	active_high = of_property_read_bool(np, "phy-reset-active-high");
+ 
+ 	err = devm_gpio_request_one(&pdev->dev, phy_reset,
+-			active_low ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
++			active_high ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+ 			"phy-reset");
+ 	if (err) {
+ 		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
+ 		return;
+ 	}
+ 	msleep(msec);
+-	gpio_set_value_cansleep(phy_reset, !active_low);
++	gpio_set_value_cansleep(phy_reset, !active_high);
+ }
+ #else /* CONFIG_OF */
+ static void fec_reset_phy(struct platform_device *pdev)
+-- 
+2.7.2
