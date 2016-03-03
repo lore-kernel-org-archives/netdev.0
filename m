@@ -1,43 +1,41 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next V2 01/10] net/flower: Introduce hardware offload
- support
-Date: Thu, 3 Mar 2016 15:57:01 +0100
-Message-ID: <20160303145701.GB4431@nanopsycho.orion>
-References: <1457016960-27832-1-git-send-email-amir@vadai.me>
- <1457016960-27832-2-git-send-email-amir@vadai.me>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH v2 06/20] iproute: TYPE keyword is not optional,
+ fix help text accordingly
+Date: Thu, 3 Mar 2016 16:05:57 +0100
+Message-ID: <20160303150557.GE18624@orbyte.nwl.cc>
+References: <20160302093800.7e7dbe71@xeon-e3>
+ <1456942808-15946-1-git-send-email-phil@nwl.cc>
+ <1456942808-15946-7-git-send-email-phil@nwl.cc>
+ <56D84883.3080902@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+Cc: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36432 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754583AbcCCO5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 09:57:04 -0500
-Received: by mail-wm0-f68.google.com with SMTP id l68so4499715wml.3
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 06:57:04 -0800 (PST)
+Received: from orbyte.nwl.cc ([151.80.46.58]:38418 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751247AbcCCPF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2016 10:05:59 -0500
 Content-Disposition: inline
-In-Reply-To: <1457016960-27832-2-git-send-email-amir@vadai.me>
+In-Reply-To: <56D84883.3080902@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Mar 03, 2016 at 03:55:51PM CET, amir@vadai.me wrote:
->This patch is based on a patch made by John Fastabend.
->It adds support for offloading cls_flower.
->when NETIF_F_HW_TC is on:
->  flags = 0       => Rule will be processed twice - by hardware, and if
->                     still relevant, by software.
->  flags = SKIP_HW => Rull will be processed by software only
->
->If hardare fail/not capabale to apply the rule, operation will fail.
->
->Suggested-by: John Fastabend <john.r.fastabend@intel.com>
->Signed-off-by: Amir Vadai <amir@vadai.me>
+On Thu, Mar 03, 2016 at 09:21:55AM -0500, Jamal Hadi Salim wrote:
+> On 16-03-02 01:19 PM, Phil Sutter wrote:
+> > +	fprintf(stderr, "          unreachable | prohibit | blackhole | nat }\n");
+> 
+> Dont think nat exists anymore...
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+But iproute2 seems to still support it? At least it's listed in
+rtnl_rtntype_a2n().
+
+The entry for RTN_NAT in net/ipv4/fib_semantics.c though looks like just
+a stub. But at least it hasn't changed since the beginning of Git.
+According to ip-route.8 it's indeed non-functional.
+
+I only concerned help text and man page consistency, and since the man
+page lists it (with a useful hint about it's state), the help text
+should contain it either. Or do you think that's misleading?
+
+Thanks, Phil
