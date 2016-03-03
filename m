@@ -1,29 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: add maintainer entry for FREESCALE FEC
- ethernet driver
-Date: Thu, 03 Mar 2016 17:16:05 -0500 (EST)
-Message-ID: <20160303.171605.1564141509455606081.davem@davemloft.net>
-References: <1456910693-25787-1-git-send-email-b38611@freescale.com>
+Subject: Re: [patch] net: moxa: fix an error code
+Date: Thu, 03 Mar 2016 17:17:39 -0500 (EST)
+Message-ID: <20160303.171739.1237357288526058790.davem@davemloft.net>
+References: <20160302101110.GI5533@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fugang.duan@nxp.com
-To: b38611@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48250 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756850AbcCCWQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 17:16:07 -0500
-In-Reply-To: <1456910693-25787-1-git-send-email-b38611@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jonas.jensen@gmail.com, luis@debethencourt.com, arnd@arndb.de,
+	romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20160302101110.GI5533@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fugang Duan <b38611@freescale.com>
-Date: Wed, 2 Mar 2016 17:24:53 +0800
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 2 Mar 2016 13:11:10 +0300
 
-> Add a maintainer entry for FREESCALE FEC ethernet driver and add myself
-> as a maintainer.
+> We accidentally return IS_ERR(priv->base) which is 1 instead of
+> PTR_ERR(priv->base) which is the error code.
 > 
-> Signed-off-by: Fugang Duan <fugang.duan@nxp.com>
+> Fixes: 6c821bd9edc9 ('net: Add MOXA ART SoCs ethernet driver')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied, thanks.
+Applied, thank you Dan.
