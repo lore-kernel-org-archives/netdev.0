@@ -1,43 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] UNIX sockets: POSIX conformance of errno's
-Date: Thu, 03 Mar 2016 12:11:23 -0500 (EST)
-Message-ID: <20160303.121123.722268631334039022.davem@davemloft.net>
-References: <1457004216-24988-1-git-send-email-ed@nuxi.nl>
+Subject: Re: [PATCH net-next V2 01/10] net/flower: Introduce hardware
+ offload support
+Date: Thu, 03 Mar 2016 12:30:33 -0500 (EST)
+Message-ID: <20160303.123033.1239966579179656570.davem@davemloft.net>
+References: <1457016960-27832-1-git-send-email-amir@vadai.me>
+	<1457016960-27832-2-git-send-email-amir@vadai.me>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ed@nuxi.nl
+Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com,
+	jiri@mellanox.com, ogerlitz@mellanox.com, saeedm@mellanox.com,
+	hadarh@mellanox.com, ronye@mellanox.com
+To: amir@vadai.me
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44386 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44671 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754270AbcCCRLZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 12:11:25 -0500
-In-Reply-To: <1457004216-24988-1-git-send-email-ed@nuxi.nl>
+	with ESMTP id S1754730AbcCCRag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 12:30:36 -0500
+In-Reply-To: <1457016960-27832-2-git-send-email-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ed Schouten <ed@nuxi.nl>
-Date: Thu,  3 Mar 2016 12:23:36 +0100
+From: Amir Vadai <amir@vadai.me>
+Date: Thu,  3 Mar 2016 16:55:51 +0200
 
-> Hi there,
-> 
-> While comparing the behavior of the Berkeley sockets API different
-> operating systems, I noticed that in some places we return different
-> errno's as what POSIX requires and how other systems work, but also what
-> we document in our own man pages.
-> 
-> This is the first time I'm sending a patch to the Linux kernel, so if
-> there's anything wrong with the way I submitted these patches, just let
-> me know.
+> @@ -454,11 +501,13 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
+>  		     u32 handle, struct nlattr **tca,
+>  		     unsigned long *arg, bool ovr)
+>  {
+> +	struct net_device *dev = tp->q->dev_queue->dev;
+>  	struct cls_fl_head *head = rtnl_dereference(tp->root);
 
-I see very little to no value, if not harm, in doing this.
+This variable is not used.
 
-We've returned errors this way for two decades, and if there is code
-out there checking the existing error codes it will break.
-
-I really dislike blind POSIX/BSD/etc. "compliance" patches like this
-because it completely ignores the decades of precedence our current
-behavior has, upon which application might depend upon.
-
-I'm not applying this series, sorry.
+And the compiler warns about this, and because of this I am pretty sure you
+aren't looking at the compiler output while testing your builds which is a
+big no-no.
