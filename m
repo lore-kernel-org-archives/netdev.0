@@ -1,8 +1,8 @@
 From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
-Subject: [RFC 10/15] net: ethernet: Add missing MFD_SYSCON dependency on
+Subject: [RFC 09/15] media: platform: Add missing MFD_SYSCON dependency on
  HAS_IOMEM
-Date: Thu, 03 Mar 2016 17:03:36 +0900
-Message-ID: <1456992221-26712-11-git-send-email-k.kozlowski__14964.8882601925$1456992638$gmane$org@samsung.com>
+Date: Thu, 03 Mar 2016 17:03:35 +0900
+Message-ID: <1456992221-26712-10-git-send-email-k.kozlowski__1752.84542278877$1456992685$gmane$org@samsung.com>
 References: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
 Cc: Krzysztof Kozlowski <k.kozlowski@samsung.com>
 To: Daniel Lezcano <daniel.lezcano@linaro.org>,
@@ -27,10 +27,10 @@ To: Daniel Lezcano <daniel.lezcano@linaro.org>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	linux-kernel@vger.kernel.org, dmaen
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.w1.samsung.com ([210.118.77.12]:57994 "EHLO
-	mailout2.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932460AbcCCIFf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 03:05:35 -0500
+Received: from mailout4.w1.samsung.com ([210.118.77.14]:36047 "EHLO
+	mailout4.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932404AbcCCIF0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 03:05:26 -0500
 In-reply-to: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -40,86 +40,33 @@ direct dependencies.
 
 Signed-off-by: Krzysztof Kozlowski <k.kozlowski@samsung.com>
 ---
- drivers/net/ethernet/hisilicon/Kconfig      | 1 +
- drivers/net/ethernet/stmicro/stmmac/Kconfig | 6 ++++++
- drivers/net/ethernet/ti/Kconfig             | 1 +
- 3 files changed, 8 insertions(+)
+ drivers/media/platform/Kconfig            | 1 +
+ drivers/media/platform/exynos4-is/Kconfig | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
-index 74beb1867230..6a9c91781bf9 100644
---- a/drivers/net/ethernet/hisilicon/Kconfig
-+++ b/drivers/net/ethernet/hisilicon/Kconfig
-@@ -26,6 +26,7 @@ config HIX5HD2_GMAC
- config HIP04_ETH
- 	tristate "HISILICON P04 Ethernet support"
- 	select MARVELL_PHY
+diff --git a/drivers/media/platform/Kconfig b/drivers/media/platform/Kconfig
+index 201f5c296a95..e5931e434fa2 100644
+--- a/drivers/media/platform/Kconfig
++++ b/drivers/media/platform/Kconfig
+@@ -79,6 +79,7 @@ config VIDEO_OMAP3
+ 	depends on VIDEO_V4L2 && I2C && VIDEO_V4L2_SUBDEV_API && ARCH_OMAP3
+ 	depends on HAS_DMA && OF
+ 	depends on OMAP_IOMMU
 +	depends on HAS_IOMEM	# For MFD_SYSCON
+ 	select ARM_DMA_USE_IOMMU
+ 	select VIDEOBUF2_DMA_CONTIG
  	select MFD_SYSCON
- 	select HNS_MDIO
- 	---help---
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index cec147d1d34f..d6902bf6e90f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -16,6 +16,7 @@ if STMMAC_ETH
- config STMMAC_PLATFORM
- 	tristate "STMMAC Platform bus support"
- 	depends on STMMAC_ETH
+diff --git a/drivers/media/platform/exynos4-is/Kconfig b/drivers/media/platform/exynos4-is/Kconfig
+index 57d42c6172c5..c4317b99d257 100644
+--- a/drivers/media/platform/exynos4-is/Kconfig
++++ b/drivers/media/platform/exynos4-is/Kconfig
+@@ -17,6 +17,7 @@ config VIDEO_S5P_FIMC
+ 	tristate "S5P/EXYNOS4 FIMC/CAMIF camera interface driver"
+ 	depends on I2C
+ 	depends on HAS_DMA
 +	depends on HAS_IOMEM	# For MFD_SYSCON
+ 	select VIDEOBUF2_DMA_CONTIG
+ 	select V4L2_MEM2MEM_DEV
  	select MFD_SYSCON
- 	default y
- 	---help---
-@@ -41,6 +42,7 @@ config DWMAC_IPQ806X
- 	tristate "QCA IPQ806x DWMAC support"
- 	default ARCH_QCOM
- 	depends on OF
-+	depends on HAS_IOMEM	# For MFD_SYSCON
- 	select MFD_SYSCON
- 	help
- 	  Support for QCA IPQ806X DWMAC Ethernet.
-@@ -54,6 +56,7 @@ config DWMAC_LPC18XX
- 	tristate "NXP LPC18xx/43xx DWMAC support"
- 	default ARCH_LPC18XX
- 	depends on OF
-+	depends on HAS_IOMEM	# For MFD_SYSCON
- 	select MFD_SYSCON
- 	---help---
- 	  Support for NXP LPC18xx/43xx DWMAC Ethernet.
-@@ -73,6 +76,7 @@ config DWMAC_ROCKCHIP
- 	tristate "Rockchip dwmac support"
- 	default ARCH_ROCKCHIP
- 	depends on OF
-+	depends on HAS_IOMEM	# For MFD_SYSCON
- 	select MFD_SYSCON
- 	help
- 	  Support for Ethernet controller on Rockchip RK3288 SoC.
-@@ -84,6 +88,7 @@ config DWMAC_SOCFPGA
- 	tristate "SOCFPGA dwmac support"
- 	default ARCH_SOCFPGA
- 	depends on OF
-+	depends on HAS_IOMEM	# For MFD_SYSCON
- 	select MFD_SYSCON
- 	help
- 	  Support for ethernet controller on Altera SOCFPGA
-@@ -96,6 +101,7 @@ config DWMAC_STI
- 	tristate "STi GMAC support"
- 	default ARCH_STI
- 	depends on OF
-+	depends on HAS_IOMEM	# For MFD_SYSCON
- 	select MFD_SYSCON
- 	---help---
- 	  Support for ethernet controller on STi SOCs.
-diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-index e7f0b7d95b65..ec56cebe929d 100644
---- a/drivers/net/ethernet/ti/Kconfig
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@ -62,6 +62,7 @@ config TI_CPSW_ALE
- config TI_CPSW
- 	tristate "TI CPSW Switch Support"
- 	depends on ARCH_DAVINCI || ARCH_OMAP2PLUS
-+	depends on HAS_IOMEM	# For MFD_SYSCON
- 	select TI_DAVINCI_CPDMA
- 	select TI_DAVINCI_MDIO
- 	select TI_CPSW_PHY_SEL
 -- 
 2.5.0
