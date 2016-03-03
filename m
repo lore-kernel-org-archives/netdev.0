@@ -1,142 +1,88 @@
 From: John Stultz <john.stultz@linaro.org>
-Subject: [PATCH 3/8] time: Remove duplicated code in ktime_get_raw_and_real()
-Date: Wed,  2 Mar 2016 20:21:54 -0800
-Message-ID: <1456978919-30076-4-git-send-email-john.stultz@linaro.org>
-References: <1456978919-30076-1-git-send-email-john.stultz@linaro.org>
-Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
+Subject: [PATCH 0/8][GIT PULL] time: Cross-timestamp infrastructure for 4.6
+Date: Wed,  2 Mar 2016 20:21:51 -0800
+Message-ID: <1456978919-30076-1-git-send-email-john.stultz@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: John Stultz <john.stultz@linaro.org>,
 	Prarit Bhargava <prarit@redhat.com>,
 	Richard Cochran <richardcochran@gmail.com>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	Ingo Molnar <mingo@kernel.org>,
 	Andy Lutomirski <luto@amacapital.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	kevin.b.stanton@intel.com, kevin.j.clarke@intel.com, hpa@zytor.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	John Stultz <john.stultz@linaro.org>
+	netdev@vger.kernel.org
 To: lkml <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1456978919-30076-1-git-send-email-john.stultz@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Christopher S. Hall" <christopher.s.hall@intel.com>
+Hey Thomas,
+	So here is Christopher's cross-timestamp infrastructure
+patchset which I wanted to send along for 4.6. These apply against
+tip/timers/core.
 
-The code in ktime_get_snapshot() is a superset of the code in
-ktime_get_raw_and_real() code. Further, ktime_get_raw_and_real() is
-called only by the PPS code, pps_get_ts(). Consolidate the
-pps_get_ts() code into a single function calling ktime_get_snapshot()
-and eliminate ktime_get_raw_and_real(). A side effect of this is that
-the raw and real results of pps_get_ts() correspond to exactly the
-same clock cycle. Previously these values represented separate reads
-of the system clock.
+Let me know if you have any objections.
+
+thanks
+-john
 
 Cc: Prarit Bhargava <prarit@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Cc: Ingo Molnar <mingo@kernel.org>
 Cc: Andy Lutomirski <luto@amacapital.net>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Cc: kevin.b.stanton@intel.com
 Cc: kevin.j.clarke@intel.com
 Cc: hpa@zytor.com
 Cc: jeffrey.t.kirsher@intel.com
 Cc: netdev@vger.kernel.org
-Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
-Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
-Signed-off-by: John Stultz <john.stultz@linaro.org>
----
- include/linux/pps_kernel.h | 17 ++++++-----------
- kernel/time/timekeeping.c  | 40 ++--------------------------------------
- 2 files changed, 8 insertions(+), 49 deletions(-)
 
-diff --git a/include/linux/pps_kernel.h b/include/linux/pps_kernel.h
-index 54bf148..35ac903 100644
---- a/include/linux/pps_kernel.h
-+++ b/include/linux/pps_kernel.h
-@@ -111,22 +111,17 @@ static inline void timespec_to_pps_ktime(struct pps_ktime *kt,
- 	kt->nsec = ts.tv_nsec;
- }
- 
--#ifdef CONFIG_NTP_PPS
--
- static inline void pps_get_ts(struct pps_event_time *ts)
- {
--	ktime_get_raw_and_real_ts64(&ts->ts_raw, &ts->ts_real);
--}
-+	struct system_time_snapshot snap;
- 
--#else /* CONFIG_NTP_PPS */
--
--static inline void pps_get_ts(struct pps_event_time *ts)
--{
--	ktime_get_real_ts64(&ts->ts_real);
-+	ktime_get_snapshot(&snap);
-+	ts->ts_real = ktime_to_timespec64(snap.real);
-+#ifdef CONFIG_NTP_PPS
-+	ts->ts_raw = ktime_to_timespec64(snap.raw);
-+#endif
- }
- 
--#endif /* CONFIG_NTP_PPS */
--
- /* Subtract known time delay from PPS event time(s) */
- static inline void pps_sub_ts(struct pps_event_time *ts, struct timespec64 delta)
- {
-diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
-index 89b4695..af19a49 100644
---- a/kernel/time/timekeeping.c
-+++ b/kernel/time/timekeeping.c
-@@ -888,6 +888,8 @@ void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
- 	s64 nsec_real;
- 	cycle_t now;
- 
-+	WARN_ON_ONCE(timekeeping_suspended);
-+
- 	do {
- 		seq = read_seqcount_begin(&tk_core.seq);
- 
-@@ -905,44 +907,6 @@ void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
- }
- EXPORT_SYMBOL_GPL(ktime_get_snapshot);
- 
--#ifdef CONFIG_NTP_PPS
--
--/**
-- * ktime_get_raw_and_real_ts64 - get day and raw monotonic time in timespec format
-- * @ts_raw:	pointer to the timespec to be set to raw monotonic time
-- * @ts_real:	pointer to the timespec to be set to the time of day
-- *
-- * This function reads both the time of day and raw monotonic time at the
-- * same time atomically and stores the resulting timestamps in timespec
-- * format.
-- */
--void ktime_get_raw_and_real_ts64(struct timespec64 *ts_raw, struct timespec64 *ts_real)
--{
--	struct timekeeper *tk = &tk_core.timekeeper;
--	unsigned long seq;
--	s64 nsecs_raw, nsecs_real;
--
--	WARN_ON_ONCE(timekeeping_suspended);
--
--	do {
--		seq = read_seqcount_begin(&tk_core.seq);
--
--		*ts_raw = tk->raw_time;
--		ts_real->tv_sec = tk->xtime_sec;
--		ts_real->tv_nsec = 0;
--
--		nsecs_raw  = timekeeping_get_ns(&tk->tkr_raw);
--		nsecs_real = timekeeping_get_ns(&tk->tkr_mono);
--
--	} while (read_seqcount_retry(&tk_core.seq, seq));
--
--	timespec64_add_ns(ts_raw, nsecs_raw);
--	timespec64_add_ns(ts_real, nsecs_real);
--}
--EXPORT_SYMBOL(ktime_get_raw_and_real_ts64);
--
--#endif /* CONFIG_NTP_PPS */
--
- /**
-  * do_gettimeofday - Returns the time of day in a timeval
-  * @tv:		pointer to the timeval to be set
+
+The following changes since commit 232d26373d310a941ef2ab46e53ea62fe076ed13:
+
+  jiffies: Use CLOCKSOURCE_MASK instead of constant (2016-02-27 08:55:31 +0100)
+
+are available in the git repository at:
+
+  https://git.linaro.org/people/john.stultz/linux.git fortglx/4.6/time
+
+for you to fetch changes up to dbfa7fb88d3ab62268b36ee26b2987a01f72a6c9:
+
+  net: e1000e: Adds hardware supported cross timestamp on e1000e nic (2016-03-02 17:44:58 -0800)
+
+----------------------------------------------------------------
+Christopher S. Hall (8):
+  time: Add cycles to nanoseconds translation
+  time: Add timekeeping snapshot code capturing system time and counter
+  time: Remove duplicated code in ktime_get_raw_and_real()
+  time: Add driver cross timestamp interface for higher precision time
+    synchronization
+  time: Add history to cross timestamp interface supporting slower
+    devices
+  x86: tsc: Always Running Timer (ART) correlated clocksource
+  ptp: Add PTP_SYS_OFFSET_PRECISE for driver crosstimestamping
+  net: e1000e: Adds hardware supported cross timestamp on e1000e nic
+
+ Documentation/ptp/testptp.c                 |   6 +-
+ arch/x86/include/asm/cpufeature.h           |   2 +-
+ arch/x86/include/asm/tsc.h                  |   2 +
+ arch/x86/kernel/tsc.c                       |  62 ++++++
+ drivers/net/ethernet/intel/Kconfig          |   9 +
+ drivers/net/ethernet/intel/e1000e/defines.h |   5 +
+ drivers/net/ethernet/intel/e1000e/ptp.c     |  85 +++++++++
+ drivers/net/ethernet/intel/e1000e/regs.h    |   4 +
+ drivers/ptp/ptp_chardev.c                   |  27 +++
+ include/linux/pps_kernel.h                  |  17 +-
+ include/linux/ptp_clock_kernel.h            |   8 +
+ include/linux/timekeeper_internal.h         |   2 +
+ include/linux/timekeeping.h                 |  58 ++++++
+ include/uapi/linux/ptp_clock.h              |  13 +-
+ kernel/time/timekeeping.c                   | 286 +++++++++++++++++++++++++---
+ 15 files changed, 546 insertions(+), 40 deletions(-)
+
 -- 
 1.9.1
