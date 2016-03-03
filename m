@@ -1,62 +1,88 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [RFC 09/15] media: platform: Add missing MFD_SYSCON dependency on HAS_IOMEM
-Date: Thu, 3 Mar 2016 13:28:35 +0100
-Message-ID: <CAMuHMdX7UC627aN9wo23EDJ7Y+-ryKhVMKH6cvXhnHj9VoG=MA@mail.gmail.com>
-References: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
-	<1456992221-26712-10-git-send-email-k.kozlowski@samsung.com>
-	<2181866.k24LVvUjTs@wuerfel>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] bridge: a netlink notification should be sent
+ whenever those attributes change
+Date: Thu, 3 Mar 2016 13:29:54 +0100
+Message-ID: <56D82E42.4060401@cumulusnetworks.com>
+References: <2e80304ba6a0021637e362c83f931dc596f72d89.1457007418.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Krzysztof Kozlowski <k.kozlowski@samsung.com>,
-	Daniel Lezcano <daniel.lezcano@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Vinod Koul <vinod.koul@intel.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Marc Zyngier <marc.zyngier@arm.com>,
-	Mauro Carvalho Chehab <mchehab@osg.samsung.com>,
-	Lee Jones <lee.jones@linaro.org>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Kishon Vijay Abraham I <kishon@ti.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Sebastian Reichel <sre@kernel.org>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Alessandro Zummo <a.zummo@towertech.it>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	Andy Gross <andy.gross@linaro.org>,
-	David Brown <david.brown@linaro.org>,
-	Laurent Pi
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-In-Reply-To: <2181866.k24LVvUjTs@wuerfel>
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, hannes@stressinduktion.org
+To: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:35638 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751331AbcCCM35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 07:29:57 -0500
+Received: by mail-wm0-f48.google.com with SMTP id l68so128979764wml.0
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 04:29:56 -0800 (PST)
+In-Reply-To: <2e80304ba6a0021637e362c83f931dc596f72d89.1457007418.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 3, 2016 at 11:57 AM, Arnd Bergmann <arnd@arndb.de> wrote:
->> --- a/drivers/media/platform/exynos4-is/Kconfig
->> +++ b/drivers/media/platform/exynos4-is/Kconfig
->> @@ -17,6 +17,7 @@ config VIDEO_S5P_FIMC
->>         tristate "S5P/EXYNOS4 FIMC/CAMIF camera interface driver"
->>         depends on I2C
->>         depends on HAS_DMA
->> +       depends on HAS_IOMEM    # For MFD_SYSCON
->>         select VIDEOBUF2_DMA_CONTIG
->>         select V4L2_MEM2MEM_DEV
->
-> This  is guarded by HAS_DMA, which implies HAS_IOMEM afaik.
+On 03/03/2016 01:16 PM, Xin Long wrote:
+> Now when we change the attributes of bridge or br_port by netlink,
+> a relevant netlink notification will be sent, but if we change them
+> by ioctl or sysfs, no notification will be sent.
+> 
+> we should ensure that whenever those attributes change internally or from
+> sysfs/ioctl, that a netlink notification is sent out to listeners.
+> 
+> Also, NetworkManager will use this in the future to listen for out-of-band
+> bridge master attribute updates and incorporate them into the runtime
+> configuration.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/bridge/br_ioctl.c    | 40 ++++++++++++++++++++++++----------------
+>  net/bridge/br_sysfs_br.c |  2 ++
+>  net/bridge/br_sysfs_if.c |  4 +++-
+>  3 files changed, 29 insertions(+), 17 deletions(-)
+> 
+[snip]
+>  static int old_deviceless(struct net *net, void __user *uarg)
+> diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+> index 6b80914..231e093 100644
+> --- a/net/bridge/br_sysfs_br.c
+> +++ b/net/bridge/br_sysfs_br.c
+> @@ -44,6 +44,8 @@ static ssize_t store_bridge_parm(struct device *d,
+>  		return -EINVAL;
+>  
+>  	err = (*set)(br, val);
+> +	if (!err)
+> +		netdev_state_change(br->dev);
 
-No systems around with HV-based DMA?
+This is incorrect because you don't have rtnl here, bridge device sysfs
+options take care of rtnl only on per-option basis and they obtain and 
+release it themselves, so you won't have rtnl held when you call
+netdev_state_change. While I agree that this is needed, a larger change
+would be necessary for br_sysfs_br.c.
+Off-topic: I've been looking into factoring out the bond option API and reusing
+it here as it already has all of this handled, but I won't have time to finish
+it before the next merge window, so if you fix the issue here I'm okay with
+this as interim solution.
 
-Gr{oetje,eeting}s,
+Cheers,
+ Nik
 
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+>  	return err ? err : len;
+>  }
+>  
+> diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+> index efe415a..0ad8592 100644
+> --- a/net/bridge/br_sysfs_if.c
+> +++ b/net/bridge/br_sysfs_if.c
+> @@ -253,8 +253,10 @@ static ssize_t brport_store(struct kobject *kobj,
+>  			spin_lock_bh(&p->br->lock);
+>  			ret = brport_attr->store(p, val);
+>  			spin_unlock_bh(&p->br->lock);
+> -			if (ret == 0)
+> +			if (ret == 0) {
+> +				br_ifinfo_notify(RTM_NEWLINK, p);
+>  				ret = count;
+> +			}
+>  		}
+>  		rtnl_unlock();
+>  	}
+> 
