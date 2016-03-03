@@ -1,70 +1,180 @@
-From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
-Subject: Re: [rtc-linux] Re: [RFC 04/15] irqchip: st: Add missing MFD_SYSCON
- dependency on HAS_IOMEM
-Date: Thu, 3 Mar 2016 21:00:57 +0900
-Message-ID: <CAJKOXPcZuyicNAaH6CpOe+bTrLtM1k0tVisS_xJXGDrxyZ_i5A@mail.gmail.com>
-References: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
-	<1456992221-26712-5-git-send-email-k.kozlowski@samsung.com>
-	<2506651.J2Z42d81nD@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-arm-kernel@lists.infradead.org,
-	Daniel Lezcano <daniel.lezcano@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Vinod Koul <vinod.koul@intel.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Marc Zyngier <marc.zyngier@arm.com>,
-	Mauro Carvalho Chehab <mchehab@osg.samsung.com>,
-	Lee Jones <lee.jones@linaro.org>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Kishon Vijay Abraham I <kishon@ti.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Sebastian Reichel <sre@kernel.org>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Alessandro Zummo <a.zummo@towertech.it>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	Andy Gross <andy.gross@linaro.org>,
-	David Brown <david.brown@linaro.org>,
-	Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org
-To: rtc-linux@googlegroups.com
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] bridge: a netlink notification should be sent whenever those attributes change
+Date: Thu,  3 Mar 2016 20:16:58 +0800
+Message-ID: <2e80304ba6a0021637e362c83f931dc596f72d89.1457007418.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, hannes@stressinduktion.org
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34001 "EHLO
-	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754349AbcCCMA6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 07:00:58 -0500
-In-Reply-To: <2506651.J2Z42d81nD@wuerfel>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33373 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754693AbcCCMRE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 07:17:04 -0500
+Received: by mail-pf0-f194.google.com with SMTP id 63so1222804pfe.0
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 04:17:04 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-03-03 19:53 GMT+09:00 Arnd Bergmann <arnd@arndb.de>:
-> On Thursday 03 March 2016 17:03:30 Krzysztof Kozlowski wrote:
->>  config ST_IRQCHIP
->>         bool
->>         select REGMAP
->> +       depends on HAS_IOMEM    # For MFD_SYSCON
->>         select MFD_SYSCON
->>         help
->>           Enables SysCfg Controlled IRQs on STi based platforms.
->>
->
-> Not user visible.
+Now when we change the attributes of bridge or br_port by netlink,
+a relevant netlink notification will be sent, but if we change them
+by ioctl or sysfs, no notification will be sent.
 
-Hmmm... you are right (here and in other patches) but why am I getting
-all these errors:
-warning: (ST_IRQCHIP && HIP04_ETH && STMMAC_PLATFORM && DWMAC_IPQ806X
-&& DWMAC_LPC18XX && DWMAC_ROCKCHIP && DWMAC_SOCFPGA && DWMAC_STI &&
-TI_CPSW && PINCTRL_ROCKCHIP && PINCTRL_DOVE && POWER_RESET_KEYSTONE &&
-S3C2410_WATCHDOG && VIDEO_OMAP3 && VIDEO_S5P_FIMC && USB_XHCI_MTK &&
-RTC_DRV_AT91SAM9 && LPC18XX_DMAMUX && VIDEO_OMAP4 && HWSPINLOCK_QCOM
-&& ATMEL_ST && QCOM_GSBI && PHY_HI6220_USB) selects MFD_SYSCON which
-has unmet direct dependencies (HAS_IOMEM)
-?
-(ARCH=um, allyesconfig)
-Adding depends here (and in other places) really helps... but it
-should not have any impact...
+we should ensure that whenever those attributes change internally or from
+sysfs/ioctl, that a netlink notification is sent out to listeners.
 
-Thanks for comments,
-Krzysztof
+Also, NetworkManager will use this in the future to listen for out-of-band
+bridge master attribute updates and incorporate them into the runtime
+configuration.
+
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/bridge/br_ioctl.c    | 40 ++++++++++++++++++++++++----------------
+ net/bridge/br_sysfs_br.c |  2 ++
+ net/bridge/br_sysfs_if.c |  4 +++-
+ 3 files changed, 29 insertions(+), 17 deletions(-)
+
+diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
+index 263b4de..f8fc624 100644
+--- a/net/bridge/br_ioctl.c
++++ b/net/bridge/br_ioctl.c
+@@ -112,7 +112,9 @@ static int add_del_if(struct net_bridge *br, int ifindex, int isadd)
+ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
++	struct net_bridge_port *p = NULL;
+ 	unsigned long args[4];
++	int ret = -EOPNOTSUPP;
+ 
+ 	if (copy_from_user(args, rq->ifr_data, sizeof(args)))
+ 		return -EFAULT;
+@@ -182,25 +184,29 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+-		return br_set_forward_delay(br, args[1]);
++		ret = br_set_forward_delay(br, args[1]);
++		break;
+ 
+ 	case BRCTL_SET_BRIDGE_HELLO_TIME:
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+-		return br_set_hello_time(br, args[1]);
++		ret = br_set_hello_time(br, args[1]);
++		break;
+ 
+ 	case BRCTL_SET_BRIDGE_MAX_AGE:
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+-		return br_set_max_age(br, args[1]);
++		ret = br_set_max_age(br, args[1]);
++		break;
+ 
+ 	case BRCTL_SET_AGEING_TIME:
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+-		return br_set_ageing_time(br, args[1]);
++		ret = br_set_ageing_time(br, args[1]);
++		break;
+ 
+ 	case BRCTL_GET_PORT_INFO:
+ 	{
+@@ -240,20 +246,19 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 			return -EPERM;
+ 
+ 		br_stp_set_enabled(br, args[1]);
+-		return 0;
++		ret = 0;
++		break;
+ 
+ 	case BRCTL_SET_BRIDGE_PRIORITY:
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+ 		br_stp_set_bridge_priority(br, args[1]);
+-		return 0;
++		ret = 0;
++		break;
+ 
+ 	case BRCTL_SET_PORT_PRIORITY:
+ 	{
+-		struct net_bridge_port *p;
+-		int ret;
+-
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+@@ -263,14 +268,11 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 		else
+ 			ret = br_stp_set_port_priority(p, args[2]);
+ 		spin_unlock_bh(&br->lock);
+-		return ret;
++		break;
+ 	}
+ 
+ 	case BRCTL_SET_PATH_COST:
+ 	{
+-		struct net_bridge_port *p;
+-		int ret;
+-
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+@@ -280,8 +282,7 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 		else
+ 			ret = br_stp_set_path_cost(p, args[2]);
+ 		spin_unlock_bh(&br->lock);
+-
+-		return ret;
++		break;
+ 	}
+ 
+ 	case BRCTL_GET_FDB_ENTRIES:
+@@ -289,7 +290,14 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 				       args[2], args[3]);
+ 	}
+ 
+-	return -EOPNOTSUPP;
++	if (!ret) {
++		if (p)
++			br_ifinfo_notify(RTM_NEWLINK, p);
++		else
++			netdev_state_change(br->dev);
++	}
++
++	return ret;
+ }
+ 
+ static int old_deviceless(struct net *net, void __user *uarg)
+diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+index 6b80914..231e093 100644
+--- a/net/bridge/br_sysfs_br.c
++++ b/net/bridge/br_sysfs_br.c
+@@ -44,6 +44,8 @@ static ssize_t store_bridge_parm(struct device *d,
+ 		return -EINVAL;
+ 
+ 	err = (*set)(br, val);
++	if (!err)
++		netdev_state_change(br->dev);
+ 	return err ? err : len;
+ }
+ 
+diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+index efe415a..0ad8592 100644
+--- a/net/bridge/br_sysfs_if.c
++++ b/net/bridge/br_sysfs_if.c
+@@ -253,8 +253,10 @@ static ssize_t brport_store(struct kobject *kobj,
+ 			spin_lock_bh(&p->br->lock);
+ 			ret = brport_attr->store(p, val);
+ 			spin_unlock_bh(&p->br->lock);
+-			if (ret == 0)
++			if (ret == 0) {
++				br_ifinfo_notify(RTM_NEWLINK, p);
+ 				ret = count;
++			}
+ 		}
+ 		rtnl_unlock();
+ 	}
+-- 
+2.1.0
