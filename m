@@ -1,46 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] net: relax setup_tc ndo op handle restriction
-Date: Thu, 03 Mar 2016 16:25:46 -0500 (EST)
-Message-ID: <20160303.162546.1789026863325812592.davem@davemloft.net>
-References: <20160229192613.24163.31830.stgit@john-Precision-Tower-5810>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: bluetooth-next 2016-03-01
+Date: Thu, 03 Mar 2016 16:27:58 -0500 (EST)
+Message-ID: <20160303.162758.867744371077918325.davem@davemloft.net>
+References: <20160301072002.GA24640@t440s.lan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
-To: john.fastabend@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47734 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755344AbcCCVZs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 16:25:48 -0500
-In-Reply-To: <20160229192613.24163.31830.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160301072002.GA24640-ypHiNAJIRA7/PtFMR13I2A@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Mon, 29 Feb 2016 11:26:13 -0800
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Tue, 1 Mar 2016 09:20:02 +0200
 
-> I added this check in setup_tc to multiple drivers,
+> Here's our main set of Bluetooth & 802.15.4 patches for the 4.6 kernel.
 > 
->  if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
+>  - New Bluetooth HCI driver for Intel/AG6xx controllers
+>  - New Broadcom ACPI IDs
+>  - LED trigger support for indicating Bluetooth powered state
+>  - Various fixes in mac802154, 6lowpan and related drivers
+>  - New USB IDs for AR3012 Bluetooth controllers
 > 
-> Unfortunately restricting to TC_H_ROOT like this breaks the old
-> instantiation of mqprio to setup a hardware qdisc. This patch
-> relaxes the test to only check the type to make it equivalent
-> to the check before I broke it. With this the old instantiation
-> continues to work.
-> 
-> A good smoke test is to setup mqprio with,
-> 
-> # tc qdisc add dev eth4 root mqprio num_tc 8 \
->   map 0 1 2 3 4 5 6 7 \
->   queues 0@0 1@1 2@2 3@3 4@4 5@5 6@6 7@7
-> 
-> Fixes: e4c6734eaab9 ("net: rework ndo tc op to consume additional qdisc handle paramete")
-> Reported-by: Singh Krishneil <krishneil.k.singh@intel.com>
-> Reported-by: Jake Keller <jacob.e.keller@intel.com>
- ...
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Please let me know if there are any issues pulling. Thanks.
 
-Applied, thanks John.
+Pulled, thanks Johan.
