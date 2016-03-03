@@ -1,33 +1,40 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH V3 2/4] net-next: mediatek: add support for MT7623
- ethernet
-Date: Thu, 03 Mar 2016 13:06:55 -0800
-Message-ID: <1457039215.4044.122.camel@perches.com>
-References: <1457035361-57669-1-git-send-email-blogic@openwrt.org>
-	 <1457035361-57669-3-git-send-email-blogic@openwrt.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] Propagate MAC address changes to VLANs
+Date: Thu, 03 Mar 2016 16:12:40 -0500 (EST)
+Message-ID: <20160303.161240.631812391738601311.davem@davemloft.net>
+References: <56D42C63.1070602@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linux-mediatek@lists.infradead.org,
-	Steven Liu =?UTF-8?Q?=28=E5=8A=89=E4=BA=BA=E8=B1=AA=29?=
-	<steven.liu@mediatek.com>,
-	Carlos Huang =?UTF-8?Q?=28=E9=BB=83=E5=A3=AB=E5=BD=B0=29?=
-	<Carlos.Huang@mediatek.com>, Felix Fietkau <nbd@openwrt.org>,
-	Michael Lee <igvtee@gmail.com>
-To: John Crispin <blogic@openwrt.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457035361-57669-3-git-send-email-blogic@openwrt.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: mmanning@brocade.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47597 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754573AbcCCVMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 16:12:44 -0500
+In-Reply-To: <56D42C63.1070602@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-03-03 at 21:02 +0100, John Crispin wrote:
-> Add ethernet support for MediaTek SoCs from the MT7623 family.
-[]
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-[]
-> +/* ugly macro hack to make sure hw_stats and ethtool strings are consistent */
+From: Mike Manning <mmanning@brocade.com>
+Date: Mon, 29 Feb 2016 11:32:51 +0000
 
-I agree and think the _FE macros defines and uses should be removed.
+>  
+> -	/* vlan address was equal to the old address and is different from
+> +	/* vlan address was equal to the old address so now also inherit
+>  	 * the new address */
+> -	if (ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
+> -	    !ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
+> -		dev_uc_add(dev, vlandev->dev_addr);
+> +	if (ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr))
+> +		ether_addr_copy(vlandev->dev_addr, dev->dev_addr);
+>  
+
+This dev_uc_add() call removal cannot be correct, if the device is up
+we must programe it into the hardware unicast filters and if also
+potentially put it into promiscuous mode via __dev_set_rx_mode().
+
+Also your subject line isn't formatted properly, it should be:
+
+	[PATCH net] vlan: Propagate MAC address changes properly.
