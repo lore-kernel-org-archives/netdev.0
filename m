@@ -1,40 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
-Date: Thu, 03 Mar 2016 17:22:22 -0500 (EST)
-Message-ID: <20160303.172222.338748622348351793.davem@davemloft.net>
-References: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
-	<1456945629-1793533-2-git-send-email-arnd@arndb.de>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH] can: rcar_can: Add r8a7795 support
+Date: Thu, 3 Mar 2016 16:22:57 -0600
+Message-ID: <20160303222257.GA5346@rob-hp-laptop>
+References: <1456749445-50766-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, gregkh@linuxfoundation.org,
-	linux-arm-kernel@lists.infradead.org, corbet@lwn.net,
-	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@driverdev.osuosl.org
-To: arnd@arndb.de
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1456945629-1793533-2-git-send-email-arnd@arndb.de>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: mkl@pengutronix.de, wg@grandegger.com, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, linux-renesas-soc@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, geert+renesas@glider.be,
+	horms+renesas@verge.net.au, chris.paterson2@renesas.com
+To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:40314 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757437AbcCCWXD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2016 17:23:03 -0500
+Content-Disposition: inline
+In-Reply-To: <1456749445-50766-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed,  2 Mar 2016 20:06:46 +0100
-
-> The icn, act2000 and pcbit drivers are all for very old hardware,
-> and it is highly unlikely that anyone is actually still using them
-> on modern kernels, if at all.
+On Mon, Feb 29, 2016 at 12:37:25PM +0000, Ramesh Shanmugasundaram wrote:
+> Added r8a7795 SoC support.
 > 
-> All three drivers apparently are for hardware that predates PCI
-> being the common connector, as they are ISA-only and active
-> PCI ISDN cards were widely available in the 1990s.
+> Signed-off-by: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+> ---
+> Hi All,
 > 
-> Looking through the git logs, it I cannot find any indication of a
-> patch to any of these drivers that has been tested on real hardware,
-> only cleanups or global API changes.
+>    This patch is based on linux-can-next (tag:linux-can-next-for-4.6-20160226)
 > 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>    Pinctrl & Clock related to the controller are already submitted as below:
+> 
+>    https://lkml.org/lkml/2016/2/25/546
+>    https://lkml.org/lkml/2016/2/26/452
+>    http://www.spinics.net/lists/arm-kernel/msg487238.html
+> 
+>    Changes since v1:
+>    * Rebased from linux-next to linux-can-next
+>    * Removed clock rounding hack (http://www.spinics.net/lists/netdev/msg366611.html)
+>    * CAN dtsi changes will be submitted separately based on linux-next (http://marc.info/?l=linux-can&m=145674764815430&w=2)
+> 
+>  Documentation/devicetree/bindings/net/can/rcar_can.txt | 11 +++++++++++
+>  drivers/net/can/Kconfig                                |  2 +-
+>  drivers/net/can/rcar_can.c                             |  1 +
+>  3 files changed, 13 insertions(+), 1 deletion(-)
 
-Greg, can you please take these two patches?
-
-Thanks!
-
+Acked-by: Rob Herring <robh@kernel.org>
