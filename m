@@ -1,40 +1,64 @@
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH] phy: remove documentation of removed member addr of
- phy_device structure
-Date: Thu, 3 Mar 2016 16:46:49 +0100
-Message-ID: <20160303154649.GA27779@Red>
-References: <1457010748-2584-1-git-send-email-clabbe.montjoie@gmail.com>
- <20160303151419.GK15541@lunn.ch>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v5 net-next] net: Implement fast csum_partial for x86_64
+Date: Thu, 3 Mar 2016 16:12:16 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D41113AD4@AcuExch.aculab.com>
+References: <1456957112-2702469-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160303151419.GK15541@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
+	"kernel-team@fb.com" <kernel-team@fb.com>
+To: 'Tom Herbert' <tom@herbertland.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.192]:63284 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002AbcCCQP0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 11:15:26 -0500
+In-Reply-To: <1456957112-2702469-1-git-send-email-tom@herbertland.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 03, 2016 at 04:14:19PM +0100, Andrew Lunn wrote:
-> On Thu, Mar 03, 2016 at 02:12:28PM +0100, LABBE Corentin wrote:
-> > Commit e5a03bfd873c ("phy: Add an mdio_device structure") removed
-> > the addr member of the phy_device structure.
-> > This patch remove the documentation about that member.
-> > 
-> > Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
-> 
-> Hi Corentin
-> 
-> The patch also removed bus and dev which are documented.  Could you
-> please expand you patch to remove those as well?
-> 
-> Thanks
-> 	Andrew
-> 
+From: Tom Herbert
+> Sent: 02 March 2016 22:19
+...
+> +	/* Main loop using 64byte blocks */
+> +	for (; len > 64; len -= 64, buff += 64) {
+> +		asm("addq 0*8(%[src]),%[res]\n\t"
+> +		    "adcq 1*8(%[src]),%[res]\n\t"
+> +		    "adcq 2*8(%[src]),%[res]\n\t"
+> +		    "adcq 3*8(%[src]),%[res]\n\t"
+> +		    "adcq 4*8(%[src]),%[res]\n\t"
+> +		    "adcq 5*8(%[src]),%[res]\n\t"
+> +		    "adcq 6*8(%[src]),%[res]\n\t"
+> +		    "adcq 7*8(%[src]),%[res]\n\t"
+> +		    "adcq $0,%[res]"
+> +		    : [res] "=r" (result)
+> +		    : [src] "r" (buff),
+> +		    "[res]" (result));
 
-Yes, I will send a v2 soon.
+Did you try the asm loop that used 'leax %rcx..., jcxz... jmps..'
+without any unrolling?
 
-Regards
+...
+> +	/* Sum over any remaining bytes (< 8 of them) */
+> +	if (len & 0x7) {
+> +		unsigned long val;
+> +		/*
+> +		 * Since "len" is > 8 here we backtrack in the buffer to load
+> +		 * the outstanding bytes into the low order bytes of a quad and
+> +		 * then shift to extract the relevant bytes. By doing this we
+> +		 * avoid additional calls to load_unaligned_zeropad.
 
-LABBE Corentin
+That comment is wrong. Maybe:
+		 * Read the last 8 bytes of the buffer then shift to extract
+		 * the required bytes.
+		 * This is safe because the original length was > 8 and avoids
+		 * any problems reading beyond the end of the valid data.
+
+	David
