@@ -1,73 +1,45 @@
-From: Bernhard Walle <bernhard@bwalle.de>
-Subject: [PATCH] net: fec: Rename "phy-reset-active-low" property
-Date: Thu,  3 Mar 2016 10:15:55 +0100
-Message-ID: <1456996555-7500-1-git-send-email-bernhard@bwalle.de>
-Cc: arnd@arndb.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Bernhard Walle <bernhard@bwalle.de>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH 6/8] x86: tsc: Always Running Timer (ART) correlated
+ clocksource
+Date: Thu, 3 Mar 2016 11:21:11 +0100 (CET)
+Message-ID: <alpine.DEB.2.11.1603031118430.3597@nanos>
+References: <1456978919-30076-1-git-send-email-john.stultz@linaro.org> <1456978919-30076-7-git-send-email-john.stultz@linaro.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	"Christopher S. Hall" <christopher.s.hall@intel.com>,
+	Prarit Bhargava <prarit@redhat.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	kevin.b.stanton@intel.com, kevin.j.clarke@intel.com, hpa@zytor.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
+To: John Stultz <john.stultz@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.linutronix.de ([62.245.132.108]:57087 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754173AbcCCKWp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 05:22:45 -0500
+In-Reply-To: <1456978919-30076-7-git-send-email-john.stultz@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->From the perspective of RESET, the meaning of the new property
-is actually "active high". Thanks for Troy Kisky for pointing
-that out.
+On Wed, 2 Mar 2016, John Stultz wrote:
 
-Since the patch is in linux-next, this patch is incremental and doesn't
-replace the original patch.
+Subject: x86: tsc: Always Running ...
 
-Signed-off-by: Bernhard Walle <bernhard@bwalle.de>
----
- Documentation/devicetree/bindings/net/fsl-fec.txt | 2 +-
- drivers/net/ethernet/freescale/fec_main.c         | 8 ++++----
- 2 files changed, 5 insertions(+), 5 deletions(-)
+Please make that:
 
-diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
-index a4799ff..b037a9d 100644
---- a/Documentation/devicetree/bindings/net/fsl-fec.txt
-+++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-@@ -12,7 +12,7 @@ Optional properties:
-   only if property "phy-reset-gpios" is available.  Missing the property
-   will have the duration be 1 millisecond.  Numbers greater than 1000 are
-   invalid and 1 millisecond will be used instead.
--- phy-reset-active-low : If present then the reset sequence using the GPIO
-+- phy-reset-active-high : If present then the reset sequence using the GPIO
-   specified in the "phy-reset-gpios" property is reversed (H=reset state,
-   L=operation state).
- - phy-supply : regulator that powers the Ethernet PHY.
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index bad0ba2..37c0815 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -3191,7 +3191,7 @@ static int fec_enet_init(struct net_device *ndev)
- static void fec_reset_phy(struct platform_device *pdev)
- {
- 	int err, phy_reset;
--	bool active_low = false;
-+	bool active_high = false;
- 	int msec = 1;
- 	struct device_node *np = pdev->dev.of_node;
- 
-@@ -3207,17 +3207,17 @@ static void fec_reset_phy(struct platform_device *pdev)
- 	if (!gpio_is_valid(phy_reset))
- 		return;
- 
--	active_low = of_property_read_bool(np, "phy-reset-active-low");
-+	active_high = of_property_read_bool(np, "phy-reset-active-high");
- 
- 	err = devm_gpio_request_one(&pdev->dev, phy_reset,
--			active_low ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
-+			active_high ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
- 			"phy-reset");
- 	if (err) {
- 		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
- 		return;
- 	}
- 	msleep(msec);
--	gpio_set_value_cansleep(phy_reset, !active_low);
-+	gpio_set_value_cansleep(phy_reset, !active_high);
- }
- #else /* CONFIG_OF */
- static void fec_reset_phy(struct platform_device *pdev)
--- 
-2.7.2
+Subject: x86/tsc: Always Running ...
+
+>  
+> +#else
+> +
+> +#define detect_art()
+
+Inline stub if at all. Why sits detect_art() under CONFIG_CPU_FREQ while the
+rest of the art code is not????
+
+Thanks
+
+	tglx
