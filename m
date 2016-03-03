@@ -1,82 +1,110 @@
-From: Diego Viola <diego.viola@gmail.com>
-Subject: Re: [PATCH v3] net: jme: fix suspend/resume on JMC260
-Date: Thu, 3 Mar 2016 02:55:35 -0300
-Message-ID: <CA+ToGPEUZYofx1Tg===H_NjO0v8BK=2wz3yXS5NOG1n35q0ZnQ@mail.gmail.com>
-References: <1456239844-4109-1-git-send-email-diego.viola@gmail.com>
-	<20160224.235856.242530723940439026.davem@davemloft.net>
-	<20160302051405.M6687@cooldavid.org>
-	<CA+ToGPH5cMTZBi_F9tBbOrPqk_Zpd0wHFt=h0CAvj_3NBOumOg@mail.gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] stmmac: Fix 'eth0: No PHY found' regression
+Date: Thu, 3 Mar 2016 09:02:39 +0100
+Message-ID: <56D7EF9F.6070900@st.com>
+References: <1456762702-23713-1-git-send-email-gabriel.fernandez@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, richard.weinberger@gmail.com,
-	pavel@ucw.cz, rjw@rjwysocki.net, valdis.kletnieks@vt.edu
-To: Guo-Fu Tseng <cooldavid@cooldavid.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<alexandre.torgue@st.com>, <maxime.coquelin@st.com>
+To: Gabriel Fernandez <gabriel.fernandez@linaro.org>,
+	Phil Reid <preid@electromag.com.au>, <davem@davemloft.net>,
+	Joachim Eastwood <manabian@gmail.com>,
+	Vince Bridgers <vbridger@opensource.altera.com>,
+	Mathieu Olivari <mathieu@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+ToGPH5cMTZBi_F9tBbOrPqk_Zpd0wHFt=h0CAvj_3NBOumOg@mail.gmail.com>
+In-Reply-To: <1456762702-23713-1-git-send-email-gabriel.fernandez@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 3, 2016 at 12:19 AM, Diego Viola <diego.viola@gmail.com> wrote:
-> On Wed, Mar 2, 2016 at 2:14 AM, Guo-Fu Tseng <cooldavid@cooldavid.org> wrote:
->> On Wed, 24 Feb 2016 23:58:56 -0500 (EST), David Miller wrote
->>> From: Diego Viola <diego.viola@gmail.com>
->>> Date: Tue, 23 Feb 2016 12:04:04 -0300
->>>
->>> > The JMC260 network card fails to suspend/resume because the call to
->>> > jme_start_irq() was too early, moving the call to jme_start_irq() after
->>> > the call to jme_reset_link() makes it work.
->>> >
->>> > Prior this change suspend/resume would fail unless /sys/power/pm_async=0
->>> > was explicitly specified.
->>> >
->>> > Relevant bug report: https://bugzilla.kernel.org/show_bug.cgi?id=112351
->>> >
->>> > Signed-off-by: Diego Viola <diego.viola@gmail.com>
->>>
->>> Applied and queued up for -stable, thanks.
->>
->> Just reviewed it, it should have no side effect.
->>
->> Thanks David, Diego.
->>
->> Guo-Fu Tseng
->>
+On 2/29/2016 5:18 PM, Gabriel Fernandez wrote:
+> This patch manages the case when you have an Ethernet MAC with
+> a "fixed link", and not connected to a normal MDIO-managed PHY device.
 >
-> Hi all,
+> The test of phy_bus_name was not helpful because it was never affected
+> and replaced by the mdio test node.
 >
-> I'm having another issue with jme and I'm not sure if it's related to
-> the same issue with suspend/resume, but the problem now is WoL.
->
-> Let me try to describe the problem a bit:
->
-> I put my machine to sleep in S3 and I send WoL packets from a laptop,
-> and the machine doesn't wake up at all, I tried inspecting packets
-> with tcpdump and nothing shows up in the tcpdump output.
->
-> When the machine is in working state, and I send WoL packets and I
-> initiate a S3, it refuses to go in sleep mode.
->
-> I tried the same in Windows (waking up from S3 via WoL) and it works there.
->
-> Does anyone have any ideas what the problem can be? I talked with Guo
-> and he suspects the problem is motherboard failure, I also think the
-> issue can be a BIOS bug since I hear so many horror stories about AMI
-> BIOS issues with Linux.
->
-> But it's still a mystery to me given all these conditions I mentioned.
->
-> Diego
+> Signed-off-by: Gabriel Fernandez <gabriel.fernandez@linaro.org>
 
-The reason I believe that both problems might be connected
-(suspend/resume & WoL) is that when I disable WoL with ethtool, e.g.
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-sudo ethtool -s eth0 wol d
-
-The resume from suspend hang disappears, and there is no need for the
-patch that moves the jme_start_irq() function call anymore, this also
-regardless of pm_async being 1 or 0.
-
-Can someone experienced with power management help here please?
-
-Diego
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c     | 11 +----------
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |  9 ++++++++-
+>   include/linux/stmmac.h                                |  1 +
+>   3 files changed, 10 insertions(+), 11 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> index 0faf163..efb54f3 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> @@ -199,21 +199,12 @@ int stmmac_mdio_register(struct net_device *ndev)
+>   	struct stmmac_priv *priv = netdev_priv(ndev);
+>   	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
+>   	int addr, found;
+> -	struct device_node *mdio_node = NULL;
+> -	struct device_node *child_node = NULL;
+> +	struct device_node *mdio_node = priv->plat->mdio_node;
+>
+>   	if (!mdio_bus_data)
+>   		return 0;
+>
+>   	if (IS_ENABLED(CONFIG_OF)) {
+> -		for_each_child_of_node(priv->device->of_node, child_node) {
+> -			if (of_device_is_compatible(child_node,
+> -						    "snps,dwmac-mdio")) {
+> -				mdio_node = child_node;
+> -				break;
+> -			}
+> -		}
+> -
+>   		if (mdio_node) {
+>   			netdev_dbg(ndev, "FOUND MDIO subnode\n");
+>   		} else {
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index 6a52fa1..4514ba7 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -110,6 +110,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+>   	struct device_node *np = pdev->dev.of_node;
+>   	struct plat_stmmacenet_data *plat;
+>   	struct stmmac_dma_cfg *dma_cfg;
+> +	struct device_node *child_node = NULL;
+>
+>   	plat = devm_kzalloc(&pdev->dev, sizeof(*plat), GFP_KERNEL);
+>   	if (!plat)
+> @@ -140,13 +141,19 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+>   		plat->phy_node = of_node_get(np);
+>   	}
+>
+> +	for_each_child_of_node(np, child_node)
+> +		if (of_device_is_compatible(child_node,	"snps,dwmac-mdio")) {
+> +			plat->mdio_node = child_node;
+> +			break;
+> +		}
+> +
+>   	/* "snps,phy-addr" is not a standard property. Mark it as deprecated
+>   	 * and warn of its use. Remove this when phy node support is added.
+>   	 */
+>   	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) == 0)
+>   		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
+>
+> -	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || plat->phy_bus_name)
+> +	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || !plat->mdio_node)
+>   		plat->mdio_bus_data = NULL;
+>   	else
+>   		plat->mdio_bus_data =
+> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+> index eead8ab..881a79d 100644
+> --- a/include/linux/stmmac.h
+> +++ b/include/linux/stmmac.h
+> @@ -100,6 +100,7 @@ struct plat_stmmacenet_data {
+>   	int interface;
+>   	struct stmmac_mdio_bus_data *mdio_bus_data;
+>   	struct device_node *phy_node;
+> +	struct device_node *mdio_node;
+>   	struct stmmac_dma_cfg *dma_cfg;
+>   	int clk_csr;
+>   	int has_gmac;
+>
