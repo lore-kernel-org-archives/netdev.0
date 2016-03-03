@@ -1,15 +1,13 @@
 From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
-Subject: Re: [rtc-linux] Re: [RFC 09/15] media: platform: Add missing
+Subject: Re: [rtc-linux] [RFC 13/15] staging: media: omap4iss: Add missing
  MFD_SYSCON dependency on HAS_IOMEM
-Date: Thu, 3 Mar 2016 21:40:23 +0900
-Message-ID: <CAJKOXPe50ira_Qqy7qJ5H_PHa8B_xOinCK6JkncXFYn_eaQFfg@mail.gmail.com>
+Date: Thu, 3 Mar 2016 21:42:19 +0900
+Message-ID: <CAJKOXPc_16KuX2Wqygdn9u+B7P2TvLEtx07QdXPgiwatXJF8nA@mail.gmail.com>
 References: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
-	<1456992221-26712-10-git-send-email-k.kozlowski@samsung.com>
-	<2181866.k24LVvUjTs@wuerfel>
+	<1456992221-26712-14-git-send-email-k.kozlowski@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-arm-kernel@lists.infradead.org,
-	Daniel Lezcano <daniel.lezcano@linaro.org>,
+Cc: Daniel Lezcano <daniel.lezcano@linaro.org>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	Dan Williams <dan.j.williams@intel.com>,
 	Vinod Koul <vinod.koul@intel.com>,
@@ -28,50 +26,37 @@ Cc: linux-arm-kernel@lists.infradead.org,
 	Andy Gross <andy.gross@linaro.org>,
 	David Brown <david.brown@linaro.org>,
 	Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-kernel@vger.kernel.org, dmaen
 To: rtc-linux@googlegroups.com
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <2181866.k24LVvUjTs@wuerfel>
-Sender: linux-arm-msm-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1456992221-26712-14-git-send-email-k.kozlowski@samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2016-03-03 19:57 GMT+09:00 Arnd Bergmann <arnd@arndb.de>:
-> On Thursday 03 March 2016 17:03:35 Krzysztof Kozlowski wrote:
->> diff --git a/drivers/media/platform/Kconfig b/drivers/media/platform/Kconfig
->> index 201f5c296a95..e5931e434fa2 100644
->> --- a/drivers/media/platform/Kconfig
->> +++ b/drivers/media/platform/Kconfig
->> @@ -79,6 +79,7 @@ config VIDEO_OMAP3
->>         depends on VIDEO_V4L2 && I2C && VIDEO_V4L2_SUBDEV_API && ARCH_OMAP3
->>         depends on HAS_DMA && OF
->>         depends on OMAP_IOMMU
->> +       depends on HAS_IOMEM    # For MFD_SYSCON
->>         select ARM_DMA_USE_IOMMU
->>         select VIDEOBUF2_DMA_CONTIG
+2016-03-03 17:03 GMT+09:00 Krzysztof Kozlowski <k.kozlowski@samsung.com>:
+> The MFD_SYSCON depends on HAS_IOMEM so when selecting it avoid unmet
+> direct dependencies.
 >
-> This is only built for OMAP3, so we won't get here without HAS_IOMEM
-
-Indeed.
-
+> Signed-off-by: Krzysztof Kozlowski <k.kozlowski@samsung.com>
+> ---
+>  drivers/staging/media/omap4iss/Kconfig | 1 +
+>  1 file changed, 1 insertion(+)
 >
->>         select MFD_SYSCON
->> diff --git a/drivers/media/platform/exynos4-is/Kconfig b/drivers/media/platform/exynos4-is/Kconfig
->> index 57d42c6172c5..c4317b99d257 100644
->> --- a/drivers/media/platform/exynos4-is/Kconfig
->> +++ b/drivers/media/platform/exynos4-is/Kconfig
->> @@ -17,6 +17,7 @@ config VIDEO_S5P_FIMC
->>         tristate "S5P/EXYNOS4 FIMC/CAMIF camera interface driver"
->>         depends on I2C
->>         depends on HAS_DMA
->> +       depends on HAS_IOMEM    # For MFD_SYSCON
->>         select VIDEOBUF2_DMA_CONTIG
->>         select V4L2_MEM2MEM_DEV
->
-> This  is guarded by HAS_DMA, which implies HAS_IOMEM afaik.
+> diff --git a/drivers/staging/media/omap4iss/Kconfig b/drivers/staging/media/omap4iss/Kconfig
+> index 46183464ee79..7dea072172aa 100644
+> --- a/drivers/staging/media/omap4iss/Kconfig
+> +++ b/drivers/staging/media/omap4iss/Kconfig
+> @@ -2,6 +2,7 @@ config VIDEO_OMAP4
+>         tristate "OMAP 4 Camera support"
+>         depends on VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API && I2C && ARCH_OMAP4
+>         depends on HAS_DMA
+> +       depends on HAS_IOMEM    # For MFD_SYSCON
+>         select MFD_SYSCON
+>         select VIDEOBUF2_DMA_CONTIG
+>         ---help---
 
-Looking at Kconfigs - no, it is not implied (or am I missing
-something)... and sometimes dependency on HAS_IOMEM is next to
-HAS_DMA.
+False alarm, no need for the patch (this depends on ARCH_OMAP4).
 
-BR,
+Best regards,
 Krzysztof
