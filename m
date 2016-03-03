@@ -1,56 +1,31 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RFC 14/15] usb: xhci: mtk: Add missing MFD_SYSCON dependency on
- HAS_IOMEM
-Date: Thu, 03 Mar 2016 12:01:21 +0100
-Message-ID: <2531852.vizHtxotvy@wuerfel>
-References: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
- <1456992221-26712-15-git-send-email-k.kozlowski@samsung.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/6] net: ethernet: renesas: ravb_main: test clock rate to
+ avoid division by 0
+Date: Thu, 3 Mar 2016 14:14:20 +0300
+Message-ID: <56D81C8C.3070903@cogentembedded.com>
+References: <1456958018-7849-1-git-send-email-wsa@the-dreams.de>
+ <1456958018-7849-3-git-send-email-wsa@the-dreams.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Krzysztof Kozlowski <k.kozlowski@samsung.com>,
- Linus Walleij <linus.walleij@linaro.org>, linux-kernel@vger.kernel.org,
- David Brown <david.brown@linaro.org>,
- Alexandre Belloni <alexandre.belloni@free-electrons.com>,
- Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
- Lee Jones <lee.jones@linaro.org>, Thomas Gleixner <tglx@linutronix.de>,
- devel@driverdev.osuosl.org, linux-samsung-soc@vger.kernel.org,
- Vinod Koul <vinod.koul@intel.com>, Daniel Lezcano <daniel.lezcano@linaro.org>,
- Kishon Vijay Abraham I <kishon@ti.com>, Andy Gross <andy.gross@linaro.org>,
- linux-media@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
- rtc-linux@googlegroups.com, Mauro Carvalho Chehab <mchehab@osg.samsung.com>,
- Marc Zyngier <marc.zyngier@arm.com>, linux-arm-msm@vger.kernel.org,
- linux-gpio@vger.kernel.org, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
- Dan Williams <dan.j.williams@intel.com>,
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1456992221-26712-15-git-send-email-k.kozlowski@samsung.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: linux-renesas-soc@vger.kernel.org, netdev@vger.kernel.org
+To: Wolfram Sang <wsa@the-dreams.de>, linux-kernel@vger.kernel.org
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1456958018-7849-3-git-send-email-wsa@the-dreams.de>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 03 March 2016 17:03:40 Krzysztof Kozlowski wrote:
-> index 8c20ebbc049c..f759a778d606 100644
-> --- a/drivers/usb/host/Kconfig
-> +++ b/drivers/usb/host/Kconfig
-> @@ -45,6 +45,7 @@ config USB_XHCI_PLATFORM
->  
->  config USB_XHCI_MTK
->         tristate "xHCI support for Mediatek MT65xx"
-> +       depends on HAS_IOMEM    # For MFD_SYSCON
->         select MFD_SYSCON
->         depends on ARCH_MEDIATEK || COMPILE_TEST
->         ---help---
-> 
+Hello.
 
-This already has the dependency, as it depends on XHCD_PLATFORM
-which depends on HAS_IOMEM.
+On 3/3/2016 1:33 AM, Wolfram Sang wrote:
 
-	Arnd
+> From: Wolfram Sang <wsa+renesas@sang-engineering.com>
+>
+> The clk API may return 0 on clk_get_rate, so we should check the result before
+> using it as a divisor.
+>
+> Signed-off-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+MBR, Sergei
