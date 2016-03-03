@@ -1,56 +1,51 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] vxlan: fix missing options_len update on RX with
- collect metadata
-Date: Wed, 2 Mar 2016 17:21:13 -0800
-Message-ID: <CAM_iQpWurWR6c2tvi1fGmNvt-6J=mE05CeKKJkLAEob3stLtZg@mail.gmail.com>
-References: <ea834e5ecd014f50f9d979ee869f96e5508f8d9c.1456880721.git.daniel@iogearbox.net>
+From: Jeremiah Mahler <jmmahler@gmail.com>
+Subject: Re: [REGRESSION, bisect] net: ipv6: unregister_netdevice: waiting
+ for lo to become free. Usage count = 2
+Date: Wed, 2 Mar 2016 17:23:24 -0800
+Message-ID: <20160303012324.GA1882@hudson.localdomain>
+References: <6c735168f53548a39bd21e6e9857f512@HKXPR3004MB0088.064d.mgd.msft.net>
+ <20160301200749.GA1611@hudson.localdomain>
+ <20160302203150.GA2045@hudson.localdomain>
+ <56D75465.4060705@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
-	Pravin B Shelar <pshelar@nicira.com>, jesse@kernel.org,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f175.google.com ([209.85.161.175]:35662 "EHLO
-	mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754937AbcCCBVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 20:21:14 -0500
-Received: by mail-yw0-f175.google.com with SMTP id g127so6172027ywf.2
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 17:21:13 -0800 (PST)
-In-Reply-To: <ea834e5ecd014f50f9d979ee869f96e5508f8d9c.1456880721.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dexuan Cui <decui@microsoft.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <56D75465.4060705@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 1, 2016 at 5:32 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> When signalling to metadata consumers that the metadata_dst entry
-> carries additional GBP extension data for vxlan (TUNNEL_VXLAN_OPT),
-> the dst's vxlan_metadata information is populated, but options_len
-> is left to zero. F.e. in ovs, ovs_flow_key_extract() checks for
-> options_len before extracting the data through ip_tunnel_info_opts_get().
->
-> Geneve uses ip_tunnel_info_opts_set() helper in receive path, which
-> sets options_len internally, vxlan however uses ip_tunnel_info_opts(),
-> so when filling vxlan_metadata, we do need to update options_len.
->
-> Fixes: 4c22279848c5 ("ip-tunnel: Use API to access tunnel metadata options.")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  drivers/net/vxlan.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index b601139..1c32bd1 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1308,8 +1308,10 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
->                 gbp = (struct vxlanhdr_gbp *)vxh;
->                 md->gbp = ntohs(gbp->policy_id);
->
-> -               if (tun_dst)
-> +               if (tun_dst) {
->                         tun_dst->u.tun_info.key.tun_flags |= TUNNEL_VXLAN_OPT;
-> +                       tun_dst->u.tun_info.options_len = sizeof(*md);
-> +               }
->
+Hi David,
 
-Why not set it in tun_rx_dst() where it is allocated?
+On Wed, Mar 02, 2016 at 01:00:21PM -0800, David Ahern wrote:
+> On 3/2/16 12:31 PM, Jeremiah Mahler wrote:
+> >>On Tue, Mar 01, 2016 at 08:11:54AM +0000, Dexuan Cui wrote:
+> >>>Hi, I got this line every 10 seconds with today's linux-next in a Hyper-V guest, even
+> >>>when I didn't configure any NIC for the guest:
+> >>>
+> >>>[   72.604249] unregister_netdevice: waiting for lo to become free. Usage count = 2
+> >>>[   82.708170] unregister_netdevice: waiting for lo to become free. Usage count = 2
+> >>>[   92.788079] unregister_netdevice: waiting for lo to become free. Usage count = 2
+> >>>[  102.808132] unregister_netdevice: waiting for lo to become free. Usage count = 2
+> >>>[  112.928166] unregister_netdevice: waiting for lo to become free. Usage count = 2
+> >>>[  122.952069] unregister_netdevice: waiting for lo to become free. Usage count = 2
+> >>>
+> >>>I don't think this is related to the underlying host, since it's related to "lo".
+> 
+> This should fix it:
+>     https://patchwork.ozlabs.org/patch/591102/
+> 
+> 
+> David
+
+That patch fixes the problem on my machine.
+Thanks for the quick fix :-)
+
+-- 
+- Jeremiah Mahler
