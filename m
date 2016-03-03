@@ -1,57 +1,56 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] net: mellanox: add DEVLINK dependencies
-Date: Thu, 03 Mar 2016 16:48:34 -0500 (EST)
-Message-ID: <20160303.164834.470402143180960189.davem@davemloft.net>
-References: <1456911665-1424389-1-git-send-email-arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] Fix bug where remove of device fails to free all
+ resources.
+Date: Thu, 03 Mar 2016 16:51:12 -0500 (EST)
+Message-ID: <20160303.165112.628368221794213474.davem@davemloft.net>
+References: <1456864492-32257-1-git-send-email-dougmill@linux.vnet.ibm.com>
+	<1456864492-32257-2-git-send-email-dougmill@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, idosch-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: arnd-r2nGTMty4D4@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1456911665-1424389-1-git-send-email-arnd-r2nGTMty4D4@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sathya.perla@broadcom.com,
+	ajit.khaparde@broadcom.com, padmanabh.ratnakar@broadcom.com,
+	sriharsha.basavapatna@broadcom.com, somnath.kotur@broadcom.com
+To: dougmill@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48004 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753954AbcCCVvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 16:51:15 -0500
+In-Reply-To: <1456864492-32257-2-git-send-email-dougmill@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Date: Wed,  2 Mar 2016 10:40:54 +0100
+From: Douglas Miller <dougmill@linux.vnet.ibm.com>
+Date: Tue,  1 Mar 2016 14:34:52 -0600
 
-> The new NET_DEVLINK infrastructure can be a loadable module, but the drivers
-> using it might be built-in, which causes link errors like:
+> The adapter->pcicfg resource is either mapped via pci_iomap() or
+> derived from adapter->db. During be_remove() this resource was ignored
+> and so could remain mapped after remove.
 > 
-> drivers/net/built-in.o: In function `mlx4_load_one':
-> :(.text+0x2fbfda): undefined reference to `devlink_port_register'
-> :(.text+0x2fc084): undefined reference to `devlink_port_unregister'
-> drivers/net/built-in.o: In function `mlxsw_sx_port_remove':
-> :(.text+0x33a03a): undefined reference to `devlink_port_type_clear'
-> :(.text+0x33a04e): undefined reference to `devlink_port_unregister'
+> Add a flag to track whether adapter->pcicfg was mapped or not, then
+> use that flag in be_unmap_pci_bars() to unmap if required.
 > 
-> There are multiple ways to avoid this:
-> 
-> a) add 'depends on NET_DEVLINK || !NET_DEVLINK' dependencies
->    for each user
-> b) use 'select NET_DEVLINK' from each driver that uses it
->    and hide the symbol in Kconfig.
-> c) make NET_DEVLINK a 'bool' option so we don't have to
->    list it as a dependency, and rely on the APIs to be
->    stubbed out when it is disabled
-> d) use IS_REACHABLE() rather than IS_ENABLED() to check for
->    NET_DEVLINK in include/net/devlink.h
-> 
-> This implements a variation of approach a) by adding an
-> intermediate symbol that drivers can depend on, and changes
-> the three drivers using it.
-> 
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-> Fixes: 09d4d087cd48 ("mlx4: Implement devlink interface")
-> Fixes: c4745500e988 ("mlxsw: Implement devlink interface")
+> Signed-off-by: Douglas Miller <dougmill@linux.vnet.ibm.com>
 
-Applied, thanks Arnd.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You subject line need to mention the most relevant subsystem that your
+change is too, otherwise people scanning the shortlog have no idea
+where your change is taking place.
+
+And your description needs to be more concise.
+
+In this instance an appropriate Subject line would be:
+
+	[PATCH] be2net: Don't leak iomapped memory on removal.
+
+> @@ -5019,8 +5021,10 @@ static int be_map_pci_bars(struct be_adapter *adapter)
+>  			if (!addr)
+>  				goto pci_map_err;
+>  			adapter->pcicfg = addr;
+> +			adapter->pcicfg_mapped = 1;
+>  		} else {
+>  			adapter->pcicfg = adapter->db + SRIOV_VF_PCICFG_OFFSET;
+> +			adapter->pcicfg_mapped = 0;
+>  		}
+
+Bool variables take on the values "true" and "false" so please use them.
