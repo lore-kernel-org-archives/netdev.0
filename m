@@ -1,10 +1,10 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RFC 02/15] dmaengine: nxp: Add missing MFD_SYSCON dependency on
- HAS_IOMEM
-Date: Thu, 03 Mar 2016 11:52:51 +0100
-Message-ID: <2236480.r7GhWzq1NL@wuerfel>
+Subject: Re: [RFC 03/15] hwspinlock: qcom: Add missing MFD_SYSCON dependency
+ on HAS_IOMEM
+Date: Thu, 03 Mar 2016 11:53:23 +0100
+Message-ID: <1850954.4r0iTkATb8@wuerfel>
 References: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
- <1456992221-26712-3-git-send-email-k.kozlowski@samsung.com>
+ <1456992221-26712-4-git-send-email-k.kozlowski@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -24,7 +24,7 @@ Cc: Krzysztof Kozlowski <k.kozlowski@samsung.com>,
  Dan Williams <dan.j.williams@intel.com>,
 To: linux-arm-kernel@lists.infradead.org
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1456992221-26712-3-git-send-email-k.kozlowski@samsung.com>
+In-Reply-To: <1456992221-26712-4-git-send-email-k.kozlowski@samsung.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -36,19 +36,22 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 03 March 2016 17:03:28 Krzysztof Kozlowski wrote:
-> index c77f214c9466..7fbf96bff280 100644
-> --- a/drivers/dma/Kconfig
-> +++ b/drivers/dma/Kconfig
-> @@ -290,6 +290,7 @@ config LPC18XX_DMAMUX
->         bool "NXP LPC18xx/43xx DMA MUX for PL080"
->         depends on ARCH_LPC18XX || COMPILE_TEST
->         depends on OF && AMBA_PL08X
+On Thursday 03 March 2016 17:03:29 Krzysztof Kozlowski wrote:
+> diff --git a/drivers/hwspinlock/Kconfig b/drivers/hwspinlock/Kconfig
+> index 73a401662853..5ab2d51dc147 100644
+> --- a/drivers/hwspinlock/Kconfig
+> +++ b/drivers/hwspinlock/Kconfig
+> @@ -21,6 +21,7 @@ config HWSPINLOCK_OMAP
+>  config HWSPINLOCK_QCOM
+>         tristate "Qualcomm Hardware Spinlock device"
+>         depends on ARCH_QCOM
 > +       depends on HAS_IOMEM    # For MFD_SYSCON
+>         select HWSPINLOCK
 >         select MFD_SYSCON
 >         help
 > 
 
-AMBA_PL08X implies HAS_IOMEM, so this is not needed explicitly
+This is only needed if we add "|| COMPILE_TEST", right now the driver
+is limited to ARCH_QCOM.
 
 	Arnd
