@@ -1,62 +1,111 @@
 From: Richard Alpe <richard.alpe@ericsson.com>
-Subject: [PATCH net-next v1 4/4] tipc: make sure required
-	IPv6 addresses are scoped
-Date: Thu, 3 Mar 2016 14:20:43 +0100
-Message-ID: <1457011243-23605-4-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next v1 3/4] tipc: safely copy UDP netlink data from user
+Date: Thu, 3 Mar 2016 14:20:42 +0100
+Message-ID: <1457011243-23605-3-git-send-email-richard.alpe@ericsson.com>
 References: <1457011243-23605-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: tipc-discussion@lists.sourceforge.net
+Content-Type: text/plain
+Cc: <tipc-discussion@lists.sourceforge.net>,
+	Richard Alpe <richard.alpe@ericsson.com>
 To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sessmg22.ericsson.net ([193.180.251.58]:54963 "EHLO
+	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751733AbcCCNUx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 08:20:53 -0500
 In-Reply-To: <1457011243-23605-1-git-send-email-richard.alpe@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make sure the user has provided a scope for multicast and link local
-addresses used locally by a UDP bearer.
+The netlink policy for TIPC_NLA_UDP_LOCAL and TIPC_NLA_UDP_REMOTE
+is of type binary with a defined length. This causes the policy
+framework to threat the defined length as maximum length.
 
+There is however no protection against a user sending a smaller
+amount of data. Prior to this patch this wasn't handled which could
+result in a partially incomplete sockaddr_storage struct containing
+uninitialized data.
+
+In this patch we use nla_memcpy() when copying the user data. This
+ensures a potential gap at the end is cleared out properly.
+
+This was found by Julia with Coccinelle tool.
+
+Reported-by: Daniel Borkmann <daniel@iogearbox.net>
+Reported-by: Julia Lawall <julia.lawall@lip6.fr>
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Acked-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@gmail.com>
 ---
- net/tipc/udp_media.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ net/tipc/udp_media.c | 24 +++++++++++++-----------
+ 1 file changed, 13 insertions(+), 11 deletions(-)
 
 diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index 6fe8740..fb2f7ec6 100644
+index f22a5bb1..6fe8740 100644
 --- a/net/tipc/udp_media.c
 +++ b/net/tipc/udp_media.c
-@@ -310,9 +310,14 @@ err:
+@@ -276,7 +276,7 @@ static int parse_options(struct nlattr *attrs[], struct udp_bearer *ub,
+ 			 struct udp_media_addr *remote)
+ {
+ 	struct nlattr *opts[TIPC_NLA_UDP_MAX + 1];
+-	struct sockaddr_storage *sa_local, *sa_remote;
++	struct sockaddr_storage sa_local, sa_remote;
+ 
+ 	if (!attrs[TIPC_NLA_BEARER_UDP_OPTS])
+ 		goto err;
+@@ -285,41 +285,43 @@ static int parse_options(struct nlattr *attrs[], struct udp_bearer *ub,
+ 			     tipc_nl_udp_policy))
+ 		goto err;
+ 	if (opts[TIPC_NLA_UDP_LOCAL] && opts[TIPC_NLA_UDP_REMOTE]) {
+-		sa_local = nla_data(opts[TIPC_NLA_UDP_LOCAL]);
+-		sa_remote = nla_data(opts[TIPC_NLA_UDP_REMOTE]);
++		nla_memcpy(&sa_local, opts[TIPC_NLA_UDP_LOCAL],
++			   sizeof(sa_local));
++		nla_memcpy(&sa_remote, opts[TIPC_NLA_UDP_REMOTE],
++			   sizeof(sa_remote));
+ 	} else {
+ err:
+ 		pr_err("Invalid UDP bearer configuration");
+ 		return -EINVAL;
+ 	}
+-	if ((sa_local->ss_family & sa_remote->ss_family) == AF_INET) {
++	if ((sa_local.ss_family & sa_remote.ss_family) == AF_INET) {
+ 		struct sockaddr_in *ip4;
+ 
+-		ip4 = (struct sockaddr_in *)sa_local;
++		ip4 = (struct sockaddr_in *)&sa_local;
+ 		local->proto = htons(ETH_P_IP);
+ 		local->udp_port = ip4->sin_port;
+ 		local->ipv4.s_addr = ip4->sin_addr.s_addr;
+ 
+-		ip4 = (struct sockaddr_in *)sa_remote;
++		ip4 = (struct sockaddr_in *)&sa_remote;
+ 		remote->proto = htons(ETH_P_IP);
+ 		remote->udp_port = ip4->sin_port;
+ 		remote->ipv4.s_addr = ip4->sin_addr.s_addr;
+ 		return 0;
  
  #if IS_ENABLED(CONFIG_IPV6)
- 	} else if ((sa_local.ss_family & sa_remote.ss_family) == AF_INET6) {
-+		int atype;
+-	} else if ((sa_local->ss_family & sa_remote->ss_family) == AF_INET6) {
++	} else if ((sa_local.ss_family & sa_remote.ss_family) == AF_INET6) {
  		struct sockaddr_in6 *ip6;
  
- 		ip6 = (struct sockaddr_in6 *)&sa_local;
-+		atype = ipv6_addr_type(&ip6->sin6_addr);
-+		if (__ipv6_addr_needs_scope_id(atype) && !ip6->sin6_scope_id)
-+			return -EINVAL;
-+
+-		ip6 = (struct sockaddr_in6 *)sa_local;
++		ip6 = (struct sockaddr_in6 *)&sa_local;
  		local->proto = htons(ETH_P_IPV6);
  		local->udp_port = ip6->sin6_port;
- 		memcpy(&local->ipv6, &ip6->sin6_addr, sizeof(struct in6_addr));
+-		local->ipv6 = ip6->sin6_addr;
++		memcpy(&local->ipv6, &ip6->sin6_addr, sizeof(struct in6_addr));
+ 		ub->ifindex = ip6->sin6_scope_id;
+ 
+-		ip6 = (struct sockaddr_in6 *)sa_remote;
++		ip6 = (struct sockaddr_in6 *)&sa_remote;
+ 		remote->proto = htons(ETH_P_IPV6);
+ 		remote->udp_port = ip6->sin6_port;
+-		remote->ipv6 = ip6->sin6_addr;
++		memcpy(&remote->ipv6, &ip6->sin6_addr, sizeof(struct in6_addr));
+ 		return 0;
+ #endif
+ 	}
 -- 
 2.1.4
-
-
-------------------------------------------------------------------------------
-Site24x7 APM Insight: Get Deep Visibility into Application Performance
-APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
-Monitor end-to-end web transactions and take corrective actions now
-Troubleshoot faster and improve end-user experience. Signup Now!
-http://pubads.g.doubleclick.net/gampad/clk?id=272487151&iu=/4140
