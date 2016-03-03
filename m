@@ -1,8 +1,8 @@
 From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
-Subject: [RFC 01/15] clocksource: atmel: Add missing MFD_SYSCON dependency on
+Subject: [RFC 02/15] dmaengine: nxp: Add missing MFD_SYSCON dependency on
  HAS_IOMEM
-Date: Thu, 03 Mar 2016 17:03:27 +0900
-Message-ID: <1456992221-26712-2-git-send-email-k.kozlowski@samsung.com>
+Date: Thu, 03 Mar 2016 17:03:28 +0900
+Message-ID: <1456992221-26712-3-git-send-email-k.kozlowski@samsung.com>
 References: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
 Cc: Krzysztof Kozlowski <k.kozlowski@samsung.com>
 To: Daniel Lezcano <daniel.lezcano@linaro.org>,
@@ -27,10 +27,10 @@ To: Daniel Lezcano <daniel.lezcano@linaro.org>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	linux-kernel@vger.kernel.org, dmaen
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.w1.samsung.com ([210.118.77.11]:58024 "EHLO
-	mailout1.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756851AbcCCIEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 03:04:16 -0500
+Received: from mailout2.w1.samsung.com ([210.118.77.12]:57876 "EHLO
+	mailout2.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932104AbcCCIEZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 03:04:25 -0500
 In-reply-to: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -40,20 +40,20 @@ direct dependencies.
 
 Signed-off-by: Krzysztof Kozlowski <k.kozlowski@samsung.com>
 ---
- drivers/clocksource/Kconfig | 1 +
+ drivers/dma/Kconfig | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/clocksource/Kconfig b/drivers/clocksource/Kconfig
-index c346be650892..5927944b46e0 100644
---- a/drivers/clocksource/Kconfig
-+++ b/drivers/clocksource/Kconfig
-@@ -239,6 +239,7 @@ config ATMEL_PIT
- 
- config ATMEL_ST
- 	bool
+diff --git a/drivers/dma/Kconfig b/drivers/dma/Kconfig
+index c77f214c9466..7fbf96bff280 100644
+--- a/drivers/dma/Kconfig
++++ b/drivers/dma/Kconfig
+@@ -290,6 +290,7 @@ config LPC18XX_DMAMUX
+ 	bool "NXP LPC18xx/43xx DMA MUX for PL080"
+ 	depends on ARCH_LPC18XX || COMPILE_TEST
+ 	depends on OF && AMBA_PL08X
 +	depends on HAS_IOMEM	# For MFD_SYSCON
- 	select CLKSRC_OF
  	select MFD_SYSCON
- 
+ 	help
+ 	  Enable support for DMA on NXP LPC18xx/43xx platforms
 -- 
 2.5.0
