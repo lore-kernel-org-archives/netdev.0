@@ -1,41 +1,55 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute PATCH v2 06/20] iproute: TYPE keyword is not optional,
- fix help text accordingly
-Date: Thu, 3 Mar 2016 16:05:57 +0100
-Message-ID: <20160303150557.GE18624@orbyte.nwl.cc>
-References: <20160302093800.7e7dbe71@xeon-e3>
- <1456942808-15946-1-git-send-email-phil@nwl.cc>
- <1456942808-15946-7-git-send-email-phil@nwl.cc>
- <56D84883.3080902@mojatatu.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] phy: remove documentation of removed member addr of
+ phy_device structure
+Date: Thu, 3 Mar 2016 16:14:19 +0100
+Message-ID: <20160303151419.GK15541@lunn.ch>
+References: <1457010748-2584-1-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: LABBE Corentin <clabbe.montjoie@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:38418 "EHLO mail.nwl.cc"
+Received: from vps0.lunn.ch ([178.209.37.122]:48784 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751247AbcCCPF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2016 10:05:59 -0500
+	id S1752348AbcCCPOV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2016 10:14:21 -0500
 Content-Disposition: inline
-In-Reply-To: <56D84883.3080902@mojatatu.com>
+In-Reply-To: <1457010748-2584-1-git-send-email-clabbe.montjoie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 03, 2016 at 09:21:55AM -0500, Jamal Hadi Salim wrote:
-> On 16-03-02 01:19 PM, Phil Sutter wrote:
-> > +	fprintf(stderr, "          unreachable | prohibit | blackhole | nat }\n");
+On Thu, Mar 03, 2016 at 02:12:28PM +0100, LABBE Corentin wrote:
+> Commit e5a03bfd873c ("phy: Add an mdio_device structure") removed
+> the addr member of the phy_device structure.
+> This patch remove the documentation about that member.
 > 
-> Dont think nat exists anymore...
+> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
 
-But iproute2 seems to still support it? At least it's listed in
-rtnl_rtntype_a2n().
+Hi Corentin
 
-The entry for RTN_NAT in net/ipv4/fib_semantics.c though looks like just
-a stub. But at least it hasn't changed since the beginning of Git.
-According to ip-route.8 it's indeed non-functional.
+The patch also removed bus and dev which are documented.  Could you
+please expand you patch to remove those as well?
 
-I only concerned help text and man page consistency, and since the man
-page lists it (with a useful hint about it's state), the help text
-should contain it either. Or do you think that's misleading?
+Thanks
+	Andrew
 
-Thanks, Phil
+> ---
+>  include/linux/phy.h | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/include/linux/phy.h b/include/linux/phy.h
+> index d6f3641..e14569e 100644
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -338,7 +338,6 @@ struct phy_c45_device_ids {
+>   * suspended: Set to true if this phy has been suspended successfully.
+>   * state: state of the PHY for management purposes
+>   * dev_flags: Device-specific flags used by the PHY driver.
+> - * addr: Bus address of PHY
+>   * link_timeout: The number of timer firings to wait before the
+>   * giving up on the current attempt at acquiring a link
+>   * irq: IRQ number of the PHY's interrupt (-1 if none)
+> -- 
+> 2.4.10
+> 
