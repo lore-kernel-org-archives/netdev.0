@@ -1,71 +1,93 @@
-From: Diego Viola <diego.viola@gmail.com>
-Subject: Re: [PATCH v3] net: jme: fix suspend/resume on JMC260
-Date: Thu, 3 Mar 2016 00:19:16 -0300
-Message-ID: <CA+ToGPH5cMTZBi_F9tBbOrPqk_Zpd0wHFt=h0CAvj_3NBOumOg@mail.gmail.com>
-References: <1456239844-4109-1-git-send-email-diego.viola@gmail.com>
-	<20160224.235856.242530723940439026.davem@davemloft.net>
-	<20160302051405.M6687@cooldavid.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, richard.weinberger@gmail.com,
-	pavel@ucw.cz, rjw@rjwysocki.net, valdis.kletnieks@vt.edu
-To: Guo-Fu Tseng <cooldavid@cooldavid.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:35205 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755902AbcCCDTS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 22:19:18 -0500
-In-Reply-To: <20160302051405.M6687@cooldavid.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Stultz <john.stultz@linaro.org>
+Subject: [PATCH 1/8] time: Add cycles to nanoseconds translation
+Date: Wed,  2 Mar 2016 20:21:52 -0800
+Message-ID: <1456978919-30076-2-git-send-email-john.stultz@linaro.org>
+References: <1456978919-30076-1-git-send-email-john.stultz@linaro.org>
+Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
+	Prarit Bhargava <prarit@redhat.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@kernel.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	kevin.b.stanton@intel.com, kevin.j.clarke@intel.com, hpa@zytor.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	John Stultz <john.stultz@linaro.org>
+To: lkml <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1456978919-30076-1-git-send-email-john.stultz@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 2, 2016 at 2:14 AM, Guo-Fu Tseng <cooldavid@cooldavid.org> wrote:
-> On Wed, 24 Feb 2016 23:58:56 -0500 (EST), David Miller wrote
->> From: Diego Viola <diego.viola@gmail.com>
->> Date: Tue, 23 Feb 2016 12:04:04 -0300
->>
->> > The JMC260 network card fails to suspend/resume because the call to
->> > jme_start_irq() was too early, moving the call to jme_start_irq() after
->> > the call to jme_reset_link() makes it work.
->> >
->> > Prior this change suspend/resume would fail unless /sys/power/pm_async=0
->> > was explicitly specified.
->> >
->> > Relevant bug report: https://bugzilla.kernel.org/show_bug.cgi?id=112351
->> >
->> > Signed-off-by: Diego Viola <diego.viola@gmail.com>
->>
->> Applied and queued up for -stable, thanks.
->
-> Just reviewed it, it should have no side effect.
->
-> Thanks David, Diego.
->
-> Guo-Fu Tseng
->
+From: "Christopher S. Hall" <christopher.s.hall@intel.com>
 
-Hi all,
+The timekeeping code does not currently provide a way to translate
+externally provided clocksource cycles to system time. The cycle count
+is always provided by the result clocksource read() method internal to
+the timekeeping code. The added function timekeeping_cycles_to_ns()
+calculated a nanosecond value from a cycle count that can be added to
+tk_read_base.base value yielding the current system time. This allows
+clocksource cycle values external to the timekeeping code to provide a
+cycle count that can be transformed to system time.
 
-I'm having another issue with jme and I'm not sure if it's related to
-the same issue with suspend/resume, but the problem now is WoL.
+Cc: Prarit Bhargava <prarit@redhat.com>
+Cc: Richard Cochran <richardcochran@gmail.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: Andy Lutomirski <luto@amacapital.net>
+Cc: kevin.b.stanton@intel.com
+Cc: kevin.j.clarke@intel.com
+Cc: hpa@zytor.com
+Cc: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ kernel/time/timekeeping.c | 25 +++++++++++++++++++++----
+ 1 file changed, 21 insertions(+), 4 deletions(-)
 
-Let me try to describe the problem a bit:
-
-I put my machine to sleep in S3 and I send WoL packets from a laptop,
-and the machine doesn't wake up at all, I tried inspecting packets
-with tcpdump and nothing shows up in the tcpdump output.
-
-When the machine is in working state, and I send WoL packets and I
-initiate a S3, it refuses to go in sleep mode.
-
-I tried the same in Windows (waking up from S3 via WoL) and it works there.
-
-Does anyone have any ideas what the problem can be? I talked with Guo
-and he suspects the problem is motherboard failure, I also think the
-issue can be a BIOS bug since I hear so many horror stories about AMI
-BIOS issues with Linux.
-
-But it's still a mystery to me given all these conditions I mentioned.
-
-Diego
+diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
+index 34b4ced..4243d28 100644
+--- a/kernel/time/timekeeping.c
++++ b/kernel/time/timekeeping.c
+@@ -298,17 +298,34 @@ u32 (*arch_gettimeoffset)(void) = default_arch_gettimeoffset;
+ static inline u32 arch_gettimeoffset(void) { return 0; }
+ #endif
+ 
++static inline s64 timekeeping_delta_to_ns(struct tk_read_base *tkr,
++					  cycle_t delta)
++{
++	s64 nsec;
++
++	nsec = delta * tkr->mult + tkr->xtime_nsec;
++	nsec >>= tkr->shift;
++
++	/* If arch requires, add in get_arch_timeoffset() */
++	return nsec + arch_gettimeoffset();
++}
++
+ static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
+ {
+ 	cycle_t delta;
+-	s64 nsec;
+ 
+ 	delta = timekeeping_get_delta(tkr);
++	return timekeeping_delta_to_ns(tkr, delta);
++}
+ 
+-	nsec = (delta * tkr->mult + tkr->xtime_nsec) >> tkr->shift;
++static inline s64 timekeeping_cycles_to_ns(struct tk_read_base *tkr,
++					    cycle_t cycles)
++{
++	cycle_t delta;
+ 
+-	/* If arch requires, add in get_arch_timeoffset() */
+-	return nsec + arch_gettimeoffset();
++	/* calculate the delta since the last update_wall_time */
++	delta = clocksource_delta(cycles, tkr->cycle_last, tkr->mask);
++	return timekeeping_delta_to_ns(tkr, delta);
+ }
+ 
+ /**
+-- 
+1.9.1
