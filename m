@@ -1,7 +1,7 @@
 From: John Stultz <john.stultz@linaro.org>
-Subject: [PATCH 1/8] time: Add cycles to nanoseconds translation
-Date: Wed,  2 Mar 2016 20:21:52 -0800
-Message-ID: <1456978919-30076-2-git-send-email-john.stultz@linaro.org>
+Subject: [PATCH 4/8] time: Add driver cross timestamp interface for higher precision time synchronization
+Date: Wed,  2 Mar 2016 20:21:55 -0800
+Message-ID: <1456978919-30076-5-git-send-email-john.stultz@linaro.org>
 References: <1456978919-30076-1-git-send-email-john.stultz@linaro.org>
 Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
 	Prarit Bhargava <prarit@redhat.com>,
@@ -20,14 +20,37 @@ List-Id: netdev.vger.kernel.org
 
 From: "Christopher S. Hall" <christopher.s.hall@intel.com>
 
-The timekeeping code does not currently provide a way to translate
-externally provided clocksource cycles to system time. The cycle count
-is always provided by the result clocksource read() method internal to
-the timekeeping code. The added function timekeeping_cycles_to_ns()
-calculated a nanosecond value from a cycle count that can be added to
-tk_read_base.base value yielding the current system time. This allows
-clocksource cycle values external to the timekeeping code to provide a
-cycle count that can be transformed to system time.
+ACKNOWLEDGMENT: cross timestamp code was developed by Thomas Gleixner
+<tglx@linutronix.de>. It has changed considerably and any mistakes are
+mine.
+
+The precision with which events on multiple networked systems can be
+synchronized using, as an example, PTP (IEEE 1588, 802.1AS) is limited
+by the precision of the cross timestamps between the system clock and
+the device (timestamp) clock. Precision here is the degree of
+simultaneity when capturing the cross timestamp.
+
+Currently the PTP cross timestamp is captured in software using the
+PTP device driver ioctl PTP_SYS_OFFSET. Reads of the device clock are
+interleaved with reads of the realtime clock. At best, the precision
+of this cross timestamp is on the order of several microseconds due to
+software latencies. Sub-microsecond precision is required for
+industrial control and some media applications. To achieve this level
+of precision hardware supported cross timestamping is needed.
+
+The function get_device_system_crosstimestamp() allows device drivers
+to return a cross timestamp with system time properly scaled to
+nanoseconds.  The realtime value is needed to discipline that clock
+using PTP and the monotonic raw value is used for applications that
+don't require a "real" time, but need an unadjusted clock time.  The
+get_device_system_crosstimestamp() code calls back into the driver to
+ensure that the system counter is within the current timekeeping
+update interval.
+
+Modern Intel hardware provides an Always Running Timer (ART) which is
+exactly related to TSC through a known frequency ratio. The ART is
+routed to devices on the system and is used to precisely and
+simultaneously capture the device clock with the ART.
 
 Cc: Prarit Bhargava <prarit@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>
@@ -41,53 +64,125 @@ Cc: jeffrey.t.kirsher@intel.com
 Cc: netdev@vger.kernel.org
 Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
+[jstultz: Reworked to remove extra structures and simplify calling]
 Signed-off-by: John Stultz <john.stultz@linaro.org>
 ---
- kernel/time/timekeeping.c | 25 +++++++++++++++++++++----
- 1 file changed, 21 insertions(+), 4 deletions(-)
+ include/linux/timekeeping.h | 35 ++++++++++++++++++++++++++++
+ kernel/time/timekeeping.c   | 56 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 91 insertions(+)
 
+diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
+index 7817591..4a2ca65 100644
+--- a/include/linux/timekeeping.h
++++ b/include/linux/timekeeping.h
+@@ -280,6 +280,41 @@ struct system_time_snapshot {
+ };
+ 
+ /*
++ * struct system_device_crosststamp - system/device cross-timestamp
++ *	(syncronized capture)
++ * @device:		Device time
++ * @sys_realtime:	Realtime simultaneous with device time
++ * @sys_monoraw:	Monotonic raw simultaneous with device time
++ */
++struct system_device_crosststamp {
++	ktime_t device;
++	ktime_t sys_realtime;
++	ktime_t sys_monoraw;
++};
++
++/*
++ * struct system_counterval_t - system counter value with the pointer to the
++ *	corresponding clocksource
++ * @cycles:	System counter value
++ * @cs:		Clocksource corresponding to system counter value. Used by
++ *	timekeeping code to verify comparibility of two cycle values
++ */
++struct system_counterval_t {
++	cycle_t			cycles;
++	struct clocksource	*cs;
++};
++
++/*
++ * Get cross timestamp between system clock and device clock
++ */
++extern int get_device_system_crosststamp(
++			int (*get_time_fn)(ktime_t *device_time,
++				struct system_counterval_t *system_counterval,
++				void *ctx),
++			void *ctx,
++			struct system_device_crosststamp *xtstamp);
++
++/*
+  * Simultaneously snapshot realtime and monotonic raw clocks
+  */
+ extern void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot);
 diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
-index 34b4ced..4243d28 100644
+index af19a49..dba595c 100644
 --- a/kernel/time/timekeeping.c
 +++ b/kernel/time/timekeeping.c
-@@ -298,17 +298,34 @@ u32 (*arch_gettimeoffset)(void) = default_arch_gettimeoffset;
- static inline u32 arch_gettimeoffset(void) { return 0; }
- #endif
- 
-+static inline s64 timekeeping_delta_to_ns(struct tk_read_base *tkr,
-+					  cycle_t delta)
-+{
-+	s64 nsec;
-+
-+	nsec = delta * tkr->mult + tkr->xtime_nsec;
-+	nsec >>= tkr->shift;
-+
-+	/* If arch requires, add in get_arch_timeoffset() */
-+	return nsec + arch_gettimeoffset();
-+}
-+
- static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
- {
- 	cycle_t delta;
--	s64 nsec;
- 
- 	delta = timekeeping_get_delta(tkr);
-+	return timekeeping_delta_to_ns(tkr, delta);
-+}
- 
--	nsec = (delta * tkr->mult + tkr->xtime_nsec) >> tkr->shift;
-+static inline s64 timekeeping_cycles_to_ns(struct tk_read_base *tkr,
-+					    cycle_t cycles)
-+{
-+	cycle_t delta;
- 
--	/* If arch requires, add in get_arch_timeoffset() */
--	return nsec + arch_gettimeoffset();
-+	/* calculate the delta since the last update_wall_time */
-+	delta = clocksource_delta(cycles, tkr->cycle_last, tkr->mask);
-+	return timekeeping_delta_to_ns(tkr, delta);
- }
+@@ -908,6 +908,62 @@ void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
+ EXPORT_SYMBOL_GPL(ktime_get_snapshot);
  
  /**
++ * get_device_system_crosststamp - Synchronously capture system/device timestamp
++ * @sync_devicetime:	Callback to get simultaneous device time and
++ *	system counter from the device driver
++ * @xtstamp:		Receives simultaneously captured system and device time
++ *
++ * Reads a timestamp from a device and correlates it to system time
++ */
++int get_device_system_crosststamp(int (*get_time_fn)
++				  (ktime_t *device_time,
++				   struct system_counterval_t *sys_counterval,
++				   void *ctx),
++				  void *ctx,
++				  struct system_device_crosststamp *xtstamp)
++{
++	struct system_counterval_t system_counterval;
++	struct timekeeper *tk = &tk_core.timekeeper;
++	ktime_t base_real, base_raw;
++	s64 nsec_real, nsec_raw;
++	unsigned long seq;
++	int ret;
++
++	do {
++		seq = read_seqcount_begin(&tk_core.seq);
++		/*
++		 * Try to synchronously capture device time and a system
++		 * counter value calling back into the device driver
++		 */
++		ret = get_time_fn(&xtstamp->device, &system_counterval, ctx);
++		if (ret)
++			return ret;
++
++		/*
++		 * Verify that the clocksource associated with the captured
++		 * system counter value is the same as the currently installed
++		 * timekeeper clocksource
++		 */
++		if (tk->tkr_mono.clock != system_counterval.cs)
++			return -ENODEV;
++
++		base_real = ktime_add(tk->tkr_mono.base,
++				      tk_core.timekeeper.offs_real);
++		base_raw = tk->tkr_raw.base;
++
++		nsec_real = timekeeping_cycles_to_ns(&tk->tkr_mono,
++						     system_counterval.cycles);
++		nsec_raw = timekeeping_cycles_to_ns(&tk->tkr_raw,
++						    system_counterval.cycles);
++	} while (read_seqcount_retry(&tk_core.seq, seq));
++
++	xtstamp->sys_realtime = ktime_add_ns(base_real, nsec_real);
++	xtstamp->sys_monoraw = ktime_add_ns(base_raw, nsec_raw);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(get_device_system_crosststamp);
++
++/**
+  * do_gettimeofday - Returns the time of day in a timeval
+  * @tv:		pointer to the timeval to be set
+  *
 -- 
 1.9.1
