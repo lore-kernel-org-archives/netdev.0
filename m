@@ -1,64 +1,166 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v5 net-next] net: Implement fast csum_partial for x86_64
-Date: Thu, 3 Mar 2016 16:12:16 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D41113AD4@AcuExch.aculab.com>
-References: <1456957112-2702469-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
-	"kernel-team@fb.com" <kernel-team@fb.com>
-To: 'Tom Herbert' <tom@herbertland.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH iproute2 net-next v2] bridge: mdb: add support for extended router port information
+Date: Thu,  3 Mar 2016 17:20:14 +0100
+Message-ID: <1457022014-26726-1-git-send-email-nikolay@cumulusnetworks.com>
+References: <1457018374-25420-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.192]:63284 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751002AbcCCQP0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 11:15:26 -0500
-In-Reply-To: <1456957112-2702469-1-git-send-email-tom@herbertland.com>
-Content-Language: en-US
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:37183 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002AbcCCQUX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 11:20:23 -0500
+Received: by mail-wm0-f49.google.com with SMTP id p65so38320415wmp.0
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 08:20:22 -0800 (PST)
+In-Reply-To: <1457018374-25420-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert
-> Sent: 02 March 2016 22:19
-...
-> +	/* Main loop using 64byte blocks */
-> +	for (; len > 64; len -= 64, buff += 64) {
-> +		asm("addq 0*8(%[src]),%[res]\n\t"
-> +		    "adcq 1*8(%[src]),%[res]\n\t"
-> +		    "adcq 2*8(%[src]),%[res]\n\t"
-> +		    "adcq 3*8(%[src]),%[res]\n\t"
-> +		    "adcq 4*8(%[src]),%[res]\n\t"
-> +		    "adcq 5*8(%[src]),%[res]\n\t"
-> +		    "adcq 6*8(%[src]),%[res]\n\t"
-> +		    "adcq 7*8(%[src]),%[res]\n\t"
-> +		    "adcq $0,%[res]"
-> +		    : [res] "=r" (result)
-> +		    : [src] "r" (buff),
-> +		    "[res]" (result));
+Recently a new temp router port mode was added and with it the dumped
+information was extended similar to how mdb entries were done. This
+patch adds support to dump the new information by using the "-s" switch.
+Example:
+$ bridge -d -s mdb show
+dev br0 port eth1 grp ff02::1:ffbf:5716 temp 234.39
+dev br0 port eth1 grp 239.0.0.2 temp  97.17
+dev br0 port eth1 grp 239.0.0.3 temp 105.36
+router ports on br0: eth1    0.00 permanent
+router ports on br0: eth2  254.87 temp
 
-Did you try the asm loop that used 'leax %rcx..., jcxz... jmps..'
-without any unrolling?
+It also updates the bridge man page.
 
-...
-> +	/* Sum over any remaining bytes (< 8 of them) */
-> +	if (len & 0x7) {
-> +		unsigned long val;
-> +		/*
-> +		 * Since "len" is > 8 here we backtrack in the buffer to load
-> +		 * the outstanding bytes into the low order bytes of a quad and
-> +		 * then shift to extract the relevant bytes. By doing this we
-> +		 * avoid additional calls to load_unaligned_zeropad.
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+v2: print the values only if they were provided by the kernel, otherwise
+we might print "permanent" for a temporary entry on an older kernel.
 
-That comment is wrong. Maybe:
-		 * Read the last 8 bytes of the buffer then shift to extract
-		 * the required bytes.
-		 * This is safe because the original length was > 8 and avoids
-		 * any problems reading beyond the end of the valid data.
+ bridge/br_common.h |  3 +++
+ bridge/mdb.c       | 57 +++++++++++++++++++++++++++++++++++++++++++++---------
+ man/man8/bridge.8  |  6 +++++-
+ 3 files changed, 56 insertions(+), 10 deletions(-)
 
-	David
+diff --git a/bridge/br_common.h b/bridge/br_common.h
+index 41eb0dc38293..5ea45c9e654d 100644
+--- a/bridge/br_common.h
++++ b/bridge/br_common.h
+@@ -1,6 +1,9 @@
+ #define MDB_RTA(r) \
+ 		((struct rtattr *)(((char *)(r)) + RTA_ALIGN(sizeof(struct br_mdb_entry))))
+ 
++#define MDB_RTR_RTA(r) \
++		((struct rtattr *)(((char *)(r)) + RTA_ALIGN(sizeof(__u32))))
++
+ extern int print_linkinfo(const struct sockaddr_nl *who,
+ 			  struct nlmsghdr *n,
+ 			  void *arg);
+diff --git a/bridge/mdb.c b/bridge/mdb.c
+index 09d4b2255857..e2cd4960775f 100644
+--- a/bridge/mdb.c
++++ b/bridge/mdb.c
+@@ -33,19 +33,60 @@ static void usage(void)
+ 	exit(-1);
+ }
+ 
+-static void br_print_router_ports(FILE *f, struct rtattr *attr)
++static int is_temp_mcast_rtr(__u8 type)
+ {
++	if (type == MDB_RTR_TYPE_TEMP_QUERY || type == MDB_RTR_TYPE_TEMP)
++		return 1;
++	else
++		return 0;
++}
++
++static void br_print_router_ports(FILE *f, struct rtattr *attr, __u32 brifidx)
++{
++	struct rtattr *tb[MDBA_ROUTER_PATTR_MAX + 1];
+ 	uint32_t *port_ifindex;
+ 	struct rtattr *i;
+ 	int rem;
+ 
++	if (!show_stats)
++		fprintf(f, "router ports on %s: ", ll_index_to_name(brifidx));
++
+ 	rem = RTA_PAYLOAD(attr);
+ 	for (i = RTA_DATA(attr); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
+ 		port_ifindex = RTA_DATA(i);
+-		fprintf(f, "%s ", ll_index_to_name(*port_ifindex));
++		parse_rtattr(tb, MDBA_ROUTER_PATTR_MAX,
++			     MDB_RTR_RTA(RTA_DATA(i)),
++			     RTA_PAYLOAD(i) - RTA_ALIGN(sizeof(*port_ifindex)));
++		if (show_stats) {
++			fprintf(f, "router ports on %s: %s",
++				ll_index_to_name(brifidx),
++				ll_index_to_name(*port_ifindex));
++			if (tb[MDBA_ROUTER_PATTR_TIMER]) {
++				struct timeval tv;
++				__u32 tval;
++
++				tval = rta_getattr_u32(
++						tb[MDBA_ROUTER_PATTR_TIMER]);
++				__jiffies_to_tv(&tv, tval);
++				fprintf(f, " %4i.%.2i",
++					(int)tv.tv_sec, (int)tv.tv_usec/10000);
++			}
++			if (tb[MDBA_ROUTER_PATTR_TYPE]) {
++				__u8 type;
++
++				type = rta_getattr_u8(
++						tb[MDBA_ROUTER_PATTR_TYPE]);
++				fprintf(f, " %s",
++					is_temp_mcast_rtr(type) ? "temp" :
++								  "permanent");
++			}
++			fprintf(f, "\n");
++		} else {
++			fprintf(f, "%s ", ll_index_to_name(*port_ifindex));
++		}
+ 	}
+-
+-	fprintf(f, "\n");
++	if (!show_stats)
++		fprintf(f, "\n");
+ }
+ 
+ static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e,
+@@ -126,11 +167,9 @@ int print_mdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 
+ 	if (tb[MDBA_ROUTER]) {
+ 		if (n->nlmsg_type == RTM_GETMDB) {
+-			if (show_details) {
+-				fprintf(fp, "router ports on %s: ",
+-					ll_index_to_name(r->ifindex));
+-				br_print_router_ports(fp, tb[MDBA_ROUTER]);
+-			}
++			if (show_details)
++				br_print_router_ports(fp, tb[MDBA_ROUTER],
++						      r->ifindex);
+ 		} else {
+ 			uint32_t *port_ifindex;
+ 
+diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+index 0e98edf4762f..08e8a5bf5a08 100644
+--- a/man/man8/bridge.8
++++ b/man/man8/bridge.8
+@@ -119,6 +119,10 @@ is given multiple times, the amount of information increases.
+ As a rule, the information is statistics or some time values.
+ 
+ .TP
++.BR "\-d" , " \-details"
++print detailed information about MDB router ports.
++
++.TP
+ .BR "\-n" , " \-net" , " \-netns " <NETNS>
+ switches
+ .B bridge
+@@ -506,7 +510,7 @@ a connected router.
+ .PP
+ With the
+ .B -statistics
+-option, the command displays timer values for mdb entries.
++option, the command displays timer values for mdb and router port entries.
+ 
+ .SH bridge vlan - VLAN filter list
+ 
+-- 
+2.4.3
