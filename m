@@ -1,350 +1,232 @@
-From: isdn@linux-pingi.de
-Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
-Date: Thu, 3 Mar 2016 09:30:38 +0100
-Message-ID: <56D7F62E.6050502@linux-pingi.de>
-References: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
- <1456945629-1793533-2-git-send-email-arnd@arndb.de>
+From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Subject: Re: [V9fs-developer] [PATCH] net/9p: convert to new CQ API
+Date: Thu, 3 Mar 2016 09:36:06 +0100
+Message-ID: <20160303083606.GA13828@lst.de>
+References: <1456565151-27115-1-git-send-email-hch@lst.de> <1456565151-27115-2-git-send-email-hch@lst.de> <20160227154957.GA21186@nautica>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	Jonathan Corbet <corbet@lwn.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devel@driverdev.osuosl.org
-To: Arnd Bergmann <arnd@arndb.de>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1456945629-1793533-2-git-send-email-arnd@arndb.de>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: v9fs-developer-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dominique Martinet <asmadeus-9aU+PIKW3UvdtAWm4Da02A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160227154957.GA21186@nautica>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Arnd,
-I fully agree and ack.
-Thanks for the work.
-Am 02.03.2016 um 20:06 schrieb Arnd Bergmann:
-> The icn, act2000 and pcbit drivers are all for very old hardware,
-> and it is highly unlikely that anyone is actually still using them
-> on modern kernels, if at all.
-> 
-> All three drivers apparently are for hardware that predates PCI
-> being the common connector, as they are ISA-only and active
-> PCI ISDN cards were widely available in the 1990s.
-> 
-> Looking through the git logs, it I cannot find any indication of a
-> patch to any of these drivers that has been tested on real hardware,
-> only cleanups or global API changes.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  Documentation/isdn/00-INDEX                                 |  8 --------
->  drivers/isdn/Makefile                                       |  3 ---
->  drivers/isdn/i4l/Kconfig                                    | 10 ----------
->  drivers/staging/Kconfig                                     |  2 ++
->  drivers/staging/Makefile                                    |  1 +
->  .../staging/i4l/Documentation}/README.act2000               |  0
->  .../isdn => drivers/staging/i4l/Documentation}/README.icn   |  0
->  .../isdn => drivers/staging/i4l/Documentation}/README.pcbit |  0
->  .../isdn => drivers/staging/i4l/Documentation}/README.sc    |  0
->  drivers/staging/i4l/Kconfig                                 | 13 +++++++++++++
->  drivers/staging/i4l/Makefile                                |  5 +++++
->  drivers/staging/i4l/TODO                                    |  3 +++
->  drivers/{isdn => staging/i4l}/act2000/Kconfig               |  0
->  drivers/{isdn => staging/i4l}/act2000/Makefile              |  0
->  drivers/{isdn => staging/i4l}/act2000/act2000.h             |  0
->  drivers/{isdn => staging/i4l}/act2000/act2000_isa.c         |  0
->  drivers/{isdn => staging/i4l}/act2000/act2000_isa.h         |  0
->  drivers/{isdn => staging/i4l}/act2000/capi.c                |  0
->  drivers/{isdn => staging/i4l}/act2000/capi.h                |  0
->  drivers/{isdn => staging/i4l}/act2000/module.c              |  0
->  drivers/{isdn => staging/i4l}/icn/Kconfig                   |  0
->  drivers/{isdn => staging/i4l}/icn/Makefile                  |  0
->  drivers/{isdn => staging/i4l}/icn/icn.c                     |  0
->  drivers/{isdn => staging/i4l}/icn/icn.h                     |  0
->  drivers/{isdn => staging/i4l}/pcbit/Kconfig                 |  0
->  drivers/{isdn => staging/i4l}/pcbit/Makefile                |  0
->  drivers/{isdn => staging/i4l}/pcbit/callbacks.c             |  0
->  drivers/{isdn => staging/i4l}/pcbit/callbacks.h             |  0
->  drivers/{isdn => staging/i4l}/pcbit/capi.c                  |  0
->  drivers/{isdn => staging/i4l}/pcbit/capi.h                  |  0
->  drivers/{isdn => staging/i4l}/pcbit/drv.c                   |  0
->  drivers/{isdn => staging/i4l}/pcbit/edss1.c                 |  0
->  drivers/{isdn => staging/i4l}/pcbit/edss1.h                 |  0
->  drivers/{isdn => staging/i4l}/pcbit/layer2.c                |  0
->  drivers/{isdn => staging/i4l}/pcbit/layer2.h                |  0
->  drivers/{isdn => staging/i4l}/pcbit/module.c                |  0
->  drivers/{isdn => staging/i4l}/pcbit/pcbit.h                 |  0
->  37 files changed, 24 insertions(+), 21 deletions(-)
->  rename {Documentation/isdn => drivers/staging/i4l/Documentation}/README.act2000 (100%)
->  rename {Documentation/isdn => drivers/staging/i4l/Documentation}/README.icn (100%)
->  rename {Documentation/isdn => drivers/staging/i4l/Documentation}/README.pcbit (100%)
->  rename {Documentation/isdn => drivers/staging/i4l/Documentation}/README.sc (100%)
->  create mode 100644 drivers/staging/i4l/Kconfig
->  create mode 100644 drivers/staging/i4l/Makefile
->  create mode 100644 drivers/staging/i4l/TODO
->  rename drivers/{isdn => staging/i4l}/act2000/Kconfig (100%)
->  rename drivers/{isdn => staging/i4l}/act2000/Makefile (100%)
->  rename drivers/{isdn => staging/i4l}/act2000/act2000.h (100%)
->  rename drivers/{isdn => staging/i4l}/act2000/act2000_isa.c (100%)
->  rename drivers/{isdn => staging/i4l}/act2000/act2000_isa.h (100%)
->  rename drivers/{isdn => staging/i4l}/act2000/capi.c (100%)
->  rename drivers/{isdn => staging/i4l}/act2000/capi.h (100%)
->  rename drivers/{isdn => staging/i4l}/act2000/module.c (100%)
->  rename drivers/{isdn => staging/i4l}/icn/Kconfig (100%)
->  rename drivers/{isdn => staging/i4l}/icn/Makefile (100%)
->  rename drivers/{isdn => staging/i4l}/icn/icn.c (100%)
->  rename drivers/{isdn => staging/i4l}/icn/icn.h (100%)
->  rename drivers/{isdn => staging/i4l}/pcbit/Kconfig (100%)
->  rename drivers/{isdn => staging/i4l}/pcbit/Makefile (100%)
->  rename drivers/{isdn => staging/i4l}/pcbit/callbacks.c (100%)
->  rename drivers/{isdn => staging/i4l}/pcbit/callbacks.h (100%)
->  rename drivers/{isdn => staging/i4l}/pcbit/capi.c (100%)
->  rename drivers/{isdn => staging/i4l}/pcbit/capi.h (100%)
->  rename drivers/{isdn => staging/i4l}/pcbit/drv.c (100%)
->  rename drivers/{isdn => staging/i4l}/pcbit/edss1.c (100%)
->  rename drivers/{isdn => staging/i4l}/pcbit/edss1.h (100%)
->  rename drivers/{isdn => staging/i4l}/pcbit/layer2.c (100%)
->  rename drivers/{isdn => staging/i4l}/pcbit/layer2.h (100%)
->  rename drivers/{isdn => staging/i4l}/pcbit/module.c (100%)
->  rename drivers/{isdn => staging/i4l}/pcbit/pcbit.h (100%)
-> 
-> diff --git a/Documentation/isdn/00-INDEX b/Documentation/isdn/00-INDEX
-> index e87e336f590e..2d1889b6c1fa 100644
-> --- a/Documentation/isdn/00-INDEX
-> +++ b/Documentation/isdn/00-INDEX
-> @@ -16,8 +16,6 @@ README.FAQ
->  	- general info for FAQ.
->  README.HiSax
->  	- info on the HiSax driver which replaces the old teles.
-> -README.act2000
-> -	- info on driver for IBM ACT-2000 card.
->  README.audio
->  	- info for running audio over ISDN.
->  README.avmb1
-> @@ -34,14 +32,8 @@ README.hfc-pci
->  	- info on hfc-pci based cards.
->  README.hysdn
->          - info on driver for Hypercope active HYSDN cards
-> -README.icn
-> -	- info on the ICN-ISDN-card and its driver.
->  README.mISDN
->  	- info on the Modular ISDN subsystem (mISDN)
-> -README.pcbit
-> -	- info on the PCBIT-D ISDN adapter and driver.
-> -README.sc
-> -	- info on driver for Spellcaster cards.
->  README.syncppp
->  	- info on running Sync PPP over ISDN.
->  README.x25
-> diff --git a/drivers/isdn/Makefile b/drivers/isdn/Makefile
-> index 91c81965e7ca..c32e45826c2c 100644
-> --- a/drivers/isdn/Makefile
-> +++ b/drivers/isdn/Makefile
-> @@ -8,9 +8,6 @@ obj-$(CONFIG_MISDN)			+= mISDN/
->  obj-$(CONFIG_ISDN)			+= hardware/
->  obj-$(CONFIG_ISDN_DIVERSION)		+= divert/
->  obj-$(CONFIG_ISDN_DRV_HISAX)		+= hisax/
-> -obj-$(CONFIG_ISDN_DRV_ICN)		+= icn/
-> -obj-$(CONFIG_ISDN_DRV_PCBIT)		+= pcbit/
->  obj-$(CONFIG_ISDN_DRV_LOOP)		+= isdnloop/
-> -obj-$(CONFIG_ISDN_DRV_ACT2000)		+= act2000/
->  obj-$(CONFIG_HYSDN)			+= hysdn/
->  obj-$(CONFIG_ISDN_DRV_GIGASET)		+= gigaset/
-> diff --git a/drivers/isdn/i4l/Kconfig b/drivers/isdn/i4l/Kconfig
-> index f5b714cd7618..68e54d9f2f53 100644
-> --- a/drivers/isdn/i4l/Kconfig
-> +++ b/drivers/isdn/i4l/Kconfig
-> @@ -123,16 +123,6 @@ comment "ISDN4Linux hardware drivers"
->  
->  source "drivers/isdn/hisax/Kconfig"
->  
-> -
-> -menu "Active cards"
-> -
-> -source "drivers/isdn/icn/Kconfig"
-> -
-> -source "drivers/isdn/pcbit/Kconfig"
-> -
-> -source "drivers/isdn/act2000/Kconfig"
-> -
-> -endmenu
->  # end ISDN_I4L
->  endif
->  
-> diff --git a/drivers/staging/Kconfig b/drivers/staging/Kconfig
-> index 5f9a97a77393..ff894bc63b3b 100644
-> --- a/drivers/staging/Kconfig
-> +++ b/drivers/staging/Kconfig
-> @@ -104,4 +104,6 @@ source "drivers/staging/wilc1000/Kconfig"
->  
->  source "drivers/staging/most/Kconfig"
->  
-> +source "drivers/staging/i4l/Kconfig"
-> +
->  endif # STAGING
-> diff --git a/drivers/staging/Makefile b/drivers/staging/Makefile
-> index b3920c224013..8242923371ad 100644
-> --- a/drivers/staging/Makefile
-> +++ b/drivers/staging/Makefile
-> @@ -41,3 +41,4 @@ obj-$(CONFIG_FB_TFT)		+= fbtft/
->  obj-$(CONFIG_FSL_MC_BUS)	+= fsl-mc/
->  obj-$(CONFIG_WILC1000)		+= wilc1000/
->  obj-$(CONFIG_MOST)		+= most/
-> +obj-$(CONFIG_ISDN_I4L)		+= i4l/
-> diff --git a/Documentation/isdn/README.act2000 b/drivers/staging/i4l/Documentation/README.act2000
-> similarity index 100%
-> rename from Documentation/isdn/README.act2000
-> rename to drivers/staging/i4l/Documentation/README.act2000
-> diff --git a/Documentation/isdn/README.icn b/drivers/staging/i4l/Documentation/README.icn
-> similarity index 100%
-> rename from Documentation/isdn/README.icn
-> rename to drivers/staging/i4l/Documentation/README.icn
-> diff --git a/Documentation/isdn/README.pcbit b/drivers/staging/i4l/Documentation/README.pcbit
-> similarity index 100%
-> rename from Documentation/isdn/README.pcbit
-> rename to drivers/staging/i4l/Documentation/README.pcbit
-> diff --git a/Documentation/isdn/README.sc b/drivers/staging/i4l/Documentation/README.sc
-> similarity index 100%
-> rename from Documentation/isdn/README.sc
-> rename to drivers/staging/i4l/Documentation/README.sc
-> diff --git a/drivers/staging/i4l/Kconfig b/drivers/staging/i4l/Kconfig
-> new file mode 100644
-> index 000000000000..920216e88de7
-> --- /dev/null
-> +++ b/drivers/staging/i4l/Kconfig
-> @@ -0,0 +1,13 @@
-> +#
-> +# Old ISDN4Linux config
-> +#
-> +menu "Old ISDN4Linux (deprecated)"
-> +	depends on ISDN_I4L
-> +
-> +source "drivers/staging/i4l/icn/Kconfig"
-> +
-> +source "drivers/staging/i4l/pcbit/Kconfig"
-> +
-> +source "drivers/staging/i4l/act2000/Kconfig"
-> +
-> +endmenu
-> diff --git a/drivers/staging/i4l/Makefile b/drivers/staging/i4l/Makefile
-> new file mode 100644
-> index 000000000000..158b87093db5
-> --- /dev/null
-> +++ b/drivers/staging/i4l/Makefile
-> @@ -0,0 +1,5 @@
-> +# Makefile for the old ISDN I4L subsystem and device drivers.
-> +
-> +obj-$(CONFIG_ISDN_DRV_ICN)		+= icn/
-> +obj-$(CONFIG_ISDN_DRV_PCBIT)		+= pcbit/
-> +obj-$(CONFIG_ISDN_DRV_ACT2000)		+= act2000/
-> diff --git a/drivers/staging/i4l/TODO b/drivers/staging/i4l/TODO
-> new file mode 100644
-> index 000000000000..6fe2c08bec7a
-> --- /dev/null
-> +++ b/drivers/staging/i4l/TODO
-> @@ -0,0 +1,3 @@
-> +* The icn, pcbit and act2000 drivers are dead, remove them in 2017
-> +  after another longterm kernel has been released, just in the
-> +  unlikely case someone still has this hardware.
-> diff --git a/drivers/isdn/act2000/Kconfig b/drivers/staging/i4l/act2000/Kconfig
-> similarity index 100%
-> rename from drivers/isdn/act2000/Kconfig
-> rename to drivers/staging/i4l/act2000/Kconfig
-> diff --git a/drivers/isdn/act2000/Makefile b/drivers/staging/i4l/act2000/Makefile
-> similarity index 100%
-> rename from drivers/isdn/act2000/Makefile
-> rename to drivers/staging/i4l/act2000/Makefile
-> diff --git a/drivers/isdn/act2000/act2000.h b/drivers/staging/i4l/act2000/act2000.h
-> similarity index 100%
-> rename from drivers/isdn/act2000/act2000.h
-> rename to drivers/staging/i4l/act2000/act2000.h
-> diff --git a/drivers/isdn/act2000/act2000_isa.c b/drivers/staging/i4l/act2000/act2000_isa.c
-> similarity index 100%
-> rename from drivers/isdn/act2000/act2000_isa.c
-> rename to drivers/staging/i4l/act2000/act2000_isa.c
-> diff --git a/drivers/isdn/act2000/act2000_isa.h b/drivers/staging/i4l/act2000/act2000_isa.h
-> similarity index 100%
-> rename from drivers/isdn/act2000/act2000_isa.h
-> rename to drivers/staging/i4l/act2000/act2000_isa.h
-> diff --git a/drivers/isdn/act2000/capi.c b/drivers/staging/i4l/act2000/capi.c
-> similarity index 100%
-> rename from drivers/isdn/act2000/capi.c
-> rename to drivers/staging/i4l/act2000/capi.c
-> diff --git a/drivers/isdn/act2000/capi.h b/drivers/staging/i4l/act2000/capi.h
-> similarity index 100%
-> rename from drivers/isdn/act2000/capi.h
-> rename to drivers/staging/i4l/act2000/capi.h
-> diff --git a/drivers/isdn/act2000/module.c b/drivers/staging/i4l/act2000/module.c
-> similarity index 100%
-> rename from drivers/isdn/act2000/module.c
-> rename to drivers/staging/i4l/act2000/module.c
-> diff --git a/drivers/isdn/icn/Kconfig b/drivers/staging/i4l/icn/Kconfig
-> similarity index 100%
-> rename from drivers/isdn/icn/Kconfig
-> rename to drivers/staging/i4l/icn/Kconfig
-> diff --git a/drivers/isdn/icn/Makefile b/drivers/staging/i4l/icn/Makefile
-> similarity index 100%
-> rename from drivers/isdn/icn/Makefile
-> rename to drivers/staging/i4l/icn/Makefile
-> diff --git a/drivers/isdn/icn/icn.c b/drivers/staging/i4l/icn/icn.c
-> similarity index 100%
-> rename from drivers/isdn/icn/icn.c
-> rename to drivers/staging/i4l/icn/icn.c
-> diff --git a/drivers/isdn/icn/icn.h b/drivers/staging/i4l/icn/icn.h
-> similarity index 100%
-> rename from drivers/isdn/icn/icn.h
-> rename to drivers/staging/i4l/icn/icn.h
-> diff --git a/drivers/isdn/pcbit/Kconfig b/drivers/staging/i4l/pcbit/Kconfig
-> similarity index 100%
-> rename from drivers/isdn/pcbit/Kconfig
-> rename to drivers/staging/i4l/pcbit/Kconfig
-> diff --git a/drivers/isdn/pcbit/Makefile b/drivers/staging/i4l/pcbit/Makefile
-> similarity index 100%
-> rename from drivers/isdn/pcbit/Makefile
-> rename to drivers/staging/i4l/pcbit/Makefile
-> diff --git a/drivers/isdn/pcbit/callbacks.c b/drivers/staging/i4l/pcbit/callbacks.c
-> similarity index 100%
-> rename from drivers/isdn/pcbit/callbacks.c
-> rename to drivers/staging/i4l/pcbit/callbacks.c
-> diff --git a/drivers/isdn/pcbit/callbacks.h b/drivers/staging/i4l/pcbit/callbacks.h
-> similarity index 100%
-> rename from drivers/isdn/pcbit/callbacks.h
-> rename to drivers/staging/i4l/pcbit/callbacks.h
-> diff --git a/drivers/isdn/pcbit/capi.c b/drivers/staging/i4l/pcbit/capi.c
-> similarity index 100%
-> rename from drivers/isdn/pcbit/capi.c
-> rename to drivers/staging/i4l/pcbit/capi.c
-> diff --git a/drivers/isdn/pcbit/capi.h b/drivers/staging/i4l/pcbit/capi.h
-> similarity index 100%
-> rename from drivers/isdn/pcbit/capi.h
-> rename to drivers/staging/i4l/pcbit/capi.h
-> diff --git a/drivers/isdn/pcbit/drv.c b/drivers/staging/i4l/pcbit/drv.c
-> similarity index 100%
-> rename from drivers/isdn/pcbit/drv.c
-> rename to drivers/staging/i4l/pcbit/drv.c
-> diff --git a/drivers/isdn/pcbit/edss1.c b/drivers/staging/i4l/pcbit/edss1.c
-> similarity index 100%
-> rename from drivers/isdn/pcbit/edss1.c
-> rename to drivers/staging/i4l/pcbit/edss1.c
-> diff --git a/drivers/isdn/pcbit/edss1.h b/drivers/staging/i4l/pcbit/edss1.h
-> similarity index 100%
-> rename from drivers/isdn/pcbit/edss1.h
-> rename to drivers/staging/i4l/pcbit/edss1.h
-> diff --git a/drivers/isdn/pcbit/layer2.c b/drivers/staging/i4l/pcbit/layer2.c
-> similarity index 100%
-> rename from drivers/isdn/pcbit/layer2.c
-> rename to drivers/staging/i4l/pcbit/layer2.c
-> diff --git a/drivers/isdn/pcbit/layer2.h b/drivers/staging/i4l/pcbit/layer2.h
-> similarity index 100%
-> rename from drivers/isdn/pcbit/layer2.h
-> rename to drivers/staging/i4l/pcbit/layer2.h
-> diff --git a/drivers/isdn/pcbit/module.c b/drivers/staging/i4l/pcbit/module.c
-> similarity index 100%
-> rename from drivers/isdn/pcbit/module.c
-> rename to drivers/staging/i4l/pcbit/module.c
-> diff --git a/drivers/isdn/pcbit/pcbit.h b/drivers/staging/i4l/pcbit/pcbit.h
-> similarity index 100%
-> rename from drivers/isdn/pcbit/pcbit.h
-> rename to drivers/staging/i4l/pcbit/pcbit.h
-> 
+New version with the nits fixed below.  Now that checkpath started
+a stupid warning about not using tabs for indentation which I've
+ignored here and will take up in my usual fights against Joes
+idicotic opinions separately..
 
+--
+>From 0055e31f24c7b3642ece5ebb998fa63d772dcb1a Mon Sep 17 00:00:00 2001
+From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Date: Sat, 27 Feb 2016 10:22:40 +0100
+Subject: net/9p: convert to new CQ API
+
+Trivial conversion to the new RDMA CQ API.
+
+Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+---
+ net/9p/trans_rdma.c | 86 +++++++++++++++++++----------------------------------
+ 1 file changed, 31 insertions(+), 55 deletions(-)
+
+diff --git a/net/9p/trans_rdma.c b/net/9p/trans_rdma.c
+index 52b4a2f..1852e38 100644
+--- a/net/9p/trans_rdma.c
++++ b/net/9p/trans_rdma.c
+@@ -109,14 +109,13 @@ struct p9_trans_rdma {
+ /**
+  * p9_rdma_context - Keeps track of in-process WR
+  *
+- * @wc_op: The original WR op for when the CQE completes in error.
+  * @busa: Bus address to unmap when the WR completes
+  * @req: Keeps track of requests (send)
+  * @rc: Keepts track of replies (receive)
+  */
+ struct p9_rdma_req;
+ struct p9_rdma_context {
+-	enum ib_wc_opcode wc_op;
++	struct ib_cqe cqe;
+ 	dma_addr_t busa;
+ 	union {
+ 		struct p9_req_t *req;
+@@ -284,9 +283,12 @@ p9_cm_event_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
+ }
+ 
+ static void
+-handle_recv(struct p9_client *client, struct p9_trans_rdma *rdma,
+-	    struct p9_rdma_context *c, enum ib_wc_status status, u32 byte_len)
++recv_done(struct ib_cq *cq, struct ib_wc *wc)
+ {
++	struct p9_client *client = cq->cq_context;
++	struct p9_trans_rdma *rdma = client->trans;
++	struct p9_rdma_context *c =
++		container_of(wc->wr_cqe, struct p9_rdma_context, cqe);
+ 	struct p9_req_t *req;
+ 	int err = 0;
+ 	int16_t tag;
+@@ -295,7 +297,7 @@ handle_recv(struct p9_client *client, struct p9_trans_rdma *rdma,
+ 	ib_dma_unmap_single(rdma->cm_id->device, c->busa, client->msize,
+ 							 DMA_FROM_DEVICE);
+ 
+-	if (status != IB_WC_SUCCESS)
++	if (wc->status != IB_WC_SUCCESS)
+ 		goto err_out;
+ 
+ 	err = p9_parse_header(c->rc, NULL, NULL, &tag, 1);
+@@ -316,21 +318,32 @@ handle_recv(struct p9_client *client, struct p9_trans_rdma *rdma,
+ 	req->rc = c->rc;
+ 	p9_client_cb(client, req, REQ_STATUS_RCVD);
+ 
++ out:
++	up(&rdma->rq_sem);
++	kfree(c);
+ 	return;
+ 
+  err_out:
+-	p9_debug(P9_DEBUG_ERROR, "req %p err %d status %d\n", req, err, status);
++	p9_debug(P9_DEBUG_ERROR, "req %p err %d status %d\n",
++			req, err, wc->status);
+ 	rdma->state = P9_RDMA_FLUSHING;
+ 	client->status = Disconnected;
++	goto out;
+ }
+ 
+ static void
+-handle_send(struct p9_client *client, struct p9_trans_rdma *rdma,
+-	    struct p9_rdma_context *c, enum ib_wc_status status, u32 byte_len)
++send_done(struct ib_cq *cq, struct ib_wc *wc)
+ {
++	struct p9_client *client = cq->cq_context;
++	struct p9_trans_rdma *rdma = client->trans;
++	struct p9_rdma_context *c =
++		container_of(wc->wr_cqe, struct p9_rdma_context, cqe);
++
+ 	ib_dma_unmap_single(rdma->cm_id->device,
+ 			    c->busa, c->req->tc->size,
+ 			    DMA_TO_DEVICE);
++	up(&rdma->sq_sem);
++	kfree(c);
+ }
+ 
+ static void qp_event_handler(struct ib_event *event, void *context)
+@@ -339,42 +352,6 @@ static void qp_event_handler(struct ib_event *event, void *context)
+ 		 event->event, context);
+ }
+ 
+-static void cq_comp_handler(struct ib_cq *cq, void *cq_context)
+-{
+-	struct p9_client *client = cq_context;
+-	struct p9_trans_rdma *rdma = client->trans;
+-	int ret;
+-	struct ib_wc wc;
+-
+-	ib_req_notify_cq(rdma->cq, IB_CQ_NEXT_COMP);
+-	while ((ret = ib_poll_cq(cq, 1, &wc)) > 0) {
+-		struct p9_rdma_context *c = (void *) (unsigned long) wc.wr_id;
+-
+-		switch (c->wc_op) {
+-		case IB_WC_RECV:
+-			handle_recv(client, rdma, c, wc.status, wc.byte_len);
+-			up(&rdma->rq_sem);
+-			break;
+-
+-		case IB_WC_SEND:
+-			handle_send(client, rdma, c, wc.status, wc.byte_len);
+-			up(&rdma->sq_sem);
+-			break;
+-
+-		default:
+-			pr_err("unexpected completion type, c->wc_op=%d, wc.opcode=%d, status=%d\n",
+-			       c->wc_op, wc.opcode, wc.status);
+-			break;
+-		}
+-		kfree(c);
+-	}
+-}
+-
+-static void cq_event_handler(struct ib_event *e, void *v)
+-{
+-	p9_debug(P9_DEBUG_ERROR, "CQ event %d context %p\n", e->event, v);
+-}
+-
+ static void rdma_destroy_trans(struct p9_trans_rdma *rdma)
+ {
+ 	if (!rdma)
+@@ -387,7 +364,7 @@ static void rdma_destroy_trans(struct p9_trans_rdma *rdma)
+ 		ib_dealloc_pd(rdma->pd);
+ 
+ 	if (rdma->cq && !IS_ERR(rdma->cq))
+-		ib_destroy_cq(rdma->cq);
++		ib_free_cq(rdma->cq);
+ 
+ 	if (rdma->cm_id && !IS_ERR(rdma->cm_id))
+ 		rdma_destroy_id(rdma->cm_id);
+@@ -408,13 +385,14 @@ post_recv(struct p9_client *client, struct p9_rdma_context *c)
+ 	if (ib_dma_mapping_error(rdma->cm_id->device, c->busa))
+ 		goto error;
+ 
++	c->cqe.done = recv_done;
++
+ 	sge.addr = c->busa;
+ 	sge.length = client->msize;
+ 	sge.lkey = rdma->pd->local_dma_lkey;
+ 
+ 	wr.next = NULL;
+-	c->wc_op = IB_WC_RECV;
+-	wr.wr_id = (unsigned long) c;
++	wr.wr_cqe = &c->cqe;
+ 	wr.sg_list = &sge;
+ 	wr.num_sge = 1;
+ 	return ib_post_recv(rdma->qp, &wr, &bad_wr);
+@@ -499,13 +477,14 @@ dont_need_post_recv:
+ 		goto send_error;
+ 	}
+ 
++	c->cqe.done = send_done;
++
+ 	sge.addr = c->busa;
+ 	sge.length = c->req->tc->size;
+ 	sge.lkey = rdma->pd->local_dma_lkey;
+ 
+ 	wr.next = NULL;
+-	c->wc_op = IB_WC_SEND;
+-	wr.wr_id = (unsigned long) c;
++	wr.wr_cqe = &c->cqe;
+ 	wr.opcode = IB_WR_SEND;
+ 	wr.send_flags = IB_SEND_SIGNALED;
+ 	wr.sg_list = &sge;
+@@ -642,7 +621,6 @@ rdma_create_trans(struct p9_client *client, const char *addr, char *args)
+ 	struct p9_trans_rdma *rdma;
+ 	struct rdma_conn_param conn_param;
+ 	struct ib_qp_init_attr qp_attr;
+-	struct ib_cq_init_attr cq_attr = {};
+ 
+ 	/* Parse the transport specific mount options */
+ 	err = parse_opts(args, &opts);
+@@ -695,13 +673,11 @@ rdma_create_trans(struct p9_client *client, const char *addr, char *args)
+ 		goto error;
+ 
+ 	/* Create the Completion Queue */
+-	cq_attr.cqe = opts.sq_depth + opts.rq_depth + 1;
+-	rdma->cq = ib_create_cq(rdma->cm_id->device, cq_comp_handler,
+-				cq_event_handler, client,
+-				&cq_attr);
++	rdma->cq = ib_alloc_cq(rdma->cm_id->device, client,
++			opts.sq_depth + opts.rq_depth + 1,
++			0, IB_POLL_SOFTIRQ);
+ 	if (IS_ERR(rdma->cq))
+ 		goto error;
+-	ib_req_notify_cq(rdma->cq, IB_CQ_NEXT_COMP);
+ 
+ 	/* Create the Protection Domain */
+ 	rdma->pd = ib_alloc_pd(rdma->cm_id->device);
+-- 
+2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
