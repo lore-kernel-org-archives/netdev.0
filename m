@@ -1,59 +1,75 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net/ethoc: do not free array priv->mdio->irq
-Date: Thu, 3 Mar 2016 15:27:28 +0100
-Message-ID: <20160303142728.GG15541@lunn.ch>
-References: <1457012614-19564-1-git-send-email-colin.king@canonical.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [iproute PATCH 3/3] tc: pedit: Fix retain value for ihl
+ adjustments
+Date: Thu, 3 Mar 2016 09:28:27 -0500
+Message-ID: <56D84A0B.6000003@mojatatu.com>
+References: <1456917631-18447-1-git-send-email-phil@nwl.cc>
+ <499abfe479324d1e83289cd68b2a7641@HQ1WP-EXMB11.corp.brocade.com>
+ <20160302095414.45a928df@xeon-e3> <56D84863.5090203@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Tobias Klauser <tklauser@distanz.ch>,
-	Fabian Frederick <fabf@skynet.be>,
-	Max Filippov <jcmvbkbc@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemming@brocade.com>, Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48705 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757253AbcCCO1b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2016 09:27:31 -0500
-Content-Disposition: inline
-In-Reply-To: <1457012614-19564-1-git-send-email-colin.king@canonical.com>
+Received: from mail-ig0-f193.google.com ([209.85.213.193]:34479 "EHLO
+	mail-ig0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754539AbcCCO23 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 09:28:29 -0500
+Received: by mail-ig0-f193.google.com with SMTP id sv7so2248444igc.1
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 06:28:29 -0800 (PST)
+In-Reply-To: <56D84863.5090203@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 03, 2016 at 01:43:34PM +0000, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> priv->mdio->irq used to be allocated and required freeing, but it
-> is now a fixed sized array and should no longer be free'd.
-> 
-> Issue detected using static analysis with CoverityScan
-> 
-> Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Phil, there is one thing i noticed in your patch - dont think
+it is a big deal but you are doing htons on an int
+(instead of u16).
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+cheers,
+jamal
 
-Thanks
-	Andrew
-
-> ---
->  drivers/net/ethernet/ethoc.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-> index 62fa136..41b0106 100644
-> --- a/drivers/net/ethernet/ethoc.c
-> +++ b/drivers/net/ethernet/ethoc.c
-> @@ -1265,7 +1265,6 @@ static int ethoc_remove(struct platform_device *pdev)
->  
->  		if (priv->mdio) {
->  			mdiobus_unregister(priv->mdio);
-> -			kfree(priv->mdio->irq);
->  			mdiobus_free(priv->mdio);
->  		}
->  		if (priv->clk)
-> -- 
-> 2.7.0
-> 
+On 16-03-03 09:21 AM, Jamal Hadi Salim wrote:
+> On 16-03-02 12:54 PM, Stephen Hemminger wrote:
+>> On Wed, 2 Mar 2016 11:20:31 +0000
+>> Phil Sutter <phil@nwl.cc> wrote:
+>>
+>>> +        res = parse_cmd(&argc, &argv, 1, TU32,0x0f,sel,tkey);
+>>>           goto done;
+>> Please add whitespace after ,
+>>
+>
+> There are a few whitespace issues in that code that would be nice to fix
+> given the cleanup opportunity.
+> The patches look good to me. Phil, maybe get rid of that comment at the
+> top which was worrying about endianness. I think you fixed it.
+>
+> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>
+> Your tests in patch 0 are nice and could go in tests/ directory.
+> I can send you some of the basic tests i run via the kernel; they look
+> something of the form:
+>
+> #
+> #RFC
+> #dst MAC starts at -14
+> #src MAC at -8
+> #ethertype at -2
+> #
+> #
+> tc filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
+> match ip src 192.168.1.10/32 flowid 1:2 \
+> action pedit munge offset -14 u16 set 0x0000 \
+> munge offset -12 u32 set 0x00010100 \
+> munge offset -8 u32 set 0x0aaf0100 \
+> munge offset -4 u32 set 0x0008ec06 pipe \
+> action mirred egress redirect dev eth1
+> #
+> #
+>
+> These would of course require more of a larger setup to vet
+> and running tcpdump to check the correct bytes are being
+> modified.
+>
+> cheers,
+> jamal
