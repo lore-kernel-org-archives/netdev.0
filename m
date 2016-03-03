@@ -1,46 +1,76 @@
-From: Atsushi Nemoto <nemoto@toshiba-tops.co.jp>
-Subject: [PATCH] gianfar: Enable eTSEC-106 erratum w/a for MPC8548E Rev2
-Date: Thu, 3 Mar 2016 09:07:51 +0900
-Message-ID: <20160303.090751.336624849.nemoto@toshiba-tops.co.jp>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 3 Mar 2016 11:24:56 +1100
+Message-ID: <20160303112456.15afe12b@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Claudiu Manoil <claudiu.manoil@freescale.com>,
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms2.toshiba-tops.co.jp ([61.200.21.4]:54697 "EHLO
-	dmz-ms2.toshiba-tops.co.jp" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753739AbcCCASF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 19:18:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Gal Pressman <galp@mellanox.com>,
+	Matthew Finlay <matt@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Enable workaround for MPC8548E erratum eTSEC 106,
-"Excess delays when transmitting TOE=1 large frames".
-(see commit 53fad77375ce "gianfar: Enable eTSEC-20 erratum w/a
-for P2020 Rev1")
+Hi all,
 
-This erratum was fixed in Rev 3.1.x.
+Today's linux-next merge of the net-next tree got conflicts in:
 
-Signed-off-by: Atsushi Nemoto <nemoto@toshiba-tops.co.jp>
----
- drivers/net/ethernet/freescale/gianfar.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+  drivers/net/ethernet/mellanox/mlx5/core/en.h
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 2aa7b40..b9ecf19 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1111,8 +1111,10 @@ static void __gfar_detect_errata_85xx(struct gfar_private *priv)
- 
- 	if ((SVR_SOC_VER(svr) == SVR_8548) && (SVR_REV(svr) == 0x20))
- 		priv->errata |= GFAR_ERRATA_12;
-+	/* P2020/P1010 Rev 1; MPC8548 Rev 2 */
- 	if (((SVR_SOC_VER(svr) == SVR_P2020) && (SVR_REV(svr) < 0x20)) ||
--	    ((SVR_SOC_VER(svr) == SVR_P2010) && (SVR_REV(svr) < 0x20)))
-+	    ((SVR_SOC_VER(svr) == SVR_P2010) && (SVR_REV(svr) < 0x20)) ||
-+	    ((SVR_SOC_VER(svr) == SVR_8548) && (SVR_REV(svr) < 0x31)))
- 		priv->errata |= GFAR_ERRATA_76; /* aka eTSEC 20 */
- }
- #endif
+between commit:
+
+  b081da5ee186 ("net/mlx5e: Add rx/tx bytes software counters")
+
+from the net tree and commits:
+
+  89db09eb5979 ("net/mlx5e: Add TX inner packet counters")
+  3c1b5532191d ("net/mlx5e: Move common case counters within sq_stats struct")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
 -- 
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 5b1753233c5d,9c0e80e64b43..000000000000
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@@ -244,9 -256,12 +258,13 @@@ struct mlx5e_rq_stats 
+  
+  static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
+  	"packets",
+ +	"bytes",
+  	"tso_packets",
+  	"tso_bytes",
++ 	"tso_inner_packets",
++ 	"tso_inner_bytes",
++ 	"csum_offload_inner",
++ 	"nop",
+  	"csum_offload_none",
+  	"stopped",
+  	"wake",
+@@@ -254,11 -269,15 +272,16 @@@
+  };
+  
+  struct mlx5e_sq_stats {
++ 	/* commonly accessed in data path */
+  	u64 packets;
+ +	u64 bytes;
+  	u64 tso_packets;
+  	u64 tso_bytes;
++ 	u64 tso_inner_packets;
++ 	u64 tso_inner_bytes;
++ 	u64 csum_offload_inner;
++ 	u64 nop;
++ 	/* less likely accessed in data path */
+  	u64 csum_offload_none;
+  	u64 stopped;
+  	u64 wake;
