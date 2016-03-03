@@ -1,150 +1,65 @@
-From: Sridhar Samudrala <sridhar.samudrala@intel.com>
-Subject: [PATCH net-next] net: ixgbe: fix error handling in tc cls_u32 offload routines.
-Date: Thu,  3 Mar 2016 15:19:52 -0800
-Message-ID: <1457047192-17092-1-git-send-email-sridhar.samudrala@intel.com>
-To: john.r.fastabend@intel.com, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] net: ixgbe: fix error handling in tc cls_u32
+ offload routines.
+Date: Thu, 03 Mar 2016 15:37:52 -0800
+Message-ID: <1457048272.2936.12.camel@intel.com>
+References: <1457047192-17092-1-git-send-email-sridhar.samudrala@intel.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-ngUIml2JnpqqZUiJMPpF"
+To: Sridhar Samudrala <sridhar.samudrala@intel.com>,
+	john.r.fastabend@intel.com, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:27501 "EHLO mga03.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:6456 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754573AbcCCXXz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2016 18:23:55 -0500
+	id S1750986AbcCCXiA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2016 18:38:00 -0500
+In-Reply-To: <1457047192-17092-1-git-send-email-sridhar.samudrala@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check for handle ids when adding/deleting hash nodes OR adding/deleting
-filter entries and limit them to max number of links or header nodes
-supported(IXGBE_MAX_LINK_HANDLE).
 
-Start from bit 0 when setting hash table bit-map.(adapter->tables)
+--=-ngUIml2JnpqqZUiJMPpF
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 52 +++++++++++++++++----------
- 1 file changed, 34 insertions(+), 18 deletions(-)
+On Thu, 2016-03-03 at 15:19 -0800, Sridhar Samudrala wrote:
+> Check for handle ids when adding/deleting hash nodes OR
+> adding/deleting
+> filter entries and limit them to max number of links or header nodes
+> supported(IXGBE_MAX_LINK_HANDLE).
+>=20
+> Start from bit 0 when setting hash table bit-map.(adapter->tables)
+>=20
+> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+> ---
+> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 52
+> +++++++++++++++++----------
+> =C2=A01 file changed, 34 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index b893ff8..10ccd96 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8209,10 +8209,17 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
- static int ixgbe_delete_clsu32(struct ixgbe_adapter *adapter,
- 			       struct tc_cls_u32_offload *cls)
- {
-+	u32 uhtid = TC_U32_USERHTID(cls->knode.handle);
-+	u32 loc;
- 	int err;
- 
-+	if ((uhtid != 0x800) && (uhtid >= IXGBE_MAX_LINK_HANDLE))
-+		return -EINVAL;
-+
-+	loc = cls->knode.handle & 0xfffff;
-+
- 	spin_lock(&adapter->fdir_perfect_lock);
--	err = ixgbe_update_ethtool_fdir_entry(adapter, NULL, cls->knode.handle);
-+	err = ixgbe_update_ethtool_fdir_entry(adapter, NULL, loc);
- 	spin_unlock(&adapter->fdir_perfect_lock);
- 	return err;
- }
-@@ -8221,20 +8228,30 @@ static int ixgbe_configure_clsu32_add_hnode(struct ixgbe_adapter *adapter,
- 					    __be16 protocol,
- 					    struct tc_cls_u32_offload *cls)
- {
-+	u32 uhtid = TC_U32_USERHTID(cls->hnode.handle);
-+
-+	if (uhtid >= IXGBE_MAX_LINK_HANDLE)
-+		return -EINVAL;
-+
- 	/* This ixgbe devices do not support hash tables at the moment
- 	 * so abort when given hash tables.
- 	 */
- 	if (cls->hnode.divisor > 0)
- 		return -EINVAL;
- 
--	set_bit(TC_U32_USERHTID(cls->hnode.handle), &adapter->tables);
-+	set_bit(uhtid-1, &adapter->tables);
- 	return 0;
- }
- 
- static int ixgbe_configure_clsu32_del_hnode(struct ixgbe_adapter *adapter,
- 					    struct tc_cls_u32_offload *cls)
- {
--	clear_bit(TC_U32_USERHTID(cls->hnode.handle), &adapter->tables);
-+	u32 uhtid = TC_U32_USERHTID(cls->hnode.handle);
-+
-+	if (uhtid >= IXGBE_MAX_LINK_HANDLE)
-+		return -EINVAL;
-+
-+	clear_bit(uhtid-1, &adapter->tables);
- 	return 0;
- }
- 
-@@ -8252,27 +8269,29 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
- #endif
- 	int i, err = 0;
- 	u8 queue;
--	u32 handle;
-+	u32 uhtid, link_uhtid;
- 
- 	memset(&mask, 0, sizeof(union ixgbe_atr_input));
--	handle = cls->knode.handle;
-+	uhtid = TC_U32_USERHTID(cls->knode.handle);
-+	link_uhtid = TC_U32_USERHTID(cls->knode.link_handle);
- 
--	/* At the moment cls_u32 jumps to transport layer and skips past
-+	/* At the moment cls_u32 jumps to network layer and skips past
- 	 * L2 headers. The canonical method to match L2 frames is to use
- 	 * negative values. However this is error prone at best but really
- 	 * just broken because there is no way to "know" what sort of hdr
--	 * is in front of the transport layer. Fix cls_u32 to support L2
-+	 * is in front of the network layer. Fix cls_u32 to support L2
- 	 * headers when needed.
- 	 */
- 	if (protocol != htons(ETH_P_IP))
- 		return -EINVAL;
- 
--	if (cls->knode.link_handle ||
--	    cls->knode.link_handle >= IXGBE_MAX_LINK_HANDLE) {
-+	if (link_uhtid) {
- 		struct ixgbe_nexthdr *nexthdr = ixgbe_ipv4_jumps;
--		u32 uhtid = TC_U32_USERHTID(cls->knode.link_handle);
- 
--		if (!test_bit(uhtid, &adapter->tables))
-+		if (link_uhtid >= IXGBE_MAX_LINK_HANDLE)
-+			return -EINVAL;
-+
-+		if (!test_bit(link_uhtid-1, &adapter->tables))
- 			return -EINVAL;
- 
- 		for (i = 0; nexthdr[i].jump; i++) {
-@@ -8288,10 +8307,7 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
- 			    nexthdr->mask != cls->knode.sel->keys[0].mask)
- 				return -EINVAL;
- 
--			if (uhtid >= IXGBE_MAX_LINK_HANDLE)
--				return -EINVAL;
--
--			adapter->jump_tables[uhtid] = nexthdr->jump;
-+			adapter->jump_tables[link_uhtid] = nexthdr->jump;
- 		}
- 		return 0;
- 	}
-@@ -8308,13 +8324,13 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
- 	 * To add support for new nodes update ixgbe_model.h parse structures
- 	 * this function _should_ be generic try not to hardcode values here.
- 	 */
--	if (TC_U32_USERHTID(handle) == 0x800) {
-+	if (uhtid == 0x800) {
- 		field_ptr = adapter->jump_tables[0];
- 	} else {
--		if (TC_U32_USERHTID(handle) >= ARRAY_SIZE(adapter->jump_tables))
-+		if (uhtid >= IXGBE_MAX_LINK_HANDLE)
- 			return -EINVAL;
- 
--		field_ptr = adapter->jump_tables[TC_U32_USERHTID(handle)];
-+		field_ptr = adapter->jump_tables[uhtid];
- 	}
- 
- 	if (!field_ptr)
--- 
-2.1.0
+Dave I will add this to my queue
+--=-ngUIml2JnpqqZUiJMPpF
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJW2MrQAAoJEOVv75VaS+3O+C8P/iV9DlyjJiLnWlmwk0TK6WLH
+EHhH3QbSbIe7W7XsKX1CUzDo24p59eJT9yoOOPBGlphE86xDmGQByZpD5Tpc74na
+061NdPqazBWR7qtNfkOQpVbU8As7BOFXK61LAvrTKgSkDJq8+zsOZ6R1Bz823RVQ
+tgxait7StIcoWMhP45QzMq7h25Tr3IcDCP9x3j46DmcxLPA1cRyiSBrRHGlP+z/g
+w6ixBCB+5ZCrBWAneSzP5csKcX9vthc4iCIQPSEPHLF6TyppvkCRwBqnD/Sr4JgE
+CAJ72V95J0un8znWDwoxKH4X9Ja7/HDls+gljjYUA7p5Sp6F1KXlNMV7QNmPhK5w
+xVItiJ0K+1ChlKwxviSfl7GBIHBj17LQNG5kMHNKFKeBpoZkOW2tiorzqg+uhtP5
+/gEnVDaX5dcIStmOP453F3xdp8+KzoU8uj+wc2M0QGCWKGKUdqLOCh9GfuSdCNQW
+dDVjHTQpLNmtxjtYSbpSIMXMeN8A7Oi1zsHoRlS9vYHitsEqM4EyyCR9v4UoXJxC
+OjH/s/L3l3RTuGl3AXG1n2ZxsXqs7Ag0rCZ4zZJS9BlwrLbm9Vv1trnxBxKIkvTZ
+E6JaAxc1vfvEK1WWZRBkc5k7grLAu779veCEODGGuMMFW5SlY4pUt/nLxyTv5KdX
+7GCa6Squf17/AYw9rrQm
+=O6ri
+-----END PGP SIGNATURE-----
+
+--=-ngUIml2JnpqqZUiJMPpF--
