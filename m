@@ -1,59 +1,66 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RFC 08/15] rtc: at91sam9: Add missing MFD_SYSCON dependency on
- HAS_IOMEM
-Date: Thu, 03 Mar 2016 11:55:42 +0100
-Message-ID: <2233190.1BxevBAvDE@wuerfel>
-References: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
- <1456992221-26712-9-git-send-email-k.kozlowski@samsung.com>
+Subject: Re: [RFC 09/15] media: platform: Add missing MFD_SYSCON dependency on HAS_IOMEM
+Date: Thu, 03 Mar 2016 11:57:10 +0100
+Message-ID: <2181866.k24LVvUjTs@wuerfel>
+References: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com> <1456992221-26712-10-git-send-email-k.kozlowski@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: 7Bit
 Cc: Krzysztof Kozlowski <k.kozlowski@samsung.com>,
- Linus Walleij <linus.walleij@linaro.org>, linux-kernel@vger.kernel.org,
- David Brown <david.brown@linaro.org>,
- Alexandre Belloni <alexandre.belloni@free-electrons.com>,
- Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
- Lee Jones <lee.jones@linaro.org>, Thomas Gleixner <tglx@linutronix.de>,
- devel@driverdev.osuosl.org, linux-samsung-soc@vger.kernel.org,
- Vinod Koul <vinod.koul@intel.com>, Daniel Lezcano <daniel.lezcano@linaro.org>,
- Kishon Vijay Abraham I <kishon@ti.com>, Andy Gross <andy.gross@linaro.org>,
- linux-media@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
- rtc-linux@googlegroups.com, Mauro Carvalho Chehab <mchehab@osg.samsung.com>,
- Marc Zyngier <marc.zyngier@arm.com>, linux-arm-msm@vger.kernel.org,
- linux-gpio@vger.kernel.org, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
- Dan Williams <dan.j.williams@intel.com>,
+	Daniel Lezcano <daniel.lezcano@linaro.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Dan Williams <dan.j.williams@intel.com>,
+	Vinod Koul <vinod.koul@intel.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Marc Zyngier <marc.zyngier@arm.com>,
+	Mauro Carvalho Chehab <mchehab@osg.samsung.com>,
+	Lee Jones <lee.jones@linaro.org>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Kishon Vijay Abraham I <kishon@ti.com>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Sebastian Reichel <sre@kernel.org>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Alessandro Zummo <a.zummo@towertech.it>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	Andy Gross <andy.gross@linaro.org>,
+	David Brown <david.brown@linaro.org>,
+	Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
+	Greg Kroah-Hartman <gregkh@linuxfound
 To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1456992221-26712-9-git-send-email-k.kozlowski@samsung.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <1456992221-26712-10-git-send-email-k.kozlowski@samsung.com>
+Sender: linux-gpio-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 03 March 2016 17:03:34 Krzysztof Kozlowski wrote:
-> index 0da40e2e4280..5c530b6b125d 100644
-> --- a/drivers/rtc/Kconfig
-> +++ b/drivers/rtc/Kconfig
-> @@ -1302,6 +1302,7 @@ config RTC_DRV_AT91RM9200
->  config RTC_DRV_AT91SAM9
->         tristate "AT91SAM9 RTT as RTC"
->         depends on ARCH_AT91 || COMPILE_TEST
+On Thursday 03 March 2016 17:03:35 Krzysztof Kozlowski wrote:
+> diff --git a/drivers/media/platform/Kconfig b/drivers/media/platform/Kconfig
+> index 201f5c296a95..e5931e434fa2 100644
+> --- a/drivers/media/platform/Kconfig
+> +++ b/drivers/media/platform/Kconfig
+> @@ -79,6 +79,7 @@ config VIDEO_OMAP3
+>         depends on VIDEO_V4L2 && I2C && VIDEO_V4L2_SUBDEV_API && ARCH_OMAP3
+>         depends on HAS_DMA && OF
+>         depends on OMAP_IOMMU
 > +       depends on HAS_IOMEM    # For MFD_SYSCON
+>         select ARM_DMA_USE_IOMMU
+>         select VIDEOBUF2_DMA_CONTIG
+
+This is only built for OMAP3, so we won't get here without HAS_IOMEM
+
 >         select MFD_SYSCON
->         help
->           Some AT91SAM9 SoCs provide an RTT (Real Time Timer) block which
-> 
+> diff --git a/drivers/media/platform/exynos4-is/Kconfig b/drivers/media/platform/exynos4-is/Kconfig
+> index 57d42c6172c5..c4317b99d257 100644
+> --- a/drivers/media/platform/exynos4-is/Kconfig
+> +++ b/drivers/media/platform/exynos4-is/Kconfig
+> @@ -17,6 +17,7 @@ config VIDEO_S5P_FIMC
+>         tristate "S5P/EXYNOS4 FIMC/CAMIF camera interface driver"
+>         depends on I2C
+>         depends on HAS_DMA
+> +       depends on HAS_IOMEM    # For MFD_SYSCON
+>         select VIDEOBUF2_DMA_CONTIG
+>         select V4L2_MEM2MEM_DEV
 
-This is technically correct, but the entire RTC menu is hidden
-inside of 'depends on !UML && !S390', so we won't ever get there
-on any configuration that does not use HAS_IOMEM.
-
-If we did, all other RTC drivers would also fail.
+This  is guarded by HAS_DMA, which implies HAS_IOMEM afaik.
 
 	Arnd
