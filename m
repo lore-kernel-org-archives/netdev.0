@@ -1,45 +1,34 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL for-4.5] virtio/vhost: minor fixes
-Date: Thu, 3 Mar 2016 15:08:07 +0200
-Message-ID: <20160303150807-mutt-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	gkurz@linux.vnet.ibm.com, lprosek@redhat.com, mst@redhat.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Subject: [PATCH] phy: remove documentation of removed member addr of phy_device structure
+Date: Thu,  3 Mar 2016 14:12:28 +0100
+Message-ID: <1457010748-2584-1-git-send-email-clabbe.montjoie@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	LABBE Corentin <clabbe.montjoie@gmail.com>
+To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following changes since commit fc77dbd34c5c99bce46d40a2491937c3bcbd10af:
+Commit e5a03bfd873c ("phy: Add an mdio_device structure") removed
+the addr member of the phy_device structure.
+This patch remove the documentation about that member.
 
-  Linux 4.5-rc6 (2016-02-28 08:41:20 -0800)
+Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
+---
+ include/linux/phy.h | 1 -
+ 1 file changed, 1 deletion(-)
 
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
-
-for you to fetch changes up to e1f33be9186363da7955bcb5f0b03e6685544c50:
-
-  vhost: fix error path in vhost_init_used() (2016-03-02 17:01:49 +0200)
-
-----------------------------------------------------------------
-virtio/vhost: minor fixes
-
-This fixes two minor bugs: error handling in vhost,
-and capability processing in virtio.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Greg Kurz (1):
-      vhost: fix error path in vhost_init_used()
-
-Ladi Prosek (1):
-      virtio-pci: read the right virtio_pci_notify_cap field
-
- drivers/vhost/vhost.c              | 15 +++++++++++----
- drivers/virtio/virtio_pci_modern.c |  2 +-
- 2 files changed, 12 insertions(+), 5 deletions(-)
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index d6f3641..e14569e 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -338,7 +338,6 @@ struct phy_c45_device_ids {
+  * suspended: Set to true if this phy has been suspended successfully.
+  * state: state of the PHY for management purposes
+  * dev_flags: Device-specific flags used by the PHY driver.
+- * addr: Bus address of PHY
+  * link_timeout: The number of timer firings to wait before the
+  * giving up on the current attempt at acquiring a link
+  * irq: IRQ number of the PHY's interrupt (-1 if none)
+-- 
+2.4.10
