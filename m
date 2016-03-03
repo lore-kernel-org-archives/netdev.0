@@ -1,232 +1,62 @@
-From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Subject: Re: [V9fs-developer] [PATCH] net/9p: convert to new CQ API
-Date: Thu, 3 Mar 2016 09:36:06 +0100
-Message-ID: <20160303083606.GA13828@lst.de>
-References: <1456565151-27115-1-git-send-email-hch@lst.de> <1456565151-27115-2-git-send-email-hch@lst.de> <20160227154957.GA21186@nautica>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] vxlan: fix missing options_len update on RX with
+ collect metadata
+Date: Thu, 03 Mar 2016 09:58:00 +0100
+Message-ID: <56D7FC98.6020505@iogearbox.net>
+References: <ea834e5ecd014f50f9d979ee869f96e5508f8d9c.1456880721.git.daniel@iogearbox.net> <CAM_iQpWurWR6c2tvi1fGmNvt-6J=mE05CeKKJkLAEob3stLtZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: v9fs-developer-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dominique Martinet <asmadeus-9aU+PIKW3UvdtAWm4Da02A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160227154957.GA21186@nautica>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	Pravin B Shelar <pshelar@nicira.com>, jesse@kernel.org,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:35100 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756190AbcCCI6I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 03:58:08 -0500
+In-Reply-To: <CAM_iQpWurWR6c2tvi1fGmNvt-6J=mE05CeKKJkLAEob3stLtZg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-New version with the nits fixed below.  Now that checkpath started
-a stupid warning about not using tabs for indentation which I've
-ignored here and will take up in my usual fights against Joes
-idicotic opinions separately..
+On 03/03/2016 02:21 AM, Cong Wang wrote:
+> On Tue, Mar 1, 2016 at 5:32 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> When signalling to metadata consumers that the metadata_dst entry
+>> carries additional GBP extension data for vxlan (TUNNEL_VXLAN_OPT),
+>> the dst's vxlan_metadata information is populated, but options_len
+>> is left to zero. F.e. in ovs, ovs_flow_key_extract() checks for
+>> options_len before extracting the data through ip_tunnel_info_opts_get().
+>>
+>> Geneve uses ip_tunnel_info_opts_set() helper in receive path, which
+>> sets options_len internally, vxlan however uses ip_tunnel_info_opts(),
+>> so when filling vxlan_metadata, we do need to update options_len.
+>>
+>> Fixes: 4c22279848c5 ("ip-tunnel: Use API to access tunnel metadata options.")
+>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>> ---
+>>   drivers/net/vxlan.c | 4 +++-
+>>   1 file changed, 3 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+>> index b601139..1c32bd1 100644
+>> --- a/drivers/net/vxlan.c
+>> +++ b/drivers/net/vxlan.c
+>> @@ -1308,8 +1308,10 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+>>                  gbp = (struct vxlanhdr_gbp *)vxh;
+>>                  md->gbp = ntohs(gbp->policy_id);
+>>
+>> -               if (tun_dst)
+>> +               if (tun_dst) {
+>>                          tun_dst->u.tun_info.key.tun_flags |= TUNNEL_VXLAN_OPT;
+>> +                       tun_dst->u.tun_info.options_len = sizeof(*md);
+>> +               }
+>>
+>
+> Why not set it in tun_rx_dst() where it is allocated?
 
---
->From 0055e31f24c7b3642ece5ebb998fa63d772dcb1a Mon Sep 17 00:00:00 2001
-From: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Date: Sat, 27 Feb 2016 10:22:40 +0100
-Subject: net/9p: convert to new CQ API
-
-Trivial conversion to the new RDMA CQ API.
-
-Signed-off-by: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
----
- net/9p/trans_rdma.c | 86 +++++++++++++++++++----------------------------------
- 1 file changed, 31 insertions(+), 55 deletions(-)
-
-diff --git a/net/9p/trans_rdma.c b/net/9p/trans_rdma.c
-index 52b4a2f..1852e38 100644
---- a/net/9p/trans_rdma.c
-+++ b/net/9p/trans_rdma.c
-@@ -109,14 +109,13 @@ struct p9_trans_rdma {
- /**
-  * p9_rdma_context - Keeps track of in-process WR
-  *
-- * @wc_op: The original WR op for when the CQE completes in error.
-  * @busa: Bus address to unmap when the WR completes
-  * @req: Keeps track of requests (send)
-  * @rc: Keepts track of replies (receive)
-  */
- struct p9_rdma_req;
- struct p9_rdma_context {
--	enum ib_wc_opcode wc_op;
-+	struct ib_cqe cqe;
- 	dma_addr_t busa;
- 	union {
- 		struct p9_req_t *req;
-@@ -284,9 +283,12 @@ p9_cm_event_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
- }
- 
- static void
--handle_recv(struct p9_client *client, struct p9_trans_rdma *rdma,
--	    struct p9_rdma_context *c, enum ib_wc_status status, u32 byte_len)
-+recv_done(struct ib_cq *cq, struct ib_wc *wc)
- {
-+	struct p9_client *client = cq->cq_context;
-+	struct p9_trans_rdma *rdma = client->trans;
-+	struct p9_rdma_context *c =
-+		container_of(wc->wr_cqe, struct p9_rdma_context, cqe);
- 	struct p9_req_t *req;
- 	int err = 0;
- 	int16_t tag;
-@@ -295,7 +297,7 @@ handle_recv(struct p9_client *client, struct p9_trans_rdma *rdma,
- 	ib_dma_unmap_single(rdma->cm_id->device, c->busa, client->msize,
- 							 DMA_FROM_DEVICE);
- 
--	if (status != IB_WC_SUCCESS)
-+	if (wc->status != IB_WC_SUCCESS)
- 		goto err_out;
- 
- 	err = p9_parse_header(c->rc, NULL, NULL, &tag, 1);
-@@ -316,21 +318,32 @@ handle_recv(struct p9_client *client, struct p9_trans_rdma *rdma,
- 	req->rc = c->rc;
- 	p9_client_cb(client, req, REQ_STATUS_RCVD);
- 
-+ out:
-+	up(&rdma->rq_sem);
-+	kfree(c);
- 	return;
- 
-  err_out:
--	p9_debug(P9_DEBUG_ERROR, "req %p err %d status %d\n", req, err, status);
-+	p9_debug(P9_DEBUG_ERROR, "req %p err %d status %d\n",
-+			req, err, wc->status);
- 	rdma->state = P9_RDMA_FLUSHING;
- 	client->status = Disconnected;
-+	goto out;
- }
- 
- static void
--handle_send(struct p9_client *client, struct p9_trans_rdma *rdma,
--	    struct p9_rdma_context *c, enum ib_wc_status status, u32 byte_len)
-+send_done(struct ib_cq *cq, struct ib_wc *wc)
- {
-+	struct p9_client *client = cq->cq_context;
-+	struct p9_trans_rdma *rdma = client->trans;
-+	struct p9_rdma_context *c =
-+		container_of(wc->wr_cqe, struct p9_rdma_context, cqe);
-+
- 	ib_dma_unmap_single(rdma->cm_id->device,
- 			    c->busa, c->req->tc->size,
- 			    DMA_TO_DEVICE);
-+	up(&rdma->sq_sem);
-+	kfree(c);
- }
- 
- static void qp_event_handler(struct ib_event *event, void *context)
-@@ -339,42 +352,6 @@ static void qp_event_handler(struct ib_event *event, void *context)
- 		 event->event, context);
- }
- 
--static void cq_comp_handler(struct ib_cq *cq, void *cq_context)
--{
--	struct p9_client *client = cq_context;
--	struct p9_trans_rdma *rdma = client->trans;
--	int ret;
--	struct ib_wc wc;
--
--	ib_req_notify_cq(rdma->cq, IB_CQ_NEXT_COMP);
--	while ((ret = ib_poll_cq(cq, 1, &wc)) > 0) {
--		struct p9_rdma_context *c = (void *) (unsigned long) wc.wr_id;
--
--		switch (c->wc_op) {
--		case IB_WC_RECV:
--			handle_recv(client, rdma, c, wc.status, wc.byte_len);
--			up(&rdma->rq_sem);
--			break;
--
--		case IB_WC_SEND:
--			handle_send(client, rdma, c, wc.status, wc.byte_len);
--			up(&rdma->sq_sem);
--			break;
--
--		default:
--			pr_err("unexpected completion type, c->wc_op=%d, wc.opcode=%d, status=%d\n",
--			       c->wc_op, wc.opcode, wc.status);
--			break;
--		}
--		kfree(c);
--	}
--}
--
--static void cq_event_handler(struct ib_event *e, void *v)
--{
--	p9_debug(P9_DEBUG_ERROR, "CQ event %d context %p\n", e->event, v);
--}
--
- static void rdma_destroy_trans(struct p9_trans_rdma *rdma)
- {
- 	if (!rdma)
-@@ -387,7 +364,7 @@ static void rdma_destroy_trans(struct p9_trans_rdma *rdma)
- 		ib_dealloc_pd(rdma->pd);
- 
- 	if (rdma->cq && !IS_ERR(rdma->cq))
--		ib_destroy_cq(rdma->cq);
-+		ib_free_cq(rdma->cq);
- 
- 	if (rdma->cm_id && !IS_ERR(rdma->cm_id))
- 		rdma_destroy_id(rdma->cm_id);
-@@ -408,13 +385,14 @@ post_recv(struct p9_client *client, struct p9_rdma_context *c)
- 	if (ib_dma_mapping_error(rdma->cm_id->device, c->busa))
- 		goto error;
- 
-+	c->cqe.done = recv_done;
-+
- 	sge.addr = c->busa;
- 	sge.length = client->msize;
- 	sge.lkey = rdma->pd->local_dma_lkey;
- 
- 	wr.next = NULL;
--	c->wc_op = IB_WC_RECV;
--	wr.wr_id = (unsigned long) c;
-+	wr.wr_cqe = &c->cqe;
- 	wr.sg_list = &sge;
- 	wr.num_sge = 1;
- 	return ib_post_recv(rdma->qp, &wr, &bad_wr);
-@@ -499,13 +477,14 @@ dont_need_post_recv:
- 		goto send_error;
- 	}
- 
-+	c->cqe.done = send_done;
-+
- 	sge.addr = c->busa;
- 	sge.length = c->req->tc->size;
- 	sge.lkey = rdma->pd->local_dma_lkey;
- 
- 	wr.next = NULL;
--	c->wc_op = IB_WC_SEND;
--	wr.wr_id = (unsigned long) c;
-+	wr.wr_cqe = &c->cqe;
- 	wr.opcode = IB_WR_SEND;
- 	wr.send_flags = IB_SEND_SIGNALED;
- 	wr.sg_list = &sge;
-@@ -642,7 +621,6 @@ rdma_create_trans(struct p9_client *client, const char *addr, char *args)
- 	struct p9_trans_rdma *rdma;
- 	struct rdma_conn_param conn_param;
- 	struct ib_qp_init_attr qp_attr;
--	struct ib_cq_init_attr cq_attr = {};
- 
- 	/* Parse the transport specific mount options */
- 	err = parse_opts(args, &opts);
-@@ -695,13 +673,11 @@ rdma_create_trans(struct p9_client *client, const char *addr, char *args)
- 		goto error;
- 
- 	/* Create the Completion Queue */
--	cq_attr.cqe = opts.sq_depth + opts.rq_depth + 1;
--	rdma->cq = ib_create_cq(rdma->cm_id->device, cq_comp_handler,
--				cq_event_handler, client,
--				&cq_attr);
-+	rdma->cq = ib_alloc_cq(rdma->cm_id->device, client,
-+			opts.sq_depth + opts.rq_depth + 1,
-+			0, IB_POLL_SOFTIRQ);
- 	if (IS_ERR(rdma->cq))
- 		goto error;
--	ib_req_notify_cq(rdma->cq, IB_CQ_NEXT_COMP);
- 
- 	/* Create the Protection Domain */
- 	rdma->pd = ib_alloc_pd(rdma->cm_id->device);
--- 
-2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Nope, current convention is to only fill options_len when an actual
+option was detected on RX, f.e. see ip_tunnel_info_opts_set() in
+geneve. Consumers like ovs_flow_key_extract() check for options_len
+and not TUNNEL_OPTIONS_PRESENT to copy it via ip_tunnel_info_opts_get()
+from there.
