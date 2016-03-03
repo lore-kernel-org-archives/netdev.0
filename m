@@ -1,39 +1,36 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute PATCH 3/3] tc: pedit: Fix retain value for ihl
- adjustments
-Date: Thu, 3 Mar 2016 15:54:31 +0100
-Message-ID: <20160303145431.GD18624@orbyte.nwl.cc>
-References: <1456917631-18447-1-git-send-email-phil@nwl.cc>
- <499abfe479324d1e83289cd68b2a7641@HQ1WP-EXMB11.corp.brocade.com>
- <20160302095414.45a928df@xeon-e3>
- <56D84863.5090203@mojatatu.com>
- <56D84A0B.6000003@mojatatu.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next V2 02/10] net/flow_dissector: Make
+ dissector_uses_key() and skb_flow_dissector_target() public
+Date: Thu, 3 Mar 2016 15:57:13 +0100
+Message-ID: <20160303145713.GC4431@nanopsycho.orion>
+References: <1457016960-27832-1-git-send-email-amir@vadai.me>
+ <1457016960-27832-3-git-send-email-amir@vadai.me>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemming@brocade.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>
+To: Amir Vadai <amir@vadai.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:41466 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757916AbcCCOyd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2016 09:54:33 -0500
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35481 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753954AbcCCO5Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 09:57:16 -0500
+Received: by mail-wm0-f65.google.com with SMTP id 1so4510884wmg.2
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 06:57:15 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <56D84A0B.6000003@mojatatu.com>
+In-Reply-To: <1457016960-27832-3-git-send-email-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 03, 2016 at 09:28:27AM -0500, Jamal Hadi Salim wrote:
-> Phil, there is one thing i noticed in your patch - dont think
-> it is a big deal but you are doing htons on an int
-> (instead of u16).
+Thu, Mar 03, 2016 at 03:55:52PM CET, amir@vadai.me wrote:
+>Will be used in a following patch to query if a key is being used, and
+>what it's value in the target object.
+>
+>Signed-off-by: Amir Vadai <amir@vadai.me>
 
-Indeed, I totally overlooked that. Does not look like there's an easy
-fix though, as all tc_pedit_key fields are u32. OTOH htons() will cast
-to u16 first, therefore cutting off any higher bits. Looks like the code
-does the right thing anyway, and the test results fortify that.
-
-Do you see a cleaner way to implement this? Otherwise I would vote for
-leaving it as a little surprise to future readers. ;)
-
-Cheers, Phil
+Acked-by: Jiri Pirko <jiri@mellanox.com>
