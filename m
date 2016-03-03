@@ -1,7 +1,7 @@
 From: John Stultz <john.stultz@linaro.org>
-Subject: [PATCH 5/8] time: Add history to cross timestamp interface supporting slower devices
-Date: Wed,  2 Mar 2016 20:21:56 -0800
-Message-ID: <1456978919-30076-6-git-send-email-john.stultz@linaro.org>
+Subject: [PATCH 3/8] time: Remove duplicated code in ktime_get_raw_and_real()
+Date: Wed,  2 Mar 2016 20:21:54 -0800
+Message-ID: <1456978919-30076-4-git-send-email-john.stultz@linaro.org>
 References: <1456978919-30076-1-git-send-email-john.stultz@linaro.org>
 Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
 	Prarit Bhargava <prarit@redhat.com>,
@@ -13,64 +13,21 @@ Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
 	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
 	John Stultz <john.stultz@linaro.org>
 To: lkml <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:34803 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756565AbcCCEWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 23:22:16 -0500
-Received: by mail-pf0-f169.google.com with SMTP id 4so7133908pfd.1
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 20:22:16 -0800 (PST)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1456978919-30076-1-git-send-email-john.stultz@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: "Christopher S. Hall" <christopher.s.hall@intel.com>
 
-Another representative use case of time sync and the correlated
-clocksource (in addition to PTP noted above) is PTP synchronized
-audio.
-
-In a streaming application, as an example, samples will be sent and/or
-received by multiple devices with a presentation time that is in terms
-of the PTP master clock. Synchronizing the audio output on these
-devices requires correlating the audio clock with the PTP master
-clock. The more precise this correlation is, the better the audio
-quality (i.e. out of sync audio sounds bad).
-
->From an application standpoint, to correlate the PTP master clock with
-the audio device clock, the system clock is used as a intermediate
-timebase. The transforms such an application would perform are:
-
-    System Clock <-> Audio clock
-    System Clock <-> Network Device Clock [<-> PTP Master Clock]
-
-Modern Intel platforms can perform a more accurate cross timestamp in
-hardware (ART,audio device clock).  The audio driver requires
-ART->system time transforms -- the same as required for the network
-driver. These platforms offload audio processing (including
-cross-timestamps) to a DSP which to ensure uninterrupted audio
-processing, communicates and response to the host only once every
-millsecond. As a result is takes up to a millisecond for the DSP to
-receive a request, the request is processed by the DSP, the audio
-output hardware is polled for completion, the result is copied into
-shared memory, and the host is notified. All of these operation occur
-on a millisecond cadence.  This transaction requires about 2 ms, but
-under heavier workloads it may take up to 4 ms.
-
-Adding a history allows these slow devices the option of providing an
-ART value outside of the current interval. In this case, the callback
-provided is an accessor function for the previously obtained counter
-value. If get_system_device_crosststamp() receives a counter value
-previous to cycle_last, it consults the history provided as an
-argument in history_ref and interpolates the realtime and monotonic
-raw system time using the provided counter value. If there are any
-clock discontinuities, e.g. from calling settimeofday(), the monotonic
-raw time is interpolated in the usual way, but the realtime clock time
-is adjusted by scaling the monotonic raw adjustment.
-
-When an accessor function is used a history argument *must* be
-provided. The history is initialized using ktime_get_snapshot() and
-must be called before the counter values are read.
+The code in ktime_get_snapshot() is a superset of the code in
+ktime_get_raw_and_real() code. Further, ktime_get_raw_and_real() is
+called only by the PPS code, pps_get_ts(). Consolidate the
+pps_get_ts() code into a single function calling ktime_get_snapshot()
+and eliminate ktime_get_raw_and_real(). A side effect of this is that
+the raw and real results of pps_get_ts() correspond to exactly the
+same clock cycle. Previously these values represented separate reads
+of the system clock.
 
 Cc: Prarit Bhargava <prarit@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>
@@ -84,288 +41,102 @@ Cc: jeffrey.t.kirsher@intel.com
 Cc: netdev@vger.kernel.org
 Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
-[jstultz: Fixed up cycles_t/cycle_t type confusion]
 Signed-off-by: John Stultz <john.stultz@linaro.org>
 ---
- include/linux/timekeeper_internal.h |   2 +
- include/linux/timekeeping.h         |   5 ++
- kernel/time/timekeeping.c           | 171 +++++++++++++++++++++++++++++++++++-
- 3 files changed, 177 insertions(+), 1 deletion(-)
+ include/linux/pps_kernel.h | 17 ++++++-----------
+ kernel/time/timekeeping.c  | 40 ++--------------------------------------
+ 2 files changed, 8 insertions(+), 49 deletions(-)
 
-diff --git a/include/linux/timekeeper_internal.h b/include/linux/timekeeper_internal.h
-index 2524722..e880054 100644
---- a/include/linux/timekeeper_internal.h
-+++ b/include/linux/timekeeper_internal.h
-@@ -50,6 +50,7 @@ struct tk_read_base {
-  * @offs_tai:		Offset clock monotonic -> clock tai
-  * @tai_offset:		The current UTC to TAI offset in seconds
-  * @clock_was_set_seq:	The sequence number of clock was set events
-+ * @cs_was_changed_seq:	The sequence number of clocksource change events
-  * @next_leap_ktime:	CLOCK_MONOTONIC time value of a pending leap-second
-  * @raw_time:		Monotonic raw base time in timespec64 format
-  * @cycle_interval:	Number of clock cycles in one NTP interval
-@@ -91,6 +92,7 @@ struct timekeeper {
- 	ktime_t			offs_tai;
- 	s32			tai_offset;
- 	unsigned int		clock_was_set_seq;
-+	u8			cs_was_changed_seq;
- 	ktime_t			next_leap_ktime;
- 	struct timespec64	raw_time;
+diff --git a/include/linux/pps_kernel.h b/include/linux/pps_kernel.h
+index 54bf148..35ac903 100644
+--- a/include/linux/pps_kernel.h
++++ b/include/linux/pps_kernel.h
+@@ -111,22 +111,17 @@ static inline void timespec_to_pps_ktime(struct pps_ktime *kt,
+ 	kt->nsec = ts.tv_nsec;
+ }
  
-diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
-index 4a2ca65..96f37be 100644
---- a/include/linux/timekeeping.h
-+++ b/include/linux/timekeeping.h
-@@ -272,11 +272,15 @@ extern void ktime_get_raw_and_real_ts64(struct timespec64 *ts_raw,
-  * @cycles:	Clocksource counter value to produce the system times
-  * @real:	Realtime system time
-  * @raw:	Monotonic raw system time
-+ * @clock_was_set_seq:	The sequence number of clock was set events
-+ * @cs_was_changed_seq:	The sequence number of clocksource change events
-  */
- struct system_time_snapshot {
- 	cycle_t		cycles;
- 	ktime_t		real;
- 	ktime_t		raw;
-+	unsigned int	clock_was_set_seq;
-+	u8		cs_was_changed_seq;
- };
+-#ifdef CONFIG_NTP_PPS
+-
+ static inline void pps_get_ts(struct pps_event_time *ts)
+ {
+-	ktime_get_raw_and_real_ts64(&ts->ts_raw, &ts->ts_real);
+-}
++	struct system_time_snapshot snap;
  
- /*
-@@ -312,6 +316,7 @@ extern int get_device_system_crosststamp(
- 				struct system_counterval_t *system_counterval,
- 				void *ctx),
- 			void *ctx,
-+			struct system_time_snapshot *history,
- 			struct system_device_crosststamp *xtstamp);
+-#else /* CONFIG_NTP_PPS */
+-
+-static inline void pps_get_ts(struct pps_event_time *ts)
+-{
+-	ktime_get_real_ts64(&ts->ts_real);
++	ktime_get_snapshot(&snap);
++	ts->ts_real = ktime_to_timespec64(snap.real);
++#ifdef CONFIG_NTP_PPS
++	ts->ts_raw = ktime_to_timespec64(snap.raw);
++#endif
+ }
  
- /*
+-#endif /* CONFIG_NTP_PPS */
+-
+ /* Subtract known time delay from PPS event time(s) */
+ static inline void pps_sub_ts(struct pps_event_time *ts, struct timespec64 delta)
+ {
 diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
-index dba595c..931b0b1 100644
+index 89b4695..af19a49 100644
 --- a/kernel/time/timekeeping.c
 +++ b/kernel/time/timekeeping.c
-@@ -233,6 +233,7 @@ static void tk_setup_internals(struct timekeeper *tk, struct clocksource *clock)
- 	u64 tmp, ntpinterval;
- 	struct clocksource *old_clock;
+@@ -888,6 +888,8 @@ void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
+ 	s64 nsec_real;
+ 	cycle_t now;
  
-+	++tk->cs_was_changed_seq;
- 	old_clock = tk->tkr_mono.clock;
- 	tk->tkr_mono.clock = clock;
- 	tk->tkr_mono.read = clock->read;
-@@ -894,6 +895,8 @@ void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
++	WARN_ON_ONCE(timekeeping_suspended);
++
+ 	do {
  		seq = read_seqcount_begin(&tk_core.seq);
  
- 		now = tk->tkr_mono.read(tk->tkr_mono.clock);
-+		systime_snapshot->cs_was_changed_seq = tk->cs_was_changed_seq;
-+		systime_snapshot->clock_was_set_seq = tk->clock_was_set_seq;
- 		base_real = ktime_add(tk->tkr_mono.base,
- 				      tk_core.timekeeper.offs_real);
- 		base_raw = tk->tkr_raw.base;
-@@ -907,10 +910,123 @@ void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
+@@ -905,44 +907,6 @@ void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
  }
  EXPORT_SYMBOL_GPL(ktime_get_snapshot);
  
-+/* Scale base by mult/div checking for overflow */
-+static int scale64_check_overflow(u64 mult, u64 div, u64 *base)
-+{
-+	u64 tmp, rem;
-+
-+	tmp = div64_u64_rem(*base, div, &rem);
-+
-+	if (((int)sizeof(u64)*8 - fls64(mult) < fls64(tmp)) ||
-+	    ((int)sizeof(u64)*8 - fls64(mult) < fls64(rem)))
-+		return -EOVERFLOW;
-+	tmp *= mult;
-+	rem *= mult;
-+
-+	do_div(rem, div);
-+	*base = tmp + rem;
-+	return 0;
-+}
-+
-+/**
-+ * adjust_historical_crosststamp - adjust crosstimestamp previous to current interval
-+ * @history:			Snapshot representing start of history
-+ * @partial_history_cycles:	Cycle offset into history (fractional part)
-+ * @total_history_cycles:	Total history length in cycles
-+ * @discontinuity:		True indicates clock was set on history period
-+ * @ts:				Cross timestamp that should be adjusted using
-+ *	partial/total ratio
-+ *
-+ * Helper function used by get_device_system_crosststamp() to correct the
-+ * crosstimestamp corresponding to the start of the current interval to the
-+ * system counter value (timestamp point) provided by the driver. The
-+ * total_history_* quantities are the total history starting at the provided
-+ * reference point and ending at the start of the current interval. The cycle
-+ * count between the driver timestamp point and the start of the current
-+ * interval is partial_history_cycles.
-+ */
-+static int adjust_historical_crosststamp(struct system_time_snapshot *history,
-+					 cycle_t partial_history_cycles,
-+					 cycle_t total_history_cycles,
-+					 bool discontinuity,
-+					 struct system_device_crosststamp *ts)
-+{
-+	struct timekeeper *tk = &tk_core.timekeeper;
-+	u64 corr_raw, corr_real;
-+	bool interp_forward;
-+	int ret;
-+
-+	if (total_history_cycles == 0 || partial_history_cycles == 0)
-+		return 0;
-+
-+	/* Interpolate shortest distance from beginning or end of history */
-+	interp_forward = partial_history_cycles > total_history_cycles/2 ?
-+		true : false;
-+	partial_history_cycles = interp_forward ?
-+		total_history_cycles - partial_history_cycles :
-+		partial_history_cycles;
-+
-+	/*
-+	 * Scale the monotonic raw time delta by:
-+	 *	partial_history_cycles / total_history_cycles
-+	 */
-+	corr_raw = (u64)ktime_to_ns(
-+		ktime_sub(ts->sys_monoraw, history->raw));
-+	ret = scale64_check_overflow(partial_history_cycles,
-+				     total_history_cycles, &corr_raw);
-+	if (ret)
-+		return ret;
-+
-+	/*
-+	 * If there is a discontinuity in the history, scale monotonic raw
-+	 *	correction by:
-+	 *	mult(real)/mult(raw) yielding the realtime correction
-+	 * Otherwise, calculate the realtime correction similar to monotonic
-+	 *	raw calculation
-+	 */
-+	if (discontinuity) {
-+		corr_real = mul_u64_u32_div
-+			(corr_raw, tk->tkr_mono.mult, tk->tkr_raw.mult);
-+	} else {
-+		corr_real = (u64)ktime_to_ns(
-+			ktime_sub(ts->sys_realtime, history->real));
-+		ret = scale64_check_overflow(partial_history_cycles,
-+					     total_history_cycles, &corr_real);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	/* Fixup monotonic raw and real time time values */
-+	if (interp_forward) {
-+		ts->sys_monoraw = ktime_add_ns(history->raw, corr_raw);
-+		ts->sys_realtime = ktime_add_ns(history->real, corr_real);
-+	} else {
-+		ts->sys_monoraw = ktime_sub_ns(ts->sys_monoraw, corr_raw);
-+		ts->sys_realtime = ktime_sub_ns(ts->sys_realtime, corr_real);
-+	}
-+
-+	return 0;
-+}
-+
-+/*
-+ * cycle_between - true if test occurs chronologically between before and after
-+ */
-+static bool cycle_between(cycle_t before, cycle_t test, cycle_t after)
-+{
-+	if (test > before && test < after)
-+		return true;
-+	if (test < before && before > after)
-+		return true;
-+	return false;
-+}
-+
+-#ifdef CONFIG_NTP_PPS
+-
+-/**
+- * ktime_get_raw_and_real_ts64 - get day and raw monotonic time in timespec format
+- * @ts_raw:	pointer to the timespec to be set to raw monotonic time
+- * @ts_real:	pointer to the timespec to be set to the time of day
+- *
+- * This function reads both the time of day and raw monotonic time at the
+- * same time atomically and stores the resulting timestamps in timespec
+- * format.
+- */
+-void ktime_get_raw_and_real_ts64(struct timespec64 *ts_raw, struct timespec64 *ts_real)
+-{
+-	struct timekeeper *tk = &tk_core.timekeeper;
+-	unsigned long seq;
+-	s64 nsecs_raw, nsecs_real;
+-
+-	WARN_ON_ONCE(timekeeping_suspended);
+-
+-	do {
+-		seq = read_seqcount_begin(&tk_core.seq);
+-
+-		*ts_raw = tk->raw_time;
+-		ts_real->tv_sec = tk->xtime_sec;
+-		ts_real->tv_nsec = 0;
+-
+-		nsecs_raw  = timekeeping_get_ns(&tk->tkr_raw);
+-		nsecs_real = timekeeping_get_ns(&tk->tkr_mono);
+-
+-	} while (read_seqcount_retry(&tk_core.seq, seq));
+-
+-	timespec64_add_ns(ts_raw, nsecs_raw);
+-	timespec64_add_ns(ts_real, nsecs_real);
+-}
+-EXPORT_SYMBOL(ktime_get_raw_and_real_ts64);
+-
+-#endif /* CONFIG_NTP_PPS */
+-
  /**
-  * get_device_system_crosststamp - Synchronously capture system/device timestamp
-- * @sync_devicetime:	Callback to get simultaneous device time and
-+ * @get_time_fn:	Callback to get simultaneous device time and
-  *	system counter from the device driver
-+ * @ctx:		Context passed to get_time_fn()
-+ * @history_begin:	Historical reference point used to interpolate system
-+ *	time when counter provided by the driver is before the current interval
-  * @xtstamp:		Receives simultaneously captured system and device time
-  *
-  * Reads a timestamp from a device and correlates it to system time
-@@ -920,13 +1036,18 @@ int get_device_system_crosststamp(int (*get_time_fn)
- 				   struct system_counterval_t *sys_counterval,
- 				   void *ctx),
- 				  void *ctx,
-+				  struct system_time_snapshot *history_begin,
- 				  struct system_device_crosststamp *xtstamp)
- {
- 	struct system_counterval_t system_counterval;
- 	struct timekeeper *tk = &tk_core.timekeeper;
-+	cycle_t cycles, now, interval_start;
-+	unsigned int clock_was_set_seq;
- 	ktime_t base_real, base_raw;
- 	s64 nsec_real, nsec_raw;
-+	u8 cs_was_changed_seq;
- 	unsigned long seq;
-+	bool do_interp;
- 	int ret;
- 
- 	do {
-@@ -946,6 +1067,22 @@ int get_device_system_crosststamp(int (*get_time_fn)
- 		 */
- 		if (tk->tkr_mono.clock != system_counterval.cs)
- 			return -ENODEV;
-+		cycles = system_counterval.cycles;
-+
-+		/*
-+		 * Check whether the system counter value provided by the
-+		 * device driver is on the current timekeeping interval.
-+		 */
-+		now = tk->tkr_mono.read(tk->tkr_mono.clock);
-+		interval_start = tk->tkr_mono.cycle_last;
-+		if (!cycle_between(interval_start, cycles, now)) {
-+			clock_was_set_seq = tk->clock_was_set_seq;
-+			cs_was_changed_seq = tk->cs_was_changed_seq;
-+			cycles = interval_start;
-+			do_interp = true;
-+		} else {
-+			do_interp = false;
-+		}
- 
- 		base_real = ktime_add(tk->tkr_mono.base,
- 				      tk_core.timekeeper.offs_real);
-@@ -959,6 +1096,38 @@ int get_device_system_crosststamp(int (*get_time_fn)
- 
- 	xtstamp->sys_realtime = ktime_add_ns(base_real, nsec_real);
- 	xtstamp->sys_monoraw = ktime_add_ns(base_raw, nsec_raw);
-+
-+	/*
-+	 * Interpolate if necessary, adjusting back from the start of the
-+	 * current interval
-+	 */
-+	if (do_interp) {
-+		cycle_t partial_history_cycles, total_history_cycles;
-+		bool discontinuity;
-+
-+		/*
-+		 * Check that the counter value occurs after the provided
-+		 * history reference and that the history doesn't cross a
-+		 * clocksource change
-+		 */
-+		if (!history_begin ||
-+		    !cycle_between(history_begin->cycles,
-+				   system_counterval.cycles, cycles) ||
-+		    history_begin->cs_was_changed_seq != cs_was_changed_seq)
-+			return -EINVAL;
-+		partial_history_cycles = cycles - system_counterval.cycles;
-+		total_history_cycles = cycles - history_begin->cycles;
-+		discontinuity =
-+			history_begin->clock_was_set_seq != clock_was_set_seq;
-+
-+		ret = adjust_historical_crosststamp(history_begin,
-+						    partial_history_cycles,
-+						    total_history_cycles,
-+						    discontinuity, xtstamp);
-+		if (ret)
-+			return ret;
-+	}
-+
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(get_device_system_crosststamp);
+  * do_gettimeofday - Returns the time of day in a timeval
+  * @tv:		pointer to the timeval to be set
 -- 
 1.9.1
