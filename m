@@ -1,8 +1,8 @@
 From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
-Subject: [RFC 07/15] pinctrl: mvebu: Add missing MFD_SYSCON dependency on
- HAS_IOMEM
-Date: Thu, 03 Mar 2016 17:03:33 +0900
-Message-ID: <1456992221-26712-8-git-send-email-k.kozlowski__49447.0891463154$1456992348$gmane$org@samsung.com>
+Subject: [RFC 11/15] power: reset: keystone: Add missing MFD_SYSCON dependency
+ on HAS_IOMEM
+Date: Thu, 03 Mar 2016 17:03:37 +0900
+Message-ID: <1456992221-26712-12-git-send-email-k.kozlowski__200.615640688007$1456992384$gmane$org@samsung.com>
 References: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
 Cc: Krzysztof Kozlowski <k.kozlowski@samsung.com>
 To: Daniel Lezcano <daniel.lezcano@linaro.org>,
@@ -27,10 +27,10 @@ To: Daniel Lezcano <daniel.lezcano@linaro.org>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	linux-kernel@vger.kernel.org, dmaen
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.w1.samsung.com ([210.118.77.13]:55510 "EHLO
-	mailout3.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756957AbcCCIFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 03:05:09 -0500
+Received: from mailout2.w1.samsung.com ([210.118.77.12]:58019 "EHLO
+	mailout2.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932242AbcCCIFn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 03:05:43 -0500
 In-reply-to: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -40,20 +40,20 @@ direct dependencies.
 
 Signed-off-by: Krzysztof Kozlowski <k.kozlowski@samsung.com>
 ---
- drivers/pinctrl/mvebu/Kconfig | 1 +
+ drivers/power/reset/Kconfig | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/pinctrl/mvebu/Kconfig b/drivers/pinctrl/mvebu/Kconfig
-index 170602407c0d..13685923729c 100644
---- a/drivers/pinctrl/mvebu/Kconfig
-+++ b/drivers/pinctrl/mvebu/Kconfig
-@@ -7,6 +7,7 @@ config PINCTRL_MVEBU
- 
- config PINCTRL_DOVE
- 	bool
+diff --git a/drivers/power/reset/Kconfig b/drivers/power/reset/Kconfig
+index 0a6408a39c66..0f34846ae80d 100644
+--- a/drivers/power/reset/Kconfig
++++ b/drivers/power/reset/Kconfig
+@@ -141,6 +141,7 @@ config POWER_RESET_XGENE
+ config POWER_RESET_KEYSTONE
+ 	bool "Keystone reset driver"
+ 	depends on ARCH_KEYSTONE
 +	depends on HAS_IOMEM	# For MFD_SYSCON
- 	select PINCTRL_MVEBU
  	select MFD_SYSCON
- 
+ 	help
+ 	  Reboot support for the KEYSTONE SoCs.
 -- 
 2.5.0
