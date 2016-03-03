@@ -1,7 +1,7 @@
 From: John Stultz <john.stultz@linaro.org>
-Subject: [PATCH 8/8] net: e1000e: Adds hardware supported cross timestamp on e1000e nic
-Date: Wed,  2 Mar 2016 20:21:59 -0800
-Message-ID: <1456978919-30076-9-git-send-email-john.stultz@linaro.org>
+Subject: [PATCH 7/8] ptp: Add PTP_SYS_OFFSET_PRECISE for driver crosstimestamping
+Date: Wed,  2 Mar 2016 20:21:58 -0800
+Message-ID: <1456978919-30076-8-git-send-email-john.stultz@linaro.org>
 References: <1456978919-30076-1-git-send-email-john.stultz@linaro.org>
 Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
 	Prarit Bhargava <prarit@redhat.com>,
@@ -9,207 +9,218 @@ Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	Ingo Molnar <mingo@kernel.org>,
 	Andy Lutomirski <luto@amacapital.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	kevin.b.stanton@intel.com, kevin.j.clarke@intel.com, hpa@zytor.com,
-	netdev@vger.kernel.org, John Stultz <john.stultz@linaro.org>
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	John Stultz <john.stultz@linaro.org>
 To: lkml <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:33799 "EHLO
+	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756689AbcCCEWS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2016 23:22:18 -0500
+Received: by mail-pf0-f174.google.com with SMTP id 4so7134461pfd.1
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2016 20:22:18 -0800 (PST)
 In-Reply-To: <1456978919-30076-1-git-send-email-john.stultz@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: "Christopher S. Hall" <christopher.s.hall@intel.com>
 
-Modern Intel systems supports cross timestamping of the network device
-clock and Always Running Timer (ART) in hardware.  This allows the
-device time and system time to be precisely correlated. The timestamp
-pair is returned through e1000e_phc_get_syncdevicetime() used by
-get_system_device_crosststamp().  The hardware cross-timestamp result
-is made available to applications through the PTP_SYS_OFFSET_PRECISE
-ioctl which calls e1000e_phc_getcrosststamp().
+Currently, network /system cross-timestamping is performed in the
+PTP_SYS_OFFSET ioctl. The PTP clock driver reads gettimeofday() and
+the gettime64() callback provided by the driver. The cross-timestamp
+is best effort where the latency between the capture of system time
+(getnstimeofday()) and the device time (driver callback) may be
+significant.
+
+The getcrosststamp() callback and corresponding PTP_SYS_OFFSET_PRECISE
+ioctl allows the driver to perform this device/system correlation when
+for example cross timestamp hardware is available. Modern Intel
+systems can do this for onboard Ethernet controllers using the ART
+counter. There is virtually zero latency between captures of the ART
+and network device clock.
+
+The capabilities ioctl (PTP_CLOCK_GETCAPS), is augmented allowing
+applications to query whether or not drivers implement the
+getcrosststamp callback, providing more precise cross timestamping.
 
 Cc: Prarit Bhargava <prarit@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Cc: Ingo Molnar <mingo@kernel.org>
 Cc: Andy Lutomirski <luto@amacapital.net>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Cc: kevin.b.stanton@intel.com
 Cc: kevin.j.clarke@intel.com
 Cc: hpa@zytor.com
 Cc: jeffrey.t.kirsher@intel.com
 Cc: netdev@vger.kernel.org
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Acked-by: Richard Cochran <richardcochran@gmail.com>
 Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
-[jstultz: Reworked to use new interface, commit message tweaks]
+[jstultz: Commit subject tweaks]
 Signed-off-by: John Stultz <john.stultz@linaro.org>
 ---
- drivers/net/ethernet/intel/Kconfig          |  9 +++
- drivers/net/ethernet/intel/e1000e/defines.h |  5 ++
- drivers/net/ethernet/intel/e1000e/ptp.c     | 85 +++++++++++++++++++++++++++++
- drivers/net/ethernet/intel/e1000e/regs.h    |  4 ++
- 4 files changed, 103 insertions(+)
+ Documentation/ptp/testptp.c      |  6 ++++--
+ drivers/ptp/ptp_chardev.c        | 27 +++++++++++++++++++++++++++
+ include/linux/ptp_clock_kernel.h |  8 ++++++++
+ include/uapi/linux/ptp_clock.h   | 13 ++++++++++++-
+ 4 files changed, 51 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index fa593dd..3772f3a 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -83,6 +83,15 @@ config E1000E
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called e1000e.
- 
-+config E1000E_HWTS
-+	bool "Support HW cross-timestamp on PCH devices"
-+	default y
-+	depends on E1000E && X86
-+	---help---
-+	 Say Y to enable hardware supported cross-timestamping on PCH
-+	 devices. The cross-timestamp is available through the PTP clock
-+	 driver precise cross-timestamp ioctl (PTP_SYS_OFFSET_PRECISE).
-+
- config IGB
- 	tristate "Intel(R) 82575/82576 PCI-Express Gigabit Ethernet support"
- 	depends on PCI
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index f7c7804..0641c00 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -528,6 +528,11 @@
- #define E1000_RXCW_C          0x20000000        /* Receive config */
- #define E1000_RXCW_SYNCH      0x40000000        /* Receive config synch */
- 
-+/* HH Time Sync */
-+#define E1000_TSYNCTXCTL_MAX_ALLOWED_DLY_MASK	0x0000F000 /* max delay */
-+#define E1000_TSYNCTXCTL_SYNC_COMP		0x40000000 /* sync complete */
-+#define E1000_TSYNCTXCTL_START_SYNC		0x80000000 /* initiate sync */
-+
- #define E1000_TSYNCTXCTL_VALID		0x00000001 /* Tx timestamp valid */
- #define E1000_TSYNCTXCTL_ENABLED	0x00000010 /* enable Tx timestamping */
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
-index 25a0ad5..e2ff3ef 100644
---- a/drivers/net/ethernet/intel/e1000e/ptp.c
-+++ b/drivers/net/ethernet/intel/e1000e/ptp.c
-@@ -26,6 +26,12 @@
- 
- #include "e1000.h"
- 
-+#ifdef CONFIG_E1000E_HWTS
-+#include <linux/clocksource.h>
-+#include <linux/ktime.h>
-+#include <asm/tsc.h>
-+#endif
-+
- /**
-  * e1000e_phc_adjfreq - adjust the frequency of the hardware clock
-  * @ptp: ptp clock structure
-@@ -98,6 +104,78 @@ static int e1000e_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
- 	return 0;
- }
- 
-+#ifdef CONFIG_E1000E_HWTS
-+#define MAX_HW_WAIT_COUNT (3)
-+
-+/**
-+ * e1000e_phc_get_syncdevicetime - Callback given to timekeeping code reads system/device registers
-+ * @device: current device time
-+ * @system: system counter value read synchronously with device time
-+ * @ctx: context provided by timekeeping code
-+ *
-+ * Read device and system (ART) clock simultaneously and return the corrected
-+ * clock values in ns.
-+ **/
-+static int e1000e_phc_get_syncdevicetime(ktime_t *device,
-+					 struct system_counterval_t *system,
-+					 void *ctx)
-+{
-+	struct e1000_adapter *adapter = (struct e1000_adapter *)ctx;
-+	struct e1000_hw *hw = &adapter->hw;
-+	unsigned long flags;
-+	int i;
-+	u32 tsync_ctrl;
-+	cycle_t dev_cycles;
-+	cycle_t sys_cycles;
-+
-+	tsync_ctrl = er32(TSYNCTXCTL);
-+	tsync_ctrl |= E1000_TSYNCTXCTL_START_SYNC |
-+		E1000_TSYNCTXCTL_MAX_ALLOWED_DLY_MASK;
-+	ew32(TSYNCTXCTL, tsync_ctrl);
-+	for (i = 0; i < MAX_HW_WAIT_COUNT; ++i) {
-+		udelay(1);
-+		tsync_ctrl = er32(TSYNCTXCTL);
-+		if (tsync_ctrl & E1000_TSYNCTXCTL_SYNC_COMP)
-+			break;
-+	}
-+
-+	if (i == MAX_HW_WAIT_COUNT)
-+		return -ETIMEDOUT;
-+
-+	dev_cycles = er32(SYSSTMPH);
-+	dev_cycles <<= 32;
-+	dev_cycles |= er32(SYSSTMPL);
-+	spin_lock_irqsave(&adapter->systim_lock, flags);
-+	*device = ns_to_ktime(timecounter_cyc2time(&adapter->tc, dev_cycles));
-+	spin_unlock_irqrestore(&adapter->systim_lock, flags);
-+
-+	sys_cycles = er32(PLTSTMPH);
-+	sys_cycles <<= 32;
-+	sys_cycles |= er32(PLTSTMPL);
-+	*system = convert_art_to_tsc(sys_cycles);
-+
-+	return 0;
-+}
-+
-+/**
-+ * e1000e_phc_getsynctime - Reads the current system/device cross timestamp
-+ * @ptp: ptp clock structure
-+ * @cts: structure containing timestamp
-+ *
-+ * Read device and system (ART) clock simultaneously and return the scaled
-+ * clock values in ns.
-+ **/
-+static int e1000e_phc_getcrosststamp(struct ptp_clock_info *ptp,
-+				     struct system_device_crosststamp *xtstamp)
-+{
-+	struct e1000_adapter *adapter = container_of(ptp, struct e1000_adapter,
-+						     ptp_clock_info);
-+
-+	return get_device_system_crosststamp(e1000e_phc_get_syncdevicetime,
-+						adapter, NULL, xtstamp);
-+}
-+#endif/*CONFIG_E1000E_HWTS*/
-+
- /**
-  * e1000e_phc_gettime - Reads the current time from the hardware clock
-  * @ptp: ptp clock structure
-@@ -236,6 +314,13 @@ void e1000e_ptp_init(struct e1000_adapter *adapter)
- 		break;
+diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
+index 6c6247a..d99012f 100644
+--- a/Documentation/ptp/testptp.c
++++ b/Documentation/ptp/testptp.c
+@@ -277,13 +277,15 @@ int main(int argc, char *argv[])
+ 			       "  %d external time stamp channels\n"
+ 			       "  %d programmable periodic signals\n"
+ 			       "  %d pulse per second\n"
+-			       "  %d programmable pins\n",
++			       "  %d programmable pins\n"
++			       "  %d cross timestamping\n",
+ 			       caps.max_adj,
+ 			       caps.n_alarm,
+ 			       caps.n_ext_ts,
+ 			       caps.n_per_out,
+ 			       caps.pps,
+-			       caps.n_pins);
++			       caps.n_pins,
++			       caps.cross_timestamping);
+ 		}
  	}
  
-+#ifdef CONFIG_E1000E_HWTS
-+	/* CPU must have ART and GBe must be from Sunrise Point or greater */
-+	if (hw->mac.type >= e1000_pch_spt && boot_cpu_has(X86_FEATURE_ART))
-+		adapter->ptp_clock_info.getcrosststamp =
-+			e1000e_phc_getcrosststamp;
-+#endif/*CONFIG_E1000E_HWTS*/
+diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
+index da7bae9..579fd65 100644
+--- a/drivers/ptp/ptp_chardev.c
++++ b/drivers/ptp/ptp_chardev.c
+@@ -22,6 +22,7 @@
+ #include <linux/poll.h>
+ #include <linux/sched.h>
+ #include <linux/slab.h>
++#include <linux/timekeeping.h>
+ 
+ #include "ptp_private.h"
+ 
+@@ -120,11 +121,13 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+ 	struct ptp_clock_caps caps;
+ 	struct ptp_clock_request req;
+ 	struct ptp_sys_offset *sysoff = NULL;
++	struct ptp_sys_offset_precise precise_offset;
+ 	struct ptp_pin_desc pd;
+ 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
+ 	struct ptp_clock_info *ops = ptp->info;
+ 	struct ptp_clock_time *pct;
+ 	struct timespec64 ts;
++	struct system_device_crosststamp xtstamp;
+ 	int enable, err = 0;
+ 	unsigned int i, pin_index;
+ 
+@@ -138,6 +141,7 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+ 		caps.n_per_out = ptp->info->n_per_out;
+ 		caps.pps = ptp->info->pps;
+ 		caps.n_pins = ptp->info->n_pins;
++		caps.cross_timestamping = ptp->info->getcrosststamp != NULL;
+ 		if (copy_to_user((void __user *)arg, &caps, sizeof(caps)))
+ 			err = -EFAULT;
+ 		break;
+@@ -180,6 +184,29 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+ 		err = ops->enable(ops, &req, enable);
+ 		break;
+ 
++	case PTP_SYS_OFFSET_PRECISE:
++		if (!ptp->info->getcrosststamp) {
++			err = -EOPNOTSUPP;
++			break;
++		}
++		err = ptp->info->getcrosststamp(ptp->info, &xtstamp);
++		if (err)
++			break;
 +
- 	INIT_DELAYED_WORK(&adapter->systim_overflow_work,
- 			  e1000e_systim_overflow_work);
++		ts = ktime_to_timespec64(xtstamp.device);
++		precise_offset.device.sec = ts.tv_sec;
++		precise_offset.device.nsec = ts.tv_nsec;
++		ts = ktime_to_timespec64(xtstamp.sys_realtime);
++		precise_offset.sys_realtime.sec = ts.tv_sec;
++		precise_offset.sys_realtime.nsec = ts.tv_nsec;
++		ts = ktime_to_timespec64(xtstamp.sys_monoraw);
++		precise_offset.sys_monoraw.sec = ts.tv_sec;
++		precise_offset.sys_monoraw.nsec = ts.tv_nsec;
++		if (copy_to_user((void __user *)arg, &precise_offset,
++				 sizeof(precise_offset)))
++			err = -EFAULT;
++		break;
++
+ 	case PTP_SYS_OFFSET:
+ 		sysoff = kmalloc(sizeof(*sysoff), GFP_KERNEL);
+ 		if (!sysoff) {
+diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
+index b8b7306..6b15e16 100644
+--- a/include/linux/ptp_clock_kernel.h
++++ b/include/linux/ptp_clock_kernel.h
+@@ -38,6 +38,7 @@ struct ptp_clock_request {
+ 	};
+ };
  
-diff --git a/drivers/net/ethernet/intel/e1000e/regs.h b/drivers/net/ethernet/intel/e1000e/regs.h
-index 1d5e0b7..0cb4d36 100644
---- a/drivers/net/ethernet/intel/e1000e/regs.h
-+++ b/drivers/net/ethernet/intel/e1000e/regs.h
-@@ -245,6 +245,10 @@
- #define E1000_SYSTIML	0x0B600	/* System time register Low - RO */
- #define E1000_SYSTIMH	0x0B604	/* System time register High - RO */
- #define E1000_TIMINCA	0x0B608	/* Increment attributes register - RW */
-+#define E1000_SYSSTMPL  0x0B648 /* HH Timesync system stamp low register */
-+#define E1000_SYSSTMPH  0x0B64C /* HH Timesync system stamp hi register */
-+#define E1000_PLTSTMPL  0x0B640 /* HH Timesync platform stamp low register */
-+#define E1000_PLTSTMPH  0x0B644 /* HH Timesync platform stamp hi register */
- #define E1000_RXMTRL	0x0B634	/* Time sync Rx EtherType and Msg Type - RW */
- #define E1000_RXUDP	0x0B638	/* Time Sync Rx UDP Port - RW */
++struct system_device_crosststamp;
+ /**
+  * struct ptp_clock_info - decribes a PTP hardware clock
+  *
+@@ -67,6 +68,11 @@ struct ptp_clock_request {
+  * @gettime64:  Reads the current time from the hardware clock.
+  *              parameter ts: Holds the result.
+  *
++ * @getcrosststamp:  Reads the current time from the hardware clock and
++ *                   system clock simultaneously.
++ *                   parameter cts: Contains timestamp (device,system) pair,
++ *                   where system time is realtime and monotonic.
++ *
+  * @settime64:  Set the current time on the hardware clock.
+  *              parameter ts: Time value to set.
+  *
+@@ -105,6 +111,8 @@ struct ptp_clock_info {
+ 	int (*adjfreq)(struct ptp_clock_info *ptp, s32 delta);
+ 	int (*adjtime)(struct ptp_clock_info *ptp, s64 delta);
+ 	int (*gettime64)(struct ptp_clock_info *ptp, struct timespec64 *ts);
++	int (*getcrosststamp)(struct ptp_clock_info *ptp,
++			      struct system_device_crosststamp *cts);
+ 	int (*settime64)(struct ptp_clock_info *p, const struct timespec64 *ts);
+ 	int (*enable)(struct ptp_clock_info *ptp,
+ 		      struct ptp_clock_request *request, int on);
+diff --git a/include/uapi/linux/ptp_clock.h b/include/uapi/linux/ptp_clock.h
+index f0b7bfe..ac6dded 100644
+--- a/include/uapi/linux/ptp_clock.h
++++ b/include/uapi/linux/ptp_clock.h
+@@ -51,7 +51,9 @@ struct ptp_clock_caps {
+ 	int n_per_out; /* Number of programmable periodic signals. */
+ 	int pps;       /* Whether the clock supports a PPS callback. */
+ 	int n_pins;    /* Number of input/output pins. */
+-	int rsv[14];   /* Reserved for future use. */
++	/* Whether the clock supports precise system-device cross timestamps */
++	int cross_timestamping;
++	int rsv[13];   /* Reserved for future use. */
+ };
  
+ struct ptp_extts_request {
+@@ -81,6 +83,13 @@ struct ptp_sys_offset {
+ 	struct ptp_clock_time ts[2 * PTP_MAX_SAMPLES + 1];
+ };
+ 
++struct ptp_sys_offset_precise {
++	struct ptp_clock_time device;
++	struct ptp_clock_time sys_realtime;
++	struct ptp_clock_time sys_monoraw;
++	unsigned int rsv[4];    /* Reserved for future use. */
++};
++
+ enum ptp_pin_function {
+ 	PTP_PF_NONE,
+ 	PTP_PF_EXTTS,
+@@ -124,6 +133,8 @@ struct ptp_pin_desc {
+ #define PTP_SYS_OFFSET     _IOW(PTP_CLK_MAGIC, 5, struct ptp_sys_offset)
+ #define PTP_PIN_GETFUNC    _IOWR(PTP_CLK_MAGIC, 6, struct ptp_pin_desc)
+ #define PTP_PIN_SETFUNC    _IOW(PTP_CLK_MAGIC, 7, struct ptp_pin_desc)
++#define PTP_SYS_OFFSET_PRECISE \
++	_IOWR(PTP_CLK_MAGIC, 8, struct ptp_sys_offset_precise)
+ 
+ struct ptp_extts_event {
+ 	struct ptp_clock_time t; /* Time event occured. */
 -- 
 1.9.1
