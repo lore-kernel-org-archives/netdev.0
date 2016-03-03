@@ -1,92 +1,170 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Proposal for per-radio configuration file.
-Date: Thu, 3 Mar 2016 09:52:12 -0800
-Message-ID: <56D879CC.3080500@candelatech.com>
+From: "=?UTF-8?q?Bendik=20R=C3=B8nning=20Opstad?=" <bro.devel@gmail.com>
+Subject: [PATCH v6 net-next 1/2] tcp: Add DPIFL thin stream detection mechanism
+Date: Thu,  3 Mar 2016 19:06:27 +0100
+Message-ID: <1457028388-18226-2-git-send-email-bro.devel+kernel@gmail.com>
+References: <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	ath10k <ath10k@lists.infradead.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Andreas Petlund <apetlund@simula.no>,
+	Carsten Griwodz <griff@simula.no>,
+	=?UTF-8?q?P=C3=A5l=20Halvorsen?= <paalh@simula.no>,
+	Jonas Markussen <jonassm@ifi.uio.no>,
+	Kristian Evensen <kristian.evensen@gmail.com>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:47404 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754693AbcCCRwO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 12:52:14 -0500
+Received: from mail-lb0-f193.google.com ([209.85.217.193]:33411 "EHLO
+	mail-lb0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758111AbcCCSGk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 13:06:40 -0500
+Received: by mail-lb0-f193.google.com with SMTP id bc4so2586855lbc.0
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 10:06:39 -0800 (PST)
+In-Reply-To: <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
+In-Reply-To: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
+References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+The existing mechanism for detecting thin streams,
+tcp_stream_is_thin(), is based on a static limit of less than 4
+packets in flight. This treats streams differently depending on the
+connection's RTT, such that a stream on a high RTT link may never be
+considered thin, whereas the same application would produce a stream
+that would always be thin in a low RTT scenario (e.g. data center).
 
-While working on ath10k NICs, I found a need to have one radio be configured
-in one manner, and another in a different manner, and I need this config to happen
-before the NIC is booted in at least some cases.  The primary reason is that
-the NIC has limited resources, so there is definite need to allow the user to
-optimize for their use case.  For instance, more vdevs vs more peer objects.
+By calculating a dynamic packets in flight limit (DPIFL), the thin
+stream detection will be independent of the RTT and treat streams
+equally based on the transmission pattern, i.e. the inter-transmission
+time (ITT).
 
-Module parameters do not work well for this because I want different NICs with the
-same driver to have different configuration.
+Cc: Andreas Petlund <apetlund@simula.no>
+Cc: Carsten Griwodz <griff@simula.no>
+Cc: P=C3=A5l Halvorsen <paalh@simula.no>
+Cc: Jonas Markussen <jonassm@ifi.uio.no>
+Cc: Kristian Evensen <kristian.evensen@gmail.com>
+Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Signed-off-by: Bendik R=C3=B8nning Opstad <bro.devel+kernel@gmail.com>
+---
+ Documentation/networking/ip-sysctl.txt |  8 ++++++++
+ include/net/tcp.h                      | 21 +++++++++++++++++++++
+ net/ipv4/sysctl_net_ipv4.c             |  9 +++++++++
+ net/ipv4/tcp.c                         |  2 ++
+ 4 files changed, 40 insertions(+)
 
-For ath10k, I implemented this with a text file for each NIC that is loaded
-with the firmware-load API, parsed in the kernel, and then used to configure
-the radio on bootup.
-
-A patch I used to do this is here.  I think I ended up with a few follow-on
-patches to fix some bugs, but this has the idea:
-
-http://dmz2.candelatech.com/?p=linux-4.4.dev.y/.git;a=commitdiff;h=6708e4047d91edf234239943332bc2f0d124d009
-
-It seems to work fine in my testing, and is logically similar to loading board init
-files and so forth (which ath10k already uses).
-
-I am looking for feedback on this if anyone has any opinions....
-
-
-The config files look like this:
-
-]# ls -l /lib/firmware/ath10k/
-total 12
--rw-r--r--  1 root root  311 Feb 23 11:27 fwcfg-pci-0000:05:00.0.txt
--rw-r--r--  1 root root  330 Feb 23 11:18 fwcfg-pci-0000:07:00.0.txt
-rwxr-xr-x.  3 root root 4096 May 21  2015 QCA988X
-
-]# cat /lib/firmware/ath10k/fwcfg-pci-0000:05:00.0.txt
-# Configuration for radio 1
-vdevs = 64
-peers = 127
-stations = 127
-rate_ctrl_objs = 36
-regdom = 840
-fwname = firmware-2.bin
-fwver = 2
-nohwcrypt = 1
-tx_desc = 680
-#max_nss = 3
-num_tids = 256
-skid_limit = 128
-
-[root@ben-ota-1 lanforge]# cat /lib/firmware/ath10k/fwcfg-pci-0000\:07\:00.0.txt
-# Configuration for radio 2
-# Driver will pick defaults for any commented-out or missing variables.
-
-# vdevs = 8
-# peers = 64
-# stations = 64
-# rate_ctrl_objs = 10
-# regdom = 840
-# fwname = firmware-5.bin
-# fwver = 5
-# nohwcrypt = 1
-# tx_desc = 1024
-#max_nss = 3
-# num_tids = 128
-# skid_limit = 32
-
-
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/net=
+working/ip-sysctl.txt
+index d5df40c..6a92b15 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -708,6 +708,14 @@ tcp_thin_dupack - BOOLEAN
+ 	Documentation/networking/tcp-thin.txt
+ 	Default: 0
+=20
++tcp_thin_dpifl_itt_lower_bound - INTEGER
++	Controls the lower bound inter-transmission time (ITT) threshold
++	for when a stream is considered thin. The value is specified in
++	microseconds, and may not be lower than 10000 (10 ms). Based on
++	this threshold, a dynamic packets in flight limit (DPIFL) is
++	calculated, which is used to classify whether a stream is thin.
++	Default: 10000
++
+ tcp_limit_output_bytes - INTEGER
+ 	Controls TCP Small Queue limit per tcp socket.
+ 	TCP bulk sender tends to increase packets in flight until it
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 692db63..d38eae9 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -215,6 +215,8 @@ void tcp_time_wait(struct sock *sk, int state, int =
+timeo);
+=20
+ /* TCP thin-stream limits */
+ #define TCP_THIN_LINEAR_RETRIES 6       /* After 6 linear retries, do =
+exp. backoff */
++/* Lowest possible DPIFL lower bound ITT is 10 ms (10000 usec) */
++#define TCP_THIN_DPIFL_ITT_LOWER_BOUND_MIN 10000
+=20
+ /* TCP initial congestion window as per rfc6928 */
+ #define TCP_INIT_CWND		10
+@@ -264,6 +266,7 @@ extern int sysctl_tcp_workaround_signed_windows;
+ extern int sysctl_tcp_slow_start_after_idle;
+ extern int sysctl_tcp_thin_linear_timeouts;
+ extern int sysctl_tcp_thin_dupack;
++extern int sysctl_tcp_thin_dpifl_itt_lower_bound;
+ extern int sysctl_tcp_early_retrans;
+ extern int sysctl_tcp_limit_output_bytes;
+ extern int sysctl_tcp_challenge_ack_limit;
+@@ -1645,6 +1648,24 @@ static inline bool tcp_stream_is_thin(struct tcp=
+_sock *tp)
+ 	return tp->packets_out < 4 && !tcp_in_initial_slowstart(tp);
+ }
+=20
++/**
++ * tcp_stream_is_thin_dpifl() - Test if the stream is thin based on
++ *                              dynamic PIF limit (DPIFL)
++ * @tp: the tcp_sock struct
++ *
++ * Return: true if current packets in flight (PIF) count is lower than
++ *         the dynamic PIF limit, else false
++ */
++static inline bool tcp_stream_is_thin_dpifl(const struct tcp_sock *tp)
++{
++	/* Calculate the maximum allowed PIF limit by dividing the RTT by
++	 * the minimum allowed inter-transmission time (ITT).
++	 * Tests if PIF < RTT / ITT-lower-bound
++	 */
++	return (u64) tcp_packets_in_flight(tp) *
++		sysctl_tcp_thin_dpifl_itt_lower_bound < (tp->srtt_us >> 3);
++}
++
+ /* /proc */
+ enum tcp_seq_states {
+ 	TCP_SEQ_STATE_LISTENING,
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 1e1fe60..f04320a 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -41,6 +41,7 @@ static int tcp_syn_retries_min =3D 1;
+ static int tcp_syn_retries_max =3D MAX_TCP_SYNCNT;
+ static int ip_ping_group_range_min[] =3D { 0, 0 };
+ static int ip_ping_group_range_max[] =3D { GID_T_MAX, GID_T_MAX };
++static int tcp_thin_dpifl_itt_lower_bound_min =3D TCP_THIN_DPIFL_ITT_L=
+OWER_BOUND_MIN;
+=20
+ /* Update system visible IP port range */
+ static void set_local_port_range(struct net *net, int range[2])
+@@ -572,6 +573,14 @@ static struct ctl_table ipv4_table[] =3D {
+ 		.proc_handler   =3D proc_dointvec
+ 	},
+ 	{
++		.procname	=3D "tcp_thin_dpifl_itt_lower_bound",
++		.data		=3D &sysctl_tcp_thin_dpifl_itt_lower_bound,
++		.maxlen		=3D sizeof(int),
++		.mode		=3D 0644,
++		.proc_handler	=3D proc_dointvec_minmax,
++		.extra1		=3D &tcp_thin_dpifl_itt_lower_bound_min,
++	},
++	{
+ 		.procname	=3D "tcp_early_retrans",
+ 		.data		=3D &sysctl_tcp_early_retrans,
+ 		.maxlen		=3D sizeof(int),
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index f9faadb..8421f3d 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -286,6 +286,8 @@ int sysctl_tcp_min_tso_segs __read_mostly =3D 2;
+=20
+ int sysctl_tcp_autocorking __read_mostly =3D 1;
+=20
++int sysctl_tcp_thin_dpifl_itt_lower_bound __read_mostly =3D TCP_THIN_D=
+PIFL_ITT_LOWER_BOUND_MIN;
++
+ struct percpu_counter tcp_orphan_count;
+ EXPORT_SYMBOL_GPL(tcp_orphan_count);
+=20
+--=20
+1.9.1
