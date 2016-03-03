@@ -1,56 +1,46 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH net] ibmveth: check return of skb_linearize in ibmveth_start_xmit
-Date: Thu,  3 Mar 2016 15:22:36 -0600
-Message-ID: <1457040156-3377-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH] net: relax setup_tc ndo op handle restriction
+Date: Thu, 03 Mar 2016 16:25:46 -0500 (EST)
+Message-ID: <20160303.162546.1789026863325812592.davem@davemloft.net>
+References: <20160229192613.24163.31830.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org
+To: john.fastabend@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e17.ny.us.ibm.com ([129.33.205.207]:48075 "EHLO
-	e17.ny.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756494AbcCCVWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 16:22:42 -0500
-Received: from localhost
-	by e17.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-	Thu, 3 Mar 2016 16:22:41 -0500
-Received: from b01cxnp23034.gho.pok.ibm.com (b01cxnp23034.gho.pok.ibm.com [9.57.198.29])
-	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 1A5A76E8045
-	for <netdev@vger.kernel.org>; Thu,  3 Mar 2016 16:09:29 -0500 (EST)
-Received: from d01av05.pok.ibm.com (d01av05.pok.ibm.com [9.56.224.195])
-	by b01cxnp23034.gho.pok.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u23LMbHj28901600
-	for <netdev@vger.kernel.org>; Thu, 3 Mar 2016 21:22:38 GMT
-Received: from d01av05.pok.ibm.com (localhost [127.0.0.1])
-	by d01av05.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u23LINDe005831
-	for <netdev@vger.kernel.org>; Thu, 3 Mar 2016 16:18:23 -0500
-Received: from tlfalcon-workstation.ibm.com (sig-9-65-94-128.ibm.com [9.65.94.128])
-	by d01av05.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVin) with ESMTP id u23LIMWI005824
-	for <netdev@vger.kernel.org>; Thu, 3 Mar 2016 16:18:23 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:47734 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755344AbcCCVZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 16:25:48 -0500
+In-Reply-To: <20160229192613.24163.31830.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If skb_linearize fails, the driver should drop the packet
-instead of trying to copy it into the bounce buffer.
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Mon, 29 Feb 2016 11:26:13 -0800
 
-Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+> I added this check in setup_tc to multiple drivers,
+> 
+>  if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
+> 
+> Unfortunately restricting to TC_H_ROOT like this breaks the old
+> instantiation of mqprio to setup a hardware qdisc. This patch
+> relaxes the test to only check the type to make it equivalent
+> to the check before I broke it. With this the old instantiation
+> continues to work.
+> 
+> A good smoke test is to setup mqprio with,
+> 
+> # tc qdisc add dev eth4 root mqprio num_tc 8 \
+>   map 0 1 2 3 4 5 6 7 \
+>   queues 0@0 1@1 2@2 3@3 4@4 5@5 6@6 7@7
+> 
+> Fixes: e4c6734eaab9 ("net: rework ndo tc op to consume additional qdisc handle paramete")
+> Reported-by: Singh Krishneil <krishneil.k.singh@intel.com>
+> Reported-by: Jake Keller <jacob.e.keller@intel.com>
+ ...
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
----
- drivers/net/ethernet/ibm/ibmveth.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-index 335417b..ebe6071 100644
---- a/drivers/net/ethernet/ibm/ibmveth.c
-+++ b/drivers/net/ethernet/ibm/ibmveth.c
-@@ -1166,7 +1166,10 @@ map_failed:
- 	if (!firmware_has_feature(FW_FEATURE_CMO))
- 		netdev_err(netdev, "tx: unable to map xmit buffer\n");
- 	adapter->tx_map_failed++;
--	skb_linearize(skb);
-+	if (skb_linearize(skb)) {
-+		netdev->stats.tx_dropped++;
-+		goto out;
-+	}
- 	force_bounce = 1;
- 	goto retry_bounce;
- }
--- 
-2.4.3
+Applied, thanks John.
