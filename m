@@ -1,8 +1,7 @@
 From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
-Subject: [RFC 11/15] power: reset: keystone: Add missing MFD_SYSCON dependency
- on HAS_IOMEM
-Date: Thu, 03 Mar 2016 17:03:37 +0900
-Message-ID: <1456992221-26712-12-git-send-email-k.kozlowski__200.615640688007$1456992384$gmane$org@samsung.com>
+Subject: [RFC 12/15] soc: qcom: Add missing MFD_SYSCON dependency on HAS_IOMEM
+Date: Thu, 03 Mar 2016 17:03:38 +0900
+Message-ID: <1456992221-26712-13-git-send-email-k.kozlowski__39291.0145492808$1456992395$gmane$org@samsung.com>
 References: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
 Cc: Krzysztof Kozlowski <k.kozlowski@samsung.com>
 To: Daniel Lezcano <daniel.lezcano@linaro.org>,
@@ -27,10 +26,10 @@ To: Daniel Lezcano <daniel.lezcano@linaro.org>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	linux-kernel@vger.kernel.org, dmaen
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.w1.samsung.com ([210.118.77.12]:58019 "EHLO
-	mailout2.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932242AbcCCIFn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 03:05:43 -0500
+Received: from mailout1.w1.samsung.com ([210.118.77.11]:58200 "EHLO
+	mailout1.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932288AbcCCIFw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 03:05:52 -0500
 In-reply-to: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -40,20 +39,20 @@ direct dependencies.
 
 Signed-off-by: Krzysztof Kozlowski <k.kozlowski@samsung.com>
 ---
- drivers/power/reset/Kconfig | 1 +
+ drivers/soc/qcom/Kconfig | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/power/reset/Kconfig b/drivers/power/reset/Kconfig
-index 0a6408a39c66..0f34846ae80d 100644
---- a/drivers/power/reset/Kconfig
-+++ b/drivers/power/reset/Kconfig
-@@ -141,6 +141,7 @@ config POWER_RESET_XGENE
- config POWER_RESET_KEYSTONE
- 	bool "Keystone reset driver"
- 	depends on ARCH_KEYSTONE
-+	depends on HAS_IOMEM	# For MFD_SYSCON
- 	select MFD_SYSCON
- 	help
- 	  Reboot support for the KEYSTONE SoCs.
+diff --git a/drivers/soc/qcom/Kconfig b/drivers/soc/qcom/Kconfig
+index 461b387d03cc..24de48134c15 100644
+--- a/drivers/soc/qcom/Kconfig
++++ b/drivers/soc/qcom/Kconfig
+@@ -4,6 +4,7 @@
+ config QCOM_GSBI
+         tristate "QCOM General Serial Bus Interface"
+         depends on ARCH_QCOM
++        depends on HAS_IOMEM	# For MFD_SYSCON
+         select MFD_SYSCON
+         help
+           Say y here to enable GSBI support.  The GSBI provides control
 -- 
 2.5.0
