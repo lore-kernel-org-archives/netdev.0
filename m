@@ -1,8 +1,8 @@
 From: "=?UTF-8?q?Bendik=20R=C3=B8nning=20Opstad?=" <bro.devel@gmail.com>
-Subject: [PATCH v6 net-next 1/2] tcp: Add DPIFL thin stream detection mechanism
-Date: Thu,  3 Mar 2016 19:06:27 +0100
-Message-ID: <1457028388-18226-2-git-send-email-bro.devel+kernel@gmail.com>
-References: <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
+Subject: [PATCH v6 net-next 0/2] tcp: Redundant Data Bundling (RDB)
+Date: Thu,  3 Mar 2016 19:06:26 +0100
+Message-ID: <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
+References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -17,154 +17,127 @@ Cc: Yuchung Cheng <ycheng@google.com>,
 	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f193.google.com ([209.85.217.193]:33411 "EHLO
-	mail-lb0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758111AbcCCSGk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 13:06:40 -0500
-Received: by mail-lb0-f193.google.com with SMTP id bc4so2586855lbc.0
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 10:06:39 -0800 (PST)
-In-Reply-To: <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
+Received: from mail-lb0-f194.google.com ([209.85.217.194]:33409 "EHLO
+	mail-lb0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758105AbcCCSGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 13:06:39 -0500
+Received: by mail-lb0-f194.google.com with SMTP id bc4so2586826lbc.0
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 10:06:38 -0800 (PST)
 In-Reply-To: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
-References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The existing mechanism for detecting thin streams,
-tcp_stream_is_thin(), is based on a static limit of less than 4
-packets in flight. This treats streams differently depending on the
-connection's RTT, such that a stream on a high RTT link may never be
-considered thin, whereas the same application would produce a stream
-that would always be thin in a low RTT scenario (e.g. data center).
 
-By calculating a dynamic packets in flight limit (DPIFL), the thin
-stream detection will be independent of the RTT and treat streams
-equally based on the transmission pattern, i.e. the inter-transmission
-time (ITT).
+Redundant Data Bundling (RDB) is a mechanism for TCP aimed at reducing
+the latency for applications sending time-dependent data.
+Latency-sensitive applications or services, such as online games and
+remote desktop, produce traffic with thin-stream characteristics,
+characterized by small packets and a relatively high ITT. By bundling
+already sent data in packets with new data, RDB alleviates head-of-line
+blocking by reducing the need to retransmit data segments when packets
+are lost. RDB is a continuation on the work on latency improvements for
+TCP in Linux, previously resulting in two thin-stream mechanisms in the
+Linux kernel
+(https://github.com/torvalds/linux/blob/master/Documentation/networking=
+/tcp-thin.txt).
 
-Cc: Andreas Petlund <apetlund@simula.no>
-Cc: Carsten Griwodz <griff@simula.no>
-Cc: P=C3=A5l Halvorsen <paalh@simula.no>
-Cc: Jonas Markussen <jonassm@ifi.uio.no>
-Cc: Kristian Evensen <kristian.evensen@gmail.com>
-Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Signed-off-by: Bendik R=C3=B8nning Opstad <bro.devel+kernel@gmail.com>
----
- Documentation/networking/ip-sysctl.txt |  8 ++++++++
- include/net/tcp.h                      | 21 +++++++++++++++++++++
- net/ipv4/sysctl_net_ipv4.c             |  9 +++++++++
- net/ipv4/tcp.c                         |  2 ++
- 4 files changed, 40 insertions(+)
+The RDB implementation has been thoroughly tested, and shows
+significant latency reductions when packet loss occurs[1]. The tests
+show that, by imposing restrictions on the bundling rate, it can be
+made not to negatively affect competing traffic in an unfair manner.
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/net=
-working/ip-sysctl.txt
-index d5df40c..6a92b15 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -708,6 +708,14 @@ tcp_thin_dupack - BOOLEAN
- 	Documentation/networking/tcp-thin.txt
- 	Default: 0
-=20
-+tcp_thin_dpifl_itt_lower_bound - INTEGER
-+	Controls the lower bound inter-transmission time (ITT) threshold
-+	for when a stream is considered thin. The value is specified in
-+	microseconds, and may not be lower than 10000 (10 ms). Based on
-+	this threshold, a dynamic packets in flight limit (DPIFL) is
-+	calculated, which is used to classify whether a stream is thin.
-+	Default: 10000
-+
- tcp_limit_output_bytes - INTEGER
- 	Controls TCP Small Queue limit per tcp socket.
- 	TCP bulk sender tends to increase packets in flight until it
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 692db63..d38eae9 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -215,6 +215,8 @@ void tcp_time_wait(struct sock *sk, int state, int =
-timeo);
-=20
- /* TCP thin-stream limits */
- #define TCP_THIN_LINEAR_RETRIES 6       /* After 6 linear retries, do =
-exp. backoff */
-+/* Lowest possible DPIFL lower bound ITT is 10 ms (10000 usec) */
-+#define TCP_THIN_DPIFL_ITT_LOWER_BOUND_MIN 10000
-=20
- /* TCP initial congestion window as per rfc6928 */
- #define TCP_INIT_CWND		10
-@@ -264,6 +266,7 @@ extern int sysctl_tcp_workaround_signed_windows;
- extern int sysctl_tcp_slow_start_after_idle;
- extern int sysctl_tcp_thin_linear_timeouts;
- extern int sysctl_tcp_thin_dupack;
-+extern int sysctl_tcp_thin_dpifl_itt_lower_bound;
- extern int sysctl_tcp_early_retrans;
- extern int sysctl_tcp_limit_output_bytes;
- extern int sysctl_tcp_challenge_ack_limit;
-@@ -1645,6 +1648,24 @@ static inline bool tcp_stream_is_thin(struct tcp=
-_sock *tp)
- 	return tp->packets_out < 4 && !tcp_in_initial_slowstart(tp);
- }
-=20
-+/**
-+ * tcp_stream_is_thin_dpifl() - Test if the stream is thin based on
-+ *                              dynamic PIF limit (DPIFL)
-+ * @tp: the tcp_sock struct
-+ *
-+ * Return: true if current packets in flight (PIF) count is lower than
-+ *         the dynamic PIF limit, else false
-+ */
-+static inline bool tcp_stream_is_thin_dpifl(const struct tcp_sock *tp)
-+{
-+	/* Calculate the maximum allowed PIF limit by dividing the RTT by
-+	 * the minimum allowed inter-transmission time (ITT).
-+	 * Tests if PIF < RTT / ITT-lower-bound
-+	 */
-+	return (u64) tcp_packets_in_flight(tp) *
-+		sysctl_tcp_thin_dpifl_itt_lower_bound < (tp->srtt_us >> 3);
-+}
-+
- /* /proc */
- enum tcp_seq_states {
- 	TCP_SEQ_STATE_LISTENING,
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 1e1fe60..f04320a 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -41,6 +41,7 @@ static int tcp_syn_retries_min =3D 1;
- static int tcp_syn_retries_max =3D MAX_TCP_SYNCNT;
- static int ip_ping_group_range_min[] =3D { 0, 0 };
- static int ip_ping_group_range_max[] =3D { GID_T_MAX, GID_T_MAX };
-+static int tcp_thin_dpifl_itt_lower_bound_min =3D TCP_THIN_DPIFL_ITT_L=
-OWER_BOUND_MIN;
-=20
- /* Update system visible IP port range */
- static void set_local_port_range(struct net *net, int range[2])
-@@ -572,6 +573,14 @@ static struct ctl_table ipv4_table[] =3D {
- 		.proc_handler   =3D proc_dointvec
- 	},
- 	{
-+		.procname	=3D "tcp_thin_dpifl_itt_lower_bound",
-+		.data		=3D &sysctl_tcp_thin_dpifl_itt_lower_bound,
-+		.maxlen		=3D sizeof(int),
-+		.mode		=3D 0644,
-+		.proc_handler	=3D proc_dointvec_minmax,
-+		.extra1		=3D &tcp_thin_dpifl_itt_lower_bound_min,
-+	},
-+	{
- 		.procname	=3D "tcp_early_retrans",
- 		.data		=3D &sysctl_tcp_early_retrans,
- 		.maxlen		=3D sizeof(int),
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index f9faadb..8421f3d 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -286,6 +286,8 @@ int sysctl_tcp_min_tso_segs __read_mostly =3D 2;
-=20
- int sysctl_tcp_autocorking __read_mostly =3D 1;
-=20
-+int sysctl_tcp_thin_dpifl_itt_lower_bound __read_mostly =3D TCP_THIN_D=
-PIFL_ITT_LOWER_BOUND_MIN;
-+
- struct percpu_counter tcp_orphan_count;
- EXPORT_SYMBOL_GPL(tcp_orphan_count);
-=20
+Note: Current patch set depends on the patch "tcp: refactor struct tcp_=
+skb_cb"
+(http://patchwork.ozlabs.org/patch/510674)
+
+These patches have also been tested with as set of packetdrill scripts
+located at
+https://github.com/bendikro/packetdrill/tree/master/gtests/net/packetdr=
+ill/tests/linux/rdb
+(The tests require patching packetdrill with a new socket option:
+https://github.com/bendikro/packetdrill/commit/9916b6c53e33dd04329d29b7=
+d8baf703b2c2ac1b)
+
+Detailed info about the RDB mechanism can be found at
+http://mlab.no/blog/2015/10/redundant-data-bundling-in-tcp, as well as
+in the paper "Latency and Fairness Trade-Off for Thin Streams using
+Redundant Data Bundling in TCP"[2].
+
+[1] http://home.ifi.uio.no/paalh/students/BendikOpstad.pdf
+[2] http://home.ifi.uio.no/bendiko/rdb_fairness_tradeoff.pdf
+
+Changes:
+
+v6 (PATCH):
+ * tcp-Add-Redundant-Data-Bundling-RDB:
+   * Renamed rdb_ack_event() to tcp_rdb_ack_event() (Thanks DaveM)
+   * Minor doc changes
+
+ * tcp-Add-DPIFL-thin-stream-detection-mechanism:
+   * Minor doc changes
+
+v5 (PATCH):
+ * tcp-Add-Redundant-Data-Bundling-RDB:
+   * Removed two unnecessary EXPORT_SYMOBOLs (Thanks Eric)
+   * Renamed skb_append_data() to tcp_skb_append_data() (Thanks Eric)
+   * Fixed bugs in additions to ipv4_table (sysctl_net_ipv4.c)
+   * Merged the two if tests for max payload of RDB packet in
+     rdb_can_bundle_test()
+   * Renamed rdb_check_rtx_queue_loss() to rdb_detect_loss()
+     and restructured to reduce indentation.
+   * Improved docs
+   * Revised commit message to be more detailed.
+
+ * tcp-Add-DPIFL-thin-stream-detection-mechanism:
+   * Fixed bug in additions to ipv4_table (sysctl_net_ipv4.c)
+
+v4 (PATCH):
+ * tcp-Add-Redundant-Data-Bundling-RDB:
+   * Moved skb_append_data() to tcp_output.c and call this
+     function from tcp_collapse_retrans() as well.
+   * Merged functionality of create_rdb_skb() into
+     tcp_transmit_rdb_skb()
+   * Removed one parameter from rdb_can_bundle_test()
+
+v3 (PATCH):
+ * tcp-Add-Redundant-Data-Bundling-RDB:
+   * Changed name of sysctl variable from tcp_rdb_max_skbs to
+     tcp_rdb_max_packets after comment from Eric Dumazet about
+     not exposing internal (kernel) names like skb.
+   * Formatting and function docs fixes
+
+v2 (RFC/PATCH):
+ * tcp-Add-DPIFL-thin-stream-detection-mechanism:
+   * Change calculation in tcp_stream_is_thin_dpifl based on
+     feedback from Eric Dumazet.
+
+ * tcp-Add-Redundant-Data-Bundling-RDB:
+   * Removed setting nonagle in do_tcp_setsockopt (TCP_RDB)
+     to reduce complexity as commented by Neal Cardwell.
+   * Cleaned up loss detection code in rdb_check_rtx_queue_loss
+
+v1 (RFC/PATCH)
+
+
+Bendik R=C3=B8nning Opstad (2):
+  tcp: Add DPIFL thin stream detection mechanism
+  tcp: Add Redundant Data Bundling (RDB)
+
+ Documentation/networking/ip-sysctl.txt |  23 ++++
+ include/linux/skbuff.h                 |   1 +
+ include/linux/tcp.h                    |   3 +-
+ include/net/tcp.h                      |  36 ++++++
+ include/uapi/linux/tcp.h               |   1 +
+ net/core/skbuff.c                      |   2 +-
+ net/ipv4/Makefile                      |   3 +-
+ net/ipv4/sysctl_net_ipv4.c             |  34 +++++
+ net/ipv4/tcp.c                         |  16 ++-
+ net/ipv4/tcp_input.c                   |   3 +
+ net/ipv4/tcp_output.c                  |  48 ++++---
+ net/ipv4/tcp_rdb.c                     | 228 +++++++++++++++++++++++++=
+++++++++
+ 12 files changed, 375 insertions(+), 23 deletions(-)
+ create mode 100644 net/ipv4/tcp_rdb.c
+
 --=20
 1.9.1
