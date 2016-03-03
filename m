@@ -1,51 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3] net: ezchip: adapt driver to little endian
- architecture
-Date: Thu, 03 Mar 2016 17:20:43 -0500 (EST)
-Message-ID: <20160303.172043.676796529681577242.davem@davemloft.net>
-References: <1457014066-27651-1-git-send-email-ltrimas@synopsys.com>
+Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
+Date: Thu, 03 Mar 2016 17:22:22 -0500 (EST)
+Message-ID: <20160303.172222.338748622348351793.davem@davemloft.net>
+References: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
+	<1456945629-1793533-2-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexey.Brodkin@synopsys.com, noamc@ezchip.com, talz@ezchip.com,
-	arnd@arndb.de
-To: Lada.Trimasova@synopsys.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48299 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756850AbcCCWUq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 17:20:46 -0500
-In-Reply-To: <1457014066-27651-1-git-send-email-ltrimas@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: isdn@linux-pingi.de, gregkh@linuxfoundation.org,
+	linux-arm-kernel@lists.infradead.org, corbet@lwn.net,
+	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@driverdev.osuosl.org
+To: arnd@arndb.de
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1456945629-1793533-2-git-send-email-arnd@arndb.de>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Lada Trimasova <Lada.Trimasova@synopsys.com>
-Date: Thu,  3 Mar 2016 17:07:46 +0300
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed,  2 Mar 2016 20:06:46 +0100
 
-> Since ezchip network driver is written with big endian EZChip platform it
-> is necessary to add support for little endian architecture.
+> The icn, act2000 and pcbit drivers are all for very old hardware,
+> and it is highly unlikely that anyone is actually still using them
+> on modern kernels, if at all.
 > 
-> The first issue is that the order of the bits in a bit field is
-> implementation specific. So all the bit fields are removed.
-> Named constants are used to access necessary fields.
+> All three drivers apparently are for hardware that predates PCI
+> being the common connector, as they are ISA-only and active
+> PCI ISDN cards were widely available in the 1990s.
 > 
-> And the second one is that network byte order is big endian.
-> For example, data on ethernet is transmitted with most-significant
-> octet (byte) first. So in case of little endian architecture
-> it is important to swap data byte order when we read it from
-> register. In case of unaligned access we can use "get_unaligned_be32"
-> and in other case we can use function "ioread32_rep" which reads all
-> data from register and works either with little endian or big endian
-> architecture.
+> Looking through the git logs, it I cannot find any indication of a
+> patch to any of these drivers that has been tested on real hardware,
+> only cleanups or global API changes.
 > 
-> And then when we are going to write data to register we need to restore
-> byte order using the function "put_unaligned_be32" in case of
-> unaligned access and in other case "iowrite32_rep".
-> 
-> The last little fix is a space between type and pointer to observe
-> coding style.
-> 
-> Signed-off-by: Lada Trimasova <ltrimas@synopsys.com>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied to net-next, thanks.
+Greg, can you please take these two patches?
+
+Thanks!
+
