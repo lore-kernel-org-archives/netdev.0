@@ -1,54 +1,56 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net,stable] cdc_ncm: toggle altsetting to force reset before setup
-Date: Thu,  3 Mar 2016 22:20:53 +0100
-Message-ID: <1457040053-25271-1-git-send-email-bjorn@mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net] ibmveth: check return of skb_linearize in ibmveth_start_xmit
+Date: Thu,  3 Mar 2016 15:22:36 -0600
+Message-ID: <1457040156-3377-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e17.ny.us.ibm.com ([129.33.205.207]:48075 "EHLO
+	e17.ny.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756494AbcCCVWm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 16:22:42 -0500
+Received: from localhost
+	by e17.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+	Thu, 3 Mar 2016 16:22:41 -0500
+Received: from b01cxnp23034.gho.pok.ibm.com (b01cxnp23034.gho.pok.ibm.com [9.57.198.29])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 1A5A76E8045
+	for <netdev@vger.kernel.org>; Thu,  3 Mar 2016 16:09:29 -0500 (EST)
+Received: from d01av05.pok.ibm.com (d01av05.pok.ibm.com [9.56.224.195])
+	by b01cxnp23034.gho.pok.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u23LMbHj28901600
+	for <netdev@vger.kernel.org>; Thu, 3 Mar 2016 21:22:38 GMT
+Received: from d01av05.pok.ibm.com (localhost [127.0.0.1])
+	by d01av05.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u23LINDe005831
+	for <netdev@vger.kernel.org>; Thu, 3 Mar 2016 16:18:23 -0500
+Received: from tlfalcon-workstation.ibm.com (sig-9-65-94-128.ibm.com [9.65.94.128])
+	by d01av05.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVin) with ESMTP id u23LIMWI005824
+	for <netdev@vger.kernel.org>; Thu, 3 Mar 2016 16:18:23 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some devices will silently fail setup unless they are reset first.
-This is necessary even if the data interface is already in
-altsetting 0, which it will be when the device is probed for the
-first time.  Briefly toggling the altsetting forces a function
-reset regardless of the initial state.
+If skb_linearize fails, the driver should drop the packet
+instead of trying to copy it into the bounce buffer.
 
-This fixes a setup problem observed on a number of Huawei devices,
-appearing to operate in NTB-32 mode even if we explicitly set them
-to NTB-16 mode.
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 ---
- drivers/net/usb/cdc_ncm.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/ibm/ibmveth.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index dc0212c3cc28..be927964375b 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -837,7 +837,11 @@ int cdc_ncm_bind_common(struct usbnet *dev, struct=
- usb_interface *intf, u8 data_
-=20
- 	iface_no =3D ctx->data->cur_altsetting->desc.bInterfaceNumber;
-=20
--	/* reset data interface */
-+	/* Reset data interface. Some devices will not reset properly
-+	 * unless they are configured first.  Toggle the altsetting to
-+	 * force a reset
-+	 */
-+	usb_set_interface(dev->udev, iface_no, data_altsetting);
- 	temp =3D usb_set_interface(dev->udev, iface_no, 0);
- 	if (temp) {
- 		dev_dbg(&intf->dev, "set interface failed\n");
---=20
-2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index 335417b..ebe6071 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -1166,7 +1166,10 @@ map_failed:
+ 	if (!firmware_has_feature(FW_FEATURE_CMO))
+ 		netdev_err(netdev, "tx: unable to map xmit buffer\n");
+ 	adapter->tx_map_failed++;
+-	skb_linearize(skb);
++	if (skb_linearize(skb)) {
++		netdev->stats.tx_dropped++;
++		goto out;
++	}
+ 	force_bounce = 1;
+ 	goto retry_bounce;
+ }
+-- 
+2.4.3
