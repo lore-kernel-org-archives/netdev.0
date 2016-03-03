@@ -1,38 +1,54 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net PATCH] net: sched: fix act_ipt for LOG target
-Date: Thu, 3 Mar 2016 09:25:01 -0500
-Message-ID: <56D8493D.9060801@mojatatu.com>
-References: <1457012054-18012-1-git-send-email-psutter@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] asix: do not free array priv->mdio->irq
+Date: Thu, 3 Mar 2016 15:25:01 +0100
+Message-ID: <20160303142501.GF15541@lunn.ch>
+References: <1457011676-19042-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Phil Sutter <phil@nwl.cc>
-To: Phil Sutter <psutter@redhat.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:33138 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932217AbcCCOZD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 09:25:03 -0500
-Received: by mail-io0-f173.google.com with SMTP id n190so28816452iof.0
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 06:25:03 -0800 (PST)
-In-Reply-To: <1457012054-18012-1-git-send-email-psutter@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1457011676-19042-1-git-send-email-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-03-03 08:34 AM, Phil Sutter wrote:
-> From: Phil Sutter <phil@nwl.cc>
->
-> Before calling the destroy() or target() callbacks, the family parameter
-> field has to be initialized. Otherwise at least the LOG target will
-> refuse to work and upon removal oops the kernel.
->
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+On Thu, Mar 03, 2016 at 01:27:56PM +0000, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> Used to be allocated and required freeing, but now
+> priv->mdio->irq is now a fixed sized array and should no longer be
+> free'd.
+> 
+> Issue detected using static analysis with CoverityScan
+> 
+> Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Caveat: ipt has not been receiving a lot of love. Thanks for showing
-it some love. If indeed you have tested this with the LOG target, then:
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Thanks
+	Andrew
 
-cheers,
-jamal
+> ---
+>  drivers/net/usb/ax88172a.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/net/usb/ax88172a.c b/drivers/net/usb/ax88172a.c
+> index 224e7d8..cf77f2d 100644
+> --- a/drivers/net/usb/ax88172a.c
+> +++ b/drivers/net/usb/ax88172a.c
+> @@ -134,7 +134,6 @@ static void ax88172a_remove_mdio(struct usbnet *dev)
+>  
+>  	netdev_info(dev->net, "deregistering mdio bus %s\n", priv->mdio->id);
+>  	mdiobus_unregister(priv->mdio);
+> -	kfree(priv->mdio->irq);
+>  	mdiobus_free(priv->mdio);
+>  }
+>  
+> -- 
+> 2.7.0
+> 
