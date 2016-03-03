@@ -1,8 +1,8 @@
 From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
-Subject: [RFC 06/15] pinctrl: rockchip: Add missing MFD_SYSCON dependency on
+Subject: [RFC 08/15] rtc: at91sam9: Add missing MFD_SYSCON dependency on
  HAS_IOMEM
-Date: Thu, 03 Mar 2016 17:03:32 +0900
-Message-ID: <1456992221-26712-7-git-send-email-k.kozlowski__21420.3879623257$1456992337$gmane$org@samsung.com>
+Date: Thu, 03 Mar 2016 17:03:34 +0900
+Message-ID: <1456992221-26712-9-git-send-email-k.kozlowski@samsung.com>
 References: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
 Cc: Krzysztof Kozlowski <k.kozlowski@samsung.com>
 To: Daniel Lezcano <daniel.lezcano@linaro.org>,
@@ -27,10 +27,10 @@ To: Daniel Lezcano <daniel.lezcano@linaro.org>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	linux-kernel@vger.kernel.org, dmaen
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.w1.samsung.com ([210.118.77.11]:58116 "EHLO
-	mailout1.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932338AbcCCIE7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 03:04:59 -0500
+Received: from mailout2.w1.samsung.com ([210.118.77.12]:57959 "EHLO
+	mailout2.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932296AbcCCIFR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 03:05:17 -0500
 In-reply-to: <1456992221-26712-1-git-send-email-k.kozlowski@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -40,20 +40,20 @@ direct dependencies.
 
 Signed-off-by: Krzysztof Kozlowski <k.kozlowski@samsung.com>
 ---
- drivers/pinctrl/Kconfig | 1 +
+ drivers/rtc/Kconfig | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/pinctrl/Kconfig b/drivers/pinctrl/Kconfig
-index fb8200b8e8ec..dc7ab58d4d74 100644
---- a/drivers/pinctrl/Kconfig
-+++ b/drivers/pinctrl/Kconfig
-@@ -131,6 +131,7 @@ config PINCTRL_MESON
- 
- config PINCTRL_ROCKCHIP
- 	bool
+diff --git a/drivers/rtc/Kconfig b/drivers/rtc/Kconfig
+index 0da40e2e4280..5c530b6b125d 100644
+--- a/drivers/rtc/Kconfig
++++ b/drivers/rtc/Kconfig
+@@ -1302,6 +1302,7 @@ config RTC_DRV_AT91RM9200
+ config RTC_DRV_AT91SAM9
+ 	tristate "AT91SAM9 RTT as RTC"
+ 	depends on ARCH_AT91 || COMPILE_TEST
 +	depends on HAS_IOMEM	# For MFD_SYSCON
- 	select PINMUX
- 	select GENERIC_PINCONF
- 	select GENERIC_IRQ_CHIP
+ 	select MFD_SYSCON
+ 	help
+ 	  Some AT91SAM9 SoCs provide an RTT (Real Time Timer) block which
 -- 
 2.5.0
