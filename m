@@ -1,29 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: bluetooth-next 2016-03-01
-Date: Thu, 03 Mar 2016 16:27:58 -0500 (EST)
-Message-ID: <20160303.162758.867744371077918325.davem@davemloft.net>
-References: <20160301072002.GA24640@t440s.lan>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next] arp: correct return value of arp_rcv
+Date: Thu, 03 Mar 2016 16:30:01 -0500 (EST)
+Message-ID: <20160303.163001.802969698569560829.davem@davemloft.net>
+References: <1456817082-9320-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160301072002.GA24640-ypHiNAJIRA7/PtFMR13I2A@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: zhangshengju@cmss.chinamobile.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47800 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752995AbcCCVaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 16:30:03 -0500
+In-Reply-To: <1456817082-9320-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Tue, 1 Mar 2016 09:20:02 +0200
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Date: Tue,  1 Mar 2016 07:24:42 +0000
 
-> Here's our main set of Bluetooth & 802.15.4 patches for the 4.6 kernel.
+> Currently, arp_rcv() always return zero on a packet delivery upcall.
 > 
->  - New Bluetooth HCI driver for Intel/AG6xx controllers
->  - New Broadcom ACPI IDs
->  - LED trigger support for indicating Bluetooth powered state
->  - Various fixes in mac802154, 6lowpan and related drivers
->  - New USB IDs for AR3012 Bluetooth controllers
+> To make its behavior more compliant with the way this API should be
+> used, this patch changes this to let it return NET_RX_SUCCESS when the
+> packet is proper handled, and NET_RX_DROP otherwise.
 > 
-> Please let me know if there are any issues pulling. Thanks.
+> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 
-Pulled, thanks Johan.
+This change is bogus.
+
+> @@ -880,7 +880,7 @@ out:
+>  	consume_skb(skb);
+>  out_free_dst:
+>  	dst_release(reply_dst);
+> -	return 0;
+> +	return NET_RX_SUCCESS;
+
+Most of the paths to out: are dropping the request for one reason or
+another.
+
+If you want to do this right you need to split these two exit paths,
+convert consume_skb() to kfree_skb() in the drop path, and then you
+can return accurate NET_* codes.
