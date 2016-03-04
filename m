@@ -1,81 +1,108 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [ethtool PATCH v2 01/12] internal.h: change to new sane powerpc64 kernel headers
-Date: Thu,  3 Mar 2016 20:23:14 -0800
-Message-ID: <1457065405-19049-2-git-send-email-ddecotig@gmail.com>
+Subject: [ethtool PATCH v2 03/12] ethtool.c: fix dump_regs heap corruption
+Date: Thu,  3 Mar 2016 20:23:16 -0800
+Message-ID: <1457065405-19049-4-git-send-email-ddecotig@gmail.com>
 References: <1457065405-19049-1-git-send-email-ddecotig@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Jeff Garzik <jgarzik@pobox.com>,
 	Ben Hutchings <ben@decadent.org.uk>,
 	David Miller <davem@redhat.com>,
 	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
 	David Decotigny <decot@googlers.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33505 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756158AbcCDEXl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 23:23:41 -0500
-Received: by mail-pf0-f195.google.com with SMTP id 63so2499014pfe.0
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 20:23:41 -0800 (PST)
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35785 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756158AbcCDEXn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 23:23:43 -0500
+Received: by mail-pf0-f193.google.com with SMTP id x188so339107pfb.2
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 20:23:42 -0800 (PST)
 In-Reply-To: <1457065405-19049-1-git-send-email-ddecotig@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =C5=BBenczykowski <maze@google.com>
+From: David Decotigny <decot@googlers.com>
 
-This fixes:
-  In file included from ethtool-copy.h:22:0,
-                   from internal.h:32,
-                   from ethtool.c:29:
-  .../include/linux/types.h:32:25: error: conflicting types for '__be64=
-'
-   typedef __u64 __bitwise __be64;
-                           ^
-  In file included from ethtool.c:29:0:
-  internal.h:23:28: note: previous declaration of '__be64' was here
-   typedef unsigned long long __be64;
-                              ^
-  ethtool.c: In function 'do_gstats':
-  ethtool.c:3166:4: error: format '%llu' expects argument of type 'long=
- long unsigned int', but argument 5 has type '__u64' [-Werror=3Dformat=3D=
-]
-      stats->data[i]);
-      ^
-  ethtool.c: In function 'print_indir_table':
-  ethtool.c:3293:9: error: format '%llu' expects argument of type 'long=
- long unsigned int', but argument 3 has type '__u64' [-Werror=3Dformat=3D=
-]
-           ctx->devname, ring_count->data);
-           ^
+The 'regs' pointer is owned by do_gregs(), but updated internally inside
+dump_regs() without propagating it back to do_gregs(): later free(regs)
+in do_gregs() reclaims the wrong area. This commit moves the realloc()
+inside do_gregs().
 
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- internal.h | 7 +++++++
- 1 file changed, 7 insertions(+)
+ ethtool.c | 46 +++++++++++++++++++++++++---------------------
+ 1 file changed, 25 insertions(+), 21 deletions(-)
 
-diff --git a/internal.h b/internal.h
-index b5ef646..5f8504d 100644
---- a/internal.h
-+++ b/internal.h
-@@ -3,6 +3,13 @@
- #ifndef ETHTOOL_INTERNAL_H__
- #define ETHTOOL_INTERNAL_H__
-=20
-+#ifdef __powerpc64__
-+/* Powerpc needs __SANE_USERSPACE_TYPES__ before <linux/types.h> to se=
-lect
-+ * 'int-ll64.h' and avoid compile warnings when printing __u64 with %l=
-lu.
-+ */
-+#define __SANE_USERSPACE_TYPES__
-+#endif
+diff --git a/ethtool.c b/ethtool.c
+index 8a93dd1..c64b962 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -994,7 +994,6 @@ void dump_hex(FILE *file, const u8 *data, int len, int offset)
+ }
+ 
+ static int dump_regs(int gregs_dump_raw, int gregs_dump_hex,
+-		     const char *gregs_dump_file,
+ 		     struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+ {
+ 	int i;
+@@ -1004,25 +1003,6 @@ static int dump_regs(int gregs_dump_raw, int gregs_dump_hex,
+ 		return 0;
+ 	}
+ 
+-	if (gregs_dump_file) {
+-		FILE *f = fopen(gregs_dump_file, "r");
+-		struct stat st;
+-		size_t nread;
+-
+-		if (!f || fstat(fileno(f), &st) < 0) {
+-			fprintf(stderr, "Can't open '%s': %s\n",
+-				gregs_dump_file, strerror(errno));
+-			return -1;
+-		}
+-
+-		regs = realloc(regs, sizeof(*regs) + st.st_size);
+-		regs->len = st.st_size;
+-		nread = fread(regs->data, regs->len, 1, f);
+-		fclose(f);
+-		if (1 != nread)
+-			return -1;
+-	}
+-
+ 	if (!gregs_dump_hex)
+ 		for (i = 0; i < ARRAY_SIZE(driver_list); i++)
+ 			if (!strncmp(driver_list[i].name, info->driver,
+@@ -2711,7 +2691,31 @@ static int do_gregs(struct cmd_context *ctx)
+ 		free(regs);
+ 		return 74;
+ 	}
+-	if (dump_regs(gregs_dump_raw, gregs_dump_hex, gregs_dump_file,
 +
- #ifdef HAVE_CONFIG_H
- #include "ethtool-config.h"
- #endif
---=20
++	if ((!gregs_dump_raw) && (NULL != gregs_dump_file)) {
++		/* overwrite reg values from file dump */
++		FILE *f = fopen(gregs_dump_file, "r");
++		struct stat st;
++		size_t nread;
++
++		if (!f || fstat(fileno(f), &st) < 0) {
++			fprintf(stderr, "Can't open '%s': %s\n",
++				gregs_dump_file, strerror(errno));
++			free(regs);
++			return 75;
++		}
++
++		regs = realloc(regs, sizeof(*regs) + st.st_size);
++		regs->len = st.st_size;
++		nread = fread(regs->data, regs->len, 1, f);
++		fclose(f);
++		if (1 != nread) {
++			free(regs);
++			return 75;
++		}
++        }
++
++	if (dump_regs(gregs_dump_raw, gregs_dump_hex,
+ 		      &drvinfo, regs) < 0) {
+ 		fprintf(stderr, "Cannot dump registers\n");
+ 		free(regs);
+-- 
 2.7.0.rc3.207.g0ac5344
