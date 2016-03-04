@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 12/13] rxrpc: Clear the unused part of a sockaddr_rxrpc for
- memcmp() use
-Date: Fri, 04 Mar 2016 16:38:28 +0000
-Message-ID: <20160304163828.31057.55603.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 13/13] rxrpc: Don't try to map ICMP to error as the lower
+ layer already did that
+Date: Fri, 04 Mar 2016 16:38:35 +0000
+Message-ID: <20160304163835.31057.4926.stgit@warthog.procyon.org.uk>
 References: <20160304163705.31057.60831.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,50 +10,54 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: linux-afs@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35235 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932216AbcCDQih (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2016 11:38:37 -0500
 In-Reply-To: <20160304163705.31057.60831.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Clear the unused part of a sockaddr_rxrpc structs so that memcmp() can be
-used to compare them.
+In the ICMP message processing code, don't try to map ICMP codes to UNIX
+error codes as the caller (IPv4/IPv6) already did that for us (ee_errno).
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/af_rxrpc.c |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ net/rxrpc/ar-error.c |   10 ----------
+ 1 file changed, 10 deletions(-)
 
-diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
-index b46f7742d336..a76501757b59 100644
---- a/net/rxrpc/af_rxrpc.c
-+++ b/net/rxrpc/af_rxrpc.c
-@@ -81,6 +81,8 @@ static int rxrpc_validate_address(struct rxrpc_sock *rx,
- 				  struct sockaddr_rxrpc *srx,
- 				  int len)
- {
-+	unsigned tail;
-+
- 	if (len < sizeof(struct sockaddr_rxrpc))
- 		return -EINVAL;
- 
-@@ -103,9 +105,7 @@ static int rxrpc_validate_address(struct rxrpc_sock *rx,
- 		_debug("INET: %x @ %pI4",
- 		       ntohs(srx->transport.sin.sin_port),
- 		       &srx->transport.sin.sin_addr);
--		if (srx->transport_len > 8)
--			memset((void *)&srx->transport + 8, 0,
--			       srx->transport_len - 8);
-+		tail = offsetof(struct sockaddr_rxrpc, transport.sin.__pad);
- 		break;
- 
- 	case AF_INET6:
-@@ -113,6 +113,8 @@ static int rxrpc_validate_address(struct rxrpc_sock *rx,
- 		return -EAFNOSUPPORT;
- 	}
- 
-+	if (tail < len)
-+		memset((void *)srx + tail, 0, len - tail);
- 	return 0;
- }
- 
+diff --git a/net/rxrpc/ar-error.c b/net/rxrpc/ar-error.c
+index 5948191bf4eb..3e82d6f0313c 100644
+--- a/net/rxrpc/ar-error.c
++++ b/net/rxrpc/ar-error.c
+@@ -151,28 +151,18 @@ void rxrpc_UDP_error_handler(struct work_struct *work)
+ 			switch (ee->ee_code) {
+ 			case ICMP_NET_UNREACH:
+ 				_net("Rx Received ICMP Network Unreachable");
+-				err = ENETUNREACH;
+ 				break;
+ 			case ICMP_HOST_UNREACH:
+ 				_net("Rx Received ICMP Host Unreachable");
+-				err = EHOSTUNREACH;
+ 				break;
+ 			case ICMP_PORT_UNREACH:
+ 				_net("Rx Received ICMP Port Unreachable");
+-				err = ECONNREFUSED;
+-				break;
+-			case ICMP_FRAG_NEEDED:
+-				_net("Rx Received ICMP Fragmentation Needed (%d)",
+-				     ee->ee_info);
+-				err = 0; /* dealt with elsewhere */
+ 				break;
+ 			case ICMP_NET_UNKNOWN:
+ 				_net("Rx Received ICMP Unknown Network");
+-				err = ENETUNREACH;
+ 				break;
+ 			case ICMP_HOST_UNKNOWN:
+ 				_net("Rx Received ICMP Unknown Host");
+-				err = EHOSTUNREACH;
+ 				break;
+ 			default:
+ 				_net("Rx Received ICMP DestUnreach code=%u",
