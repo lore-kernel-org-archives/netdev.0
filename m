@@ -1,76 +1,69 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 1/7] bpf: allow bpf_csum_diff to feed bpf_l3_csum_replace as well
-Date: Fri,  4 Mar 2016 15:15:02 +0100
-Message-ID: <f8ef1d7fe50d463e4d39f31b5979747127002021.1457099834.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 4/7] bpf: allow to propagate df in bpf_skb_set_tunnel_key
+Date: Fri,  4 Mar 2016 15:15:05 +0100
+Message-ID: <4459137a9fbaf7956e0408bfa36fbc54da722c20.1457099834.git.daniel@iogearbox.net>
 References: <cover.1457099834.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
 	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:39181 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:39197 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751852AbcCDOPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 09:15:32 -0500
+	with ESMTP id S1751313AbcCDOPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 09:15:33 -0500
 In-Reply-To: <cover.1457099834.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1457099834.git.daniel@iogearbox.net>
 References: <cover.1457099834.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 7d672345ed29 ("bpf: add generic bpf_csum_diff helper") added a
-generic checksum diff helper that can feed bpf_l4_csum_replace() with
-a target __wsum diff that is to be applied to the L4 checksum. This
-facility is very flexible, can be cascaded, allows for adding, removing,
-or diffing data, or for calculating the pseudo header checksum from
-scratch, but it can also be reused for working with the IPv4 header
-checksum.
-
-Thus, analogous to bpf_l4_csum_replace(), add a case for header field
-value of 0 to change the checksum at a given offset through a new helper
-csum_replace_by_diff(). Also, in addition to that, this provides an
-easy to use interface for feeding precalculated diffs f.e. coming from
-a map. It nicely complements bpf_l3_csum_replace() that currently allows
-only for csum updates of 2 and 4 byte diffs.
+Added by 9a628224a61b ("ip_tunnel: Add dont fragment flag."), allow to
+feed df flag into tunneling facilities (currently supported on TX by
+vxlan, geneve and gre) as a hint from eBPF's bpf_skb_set_tunnel_key()
+helper.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/net/checksum.h | 5 +++++
- net/core/filter.c      | 6 ++++++
- 2 files changed, 11 insertions(+)
+ include/uapi/linux/bpf.h | 1 +
+ net/core/filter.c        | 6 +++++-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/checksum.h b/include/net/checksum.h
-index 10a16b5..abffc64 100644
---- a/include/net/checksum.h
-+++ b/include/net/checksum.h
-@@ -120,6 +120,11 @@ static inline __wsum csum_partial_ext(const void *buff, int len, __wsum sum)
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index c7fad40..06287bb 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -324,6 +324,7 @@ enum bpf_func_id {
  
- #define CSUM_MANGLED_0 ((__force __sum16)0xffff)
+ /* BPF_FUNC_skb_set_tunnel_key flags. */
+ #define BPF_F_ZERO_CSUM_TX		(1ULL << 1)
++#define BPF_F_DONT_FRAGMENT		(1ULL << 2)
  
-+static inline void csum_replace_by_diff(__sum16 *sum, __wsum diff)
-+{
-+	*sum = csum_fold(csum_add(diff, ~csum_unfold(*sum)));
-+}
-+
- static inline void csum_replace4(__sum16 *sum, __be32 from, __be32 to)
- {
- 	__wsum tmp = csum_sub(~csum_unfold(*sum), (__force __wsum)from);
+ /* BPF_FUNC_get_stackid flags. */
+ #define BPF_F_SKIP_FIELD_MASK		0xffULL
 diff --git a/net/core/filter.c b/net/core/filter.c
-index 69f4ffc..356a251 100644
+index ce4e18d..6c9d155 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
-@@ -1447,6 +1447,12 @@ static u64 bpf_l3_csum_replace(u64 r1, u64 r2, u64 from, u64 to, u64 flags)
- 		return -EFAULT;
+@@ -1819,7 +1819,8 @@ static u64 bpf_skb_set_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
+ 	u8 compat[sizeof(struct bpf_tunnel_key)];
+ 	struct ip_tunnel_info *info;
  
- 	switch (flags & BPF_F_HDR_FIELD_MASK) {
-+	case 0:
-+		if (unlikely(from != 0))
-+			return -EINVAL;
+-	if (unlikely(flags & ~(BPF_F_TUNINFO_IPV6 | BPF_F_ZERO_CSUM_TX)))
++	if (unlikely(flags & ~(BPF_F_TUNINFO_IPV6 | BPF_F_ZERO_CSUM_TX |
++			       BPF_F_DONT_FRAGMENT)))
+ 		return -EINVAL;
+ 	if (unlikely(size != sizeof(struct bpf_tunnel_key))) {
+ 		switch (size) {
+@@ -1844,6 +1845,9 @@ static u64 bpf_skb_set_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
+ 	info->mode = IP_TUNNEL_INFO_TX;
+ 
+ 	info->key.tun_flags = TUNNEL_KEY | TUNNEL_CSUM;
++	if (flags & BPF_F_DONT_FRAGMENT)
++		info->key.tun_flags |= TUNNEL_DONT_FRAGMENT;
 +
-+		csum_replace_by_diff(ptr, to);
-+		break;
- 	case 2:
- 		csum_replace2(ptr, from, to);
- 		break;
+ 	info->key.tun_id = cpu_to_be64(from->tunnel_id);
+ 	info->key.tos = from->tunnel_tos;
+ 	info->key.ttl = from->tunnel_ttl;
 -- 
 1.9.3
