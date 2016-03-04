@@ -1,84 +1,242 @@
-From: Douglas Miller <dougmill@linux.vnet.ibm.com>
-Subject: [PATCH V2 1/1] be2net: Don't leak iomapped memory on removal.
-Date: Fri,  4 Mar 2016 15:36:56 -0600
-Message-ID: <1457127416-21144-2-git-send-email-dougmill@linux.vnet.ibm.com>
-References: <1457127416-21144-1-git-send-email-dougmill@linux.vnet.ibm.com>
-Cc: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
-	padmanabh.ratnakar@broadcom.com,
-	sriharsha.basavapatna@broadcom.com, somnath.kotur@broadcom.com
-To: netdev@vger.kernel.org
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: [RFC] net: ipv4 -- Introduce ifa limit per net
+Date: Sat, 5 Mar 2016 00:39:20 +0300
+Message-ID: <20160304213920.GJ4184@uranus.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Solar Designer <solar@openwall.com>,
+	Vasily Averin <vvs@virtuozzo.com>,
+	Andrey Vagin <avagin@virtuozzo.com>,
+	Pavel Emelianov <xemul@virtuozzo.com>,
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	Konstantin Khorenko <khorenko@virtuozzo.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: NETDEV <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:40943 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759498AbcCDVhD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 16:37:03 -0500
-Received: from localhost
-	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dougmill@linux.vnet.ibm.com>;
-	Fri, 4 Mar 2016 14:37:02 -0700
-Received: from b03cxnp07029.gho.boulder.ibm.com (b03cxnp07029.gho.boulder.ibm.com [9.17.130.16])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 19D403E40041
-	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 14:37:00 -0700 (MST)
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by b03cxnp07029.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u24Lb0Yj37290010
-	for <netdev@vger.kernel.org>; Fri, 4 Mar 2016 14:37:00 -0700
-Received: from d03av01.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u24LaxFZ023920
-	for <netdev@vger.kernel.org>; Fri, 4 Mar 2016 14:36:59 -0700
-In-Reply-To: <1457127416-21144-1-git-send-email-dougmill@linux.vnet.ibm.com>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:36131 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759678AbcCDVj2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 16:39:28 -0500
+Received: by mail-lb0-f175.google.com with SMTP id x1so75665235lbj.3
+        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 13:39:27 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The adapter->pcicfg resource is either mapped via pci_iomap() or
-derived from adapter->db. During be_remove() this resource was ignored
-and so could remain mapped after remove.
+Currenlty all the kernels (including vanilla) free ifa
+list under rtln_lock() taken which takes a huge time
+to release all entries when we stop the container.
+Moreover it's allowed to create unlimited number
+of addresses from inside of net-namespace if
+CAP-NET_ADMIN granted (which is common for containers).
 
-Add a flag to track whether adapter->pcicfg was mapped or not, then
-use that flag in be_unmap_pci_bars() to unmap if required.
+Lets introduce per-net limit (4096 by default)
+of addresses, which can be tuned up via sysfs
+entry /proc/sys/net/ipv4/ifa_limit.
 
-Fixes: 25848c901 ("use PCI MMIO read instead of config read for errors")
-
-Signed-off-by: Douglas Miller <dougmill@linux.vnet.ibm.com>
+Reported-by: Solar Designer <solar@openwall.com>
+Signed-off-by: Cyrill Gorcunov <gorcunov@virtuozzo.com>
+CC: Vasily Averin <vvs@virtuozzo.com>
+CC: Andrey Vagin <avagin@virtuozzo.com>
+CC: Pavel Emelianov <xemul@virtuozzo.com>
+CC: Vladimir Davydov <vdavydov@virtuozzo.com>
+CC: Konstantin Khorenko <khorenko@virtuozzo.com>
+CC: David Miller <davem@davemloft.net>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |    1 +
- drivers/net/ethernet/emulex/benet/be_main.c |    4 ++++
- 2 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index cf83783..f975129 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -531,6 +531,7 @@ struct be_adapter {
+Please share the idea if there some more elegant way exist
+to fix this problem, maybe I miss something obvious. Thanks!
+
+ include/net/netns/ipv4.h   |    3 +++
+ net/ipv4/devinet.c         |   34 +++++++++++++++++++---------------
+ net/ipv4/sysctl_net_ipv4.c |    8 ++++++++
+ 3 files changed, 30 insertions(+), 15 deletions(-)
+
+Index: linux-ml.git/include/net/netns/ipv4.h
+===================================================================
+--- linux-ml.git.orig/include/net/netns/ipv4.h
++++ linux-ml.git/include/net/netns/ipv4.h
+@@ -77,6 +77,8 @@ struct netns_ipv4 {
  
- 	struct delayed_work be_err_detection_work;
- 	u8 err_flags;
-+	bool pcicfg_mapped;	/* pcicfg obtained via pci_iomap() */
- 	u32 flags;
- 	u32 cmd_privileges;
- 	/* Ethtool knobs and info */
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index f99de36..6a7260b 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4968,6 +4968,8 @@ static void be_unmap_pci_bars(struct be_adapter *adapter)
- 		pci_iounmap(adapter->pdev, adapter->csr);
- 	if (adapter->db)
- 		pci_iounmap(adapter->pdev, adapter->db);
-+	if (adapter->pcicfg && adapter->pcicfg_mapped)
-+		pci_iounmap(adapter->pdev, adapter->pcicfg);
+ 	struct local_ports ip_local_ports;
+ 
++	int sysctl_ifa_limit;
++
+ 	int sysctl_tcp_ecn;
+ 	int sysctl_tcp_ecn_fallback;
+ 
+@@ -101,6 +103,7 @@ struct netns_ipv4 {
+ 	struct ping_group_range ping_group_range;
+ 
+ 	atomic_t dev_addr_genid;
++	atomic_t ifa_nr;
+ 
+ #ifdef CONFIG_SYSCTL
+ 	unsigned long *sysctl_local_reserved_ports;
+Index: linux-ml.git/net/ipv4/devinet.c
+===================================================================
+--- linux-ml.git.orig/net/ipv4/devinet.c
++++ linux-ml.git/net/ipv4/devinet.c
+@@ -194,8 +194,11 @@ static void devinet_sysctl_unregister(st
+ 
+ /* Locks all the inet devices. */
+ 
+-static struct in_ifaddr *inet_alloc_ifa(void)
++static struct in_ifaddr *inet_alloc_ifa(struct net *net)
+ {
++	if (atomic_add_return(1, &net->ipv4.ifa_nr) >
++	    net->ipv4.sysctl_ifa_limit)
++		return NULL;
+ 	return kzalloc(sizeof(struct in_ifaddr), GFP_KERNEL);
  }
  
- static int db_bar(struct be_adapter *adapter)
-@@ -5019,8 +5021,10 @@ static int be_map_pci_bars(struct be_adapter *adapter)
- 			if (!addr)
- 				goto pci_map_err;
- 			adapter->pcicfg = addr;
-+			adapter->pcicfg_mapped = true;
- 		} else {
- 			adapter->pcicfg = adapter->db + SRIOV_VF_PCICFG_OFFSET;
-+			adapter->pcicfg_mapped = false;
- 		}
+@@ -207,8 +210,9 @@ static void inet_rcu_free_ifa(struct rcu
+ 	kfree(ifa);
+ }
+ 
+-static void inet_free_ifa(struct in_ifaddr *ifa)
++static void inet_free_ifa(struct net *net, struct in_ifaddr *ifa)
+ {
++	atomic_dec(&net->ipv4.ifa_nr);
+ 	call_rcu(&ifa->rcu_head, inet_rcu_free_ifa);
+ }
+ 
+@@ -296,7 +300,7 @@ static void inetdev_destroy(struct in_de
+ 
+ 	while ((ifa = in_dev->ifa_list) != NULL) {
+ 		inet_del_ifa(in_dev, &in_dev->ifa_list, 0);
+-		inet_free_ifa(ifa);
++		inet_free_ifa(dev_net(dev), ifa);
  	}
  
--- 
-1.7.1
+ 	RCU_INIT_POINTER(dev->ip_ptr, NULL);
+@@ -361,7 +365,7 @@ static void __inet_del_ifa(struct in_dev
+ 				rtmsg_ifa(RTM_DELADDR, ifa, nlh, portid);
+ 				blocking_notifier_call_chain(&inetaddr_chain,
+ 						NETDEV_DOWN, ifa);
+-				inet_free_ifa(ifa);
++				inet_free_ifa(dev_net(in_dev->dev), ifa);
+ 			} else {
+ 				promote = ifa;
+ 				break;
+@@ -420,7 +424,7 @@ static void __inet_del_ifa(struct in_dev
+ 
+ 	}
+ 	if (destroy)
+-		inet_free_ifa(ifa1);
++		inet_free_ifa(dev_net(in_dev->dev), ifa1);
+ }
+ 
+ static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
+@@ -442,7 +446,7 @@ static int __inet_insert_ifa(struct in_i
+ 	ASSERT_RTNL();
+ 
+ 	if (!ifa->ifa_local) {
+-		inet_free_ifa(ifa);
++		inet_free_ifa(dev_net(in_dev->dev), ifa);
+ 		return 0;
+ 	}
+ 
+@@ -457,11 +461,11 @@ static int __inet_insert_ifa(struct in_i
+ 		if (ifa1->ifa_mask == ifa->ifa_mask &&
+ 		    inet_ifa_match(ifa1->ifa_address, ifa)) {
+ 			if (ifa1->ifa_local == ifa->ifa_local) {
+-				inet_free_ifa(ifa);
++				inet_free_ifa(dev_net(in_dev->dev), ifa);
+ 				return -EEXIST;
+ 			}
+ 			if (ifa1->ifa_scope != ifa->ifa_scope) {
+-				inet_free_ifa(ifa);
++				inet_free_ifa(dev_net(in_dev->dev), ifa);
+ 				return -EINVAL;
+ 			}
+ 			ifa->ifa_flags |= IFA_F_SECONDARY;
+@@ -502,7 +506,7 @@ static int inet_set_ifa(struct net_devic
+ 	ASSERT_RTNL();
+ 
+ 	if (!in_dev) {
+-		inet_free_ifa(ifa);
++		inet_free_ifa(dev_net(dev), ifa);
+ 		return -ENOBUFS;
+ 	}
+ 	ipv4_devconf_setall(in_dev);
+@@ -768,7 +772,7 @@ static struct in_ifaddr *rtm_to_ifaddr(s
+ 	if (!in_dev)
+ 		goto errout;
+ 
+-	ifa = inet_alloc_ifa();
++	ifa = inet_alloc_ifa(net);
+ 	if (!ifa)
+ 		/*
+ 		 * A potential indev allocation can be left alive, it stays
+@@ -817,7 +821,7 @@ static struct in_ifaddr *rtm_to_ifaddr(s
+ 	return ifa;
+ 
+ errout_free:
+-	inet_free_ifa(ifa);
++	inet_free_ifa(net, ifa);
+ errout:
+ 	return ERR_PTR(err);
+ }
+@@ -865,13 +869,13 @@ static int inet_rtm_newaddr(struct sk_bu
+ 					       true, ifa);
+ 
+ 			if (ret < 0) {
+-				inet_free_ifa(ifa);
++				inet_free_ifa(net, ifa);
+ 				return ret;
+ 			}
+ 		}
+ 		return __inet_insert_ifa(ifa, nlh, NETLINK_CB(skb).portid);
+ 	} else {
+-		inet_free_ifa(ifa);
++		inet_free_ifa(net, ifa);
+ 
+ 		if (nlh->nlmsg_flags & NLM_F_EXCL ||
+ 		    !(nlh->nlmsg_flags & NLM_F_REPLACE))
+@@ -1055,7 +1059,7 @@ int devinet_ioctl(struct net *net, unsig
+ 
+ 		if (!ifa) {
+ 			ret = -ENOBUFS;
+-			ifa = inet_alloc_ifa();
++			ifa = inet_alloc_ifa(net);
+ 			if (!ifa)
+ 				break;
+ 			INIT_HLIST_NODE(&ifa->hash);
+@@ -1408,7 +1412,7 @@ static int inetdev_event(struct notifier
+ 		if (!inetdev_valid_mtu(dev->mtu))
+ 			break;
+ 		if (dev->flags & IFF_LOOPBACK) {
+-			struct in_ifaddr *ifa = inet_alloc_ifa();
++			struct in_ifaddr *ifa = inet_alloc_ifa(dev_net(dev));
+ 
+ 			if (ifa) {
+ 				INIT_HLIST_NODE(&ifa->hash);
+Index: linux-ml.git/net/ipv4/sysctl_net_ipv4.c
+===================================================================
+--- linux-ml.git.orig/net/ipv4/sysctl_net_ipv4.c
++++ linux-ml.git/net/ipv4/sysctl_net_ipv4.c
+@@ -960,6 +960,13 @@ static struct ctl_table ipv4_net_table[]
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
++	{
++		.procname	= "ifa_limit",
++		.data		= &init_net.ipv4.sysctl_ifa_limit,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
+ 	{ }
+ };
+ 
+@@ -988,6 +995,7 @@ static __net_init int ipv4_sysctl_init_n
+ 	if (!net->ipv4.sysctl_local_reserved_ports)
+ 		goto err_ports;
+ 
++	net->ipv4.sysctl_ifa_limit = 4096;
+ 	return 0;
+ 
+ err_ports:
