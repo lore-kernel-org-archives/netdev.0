@@ -1,50 +1,54 @@
-From: =?gb2312?B?1cXKpL7Z?= <zhangshengju@cmss.chinamobile.com>
-Subject: Re: [net-next] arp: correct return value of arp_rcv
-Date: Fri, 4 Mar 2016 09:06:53 +0800
-Message-ID: <000f01d175b2$24117f50$6c347df0$@cmss.chinamobile.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: "'David Miller'" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:3944 "EHLO
-	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756953AbcCDBHo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 20:07:44 -0500
-Content-Language: en-us
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tim Shepard <shep-FrUbXkNCsVf2fBVCVOL8/A@public.gmane.org>
+Subject: [PATCH RFC/RFT 0/2] ath9k: use mac80211 intermediate software queues
+Date: Thu, 03 Mar 2016 20:06:12 -0500
+Message-ID: <E1abeC4-0007p7-00@www.xplot.org>
+Cc: michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
+	andrewmcgr-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, apenwarr-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> Date: Tue,  1 Mar 2016 07:24:42 +0000
-> 
-> > Currently, arp_rcv() always return zero on a packet delivery upcall.
-> >
-> > To make its behavior more compliant with the way this API should be
-> > used, this patch changes this to let it return NET_RX_SUCCESS when the
-> > packet is proper handled, and NET_RX_DROP otherwise.
-> >
-> > Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> 
-> This change is bogus.
-> 
-> > @@ -880,7 +880,7 @@ out:
-> >  	consume_skb(skb);
-> >  out_free_dst:
-> >  	dst_release(reply_dst);
-> > -	return 0;
-> > +	return NET_RX_SUCCESS;
-> 
-> Most of the paths to out: are dropping the request for one reason or
-> another.
-> 
-> If you want to do this right you need to split these two exit paths,
-convert
-> consume_skb() to kfree_skb() in the drop path, and then you can return
-> accurate NET_* codes.
 
-You are right, I will change this part and sent another version later.
+Here is a patch in two parts to have ath9k make use the new
+intermediate queues in mac80211.   It seems to work for me, but it
+clearly needs more testing.
 
-Shengju
+This should be useful to anyone who wants to try Michal's patch from
+last week "mac80211: implement fq_codel for software queuing" as that
+patch will not do anything unless you have a mac80211 driver that uses
+the new mac80211 intermediate queues and indicates to mac80211 that
+it does so by having a non-zero .wake_tx_queue method.
+
+The first patch just renames the struct ath_txq in ath9k to be
+struct ath_hwq and the renames the variables and fields holding a
+pointer to it to be hwq  (instead of txq).
+
+This first patch is IMHO needed because I had an earlier version of
+this without renaming ath_txq and it was too mind bending to try and
+keep straight which was ath9k's txq (which is per hardware queue)
+and what was mac80211 txq (which is per station per tid).
+
+The second patch changes ath9k to use the new mac80211 intermediate
+software queues.
+
+I left the existing ath9k software queue mechanisms in place. They
+are used by the channel context code in some cases even for non-data
+frames, and in any case it seemed like a safer first step to get this
+working before removing code.  Yes, we should eventually clean this
+up once this is tested and we figure out what the right way to do
+the clean up.   I see little harm in leaving it stay for awhile.
+
+I have not tried any testing with CONFIG_ATH9K_CHANNEL_CONTEXT=y and
+I am not even sure what I would need to do to properly exercise that.
+
+Please comment and/or test.
+
+			-Tim Shepard
+			 shep-FrUbXkNCsVf2fBVCVOL8/A@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
