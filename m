@@ -1,160 +1,76 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next v2] arp: correct return value of arp_rcv
-Date: Fri,  4 Mar 2016 14:07:54 +0000
-Message-ID: <1457100474-18580-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 1/7] bpf: allow bpf_csum_diff to feed bpf_l3_csum_replace as well
+Date: Fri,  4 Mar 2016 15:15:02 +0100
+Message-ID: <f8ef1d7fe50d463e4d39f31b5979747127002021.1457099834.git.daniel@iogearbox.net>
+References: <cover.1457099834.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:2410 "EHLO
-	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751337AbcCDOGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 09:06:33 -0500
+Received: from www62.your-server.de ([213.133.104.62]:39181 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751852AbcCDOPc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 09:15:32 -0500
+In-Reply-To: <cover.1457099834.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1457099834.git.daniel@iogearbox.net>
+References: <cover.1457099834.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, arp_rcv() always return zero on a packet delivery upcall.
+Commit 7d672345ed29 ("bpf: add generic bpf_csum_diff helper") added a
+generic checksum diff helper that can feed bpf_l4_csum_replace() with
+a target __wsum diff that is to be applied to the L4 checksum. This
+facility is very flexible, can be cascaded, allows for adding, removing,
+or diffing data, or for calculating the pseudo header checksum from
+scratch, but it can also be reused for working with the IPv4 header
+checksum.
 
-To make its behavior more compliant with the way this API should be
-used, this patch changes this to let it return NET_RX_SUCCESS when the
-packet is proper handled, and NET_RX_DROP otherwise.
+Thus, analogous to bpf_l4_csum_replace(), add a case for header field
+value of 0 to change the checksum at a given offset through a new helper
+csum_replace_by_diff(). Also, in addition to that, this provides an
+easy to use interface for feeding precalculated diffs f.e. coming from
+a map. It nicely complements bpf_l3_csum_replace() that currently allows
+only for csum updates of 2 and 4 byte diffs.
 
-v1->v2:
-If sanity check is failed, call kfree_skb() instead of consume_skb(), then
-return the correct return value.
-
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- net/ipv4/arp.c | 35 ++++++++++++++++++++---------------
- 1 file changed, 20 insertions(+), 15 deletions(-)
+ include/net/checksum.h | 5 +++++
+ net/core/filter.c      | 6 ++++++
+ 2 files changed, 11 insertions(+)
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index c102eb5..c34c754 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -665,7 +665,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
- 	 */
+diff --git a/include/net/checksum.h b/include/net/checksum.h
+index 10a16b5..abffc64 100644
+--- a/include/net/checksum.h
++++ b/include/net/checksum.h
+@@ -120,6 +120,11 @@ static inline __wsum csum_partial_ext(const void *buff, int len, __wsum sum)
  
- 	if (!in_dev)
--		goto out;
-+		goto out_free_skb;
+ #define CSUM_MANGLED_0 ((__force __sum16)0xffff)
  
- 	arp = arp_hdr(skb);
- 
-@@ -673,7 +673,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
- 	default:
- 		if (arp->ar_pro != htons(ETH_P_IP) ||
- 		    htons(dev_type) != arp->ar_hrd)
--			goto out;
-+			goto out_free_skb;
- 		break;
- 	case ARPHRD_ETHER:
- 	case ARPHRD_FDDI:
-@@ -690,17 +690,17 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
- 		if ((arp->ar_hrd != htons(ARPHRD_ETHER) &&
- 		     arp->ar_hrd != htons(ARPHRD_IEEE802)) ||
- 		    arp->ar_pro != htons(ETH_P_IP))
--			goto out;
-+			goto out_free_skb;
- 		break;
- 	case ARPHRD_AX25:
- 		if (arp->ar_pro != htons(AX25_P_IP) ||
- 		    arp->ar_hrd != htons(ARPHRD_AX25))
--			goto out;
-+			goto out_free_skb;
- 		break;
- 	case ARPHRD_NETROM:
- 		if (arp->ar_pro != htons(AX25_P_IP) ||
- 		    arp->ar_hrd != htons(ARPHRD_NETROM))
--			goto out;
-+			goto out_free_skb;
- 		break;
- 	}
- 
-@@ -708,7 +708,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
- 
- 	if (arp->ar_op != htons(ARPOP_REPLY) &&
- 	    arp->ar_op != htons(ARPOP_REQUEST))
--		goto out;
-+		goto out_free_skb;
- 
- /*
-  *	Extract fields
-@@ -733,7 +733,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
-  */
- 	if (ipv4_is_multicast(tip) ||
- 	    (!IN_DEV_ROUTE_LOCALNET(in_dev) && ipv4_is_loopback(tip)))
--		goto out;
-+		goto out_free_skb;
- 
-  /*
-   *	For some 802.11 wireless deployments (and possibly other networks),
-@@ -741,7 +741,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
-   *	and thus should not be accepted.
-   */
- 	if (sip == tip && IN_DEV_ORCONF(in_dev, DROP_GRATUITOUS_ARP))
--		goto out;
-+		goto out_free_skb;
- 
- /*
-  *     Special case: We must set Frame Relay source Q.922 address
-@@ -778,7 +778,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
- 		    !arp_ignore(in_dev, sip, tip))
- 			arp_send_dst(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip,
- 				     sha, dev->dev_addr, sha, reply_dst);
--		goto out;
-+		goto out_consume_skb;
- 	}
- 
- 	if (arp->ar_op == htons(ARPOP_REQUEST) &&
-@@ -803,7 +803,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
- 					neigh_release(n);
- 				}
- 			}
--			goto out;
-+			goto out_consume_skb;
- 		} else if (IN_DEV_FORWARD(in_dev)) {
- 			if (addr_type == RTN_UNICAST  &&
- 			    (arp_fwd_proxy(in_dev, dev, rt) ||
-@@ -826,7 +826,7 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
- 						       in_dev->arp_parms, skb);
- 					goto out_free_dst;
- 				}
--				goto out;
-+				goto out_consume_skb;
- 			}
- 		}
- 	}
-@@ -876,11 +876,16 @@ static int arp_process(struct net *net, struct sock *sk, struct sk_buff *skb)
- 		neigh_release(n);
- 	}
- 
--out:
-+out_consume_skb:
- 	consume_skb(skb);
++static inline void csum_replace_by_diff(__sum16 *sum, __wsum diff)
++{
++	*sum = csum_fold(csum_add(diff, ~csum_unfold(*sum)));
++}
 +
- out_free_dst:
- 	dst_release(reply_dst);
--	return 0;
-+	return NET_RX_SUCCESS;
+ static inline void csum_replace4(__sum16 *sum, __be32 from, __be32 to)
+ {
+ 	__wsum tmp = csum_sub(~csum_unfold(*sum), (__force __wsum)from);
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 69f4ffc..356a251 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1447,6 +1447,12 @@ static u64 bpf_l3_csum_replace(u64 r1, u64 r2, u64 from, u64 to, u64 flags)
+ 		return -EFAULT;
+ 
+ 	switch (flags & BPF_F_HDR_FIELD_MASK) {
++	case 0:
++		if (unlikely(from != 0))
++			return -EINVAL;
 +
-+out_free_skb:
-+	kfree_skb(skb);
-+	return NET_RX_DROP;
- }
- 
- static void parp_redo(struct sk_buff *skb)
-@@ -924,11 +929,11 @@ static int arp_rcv(struct sk_buff *skb, struct net_device *dev,
- 
- consumeskb:
- 	consume_skb(skb);
--	return 0;
-+	return NET_RX_SUCCESS;
- freeskb:
- 	kfree_skb(skb);
- out_of_mem:
--	return 0;
-+	return NET_RX_DROP;
- }
- 
- /*
++		csum_replace_by_diff(ptr, to);
++		break;
+ 	case 2:
+ 		csum_replace2(ptr, from, to);
+ 		break;
 -- 
-1.8.3.1
+1.9.3
