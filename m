@@ -1,30 +1,70 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [ethtool PATCH v2 06/12] test-common.c: fix test_realloc(NULL, ...)
-Date: Fri, 4 Mar 2016 05:32:01 -0800
-Message-ID: <CAHo-OoxARqLmJTcV1p+Ub5fBcCXUwHHj3XR2g6QUDkShN3-EKQ@mail.gmail.com>
-References: <1457065405-19049-1-git-send-email-ddecotig@gmail.com>
-	<1457065405-19049-7-git-send-email-ddecotig@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net 3/6] net: hns: fixed portid bug in sending manage pkt
+Date: Fri, 4 Mar 2016 16:37:19 +0300
+Message-ID: <56D98F8F.5010700@cogentembedded.com>
+References: <1457053798-93513-1-git-send-email-huangdaode@hisilicon.com>
+ <1457053798-93513-4-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux NetDev <netdev@vger.kernel.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@redhat.com>,
-	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-	David Decotigny <decot@googlers.com>
-To: David Decotigny <ddecotig@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f196.google.com ([209.85.217.196]:34959 "EHLO
-	mail-lb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751399AbcCDNcC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 08:32:02 -0500
-Received: by mail-lb0-f196.google.com with SMTP id h2so4932107lbs.2
-        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 05:32:02 -0800 (PST)
-In-Reply-To: <1457065405-19049-7-git-send-email-ddecotig@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, linuxarm@huawei.com,
+	salil.mehta@huawei.com, kenneth-lee-2012@foxmail.com,
+	xuwei5@hisilicon.com, lisheng011@huawei.com, yankejian@huawei.com
+To: Daode Huang <huangdaode@hisilicon.com>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457053798-93513-4-git-send-email-huangdaode@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If needed:
+Hello.
 
-Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
+On 3/4/2016 4:09 AM, Daode Huang wrote:
+
+> In V2 chip, when sending mamagement packets, the driver should
+> config the port id to BD descs.
+>
+> Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
+> Signed-off-by: Lisheng <lisheng011@huawei.com>
+> ---
+>   drivers/net/ethernet/hisilicon/hns/hnae.h         | 3 +++
+>   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c | 1 +
+>   drivers/net/ethernet/hisilicon/hns/hns_enet.c     | 4 ++++
+>   3 files changed, 8 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
+> index 1cbcb9f..11a3f97 100644
+> --- a/drivers/net/ethernet/hisilicon/hns/hnae.h
+> +++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
+[...]
+> @@ -516,6 +518,7 @@ struct hnae_handle {
+>   	int q_num;
+>   	int vf_id;
+>   	u32 eport_id;
+> +	u32 dport_id;	/*v2 tx bd should fill the dport_id*/
+
+    Please add spaces after /* and before */ (like it's done in other places 
+in this driver).
+
+[...]
+> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+> index 6250a42..b45dcc2 100644
+> --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+> +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+> @@ -69,6 +69,10 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
+>   	hnae_set_bit(rrcfv, HNSV2_TXD_VLD_B, 1);
+>   	hnae_set_field(bn_pid, HNSV2_TXD_BUFNUM_M, 0, buf_num - 1);
+>
+> +	/*fill port_id in the tx bd for sending management pkts*/
+
+    Likewise.
+
+> +	hnae_set_field(bn_pid, HNSV2_TXD_PORTID_M,
+> +		       HNSV2_TXD_PORTID_S, ring->q->handle->dport_id);
+> +
+>   	if (type == DESC_TYPE_SKB) {
+>   		skb = (struct sk_buff *)priv;
+>
+
+MBR, Sergei
