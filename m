@@ -1,86 +1,63 @@
-From: Fugang Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH net-next V2 06/16] net: fec: don't clear all rx queue bits
- when just one is being checked
-Date: Fri, 4 Mar 2016 09:11:57 +0000
-Message-ID: <VI1PR0401MB18550FD3A944783B88BEDB64FFBE0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
- <1456360619-24390-7-git-send-email-troy.kisky@boundarydevices.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH 3/4] infiniband: hns: add Hisilicon RoCE support(driver
+ code)
+Date: Fri, 4 Mar 2016 10:16:28 +0100
+Message-ID: <20160304091628.GB2150@nanopsycho.orion>
+References: <1457080877-13456-1-git-send-email-xavier.huwei@huawei.com>
+ <1457080877-13456-4-git-send-email-xavier.huwei@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"laci@boundarydevices.com" <laci@boundarydevices.com>,
-	"shawnguo@kernel.org" <shawnguo@kernel.org>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"arnd@arndb.de" <arnd@arndb.de>
-To: Troy Kisky <troy.kisky@boundarydevices.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"b38611@freescale.com" <b38611@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0067.outbound.protection.outlook.com ([157.56.112.67]:63952
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759017AbcCDJMB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 04:12:01 -0500
-In-Reply-To: <1456360619-24390-7-git-send-email-troy.kisky@boundarydevices.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, jiri@mellanox.com,
+	ogerlitz@mellanox.com, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	gongyangming@huawei.com, xiaokun@huawei.com,
+	tangchaofei@huawei.com, oulijun@huawei.com, haifeng.wei@huawei.com,
+	yisen.zhuang@huawei.com, yankejian@huawei.com,
+	lisheng011@huawei.com, charles.chenxin@huawei.com,
+	linuxarm@huawei.com
+To: "Wei Hu(Xavier)" <xavier.huwei@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1457080877-13456-4-git-send-email-xavier.huwei@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Troy Kisky <troy.kisky@boundarydevices.com>Sent: Thursday, February 25, 2016 8:37 AM
-> To: netdev@vger.kernel.org; davem@davemloft.net; b38611@freescale.com
-> Cc: fabio.estevam@freescale.com; l.stach@pengutronix.de; andrew@lunn.ch;
-> tremyfr@gmail.com; linux@arm.linux.org.uk; linux-arm-
-> kernel@lists.infradead.org; laci@boundarydevices.com; shawnguo@kernel.org;
-> johannes@sipsolutions.net; stillcompiling@gmail.com;
-> sergei.shtylyov@cogentembedded.com; arnd@arndb.de; Troy Kisky
-> <troy.kisky@boundarydevices.com>
-> Subject: [PATCH net-next V2 06/16] net: fec: don't clear all rx queue bits when
-> just one is being checked
-> 
-> FEC_ENET_RXF is 3 separate bits, we only check one queue at a time. So, when
-> the last queue is being checked, it is bad to remove the interrupt on the 1st
-> queue.
-> 
-> Also, since this is now done in the napi routine and not the interrupt, it is not
-> needed.
-> 
-> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 2 --
->  1 file changed, 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index 610cf6c..791f385 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1338,8 +1338,6 @@ static int fec_rxq(struct net_device *ndev, struct
-> fec_enet_private *fep,
->  			break;
->  		pkt_received++;
-> 
-> -		writel(FEC_ENET_RXF, fep->hwp + FEC_IEVENT);
-> -
+Fri, Mar 04, 2016 at 09:41:16AM CET, xavier.huwei@huawei.com wrote:
 
-We should clear the related rx queue ievent, not remove the code.
-Pls see commit: db3421c114cf that was submitted by Russell King.
+<snip>
 
-No ack the patch.
+>+int hns_roce_buf_alloc(
+>+			struct hns_roce_dev *hr_dev,
+>+			int size, int max_direct,
+>+			struct hns_roce_buf *buf)
 
->  		/* Check for errors. */
->  		status ^= BD_ENET_RX_LAST;
->  		if (status & (BD_ENET_RX_LG | BD_ENET_RX_SH |
-> BD_ENET_RX_NO |
-> --
-> 2.5.0
+<snip>	
+	
+>+
+>+			pages =
+>+				kmalloc(sizeof(*pages) * buf->nbufs,
+>+					GFP_KERNEL);
+
+<snip>
+
+>+
+>+			buf->direct.buf = vmap(
+>+						pages, buf->nbufs, VM_MAP,
+>+						PAGE_KERNEL);
+
+<snip>
+
+>+	if (
+>+		event_type != HNS_ROCE_EVENT_TYPE_CQ_ID_INVALID &&
+>+		event_type != HNS_ROCE_EVENT_TYPE_CQ_ACCESS_ERROR &&
+>+		event_type != HNS_ROCE_EVENT_TYPE_CQ_OVERFLOW) {
+>+		dev_err(&hr_dev->pdev->dev,
+>+			"hns_roce_ib: Unexpected event type 0x%x on CQ %06x\n",
+>+			event_type, hr_cq->cqn);
+>+		return;
+>+	}
+
+Although checkpatch does not complain, I find this semi-random adding of
+newlines quite odd.
