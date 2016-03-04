@@ -1,7 +1,7 @@
 From: John Stultz <john.stultz@linaro.org>
-Subject: [PATCH 5/8] time: Add history to cross timestamp interface supporting slower devices
-Date: Thu,  3 Mar 2016 17:57:03 -0800
-Message-ID: <1457056626-4899-6-git-send-email-john.stultz@linaro.org>
+Subject: [PATCH 8/8] e1000e: Adds hardware supported cross timestamp on e1000e nic
+Date: Thu,  3 Mar 2016 17:57:06 -0800
+Message-ID: <1457056626-4899-9-git-send-email-john.stultz@linaro.org>
 References: <1457056626-4899-1-git-send-email-john.stultz@linaro.org>
 Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
 	Prarit Bhargava <prarit@redhat.com>,
@@ -9,357 +9,213 @@ Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	Ingo Molnar <mingo@kernel.org>,
 	Andy Lutomirski <luto@amacapital.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	kevin.b.stanton@intel.com, kevin.j.clarke@intel.com, hpa@zytor.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	John Stultz <john.stultz@linaro.org>
+	netdev@vger.kernel.org, John Stultz <john.stultz@linaro.org>
 To: lkml <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34316 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757082AbcCDB5T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 20:57:19 -0500
+Received: by mail-pf0-f176.google.com with SMTP id 4so25639169pfd.1
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 17:57:19 -0800 (PST)
 In-Reply-To: <1457056626-4899-1-git-send-email-john.stultz@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: "Christopher S. Hall" <christopher.s.hall@intel.com>
 
-Another representative use case of time sync and the correlated
-clocksource (in addition to PTP noted above) is PTP synchronized
-audio.
-
-In a streaming application, as an example, samples will be sent and/or
-received by multiple devices with a presentation time that is in terms
-of the PTP master clock. Synchronizing the audio output on these
-devices requires correlating the audio clock with the PTP master
-clock. The more precise this correlation is, the better the audio
-quality (i.e. out of sync audio sounds bad).
-
->From an application standpoint, to correlate the PTP master clock with
-the audio device clock, the system clock is used as a intermediate
-timebase. The transforms such an application would perform are:
-
-    System Clock <-> Audio clock
-    System Clock <-> Network Device Clock [<-> PTP Master Clock]
-
-Modern Intel platforms can perform a more accurate cross timestamp in
-hardware (ART,audio device clock).  The audio driver requires
-ART->system time transforms -- the same as required for the network
-driver. These platforms offload audio processing (including
-cross-timestamps) to a DSP which to ensure uninterrupted audio
-processing, communicates and response to the host only once every
-millsecond. As a result is takes up to a millisecond for the DSP to
-receive a request, the request is processed by the DSP, the audio
-output hardware is polled for completion, the result is copied into
-shared memory, and the host is notified. All of these operation occur
-on a millisecond cadence.  This transaction requires about 2 ms, but
-under heavier workloads it may take up to 4 ms.
-
-Adding a history allows these slow devices the option of providing an
-ART value outside of the current interval. In this case, the callback
-provided is an accessor function for the previously obtained counter
-value. If get_system_device_crosststamp() receives a counter value
-previous to cycle_last, it consults the history provided as an
-argument in history_ref and interpolates the realtime and monotonic
-raw system time using the provided counter value. If there are any
-clock discontinuities, e.g. from calling settimeofday(), the monotonic
-raw time is interpolated in the usual way, but the realtime clock time
-is adjusted by scaling the monotonic raw adjustment.
-
-When an accessor function is used a history argument *must* be
-provided. The history is initialized using ktime_get_snapshot() and
-must be called before the counter values are read.
+Modern Intel systems supports cross timestamping of the network device
+clock and Always Running Timer (ART) in hardware.  This allows the
+device time and system time to be precisely correlated. The timestamp
+pair is returned through e1000e_phc_get_syncdevicetime() used by
+get_system_device_crosststamp().  The hardware cross-timestamp result
+is made available to applications through the PTP_SYS_OFFSET_PRECISE
+ioctl which calls e1000e_phc_getcrosststamp().
 
 Cc: Prarit Bhargava <prarit@redhat.com>
 Cc: Richard Cochran <richardcochran@gmail.com>
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Cc: Ingo Molnar <mingo@kernel.org>
 Cc: Andy Lutomirski <luto@amacapital.net>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Cc: kevin.b.stanton@intel.com
 Cc: kevin.j.clarke@intel.com
 Cc: hpa@zytor.com
 Cc: jeffrey.t.kirsher@intel.com
 Cc: netdev@vger.kernel.org
-Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
-[jstultz: Fixed up cycles_t/cycle_t type confusion]
+[jstultz: Reworked to use new interface, commit message tweaks]
 Signed-off-by: John Stultz <john.stultz@linaro.org>
 ---
- include/linux/timekeeper_internal.h |   2 +
- include/linux/timekeeping.h         |   5 ++
- kernel/time/timekeeping.c           | 171 +++++++++++++++++++++++++++++++++++-
- 3 files changed, 177 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/Kconfig          |  9 +++
+ drivers/net/ethernet/intel/e1000e/defines.h |  5 ++
+ drivers/net/ethernet/intel/e1000e/ptp.c     | 85 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/e1000e/regs.h    |  4 ++
+ 4 files changed, 103 insertions(+)
 
-diff --git a/include/linux/timekeeper_internal.h b/include/linux/timekeeper_internal.h
-index 2524722..e880054 100644
---- a/include/linux/timekeeper_internal.h
-+++ b/include/linux/timekeeper_internal.h
-@@ -50,6 +50,7 @@ struct tk_read_base {
-  * @offs_tai:		Offset clock monotonic -> clock tai
-  * @tai_offset:		The current UTC to TAI offset in seconds
-  * @clock_was_set_seq:	The sequence number of clock was set events
-+ * @cs_was_changed_seq:	The sequence number of clocksource change events
-  * @next_leap_ktime:	CLOCK_MONOTONIC time value of a pending leap-second
-  * @raw_time:		Monotonic raw base time in timespec64 format
-  * @cycle_interval:	Number of clock cycles in one NTP interval
-@@ -91,6 +92,7 @@ struct timekeeper {
- 	ktime_t			offs_tai;
- 	s32			tai_offset;
- 	unsigned int		clock_was_set_seq;
-+	u8			cs_was_changed_seq;
- 	ktime_t			next_leap_ktime;
- 	struct timespec64	raw_time;
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index fa593dd..3772f3a 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -83,6 +83,15 @@ config E1000E
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called e1000e.
  
-diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
-index 4a2ca65..96f37be 100644
---- a/include/linux/timekeeping.h
-+++ b/include/linux/timekeeping.h
-@@ -272,11 +272,15 @@ extern void ktime_get_raw_and_real_ts64(struct timespec64 *ts_raw,
-  * @cycles:	Clocksource counter value to produce the system times
-  * @real:	Realtime system time
-  * @raw:	Monotonic raw system time
-+ * @clock_was_set_seq:	The sequence number of clock was set events
-+ * @cs_was_changed_seq:	The sequence number of clocksource change events
-  */
- struct system_time_snapshot {
- 	cycle_t		cycles;
- 	ktime_t		real;
- 	ktime_t		raw;
-+	unsigned int	clock_was_set_seq;
-+	u8		cs_was_changed_seq;
- };
++config E1000E_HWTS
++	bool "Support HW cross-timestamp on PCH devices"
++	default y
++	depends on E1000E && X86
++	---help---
++	 Say Y to enable hardware supported cross-timestamping on PCH
++	 devices. The cross-timestamp is available through the PTP clock
++	 driver precise cross-timestamp ioctl (PTP_SYS_OFFSET_PRECISE).
++
+ config IGB
+ 	tristate "Intel(R) 82575/82576 PCI-Express Gigabit Ethernet support"
+ 	depends on PCI
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index f7c7804..0641c00 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -528,6 +528,11 @@
+ #define E1000_RXCW_C          0x20000000        /* Receive config */
+ #define E1000_RXCW_SYNCH      0x40000000        /* Receive config synch */
  
- /*
-@@ -312,6 +316,7 @@ extern int get_device_system_crosststamp(
- 				struct system_counterval_t *system_counterval,
- 				void *ctx),
- 			void *ctx,
-+			struct system_time_snapshot *history,
- 			struct system_device_crosststamp *xtstamp);
++/* HH Time Sync */
++#define E1000_TSYNCTXCTL_MAX_ALLOWED_DLY_MASK	0x0000F000 /* max delay */
++#define E1000_TSYNCTXCTL_SYNC_COMP		0x40000000 /* sync complete */
++#define E1000_TSYNCTXCTL_START_SYNC		0x80000000 /* initiate sync */
++
+ #define E1000_TSYNCTXCTL_VALID		0x00000001 /* Tx timestamp valid */
+ #define E1000_TSYNCTXCTL_ENABLED	0x00000010 /* enable Tx timestamping */
  
- /*
-diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
-index dba595c..931b0b1 100644
---- a/kernel/time/timekeeping.c
-+++ b/kernel/time/timekeeping.c
-@@ -233,6 +233,7 @@ static void tk_setup_internals(struct timekeeper *tk, struct clocksource *clock)
- 	u64 tmp, ntpinterval;
- 	struct clocksource *old_clock;
+diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
+index 25a0ad5..e2ff3ef 100644
+--- a/drivers/net/ethernet/intel/e1000e/ptp.c
++++ b/drivers/net/ethernet/intel/e1000e/ptp.c
+@@ -26,6 +26,12 @@
  
-+	++tk->cs_was_changed_seq;
- 	old_clock = tk->tkr_mono.clock;
- 	tk->tkr_mono.clock = clock;
- 	tk->tkr_mono.read = clock->read;
-@@ -894,6 +895,8 @@ void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
- 		seq = read_seqcount_begin(&tk_core.seq);
+ #include "e1000.h"
  
- 		now = tk->tkr_mono.read(tk->tkr_mono.clock);
-+		systime_snapshot->cs_was_changed_seq = tk->cs_was_changed_seq;
-+		systime_snapshot->clock_was_set_seq = tk->clock_was_set_seq;
- 		base_real = ktime_add(tk->tkr_mono.base,
- 				      tk_core.timekeeper.offs_real);
- 		base_raw = tk->tkr_raw.base;
-@@ -907,10 +910,123 @@ void ktime_get_snapshot(struct system_time_snapshot *systime_snapshot)
++#ifdef CONFIG_E1000E_HWTS
++#include <linux/clocksource.h>
++#include <linux/ktime.h>
++#include <asm/tsc.h>
++#endif
++
+ /**
+  * e1000e_phc_adjfreq - adjust the frequency of the hardware clock
+  * @ptp: ptp clock structure
+@@ -98,6 +104,78 @@ static int e1000e_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 	return 0;
  }
- EXPORT_SYMBOL_GPL(ktime_get_snapshot);
  
-+/* Scale base by mult/div checking for overflow */
-+static int scale64_check_overflow(u64 mult, u64 div, u64 *base)
++#ifdef CONFIG_E1000E_HWTS
++#define MAX_HW_WAIT_COUNT (3)
++
++/**
++ * e1000e_phc_get_syncdevicetime - Callback given to timekeeping code reads system/device registers
++ * @device: current device time
++ * @system: system counter value read synchronously with device time
++ * @ctx: context provided by timekeeping code
++ *
++ * Read device and system (ART) clock simultaneously and return the corrected
++ * clock values in ns.
++ **/
++static int e1000e_phc_get_syncdevicetime(ktime_t *device,
++					 struct system_counterval_t *system,
++					 void *ctx)
 +{
-+	u64 tmp, rem;
++	struct e1000_adapter *adapter = (struct e1000_adapter *)ctx;
++	struct e1000_hw *hw = &adapter->hw;
++	unsigned long flags;
++	int i;
++	u32 tsync_ctrl;
++	cycle_t dev_cycles;
++	cycle_t sys_cycles;
 +
-+	tmp = div64_u64_rem(*base, div, &rem);
++	tsync_ctrl = er32(TSYNCTXCTL);
++	tsync_ctrl |= E1000_TSYNCTXCTL_START_SYNC |
++		E1000_TSYNCTXCTL_MAX_ALLOWED_DLY_MASK;
++	ew32(TSYNCTXCTL, tsync_ctrl);
++	for (i = 0; i < MAX_HW_WAIT_COUNT; ++i) {
++		udelay(1);
++		tsync_ctrl = er32(TSYNCTXCTL);
++		if (tsync_ctrl & E1000_TSYNCTXCTL_SYNC_COMP)
++			break;
++	}
 +
-+	if (((int)sizeof(u64)*8 - fls64(mult) < fls64(tmp)) ||
-+	    ((int)sizeof(u64)*8 - fls64(mult) < fls64(rem)))
-+		return -EOVERFLOW;
-+	tmp *= mult;
-+	rem *= mult;
++	if (i == MAX_HW_WAIT_COUNT)
++		return -ETIMEDOUT;
 +
-+	do_div(rem, div);
-+	*base = tmp + rem;
++	dev_cycles = er32(SYSSTMPH);
++	dev_cycles <<= 32;
++	dev_cycles |= er32(SYSSTMPL);
++	spin_lock_irqsave(&adapter->systim_lock, flags);
++	*device = ns_to_ktime(timecounter_cyc2time(&adapter->tc, dev_cycles));
++	spin_unlock_irqrestore(&adapter->systim_lock, flags);
++
++	sys_cycles = er32(PLTSTMPH);
++	sys_cycles <<= 32;
++	sys_cycles |= er32(PLTSTMPL);
++	*system = convert_art_to_tsc(sys_cycles);
++
 +	return 0;
 +}
 +
 +/**
-+ * adjust_historical_crosststamp - adjust crosstimestamp previous to current interval
-+ * @history:			Snapshot representing start of history
-+ * @partial_history_cycles:	Cycle offset into history (fractional part)
-+ * @total_history_cycles:	Total history length in cycles
-+ * @discontinuity:		True indicates clock was set on history period
-+ * @ts:				Cross timestamp that should be adjusted using
-+ *	partial/total ratio
++ * e1000e_phc_getsynctime - Reads the current system/device cross timestamp
++ * @ptp: ptp clock structure
++ * @cts: structure containing timestamp
 + *
-+ * Helper function used by get_device_system_crosststamp() to correct the
-+ * crosstimestamp corresponding to the start of the current interval to the
-+ * system counter value (timestamp point) provided by the driver. The
-+ * total_history_* quantities are the total history starting at the provided
-+ * reference point and ending at the start of the current interval. The cycle
-+ * count between the driver timestamp point and the start of the current
-+ * interval is partial_history_cycles.
-+ */
-+static int adjust_historical_crosststamp(struct system_time_snapshot *history,
-+					 cycle_t partial_history_cycles,
-+					 cycle_t total_history_cycles,
-+					 bool discontinuity,
-+					 struct system_device_crosststamp *ts)
++ * Read device and system (ART) clock simultaneously and return the scaled
++ * clock values in ns.
++ **/
++static int e1000e_phc_getcrosststamp(struct ptp_clock_info *ptp,
++				     struct system_device_crosststamp *xtstamp)
 +{
-+	struct timekeeper *tk = &tk_core.timekeeper;
-+	u64 corr_raw, corr_real;
-+	bool interp_forward;
-+	int ret;
++	struct e1000_adapter *adapter = container_of(ptp, struct e1000_adapter,
++						     ptp_clock_info);
 +
-+	if (total_history_cycles == 0 || partial_history_cycles == 0)
-+		return 0;
-+
-+	/* Interpolate shortest distance from beginning or end of history */
-+	interp_forward = partial_history_cycles > total_history_cycles/2 ?
-+		true : false;
-+	partial_history_cycles = interp_forward ?
-+		total_history_cycles - partial_history_cycles :
-+		partial_history_cycles;
-+
-+	/*
-+	 * Scale the monotonic raw time delta by:
-+	 *	partial_history_cycles / total_history_cycles
-+	 */
-+	corr_raw = (u64)ktime_to_ns(
-+		ktime_sub(ts->sys_monoraw, history->raw));
-+	ret = scale64_check_overflow(partial_history_cycles,
-+				     total_history_cycles, &corr_raw);
-+	if (ret)
-+		return ret;
-+
-+	/*
-+	 * If there is a discontinuity in the history, scale monotonic raw
-+	 *	correction by:
-+	 *	mult(real)/mult(raw) yielding the realtime correction
-+	 * Otherwise, calculate the realtime correction similar to monotonic
-+	 *	raw calculation
-+	 */
-+	if (discontinuity) {
-+		corr_real = mul_u64_u32_div
-+			(corr_raw, tk->tkr_mono.mult, tk->tkr_raw.mult);
-+	} else {
-+		corr_real = (u64)ktime_to_ns(
-+			ktime_sub(ts->sys_realtime, history->real));
-+		ret = scale64_check_overflow(partial_history_cycles,
-+					     total_history_cycles, &corr_real);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	/* Fixup monotonic raw and real time time values */
-+	if (interp_forward) {
-+		ts->sys_monoraw = ktime_add_ns(history->raw, corr_raw);
-+		ts->sys_realtime = ktime_add_ns(history->real, corr_real);
-+	} else {
-+		ts->sys_monoraw = ktime_sub_ns(ts->sys_monoraw, corr_raw);
-+		ts->sys_realtime = ktime_sub_ns(ts->sys_realtime, corr_real);
-+	}
-+
-+	return 0;
++	return get_device_system_crosststamp(e1000e_phc_get_syncdevicetime,
++						adapter, NULL, xtstamp);
 +}
-+
-+/*
-+ * cycle_between - true if test occurs chronologically between before and after
-+ */
-+static bool cycle_between(cycle_t before, cycle_t test, cycle_t after)
-+{
-+	if (test > before && test < after)
-+		return true;
-+	if (test < before && before > after)
-+		return true;
-+	return false;
-+}
++#endif/*CONFIG_E1000E_HWTS*/
 +
  /**
-  * get_device_system_crosststamp - Synchronously capture system/device timestamp
-- * @sync_devicetime:	Callback to get simultaneous device time and
-+ * @get_time_fn:	Callback to get simultaneous device time and
-  *	system counter from the device driver
-+ * @ctx:		Context passed to get_time_fn()
-+ * @history_begin:	Historical reference point used to interpolate system
-+ *	time when counter provided by the driver is before the current interval
-  * @xtstamp:		Receives simultaneously captured system and device time
-  *
-  * Reads a timestamp from a device and correlates it to system time
-@@ -920,13 +1036,18 @@ int get_device_system_crosststamp(int (*get_time_fn)
- 				   struct system_counterval_t *sys_counterval,
- 				   void *ctx),
- 				  void *ctx,
-+				  struct system_time_snapshot *history_begin,
- 				  struct system_device_crosststamp *xtstamp)
- {
- 	struct system_counterval_t system_counterval;
- 	struct timekeeper *tk = &tk_core.timekeeper;
-+	cycle_t cycles, now, interval_start;
-+	unsigned int clock_was_set_seq;
- 	ktime_t base_real, base_raw;
- 	s64 nsec_real, nsec_raw;
-+	u8 cs_was_changed_seq;
- 	unsigned long seq;
-+	bool do_interp;
- 	int ret;
+  * e1000e_phc_gettime - Reads the current time from the hardware clock
+  * @ptp: ptp clock structure
+@@ -236,6 +314,13 @@ void e1000e_ptp_init(struct e1000_adapter *adapter)
+ 		break;
+ 	}
  
- 	do {
-@@ -946,6 +1067,22 @@ int get_device_system_crosststamp(int (*get_time_fn)
- 		 */
- 		if (tk->tkr_mono.clock != system_counterval.cs)
- 			return -ENODEV;
-+		cycles = system_counterval.cycles;
++#ifdef CONFIG_E1000E_HWTS
++	/* CPU must have ART and GBe must be from Sunrise Point or greater */
++	if (hw->mac.type >= e1000_pch_spt && boot_cpu_has(X86_FEATURE_ART))
++		adapter->ptp_clock_info.getcrosststamp =
++			e1000e_phc_getcrosststamp;
++#endif/*CONFIG_E1000E_HWTS*/
 +
-+		/*
-+		 * Check whether the system counter value provided by the
-+		 * device driver is on the current timekeeping interval.
-+		 */
-+		now = tk->tkr_mono.read(tk->tkr_mono.clock);
-+		interval_start = tk->tkr_mono.cycle_last;
-+		if (!cycle_between(interval_start, cycles, now)) {
-+			clock_was_set_seq = tk->clock_was_set_seq;
-+			cs_was_changed_seq = tk->cs_was_changed_seq;
-+			cycles = interval_start;
-+			do_interp = true;
-+		} else {
-+			do_interp = false;
-+		}
+ 	INIT_DELAYED_WORK(&adapter->systim_overflow_work,
+ 			  e1000e_systim_overflow_work);
  
- 		base_real = ktime_add(tk->tkr_mono.base,
- 				      tk_core.timekeeper.offs_real);
-@@ -959,6 +1096,38 @@ int get_device_system_crosststamp(int (*get_time_fn)
+diff --git a/drivers/net/ethernet/intel/e1000e/regs.h b/drivers/net/ethernet/intel/e1000e/regs.h
+index 1d5e0b7..0cb4d36 100644
+--- a/drivers/net/ethernet/intel/e1000e/regs.h
++++ b/drivers/net/ethernet/intel/e1000e/regs.h
+@@ -245,6 +245,10 @@
+ #define E1000_SYSTIML	0x0B600	/* System time register Low - RO */
+ #define E1000_SYSTIMH	0x0B604	/* System time register High - RO */
+ #define E1000_TIMINCA	0x0B608	/* Increment attributes register - RW */
++#define E1000_SYSSTMPL  0x0B648 /* HH Timesync system stamp low register */
++#define E1000_SYSSTMPH  0x0B64C /* HH Timesync system stamp hi register */
++#define E1000_PLTSTMPL  0x0B640 /* HH Timesync platform stamp low register */
++#define E1000_PLTSTMPH  0x0B644 /* HH Timesync platform stamp hi register */
+ #define E1000_RXMTRL	0x0B634	/* Time sync Rx EtherType and Msg Type - RW */
+ #define E1000_RXUDP	0x0B638	/* Time Sync Rx UDP Port - RW */
  
- 	xtstamp->sys_realtime = ktime_add_ns(base_real, nsec_real);
- 	xtstamp->sys_monoraw = ktime_add_ns(base_raw, nsec_raw);
-+
-+	/*
-+	 * Interpolate if necessary, adjusting back from the start of the
-+	 * current interval
-+	 */
-+	if (do_interp) {
-+		cycle_t partial_history_cycles, total_history_cycles;
-+		bool discontinuity;
-+
-+		/*
-+		 * Check that the counter value occurs after the provided
-+		 * history reference and that the history doesn't cross a
-+		 * clocksource change
-+		 */
-+		if (!history_begin ||
-+		    !cycle_between(history_begin->cycles,
-+				   system_counterval.cycles, cycles) ||
-+		    history_begin->cs_was_changed_seq != cs_was_changed_seq)
-+			return -EINVAL;
-+		partial_history_cycles = cycles - system_counterval.cycles;
-+		total_history_cycles = cycles - history_begin->cycles;
-+		discontinuity =
-+			history_begin->clock_was_set_seq != clock_was_set_seq;
-+
-+		ret = adjust_historical_crosststamp(history_begin,
-+						    partial_history_cycles,
-+						    total_history_cycles,
-+						    discontinuity, xtstamp);
-+		if (ret)
-+			return ret;
-+	}
-+
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(get_device_system_crosststamp);
 -- 
 1.9.1
