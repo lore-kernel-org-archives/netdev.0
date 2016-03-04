@@ -1,81 +1,265 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 08/12] man: Add a man page for the skbedit action
-Date: Fri,  4 Mar 2016 13:11:43 +0100
-Message-ID: <1457093507-25601-9-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 05/12] man: Add a man page for the pedit action
+Date: Fri,  4 Mar 2016 13:11:40 +0100
+Message-ID: <1457093507-25601-6-git-send-email-phil@nwl.cc>
 References: <1457093507-25601-1-git-send-email-phil@nwl.cc>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:53702 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:54009 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754287AbcCDMMh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Mar 2016 07:12:37 -0500
+	id S1754159AbcCDMMb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2016 07:12:31 -0500
 Received: from mail.nwl.cc (orbyte.nwl.cc [127.0.0.1])
-	by mail.nwl.cc (Postfix) with ESMTP id 2060A6AF5C
-	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:36 +0100 (CET)
+	by mail.nwl.cc (Postfix) with ESMTP id D8F0F6AF5C
+	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:29 +0100 (CET)
 Received: from xsao (localhost [IPv6:::1])
-	by mail.nwl.cc (Postfix) with ESMTP id 05AEF6894E
-	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:35 +0100 (CET)
+	by mail.nwl.cc (Postfix) with ESMTP id B9FA56894E
+	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:29 +0100 (CET)
 In-Reply-To: <1457093507-25601-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Alexander Duyck <alexander.duyck@gmail.com>
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/tc-skbedit.8 | 45 +++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 45 insertions(+)
- create mode 100644 man/man8/tc-skbedit.8
+ man/man8/tc-pedit.8 | 230 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 230 insertions(+)
+ create mode 100644 man/man8/tc-pedit.8
 
-diff --git a/man/man8/tc-skbedit.8 b/man/man8/tc-skbedit.8
+diff --git a/man/man8/tc-pedit.8 b/man/man8/tc-pedit.8
 new file mode 100644
-index 0000000000000..b585a4d4253ba
+index 0000000000000..c30927ec50954
 --- /dev/null
-+++ b/man/man8/tc-skbedit.8
-@@ -0,0 +1,45 @@
-+.TH "SKB editing action in tc" 8 "12 Jan 2015" "iproute2" "Linux"
++++ b/man/man8/tc-pedit.8
+@@ -0,0 +1,230 @@
++.TH "Generic packet editor action in tc" 8 "12 Jan 2015" "iproute2" "Linux"
 +
 +.SH NAME
-+skbedit - SKB editing action
++pedit - generic packet editor action
 +.SH SYNOPSIS
 +.in +8
 +.ti -8
-+.BR tc " ... " "action skbedit " [ " queue_mapping
-+.IR QUEUE_MAPPING " ] ["
-+.B priority
-+.IR PRIORITY " ] ["
-+.B mark
-+.IR MARK " ]"
++.BR tc " ... " "action pedit munge " {
++.IR RAW_OP " | " LAYERED_OP " } [ " BRANCH " ]"
++
++.ti -8
++.IR RAW_OP " := "
++.BI offset " OFFSET"
++.RB "{ " u8 " | " u16 " | " u32 " } ["
++.IR AT_SPEC " ] " CMD_SPEC
++
++.ti -8
++.IR AT_SPEC " := "
++.BI at " AT " offmask " MASK " shift " SHIFT"
++
++.ti -8
++.IR LAYERED_OP " := { "
++.BI ip " IPHDR_FIELD"
++|
++.BI ip6 " IP6HDR_FIELD"
++|
++.BI udp " UDPHDR_FIELD"
++|
++.BI tcp " TCPHDR_FIELD"
++|
++.BI icmp " ICMPHDR_FIELD"
++.RI } " CMD_SPEC"
++
++.ti -8
++.IR IPHDR_FIELD " := { "
++.BR src " | " dst " | " tos " | " dsfield " | " ihl " | " protocol " |"
++.BR precedence " | " nofrag " | " firstfrag " | " ce " | " df " |"
++.BR mf " | " dport " | " sport " | " icmp_type " | " icmp_code " }"
++
++.ti -8
++.IR CMD_SPEC " := {"
++.BR clear " | " invert " | " set
++.IR VAL " | "
++.BR preserve " } [ " retain
++.IR RVAL " ]"
++
++.ti -8
++.IR BRANCH " := {"
++.BR reclassify " | " pipe " | " drop " | " shot " | " continue " | " pass " }"
 +.SH DESCRIPTION
 +The
-+.B skbedit
-+action allows to change a packet's associated meta data. It complements the
 +.B pedit
-+action, which in turn allows to change parts of the packet data itself.
++action can be used to change arbitrary packet data. The location of data to
++change can either be specified by giving an offset and size as in
++.IR RAW_OP ,
++or for header values by naming the header and field to edit the size is then
++chosen automatically based on the header field size. Currently this is supported
++only for IPv4 headers.
 +.SH OPTIONS
 +.TP
-+.BI queue_mapping " QUEUE_MAPPING"
-+Override the packet's transmit queue. Useful when applied to packets transmitted
-+over MQ-capable network interfaces.
-+.I QUEUE_MAPPING
-+is an unsigned 16bit value in decimal format.
++.BI offset " OFFSET " "\fR{ \fBu32 \fR| \fBu16 \fR| \fBu8 \fR}"
++Specify the offset at which to change data.
++.I OFFSET
++is a signed integer, it's base is automatically chosen (e.g. hex if prefixed by
++.B 0x
++or octal if prefixed by
++.BR 0 ).
++The second argument specifies the length of data to change, that is four bytes
++.RB ( u32 ),
++two bytes
++.RB ( u16 )
++or a single byte
++.RB ( u8 ).
 +.TP
-+.BI priority " PRIORITY"
-+Override the packet classification decision.
-+.I PRIORITY
-+is either
-+.BR root ", " none
-+or a hexadecimal major class ID optionally followed by a colon
-+.RB ( : )
-+and a hexadecimal minor class ID.
++.BI at " AT " offmask " MASK " shift " SHIFT"
++This is an optional part of
++.IR RAW_OP
++which allows to have a variable
++.I OFFSET
++depending on packet data at offset
++.IR AT ,
++which is binary ANDed with
++.I MASK
++and right-shifted by
++.I SHIFT
++before adding it to
++.IR OFFSET .
 +.TP
-+.BI mark " MARK"
-+Change the packet's firewall mark value.
-+.I MARK
-+is an unsigned 32bit value in automatically detected format (i.e., prefix with
-+.RB ' 0x '
-+for hexadecimal interpretation, etc.).
++.BI ip " IPHDR_FIELD"
++Change an IPv4 header field. The supported keywords for
++.I IPHDR_FIELD
++are:
++.RS
++.TP
++.B src
++.TQ
++.B dst
++Source or destination IP address, a four-byte value.
++.TP
++.B tos
++.TQ
++.B dsfield
++.TQ
++.B precedence
++Type Of Service field, an eight-bit value.
++.TP
++.B ihl
++Change the IP Header Length field, a four-bit value.
++.TP
++.B protocol
++Next-layer Protocol field, an eight-bit value.
++.TP
++.B nofrag
++.TQ
++.B firstfrag
++.TQ
++.B ce
++.TQ
++.B df
++.TQ
++.B mf
++Change IP header flags. Note that the value to pass to the
++.B set
++command is not just a bit value, but the full byte including the flags field.
++Though only the relevant bits of that value are respected, the rest ignored.
++.TP
++.B dport
++.TQ
++.B sport
++Destination or source port numbers, a 16-bit value. Indeed, IPv4 headers don't
++contain this information. Instead, this will set an offset which suits at least
++TCP and UDP if the IP header is of minimum size (20 bytes). If not, this will do
++unexpected things.
++.TP
++.B icmp_type
++.TQ
++.B icmp_code
++Again, this allows to change data past the actual IP header itself. It assumes
++an ICMP header is present immediately following the (minimal sized) IP header.
++If it is not or the latter is bigger than the minimum of 20 bytes, this will do
++unexpected things. These fields are eight-bit values.
++.RE
++.TP
++.B clear
++Clear the addressed data (i.e., set it to zero).
++.TP
++.B invert
++Swap every bit in the addressed data.
++.TP
++.BI set " VAL"
++Set the addressed data to a specific value. The size of
++.I VAL
++is defined by either one of the
++.BR u32 ", " u16 " or " u8
++keywords in
++.IR RAW_OP ,
++or the size of the addressed header field in
++.IR LAYERED_OP .
++.TP
++.B preserve
++Keep the addressed data as is.
++.TP
++.BI retain " RVAL"
++This optional extra part of
++.I CMD_SPEC
++allows to exclude bits from being changed.
++.TP
++.I BRANCH
++The following keywords allow to control how the tree of qdisc, classes,
++filters and actions is further traversed after this action.
++.RS
++.TP
++.B reclassify
++Restart with the first filter in the current list.
++.TP
++.B pipe
++Continue with the next action attached to the same filter.
++.TP
++.B drop
++.TQ
++.B shot
++Drop the packet.
++.TP
++.B continue
++Continue classification with the next filter in line.
++.TP
++.B pass
++Finish classification process and return to calling qdisc for further packet
++processing. This is the default.
++.RE
++.SH EXAMPLES
++Being able to edit packet data, one could do all kinds of things, such as e.g.
++implementing port redirection. Certainly not the most useful application, but
++as an example it should do:
++
++First, qdiscs need to be set up to attach filters to. For the receive path, a simple
++.B ingress
++qdisc will do, for transmit path a classful qdisc
++.RB ( HTB
++in this case) is necessary:
++
++.RS
++.EX
++tc qdisc replace dev eth0 root handle 1: htb
++tc qdisc add dev eth0 ingress handle ffff:
++.EE
++.RE
++
++Finally, a filter with
++.B pedit
++action can be added for each direction. In this case,
++.B u32
++is used matching on the port number to redirect from, while
++.B pedit
++then does the actual rewriting:
++
++.RS
++.EX
++tc filter add dev eth0 parent 1: u32 \\
++	match ip dport 23 0xffff \\
++	action pedit pedit munge ip dport set 22
++tc filter add dev eth0 parent ffff: u32 \\
++	match ip sport 22 0xffff \\
++	action pedit pedit munge ip sport set 23
++.EE
++.RE
 +.SH SEE ALSO
 +.BR tc (8),
-+.BR tc-pedit (8)
++.BR tc-htb (8),
++.BR tc-u32 (8)
 -- 
 2.7.2
