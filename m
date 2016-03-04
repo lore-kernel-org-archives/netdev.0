@@ -1,87 +1,126 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next v3 0/3] NSH and VxLAN-GPE
-Date: Fri, 4 Mar 2016 09:15:54 -0800
-Message-ID: <CALx6S341571mCHJc_xgRC-qC0b6xpZ-mnV2eGyMZiKvPvTGTCQ@mail.gmail.com>
-References: <1456830709-32052-1-git-send-email-brussell@brocade.com>
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Subject: Re: [PATCH net-next V2 06/16] net: fec: don't clear all rx queue bits
+ when just one is being checked
+Date: Fri, 4 Mar 2016 10:28:29 -0700
+Message-ID: <56D9C5BD.5060802@boundarydevices.com>
+References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
+ <1456360619-24390-7-git-send-email-troy.kisky@boundarydevices.com>
+ <VI1PR0401MB18550FD3A944783B88BEDB64FFBE0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+ <56D9B54B.8020309@boundarydevices.com>
+ <20160304163854.GD19428@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Brian Russell <brussell@brocade.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Fugang Duan <fugang.duan@nxp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"b38611@freescale.com" <b38611@freescale.com>,
+	"fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
+	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	"tremyfr@gmail.com" <tremyfr@gmail.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"laci@boundarydevices.com" <laci@boundarydevices.com>,
+	"shawnguo@kernel.org" <shawnguo@kernel.org>,
+	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
+	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
+	"sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>,
+	"arnd@arndb.de" <arnd@arndb.de>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:34398 "EHLO
-	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755146AbcCDRPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 12:15:55 -0500
-Received: by mail-io0-f196.google.com with SMTP id l127so5572483iof.1
-        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 09:15:55 -0800 (PST)
-In-Reply-To: <1456830709-32052-1-git-send-email-brussell@brocade.com>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:36718 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751415AbcCDR2b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 12:28:31 -0500
+Received: by mail-pf0-f172.google.com with SMTP id 63so38507597pfe.3
+        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 09:28:30 -0800 (PST)
+In-Reply-To: <20160304163854.GD19428@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 1, 2016 at 3:11 AM, Brian Russell <brussell@brocade.com> wrote:
-> These patches add a new module to support encap/decap of Network
-> Service Header (NSH) as defined in:
->
-> https://tools.ietf.org/html/draft-ietf-sfc-nsh-01
->
-> Both NSH Type 1 and Type 2 metadata are supported with a simple registration
-> hook to allow listeners to register to see packets with Type 1 or a specific
-> class of Type 2 metadata. NSH could be added to packets sent over a variety
-> of link types, eg. VxLAN, GRE, ethernet.
->
-> v2 - fix copyright notices and tidy up use of types
->
-> v3 - fix various style issues in nsh module
->      remove VxLAN-GPE changes
->      add nsh logging module as example
->      add nsh netfilter encap target as example
->
-> The previous version included mods to allow NSH over VxLAN-GPE but I've
-> withdrawn this as VxLAN-GPE is currently being added in a much more complete
-> patchset. My intention would be to add NSH support on top of that once it's
-> applied.
->
-What about NSH/GRE, NSH/Ethernet, and NSH/UDP?
+On 3/4/2016 9:38 AM, Russell King - ARM Linux wrote:
+> On Fri, Mar 04, 2016 at 09:18:19AM -0700, Troy Kisky wrote:
+>> On 3/4/2016 2:11 AM, Fugang Duan wrote:
+>>> From: Troy Kisky <troy.kisky@boundarydevices.com>Sent: Thursday, February 25, 2016 8:37 AM
+>>>> To: netdev@vger.kernel.org; davem@davemloft.net; b38611@freescale.com
+>>>> Cc: fabio.estevam@freescale.com; l.stach@pengutronix.de; andrew@lunn.ch;
+>>>> tremyfr@gmail.com; linux@arm.linux.org.uk; linux-arm-
+>>>> kernel@lists.infradead.org; laci@boundarydevices.com; shawnguo@kernel.org;
+>>>> johannes@sipsolutions.net; stillcompiling@gmail.com;
+>>>> sergei.shtylyov@cogentembedded.com; arnd@arndb.de; Troy Kisky
+>>>> <troy.kisky@boundarydevices.com>
+>>>> Subject: [PATCH net-next V2 06/16] net: fec: don't clear all rx queue bits when
+>>>> just one is being checked
+>>>>
+>>>> FEC_ENET_RXF is 3 separate bits, we only check one queue at a time. So, when
+>>>> the last queue is being checked, it is bad to remove the interrupt on the 1st
+>>>> queue.
+>>>>
+>>>> Also, since this is now done in the napi routine and not the interrupt, it is not
+>>>> needed.
+>>>>
+>>>> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+>>>> ---
+>>>>  drivers/net/ethernet/freescale/fec_main.c | 2 --
+>>>>  1 file changed, 2 deletions(-)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+>>>> b/drivers/net/ethernet/freescale/fec_main.c
+>>>> index 610cf6c..791f385 100644
+>>>> --- a/drivers/net/ethernet/freescale/fec_main.c
+>>>> +++ b/drivers/net/ethernet/freescale/fec_main.c
+>>>> @@ -1338,8 +1338,6 @@ static int fec_rxq(struct net_device *ndev, struct
+>>>> fec_enet_private *fep,
+>>>>  			break;
+>>>>  		pkt_received++;
+>>>>
+>>>> -		writel(FEC_ENET_RXF, fep->hwp + FEC_IEVENT);
+>>>> -
+>>>
+>>> We should clear the related rx queue ievent, not remove the code.
+>>> Pls see commit: db3421c114cf that was submitted by Russell King.
+>>>
+>>> No ack the patch.
+>>
+>>
+>> This is now done in patch #4 "net: fec: reduce interrupts" and you could argue
+>> that it should be squashed into that patch. But I like separating changes
+>> as much as possible.
+>>
+>>
+>> Russell, this patch and patch #4 will likely need your ack before it will be applied.
+>> Can you take a look please?
+> 
+> I stopped caring about the FEC ethernet driver about 18 months ago,
+> after I ended up dropping a significant pile of fixes on the floor
+> through the huge number of conflicts and the shere effort of
+> constantly trying to move them forward.
+> 
+> My patch series tend to be large because I put concentrated effort
+> into something for a month, which then gives a problem if conflicts
+> come up later and the series has to be effectively rewritten from
+> scratch.  It was after the second or third time of facing an almost
+> total rewrite that happened that I just gave up.
+> 
+> I've toyed with the idea of forking the driver, but I wouldn't have
+> time to maintain such a thing.  So, right now I just put up with all
+> the bad quirks, and reset/power cycle the boards when things go wrong.
+> Right now, I just disable runtime PM support on the FEC to get
+> stability here. :)
+> 
+> Sorry, but I can't be of more help.
+> 
 
-> I've added the NSH logging module to illustrate the use of the simple
-> mechanism to register for incoming decap'd NSH metadata.
->
 
-Shouldn't that be in netfilter also?
+I can sympathize, I've been almost ready to post my patches numerous times
+when a huge patch set would hit, and conflict everywhere. Including once
+about 18 months ago :)
 
-> I've added the NSH netfilter target to illustrate metadata being NSH
-> encap'd.
->
-I think this patch set would be more compelling with an actual real
-use case of SFC functionality. The ability to parse this stuff and
-pass it to various layers or log that we are receiving it is nice and
-all, but what is the functionality that we really need the kernel to
-support here?
+That's why I got trigger happy, and first posted my too large set before
+net-next was opened. It didn't help though, there was already a conflict
+in net.
 
-Tom
 
-> Brian Russell (3):
->   nsh: encapsulation module
->   nsh: logging module
->   nsh: netfilter target
->
->  include/net/nsh.h                     | 147 +++++++++++++++
->  include/uapi/linux/if_ether.h         |   1 +
->  include/uapi/linux/netfilter/xt_NSH.h |  25 +++
->  net/ipv4/Kconfig                      |  18 ++
->  net/ipv4/Makefile                     |   2 +
->  net/ipv4/nsh.c                        | 335 ++++++++++++++++++++++++++++++++++
->  net/ipv4/nsh_log.c                    | 135 ++++++++++++++
->  net/netfilter/Kconfig                 |   9 +
->  net/netfilter/Makefile                |   1 +
->  net/netfilter/xt_NSH.c                |  95 ++++++++++
->  10 files changed, 768 insertions(+)
->  create mode 100644 include/net/nsh.h
->  create mode 100644 include/uapi/linux/netfilter/xt_NSH.h
->  create mode 100644 net/ipv4/nsh.c
->  create mode 100644 net/ipv4/nsh_log.c
->  create mode 100644 net/netfilter/xt_NSH.c
->
-> --
-> 2.1.4
->
+Troy
