@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 4/7] mlx5: use napi_alloc_skb API to get SKB bulk
- allocations
-Date: Fri, 04 Mar 2016 14:01:53 +0100
-Message-ID: <20160304130153.32651.26827.stgit@firesoul>
+Subject: [net-next PATCH 3/7] net: bulk alloc and reuse of SKBs in NAPI
+ context
+Date: Fri, 04 Mar 2016 14:01:43 +0100
+Message-ID: <20160304130143.32651.33813.stgit@firesoul>
 References: <20160304130054.32651.51776.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,85 +13,149 @@ Cc: eugenia@mellanox.com, Alexander Duyck <alexander.duyck@gmail.com>,
 	gerlitz.or@gmail.com
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37617 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52462 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751313AbcCDNCA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Mar 2016 08:02:00 -0500
+	id S1752387AbcCDNBs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2016 08:01:48 -0500
 In-Reply-To: <20160304130054.32651.51776.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Activate the bulk alloc API, simply by changing mlx5 from using
-netdev_alloc_skb() to using napi_alloc_skb().
+This patch introduce bulk alloc of SKBs and allow reuse of SKBs
+free'ed in same softirq cycle.  SKBs are normally free'ed during TX
+completion, but most high speed drivers also cleanup TX ring during
+NAPI RX poll cycle.  Thus, if using napi_consume_skb/__kfree_skb_defer,
+SKBs will be avail in the napi_alloc_cache->skb_cache.
+
+If no SKBs are avail for reuse, then only bulk alloc 8 SKBs, to limit
+the potential overshooting unused SKBs needed to free'ed when NAPI
+cycle ends (flushed in net_rx_action via __kfree_skb_flush()).
+
+Generalize ___build_skb() to allow passing it a preallocated SKB.
+
+I've previously demonstrated a 1% speedup for IPv4 forwarding, when
+used on the ixgbe driver.  If SKB alloc and free happens on different
+CPUs (like in RPS use-case) the performance benefit is expected to
+increase.
+
+All drivers using the napi_alloc_skb() call will benefit from
+this change automatically.
+
+Joint work with Alexander Duyck.
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |    9 +++++----
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c |    2 +-
- 3 files changed, 7 insertions(+), 6 deletions(-)
+ net/core/skbuff.c |   71 ++++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 45 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index a0708782eb78..38ed89b7145d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -621,7 +621,7 @@ void mlx5e_cq_error_event(struct mlx5_core_cq *mcq, enum mlx5_event event);
- int mlx5e_napi_poll(struct napi_struct *napi, int budget);
- bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget);
- int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget);
--bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq);
-+bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq, struct napi_struct *napi);
- struct mlx5_cqe64 *mlx5e_get_cqe(struct mlx5e_cq *cq);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 7af7ec635d90..96fb7933b614 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -281,32 +281,14 @@ nodata:
+ }
+ EXPORT_SYMBOL(__alloc_skb);
  
- void mlx5e_update_stats(struct mlx5e_priv *priv);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 519a07f253f9..5ef9772ff708 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -42,12 +42,13 @@ static inline bool mlx5e_rx_hw_stamp(struct mlx5e_tstamp *tstamp)
+-/**
+- * __build_skb - build a network buffer
+- * @data: data buffer provided by caller
+- * @frag_size: size of data, or 0 if head was kmalloced
+- *
+- * Allocate a new &sk_buff. Caller provides space holding head and
+- * skb_shared_info. @data must have been allocated by kmalloc() only if
+- * @frag_size is 0, otherwise data should come from the page allocator
+- *  or vmalloc()
+- * The return is the new skb buffer.
+- * On a failure the return is %NULL, and @data is not freed.
+- * Notes :
+- *  Before IO, driver allocates only data buffer where NIC put incoming frame
+- *  Driver should add room at head (NET_SKB_PAD) and
+- *  MUST add room at tail (SKB_DATA_ALIGN(skb_shared_info))
+- *  After IO, driver calls build_skb(), to allocate sk_buff and populate it
+- *  before giving packet to stack.
+- *  RX rings only contains data buffers, not full skbs.
+- */
+-struct sk_buff *__build_skb(void *data, unsigned int frag_size)
++/* Allows skb being (pre)allocated by caller */
++static inline
++struct sk_buff *___build_skb(void *data, unsigned int frag_size,
++			     struct sk_buff *skb)
+ {
+ 	struct skb_shared_info *shinfo;
+-	struct sk_buff *skb;
+ 	unsigned int size = frag_size ? : ksize(data);
+ 
+-	skb = kmem_cache_alloc(skbuff_head_cache, GFP_ATOMIC);
+ 	if (!skb)
+ 		return NULL;
+ 
+@@ -331,6 +313,34 @@ struct sk_buff *__build_skb(void *data, unsigned int frag_size)
+ 	return skb;
  }
  
- static inline int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq,
--				     struct mlx5e_rx_wqe *wqe, u16 ix)
-+				     struct mlx5e_rx_wqe *wqe, u16 ix,
-+				     struct napi_struct *napi)
- {
- 	struct sk_buff *skb;
- 	dma_addr_t dma_addr;
++/**
++ * __build_skb - build a network buffer
++ * @data: data buffer provided by caller
++ * @frag_size: size of data, or 0 if head was kmalloced
++ *
++ * Allocate a new &sk_buff. Caller provides space holding head and
++ * skb_shared_info. @data must have been allocated by kmalloc() only if
++ * @frag_size is 0, otherwise data should come from the page allocator
++ *  or vmalloc()
++ * The return is the new skb buffer.
++ * On a failure the return is %NULL, and @data is not freed.
++ * Notes :
++ *  Before IO, driver allocates only data buffer where NIC put incoming frame
++ *  Driver should add room at head (NET_SKB_PAD) and
++ *  MUST add room at tail (SKB_DATA_ALIGN(skb_shared_info))
++ *  After IO, driver calls build_skb(), to allocate sk_buff and populate it
++ *  before giving packet to stack.
++ *  RX rings only contains data buffers, not full skbs.
++ */
++struct sk_buff *__build_skb(void *data, unsigned int frag_size)
++{
++	struct sk_buff *skb;
++	unsigned int size = frag_size ? : ksize(data);
++
++	skb = kmem_cache_alloc(skbuff_head_cache, GFP_ATOMIC);
++	return ___build_skb(data, size, skb);
++}
++
+ /* build_skb() is wrapper over __build_skb(), that specifically
+  * takes care of skb->head and skb->pfmemalloc
+  * This means that if @frag_size is not zero, then @data must be backed
+@@ -490,8 +500,8 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
  
--	skb = netdev_alloc_skb(rq->netdev, rq->wqe_sz);
-+	skb = napi_alloc_skb(napi, rq->wqe_sz);
- 	if (unlikely(!skb))
- 		return -ENOMEM;
+ 	len += NET_SKB_PAD + NET_IP_ALIGN;
  
-@@ -76,7 +77,7 @@ err_free_skb:
- 	return -ENOMEM;
- }
+-	if ((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
+-	    (gfp_mask & (__GFP_DIRECT_RECLAIM | GFP_DMA))) {
++	if (unlikely((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
++		     (gfp_mask & (__GFP_DIRECT_RECLAIM | GFP_DMA)))) {
+ 		skb = __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
+ 		if (!skb)
+ 			goto skb_fail;
+@@ -508,11 +518,20 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
+ 	if (unlikely(!data))
+ 		return NULL;
  
--bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
-+bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq, struct napi_struct *napi)
- {
- 	struct mlx5_wq_ll *wq = &rq->wq;
+-	skb = __build_skb(data, len);
+-	if (unlikely(!skb)) {
++#define BULK_ALLOC_SIZE 8
++	if (!nc->skb_count) {
++		nc->skb_count = kmem_cache_alloc_bulk(skbuff_head_cache,
++						      gfp_mask, BULK_ALLOC_SIZE,
++						      nc->skb_cache);
++	}
++	if (likely(nc->skb_count)) {
++		skb = (struct sk_buff *)nc->skb_cache[--nc->skb_count];
++	} else {
++		/* alloc bulk failed */
+ 		skb_free_frag(data);
+ 		return NULL;
+ 	}
++	skb = ___build_skb(data, len, skb);
  
-@@ -86,7 +87,7 @@ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
- 	while (!mlx5_wq_ll_is_full(wq)) {
- 		struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(wq, wq->head);
- 
--		if (unlikely(mlx5e_alloc_rx_wqe(rq, wqe, wq->head)))
-+		if (unlikely(mlx5e_alloc_rx_wqe(rq, wqe, wq->head, napi)))
- 			break;
- 
- 		mlx5_wq_ll_push(wq, be16_to_cpu(wqe->next.next_wqe_index));
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-index d244acee63a5..8fd07c8087e3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-@@ -64,7 +64,7 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
- 
- 	work_done = mlx5e_poll_rx_cq(&c->rq.cq, budget);
- 	busy |= work_done == budget;
--	busy |= mlx5e_post_rx_wqes(&c->rq);
-+	busy |= mlx5e_post_rx_wqes(&c->rq, napi);
- 
- 	if (busy)
- 		return budget;
+ 	/* use OR instead of assignment to avoid clearing of bits in mask */
+ 	if (nc->page.pfmemalloc)
