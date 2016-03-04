@@ -1,111 +1,43 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 07/12] man: Add a man page for the simple action
-Date: Fri,  4 Mar 2016 13:11:42 +0100
-Message-ID: <1457093507-25601-8-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 11/12] man: ship action man pages
+Date: Fri,  4 Mar 2016 13:11:46 +0100
+Message-ID: <1457093507-25601-12-git-send-email-phil@nwl.cc>
 References: <1457093507-25601-1-git-send-email-phil@nwl.cc>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:36980 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:52755 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751649AbcCDMMt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Mar 2016 07:12:49 -0500
+	id S1751466AbcCDMM4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2016 07:12:56 -0500
 Received: from mail.nwl.cc (orbyte.nwl.cc [127.0.0.1])
-	by mail.nwl.cc (Postfix) with ESMTP id 9C63F6AF5C
-	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:48 +0100 (CET)
+	by mail.nwl.cc (Postfix) with ESMTP id DBDE26BF3E
+	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:54 +0100 (CET)
 Received: from xsao (localhost [IPv6:::1])
-	by mail.nwl.cc (Postfix) with ESMTP id 804996894E
-	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:48 +0100 (CET)
+	by mail.nwl.cc (Postfix) with ESMTP id BFD0D6AF5C
+	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:54 +0100 (CET)
 In-Reply-To: <1457093507-25601-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/tc-simple.8 | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 76 insertions(+)
- create mode 100644 man/man8/tc-simple.8
+ man/man8/Makefile | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/man/man8/tc-simple.8 b/man/man8/tc-simple.8
-new file mode 100644
-index 0000000000000..2206dc3b88614
---- /dev/null
-+++ b/man/man8/tc-simple.8
-@@ -0,0 +1,76 @@
-+.TH "Simple action in tc" 8 "12 Jan 2015" "iproute2" "Linux"
-+
-+.SH NAME
-+simple - basic example action
-+.SH SYNOPSIS
-+.in +8
-+.ti -8
-+.BR tc " ... " "action simple"
-+.I STRING
-+.SH DESCRIPTION
-+This is a pedagogical example rather than an actually useful action. Upon every access, it prints the given
-+.I STRING
-+which may be of arbitrary length.
-+.SH OPTIONS
-+.TP
-+.I STRING
-+The actual string to print.
-+.SH EXAMPLES
-+The following example makes the kernel yell "Incoming ICMP!" every time it sees
-+an incoming ICMP on eth0. Steps are:
-+.IP 1) 4
-+Add an ingress qdisc point to eth0
-+.IP 2) 4
-+Start a chain on ingress of eth0 that first matches ICMP then invokes the
-+simple action to shout.
-+.IP 3) 4
-+display stats and show that no packet has been seen by the action
-+.IP 4) 4
-+Send one ping packet to google (expect to receive a response back)
-+.IP 5) 4
-+grep the logs to see the logged message
-+.IP 6) 4
-+display stats again and observe increment by 1
-+
-+.RE
-+.EX
-+  hadi@noma1:$ tc qdisc add dev eth0 ingress
-+  hadi@noma1:$tc filter add dev eth0 parent ffff: protocol ip prio 5 \\
-+	 u32 match ip protocol 1 0xff flowid 1:1 action simple "Incoming ICMP"
-+
-+  hadi@noma1:$ sudo tc -s filter ls  dev eth0 parent ffff:
-+   filter protocol ip pref 5 u32
-+   filter protocol ip pref 5 u32 fh 800: ht divisor 1
-+   filter protocol ip pref 5 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:1
-+     match 00010000/00ff0000 at 8
-+	action order 1: Simple <Incoming ICMP>
-+	 index 4 ref 1 bind 1 installed 29 sec used 29 sec
-+	 Action statistics:
-+		Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-+		backlog 0b 0p requeues 0
-+
-+
-+  hadi@noma1$ ping -c 1 www.google.ca
-+  PING www.google.ca (74.125.225.120) 56(84) bytes of data.
-+  64 bytes from ord08s08-in-f24.1e100.net (74.125.225.120): icmp_req=1 ttl=53 time=31.3 ms
-+
-+  --- www.google.ca ping statistics ---
-+  1 packets transmitted, 1 received, 0% packet loss, time 0ms
-+  rtt min/avg/max/mdev = 31.316/31.316/31.316/0.000 ms
-+
-+  hadi@noma1$ dmesg | grep simple
-+  [135354.473951] simple: Incoming ICMP_1
-+
-+  hadi@noma1$ sudo tc/tc -s filter ls  dev eth0 parent ffff:
-+  filter protocol ip pref 5 u32
-+  filter protocol ip pref 5 u32 fh 800: ht divisor 1
-+  filter protocol ip pref 5 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:1
-+    match 00010000/00ff0000 at 8
-+	action order 1: Simple <Incoming ICMP>
-+	 index 4 ref 1 bind 1 installed 206 sec used 67 sec
-+	Action statistics:
-+	Sent 84 bytes 1 pkt (dropped 0, overlimits 0 requeues 0)
-+	backlog 0b 0p requeues 0
-+.EE
-+.SH SEE ALSO
-+.BR tc (8)
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index 2f77640676df5..d3fdf66ab11d4 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -14,7 +14,9 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.
+ 	tipc.8 tipc-bearer.8 tipc-link.8 tipc-media.8 tipc-nametable.8 \
+ 	tipc-node.8 tipc-socket.8 \
+ 	tc-basic.8 tc-cgroup.8 tc-flow.8 tc-flower.8 tc-fw.8 tc-route.8 \
+-	tc-tcindex.8 tc-u32.8
++	tc-tcindex.8 tc-u32.8 \
++	tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8 \
++	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8
+ 
+ all: $(TARGETS)
+ 
 -- 
 2.7.2
