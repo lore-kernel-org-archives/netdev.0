@@ -1,45 +1,43 @@
-From: Lisheng <lisheng011@huawei.com>
-Subject: [PATCH net 0/2] net: hns: fixed the pause ctl bug
-Date: Fri, 4 Mar 2016 12:40:48 +0800
-Message-ID: <1457066450-72395-1-git-send-email-lisheng011@huawei.com>
+From: Sathya Perla <sathya.perla@broadcom.com>
+Subject: Re: [PATCH 1/1] be2net: Don't leak iomapped memory on removal.
+Date: Fri, 4 Mar 2016 10:30:35 +0530
+Message-ID: <CAKvpyk2y2N=1a9XDGq4fW=obn2dHa23+yBSJy+d1jUzhUS7i2Q@mail.gmail.com>
+References: <1457044549-10563-1-git-send-email-dougmill@linux.vnet.ibm.com>
+	<1457044549-10563-2-git-send-email-dougmill@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: haifeng.wei@huawei.com, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, xuwei5@hisilicon.com, linuxarm@huawei.com,
- linux-arm-kernel@lists.infradead.org, kenneth-lee-2012@foxmail.com
-To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
- <liguozhu@huawei.com>, <huangdaode@hisilicon.com>,
- <lisheng011@huawei.com>, <yankejian@huawei.com>, <arnd@arndb.de>,
- <andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
- <chenny.xu@huawei.com>, <ivecera@redhat.com>, <fengguang.wu@intel.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org,
+	Ajit Kumar Khaparde <ajit.khaparde@broadcom.com>,
+	Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>,
+	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+	Somnath Kotur <somnath.kotur@broadcom.com>
+To: Douglas Miller <dougmill@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f172.google.com ([209.85.161.172]:35638 "EHLO
+	mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750824AbcCDFAg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 00:00:36 -0500
+Received: by mail-yw0-f172.google.com with SMTP id g127so36388598ywf.2
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 21:00:35 -0800 (PST)
+In-Reply-To: <1457044549-10563-2-git-send-email-dougmill@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The change is for supporting pause in V2 chip:
-	service ports can close pause-rx;
-	debug ports can open pause-rx/tx.
+On Fri, Mar 4, 2016 at 4:05 AM, Douglas Miller
+<dougmill@linux.vnet.ibm.com> wrote:
+> The adapter->pcicfg resource is either mapped via pci_iomap() or
+> derived from adapter->db. During be_remove() this resource was ignored
+> and so could remain mapped after remove.
+>
+> Add a flag to track whether adapter->pcicfg was mapped or not, then
+> use that flag in be_unmap_pci_bars() to unmap if required.
+>
+> Signed-off-by: Douglas Miller <dougmill@linux.vnet.ibm.com>
 
-Lisheng (2):
-  net: hns: fixed the pause ctl bug
-  net: hns: update pause regs to dump function
+Acked-by: Sathya Perla <sathya.perla@broadcom.com>
 
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  | 20 +++++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 30 +++------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 71 ++++++++++++++++++----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  4 ++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |  6 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  6 ++
- 6 files changed, 98 insertions(+), 39 deletions(-)
+Could you pls add the "fixes" tag line to this patch:
+Fixes: 25848c901 ("use PCI MMIO read instead of config read for errors")
 
--- 
-1.9.1
+thanks for the fix,
+-Sathya
