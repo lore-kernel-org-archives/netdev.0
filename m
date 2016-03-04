@@ -1,43 +1,44 @@
-From: Sathya Perla <sathya.perla@broadcom.com>
-Subject: Re: [PATCH 1/1] be2net: Don't leak iomapped memory on removal.
-Date: Fri, 4 Mar 2016 10:30:35 +0530
-Message-ID: <CAKvpyk2y2N=1a9XDGq4fW=obn2dHa23+yBSJy+d1jUzhUS7i2Q@mail.gmail.com>
-References: <1457044549-10563-1-git-send-email-dougmill@linux.vnet.ibm.com>
-	<1457044549-10563-2-git-send-email-dougmill@linux.vnet.ibm.com>
+From: Michal Kazior <michal.kazior@tieto.com>
+Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
+Date: Fri, 4 Mar 2016 07:32:24 +0100
+Message-ID: <CA+BoTQk6J7kgdie9aX24MB+8PxN3oFUh0eVdmVrdyptW5RxQXg@mail.gmail.com>
+References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
+	<E1abfnE-0000VS-00@www.xplot.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org,
-	Ajit Kumar Khaparde <ajit.khaparde@broadcom.com>,
-	Padmanabh Ratnakar <padmanabh.ratnakar@broadcom.com>,
-	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
-	Somnath Kotur <somnath.kotur@broadcom.com>
-To: Douglas Miller <dougmill@linux.vnet.ibm.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Felix Fietkau <nbd@openwrt.org>, andrewmcgr@google.com,
+	apenwarr@google.com
+To: Tim Shepard <shep@alum.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f172.google.com ([209.85.161.172]:35638 "EHLO
-	mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750824AbcCDFAg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 00:00:36 -0500
-Received: by mail-yw0-f172.google.com with SMTP id g127so36388598ywf.2
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 21:00:35 -0800 (PST)
-In-Reply-To: <1457044549-10563-2-git-send-email-dougmill@linux.vnet.ibm.com>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:38485 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751088AbcCDGcZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 01:32:25 -0500
+Received: by mail-wm0-f53.google.com with SMTP id l68so17196172wml.1
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 22:32:25 -0800 (PST)
+In-Reply-To: <E1abfnE-0000VS-00@www.xplot.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 4, 2016 at 4:05 AM, Douglas Miller
-<dougmill@linux.vnet.ibm.com> wrote:
-> The adapter->pcicfg resource is either mapped via pci_iomap() or
-> derived from adapter->db. During be_remove() this resource was ignored
-> and so could remain mapped after remove.
->
-> Add a flag to track whether adapter->pcicfg was mapped or not, then
-> use that flag in be_unmap_pci_bars() to unmap if required.
->
-> Signed-off-by: Douglas Miller <dougmill@linux.vnet.ibm.com>
+On 4 March 2016 at 03:48, Tim Shepard <shep@alum.mit.edu> wrote:
+[...]
+> (I am interested in knowing what other mac80211 drivers have been
+>  modified to use the mac80211 intermediate software queues.   I know
+>  Michal mentioned he has patches for ath10k that are not yet released=
+,
+>  and I know Felix is finishing up the mt76 driver which uses them.)
 
-Acked-by: Sathya Perla <sathya.perla@broadcom.com>
+Patches for ath10k are under review since quite some time now (but are
+not merged yet). The latest re-spin is:
 
-Could you pls add the "fixes" tag line to this patch:
-Fixes: 25848c901 ("use PCI MMIO read instead of config read for errors")
+  http://lists.infradead.org/pipermail/ath10k/2016-March/006923.html
 
-thanks for the fix,
--Sathya
+
+Micha=C5=82
