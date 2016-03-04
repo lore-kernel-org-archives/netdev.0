@@ -1,135 +1,88 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next V2 01/10] net/flower: Introduce hardware offload
- support
-Date: Fri, 04 Mar 2016 09:01:39 -0800
-Message-ID: <56D9BF73.3050101@gmail.com>
-References: <1457016960-27832-1-git-send-email-amir@vadai.me> <1457016960-27832-2-git-send-email-amir@vadai.me>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: pull-request: wireless-drivers 2016-02-18
+Date: Fri, 4 Mar 2016 11:14:09 -0600
+Message-ID: <56D9C261.6000900@lwfinger.net>
+References: <87mvqyqbqp.fsf@kamboji.qca.qualcomm.com>
+ <CAMuHMdWVJ+rC1w_-mHdWhDJ_q++W_hp-Fg4JTjSSSseS1aDd5Q@mail.gmail.com>
+ <87y49yw9be.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>
-To: Amir Vadai <amir@vadai.me>, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Kalle Valo <kvalo@codeaurora.org>,
+	Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33898 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754763AbcCDRB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 12:01:56 -0500
-Received: by mail-pf0-f194.google.com with SMTP id 184so3446732pff.1
-        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 09:01:56 -0800 (PST)
-In-Reply-To: <1457016960-27832-2-git-send-email-amir@vadai.me>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:35810 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751415AbcCDROM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 12:14:12 -0500
+In-Reply-To: <87y49yw9be.fsf@kamboji.qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-03-03 06:55 AM, Amir Vadai wrote:
-> This patch is based on a patch made by John Fastabend.
-> It adds support for offloading cls_flower.
-> when NETIF_F_HW_TC is on:
->   flags = 0       => Rule will be processed twice - by hardware, and if
->                      still relevant, by software.
->   flags = SKIP_HW => Rull will be processed by software only
-> 
-> If hardare fail/not capabale to apply the rule, operation will fail.
-> 
-> Suggested-by: John Fastabend <john.r.fastabend@intel.com>
-> Signed-off-by: Amir Vadai <amir@vadai.me>
-> ---
+On 03/04/2016 09:29 AM, Kalle Valo wrote:
+> (Adding Larry)
+>
+> Geert Uytterhoeven <geert@linux-m68k.org> writes:
+>
+>> On Thu, Feb 18, 2016 at 4:28 PM, Kalle Valo <kvalo@codeaurora.org> w=
+rote:
+>>
+>>> rtlwifi
+>>>
+>>> * fix broken VHT (802.11ac) support, reported by Linus
+>>
+>> That's commit d76d65fd26951498144029c24852c4d54ee512d9
+>>
+>> drivers/net/wireless/realtek/rtlwifi/rc.c: In function
+>> =E2=80=98_rtl_rc_rate_set_series=E2=80=99:
+>> drivers/net/wireless/realtek/rtlwifi/rc.c:144: warning: comparison i=
+s
+>> always false due to limited range of data type
+>>
+>>                  if (sta && sta->vht_cap.vht_supported &&
+>>                      (wireless_mode =3D=3D WIRELESS_MODE_AC_5G ||
+>>                       wireless_mode =3D=3D WIRELESS_MODE_AC_24G ||
+>>                       wireless_mode =3D=3D WIRELESS_MODE_AC_ONLY))
+>>                          rate->flags |=3D IEEE80211_TX_RC_VHT_MCS;
+>>
+>> u8 wireless_mode =3D 0;
+>>
+>> enum wireless_mode {
+>>          ...
+>>          WIRELESS_MODE_AC_ONLY =3D 0x100,
+>>
+>> How is that supposed to work?
+>
+> I have no idea what could be the difference, for example, between AC_=
+5G
+> and AC_ONLY. Maybe AC_ONLY mode is not really used in normal setups a=
+nd
+> that's why the bug doesn't break anything? Larry, do you know?
+>
+> Anyway, Larry has a patch for this but I'm planning to send it to 4.6=
+ as
+> I didn't think it as that urgent:
+>
+> rtlwifi: Fix size of wireless mode variable
+>
+> https://patchwork.kernel.org/patch/8425191/
 
-[...]
+That WIRELESS_MODE_AC_ONLY mode is part of a recent commit to a repo th=
+at=20
+Realtek and I use as a place for their most recent changes. As I do not=
+ have,=20
+nor want, an NDA with them, I could only speculate about their reasons =
+for such=20
+a mode. I included it because I was touching that portion of the code.=20
+Unfortunately, I did not catch the associated change in the variable si=
+ze.
 
->  static bool fl_destroy(struct tcf_proto *tp, bool force)
->  {
->  	struct cls_fl_head *head = rtnl_dereference(tp->root);
-> @@ -174,6 +220,7 @@ static bool fl_destroy(struct tcf_proto *tp, bool force)
->  		return false;
->  
->  	list_for_each_entry_safe(f, next, &head->filters, list) {
-> +		fl_hw_destroy_filter(tp, (u64)f);
->  		list_del_rcu(&f->list);
->  		call_rcu(&f->rcu, fl_destroy_filter);
->  	}
-> @@ -454,11 +501,13 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
->  		     u32 handle, struct nlattr **tca,
->  		     unsigned long *arg, bool ovr)
->  {
-> +	struct net_device *dev = tp->q->dev_queue->dev;
->  	struct cls_fl_head *head = rtnl_dereference(tp->root);
->  	struct cls_fl_filter *fold = (struct cls_fl_filter *) *arg;
->  	struct cls_fl_filter *fnew;
->  	struct nlattr *tb[TCA_FLOWER_MAX + 1];
->  	struct fl_flow_mask mask = {};
-> +	u32 flags = 0;
->  	int err;
->  
->  	if (!tca[TCA_OPTIONS])
-> @@ -486,6 +535,9 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
->  	}
->  	fnew->handle = handle;
->  
-> +	if (tb[TCA_FLOWER_FLAGS])
-> +		flags = nla_get_u32(tb[TCA_FLOWER_FLAGS]);
-> +
->  	err = fl_set_parms(net, tp, fnew, &mask, base, tb, tca[TCA_RATE], ovr);
->  	if (err)
->  		goto errout;
-> @@ -498,9 +550,22 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
->  				     head->ht_params);
->  	if (err)
->  		goto errout;
-> -	if (fold)
-> +
-> +	err = fl_hw_replace_filter(tp,
-> +				   &head->dissector,
-> +				   &mask.key,
-> +				   &fnew->key,
-> +				   &fnew->exts,
-> +				   (u64)fnew,
-> +				   flags);
-> +	if (err)
-> +		goto err_hash_remove;
-> +
+Saving the second patch for 4.6 is the correct action.
 
-This behaviour is different than how I did u32 in the u32 case I just
-let the software case get loaded and do not throw any errors. The
-intent was if we required a HW entry we would explicitly state that
-with the SKIP_SW (to be implemented) flag. This error path seems
-to block the software filter when the hardware fails.
-
-I think it would be best to do the same as u32 here and use the error
-path only if SKIP_SW is set. Or if you really want an error path on
-SW/HW loads then use another bit in the flag to specify STRICT or
-something along those lines.
-
-
-> +	if (fold) {
->  		rhashtable_remove_fast(&head->ht, &fold->ht_node,
->  				       head->ht_params);
-> +		fl_hw_destroy_filter(tp, (u64)fold);
-> +	}
->  
->  	*arg = (unsigned long) fnew;
->  
-> @@ -514,6 +579,9 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
->  
->  	return 0;
->  
-> +err_hash_remove:
-> +	rhashtable_remove_fast(&head->ht, &fnew->ht_node, head->ht_params);
-> +
->  errout:
->  	kfree(fnew);
->  	return err;
-> @@ -527,6 +595,7 @@ static int fl_delete(struct tcf_proto *tp, unsigned long arg)
->  	rhashtable_remove_fast(&head->ht, &f->ht_node,
->  			       head->ht_params);
->  	list_del_rcu(&f->list);
-> +	fl_hw_destroy_filter(tp, (u64)f);
->  	tcf_unbind_filter(tp, &f->res);
->  	call_rcu(&f->rcu, fl_destroy_filter);
->  	return 0;
-> 
+Larry
