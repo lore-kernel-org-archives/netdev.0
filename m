@@ -1,126 +1,66 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: Re: [PATCH net-next V2 06/16] net: fec: don't clear all rx queue bits
- when just one is being checked
-Date: Fri, 4 Mar 2016 10:28:29 -0700
-Message-ID: <56D9C5BD.5060802@boundarydevices.com>
-References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
- <1456360619-24390-7-git-send-email-troy.kisky@boundarydevices.com>
- <VI1PR0401MB18550FD3A944783B88BEDB64FFBE0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
- <56D9B54B.8020309@boundarydevices.com>
- <20160304163854.GD19428@n2100.arm.linux.org.uk>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH next 3/3] net: Use l3_dev instead of skb->dev for L3 processing
+Date: Fri, 4 Mar 2016 09:30:55 -0800
+Message-ID: <CAM_iQpVoRuWgk6_x-MWj=A520XjpC3e2QoPspQG6pfd--+m=KA@mail.gmail.com>
+References: <1456783704-18746-1-git-send-email-mahesh@bandewar.net>
+	<CAM_iQpXmoSZhNw+CCbFw5b6Dzq4W+vt5WH8FmRc1ZiuJgv1xnQ@mail.gmail.com>
+	<CAF2d9jhopDVGxsSM3wfYh2XgENebJNbEOn9D7Vb8t13bQ7dRcQ@mail.gmail.com>
+	<CAF2d9jiyjThgeQKw==tKRk3Sh0dNfzUdwJciwsVGPFLdb9uGTA@mail.gmail.com>
+	<CAM_iQpUB_b3S_Mi8QyzhX_XBog3+ZshY8xbSby5eUytnG2OQRg@mail.gmail.com>
+	<CAF2d9jhgoWeZdPkM-aev6j9a8OjUQ78CbE7dgp1wPXu91qp_-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Fugang Duan <fugang.duan@nxp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"b38611@freescale.com" <b38611@freescale.com>,
-	"fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"laci@boundarydevices.com" <laci@boundarydevices.com>,
-	"shawnguo@kernel.org" <shawnguo@kernel.org>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"arnd@arndb.de" <arnd@arndb.de>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Cc: Mahesh Bandewar <mahesh@bandewar.net>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>, Tim Hockin <thockin@google.com>,
+	Alex Pollitt <alex.pollitt@metaswitch.com>,
+	Matthew Dupre <matthew.dupre@metaswitch.com>
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:36718 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751415AbcCDR2b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 12:28:31 -0500
-Received: by mail-pf0-f172.google.com with SMTP id 63so38507597pfe.3
-        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 09:28:30 -0800 (PST)
-In-Reply-To: <20160304163854.GD19428@n2100.arm.linux.org.uk>
+Received: from mail-yk0-f170.google.com ([209.85.160.170]:34571 "EHLO
+	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759193AbcCDRa4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 12:30:56 -0500
+Received: by mail-yk0-f170.google.com with SMTP id u9so25775942ykd.1
+        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 09:30:55 -0800 (PST)
+In-Reply-To: <CAF2d9jhgoWeZdPkM-aev6j9a8OjUQ78CbE7dgp1wPXu91qp_-A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/4/2016 9:38 AM, Russell King - ARM Linux wrote:
-> On Fri, Mar 04, 2016 at 09:18:19AM -0700, Troy Kisky wrote:
->> On 3/4/2016 2:11 AM, Fugang Duan wrote:
->>> From: Troy Kisky <troy.kisky@boundarydevices.com>Sent: Thursday, February 25, 2016 8:37 AM
->>>> To: netdev@vger.kernel.org; davem@davemloft.net; b38611@freescale.com
->>>> Cc: fabio.estevam@freescale.com; l.stach@pengutronix.de; andrew@lunn.ch;
->>>> tremyfr@gmail.com; linux@arm.linux.org.uk; linux-arm-
->>>> kernel@lists.infradead.org; laci@boundarydevices.com; shawnguo@kernel.org;
->>>> johannes@sipsolutions.net; stillcompiling@gmail.com;
->>>> sergei.shtylyov@cogentembedded.com; arnd@arndb.de; Troy Kisky
->>>> <troy.kisky@boundarydevices.com>
->>>> Subject: [PATCH net-next V2 06/16] net: fec: don't clear all rx queue bits when
->>>> just one is being checked
+On Thu, Mar 3, 2016 at 5:42 PM, Mahesh Bandewar <maheshb@google.com> wrote:
+>>>> As you mentioned logically we should be able to pass the skb in master's
+>>>> ns
+>>>> until L3 processing is completed. This patch series attempts to do that by
+>>>> disassociating this logic from skb->dev and adding it to l3_dev. This
+>>>> should
+>>>> include not just IPT but all that is done in L3 phase (IPT, routing etc.)
+>>>> Also since dev->l3_dev is same as dev, this should not break any existing
+>>>> logic.
 >>>>
->>>> FEC_ENET_RXF is 3 separate bits, we only check one queue at a time. So, when
->>>> the last queue is being checked, it is bad to remove the interrupt on the 1st
->>>> queue.
->>>>
->>>> Also, since this is now done in the napi routine and not the interrupt, it is not
->>>> needed.
->>>>
->>>> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
->>>> ---
->>>>  drivers/net/ethernet/freescale/fec_main.c | 2 --
->>>>  1 file changed, 2 deletions(-)
->>>>
->>>> diff --git a/drivers/net/ethernet/freescale/fec_main.c
->>>> b/drivers/net/ethernet/freescale/fec_main.c
->>>> index 610cf6c..791f385 100644
->>>> --- a/drivers/net/ethernet/freescale/fec_main.c
->>>> +++ b/drivers/net/ethernet/freescale/fec_main.c
->>>> @@ -1338,8 +1338,6 @@ static int fec_rxq(struct net_device *ndev, struct
->>>> fec_enet_private *fep,
->>>>  			break;
->>>>  		pkt_received++;
->>>>
->>>> -		writel(FEC_ENET_RXF, fep->hwp + FEC_IEVENT);
->>>> -
->>>
->>> We should clear the related rx queue ievent, not remove the code.
->>> Pls see commit: db3421c114cf that was submitted by Russell King.
->>>
->>> No ack the patch.
+>>> Well, looking at the code I realized that I missed few places (especially
+>>> routing
+>>> logic) which continues using skb->dev in ingress path and should be
+>>> corrected to
+>>> use l3_dev. I'll correct those places and send the next version.
 >>
 >>
->> This is now done in patch #4 "net: fec: reduce interrupts" and you could argue
->> that it should be squashed into that patch. But I like separating changes
->> as much as possible.
+>> Look, even you yourself are missing something here. ;) This is exactly why
+>> I suggest to consider another approach. Please don't introduce any code
+>> that is hard to debug even for yourself. The struct net pointer is passed
+>> around in kernel network subsystem almost everywhere, it is not easy to make
+>> it bug-free by just switching skb->dev.
 >>
->>
->> Russell, this patch and patch #4 will likely need your ack before it will be applied.
->> Can you take a look please?
-> 
-> I stopped caring about the FEC ethernet driver about 18 months ago,
-> after I ended up dropping a significant pile of fixes on the floor
-> through the huge number of conflicts and the shere effort of
-> constantly trying to move them forward.
-> 
-> My patch series tend to be large because I put concentrated effort
-> into something for a month, which then gives a problem if conflicts
-> come up later and the series has to be effectively rewritten from
-> scratch.  It was after the second or third time of facing an almost
-> total rewrite that happened that I just gave up.
-> 
-> I've toyed with the idea of forking the driver, but I wouldn't have
-> time to maintain such a thing.  So, right now I just put up with all
-> the bad quirks, and reset/power cycle the boards when things go wrong.
-> Right now, I just disable runtime PM support on the FEC to get
-> stability here. :)
-> 
-> Sorry, but I can't be of more help.
-> 
+> I disagree. Conceptually this is very easy to understand as we are taking L3
+> processing off of skb->dev and loading it onto dev->l3_dev. So
+> everything that is
+> associated with l3_dev is for L3. This should neither make debugging harder
+> nor add complicated code.
 
-
-I can sympathize, I've been almost ready to post my patches numerous times
-when a huge patch set would hit, and conflict everywhere. Including once
-about 18 months ago :)
-
-That's why I got trigger happy, and first posted my too large set before
-net-next was opened. It didn't help though, there was already a conflict
-in net.
-
-
-Troy
+Nope, conceptually it is not right, that breaks _isolation_ in
+concept, we need to
+make each skb really traverse in the original stack, not just
+switching skb->dev,
+that is cheating. It is just too easy to hide bugs in your way, we
+never use network
+namespace in this way before.
