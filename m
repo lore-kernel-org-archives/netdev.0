@@ -1,101 +1,53 @@
-From: Fugang Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH net-next V2 13/16] net: fec: print more debug info in
- fec_timeout
-Date: Fri, 4 Mar 2016 10:06:18 +0000
-Message-ID: <VI1PR0401MB18552AB3E4128E412273B439FFBE0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
- <1456360619-24390-14-git-send-email-troy.kisky@boundarydevices.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v5 net-next] net: Implement fast csum_partial for x86_64
+Date: Fri, 4 Mar 2016 10:38:04 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D41114809@AcuExch.aculab.com>
+References: <1456957112-2702469-1-git-send-email-tom@herbertland.com>
+	<063D6719AE5E284EB5DD2968C1650D6D41113AD4@AcuExch.aculab.com>
+ <CA+55aFzz7xt+RwruV3GvWJzQ67925gkDYeOYqgbjMEAHxxztnQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
- "andrew@lunn.ch" <andrew@lunn.ch>,
- "stillcompiling@gmail.com" <stillcompiling@gmail.com>,
- "linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
- "arnd@arndb.de" <arnd@arndb.de>,
- "sergei.shtylyov@cogentembedded.com" <sergei.shtylyov@cogentembedded.com>,
- "laci@boundarydevices.com" <laci@boundarydevices.com>,
- "johannes@sipsolutions.net" <johannes@sipsolutions.net>,
- "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
- "shawnguo@kernel.org" <shawnguo@kernel.org>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- "tremyfr@gmail.com" <tremyfr@gmail.com>
-To: Troy Kisky <troy.kisky@boundarydevices.com>, "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>, "davem@davemloft.net" <davem@davemloft.net>,
- "b38611@freescale.com" <b38611@freescale.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1456360619-24390-14-git-send-email-troy.kisky@boundarydevices.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Tom Herbert <tom@herbertland.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
+	"kernel-team@fb.com" <kernel-team@fb.com>
+To: 'Linus Torvalds' <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.191]:62683 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759223AbcCDKlS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 05:41:18 -0500
+In-Reply-To: <CA+55aFzz7xt+RwruV3GvWJzQ67925gkDYeOYqgbjMEAHxxztnQ@mail.gmail.com>
 Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Thursday, February 25, 2016 8:37 AM
-> To: netdev@vger.kernel.org; davem@davemloft.net; b38611@freescale.com
-> Cc: fabio.estevam@freescale.com; l.stach@pengutronix.de; andrew@lunn.ch;
-> tremyfr@gmail.com; linux@arm.linux.org.uk; linux-arm-
-> kernel@lists.infradead.org; laci@boundarydevices.com; shawnguo@kernel.org;
-> johannes@sipsolutions.net; stillcompiling@gmail.com;
-> sergei.shtylyov@cogentembedded.com; arnd@arndb.de; Troy Kisky
-> <troy.kisky@boundarydevices.com>
-> Subject: [PATCH net-next V2 13/16] net: fec: print more debug info in
-> fec_timeout
-> 
-> Print the current interrupt flags and mask and the interrupt state during the last
-> interrupt in fec_timeout.
-> 
-> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> ---
->  drivers/net/ethernet/freescale/fec.h      | 1 +
->  drivers/net/ethernet/freescale/fec_main.c | 4 ++++
->  2 files changed, 5 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec.h
-> b/drivers/net/ethernet/freescale/fec.h
-> index 001200b..615cca1 100644
-> --- a/drivers/net/ethernet/freescale/fec.h
-> +++ b/drivers/net/ethernet/freescale/fec.h
-> @@ -506,6 +506,7 @@ struct fec_enet_private {
->  	unsigned int total_tx_ring_size;
->  	unsigned int total_rx_ring_size;
->  	uint	events;
-> +	uint	last_ievents;
-> 
->  	struct	platform_device *pdev;
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index afd4060..9a3136b 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1107,6 +1107,9 @@ fec_timeout(struct net_device *ndev)
->  	int i;
->  	uint events = 0;
-> 
-> +	pr_err("%s: last=%x %x, mask %x\n", __func__, fep->last_ievents,
-> +	       readl(fep->hwp + FEC_IEVENT), readl(fep->hwp + FEC_IMASK));
-> +
-pr_err() -> netdev_err()
-
-I don't want the debug patch enter to the driver.
-
->  	for (i = 0; i < fep->num_tx_queues; i++) {
->  		struct fec_enet_priv_tx_q *txq = fep->tx_queue[i];
->  		int index;
-> @@ -1514,6 +1517,7 @@ fec_enet_interrupt(int irq, void *dev_id)
-> 
->  	if (!int_events)
->  		return IRQ_NONE;
-> +	fep->last_ievents = int_events;
-> 
->  	if (int_events & (FEC_ENET_RXF | FEC_ENET_TXF)) {
->  		if (napi_schedule_prep(&fep->napi)) {
-> --
-> 2.5.0
+RnJvbTogTGludXMgVG9ydmFsZHMNCj4gU2VudDogMDMgTWFyY2ggMjAxNiAxODo0NA0KPiANCj4g
+T24gVGh1LCBNYXIgMywgMjAxNiBhdCA4OjEyIEFNLCBEYXZpZCBMYWlnaHQgPERhdmlkLkxhaWdo
+dEBhY3VsYWIuY29tPiB3cm90ZToNCj4gPg0KPiA+IERpZCB5b3UgdHJ5IHRoZSBhc20gbG9vcCB0
+aGF0IHVzZWQgJ2xlYXggJXJjeC4uLiwgamN4ei4uLiBqbXBzLi4nDQo+ID4gd2l0aG91dCBhbnkg
+dW5yb2xsaW5nPw0KPiANCj4gSXMgdGhhdCBhY3R1YWxseSBzdXBwb3NlZCB0byB3b3JrIG9rIHRo
+ZXNlIGRheXM/IGpjeHogdXNlZCB0byBiZSBxdWl0ZQ0KPiBzbG93LCBhbmQgaXMgaGlzdG9yaWNh
+bGx5ICpuZXZlciogdXNlZC4NCj4gDQo+IE5vdywgaW4gdGhlb3J5LCBsb29wIGNvbnN0cnVjdHMg
+Y2FuIGFjdHVhbGx5IGRvIGJldHRlciBvbiBicmFuY2gNCj4gcHJlZGljdGlvbiBldGMsIGJ1dCBJ
+bnRlbCBzZWVtcyB0byBoYXZlIG5ldmVyIHJlYWxseSB0cmllZCB0byBwdXNoDQo+IHRoZW0sIGFu
+ZCBoYXMgaW5zdGVhZCBwcmV0dHkgbXVjaCBkaXNjb3VyYWdlZCB0aGVtIGluIGZhdm9yIG9mIG1h
+a2luZw0KPiB0aGUgbm9ybWFsIGp1bXBzIGdvIGZhc3RlciAoaW5jbHVkaW5nIGFsbCB0aGUgaW5z
+dHJ1Y3Rpb24gZnVzaW9uIGV0YykNCg0KWWVzLCB0aGV5J3ZlIGV2ZW4gYWRkZWQgdGhlICdhZGMg
+dXNpbmcgdGhlIG92ZXJmbG93IGZsYWcnIGJ1dCBub3QgbWFkZQ0KaXQgcG9zc2libGUgdG8gcHV0
+IHRoYXQgaW50byBhIGxvb3AuDQoNCj4gRnJvbSB3aGF0IEkgaGF2ZSBzZWVuLCB0aGUgd2hvbGUg
+ImRvbid0IHVzZSBMT09QIG9yIEpSQ1haIiBoYXMgbm90IGNoYW5nZWQuDQoNCkxPT1AgaXMgc3Rp
+bGwgc2xvdyBvbiBpbnRlbCBjcHVzIChidXQgaXMgc2luZ2xlIGNsb2NrIG9uIHJlY2VudGlzaCBh
+bWQgb25lcykuDQoNCkpDWFogaXMgcmVhc29uYWJsZSBvbiBtb3N0IGNwdXMsIGNlcnRhaW5seSBh
+bGwgdGhlIG9uZXMgd2UgY2FyZSBhYm91dCB0aGVzZSBkYXlzLg0KT24gaW50ZWwgY3B1cyBKQ1ha
+IGlzIHN0aWxsIDIgY2xvY2tzLCBidXQgaXQgcmVtb3ZlcyB0aGUgZGVwZW5kZW5jeSBvbiBhbnkN
+CmZsYWdzICh3aGljaCBhbGwgb3RoZXIgY29uZGl0aW9uYWwgaW5zdHJ1Y3Rpb25zIGhhdmUpLg0K
+VGhlIGRpZmZpY3VsdHkgaXMgdXNpbmcgaXQgZm9yIGEgbG9vcCAoeW91IG5lZWQgSkNYTlogb3Ig
+YSBmYXN0IExPT1ApLg0KQW4gYWx0ZXJuYXRpdmUgdG8gdGhlICdKQ1haLCBKTVBTJyBwYWlyIHdv
+dWxkIGJlIHRvIG1vdmUgdGhlIGhpZ2ggYml0cw0Kb2YgdGhlIGNvdW50ZXIgaW50byB0aGUgbG93
+IGJpdHMgb2YgY3ggc28gdGhhdCBjeCB3b3VsZCBiZWNvbWUgbm9uLXplcm8NCm9uIHRoZSBsYXN0
+IGl0ZXJhdGlvbi4NCg0KCURhdmlkDQoNCg==
