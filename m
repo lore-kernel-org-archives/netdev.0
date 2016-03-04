@@ -1,75 +1,95 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: Re: [PATCH] vmxnet3: avoid calling pskb_may_pull with interrupts
- disabled
-Date: Fri, 4 Mar 2016 15:13:34 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1603041511360.17476@shri-linux.eng.vmware.com>
-References: <1457116848-6753-1-git-send-email-nhorman@tuxdriver.com>
+From: Andrey Konovalov <andreyknvl@gmail.com>
+Subject: Re: Possible double-free in the usbnet driver
+Date: Sat, 5 Mar 2016 02:22:53 +0300
+Message-ID: <CA+fCnZfFgg3TsMAX4rSkyq4JOYcyVM_gRewXH7fVhiLWwSmNKQ@mail.gmail.com>
+References: <CA+55aFxqwjs5gs6Fw2jmTteWM4hZTnr7Ls111ExNTieObLs82Q@mail.gmail.com>
+	<CA+fCnZfS51F7WZEM1YTSPDMWSzvBTJWGf5cRWv5LrNCSOf_-qA@mail.gmail.com>
+	<1457131342.8935.2.camel@suse.de>
+	<CA+fCnZdjGLT1wkzZXMJ8WHMzmTqcvUVBEN2tZCvwJQfAab8pyg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, "VMware, Inc." <pv-drivers@vmware.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	USB list <linux-usb@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Oliver Neukum <oneukum@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:50201 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760316AbcCDXNg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 18:13:36 -0500
-In-Reply-To: <1457116848-6753-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mail-qk0-f177.google.com ([209.85.220.177]:33077 "EHLO
+	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760531AbcCDXWy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 18:22:54 -0500
+In-Reply-To: <CA+fCnZdjGLT1wkzZXMJ8WHMzmTqcvUVBEN2tZCvwJQfAab8pyg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Mar 5, 2016 at 2:00 AM, Andrey Konovalov <andreyknvl@gmail.com> wrote:
+> On Sat, Mar 5, 2016 at 1:42 AM, Oliver Neukum <oneukum@suse.de> wrote:
+>> On Sat, 2016-03-05 at 01:26 +0300, Andrey Konovalov wrote:
+>>> and when I run the vm and connect the device I get:
+>>>
+>>> [   23.672662] cdc_ncm 1-1:1.6: bind() failure
+>>> [   23.673447] usbnet_probe(): freeing netdev: ffff88006ab48000
+>>> [   23.675822] usbnet_probe(): freeing netdev: ffff88006ab48000
+>>>
+>>> So this seems to be a double-free (or at least a double free_netdev()
+>>> call), but the object gets freed twice from usbnet_probe() and not
+>>> from usbnet_disconnect(), so you're right that the latter doesn't get
+>>> called. I'm not sure how usbnet_probe() ends up being called twice.
+>>
+>> Do you have lsusb?
+>
+> You mean inside the vm?
+> I do.
 
+Or did you want the faulty device descriptor itself?
 
-On Fri, 4 Mar 2016, Neil Horman wrote:
+I used this:
 
-> vmxnet3 has a function vmxnet3_parse_and_copy_hdr which, among other operations,
-> uses pskb_may_pull to linearize the header portion of an skb.  That operation
-> eventually uses local_bh_disable/enable to ensure that it doesn't race with the
-> drivers bottom half handler.  Unfortunately, vmxnet3 preforms this
-> parse_and_copy operation with a spinlock held and interrupts disabled.  This
-> causes us to run afoul of the WARN_ON_ONCE(irqs_disabled()) warning in
-> local_bh_enable, resulting in this:
-> 
-> WARNING: at kernel/softirq.c:159 local_bh_enable+0x59/0x90() (Not tainted)
-> Hardware name: VMware Virtual Platform
-> Modules linked in: ipv6 ppdev parport_pc parport microcode e1000 vmware_balloon
-> vmxnet3 i2c_piix4 sg ext4 jbd2 mbcache sd_mod crc_t10dif sr_mod cdrom mptspi
-> mptscsih mptbase scsi_transport_spi pata_acpi ata_generic ata_piix vmwgfx ttm
-> drm_kms_helper drm i2c_core dm_mirror dm_region_hash dm_log dm_mod [last
-> unloaded: mperf]
-> Pid: 6229, comm: sshd Not tainted 2.6.32-616.el6.i686 #1
-> Call Trace:
->  [<c04624d9>] ? warn_slowpath_common+0x89/0xe0
->  [<c0469e99>] ? local_bh_enable+0x59/0x90
->  [<c046254b>] ? warn_slowpath_null+0x1b/0x20
->  [<c0469e99>] ? local_bh_enable+0x59/0x90
->  [<c07bb936>] ? skb_copy_bits+0x126/0x210
->  [<f8d1d9fe>] ? ext4_ext_find_extent+0x24e/0x2d0 [ext4]
->  [<c07bc49e>] ? __pskb_pull_tail+0x6e/0x2b0
->  [<f95a6164>] ? vmxnet3_xmit_frame+0xba4/0xef0 [vmxnet3]
->  [<c05d15a6>] ? selinux_ip_postroute+0x56/0x320
->  [<c0615988>] ? cfq_add_rq_rb+0x98/0x110
->  [<c0852df8>] ? packet_rcv+0x48/0x350
->  [<c07c5839>] ? dev_queue_xmit_nit+0xc9/0x140
-> ...
-> 
-> Fix it by splitting vmxnet3_parse_and_copy_hdr into two functions:
-> 
-> vmxnet3_parse_hdr, which sets up the internal/on stack ctx datastructure, and
-> pulls the skb (both of which can be done without holding the spinlock with irqs
-> disabled
-> 
-> and
-> 
-> vmxnet3_copy_header, which just copies the skb to the tx ring under the lock
-> safely.
-> 
-> tested and shown to correct the described problem.  Applies cleanly to the head
-> of the net tree
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> CC: Shrikrishna Khare <skhare@vmware.com>
-> CC: "VMware, Inc." <pv-drivers@vmware.com>
-> CC: "David S. Miller" <davem@davemloft.net>
+Speed High
+Bus 004 Device 003: ID 0bdb:1911
+Device Descriptor:
+  bLength                 18
+  bDescriptorType          1
+  bcdUSB                2.00
+  bDeviceClass             2 Communications
+  bDeviceSubClass          0
+  bDeviceProtocol          0
+  bMaxPacketSize0         64
+  idVendor            0x0000
+  idProduct           0x0000
+  bcdDevice             0.00
+  iManufacturer            1
+  iProduct                 2
+  iSerial                  3
+  bNumConfigurations       1
+Configuration Descriptor:
+  bLength                  9
+  bDescriptorType          2
+  wTotalLength           371
+  bNumInterfaces          11
+  bConfigurationValue      1
+  iConfiguration           4
+  bmAttributes          0xe0
+    Self Powered
+    Remote Wakeup
+  bMaxPower                0mA
+Interface Descriptor:
+  bLength                  9
+  bDescriptorType          4
+  bInterfaceNumber         6
+  bAlternateSetting        0
+  bNumEndpoints            1
+  bInterfaceClass          2 Communications
+  bInterfaceSubClass      13
+  bInterfaceProtocol       0
+  iInterface              11
 
-Acked-by: Shrikrishna Khare <skhare@vmware.com>
+>
+>>
+>>         Regards
+>>                 Oliver
+>>
+>>
