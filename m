@@ -1,73 +1,58 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
-Date: Fri, 04 Mar 2016 17:32 +0100
-Message-ID: <2983219.IrgyuboXyU@wuerfel>
-References: <1456945629-1793533-1-git-send-email-arnd@arndb.de> <1659125.tHp8H942OG@wuerfel> <1457108303.2651.112.camel@tiscali.nl>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: Sending short raw packets using sendmsg() broke
+Date: Fri, 4 Mar 2016 11:33:36 -0500
+Message-ID: <CAF=yD-LyNo_tXu_D=MG3U7aXgU6MrV0i1YkrCHDFRufq9QMaHw@mail.gmail.com>
+References: <20160225.152628.1230785666614750970.davem@davemloft.net>
+ <1456497874.7064.7.camel@linux.intel.com> <CAF=yD-JOQZZnU6XE9FhEVbxstKmsB-ds58e5v678SiO24VV0+g@mail.gmail.com>
+ <20160226.124645.2123990166666725876.davem@davemloft.net> <CAF=yD-+m09_KS9+SyMZsTES5iLPyVE10F0u6pt4tVeYcDk8=PQ@mail.gmail.com>
+ <1456876822.7064.36.camel@linux.intel.com> <CAF=yD-+mNY0g4A8oWJEWPDeAuucrJX-E1pNd6ABYK+BzmrKvOQ@mail.gmail.com>
+ <CAF=yD-+-QFp=g8BSsxjwwMmMwuHzkEiubZHNuyoLccF7qTs0ow@mail.gmail.com> <1457106849.7064.55.camel@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Tilman Schmidt <tilman@imap.cc>,
-	Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>,
-	linux-arm-kernel@lists.infradead.org, isdn@linux-pingi.de,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	devel@driverdev.osuosl.org, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1457108303.2651.112.camel@tiscali.nl>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Heikki Hannikainen <hessu@hes.iki.fi>,
+	Network Development <netdev@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>
+To: Alan Cox <alan@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:33885 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759524AbcCDQeS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 11:34:18 -0500
+Received: by mail-lb0-f175.google.com with SMTP id cf7so50900445lbb.1
+        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 08:34:17 -0800 (PST)
+In-Reply-To: <1457106849.7064.55.camel@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 04 March 2016 17:18:23 Paul Bolle wrote:
-> [Added Tilman and Christoph.]
-> 
-> On vr, 2016-03-04 at 16:24 +0100, Arnd Bergmann wrote:
-> > I actually did more patches that I ended up not submitting:
-> > 
-> > * move hisax to staging
-> > * remove i4l support from gigaset
-> 
-> For the record: I have no reason to object a patch that does that. (I'm
-> not aware anyone complained when gigaset switched its default from i4l
-> to capi. By now all relevant distributions should use our capi driver.)
+On Fri, Mar 4, 2016 at 10:54 AM, Alan Cox <alan@linux.intel.com> wrote:
+>> > A quick search for ethhdr in drivers/net/ethernet shows, for
+>> > instance,
+>> > bnx2x_select_queue casting skb->data to an ethernet header. Reading
+>> > nonsense in that particular function is quite safe and given the
+>> > skbuff layout (skb_shared_info) code will never read beyond an
+>> > allocated region. But that was just the first occurrence I found.
+>> > efx_tso_check_protocol is another example.
+>
+> So would always allocating that much space be a good mitigation in
+> general
 
-Ok.
+Agreed. The existing packet allocation path does that by relying on
+LL_RESERVED_SPACE on allocation, not only packet length. I won't
+modify that. But I should perhaps zero up to hard_header_len on
+variable length headers.
 
-> > * move i4l core to staging
-> 
-> On a local tree I have two (draft) patches that do some related
-> preliminary work:
-> - isdnhdlc: move into separate directory
-> - mISDN: NETJet: stop selecting ISDN_I4L
-> 
-> These trivial patches untangle mISDN and i4l. Perhaps you did something
-> similar in your "move i4l core to staging".
+>  and perhaps then making the logic check validate() IFF
+> CAP_SYS_RAWIO is not set.
+>
+> A user with CAP_SYS_RAWIO already has the power to control the device
+> by banging registers so the check is not a security loss.
 
-Yes, I have the same thing. I didn't mention it here as it should
-be completely non-controversial.
+One concern is namespaces. I'll use capable(CAP_SYS_RAWIO), not ns_capable.
 
-A third patch moves the capidrv source from drivers/isdn/capi/
-into the i4l directory.
+Need to add an ax25_validate implemention and run some tests before I
+send out the patch.
 
-> > Any thoughts on this? If you like, I can send those too.
-> 
-> For my part I'm surprised that anyone is still using it. But apparently
-> the hardware that required commit 19cebbcb04c8 and 3460baa62068  (which
-> I'm unfamiliar with) is still operational. And since there never has
-> been, as far as I know, a global i4l to capi migration nor a global i4l
-> (and capi) to mISDN migration it might be that some people are stuck on
-> i4l drivers for their hardware. Perhaps that explains Cristoph's
-> commits.
+Thanks,
 
-My understanding is that it's not about the hardware, and that all
-devices that people actually use with hisax should also with with
-mISDN.
-
-Instead, the only argument I've heard about keeping i4l and hisax
-around (indefinitely) is that existing user space tools are written
-for i4l and not ported to mISDN. They work fine with CAPI drivers
-using capidrv.ko, but there is no i4l emulation on top of mISDN.
-
-	Arnd
+  Willem
