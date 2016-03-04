@@ -1,43 +1,199 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [iproute PATCH 0/5] Misc minor documentation fixes
-Date: Fri, 4 Mar 2016 15:37:07 -0800
-Message-ID: <20160304153707.14450e23@xeon-e3>
-References: <1457092361-17603-1-git-send-email-phil@nwl.cc>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [RFC PATCH net-next] tcp: Add RFC4898 tcpEStatsPerfDataSegsOut/In
+Date: Fri, 4 Mar 2016 15:57:33 -0800
+Message-ID: <1457135853-4110588-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Phil Sutter <phil@nwl.cc>
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>, Chris Rapier <rapier@psc.edu>,
+	Eric Dumazet <edumazet@google.com>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:61695 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760552AbcCDXg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 18:36:59 -0500
-In-Reply-To: <1457092361-17603-1-git-send-email-phil@nwl.cc>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:3286 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760585AbcCDX5h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 18:57:37 -0500
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u24NsdHs002571
+	for <netdev@vger.kernel.org>; Fri, 4 Mar 2016 15:57:36 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 21fj2urju0-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 15:57:36 -0800
+Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
+ mx-out.facebook.com (10.223.100.99) with ESMTP	id
+ dd4ccd8ee26411e584c324be05956610-e1ae6270 for <netdev@vger.kernel.org>;	Fri,
+ 04 Mar 2016 15:57:34 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  4 Mar 2016 12:52:36 +0100
-Phil Sutter <phil@nwl.cc> wrote:
+Per RFC4898, they count segments sent/received
+containing a positive length data segment (that includes
+retransmission segments carrying data).  Unlike
+tcpi_segs_out/in, tcpi_data_segs_out/in excludes segments
+carrying no data (e.g. pure ack).
 
-> The following five patches contain minor changes to documentation at
-> various places. They are all unrelated, but being lazy as I am, I
-> submit them in one go.
-> 
-> Phil Sutter (5):
->   tc: pedit: document branch control in help output
->   man: ip-link: Beef up VXLAN csum options a bit
->   man: tc-u32: Minor syntax fix
->   man: ip-route: Make synopsis consistent with description
->   doc, man: ip-rule: Remove incorrect statement about rule 0
-> 
->  doc/ip-cref.tex        | 3 ---
->  man/man8/ip-link.8.in  | 6 +++---
->  man/man8/ip-route.8.in | 2 +-
->  man/man8/ip-rule.8     | 2 --
->  man/man8/tc-u32.8      | 1 +
->  tc/m_pedit.c           | 3 ++-
->  6 files changed, 7 insertions(+), 10 deletions(-)
-> 
+The patch also updates the segs_in in tcp_fastopen_add_skb()
+so that segs_in >= data_segs_in property is kept.
 
-Applied
+Together with retransmission data, tcpi_data_segs_out
+gives a better signal on the rxmit rate.
+
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Cc: Chris Rapier <rapier@psc.edu>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ include/linux/tcp.h      | 6 ++++++
+ include/uapi/linux/tcp.h | 2 ++
+ net/ipv4/tcp.c           | 2 ++
+ net/ipv4/tcp_fastopen.c  | 4 ++++
+ net/ipv4/tcp_ipv4.c      | 7 ++++++-
+ net/ipv4/tcp_output.c    | 4 +++-
+ net/ipv6/tcp_ipv6.c      | 7 ++++++-
+ 7 files changed, 29 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index bcbf51d..7be9b12 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -158,6 +158,9 @@ struct tcp_sock {
+ 	u32	segs_in;	/* RFC4898 tcpEStatsPerfSegsIn
+ 				 * total number of segments in.
+ 				 */
++	u32	data_segs_in;	/* RFC4898 tcpEStatsPerfDataSegsIn
++				 * total number of data segments in.
++				 */
+  	u32	rcv_nxt;	/* What we want to receive next 	*/
+ 	u32	copied_seq;	/* Head of yet unread data		*/
+ 	u32	rcv_wup;	/* rcv_nxt on last window update sent	*/
+@@ -165,6 +168,9 @@ struct tcp_sock {
+ 	u32	segs_out;	/* RFC4898 tcpEStatsPerfSegsOut
+ 				 * The total number of segments sent.
+ 				 */
++	u32	data_segs_out;	/* RFC4898 tcpEStatsPerfDataSegsOut
++				 * total number of data segments sent.
++				 */
+ 	u64	bytes_acked;	/* RFC4898 tcpEStatsAppHCThruOctetsAcked
+ 				 * sum(delta(snd_una)), or how many bytes
+ 				 * were acked.
+diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
+index fe95446..53e8e3f 100644
+--- a/include/uapi/linux/tcp.h
++++ b/include/uapi/linux/tcp.h
+@@ -199,6 +199,8 @@ struct tcp_info {
+ 
+ 	__u32	tcpi_notsent_bytes;
+ 	__u32	tcpi_min_rtt;
++	__u32	tcpi_data_segs_in;	/* RFC4898 tcpEStatsDataSegsIn */
++	__u32	tcpi_data_segs_out;	/* RFC4898 tcpEStatsDataSegsOut */
+ };
+ 
+ /* for TCP_MD5SIG socket option */
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index f9faadb..6b01b48 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2728,6 +2728,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ 	info->tcpi_notsent_bytes = max(0, notsent_bytes);
+ 
+ 	info->tcpi_min_rtt = tcp_min_rtt(tp);
++	info->tcpi_data_segs_in = tp->data_segs_in;
++	info->tcpi_data_segs_out = tp->data_segs_out;
+ }
+ EXPORT_SYMBOL_GPL(tcp_get_info);
+ 
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index fdb286d..f583c85 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -131,6 +131,7 @@ static bool tcp_fastopen_cookie_gen(struct request_sock *req,
+ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	u16 segs_in;
+ 
+ 	if (TCP_SKB_CB(skb)->end_seq == tp->rcv_nxt)
+ 		return;
+@@ -154,6 +155,9 @@ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
+ 	 * as we certainly are not changing upper 32bit value (0)
+ 	 */
+ 	tp->bytes_received = skb->len;
++	segs_in = max_t(u16, 1, skb_shinfo(skb)->gso_segs);
++	tp->segs_in = segs_in;
++	tp->data_segs_in = segs_in;
+ 
+ 	if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
+ 		tcp_fin(sk);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 4c8d58d..c9b576f 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1540,6 +1540,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ 	const struct iphdr *iph;
+ 	const struct tcphdr *th;
+ 	struct sock *sk;
++	u16 segs_in;
+ 	int ret;
+ 	struct net *net = dev_net(skb->dev);
+ 
+@@ -1650,7 +1651,11 @@ process:
+ 	sk_incoming_cpu_update(sk);
+ 
+ 	bh_lock_sock_nested(sk);
+-	tcp_sk(sk)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
++	segs_in = max_t(u16, 1, skb_shinfo(skb)->gso_segs);
++	tcp_sk(sk)->segs_in += segs_in;
++	if (skb->len > __tcp_hdrlen(th))
++		tcp_sk(sk)->data_segs_in += segs_in;
++
+ 	ret = 0;
+ 	if (!sock_owned_by_user(sk)) {
+ 		if (!tcp_prequeue(sk, skb))
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 7d2c7a4..7d2dc01 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1003,8 +1003,10 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 	if (likely(tcb->tcp_flags & TCPHDR_ACK))
+ 		tcp_event_ack_sent(sk, tcp_skb_pcount(skb));
+ 
+-	if (skb->len != tcp_header_size)
++	if (skb->len != tcp_header_size) {
+ 		tcp_event_data_sent(tp, sk);
++		tp->data_segs_out += tcp_skb_pcount(skb);
++	}
+ 
+ 	if (after(tcb->end_seq, tp->snd_nxt) || tcb->seq == tcb->end_seq)
+ 		TCP_ADD_STATS(sock_net(sk), TCP_MIB_OUTSEGS,
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 33f2820..941a8a5 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1349,6 +1349,7 @@ static int tcp_v6_rcv(struct sk_buff *skb)
+ 	const struct tcphdr *th;
+ 	const struct ipv6hdr *hdr;
+ 	struct sock *sk;
++	u16 segs_in;
+ 	int ret;
+ 	struct net *net = dev_net(skb->dev);
+ 
+@@ -1443,7 +1444,11 @@ process:
+ 	sk_incoming_cpu_update(sk);
+ 
+ 	bh_lock_sock_nested(sk);
+-	tcp_sk(sk)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
++	segs_in = max_t(u16, 1, skb_shinfo(skb)->gso_segs);
++	tcp_sk(sk)->segs_in += segs_in;
++	if (skb->len > __tcp_hdrlen(th))
++		tcp_sk(sk)->data_segs_in += segs_in;
++
+ 	ret = 0;
+ 	if (!sock_owned_by_user(sk)) {
+ 		if (!tcp_prequeue(sk, skb))
+-- 
+2.5.1
