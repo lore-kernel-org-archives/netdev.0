@@ -1,40 +1,76 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3 4/4] ethtool.h: define INT_MAX for userland
-Date: Fri, 4 Mar 2016 14:10:12 +0100
-Message-ID: <56D98934.4050409@cumulusnetworks.com>
-References: <20160303.170804.2300821465150459193.davem@davemloft.net>
- <1457088739-1065-1-git-send-email-nicolas.dichtel@6wind.com>
- <1457088739-1065-5-git-send-email-nicolas.dichtel@6wind.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/1] be2net: Don't leak iomapped memory on removal.
+Date: Fri, 4 Mar 2016 16:18:18 +0300
+Message-ID: <56D98B1A.1070804@cogentembedded.com>
+References: <1457044549-10563-1-git-send-email-dougmill@linux.vnet.ibm.com>
+ <1457044549-10563-2-git-send-email-dougmill@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ben@decadent.org.uk,
-	Karen Xie <kxie@chelsio.com>, linux-scsi@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Airlie <airlied@linux.ie>,
-	dri-devel@lists.freedesktop.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457088739-1065-5-git-send-email-nicolas.dichtel@6wind.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
+	padmanabh.ratnakar@broadcom.com,
+	sriharsha.basavapatna@broadcom.com, somnath.kotur@broadcom.com
+To: Douglas Miller <dougmill@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:33298 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbcCDNSW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 08:18:22 -0500
+Received: by mail-lb0-f179.google.com with SMTP id k15so60715534lbg.0
+        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 05:18:21 -0800 (PST)
+In-Reply-To: <1457044549-10563-2-git-send-email-dougmill@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/04/2016 11:52 AM, Nicolas Dichtel wrote:
-> INT_MAX needs limits.h in userland.
-> When ethtool.h is included by a userland app, we got the following error:
-> 
-> .../usr/include/linux/ethtool.h: In function 'ethtool_validate_speed':
-> .../usr/include/linux/ethtool.h:1471:18: error: 'INT_MAX' undeclared (first use in this function)
->   return speed <= INT_MAX || speed == SPEED_UNKNOWN
->                   ^
-> 
-> Fixes: e02564ee334a ("ethtool: make validate_speed accept all speeds between 0 and INT_MAX")
-> CC: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Hello.
+
+On 3/4/2016 1:35 AM, Douglas Miller wrote:
+
+> The adapter->pcicfg resource is either mapped via pci_iomap() or
+> derived from adapter->db. During be_remove() this resource was ignored
+> and so could remain mapped after remove.
+>
+> Add a flag to track whether adapter->pcicfg was mapped or not, then
+> use that flag in be_unmap_pci_bars() to unmap if required.
+>
+> Signed-off-by: Douglas Miller <dougmill@linux.vnet.ibm.com>
 > ---
->  include/uapi/linux/ethtool.h | 4 ++++
->  1 file changed, 4 insertions(+)
-> 
+>   drivers/net/ethernet/emulex/benet/be.h      |    1 +
+>   drivers/net/ethernet/emulex/benet/be_main.c |    4 ++++
+>   2 files changed, 5 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+> index cf83783..f975129 100644
+> --- a/drivers/net/ethernet/emulex/benet/be.h
+> +++ b/drivers/net/ethernet/emulex/benet/be.h
+> @@ -531,6 +531,7 @@ struct be_adapter {
+>
+>   	struct delayed_work be_err_detection_work;
+>   	u8 err_flags;
+> +	bool pcicfg_mapped;	/* pcicfg obtained via pci_iomap() */
+>   	u32 flags;
+>   	u32 cmd_privileges;
+>   	/* Ethtool knobs and info */
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+> index f99de36..a79b8a5 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+[...]
+> @@ -5019,8 +5021,10 @@ static int be_map_pci_bars(struct be_adapter *adapter)
+>   			if (!addr)
+>   				goto pci_map_err;
+>   			adapter->pcicfg = addr;
+> +			adapter->pcicfg_mapped = 1;
 
-Thanks!
+    s/1/true/.
 
-Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>   		} else {
+>   			adapter->pcicfg = adapter->db + SRIOV_VF_PCICFG_OFFSET;
+> +			adapter->pcicfg_mapped = 0;
+
+    s/0/false/.
+
+[...]
+
+MBR, Sergei
