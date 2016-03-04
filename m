@@ -1,7 +1,7 @@
 From: Daode Huang <huangdaode@hisilicon.com>
-Subject: [PATCH net 2/6] net: hns: fixes the hw interrupt bug in using napi
-Date: Fri, 4 Mar 2016 09:09:54 +0800
-Message-ID: <1457053798-93513-3-git-send-email-huangdaode@hisilicon.com>
+Subject: [PATCH net 4/6] net: hns: adds uc match for debug port
+Date: Fri, 4 Mar 2016 09:09:56 +0800
+Message-ID: <1457053798-93513-5-git-send-email-huangdaode@hisilicon.com>
 References: <1457053798-93513-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -18,57 +18,73 @@ In-Reply-To: <1457053798-93513-1-git-send-email-huangdaode@hisilicon.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In V1 chip, common_poll should check and clean fbd pkts, because it
-can not pend irq to clean them if there is no new pkt comes in.
-But V2 chip hw fixes this bug, and will pend irq itself to do this.
-So, for V2 chip, we set ring_data->fini_process to NULL.
+This patch adds uc match for debug port by:
+1)Enables uc match of debug port when initializing gmac
+2)Enables uc match of mac address register2
 
 Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
-Signed-off-by: Lisheng <lisheng011@huawei.com>
+Signed-off-by: lipeng <lipeng321@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 18 +++++++++++++++++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  2 ++
+ 2 files changed, 19 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 9d46d57..6250a42 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -946,8 +946,8 @@ static int hns_nic_common_poll(struct napi_struct *napi, int budget)
- 		napi_complete(napi);
- 		ring_data->ring->q->handle->dev->ops->toggle_ring_irq(
- 			ring_data->ring, 0);
--
--		ring_data->fini_process(ring_data);
-+		if (ring_data->fini_process)
-+			ring_data->fini_process(ring_data);
- 		return 0;
- 	}
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+index b8517b0..2591a51 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+@@ -290,6 +290,16 @@ static int hns_gmac_adjust_link(void *mac_drv, enum mac_speed speed,
+ 	return 0;
+ }
  
-@@ -1710,6 +1710,7 @@ static int hns_nic_init_ring_data(struct hns_nic_priv *priv)
++static void hns_gmac_set_uc_match(void *mac_drv, u16 en)
++{
++	struct mac_driver *drv = (struct mac_driver *)mac_drv;
++
++	dsaf_set_dev_bit(drv, GMAC_REC_FILT_CONTROL_REG,
++			 GMAC_UC_MATCH_EN_B, !en);
++	dsaf_set_dev_bit(drv, GMAC_STATION_ADDR_HIGH_2_REG,
++			 GMAC_ADDR_EN_B, !en);
++}
++
+ static void hns_gmac_init(void *mac_drv)
  {
- 	struct hnae_handle *h = priv->ae_handle;
- 	struct hns_nic_ring_data *rd;
-+	bool is_ver1 = AE_IS_VER1(priv->enet_ver);
- 	int i;
+ 	u32 port;
+@@ -305,6 +315,8 @@ static void hns_gmac_init(void *mac_drv)
+ 	mdelay(10);
+ 	hns_gmac_disable(mac_drv, MAC_COMM_MODE_RX_AND_TX);
+ 	hns_gmac_tx_loop_pkt_dis(mac_drv);
++	if (drv->mac_cb->mac_type == HNAE_PORT_DEBUG)
++		hns_gmac_set_uc_match(mac_drv, 0);
+ }
  
- 	if (h->q_num > NIC_MAX_Q_PER_VF) {
-@@ -1727,7 +1728,7 @@ static int hns_nic_init_ring_data(struct hns_nic_priv *priv)
- 		rd->queue_index = i;
- 		rd->ring = &h->qs[i]->tx_ring;
- 		rd->poll_one = hns_nic_tx_poll_one;
--		rd->fini_process = hns_nic_tx_fini_pro;
-+		rd->fini_process = is_ver1 ? hns_nic_tx_fini_pro : NULL;
+ void hns_gmac_update_stats(void *mac_drv)
+@@ -407,8 +419,12 @@ static void hns_gmac_set_mac_addr(void *mac_drv, char *mac_addr)
  
- 		netif_napi_add(priv->netdev, &rd->napi,
- 			       hns_nic_common_poll, NIC_TX_CLEAN_MAX_NUM);
-@@ -1739,7 +1740,7 @@ static int hns_nic_init_ring_data(struct hns_nic_priv *priv)
- 		rd->ring = &h->qs[i - h->q_num]->rx_ring;
- 		rd->poll_one = hns_nic_rx_poll_one;
- 		rd->ex_process = hns_nic_rx_up_pro;
--		rd->fini_process = hns_nic_rx_fini_pro;
-+		rd->fini_process = is_ver1 ? hns_nic_rx_fini_pro : NULL;
+ 		u32 low_val = mac_addr[5] | (mac_addr[4] << 8)
+ 			| (mac_addr[3] << 16) | (mac_addr[2] << 24);
++
++		u32 val = dsaf_read_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG);
++		u32 sta_addr_en = dsaf_get_bit(val, GMAC_ADDR_EN_B);
+ 		dsaf_write_dev(drv, GMAC_STATION_ADDR_LOW_2_REG, low_val);
+-		dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG, high_val);
++		dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG,
++			       high_val | (sta_addr_en << GMAC_ADDR_EN_B));
+ 	}
+ }
  
- 		netif_napi_add(priv->netdev, &rd->napi,
- 			       hns_nic_common_poll, NIC_RX_CLEAN_MAX_NUM);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+index f0c4f9b..d8c49b6 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+@@ -917,6 +917,8 @@
+ #define GMAC_LP_REG_CF2MI_LP_EN_B	2
+ 
+ #define GMAC_MODE_CHANGE_EB_B	0
++#define GMAC_UC_MATCH_EN_B	0
++#define GMAC_ADDR_EN_B		16
+ 
+ #define GMAC_RECV_CTRL_STRIP_PAD_EN_B	3
+ #define GMAC_RECV_CTRL_RUNT_PKT_EN_B	4
 -- 
 1.9.1
