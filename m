@@ -1,44 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Fri, 04 Mar 2016 17:50:32 -0500 (EST)
-Message-ID: <20160304.175032.1728003538386465719.davem@davemloft.net>
-References: <20160304213920.GJ4184@uranus.lan>
+From: Andrey Konovalov <andreyknvl@gmail.com>
+Subject: Re: Possible double-free in the usbnet driver
+Date: Sat, 5 Mar 2016 02:00:02 +0300
+Message-ID: <CA+fCnZdfYxAR_ccD1ZL7qA4YwrwTKdBLztfrn9JmQyztBJBsMA@mail.gmail.com>
+References: <CA+55aFxqwjs5gs6Fw2jmTteWM4hZTnr7Ls111ExNTieObLs82Q@mail.gmail.com>
+	<CA+fCnZfS51F7WZEM1YTSPDMWSzvBTJWGf5cRWv5LrNCSOf_-qA@mail.gmail.com>
+	<CA+55aFwxbs_hLG58Q_xSK2vpufjmwMk-xkqxTNh_5h-A8y4vbg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, solar@openwall.com, vvs@virtuozzo.com,
-	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
-	khorenko@virtuozzo.com, eric.dumazet@gmail.com
-To: gorcunov@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Oliver Neukum <oneukum@suse.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	USB list <linux-usb@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36908 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759497AbcCDWuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 17:50:37 -0500
-In-Reply-To: <20160304213920.GJ4184@uranus.lan>
+Received: from mail-qk0-f181.google.com ([209.85.220.181]:36540 "EHLO
+	mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759087AbcCDXAD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 18:00:03 -0500
+In-Reply-To: <CA+55aFwxbs_hLG58Q_xSK2vpufjmwMk-xkqxTNh_5h-A8y4vbg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Date: Sat, 5 Mar 2016 00:39:20 +0300
+On Sat, Mar 5, 2016 at 1:43 AM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+> On Fri, Mar 4, 2016 at 2:26 PM, Andrey Konovalov <andreyknvl@gmail.com> wrote:
+>>
+>> and when I run the vm and connect the device I get:
+>>
+>> [   23.672662] cdc_ncm 1-1:1.6: bind() failure
+>> [   23.673447] usbnet_probe(): freeing netdev: ffff88006ab48000
+>> [   23.675822] usbnet_probe(): freeing netdev: ffff88006ab48000
+>>
+>> So this seems to be a double-free (or at least a double free_netdev()
+>> call), but the object gets freed twice from usbnet_probe() and not
+>> from usbnet_disconnect(), so you're right that the latter doesn't get
+>> called. I'm not sure how usbnet_probe() ends up being called twice.
+>
+> I still don't think it's a double free. I think the probe thing is
+> called twice, and that's why to different allocations get free'd twice
+> (and the reason it's the same pointer is that the same allocation got
+> reused)
+>
+> But I don't know that driver, really.
+>
+>>> Which particular usbnet bind routine is this? There are multiple
+>>> sub-drivers for usbnet that all do different things.
+>>
+>> cdc_ncm_bind()
+>
+> Ok, so that matches my theory.
+>
+> Does this attached stupid patch make the warning go away? Because from
+> what I can tell, usbnet_link_change() really will start using that
+> "dev" that simply isn't valid - and will be free'd - if the bind
+> fails.
 
-> Currenlty all the kernels (including vanilla) free ifa
-> list under rtln_lock() taken which takes a huge time
-> to release all entries when we stop the container.
-> Moreover it's allowed to create unlimited number
-> of addresses from inside of net-namespace if
-> CAP-NET_ADMIN granted (which is common for containers).
-> 
-> Lets introduce per-net limit (4096 by default)
-> of addresses, which can be tuned up via sysfs
-> entry /proc/sys/net/ipv4/ifa_limit.
-> 
-> Reported-by: Solar Designer <solar@openwall.com>
-> Signed-off-by: Cyrill Gorcunov <gorcunov@virtuozzo.com>
+Yes, KASAN doesn't report anything with your patch.
 
-Arbitrary limits are... arbitrary.
-
-If the freeing loop is the issue, splice the list at teardown and
-process that list asynchronously via a workqueue or similar.
-
-Thanks.
+>
+> So you have usbnet_defer_kevent() getting triggered, which in turn
+> ends up using "usbnet->kevent"
+>
+> But somebody like Oliver is really the right person to check this. For
+> example, it's entirely possible that we should just instead do
+>
+>         cancel_work_sync(&dev->kevent);
+>
+> before the "free_netdev(net)" in the "out1" label.
+>
+> And there might be other things that bind() can have touched than the
+> kevent workqueue.
+>
+>                Linus
