@@ -1,46 +1,72 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
-Date: Fri, 04 Mar 2016 16:24:19 +0100
-Message-ID: <1659125.tHp8H942OG@wuerfel>
-References: <1456945629-1793533-1-git-send-email-arnd@arndb.de> <1456945629-1793533-2-git-send-email-arnd@arndb.de> <56D7F62E.6050502@linux-pingi.de>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: pull-request: wireless-drivers 2016-02-18
+Date: Fri, 04 Mar 2016 17:29:25 +0200
+Message-ID: <87y49yw9be.fsf@kamboji.qca.qualcomm.com>
+References: <87mvqyqbqp.fsf@kamboji.qca.qualcomm.com>
+	<CAMuHMdWVJ+rC1w_-mHdWhDJ_q++W_hp-Fg4JTjSSSseS1aDd5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: isdn@linux-pingi.de,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	devel@driverdev.osuosl.org, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56D7F62E.6050502@linux-pingi.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Larry.Finger@lwfinger.net
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:41043 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755146AbcCDP3d convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 10:29:33 -0500
+In-Reply-To: <CAMuHMdWVJ+rC1w_-mHdWhDJ_q++W_hp-Fg4JTjSSSseS1aDd5Q@mail.gmail.com>
+	(Geert Uytterhoeven's message of "Mon, 29 Feb 2016 09:35:21 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 03 March 2016 09:30:38 isdn@linux-pingi.de wrote:
-> Hi Arnd,
-> I fully agree and ack.
-> Thanks for the work.
-> 
+(Adding Larry)
 
-I actually did more patches that I ended up not submitting:
+Geert Uytterhoeven <geert@linux-m68k.org> writes:
 
-* move hisax to staging
-* remove i4l support from gigaset
-* move i4l core to staging
+> On Thu, Feb 18, 2016 at 4:28 PM, Kalle Valo <kvalo@codeaurora.org> wr=
+ote:
+>
+>> rtlwifi
+>>
+>> * fix broken VHT (802.11ac) support, reported by Linus
+>
+> That's commit d76d65fd26951498144029c24852c4d54ee512d9
+>
+> drivers/net/wireless/realtek/rtlwifi/rc.c: In function
+> =E2=80=98_rtl_rc_rate_set_series=E2=80=99:
+> drivers/net/wireless/realtek/rtlwifi/rc.c:144: warning: comparison is
+> always false due to limited range of data type
+>
+>                 if (sta && sta->vht_cap.vht_supported &&
+>                     (wireless_mode =3D=3D WIRELESS_MODE_AC_5G ||
+>                      wireless_mode =3D=3D WIRELESS_MODE_AC_24G ||
+>                      wireless_mode =3D=3D WIRELESS_MODE_AC_ONLY))
+>                         rate->flags |=3D IEEE80211_TX_RC_VHT_MCS;
+>
+> u8 wireless_mode =3D 0;
+>
+> enum wireless_mode {
+>         ...
+>         WIRELESS_MODE_AC_ONLY =3D 0x100,
+>
+> How is that supposed to work?
 
-while I initially thought that i4l as a whole is not just unmaintained
-but also more or less unused, patch 19cebbcb04c8 ("isdn: Partially
-revert debug format string usage clean up") came in that indicated that
-there are still users that even send patches for hisax, and that
-made me doubt whether we could consider it obsolete enough.
+I have no idea what could be the difference, for example, between AC_5G
+and AC_ONLY. Maybe AC_ONLY mode is not really used in normal setups and
+that's why the bug doesn't break anything? Larry, do you know?
 
-Any thoughts on this? If you like, I can send those too.
+Anyway, Larry has a patch for this but I'm planning to send it to 4.6 a=
+s
+I didn't think it as that urgent:
 
-My main motivation was to not have to fix up the ippp implementation
-when I move the compat ioctl handler from fs/compat_ioctl.c
-into drivers/net/ppp/ppp_generic.c, but I guess I can do that
-anyway as it seems that i4l never worked properly in compat mode.
+rtlwifi: Fix size of wireless mode variable
 
-	Arnd
+https://patchwork.kernel.org/patch/8425191/
+
+--=20
+Kalle Valo
