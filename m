@@ -1,44 +1,34 @@
-From: Michal Kazior <michal.kazior@tieto.com>
-Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
-Date: Fri, 4 Mar 2016 07:32:24 +0100
-Message-ID: <CA+BoTQk6J7kgdie9aX24MB+8PxN3oFUh0eVdmVrdyptW5RxQXg@mail.gmail.com>
-References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
-	<E1abfnE-0000VS-00@www.xplot.org>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH RFC/RFT 1/2] ath9k: rename struct ath_txq to struct ath_hwq
+Date: Fri, 04 Mar 2016 08:41:28 +0200
+Message-ID: <87vb52lp7r.fsf@purkki.adurom.net>
+References: <E1abeND-0007xj-00@www.xplot.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Felix Fietkau <nbd@openwrt.org>, andrewmcgr@google.com,
-	apenwarr@google.com
-To: Tim Shepard <shep@alum.mit.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:38485 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751088AbcCDGcZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 01:32:25 -0500
-Received: by mail-wm0-f53.google.com with SMTP id l68so17196172wml.1
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 22:32:25 -0800 (PST)
-In-Reply-To: <E1abfnE-0000VS-00@www.xplot.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
+	andrewmcgr-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, apenwarr-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
+To: Tim Shepard <shep-FrUbXkNCsVf2fBVCVOL8/A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <E1abeND-0007xj-00-k6rWiVCi6FQBXFe83j6qeQ@public.gmane.org> (Tim Shepard's message of "Thu,
+	03 Mar 2016 20:17:43 -0500")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 4 March 2016 at 03:48, Tim Shepard <shep@alum.mit.edu> wrote:
-[...]
-> (I am interested in knowing what other mac80211 drivers have been
->  modified to use the mac80211 intermediate software queues.   I know
->  Michal mentioned he has patches for ath10k that are not yet released=
-,
->  and I know Felix is finishing up the mt76 driver which uses them.)
+Tim Shepard <shep-FrUbXkNCsVf2fBVCVOL8/A@public.gmane.org> writes:
 
-Patches for ath10k are under review since quite some time now (but are
-not merged yet). The latest re-spin is:
+> Also use hwq instead of txq to refer to it throughout ath9k/*.  This
+> is prep work for using mac80211's new intermediate queues, which are
+> called txq, and it would be too confusing if both are called txq.
 
-  http://lists.infradead.org/pipermail/ath10k/2016-March/006923.html
+You should add Signed-off-by to both patches in case someone else wants
+to work with these.
 
-
-Micha=C5=82
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
