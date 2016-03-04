@@ -1,242 +1,94 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Sat, 5 Mar 2016 00:39:20 +0300
-Message-ID: <20160304213920.GJ4184@uranus.lan>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH net-next] net: ixgbe: Fix cls_u32
+ offload support for ports and fields with masks.
+Date: Fri, 04 Mar 2016 14:10:13 -0800
+Message-ID: <1457129413.2936.27.camel@intel.com>
+References: <1457120869-3489-1-git-send-email-sridhar.samudrala@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Solar Designer <solar@openwall.com>,
-	Vasily Averin <vvs@virtuozzo.com>,
-	Andrey Vagin <avagin@virtuozzo.com>,
-	Pavel Emelianov <xemul@virtuozzo.com>,
-	Vladimir Davydov <vdavydov@virtuozzo.com>,
-	Konstantin Khorenko <khorenko@virtuozzo.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: NETDEV <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-qgavpq0R67zajG9ZNzso"
+To: Sridhar Samudrala <sridhar.samudrala@intel.com>,
+	intel-wired-lan@lists.osuosl.org, john.r.fastabend@intel.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:36131 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759678AbcCDVj2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 16:39:28 -0500
-Received: by mail-lb0-f175.google.com with SMTP id x1so75665235lbj.3
-        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 13:39:27 -0800 (PST)
-Content-Disposition: inline
+Received: from mga04.intel.com ([192.55.52.120]:48491 "EHLO mga04.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759071AbcCDWK1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2016 17:10:27 -0500
+In-Reply-To: <1457120869-3489-1-git-send-email-sridhar.samudrala@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currenlty all the kernels (including vanilla) free ifa
-list under rtln_lock() taken which takes a huge time
-to release all entries when we stop the container.
-Moreover it's allowed to create unlimited number
-of addresses from inside of net-namespace if
-CAP-NET_ADMIN granted (which is common for containers).
 
-Lets introduce per-net limit (4096 by default)
-of addresses, which can be tuned up via sysfs
-entry /proc/sys/net/ipv4/ifa_limit.
+--=-qgavpq0R67zajG9ZNzso
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Reported-by: Solar Designer <solar@openwall.com>
-Signed-off-by: Cyrill Gorcunov <gorcunov@virtuozzo.com>
-CC: Vasily Averin <vvs@virtuozzo.com>
-CC: Andrey Vagin <avagin@virtuozzo.com>
-CC: Pavel Emelianov <xemul@virtuozzo.com>
-CC: Vladimir Davydov <vdavydov@virtuozzo.com>
-CC: Konstantin Khorenko <khorenko@virtuozzo.com>
-CC: David Miller <davem@davemloft.net>
-CC: Eric Dumazet <eric.dumazet@gmail.com>
----
+On Fri, 2016-03-04 at 11:47 -0800, Sridhar Samudrala wrote:
+> Fix support for 16 bit source/dest port matches in ixgbe model.
+> u32 uses a single 32-bit key value for both source and destination
+> ports
+> starting at offset 0. So replace the 2 functions with a single
+> function
+> that takes this key value/mask to program both source and dest ports.
+>=20
+> Remove the incorrect check for mask in ixgbe_configure_clsu32()
+>=20
+> Tested with the following filters:
+>=20
+> =C2=A0#tc qdisc add dev p4p1 ingress
+> =C2=A0#tc filter add dev p4p1 parent ffff: protocol ip prio 99 \
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0handle 800:0:1 u32 ht 800=
+: \
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0match ip dst 11.0.0.1/24 =
+match ip src 11.0.0.2/24 action drop
+>=20
+> =C2=A0#tc filter del dev p4p1 parent ffff: protocol ip prio 99 \
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0handle 800:0:1 u32
+> =C2=A0#tc filter add dev p4p1 parent ffff: protocol ip prio 99 \
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0handle 1: u32 divisor 1
+> =C2=A0#tc filter add dev p4p1 parent ffff: protocol ip prio 99 \
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0handle 800:0:10 u32 ht 80=
+0: link 1: \
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0offset at 0 mask 0f00 shi=
+ft 6 plus 0 eat match ip protocol 6
+> ff
+> =C2=A0#tc filter add dev p4p1 parent ffff: protocol ip prio 99 \
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0handle 1:0:10 u32 ht 1: \
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0match tcp src 1024 ffff m=
+atch tcp dst 80 ffff action drop
+>=20
+> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+> ---
+> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_main.c=C2=A0 |=C2=A0 3 +--
+> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_model.h | 17 ++++----------
+> ---
+> =C2=A02 files changed, 5 insertions(+), 15 deletions(-)
 
-Please share the idea if there some more elegant way exist
-to fix this problem, maybe I miss something obvious. Thanks!
+Is this v2? =C2=A0If not, why are you re-sending a patch that is already in
+my queue? =C2=A0If so, where is the changelog so we know what changed in
+this updated v2 of the patch?
+--=-qgavpq0R67zajG9ZNzso
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
- include/net/netns/ipv4.h   |    3 +++
- net/ipv4/devinet.c         |   34 +++++++++++++++++++---------------
- net/ipv4/sysctl_net_ipv4.c |    8 ++++++++
- 3 files changed, 30 insertions(+), 15 deletions(-)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-Index: linux-ml.git/include/net/netns/ipv4.h
-===================================================================
---- linux-ml.git.orig/include/net/netns/ipv4.h
-+++ linux-ml.git/include/net/netns/ipv4.h
-@@ -77,6 +77,8 @@ struct netns_ipv4 {
- 
- 	struct local_ports ip_local_ports;
- 
-+	int sysctl_ifa_limit;
-+
- 	int sysctl_tcp_ecn;
- 	int sysctl_tcp_ecn_fallback;
- 
-@@ -101,6 +103,7 @@ struct netns_ipv4 {
- 	struct ping_group_range ping_group_range;
- 
- 	atomic_t dev_addr_genid;
-+	atomic_t ifa_nr;
- 
- #ifdef CONFIG_SYSCTL
- 	unsigned long *sysctl_local_reserved_ports;
-Index: linux-ml.git/net/ipv4/devinet.c
-===================================================================
---- linux-ml.git.orig/net/ipv4/devinet.c
-+++ linux-ml.git/net/ipv4/devinet.c
-@@ -194,8 +194,11 @@ static void devinet_sysctl_unregister(st
- 
- /* Locks all the inet devices. */
- 
--static struct in_ifaddr *inet_alloc_ifa(void)
-+static struct in_ifaddr *inet_alloc_ifa(struct net *net)
- {
-+	if (atomic_add_return(1, &net->ipv4.ifa_nr) >
-+	    net->ipv4.sysctl_ifa_limit)
-+		return NULL;
- 	return kzalloc(sizeof(struct in_ifaddr), GFP_KERNEL);
- }
- 
-@@ -207,8 +210,9 @@ static void inet_rcu_free_ifa(struct rcu
- 	kfree(ifa);
- }
- 
--static void inet_free_ifa(struct in_ifaddr *ifa)
-+static void inet_free_ifa(struct net *net, struct in_ifaddr *ifa)
- {
-+	atomic_dec(&net->ipv4.ifa_nr);
- 	call_rcu(&ifa->rcu_head, inet_rcu_free_ifa);
- }
- 
-@@ -296,7 +300,7 @@ static void inetdev_destroy(struct in_de
- 
- 	while ((ifa = in_dev->ifa_list) != NULL) {
- 		inet_del_ifa(in_dev, &in_dev->ifa_list, 0);
--		inet_free_ifa(ifa);
-+		inet_free_ifa(dev_net(dev), ifa);
- 	}
- 
- 	RCU_INIT_POINTER(dev->ip_ptr, NULL);
-@@ -361,7 +365,7 @@ static void __inet_del_ifa(struct in_dev
- 				rtmsg_ifa(RTM_DELADDR, ifa, nlh, portid);
- 				blocking_notifier_call_chain(&inetaddr_chain,
- 						NETDEV_DOWN, ifa);
--				inet_free_ifa(ifa);
-+				inet_free_ifa(dev_net(in_dev->dev), ifa);
- 			} else {
- 				promote = ifa;
- 				break;
-@@ -420,7 +424,7 @@ static void __inet_del_ifa(struct in_dev
- 
- 	}
- 	if (destroy)
--		inet_free_ifa(ifa1);
-+		inet_free_ifa(dev_net(in_dev->dev), ifa1);
- }
- 
- static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
-@@ -442,7 +446,7 @@ static int __inet_insert_ifa(struct in_i
- 	ASSERT_RTNL();
- 
- 	if (!ifa->ifa_local) {
--		inet_free_ifa(ifa);
-+		inet_free_ifa(dev_net(in_dev->dev), ifa);
- 		return 0;
- 	}
- 
-@@ -457,11 +461,11 @@ static int __inet_insert_ifa(struct in_i
- 		if (ifa1->ifa_mask == ifa->ifa_mask &&
- 		    inet_ifa_match(ifa1->ifa_address, ifa)) {
- 			if (ifa1->ifa_local == ifa->ifa_local) {
--				inet_free_ifa(ifa);
-+				inet_free_ifa(dev_net(in_dev->dev), ifa);
- 				return -EEXIST;
- 			}
- 			if (ifa1->ifa_scope != ifa->ifa_scope) {
--				inet_free_ifa(ifa);
-+				inet_free_ifa(dev_net(in_dev->dev), ifa);
- 				return -EINVAL;
- 			}
- 			ifa->ifa_flags |= IFA_F_SECONDARY;
-@@ -502,7 +506,7 @@ static int inet_set_ifa(struct net_devic
- 	ASSERT_RTNL();
- 
- 	if (!in_dev) {
--		inet_free_ifa(ifa);
-+		inet_free_ifa(dev_net(dev), ifa);
- 		return -ENOBUFS;
- 	}
- 	ipv4_devconf_setall(in_dev);
-@@ -768,7 +772,7 @@ static struct in_ifaddr *rtm_to_ifaddr(s
- 	if (!in_dev)
- 		goto errout;
- 
--	ifa = inet_alloc_ifa();
-+	ifa = inet_alloc_ifa(net);
- 	if (!ifa)
- 		/*
- 		 * A potential indev allocation can be left alive, it stays
-@@ -817,7 +821,7 @@ static struct in_ifaddr *rtm_to_ifaddr(s
- 	return ifa;
- 
- errout_free:
--	inet_free_ifa(ifa);
-+	inet_free_ifa(net, ifa);
- errout:
- 	return ERR_PTR(err);
- }
-@@ -865,13 +869,13 @@ static int inet_rtm_newaddr(struct sk_bu
- 					       true, ifa);
- 
- 			if (ret < 0) {
--				inet_free_ifa(ifa);
-+				inet_free_ifa(net, ifa);
- 				return ret;
- 			}
- 		}
- 		return __inet_insert_ifa(ifa, nlh, NETLINK_CB(skb).portid);
- 	} else {
--		inet_free_ifa(ifa);
-+		inet_free_ifa(net, ifa);
- 
- 		if (nlh->nlmsg_flags & NLM_F_EXCL ||
- 		    !(nlh->nlmsg_flags & NLM_F_REPLACE))
-@@ -1055,7 +1059,7 @@ int devinet_ioctl(struct net *net, unsig
- 
- 		if (!ifa) {
- 			ret = -ENOBUFS;
--			ifa = inet_alloc_ifa();
-+			ifa = inet_alloc_ifa(net);
- 			if (!ifa)
- 				break;
- 			INIT_HLIST_NODE(&ifa->hash);
-@@ -1408,7 +1412,7 @@ static int inetdev_event(struct notifier
- 		if (!inetdev_valid_mtu(dev->mtu))
- 			break;
- 		if (dev->flags & IFF_LOOPBACK) {
--			struct in_ifaddr *ifa = inet_alloc_ifa();
-+			struct in_ifaddr *ifa = inet_alloc_ifa(dev_net(dev));
- 
- 			if (ifa) {
- 				INIT_HLIST_NODE(&ifa->hash);
-Index: linux-ml.git/net/ipv4/sysctl_net_ipv4.c
-===================================================================
---- linux-ml.git.orig/net/ipv4/sysctl_net_ipv4.c
-+++ linux-ml.git/net/ipv4/sysctl_net_ipv4.c
-@@ -960,6 +960,13 @@ static struct ctl_table ipv4_net_table[]
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
-+	{
-+		.procname	= "ifa_limit",
-+		.data		= &init_net.ipv4.sysctl_ifa_limit,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- 	{ }
- };
- 
-@@ -988,6 +995,7 @@ static __net_init int ipv4_sysctl_init_n
- 	if (!net->ipv4.sysctl_local_reserved_ports)
- 		goto err_ports;
- 
-+	net->ipv4.sysctl_ifa_limit = 4096;
- 	return 0;
- 
- err_ports:
+iQIcBAABCgAGBQJW2gfFAAoJEOVv75VaS+3OtWAP/jnucf6W6ST6LK87tVDuEywn
+r9cexWFpBLS3DKRO1hTVu1iG2zDnDxeNp+oNCvZE+1+PM9fKhe+kxHwreAa7+EBA
+IVjhihCtX9vucV1gf+YSZ9CzvO0lbsCCNuE6Ckt/3Cxi/HyAoiRpE7FRuBng6qW+
+Qyn3YKnhOdu9VunFWUHc9qU58uC/ZwucV+zDCMlHqO6qLXU5ddCRdHa5dVkOB5Wx
+KgXQR+CDPYrMiugZ8hmWy+K78LVN3BISrB0fBJ/w3wapAj+ayE5N7r1cdId/0Hz+
+rPk5m205EDsRHOMnuTCMAYwL2f1Q8qsqJBEbuVJank2+Ylg77thMGbTSRO95Vvf4
+s6TxiNValnZapgPgQ+CB2E9xEqkMPLz+dousm1SgzPQQRzYp49tFyIX+hNRElXmk
+OJIa6NQzKetCp7NvSv6v8AGRB6ajz1ritfG2q4tl9c7J3BdT6I5TpbohiU8jGmLu
+Tuh9E1B2NWWIXD2Guh+80W6qZ0X32ulXdj3cNRCPqJGyBy7OLkuDP2cQ/dll/cv9
+OqtJaU4jndqrZxPEH7JwOzKrAmn6wqdInNQpERtpVt+TRA7SEDnYzik7TIlh+WQa
+YDoYClwApRggJkUipBAQRKiJ6mkPyi5H9vmzupEVImZNy/l6009v+vp3ggYh5O26
+em42vmxm/KLVCiasExCn
+=k1jT
+-----END PGP SIGNATURE-----
+
+--=-qgavpq0R67zajG9ZNzso--
