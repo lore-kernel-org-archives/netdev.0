@@ -1,43 +1,196 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next V2 03/10] net/sched: Macro instead of
- CONFIG_NET_CLS_ACT ifdef
-Date: Fri, 4 Mar 2016 10:20:18 -0800
-Message-ID: <CAM_iQpVDXoNrTq+51eYFQHXaztASsUP67wC3n3iCBDeeKf6QJA@mail.gmail.com>
-References: <1457016960-27832-1-git-send-email-amir@vadai.me>
-	<1457016960-27832-4-git-send-email-amir@vadai.me>
-	<CAM_iQpV-4On99wn7=kZQeem=xZy5SV2GnKuoORGD4uzQw=H47w@mail.gmail.com>
-	<20160303195141.GA15037@office.Home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] vmxnet3: avoid calling pskb_may_pull with interrupts disabled
+Date: Fri,  4 Mar 2016 13:40:48 -0500
+Message-ID: <1457116848-6753-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Shrikrishna Khare <skhare@vmware.com>,
+	"VMware, Inc." <pv-drivers@vmware.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f178.google.com ([209.85.161.178]:34278 "EHLO
-	mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759525AbcCDSUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 13:20:19 -0500
-Received: by mail-yw0-f178.google.com with SMTP id h129so51079048ywb.1
-        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 10:20:18 -0800 (PST)
-In-Reply-To: <20160303195141.GA15037@office.Home>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:37210 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754541AbcCDSlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 13:41:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 3, 2016 at 11:51 AM, Amir Vadai <amir@vadai.me> wrote:
-> On Thu, Mar 03, 2016 at 09:45:28AM -0800, Cong Wang wrote:
->>
->> So why?
-> The struct will not be used, and without exposing it, the compiler will
-> complain on code like I have in patch 9/10 ("net/mlx5e: Support offload
-> cls_flower with drop action"):
->
-> static int parse_tc_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
->                             u32 *action, u32 *flow_tag)
+vmxnet3 has a function vmxnet3_parse_and_copy_hdr which, among other operations,
+uses pskb_may_pull to linearize the header portion of an skb.  That operation
+eventually uses local_bh_disable/enable to ensure that it doesn't race with the
+drivers bottom half handler.  Unfortunately, vmxnet3 preforms this
+parse_and_copy operation with a spinlock held and interrupts disabled.  This
+causes us to run afoul of the WARN_ON_ONCE(irqs_disabled()) warning in
+local_bh_enable, resulting in this:
 
-Why not make this a nop when CONFIG_NET_CLS_ACT is not set?
+WARNING: at kernel/softirq.c:159 local_bh_enable+0x59/0x90() (Not tainted)
+Hardware name: VMware Virtual Platform
+Modules linked in: ipv6 ppdev parport_pc parport microcode e1000 vmware_balloon
+vmxnet3 i2c_piix4 sg ext4 jbd2 mbcache sd_mod crc_t10dif sr_mod cdrom mptspi
+mptscsih mptbase scsi_transport_spi pata_acpi ata_generic ata_piix vmwgfx ttm
+drm_kms_helper drm i2c_core dm_mirror dm_region_hash dm_log dm_mod [last
+unloaded: mperf]
+Pid: 6229, comm: sshd Not tainted 2.6.32-616.el6.i686 #1
+Call Trace:
+ [<c04624d9>] ? warn_slowpath_common+0x89/0xe0
+ [<c0469e99>] ? local_bh_enable+0x59/0x90
+ [<c046254b>] ? warn_slowpath_null+0x1b/0x20
+ [<c0469e99>] ? local_bh_enable+0x59/0x90
+ [<c07bb936>] ? skb_copy_bits+0x126/0x210
+ [<f8d1d9fe>] ? ext4_ext_find_extent+0x24e/0x2d0 [ext4]
+ [<c07bc49e>] ? __pskb_pull_tail+0x6e/0x2b0
+ [<f95a6164>] ? vmxnet3_xmit_frame+0xba4/0xef0 [vmxnet3]
+ [<c05d15a6>] ? selinux_ip_postroute+0x56/0x320
+ [<c0615988>] ? cfq_add_rq_rb+0x98/0x110
+ [<c0852df8>] ? packet_rcv+0x48/0x350
+ [<c07c5839>] ? dev_queue_xmit_nit+0xc9/0x140
+...
+
+Fix it by splitting vmxnet3_parse_and_copy_hdr into two functions:
+
+vmxnet3_parse_hdr, which sets up the internal/on stack ctx datastructure, and
+pulls the skb (both of which can be done without holding the spinlock with irqs
+disabled
+
+and
+
+vmxnet3_copy_header, which just copies the skb to the tx ring under the lock
+safely.
+
+tested and shown to correct the described problem.  Applies cleanly to the head
+of the net tree
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Shrikrishna Khare <skhare@vmware.com>
+CC: "VMware, Inc." <pv-drivers@vmware.com>
+CC: "David S. Miller" <davem@davemloft.net>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c | 73 ++++++++++++++++++++++++---------------
+ 1 file changed, 46 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 0cbf520..17589d8 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -814,7 +814,7 @@ vmxnet3_tq_init_all(struct vmxnet3_adapter *adapter)
+ 
+ 
+ /*
+- *    parse and copy relevant protocol headers:
++ *    parse relevant protocol headers:
+  *      For a tso pkt, relevant headers are L2/3/4 including options
+  *      For a pkt requesting csum offloading, they are L2/3 and may include L4
+  *      if it's a TCP/UDP pkt
+@@ -827,15 +827,14 @@ vmxnet3_tq_init_all(struct vmxnet3_adapter *adapter)
+  * Other effects:
+  *    1. related *ctx fields are updated.
+  *    2. ctx->copy_size is # of bytes copied
+- *    3. the portion copied is guaranteed to be in the linear part
++ *    3. the portion to be copied is guaranteed to be in the linear part
+  *
+  */
+ static int
+-vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+-			   struct vmxnet3_tx_ctx *ctx,
+-			   struct vmxnet3_adapter *adapter)
++vmxnet3_parse_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
++		  struct vmxnet3_tx_ctx *ctx,
++		  struct vmxnet3_adapter *adapter)
+ {
+-	struct Vmxnet3_TxDataDesc *tdd;
+ 	u8 protocol = 0;
+ 
+ 	if (ctx->mss) {	/* TSO */
+@@ -892,16 +891,34 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 		return 0;
+ 	}
+ 
++	return 1;
++err:
++	return -1;
++}
++
++/*
++ *    copy relevant protocol headers to the transmit ring:
++ *      For a tso pkt, relevant headers are L2/3/4 including options
++ *      For a pkt requesting csum offloading, they are L2/3 and may include L4
++ *      if it's a TCP/UDP pkt
++ *
++ *
++ *    Note that this requires that vmxnet3_parse_hdr be called first to set the
++ *      appropriate bits in ctx first
++ */
++static void 
++vmxnet3_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
++		 struct vmxnet3_tx_ctx *ctx,
++		 struct vmxnet3_adapter *adapter)
++{
++	struct Vmxnet3_TxDataDesc *tdd;
++
+ 	tdd = tq->data_ring.base + tq->tx_ring.next2fill;
+ 
+ 	memcpy(tdd->data, skb->data, ctx->copy_size);
+ 	netdev_dbg(adapter->netdev,
+ 		"copy %u bytes to dataRing[%u]\n",
+ 		ctx->copy_size, tq->tx_ring.next2fill);
+-	return 1;
+-
+-err:
+-	return -1;
+ }
+ 
+ 
+@@ -998,22 +1015,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 		}
+ 	}
+ 
+-	spin_lock_irqsave(&tq->tx_lock, flags);
+-
+-	if (count > vmxnet3_cmd_ring_desc_avail(&tq->tx_ring)) {
+-		tq->stats.tx_ring_full++;
+-		netdev_dbg(adapter->netdev,
+-			"tx queue stopped on %s, next2comp %u"
+-			" next2fill %u\n", adapter->netdev->name,
+-			tq->tx_ring.next2comp, tq->tx_ring.next2fill);
+-
+-		vmxnet3_tq_stop(tq, adapter);
+-		spin_unlock_irqrestore(&tq->tx_lock, flags);
+-		return NETDEV_TX_BUSY;
+-	}
+-
+-
+-	ret = vmxnet3_parse_and_copy_hdr(skb, tq, &ctx, adapter);
++	ret = vmxnet3_parse_hdr(skb, tq, &ctx, adapter);
+ 	if (ret >= 0) {
+ 		BUG_ON(ret <= 0 && ctx.copy_size != 0);
+ 		/* hdrs parsed, check against other limits */
+@@ -1033,9 +1035,26 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 		}
+ 	} else {
+ 		tq->stats.drop_hdr_inspect_err++;
+-		goto unlock_drop_pkt;
++		goto drop_pkt;
++	}
++
++	spin_lock_irqsave(&tq->tx_lock, flags);
++
++	if (count > vmxnet3_cmd_ring_desc_avail(&tq->tx_ring)) {
++		tq->stats.tx_ring_full++;
++		netdev_dbg(adapter->netdev,
++			"tx queue stopped on %s, next2comp %u"
++			" next2fill %u\n", adapter->netdev->name,
++			tq->tx_ring.next2comp, tq->tx_ring.next2fill);
++
++		vmxnet3_tq_stop(tq, adapter);
++		spin_unlock_irqrestore(&tq->tx_lock, flags);
++		return NETDEV_TX_BUSY;
+ 	}
+ 
++
++	vmxnet3_copy_hdr(skb, tq, &ctx, adapter);
++
+ 	/* fill tx descs related to addr & len */
+ 	if (vmxnet3_map_pkt(skb, &ctx, tq, adapter->pdev, adapter))
+ 		goto unlock_drop_pkt;
+-- 
+2.5.0
