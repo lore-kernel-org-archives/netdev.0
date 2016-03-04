@@ -1,45 +1,47 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH RFC] net: Fix race condition when removing qdisc
-Date: Thu, 3 Mar 2016 15:58:15 -0800
-Message-ID: <CALx6S34tWHZQJfTCc6vDkgDbo1DDFP33LNFnMJ591QEW87YAmA@mail.gmail.com>
-References: <1456874197-3036009-1-git-send-email-tom@herbertland.com>
-	<CAM_iQpWxkd16A_=htGxjA6OVBj_kzBZKsOF-JmsQQLbJc=r_WA@mail.gmail.com>
-	<CALx6S36-LNu_uqPP3is1U7gO48qtbkTADgxpm_ecuHN+UuxrgQ@mail.gmail.com>
-	<1457049168.2761.3.camel@edumazet-ThinkPad-T530>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] vxlan: fix missing options_len update on RX with
+ collect metadata
+Date: Thu, 3 Mar 2016 16:16:16 -0800
+Message-ID: <CAM_iQpWOUw6im=1HAemYYahY_Q3W6kW42pYQEHWRxmha1GHyHg@mail.gmail.com>
+References: <ea834e5ecd014f50f9d979ee869f96e5508f8d9c.1456880721.git.daniel@iogearbox.net>
+	<CAM_iQpWurWR6c2tvi1fGmNvt-6J=mE05CeKKJkLAEob3stLtZg@mail.gmail.com>
+	<56D7FC98.6020505@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Lawrence Brakmo <brakmo@fb.com>,
-	Kernel Team <kernel-team@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	Pravin B Shelar <pshelar@nicira.com>, jesse@kernel.org,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f196.google.com ([209.85.213.196]:35479 "EHLO
-	mail-ig0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755871AbcCCX6Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 18:58:16 -0500
-Received: by mail-ig0-f196.google.com with SMTP id ww10so803060igb.2
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 15:58:16 -0800 (PST)
-In-Reply-To: <1457049168.2761.3.camel@edumazet-ThinkPad-T530>
+Received: from mail-yk0-f170.google.com ([209.85.160.170]:35385 "EHLO
+	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932083AbcCDAQR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 19:16:17 -0500
+Received: by mail-yk0-f170.google.com with SMTP id v186so16652245yke.2
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 16:16:16 -0800 (PST)
+In-Reply-To: <56D7FC98.6020505@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 3, 2016 at 3:52 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On jeu., 2016-03-03 at 14:24 -0800, Tom Herbert wrote:
->> This a kernel based on 3.10. We believe the lockups coincide with
->> removing/readding qdiscs.
+On Thu, Mar 3, 2016 at 12:58 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 03/03/2016 02:21 AM, Cong Wang wrote:
+>>
+>> Why not set it in tun_rx_dst() where it is allocated?
 >
-> You could backport 64153ce0a7b61b2a
-> ("net_sched: htb: do not setup default rate estimators"),
-> unless you desperately want these rate estimators...
 >
-> How many HTB classes do you deal with ?
->
-~1500.
+> Nope, current convention is to only fill options_len when an actual
+> option was detected on RX, f.e. see ip_tunnel_info_opts_set() in
+> geneve. Consumers like ovs_flow_key_extract() check for options_len
+> and not TUNNEL_OPTIONS_PRESENT to copy it via ip_tunnel_info_opts_get()
+> from there.
 
-One think that looks odd to me is that htb_destroy_class is not doing
-an rcu_free (just kfree(cl)). I'm thinking that est_timer can run
-after that kfree and be accessing some of the fields in the freed
-structure (at least rate_est).
+But the APIs suck...
 
-Tom
+You expect to use ip_tunnel_info_opts_{get,set}() to read or write
+the tun_info, but actually this is not the case here for vxlan.
+
+Also, ip_tunnel_info_opts_set() could write out of range if the len is
+bigger than the allocated length. I know existing callers are fine, but this API
+is problematic.
+
+I think this is why we had this bug.
