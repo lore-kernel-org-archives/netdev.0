@@ -1,90 +1,111 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 02/12] man: Add a man page for the csum action.
-Date: Fri,  4 Mar 2016 13:11:37 +0100
-Message-ID: <1457093507-25601-3-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 07/12] man: Add a man page for the simple action
+Date: Fri,  4 Mar 2016 13:11:42 +0100
+Message-ID: <1457093507-25601-8-git-send-email-phil@nwl.cc>
 References: <1457093507-25601-1-git-send-email-phil@nwl.cc>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:37082 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:36980 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751466AbcCDMMn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Mar 2016 07:12:43 -0500
+	id S1751649AbcCDMMt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2016 07:12:49 -0500
 Received: from mail.nwl.cc (orbyte.nwl.cc [127.0.0.1])
-	by mail.nwl.cc (Postfix) with ESMTP id 5FD836AF5C
-	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:42 +0100 (CET)
+	by mail.nwl.cc (Postfix) with ESMTP id 9C63F6AF5C
+	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:48 +0100 (CET)
 Received: from xsao (localhost [IPv6:::1])
-	by mail.nwl.cc (Postfix) with ESMTP id 454946894E
-	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:42 +0100 (CET)
+	by mail.nwl.cc (Postfix) with ESMTP id 804996894E
+	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:48 +0100 (CET)
 In-Reply-To: <1457093507-25601-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Gregoire Baron <baronchon@n7mm.org>
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/tc-csum.8 | 54 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 54 insertions(+)
- create mode 100644 man/man8/tc-csum.8
+ man/man8/tc-simple.8 | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 76 insertions(+)
+ create mode 100644 man/man8/tc-simple.8
 
-diff --git a/man/man8/tc-csum.8 b/man/man8/tc-csum.8
+diff --git a/man/man8/tc-simple.8 b/man/man8/tc-simple.8
 new file mode 100644
-index 0000000000000..9d00aae346af0
+index 0000000000000..2206dc3b88614
 --- /dev/null
-+++ b/man/man8/tc-csum.8
-@@ -0,0 +1,54 @@
-+.TH "Checksum action in tc" 8 "11 Jan 2015" "iproute2" "Linux"
++++ b/man/man8/tc-simple.8
+@@ -0,0 +1,76 @@
++.TH "Simple action in tc" 8 "12 Jan 2015" "iproute2" "Linux"
 +
 +.SH NAME
-+csum - checksum update action
++simple - basic example action
 +.SH SYNOPSIS
 +.in +8
 +.ti -8
-+.BR tc " ... " "action csum"
-+.I UPDATE
-+
-+.ti -8
-+.IR UPDATE " := " TARGET " [ " UPDATE " ]"
-+
-+.ti -8
-+.IR TARGET " := { "
-+.BR ip4h " |"
-+.BR icmp " |"
-+.BR igmp " |"
-+.BR tcp " |"
-+.BR udp " |"
-+.BR udplite " |"
-+.IR SWEETS " }"
-+
-+.ti -8
-+.IR SWEETS " := { "
-+.BR and " | " or " | " + " }"
++.BR tc " ... " "action simple"
++.I STRING
 +.SH DESCRIPTION
-+The
-+.B csum
-+action triggers checksum recalculation of specified packet headers. It is
-+commonly used after packet editing using the
-+.B pedit
-+action to fix for then incorrect checksums.
++This is a pedagogical example rather than an actually useful action. Upon every access, it prints the given
++.I STRING
++which may be of arbitrary length.
 +.SH OPTIONS
 +.TP
-+.I TARGET
-+Specify which headers to update: IPv4 header
-+.RB ( ip4h ),
-+ICMP header
-+.RB ( icmp ),
-+IGMP header
-+.RB ( igmp ),
-+TCP header
-+.RB ( tcp ),
-+UDP header
-+.RB ( udp ") or"
-+UDPLite header
-+.RB ( udplite ).
-+.TP
-+.B SWEETS
-+These are merely syntactic sugar and ignored internally.
++.I STRING
++The actual string to print.
++.SH EXAMPLES
++The following example makes the kernel yell "Incoming ICMP!" every time it sees
++an incoming ICMP on eth0. Steps are:
++.IP 1) 4
++Add an ingress qdisc point to eth0
++.IP 2) 4
++Start a chain on ingress of eth0 that first matches ICMP then invokes the
++simple action to shout.
++.IP 3) 4
++display stats and show that no packet has been seen by the action
++.IP 4) 4
++Send one ping packet to google (expect to receive a response back)
++.IP 5) 4
++grep the logs to see the logged message
++.IP 6) 4
++display stats again and observe increment by 1
++
++.RE
++.EX
++  hadi@noma1:$ tc qdisc add dev eth0 ingress
++  hadi@noma1:$tc filter add dev eth0 parent ffff: protocol ip prio 5 \\
++	 u32 match ip protocol 1 0xff flowid 1:1 action simple "Incoming ICMP"
++
++  hadi@noma1:$ sudo tc -s filter ls  dev eth0 parent ffff:
++   filter protocol ip pref 5 u32
++   filter protocol ip pref 5 u32 fh 800: ht divisor 1
++   filter protocol ip pref 5 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:1
++     match 00010000/00ff0000 at 8
++	action order 1: Simple <Incoming ICMP>
++	 index 4 ref 1 bind 1 installed 29 sec used 29 sec
++	 Action statistics:
++		Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
++		backlog 0b 0p requeues 0
++
++
++  hadi@noma1$ ping -c 1 www.google.ca
++  PING www.google.ca (74.125.225.120) 56(84) bytes of data.
++  64 bytes from ord08s08-in-f24.1e100.net (74.125.225.120): icmp_req=1 ttl=53 time=31.3 ms
++
++  --- www.google.ca ping statistics ---
++  1 packets transmitted, 1 received, 0% packet loss, time 0ms
++  rtt min/avg/max/mdev = 31.316/31.316/31.316/0.000 ms
++
++  hadi@noma1$ dmesg | grep simple
++  [135354.473951] simple: Incoming ICMP_1
++
++  hadi@noma1$ sudo tc/tc -s filter ls  dev eth0 parent ffff:
++  filter protocol ip pref 5 u32
++  filter protocol ip pref 5 u32 fh 800: ht divisor 1
++  filter protocol ip pref 5 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:1
++    match 00010000/00ff0000 at 8
++	action order 1: Simple <Incoming ICMP>
++	 index 4 ref 1 bind 1 installed 206 sec used 67 sec
++	Action statistics:
++	Sent 84 bytes 1 pkt (dropped 0, overlimits 0 requeues 0)
++	backlog 0b 0p requeues 0
++.EE
 +.SH SEE ALSO
-+.BR tc (8),
-+.BR tc-pedit (8)
++.BR tc (8)
 -- 
 2.7.2
