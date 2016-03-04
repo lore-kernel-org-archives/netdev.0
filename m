@@ -1,56 +1,61 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [ethtool PATCH v2 06/12] test-common.c: fix test_realloc(NULL, ...)
-Date: Thu,  3 Mar 2016 20:23:19 -0800
-Message-ID: <1457065405-19049-7-git-send-email-ddecotig@gmail.com>
+Subject: [ethtool PATCH v2 09/12] internal.h: fix build for latest ethtool-copy.h
+Date: Thu,  3 Mar 2016 20:23:22 -0800
+Message-ID: <1457065405-19049-10-git-send-email-ddecotig@gmail.com>
 References: <1457065405-19049-1-git-send-email-ddecotig@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Jeff Garzik <jgarzik@pobox.com>,
 	Ben Hutchings <ben@decadent.org.uk>,
 	David Miller <davem@redhat.com>,
 	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
 	David Decotigny <decot@googlers.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:36097 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757221AbcCDEXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 23:23:45 -0500
-Received: by mail-pa0-f65.google.com with SMTP id a7so2386063pax.3
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 20:23:45 -0800 (PST)
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34121 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757727AbcCDEXs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 23:23:48 -0500
+Received: by mail-pa0-f66.google.com with SMTP id hj7so2395837pac.1
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 20:23:48 -0800 (PST)
 In-Reply-To: <1457065405-19049-1-git-send-email-ddecotig@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =C5=BBenczykowski <maze@google.com>
-
-This fixes:
-  test-common.c: In function 'test_realloc':
-  test-common.c:109:8: error: 'block' may be used uninitialized in this=
- function [-Werror=3Dmaybe-uninitialized]
-    block =3D realloc(block, sizeof(*block) + size);
-          ^
+From: David Decotigny <decot@googlers.com>
 
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- test-common.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ internal.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/test-common.c b/test-common.c
-index adc3cd4..cd63d1d 100644
---- a/test-common.c
-+++ b/test-common.c
-@@ -100,7 +100,7 @@ void test_free(void *ptr)
-=20
- void *test_realloc(void *ptr, size_t size)
- {
--	struct list_head *block;
-+	struct list_head *block =3D NULL;
-=20
- 	if (ptr) {
- 		block =3D (struct list_head *)ptr - 1;
---=20
+diff --git a/internal.h b/internal.h
+index 5f8504d..5df8124 100644
+--- a/internal.h
++++ b/internal.h
+@@ -13,6 +13,7 @@
+ #ifdef HAVE_CONFIG_H
+ #include "ethtool-config.h"
+ #endif
++#include <limits.h>
+ #include <stdio.h>
+ #include <stdint.h>
+ #include <stdlib.h>
+@@ -36,6 +37,8 @@ typedef uint16_t u16;
+ typedef uint8_t u8;
+ typedef int32_t s32;
+ 
++#define DIV_ROUND_UP(n, d)	(((n) + (d) - 1) / (d))
++
+ #include "ethtool-copy.h"
+ #include "net_tstamp-copy.h"
+ 
+@@ -72,7 +75,6 @@ static inline u64 cpu_to_be64(u64 value)
+ 
+ #define BITS_PER_BYTE		8
+ #define BITS_PER_LONG		(BITS_PER_BYTE * sizeof(long))
+-#define DIV_ROUND_UP(n, d)	(((n) + (d) - 1) / (d))
+ #define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_LONG)
+ 
+ static inline void set_bit(unsigned int nr, unsigned long *addr)
+-- 
 2.7.0.rc3.207.g0ac5344
