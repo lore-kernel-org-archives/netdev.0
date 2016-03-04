@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 3/7] net: bulk alloc and reuse of SKBs in NAPI
- context
-Date: Fri, 04 Mar 2016 14:01:43 +0100
-Message-ID: <20160304130143.32651.33813.stgit@firesoul>
+Subject: [net-next PATCH 6/7] net: introduce napi_alloc_skb_hint() for more
+ use-cases
+Date: Fri, 04 Mar 2016 14:02:15 +0100
+Message-ID: <20160304130215.32651.87955.stgit@firesoul>
 References: <20160304130054.32651.51776.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,149 +13,98 @@ Cc: eugenia@mellanox.com, Alexander Duyck <alexander.duyck@gmail.com>,
 	gerlitz.or@gmail.com
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52462 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35895 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752387AbcCDNBs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Mar 2016 08:01:48 -0500
+	id S1751313AbcCDNCT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2016 08:02:19 -0500
 In-Reply-To: <20160304130054.32651.51776.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduce bulk alloc of SKBs and allow reuse of SKBs
-free'ed in same softirq cycle.  SKBs are normally free'ed during TX
-completion, but most high speed drivers also cleanup TX ring during
-NAPI RX poll cycle.  Thus, if using napi_consume_skb/__kfree_skb_defer,
-SKBs will be avail in the napi_alloc_cache->skb_cache.
+The default bulk alloc size arbitrarily choosen (to be 8) might
+not suit all use-cases, this introduce a function napi_alloc_skb_hint()
+that allow the caller to specify a bulk size hint they are expecting.
+It is a hint because __napi_alloc_skb() limits the bulk size to
+the array size.
 
-If no SKBs are avail for reuse, then only bulk alloc 8 SKBs, to limit
-the potential overshooting unused SKBs needed to free'ed when NAPI
-cycle ends (flushed in net_rx_action via __kfree_skb_flush()).
-
-Generalize ___build_skb() to allow passing it a preallocated SKB.
-
-I've previously demonstrated a 1% speedup for IPv4 forwarding, when
-used on the ixgbe driver.  If SKB alloc and free happens on different
-CPUs (like in RPS use-case) the performance benefit is expected to
-increase.
-
-All drivers using the napi_alloc_skb() call will benefit from
-this change automatically.
-
-Joint work with Alexander Duyck.
+One user is the mlx5 driver, which bulk re-populate it's RX ring
+with both SKBs and pages.  Thus, it would like to work with
+bigger bulk alloc chunks.
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/core/skbuff.c |   71 ++++++++++++++++++++++++++++++++++-------------------
- 1 file changed, 45 insertions(+), 26 deletions(-)
+ include/linux/skbuff.h |   19 +++++++++++++++----
+ net/core/skbuff.c      |    8 +++-----
+ 2 files changed, 18 insertions(+), 9 deletions(-)
 
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 797cefb888fb..f49077caedaf 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2393,14 +2393,25 @@ static inline void skb_free_frag(void *addr)
+ 	__free_page_frag(addr);
+ }
+ 
++#define NAPI_SKB_CACHE_SIZE	64U /* Used in struct napi_alloc_cache */
++#define NAPI_SKB_BULK_ALLOC	 8U /* Default slab bulk alloc in NAPI */
++
+ void *napi_alloc_frag(unsigned int fragsz);
+-struct sk_buff *__napi_alloc_skb(struct napi_struct *napi,
+-				 unsigned int length, gfp_t gfp_mask);
++struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
++				 unsigned int bulk_hint, gfp_t gfp_mask);
+ static inline struct sk_buff *napi_alloc_skb(struct napi_struct *napi,
+-					     unsigned int length)
++					     unsigned int len)
++{
++	return __napi_alloc_skb(napi, len, NAPI_SKB_BULK_ALLOC, GFP_ATOMIC);
++}
++static inline struct sk_buff *napi_alloc_skb_hint(struct napi_struct *napi,
++						  unsigned int len,
++						  unsigned int bulk_hint)
+ {
+-	return __napi_alloc_skb(napi, length, GFP_ATOMIC);
++	bulk_hint = bulk_hint ? : 1;
++	return __napi_alloc_skb(napi, len, bulk_hint, GFP_ATOMIC);
+ }
++
+ void napi_consume_skb(struct sk_buff *skb, int budget);
+ 
+ void __kfree_skb_flush(void);
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 7af7ec635d90..96fb7933b614 100644
+index 96fb7933b614..c770bd4391ab 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -281,32 +281,14 @@ nodata:
+@@ -359,8 +359,6 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
  }
- EXPORT_SYMBOL(__alloc_skb);
+ EXPORT_SYMBOL(build_skb);
  
--/**
-- * __build_skb - build a network buffer
-- * @data: data buffer provided by caller
-- * @frag_size: size of data, or 0 if head was kmalloced
-- *
-- * Allocate a new &sk_buff. Caller provides space holding head and
-- * skb_shared_info. @data must have been allocated by kmalloc() only if
-- * @frag_size is 0, otherwise data should come from the page allocator
-- *  or vmalloc()
-- * The return is the new skb buffer.
-- * On a failure the return is %NULL, and @data is not freed.
-- * Notes :
-- *  Before IO, driver allocates only data buffer where NIC put incoming frame
-- *  Driver should add room at head (NET_SKB_PAD) and
-- *  MUST add room at tail (SKB_DATA_ALIGN(skb_shared_info))
-- *  After IO, driver calls build_skb(), to allocate sk_buff and populate it
-- *  before giving packet to stack.
-- *  RX rings only contains data buffers, not full skbs.
-- */
--struct sk_buff *__build_skb(void *data, unsigned int frag_size)
-+/* Allows skb being (pre)allocated by caller */
-+static inline
-+struct sk_buff *___build_skb(void *data, unsigned int frag_size,
-+			     struct sk_buff *skb)
+-#define NAPI_SKB_CACHE_SIZE	64
+-
+ struct napi_alloc_cache {
+ 	struct page_frag_cache page;
+ 	size_t skb_count;
+@@ -492,9 +490,10 @@ EXPORT_SYMBOL(__netdev_alloc_skb);
+  *	%NULL is returned if there is no free memory.
+  */
+ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
+-				 gfp_t gfp_mask)
++				 unsigned int bulk_hint, gfp_t gfp_mask)
  {
- 	struct skb_shared_info *shinfo;
--	struct sk_buff *skb;
- 	unsigned int size = frag_size ? : ksize(data);
+ 	struct napi_alloc_cache *nc = this_cpu_ptr(&napi_alloc_cache);
++	unsigned int bulk_sz = min(bulk_hint, NAPI_SKB_CACHE_SIZE);
+ 	struct sk_buff *skb;
+ 	void *data;
  
--	skb = kmem_cache_alloc(skbuff_head_cache, GFP_ATOMIC);
- 	if (!skb)
- 		return NULL;
- 
-@@ -331,6 +313,34 @@ struct sk_buff *__build_skb(void *data, unsigned int frag_size)
- 	return skb;
- }
- 
-+/**
-+ * __build_skb - build a network buffer
-+ * @data: data buffer provided by caller
-+ * @frag_size: size of data, or 0 if head was kmalloced
-+ *
-+ * Allocate a new &sk_buff. Caller provides space holding head and
-+ * skb_shared_info. @data must have been allocated by kmalloc() only if
-+ * @frag_size is 0, otherwise data should come from the page allocator
-+ *  or vmalloc()
-+ * The return is the new skb buffer.
-+ * On a failure the return is %NULL, and @data is not freed.
-+ * Notes :
-+ *  Before IO, driver allocates only data buffer where NIC put incoming frame
-+ *  Driver should add room at head (NET_SKB_PAD) and
-+ *  MUST add room at tail (SKB_DATA_ALIGN(skb_shared_info))
-+ *  After IO, driver calls build_skb(), to allocate sk_buff and populate it
-+ *  before giving packet to stack.
-+ *  RX rings only contains data buffers, not full skbs.
-+ */
-+struct sk_buff *__build_skb(void *data, unsigned int frag_size)
-+{
-+	struct sk_buff *skb;
-+	unsigned int size = frag_size ? : ksize(data);
-+
-+	skb = kmem_cache_alloc(skbuff_head_cache, GFP_ATOMIC);
-+	return ___build_skb(data, size, skb);
-+}
-+
- /* build_skb() is wrapper over __build_skb(), that specifically
-  * takes care of skb->head and skb->pfmemalloc
-  * This means that if @frag_size is not zero, then @data must be backed
-@@ -490,8 +500,8 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
- 
- 	len += NET_SKB_PAD + NET_IP_ALIGN;
- 
--	if ((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
--	    (gfp_mask & (__GFP_DIRECT_RECLAIM | GFP_DMA))) {
-+	if (unlikely((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
-+		     (gfp_mask & (__GFP_DIRECT_RECLAIM | GFP_DMA)))) {
- 		skb = __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
- 		if (!skb)
- 			goto skb_fail;
-@@ -508,11 +518,20 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
+@@ -518,10 +517,9 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
  	if (unlikely(!data))
  		return NULL;
  
--	skb = __build_skb(data, len);
--	if (unlikely(!skb)) {
-+#define BULK_ALLOC_SIZE 8
-+	if (!nc->skb_count) {
-+		nc->skb_count = kmem_cache_alloc_bulk(skbuff_head_cache,
-+						      gfp_mask, BULK_ALLOC_SIZE,
-+						      nc->skb_cache);
-+	}
-+	if (likely(nc->skb_count)) {
-+		skb = (struct sk_buff *)nc->skb_cache[--nc->skb_count];
-+	} else {
-+		/* alloc bulk failed */
- 		skb_free_frag(data);
- 		return NULL;
+-#define BULK_ALLOC_SIZE 8
+ 	if (!nc->skb_count) {
+ 		nc->skb_count = kmem_cache_alloc_bulk(skbuff_head_cache,
+-						      gfp_mask, BULK_ALLOC_SIZE,
++						      gfp_mask, bulk_sz,
+ 						      nc->skb_cache);
  	}
-+	skb = ___build_skb(data, len, skb);
- 
- 	/* use OR instead of assignment to avoid clearing of bits in mask */
- 	if (nc->page.pfmemalloc)
+ 	if (likely(nc->skb_count)) {
