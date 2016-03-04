@@ -1,44 +1,54 @@
-From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: Possible double-free in the usbnet driver
-Date: Fri, 04 Mar 2016 23:42:22 +0100
-Message-ID: <1457131342.8935.2.camel@suse.de>
-References: <CA+55aFxqwjs5gs6Fw2jmTteWM4hZTnr7Ls111ExNTieObLs82Q@mail.gmail.com>
-	 <CA+fCnZfS51F7WZEM1YTSPDMWSzvBTJWGf5cRWv5LrNCSOf_-qA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Alexander Potapenko <glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Kostya Serebryany <kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andrey Konovalov <andreyknvl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+fCnZfS51F7WZEM1YTSPDMWSzvBTJWGf5cRWv5LrNCSOf_-qA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Bill Sommerfeld <wsommerfeld@google.com>
+Subject: [PATCH] udp6: fix UDP/IPv6 encap resubmit path
+Date: Fri,  4 Mar 2016 14:47:21 -0800
+Message-ID: <1457131641-79311-1-git-send-email-wsommerfeld@google.com>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Josh Hunt <johunt@akamai.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Bill Sommerfeld <wsommerfeld@google.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2016-03-05 at 01:26 +0300, Andrey Konovalov wrote:
-> and when I run the vm and connect the device I get:
-> 
-> [   23.672662] cdc_ncm 1-1:1.6: bind() failure
-> [   23.673447] usbnet_probe(): freeing netdev: ffff88006ab48000
-> [   23.675822] usbnet_probe(): freeing netdev: ffff88006ab48000
-> 
-> So this seems to be a double-free (or at least a double free_netdev()
-> call), but the object gets freed twice from usbnet_probe() and not
-> from usbnet_disconnect(), so you're right that the latter doesn't get
-> called. I'm not sure how usbnet_probe() ends up being called twice.
+IPv4 interprets a negative return value from a protocol handler as a
+request to redispatch to a new protocol.  In contrast, IPv6 interprets a
+negative value as an error, and interprets a positive value as a request
+for redispatch.
 
-Do you have lsusb?
+UDP for IPv6 was unaware of this difference.  Change __udp6_lib_rcv() to
+return a positive value for redispatch.  Note that the socket's
+encap_rcv hook still needs to return a negative value to request
+dispatch, and in the case of IPv6 packets, adjust IP6CB(skb)->nhoff to
+identify the byte containing the next protocol.
 
-	Regards
-		Oliver
+Signed-off-by: Bill Sommerfeld <wsommerfeld@google.com>
+---
+ net/ipv6/udp.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 0711f8f..fd25e44 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -922,11 +922,9 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 		ret = udpv6_queue_rcv_skb(sk, skb);
+ 		sock_put(sk);
+ 
+-		/* a return value > 0 means to resubmit the input, but
+-		 * it wants the return to be -protocol, or 0
+-		 */
++		/* a return value > 0 means to resubmit the input */
+ 		if (ret > 0)
+-			return -ret;
++			return ret;
+ 
+ 		return 0;
+ 	}
+-- 
+2.7.0.rc3.207.g0ac5344
