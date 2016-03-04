@@ -1,71 +1,87 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH next 3/3] net: Use l3_dev instead of skb->dev for L3 processing
-Date: Thu, 3 Mar 2016 17:42:44 -0800
-Message-ID: <CAF2d9jhgoWeZdPkM-aev6j9a8OjUQ78CbE7dgp1wPXu91qp_-A@mail.gmail.com>
-References: <1456783704-18746-1-git-send-email-mahesh@bandewar.net>
- <CAM_iQpXmoSZhNw+CCbFw5b6Dzq4W+vt5WH8FmRc1ZiuJgv1xnQ@mail.gmail.com>
- <CAF2d9jhopDVGxsSM3wfYh2XgENebJNbEOn9D7Vb8t13bQ7dRcQ@mail.gmail.com>
- <CAF2d9jiyjThgeQKw==tKRk3Sh0dNfzUdwJciwsVGPFLdb9uGTA@mail.gmail.com> <CAM_iQpUB_b3S_Mi8QyzhX_XBog3+ZshY8xbSby5eUytnG2OQRg@mail.gmail.com>
+From: John Stultz <john.stultz@linaro.org>
+Subject: [PATCHv2 0/8][GIT PULLv2] time: Cross-timestamp infrastructure for 4.6
+Date: Thu,  3 Mar 2016 17:56:58 -0800
+Message-ID: <1457056626-4899-1-git-send-email-john.stultz@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>, Tim Hockin <thockin@google.com>,
-	Alex Pollitt <alex.pollitt@metaswitch.com>,
-	Matthew Dupre <matthew.dupre@metaswitch.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f175.google.com ([209.85.161.175]:33529 "EHLO
-	mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756774AbcCDBnF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2016 20:43:05 -0500
-Received: by mail-yw0-f175.google.com with SMTP id b72so30937432ywe.0
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2016 17:43:05 -0800 (PST)
-In-Reply-To: <CAM_iQpUB_b3S_Mi8QyzhX_XBog3+ZshY8xbSby5eUytnG2OQRg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: John Stultz <john.stultz@linaro.org>,
+	Prarit Bhargava <prarit@redhat.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@kernel.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	kevin.b.stanton@intel.com, kevin.j.clarke@intel.com, hpa@zytor.com,
+	netdev@vger.kernel.org
+To: lkml <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>> As you mentioned logically we should be able to pass the skb in master's
->>> ns
->>> until L3 processing is completed. This patch series attempts to do that by
->>> disassociating this logic from skb->dev and adding it to l3_dev. This
->>> should
->>> include not just IPT but all that is done in L3 phase (IPT, routing etc.)
->>> Also since dev->l3_dev is same as dev, this should not break any existing
->>> logic.
->>>
->> Well, looking at the code I realized that I missed few places (especially
->> routing
->> logic) which continues using skb->dev in ingress path and should be
->> corrected to
->> use l3_dev. I'll correct those places and send the next version.
->
->
-> Look, even you yourself are missing something here. ;) This is exactly why
-> I suggest to consider another approach. Please don't introduce any code
-> that is hard to debug even for yourself. The struct net pointer is passed
-> around in kernel network subsystem almost everywhere, it is not easy to make
-> it bug-free by just switching skb->dev.
->
-I disagree. Conceptually this is very easy to understand as we are taking L3
-processing off of skb->dev and loading it onto dev->l3_dev. So
-everything that is
-associated with l3_dev is for L3. This should neither make debugging harder
-nor add complicated code.
+Hey Thomas,
+        So again, here is Christopher's cross-timestamp
+infrastructure patchset which I wanted to send along for 4.6.
+(Including the minor tweaks you suggested). These apply
+against tip/timers/core.
 
->
->>> That's the generic implementation as far as the stack is concerned and
->>> IPvlan
->>> uses it to make the IPT hooks symmetric.
->>>
->>> Another IPT hook may be good enough (however I haven't
->>> given much thought to it) for IPvlan, but this generic approach will be
->>> for
->>> whole of L3. Also currently this I have implemented for the ingress path
->>> but that does not mean the same cannot be extended for the egress path
->>> (in fact I'm thinking about that)
->>
->
-> This is logically correct and easier to understand or debug, since IPT hook
-> is very common in network subsystem even ingress qdisc uses it.
+Let me know if you have any objections.
+
+thanks
+-john
+
+Cc: Prarit Bhargava <prarit@redhat.com>
+Cc: Richard Cochran <richardcochran@gmail.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: Andy Lutomirski <luto@amacapital.net>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: kevin.b.stanton@intel.com
+Cc: kevin.j.clarke@intel.com
+Cc: hpa@zytor.com
+Cc: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+
+The following changes since commit 232d26373d310a941ef2ab46e53ea62fe076ed13:
+
+  jiffies: Use CLOCKSOURCE_MASK instead of constant (2016-02-27 08:55:31 +0100)
+
+are available in the git repository at:
+
+  https://git.linaro.org/people/john.stultz/linux.git fortglx/4.6/time
+
+for you to fetch changes up to 01d7ada57ee9c735bd71fbe44ec0bcb70847afd4:
+
+  e1000e: Adds hardware supported cross timestamp on e1000e nic (2016-03-03 14:28:46 -0800)
+----------------------------------------------------------------
+Christopher S. Hall (8):
+  time: Add cycles to nanoseconds translation
+  time: Add timekeeping snapshot code capturing system time and counter
+  time: Remove duplicated code in ktime_get_raw_and_real()
+  time: Add driver cross timestamp interface for higher precision time
+    synchronization
+  time: Add history to cross timestamp interface supporting slower
+    devices
+  x86/tsc: Always Running Timer (ART) correlated clocksource
+  ptp: Add PTP_SYS_OFFSET_PRECISE for driver crosstimestamping
+  e1000e: Adds hardware supported cross timestamp on e1000e nic
+
+ Documentation/ptp/testptp.c                 |   6 +-
+ arch/x86/include/asm/cpufeature.h           |   2 +-
+ arch/x86/include/asm/tsc.h                  |   2 +
+ arch/x86/kernel/tsc.c                       |  59 ++++++
+ drivers/net/ethernet/intel/Kconfig          |   9 +
+ drivers/net/ethernet/intel/e1000e/defines.h |   5 +
+ drivers/net/ethernet/intel/e1000e/ptp.c     |  85 +++++++++
+ drivers/net/ethernet/intel/e1000e/regs.h    |   4 +
+ drivers/ptp/ptp_chardev.c                   |  27 +++
+ include/linux/pps_kernel.h                  |  17 +-
+ include/linux/ptp_clock_kernel.h            |   8 +
+ include/linux/timekeeper_internal.h         |   2 +
+ include/linux/timekeeping.h                 |  58 ++++++
+ include/uapi/linux/ptp_clock.h              |  13 +-
+ kernel/time/timekeeping.c                   | 286 +++++++++++++++++++++++++---
+ 15 files changed, 543 insertions(+), 40 deletions(-)
+
+-- 
+1.9.1
