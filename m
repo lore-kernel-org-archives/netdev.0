@@ -1,228 +1,101 @@
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v1 1/1] tipc: Revert "tipc: use
-	existing sk_write_queue for outgoing packet chain"
-Date: Fri, 4 Mar 2016 10:53:16 +0100
-Message-ID: <1457085196-14099-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: Fugang Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH net-next V2 13/16] net: fec: print more debug info in
+ fec_timeout
+Date: Fri, 4 Mar 2016 10:06:18 +0000
+Message-ID: <VI1PR0401MB18552AB3E4128E412273B439FFBE0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
+ <1456360619-24390-14-git-send-email-troy.kisky@boundarydevices.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
-To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Cc: "fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
+ "andrew@lunn.ch" <andrew@lunn.ch>,
+ "stillcompiling@gmail.com" <stillcompiling@gmail.com>,
+ "linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
+ "arnd@arndb.de" <arnd@arndb.de>,
+ "sergei.shtylyov@cogentembedded.com" <sergei.shtylyov@cogentembedded.com>,
+ "laci@boundarydevices.com" <laci@boundarydevices.com>,
+ "johannes@sipsolutions.net" <johannes@sipsolutions.net>,
+ "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+ "shawnguo@kernel.org" <shawnguo@kernel.org>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ "tremyfr@gmail.com" <tremyfr@gmail.com>
+To: Troy Kisky <troy.kisky@boundarydevices.com>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>, "davem@davemloft.net" <davem@davemloft.net>,
+ "b38611@freescale.com" <b38611@freescale.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1456360619-24390-14-git-send-email-troy.kisky@boundarydevices.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-reverts commit 94153e36e709e ("tipc: use existing sk_write_queue for
-outgoing packet chain")
+From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Thursday, February 25, 2016 8:37 AM
+> To: netdev@vger.kernel.org; davem@davemloft.net; b38611@freescale.com
+> Cc: fabio.estevam@freescale.com; l.stach@pengutronix.de; andrew@lunn.ch;
+> tremyfr@gmail.com; linux@arm.linux.org.uk; linux-arm-
+> kernel@lists.infradead.org; laci@boundarydevices.com; shawnguo@kernel.org;
+> johannes@sipsolutions.net; stillcompiling@gmail.com;
+> sergei.shtylyov@cogentembedded.com; arnd@arndb.de; Troy Kisky
+> <troy.kisky@boundarydevices.com>
+> Subject: [PATCH net-next V2 13/16] net: fec: print more debug info in
+> fec_timeout
+> 
+> Print the current interrupt flags and mask and the interrupt state during the last
+> interrupt in fec_timeout.
+> 
+> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+> ---
+>  drivers/net/ethernet/freescale/fec.h      | 1 +
+>  drivers/net/ethernet/freescale/fec_main.c | 4 ++++
+>  2 files changed, 5 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec.h
+> b/drivers/net/ethernet/freescale/fec.h
+> index 001200b..615cca1 100644
+> --- a/drivers/net/ethernet/freescale/fec.h
+> +++ b/drivers/net/ethernet/freescale/fec.h
+> @@ -506,6 +506,7 @@ struct fec_enet_private {
+>  	unsigned int total_tx_ring_size;
+>  	unsigned int total_rx_ring_size;
+>  	uint	events;
+> +	uint	last_ievents;
+> 
+>  	struct	platform_device *pdev;
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> b/drivers/net/ethernet/freescale/fec_main.c
+> index afd4060..9a3136b 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1107,6 +1107,9 @@ fec_timeout(struct net_device *ndev)
+>  	int i;
+>  	uint events = 0;
+> 
+> +	pr_err("%s: last=%x %x, mask %x\n", __func__, fep->last_ievents,
+> +	       readl(fep->hwp + FEC_IEVENT), readl(fep->hwp + FEC_IMASK));
+> +
+pr_err() -> netdev_err()
 
-In the above commit, we assume that we fill & empty the socket's
-sk_write_queue within the same lock_sock() session.
+I don't want the debug patch enter to the driver.
 
-This is not true if the link is congested. During congestion, the
-socket lock is released while we wait for the congestion to cease.
-This implementation causes a nullptr exception, if the user space
-program has several threads accessing the same socket descriptor.
-
-Consider two threads of the same program performing the following:
-     Thread1                                  Thread2
---------------------                    ----------------------
-Enter tipc_sendmsg()                    Enter tipc_sendmsg()
-lock_sock()                             lock_sock()
-Enter tipc_link_xmit(), ret=ELINKCONG   spin on socket lock..
-sk_wait_event()                             :
-release_sock()                          grab socket lock
-    :                                   Enter tipc_link_xmit(), ret=0
-    :                                   release_sock()
-Wakeup after congestion
-lock_sock()
-skb = skb_peek(pktchain);
-!! TIPC_SKB_CB(skb)->wakeup_pending = tsk->link_cong;
-
-In this case, the second thread transmits the buffers belonging to
-both thread1 and thread2 successfully. When the first thread wakeup
-after the congestion it assumes that the pktchain is intact and
-operates on the skb's in it, which leads to the following exception:
-
-[2102.439969] BUG: unable to handle kernel NULL pointer dereference at 00000000000000d0
-[2102.440074] IP: [<ffffffffa005f330>] __tipc_link_xmit+0x2b0/0x4d0 [tipc]
-[2102.440074] PGD 3fa3f067 PUD 3fa6b067 PMD 0
-[2102.440074] Oops: 0000 [#1] SMP
-[2102.440074] CPU: 2 PID: 244 Comm: sender Not tainted 3.12.28 #1
-[2102.440074] RIP: 0010:[<ffffffffa005f330>]  [<ffffffffa005f330>] __tipc_link_xmit+0x2b0/0x4d0 [tipc]
-[...]
-[2102.440074] Call Trace:
-[2102.440074]  [<ffffffff8163f0b9>] ? schedule+0x29/0x70
-[2102.440074]  [<ffffffffa006a756>] ? tipc_node_unlock+0x46/0x170 [tipc]
-[2102.440074]  [<ffffffffa005f761>] tipc_link_xmit+0x51/0xf0 [tipc]
-[2102.440074]  [<ffffffffa006d8ae>] tipc_send_stream+0x11e/0x4f0 [tipc]
-[2102.440074]  [<ffffffff8106b150>] ? __wake_up_sync+0x20/0x20
-[2102.440074]  [<ffffffffa006dc9c>] tipc_send_packet+0x1c/0x20 [tipc]
-[2102.440074]  [<ffffffff81502478>] sock_sendmsg+0xa8/0xd0
-[2102.440074]  [<ffffffff81507895>] ? release_sock+0x145/0x170
-[2102.440074]  [<ffffffff815030d8>] ___sys_sendmsg+0x3d8/0x3e0
-[2102.440074]  [<ffffffff816426ae>] ? _raw_spin_unlock+0xe/0x10
-[2102.440074]  [<ffffffff81115c2a>] ? handle_mm_fault+0x6ca/0x9d0
-[2102.440074]  [<ffffffff8107dd65>] ? set_next_entity+0x85/0xa0
-[2102.440074]  [<ffffffff816426de>] ? _raw_spin_unlock_irq+0xe/0x20
-[2102.440074]  [<ffffffff8107463c>] ? finish_task_switch+0x5c/0xc0
-[2102.440074]  [<ffffffff8163ea8c>] ? __schedule+0x34c/0x950
-[2102.440074]  [<ffffffff81504e12>] __sys_sendmsg+0x42/0x80
-[2102.440074]  [<ffffffff81504e62>] SyS_sendmsg+0x12/0x20
-[2102.440074]  [<ffffffff8164aed2>] system_call_fastpath+0x16/0x1b
-
-In this commit, we maintain the skb list always in the stack.
-
-Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Acked-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/socket.c | 33 +++++++++++++++++++--------------
- 1 file changed, 19 insertions(+), 14 deletions(-)
-
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 69c29050f14a..4d420bb27396 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -673,7 +673,7 @@ static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
- 	struct tipc_sock *tsk = tipc_sk(sk);
- 	struct net *net = sock_net(sk);
- 	struct tipc_msg *mhdr = &tsk->phdr;
--	struct sk_buff_head *pktchain = &sk->sk_write_queue;
-+	struct sk_buff_head pktchain;
- 	struct iov_iter save = msg->msg_iter;
- 	uint mtu;
- 	int rc;
-@@ -687,14 +687,16 @@ static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
- 	msg_set_nameupper(mhdr, seq->upper);
- 	msg_set_hdr_sz(mhdr, MCAST_H_SIZE);
- 
-+	skb_queue_head_init(&pktchain);
-+
- new_mtu:
- 	mtu = tipc_bcast_get_mtu(net);
--	rc = tipc_msg_build(mhdr, msg, 0, dsz, mtu, pktchain);
-+	rc = tipc_msg_build(mhdr, msg, 0, dsz, mtu, &pktchain);
- 	if (unlikely(rc < 0))
- 		return rc;
- 
- 	do {
--		rc = tipc_bcast_xmit(net, pktchain);
-+		rc = tipc_bcast_xmit(net, &pktchain);
- 		if (likely(!rc))
- 			return dsz;
- 
-@@ -704,7 +706,7 @@ new_mtu:
- 			if (!rc)
- 				continue;
- 		}
--		__skb_queue_purge(pktchain);
-+		__skb_queue_purge(&pktchain);
- 		if (rc == -EMSGSIZE) {
- 			msg->msg_iter = save;
- 			goto new_mtu;
-@@ -863,7 +865,7 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
- 	struct net *net = sock_net(sk);
- 	struct tipc_msg *mhdr = &tsk->phdr;
- 	u32 dnode, dport;
--	struct sk_buff_head *pktchain = &sk->sk_write_queue;
-+	struct sk_buff_head pktchain;
- 	struct sk_buff *skb;
- 	struct tipc_name_seq *seq;
- 	struct iov_iter save;
-@@ -924,17 +926,18 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
- 		msg_set_hdr_sz(mhdr, BASIC_H_SIZE);
- 	}
- 
-+	skb_queue_head_init(&pktchain);
- 	save = m->msg_iter;
- new_mtu:
- 	mtu = tipc_node_get_mtu(net, dnode, tsk->portid);
--	rc = tipc_msg_build(mhdr, m, 0, dsz, mtu, pktchain);
-+	rc = tipc_msg_build(mhdr, m, 0, dsz, mtu, &pktchain);
- 	if (rc < 0)
- 		return rc;
- 
- 	do {
--		skb = skb_peek(pktchain);
-+		skb = skb_peek(&pktchain);
- 		TIPC_SKB_CB(skb)->wakeup_pending = tsk->link_cong;
--		rc = tipc_node_xmit(net, pktchain, dnode, tsk->portid);
-+		rc = tipc_node_xmit(net, &pktchain, dnode, tsk->portid);
- 		if (likely(!rc)) {
- 			if (sock->state != SS_READY)
- 				sock->state = SS_CONNECTING;
-@@ -946,7 +949,7 @@ new_mtu:
- 			if (!rc)
- 				continue;
- 		}
--		__skb_queue_purge(pktchain);
-+		__skb_queue_purge(&pktchain);
- 		if (rc == -EMSGSIZE) {
- 			m->msg_iter = save;
- 			goto new_mtu;
-@@ -1016,7 +1019,7 @@ static int __tipc_send_stream(struct socket *sock, struct msghdr *m, size_t dsz)
- 	struct net *net = sock_net(sk);
- 	struct tipc_sock *tsk = tipc_sk(sk);
- 	struct tipc_msg *mhdr = &tsk->phdr;
--	struct sk_buff_head *pktchain = &sk->sk_write_queue;
-+	struct sk_buff_head pktchain;
- 	DECLARE_SOCKADDR(struct sockaddr_tipc *, dest, m->msg_name);
- 	u32 portid = tsk->portid;
- 	int rc = -EINVAL;
-@@ -1044,17 +1047,19 @@ static int __tipc_send_stream(struct socket *sock, struct msghdr *m, size_t dsz)
- 
- 	timeo = sock_sndtimeo(sk, m->msg_flags & MSG_DONTWAIT);
- 	dnode = tsk_peer_node(tsk);
-+	skb_queue_head_init(&pktchain);
- 
- next:
- 	save = m->msg_iter;
- 	mtu = tsk->max_pkt;
- 	send = min_t(uint, dsz - sent, TIPC_MAX_USER_MSG_SIZE);
--	rc = tipc_msg_build(mhdr, m, sent, send, mtu, pktchain);
-+	rc = tipc_msg_build(mhdr, m, sent, send, mtu, &pktchain);
- 	if (unlikely(rc < 0))
- 		return rc;
-+
- 	do {
- 		if (likely(!tsk_conn_cong(tsk))) {
--			rc = tipc_node_xmit(net, pktchain, dnode, portid);
-+			rc = tipc_node_xmit(net, &pktchain, dnode, portid);
- 			if (likely(!rc)) {
- 				tsk->sent_unacked++;
- 				sent += send;
-@@ -1063,7 +1068,7 @@ next:
- 				goto next;
- 			}
- 			if (rc == -EMSGSIZE) {
--				__skb_queue_purge(pktchain);
-+				__skb_queue_purge(&pktchain);
- 				tsk->max_pkt = tipc_node_get_mtu(net, dnode,
- 								 portid);
- 				m->msg_iter = save;
-@@ -1077,7 +1082,7 @@ next:
- 		rc = tipc_wait_for_sndpkt(sock, &timeo);
- 	} while (!rc);
- 
--	__skb_queue_purge(pktchain);
-+	__skb_queue_purge(&pktchain);
- 	return sent ? sent : rc;
- }
- 
--- 
-2.1.4
-
-
-------------------------------------------------------------------------------
-Site24x7 APM Insight: Get Deep Visibility into Application Performance
-APM + Mobile APM + RUM: Monitor 3 App instances at just $35/Month
-Monitor end-to-end web transactions and take corrective actions now
-Troubleshoot faster and improve end-user experience. Signup Now!
-http://pubads.g.doubleclick.net/gampad/clk?id=272487151&iu=/4140
+>  	for (i = 0; i < fep->num_tx_queues; i++) {
+>  		struct fec_enet_priv_tx_q *txq = fep->tx_queue[i];
+>  		int index;
+> @@ -1514,6 +1517,7 @@ fec_enet_interrupt(int irq, void *dev_id)
+> 
+>  	if (!int_events)
+>  		return IRQ_NONE;
+> +	fep->last_ievents = int_events;
+> 
+>  	if (int_events & (FEC_ENET_RXF | FEC_ENET_TXF)) {
+>  		if (napi_schedule_prep(&fep->napi)) {
+> --
+> 2.5.0
