@@ -1,37 +1,35 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Sat, 5 Mar 2016 10:18:02 +0300
-Message-ID: <20160305071802.GL4184@uranus.lan>
-References: <20160304213920.GJ4184@uranus.lan>
- <20160304.175032.1728003538386465719.davem@davemloft.net>
- <1457136510.2761.8.camel@edumazet-ThinkPad-T530>
- <20160304.231109.1838919633640757059.davem@davemloft.net>
+From: "Amir A. Khanmammadov" <library@dmk.in>
+Subject: From Amir A. K
+Date: Fri, 4 Mar 2016 00:50:07 -0800
+Message-ID: <20160304083759.31770E3C4CD@mail.dmk.in>
+Reply-To: <amir2016a@vera.com.uy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, solar@openwall.com,
-	vvs@virtuozzo.com, avagin@virtuozzo.com, xemul@virtuozzo.com,
-	vdavydov@virtuozzo.com, khorenko@virtuozzo.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:33207 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952AbcCEHSI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2016 02:18:08 -0500
-Received: by mail-lb0-f178.google.com with SMTP id k15so83643844lbg.0
-        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 23:18:07 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20160304.231109.1838919633640757059.davem@davemloft.net>
+Received: from [59.90.241.153] ([59.90.241.153]:45982 "EHLO mail.dmk.in"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751491AbcCEIIU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Mar 2016 03:08:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 04, 2016 at 11:11:09PM -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 04 Mar 2016 16:08:30 -0800
-> 
-> > __inet_del_ifa() should probably take into account in_dev->dead (no
-> > promotion, no list scan...)
-> 
-> Indeed, that is the real problem:
+-Thanks for your last email response to me.
+The information required should include the following-:
+Your full names
+Your address
+Telephone number
+Your private email
+Occupation
+Age
 
-Oh, this email dropped into my inbox a way later then
-I wrote the reply. I'll test it, thanks David and Eric!
+This is to enable my further discussion with you in confidence.
+Best regards and wishes to you.
+Amir A. Khanmammadov
+REPLY TO
+
+amir2016a@vera.com.uy
+
+amir2016ab1@gmail.com
