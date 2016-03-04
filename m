@@ -1,114 +1,67 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH net-next V2 06/16] net: fec: don't clear all rx queue
- bits when just one is being checked
-Date: Fri, 4 Mar 2016 16:38:54 +0000
-Message-ID: <20160304163854.GD19428@n2100.arm.linux.org.uk>
-References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
- <1456360619-24390-7-git-send-email-troy.kisky@boundarydevices.com>
- <VI1PR0401MB18550FD3A944783B88BEDB64FFBE0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
- <56D9B54B.8020309@boundarydevices.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 10/13] rxrpc: rxkad: The version number in the response
+ should be net byte order
+Date: Fri, 04 Mar 2016 16:38:15 +0000
+Message-ID: <20160304163815.31057.23078.stgit@warthog.procyon.org.uk>
+References: <20160304163705.31057.60831.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Fugang Duan <fugang.duan@nxp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"b38611@freescale.com" <b38611@freescale.com>,
-	"fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"laci@boundarydevices.com" <laci@boundarydevices.com>,
-	"shawnguo@kernel.org" <shawnguo@kernel.org>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"arnd@arndb.de" <arnd@arndb.de>
-To: Troy Kisky <troy.kisky@boundarydevices.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux-afs@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:40467 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932216AbcCDQjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 11:39:10 -0500
-Content-Disposition: inline
-In-Reply-To: <56D9B54B.8020309@boundarydevices.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38907 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932859AbcCDQiR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2016 11:38:17 -0500
+In-Reply-To: <20160304163705.31057.60831.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 04, 2016 at 09:18:19AM -0700, Troy Kisky wrote:
-> On 3/4/2016 2:11 AM, Fugang Duan wrote:
-> > From: Troy Kisky <troy.kisky@boundarydevices.com>Sent: Thursday, February 25, 2016 8:37 AM
-> >> To: netdev@vger.kernel.org; davem@davemloft.net; b38611@freescale.com
-> >> Cc: fabio.estevam@freescale.com; l.stach@pengutronix.de; andrew@lunn.ch;
-> >> tremyfr@gmail.com; linux@arm.linux.org.uk; linux-arm-
-> >> kernel@lists.infradead.org; laci@boundarydevices.com; shawnguo@kernel.org;
-> >> johannes@sipsolutions.net; stillcompiling@gmail.com;
-> >> sergei.shtylyov@cogentembedded.com; arnd@arndb.de; Troy Kisky
-> >> <troy.kisky@boundarydevices.com>
-> >> Subject: [PATCH net-next V2 06/16] net: fec: don't clear all rx queue bits when
-> >> just one is being checked
-> >>
-> >> FEC_ENET_RXF is 3 separate bits, we only check one queue at a time. So, when
-> >> the last queue is being checked, it is bad to remove the interrupt on the 1st
-> >> queue.
-> >>
-> >> Also, since this is now done in the napi routine and not the interrupt, it is not
-> >> needed.
-> >>
-> >> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> >> ---
-> >>  drivers/net/ethernet/freescale/fec_main.c | 2 --
-> >>  1 file changed, 2 deletions(-)
-> >>
-> >> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> >> b/drivers/net/ethernet/freescale/fec_main.c
-> >> index 610cf6c..791f385 100644
-> >> --- a/drivers/net/ethernet/freescale/fec_main.c
-> >> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> >> @@ -1338,8 +1338,6 @@ static int fec_rxq(struct net_device *ndev, struct
-> >> fec_enet_private *fep,
-> >>  			break;
-> >>  		pkt_received++;
-> >>
-> >> -		writel(FEC_ENET_RXF, fep->hwp + FEC_IEVENT);
-> >> -
-> > 
-> > We should clear the related rx queue ievent, not remove the code.
-> > Pls see commit: db3421c114cf that was submitted by Russell King.
-> > 
-> > No ack the patch.
-> 
-> 
-> This is now done in patch #4 "net: fec: reduce interrupts" and you could argue
-> that it should be squashed into that patch. But I like separating changes
-> as much as possible.
-> 
-> 
-> Russell, this patch and patch #4 will likely need your ack before it will be applied.
-> Can you take a look please?
+The version number rxkad places in the response should be network byte
+order.
 
-I stopped caring about the FEC ethernet driver about 18 months ago,
-after I ended up dropping a significant pile of fixes on the floor
-through the huge number of conflicts and the shere effort of
-constantly trying to move them forward.
+Whilst we're at it, rearrange the code to be more readable.
 
-My patch series tend to be large because I put concentrated effort
-into something for a month, which then gives a problem if conflicts
-come up later and the series has to be effectively rewritten from
-scratch.  It was after the second or third time of facing an almost
-total rewrite that happened that I just gave up.
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-I've toyed with the idea of forking the driver, but I wouldn't have
-time to maintain such a thing.  So, right now I just put up with all
-the bad quirks, and reset/power cycle the boards when things go wrong.
-Right now, I just disable runtime PM support on the FEC to get
-stability here. :)
+ net/rxrpc/rxkad.c |   17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
 
-Sorry, but I can't be of more help.
-
--- 
-RMK's Patch system: http://www.arm.linux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
+index 0f27524536bd..ca746f382517 100644
+--- a/net/rxrpc/rxkad.c
++++ b/net/rxrpc/rxkad.c
+@@ -787,10 +787,15 @@ static int rxkad_respond_to_challenge(struct rxrpc_connection *conn,
+ 	/* build the response packet */
+ 	memset(&resp, 0, sizeof(resp));
+ 
+-	resp.version = RXKAD_VERSION;
+-	resp.encrypted.epoch = htonl(conn->epoch);
+-	resp.encrypted.cid = htonl(conn->cid);
+-	resp.encrypted.securityIndex = htonl(conn->security_ix);
++	resp.version			= htonl(RXKAD_VERSION);
++	resp.encrypted.epoch		= htonl(conn->epoch);
++	resp.encrypted.cid		= htonl(conn->cid);
++	resp.encrypted.securityIndex	= htonl(conn->security_ix);
++	resp.encrypted.inc_nonce	= htonl(nonce + 1);
++	resp.encrypted.level		= htonl(conn->security_level);
++	resp.kvno			= htonl(token->kad->kvno);
++	resp.ticket_len			= htonl(token->kad->ticket_len);
++
+ 	resp.encrypted.call_id[0] =
+ 		htonl(conn->channels[0] ? conn->channels[0]->call_id : 0);
+ 	resp.encrypted.call_id[1] =
+@@ -799,10 +804,6 @@ static int rxkad_respond_to_challenge(struct rxrpc_connection *conn,
+ 		htonl(conn->channels[2] ? conn->channels[2]->call_id : 0);
+ 	resp.encrypted.call_id[3] =
+ 		htonl(conn->channels[3] ? conn->channels[3]->call_id : 0);
+-	resp.encrypted.inc_nonce = htonl(nonce + 1);
+-	resp.encrypted.level = htonl(conn->security_level);
+-	resp.kvno = htonl(token->kad->kvno);
+-	resp.ticket_len = htonl(token->kad->ticket_len);
+ 
+ 	/* calculate the response checksum and then do the encryption */
+ 	rxkad_calc_response_checksum(&resp);
