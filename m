@@ -1,58 +1,44 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: Sending short raw packets using sendmsg() broke
-Date: Fri, 4 Mar 2016 11:33:36 -0500
-Message-ID: <CAF=yD-LyNo_tXu_D=MG3U7aXgU6MrV0i1YkrCHDFRufq9QMaHw@mail.gmail.com>
-References: <20160225.152628.1230785666614750970.davem@davemloft.net>
- <1456497874.7064.7.camel@linux.intel.com> <CAF=yD-JOQZZnU6XE9FhEVbxstKmsB-ds58e5v678SiO24VV0+g@mail.gmail.com>
- <20160226.124645.2123990166666725876.davem@davemloft.net> <CAF=yD-+m09_KS9+SyMZsTES5iLPyVE10F0u6pt4tVeYcDk8=PQ@mail.gmail.com>
- <1456876822.7064.36.camel@linux.intel.com> <CAF=yD-+mNY0g4A8oWJEWPDeAuucrJX-E1pNd6ABYK+BzmrKvOQ@mail.gmail.com>
- <CAF=yD-+-QFp=g8BSsxjwwMmMwuHzkEiubZHNuyoLccF7qTs0ow@mail.gmail.com> <1457106849.7064.55.camel@linux.intel.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next PATCH 0/7] net: bulk alloc side and more bulk free
+ drivers
+Date: Fri, 4 Mar 2016 08:36:44 -0800
+Message-ID: <20160304163641.GA52086@ast-mbp.thefacebook.com>
+References: <20160304130054.32651.51776.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Heikki Hannikainen <hessu@hes.iki.fi>,
-	Network Development <netdev@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>
-To: Alan Cox <alan@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	eugenia@mellanox.com, Alexander Duyck <alexander.duyck@gmail.com>,
+	saeedm@mellanox.com, gerlitz.or@gmail.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:33885 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759524AbcCDQeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 11:34:18 -0500
-Received: by mail-lb0-f175.google.com with SMTP id cf7so50900445lbb.1
-        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 08:34:17 -0800 (PST)
-In-Reply-To: <1457106849.7064.55.camel@linux.intel.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:36468 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754763AbcCDQgx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 11:36:53 -0500
+Received: by mail-pa0-f47.google.com with SMTP id fi3so35469804pac.3
+        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 08:36:53 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20160304130054.32651.51776.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 4, 2016 at 10:54 AM, Alan Cox <alan@linux.intel.com> wrote:
->> > A quick search for ethhdr in drivers/net/ethernet shows, for
->> > instance,
->> > bnx2x_select_queue casting skb->data to an ethernet header. Reading
->> > nonsense in that particular function is quite safe and given the
->> > skbuff layout (skb_shared_info) code will never read beyond an
->> > allocated region. But that was just the first occurrence I found.
->> > efx_tso_check_protocol is another example.
->
-> So would always allocating that much space be a good mitigation in
-> general
+On Fri, Mar 04, 2016 at 02:01:14PM +0100, Jesper Dangaard Brouer wrote:
+> This patchset use the bulk ALLOC side of the kmem_cache bulk APIs, for
+> SKB allocations.  The bulk free side got enabled in merge commit
+> 3134b9f019f2 ("net: mitigating kmem_cache free slowpath").
+> 
+> The first two patches is a followup on the free-side, which enables
+> bulk-free in the drivers mlx4 and mlx5 (dev_kfree_skb -> napi_consume_skb).
+> 
+> Rest of patchset is focused on bulk alloc-side.  We start with a
+> conservative bulk alloc of 8 SKB, which all drivers using the
+> napi_alloc_skb() call will benefit from.  Then the API is extended to,
+> allow driver hinting on needed SKBs (only some drivers know this
+> size), and mlx5 driver is the first user of hinting.
 
-Agreed. The existing packet allocation path does that by relying on
-LL_RESERVED_SPACE on allocation, not only packet length. I won't
-modify that. But I should perhaps zero up to hard_header_len on
-variable length headers.
-
->  and perhaps then making the logic check validate() IFF
-> CAP_SYS_RAWIO is not set.
->
-> A user with CAP_SYS_RAWIO already has the power to control the device
-> by banging registers so the check is not a security loss.
-
-One concern is namespaces. I'll use capable(CAP_SYS_RAWIO), not ns_capable.
-
-Need to add an ax25_validate implemention and run some tests before I
-send out the patch.
-
-Thanks,
-
-  Willem
+patches 1-5 look very good to me. Should help all cases afaik.
+As far as 6-7 about hints I have a question. Does this hint
+actually makes the difference? The fixed bulk alloc of 8 probably
+easier for the main slub, but when mlx5 starts doing 'work_done' as
+a hint there will be more 'random' bulking going on.
+Was wondering whether you have the perf numbers to back up 6/7
