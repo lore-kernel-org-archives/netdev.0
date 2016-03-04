@@ -1,115 +1,67 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 3/7] bpf: make helper function protos static
-Date: Fri,  4 Mar 2016 15:15:04 +0100
-Message-ID: <07b6b274e0dff9856b46b223fad14e55e32b941d.1457099834.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 2/7] bpf: add flags to bpf_skb_store_bytes for clearing hash
+Date: Fri,  4 Mar 2016 15:15:03 +0100
+Message-ID: <32aebd7201011c1378e0c7023594c5a2966d8d39.1457099834.git.daniel@iogearbox.net>
 References: <cover.1457099834.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
 	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:39192 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:39180 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752655AbcCDOPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 09:15:32 -0500
+	with ESMTP id S1751313AbcCDOPb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 09:15:31 -0500
 In-Reply-To: <cover.1457099834.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1457099834.git.daniel@iogearbox.net>
 References: <cover.1457099834.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-They are only used here, so there's no reason they should not be static.
-Only the vlan push/pop protos are used in the test_bpf suite.
+When overwriting parts of the packet with bpf_skb_store_bytes() that
+were fed previously into skb->hash calculation, we should clear the
+current hash with skb_clear_hash(), so that a next skb_get_hash() call
+can determine the correct hash related to this skb.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- net/core/filter.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ include/uapi/linux/bpf.h | 1 +
+ net/core/filter.c        | 4 +++-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 6928ee8..c7fad40 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -305,6 +305,7 @@ enum bpf_func_id {
+ 
+ /* BPF_FUNC_skb_store_bytes flags. */
+ #define BPF_F_RECOMPUTE_CSUM		(1ULL << 0)
++#define BPF_F_INVALIDATE_HASH		(1ULL << 1)
+ 
+ /* BPF_FUNC_l3_csum_replace and BPF_FUNC_l4_csum_replace flags.
+  * First 4 bits are for passing the header field size.
 diff --git a/net/core/filter.c b/net/core/filter.c
-index a1fe246..ce4e18d 100644
+index 356a251..a1fe246 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
-@@ -1390,7 +1390,7 @@ static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
+@@ -1353,7 +1353,7 @@ static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
+ 	unsigned int len = (unsigned int) r4;
+ 	void *ptr;
+ 
+-	if (unlikely(flags & ~(BPF_F_RECOMPUTE_CSUM)))
++	if (unlikely(flags & ~(BPF_F_RECOMPUTE_CSUM | BPF_F_INVALIDATE_HASH)))
+ 		return -EINVAL;
+ 
+ 	/* bpf verifier guarantees that:
+@@ -1384,6 +1384,8 @@ static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
+ 
+ 	if (flags & BPF_F_RECOMPUTE_CSUM)
+ 		skb_postpush_rcsum(skb, ptr, len);
++	if (flags & BPF_F_INVALIDATE_HASH)
++		skb_clear_hash(skb);
+ 
  	return 0;
  }
- 
--const struct bpf_func_proto bpf_skb_store_bytes_proto = {
-+static const struct bpf_func_proto bpf_skb_store_bytes_proto = {
- 	.func		= bpf_skb_store_bytes,
- 	.gpl_only	= false,
- 	.ret_type	= RET_INTEGER,
-@@ -1421,7 +1421,7 @@ static u64 bpf_skb_load_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
- 	return 0;
- }
- 
--const struct bpf_func_proto bpf_skb_load_bytes_proto = {
-+static const struct bpf_func_proto bpf_skb_load_bytes_proto = {
- 	.func		= bpf_skb_load_bytes,
- 	.gpl_only	= false,
- 	.ret_type	= RET_INTEGER,
-@@ -1472,7 +1472,7 @@ static u64 bpf_l3_csum_replace(u64 r1, u64 r2, u64 from, u64 to, u64 flags)
- 	return 0;
- }
- 
--const struct bpf_func_proto bpf_l3_csum_replace_proto = {
-+static const struct bpf_func_proto bpf_l3_csum_replace_proto = {
- 	.func		= bpf_l3_csum_replace,
- 	.gpl_only	= false,
- 	.ret_type	= RET_INTEGER,
-@@ -1531,7 +1531,7 @@ static u64 bpf_l4_csum_replace(u64 r1, u64 r2, u64 from, u64 to, u64 flags)
- 	return 0;
- }
- 
--const struct bpf_func_proto bpf_l4_csum_replace_proto = {
-+static const struct bpf_func_proto bpf_l4_csum_replace_proto = {
- 	.func		= bpf_l4_csum_replace,
- 	.gpl_only	= false,
- 	.ret_type	= RET_INTEGER,
-@@ -1570,7 +1570,7 @@ static u64 bpf_csum_diff(u64 r1, u64 from_size, u64 r3, u64 to_size, u64 seed)
- 	return csum_partial(sp->diff, diff_size, seed);
- }
- 
--const struct bpf_func_proto bpf_csum_diff_proto = {
-+static const struct bpf_func_proto bpf_csum_diff_proto = {
- 	.func		= bpf_csum_diff,
- 	.gpl_only	= false,
- 	.ret_type	= RET_INTEGER,
-@@ -1608,7 +1608,7 @@ static u64 bpf_clone_redirect(u64 r1, u64 ifindex, u64 flags, u64 r4, u64 r5)
- 	return dev_queue_xmit(skb2);
- }
- 
--const struct bpf_func_proto bpf_clone_redirect_proto = {
-+static const struct bpf_func_proto bpf_clone_redirect_proto = {
- 	.func           = bpf_clone_redirect,
- 	.gpl_only       = false,
- 	.ret_type       = RET_INTEGER,
-@@ -1660,7 +1660,7 @@ int skb_do_redirect(struct sk_buff *skb)
- 	return dev_queue_xmit(skb);
- }
- 
--const struct bpf_func_proto bpf_redirect_proto = {
-+static const struct bpf_func_proto bpf_redirect_proto = {
- 	.func           = bpf_redirect,
- 	.gpl_only       = false,
- 	.ret_type       = RET_INTEGER,
-@@ -1799,7 +1799,7 @@ static u64 bpf_skb_get_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
- 	return 0;
- }
- 
--const struct bpf_func_proto bpf_skb_get_tunnel_key_proto = {
-+static const struct bpf_func_proto bpf_skb_get_tunnel_key_proto = {
- 	.func		= bpf_skb_get_tunnel_key,
- 	.gpl_only	= false,
- 	.ret_type	= RET_INTEGER,
-@@ -1861,7 +1861,7 @@ static u64 bpf_skb_set_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
- 	return 0;
- }
- 
--const struct bpf_func_proto bpf_skb_set_tunnel_key_proto = {
-+static const struct bpf_func_proto bpf_skb_set_tunnel_key_proto = {
- 	.func		= bpf_skb_set_tunnel_key,
- 	.gpl_only	= false,
- 	.ret_type	= RET_INTEGER,
 -- 
 1.9.3
