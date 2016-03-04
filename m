@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 11/13] rxrpc: rxkad: Casts are needed when comparing be32
- values
-Date: Fri, 04 Mar 2016 16:38:21 +0000
-Message-ID: <20160304163821.31057.12253.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 12/13] rxrpc: Clear the unused part of a sockaddr_rxrpc for
+ memcmp() use
+Date: Fri, 04 Mar 2016 16:38:28 +0000
+Message-ID: <20160304163828.31057.55603.stgit@warthog.procyon.org.uk>
 References: <20160304163705.31057.60831.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,25 +15,45 @@ In-Reply-To: <20160304163705.31057.60831.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Forced casts are needed to avoid sparse warning when directly comparing
-be32 values.
+Clear the unused part of a sockaddr_rxrpc structs so that memcmp() can be
+used to compare them.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/rxkad.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/rxrpc/af_rxrpc.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
-index ca746f382517..3106a0c4960b 100644
---- a/net/rxrpc/rxkad.c
-+++ b/net/rxrpc/rxkad.c
-@@ -142,7 +142,7 @@ static void rxkad_prime_packet_security(struct rxrpc_connection *conn)
- 	crypto_blkcipher_encrypt_iv(&desc, &sg[0], &sg[1], sizeof(tmpbuf));
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index b46f7742d336..a76501757b59 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -81,6 +81,8 @@ static int rxrpc_validate_address(struct rxrpc_sock *rx,
+ 				  struct sockaddr_rxrpc *srx,
+ 				  int len)
+ {
++	unsigned tail;
++
+ 	if (len < sizeof(struct sockaddr_rxrpc))
+ 		return -EINVAL;
  
- 	memcpy(&conn->csum_iv, &tmpbuf.x[2], sizeof(conn->csum_iv));
--	ASSERTCMP(conn->csum_iv.n[0], ==, tmpbuf.x[2]);
-+	ASSERTCMP((u32 __force)conn->csum_iv.n[0], ==, (u32 __force)tmpbuf.x[2]);
+@@ -103,9 +105,7 @@ static int rxrpc_validate_address(struct rxrpc_sock *rx,
+ 		_debug("INET: %x @ %pI4",
+ 		       ntohs(srx->transport.sin.sin_port),
+ 		       &srx->transport.sin.sin_addr);
+-		if (srx->transport_len > 8)
+-			memset((void *)&srx->transport + 8, 0,
+-			       srx->transport_len - 8);
++		tail = offsetof(struct sockaddr_rxrpc, transport.sin.__pad);
+ 		break;
  
- 	_leave("");
+ 	case AF_INET6:
+@@ -113,6 +113,8 @@ static int rxrpc_validate_address(struct rxrpc_sock *rx,
+ 		return -EAFNOSUPPORT;
+ 	}
+ 
++	if (tail < len)
++		memset((void *)srx + tail, 0, len - tail);
+ 	return 0;
  }
+ 
