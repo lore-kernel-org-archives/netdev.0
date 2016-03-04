@@ -1,9 +1,9 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 3/6] net: hns: fixed portid bug in sending manage pkt
-Date: Fri, 4 Mar 2016 16:37:19 +0300
-Message-ID: <56D98F8F.5010700@cogentembedded.com>
+Subject: Re: [PATCH net 4/6] net: hns: adds uc match for debug port
+Date: Fri, 4 Mar 2016 16:39:19 +0300
+Message-ID: <56D99007.6090804@cogentembedded.com>
 References: <1457053798-93513-1-git-send-email-huangdaode@hisilicon.com>
- <1457053798-93513-4-git-send-email-huangdaode@hisilicon.com>
+ <1457053798-93513-5-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -13,58 +13,55 @@ Cc: liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
 	salil.mehta@huawei.com, kenneth-lee-2012@foxmail.com,
 	xuwei5@hisilicon.com, lisheng011@huawei.com, yankejian@huawei.com
 To: Daode Huang <huangdaode@hisilicon.com>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457053798-93513-4-git-send-email-huangdaode@hisilicon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hello.
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:34402 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751251AbcCDNjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 08:39:22 -0500
+Received: by mail-lb0-f170.google.com with SMTP id cf7so44973151lbb.1
+        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 05:39:22 -0800 (PST)
+In-Reply-To: <1457053798-93513-5-git-send-email-huangdaode@hisilicon.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On 3/4/2016 4:09 AM, Daode Huang wrote:
 
-> In V2 chip, when sending mamagement packets, the driver should
-> config the port id to BD descs.
+> This patch adds uc match for debug port by:
+> 1)Enables uc match of debug port when initializing gmac
+> 2)Enables uc match of mac address register2
 >
 > Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
-> Signed-off-by: Lisheng <lisheng011@huawei.com>
+> Signed-off-by: lipeng <lipeng321@huawei.com>
+
+    True/full name is required here.
+
 > ---
->   drivers/net/ethernet/hisilicon/hns/hnae.h         | 3 +++
->   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c | 1 +
->   drivers/net/ethernet/hisilicon/hns/hns_enet.c     | 4 ++++
->   3 files changed, 8 insertions(+)
+>   drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 18 +++++++++++++++++-
+>   drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  2 ++
+>   2 files changed, 19 insertions(+), 1 deletion(-)
 >
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
-> index 1cbcb9f..11a3f97 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hnae.h
-> +++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
+> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+> index b8517b0..2591a51 100644
+> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
 [...]
-> @@ -516,6 +518,7 @@ struct hnae_handle {
->   	int q_num;
->   	int vf_id;
->   	u32 eport_id;
-> +	u32 dport_id;	/*v2 tx bd should fill the dport_id*/
-
-    Please add spaces after /* and before */ (like it's done in other places 
-in this driver).
-
-[...]
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> index 6250a42..b45dcc2 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> @@ -69,6 +69,10 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
->   	hnae_set_bit(rrcfv, HNSV2_TXD_VLD_B, 1);
->   	hnae_set_field(bn_pid, HNSV2_TXD_BUFNUM_M, 0, buf_num - 1);
+> @@ -407,8 +419,12 @@ static void hns_gmac_set_mac_addr(void *mac_drv, char *mac_addr)
 >
-> +	/*fill port_id in the tx bd for sending management pkts*/
-
-    Likewise.
-
-> +	hnae_set_field(bn_pid, HNSV2_TXD_PORTID_M,
-> +		       HNSV2_TXD_PORTID_S, ring->q->handle->dport_id);
+>   		u32 low_val = mac_addr[5] | (mac_addr[4] << 8)
+>   			| (mac_addr[3] << 16) | (mac_addr[2] << 24);
 > +
->   	if (type == DESC_TYPE_SKB) {
->   		skb = (struct sk_buff *)priv;
+> +		u32 val = dsaf_read_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG);
+> +		u32 sta_addr_en = dsaf_get_bit(val, GMAC_ADDR_EN_B);
+
+    Empty line needed after declarations.
+
+>   		dsaf_write_dev(drv, GMAC_STATION_ADDR_LOW_2_REG, low_val);
+> -		dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG, high_val);
+> +		dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG,
+> +			       high_val | (sta_addr_en << GMAC_ADDR_EN_B));
+>   	}
+>   }
 >
+[...]
 
 MBR, Sergei
