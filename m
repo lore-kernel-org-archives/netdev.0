@@ -1,169 +1,65 @@
-From: Fugang Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH net-next V2 08/16] net: fec: eliminate calls to
- fec_enet_get_prevdesc
-Date: Fri, 4 Mar 2016 09:33:13 +0000
-Message-ID: <VI1PR0401MB18556C9393B8629330062B8EFFBE0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-References: <1456360619-24390-1-git-send-email-troy.kisky@boundarydevices.com>
- <1456360619-24390-9-git-send-email-troy.kisky@boundarydevices.com>
+From: Parav Pandit <pandit.parav@gmail.com>
+Subject: Re: [PATCH 3/4] infiniband: hns: add Hisilicon RoCE support(driver code)
+Date: Fri, 4 Mar 2016 15:07:19 +0530
+Message-ID: <CAG53R5WfQR1jJUOi1fjY=oEgsK_EAxkA9SiDPV_KHLHsmqg0BQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"laci@boundarydevices.com" <laci@boundarydevices.com>,
-	"shawnguo@kernel.org" <shawnguo@kernel.org>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"arnd@arndb.de" <arnd@arndb.de>
-To: Troy Kisky <troy.kisky@boundarydevices.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"b38611@freescale.com" <b38611@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0091.outbound.protection.outlook.com ([157.55.234.91]:41088
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759203AbcCDJdR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 04:33:17 -0500
-In-Reply-To: <1456360619-24390-9-git-send-email-troy.kisky@boundarydevices.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Doug Ledford <dledford@redhat.com>,
+	"Hefty, Sean" <sean.hefty@intel.com>, hal.rosenstock@gmail.com,
+	davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	jiri@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, gongyangming@huawei.com,
+	xiaokun@huawei.com, tangchaofei@huawei.com, oulijun@huawei.com,
+	haifeng.wei@huawei.com, yisen.zhuang@huawei.com,
+	yankejian@huawei.com, lisheng011@huawei.com,
+	charles.chenxin@huawei.com, linuxarm@huawei.com
+To: "Wei Hu(Xavier)" <xavier.huwei@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Thursday, February 25, 2016 8:37 AM
-> To: netdev@vger.kernel.org; davem@davemloft.net; b38611@freescale.com
-> Cc: fabio.estevam@freescale.com; l.stach@pengutronix.de; andrew@lunn.ch;
-> tremyfr@gmail.com; linux@arm.linux.org.uk; linux-arm-
-> kernel@lists.infradead.org; laci@boundarydevices.com; shawnguo@kernel.org;
-> johannes@sipsolutions.net; stillcompiling@gmail.com;
-> sergei.shtylyov@cogentembedded.com; arnd@arndb.de; Troy Kisky
-> <troy.kisky@boundarydevices.com>
-> Subject: [PATCH net-next V2 08/16] net: fec: eliminate calls to
-> fec_enet_get_prevdesc
-> 
-> This shrinks the code a little.
-> 
-> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 37 +++++++++----------------------
->  1 file changed, 11 insertions(+), 26 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index 6ceb5f9..b5ed287 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -758,6 +758,7 @@ static void fec_enet_bd_init(struct net_device *dev)
->  	struct bufdesc *bdp;
->  	unsigned int i;
->  	unsigned int q;
-> +	unsigned status;
+On Fri, Mar 4, 2016 at 2:11 PM, Wei Hu(Xavier) <xavier.huwei@huawei.com> wrote:
+> +
+> +int hns_roce_register_device(struct hns_roce_dev *hr_dev)
+> +{
+> +       int ret;
+> +       struct hns_roce_ib_iboe *iboe = NULL;
+> +       struct ib_device *ib_dev = NULL;
+> +       struct device *dev = &hr_dev->pdev->dev;
+> +
+> +       iboe = &hr_dev->iboe;
+> +
+> +       ib_dev = &hr_dev->ib_dev;
+> +       strlcpy(ib_dev->name, "hisi_%d", IB_DEVICE_NAME_MAX);
+> +
+> +       ib_dev->owner                   = THIS_MODULE;
+> +       ib_dev->node_type               = RDMA_NODE_IB_CA;
+> +       ib_dev->dma_device              = dev;
+> +
+> +       ib_dev->phys_port_cnt           = hr_dev->caps.num_ports;
+> +       ib_dev->local_dma_lkey          = hr_dev->caps.reserved_lkey;
+> +       ib_dev->num_comp_vectors        = hr_dev->caps.num_comp_vectors;
+> +       ib_dev->uverbs_abi_ver          = 1;
+> +       ib_dev->uverbs_cmd_mask         =
+> +               (1ULL << IB_USER_VERBS_CMD_GET_CONTEXT) |
+> +               (1ULL << IB_USER_VERBS_CMD_QUERY_DEVICE) |
+> +               (1ULL << IB_USER_VERBS_CMD_QUERY_PORT) |
+> +               (1ULL << IB_USER_VERBS_CMD_ALLOC_PD) |
+> +               (1ULL << IB_USER_VERBS_CMD_DEALLOC_PD) |
+> +               (1ULL << IB_USER_VERBS_CMD_REG_MR) |
+> +               (1ULL << IB_USER_VERBS_CMD_DEREG_MR) |
+> +               (1ULL << IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL) |
+> +               (1ULL << IB_USER_VERBS_CMD_CREATE_CQ) |
+> +               (1ULL << IB_USER_VERBS_CMD_DESTROY_CQ) |
+> +               (1ULL << IB_USER_VERBS_CMD_CREATE_QP) |
+> +               (1ULL << IB_USER_VERBS_CMD_MODIFY_QP) |
+> +               (1ULL << IB_USER_VERBS_CMD_QUERY_QP) |
+> +               (1ULL << IB_USER_VERBS_CMD_DESTROY_QP);
+> +
 
-Should be unsigned int status;
-
-> 
->  	for (q = 0; q < fep->num_rx_queues; q++) {
->  		/* Initialize the receive buffer descriptors. */ @@ -765,19
-> +766,13 @@ static void fec_enet_bd_init(struct net_device *dev)
->  		bdp = rxq->bd.base;
-> 
->  		for (i = 0; i < rxq->bd.ring_size; i++) {
-> -
->  			/* Initialize the BD for every fragment in the page. */
-> -			if (bdp->cbd_bufaddr)
-> -				bdp->cbd_sc =
-> cpu_to_fec16(BD_ENET_RX_EMPTY);
-> -			else
-> -				bdp->cbd_sc = cpu_to_fec16(0);
-> +			status = bdp->cbd_bufaddr ? BD_ENET_RX_EMPTY : 0;
-> +			if (bdp == rxq->bd.last)
-> +				status |= BD_SC_WRAP;
-> +			bdp->cbd_sc = cpu_to_fec16(status);
->  			bdp = fec_enet_get_nextdesc(bdp, &rxq->bd);
->  		}
-> -
-> -		/* Set the last buffer to wrap */
-> -		bdp = fec_enet_get_prevdesc(bdp, &rxq->bd);
-> -		bdp->cbd_sc |= cpu_to_fec16(BD_SC_WRAP);
-> -
->  		rxq->bd.cur = rxq->bd.base;
->  	}
-> 
-> @@ -789,18 +784,16 @@ static void fec_enet_bd_init(struct net_device *dev)
-> 
->  		for (i = 0; i < txq->bd.ring_size; i++) {
->  			/* Initialize the BD for every fragment in the page. */
-> -			bdp->cbd_sc = cpu_to_fec16(0);
->  			if (txq->tx_skbuff[i]) {
->  				dev_kfree_skb_any(txq->tx_skbuff[i]);
->  				txq->tx_skbuff[i] = NULL;
->  			}
->  			bdp->cbd_bufaddr = cpu_to_fec32(0);
-> +			bdp->cbd_sc = cpu_to_fec16((bdp == txq->bd.last) ?
-> +					BD_SC_WRAP : 0);
->  			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
->  		}
-> -
-> -		/* Set the last buffer to wrap */
->  		bdp = fec_enet_get_prevdesc(bdp, &txq->bd);
-> -		bdp->cbd_sc |= cpu_to_fec16(BD_SC_WRAP);
->  		txq->dirty_tx = bdp;
->  	}
->  }
-> @@ -2717,19 +2710,16 @@ fec_enet_alloc_rxq_buffers(struct net_device
-> *ndev, unsigned int queue)
->  		}
-> 
->  		rxq->rx_skbuff[i] = skb;
-> -		bdp->cbd_sc = cpu_to_fec16(BD_ENET_RX_EMPTY);
-> 
->  		if (fep->bufdesc_ex) {
->  			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
->  			ebdp->cbd_esc = cpu_to_fec32(BD_ENET_RX_INT);
->  		}
-> +		bdp->cbd_sc = cpu_to_fec16(BD_ENET_RX_EMPTY |
-> +				((bdp == rxq->bd.last) ? BD_SC_WRAP : 0));
-> 
->  		bdp = fec_enet_get_nextdesc(bdp, &rxq->bd);
->  	}
-> -
-> -	/* Set the last buffer to wrap. */
-> -	bdp = fec_enet_get_prevdesc(bdp, &rxq->bd);
-> -	bdp->cbd_sc |= cpu_to_fec16(BD_SC_WRAP);
->  	return 0;
-> 
->   err_alloc:
-> @@ -2752,21 +2742,16 @@ fec_enet_alloc_txq_buffers(struct net_device
-> *ndev, unsigned int queue)
->  		if (!txq->tx_bounce[i])
->  			goto err_alloc;
-> 
-> -		bdp->cbd_sc = cpu_to_fec16(0);
->  		bdp->cbd_bufaddr = cpu_to_fec32(0);
-> 
->  		if (fep->bufdesc_ex) {
->  			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
->  			ebdp->cbd_esc = cpu_to_fec32(BD_ENET_TX_INT);
->  		}
-> -
-> +		bdp->cbd_sc = cpu_to_fec16((bdp == txq->bd.last) ?
-> +				BD_SC_WRAP : 0);
->  		bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
->  	}
-> -
-> -	/* Set the last buffer to wrap. */
-> -	bdp = fec_enet_get_prevdesc(bdp, &txq->bd);
-> -	bdp->cbd_sc |= cpu_to_fec16(BD_SC_WRAP);
-> -
->  	return 0;
-> 
->   err_alloc:
-> --
-> 2.5.0
+Since SRQ is not supported in this driver version, can you keep
+remaining code base also to not bother about SRQ specifically
+poll_cq_one, modify_qp, destroy_qp etc?
+SRQ support can come as complete additional patch along with cmd_mask,
+callbacks and rest of the code.
