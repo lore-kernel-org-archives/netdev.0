@@ -1,124 +1,163 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 03/12] man: Add a man page for the mirred action
-Date: Fri,  4 Mar 2016 13:11:38 +0100
-Message-ID: <1457093507-25601-4-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 06/12] man: Add a man page for the police action
+Date: Fri,  4 Mar 2016 13:11:41 +0100
+Message-ID: <1457093507-25601-7-git-send-email-phil@nwl.cc>
 References: <1457093507-25601-1-git-send-email-phil@nwl.cc>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:52911 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:57942 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753441AbcCDMMY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Mar 2016 07:12:24 -0500
+	id S1752477AbcCDMMN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2016 07:12:13 -0500
 Received: from mail.nwl.cc (orbyte.nwl.cc [127.0.0.1])
-	by mail.nwl.cc (Postfix) with ESMTP id 5808E6AF5C
-	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:17 +0100 (CET)
+	by mail.nwl.cc (Postfix) with ESMTP id 1D6E86AF5C
+	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:11 +0100 (CET)
 Received: from xsao (localhost [IPv6:::1])
-	by mail.nwl.cc (Postfix) with ESMTP id 3E8C06894E
-	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:17 +0100 (CET)
+	by mail.nwl.cc (Postfix) with ESMTP id D23B26894E
+	for <netdev@vger.kernel.org>; Fri,  4 Mar 2016 13:12:10 +0100 (CET)
 In-Reply-To: <1457093507-25601-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/tc-mirred.8 | 89 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 89 insertions(+)
- create mode 100644 man/man8/tc-mirred.8
+ man/man8/tc-police.8 | 127 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 127 insertions(+)
+ create mode 100644 man/man8/tc-police.8
 
-diff --git a/man/man8/tc-mirred.8 b/man/man8/tc-mirred.8
+diff --git a/man/man8/tc-police.8 b/man/man8/tc-police.8
 new file mode 100644
-index 0000000000000..52d98bc416563
+index 0000000000000..2b1537ec52875
 --- /dev/null
-+++ b/man/man8/tc-mirred.8
-@@ -0,0 +1,89 @@
-+.TH "Mirror/redirect action in tc" 8 "11 Jan 2015" "iproute2" "Linux"
++++ b/man/man8/tc-police.8
+@@ -0,0 +1,127 @@
++.TH "Policing action in tc" 8 "20 Jan 2015" "iproute2" "Linux"
 +
 +.SH NAME
-+mirred - mirror/redirect action
++police - policing action
 +.SH SYNOPSIS
 +.in +8
 +.ti -8
-+.BR tc " ... " "action mirred"
-+.I DIRECTION ACTION
-+.RB "[ " index
-+.IR INDEX " ] "
-+.BI dev " DEVICENAME"
++.BR tc " ... " "action police"
++.BI rate " RATE " burst
++.IR BYTES [\fB/ BYTES "] ["
++.B mtu
++.IR BYTES [\fB/ BYTES "] ] ["
++.BI peakrate " RATE"
++] [
++.BI avrate " RATE"
++] [
++.BI overhead " BYTES"
++] [
++.BI linklayer " TYPE"
++] [
++.BI conform-exceed " EXCEEDACT\fR[\fB/\fIEXCEEDACT\fR]"
 +
 +.ti -8
-+.IR DIRECTION " := { "
-+.BR ingress " | " egress " }"
-+
-+.ti -8
-+.IR ACTION " := { "
-+.BR mirror " | " redirect " }"
++.IR EXCEEDACT " := { "
++.BR pipe " | " ok " | " reclassify " | " drop " | " continue " }"
 +.SH DESCRIPTION
 +The
-+.B mirred
-+action allows to redirect or mirror packets to another network interface on the
-+same system. It is typically used in combination with the
-+.B ifb
-+pseudo device to create a shrared instance where QoS happens, but serves well
-+for debugging or monitoring purposes, too.
++.B police
++action allows to limit bandwidth of traffic matched by the filter it is
++attached to.
 +.SH OPTIONS
 +.TP
-+.B ingress
-+.TQ
-+.B egress
-+Specify the direction in which the packet shall appear on the destination
-+interface. Currently only
-+.B egress
-+is implemented.
++.BI rate " RATE"
++The maximum traffic rate of packets passing this action. Those exceeding it will
++be treated as defined by the
++.B conform-exceed
++option.
 +.TP
-+.B mirror
-+.TQ
-+.B redirect
-+Define whether the packet should be copied
-+.RB ( mirror )
-+or moved
-+.RB ( redirect )
-+to the destination interface.
++.BI burst " BYTES\fR[\fB/\fIBYTES\fR]"
++Set the maximum allowed burst in bytes, optionally followed by a slash ('/')
++sign and cell size which must be a power of 2.
 +.TP
-+.BI index " INDEX"
-+Assign a unique ID to this action instead of letting the kernel choose one
-+automatically.
-+.I INDEX
-+is a 32bit unsigned integer greater than zero.
++.BI mtu " BYTES\fR[\fB/\fIBYTES\fR]"
++This is the maximum packet size handled by the policer (larger ones will be
++handled like they exceeded the configured rate). Setting this value correctly
++will improve the scheduler's precision.
++Value formatting is identical to
++.B burst
++above. Defaults to unlimited.
 +.TP
-+.BI dev " DEVICENAME"
-+Specify the network interface to redirect or mirror to.
++.BI peakrate " RATE"
++Set the maximum bucket depletion rate, exceeding
++.BR rate .
++.TP
++.BI avrate " RATE"
++Make use of an in-kernel bandwidth rate estimator and match the given
++.I RATE
++against it.
++.TP
++.BI overhead " BYTES"
++Account for protocol overhead of encapsulating output devices when computing
++.BR rate " and " peakrate .
++.TP
++.BI linklayer " TYPE"
++Specify the link layer type.
++.I TYPE
++may be one of
++.B ethernet
++(the default),
++.BR atm " or " adsl
++(which are synonyms). It is used to align the precomputed rate tables to ATM
++cell sizes, for
++.B ethernet
++no action is taken.
++.TP
++.BI conform-exceed " EXCEEDACT\fR[\fB/\fIEXCEEDACT\fR]"
++Define how to handle packets which exceed (and, if the second
++.I EXCEEDACT
++is given, also those who don't), the configured bandwidth limit. Possible values
++are:
++.RS
++.IP continue
++Don't do anything, just continue with the next action in line.
++.IP drop
++Drop the packet immediately.
++.IP shot
++This is a synonym to
++.BR drop .
++.IP ok
++Accept the packet. This is the default for conforming packets.
++.IP pass
++This is a synonym to
++.BR ok .
++.IP reclassify
++Treat the packet as non-matching to the filter this action is attached to and
++continue with the next filter in line (if any). This is the default for
++exceeding packets.
++.IP pipe
++Pass the packet to the next action in line.
 +.SH EXAMPLES
-+Limit ingress bandwidth on eth0 to 1mbit/s, redirect exceeding traffic to lo for
-+debugging purposes:
++A typical application of the police action is to enforce ingress traffic rate
++by dropping exceeding packets. Although better done on the sender's side,
++especially in scenarios with lack of peer control (e.g. with dial-up providers)
++this is often the best one can do in order to keep latencies low under high
++load. The following establishes input bandwidth policing to 1mbit/s using the
++.B ingress
++qdisc and
++.B u32
++filter:
 +
 +.RS
 +.EX
 +# tc qdisc add dev eth0 handle ffff: ingress
 +# tc filter add dev eth0 parent ffff: u32 \\
 +	match u32 0 0 \\
-+	action police rate 1mbit burst 100k conform-exceed pipe \\
-+	action mirred egress redirect dev lo
++	police rate 1mbit burst 100k
 +.EE
 +.RE
 +
-+Use an
-+.B ifb
-+interface to send ingress traffic on eth0 through an instance of
-+.BR sfq :
-+
-+.RS
-+.EX
-+# modprobe ifb
-+# ip link set ifb0 up
-+# tc qdisc add dev ifb0 root sfq
-+# tc qdisc add dev eth0 handle ffff: ingress
-+# tc filter add dev eth0 parent ffff: u32 \\
-+	match u32 0 0 \\
-+	action mirred egress redirect dev ifb0
-+.EE
-+.RE
++As an action can not live on it's own, there always has to be a filter involved as link between qdisc and action. The example above uses
++.B u32
++for that, which is configured to effectively match any packet (passing it to the
++.B police
++action thereby).
 +
 +.SH SEE ALSO
-+.BR tc (8),
-+.BR tc-u32 (8)
++.BR tc (8)
 -- 
 2.7.2
