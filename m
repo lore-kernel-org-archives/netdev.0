@@ -1,40 +1,35 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 4/5] man: ip-route: Make synopsis consistent with description
-Date: Fri,  4 Mar 2016 12:52:40 +0100
-Message-ID: <1457092361-17603-5-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 3/5] man: tc-u32: Minor syntax fix
+Date: Fri,  4 Mar 2016 12:52:39 +0100
+Message-ID: <1457092361-17603-4-git-send-email-phil@nwl.cc>
 References: <1457092361-17603-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:55209 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:35337 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751112AbcCDLwy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Mar 2016 06:52:54 -0500
+	id S1751454AbcCDLxG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2016 06:53:06 -0500
 In-Reply-To: <1457092361-17603-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While the synopsis section contains 'ip route list', it is later
-described as 'ip route show'. Make this consistent by replacing 'list'
-with 'show' in synopsis.
-
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/ip-route.8.in | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ man/man8/tc-u32.8 | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
-index c764bfc8ead86..d7fb8fba8bb05 100644
---- a/man/man8/ip-route.8.in
-+++ b/man/man8/ip-route.8.in
-@@ -16,7 +16,7 @@ ip-route \- routing table management
- 
- .ti -8
- .BR "ip route" " { "
--.BR list " | " flush " } "
-+.BR show " | " flush " } "
- .I  SELECTOR
- 
- .ti -8
+diff --git a/man/man8/tc-u32.8 b/man/man8/tc-u32.8
+index 47c8f2d092ee8..691f53c135cfe 100644
+--- a/man/man8/tc-u32.8
++++ b/man/man8/tc-u32.8
+@@ -370,6 +370,7 @@ then allows to match various header fields:
+ .RS
+ .TP
+ .BI src " ADDR"
++.TQ
+ .BI dst " ADDR"
+ Compare Source or Destination Address fields against the value of
+ .IR ADDR .
 -- 
 2.7.2
