@@ -1,69 +1,80 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: Sending short raw packets using sendmsg() broke
-Date: Fri, 4 Mar 2016 15:52:04 -0500
-Message-ID: <CAF=yD-Lg8_Y3KhXGCQWX1tAQtHKqGKik2bHAon+Czyb-RX53xA@mail.gmail.com>
-References: <20160225.152628.1230785666614750970.davem@davemloft.net>
- <1456497874.7064.7.camel@linux.intel.com> <CAF=yD-JOQZZnU6XE9FhEVbxstKmsB-ds58e5v678SiO24VV0+g@mail.gmail.com>
- <20160226.124645.2123990166666725876.davem@davemloft.net> <CAF=yD-+m09_KS9+SyMZsTES5iLPyVE10F0u6pt4tVeYcDk8=PQ@mail.gmail.com>
- <1456876822.7064.36.camel@linux.intel.com> <CAF=yD-+mNY0g4A8oWJEWPDeAuucrJX-E1pNd6ABYK+BzmrKvOQ@mail.gmail.com>
- <CAF=yD-+-QFp=g8BSsxjwwMmMwuHzkEiubZHNuyoLccF7qTs0ow@mail.gmail.com>
- <1457106849.7064.55.camel@linux.intel.com> <CAF=yD-LyNo_tXu_D=MG3U7aXgU6MrV0i1YkrCHDFRufq9QMaHw@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
+Date: Fri, 04 Mar 2016 22:00:17 +0100
+Message-ID: <18726591.PV3KNmkGar@wuerfel>
+References: <1456945629-1793533-1-git-send-email-arnd@arndb.de> <1659125.tHp8H942OG@wuerfel> <56D9D189.8080206@linux-pingi.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Heikki Hannikainen <hessu@hes.iki.fi>,
-	Network Development <netdev@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>
-To: Alan Cox <alan@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:33421 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758765AbcCDUwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 15:52:45 -0500
-Received: by mail-lb0-f175.google.com with SMTP id k15so74698780lbg.0
-        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 12:52:45 -0800 (PST)
-In-Reply-To: <CAF=yD-LyNo_tXu_D=MG3U7aXgU6MrV0i1YkrCHDFRufq9QMaHw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: isdn@linux-pingi.de, devel@driverdev.osuosl.org,
+	Jonathan Corbet <corbet@lwn.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <56D9D189.8080206@linux-pingi.de>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 4, 2016 at 11:33 AM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
-> On Fri, Mar 4, 2016 at 10:54 AM, Alan Cox <alan@linux.intel.com> wrote:
->>> > A quick search for ethhdr in drivers/net/ethernet shows, for
->>> > instance,
->>> > bnx2x_select_queue casting skb->data to an ethernet header. Reading
->>> > nonsense in that particular function is quite safe and given the
->>> > skbuff layout (skb_shared_info) code will never read beyond an
->>> > allocated region. But that was just the first occurrence I found.
->>> > efx_tso_check_protocol is another example.
->>
->> So would always allocating that much space be a good mitigation in
->> general
->
-> Agreed. The existing packet allocation path does that by relying on
-> LL_RESERVED_SPACE on allocation, not only packet length. I won't
-> modify that. But I should perhaps zero up to hard_header_len on
-> variable length headers.
->
->>  and perhaps then making the logic check validate() IFF
->> CAP_SYS_RAWIO is not set.
->>
->> A user with CAP_SYS_RAWIO already has the power to control the device
->> by banging registers so the check is not a security loss.
->
-> One concern is namespaces. I'll use capable(CAP_SYS_RAWIO), not ns_capable.
->
-> Need to add an ax25_validate implemention and run some tests before I
-> send out the patch.
+On Friday 04 March 2016 19:18:49 isdn@linux-pingi.de wrote:
+> Am 04.03.2016 um 16:24 schrieb Arnd Bergmann:
+> > On Thursday 03 March 2016 09:30:38 isdn@linux-pingi.de wrote:
+> >> Hi Arnd,
+> >> I fully agree and ack.
+> >> Thanks for the work.
+> >>
+> > 
+> > I actually did more patches that I ended up not submitting:
+> > 
+> > * move hisax to staging
+> > * remove i4l support from gigaset
+> > * move i4l core to staging
+> > 
+> > while I initially thought that i4l as a whole is not just unmaintained
+> > but also more or less unused, patch 19cebbcb04c8 ("isdn: Partially
+> > revert debug format string usage clean up") came in that indicated that
+> > there are still users that even send patches for hisax, and that
+> > made me doubt whether we could consider it obsolete enough.
+> > 
+> > Any thoughts on this? If you like, I can send those too.
+> 
+> I4L is still in use on some sides and here is no 100% replacement (net
+> via RAW IP mode, terminal via X.75).
 
-Sent a v1. I will try to test the ax25 specific code. Heikki, if you
-can, please test it, too.
+I see.
 
-The change to tpacket_fill_skb will cause a merge conflict with
-net-next because of my tpacket gso changes in
-http://patchwork.ozlabs.org/patch/578623/
+> This week I got some question from a big retail chain  in Germany about
+> migration. I never know that they are  using this stuff (for initial
+> setup of remote shops).
 
->
-> Thanks,
->
->   Willem
+Just for more background, do you know how old the kernel is that they
+(or other i4l users you know of) are currently using?
+
+> So I would not drop i4l yet, maybe we should propose this for 2018.
+> I4L is not so usefull for NT mode, which is very popular nowadays for
+> gateways into the new full IP world. Some design ins with mISDN here,
+> mostly in the embedded area.
+
+Ok, with a planned 2018 removal date I think we can consider moving
+it all to staging now, that would give at least everyone who still uses
+modern kernels a warning ahead of time so they can either plan the
+migration away from i4l (or away from ISDN in other cases), as well as
+a chance for us to hear about any remaining active users and whether
+they need a later removal date.
+
+In the TODO file for the active ISDN drivers, I have listed 2017
+after the longterm kernel as the date for the projected removal.
+If we decide to move the rest of I4L to staging with a date of
+2018 (after the longterm release), that gives users at least until
+2020 before they stop seeing upstream bug fixes for a kernel with
+an included i4l, and many are probably stuck with running unsupported
+older kernels anyway.
+
+For reference, the currently largest provider of ISDN phone lines
+is Deutsche Telekom, and they plan to disconnect their last user
+in 2018, while Vodafone Germany said they will continue their service
+until 2022, but my interpretation of their website fine print is that
+this is only true for expensive S2M connections that few people use.
+
+	Arnd
