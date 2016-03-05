@@ -1,82 +1,97 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Sat, 05 Mar 2016 11:33:12 -0500 (EST)
-Message-ID: <20160305.113312.1758700509401944239.davem@davemloft.net>
-References: <1457136510.2761.8.camel@edumazet-ThinkPad-T530>
-	<20160304.231109.1838919633640757059.davem@davemloft.net>
-	<20160305155714.GM4184@uranus.lan>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] sctp: use gfp insteaad of GFP_NOWAIT in
+ idr_alloc_cyclic when sctp_assoc_set_id
+Date: Sat, 05 Mar 2016 08:42:13 -0800
+Message-ID: <1457196133.2663.3.camel@edumazet-ThinkPad-T530>
+References: <ef48b2b8895b4d0fab07b4e72b464d5a11d3bd79.1457193572.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, solar@openwall.com,
-	vvs@virtuozzo.com, avagin@virtuozzo.com, xemul@virtuozzo.com,
-	vdavydov@virtuozzo.com, khorenko@virtuozzo.com
-To: gorcunov@gmail.com
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48455 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750699AbcCEQdP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2016 11:33:15 -0500
-In-Reply-To: <20160305155714.GM4184@uranus.lan>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:36641 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750699AbcCEQmQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2016 11:42:16 -0500
+In-Reply-To: <ef48b2b8895b4d0fab07b4e72b464d5a11d3bd79.1457193572.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Date: Sat, 5 Mar 2016 18:57:14 +0300
-
-> On Fri, Mar 04, 2016 at 11:11:09PM -0500, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Fri, 04 Mar 2016 16:08:30 -0800
->> 
->> > __inet_del_ifa() should probably take into account in_dev->dead (no
->> > promotion, no list scan...)
->> 
->> Indeed, that is the real problem:
+On sam., 2016-03-05 at 23:59 +0800, Xin Long wrote:
+> The following call trace appears because of idr_alloc_cyclic(..., GFP_NOWAIT),
+> that is a stress test, and the reason should be a heavy use. it will cause
+> sctp_process_init return 0, and make connection init fail.
 > 
-> Well, tried it out. Indeed it partially released the contention
-> but with patch applied I stuck with
- ...
-> and until everything get cleaned up I couldn't connect
-> to the node via ssh. I continue playing with patch maybe
-> I find some other optimization paths. Thanks!
+> All the allocations of idr_alloc_cyclic should respect gfp flag.
+> So we can fix it by using gfp insteaad of GFP_NOWAIT in idr_alloc_cyclic.
+> 
+> [ 2569.797532] Call Trace:
+> [ 2569.809721]  [<ffffffff8163ed74>] dump_stack+0x19/0x1b
+> [ 2569.837424]  [<ffffffff81171460>] warn_alloc_failed+0x110/0x180
+> [ 2569.867013]  [<ffffffff81175be8>] __alloc_pages_nodemask+0x9a8/0xb90
+> [ 2569.900039]  [<ffffffff811b68d9>] alloc_pages_current+0xa9/0x170
+> [ 2569.930100]  [<ffffffff811c19dc>] new_slab+0x2ec/0x300
+> [ 2569.957505]  [<ffffffff8163bcdf>] __slab_alloc+0x315/0x48f
+> [ 2569.985168]  [<ffffffff812f6bd9>] ? idr_layer_alloc+0x89/0x90
+> [ 2570.014344]  [<ffffffff812fedae>] ? memzero_explicit+0xe/0x10
+> [ 2570.044116]  [<ffffffff811c3fa3>] kmem_cache_alloc+0x193/0x1d0
+> [ 2570.073283]  [<ffffffff812f6bd9>] idr_layer_alloc+0x89/0x90
+> [ 2570.102684]  [<ffffffff812f72dc>] idr_get_empty_slot+0x24c/0x3c0
+> [ 2570.132634]  [<ffffffff812f75ac>] idr_alloc+0x5c/0x100
+> [ 2570.159835]  [<ffffffffa08af6c0>] ? sctp_hash_transport+0x110/0x290 [sctp]
+> [ 2570.194974]  [<ffffffff812f767b>] idr_alloc_cyclic+0x2b/0x60
+> [ 2570.223695]  [<ffffffffa089a546>] sctp_assoc_set_id+0x46/0xd0 [sctp]
+> [ 2570.256245]  [<ffffffffa089f321>] sctp_process_init+0x921/0x940 [sctp]
+> [ 2570.288574]  [<ffffffffa08ae030>] ? sctp_csum_combine+0x10/0x10 [sctp]
+> [ 2570.321758]  [<ffffffffa0896788>] sctp_cmd_interpreter.isra.25+0xe18/0x1330 [sctp]
+> [ 2570.459745]  [<ffffffffa089543f>] sctp_do_sm+0xaf/0x1b0 [sctp]
+> [ 2570.489725]  [<ffffffffa0899655>] sctp_assoc_bh_rcv+0xd5/0x140 [sctp]
+> [ 2570.522628]  [<ffffffffa08a137c>] sctp_inq_push+0x4c/0x70 [sctp]
+> [ 2570.553812]  [<ffffffffa08af160>] sctp_backlog_rcv+0x40/0x130 [sctp]
+> [ 2570.585534]  [<ffffffff8151cbe1>] release_sock+0xa1/0x170
+> [ 2570.613632]  [<ffffffffa08a8c1a>] __sctp_connect+0x41a/0x550 [sctp]
+> [ 2570.644998]  [<ffffffff810a84e0>] ? wake_up_atomic_t+0x30/0x30
+> [ 2570.675601]  [<ffffffff816463f2>] ? _raw_spin_lock_bh+0x12/0x50
+> [ 2570.705185]  [<ffffffffa08a8e6d>] sctp_connect+0x4d/0x70 [sctp]
+> [ 2570.736234]  [<ffffffff815a82ce>] inet_dgram_connect+0x2e/0x80
+> [ 2570.765514]  [<ffffffff81518387>] SYSC_connect+0xe7/0x120
+> [ 2570.793691]  [<ffffffff81515450>] ? sock_alloc_file+0xa0/0x140
+> [ 2570.822558]  [<ffffffff811ffad7>] ? __fd_install+0x47/0x60
+> [ 2570.851732]  [<ffffffff8151943e>] SyS_connect+0xe/0x10
+> [ 2570.877433]  [<ffffffff8164f1c9>] system_call_fastpath+0x16/0x1b
+> [ 2570.908682] SLUB: Unable to allocate memory on node -1 (gfp=0x8000)
+> [ 2570.939959]   cache: idr_layer_cache, object size: 2112, buffer size: 2112, default order: 3, min order: 0
+> [ 2570.989683]   node 0: slabs: 839, objs: 11829, free: 0
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/associola.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index 2bf8ec9..481187a 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -1606,7 +1606,7 @@ int sctp_assoc_set_id(struct sctp_association *asoc, gfp_t gfp)
+>  		idr_preload(gfp);
+>  	spin_lock_bh(&sctp_assocs_id_lock);
+>  	/* 0 is not a valid assoc_id, must be >= 1 */
+> -	ret = idr_alloc_cyclic(&sctp_assocs_id, asoc, 1, 0, GFP_NOWAIT);
+> +	ret = idr_alloc_cyclic(&sctp_assocs_id, asoc, 1, 0, gfp);
+>  	spin_unlock_bh(&sctp_assocs_id_lock);
+>  	if (preload)
+>  		idr_preload_end();
 
-What is the order of magnitude of the delay, as a function of
-number of IP aliases installed, compred to before the patch?
+Are you sure idr_alloc(... GFP_KERNEL) makes sense inside spin_lock_bh()
+section ?
 
-The remaining cost you are seeing comes of course from the router
-deletion, whose path is:
+idr_alloc() has :
 
-	blocking_notifier_call_chain(&inetaddr_chain, NETDEV_DOWN, ifa1);
-		fib_inetaddr_event()
-			fib_del_ifaddr(ifa, NULL);
+might_sleep_if(gfpflags_allow_blocking(gfp_mask));
 
-Which does another full list scan trying to handle primaries and
-secondaries.
-
-Probably the same optimization can be applied there, see patch below.
-And if that doesn't do it, there is a really easy way to batch the
-delete by scanning the FIB tree in one go and deleting every entry
-that points to "in_dev".  But I suspect we really won't need that.
-
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 4734475..21add55 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -922,6 +922,9 @@ void fib_del_ifaddr(struct in_ifaddr *ifa, struct in_ifaddr *iprim)
- 		subnet = 1;
- 	}
- 
-+	if (in_dev->dead)
-+		goto no_promotions;
-+
- 	/* Deletion is more complicated than add.
- 	 * We should take care of not to delete too much :-)
- 	 *
-@@ -997,6 +1000,7 @@ void fib_del_ifaddr(struct in_ifaddr *ifa, struct in_ifaddr *iprim)
- 		}
- 	}
- 
-+no_promotions:
- 	if (!(ok & BRD_OK))
- 		fib_magic(RTM_DELROUTE, RTN_BROADCAST, ifa->ifa_broadcast, 32, prim);
- 	if (subnet && ifa->ifa_prefixlen < 31) {
+A debug kernel (CONFIG_DEBUG_ATOMIC_SLEEP=y) should probably complain at
+this point ?
