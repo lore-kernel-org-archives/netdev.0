@@ -1,58 +1,36 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [iproute PATCH] libnetlink: Double the dump buffer size
-Date: Sat, 05 Mar 2016 22:12:16 +0100
-Message-ID: <1457212336.3032.3.camel@sipsolutions.net>
-References: <8e235f49b8314d70bbf76709a81c4d84@HQ1WP-EXMB11.corp.brocade.com>
-	 <20160304153553.47e8741d@xeon-e3> (sfid-20160305_003554_298078_24E675A8)
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: PHY hardware reset
+Date: Sun, 6 Mar 2016 01:09:40 +0300
+Message-ID: <56DB5924.3020206@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemming@brocade.com>, Phil Sutter <phil@nwl.cc>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:44558 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750801AbcCEVMX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2016 16:12:23 -0500
-In-Reply-To: <20160304153553.47e8741d@xeon-e3> (sfid-20160305_003554_298078_24E675A8)
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:35685 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751052AbcCEWJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2016 17:09:44 -0500
+Received: by mail-lb0-f169.google.com with SMTP id bc4so95561263lbc.2
+        for <netdev@vger.kernel.org>; Sat, 05 Mar 2016 14:09:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-03-04 at 15:35 -0800, Stephen Hemminger wrote:
->=C2=A0
-> > There have been reports about 'ip addr' printing "Message
-> > truncated" on
-[...]
-> I thought this was addressed in kernel by making the VF info
-> optional.
-> The netlink protocol is showing some strain, this is one of them.
+Hello.
 
-I don't know how the dump is split here, but we had a similar issue
-with nl80211 - originally each physical device info had to fit into a
-single message (one message during dump for each device), but we fixed
-that by having userspace to set a flag when it's able to understand a
-multi-message single physical device info.
+    I have a need to de-assert the active-low PHY hardware reset signal 
+(mapped to a GPIO) before the MDIO bus scansince it's left asserted by the 
+bootloader (U-Boot). I have a device tree probed MAX driver (ravb) and I'm 
+somewhat at a loss about where and how to do this. The existing example 
+(Freescale FEC) has DT props controlling the PHY reset GPIO in the MAC device 
+node but it doesn't seem correct at all since this signal has nothing to do 
+with the MAC, only with PHY! I therefore would like this "phy-reset-gpios" 
+property to be defined under the PHY node but this way I'll have to add the 
+handling of this prop to the phylib (it would be too late if I did that in a a 
+PHY driver method since that). I'm also seeing the mii_bus::reset() method and 
+it seems a good place but I'm not sure if my PHY's reset signal can be treated 
+as the reset signal for the whole bus; if it would, the DT prop should be 
+placed under the MAC node anyway...
+    Florian (and everybody), what's your thoughts on this matter?
 
-Before:
-=C2=A0msg1: phy1: A, B, C
-=C2=A0msg2: phy2: A, B, C
-
-After:
-=C2=A0msg1: phy1: A
-=C2=A0msg2: phy1: B
-=C2=A0msg3: phy1: C
-=C2=A0msg4: phy1: D
-=C2=A0msg5: phy2: A
-=C2=A0[...]
-
-=46or userspace not setting the flag, it only get partial info today fo=
-r
-compatibility (A, B, C, not D), but in our particular case this was
-perfectly reasonable since it would be unaware of the new capabilities
-anyway.
-
-I don't know precisely enough what the issue at hand is to comment
-whether such an approach will be feasible here, but it seems it could
-be.
-
-johannes
+MBR, Sergei
