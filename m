@@ -1,199 +1,96 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [RFC PATCH net-next] tcp: Add RFC4898 tcpEStatsPerfDataSegsOut/In
-Date: Fri, 4 Mar 2016 15:57:33 -0800
-Message-ID: <1457135853-4110588-1-git-send-email-kafai@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kernel Team <kernel-team@fb.com>, Chris Rapier <rapier@psc.edu>,
-	Eric Dumazet <edumazet@google.com>,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: <netdev@vger.kernel.org>
+From: cooldavid@cooldavid.org
+Subject: [PATCH net 1/2] jme: Do not enable NIC WoL functions on S0
+Date: Sat,  5 Mar 2016 08:11:55 +0800
+Message-ID: <1457136716-7251-1-git-send-email-cooldavid@cooldavid.org>
+Cc: Guo-Fu Tseng <cooldavid@cooldavid.org>,
+	"linux-netdev" <netdev@vger.kernel.org>,
+	"Diego Viola" <diego.viola@gmail.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:3286 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760585AbcCDX5h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 18:57:37 -0500
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u24NsdHs002571
-	for <netdev@vger.kernel.org>; Fri, 4 Mar 2016 15:57:36 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 21fj2urju0-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 15:57:36 -0800
-Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
- mx-out.facebook.com (10.223.100.99) with ESMTP	id
- dd4ccd8ee26411e584c324be05956610-e1ae6270 for <netdev@vger.kernel.org>;	Fri,
- 04 Mar 2016 15:57:34 -0800
+Received: from cooldavid.org ([114.33.45.68]:56903 "EHLO cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760388AbcCEAGt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2016 19:06:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Per RFC4898, they count segments sent/received
-containing a positive length data segment (that includes
-retransmission segments carrying data).  Unlike
-tcpi_segs_out/in, tcpi_data_segs_out/in excludes segments
-carrying no data (e.g. pure ack).
+From: Guo-Fu Tseng <cooldavid@cooldavid.org>
 
-The patch also updates the segs_in in tcp_fastopen_add_skb()
-so that segs_in >= data_segs_in property is kept.
+Otherwise it might be back on resume right after going to suspend in
+some hardware.
 
-Together with retransmission data, tcpi_data_segs_out
-gives a better signal on the rxmit rate.
-
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Cc: Chris Rapier <rapier@psc.edu>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
+Reported-by: Diego Viola <diego.viola@gmail.com>
+Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
 ---
- include/linux/tcp.h      | 6 ++++++
- include/uapi/linux/tcp.h | 2 ++
- net/ipv4/tcp.c           | 2 ++
- net/ipv4/tcp_fastopen.c  | 4 ++++
- net/ipv4/tcp_ipv4.c      | 7 ++++++-
- net/ipv4/tcp_output.c    | 4 +++-
- net/ipv6/tcp_ipv6.c      | 7 ++++++-
- 7 files changed, 29 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/jme.c | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index bcbf51d..7be9b12 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -158,6 +158,9 @@ struct tcp_sock {
- 	u32	segs_in;	/* RFC4898 tcpEStatsPerfSegsIn
- 				 * total number of segments in.
- 				 */
-+	u32	data_segs_in;	/* RFC4898 tcpEStatsPerfDataSegsIn
-+				 * total number of data segments in.
-+				 */
-  	u32	rcv_nxt;	/* What we want to receive next 	*/
- 	u32	copied_seq;	/* Head of yet unread data		*/
- 	u32	rcv_wup;	/* rcv_nxt on last window update sent	*/
-@@ -165,6 +168,9 @@ struct tcp_sock {
- 	u32	segs_out;	/* RFC4898 tcpEStatsPerfSegsOut
- 				 * The total number of segments sent.
- 				 */
-+	u32	data_segs_out;	/* RFC4898 tcpEStatsPerfDataSegsOut
-+				 * total number of data segments sent.
-+				 */
- 	u64	bytes_acked;	/* RFC4898 tcpEStatsAppHCThruOctetsAcked
- 				 * sum(delta(snd_una)), or how many bytes
- 				 * were acked.
-diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-index fe95446..53e8e3f 100644
---- a/include/uapi/linux/tcp.h
-+++ b/include/uapi/linux/tcp.h
-@@ -199,6 +199,8 @@ struct tcp_info {
- 
- 	__u32	tcpi_notsent_bytes;
- 	__u32	tcpi_min_rtt;
-+	__u32	tcpi_data_segs_in;	/* RFC4898 tcpEStatsDataSegsIn */
-+	__u32	tcpi_data_segs_out;	/* RFC4898 tcpEStatsDataSegsOut */
- };
- 
- /* for TCP_MD5SIG socket option */
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index f9faadb..6b01b48 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2728,6 +2728,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
- 	info->tcpi_notsent_bytes = max(0, notsent_bytes);
- 
- 	info->tcpi_min_rtt = tcp_min_rtt(tp);
-+	info->tcpi_data_segs_in = tp->data_segs_in;
-+	info->tcpi_data_segs_out = tp->data_segs_out;
+diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
+index 8adbe8f..74b9c9d 100644
+--- a/drivers/net/ethernet/jme.c
++++ b/drivers/net/ethernet/jme.c
+@@ -270,11 +270,17 @@ jme_reset_mac_processor(struct jme_adapter *jme)
  }
- EXPORT_SYMBOL_GPL(tcp_get_info);
  
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index fdb286d..f583c85 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -131,6 +131,7 @@ static bool tcp_fastopen_cookie_gen(struct request_sock *req,
- void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
+ static inline void
+-jme_clear_pm(struct jme_adapter *jme)
++jme_clear_pm_enable_wol(struct jme_adapter *jme)
  {
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	u16 segs_in;
+ 	jwrite32(jme, JME_PMCS, PMCS_STMASK | jme->reg_pmcs);
+ }
  
- 	if (TCP_SKB_CB(skb)->end_seq == tp->rcv_nxt)
- 		return;
-@@ -154,6 +155,9 @@ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
- 	 * as we certainly are not changing upper 32bit value (0)
- 	 */
- 	tp->bytes_received = skb->len;
-+	segs_in = max_t(u16, 1, skb_shinfo(skb)->gso_segs);
-+	tp->segs_in = segs_in;
-+	tp->data_segs_in = segs_in;
- 
- 	if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
- 		tcp_fin(sk);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 4c8d58d..c9b576f 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1540,6 +1540,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 	const struct iphdr *iph;
- 	const struct tcphdr *th;
- 	struct sock *sk;
-+	u16 segs_in;
- 	int ret;
- 	struct net *net = dev_net(skb->dev);
- 
-@@ -1650,7 +1651,11 @@ process:
- 	sk_incoming_cpu_update(sk);
- 
- 	bh_lock_sock_nested(sk);
--	tcp_sk(sk)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
-+	segs_in = max_t(u16, 1, skb_shinfo(skb)->gso_segs);
-+	tcp_sk(sk)->segs_in += segs_in;
-+	if (skb->len > __tcp_hdrlen(th))
-+		tcp_sk(sk)->data_segs_in += segs_in;
++static inline void
++jme_clear_pm_disable_wol(struct jme_adapter *jme)
++{
++	jwrite32(jme, JME_PMCS, PMCS_STMASK);
++}
 +
- 	ret = 0;
- 	if (!sock_owned_by_user(sk)) {
- 		if (!tcp_prequeue(sk, skb))
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 7d2c7a4..7d2dc01 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1003,8 +1003,10 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 	if (likely(tcb->tcp_flags & TCPHDR_ACK))
- 		tcp_event_ack_sent(sk, tcp_skb_pcount(skb));
+ static int
+ jme_reload_eeprom(struct jme_adapter *jme)
+ {
+@@ -1853,7 +1859,7 @@ jme_open(struct net_device *netdev)
+ 	struct jme_adapter *jme = netdev_priv(netdev);
+ 	int rc;
  
--	if (skb->len != tcp_header_size)
-+	if (skb->len != tcp_header_size) {
- 		tcp_event_data_sent(tp, sk);
-+		tp->data_segs_out += tcp_skb_pcount(skb);
-+	}
+-	jme_clear_pm(jme);
++	jme_clear_pm_disable_wol(jme);
+ 	JME_NAPI_ENABLE(jme);
  
- 	if (after(tcb->end_seq, tp->snd_nxt) || tcb->seq == tcb->end_seq)
- 		TCP_ADD_STATS(sock_net(sk), TCP_MIB_OUTSEGS,
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 33f2820..941a8a5 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1349,6 +1349,7 @@ static int tcp_v6_rcv(struct sk_buff *skb)
- 	const struct tcphdr *th;
- 	const struct ipv6hdr *hdr;
- 	struct sock *sk;
-+	u16 segs_in;
- 	int ret;
- 	struct net *net = dev_net(skb->dev);
+ 	tasklet_init(&jme->linkch_task, jme_link_change_tasklet,
+@@ -1929,7 +1935,7 @@ jme_powersave_phy(struct jme_adapter *jme)
+ 		jme_set_100m_half(jme);
+ 		if (jme->reg_pmcs & (PMCS_LFEN | PMCS_LREN))
+ 			jme_wait_link(jme);
+-		jme_clear_pm(jme);
++		jme_clear_pm_enable_wol(jme);
+ 	} else {
+ 		jme_phy_off(jme);
+ 	}
+@@ -2646,7 +2652,6 @@ jme_set_wol(struct net_device *netdev,
+ 	if (wol->wolopts & WAKE_MAGIC)
+ 		jme->reg_pmcs |= PMCS_MFEN;
  
-@@ -1443,7 +1444,11 @@ process:
- 	sk_incoming_cpu_update(sk);
+-	jwrite32(jme, JME_PMCS, jme->reg_pmcs);
+ 	device_set_wakeup_enable(&jme->pdev->dev, !!(jme->reg_pmcs));
  
- 	bh_lock_sock_nested(sk);
--	tcp_sk(sk)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
-+	segs_in = max_t(u16, 1, skb_shinfo(skb)->gso_segs);
-+	tcp_sk(sk)->segs_in += segs_in;
-+	if (skb->len > __tcp_hdrlen(th))
-+		tcp_sk(sk)->data_segs_in += segs_in;
-+
- 	ret = 0;
- 	if (!sock_owned_by_user(sk)) {
- 		if (!tcp_prequeue(sk, skb))
+ 	return 0;
+@@ -3172,7 +3177,7 @@ jme_init_one(struct pci_dev *pdev,
+ 	jme->mii_if.mdio_read = jme_mdio_read;
+ 	jme->mii_if.mdio_write = jme_mdio_write;
+ 
+-	jme_clear_pm(jme);
++	jme_clear_pm_disable_wol(jme);
+ 	device_set_wakeup_enable(&pdev->dev, true);
+ 
+ 	jme_set_phyfifo_5level(jme);
+@@ -3304,7 +3309,7 @@ jme_resume(struct device *dev)
+ 	if (!netif_running(netdev))
+ 		return 0;
+ 
+-	jme_clear_pm(jme);
++	jme_clear_pm_disable_wol(jme);
+ 	jme_phy_on(jme);
+ 	if (test_bit(JME_FLAG_SSET, &jme->flags))
+ 		jme_set_settings(netdev, &jme->old_ecmd);
 -- 
-2.5.1
+1.8.5.5
