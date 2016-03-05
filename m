@@ -1,84 +1,60 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [ethtool PATCH v3 04/12] ethtool.c: do_seeprom checks for params & stdin sanity
-Date: Fri,  4 Mar 2016 16:42:05 -0800
-Message-ID: <1457138533-2417-5-git-send-email-ddecotig@gmail.com>
+Subject: [ethtool PATCH v3 07/12] test-features.c: add braces around array initialization
+Date: Fri,  4 Mar 2016 16:42:08 -0800
+Message-ID: <1457138533-2417-8-git-send-email-ddecotig@gmail.com>
 References: <1457138533-2417-1-git-send-email-ddecotig@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Jeff Garzik <jgarzik@pobox.com>,
 	Ben Hutchings <ben@decadent.org.uk>,
 	David Miller <davem@redhat.com>,
 	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
 	Joe Perches <joe@perches.com>,
+	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
 	David Decotigny <decot@googlers.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:32841 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759441AbcCEAma (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 19:42:30 -0500
-Received: by mail-pf0-f195.google.com with SMTP id 63so3964270pfe.0
-        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 16:42:30 -0800 (PST)
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33805 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759441AbcCEAmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 19:42:33 -0500
+Received: by mail-pf0-f193.google.com with SMTP id 184so3975206pff.1
+        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 16:42:33 -0800 (PST)
 In-Reply-To: <1457138533-2417-1-git-send-email-ddecotig@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <decot@googlers.com>
+=46rom: Maciej =C5=BBenczykowski <maze@google.com>
 
-Tested:
-  On qemu e1000:
-  $ dd if=/dev/zero bs=2 count=5 | /mnt/ethtool -E eth0 length 9
-  too much data from stdin
-  $ dd if=/dev/zero bs=2 count=5 | /mnt/ethtool -E eth0 length 11
-  not enough data from stdin
-  $ dd if=/dev/zero bs=2 count=5 | /mnt/ethtool -E eth0 length 10
-  Cannot set EEPROM data: Bad address
+This fixes:
+  test-features.c:21:1: error: missing braces around initializer [-Werr=
+or=3Dmissing-braces]
+   cmd_gssetinfo =3D { { ETHTOOL_GSSET_INFO, 0, 1ULL << ETH_SS_FEATURES=
+ }, 34 };
+   ^
 
 
+Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- ethtool.c | 24 ++++++++++++++++++++----
- 1 file changed, 20 insertions(+), 4 deletions(-)
+ test-features.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/ethtool.c b/ethtool.c
-index c64b962..19f479c 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -2828,8 +2828,14 @@ static int do_seeprom(struct cmd_context *ctx)
- 	if (seeprom_length == -1)
- 		seeprom_length = drvinfo.eedump_len;
- 
--	if (drvinfo.eedump_len < seeprom_offset + seeprom_length)
--		seeprom_length = drvinfo.eedump_len - seeprom_offset;
-+	if (drvinfo.eedump_len < seeprom_offset + seeprom_length) {
-+		if (drvinfo.eedump_len > seeprom_offset)
-+			seeprom_length = drvinfo.eedump_len - seeprom_offset;
-+		else {
-+			fprintf(stderr, "offset & length out of bounds\n");
-+			return 75;
-+		}
-+	}
- 
- 	eeprom = calloc(1, sizeof(*eeprom)+seeprom_length);
- 	if (!eeprom) {
-@@ -2844,8 +2850,18 @@ static int do_seeprom(struct cmd_context *ctx)
- 	eeprom->data[0] = seeprom_value;
- 
- 	/* Multi-byte write: read input from stdin */
--	if (!seeprom_value_seen)
--		eeprom->len = fread(eeprom->data, 1, eeprom->len, stdin);
-+	if (!seeprom_value_seen) {
-+		if (1 != fread(eeprom->data, eeprom->len, 1, stdin)) {
-+			fprintf(stderr, "not enough data from stdin\n");
-+			free(eeprom);
-+			return 75;
-+		}
-+		if ((EOF != fgetc(stdin)) || !feof(stdin)) {
-+			fprintf(stderr, "too much data from stdin\n");
-+			free(eeprom);
-+			return 75;
-+		}
-+	}
- 
- 	err = send_ioctl(ctx, eeprom);
- 	if (err < 0) {
--- 
+diff --git a/test-features.c b/test-features.c
+index d7bd994..6ebb364 100644
+--- a/test-features.c
++++ b/test-features.c
+@@ -18,7 +18,7 @@ static const struct {
+ 	struct ethtool_sset_info cmd;
+ 	u32 data[1];
+ }
+-cmd_gssetinfo =3D { { ETHTOOL_GSSET_INFO, 0, 1ULL << ETH_SS_FEATURES }=
+, 34 };
++cmd_gssetinfo =3D { { ETHTOOL_GSSET_INFO, 0, 1ULL << ETH_SS_FEATURES }=
+, { 34 } };
+=20
+ static const struct ethtool_value
+ cmd_grxcsum_off =3D { ETHTOOL_GRXCSUM, 0 },
+--=20
 2.7.0.rc3.207.g0ac5344
