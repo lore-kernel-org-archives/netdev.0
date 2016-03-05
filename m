@@ -1,66 +1,58 @@
-From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: Possible double-free in the usbnet driver
-Date: Sat, 05 Mar 2016 20:53:07 +0100
-Message-ID: <DBDB517D-E4A4-4422-AECE-52194FE2AED0@mork.no>
-References: <CA+55aFxqwjs5gs6Fw2jmTteWM4hZTnr7Ls111ExNTieObLs82Q@mail.gmail.com> <CA+fCnZfS51F7WZEM1YTSPDMWSzvBTJWGf5cRWv5LrNCSOf_-qA@mail.gmail.com> <CA+55aFwxbs_hLG58Q_xSK2vpufjmwMk-xkqxTNh_5h-A8y4vbg@mail.gmail.com> <1457193090.8935.7.camel@suse.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [iproute PATCH] libnetlink: Double the dump buffer size
+Date: Sat, 05 Mar 2016 22:12:16 +0100
+Message-ID: <1457212336.3032.3.camel@sipsolutions.net>
+References: <8e235f49b8314d70bbf76709a81c4d84@HQ1WP-EXMB11.corp.brocade.com>
+	 <20160304153553.47e8741d@xeon-e3> (sfid-20160305_003554_298078_24E675A8)
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrey Konovalov <andreyknvl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Alexander Potapenko <glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Kostya Serebryany <kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1457193090.8935.7.camel-IBi9RG/b67k@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemming@brocade.com>, Phil Sutter <phil@nwl.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:44558 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750801AbcCEVMX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Mar 2016 16:12:23 -0500
+In-Reply-To: <20160304153553.47e8741d@xeon-e3> (sfid-20160305_003554_298078_24E675A8)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2016-03-04 at 15:35 -0800, Stephen Hemminger wrote:
+>=C2=A0
+> > There have been reports about 'ip addr' printing "Message
+> > truncated" on
+[...]
+> I thought this was addressed in kernel by making the VF info
+> optional.
+> The netlink protocol is showing some strain, this is one of them.
 
+I don't know how the dump is split here, but we had a similar issue
+with nl80211 - originally each physical device info had to fit into a
+single message (one message during dump for each device), but we fixed
+that by having userspace to set a flag when it's able to understand a
+multi-message single physical device info.
 
-On March 5, 2016 4:51:30 PM CET, Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org> wrote=
-:
->On Fri, 2016-03-04 at 14:43 -0800, Linus Torvalds wrote:
->
->> So you have usbnet_defer_kevent() getting triggered, which in turn
->> ends up using "usbnet->kevent"
->>=20
->> But somebody like Oliver is really the right person to check this.
->For
->> example, it's entirely possible that we should just instead do
->>=20
->>         cancel_work_sync(&dev->kevent);
->>=20
->> before the "free_netdev(net)" in the "out1" label.
->
->Hi Bjorn,
->
->I thinbk Linus has analyzed this correctly, but the fix really needs
->to cancel the work, because we can also fail later after bind() has
->already run. However, still cdc-ncm and the other drivers should clean
->up after themselves if bind() fails, as usbnet really cannot known wha=
-t
->the subdrivers have done.
->
->So in conclusion, I think Linus' fix should also go into cdc-ncm.
+Before:
+=C2=A0msg1: phy1: A, B, C
+=C2=A0msg2: phy2: A, B, C
 
-Definitely.  The patch is so obviously correct that we can only wonder =
-how it was possible to miss it it the first place :)
+After:
+=C2=A0msg1: phy1: A
+=C2=A0msg2: phy1: B
+=C2=A0msg3: phy1: C
+=C2=A0msg4: phy1: D
+=C2=A0msg5: phy2: A
+=C2=A0[...]
 
-Will take a look to see if we could do a better job cleaning up in othe=
-r places.
+=46or userspace not setting the flag, it only get partial info today fo=
+r
+compatibility (A, B, C, not D), but in our particular case this was
+perfectly reasonable since it would be unaware of the new capabilities
+anyway.
 
-(I do also wonder a bit about the failure to bind - is that expected or=
- is there some bug in the cdc_ncm descriptor parsing?)
+I don't know precisely enough what the issue at hand is to comment
+whether such an approach will be feasible here, but it seems it could
+be.
 
-
-Bj=C3=B8rn
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+johannes
