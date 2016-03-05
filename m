@@ -1,70 +1,53 @@
-From: cooldavid@cooldavid.org
-Subject: [PATCH net 2/2] jme: Fix device PM wakeup API usage
-Date: Sat,  5 Mar 2016 08:11:56 +0800
-Message-ID: <1457136716-7251-2-git-send-email-cooldavid@cooldavid.org>
-References: <1457136716-7251-1-git-send-email-cooldavid@cooldavid.org>
-Cc: Guo-Fu Tseng <cooldavid@cooldavid.org>,
-	"linux-netdev" <netdev@vger.kernel.org>,
-	"Diego Viola" <diego.viola@gmail.com>
-To: "David Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
+Date: Fri, 04 Mar 2016 16:08:30 -0800
+Message-ID: <1457136510.2761.8.camel@edumazet-ThinkPad-T530>
+References: <20160304213920.GJ4184@uranus.lan>
+	 <20160304.175032.1728003538386465719.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: gorcunov@gmail.com, netdev@vger.kernel.org, solar@openwall.com,
+	vvs@virtuozzo.com, avagin@virtuozzo.com, xemul@virtuozzo.com,
+	vdavydov@virtuozzo.com, khorenko@virtuozzo.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cooldavid.org ([114.33.45.68]:56906 "EHLO cooldavid.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760533AbcCEAGw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Mar 2016 19:06:52 -0500
-In-Reply-To: <1457136716-7251-1-git-send-email-cooldavid@cooldavid.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35955 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760388AbcCEAId (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 19:08:33 -0500
+Received: by mail-pa0-f43.google.com with SMTP id fi3so40875648pac.3
+        for <netdev@vger.kernel.org>; Fri, 04 Mar 2016 16:08:33 -0800 (PST)
+In-Reply-To: <20160304.175032.1728003538386465719.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guo-Fu Tseng <cooldavid@cooldavid.org>
+On ven., 2016-03-04 at 17:50 -0500, David Miller wrote:
+> From: Cyrill Gorcunov <gorcunov@gmail.com>
+> Date: Sat, 5 Mar 2016 00:39:20 +0300
+> 
+> > Currenlty all the kernels (including vanilla) free ifa
+> > list under rtln_lock() taken which takes a huge time
+> > to release all entries when we stop the container.
+> > Moreover it's allowed to create unlimited number
+> > of addresses from inside of net-namespace if
+> > CAP-NET_ADMIN granted (which is common for containers).
+> > 
+> > Lets introduce per-net limit (4096 by default)
+> > of addresses, which can be tuned up via sysfs
+> > entry /proc/sys/net/ipv4/ifa_limit.
+> > 
+> > Reported-by: Solar Designer <solar@openwall.com>
+> > Signed-off-by: Cyrill Gorcunov <gorcunov@virtuozzo.com>
+> 
+> Arbitrary limits are... arbitrary.
+> 
+> If the freeing loop is the issue, splice the list at teardown and
+> process that list asynchronously via a workqueue or similar.
+> 
+> Thanks.
 
-According to Documentation/power/devices.txt
+Also I wonder if the problem is not a quadratic behavior.
 
-The driver should not use device_set_wakeup_enable() which is the policy
-for user to decide.
-
-Using device_init_wakeup() to initialize dev->power.should_wakeup and
-dev->power.can_wakeup on driver initialization.
-
-And use device_may_wakeup() on suspend to decide if WoL function should
-be enabled on NIC.
-
-Reported-by: Diego Viola <diego.viola@gmail.com>
-Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
----
- drivers/net/ethernet/jme.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
-index 74b9c9d..3ddf657 100644
---- a/drivers/net/ethernet/jme.c
-+++ b/drivers/net/ethernet/jme.c
-@@ -1931,7 +1931,7 @@ jme_wait_link(struct jme_adapter *jme)
- static void
- jme_powersave_phy(struct jme_adapter *jme)
- {
--	if (jme->reg_pmcs) {
-+	if (jme->reg_pmcs && device_may_wakeup(&jme->pdev->dev)) {
- 		jme_set_100m_half(jme);
- 		if (jme->reg_pmcs & (PMCS_LFEN | PMCS_LREN))
- 			jme_wait_link(jme);
-@@ -2652,8 +2652,6 @@ jme_set_wol(struct net_device *netdev,
- 	if (wol->wolopts & WAKE_MAGIC)
- 		jme->reg_pmcs |= PMCS_MFEN;
- 
--	device_set_wakeup_enable(&jme->pdev->dev, !!(jme->reg_pmcs));
--
- 	return 0;
- }
- 
-@@ -3178,7 +3176,7 @@ jme_init_one(struct pci_dev *pdev,
- 	jme->mii_if.mdio_write = jme_mdio_write;
- 
- 	jme_clear_pm_disable_wol(jme);
--	device_set_wakeup_enable(&pdev->dev, true);
-+	device_init_wakeup(&pdev->dev, true);
- 
- 	jme_set_phyfifo_5level(jme);
- 	jme->pcirev = pdev->revision;
--- 
-1.8.5.5
+__inet_del_ifa() should probably take into account in_dev->dead  (no
+promotion, no list scan...)
