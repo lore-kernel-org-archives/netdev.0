@@ -1,129 +1,102 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v4 net-next 6/9] bus: mvebu-mbus: provide api for obtaining IO and DRAM window information
-Date: Sat,  5 Mar 2016 23:38:24 +0100
-Message-ID: <1457217507-10778-7-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH v4 net-next 5/9] ARM: dts: armada-xp-openblocks-ax3-4: Add BM
+ support
+Date: Sat,  5 Mar 2016 23:38:23 +0100
+Message-ID: <1457217507-10778-6-git-send-email-gregory.clement@free-electrons.com>
 References: <1457217507-10778-1-git-send-email-gregory.clement@free-electrons.com>
-Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Marcin Wojtas <mw@semihalf.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Willy Tarreau <w@1wt.eu>, Timor Kardashov <timork@marvell.com>,
-	Sebastian Careba <nitroshift@yahoo.com>,
-	Evan Wang <xswang@marvell.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:46403 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751294AbcCEWjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2016 17:39:11 -0500
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+ Russell King - ARM Linux <linux@arm.linux.org.uk>,
+ Jason Cooper <jason@lakedaemon.net>, Simon Guinot <simon.guinot@sequanux.org>,
+ Nadav Haklai <nadavh@marvell.com>, Timor Kardashov <timork@marvell.com>,
+ Gregory CLEMENT <gregory.clement@free-electrons.com>,
+ Sebastian Careba <nitroshift@yahoo.com>, Marcin Wojtas <mw@semihalf.com>,
+ Willy Tarreau <w@1wt.eu>, linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org,
+ Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1457217507-10778-1-git-send-email-gregory.clement@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcin Wojtas <mw@semihalf.com>
+Allow Openblock AX3 using hardware buffer management with mvneta.
 
-This commit enables finding appropriate mbus window and obtaining its
-target id and attribute for given physical address in two separate
-routines, both for IO and DRAM windows. This functionality
-is needed for Armada XP/38x Network Controller's Buffer Manager and
-PnC configuration.
-
-[gregory.clement@free-electrons.com: Fix size test for
-mvebu_mbus_get_dram_win_info]
-
-Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-[DRAM window information reference in LKv3.10]
-Signed-off-by: Evan Wang <xswang@marvell.com>
 Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 ---
- drivers/bus/mvebu-mbus.c | 52 ++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/mbus.h     |  3 +++
- 2 files changed, 55 insertions(+)
+ arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts | 19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/bus/mvebu-mbus.c b/drivers/bus/mvebu-mbus.c
-index c43c3d2baf73..c2e52864bb03 100644
---- a/drivers/bus/mvebu-mbus.c
-+++ b/drivers/bus/mvebu-mbus.c
-@@ -948,6 +948,58 @@ void mvebu_mbus_get_pcie_io_aperture(struct resource *res)
- 	*res = mbus_state.pcie_io_aperture;
- }
+diff --git a/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts b/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
+index a5db17782e08..3aa29a91c7b8 100644
+--- a/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
++++ b/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
+@@ -67,7 +67,8 @@
+ 			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
+ 			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x8000000
+ 			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
+-			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000>;
++			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
++			  MBUS_ID(0x0c, 0x04) 0 0 0xd1200000 0x100000>;
  
-+int mvebu_mbus_get_dram_win_info(phys_addr_t phyaddr, u8 *target, u8 *attr)
-+{
-+	const struct mbus_dram_target_info *dram;
-+	int i;
+ 		devbus-bootcs {
+ 			status = "okay";
+@@ -176,21 +177,29 @@
+ 				status = "okay";
+ 				phy = <&phy0>;
+ 				phy-mode = "sgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <0>;
+ 			};
+ 			ethernet@74000 {
+ 				status = "okay";
+ 				phy = <&phy1>;
+ 				phy-mode = "sgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <1>;
+ 			};
+ 			ethernet@30000 {
+ 				status = "okay";
+ 				phy = <&phy2>;
+ 				phy-mode = "sgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <2>;
+ 			};
+ 			ethernet@34000 {
+ 				status = "okay";
+ 				phy = <&phy3>;
+ 				phy-mode = "sgmii";
++				buffer-manager = <&bm>;
++				bm,pool-long = <3>;
+ 			};
+ 			i2c@11000 {
+ 				status = "okay";
+@@ -219,6 +228,14 @@
+ 			usb@51000 {
+ 				status = "okay";
+ 			};
 +
-+	/* Get dram info */
-+	dram = mv_mbus_dram_info();
-+	if (!dram) {
-+		pr_err("missing DRAM information\n");
-+		return -ENODEV;
-+	}
++			bm@c0000 {
++				status = "okay";
++			};
++		};
 +
-+	/* Try to find matching DRAM window for phyaddr */
-+	for (i = 0; i < dram->num_cs; i++) {
-+		const struct mbus_dram_window *cs = dram->cs + i;
-+
-+		if (cs->base <= phyaddr &&
-+			phyaddr <= (cs->base + cs->size - 1)) {
-+			*target = dram->mbus_dram_target_id;
-+			*attr = cs->mbus_attr;
-+			return 0;
-+		}
-+	}
-+
-+	pr_err("invalid dram address 0x%x\n", phyaddr);
-+	return -EINVAL;
-+}
-+EXPORT_SYMBOL_GPL(mvebu_mbus_get_dram_win_info);
-+
-+int mvebu_mbus_get_io_win_info(phys_addr_t phyaddr, u32 *size, u8 *target,
-+			       u8 *attr)
-+{
-+	int win;
-+
-+	for (win = 0; win < mbus_state.soc->num_wins; win++) {
-+		u64 wbase;
-+		int enabled;
-+
-+		mvebu_mbus_read_window(&mbus_state, win, &enabled, &wbase,
-+				       size, target, attr, NULL);
-+
-+		if (!enabled)
-+			continue;
-+
-+		if (wbase <= phyaddr && phyaddr <= wbase + *size)
-+			return win;
-+	}
-+
-+	return -EINVAL;
-+}
-+EXPORT_SYMBOL_GPL(mvebu_mbus_get_io_win_info);
-+
- static __init int mvebu_mbus_debugfs_init(void)
- {
- 	struct mvebu_mbus_state *s = &mbus_state;
-diff --git a/include/linux/mbus.h b/include/linux/mbus.h
-index 1f7bc630d225..ea34a867caa0 100644
---- a/include/linux/mbus.h
-+++ b/include/linux/mbus.h
-@@ -69,6 +69,9 @@ static inline const struct mbus_dram_target_info *mv_mbus_dram_info_nooverlap(vo
- int mvebu_mbus_save_cpu_target(u32 *store_addr);
- void mvebu_mbus_get_pcie_mem_aperture(struct resource *res);
- void mvebu_mbus_get_pcie_io_aperture(struct resource *res);
-+int mvebu_mbus_get_dram_win_info(phys_addr_t phyaddr, u8 *target, u8 *attr);
-+int mvebu_mbus_get_io_win_info(phys_addr_t phyaddr, u32 *size, u8 *target,
-+			       u8 *attr);
- int mvebu_mbus_add_window_remap_by_id(unsigned int target,
- 				      unsigned int attribute,
- 				      phys_addr_t base, size_t size,
++		bm-bppi {
++			status = "okay";
+ 		};
+ 	};
+ };
 -- 
 2.5.0
