@@ -1,11 +1,10 @@
 From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH v3 net-next 7/9] net: mvneta: bm: add support for
- hardware buffer management
-Date: Sun, 6 Mar 2016 02:16:41 +0800
-Message-ID: <201603060254.FU6qyCZg%fengguang.wu@intel.com>
-References: <1457198221-21752-8-git-send-email-gregory.clement@free-electrons.com>
+Subject: Re: [PATCH v3 net-next 9/9] net: mvneta: Use the new hwbm framework
+Date: Sun, 6 Mar 2016 02:40:16 +0800
+Message-ID: <201603060227.TkSZowaP%fengguang.wu@intel.com>
+References: <1457198221-21752-10-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="YZ5djTAD1cGYuMQK"
+Content-Type: multipart/mixed; boundary="WIyZ46R2i8wDzkSu"
 Cc: kbuild-all@01.org, "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
@@ -24,25 +23,24 @@ Cc: kbuild-all@01.org, "David S. Miller" <davem@davemloft.net>,
 	Sebastian Careba <nitroshift@yahoo.com>
 To: Gregory CLEMENT <gregory.clement@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:36617 "EHLO mga04.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:40006 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750714AbcCESNv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2016 13:13:51 -0500
+	id S1750717AbcCEShW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Mar 2016 13:37:22 -0500
 Content-Disposition: inline
-In-Reply-To: <1457198221-21752-8-git-send-email-gregory.clement@free-electrons.com>
+In-Reply-To: <1457198221-21752-10-git-send-email-gregory.clement@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---YZ5djTAD1cGYuMQK
+--WIyZ46R2i8wDzkSu
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-Hi Marcin,
+Hi Gregory,
 
 [auto build test ERROR on v4.5-rc6]
-[also build test ERROR on next-20160304]
-[cannot apply to net-next/master robh/for-next]
+[cannot apply to net-next/master robh/for-next next-20160304]
 [if your patch is applied to the wrong git tree, please drop us a note to help improving the system]
 
 url:    https://github.com/0day-ci/linux/commits/Gregory-CLEMENT/API-set-for-HW-Buffer-management/20160306-012250
@@ -55,38 +53,33 @@ reproduce:
 
 All errors (new ones prefixed by >>):
 
-   drivers/built-in.o: In function `mvneta_rx_refill':
-   :(.text+0x2b4168): undefined reference to `mvneta_frag_alloc'
-   :(.text+0x2b4258): undefined reference to `mvneta_frag_free'
    drivers/built-in.o: In function `mvneta_remove':
->> :(.text+0x2b4aec): undefined reference to `mvneta_bm_pool_destroy'
-   :(.text+0x2b4b04): undefined reference to `mvneta_bm_pool_destroy'
-   drivers/built-in.o: In function `mvneta_cleanup_rxqs':
-   :(.text+0x2b52ec): undefined reference to `mvneta_frag_free'
-   drivers/built-in.o: In function `mvneta_poll':
-   :(.text+0x2b579c): undefined reference to `mvneta_bm_pool_refill'
+   :(.text+0x2b49d4): undefined reference to `mvneta_bm_pool_destroy'
+   :(.text+0x2b49ec): undefined reference to `mvneta_bm_pool_destroy'
    drivers/built-in.o: In function `mvneta_bm_update_mtu':
->> :(.text+0x2b65d0): undefined reference to `mvneta_bm_bufs_free'
-   :(.text+0x2b6614): undefined reference to `mvneta_bm_pool_destroy'
-   :(.text+0x2b662c): undefined reference to `mvneta_bm_pool_destroy'
-   :(.text+0x2b6694): undefined reference to `mvneta_bm_bufs_add'
+   :(.text+0x2b52e8): undefined reference to `mvneta_bm_bufs_free'
+   :(.text+0x2b532c): undefined reference to `mvneta_bm_pool_destroy'
+   :(.text+0x2b5344): undefined reference to `mvneta_bm_pool_destroy'
+>> :(.text+0x2b53ac): undefined reference to `hwbm_pool_add'
    drivers/built-in.o: In function `mvneta_probe':
->> :(.text+0x2b6eac): undefined reference to `mvneta_bm_pool_use'
-   :(.text+0x2b6f5c): undefined reference to `mvneta_bm_pool_use'
-   :(.text+0x2b73cc): undefined reference to `mvneta_bm_pool_destroy'
-   :(.text+0x2b73e4): undefined reference to `mvneta_bm_pool_destroy'
-   :(.text+0x2b7ab4): undefined reference to `mvneta_bm_pool_destroy'
+   :(.text+0x2b5a74): undefined reference to `mvneta_bm_pool_use'
+   :(.text+0x2b5b24): undefined reference to `mvneta_bm_pool_use'
+   :(.text+0x2b5fa4): undefined reference to `mvneta_bm_pool_destroy'
+   :(.text+0x2b5fbc): undefined reference to `mvneta_bm_pool_destroy'
+   :(.text+0x2b6698): undefined reference to `mvneta_bm_pool_destroy'
+   drivers/built-in.o: In function `mvneta_poll':
+>> :(.text+0x2b7e98): undefined reference to `hwbm_pool_refill'
 
 ---
 0-DAY kernel test infrastructure                Open Source Technology Center
 https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
---YZ5djTAD1cGYuMQK
+--WIyZ46R2i8wDzkSu
 Content-Type: application/octet-stream
 Content-Disposition: attachment; filename=".config.gz"
 Content-Transfer-Encoding: base64
 
-H4sICIgf21YAAy5jb25maWcAlDzbcuO2ku/5CtVkH3YfEutmSa4tP0AkJCEiCQ4ASrJfWIpH
+H4sICCgm21YAAy5jb25maWcAlDzbcuO2ku/5CtVkH3YfEutmSa4tP0AkJCEiCQ4ASrJfWIpH
 M3EdX+bIcs7M3283QIoACMrZqVTF7G7cuht9A6Bff/m1R95Pr8/70+PD/unpZ+/b4eVw3J8O
 X3pfH58O/9uLeS/jqkdjpn4H4uTx5f3H1f743Bv/fv17/7fjw6S3PhxfDk+96PXl6+O3d2j8
 +Pryy6+/RDxbsGVJRHr70/ooV0SWcllGK8KyBpNRGiM4TkmZ0GypVm4rhBeSloynadFGaXBJ
@@ -765,4 +758,4 @@ TWYVZ5bSAH8PUV0aN06CJjPBj3baKLXMofIyxD5b+zaTPkPxPvP6jRFr4HpPvfwDpYe+oSLO
 Ir+WwSYCpmrMUZilpaFO7hrGctLhGPFXP1ZOC6sfNvsr0PQhjqgp6qYEcNT7lFkP85dXIo5u
 hKvh/z9AclBBkGUCAA==
 
---YZ5djTAD1cGYuMQK--
+--WIyZ46R2i8wDzkSu--
