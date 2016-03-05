@@ -1,56 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Fri, 04 Mar 2016 23:11:09 -0500 (EST)
-Message-ID: <20160304.231109.1838919633640757059.davem@davemloft.net>
-References: <20160304213920.GJ4184@uranus.lan>
-	<20160304.175032.1728003538386465719.davem@davemloft.net>
-	<1457136510.2761.8.camel@edumazet-ThinkPad-T530>
+From: Vivian <Vivian@v133-130-112-30.a03b.g.tyo1.static.cnode.io>
+Subject: Re:LDPE/HDPE/TPE gloves etc.
+Date: Sat, 05 Mar 2016 12:02:57 +0800
+Message-ID: <01d17693$Blat.v3.2.11$e6dd6322$157829d3@localhost>
+Reply-To: Vivian <iSayor@163.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gorcunov@gmail.com, netdev@vger.kernel.org, solar@openwall.com,
-	vvs@virtuozzo.com, avagin@virtuozzo.com, xemul@virtuozzo.com,
-	vdavydov@virtuozzo.com, khorenko@virtuozzo.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39683 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759694AbcCEELR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 23:11:17 -0500
-In-Reply-To: <1457136510.2761.8.camel@edumazet-ThinkPad-T530>
+Received: from [118.212.116.11] ([118.212.116.11]:10017 "EHLO iSayor.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759709AbcCEENv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2016 23:13:51 -0500
+Received: from sunny (127.0.0.1) by iSayor.com for <netdev@vger.kernel.org>; Sat, 5 Mar 2016 12:02:57 +0800 (envelope-from <Vivian@v133-130-112-30.a03b.g.tyo1.static.cnode.io>)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 04 Mar 2016 16:08:30 -0800
+Dear Manager,
 
-> __inet_del_ifa() should probably take into account in_dev->dead (no
-> promotion, no list scan...)
+This is Vivian from Ju County Mingbo Industry & Trade Co.,Ltd in China.
 
-Indeed, that is the real problem:
+Glad to hear that you're on the market for disposable PE gloves and apr=
+ons. We mainly produced LDPE/HDPE/TPE gloves,Two fingers gloves, PE apr=
+ons for more than eight years. Our products have been exported to many =
+countries. So please be assured of the quality. Hope to be a partner of=
+ your company!
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 8c3df2c..7412feb 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -334,6 +334,12 @@ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
- 
- 	ASSERT_RTNL();
- 
-+	/* None of these potentially quadratic scans matter if the
-+	 * device is being destroyed.
-+	 */
-+	if (in_dev->dead)
-+		goto no_promotions;
-+
- 	/* 1. Deleting primary ifaddr forces deletion all secondaries
- 	 * unless alias promotion is set
- 	 **/
-@@ -380,6 +386,7 @@ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
- 			fib_del_ifaddr(ifa, ifa1);
- 	}
- 
-+no_promotions:
- 	/* 2. Unlink it */
- 
- 	*ifap = ifa1->ifa_next;
+Any interest, please freely contact me! Looking forward to hearing from=
+ you soon.
+
+Best regards=C2=A3=C2=A1
+Vivian
+Ju County Mingbo Industry =C2=A3=C2=A6 Trade Co.,Ltd
+ADD: Liu Guanzhuang industrial Park=C2=A3=C2=ACJu County=C2=A3=C2=ACRiz=
+hao City=C2=A3=C2=ACShandong Province
+Tel=C2=A3=C2=BA18661694858
+=46ax=C2=A3=C2=BA0633-6178378
