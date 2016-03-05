@@ -1,47 +1,56 @@
-From: Scott Wood <oss@buserror.net>
-Subject: Re: [4/9] powerpc: inline ip_fast_csum()
-Date: Fri, 4 Mar 2016 21:50:54 -0600
-Message-ID: <20160305035054.GA5277@home.buserror.net>
-References: <807dbc9449077e36752c649c09ae1c0d70e45254.1442876807.git.christophe.leroy@c-s.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
+Date: Fri, 04 Mar 2016 23:11:09 -0500 (EST)
+Message-ID: <20160304.231109.1838919633640757059.davem@davemloft.net>
+References: <20160304213920.GJ4184@uranus.lan>
+	<20160304.175032.1728003538386465719.davem@davemloft.net>
+	<1457136510.2761.8.camel@edumazet-ThinkPad-T530>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
- netdev@vger.kernel.org, scottwood@freescale.com, linuxppc-dev@lists.ozlabs.org
-To: Christophe Leroy <christophe.leroy@c-s.fr>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <807dbc9449077e36752c649c09ae1c0d70e45254.1442876807.git.christophe.leroy@c-s.fr>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gorcunov@gmail.com, netdev@vger.kernel.org, solar@openwall.com,
+	vvs@virtuozzo.com, avagin@virtuozzo.com, xemul@virtuozzo.com,
+	vdavydov@virtuozzo.com, khorenko@virtuozzo.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39683 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759694AbcCEELR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2016 23:11:17 -0500
+In-Reply-To: <1457136510.2761.8.camel@edumazet-ThinkPad-T530>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBTZXAgMjIsIDIwMTUgYXQgMDQ6MzQ6MjVQTSArMDIwMCwgQ2hyaXN0b3BoZSBMZXJv
-eSB3cm90ZToKPiBAQCAtMTM3LDYgKzEzMCw0NSBAQCBzdGF0aWMgaW5saW5lIF9fd3N1bSBjc3Vt
-X2FkZChfX3dzdW0gY3N1bSwgX193c3VtIGFkZGVuZCkKPiAgI2VuZGlmCj4gIH0KPiAgCj4gKy8q
-Cj4gKyAqIFRoaXMgaXMgYSB2ZXJzaW9uIG9mIGlwX2NvbXB1dGVfY3N1bSgpIG9wdGltaXplZCBm
-b3IgSVAgaGVhZGVycywKPiArICogd2hpY2ggYWx3YXlzIGNoZWNrc3VtIG9uIDQgb2N0ZXQgYm91
-bmRhcmllcy4gIGlobCBpcyB0aGUgbnVtYmVyCj4gKyAqIG9mIDMyLWJpdCB3b3JkcyBhbmQgaXMg
-YWx3YXlzID49IDUuCj4gKyAqLwo+ICtzdGF0aWMgaW5saW5lIF9fd3N1bSBpcF9mYXN0X2NzdW1f
-bm9mb2xkKGNvbnN0IHZvaWQgKmlwaCwgdW5zaWduZWQgaW50IGlobCkKPiArewo+ICsJdTMyICpw
-dHIgPSAodTMyICopaXBoICsgMTsKCmNvbnN0PwoKPiArI2lmZGVmIF9fcG93ZXJwYzY0X18KPiAr
-CXVuc2lnbmVkIGludCBpOwo+ICsJdTY0IHMgPSAqKF9fZm9yY2UgdTMyICopaXBoOwoKY29uc3Q/
-CldoeSBfX2ZvcmNlPwoKPiArCXMgKz0gKHMgPj4gMzIpOwo+ICsJcmV0dXJuIChfX2ZvcmNlIF9f
-d3N1bSlzOwo+ICsKPiArI2Vsc2UKPiArCV9fd3N1bSBzdW0sIHRtcDsKPiArCj4gKwlhc20oIm10
-Y3RyICUzOyIKPiArCSAgICAiYWRkYyAlMCwlNCwlNTsiCj4gKwkgICAgIjE6bHd6dSAlMSwgNCgl
-Mik7Igo+ICsJICAgICJhZGRlICUwLCUwLCUxOyIKPiArCSAgICAiYmRueiAxYjsiCj4gKwkgICAg
-ImFkZHplICUwLCUwOyIKPiArCSAgICA6ICI9ciIoc3VtKSwgIj1yIih0bXApLCAiK2IiKHB0cikK
-PiArCSAgICA6ICJyIihpaGwgLSAyKSwgInIiKCoodTMyICopaXBoKSwgInIiKCpwdHIpCj4gKwkg
-ICAgOiAiY3RyIiwgInhlciIsICJtZW1vcnkiKTsKClNwYWNlIGJldHdlZW4gIiBhbmQgKApTcGFj
-ZSBhZnRlciA6CmNvbnN0IGluIGNhc3QKCkkndmUgZml4ZWQgdGhlc2UgdXAgd2hpbGUgYXBwbHlp
-bmcuCgotU2NvdHQKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9y
-ZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 04 Mar 2016 16:08:30 -0800
+
+> __inet_del_ifa() should probably take into account in_dev->dead (no
+> promotion, no list scan...)
+
+Indeed, that is the real problem:
+
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 8c3df2c..7412feb 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -334,6 +334,12 @@ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
+ 
+ 	ASSERT_RTNL();
+ 
++	/* None of these potentially quadratic scans matter if the
++	 * device is being destroyed.
++	 */
++	if (in_dev->dead)
++		goto no_promotions;
++
+ 	/* 1. Deleting primary ifaddr forces deletion all secondaries
+ 	 * unless alias promotion is set
+ 	 **/
+@@ -380,6 +386,7 @@ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
+ 			fib_del_ifaddr(ifa, ifa1);
+ 	}
+ 
++no_promotions:
+ 	/* 2. Unlink it */
+ 
+ 	*ifap = ifa1->ifa_next;
