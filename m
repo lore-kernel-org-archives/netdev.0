@@ -1,78 +1,42 @@
-From: Fugang Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH RESEND] net:fec:Fix error checking in the function
- fec_enet_init
-Date: Sun, 6 Mar 2016 16:10:14 +0000
-Message-ID: <VI1PR0401MB18556DB43CA611545DB37C21FFB00@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-References: <1457121614-9360-1-git-send-email-xerofoify@gmail.com>
- <HE1PR0401MB184955CA43469AEE38664467FFB00@HE1PR0401MB1849.eurprd04.prod.outlook.com>
- <56DBA8D0.5090906@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
+Date: Sun, 06 Mar 2016 08:23:12 -0800
+Message-ID: <1457281392.2663.5.camel@edumazet-ThinkPad-T530>
+References: <1457136510.2761.8.camel@edumazet-ThinkPad-T530>
+	 <20160304.231109.1838919633640757059.davem@davemloft.net>
+	 <20160306100932.GP4184@uranus.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "b38611@freescale.com" <b38611@freescale.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"rmk+kernel@arm.linux.org.uk" <rmk+kernel@arm.linux.org.uk>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>,
-	"haokexin@gmail.com" <haokexin@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: nick <xerofoify@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56DBA8D0.5090906@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	solar@openwall.com, vvs@virtuozzo.com, avagin@virtuozzo.com,
+	xemul@virtuozzo.com, vdavydov@virtuozzo.com, khorenko@virtuozzo.com
+To: Cyrill Gorcunov <gorcunov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:36069 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751097AbcCFQXP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 11:23:15 -0500
+Received: by mail-pa0-f41.google.com with SMTP id tt10so1871879pab.3
+        for <netdev@vger.kernel.org>; Sun, 06 Mar 2016 08:23:15 -0800 (PST)
+In-Reply-To: <20160306100932.GP4184@uranus.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogbmljayA8eGVyb2ZvaWZ5QGdtYWlsLmNvbT4gU2VudDogU3VuZGF5LCBNYXJjaCAwNiwg
-MjAxNiAxMTo1MCBBTQ0KPiBUbzogRnVnYW5nIER1YW4gPGZ1Z2FuZy5kdWFuQG54cC5jb20+OyBk
-YXZlbUBkYXZlbWxvZnQubmV0DQo+IENjOiBiMzg2MTFAZnJlZXNjYWxlLmNvbTsgYW5kcmV3QGx1
-bm4uY2g7IGZhYmlvLmVzdGV2YW1AZnJlZXNjYWxlLmNvbTsNCj4gbC5zdGFjaEBwZW5ndXRyb25p
-eC5kZTsgcm1rK2tlcm5lbEBhcm0ubGludXgub3JnLnVrOyB0cmVteWZyQGdtYWlsLmNvbTsNCj4g
-am9oYW5uZXNAc2lwc29sdXRpb25zLm5ldDsgdS5rbGVpbmUta29lbmlnQHBlbmd1dHJvbml4LmRl
-Ow0KPiBoYW9rZXhpbkBnbWFpbC5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtl
-cm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSCBSRVNFTkRdIG5ldDpm
-ZWM6Rml4IGVycm9yIGNoZWNraW5nIGluIHRoZSBmdW5jdGlvbg0KPiBmZWNfZW5ldF9pbml0DQo+
-IA0KPiANCj4gDQo+IE9uIDIwMTYtMDMtMDUgMDc6MDAgUE0sIEZ1Z2FuZyBEdWFuIHdyb3RlOg0K
-PiA+IEZyb206IE5pY2hvbGFzIEtyYXVzZSA8eGVyb2ZvaWZ5QGdtYWlsLmNvbT4gU2VudDogU2F0
-dXJkYXksIE1hcmNoIDA1LA0KPiA+IDIwMTYgNDowMCBBTQ0KPiA+PiBUbzogZGF2ZW1AZGF2ZW1s
-b2Z0Lm5ldA0KPiA+PiBDYzogYjM4NjExQGZyZWVzY2FsZS5jb207IGFuZHJld0BsdW5uLmNoOw0K
-PiA+PiBmYWJpby5lc3RldmFtQGZyZWVzY2FsZS5jb207IGwuc3RhY2hAcGVuZ3V0cm9uaXguZGU7
-DQo+ID4+IHJtaytrZXJuZWxAYXJtLmxpbnV4Lm9yZy51azsgdHJlbXlmckBnbWFpbC5jb207DQo+
-ID4+IGpvaGFubmVzQHNpcHNvbHV0aW9ucy5uZXQ7IHUua2xlaW5lLWtvZW5pZ0BwZW5ndXRyb25p
-eC5kZTsNCj4gPj4gaGFva2V4aW5AZ21haWwuY29tOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0K
-PiA+PiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+ID4+IFN1YmplY3Q6IFtQQVRDSCBS
-RVNFTkRdIG5ldDpmZWM6Rml4IGVycm9yIGNoZWNraW5nIGluIHRoZSBmdW5jdGlvbg0KPiA+PiBm
-ZWNfZW5ldF9pbml0DQo+ID4+DQo+ID4+IFRoaXMgZml4ZXMgZXJyb3IgY2hlY2tpbmcgaW4gdGhl
-IGZ1bmN0aW9uIGZlY19lbmV0X2luaXQgdG8gcHJvcGVybHkNCj4gPj4gY2hlY2sgaWYgdGhlIGlu
-dGVybmFsIGNhbGwgdG8gdGhlIGZ1bmN0aW9uIGZlY19lbmV0X2FsbG9jX3F1ZXVlIGZhaWxzDQo+
-ID4+IGFuZCBpZiBzbyBpbW1lZGlhdGVseSByZXR1cm4gdGhlIGVycm9yIGNvZGUgdG8gdGhlIGNh
-bGxlciBmb3IgaXQgdG8gaGFuZGxlIGl0J3MNCj4gb3duIGludGVuZGVkIGVycm9yIHBhdGhzLg0K
-PiA+Pg0KPiA+PiBTaWduZWQtb2ZmLWJ5OiBOaWNob2xhcyBLcmF1c2UgPHhlcm9mb2lmeUBnbWFp
-bC5jb20+DQo+ID4+IC0tLQ0KPiA+PiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2Zl
-Y19tYWluLmMgfCA1ICsrKystDQo+ID4+ICAxIGZpbGUgY2hhbmdlZCwgNCBpbnNlcnRpb25zKCsp
-LCAxIGRlbGV0aW9uKC0pDQo+ID4+DQo+ID4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPiA+PiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Zy
-ZWVzY2FsZS9mZWNfbWFpbi5jDQo+ID4+IGluZGV4IGIzNDllNmYuLjE4YzYyNWYgMTAwNjQ0DQo+
-ID4+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+ID4+
-ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+ID4+IEBA
-IC0zMTIzLDYgKzMxMjMsNyBAQCBzdGF0aWMgaW50IGZlY19lbmV0X2luaXQoc3RydWN0IG5ldF9k
-ZXZpY2UgKm5kZXYpDQo+ID4+ICAJZG1hX2FkZHJfdCBiZF9kbWE7DQo+ID4+ICAJaW50IGJkX3Np
-emU7DQo+ID4+ICAJdW5zaWduZWQgaW50IGk7DQo+ID4+ICsJaW50IHJldDsNCj4gPj4NCj4gPj4g
-ICNpZiBkZWZpbmVkKENPTkZJR19BUk0pDQo+ID4+ICAJZmVwLT5yeF9hbGlnbiA9IDB4ZjsNCj4g
-Pj4gQEAgLTMxMzIsNyArMzEzMyw5IEBAIHN0YXRpYyBpbnQgZmVjX2VuZXRfaW5pdChzdHJ1Y3Qg
-bmV0X2RldmljZSAqbmRldikNCj4gPj4gIAlmZXAtPnR4X2FsaWduID0gMHgzOw0KPiA+PiAgI2Vu
-ZGlmDQo+ID4+DQo+ID4+IC0JZmVjX2VuZXRfYWxsb2NfcXVldWUobmRldik7DQo+ID4+ICsJcmV0
-ID0gZmVjX2VuZXRfYWxsb2NfcXVldWUobmRldik7DQo+ID4+ICsJaWYgKHJldCkNCj4gPj4gKwkJ
-cmV0dXJuIHJldDsNCj4gPj4NCj4gPj4gIAlpZiAoZmVwLT5idWZkZXNjX2V4KQ0KPiA+PiAgCQlm
-ZXAtPmJ1ZmRlc2Nfc2l6ZSA9IHNpemVvZihzdHJ1Y3QgYnVmZGVzY19leCk7DQo+ID4+IC0tDQo+
-ID4+IDIuMS40DQo+ID4gVGhhbmtzLg0KPiA+DQo+ID4gQWNrZWQtYnk6IEZ1Z2FuZyBEdWFuIDxG
-dWdhbmcuZHVhbkBueHAuY29tPg0KPiA+DQo+IEZ1Z2FuZywNCj4gSSBoYXZlIGEgZmV3IG90aGVy
-IHBhdGNoZXMgZm9yIGZyZWVzY2FsZSBldGhlcm5ldCBkcml2ZXJzIGx5aW5nIGFyb3VuZC4gV291
-bGQNCj4geW91IGxpa2UgbWUgdG8gcmVzZW5kIHRoZW0gb3IgYXJlIHlvdSBqdXN0IHRha2luZyB0
-aGlzIG9uZSBwYXRjaD8NCj4gQ2hlZXJzLA0KPiBOaWNrDQoNCkhpIE5pY2ssDQoNClBscyByZXNl
-bmQgdGhlbSwgdGhhbmtzLg0KDQpSZWdhcmRzLA0KQW5keQ0K
+On dim., 2016-03-06 at 13:09 +0300, Cyrill Gorcunov wrote:
+
+> Anyway, then I run this script for 255 as parameter
+> in one pass which gen. requests to create 65025 addresses
+> and kernel start complaining:
+> 
+> Perf output
+> -----------
+>   24.95%  [kernel]                      [k] __local_bh_enable_ip
+>   21.52%  [kernel]                      [k] lock_acquire
+>   15.54%  [kernel]                      [k] lock_release
+>    9.84%  [kernel]                      [k] lock_is_held
+>    7.47%  [kernel]                      [k] lock_acquired
+>    4.08%  [kernel]                      [k] __local_bh_disable_ip
+
+Well, this looks like LOCKDEP kernel. Are you really running LOCKDEP on
+production kernels ?
