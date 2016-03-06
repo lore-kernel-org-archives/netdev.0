@@ -1,80 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: fix tcpi_segs_in after connection establishment
-Date: Sun, 06 Mar 2016 09:29:21 -0800
-Message-ID: <1457285361.2663.24.camel@edumazet-ThinkPad-T530>
-References: <1457135853-4110588-1-git-send-email-kafai@fb.com>
-	 <1457138013.2761.12.camel@edumazet-ThinkPad-T530>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH v4 net-next 8/9] net: add a hardware buffer management
+ helper API
+Date: Sun, 6 Mar 2016 20:21:51 +0100
+Message-ID: <CAPv3WKeTGy+HfG=vyY04xi4Spy6eUTF_LX_X=V0=ZAGhxURdJg@mail.gmail.com>
+References: <1457217507-10778-1-git-send-email-gregory.clement@free-electrons.com>
+	<1457217507-10778-9-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Kernel Team <kernel-team@fb.com>,
-	Chris Rapier <rapier@psc.edu>,
-	Eric Dumazet <edumazet@google.com>,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Martin KaFai Lau <kafai@fb.com>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>, Timor Kardashov <timork@marvell.com>,
+	Sebastian Careba <nitroshift@yahoo.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33555 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751237AbcCFR3Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 12:29:24 -0500
-Received: by mail-pf0-f193.google.com with SMTP id 63so6560447pfe.0
-        for <netdev@vger.kernel.org>; Sun, 06 Mar 2016 09:29:24 -0800 (PST)
-In-Reply-To: <1457138013.2761.12.camel@edumazet-ThinkPad-T530>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:33277 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750755AbcCFTVw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 14:21:52 -0500
+Received: by mail-ob0-f180.google.com with SMTP id fz5so89560551obc.0
+        for <netdev@vger.kernel.org>; Sun, 06 Mar 2016 11:21:52 -0800 (PST)
+In-Reply-To: <1457217507-10778-9-git-send-email-gregory.clement@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hi Gregory,
 
-If final packet (ACK) of 3WHS is lost, it appears we do not properly
-account the following incoming segment into tcpi_segs_in
 
-While we are at it, starts segs_in with one, to count the SYN packet.
+> +int hwbm_pool_add(struct hwbm_pool *bm_pool, unsigned int buf_num, gfp_t gfp)
+> +{
+> +       int err, i;
+> +       unsigned long flags;
+> +
+> +       spin_lock_irqsave(&bm_pool->lock, flags);
+> +       if (bm_pool->buf_num == bm_pool->size) {
 
-We do not yet count number of SYN we received for a request sock, we
-might add this someday.
+'size' field is used as a 'frag_size' but here it means pool capacity.
+I think it's better to keep 'size' for pool capacity and add
+'buf_size' field to struct hwbm_pool.
 
-packetdrill script showing proper behavior after fix :
+> +               pr_warn("pool already filled\n");
+> +               return bm_pool->buf_num;
+> +       }
+> +
+> +       if (buf_num + bm_pool->buf_num > bm_pool->size) {
+> +               pr_warn("cannot allocate %d buffers for pool\n",
+> +                       buf_num);
+> +               return 0;
+> +       }
+> +
+> +       if ((buf_num + bm_pool->buf_num) < bm_pool->buf_num) {
 
-// Tests tcpi_segs_in when 3rd packet (ACK) of 3WHS is lost
-0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-   +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-   +0 bind(3, ..., ...) = 0
-   +0 listen(3, 1) = 0
+What is a point of this condition? How possibly after checking if
+capacity of pool is not exceeded, this one would ever be true?
 
-   +0 < S 0:0(0) win 32792 <mss 1000,sackOK,nop,nop>
-   +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK>
-+.020 < P. 1:1001(1000) ack 1 win 32792
+> +               pr_warn("Adding %d buffers to the %d current buffers will overflow\n",
+> +                       buf_num,  bm_pool->buf_num);
+> +               return 0;
+> +       }
+> +
 
-   +0 accept(3, ..., ...) = 4
-
-+.000 %{ assert tcpi_segs_in == 2, 'tcpi_segs_in=%d' % tcpi_segs_in }%
-
-Fixes: 2efd055c53c06 ("tcp: add tcpi_segs_in and tcpi_segs_out to tcp_info")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_minisocks.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 75632a925824..9b02af2139d3 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -455,7 +455,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
- 
- 		newtp->rcv_wup = newtp->copied_seq =
- 		newtp->rcv_nxt = treq->rcv_isn + 1;
--		newtp->segs_in = 0;
-+		newtp->segs_in = 1;
- 
- 		newtp->snd_sml = newtp->snd_una =
- 		newtp->snd_nxt = newtp->snd_up = treq->snt_isn + 1;
-@@ -815,6 +815,7 @@ int tcp_child_process(struct sock *parent, struct sock *child,
- 	int ret = 0;
- 	int state = child->sk_state;
- 
-+	tcp_sk(child)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
- 	if (!sock_owned_by_user(child)) {
- 		ret = tcp_rcv_state_process(child, skb);
- 		/* Wakeup parent, send SIGIO */
+Best regards,
+Marcin
