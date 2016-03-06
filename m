@@ -1,44 +1,44 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] sctp: use gfp insteaad of GFP_NOWAIT in
- idr_alloc_cyclic when sctp_assoc_set_id
-Date: Sun, 6 Mar 2016 13:52:30 +0800
-Message-ID: <CADvbK_faS8mNtUNiVT6d-kLRnngQ=4+z6meuO0XM+RJG50iaNw@mail.gmail.com>
-References: <ef48b2b8895b4d0fab07b4e72b464d5a11d3bd79.1457193572.git.lucien.xin@gmail.com>
-	<1457196133.2663.3.camel@edumazet-ThinkPad-T530>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: Fix the pmtu path for connected UDP socket
+Date: Sun, 06 Mar 2016 00:55:28 -0500 (EST)
+Message-ID: <20160306.005528.536271812454698509.davem@davemloft.net>
+References: <1456946361-9889-1-git-send-email-tracywwnj@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: weiwan@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f194.google.com ([209.85.214.194]:34797 "EHLO
-	mail-ob0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751252AbcCFFwb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 00:52:31 -0500
-In-Reply-To: <1457196133.2663.3.camel@edumazet-ThinkPad-T530>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56179 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751129AbcCFFzc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 00:55:32 -0500
+In-Reply-To: <1456946361-9889-1-git-send-email-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 6, 2016 at 12:42 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On sam., 2016-03-05 at 23:59 +0800, Xin Long wrote:
->
-> Are you sure idr_alloc(... GFP_KERNEL) makes sense inside spin_lock_bh()
-> section ?
->
-> idr_alloc() has :
->
-> might_sleep_if(gfpflags_allow_blocking(gfp_mask));
->
-> A debug kernel (CONFIG_DEBUG_ATOMIC_SLEEP=y) should probably complain at
-> this point ?
->
-OK, I got you, does it make sense to you if I just change GFP_NOWAIT
-to GFP_ATOMIC
-when sctp_assoc_set_id call idr_alloc_cyclic()?  which also can avoid
-this call trace in my
-test.
+From: Wei Wang <weiwan@google.com>
+Date: Wed,  2 Mar 2016 11:19:21 -0800
 
->
->
+> @@ -566,7 +567,16 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+>  	if (type == ICMPV6_PKT_TOOBIG) {
+>  		if (!ip6_sk_accept_pmtu(sk))
+>  			goto out;
+> -		ip6_sk_update_pmtu(skb, sk, info);
+> +		bh_lock_sock(sk);
+> +		if (sk->sk_state == TCP_ESTABLISHED &&
+> +		    !sock_owned_by_user(sk) &&
+> +		    ipv6_addr_equal(saddr, &sk->sk_v6_rcv_saddr) &&
+> +		    ipv6_addr_equal(daddr, &sk->sk_v6_daddr) &&
+> +		    uh->dest == sk->sk_dport)
+> +			inet6_csk_update_pmtu(sk, ntohl(info));
+
+If I apply this patch it will hide a bug.
+
+Why isn't ip6_sk_update_pmtu() matching the same route as the
+one attached to the socket?
+
+I'd prefer you figure out what part of the lookup key used is
+wrong, and fix that instead.
+
+Thanks.
