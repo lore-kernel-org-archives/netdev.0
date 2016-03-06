@@ -1,59 +1,51 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 3/8] bnxt_en: Use common function to get ethtool
- supported flags.
-Date: Sun, 6 Mar 2016 16:36:00 +0300
-Message-ID: <56DC3240.5040409@cogentembedded.com>
-References: <1457247684-2403-1-git-send-email-michael.chan@broadcom.com>
- <1457247684-2403-4-git-send-email-michael.chan@broadcom.com>
+From: Leon Romanovsky <leon-2ukJVAZIZ/Y@public.gmane.org>
+Subject: Re: [PATCH 0/4] infiniband: hns: Hisilicon RoCE support
+Date: Sun, 6 Mar 2016 16:19:07 +0200
+Message-ID: <20160306141907.GD13396@leon.nu>
+References: <1457080877-13456-1-git-send-email-xavier.huwei@huawei.com>
+Reply-To: leon-2ukJVAZIZ/Y@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Michael Chan <michael.chan@broadcom.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:36720 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751394AbcCFNgE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 08:36:04 -0500
-Received: by mail-lb0-f175.google.com with SMTP id x1so104860734lbj.3
-        for <netdev@vger.kernel.org>; Sun, 06 Mar 2016 05:36:02 -0800 (PST)
-In-Reply-To: <1457247684-2403-4-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: "Wei Hu(Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1457080877-13456-1-git-send-email-xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Fri, Mar 04, 2016 at 04:41:13PM +0800, Wei Hu(Xavier) wrote:
+> The Hisilicon Network Substem(hns) is a long term evolution IP which is
+> supposed to be used in Hisilicon ICT SoC. RoCE is a feature of hns.
+> The driver for Hisilicon RoCE engine is a platform driver.
+> The driver will support mulitple versions of hns. Currently only "v1"
+> for hip06 SOC is supported.
+> 
+> Wei Hu(Xavier) (4):
+>   net: hns: add Hisilicon RoCE support(the dependent routine)
+>   infiniband: hns: add Hisilicon RoCE support(binding)
+>   infiniband: hns: add Hisilicon RoCE support(driver code)
+>   infiniband: hns: add Hisilicon RoCE support(Kconfig)
 
-On 3/6/2016 10:01 AM, Michael Chan wrote:
+Please use commonly used in this subsystem titles:
+"infiniband: hns: add" -> "IB/hns: Add"
 
-> The supported bits and advertising bits in ethtool have the same
-> definitions.  The same is true for the firmware bits.  So use the
-> common function to handle the conversion for both supported and
-> advertising bits.
->
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> ---
->   drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 29 +++++++----------------
->   1 file changed, 9 insertions(+), 20 deletions(-)
->
-> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-> index 591c290..e2fe967 100644
-> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-[...]
-> @@ -564,6 +545,15 @@ static u32 bnxt_fw_to_ethtool_lp_adv(struct bnxt_link_info *link_info)
->   	return _bnxt_fw_to_ethtool_adv_spds(fw_speeds, fw_pause);
->   }
->
-> +static u32 bnxt_fw_to_ethtool_support_spds(struct bnxt_link_info *link_info)
-> +{
-> +	u16 fw_speeds = link_info->support_speeds;
-> +	u32 supported;
-> +
-> +	supported = _bnxt_fw_to_ethtool_adv_spds(fw_speeds, 0);
-> +	return (supported | SUPPORTED_Pause | SUPPORTED_Asym_Pause);
+> 
+>  .../bindings/infiniband/hisilicon-hns-roce.txt     |   68 +
 
-    Parens not needed here.
+...^^^... it looks strange.
 
-[...]
-
-MBR, Sergei
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
