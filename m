@@ -1,51 +1,48 @@
-From: f6bvp <f6bvp@free.fr>
-Subject: Re: [Patch] rose_route_frame() NULL pointer dereference kernel panic
-Date: Sun, 6 Mar 2016 11:58:35 +0100
-Message-ID: <56DC0D5B.1040408@free.fr>
-References: <56D5FD7A.5080104@free.fr>
- <20160303.170253.1102862150292919836.davem@davemloft.net>
- <56DAFC1A.5000408@free.fr>
- <20160305.112226.2192524821017178121.davem@davemloft.net>
- <56DB1814.2050902@free.fr>
- <20160305195715.GA16052@electric-eye.fr.zoreil.com>
- <56DC0B8A.5030708@free.fr>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH RESEND] net:fec:Fix error checking in the function
+ fec_enet_init
+Date: Sun, 6 Mar 2016 12:09:44 +0100
+Message-ID: <20160306110944.GZ20323@pengutronix.de>
+References: <1457121614-9360-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	ralf@linux-mips.org, "Eric W. Biederman\"" <ebiederm@xmission.com>,
-	linux-hams@vger.kernel.org, Bernard Pidoux <bernard.pidoux@free.fr>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <56DC0B8A.5030708@free.fr>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, B38611@freescale.com, andrew@lunn.ch,
+	fabio.estevam@freescale.com, l.stach@pengutronix.de,
+	rmk+kernel@arm.linux.org.uk, tremyfr@gmail.com,
+	johannes@sipsolutions.net, haokexin@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicholas Krause <xerofoify@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:56432 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751203AbcCFLKB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 06:10:01 -0500
+Content-Disposition: inline
+In-Reply-To: <1457121614-9360-1-git-send-email-xerofoify@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46ran=C3=A7ois,
+Hello Nicholas,
 
-Thank you for providing information about rose_rebuild_header history.
-I was not able to find Jonathan Naylor G4KLX email.
-However as rose_xmit() has been recently changed by Eric Biederman, he
-may have more precise information about rose_route_frame()
-NULL argument.
-Meanwhile, I browsed into rose_route.c release 001 you referenced and f=
-ound
-an interesting comment before rose_route_frame() :
-+/*
-+ * Route a frame to an appropriate AX.25 connection. A NULL ax25_cb
-+ * indicates an internally generated frame.
-+ */
-+int rose_route_frame(struct sk_buff *skb, ax25_cb *ax25)
+On Fri, Mar 04, 2016 at 03:00:14PM -0500, Nicholas Krause wrote:
+> This fixes error checking in the function fec_enet_init to properly
+> check if the internal call to the function fec_enet_alloc_queue fails
+> and if so immediately return the error code to the caller for it to
+> handle it's own intended error paths.
+>=20
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
 
-Now, I hope that ROSE guru will explain us what means an "internally
-generated frame" and if, by chance, it means that it is not to be sent
-via a net device, but rather to be used locally ?
+Looks right. There seem to be some more oportunities for similar
+patches. E.g. if dmam_alloc_coherent fails the effects of
+fec_enet_alloc_queue should be undone.
 
-Bernard
+Best regards
+Uwe
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
