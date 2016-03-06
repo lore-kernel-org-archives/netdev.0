@@ -1,101 +1,59 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH v2] can: rcar_canfd: Add Renesas R-Car CAN FD driver
-Date: Sun, 6 Mar 2016 12:32:49 +0100
-Message-ID: <56DC1561.9060306@hartkopp.net>
-References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <1457019515-21158-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 3/8] bnxt_en: Use common function to get ethtool
+ supported flags.
+Date: Sun, 6 Mar 2016 16:36:00 +0300
+Message-ID: <56DC3240.5040409@cogentembedded.com>
+References: <1457247684-2403-1-git-send-email-michael.chan@broadcom.com>
+ <1457247684-2403-4-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-renesas-soc@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, geert+renesas@glider.be,
-	chris.paterson2@renesas.com
-To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>,
-	mkl@pengutronix.de, wg@grandegger.com, robh+dt@kernel.org,
-	pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org, corbet@lwn.net
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1457019515-21158-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Michael Chan <michael.chan@broadcom.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:36720 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751394AbcCFNgE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 08:36:04 -0500
+Received: by mail-lb0-f175.google.com with SMTP id x1so104860734lbj.3
+        for <netdev@vger.kernel.org>; Sun, 06 Mar 2016 05:36:02 -0800 (PST)
+In-Reply-To: <1457247684-2403-4-git-send-email-michael.chan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/03/2016 04:38 PM, Ramesh Shanmugasundaram wrote:
+Hello.
 
-> Changes since v1:
-> 	* Removed testmodes & debugfs code (suggested by Oliver H)
-> 	* Fixed tx path race issue by introducing lock (suggested by Marc K)
-> 	* Removed __maybe_unused attribute of rcar_canfd_of_table
-> 
+On 3/6/2016 10:01 AM, Michael Chan wrote:
 
-
->  obj-$(CONFIG_CAN_M_CAN)		+= m_can/
->  obj-$(CONFIG_CAN_RCAR)		+= rcar_can.o
-> +obj-$(CONFIG_CANFD_RCAR)	+= rcar_canfd.o
-
-Just for the sake of an ordered directory structure:
-
-Would it make sense to create a rcar directory where rcar_can.c and
-rcar_canfd.c are placed?
-
-Additionally (besides of one accident with the obsolete PCH_CAN) all CAN
-drivers start with CONFIG_CAN_...
-
-Following that scheme the config option should be named
-
-	CONFIG_CAN_RCAR_CANFD
-
-as we had in CONFIG_CAN_IFI_CANFD.
-
-
->  obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
->  obj-$(CONFIG_CAN_SUN4I)		+= sun4i_can.o
->  obj-$(CONFIG_CAN_TI_HECC)	+= ti_hecc.o
-> diff --git a/drivers/net/can/rcar_canfd.c b/drivers/net/can/rcar_canfd.c
-
-(..)
-
-> +/* Channel priv data */
-> +struct rcar_canfd_channel {
-> +	struct can_priv can;			/* Must be the first member */
-> +	struct net_device *ndev;
-> +	struct rcar_canfd_global *gpriv;	/* Controller reference */
-> +	void __iomem *base;			/* Register base address */
-> +#ifdef CONFIG_DEBUG_FS
-> +	struct dentry *dev_root;
-> +#endif /* CONFIG_DEBUG_FS */
-
-Some missed stuff from debugfs removal?
-
-> +	struct napi_struct napi;
-> +	u8  tx_len[RCANFD_FIFO_DEPTH];		/* For net stats */
-> +	u32 tx_head;				/* Incremented on xmit */
-> +	u32 tx_tail;				/* Incremented on xmit done */
-> +	u32 channel;				/* Channel number */
-> +	spinlock_t tx_lock;			/* To protect tx path */
-> +};
-
-(..)
-
-> +static int rcar_canfd_start(struct net_device *ndev)
+> The supported bits and advertising bits in ethtool have the same
+> definitions.  The same is true for the firmware bits.  So use the
+> common function to handle the conversion for both supported and
+> advertising bits.
+>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> ---
+>   drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 29 +++++++----------------
+>   1 file changed, 9 insertions(+), 20 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+> index 591c290..e2fe967 100644
+> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+[...]
+> @@ -564,6 +545,15 @@ static u32 bnxt_fw_to_ethtool_lp_adv(struct bnxt_link_info *link_info)
+>   	return _bnxt_fw_to_ethtool_adv_spds(fw_speeds, fw_pause);
+>   }
+>
+> +static u32 bnxt_fw_to_ethtool_support_spds(struct bnxt_link_info *link_info)
 > +{
-> +	struct rcar_canfd_channel *priv = netdev_priv(ndev);
-> +	int err = -EOPNOTSUPP;
-> +	u32 sts, ch = priv->channel;
-> +	u32 ridx = ch + RCANFD_RFFIFO_IDX;
+> +	u16 fw_speeds = link_info->support_speeds;
+> +	u32 supported;
 > +
-> +	/* Ensure channel starts in FD mode */
-> +	if (!(priv->can.ctrlmode & CAN_CTRLMODE_FD)) {
-> +		netdev_err(ndev, "enable can fd mode for channel %d\n", ch);
-> +		goto fail_mode;
-> +	}
+> +	supported = _bnxt_fw_to_ethtool_adv_spds(fw_speeds, 0);
+> +	return (supported | SUPPORTED_Pause | SUPPORTED_Asym_Pause);
 
-What's the reason behind this check?
+    Parens not needed here.
 
-A CAN FD capable CAN controller can be either configured to run as CAN 2.0
-(Classic CAN) or as CAN FD controller.
+[...]
 
-So why are to throwing an error here and produce an initialization failure?
-
-Regards,
-Oliver
+MBR, Sergei
