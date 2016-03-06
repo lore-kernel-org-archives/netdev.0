@@ -1,82 +1,114 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 3/8] bnxt_en: Use common function to get ethtool supported flags.
-Date: Sun,  6 Mar 2016 02:01:19 -0500
-Message-ID: <1457247684-2403-4-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 2/8] bnxt_en: Add reporting of link partner advertisement.
+Date: Sun,  6 Mar 2016 02:01:18 -0500
+Message-ID: <1457247684-2403-3-git-send-email-michael.chan@broadcom.com>
 References: <1457247684-2403-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5520-maca-inet1-outside.broadcom.com ([216.31.211.11]:2452 "EHLO
-	mail-irv-18.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751252AbcCFHBZ (ORCPT
+Received: from 5520-maca-inet1-outside.broadcom.com ([216.31.211.11]:18643
+	"EHLO mail-irv-18.broadcom.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751193AbcCFHBZ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 02:01:25 -0500
 In-Reply-To: <1457247684-2403-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The supported bits and advertising bits in ethtool have the same
-definitions.  The same is true for the firmware bits.  So use the
-common function to handle the conversion for both supported and
-advertising bits.
+And report actual pause settings to ETHTOOL_GPAUSEPARAM to let ethtool
+resolve the actual pause settings.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 29 +++++++----------------
- 1 file changed, 9 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         |  3 +++
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         |  2 ++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 20 ++++++++++++++++++--
+ 3 files changed, 23 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index aa6a318..072a12f 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -4467,6 +4467,7 @@ static int bnxt_update_link(struct bnxt *bp, bool chng_link_state)
+ 	link_info->pause = resp->pause;
+ 	link_info->auto_mode = resp->auto_mode;
+ 	link_info->auto_pause_setting = resp->auto_pause;
++	link_info->lp_pause = resp->link_partner_adv_pause;
+ 	link_info->force_pause_setting = resp->force_pause;
+ 	link_info->duplex_setting = resp->duplex;
+ 	if (link_info->phy_link_status == BNXT_LINK_LINK)
+@@ -4477,6 +4478,8 @@ static int bnxt_update_link(struct bnxt *bp, bool chng_link_state)
+ 	link_info->auto_link_speed = le16_to_cpu(resp->auto_link_speed);
+ 	link_info->support_speeds = le16_to_cpu(resp->support_speeds);
+ 	link_info->auto_link_speeds = le16_to_cpu(resp->auto_link_speed_mask);
++	link_info->lp_auto_link_speeds =
++		le16_to_cpu(resp->link_partner_adv_speeds);
+ 	link_info->preemphasis = le32_to_cpu(resp->preemphasis);
+ 	link_info->phy_ver[0] = resp->phy_maj;
+ 	link_info->phy_ver[1] = resp->phy_min;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index 9aa38f5..2f24e4e 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -780,6 +780,7 @@ struct bnxt_link_info {
+ #define BNXT_LINK_PAUSE_RX	PORT_PHY_QCFG_RESP_PAUSE_RX
+ #define BNXT_LINK_PAUSE_BOTH	(PORT_PHY_QCFG_RESP_PAUSE_RX | \
+ 				 PORT_PHY_QCFG_RESP_PAUSE_TX)
++	u8			lp_pause;
+ 	u8			auto_pause_setting;
+ 	u8			force_pause_setting;
+ 	u8			duplex_setting;
+@@ -814,6 +815,7 @@ struct bnxt_link_info {
+ #define BNXT_LINK_SPEED_MSK_25GB PORT_PHY_QCFG_RESP_SUPPORT_SPEEDS_25GB
+ #define BNXT_LINK_SPEED_MSK_40GB PORT_PHY_QCFG_RESP_SUPPORT_SPEEDS_40GB
+ #define BNXT_LINK_SPEED_MSK_50GB PORT_PHY_QCFG_RESP_SUPPORT_SPEEDS_50GB
++	u16			lp_auto_link_speeds;
+ 	u16			auto_link_speed;
+ 	u16			force_link_speed;
+ 	u32			preemphasis;
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index 591c290..e2fe967 100644
+index a6ee26a..591c290 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -496,25 +496,6 @@ static void bnxt_get_drvinfo(struct net_device *dev,
- 	kfree(pkglog);
- }
- 
--static u32 bnxt_fw_to_ethtool_support_spds(struct bnxt_link_info *link_info)
--{
--	u16 fw_speeds = link_info->support_speeds;
--	u32 speed_mask = 0;
--
--	if (fw_speeds & BNXT_LINK_SPEED_MSK_100MB)
--		speed_mask |= SUPPORTED_100baseT_Full;
--	if (fw_speeds & BNXT_LINK_SPEED_MSK_1GB)
--		speed_mask |= SUPPORTED_1000baseT_Full;
--	if (fw_speeds & BNXT_LINK_SPEED_MSK_2_5GB)
--		speed_mask |= SUPPORTED_2500baseX_Full;
--	if (fw_speeds & BNXT_LINK_SPEED_MSK_10GB)
--		speed_mask |= SUPPORTED_10000baseT_Full;
--	if (fw_speeds & BNXT_LINK_SPEED_MSK_40GB)
--		speed_mask |= SUPPORTED_40000baseCR4_Full;
--
--	return speed_mask;
--}
--
- static u32 _bnxt_fw_to_ethtool_adv_spds(u16 fw_speeds, u8 fw_pause)
- {
- 	u32 speed_mask = 0;
-@@ -564,6 +545,15 @@ static u32 bnxt_fw_to_ethtool_lp_adv(struct bnxt_link_info *link_info)
+@@ -553,6 +553,17 @@ static u32 bnxt_fw_to_ethtool_advertised_spds(struct bnxt_link_info *link_info)
  	return _bnxt_fw_to_ethtool_adv_spds(fw_speeds, fw_pause);
  }
  
-+static u32 bnxt_fw_to_ethtool_support_spds(struct bnxt_link_info *link_info)
++static u32 bnxt_fw_to_ethtool_lp_adv(struct bnxt_link_info *link_info)
 +{
-+	u16 fw_speeds = link_info->support_speeds;
-+	u32 supported;
++	u16 fw_speeds = link_info->lp_auto_link_speeds;
++	u8 fw_pause = 0;
 +
-+	supported = _bnxt_fw_to_ethtool_adv_spds(fw_speeds, 0);
-+	return (supported | SUPPORTED_Pause | SUPPORTED_Asym_Pause);
++	if (link_info->autoneg & BNXT_AUTONEG_FLOW_CTRL)
++		fw_pause = link_info->lp_pause;
++
++	return _bnxt_fw_to_ethtool_adv_spds(fw_speeds, fw_pause);
 +}
 +
  u32 bnxt_fw_to_ethtool_speed(u16 fw_link_speed)
  {
  	switch (fw_link_speed) {
-@@ -595,7 +585,6 @@ static int bnxt_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	u16 ethtool_speed;
+@@ -594,6 +605,9 @@ static int bnxt_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 			bnxt_fw_to_ethtool_advertised_spds(link_info);
+ 		cmd->advertising |= ADVERTISED_Autoneg;
+ 		cmd->autoneg = AUTONEG_ENABLE;
++		if (link_info->phy_link_status == BNXT_LINK_LINK)
++			cmd->lp_advertising =
++				bnxt_fw_to_ethtool_lp_adv(link_info);
+ 	} else {
+ 		cmd->autoneg = AUTONEG_DISABLE;
+ 		cmd->advertising = 0;
+@@ -757,8 +771,10 @@ static void bnxt_get_pauseparam(struct net_device *dev,
+ 	if (BNXT_VF(bp))
+ 		return;
+ 	epause->autoneg = !!(link_info->autoneg & BNXT_AUTONEG_FLOW_CTRL);
+-	epause->rx_pause = ((link_info->pause & BNXT_LINK_PAUSE_RX) != 0);
+-	epause->tx_pause = ((link_info->pause & BNXT_LINK_PAUSE_TX) != 0);
++	epause->rx_pause =
++		((link_info->auto_pause_setting & BNXT_LINK_PAUSE_RX) != 0);
++	epause->tx_pause =
++		((link_info->auto_pause_setting & BNXT_LINK_PAUSE_TX) != 0);
+ }
  
- 	cmd->supported = bnxt_fw_to_ethtool_support_spds(link_info);
--	cmd->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
- 
- 	if (link_info->auto_link_speeds)
- 		cmd->supported |= SUPPORTED_Autoneg;
+ static int bnxt_set_pauseparam(struct net_device *dev,
 -- 
 1.8.3.1
