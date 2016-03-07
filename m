@@ -1,20 +1,20 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH 2/4] geneve: Enforce IP ID verification on outer
+Subject: [net-next PATCH 3/4] vxlan: Enforce IP ID verification on outer
  headers
-Date: Mon, 07 Mar 2016 09:22:08 -0800
-Message-ID: <20160307172208.5295.19163.stgit@localhost.localdomain>
+Date: Mon, 07 Mar 2016 09:22:14 -0800
+Message-ID: <20160307172214.5295.52624.stgit@localhost.localdomain>
 References: <20160307172201.5295.69740.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:32810 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752506AbcCGRWK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 12:22:10 -0500
-Received: by mail-pa0-f45.google.com with SMTP id fl4so81703681pad.0
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 09:22:09 -0800 (PST)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34455 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752876AbcCGRWQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 12:22:16 -0500
+Received: by mail-pa0-f52.google.com with SMTP id fy10so81615425pac.1
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 09:22:16 -0800 (PST)
 In-Reply-To: <20160307172201.5295.69740.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -26,23 +26,23 @@ flow.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/geneve.c |   11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/vxlan.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index bc5da357e16d..f4b89b73517e 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -462,8 +462,6 @@ static struct sk_buff **geneve_gro_receive(struct sk_buff **head,
- 			goto out;
- 	}
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 775ddb48388d..906587d1531a 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -591,8 +591,6 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head,
+ 
+ 	skb_gro_pull(skb, sizeof(struct vxlanhdr)); /* pull vxlan header */
  
 -	flush = 0;
 -
  	for (p = *head; p; p = p->next) {
  		if (!NAPI_GRO_CB(p)->same_flow)
  			continue;
-@@ -474,20 +472,23 @@ static struct sk_buff **geneve_gro_receive(struct sk_buff **head,
+@@ -603,10 +601,13 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head,
  			NAPI_GRO_CB(p)->same_flow = 0;
  			continue;
  		}
@@ -51,21 +51,9 @@ index bc5da357e16d..f4b89b73517e 100644
 +		NAPI_GRO_CB(p)->flush |= NAPI_GRO_CB(p)->flush_id;
  	}
  
- 	type = gh->proto_type;
- 
- 	rcu_read_lock();
- 	ptype = gro_find_receive_by_type(type);
--	if (!ptype) {
--		flush = 1;
-+	if (!ptype)
- 		goto out_unlock;
--	}
- 
- 	skb_gro_pull(skb, gh_len);
- 	skb_gro_postpull_rcsum(skb, gh, gh_len);
-+
- 	pp = ptype->callbacks.gro_receive(head, skb);
+ 	pp = eth_gro_receive(head, skb);
+-
 +	flush = 0;
- 
- out_unlock:
- 	rcu_read_unlock();
+ out:
+ 	skb_gro_remcsum_cleanup(skb, &grc);
+ 	NAPI_GRO_CB(skb)->flush |= flush;
