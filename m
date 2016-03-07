@@ -1,113 +1,48 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: Question on switchdev
-Date: Mon, 7 Mar 2016 18:09:42 -0500
-Message-ID: <56DE0A36.9090807@ti.com>
-References: <56D4BB74.2010109@ti.com> <20160229222934.GA4904@lunn.ch>
- <56D8BB61.5020500@ti.com>
+From: kbuild test robot <lkp@intel.com>
+Subject: [PATCH] sctp: fix noderef.cocci warnings
+Date: Tue, 8 Mar 2016 07:17:55 +0800
+Message-ID: <20160307231755.GA149755@lkp-ib04>
+References: <201603080758.oSIf1B2b%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <jiri@resnulli.us>, <sfeldma@gmail.com>, <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, netdev@vger.kernel.org, dvyukov@google.com,
+	nhorman@tuxdriver.com, vyasevich@gmail.com,
+	linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
+	syzkaller@googlegroups.com, kcc@google.com, glider@google.com,
+	sasha.levin@oracle.com, edumazet@google.com, davem@davemloft.net
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:58324 "EHLO arroyo.ext.ti.com"
+Received: from mga14.intel.com ([192.55.52.115]:40940 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932346AbcCGXJu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2016 18:09:50 -0500
-In-Reply-To: <56D8BB61.5020500@ti.com>
+	id S1754045AbcCGXS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2016 18:18:56 -0500
+Content-Disposition: inline
+In-Reply-To: <6cddeac76bb79521e58f9bbba653db774191eb1c.1457382433.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/03/2016 05:32 PM, Murali Karicheri wrote:
-> On 02/29/2016 05:29 PM, Andrew Lunn wrote:
->> On Mon, Feb 29, 2016 at 04:43:16PM -0500, Murali Karicheri wrote:
->>
->> Hi Murali
->>
->> Please can you get your email client to wrap lines at ~ 75 characters.
-> Hi Andrew,
-> 
-> Thanks for responding. I have tried the instruction below and
-> it doesn't seem to work for me. Do you know what will I have to
-> set in thunderbird to do this?
-> 
-> http://arapulido.com/2009/12/01/enabling-line-wrapping-in-thunderbird/
-> 
->>> TI Keystone netcp h/w has a switch. It has n slave ports and 1 host
->>> port. Currently the netcp driver disables the switch functionality
->>> which makes them appear as n nic ports. However we have requirement
->>> to add switch support in the driver. I have reviewed the
->>> experimental driver documentation
->>> Documentation/networking/switchdev.txt and would like to understand
->>> it better so that I can add this support to keystone netcp driver.
->>  
->>> NetCP h/w has a 1 (host port) x n (slave port) switch. It can do
->>> layer 2 forwarding between ports. In the switch mode, host driver
->>> provides the frame to the switch and switch uses the filter data
->>> base (AKA ALE table, Address Learning Engine table) to forward the
->>> packet. There is a piece of information available per frame (meta
->>> data) to decide if frame to be forwarded to a particular port or use
->>> the fdb for forward decisions.
->>
->> This makes is sound like a good fit for DSA.
->>
->> Documentation/networking/dsa/dsa.txt.
-> 
-> Let me check and get back to you on this and below after reading
-> the above.
-> 
-> Murali
-> 
->>
->> You probably need to implement a new tagging protocol in
->> net/dsa/tag_*.c and a driver in drivers/net/dsa/
->>
->>> 1. How does port netdev differ from regular netdev that carries data
->>>    when registering netdev? Any example you can point to?
->>
->> They don't differ at all. You consider each port of the switch to be a
->> normal Linux interface.
->>
->>> 2. I assume port netdev will appear as an interface in ifconfig -a
->>>    command and it is not assigned an IP address. Correct?
->>
->> The user can assign an address, if they want. It is a normal Linux
->> interface. They can also create a bridge, and add the interface to the
->> bridge. An advanced DSA driver will keep track of which interfaces are
->> in which bridge, and if possible, offload the bridge to the hardware.
->>
->>> 3. with 1xn switch, so we have n + 1 netdev registered with net
->>>    core? I assume, only 1 netdev is for data plane and the rest are
->>>    control plane. Is this correct?
->>
->> No. You only have netdev devices for the external ports of the
->> switch. The other port is known as the cpu port, and does not have a
->> netdev.
->>
->>> 4. We have bunch of port specific configuration that we would like
->>> to control or configure from use space using standard tools. For
->>> example, switch port state, flow control etc. Is that possible to
->>> add using this framework? ethtool update needed for this?
->>
->> The whole idea here is that the switch ports are normal Linux
->> interface. You use normal linux APIs to configure them. You probably
->> don't need to add any new features.
->>
->> One key things to get your head around. The switch is a hardware
->> accelerator for the Linux stack. You have to think how you can make
->> your switch accelerate the Linux stack. It takes people a while to get
->> this.
->>
->>       Andrew
->>
-> 
-> 
-Andrew,
+net/sctp/bind_addr.c:458:42-48: ERROR: application of sizeof to pointer
 
->From the high level, it looks like netcp switch meets the specifications
-of a DSA hardware. Can you point me to a specific implementation that
-I can use as an example to implement this for netcp?
+ sizeof when applied to a pointer typed expression gives the size of
+ the pointer
 
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+Generated by: scripts/coccinelle/misc/noderef.cocci
+
+CC: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+---
+
+ bind_addr.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/net/sctp/bind_addr.c
++++ b/net/sctp/bind_addr.c
+@@ -455,7 +455,7 @@ static int sctp_copy_one_addr(struct net
+ 		    (((AF_INET6 == addr->sa.sa_family) &&
+ 		      (flags & SCTP_ADDR6_ALLOWED) &&
+ 		      (flags & SCTP_ADDR6_PEERSUPP))))
+-			error = sctp_add_bind_addr(dest, addr, sizeof(addr),
++			error = sctp_add_bind_addr(dest, addr, sizeof(*addr),
+ 						   SCTP_ADDR_SRC, gfp);
+ 	}
+ 
