@@ -1,53 +1,84 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH v2 net-next 6/8] bnxt_en: Include some hardware port statistics in ndo_get_stats64().
-Date: Mon,  7 Mar 2016 15:38:46 -0500
-Message-ID: <1457383128-28645-7-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH v2 net-next 3/8] bnxt_en: Use common function to get ethtool supported flags.
+Date: Mon,  7 Mar 2016 15:38:43 -0500
+Message-ID: <1457383128-28645-4-git-send-email-michael.chan@broadcom.com>
 References: <1457383128-28645-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5520-maca-inet1-outside.broadcom.com ([216.31.211.11]:60074
+Received: from 5520-maca-inet1-outside.broadcom.com ([216.31.211.11]:23684
 	"EHLO mail-irv-18.broadcom.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753634AbcCGUiu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 15:38:50 -0500
+	by vger.kernel.org with ESMTP id S1753599AbcCGUit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 15:38:49 -0500
 In-Reply-To: <1457383128-28645-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Include some of the port error counters (e.g. crc) in ->ndo_get_stats64()
-for the PF device.
+The supported bits and advertising bits in ethtool have the same
+definitions.  The same is true for the firmware bits.  So use the
+common function to handle the conversion for both supported and
+advertising bits.
 
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+v2: Don't use parentheses on function return.
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 29 +++++++----------------
+ 1 file changed, 9 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index c5e812a..18a14a5 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4934,6 +4934,22 @@ bnxt_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 		stats->tx_dropped += le64_to_cpu(hw_stats->tx_drop_pkts);
- 	}
- 
-+	if (bp->flags & BNXT_FLAG_PORT_STATS) {
-+		struct rx_port_stats *rx = bp->hw_rx_port_stats;
-+		struct tx_port_stats *tx = bp->hw_tx_port_stats;
-+
-+		stats->rx_crc_errors = le64_to_cpu(rx->rx_fcs_err_frames);
-+		stats->rx_frame_errors = le64_to_cpu(rx->rx_align_err_frames);
-+		stats->rx_length_errors = le64_to_cpu(rx->rx_undrsz_frames) +
-+					  le64_to_cpu(rx->rx_ovrsz_frames) +
-+					  le64_to_cpu(rx->rx_runt_frames);
-+		stats->rx_errors = le64_to_cpu(rx->rx_false_carrier_frames) +
-+				   le64_to_cpu(rx->rx_jbr_frames);
-+		stats->collisions = le64_to_cpu(tx->tx_total_collisions);
-+		stats->tx_fifo_errors = le64_to_cpu(tx->tx_fifo_underruns);
-+		stats->tx_errors = le64_to_cpu(tx->tx_err);
-+	}
-+
- 	return stats;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index 591c290..e2fe967 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -496,25 +496,6 @@ static void bnxt_get_drvinfo(struct net_device *dev,
+ 	kfree(pkglog);
  }
  
+-static u32 bnxt_fw_to_ethtool_support_spds(struct bnxt_link_info *link_info)
+-{
+-	u16 fw_speeds = link_info->support_speeds;
+-	u32 speed_mask = 0;
+-
+-	if (fw_speeds & BNXT_LINK_SPEED_MSK_100MB)
+-		speed_mask |= SUPPORTED_100baseT_Full;
+-	if (fw_speeds & BNXT_LINK_SPEED_MSK_1GB)
+-		speed_mask |= SUPPORTED_1000baseT_Full;
+-	if (fw_speeds & BNXT_LINK_SPEED_MSK_2_5GB)
+-		speed_mask |= SUPPORTED_2500baseX_Full;
+-	if (fw_speeds & BNXT_LINK_SPEED_MSK_10GB)
+-		speed_mask |= SUPPORTED_10000baseT_Full;
+-	if (fw_speeds & BNXT_LINK_SPEED_MSK_40GB)
+-		speed_mask |= SUPPORTED_40000baseCR4_Full;
+-
+-	return speed_mask;
+-}
+-
+ static u32 _bnxt_fw_to_ethtool_adv_spds(u16 fw_speeds, u8 fw_pause)
+ {
+ 	u32 speed_mask = 0;
+@@ -564,6 +545,15 @@ static u32 bnxt_fw_to_ethtool_lp_adv(struct bnxt_link_info *link_info)
+ 	return _bnxt_fw_to_ethtool_adv_spds(fw_speeds, fw_pause);
+ }
+ 
++static u32 bnxt_fw_to_ethtool_support_spds(struct bnxt_link_info *link_info)
++{
++	u16 fw_speeds = link_info->support_speeds;
++	u32 supported;
++
++	supported = _bnxt_fw_to_ethtool_adv_spds(fw_speeds, 0);
++	return supported | SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++}
++
+ u32 bnxt_fw_to_ethtool_speed(u16 fw_link_speed)
+ {
+ 	switch (fw_link_speed) {
+@@ -595,7 +585,6 @@ static int bnxt_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	u16 ethtool_speed;
+ 
+ 	cmd->supported = bnxt_fw_to_ethtool_support_spds(link_info);
+-	cmd->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+ 
+ 	if (link_info->auto_link_speeds)
+ 		cmd->supported |= SUPPORTED_Autoneg;
 -- 
 1.8.3.1
