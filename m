@@ -1,50 +1,78 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [iproute PATCH v2 06/20] iproute: TYPE keyword is not optional,
- fix help text accordingly
-Date: Mon, 7 Mar 2016 06:23:42 -0500
-Message-ID: <56DD64BE.9080005@mojatatu.com>
-References: <20160302093800.7e7dbe71@xeon-e3>
- <1456942808-15946-1-git-send-email-phil@nwl.cc>
- <1456942808-15946-7-git-send-email-phil@nwl.cc>
- <56D84883.3080902@mojatatu.com> <20160303150557.GE18624@orbyte.nwl.cc>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 3/9] bpf: pre-allocate hash map elements
+Date: Mon, 07 Mar 2016 12:08:08 +0100
+Message-ID: <56DD6118.7090608@iogearbox.net>
+References: <1457315917-1970307-1-git-send-email-ast@fb.com> <1457315917-1970307-4-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Phil Sutter <phil@nwl.cc>,
-	Stephen Hemminger <shemming@brocade.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33323 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752058AbcCGLXo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 06:23:44 -0500
-Received: by mail-io0-f194.google.com with SMTP id g203so10704118iof.0
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 03:23:44 -0800 (PST)
-In-Reply-To: <20160303150557.GE18624@orbyte.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-team@fb.com
+To: Alexei Starovoitov <ast@fb.com>,
+	"David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457315917-1970307-4-git-send-email-ast@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-03-03 10:05 AM, Phil Sutter wrote:
-> On Thu, Mar 03, 2016 at 09:21:55AM -0500, Jamal Hadi Salim wrote:
->> On 16-03-02 01:19 PM, Phil Sutter wrote:
->>> +	fprintf(stderr, "          unreachable | prohibit | blackhole | nat }\n");
->>
->> Dont think nat exists anymore...
->
-> But iproute2 seems to still support it? At least it's listed in
-> rtnl_rtntype_a2n().
->
-> The entry for RTN_NAT in net/ipv4/fib_semantics.c though looks like just
-> a stub. But at least it hasn't changed since the beginning of Git.
-> According to ip-route.8 it's indeed non-functional.
->
-> I only concerned help text and man page consistency, and since the man
-> page lists it (with a useful hint about it's state), the help text
-> should contain it either. Or do you think that's misleading?
->
+On 03/07/2016 02:58 AM, Alexei Starovoitov wrote:
+[...]
+> ---
+>   include/linux/bpf.h      |   1 +
+>   include/uapi/linux/bpf.h |   3 +
+>   kernel/bpf/hashtab.c     | 264 ++++++++++++++++++++++++++++++++++-------------
+>   kernel/bpf/syscall.c     |   2 +-
+>   4 files changed, 196 insertions(+), 74 deletions(-)
 
-Yeah it is gone. The cloud providers i know of that needed stateless
-nat use tc nat.
+Shouldn't all other map types (like array) need something like this as well to
+reserve this for their future flags?
 
-cheers,
-jamal
+   if (attr->map_flags)
+     return ERR_PTR(-EINVAL);
+
+> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+> index 4b070827200d..c81efb10bbb5 100644
+> --- a/include/linux/bpf.h
+> +++ b/include/linux/bpf.h
+> @@ -37,6 +37,7 @@ struct bpf_map {
+>   	u32 key_size;
+>   	u32 value_size;
+>   	u32 max_entries;
+> +	u32 map_flags;
+
+Just naming this 'flags' doesn't work due to the anonymous struct inside that
+union, right? :/
+
+>   	u32 pages;
+>   	struct user_struct *user;
+>   	const struct bpf_map_ops *ops;
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index 6496f98d3d68..5eeb2ca9441e 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -101,12 +101,15 @@ enum bpf_prog_type {
+>   #define BPF_NOEXIST	1 /* create new element if it didn't exist */
+>   #define BPF_EXIST	2 /* update existing element */
+>
+> +#define BPF_F_NO_PREALLOC	(1ULL << 0)
+
+Nit: Should better be (1U << 0) as map_flags are of __u32.
+
+>   union bpf_attr {
+>   	struct { /* anonymous struct used by BPF_MAP_CREATE command */
+>   		__u32	map_type;	/* one of enum bpf_map_type */
+>   		__u32	key_size;	/* size of key in bytes */
+>   		__u32	value_size;	/* size of value in bytes */
+>   		__u32	max_entries;	/* max number of entries in a map */
+> +		__u32	map_flags;	/* prealloc or not */
+>   	};
+>
+>   	struct { /* anonymous struct used by BPF_MAP_*_ELEM commands */
+
+Thanks,
+Daniel
