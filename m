@@ -1,106 +1,115 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
-Date: Mon, 7 Mar 2016 17:22:57 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32EA5E027@hasmsx107.ger.corp.intel.com>
-References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
- <E1abfnE-0000VS-00@www.xplot.org>
- <CA+BoTQk6J7kgdie9aX24MB+8PxN3oFUh0eVdmVrdyptW5RxQXg@mail.gmail.com>
- <CAPp0ZBYP9UzUTtPz=vivUQkE2FiGSsJjDaecQtPuK8y_d3ccqA@mail.gmail.com>
- <56DD99AA.8050403@openwrt.org>
- <CAHqTa-2-uZ0PUdwp33E588EU2a7T6KnTYs8RWfNDEzgOLseG9g@mail.gmail.com>
- <CAA93jw4JG_uEZaxk1JDKndq9K0+QPwKaAmK6=gZ8e-7qNmc=Cw@mail.gmail.com>
- <CAHqTa-1m3209qqLO19diB5ONd1o3whEnBGJkbPpV1m3UfSGJvA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
-	Tim Shepard <shep-FrUbXkNCsVf2fBVCVOL8/A@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Andrew Mcgregor <andrewmcgr-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	=?iso-8859-1?Q?Toke_H=F8iland-J=F8rgensen?= <toke-LJ9M9ZcSy1A@public.gmane.org>
-To: Avery Pennarun <apenwarr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Gilberto Bertin <gilberto.bertin@gmail.com>
+Subject: Re: [net-next RFC 0/4] SO_BINDTOSUBNET
+Date: Mon, 7 Mar 2016 17:22:52 +0000
+Message-ID: <69BFB2EA-BADE-420C-93E5-1320D53EB2C0@gmail.com>
+References: <1456241265-5766-1-git-send-email-gilberto.bertin@gmail.com> <CALx6S36_ii9hOj_Jn+xKxjoZQfbb-TfdQysH-N+Zic-bMHnHPg@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:35727 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752260AbcCGRXE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 12:23:04 -0500
+Received: by mail-wm0-f42.google.com with SMTP id l68so96390549wml.0
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 09:23:02 -0800 (PST)
+In-Reply-To: <CALx6S36_ii9hOj_Jn+xKxjoZQfbb-TfdQysH-N+Zic-bMHnHPg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+> On 24 Feb 2016, at 05:06, Tom Herbert <tom@herbertland.com> wrote:
+> 
+> On Tue, Feb 23, 2016 at 7:27 AM, Gilberto Bertin
+> <gilberto.bertin@gmail.com> wrote:
+>> This series introduces support for the SO_BINDTOSUBNET socket option, which
+>> allows a listener socket to bind to a subnet instead of * or a single address.
+>> 
+>> Motivation:
+>> consider a set of servers, each one with thousands and thousands of IP
+>> addresses. Since assigning /32 or /128 IP individual addresses would be
+>> inefficient, one solution can be assigning subnets using local routes
+>> (with 'ip route add local').
+>> 
+> Hi Gilberto,
+> 
+> The concept is certainly relevant, but allowing binds by subnet seems
+> arbitrary. I can imagine that someone might want to bind to a list of
+> addresses, list of interfaces, list of subnets, or complex
+> combinations like a subnet on one interface, and list of addresses on
+> another. So I wonder if this is another use case for a BPF program on
+> a listener socket, like a program for a scoring function. Maybe this
+> could even combined with  BPF SO_REUSERPORT somehow?
+> 
+> Tom
 
-On 03/07/2016 07:15 PM, Avery Pennarun wrote:
-> On Mon, Mar 7, 2016 at 11:54 AM, Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> If I can just get a coherent patch set that I can build, I will gladly
->> join you on the testing ath9k in particular... can probably do ath10k,
->> too - and do a bit of code review... this week. it's very exciting
->> watching all this activity...
->>
->> but I confess that I've totally lost track of what set of trees and
->> patchwork I should try to pull from. wireless-drivers-next? ath10k?
->> wireless-next? net-next? toke and I have a ton of x86 platforms
->> available to test on....
->>
->> Avery - which patches did you use??? on top of what?
->
-> The patch series I'm currently using can be found here:
->
->    git fetch https://gfiber.googlesource.com/vendor/opensource/backports
-> ath9k_txq+fq_codel
->
-> That's again backports-20160122, which comes from linux-next as of
-> 20160122.  You can either build backports against whatever kernel
-> you're using (probably easiest) or try to use that version of
-> linux-next, or rebase the patches onto your favourite kernel.
->
->> In terms of "smoothing" codel...
->>
->> I emphatically do not think codel in it's current form is "ready" for
->> wireless, at the very least the target should not be much lower than
->> 20ms in your 2 station tests.  There is another bit in codel where the
->> algo "turns off" with only a single MTU's worth of packets
->> outstanding, which could get bumped to the ideal size of the
->> aggregate. "ideal" kind of being a variable based on a ton of other
->> factors...
->
-> Yeah, I figured that sort of thing would come up.  I'm feeling forward
-> progress just by finally seeing the buggy oscillations finally happen,
-> though. :)
->
->> the underlying code needs to be striving successfully for per-station
->> airtime fairness for this to work at all, and the driver/card
->> interface nearly as tight as BQL is for the fq portion to behave
->> sanely. I'd configure codel at a higher target and try to observe what
->> is going on at the fq level til that got saner.
->
-> That seems like two good goals.  So Emmanuel's BQL-like thing seems
-> like we'll need it soon.
+Hi Tom,
 
-Well... I am going to do that for station only, and only for iwlwifi.
-I haven't had a chance to work on that since then :( but I hope to get 
-back to it. I also need to check what happens in multiple channels 
-scenarios (in which there is inherent latency).
-AP and stations have different challenges.
+I have a working POC of the patch that adds support for BPF into the
+compute_score function, and I would like to share some thoughts about
+advantages and disadvantages of both solutions.
 
->
-> As for per-station airtime fairness, what's a good approximation of
-> that?  Perhaps round-robin between stations, one aggregate per turn,
-> where each aggregate has a maximum allowed latency?  I don't know how
-> the current code works, but it's probably almost like that, as long as
-> we only put one aggregate's worth of stuff into each hwq, which I
-> guess is what the BQL-like thing will do.
->
-> So if I understand correctly, what we need is, in the following order:
-> 1) Disable fq_codel for now, and get BQL-like thing working in ath9k
-> (and ensure we're getting airtime fairness even without fq_codel);
-> 2) Re-enable fq_codel and increase fq_codel's target up to 20ms for now;
-> 3) Tweak fq_codel's "turn off" size to be larger (how important is this?)
->
-> Is that right?
->
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+First, setup.
+
+SO_BINDTOSUBET:
+- add this to some_server.c:
+
+       subnet.net = addr.s_addr;
+       subnet.plen = 24
+       setsockopt(sock, SOL_SOCKET, SO_BINDTOSUBNET, &subnet, sizeof(subnet));
+
+and you are done. Your server will accept all connections from the
+specified subnet.
+
+BPF_LISTENER_FILTER:
+- write a bpf filter like this:
+
+	SEC("socket_bpf")
+	int bpf_prog1(struct __sk_buff *skb)
+	{
+	      unsigned int daddr;
+	      daddr = load_word(skb, ETH_HLEN + offsetof(struct iphdr, daddr));
+
+	      if (/* daddr matches subnet */) {
+		      return -1; //accept
+	      }
+
+	      return 0; // reject
+	}
+
+- compile it:
+	$ clang -target bpf -c -o socket_bpf.o socket_bpf.c
+
+- add this to your server.c:
+	bpf_load_file("/path/to/socket_bpf.o");
+	setsockopt(sock, SOL_SOCKET, SO_ATTACH_BPF, prog_fd, sizeof(prog_fd[0]));
+
+- link your server with a couple of libbpf libraries (I'm
+ using the kernel ones from samples/bpf) and -lelf
+
+And this is still simplified (since instead of hardcoding the subnet
+into the bpf filter it would be preferable to use maps).
+
+
+thoughts:
+- SO_BINDTOSUBNET is much simpler to configure than BPF
+- BPF requires some external C libraries and I think it would not be
+ trivial to get it working with other languages than C/C++.
+ As an example, I have two working servers for SO_BINDTOSUBNET written
+ in Ruby and Go (since both these languages expose setsockopt), but it
+ would be necessary to write something that wrap the C libbpf to use
+ BPF
+- I (personally) do not think SO_BINDTOSUBNET is that much arbitrary, I
+ see it more as the logical missing piece between * and a single
+ address when calling bind() (otherwise I think we should consider
+ arbitrary even SO_BINDTODEVICE)
+
+That said, do you believe it could be an option to maybe have both these
+options? I think that the ability to run BPF in the listening path is
+really interesting, but it's probably an overkill for the bind-to-subnet
+use case.
+
+Thank you,
+ gilberto
