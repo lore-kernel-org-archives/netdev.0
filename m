@@ -1,330 +1,211 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 13/13] kcm: Add description in Documentation
-Date: Mon, 7 Mar 2016 14:11:12 -0800
-Message-ID: <1457388672-2600559-14-git-send-email-tom@herbertland.com>
+Subject: [PATCH v2 net-next 10/13] kcm: Sendpage support
+Date: Mon, 7 Mar 2016 14:11:09 -0800
+Message-ID: <1457388672-2600559-11-git-send-email-tom@herbertland.com>
 References: <1457388672-2600559-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:26138 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:34384 "EHLO
 	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753807AbcCGWMY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 17:12:24 -0500
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.15.0.59/8.15.0.59) with SMTP id u27M8d71006494
-	for <netdev@vger.kernel.org>; Mon, 7 Mar 2016 14:12:23 -0800
+	by vger.kernel.org with ESMTP id S1753767AbcCGWMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 17:12:22 -0500
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u27MC0U7015006
+	for <netdev@vger.kernel.org>; Mon, 7 Mar 2016 14:12:16 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 21futqhk4d-1
+	by mx0b-00082601.pphosted.com with ESMTP id 21hdu6h86b-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 14:12:23 -0800
+	for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 14:12:16 -0800
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.212.236.87) with ESMTP	id
- a91eaaece4b111e599860002c9521c9e-b91d7420 for <netdev@vger.kernel.org>;	Mon,
- 07 Mar 2016 14:12:20 -0800
+ a4d3dd9ae4b111e599860002c9521c9e-b91d7420 for <netdev@vger.kernel.org>;	Mon,
+ 07 Mar 2016 14:12:13 -0800
 In-Reply-To: <1457388672-2600559-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add kcm.txt to desribe KCM and interfaces.
+Implement kcm_sendpage. Set in sendpage to kcm_sendpage in both
+dgram and seqpacket ops.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- Documentation/networking/kcm.txt | 285 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 285 insertions(+)
- create mode 100644 Documentation/networking/kcm.txt
+ net/kcm/kcmsock.c | 147 +++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 145 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/networking/kcm.txt b/Documentation/networking/kcm.txt
-new file mode 100644
-index 0000000..3476ede
---- /dev/null
-+++ b/Documentation/networking/kcm.txt
-@@ -0,0 +1,285 @@
-+Kernel Connection Mulitplexor
-+-----------------------------
-+
-+Kernel Connection Multiplexor (KCM) is a mechanism that provides a message based
-+interface over TCP for generic application protocols. With KCM an application
-+can efficiently send and receive application protocol messages over TCP using
-+datagram sockets.
-+
-+KCM implements an NxM multiplexor in the kernel as diagrammed below:
-+
-++------------+   +------------+   +------------+   +------------+
-+| KCM socket |   | KCM socket |   | KCM socket |   | KCM socket |
-++------------+   +------------+   +------------+   +------------+
-+      |                 |               |                |
-+      +-----------+     |               |     +----------+
-+                  |     |               |     |
-+               +----------------------------------+
-+               |           Multiplexor            |
-+               +----------------------------------+
-+                 |   |           |           |  |
-+       +---------+   |           |           |  ------------+
-+       |             |           |           |              |
-++----------+  +----------+  +----------+  +----------+ +----------+
-+|  Psock   |  |  Psock   |  |  Psock   |  |  Psock   | |  Psock   |
-++----------+  +----------+  +----------+  +----------+ +----------+
-+      |              |           |            |             |
-++----------+  +----------+  +----------+  +----------+ +----------+
-+| TCP sock |  | TCP sock |  | TCP sock |  | TCP sock | | TCP sock |
-++----------+  +----------+  +----------+  +----------+ +----------+
-+
-+KCM sockets
-+-----------
-+
-+The KCM sockets provide the user interface to the muliplexor. All the KCM sockets
-+bound to a multiplexor are considered to have equivalent function, and I/O
-+operations in different sockets may be done in parallel without the need for
-+synchronization between threads in userspace.
-+
-+Multiplexor
-+-----------
-+
-+The multiplexor provides the message steering. In the transmit path, messages
-+written on a KCM socket are sent atomically on an appropriate TCP socket.
-+Similarly, in the receive path, messages are constructed on each TCP socket
-+(Psock) and complete messages are steered to a KCM socket.
-+
-+TCP sockets & Psocks
-+--------------------
-+
-+TCP sockets may be bound to a KCM multiplexor. A Psock structure is allocated
-+for each bound TCP socket, this structure holds the state for constructing
-+messages on receive as well as other connection specific information for KCM.
-+
-+Connected mode semantics
-+------------------------
-+
-+Each multiplexor assumes that all attached TCP connections are to the same
-+destination and can use the different connections for load balancing when
-+transmitting. The normal send and recv calls (include sendmmsg and recvmmsg)
-+can be used to send and receive messages from the KCM socket.
-+
-+Socket types
-+------------
-+
-+KCM supports SOCK_DGRAM and SOCK_SEQPACKET socket types.
-+
-+Message delineation
-+-------------------
-+
-+Messages are sent over a TCP stream with some application protocol message
-+format that typically includes a header which frames the messages. The length
-+of a received message can be deduced from the application protocol header
-+(often just a simple length field).
-+
-+A TCP stream must be parsed to determine message boundaries. Berkeley Packet
-+Filter (BPF) is used for this. When attaching a TCP socket to a multiplexor a
-+BPF program must be specified. The program is called at the start of receiving
-+a new message and is given an skbuff that contains the bytes received so far.
-+It parses the message header and returns the length of the message. Given this
-+information, KCM will construct the message of the stated length and deliver it
-+to a KCM socket.
-+
-+TCP socket management
-+---------------------
-+
-+When a TCP socket is attached to a KCM multiplexor data ready (POLLIN) and
-+write space available (POLLOUT) events are handled by the multiplexor. If there
-+is a state change (disconnection) or other error on a TCP socket, an error is
-+posted on the TCP socket so that a POLLERR event happens and KCM discontinues
-+using the socket. When the application gets the error notification for a
-+TCP socket, it should unattach the socket from KCM and then handle the error
-+condition (the typical response is to close the socket and create a new
-+connection if necessary).
-+
-+KCM limits the maximum receive message size to be the size of the receive
-+socket buffer on the attached TCP socket (the socket buffer size can be set by
-+SO_RCVBUF). If the length of a new message reported by the BPF program is
-+greater than this limit a corresponding error (EMSGSIZE) is posted on the TCP
-+socket. The BPF program may also enforce a maximum messages size and report an
-+error when it is exceeded.
-+
-+A timeout may be set for assembling messages on a receive socket. The timeout
-+value is taken from the receive timeout of the attached TCP socket (this is set
-+by SO_RCVTIMEO). If the timer expires before assembly is complete an error
-+(ETIMEDOUT) is posted on the socket.
-+
-+User interface
-+==============
-+
-+Creating a multiplexor
-+----------------------
-+
-+A new multiplexor and initial KCM socket is created by a socket call:
-+
-+  socket(AF_KCM, type, protocol)
-+
-+  - type is either SOCK_DGRAM or SOCK_SEQPACKET
-+  - protocol is KCMPROTO_CONNECTED
-+
-+Cloning KCM sockets
-+-------------------
-+
-+After the first KCM socket is created using the socket call as described
-+above, additional sockets for the multiplexor can be created by cloning
-+a KCM socket. This is accomplished by an ioctl on a KCM socket:
-+
-+  /* From linux/kcm.h */
-+  struct kcm_clone {
-+        int fd;
-+  };
-+
-+  struct kcm_clone info;
-+
-+  memset(&info, 0, sizeof(info));
-+
-+  err = ioctl(kcmfd, SIOCKCMCLONE, &info);
-+
-+  if (!err)
-+    newkcmfd = info.fd;
-+
-+Attach transport sockets
-+------------------------
-+
-+Attaching of transport sockets to a multiplexor is performed by calling an
-+ioctl on a KCM socket for the multiplexor. e.g.:
-+
-+  /* From linux/kcm.h */
-+  struct kcm_attach {
-+        int fd;
-+	int bpf_fd;
-+  };
-+
-+  struct kcm_attach info;
-+
-+  memset(&info, 0, sizeof(info));
-+
-+  info.fd = tcpfd;
-+  info.bpf_fd = bpf_prog_fd;
-+
-+  ioctl(kcmfd, SIOCKCMATTACH, &info);
-+
-+The kcm_attach structure contains:
-+  fd: file descriptor for TCP socket being attached
-+  bpf_prog_fd: file descriptor for compiled BPF program downloaded
-+
-+Unattach transport sockets
-+--------------------------
-+
-+Unattaching a transport socket from a multiplexor is straightforward. An
-+"unattach" ioctl is done with the kcm_unattach structure as the argument:
-+
-+  /* From linux/kcm.h */
-+  struct kcm_unattach {
-+        int fd;
-+  };
-+
-+  struct kcm_unattach info;
-+
-+  memset(&info, 0, sizeof(info));
-+
-+  info.fd = cfd;
-+
-+  ioctl(fd, SIOCKCMUNATTACH, &info);
-+
-+Disabling receive on KCM socket
-+-------------------------------
-+
-+A setsockopt is used to disable or enable receiving on a KCM socket.
-+When receive is disabled, any pending messages in the socket's
-+receive buffer are moved to other sockets. This feature is useful
-+if an application thread knows that it will be doing a lot of
-+work on a request and won't be able to service new messages for a
-+while. Example use:
-+
-+  int val = 1;
-+
-+  setsockopt(kcmfd, SOL_KCM, KCM_RECV_DISABLE, &val, sizeof(val))
-+
-+BFP programs for message delineation
-+------------------------------------
-+
-+BPF programs can be compiled using the BPF LLVM backend. For exmple,
-+the BPF program for parsing Thrift is:
-+
-+  #include "bpf.h" /* for __sk_buff */
-+  #include "bpf_helpers.h" /* for load_word intrinsic */
-+
-+  SEC("socket_kcm")
-+  int bpf_prog1(struct __sk_buff *skb)
-+  {
-+       return load_word(skb, 0) + 4;
-+  }
-+
-+  char _license[] SEC("license") = "GPL";
-+
-+Use in applications
-+===================
-+
-+KCM accelerates application layer protocols. Specifically, it allows
-+applications to use a message based interface for sending and receiving
-+messages. The kernel provides necessary assurances that messages are sent
-+and received atomically. This relieves much of the burden applications have
-+in mapping a message based protocol onto the TCP stream. KCM also make
-+application layer messages a unit of work in the kernel for the purposes of
-+steerng and scheduling, which in turn allows a simpler networking model in
-+multithreaded applications.
-+
-+Configurations
-+--------------
-+
-+In an Nx1 configuration, KCM logically provides multiple socket handles
-+to the same TCP connection. This allows parallelism between in I/O
-+operations on the TCP socket (for instance copyin and copyout of data is
-+parallelized). In an application, a KCM socket can be opened for each
-+processing thread and inserted into the epoll (similar to how SO_REUSEPORT
-+is used to allow multiple listener sockets on the same port).
-+
-+In a MxN configuration, multiple connections are established to the
-+same destination. These are used for simple load balancing.
-+
-+Message batching
-+----------------
-+
-+The primary purpose of KCM is load balancing between KCM sockets and hence
-+threads in a nominal use case. Perfect load balancing, that is steering
-+each received message to a different KCM socket or steering each sent
-+message to a different TCP socket, can negatively impact performance
-+since this doesn't allow for affinities to be established. Balancing
-+based on groups, or batches of messages, can be beneficial for performance.
-+
-+On transmit, there are three ways an application can batch (pipeline)
-+messages on a KCM socket.
-+  1) Send multiple messages in a single sendmmsg.
-+  2) Send a group of messages each with a sendmsg call, where all messages
-+     except the last have MSG_BATCH in the flags of sendmsg call.
-+  3) Create "super message" composed of multiple messages and send this
-+     with a single sendmsg.
-+
-+On receive, the KCM module attempts to queue messages received on the
-+same KCM socket during each TCP ready callback. The targeted KCM socket
-+changes at each receive ready callback on the KCM socket. The application
-+does not need to configure this.
-+
-+Error handling
-+--------------
-+
-+An application should include a thread to monitor errors raised on
-+the TCP connection. Normally, this will be done by placing each
-+TCP socket attached to a KCM multiplexor in epoll set for POLLERR
-+event. If an error occurs on an attached TCP socket, KCM sets an EPIPE
-+on the socket thus waking up the application thread. When the application
-+sees the error (which may just be a disconnect) it should unattach the
-+socket from KCM and then close it. It is assumed that once an error is
-+posted on the TCP socket the data stream is unrecoverable (i.e. an error
-+may have occurred in in the middle of receiving a messssge).
-+
-+TCP connection monitoring
-+-------------------------
-+
-+In KCM there is no means to correlate a message to the TCP socket that
-+was used to send or receive the message (except in the case there is
-+only one attached TCP socket). However, the application does retain
-+an open file descriptor to the socket so it will be able to get statistics
-+from the socket which can be used in detecting issues (such as high
-+retransmissions on the socket).
+diff --git a/net/kcm/kcmsock.c b/net/kcm/kcmsock.c
+index 982ea5f..9ac2499 100644
+--- a/net/kcm/kcmsock.c
++++ b/net/kcm/kcmsock.c
+@@ -990,6 +990,149 @@ static void kcm_push(struct kcm_sock *kcm)
+ 		kcm_write_msgs(kcm);
+ }
+ 
++static ssize_t kcm_sendpage(struct socket *sock, struct page *page,
++			    int offset, size_t size, int flags)
++
++{
++	struct sock *sk = sock->sk;
++	struct kcm_sock *kcm = kcm_sk(sk);
++	struct sk_buff *skb = NULL, *head = NULL;
++	long timeo = sock_sndtimeo(sk, flags & MSG_DONTWAIT);
++	bool eor;
++	int err = 0;
++	int i;
++
++	if (flags & MSG_SENDPAGE_NOTLAST)
++		flags |= MSG_MORE;
++
++	/* No MSG_EOR from splice, only look at MSG_MORE */
++	eor = !(flags & MSG_MORE);
++
++	lock_sock(sk);
++
++	sk_clear_bit(SOCKWQ_ASYNC_NOSPACE, sk);
++
++	err = -EPIPE;
++	if (sk->sk_err)
++		goto out_error;
++
++	if (kcm->seq_skb) {
++		/* Previously opened message */
++		head = kcm->seq_skb;
++		skb = kcm_tx_msg(head)->last_skb;
++		i = skb_shinfo(skb)->nr_frags;
++
++		if (skb_can_coalesce(skb, i, page, offset)) {
++			skb_frag_size_add(&skb_shinfo(skb)->frags[i - 1], size);
++			skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
++			goto coalesced;
++		}
++
++		if (i >= MAX_SKB_FRAGS) {
++			struct sk_buff *tskb;
++
++			tskb = alloc_skb(0, sk->sk_allocation);
++			while (!tskb) {
++				kcm_push(kcm);
++				err = sk_stream_wait_memory(sk, &timeo);
++				if (err)
++					goto out_error;
++			}
++
++			if (head == skb)
++				skb_shinfo(head)->frag_list = tskb;
++			else
++				skb->next = tskb;
++
++			skb = tskb;
++			skb->ip_summed = CHECKSUM_UNNECESSARY;
++			i = 0;
++		}
++	} else {
++		/* Call the sk_stream functions to manage the sndbuf mem. */
++		if (!sk_stream_memory_free(sk)) {
++			kcm_push(kcm);
++			set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
++			err = sk_stream_wait_memory(sk, &timeo);
++			if (err)
++				goto out_error;
++		}
++
++		head = alloc_skb(0, sk->sk_allocation);
++		while (!head) {
++			kcm_push(kcm);
++			err = sk_stream_wait_memory(sk, &timeo);
++			if (err)
++				goto out_error;
++		}
++
++		skb = head;
++		i = 0;
++	}
++
++	get_page(page);
++	skb_fill_page_desc(skb, i, page, offset, size);
++	skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
++
++coalesced:
++	skb->len += size;
++	skb->data_len += size;
++	skb->truesize += size;
++	sk->sk_wmem_queued += size;
++	sk_mem_charge(sk, size);
++
++	if (head != skb) {
++		head->len += size;
++		head->data_len += size;
++		head->truesize += size;
++	}
++
++	if (eor) {
++		bool not_busy = skb_queue_empty(&sk->sk_write_queue);
++
++		/* Message complete, queue it on send buffer */
++		__skb_queue_tail(&sk->sk_write_queue, head);
++		kcm->seq_skb = NULL;
++		KCM_STATS_INCR(kcm->stats.tx_msgs);
++
++		if (flags & MSG_BATCH) {
++			kcm->tx_wait_more = true;
++		} else if (kcm->tx_wait_more || not_busy) {
++			err = kcm_write_msgs(kcm);
++			if (err < 0) {
++				/* We got a hard error in write_msgs but have
++				 * already queued this message. Report an error
++				 * in the socket, but don't affect return value
++				 * from sendmsg
++				 */
++				pr_warn("KCM: Hard failure on kcm_write_msgs\n");
++				report_csk_error(&kcm->sk, -err);
++			}
++		}
++	} else {
++		/* Message not complete, save state */
++		kcm->seq_skb = head;
++		kcm_tx_msg(head)->last_skb = skb;
++	}
++
++	KCM_STATS_ADD(kcm->stats.tx_bytes, size);
++
++	release_sock(sk);
++	return size;
++
++out_error:
++	kcm_push(kcm);
++
++	err = sk_stream_error(sk, flags, err);
++
++	/* make sure we wake any epoll edge trigger waiter */
++	if (unlikely(skb_queue_len(&sk->sk_write_queue) == 0 && err == -EAGAIN))
++		sk->sk_write_space(sk);
++
++	release_sock(sk);
++	return err;
++}
++
+ static int kcm_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ {
+ 	struct sock *sk = sock->sk;
+@@ -1995,7 +2138,7 @@ static const struct proto_ops kcm_dgram_ops = {
+ 	.sendmsg =	kcm_sendmsg,
+ 	.recvmsg =	kcm_recvmsg,
+ 	.mmap =		sock_no_mmap,
+-	.sendpage =	sock_no_sendpage,
++	.sendpage =	kcm_sendpage,
+ };
+ 
+ static const struct proto_ops kcm_seqpacket_ops = {
+@@ -2016,7 +2159,7 @@ static const struct proto_ops kcm_seqpacket_ops = {
+ 	.sendmsg =	kcm_sendmsg,
+ 	.recvmsg =	kcm_recvmsg,
+ 	.mmap =		sock_no_mmap,
+-	.sendpage =	sock_no_sendpage,
++	.sendpage =	kcm_sendpage,
+ 	.splice_read =	kcm_splice_read,
+ };
+ 
 -- 
 2.6.5
