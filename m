@@ -1,51 +1,44 @@
-From: Kyeong Yoo <kyeong.yoo@alliedtelesis.co.nz>
-Subject: [PATCH net-next v3] net_sched: dsmark: use qdisc_dequeue_peeked()
-Date: Mon, 07 Mar 2016 17:07:57 +1300
-Message-ID: <20160307040735.17574.71568.stgit@kyeongy-dl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Wei Tang <tangwei@cmss.chinamobile.com>
+Subject: [PATCH] netlink: do not initialise statics to 0 or NULL
+Date: Mon,  7 Mar 2016 14:25:10 +0800
+Message-ID: <1457331910-3081-1-git-send-email-tangwei@cmss.chinamobile.com>
+Cc: netdev@vger.kernel.org, Wei Tang <tangwei@cmss.chinamobile.com>
+To: paul@paul-moore.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:53333 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751869AbcCGEIA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 23:08:00 -0500
-Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(Client did not present a certificate)
-	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id 3BD5E806A3
-	for <netdev@vger.kernel.org>; Mon,  7 Mar 2016 17:07:58 +1300 (NZDT)
+Received: from n9-21.mail.139.com ([221.176.9.21]:40747 "EHLO
+	n9-21.mail.139.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751357AbcCGGfu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 01:35:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fix is for dsmark similar to commit 3557619f0f6f7496ed453d4825e249
-("net_sched: prio: use qdisc_dequeue_peeked")
-and makes use of qdisc_dequeue_peeked() instead of direct dequeue() call.
+This patch fixes the checkpatch.pl error to netlabel_unlabeled.c:
 
-First time, wrr peeks dsmark, which will then peek into sfq.
-sfq dequeues an skb and it's stored in sch->gso_skb.
-Next time, wrr tries to dequeue from dsmark, which will call sfq dequeue
-directly. This results skipping the previously peeked skb.
+ERROR: do not initialise statics to 0 or NULL
 
-So changed dsmark dequeue to call qdisc_dequeue_peeked() instead to use
-peeked skb if exists.
-
-Signed-off-by: Kyeong Yoo <kyeong.yoo@alliedtelesis.co.nz>
+Signed-off-by: Wei Tang <tangwei@cmss.chinamobile.com>
 ---
- net/sched/sch_dsmark.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netlabel/netlabel_unlabeled.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index f357f34..b204472 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -281,7 +281,7 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
+diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
+index b038092..9eaa9a1 100644
+--- a/net/netlabel/netlabel_unlabeled.c
++++ b/net/netlabel/netlabel_unlabeled.c
+@@ -116,11 +116,11 @@ struct netlbl_unlhsh_walk_arg {
+ static DEFINE_SPINLOCK(netlbl_unlhsh_lock);
+ #define netlbl_unlhsh_rcu_deref(p) \
+ 	rcu_dereference_check(p, lockdep_is_held(&netlbl_unlhsh_lock))
+-static struct netlbl_unlhsh_tbl *netlbl_unlhsh = NULL;
+-static struct netlbl_unlhsh_iface *netlbl_unlhsh_def = NULL;
++static struct netlbl_unlhsh_tbl *netlbl_unlhsh;
++static struct netlbl_unlhsh_iface *netlbl_unlhsh_def;
  
- 	pr_debug("%s(sch %p,[qdisc %p])\n", __func__, sch, p);
+ /* Accept unlabeled packets flag */
+-static u8 netlabel_unlabel_acceptflg = 0;
++static u8 netlabel_unlabel_acceptflg;
  
--	skb = p->q->ops->dequeue(p->q);
-+	skb = qdisc_dequeue_peeked(p->q);
- 	if (skb == NULL)
- 		return NULL;
- 
+ /* NetLabel Generic NETLINK unlabeled family */
+ static struct genl_family netlbl_unlabel_gnl_family = {
+-- 
+1.9.1
