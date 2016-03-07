@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 1/9] bpf: prevent kprobe+bpf deadlocks
-Date: Sun, 6 Mar 2016 17:58:29 -0800
-Message-ID: <1457315917-1970307-2-git-send-email-ast@fb.com>
+Subject: [PATCH net-next 9/9] samples/bpf: add map performance test
+Date: Sun, 6 Mar 2016 17:58:37 -0800
+Message-ID: <1457315917-1970307-10-git-send-email-ast@fb.com>
 References: <1457315917-1970307-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,109 +14,340 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49986 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751974AbcCGB6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 20:58:44 -0500
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u271vUhB009891
+	for <netdev@vger.kernel.org>; Sun, 6 Mar 2016 17:58:43 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 21fv5bvrdc-4
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Sun, 06 Mar 2016 17:58:43 -0800
+Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
+ mx-out.facebook.com (10.223.101.97) with ESMTP	id
+ 1cfd853ce40811e5ac8224be0595f910-726d5270 for <netdev@vger.kernel.org>;	Sun,
+ 06 Mar 2016 17:58:40 -0800
 In-Reply-To: <1457315917-1970307-1-git-send-email-ast@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-if kprobe is placed within update or delete hash map helpers
-that hold bucket spin lock and triggered bpf program is trying to
-grab the spinlock for the same bucket on the same cpu, it will
-deadlock.
-Fix it by extending existing recursion prevention mechanism.
-
-Note, map_lookup and other tracing helpers don't have this problem,
-since they don't hold any locks and don't modify global data.
-bpf_trace_printk has its own recursive check and ok as well.
+performance tests for hash map and per-cpu hash map
+with and without pre-allocation
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/linux/bpf.h      |  3 +++
- kernel/bpf/syscall.c     | 13 +++++++++++++
- kernel/trace/bpf_trace.c |  2 --
- 3 files changed, 16 insertions(+), 2 deletions(-)
+ samples/bpf/Makefile             |   4 +
+ samples/bpf/map_perf_test_kern.c | 100 +++++++++++++++++++++++++
+ samples/bpf/map_perf_test_user.c | 155 +++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 259 insertions(+)
+ create mode 100644 samples/bpf/map_perf_test_kern.c
+ create mode 100644 samples/bpf/map_perf_test_user.c
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 51e498e5470e..4b070827200d 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -10,6 +10,7 @@
- #include <uapi/linux/bpf.h>
- #include <linux/workqueue.h>
- #include <linux/file.h>
-+#include <linux/percpu.h>
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 75a13e742ab4..502c9fc8db85 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -18,6 +18,7 @@ hostprogs-y += trace_output
+ hostprogs-y += lathist
+ hostprogs-y += offwaketime
+ hostprogs-y += spintest
++hostprogs-y += map_perf_test
  
- struct bpf_map;
+ test_verifier-objs := test_verifier.o libbpf.o
+ test_maps-objs := test_maps.o libbpf.o
+@@ -36,6 +37,7 @@ trace_output-objs := bpf_load.o libbpf.o trace_output_user.o
+ lathist-objs := bpf_load.o libbpf.o lathist_user.o
+ offwaketime-objs := bpf_load.o libbpf.o offwaketime_user.o
+ spintest-objs := bpf_load.o libbpf.o spintest_user.o
++map_perf_test-objs := bpf_load.o libbpf.o map_perf_test_user.o
  
-@@ -163,6 +164,8 @@ bool bpf_prog_array_compatible(struct bpf_array *array, const struct bpf_prog *f
- const struct bpf_func_proto *bpf_get_trace_printk_proto(void);
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -53,6 +55,7 @@ always += tcbpf1_kern.o
+ always += lathist_kern.o
+ always += offwaketime_kern.o
+ always += spintest_kern.o
++always += map_perf_test_kern.o
  
- #ifdef CONFIG_BPF_SYSCALL
-+DECLARE_PER_CPU(int, bpf_prog_active);
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ 
+@@ -71,6 +74,7 @@ HOSTLOADLIBES_trace_output += -lelf -lrt
+ HOSTLOADLIBES_lathist += -lelf
+ HOSTLOADLIBES_offwaketime += -lelf
+ HOSTLOADLIBES_spintest += -lelf
++HOSTLOADLIBES_map_perf_test += -lelf -lrt
+ 
+ # point this to your LLVM backend with bpf support
+ LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
+diff --git a/samples/bpf/map_perf_test_kern.c b/samples/bpf/map_perf_test_kern.c
+new file mode 100644
+index 000000000000..311538e5a701
+--- /dev/null
++++ b/samples/bpf/map_perf_test_kern.c
+@@ -0,0 +1,100 @@
++/* Copyright (c) 2016 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <linux/version.h>
++#include <uapi/linux/bpf.h>
++#include "bpf_helpers.h"
 +
- void bpf_register_prog_type(struct bpf_prog_type_list *tl);
- void bpf_register_map_type(struct bpf_map_type_list *tl);
- 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index c95a753c2007..dc99f6a000f5 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -18,6 +18,8 @@
- #include <linux/filter.h>
- #include <linux/version.h>
- 
-+DEFINE_PER_CPU(int, bpf_prog_active);
++#define MAX_ENTRIES 1000
 +
- int sysctl_unprivileged_bpf_disabled __read_mostly;
- 
- static LIST_HEAD(bpf_map_types);
-@@ -347,6 +349,11 @@ static int map_update_elem(union bpf_attr *attr)
- 	if (copy_from_user(value, uvalue, value_size) != 0)
- 		goto free_value;
- 
-+	/* must increment bpf_prog_active to avoid kprobe+bpf triggering from
-+	 * inside bpf map update or delete otherwise deadlocks are possible
-+	 */
-+	preempt_disable();
-+	__this_cpu_inc(bpf_prog_active);
- 	if (map->map_type == BPF_MAP_TYPE_PERCPU_HASH) {
- 		err = bpf_percpu_hash_update(map, key, value, attr->flags);
- 	} else if (map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY) {
-@@ -356,6 +363,8 @@ static int map_update_elem(union bpf_attr *attr)
- 		err = map->ops->map_update_elem(map, key, value, attr->flags);
- 		rcu_read_unlock();
- 	}
-+	__this_cpu_dec(bpf_prog_active);
-+	preempt_enable();
- 
- free_value:
- 	kfree(value);
-@@ -394,9 +403,13 @@ static int map_delete_elem(union bpf_attr *attr)
- 	if (copy_from_user(key, ukey, map->key_size) != 0)
- 		goto free_key;
- 
-+	preempt_disable();
-+	__this_cpu_inc(bpf_prog_active);
- 	rcu_read_lock();
- 	err = map->ops->map_delete_elem(map, key);
- 	rcu_read_unlock();
-+	__this_cpu_dec(bpf_prog_active);
-+	preempt_enable();
- 
- free_key:
- 	kfree(key);
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 4b8caa392b86..3e4ffb3ace5f 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -13,8 +13,6 @@
- #include <linux/ctype.h>
- #include "trace.h"
- 
--static DEFINE_PER_CPU(int, bpf_prog_active);
--
- /**
-  * trace_call_bpf - invoke BPF program
-  * @prog: BPF program
++struct bpf_map_def SEC("maps") hash_map = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(long),
++	.max_entries = MAX_ENTRIES,
++};
++
++struct bpf_map_def SEC("maps") percpu_hash_map = {
++	.type = BPF_MAP_TYPE_PERCPU_HASH,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(long),
++	.max_entries = MAX_ENTRIES,
++};
++
++struct bpf_map_def SEC("maps") hash_map_alloc = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(long),
++	.max_entries = MAX_ENTRIES,
++	.map_flags = BPF_F_NO_PREALLOC,
++};
++
++struct bpf_map_def SEC("maps") percpu_hash_map_alloc = {
++	.type = BPF_MAP_TYPE_PERCPU_HASH,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(long),
++	.max_entries = MAX_ENTRIES,
++	.map_flags = BPF_F_NO_PREALLOC,
++};
++
++SEC("kprobe/sys_getuid")
++int stress_hmap(struct pt_regs *ctx)
++{
++	u32 key = bpf_get_current_pid_tgid();
++	long init_val = 1;
++	long *value;
++
++	bpf_map_update_elem(&hash_map, &key, &init_val, BPF_ANY);
++	value = bpf_map_lookup_elem(&hash_map, &key);
++	if (value)
++		bpf_map_delete_elem(&hash_map, &key);
++	return 0;
++}
++
++SEC("kprobe/sys_geteuid")
++int stress_percpu_hmap(struct pt_regs *ctx)
++{
++	u32 key = bpf_get_current_pid_tgid();
++	long init_val = 1;
++	long *value;
++
++	bpf_map_update_elem(&percpu_hash_map, &key, &init_val, BPF_ANY);
++	value = bpf_map_lookup_elem(&percpu_hash_map, &key);
++	if (value)
++		bpf_map_delete_elem(&percpu_hash_map, &key);
++	return 0;
++}
++SEC("kprobe/sys_getgid")
++int stress_hmap_alloc(struct pt_regs *ctx)
++{
++	u32 key = bpf_get_current_pid_tgid();
++	long init_val = 1;
++	long *value;
++
++	bpf_map_update_elem(&hash_map_alloc, &key, &init_val, BPF_ANY);
++	value = bpf_map_lookup_elem(&hash_map_alloc, &key);
++	if (value)
++		bpf_map_delete_elem(&hash_map_alloc, &key);
++	return 0;
++}
++
++SEC("kprobe/sys_getegid")
++int stress_percpu_hmap_alloc(struct pt_regs *ctx)
++{
++	u32 key = bpf_get_current_pid_tgid();
++	long init_val = 1;
++	long *value;
++
++	bpf_map_update_elem(&percpu_hash_map_alloc, &key, &init_val, BPF_ANY);
++	value = bpf_map_lookup_elem(&percpu_hash_map_alloc, &key);
++	if (value)
++		bpf_map_delete_elem(&percpu_hash_map_alloc, &key);
++	return 0;
++}
++char _license[] SEC("license") = "GPL";
++u32 _version SEC("version") = LINUX_VERSION_CODE;
+diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
+new file mode 100644
+index 000000000000..95af56ec5739
+--- /dev/null
++++ b/samples/bpf/map_perf_test_user.c
+@@ -0,0 +1,155 @@
++/* Copyright (c) 2016 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#define _GNU_SOURCE
++#include <sched.h>
++#include <stdio.h>
++#include <sys/types.h>
++#include <asm/unistd.h>
++#include <unistd.h>
++#include <assert.h>
++#include <sys/wait.h>
++#include <stdlib.h>
++#include <signal.h>
++#include <linux/bpf.h>
++#include <string.h>
++#include <time.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++
++#define MAX_CNT 1000000
++
++static __u64 time_get_ns(void)
++{
++	struct timespec ts;
++
++	clock_gettime(CLOCK_MONOTONIC, &ts);
++	return ts.tv_sec * 1000000000ull + ts.tv_nsec;
++}
++
++#define HASH_PREALLOC		(1 << 0)
++#define PERCPU_HASH_PREALLOC	(1 << 1)
++#define HASH_KMALLOC		(1 << 2)
++#define PERCPU_HASH_KMALLOC	(1 << 3)
++
++static int test_flags = ~0;
++
++static void test_hash_prealloc(int cpu)
++{
++	__u64 start_time;
++	int i;
++
++	start_time = time_get_ns();
++	for (i = 0; i < MAX_CNT; i++)
++		syscall(__NR_getuid);
++	printf("%d:hash_map_perf pre-alloc %lld events per sec\n",
++	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
++}
++
++static void test_percpu_hash_prealloc(int cpu)
++{
++	__u64 start_time;
++	int i;
++
++	start_time = time_get_ns();
++	for (i = 0; i < MAX_CNT; i++)
++		syscall(__NR_geteuid);
++	printf("%d:percpu_hash_map_perf pre-alloc %lld events per sec\n",
++	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
++}
++
++static void test_hash_kmalloc(int cpu)
++{
++	__u64 start_time;
++	int i;
++
++	start_time = time_get_ns();
++	for (i = 0; i < MAX_CNT; i++)
++		syscall(__NR_getgid);
++	printf("%d:hash_map_perf kmalloc %lld events per sec\n",
++	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
++}
++
++static void test_percpu_hash_kmalloc(int cpu)
++{
++	__u64 start_time;
++	int i;
++
++	start_time = time_get_ns();
++	for (i = 0; i < MAX_CNT; i++)
++		syscall(__NR_getegid);
++	printf("%d:percpu_hash_map_perf kmalloc %lld events per sec\n",
++	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
++}
++
++static void loop(int cpu)
++{
++	cpu_set_t cpuset;
++
++	CPU_ZERO(&cpuset);
++	CPU_SET(cpu, &cpuset);
++	sched_setaffinity(0, sizeof(cpuset), &cpuset);
++
++	if (test_flags & HASH_PREALLOC)
++		test_hash_prealloc(cpu);
++
++	if (test_flags & PERCPU_HASH_PREALLOC)
++		test_percpu_hash_prealloc(cpu);
++
++	if (test_flags & HASH_KMALLOC)
++		test_hash_kmalloc(cpu);
++
++	if (test_flags & PERCPU_HASH_KMALLOC)
++		test_percpu_hash_kmalloc(cpu);
++}
++
++static void run_perf_test(int tasks)
++{
++	pid_t pid[tasks];
++	int i;
++
++	for (i = 0; i < tasks; i++) {
++		pid[i] = fork();
++		if (pid[i] == 0) {
++			loop(i);
++			exit(0);
++		} else if (pid[i] == -1) {
++			printf("couldn't spawn #%d process\n", i);
++			exit(1);
++		}
++	}
++	for (i = 0; i < tasks; i++) {
++		int status;
++
++		assert(waitpid(pid[i], &status, 0) == pid[i]);
++		assert(status == 0);
++	}
++}
++
++int main(int argc, char **argv)
++{
++	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
++	char filename[256];
++	int num_cpu = 8;
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++	setrlimit(RLIMIT_MEMLOCK, &r);
++
++	if (argc > 1)
++		test_flags = atoi(argv[1]) ? : test_flags;
++
++	if (argc > 2)
++		num_cpu = atoi(argv[2]) ? : num_cpu;
++
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++
++	run_perf_test(num_cpu);
++
++	return 0;
++}
 -- 
 2.6.5
