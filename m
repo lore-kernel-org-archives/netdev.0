@@ -1,38 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: fix copying more bytes than expected in
- sctp_add_bind_addr
-Date: Mon, 07 Mar 2016 15:21:23 -0500 (EST)
-Message-ID: <20160307.152123.541386738258046959.davem@davemloft.net>
-References: <20160307195115.GI31743@localhost.localdomain>
-	<CACT4Y+bqn=qWoBiXdV_d1wtedKza4_Nu2uFe4Bui70OPAVGi3A@mail.gmail.com>
-	<20160307200008.GJ31743@localhost.localdomain>
+Subject: Re: [PATCH] udp6: fix UDP/IPv6 encap resubmit path
+Date: Mon, 07 Mar 2016 15:23:52 -0500 (EST)
+Message-ID: <20160307.152352.119878767057546985.davem@davemloft.net>
+References: <1457131641-79311-1-git-send-email-wsommerfeld@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, nhorman@tuxdriver.com, vyasevich@gmail.com,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
-	kcc@google.com, glider@google.com, sasha.levin@oracle.com,
-	edumazet@google.com
-To: marcelo.leitner@gmail.com
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, johunt@akamai.com, bcrl@kvack.org,
+	edumazet@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: wsommerfeld@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53853 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53875 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752958AbcCGUV0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 15:21:26 -0500
-In-Reply-To: <20160307200008.GJ31743@localhost.localdomain>
+	with ESMTP id S1753103AbcCGUXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 15:23:55 -0500
+In-Reply-To: <1457131641-79311-1-git-send-email-wsommerfeld@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Mon, 7 Mar 2016 17:00:08 -0300
+From: Bill Sommerfeld <wsommerfeld@google.com>
+Date: Fri,  4 Mar 2016 14:47:21 -0800
 
-> On Mon, Mar 07, 2016 at 08:56:08PM +0100, Dmitry Vyukov wrote:
->> I kept the patch applied.
+> IPv4 interprets a negative return value from a protocol handler as a
+> request to redispatch to a new protocol.  In contrast, IPv6 interprets a
+> negative value as an error, and interprets a positive value as a request
+> for redispatch.
 > 
-> Then Dave, please consider applying this patch.
+> UDP for IPv6 was unaware of this difference.  Change __udp6_lib_rcv() to
+> return a positive value for redispatch.  Note that the socket's
+> encap_rcv hook still needs to return a negative value to request
+> dispatch, and in the case of IPv6 packets, adjust IP6CB(skb)->nhoff to
+> identify the byte containing the next protocol.
+> 
+> Signed-off-by: Bill Sommerfeld <wsommerfeld@google.com>
 
-Please submit the patch properly, as a fresh mailing list posting, and
-integrating Tested-by: et al. tags as necessary.
-
-Thanks.
+Applied and queued up for -stable, thanks.
