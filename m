@@ -1,61 +1,33 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: Tool for sampling /proc/net/softnet_stat statistics
-Date: Mon, 7 Mar 2016 12:54:13 -0500
-Message-ID: <CAF=yD-LE3WnYZaNUX8h1-uRA2ZzMczrL=Ob4Qb39hhyAEqYMPA@mail.gmail.com>
-References: <20160307163607.1da5f17e@redhat.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next PATCH 3/4] vxlan: Enforce IP ID verification on outer headers
+Date: Mon, 7 Mar 2016 20:05:20 +0200
+Message-ID: <CAJ3xEMgpiaaLJrSqefOgrDVXsyKDtqSYQ7O01jq_UYp+UeT4bg@mail.gmail.com>
+References: <20160307172201.5295.69740.stgit@localhost.localdomain>
+	<20160307172214.5295.52624.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	erdnetdev@gmail.com
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:33176 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752634AbcCGRyz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 12:54:55 -0500
-In-Reply-To: <20160307163607.1da5f17e@redhat.com>
+Received: from mail-ig0-f194.google.com ([209.85.213.194]:35623 "EHLO
+	mail-ig0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752248AbcCGSFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 13:05:21 -0500
+Received: by mail-ig0-f194.google.com with SMTP id ww10so742537igb.2
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 10:05:21 -0800 (PST)
+In-Reply-To: <20160307172214.5295.52624.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 7, 2016 at 10:36 AM, Jesper Dangaard Brouer
-<jbrouer@redhat.com> wrote:
-> Hi Google,
->
-> While playing with RPS, I needed to read stats from
-> /proc/net/softnet_stat and the tools I could find [1] and [2] was not
-> very good.
->
-> I lack of better, I coded up my own tool softnet_stat.pl here:
->  https://github.com/netoptimizer/network-testing/blob/master/bin/softnet_stat.pl
->
-> The output format/columns in /proc/net/softnet_stat is undocumented,
-> plus values are printed in hex.  E.g. to decode the columns you need to
-> read kernel function kernel softnet_seq_show() in
-> kernel/net/core/net-procfs.c.
->
-> To make things easier I wrote this small perl script for get
-> so human readable statistics from /proc/net/softnet_stat.
+On Mon, Mar 7, 2016 at 7:22 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> This change enforces the IP ID verification on outer headers.  As a result
+> if the DF flag is not set on the outer header we will force the flow to be
+> flushed in the event that the IP ID is out of sequence with the existing
+> flow.
 
-Very nice. Thanks for sharing, Jesper. I maintained something similar,
-but never got around to clean up and upstream it. Will start using
-yours, instead.
+Can you please state the precise requirement for aggregation w.r.t IP
+IDs here? and point to where/how this is enforced, e.g for
+non-tunneled TCP GRO-ing?
 
-A few points, from using my earlier tool:
-
-A minimum cut-off value is helpful, especially on beefy servers, to
-suppress the many 0 rows. Preferably configurable, to also be able to
-suppress low-rate background traffic when analyzing a few large
-streams. My default was 500.
-
-The number of columns has grown with kernel versions. The latest
-column is flow_limit, added in 3.11 at99bbc7074190. It is helpful for
-the script to be robust against both older and future kernels. On
-which note, to be able to support these kinds of tools, any new
-columns to such procfs files should be appended, not inserted as for
-instance in https://patchwork.ozlabs.org/patch/574171/
-
-Time squeeze is an exception, in that it is number of squeeze events
-per second, not number of packets squeezed. This is often
-misunderstood if not explained clearly.
+Or.
