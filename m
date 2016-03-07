@@ -1,58 +1,113 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 2/2] mlxsw: pci: Correctly determine if descriptor queue is full
-Date: Mon,  7 Mar 2016 09:24:52 +0100
-Message-ID: <1457339092-2878-3-git-send-email-jiri@resnulli.us>
-References: <1457339092-2878-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:32832 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752171AbcCGIY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 03:24:59 -0500
-Received: by mail-wm0-f48.google.com with SMTP id l68so97581160wml.0
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 00:24:58 -0800 (PST)
-In-Reply-To: <1457339092-2878-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+Subject: RE: [PATCH v2] can: rcar_canfd: Add Renesas R-Car CAN FD driver
+Date: Mon, 7 Mar 2016 08:32:19 +0000
+Message-ID: <SG2PR06MB1038DD47FAFF354C99AF2E4FC3B10@SG2PR06MB1038.apcprd06.prod.outlook.com>
+References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+ <1457019515-21158-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+ <56DC1561.9060306@hartkopp.net>
+ <SG2PR06MB10386D712BC8C345DF726523C3B10@SG2PR06MB1038.apcprd06.prod.outlook.com>
+ <56DD36F5.2000308@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-renesas-soc@vger.kernel.org"
+	<linux-renesas-soc@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"geert+renesas@glider.be" <geert+renesas@glider.be>,
+	Chris Paterson <Chris.Paterson2@renesas.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"pawel.moll@arm.com" <pawel.moll@arm.com>,
+	"mark.rutland@arm.com" <mark.rutland@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	"galak@codeaurora.org" <galak@codeaurora.org>,
+	"corbet@lwn.net" <corbet@lwn.net>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <56DD36F5.2000308@pengutronix.de>
+Content-Language: en-US
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
-
-The descriptor queues for sending (SDQs) and receiving (RDQs) packets
-are managed by two counters - producer and consumer - which are both
-16-bit in size. A queue is considered full when the difference between
-the two equals the queue's maximum number of descriptors.
-
-However, if the producer counter overflows, then it's possible for the
-full queue check to fail, as it doesn't take the overflow into account.
-In such a case, descriptors already passed to the device - but for which
-a completion has yet to be posted - will be overwritten, thereby causing
-undefined behavior. The above can be achieved under heavy load (~30
-netperf instances).
-
-Fix that by casting the substraction result to u16, preventing it from
-being treated as a signed integer.
-
-Fixes: eda6500a987a ("mlxsw: Add PCI bus implementation")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/pci.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-index c071077..7992c55 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-@@ -215,7 +215,7 @@ mlxsw_pci_queue_elem_info_producer_get(struct mlxsw_pci_queue *q)
- {
- 	int index = q->producer_counter & (q->count - 1);
- 
--	if ((q->producer_counter - q->consumer_counter) == q->count)
-+	if ((u16) (q->producer_counter - q->consumer_counter) == q->count)
- 		return NULL;
- 	return mlxsw_pci_queue_elem_info_get(q, index);
- }
--- 
-2.5.0
+SGkgTWFyYywNCg0KPiBPbiAwMy8wNy8yMDE2IDA5OjAyIEFNLCBSYW1lc2ggU2hhbm11Z2FzdW5k
+YXJhbSB3cm90ZToNCj4gPiBIaSBPbGl2ZXIsDQo+ID4NCj4gPiBUaGFua3MgZm9yIHRoZSByZXZp
+ZXcgY29tbWVudHMuDQo+ID4NCj4gPj4gT24gMDMvMDMvMjAxNiAwNDozOCBQTSwgUmFtZXNoIFNo
+YW5tdWdhc3VuZGFyYW0gd3JvdGU6DQo+ID4+DQo+ID4+PiBDaGFuZ2VzIHNpbmNlIHYxOg0KPiA+
+Pj4gCSogUmVtb3ZlZCB0ZXN0bW9kZXMgJiBkZWJ1Z2ZzIGNvZGUgKHN1Z2dlc3RlZCBieSBPbGl2
+ZXIgSCkNCj4gPj4+IAkqIEZpeGVkIHR4IHBhdGggcmFjZSBpc3N1ZSBieSBpbnRyb2R1Y2luZyBs
+b2NrIChzdWdnZXN0ZWQgYnkgTWFyYyBLKQ0KPiA+Pj4gCSogUmVtb3ZlZCBfX21heWJlX3VudXNl
+ZCBhdHRyaWJ1dGUgb2YgcmNhcl9jYW5mZF9vZl90YWJsZQ0KPiA+Pj4NCj4gPj4NCj4gPj4NCj4g
+Pj4+ICBvYmotJChDT05GSUdfQ0FOX01fQ0FOKQkJKz0gbV9jYW4vDQo+ID4+PiAgb2JqLSQoQ09O
+RklHX0NBTl9SQ0FSKQkJKz0gcmNhcl9jYW4ubw0KPiA+Pj4gK29iai0kKENPTkZJR19DQU5GRF9S
+Q0FSKQkrPSByY2FyX2NhbmZkLm8NCj4gPj4NCj4gPj4gSnVzdCBmb3IgdGhlIHNha2Ugb2YgYW4g
+b3JkZXJlZCBkaXJlY3Rvcnkgc3RydWN0dXJlOg0KPiA+Pg0KPiA+PiBXb3VsZCBpdCBtYWtlIHNl
+bnNlIHRvIGNyZWF0ZSBhIHJjYXIgZGlyZWN0b3J5IHdoZXJlIHJjYXJfY2FuLmMgYW5kDQo+ID4+
+IHJjYXJfY2FuZmQuYyBhcmUgcGxhY2VkPw0KPiA+Pg0KPiA+IFllcy4gSSdsbCBwbGFjZSB0aGVt
+IGluIHJjYXIgZGlyLg0KPiA+DQo+ID4+IEFkZGl0aW9uYWxseSAoYmVzaWRlcyBvZiBvbmUgYWNj
+aWRlbnQgd2l0aCB0aGUgb2Jzb2xldGUgUENIX0NBTikgYWxsDQo+ID4+IENBTiBkcml2ZXJzIHN0
+YXJ0IHdpdGggQ09ORklHX0NBTl8uLi4NCj4gPj4NCj4gPj4gRm9sbG93aW5nIHRoYXQgc2NoZW1l
+IHRoZSBjb25maWcgb3B0aW9uIHNob3VsZCBiZSBuYW1lZA0KPiA+Pg0KPiA+PiAJQ09ORklHX0NB
+Tl9SQ0FSX0NBTkZEDQo+ID4+DQo+ID4+IGFzIHdlIGhhZCBpbiBDT05GSUdfQ0FOX0lGSV9DQU5G
+RC4NCj4gPg0KPiA+IEFncmVlZC4NCj4gPg0KPiA+Pg0KPiA+Pj4gIG9iai0kKENPTkZJR19DQU5f
+U0pBMTAwMCkJKz0gc2phMTAwMC8NCj4gPj4+ICBvYmotJChDT05GSUdfQ0FOX1NVTjRJKQkJKz0g
+c3VuNGlfY2FuLm8NCj4gPj4+ICBvYmotJChDT05GSUdfQ0FOX1RJX0hFQ0MpCSs9IHRpX2hlY2Mu
+bw0KPiA+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2Nhbi9yY2FyX2NhbmZkLmMNCj4gPj4+
+IGIvZHJpdmVycy9uZXQvY2FuL3JjYXJfY2FuZmQuYw0KPiA+Pg0KPiA+PiAoLi4pDQo+ID4+DQo+
+ID4+PiArLyogQ2hhbm5lbCBwcml2IGRhdGEgKi8NCj4gPj4+ICtzdHJ1Y3QgcmNhcl9jYW5mZF9j
+aGFubmVsIHsNCj4gPj4+ICsJc3RydWN0IGNhbl9wcml2IGNhbjsJCQkvKiBNdXN0IGJlIHRoZSBm
+aXJzdCBtZW1iZXIgKi8NCj4gPj4+ICsJc3RydWN0IG5ldF9kZXZpY2UgKm5kZXY7DQo+ID4+PiAr
+CXN0cnVjdCByY2FyX2NhbmZkX2dsb2JhbCAqZ3ByaXY7CS8qIENvbnRyb2xsZXIgcmVmZXJlbmNl
+ICovDQo+ID4+PiArCXZvaWQgX19pb21lbSAqYmFzZTsJCQkvKiBSZWdpc3RlciBiYXNlIGFkZHJl
+c3MgKi8NCj4gPj4+ICsjaWZkZWYgQ09ORklHX0RFQlVHX0ZTDQo+ID4+PiArCXN0cnVjdCBkZW50
+cnkgKmRldl9yb290Ow0KPiA+Pj4gKyNlbmRpZiAvKiBDT05GSUdfREVCVUdfRlMgKi8NCj4gPj4N
+Cj4gPj4gU29tZSBtaXNzZWQgc3R1ZmYgZnJvbSBkZWJ1Z2ZzIHJlbW92YWw/DQo+ID4NCj4gPiA6
+LSguIFNvcnJ5LiBXaWxsIGNsZWFuIHVwLg0KPiA+DQo+ID4+DQo+ID4+PiArCXN0cnVjdCBuYXBp
+X3N0cnVjdCBuYXBpOw0KPiA+Pj4gKwl1OCAgdHhfbGVuW1JDQU5GRF9GSUZPX0RFUFRIXTsJCS8q
+IEZvciBuZXQgc3RhdHMgKi8NCj4gPj4+ICsJdTMyIHR4X2hlYWQ7CQkJCS8qIEluY3JlbWVudGVk
+IG9uIHhtaXQgKi8NCj4gPj4+ICsJdTMyIHR4X3RhaWw7CQkJCS8qIEluY3JlbWVudGVkIG9uIHht
+aXQgZG9uZSAqLw0KPiA+Pj4gKwl1MzIgY2hhbm5lbDsJCQkJLyogQ2hhbm5lbCBudW1iZXIgKi8N
+Cj4gPj4+ICsJc3BpbmxvY2tfdCB0eF9sb2NrOwkJCS8qIFRvIHByb3RlY3QgdHggcGF0aCAqLw0K
+PiA+Pj4gK307DQo+ID4+DQo+ID4+ICguLikNCj4gPj4NCj4gPj4+ICtzdGF0aWMgaW50IHJjYXJf
+Y2FuZmRfc3RhcnQoc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYpIHsNCj4gPj4+ICsJc3RydWN0IHJj
+YXJfY2FuZmRfY2hhbm5lbCAqcHJpdiA9IG5ldGRldl9wcml2KG5kZXYpOw0KPiA+Pj4gKwlpbnQg
+ZXJyID0gLUVPUE5PVFNVUFA7DQo+ID4+PiArCXUzMiBzdHMsIGNoID0gcHJpdi0+Y2hhbm5lbDsN
+Cj4gPj4+ICsJdTMyIHJpZHggPSBjaCArIFJDQU5GRF9SRkZJRk9fSURYOw0KPiA+Pj4gKw0KPiA+
+Pj4gKwkvKiBFbnN1cmUgY2hhbm5lbCBzdGFydHMgaW4gRkQgbW9kZSAqLw0KPiA+Pj4gKwlpZiAo
+IShwcml2LT5jYW4uY3RybG1vZGUgJiBDQU5fQ1RSTE1PREVfRkQpKSB7DQo+ID4+PiArCQluZXRk
+ZXZfZXJyKG5kZXYsICJlbmFibGUgY2FuIGZkIG1vZGUgZm9yIGNoYW5uZWwgJWRcbiIsIGNoKTsN
+Cj4gPj4+ICsJCWdvdG8gZmFpbF9tb2RlOw0KPiA+Pj4gKwl9DQo+ID4+DQo+ID4+IFdoYXQncyB0
+aGUgcmVhc29uIGJlaGluZCB0aGlzIGNoZWNrPw0KPiA+Pg0KPiA+PiBBIENBTiBGRCBjYXBhYmxl
+IENBTiBjb250cm9sbGVyIGNhbiBiZSBlaXRoZXIgY29uZmlndXJlZCB0byBydW4gYXMNCj4gPj4g
+Q0FOIDIuMCAoQ2xhc3NpYyBDQU4pIG9yIGFzIENBTiBGRCBjb250cm9sbGVyLg0KPiA+Pg0KPiA+
+PiBTbyB3aHkgYXJlIHRvIHRocm93aW5nIGFuIGVycm9yIGhlcmUgYW5kIHByb2R1Y2UgYW4gaW5p
+dGlhbGl6YXRpb24NCj4gPj4gZmFpbHVyZT8NCj4gPg0KPiA+IFdoZW4gdGhpcyBjb250cm9sbGVy
+IGlzIGNvbmZpZ3VyZWQgaW4gRkQgbW9kZSBhbmQgdXNlZCBvbmx5IHdpdGggQ0FODQo+ID4gMi4w
+IG5vZGVzLCBpdCBzdGlsbCBleHBlY3RzIGEgRFRTRUcgKGRhdGEgYml0cmF0ZSkgY29uZmlndXJh
+dGlvbiBzYW1lDQo+ID4gYXMgTlRTRUcgKG5vbWluYWwgYml0cmF0ZSkuIFRoaXMgY2hlY2ssIHNw
+ZWNpZmljYWxseSBpbiBuZG9fb3BlbiwNCj4gPiBlbnN1cmVzIGJvdGggYXJlIGNvbmZpZ3VyZWQg
+YW5kIHdpbGwgd29yayBmaW5lIHdpdGggQ0FOIDIuMCBub2Rlcw0KPiA+IChlLmcuKQ0KPiA+DQo+
+ID4gImlwIGxpbmsgc2V0IGNhbjAgdXAgdHlwZSBjYW4gYml0cmF0ZSAxMDAwMDAwIGRiaXRyYXRl
+IDEwMDAwMDAgZmQgb24iDQo+ID4NCj4gPiBJZiBJIGRvbid0IGhhdmUgdGhpcyBjaGVjaywgYSBj
+b25maWd1cmF0aW9uIGxpa2UgdGhpcw0KPiA+DQo+ID4gImlwIGxpbmsgc2V0IGNhbjAgdXAgdHlw
+ZSBjYW4gYml0cmF0ZSAxMDAwMDAwIg0KPiA+DQo+ID4gd2lsbCBicmluZyB1cCB0aGUgY29udHJv
+bGxlciB3aXRob3V0IERUU0VHIGNvbmZpZ3VyZWQuDQo+IA0KPiBUaGF0IHNob3VsZCBicmluZyB1
+cCB0aGUgY29udHJvbGxlciBpbiBDQU4gMi4wIG1vZGUuDQoNClllcywgdGhhdCdzIHRoZSB1c2Vy
+J3MgaW50ZW50aW9uIGJ1dCB0aGUgbWFudWFsIHN0YXRlcyBEVFNFRyBzdGlsbCBuZWVkIHRvIGJl
+IGNvbmZpZ3VyZWQuIEluIHRoZSBhYm92ZSBjb25maWd1cmF0aW9uLCBpdCB3aWxsIG5vdCBiZS4N
+CkJlc2lkZXMsIHRoaXMgd2lsbCBub3QgYmUgYSAicHVyZSIgQ0FOIDIuMCBub2RlIChpLmUuKSBp
+ZiBhIGZyYW1lIHdpdGggbGVuZ3RoID4gOCBieXRlcyBpcyByZWNlaXZlZCB0aGUgY29udHJvbGxl
+ciB3aWxsICJBQ0siIGJlY2F1c2UgaW4gRkQgbW9kZSBpdCBjYW4gcmVjZWl2ZSB1cCB0byA2NCBi
+eXRlcyBmcmFtZS4NCg0KVGhlIGNvbnRyb2xsZXIgZG9lcyBzdXBwb3J0IGEgInB1cmUiIGNsYXNz
+aWNhbCBDQU4gbW9kZSB3aXRoIGEgZGlmZmVyZW50IHNldCBvZiByZWdpc3RlciBtYXAgaXRzZWxm
+LiBEbyB5b3UgdGhpbmsgYSBwdXJlIENBTiAyLjAgbW9kZSBzdXBwb3J0IHdvdWxkIGJlIGJlbmVm
+aWNpYWw/IEkgY2FuIHN1Ym1pdCB0aGlzIGluIGNvbWluZyBkYXlzIG9uIHRvcCBvZiBjdXJyZW50
+IHN1Ym1pc3Npb24uDQoNClRoZSBjdXJyZW50IHN1Ym1pc3Npb24gc3RhdHVzIGlzOg0KIC0gQ29u
+dHJvbGxlciBvcGVyYXRlcyBpbiBDQU4gRkQgbW9kZSBvbmx5Lg0KIC0gSWYgbmVlZGVkIHRvIGlu
+dGVyb3BlcmF0ZSB3aXRoIENBTiAyLjAgbm9kZXMsIGRhdGEgYml0cmF0ZSBzdGlsbCBuZWVkIHRv
+IGJlIGNvbmZpZ3VyZWQgYW5kIGl0IHdpbGwgd29yayBwZXJmZWN0bHkuIEhvd2V2ZXIsIGl0IGlz
+IG5vdCBhICJwdXJlIiBDQU4gMi4wIG5vZGUgYXMgbWVudGlvbmVkIGFib3ZlLg0KDQpUaGFua3Ms
+DQpSYW1lc2gNCg==
