@@ -1,41 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] tipc: remove pre-allocated message header
- in link struct
-Date: Sun, 06 Mar 2016 23:01:50 -0500 (EST)
-Message-ID: <20160306.230150.2115988710117845238.davem@davemloft.net>
-References: <1457033001-31227-1-git-send-email-jon.maloy@ericsson.com>
+From: Kyeong Yoo <Kyeong.Yoo@alliedtelesis.co.nz>
+Subject: Re: [net-next PATCH v2] net_sched: dsmark: use qdisc_dequeue_peeked()
+Date: Mon, 7 Mar 2016 04:06:49 +0000
+Message-ID: <1457323609.26320.12.camel@kyeongy-dl>
+References: <1457000719.30212.3.camel@kyeongy-dl>
+	 <20160306.224921.2002681200914411743.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
-	ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43080 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752008AbcCGEBw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 23:01:52 -0500
-In-Reply-To: <1457033001-31227-1-git-send-email-jon.maloy@ericsson.com>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:53322 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751985AbcCGEGz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 23:06:55 -0500
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(Client did not present a certificate)
+	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id BE463806CB
+	for <netdev@vger.kernel.org>; Mon,  7 Mar 2016 17:06:51 +1300 (NZDT)
+In-Reply-To: <20160306.224921.2002681200914411743.davem@davemloft.net>
+Content-Language: en-US
+Content-ID: <08F8B852C81B634FB1EA75A4DA1703B7@atlnz.lc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Thu,  3 Mar 2016 14:23:21 -0500
-
-> Until now, we have kept a pre-allocated protocol message header
-> aggregated into struct tipc_link. Apart from adding unnecessary
-> footprint to the link instances, this requires extra code both to
-> initialize and re-initialize it.
-> 
-> We now remove this sub-optimization. This change also makes it
-> possible to clean up the function tipc_build_proto_msg() and remove
-> a couple of small functions that were accessing the mentioned header.
-> In particular, we can replace all occurrences of the local function
-> call link_own_addr(link) with the generic tipc_own_addr(net).
-> 
-> Acked-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-
-Applied, thanks.
+SSB3aWxsIHVwbG9hZCBuZXcgcGF0Y2ggc29vbi4NCkt5ZW9uZw0KDQpPbiBTdW4sIDIwMTYtMDMt
+MDYgYXQgMjI6NDkgLTA1MDAsIERhdmlkIE1pbGxlciB3cm90ZToNCj4gRnJvbTogS3llb25nIFlv
+byA8S3llb25nLllvb0BhbGxpZWR0ZWxlc2lzLmNvLm56Pg0KPiBEYXRlOiBUaHUsIDMgTWFyIDIw
+MTYgMTA6MjU6MTkgKzAwMDANCi4uLg0KPiBZb3VyIHBhdGNoIGlzIGNvcnJ1cHRlZCBieSB5b3Vy
+IGVtYWlsIGNsaWVudCwgaXQgaGFzIE1TLURPUyBzdHlsZQ0KPiBuZXdsaW5lcywgZXRjLg0KDQo=
