@@ -1,170 +1,67 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH iproute2 net-next v4] bridge: mdb: add support for extended router port information
-Date: Mon,  7 Mar 2016 11:10:32 +0100
-Message-ID: <1457345432-19360-1-git-send-email-nikolay@cumulusnetworks.com>
-References: <1457343179-30053-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 2/9] bpf: introduce percpu_freelist
+Date: Mon, 07 Mar 2016 11:33:38 +0100
+Message-ID: <56DD5902.3000801@iogearbox.net>
+References: <1457315917-1970307-1-git-send-email-ast@fb.com> <1457315917-1970307-3-git-send-email-ast@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Wagner <daniel.wagner@bmw-carit.de>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-team@fb.com
+To: Alexei Starovoitov <ast@fb.com>,
+	"David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:34282 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752736AbcCGKKg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 05:10:36 -0500
-Received: by mail-wm0-f41.google.com with SMTP id p65so101212940wmp.1
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 02:10:35 -0800 (PST)
-In-Reply-To: <1457343179-30053-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from www62.your-server.de ([213.133.104.62]:35609 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752055AbcCGKdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 05:33:50 -0500
+In-Reply-To: <1457315917-1970307-3-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recently a new temp router port mode was added and with it the dumped
-information was extended similar to how mdb entries were done. This
-patch adds support to dump the new information by using the "-s" switch.
-Example:
-$ bridge -d -s mdb show
-dev br0 port eth1 grp ff02::1:ffbf:5716 temp 234.39
-dev br0 port eth1 grp 239.0.0.2 temp  97.17
-dev br0 port eth1 grp 239.0.0.3 temp 105.36
-router ports on br0: eth1    0.00 permanent
-router ports on br0: eth2  254.87 temp
+On 03/07/2016 02:58 AM, Alexei Starovoitov wrote:
+> Introduce simple percpu_freelist to keep single list of elements
+> spread across per-cpu singly linked lists.
+>
+> /* push element into the list */
+> void pcpu_freelist_push(struct pcpu_freelist *, struct pcpu_freelist_node *);
+>
+> /* pop element from the list */
+> struct pcpu_freelist_node *pcpu_freelist_pop(struct pcpu_freelist *);
+>
+> The object is pushed to the current cpu list.
+> Pop first trying to get the object from the current cpu list,
+> if it's empty goes to the neigbour cpu list.
+>
+> For bpf program usage pattern the collision rate is very low,
+> since programs push and pop the objects typically on the same cpu.
+>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 
-It also updates the bridge man page.
+These bits and their usage in combination with preallocation of objects
+in patch 3/9 look very useful to me!
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-v4: minor optimization, parse new attributes only when show_stats has been
-specified
-v3: make is_temp_mcast_rtr bool and return the result directly as per
-Stephen's comment
-v2: print the values only if they were provided by the kernel, otherwise
-we might print "permanent" for a temporary entry on an older kernel.
+This code seems generic enough and doesn't contain any BPF specifics,
+other subsystems could potentially utilize it as well, I'd suggest that
+this should better be placed under lib/ so it's exposed/visible for other
+developers too.
 
- bridge/br_common.h |  3 +++
- bridge/mdb.c       | 57 +++++++++++++++++++++++++++++++++++++++++++++---------
- man/man8/bridge.8  |  6 +++++-
- 3 files changed, 56 insertions(+), 10 deletions(-)
+You can still add 'F:' entries into the MAINTAINERS file to make sure
+patches also hit netdev:
 
-diff --git a/bridge/br_common.h b/bridge/br_common.h
-index 41eb0dc38293..5ea45c9e654d 100644
---- a/bridge/br_common.h
-+++ b/bridge/br_common.h
-@@ -1,6 +1,9 @@
- #define MDB_RTA(r) \
- 		((struct rtattr *)(((char *)(r)) + RTA_ALIGN(sizeof(struct br_mdb_entry))))
- 
-+#define MDB_RTR_RTA(r) \
-+		((struct rtattr *)(((char *)(r)) + RTA_ALIGN(sizeof(__u32))))
-+
- extern int print_linkinfo(const struct sockaddr_nl *who,
- 			  struct nlmsghdr *n,
- 			  void *arg);
-diff --git a/bridge/mdb.c b/bridge/mdb.c
-index 600596c94969..c15f4b8944ef 100644
---- a/bridge/mdb.c
-+++ b/bridge/mdb.c
-@@ -33,19 +33,60 @@ static void usage(void)
- 	exit(-1);
- }
- 
--static void br_print_router_ports(FILE *f, struct rtattr *attr)
-+static bool is_temp_mcast_rtr(__u8 type)
-+{
-+	return type == MDB_RTR_TYPE_TEMP_QUERY || type == MDB_RTR_TYPE_TEMP;
-+}
-+
-+static void br_print_router_ports(FILE *f, struct rtattr *attr, __u32 brifidx)
- {
- 	uint32_t *port_ifindex;
- 	struct rtattr *i;
- 	int rem;
- 
-+	if (!show_stats)
-+		fprintf(f, "router ports on %s: ", ll_index_to_name(brifidx));
-+
- 	rem = RTA_PAYLOAD(attr);
- 	for (i = RTA_DATA(attr); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
- 		port_ifindex = RTA_DATA(i);
--		fprintf(f, "%s ", ll_index_to_name(*port_ifindex));
-+		if (show_stats) {
-+			struct rtattr *tb[MDBA_ROUTER_PATTR_MAX + 1];
-+
-+			parse_rtattr(tb, MDBA_ROUTER_PATTR_MAX,
-+				     MDB_RTR_RTA(RTA_DATA(i)),
-+				     RTA_PAYLOAD(i) -
-+				     RTA_ALIGN(sizeof(*port_ifindex)));
-+
-+			fprintf(f, "router ports on %s: %s",
-+				ll_index_to_name(brifidx),
-+				ll_index_to_name(*port_ifindex));
-+			if (tb[MDBA_ROUTER_PATTR_TIMER]) {
-+				struct timeval tv;
-+				__u32 tval;
-+
-+				tval = rta_getattr_u32(
-+						tb[MDBA_ROUTER_PATTR_TIMER]);
-+				__jiffies_to_tv(&tv, tval);
-+				fprintf(f, " %4i.%.2i",
-+					(int)tv.tv_sec, (int)tv.tv_usec/10000);
-+			}
-+			if (tb[MDBA_ROUTER_PATTR_TYPE]) {
-+				__u8 type;
-+
-+				type = rta_getattr_u8(
-+						tb[MDBA_ROUTER_PATTR_TYPE]);
-+				fprintf(f, " %s",
-+					is_temp_mcast_rtr(type) ? "temp" :
-+								  "permanent");
-+			}
-+			fprintf(f, "\n");
-+		} else {
-+			fprintf(f, "%s ", ll_index_to_name(*port_ifindex));
-+		}
- 	}
--
--	fprintf(f, "\n");
-+	if (!show_stats)
-+		fprintf(f, "\n");
- }
- 
- static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e,
-@@ -127,11 +168,9 @@ int print_mdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 
- 	if (tb[MDBA_ROUTER]) {
- 		if (n->nlmsg_type == RTM_GETMDB) {
--			if (show_details) {
--				fprintf(fp, "router ports on %s: ",
--					ll_index_to_name(r->ifindex));
--				br_print_router_ports(fp, tb[MDBA_ROUTER]);
--			}
-+			if (show_details)
-+				br_print_router_ports(fp, tb[MDBA_ROUTER],
-+						      r->ifindex);
- 		} else {
- 			uint32_t *port_ifindex;
- 
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index 0e98edf4762f..08e8a5bf5a08 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -119,6 +119,10 @@ is given multiple times, the amount of information increases.
- As a rule, the information is statistics or some time values.
- 
- .TP
-+.BR "\-d" , " \-details"
-+print detailed information about MDB router ports.
-+
-+.TP
- .BR "\-n" , " \-net" , " \-netns " <NETNS>
- switches
- .B bridge
-@@ -506,7 +510,7 @@ a connected router.
- .PP
- With the
- .B -statistics
--option, the command displays timer values for mdb entries.
-+option, the command displays timer values for mdb and router port entries.
- 
- .SH bridge vlan - VLAN filter list
- 
--- 
-2.4.3
+BPF (Safe dynamic programs and tools)
+[...]
+F:	kernel/bpf/
+F:      lib/percpu_freelist.c
+F:      include/linux/percpu_freelist.h
+
+When BPF_SYSCALL is enabled, it would then just select these library bits
+via Kconfig. The lib bits themselves can be a hidden Kconfig entry.
+
+Thanks,
+Daniel
