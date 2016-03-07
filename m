@@ -1,91 +1,62 @@
-From: Avery Pennarun <apenwarr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
-Date: Mon, 7 Mar 2016 12:14:34 -0500
-Message-ID: <CAHqTa-1m3209qqLO19diB5ONd1o3whEnBGJkbPpV1m3UfSGJvA@mail.gmail.com>
-References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
- <E1abfnE-0000VS-00@www.xplot.org> <CA+BoTQk6J7kgdie9aX24MB+8PxN3oFUh0eVdmVrdyptW5RxQXg@mail.gmail.com>
- <CAPp0ZBYP9UzUTtPz=vivUQkE2FiGSsJjDaecQtPuK8y_d3ccqA@mail.gmail.com>
- <56DD99AA.8050403@openwrt.org> <CAHqTa-2-uZ0PUdwp33E588EU2a7T6KnTYs8RWfNDEzgOLseG9g@mail.gmail.com>
- <CAA93jw4JG_uEZaxk1JDKndq9K0+QPwKaAmK6=gZ8e-7qNmc=Cw@mail.gmail.com>
+From: =?UTF-8?Q?Andreas_F=c3=a4rber?= <afaerber@suse.de>
+Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
+Date: Mon, 7 Mar 2016 18:15:53 +0100
+Message-ID: <56DDB749.1020808@suse.de>
+References: <1457294038-14243-1-git-send-email-afaerber@suse.de>
+ <56DD7172.4000707@suse.de> <2714888.1DdqvJZ8cb@diego>
+ <56DD7593.5060003@suse.de> <56DD8176.2080603@st.com>
+ <56DD8FBE.9010200@suse.de> <56DD99A4.5030004@st.com>
+ <56DDA26C.3050301@suse.de> <56DDA3D5.3090209@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
-	Tim Shepard <shep-FrUbXkNCsVf2fBVCVOL8/A@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Andrew Mcgregor <andrewmcgr-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	=?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke-LJ9M9ZcSy1A@public.gmane.org>
-To: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAA93jw4JG_uEZaxk1JDKndq9K0+QPwKaAmK6=gZ8e-7qNmc=Cw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>,
+	=?UTF-8?Q?Heiko_St=c3=bcbner?= <heiko@sntech.de>,
+	linux-rockchip@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org,
+	LAKML <linux-arm-kernel@lists.infradead.org>,
+	Alexandre TORGUE <alexandre.torgue@st.com>,
+	Fabrice GASNIER <fabrice.gasnier@st.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:33747 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753377AbcCGRP4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2016 12:15:56 -0500
+In-Reply-To: <56DDA3D5.3090209@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 7, 2016 at 11:54 AM, Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> If I can just get a coherent patch set that I can build, I will gladly
-> join you on the testing ath9k in particular... can probably do ath10k,
-> too - and do a bit of code review... this week. it's very exciting
-> watching all this activity...
->
-> but I confess that I've totally lost track of what set of trees and
-> patchwork I should try to pull from. wireless-drivers-next? ath10k?
-> wireless-next? net-next? toke and I have a ton of x86 platforms
-> available to test on....
->
-> Avery - which patches did you use??? on top of what?
+Am 07.03.2016 um 16:52 schrieb Giuseppe CAVALLARO:
+> On 3/7/2016 4:46 PM, Andreas F=E4rber wrote:
+>> Am 07.03.2016 um 16:09 schrieb Giuseppe CAVALLARO:
+>>> On 3/7/2016 3:27 PM, Andreas F=E4rber wrote:
+>>>> Indeed, reverting Gabriel's commit fixes the observed error messag=
+es
+>> [...]
+>>>> However, I am unable to ping any hosts on the network now.
+>>>
+>>> hmm, this could be another problem. I wonder if you can
+>>> check which recent patch is introducing the problem on ARM64.
+>>> For example if this depends on Oct_2015 update.
+>>
+>> I've had success reverting drivers/net/ethernet/stmicro/ up to and
+>> including "stmmac: first frame prep at the end of xmit routine", i.e=
+=2E
+>> top 7 commits.
+>=20
+> Andreas, I will check it and let you know asap.
 
-The patch series I'm currently using can be found here:
+I verified that it's just these two commits that I need to revert:
 
-  git fetch https://gfiber.googlesource.com/vendor/opensource/backports
-ath9k_txq+fq_codel
+"stmmac: Fix 'eth0: No PHY found' regression"
+"stmmac: first frame prep at the end of xmit routine"
 
-That's again backports-20160122, which comes from linux-next as of
-20160122.  You can either build backports against whatever kernel
-you're using (probably easiest) or try to use that version of
-linux-next, or rebase the patches onto your favourite kernel.
+Those in between don't cause conflicts and seem to work okay.
 
-> In terms of "smoothing" codel...
->
-> I emphatically do not think codel in it's current form is "ready" for
-> wireless, at the very least the target should not be much lower than
-> 20ms in your 2 station tests.  There is another bit in codel where the
-> algo "turns off" with only a single MTU's worth of packets
-> outstanding, which could get bumped to the ideal size of the
-> aggregate. "ideal" kind of being a variable based on a ton of other
-> factors...
+Andreas
 
-Yeah, I figured that sort of thing would come up.  I'm feeling forward
-progress just by finally seeing the buggy oscillations finally happen,
-though. :)
-
-> the underlying code needs to be striving successfully for per-station
-> airtime fairness for this to work at all, and the driver/card
-> interface nearly as tight as BQL is for the fq portion to behave
-> sanely. I'd configure codel at a higher target and try to observe what
-> is going on at the fq level til that got saner.
-
-That seems like two good goals.  So Emmanuel's BQL-like thing seems
-like we'll need it soon.
-
-As for per-station airtime fairness, what's a good approximation of
-that?  Perhaps round-robin between stations, one aggregate per turn,
-where each aggregate has a maximum allowed latency?  I don't know how
-the current code works, but it's probably almost like that, as long as
-we only put one aggregate's worth of stuff into each hwq, which I
-guess is what the BQL-like thing will do.
-
-So if I understand correctly, what we need is, in the following order:
-1) Disable fq_codel for now, and get BQL-like thing working in ath9k
-(and ensure we're getting airtime fairness even without fq_codel);
-2) Re-enable fq_codel and increase fq_codel's target up to 20ms for now;
-3) Tweak fq_codel's "turn off" size to be larger (how important is this?)
-
-Is that right?
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+SUSE Linux GmbH, Maxfeldstr. 5, 90409 N=FCrnberg, Germany
+GF: Felix Imend=F6rffer, Jane Smithard, Graham Norton; HRB 21284 (AG N=FC=
+rnberg)
