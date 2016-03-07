@@ -1,67 +1,60 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH] ipv6: Fix the pmtu path for connected UDP socket
-Date: Mon, 7 Mar 2016 09:19:31 -0800
-Message-ID: <CANn89iJ6T-j2TWJEZ9VY+LHeH=Ei=MDKCU68v5zxdPS611ESjw@mail.gmail.com>
-References: <1456946361-9889-1-git-send-email-tracywwnj@gmail.com>
-	<20160306.005528.536271812454698509.davem@davemloft.net>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net-next PATCH 1/4] gre: Enforce IP ID verification on outer
+ headers
+Date: Mon, 07 Mar 2016 09:22:01 -0800
+Message-ID: <20160307172201.5295.69740.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Wei Wang <weiwan@google.com>, netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:37458 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752822AbcCGRTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 12:19:33 -0500
-Received: by mail-wm0-f43.google.com with SMTP id p65so78891661wmp.0
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 09:19:32 -0800 (PST)
-In-Reply-To: <20160306.005528.536271812454698509.davem@davemloft.net>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33785 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752427AbcCGRWI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 12:22:08 -0500
+Received: by mail-pa0-f42.google.com with SMTP id fl4so81702385pad.0
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 09:22:03 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 5, 2016 at 9:55 PM, David Miller <davem@davemloft.net> wrote:
-> From: Wei Wang <weiwan@google.com>
-> Date: Wed,  2 Mar 2016 11:19:21 -0800
->
->> @@ -566,7 +567,16 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
->>       if (type == ICMPV6_PKT_TOOBIG) {
->>               if (!ip6_sk_accept_pmtu(sk))
->>                       goto out;
->> -             ip6_sk_update_pmtu(skb, sk, info);
->> +             bh_lock_sock(sk);
->> +             if (sk->sk_state == TCP_ESTABLISHED &&
->> +                 !sock_owned_by_user(sk) &&
->> +                 ipv6_addr_equal(saddr, &sk->sk_v6_rcv_saddr) &&
->> +                 ipv6_addr_equal(daddr, &sk->sk_v6_daddr) &&
->> +                 uh->dest == sk->sk_dport)
->> +                     inet6_csk_update_pmtu(sk, ntohl(info));
->
-> If I apply this patch it will hide a bug.
->
-> Why isn't ip6_sk_update_pmtu() matching the same route as the
-> one attached to the socket?
->
-> I'd prefer you figure out what part of the lookup key used is
-> wrong, and fix that instead.
->
+This change enforces the IP ID verification on outer headers.  As a result
+if the DF flag is not set on the outer header we will force the flow to be
+flushed in the event that the IP ID is out of sequence with the existing
+flow.
 
-The dst itself is the same than the socket sk_dst_cache, but
-__ip6_rt_update_pmtu() sees rt6_cache_allowed_for_pmtu()
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+---
+ net/ipv4/gre_offload.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-We endup doing :
-
-                nrt6 = ip6_rt_cache_alloc(rt6, daddr, saddr);
-                if (nrt6) {
-                        rt6_do_update_pmtu(nrt6, mtu);
-
-                        /* ip6_ins_rt(nrt6) will bump the
-                         * rt6->rt6i_node->fn_sernum
-                         * which will fail the next rt6_check() and
-                         * invalidate the sk->sk_dst_cache.
-                         */
-                        ip6_ins_rt(nrt6);
-                }
-
-
-But apparently the sk->sk_dst_cache is _not_ invalidated, even if the
-comment loudly claims so.
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index 47f4c544c916..632733f18019 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -175,8 +175,6 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
+ 					     null_compute_pseudo);
+ 	}
+ 
+-	flush = 0;
+-
+ 	for (p = *head; p; p = p->next) {
+ 		const struct gre_base_hdr *greh2;
+ 
+@@ -205,6 +203,9 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
+ 				continue;
+ 			}
+ 		}
++
++		/* Include the IP ID check from the outer IP hdr */
++		NAPI_GRO_CB(p)->flush |= NAPI_GRO_CB(p)->flush_id;
+ 	}
+ 
+ 	skb_gro_pull(skb, grehlen);
+@@ -213,6 +214,7 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
+ 	skb_gro_postpull_rcsum(skb, greh, grehlen);
+ 
+ 	pp = ptype->callbacks.gro_receive(head, skb);
++	flush = 0;
+ 
+ out_unlock:
+ 	rcu_read_unlock();
