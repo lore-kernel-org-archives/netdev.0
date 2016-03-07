@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 9/9] samples/bpf: add map performance test
-Date: Sun, 6 Mar 2016 17:58:37 -0800
-Message-ID: <1457315917-1970307-10-git-send-email-ast@fb.com>
+Subject: [PATCH net-next 5/9] samples/bpf: move ksym_search() into library
+Date: Sun, 6 Mar 2016 17:58:33 -0800
+Message-ID: <1457315917-1970307-6-git-send-email-ast@fb.com>
 References: <1457315917-1970307-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,339 +15,206 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	<kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49986 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751974AbcCGB6o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 20:58:44 -0500
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u271vUhB009891
-	for <netdev@vger.kernel.org>; Sun, 6 Mar 2016 17:58:43 -0800
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:20567 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751938AbcCGB6m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 20:58:42 -0500
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u271sXse014721
+	for <netdev@vger.kernel.org>; Sun, 6 Mar 2016 17:58:42 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 21fv5bvrdc-4
+	by mx0a-00082601.pphosted.com with ESMTP id 21g18wm9at-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Sun, 06 Mar 2016 17:58:43 -0800
+	for <netdev@vger.kernel.org>; Sun, 06 Mar 2016 17:58:42 -0800
 Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.223.101.97) with ESMTP	id
- 1cfd853ce40811e5ac8224be0595f910-726d5270 for <netdev@vger.kernel.org>;	Sun,
- 06 Mar 2016 17:58:40 -0800
+ mx-out.facebook.com (10.223.100.99) with ESMTP	id
+ 1c7c0d36e40811e584c324be05956610-e1ae6270 for <netdev@vger.kernel.org>;	Sun,
+ 06 Mar 2016 17:58:39 -0800
 In-Reply-To: <1457315917-1970307-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-performance tests for hash map and per-cpu hash map
-with and without pre-allocation
+move ksym search from offwaketime into library to be reused
+in other tests
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- samples/bpf/Makefile             |   4 +
- samples/bpf/map_perf_test_kern.c | 100 +++++++++++++++++++++++++
- samples/bpf/map_perf_test_user.c | 155 +++++++++++++++++++++++++++++++++++++++
- 3 files changed, 259 insertions(+)
- create mode 100644 samples/bpf/map_perf_test_kern.c
- create mode 100644 samples/bpf/map_perf_test_user.c
+ samples/bpf/bpf_load.c         | 62 ++++++++++++++++++++++++++++++++++++++
+ samples/bpf/bpf_load.h         |  6 ++++
+ samples/bpf/offwaketime_user.c | 67 +-----------------------------------------
+ 3 files changed, 69 insertions(+), 66 deletions(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 75a13e742ab4..502c9fc8db85 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -18,6 +18,7 @@ hostprogs-y += trace_output
- hostprogs-y += lathist
- hostprogs-y += offwaketime
- hostprogs-y += spintest
-+hostprogs-y += map_perf_test
- 
- test_verifier-objs := test_verifier.o libbpf.o
- test_maps-objs := test_maps.o libbpf.o
-@@ -36,6 +37,7 @@ trace_output-objs := bpf_load.o libbpf.o trace_output_user.o
- lathist-objs := bpf_load.o libbpf.o lathist_user.o
- offwaketime-objs := bpf_load.o libbpf.o offwaketime_user.o
- spintest-objs := bpf_load.o libbpf.o spintest_user.o
-+map_perf_test-objs := bpf_load.o libbpf.o map_perf_test_user.o
- 
- # Tell kbuild to always build the programs
- always := $(hostprogs-y)
-@@ -53,6 +55,7 @@ always += tcbpf1_kern.o
- always += lathist_kern.o
- always += offwaketime_kern.o
- always += spintest_kern.o
-+always += map_perf_test_kern.o
- 
- HOSTCFLAGS += -I$(objtree)/usr/include
- 
-@@ -71,6 +74,7 @@ HOSTLOADLIBES_trace_output += -lelf -lrt
- HOSTLOADLIBES_lathist += -lelf
- HOSTLOADLIBES_offwaketime += -lelf
- HOSTLOADLIBES_spintest += -lelf
-+HOSTLOADLIBES_map_perf_test += -lelf -lrt
- 
- # point this to your LLVM backend with bpf support
- LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
-diff --git a/samples/bpf/map_perf_test_kern.c b/samples/bpf/map_perf_test_kern.c
-new file mode 100644
-index 000000000000..311538e5a701
---- /dev/null
-+++ b/samples/bpf/map_perf_test_kern.c
-@@ -0,0 +1,100 @@
-+/* Copyright (c) 2016 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <linux/version.h>
-+#include <uapi/linux/bpf.h>
-+#include "bpf_helpers.h"
+diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
+index 816bca5760a0..d16864293c00 100644
+--- a/samples/bpf/bpf_load.c
++++ b/samples/bpf/bpf_load.c
+@@ -346,3 +346,65 @@ void read_trace_pipe(void)
+ 		}
+ 	}
+ }
 +
-+#define MAX_ENTRIES 1000
++#define MAX_SYMS 300000
++static struct ksym syms[MAX_SYMS];
++static int sym_cnt;
 +
-+struct bpf_map_def SEC("maps") hash_map = {
-+	.type = BPF_MAP_TYPE_HASH,
-+	.key_size = sizeof(u32),
-+	.value_size = sizeof(long),
-+	.max_entries = MAX_ENTRIES,
-+};
-+
-+struct bpf_map_def SEC("maps") percpu_hash_map = {
-+	.type = BPF_MAP_TYPE_PERCPU_HASH,
-+	.key_size = sizeof(u32),
-+	.value_size = sizeof(long),
-+	.max_entries = MAX_ENTRIES,
-+};
-+
-+struct bpf_map_def SEC("maps") hash_map_alloc = {
-+	.type = BPF_MAP_TYPE_HASH,
-+	.key_size = sizeof(u32),
-+	.value_size = sizeof(long),
-+	.max_entries = MAX_ENTRIES,
-+	.map_flags = BPF_F_NO_PREALLOC,
-+};
-+
-+struct bpf_map_def SEC("maps") percpu_hash_map_alloc = {
-+	.type = BPF_MAP_TYPE_PERCPU_HASH,
-+	.key_size = sizeof(u32),
-+	.value_size = sizeof(long),
-+	.max_entries = MAX_ENTRIES,
-+	.map_flags = BPF_F_NO_PREALLOC,
-+};
-+
-+SEC("kprobe/sys_getuid")
-+int stress_hmap(struct pt_regs *ctx)
++static int ksym_cmp(const void *p1, const void *p2)
 +{
-+	u32 key = bpf_get_current_pid_tgid();
-+	long init_val = 1;
-+	long *value;
-+
-+	bpf_map_update_elem(&hash_map, &key, &init_val, BPF_ANY);
-+	value = bpf_map_lookup_elem(&hash_map, &key);
-+	if (value)
-+		bpf_map_delete_elem(&hash_map, &key);
-+	return 0;
++	return ((struct ksym *)p1)->addr - ((struct ksym *)p2)->addr;
 +}
 +
-+SEC("kprobe/sys_geteuid")
-+int stress_percpu_hmap(struct pt_regs *ctx)
++int load_kallsyms(void)
 +{
-+	u32 key = bpf_get_current_pid_tgid();
-+	long init_val = 1;
-+	long *value;
++	FILE *f = fopen("/proc/kallsyms", "r");
++	char func[256], buf[256];
++	char symbol;
++	void *addr;
++	int i = 0;
 +
-+	bpf_map_update_elem(&percpu_hash_map, &key, &init_val, BPF_ANY);
-+	value = bpf_map_lookup_elem(&percpu_hash_map, &key);
-+	if (value)
-+		bpf_map_delete_elem(&percpu_hash_map, &key);
-+	return 0;
-+}
-+SEC("kprobe/sys_getgid")
-+int stress_hmap_alloc(struct pt_regs *ctx)
-+{
-+	u32 key = bpf_get_current_pid_tgid();
-+	long init_val = 1;
-+	long *value;
++	if (!f)
++		return -ENOENT;
 +
-+	bpf_map_update_elem(&hash_map_alloc, &key, &init_val, BPF_ANY);
-+	value = bpf_map_lookup_elem(&hash_map_alloc, &key);
-+	if (value)
-+		bpf_map_delete_elem(&hash_map_alloc, &key);
-+	return 0;
-+}
-+
-+SEC("kprobe/sys_getegid")
-+int stress_percpu_hmap_alloc(struct pt_regs *ctx)
-+{
-+	u32 key = bpf_get_current_pid_tgid();
-+	long init_val = 1;
-+	long *value;
-+
-+	bpf_map_update_elem(&percpu_hash_map_alloc, &key, &init_val, BPF_ANY);
-+	value = bpf_map_lookup_elem(&percpu_hash_map_alloc, &key);
-+	if (value)
-+		bpf_map_delete_elem(&percpu_hash_map_alloc, &key);
-+	return 0;
-+}
-+char _license[] SEC("license") = "GPL";
-+u32 _version SEC("version") = LINUX_VERSION_CODE;
-diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
-new file mode 100644
-index 000000000000..95af56ec5739
---- /dev/null
-+++ b/samples/bpf/map_perf_test_user.c
-@@ -0,0 +1,155 @@
-+/* Copyright (c) 2016 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#define _GNU_SOURCE
-+#include <sched.h>
-+#include <stdio.h>
-+#include <sys/types.h>
-+#include <asm/unistd.h>
-+#include <unistd.h>
-+#include <assert.h>
-+#include <sys/wait.h>
-+#include <stdlib.h>
-+#include <signal.h>
-+#include <linux/bpf.h>
-+#include <string.h>
-+#include <time.h>
-+#include "libbpf.h"
-+#include "bpf_load.h"
-+
-+#define MAX_CNT 1000000
-+
-+static __u64 time_get_ns(void)
-+{
-+	struct timespec ts;
-+
-+	clock_gettime(CLOCK_MONOTONIC, &ts);
-+	return ts.tv_sec * 1000000000ull + ts.tv_nsec;
-+}
-+
-+#define HASH_PREALLOC		(1 << 0)
-+#define PERCPU_HASH_PREALLOC	(1 << 1)
-+#define HASH_KMALLOC		(1 << 2)
-+#define PERCPU_HASH_KMALLOC	(1 << 3)
-+
-+static int test_flags = ~0;
-+
-+static void test_hash_prealloc(int cpu)
-+{
-+	__u64 start_time;
-+	int i;
-+
-+	start_time = time_get_ns();
-+	for (i = 0; i < MAX_CNT; i++)
-+		syscall(__NR_getuid);
-+	printf("%d:hash_map_perf pre-alloc %lld events per sec\n",
-+	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
-+}
-+
-+static void test_percpu_hash_prealloc(int cpu)
-+{
-+	__u64 start_time;
-+	int i;
-+
-+	start_time = time_get_ns();
-+	for (i = 0; i < MAX_CNT; i++)
-+		syscall(__NR_geteuid);
-+	printf("%d:percpu_hash_map_perf pre-alloc %lld events per sec\n",
-+	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
-+}
-+
-+static void test_hash_kmalloc(int cpu)
-+{
-+	__u64 start_time;
-+	int i;
-+
-+	start_time = time_get_ns();
-+	for (i = 0; i < MAX_CNT; i++)
-+		syscall(__NR_getgid);
-+	printf("%d:hash_map_perf kmalloc %lld events per sec\n",
-+	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
-+}
-+
-+static void test_percpu_hash_kmalloc(int cpu)
-+{
-+	__u64 start_time;
-+	int i;
-+
-+	start_time = time_get_ns();
-+	for (i = 0; i < MAX_CNT; i++)
-+		syscall(__NR_getegid);
-+	printf("%d:percpu_hash_map_perf kmalloc %lld events per sec\n",
-+	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
-+}
-+
-+static void loop(int cpu)
-+{
-+	cpu_set_t cpuset;
-+
-+	CPU_ZERO(&cpuset);
-+	CPU_SET(cpu, &cpuset);
-+	sched_setaffinity(0, sizeof(cpuset), &cpuset);
-+
-+	if (test_flags & HASH_PREALLOC)
-+		test_hash_prealloc(cpu);
-+
-+	if (test_flags & PERCPU_HASH_PREALLOC)
-+		test_percpu_hash_prealloc(cpu);
-+
-+	if (test_flags & HASH_KMALLOC)
-+		test_hash_kmalloc(cpu);
-+
-+	if (test_flags & PERCPU_HASH_KMALLOC)
-+		test_percpu_hash_kmalloc(cpu);
-+}
-+
-+static void run_perf_test(int tasks)
-+{
-+	pid_t pid[tasks];
-+	int i;
-+
-+	for (i = 0; i < tasks; i++) {
-+		pid[i] = fork();
-+		if (pid[i] == 0) {
-+			loop(i);
-+			exit(0);
-+		} else if (pid[i] == -1) {
-+			printf("couldn't spawn #%d process\n", i);
-+			exit(1);
-+		}
++	while (!feof(f)) {
++		if (!fgets(buf, sizeof(buf), f))
++			break;
++		if (sscanf(buf, "%p %c %s", &addr, &symbol, func) != 3)
++			break;
++		if (!addr)
++			continue;
++		syms[i].addr = (long) addr;
++		syms[i].name = strdup(func);
++		i++;
 +	}
-+	for (i = 0; i < tasks; i++) {
-+		int status;
-+
-+		assert(waitpid(pid[i], &status, 0) == pid[i]);
-+		assert(status == 0);
-+	}
++	sym_cnt = i;
++	qsort(syms, sym_cnt, sizeof(struct ksym), ksym_cmp);
++	return 0;
 +}
 +
-+int main(int argc, char **argv)
++struct ksym *ksym_search(long key)
 +{
-+	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
-+	char filename[256];
-+	int num_cpu = 8;
++	int start = 0, end = sym_cnt;
++	int result;
 +
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+	setrlimit(RLIMIT_MEMLOCK, &r);
++	while (start < end) {
++		size_t mid = start + (end - start) / 2;
 +
-+	if (argc > 1)
-+		test_flags = atoi(argv[1]) ? : test_flags;
-+
-+	if (argc > 2)
-+		num_cpu = atoi(argv[2]) ? : num_cpu;
-+
-+	if (load_bpf_file(filename)) {
-+		printf("%s", bpf_log_buf);
-+		return 1;
++		result = key - syms[mid].addr;
++		if (result < 0)
++			end = mid;
++		else if (result > 0)
++			start = mid + 1;
++		else
++			return &syms[mid];
 +	}
 +
-+	run_perf_test(num_cpu);
++	if (start >= 1 && syms[start - 1].addr < key &&
++	    key < syms[start].addr)
++		/* valid ksym */
++		return &syms[start - 1];
 +
-+	return 0;
++	/* out of range. return _stext */
++	return &syms[0];
 +}
+diff --git a/samples/bpf/bpf_load.h b/samples/bpf/bpf_load.h
+index cbd7c2b532b9..dfa57fe65c8e 100644
+--- a/samples/bpf/bpf_load.h
++++ b/samples/bpf/bpf_load.h
+@@ -23,5 +23,11 @@ extern int event_fd[MAX_PROGS];
+ int load_bpf_file(char *path);
+ 
+ void read_trace_pipe(void);
++struct ksym {
++	long addr;
++	char *name;
++};
+ 
++int load_kallsyms(void);
++struct ksym *ksym_search(long key);
+ #endif
+diff --git a/samples/bpf/offwaketime_user.c b/samples/bpf/offwaketime_user.c
+index 17cf3024e22c..6f002a9c24fa 100644
+--- a/samples/bpf/offwaketime_user.c
++++ b/samples/bpf/offwaketime_user.c
+@@ -18,80 +18,15 @@
+ #include "libbpf.h"
+ #include "bpf_load.h"
+ 
+-#define MAX_SYMS 300000
+ #define PRINT_RAW_ADDR 0
+ 
+-static struct ksym {
+-	long addr;
+-	char *name;
+-} syms[MAX_SYMS];
+-static int sym_cnt;
+-
+-static int ksym_cmp(const void *p1, const void *p2)
+-{
+-	return ((struct ksym *)p1)->addr - ((struct ksym *)p2)->addr;
+-}
+-
+-static int load_kallsyms(void)
+-{
+-	FILE *f = fopen("/proc/kallsyms", "r");
+-	char func[256], buf[256];
+-	char symbol;
+-	void *addr;
+-	int i = 0;
+-
+-	if (!f)
+-		return -ENOENT;
+-
+-	while (!feof(f)) {
+-		if (!fgets(buf, sizeof(buf), f))
+-			break;
+-		if (sscanf(buf, "%p %c %s", &addr, &symbol, func) != 3)
+-			break;
+-		if (!addr)
+-			continue;
+-		syms[i].addr = (long) addr;
+-		syms[i].name = strdup(func);
+-		i++;
+-	}
+-	sym_cnt = i;
+-	qsort(syms, sym_cnt, sizeof(struct ksym), ksym_cmp);
+-	return 0;
+-}
+-
+-static void *search(long key)
+-{
+-	int start = 0, end = sym_cnt;
+-	int result;
+-
+-	while (start < end) {
+-		size_t mid = start + (end - start) / 2;
+-
+-		result = key - syms[mid].addr;
+-		if (result < 0)
+-			end = mid;
+-		else if (result > 0)
+-			start = mid + 1;
+-		else
+-			return &syms[mid];
+-	}
+-
+-	if (start >= 1 && syms[start - 1].addr < key &&
+-	    key < syms[start].addr)
+-		/* valid ksym */
+-		return &syms[start - 1];
+-
+-	/* out of range. return _stext */
+-	return &syms[0];
+-}
+-
+ static void print_ksym(__u64 addr)
+ {
+ 	struct ksym *sym;
+ 
+ 	if (!addr)
+ 		return;
+-	sym = search(addr);
++	sym = ksym_search(addr);
+ 	if (PRINT_RAW_ADDR)
+ 		printf("%s/%llx;", sym->name, addr);
+ 	else
 -- 
 2.6.5
