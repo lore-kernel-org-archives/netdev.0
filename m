@@ -1,37 +1,33 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [V2] rtlwifi: pass struct rtl_stats by reference as it is
- moreefficient
-Date: Mon,  7 Mar 2016 12:25:56 +0000 (UTC)
-Message-ID: <20160307122556.D5EFC6060D@smtp.codeaurora.org>
-References: <1456140946-12509-1-git-send-email-colin.king@canonical.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: rt2x00: add new rt2800usb device Buffalo WLI-UC-G450
+Date: Mon,  7 Mar 2016 12:27:58 +0000 (UTC)
+Message-ID: <20160307122758.DE9E6608BC@smtp.codeaurora.org>
+References: <1456240162-24118-1-git-send-email-anthony.wong@ubuntu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	Priit Laes <plaes-q/aMd4JkU83YtjvyW6yDsg@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1456140946-12509-1-git-send-email-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
+	Helmut Schaa <helmut.schaa@googlemail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org
+To: Anthony Wong <anthony.wong@ubuntu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:50554 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752180AbcCGM17 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 07:27:59 -0500
+In-Reply-To: <1456240162-24118-1-git-send-email-anthony.wong@ubuntu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> Add USB ID 0411:01fd for Buffalo WLI-UC-G450 wireless adapter,
+> RT chipset 3593
 > 
-> passing rtl_stats by value is inefficient; the structure is over 300
-> bytes in size and generally just one field (packet_report_type)
-> is being accessed, so the pass by value is a relatively large overhead.
-> This change just affects just the rx_command_packet calls.
-> 
-> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+> Signed-off-by: Anthony Wong <anthony.wong@ubuntu.com>
+> Cc: stable@vger.kernel.org
+> Acked-by: Stanislaw Gruszka <sgruszka@redhat.com>
 
 Thanks, applied to wireless-drivers-next.git.
 
 Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
