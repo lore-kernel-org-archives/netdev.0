@@ -1,33 +1,43 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next PATCH 3/4] vxlan: Enforce IP ID verification on outer headers
-Date: Mon, 7 Mar 2016 20:05:20 +0200
-Message-ID: <CAJ3xEMgpiaaLJrSqefOgrDVXsyKDtqSYQ7O01jq_UYp+UeT4bg@mail.gmail.com>
-References: <20160307172201.5295.69740.stgit@localhost.localdomain>
-	<20160307172214.5295.52624.stgit@localhost.localdomain>
+From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: Possible double-free in the usbnet driver
+Date: Mon, 7 Mar 2016 10:13:09 -0800
+Message-ID: <CA+55aFw43uKkUK-h=VMwXcb9NM+g2AdeB960kWb4YihmjQ8DRw@mail.gmail.com>
+References: <CA+55aFxqwjs5gs6Fw2jmTteWM4hZTnr7Ls111ExNTieObLs82Q@mail.gmail.com>
+	<CA+fCnZfS51F7WZEM1YTSPDMWSzvBTJWGf5cRWv5LrNCSOf_-qA@mail.gmail.com>
+	<CA+55aFwxbs_hLG58Q_xSK2vpufjmwMk-xkqxTNh_5h-A8y4vbg@mail.gmail.com>
+	<1457193090.8935.7.camel@suse.com>
+	<DBDB517D-E4A4-4422-AECE-52194FE2AED0@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Alexander Duyck <aduyck@mirantis.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f194.google.com ([209.85.213.194]:35623 "EHLO
-	mail-ig0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752248AbcCGSFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 13:05:21 -0500
-Received: by mail-ig0-f194.google.com with SMTP id ww10so742537igb.2
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 10:05:21 -0800 (PST)
-In-Reply-To: <20160307172214.5295.52624.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>,
+	Andrey Konovalov <andreyknvl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Alexander Potapenko <glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Kostya Serebryany <kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <DBDB517D-E4A4-4422-AECE-52194FE2AED0-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 7, 2016 at 7:22 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> This change enforces the IP ID verification on outer headers.  As a result
-> if the DF flag is not set on the outer header we will force the flow to be
-> flushed in the event that the IP ID is out of sequence with the existing
-> flow.
+On Sat, Mar 5, 2016 at 11:53 AM, Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
+>
+>
+> Definitely.  The patch is so obviously correct that we can only wonde=
+r how it was possible to miss it it the first place :)
+>
+> Will take a look to see if we could do a better job cleaning up in ot=
+her places.
 
-Can you please state the precise requirement for aggregation w.r.t IP
-IDs here? and point to where/how this is enforced, e.g for
-non-tunneled TCP GRO-ing?
+What should I do for 4.5? Will there be a pull request for this, or
+should I just commit my cdc_ncm_bind() patch directly?
 
-Or.
+              Linus
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
