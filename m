@@ -1,32 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 4/4] tipc: make sure required IPv6
- addresses are scoped
-Date: Sun, 06 Mar 2016 22:58:13 -0500 (EST)
-Message-ID: <20160306.225813.2194277093881747703.davem@davemloft.net>
-References: <1457011243-23605-1-git-send-email-richard.alpe@ericsson.com>
-	<1457011243-23605-4-git-send-email-richard.alpe@ericsson.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] asix: do not free array priv->mdio->irq
+Date: Sun, 06 Mar 2016 22:58:19 -0500 (EST)
+Message-ID: <20160306.225819.1378763526086745926.davem@davemloft.net>
+References: <1457011676-19042-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: richard.alpe@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43014 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751341AbcCGD6P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 22:58:15 -0500
-In-Reply-To: <1457011243-23605-4-git-send-email-richard.alpe@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1457011676-19042-1-git-send-email-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Alpe <richard.alpe@ericsson.com>
-Date: Thu, 3 Mar 2016 14:20:43 +0100
+From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Date: Thu,  3 Mar 2016 13:27:56 +0000
 
-> Make sure the user has provided a scope for multicast and link local
-> addresses used locally by a UDP bearer.
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 > 
-> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
-> Acked-by: Jon Maloy <jon.maloy@ericsson.com>
-> Reviewed-by: Erik Hugne <erik.hugne@gmail.com>
+> Used to be allocated and required freeing, but now
+> priv->mdio->irq is now a fixed sized array and should no longer be
+> free'd.
+> 
+> Issue detected using static analysis with CoverityScan
+> 
+> Fixes: e7f4dc3536a400 ("mdio: Move allocation of interrupts into core")
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
