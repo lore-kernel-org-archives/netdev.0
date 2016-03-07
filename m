@@ -1,41 +1,77 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: linux-next: manual merge of the crypto tree with the net-next tree
-Date: Mon, 07 Mar 2016 11:08:25 +0000
-Message-ID: <28626.1457348905@warthog.procyon.org.uk>
-References: <20160307131834.70da82d4@canb.auug.org.au>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [iproute PATCH 3/3] tc: pedit: Fix retain value for ihl
+ adjustments
+Date: Mon, 7 Mar 2016 06:21:17 -0500
+Message-ID: <56DD642D.8010401@mojatatu.com>
+References: <1456917631-18447-1-git-send-email-phil@nwl.cc>
+ <499abfe479324d1e83289cd68b2a7641@HQ1WP-EXMB11.corp.brocade.com>
+ <20160302095414.45a928df@xeon-e3> <56D84863.5090203@mojatatu.com>
+ <20160303143229.GC18624@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: dhowells@redhat.com, Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20160307131834.70da82d4@canb.auug.org.au>
-Content-ID: <28625.1457348905.1@warthog.procyon.org.uk>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Phil Sutter <phil@nwl.cc>,
+	Stephen Hemminger <shemming@brocade.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f195.google.com ([209.85.213.195]:33878 "EHLO
+	mail-ig0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752427AbcCGLVZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 06:21:25 -0500
+Received: by mail-ig0-f195.google.com with SMTP id vs8so2385978igb.1
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 03:21:24 -0800 (PST)
+In-Reply-To: <20160303143229.GC18624@orbyte.nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+On 16-03-03 09:32 AM, Phil Sutter wrote:
+> Hi,
+>
 
-> Today's linux-next merge of the crypto tree got a conflict in:
-> 
->   net/rxrpc/rxkad.c
-> 
-> between commit:
-> 
->   0d12f8a4027d ("rxrpc: Keep the skb private record of the Rx header in host byte order")
-> 
-> from the net-next tree and commit:
-> 
->   1afe593b4239 ("rxrpc: Use skcipher")
-> 
-> from the crypto tree.
+>
+>> The patches look good to me. Phil, maybe get rid of that comment at the
+>> top which was worrying about endianness. I think you fixed it.
+>
+> I'm not so sure. The kernel explicitly takes care to get the bit
+> ordering right:
+>
+[..]
+> act_pedit though just mangles the whole byte as-is, and if that was
+> correct, we would not have to go that extra mile in struct iphdr, or do
+> we?
+>
 
-What's the best way to deal with this?  Should I take Herbert's
+I meant in general - the note to say that there are endianes issues
+should go.
 
-	[PATCH 18/26] rxrpc: Use skcipher
 
-patch into my rxrpc tree also and pass it on to Dave?
+>> These would of course require more of a larger setup to vet
+>> and running tcpdump to check the correct bytes are being
+>> modified.
+>
 
-David
+Indeed - That is how i normally would test. It is more complex.
+Your scheme is good - but will not catch a kernel bug.
+
+> Since I am lazy, I wanted to have as much automation as possible while
+> testing. Therefore I just assumed that act_pedit does the right thing
+> all the time,
+
+famous last words ;->
+
+> and iproute just has to feed it correct values. Given the
+> scope of this patch, this is also completely sufficient. Of course, the
+> tests/ directory would benefit more from a full test. But since
+> automation then becomes tricky, I'm not sure it makes much sense to
+> deliberately write code for that.
+>
+
+Your test is still useful and i think should go into the tests dir.
+
+cheers,
+jamal
+
+> Thanks for the review,
+>
+> Phil
+>
