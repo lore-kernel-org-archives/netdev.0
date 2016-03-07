@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 net-next 0/2] tcp: Redundant Data Bundling (RDB)
-Date: Mon, 07 Mar 2016 14:36:53 -0500 (EST)
-Message-ID: <20160307.143653.1679598829375210676.davem@davemloft.net>
-References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
-	<1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
+Subject: Re: [PATCH net,stable] cdc_ncm: toggle altsetting to force reset
+ before setup
+Date: Mon, 07 Mar 2016 14:38:11 -0500 (EST)
+Message-ID: <20160307.143811.474380372887861694.davem@davemloft.net>
+References: <1457040053-25271-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, ycheng@google.com, eric.dumazet@gmail.com,
-	ncardwell@google.com, apetlund@simula.no, griff@simula.no,
-	paalh@simula.no, jonassm@ifi.uio.no, kristian.evensen@gmail.com,
-	kennetkl@ifi.uio.no
-To: bro.devel@gmail.com
+Cc: oliver@neukum.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53404 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53421 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752826AbcCGTgz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 14:36:55 -0500
-In-Reply-To: <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
+	with ESMTP id S1752850AbcCGTiN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 14:38:13 -0500
+In-Reply-To: <1457040053-25271-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Bendik R=F8nning Opstad" <bro.devel@gmail.com>
-Date: Thu,  3 Mar 2016 19:06:26 +0100
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Thu,  3 Mar 2016 22:20:53 +0100
 
-> Redundant Data Bundling (RDB) is a mechanism for TCP aimed at
-> reducing the latency for applications sending time-dependent data.
- ...
+> Some devices will silently fail setup unless they are reset first.
+> This is necessary even if the data interface is already in
+> altsetting 0, which it will be when the device is probed for the
+> first time.  Briefly toggling the altsetting forces a function
+> reset regardless of the initial state.
+>=20
+> This fixes a setup problem observed on a number of Huawei devices,
+> appearing to operate in NTB-32 mode even if we explicitly set them
+> to NTB-16 mode.
+>=20
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
 
-Can some TCP experts please review these patches?
-
-Thanks.
+Applied and queued up for -stable, thanks.
