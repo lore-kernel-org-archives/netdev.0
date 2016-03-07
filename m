@@ -1,40 +1,26 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net] ppp: release rtnl mutex when interface creation fails
-Date: Mon, 7 Mar 2016 19:36:44 +0100
-Message-ID: <cde1cd85393f3a2f0900b7c2ec6ed5f615783351.1457375501.git.g.nault@alphalink.fr>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: NFS mount crashes on linux-next 20160307
+Date: Mon, 7 Mar 2016 15:42:29 -0300
+Message-ID: <CAOMZO5Ct1sia6Ze5Uy5=046+9s6yQkgDK2T4=x+0xJrC=uCjwQ@mail.gmail.com>
+References: <CAOMZO5AAMuPTd63BS99waowH8n3caBeOaK-QWvUT4S-t8GpdFg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Mackerras <paulus@samba.org>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-nfs@vger.kernel.org
+To: trond.myklebust@primarydata.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:52338 "EHLO
-	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752082AbcCGSgu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 13:36:50 -0500
-Content-Disposition: inline
+Received: from mail-io0-f181.google.com ([209.85.223.181]:35624 "EHLO
+	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753497AbcCGSmn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 13:42:43 -0500
+In-Reply-To: <CAOMZO5AAMuPTd63BS99waowH8n3caBeOaK-QWvUT4S-t8GpdFg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add missing rtnl_unlock() in the error path of ppp_create_interface().
+On Mon, Mar 7, 2016 at 3:23 PM, Fabio Estevam <festevam@gmail.com> wrote:
+> Hi,
+>
+> Not able to NFS mount on a mx6sx-sdb board running linux-next 20160307:
 
-Fixes: 58a89ecaca53 ("ppp: fix lockdep splat in ppp_dev_uninit()")
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
- drivers/net/ppp/ppp_generic.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index e8a5936..d61da9ec 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -2816,6 +2816,7 @@ static struct ppp *ppp_create_interface(struct net *net, int unit,
- 
- out2:
- 	mutex_unlock(&pn->all_ppp_mutex);
-+	rtnl_unlock();
- 	free_netdev(dev);
- out1:
- 	*retp = ret;
--- 
-2.7.0
+Ops, I was using the wrong device tree. Sorry for the noise.
