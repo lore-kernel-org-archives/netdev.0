@@ -1,94 +1,165 @@
-From: Alexandre Torgue <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v4 2/4] Documentation: Bindings: Add STM32 DWMAC glue
-Date: Mon, 7 Mar 2016 10:26:02 +0100
-Message-ID: <CAJgp7zzRh+T_RSCUzLcgLa0oX3bEq2vGUuc4ikhHmp6iUajUEw@mail.gmail.com>
-References: <1457107086-14764-1-git-send-email-alexandre.torgue@gmail.com>
-	<1457107086-14764-3-git-send-email-alexandre.torgue@gmail.com>
-	<20160305043142.GK13525@rob-hp-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160305043142.GK13525@rob-hp-laptop>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH iproute2 net-next v3] bridge: mdb: add support for extended router port information
+Date: Mon,  7 Mar 2016 10:32:59 +0100
+Message-ID: <1457343179-30053-1-git-send-email-nikolay@cumulusnetworks.com>
+References: <1457022014-26726-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:36335 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752055AbcCGJdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 04:33:11 -0500
+Received: by mail-wm0-f44.google.com with SMTP id n186so76572219wmn.1
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 01:33:10 -0800 (PST)
+In-Reply-To: <1457022014-26726-1-git-send-email-nikolay@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rob,
+Recently a new temp router port mode was added and with it the dumped
+information was extended similar to how mdb entries were done. This
+patch adds support to dump the new information by using the "-s" switch.
+Example:
+$ bridge -d -s mdb show
+dev br0 port eth1 grp ff02::1:ffbf:5716 temp 234.39
+dev br0 port eth1 grp 239.0.0.2 temp  97.17
+dev br0 port eth1 grp 239.0.0.3 temp 105.36
+router ports on br0: eth1    0.00 permanent
+router ports on br0: eth2  254.87 temp
 
-2016-03-05 5:31 GMT+01:00 Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>:
-> On Fri, Mar 04, 2016 at 04:58:04PM +0100, Alexandre TORGUE wrote:
->> Signed-off-by: Alexandre TORGUE <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>
->> diff --git a/Documentation/devicetree/bindings/net/stm32-dwmac.txt b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
->> new file mode 100644
->> index 0000000..fd3566f
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
->> @@ -0,0 +1,35 @@
->> +STMicroelectronics STM32 / MCU DWMAC glue layer controller
->> +
->> +This file documents platform glue layer for stmmac.
->> +Please see stmmac.txt for the other unchanged properties.
->> +
->> +The device node has following properties.
->> +
->> +Required properties:
->
->> +- compatible:  Should be "st,stm32-dwmac" to select glue, and
->> +            "snps,dwmac-3.50a" to select IP vesrion.
->> +- clocks: Should contain the GMAC main clock, and tx clock
->
->> +- compatible:  Should be "st,stm32-dwmac" to select glue and
->> +            "snps,dwmac-3.50a" to select IP version.
->> +- clocks: Must contain an entry for each entry in clock-names.
->
-> ???
+It also updates the bridge man page.
 
-Shame on me, it is a stupid copy/paste issue. For clocks, final
-description could be:
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+v3: make is_temp_mcast_rtr bool and return the result directly as per
+Stephen's comment
+v2: print the values only if they were provided by the kernel, otherwise
+we might print "permanent" for a temporary entry on an older kernel.
 
- clocks: Must contain an entry for each entry in clock-names.
- clock-names: Should be "stmmaceth" for the host clock.
-                       Should be "tx-clk" for the MAC TX clock.
-                       Should be "rx-clk" for the MAC RX clock.
+ bridge/br_common.h |  3 +++
+ bridge/mdb.c       | 54 +++++++++++++++++++++++++++++++++++++++++++++---------
+ man/man8/bridge.8  |  6 +++++-
+ 3 files changed, 53 insertions(+), 10 deletions(-)
 
-Does it seem good for you ?
-
-Regards.
-
-Alex
-
->
->> +- clock-names: Should be "stmmaceth" for the host clock.
->> +            Should be "tx-clk" for the MAC TX clock.
->> +            Should be "rx-clk" for the MAC RX clock.
->> +- st,syscon : Should be phandle/offset pair. The phandle to the syscon node which
->> +           encompases the glue register, and the offset of the control register.
->> +Example:
->> +
->> +             ethernet0: dwmac@40028000 {
->> +                     compatible = "st,stm32-dwmac", "snps,dwmac-3.50a";
->> +                     status = "disabled";
->> +                     reg = <0x40028000 0x8000>;
->> +                     reg-names = "stmmaceth";
->> +                     interrupts = <0 61 0>, <0 62 0>;
->> +                     interrupt-names = "macirq", "eth_wake_irq";
->> +                     clock-names = "stmmaceth", "tx-clk", "rx-clk";
->> +                     clocks = <&rcc 0 25>, <&rcc 0 26>, <&rcc 0 27>;
->> +                     st,syscon = <&syscfg 0x4>;
->> +                     snps,pbl = <8>;
->> +                     snps,mixed-burst;
->> +                     dma-ranges;
->> +             };
->> --
->> 1.9.1
->>
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/bridge/br_common.h b/bridge/br_common.h
+index 41eb0dc38293..5ea45c9e654d 100644
+--- a/bridge/br_common.h
++++ b/bridge/br_common.h
+@@ -1,6 +1,9 @@
+ #define MDB_RTA(r) \
+ 		((struct rtattr *)(((char *)(r)) + RTA_ALIGN(sizeof(struct br_mdb_entry))))
+ 
++#define MDB_RTR_RTA(r) \
++		((struct rtattr *)(((char *)(r)) + RTA_ALIGN(sizeof(__u32))))
++
+ extern int print_linkinfo(const struct sockaddr_nl *who,
+ 			  struct nlmsghdr *n,
+ 			  void *arg);
+diff --git a/bridge/mdb.c b/bridge/mdb.c
+index 600596c94969..676e4f62f740 100644
+--- a/bridge/mdb.c
++++ b/bridge/mdb.c
+@@ -33,19 +33,57 @@ static void usage(void)
+ 	exit(-1);
+ }
+ 
+-static void br_print_router_ports(FILE *f, struct rtattr *attr)
++static bool is_temp_mcast_rtr(__u8 type)
+ {
++	return type == MDB_RTR_TYPE_TEMP_QUERY || type == MDB_RTR_TYPE_TEMP;
++}
++
++static void br_print_router_ports(FILE *f, struct rtattr *attr, __u32 brifidx)
++{
++	struct rtattr *tb[MDBA_ROUTER_PATTR_MAX + 1];
+ 	uint32_t *port_ifindex;
+ 	struct rtattr *i;
+ 	int rem;
+ 
++	if (!show_stats)
++		fprintf(f, "router ports on %s: ", ll_index_to_name(brifidx));
++
+ 	rem = RTA_PAYLOAD(attr);
+ 	for (i = RTA_DATA(attr); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
+ 		port_ifindex = RTA_DATA(i);
+-		fprintf(f, "%s ", ll_index_to_name(*port_ifindex));
++		parse_rtattr(tb, MDBA_ROUTER_PATTR_MAX,
++			     MDB_RTR_RTA(RTA_DATA(i)),
++			     RTA_PAYLOAD(i) - RTA_ALIGN(sizeof(*port_ifindex)));
++		if (show_stats) {
++			fprintf(f, "router ports on %s: %s",
++				ll_index_to_name(brifidx),
++				ll_index_to_name(*port_ifindex));
++			if (tb[MDBA_ROUTER_PATTR_TIMER]) {
++				struct timeval tv;
++				__u32 tval;
++
++				tval = rta_getattr_u32(
++						tb[MDBA_ROUTER_PATTR_TIMER]);
++				__jiffies_to_tv(&tv, tval);
++				fprintf(f, " %4i.%.2i",
++					(int)tv.tv_sec, (int)tv.tv_usec/10000);
++			}
++			if (tb[MDBA_ROUTER_PATTR_TYPE]) {
++				__u8 type;
++
++				type = rta_getattr_u8(
++						tb[MDBA_ROUTER_PATTR_TYPE]);
++				fprintf(f, " %s",
++					is_temp_mcast_rtr(type) ? "temp" :
++								  "permanent");
++			}
++			fprintf(f, "\n");
++		} else {
++			fprintf(f, "%s ", ll_index_to_name(*port_ifindex));
++		}
+ 	}
+-
+-	fprintf(f, "\n");
++	if (!show_stats)
++		fprintf(f, "\n");
+ }
+ 
+ static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e,
+@@ -127,11 +165,9 @@ int print_mdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 
+ 	if (tb[MDBA_ROUTER]) {
+ 		if (n->nlmsg_type == RTM_GETMDB) {
+-			if (show_details) {
+-				fprintf(fp, "router ports on %s: ",
+-					ll_index_to_name(r->ifindex));
+-				br_print_router_ports(fp, tb[MDBA_ROUTER]);
+-			}
++			if (show_details)
++				br_print_router_ports(fp, tb[MDBA_ROUTER],
++						      r->ifindex);
+ 		} else {
+ 			uint32_t *port_ifindex;
+ 
+diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+index 0e98edf4762f..08e8a5bf5a08 100644
+--- a/man/man8/bridge.8
++++ b/man/man8/bridge.8
+@@ -119,6 +119,10 @@ is given multiple times, the amount of information increases.
+ As a rule, the information is statistics or some time values.
+ 
+ .TP
++.BR "\-d" , " \-details"
++print detailed information about MDB router ports.
++
++.TP
+ .BR "\-n" , " \-net" , " \-netns " <NETNS>
+ switches
+ .B bridge
+@@ -506,7 +510,7 @@ a connected router.
+ .PP
+ With the
+ .B -statistics
+-option, the command displays timer values for mdb entries.
++option, the command displays timer values for mdb and router port entries.
+ 
+ .SH bridge vlan - VLAN filter list
+ 
+-- 
+2.4.3
