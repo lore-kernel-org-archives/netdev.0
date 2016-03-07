@@ -1,165 +1,159 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH iproute2 net-next v3] bridge: mdb: add support for extended router port information
-Date: Mon,  7 Mar 2016 10:32:59 +0100
-Message-ID: <1457343179-30053-1-git-send-email-nikolay@cumulusnetworks.com>
-References: <1457022014-26726-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+Subject: RE: [PATCH v2] can: rcar_canfd: Add Renesas R-Car CAN FD driver
+Date: Mon, 7 Mar 2016 09:33:28 +0000
+Message-ID: <SG2PR06MB10389F82D83C6D4B89F75BC1C3B10@SG2PR06MB1038.apcprd06.prod.outlook.com>
+References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+ <1457019515-21158-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+ <20160305043010.GC13525@rob-hp-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "mkl@pengutronix.de" <mkl@pengutronix.de>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"pawel.moll@arm.com" <pawel.moll@arm.com>,
+	"mark.rutland@arm.com" <mark.rutland@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	"galak@codeaurora.org" <galak@codeaurora.org>,
+	"corbet@lwn.net" <corbet@lwn.net>,
+	"linux-renesas-soc@vger.kernel.org"
+	<linux-renesas-soc@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"geert+renesas@glider.be" <geert+renesas@glider.be>,
+	Chris Paterson <Chris.Paterson2@renesas.com>
+To: Rob Herring <robh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:36335 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752055AbcCGJdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 04:33:11 -0500
-Received: by mail-wm0-f44.google.com with SMTP id n186so76572219wmn.1
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 01:33:10 -0800 (PST)
-In-Reply-To: <1457022014-26726-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from relmlor3.renesas.com ([210.160.252.173]:65448 "EHLO
+	relmlie2.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752055AbcCGJde convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2016 04:33:34 -0500
+In-Reply-To: <20160305043010.GC13525@rob-hp-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recently a new temp router port mode was added and with it the dumped
-information was extended similar to how mdb entries were done. This
-patch adds support to dump the new information by using the "-s" switch.
-Example:
-$ bridge -d -s mdb show
-dev br0 port eth1 grp ff02::1:ffbf:5716 temp 234.39
-dev br0 port eth1 grp 239.0.0.2 temp  97.17
-dev br0 port eth1 grp 239.0.0.3 temp 105.36
-router ports on br0: eth1    0.00 permanent
-router ports on br0: eth2  254.87 temp
+Hi Rob,
 
-It also updates the bridge man page.
+Thanks for the review comments.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-v3: make is_temp_mcast_rtr bool and return the result directly as per
-Stephen's comment
-v2: print the values only if they were provided by the kernel, otherwise
-we might print "permanent" for a temporary entry on an older kernel.
+> On Thu, Mar 03, 2016 at 03:38:35PM +0000, Ramesh Shanmugasundaram wrote:
+> > This patch adds support for the CAN FD controller found in Renesas
+> > R-Car SoCs. The controller operates in CAN FD mode by default.
+> >
+> > CAN FD mode supports both Classical CAN & CAN FD frame formats. The
+> > controller supports ISO 11898-1:2015 CAN FD format only.
+> >
+> > This controller supports two channels and the driver can enable either
+> > or both of the channels.
+> >
+> > Driver uses Rx FIFOs (one per channel) for reception & Common FIFOs
+> > (one per channel) for transmission. Rx filter rules are configured to
+> > the minimum (one per channel) and it accepts Standard, Extended, Data
+> > & Remote Frame combinations.
+> >
+> > Note: There are few documentation errors in R-Car Gen3 Hardware User
+> > Manual v0.5E with respect to CAN FD controller. They are listed below:
+> >
+> > 1. CAN FD interrupt numbers 29 & 30 are listed as per channel
+> > interrupts. However, they are common to both channels (i.e.) they are
+> > global and channel interrupts respectively.
+> >
+> > 2. CANFD clock is derived from PLL1. This is not documented.
+> >
+> > 3. CANFD clock is further divided by (1/2) within the CAN FD controller.
+> > This is not documented.
+> >
+> > 4. The minimum value of NTSEG1 in RSCFDnCFDCmNCFG register is 2 Tq. It
+> > is mentioned 4 Tq in the manual.
+> >
+> > 5. The maximum number of message RAM area the controller can use is
+> > 3584 bytes. It is specified 10752 bytes in the manual.
+> >
+> > Signed-off-by: Ramesh Shanmugasundaram
+> > <ramesh.shanmugasundaram@bp.renesas.com>
+> > ---
+> > Changes since v1:
+> > 	* Removed testmodes & debugfs code (suggested by Oliver H)
+> > 	* Fixed tx path race issue by introducing lock (suggested by Marc K)
+> > 	* Removed __maybe_unused attribute of rcar_canfd_of_table
+> >
+> > Thanks,
+> > Ramesh
+> > ---
+> >  .../devicetree/bindings/net/can/rcar_canfd.txt     |   86 ++
+> >  drivers/net/can/Kconfig                            |   10 +
+> >  drivers/net/can/Makefile                           |    1 +
+> >  drivers/net/can/rcar_canfd.c                       | 1624
+> ++++++++++++++++++++
+> >  4 files changed, 1721 insertions(+)
+> >  create mode 100644
+> > Documentation/devicetree/bindings/net/can/rcar_canfd.txt
+> >  create mode 100644 drivers/net/can/rcar_canfd.c
+> >
+> > diff --git a/Documentation/devicetree/bindings/net/can/rcar_canfd.txt
+> > b/Documentation/devicetree/bindings/net/can/rcar_canfd.txt
+> > new file mode 100644
+> > index 0000000..4299bd8
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/net/can/rcar_canfd.txt
+> > @@ -0,0 +1,86 @@
+> > +Renesas R-Car CAN FD controller Device Tree Bindings
+> > +----------------------------------------------------
+> > +
+> > +Required properties:
+> > +- compatible: Must contain one or more of the following:
+> > +  - "renesas,rcar-gen3-canfd" for R-Car Gen3 compatible controller.
+> > +  - "renesas,r8a7795-canfd" for R8A7795 (R-Car H3) compatible
+> controller.
+> > +
+> > +  When compatible with the generic version, nodes must list the
+> > + SoC-specific version corresponding to the platform first, followed
+> > + by the  family-specific and/or generic versions.
+> > +
+> > +- reg: physical base address and size of the R-Car CAN FD register map.
+> > +- interrupts: interrupt specifier for the Global & Channel interrupts
+> > +- clocks: phandles and clock specifiers for 3 clock inputs.
+> > +- clock-names: 3 clock input name strings: "fck", "canfd", "can_clk".
+> > +- pinctrl-0: pin control group to be used for this controller.
+> > +- pinctrl-names: must be "default".
+> > +
+> > +Required properties for "renesas,r8a7795-canfd" compatible:
+> > +In R8A7795 SoC, canfd clock is a div6 clock and can be used by both
+> > +CAN and CAN FD controller at the same time. It needs to be scaled to
+> > +maximum frequency if any of these controllers use it. This is done
+> > +using the below properties.
+> > +
+> > +- assigned-clocks: phandle of canfd clock.
+> > +- assigned-clock-rates: maximum frequency of this clock.
+> > +
+> > +Each channel is represented as a child node. They can be
+> > +enabled/disabled using "status" property.
+> 
+> How many channels? Required or optional?
 
- bridge/br_common.h |  3 +++
- bridge/mdb.c       | 54 +++++++++++++++++++++++++++++++++++++++++++++---------
- man/man8/bridge.8  |  6 +++++-
- 3 files changed, 53 insertions(+), 10 deletions(-)
+Two channels and it is a required property. I will update as below in the next revision.
 
-diff --git a/bridge/br_common.h b/bridge/br_common.h
-index 41eb0dc38293..5ea45c9e654d 100644
---- a/bridge/br_common.h
-+++ b/bridge/br_common.h
-@@ -1,6 +1,9 @@
- #define MDB_RTA(r) \
- 		((struct rtattr *)(((char *)(r)) + RTA_ALIGN(sizeof(struct br_mdb_entry))))
- 
-+#define MDB_RTR_RTA(r) \
-+		((struct rtattr *)(((char *)(r)) + RTA_ALIGN(sizeof(__u32))))
-+
- extern int print_linkinfo(const struct sockaddr_nl *who,
- 			  struct nlmsghdr *n,
- 			  void *arg);
-diff --git a/bridge/mdb.c b/bridge/mdb.c
-index 600596c94969..676e4f62f740 100644
---- a/bridge/mdb.c
-+++ b/bridge/mdb.c
-@@ -33,19 +33,57 @@ static void usage(void)
- 	exit(-1);
- }
- 
--static void br_print_router_ports(FILE *f, struct rtattr *attr)
-+static bool is_temp_mcast_rtr(__u8 type)
- {
-+	return type == MDB_RTR_TYPE_TEMP_QUERY || type == MDB_RTR_TYPE_TEMP;
-+}
-+
-+static void br_print_router_ports(FILE *f, struct rtattr *attr, __u32 brifidx)
-+{
-+	struct rtattr *tb[MDBA_ROUTER_PATTR_MAX + 1];
- 	uint32_t *port_ifindex;
- 	struct rtattr *i;
- 	int rem;
- 
-+	if (!show_stats)
-+		fprintf(f, "router ports on %s: ", ll_index_to_name(brifidx));
-+
- 	rem = RTA_PAYLOAD(attr);
- 	for (i = RTA_DATA(attr); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
- 		port_ifindex = RTA_DATA(i);
--		fprintf(f, "%s ", ll_index_to_name(*port_ifindex));
-+		parse_rtattr(tb, MDBA_ROUTER_PATTR_MAX,
-+			     MDB_RTR_RTA(RTA_DATA(i)),
-+			     RTA_PAYLOAD(i) - RTA_ALIGN(sizeof(*port_ifindex)));
-+		if (show_stats) {
-+			fprintf(f, "router ports on %s: %s",
-+				ll_index_to_name(brifidx),
-+				ll_index_to_name(*port_ifindex));
-+			if (tb[MDBA_ROUTER_PATTR_TIMER]) {
-+				struct timeval tv;
-+				__u32 tval;
-+
-+				tval = rta_getattr_u32(
-+						tb[MDBA_ROUTER_PATTR_TIMER]);
-+				__jiffies_to_tv(&tv, tval);
-+				fprintf(f, " %4i.%.2i",
-+					(int)tv.tv_sec, (int)tv.tv_usec/10000);
-+			}
-+			if (tb[MDBA_ROUTER_PATTR_TYPE]) {
-+				__u8 type;
-+
-+				type = rta_getattr_u8(
-+						tb[MDBA_ROUTER_PATTR_TYPE]);
-+				fprintf(f, " %s",
-+					is_temp_mcast_rtr(type) ? "temp" :
-+								  "permanent");
-+			}
-+			fprintf(f, "\n");
-+		} else {
-+			fprintf(f, "%s ", ll_index_to_name(*port_ifindex));
-+		}
- 	}
--
--	fprintf(f, "\n");
-+	if (!show_stats)
-+		fprintf(f, "\n");
- }
- 
- static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e,
-@@ -127,11 +165,9 @@ int print_mdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 
- 	if (tb[MDBA_ROUTER]) {
- 		if (n->nlmsg_type == RTM_GETMDB) {
--			if (show_details) {
--				fprintf(fp, "router ports on %s: ",
--					ll_index_to_name(r->ifindex));
--				br_print_router_ports(fp, tb[MDBA_ROUTER]);
--			}
-+			if (show_details)
-+				br_print_router_ports(fp, tb[MDBA_ROUTER],
-+						      r->ifindex);
- 		} else {
- 			uint32_t *port_ifindex;
- 
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index 0e98edf4762f..08e8a5bf5a08 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -119,6 +119,10 @@ is given multiple times, the amount of information increases.
- As a rule, the information is statistics or some time values.
- 
- .TP
-+.BR "\-d" , " \-details"
-+print detailed information about MDB router ports.
-+
-+.TP
- .BR "\-n" , " \-net" , " \-netns " <NETNS>
- switches
- .B bridge
-@@ -506,7 +510,7 @@ a connected router.
- .PP
- With the
- .B -statistics
--option, the command displays timer values for mdb entries.
-+option, the command displays timer values for mdb and router port entries.
- 
- .SH bridge vlan - VLAN filter list
- 
--- 
-2.4.3
+Required child node:
+The controller supports two channels and each is represented as a child
+node. The names of the child nodes are "channel0" and "channel1" respectively.
+Each child node supports the "status" property only, which is used to
+enable/disable the respective channel.
+
+> 
+> > +
+> > +Example
+> > +-------
+> > +
+> > +SoC common .dtsi file:
+> > +
+> > +		canfd: canfd@e66c0000 {
+> 
+> can@e66c0000
+
+Thanks. I will update.
+
+Thanks,
+Ramesh
