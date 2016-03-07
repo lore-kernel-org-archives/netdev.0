@@ -1,77 +1,66 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: Possible double-free in the usbnet driver
-Date: Mon, 07 Mar 2016 14:11:00 -0500 (EST)
-Message-ID: <20160307.141100.1511700720120062677.davem@davemloft.net>
-References: <1457193090.8935.7.camel@suse.com>
-	<DBDB517D-E4A4-4422-AECE-52194FE2AED0@mork.no>
-	<CA+55aFw43uKkUK-h=VMwXcb9NM+g2AdeB960kWb4YihmjQ8DRw@mail.gmail.com>
+From: Josh Hunt <johunt@akamai.com>
+Subject: Re: [PATCH] udp6: fix UDP/IPv6 encap resubmit path
+Date: Mon, 7 Mar 2016 13:27:00 -0600
+Message-ID: <56DDD604.2080109@akamai.com>
+References: <1457131641-79311-1-git-send-email-wsommerfeld@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bjorn-yOkvZcmFvRU@public.gmane.org, oneukum-IBi9RG/b67k@public.gmane.org, andreyknvl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+55aFw43uKkUK-h=VMwXcb9NM+g2AdeB960kWb4YihmjQ8DRw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bill Sommerfeld <wsommerfeld@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from prod-mail-xrelay06.akamai.com ([96.6.114.98]:48374 "EHLO
+	prod-mail-xrelay06.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753402AbcCGTfC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 14:35:02 -0500
+In-Reply-To: <1457131641-79311-1-git-send-email-wsommerfeld@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Date: Mon, 7 Mar 2016 10:13:09 -0800
+On 03/04/2016 04:47 PM, Bill Sommerfeld wrote:
+> IPv4 interprets a negative return value from a protocol handler as a
+> request to redispatch to a new protocol.  In contrast, IPv6 interprets a
+> negative value as an error, and interprets a positive value as a request
+> for redispatch.
+>
+> UDP for IPv6 was unaware of this difference.  Change __udp6_lib_rcv() to
+> return a positive value for redispatch.  Note that the socket's
+> encap_rcv hook still needs to return a negative value to request
+> dispatch, and in the case of IPv6 packets, adjust IP6CB(skb)->nhoff to
+> identify the byte containing the next protocol.
+>
+> Signed-off-by: Bill Sommerfeld <wsommerfeld@google.com>
+> ---
+>   net/ipv6/udp.c | 6 ++----
+>   1 file changed, 2 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index 0711f8f..fd25e44 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -922,11 +922,9 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+>   		ret = udpv6_queue_rcv_skb(sk, skb);
+>   		sock_put(sk);
+>
+> -		/* a return value > 0 means to resubmit the input, but
+> -		 * it wants the return to be -protocol, or 0
+> -		 */
+> +		/* a return value > 0 means to resubmit the input */
+>   		if (ret > 0)
+> -			return -ret;
+> +			return ret;
+>
+>   		return 0;
+>   	}
+>
 
-> On Sat, Mar 5, 2016 at 11:53 AM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
->>
->>
->> Definitely.  The patch is so obviously correct that we can only wond=
-er how it was possible to miss it it the first place :)
->>
->> Will take a look to see if we could do a better job cleaning up in o=
-ther places.
->=20
-> What should I do for 4.5? Will there be a pull request for this, or
-> should I just commit my cdc_ncm_bind() patch directly?
+This looks good to me. Thanks Bill!
 
-Yes I plan to send you a pull request today with Oliver's fix.
-
-Assuming this is what you guys are referring to:
-
-commit 1666984c8625b3db19a9abc298931d35ab7bc64b
-Author: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Date:   Mon Mar 7 11:31:10 2016 +0100
-
-    usbnet: cleanup after bind() in probe()
-   =20
-    In case bind() works, but a later error forces bailing
-    in probe() in error cases work and a timer may be scheduled.
-    They must be killed. This fixes an error case related to
-    the double free reported in
-    http://www.spinics.net/lists/netdev/msg367669.html
-    and needs to go on top of Linus' fix to cdc-ncm.
-   =20
-    Signed-off-by: Oliver Neukum <ONeukum-IBi9RG/b67k@public.gmane.org>
-    Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 0b0ba7e..1079812 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1769,6 +1769,13 @@ out3:
- 	if (info->unbind)
- 		info->unbind (dev, udev);
- out1:
-+	/* subdrivers must undo all they did in bind() if they
-+	 * fail it, but we may fail later and a deferred kevent
-+	 * may trigger an error resubmitting itself and, worse,
-+	 * schedule a timer. So we kill it all just in case.
-+	 */
-+	cancel_work_sync(&dev->kevent);
-+	del_timer_sync(&dev->delay);
- 	free_netdev(net);
- out:
- 	return status;
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Josh
