@@ -1,31 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] tipc: move netlink policies to netlink.c
-Date: Mon, 07 Mar 2016 14:56:55 -0500 (EST)
-Message-ID: <20160307.145655.1846908007653575468.davem@davemloft.net>
-References: <1457107482-15425-1-git-send-email-richard.alpe@ericsson.com>
+Subject: Re: pull-request: wireless-drivers 2016-03-04
+Date: Mon, 07 Mar 2016 14:58:46 -0500 (EST)
+Message-ID: <20160307.145846.1683217547468825384.davem@davemloft.net>
+References: <87lh5yw6o1.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-	jon.maloy@ericsson.com
-To: richard.alpe@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53621 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753464AbcCGT46 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 14:56:58 -0500
-In-Reply-To: <1457107482-15425-1-git-send-email-richard.alpe@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87lh5yw6o1.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Alpe <richard.alpe@ericsson.com>
-Date: Fri, 4 Mar 2016 17:04:42 +0100
+From: Kalle Valo <kvalo@codeaurora.org>
+Date: Fri, 04 Mar 2016 18:26:38 +0200
 
-> Make the c files less cluttered and enable netlink attributes to be
-> shared between files.
-> 
-> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
-> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-> Acked-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+> three more fixes I would like to get to 4.5 still. It's getting late but
+> I think these are still justified and these have been in linux-next
+> almost a week. But if you think otherwise please let me know and I'll
+> pull these to wireless-drivers-next instead.
 
-Applied, thanks for cleaning this up.
+Pulled, thanks.
