@@ -1,59 +1,104 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 2/2] sh_eth: advance 'rxdesc' later in sh_eth_ring_format()
-Date: Tue, 08 Mar 2016 01:37:09 +0300
-Message-ID: <3282122.t8AnRHByyx@wasted.cogentembedded.com>
-References: <4881302.XJJSmqvE1J@wasted.cogentembedded.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 01/11] rxrpc: Add a common object cache
+Date: Mon, 07 Mar 2016 22:45:14 +0000
+Message-ID: <23389.1457390714@warthog.procyon.org.uk>
+References: <20160307.134233.201526978853409580.davem@davemloft.net> <20160307143759.18567.8234.stgit@warthog.procyon.org.uk> <20160307143806.18567.30020.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-renesas-soc@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:35020 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753567AbcCGWhN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 17:37:13 -0500
-Received: by mail-lb0-f182.google.com with SMTP id bc4so148168539lbc.2
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 14:37:12 -0800 (PST)
-In-Reply-To: <4881302.XJJSmqvE1J@wasted.cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160307.134233.201526978853409580.davem@davemloft.net>
+Content-ID: <23388.1457390714.1@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Iff dma_map_single() fails, 'rxdesc'  should point  to the last filled RX
-descriptor, so  that it can be marked as the last one, however the driver
-would have  already  advanced it by that time. In order to fix that, only
-fill  an RX descriptor  once all the data for it is ready.
+David Miller <davem@davemloft.net> wrote:
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> I know you put a lot of time and effort into this, but I want to strongly
+> recommend against a garbage collected hash table for anything whatsoever.
+> 
+> Especially if the given objects are in some way created/destroyed/etc. by
+> operations triggerable remotely.
+> 
+> This can be DoS'd quite trivially, and that's why we have removed the ipv4
+> routing cache which did the same.
 
----
- drivers/net/ethernet/renesas/sh_eth.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+Hmmm...  You have a point.  What would you suggest instead?  At least with the
+common object cache code I have, I might be able to just change that.
 
-Index: net/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1136,11 +1136,8 @@ static void sh_eth_ring_format(struct ne
- 			break;
- 		sh_eth_set_receive_align(skb);
- 
--		/* RX descriptor */
--		rxdesc = &mdp->rx_ring[i];
- 		/* The size of the buffer is a multiple of 32 bytes. */
- 		buf_len = ALIGN(mdp->rx_buf_sz, 32);
--		rxdesc->len = cpu_to_le32(buf_len << 16);
- 		dma_addr = dma_map_single(&ndev->dev, skb->data, buf_len,
- 					  DMA_FROM_DEVICE);
- 		if (dma_mapping_error(&ndev->dev, dma_addr)) {
-@@ -1148,6 +1145,10 @@ static void sh_eth_ring_format(struct ne
- 			break;
- 		}
- 		mdp->rx_skbuff[i] = skb;
-+
-+		/* RX descriptor */
-+		rxdesc = &mdp->rx_ring[i];
-+		rxdesc->len = cpu_to_le32(buf_len << 16);
- 		rxdesc->addr = cpu_to_le32(dma_addr);
- 		rxdesc->status = cpu_to_le32(RD_RACT | RD_RFP);
- 
+Some thoughts/notes:
+
+ (1) Connection objects must have a time delay before expiry after last use.
+
+     A connection object represents a negotiated security context (involving
+     sending CHALLENGE and RESPONSE packets) and stores a certain amount of
+     crypto state set up that can be reused (potentially for up to 4 billion
+     calls).
+
+     The set up cost of a connection is therefore typically non-trivial (you
+     can have a connection without any security, but this can only do
+     anonymous operations since the negotiated security represents
+     authentication as well as data encryption).
+
+     Once I kill off an incoming connection object, I have to set up the
+     connection object anew for the next call on the same connection.  Now,
+     granted, it's always possible that there will be a new incoming call the
+     moment I kill off a connection - but this is much more likely if the
+     connection is killed off immediately.
+
+     Similarly, outgoing connections are meant to be reusable, given the same
+     parameters - but if, say, a client program is making a series of calls
+     and I kill the connection off immediately a call is dead, then I have to
+     set up a new connection for each call the client makes.
+
+     The way AF_RXRPC currently works, userspace clients don't interact
+     directly with connection and peer objects - only calls.  I'd rather not
+     have to expose the management of those to userspace.
+
+ (2) A connection also retains the final state of the call recently terminated
+     on that connection in each call slot (channel) until that slot is reused.
+     This allows re-sending of final ACK and ABORT packets.
+
+     If I immediately kill off a connection, I can't do this.
+
+ (3) A local endpoint object is a purely local affair, maximum count 1 per
+     open AF_RXRPC socket.  These can be destroyed the moment all pinning
+     sockets and connections are gone - but these aren't really a problem.
+
+ (4) A peer object can be disposed of when all the connections using it are
+     gone - at the cost of losing the determined MTU data.  That's probably
+     fine, provided connections have delay before expiry.
+
+ (5) Call objects can be disposed of immediately that they terminate and have
+     communicated their last with userspace (I have to tell userspace that the
+     identifier it gave us is released).  A call's last state is transferred
+     to the parent connection object until a new call displaces it from the
+     channel it was using.
+
+ (6) Call objects have to persist for a while since a call involves the
+     exchange of at least three packets (a minimum call is a request DATA
+     packet with just an ID, a response DATA packet with no payload and then
+     an ACK packet) and some communication with userspace.
+
+     An attacker can just send us a whole bunch of request DATA packets, each
+     with a different call/connection combination and attempt to run the
+     server out of memory, no matter how the persistence is managed.
+
+ (7) Why can't I have simple counters representing the maxmimum numbers of
+     peer, connection and call objects in existence at any one time and return
+     a BUSY packet to a remote client or EAGAIN to a local client if the
+     counters are maxed out?
+
+     I could probably also drive gc based on counter levels as well as expiry
+     time.
+
+ (8) Should I take it that I can't use RCU either as that also has a deferred
+     garbage collection mechanism and so subject to being stuffed remotely?
+
+     I really want to get spinlocks out of the incoming packet distribution
+     path as that's driven from the data_ready handler of the transport
+     socket.
+
+David
