@@ -1,54 +1,83 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH RESEND] 8021q:Add missing statements to switch case in
- the function, register_vlan_device
-Date: Mon, 7 Mar 2016 12:29:05 +0100
-Message-ID: <20160307112905.GA2378@macbook.localdomain>
-References: <1457322689-19443-1-git-send-email-xerofoify@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [iproute PATCH 01/12] man: Add a man page for the connmark action
+Date: Mon, 7 Mar 2016 06:41:24 -0500
+Message-ID: <56DD68E4.5000100@mojatatu.com>
+References: <1457093507-25601-1-git-send-email-phil@nwl.cc>
+ <1457093507-25601-2-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nicholas Krause <xerofoify@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49336 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752192AbcCGLhq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 06:37:46 -0500
-Content-Disposition: inline
-In-Reply-To: <1457322689-19443-1-git-send-email-xerofoify@gmail.com>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:35974 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752212AbcCGLl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 06:41:27 -0500
+Received: by mail-io0-f174.google.com with SMTP id z76so26230620iof.3
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 03:41:26 -0800 (PST)
+In-Reply-To: <1457093507-25601-2-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06.03, Nicholas Krause wrote:
-> This adds the proper snprintf and break statement for formatting
-> the vlan_net structure pointer, vn's name using snprintf for if
-> the switch case, VLAN_NAME_TYPE_PLUS_VID occurs for this particular
-> switch statement inside the function, register_vlan_device.
-> 
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+
+Phil,
+Not sure how your mailer works - I am assuming these are the same
+patches i got CCed on.
+
+On 16-03-04 07:11 AM, Phil Sutter wrote:
+> Cc: Felix Fietkau <nbd@openwrt.org>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 > ---
->  net/8021q/vlan.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-> index 59555f0..91ef50e 100644
-> --- a/net/8021q/vlan.c
-> +++ b/net/8021q/vlan.c
-> @@ -246,8 +246,11 @@ static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
->  		/* Put our vlan.VID in the name.
->  		 * Name will look like:	 vlan0005
->  		 */
-> +		snprintf(name, IFNAMSIZ, "%s%i", real_dev->name, vlan_id);
-> +		break;
+>   man/man8/tc-connmark.8 | 55 ++++++++++++++++++++++++++++++++++++++++++++++++++
+>   1 file changed, 55 insertions(+)
+>   create mode 100644 man/man8/tc-connmark.8
+>
+> diff --git a/man/man8/tc-connmark.8 b/man/man8/tc-connmark.8
+> new file mode 100644
+> index 0000000000000..bb4cf7543dfdb
+> --- /dev/null
+> +++ b/man/man8/tc-connmark.8
+> @@ -0,0 +1,55 @@
+> +.TH "Connmark retriever action in tc" 8 "11 Jan 2016" "iproute2" "Linux"
+> +
+> +.SH NAME
+> +connmark - netfilter connmark retriever action
+> +.SH SYNOPSIS
+> +.in +8
+> +.ti -8
+> +.BR tc " ... " "action connmark " [ " zone"
+> +.IR u16_zone_index " ] [ " BRANCH " ] ["
+> +.BI index " u32_index "
+> +]
+> +
+> +.ti -8
+> +.IR BRANCH " := { " reclassify " | " pipe " | " drop " | " continue " | " ok " }"
 
-As the comment indicates, the fall-through is intended like this.
+It would be of benefit to have a general man page describing tc
+actions/filters (may be one for tc action and other for tc filter).
 
->  	default:
->  		snprintf(name, IFNAMSIZ, "vlan%.4i", vlan_id);
-> +		break;
->  	}
->  
->  	new_dev = alloc_netdev(sizeof(struct vlan_dev_priv), name,
-> -- 
-> 2.1.4
-> 
+I probably started the mess of calling this construct a "branch"
+which actually is misleading.
+These are controls ("if/else" are branches; a loop is not a branch).
+Refer to my netdev01 paper. If you can extract details from hat paper
+in a main man page or at minimal reference it in the action/classifier
+man pages then the action specific man pages would just specify what
+the default is.
+
+An example usage of this from the commit message:
+-----
+     ...lets tag outgoing icmp with mark 0x10..
+     iptables -tmangle -A PREROUTING -p icmp -j CONNMARK --set-mark 0x10
+     ..add on ingress of $ETH an extractor for connmark...
+     tc filter add dev $ETH parent ffff: prio 4 protocol ip \
+     u32 match ip protocol 1 0xff \
+     flowid 1:1 \
+     action connmark continue
+     ...if the connmark was 0x11, we police to a ridic rate of 10Kbps
+     tc filter add dev $ETH parent ffff: prio 5 protocol ip \
+     handle 0x11 fw flowid 1:1 \
+     action police rate 10kbit burst 10k
+----
+
+cheers,
+jamal
