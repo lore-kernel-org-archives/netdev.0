@@ -1,38 +1,26 @@
 From: Moritz Fischer <moritz.fischer@ettus.com>
-Subject: [PATCH 1/3] net: macb: Fix coding style error message
-Date: Mon,  7 Mar 2016 08:17:37 -0800
-Message-ID: <1457367460-9123-2-git-send-email-moritz.fischer@ettus.com>
+Subject: Re: [PATCH 3/3] net: macb: Cleanup checkpatch checks
+Date: Mon, 7 Mar 2016 08:19:35 -0800
+Message-ID: <CAAtXAHdw+EM6zTcoNqvvuvEnWta8+64v7_7VMc=nxtwEPA4fhg@mail.gmail.com>
 References: <1457367460-9123-1-git-send-email-moritz.fischer@ettus.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	<1457367460-9123-5-git-send-email-moritz.fischer@ettus.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Moritz Fischer <moritz.fischer@ettus.com>
-To: nicolas.ferre@atmel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457367460-9123-1-git-send-email-moritz.fischer@ettus.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f54.google.com ([209.85.213.54]:35163 "EHLO
+	mail-vk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753514AbcCGQTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 11:19:42 -0500
+Received: by mail-vk0-f54.google.com with SMTP id e6so122442012vkh.2
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 08:19:36 -0800 (PST)
+In-Reply-To: <1457367460-9123-5-git-send-email-moritz.fischer@ettus.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-checkpatch.pl gave the following error:
+Derp, it's monday morning. Ignore the second [3/3] patch... Sorry for the noise.
 
-ERROR: space required before the open parenthesis '('
-+	for(; p < end; p++, offset += 4)
-
-Signed-off-by: Moritz Fischer <moritz.fischer@ettus.com>
----
- drivers/net/ethernet/cadence/macb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 50c9410..4370f37 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -496,7 +496,7 @@ static void macb_update_stats(struct macb *bp)
- 
- 	WARN_ON((unsigned long)(end - p - 1) != (MACB_TPF - MACB_PFR) / 4);
- 
--	for(; p < end; p++, offset += 4)
-+	for (; p < end; p++, offset += 4)
- 		*p += bp->macb_reg_readl(bp, offset);
- }
- 
--- 
-2.4.3
+Moritz
