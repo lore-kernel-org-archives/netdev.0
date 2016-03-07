@@ -1,80 +1,102 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [net-next PATCH 3/4] vxlan: Enforce IP ID verification on outer headers
-Date: Mon, 7 Mar 2016 15:42:59 -0800
-Message-ID: <CAEh+42goYHorJiP2ShhMj6CXCfPyn1r+obb0YsKXLeZFNW2PLw@mail.gmail.com>
-References: <20160307172201.5295.69740.stgit@localhost.localdomain>
- <20160307172214.5295.52624.stgit@localhost.localdomain> <CAJ3xEMgpiaaLJrSqefOgrDVXsyKDtqSYQ7O01jq_UYp+UeT4bg@mail.gmail.com>
- <20160307.140947.1831226984496616218.davem@davemloft.net> <CAMt9YRoWs1iYxpAbw0SD6Q3GM=gBoe2dGXh-OBR3r-_=BjK8vA@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v5 net-next] net: Implement fast csum_partial for x86_64
+Date: Mon, 7 Mar 2016 15:52:06 -0800
+Message-ID: <CAKgT0UfKA=ugpxuUYmv_DaEErRvEDFbGkhHDaFCxDM9C5YzeCQ@mail.gmail.com>
+References: <1456957112-2702469-1-git-send-email-tom@herbertland.com>
+	<063D6719AE5E284EB5DD2968C1650D6D41113AD4@AcuExch.aculab.com>
+	<CA+55aFzz7xt+RwruV3GvWJzQ67925gkDYeOYqgbjMEAHxxztnQ@mail.gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D41114809@AcuExch.aculab.com>
+	<CAKgT0UcQEkhbpBvT69tBKvmY1EVm91vMwVUHOdkE4RJ3hH+Q9g@mail.gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D41116831@AcuExch.aculab.com>
+	<CALx6S35h+oSCKsaEotah30tspZPdp3GZThrN8=cLbE2O7nhU2g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Alex Duyck <aduyck@mirantis.com>
+Cc: David Laight <David.Laight@aculab.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
+	"kernel-team@fb.com" <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:39423 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933569AbcCGXnR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2016 18:43:17 -0500
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 48FA320263
-	for <netdev@vger.kernel.org>; Mon,  7 Mar 2016 23:43:16 +0000 (UTC)
-Received: from mail-qg0-f41.google.com (mail-qg0-f41.google.com [209.85.192.41])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id C47A12021A
-	for <netdev@vger.kernel.org>; Mon,  7 Mar 2016 23:43:14 +0000 (UTC)
-Received: by mail-qg0-f41.google.com with SMTP id t4so110595182qge.0
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 15:43:14 -0800 (PST)
-In-Reply-To: <CAMt9YRoWs1iYxpAbw0SD6Q3GM=gBoe2dGXh-OBR3r-_=BjK8vA@mail.gmail.com>
+Received: from mail-ig0-f196.google.com ([209.85.213.196]:34146 "EHLO
+	mail-ig0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933769AbcCGXwH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 18:52:07 -0500
+Received: by mail-ig0-f196.google.com with SMTP id vs8so567773igb.1
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 15:52:07 -0800 (PST)
+In-Reply-To: <CALx6S35h+oSCKsaEotah30tspZPdp3GZThrN8=cLbE2O7nhU2g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 7, 2016 at 3:06 PM, Alex Duyck <aduyck@mirantis.com> wrote:
-> On Mon, Mar 7, 2016 at 11:09 AM, David Miller <davem@davemloft.net> wrote:
->> From: Or Gerlitz <gerlitz.or@gmail.com>
->> Date: Mon, 7 Mar 2016 20:05:20 +0200
->>
->>> On Mon, Mar 7, 2016 at 7:22 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
->>>> This change enforces the IP ID verification on outer headers.  As a result
->>>> if the DF flag is not set on the outer header we will force the flow to be
->>>> flushed in the event that the IP ID is out of sequence with the existing
->>>> flow.
+On Mon, Mar 7, 2016 at 9:33 AM, Tom Herbert <tom@herbertland.com> wrote:
+> On Mon, Mar 7, 2016 at 5:56 AM, David Laight <David.Laight@aculab.com> wrote:
+>> From: Alexander Duyck
+>>  ...
+>>> Actually probably the easiest way to go on x86 is to just replace the
+>>> use of len with (len >> 6) and use decl or incl instead of addl or
+>>> subl, and lea instead of addq for the buff address.  None of those
+>>> instructions effect the carry flag as this is how such loops were
+>>> intended to be implemented.
 >>>
->>> Can you please state the precise requirement for aggregation w.r.t IP
->>> IDs here? and point to where/how this is enforced, e.g for
->>> non-tunneled TCP GRO-ing?
+>>> I've been doing a bit of testing and that seems to work without
+>>> needing the adcq until after you exit the loop, but doesn't give that
+>>> much of a gain in speed for dropping the instruction from the
+>>> hot-path.  I suspect we are probably memory bottle-necked already in
+>>> the loop so dropping an instruction or two doesn't gain you much.
 >>
->> I also didn't see a nice "PATCH 0/4" posting explaining this series and
->> I'd really like to see that.
+>> Right, any superscalar architecture gives you some instructions
+>> 'for free' if they can execute at the same time as those on the
+>> critical path (in this case the memory reads and the adc).
+>> This is why loop unrolling can be pointless.
+>>
+>> So the loop:
+>> 10:     addc %rax,(%rdx,%rcx,8)
+>>         inc %rcx
+>>         jnz 10b
+>> could easily be as fast as anything that doesn't use the 'new'
+>> instructions that use the overflow flag.
+>> That loop might be measurable faster for aligned buffers.
 >
-> Sorry about that.  I forgot to add the cover page when I sent this.
+> Tested by replacing the unrolled loop in my patch with just:
 >
-> The enforcement is coming from the IP and TCP layers.  If you take a
-> look in inet_gro_receive we have the NAPI_GRO_CB(p)->flush_id value
-> being populated based on the difference between the expected ID and
-> the received one.  So for IPv4 we overwrite it, and for IPv6 we set it
-> to 0.  The only consumer currently using it is TCP in tcp_gro_receive.
-> The problem is with tunnels we lose the data for the outer when the
-> inner overwrites it, as a result we can put whatever we want currently
-> in the outer IP ID and it will be accepted.
+> if (len >= 8) {
+>                 asm("clc\n\t"
+>                     "0: adcq (%[src],%%rcx,8),%[res]\n\t"
+>                     "decl %%ecx\n\t"
+>                     "jge 0b\n\t"
+>                     "adcq $0, %[res]\n\t"
+>                             : [res] "=r" (result)
+>                             : [src] "r" (buff), "[res]" (result), "c"
+> ((len >> 3) - 1));
+> }
 >
-> The patch set is based off of a conversation several of us had on the
-> list about doing TSO for tunnels and the fact that the IP IDs for the
-> outer header have to advance.  It makes it easier for me to validate
-> that I am doing things properly if GRO doesn't destroy the IP ID data
-> for the outer headers.
+> This seems to be significantly slower:
+>
+> 1400 bytes: 797 nsecs vs. 202 nsecs
+> 40 bytes: 6.5 nsecs vs. 26.8 nsecs
 
-In net/ipv4/af_inet.c:inet_gro_receive() there is the following
-comment above where NAPI_GRO_CB(p)->flush_id is set:
+You still need the loop unrolling as the decl and jge have some
+overhead.  You can't just get rid of it with a single call in a tight
+loop but it should improve things.  The gain from what I have seen
+ends up being minimal though.  I haven't really noticed all that much
+in my tests anyway.
 
-/* Save the IP ID check to be included later when we get to
-* the transport layer so only the inner most IP ID is checked.
-* This is because some GSO/TSO implementations do not
-* correctly increment the IP ID for the outer hdrs.
-*/
+I have been doing some testing and the penalty for an unaligned
+checksum can get pretty big if the data-set is big enough.  I was
+messing around and tried doing a checksum over 32K minus some offset
+and was seeing a penalty of about 200 cycles per 64K frame.
 
-There was a long discussion about this a couple years ago and the
-conclusion was that it is the inner IP ID is really the important one
-in the case of encapsulation. Obviously, things like TCP/IP header
-compression don't apply to the outer encapsulation header.
+One thought I had is that we may want to look into making an inline
+function that we can call for compile-time defined lengths less than
+64.  Maybe call it something like __csum_partial and we could then use
+that in place of csum_partial for all those headers that are a fixed
+length that we pull such as UDP, VXLAN, Ethernet, and the rest.  Then
+we might be able to look at taking care of alignment for csum_partial
+which will improve the skb_checksum() case without impacting the
+header pulling cases as much since that code would be inlined
+elsewhere.
+
+- Alex
