@@ -1,44 +1,42 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
-Date: Mon, 7 Mar 2016 16:31:52 +0100
-Message-ID: <56DD9EE8.1010909@linutronix.de>
-References: <56D1E8B6.6090003@hurleysoftware.com>
- <1456638957.3676.12.camel@gmail.com>
- <20160228170109.GA16322@electric-eye.fr.zoreil.com>
- <1456721889.3488.67.camel@gmail.com>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Tool for sampling /proc/net/softnet_stat statistics
+Date: Mon, 7 Mar 2016 16:36:07 +0100
+Message-ID: <20160307163607.1da5f17e@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Peter Hurley <peter@hurleysoftware.com>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
-	dmaengine@vger.kernel.org, John Ogness <john.ogness@linutronix.de>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Mike Galbraith <umgwanakikbuti@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:45435 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752413AbcCGPb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 10:31:57 -0500
-In-Reply-To: <1456721889.3488.67.camel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tom Herbert <tom@herbertland.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/29/2016 05:58 AM, Mike Galbraith wrote:
-> WRT -rt: if dma tasklets really do have hard (ish) constraints, -rt
-> recently "broke" in the same way.. of all softirqs which are deferred
-> to kthread context, due to a recent change, only timer/hrtimer are
-> executed at realtime priority by default.
+Hi Google,
 
-no. All softirqs are invoked in the context of the current process that
-triggerd the softirq invocation. If NAPI goes on for too long (or other
-softirq can't be executed in this context) it will continue in the
-ksoftirqd. And this threads runs at a normal priority like it does in
-mainline.
-I adjusted it with mainline.
+While playing with RPS, I needed to read stats from 
+/proc/net/softnet_stat and the tools I could find [1] and [2] was not
+very good.
 
-> 	-Mike
-> 
-Sebastian
+I lack of better, I coded up my own tool softnet_stat.pl here:
+ https://github.com/netoptimizer/network-testing/blob/master/bin/softnet_stat.pl
+
+The output format/columns in /proc/net/softnet_stat is undocumented,
+plus values are printed in hex.  E.g. to decode the columns you need to
+read kernel function kernel softnet_seq_show() in
+kernel/net/core/net-procfs.c.
+
+To make things easier I wrote this small perl script for get
+so human readable statistics from /proc/net/softnet_stat.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+
+[1] https://www.redhat.com/archives/rhl-list/2007-September/msg03735.html
+
+[2] https://gist.github.com/SaveTheRbtz/172b2e2eb3cbd96b598d
