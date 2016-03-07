@@ -1,52 +1,55 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v5 net-next] net: Implement fast csum_partial for x86_64
-Date: Mon, 7 Mar 2016 13:56:01 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D41116831@AcuExch.aculab.com>
-References: <1456957112-2702469-1-git-send-email-tom@herbertland.com>
-	<063D6719AE5E284EB5DD2968C1650D6D41113AD4@AcuExch.aculab.com>
-	<CA+55aFzz7xt+RwruV3GvWJzQ67925gkDYeOYqgbjMEAHxxztnQ@mail.gmail.com>
-	<063D6719AE5E284EB5DD2968C1650D6D41114809@AcuExch.aculab.com>
- <CAKgT0UcQEkhbpBvT69tBKvmY1EVm91vMwVUHOdkE4RJ3hH+Q9g@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [patch net 2/2] mlxsw: pci: Correctly determine if descriptor
+ queue is full
+Date: Mon, 7 Mar 2016 17:04:59 +0300
+Message-ID: <56DD8A8B.8000705@cogentembedded.com>
+References: <1457339092-2878-1-git-send-email-jiri@resnulli.us>
+ <1457339092-2878-3-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Tom Herbert <tom@herbertland.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
-	"kernel-team@fb.com" <kernel-team@fb.com>
-To: 'Alexander Duyck' <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.182]:60668 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752300AbcCGN70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 08:59:26 -0500
-In-Reply-To: <CAKgT0UcQEkhbpBvT69tBKvmY1EVm91vMwVUHOdkE4RJ3hH+Q9g@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:34232 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752300AbcCGOFD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 09:05:03 -0500
+Received: by mail-lb0-f174.google.com with SMTP id xr8so34500839lbb.1
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 06:05:02 -0800 (PST)
+In-Reply-To: <1457339092-2878-3-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQWxleGFuZGVyIER1eWNrDQogLi4uDQo+IEFjdHVhbGx5IHByb2JhYmx5IHRoZSBlYXNp
-ZXN0IHdheSB0byBnbyBvbiB4ODYgaXMgdG8ganVzdCByZXBsYWNlIHRoZQ0KPiB1c2Ugb2YgbGVu
-IHdpdGggKGxlbiA+PiA2KSBhbmQgdXNlIGRlY2wgb3IgaW5jbCBpbnN0ZWFkIG9mIGFkZGwgb3IN
-Cj4gc3VibCwgYW5kIGxlYSBpbnN0ZWFkIG9mIGFkZHEgZm9yIHRoZSBidWZmIGFkZHJlc3MuICBO
-b25lIG9mIHRob3NlDQo+IGluc3RydWN0aW9ucyBlZmZlY3QgdGhlIGNhcnJ5IGZsYWcgYXMgdGhp
-cyBpcyBob3cgc3VjaCBsb29wcyB3ZXJlDQo+IGludGVuZGVkIHRvIGJlIGltcGxlbWVudGVkLg0K
-PiANCj4gSSd2ZSBiZWVuIGRvaW5nIGEgYml0IG9mIHRlc3RpbmcgYW5kIHRoYXQgc2VlbXMgdG8g
-d29yayB3aXRob3V0DQo+IG5lZWRpbmcgdGhlIGFkY3EgdW50aWwgYWZ0ZXIgeW91IGV4aXQgdGhl
-IGxvb3AsIGJ1dCBkb2Vzbid0IGdpdmUgdGhhdA0KPiBtdWNoIG9mIGEgZ2FpbiBpbiBzcGVlZCBm
-b3IgZHJvcHBpbmcgdGhlIGluc3RydWN0aW9uIGZyb20gdGhlDQo+IGhvdC1wYXRoLiAgSSBzdXNw
-ZWN0IHdlIGFyZSBwcm9iYWJseSBtZW1vcnkgYm90dGxlLW5lY2tlZCBhbHJlYWR5IGluDQo+IHRo
-ZSBsb29wIHNvIGRyb3BwaW5nIGFuIGluc3RydWN0aW9uIG9yIHR3byBkb2Vzbid0IGdhaW4geW91
-IG11Y2guDQoNClJpZ2h0LCBhbnkgc3VwZXJzY2FsYXIgYXJjaGl0ZWN0dXJlIGdpdmVzIHlvdSBz
-b21lIGluc3RydWN0aW9ucw0KJ2ZvciBmcmVlJyBpZiB0aGV5IGNhbiBleGVjdXRlIGF0IHRoZSBz
-YW1lIHRpbWUgYXMgdGhvc2Ugb24gdGhlDQpjcml0aWNhbCBwYXRoIChpbiB0aGlzIGNhc2UgdGhl
-IG1lbW9yeSByZWFkcyBhbmQgdGhlIGFkYykuDQpUaGlzIGlzIHdoeSBsb29wIHVucm9sbGluZyBj
-YW4gYmUgcG9pbnRsZXNzLg0KDQpTbyB0aGUgbG9vcDoNCjEwOglhZGRjICVyYXgsKCVyZHgsJXJj
-eCw4KQ0KCWluYyAlcmN4DQoJam56IDEwYg0KY291bGQgZWFzaWx5IGJlIGFzIGZhc3QgYXMgYW55
-dGhpbmcgdGhhdCBkb2Vzbid0IHVzZSB0aGUgJ25ldycNCmluc3RydWN0aW9ucyB0aGF0IHVzZSB0
-aGUgb3ZlcmZsb3cgZmxhZy4NClRoYXQgbG9vcCBtaWdodCBiZSBtZWFzdXJhYmxlIGZhc3RlciBm
-b3IgYWxpZ25lZCBidWZmZXJzLg0KDQoJRGF2aWQNCg0K
+Hello.
+
+On 3/7/2016 11:24 AM, Jiri Pirko wrote:
+
+> From: Ido Schimmel <idosch@mellanox.com>
+>
+> The descriptor queues for sending (SDQs) and receiving (RDQs) packets
+> are managed by two counters - producer and consumer - which are both
+> 16-bit in size. A queue is considered full when the difference between
+> the two equals the queue's maximum number of descriptors.
+>
+> However, if the producer counter overflows, then it's possible for the
+> full queue check to fail, as it doesn't take the overflow into account.
+> In such a case, descriptors already passed to the device - but for which
+> a completion has yet to be posted - will be overwritten, thereby causing
+> undefined behavior. The above can be achieved under heavy load (~30
+> netperf instances).
+>
+> Fix that by casting the substraction result to u16, preventing it from
+
+    Subtraction.
+
+> being treated as a signed integer.
+>
+> Fixes: eda6500a987a ("mlxsw: Add PCI bus implementation")
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+
+[...]
+
+MBR, Sergei
