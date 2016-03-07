@@ -1,28 +1,31 @@
-From: Kalle Valo <kvalo@codeaurora.org>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
 Subject: Re: [V3] mt7601u: do not free dma_buf when ivp allocation fails
 Date: Mon,  7 Mar 2016 12:39:54 +0000 (UTC)
-Message-ID: <20160307123954.A86A06067A@smtp.codeaurora.org>
+Message-ID: <20160307123954.8575E60375@smtp.codeaurora.org>
 References: <1456442667-19751-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <kubakici@wp.pl>,
-	Matthias Brugger <matthias.bgg@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Colin Ian King <colin.king@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:50939 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752300AbcCGMjz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 07:39:55 -0500
-In-Reply-To: <1456442667-19751-1-git-send-email-colin.king@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jakub Kicinski <kubakici-5tc4TXWwyLM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1456442667-19751-1-git-send-email-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-> From: Colin Ian King <colin.king@canonical.com>
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 > 
 > If the allocation of ivp fails the error handling attempts to
 > free an uninitialized dma_buf; this data structure just contains
@@ -30,8 +33,8 @@ List-ID: <netdev.vger.kernel.org>
 > urb, buf and dma fields are free'd. Fix this by not free'ing the
 > dma_buf if the ivp allocation fails.
 > 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> Reviewed-by: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
 Thanks, applied to wireless-drivers-next.git.
 
