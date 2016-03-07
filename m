@@ -1,350 +1,312 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Mon, 07 Mar 2016 17:00:21 -0500 (EST)
-Message-ID: <20160307.170021.111861620229999693.davem@davemloft.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH v2 net-next 00/13] kcm: Kernel Connection Multiplexor (KCM)
+Date: Mon, 7 Mar 2016 14:10:59 -0800
+Message-ID: <1457388672-2600559-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54944 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753099AbcCGWAY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 17:00:24 -0500
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:44293 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753384AbcCGWLp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 17:11:45 -0500
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u27MA71d003215
+	for <netdev@vger.kernel.org>; Mon, 7 Mar 2016 14:11:44 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 21hgcygj6s-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 14:11:44 -0800
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 929f8a16e4b111e599860002c9521c9e-b91d7420 for <netdev@vger.kernel.org>;	Mon,
+ 07 Mar 2016 14:11:42 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoxKSBGaXggb3JkZXJpbmcgb2YgV0VYVCBuZXRsaW5rIG1lc3NhZ2VzIHNvIHdlIGRvbid0IHNl
-ZSBhIG5ld2xpbmsgYWZ0ZXINCiAgIGEgZGVsbGluaywgZnJvbSBKb2hhbm5lcyBCZXJnLg0KDQoy
-KSBPdXQgb2YgYm91bmRzIGFjY2VzcyBpbiBtaW5zdHJlbF9odF9zZXRfYmVzdF9wcm9iX3JhZ2Us
-IGZyb20NCiAgIEtvbnN0YW50aW4gS2hsZWJuaWtvdi4NCg0KMykgUGFnaW5nIGJ1ZmZlciBtZW1v
-cnkgbGVhayBpbiBpd2x3aWZpLCBmcm9tIE1hdHRpIEdvdHRsaWViLg0KDQo0KSBXcm9uZyB1bml0
-cyB1c2VkIHRvIHNldCBpbml0aWFsIFRDUCBydG8gZnJvbSBjYWNoZWQgbWV0cmljcywgYWxzbw0K
-ICAgZnJvbSBLb25zdGFudGluIEtobGVibmlrb3YuDQoNCjUpIEZpeCBzdGFsZSBJUCBvcHRpb25z
-IGRhdGEgaW4gdGhlIFNLQiBjb250cm9sIGJsb2NrIGZyb20gbGVha2luZw0KICAgdGhyb3VnaCBs
-YXllcnMgb2YgZW5jYXBzdWxhdGlvbiwgZnJvbSBCZXJuaWUgSGFycmlzLg0KDQo2KSBaZXJvIHBh
-ZGRpbmcgbGVuIG1pc2NhbGN1bGF0ZWQgaW4gYm54dF9lbiwgZnJvbSBNaWNoYWVsIENoYW4uDQoN
-CjcpIE9ubHkgQ0hFQ0tTVU1fUEFSVElBTCBwYWNrZXRzIHNob3VsZCBiZSBwYXNzZWQgZG93biB0
-aHJvdWdoIEdTTywgZml4DQogICBmcm9tIEhhbm5lcyBGcmVkZXJpYyBTb3dhLg0KDQo4KSBGaXgg
-c3VzcGVuZC9yZXN1bWUgd2l0aCBKTUUgbmV0d29ya2luZyBkZXZpY2VzLCBmcm9tIERpZWdvIFZp
-b2xhdCBhbmQNCiAgIEd1by1GdSBUc2VuZy4NCg0KOSkgQ2hlY2tzdW1zIG5vdCB2YWxpZGF0ZWQg
-cHJvcGVybHkgaW4gYnJpZGdlIG11bHRpY2FzdCBzdXBwb3J0IGR1ZSB0byB0aGUNCiAgIHBsYWNl
-bWVudCBvZiB0aGUgU0tCIGhlYWRlciBwb2ludGVycyBhdCB0aGUgdGltZSBvZiB0aGUgY2hlY2ss
-IGZpeA0KICAgZnJvbSDDgWx2YXJvIEZlcm7DoW5kZXogUm9qYXMuDQoNCjEwKSBGaXggaGFuZy90
-aWVtb3V0IHdpdGggcjgxNjkgaWYgYSBzdGF0cyBmZXRjaCBpcyBkb25lIHdoaWxlIHRoZQ0KICAg
-IGRldmljZSBpcyBydW50aW1lIHN1c3BlbmRlZC4gIEZyb20gQ2h1bi1IYW8gTGluLg0KDQoxMSkg
-VGhlIGZvcndhcmRpbmcgZGF0YWJhc2UgbmV0bGluayBkdW1wIGZhY2lsaXRpZXMgZG9uJ3QgdHJh
-Y2sgdGhlIHN0YXRlDQogICAgb2YgdGhlIGR1bXAgcHJvcGVybHksIHJlc3VsdGluZyBpbiBza2lw
-cGVkL21pc3NlZCBlbnRyaWVzLiAgRnJvbQ0KICAgIE1pbm91cmEgTWFrb3RvLg0KDQoxMikgRml4
-IHJlZ3Jlc3Npb24gZnJvbSBhIHJlY2VudCAzYzU5eCBidWcgZml4LCBmcm9tIE5laWwgSG9ybWFu
-Lg0KDQoxMykgRml4IGxpc3QgY29ycnVwdGlvbiBpbiBibmEgZHJpdmVyLCBmcm9tIEl2YW4gVmVj
-ZXJhLg0KDQoxNCkgQmlnIGVuZGlhbiBtYWNoaW5lcyBjcmFzaCBvbiB2bGFuIGFkZCBpbiBibngy
-eCwgZml4IGZyb20gTWljaGFsDQogICAgU2NobWlkdC4NCg0KMTUpIEV0aHRvb2wgUlNTIGNvbmZp
-Z3VyYXRpb24gbm90IHByb3BhZ2F0ZWQgcHJvcGVybHkgaW4gbWx4NSBkcml2ZXIsDQogICAgZnJv
-bSBUYXJpcSBUb3VrYW4uDQoNCjE2KSBGaXggcmVncmVzc2lvbiBpbiBQSFkgcHJvYmluZyBpbiBz
-dG1tYWMgZHJpdmVyLCBmcm9tIEdhYnJpZWwNCiAgICBGZXJuYW5kZXouDQoNCjE3KSBGaXggU0tC
-IHRhaWxyb29tIGNhbGN1bGF0aW9uIGluIGlnbXAvbWxkIGNvZGUsIGZyb20gQmVuamFtaW4NCiAg
-ICBQb2lyaWVyLg0KDQoxOCkgQSBwYXN0IGNoYW5nZSB0byBza2lwIGVtcHR5IHJvdXRpbmcgaGVh
-ZGVycyBpbiBpcHY2IGV4dGVudGlvbiBoZWFkZXINCiAgICBwYXJzaW5nIGFjY2lkZW50bHkgY2F1
-c2VkIGZyYWdtZW50IGhlYWRlcnMgdG8gbm90IGJlIG1hdGNoZWQgYW55DQogICAgbG9uZ2VyLiAg
-Rml4IGZyb20gRmxvcmlhbiBXZXN0cGhhbC4NCg0KMTkpIGVUU0VDLTEwNiBlcnJhdHVtIG5lZWRz
-IHRvIGJlIGFwcGxpZWQgdG8gbW9yZSBnaWFuZmFyIGNoaXBzLCBmcm9tDQogICAgQXRzdXNoaSBO
-ZW1vdG8uDQoNCjIwKSBGaXggbmV0ZGV2IHJlZmVyZW5jZSBhZnRlciBmcmVlIHZpYSB3b3JrcXVl
-dWVzIGluIHVzYiBuZXR3b3JraW5nDQogICAgZHJpdmVycywgZnJvbSBPbGl2ZXIgTmV1a3VtIGFu
-ZCBCasO4cm4gTW9yay4NCg0KMjEpIG1kaW8tPmlycSBpcyBub3cgYW4gYXJyYXkgcmF0aGVyIHRo
-YW4gYSBwb2ludGVyIHRvIGR5bmFtaWMgbWVtb3J5LA0KICAgIGJ1dCBzZXZlcmFsIGRyaXZlcnMg
-d2VyZSBzdGlsbCB0cnlpbmcgdG8gZnJlZSBpdCA6LS8gIEZpeGVzIGZyb20NCiAgICBDb2xpbiBJ
-YW4gS2luZy4NCg0KMjIpIGFjdF9pcHQgaXB0YWJsZXMgYWN0aW9uIGZvcmdldHMgdG8gc2V0IHRo
-ZSBmYW1pbHkgZmllbGQsIHRodXMgTE9HDQogICAgbmV0ZmlsdGVyIHRhcmdldHMgZG9uJ3Qgd29y
-ayB3aXRoIGl0LiAgRml4IGZyb20gUGhpbCBTdXR0ZXIuDQoNCjIzKSBTS0IgbGVhayBpbiBpYm12
-ZXRoIHdoZW4gc2tiX2xpbmVhcml6ZSgpIGZhaWxzLCBmcm9tIFRob21hcyBGYWxjb24uDQoNCjI0
-KSBwc2tiX21heV9wdWxsKCkgY2Fubm90IGJlIGNhbGxlZCB3aXRoIGludGVycnVwdHMgZGlzYWJs
-ZWQsIGZpeCBjb2RlDQogICAgdGhhdCB0cmllcyB0byBkbyB0aGlzIGluIHZteG5ldDMgZHJpdmVy
-LCBmcm9tIE5laWwgSG9ybWFuLg0KDQoyNSkgYmUybmV0IGRyaXZlciBsZWFrcyBpb21hcCdkIG1l
-bW9yeSBvbiByZW1vdmFsLCBmaXggZnJvbSBEb3VnbGFzDQogICAgTWlsbGVyLg0KDQoyNikgRm9y
-Z290dG9uIFJUTkwgbXV0ZXggdW5sb2NrIGluIHBwcF9jcmVhdGVfaW50ZXJmYWNlKCkgZXJyb3Ig
-cGF0aHMsDQogICAgZnJvbSBHdWlsbGF1bWUgTmF1bHQuDQoNClBsZWFzZSBwdWxsLCB0aGFua3Mg
-YSBsb3QhDQoNClRoZSBmb2xsb3dpbmcgY2hhbmdlcyBzaW5jZSBjb21taXQgZGVhMDhlNjA0NDA4
-ZDAzMDNlMjMzMjg5NmM1ZmRkOGMxZjdkNzlhMjoNCg0KICBNZXJnZSBnaXQ6Ly9naXQua2VybmVs
-Lm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0vbmV0ICgyMDE2LTAyLTIyIDEyOjE4
-OjA3IC0wODAwKQ0KDQphcmUgYXZhaWxhYmxlIGluIHRoZSBnaXQgcmVwb3NpdG9yeSBhdDoNCg0K
-ICBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0vbmV0
-LmdpdCANCg0KZm9yIHlvdSB0byBmZXRjaCBjaGFuZ2VzIHVwIHRvIDZmYWFjNjNhNjk4NmYyOWVm
-Mzk4MjdmNDYwZWRkM2E1YmE2NGFkNWM6DQoNCiAgcHBwOiByZWxlYXNlIHJ0bmwgbXV0ZXggd2hl
-biBpbnRlcmZhY2UgY3JlYXRpb24gZmFpbHMgKDIwMTYtMDMtMDcgMTY6MTE6MzEgLTA1MDApDQoN
-Ci0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0NCkFsZXhhbmRyZSBCZWxsb25pICgyKToNCiAgICAgIHBoeTogbWljcmVsOiBFbnN1
-cmUgaW50ZXJydXB0cyBhcmUgcmVlbmFibGVkIG9uIHJlc3VtZQ0KICAgICAgcGh5OiBtaWNyZWw6
-IERpc2FibGUgYXV0byBuZWdvdGlhdGlvbiBvbiBzdGFydHVwDQoNCkFyZW5kIHZhbiBTcHJpZWwg
-KDEpOg0KICAgICAgY2ZnODAyMTE6IHN0b3AgY3JpdGljYWwgcHJvdG9jb2wgc2Vzc2lvbiB1cG9u
-IGRpc2Nvbm5lY3QgZXZlbnQNCg0KQXJuZCBCZXJnbWFubiAoMSk6DQogICAgICBzc2I6IGhvc3Rf
-c29jIGRlcGVuZHMgb24gc3Byb20NCg0KQXRzdXNoaSBOZW1vdG8gKDEpOg0KICAgICAgZ2lhbmZh
-cjogRW5hYmxlIGVUU0VDLTEwNiBlcnJhdHVtIHcvYSBmb3IgTVBDODU0OEUgUmV2Mg0KDQpCZW5q
-YW1pbiBQb2lyaWVyICgxKToNCiAgICAgIG1sZCwgaWdtcDogRml4IHJlc2VydmVkIHRhaWxyb29t
-IGNhbGN1bGF0aW9uDQoNCkJlcm5pZSBIYXJyaXMgKDEpOg0KICAgICAgdHVubmVsOiBDbGVhciBJ
-UENCKHNrYiktPm9wdCBiZWZvcmUgZHN0X2xpbmtfZmFpbHVyZSBjYWxsZWQNCg0KQmlsbCBTb21t
-ZXJmZWxkICgxKToNCiAgICAgIHVkcDY6IGZpeCBVRFAvSVB2NiBlbmNhcCByZXN1Ym1pdCBwYXRo
-DQoNCkJqw7hybiBNb3JrICgzKToNCiAgICAgIHFtaV93d2FuOiBhZGQgU2llcnJhIFdpcmVsZXNz
-IEVNNzR4eCBkZXZpY2UgSUQNCiAgICAgIGNkY19uY206IHRvZ2dsZSBhbHRzZXR0aW5nIHRvIGZv
-cmNlIHJlc2V0IGJlZm9yZSBzZXR1cA0KICAgICAgY2RjX25jbTogZG8gbm90IGNhbGwgdXNibmV0
-X2xpbmtfY2hhbmdlIGZyb20gY2RjX25jbV9iaW5kDQoNCkNocmlzIEJhaW5icmlkZ2UgKDEpOg0K
-ICAgICAgbWFjODAyMTE6IGZpeCB1c2Ugb2YgdW5pbml0aWFsaXNlZCB2YWx1ZXMgaW4gUlggYWdn
-cmVnYXRpb24NCg0KQ2h1bi1IYW8gTGluICgxKToNCiAgICAgIHI4MTY5OmZpeCAicnRsX2NvdW50
-ZXJzX2NvbmQgPT0gMSAobG9vcDogMTAwMCwgZGVsYXk6IDEwKSIgbG9nIHNwYW0uDQoNCkNodW5o
-YW8gTGluICgxKToNCiAgICAgIHI4MTY5OiBFbmFibGUgUlhfTVVMVElfRU4gZm9yIFJUTF9HSUdB
-X01BQ19WRVJfNDF+NDgNCg0KQ29saW4gSWFuIEtpbmcgKDMpOg0KICAgICAgYXNpeDogZG8gbm90
-IGZyZWUgYXJyYXkgcHJpdi0+bWRpby0+aXJxDQogICAgICBuZXQvZXRob2M6IGRvIG5vdCBmcmVl
-IGFycmF5IHByaXYtPm1kaW8tPmlycQ0KICAgICAgbmV0OiBldGg6IGFsdGVyYTogZG8gbm90IGZy
-ZWUgYXJyYXkgcHJpdi0+bWRpby0+aXJxDQoNCkRhbiBDYXJwZW50ZXIgKDEpOg0KICAgICAgbmV0
-OiBtb3hhOiBmaXggYW4gZXJyb3IgY29kZQ0KDQpEYW5pZWwgQm9ya21hbm4gKDIpOg0KICAgICAg
-YnBmOiBmaXggY3N1bSBzZXR0aW5nIGZvciBicGZfc2V0X3R1bm5lbF9rZXkNCiAgICAgIHZ4bGFu
-OiBmaXggbWlzc2luZyBvcHRpb25zX2xlbiB1cGRhdGUgb24gUlggd2l0aCBjb2xsZWN0IG1ldGFk
-YXRhDQoNCkRhdmlkIEFoZXJuICgxKToNCiAgICAgIG5ldDogdnJmOiBSZW1vdmUgZGlyZWN0IGFj
-Y2VzcyB0byBza2ItPmRhdGENCg0KRGF2aWQgUy4gTWlsbGVyICgxMSk6DQogICAgICBNZXJnZSB0
-YWcgJ21hYzgwMjExLWZvci1kYXZlbS0yMDE2LTAyLTIzJyBvZiBnaXQ6Ly9naXQua2VybmVsLm9y
-Zy8uLi4vamJlcmcvbWFjODAyMTENCiAgICAgIE1lcmdlIHRhZyAnbGludXgtY2FuLWZpeGVzLWZv
-ci00LjUtMjAxNjAyMjYnIG9mIGdpdDovL2dpdC5rZXJuZWwub3JnLy4uLi9ta2wvbGludXgtY2Fu
-DQogICAgICBNZXJnZSBicmFuY2ggJ3BoeS1taWNyZWwtZml4ZXMnDQogICAgICBNZXJnZSBicmFu
-Y2ggJ2JueDJ4LWZpeGVzJw0KICAgICAgTWVyZ2UgdGFnICdtYWM4MDIxMS1mb3ItZGF2ZW0tMjAx
-Ni0wMy0wMicgb2YgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvLi4uL2piZXJnL21hYzgwMjExDQogICAg
-ICBNZXJnZSBicmFuY2ggJ21seDUtZml4ZXMnDQogICAgICBNZXJnZSBicmFuY2ggJ21seDQtZml4
-ZXMnDQogICAgICBNZXJnZSBicmFuY2ggJ2R3Y19ldGhfcW9zJw0KICAgICAgTWVyZ2UgdGFnICds
-aW51eC1jYW4tZml4ZXMtZm9yLTQuNS0yMDE2MDMwNCcgb2YgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcv
-Li4uL21rbC9saW51eC1jYW4NCiAgICAgIE1lcmdlIGJyYW5jaCAnbWx4c3ctZml4ZXMnDQogICAg
-ICBNZXJnZSB0YWcgJ3dpcmVsZXNzLWRyaXZlcnMtZm9yLWRhdmVtLTIwMTYtMDMtMDQnIG9mIGdp
-dDovL2dpdC5rZXJuZWwub3JnLy4uLi9rdmFsby93aXJlbGVzcy1kcml2ZXJzDQoNCkRpZWdvIFZp
-b2xhICgxKToNCiAgICAgIG5ldDogam1lOiBmaXggc3VzcGVuZC9yZXN1bWUgb24gSk1DMjYwDQoN
-CkRvdWdsYXMgTWlsbGVyICgxKToNCiAgICAgIGJlMm5ldDogRG9uJ3QgbGVhayBpb21hcHBlZCBt
-ZW1vcnkgb24gcmVtb3ZhbC4NCg0KRWQgU3Bpcmlkb25vdiAoMSk6DQogICAgICBjYW46IG1jcDI1
-MXg6IGF2b2lkIHdyaXRlIHRvIGVycm9yIGZsYWcgcmVnaXN0ZXIgaWYgaXQncyB1bm5lY2Vzc2Fy
-eQ0KDQpFcmFuIEJlbiBFbGlzaGEgKDEpOg0KICAgICAgbmV0L21seDVlOiBGaXggc29mdCBsb2Nr
-dXAgd2hlbiBIVyBUaW1lc3RhbXBpbmcgaXMgZW5hYmxlZA0KDQpFcmljIER1bWF6ZXQgKDEpOg0K
-ICAgICAgdGNwOiBmaXggdGNwaV9zZWdzX2luIGFmdGVyIGNvbm5lY3Rpb24gZXN0YWJsaXNobWVu
-dA0KDQpGZWxpeCBGaWV0a2F1ICgyKToNCiAgICAgIG1hYzgwMjExOiBtaW5zdHJlbF9odDogc2V0
-IGRlZmF1bHQgdHggYWdncmVnYXRpb24gdGltZW91dCB0byAwDQogICAgICBtYWM4MDIxMTogbWlu
-c3RyZWxfaHQ6IGZpeCBhIGxvZ2ljIGVycm9yIGluIFJUUy9DVFMgaGFuZGxpbmcNCg0KRmxvcmlh
-biBXZXN0cGhhbCAoMSk6DQogICAgICBpcHY2OiByZS1lbmFibGUgZnJhZ21lbnQgaGVhZGVyIG1h
-dGNoaW5nIGluIGlwdjZfZmluZF9oZHINCg0KR2FicmllbCBGZXJuYW5kZXogKDEpOg0KICAgICAg
-c3RtbWFjOiBGaXggJ2V0aDA6IE5vIFBIWSBmb3VuZCcgcmVncmVzc2lvbg0KDQpHYWwgUHJlc3Nt
-YW4gKDIpOg0KICAgICAgbmV0L21seDVlOiBBZGQgcngvdHggYnl0ZXMgc29mdHdhcmUgY291bnRl
-cnMNCiAgICAgIG5ldC9tbHg1ZTogUHJvdmlkZSBjb3JyZWN0IHBhY2tldC9ieXRlcyBzdGF0aXN0
-aWNzDQoNCkd1aWxsYXVtZSBOYXVsdCAoMik6DQogICAgICBwcHA6IGxvY2sgcHBwLT5mbGFncyBp
-biBwcHBfcmVhZCgpIGFuZCBwcHBfcG9sbCgpDQogICAgICBwcHA6IHJlbGVhc2UgcnRubCBtdXRl
-eCB3aGVuIGludGVyZmFjZSBjcmVhdGlvbiBmYWlscw0KDQpHdW8tRnUgVHNlbmcgKDIpOg0KICAg
-ICAgam1lOiBEbyBub3QgZW5hYmxlIE5JQyBXb0wgZnVuY3Rpb25zIG9uIFMwDQogICAgICBqbWU6
-IEZpeCBkZXZpY2UgUE0gd2FrZXVwIEFQSSB1c2FnZQ0KDQpIYW5uZXMgRnJlZGVyaWMgU293YSAo
-MSk6DQogICAgICBpcHY0OiBvbmx5IGNyZWF0ZSBsYXRlIGdzby1za2IgaWYgc2tiIGlzIGFscmVh
-ZHkgc2V0IHVwIHdpdGggQ0hFQ0tTVU1fUEFSVElBTA0KDQpJZG8gU2NoaW1tZWwgKDIpOg0KICAg
-ICAgbWx4c3c6IHNwZWN0cnVtOiBBbHdheXMgZGVjcmVtZW50IGJyaWRnZSdzIHJlZiBjb3VudA0K
-ICAgICAgbWx4c3c6IHBjaTogQ29ycmVjdGx5IGRldGVybWluZSBpZiBkZXNjcmlwdG9yIHF1ZXVl
-IGlzIGZ1bGwNCg0KSWdhbCBMaWJlcm1hbiAoMSk6DQogICAgICBmc2wvZm1hbjogSW5pdGlhbGl6
-ZSBmbWFuLT5kZXYgZWFybGllcg0KDQpJdmFuIFZlY2VyYSAoMSk6DQogICAgICBibmE6IGZpeCBs
-aXN0IGNvcnJ1cHRpb24NCg0KSmFjayBNb3JnZW5zdGVpbiAoMik6DQogICAgICBuZXQvbWx4NF9j
-b3JlOiBGaXggbG9ja2RlcCB3YXJuaW5nIGluIGhhbmRsaW5nIG9mIG1hYy92bGFuIHRhYmxlcw0K
-ICAgICAgbmV0L21seDRfY29yZTogQWxsb3cgcmVzZXR0aW5nIFZGIGFkbWluIG1hYyB0byB6ZXJv
-DQoNCkpvaGFubmVzIEJlcmcgKDQpOg0KICAgICAgd2V4dDogZml4IG1lc3NhZ2UgZGVsYXkvb3Jk
-ZXJpbmcNCiAgICAgIGNmZzgwMjExL3dleHQ6IGZpeCBtZXNzYWdlIG9yZGVyaW5nDQogICAgICBt
-YWM4MDIxMTogY2hlY2sgUE4gY29ycmVjdGx5IGZvciBHQ01QLWVuY3J5cHRlZCBmcmFnbWVudGVk
-IE1QRFVzDQogICAgICBtYWM4MDIxMV9od3NpbTogdHJlYXQgYXMgcGFydCBvZiBtYWM4MDIxMSBm
-b3IgTUFJTlRBSU5FUlMNCg0KSm91bmkgTWFsaW5lbiAoMSk6DQogICAgICBtYWM4MDIxMTogRml4
-IFB1YmxpYyBBY3Rpb24gZnJhbWUgUlggaW4gQVAgbW9kZQ0KDQpLYWxsZSBWYWxvICgxKToNCiAg
-ICAgIE1lcmdlIHRhZyAnaXdsd2lmaS1mb3Ita2FsbGUtMjAxNi0wMi0yNScgb2YgaHR0cHM6Ly9n
-aXQua2VybmVsLm9yZy8uLi4vaXdsd2lmaS9pd2x3aWZpLWZpeGVzDQoNCktvbnN0YW50aW4gS2hs
-ZWJuaWtvdiAoMik6DQogICAgICBtYWM4MDIxMTogbWluc3RyZWxfaHQ6IGZpeCBvdXQtb2YtYm91
-bmQgaW4gbWluc3RyZWxfaHRfc2V0X2Jlc3RfcHJvYl9yYXRlDQogICAgICB0Y3A6IGNvbnZlcnQg
-Y2FjaGVkIHJ0dCBmcm9tIHVzZWMgdG8gamlmZmllcyB3aGVuIGZlZWRpbmcgaW5pdGlhbCBydG8N
-Cg0KS3J6eXN6dG9mIEtvemxvd3NraSAoMSk6DQogICAgICBuZXQ6IGV0aGVybmV0OiBBZGQgbWlz
-c2luZyBNRkRfU1lTQ09OIGRlcGVuZGVuY3kgb24gSEFTX0lPTUVNDQoNCkxhcnMgUGVyc3NvbiAo
-Mik6DQogICAgICBkd2NfZXRoX3FvczogcmVsZWFzZSBkZXNjcmlwdG9ycyBvdXRzaWRlIG5ldGlm
-X3R4X2xvY2sNCiAgICAgIGR3Y19ldGhfcW9zOiBkbyBwaHlfc3RhcnQgYmVmb3JlIHJlc2V0dGlu
-ZyBoYXJkd2FyZQ0KDQpMaWFkIEthdWZtYW4gKDEpOg0KICAgICAgaXdsd2lmaTogbXZtOiBpbmMg
-cGVuZGluZyBmcmFtZXMgY291bnRlciBhbHNvIHdoZW4gdHhpbmcgbm9uLXN0YQ0KDQpMaW51cyBM
-w7xzc2luZyAoMSk6DQogICAgICBuZXQ6IGZpeCBicmlkZ2UgbXVsdGljYXN0IHBhY2tldCBjaGVj
-a3N1bSB2YWxpZGF0aW9uDQoNCk1JTk9VUkEgTWFrb3RvIC8g566V5rWmIOecnyAoMSk6DQogICAg
-ICBuZXQ6IG5kb19mZGJfZHVtcCBzaG91bGQgcmVwb3J0IC1FTVNHU0laRSB0byBydG5sX2ZkYl9k
-dW1wLg0KDQpNYXR0aSBHb3R0bGllYiAoMSk6DQogICAgICBpd2x3aWZpOiBtdm06IEZpeCBwYWdp
-bmcgbWVtb3J5IGxlYWsNCg0KTWF4aW1pbGFpbiBTY2huZWlkZXIgKDEpOg0KICAgICAgY2FuOiBn
-c191c2I6IGZpeGVkIGRpc2Nvbm5lY3QgYnVnIGJ5IHJlbW92aW5nIGVycm9uZW91cyB1c2Ugb2Yg
-a2ZyZWUoKQ0KDQpNaWNoYWVsIENoYW4gKDEpOg0KICAgICAgYm54dF9lbjogRml4IHplcm8gcGFk
-ZGluZyBvZiB0eCBwdXNoIGRhdGEuDQoNCk1pY2hhbCBTY2htaWR0ICg3KToNCiAgICAgIGJueDJ4
-OiBmaXggY3Jhc2ggb24gYmlnLWVuZGlhbiB3aGVuIGFkZGluZyBWTEFODQogICAgICBibngyeDog
-Zml4IHNlbmRpbmcgVkYtPlBGIG1lc3NhZ2VzIG9uIGJpZy1lbmRpYW4NCiAgICAgIGJueDJ4OiBm
-aXggcmVjZWl2ZSBvZiBWRi0+UEYgbWFpbGJveCBtZXNzYWdlcyBieSB0aGUgUEYgb24gYmlnLWVu
-ZGlhbg0KICAgICAgYm54Mng6IGFjY2VzcyBjZmNfZGVsX2V2ZW50IG9ubHkgaWYgdGhlIG9wY29k
-ZSBpcyBDRkNfREVMDQogICAgICBibngyeDogZGVmaW5lIGZpZWxkcyBvZiBzdHJ1Y3QgY2ZjX2Rl
-bF9ldmVudF9kYXRhIGFzIGxpdHRsZS1lbmRpYW4NCiAgICAgIGJueDJ4OiBkZWZpbmUgZXZlbnQg
-ZGF0YSByZXNlcnZlZCBmaWVsZHMgYXMgbGl0dGxlLWVuZGlhbg0KICAgICAgYm54Mng6IGZpeCBp
-bmRlbnRhdGlvbiBpbiBibngyeF9zcF90YXNrKCkNCg0KTW9uaSBTaG91YSAoMSk6DQogICAgICBu
-ZXQvbWx4NF9jb3JlOiBDaGVjayB0aGUgY29ycmVjdCBsaW1pdGF0aW9uIG9uIFZGcyBmb3IgSEEg
-bW9kZQ0KDQpOZWlsIEhvcm1hbiAoMik6DQogICAgICAzYzU5eDogbWFzayBMQVNUX0ZSQUcgYml0
-IGZyb20gbGVuZ3RoIGZpZWxkIGluIHJpbmcNCiAgICAgIHZteG5ldDM6IGF2b2lkIGNhbGxpbmcg
-cHNrYl9tYXlfcHVsbCB3aXRoIGludGVycnVwdHMgZGlzYWJsZWQNCg0KTmltcm9kIEFuZHkgKDEp
-Og0KICAgICAgTUFJTlRBSU5FUlM6IGFkZCBtYWludGFpbmVyIGVudHJ5IGZvciBGUkVFU0NBTEUg
-RkVDIGV0aGVybmV0IGRyaXZlcg0KDQpPbGEgT2xzc29uICgxKToNCiAgICAgIG5sODAyMTE6IFpl
-cm8gb3V0IHRoZSBjb25uZWN0aW9uIGtleXMgbWVtb3J5IHdoZW4gZnJlZWluZyB0aGVtLg0KDQpP
-bGl2ZXIgTmV1a3VtICgxKToNCiAgICAgIHVzYm5ldDogY2xlYW51cCBhZnRlciBiaW5kKCkgaW4g
-cHJvYmUoKQ0KDQpQYXJ0aGFzYXJhdGh5IEJodXZhcmFnYW4gKDIpOg0KICAgICAgdGlwYzogUmV2
-ZXJ0ICJ0aXBjOiB1c2UgZXhpc3Rpbmcgc2tfd3JpdGVfcXVldWUgZm9yIG91dGdvaW5nIHBhY2tl
-dCBjaGFpbiINCiAgICAgIHRpcGM6IGZpeCBudWxscHRyIGNyYXNoIGR1cmluZyBzdWJzY3JpcHRp
-b24gY2FuY2VsDQoNClBhdHJpayBIYWxmYXIgKDEpOg0KICAgICAgQWRkIERlbGwgV2lyZWxlc3Mg
-NTgwOWUgR29iaSA0RyBIU1BBKyBNb2JpbGUgQnJvYWRiYW5kIENhcmQgKHJldjMpIHRvIHFtaV93
-d2FuDQoNClBoaWwgU3V0dGVyICgxKToNCiAgICAgIG5ldDogc2NoZWQ6IGZpeCBhY3RfaXB0IGZv
-ciBMT0cgdGFyZ2V0DQoNClJhYmluIFZpbmNlbnQgKDMpOg0KICAgICAgZHdjX2V0aF9xb3M6IGZp
-eCByYWNlIGNvbmRpdGlvbiBpbiBkd2NlcW9zX3N0YXJ0X3htaXQNCiAgICAgIGR3Y19ldGhfcW9z
-OiB1c2UgR0ZQX0tFUk5FTCBpbiBkbWFfYWxsb2NfY29oZXJlbnQoKQ0KICAgICAgZHdjX2V0aF9x
-b3M6IHVzZSBEV0NFUU9TX01TR19ERUZBVUxUDQoNClNlYmFzdGlhbiBGcmlhcyAoMSk6DQogICAg
-ICBuZXQ6IGV0aGVybmV0OiBuYjg4MDA6IHN1cHBvcnQgZml4ZWQtbGluayBEVCBub2RlDQoNClNl
-cmdlaSBTaHR5bHlvdiAoMSk6DQogICAgICBvZl9tZGlvOiBmaXgga2VybmVsLWRvYyBmb3Igb2Zf
-cGh5X2Nvbm5lY3QoKQ0KDQpTdGVmYW4gV2FocmVuICgyKToNCiAgICAgIG5ldDogcWNhX3NwaTog
-RG9uJ3QgY2xlYXIgSUZGX0JST0FEQ0FTVA0KICAgICAgbmV0OiBxY2Ffc3BpOiBjbGVhciBJRkZf
-VFhfU0tCX1NIQVJJTkcNCg0KU3VuaWwgR291dGhhbSAoMSk6DQogICAgICBuZXQ6IHRodW5kZXJ4
-OiBGaXggZm9yIFFzZXQgZXJyb3IgZHVlIHRvIENRIGZ1bGwNCg0KU3ZlbiBFY2tlbG1hbm4gKDEp
-Og0KICAgICAgbWFjODAyMTE6IG1pbnN0cmVsOiBDaGFuZ2UgZXhwZWN0ZWQgdGhyb3VnaHB1dCB1
-bml0IGJhY2sgdG8gS2Jwcw0KDQpUYXJpcSBUb3VrYW4gKDQpOg0KICAgICAgbmV0L21seDVlOiBS
-ZW1vdmUgd3JvbmcgcG9sbCBDUSBvcHRpbWl6YXRpb24NCiAgICAgIG5ldC9tbHg1ZTogRml4IExS
-TyBtb2RpZnkNCiAgICAgIG5ldC9tbHg1ZTogRml4IGV0aHRvb2wgUlggaGFzaCBmdW5jIGNvbmZp
-Z3VyYXRpb24gY2hhbmdlDQogICAgICBuZXQvbWx4NWU6IENvcnJlY3RseSBoYW5kbGUgUlNTIGlu
-ZGlyZWN0aW9uIHRhYmxlIHdoZW4gY2hhbmdpbmcgbnVtYmVyIG9mIGNoYW5uZWxzDQoNClRob21h
-cyBGYWxjb24gKDIpOg0KICAgICAgaWJtdm5pYzogRml4IGlibXZuaWNfY2FwYWJpbGl0eSBzdHJ1
-Y3QNCiAgICAgIGlibXZldGg6IGNoZWNrIHJldHVybiBvZiBza2JfbGluZWFyaXplIGluIGlibXZl
-dGhfc3RhcnRfeG1pdA0KDQpWZW5rYXQgRHV2dnVydSAoMSk6DQogICAgICBiZTJuZXQ6IGRvbid0
-IGVuYWJsZSBtdWx0aWNhc3QgZmxhZyBpbiBiZV9lbmFibGVfaWZfZmlsdGVycygpIHJvdXRpbmUN
-Cg0KV29sZnJhbSBTYW5nICgyKToNCiAgICAgIG5ldDogZXRoZXJuZXQ6IHJlbmVzYXM6IHJhdmJf
-bWFpbjogZG9uJ3Qgb3BlbiBjb2RlIG9mX2RldmljZV9nZXRfbWF0Y2hfZGF0YSgpDQogICAgICBu
-ZXQ6IGV0aGVybmV0OiByZW5lc2FzOiBzaF9ldGg6IGRvbid0IG9wZW4gY29kZSBvZl9kZXZpY2Vf
-Z2V0X21hdGNoX2RhdGEoKQ0KDQpYaW4gTG9uZyAoMik6DQogICAgICBzY3RwOiBsYWNrIHRoZSBj
-aGVjayBmb3IgcG9ydHMgaW4gc2N0cF92Nl9jbXBfYWRkcg0KICAgICAgc2N0cDogc2N0cF9yZW1h
-ZGRyX3NlcV9zaG93IHVzZSB0aGUgd3JvbmcgdmFyaWFibGUgdG8gZHVtcCB0cmFuc3BvcnQgaW5m
-bw0KDQp5YW5rZWppYW4gKDEpOg0KICAgICAgbmV0OiBobnM6IGZpeCB0aGUgYnVnIGFib3V0IGxv
-b3BiYWNrDQoNCiBNQUlOVEFJTkVSUyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICB8IDEwICsrKysrKysrKw0KIGRyaXZlcnMvbmV0L2Nhbi9zcGkvbWNwMjUxeC5jICAg
-ICAgICAgICAgICAgICAgICAgICAgIHwgIDIgKy0NCiBkcml2ZXJzL25ldC9jYW4vdXNiL2dzX3Vz
-Yi5jICAgICAgICAgICAgICAgICAgICAgICAgICB8IDI0ICsrKysrKysrKystLS0tLS0tLS0tLQ0K
-IGRyaXZlcnMvbmV0L2V0aGVybmV0LzNjb20vM2M1OXguYyAgICAgICAgICAgICAgICAgICAgIHwg
-IDIgKy0NCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9hbHRlcmEvYWx0ZXJhX3RzZV9tYWluLmMgICAg
-ICAgICB8ICAxIC0NCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9hdXJvcmEvbmI4ODAwLmMgICAgICAg
-ICAgICAgICAgICB8IDE0ICsrKysrKysrKysrKy0NCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9h
-ZGNvbS9ibngyeC9ibngyeF9oc2kuaCAgICAgICB8IDM2ICsrKysrKysrKysrKystLS0tLS0tLS0t
-LS0tLS0tLS0tDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54MnhfbWFp
-bi5jICAgICAgfCAyMiArKysrKysrKystLS0tLS0tLS0tLQ0KIGRyaXZlcnMvbmV0L2V0aGVybmV0
-L2Jyb2FkY29tL2JueDJ4L2JueDJ4X3NyaW92LmMgICAgIHwgMTIgKysrKystLS0tLS0NCiBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF92ZnBmLmMgICAgICB8ICA2ICsr
-KystLQ0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JueHQvYm54dC5jICAgICAgICAg
-ICAgIHwgIDMgKystDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvY2FkZS9ibmEvYm5hX3R4X3J4
-LmMgICAgICAgICAgfCAgMiArLQ0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Nhdml1bS90aHVuZGVy
-L25pYy5oICAgICAgICAgICAgIHwgIDkgKysrKysrKysNCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9j
-YXZpdW0vdGh1bmRlci9uaWNfbWFpbi5jICAgICAgICB8ICA2ICsrKysrKw0KIGRyaXZlcnMvbmV0
-L2V0aGVybmV0L2Nhdml1bS90aHVuZGVyL25pY19yZWcuaCAgICAgICAgIHwgIDIgKy0NCiBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9lbXVsZXgvYmVuZXQvYmUuaCAgICAgICAgICAgICAgICB8ICAxICsN
-CiBkcml2ZXJzL25ldC9ldGhlcm5ldC9lbXVsZXgvYmVuZXQvYmVfY21kcy5oICAgICAgICAgICB8
-ICA5ICsrKysrLS0tDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvZW11bGV4L2JlbmV0L2JlX21haW4u
-YyAgICAgICAgICAgfCAyMCArKysrKysrKysrKy0tLS0tLS0NCiBkcml2ZXJzL25ldC9ldGhlcm5l
-dC9ldGhvYy5jICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAxIC0NCiBkcml2ZXJzL25ldC9l
-dGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuLmMgICAgICAgICAgICB8ICA0ICsrLS0NCiBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZ2lhbmZhci5jICAgICAgICAgICAgICB8ICA0ICsr
-Ky0NCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9oaXNpbGljb24vS2NvbmZpZyAgICAgICAgICAgICAg
-ICB8ICAxICsNCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9oaXNpbGljb24vaG5zL2huc19hZV9hZGFw
-dC5jICAgICB8ICA4ICsrKysrKysNCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9oaXNpbGljb24vaG5z
-L2huc19kc2FmX21haW4uYyAgICB8IDM3ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-Kw0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9obnMvaG5zX2RzYWZfbWFpbi5oICAg
-IHwgIDEgKw0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9obnMvaG5zX2RzYWZfcmVn
-LmggICAgIHwgIDUgKysrKysNCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9oaXNpbGljb24vaG5zL2hu
-c19ldGh0b29sLmMgICAgICB8IDE1ICsrKysrKysrKysrKy0NCiBkcml2ZXJzL25ldC9ldGhlcm5l
-dC9pYm0vaWJtdmV0aC5jICAgICAgICAgICAgICAgICAgICB8ICA1ICsrKystDQogZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvaWJtL2libXZuaWMuYyAgICAgICAgICAgICAgICAgICAgfCA2MiArKysrKysr
-KysrKysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCiBkcml2ZXJz
-L25ldC9ldGhlcm5ldC9pYm0vaWJtdm5pYy5oICAgICAgICAgICAgICAgICAgICB8ICA0ICstLS0N
-CiBkcml2ZXJzL25ldC9ldGhlcm5ldC9qbWUuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICB8
-IDI2ICsrKysrKysrKysrKystLS0tLS0tLS0tDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFu
-b3gvbWx4NC9lbl9uZXRkZXYuYyAgICAgICAgfCAgMiArLQ0KIGRyaXZlcnMvbmV0L2V0aGVybmV0
-L21lbGxhbm94L21seDQvbWFpbi5jICAgICAgICAgICAgIHwgMTQgKysrKysrKysrKy0tLQ0KIGRy
-aXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDQvcG9ydC5jICAgICAgICAgICAgIHwgMjAg
-KysrKysrKysrLS0tLS0tLS0tDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NS9j
-b3JlL2VuLmggICAgICAgICAgfCAxOCArKysrKysrKystLS0tLS0tDQogZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvbWVsbGFub3gvbWx4NS9jb3JlL2VuX2Nsb2NrLmMgICAgfCAyNSArKysrKysrKysrKysr
-LS0tLS0tLS0tDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NS9jb3JlL2VuX2V0
-aHRvb2wuYyAgfCAzNiArKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tLQ0KIGRyaXZlcnMv
-bmV0L2V0aGVybmV0L21lbGxhbm94L21seDUvY29yZS9lbl9tYWluLmMgICAgIHwgODIgKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NS9jb3JlL2VuX3J4
-LmMgICAgICAgfCAgOCArLS0tLS0tDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4
-NS9jb3JlL2VuX3R4LmMgICAgICAgfCAxOSArKysrKysrLS0tLS0tLS0tLQ0KIGRyaXZlcnMvbmV0
-L2V0aGVybmV0L21lbGxhbm94L21seDUvY29yZS9lbl90eHJ4LmMgICAgIHwgIDEgLQ0KIGRyaXZl
-cnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seHN3L3BjaS5jICAgICAgICAgICAgIHwgIDIgKy0N
-CiBkcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHhzdy9zcGVjdHJ1bS5jICAgICAgICB8
-ICA0ICstLS0NCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9tb3hhL21veGFydF9ldGhlci5jICAgICAg
-ICAgICAgICB8ICA0ICsrLS0NCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9xdWFsY29tbS9xY2Ffc3Bp
-LmMgICAgICAgICAgICAgICB8ICAyICstDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9y
-ODE2OS5jICAgICAgICAgICAgICAgICAgfCAxOCArKysrKysrKysrLS0tLS0tDQogZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvcmVuZXNhcy9yYXZiX21haW4uYyAgICAgICAgICAgICAgfCAgNCArLS0tDQog
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVuZXNhcy9zaF9ldGguYyAgICAgICAgICAgICAgICAgfCAx
-MCArKystLS0tLS0NCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNf
-bWRpby5jICAgICB8IDExICstLS0tLS0tLS0NCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9zdG1pY3Jv
-L3N0bW1hYy9zdG1tYWNfcGxhdGZvcm0uYyB8ICA5ICsrKysrKystDQogZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvc3lub3BzeXMvZHdjX2V0aF9xb3MuYyAgICAgICAgICAgfCA0NSArKysrKysrKysrKysr
-KysrKysrKysrKysrKy0tLS0tLS0tLS0tLS0NCiBkcml2ZXJzL25ldC9waHkvbWljcmVsLmMgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICB8IDI4ICsrKysrKysrKysrKysrKysrKysrKysrKy0N
-CiBkcml2ZXJzL25ldC9wcHAvcHBwX2dlbmVyaWMuYyAgICAgICAgICAgICAgICAgICAgICAgICB8
-IDExICsrKysrKysrKy0NCiBkcml2ZXJzL25ldC91c2IvYXg4ODE3MmEuYyAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICB8ICAxIC0NCiBkcml2ZXJzL25ldC91c2IvY2RjX25jbS5jICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICB8IDI2ICsrKysrKysrKy0tLS0tLS0tLS0tLS0tDQogZHJpdmVy
-cy9uZXQvdXNiL3FtaV93d2FuLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgNyArKysr
-Ky0tDQogZHJpdmVycy9uZXQvdXNiL3VzYm5ldC5jICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgfCAgNyArKysrKysrDQogZHJpdmVycy9uZXQvdm14bmV0My92bXhuZXQzX2Rydi5jICAgICAg
-ICAgICAgICAgICAgICAgfCA3MyArKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQogZHJpdmVycy9uZXQvdnJmLmMgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAxMyArKysrKysrLS0tLS0NCiBkcml2ZXJzL25l
-dC92eGxhbi5jICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICA4ICsrKysrLS0N
-CiBkcml2ZXJzL25ldC93aXJlbGVzcy9pbnRlbC9pd2x3aWZpL212bS9mdy5jICAgICAgICAgICB8
-ICA0ICsrKy0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9pbnRlbC9pd2x3aWZpL212bS9tdm0uaCAg
-ICAgICAgICB8ICAzICsrKw0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdpZmkvbXZt
-L29wcy5jICAgICAgICAgIHwgIDIgKysNCiBkcml2ZXJzL25ldC93aXJlbGVzcy9pbnRlbC9pd2x3
-aWZpL212bS90eC5jICAgICAgICAgICB8ICA5ICsrKysrKysrDQogZHJpdmVycy9vZi9vZl9tZGlv
-LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgMSArDQogZHJpdmVycy9zc2Iv
-S2NvbmZpZyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgMSArDQogaW5jbHVk
-ZS9saW51eC9tbHg1L21seDVfaWZjLmggICAgICAgICAgICAgICAgICAgICAgICAgfCAgNCArKyst
-DQogaW5jbHVkZS9saW51eC9za2J1ZmYuaCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-fCAyNCArKysrKysrKysrKysrKysrKysrKysNCiBpbmNsdWRlL2xpbnV4L3N0bW1hYy5oICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAxICsNCiBpbmNsdWRlL25ldC9pd19oYW5kbGVy
-LmggICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICA2ICsrKysrKw0KIGluY2x1ZGUvdWFw
-aS9saW51eC9icGYuaCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDMgKysrDQogbmV0
-L2JyaWRnZS9icl9mZGIuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAxNSAr
-KysrKysrKy0tLS0tDQogbmV0L2NvcmUvZmlsdGVyLmMgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgfCAgNiArKysrLS0NCiBuZXQvY29yZS9ydG5ldGxpbmsuYyAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICB8ICA2ICsrKysrKw0KIG5ldC9jb3JlL3NrYnVmZi5jICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgMjIgKysrKysrKysrKysrKysrKysr
-LS0NCiBuZXQvaXB2NC9pZ21wLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICB8ICAzICstLQ0KIG5ldC9pcHY0L2lwX291dHB1dC5jICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIHwgIDUgKysrKy0NCiBuZXQvaXB2NC9pcF90dW5uZWwuYyAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICB8ICAzICsrLQ0KIG5ldC9pcHY0L3RjcF9tZXRyaWNzLmMgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIgKy0NCiBuZXQvaXB2NC90Y3BfbWluaXNv
-Y2tzLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAzICsrLQ0KIG5ldC9pcHY0L3Vk
-cF90dW5uZWwuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIgKysNCiBuZXQv
-aXB2Ni9leHRoZHJzX2NvcmUuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICA2ICsr
-KysrLQ0KIG5ldC9pcHY2L2lwNl9ncmUuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIHwgIDIgKysNCiBuZXQvaXB2Ni9pcDZfdHVubmVsLmMgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICB8ICAyICsrDQogbmV0L2lwdjYvbWNhc3QuYyAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgfCAgMyArLS0NCiBuZXQvaXB2Ni91ZHAuYyAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICB8ICA2ICsrLS0tLQ0KIG5ldC9tYWM4MDIxMS9hZ2ct
-cnguYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIgKy0NCiBuZXQvbWFjODAy
-MTEvaWVlZTgwMjExX2kuaCAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAyICstDQogbmV0
-L21hYzgwMjExL3JjODAyMTFfbWluc3RyZWwuYyAgICAgICAgICAgICAgICAgICAgICAgfCAgMiAr
-LQ0KIG5ldC9tYWM4MDIxMS9yYzgwMjExX21pbnN0cmVsX2h0LmMgICAgICAgICAgICAgICAgICAg
-IHwgMTYgKysrKysrKy0tLS0tLS0NCiBuZXQvbWFjODAyMTEvcnguYyAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICB8IDM3ICsrKysrKysrKysrKysrKysrKysrKysrKystLS0tLS0t
-LQ0KIG5ldC9zY2hlZC9hY3RfaXB0LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IHwgIDIgKysNCiBuZXQvc2N0cC9pcHY2LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICB8ICAyICsrDQogbmV0L3NjdHAvcHJvYy5jICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgfCAxMCArKysrLS0tLS0NCiBuZXQvc3dpdGNoZGV2L3N3aXRjaGRldi5j
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICA1ICsrKystDQogbmV0L3RpcGMvc29ja2V0
-LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAzMyArKysrKysrKysrKysr
-KysrLS0tLS0tLS0tLS0tLQ0KIG5ldC90aXBjL3N1YnNjci5jICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgIHwgIDMgKystDQogbmV0L3dpcmVsZXNzL2NvcmUuYyAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgfCAgMiArKw0KIG5ldC93aXJlbGVzcy9ubDgwMjExLmMg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIgKy0NCiBuZXQvd2lyZWxlc3Mvc21l
-LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICA2ICsrKysrKw0KIG5ldC93
-aXJlbGVzcy93ZXh0LWNvcmUuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgNTIgKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0tLQ0KIDEwMSBmaWxlcyBj
-aGFuZ2VkLCA3ODMgaW5zZXJ0aW9ucygrKSwgMzk5IGRlbGV0aW9ucygtKQ0K
+Kernel Connection Multiplexor (KCM) is a facility that provides a
+message based interface over TCP for generic application protocols.
+The motivation for this is based on the observation that although
+TCP is byte stream transport protocol with no concept of message
+boundaries, a common use case is to implement a framed application
+layer protocol running over TCP. To date, most TCP stacks offer
+byte stream API for applications, which places the burden of message
+delineation, message I/O operation atomicity, and load balancing
+in the application. With KCM an application can efficiently send
+and receive application protocol messages over TCP using a
+datagram interface.
+
+In order to delineate message in a TCP stream for receive in KCM, the
+kernel implements a message parser. For this we chose to employ BPF
+which is applied to the TCP stream. BPF code parses application layer
+messages and returns a message length. Nearly all binary application
+protocols are parsable in this manner, so KCM should be applicable
+across a wide range of applications. Other than message length
+determination in receive, KCM does not require any other application
+specific awareness. KCM does not implement any other application
+protocol semantics-- these are are provided in userspace or could be
+implemented in a kernel module layered above KCM.
+
+KCM implements an NxM multiplexor in the kernel as diagrammed below:
+
++------------+   +------------+   +------------+   +------------+
+| KCM socket |   | KCM socket |   | KCM socket |   | KCM socket |
++------------+   +------------+   +------------+   +------------+
+      |                 |               |                |
+      +-----------+     |               |     +----------+
+                  |     |               |     |
+               +----------------------------------+
+               |           Multiplexor            |
+               +----------------------------------+
+                 |   |           |           |  |
+       +---------+   |           |           |  ------------+
+       |             |           |           |              |
++----------+  +----------+  +----------+  +----------+ +----------+
+|  Psock   |  |  Psock   |  |  Psock   |  |  Psock   | |  Psock   |
++----------+  +----------+  +----------+  +----------+ +----------+
+      |              |           |            |             |
++----------+  +----------+  +----------+  +----------+ +----------+
+| TCP sock |  | TCP sock |  | TCP sock |  | TCP sock | | TCP sock |
++----------+  +----------+  +----------+  +----------+ +----------+
+
+The KCM sockets provide the datagram interface to applications,
+Psocks are the state for each attached TCP connection (i.e. where
+message delineation is performed on receive).
+
+A description of the APIs and design can be found in the included
+Documentation/networking/kcm.txt.
+
+In this patch set:
+
+  - Add MSG_BATCH flag. This is used in sendmsg msg_hdr flags to
+    indicate that more messages will be sent on the socket. The stack
+    may batch messages up if it is beneficial for transmission.
+  - In sendmmsg, set MSG_BATCH in all sub messages except for the last
+    one.
+  - In order to allow sendmmsg to contain multiple messages with
+    SOCK_SEQPAKET we allow each msg_hdr in the sendmmsg to set MSG_EOR.
+  - Add KCM module
+    - This supports SOCK_DGRAM and SOCK_SEQPACKET.
+  - KCM documentation
+
+v2:
+  - Added splice and page operations.
+  - Assemble receive messages in place on TCP socket (don't have a
+    separate assembly queue.
+  - Based on above, enforce maxmimum receive message to be the size
+    of the recceive socket buffer.
+  - Support message assembly timeout. Use the timeout value in
+    sk_rcvtimeo on the TCP socket.
+  - Tested some with a couple of other production applications,
+    see ~5% improvement in application latency.
+
+Testing:
+
+Dave Watson has integrated KCM into Thrift and we intend to put these
+changes into open source. Example of this is in:
+
+https://github.com/djwatson/fbthrift/commit/
+dd7e0f9cf4e80912fdb90f6cd394db24e61a14cc
+
+Some initial KCM Thrift benchmark numbers (comment from Dave)
+
+Thrift by default ties a single connection to a single thread.  KCM is
+instead able to load balance multiple connections across multiple epoll
+loops easily.
+
+A test sending ~5k bytes of data to a kcm thrift server, dropping the
+bytes on recv:
+
+QPS     Latency / std dev Latency
+  without KCM
+    70336     209/123
+  with KCM
+    70353     191/124
+
+A test sending a small request, then doing work in the epoll thread,
+before serving more requests:
+
+QPS     Latency / std dev Latency
+without KCM
+    14282     559/602
+with KCM
+    23192     344/234
+
+At the high end, there's definitely some additional kernel overhead:
+
+Cranking the pipelining way up, with lots of small requests
+
+QPS     Latency / std dev Latency
+without KCM
+   1863429     127/119
+with KCM
+   1337713     192/241
+
+---
+
+So for a "realistic" workload, KCM performs pretty well (second case).
+Under extreme conditions of highest tps we still have some work to do.
+In its nature a multiplexor will spread work between CPUs which is
+logically good for load balancing but coan conflict with the goal
+promoting affinity. Batching messages on both send and receive are
+the means to recoup performance.
+
+Future support:
+
+ - Integration with TLS (TLS-in-kernel is a separate initiative).
+ - Page operations/splice support
+ - Unconnected KCM sockets. Will be able to attach sockets to different
+   destinations, AF_KCM addresses with be used in sendmsg and recvmsg
+   to indicate destination
+ - Explore more utility in performing BPF inline with a TCP data stream
+   (setting SO_MARK, rxhash for messages being sent received on
+   KCM sockets).
+ - Performance work
+   - Diagnose performance issues under high message load
+
+FAQ (Questions posted on LWN)
+
+Q: Why do this in the kernel?
+
+A: Because the kernel is good at scheduling threads and steering packets
+   to threads. KCM fits well into this model since it allows the unit
+   of work for scheduling and steering to be the application layer
+   messages themselves. KCM should be thought of as generic application
+   protocol acceleration. It to the philosophy that the kernel provides
+   generic and extensible interfaces.
+   
+Q: How can adding code in the path yield better performance?
+
+A: It is true that for just sending receiving a single message there
+   would be some performance loss since the code path is longer (for
+   instance comparing netperf to KCM). But for real production
+   applications performance takes on many dynamics. Parallelism, context
+   switching, affinity, granularity of locking, and load balancing are
+   all relevant. The theory of KCM is that by an application-centric
+   interface, the kernel can provide better support for these
+   performance characteristics.
+
+Q: Why not use an existing message-oriented protocol such as RUDP,
+   DCCP, SCTP, RDS, and others?
+
+A: Because that would entail using a completely new transport protocol.
+   Deploying a new protocol at scale is either a huge undertaking or
+   fundamentally infeasible. This is true in either the Internet and in
+   the data center due in a large part to protocol ossification.
+   Besides, KCM we want KCM to work existing, well deployed application
+   protocols that we couldn't change even if we wanted to (e.g. http/2).
+
+   KCM simply defines a new interface method, it does not redefine any
+   aspect of the transport protocol nor application protocol, nor set
+   any new requirements on these. Neither does KCM attempt to implement
+   any application protocol logic other than message deliniation in the
+   stream. These are fundamental requirement of KCM.
+
+Q: How does this affect TCP?
+
+A: It doesn't, not in the slightest. The use of KCM can be one-sided,
+   KCM has no effect on the wire.
+
+Q: Why force TCP into doing something it's not designed for?
+
+A: TCP is defined as transport protocol and there is no standard that
+   says the API into TCP must be stream based sockets, or for that
+   matter sockets at all (or even that TCP needs to be implemented in a
+   kernel). KCM is not inconsistent with the design of TCP just because
+   to makes an message based interface over TCP, if it were then every
+   application protocol sending messages over TCP would also be! :-)
+
+Q: What about the problem of a connections with very slow rate of
+   incoming data? As a result your application can get storms of very
+   short reads. And it actually happens a lot with connection from
+   mobile devices and it is a problem for servers handling a lot of
+   connections.
+
+A: The storm of short reads will occur regardless of whether KCM is used
+   or not. KCM does have one advantage in this scenario though, it will
+   only wake up the application when a full message has been received,
+   not for each packet that makes up part of a bigger messages. If a
+   bunch of small messages are received, the application can receive
+   messages in batches using recvmmsg.
+
+Q: Why not just use DPDK, or at least provide KCM like functionality in
+   DPDK?
+
+A: DPDK, or more generally OS bypass presumably with a TCP stack in
+   userland, presents a different model of load balancing than that of
+   KCM (and the kernel). KCM implements load balancing of messages
+   across the threads of an application, whereas DPDK load balances
+   based on queues which are more static and coarse-grained since
+   multiple connections are bound to queues. DPDK works best when
+   processing of packets is silo'ed in a thread on the CPU processing
+   a queue, and packet processing (for both the stack and application)
+   is fairly uniform. KCM works well for applications where the amount
+   of work to process messages varies an application work is commonly
+   delegated to worker threads often on different CPUs.
+ 
+   The message based interface over TCP is something that could be
+   provide by a DPDK or OS bypass library.
+
+Q: I'm not quite seeing this for HTTP. Maybe for HTTP/2, I guess, or web
+   sockets?
+
+A: Yes. KCM is most appropriate for message based protocols over TCP
+   where is easy to deduce the message length (e.g. a length field)
+   and the protocol implements its own message ordering semantics.
+   Fortunately this encompasses many modern protocols.
+
+Q: How is memory limited and controlled?
+
+A: In v2 all data for messages is now kept in socket buffers, either
+   those for TCP or KCM, so socket buffer limits are applicable.
+   This includes receive messages assembly which is now done ont teh
+   TCP socket buffer instead of a separate queue-- this has the
+   consequence that the TCP socket buffer limit provides an
+   enforceable maxmimum message size.
+
+   Additionally, a timeout may be set for messages assembly. The
+   value used for this is taken from sk_rcvtimeo of the TCP socket.
+
+Tom Herbert (13):
+  rcu: Add list_next_or_null_rcu
+  net: Make sock_alloc exportable
+  net: Allow MSG_EOR in each msghdr of sendmmsg
+  net: Add MSG_BATCH flag
+  net: Walk fragments in __skb_splice_bits
+  tcp: Add tcp_inq to get available receive bytes on socket
+  kcm: Kernel Connection Multiplexor module
+  kcm: Add statistics and proc interfaces
+  kcm: Splice support
+  kcm: Sendpage support
+  kcm: Add memory limit for receive message construction
+  kcm: Add receive message timeout
+  kcm: Add description in Documentation
+
+ Documentation/networking/kcm.txt |  285 +++++
+ include/linux/net.h              |    1 +
+ include/linux/rculist.h          |   21 +
+ include/linux/socket.h           |    7 +-
+ include/net/kcm.h                |  226 ++++
+ include/net/tcp.h                |   24 +
+ include/uapi/linux/kcm.h         |   40 +
+ net/Kconfig                      |    1 +
+ net/Makefile                     |    1 +
+ net/core/skbuff.c                |   39 +-
+ net/ipv4/tcp.c                   |   15 +-
+ net/kcm/Kconfig                  |   10 +
+ net/kcm/Makefile                 |    3 +
+ net/kcm/kcmproc.c                |  426 +++++++
+ net/kcm/kcmsock.c                | 2409 ++++++++++++++++++++++++++++++++++++++
+ net/socket.c                     |   18 +-
+ 16 files changed, 3483 insertions(+), 43 deletions(-)
+ create mode 100644 Documentation/networking/kcm.txt
+ create mode 100644 include/net/kcm.h
+ create mode 100644 include/uapi/linux/kcm.h
+ create mode 100644 net/kcm/Kconfig
+ create mode 100644 net/kcm/Makefile
+ create mode 100644 net/kcm/kcmproc.c
+ create mode 100644 net/kcm/kcmsock.c
+
+-- 
+2.6.5
