@@ -1,26 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ethoc: do not free array priv->mdio->irq
-Date: Sun, 06 Mar 2016 22:59:39 -0500 (EST)
-Message-ID: <20160306.225939.1421418316785928745.davem@davemloft.net>
-References: <1457012614-19564-1-git-send-email-colin.king@canonical.com>
+Subject: Re: [PATCH] net: eth: altera: do not free array priv->mdio->irq
+Date: Sun, 06 Mar 2016 22:59:45 -0500 (EST)
+Message-ID: <20160306.225945.145474834101380126.davem@davemloft.net>
+References: <1457012838-19743-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, tklauser@distanz.ch,
-	fabf@skynet.be, jcmvbkbc@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: vbridger@opensource.altera.com, netdev@vger.kernel.org,
+	nios2-dev@lists.rocketboards.org, linux-kernel@vger.kernel.org
 To: colin.king@canonical.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43036 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43043 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751972AbcCGD7l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 22:59:41 -0500
-In-Reply-To: <1457012614-19564-1-git-send-email-colin.king@canonical.com>
+	with ESMTP id S1752278AbcCGD7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 22:59:47 -0500
+In-Reply-To: <1457012838-19743-1-git-send-email-colin.king@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Colin King <colin.king@canonical.com>
-Date: Thu,  3 Mar 2016 13:43:34 +0000
+Date: Thu,  3 Mar 2016 13:47:18 +0000
 
 > From: Colin Ian King <colin.king@canonical.com>
 > 
