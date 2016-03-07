@@ -1,43 +1,50 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: mwifiex: Use to_delayed_work()
-Date: Mon,  7 Mar 2016 12:23:54 +0000 (UTC)
-Message-ID: <20160307122354.663816074A@smtp.codeaurora.org>
-References: <20160217123336.GA30230@amitoj-Inspiron-3542>
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
+Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
+Date: Mon, 07 Mar 2016 13:24:25 +0100
+Message-ID: <2714888.1DdqvJZ8cb@diego>
+References: <1457294038-14243-1-git-send-email-afaerber@suse.de> <56DD7172.4000707@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: akarwar@marvell.com, nishants@marvell.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
-To: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-rockchip@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	LAKML <linux-arm-kernel@lists.infradead.org>
+To: Andreas =?ISO-8859-1?Q?F=E4rber?= <afaerber@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:50206 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752058AbcCGMXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 07:23:55 -0500
-In-Reply-To: <20160217123336.GA30230@amitoj-Inspiron-3542>
+Received: from gloria.sntech.de ([95.129.55.99]:55172 "EHLO gloria.sntech.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750836AbcCGMYa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 07:24:30 -0500
+In-Reply-To: <56DD7172.4000707@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Andreas,
 
-> Introduce the use of to_delayed_work() helper function instead of open
-> coding it with container_of()
-> 
-> A simplified version of the Coccinelle semantic patch used to make
-> this change is:
-> 
-> //<smpl>
-> @@
-> expression a;
-> symbol work;
-> @@
-> - container_of(a, struct delayed_work, work)
-> + to_delayed_work(a)
-> //</smpl>
-> 
-> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+Am Montag, 7. M=E4rz 2016, 13:17:54 schrieb Andreas F=E4rber:
+> Am 06.03.2016 um 20:53 schrieb Andreas F=E4rber:
+> > On next-20160304 the GMAC seems to have regressed, it no longer fin=
+ds the
+> > PHY:
+> >=20
+> > libphy: PHY stmmac-0:ffffffff not found
+> > eth0: Could not attach to PHY
+> > stmmac_open: Cannot attach to PHY (error: -19)
+>=20
+> Still with us in next-20160307. CC'ing stmmac maintainers.
 
-Thanks, applied to wireless-drivers-next.git.
+do you remember from what revision you rebased away from, when it was s=
+till=20
+working (as a known-good state)?
 
-Kalle Valo
+
+Heiko
+
+>=20
+> http://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/log/d=
+rivers/
+> net/ethernet/stmicro
+>=20
+> Regards,
+> Andreas
