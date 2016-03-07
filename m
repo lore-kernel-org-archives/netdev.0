@@ -1,44 +1,55 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 3/4] ipvs: allow rescheduling after RST
-Date: Mon,  7 Mar 2016 12:03:33 +0900
-Message-ID: <1457319814-8027-4-git-send-email-horms@verge.net.au>
-References: <1457319814-8027-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1457319814-8027-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv4: properly apply change to
+ ignore_routes_on_linkdown to all interfaces
+Date: Sun, 06 Mar 2016 22:38:21 -0500 (EST)
+Message-ID: <20160306.223821.1949140799875890455.davem@davemloft.net>
+References: <1456936986-2042-1-git-send-email-gospo@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: gospo@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42824 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751341AbcCGDiX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 22:38:23 -0500
+In-Reply-To: <1456936986-2042-1-git-send-email-gospo@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Date: Wed,  2 Mar 2016 11:43:06 -0500
 
-"RFC 5961, 4.2. Mitigation" describes a mechanism to request
-client to confirm with RST the restart of TCP connection
-before resending its SYN. As result, IPVS can see SYNs for
-existing connection in CLOSE state. Add check to allow
-rescheduling in this state.
+> Any change to sysctl net.ipv4.conf.all.ignore_routes_with_linkdown does
+> not result in a change to all interfaces on the system.  This means that
+> any devices initialized before sysctl settings are applied on boot do
+> not see a change if the sysctl setting is different than what the stack
+> has as a default ('0' in this case).
+> 
+> This patch changes the net.ipv4.conf.all.ignore_routes_with_linkdown
+> setting to match what is done for forwarding for ipv4 and for
+> ignore_routes_with_linkdown for ipv6.  The current behavior was not
+> intentional and had I recognized this corner-case before posting I would
+> have done this with the first series.
+> 
+> Fixes: 0eeb075fad73 ("net: ipv4 sysctl option to ignore routes when nexthop link is down")
+> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> ---
+> Generic infrastructure could be added to do this for all values, but I'm
+> hesitant to do this since historically users are probably depending on
+> the exiting behavior (whether intentional or not) for the more widely
+> used sysctls.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_core.c | 1 +
- 1 file changed, 1 insertion(+)
+"Properly" is a matter of interpretation.
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 4da560005b0e..b9a4082afa3a 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1089,6 +1089,7 @@ static inline bool is_new_conn_expected(const struct ip_vs_conn *cp,
- 	switch (cp->protocol) {
- 	case IPPROTO_TCP:
- 		return (cp->state == IP_VS_TCP_S_TIME_WAIT) ||
-+		       (cp->state == IP_VS_TCP_S_CLOSE) ||
- 			((conn_reuse_mode & 2) &&
- 			 (cp->state == IP_VS_TCP_S_FIN_WAIT) &&
- 			 (cp->flags & IP_VS_CONN_F_NOOUTPUT));
--- 
-2.1.4
+Traditionally the way ipv4 works for most sysctls is that we pick up
+the default and all values at the time the device get's it's ipv4
+private attached (first ipv4 address configured, etc.)
 
+So it's a bit too late now to change this behavior.
+
+Yes, that's even if ipv6 behaves differently, and that's even if some
+other ipv4 sysctls behave differently too.
+
+I'm not applying this, sorry.
