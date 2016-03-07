@@ -1,50 +1,77 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [net-next RFC 0/4] SO_BINDTOSUBNET
-Date: Mon, 7 Mar 2016 12:09:52 -0700
-Message-ID: <56DDD200.4080101@cumulusnetworks.com>
-References: <1456241265-5766-1-git-send-email-gilberto.bertin@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: Possible double-free in the usbnet driver
+Date: Mon, 07 Mar 2016 14:11:00 -0500 (EST)
+Message-ID: <20160307.141100.1511700720120062677.davem@davemloft.net>
+References: <1457193090.8935.7.camel@suse.com>
+	<DBDB517D-E4A4-4422-AECE-52194FE2AED0@mork.no>
+	<CA+55aFw43uKkUK-h=VMwXcb9NM+g2AdeB960kWb4YihmjQ8DRw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Gilberto Bertin <gilberto.bertin@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:35561 "EHLO
-	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752930AbcCGTJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 14:09:56 -0500
-Received: by mail-io0-f172.google.com with SMTP id g203so142378940iof.2
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 11:09:55 -0800 (PST)
-In-Reply-To: <1456241265-5766-1-git-send-email-gilberto.bertin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bjorn-yOkvZcmFvRU@public.gmane.org, oneukum-IBi9RG/b67k@public.gmane.org, andreyknvl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+55aFw43uKkUK-h=VMwXcb9NM+g2AdeB960kWb4YihmjQ8DRw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2/23/16 8:27 AM, Gilberto Bertin wrote:
-> This series introduces support for the SO_BINDTOSUBNET socket option, which
-> allows a listener socket to bind to a subnet instead of * or a single address.
->
-> Motivation:
-> consider a set of servers, each one with thousands and thousands of IP
-> addresses. Since assigning /32 or /128 IP individual addresses would be
-> inefficient, one solution can be assigning subnets using local routes
-> (with 'ip route add local').
->
-> This allows a listener to listen and terminate connections going to any
-> of the IP addresses of these subnets without explicitly configuring all
-> of them. This is very efficient.
->
-> Unfortunately there may be the need to use different subnets for
-> different purposes.
-> One can imagine port 80 being served by one HTTP server for some IP
-> subnet, while another server used for another subnet.
-> Right now Linux does not allow this.
-> It is either possible to bind to *, indicating ALL traffic going to
-> given port, or to individual IP addresses.
-> The first only allows to accept connections from all the subnets.
-> The latter does not scale well with lots of IP addresses.
+=46rom: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Date: Mon, 7 Mar 2016 10:13:09 -0800
 
-Have you looked at the VRF implementation?
-     Documentation/networking/vrf.txt
+> On Sat, Mar 5, 2016 at 11:53 AM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
+>>
+>>
+>> Definitely.  The patch is so obviously correct that we can only wond=
+er how it was possible to miss it it the first place :)
+>>
+>> Will take a look to see if we could do a better job cleaning up in o=
+ther places.
+>=20
+> What should I do for 4.5? Will there be a pull request for this, or
+> should I just commit my cdc_ncm_bind() patch directly?
 
-It certainly handles some of your requirements -- e.g., create L3 
-domains (VRFs) for subnets of interest. Apps can bind to the VRF device 
-to provide service to only those networks in the domain.
+Yes I plan to send you a pull request today with Oliver's fix.
+
+Assuming this is what you guys are referring to:
+
+commit 1666984c8625b3db19a9abc298931d35ab7bc64b
+Author: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Date:   Mon Mar 7 11:31:10 2016 +0100
+
+    usbnet: cleanup after bind() in probe()
+   =20
+    In case bind() works, but a later error forces bailing
+    in probe() in error cases work and a timer may be scheduled.
+    They must be killed. This fixes an error case related to
+    the double free reported in
+    http://www.spinics.net/lists/netdev/msg367669.html
+    and needs to go on top of Linus' fix to cdc-ncm.
+   =20
+    Signed-off-by: Oliver Neukum <ONeukum-IBi9RG/b67k@public.gmane.org>
+    Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 0b0ba7e..1079812 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1769,6 +1769,13 @@ out3:
+ 	if (info->unbind)
+ 		info->unbind (dev, udev);
+ out1:
++	/* subdrivers must undo all they did in bind() if they
++	 * fail it, but we may fail later and a deferred kevent
++	 * may trigger an error resubmitting itself and, worse,
++	 * schedule a timer. So we kill it all just in case.
++	 */
++	cancel_work_sync(&dev->kevent);
++	del_timer_sync(&dev->delay);
+ 	free_netdev(net);
+ out:
+ 	return status;
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
