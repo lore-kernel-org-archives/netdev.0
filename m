@@ -1,37 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 3/4] vxlan: Enforce IP ID verification on
- outer headers
-Date: Mon, 07 Mar 2016 14:09:47 -0500 (EST)
-Message-ID: <20160307.140947.1831226984496616218.davem@davemloft.net>
-References: <20160307172201.5295.69740.stgit@localhost.localdomain>
-	<20160307172214.5295.52624.stgit@localhost.localdomain>
-	<CAJ3xEMgpiaaLJrSqefOgrDVXsyKDtqSYQ7O01jq_UYp+UeT4bg@mail.gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [net-next RFC 0/4] SO_BINDTOSUBNET
+Date: Mon, 7 Mar 2016 12:09:52 -0700
+Message-ID: <56DDD200.4080101@cumulusnetworks.com>
+References: <1456241265-5766-1-git-send-email-gilberto.bertin@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: aduyck@mirantis.com, netdev@vger.kernel.org
-To: gerlitz.or@gmail.com
+To: Gilberto Bertin <gilberto.bertin@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53099 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752930AbcCGTJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 14:09:49 -0500
-In-Reply-To: <CAJ3xEMgpiaaLJrSqefOgrDVXsyKDtqSYQ7O01jq_UYp+UeT4bg@mail.gmail.com>
+Received: from mail-io0-f172.google.com ([209.85.223.172]:35561 "EHLO
+	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752930AbcCGTJ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 14:09:56 -0500
+Received: by mail-io0-f172.google.com with SMTP id g203so142378940iof.2
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 11:09:55 -0800 (PST)
+In-Reply-To: <1456241265-5766-1-git-send-email-gilberto.bertin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Date: Mon, 7 Mar 2016 20:05:20 +0200
+On 2/23/16 8:27 AM, Gilberto Bertin wrote:
+> This series introduces support for the SO_BINDTOSUBNET socket option, which
+> allows a listener socket to bind to a subnet instead of * or a single address.
+>
+> Motivation:
+> consider a set of servers, each one with thousands and thousands of IP
+> addresses. Since assigning /32 or /128 IP individual addresses would be
+> inefficient, one solution can be assigning subnets using local routes
+> (with 'ip route add local').
+>
+> This allows a listener to listen and terminate connections going to any
+> of the IP addresses of these subnets without explicitly configuring all
+> of them. This is very efficient.
+>
+> Unfortunately there may be the need to use different subnets for
+> different purposes.
+> One can imagine port 80 being served by one HTTP server for some IP
+> subnet, while another server used for another subnet.
+> Right now Linux does not allow this.
+> It is either possible to bind to *, indicating ALL traffic going to
+> given port, or to individual IP addresses.
+> The first only allows to accept connections from all the subnets.
+> The latter does not scale well with lots of IP addresses.
 
-> On Mon, Mar 7, 2016 at 7:22 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
->> This change enforces the IP ID verification on outer headers.  As a result
->> if the DF flag is not set on the outer header we will force the flow to be
->> flushed in the event that the IP ID is out of sequence with the existing
->> flow.
-> 
-> Can you please state the precise requirement for aggregation w.r.t IP
-> IDs here? and point to where/how this is enforced, e.g for
-> non-tunneled TCP GRO-ing?
+Have you looked at the VRF implementation?
+     Documentation/networking/vrf.txt
 
-I also didn't see a nice "PATCH 0/4" posting explaining this series and
-I'd really like to see that.
+It certainly handles some of your requirements -- e.g., create L3 
+domains (VRFs) for subnets of interest. Apps can bind to the VRF device 
+to provide service to only those networks in the domain.
