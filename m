@@ -1,94 +1,372 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: thunderx: Set recevie buffer page usage count
- in bulk
-Date: Mon, 07 Mar 2016 11:15:34 -0500 (EST)
-Message-ID: <20160307.111534.235286977900488968.davem@davemloft.net>
-References: <1457336157-31508-1-git-send-email-sunil.kovvuri@gmail.com>
-	<1457336157-31508-2-git-send-email-sunil.kovvuri@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+From: Moritz Fischer <moritz.fischer@ettus.com>
+Subject: [PATCH 2/3] net: macb: Fix more coding style issues
+Date: Mon,  7 Mar 2016 08:17:38 -0800
+Message-ID: <1457367460-9123-3-git-send-email-moritz.fischer@ettus.com>
+References: <1457367460-9123-1-git-send-email-moritz.fischer@ettus.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, sgoutham@cavium.com,
-	robert.richter@caviumnetworks.com
-To: sunil.kovvuri@gmail.com
+	Moritz Fischer <moritz.fischer@ettus.com>
+To: nicolas.ferre@atmel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50896 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752697AbcCGQPg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 11:15:36 -0500
-In-Reply-To: <1457336157-31508-2-git-send-email-sunil.kovvuri@gmail.com>
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:36067 "EHLO
+	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753219AbcCGQR7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 11:17:59 -0500
+Received: by mail-oi0-f44.google.com with SMTP id r187so82584189oih.3
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 08:17:59 -0800 (PST)
+In-Reply-To: <1457367460-9123-1-git-send-email-moritz.fischer@ettus.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: sunil.kovvuri@gmail.com
-Date: Mon,  7 Mar 2016 13:05:56 +0530
+This commit takes care of the coding style warnings
+that are mostly due to a different comment style and
+lines over 80 chars.
+Notable exceptions are ether_addr_copy vs memcpy,
+as well as a dangling else after a return.
 
-> From: Sunil Goutham <sgoutham@cavium.com>
-> 
-> Instead of calling get_page() for every receive buffer carved out
-> of page, set page's usage count at the end, to reduce no of atomic
-> calls.
-> 
-> Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
-> ---
->  drivers/net/ethernet/cavium/thunder/nic.h          |    1 +
->  drivers/net/ethernet/cavium/thunder/nicvf_queues.c |   31 ++++++++++++++-----
->  2 files changed, 24 insertions(+), 8 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-> index 00cc915..5628aea 100644
-> --- a/drivers/net/ethernet/cavium/thunder/nic.h
-> +++ b/drivers/net/ethernet/cavium/thunder/nic.h
-> @@ -285,6 +285,7 @@ struct nicvf {
->  	u32			speed;
->  	struct page		*rb_page;
->  	u32			rb_page_offset;
-> +	u16			rb_pageref;
->  	bool			rb_alloc_fail;
->  	bool			rb_work_scheduled;
->  	struct delayed_work	rbdr_work;
-> diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-> index 0dd1abf..fa05e34 100644
-> --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-> +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-> @@ -18,6 +18,15 @@
->  #include "q_struct.h"
->  #include "nicvf_queues.h"
->  
-> +static void nicvf_get_page(struct nicvf *nic)
-> +{
-> +	if (!nic->rb_pageref || !nic->rb_page)
-> +		return;
-> +
-> +	atomic_add(nic->rb_pageref, &nic->rb_page->_count);
-> +	nic->rb_pageref = 0;
-> +}
-> +
->  /* Poll a register for a specific value */
->  static int nicvf_poll_reg(struct nicvf *nic, int qidx,
->  			  u64 reg, int bit_pos, int bits, int val)
-> @@ -81,16 +90,15 @@ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
->  	int order = (PAGE_SIZE <= 4096) ?  PAGE_ALLOC_COSTLY_ORDER : 0;
->  
->  	/* Check if request can be accomodated in previous allocated page */
-> -	if (nic->rb_page) {
-> -		if ((nic->rb_page_offset + buf_len + buf_len) >
-> -		    (PAGE_SIZE << order)) {
-> -			nic->rb_page = NULL;
-> -		} else {
-> -			nic->rb_page_offset += buf_len;
-> -			get_page(nic->rb_page);
-> -		}
-> +	if (nic->rb_page &&
-> +	    ((nic->rb_page_offset + buf_len) < (PAGE_SIZE << order))) {
-> +		nic->rb_pageref++;
-> +		goto ret;
->  	}
+Signed-off-by: Moritz Fischer <moritz.fischer@ettus.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 109 +++++++++++++++---------------------
+ 1 file changed, 46 insertions(+), 63 deletions(-)
 
-I do not see how this can sanely work.
-
-By deferring the atomic increment of the page count, you create a window of
-time during which the consumer can release the page and prematurely free it.
-
-I'm not applying this, as it looks extremely buggy.  Sorry.
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 4370f37..fba4239 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -58,8 +58,7 @@
+ 
+ #define GEM_MTU_MIN_SIZE	68
+ 
+-/*
+- * Graceful stop timeouts in us. We should allow up to
++/* Graceful stop timeouts in us. We should allow up to
+  * 1 frame time (10 Mbits/s, full-duplex, ignoring collisions)
+  */
+ #define MACB_HALT_TIMEOUT	1230
+@@ -127,8 +126,7 @@ static void hw_writel(struct macb *bp, int offset, u32 value)
+ 	writel_relaxed(value, bp->regs + offset);
+ }
+ 
+-/*
+- * Find the CPU endianness by using the loopback bit of NCR register. When the
++/* Find the CPU endianness by using the loopback bit of NCR register. When the
+  * CPU is in big endian we need to program swaped mode for management
+  * descriptor access.
+  */
+@@ -383,7 +381,8 @@ static int macb_mii_probe(struct net_device *dev)
+ 
+ 	pdata = dev_get_platdata(&bp->pdev->dev);
+ 	if (pdata && gpio_is_valid(pdata->phy_irq_pin)) {
+-		ret = devm_gpio_request(&bp->pdev->dev, pdata->phy_irq_pin, "phy int");
++		ret = devm_gpio_request(&bp->pdev->dev, pdata->phy_irq_pin,
++					"phy int");
+ 		if (!ret) {
+ 			phy_irq = gpio_to_irq(pdata->phy_irq_pin);
+ 			phydev->irq = (phy_irq < 0) ? PHY_POLL : phy_irq;
+@@ -449,7 +448,8 @@ static int macb_mii_init(struct macb *bp)
+ 		err = of_mdiobus_register(bp->mii_bus, np);
+ 
+ 		/* fallback to standard phy registration if no phy were
+-		   found during dt phy registration */
++		 * found during dt phy registration
++		 */
+ 		if (!err && !phy_find_first(bp->mii_bus)) {
+ 			for (i = 0; i < PHY_MAX_ADDR; i++) {
+ 				struct phy_device *phydev;
+@@ -564,8 +564,7 @@ static void macb_tx_error_task(struct work_struct *work)
+ 	/* Make sure nobody is trying to queue up new packets */
+ 	netif_tx_stop_all_queues(bp->dev);
+ 
+-	/*
+-	 * Stop transmission now
++	/* Stop transmission now
+ 	 * (in case we have just queued new packets)
+ 	 * macb/gem must be halted to write TBQP register
+ 	 */
+@@ -573,8 +572,7 @@ static void macb_tx_error_task(struct work_struct *work)
+ 		/* Just complain for now, reinitializing TX path can be good */
+ 		netdev_err(bp->dev, "BUG: halt tx timed out\n");
+ 
+-	/*
+-	 * Treat frames in TX queue including the ones that caused the error.
++	/* Treat frames in TX queue including the ones that caused the error.
+ 	 * Free transmit buffers in upper layer.
+ 	 */
+ 	for (tail = queue->tx_tail; tail != queue->tx_head; tail++) {
+@@ -604,10 +602,9 @@ static void macb_tx_error_task(struct work_struct *work)
+ 				bp->stats.tx_bytes += skb->len;
+ 			}
+ 		} else {
+-			/*
+-			 * "Buffers exhausted mid-frame" errors may only happen
+-			 * if the driver is buggy, so complain loudly about those.
+-			 * Statistics are updated by hardware.
++			/* "Buffers exhausted mid-frame" errors may only happen
++			 * if the driver is buggy, so complain loudly about
++			 * those. Statistics are updated by hardware.
+ 			 */
+ 			if (ctrl & MACB_BIT(TX_BUF_EXHAUSTED))
+ 				netdev_err(bp->dev,
+@@ -719,7 +716,8 @@ static void gem_rx_refill(struct macb *bp)
+ 	struct sk_buff		*skb;
+ 	dma_addr_t		paddr;
+ 
+-	while (CIRC_SPACE(bp->rx_prepared_head, bp->rx_tail, RX_RING_SIZE) > 0) {
++	while (CIRC_SPACE(bp->rx_prepared_head, bp->rx_tail,
++			  RX_RING_SIZE) > 0) {
+ 		entry = macb_rx_ring_wrap(bp->rx_prepared_head);
+ 
+ 		/* Make hw descriptor updates visible to CPU */
+@@ -738,7 +736,8 @@ static void gem_rx_refill(struct macb *bp)
+ 
+ 			/* now fill corresponding descriptor entry */
+ 			paddr = dma_map_single(&bp->pdev->dev, skb->data,
+-					       bp->rx_buffer_size, DMA_FROM_DEVICE);
++					       bp->rx_buffer_size,
++					       DMA_FROM_DEVICE);
+ 			if (dma_mapping_error(&bp->pdev->dev, paddr)) {
+ 				dev_kfree_skb(skb);
+ 				break;
+@@ -771,17 +770,17 @@ static void discard_partial_frame(struct macb *bp, unsigned int begin,
+ 				  unsigned int end)
+ {
+ 	unsigned int frag;
++	struct macb_dma_desc *desc;
+ 
+ 	for (frag = begin; frag != end; frag++) {
+-		struct macb_dma_desc *desc = macb_rx_desc(bp, frag);
++		desc = macb_rx_desc(bp, frag);
+ 		desc->addr &= ~MACB_BIT(RX_USED);
+ 	}
+ 
+ 	/* Make descriptor updates visible to hardware */
+ 	wmb();
+ 
+-	/*
+-	 * When this happens, the hardware stats registers for
++	/* When this happens, the hardware stats registers for
+ 	 * whatever caused this is updated, so we don't have to record
+ 	 * anything.
+ 	 */
+@@ -880,8 +879,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 		macb_rx_ring_wrap(first_frag),
+ 		macb_rx_ring_wrap(last_frag), len);
+ 
+-	/*
+-	 * The ethernet header starts NET_IP_ALIGN bytes into the
++	/* The ethernet header starts NET_IP_ALIGN bytes into the
+ 	 * first buffer. Since the header is 14 bytes, this makes the
+ 	 * payload word-aligned.
+ 	 *
+@@ -945,6 +943,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ static int macb_rx(struct macb *bp, int budget)
+ {
+ 	int received = 0;
++	int dropped;
+ 	unsigned int tail;
+ 	int first_frag = -1;
+ 
+@@ -968,7 +967,6 @@ static int macb_rx(struct macb *bp, int budget)
+ 		}
+ 
+ 		if (ctrl & MACB_BIT(RX_EOF)) {
+-			int dropped;
+ 			BUG_ON(first_frag == -1);
+ 
+ 			dropped = macb_rx_frame(bp, first_frag, tail);
+@@ -1050,8 +1048,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 			    (unsigned long)status);
+ 
+ 		if (status & MACB_RX_INT_FLAGS) {
+-			/*
+-			 * There's no point taking any more interrupts
++			/* There's no point taking any more interrupts
+ 			 * until we have processed the buffers. The
+ 			 * scheduling call may fail if the poll routine
+ 			 * is already scheduled, so disable interrupts
+@@ -1080,8 +1077,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 		if (status & MACB_BIT(TCOMP))
+ 			macb_tx_interrupt(queue);
+ 
+-		/*
+-		 * Link change detection isn't possible with RMII, so we'll
++		/* Link change detection isn't possible with RMII, so we'll
+ 		 * add that if/when we get our hands on a full-blown MII PHY.
+ 		 */
+ 
+@@ -1112,8 +1108,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 		}
+ 
+ 		if (status & MACB_BIT(HRESP)) {
+-			/*
+-			 * TODO: Reset the hardware, and maybe move the
++			/* TODO: Reset the hardware, and maybe move the
+ 			 * netdev_err to a lower-priority context as well
+ 			 * (work queue?)
+ 			 */
+@@ -1132,8 +1127,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-/*
+- * Polling receive - used by netconsole and other diagnostic tools
++/* Polling receive - used by netconsole and other diagnostic tools
+  * to allow network i/o with interrupts disabled.
+  */
+ static void macb_poll_controller(struct net_device *dev)
+@@ -1429,10 +1423,10 @@ static int gem_alloc_rx_buffers(struct macb *bp)
+ 	bp->rx_skbuff = kzalloc(size, GFP_KERNEL);
+ 	if (!bp->rx_skbuff)
+ 		return -ENOMEM;
+-	else
+-		netdev_dbg(bp->dev,
+-			   "Allocated %d RX struct sk_buff entries at %p\n",
+-			   RX_RING_SIZE, bp->rx_skbuff);
++
++	netdev_dbg(bp->dev,
++		   "Allocated %d RX struct sk_buff entries at %p\n",
++		   RX_RING_SIZE, bp->rx_skbuff);
+ 	return 0;
+ }
+ 
+@@ -1445,10 +1439,10 @@ static int macb_alloc_rx_buffers(struct macb *bp)
+ 					    &bp->rx_buffers_dma, GFP_KERNEL);
+ 	if (!bp->rx_buffers)
+ 		return -ENOMEM;
+-	else
+-		netdev_dbg(bp->dev,
+-			   "Allocated RX buffers of %d bytes at %08lx (mapped %p)\n",
+-			   size, (unsigned long)bp->rx_buffers_dma, bp->rx_buffers);
++
++	netdev_dbg(bp->dev,
++		   "Allocated RX buffers of %d bytes at %08lx (mapped %p)\n",
++		   size, (unsigned long)bp->rx_buffers_dma, bp->rx_buffers);
+ 	return 0;
+ }
+ 
+@@ -1546,8 +1540,7 @@ static void macb_reset_hw(struct macb *bp)
+ 	struct macb_queue *queue;
+ 	unsigned int q;
+ 
+-	/*
+-	 * Disable RX and TX (XXX: Should we halt the transmission
++	/* Disable RX and TX (XXX: Should we halt the transmission
+ 	 * more gracefully?)
+ 	 */
+ 	macb_writel(bp, NCR, 0);
+@@ -1610,8 +1603,7 @@ static u32 macb_mdc_clk_div(struct macb *bp)
+ 	return config;
+ }
+ 
+-/*
+- * Get the DMA bus width field of the network configuration register that we
++/* Get the DMA bus width field of the network configuration register that we
+  * should program.  We find the width from decoding the design configuration
+  * register to find the maximum supported data bus width.
+  */
+@@ -1631,8 +1623,7 @@ static u32 macb_dbw(struct macb *bp)
+ 	}
+ }
+ 
+-/*
+- * Configure the receive DMA engine
++/* Configure the receive DMA engine
+  * - use the correct receive buffer size
+  * - set best burst length for DMA operations
+  *   (if not supported by FIFO, it will fallback to default)
+@@ -1720,8 +1711,7 @@ static void macb_init_hw(struct macb *bp)
+ 	macb_writel(bp, NCR, MACB_BIT(RE) | MACB_BIT(TE) | MACB_BIT(MPE));
+ }
+ 
+-/*
+- * The hash address register is 64 bits long and takes up two
++/* The hash address register is 64 bits long and takes up two
+  * locations in the memory map.  The least significant bits are stored
+  * in EMAC_HSL and the most significant bits in EMAC_HSH.
+  *
+@@ -1761,9 +1751,7 @@ static inline int hash_bit_value(int bitnr, __u8 *addr)
+ 	return 0;
+ }
+ 
+-/*
+- * Return the hash index value for the specified address.
+- */
++/* Return the hash index value for the specified address. */
+ static int hash_get_index(__u8 *addr)
+ {
+ 	int i, j, bitval;
+@@ -1779,9 +1767,7 @@ static int hash_get_index(__u8 *addr)
+ 	return hash_index;
+ }
+ 
+-/*
+- * Add multicast addresses to the internal multicast-hash table.
+- */
++/* Add multicast addresses to the internal multicast-hash table. */
+ static void macb_sethashtable(struct net_device *dev)
+ {
+ 	struct netdev_hw_addr *ha;
+@@ -1800,9 +1786,7 @@ static void macb_sethashtable(struct net_device *dev)
+ 	macb_or_gem_writel(bp, HRT, mc_filter[1]);
+ }
+ 
+-/*
+- * Enable/Disable promiscuous and multicast modes.
+- */
++/* Enable/Disable promiscuous and multicast modes. */
+ static void macb_set_rx_mode(struct net_device *dev)
+ {
+ 	unsigned long cfg;
+@@ -2119,9 +2103,8 @@ static void macb_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 
+ 	if (!(bp->caps & MACB_CAPS_USRIO_DISABLED))
+ 		regs_buff[12] = macb_or_gem_readl(bp, USRIO);
+-	if (macb_is_gem(bp)) {
++	if (macb_is_gem(bp))
+ 		regs_buff[13] = gem_readl(bp, DMACFG);
+-	}
+ }
+ 
+ static const struct ethtool_ops macb_ethtool_ops = {
+@@ -2209,11 +2192,11 @@ static const struct net_device_ops macb_netdev_ops = {
+ 	.ndo_set_features	= macb_set_features,
+ };
+ 
+-/*
+- * Configure peripheral capabilities according to device tree
++/* Configure peripheral capabilities according to device tree
+  * and integration options used
+  */
+-static void macb_configure_caps(struct macb *bp, const struct macb_config *dt_conf)
++static void macb_configure_caps(struct macb *bp,
++				const struct macb_config *dt_conf)
+ {
+ 	u32 dcfg;
+ 
+@@ -2833,7 +2816,7 @@ static int macb_probe(struct platform_device *pdev)
+ 	void __iomem *mem;
+ 	const char *mac;
+ 	struct macb *bp;
+-	int err;
++	int err, gpio;
+ 
+ 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	mem = devm_ioremap_resource(&pdev->dev, regs);
+@@ -2905,14 +2888,14 @@ static int macb_probe(struct platform_device *pdev)
+ 
+ 	mac = of_get_mac_address(np);
+ 	if (mac)
+-		memcpy(bp->dev->dev_addr, mac, ETH_ALEN);
++		ether_addr_copy(bp->dev->dev_addr, mac);
+ 	else
+ 		macb_get_hwaddr(bp);
+ 
+ 	/* Power up the PHY if there is a GPIO reset */
+ 	phy_node =  of_get_next_available_child(np, NULL);
+ 	if (phy_node) {
+-		int gpio = of_get_named_gpio(phy_node, "reset-gpios", 0);
++		gpio = of_get_named_gpio(phy_node, "reset-gpios", 0);
+ 		if (gpio_is_valid(gpio))
+ 			bp->reset_gpio = gpio_to_desc(gpio);
+ 		gpiod_set_value(bp->reset_gpio, GPIOD_OUT_HIGH);
+-- 
+2.4.3
