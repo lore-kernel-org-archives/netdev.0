@@ -1,66 +1,106 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH 4/4] gue: Enforce IP ID verification on outer
- headers
-Date: Mon, 07 Mar 2016 09:22:20 -0800
-Message-ID: <20160307172220.5295.43204.stgit@localhost.localdomain>
-References: <20160307172201.5295.69740.stgit@localhost.localdomain>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
+Date: Mon, 7 Mar 2016 17:22:57 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32EA5E027@hasmsx107.ger.corp.intel.com>
+References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
+ <E1abfnE-0000VS-00@www.xplot.org>
+ <CA+BoTQk6J7kgdie9aX24MB+8PxN3oFUh0eVdmVrdyptW5RxQXg@mail.gmail.com>
+ <CAPp0ZBYP9UzUTtPz=vivUQkE2FiGSsJjDaecQtPuK8y_d3ccqA@mail.gmail.com>
+ <56DD99AA.8050403@openwrt.org>
+ <CAHqTa-2-uZ0PUdwp33E588EU2a7T6KnTYs8RWfNDEzgOLseG9g@mail.gmail.com>
+ <CAA93jw4JG_uEZaxk1JDKndq9K0+QPwKaAmK6=gZ8e-7qNmc=Cw@mail.gmail.com>
+ <CAHqTa-1m3209qqLO19diB5ONd1o3whEnBGJkbPpV1m3UfSGJvA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:35713 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752876AbcCGRWW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 12:22:22 -0500
-Received: by mail-pf0-f176.google.com with SMTP id x188so59300371pfb.2
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 09:22:22 -0800 (PST)
-In-Reply-To: <20160307172201.5295.69740.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
+	Tim Shepard <shep-FrUbXkNCsVf2fBVCVOL8/A@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Andrew Mcgregor <andrewmcgr-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	=?iso-8859-1?Q?Toke_H=F8iland-J=F8rgensen?= <toke-LJ9M9ZcSy1A@public.gmane.org>
+To: Avery Pennarun <apenwarr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This change enforces the IP ID verification on outer headers.  As a result
-if the DF flag is not set on the outer header we will force the flow to be
-flushed in the event that the IP ID is out of sequence with the existing
-flow.
 
-In addition I believe this fixes a bug in which it was possible for no GRO
-handler to be defined for a given protocol but we were not setting the
-flush bit as it had been cleared before the check.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
- net/ipv4/fou.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+On 03/07/2016 07:15 PM, Avery Pennarun wrote:
+> On Mon, Mar 7, 2016 at 11:54 AM, Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> If I can just get a coherent patch set that I can build, I will gladly
+>> join you on the testing ath9k in particular... can probably do ath10k,
+>> too - and do a bit of code review... this week. it's very exciting
+>> watching all this activity...
+>>
+>> but I confess that I've totally lost track of what set of trees and
+>> patchwork I should try to pull from. wireless-drivers-next? ath10k?
+>> wireless-next? net-next? toke and I have a ton of x86 platforms
+>> available to test on....
+>>
+>> Avery - which patches did you use??? on top of what?
+>
+> The patch series I'm currently using can be found here:
+>
+>    git fetch https://gfiber.googlesource.com/vendor/opensource/backports
+> ath9k_txq+fq_codel
+>
+> That's again backports-20160122, which comes from linux-next as of
+> 20160122.  You can either build backports against whatever kernel
+> you're using (probably easiest) or try to use that version of
+> linux-next, or rebase the patches onto your favourite kernel.
+>
+>> In terms of "smoothing" codel...
+>>
+>> I emphatically do not think codel in it's current form is "ready" for
+>> wireless, at the very least the target should not be much lower than
+>> 20ms in your 2 station tests.  There is another bit in codel where the
+>> algo "turns off" with only a single MTU's worth of packets
+>> outstanding, which could get bumped to the ideal size of the
+>> aggregate. "ideal" kind of being a variable based on a ton of other
+>> factors...
+>
+> Yeah, I figured that sort of thing would come up.  I'm feeling forward
+> progress just by finally seeing the buggy oscillations finally happen,
+> though. :)
+>
+>> the underlying code needs to be striving successfully for per-station
+>> airtime fairness for this to work at all, and the driver/card
+>> interface nearly as tight as BQL is for the fq portion to behave
+>> sanely. I'd configure codel at a higher target and try to observe what
+>> is going on at the fq level til that got saner.
+>
+> That seems like two good goals.  So Emmanuel's BQL-like thing seems
+> like we'll need it soon.
 
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index 88dab0c1670c..5b93572e7434 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -319,8 +319,6 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 
- 	skb_gro_pull(skb, hdrlen);
- 
--	flush = 0;
--
- 	for (p = *head; p; p = p->next) {
- 		const struct guehdr *guehdr2;
- 
-@@ -343,6 +341,9 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 			NAPI_GRO_CB(p)->same_flow = 0;
- 			continue;
- 		}
-+
-+		/* Include the IP ID check from the outer IP hdr */
-+		NAPI_GRO_CB(p)->flush |= NAPI_GRO_CB(p)->flush_id;
- 	}
- 
- 	rcu_read_lock();
-@@ -352,6 +353,7 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 		goto out_unlock;
- 
- 	pp = ops->callbacks.gro_receive(head, skb);
-+	flush = 0;
- 
- out_unlock:
- 	rcu_read_unlock();
+Well... I am going to do that for station only, and only for iwlwifi.
+I haven't had a chance to work on that since then :( but I hope to get 
+back to it. I also need to check what happens in multiple channels 
+scenarios (in which there is inherent latency).
+AP and stations have different challenges.
+
+>
+> As for per-station airtime fairness, what's a good approximation of
+> that?  Perhaps round-robin between stations, one aggregate per turn,
+> where each aggregate has a maximum allowed latency?  I don't know how
+> the current code works, but it's probably almost like that, as long as
+> we only put one aggregate's worth of stuff into each hwq, which I
+> guess is what the BQL-like thing will do.
+>
+> So if I understand correctly, what we need is, in the following order:
+> 1) Disable fq_codel for now, and get BQL-like thing working in ath9k
+> (and ensure we're getting airtime fairness even without fq_codel);
+> 2) Re-enable fq_codel and increase fq_codel's target up to 20ms for now;
+> 3) Tweak fq_codel's "turn off" size to be larger (how important is this?)
+>
+> Is that right?
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
