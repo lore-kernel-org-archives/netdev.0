@@ -1,199 +1,121 @@
-From: Moritz Fischer <moritz.fischer@ettus.com>
-Subject: [PATCH 3/3] net: macb: Address checkpatch 'check' suggestions
-Date: Mon,  7 Mar 2016 08:17:39 -0800
-Message-ID: <1457367460-9123-4-git-send-email-moritz.fischer@ettus.com>
-References: <1457367460-9123-1-git-send-email-moritz.fischer@ettus.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Moritz Fischer <moritz.fischer@ettus.com>
-To: nicolas.ferre@atmel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:35610 "EHLO
-	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752557AbcCGQSC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 11:18:02 -0500
-Received: by mail-oi0-f42.google.com with SMTP id c203so82602838oia.2
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 08:18:01 -0800 (PST)
-In-Reply-To: <1457367460-9123-1-git-send-email-moritz.fischer@ettus.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Avery Pennarun <apenwarr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
+Date: Mon, 7 Mar 2016 11:25:50 -0500
+Message-ID: <CAHqTa-2-uZ0PUdwp33E588EU2a7T6KnTYs8RWfNDEzgOLseG9g@mail.gmail.com>
+References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
+ <E1abfnE-0000VS-00@www.xplot.org> <CA+BoTQk6J7kgdie9aX24MB+8PxN3oFUh0eVdmVrdyptW5RxQXg@mail.gmail.com>
+ <CAPp0ZBYP9UzUTtPz=vivUQkE2FiGSsJjDaecQtPuK8y_d3ccqA@mail.gmail.com> <56DD99AA.8050403@openwrt.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
+	Tim Shepard <shep-FrUbXkNCsVf2fBVCVOL8/A@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Andrew Mcgregor <andrewmcgr-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+To: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <56DD99AA.8050403-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This commit deals with a bunch of checkpatch suggestions
-that without changing behavior make checkpatch happier.
+On Mon, Mar 7, 2016 at 10:09 AM, Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org> wrote:
+> On 2016-03-07 15:05, Avery Pennarun wrote:
+>> On Fri, Mar 4, 2016 at 1:32 AM, Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org> wrote:
+>>> On 4 March 2016 at 03:48, Tim Shepard <shep-FrUbXkNCsVf2fBVCVOL8/A@public.gmane.org> wrote:
+>>> [...]
+>>>> (I am interested in knowing what other mac80211 drivers have been
+>>>>  modified to use the mac80211 intermediate software queues.   I know
+>>>>  Michal mentioned he has patches for ath10k that are not yet released,
+>>>>  and I know Felix is finishing up the mt76 driver which uses them.)
+>>>
+>>> Patches for ath10k are under review since quite some time now (but are
+>>> not merged yet). The latest re-spin is:
+>>>
+>>>   http://lists.infradead.org/pipermail/ath10k/2016-March/006923.html
+>>
+>> Hi all, on Friday I had a chance to experiment with some of these
+>> patches, specifically Tim's ath9k patch (to use intermediate queues),
+>> plus MIchal's patch to use fq_codel with the intermediate queues.  I
+>> didn't attempt any fine tuning; I just slapped them together to see
+>> what happens.  (I tried applying Michal's ath10k patches too, but got
+>> stuck since they seem to be applied against the upstream v4.4 kernel
+>> and didn't merge cleanly with the latest mac80211 branch.  Maybe I was
+>> doing something wrong.)
+>>
+>> Test setup:
+>>    AP (ath9k) -> 2x2 strong signal -> STA1 (mwifiex)
+>>         -> attenuator (-40 dB) -> 1x1 weak signal  -> STA2 (mwifiex)
+>>
+>> STA2 generally gets modulation levels around MCS0-2 and STA1 usually
+>> gets something like MCS12-15.
+>>
+>> With or without this patch, results with TCP iperf were fishy - I
+>> think packet loss patterns were particularly bad and caused 2-second
+>> TCP retry timeouts occasionally - so I removed TCP from the test and
+>> switched the UDP iperf instead.
+>>
+>> I ran isoping (https://gfiber.googlesource.com/vendor/google/platform/+/master/cmds/isoping.c)
+>> from the AP to both stations to measure two-way latency during all
+>> tests.  (I used -r2 for two packets/sec in each direction in order not
+>> to affect the test results too much.)
+>>
+>> Overall results:
+>>
+>> - Running one iperf at a time, I saw ~45 Mbps to STA1 and ~7 Mbps to STA2.
+>>
+>> - Running both iperfs at once, without the patches, latencies got
+>> extremely high (~600ms sometimes) and results were closer to
+>> byte-fairness than airtime-fairness (ie. ~7 Mbps each).
+>>
+>> - Running both iperfs at once, with the patches, latencies were still
+>> high (usually high 2-digit, sometimes low 3-digit latencies) but we
+>> got closer to airtime-fairness than byte-fairness (~17 Mbps and ~2
+>> Mbps).
+>>
+>> - With only one iperf running, without the patches, latencies were
+>> high to both stations.  With the patches, latency was
+>> mid-double-digits to the non-iperf station (pretty good!) while being
+>> low-mid triple-digits to the busy iperf station.  This suggests that
+>> we are getting per-station queuing (yay!) but does make me question
+>> whether the fq_ in fq_codel was working.
+>
+> Please change the 'if (flow->txqi)' check in ieee80211_txq_enqueue to:
+> if (flow->txqi && flow->txqi != txqi)
+> This should hopefully fix the fq_ part ;)
 
-Signed-off-by: Moritz Fischer <moritz.fischer@ettus.com>
----
- drivers/net/ethernet/cadence/macb.c | 46 +++++++++++++++++++------------------
- 1 file changed, 24 insertions(+), 22 deletions(-)
+Oops, I saw your message about that earlier and totally forgot to
+apply the change.  But maybe that was for the best, because it doesn't
+seem to uniformly make things better.
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index fba4239..75c19a2 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -184,7 +184,7 @@ static void macb_get_hwaddr(struct macb *bp)
- 
- 	pdata = dev_get_platdata(&bp->pdev->dev);
- 
--	/* Check all 4 address register for vaild address */
-+	/* Check all 4 address register for valid address */
- 	for (i = 0; i < 4; i++) {
- 		bottom = macb_or_gem_readl(bp, SA1B + i * 8);
- 		top = macb_or_gem_readl(bp, SA1T + i * 8);
-@@ -292,7 +292,7 @@ static void macb_set_tx_clk(struct clk *clk, int speed, struct net_device *dev)
- 	ferr = DIV_ROUND_UP(ferr, rate / 100000);
- 	if (ferr > 5)
- 		netdev_warn(dev, "unable to generate target frequency: %ld Hz\n",
--				rate);
-+			    rate);
- 
- 	if (clk_set_rate(clk, rate_rounded))
- 		netdev_err(dev, "adjusting tx_clk failed.\n");
-@@ -426,7 +426,7 @@ static int macb_mii_init(struct macb *bp)
- 	macb_writel(bp, NCR, MACB_BIT(MPE));
- 
- 	bp->mii_bus = mdiobus_alloc();
--	if (bp->mii_bus == NULL) {
-+	if (!bp->mii_bus) {
- 		err = -ENOMEM;
- 		goto err_out;
- 	}
-@@ -435,7 +435,7 @@ static int macb_mii_init(struct macb *bp)
- 	bp->mii_bus->read = &macb_mdio_read;
- 	bp->mii_bus->write = &macb_mdio_write;
- 	snprintf(bp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
--		bp->pdev->name, bp->pdev->id);
-+		 bp->pdev->name, bp->pdev->id);
- 	bp->mii_bus->priv = bp;
- 	bp->mii_bus->parent = &bp->dev->dev;
- 	pdata = dev_get_platdata(&bp->pdev->dev);
-@@ -656,7 +656,7 @@ static void macb_tx_interrupt(struct macb_queue *queue)
- 		queue_writel(queue, ISR, MACB_BIT(TCOMP));
- 
- 	netdev_vdbg(bp->dev, "macb_tx_interrupt status = 0x%03lx\n",
--		(unsigned long)status);
-+		    (unsigned long)status);
- 
- 	head = queue->tx_head;
- 	for (tail = queue->tx_tail; tail != head; tail++) {
-@@ -725,10 +725,10 @@ static void gem_rx_refill(struct macb *bp)
- 
- 		bp->rx_prepared_head++;
- 
--		if (bp->rx_skbuff[entry] == NULL) {
-+		if (!bp->rx_skbuff[entry]) {
- 			/* allocate sk_buff for this free entry in ring */
- 			skb = netdev_alloc_skb(bp->dev, bp->rx_buffer_size);
--			if (unlikely(skb == NULL)) {
-+			if (unlikely(!skb)) {
- 				netdev_err(bp->dev,
- 					   "Unable to allocate sk_buff\n");
- 				break;
-@@ -762,7 +762,7 @@ static void gem_rx_refill(struct macb *bp)
- 	wmb();
- 
- 	netdev_vdbg(bp->dev, "rx ring: prepared head %d, tail %d\n",
--		   bp->rx_prepared_head, bp->rx_tail);
-+		    bp->rx_prepared_head, bp->rx_tail);
- }
- 
- /* Mark DMA descriptors from begin up to and not including end as unused */
-@@ -876,8 +876,8 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 	len = desc->ctrl & bp->rx_frm_len_mask;
- 
- 	netdev_vdbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
--		macb_rx_ring_wrap(first_frag),
--		macb_rx_ring_wrap(last_frag), len);
-+		    macb_rx_ring_wrap(first_frag),
-+		    macb_rx_ring_wrap(last_frag), len);
- 
- 	/* The ethernet header starts NET_IP_ALIGN bytes into the
- 	 * first buffer. Since the header is 14 bytes, this makes the
-@@ -916,7 +916,8 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 			frag_len = len - offset;
- 		}
- 		skb_copy_to_linear_data_offset(skb, offset,
--				macb_rx_buffer(bp, frag), frag_len);
-+					       macb_rx_buffer(bp, frag),
-+					       frag_len);
- 		offset += bp->rx_buffer_size;
- 		desc = macb_rx_desc(bp, frag);
- 		desc->addr &= ~MACB_BIT(RX_USED);
-@@ -934,7 +935,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 	bp->stats.rx_packets++;
- 	bp->stats.rx_bytes += skb->len;
- 	netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
--		   skb->len, skb->csum);
-+		    skb->len, skb->csum);
- 	netif_receive_skb(skb);
- 
- 	return 0;
-@@ -998,7 +999,7 @@ static int macb_poll(struct napi_struct *napi, int budget)
- 	work_done = 0;
- 
- 	netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
--		   (unsigned long)status, budget);
-+		    (unsigned long)status, budget);
- 
- 	work_done = bp->macbgem_ops.mog_rx(bp, budget);
- 	if (work_done < budget) {
-@@ -1213,7 +1214,7 @@ static unsigned int macb_tx_map(struct macb *bp,
- 	}
- 
- 	/* Should never happen */
--	if (unlikely(tx_skb == NULL)) {
-+	if (unlikely(!tx_skb)) {
- 		netdev_err(bp->dev, "BUG! empty skb!\n");
- 		return 0;
- 	}
-@@ -1283,16 +1284,16 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- #if defined(DEBUG) && defined(VERBOSE_DEBUG)
- 	netdev_vdbg(bp->dev,
--		   "start_xmit: queue %hu len %u head %p data %p tail %p end %p\n",
--		   queue_index, skb->len, skb->head, skb->data,
--		   skb_tail_pointer(skb), skb_end_pointer(skb));
-+		    "start_xmit: queue %hu len %u head %p data %p tail %p end %p\n",
-+		    queue_index, skb->len, skb->head, skb->data,
-+		    skb_tail_pointer(skb), skb_end_pointer(skb));
- 	print_hex_dump(KERN_DEBUG, "data: ", DUMP_PREFIX_OFFSET, 16, 1,
- 		       skb->data, 16, true);
- #endif
- 
- 	/* Count how many TX buffer descriptors are needed to send this
- 	 * socket buffer: skb fragments of jumbo frames may need to be
--	 * splitted into many buffer descriptors.
-+	 * split into many buffer descriptors.
- 	 */
- 	count = DIV_ROUND_UP(skb_headlen(skb), bp->max_tx_length);
- 	nr_frags = skb_shinfo(skb)->nr_frags;
-@@ -1343,8 +1344,8 @@ static void macb_init_rx_buffer_size(struct macb *bp, size_t size)
- 
- 		if (bp->rx_buffer_size % RX_BUFFER_MULTIPLE) {
- 			netdev_dbg(bp->dev,
--				    "RX buffer must be multiple of %d bytes, expanding\n",
--				    RX_BUFFER_MULTIPLE);
-+				   "RX buffer must be multiple of %d bytes, expanding\n",
-+				   RX_BUFFER_MULTIPLE);
- 			bp->rx_buffer_size =
- 				roundup(bp->rx_buffer_size, RX_BUFFER_MULTIPLE);
- 		}
-@@ -1367,7 +1368,7 @@ static void gem_free_rx_buffers(struct macb *bp)
- 	for (i = 0; i < RX_RING_SIZE; i++) {
- 		skb = bp->rx_skbuff[i];
- 
--		if (skb == NULL)
-+		if (!skb)
- 			continue;
- 
- 		desc = &bp->rx_ring[i];
-@@ -1775,7 +1776,8 @@ static void macb_sethashtable(struct net_device *dev)
- 	unsigned int bitnr;
- 	struct macb *bp = netdev_priv(dev);
- 
--	mc_filter[0] = mc_filter[1] = 0;
-+	mc_filter[0] = 0;
-+	mc_filter[1] = 0;
- 
- 	netdev_for_each_mc_addr(ha, dev) {
- 		bitnr = hash_get_index(ha->addr);
--- 
-2.4.3
+*Without* your change, I observe that my iperf3 session to STA1 (high
+speed) seems to complain about a lot of out-of-order packets.  *With*
+your change, the out-of-order complaints seem to go away, which is
+nice.  The throughput measurements look about the same both ways.
+
+However, *without* your change, isoping latency to STA1 (low speed)
+seems to be pretty stable in the ~100ms range (although it fluctuates
+a bit).  *With* your change, STA2 latency fluctuates wildly as low as
+1.x ms (yay!) but as high as 800ms (boo).  STA1 latency is fairly low
+in both cases.
+
+I have to admit, I haven't read any of this code in enough detail to
+have a guess as to why this might be. But I did switch back and forth
+between the two versions a few times to confirm that it seems to be
+repeatable.
+
+Just to compare, I went back to a version that contains only Tim's
+patch (intermediate queues) but not fq_codel.  That one seems to have
+much less variability in the isoping times (~50-100ms under load).
+The best case isn't as good, but the worst case is much less bad.
+This suggests to me that maybe codel's per-station drop rate is
+oscillating (perhaps it needs to ramp less quickly?).  I wonder if the
+competing codels between stations also confuse each other: as one
+ramps down, maybe the other one would be encouraged to ramp up?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
