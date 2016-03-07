@@ -1,149 +1,81 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next] net: dsa: mv88e6xxx: rework port state setter
-Date: Mon,  7 Mar 2016 18:24:17 -0500
-Message-ID: <1457393057-22618-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: dsa: mv88e6xxx: read then write PVID
+Date: Mon,  7 Mar 2016 18:24:39 -0500
+Message-ID: <1457393079-22740-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
 	Kevin Smith <kevin.smith@elecsyscorp.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:47990 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932974AbcCGXYe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 18:24:34 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Apply a few non-functional changes on the port state setter:
+The port register 0x07 contains more options than just the default VID,
+even though they are not used yet. So prefer a read then write operation
+over a direct write.
 
-  * add a dynamic debug message with state names to track changes
-  * explicit states checking instead of assuming their numeric values
-  * lock mutex only once when changing several port states
-  * use bitmap macros to declare and access port_state_update_mask
+This also allows to keep track of the change through dynamic debug.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 54 +++++++++++++++++++++++++++------------------
- drivers/net/dsa/mv88e6xxx.h |  2 +-
- 2 files changed, 34 insertions(+), 22 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 30 ++++++++++++++++++++++++++----
+ 1 file changed, 26 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index d11c9d5..3a58a8a 100644
+index 3a58a8a..1aee42d 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1051,39 +1051,49 @@ static int _mv88e6xxx_atu_remove(struct dsa_switch *ds, u16 fid, int port,
- 	return _mv88e6xxx_atu_move(ds, fid, port, 0x0f, static_too);
+@@ -1166,23 +1166,45 @@ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state)
+ 	return 0;
  }
  
--static int mv88e6xxx_set_port_state(struct dsa_switch *ds, int port, u8 state)
-+static const char * const mv88e6xxx_port_state_names[] = {
-+	[PORT_CONTROL_STATE_DISABLED] = "Disabled",
-+	[PORT_CONTROL_STATE_BLOCKING] = "Blocking/Listening",
-+	[PORT_CONTROL_STATE_LEARNING] = "Learning",
-+	[PORT_CONTROL_STATE_FORWARDING] = "Forwarding",
-+};
-+
-+static int _mv88e6xxx_port_state(struct dsa_switch *ds, int port, u8 state)
+-static int _mv88e6xxx_port_pvid_get(struct dsa_switch *ds, int port, u16 *pvid)
++static int _mv88e6xxx_port_pvid(struct dsa_switch *ds, int port, u16 *new,
++				u16 *old)
  {
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int reg, ret = 0;
- 	u8 oldstate;
++	u16 pvid;
+ 	int ret;
  
--	mutex_lock(&ps->smi_mutex);
--
- 	reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_CONTROL);
--	if (reg < 0) {
--		ret = reg;
--		goto abort;
--	}
-+	if (reg < 0)
-+		return reg;
+ 	ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_DEFAULT_VLAN);
+ 	if (ret < 0)
+ 		return ret;
  
- 	oldstate = reg & PORT_CONTROL_STATE_MASK;
+-	*pvid = ret & PORT_DEFAULT_VLAN_MASK;
++	pvid = ret & PORT_DEFAULT_VLAN_MASK;
 +
- 	if (oldstate != state) {
- 		/* Flush forwarding database if we're moving a port
- 		 * from Learning or Forwarding state to Disabled or
- 		 * Blocking or Listening state.
- 		 */
--		if (oldstate >= PORT_CONTROL_STATE_LEARNING &&
--		    state <= PORT_CONTROL_STATE_BLOCKING) {
-+		if ((oldstate == PORT_CONTROL_STATE_LEARNING ||
-+		     oldstate == PORT_CONTROL_STATE_FORWARDING)
-+		    && (state == PORT_CONTROL_STATE_DISABLED ||
-+			state == PORT_CONTROL_STATE_BLOCKING)) {
- 			ret = _mv88e6xxx_atu_remove(ds, 0, port, false);
- 			if (ret)
--				goto abort;
-+				return ret;
- 		}
++	if (new) {
++		ret &= ~PORT_DEFAULT_VLAN_MASK;
++		ret |= *new & PORT_DEFAULT_VLAN_MASK;
 +
- 		reg = (reg & ~PORT_CONTROL_STATE_MASK) | state;
- 		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_CONTROL,
- 					   reg);
-+		if (ret)
++		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port),
++					   PORT_DEFAULT_VLAN, ret);
++		if (ret < 0)
 +			return ret;
 +
-+		netdev_dbg(ds->ports[port], "PortState %s (was %s)\n",
-+			   mv88e6xxx_port_state_names[state],
-+			   mv88e6xxx_port_state_names[oldstate]);
- 	}
- 
--abort:
--	mutex_unlock(&ps->smi_mutex);
- 	return ret;
- }
- 
-@@ -1146,13 +1156,11 @@ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state)
- 		break;
- 	}
- 
--	netdev_dbg(ds->ports[port], "port state %d [%d]\n", state, stp_state);
--
- 	/* mv88e6xxx_port_stp_update may be called with softirqs disabled,
- 	 * so we can not update the port state directly but need to schedule it.
- 	 */
- 	ps->ports[port].state = stp_state;
--	set_bit(port, &ps->port_state_update_mask);
-+	set_bit(port, ps->port_state_update_mask);
- 	schedule_work(&ps->bridge_work);
++		netdev_dbg(ds->ports[port], "DefaultVID %d (was %d)\n", *new,
++			   pvid);
++	}
++
++	if (old)
++		*old = pvid;
  
  	return 0;
-@@ -2228,11 +2236,15 @@ static void mv88e6xxx_bridge_work(struct work_struct *work)
- 	ps = container_of(work, struct mv88e6xxx_priv_state, bridge_work);
- 	ds = ((struct dsa_switch *)ps) - 1;
- 
--	while (ps->port_state_update_mask) {
--		port = __ffs(ps->port_state_update_mask);
--		clear_bit(port, &ps->port_state_update_mask);
--		mv88e6xxx_set_port_state(ds, port, ps->ports[port].state);
--	}
-+	mutex_lock(&ps->smi_mutex);
-+
-+	for (port = 0; port < ps->num_ports; ++port)
-+		if (test_and_clear_bit(port, ps->port_state_update_mask) &&
-+		    _mv88e6xxx_port_state(ds, port, ps->ports[port].state))
-+			netdev_warn(ds->ports[port], "failed to update state to %s\n",
-+				    mv88e6xxx_port_state_names[ps->ports[port].state]);
-+
-+	mutex_unlock(&ps->smi_mutex);
  }
  
- static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index d7b088d..3425616 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -426,7 +426,7 @@ struct mv88e6xxx_priv_state {
++static int _mv88e6xxx_port_pvid_get(struct dsa_switch *ds, int port, u16 *pvid)
++{
++	return _mv88e6xxx_port_pvid(ds, port, NULL, pvid);
++}
++
+ static int _mv88e6xxx_port_pvid_set(struct dsa_switch *ds, int port, u16 pvid)
+ {
+-	return _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_DEFAULT_VLAN,
+-				   pvid & PORT_DEFAULT_VLAN_MASK);
++	return _mv88e6xxx_port_pvid(ds, port, &pvid, NULL);
+ }
  
- 	struct mv88e6xxx_priv_port	ports[DSA_MAX_PORTS];
- 
--	unsigned long port_state_update_mask;
-+	DECLARE_BITMAP(port_state_update_mask, DSA_MAX_PORTS);
- 
- 	struct work_struct bridge_work;
- };
+ static int _mv88e6xxx_vtu_wait(struct dsa_switch *ds)
 -- 
 2.7.2
