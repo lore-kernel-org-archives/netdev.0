@@ -1,47 +1,73 @@
-From: Nicholas Krause <xerofoify@gmail.com>
-Subject: [PATCH] freescale:Make the function ucc_geth_tx have a return type of
- void
-Date: Sun,  6 Mar 2016 19:12:42 -0500
-Message-ID: <1457309562-18034-1-git-send-email-xerofoify@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: PHY hardware reset
+Date: Sun, 6 Mar 2016 16:54:47 -0800
+Message-ID: <56DCD157.80007@gmail.com>
+References: <56DB5924.3020206@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- linux-kernel@vger.kernel.org
-To: leoli@freescale.com
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:34980 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751435AbcCGAyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 19:54:50 -0500
+Received: by mail-ob0-f173.google.com with SMTP id xx9so92543690obc.2
+        for <netdev@vger.kernel.org>; Sun, 06 Mar 2016 16:54:50 -0800 (PST)
+In-Reply-To: <56DB5924.3020206@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBtYWtlcyB0aGUgZnVuY3Rpb24gdWNjX2dldGhfdHggaGF2ZSBhIHJldHVybiB0eXBlIG9m
-IHZvaWQgbm93CmR1ZSB0byB0aGlzIHBhcnRpY3VsYXIgZnVuY3Rpb24gYWx3YXlzIGNvbXBsZXRp
-bmcgd2l0aG91dCBldmVyCmV4ZWN1dGluZyBhIG5vbiByZWNvdmVyYWJsZSBlcnJvci4KClNpZ25l
-ZC1vZmYtYnk6IE5pY2hvbGFzIEtyYXVzZSA8eGVyb2ZvaWZ5QGdtYWlsLmNvbT4KLS0tCiBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYyB8IDMgKy0tCiAxIGZpbGUgY2hh
-bmdlZCwgMSBpbnNlcnRpb24oKyksIDIgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9mcmVlc2NhbGUvdWNjX2dldGguYwppbmRleCA3OGViZDczLi43MGYzMDQ1IDEwMDY0NAotLS0g
-YS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYworKysgYi9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYwpAQCAtMzIyNiw3ICszMjI2LDcgQEAg
-c3RhdGljIGludCB1Y2NfZ2V0aF9yeChzdHJ1Y3QgdWNjX2dldGhfcHJpdmF0ZSAqdWdldGgsIHU4
-IHJ4USwgaW50IHJ4X3dvcmtfbGltaXQKIAlyZXR1cm4gaG93bWFueTsKIH0KIAotc3RhdGljIGlu
-dCB1Y2NfZ2V0aF90eChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1OCB0eFEpCitzdGF0aWMgdm9p
-ZCB1Y2NfZ2V0aF90eChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1OCB0eFEpCiB7CiAJLyogU3Rh
-cnQgZnJvbSB0aGUgbmV4dCBCRCB0aGF0IHNob3VsZCBiZSBmaWxsZWQgKi8KIAlzdHJ1Y3QgdWNj
-X2dldGhfcHJpdmF0ZSAqdWdldGggPSBuZXRkZXZfcHJpdihkZXYpOwpAQCAtMzI2OSw3ICszMjY5
-LDYgQEAgc3RhdGljIGludCB1Y2NfZ2V0aF90eChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1OCB0
-eFEpCiAJCWJkX3N0YXR1cyA9IGluX2JlMzIoKHUzMiBfX2lvbWVtICopYmQpOwogCX0KIAl1Z2V0
-aC0+Y29uZkJkW3R4UV0gPSBiZDsKLQlyZXR1cm4gMDsKIH0KIAogc3RhdGljIGludCB1Y2NfZ2V0
-aF9wb2xsKHN0cnVjdCBuYXBpX3N0cnVjdCAqbmFwaSwgaW50IGJ1ZGdldCkKLS0gCjIuMS40Cgpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1k
-ZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlz
-dHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
+Le 05/03/2016 14:09, Sergei Shtylyov a =C3=A9crit :
+> Hello.
+>=20
+>    I have a need to de-assert the active-low PHY hardware reset signa=
+l
+> (mapped to a GPIO) before the MDIO bus scansince it's left asserted b=
+y
+> the bootloader (U-Boot). I have a device tree probed MAX driver (ravb=
+)
+> and I'm somewhat at a loss about where and how to do this. The existi=
+ng
+> example (Freescale FEC) has DT props controlling the PHY reset GPIO i=
+n
+> the MAC device node but it doesn't seem correct at all since this sig=
+nal
+> has nothing to do with the MAC, only with PHY!=20
+
+Agreed, it is a property of the PHY, but it should however be utilized
+by the MAC (and optionaly the MDIO bus driver) so as to make good
+choices when it comes to conserving power.
+
+I therefore would like
+> this "phy-reset-gpios" property to be defined under the PHY node but
+> this way I'll have to add the handling of this prop to the phylib (it
+> would be too late if I did that in a a PHY driver method since that).
+> I'm also seeing the mii_bus::reset() method and it seems a good place
+> but I'm not sure if my PHY's reset signal can be treated as the reset
+> signal for the whole bus; if it would, the DT prop should be placed
+> under the MAC node anyway...
+
+The MDIO bus reset callback did not really have a very good definition
+for its use, but it seems like an appropriate place to release the PHY
+from reset to ensure you will be able to scan and attach its driver to
+it. In general the MDIO bus reset callback should be seen as an
+opportunity for drivers to implement pre-scanning operations that will
+ensure a successful PHY probing/binding.
+
+Whether we would want PHYLIB to be taught about phy-reset-gpios is a
+little more debatable, on one hand, anything that could put the PHY int=
+o
+low power is done there, and it would be consistent to release/put the
+PHY into reset, on the other hand, the Ethernet MAC driver is the place
+where things like Wake-on-LAN are coordinated, but we can still call
+into a phy_set_wol() function to avoid putting the PHY in reset or not.
+If there is something sensibly generic to be put in PHYLIB wrt.
+phy-reset-gpios, please propose a patch doing so and we can see how muc=
+h
+=46EC and RAVB need to be changed.
+
+Thanks!
+--=20
+=46lorian
