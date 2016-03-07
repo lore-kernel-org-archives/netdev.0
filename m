@@ -1,55 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/11] rxrpc: Add a common object cache
-Date: Mon, 07 Mar 2016 13:42:33 -0500 (EST)
-Message-ID: <20160307.134233.201526978853409580.davem@davemloft.net>
-References: <20160307143759.18567.8234.stgit@warthog.procyon.org.uk>
-	<20160307143806.18567.30020.stgit@warthog.procyon.org.uk>
+Subject: Re: [PATCH 2/3] net: macb: Fix more coding style issues
+Date: Mon, 07 Mar 2016 13:49:24 -0500 (EST)
+Message-ID: <20160307.134924.1763924827140423427.davem@davemloft.net>
+References: <1457367460-9123-1-git-send-email-moritz.fischer@ettus.com>
+	<1457367460-9123-3-git-send-email-moritz.fischer@ettus.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-afs@lists.infradead.org, netdev@vger.kernel.org,
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160307143806.18567.30020.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: moritz.fischer@ettus.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52846 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752607AbcCGSt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 13:49:27 -0500
+In-Reply-To: <1457367460-9123-3-git-send-email-moritz.fischer@ettus.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Mon, 07 Mar 2016 14:38:06 +0000
+From: Moritz Fischer <moritz.fischer@ettus.com>
+Date: Mon,  7 Mar 2016 08:17:38 -0800
 
-> Add a common object cache implementation for RxRPC.  This will be used to
-> cache objects of various types (calls, connections, local and remote
-> endpoint records).  Each object that would be cached must contain an
-> obj_node struct for the cache to use.  The object's usage count and link
-> pointers are here, plus other internal metadata.
-> 
-> Each object cache consists of a primary hash to which all objects of that
-> type must be added and a secondary hash to which objects may also be added
-> and removed a single time.  Objects are automatically removed from both
-> hashes when they expire.
-> 
-> Objects start off life with a usage count of 2 - one for the cache and one
-> for the caller.  When an object's usage count is reduced to 1, it sits in
-> the cache until its expiry time is reached, at which point the cache
-> attempts to reduce the count to 0 and, if successful, clean it up.  An
-> object with a usage count of 1 in the cache can be looked up and have its
-> usage count increased, thereby stopping the expiry process.
-> 
-> Objects are looked up, unlinked and destroyed under RCU-safe conditions.
-> 
-> A garbage collector cycles through all the hash buckets in the primary hash
-> and compares the expiry times of the usage-count-1 objects to the current
-> time, removing any that have expired.  This is kicked by a single timer for
-> the whole cache rather than having a timer per object.
-> 
-> Signed-off-by: David Howells <dhowells@redhat.com>
+> @@ -945,6 +943,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+>  static int macb_rx(struct macb *bp, int budget)
+>  {
+>  	int received = 0;
+> +	int dropped;
+>  	unsigned int tail;
+>  	int first_frag = -1;
+>  
+> @@ -968,7 +967,6 @@ static int macb_rx(struct macb *bp, int budget)
+>  		}
+>  
+>  		if (ctrl & MACB_BIT(RX_EOF)) {
+> -			int dropped;
+>  			BUG_ON(first_frag == -1);
+>  
+>  			dropped = macb_rx_frame(bp, first_frag, tail);
 
-I know you put a lot of time and effort into this, but I want to strongly
-recommend against a garbage collected hash table for anything whatsoever.
+I totally disagree with moving local variable declarations up to the
+top-most scope.
 
-Especially if the given objects are in some way created/destroyed/etc. by
-operations triggerable remotely.
+It is always best to keep them in the inner-most scope.
 
-This can be DoS'd quite trivially, and that's why we have removed the ipv4
-routing cache which did the same.
+This is also not even mentioned in your commit message at all.
