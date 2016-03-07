@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 6/9] samples/bpf: add map_flags to bpf loader
-Date: Sun, 6 Mar 2016 17:58:34 -0800
-Message-ID: <1457315917-1970307-7-git-send-email-ast@fb.com>
+Subject: [PATCH net-next 8/9] samples/bpf: add bpf map stress test
+Date: Sun, 6 Mar 2016 17:58:36 -0800
+Message-ID: <1457315917-1970307-9-git-send-email-ast@fb.com>
 References: <1457315917-1970307-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,233 +14,187 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38471 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751836AbcCGB6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 20:58:41 -0500
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u271ri5n028848
-	for <netdev@vger.kernel.org>; Sun, 6 Mar 2016 17:58:40 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 21gwus0cvr-2
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Sun, 06 Mar 2016 17:58:40 -0800
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.103.99.99) with ESMTP	id
- 1c79ebaae40811e59c950002c9dfb610-f55d7270 for <netdev@vger.kernel.org>;	Sun,
- 06 Mar 2016 17:58:39 -0800
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1457315917-1970307-1-git-send-email-ast@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-note old loader is compatible with new kernel.
-map_flags are optional
+this test calls bpf programs from different contexts:
+from inside of slub, from rcu, from pretty much everywhere,
+since it kprobes all spin_lock functions.
+It stresses the bpf hash and percpu map pre-allocation,
+deallocation logic and call_rcu mechanisms.
+User space part adding more stress by walking and deleting map elements.
+
+Note that due to nature bpf_load.c the earlier kprobe+bpf programs are
+already active while loader loads new programs, creates new kprobes and
+attaches them.
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- samples/bpf/bpf_helpers.h   |  1 +
- samples/bpf/bpf_load.c      |  3 ++-
- samples/bpf/fds_example.c   |  2 +-
- samples/bpf/libbpf.c        |  5 +++--
- samples/bpf/libbpf.h        |  2 +-
- samples/bpf/sock_example.c  |  2 +-
- samples/bpf/test_maps.c     | 19 ++++++++++++-------
- samples/bpf/test_verifier.c |  4 ++--
- 8 files changed, 23 insertions(+), 15 deletions(-)
+ samples/bpf/Makefile        |  4 +++
+ samples/bpf/spintest_kern.c | 59 +++++++++++++++++++++++++++++++++++++++++++++
+ samples/bpf/spintest_user.c | 50 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 113 insertions(+)
+ create mode 100644 samples/bpf/spintest_kern.c
+ create mode 100644 samples/bpf/spintest_user.c
 
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index 811bcca0f29d..9363500131a7 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -61,6 +61,7 @@ struct bpf_map_def {
- 	unsigned int key_size;
- 	unsigned int value_size;
- 	unsigned int max_entries;
-+	unsigned int map_flags;
- };
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index c4f8ae0c8afe..75a13e742ab4 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -17,6 +17,7 @@ hostprogs-y += tracex6
+ hostprogs-y += trace_output
+ hostprogs-y += lathist
+ hostprogs-y += offwaketime
++hostprogs-y += spintest
  
- static int (*bpf_skb_store_bytes)(void *ctx, int off, void *from, int len, int flags) =
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index d16864293c00..58f86bd11b3d 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -157,7 +157,8 @@ static int load_maps(struct bpf_map_def *maps, int len)
- 		map_fd[i] = bpf_create_map(maps[i].type,
- 					   maps[i].key_size,
- 					   maps[i].value_size,
--					   maps[i].max_entries);
-+					   maps[i].max_entries,
-+					   maps[i].map_flags);
- 		if (map_fd[i] < 0) {
- 			printf("failed to create a map: %d %s\n",
- 			       errno, strerror(errno));
-diff --git a/samples/bpf/fds_example.c b/samples/bpf/fds_example.c
-index e2fd16c3d0f0..625e797be6ef 100644
---- a/samples/bpf/fds_example.c
-+++ b/samples/bpf/fds_example.c
-@@ -44,7 +44,7 @@ static void usage(void)
- static int bpf_map_create(void)
- {
- 	return bpf_create_map(BPF_MAP_TYPE_ARRAY, sizeof(uint32_t),
--			      sizeof(uint32_t), 1024);
-+			      sizeof(uint32_t), 1024, 0);
- }
+ test_verifier-objs := test_verifier.o libbpf.o
+ test_maps-objs := test_maps.o libbpf.o
+@@ -34,6 +35,7 @@ tracex6-objs := bpf_load.o libbpf.o tracex6_user.o
+ trace_output-objs := bpf_load.o libbpf.o trace_output_user.o
+ lathist-objs := bpf_load.o libbpf.o lathist_user.o
+ offwaketime-objs := bpf_load.o libbpf.o offwaketime_user.o
++spintest-objs := bpf_load.o libbpf.o spintest_user.o
  
- static int bpf_prog_create(const char *object)
-diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
-index 65a8d48d2799..9969e35550c3 100644
---- a/samples/bpf/libbpf.c
-+++ b/samples/bpf/libbpf.c
-@@ -19,13 +19,14 @@ static __u64 ptr_to_u64(void *ptr)
- }
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -50,6 +52,7 @@ always += trace_output_kern.o
+ always += tcbpf1_kern.o
+ always += lathist_kern.o
+ always += offwaketime_kern.o
++always += spintest_kern.o
  
- int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
--		   int max_entries)
-+		   int max_entries, int map_flags)
- {
- 	union bpf_attr attr = {
- 		.map_type = map_type,
- 		.key_size = key_size,
- 		.value_size = value_size,
--		.max_entries = max_entries
-+		.max_entries = max_entries,
-+		.map_flags = map_flags,
- 	};
+ HOSTCFLAGS += -I$(objtree)/usr/include
  
- 	return syscall(__NR_bpf, BPF_MAP_CREATE, &attr, sizeof(attr));
-diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
-index 014aacf916e4..364582b77888 100644
---- a/samples/bpf/libbpf.h
-+++ b/samples/bpf/libbpf.h
-@@ -5,7 +5,7 @@
- struct bpf_insn;
+@@ -67,6 +70,7 @@ HOSTLOADLIBES_tracex6 += -lelf
+ HOSTLOADLIBES_trace_output += -lelf -lrt
+ HOSTLOADLIBES_lathist += -lelf
+ HOSTLOADLIBES_offwaketime += -lelf
++HOSTLOADLIBES_spintest += -lelf
  
- int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
--		   int max_entries);
-+		   int max_entries, int map_flags);
- int bpf_update_elem(int fd, void *key, void *value, unsigned long long flags);
- int bpf_lookup_elem(int fd, void *key, void *value);
- int bpf_delete_elem(int fd, void *key);
-diff --git a/samples/bpf/sock_example.c b/samples/bpf/sock_example.c
-index a0ce251c5390..28b60baa9fa8 100644
---- a/samples/bpf/sock_example.c
-+++ b/samples/bpf/sock_example.c
-@@ -34,7 +34,7 @@ static int test_sock(void)
- 	long long value = 0, tcp_cnt, udp_cnt, icmp_cnt;
- 
- 	map_fd = bpf_create_map(BPF_MAP_TYPE_ARRAY, sizeof(key), sizeof(value),
--				256);
-+				256, 0);
- 	if (map_fd < 0) {
- 		printf("failed to create map '%s'\n", strerror(errno));
- 		goto cleanup;
-diff --git a/samples/bpf/test_maps.c b/samples/bpf/test_maps.c
-index ad466ed33093..af02f7518c0a 100644
---- a/samples/bpf/test_maps.c
-+++ b/samples/bpf/test_maps.c
-@@ -2,6 +2,7 @@
-  * Testsuite for eBPF maps
-  *
-  * Copyright (c) 2014 PLUMgrid, http://plumgrid.com
-+ * Copyright (c) 2016 Facebook
-  *
-  * This program is free software; you can redistribute it and/or
-  * modify it under the terms of version 2 of the GNU General Public
-@@ -17,13 +18,16 @@
- #include <stdlib.h>
- #include "libbpf.h"
- 
-+static int map_flags;
+ # point this to your LLVM backend with bpf support
+ LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
+diff --git a/samples/bpf/spintest_kern.c b/samples/bpf/spintest_kern.c
+new file mode 100644
+index 000000000000..ef8ac33bb2e9
+--- /dev/null
++++ b/samples/bpf/spintest_kern.c
+@@ -0,0 +1,59 @@
++/* Copyright (c) 2016, Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <linux/version.h>
++#include <uapi/linux/bpf.h>
++#include "bpf_helpers.h"
 +
- /* sanity tests for map API */
- static void test_hashmap_sanity(int i, void *data)
- {
- 	long long key, next_key, value;
- 	int map_fd;
- 
--	map_fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value), 2);
-+	map_fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
-+				2, map_flags);
- 	if (map_fd < 0) {
- 		printf("failed to create hashmap '%s'\n", strerror(errno));
- 		exit(1);
-@@ -99,7 +103,7 @@ static void test_percpu_hashmap_sanity(int task, void *data)
- 	int map_fd, i;
- 
- 	map_fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_HASH, sizeof(key),
--				sizeof(value[0]), 2);
-+				sizeof(value[0]), 2, map_flags);
- 	if (map_fd < 0) {
- 		printf("failed to create hashmap '%s'\n", strerror(errno));
- 		exit(1);
-@@ -188,7 +192,8 @@ static void test_arraymap_sanity(int i, void *data)
- 	int key, next_key, map_fd;
- 	long long value;
- 
--	map_fd = bpf_create_map(BPF_MAP_TYPE_ARRAY, sizeof(key), sizeof(value), 2);
-+	map_fd = bpf_create_map(BPF_MAP_TYPE_ARRAY, sizeof(key), sizeof(value),
-+				2, map_flags);
- 	if (map_fd < 0) {
- 		printf("failed to create arraymap '%s'\n", strerror(errno));
- 		exit(1);
-@@ -244,7 +249,7 @@ static void test_percpu_arraymap_many_keys(void)
- 	int key, map_fd, i;
- 
- 	map_fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
--				sizeof(values[0]), nr_keys);
-+				sizeof(values[0]), nr_keys, map_flags);
- 	if (map_fd < 0) {
- 		printf("failed to create per-cpu arraymap '%s'\n",
- 		       strerror(errno));
-@@ -275,7 +280,7 @@ static void test_percpu_arraymap_sanity(int i, void *data)
- 	int key, next_key, map_fd;
- 
- 	map_fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
--				sizeof(values[0]), 2);
-+				sizeof(values[0]), 2, map_flags);
- 	if (map_fd < 0) {
- 		printf("failed to create arraymap '%s'\n", strerror(errno));
- 		exit(1);
-@@ -336,7 +341,7 @@ static void test_map_large(void)
- 
- 	/* allocate 4Mbyte of memory */
- 	map_fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
--				MAP_SIZE);
-+				MAP_SIZE, map_flags);
- 	if (map_fd < 0) {
- 		printf("failed to create large map '%s'\n", strerror(errno));
- 		exit(1);
-@@ -421,7 +426,7 @@ static void test_map_parallel(void)
- 	int data[2];
- 
- 	map_fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
--				MAP_SIZE);
-+				MAP_SIZE, map_flags);
- 	if (map_fd < 0) {
- 		printf("failed to create map for parallel test '%s'\n",
- 		       strerror(errno));
-diff --git a/samples/bpf/test_verifier.c b/samples/bpf/test_verifier.c
-index 563c507c0a09..4b51a9039c0d 100644
---- a/samples/bpf/test_verifier.c
-+++ b/samples/bpf/test_verifier.c
-@@ -1198,7 +1198,7 @@ static int create_map(void)
- 	int map_fd;
- 
- 	map_fd = bpf_create_map(BPF_MAP_TYPE_HASH,
--				sizeof(long long), sizeof(long long), 1024);
-+				sizeof(long long), sizeof(long long), 1024, 0);
- 	if (map_fd < 0)
- 		printf("failed to create map '%s'\n", strerror(errno));
- 
-@@ -1210,7 +1210,7 @@ static int create_prog_array(void)
- 	int map_fd;
- 
- 	map_fd = bpf_create_map(BPF_MAP_TYPE_PROG_ARRAY,
--				sizeof(int), sizeof(int), 4);
-+				sizeof(int), sizeof(int), 4, 0);
- 	if (map_fd < 0)
- 		printf("failed to create prog_array '%s'\n", strerror(errno));
- 
++struct bpf_map_def SEC("maps") my_map = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(long),
++	.value_size = sizeof(long),
++	.max_entries = 1024,
++};
++struct bpf_map_def SEC("maps") my_map2 = {
++	.type = BPF_MAP_TYPE_PERCPU_HASH,
++	.key_size = sizeof(long),
++	.value_size = sizeof(long),
++	.max_entries = 1024,
++};
++
++#define PROG(foo) \
++int foo(struct pt_regs *ctx) \
++{ \
++	long v = ctx->ip, *val; \
++\
++	val = bpf_map_lookup_elem(&my_map, &v); \
++	bpf_map_update_elem(&my_map, &v, &v, BPF_ANY); \
++	bpf_map_update_elem(&my_map2, &v, &v, BPF_ANY); \
++	bpf_map_delete_elem(&my_map2, &v); \
++	return 0; \
++}
++
++/* add kprobes to all possible *spin* functions */
++SEC("kprobe/spin_unlock")PROG(p1)
++SEC("kprobe/spin_lock")PROG(p2)
++SEC("kprobe/mutex_spin_on_owner")PROG(p3)
++SEC("kprobe/rwsem_spin_on_owner")PROG(p4)
++SEC("kprobe/spin_unlock_irqrestore")PROG(p5)
++SEC("kprobe/_raw_spin_unlock_irqrestore")PROG(p6)
++SEC("kprobe/_raw_spin_unlock_bh")PROG(p7)
++SEC("kprobe/_raw_spin_unlock")PROG(p8)
++SEC("kprobe/_raw_spin_lock_irqsave")PROG(p9)
++SEC("kprobe/_raw_spin_trylock_bh")PROG(p10)
++SEC("kprobe/_raw_spin_lock_irq")PROG(p11)
++SEC("kprobe/_raw_spin_trylock")PROG(p12)
++SEC("kprobe/_raw_spin_lock")PROG(p13)
++SEC("kprobe/_raw_spin_lock_bh")PROG(p14)
++/* and to inner bpf helpers */
++SEC("kprobe/htab_map_update_elem")PROG(p15)
++SEC("kprobe/__htab_percpu_map_update_elem")PROG(p16)
++SEC("kprobe/htab_map_alloc")PROG(p17)
++
++char _license[] SEC("license") = "GPL";
++u32 _version SEC("version") = LINUX_VERSION_CODE;
+diff --git a/samples/bpf/spintest_user.c b/samples/bpf/spintest_user.c
+new file mode 100644
+index 000000000000..311ede532230
+--- /dev/null
++++ b/samples/bpf/spintest_user.c
+@@ -0,0 +1,50 @@
++#include <stdio.h>
++#include <unistd.h>
++#include <linux/bpf.h>
++#include <string.h>
++#include <assert.h>
++#include <sys/resource.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++
++int main(int ac, char **argv)
++{
++	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
++	long key, next_key, value;
++	char filename[256];
++	struct ksym *sym;
++	int i;
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++	setrlimit(RLIMIT_MEMLOCK, &r);
++
++	if (load_kallsyms()) {
++		printf("failed to process /proc/kallsyms\n");
++		return 2;
++	}
++
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++
++	for (i = 0; i < 5; i++) {
++		key = 0;
++		printf("kprobing funcs:");
++		while (bpf_get_next_key(map_fd[0], &key, &next_key) == 0) {
++			bpf_lookup_elem(map_fd[0], &next_key, &value);
++			assert(next_key == value);
++			sym = ksym_search(value);
++			printf(" %s", sym->name);
++			key = next_key;
++		}
++		if (key)
++			printf("\n");
++		key = 0;
++		while (bpf_get_next_key(map_fd[0], &key, &next_key) == 0)
++			bpf_delete_elem(map_fd[0], &next_key);
++		sleep(1);
++	}
++
++	return 0;
++}
 -- 
 2.6.5
