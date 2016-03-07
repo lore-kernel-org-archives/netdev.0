@@ -1,39 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] udp6: fix UDP/IPv6 encap resubmit path
-Date: Mon, 07 Mar 2016 15:23:52 -0500 (EST)
-Message-ID: <20160307.152352.119878767057546985.davem@davemloft.net>
-References: <1457131641-79311-1-git-send-email-wsommerfeld@google.com>
+Subject: Re: [PATCH net-next] hv_netvsc: Move subchannel waiting to
+ rndis_filter_device_remove()
+Date: Mon, 07 Mar 2016 15:38:09 -0500 (EST)
+Message-ID: <20160307.153809.1538719544106524749.davem@davemloft.net>
+References: <1457132863-7262-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, johunt@akamai.com, bcrl@kvack.org,
-	edumazet@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: wsommerfeld@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53875 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753103AbcCGUXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 15:23:55 -0500
-In-Reply-To: <1457131641-79311-1-git-send-email-wsommerfeld@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1457132863-7262-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Bill Sommerfeld <wsommerfeld@google.com>
-Date: Fri,  4 Mar 2016 14:47:21 -0800
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri,  4 Mar 2016 15:07:43 -0800
 
-> IPv4 interprets a negative return value from a protocol handler as a
-> request to redispatch to a new protocol.  In contrast, IPv6 interprets a
-> negative value as an error, and interprets a positive value as a request
-> for redispatch.
+> During hot add, vmbus_device_register() is called from vmbus_onoffer(), on
+> the same workqueue as the subchannel offer message work-queue, so 
+> subchannel offer won't be processed until the vmbus_device_register()/...
+> /netvsc_probe() is done.
+> Also, vmbus_device_register() is called with channel_mutex locked, which
+> prevents subchannel processing too. So the "waiting for sub-channel 
+> processing" will not success in hot add case. But, in usual module loading,
+> the netvsc_probe() is called from different code path, and doesn't fail.
 > 
-> UDP for IPv6 was unaware of this difference.  Change __udp6_lib_rcv() to
-> return a positive value for redispatch.  Note that the socket's
-> encap_rcv hook still needs to return a negative value to request
-> dispatch, and in the case of IPv6 packets, adjust IP6CB(skb)->nhoff to
-> identify the byte containing the next protocol.
+> This patch resolves the deadlock during NIC hot-add, and speeds up NIC 
+> loading time.
 > 
-> Signed-off-by: Bill Sommerfeld <wsommerfeld@google.com>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
