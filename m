@@ -1,63 +1,83 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/3] net: macb: Fix more coding style issues
-Date: Mon, 07 Mar 2016 09:25:38 -0800
-Message-ID: <1457371538.4085.16.camel@perches.com>
-References: <1457367460-9123-1-git-send-email-moritz.fischer@ettus.com>
-	 <1457367460-9123-3-git-send-email-moritz.fischer@ettus.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v5 net-next] net: Implement fast csum_partial for x86_64
+Date: Mon, 7 Mar 2016 09:33:51 -0800
+Message-ID: <CALx6S35h+oSCKsaEotah30tspZPdp3GZThrN8=cLbE2O7nhU2g@mail.gmail.com>
+References: <1456957112-2702469-1-git-send-email-tom@herbertland.com>
+	<063D6719AE5E284EB5DD2968C1650D6D41113AD4@AcuExch.aculab.com>
+	<CA+55aFzz7xt+RwruV3GvWJzQ67925gkDYeOYqgbjMEAHxxztnQ@mail.gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D41114809@AcuExch.aculab.com>
+	<CAKgT0UcQEkhbpBvT69tBKvmY1EVm91vMwVUHOdkE4RJ3hH+Q9g@mail.gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D41116831@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Moritz Fischer <moritz.fischer@ettus.com>, nicolas.ferre@atmel.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
+	"kernel-team@fb.com" <kernel-team@fb.com>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0032.hostedemail.com ([216.40.44.32]:43972 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752427AbcCGRZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 12:25:43 -0500
-In-Reply-To: <1457367460-9123-3-git-send-email-moritz.fischer@ettus.com>
+Received: from mail-ig0-f194.google.com ([209.85.213.194]:36580 "EHLO
+	mail-ig0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752427AbcCGRdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 12:33:53 -0500
+Received: by mail-ig0-f194.google.com with SMTP id ir4so6086586igb.3
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 09:33:52 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D41116831@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-03-07 at 08:17 -0800, Moritz Fischer wrote:
-> This commit takes care of the coding style warnings
-> that are mostly due to a different comment style and
-> lines over 80 chars.
-[]
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
-et/cadence/macb.c
-[]
-> @@ -127,8 +126,7 @@ static void hw_writel(struct macb *bp, int offset=
-, u32 value)
-> =A0	writel_relaxed(value, bp->regs + offset);
-> =A0}
-> =A0
-> -/*
-> - * Find the CPU endianness by using the loopback bit of NCR register=
-=2E When the
-> +/* Find the CPU endianness by using the loopback bit of NCR register=
-=2E When the
-> =A0 * CPU is in big endian we need to program swaped mode for managem=
-ent
+On Mon, Mar 7, 2016 at 5:56 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Alexander Duyck
+>  ...
+>> Actually probably the easiest way to go on x86 is to just replace the
+>> use of len with (len >> 6) and use decl or incl instead of addl or
+>> subl, and lea instead of addq for the buff address.  None of those
+>> instructions effect the carry flag as this is how such loops were
+>> intended to be implemented.
+>>
+>> I've been doing a bit of testing and that seems to work without
+>> needing the adcq until after you exit the loop, but doesn't give that
+>> much of a gain in speed for dropping the instruction from the
+>> hot-path.  I suspect we are probably memory bottle-necked already in
+>> the loop so dropping an instruction or two doesn't gain you much.
+>
+> Right, any superscalar architecture gives you some instructions
+> 'for free' if they can execute at the same time as those on the
+> critical path (in this case the memory reads and the adc).
+> This is why loop unrolling can be pointless.
+>
+> So the loop:
+> 10:     addc %rax,(%rdx,%rcx,8)
+>         inc %rcx
+>         jnz 10b
+> could easily be as fast as anything that doesn't use the 'new'
+> instructions that use the overflow flag.
+> That loop might be measurable faster for aligned buffers.
 
-swaped/swapped typo
-@@ -945,6 +943,7 @@ static int macb_rx_frame(struct macb *bp, unsigned =
-int first_frag,
-> =A0static int macb_rx(struct macb *bp, int budget)
-> =A0{
-> =A0	int received =3D 0;
-> +	int dropped;
+Tested by replacing the unrolled loop in my patch with just:
 
-This is an unnecessary and unmentioned change.
+if (len >= 8) {
+                asm("clc\n\t"
+                    "0: adcq (%[src],%%rcx,8),%[res]\n\t"
+                    "decl %%ecx\n\t"
+                    "jge 0b\n\t"
+                    "adcq $0, %[res]\n\t"
+                            : [res] "=r" (result)
+                            : [src] "r" (buff), "[res]" (result), "c"
+((len >> 3) - 1));
+}
 
-> =A0	unsigned int tail;
-> =A0	int first_frag =3D -1;
-> =A0
-> @@ -968,7 +967,6 @@ static int macb_rx(struct macb *bp, int budget)
-> =A0		}
-> =A0
-> =A0		if (ctrl & MACB_BIT(RX_EOF)) {
-> -			int dropped;
-> =A0			BUG_ON(first_frag =3D=3D -1);
-> =A0
-> =A0			dropped =3D macb_rx_frame(bp, first_frag, tail);
->=20
+This seems to be significantly slower:
+
+1400 bytes: 797 nsecs vs. 202 nsecs
+40 bytes: 6.5 nsecs vs. 26.8 nsecs
+
+Tom
+
+>
+>         David
+>
