@@ -1,69 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] sctp: use gfp insteaad of GFP_NOWAIT in
- idr_alloc_cyclic when sctp_assoc_set_id
-Date: Sun, 06 Mar 2016 15:21:16 -0800
-Message-ID: <1457306476.2663.28.camel@edumazet-ThinkPad-T530>
-References: <ef48b2b8895b4d0fab07b4e72b464d5a11d3bd79.1457193572.git.lucien.xin@gmail.com>
-	 <1457196133.2663.3.camel@edumazet-ThinkPad-T530>
-	 <CADvbK_faS8mNtUNiVT6d-kLRnngQ=4+z6meuO0XM+RJG50iaNw@mail.gmail.com>
+From: Nicholas Krause <xerofoify@gmail.com>
+Subject: [PATCH] freescale:Make the function ucc_geth_tx have a return type of
+ void
+Date: Sun,  6 Mar 2016 19:12:42 -0500
+Message-ID: <1457309562-18034-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem <davem@davemloft.net>
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35524 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751785AbcCFXVT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2016 18:21:19 -0500
-In-Reply-To: <CADvbK_faS8mNtUNiVT6d-kLRnngQ=4+z6meuO0XM+RJG50iaNw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ linux-kernel@vger.kernel.org
+To: leoli@freescale.com
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On dim., 2016-03-06 at 13:52 +0800, Xin Long wrote:
-> On Sun, Mar 6, 2016 at 12:42 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On sam., 2016-03-05 at 23:59 +0800, Xin Long wrote:
-> >
-> > Are you sure idr_alloc(... GFP_KERNEL) makes sense inside spin_lock_bh()
-> > section ?
-> >
-> > idr_alloc() has :
-> >
-> > might_sleep_if(gfpflags_allow_blocking(gfp_mask));
-> >
-> > A debug kernel (CONFIG_DEBUG_ATOMIC_SLEEP=y) should probably complain at
-> > this point ?
-> >
-> OK, I got you, does it make sense to you if I just change GFP_NOWAIT
-> to GFP_ATOMIC
-> when sctp_assoc_set_id call idr_alloc_cyclic()?  which also can avoid
-> this call trace in my
-> test.
-> 
-> >
-> >
-
-What is the problem of being not able to allocate memory at this point ?
-
-If really it bothers you (although we have thousands of other places it
-can happen), maybe add __GFP_NOWARN
-
-But whatever flag we use here, idr_alloc() _can_ fail.
-
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 2bf8ec92dde4..2ae3874e3696 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -1606,7 +1606,8 @@ int sctp_assoc_set_id(struct sctp_association *asoc, gfp_t gfp)
- 		idr_preload(gfp);
- 	spin_lock_bh(&sctp_assocs_id_lock);
- 	/* 0 is not a valid assoc_id, must be >= 1 */
--	ret = idr_alloc_cyclic(&sctp_assocs_id, asoc, 1, 0, GFP_NOWAIT);
-+	ret = idr_alloc_cyclic(&sctp_assocs_id, asoc, 1, 0,
-+			       (gfp & ~__GFP_DIRECT_RECLAIM) | __GFP_NOWARN);
- 	spin_unlock_bh(&sctp_assocs_id_lock);
- 	if (preload)
- 		idr_preload_end();
+VGhpcyBtYWtlcyB0aGUgZnVuY3Rpb24gdWNjX2dldGhfdHggaGF2ZSBhIHJldHVybiB0eXBlIG9m
+IHZvaWQgbm93CmR1ZSB0byB0aGlzIHBhcnRpY3VsYXIgZnVuY3Rpb24gYWx3YXlzIGNvbXBsZXRp
+bmcgd2l0aG91dCBldmVyCmV4ZWN1dGluZyBhIG5vbiByZWNvdmVyYWJsZSBlcnJvci4KClNpZ25l
+ZC1vZmYtYnk6IE5pY2hvbGFzIEtyYXVzZSA8eGVyb2ZvaWZ5QGdtYWlsLmNvbT4KLS0tCiBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYyB8IDMgKy0tCiAxIGZpbGUgY2hh
+bmdlZCwgMSBpbnNlcnRpb24oKyksIDIgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9mcmVlc2NhbGUvdWNjX2dldGguYwppbmRleCA3OGViZDczLi43MGYzMDQ1IDEwMDY0NAotLS0g
+YS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYworKysgYi9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYwpAQCAtMzIyNiw3ICszMjI2LDcgQEAg
+c3RhdGljIGludCB1Y2NfZ2V0aF9yeChzdHJ1Y3QgdWNjX2dldGhfcHJpdmF0ZSAqdWdldGgsIHU4
+IHJ4USwgaW50IHJ4X3dvcmtfbGltaXQKIAlyZXR1cm4gaG93bWFueTsKIH0KIAotc3RhdGljIGlu
+dCB1Y2NfZ2V0aF90eChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1OCB0eFEpCitzdGF0aWMgdm9p
+ZCB1Y2NfZ2V0aF90eChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1OCB0eFEpCiB7CiAJLyogU3Rh
+cnQgZnJvbSB0aGUgbmV4dCBCRCB0aGF0IHNob3VsZCBiZSBmaWxsZWQgKi8KIAlzdHJ1Y3QgdWNj
+X2dldGhfcHJpdmF0ZSAqdWdldGggPSBuZXRkZXZfcHJpdihkZXYpOwpAQCAtMzI2OSw3ICszMjY5
+LDYgQEAgc3RhdGljIGludCB1Y2NfZ2V0aF90eChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1OCB0
+eFEpCiAJCWJkX3N0YXR1cyA9IGluX2JlMzIoKHUzMiBfX2lvbWVtICopYmQpOwogCX0KIAl1Z2V0
+aC0+Y29uZkJkW3R4UV0gPSBiZDsKLQlyZXR1cm4gMDsKIH0KIAogc3RhdGljIGludCB1Y2NfZ2V0
+aF9wb2xsKHN0cnVjdCBuYXBpX3N0cnVjdCAqbmFwaSwgaW50IGJ1ZGdldCkKLS0gCjIuMS40Cgpf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1k
+ZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlz
+dHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
