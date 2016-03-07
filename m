@@ -1,56 +1,141 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] cdc_ncm: do not call usbnet_link_change from
- cdc_ncm_bind
-Date: Mon, 07 Mar 2016 15:58:37 -0500 (EST)
-Message-ID: <20160307.155837.483651456794896295.davem@davemloft.net>
-References: <CA+fCnZdurxGBsOrANb_m5BLK1BKzH3J_GmZ=dbH=ABThgFNGxg@mail.gmail.com>
-	<20160307.145406.188091362181073486.davem@davemloft.net>
-	<87k2le815w.fsf_-_@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: andreyknvl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	oneukum-IBi9RG/b67k@public.gmane.org, dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: bjorn-yOkvZcmFvRU@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87k2le815w.fsf_-_-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH rdma-next V1 01/10] net/core: Add support for configuring VF GUIDs
+Date: Mon,  7 Mar 2016 23:08:51 +0200
+Message-ID: <1457384940-11951-2-git-send-email-eli@mellanox.com>
+References: <1457384940-11951-1-git-send-email-eli@mellanox.com>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1457384940-11951-1-git-send-email-eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Date: Mon, 7 Mar 2016 21:15:36 +0100
+Add two new NLAs to support configuration of Infiniband node or port
+GUIDs. New applications can choose to use this interface to configure
+GUIDs with iproute2 with commands such as:
 
-> usbnet_link_change will call schedule_work and should be
-> avoided if bind is failing. Otherwise we will end up with
-> scheduled work referring to a netdev which has gone away.
->=20
-> Instead of making the call conditional, we can just defer
-> it to usbnet_probe, using the driver_info flag made for
-> this purpose.
->=20
-> Fixes: 8a34b0ae8778 ("usbnet: cdc_ncm: apply usbnet_link_change")
-> Reported-by: Andrey Konovalov <andreyknvl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Suggested-by: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-=2E..
-> Even with Oliver's generic fix we should still fix the inconsistency
-> in cdc_ncm, as pointed out by Linus.
->=20
-> This is a slightly different approach than the patch proposed by Linu=
-s.
-> When I started looking at this I couldn't figure out why we were doin=
-g
-> this differently in this driver from all the other usbnet drivers
-> disabling the link at probe time.  So let's make it consistent.  Then=
- at
-> least we get consistent bugs :)
+ip link set dev ib0 vf 0 node_guid 00:02:c9:03:00:21:6e:70
+ip link set dev ib0 vf 0 port_guid 00:02:c9:03:00:21:6e:78
 
-=46air enough, applied and queued up for -stable.
+A new ndo, ndo_sef_vf_guid is introduced to notify the net device of the
+request to change the GUID.
 
-Thanks.
+Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+---
+Changes from V0:
+Removed the option to configure GUIDs through MAC configuration
+
+ include/linux/netdevice.h    |  3 +++
+ include/uapi/linux/if_link.h |  7 +++++++
+ net/core/rtnetlink.c         | 36 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 46 insertions(+)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 5440b7b705eb..7b4ae218b90b 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1147,6 +1147,9 @@ struct net_device_ops {
+ 						   struct nlattr *port[]);
+ 	int			(*ndo_get_vf_port)(struct net_device *dev,
+ 						   int vf, struct sk_buff *skb);
++	int			(*ndo_set_vf_guid)(struct net_device *dev,
++						   int vf, u64 guid,
++						   int guid_type);
+ 	int			(*ndo_set_vf_rss_query_en)(
+ 						   struct net_device *dev,
+ 						   int vf, bool setting);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index a30b78090594..1d01e8a4e5dd 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -556,6 +556,8 @@ enum {
+ 				 */
+ 	IFLA_VF_STATS,		/* network device statistics */
+ 	IFLA_VF_TRUST,		/* Trust VF */
++	IFLA_VF_IB_NODE_GUID,	/* VF Infiniband node GUID */
++	IFLA_VF_IB_PORT_GUID,	/* VF Infiniband port GUID */
+ 	__IFLA_VF_MAX,
+ };
+ 
+@@ -588,6 +590,11 @@ struct ifla_vf_spoofchk {
+ 	__u32 setting;
+ };
+ 
++struct ifla_vf_guid {
++	__u32 vf;
++	__u64 guid;
++};
++
+ enum {
+ 	IFLA_VF_LINK_STATE_AUTO,	/* link state of the uplink */
+ 	IFLA_VF_LINK_STATE_ENABLE,	/* link always up */
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d735e854f916..4b6f3db9f8af 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1387,6 +1387,8 @@ static const struct nla_policy ifla_vf_policy[IFLA_VF_MAX+1] = {
+ 	[IFLA_VF_RSS_QUERY_EN]	= { .len = sizeof(struct ifla_vf_rss_query_en) },
+ 	[IFLA_VF_STATS]		= { .type = NLA_NESTED },
+ 	[IFLA_VF_TRUST]		= { .len = sizeof(struct ifla_vf_trust) },
++	[IFLA_VF_IB_NODE_GUID]	= { .len = sizeof(struct ifla_vf_guid) },
++	[IFLA_VF_IB_PORT_GUID]	= { .len = sizeof(struct ifla_vf_guid) },
+ };
+ 
+ static const struct nla_policy ifla_vf_stats_policy[IFLA_VF_STATS_MAX + 1] = {
+@@ -1534,6 +1536,22 @@ static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
+ 	return 0;
+ }
+ 
++static int handle_infiniband_guid(struct net_device *dev, struct ifla_vf_guid *ivt,
++				  int guid_type)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
++
++	return ops->ndo_set_vf_guid(dev, ivt->vf, ivt->guid, guid_type);
++}
++
++static int handle_vf_guid(struct net_device *dev, struct ifla_vf_guid *ivt, int guid_type)
++{
++	if (dev->type != ARPHRD_INFINIBAND)
++		return -EOPNOTSUPP;
++
++	return handle_infiniband_guid(dev, ivt, guid_type);
++}
++
+ static int do_setvfinfo(struct net_device *dev, struct nlattr **tb)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+@@ -1636,6 +1654,24 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr **tb)
+ 			return err;
+ 	}
+ 
++	if (tb[IFLA_VF_IB_NODE_GUID]) {
++		struct ifla_vf_guid *ivt = nla_data(tb[IFLA_VF_IB_NODE_GUID]);
++
++		if (!ops->ndo_set_vf_guid)
++			return -EOPNOTSUPP;
++
++		return handle_vf_guid(dev, ivt, IFLA_VF_IB_NODE_GUID);
++	}
++
++	if (tb[IFLA_VF_IB_PORT_GUID]) {
++		struct ifla_vf_guid *ivt = nla_data(tb[IFLA_VF_IB_PORT_GUID]);
++
++		if (!ops->ndo_set_vf_guid)
++			return -EOPNOTSUPP;
++
++		return handle_vf_guid(dev, ivt, IFLA_VF_IB_PORT_GUID);
++	}
++
+ 	return err;
+ }
+ 
+-- 
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+1.8.3.1
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
