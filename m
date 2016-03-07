@@ -1,45 +1,167 @@
-From: Mike Galbraith <umgwanakikbuti@gmail.com>
-Subject: Re: Softirq priority inversion from "softirq: reduce latencies"
-Date: Mon, 07 Mar 2016 18:06:30 +0100
-Message-ID: <1457370390.3635.6.camel@gmail.com>
-References: <56D1E8B6.6090003@hurleysoftware.com>
-	 <1456638957.3676.12.camel@gmail.com>
-	 <20160228170109.GA16322@electric-eye.fr.zoreil.com>
-	 <1456721889.3488.67.camel@gmail.com> <56DD9EE8.1010909@linutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Peter Hurley <peter@hurleysoftware.com>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
-	dmaengine@vger.kernel.org, John Ogness <john.ogness@linutronix.de>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	Francois Romieu <romieu@fr.zoreil.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net-next 0/3] MACsec IEEE 802.1AE implementation
+Date: Mon,  7 Mar 2016 18:12:37 +0100
+Message-ID: <cover.1456937772.git.sd@queasysnail.net>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Paolo Abeni <pabeni@redhat.com>, stephen@networkplumber.org,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:33988 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752697AbcCGRGf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 12:06:35 -0500
-In-Reply-To: <56DD9EE8.1010909@linutronix.de>
+Received: from mx1.redhat.com ([209.132.183.28]:58495 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752771AbcCGRMt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2016 12:12:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-03-07 at 16:31 +0100, Sebastian Andrzej Siewior wrote:
-> On 02/29/2016 05:58 AM, Mike Galbraith wrote:
-> > WRT -rt: if dma tasklets really do have hard (ish) constraints, -rt
-> > recently "broke" in the same way.. of all softirqs which are deferred
-> > to kthread context, due to a recent change, only timer/hrtimer are
-> > executed at realtime priority by default.
-> 
-> no. All softirqs are invoked in the context of the current process that
-> triggerd the softirq invocation. If NAPI goes on for too long (or other
-> softirq can't be executed in this context) it will continue in the
-> ksoftirqd. And this threads runs at a normal priority like it does in
-> mainline.
-> I adjusted it with mainline.
+MACsec (IEEE 802.1AE [0]) is a protocol that provides security for
+wired ethernet LANs.  MACsec offers two protection modes:
+authentication only, or authenticated encryption.
 
-Yeah, that's what I said, the ksoftirqd case became the same in -rt.
+MACsec defines "secure channels" that allow transmission from one node
+to one or more others.  Communication on a channel is done over a
+succession of "secure associations", that each use a specific key.
+Secure associations are identified by their "association number" in
+the range 0..3.  A secure association is retired when its 32-bit
+packet number would wrap, and the same association number can later be
+reused with a new key and packet number.
 
-	-Mike
+The standard mode of encryption is GCM AES with 128 bits keys,
+although an extension allows 256 bits keys [1] (not implemented in
+this submission).
+
+When using MACsec, an extra header, called "SecTAG", is added between
+the ethernet header and the original payload:
+
+ +---------------------------------+----------------+----------------+
+ |        (MACsec ethertype)       |     TCI_AN     |       SL       |
+ +---------------------------------+----------------+----------------+
+ |                           Packet Number                           |
+ +-------------------------------------------------------------------+
+ |                     Secure Channel Identifier                     |
+ |                            (optional)                             |
+ +-------------------------------------------------------------------+
+
+TCI_AN:
+ version
+ end_station
+ sci_present
+ scb
+ encrypted
+ changed_text
+ association_number (2 bits)
+SL:
+ short_length (6 bits)
+ unused (2 bits)
+
+The ethertype for the packet is set to 0x88E5, and the original
+ethertype becomes part of the secure payload, which may be encrypted.
+The ethernet header and the SecTAG are always transmitted in the
+clear, but are integrity-protected.
+
+MACsec supports optional replay protection with a configurable replay
+window.
+
+MACsec is designed to be used with the MKA extension to 802.1X (MACsec
+Key Agreement protocol) [2], which provides channel attribution and
+key distribution to the nodes, but can also be used with static keys
+getting fed manually by an administrator.
+
+Optional (not supported yet) features:
+ - confidentiality offset: in encryption mode, part of the payload may
+   be left unencrypted.
+ - choice of cipher suite: GCM AES with 256 bits has been standardised
+   [1].
+
+
+Implementation
+
+A netdevice is created on top of a real device for each TX secure
+channel, like we do for VLANs.  Multiple TX channels can be created on
+top of the same underlying device.
+
+Several other approaches were considered for the RX path:
+
+ - dev_add_pack: doesn't work, because we want to filter out
+   unprotected packets
+ - transparent mode: MACsec would be enabled directly on the real
+   netdevice.  For this, we cannot use a rx_handler directly because
+   MACsec must be available for underlying devices enslaved in a
+   bridge or in a bond, so we need a hook directly in
+   __netif_receive_skb_core.  This approach makes it harder to filter
+   non-encrypted packets on RX without forcing the user to setup some
+   rules, so the "transparent" mode is not so transparent after all.
+   It also makes TX more complex than with a dedicated netdevice.
+
+One issue with the proposed implementation is that the qdisc layer for
+the real device operates on already encrypted packets.
+
+
+Netlink API
+
+This is currently a mix of rtnetlink (to create the device and set up
+the TX channel) and genl (for RX channels, secure associations and
+their keys).  genl provides clean demultiplexing of the {TX,RX}{SC,SA}
+commands.
+
+
+Use cases
+
+The normal use case is wired LANs, including veth and slave devices
+for bonding/teaming or bridges.
+
+MACsec can also be used on any device that makes a full ethernet
+header visible, for example VXLAN.
+The VXLAN+MACsec setup would be:
+
+         hypervisor        |     virtual machine
+    <real_dev>---<VXLAN>---|---<dev>---<macsec_dev>
+
+And the packets would look like this:
+
+| eth | IP | UDP | VXLAN | eth | MACsec | IP | ... | MACsec ICV |
+
+One benefit on this approach to encryption in the cloud is that the
+payload is encrypted by the tenant, not by the tunnel provider, thus
+the tenant has full control over the keys.
+
+Changes from RFCv2:
+ - fix ENCODING_SA param validation
+ - add parent link to netlink ifdumps
+
+Changes from RFCv1 (details in individual patches):
+ - addressed comments from Florian and Paolo + kbuild robot
+ - also perform post-decrypt handling after crypto callback
+ - fixed ->dellink behavior
+
+Future plans:
+ - offload to hardware, on nics that support it
+ - implement optional features
+
+
+[0] http://standards.ieee.org/getieee802/download/802.1AE-2006.pdf
+[1] http://standards.ieee.org/getieee802/download/802.1AEbn-2011.pdf
+[2] http://standards.ieee.org/getieee802/download/802.1X-2010.pdf
+[3] link to RFCv1: http://www.spinics.net/lists/netdev/msg358151.html
+[4] link to RFCv2: http://www.spinics.net/lists/netdev/msg362389.html
+
+Sabrina Dubroca (3):
+  uapi: add MACsec bits
+  net: add MACsec netdevice priv_flags and helper
+  macsec: introduce IEEE 802.1AE driver
+
+ drivers/net/Kconfig            |    7 +
+ drivers/net/Makefile           |    1 +
+ drivers/net/macsec.c           | 3037 ++++++++++++++++++++++++++++++++++++++++
+ include/linux/netdevice.h      |    8 +
+ include/uapi/linux/Kbuild      |    1 +
+ include/uapi/linux/if_ether.h  |    1 +
+ include/uapi/linux/if_link.h   |   21 +
+ include/uapi/linux/if_macsec.h |  165 +++
+ 8 files changed, 3241 insertions(+)
+ create mode 100644 drivers/net/macsec.c
+ create mode 100644 include/uapi/linux/if_macsec.h
+
+-- 
+2.7.2
