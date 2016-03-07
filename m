@@ -1,61 +1,63 @@
-From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-Subject: Re: [PATCH 1/2] net: thunderx: Set recevie buffer page usage count in bulk
-Date: Mon, 7 Mar 2016 22:53:05 +0530
-Message-ID: <CA+sq2CcyOV3FbpUvSkX4ZhjC+fJuHk9cUpjdiJtkFNaEXOWu6Q@mail.gmail.com>
-References: <1457336157-31508-2-git-send-email-sunil.kovvuri@gmail.com>
-	<20160307.111534.235286977900488968.davem@davemloft.net>
-	<CA+sq2CewOQGSiRC5m64ioYS36-WO0C5XzykZRZd+OLE1tJ-sSQ@mail.gmail.com>
-	<20160307.120410.1851177945150642006.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 2/3] net: macb: Fix more coding style issues
+Date: Mon, 07 Mar 2016 09:25:38 -0800
+Message-ID: <1457371538.4085.16.camel@perches.com>
+References: <1457367460-9123-1-git-send-email-moritz.fischer@ettus.com>
+	 <1457367460-9123-3-git-send-email-moritz.fischer@ettus.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	LAKML <linux-arm-kernel@lists.infradead.org>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	Robert Richter <robert.richter@caviumnetworks.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Moritz Fischer <moritz.fischer@ettus.com>, nicolas.ferre@atmel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f66.google.com ([209.85.192.66]:34597 "EHLO
-	mail-qg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753232AbcCGRXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 12:23:06 -0500
-In-Reply-To: <20160307.120410.1851177945150642006.davem@davemloft.net>
+Received: from smtprelay0032.hostedemail.com ([216.40.44.32]:43972 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752427AbcCGRZn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 12:25:43 -0500
+In-Reply-To: <1457367460-9123-3-git-send-email-moritz.fischer@ettus.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 7, 2016 at 10:34 PM, David Miller <davem@davemloft.net> wrote:
-> From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-> Date: Mon, 7 Mar 2016 22:28:39 +0530
->
->> Hi David,
->>
->>>> you create a window of time during which the consumer
->>>> can release the page and prematurely free it.
->> Okay, but here the consumer i.e HW is notified only after page count
->> is incremented.
->> For example if you check 'nicvf_refill_rbdr' fn() only after receive
->> buffer ring is
->> refilled with buffers, doorbell is issued to hardware to start using
->> the new buffers.
->>
->> So
->> @@ -241,6 +254,8 @@ refill:
->>                 new_rb++;
->>         }
->>
->> +       nicvf_get_page(nic);
->> +
->> calling 'nicvf_get_page' before issuing doorbell ensures page ref
->> count is properly
->> set before hw/consumer can use the buffers.
->
-> So if you know ahead of time how the page will be split up, just
-> calculate that when you get the page and increment the page count
-> appropriately.
->
-> That's what we do in the NIU driver.
+On Mon, 2016-03-07 at 08:17 -0800, Moritz Fischer wrote:
+> This commit takes care of the coding style warnings
+> that are mostly due to a different comment style and
+> lines over 80 chars.
+[]
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+[]
+> @@ -127,8 +126,7 @@ static void hw_writel(struct macb *bp, int offset=
+, u32 value)
+> =A0	writel_relaxed(value, bp->regs + offset);
+> =A0}
+> =A0
+> -/*
+> - * Find the CPU endianness by using the loopback bit of NCR register=
+=2E When the
+> +/* Find the CPU endianness by using the loopback bit of NCR register=
+=2E When the
+> =A0 * CPU is in big endian we need to program swaped mode for managem=
+ent
 
-Thanks for the suggestion, will check and get back.
+swaped/swapped typo
+@@ -945,6 +943,7 @@ static int macb_rx_frame(struct macb *bp, unsigned =
+int first_frag,
+> =A0static int macb_rx(struct macb *bp, int budget)
+> =A0{
+> =A0	int received =3D 0;
+> +	int dropped;
 
-Regards,
-Sunil.
+This is an unnecessary and unmentioned change.
+
+> =A0	unsigned int tail;
+> =A0	int first_frag =3D -1;
+> =A0
+> @@ -968,7 +967,6 @@ static int macb_rx(struct macb *bp, int budget)
+> =A0		}
+> =A0
+> =A0		if (ctrl & MACB_BIT(RX_EOF)) {
+> -			int dropped;
+> =A0			BUG_ON(first_frag =3D=3D -1);
+> =A0
+> =A0			dropped =3D macb_rx_frame(bp, first_frag, tail);
+>=20
