@@ -1,110 +1,81 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
-Date: Mon, 7 Mar 2016 16:52:53 +0100
-Message-ID: <56DDA3D5.3090209@st.com>
-References: <1457294038-14243-1-git-send-email-afaerber@suse.de>
- <56DD7172.4000707@suse.de> <2714888.1DdqvJZ8cb@diego>
- <56DD7593.5060003@suse.de> <56DD8176.2080603@st.com>
- <56DD8FBE.9010200@suse.de> <56DD99A4.5030004@st.com>
- <56DDA26C.3050301@suse.de>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [ethtool PATCH v3 01/12] internal.h: change to new sane
+ powerpc64 kernel headers
+Date: Mon, 07 Mar 2016 15:53:55 +0000
+Message-ID: <1457366035.15205.11.camel@decadent.org.uk>
+References: <1457138533-2417-1-git-send-email-ddecotig@gmail.com>
+	 <1457138533-2417-2-git-send-email-ddecotig@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; Format="flowed"
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-DF7e/4XH+bdg3SPN4n6M"
+Cc: Jeff Garzik <jgarzik@pobox.com>, David Miller <davem@redhat.com>,
+	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+	Joe Perches <joe@perches.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	David Decotigny <decot@googlers.com>
+To: David Decotigny <ddecotig@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:43581 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752913AbcCGPyK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 10:54:10 -0500
+In-Reply-To: <1457138533-2417-2-git-send-email-ddecotig@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-DF7e/4XH+bdg3SPN4n6M
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- =?windows-1252?Q?Heiko_St=FCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- Gabriel Fernandez <gabriel.fernandez-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
- Fabrice GASNIER <fabrice.gasnier-qxv4g6HH51o@public.gmane.org>,
- LAKML <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
- Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
-To: =?windows-1252?Q?Andreas_F=E4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <56DDA26C.3050301-l3A5Bk7waGM@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-On 3/7/2016 4:46 PM, Andreas F=E4rber wrote:
-> Hi Peppe,
->
-> Am 07.03.2016 um 16:09 schrieb Giuseppe CAVALLARO:
->> On 3/7/2016 3:27 PM, Andreas F=E4rber wrote:
->>> Indeed, reverting Gabriel's commit fixes the observed error messages
-> [...]
->>> However, I am unable to ping any hosts on the network now.
->>
->> hmm, this could be another problem. I wonder if you can
->> check which recent patch is introducing the problem on ARM64.
->> For example if this depends on Oct_2015 update.
->
-> I've had success reverting drivers/net/ethernet/stmicro/ up to and
-> including "stmmac: first frame prep at the end of xmit routine", i.e.
-> top 7 commits.
+On Fri, 2016-03-04 at 16:42 -0800, David Decotigny wrote:
+[...]
+> --- a/internal.h
+> +++ b/internal.h
+> @@ -3,6 +3,13 @@
+> =C2=A0#ifndef ETHTOOL_INTERNAL_H__
+> =C2=A0#define ETHTOOL_INTERNAL_H__
+> =C2=A0
+> +#ifdef __powerpc64__
+> +/* Powerpc needs __SANE_USERSPACE_TYPES__ before  to select
+> + * 'int-ll64.h' and avoid compile warnings when printing __u64 with %llu=
+.
+> + */
+> +#define __SANE_USERSPACE_TYPES__
+> +#endif
 
-Andreas, I will check it and let you know asap.
+This is also true for several other architectures so let's define this
+unconditionally.
 
->
-> http://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/commit/dr=
-ivers/net/ethernet/stmicro?id=3D0e80bdc9a72df3b31a9fc2012102a6cc8d664e93
->
->> If you share some logs to me I can take a look at them.
->> Then we can try to check if the problem in on rx or tx path.
->> I also ask you yo check the axi settings.
->
-> On the reverted (good) branch I see in dmesg:
->
-> [  +0.001100] rk_gmac-dwmac ff290000.ethernet: Looking up phy-supply
-> from device tree
-> [  +0.000030] rk808 0-001b: Looking up vcc12-supply from device tree
-> [  +0.000013] vcc_lan: supplied by vcc_io
-> [  +0.000120] rk_gmac-dwmac ff290000.ethernet: clock input or output?
-> (input).
-> [  +0.000010] rk_gmac-dwmac ff290000.ethernet: TX delay(0x30).
-> [  +0.000007] rk_gmac-dwmac ff290000.ethernet: RX delay(0x10).
-> [  +0.000014] rk_gmac-dwmac ff290000.ethernet: init for RGMII
-> [  +0.000104] rk_gmac-dwmac ff290000.ethernet: clock input from PHY
-> [  +0.005099] rk_gmac-dwmac ff290000.ethernet: no reset control found
-> [  +0.000007] stmmac - user ID: 0x10, Synopsys ID: 0x35
-> [  +0.000002]  Ring mode enabled
-> [  +0.000006]  DMA HW capability register supported
-> [  +0.000000]  Normal descriptors
-> [  +0.000004]  RX Checksum Offload Engine supported (type 2)
-> [  +0.000002]  TX Checksum insertion supported
-> [  +0.000002]  Wake-Up On Lan supported
-> [  +0.000052]  Enable RX Mitigation via HW Watchdog Timer
-> [  +0.000683] rk_gmac-dwmac ff290000.ethernet eth0: No MDIO subnode found
-> [  +0.000124] of_get_named_gpiod_flags: can't parse 'snps,reset-gpio'
-> property of node '/ethernet@ff290000[0]'
-> [  +0.004219] libphy: stmmac: probed
-> [  +0.000010] eth0: PHY ID 001cc915 at 0 IRQ POLL (stmmac-0:00) active
-> [  +0.000005] eth0: PHY ID 001cc915 at 1 IRQ POLL (stmmac-0:01)
->
-> [  +0.881011] eth0: device MAC address 4a:78:dd:10:b3:17
-> [  +4.003065] rk_gmac-dwmac ff290000.ethernet eth0: Link is Up -
-> 1Gbps/Full - flow control rx/tx
->
-> The MAC address is random, changing each time. Otherwise there's no log
-> difference I spot to the pre-Gabriel broken state.
+Ben.
 
-ok
->
-> If you need more info, let me know where to find it.
+> =C2=A0#ifdef HAVE_CONFIG_H
+> =C2=A0#include "ethtool-config.h"
+> =C2=A0#endif
+--=20
+Ben Hutchings
+The most exhausting thing in life is being insincere. - Anne Morrow Lindber=
+g
+--=-DF7e/4XH+bdg3SPN4n6M
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-no it's ok at this stage.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
->
-> Thanks,
+iQIcBAABCgAGBQJW3aQTAAoJEOe/yOyVhhEJJzEQAM1peBSoHNV27jXk1yAVd+Kp
+BhzYCvnrBLwQg6o/14A3g0r2IXoyziQmUQeMzamHGxuShQiaJV1A3j71+AXTmLj6
+x05zHWnQRYLzEspUMn5Zv0eeFEvHfIwGjQGfeF4R6qKEJbt+9TlHXyYKqkaZU+Ba
+Z4g17ImsW08fJfSMgn3Mg8pj/VhKMUEvNMQAOkerX/wbt/X3B34ifuzEy4I4SQOL
+CRHu1MTqwXXMGB6za1DxHDBRaIXahwaKv4ev/u/MVmqo+lBjH1mzUk4feU9GJinp
+oIOXYMmFtZ6WfQ4/mARUaX5pqgRSZdYQSMPcNf7m05f7Ug8VVU1oC18Z0dNx6bDG
+F+4WZ7fXFUx2kSUyUDQl0IS/PnM2eCkAJwGyLEXN+GEkjzdVPWZIxqjdfJhEOeo/
+OeQ3GgLhzbXTgRy01SRqfByXa4f5xHjZRXEuofVlSXZ8aJ1m5Gm3Tf7cz8Ry02cw
+GQebJi+b8EsfBX6FB6zT+Y3vGfWgiUp3WFzj4HenGB1RgMDH4BHO654Ka/gXKwLQ
++8fh+nynsgQ1yNWbpXohh/uSMljzXXrhWR3Iqs3oNWxWAgtQvNoJvJK8sZHLwIyl
+qSFfeNzE6m4TAf4Udbme1a5wBhTQgWqNWoLwCHdjwLi0dfiSoFPmyNum1OdTx84B
+hG8mqkdkriNwDNc3YvLv
+=4vbY
+-----END PGP SIGNATURE-----
 
-welcome
-
-> Andreas
-
-Regards
-peppe
+--=-DF7e/4XH+bdg3SPN4n6M--
