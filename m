@@ -1,81 +1,149 @@
-From: Dinh Nguyen <dinh.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
-Date: Mon, 7 Mar 2016 17:22:24 -0600
-Message-ID: <CADhT+wfO8x4En78g5ixnnwbpaeXJGDo+Q1sOABYsbXzNZy0CPw@mail.gmail.com>
-References: <1457294038-14243-1-git-send-email-afaerber@suse.de>
-	<56DD7172.4000707@suse.de>
-	<2714888.1DdqvJZ8cb@diego>
-	<56DD7593.5060003@suse.de>
-	<56DD8176.2080603@st.com>
-	<56DD8FBE.9010200@suse.de>
-	<56DD99A4.5030004@st.com>
-	<56DDA26C.3050301@suse.de>
-	<56DDA3D5.3090209@st.com>
-	<56DDB749.1020808@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-	Gabriel Fernandez <gabriel.fernandez-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	=?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
-	"open list:ARM/Rockchip SoC..." <linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LAKML <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-	Fabrice GASNIER <fabrice.gasnier-qxv4g6HH51o@public.gmane.org>
-To: =?UTF-8?Q?Andreas_F=C3=A4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <56DDB749.1020808-l3A5Bk7waGM@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: dsa: mv88e6xxx: rework port state setter
+Date: Mon,  7 Mar 2016 18:24:17 -0500
+Message-ID: <1457393057-22618-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Kevin Smith <kevin.smith@elecsyscorp.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:47990 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932974AbcCGXYe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 18:24:34 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 7, 2016 at 11:15 AM, Andreas F=C3=A4rber <afaerber-l3A5Bk7waGM@public.gmane.org>=
- wrote:
-> Am 07.03.2016 um 16:52 schrieb Giuseppe CAVALLARO:
->> On 3/7/2016 4:46 PM, Andreas F=C3=A4rber wrote:
->>> Am 07.03.2016 um 16:09 schrieb Giuseppe CAVALLARO:
->>>> On 3/7/2016 3:27 PM, Andreas F=C3=A4rber wrote:
->>>>> Indeed, reverting Gabriel's commit fixes the observed error messa=
-ges
->>> [...]
->>>>> However, I am unable to ping any hosts on the network now.
->>>>
->>>> hmm, this could be another problem. I wonder if you can
->>>> check which recent patch is introducing the problem on ARM64.
->>>> For example if this depends on Oct_2015 update.
->>>
->>> I've had success reverting drivers/net/ethernet/stmicro/ up to and
->>> including "stmmac: first frame prep at the end of xmit routine", i.=
-e.
->>> top 7 commits.
->>
->> Andreas, I will check it and let you know asap.
->
-> I verified that it's just these two commits that I need to revert:
->
-> "stmmac: Fix 'eth0: No PHY found' regression"
-> "stmmac: first frame prep at the end of xmit routine"
->
-> Those in between don't cause conflicts and seem to work okay.
->
+Apply a few non-functional changes on the port state setter:
 
-I'm seeing the same issue on the SoCFPGA platform:
+  * add a dynamic debug message with state names to track changes
+  * explicit states checking instead of assuming their numeric values
+  * lock mutex only once when changing several port states
+  * use bitmap macros to declare and access port_state_update_mask
 
-libphy: PHY stmmac-0:ffffffff not found
-eth0: Could not attach to PHY
-stmmac_open: Cannot attach to PHY (error: -19)
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 54 +++++++++++++++++++++++++++------------------
+ drivers/net/dsa/mv88e6xxx.h |  2 +-
+ 2 files changed, 34 insertions(+), 22 deletions(-)
 
-If I just revert:
-
- "stmmac: Fix 'eth0: No PHY found' regression"
-
-then the issue goes away.
-
-Thanks,
-Dinh
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index d11c9d5..3a58a8a 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1051,39 +1051,49 @@ static int _mv88e6xxx_atu_remove(struct dsa_switch *ds, u16 fid, int port,
+ 	return _mv88e6xxx_atu_move(ds, fid, port, 0x0f, static_too);
+ }
+ 
+-static int mv88e6xxx_set_port_state(struct dsa_switch *ds, int port, u8 state)
++static const char * const mv88e6xxx_port_state_names[] = {
++	[PORT_CONTROL_STATE_DISABLED] = "Disabled",
++	[PORT_CONTROL_STATE_BLOCKING] = "Blocking/Listening",
++	[PORT_CONTROL_STATE_LEARNING] = "Learning",
++	[PORT_CONTROL_STATE_FORWARDING] = "Forwarding",
++};
++
++static int _mv88e6xxx_port_state(struct dsa_switch *ds, int port, u8 state)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int reg, ret = 0;
+ 	u8 oldstate;
+ 
+-	mutex_lock(&ps->smi_mutex);
+-
+ 	reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_CONTROL);
+-	if (reg < 0) {
+-		ret = reg;
+-		goto abort;
+-	}
++	if (reg < 0)
++		return reg;
+ 
+ 	oldstate = reg & PORT_CONTROL_STATE_MASK;
++
+ 	if (oldstate != state) {
+ 		/* Flush forwarding database if we're moving a port
+ 		 * from Learning or Forwarding state to Disabled or
+ 		 * Blocking or Listening state.
+ 		 */
+-		if (oldstate >= PORT_CONTROL_STATE_LEARNING &&
+-		    state <= PORT_CONTROL_STATE_BLOCKING) {
++		if ((oldstate == PORT_CONTROL_STATE_LEARNING ||
++		     oldstate == PORT_CONTROL_STATE_FORWARDING)
++		    && (state == PORT_CONTROL_STATE_DISABLED ||
++			state == PORT_CONTROL_STATE_BLOCKING)) {
+ 			ret = _mv88e6xxx_atu_remove(ds, 0, port, false);
+ 			if (ret)
+-				goto abort;
++				return ret;
+ 		}
++
+ 		reg = (reg & ~PORT_CONTROL_STATE_MASK) | state;
+ 		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_CONTROL,
+ 					   reg);
++		if (ret)
++			return ret;
++
++		netdev_dbg(ds->ports[port], "PortState %s (was %s)\n",
++			   mv88e6xxx_port_state_names[state],
++			   mv88e6xxx_port_state_names[oldstate]);
+ 	}
+ 
+-abort:
+-	mutex_unlock(&ps->smi_mutex);
+ 	return ret;
+ }
+ 
+@@ -1146,13 +1156,11 @@ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state)
+ 		break;
+ 	}
+ 
+-	netdev_dbg(ds->ports[port], "port state %d [%d]\n", state, stp_state);
+-
+ 	/* mv88e6xxx_port_stp_update may be called with softirqs disabled,
+ 	 * so we can not update the port state directly but need to schedule it.
+ 	 */
+ 	ps->ports[port].state = stp_state;
+-	set_bit(port, &ps->port_state_update_mask);
++	set_bit(port, ps->port_state_update_mask);
+ 	schedule_work(&ps->bridge_work);
+ 
+ 	return 0;
+@@ -2228,11 +2236,15 @@ static void mv88e6xxx_bridge_work(struct work_struct *work)
+ 	ps = container_of(work, struct mv88e6xxx_priv_state, bridge_work);
+ 	ds = ((struct dsa_switch *)ps) - 1;
+ 
+-	while (ps->port_state_update_mask) {
+-		port = __ffs(ps->port_state_update_mask);
+-		clear_bit(port, &ps->port_state_update_mask);
+-		mv88e6xxx_set_port_state(ds, port, ps->ports[port].state);
+-	}
++	mutex_lock(&ps->smi_mutex);
++
++	for (port = 0; port < ps->num_ports; ++port)
++		if (test_and_clear_bit(port, ps->port_state_update_mask) &&
++		    _mv88e6xxx_port_state(ds, port, ps->ports[port].state))
++			netdev_warn(ds->ports[port], "failed to update state to %s\n",
++				    mv88e6xxx_port_state_names[ps->ports[port].state]);
++
++	mutex_unlock(&ps->smi_mutex);
+ }
+ 
+ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index d7b088d..3425616 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -426,7 +426,7 @@ struct mv88e6xxx_priv_state {
+ 
+ 	struct mv88e6xxx_priv_port	ports[DSA_MAX_PORTS];
+ 
+-	unsigned long port_state_update_mask;
++	DECLARE_BITMAP(port_state_update_mask, DSA_MAX_PORTS);
+ 
+ 	struct work_struct bridge_work;
+ };
+-- 
+2.7.2
