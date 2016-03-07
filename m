@@ -1,26 +1,55 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: NFS mount crashes on linux-next 20160307
-Date: Mon, 7 Mar 2016 15:42:29 -0300
-Message-ID: <CAOMZO5Ct1sia6Ze5Uy5=046+9s6yQkgDK2T4=x+0xJrC=uCjwQ@mail.gmail.com>
-References: <CAOMZO5AAMuPTd63BS99waowH8n3caBeOaK-QWvUT4S-t8GpdFg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/11] rxrpc: Add a common object cache
+Date: Mon, 07 Mar 2016 13:42:33 -0500 (EST)
+Message-ID: <20160307.134233.201526978853409580.davem@davemloft.net>
+References: <20160307143759.18567.8234.stgit@warthog.procyon.org.uk>
+	<20160307143806.18567.30020.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-nfs@vger.kernel.org
-To: trond.myklebust@primarydata.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:35624 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753497AbcCGSmn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 13:42:43 -0500
-In-Reply-To: <CAOMZO5AAMuPTd63BS99waowH8n3caBeOaK-QWvUT4S-t8GpdFg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-afs@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160307143806.18567.30020.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 7, 2016 at 3:23 PM, Fabio Estevam <festevam@gmail.com> wrote:
-> Hi,
->
-> Not able to NFS mount on a mx6sx-sdb board running linux-next 20160307:
+From: David Howells <dhowells@redhat.com>
+Date: Mon, 07 Mar 2016 14:38:06 +0000
 
-Ops, I was using the wrong device tree. Sorry for the noise.
+> Add a common object cache implementation for RxRPC.  This will be used to
+> cache objects of various types (calls, connections, local and remote
+> endpoint records).  Each object that would be cached must contain an
+> obj_node struct for the cache to use.  The object's usage count and link
+> pointers are here, plus other internal metadata.
+> 
+> Each object cache consists of a primary hash to which all objects of that
+> type must be added and a secondary hash to which objects may also be added
+> and removed a single time.  Objects are automatically removed from both
+> hashes when they expire.
+> 
+> Objects start off life with a usage count of 2 - one for the cache and one
+> for the caller.  When an object's usage count is reduced to 1, it sits in
+> the cache until its expiry time is reached, at which point the cache
+> attempts to reduce the count to 0 and, if successful, clean it up.  An
+> object with a usage count of 1 in the cache can be looked up and have its
+> usage count increased, thereby stopping the expiry process.
+> 
+> Objects are looked up, unlinked and destroyed under RCU-safe conditions.
+> 
+> A garbage collector cycles through all the hash buckets in the primary hash
+> and compares the expiry times of the usage-count-1 objects to the current
+> time, removing any that have expired.  This is kicked by a single timer for
+> the whole cache rather than having a timer per object.
+> 
+> Signed-off-by: David Howells <dhowells@redhat.com>
+
+I know you put a lot of time and effort into this, but I want to strongly
+recommend against a garbage collected hash table for anything whatsoever.
+
+Especially if the given objects are in some way created/destroyed/etc. by
+operations triggerable remotely.
+
+This can be DoS'd quite trivially, and that's why we have removed the ipv4
+routing cache which did the same.
