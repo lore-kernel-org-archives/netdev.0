@@ -1,65 +1,37 @@
-From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Subject: Re: [PATCH] cdc_ncm: do not call usbnet_link_change from
- cdc_ncm_bind
-Date: Tue, 08 Mar 2016 21:12:29 +0100
-Message-ID: <1457467949.19125.5.camel@suse.com>
-References: <CA+55aFw43uKkUK-h=VMwXcb9NM+g2AdeB960kWb4YihmjQ8DRw@mail.gmail.com>
-	 <20160307.141100.1511700720120062677.davem@davemloft.net>
-	 <CA+fCnZdurxGBsOrANb_m5BLK1BKzH3J_GmZ=dbH=ABThgFNGxg@mail.gmail.com>
-	 <20160307.145406.188091362181073486.davem@davemloft.net>
-	 <87k2le815w.fsf_-_@nemi.mork.no>
-	 <CA+55aFxt7zWW+-EkwCbAWCb9wkgVswYJNAz86bc_QRcv1pBHZw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/11] rxrpc: Add a common object cache
+Date: Tue, 08 Mar 2016 15:15:14 -0500 (EST)
+Message-ID: <20160308.151514.2100824747766658409.davem@davemloft.net>
+References: <20160307143806.18567.30020.stgit@warthog.procyon.org.uk>
+	<23389.1457390714@warthog.procyon.org.uk>
+	<30372.1457442148@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bjorn-yOkvZcmFvRU@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrey Konovalov <andreyknvl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Alexander Potapenko <glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Kostya Serebryany <kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+55aFxt7zWW+-EkwCbAWCb9wkgVswYJNAz86bc_QRcv1pBHZw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-afs@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44268 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751434AbcCHUPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 15:15:17 -0500
+In-Reply-To: <30372.1457442148@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-03-08 at 11:43 -0800, Linus Torvalds wrote:
-> Why is that FLAG_LINK_INTR thing not just always used?
+From: David Howells <dhowells@redhat.com>
+Date: Tue, 08 Mar 2016 13:02:28 +0000
+
+> David Howells <dhowells@redhat.com> wrote:
 > 
-> The _only_ thing that FLAG_LINK_INTR does is to cause
+>> Does it make sense to maintain a FIFO list of connections (though this would
+>> mean potentially taking a spinlock every time I get a packet)?
 > 
->         usbnet_link_change(dev, 0, 0);
-> 
-> to be called after network device attach. That doesn't seem to be
-> controversial.
+> It occurs to me that only inactive connections would need to be on an LRU
+> list.  Any connection with packets or active calls to deal with wouldn't be on
+> the list.
 
-It depends on the devices' capabilities.
-For a few old devices that would be deadly, because they cannot
-indicate that a link goes up again.
-
-> Looking at some examples, we have ax88179_178a.c that doesn't set the
-> flag, but instead does that usbnet_link_change() call at the end of
-> ax88179_bind().
-> 
-> There are a few drivers that seem to never call that
-> usbnet_link_change() at all, and don't have that FLAG_LINK_INTR flag.
-> Would they break?
-
-Yes. If we did the call unconditionally. We could not do it,
-then we'd see some spurious detection of interfaces being up,
-but something breaks. Today I'd probably require a flag
-for those cases that do not want the call to be made, but the
-distinction as such is necessary.
-
-	Regards
-		Oliver
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+In that kind of scheme you have to decide if it's possible to elide a
+response in order to intentionally keep objects off the "inactive" LRU
+list.  I bet there is.
