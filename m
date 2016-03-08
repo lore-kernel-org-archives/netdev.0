@@ -1,76 +1,86 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v5 net-next] net: Implement fast csum_partial for x86_64
-Date: Tue, 8 Mar 2016 08:49:55 -0800
-Message-ID: <CALx6S35bpBZ-cVPjMiKBE978sGt1_5+bgwLDRfgR+ZumhBf8YA@mail.gmail.com>
-References: <1456957112-2702469-1-git-send-email-tom@herbertland.com>
-	<063D6719AE5E284EB5DD2968C1650D6D41113AD4@AcuExch.aculab.com>
-	<CA+55aFzz7xt+RwruV3GvWJzQ67925gkDYeOYqgbjMEAHxxztnQ@mail.gmail.com>
-	<063D6719AE5E284EB5DD2968C1650D6D41114809@AcuExch.aculab.com>
-	<CAKgT0UcQEkhbpBvT69tBKvmY1EVm91vMwVUHOdkE4RJ3hH+Q9g@mail.gmail.com>
-	<063D6719AE5E284EB5DD2968C1650D6D41116831@AcuExch.aculab.com>
-	<CALx6S35h+oSCKsaEotah30tspZPdp3GZThrN8=cLbE2O7nhU2g@mail.gmail.com>
-	<CAKgT0UfKA=ugpxuUYmv_DaEErRvEDFbGkhHDaFCxDM9C5YzeCQ@mail.gmail.com>
-	<CALx6S378j3WKvHc6_NQ1544gjSu7mp_OsE9xGzXnCrBCusNjOw@mail.gmail.com>
-	<CA+55aFwvjK16LDhztbmkvLe2wm=G5MXA2_rC=CksUgbTcvb-pA@mail.gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH v2] can: rcar_canfd: Add Renesas R-Car CAN FD driver
+Date: Tue, 8 Mar 2016 18:16:48 +0100
+Message-ID: <56DF0900.6090906@hartkopp.net>
+References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+ <1457019515-21158-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+ <56DC1561.9060306@hartkopp.net>
+ <SG2PR06MB10386D712BC8C345DF726523C3B10@SG2PR06MB1038.apcprd06.prod.outlook.com>
+ <56DD36F5.2000308@pengutronix.de>
+ <SG2PR06MB1038DD47FAFF354C99AF2E4FC3B10@SG2PR06MB1038.apcprd06.prod.outlook.com>
+ <56DE8345.50901@hartkopp.net>
+ <SG2PR06MB1038B71C7921984611F72CF5C3B20@SG2PR06MB1038.apcprd06.prod.outlook.com>
+ <56DEC49D.4@hartkopp.net>
+ <SG2PR06MB10388F87746A1191E51B199FC3B20@SG2PR06MB1038.apcprd06.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	David Laight <David.Laight@aculab.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "linux-renesas-soc@vger.kernel.org"
+	<linux-renesas-soc@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
-	"kernel-team@fb.com" <kernel-team@fb.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:36440 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932144AbcCHQt4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 11:49:56 -0500
-Received: by mail-io0-f181.google.com with SMTP id z76so33033835iof.3
-        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 08:49:55 -0800 (PST)
-In-Reply-To: <CA+55aFwvjK16LDhztbmkvLe2wm=G5MXA2_rC=CksUgbTcvb-pA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"geert+renesas@glider.be" <geert+renesas@glider.be>,
+	Chris Paterson <Chris.Paterson2@renesas.com>
+To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"pawel.moll@arm.com" <pawel.moll@arm.com>,
+	"mark.rutland@arm.com" <mark.rutland@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	"galak@codeaurora.org" <galak@codeaurora.org>,
+	"corbet@lwn.net" <corbet@lwn.net>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <SG2PR06MB10388F87746A1191E51B199FC3B20@SG2PR06MB1038.apcprd06.prod.outlook.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 7, 2016 at 5:39 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> On Mon, Mar 7, 2016 at 4:07 PM, Tom Herbert <tom@herbertland.com> wrote:
+On 03/08/2016 01:48 PM, Ramesh Shanmugasundaram wrote:
+
+>> In fact you provided a CAN driver which is "CAN-FD-only".
+> 
+> Yes. That's the status of current submission.
+> 
+>> We did not had that before but there's a solution for this kind of setup.
 >>
->> As I said previously, if alignment really is a factor then we can
->> check up front if a buffer crosses a page boundary and call the slow
->> path function (original code). I'm seeing a 1 nsec hit to add this
->> check.
->
-> It shouldn't be a factor, and you shouldn't check for it. My code was
-> self-aligning, and had at most one unaligned access at the beginnig
-> (the data of which was then used to align the rest).
->
-Yes, but the logic to do the alignment does not come for free. The
-intent of these patches is really to speed up checksums over small
-buffers (like the checksum over the IP header or pulling up checksums
-over protocol headers for dealing with checksum-complete). For
-checksum over larger buffers, e.g. TCP/UDP checksums we are depending
-on checksum offload (there are still some case where the host will
-need to a packet checksum, but as vendors move to providing up
-protocol agnostic checksum those should go away). In the VXLAN GRO
-path for instance, we do a checksum pull over both the UDP header and
-VLXAN headers each of which are 8 bytes. csum_partial can be trivially
-implemented for a buffer of length 8 with three adcq instructions (as
-in my patch). When we're using VXLAN in IPv4 both the VLXAN headers
-and UDP will likely not be eight byte aligned, but alignment seems to
-only be an issue when crossing a page boundary. The probability that
-an 8 byte header crosses a page boundary is already very low, and
-probably with a little bit code drivers could pretty much guarantee
-that packet headers don't straddle page boundaries. So it seems like
-the effort to align small buffers, assuming they don't straddle page
-boundaries, provides little or no value.
+>> There is a similar case with CAN_CTRLMODE_FD_NON_ISO we had on the M_CAN
+>> driver which only provides non-ISO configuration for the supported IP core
+>> and _no_ option to _change_ this value:
+>>
+>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id
+>> =6cfda7fbebe8a4fd33ea5722fa0212f98f643c35
+>>
+>> If you would do it similar in rcar_canfd.c with
+>>
+>> /* CAN_CTRLMODE_FD is fixed with R-Car CAN FD */
+>> priv->can.ctrlmode = CAN_CTRLMODE_FD;
+>>
+>> and remove CAN_CTRLMODE_FD from the priv->can.ctrlmode_supported
+>> assignment then it should do the entire configuration process correctly
+>> for you.
+>> Including the proper tests for the two bitrates.
+>> (see open_candev() in linux/drivers/net/can/dev.c)
+>>
+>> Right?
+> 
+> I did try this option earlier but there are two problems with this method.
+> 
+> 1) Below configuration is not possible
+> 
+> ip link set can0 up type can bitrate 1000000 dbitrate 1000000 fd on
+> 
+> "fd on" -> This is not allowed because CAN_CTRLMODE_FD bit is not set in ctrlmode_supported.
+> 
+> 2) If I ignore "fd on", my interface MTU stays as CAN_MTU only. If I have to change the MTU alone to CANFD_MTU using another netlink message, it again checks ctrlmode_supported where it would fail. I have the option of providing my own change_mtu function & ignore this check but two configuration messages are required for my driver alone :-(.
+> 
+> Both these anomalies are addressed with the current check I have. 
 
-Tom
+Oh - you are right with complaining about this inconsistency.
 
-> Tom had a version that used that. Although now that I look back at it,
-> it seems to be broken by some confusion about the one-byte alignment
-> vs 8-byte alignment.
->
->              Linus
+Can you check my RFC patch for Linux stable I just sent on the mailing list?
+http://marc.info/?l=linux-can&m=145745724917976&w=2
+
+Many thanks,
+Oliver
