@@ -1,397 +1,151 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next V3 09/10] net/mlx5e: Support offload cls_flower with drop action
-Date: Tue,  8 Mar 2016 12:42:37 +0200
-Message-ID: <1457433758-9193-10-git-send-email-amir@vadai.me>
-References: <1457433758-9193-1-git-send-email-amir@vadai.me>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH iproute2 net-next] ip: add MACsec support
+Date: Tue, 8 Mar 2016 11:49:16 +0100
+Message-ID: <20160308104916.GA17187@bistromath.redhat.com>
+References: <cover.1456937772.git.sd@queasysnail.net>
+ <e448dc09765ed22e9bd8353acbe85e7f692aa2f6.1457369326.git.sd@queasysnail.net>
+ <20160307114842.4314d50b@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
 Cc: netdev@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: "David S. Miller" <davem@davemloft.net>
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Paolo Abeni <pabeni@redhat.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35903 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932920AbcCHKjc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 05:39:32 -0500
-Received: by mail-wm0-f65.google.com with SMTP id l68so3223169wml.3
-        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 02:39:31 -0800 (PST)
-In-Reply-To: <1457433758-9193-1-git-send-email-amir@vadai.me>
+Received: from mx1.redhat.com ([209.132.183.28]:57954 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753545AbcCHKtU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2016 05:49:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20160307114842.4314d50b@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Parse tc_cls_flower_offload into device specific commands and program
-the hardware to classify and act accordingly.
+2016-03-07, 11:48:42 -0800, Stephen Hemminger wrote:
+> 
+> > +static int one_of(const char *msg, const char *realval, const char **list,
+> > +		  size_t len, int *index)
+> > +{
+> > +	int i;
+> > +
+> > +	for (i = 0; i < len; i++) {
+> > +		if (matches(realval, list[i]) == 0) {
+> > +			*index = i;
+> > +			return 0;
+> > +		}
+> > +	}
+> > +
+> > +	fprintf(stderr, "Error: argument of \"%s\" must be one of ", msg);
+> > +	for (i = 0; i < len; i++)
+> > +		fprintf(stderr, "\"%s\", ", list[i]);
+> > +	fprintf(stderr, "not \"%s\"\n", realval);
+> > +	return -1;
+> > +}
+> > +
+> > +static int get_an(__u8 *val, const char *arg)
+> > +{
+> > +	int ret = get_u8(val, arg, 0);
+> > +
+> > +	if (ret)
+> > +		return ret;
+> > +
+> > +	if (*val > 3)
+> > +		return -1;
+> > +
+> > +	return 0;
+> > +}
+> > +
+> > +static int get_sci(__u64 *sci, const char *arg)
+> > +{
+> > +	return get_u64(sci, arg, 16);
+> > +}
+> > +
+> > +static int get_port(__be16 *port, const char *arg)
+> > +{
+> > +	__u16 p;
+> > +	int ret = get_u16(&p, arg, 10);
+> > +
+> > +	if (ret)
+> > +		return ret;
+> > +
+> > +	*port = htons(p);
+> > +	return 0;
+> > +}
+> 
+> Some of these should probably go into lib
 
-For example, to drop ICMP (ip_proto 1) packets from specific smac, dmac,
-src_ip, src_ip, arriving to interface ens9:
+I could add get_be16:
 
- # tc qdisc add dev ens9 ingress
+int get_be16(__be16 *val, const char *arg, int base);
 
- # tc filter add dev ens9 protocol ip parent ffff: \
-     flower ip_proto 1 \
-     dst_mac 7c:fe:90:69:81:62 src_mac 7c:fe:90:69:81:56 \
-     dst_ip 11.11.11.11 src_ip 11.11.11.12 indev ens9 \
-     action drop
 
-Signed-off-by: Amir Vadai <amir@vadai.me>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   7 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c   | 297 ++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.h   |   5 +
- 3 files changed, 309 insertions(+)
+And maybe get_u8_range for get_an:
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 011c4f6..9aa9103 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1892,6 +1892,13 @@ static int mlx5e_ndo_setup_tc(struct net_device *dev, u32 handle,
- 		goto mqprio;
- 
- 	switch (tc->type) {
-+	case TC_SETUP_CLSFLOWER:
-+		switch (tc->cls_flower->command) {
-+		case TC_CLSFLOWER_REPLACE:
-+			return mlx5e_configure_flower(priv, proto, tc->cls_flower);
-+		case TC_CLSFLOWER_DESTROY:
-+			return mlx5e_delete_flower(priv, tc->cls_flower);
-+		}
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 1dc715d..3ed4d96 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -30,6 +30,9 @@
-  * SOFTWARE.
-  */
- 
-+#include <net/flow_dissector.h>
-+#include <net/pkt_cls.h>
-+#include <net/tc_act/tc_gact.h>
- #include <linux/mlx5/fs.h>
- #include <linux/mlx5/device.h>
- #include <linux/rhashtable.h>
-@@ -94,6 +97,300 @@ static void mlx5e_tc_del_flow(struct mlx5e_priv *priv,
- 	}
- }
- 
-+static int parse_cls_flower(struct mlx5e_priv *priv,
-+			    u32 *match_c, u32 *match_v,
-+			    struct tc_cls_flower_offload *f)
-+{
-+	void *headers_c = MLX5_ADDR_OF(fte_match_param, match_c, outer_headers);
-+	void *headers_v = MLX5_ADDR_OF(fte_match_param, match_v, outer_headers);
-+	u16 addr_type = 0;
-+	u8 ip_proto = 0;
-+
-+	if (f->dissector->used_keys &
-+	    ~(BIT(FLOW_DISSECTOR_KEY_CONTROL) |
-+	      BIT(FLOW_DISSECTOR_KEY_BASIC) |
-+	      BIT(FLOW_DISSECTOR_KEY_ETH_ADDRS) |
-+	      BIT(FLOW_DISSECTOR_KEY_IPV4_ADDRS) |
-+	      BIT(FLOW_DISSECTOR_KEY_IPV6_ADDRS) |
-+	      BIT(FLOW_DISSECTOR_KEY_PORTS))) {
-+		netdev_warn(priv->netdev, "Unsupported key used: 0x%x\n",
-+			    f->dissector->used_keys);
-+		return -EOPNOTSUPP;
-+	}
-+
-+	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_CONTROL)) {
-+		struct flow_dissector_key_control *key =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_BASIC,
-+						  f->key);
-+		addr_type = key->addr_type;
-+	}
-+
-+	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_BASIC)) {
-+		struct flow_dissector_key_basic *key =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_BASIC,
-+						  f->key);
-+		struct flow_dissector_key_basic *mask =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_BASIC,
-+						  f->mask);
-+		ip_proto = key->ip_proto;
-+
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_c, ethertype,
-+			 ntohs(mask->n_proto));
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ethertype,
-+			 ntohs(key->n_proto));
-+
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_c, ip_protocol,
-+			 mask->ip_proto);
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ip_protocol,
-+			 key->ip_proto);
-+	}
-+
-+	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
-+		struct flow_dissector_key_eth_addrs *key =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_ETH_ADDRS,
-+						  f->key);
-+		struct flow_dissector_key_eth_addrs *mask =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_ETH_ADDRS,
-+						  f->mask);
-+
-+		ether_addr_copy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_c,
-+					     dmac_47_16),
-+				mask->dst);
-+		ether_addr_copy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
-+					     dmac_47_16),
-+				key->dst);
-+
-+		ether_addr_copy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_c,
-+					     smac_47_16),
-+				mask->src);
-+		ether_addr_copy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
-+					     smac_47_16),
-+				key->src);
-+	}
-+
-+	if (addr_type == FLOW_DISSECTOR_KEY_IPV4_ADDRS) {
-+		struct flow_dissector_key_ipv4_addrs *key =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_IPV4_ADDRS,
-+						  f->key);
-+		struct flow_dissector_key_ipv4_addrs *mask =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_IPV4_ADDRS,
-+						  f->mask);
-+
-+		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_c,
-+				    src_ipv4_src_ipv6.ipv4_layout.ipv4),
-+		       &mask->src, sizeof(mask->src));
-+		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
-+				    src_ipv4_src_ipv6.ipv4_layout.ipv4),
-+		       &key->src, sizeof(key->src));
-+		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_c,
-+				    dst_ipv4_dst_ipv6.ipv4_layout.ipv4),
-+		       &mask->dst, sizeof(mask->dst));
-+		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
-+				    dst_ipv4_dst_ipv6.ipv4_layout.ipv4),
-+		       &key->dst, sizeof(key->dst));
-+	}
-+
-+	if (addr_type == FLOW_DISSECTOR_KEY_IPV6_ADDRS) {
-+		struct flow_dissector_key_ipv6_addrs *key =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_IPV6_ADDRS,
-+						  f->key);
-+		struct flow_dissector_key_ipv6_addrs *mask =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_IPV6_ADDRS,
-+						  f->mask);
-+
-+		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_c,
-+				    src_ipv4_src_ipv6.ipv6_layout.ipv6),
-+		       &mask->src, sizeof(mask->src));
-+		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
-+				    src_ipv4_src_ipv6.ipv6_layout.ipv6),
-+		       &key->src, sizeof(key->src));
-+
-+		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_c,
-+				    dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
-+		       &mask->dst, sizeof(mask->dst));
-+		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
-+				    dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
-+		       &key->dst, sizeof(key->dst));
-+	}
-+
-+	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_PORTS)) {
-+		struct flow_dissector_key_ports *key =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_PORTS,
-+						  f->key);
-+		struct flow_dissector_key_ports *mask =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_PORTS,
-+						  f->mask);
-+		switch (ip_proto) {
-+		case IPPROTO_TCP:
-+			MLX5_SET(fte_match_set_lyr_2_4, headers_c,
-+				 tcp_sport, ntohs(mask->src));
-+			MLX5_SET(fte_match_set_lyr_2_4, headers_v,
-+				 tcp_sport, ntohs(key->src));
-+
-+			MLX5_SET(fte_match_set_lyr_2_4, headers_c,
-+				 tcp_dport, ntohs(mask->dst));
-+			MLX5_SET(fte_match_set_lyr_2_4, headers_v,
-+				 tcp_dport, ntohs(key->dst));
-+			break;
-+
-+		case IPPROTO_UDP:
-+			MLX5_SET(fte_match_set_lyr_2_4, headers_c,
-+				 udp_sport, ntohs(mask->src));
-+			MLX5_SET(fte_match_set_lyr_2_4, headers_v,
-+				 udp_sport, ntohs(key->src));
-+
-+			MLX5_SET(fte_match_set_lyr_2_4, headers_c,
-+				 udp_dport, ntohs(mask->dst));
-+			MLX5_SET(fte_match_set_lyr_2_4, headers_v,
-+				 udp_dport, ntohs(key->dst));
-+			break;
-+		default:
-+			netdev_err(priv->netdev,
-+				   "Only UDP and TCP transport are supported\n");
-+			return -EINVAL;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static int parse_tc_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
-+			    u32 *action, u32 *flow_tag)
-+{
-+	const struct tc_action *a;
-+
-+	if (tc_no_actions(exts))
-+		return -EINVAL;
-+
-+	*flow_tag = MLX5_FS_DEFAULT_FLOW_TAG;
-+	*action = 0;
-+
-+	tc_for_each_action(a, exts) {
-+		/* Only support a single action per rule */
-+		if (*action)
-+			return -EINVAL;
-+
-+		if (is_tcf_gact_shot(a)) {
-+			*action |= MLX5_FLOW_CONTEXT_ACTION_DROP;
-+			continue;
-+		}
-+
-+		if (is_tcf_skbedit_mark(a)) {
-+			u32 mark = tcf_skbedit_mark(a);
-+
-+			if (mark & ~MLX5E_TC_FLOW_ID_MASK) {
-+				netdev_warn(priv->netdev, "Bad flow mark - only 16 bit is supported: 0x%x\n",
-+					    mark);
-+				return -EINVAL;
-+			}
-+
-+			*flow_tag = mark;
-+			*action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
-+			continue;
-+		}
-+
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
-+			   struct tc_cls_flower_offload *f)
-+{
-+	struct mlx5e_tc_flow_table *tc = &priv->fts.tc;
-+	u32 *match_c;
-+	u32 *match_v;
-+	int err = 0;
-+	u32 flow_tag;
-+	u32 action;
-+	struct mlx5e_tc_flow *flow;
-+	struct mlx5_flow_rule *old = NULL;
-+
-+	flow = rhashtable_lookup_fast(&tc->ht, &f->cookie,
-+				      tc->ht_params);
-+	if (flow)
-+		old = flow->rule;
-+	else
-+		flow = kzalloc(sizeof(*flow), GFP_KERNEL);
-+
-+	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
-+	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
-+	if (!match_c || !match_v || !flow) {
-+		err = -ENOMEM;
-+		goto err_free;
-+	}
-+
-+	flow->cookie = f->cookie;
-+
-+	err = parse_cls_flower(priv, match_c, match_v, f);
-+	if (err < 0)
-+		goto err_free;
-+
-+	err = parse_tc_actions(priv, f->exts, &action, &flow_tag);
-+	if (err < 0)
-+		goto err_free;
-+
-+	err = rhashtable_insert_fast(&tc->ht, &flow->node,
-+				     tc->ht_params);
-+	if (err)
-+		goto err_free;
-+
-+	flow->rule = mlx5e_tc_add_flow(priv, match_c, match_v, action,
-+				       flow_tag);
-+	if (IS_ERR(flow->rule)) {
-+		err = PTR_ERR(flow->rule);
-+		goto err_hash_del;
-+	}
-+
-+	if (old)
-+		mlx5e_tc_del_flow(priv, old);
-+
-+	goto out;
-+
-+err_hash_del:
-+	rhashtable_remove_fast(&tc->ht, &flow->node, tc->ht_params);
-+
-+err_free:
-+	if (!old)
-+		kfree(flow);
-+out:
-+	kfree(match_c);
-+	kfree(match_v);
-+	return err;
-+}
-+
-+int mlx5e_delete_flower(struct mlx5e_priv *priv,
-+			struct tc_cls_flower_offload *f)
-+{
-+	struct mlx5e_tc_flow *flow;
-+	struct mlx5e_tc_flow_table *tc = &priv->fts.tc;
-+
-+	flow = rhashtable_lookup_fast(&tc->ht, &f->cookie,
-+				      tc->ht_params);
-+	if (!flow)
-+		return -EINVAL;
-+
-+	rhashtable_remove_fast(&tc->ht, &flow->node, tc->ht_params);
-+
-+	mlx5e_tc_del_flow(priv, flow->rule);
-+
-+	kfree(flow);
-+
-+	return 0;
-+}
-+
- static const struct rhashtable_params mlx5e_tc_flow_ht_params = {
- 	.head_offset = offsetof(struct mlx5e_tc_flow, node),
- 	.key_offset = offsetof(struct mlx5e_tc_flow, cookie),
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
-index 46eacc5..70642f4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
-@@ -36,6 +36,11 @@
- int mlx5e_tc_init(struct mlx5e_priv *priv);
- void mlx5e_tc_cleanup(struct mlx5e_priv *priv);
- 
-+int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
-+			   struct tc_cls_flower_offload *f);
-+int mlx5e_delete_flower(struct mlx5e_priv *priv,
-+			struct tc_cls_flower_offload *f);
-+
- static inline int mlx5e_tc_num_filters(struct mlx5e_priv *priv)
- {
- 	return atomic_read(&priv->fts.tc.ht.nelems);
+int get_u8_range(__u8 *val, const char *arg, int base, int start, int end);
+
+
+I could also move one_of to lib, not sure if that would be used.
+There are a lot of on/off in iplink, but the way I wrote one_of
+doesn't really work to set/clear a flag.
+Adding a function pointer to handle a match seems a bit heavy.
+
+
+What do you think?
+
+
+> > +static int from_hex(char c)
+> > +{
+> > +	if (c >= '0' && c <= '9')
+> > +		return c - '0';
+> > +	if (c >= 'a' && c <= 'f')
+> > +		return c - 'a' + 10;
+> > +	if (c >= 'A' && c <= 'F')
+> > +		return c - 'A' + 10;
+> > +
+> > +	return -1;
+> > +}
+> 
+> There already several copies of similar code (ipl2tp, ipmaddr, ipx)
+> for basically the same code.
+
+Right, I'll make a common helper for that.
+
+I also noticed hexstring_a2n, which I could use if it also returned
+the number of elements it parsed to the caller, so I will make that
+change (it has no user for now).
+
+> ...
+> > +	print_flag(stdout, attrs, "sc", MACSEC_ATTR_SC_ACTIVE);
+> > +	print_flag(stdout, attrs, "sa", MACSEC_ATTR_SA_ACTIVE);
+> > +	print_flag(stdout, attrs, "encrypt", MACSEC_ATTR_ENCRYPT);
+> > +	print_flag(stdout, attrs, "send_sci", MACSEC_ATTR_INC_SCI);
+> > +	print_flag(stdout, attrs, "end_station", MACSEC_ATTR_ES);
+> > +	print_flag(stdout, attrs, "scb", MACSEC_ATTR_SCB);
+> > +
+> > +	print_flag(stdout, attrs, "replayprotect", MACSEC_ATTR_REPLAY);
+> > +	if (attrs[MACSEC_ATTR_WINDOW]) {
+> > +		printf("window %d ",
+> > +		       rta_getattr_u32(attrs[MACSEC_ATTR_WINDOW]));
+> > +	}
+> > +
+> > +	if (attrs[MACSEC_ATTR_CIPHER_SUITE] && attrs[MACSEC_ATTR_ICV_LEN]) {
+> > +		printf("\n");
+> > +		print_cipher_suite(prefix,
+> > +			rta_getattr_u64(attrs[MACSEC_ATTR_CIPHER_SUITE]),
+> > +			rta_getattr_u8(attrs[MACSEC_ATTR_ICV_LEN]));
+> > +	}
+> > +
+> > +}
+> 
+> It is unwritten rule of ip commands that the print and set commands should
+> be invertable. I.e if you are going to print an attribute the format should
+> be the same as the argument passed in.
+
+Oops, will fix.
+
+
+Thanks,
+
 -- 
-2.7.0
+Sabrina
