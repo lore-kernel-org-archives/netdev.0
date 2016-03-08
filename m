@@ -1,54 +1,73 @@
-From: Michal Kazior <michal.kazior@tieto.com>
-Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
-Date: Tue, 8 Mar 2016 14:27:47 +0100
-Message-ID: <CA+BoTQnwvGRhM3_-CT8-__nAAo8RmR51=G-7C1VcMFkSoTKUAg@mail.gmail.com>
-References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
-	<CAA93jw4XsEnp3jTgPL7OKWTJP-83VwRaCdb+foc8nCuqxk3WZA@mail.gmail.com>
-	<CA+BoTQk+3jhwK57_fDw0scNCGzu_Edqp9-Beeppz8xj9kSQcoQ@mail.gmail.com>
-	<20160308131409.GD5026@localhost>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH] libnetlink: Double the dump buffer size
+Date: Tue, 8 Mar 2016 14:28:32 +0100
+Message-ID: <20160308132832.GA9698@orbyte.nwl.cc>
+References: <8e235f49b8314d70bbf76709a81c4d84@HQ1WP-EXMB11.corp.brocade.com>
+ <20160304153553.47e8741d@xeon-e3>
+ <20160305005746.GS28939@base.sg13b.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Taht <dave.taht@gmail.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Felix Fietkau <nbd@openwrt.org>,
-	Tim Shepard <shep@alum.mit.edu>
-To: Bob Copeland <me@bobcopeland.com>
+Content-Type: text/plain; charset=us-ascii
+To: Stephen Hemminger <shemming@brocade.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:32965 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750843AbcCHN1t convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 08:27:49 -0500
-Received: by mail-wm0-f51.google.com with SMTP id l68so149866596wml.0
-        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 05:27:48 -0800 (PST)
-In-Reply-To: <20160308131409.GD5026@localhost>
+Received: from orbyte.nwl.cc ([151.80.46.58]:37034 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751441AbcCHN2e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2016 08:28:34 -0500
+Content-Disposition: inline
+In-Reply-To: <20160305005746.GS28939@base.sg13b.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8 March 2016 at 14:14, Bob Copeland <me@bobcopeland.com> wrote:
-> On Tue, Mar 08, 2016 at 08:12:21AM +0100, Michal Kazior wrote:
->> However other drivers (e.g. ath10k) have offloaded rate control on
->> device. There's currently no way of doing this calculation. I was
->> thinking of drivers exporting tx_rate to mac80211 in some way - eith=
-er
->> via a simple sta->tx_rate scalar that the driver is responsible for
->> updating, or a EWMA that driver updates (hopefully) periodically and
->> often enough. This should in theory at least allow an estimate how
->> much data on average you can fit into given time frame (e.g. txop, o=
-r
->> hardcoded 1ms).
->
-> What about implementing ops->get_expected_throughput?  This would be
-> useful for mesh (both 11s and batman) as well since they need to
-> estimate link quality to pick a path.
+On Sat, Mar 05, 2016 at 01:57:46AM +0100, Phil Sutter wrote:
+> On Fri, Mar 04, 2016 at 03:35:53PM -0800, Stephen Hemminger wrote:
+> > On Fri, 4 Mar 2016 18:57:28 +0000
+> > Phil Sutter <phil@nwl.cc> wrote:
+> > 
+> > > There have been reports about 'ip addr' printing "Message truncated" on
+> > > systems with large numbers of VFs. Although I haven't been able to get
+> > > my hands on hardware suitable to reproduce this, increasing the dump
+> > > buffer has been reported to resolve the issue. For want of a better
+> > > idea, just double the buffer size to 32k.
+> > > 
+> > > Feels like this opportunistic buffer size selection is rather
+> > > workarounding a design flaw in libnetlink or maybe even the netlink
+> > > protocol itself.
+> > > 
+> > > Signed-off-by: Phil Sutter <phil@nwl.cc>
+> > > ---
+> > >  lib/libnetlink.c | 2 +-
+> > >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > > 
+> > > diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+> > > index d6b5fd3e8a493..245c4ca216753 100644
+> > > --- a/lib/libnetlink.c
+> > > +++ b/lib/libnetlink.c
+> > > @@ -223,7 +223,7 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+> > >  		.msg_iov = &iov,
+> > >  		.msg_iovlen = 1,
+> > >  	};
+> > > -	char buf[16384];
+> > > +	char buf[32768];
+> > >  	int dump_intr = 0;
+> > >  
+> > >  	iov.iov_base = buf;
+> > 
+> > I thought this was addressed in kernel by making the VF info optional.
+> > The netlink protocol is showing some strain, this is one of them.
+> 
+> Oh, thanks for pointing this out. Testing was done with a RHEL7 kernel
+> only, so I can't tell whether this still applies to upstream.
+> 
+> What do you mean with 'optional'? Doesn't this imply that it is still
+> possible to request a dump which will exhaust buffer space in a single
+> message? Maybe just point me at the relevant kernel commit and I'll go
+> figure myself.
 
-Oh, good point! I totally forgot about this because - in the back of
-my head - I was convinced this is available only for minstrel. I guess
-this could work as well.
+Guess I found it: c53864fd60227 ("rtnetlink: Only supply IFLA_VF_PORTS
+information when RTEXT_FILTER_VF is set"). Bad news though, this patch
+is already present in RHEL7 kernels. So in order to overcome this
+Message Truncated problem, increasing the dump buffer size remains the
+solution to go with.
 
-
-Micha=C5=82
+Thanks, Phil
