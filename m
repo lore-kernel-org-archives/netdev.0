@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH v2 net-next 02/12] bpf: introduce percpu_freelist
-Date: Mon, 7 Mar 2016 21:57:14 -0800
-Message-ID: <1457416641-306326-3-git-send-email-ast@fb.com>
+Subject: [PATCH v2 net-next 05/12] bpf: convert stackmap to pre-allocation
+Date: Mon, 7 Mar 2016 21:57:17 -0800
+Message-ID: <1457416641-306326-6-git-send-email-ast@fb.com>
 References: <1457416641-306326-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,206 +14,250 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:51322 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753911AbcCHF5X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 00:57:23 -0500
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u285sNqd030711
-	for <netdev@vger.kernel.org>; Mon, 7 Mar 2016 21:57:22 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 21hqut8c01-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 21:57:22 -0800
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.102.107.97) with ESMTP	id
- 9f98f7b6e4f211e599480002c99331b0-5f4e2420 for <netdev@vger.kernel.org>;	Mon,
- 07 Mar 2016 21:57:21 -0800
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1457416641-306326-1-git-send-email-ast@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Introduce simple percpu_freelist to keep single list of elements
-spread across per-cpu singly linked lists.
+It was observed that calling bpf_get_stackid() from a kprobe inside
+slub or from spin_unlock causes similar deadlock as with hashmap,
+therefore convert stackmap to use pre-allocated memory.
 
-/* push element into the list */
-void pcpu_freelist_push(struct pcpu_freelist *, struct pcpu_freelist_node *);
+The call_rcu is no longer feasible mechanism, since delayed freeing
+causes bpf_get_stackid() to fail unpredictably when number of actual
+stacks is significantly less than user requested max_entries.
+Since elements are no longer freed into slub, we can push elements into
+freelist immediately and let them be recycled.
+However the very unlikley race between user space map_lookup() and
+program-side recycling is possible:
+     cpu0                          cpu1
+     ----                          ----
+user does lookup(stackidX)
+starts copying ips into buffer
+                                   delete(stackidX)
+                                   calls bpf_get_stackid()
+				   which recyles the element and
+                                   overwrites with new stack trace
 
-/* pop element from the list */
-struct pcpu_freelist_node *pcpu_freelist_pop(struct pcpu_freelist *);
+To avoid user space seeing a partial stack trace consisting of two
+merged stack traces, do bucket = xchg(, NULL); copy; xchg(,bucket);
+to preserve consistent stack trace delivery to user space.
+Now we can move memset(,0) of left-over element value from critical
+path of bpf_get_stackid() into slow-path of user space lookup.
+Also disallow lookup() from bpf program, since it's useless and
+program shouldn't be messing with collected stack trace.
 
-The object is pushed to the current cpu list.
-Pop first trying to get the object from the current cpu list,
-if it's empty goes to the neigbour cpu list.
+Note that similar race between user space lookup and kernel side updates
+is also present in hashmap, but it's not a new race. bpf programs were
+always allowed to modify hash and array map elements while user space
+is copying them.
 
-For bpf program usage pattern the collision rate is very low,
-since programs push and pop the objects typically on the same cpu.
-
+Fixes: d5a3b1f69186 ("bpf: introduce BPF_MAP_TYPE_STACK_TRACE")
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- kernel/bpf/Makefile          |   2 +-
- kernel/bpf/percpu_freelist.c | 100 +++++++++++++++++++++++++++++++++++++++++++
- kernel/bpf/percpu_freelist.h |  31 ++++++++++++++
- 3 files changed, 132 insertions(+), 1 deletion(-)
- create mode 100644 kernel/bpf/percpu_freelist.c
- create mode 100644 kernel/bpf/percpu_freelist.h
+ include/linux/bpf.h   |  1 +
+ kernel/bpf/stackmap.c | 86 ++++++++++++++++++++++++++++++++++++++++-----------
+ kernel/bpf/syscall.c  |  2 ++
+ 3 files changed, 71 insertions(+), 18 deletions(-)
 
-diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
-index 8a932d079c24..eed911d091da 100644
---- a/kernel/bpf/Makefile
-+++ b/kernel/bpf/Makefile
-@@ -1,7 +1,7 @@
- obj-y := core.o
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index efd1d4ca95c6..21ee41b92e8a 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -195,6 +195,7 @@ int bpf_percpu_hash_update(struct bpf_map *map, void *key, void *value,
+ 			   u64 flags);
+ int bpf_percpu_array_update(struct bpf_map *map, void *key, void *value,
+ 			    u64 flags);
++int bpf_stackmap_copy(struct bpf_map *map, void *key, void *value);
  
- obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o
--obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o
-+obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o
- ifeq ($(CONFIG_PERF_EVENTS),y)
- obj-$(CONFIG_BPF_SYSCALL) += stackmap.o
- endif
-diff --git a/kernel/bpf/percpu_freelist.c b/kernel/bpf/percpu_freelist.c
-new file mode 100644
-index 000000000000..5c51d1985b51
---- /dev/null
-+++ b/kernel/bpf/percpu_freelist.c
-@@ -0,0 +1,100 @@
-+/* Copyright (c) 2016 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
+ /* memcpy that is used with 8-byte aligned pointers, power-of-8 size and
+  * forced to use 'long' read/writes to try to atomically copy long counters.
+diff --git a/kernel/bpf/stackmap.c b/kernel/bpf/stackmap.c
+index f0a02c344358..499d9e933f8e 100644
+--- a/kernel/bpf/stackmap.c
++++ b/kernel/bpf/stackmap.c
+@@ -10,9 +10,10 @@
+ #include <linux/vmalloc.h>
+ #include <linux/stacktrace.h>
+ #include <linux/perf_event.h>
 +#include "percpu_freelist.h"
-+
-+int pcpu_freelist_init(struct pcpu_freelist *s)
+ 
+ struct stack_map_bucket {
+-	struct rcu_head rcu;
++	struct pcpu_freelist_node fnode;
+ 	u32 hash;
+ 	u32 nr;
+ 	u64 ip[];
+@@ -20,10 +21,34 @@ struct stack_map_bucket {
+ 
+ struct bpf_stack_map {
+ 	struct bpf_map map;
++	void *elems;
++	struct pcpu_freelist freelist;
+ 	u32 n_buckets;
+-	struct stack_map_bucket __rcu *buckets[];
++	struct stack_map_bucket *buckets[];
+ };
+ 
++static int prealloc_elems_and_freelist(struct bpf_stack_map *smap)
 +{
-+	int cpu;
++	u32 elem_size = sizeof(struct stack_map_bucket) + smap->map.value_size;
++	int err;
 +
-+	s->freelist = alloc_percpu(struct pcpu_freelist_head);
-+	if (!s->freelist)
++	smap->elems = vzalloc(elem_size * smap->map.max_entries);
++	if (!smap->elems)
 +		return -ENOMEM;
 +
-+	for_each_possible_cpu(cpu) {
-+		struct pcpu_freelist_head *head = per_cpu_ptr(s->freelist, cpu);
++	err = pcpu_freelist_init(&smap->freelist);
++	if (err)
++		goto free_elems;
 +
-+		raw_spin_lock_init(&head->lock);
-+		head->first = NULL;
-+	}
++	pcpu_freelist_populate(&smap->freelist, smap->elems, elem_size,
++			       smap->map.max_entries);
 +	return 0;
++
++free_elems:
++	vfree(smap->elems);
++	return err;
 +}
 +
-+void pcpu_freelist_destroy(struct pcpu_freelist *s)
+ /* Called from syscall */
+ static struct bpf_map *stack_map_alloc(union bpf_attr *attr)
+ {
+@@ -70,12 +95,22 @@ static struct bpf_map *stack_map_alloc(union bpf_attr *attr)
+ 	smap->n_buckets = n_buckets;
+ 	smap->map.pages = round_up(cost, PAGE_SIZE) >> PAGE_SHIFT;
+ 
++	err = bpf_map_precharge_memlock(smap->map.pages);
++	if (err)
++		goto free_smap;
++
+ 	err = get_callchain_buffers();
+ 	if (err)
+ 		goto free_smap;
+ 
++	err = prealloc_elems_and_freelist(smap);
++	if (err)
++		goto put_buffers;
++
+ 	return &smap->map;
+ 
++put_buffers:
++	put_callchain_buffers();
+ free_smap:
+ 	kvfree(smap);
+ 	return ERR_PTR(err);
+@@ -121,7 +156,7 @@ static u64 bpf_get_stackid(u64 r1, u64 r2, u64 flags, u64 r4, u64 r5)
+ 	ips = trace->ip + skip + init_nr;
+ 	hash = jhash2((u32 *)ips, trace_len / sizeof(u32), 0);
+ 	id = hash & (smap->n_buckets - 1);
+-	bucket = rcu_dereference(smap->buckets[id]);
++	bucket = READ_ONCE(smap->buckets[id]);
+ 
+ 	if (bucket && bucket->hash == hash) {
+ 		if (flags & BPF_F_FAST_STACK_CMP)
+@@ -135,19 +170,18 @@ static u64 bpf_get_stackid(u64 r1, u64 r2, u64 flags, u64 r4, u64 r5)
+ 	if (bucket && !(flags & BPF_F_REUSE_STACKID))
+ 		return -EEXIST;
+ 
+-	new_bucket = kmalloc(sizeof(struct stack_map_bucket) + map->value_size,
+-			     GFP_ATOMIC | __GFP_NOWARN);
++	new_bucket = (struct stack_map_bucket *)
++		pcpu_freelist_pop(&smap->freelist);
+ 	if (unlikely(!new_bucket))
+ 		return -ENOMEM;
+ 
+ 	memcpy(new_bucket->ip, ips, trace_len);
+-	memset(new_bucket->ip + trace_len / 8, 0, map->value_size - trace_len);
+ 	new_bucket->hash = hash;
+ 	new_bucket->nr = trace_nr;
+ 
+ 	old_bucket = xchg(&smap->buckets[id], new_bucket);
+ 	if (old_bucket)
+-		kfree_rcu(old_bucket, rcu);
++		pcpu_freelist_push(&smap->freelist, &old_bucket->fnode);
+ 	return id;
+ }
+ 
+@@ -160,17 +194,34 @@ const struct bpf_func_proto bpf_get_stackid_proto = {
+ 	.arg3_type	= ARG_ANYTHING,
+ };
+ 
+-/* Called from syscall or from eBPF program */
++/* Called from eBPF program */
+ static void *stack_map_lookup_elem(struct bpf_map *map, void *key)
+ {
++	return NULL;
++}
++
++/* Called from syscall */
++int bpf_stackmap_copy(struct bpf_map *map, void *key, void *value)
 +{
-+	free_percpu(s->freelist);
-+}
+ 	struct bpf_stack_map *smap = container_of(map, struct bpf_stack_map, map);
+-	struct stack_map_bucket *bucket;
+-	u32 id = *(u32 *)key;
++	struct stack_map_bucket *bucket, *old_bucket;
++	u32 id = *(u32 *)key, trace_len;
+ 
+ 	if (unlikely(id >= smap->n_buckets))
+-		return NULL;
+-	bucket = rcu_dereference(smap->buckets[id]);
+-	return bucket ? bucket->ip : NULL;
++		return -ENOENT;
 +
-+static inline void __pcpu_freelist_push(struct pcpu_freelist_head *head,
-+					struct pcpu_freelist_node *node)
-+{
-+	raw_spin_lock(&head->lock);
-+	node->next = head->first;
-+	head->first = node;
-+	raw_spin_unlock(&head->lock);
-+}
++	bucket = xchg(&smap->buckets[id], NULL);
++	if (!bucket)
++		return -ENOENT;
 +
-+void pcpu_freelist_push(struct pcpu_freelist *s,
-+			struct pcpu_freelist_node *node)
-+{
-+	struct pcpu_freelist_head *head = this_cpu_ptr(s->freelist);
++	trace_len = bucket->nr * sizeof(u64);
++	memcpy(value, bucket->ip, trace_len);
++	memset(value + trace_len, 0, map->value_size - trace_len);
 +
-+	__pcpu_freelist_push(head, node);
-+}
-+
-+void pcpu_freelist_populate(struct pcpu_freelist *s, void *buf, u32 elem_size,
-+			    u32 nr_elems)
-+{
-+	struct pcpu_freelist_head *head;
-+	unsigned long flags;
-+	int i, cpu, pcpu_entries;
-+
-+	pcpu_entries = nr_elems / num_possible_cpus() + 1;
-+	i = 0;
-+
-+	/* disable irq to workaround lockdep false positive
-+	 * in bpf usage pcpu_freelist_populate() will never race
-+	 * with pcpu_freelist_push()
-+	 */
-+	local_irq_save(flags);
-+	for_each_possible_cpu(cpu) {
-+again:
-+		head = per_cpu_ptr(s->freelist, cpu);
-+		__pcpu_freelist_push(head, buf);
-+		i++;
-+		buf += elem_size;
-+		if (i == nr_elems)
-+			break;
-+		if (i % pcpu_entries)
-+			goto again;
-+	}
-+	local_irq_restore(flags);
-+}
-+
-+struct pcpu_freelist_node *pcpu_freelist_pop(struct pcpu_freelist *s)
-+{
-+	struct pcpu_freelist_head *head;
-+	struct pcpu_freelist_node *node;
-+	int orig_cpu, cpu;
-+
-+	orig_cpu = cpu = raw_smp_processor_id();
-+	while (1) {
-+		head = per_cpu_ptr(s->freelist, cpu);
-+		raw_spin_lock(&head->lock);
-+		node = head->first;
-+		if (node) {
-+			head->first = node->next;
-+			raw_spin_unlock(&head->lock);
-+			return node;
-+		}
-+		raw_spin_unlock(&head->lock);
-+		cpu = cpumask_next(cpu, cpu_possible_mask);
-+		if (cpu >= nr_cpu_ids)
-+			cpu = 0;
-+		if (cpu == orig_cpu)
-+			return NULL;
-+	}
-+}
-diff --git a/kernel/bpf/percpu_freelist.h b/kernel/bpf/percpu_freelist.h
-new file mode 100644
-index 000000000000..3049aae8ea1e
---- /dev/null
-+++ b/kernel/bpf/percpu_freelist.h
-@@ -0,0 +1,31 @@
-+/* Copyright (c) 2016 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#ifndef __PERCPU_FREELIST_H__
-+#define __PERCPU_FREELIST_H__
-+#include <linux/spinlock.h>
-+#include <linux/percpu.h>
-+
-+struct pcpu_freelist_head {
-+	struct pcpu_freelist_node *first;
-+	raw_spinlock_t lock;
-+};
-+
-+struct pcpu_freelist {
-+	struct pcpu_freelist_head __percpu *freelist;
-+};
-+
-+struct pcpu_freelist_node {
-+	struct pcpu_freelist_node *next;
-+};
-+
-+void pcpu_freelist_push(struct pcpu_freelist *, struct pcpu_freelist_node *);
-+struct pcpu_freelist_node *pcpu_freelist_pop(struct pcpu_freelist *);
-+void pcpu_freelist_populate(struct pcpu_freelist *s, void *buf, u32 elem_size,
-+			    u32 nr_elems);
-+int pcpu_freelist_init(struct pcpu_freelist *);
-+void pcpu_freelist_destroy(struct pcpu_freelist *s);
-+#endif
++	old_bucket = xchg(&smap->buckets[id], bucket);
++	if (old_bucket)
++		pcpu_freelist_push(&smap->freelist, &old_bucket->fnode);
++	return 0;
+ }
+ 
+ static int stack_map_get_next_key(struct bpf_map *map, void *key, void *next_key)
+@@ -196,7 +247,7 @@ static int stack_map_delete_elem(struct bpf_map *map, void *key)
+ 
+ 	old_bucket = xchg(&smap->buckets[id], NULL);
+ 	if (old_bucket) {
+-		kfree_rcu(old_bucket, rcu);
++		pcpu_freelist_push(&smap->freelist, &old_bucket->fnode);
+ 		return 0;
+ 	} else {
+ 		return -ENOENT;
+@@ -207,13 +258,12 @@ static int stack_map_delete_elem(struct bpf_map *map, void *key)
+ static void stack_map_free(struct bpf_map *map)
+ {
+ 	struct bpf_stack_map *smap = container_of(map, struct bpf_stack_map, map);
+-	int i;
+ 
++	/* wait for bpf programs to complete before freeing stack map */
+ 	synchronize_rcu();
+ 
+-	for (i = 0; i < smap->n_buckets; i++)
+-		if (smap->buckets[i])
+-			kfree_rcu(smap->buckets[i], rcu);
++	vfree(smap->elems);
++	pcpu_freelist_destroy(&smap->freelist);
+ 	kvfree(smap);
+ 	put_callchain_buffers();
+ }
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index cbd94b2144ff..2978d0d08869 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -290,6 +290,8 @@ static int map_lookup_elem(union bpf_attr *attr)
+ 		err = bpf_percpu_hash_copy(map, key, value);
+ 	} else if (map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY) {
+ 		err = bpf_percpu_array_copy(map, key, value);
++	} else if (map->map_type == BPF_MAP_TYPE_STACK_TRACE) {
++		err = bpf_stackmap_copy(map, key, value);
+ 	} else {
+ 		rcu_read_lock();
+ 		ptr = map->ops->map_lookup_elem(map, key);
 -- 
 2.8.0.rc1
