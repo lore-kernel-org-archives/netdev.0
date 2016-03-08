@@ -1,186 +1,79 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net] bridge: a netlink notification should be sent whenever those attributes change
-Date: Tue,  8 Mar 2016 11:27:24 +0800
-Message-ID: <b58f9a4012cfc37e730916a092f2ff5530b299fd.1457407644.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, hannes@stressinduktion.org,
-	nikolay@cumulusnetworks.com
-To: network dev <netdev@vger.kernel.org>
+From: David Decotigny <ddecotig@gmail.com>
+Subject: [ethtool PATCH v4 00/11] add support for new ETHTOOL_xLINKSETTINGS ioctls
+Date: Mon,  7 Mar 2016 19:34:51 -0800
+Message-ID: <1457408102-46662-1-git-send-email-ddecotig@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	David Miller <davem@redhat.com>,
+	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+	Joe Perches <joe@perches.com>,
+	David Decotigny <decot@googlers.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:34819 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753309AbcCHD12 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 22:27:28 -0500
-Received: by mail-pf0-f176.google.com with SMTP id x188so2799479pfb.2
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 19:27:28 -0800 (PST)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34628 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752850AbcCHDfM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 22:35:12 -0500
+Received: by mail-pf0-f194.google.com with SMTP id 184so353106pff.1
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 19:35:11 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now when we change the attributes of bridge or br_port by netlink,
-a relevant netlink notification will be sent, but if we change them
-by ioctl or sysfs, no notification will be sent.
+=46rom: David Decotigny <decot@googlers.com>
 
-we should ensure that whenever those attributes change internally or from
-sysfs/ioctl, that a netlink notification is sent out to listeners.
+This adds support for the new ETHTOOL_xLINKSETTINGS ioctls. This also
+fixes a few compilation warnings as well as a heap corruption bug.
 
-Also, NetworkManager will use this in the future to listen for out-of-band
-bridge master attribute updates and incorporate them into the runtime
-configuration.
+History:
+  v4
+    review Ben Hutchings:
+      using AF_UNIX instead of INET6 in the absence of v4 sockets
+      use stdbool.h
+      do_seeprom always fails when offset/length out of bounds
+      sync to latest ethtool.h + kernel.h from net-next
+      __SANE_USERSPACE_TYPES__ always defined
+      cosmetic updates for var =3D=3D const tests
+      cosmetic updates for associativity in tests
+  v3
+    TRUE/FALSE obvious-ification
+  v2
+    added do_seeprom patch
+    added netdev@ as recipient
+  v1
+    initial submission
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/bridge/br_ioctl.c    | 40 ++++++++++++++++++++++++----------------
- net/bridge/br_sysfs_br.c |  5 +++++
- net/bridge/br_sysfs_if.c |  6 +++++-
- 3 files changed, 34 insertions(+), 17 deletions(-)
+############################################
+# Patch Set Summary:
 
-diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
-index 263b4de..f8fc624 100644
---- a/net/bridge/br_ioctl.c
-+++ b/net/bridge/br_ioctl.c
-@@ -112,7 +112,9 @@ static int add_del_if(struct net_bridge *br, int ifindex, int isadd)
- static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
- 	struct net_bridge *br = netdev_priv(dev);
-+	struct net_bridge_port *p = NULL;
- 	unsigned long args[4];
-+	int ret = -EOPNOTSUPP;
- 
- 	if (copy_from_user(args, rq->ifr_data, sizeof(args)))
- 		return -EFAULT;
-@@ -182,25 +184,29 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
- 			return -EPERM;
- 
--		return br_set_forward_delay(br, args[1]);
-+		ret = br_set_forward_delay(br, args[1]);
-+		break;
- 
- 	case BRCTL_SET_BRIDGE_HELLO_TIME:
- 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
- 			return -EPERM;
- 
--		return br_set_hello_time(br, args[1]);
-+		ret = br_set_hello_time(br, args[1]);
-+		break;
- 
- 	case BRCTL_SET_BRIDGE_MAX_AGE:
- 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
- 			return -EPERM;
- 
--		return br_set_max_age(br, args[1]);
-+		ret = br_set_max_age(br, args[1]);
-+		break;
- 
- 	case BRCTL_SET_AGEING_TIME:
- 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
- 			return -EPERM;
- 
--		return br_set_ageing_time(br, args[1]);
-+		ret = br_set_ageing_time(br, args[1]);
-+		break;
- 
- 	case BRCTL_GET_PORT_INFO:
- 	{
-@@ -240,20 +246,19 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 			return -EPERM;
- 
- 		br_stp_set_enabled(br, args[1]);
--		return 0;
-+		ret = 0;
-+		break;
- 
- 	case BRCTL_SET_BRIDGE_PRIORITY:
- 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
- 			return -EPERM;
- 
- 		br_stp_set_bridge_priority(br, args[1]);
--		return 0;
-+		ret = 0;
-+		break;
- 
- 	case BRCTL_SET_PORT_PRIORITY:
- 	{
--		struct net_bridge_port *p;
--		int ret;
--
- 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
- 			return -EPERM;
- 
-@@ -263,14 +268,11 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 		else
- 			ret = br_stp_set_port_priority(p, args[2]);
- 		spin_unlock_bh(&br->lock);
--		return ret;
-+		break;
- 	}
- 
- 	case BRCTL_SET_PATH_COST:
- 	{
--		struct net_bridge_port *p;
--		int ret;
--
- 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
- 			return -EPERM;
- 
-@@ -280,8 +282,7 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 		else
- 			ret = br_stp_set_path_cost(p, args[2]);
- 		spin_unlock_bh(&br->lock);
--
--		return ret;
-+		break;
- 	}
- 
- 	case BRCTL_GET_FDB_ENTRIES:
-@@ -289,7 +290,14 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 				       args[2], args[3]);
- 	}
- 
--	return -EOPNOTSUPP;
-+	if (!ret) {
-+		if (p)
-+			br_ifinfo_notify(RTM_NEWLINK, p);
-+		else
-+			netdev_state_change(br->dev);
-+	}
-+
-+	return ret;
- }
- 
- static int old_deviceless(struct net *net, void __user *uarg)
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 6b80914..09608e6 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -44,6 +44,11 @@ static ssize_t store_bridge_parm(struct device *d,
- 		return -EINVAL;
- 
- 	err = (*set)(br, val);
-+	if (!err) {
-+		rtnl_lock();
-+		netdev_state_change(br->dev);
-+		rtnl_unlock();
-+	}
- 	return err ? err : len;
- }
- 
-diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-index efe415a..64c8422 100644
---- a/net/bridge/br_sysfs_if.c
-+++ b/net/bridge/br_sysfs_if.c
-@@ -253,8 +253,12 @@ static ssize_t brport_store(struct kobject *kobj,
- 			spin_lock_bh(&p->br->lock);
- 			ret = brport_attr->store(p, val);
- 			spin_unlock_bh(&p->br->lock);
--			if (ret == 0)
-+			if (!ret) {
-+				rtnl_lock();
-+				br_ifinfo_notify(RTM_NEWLINK, p);
-+				rtnl_unlock();
- 				ret = count;
-+			}
- 		}
- 		rtnl_unlock();
- 	}
--- 
-2.1.0
+David Decotigny (7):
+  ethtool.c: don't ignore fread() return value
+  ethtool.c: fix dump_regs heap corruption
+  ethtool.c: do_seeprom checks for params & stdin sanity
+  kernel-copy.h: import kernel.h from net-next and use it
+  ethtool-copy.h: sync with net-next
+  ethtool.c: add support for ETHTOOL_xLINKSETTINGS ioctls
+  ethtool.c: support absence of v4 sockets
+
+Maciej =C5=BBenczykowski (4):
+  internal.h: change to new sane kernel headers on 64-bit archs
+  marvell.c: fix strict alias warnings
+  test-common.c: fix test_realloc(NULL, ...)
+  test-features.c: add braces around array initialization
+
+ ethtool-copy.h  | 478 ++++++++++++++++++++++++++++++------
+ ethtool.c       | 751 ++++++++++++++++++++++++++++++++++++++++++------=
+--------
+ internal.h      |  77 +++++-
+ kernel-copy.h   |  14 ++
+ marvell.c       |  21 +-
+ test-cmdline.c  |  12 +
+ test-common.c   |   2 +-
+ test-features.c |   2 +-
+ 8 files changed, 1086 insertions(+), 271 deletions(-)
+ create mode 100644 kernel-copy.h
+
+--=20
+2.7.0.rc3.207.g0ac5344
