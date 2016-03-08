@@ -1,79 +1,50 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: Tool for sampling /proc/net/softnet_stat statistics
-Date: Tue, 8 Mar 2016 10:50:56 +0100
-Message-ID: <20160308105056.5bb35bff@redhat.com>
-References: <20160307163607.1da5f17e@redhat.com>
-	<CAF=yD-LE3WnYZaNUX8h1-uRA2ZzMczrL=Ob4Qb39hhyAEqYMPA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	erdnetdev@gmail.com
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 01/10] netfilter: ipvs: Remove noisy debug print from ip_vs_del_service
+Date: Tue,  8 Mar 2016 11:00:41 +0100
+Message-ID: <1457431250-3086-2-git-send-email-pablo@netfilter.org>
+References: <1457431250-3086-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42318 "EHLO mx1.redhat.com"
+Received: from mail.us.es ([193.147.175.20]:40359 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932084AbcCHJvH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2016 04:51:07 -0500
-In-Reply-To: <CAF=yD-LE3WnYZaNUX8h1-uRA2ZzMczrL=Ob4Qb39hhyAEqYMPA@mail.gmail.com>
+	id S932153AbcCHKBF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2016 05:01:05 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 2271A8429
+	for <netdev@vger.kernel.org>; Tue,  8 Mar 2016 11:01:02 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 12A23DA39B
+	for <netdev@vger.kernel.org>; Tue,  8 Mar 2016 11:01:02 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 0DB7CCE176
+	for <netdev@vger.kernel.org>; Tue,  8 Mar 2016 11:01:00 +0100 (CET)
+In-Reply-To: <1457431250-3086-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 7 Mar 2016 12:54:13 -0500
-Willem de Bruijn <willemdebruijn.kernel@gmail.com> wrote:
+From: Yannick Brosseau <scientist@fb.com>
 
-> On Mon, Mar 7, 2016 at 10:36 AM, Jesper Dangaard Brouer
-> <jbrouer@redhat.com> wrote:
-> > Hi Google,
-> >
-> > While playing with RPS, I needed to read stats from
-> > /proc/net/softnet_stat and the tools I could find [1] and [2] was not
-> > very good.
-> >
-> > I lack of better, I coded up my own tool softnet_stat.pl here:
-> >  https://github.com/netoptimizer/network-testing/blob/master/bin/softnet_stat.pl
-> >
-> > The output format/columns in /proc/net/softnet_stat is undocumented,
-> > plus values are printed in hex.  E.g. to decode the columns you need to
-> > read kernel function kernel softnet_seq_show() in
-> > kernel/net/core/net-procfs.c.
-> >
-> > To make things easier I wrote this small perl script for get
-> > so human readable statistics from /proc/net/softnet_stat.  
-> 
-> Very nice. Thanks for sharing, Jesper. I maintained something similar,
-> but never got around to clean up and upstream it. Will start using
-> yours, instead.
-> 
-> A few points, from using my earlier tool:
-> 
-> A minimum cut-off value is helpful, especially on beefy servers, to
-> suppress the many 0 rows. Preferably configurable, to also be able to
-> suppress low-rate background traffic when analyzing a few large
-> streams. My default was 500.
-> 
-> The number of columns has grown with kernel versions. The latest
-> column is flow_limit, added in 3.11 at99bbc7074190. It is helpful for
-> the script to be robust against both older and future kernels. On
-> which note, to be able to support these kinds of tools, any new
-> columns to such procfs files should be appended, not inserted as for
-> instance in https://patchwork.ozlabs.org/patch/574171/
-> 
-> Time squeeze is an exception, in that it is number of squeeze events
-> per second, not number of packets squeezed. This is often
-> misunderstood if not explained clearly.
+This have been there for a long time, but does not seem to add value
 
-Thanks a lot for your feedback.  I don't have time to address it right
-away, so I've instead added a section with future development todo's.
-So, I don't forget this valuable feedback :-)
+Signed-off-by: Yannick Brosseau <scientist@fb.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-https://github.com/netoptimizer/network-testing/commit/c464676e456aab
-
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index e7c1b05..daf4cb7 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1376,8 +1376,6 @@ static void __ip_vs_del_service(struct ip_vs_service *svc, bool cleanup)
+ 	struct ip_vs_pe *old_pe;
+ 	struct netns_ipvs *ipvs = svc->ipvs;
+ 
+-	pr_info("%s: enter\n", __func__);
+-
+ 	/* Count only IPv4 services for old get/setsockopt interface */
+ 	if (svc->af == AF_INET)
+ 		ipvs->num_services--;
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.1.4
