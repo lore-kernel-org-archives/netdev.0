@@ -1,28 +1,113 @@
-From: subashab@codeaurora.org
-Subject: Re: 4.1.12 kernel crash in rtnetlink_put_metrics
-Date: Tue, 8 Mar 2016 04:27:00 -0000
-Message-ID: <475c3698bd7e6c504711e74e60808578.squirrel@us.codeaurora.org>
-References: <563A2BA7.9080202@seti.kr.ua> <563A62C8.3030901@iogearbox.net>
-    <6dc33a912af28968363ec472b69bdd5c@codeaurora.org>
-    <56DE112D.5050603@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Andrew" <nitr0@seti.kr.ua>, netdev@vger.kernel.org, kafai@fb.com
-To: "Daniel Borkmann" <daniel@iogearbox.net>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 1/4] cxgb4vf: Enable interrupts before we register our network devices
+Date: Tue,  8 Mar 2016 10:50:17 +0530
+Message-ID: <1457414420-5237-2-git-send-email-hariprasad@chelsio.com>
+References: <1457414420-5237-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:51052 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753411AbcCHE1C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 23:27:02 -0500
-In-Reply-To: <56DE112D.5050603@iogearbox.net>
+Received: from stargate.chelsio.com ([12.32.117.8]:63062 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753947AbcCHFWO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 00:22:14 -0500
+In-Reply-To: <1457414420-5237-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Hmm, if it was 4.1.X like in original reporter case, I might have thought
-> something like commit 0a1f59620068 ("ipv6: Initialize rt6_info properly
-> in ip6_blackhole_route()") ... any chance on reproducing this on a latest
-> kernel?
->
+This avoids a race condition where a system that has network devices set up
+to be automatically configured and we get the first Port Link Status
+message from the firmware on the Asynchronous Firmware Event Queue before
+we've enabled interrupts. If that happens, we end up losing the interrupt
+and never realizing that the links has actually come up.
 
-Unfortunately, I haven't encountered a similar crash on newer kernels as of now.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   51 ++++++++++----------
+ 1 files changed, 26 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 91857b8..fcafe34 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -2771,6 +2771,24 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
+ 		}
+ 	}
+ 
++	/* See what interrupts we'll be using.  If we've been configured to
++	 * use MSI-X interrupts, try to enable them but fall back to using
++	 * MSI interrupts if we can't enable MSI-X interrupts.  If we can't
++	 * get MSI interrupts we bail with the error.
++	 */
++	if (msi == MSI_MSIX && enable_msix(adapter) == 0)
++		adapter->flags |= USING_MSIX;
++	else {
++		err = pci_enable_msi(pdev);
++		if (err) {
++			dev_err(&pdev->dev, "Unable to allocate %s interrupts;"
++				" err=%d\n",
++				msi == MSI_MSIX ? "MSI-X or MSI" : "MSI", err);
++			goto err_free_dev;
++		}
++		adapter->flags |= USING_MSI;
++	}
++
+ 	/*
+ 	 * The "card" is now ready to go.  If any errors occur during device
+ 	 * registration we do not fail the whole "card" but rather proceed
+@@ -2793,7 +2811,7 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
+ 	}
+ 	if (adapter->registered_device_map == 0) {
+ 		dev_err(&pdev->dev, "could not register any net devices\n");
+-		goto err_free_dev;
++		goto err_disable_interrupts;
+ 	}
+ 
+ 	/*
+@@ -2811,25 +2829,6 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
+ 	}
+ 
+ 	/*
+-	 * See what interrupts we'll be using.  If we've been configured to
+-	 * use MSI-X interrupts, try to enable them but fall back to using
+-	 * MSI interrupts if we can't enable MSI-X interrupts.  If we can't
+-	 * get MSI interrupts we bail with the error.
+-	 */
+-	if (msi == MSI_MSIX && enable_msix(adapter) == 0)
+-		adapter->flags |= USING_MSIX;
+-	else {
+-		err = pci_enable_msi(pdev);
+-		if (err) {
+-			dev_err(&pdev->dev, "Unable to allocate %s interrupts;"
+-				" err=%d\n",
+-				msi == MSI_MSIX ? "MSI-X or MSI" : "MSI", err);
+-			goto err_free_debugfs;
+-		}
+-		adapter->flags |= USING_MSI;
+-	}
+-
+-	/*
+ 	 * Now that we know how many "ports" we have and what their types are,
+ 	 * and how many Queue Sets we can support, we can configure our queue
+ 	 * resources.
+@@ -2856,11 +2855,13 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
+ 	 * Error recovery and exit code.  Unwind state that's been created
+ 	 * so far and return the error.
+ 	 */
+-
+-err_free_debugfs:
+-	if (!IS_ERR_OR_NULL(adapter->debugfs_root)) {
+-		cleanup_debugfs(adapter);
+-		debugfs_remove_recursive(adapter->debugfs_root);
++err_disable_interrupts:
++	if (adapter->flags & USING_MSIX) {
++		pci_disable_msix(adapter->pdev);
++		adapter->flags &= ~USING_MSIX;
++	} else if (adapter->flags & USING_MSI) {
++		pci_disable_msi(adapter->pdev);
++		adapter->flags &= ~USING_MSI;
+ 	}
+ 
+ err_free_dev:
+-- 
+1.7.3
