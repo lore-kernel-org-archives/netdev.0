@@ -1,34 +1,36 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH v2 net-next 0/12] bpf: map pre-alloc
-Date: Tue, 8 Mar 2016 08:38:53 -0800
-Message-ID: <56DF001D.4000002@fb.com>
-References: <1457416641-306326-1-git-send-email-ast@fb.com>
- <56DE97A8.1050309@bmw-carit.de>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: linux-next: manual merge of the crypto tree with the net-next tree
+Date: Tue, 08 Mar 2016 16:48:07 +0000
+Message-ID: <13171.1457455687@warthog.procyon.org.uk>
+References: <20160308165612.54c8dd50@canb.auug.org.au> <20160307131834.70da82d4@canb.auug.org.au> <28626.1457348905@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: Daniel Wagner <daniel.wagner@bmw-carit.de>,
-	"David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56DE97A8.1050309@bmw-carit.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: dhowells@redhat.com, Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20160308165612.54c8dd50@canb.auug.org.au>
+Content-ID: <13170.1457455687.1@warthog.procyon.org.uk>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/8/16 1:13 AM, Daniel Wagner wrote:
->> Some time back Daniel Wagner reported crashes when bpf hash map is
->> >used to compute time intervals between preempt_disable->preempt_enable
->> >and recently Tom Zanussi reported a dead lock in iovisor/bcc/funccount
->> >tool if it's used to count the number of invocations of kernel
->> >'*spin*' functions. Both problems are due to the recursive use of
->> >slub and can only be solved by pre-allocating all map elements.
- >
-> I gave it a short spin and lathist sample works just fine.
+Stephen Rothwell <sfr@canb.auug.org.au> wrote:
 
-awesome. Thanks for testing!
+> > What's the best way to deal with this?  Should I take Herbert's
+> > 
+> > 	[PATCH 18/26] rxrpc: Use skcipher
+> > 
+> > patch into my rxrpc tree also and pass it on to Dave?
+> 
+> Linus can deal with it when he merges the latter of the crypto or
+> net-next trees.  It might be worth a mention in the respective pull
+> requests.
+
+Do you mean I should take it - or just let Linus merge it?
+
+I tried to apply the rxrpc skcipher patch to net-next, but
+skcipher_request_zero() isn't available there or in any of the patches in the
+series.
+
+David
