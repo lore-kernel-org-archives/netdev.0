@@ -1,9 +1,9 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next v2 1/3] ipv6: replace global gc_args with local variable
-Date: Tue, 8 Mar 2016 10:25:23 -0800
-Message-ID: <CAM_iQpUicnXkfF67rhXD684Rfqbtuexa9J4Lwyy8h04cP3G02A@mail.gmail.com>
+Subject: Re: [PATCH net-next v2 2/3] ipv6: per netns fib6 walkers
+Date: Tue, 8 Mar 2016 10:34:39 -0800
+Message-ID: <CAM_iQpWTuk+b4qn5D6mBoqKeK14jZqqg3usjx6xDQt30O2VyYQ@mail.gmail.com>
 References: <cover.1457443526.git.mkubecek@suse.cz>
-	<bb59dc573391233b6f0e033f1f7928d9a35f3dd9.1457443526.git.mkubecek@suse.cz>
+	<44802146091ca75be560080eeb8b534a67950072.1457443527.git.mkubecek@suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -17,23 +17,26 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Martin KaFai Lau <kafai@fb.com>
 To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f175.google.com ([209.85.161.175]:35948 "EHLO
-	mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751144AbcCHSZY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 13:25:24 -0500
-In-Reply-To: <bb59dc573391233b6f0e033f1f7928d9a35f3dd9.1457443526.git.mkubecek@suse.cz>
+Received: from mail-yw0-f178.google.com ([209.85.161.178]:34543 "EHLO
+	mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750747AbcCHSek (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 13:34:40 -0500
+In-Reply-To: <44802146091ca75be560080eeb8b534a67950072.1457443527.git.mkubecek@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Tue, Mar 8, 2016 at 5:44 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
-> Global variable gc_args is only used in fib6_run_gc() and functions
-> called from it. As fib6_run_gc() makes sure there is at most one
-> instance of fib6_clean_all() running at any moment, we can replace
-> gc_args with a local variable which will be needed once multiple
-> instances (per netns) of garbage collector are allowed.
+> The IPv6 FIB data structures are separated per network namespace but
+> there is still only one global walkers list and one global walker list
+> lock. This means changes in one namespace unnecessarily interfere with
+> walkers in other namespaces.
+>
+> Replace the global list with per-netns lists (and give each its own
+> lock).
 >
 > Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> ---
+> v2: get rid of ifdef in ipv6_route_seq_setup_walk(), pass net from
+> callers instead
 
 Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
-
-Thanks.
