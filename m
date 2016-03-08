@@ -1,8 +1,8 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: rework port state setter
-Date: Tue, 8 Mar 2016 15:36:51 +0100
-Message-ID: <20160308143651.GE351@lunn.ch>
-References: <1457393057-22618-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: avoid writing the same mode
+Date: Tue, 8 Mar 2016 15:37:21 +0100
+Message-ID: <20160308143721.GG351@lunn.ch>
+References: <1457393092-22826-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -11,151 +11,67 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Kevin Smith <kevin.smith@elecsyscorp.com>
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52707 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:52716 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752039AbcCHOgz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2016 09:36:55 -0500
+	id S1753522AbcCHOhY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2016 09:37:24 -0500
 Content-Disposition: inline
-In-Reply-To: <1457393057-22618-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <1457393092-22826-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 07, 2016 at 06:24:17PM -0500, Vivien Didelot wrote:
-> Apply a few non-functional changes on the port state setter:
+On Mon, Mar 07, 2016 at 06:24:52PM -0500, Vivien Didelot wrote:
+> There is no need to change the 802.1Q port mode for the same value.
+> Thus avoid such message:
 > 
->   * add a dynamic debug message with state names to track changes
->   * explicit states checking instead of assuming their numeric values
->   * lock mutex only once when changing several port states
->   * use bitmap macros to declare and access port_state_update_mask
+>     [  401.954836] dsa dsa@0 lan0: 802.1Q Mode: Disabled (was Disabled)
 > 
 > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
 Tested-by: Andrew Lunn <andrew@lunn.ch>
 
 Thanks
-	Andrew
+        Andrew
+
 
 > ---
->  drivers/net/dsa/mv88e6xxx.c | 54 +++++++++++++++++++++++++++------------------
->  drivers/net/dsa/mv88e6xxx.h |  2 +-
->  2 files changed, 34 insertions(+), 22 deletions(-)
+>  drivers/net/dsa/mv88e6xxx.c | 21 +++++++++++++--------
+>  1 file changed, 13 insertions(+), 8 deletions(-)
 > 
 > diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-> index d11c9d5..3a58a8a 100644
+> index 1aee42d..5f07524 100644
 > --- a/drivers/net/dsa/mv88e6xxx.c
 > +++ b/drivers/net/dsa/mv88e6xxx.c
-> @@ -1051,39 +1051,49 @@ static int _mv88e6xxx_atu_remove(struct dsa_switch *ds, u16 fid, int port,
->  	return _mv88e6xxx_atu_move(ds, fid, port, 0x0f, static_too);
->  }
+> @@ -1765,16 +1765,21 @@ int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
 >  
-> -static int mv88e6xxx_set_port_state(struct dsa_switch *ds, int port, u8 state)
-> +static const char * const mv88e6xxx_port_state_names[] = {
-> +	[PORT_CONTROL_STATE_DISABLED] = "Disabled",
-> +	[PORT_CONTROL_STATE_BLOCKING] = "Blocking/Listening",
-> +	[PORT_CONTROL_STATE_LEARNING] = "Learning",
-> +	[PORT_CONTROL_STATE_FORWARDING] = "Forwarding",
-> +};
+>  	old = ret & PORT_CONTROL_2_8021Q_MASK;
+>  
+> -	ret &= ~PORT_CONTROL_2_8021Q_MASK;
+> -	ret |= new & PORT_CONTROL_2_8021Q_MASK;
+> +	if (new != old) {
+> +		ret &= ~PORT_CONTROL_2_8021Q_MASK;
+> +		ret |= new & PORT_CONTROL_2_8021Q_MASK;
+>  
+> -	ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_CONTROL_2, ret);
+> -	if (ret < 0)
+> -		goto unlock;
+> +		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_CONTROL_2,
+> +					   ret);
+> +		if (ret < 0)
+> +			goto unlock;
 > +
-> +static int _mv88e6xxx_port_state(struct dsa_switch *ds, int port, u8 state)
->  {
-> -	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
->  	int reg, ret = 0;
->  	u8 oldstate;
+> +		netdev_dbg(ds->ports[port], "802.1Q Mode %s (was %s)\n",
+> +			   mv88e6xxx_port_8021q_mode_names[new],
+> +			   mv88e6xxx_port_8021q_mode_names[old]);
+> +	}
 >  
-> -	mutex_lock(&ps->smi_mutex);
-> -
->  	reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_CONTROL);
-> -	if (reg < 0) {
-> -		ret = reg;
-> -		goto abort;
-> -	}
-> +	if (reg < 0)
-> +		return reg;
+> -	netdev_dbg(ds->ports[port], "802.1Q Mode: %s (was %s)\n",
+> -		   mv88e6xxx_port_8021q_mode_names[new],
+> -		   mv88e6xxx_port_8021q_mode_names[old]);
+> +	ret = 0;
+>  unlock:
+>  	mutex_unlock(&ps->smi_mutex);
 >  
->  	oldstate = reg & PORT_CONTROL_STATE_MASK;
-> +
->  	if (oldstate != state) {
->  		/* Flush forwarding database if we're moving a port
->  		 * from Learning or Forwarding state to Disabled or
->  		 * Blocking or Listening state.
->  		 */
-> -		if (oldstate >= PORT_CONTROL_STATE_LEARNING &&
-> -		    state <= PORT_CONTROL_STATE_BLOCKING) {
-> +		if ((oldstate == PORT_CONTROL_STATE_LEARNING ||
-> +		     oldstate == PORT_CONTROL_STATE_FORWARDING)
-> +		    && (state == PORT_CONTROL_STATE_DISABLED ||
-> +			state == PORT_CONTROL_STATE_BLOCKING)) {
->  			ret = _mv88e6xxx_atu_remove(ds, 0, port, false);
->  			if (ret)
-> -				goto abort;
-> +				return ret;
->  		}
-> +
->  		reg = (reg & ~PORT_CONTROL_STATE_MASK) | state;
->  		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_CONTROL,
->  					   reg);
-> +		if (ret)
-> +			return ret;
-> +
-> +		netdev_dbg(ds->ports[port], "PortState %s (was %s)\n",
-> +			   mv88e6xxx_port_state_names[state],
-> +			   mv88e6xxx_port_state_names[oldstate]);
->  	}
->  
-> -abort:
-> -	mutex_unlock(&ps->smi_mutex);
->  	return ret;
->  }
->  
-> @@ -1146,13 +1156,11 @@ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state)
->  		break;
->  	}
->  
-> -	netdev_dbg(ds->ports[port], "port state %d [%d]\n", state, stp_state);
-> -
->  	/* mv88e6xxx_port_stp_update may be called with softirqs disabled,
->  	 * so we can not update the port state directly but need to schedule it.
->  	 */
->  	ps->ports[port].state = stp_state;
-> -	set_bit(port, &ps->port_state_update_mask);
-> +	set_bit(port, ps->port_state_update_mask);
->  	schedule_work(&ps->bridge_work);
->  
->  	return 0;
-> @@ -2228,11 +2236,15 @@ static void mv88e6xxx_bridge_work(struct work_struct *work)
->  	ps = container_of(work, struct mv88e6xxx_priv_state, bridge_work);
->  	ds = ((struct dsa_switch *)ps) - 1;
->  
-> -	while (ps->port_state_update_mask) {
-> -		port = __ffs(ps->port_state_update_mask);
-> -		clear_bit(port, &ps->port_state_update_mask);
-> -		mv88e6xxx_set_port_state(ds, port, ps->ports[port].state);
-> -	}
-> +	mutex_lock(&ps->smi_mutex);
-> +
-> +	for (port = 0; port < ps->num_ports; ++port)
-> +		if (test_and_clear_bit(port, ps->port_state_update_mask) &&
-> +		    _mv88e6xxx_port_state(ds, port, ps->ports[port].state))
-> +			netdev_warn(ds->ports[port], "failed to update state to %s\n",
-> +				    mv88e6xxx_port_state_names[ps->ports[port].state]);
-> +
-> +	mutex_unlock(&ps->smi_mutex);
->  }
->  
->  static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
-> diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-> index d7b088d..3425616 100644
-> --- a/drivers/net/dsa/mv88e6xxx.h
-> +++ b/drivers/net/dsa/mv88e6xxx.h
-> @@ -426,7 +426,7 @@ struct mv88e6xxx_priv_state {
->  
->  	struct mv88e6xxx_priv_port	ports[DSA_MAX_PORTS];
->  
-> -	unsigned long port_state_update_mask;
-> +	DECLARE_BITMAP(port_state_update_mask, DSA_MAX_PORTS);
->  
->  	struct work_struct bridge_work;
->  };
 > -- 
 > 2.7.2
 > 
