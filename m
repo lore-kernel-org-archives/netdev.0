@@ -1,7 +1,7 @@
 From: Lisheng <lisheng011@huawei.com>
-Subject: [PATCH net 2/4] net: hns: bug fix for format string
-Date: Tue, 8 Mar 2016 11:52:25 +0800
-Message-ID: <1457409147-77086-3-git-send-email-lisheng011@huawei.com>
+Subject: [PATCH net 4/4] net: hns: remove useless head=ring->next_to_clean
+Date: Tue, 8 Mar 2016 11:52:27 +0800
+Message-ID: <1457409147-77086-5-git-send-email-lisheng011@huawei.com>
 References: <1457409147-77086-1-git-send-email-lisheng011@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,37 +12,39 @@ Cc: <yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
 	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:43079 "EHLO
+Received: from szxga01-in.huawei.com ([58.251.152.64]:43100 "EHLO
 	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753330AbcCHDm1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 22:42:27 -0500
+	with ESMTP id S1753455AbcCHDme (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 22:42:34 -0500
 In-Reply-To: <1457409147-77086-1-git-send-email-lisheng011@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Qianqian Xie <xieqianqian@huawei.com>
 
-There is not a format string in function snprinf().
-This patch will fix it.
+The variable head in hns_nic_tx_fini_pro has read a value,
+but the value is not used. The patch will solve it.
 
 Signed-off-by: Qianqian Xie <xieqianqian@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-index b8517b0..d0591d9 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-@@ -641,7 +641,8 @@ static void hns_gmac_get_strings(u32 stringset, u8 *data)
- 		return;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 3f77ff7..7b4ec2f 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -901,10 +901,8 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
+ static void hns_nic_tx_fini_pro(struct hns_nic_ring_data *ring_data)
+ {
+ 	struct hnae_ring *ring = ring_data->ring;
+-	int head = ring->next_to_clean;
  
- 	for (i = 0; i < ARRAY_SIZE(g_gmac_stats_string); i++) {
--		snprintf(buff, ETH_GSTRING_LEN, g_gmac_stats_string[i].desc);
-+		snprintf(buff, ETH_GSTRING_LEN, "%s",
-+			 g_gmac_stats_string[i].desc);
- 		buff = buff + ETH_GSTRING_LEN;
- 	}
- }
+-	/* for hardware bug fixed */
+-	head = readl_relaxed(ring->io_base + RCB_REG_HEAD);
++	int head = readl_relaxed(ring->io_base + RCB_REG_HEAD);
+ 
+ 	if (head != ring->next_to_clean) {
+ 		ring_data->ring->q->handle->dev->ops->toggle_ring_irq(
 -- 
 1.9.1
