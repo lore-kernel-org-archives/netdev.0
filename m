@@ -1,38 +1,32 @@
-From: Dominique Martinet <asmadeus@codewreck.org>
-Subject: Re: [V9fs-developer] [PATCH] net/9p: convert to new CQ API
-Date: Tue, 8 Mar 2016 15:38:37 +0100
-Message-ID: <20160308143837.GA10208@nautica>
-References: <1456565151-27115-1-git-send-email-hch@lst.de>
- <1456565151-27115-2-git-send-email-hch@lst.de>
- <20160227154957.GA21186@nautica>
- <20160303083606.GA13828@lst.de>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: dsa: Fix cleanup resources upon module removal
+Date: Tue, 8 Mar 2016 15:52:30 +0100
+Message-ID: <20160308145230.GI351@lunn.ch>
+References: <20151207.163608.1805578623951785262.davem@davemloft.net>
+ <1457429780-7665-1-git-send-email-narmstrong@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nautica.notk.org ([91.121.71.147]:51066 "EHLO nautica.notk.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932435AbcCHOi7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2016 09:38:59 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, f.fainelli@gmail.com,
+	rmk+kernel@arm.linux.org.uk, pavel.nakonechny@skitlab.ru,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Neil Armstrong <narmstrong@baylibre.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160303083606.GA13828@lst.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1457429780-7665-1-git-send-email-narmstrong@baylibre.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Christoph Hellwig wrote on Thu, Mar 03, 2016:
-> New version with the nits fixed below.  Now that checkpath started
-> a stupid warning about not using tabs for indentation which I've
-> ignored here and will take up in my usual fights against Joes
-> idicotic opinions separately..
+On Tue, Mar 08, 2016 at 10:36:20AM +0100, Neil Armstrong wrote:
+> The initial commit badly merged into the dsa_resume method instead
+> of the dsa_remove_dst method.
+> As consequence, the dst->master_netdev->dsa_ptr is not set to NULL on
+> removal and re-bind of the dsa device fails with error -17.
+> 
+> Fixes: b0dc635d923c ("net: dsa: cleanup resources upon module removal ")
+> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 
-Thanks for the nitpicks, I can confirm it works as expected as well so
-all good with me.
-I like the new CQ interface :)
+Acked-by: Andrew Lunn <andrew@lunn.ch>
 
-(if someone adds an Acked-by please use dominique.martinet@cea.fr for my
-mail; sorry for the split personality)
+Thanks
 
--- 
-Dominique
+	Andrew
