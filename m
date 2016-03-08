@@ -1,70 +1,63 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next PATCH] csum: Update csum_block_add to use rotate
- instead of byteswap
-Date: Tue, 08 Mar 2016 15:25:57 -0800
-Message-ID: <1457479557.4067.9.camel@perches.com>
-References: <20160308224238.16551.73881.stgit@localhost.localdomain>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net] r8169:Remove unnecessary phy reset for pcie nic when
+ setting link spped.
+Date: Wed, 9 Mar 2016 00:48:55 +0100
+Message-ID: <20160308234855.GA6182@electric-eye.fr.zoreil.com>
+References: <1457427065-3699-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org
+To: Chunhao Lin <hau@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0023.hostedemail.com ([216.40.44.23]:51029 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750985AbcCHX0C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 18:26:02 -0500
-In-Reply-To: <20160308224238.16551.73881.stgit@localhost.localdomain>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57640 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750888AbcCHXtG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 18:49:06 -0500
+Content-Disposition: inline
+In-Reply-To: <1457427065-3699-1-git-send-email-hau@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-03-08 at 14:42 -0800, Alexander Duyck wrote:
-> The code for csum_block_add was doing a funky byteswap to swap the ev=
-en and
-> odd bytes of the checksum if the offset was odd.=A0=A0Instead of doin=
-g this we
-> can save ourselves some trouble and just shift by 8 as this should ha=
-ve the
-> same effect in terms of the final checksum value and only requires on=
-e
-> instruction.
-
-3 instructions?
-
-> In addition we can update csum_block_sub to just use csum_block_add w=
-ith a
-> inverse value for csum2.=A0=A0This way we follow the same code path a=
-s
-> csum_block_add without having to duplicate it.
->=20
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Chunhao Lin <hau@realtek.com> :
+> For pcie nic, after setting link speed and thers is no link  driver does not need
+> to do phy reset untill link up.
+> 
+> For some pcie nics, to do this will also reset phy speed down counter and prevent
+> phy from auto speed down.
+> 
+> This patch fix the issue reported in following link.
+> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1547151
+> 
+> Signed-off-by: Chunhao Lin <hau@realtek.com>
 > ---
-> =A0include/net/checksum.h |=A0=A0=A011 +++++------
-> =A01 file changed, 5 insertions(+), 6 deletions(-)
->=20
-> diff --git a/include/net/checksum.h b/include/net/checksum.h
-> index 10a16b5bd1c7..f9fac66c0e66 100644
-> --- a/include/net/checksum.h
-> +++ b/include/net/checksum.h
-> @@ -88,8 +88,10 @@ static inline __wsum
-> =A0csum_block_add(__wsum csum, __wsum csum2, int offset)
-> =A0{
-> =A0	u32 sum =3D (__force u32)csum2;
-> -	if (offset&1)
-> -		sum =3D ((sum&0xFF00FF)<<8)+((sum>>8)&0xFF00FF);
-> +
-> +	if (offset & 1)
-> +		sum =3D (sum << 24) + (sum >> 8);
+>  drivers/net/ethernet/realtek/r8169.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index dd2cf37..94f08f1 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -1999,7 +1999,8 @@ static int rtl8169_set_speed(struct net_device *dev,
+>  		goto out;
+>  
+>  	if (netif_running(dev) && (autoneg == AUTONEG_ENABLE) &&
+> -	    (advertising & ADVERTISED_1000baseT_Full)) {
+> +	    (advertising & ADVERTISED_1000baseT_Full) &&
+> +	    !pci_is_pcie(tp->pci_dev)) {
+>  		mod_timer(&tp->timer, jiffies + RTL8169_PHY_TIMEOUT);
+>  	}
+>  out:
 
-Maybe use ror32(sum, 8);
+Can you clarify:
+- actually this patch does not care about the link at all. So when there's
+  link no phy reset is needed either, right ?
+- does "this" in "to do this" means that
+  1. phy reset prevents phy from auto speed down
+  2. avoiding phy reset prevents phy from auto speed down
+  I would expect 1. from the rtl_wol_pll_power_down + rtl_speed_down +
+  rtl8169_set_speed combo (i.e. we want the driver to allow auto speed down)
+  but it's a bit ambiguous.
 
-or maybe something like:
-
-{
-	u32 sum;
-
-	/*=A0rotated csum2 of odd offset will be the right checksum */
-	if (offset & 1)
-		sum =3D ror32((__force u32)csum2, 8);
-	else
-		sum =3D (__force u32)csum2;
+-- 
+Ueimor
