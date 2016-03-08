@@ -1,7 +1,7 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH net 2/3] net: mvneta: enable change MAC address when interface is up
-Date: Tue,  8 Mar 2016 13:57:05 +0100
-Message-ID: <1457441826-6100-3-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH net 3/3] net: mvneta: fix error messages in mvneta_port_down function
+Date: Tue,  8 Mar 2016 13:57:06 +0100
+Message-ID: <1457441826-6100-4-git-send-email-gregory.clement@free-electrons.com>
 References: <1457441826-6100-1-git-send-email-gregory.clement@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -12,47 +12,63 @@ Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Marcin Wojtas <mw@semihalf.com>,
 	Patrick Uiterwijk <patrick@puiterwijk.org>,
 	Dimitri Epshtein <dima@marvell.com>,
-	Ofer Heifetz <oferh@marvell.com>, stable@vger.kernel.org
+	Ofer Heifetz <oferh@marvell.com>
 To: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:43319 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751531AbcCHM5X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 07:57:23 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1457441826-6100-1-git-send-email-gregory.clement@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Dmitri Epshtein <dima@marvell.com>
 
-Function eth_prepare_mac_addr_change() is called as part of MAC
-address change. This function check if interface is running.
-To enable change MAC address when interface is running:
-IFF_LIVE_ADDR_CHANGE flag must be set to dev->priv_flags field
+This commit corrects error printing when shutting down the port. Also
+magic numbers are replaced by existing macros.
 
-Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP
-network unit")
-Cc: stable@vger.kernel.org
 Signed-off-by: Dmitri Epshtein <dima@marvell.com>
 Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/marvell/mvneta.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 8dc7df2edff6..2ee05cebea75 100644
+index 2ee05cebea75..225d933259c0 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3721,7 +3721,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
- 	dev->hw_features |= dev->features;
- 	dev->vlan_features |= dev->features;
--	dev->priv_flags |= IFF_UNICAST_FLT;
-+	dev->priv_flags |= IFF_UNICAST_FLT | IFF_LIVE_ADDR_CHANGE;
- 	dev->gso_max_segs = MVNETA_MAX_TSO_SEGS;
+@@ -873,14 +873,14 @@ static void mvneta_port_down(struct mvneta_port *pp)
+ 	do {
+ 		if (count++ >= MVNETA_RX_DISABLE_TIMEOUT_MSEC) {
+ 			netdev_warn(pp->dev,
+-				    "TIMEOUT for RX stopped ! rx_queue_cmd: 0x08%x\n",
++				    "TIMEOUT for RX stopped ! rx_queue_cmd: 0x%08x\n",
+ 				    val);
+ 			break;
+ 		}
+ 		mdelay(1);
  
- 	err = register_netdev(dev);
+ 		val = mvreg_read(pp, MVNETA_RXQ_CMD);
+-	} while (val & 0xff);
++	} while (val & MVNETA_RXQ_ENABLE_MASK);
+ 
+ 	/* Stop Tx port activity. Check port Tx activity. Issue stop
+ 	 * command for active channels only
+@@ -905,14 +905,14 @@ static void mvneta_port_down(struct mvneta_port *pp)
+ 		/* Check TX Command reg that all Txqs are stopped */
+ 		val = mvreg_read(pp, MVNETA_TXQ_CMD);
+ 
+-	} while (val & 0xff);
++	} while (val & MVNETA_TXQ_ENABLE_MASK);
+ 
+ 	/* Double check to verify that TX FIFO is empty */
+ 	count = 0;
+ 	do {
+ 		if (count++ >= MVNETA_TX_FIFO_EMPTY_TIMEOUT) {
+ 			netdev_warn(pp->dev,
+-				    "TX FIFO empty timeout status=0x08%x\n",
++				    "TX FIFO empty timeout status=0x%08x\n",
+ 				    val);
+ 			break;
+ 		}
 -- 
 2.5.0
