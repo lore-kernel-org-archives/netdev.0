@@ -1,59 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 2/7] mlx4: use napi_consume_skb API to get
- bulk free operations
-Date: Tue, 08 Mar 2016 14:24:22 -0500 (EST)
-Message-ID: <20160308.142422.1791364638495761357.davem@davemloft.net>
-References: <20160304130054.32651.51776.stgit@firesoul>
-	<20160304130133.32651.55278.stgit@firesoul>
+Subject: Re: [PATCH 00/10] Netfilter/IPVS updates for net-next
+Date: Tue, 08 Mar 2016 14:28:49 -0500 (EST)
+Message-ID: <20160308.142849.1605654925313096504.davem@davemloft.net>
+References: <1457431250-3086-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eugenia@mellanox.com,
-	alexander.duyck@gmail.com, alexei.starovoitov@gmail.com,
-	saeedm@mellanox.com, gerlitz.or@gmail.com
-To: brouer@redhat.com
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43819 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43860 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750747AbcCHTYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 14:24:25 -0500
-In-Reply-To: <20160304130133.32651.55278.stgit@firesoul>
+	with ESMTP id S1750782AbcCHT2v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 14:28:51 -0500
+In-Reply-To: <1457431250-3086-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Fri, 04 Mar 2016 14:01:33 +0100
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue,  8 Mar 2016 11:00:40 +0100
 
-> @@ -276,7 +276,8 @@ static void mlx4_en_stamp_wqe(struct mlx4_en_priv *priv,
->  
->  static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
->  				struct mlx4_en_tx_ring *ring,
-> -				int index, u8 owner, u64 timestamp)
-> +				int index, u8 owner, u64 timestamp,
-> +				int napi_mode)
->  {
->  	struct mlx4_en_tx_info *tx_info = &ring->tx_info[index];
->  	struct mlx4_en_tx_desc *tx_desc = ring->buf + index * TXBB_SIZE;
-> @@ -347,7 +348,11 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
->  			}
->  		}
->  	}
-> -	dev_consume_skb_any(skb);
-> +	if (unlikely(napi_mode < 0))
-> +		dev_consume_skb_any(skb); /* none-NAPI via mlx4_en_stop_port */
-> +	else
-> +		napi_consume_skb(skb, napi_mode);
-> +
->  	return tx_info->nr_txbb;
->  }
+> The following patchset contains Netfilter updates for your net-next tree,
+> they are:
+> 
+> 1) Remove useless debug message when deleting IPVS service, from
+>    Yannick Brosseau.
+> 
+> 2) Get rid of compilation warning when CONFIG_PROC_FS is unset in
+>    several spots of the IPVS code, from Arnd Bergmann.
+> 
+> 3) Add prandom_u32 support to nft_meta, from Florian Westphal.
+> 
+> 4) Remove unused variable in xt_osf, from Sudip Mukherjee.
+> 
+> 5) Don't calculate IP checksum twice from netfilter ipv4 defrag hook
+>    since fixing af_packet defragmentation issues, from Joe Stringer.
+> 
+> 6) On-demand hook registration for iptables from netns. Instead of
+>    registering the hooks for every available netns whenever we need
+>    one of the support tables, we register this on the specific netns
+>    that needs it, patchset from Florian Westphal.
+> 
+> 7) Add missing port range selection to nf_tables masquerading support.
+> 
+> BTW, just for the record, there is a typo in the description of
+> 5f6c253ebe93b0 ("netfilter: bridge: register hooks only when bridge
+> interface is added") that refers to the cluster match as deprecated, but
+> it is actually the CLUSTERIP target (which registers hooks
+> inconditionally) the one that is scheduled for removal.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
 
-If '0' is the signal that napi_consume_skb() uses to detect the case where we
-can't bulk, just pass that instead of having a special test here on yet another
-special value "-1".
-
-If it makes any nicer, you can define a NAPI_BUDGET_FROM_NETPOLL macro
-or similar.
-
-I also wonder if passing the budget around all the way down to
-napi_consume_skb() is the cleanest thing to do, as we just want to
-know if bulk freeing is possible or not.
+Pulled, thanks Pablo!
