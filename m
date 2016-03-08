@@ -1,161 +1,68 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 08/10] netfilter: bridge: register hooks only when bridge interface is added
-Date: Tue,  8 Mar 2016 11:00:48 +0100
-Message-ID: <1457431250-3086-9-git-send-email-pablo@netfilter.org>
-References: <1457431250-3086-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1457431250-3086-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH net-next 2/3] ipv6: per netns fib6 walkers
+Date: Tue, 8 Mar 2016 11:03:35 +0100
+Message-ID: <20160308100335.GB8710@unicorn.suse.cz>
+References: <cover.1457085016.git.mkubecek@suse.cz>
+ <6df8e224d6337b658a097ac87e72e1467cddf13d.1457085016.git.mkubecek@suse.cz>
+ <CAM_iQpUxHX71GRmnmcvXpOX4P4mzJXpoYmcYhcZi2CXxEK4XFQ@mail.gmail.com>
+ <CAM_iQpXynuGx2F6RdeFcyCH7qSxPv0Q0p7etwTTje07hMSaZbw@mail.gmail.com>
+ <20160308070544.GA8710@unicorn.suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Martin KaFai Lau <kafai@fb.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:47337 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932159AbcCHKDi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2016 05:03:38 -0500
+Content-Disposition: inline
+In-Reply-To: <20160308070544.GA8710@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+On Tue, Mar 08, 2016 at 08:05:44AM +0100, Michal Kubecek wrote:
+> On Mon, Mar 07, 2016 at 04:28:26PM -0800, Cong Wang wrote:
+> > On Mon, Mar 7, 2016 at 4:26 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > > On Fri, Mar 4, 2016 at 2:59 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
+> > >>  static void ipv6_route_seq_setup_walk(struct ipv6_route_iter *iter)
+> > >>  {
+> > >> +#ifdef CONFIG_NET_NS
+> > >> +       struct net *net = iter->p.net;
+> > >> +#else
+> > >> +       struct net *net = &init_net;
+> > >> +#endif
+> > >> +
+> > >
+> > > You should pass the struct net pointer to ipv6_route_seq_setup_walk()
+> > > instead of reading it by yourself.
+> 
+> I considered this. While it probably wouldn't bring any extra overhead
+> as the function is going to be inlined anyway, it didn't look really
+> nice. I gues I'll use read_pnet() as David suggested; I just didn't
+> realize the reason it's a macro in !CONFIG_NET_NS case is to allow
+> passing a pointer to non-existent struct member.
 
-This moves bridge hooks to a register-when-needed scheme.
+Well, not anymore, actually, since commit 0c5c9fb55106 ("net: Introduce
+possible_net_t"). Unfortunately seq_file_net does not use possible_net_t
+and fixing that could potentially affect too much code to just throw it
+in now without sufficient testing.
 
-We use a device notifier to register the 'call-iptables' netfilter hooks
-only once a bridge gets added.
+I was also wrong about ipv6_route_seq_setup_walk() being inlined as
+there are two callers. On the other hand, the only difference is two
+register mov instructions (one in caller, one in callee) vs. one read
+from memory so it's not clear if there is an actual overhead.
 
-This means that if the initial namespace uses a bridge, newly created
-network namespaces no longer get the PRE_ROUTING ipt_sabotage hook.
+So I'll pass net as second argument after all and submit the
+seq_net_private conversion to possible_net_t later, most likely after
+net-next opens again for 4.7.
 
-It will registered in that network namespace once a bridge is created
-within that namespace.
-
-A few modules still use global hooks:
-
-- conntrack
-- bridge PF_BRIDGE hooks
-- IPVS
-- CLUSTER match (deprecated)
-- SYNPROXY
-
-As long as these modules are not loaded/used, a new network namespace has
-empty hook list and NF_HOOK() will boil down to single list_empty test even
-if initial namespace does stateless packet filtering.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/bridge/br_netfilter_hooks.c | 68 +++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 65 insertions(+), 3 deletions(-)
-
-diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
-index 7ddbe7e..44114a9 100644
---- a/net/bridge/br_netfilter_hooks.c
-+++ b/net/bridge/br_netfilter_hooks.c
-@@ -37,6 +37,7 @@
- #include <net/addrconf.h>
- #include <net/route.h>
- #include <net/netfilter/br_netfilter.h>
-+#include <net/netns/generic.h>
- 
- #include <asm/uaccess.h>
- #include "br_private.h"
-@@ -44,6 +45,12 @@
- #include <linux/sysctl.h>
- #endif
- 
-+static int brnf_net_id __read_mostly;
-+
-+struct brnf_net {
-+	bool enabled;
-+};
-+
- #ifdef CONFIG_SYSCTL
- static struct ctl_table_header *brnf_sysctl_header;
- static int brnf_call_iptables __read_mostly = 1;
-@@ -938,6 +945,53 @@ static struct nf_hook_ops br_nf_ops[] __read_mostly = {
- 	},
- };
- 
-+static int brnf_device_event(struct notifier_block *unused, unsigned long event,
-+			     void *ptr)
-+{
-+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+	struct brnf_net *brnet;
-+	struct net *net;
-+	int ret;
-+
-+	if (event != NETDEV_REGISTER || !(dev->priv_flags & IFF_EBRIDGE))
-+		return NOTIFY_DONE;
-+
-+	ASSERT_RTNL();
-+
-+	net = dev_net(dev);
-+	brnet = net_generic(net, brnf_net_id);
-+	if (brnet->enabled)
-+		return NOTIFY_OK;
-+
-+	ret = nf_register_net_hooks(net, br_nf_ops, ARRAY_SIZE(br_nf_ops));
-+	if (ret)
-+		return NOTIFY_BAD;
-+
-+	brnet->enabled = true;
-+	return NOTIFY_OK;
-+}
-+
-+static void __net_exit brnf_exit_net(struct net *net)
-+{
-+	struct brnf_net *brnet = net_generic(net, brnf_net_id);
-+
-+	if (!brnet->enabled)
-+		return;
-+
-+	nf_unregister_net_hooks(net, br_nf_ops, ARRAY_SIZE(br_nf_ops));
-+	brnet->enabled = false;
-+}
-+
-+static struct pernet_operations brnf_net_ops __read_mostly = {
-+	.exit = brnf_exit_net,
-+	.id   = &brnf_net_id,
-+	.size = sizeof(struct brnf_net),
-+};
-+
-+static struct notifier_block brnf_notifier __read_mostly = {
-+	.notifier_call = brnf_device_event,
-+};
-+
- #ifdef CONFIG_SYSCTL
- static
- int brnf_sysctl_call_tables(struct ctl_table *ctl, int write,
-@@ -1003,16 +1057,23 @@ static int __init br_netfilter_init(void)
- {
- 	int ret;
- 
--	ret = nf_register_hooks(br_nf_ops, ARRAY_SIZE(br_nf_ops));
-+	ret = register_pernet_subsys(&brnf_net_ops);
- 	if (ret < 0)
- 		return ret;
- 
-+	ret = register_netdevice_notifier(&brnf_notifier);
-+	if (ret < 0) {
-+		unregister_pernet_subsys(&brnf_net_ops);
-+		return ret;
-+	}
-+
- #ifdef CONFIG_SYSCTL
- 	brnf_sysctl_header = register_net_sysctl(&init_net, "net/bridge", brnf_table);
- 	if (brnf_sysctl_header == NULL) {
- 		printk(KERN_WARNING
- 		       "br_netfilter: can't register to sysctl.\n");
--		nf_unregister_hooks(br_nf_ops, ARRAY_SIZE(br_nf_ops));
-+		unregister_netdevice_notifier(&brnf_notifier);
-+		unregister_pernet_subsys(&brnf_net_ops);
- 		return -ENOMEM;
- 	}
- #endif
-@@ -1024,7 +1085,8 @@ static int __init br_netfilter_init(void)
- static void __exit br_netfilter_fini(void)
- {
- 	RCU_INIT_POINTER(nf_br_ops, NULL);
--	nf_unregister_hooks(br_nf_ops, ARRAY_SIZE(br_nf_ops));
-+	unregister_netdevice_notifier(&brnf_notifier);
-+	unregister_pernet_subsys(&brnf_net_ops);
- #ifdef CONFIG_SYSCTL
- 	unregister_net_sysctl_table(brnf_sysctl_header);
- #endif
--- 
-2.1.4
-
+                                                        Michal Kubecek
