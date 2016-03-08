@@ -1,7 +1,7 @@
 From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next V3 10/10] net/mlx5e: Support offload cls_flower with skbedit mark action
-Date: Tue,  8 Mar 2016 12:42:38 +0200
-Message-ID: <1457433758-9193-11-git-send-email-amir@vadai.me>
+Subject: [PATCH net-next V3 06/10] net/mlx5e: Relax ndo_setup_tc handle restriction
+Date: Tue,  8 Mar 2016 12:42:34 +0200
+Message-ID: <1457433758-9193-7-git-send-email-amir@vadai.me>
 References: <1457433758-9193-1-git-send-email-amir@vadai.me>
 Cc: netdev@vger.kernel.org,
 	John Fastabend <john.r.fastabend@intel.com>,
@@ -12,80 +12,38 @@ Cc: netdev@vger.kernel.org,
 	Rony Efraim <ronye@mellanox.com>, Amir Vadai <amir@vadai.me>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34798 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933019AbcCHKje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 05:39:34 -0500
-Received: by mail-wm0-f66.google.com with SMTP id p65so3239270wmp.1
-        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 02:39:33 -0800 (PST)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35148 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933177AbcCHKjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 05:39:23 -0500
+Received: by mail-wm0-f67.google.com with SMTP id 1so3232394wmg.2
+        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 02:39:23 -0800 (PST)
 In-Reply-To: <1457433758-9193-1-git-send-email-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce offloading of skbedit mark action.
+Restricting handle to TC_H_ROOT breaks the old instantiation of mqprio
+to setup a hardware qdisc. This patch relaxes the test, to only check the
+type.
 
-For example, to mark with 0x1234, all TCP (ip_proto 6) packets arriving
-to interface ens9:
-
- # tc qdisc add dev ens9 ingress
- # tc filter add dev ens9 protocol ip parent ffff: \
-     flower ip_proto 6 \
-     indev ens9 \
-     action skbedit mark 0x1234
-
+Fixes: 08fb1da ("net/mlx5e: Support DCBNL IEEE ETS")
 Signed-off-by: Amir Vadai <amir@vadai.me>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 3 +++
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.h | 2 ++
- 3 files changed, 6 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 519a07f..f293afe 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -35,6 +35,7 @@
- #include <linux/tcp.h>
- #include <net/busy_poll.h>
- #include "en.h"
-+#include "en_tc.h"
- 
- static inline bool mlx5e_rx_hw_stamp(struct mlx5e_tstamp *tstamp)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 5063c0e..5e3692f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1883,7 +1883,7 @@ static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
+ static int mlx5e_ndo_setup_tc(struct net_device *dev, u32 handle,
+ 			      __be16 proto, struct tc_to_netdev *tc)
  {
-@@ -224,6 +225,8 @@ static inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
- 	if (cqe_has_vlan(cqe))
- 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
- 				       be16_to_cpu(cqe->vlan_info));
-+
-+	skb->mark = be32_to_cpu(cqe->sop_drop_qpn) & MLX5E_TC_FLOW_ID_MASK;
- }
+-	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
++	if (tc->type != TC_SETUP_MQPRIO)
+ 		return -EINVAL;
  
- int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 3ed4d96..b3de09f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -33,6 +33,7 @@
- #include <net/flow_dissector.h>
- #include <net/pkt_cls.h>
- #include <net/tc_act/tc_gact.h>
-+#include <net/tc_act/tc_skbedit.h>
- #include <linux/mlx5/fs.h>
- #include <linux/mlx5/device.h>
- #include <linux/rhashtable.h>
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
-index 70642f4..d677428 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
-@@ -33,6 +33,8 @@
- #ifndef __MLX5_EN_TC_H__
- #define __MLX5_EN_TC_H__
- 
-+#define MLX5E_TC_FLOW_ID_MASK 0x0000ffff
-+
- int mlx5e_tc_init(struct mlx5e_priv *priv);
- void mlx5e_tc_cleanup(struct mlx5e_priv *priv);
- 
+ 	return mlx5e_setup_tc(dev, tc->tc);
 -- 
 2.7.0
