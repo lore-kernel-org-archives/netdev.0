@@ -1,81 +1,53 @@
-From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
-Subject: RE: [PATCH v2] can: rcar_canfd: Add Renesas R-Car CAN FD driver
-Date: Tue, 8 Mar 2016 12:48:50 +0000
-Message-ID: <SG2PR06MB10388F87746A1191E51B199FC3B20@SG2PR06MB1038.apcprd06.prod.outlook.com>
-References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <1457019515-21158-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <56DC1561.9060306@hartkopp.net>
- <SG2PR06MB10386D712BC8C345DF726523C3B10@SG2PR06MB1038.apcprd06.prod.outlook.com>
- <56DD36F5.2000308@pengutronix.de>
- <SG2PR06MB1038DD47FAFF354C99AF2E4FC3B10@SG2PR06MB1038.apcprd06.prod.outlook.com>
- <56DE8345.50901@hartkopp.net>
- <SG2PR06MB1038B71C7921984611F72CF5C3B20@SG2PR06MB1038.apcprd06.prod.outlook.com>
- <56DEC49D.4@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-renesas-soc@vger.kernel.org"
-	<linux-renesas-soc@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"geert+renesas@glider.be" <geert+renesas@glider.be>,
-	Chris Paterson <Chris.Paterson2@renesas.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	"wg@grandegger.com" <wg@grandegger.com>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	"galak@codeaurora.org" <galak@codeaurora.org>,
-	"corbet@lwn.net" <corbet@lwn.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <56DEC49D.4@hartkopp.net>
-Content-Language: en-US
-Sender: linux-renesas-soc-owner@vger.kernel.org
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: [PATCH net 0/3] Few mvneta fixes
+Date: Tue,  8 Mar 2016 13:57:03 +0100
+Message-ID: <1457441826-6100-1-git-send-email-gregory.clement@free-electrons.com>
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Patrick Uiterwijk <patrick@puiterwijk.org>,
+	Dimitri Epshtein <dima@marvell.com>,
+	Ofer Heifetz <oferh@marvell.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgT2xpdmVyLA0KDQpUaGFua3MgZm9yIHRoZSBjb21tZW50cy4NCg0KPiBPbiAwOC4wMy4yMDE2
-IDA5OjU3LCBSYW1lc2ggU2hhbm11Z2FzdW5kYXJhbSB3cm90ZToNCj4gDQo+ID4NCj4gPiBBcyB5
-b3UgbWVudGlvbmVkIGZ1cnRoZXIgZG93biwgd2hlbiBhIHVzZXIgZG9lcyB0aGlzDQo+ID4NCj4g
-PiAiaXAgbGluayBzZXQgY2FuMCB1cCB0eXBlIGNhbiBiaXRyYXRlIDEwMDAwMDAiDQo+ID4NCj4g
-PiB0aGUgaW50ZW50aW9uIGlzIHRvIHB1dCB0aGUgY29udHJvbGxlciBpbiBDQU4gMi4wIG1vZGUu
-IEV2ZW4gaWYgd2UgdXNlIGENCj4gc3RhdHVzIGZsYWcgb3IgY29weSB0aGUgZGF0YSBiaXRyYXRl
-IGVxdWFsIHRvIHRoZSBub21pbmFsIGJpdHJhdGUsIHdoYXQNCj4gd291bGQgaXQgYWNoaWV2ZT8g
-SXQgc3RpbGwgY2Fubm90IGJlIGEgQ0FOIDIuMCBub2RlIC0gaXQgaXMgYSBDQU4gRkQgbm9kZQ0K
-PiBjb25maWd1cmVkIHdpdGggc2FtZSBub21pbmFsICYgZGF0YSBiaXRyYXRlLg0KPiA+DQo+ID4g
-VGhpcyBpcyB3aHkgSSBoYXZlIHRoaXMgY2hlY2sgaW4gbmRvX29wZW4sIHNvIHRoYXQgdGhlIHVz
-ZXIgaXMgYXdhcmUgaXQNCj4gaXMgYSBDQU4gRkQgbm9kZSBhbHdheXMgYW5kIGF2b2lkIG1pc2Nv
-bmZpZ3VyYXRpb24gbGlrZSBhYm92ZSB3aXRoDQo+IEVPUE5PVFNVUFAuDQo+ID4NCj4gDQo+IG9r
-IC0gZ290IGl0IG5vdy4NCj4gDQo+IEluIGZhY3QgeW91IHByb3ZpZGVkIGEgQ0FOIGRyaXZlciB3
-aGljaCBpcyAiQ0FOLUZELW9ubHkiLg0KDQpZZXMuIFRoYXQncyB0aGUgc3RhdHVzIG9mIGN1cnJl
-bnQgc3VibWlzc2lvbi4NCg0KPiBXZSBkaWQgbm90IGhhZCB0aGF0IGJlZm9yZSBidXQgdGhlcmUn
-cyBhIHNvbHV0aW9uIGZvciB0aGlzIGtpbmQgb2Ygc2V0dXAuDQo+IA0KPiBUaGVyZSBpcyBhIHNp
-bWlsYXIgY2FzZSB3aXRoIENBTl9DVFJMTU9ERV9GRF9OT05fSVNPIHdlIGhhZCBvbiB0aGUgTV9D
-QU4NCj4gZHJpdmVyIHdoaWNoIG9ubHkgcHJvdmlkZXMgbm9uLUlTTyBjb25maWd1cmF0aW9uIGZv
-ciB0aGUgc3VwcG9ydGVkIElQIGNvcmUNCj4gYW5kIF9ub18gb3B0aW9uIHRvIF9jaGFuZ2VfIHRo
-aXMgdmFsdWU6DQo+IA0KPiBodHRwczovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgva2VybmVs
-L2dpdC90b3J2YWxkcy9saW51eC5naXQvY29tbWl0Lz9pZA0KPiA9NmNmZGE3ZmJlYmU4YTRmZDMz
-ZWE1NzIyZmEwMjEyZjk4ZjY0M2MzNQ0KPiANCj4gSWYgeW91IHdvdWxkIGRvIGl0IHNpbWlsYXIg
-aW4gcmNhcl9jYW5mZC5jIHdpdGgNCj4gDQo+IC8qIENBTl9DVFJMTU9ERV9GRCBpcyBmaXhlZCB3
-aXRoIFItQ2FyIENBTiBGRCAqLw0KPiBwcml2LT5jYW4uY3RybG1vZGUgPSBDQU5fQ1RSTE1PREVf
-RkQ7DQo+IA0KPiBhbmQgcmVtb3ZlIENBTl9DVFJMTU9ERV9GRCBmcm9tIHRoZSBwcml2LT5jYW4u
-Y3RybG1vZGVfc3VwcG9ydGVkDQo+IGFzc2lnbm1lbnQgdGhlbiBpdCBzaG91bGQgZG8gdGhlIGVu
-dGlyZSBjb25maWd1cmF0aW9uIHByb2Nlc3MgY29ycmVjdGx5DQo+IGZvciB5b3UuDQo+IEluY2x1
-ZGluZyB0aGUgcHJvcGVyIHRlc3RzIGZvciB0aGUgdHdvIGJpdHJhdGVzLg0KPiAoc2VlIG9wZW5f
-Y2FuZGV2KCkgaW4gbGludXgvZHJpdmVycy9uZXQvY2FuL2Rldi5jKQ0KPiANCj4gUmlnaHQ/DQoN
-CkkgZGlkIHRyeSB0aGlzIG9wdGlvbiBlYXJsaWVyIGJ1dCB0aGVyZSBhcmUgdHdvIHByb2JsZW1z
-IHdpdGggdGhpcyBtZXRob2QuDQoNCjEpIEJlbG93IGNvbmZpZ3VyYXRpb24gaXMgbm90IHBvc3Np
-YmxlDQoNCmlwIGxpbmsgc2V0IGNhbjAgdXAgdHlwZSBjYW4gYml0cmF0ZSAxMDAwMDAwIGRiaXRy
-YXRlIDEwMDAwMDAgZmQgb24NCg0KImZkIG9uIiAtPiBUaGlzIGlzIG5vdCBhbGxvd2VkIGJlY2F1
-c2UgQ0FOX0NUUkxNT0RFX0ZEIGJpdCBpcyBub3Qgc2V0IGluIGN0cmxtb2RlX3N1cHBvcnRlZC4N
-Cg0KMikgSWYgSSBpZ25vcmUgImZkIG9uIiwgbXkgaW50ZXJmYWNlIE1UVSBzdGF5cyBhcyBDQU5f
-TVRVIG9ubHkuIElmIEkgaGF2ZSB0byBjaGFuZ2UgdGhlIE1UVSBhbG9uZSB0byBDQU5GRF9NVFUg
-dXNpbmcgYW5vdGhlciBuZXRsaW5rIG1lc3NhZ2UsIGl0IGFnYWluIGNoZWNrcyBjdHJsbW9kZV9z
-dXBwb3J0ZWQgd2hlcmUgaXQgd291bGQgZmFpbC4gSSBoYXZlIHRoZSBvcHRpb24gb2YgcHJvdmlk
-aW5nIG15IG93biBjaGFuZ2VfbXR1IGZ1bmN0aW9uICYgaWdub3JlIHRoaXMgY2hlY2sgYnV0IHR3
-byBjb25maWd1cmF0aW9uIG1lc3NhZ2VzIGFyZSByZXF1aXJlZCBmb3IgbXkgZHJpdmVyIGFsb25l
-IDotKC4NCg0KQm90aCB0aGVzZSBhbm9tYWxpZXMgYXJlIGFkZHJlc3NlZCB3aXRoIHRoZSBjdXJy
-ZW50IGNoZWNrIEkgaGF2ZS4gDQoNClRoYW5rcywNClJhbWVzaA0KDQo=
+Hi David,
+
+here is a patch set of few fixes. Without the first one, a kernel
+configured with debug features ended to hang when the driver is built
+as a module and is removed. This is quite is annoying for debugging!
+
+The second patch fix a forgotten flag at the initial submission of the
+driver.
+
+The third patch is only really a cosmetic one so I have no problem to
+not apply it for 4.5 and wait for 4.6.
+
+I really would like to see the first one applied for 4.5 and for the
+second I let you judge if it something needed for now or that should
+wait the next release.
+
+Thanks,
+
+Gregory
+
+Dmitri Epshtein (2):
+  net: mvneta: enable change MAC address when interface is up
+  net: mvneta: fix error messages in mvneta_port_down function
+
+Gregory CLEMENT (1):
+  net: mvneta: Fix spinlock usage
+
+ drivers/net/ethernet/marvell/mvneta.c | 21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
+
+-- 
+2.5.0
