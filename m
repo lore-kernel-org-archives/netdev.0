@@ -1,67 +1,140 @@
-From: Dinh Nguyen <dinh.linux@gmail.com>
-Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
-Date: Tue, 8 Mar 2016 09:45:04 -0600
-Message-ID: <CADhT+weKf+F98uxCQhRa2RfMm8+4p=rrNZc-Vf=w_HPycXto=A@mail.gmail.com>
-References: <1457294038-14243-1-git-send-email-afaerber@suse.de>
-	<56DD7172.4000707@suse.de>
-	<2714888.1DdqvJZ8cb@diego>
-	<56DD7593.5060003@suse.de>
-	<56DD8176.2080603@st.com>
-	<56DD8FBE.9010200@suse.de>
-	<56DD99A4.5030004@st.com>
-	<56DDA26C.3050301@suse.de>
-	<56DDA3D5.3090209@st.com>
-	<56DDB749.1020808@suse.de>
-	<CADhT+wfO8x4En78g5ixnnwbpaeXJGDo+Q1sOABYsbXzNZy0CPw@mail.gmail.com>
-	<56DE7E1D.5070508@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: =?UTF-8?Q?Andreas_F=C3=A4rber?= <afaerber@suse.de>,
-	Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-	=?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko@sntech.de>,
-	"open list:ARM/Rockchip SoC..." <linux-rockchip@lists.infradead.org>,
-	netdev@vger.kernel.org,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	LAKML <linux-arm-kernel@lists.infradead.org>,
-	Alexandre TORGUE <alexandre.torgue@st.com>,
-	Fabrice GASNIER <fabrice.gasnier@st.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33517 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753008AbcCHPpG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 10:45:06 -0500
-In-Reply-To: <56DE7E1D.5070508@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH rdma-next V2 01/10] net/core: Add support for configuring VF GUIDs
+Date: Tue,  8 Mar 2016 18:36:49 +0200
+Message-ID: <1457455018-17638-2-git-send-email-eli@mellanox.com>
+References: <1457455018-17638-1-git-send-email-eli@mellanox.com>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	eitan-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1457455018-17638-1-git-send-email-eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 8, 2016 at 1:24 AM, Giuseppe CAVALLARO
-<peppe.cavallaro@st.com> wrote:
-> Hi Dinh,
->
-> On 3/8/2016 12:22 AM, Dinh Nguyen wrote:
-> [snip]
->>
->>
->> I'm seeing the same issue on the SoCFPGA platform:
->>
->> libphy: PHY stmmac-0:ffffffff not found
->> eth0: Could not attach to PHY
->> stmmac_open: Cannot attach to PHY (error: -19)
->>
->> If I just revert:
->>
->>   "stmmac: Fix 'eth0: No PHY found' regression"
->>
->> then the issue goes away.
->
->
-> do you have this patch "stmmac: first frame prep at the end of xmit routine"
-> ? Or you just reverted
->   "stmmac: Fix 'eth0: No PHY found' regression"
+Add two new NLAs to support configuration of Infiniband node or port
+GUIDs. New applications can choose to use this interface to configure
+GUIDs with iproute2 with commands such as:
 
-I only reverted "stmmac: Fix 'eth0: No PHY found' regression". I do have the
-patch "stmmac: first frame prep at the end of the xmit routine", but I did not
-need to revert that patch.
+ip link set dev ib0 vf 0 node_guid 00:02:c9:03:00:21:6e:70
+ip link set dev ib0 vf 0 port_guid 00:02:c9:03:00:21:6e:78
 
-Dinh
+A new ndo, ndo_sef_vf_guid is introduced to notify the net device of the
+request to change the GUID.
+
+Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Reviewed-by: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+---
+ include/linux/netdevice.h    |  3 +++
+ include/uapi/linux/if_link.h |  7 +++++++
+ net/core/rtnetlink.c         | 36 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 46 insertions(+)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 5440b7b705eb..7b4ae218b90b 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1147,6 +1147,9 @@ struct net_device_ops {
+ 						   struct nlattr *port[]);
+ 	int			(*ndo_get_vf_port)(struct net_device *dev,
+ 						   int vf, struct sk_buff *skb);
++	int			(*ndo_set_vf_guid)(struct net_device *dev,
++						   int vf, u64 guid,
++						   int guid_type);
+ 	int			(*ndo_set_vf_rss_query_en)(
+ 						   struct net_device *dev,
+ 						   int vf, bool setting);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index a30b78090594..1d01e8a4e5dd 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -556,6 +556,8 @@ enum {
+ 				 */
+ 	IFLA_VF_STATS,		/* network device statistics */
+ 	IFLA_VF_TRUST,		/* Trust VF */
++	IFLA_VF_IB_NODE_GUID,	/* VF Infiniband node GUID */
++	IFLA_VF_IB_PORT_GUID,	/* VF Infiniband port GUID */
+ 	__IFLA_VF_MAX,
+ };
+ 
+@@ -588,6 +590,11 @@ struct ifla_vf_spoofchk {
+ 	__u32 setting;
+ };
+ 
++struct ifla_vf_guid {
++	__u32 vf;
++	__u64 guid;
++};
++
+ enum {
+ 	IFLA_VF_LINK_STATE_AUTO,	/* link state of the uplink */
+ 	IFLA_VF_LINK_STATE_ENABLE,	/* link always up */
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d735e854f916..4b6f3db9f8af 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1387,6 +1387,8 @@ static const struct nla_policy ifla_vf_policy[IFLA_VF_MAX+1] = {
+ 	[IFLA_VF_RSS_QUERY_EN]	= { .len = sizeof(struct ifla_vf_rss_query_en) },
+ 	[IFLA_VF_STATS]		= { .type = NLA_NESTED },
+ 	[IFLA_VF_TRUST]		= { .len = sizeof(struct ifla_vf_trust) },
++	[IFLA_VF_IB_NODE_GUID]	= { .len = sizeof(struct ifla_vf_guid) },
++	[IFLA_VF_IB_PORT_GUID]	= { .len = sizeof(struct ifla_vf_guid) },
+ };
+ 
+ static const struct nla_policy ifla_vf_stats_policy[IFLA_VF_STATS_MAX + 1] = {
+@@ -1534,6 +1536,22 @@ static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
+ 	return 0;
+ }
+ 
++static int handle_infiniband_guid(struct net_device *dev, struct ifla_vf_guid *ivt,
++				  int guid_type)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
++
++	return ops->ndo_set_vf_guid(dev, ivt->vf, ivt->guid, guid_type);
++}
++
++static int handle_vf_guid(struct net_device *dev, struct ifla_vf_guid *ivt, int guid_type)
++{
++	if (dev->type != ARPHRD_INFINIBAND)
++		return -EOPNOTSUPP;
++
++	return handle_infiniband_guid(dev, ivt, guid_type);
++}
++
+ static int do_setvfinfo(struct net_device *dev, struct nlattr **tb)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+@@ -1636,6 +1654,24 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr **tb)
+ 			return err;
+ 	}
+ 
++	if (tb[IFLA_VF_IB_NODE_GUID]) {
++		struct ifla_vf_guid *ivt = nla_data(tb[IFLA_VF_IB_NODE_GUID]);
++
++		if (!ops->ndo_set_vf_guid)
++			return -EOPNOTSUPP;
++
++		return handle_vf_guid(dev, ivt, IFLA_VF_IB_NODE_GUID);
++	}
++
++	if (tb[IFLA_VF_IB_PORT_GUID]) {
++		struct ifla_vf_guid *ivt = nla_data(tb[IFLA_VF_IB_PORT_GUID]);
++
++		if (!ops->ndo_set_vf_guid)
++			return -EOPNOTSUPP;
++
++		return handle_vf_guid(dev, ivt, IFLA_VF_IB_PORT_GUID);
++	}
++
+ 	return err;
+ }
+ 
+-- 
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
