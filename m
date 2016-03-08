@@ -1,70 +1,39 @@
-From: =?UTF-8?Q?Frank_Sch=c3=a4fer?= <fschaefer.oss@googlemail.com>
-Subject: [4.5-rc7+ regression, bisected] libphy: PHY stmmac-0:ffffffff not
- found
-Date: Tue, 8 Mar 2016 19:06:23 +0100
-Message-ID: <56DF149F.6090100@googlemail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next v2 1/3] ipv6: replace global gc_args with local variable
+Date: Tue, 8 Mar 2016 10:25:23 -0800
+Message-ID: <CAM_iQpUicnXkfF67rhXD684Rfqbtuexa9J4Lwyy8h04cP3G02A@mail.gmail.com>
+References: <cover.1457443526.git.mkubecek@suse.cz>
+	<bb59dc573391233b6f0e033f1f7928d9a35f3dd9.1457443526.git.mkubecek@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: gabriel.fernandez@linaro.org, peppe.cavallaro@st.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Martin KaFai Lau <kafai@fb.com>
+To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:33886 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750966AbcCHSEm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 13:04:42 -0500
-Received: by mail-wm0-f45.google.com with SMTP id p65so160799121wmp.1
-        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 10:04:41 -0800 (PST)
+Received: from mail-yw0-f175.google.com ([209.85.161.175]:35948 "EHLO
+	mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751144AbcCHSZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 13:25:24 -0500
+In-Reply-To: <bb59dc573391233b6f0e033f1f7928d9a35f3dd9.1457443526.git.mkubecek@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 88f8b1bb41c6208f81b6a480244533ded7b59493
-Author: Gabriel Fernandez <gabriel.fernandez@linaro.org>
-Date:   Mon Feb 29 17:18:22 2016 +0100
+On Tue, Mar 8, 2016 at 5:44 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
+> Global variable gc_args is only used in fib6_run_gc() and functions
+> called from it. As fib6_run_gc() makes sure there is at most one
+> instance of fib6_clean_all() running at any moment, we can replace
+> gc_args with a local variable which will be needed once multiple
+> instances (per netns) of garbage collector are allowed.
+>
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 
-    stmmac: Fix 'eth0: No PHY found' regression
-  =20
-    This patch manages the case when you have an Ethernet MAC with
-    a "fixed link", and not connected to a normal MDIO-managed PHY devi=
-ce.
-  =20
-    The test of phy_bus_name was not helpful because it was never affec=
-ted
-    and replaced by the mdio test node.
-  =20
-    Signed-off-by: Gabriel Fernandez <gabriel.fernandez@linaro.org>
-    Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-
-caused a regression on the Banana Pi M1 board:
-=2E..
-[    1.573419] sun7i-dwmac 1c50000.ethernet: no reset control found
-[    1.583476]  Ring mode enabled
-[    1.590476]  No HW DMA feature register supported
-[    1.595153]  Normal descriptors
-[    1.606075]  TX Checksum insertion supported
-=2E..
-[    9.430047] libphy: PHY stmmac-0:ffffffff not found
-[    9.441829] eth0: Could not attach to PHY
-[    9.452743] stmmac_open: Cannot attach to PHY (error: -19)
-
-Reverting this commit makes it work again:
-
-[    1.574459] sun7i-dwmac 1c50000.ethernet: no reset control found
-[    1.584501]  Ring mode enabled
-[    1.591491]  No HW DMA feature register supported
-[    1.596169]  Normal descriptors
-[    1.607076]  TX Checksum insertion supported
-[    1.615766] sun7i-dwmac 1c50000.ethernet eth0: No MDIO subnode found
-[    1.629108] libphy: stmmac: probed
-[    1.636267] eth0: PHY ID 001cc915 at 0 IRQ POLL (stmmac-0:00) active
-[    1.646446] eth0: PHY ID 001cc915 at 1 IRQ POLL (stmmac-0:01)
-=2E..
-[   10.086423]  RX IPC Checksum Offload disabled
-[   10.097628]  No MAC Management Counters available
-[   14.084839] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -
-100Mbps/Full - flow control rx/tx
-
-Regards,
-=46rank Sch=C3=A4fer
+Thanks.
