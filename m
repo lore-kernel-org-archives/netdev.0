@@ -1,47 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/11] rxrpc: Add a common object cache
-Date: Mon, 07 Mar 2016 23:07:37 -0500 (EST)
-Message-ID: <20160307.230737.1738396720590983620.davem@davemloft.net>
-References: <20160307143759.18567.8234.stgit@warthog.procyon.org.uk>
-	<20160307143806.18567.30020.stgit@warthog.procyon.org.uk>
-	<23389.1457390714@warthog.procyon.org.uk>
+Subject: Re: [PATCH net] sctp: fix copying more bytes than expected in
+ sctp_add_bind_addr
+Date: Mon, 07 Mar 2016 23:15:13 -0500 (EST)
+Message-ID: <20160307.231513.203335424725203680.davem@davemloft.net>
+References: <201603080758.oSIf1B2b%fengguang.wu@intel.com>
+	<56DE0E4F.3050707@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-afs@lists.infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <23389.1457390714@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: lkp@intel.com, kbuild-all@01.org, netdev@vger.kernel.org,
+	dvyukov@google.com, nhorman@tuxdriver.com, vyasevich@gmail.com,
+	linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
+	syzkaller@googlegroups.com, kcc@google.com, glider@google.com,
+	sasha.levin@oracle.com, edumazet@google.com
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58998 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753455AbcCHEPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 23:15:17 -0500
+In-Reply-To: <56DE0E4F.3050707@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Mon, 07 Mar 2016 22:45:14 +0000
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Mon, 7 Mar 2016 20:27:11 -0300
 
-> David Miller <davem@davemloft.net> wrote:
+> Hi,
 > 
->> I know you put a lot of time and effort into this, but I want to strongly
->> recommend against a garbage collected hash table for anything whatsoever.
->> 
->> Especially if the given objects are in some way created/destroyed/etc. by
->> operations triggerable remotely.
->> 
->> This can be DoS'd quite trivially, and that's why we have removed the ipv4
->> routing cache which did the same.
+> Em 07-03-2016 20:17, kbuild test robot escreveu:
+>> Hi Marcelo,
+>>
+>> [auto build test WARNING on net/master]
+>>
+>> url:
+>> https://github.com/0day-ci/linux/commits/Marcelo-Ricardo-Leitner/sctp-fix-copying-more-bytes-than-expected-in-sctp_add_bind_addr/20160308-052009
+>>
+>>
+>> coccinelle warnings: (new ones prefixed by >>)
+>>
+>>>> net/sctp/bind_addr.c:458:42-48: ERROR: application of sizeof to
+>>>> pointer
+>>
+>> Please review and possibly fold the followup patch.
 > 
-> Hmmm...  You have a point.  What would you suggest instead?  At least with the
-> common object cache code I have, I might be able to just change that.
+> Oops, nice catch, thanks.
+> 
+> I can fold it if Dave prefers, no problem. I'll wait for a
+> confirmation.
 
-Objects that are used for correct operation have no easily recyclable
-property, you must hold onto them.  There has to be a set of resources
-held and consumed at both endpoints for it to work properly ("I can't
-DoS you without DoS'ing myself").
-
-Where reclaimable tables work is for stuff that is near zero cost to
-reconstitute.  A good example is the TCP metrics table.  When a TCP
-metrics entry is reclaimed, it's not like we have to renegotiate a
-security context when we try to talk to that end-host again.
-
-If the concept of these open-ended objects is a fundamental aspect of
-the protocol.... that's a serious shortcoming of RXRPC.
+Please respin your patch with this folded into it, thanks.
