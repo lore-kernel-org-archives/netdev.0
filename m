@@ -1,69 +1,116 @@
-From: =?utf-8?Q?Toke_H=C3=B8iland-J=C3=B8rgensen?= <toke@toke.dk>
-Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
-Date: Tue, 08 Mar 2016 11:19:59 +0100
-Message-ID: <87d1r5tgog.fsf@toke.dk>
-References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
-	<CAA93jw4XsEnp3jTgPL7OKWTJP-83VwRaCdb+foc8nCuqxk3WZA@mail.gmail.com>
-	<CA+BoTQk+3jhwK57_fDw0scNCGzu_Edqp9-Beeppz8xj9kSQcoQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Dave Taht <dave.taht@gmail.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Felix Fietkau <nbd@openwrt.org>,
-	Tim Shepard <shep@alum.mit.edu>
-To: Michal Kazior <michal.kazior@tieto.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.tohojo.dk ([77.235.48.147]:49698 "EHLO mail2.tohojo.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932491AbcCHK1H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2016 05:27:07 -0500
-In-Reply-To: <CA+BoTQk+3jhwK57_fDw0scNCGzu_Edqp9-Beeppz8xj9kSQcoQ@mail.gmail.com>
-	(Michal Kazior's message of "Tue, 8 Mar 2016 08:12:21 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Crispin <blogic@openwrt.org>
+Subject: [PATCH V5 1/4] net-next: mediatek: document MediaTek SoC ethernet binding
+Date: Tue,  8 Mar 2016 11:29:54 +0100
+Message-ID: <1457432997-25526-2-git-send-email-blogic@openwrt.org>
+References: <1457432997-25526-1-git-send-email-blogic@openwrt.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linux-mediatek@lists.infradead.org,
+	=?UTF-8?q?Steven=20Liu=20=28=E5=8A=89=E4=BA=BA=E8=B1=AA=29?=
+	<steven.liu@mediatek.com>,
+	=?UTF-8?q?Carlos=20Huang=20=28=E9=BB=83=E5=A3=AB=E5=BD=B0=29?=
+	<Carlos.Huang@mediatek.com>, Felix Fietkau <nbd@openwrt.org>,
+	Michael Lee <igvtee@gmail.com>,
+	John Crispin <blogic@openwrt.org>, devicetree@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457432997-25526-1-git-send-email-blogic@openwrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Michal Kazior <michal.kazior@tieto.com> writes:
+This adds the binding documentation for the MediaTek Ethernet
+controller.
 
->> With large values for flows_cnt, fq, dominates, for small values, aqm
->> does. We did quite a lot of testing at 16 and 32 queues in the early
->> days, with pretty good results, except when we didn't. Cake went whole
->> hog with an 8 way set associative hash leading to "near perfect" fq,
->> which, at the cost of more cpu overhead, could cut the number of
->> queues down by a lot, also. Eric did "perfect" fq with sch_fq...
->
-> Out of curiosity - do you have any numbers to compare against
-> fq_codel? Like hash collision probability vs number of active flows?
+Signed-off-by: John Crispin <blogic@openwrt.org>
+Acked-by: Rob Herring <robh@kernel.org>
+Cc: devicetree@vger.kernel.org
+---
+ .../devicetree/bindings/net/mediatek-net.txt       |   77 ++++++++++++++++++++
+ 1 file changed, 77 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/mediatek-net.txt
 
-Basically, the analytical expression for hash collisions is fairly
-straight forward (though I can't take credit for coming up with it
-myself):
-
-Given N bins with M items being hashed into them by a hypothetical
-perfectly uniform hash, you get:
-
-  Expected number of bins with x items = N * (1/N)^x * (1 - 1/N) ^ (M - x) * C(M, x)
-
-where C(M, x) is the combinatorial function = M! / (x! * (M-x)!).
-
-By expanding this expression for x=1 and dividing by M, you get the
-probability that one of your M items is in its own bin. Subtract this
-from 1 and you get the collision probability.
-
-I have a neat spreadsheet to compute this for arbitrary numbers; but for
-a 1024-bin FQ-Codel this gives a collision probability of just under 1%
-for 10 flows, and just over 9% for 100 flows. This is not too far off
-from actual values in a real-world hashing function.
-
-Now, to add to the confusion, you also have to take into account that an
-active flow (from an end-to-end perspective) does not necessarily
-translate into an active flow from the queue perspective. And that in
-fact the number of active flows in a router can be significantly less
-than the number of active end-to-end flows, and scales sub-linearly...
-There has been at least one paper demonstrating this, but right now I
-can't recall who wrote it.
-
--Toke
+diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+new file mode 100644
+index 0000000..5ca7929
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+@@ -0,0 +1,77 @@
++MediaTek Frame Engine Ethernet controller
++=========================================
++
++The frame engine ethernet controller can be found on MediaTek SoCs. These SoCs
++have dual GMAC each represented by a child node..
++
++* Ethernet controller node
++
++Required properties:
++- compatible: Should be "mediatek,mt7623-eth"
++- reg: Address and length of the register set for the device
++- interrupts: Should contain the frame engines interrupt
++- clocks: the clock used by the core
++- clock-names: the names of the clock listed in the clocks property. These are
++	"ethif", "esw", "gp2", "gp1"
++- power-domains: phandle to the power domain that the ethernet is part of
++- resets: Should contain a phandle to the ethsys reset signal
++- reset-names: Should contain the reset signal name "eth"
++- mediatek,ethsys: phandle to the syscon node that handles the port setup
++- mediatek,pctl: phandle to the syscon node that handles the ports slew rate
++	and driver current
++
++Optional properties:
++- interrupt-parent: Should be the phandle for the interrupt controller
++  that services interrupts for this device
++
++
++* Ethernet MAC node
++
++Required properties:
++- compatible: Should be "mediatek,eth-mac"
++- reg: The number of the MAC
++- phy-handle: see ethernet.txt file in the same directory.
++
++Example:
++
++eth: ethernet@1b100000 {
++	compatible = "mediatek,mt7623-eth";
++	reg = <0 0x1b100000 0 0x20000>;
++	clocks = <&topckgen CLK_TOP_ETHIF_SEL>,
++		 <&ethsys CLK_ETHSYS_ESW>,
++		 <&ethsys CLK_ETHSYS_GP2>,
++		 <&ethsys CLK_ETHSYS_GP1>;
++	clock-names = "ethif", "esw", "gp2", "gp1";
++	interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_LOW>;
++	power-domains = <&scpsys MT2701_POWER_DOMAIN_ETH>;
++	resets = <&ethsys MT2701_ETHSYS_ETH_RST>;
++	reset-names = "eth";
++	mediatek,ethsys = <&ethsys>;
++	mediatek,pctl = <&syscfg_pctl_a>;
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	gmac1: mac@0 {
++		compatible = "mediatek,eth-mac";
++		reg = <0>;
++		phy-handle = <&phy0>;
++	};
++
++	gmac2: mac@1 {
++		compatible = "mediatek,eth-mac";
++		reg = <1>;
++		phy-handle = <&phy1>;
++	};
++
++	mdio-bus {
++		phy0: ethernet-phy@0 {
++			reg = <0>;
++			phy-mode = "rgmii";
++		};
++
++		phy1: ethernet-phy@1 {
++			reg = <1>;
++			phy-mode = "rgmii";
++		};
++	};
++};
+-- 
+1.7.10.4
