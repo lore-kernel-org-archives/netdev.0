@@ -1,70 +1,86 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 1/3] mlxsw: spectrum: Check requested ageing time is valid
-Date: Tue,  8 Mar 2016 12:59:33 -0800
-Message-ID: <1457470775-32224-2-git-send-email-stephen@networkplumber.org>
+Subject: [PATCH 3/3] bridge: allow zero ageing time
+Date: Tue,  8 Mar 2016 12:59:35 -0800
+Message-ID: <1457470775-32224-4-git-send-email-stephen@networkplumber.org>
 References: <1457470775-32224-1-git-send-email-stephen@networkplumber.org>
-Cc: netdev@vger.kernel.org, Ido Schimmel <idosch@mellanox.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemming@brocade.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:34903 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751685AbcCHU7Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 15:59:24 -0500
-Received: by mail-pf0-f169.google.com with SMTP id x188so21187829pfb.2
-        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 12:59:24 -0800 (PST)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:36583 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751771AbcCHU70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 15:59:26 -0500
+Received: by mail-pa0-f52.google.com with SMTP id tt10so20615139pab.3
+        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 12:59:26 -0800 (PST)
 In-Reply-To: <1457470775-32224-1-git-send-email-stephen@networkplumber.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Stephen Hemminger <shemming@brocade.com>
 
-Commit c62987bbd8a1 ("bridge: push bridge setting ageing_time down to
-switchdev") added a check for minimum and maximum ageing time, but this
-breaks existing behaviour where one can set ageing time to 0 for a
-non-learning bridge.
+This fixes a regression in the bridge ageing time caused by:
+commit c62987bbd8a1 ("bridge: push bridge setting ageing_time down to switchdev")
 
-Push this check down to the driver and allow the check in the bridge
-layer to be removed. Currently ageing time 0 is refused by the driver,
-but we can later add support for this functionality.
+There are users of Linux bridge which use the feature that if ageing time
+is set to 0 it causes entries to never expire. See:
+  https://www.linuxfoundation.org/collaborate/workgroups/networking/bridge
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+For a pure software bridge, it is unnecessary for the code to have
+arbitrary restrictions on what values are allowable.
+
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h           | 2 ++
- drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 9 +++++++--
- 2 files changed, 9 insertions(+), 2 deletions(-)
+Please apply to 4.4 for stable as well.
+---
+ include/linux/if_bridge.h |  4 ----
+ net/bridge/br_stp.c       | 11 ++++++++---
+ 2 files changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 3b89ed2..65a115f 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -118,6 +118,8 @@ struct mlxsw_sp {
- #define MLXSW_SP_DEFAULT_LEARNING_INTERVAL 100
- 		unsigned int interval; /* ms */
- 	} fdb_notify;
-+#define MLXSW_SP_MIN_AGEING_TIME 10
-+#define MLXSW_SP_MAX_AGEING_TIME 1000000
- #define MLXSW_SP_DEFAULT_AGEING_TIME 300
- 	u32 ageing_time;
- 	struct mlxsw_sp_upper master_bridge;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 7b56098..e1c74ef 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -311,8 +311,13 @@ static int mlxsw_sp_port_attr_br_ageing_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 	unsigned long ageing_jiffies = clock_t_to_jiffies(ageing_clock_t);
- 	u32 ageing_time = jiffies_to_msecs(ageing_jiffies) / 1000;
+diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+index a338a68..dcb89e3 100644
+--- a/include/linux/if_bridge.h
++++ b/include/linux/if_bridge.h
+@@ -46,10 +46,6 @@ struct br_ip_list {
+ #define BR_LEARNING_SYNC	BIT(9)
+ #define BR_PROXYARP_WIFI	BIT(10)
  
--	if (switchdev_trans_ph_prepare(trans))
--		return 0;
-+	if (switchdev_trans_ph_prepare(trans)) {
-+		if (ageing_time < MLXSW_SP_MIN_AGEING_TIME ||
-+		    ageing_time > MLXSW_SP_MAX_AGEING_TIME)
-+			return -ERANGE;
-+		else
-+			return 0;
-+	}
+-/* values as per ieee8021QBridgeFdbAgingTime */
+-#define BR_MIN_AGEING_TIME	(10 * HZ)
+-#define BR_MAX_AGEING_TIME	(1000000 * HZ)
+-
+ #define BR_DEFAULT_AGEING_TIME	(300 * HZ)
  
- 	return mlxsw_sp_ageing_set(mlxsw_sp, ageing_time);
+ extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __user *));
+diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+index b3cca12..8b5898a 100644
+--- a/net/bridge/br_stp.c
++++ b/net/bridge/br_stp.c
+@@ -568,6 +568,14 @@ int br_set_max_age(struct net_bridge *br, unsigned long val)
+ 
  }
+ 
++/* Set time interval that dynamic forwarding entries live
++ * For pure software bridge, allow values outside the 802.1
++ * standard specification for special cases:
++ *  0 - entry never ages (all permanant)
++ *  1 - entry disappears (no persistance)
++ *
++ * Offloaded switch entries maybe more restrictive
++ */
+ int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
+ {
+ 	struct switchdev_attr attr = {
+@@ -579,9 +587,6 @@ int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
+ 	unsigned long t = clock_t_to_jiffies(ageing_time);
+ 	int err;
+ 
+-	if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
+-		return -ERANGE;
+-
+ 	err = switchdev_port_attr_set(br->dev, &attr);
+ 	if (err)
+ 		return err;
 -- 
 2.1.4
