@@ -1,68 +1,98 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] vmxnet3: avoid calling pskb_may_pull with interrupts
- disabled
-Date: Tue, 8 Mar 2016 09:31:46 -0500
-Message-ID: <20160308143146.GA26031@hmsreliant.think-freely.org>
-References: <1457116848-6753-1-git-send-email-nhorman@tuxdriver.com>
- <20160307.151614.818719625382924245.davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: read then write PVID
+Date: Tue, 8 Mar 2016 15:37:04 +0100
+Message-ID: <20160308143704.GF351@lunn.ch>
+References: <1457393079-22740-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, skhare@vmware.com, pv-drivers@vmware.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Kevin Smith <kevin.smith@elecsyscorp.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:55989 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753112AbcCHOcd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 09:32:33 -0500
+Received: from vps0.lunn.ch ([178.209.37.122]:52712 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752039AbcCHOhG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2016 09:37:06 -0500
 Content-Disposition: inline
-In-Reply-To: <20160307.151614.818719625382924245.davem@davemloft.net>
+In-Reply-To: <1457393079-22740-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 07, 2016 at 03:16:14PM -0500, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Fri,  4 Mar 2016 13:40:48 -0500
+On Mon, Mar 07, 2016 at 06:24:39PM -0500, Vivien Didelot wrote:
+> The port register 0x07 contains more options than just the default VID,
+> even though they are not used yet. So prefer a read then write operation
+> over a direct write.
 > 
-> > vmxnet3 has a function vmxnet3_parse_and_copy_hdr which, among other operations,
-> > uses pskb_may_pull to linearize the header portion of an skb.  That operation
-> > eventually uses local_bh_disable/enable to ensure that it doesn't race with the
-> > drivers bottom half handler.  Unfortunately, vmxnet3 preforms this
-> > parse_and_copy operation with a spinlock held and interrupts disabled.  This
-> > causes us to run afoul of the WARN_ON_ONCE(irqs_disabled()) warning in
-> > local_bh_enable, resulting in this:
-> > 
-> > WARNING: at kernel/softirq.c:159 local_bh_enable+0x59/0x90() (Not tainted)
-> > Hardware name: VMware Virtual Platform
-> > Modules linked in: ipv6 ppdev parport_pc parport microcode e1000 vmware_balloon
-> > vmxnet3 i2c_piix4 sg ext4 jbd2 mbcache sd_mod crc_t10dif sr_mod cdrom mptspi
-> > mptscsih mptbase scsi_transport_spi pata_acpi ata_generic ata_piix vmwgfx ttm
-> > drm_kms_helper drm i2c_core dm_mirror dm_region_hash dm_log dm_mod [last
-> > unloaded: mperf]
->  ...
-> > Fix it by splitting vmxnet3_parse_and_copy_hdr into two functions:
-> > 
-> > vmxnet3_parse_hdr, which sets up the internal/on stack ctx datastructure, and
-> > pulls the skb (both of which can be done without holding the spinlock with irqs
-> > disabled
-> > 
-> > and
-> > 
-> > vmxnet3_copy_header, which just copies the skb to the tx ring under the lock
-> > safely.
-> > 
-> > tested and shown to correct the described problem.  Applies cleanly to the head
-> > of the net tree
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> This also allows to keep track of the change through dynamic debug.
 > 
-> Applied, thanks Neil.
-> 
-> > +static void 
-> 
-> Trailing whitespace, which I fixed up while applying this.
-Sorry about that, appreciate the fixup
-Neil
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
+Tested-by: Andrew Lunn <andrew@lunn.ch>
+
+Thanks
+        Andrew
+
+
+> ---
+>  drivers/net/dsa/mv88e6xxx.c | 30 ++++++++++++++++++++++++++----
+>  1 file changed, 26 insertions(+), 4 deletions(-)
 > 
-> Just FYI.
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+> index 3a58a8a..1aee42d 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+> @@ -1166,23 +1166,45 @@ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state)
+>  	return 0;
+>  }
+>  
+> -static int _mv88e6xxx_port_pvid_get(struct dsa_switch *ds, int port, u16 *pvid)
+> +static int _mv88e6xxx_port_pvid(struct dsa_switch *ds, int port, u16 *new,
+> +				u16 *old)
+>  {
+> +	u16 pvid;
+>  	int ret;
+>  
+>  	ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_DEFAULT_VLAN);
+>  	if (ret < 0)
+>  		return ret;
+>  
+> -	*pvid = ret & PORT_DEFAULT_VLAN_MASK;
+> +	pvid = ret & PORT_DEFAULT_VLAN_MASK;
+> +
+> +	if (new) {
+> +		ret &= ~PORT_DEFAULT_VLAN_MASK;
+> +		ret |= *new & PORT_DEFAULT_VLAN_MASK;
+> +
+> +		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port),
+> +					   PORT_DEFAULT_VLAN, ret);
+> +		if (ret < 0)
+> +			return ret;
+> +
+> +		netdev_dbg(ds->ports[port], "DefaultVID %d (was %d)\n", *new,
+> +			   pvid);
+> +	}
+> +
+> +	if (old)
+> +		*old = pvid;
+>  
+>  	return 0;
+>  }
+>  
+> +static int _mv88e6xxx_port_pvid_get(struct dsa_switch *ds, int port, u16 *pvid)
+> +{
+> +	return _mv88e6xxx_port_pvid(ds, port, NULL, pvid);
+> +}
+> +
+>  static int _mv88e6xxx_port_pvid_set(struct dsa_switch *ds, int port, u16 pvid)
+>  {
+> -	return _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_DEFAULT_VLAN,
+> -				   pvid & PORT_DEFAULT_VLAN_MASK);
+> +	return _mv88e6xxx_port_pvid(ds, port, &pvid, NULL);
+>  }
+>  
+>  static int _mv88e6xxx_vtu_wait(struct dsa_switch *ds)
+> -- 
+> 2.7.2
 > 
